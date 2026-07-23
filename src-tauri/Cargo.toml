@@ -78,7 +78,6 @@ keyring = { version = "3", features = ["sync-secret-service"] }
 # persist tokens (file -> OS keychain), not the encryption flow.
 rand = "0.8"
 sha2 = "0.10"
-num-bigint = "0.4"
 wmi = "0.14"
 # Windows registry reader for GOG installed-game detection
 # (HKLM+HKCU Uninstall entries). Linux/macOS builds pull this in
@@ -125,4 +124,3 @@ ammonia = "4"
 # Magnet URI parsing — extract the info-hash, trackers, and
 # exact-topic fields without rolling our own URI parser.
 url = "2"
-percent-encoding = "2"
