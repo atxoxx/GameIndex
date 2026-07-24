@@ -291,6 +291,20 @@ fn save_games(app: tauri::AppHandle, games: Vec<GameData>) -> Result<(), String>
     db::games::upsert_all(db_state.inner(), &rows)
 }
 
+/// Persist a SINGLE game immediately, without rewriting the whole
+/// library. Used by the frontend metadata-enrichment path: when a
+/// cover/banner/logo is fetched during a library scroll we write that
+/// one row straight away, so it survives even if the app is closed
+/// before the debounced full-library `save_games` fires.
+#[tauri::command]
+fn save_game(app: tauri::AppHandle, game: GameData) -> Result<(), String> {
+    let db_state: tauri::State<'_, db::Db> = app.state();
+    let value = serde_json::to_value(&game).map_err(|e| format!("to_value: {e}"))?;
+    let row: db::games::GameRow =
+        serde_json::from_value(value).map_err(|e| format!("to GameRow: {e}"))?;
+    db::games::upsert_one(db_state.inner(), &row)
+}
+
 /// Load the game library. Returns every row in Continue-Playing order
 /// (most recent `last_played` first, then alpha by name).
 #[tauri::command]
@@ -3095,7 +3109,7 @@ pub fn run() {
             tauri_plugin_autostart::MacosLauncher::LaunchAgent,
             Some(vec![]),
         ))
-        .invoke_handler(tauri::generate_handler![scan_folder_for_exes, launch_game, force_close_game, save_games, load_games, update_game_last_played, read_cover_image, search_game_metadata, fetch_game_images, download_image, spider_extract, spider_fetch_page, search_launchbox_images, detect_gpus, list_image_files, list_media_files, save_screenshot, save_text_file, load_sessions, get_sessions, delete_session, insert_session, debug_mahm_entries, get_system_ram_gb, get_system_info, get_metrics_config, set_metrics_config, resolve_steam_exe, detect_game_size, check_paths_exist, open_folder, disk_usage, move_game_install, uninstall_game, detect_steam_screenshot_folders, detect_system_screenshot_folders, save_store_cache, load_store_cache, fetch_store_games, search_store_games,            get_store_game_detail, get_collection_games,            fetch_game_reviews, fetch_external_reviews, fetch_hydra_reviews, fetch_hydra_review_replies, get_hydra_game_stats, get_about_section, get_recommended_config,             save_wishlist, load_wishlist, list_recent_sessions, get_last_session_for_game, save_source_cache, load_source_cache, deals::fetch_gamepass_catalog, deals::fetch_isthereanydeal_deals, deals::fetch_giveaways, deals::open_deal_url,            steam_sync_games,
+        .invoke_handler(tauri::generate_handler![scan_folder_for_exes, launch_game, force_close_game, save_games, save_game, load_games, update_game_last_played, read_cover_image, search_game_metadata, fetch_game_images, download_image, spider_extract, spider_fetch_page, search_launchbox_images, detect_gpus, list_image_files, list_media_files, save_screenshot, save_text_file, load_sessions, get_sessions, delete_session, insert_session, debug_mahm_entries, get_system_ram_gb, get_system_info, get_metrics_config, set_metrics_config, resolve_steam_exe, detect_game_size, check_paths_exist, open_folder, disk_usage, move_game_install, uninstall_game, detect_steam_screenshot_folders, detect_system_screenshot_folders, save_store_cache, load_store_cache, fetch_store_games, search_store_games,            get_store_game_detail, get_collection_games,            fetch_game_reviews, fetch_external_reviews, fetch_hydra_reviews, fetch_hydra_review_replies, get_hydra_game_stats, get_about_section, get_recommended_config,             save_wishlist, load_wishlist, list_recent_sessions, get_last_session_for_game, save_source_cache, load_source_cache, deals::fetch_gamepass_catalog, deals::fetch_isthereanydeal_deals, deals::fetch_giveaways, deals::open_deal_url,            steam_sync_games,
             steam_connect, steam_is_authenticated, steam_logout, steam_get_session,
             epic_start_login, epic_finish_login, epic_login_with_refresh_token, epic_sync_library, epic_get_filters, epic_is_authenticated, epic_logout,
             gog_start_login, gog_sync_library, gog_is_authenticated, gog_logout,

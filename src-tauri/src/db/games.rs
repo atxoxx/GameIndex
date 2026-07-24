@@ -226,11 +226,14 @@ pub fn upsert_all(db: &Db, rows: &[GameRow]) -> Result<(), String> {
             r.epic_catalog_item_id,
             r.launch_arguments,
             r.run_as_admin.map(|b| b as i32),
-            r.pre_launch_script,
-            r.pre_launch_admin.map(|b| b as i32),
-            r.post_exit_script,
-            r.post_exit_admin.map(|b| b as i32),
-            json_opt(&r.companion_apps),
+            // NOTE: params below MUST follow the INSERT column list order
+            // above (last_played, play_status, the JSON columns, then the
+            // v2 gog columns, then the v5 launch-orchestration columns and
+            // companion_apps LAST). The struct-field order differs, so a
+            // naive field-order binding silently wrote every value from
+            // position 32 onward into the wrong column — last_played,
+            // play_status, genres, screenshots, etc. all round-tripped as
+            // NULL/garbage and appeared to "not persist".
             r.last_played,
             r.play_status,
             json_opt(&r.genres),
@@ -257,11 +260,134 @@ pub fn upsert_all(db: &Db, rows: &[GameRow]) -> Result<(), String> {
             // handle the NULL path uniformly.
             r.gog_game_id,
             r.gog_playtime,
+            // v5 launch-orchestration columns (LAST in the column list).
+            r.pre_launch_script,
+            r.pre_launch_admin.map(|b| b as i32),
+            r.post_exit_script,
+            r.post_exit_admin.map(|b| b as i32),
+            json_opt(&r.companion_apps),
         ])
         .map_err(|e| format!("games insert {i}: {e}"))?;
     }
     drop(stmt);
     tx.commit().map_err(|e| format!("games commit: {e}"))?;
+    Ok(())
+}
+
+/// Upsert a SINGLE game row without touching the rest of the library.
+///
+/// Used by the metadata-enrichment path: when the library-card
+/// observer fetches a cover/banner/logo during a scroll we persist
+/// that one game immediately, rather than waiting for the debounced
+/// full-library `save_games` (which can be lost if the app closes
+/// mid-scroll, and which races when many enrichments fire at once).
+///
+/// `INSERT OR REPLACE` keys on the `id` PRIMARY KEY. `steam_app_id`
+/// is `UNIQUE`, but a row being re-saved carries its own appid, so no
+/// sibling row is affected.
+pub fn upsert_one(db: &Db, r: &GameRow) -> Result<(), String> {
+    let conn = db.games().map_err(|e| e.to_string())?;
+    conn.execute(
+        "INSERT OR REPLACE INTO games(
+            id, name, path, platform, installed, play_time, added_at,
+            cover_art_url, notes, size_bytes, size_detected_at, size_root_path,
+            icon_url, banner_url, logo_url,
+            description, developer, publisher, release_date,
+            metadata_source, metadata_url, storyline, igdb_rating, critic_rating,
+            steam_app_id, steam_playtime, store_source,
+            epic_namespace, epic_catalog_item_id, launch_arguments, run_as_admin,
+            last_played, play_status,
+            genres_json, themes_json, game_modes_json, player_perspectives_json,
+            screenshots_json, videos_json, websites_json,
+            time_to_beat_json, similar_games_json, releases_json,
+            igdb_reviews_json, alternative_names_json, steam_achievements_json,
+            language_supports_json,
+            collection, franchise, game_category, release_status,
+            gog_game_id, gog_playtime,
+            pre_launch_script, pre_launch_admin, post_exit_script, post_exit_admin,
+            companion_apps_json
+        ) VALUES (
+            ?1,?2,?3,?4,?5,?6,?7,
+            ?8,?9,?10,?11,?12,
+            ?13,?14,?15,
+            ?16,?17,?18,?19,
+            ?20,?21,?22,?23,?24,
+            ?25,?26,?27,
+            ?28,?29,?30,?31,
+            ?32,?33,
+            ?34,?35,?36,?37,
+            ?38,?39,?40,
+            ?41,?42,?43,
+            ?44,?45,?46,
+            ?47,
+            ?48,?49,?50,?51,
+            ?52,?53,
+            ?54,?55,?56,?57,
+            ?58
+        )",
+        params![
+            r.id,
+            r.name,
+            r.path,
+            r.platform,
+            r.installed as i32,
+            r.play_time,
+            r.added_at as i64,
+            r.cover_art_url,
+            r.notes,
+            r.size_bytes.map(|n| n as i64),
+            r.size_detected_at,
+            r.size_root_path,
+            r.icon_url,
+            r.banner_url,
+            r.logo_url,
+            r.description,
+            r.developer,
+            r.publisher,
+            r.release_date,
+            r.metadata_source,
+            r.metadata_url,
+            r.storyline,
+            r.igdb_rating,
+            r.critic_rating,
+            r.steam_app_id,
+            r.steam_playtime,
+            r.store_source,
+            r.epic_namespace,
+            r.epic_catalog_item_id,
+            r.launch_arguments,
+            r.run_as_admin.map(|b| b as i32),
+            // Column-list order (see upsert_all for the alignment note).
+            r.last_played,
+            r.play_status,
+            json_opt(&r.genres),
+            json_opt(&r.themes),
+            json_opt(&r.game_modes),
+            json_opt(&r.player_perspectives),
+            json_opt(&r.screenshots),
+            json_opt(&r.videos),
+            json_opt(&r.websites),
+            json_opt(&r.time_to_beat),
+            json_opt(&r.similar_games),
+            json_opt(&r.releases),
+            json_opt(&r.igdb_reviews),
+            json_opt(&r.alternative_names),
+            json_opt(&r.steam_achievements),
+            json_opt(&r.language_supports),
+            r.collection,
+            r.franchise,
+            r.game_category,
+            r.release_status,
+            r.gog_game_id,
+            r.gog_playtime,
+            r.pre_launch_script,
+            r.pre_launch_admin.map(|b| b as i32),
+            r.post_exit_script,
+            r.post_exit_admin.map(|b| b as i32),
+            json_opt(&r.companion_apps),
+        ],
+    )
+    .map_err(|e| format!("games upsert_one: {e}"))?;
     Ok(())
 }
 
@@ -419,4 +545,80 @@ fn json_opt_get<T: serde::de::DeserializeOwned>(
 ) -> rusqlite::Result<Option<T>> {
     let s: Option<String> = r.get(idx)?;
     Ok(s.and_then(|raw| serde_json::from_str(&raw).ok()))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::db::schema::GAMES_DDL;
+    use serde_json::json;
+
+    fn test_db() -> (tempfile::TempDir, Db) {
+        let dir = tempfile::tempdir().unwrap();
+        let db = Db::open(dir.path()).unwrap();
+        {
+            let conn = db.games().unwrap();
+            conn.execute_batch(GAMES_DDL).unwrap();
+        }
+        (dir, db)
+    }
+
+    fn sample_row() -> GameRow {
+        serde_json::from_value(json!({
+            "id": "g1",
+            "name": "Test Game",
+            "path": "",
+            "platform": "GOG",
+            "installed": true,
+            "playTime": "3h",
+            "addedAt": 111u64,
+            "coverArtUrl": "data:image/png;base64,AAAA",
+            "bannerUrl": "data:image/png;base64,BBBB",
+            "logoUrl": "data:image/png;base64,CCCC",
+            "lastPlayed": 1700000000000u64,
+            "playStatus": "playing",
+            "genres": ["Action", "RPG"],
+            "screenshots": ["s1", "s2"],
+            "companionApps": [{"name": "overlay"}],
+            "preLaunchScript": "echo hi",
+        }))
+        .unwrap()
+    }
+
+    /// Regression: every field must round-trip through the exact column
+    /// it belongs to. A prior bug bound `params!` in struct-field order
+    /// while the INSERT column list used a different order, so everything
+    /// from `last_played` onward (play_status, genres, screenshots, ...)
+    /// silently landed in the wrong column and read back as NULL.
+    #[test]
+    fn upsert_one_round_trips_all_columns() {
+        let (_dir, db) = test_db();
+        let row = sample_row();
+        upsert_one(&db, &row).unwrap();
+
+        let got = get(&db, "g1").unwrap().expect("row should exist");
+        assert_eq!(got.cover_art_url.as_deref(), Some("data:image/png;base64,AAAA"));
+        assert_eq!(got.last_played, Some(1700000000000));
+        assert_eq!(got.play_status.as_deref(), Some("playing"));
+        assert_eq!(got.genres, Some(vec!["Action".into(), "RPG".into()]));
+        assert_eq!(got.screenshots, Some(vec!["s1".into(), "s2".into()]));
+        assert_eq!(got.pre_launch_script.as_deref(), Some("echo hi"));
+        assert!(got.companion_apps.is_some());
+    }
+
+    /// Same alignment guarantee for the full-library `upsert_all` path.
+    #[test]
+    fn upsert_all_round_trips_all_columns() {
+        let (_dir, db) = test_db();
+        upsert_all(&db, &[sample_row()]).unwrap();
+
+        let all = list_all(&db).unwrap();
+        assert_eq!(all.len(), 1);
+        let got = &all[0];
+        assert_eq!(got.last_played, Some(1700000000000));
+        assert_eq!(got.play_status.as_deref(), Some("playing"));
+        assert_eq!(got.genres, Some(vec!["Action".into(), "RPG".into()]));
+        assert_eq!(got.screenshots, Some(vec!["s1".into(), "s2".into()]));
+        assert_eq!(got.pre_launch_script.as_deref(), Some("echo hi"));
+    }
 }
