@@ -29,7 +29,7 @@ const DICTS: Record<string, TranslationDict> = {
 export function translate(
   key: string,
   lang: string,
-  vars?: Record<string, string | number>,
+  vars?: Record<string, unknown>,
 ): string {
   const dict = DICTS[lang] ?? DICTS[DEFAULT_LANGUAGE];
   let str = dict[key] ?? DICTS[DEFAULT_LANGUAGE][key] ?? key;
