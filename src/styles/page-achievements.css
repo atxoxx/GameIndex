@@ -7,19 +7,6 @@
   margin-bottom: var(--space-lg);
 }
 
-.achievements-page-title {
-  display: flex;
-  align-items: center;
-  gap: var(--space-sm);
-  font-size: var(--font-size-3xl, 2rem);
-  font-weight: var(--font-weight-bold, 700);
-  margin: 0;
-}
-
-.achievements-page-title svg {
-  color: var(--brand-1);
-}
-
 /* Summary stat cards — layered depth + brand-tinted glow */
 .achievements-summary-card {
   background: var(--color-surface-raised, var(--color-surface));

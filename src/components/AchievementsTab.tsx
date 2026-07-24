@@ -267,7 +267,7 @@ export default function AchievementsTab({ game }: { game: Game }) {
                 className="achievements-ring-fill"
                 cx="60" cy="60" r="52"
                 strokeWidth="8"
-                stroke={pct >= 100 ? "#10b981" : "var(--color-accent)"}
+                stroke={pct >= 100 ? "var(--color-success)" : "var(--color-accent)"}
                 strokeDasharray={2 * Math.PI * 52}
                 strokeDashoffset={2 * Math.PI * 52 * (1 - pct / 100)}
                 strokeLinecap="round"

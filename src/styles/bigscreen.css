@@ -347,31 +347,31 @@
 }
 
 .bigscreen-details-btn--primary {
-  background: #ffffff;
-  color: #030305;
+  background: var(--color-accent);
+  color: var(--color-text-inverse);
   padding: 12px 36px;
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+  box-shadow: 0 8px 24px var(--color-accent-glow);
 }
 
 .bigscreen-details-btn--primary[data-focused="true"] {
-  background: var(--color-accent, #3b82f6);
-  color: #ffffff;
-  border-color: #ffffff;
+  background: var(--color-accent-hover, var(--color-accent));
+  color: var(--color-text-inverse);
+  border-color: var(--color-text-inverse);
   box-shadow: var(--bigscreen-focus-glow);
   transform: scale(1.06);
 }
 
 .bigscreen-details-btn--danger {
-  background: #ef4444;
-  color: #ffffff;
+  background: var(--color-danger);
+  color: var(--color-text-inverse);
   padding: 12px 36px;
-  box-shadow: 0 8px 24px rgba(239, 68, 68, 0.3);
+  box-shadow: 0 8px 24px color-mix(in srgb, var(--color-danger) 30%, transparent);
 }
 
 .bigscreen-details-btn--danger[data-focused="true"] {
-  background: #dc2626;
-  border-color: #ffffff;
-  box-shadow: 0 0 20px rgba(239, 68, 68, 0.5), 0 0 4px #ffffff;
+  background: color-mix(in srgb, var(--color-danger) 85%, black 15%);
+  border-color: var(--color-text-inverse);
+  box-shadow: 0 0 20px color-mix(in srgb, var(--color-danger) 50%, transparent), 0 0 4px var(--color-text-inverse);
   transform: scale(1.06);
 }
 
@@ -557,10 +557,10 @@
 .bigscreen-game-card {
   width: 170px;
   aspect-ratio: 2 / 3;
-  border-radius: 12px;
+  border-radius: var(--radius-xl);
   overflow: hidden;
   position: relative;
-  background-color: #121216;
+  background-color: var(--color-bg-card);
   border: var(--bigscreen-glass-border);
   box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
   cursor: pointer;

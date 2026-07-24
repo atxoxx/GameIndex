@@ -3,7 +3,7 @@
    ============================== */
 
 .store-page {
-  padding: var(--space-xl) var(--space-2xl);
+  padding: var(--space-lg) var(--space-2xl) var(--space-3xl);
   height: 100%;
   overflow-y: auto;
   display: flex;

@@ -72,7 +72,7 @@ export default function ContinuePlayingRail({
         </div>
         <button
           type="button"
-          className="lib-rail-toggle"
+          className="lib-rail-toggle-btn"
           onClick={toggleCollapsed}
           aria-expanded={!collapsed}
           aria-controls={viewportId}

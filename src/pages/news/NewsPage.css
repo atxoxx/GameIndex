@@ -51,7 +51,7 @@
 }
 
 .news-source-pills::-webkit-scrollbar {
-  height: 4px;
+  height: 6px;
 }
 
 .news-source-pills::-webkit-scrollbar-track {

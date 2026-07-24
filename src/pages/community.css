@@ -3,7 +3,7 @@
    ============================== */
 
 .community-page {
-  padding: var(--space-xl) var(--space-2xl);
+  padding: var(--space-lg) var(--space-2xl) var(--space-3xl);
   min-height: 100%;
   display: flex;
   flex-direction: column;

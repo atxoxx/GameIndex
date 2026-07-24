@@ -12,34 +12,6 @@
   -webkit-backdrop-filter: blur(14px);
 }
 
-.deals-page-title {
-  display: flex;
-  align-items: center;
-  gap: var(--space-md);
-  margin: 0;
-  font-size: var(--font-size-3xl);
-  font-weight: var(--font-weight-bold);
-  letter-spacing: -0.01em;
-}
-
-.deals-page-title-icon {
-  display: grid;
-  place-items: center;
-  width: 44px;
-  height: 44px;
-  border-radius: var(--radius-lg);
-  color: var(--brand-1);
-  background: color-mix(in srgb, var(--brand-1) 16%, transparent);
-  border: 1px solid color-mix(in srgb, var(--brand-1) 32%, transparent);
-  box-shadow: var(--shadow-brand);
-  flex: none;
-}
-
-.deals-page-title-icon svg {
-  width: 24px;
-  height: 24px;
-}
-
 .deals-page-subtitle {
   max-width: 64ch;
   margin: var(--space-md) 0 0;

@@ -885,7 +885,7 @@ function BigScreenLinkCard({
         <span style={{ width: "16px", height: "16px", display: "block" }}>{link.icon}</span>
       </div>
       <div style={{ flex: 1, minWidth: 0 }}>
-        <div style={{ fontSize: "14px", fontWeight: "600", color: "white", textOverflow: "ellipsis", overflow: "hidden", whiteSpace: "nowrap" }}>{link.label}</div>
+        <div style={{ fontSize: "14px", fontWeight: "600", color: "var(--color-text-primary)", textOverflow: "ellipsis", overflow: "hidden", whiteSpace: "nowrap" }}>{link.label}</div>
         {!link.disabled && (
           <div style={{ fontSize: "11px", color: "var(--color-text-muted)", marginTop: "3px", textOverflow: "ellipsis", overflow: "hidden", whiteSpace: "nowrap" }}>
             {link.url.replace(/^https?:\/\//, "").replace(/^www\./, "")}

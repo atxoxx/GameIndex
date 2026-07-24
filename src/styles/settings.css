@@ -238,7 +238,7 @@
   display: flex;
   align-items: center;
   gap: var(--space-md);
-  font-size: var(--font-size-2xl);
+  font-size: var(--font-size-3xl);
   font-weight: var(--font-weight-bold);
   color: var(--color-text-primary);
   margin: 0 0 var(--space-xs) 0;

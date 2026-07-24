@@ -1048,9 +1048,9 @@ function ReviewSummary({
   // to the percentage thresholds aligned with Steam's review labels.
   const scoreColor = isPercentageContext
     ? steamReviewScore != null
-      ? steamReviewScore >= 6 ? "#10b981" : steamReviewScore >= 5 ? "#f59e0b" : "#ef4444"
-      : positivePct >= 70 ? "#10b981" : positivePct >= 40 ? "#f59e0b" : "#ef4444"
-    : communityAvg >= 75 ? "#10b981" : communityAvg >= 50 ? "#f59e0b" : "#ef4444";
+      ? steamReviewScore >= 6 ? "var(--color-success)" : steamReviewScore >= 5 ? "var(--color-warning)" : "var(--color-danger)"
+      : positivePct >= 70 ? "var(--color-success)" : positivePct >= 40 ? "var(--color-warning)" : "var(--color-danger)"
+    : communityAvg >= 75 ? "var(--color-success)" : communityAvg >= 50 ? "var(--color-warning)" : "var(--color-danger)";
 
   const totalReviews = totalReviewCount > 0 ? totalReviewCount : reviews.length;
   const hasRatings = totalSentiment > 0;
@@ -1103,7 +1103,7 @@ function ReviewSummary({
           <div className="rv-distribution-row">
             <span className="rv-distribution-label rv-distribution-label-pos">Positive</span>
             <div className="rv-distribution-bar-track">
-              <div className="rv-distribution-bar-fill" style={{ width: `${positivePct}%`, background: "#10b981" }} />
+              <div className="rv-distribution-bar-fill" style={{ width: `${positivePct}%`, background: "var(--color-success)" }} />
             </div>
             <span className="rv-distribution-count" style={{ width: "auto", minWidth: "45px" }}>
               {positiveCount.toLocaleString()}
@@ -1112,7 +1112,7 @@ function ReviewSummary({
           <div className="rv-distribution-row">
             <span className="rv-distribution-label rv-distribution-label-neg">Negative</span>
             <div className="rv-distribution-bar-track">
-              <div className="rv-distribution-bar-fill" style={{ width: `${negativePct}%`, background: "#ef4444" }} />
+              <div className="rv-distribution-bar-fill" style={{ width: `${negativePct}%`, background: "var(--color-danger)" }} />
             </div>
             <span className="rv-distribution-count" style={{ width: "auto", minWidth: "45px" }}>
               {negativeCount.toLocaleString()}

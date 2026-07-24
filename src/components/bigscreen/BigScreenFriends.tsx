@@ -355,7 +355,7 @@ export default function BigScreenFriends({
                   return (
                     <div key={m.id} style={{ alignSelf: isMe ? "flex-end" : "flex-start", maxWidth: "70%" }}>
                       <div style={{ fontSize: "10px", color: "var(--color-text-muted)", marginBottom: "4px", textAlign: isMe ? "right" : "left" }}>{m.author}</div>
-                      <div style={{ background: isMe ? "var(--color-accent)" : "var(--color-bg-tertiary)", padding: "10px 14px", borderRadius: "10px", fontSize: "13px", color: "white" }}>
+                      <div style={{ background: isMe ? "var(--color-accent)" : "var(--color-bg-tertiary)", padding: "10px 14px", borderRadius: "10px", fontSize: "13px", color: isMe ? "white" : "var(--color-text-primary)" }}>
                         {m.text}
                       </div>
                     </div>
@@ -522,7 +522,7 @@ function SessionRow({
       <div style={{ display: "flex", gap: "10px", alignItems: "center" }}>
         {/* RSVP button strip */}
         <div style={{ display: "flex", borderRadius: "6px", background: "rgba(255,255,255,0.02)", border: "1px solid var(--color-border)", padding: "2px" }}>
-          <button type="button" {...focusRsvpGoing} style={{ border: "none", background: myRsvp === "going" ? "#10b981" : "transparent", color: "white", padding: "6px 12px", borderRadius: "4px", fontSize: "12px", cursor: "pointer", fontWeight: myRsvp === "going" ? "700" : "400" }}>
+          <button type="button" {...focusRsvpGoing} style={{ border: "none", background: myRsvp === "going" ? "var(--color-success)" : "transparent", color: "white", padding: "6px 12px", borderRadius: "4px", fontSize: "12px", cursor: "pointer", fontWeight: myRsvp === "going" ? "700" : "400" }}>
             Going
           </button>
           <button type="button" {...focusRsvpMaybe} style={{ border: "none", background: myRsvp === "maybe" ? "var(--color-warning)" : "transparent", color: "white", padding: "6px 12px", borderRadius: "4px", fontSize: "12px", cursor: "pointer", fontWeight: myRsvp === "maybe" ? "700" : "400" }}>

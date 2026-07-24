@@ -44,9 +44,9 @@ interface StoreGameCardProps {
 
 /** Rating badge colors — emerald for high, amber for mid, red for low. */
 function ratingColor(score: number): string {
-  if (score >= 75) return "#10b981";
-  if (score >= 50) return "#f59e0b";
-  return "#ef4444";
+  if (score >= 75) return "var(--color-success)";
+  if (score >= 50) return "var(--color-warning)";
+  return "var(--color-danger)";
 }
 
 export default function StoreGameCard({

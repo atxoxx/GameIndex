@@ -1313,16 +1313,16 @@
  * primary CTA. Tints with the accent color so the user knows
  * this is the main action. */
 .game-download-btn--prominent {
-  background: linear-gradient(135deg, var(--color-accent), #818cf8);
+  background: linear-gradient(135deg, var(--color-accent), var(--color-accent-hover));
   border-color: transparent;
-  color: white;
-  box-shadow: 0 4px 12px rgba(108, 92, 231, 0.25);
+  color: var(--color-text-inverse);
+  box-shadow: 0 4px 12px var(--color-accent-glow);
 }
 
 .game-download-btn--prominent:hover {
-  background: linear-gradient(135deg, #7c6cf0, #9089f9);
+  background: linear-gradient(135deg, var(--color-accent-hover), var(--color-accent));
   border-color: transparent;
-  box-shadow: 0 6px 16px rgba(108, 92, 231, 0.4);
+  box-shadow: 0 6px 16px var(--color-accent-glow);
   transform: translateY(-1px);
 }
 
@@ -1442,10 +1442,10 @@
   width: 380px;
   max-width: calc(100vw - var(--space-xl) * 2);
   max-height: min(560px, calc(100vh - var(--topnav-height) - var(--space-2xl)));
-  background: rgba(18, 18, 24, 0.85);
+  background: var(--color-bg-elevated, rgba(18, 18, 24, 0.85));
   backdrop-filter: blur(16px);
   -webkit-backdrop-filter: blur(16px);
-  border: 1px solid rgba(255, 255, 255, 0.08);
+  border: 1px solid var(--color-border);
   border-radius: var(--radius-lg);
   display: flex;
   flex-direction: column;
@@ -2618,7 +2618,7 @@
 }
 .dl-files-list::-webkit-scrollbar-thumb {
   background: var(--color-border);
-  border-radius: 3px;
+  border-radius: var(--radius-full);
 }
 .dl-files-list::-webkit-scrollbar-thumb:hover {
   background: var(--color-accent);

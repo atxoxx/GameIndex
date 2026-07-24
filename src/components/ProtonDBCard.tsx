@@ -38,8 +38,8 @@ const TIER_META: Record<
   },
   borked: {
     label: "Borked",
-    color: "#ef4444",
-    bg: "rgba(239,68,68,0.16)",
+    color: "var(--color-danger)",
+    bg: "color-mix(in srgb, var(--color-danger) 16%, transparent)",
     help: "Either won't start or is completely broken",
   },
   pending: {

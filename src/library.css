@@ -26,7 +26,7 @@
   position: relative;
   width: 100%;
   min-height: 100%;
-  padding: var(--space-lg) var(--space-2xl) var(--space-4xl);
+  padding: var(--space-lg) var(--space-2xl) var(--space-3xl);
   display: flex;
   flex-direction: column;
   gap: var(--space-lg);
@@ -393,49 +393,6 @@
   font-size: var(--font-size-xs);
   color: var(--color-text-muted);
   margin: 2px 0 0 0;
-}
-
-.lib-rail-toggle {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 32px;
-  height: 32px;
-  background: var(--color-surface-glass);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-md);
-  color: var(--color-text-secondary);
-  cursor: pointer;
-  font-family: inherit;
-  transition: all var(--transition-fast);
-  flex-shrink: 0;
-}
-
-.lib-rail-toggle:hover {
-  color: var(--color-text-primary);
-  border-color: var(--color-accent);
-  background: var(--color-bg-hover);
-  box-shadow: 0 0 10px var(--color-accent-glow);
-}
-
-.lib-rail-toggle:focus-visible {
-  outline: 2px solid var(--color-accent);
-  outline-offset: 2px;
-}
-
-.lib-rail-toggle:active {
-  transform: scale(0.92);
-}
-
-.lib-rail-toggle svg {
-  width: 16px;
-  height: 16px;
-  transform: rotate(180deg);
-  transition: transform 220ms cubic-bezier(0.16, 1, 0.3, 1);
-}
-
-.lib-rail--collapsed .lib-rail-toggle svg {
-  transform: rotate(0deg);
 }
 
 /* Collapse animation via grid-template-rows trick. */
@@ -963,6 +920,10 @@
   transform: rotate(180deg);
 }
 
+.lib-rail--collapsed .lib-rail-toggle-btn svg {
+  transform: rotate(180deg);
+}
+
 .lib-rail-toggle-btn:hover {
   color: var(--color-text-primary);
   border-color: var(--color-accent);
@@ -1365,7 +1326,7 @@
   position: relative;
   background: var(--color-surface);
   border: 1px solid var(--color-border);
-  border-radius: var(--radius-lg);
+  border-radius: var(--radius-xl);
   overflow: hidden;
   cursor: pointer;
   display: flex;
