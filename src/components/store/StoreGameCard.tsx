@@ -5,6 +5,7 @@ import { usePrice } from "../../context/PriceContext";
 import { WishlistContext } from "../../context/WishlistContext";
 import { DensityContext } from "../../context/DensityContext";
 import type { StoreGameSummary, ViewDensity } from "../../types/game";
+import { useLanguage } from "../../context/LanguageContext";
 
 interface StoreGameCardProps {
   game: StoreGameSummary;
@@ -93,6 +94,7 @@ export default function StoreGameCard({
   const price = usePrice(game.name);
 
   const [coverUrl, imgRef] = useProgressiveImage(game.coverUrl);
+  const { t } = useLanguage();
 
   // Compact mode: cover-only. Cinematic mode: 1–3 genres shown.
   const showBody = density !== "compact";
@@ -209,7 +211,7 @@ export default function StoreGameCard({
             >
               <polyline points="20 6 9 17 4 12" />
             </svg>
-            In Library
+            {t("store.inLibrary")}
           </span>
         )}
 
@@ -218,7 +220,7 @@ export default function StoreGameCard({
             type="button"
             className="store-card-hide"
             aria-label={`Hide ${game.name}`}
-            title="Not interested"
+            title={t("store.notInterested")}
             onClick={(e) => {
               e.stopPropagation();
               onHide(game, e);
@@ -244,7 +246,7 @@ export default function StoreGameCard({
             type="button"
             className="store-card-compare"
             aria-label={`Add ${game.name} to compare`}
-            title="Add to compare"
+            title={t("store.addToCompare")}
             onClick={(e) => {
               e.stopPropagation();
               onCompare(game, e);

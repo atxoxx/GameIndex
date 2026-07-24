@@ -14,6 +14,7 @@
 // `makeFocusable` factory that recreated closures per render).
 
 import { NavLink, useLocation, useNavigate } from "react-router-dom";
+import { useLanguage } from "../context/LanguageContext";
 import { useGamepad } from "../hooks/GamepadProvider";
 import { useFocusable } from "../hooks/useFocusable";
 import { useEffect } from "react";
@@ -130,21 +131,22 @@ function SettingsIcon() {
 interface BigScreenTab {
   path: string;
   label: string;
+  i18nKey: string;
   icon: React.ReactNode;
 }
 
 const tabs: BigScreenTab[] = [
-  { path: "/store", label: "Store", icon: <StoreIcon /> },
-  { path: "/library", label: "Library", icon: <LibraryIcon /> },
-  { path: "/wishlist", label: "Wishlist", icon: <WishlistIcon /> },
-  { path: "/deals", label: "Deals", icon: <DealsIcon /> },
-  { path: "/activity", label: "Activity", icon: <ActivityIcon /> },
-  { path: "/achievements", label: "Achievements", icon: <AchievementsIcon /> },
-  { path: "/downloads", label: "Downloads", icon: <DownloadIcon /> },
-  { path: "/storage", label: "Storage", icon: <StorageIcon /> },
-  { path: "/news", label: "News", icon: <NewsIcon /> },
-  { path: "/community", label: "Stats", icon: <CommunityIcon /> },
-  { path: "/settings", label: "Settings", icon: <SettingsIcon /> },
+  { path: "/store", label: "Store", i18nKey: "nav.store", icon: <StoreIcon /> },
+  { path: "/library", label: "Library", i18nKey: "nav.library", icon: <LibraryIcon /> },
+  { path: "/wishlist", label: "Wishlist", i18nKey: "nav.wishlist", icon: <WishlistIcon /> },
+  { path: "/deals", label: "Deals", i18nKey: "nav.deals", icon: <DealsIcon /> },
+  { path: "/activity", label: "Activity", i18nKey: "nav.activity", icon: <ActivityIcon /> },
+  { path: "/achievements", label: "Achievements", i18nKey: "nav.achievements", icon: <AchievementsIcon /> },
+  { path: "/downloads", label: "Downloads", i18nKey: "nav.downloads", icon: <DownloadIcon /> },
+  { path: "/storage", label: "Storage", i18nKey: "nav.storage", icon: <StorageIcon /> },
+  { path: "/news", label: "News", i18nKey: "nav.news", icon: <NewsIcon /> },
+  { path: "/community", label: "Stats", i18nKey: "nav.stats", icon: <CommunityIcon /> },
+  { path: "/settings", label: "Settings", i18nKey: "nav.settings", icon: <SettingsIcon /> },
 ];
 
 /**
@@ -163,15 +165,17 @@ function BigScreenNavTab({
   onActivate: () => void;
 }) {
   const focusable = useFocusable(onActivate);
+  const { t } = useLanguage();
+  const label = t(tab.i18nKey);
   return (
     <NavLink
       to={tab.path}
       className={`bigscreen-nav-tab${active ? " active" : ""}`}
       {...focusable}
-      aria-label={tab.label}
+      aria-label={label}
     >
       <span className="bigscreen-nav-tab-icon">{tab.icon}</span>
-      <span className="bigscreen-nav-tab-label">{tab.label}</span>
+      <span className="bigscreen-nav-tab-label">{label}</span>
     </NavLink>
   );
 }

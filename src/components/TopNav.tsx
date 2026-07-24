@@ -11,6 +11,7 @@ import {
 } from "../pages/friendsStorage";
 import DownloadPopover from "./DownloadPopover";
 import WindowControls from "./WindowControls";
+import { useLanguage } from "../context/LanguageContext";
 
 /**
  * Mouse-event guard: an interactive element is anything the user
@@ -282,6 +283,26 @@ export default function TopNav() {
   const activeDownloads = useActiveDownloadCount();
   const { isBigScreen, setBigScreen } = useBigScreen();
   const location = useLocation();
+  const { t } = useLanguage();
+
+  // Map a nav route to its i18n key (the /community tab is labelled
+  // "Stats" in the desktop UI but shares the nav.* namespace).
+  const navKeyForPath = (path: string): string => {
+    switch (path) {
+      case "/store": return "nav.store";
+      case "/library": return "nav.library";
+      case "/wishlist": return "nav.wishlist";
+      case "/deals": return "nav.deals";
+      case "/activity": return "nav.activity";
+      case "/achievements": return "nav.achievements";
+      case "/downloads": return "nav.downloads";
+      case "/storage": return "nav.storage";
+      case "/news": return "nav.news";
+      case "/community": return "nav.stats";
+      case "/friends": return "nav.friends";
+      default: return "nav.library";
+    }
+  };
 
   // Unseen "new community items" badge. Counts new sessions /
   // recommendations / suggestions pulled from friends. Cleared when the
@@ -363,7 +384,7 @@ export default function TopNav() {
                 }}
               >
                 {tab.icon}
-                {tab.label}
+                {t(navKeyForPath(tab.path))}
                 {showCommunityBadge && (
                   <span
                     className="topnav-tab-badge"

@@ -653,7 +653,46 @@ pub struct RichAboutPayload {
 // error) is NOT cached — we want the next click to have a fresh
 // chance to succeed. Negative caching Steam errors would turn a
 // single hiccup into a 6-hour outage.
-static ABOUT_CACHE: OnceLock<Mutex<HashMap<u32, (Instant, RichAboutPayload)>>> = OnceLock::new();
+static ABOUT_CACHE: OnceLock<Mutex<HashMap<(u32, String), (Instant, RichAboutPayload)>>> =
+    OnceLock::new();
+
+/// The fixed set of Steam storefront `l=` codes we fetch localized
+/// "About" text for. The first entry is the canonical default
+/// (`english`); the rest are the configured "top" languages. The UI
+/// display language picks which entry to show; this list is what we
+/// always pre-fetch so switching languages never triggers a refetch.
+pub const ABOUT_LANGUAGES: &[&str] = &[
+    "english", "french", "spanish", "german", "russian", "schinese",
+];
+
+/// A language-keyed bundle of localized "About" payloads. Returned by
+/// `get_about_bundle`; the frontend selects `by_language[uiLang]` (falling
+/// back to `by_language[default_language]`, then the first entry) so the
+/// About section renders in the user's UI language when available.
+#[derive(Debug, Serialize, Deserialize, Clone, Default)]
+#[serde(rename_all = "camelCase")]
+pub struct AboutBundle {
+    /// Map of Steam `l=` language code → localized about payload.
+    pub by_language: HashMap<String, RichAboutPayload>,
+    /// Canonical default language code (always `"english"`).
+    pub default_language: String,
+}
+
+/// Whole-bundle cache keyed by (Steam appid, game name) so re-opening a
+/// game page within the TTL serves all six languages from memory.
+static ABOUT_BUNDLE_CACHE: OnceLock<
+    Mutex<HashMap<(Option<u32>, String), (Instant, AboutBundle)>>,
+> = OnceLock::new();
+
+/// Build the Steam `appdetails` URL for a given `l=` language code.
+/// Steam localizes `about_the_game` (and several other fields) per
+/// `l=`; `cc=us` keeps pricing/country-agnostic store metadata stable.
+fn steam_about_url(app_id: u32, lang: &str) -> String {
+    format!(
+        "https://store.steampowered.com/api/appdetails?appids={}&cc=us&l={}",
+        app_id, lang
+    )
+}
 
 /// Per-appid TTL cache for the system-requirements payload. Steam's
 /// `pc_requirements` block is *extremely* stable (it's set once at
@@ -1112,29 +1151,119 @@ pub async fn fetch_rich_about(
     None
 }
 
+/// Fetch the rich "About" payload for every configured language and
+/// return them as a single [`AboutBundle`].
+///
+/// Strategy (Steam-primary, IGDB fallback): for each language in
+/// `ABOUT_LANGUAGES` we try Steam's localized `about_the_game`. Steam is
+/// the authoritative source for translated store copy, so it wins
+/// whenever it returns a non-empty body or trailers. For any language
+/// Steam can't supply (it only localizes a subset of store pages), we
+/// fall back once to IGDB's `summary` / `storyline` — English-only — and
+/// reuse that single IGDB payload for every missing language, so the
+/// About section still has content in the user's UI language when Steam
+/// lacks a translation (no redundant IGDB calls).
+///
+/// The whole bundle is cached in-process for `ABOUT_CACHE_TTL` keyed by
+/// `(steam_app_id, game_name)` so re-opening a game page is instant.
+pub async fn fetch_about_bundle(
+    steam_app_id: Option<u32>,
+    game_name: Option<&str>,
+) -> AboutBundle {
+    let cache_key = match steam_app_id {
+        Some(id) => (Some(id), String::new()),
+        None => (None, game_name.unwrap_or("").to_string()),
+    };
+
+    // Bundle cache hit?
+    {
+        let cache = ABOUT_BUNDLE_CACHE.get_or_init(|| Mutex::new(HashMap::new()));
+        if let Ok(guard) = cache.lock() {
+            if let Some((fetched, bundle)) = guard.get(&cache_key) {
+                if fetched.elapsed() < ABOUT_CACHE_TTL {
+                    return bundle.clone();
+                }
+            }
+        }
+    }
+
+    // Steam pass — one concurrent fetch per language.
+    let mut entries: Vec<(String, Option<RichAboutPayload>)> = if let Some(app_id) = steam_app_id {
+        let futures = ABOUT_LANGUAGES.iter().map(|lang| {
+            let lang = (*lang).to_string();
+            async move {
+                let p = fetch_steam_about_for_lang_cached(app_id, &lang).await;
+                (lang, p)
+            }
+        });
+        futures::future::join_all(futures).await
+    } else {
+        Vec::new()
+    };
+
+    let mut by_language: HashMap<String, RichAboutPayload> = HashMap::new();
+    let mut missing: Vec<String> = Vec::new();
+    for (lang, payload) in entries.drain(..) {
+        match payload {
+            Some(p) if p.about_html.is_some() || !p.movies.is_empty() => {
+                by_language.insert(lang, p);
+            }
+            _ => missing.push(lang),
+        }
+    }
+
+    // IGDB fallback (English-only) fills any language Steam couldn't
+    // supply, so the About section still has content in the chosen UI
+    // language when Steam lacks a localization.
+    if !missing.is_empty() {
+        if let Some(name) = game_name {
+            if let Some(igdb) = fetch_igdb_about(name).await {
+                for lang in missing {
+                    by_language.insert(lang, igdb.clone());
+                }
+            }
+        }
+    }
+
+    let bundle = AboutBundle {
+        by_language,
+        default_language: "english".to_string(),
+    };
+
+    if let Some(cache) = ABOUT_BUNDLE_CACHE.get() {
+        if let Ok(mut guard) = cache.lock() {
+            guard.insert(cache_key, (Instant::now(), bundle.clone()));
+        }
+    }
+
+    bundle
+}
+
+
 /// Steam-specific fetch + cache. The cache key is the Steam appid;
 /// the TTL is `ABOUT_CACHE_TTL`. Returns `None` on any failure
 /// (network, parse, missing appid) — the caller treats that as
 /// "Steam unavailable" and walks the IGDB fallback.
-async fn fetch_steam_about_cached(app_id: u32) -> Option<RichAboutPayload> {
+/// Steam-specific fetch + cache, parameterized by `l=` language code.
+/// The cache key is `(app_id, lang)`; the TTL is `ABOUT_CACHE_TTL`.
+/// Returns `None` on any failure (network, parse, missing appid) — the
+/// caller treats that as "Steam unavailable" for this language.
+async fn fetch_steam_about_for_lang_cached(app_id: u32, lang: &str) -> Option<RichAboutPayload> {
     // Positive-cache hit? Return it.
     {
         let cache = ABOUT_CACHE.get_or_init(|| Mutex::new(HashMap::new()));
         let guard = cache.lock().ok()?;
-        if let Some((fetched, payload)) = guard.get(&app_id) {
+        if let Some((fetched, payload)) = guard.get(&(app_id, lang.to_string())) {
             if fetched.elapsed() < ABOUT_CACHE_TTL {
                 return Some(payload.clone());
             }
         }
     }
 
-    // 1. Hit Steam's appdetails endpoint. Mirrors the URL the
-    //    existing `fetch_steam_game_details_impl` uses; we reuse
+    // 1. Hit Steam's appdetails endpoint with the requested language.
+    //    Mirrors the URL `fetch_steam_game_details_impl` uses; we reuse
     //    `http_client()` for TLS session cache warmth.
-    let url = format!(
-        "https://store.steampowered.com/api/appdetails?appids={}&cc=us&l=en",
-        app_id
-    );
+    let url = steam_about_url(app_id, lang);
     let client = http_client();
     let resp = match client.get(&url).send().await {
         Ok(r) => r,
@@ -1234,12 +1363,19 @@ async fn fetch_steam_about_cached(app_id: u32) -> Option<RichAboutPayload> {
     if payload.about_html.is_some() || !payload.movies.is_empty() {
         if let Some(cache) = ABOUT_CACHE.get() {
             if let Ok(mut guard) = cache.lock() {
-                guard.insert(app_id, (Instant::now(), payload.clone()));
+                guard.insert((app_id, lang.to_string()), (Instant::now(), payload.clone()));
             }
         }
     }
 
     Some(payload)
+}
+
+/// English convenience wrapper around `fetch_steam_about_for_lang_cached`,
+/// preserving the previous `fetch_rich_about` behaviour (Steam-first with
+/// `l=en`).
+async fn fetch_steam_about_cached(app_id: u32) -> Option<RichAboutPayload> {
+    fetch_steam_about_for_lang_cached(app_id, "english").await
 }
 
 /// IGDB fallback: search by name and return the first hit's

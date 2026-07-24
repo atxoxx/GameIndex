@@ -16,6 +16,7 @@ import type { UplaySyncResult, UplaySettings } from "../types/uplay";
 import { formatPlayTime, type Game, type SizeUnit } from "../types/game";
 import { useSizeUnit } from "../hooks/useSizeUnit";
 import { useAchievements } from "../context/AchievementContext";
+import { useLanguage } from "../context/LanguageContext";
 import SourceManager from "../components/SourceManager";
 import { useDownloads } from "../context/DownloadContext";
 import { Button } from "../components/ui";
@@ -155,6 +156,7 @@ export default function SettingsPage() {
   } = useSettings();
 
   const [activeSettingsTab, setActiveSettingsTab] = useState<SettingsTab>("appearance");
+  const { language, setLanguage, languages, t } = useLanguage();
 
   // System summary (CPU / RAM / all GPUs) for the Hardware tab. Fetched
   // once on mount; the Rust side reads real hardware via WMI.
@@ -1452,22 +1454,21 @@ export default function SettingsPage() {
       <div className="settings-panel-accent" aria-hidden="true" />
       <header className="settings-header">
         <div className="settings-header-text">
-          <h1 className="settings-title brand-text">
-            <span className="settings-title-icon">
-              <SettingsGearIcon />
-            </span>
-            Settings
-          </h1>
-          <p className="settings-desc">
-            Customize GameIndex's appearance, choose which GPU to monitor
-            during gameplay, and connect external store integrations.
-          </p>
+            <h1 className="settings-title brand-text">
+              <span className="settings-title-icon">
+                <SettingsGearIcon />
+              </span>
+              {t("settings.title")}
+            </h1>
+            <p className="settings-desc">
+              {t("settings.desc")}
+            </p>
         </div>
       </header>
 
       {/* Pill segmented sub-nav. Replaces the older "folder tab" look.
        *  `.settings-nav-pill-count` shows the # of connected integrations. */}
-      <nav className="settings-nav-pills" role="tablist" aria-label="Settings sections">
+      <nav className="settings-nav-pills" role="tablist" aria-label={t("settings.sectionsAria")}>
         <button
           type="button"
           role="tab"
@@ -1475,7 +1476,7 @@ export default function SettingsPage() {
           className={`settings-nav-pill${activeSettingsTab === "appearance" ? " active" : ""}`}
           onClick={() => setActiveSettingsTab("appearance")}
         >
-          <PaletteIcon /> Appearance
+          <PaletteIcon /> {t("settings.appearance")}
         </button>
         <button
           type="button"
@@ -1484,7 +1485,7 @@ export default function SettingsPage() {
           className={`settings-nav-pill${activeSettingsTab === "hardware" ? " active" : ""}`}
           onClick={() => setActiveSettingsTab("hardware")}
         >
-          <HardwareIcon /> Hardware
+          <HardwareIcon /> {t("settings.tab.hardware")}
         </button>
         <button
           type="button"
@@ -1493,7 +1494,7 @@ export default function SettingsPage() {
           className={`settings-nav-pill${activeSettingsTab === "integrations" ? " active" : ""}`}
           onClick={() => setActiveSettingsTab("integrations")}
         >
-          <IntegrationsIcon /> Integrations
+          <IntegrationsIcon /> {t("settings.tab.integrations")}
           {connectedIntegrations > 0 && (
             <span className="settings-nav-pill-count">{connectedIntegrations}</span>
           )}
@@ -1505,7 +1506,7 @@ export default function SettingsPage() {
           className={`settings-nav-pill${activeSettingsTab === "downloads" ? " active" : ""}`}
           onClick={() => setActiveSettingsTab("downloads")}
         >
-          <DownloadIcon /> Downloads
+          <DownloadIcon /> {t("nav.downloads")}
           {sources.length > 0 && (
             <span className="settings-nav-pill-count">{sources.length}</span>
           )}
@@ -1517,7 +1518,7 @@ export default function SettingsPage() {
           className={`settings-nav-pill${activeSettingsTab === "launcher" ? " active" : ""}`}
           onClick={() => setActiveSettingsTab("launcher")}
         >
-          <RocketIcon /> Launcher
+          <RocketIcon /> {t("settings.tab.launcher")}
         </button>
       </nav>
 
@@ -1527,7 +1528,7 @@ export default function SettingsPage() {
           <header className="settings-section-header">
             <span className="settings-section-icon"><PaletteIcon /></span>
             <div className="settings-section-header-text">
-              <h2 className="settings-section-title">Appearance themes</h2>
+              <h2 className="settings-section-title">{t("settings.section.appearanceThemes")}</h2>
               <p className="settings-section-desc">
                 Pick a theme for the entire app — covers topnav, sidebar,
                 cards, and accents. Changes apply instantly.
@@ -1606,7 +1607,7 @@ export default function SettingsPage() {
               checked={systemSync}
               onChange={(e) => setSystemSync(e.target.checked)}
             />
-            <span>Sync with system theme (auto-switch dark/light based on OS preference)</span>
+            <span>{t("settings.label.syncSystemTheme")}</span>
           </label>
 
           {/* Per-theme accent color override — users can pick from a
@@ -1617,7 +1618,7 @@ export default function SettingsPage() {
            *  in SettingsContext). */}
           <div className="settings-row" style={{ marginTop: "var(--space-xl)" }}>
             <div className="settings-control">
-              <label className="settings-label">Accent color override</label>
+              <label className="settings-label">{t("settings.label.accent")}</label>
               <p className="settings-helper-lead">
                 Tint buttons, links, and active states without losing
                 your theme. Resets to the theme's built-in accent when
@@ -1662,26 +1663,52 @@ export default function SettingsPage() {
                       : ""
                   }`}
                   style={accentColor ? { backgroundColor: accentColor } : undefined}
-                  title="Pick a custom color"
+                  title={t("settings.customColor")}
                 >
                   <input
                     type="color"
                     value={accentColor ?? "#7c66ff"}
                     onChange={(e) => setAccentColor(e.target.value)}
-                    aria-label="Custom accent color"
+                    aria-label={t("settings.aria.customAccent")}
                   />
                   <span aria-hidden>🎨</span>
                 </label>
                 {accentColor && (
-                  <button
-                    type="button"
-                    className="accent-clear"
-                    onClick={() => setAccentColor(null)}
-                  >
-                    Reset
-                  </button>
+                   <button
+                     type="button"
+                     className="accent-clear"
+                     onClick={() => setAccentColor(null)}
+                   >
+                     {t("common.reset")}
+                   </button>
                 )}
               </div>
+            </div>
+
+            {/* Display language — drives both the UI strings and which
+             *  localized game description Steam/IGDB returns. */}
+            <div className="settings-block">
+              <header className="settings-section-header">
+                <span className="settings-section-icon"><GlobeIcon /></span>
+                <div className="settings-section-header-text">
+                  <h2 className="settings-section-title">{t("settings.language")}</h2>
+                  <p className="settings-section-desc">
+                    Display language for the interface and localized game descriptions.
+                  </p>
+                </div>
+              </header>
+              <select
+                className="settings-select"
+                value={language}
+                onChange={(e) => setLanguage(e.target.value)}
+                aria-label={t("settings.language")}
+              >
+                {languages.map((l) => (
+                  <option key={l.code} value={l.code}>
+                    {l.flag} {l.label}
+                  </option>
+                ))}
+              </select>
             </div>
           </div>
         </section>
@@ -1693,7 +1720,7 @@ export default function SettingsPage() {
           <header className="settings-section-header">
             <span className="settings-section-icon"><HardwareIcon /></span>
             <div className="settings-section-header-text">
-              <h2 className="settings-section-title">Hardware monitoring</h2>
+              <h2 className="settings-section-title">{t("settings.section.hardwareMonitoring")}</h2>
               <p className="settings-section-desc">
                 Choose which GPU to track during gameplay so the
                 Activity page shows the right metrics.
@@ -1710,7 +1737,7 @@ export default function SettingsPage() {
                   checked={hardwareMonitoringEnabled}
                   onChange={(e) => setHardwareMonitoringEnabled(e.target.checked)}
                 />
-                <span>Enable hardware monitoring during gameplay</span>
+                <span>{t("settings.label.enableMonitoring")}</span>
               </label>
               <p className="settings-helper-lead">
                 When off, no CPU, GPU, RAM, or temperature telemetry is
@@ -1724,7 +1751,7 @@ export default function SettingsPage() {
           <div className="settings-row">
             <div className="settings-hardware-control-card">
               <div className="settings-control">
-                <label className="settings-label">Metrics to capture</label>
+                <label className="settings-label">{t("settings.label.metrics")}</label>
                 <p className="settings-helper-lead">
                   Disable streams you don't need. Turning off temperature
                   capture skips the expensive sensor queries, lowering
@@ -1762,7 +1789,7 @@ export default function SettingsPage() {
           <div className="settings-row">
             <div className="settings-hardware-control-card">
               <div className="settings-control">
-                <label className="settings-label">Sampling interval</label>
+                <label className="settings-label">{t("settings.label.samplingInterval")}</label>
                 <p className="settings-helper-lead">
                   How often telemetry is polled while a game runs. Lower
                   values produce finer charts but add more overhead.
@@ -1778,7 +1805,7 @@ export default function SettingsPage() {
                     onChange={(e) =>
                       setSamplingIntervalSec(Number(e.target.value))
                     }
-                    aria-label="Sampling interval in seconds"
+                    aria-label={t("settings.aria.samplingInterval")}
                   />
                   <span className="settings-range-value">{samplingIntervalSec} s</span>
                 </div>
@@ -1790,7 +1817,7 @@ export default function SettingsPage() {
           <div className="settings-row">
             <div className="settings-hardware-control-card">
               <div className="settings-control">
-                <label className="settings-label">Temperature unit</label>
+                <label className="settings-label">{t("settings.label.tempUnit")}</label>
                 <p className="settings-helper-lead">
                   Used everywhere temperatures are shown across the app —
                   the Activity page, session cards, and performance charts.
@@ -1819,7 +1846,7 @@ export default function SettingsPage() {
           <div className="settings-row">
             <div className="settings-hardware-control-card">
               <div className="settings-control">
-                <label className="settings-label">GPU selection</label>
+                <label className="settings-label">{t("settings.label.gpu")}</label>
                 <p className="settings-helper-lead">
                   Select a GPU to monitor during gameplay. Stats only
                   appear when a game is running.
@@ -1836,7 +1863,7 @@ export default function SettingsPage() {
                         "success"
                       );
                     }}
-                    aria-label="Select GPU to monitor"
+                    aria-label={t("settings.label.gpu")}
                   >
                     <option value="">— Select a GPU —</option>
                     {availableGpus.map((gpu) => (
@@ -1882,7 +1909,7 @@ export default function SettingsPage() {
           <div className="settings-row settings-row--spaced">
             <div className="settings-hardware-control-card">
               <div className="settings-control">
-                <label className="settings-label">Storage size unit</label>
+                <label className="settings-label">{t("settings.label.sizeUnit")}</label>
                 <p className="settings-helper-lead">
                   Choose how disk sizes are displayed in the Storage tab.
                   <strong> GB</strong> is decimal (1 GB = 1,000,000,000 bytes — matches
@@ -1904,7 +1931,7 @@ export default function SettingsPage() {
                         "success"
                       );
                     }}
-                    aria-label="Select storage size unit"
+                    aria-label={t("settings.label.sizeUnit")}
                   >
                     <option value="gb">GB — decimal (1,000,000,000 bytes)</option>
                     <option value="gib">GiB — binary (1,073,741,824 bytes)</option>
@@ -1918,7 +1945,7 @@ export default function SettingsPage() {
           <div className="settings-row settings-row--spaced">
             <div className="settings-hardware-control-card settings-system-summary">
               <div className="settings-control">
-                <label className="settings-label">System summary</label>
+                <label className="settings-label">{t("settings.label.systemSummary")}</label>
                 <p className="settings-helper-lead">
                   Hardware detected on this machine.
                 </p>
@@ -1960,7 +1987,7 @@ export default function SettingsPage() {
           <header className="settings-section-header">
             <span className="settings-section-icon"><IntegrationsIcon /></span>
             <div className="settings-section-header-text">
-              <h2 className="settings-section-title">Integrations</h2>
+              <h2 className="settings-section-title">{t("settings.tab.integrations")}</h2>
               <p className="settings-section-desc">
                 Connect external store accounts to import your owned
                 games, playtime, and achievements into GameIndex.
@@ -2024,7 +2051,7 @@ export default function SettingsPage() {
                   <div className="integration-tile-form">
                     <label className="settings-control">
                       <div className="settings-label-row">
-                        <span className="settings-label">Steam API Key</span>
+                        <span className="settings-label">{t("settings.label.steamApiKey")}</span>
                         <a
                           href="https://steamcommunity.com/dev/apikey"
                           target="_blank"
@@ -2049,7 +2076,7 @@ export default function SettingsPage() {
                     </label>
                     <label className="settings-control">
                       <div className="settings-label-row">
-                        <span className="settings-label">Steam ID (SteamID64)</span>
+                        <span className="settings-label">{t("settings.label.steamId")}</span>
                         <a
                           href="https://steamcommunity.com/my"
                           target="_blank"
@@ -2084,7 +2111,7 @@ export default function SettingsPage() {
                       onClick={() => handleSyncNow()}
                       isLoading={isSyncing}
                     >
-                      Sync Library
+                      {t("settings.integrations.syncLibrary")}
                     </Button>
                   ) : (
                     <Button
@@ -2097,7 +2124,7 @@ export default function SettingsPage() {
                       isLoading={isSteamLoggingIn}
                       disabled={!steamAuthReady}
                     >
-                      Connect Steam Account
+                      {t("settings.integrations.connectSteam")}
                     </Button>
                   )}
                 </div>
@@ -2187,8 +2214,8 @@ export default function SettingsPage() {
                   session — your Steam account is untouched.
                 </p>
                 <Button variant="danger" size="sm" onClick={handleDisconnect}>
-                  Disconnect
-                </Button>
+                      {t("settings.disconnect")}
+                    </Button>
               </div>
             )}
           </div>
@@ -2239,7 +2266,7 @@ export default function SettingsPage() {
                       onClick={handleEpicRecover}
                       isLoading={isEpicRecovering}
                     >
-                      Reconnect with stored token
+                      {t("settings.integrations.reconnectToken")}
                     </Button>
                   </div>
                 )}
@@ -2251,7 +2278,7 @@ export default function SettingsPage() {
                       onClick={handleEpicSync}
                       isLoading={isEpicSyncing}
                     >
-                      Sync Library
+                      {t("settings.integrations.syncLibrary")}
                     </Button>
                   ) : (
                     <Button
@@ -2259,7 +2286,7 @@ export default function SettingsPage() {
                       onClick={handleEpicLogin}
                       isLoading={isEpicLoggingIn}
                     >
-                      Connect Epic Account
+                      {t("settings.integrations.connectEpic")}
                     </Button>
                   )}
                 </div>
@@ -2287,8 +2314,8 @@ export default function SettingsPage() {
                   tokens — your Epic account is unaffected.
                 </p>
                 <Button variant="danger" size="sm" onClick={handleEpicDisconnect}>
-                  Disconnect
-                </Button>
+                      {t("settings.disconnect")}
+                    </Button>
               </div>
             )}
           </div>
@@ -2339,7 +2366,7 @@ export default function SettingsPage() {
                       onClick={handleGogSync}
                       isLoading={isGogSyncing}
                     >
-                      Sync Library
+                      {t("settings.integrations.syncLibrary")}
                     </Button>
                   ) : (
                     <Button
@@ -2347,7 +2374,7 @@ export default function SettingsPage() {
                       onClick={handleGogLogin}
                       isLoading={isGogLoggingIn}
                     >
-                      Connect GOG Account
+                      {t("settings.integrations.connectGog")}
                     </Button>
                   )}
                 </div>
@@ -2375,8 +2402,8 @@ export default function SettingsPage() {
                   tokens — your GOG account is unaffected.
                 </p>
                 <Button variant="danger" size="sm" onClick={handleGogDisconnect}>
-                  Disconnect
-                </Button>
+                      {t("settings.disconnect")}
+                    </Button>
               </div>
             )}
           </div>
@@ -2426,7 +2453,7 @@ export default function SettingsPage() {
                       onClick={handleHumbleSync}
                       isLoading={isHumbleSyncing}
                     >
-                      Sync Library
+                      {t("settings.integrations.syncLibrary")}
                     </Button>
                   ) : (
                     <Button
@@ -2434,7 +2461,7 @@ export default function SettingsPage() {
                       onClick={handleHumbleLogin}
                       isLoading={isHumbleLoggingIn}
                     >
-                      Connect Humble Account
+                      {t("settings.integrations.connectHumble")}
                     </Button>
                   )}
                 </div>
@@ -2508,8 +2535,8 @@ export default function SettingsPage() {
                   session cookies — your Humble account is unaffected.
                 </p>
                 <Button variant="danger" size="sm" onClick={handleHumbleDisconnect}>
-                  Disconnect
-                </Button>
+                      {t("settings.disconnect")}
+                    </Button>
               </div>
             )}
           </div>
@@ -2674,7 +2701,7 @@ export default function SettingsPage() {
           <header className="settings-section-header" style={{ marginTop: "var(--space-xl)" }}>
             <span className="settings-section-icon"><IntegrationsIcon /></span>
             <div className="settings-section-header-text">
-              <h2 className="settings-section-title">Data &amp; sync preferences</h2>
+              <h2 className="settings-section-title">{t("settings.section.dataSync")}</h2>
               <p className="settings-section-desc">
                 Settings that apply across Steam, Epic, and GOG — or
                 control how shared data (player counts, achievements)
@@ -2689,7 +2716,7 @@ export default function SettingsPage() {
              *  on a repeating timer. 0 = off (manual only). */}
             <div className="settings-launcher-card">
               <div className="settings-control">
-                <label className="settings-label">Auto-sync interval</label>
+                <label className="settings-label">{t("settings.label.autoSync")}</label>
                 <p className="settings-helper-lead">
                   How often GameIndex re-imports your library from Steam,
                   Epic, and GOG in the background.
@@ -2727,7 +2754,7 @@ export default function SettingsPage() {
              *  Activity page / game-page sparklines. */}
             <div className="settings-launcher-card">
               <div className="settings-control">
-                <label className="settings-label">Player-count history retention</label>
+                <label className="settings-label">{t("settings.label.historyRetention")}</label>
                 <p className="settings-helper-lead">
                   How long to keep historical Steam player counts
                   for the trend sparklines on each game page.
@@ -2867,7 +2894,7 @@ export default function SettingsPage() {
             <header className="settings-section-header">
               <span className="settings-section-icon"><DownloadIcon /></span>
               <div className="settings-section-header-text">
-                <h2 className="settings-section-title">Default download location</h2>
+                 <h2 className="settings-section-title">{t("settings.section.downloadLocation")}</h2>
                 <p className="settings-section-desc">
                   Where quick-added magnet links and torrent URLs are saved.
                   When set, the Downloads page skips the folder picker unless
@@ -2939,7 +2966,7 @@ export default function SettingsPage() {
             <header className="settings-section-header">
               <span className="settings-section-icon"><DownloadIcon /></span>
               <div className="settings-section-header-text">
-                <h2 className="settings-section-title">Notifications</h2>
+                 <h2 className="settings-section-title">{t("settings.section.notifications")}</h2>
                 <p className="settings-section-desc">
                   Get notified when a download finishes so you can leave
                   transfers running in the background.
@@ -2986,7 +3013,7 @@ export default function SettingsPage() {
             <header className="settings-section-header">
               <span className="settings-section-icon"><DownloadIcon /></span>
               <div className="settings-section-header-text">
-                <h2 className="settings-section-title">Bandwidth limits</h2>
+                 <h2 className="settings-section-title">{t("settings.section.bandwidth")}</h2>
                 <p className="settings-section-desc">
                   Control the maximum speed used for downloading and uploading game torrents.
                 </p>
@@ -3080,7 +3107,7 @@ export default function SettingsPage() {
             <header className="settings-section-header">
               <span className="settings-section-icon"><DownloadIcon /></span>
               <div className="settings-section-header-text">
-                <h2 className="settings-section-title">Blocked source domains</h2>
+                 <h2 className="settings-section-title">{t("settings.section.blockedDomains")}</h2>
                 <p className="settings-section-desc">
                   Domains listed here are filtered out of every
                   download search — nothing from these hosts appears
@@ -3114,7 +3141,7 @@ export default function SettingsPage() {
             <header className="settings-section-header">
               <span className="settings-section-icon"><DownloadIcon /></span>
               <div className="settings-section-header-text">
-                <h2 className="settings-section-title">Download sources</h2>
+                 <h2 className="settings-section-title">{t("settings.section.downloadSources")}</h2>
                 <p className="settings-section-desc">
                   Add JSON-formatted source URLs to find download mirrors for
                   your games. Sources use the Hydra-compatible format with a
@@ -3131,7 +3158,7 @@ export default function SettingsPage() {
             <header className="settings-section-header">
               <span className="settings-section-icon"><DownloadIcon /></span>
               <div className="settings-section-header-text">
-                <h2 className="settings-section-title">Debrid Integration</h2>
+                 <h2 className="settings-section-title">{t("settings.section.debrid")}</h2>
                 <p className="settings-section-desc">
                   Configure a debrid service (AllDebrid or TorBox) to download torrent magnet links via high-speed direct HTTP connections.
                 </p>
@@ -3216,7 +3243,7 @@ export default function SettingsPage() {
           <header className="settings-section-header">
             <span className="settings-section-icon"><RocketIcon /></span>
             <div className="settings-section-header-text">
-              <h2 className="settings-section-title">Launcher behaviour</h2>
+              <h2 className="settings-section-title">{t("settings.section.launcherBehaviour")}</h2>
               <p className="settings-section-desc">
                 Decide what GameIndex does at boot, when you launch a game,
                 and how the window itself behaves.
@@ -3638,6 +3665,24 @@ function HardwareIcon() {
       <path d="M2 17h5" />
       <path d="M17 17h5" />
       <path d="M17 7h5" />
+    </svg>
+  );
+}
+
+function GlobeIcon() {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden
+    >
+      <circle cx="12" cy="12" r="10" />
+      <path d="M2 12h20" />
+      <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z" />
     </svg>
   );
 }

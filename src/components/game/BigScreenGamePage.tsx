@@ -42,6 +42,7 @@ import { useEffect, useState, useMemo } from "react";
 import type { ReactNode } from "react";
 import type { Game } from "../../types/game";
 import { useGames } from "../../context/GameContext";
+import { useLanguage } from "../../context/LanguageContext";
 import { useFocusable } from "../../hooks/useFocusable";
 import { useGamepad } from "../../hooks/GamepadProvider";
 import { useSteamAppId } from "../../hooks/useSteamAppId";
@@ -95,6 +96,7 @@ export default function BigScreenGamePage({
   onRemove,
 }: BigScreenGamePageProps) {
   const { runningGameIds, launchGame, forceCloseGame, enrichGameMetadata } = useGames();
+  const { t } = useLanguage();
   const gamepad = useGamepad();
   // Steam appid resolution for the player-count badge. Identical
   // pattern to the desktop hero: falls back to a one-shot Steam
@@ -139,17 +141,17 @@ export default function BigScreenGamePage({
 
   const tabs = useMemo(() => {
     const list: TabDef<GamePageTab>[] = [
-      { id: "overview", label: "Overview", icon: <OverviewIcon /> },
-      { id: "media", label: "Media", icon: <MediaIcon /> },
-      { id: "specs", label: "Specs", icon: <SpecsIcon /> },
+      { id: "overview", label: t("game.tab.overview"), icon: <OverviewIcon /> },
+      { id: "media", label: t("game.tab.media"), icon: <MediaIcon /> },
+      { id: "specs", label: t("game.tab.specs"), icon: <SpecsIcon /> },
     ];
     if (resolvedSteamAppId) {
-      list.push({ id: "achievements", label: "Achievements", icon: <AchievementsIcon /> });
+      list.push({ id: "achievements", label: t("game.tab.achievements"), icon: <AchievementsIcon /> });
     }
     list.push(
-      { id: "reviews", label: "Reviews", icon: <ReviewsIcon /> },
-      { id: "activity", label: "Activity", icon: <ActivityIcon /> },
-      { id: "more", label: "More", icon: <MoreIcon /> }
+      { id: "reviews", label: t("game.tab.reviews"), icon: <ReviewsIcon /> },
+      { id: "activity", label: t("game.tab.activity"), icon: <ActivityIcon /> },
+      { id: "more", label: t("game.tab.more"), icon: <MoreIcon /> }
     );
     return list;
   }, [resolvedSteamAppId]);
@@ -239,8 +241,8 @@ export default function BigScreenGamePage({
             type="button"
             className="bigscreen-gamepage-hero-back"
             {...focusableBack}
-            aria-label="Back to library"
-            title="Back to library"
+            aria-label={t("page.game.backToLibrary")}
+            title={t("page.game.backToLibrary")}
           >
             <svg
               viewBox="0 0 24 24"
@@ -370,18 +372,18 @@ export default function BigScreenGamePage({
                     </svg>
                   }
                 >
-                  Ready to play
-                </BigScreenPill>
-              ) : (
-                <BigScreenPill tone="muted" size="sm">
-                  Not installed
-                </BigScreenPill>
-              )}
-              {isRunning && (
-                <BigScreenPill tone="success" size="sm" dot>
-                  Running
-                </BigScreenPill>
-              )}
+                {t("game.readyToPlay")}
+              </BigScreenPill>
+            ) : (
+              <BigScreenPill tone="muted" size="sm">
+                {t("game.notInstalled")}
+              </BigScreenPill>
+            )}
+            {isRunning && (
+              <BigScreenPill tone="success" size="sm" dot>
+                {t("game.running")}
+              </BigScreenPill>
+            )}
             </BigScreenMetaStrip>
           </div>
 
@@ -397,7 +399,7 @@ export default function BigScreenGamePage({
                   <line x1="12" y1="12" x2="12" y2="21" />
                   <path d="M20.88 18.09A5 5 0 0 0 18 9h-1.26A8 8 0 1 0 3 16.29" />
                 </svg>
-                <span>Install via Steam</span>
+                <span>{t("game.installViaSteam")}</span>
               </button>
             )}
 
@@ -410,7 +412,7 @@ export default function BigScreenGamePage({
                     disabled
                   >
                     <span className="bigscreen-game-card-running-dot" style={{ position: "relative", top: 0, right: 0, marginRight: 8 }} />
-                    <span>Running</span>
+                    <span>{t("game.running")}</span>
                   </button>
                   <button
                     type="button"
@@ -421,7 +423,7 @@ export default function BigScreenGamePage({
                     <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
                       <rect x="6" y="6" width="12" height="12" rx="1.5" />
                     </svg>
-                    <span>{isClosing ? "Closing…" : "Force Close"}</span>
+                    <span>{isClosing ? t("game.closing") : t("game.forceClose")}</span>
                   </button>
                 </>
               ) : (
@@ -433,7 +435,7 @@ export default function BigScreenGamePage({
                   <svg viewBox="0 0 24 24" fill="currentColor" width="20" height="20" aria-hidden>
                     <polygon points="6 4 20 12 6 20 6 4" />
                   </svg>
-                  <span>Play</span>
+                  <span>{t("game.play")}</span>
                 </button>
               )
             )}
@@ -448,7 +450,7 @@ export default function BigScreenGamePage({
                 <polyline points="7 10 12 15 17 10" />
                 <line x1="12" y1="15" x2="12" y2="3" />
               </svg>
-              <span>Find Download</span>
+              <span>{t("game.findDownload")}</span>
             </button>
 
             {game.videos && game.videos.length > 0 && (
@@ -456,12 +458,12 @@ export default function BigScreenGamePage({
                 type="button"
                 className="bigscreen-details-btn bigscreen-details-btn--secondary"
                 {...focusableTrailer}
-                aria-label="Watch trailer"
+                aria-label={t("game.watchTrailer")}
               >
                 <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden width="20" height="20">
                   <polygon points="6 4 20 12 6 20 6 4" />
                 </svg>
-                <span>Trailer</span>
+                <span>{t("game.trailer")}</span>
               </button>
             )}
 
@@ -469,27 +471,27 @@ export default function BigScreenGamePage({
               type="button"
               className="bigscreen-details-btn bigscreen-details-btn--secondary"
               {...focusableEdit}
-              aria-label="Edit game details"
+              aria-label={t("game.editDetails")}
             >
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden width="18" height="18">
                 <path d="M12 20h9" />
                 <path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z" />
               </svg>
-              <span>Edit</span>
+              <span>{t("common.edit")}</span>
             </button>
 
             <button
               type="button"
               className="bigscreen-details-btn bigscreen-details-btn--secondary bigscreen-gamepage-hero-btn--danger"
               {...focusableRemove}
-              aria-label="Remove from library"
+              aria-label={t("game.remove")}
               disabled={isRunning}
             >
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden width="18" height="18">
                 <polyline points="3 6 5 6 21 6" />
                 <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
               </svg>
-              <span>Remove</span>
+              <span>{t("common.remove")}</span>
             </button>
 
             {downloadOpen && (
@@ -605,6 +607,7 @@ function BigScreenGamePageMedia({
   game: Game;
   onOpenLightbox: (src: string) => void;
 }) {
+  const { t } = useLanguage();
   const hasScreenshots = game.screenshots && game.screenshots.length > 0;
   const hasVideos = game.videos && game.videos.length > 0;
 
@@ -626,9 +629,9 @@ function BigScreenGamePageMedia({
           <line x1="8" y1="21" x2="16" y2="21" />
           <line x1="12" y1="17" x2="12" y2="21" />
         </svg>
-        <h3 style={{ margin: "0 0 8px 0", fontSize: 20, color: "#fff", fontWeight: 800 }}>No Media Items Available</h3>
+        <h3 style={{ margin: "0 0 8px 0", fontSize: 20, color: "#fff", fontWeight: 800 }}>{t("game.noMediaTitle")}</h3>
         <p style={{ margin: 0, fontSize: 14, color: "rgba(255, 255, 255, 0.5)", maxWidth: 460, marginLeft: "auto", marginRight: "auto" }}>
-          We couldn't find any screenshots or video trailers for this title. GameLib automatically checks for Steam screenshots and trailers on mount.
+          {t("game.noMediaSubtitle")}
         </p>
       </div>
     );

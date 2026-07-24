@@ -10,6 +10,7 @@ import type {
   Giveaway,
 } from "../../types/deals";
 import { Button, PageHeader } from "../../components/ui";
+import { useLanguage } from "../../context/LanguageContext";
 import "./DealsPage.css";
 import "../../styles/page-deals.css";
 
@@ -154,6 +155,7 @@ import BigScreenStore from "../../components/store/BigScreenStore";
 
 export default function DealsPage() {
   const { isBigScreen } = useBigScreen();
+  const { t } = useLanguage();
   if (isBigScreen) {
     return <BigScreenStore />;
   }
@@ -324,9 +326,9 @@ export default function DealsPage() {
   return (
     <div className="deals-page page">
       <PageHeader
-        eyebrow="Savings & free games"
-        title="Deals"
-        description="Browse the Xbox GamePass catalog, the best current deals across PC stores, and free game giveaways — all in one place. Click any card to jump straight to its source."
+        eyebrow={t("deals.eyebrow")}
+        title={t("deals.title")}
+        description={t("deals.description")}
         icon={
           <svg
             viewBox="0 0 24 24"
@@ -369,7 +371,7 @@ export default function DealsPage() {
               <line x1="17" y1="10" x2="15" y2="14" />
             </svg>
           </span>
-          Xbox GamePass
+          {t("deals.gamepass")}
           {gpGames.length > 0 && !gpLoading && (
             <span className="deals-subtab-badge">{gpGames.length}</span>
           )}
@@ -394,7 +396,7 @@ export default function DealsPage() {
               <path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6" />
             </svg>
           </span>
-          IsThereAnyDeal
+          {t("deals.isthereanydeal")}
           {deals.length > 0 && !dealsLoading && (
             <span className="deals-subtab-badge">{deals.length}</span>
           )}
@@ -422,7 +424,7 @@ export default function DealsPage() {
               <path d="M12 7h4.5a2.5 2.5 0 0 0 0-5C13 2 12 7 12 7z" />
             </svg>
           </span>
-          Free Games
+          {t("deals.freeGames")}
           {giveaways.length > 0 && !giveawaysLoading && (
             <span className="deals-subtab-badge">{giveaways.length}</span>
           )}
@@ -433,7 +435,7 @@ export default function DealsPage() {
         <section className="deals-section" aria-label="Xbox GamePass">
           <div className="deals-filters">
             <div className="deals-filter-group">
-              <label htmlFor="gp-region">Region</label>
+              <label htmlFor="gp-region">{t("deals.region")}</label>
               <select
                 id="gp-region"
                 className="deals-filter-select"
@@ -451,7 +453,7 @@ export default function DealsPage() {
             </div>
 
             <div className="deals-filter-group">
-              <label htmlFor="gp-platform">Platform</label>
+              <label htmlFor="gp-platform">{t("deals.platform")}</label>
               <select
                 id="gp-platform"
                 className="deals-filter-select"
@@ -472,7 +474,7 @@ export default function DealsPage() {
             </div>
 
             <div className="deals-filter-group" style={{ flex: "2 1 280px" }}>
-              <label>Categories</label>
+              <label>{t("deals.categories")}</label>
               <div className="deals-category-chips">
                 {GP_CATEGORIES.map((cat) => (
                   <button
@@ -510,14 +512,14 @@ export default function DealsPage() {
                 </svg>
               }
             >
-              Refresh
+              {t("common.refresh")}
             </Button>
           </div>
 
           {gpLoading && (
             <div className="deals-loading" role="status" aria-live="polite">
               <div className="deals-loading-spinner" />
-              <span>Loading GamePass catalog…</span>
+              <span>{t("deals.loadingGamepass")}</span>
             </div>
           )}
 
@@ -557,8 +559,7 @@ export default function DealsPage() {
                 <line x1="21" y1="21" x2="16.65" y2="16.65" />
               </svg>
               <span>
-                No GamePass titles matched these filters. Try a different
-                region or clear some categories.
+                {t("deals.emptyGamepass")}
               </span>
             </div>
           )}
@@ -624,7 +625,7 @@ export default function DealsPage() {
                         className="deals-gamepass-card-link"
                         onClick={() => handleOpenUrl(game.deeplink)}
                       >
-                        View on Xbox
+                         {t("deals.viewOnXbox")}
                         <svg
                           viewBox="0 0 24 24"
                           fill="none"
@@ -651,7 +652,7 @@ export default function DealsPage() {
         <section className="deals-section" aria-label="IsThereAnyDeal">
           <div className="deals-filters">
             <div className="deals-filter-group">
-              <label htmlFor="deal-platform">Platform</label>
+              <label htmlFor="deal-platform">{t("deals.platform")}</label>
               <select
                 id="deal-platform"
                 className="deals-filter-select"
@@ -672,7 +673,7 @@ export default function DealsPage() {
             </div>
 
             <div className="deals-filter-group">
-              <label htmlFor="deal-store">Store</label>
+              <label htmlFor="deal-store">{t("deals.store")}</label>
               <select
                 id="deal-store"
                 className="deals-filter-select"
@@ -690,7 +691,7 @@ export default function DealsPage() {
             </div>
 
             <div className="deals-filter-group">
-              <label htmlFor="deal-discount">Min discount</label>
+              <label htmlFor="deal-discount">{t("deals.minDiscount")}</label>
               <select
                 id="deal-discount"
                 className="deals-filter-select"
@@ -730,14 +731,14 @@ export default function DealsPage() {
                 </svg>
               }
             >
-              Refresh
+              {t("common.refresh")}
             </Button>
           </div>
 
           {dealsLoading && (
             <div className="deals-loading" role="status" aria-live="polite">
               <div className="deals-loading-spinner" />
-              <span>Loading current deals…</span>
+              <span>{t("deals.loadingDeals")}</span>
             </div>
           )}
 
@@ -777,8 +778,7 @@ export default function DealsPage() {
                 <path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6" />
               </svg>
               <span>
-                No current deals matched these filters. Lower the minimum
-                discount or try another store.
+                {t("deals.emptyDeals")}
               </span>
             </div>
           )}
@@ -889,18 +889,18 @@ export default function DealsPage() {
                               strokeLinejoin="round"
                               aria-hidden="true"
                             >
-                              <circle cx="12" cy="12" r="10" />
-                              <polyline points="12 6 12 12 16 14" />
-                            </svg>
-                            Ends {expiry}
-                          </span>
+                               <circle cx="12" cy="12" r="10" />
+                               <polyline points="12 6 12 12 16 14" />
+                             </svg>
+                             {t("deals.ends", { date: expiry })}
+                           </span>
                         )}
                       </div>
                     </div>
 
                     <div className="deals-deal-card-overlay">
                       <span className="deals-deal-card-cta">
-                        Open Deal
+                         {t("deals.openDeal")}
                         <svg
                           viewBox="0 0 24 24"
                           fill="none"
@@ -952,14 +952,14 @@ export default function DealsPage() {
                 </svg>
               }
             >
-              Refresh
+              {t("common.refresh")}
             </Button>
           </div>
 
           {giveawaysLoading && (
             <div className="deals-loading" role="status" aria-live="polite">
               <div className="deals-loading-spinner" />
-              <span>Loading free games…</span>
+              <span>{t("deals.loadingGiveaways")}</span>
             </div>
           )}
 
@@ -1000,8 +1000,7 @@ export default function DealsPage() {
                 <line x1="12" y1="22" x2="12" y2="7" />
               </svg>
               <span>
-                No free games available right now. Check back later or hit
-                refresh to retry.
+                {t("deals.emptyGiveaways")}
               </span>
             </div>
           )}
@@ -1074,9 +1073,9 @@ export default function DealsPage() {
                           {giveaway.storeName}
                         </span>
                         {expiry && (
-                          <span className="deals-giveaway-card-expiry">
-                            Ends {expiry}
-                          </span>
+                           <span className="deals-giveaway-card-expiry">
+                             {t("deals.ends", { date: expiry })}
+                           </span>
                         )}
                       </div>
                       <button
@@ -1084,7 +1083,7 @@ export default function DealsPage() {
                         className="deals-giveaway-card-cta"
                         onClick={() => handleOpenUrl(giveaway.dealUrl)}
                       >
-                        Get it free
+                         {t("deals.getItFree")}
                         <svg
                           viewBox="0 0 24 24"
                           fill="none"

@@ -6,6 +6,7 @@ import { useAchievements } from "../context/AchievementContext";
 import { useGames } from "../context/GameContext";
 import { useToast } from "../context/ToastContext";
 import { useSettings } from "../context/SettingsContext";
+import { useLanguage } from "../context/LanguageContext";
 
 import DonutChart from "../components/charts/DonutChart";
 import BarChart from "../components/charts/BarChart";
@@ -154,6 +155,7 @@ export default function CommunityPage() {
     return <BigScreenCommunity />;
   }
   const [activeTab, setActiveTab] = useState<CommunityTab>("profile");
+  const { t } = useLanguage();
 
   return (
     <div className="community-page">
@@ -167,7 +169,7 @@ export default function CommunityPage() {
           onClick={() => setActiveTab("profile")}
         >
           {ProfileIcon}
-          <span>Profile</span>
+          <span>{t("community.tab.profile")}</span>
         </button>
         <button
           type="button"
@@ -177,7 +179,7 @@ export default function CommunityPage() {
           onClick={() => setActiveTab("screenshots")}
         >
           {ImageIcon}
-          <span>Screenshots</span>
+          <span>{t("community.tab.screenshots")}</span>
         </button>
       </div>
 
@@ -199,6 +201,7 @@ function ProfileSection() {
   const { cache } = useAchievements();
   const { games } = useGames();
   const { hideAchievementProgress } = useSettings();
+  const { t } = useLanguage();
 
   const stats = useMemo(() => getAllStats(), [getAllStats]);
 
@@ -335,8 +338,8 @@ function ProfileSection() {
     <div className="community-profile page">
       {/* ── Profile header / share ─────────────────────────────────── */}
       <PageHeader
-        eyebrow="Your gaming identity"
-        title="Player Profile"
+        eyebrow={t("community.eyebrow")}
+        title={t("community.playerProfile")}
         actions={
           <Button variant="ghost" size="sm" onClick={handleShareProfile} leftIcon={
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" width="14" height="14">
@@ -346,14 +349,14 @@ function ProfileSection() {
               <line x1="8.59" y1="13.51" x2="15.42" y2="17.49" />
               <line x1="15.41" y1="6.51" x2="8.59" y2="10.49" />
             </svg>
-          }>Share Profile</Button>
+          }>{t("community.shareProfile")}</Button>
         }
       />
 
       {/* ── KPI Tile Row ─────────────────────────────────────────────── */}
       <div className="community-kpi-grid">
         <KpiTile
-          label="Total Playtime"
+          label={t("community.totalPlaytime")}
           value={formatHours(stats.totalPlayTimeMin)}
           subtext={`${stats.totalSessions} sessions`}
           icon={ClockIcon}
@@ -362,7 +365,7 @@ function ProfileSection() {
           trailing={<PeriodCompareBadge compare={periodCompare} />}
         />
         <KpiTile
-          label="Games Owned"
+          label={t("community.gamesOwned")}
           value={totalGames}
           subtext={`${gamesAddedThisMonth} added this month`}
           icon={GamepadIcon}
@@ -370,8 +373,8 @@ function ProfileSection() {
           size="md"
         />
         {!hideAchievementProgress && achievementPct !== null && (
-          <KpiTile
-            label="Achievements"
+            <KpiTile
+              label={t("community.achievements")}
             value={`${achievementPct}%`}
             subtext={`${achievementCounts.unlocked} of ${achievementCounts.total} unlocked`}
             icon={TrophyIcon}
@@ -380,7 +383,7 @@ function ProfileSection() {
           />
         )}
         <KpiTile
-          label="Recently Played"
+          label={t("community.recentlyPlayed")}
           value={recentlyPlayed}
           subtext="games in the last 14 days"
           icon={SparkleIcon}
@@ -394,7 +397,7 @@ function ProfileSection() {
         {/* Genre breakdown donut */}
         <Card variant="surface" elevation="1" className="community-chart-card">
           <div className="community-chart-header">
-            <h3>Genre Breakdown</h3>
+            <h3>{t("community.genreBreakdown")}</h3>
             <span className="community-chart-subtitle">by total playtime</span>
           </div>
           {genreSlices.length > 0 ? (
@@ -406,7 +409,7 @@ function ProfileSection() {
             />
           ) : (
             <div className="community-empty-chart">
-              <p>Play some games to see your genre breakdown</p>
+              <p>{t("community.emptyGenre")}</p>
             </div>
           )}
         </Card>
@@ -414,7 +417,7 @@ function ProfileSection() {
         {/* Platform breakdown donut */}
         <Card variant="surface" elevation="1" className="community-chart-card">
           <div className="community-chart-header">
-            <h3>Platform Split</h3>
+            <h3>{t("community.platformSplit")}</h3>
             <span className="community-chart-subtitle">by total playtime</span>
           </div>
           {platformSlices.length > 0 ? (
@@ -426,7 +429,7 @@ function ProfileSection() {
             />
           ) : (
             <div className="community-empty-chart">
-              <p>Play some games to see your platform breakdown</p>
+              <p>{t("community.emptyPlatform")}</p>
             </div>
           )}
         </Card>
@@ -436,7 +439,7 @@ function ProfileSection() {
       {stats.dailyAvg.length > 0 && (
         <Card variant="surface" elevation="1" className="community-chart-card community-weekly-card">
           <div className="community-chart-header">
-            <h3>Last 7 Days</h3>
+            <h3>{t("community.last7Days")}</h3>
             <span className="community-chart-subtitle">daily playtime (minutes)</span>
           </div>
           <BarChart
@@ -472,43 +475,43 @@ function ProfileSection() {
         header={
           <div className="community-year-header">
             <span className="community-year-icon">🎮</span>
-            <span>Your Gaming Year in Review</span>
+            <span>{t("community.yearInReview")}</span>
           </div>
         }
       >
         <div className="community-year-grid">
           <div className="community-year-stat">
             <span className="community-year-stat-value">{formatHours(stats.totalPlayTimeMin)}</span>
-            <span className="community-year-stat-label">Total Playtime</span>
+            <span className="community-year-stat-label">{t("community.totalPlaytime")}</span>
           </div>
           <div className="community-year-stat">
             <span className="community-year-stat-value">{stats.totalSessions}</span>
-            <span className="community-year-stat-label">Sessions</span>
+            <span className="community-year-stat-label">{t("community.sessions")}</span>
           </div>
           <div className="community-year-stat">
             <span className="community-year-stat-value">{totalGames}</span>
-            <span className="community-year-stat-label">Games in Library</span>
+            <span className="community-year-stat-label">{t("community.gamesInLibrary")}</span>
           </div>
           <div className="community-year-stat">
             <span className="community-year-stat-value">{stats.topGames.length}</span>
-            <span className="community-year-stat-label">Games Played</span>
+            <span className="community-year-stat-label">{t("community.gamesPlayed")}</span>
           </div>
           <div className="community-year-stat">
             <span className="community-year-stat-value">{stats.longestSessionMin > 0 ? formatHours(stats.longestSessionMin) : "—"}</span>
-            <span className="community-year-stat-label">Longest Session</span>
+            <span className="community-year-stat-label">{t("community.longestSession")}</span>
           </div>
           <div className="community-year-stat">
             <span className="community-year-stat-value">{stats.avgSessionMin > 0 ? formatHours(stats.avgSessionMin) : "—"}</span>
-            <span className="community-year-stat-label">Avg Session</span>
+            <span className="community-year-stat-label">{t("community.avgSession")}</span>
           </div>
           <div className="community-year-stat">
             <span className="community-year-stat-value">{distinctGenres}</span>
-            <span className="community-year-stat-label">Genres Played</span>
+            <span className="community-year-stat-label">{t("community.genresPlayed")}</span>
           </div>
           {stats.avgFpsAll > 0 && (
             <div className="community-year-stat">
               <span className="community-year-stat-value">{stats.avgFpsAll} fps</span>
-              <span className="community-year-stat-label">Avg FPS</span>
+              <span className="community-year-stat-label">{t("community.avgFps")}</span>
             </div>
           )}
         </div>
@@ -522,7 +525,7 @@ function ProfileSection() {
         header={
           <div className="community-year-header">
             <span className="community-year-icon">🏆</span>
-            <span>Most Played Games</span>
+            <span>{t("community.mostPlayedGames")}</span>
             {topGames.length > 0 && (
               <span className="community-breakdown-total">
                 {topGames.length} of {stats.topGames.length} ranked
@@ -564,7 +567,7 @@ function ProfileSection() {
           </ol>
         ) : (
           <div className="community-empty-chart">
-            <p>Play some games to see your most played breakdown</p>
+            <p>{t("community.emptyMostPlayed")}</p>
           </div>
         )}
       </Card>
@@ -604,6 +607,7 @@ function isVideoPath(p: string): boolean {
 function ScreenshotsSection() {
   const { games } = useGames();
   const { showToast } = useToast();
+  const { t } = useLanguage();
 
   // Keep a ref to games so handleAutoDetect doesn't re-create on every playtime tick.
   // Follows the same pattern used in ActivityContext and GameContext.
@@ -977,7 +981,7 @@ function ScreenshotsSection() {
             </svg>
           }
         >
-          {isDetecting ? "Detecting…" : "Auto-detect Steam Screenshots"}
+          {isDetecting ? t("community.detecting") : t("community.autoDetect")}
         </Button>
         <Button
           variant="secondary"
@@ -985,7 +989,7 @@ function ScreenshotsSection() {
           disabled={isScanning || isDetecting}
           leftIcon={FolderIcon}
         >
-          {selectedFolder ? "Change Folder" : "Pick Screenshot Folder"}
+          {selectedFolder ? t("community.changeFolder") : t("community.pickFolder")}
         </Button>
         {hasContent && (
           <Button
@@ -1009,7 +1013,7 @@ function ScreenshotsSection() {
               </svg>
             }
           >
-            Open Folder
+            {t("community.openFolder")}
           </Button>
         )}
         {selectedFolder && (
@@ -1028,7 +1032,7 @@ function ScreenshotsSection() {
           <input
             type="search"
             className="community-screenshots-search"
-            placeholder="Search games…"
+            placeholder={t("community.searchGamesPlaceholder")}
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             aria-label="Search screenshots by game"
@@ -1038,7 +1042,7 @@ function ScreenshotsSection() {
             className={`community-filter-pill${showFavOnly ? " active" : ""}`}
             onClick={() => setShowFavOnly((v) => !v)}
           >
-            ★ Favorites{showFavOnly ? ` (${visibleFavCount})` : ""}
+            ★ {t("common.favorites")}{showFavOnly ? ` (${visibleFavCount})` : ""}
           </button>
           {["nvidia", "amd", "obs"].map((src) => (
             <button
@@ -1059,16 +1063,16 @@ function ScreenshotsSection() {
               setShowFavOnly(false);
             }}
           >
-            Clear
+            {t("common.clear")}
           </button>
           {filteredGroups.length > 0 && (
             <button
               type="button"
               className="community-filter-pill"
               onClick={toggleAllGroups}
-              title={allExpanded ? "Collapse all game groups" : "Expand all game groups"}
+              title={allExpanded ? t("common.collapseAll") : t("common.expandAll")}
             >
-              {allExpanded ? "Collapse all" : "Expand all"}
+              {allExpanded ? t("common.collapseAll") : t("common.expandAll")}
             </button>
           )}
         </div>
@@ -1078,10 +1082,9 @@ function ScreenshotsSection() {
       {!hasContent && (
         <div className="community-screenshots-empty">
           <div className="community-screenshots-empty-icon">{ImageIcon}</div>
-          <h3>Browse Your Screenshots</h3>
+          <h3>{t("community.browseScreenshots")}</h3>
           <p>
-            Auto-detect your Steam screenshots from any account that
-            has signed in on this PC, or pick any folder with game captures.
+            {t("community.screenshotsHint")}
           </p>
         </div>
       )}
@@ -1214,7 +1217,7 @@ function ScreenshotsSection() {
       {/* Empty after manual scan */}
       {!isScanning && !isDetecting && selectedFolder && manualImages.length === 0 && filteredGroups.length === 0 && (
         <div className="community-screenshots-empty">
-          <p>No media found in this folder.</p>
+          <p>{t("community.noMediaFolder")}</p>
         </div>
       )}
 

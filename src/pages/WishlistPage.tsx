@@ -6,6 +6,7 @@ import { PriceProvider } from "../context/PriceContext";
 import { requestShareToFriends } from "./friendSuggestionSignal";
 import type { StoreGameSummary, WishlistEntry } from "../types/game";
 import { PageHeader } from "../components/ui";
+import { useLanguage } from "../context/LanguageContext";
 import "../styles/page-wishlist.css";
 
 type WishlistSort = "date_added" | "name" | "rating" | "release_date";
@@ -91,6 +92,7 @@ export default function WishlistPage() {
   }
   const navigate = useNavigate();
   const { wishlist, hydrated, toggle, setNote, clear } = useWishlistContext();
+  const { t } = useLanguage();
 
   // ── Filter / sort state (persisted to localStorage) ──────────────────
   const [filters, setFilters] = useState<PersistedFilters>(() => {
@@ -234,9 +236,9 @@ export default function WishlistPage() {
     <PriceProvider>
     <div className="wishlist-page page">
       <PageHeader
-        eyebrow="Your Wishlist"
-        title="Saved to play"
-        description="Games you've saved to revisit later. Tap the heart on any card to remove it, and add a note to remember why it's here. Wishlist data is stored locally on your device."
+        eyebrow={t("wishlist.eyebrow")}
+        title={t("wishlist.title")}
+        description={t("wishlist.description")}
         icon={
           <svg
             viewBox="0 0 24 24"
@@ -253,17 +255,17 @@ export default function WishlistPage() {
           <>
             <span className="wishlist-page-count">
               {wishlist.length === 0
-                ? "Empty"
-                : `${wishlist.length} game${wishlist.length !== 1 ? "s" : ""}`}
+                ? t("wishlist.empty")
+                : t("wishlist.gamesCount", { count: wishlist.length, plural: wishlist.length !== 1 ? "s" : "" })}
             </span>
             {wishlist.length > 0 && (
-              <button
-                type="button"
-                className="wishlist-clear-btn"
-                onClick={() => setConfirmClear(true)}
-              >
-                Clear all
-              </button>
+                <button
+                  type="button"
+                  className="wishlist-clear-btn"
+                  onClick={() => setConfirmClear(true)}
+                >
+                  {t("wishlist.clearAll")}
+                </button>
             )}
           </>
         }
@@ -293,17 +295,16 @@ export default function WishlistPage() {
           </svg>
           {hydrated ? (
             <>
-              <strong>No games in your wishlist yet</strong>
+              <strong>{t("wishlist.noGames")}</strong>
               <p>
-                Tap the heart on any game in the Store to add it here. We'll
-                keep it safe on this device.
+                {t("wishlist.noGamesHint")}
               </p>
               <button
                 type="button"
                 className="wishlist-empty-cta"
                 onClick={handleBrowseStore}
               >
-                Browse the Store
+                {t("wishlist.browseStore")}
                 <svg
                   viewBox="0 0 24 24"
                   fill="none"
@@ -319,7 +320,7 @@ export default function WishlistPage() {
               </button>
             </>
           ) : (
-            <p>Loading your wishlist…</p>
+            <p>{t("wishlist.loading")}</p>
           )}
         </div>
       ) : (
@@ -342,7 +343,7 @@ export default function WishlistPage() {
               <input
                 type="text"
                 value={filters.search}
-                placeholder="Search wishlist…"
+                placeholder={t("wishlist.searchPlaceholder")}
                 onChange={(e) => setSearch(e.target.value)}
                 aria-label="Search wishlist"
               />
@@ -364,26 +365,26 @@ export default function WishlistPage() {
                 className={filters.group === "all" ? "active" : ""}
                 onClick={() => setGroup("all")}
               >
-                All
+                {t("wishlist.all")}
               </button>
               <button
                 type="button"
                 className={filters.group === "released" ? "active" : ""}
                 onClick={() => setGroup("released")}
               >
-                Out now ({releasedCount})
+                {t("wishlist.outNow")} ({releasedCount})
               </button>
               <button
                 type="button"
                 className={filters.group === "coming_soon" ? "active" : ""}
                 onClick={() => setGroup("coming_soon")}
               >
-                Coming soon ({wishlist.length - releasedCount})
+                {t("wishlist.comingSoon")} ({wishlist.length - releasedCount})
               </button>
             </div>
 
             <label className="wishlist-sort">
-              <span className="wishlist-sort-label">Sort</span>
+              <span className="wishlist-sort-label">{t("wishlist.sort")}</span>
               <select
                 value={filters.sort}
                 onChange={(e) => setSort(e.target.value as WishlistSort)}
@@ -433,7 +434,7 @@ export default function WishlistPage() {
                   className="wishlist-chip reset"
                   onClick={resetFilters}
                 >
-                  Clear filters
+                  {t("wishlist.clearFilters")}
                 </button>
               )}
             </div>
@@ -441,21 +442,21 @@ export default function WishlistPage() {
 
           {/* ── Result count ───────────────────────────────────────── */}
           <p className="wishlist-result-count">
-            Showing {visible.length} of {wishlist.length}
+            {t("wishlist.showing", { visible: visible.length, total: wishlist.length })}
           </p>
 
           {/* ── Grid ──────────────────────────────────────────────── */}
           {visible.length === 0 ? (
             <div className="wishlist-empty small">
-              <strong>No matches</strong>
-              <p>Try a different search or clear the active filters.</p>
-              <button
-                type="button"
-                className="wishlist-empty-cta"
-                onClick={resetFilters}
-              >
-                Clear filters
-              </button>
+            <strong>{t("wishlist.noMatches")}</strong>
+            <p>{t("wishlist.noMatchesHint")}</p>
+            <button
+              type="button"
+              className="wishlist-empty-cta"
+              onClick={resetFilters}
+            >
+              {t("wishlist.clearFilters")}
+            </button>
             </div>
           ) : (
             <div className="wishlist-page-grid">
@@ -486,27 +487,25 @@ export default function WishlistPage() {
             className="wishlist-modal"
             onClick={(e) => e.stopPropagation()}
           >
-            <h2>Clear your wishlist?</h2>
-            <p>
-              This removes all {wishlist.length} game
-              {wishlist.length !== 1 ? "s" : ""} and notes from your wishlist.
-              This action can't be undone.
-            </p>
-            <div className="wishlist-modal-actions">
-              <button
-                type="button"
-                className="wishlist-modal-cancel"
-                onClick={() => setConfirmClear(false)}
-              >
-                Cancel
-              </button>
-              <button
-                type="button"
-                className="wishlist-modal-confirm"
-                onClick={handleClear}
-              >
-                Clear all
-              </button>
+          <h2>{t("wishlist.clearTitle")}</h2>
+          <p>
+            {t("wishlist.clearBody", { count: wishlist.length, plural: wishlist.length !== 1 ? "s" : "" })}
+          </p>
+          <div className="wishlist-modal-actions">
+            <button
+              type="button"
+              className="wishlist-modal-cancel"
+              onClick={() => setConfirmClear(false)}
+            >
+              {t("common.cancel")}
+            </button>
+            <button
+              type="button"
+              className="wishlist-modal-confirm"
+              onClick={handleClear}
+            >
+              {t("wishlist.clearAll")}
+            </button>
             </div>
           </div>
         </div>
@@ -533,6 +532,7 @@ function WishlistCard({
   onNoteChange: (note: string) => void;
 }) {
   const navigate = useNavigate();
+  const { t } = useLanguage();
 
   const shareToFriends = () => {
     requestShareToFriends({
@@ -620,9 +620,9 @@ function WishlistCard({
         }}
       />
       <div className="wishlist-card-meta">
-        <span className="wishlist-added-date" title={`Added ${addedLabel}`}>
-          Added {addedLabel}
-        </span>
+          <span className="wishlist-added-date" title={t("wishlist.addedOn", { date: addedLabel })}>
+            {t("wishlist.addedOn", { date: addedLabel })}
+          </span>
         <button
           type="button"
           className="wishlist-share-btn"
@@ -642,7 +642,7 @@ function WishlistCard({
             <polyline points="16 6 12 2 8 6" />
             <line x1="12" y1="2" x2="12" y2="15" />
           </svg>
-          Share to Friends
+          {t("wishlist.shareToFriends")}
         </button>
       </div>
 
@@ -651,8 +651,8 @@ function WishlistCard({
           className={`wishlist-release${release.released ? " released" : ""}`}
           title={
             release.released
-              ? `Released ${release.label}`
-              : `Releases ${release.label}`
+              ? t("wishlist.releasedAria", { date: release.label })
+              : t("wishlist.releasesAria", { date: release.label })
           }
         >
           <span className="wishlist-release-icon" aria-hidden="true">
@@ -672,7 +672,7 @@ function WishlistCard({
           </span>
           <span className="wishlist-release-text">
             {release.released ? (
-              <span className="wishlist-release-out">Out now</span>
+              <span className="wishlist-release-out">{t("wishlist.outNowLabel")}</span>
             ) : (
               <>
                 <span className="wishlist-release-count">{countdown}</span>
@@ -688,7 +688,7 @@ function WishlistCard({
           <div className="wishlist-note-editor">
             <textarea
               value={draft}
-              placeholder="Add a note (why you want this game, sale target, etc.)…"
+              placeholder={t("wishlist.notePlaceholder")}
               onChange={(e) => setDraft(e.target.value)}
               onKeyDown={(e) => {
                 if (e.key === "Escape") {
@@ -712,14 +712,14 @@ function WishlistCard({
                   setEditing(false);
                 }}
               >
-                Cancel
+                {t("common.cancel")}
               </button>
               <button
                 type="button"
                 className="wishlist-note-save"
                 onClick={saveNote}
               >
-                Save note
+                {t("wishlist.saveNote")}
               </button>
             </div>
           </div>
@@ -777,7 +777,7 @@ function WishlistCard({
               <line x1="12" y1="5" x2="12" y2="19" />
               <line x1="5" y1="12" x2="19" y2="12" />
             </svg>
-            Add note
+            {t("wishlist.addNote")}
           </button>
         )}
       </div>

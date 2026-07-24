@@ -1615,6 +1615,49 @@
  * as the section's primary action, not a corner affordance. */
 .about-section__header {
   margin-bottom: var(--space-md);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-md);
+  flex-wrap: wrap;
+}
+
+/* Per-language switcher for the About section. Surfaces the languages
+ * Steam (or the IGDB fallback) actually supplied so the user can flip
+ * the description between them without leaving the page. */
+.about-section__lang-switch {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  flex-wrap: wrap;
+}
+
+.about-lang-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 30px;
+  height: 26px;
+  padding: 0 6px;
+  font-size: 15px;
+  line-height: 1;
+  border-radius: var(--radius-full);
+  background: var(--color-bg-tertiary);
+  border: 1px solid var(--color-border);
+  color: var(--color-text-secondary);
+  cursor: pointer;
+  transition: border-color 0.12s ease, background 0.12s ease, transform 0.12s ease;
+}
+
+.about-lang-btn:hover {
+  border-color: var(--color-accent);
+}
+
+.about-lang-btn--active {
+  background: color-mix(in srgb, var(--color-accent) 16%, var(--color-bg-tertiary));
+  border-color: var(--color-accent);
+  color: var(--color-accent);
+  transform: translateY(-1px);
 }
 
 .about-section__title {

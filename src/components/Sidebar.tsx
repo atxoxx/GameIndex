@@ -8,6 +8,7 @@ import { useGames, NO_IGDB_MATCH_SOURCE } from "../context/GameContext";
 import { useToast } from "../context/ToastContext";
 import { useLibraryFilters } from "../hooks/useLibraryFilters";
 import { useSidebarCollapse } from "../context/SidebarCollapseContext";
+import { useLanguage } from "../context/LanguageContext";
 import {
   gameNameFromPath,
   PLAY_STATUS_DETAILS,
@@ -124,11 +125,15 @@ function ActiveFilterChips({
   onRemoveRating: () => void;
   onReset: () => void;
 }) {
+  const { t } = useLanguage();
   const chips: { key: string; label: string; remove: () => void }[] = [];
   if (filterState.status !== "all") {
     chips.push({
       key: "status",
-      label: filterState.status === "installed" ? "Installed" : "Uninstalled",
+      label:
+        filterState.status === "installed"
+          ? t("filter.installed")
+          : t("filter.uninstalled"),
       remove: onRemoveStatus,
     });
   }
@@ -229,6 +234,7 @@ function ActiveFilterChips({
 
 export default function Sidebar() {
   const navigate = useNavigate();
+  const { t } = useLanguage();
   const { games, selectedGameId, setSelectedGameId, removeGame, runningGameIds, launchGame, importLocalGames, updateGame } =
     useGames();
   const { showToast } = useToast();
@@ -752,7 +758,7 @@ export default function Sidebar() {
               </svg>
             )}
           </button>
-          <span className="sidebar-header-title">Library</span>
+          <span className="sidebar-header-title">{t("nav.library")}</span>
         </div>
         <div className="sidebar-search-row">
           <div className="sidebar-search">

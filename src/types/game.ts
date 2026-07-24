@@ -544,6 +544,19 @@ export interface RichAboutPayload {
   fetchedAt: number;
 }
 
+/**
+ * A language-keyed bundle of localized {@link RichAboutPayload}s,
+ * returned by the `get_about_bundle` Tauri command. Keys are Steam
+ * `l=` codes (e.g. "english", "schinese"). The frontend selects the
+ * entry matching the active UI language, falling back to
+ * `defaultLanguage`, then the first available entry.
+ */
+export interface AboutBundle {
+  byLanguage: Record<string, RichAboutPayload>;
+  /** Canonical default language code (always "english"). */
+  defaultLanguage: string;
+}
+
 // ─── System Requirements (Steam `pc_requirements`) ────────────────────────────
 
 /**

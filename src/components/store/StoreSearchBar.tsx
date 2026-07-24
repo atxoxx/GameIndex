@@ -1,4 +1,5 @@
 import { useRef, useEffect, useState } from "react";
+import { useLanguage } from "../../context/LanguageContext";
 import { useSearchSuggestions } from "../../hooks/useSearchSuggestions";
 import { STORE_POPULAR_SEARCHES, type StoreGameSummary } from "../../types/game";
 
@@ -25,6 +26,7 @@ export default function StoreSearchBar({
   const inputRef = useRef<HTMLInputElement>(null);
   const rootRef = useRef<HTMLDivElement>(null);
   const [focused, setFocused] = useState(false);
+  const { t } = useLanguage();
 
   const { suggestions, loading } = useSearchSuggestions(value);
 
@@ -66,7 +68,7 @@ export default function StoreSearchBar({
           ref={inputRef}
           type="text"
           className="store-search-input"
-          placeholder="Search IGDB for games..."
+          placeholder={t("store.searchPlaceholder")}
           value={value}
           onChange={(e) => onChange(e.target.value)}
           onFocus={() => setFocused(true)}
@@ -95,9 +97,9 @@ export default function StoreSearchBar({
       {showSuggestions && (
         <div className="store-search-dropdown" role="listbox">
           {loading && suggestions.length === 0 ? (
-            <div className="store-search-dropdown-loading">Searching…</div>
+            <div className="store-search-dropdown-loading">{t("store.searching")}</div>
           ) : suggestions.length === 0 ? (
-            <div className="store-search-dropdown-empty">No quick matches</div>
+            <div className="store-search-dropdown-empty">{t("store.noQuickMatches")}</div>
           ) : (
             suggestions.map((g) => (
               <button
@@ -131,7 +133,7 @@ export default function StoreSearchBar({
         <div className="store-search-dropdown">
           {recentSearches.length > 0 && (
             <div className="store-search-section">
-              <div className="store-search-section-title">Recent searches</div>
+              <div className="store-search-section-title">{t("store.recentSearches")}</div>
               {recentSearches.map((q) => (
                 <div key={q} className="store-search-recent-row">
                   <button
@@ -165,7 +167,7 @@ export default function StoreSearchBar({
             </div>
           )}
           <div className="store-search-section">
-            <div className="store-search-section-title">Popular searches</div>
+            <div className="store-search-section-title">{t("store.popularSearches")}</div>
             <div className="store-search-popular-chips">
               {STORE_POPULAR_SEARCHES.map((q) => (
                 <button

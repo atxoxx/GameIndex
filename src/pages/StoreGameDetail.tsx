@@ -4,6 +4,7 @@ import { invoke } from "@tauri-apps/api/core";
 import { useGames } from "../context/GameContext";
 import { useToast } from "../context/ToastContext";
 import { useBigScreen } from "../context/BigScreenContext";
+import { useLanguage } from "../context/LanguageContext";
 import BigScreenStoreGamePage from "../components/store/BigScreenStoreGamePage";
 import type { GameMetadataResult, IgdbReview, Game } from "../types/game";
 import { useSizeUnit } from "../hooks/useSizeUnit";
@@ -37,6 +38,7 @@ import "../styles/page-store.css";
 /* ------------------------------------------------------------------ */
 
 function StoreGameLoading() {
+  const { t } = useLanguage();
   return (
     <div className="game-page">
       <Skeleton shape="rect" height="240px" width="100%" style={{ borderRadius: 'var(--radius-lg)', marginBottom: 'var(--space-xl)' }} />
@@ -54,7 +56,7 @@ function StoreGameLoading() {
       </div>
       <div style={{ textAlign: 'center', padding: 'var(--space-2xl)', color: 'var(--color-text-muted)' }}>
         <div className="store-spinner" style={{ margin: '0 auto var(--space-md) auto' }} />
-        Loading game details...
+        {t("store.loadingGameDetails")}
       </div>
     </div>
   );
@@ -62,16 +64,17 @@ function StoreGameLoading() {
 
 function StoreGameError({ message, onRetry }: { message: string; onRetry: () => void }) {
   const navigate = useNavigate();
+  const { t } = useLanguage();
   return (
     <div className="main-empty">
       <svg className="main-empty-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
         <circle cx="12" cy="12" r="10" /><line x1="12" y1="8" x2="12" y2="12" /><line x1="12" y1="16" x2="12.01" y2="16" />
       </svg>
-      <h2 className="main-empty-title">Failed to load game</h2>
+      <h2 className="main-empty-title">{t("store.failedToLoad")}</h2>
       <p className="main-empty-subtitle">{message}</p>
       <div style={{ display: 'flex', gap: 'var(--space-md)', marginTop: 'var(--space-md)' }}>
-        <Button variant="ghost" size="sm" onClick={onRetry}>Try Again</Button>
-        <Button variant="ghost" size="sm" onClick={() => navigate("/store")}>Back to Store</Button>
+        <Button variant="ghost" size="sm" onClick={onRetry}>{t("common.retry")}</Button>
+        <Button variant="ghost" size="sm" onClick={() => navigate("/store")}>{t("store.backToStore")}</Button>
       </div>
     </div>
   );
@@ -79,14 +82,15 @@ function StoreGameError({ message, onRetry }: { message: string; onRetry: () => 
 
 function StoreGameNotFound() {
   const navigate = useNavigate();
+  const { t } = useLanguage();
   return (
     <div className="main-empty">
       <svg className="main-empty-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
         <rect x="2" y="3" width="20" height="14" rx="2" ry="2" /><line x1="8" y1="21" x2="16" y2="21" /><line x1="12" y1="17" x2="12" y2="21" />
       </svg>
-      <h2 className="main-empty-title">Game Not Found</h2>
-      <p className="main-empty-subtitle">This game could not be found on IGDB.</p>
-      <Button variant="ghost" size="sm" onClick={() => navigate("/store")}>Back to Store</Button>
+      <h2 className="main-empty-title">{t("game.notFoundTitle")}</h2>
+      <p className="main-empty-subtitle">{t("store.gameNotFoundIgdb")}</p>
+      <Button variant="ghost" size="sm" onClick={() => navigate("/store")}>{t("store.backToStore")}</Button>
     </div>
   );
 }
@@ -105,6 +109,7 @@ export default function StoreGameDetail() {
   const { showToast } = useToast();
   const { unit: sizeUnit } = useSizeUnit();
   const { isBigScreen } = useBigScreen();
+  const { t } = useLanguage();
 
   const [data, setData] = useState<GameMetadataResult | null>(null);
   const [loading, setLoading] = useState(true);
@@ -303,7 +308,7 @@ export default function StoreGameDetail() {
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
             <polyline points="15 18 9 12 15 6" />
           </svg>
-          <span className="brand-text">Store</span>
+          <span className="brand-text">{t("nav.store")}</span>
         </button>
       </div>
 
@@ -325,11 +330,11 @@ export default function StoreGameDetail() {
                 className="game-launch-btn"
                 onClick={() => navigate(`/library/${libraryGameId}`)}
               >
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{ width: 18, height: 18 }}>
-                  <circle cx="12" cy="12" r="10" /><line x1="12" y1="16" x2="12" y2="12" /><line x1="12" y1="8" x2="12.01" y2="8" />
-                </svg>
-                View in Library
-              </button>
+                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{ width: 18, height: 18 }}>
+                   <circle cx="12" cy="12" r="10" /><line x1="12" y1="16" x2="12" y2="12" /><line x1="12" y1="8" x2="12.01" y2="8" />
+                 </svg>
+                 {t("store.viewInLibrary")}
+               </button>
             ) : (
               <>
                 <button className="store-add-btn" onClick={handleAddToLibrary} disabled={adding}>
@@ -337,13 +342,13 @@ export default function StoreGameDetail() {
                     <line x1="12" y1="5" x2="12" y2="19" />
                     <line x1="5" y1="12" x2="19" y2="12" />
                   </svg>
-                  {adding ? "Adding..." : "Add to Library"}
-                </button>
+                   {adding ? t("store.adding") : t("store.addToLibrary")}
+                 </button>
                 <DownloadButton
                   gameName={data.title}
                   steamAppId={steamAppId ?? undefined}
                   variant="prominent"
-                  label="Find Download"
+                  label={t("game.findDownload")}
                 />
               </>
             )}
@@ -357,7 +362,7 @@ export default function StoreGameDetail() {
             className={`game-tab ${activeTab === tab ? "active" : ""}`}
             onClick={() => setActiveTab(tab)}
           >
-            {tab.charAt(0).toUpperCase() + tab.slice(1)}
+            {t(`game.tab.${tab}`)}
           </button>
         ))}
       </div>

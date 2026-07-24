@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { useLanguage } from "../../context/LanguageContext";
 import type { ReactNode } from "react";
 import { useNavigate } from "react-router-dom";
 import type { Game } from "../../types/game";
@@ -57,6 +58,7 @@ export default function BigScreenStoreGamePage({
 }: BigScreenStoreGamePageProps) {
   const gamepad = useGamepad();
   const navigate = useNavigate();
+  const { t } = useLanguage();
 
   // Steam appid resolution
   const { appId: steamAppId } = useSteamAppId(game);
@@ -127,7 +129,7 @@ export default function BigScreenStoreGamePage({
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden width="22" height="22">
               <polyline points="15 18 9 12 15 6" />
             </svg>
-            <span>Store</span>
+            <span>{t("nav.store")}</span>
           </button>
 
           <div className="bigscreen-gamepage-hero-info">
@@ -166,7 +168,7 @@ export default function BigScreenStoreGamePage({
                   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" width="20" height="20">
                     <polyline points="20 6 9 17 4 12" />
                   </svg>
-                  <span>In Library</span>
+                  <span>{t("store.inLibrary")}</span>
                 </>
               ) : (
                 <>
@@ -174,7 +176,7 @@ export default function BigScreenStoreGamePage({
                     <line x1="12" y1="5" x2="12" y2="19" />
                     <line x1="5" y1="12" x2="19" y2="12" />
                   </svg>
-                  <span>{adding ? "Adding..." : "Add to Library"}</span>
+                   <span>{adding ? t("store.adding") : t("store.addToLibrary")}</span>
                 </>
               )}
             </button>
@@ -190,7 +192,7 @@ export default function BigScreenStoreGamePage({
                   <polyline points="7 10 12 15 17 10" />
                   <line x1="12" y1="15" x2="12" y2="3" />
                 </svg>
-                <span>Find Download</span>
+                <span>{t("game.findDownload")}</span>
               </button>
             )}
 
@@ -204,7 +206,7 @@ export default function BigScreenStoreGamePage({
                 <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden width="20" height="20">
                   <polygon points="6 4 20 12 6 20 6 4" />
                 </svg>
-                <span>Trailer</span>
+                <span>{t("game.trailer")}</span>
               </button>
             )}
 

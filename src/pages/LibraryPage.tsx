@@ -4,6 +4,7 @@ import { useGames } from "../context/GameContext";
 import { useBigScreen } from "../context/BigScreenContext";
 import { useDensityContext } from "../context/DensityContext";
 import { useToast } from "../context/ToastContext";
+import { useLanguage } from "../context/LanguageContext";
 import {
   useLibraryFilters,
   type LibraryFilters,
@@ -31,6 +32,7 @@ export default function LibraryPage() {
   const { showToast } = useToast();
   const { isBigScreen } = useBigScreen();
   const { density, setDensity } = useDensityContext();
+  const { t } = useLanguage();
 
   const {
     filters,
@@ -201,8 +203,8 @@ export default function LibraryPage() {
             <div className="lib-toolbar-title">
               <h2>
                 {isLibraryEmpty
-                  ? "Your Games"
-                  : `Library (${
+                  ? t("page.library.yourGames")
+                  : `${t("nav.library")} (${
                       hasFilters ? `${filteredGames.length} of ${games.length}` : games.length
                     })`}
               </h2>
@@ -224,8 +226,8 @@ export default function LibraryPage() {
                     type="text"
                     value={filters.search}
                     onChange={(e) => setSearch(e.target.value)}
-                    placeholder="Search your library..."
-                    aria-label="Search library"
+                    placeholder={t("page.library.searchPlaceholder")}
+                    aria-label={t("page.library.searchLabel")}
                   />
                 </div>
                 <LibrarySortMenu value={filters.sort} onChange={setSort} />
@@ -262,7 +264,7 @@ export default function LibraryPage() {
                     type="button"
                     className="lib-rail-toggle-btn"
                     onClick={() => setSidebarCollapsed((c) => !c)}
-                    aria-label={sidebarCollapsed ? "Expand filters" : "Collapse filters"}
+                    aria-label={sidebarCollapsed ? t("page.library.expandFilters") : t("page.library.collapseFilters")}
                     aria-expanded={!sidebarCollapsed}
                   >
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
@@ -289,10 +291,10 @@ export default function LibraryPage() {
                       <line x1="21" y1="21" x2="16.65" y2="16.65" />
                       <line x1="8" y1="11" x2="14" y2="11" />
                     </svg>
-                    <p className="lib-filtered-empty-title">No games match your filters</p>
-                    <p className="lib-filtered-empty-subtitle">Try removing a filter or broadening your search.</p>
+                    <p className="lib-filtered-empty-title">{t("page.library.noFilterResultsTitle")}</p>
+                    <p className="lib-filtered-empty-subtitle">{t("page.library.noFilterResultsSubtitle")}</p>
                     <button type="button" className="lib-filtered-empty-reset" onClick={reset}>
-                      Clear all filters
+                      {t("page.library.clearFilters")}
                     </button>
                   </div>
                 ) : (
@@ -423,6 +425,7 @@ interface ContextMenuProps {
 }
 
 function ContextMenu({ x, y, game, isRunning, onLaunch, onViewDetails, onRemove }: ContextMenuProps) {
+  const { t } = useLanguage();
   const menuWidth = 190;
   const menuHeight = 130;
   const adjustedX = window.innerWidth - x < menuWidth ? x - menuWidth : x;
@@ -437,28 +440,28 @@ function ContextMenu({ x, y, game, isRunning, onLaunch, onViewDetails, onRemove 
       <div className="context-menu-header">
         <span className="context-menu-title">{game.name}</span>
       </div>
-      <button className="context-menu-item play-action" onClick={onLaunch} disabled={isRunning}>
-        <svg viewBox="0 0 24 24" fill="currentColor">
-          <polygon points="5 3 19 12 5 21 5 3" />
-        </svg>
-        {isRunning ? "Running" : "Play Game"}
-      </button>
-      <button className="context-menu-item" onClick={onViewDetails}>
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-          <circle cx="12" cy="12" r="10" />
-          <line x1="12" y1="16" x2="12" y2="12" />
-          <line x1="12" y1="8" x2="12.01" y2="8" />
-        </svg>
-        View Details
-      </button>
-      <div className="context-menu-separator" />
-      <button className="context-menu-item remove-action" onClick={onRemove}>
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-          <polyline points="3 6 5 6 21 6" />
-          <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
-        </svg>
-        Remove from Library
-      </button>
+       <button className="context-menu-item play-action" onClick={onLaunch} disabled={isRunning}>
+         <svg viewBox="0 0 24 24" fill="currentColor">
+           <polygon points="5 3 19 12 5 21 5 3" />
+         </svg>
+         {isRunning ? t("game.running") : t("game.playGame")}
+       </button>
+       <button className="context-menu-item" onClick={onViewDetails}>
+         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+           <circle cx="12" cy="12" r="10" />
+           <line x1="12" y1="16" x2="12" y2="12" />
+           <line x1="12" y1="8" x2="12.01" y2="8" />
+         </svg>
+         {t("game.viewDetails")}
+       </button>
+       <div className="context-menu-separator" />
+       <button className="context-menu-item remove-action" onClick={onRemove}>
+         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+           <polyline points="3 6 5 6 21 6" />
+           <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
+         </svg>
+         {t("game.remove")}
+       </button>
     </div>
   );
 }

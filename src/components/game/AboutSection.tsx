@@ -1,9 +1,11 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
-import type { Game, RichAboutPayload } from "../../types/game";
+import type { Game, RichAboutPayload, AboutBundle } from "../../types/game";
 import { IconFileText, IconLink, IconChevronDown, IconPlay } from "./icons";
 import { useBigScreen } from "../../context/BigScreenContext";
 import { useFocusable } from "../../hooks/useFocusable";
+import { useLanguage } from "../../context/LanguageContext";
+import { UI_LANGUAGES, steamCodeForUi } from "../../i18n/languages";
 
 /**
  * AboutSection
@@ -135,9 +137,32 @@ export default function AboutSection({
   gameNameOverride,
 }: AboutSectionProps) {
   const [collapsed, setCollapsed] = useState(true);
-  const [payload, setPayload] = useState<RichAboutPayload | null>(null);
+  const [bundle, setBundle] = useState<AboutBundle | null>(null);
+  const [langOverride, setLangOverride] = useState<string | null>(null);
   const [loaded, setLoaded] = useState(false);
   const { isBigScreen } = useBigScreen();
+  const { language, t } = useLanguage();
+
+  // Resolve the localized payload: prefer the UI language (or a manual
+  // override), fall back to the bundle default, then the first entry.
+  const selectedCode = langOverride ?? steamCodeForUi(language);
+  const payload = useMemo<RichAboutPayload | null>(() => {
+    if (!bundle) return null;
+    return (
+      bundle.byLanguage[selectedCode] ??
+      bundle.byLanguage[bundle.defaultLanguage] ??
+      Object.values(bundle.byLanguage)[0] ??
+      null
+    );
+  }, [bundle, selectedCode]);
+
+  // Languages actually present in the bundle, for the switcher.
+  const availableLangs = useMemo(() => {
+    if (!bundle) return [];
+    return Object.keys(bundle.byLanguage).filter(
+      (c) => bundle.byLanguage[c]?.aboutHtml || bundle.byLanguage[c]?.movies?.length,
+    );
+  }, [bundle]);
   const toggleFocus = useFocusable(() => setCollapsed((c) => !c));
   const fetchCounter = useRef(0);
   // Tracks the identity key we last kicked off a fetch for. If
@@ -173,14 +198,15 @@ export default function AboutSection({
     // list) while the new fetch is in flight. The cost is one
     // extra render with `loaded=false`; the benefit is the user
     // never sees numbers/links that don't match the current game.
-    setPayload(null);
+    setBundle(null);
+    setLangOverride(null);
     setLoaded(false);
 
     const steam = steamAppId ?? game.steamAppId ?? null;
     const name = gameNameOverride ?? game.name ?? null;
     const myCounter = ++fetchCounter.current;
 
-    invoke<RichAboutPayload | null>("get_about_section", {
+    invoke<AboutBundle>("get_about_bundle", {
       steamAppId: steam ?? undefined,
       gameName: name ?? undefined,
     })
@@ -188,12 +214,12 @@ export default function AboutSection({
         // Last-write-wins: ignore a stale response from a prior
         // mount (e.g. user navigated between games quickly).
         if (myCounter !== fetchCounter.current) return;
-        setPayload(result);
+        setBundle(result);
         setLoaded(true);
       })
       .catch(() => {
         if (myCounter !== fetchCounter.current) return;
-        setPayload(null);
+        setBundle(null);
         setLoaded(true);
       });
     // `identityKey` already captures `igdbSlug`; the individual
@@ -232,16 +258,36 @@ export default function AboutSection({
           <span className="game-section-title__icon" aria-hidden>
             <IconFileText size={16} />
           </span>
-          About
+          {t("about.title")}
           {sourceLabel && (
             <span
               className={`about-section__source-pill about-section__source-pill--${payload?.source ?? "manual"}`}
               aria-label={`Source: ${sourceLabel}`}
             >
-              from {sourceLabel}
+              {t("about.from", { source: sourceLabel })}
             </span>
           )}
         </h2>
+        {availableLangs.length > 1 && (
+          <div className="about-section__lang-switch" role="group" aria-label={t("common.language")}>
+            {availableLangs.map((code) => {
+              const meta = UI_LANGUAGES.find((l) => l.steamCode === code);
+              const active = code === selectedCode;
+              return (
+                <button
+                  key={code}
+                  type="button"
+                  className={`about-lang-btn${active ? " about-lang-btn--active" : ""}`}
+                  aria-pressed={active}
+                  title={meta?.label ?? code}
+                  onClick={() => setLangOverride(active ? null : code)}
+                >
+                  {meta?.flag ?? code}
+                </button>
+              );
+            })}
+          </div>
+        )}
       </header>
 
       <div

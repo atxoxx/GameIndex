@@ -14,6 +14,7 @@ import {
 import "./news/NewsPage.css";
 import "../styles/page-news.css";
 import { PageHeader } from "../components/ui";
+import { useLanguage } from "../context/LanguageContext";
 
 const ITEMS_PER_PAGE = 20;
 
@@ -22,6 +23,7 @@ import BigScreenNews from "../components/bigscreen/BigScreenNews";
 
 export default function NewsPage() {
   const { isBigScreen } = useBigScreen();
+  const { t } = useLanguage();
   if (isBigScreen) {
     return <BigScreenNews />;
   }
@@ -136,8 +138,8 @@ export default function NewsPage() {
     <div className="news-page page">
       {/* Header */}
       <PageHeader
-        eyebrow="Stay in the loop"
-        title="News"
+        eyebrow={t("news.eyebrow")}
+        title={t("news.title")}
         icon={
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
             <path d="M4 11a9 9 0 0 1 9 9" />
@@ -160,7 +162,7 @@ export default function NewsPage() {
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" width="14" height="14">
                 <polyline points="20 6 9 17 4 12" />
               </svg>
-              Mark read
+              {t("news.markRead")}
             </button>
           )}
           <button
@@ -175,7 +177,7 @@ export default function NewsPage() {
               <polyline points="7 10 12 15 17 10" />
               <line x1="12" y1="15" x2="12" y2="3" />
             </svg>
-            Export
+            {t("news.export")}
           </button>
           <button
             type="button"
@@ -189,7 +191,7 @@ export default function NewsPage() {
               <polyline points="17 8 12 3 7 8" />
               <line x1="12" y1="3" x2="12" y2="15" />
             </svg>
-            Import
+            {t("news.import")}
           </button>
           <input
             ref={(el) => setOpmlInput(el)}
@@ -213,7 +215,7 @@ export default function NewsPage() {
               <circle cx="12" cy="12" r="3" />
               <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z" />
             </svg>
-            Feeds
+            {t("news.feeds")}
           </button>
           </>
         }
@@ -241,10 +243,10 @@ export default function NewsPage() {
             <line x1="12" y1="8" x2="12" y2="12" />
             <line x1="12" y1="16" x2="12.01" y2="16" />
           </svg>
-          <h3>Couldn't load news</h3>
+          <h3>{t("news.couldntLoad")}</h3>
           <p>{error}</p>
           <button type="button" className="news-retry-btn" onClick={refresh}>
-            Try Again
+            {t("common.retry")}
           </button>
         </div>
       ) : articles.length === 0 ? (
@@ -254,21 +256,21 @@ export default function NewsPage() {
             <path d="M4 4a16 16 0 0 1 16 16" />
             <circle cx="5" cy="19" r="1" />
           </svg>
-          <h3>No articles yet</h3>
+          <h3>{t("news.noArticles")}</h3>
           <p>
             {sourceNames.length === 0
-              ? "Add a news feed in settings to get started."
+              ? t("news.noArticlesSources")
               : activeSource
-                ? `No articles from ${activeSource}. Try selecting a different source.`
-                : "Articles will appear here. Check your feed settings or try refreshing."}
+                ? t("news.noArticlesFromSource", { source: activeSource })
+                : t("news.noArticlesGeneric")}
           </p>
           {sourceNames.length === 0 ? (
             <button type="button" className="news-retry-btn" onClick={handleOpenSettings}>
-              Add a Feed
+              {t("news.addFeed")}
             </button>
           ) : (
             <button type="button" className="news-retry-btn" onClick={refresh}>
-              Refresh
+              {t("news.refresh")}
             </button>
           )}
         </div>
@@ -291,7 +293,7 @@ export default function NewsPage() {
           {totalPages > 1 && (
             <div className="news-pagination">
               <span className="news-pagination-info">
-                {paginatedArticles.length} of {articles.length} articles
+                {t("news.ofArticles", { visible: paginatedArticles.length, total: articles.length })}
               </span>
               {hasMore && (
                 <button
@@ -299,7 +301,7 @@ export default function NewsPage() {
                   className="news-pagination-btn"
                   onClick={() => setPage((p) => p + 1)}
                 >
-                  Load more
+                  {t("news.loadMore")}
                   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" width="14" height="14">
                     <polyline points="6 9 12 15 18 9" />
                   </svg>

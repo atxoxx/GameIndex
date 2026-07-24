@@ -14,6 +14,7 @@ import { ActivitySessions } from "./activity/ActivitySessions";
 import { ActivityPerformance } from "./activity/ActivityPerformance";
 import * as Icons from "./activity/Icons";
 import { PageHeader } from "../components/ui";
+import { useLanguage } from "../context/LanguageContext";
 import "./activity/ActivityPage.css";
 
 type TabType = "dashboard" | "timeline" | "sessions" | "performance";
@@ -26,6 +27,7 @@ import BigScreenHome from "../components/bigscreen/BigScreenHome";
 
 export default function ActivityPage() {
   const { isBigScreen } = useBigScreen();
+  const { t } = useLanguage();
   if (isBigScreen) {
     return <BigScreenHome />;
   }
@@ -189,15 +191,15 @@ export default function ActivityPage() {
   return (
     <div className="activity__container">
       <PageHeader
-        eyebrow="Your play history"
-        title="Activity"
+        eyebrow={t("activity.eyebrow")}
+        title={t("activity.title")}
         actions={
           <div className="activity__export-actions">
             <button
               type="button"
               className="activity__icon-btn"
               onClick={handleCaptureScreenshot}
-              title="Capture screenshot / Print"
+              title={t("activity.capture")}
             >
               <Icons.Camera size={13} />
             </button>
@@ -205,7 +207,7 @@ export default function ActivityPage() {
               type="button"
               className="activity__icon-btn"
               onClick={handleExportCSV}
-              title="Export CSV"
+              title={t("activity.exportCsv")}
             >
               <Icons.Download size={13} />
             </button>
@@ -223,7 +225,7 @@ export default function ActivityPage() {
               onClick={() => setActiveTab("dashboard")}
             >
               <Icons.LayoutDashboard size={13} />
-              Dashboard
+              {t("activity.tab.dashboard")}
             </button>
             <button
               type="button"
@@ -231,7 +233,7 @@ export default function ActivityPage() {
               onClick={() => setActiveTab("timeline")}
             >
               <Icons.GanttChart size={13} />
-              Timeline
+              {t("activity.tab.timeline")}
             </button>
             <button
               type="button"
@@ -239,7 +241,7 @@ export default function ActivityPage() {
               onClick={() => setActiveTab("sessions")}
             >
               <Icons.History size={13} />
-              Sessions Log
+              {t("activity.tab.sessions")}
             </button>
             <button
               type="button"
@@ -247,7 +249,7 @@ export default function ActivityPage() {
               onClick={() => setActiveTab("performance")}
             >
               <Icons.BarChart3 size={13} />
-              Performance
+              {t("activity.tab.performance")}
             </button>
           </nav>
 
@@ -262,7 +264,7 @@ export default function ActivityPage() {
                   className={`activity-toolbar__pill ${dateRange === preset ? "activity-toolbar__pill--active" : ""}`}
                   onClick={() => setDateRange(preset)}
                 >
-                  {preset === "all" ? "All Time" : preset.toUpperCase()}
+                  {preset === "all" ? t("activity.allTime") : preset.toUpperCase()}
                 </button>
               ))}
             </div>
@@ -277,7 +279,7 @@ export default function ActivityPage() {
                 value={sourceFilter}
                 onChange={(e) => setSourceFilter(e.target.value)}
               >
-                <option value="all">Source: All</option>
+                 <option value="all">{t("activity.sourceAll")}</option>
                 {availablePlatforms.map((plat) => (
                   <option key={plat} value={plat}>
                     {plat}
@@ -293,7 +295,7 @@ export default function ActivityPage() {
 
                 {/* Aggregation interval (Day/Week/Month) */}
                 <div className="activity-toolbar__group">
-                  <span className="activity-toolbar__label">Interval</span>
+                  <span className="activity-toolbar__label">{t("activity.interval")}</span>
                   <div className="activity-toolbar__segmented">
                     {(["day", "week", "month"] as const).map((mode) => (
                       <button

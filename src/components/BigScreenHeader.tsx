@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { NavLink, useLocation, useNavigate } from "react-router-dom";
+import { useLanguage } from "../context/LanguageContext";
 import { useGamepad } from "../hooks/GamepadProvider";
 import { useFocusable } from "../hooks/useFocusable";
 import { useBigScreen } from "../hooks/useBigScreen";
@@ -149,22 +150,23 @@ function FriendsIcon() {
 interface HeaderTab {
   path: string;
   label: string;
+  i18nKey: string;
   icon: React.ReactNode;
 }
 
 const tabs: HeaderTab[] = [
-  { path: "/activity", label: "Home", icon: <HomeIcon /> },
-  { path: "/library", label: "Library", icon: <LibraryIcon /> },
-  { path: "/store", label: "Store", icon: <StoreIcon /> },
-  { path: "/wishlist", label: "Wishlist", icon: <WishlistIcon /> },
-  { path: "/deals", label: "Deals", icon: <DealsIcon /> },
-  { path: "/achievements", label: "Achievements", icon: <AchievementsIcon /> },
-  { path: "/downloads", label: "Downloads", icon: <DownloadIcon /> },
-  { path: "/storage", label: "Storage", icon: <StorageIcon /> },
-  { path: "/news", label: "News", icon: <NewsIcon /> },
-  { path: "/community", label: "Stats", icon: <CommunityIcon /> },
-  { path: "/friends", label: "Community", icon: <FriendsIcon /> },
-  { path: "/settings", label: "System", icon: <SettingsIcon /> },
+  { path: "/activity", label: "Home", i18nKey: "nav.home", icon: <HomeIcon /> },
+  { path: "/library", label: "Library", i18nKey: "nav.library", icon: <LibraryIcon /> },
+  { path: "/store", label: "Store", i18nKey: "nav.store", icon: <StoreIcon /> },
+  { path: "/wishlist", label: "Wishlist", i18nKey: "nav.wishlist", icon: <WishlistIcon /> },
+  { path: "/deals", label: "Deals", i18nKey: "nav.deals", icon: <DealsIcon /> },
+  { path: "/achievements", label: "Achievements", i18nKey: "nav.achievements", icon: <AchievementsIcon /> },
+  { path: "/downloads", label: "Downloads", i18nKey: "nav.downloads", icon: <DownloadIcon /> },
+  { path: "/storage", label: "Storage", i18nKey: "nav.storage", icon: <StorageIcon /> },
+  { path: "/news", label: "News", i18nKey: "nav.news", icon: <NewsIcon /> },
+  { path: "/community", label: "Stats", i18nKey: "nav.stats", icon: <CommunityIcon /> },
+  { path: "/friends", label: "Community", i18nKey: "nav.friends", icon: <FriendsIcon /> },
+  { path: "/settings", label: "System", i18nKey: "nav.settings", icon: <SettingsIcon /> },
 ];
 
 // Home (path "/activity") plus the section tabs above give a complete
@@ -197,16 +199,18 @@ function HeaderTabItem({
   onActivate: () => void;
 }) {
   const focusable = useFocusable(onActivate);
+  const { t } = useLanguage();
+  const label = t(tab.i18nKey);
   return (
     <NavLink
       to={tab.path}
       className={`bigscreen-header-tab ${active ? "active" : ""}`}
       {...focusable}
-      aria-label={tab.label}
-      title={tab.label}
+      aria-label={label}
+      title={label}
     >
       <span className="bigscreen-header-tab-icon">{tab.icon}</span>
-      <span className="bigscreen-header-tab-label">{tab.label}</span>
+      <span className="bigscreen-header-tab-label">{label}</span>
     </NavLink>
   );
 }

@@ -366,6 +366,19 @@
   border-bottom: 1px solid var(--color-border);
 }
 
+/* Standalone settings block (e.g. the language picker) placed after
+ * the theme/accent grids inside the Appearance section. */
+.settings-block {
+  margin-top: var(--space-xl);
+  padding-top: var(--space-lg);
+  border-top: 1px solid var(--color-border);
+}
+
+.settings-block .settings-select {
+  margin-top: var(--space-md);
+  max-width: 320px;
+}
+
 .settings-section-icon {
   display: inline-flex;
   align-items: center;

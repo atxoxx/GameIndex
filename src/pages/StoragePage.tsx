@@ -31,10 +31,12 @@ export type StorageFilter = "all" | "sized" | "missing" | "stale";
  *    3. Search filtering is done client-side against game names.
  *    4. Density is shared with Store/Library via `DensityProvider`. */
 import { useBigScreen } from "../context/BigScreenContext";
+import { useLanguage } from "../context/LanguageContext";
 import BigScreenSystem from "../components/bigscreen/BigScreenSystem";
 
 export default function StoragePage() {
   const { isBigScreen } = useBigScreen();
+  const { t } = useLanguage();
   if (isBigScreen) {
     return <BigScreenSystem />;
   }
@@ -280,9 +282,9 @@ export default function StoragePage() {
     <div className="storage-page page">
       {/* ── Page header ──────────────────────────────────────── */}
       <PageHeader
-        eyebrow="Disk & Library"
-        title="Storage"
-        description="Disk usage across every installed game — move installs between drives, uninstall, and analyze by platform and volume."
+        eyebrow={t("storage.eyebrow")}
+        title={t("storage.title")}
+        description={t("storage.description")}
         icon={
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
             <rect x="2" y="2" width="20" height="20" rx="2" />

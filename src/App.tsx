@@ -31,6 +31,7 @@ import { AchievementProvider } from "./context/AchievementContext";
 import { SettingsProvider } from "./context/SettingsContext";
 import { SessionNotesProvider } from "./context/SessionNotesContext";
 import { BigScreenProvider, useBigScreen } from "./context/BigScreenContext";
+import { LanguageProvider } from "./context/LanguageContext";
 import {
   SidebarCollapseProvider,
   useSidebarCollapse,
@@ -138,6 +139,7 @@ function App() {
     <HashRouter>
       <ThemeProvider>
       <ToastProvider>
+        <LanguageProvider>
         <SplashProvider>
           <GameProvider>
             <ActivityProvider>
@@ -167,6 +169,7 @@ function App() {
            *  in flight. */}
           <Splashscreen />
         </SplashProvider>
+        </LanguageProvider>
       </ToastProvider>
       </ThemeProvider>
     </HashRouter>

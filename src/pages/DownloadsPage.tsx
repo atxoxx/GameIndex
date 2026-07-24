@@ -48,10 +48,12 @@ import "../styles/page-downloads.css";
 const HISTORY_PREVIEW = 5;
 
 import { useBigScreen } from "../context/BigScreenContext";
+import { useLanguage } from "../context/LanguageContext";
 import BigScreenSystem from "../components/bigscreen/BigScreenSystem";
 
 export default function DownloadsPage() {
   const { isBigScreen } = useBigScreen();
+  const { t } = useLanguage();
   if (isBigScreen) {
     return <BigScreenSystem />;
   }
@@ -219,9 +221,9 @@ export default function DownloadsPage() {
   return (
     <div className="dl-page page">
       <PageHeader
-        eyebrow="Download Manager"
-        title="Downloads"
-        description="Manage active torrents, browse history, and add new downloads."
+        eyebrow={t("downloads.eyebrow")}
+        title={t("downloads.title")}
+        description={t("downloads.description")}
         actions={<MagnetInputBar />}
       />
 
@@ -243,12 +245,12 @@ export default function DownloadsPage() {
         aria-labelledby="dl-section-active"
       >
         <div className="dl-section-header">
-          <h3 id="dl-section-active" className="dl-section-title">
-            Active
-            {filteredActive.length > 0 && (
-              <span className="dl-section-count">{filteredActive.length}</span>
-            )}
-          </h3>
+            <h3 id="dl-section-active" className="dl-section-title">
+              {t("downloads.active")}
+              {filteredActive.length > 0 && (
+                <span className="dl-section-count">{filteredActive.length}</span>
+              )}
+            </h3>
           <DownloadsToolbar
             activeCount={activeDownloads.length}
             historyCount={completedDownloads.length}
@@ -259,11 +261,11 @@ export default function DownloadsPage() {
           {loading && activeDownloads.length === 0 && completedDownloads.length === 0 ? (
             <div className="dl-list-empty">
               <div className="spinner-small" />
-              <span>Loading downloads…</span>
+              <span>{t("downloads.loading")}</span>
             </div>
           ) : filteredActive.length === 0 && activeDownloads.length > 0 ? (
             <div className="dl-list-no-match">
-              No active downloads match your filters.
+              {t("downloads.noActiveMatch")}
             </div>
           ) : activeDownloads.length === 0 ? (
             <div className="dl-list-empty">
@@ -281,10 +283,9 @@ export default function DownloadsPage() {
                 <polyline points="7 10 12 15 17 10" />
                 <line x1="12" y1="15" x2="12" y2="3" />
               </svg>
-              <p className="dl-list-empty-title">No active downloads</p>
+              <p className="dl-list-empty-title">{t("downloads.noActive")}</p>
               <p className="dl-list-empty-hint">
-                Paste a magnet link above, or start one from a game's
-                Store or Library page.
+                {t("downloads.noActiveHint")}
               </p>
             </div>
           ) : (
@@ -307,18 +308,18 @@ export default function DownloadsPage() {
         aria-labelledby="dl-section-history"
       >
         <div className="dl-section-header">
-          <h3 id="dl-section-history" className="dl-section-title">
-            History
-            {filteredHistory.length > 0 && (
-              <span className="dl-section-count">{filteredHistory.length}</span>
-            )}
-          </h3>
+            <h3 id="dl-section-history" className="dl-section-title">
+              {t("downloads.history")}
+              {filteredHistory.length > 0 && (
+                <span className="dl-section-count">{filteredHistory.length}</span>
+              )}
+            </h3>
         </div>
 
         <div className="dl-list">
           {filteredHistory.length === 0 && completedDownloads.length > 0 ? (
             <div className="dl-list-no-match">
-              No completed downloads match your filters.
+              {t("downloads.noCompletedMatch")}
             </div>
           ) : completedDownloads.length === 0 ? (
             <div className="dl-list-empty">
@@ -335,9 +336,9 @@ export default function DownloadsPage() {
                 <circle cx="12" cy="12" r="10" />
                 <polyline points="12 6 12 12 16 14" />
               </svg>
-              <p className="dl-list-empty-title">No completed downloads</p>
+              <p className="dl-list-empty-title">{t("downloads.noCompleted")}</p>
               <p className="dl-list-empty-hint">
-                Finished downloads will show up here for quick reference.
+                {t("downloads.noCompletedHint")}
               </p>
             </div>
           ) : (
@@ -361,8 +362,8 @@ export default function DownloadsPage() {
                   onClick={() => setHistoryExpanded((v) => !v)}
                 >
                   {historyExpanded
-                    ? "Show less"
-                    : `Show ${filteredHistory.length - HISTORY_PREVIEW} more`}
+                    ? t("downloads.showLess")
+                    : t("downloads.showMore", { count: filteredHistory.length - HISTORY_PREVIEW })}
                   <svg
                     viewBox="0 0 24 24"
                     fill="none"
@@ -401,37 +402,29 @@ export default function DownloadsPage() {
         title={
           deletingContext ? (
             <>
-              Delete <strong>{deletingContext.name}</strong> from disk?
+              {t("downloads.deleteDiskTitle")}{" "}
+              <strong>{deletingContext.name}</strong>?
             </>
           ) : (
-            "Delete from disk?"
+            t("downloads.deleteDiskTitle")
           )
         }
         message={
-          deletingContext && (
-            <>
-              This will permanently remove{" "}
-              <strong>
-                {formatBytesShort(deletingContext.downloaded, unit)}
-              </strong>{" "}
-              from{" "}
-              <code title={deletingContext.savePath}>
-                {deletingContext.savePath}
-              </code>
-              . This action cannot be undone.
-            </>
-          )
+          deletingContext &&
+          t("downloads.deleteDiskBody", {
+            size: formatBytesShort(deletingContext.downloaded, unit),
+            path: deletingContext.savePath,
+          })
         }
         warning={
-          deletingContext?.autoExtract && (
-            <>
-              This download was auto-extracted. If any source archive files
-              remain, only those will be removed — extracted game files in
-              the same folder will stay on disk.
-            </>
-          )
+          deletingContext?.autoExtract &&
+          t("downloads.deleteDiskWarning")
         }
-        confirmLabel={`Delete from disk${deletingContext?.autoExtract ? " (archives only)" : ""}`}
+        confirmLabel={
+          deletingContext?.autoExtract
+            ? t("downloads.deleteArchives")
+            : t("downloads.deleteDiskLabel")
+        }
         busy={deletingBusy}
         onConfirm={confirmDelete}
         onCancel={() => {
@@ -448,30 +441,17 @@ export default function DownloadsPage() {
         title={
           removingContext ? (
             <>
-              Remove <strong>{removingContext.name}</strong>?
+              {t("downloads.removeTitle")}{" "}
+              <strong>{removingContext.name}</strong>?
             </>
           ) : (
-            "Remove download?"
+            t("downloads.removeTitle")
           )
         }
         message={
-          removingContext && (
-            <>
-              This download is still in progress. Removing it discards its
-              partial progress
-              {removingContext.progress != null && removingContext.progress > 0 ? (
-                <>
-                  {" "}(
-                  <strong>{Math.round(removingContext.progress * 100)}%</strong>{" "}
-                  downloaded)
-                </>
-              ) : null}
-              . The downloaded files are kept on disk — use "Delete from disk"
-              to remove those too.
-            </>
-          )
+          removingContext && t("downloads.removeBody")
         }
-        confirmLabel="Remove download"
+        confirmLabel={t("downloads.removeLabel")}
         busy={removingBusy}
         onConfirm={confirmRemoveActive}
         onCancel={() => {
