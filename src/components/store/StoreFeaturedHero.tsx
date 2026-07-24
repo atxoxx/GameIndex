@@ -2,6 +2,7 @@ import { useEffect, useRef, useState, type ReactElement } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import type { StoreGameSummary } from "../../types/game";
 import StoreGameCard from "./StoreGameCard";
+import { useLanguage } from "../../context/LanguageContext";
 
 type HeroCategory = "hot" | "weekly" | "achievements";
 
@@ -65,6 +66,7 @@ const HERO_LIMIT = 12;
  * sort. "Surprise me" jumps to a random card from the visible rail.
  */
 export default function StoreFeaturedHero({ onPickGame }: StoreFeaturedHeroProps) {
+  const { t } = useLanguage();
   const [tab, setTab] = useState<HeroCategory>("hot");
   const [games, setGames] = useState<StoreGameSummary[]>([]);
   const [loading, setLoading] = useState(true);
@@ -118,19 +120,19 @@ export default function StoreFeaturedHero({ onPickGame }: StoreFeaturedHeroProps
     <section className="store-featured-section" aria-label="Store highlights">
       <div className="store-featured-head">
         <div className="store-featured-tablist" role="tablist" aria-label="Featured categories">
-          {TABS.map((t) => (
+          {TABS.map((tabItem) => (
             <button
-              key={t.id}
+              key={tabItem.id}
               type="button"
               role="tab"
-              aria-selected={tab === t.id}
-              className={`store-featured-tab${tab === t.id ? " active" : ""}`}
-              onClick={() => setTab(t.id)}
+              aria-selected={tab === tabItem.id}
+              className={`store-featured-tab${tab === tabItem.id ? " active" : ""}`}
+              onClick={() => setTab(tabItem.id)}
             >
               <span className="store-featured-tab-icon" aria-hidden="true">
-                {t.icon}
+                {tabItem.icon}
               </span>
-              {t.label}
+              {t(`store.featured.${tabItem.id}`)}
             </button>
           ))}
         </div>
@@ -157,7 +159,7 @@ export default function StoreFeaturedHero({ onPickGame }: StoreFeaturedHeroProps
             <line x1="15" y1="15" x2="21" y2="21" />
             <line x1="4" y1="4" x2="9" y2="9" />
           </svg>
-          Surprise me
+          {t("store.surpriseMe")}
         </button>
       </div>
 

@@ -5,6 +5,7 @@ import { useAchievements } from "../context/AchievementContext";
 import { useToast } from "../context/ToastContext";
 import { useWishlistContext } from "../context/WishlistContext";
 import { useBigScreen } from "../context/BigScreenContext";
+import { useLanguage } from "../context/LanguageContext";
 import BigScreenFriends from "../components/bigscreen/BigScreenFriends";
 import { consumePendingSuggestion } from "./friendSuggestionSignal";
 import { parsePlayTime } from "../types/game";
@@ -925,6 +926,7 @@ interface FriendInvitation {
 
 export default function FriendsPage() {
   const { isBigScreen } = useBigScreen();
+  const { t } = useLanguage();
   const [activeTab, setActiveTab] = useState<"friends" | "sessions" | "recs" | "suggestions" | "compare" | "leaderboard" | "profile">("friends");
   const { games, runningGameIds } = useGames();
   const { wishlist, toggle } = useWishlistContext();
@@ -2936,7 +2938,7 @@ export default function FriendsPage() {
             onClick={() => setActiveTab("friends")}
           >
             <UsersIcon />
-            <span>Friends List</span>
+            <span>{t("friends.tab.friends")}</span>
           </button>
           <button
             type="button"
@@ -2946,7 +2948,7 @@ export default function FriendsPage() {
             onClick={() => setActiveTab("sessions")}
           >
             <CalendarIcon />
-            <span>Sessions Planner</span>
+            <span>{t("friends.tab.sessions")}</span>
           </button>
           <button
             type="button"
@@ -2956,7 +2958,7 @@ export default function FriendsPage() {
             onClick={() => setActiveTab("recs")}
           >
             <RecommendIcon />
-            <span>Recommendations</span>
+            <span>{t("friends.tab.recs")}</span>
           </button>
           <button
             type="button"
@@ -2966,7 +2968,7 @@ export default function FriendsPage() {
             onClick={() => setActiveTab("suggestions")}
           >
             <SuggestionIcon />
-            <span>Wishlist Shares</span>
+            <span>{t("friends.tab.suggestions")}</span>
           </button>
             <button
               type="button"
@@ -2976,7 +2978,7 @@ export default function FriendsPage() {
               onClick={() => setActiveTab("compare")}
             >
               <CompareIcon />
-              <span>Compare Library</span>
+              <span>{t("friends.tab.compare")}</span>
             </button>
             <button
               type="button"
@@ -2986,7 +2988,7 @@ export default function FriendsPage() {
               onClick={() => setActiveTab("leaderboard")}
             >
               <LeaderboardIcon />
-              <span>Leaderboard</span>
+              <span>{t("friends.tab.leaderboard")}</span>
             </button>
             <button
               type="button"
@@ -2996,20 +2998,20 @@ export default function FriendsPage() {
             onClick={() => setActiveTab("profile")}
           >
             <UserIcon />
-            <span>My Profile</span>
+            <span>{t("friends.tab.profile")}</span>
           </button>
         </div>
 
         <div className="sync-status-container">
           <span className="sync-status-text">
-            {isSyncing ? "Syncing..." : `Synced: ${lastSyncedTime}`}
+            {isSyncing ? t("friends.syncing") : t("friends.synced", { time: lastSyncedTime })}
           </span>
           <button
             type="button"
             className="btn-sync"
             onClick={() => performSync(true)}
             disabled={isSyncing}
-            title="Sync Now"
+            title={t("friends.syncNow")}
           >
             <RefreshIcon className={isSyncing ? "sync-spinner" : ""} />
           </button>
@@ -3020,7 +3022,7 @@ export default function FriendsPage() {
             onClick={() => {
               setShowP2pModal(true);
             }}
-            title="Direct P2P Internet Sync"
+            title={t("friends.p2pSync")}
           >
             <P2pSyncIcon />
           </button>
@@ -3035,7 +3037,7 @@ export default function FriendsPage() {
             {invitations.length > 0 && (
               <div className="friend-invitations-section">
                 <h3 className="friend-invitations-title">
-                  <span>✉️ Pending Friend Invitations ({invitations.length})</span>
+                  <span>✉️ {t("friends.pendingInvites", { count: invitations.length })}</span>
                 </h3>
                 <div className="friend-invitations-list">
                   {invitations.map((invite) => (
@@ -3043,7 +3045,7 @@ export default function FriendsPage() {
                       {renderAvatar(invite.avatar, invite.name)}
                       <div className="friend-invitation-info">
                         <div className="friend-invitation-name">{invite.name}</div>
-                        <div className="friend-invitation-status">{invite.status || "wants to connect"}</div>
+                        <div className="friend-invitation-status">{invite.status || t("friends.wantsToConnect")}</div>
                       </div>
                       <div className="friend-invitation-actions">
                         <button
@@ -3052,7 +3054,7 @@ export default function FriendsPage() {
                           style={{ padding: "4px 8px", fontSize: "11px", marginRight: "4px" }}
                           onClick={() => handleAcceptInvitation(invite)}
                         >
-                          Confirm
+                          {t("common.confirm")}
                         </button>
                         <button
                           type="button"
@@ -3060,7 +3062,7 @@ export default function FriendsPage() {
                           style={{ padding: "4px 8px", fontSize: "11px" }}
                           onClick={() => handleDenyInvitation(invite.syncId)}
                         >
-                          Deny
+                          {t("friends.deny")}
                         </button>
                       </div>
                     </div>
@@ -3070,8 +3072,8 @@ export default function FriendsPage() {
             )}
 
             <PageHeader
-              eyebrow="Your crew"
-              title={`My Friends (${friends.length})`}
+              eyebrow={t("friends.eyebrow")}
+              title={`${t("friends.myFriends")} (${friends.length})`}
               actions={
                 <>
                   <Button
@@ -3083,7 +3085,7 @@ export default function FriendsPage() {
                     }}
                     disabled={friends.length === 0}
                   >
-                    {selectMode ? "Cancel" : "Select"}
+                    {selectMode ? t("common.cancel") : t("common.select")}
                   </Button>
                   <Button
                     variant="secondary"
@@ -3093,10 +3095,10 @@ export default function FriendsPage() {
                       localStorage.setItem("gamelib.friends.density", next);
                     }}
                   >
-                    {friendDensity === "grid" ? "List view" : "Grid view"}
+                    {friendDensity === "grid" ? t("friends.listView") : t("friends.gridView")}
                   </Button>
                   <Button variant="primary" onClick={() => setShowAddModal(true)}>
-                    Add Friend
+                    {t("friends.addFriend")}
                   </Button>
                 </>
               }
@@ -3104,12 +3106,12 @@ export default function FriendsPage() {
 
             {selectMode && (
               <div className="friends-bulk-bar">
-                <span className="friends-bulk-count">{selectedFriendIds.length} selected</span>
+                <span className="friends-bulk-count">{t("store.bulk.selected", { count: selectedFriendIds.length })}</span>
                 <div className="friends-bulk-actions">
-                  <button type="button" className="btn btn-secondary" onClick={handleBulkPin} disabled={selectedFriendIds.length === 0}>Pin</button>
-                  <button type="button" className="btn btn-secondary" onClick={handleBulkUnpin} disabled={selectedFriendIds.length === 0}>Unpin</button>
-                  <button type="button" className="btn btn-secondary" onClick={handleBulkBlock} disabled={selectedFriendIds.length === 0}>Block</button>
-                  <button type="button" className="btn btn-secondary friend-bulk-remove" onClick={handleBulkRemove} disabled={selectedFriendIds.length === 0}>Remove</button>
+                  <button type="button" className="btn btn-secondary" onClick={handleBulkPin} disabled={selectedFriendIds.length === 0}>{t("friends.pin")}</button>
+                  <button type="button" className="btn btn-secondary" onClick={handleBulkUnpin} disabled={selectedFriendIds.length === 0}>{t("friends.unpin")}</button>
+                  <button type="button" className="btn btn-secondary" onClick={handleBulkBlock} disabled={selectedFriendIds.length === 0}>{t("friends.block")}</button>
+                  <button type="button" className="btn btn-secondary friend-bulk-remove" onClick={handleBulkRemove} disabled={selectedFriendIds.length === 0}>{t("common.remove")}</button>
                 </div>
               </div>
             )}
@@ -3124,17 +3126,16 @@ export default function FriendsPage() {
                     <path d="M16 3.13a4 4 0 0 1 0 7.75" />
                   </svg>
                 </div>
-                <h3 className="friends-empty-title">No Friends Yet</h3>
+                <h3 className="friends-empty-title">{t("friends.noFriends")}</h3>
                 <p className="friends-empty-desc">
-                  Your friends list is currently empty. Go to 'My Profile' to copy your Public Key,
-                  or ask a friend for their public key to get connected!
+                  {t("friends.noFriendsDesc")}
                 </p>
                 <button
                   type="button"
                   className="btn btn-primary"
                   onClick={() => setShowAddModal(true)}
                 >
-                  Add Friend
+                  {t("friends.addFriend")}
                 </button>
               </div>
             ) : (
@@ -3145,17 +3146,17 @@ export default function FriendsPage() {
                     <input
                       type="text"
                       className="friends-search-input"
-                      placeholder="Search friends or favorite games..."
+                      placeholder={t("friends.searchPlaceholder")}
                       value={friendSearch}
                       onChange={(e) => setFriendSearch(e.target.value)}
-                      aria-label="Search friends"
+                      aria-label={t("friends.searchAria")}
                     />
                     {friendSearch && (
                       <button
                         type="button"
                         className="friends-search-clear"
                         onClick={() => setFriendSearch("")}
-                        title="Clear search"
+                        title={t("friends.clearSearch")}
                       >
                         ×
                       </button>
@@ -3168,21 +3169,21 @@ export default function FriendsPage() {
                       className={`compare-filter-chip${friendFilter === "all" ? " active" : ""}`}
                       onClick={() => setFriendFilter("all")}
                     >
-                      All ({friends.length})
+                      {t("friends.filterAll")} ({friends.length})
                     </button>
                     <button
                       type="button"
                       className={`compare-filter-chip${friendFilter === "online" ? " active" : ""}`}
                       onClick={() => setFriendFilter("online")}
                     >
-                      Online ({friends.filter(isOnline).length})
+                      {t("friends.filterOnline")} ({friends.filter(isOnline).length})
                     </button>
                     <button
                       type="button"
                       className={`compare-filter-chip${friendFilter === "pinned" ? " active" : ""}`}
                       onClick={() => setFriendFilter("pinned")}
                     >
-                      Pinned ({friends.filter((f) => f.pinned).length})
+                      {t("friends.filterPinned")} ({friends.filter((f) => f.pinned).length})
                     </button>
                   </div>
 
@@ -3192,16 +3193,16 @@ export default function FriendsPage() {
                     onChange={(e) => setFriendSort(e.target.value as any)}
                     aria-label="Sort friends"
                   >
-                    <option value="default">Pinned first</option>
-                    <option value="name">Name (A–Z)</option>
-                    <option value="recent">Recently added</option>
-                    <option value="online">Online first</option>
+                    <option value="default">{t("friends.sort.pinned")}</option>
+                    <option value="name">{t("friends.sort.name")}</option>
+                    <option value="recent">{t("friends.sort.recent")}</option>
+                    <option value="online">{t("friends.sort.online")}</option>
                   </select>
                 </div>
 
                 {visibleFriends.length === 0 ? (
                   <div className="game-search-no-results" style={{ padding: "40px" }}>
-                    <div>No friends match your search or filter.</div>
+                    <div>{t("friends.noMatch")}</div>
                     <button
                       type="button"
                       className="btn btn-secondary"
@@ -3211,7 +3212,7 @@ export default function FriendsPage() {
                         setFriendFilter("all");
                       }}
                     >
-                      Clear filters
+                      {t("friends.clearFilters")}
                     </button>
                   </div>
                 ) : (
@@ -3317,7 +3318,7 @@ export default function FriendsPage() {
                                 title={`Compare libraries with ${displayName(friend)}`}
                                 onClick={() => handleCompareFromCard(friend)}
                               >
-                                Compare
+                                {t("friends.compare")}
                               </button>
                               <button
                                 type="button"
@@ -3325,7 +3326,7 @@ export default function FriendsPage() {
                                 title={`Invite ${displayName(friend)} to a session`}
                                 onClick={() => handleInviteToSession(friend)}
                               >
-                                Invite
+                                {t("friends.invite")}
                               </button>
                               <button
                                 type="button"
@@ -3333,7 +3334,7 @@ export default function FriendsPage() {
                                 title={`Message ${displayName(friend)}`}
                                 onClick={() => handleMessageFriend(friend)}
                               >
-                                Message
+                                {t("friends.message")}
                               </button>
                               <button
                                 type="button"
@@ -5040,9 +5041,9 @@ export default function FriendsPage() {
             className="friends-modal-content"
             onClick={(e) => e.stopPropagation()}
           >
-            <h3 className="friends-modal-title">Add a Friend</h3>
+            <h3 className="friends-modal-title">{t("friends.addFriend")}</h3>
             <p className="friends-modal-desc">
-              Paste your friend's GameIndex Public Key below.
+              {t("friends.addFriendDesc")}
             </p>
             <button
               type="button"
@@ -5063,7 +5064,7 @@ export default function FriendsPage() {
                   className="friends-textarea"
                   value={friendCodeInput}
                   onChange={(e) => setFriendCodeInput(e.target.value)}
-                  placeholder="Paste public key here..."
+                  placeholder={t("friends.publicKeyPlaceholder")}
                 />
               </div>
 
@@ -5108,7 +5109,7 @@ export default function FriendsPage() {
                 className="btn btn-secondary"
                 onClick={() => setShowAddModal(false)}
               >
-                Cancel
+                {t("common.cancel")}
               </button>
               <button
                 type="button"
@@ -5116,7 +5117,7 @@ export default function FriendsPage() {
                 onClick={handleAddFriend}
                 disabled={!decodedFriend}
               >
-                Add Friend
+                {t("friends.addFriend")}
               </button>
             </div>
           </div>
@@ -5131,9 +5132,9 @@ export default function FriendsPage() {
             onClick={(e) => e.stopPropagation()}
             style={{ maxWidth: "480px" }}
           >
-            <h3 className="friends-modal-title">Nostr Relay Sync</h3>
+            <h3 className="friends-modal-title">{t("friends.p2p.title")}</h3>
             <p className="friends-modal-desc">
-              GameLib synchronizes sessions and recommendations with your friends automatically in the background using secure, public Nostr relays.
+              {t("friends.p2p.desc")}
             </p>
             <button
               type="button"
@@ -5149,21 +5150,21 @@ export default function FriendsPage() {
             <div className="friends-modal-body p2p-modal-body p2p-modal-flex">
               <div className="p2p-status-card">
                 <div className="p2p-status-row">
-                  <span className="p2p-status-label">Nostr Connection</span>
+                  <span className="p2p-status-label">{t("friends.p2p.connection")}</span>
                   <span className="p2p-status-badge online">
-                    CONNECTED
+                    {t("friends.p2p.connected")}
                   </span>
                 </div>
 
                 <div className="p2p-status-details">
                   <div className="p2p-detail-row">
-                    <span className="p2p-detail-key">My Public Key:</span>
+                    <span className="p2p-detail-key">{t("friends.p2p.myKey")}</span>
                     <span className="p2p-detail-val" style={{ fontFamily: "monospace", fontSize: "11px", wordBreak: "break-all", color: "var(--color-accent)" }}>
                       {getNostrKeys().publicKey}
                     </span>
                   </div>
                   <div className="p2p-detail-row">
-                    <span className="p2p-detail-key">Active Relays:</span>
+                    <span className="p2p-detail-key">{t("friends.p2p.relays")}</span>
                     <div className="p2p-detail-val" style={{ display: "flex", flexDirection: "column", gap: "2px", fontSize: "10px", marginTop: "4px" }}>
                       {nostrRelays.map((r) => (
                         <span key={r}>🟢 {r}</span>
@@ -5174,11 +5175,11 @@ export default function FriendsPage() {
               </div>
 
               <div className="p2p-friend-sync-block">
-                <h4 className="p2p-section-title">Subscribed Friends ({friends.filter((f) => /^[0-9a-fA-F]{64}$/.test(f.syncId)).length})</h4>
+                <h4 className="p2p-section-title">{t("friends.p2p.subscribed", { count: friends.filter((f) => /^[0-9a-fA-F]{64}$/.test(f.syncId)).length })}</h4>
                 <div className="p2p-friend-list">
                   {friends.length === 0 ? (
                     <div className="p2p-empty-note">
-                      No friends added yet. Share your public key to start syncing!
+                      {t("friends.p2p.noFriends")}
                     </div>
                   ) : (
                     friends.map((friend) => (
@@ -5194,9 +5195,9 @@ export default function FriendsPage() {
               </div>
 
               <div className="p2p-sync-log-block">
-                <h4 className="p2p-section-title">Recent Sync Activity</h4>
+                <h4 className="p2p-section-title">{t("friends.p2p.syncActivity")}</h4>
                 {syncLog.length === 0 ? (
-                  <div className="p2p-empty-note">No sync activity yet.</div>
+                  <div className="p2p-empty-note">{t("friends.p2p.noActivity")}</div>
                 ) : (
                   <div className="p2p-sync-log">
                     {syncLog.map((entry, i) => (
@@ -5225,7 +5226,7 @@ export default function FriendsPage() {
                   performSync(true);
                 }}
               >
-                🔄 Sync Now
+                🔄 {t("friends.syncNow")}
               </button>
             </div>
 
@@ -5235,7 +5236,7 @@ export default function FriendsPage() {
                 className="btn btn-secondary"
                 onClick={() => setShowP2pModal(false)}
               >
-                Close
+                {t("friends.p2p.close")}
               </button>
             </div>
           </div>

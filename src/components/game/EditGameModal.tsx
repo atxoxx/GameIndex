@@ -3,6 +3,7 @@ import { invoke } from "@tauri-apps/api/core";
 import { open } from "@tauri-apps/plugin-dialog";
 import { useGames } from "../../context/GameContext";
 import { useToast } from "../../context/ToastContext";
+import { useLanguage } from "../../context/LanguageContext";
 import { useSizeUnit } from "../../hooks/useSizeUnit";
 import {
   type Game,
@@ -41,6 +42,7 @@ export function EditGameModal({ game, onClose }: EditGameModalProps) {
   const { showToast } = useToast();
   const { updateGame } = useGames();
   const { unit: sizeUnit } = useSizeUnit();
+  const { t } = useLanguage();
 
   const [editTab, setEditTab] = useState<EditTab>("details");
 
@@ -580,10 +582,10 @@ export function EditGameModal({ game, onClose }: EditGameModalProps) {
   }
 
   const tabs: { key: EditTab; label: string; icon: ReactNode }[] = [
-    { key: "details", label: "Details", icon: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" /><polyline points="14 2 14 8 20 8" /><line x1="16" y1="13" x2="8" y2="13" /><line x1="16" y1="17" x2="8" y2="17" /><line x1="10" y1="9" x2="8" y2="9" /></svg> },
-    { key: "media", label: "Media & Images", icon: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2" /><circle cx="8.5" cy="8.5" r="1.5" /><polyline points="21 15 16 10 5 21" /></svg> },
-    { key: "advanced", label: "Advanced", icon: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="3" /><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z" /></svg> },
-    { key: "launch", label: "Launch", icon: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polygon points="5 3 19 12 5 21 5 3" /></svg> },
+    { key: "details", label: t("edit.tab.details"), icon: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" /><polyline points="14 2 14 8 20 8" /><line x1="16" y1="13" x2="8" y2="13" /><line x1="16" y1="17" x2="8" y2="17" /><line x1="10" y1="9" x2="8" y2="9" /></svg> },
+    { key: "media", label: t("edit.tab.media"), icon: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2" /><circle cx="8.5" cy="8.5" r="1.5" /><polyline points="21 15 16 10 5 21" /></svg> },
+    { key: "advanced", label: t("edit.tab.advanced"), icon: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="3" /><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z" /></svg> },
+    { key: "launch", label: t("edit.tab.launch"), icon: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polygon points="5 3 19 12 5 21 5 3" /></svg> },
   ];
 
   return (
@@ -622,7 +624,7 @@ export function EditGameModal({ game, onClose }: EditGameModalProps) {
                 ) : undefined
               }
             >
-              {fetchingMetadata ? "Searching..." : "Fetch Metadata"}
+              {fetchingMetadata ? t("edit.searching") : t("edit.fetchMetadata")}
             </Button>
             <button className="metadata-panel-close" onClick={onClose} aria-label="Close">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" /></svg>
@@ -656,7 +658,7 @@ export function EditGameModal({ game, onClose }: EditGameModalProps) {
                   <div className="metadata-panel-header">
                     <h3>
                       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="11" cy="11" r="8" /><line x1="21" y1="21" x2="16.65" y2="16.65" /></svg>
-                      Metadata Search Results
+                      {t("edit.metadataSearchResults")}
                     </h3>
                     <button className="metadata-panel-close" onClick={() => setShowMetadataPanel(false)} aria-label="Close results">
                       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" /></svg>
@@ -668,7 +670,7 @@ export function EditGameModal({ game, onClose }: EditGameModalProps) {
                     ) : metadataResults.length === 0 ? (
                       <div className="metadata-empty">
                         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5"><circle cx="11" cy="11" r="8" /><line x1="21" y1="21" x2="16.65" y2="16.65" /></svg>
-                        <p>No results found. Try a different search term or edit the game name.</p>
+                        <p>{t("edit.noResults")}</p>
                       </div>
                     ) : (
                       <div className="metadata-results">
@@ -693,7 +695,7 @@ export function EditGameModal({ game, onClose }: EditGameModalProps) {
                             <Button variant="primary" size="sm" disabled={applyingMetadata} isLoading={applyingMetadata} onClick={() => handleApplyMetadata(result)}
                               leftIcon={!applyingMetadata ? (<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12" /></svg>) : undefined}
                             >
-                              Apply Metadata
+                              {t("edit.applyMetadata")}
                             </Button>
                           </div>
                         ))}
@@ -704,14 +706,14 @@ export function EditGameModal({ game, onClose }: EditGameModalProps) {
               )}
 
               <fieldset className="edit-fieldset">
-                <legend className="edit-fieldset-legend">Core Identity</legend>
+                <legend className="edit-fieldset-legend">{t("edit.coreIdentity")}</legend>
                 <div className="edit-form-grid">
                   <div className="edit-field">
-                    <label className="edit-label" htmlFor="edit-name">Name</label>
+                    <label className="edit-label" htmlFor="edit-name">{t("edit.label.name")}</label>
                     <input id="edit-name" className="edit-input" type="text" value={editName} onChange={(e) => setEditName(e.target.value)} placeholder="Game name" />
                   </div>
                   <div className="edit-field">
-                    <label className="edit-label" htmlFor="edit-play-status">Play Status</label>
+                    <label className="edit-label" htmlFor="edit-play-status">{t("edit.label.playStatus")}</label>
                     <select id="edit-play-status" className="edit-input" value={editPlayStatus} onChange={(e) => setEditPlayStatus(e.target.value as PlayStatus)}>
                       {Object.entries(PLAY_STATUS_DETAILS).map(([key, details]) => (
                         <option key={key} value={key}>{details.label}</option>
@@ -719,108 +721,108 @@ export function EditGameModal({ game, onClose }: EditGameModalProps) {
                     </select>
                   </div>
                   <div className="edit-field">
-                    <label className="edit-label" htmlFor="edit-platform">Platform</label>
+                    <label className="edit-label" htmlFor="edit-platform">{t("edit.label.platform")}</label>
                     <input id="edit-platform" className="edit-input" type="text" value={editPlatform} onChange={(e) => setEditPlatform(e.target.value)} placeholder="e.g., Steam, GOG, Local" />
                   </div>
                   <div className="edit-field">
-                    <label className="edit-label" htmlFor="edit-developer">Developer</label>
+                    <label className="edit-label" htmlFor="edit-developer">{t("edit.label.developer")}</label>
                     <input id="edit-developer" className="edit-input" type="text" value={editDeveloper} onChange={(e) => setEditDeveloper(e.target.value)} placeholder="Developer name" />
                   </div>
                   <div className="edit-field">
-                    <label className="edit-label" htmlFor="edit-publisher">Publisher</label>
+                    <label className="edit-label" htmlFor="edit-publisher">{t("edit.label.publisher")}</label>
                     <input id="edit-publisher" className="edit-input" type="text" value={editPublisher} onChange={(e) => setEditPublisher(e.target.value)} placeholder="Publisher name" />
                   </div>
                   <div className="edit-field">
-                    <label className="edit-label" htmlFor="edit-release-date">Release Date</label>
+                    <label className="edit-label" htmlFor="edit-release-date">{t("edit.label.releaseDate")}</label>
                     <input id="edit-release-date" className="edit-input" type="text" value={editReleaseDate} onChange={(e) => setEditReleaseDate(e.target.value)} placeholder="e.g., YYYY-MM-DD" />
                   </div>
                 </div>
                 <div className="edit-field full-width" style={{ marginTop: "var(--space-md)" }}>
-                  <label className="edit-label" htmlFor="edit-description">Description</label>
+                  <label className="edit-label" htmlFor="edit-description">{t("edit.label.description")}</label>
                   <textarea id="edit-description" className="edit-input edit-textarea" value={editDescription} onChange={(e) => setEditDescription(e.target.value)} placeholder="Short description or summary..." rows={3} />
                 </div>
               </fieldset>
 
               <fieldset className="edit-fieldset">
-                <legend className="edit-fieldset-legend">Ratings &amp; Engagement</legend>
+                <legend className="edit-fieldset-legend">{t("edit.ratings")}</legend>
                 <div className="edit-form-grid">
                   <div className="edit-field">
-                    <label className="edit-label" htmlFor="edit-igdb-rating">IGDB User Rating</label>
+                    <label className="edit-label" htmlFor="edit-igdb-rating">{t("edit.label.igdbRating")}</label>
                     <input id="edit-igdb-rating" className="edit-input" type="number" min={0} max={100} value={editIgdbRating || ""} onChange={(e) => setEditIgdbRating(Number(e.target.value))} placeholder="0-100" />
                   </div>
                   <div className="edit-field">
-                    <label className="edit-label" htmlFor="edit-critic-rating">IGDB Critic Rating</label>
+                    <label className="edit-label" htmlFor="edit-critic-rating">{t("edit.label.criticRating")}</label>
                     <input id="edit-critic-rating" className="edit-input" type="number" min={0} max={100} value={editCriticRating || ""} onChange={(e) => setEditCriticRating(Number(e.target.value))} placeholder="0-100" />
                   </div>
                 </div>
                 <div className="edit-form-grid" style={{ marginTop: "var(--space-md)" }}>
                   <div className="edit-field">
-                    <label className="edit-label" htmlFor="edit-genres">Genres</label>
+                    <label className="edit-label" htmlFor="edit-genres">{t("edit.label.genres")}</label>
                     <TagInput id="edit-genres" value={editGenres} onChange={setEditGenres} placeholder="Add a genre, press Enter" suggestions={GENRE_SUGGESTIONS} ariaLabel="Genres" />
                   </div>
                   <div className="edit-field">
-                    <label className="edit-label" htmlFor="edit-themes">Themes</label>
+                    <label className="edit-label" htmlFor="edit-themes">{t("edit.label.themes")}</label>
                     <TagInput id="edit-themes" value={editThemes} onChange={setEditThemes} placeholder="Add a theme, press Enter" suggestions={THEME_SUGGESTIONS} ariaLabel="Themes" />
                   </div>
                   <div className="edit-field">
-                    <label className="edit-label" htmlFor="edit-modes">Game Modes</label>
+                    <label className="edit-label" htmlFor="edit-modes">{t("edit.label.gameModes")}</label>
                     <TagInput id="edit-modes" value={editGameModes} onChange={setEditGameModes} placeholder="Add a mode, press Enter" suggestions={MODE_SUGGESTIONS} ariaLabel="Game Modes" />
                   </div>
                   <div className="edit-field">
-                    <label className="edit-label" htmlFor="edit-perspectives">Player Perspectives</label>
+                    <label className="edit-label" htmlFor="edit-perspectives">{t("edit.label.perspectives")}</label>
                     <TagInput id="edit-perspectives" value={editPlayerPerspectives} onChange={setEditPlayerPerspectives} placeholder="Add a perspective, press Enter" suggestions={PERSPECTIVE_SUGGESTIONS} ariaLabel="Player Perspectives" />
                   </div>
                 </div>
                 <div className="edit-form-grid" style={{ marginTop: "var(--space-md)" }}>
                   <div className="edit-field">
-                    <label className="edit-label" htmlFor="edit-hltb-main">HLTB Main (h)</label>
+                    <label className="edit-label" htmlFor="edit-hltb-main">{t("edit.label.hltbMain")}</label>
                     <input id="edit-hltb-main" className="edit-input" type="number" min={0} value={editTimeToBeatMain || ""} onChange={(e) => setEditTimeToBeatMain(Number(e.target.value))} placeholder="Hours" />
                   </div>
                   <div className="edit-field">
-                    <label className="edit-label" htmlFor="edit-hltb-extra">HLTB Extra (h)</label>
+                    <label className="edit-label" htmlFor="edit-hltb-extra">{t("edit.label.hltbExtra")}</label>
                     <input id="edit-hltb-extra" className="edit-input" type="number" min={0} value={editTimeToBeatExtra || ""} onChange={(e) => setEditTimeToBeatExtra(Number(e.target.value))} placeholder="Hours" />
                   </div>
                   <div className="edit-field">
-                    <label className="edit-label" htmlFor="edit-hltb-comple">HLTB Completionist (h)</label>
+                    <label className="edit-label" htmlFor="edit-hltb-comple">{t("edit.label.hltbComple")}</label>
                     <input id="edit-hltb-comple" className="edit-input" type="number" min={0} value={editTimeToBeatComple || ""} onChange={(e) => setEditTimeToBeatComple(Number(e.target.value))} placeholder="Hours" />
                   </div>
                 </div>
               </fieldset>
 
               <fieldset className="edit-fieldset">
-                <legend className="edit-fieldset-legend">Catalog &amp; Tagging</legend>
+                <legend className="edit-fieldset-legend">{t("edit.catalog")}</legend>
                 <div className="edit-form-grid">
                   <div className="edit-field">
-                    <label className="edit-label" htmlFor="edit-collection">Series</label>
+                    <label className="edit-label" htmlFor="edit-collection">{t("edit.label.series")}</label>
                     <input id="edit-collection" className="edit-input" type="text" value={editCollection} onChange={(e) => setEditCollection(e.target.value)} placeholder="Series or Collection" />
                   </div>
                   <div className="edit-field">
-                    <label className="edit-label" htmlFor="edit-franchise">Franchise</label>
+                    <label className="edit-label" htmlFor="edit-franchise">{t("edit.label.franchise")}</label>
                     <input id="edit-franchise" className="edit-input" type="text" value={editFranchise} onChange={(e) => setEditFranchise(e.target.value)} placeholder="Franchise name" />
                   </div>
                   <div className="edit-field">
-                    <label className="edit-label" htmlFor="edit-game-category">Game Type</label>
+                    <label className="edit-label" htmlFor="edit-game-category">{t("edit.label.gameType")}</label>
                     <input id="edit-game-category" className="edit-input" type="text" value={editGameCategory} onChange={(e) => setEditGameCategory(e.target.value)} placeholder="e.g. Main Game, Expansion" />
                   </div>
                   <div className="edit-field">
-                    <label className="edit-label" htmlFor="edit-release-status">Release Status</label>
+                    <label className="edit-label" htmlFor="edit-release-status">{t("edit.label.releaseStatus")}</label>
                     <input id="edit-release-status" className="edit-input" type="text" value={editReleaseStatus} onChange={(e) => setEditReleaseStatus(e.target.value)} placeholder="e.g. Released, Alpha" />
                   </div>
                 </div>
                 <div className="edit-field full-width" style={{ marginTop: "var(--space-md)" }}>
-                  <label className="edit-label" htmlFor="edit-similar-games">Similar Games</label>
+                  <label className="edit-label" htmlFor="edit-similar-games">{t("edit.label.similarGames")}</label>
                   <TagInput id="edit-similar-games" value={editSimilarGamesNames} onChange={setEditSimilarGamesNames} placeholder="Add a similar game, press Enter" ariaLabel="Similar Games" />
                 </div>
                 <div className="edit-field full-width" style={{ marginTop: "var(--space-md)" }}>
-                  <label className="edit-label" htmlFor="edit-alternative-names">Alternative Names</label>
+                  <label className="edit-label" htmlFor="edit-alternative-names">{t("edit.label.alternativeNames")}</label>
                   <TagInput id="edit-alternative-names" value={editAlternativeNames} onChange={setEditAlternativeNames} placeholder="Add an alias, press Enter" ariaLabel="Alternative Names" />
                 </div>
                 <div className="edit-field full-width" style={{ marginTop: "var(--space-md)" }}>
-                  <label className="edit-label" htmlFor="edit-storyline">Storyline</label>
+                  <label className="edit-label" htmlFor="edit-storyline">{t("edit.label.storyline")}</label>
                   <textarea id="edit-storyline" className="edit-input edit-textarea" value={editStoryline} onChange={(e) => setEditStoryline(e.target.value)} placeholder="Deep storyline/narrative summary..." rows={3} />
                 </div>
                 <div className="edit-field full-width" style={{ marginTop: "var(--space-md)" }}>
-                  <label className="edit-label" htmlFor="edit-notes">Notes</label>
+                  <label className="edit-label" htmlFor="edit-notes">{t("edit.label.notes")}</label>
                   <textarea id="edit-notes" className="edit-input edit-textarea" value={editNotes} onChange={(e) => setEditNotes(e.target.value)} placeholder="Personal notes about this game..." rows={3} />
                 </div>
               </fieldset>
@@ -832,20 +834,20 @@ export function EditGameModal({ game, onClose }: EditGameModalProps) {
             <div className="edit-form">
               <h4 className="edit-modal-section-title">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2" /><circle cx="8.5" cy="8.5" r="1.5" /><polyline points="21 15 16 10 5 21" /></svg>
-                Images
+                {t("edit.images")}
               </h4>
               <div className="edit-images-grid">
-                <EditImageSlot label="Icon" subtitle="Sidebar" imageUrl={editIcon} previewSize={{ w: 64, h: 64 }} isFetching={fetchingImageKey === "icon"} onChooseFile={() => handlePickImage("icon")} onFetchWeb={() => handleFetchImage("icon")} onRemove={() => handleRemoveImage("icon")} />
-                <EditImageSlot label="Cover Art" subtitle="Library cards" imageUrl={editCover} previewSize={{ w: 120, h: 160 }} isFetching={fetchingImageKey === "cover"} onChooseFile={() => handlePickImage("cover")} onFetchWeb={() => handleFetchImage("cover")} onRemove={() => handleRemoveImage("cover")} />
-                <EditImageSlot label="Hero Banner" subtitle="Game page top" imageUrl={editHero} previewSize={{ w: 240, h: 100 }} isFetching={fetchingImageKey === "hero"} onChooseFile={() => handlePickImage("hero")} onFetchWeb={() => handleFetchImage("hero")} onRemove={() => handleRemoveImage("hero")} />
-                <EditImageSlot label="Logo" subtitle="Title image" imageUrl={editLogo} previewSize={{ w: 200, h: 60 }} isFetching={fetchingImageKey === "logo"} onChooseFile={() => handlePickImage("logo")} onFetchWeb={() => handleFetchImage("logo")} onRemove={() => handleRemoveImage("logo")} />
+                <EditImageSlot label={t("edit.label.icon")} subtitle={t("edit.label.sidebar")} imageUrl={editIcon} previewSize={{ w: 64, h: 64 }} isFetching={fetchingImageKey === "icon"} onChooseFile={() => handlePickImage("icon")} onFetchWeb={() => handleFetchImage("icon")} onRemove={() => handleRemoveImage("icon")} />
+                <EditImageSlot label={t("edit.label.cover")} subtitle={t("edit.label.libraryCards")} imageUrl={editCover} previewSize={{ w: 120, h: 160 }} isFetching={fetchingImageKey === "cover"} onChooseFile={() => handlePickImage("cover")} onFetchWeb={() => handleFetchImage("cover")} onRemove={() => handleRemoveImage("cover")} />
+                <EditImageSlot label={t("edit.label.hero")} subtitle={t("edit.label.gamePageTop")} imageUrl={editHero} previewSize={{ w: 240, h: 100 }} isFetching={fetchingImageKey === "hero"} onChooseFile={() => handlePickImage("hero")} onFetchWeb={() => handleFetchImage("hero")} onRemove={() => handleRemoveImage("hero")} />
+                <EditImageSlot label={t("edit.label.logo")} subtitle={t("edit.label.titleImage")} imageUrl={editLogo} previewSize={{ w: 200, h: 60 }} isFetching={fetchingImageKey === "logo"} onChooseFile={() => handlePickImage("logo")} onFetchWeb={() => handleFetchImage("logo")} onRemove={() => handleRemoveImage("logo")} />
               </div>
               <div className="edit-media-browser-row">
                 <Button variant="secondary" size="sm" onClick={handleOpenImageBrowser} leftIcon={<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="2" y="2" width="20" height="20" rx="2" /><path d="M7 2v20" /><path d="M2 12h5" /></svg>}>
-                  Browse LaunchBox Images
+                  {t("edit.browseLaunchBox")}
                 </Button>
                 <Button variant="secondary" size="sm" onClick={() => setShowIgdbMediaBrowser(true)} leftIcon={<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ color: "var(--color-accent)" }}><polygon points="23 7 16 12 23 17 23 7" /><rect x="1" y="5" width="15" height="14" rx="2" ry="2" /></svg>}>
-                  Browse IGDB Media
+                  {t("edit.browseIgdb")}
                 </Button>
               </div>
 
@@ -857,8 +859,8 @@ export function EditGameModal({ game, onClose }: EditGameModalProps) {
                 emptyText="No screenshots yet."
                 primaryActions={(url) => (
                   <>
-                    <button className="lb-apply-btn" onClick={() => handleApplyIgdbImage(url, "cover")} disabled={fetchingImageKey !== null}>Set as Cover</button>
-                    <button className="lb-apply-btn" onClick={() => handleApplyIgdbImage(url, "hero")} disabled={fetchingImageKey !== null}>Set as Hero</button>
+                    <button className="lb-apply-btn" onClick={() => handleApplyIgdbImage(url, "cover")} disabled={fetchingImageKey !== null}>{t("edit.setAsCover")}</button>
+                    <button className="lb-apply-btn" onClick={() => handleApplyIgdbImage(url, "hero")} disabled={fetchingImageKey !== null}>{t("edit.setAsHero")}</button>
                   </>
                 )}
               />
@@ -892,15 +894,15 @@ export function EditGameModal({ game, onClose }: EditGameModalProps) {
                 <label className="edit-label">Size</label>
                 <div className="size-edit-row">
                   <input className="edit-input size-readonly" type="text" readOnly value={editSizeBytes != null ? formatSize(editSizeBytes, sizeUnit) : "Not set"} placeholder="Not set" />
-                  <button type="button" className="edit-btn edit-btn-secondary" onClick={openFolderAndDetectSize} disabled={detectingSize}>{detectingSize ? "Detecting..." : "Auto-detect"}</button>
-                  <button type="button" className="edit-btn edit-btn-ghost" onClick={clearSize} disabled={editSizeBytes == null}>Clear</button>
+                  <button type="button" className="edit-btn edit-btn-secondary" onClick={openFolderAndDetectSize} disabled={detectingSize}>{detectingSize ? t("community.detecting") : t("edit.autoDetect")}</button>
+                  <button type="button" className="edit-btn edit-btn-ghost" onClick={clearSize} disabled={editSizeBytes == null}>{t("common.clear")}</button>
                 </div>
                 {editSizeRootPath && <span className="size-edit-hint" title={editSizeRootPath}>{editSizeRootPath}</span>}
               </div>
 
               <div className="edit-form-grid">
                 <div className="edit-field">
-                  <label className="edit-label" htmlFor="edit-metadata-source">Metadata Source</label>
+                  <label className="edit-label" htmlFor="edit-metadata-source">{t("edit.label.metadataSource")}</label>
                   <input id="edit-metadata-source" className="edit-input" type="text" value={editMetadataSource} onChange={(e) => setEditMetadataSource(e.target.value)} placeholder="e.g., IGDB, Steam" />
                 </div>
                 <div className="edit-field">
@@ -1077,8 +1079,8 @@ export function EditGameModal({ game, onClose }: EditGameModalProps) {
             {editTab === "launch" && "How this game launches"}
           </span>
           <div className="modal-footer-actions">
-            <Button variant="secondary" onClick={onClose}>Cancel</Button>
-            <Button variant="primary" onClick={saveEdits}>Save Changes</Button>
+            <Button variant="secondary" onClick={onClose}>{t("common.cancel")}</Button>
+            <Button variant="primary" onClick={saveEdits}>{t("edit.saveChanges")}</Button>
           </div>
         </div>
       </div>

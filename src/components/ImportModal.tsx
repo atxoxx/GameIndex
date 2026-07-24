@@ -3,6 +3,7 @@ import { createPortal } from "react-dom";
 import { invoke } from "@tauri-apps/api/core";
 import { gameNameFromPath } from "../types/game";
 import { Button } from "./ui";
+import { useLanguage } from "../context/LanguageContext";
 import type { GameMetadataResult, StoreGameSummary } from "../types/game";
 
 export interface ExeInfo {
@@ -171,6 +172,7 @@ export default function ImportModal({
   onConfirm,
   onCancel,
 }: ImportModalProps) {
+  const { t } = useLanguage();
   // Group executables by their detected game folder.
   const groups = useMemo(
     () => (rootPath ? groupExes(exeInfos, rootPath) : []),
@@ -424,9 +426,12 @@ export default function ImportModal({
         i++;
         const fileName = g.folderName;
         setImportProgress(
-          `Processing "${fileName}" (${i} of ${selectedGroups.length}${
-            selectedExtraPaths.size ? ` + ${selectedExtraPaths.size} extra` : ""
-          })...`
+          t("import.processing", {
+            name: fileName,
+            i,
+            total: selectedGroups.length,
+            extra: selectedExtraPaths.size ? ` + ${selectedExtraPaths.size} extra` : "",
+          })
         );
         seen.add(path);
         importResults.push(await buildImportForPath(path));
@@ -470,7 +475,7 @@ export default function ImportModal({
           <div className="import-progress-overlay">
             <div className="import-progress-card">
               <div className="import-spinner" />
-              <h3>Importing Games</h3>
+              <h3>{t("import.importing")}</h3>
               <p className="import-progress-status">{importProgress}</p>
             </div>
           </div>
@@ -493,17 +498,17 @@ export default function ImportModal({
           <div className="modal-header-text">
             <h2 className="modal-title">
               {showGroups
-                ? `Found ${groups.length} Game${groups.length !== 1 ? "s" : ""} in Folder`
+                ? t("import.title.multi", { count: groups.length })
                 : exeInfos.length > 1
-                ? "Scan & Link Games to Import"
-                : "Import Game Executable"}
+                ? t("import.title.scan")
+                : t("import.title.single")}
             </h2>
             <p className="modal-subtitle">
               {showGroups
-                ? "We detected a game in each folder and highlighted its most likely main executable. Review the suggestion or pick a different one for any game."
+                ? t("import.subtitle.multi")
                 : exeInfos.length > 1
-                ? `Found ${exeInfos.length} executables. Link them with IGDB for rich metadata.`
-                : "Select a game from IGDB to link with your local executable."}
+                ? t("import.subtitle.scan", { count: exeInfos.length })
+                : t("import.subtitle.single")}
             </p>
           </div>
         </div>
@@ -515,11 +520,7 @@ export default function ImportModal({
               <line x1="12" y1="16" x2="12" y2="12" />
               <line x1="12" y1="8" x2="12.01" y2="8" />
             </svg>
-            <span>
-              Executables are grouped by their game folder. The <strong>suggested</strong>{" "}
-              executable is auto-selected as the main game — uncheck games you don't want, or
-              click <strong>Make main</strong> on another executable to change it.
-            </span>
+            <span>{t("import.banner")}</span>
           </div>
         )}
 
@@ -536,7 +537,7 @@ export default function ImportModal({
                     onChange={toggleSelectAllGroups}
                   />
                   <span>
-                    Select All ({selectedGroupIds.size}/{groups.length} games)
+                    {t("import.selectAll", { selected: selectedGroupIds.size, total: groups.length })}
                   </span>
                 </label>
               </div>
@@ -593,13 +594,13 @@ export default function ImportModal({
                           }`}
                           onClick={() => setActivePath(primaryPath)}
                         >
-                          <span className="suggested-badge">Suggested</span>
+                          <span className="suggested-badge">{t("import.suggested")}</span>
                           <div className="import-sidebar-item-info">
                             <span className="import-sidebar-item-filename">
                               {gameNameFromPath(primaryPath)}
                             </span>
                             <span className="import-sidebar-item-sub">
-                              Main executable
+                              {t("import.mainExecutable")}
                             </span>
                           </div>
                         </div>
@@ -643,7 +644,7 @@ export default function ImportModal({
                                     setPrimaryForGroup(g.id, e.path);
                                   }}
                                 >
-                                  Make main
+                                  {t("import.makeMain")}
                                 </button>
                               </div>
                             );
@@ -654,8 +655,7 @@ export default function ImportModal({
                             className="import-group-more"
                             onClick={() => toggleExpand(g.id)}
                           >
-                            Show {extras.length} more executable
-                            {extras.length !== 1 ? "s" : ""}
+                            {t("import.showMore", { count: extras.length })}
                           </button>
                         )}
                       </div>
@@ -680,7 +680,7 @@ export default function ImportModal({
                     </svg>
                   </div>
                   <div className="file-details">
-                    <span className="file-label">Executable File</span>
+                    <span className="file-label">{t("import.executableFile")}</span>
                     <span className="file-name">{gameNameFromPath(activePath)}</span>
                     <span className="file-path" title={activePath}>
                       {getDirectory(activePath)}
@@ -720,11 +720,11 @@ export default function ImportModal({
                 <div className="import-matching-columns">
                   {/* Left: Suggestions list */}
                   <div className="import-suggestions-panel">
-                    <h4 className="section-title">IGDB Suggestions</h4>
+                    <h4 className="section-title">{t("import.igdbSuggestions")}</h4>
                     {loadingSuggestions ? (
                       <div className="suggestions-loader">
                         <div className="spinner-small" />
-                        <span>Searching IGDB...</span>
+                        <span>{t("import.searchingIgdb")}</span>
                       </div>
                     ) : activeSuggestions.length > 0 ? (
                       <div className="suggestions-list">
@@ -761,15 +761,15 @@ export default function ImportModal({
                       </div>
                     ) : (
                       <div className="suggestions-empty">
-                        <p>No suggestions found.</p>
-                        <p className="subtext">Try refining your search terms.</p>
+                        <p>{t("import.noSuggestions")}</p>
+                        <p className="subtext">{t("import.noSuggestionsHint")}</p>
                       </div>
                     )}
                   </div>
 
                   {/* Right: Detailed Preview */}
                   <div className="import-preview-panel">
-                    <h4 className="section-title">Match Preview</h4>
+                    <h4 className="section-title">{t("import.matchPreview")}</h4>
                     {loadingPreview ? (
                       <div className="preview-skeleton-loader">
                         <div className="skeleton-hero" />
@@ -874,7 +874,7 @@ export default function ImportModal({
                               className="preview-unlink-btn"
                               onClick={handleUnlinkGame}
                             >
-                              Skip Metadata Match (Use Local Name Only)
+                              {t("import.skipMetadata")}
                             </button>
                           </>
                         ) : (
@@ -922,7 +922,7 @@ export default function ImportModal({
                               className="preview-unlink-btn"
                               onClick={handleUnlinkGame}
                             >
-                              Skip Metadata Match
+                              {t("import.skipMetadataShort")}
                             </button>
                           </>
                         )}
@@ -935,11 +935,9 @@ export default function ImportModal({
                           <line x1="12" y1="8" x2="12" y2="16" />
                           <line x1="8" y1="12" x2="16" y2="12" />
                         </svg>
-                        <p>No Game Linked</p>
+                        <p>{t("import.noGameLinked")}</p>
                         <p className="subtext">
-                          This game will be imported with name:{" "}
-                          <strong>{gameNameFromPath(activePath)}</strong> and no additional metadata or
-                          cover art.
+                          {t("import.noGameLinkedDesc", { name: gameNameFromPath(activePath) })}
                         </p>
                       </div>
                     )}
@@ -948,7 +946,7 @@ export default function ImportModal({
               </div>
             ) : (
               <div className="import-workspace-empty">
-                <p>Select an executable file from the list to start matching.</p>
+                <p>{t("import.selectExecutable")}</p>
               </div>
             )}
           </div>
@@ -956,11 +954,11 @@ export default function ImportModal({
 
         <div className="modal-footer">
           <span className="modal-footer-count">
-            {selectionCount} game{selectionCount !== 1 ? "s" : ""} selected for import
+            {t("import.selectedCount", { count: selectionCount })}
           </span>
           <div className="modal-footer-actions">
             <Button variant="ghost" onClick={onCancel}>
-              Cancel
+              {t("common.cancel")}
             </Button>
             <Button
               variant="primary"
@@ -979,7 +977,7 @@ export default function ImportModal({
                 </svg>
               }
             >
-              Import Selected
+              {t("import.importSelected")}
             </Button>
           </div>
         </div>

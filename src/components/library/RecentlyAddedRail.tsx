@@ -2,6 +2,7 @@ import { useMemo, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import type { Game } from "../../types/game";
 import { useGames } from "../../context/GameContext";
+import { useLanguage } from "../../context/LanguageContext";
 import { Card } from "../ui";
 import { useCollapsedState } from "../../hooks/useCollapsedState";
 
@@ -24,6 +25,7 @@ export default function RecentlyAddedRail({
 }: RecentlyAddedRailProps) {
   const navigate = useNavigate();
   const { setSelectedGameId } = useGames();
+  const { t } = useLanguage();
   const railRef = useRef<HTMLDivElement | null>(null);
 
   const recent = useMemo(
@@ -56,9 +58,9 @@ export default function RecentlyAddedRail({
             </svg>
           </div>
           <div style={{ minWidth: 0 }}>
-            <h3 className="lib-rail-title">Recently Added</h3>
+            <h3 className="lib-rail-title">{t("lib.rail.recentlyAdded.title")}</h3>
             <p className="lib-rail-subtitle">
-              {recent.length === 0 ? "Latest additions" : `Latest additions · ${recent.length} newest game${recent.length === 1 ? "" : "s"}`}
+              {t("lib.rail.recentlyAdded.subtitle", { count: recent.length })}
             </p>
           </div>
         </div>

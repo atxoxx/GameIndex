@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import type { ProtonDBStatus, ProtonDBTier } from "../types/game";
+import { useLanguage } from "../context/LanguageContext";
 
 interface ProtonDBCardProps {
   /** Steam appid, e.g. 730 for CS2. When undefined the card is hidden. */
@@ -10,43 +11,43 @@ interface ProtonDBCardProps {
 /** Visual + label metadata for each ProtonDB tier. */
 const TIER_META: Record<
   ProtonDBTier,
-  { label: string; color: string; bg: string; help: string }
+  { labelKey: string; color: string; bg: string; helpKey: string }
 > = {
   platinum: {
-    label: "Platinum",
+    labelKey: "protondb.tier.platinum",
     color: "#e5e4e2",
     bg: "rgba(229,228,226,0.14)",
-    help: "Runs perfectly out of the box",
+    helpKey: "protondb.help.platinum",
   },
   gold: {
-    label: "Gold",
+    labelKey: "protondb.tier.gold",
     color: "#ffd24a",
     bg: "rgba(255,210,74,0.14)",
-    help: "Runs perfectly after minor tweaks",
+    helpKey: "protondb.help.gold",
   },
   silver: {
-    label: "Silver",
+    labelKey: "protondb.tier.silver",
     color: "#c0c0c8",
     bg: "rgba(192,192,200,0.14)",
-    help: "Runs with minor issues, but generally playable",
+    helpKey: "protondb.help.silver",
   },
   bronze: {
-    label: "Bronze",
+    labelKey: "protondb.tier.bronze",
     color: "#cd7f32",
     bg: "rgba(205,127,50,0.16)",
-    help: "Runs, but often crashes or has issues",
+    helpKey: "protondb.help.bronze",
   },
   borked: {
-    label: "Borked",
+    labelKey: "protondb.tier.borked",
     color: "var(--color-danger)",
     bg: "color-mix(in srgb, var(--color-danger) 16%, transparent)",
-    help: "Either won't start or is completely broken",
+    helpKey: "protondb.help.borked",
   },
   pending: {
-    label: "Pending",
+    labelKey: "protondb.tier.pending",
     color: "var(--color-text-muted)",
     bg: "rgba(127,127,140,0.12)",
-    help: "Not enough reports for a rating yet",
+    helpKey: "protondb.help.pending",
   },
 };
 
@@ -62,14 +63,14 @@ function tierValue(t: ProtonDBTier | undefined): number {
   }
 }
 
-function confidenceLabel(c?: ProtonDBStatus["confidence"]): string {
+function confidenceLabelKey(c?: ProtonDBStatus["confidence"]): string {
   switch (c) {
-    case "inadequate": return "Inadequate";
-    case "low": return "Low";
-    case "moderate": return "Moderate";
-    case "high": return "High";
-    case "strong": return "Strong";
-    default: return "Unknown";
+    case "inadequate": return "protondb.confidence.inadequate";
+    case "low": return "protondb.confidence.low";
+    case "moderate": return "protondb.confidence.moderate";
+    case "high": return "protondb.confidence.high";
+    case "strong": return "protondb.confidence.strong";
+    default: return "protondb.confidence.unknown";
   }
 }
 
@@ -81,6 +82,7 @@ async function fetchProtonDB(appId: number): Promise<ProtonDBStatus> {
 }
 
 export default function ProtonDBCard({ steamAppId }: ProtonDBCardProps) {
+  const { t } = useLanguage();
   const [data, setData] = useState<ProtonDBStatus | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -137,7 +139,7 @@ export default function ProtonDBCard({ steamAppId }: ProtonDBCardProps) {
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
           <path d="M12 2 4 6v6c0 5 3.5 8.5 8 10 4.5-1.5 8-5 8-10V6l-8-4z" />
         </svg>
-        ProtonDB
+        {t("protondb.title")}
       </h2>
 
       <div className="pdb-card-body">
@@ -145,31 +147,31 @@ export default function ProtonDBCard({ steamAppId }: ProtonDBCardProps) {
         <div
           className="pdb-tier-badge"
           style={{ background: meta.bg, borderColor: meta.color }}
-          title={meta.help}
+          title={t(meta.helpKey)}
         >
           <span className="pdb-tier-dot" style={{ background: meta.color }} />
           <span className="pdb-tier-label" style={{ color: meta.color }}>
-            {meta.label}
+            {t(meta.labelKey)}
           </span>
         </div>
 
         {/* Meta rows */}
         <div className="pdb-meta-grid">
           <div className="pdb-meta-row">
-            <span className="pdb-meta-label">Confidence</span>
+            <span className="pdb-meta-label">{t("protondb.confidence")}</span>
             <span className="pdb-meta-val">
-              {confidenceLabel(data.confidence)}
+              {t(confidenceLabelKey(data.confidence))}
             </span>
           </div>
           <div className="pdb-meta-row">
-            <span className="pdb-meta-label">Reports</span>
+            <span className="pdb-meta-label">{t("protondb.reports")}</span>
             <span className="pdb-meta-val">
               {data.total != null ? data.total.toLocaleString() : "—"}
             </span>
           </div>
           {typeof data.score === "number" && (
-            <div className="pdb-meta-row">
-              <span className="pdb-meta-label">Score</span>
+          <div className="pdb-meta-row">
+            <span className="pdb-meta-label">{t("protondb.score")}</span>
               <span className="pdb-meta-val">
                 {Math.round(data.score * 100)}%
               </span>
@@ -177,12 +179,12 @@ export default function ProtonDBCard({ steamAppId }: ProtonDBCardProps) {
           )}
           {data.bestReportedTier && data.bestReportedTier !== effectiveTier && (
             <div className="pdb-meta-row">
-              <span className="pdb-meta-label">Best Reported</span>
+              <span className="pdb-meta-label">{t("protondb.bestReported")}</span>
               <span
                 className="pdb-meta-val"
                 style={{ color: TIER_META[data.bestReportedTier].color }}
               >
-                {TIER_META[data.bestReportedTier].label}
+                {t(TIER_META[data.bestReportedTier].labelKey)}
               </span>
             </div>
           )}
@@ -192,10 +194,9 @@ export default function ProtonDBCard({ steamAppId }: ProtonDBCardProps) {
         {trendMismatch && data.trendingTier && (
           <div className="pdb-trend-note">
             <span className="pdb-trend-dot" />
-            Trending toward{" "}
-            <strong style={{ color: TIER_META[data.trendingTier].color }}>
-              {TIER_META[data.trendingTier].label}
-            </strong>
+            {t("protondb.trending", {
+              tier: t(TIER_META[data.trendingTier].labelKey),
+            })}
           </div>
         )}
 
@@ -213,7 +214,7 @@ export default function ProtonDBCard({ steamAppId }: ProtonDBCardProps) {
               <polyline points="15 3 21 3 21 9" />
               <line x1="10" y1="14" x2="21" y2="3" />
             </svg>
-            ProtonDB Page
+            {t("protondb.page")}
           </a>
           <a
             href={reportsUrl}
@@ -225,7 +226,7 @@ export default function ProtonDBCard({ steamAppId }: ProtonDBCardProps) {
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
               <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
             </svg>
-            Reports
+            {t("protondb.reportsLink")}
           </a>
         </div>
       </div>

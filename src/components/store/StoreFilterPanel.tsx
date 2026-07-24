@@ -1,5 +1,6 @@
 import StoreFilterSidebar from "./StoreFilterSidebar";
 import type { StoreCatalogue } from "../../hooks/useStoreCatalogue";
+import { useLanguage } from "../../context/LanguageContext";
 
 interface StoreFilterPanelProps {
   catalogue: StoreCatalogue;
@@ -11,6 +12,7 @@ interface StoreFilterPanelProps {
  * duplicated. The drawer is opened via the header "Filters" trigger.
  */
 export default function StoreFilterPanel({ catalogue: c }: StoreFilterPanelProps) {
+  const { t } = useLanguage();
   const renderSidebar = () => (
     <StoreFilterSidebar
       selectedGenres={c.selectedGenres}
@@ -40,7 +42,7 @@ export default function StoreFilterPanel({ catalogue: c }: StoreFilterPanelProps
           type="button"
           className={`store-filter-rail-toggle${c.activeFilterCount > 0 ? " active" : ""}`}
           onClick={() => c.setFiltersCollapsed(!c.filtersCollapsed)}
-          aria-label={c.filtersCollapsed ? "Show filters" : "Hide filters"}
+          aria-label={c.filtersCollapsed ? t("store.showFilters") : t("store.hideFilters")}
           aria-expanded={!c.filtersCollapsed}
         >
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
@@ -64,16 +66,16 @@ export default function StoreFilterPanel({ catalogue: c }: StoreFilterPanelProps
         className={`store-filter-drawer${c.filtersOpen ? " open" : ""}`}
         role="dialog"
         aria-modal="true"
-        aria-label="Filters"
+        aria-label={t("store.filters")}
         aria-hidden={!c.filtersOpen}
       >
         <div className="store-filter-drawer-header">
-          <h3>Filters</h3>
+          <h3>{t("store.filtersTitle")}</h3>
           <button
             type="button"
             className="store-filter-drawer-close"
             onClick={() => c.setFiltersOpen(false)}
-            aria-label="Close filters"
+            aria-label={t("store.closeFilters")}
           >
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
               <line x1="18" y1="6" x2="6" y2="18" />

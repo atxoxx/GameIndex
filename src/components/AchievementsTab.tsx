@@ -12,11 +12,13 @@ import {
   RARITY_COLORS,
 } from "../types/game";
 import { useToast } from "../context/ToastContext";
+import { useLanguage } from "../context/LanguageContext";
 
 type SortKey = "default" | "name" | "rarity" | "unlockDate";
 type FilterKey = "all" | "unlocked" | "locked";
 
 export default function AchievementsTab({ game }: { game: Game }) {
+  const { t } = useLanguage();
   const { isBigScreen } = useBigScreen();
   const { getGameAchievements, syncGameAchievements, syncLocalAchievements, isSyncing } =
     useAchievements();
@@ -172,8 +174,8 @@ export default function AchievementsTab({ game }: { game: Game }) {
               <path d="M18.364 5.636a9 9 0 0 1-12.728 12.728" />
             </svg>
           </div>
-          <h3>Loading achievements…</h3>
-          <p>Looking up achievements for this game.</p>
+          <h3>{t("achievements.loading")}</h3>
+          <p>{t("achievements.loadingDesc")}</p>
         </div>
       );
     }
@@ -186,8 +188,8 @@ export default function AchievementsTab({ game }: { game: Game }) {
               <path d="M18.364 5.636a9 9 0 0 1-12.728 12.728" />
             </svg>
           </div>
-          <h3>Achievements not found</h3>
-          <p>Couldn't match this game to a Steam AppID.<br />Try syncing your Steam library.</p>
+          <h3>{t("achievements.notFound")}</h3>
+          <p>{t("achievements.notFoundDesc")}</p>
         </div>
       );
     }
@@ -199,11 +201,11 @@ export default function AchievementsTab({ game }: { game: Game }) {
             <path d="M18.364 5.636a9 9 0 0 1-12.728 12.728" />
           </svg>
         </div>
-        <h3>No achievements yet</h3>
-        <p>Sync now to load this game's achievements.</p>
-        <button className="achievements-btn" onClick={handleSync} disabled={syncing}>
-          {syncing ? "Syncing…" : "Sync Achievements"}
-        </button>
+          <h3>{t("achievements.noData")}</h3>
+          <p>{t("achievements.noDataDesc")}</p>
+          <button className="achievements-btn" onClick={handleSync} disabled={syncing}>
+            {syncing ? t("achievements.syncing") : t("achievements.sync")}
+          </button>
       </div>
     );
   }
@@ -217,12 +219,12 @@ export default function AchievementsTab({ game }: { game: Game }) {
             <path d="M15.477 12.89L17 22l-5-3-5 3 1.523-9.11" />
           </svg>
         </div>
-        <h3>No achievements data</h3>
-        <p>
-          {game.platform === "Steam"
-            ? 'Click "Sync" to fetch achievements from Steam.'
-            : 'Click "Sync" to read local crack/emulator achievement files.'}
-        </p>
+          <h3>{t("achievements.noDataTitle")}</h3>
+          <p>
+            {game.platform === "Steam"
+              ? t("achievements.clickSyncSteam")
+              : t("achievements.clickSyncLocal")}
+          </p>
         <button
           className="achievements-sync-btn"
           {...(isBigScreen ? emptySyncFocus : { onClick: handleSync })}
@@ -231,7 +233,7 @@ export default function AchievementsTab({ game }: { game: Game }) {
           {syncing ? (
             <>
               <span className="achievements-spinner" />
-              Syncing…
+              {t("achievements.syncing")}
             </>
           ) : (
             <>
@@ -240,7 +242,7 @@ export default function AchievementsTab({ game }: { game: Game }) {
                 <polyline points="1 20 1 14 7 14" />
                 <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15" />
               </svg>
-              {game.platform === "Steam" ? "Sync from Steam" : "Sync achievements"}
+              {game.platform === "Steam" ? t("achievements.sync") : t("achievements.sync")}
             </>
           )}
         </button>
@@ -285,15 +287,15 @@ export default function AchievementsTab({ game }: { game: Game }) {
         <div className="achievements-stats-cards">
           <div className="achievements-stat-card">
             <span className="achievements-stat-value achievements-stat-unlocked">{unlocked}</span>
-            <span className="achievements-stat-label">Unlocked</span>
+            <span className="achievements-stat-label">{t("achievements.unlocked")}</span>
           </div>
           <div className="achievements-stat-card">
             <span className="achievements-stat-value achievements-stat-locked">{total - unlocked}</span>
-            <span className="achievements-stat-label">Locked</span>
+            <span className="achievements-stat-label">{t("achievements.locked")}</span>
           </div>
           <div className="achievements-stat-card">
             <span className="achievements-stat-value">{total}</span>
-            <span className="achievements-stat-label">Total</span>
+            <span className="achievements-stat-label">{t("achievements.total")}</span>
           </div>
         </div>
 
@@ -345,16 +347,16 @@ export default function AchievementsTab({ game }: { game: Game }) {
           ))}
         </div>
         <div className="achievements-sort">
-          <label className="achievements-sort-label">Sort:</label>
+          <label className="achievements-sort-label">{t("achievements.sort")}</label>
           <select
             value={sort}
             onChange={(e) => setSort(e.target.value as SortKey)}
             className="achievements-sort-select"
           >
-            <option value="default">Default</option>
-            <option value="name">Name</option>
-            <option value="rarity">Rarity</option>
-            <option value="unlockDate">Unlock Date</option>
+            <option value="default">{t("achievements.sortDefault")}</option>
+            <option value="name">{t("achievements.sortName")}</option>
+            <option value="rarity">{t("achievements.sortRarity")}</option>
+            <option value="unlockDate">{t("achievements.sortUnlockDate")}</option>
           </select>
         </div>
         <button
@@ -391,7 +393,7 @@ export default function AchievementsTab({ game }: { game: Game }) {
       {/* Last synced footer */}
       {achievementData.lastSynced && (
         <div className="achievements-last-synced">
-          Last synced: {new Date(achievementData.lastSynced).toLocaleString()}
+          {t("achievements.lastSynced", { date: new Date(achievementData.lastSynced).toLocaleString() })}
         </div>
       )}
     </div>
@@ -468,13 +470,14 @@ function AchievementFilterButton({
   setFilter,
   isBigScreen,
 }: AchievementFilterButtonProps) {
+  const { t } = useLanguage();
   const focusProps = useFocusable(() => setFilter(f));
   return (
     <button
       className={`achievements-filter-btn ${active ? "active" : ""}`}
       {...(isBigScreen ? focusProps : { onClick: () => setFilter(f) })}
     >
-      {f === "all" ? `All (${total})` : f === "unlocked" ? `Unlocked (${unlocked})` : `Locked (${total - unlocked})`}
+       {f === "all" ? t("achievements.filter.all", { total }) : f === "unlocked" ? t("achievements.filter.unlocked", { count: unlocked }) : t("achievements.filter.locked", { count: total - unlocked })}
     </button>
   );
 }

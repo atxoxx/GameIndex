@@ -19,6 +19,7 @@ import {
 import HydraReviewsPanel from "./HydraReviewsPanel";
 import { useGames } from "../context/GameContext";
 import { useToast } from "../context/ToastContext";
+import { useLanguage } from "../context/LanguageContext";
 
 // ─── Types ──────────────────────────────────────────────────────────────────
 
@@ -428,6 +429,7 @@ function renderOpening(
 /** Click-to-reveal spoiler block. State is local to the component;
  *  the parent never sees the toggle. */
 function SpoilerBlock({ children }: { children: React.ReactNode }) {
+  const { t } = useLanguage();
   const [revealed, setRevealed] = useState(false);
   return (
     <span
@@ -442,7 +444,7 @@ function SpoilerBlock({ children }: { children: React.ReactNode }) {
         }
       }}
     >
-      {revealed ? children : <span className="rv-bbcode-spoiler-mask">Click to reveal spoiler</span>}
+       {revealed ? children : <span className="rv-bbcode-spoiler-mask">{t("review.clickRevealSpoiler")}</span>}
     </span>
   );
 }
@@ -655,13 +657,14 @@ function ContextBadge({ icon, label, tone }: { icon: React.ReactNode; label: str
 }
 
 function ContextBadgesRow({ review }: { review: ReviewItem }) {
+  const { t } = useLanguage();
   const badges: React.ReactNode[] = [];
   if (review.writtenDuringEarlyAccess) {
     badges.push(
       <ContextBadge
         key="ea"
         tone="warning"
-        label="Early Access"
+        label={t("review.earlyAccess")}
         icon={
           <svg viewBox="0 0 24 24" width="10" height="10" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
             <circle cx="12" cy="12" r="9" />
@@ -676,7 +679,7 @@ function ContextBadgesRow({ review }: { review: ReviewItem }) {
       <ContextBadge
         key="free"
         tone="info"
-        label="Received for Free"
+        label={t("review.receivedForFree")}
         icon={
           <svg viewBox="0 0 24 24" width="10" height="10" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
             <polyline points="20 6 9 17 4 12" />
@@ -690,7 +693,7 @@ function ContextBadgesRow({ review }: { review: ReviewItem }) {
       <ContextBadge
         key="sp"
         tone="success"
-        label="Steam Purchase"
+        label={t("review.steamPurchase")}
         icon={
           <svg viewBox="0 0 24 24" width="10" height="10" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
             <path d="M6 2 3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4Z" />
@@ -706,7 +709,7 @@ function ContextBadgesRow({ review }: { review: ReviewItem }) {
       <ContextBadge
         key="deck"
         tone="info"
-        label="Played on Steam Deck"
+        label={t("review.playedOnSteamDeck")}
         icon={
           <svg viewBox="0 0 24 24" width="10" height="10" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
             <rect x="2" y="6" width="20" height="13" rx="2" />
@@ -842,6 +845,7 @@ function CommentsLink({
 // ─── Thumb badge (plugin-style radial gradient thumbs up/down) ─────
 
 function ThumbBadge({ sentiment }: { sentiment: ReviewItem["sentiment"] }) {
+  const { t } = useLanguage();
   if (sentiment !== "positive" && sentiment !== "negative") return null;
   const isPos = sentiment === "positive";
   // Material "thumb_up" / "thumb_down" glyphs (24x24). The down state
@@ -858,7 +862,7 @@ function ThumbBadge({ sentiment }: { sentiment: ReviewItem["sentiment"] }) {
           <path transform="translate(0 24) scale(1 -1)" d={thumbPath} />
         )}
       </svg>
-      <span className="rv-thumb-label">{isPos ? "Recommended" : "Not Recommended"}</span>
+      <span className="rv-thumb-label">{isPos ? t("review.recommended") : t("review.notRecommended")}</span>
     </div>
   );
 }
@@ -868,6 +872,7 @@ function ThumbBadge({ sentiment }: { sentiment: ReviewItem["sentiment"] }) {
 const STEAM_PROFILE_URL = "https://steamcommunity.com/profiles";
 
 function ReviewRow({ review, appId }: { review: ReviewItem; appId: number | null }) {
+  const { t } = useLanguage();
   const isYou = review.source === "you";
   const isSteam = review.source === "steam";
   const username = isYou ? "You" : review.username;
@@ -892,7 +897,7 @@ function ReviewRow({ review, appId }: { review: ReviewItem; appId: number | null
             ) : (
               <span className="rv-row-name">{username}</span>
             )}
-            {isYou && <span className="rv-verified-badge">Verified Player</span>}
+            {isYou && <span className="rv-verified-badge">{t("review.verifiedPlayer")}</span>}
             {review.source !== "steam" && review.source !== "you" && (
               <ReviewSourceBadge source={review.source} label={review.sourceLabel} />
             )}
@@ -933,10 +938,10 @@ function ReviewRow({ review, appId }: { review: ReviewItem; appId: number | null
               </span>
             )}
             {review.receivedForFree && (
-              <span className="rv-row-badge-free">Product received for free</span>
+              <span className="rv-row-badge-free">{t("review.productReceivedFree")}</span>
             )}
             {review.writtenDuringEarlyAccess && (
-              <span className="rv-row-badge-ea">EARLY ACCESS REVIEW</span>
+              <span className="rv-row-badge-ea">{t("review.earlyAccessReview")}</span>
             )}
             <ContextBadgesRow review={review} />
           </div>
@@ -955,10 +960,10 @@ function ReviewRow({ review, appId }: { review: ReviewItem; appId: number | null
       <div className="rv-row-footer">
         <div className="rv-row-helpful">
           {(review.votesUp ?? 0) > 0 && (
-            <span className="rv-helpful-text">{plural(review.votesUp!, "person")} found this helpful</span>
+            <span className="rv-helpful-text">{t("review.foundHelpful", { count: review.votesUp ?? 0 })}</span>
           )}
           {(review.votesFunny ?? 0) > 0 && (
-            <span className="rv-helpful-text">{plural(review.votesFunny!, "person")} found this funny</span>
+            <span className="rv-helpful-text">{t("review.foundFunny", { count: review.votesFunny ?? 0 })}</span>
           )}
         </div>
 
@@ -986,6 +991,7 @@ function ReviewSummary({
   steamTotalPositive: number | null;
   steamTotalNegative: number | null;
 }) {
+  const { t } = useLanguage();
   const ratings = reviews.filter((r) => r.rating !== null);
   const steamReviews = reviews.filter((r) => r.source === "steam");
   const hasRealSteamStats = steamTotalPositive !== null && steamTotalNegative !== null;
@@ -1065,7 +1071,7 @@ function ReviewSummary({
             {communityAvg > 0 ? (isPercentageContext ? `${positivePct}%` : Math.round(communityAvg)) : "—"}
           </div>
           <div className="rv-summary-score-label">
-            {isPercentageContext ? "Positive" : "/ 100 avg"}
+            {isPercentageContext ? t("review.positive") : t("review.per100avg")}
           </div>
         </div>
         <div className="rv-summary-stats">
@@ -1088,12 +1094,12 @@ function ReviewSummary({
             </div>
           )}
           <div className="rv-summary-count">
-            {totalReviews.toLocaleString()} review{totalReviews === 1 ? "" : "s"}
+            {t("review.reviewCount", { count: totalReviews })}
           </div>
           {hasRatings && (
             <div className="rv-summary-sentiment">
-              <span className="rv-summary-pos">{positivePct}% Positive</span>
-              <span className="rv-summary-neg">{negativePct}% Negative</span>
+              <span className="rv-summary-pos">{positivePct}% {t("review.positive")}</span>
+              <span className="rv-summary-neg">{negativePct}% {t("review.negative")}</span>
             </div>
           )}
         </div>
@@ -1101,7 +1107,7 @@ function ReviewSummary({
       {hasRatings && (
         <div className="rv-summary-distribution">
           <div className="rv-distribution-row">
-            <span className="rv-distribution-label rv-distribution-label-pos">Positive</span>
+            <span className="rv-distribution-label rv-distribution-label-pos">{t("review.positive")}</span>
             <div className="rv-distribution-bar-track">
               <div className="rv-distribution-bar-fill" style={{ width: `${positivePct}%`, background: "var(--color-success)" }} />
             </div>
@@ -1110,7 +1116,7 @@ function ReviewSummary({
             </span>
           </div>
           <div className="rv-distribution-row">
-            <span className="rv-distribution-label rv-distribution-label-neg">Negative</span>
+            <span className="rv-distribution-label rv-distribution-label-neg">{t("review.negative")}</span>
             <div className="rv-distribution-bar-track">
               <div className="rv-distribution-bar-fill" style={{ width: `${negativePct}%`, background: "var(--color-danger)" }} />
             </div>
@@ -1135,6 +1141,7 @@ export default function ReviewsTab({ game, onReviewsFetched }: ReviewsTabProps) 
   const { isBigScreen } = useBigScreen();
   const { showToast } = useToast();
   const { updateGame } = useGames();
+  const { t } = useLanguage();
 
   // ── Filter state (server-side) ─────────────────────────────────
   const [display, setDisplay] = useState<"summary" | "all" | "recent" | "funny">("all");
@@ -1626,16 +1633,16 @@ export default function ReviewsTab({ game, onReviewsFetched }: ReviewsTabProps) 
               <line x1="9" y1="10" x2="15" y2="10" />
               <line x1="12" y1="13" x2="12" y2="13" />
             </svg>
-            Community Reviews
+            {t("review.communityReviews")}
           </h2>
           <p className="rv-header-subtitle">
             {totalReviewCount > 0
-              ? `${totalReviewCount.toLocaleString()} reviews for this game.`
+              ? t("review.subtitleCount", { count: totalReviewCount.toLocaleString() })
               : totalAll === 0
-              ? "No community reviews are available for this game yet."
+              ? t("review.subtitleNone")
               : totalAll === 1
-              ? "One review for this game."
-              : `${totalAll} reviews for this game.`}
+              ? t("review.subtitleOne")
+              : t("review.subtitleCount", { count: totalAll })}
           </p>
         </div>
       </div>
@@ -1664,7 +1671,7 @@ export default function ReviewsTab({ game, onReviewsFetched }: ReviewsTabProps) 
               aria-label="Refresh reviews"
             >
               {isFetchingReviews ? (
-                <><span className="rv-spinner" aria-hidden="true" />Fetching reviews…</>
+                <><span className="rv-spinner" aria-hidden="true" />{t("review.fetchingReviews")}</>
               ) : (
                 <>
                   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
@@ -1672,7 +1679,7 @@ export default function ReviewsTab({ game, onReviewsFetched }: ReviewsTabProps) 
                     <polyline points="1 20 1 14 7 14" />
                     <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15" />
                   </svg>
-                  Refresh reviews
+                  {t("review.refreshReviews")}
                 </>
               )}
             </button>
@@ -1686,31 +1693,31 @@ export default function ReviewsTab({ game, onReviewsFetched }: ReviewsTabProps) 
           <div className="rv-toolbar">
             {/* Review type */}
             <Dropdown
-              label="Review Type"
+              label={t("review.reviewType")}
               value={reviewType}
               onChange={(v) => setReviewType(v as typeof reviewType)}
               items={[
-                { value: "all", label: "All Reviews" },
-                { value: "positive", label: "Recommended" },
-                { value: "negative", label: "Not Recommended" },
+                { value: "all", label: t("review.allReviews") },
+                { value: "positive", label: t("review.recommended") },
+                { value: "negative", label: t("review.notRecommended") },
               ]}
             />
 
             {/* Purchase type */}
             <Dropdown
-              label="Purchase Type"
+              label={t("review.purchaseType")}
               value={purchaseType}
               onChange={(v) => setPurchaseType(v as typeof purchaseType)}
               items={[
-                { value: "all", label: "All Purchases" },
-                { value: "steam", label: "Steam Purchasers" },
-                { value: "other", label: "Other Sources" },
+                { value: "all", label: t("review.allPurchases") },
+                { value: "steam", label: t("review.steamPurchasers") },
+                { value: "other", label: t("review.otherSources") },
               ]}
             />
 
             {/* Language */}
             <Dropdown
-              label="Language"
+              label={t("common.language")}
               value={languageFilter}
               onChange={setLanguageFilter}
               items={STEAM_LANGUAGES.map((l) => ({ value: l.code, label: `${l.flag} ${l.label}` }))}
@@ -1718,14 +1725,14 @@ export default function ReviewsTab({ game, onReviewsFetched }: ReviewsTabProps) 
 
             {/* Playtime */}
             <Dropdown
-              label="Playtime"
+              label={t("review.playtime")}
               value={playtimePreset}
               onChange={(v) => setPlaytimePreset(v as typeof playtimePreset)}
               items={[
-                { value: "none", label: "No Minimum" },
-                { value: "over_1h", label: "Over 1 hour" },
-                { value: "over_10h", label: "Over 10 hours" },
-                { value: "custom", label: "Custom…" },
+                { value: "none", label: t("review.noMinimum") },
+                { value: "over_1h", label: t("review.over1h") },
+                { value: "over_10h", label: t("review.over10h") },
+                { value: "custom", label: t("review.customOption") },
               ]}
             />
             {playtimePreset === "custom" && (
@@ -1743,32 +1750,32 @@ export default function ReviewsTab({ game, onReviewsFetched }: ReviewsTabProps) 
 
             {/* Playtime device */}
             <Dropdown
-              label="Device"
+              label={t("review.device")}
               value={playtimeDevice}
               onChange={(v) => setPlaytimeDevice(v as typeof playtimeDevice)}
               items={[
-                { value: "all", label: "All Devices" },
-                { value: "deck", label: "Steam Deck" },
+                { value: "all", label: t("review.allDevices") },
+                { value: "deck", label: t("review.steamDeck") },
               ]}
             />
 
             {/* Display order */}
             <Dropdown
-              label="Display"
+              label={t("review.display")}
               value={display}
               onChange={(v) => setDisplay(v as typeof display)}
               items={[
-                { value: "summary", label: "Summary" },
-                { value: "all", label: "Most Helpful" },
-                { value: "recent", label: "Recent" },
-                { value: "funny", label: "Funny" },
+                { value: "summary", label: t("review.summary") },
+                { value: "all", label: t("review.mostHelpful") },
+                { value: "recent", label: t("review.recent") },
+                { value: "funny", label: t("review.funny") },
               ]}
             />
 
             {/* Helpfulness system toggle */}
             <label className="rv-toggle-label" title="Use new helpfulness system for Summary / Most Helpful">
               <input type="checkbox" checked={useHelpfulSystem} onChange={(e) => setUseHelpfulSystem(e.target.checked)} />
-              <span>Helpfulness system</span>
+              <span>{t("review.helpfulnessSystem")}</span>
             </label>
 
             {/* Search */}
@@ -1779,7 +1786,7 @@ export default function ReviewsTab({ game, onReviewsFetched }: ReviewsTabProps) 
               </svg>
               <input className="rv-search" type="search" value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder="Search reviews…" aria-label="Search reviews" />
+                placeholder={t("review.searchPlaceholder")} aria-label={t("review.searchPlaceholder")} />
               {searchQuery && (
                 <button type="button" className="rv-search-clear" onClick={() => setSearchQuery("")} aria-label="Clear search">
                   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
@@ -1795,32 +1802,32 @@ export default function ReviewsTab({ game, onReviewsFetched }: ReviewsTabProps) 
           <div className="rv-filter-chips">
             {reviewType !== "all" && (
               <button className="rv-chip" onClick={() => setReviewType("all")}>
-                {reviewType === "positive" ? "Recommended" : "Not Recommended"} ✕
+                {reviewType === "positive" ? t("review.recommended") : t("review.notRecommended")} ✕
               </button>
             )}
             {purchaseType !== "all" && (
               <button className="rv-chip" onClick={() => setPurchaseType("all")}>
-                {purchaseType === "steam" ? "Steam Purchases" : "Other Sources"} ✕
+                {purchaseType === "steam" ? t("review.chipSteamPurchases") : t("review.otherSources")} ✕
               </button>
             )}
             {playtimePreset !== "none" && (
               <button className="rv-chip" onClick={() => setPlaytimePreset("none")}>
-                {playtimePreset === "over_1h" ? "Over 1h" : playtimePreset === "over_10h" ? "Over 10h" : "Custom Playtime"} ✕
+                {playtimePreset === "over_1h" ? t("review.chipOver1h") : playtimePreset === "over_10h" ? t("review.chipOver10h") : t("review.chipCustomPlaytime")} ✕
               </button>
             )}
             {playtimeDevice !== "all" && (
               <button className="rv-chip" onClick={() => setPlaytimeDevice("all")}>
-                Steam Deck ✕
+                {t("review.steamDeck")} ✕
               </button>
             )}
             {useHelpfulSystem && (
               <button className="rv-chip" onClick={() => setUseHelpfulSystem(false)}>
-                Helpfulness System ✕
+                {t("review.chipHelpfulness")} ✕
               </button>
             )}
             {languageFilter !== "all" && (
               <button className="rv-chip" onClick={() => setLanguageFilter("all")}>
-                Language: {STEAM_LANGUAGES.find((l) => l.code === languageFilter)?.label ?? languageFilter} ✕
+                {t("review.languageChip", { language: STEAM_LANGUAGES.find((l) => l.code === languageFilter)?.label ?? languageFilter })} ✕
               </button>
             )}
           </div>
@@ -1833,13 +1840,13 @@ export default function ReviewsTab({ game, onReviewsFetched }: ReviewsTabProps) 
           sub-tab stays reachable even when Steam has no reviews. */}
       <div className="rv-source-tabs">
           <button type="button" className={`rv-source-tab${sourceFilter === "all" ? " active" : ""}`} onClick={() => setSourceFilter("all")}>
-            All Reviews ({totalAll})
+            {t("review.allReviewsCount", { count: totalAll })}
           </button>
           <button type="button" className={`rv-source-tab${sourceFilter === "steam" ? " active" : ""}`} onClick={() => setSourceFilter("steam")}>
             <svg viewBox="0 0 24 24" fill="currentColor" width="14" height="14" aria-hidden="true">
               <path d="M3 5h18v14H3V5zm9 2L5 19h4l1-2.5h2L13 19h4L12 7zm0 4.6L13.2 14h-2.4L12 11.6z" />
             </svg>
-            Steam ({steamCount > 0 ? steamCount.toLocaleString() : steamCount})
+            {t("review.steamCount", { count: steamCount > 0 ? steamCount.toLocaleString() : steamCount })}
           </button>
           <button
             type="button"
@@ -1853,7 +1860,7 @@ export default function ReviewsTab({ game, onReviewsFetched }: ReviewsTabProps) 
               <path d="M23 21v-2a4 4 0 0 0-3-3.87" />
               <path d="M16 3.13a4 4 0 0 1 0 7.75" />
             </svg>
-            User Reviews
+            {t("review.userReviews")}
           </button>
           {youCount > 0 && (
             <button type="button" className={`rv-source-tab${sourceFilter === "you" ? " active" : ""}`} onClick={() => setSourceFilter("you")}>
@@ -1861,7 +1868,7 @@ export default function ReviewsTab({ game, onReviewsFetched }: ReviewsTabProps) 
                 <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
                 <circle cx="12" cy="7" r="4" />
               </svg>
-              You ({youCount})
+              {t("review.youCount", { count: youCount })}
             </button>
           )}
       </div>
@@ -1873,8 +1880,8 @@ export default function ReviewsTab({ game, onReviewsFetched }: ReviewsTabProps) 
         (sourceFilter === "metacritic" || sourceFilter === "opencritic" || sourceFilter === "rawg") ? (
         <div className="rv-empty">
           <div className="rv-empty-icon"><span className="rv-spinner" aria-hidden="true" style={{ width: 28, height: 28, borderWidth: 3 }} /></div>
-          <h3 className="rv-empty-title">Loading reviews…</h3>
-          <p className="rv-empty-subtitle">Fetching reviews from {sourceFilter === "metacritic" ? "Metacritic" : sourceFilter === "opencritic" ? "OpenCritic" : "RAWG"}…</p>
+          <h3 className="rv-empty-title">{t("review.loadingTitle")}</h3>
+          <p className="rv-empty-subtitle">{t("review.loadingFrom", { source: sourceFilter === "metacritic" ? "Metacritic" : sourceFilter === "opencritic" ? "OpenCritic" : "RAWG" })}</p>
         </div>
       ) : totalAll === 0 ? (
         <div className="rv-empty">
@@ -1884,8 +1891,8 @@ export default function ReviewsTab({ game, onReviewsFetched }: ReviewsTabProps) 
               <path d="M9 10h.01" /><path d="M13 10h.01" /><path d="M17 10h.01" />
             </svg>
           </div>
-          <h3 className="rv-empty-title">No community reviews yet</h3>
-          <p className="rv-empty-subtitle">Click <strong>Refresh reviews</strong> to fetch the latest community feedback from Steam and other sources.</p>
+          <h3 className="rv-empty-title">{t("review.emptyTitle")}</h3>
+          <p className="rv-empty-subtitle">{t("review.emptyDesc")}</p>
         </div>
       ) : filteredReviews.length === 0 ? (
         <div className="rv-empty rv-empty-small">
@@ -1896,14 +1903,14 @@ export default function ReviewsTab({ game, onReviewsFetched }: ReviewsTabProps) 
               <line x1="8" y1="11" x2="14" y2="11" />
             </svg>
           </div>
-          <h3 className="rv-empty-title">No reviews match your filters</h3>
-          <p className="rv-empty-subtitle">Try adjusting the rating, source, language, playtime, or search criteria.</p>
+          <h3 className="rv-empty-title">{t("review.noMatchTitle")}</h3>
+          <p className="rv-empty-subtitle">{t("review.noMatchDesc")}</p>
           <button type="button" className="rv-btn rv-btn-ghost" onClick={() => {
             setReviewType("all"); setPurchaseType("all"); setLanguageFilter("all");
             setPlaytimePreset("none"); setPlaytimeMinHours(0); setPlaytimeMaxHours(0);
             setPlaytimeDevice("all"); setUseHelpfulSystem(false); setSearchQuery("");
           }}>
-            Reset filters
+            {t("review.resetFilters")}
           </button>
         </div>
       ) : (
@@ -1919,16 +1926,16 @@ export default function ReviewsTab({ game, onReviewsFetched }: ReviewsTabProps) 
               <button type="button" className="rv-btn rv-btn-ghost rv-btn-large"
                 onClick={() => fetchReviews(false, nextCursor, languageFilter)} disabled={isLoadingMore}>
                 {isLoadingMore ? (
-                  <><span className="rv-spinner" aria-hidden="true" />Loading more…</>
+                  <><span className="rv-spinner" aria-hidden="true" />{t("review.loadingMore")}</>
                 ) : (
                   <>
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
                       <line x1="12" y1="5" x2="12" y2="19" />
                       <polyline points="19 12 12 19 5 12" />
                     </svg>
-                    Load more reviews
+                    {t("review.loadMoreReviews")}
                     {totalReviewCount > 0 && (
-                      <span className="rv-load-more-count">({reviewsList.length} of {totalReviewCount} loaded)</span>
+                      <span className="rv-load-more-count">{t("review.loadedCount", { loaded: reviewsList.length, total: totalReviewCount })}</span>
                     )}
                   </>
                 )}
@@ -1949,9 +1956,9 @@ export default function ReviewsTab({ game, onReviewsFetched }: ReviewsTabProps) 
                 <line x1="2" y1="12" x2="22" y2="12" />
                 <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z" />
               </svg>
-              Reviews from across the web
+              {t("review.externalTitle")}
             </h3>
-            <p className="rv-external-subtitle">Open full reviews and aggregated scores from popular review sites</p>
+            <p className="rv-external-subtitle">{t("review.externalSubtitle")}</p>
           </div>
         </div>
         <div className="rv-external-grid">

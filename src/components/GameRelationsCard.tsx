@@ -5,6 +5,7 @@ import { useGames } from "../context/GameContext";
 import { useProgressiveImage } from "../hooks/useProgressiveImages";
 import { useBigScreen } from "../context/BigScreenContext";
 import { useFocusable } from "../hooks/useFocusable";
+import { useLanguage } from "../context/LanguageContext";
 import { slugify } from "../types/game";
 import type {
   Game,
@@ -805,6 +806,26 @@ const GROUP_ICONS: Record<RelationType, ReactNode> = {
   ),
 };
 
+/* ─── Group title / subtitle translation key maps ──────────────────── */
+
+const GROUP_TITLE_KEY: Record<RelationType, string> = {
+  same_series: "relations.group.sameSeries",
+  same_franchise: "relations.group.sameFranchise",
+  same_developer: "relations.group.sameDeveloper",
+  same_publisher: "relations.group.samePublisher",
+  shared_genres: "relations.group.sharedGenres",
+  other_in_collection: "relations.group.otherCollection",
+  similar: "relations.group.similar",
+  in_your_library: "relations.group.inLibrary",
+};
+
+/** Subtitles that are static (i18n-able) rather than dynamic data. */
+const GROUP_STATIC_SUBTITLE_KEY: Partial<Record<RelationType, string>> = {
+  in_your_library: "relations.subtitle.inLibrary",
+  similar: "relations.subtitle.similar",
+  shared_genres: "relations.group.sharedGenresSub",
+};
+
 /* ─── Per-card component (one row item) ────────────────────────────── */
 
 function RelationRowCard({
@@ -814,6 +835,7 @@ function RelationRowCard({
   game: RelatedGame;
   onClick: () => void;
 }) {
+  const { t } = useLanguage();
   const { isBigScreen } = useBigScreen();
   const focusProps = useFocusable(onClick);
   const [coverUrl, imgRef] = useProgressiveImage(game.coverUrl || null);
@@ -848,15 +870,15 @@ function RelationRowCard({
           </div>
         )}
         {game.inLibrary && (
-          <span
+           <span
             className="game-relation-card-pill"
-            title="In your library"
+            title={t("relations.group.inLibrary")}
             aria-hidden="true"
           >
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" width="9" height="9" aria-hidden="true">
               <polyline points="20 6 9 17 4 12" />
             </svg>
-            OWNED
+            {t("relations.owned")}
           </span>
         )}
       </div>
@@ -878,6 +900,8 @@ function RelationGroupSection({
   group: RelationGroup;
   onCardClick: (game: RelatedGame) => void;
 }) {
+  const { t } = useLanguage();
+  const subtitleKey = GROUP_STATIC_SUBTITLE_KEY[group.type];
   return (
     <div className="game-relations-group">
       <div className="game-relations-group-header">
@@ -886,14 +910,16 @@ function RelationGroupSection({
         </span>
         <div className="game-relations-group-titles">
           <h4 className="game-relations-group-title">
-            {group.title}
+            {t(GROUP_TITLE_KEY[group.type])}
             <span className="game-relations-group-count">
               {group.games.length}
             </span>
           </h4>
           {group.subtitle && (
             <span className="game-relations-group-subtitle">
-              {group.subtitle}
+              {subtitleKey
+                ? t(subtitleKey, { count: group.games.length })
+                : group.subtitle}
             </span>
           )}
         </div>
@@ -921,6 +947,7 @@ function RelationGroupSection({
 /* ─── Main component ───────────────────────────────────────────────── */
 
 export default function GameRelationsCard(props: GameRelationsCardProps) {
+  const { t } = useLanguage();
   const { mode, currentGame } = props;
   const navigate = useNavigate();
   const { games: library } = useGames();
@@ -999,12 +1026,12 @@ export default function GameRelationsCard(props: GameRelationsCardProps) {
           <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71" />
           <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71" />
         </svg>
-        Game Relations
+        {t("relations.title")}
       </h2>
       <p className="game-relations-blurb">
         {mode === "library"
-          ? "Other games in your library connected to this one."
-          : "Other games in the same series, by the same creators, or already in your library."}
+          ? t("relations.blurb.library")
+          : t("relations.blurb.store")}
       </p>
       <div className="game-relations-groups">
         {groups.map((group) => (

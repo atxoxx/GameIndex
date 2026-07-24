@@ -1,4 +1,5 @@
 import type { SourceLink } from "../../types/source";
+import { useLanguage } from "../../context/LanguageContext";
 
 interface StoreFilterChipsProps {
   selectedGenres: string[];
@@ -45,6 +46,7 @@ export default function StoreFilterChips({
   onRemoveSource,
   resultCount,
 }: StoreFilterChipsProps) {
+  const { t } = useLanguage();
   const hasFilters =
     selectedGenres.length > 0 ||
     selectedPlatforms.length > 0 ||
@@ -153,7 +155,7 @@ export default function StoreFilterChips({
       {selectedSourceIds.length > 0 && sourceChecksPending > 0 && (
         <span className="store-filter-chip store-filter-chip-pending">
           <span className="store-filter-chip-spinner" aria-hidden="true" />
-          Checking {sourceChecksPending}…
+          {t("store.checking", { count: sourceChecksPending })}
         </span>
       )}
     </div>

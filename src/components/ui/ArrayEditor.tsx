@@ -1,4 +1,5 @@
 import { useState, type ReactNode } from "react";
+import { useLanguage } from "../../context/LanguageContext";
 
 export interface ArrayEditorColumn<T> {
   key: keyof T & string;
@@ -29,10 +30,11 @@ export function ArrayEditor<T>({
   onChange,
   columns,
   createEmpty,
-  addLabel = "Add row",
-  emptyText = "Nothing added yet.",
+  addLabel = "array.addRow",
+  emptyText = "array.emptyText",
   renderCell,
 }: ArrayEditorProps<T>) {
+  const { t } = useLanguage();
   const [expanded, setExpanded] = useState(false);
   const [draft, setDraft] = useState<T>(createEmpty());
 
@@ -62,7 +64,7 @@ export function ArrayEditor<T>({
   return (
     <div className="array-editor">
       {value.length === 0 ? (
-        <p className="array-editor-empty">{emptyText}</p>
+        <p className="array-editor-empty">{t(emptyText)}</p>
       ) : (
         <div className="array-editor-rows">
           {value.map((row, rowIndex) => (
@@ -110,10 +112,10 @@ export function ArrayEditor<T>({
                   )}
                 </div>
               ))}
-              <button
+               <button
                 type="button"
                 className="array-editor-remove"
-                aria-label="Remove row"
+                aria-label={t("array.removeRow")}
                 onClick={() => removeRow(rowIndex)}
               >
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -154,8 +156,8 @@ export function ArrayEditor<T>({
             </div>
           ))}
           <div className="array-editor-add-actions">
-            <button type="button" className="edit-btn edit-btn-secondary" onClick={addRow}>Add</button>
-            <button type="button" className="edit-btn edit-btn-ghost" onClick={() => { setExpanded(false); setDraft(createEmpty()); }}>Cancel</button>
+            <button type="button" className="edit-btn edit-btn-secondary" onClick={addRow}>{t("common.add")}</button>
+            <button type="button" className="edit-btn edit-btn-ghost" onClick={() => { setExpanded(false); setDraft(createEmpty()); }}>{t("common.cancel")}</button>
           </div>
         </div>
       ) : (
@@ -164,7 +166,7 @@ export function ArrayEditor<T>({
             <line x1="12" y1="5" x2="12" y2="19" />
             <line x1="5" y1="12" x2="19" y2="12" />
           </svg>
-          {addLabel}
+          {t(addLabel)}
         </button>
       )}
     </div>

@@ -1,5 +1,6 @@
 import { useState } from "react";
 import type { StoreFilterPreset } from "../../types/game";
+import { useLanguage } from "../../context/LanguageContext";
 
 interface StorePresetBarProps {
   presets: StoreFilterPreset[];
@@ -22,6 +23,7 @@ export default function StorePresetBar({
   onRemove,
   onSave,
 }: StorePresetBarProps) {
+  const { t } = useLanguage();
   const [naming, setNaming] = useState(false);
   const [name, setName] = useState("");
 
@@ -36,7 +38,7 @@ export default function StorePresetBar({
 
   return (
     <div className="store-preset-bar" aria-label="Filter presets">
-      <span className="store-preset-bar-label">Presets:</span>
+      <span className="store-preset-bar-label">{t("store.presets")}</span>
 
       {presets.map((p) => (
         <span key={p.id} className="store-preset-chip">
@@ -68,7 +70,7 @@ export default function StorePresetBar({
             autoFocus
             type="text"
             className="store-preset-name-input"
-            placeholder="Preset name…"
+            placeholder={t("store.presetName")}
             value={name}
             onChange={(e) => setName(e.target.value)}
             onKeyDown={(e) => {
@@ -79,9 +81,9 @@ export default function StorePresetBar({
               }
             }}
           />
-          <button type="button" className="store-preset-save-confirm" onClick={commit}>
-            Save
-          </button>
+            <button type="button" className="store-preset-save-confirm" onClick={commit}>
+              {t("common.save")}
+            </button>
         </span>
       ) : (
         canSave && (
@@ -95,7 +97,7 @@ export default function StorePresetBar({
               <polyline points="17 21 17 13 7 13 7 21" />
               <polyline points="7 3 7 8 15 8" />
             </svg>
-            Save current
+            {t("store.saveCurrent")}
           </button>
         )
       )}

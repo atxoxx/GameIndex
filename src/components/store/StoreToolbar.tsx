@@ -2,6 +2,7 @@ import StoreSortDropdown from "./StoreSortDropdown";
 import StoreSearchBar from "./StoreSearchBar";
 import DensityToggle from "../DensityToggle";
 import type { StoreCatalogue } from "../../hooks/useStoreCatalogue";
+import { useLanguage } from "../../context/LanguageContext";
 
 interface StoreToolbarProps {
   catalogue: StoreCatalogue;
@@ -14,6 +15,7 @@ interface StoreToolbarProps {
  * focused on branding + result count.
  */
 export default function StoreToolbar({ catalogue: c }: StoreToolbarProps) {
+  const { t } = useLanguage();
   return (
     <div className="store-toolbar">
       <div className="store-toolbar-search">
@@ -43,7 +45,7 @@ export default function StoreToolbar({ catalogue: c }: StoreToolbarProps) {
             <polyline points="9 11 12 14 22 4" />
             <path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11" />
           </svg>
-          Select
+          {t("store.selectLabel")}
         </button>
 
         <div className="store-density-toolbar" aria-label="Layout controls">

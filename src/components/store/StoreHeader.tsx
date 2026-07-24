@@ -1,4 +1,5 @@
 import type { StoreCatalogue } from "../../hooks/useStoreCatalogue";
+import { useLanguage } from "../../context/LanguageContext";
 
 interface StoreHeaderProps {
   catalogue: StoreCatalogue;
@@ -11,11 +12,12 @@ interface StoreHeaderProps {
  * grid. Keeping it as its own component keeps `StorePage` a thin root.
  */
 export default function StoreHeader({ catalogue: c }: StoreHeaderProps) {
+  const { t } = useLanguage();
   return (
     <header className="store-header">
       <div className="store-header-top">
         <div className="store-header-brand">
-          <span className="brand-eyebrow">Store</span>
+          <span className="brand-eyebrow">{t("nav.store")}</span>
           <h2 className="brand-text">{c.resultsTitle}</h2>
           <span className="store-toolbar-count">
             {c.sourceFilterChipCount !== undefined
@@ -33,7 +35,7 @@ export default function StoreHeader({ catalogue: c }: StoreHeaderProps) {
               onClick={() => c.setShowHidden(!c.showHidden)}
               title={c.showHidden ? "Hide dismissed games" : "Show dismissed games"}
             >
-              {c.showHidden ? "Hide dismissed" : `Show hidden (${c.hiddenCount})`}
+              {c.showHidden ? t("store.hideDismissed") : t("store.showHidden", { count: c.hiddenCount })}
             </button>
           )}
 
@@ -49,7 +51,7 @@ export default function StoreHeader({ catalogue: c }: StoreHeaderProps) {
               <line x1="7" y1="12" x2="17" y2="12" />
               <line x1="10" y1="18" x2="14" y2="18" />
             </svg>
-            Filters
+            {t("store.filters")}
             {c.activeFilterCount > 0 && (
               <span className="store-filter-trigger-badge">{c.activeFilterCount}</span>
             )}

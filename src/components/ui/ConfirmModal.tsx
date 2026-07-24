@@ -23,6 +23,7 @@
 import { useEffect, useRef, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 import { Button } from "./Button";
+import { useLanguage } from "../../context/LanguageContext";
 
 export interface ConfirmModalProps {
   /** Open state. When false, the portal renders `null`. */
@@ -55,13 +56,15 @@ export function ConfirmModal({
   title,
   message,
   warning,
-  confirmLabel = "Delete",
-  cancelLabel = "Cancel",
+  confirmLabel = "common.delete",
+  cancelLabel = "common.cancel",
   busy = false,
   onConfirm,
   onCancel,
 }: ConfirmModalProps) {
+  const { t } = useLanguage();
   const cancelRef = useRef<HTMLButtonElement>(null);
+  const label = (l: ReactNode) => (typeof l === "string" ? t(l) : l);
 
   // Focus the Cancel button on open. Putting focus on Cancel
   // (NOT Delete) deliberately protects against Enter-spamming
@@ -144,14 +147,14 @@ export function ConfirmModal({
               onClick={onCancel}
               disabled={busy}
             >
-              {cancelLabel}
+              {label(cancelLabel)}
             </Button>
             <Button
               variant="danger"
               onClick={onConfirm}
               isLoading={busy}
             >
-              {confirmLabel}
+              {label(confirmLabel)}
             </Button>
           </div>
         </div>

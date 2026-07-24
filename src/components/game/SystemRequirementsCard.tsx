@@ -17,6 +17,7 @@ import type {
   PcRequirementsPayload,
   RequirementsSpec,
 } from "../../types/game";
+import { useLanguage } from "../../context/LanguageContext";
 
 /**
  * SystemRequirementsCard
@@ -84,8 +85,8 @@ interface RowSpec {
    *  exactly so the row renderer can read the value through a
    *  single property access without a switch ladder. */
   key: keyof RequirementsSpec;
-  /** Human-readable label rendered in the left rail. */
-  label: string;
+  /** i18n key for the human-readable label rendered in the left rail. */
+  i18nKey: string;
   /** Icon component, sized to balance against neighbouring rows. */
   icon: React.ReactNode;
   /** Display order — rows are rendered top-to-bottom in this
@@ -94,18 +95,18 @@ interface RowSpec {
 }
 
 const SPEC_ROWS: RowSpec[] = [
-  { key: "os", label: "OS", icon: <IconOs size={14} />, order: 0 },
-  { key: "processor", label: "Processor", icon: <IconCpu size={14} />, order: 1 },
-  { key: "memory", label: "Memory", icon: <IconMemory size={14} />, order: 2 },
-  { key: "graphics", label: "Graphics", icon: <IconGpu size={14} />, order: 3 },
-  { key: "directX", label: "DirectX", icon: <IconInfo size={14} />, order: 4 },
-  { key: "network", label: "Network", icon: <IconNetwork size={14} />, order: 5 },
-  { key: "storage", label: "Storage", icon: <IconHardDrive size={14} />, order: 6 },
-  { key: "soundCard", label: "Sound Card", icon: <IconSoundCard size={14} />, order: 7 },
-  { key: "vrSupport", label: "VR Support", icon: <IconVrHeadset size={14} />, order: 8 },
+  { key: "os", i18nKey: "sysreq.spec.os", icon: <IconOs size={14} />, order: 0 },
+  { key: "processor", i18nKey: "sysreq.spec.processor", icon: <IconCpu size={14} />, order: 1 },
+  { key: "memory", i18nKey: "sysreq.spec.memory", icon: <IconMemory size={14} />, order: 2 },
+  { key: "graphics", i18nKey: "sysreq.spec.graphics", icon: <IconGpu size={14} />, order: 3 },
+  { key: "directX", i18nKey: "sysreq.spec.directX", icon: <IconInfo size={14} />, order: 4 },
+  { key: "network", i18nKey: "sysreq.spec.network", icon: <IconNetwork size={14} />, order: 5 },
+  { key: "storage", i18nKey: "sysreq.spec.storage", icon: <IconHardDrive size={14} />, order: 6 },
+  { key: "soundCard", i18nKey: "sysreq.spec.soundCard", icon: <IconSoundCard size={14} />, order: 7 },
+  { key: "vrSupport", i18nKey: "sysreq.spec.vrSupport", icon: <IconVrHeadset size={14} />, order: 8 },
   {
     key: "additionalNotes",
-    label: "Additional Notes",
+    i18nKey: "sysreq.spec.additionalNotes",
     icon: <IconGamepad size={14} />,
     order: 9,
   },
@@ -158,6 +159,7 @@ function sanitizeRequirementsHtml(html: string): string {
 export default function SystemRequirementsCard({
   steamAppId,
 }: SystemRequirementsCardProps) {
+  const { t } = useLanguage();
   const [activeTier, setActiveTier] = useState<Tier>("recommended");
   const [payload, setPayload] = useState<PcRequirementsPayload | null>(null);
   const [loaded, setLoaded] = useState(false);
@@ -282,13 +284,13 @@ export default function SystemRequirementsCard({
           <span className="game-section-title__icon" aria-hidden>
             <IconCpu size={16} />
           </span>
-          System Requirements
+          {t("sysreq.title")}
           {sourceLabel && (
             <span
               className={`system-requirements-card__source-pill system-requirements-card__source-pill--${payload?.source ?? "steam"}`}
               aria-label={`Source: ${sourceLabel}`}
             >
-              from {sourceLabel}
+              {t("about.from", { source: sourceLabel })}
             </span>
           )}
         </h2>
@@ -308,7 +310,7 @@ export default function SystemRequirementsCard({
                 setActiveTier("minimum");
               }}
             >
-              Minimum
+              {t("sysreq.minimum")}
             </button>
             <button
               type="button"
@@ -320,7 +322,7 @@ export default function SystemRequirementsCard({
                 setActiveTier("recommended");
               }}
             >
-              Recommended
+              {t("sysreq.recommended")}
             </button>
           </div>
         )}
@@ -350,7 +352,7 @@ export default function SystemRequirementsCard({
                   {row.icon}
                 </span>
                 <span className="system-requirements-card__row-label">
-                  {row.label}
+                  {t(row.i18nKey)}
                 </span>
                 <span className="system-requirements-card__row-value">
                   {activeValue ?? (
@@ -362,9 +364,9 @@ export default function SystemRequirementsCard({
                     <span
                       className="system-requirements-card__row-tag"
                       aria-label="Same on minimum"
-                      title="Same value on the other tier"
+                      title={t("sysreq.same")}
                     >
-                      same
+                      {t("sysreq.same")}
                     </span>
                   )}
                 </span>
@@ -390,7 +392,7 @@ export default function SystemRequirementsCard({
           rel="noopener noreferrer"
         >
           <IconLink size={14} />
-          View system requirements on {sourceLabel ?? "Steam"}
+          {t("sysreq.viewOn", { source: sourceLabel ?? "Steam" })}
         </a>
       )}
     </section>

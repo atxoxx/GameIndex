@@ -3,6 +3,7 @@ import StoreGameCard from "./StoreGameCard";
 import { Button } from "../ui";
 import { DensityContext } from "../../context/DensityContext";
 import { WishlistContext } from "../../context/WishlistContext";
+import { useLanguage } from "../../context/LanguageContext";
 import type { StoreGameSummary } from "../../types/game";
 
 interface StoreGameGridProps {
@@ -71,6 +72,7 @@ export default function StoreGameGrid({
   selectedSlugs,
   onToggleSelect,
 }: StoreGameGridProps) {
+  const { t } = useLanguage();
   const sentinelRef = useRef<HTMLDivElement>(null);
   const gridRef = useRef<HTMLDivElement>(null);
   const density = useContext(DensityContext)?.density ?? "cozy";
@@ -170,10 +172,10 @@ export default function StoreGameGrid({
           <line x1="12" y1="8" x2="12" y2="12" />
           <line x1="12" y1="16" x2="12.01" y2="16" />
         </svg>
-        <h3>Failed to load games</h3>
+        <h3>{t("store.errorTitle")}</h3>
         <p>{error}</p>
         <Button variant="secondary" size="sm" onClick={onLoadMore}>
-          Try Again
+          {t("store.errorTryAgain")}
         </Button>
       </div>
     );
@@ -198,11 +200,11 @@ export default function StoreGameGrid({
             <polyline points="7 10 12 15 17 10" />
             <line x1="12" y1="15" x2="12" y2="3" />
           </svg>
-          <h3>No games match your selected sources</h3>
+          <h3>{t("store.noSourceMatch")}</h3>
           <p>
             {isSourceCheckPending
-              ? "Still checking the rest of the page — listing may grow in a moment."
-              : "Try removing a source from the sidebar — the filter uses a strict AND-intersection, so a game must appear in every checked source to be shown."}
+              ? t("store.noSourceMatchHint")
+              : t("store.noSourceMatchHintStrict")}
           </p>
         </div>
       );
@@ -219,8 +221,8 @@ export default function StoreGameGrid({
           <line x1="8" y1="21" x2="16" y2="21" />
           <line x1="12" y1="17" x2="12" y2="21" />
         </svg>
-        <h3>No games found</h3>
-        <p>Try adjusting your search or browse a different category.</p>
+          <h3>{t("store.noGames")}</h3>
+          <p>{t("store.noGamesHint")}</p>
       </div>
     );
   }
@@ -269,14 +271,14 @@ export default function StoreGameGrid({
       {loading && games.length > 0 && (
         <div className="store-loading-more">
           <div className="store-spinner" />
-          <span>Loading more games...</span>
+          <span>{t("store.loadingMore")}</span>
         </div>
       )}
 
       {/* End-of-list message */}
       {!hasMore && games.length > 0 && (
         <p className="store-end-message">
-          You've reached the end of the list.
+          {t("store.endOfList")}
         </p>
       )}
     </div>

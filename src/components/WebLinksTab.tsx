@@ -6,6 +6,7 @@ import { getCurrentWindow } from "@tauri-apps/api/window";
 import { LogicalSize, LogicalPosition } from "@tauri-apps/api/dpi";
 import type { Game } from "../types/game";
 import { useBigScreen } from "../context/BigScreenContext";
+import { useLanguage } from "../context/LanguageContext";
 import { useFocusable } from "../hooks/useFocusable";
 
 interface WebLinksTabProps {
@@ -49,6 +50,7 @@ interface SourceDef {
 interface SteamSectionDef {
   key: SteamSectionKey;
   label: string;
+  i18nKey: string;
   icon: ReactNode;
 }
 
@@ -316,13 +318,13 @@ const FixedSources: SourceDef[] = [
 ];
 
 const SteamSections: SteamSectionDef[] = [
-  { key: "store", label: "Store", icon: SteamStoreIcon },
-  { key: "discussions", label: "Discussions", icon: SteamChatIcon },
-  { key: "news", label: "News", icon: SteamNewsIcon },
-  { key: "workshop", label: "Workshop", icon: SteamWorkshopIcon },
-  { key: "screenshots", label: "Screenshots", icon: SteamScreenshotsIcon },
-  { key: "videos", label: "Videos", icon: SteamVideosIcon },
-  { key: "guides", label: "Guides", icon: SteamGuidesIcon },
+  { key: "store", label: "Store", i18nKey: "weblinks.steam.store", icon: SteamStoreIcon },
+  { key: "discussions", label: "Discussions", i18nKey: "weblinks.steam.discussions", icon: SteamChatIcon },
+  { key: "news", label: "News", i18nKey: "weblinks.steam.news", icon: SteamNewsIcon },
+  { key: "workshop", label: "Workshop", i18nKey: "weblinks.steam.workshop", icon: SteamWorkshopIcon },
+  { key: "screenshots", label: "Screenshots", i18nKey: "weblinks.steam.screenshots", icon: SteamScreenshotsIcon },
+  { key: "videos", label: "Videos", i18nKey: "weblinks.steam.videos", icon: SteamVideosIcon },
+  { key: "guides", label: "Guides", i18nKey: "weblinks.steam.guides", icon: SteamGuidesIcon },
 ];
 
 /** Derive a display label + host for a user-added URL. */
@@ -343,6 +345,7 @@ function deriveCustomLink(url: string): { label: string; host: string } {
 // ─── Component ────────────────────────────────────────────────────────────────
 
 export default function WebLinksTab({ game, visible = true }: WebLinksTabProps) {
+  const { t } = useLanguage();
   const [activeSource, setActiveSource] = useState<string>("steam");
   const [steamSection, setSteamSection] = useState<SteamSectionKey>("store");
   /** Bumped (via Reload) to force webview recreation. */
@@ -481,7 +484,7 @@ export default function WebLinksTab({ game, visible = true }: WebLinksTabProps) 
   if (isBigScreen) {
     return (
       <div className="wl-tab-bigscreen" style={{ padding: "10px 0" }}>
-        <h3 style={{ margin: "0 0 20px 0" }}>External Game Web Resources</h3>
+        <h3 style={{ margin: "0 0 20px 0" }}>{t("weblinks.title")}</h3>
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(240px, 1fr))", gap: "16px" }}>
           {bigScreenLinks.map((link, idx) => (
             <BigScreenLinkCard key={idx} link={link} />
@@ -702,7 +705,7 @@ export default function WebLinksTab({ game, visible = true }: WebLinksTabProps) 
                 title={disabled ? "Steam AppID not detected — Search by name instead." : undefined}
               >
                 <span className="wl-steam-subtab-icon">{sec.icon}</span>
-                <span>{sec.label}</span>
+                <span>{t(sec.i18nKey)}</span>
                 {disabled && (
                   <span className="wl-steam-subtab-lock" aria-hidden>
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -735,7 +738,7 @@ export default function WebLinksTab({ game, visible = true }: WebLinksTabProps) 
             color: isCustomActive ? "var(--color-accent)" : activeSourceDef.accent,
           }}
         >
-          {isCustomActive ? "My Link" : activeSourceDef.label}
+          {isCustomActive ? t("weblinks.myLink") : activeSourceDef.label}
         </span>
         <span className="wl-urlbar-url" title={url}>
           {url.replace(/^https?:\/\//, "").replace(/^www\./, "")}
@@ -743,7 +746,7 @@ export default function WebLinksTab({ game, visible = true }: WebLinksTabProps) 
         <div className="wl-urlbar-actions">
           <button className="wl-urlbar-btn" onClick={handleReload} type="button" title="Reload preview">
             <ReloadIcon />
-            <span>Reload</span>
+            <span>{t("weblinks.reload")}</span>
           </button>
           <button
             className="wl-urlbar-btn primary"
@@ -752,7 +755,7 @@ export default function WebLinksTab({ game, visible = true }: WebLinksTabProps) 
             title="Open in your default browser"
           >
             <OpenExternalIcon />
-            <span>Open in browser</span>
+            <span>{t("weblinks.openBrowser")}</span>
           </button>
         </div>
       </div>
@@ -769,7 +772,7 @@ export default function WebLinksTab({ game, visible = true }: WebLinksTabProps) 
               >
                 {SteamSections.find((s) => s.key === steamSection)?.icon}
               </span>
-              <h3>Steam AppID not detected</h3>
+              <h3>{t("weblinks.steamAppIdNotDetected")}</h3>
             </div>
             <p>
               The <strong>{SteamSections.find((s) => s.key === steamSection)?.label}</strong> page for this game
@@ -781,7 +784,7 @@ export default function WebLinksTab({ game, visible = true }: WebLinksTabProps) 
             </p>
             <button className="wl-empty-btn primary" onClick={handleOpenExternal} type="button">
               <OpenExternalIcon />
-              Search Steam Store
+              {t("weblinks.steam.searchStore")}
             </button>
           </div>
         ) : isSteamActive && !appId ? (
@@ -794,7 +797,7 @@ export default function WebLinksTab({ game, visible = true }: WebLinksTabProps) 
               >
                 {SteamIcon}
               </span>
-              <h3>Steam search mode</h3>
+              <h3>{t("weblinks.steamSearchMode")}</h3>
             </div>
             <p>
               This game isn't tied to a Steam AppID, so we're showing the Steam Store search for{" "}
@@ -810,7 +813,7 @@ export default function WebLinksTab({ game, visible = true }: WebLinksTabProps) 
             {!webviewReady && (
               <div className="wl-webview-loader" aria-hidden>
                 <div className="wl-webview-spinner" />
-                <span>Loading {activeSourceDef.label}…</span>
+                <span>{t("weblinks.loading", { source: activeSourceDef.label })}</span>
               </div>
             )}
           </div>
@@ -825,8 +828,7 @@ export default function WebLinksTab({ game, visible = true }: WebLinksTabProps) 
           <line x1="12" y1="16" x2="12.01" y2="16" />
         </svg>
         <span>
-          Previews load in a native <code>Webview</code>. Pages are fully
-          interactive and bypass iframe embedding restrictions.
+          {t("weblinks.footnote")}
         </span>
       </div>
     </div>

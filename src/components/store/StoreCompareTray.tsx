@@ -1,4 +1,5 @@
 import type { StoreGameSummary } from "../../types/game";
+import { useLanguage } from "../../context/LanguageContext";
 
 interface StoreCompareTrayProps {
   games: StoreGameSummary[];
@@ -17,11 +18,12 @@ export default function StoreCompareTray({
   onClear,
   onOpen,
 }: StoreCompareTrayProps) {
+  const { t } = useLanguage();
   if (games.length === 0) return null;
 
   return (
     <div className="store-compare-tray" role="region" aria-label="Compare tray">
-      <span className="store-compare-tray-label">Compare ({games.length}/3)</span>
+      <span className="store-compare-tray-label">{t("store.compare.tray", { count: games.length })}</span>
       <div className="store-compare-tray-items">
         {games.map((g) => (
           <span key={g.slug} className="store-compare-chip" title={g.name}>
@@ -50,10 +52,10 @@ export default function StoreCompareTray({
           onClick={onOpen}
           disabled={games.length < 2}
         >
-          Compare
+          {t("store.compare.open")}
         </button>
         <button type="button" className="store-compare-clear" onClick={onClear}>
-          Clear
+          {t("store.compare.clear")}
         </button>
       </div>
     </div>

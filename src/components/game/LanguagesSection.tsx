@@ -1,6 +1,7 @@
 import { useMemo } from "react";
 import type { Game } from "../../types/game";
 import { IconCheck, IconGlobe, IconX } from "./icons";
+import { useLanguage } from "../../context/LanguageContext";
 
 /**
  * LanguagesSection
@@ -26,6 +27,7 @@ interface LangFlags {
 }
 
 export default function LanguagesSection({ game }: LanguagesSectionProps) {
+  const { t } = useLanguage();
   const languages = useMemo(() => {
     if (!game.languageSupports || game.languageSupports.length === 0) return null;
     const map: Record<string, LangFlags> = {};
@@ -51,7 +53,7 @@ export default function LanguagesSection({ game }: LanguagesSectionProps) {
         <span className="game-section-title__icon" aria-hidden>
           <IconGlobe size={16} />
         </span>
-        Supported Languages
+        {t("lang.title")}
         <span className="game-section-title__count">{languages.list.length}</span>
       </h2>
 
@@ -59,10 +61,10 @@ export default function LanguagesSection({ game }: LanguagesSectionProps) {
         <table className="languages-table">
           <thead>
             <tr>
-              <th>Language</th>
-              <th className="lang-th-center">Interface</th>
-              <th className="lang-th-center">Audio</th>
-              <th className="lang-th-center">Subtitles</th>
+              <th>{t("lang.column.language")}</th>
+              <th className="lang-th-center">{t("lang.column.interface")}</th>
+              <th className="lang-th-center">{t("lang.column.audio")}</th>
+              <th className="lang-th-center">{t("lang.column.subtitles")}</th>
             </tr>
           </thead>
           <tbody>

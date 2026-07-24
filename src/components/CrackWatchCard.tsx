@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import type { CrackWatchStatus } from "../types/game";
+import { useLanguage } from "../context/LanguageContext";
 
 /** Skeleton shimmer used while the status is loading. */
 function Skeleton({ height = 16, width = "100%" }: { height?: number; width?: number | string }) {
@@ -26,6 +27,7 @@ export function CrackWatchSection({
   data: CrackWatchStatus | null;
   isLoading: boolean;
 }) {
+  const { t } = useLanguage();
   if (!isLoading && !data) return null;
 
   return (
@@ -34,7 +36,7 @@ export function CrackWatchSection({
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
           <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
         </svg>
-        CrackWatch Status
+        {t("crackwatch.title")}
       </h2>
 
       <div className="cw-card-body">
@@ -44,26 +46,26 @@ export function CrackWatchSection({
               <span
                 className={`cw-status-pill${data.isCracked ? " cw-cracked" : " cw-uncracked"}`}
               >
-                {data.isCracked ? "CRACKED" : "UNCRACKED"}
+                {data.isCracked ? t("crackwatch.cracked") : t("crackwatch.uncracked")}
               </span>
             </div>
 
             <div className="cw-meta-grid-inner">
               {data.protection && (
                 <div className="cw-meta-row">
-                  <span className="cw-meta-label">Protection</span>
+                  <span className="cw-meta-label">{t("crackwatch.protection")}</span>
                   <span className="cw-meta-val">{data.protection}</span>
                 </div>
               )}
               {data.crackGroup && (
                 <div className="cw-meta-row">
-                  <span className="cw-meta-label">Group</span>
+                  <span className="cw-meta-label">{t("crackwatch.group")}</span>
                   <span className="cw-meta-val">{data.crackGroup}</span>
                 </div>
               )}
               {data.crackDate && (
                 <div className="cw-meta-row">
-                  <span className="cw-meta-label">Crack Date</span>
+                  <span className="cw-meta-label">{t("crackwatch.date")}</span>
                   <span className="cw-meta-val">{data.crackDate}</span>
                 </div>
               )}

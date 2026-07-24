@@ -1,5 +1,6 @@
 import { useEffect } from "react";
 import type { StoreGameSummary } from "../../types/game";
+import { useLanguage } from "../../context/LanguageContext";
 
 interface StoreCompareModalProps {
   games: StoreGameSummary[];
@@ -23,6 +24,7 @@ export default function StoreCompareModal({
   onClose,
   onOpenGame,
 }: StoreCompareModalProps) {
+  const { t } = useLanguage();
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (e.key === "Escape") onClose();
@@ -32,15 +34,15 @@ export default function StoreCompareModal({
   }, [onClose]);
 
   const rows: { label: string; render: (g: StoreGameSummary) => string }[] = [
-    { label: "Rating", render: (g) => (g.rating != null ? `${Math.round(g.rating)}/100` : "—") },
+    { label: t("store.compare.rating"), render: (g) => (g.rating != null ? `${Math.round(g.rating)}/100` : "—") },
     {
-      label: "Critics",
+      label: t("store.compare.critics"),
       render: (g) => (g.aggregatedRating != null ? `${Math.round(g.aggregatedRating)}/100` : "—"),
     },
-    { label: "Released", render: releaseYear },
-    { label: "Genres", render: (g) => (g.genres?.length ? g.genres.join(", ") : "—") },
-    { label: "Platforms", render: (g) => (g.platforms?.length ? g.platforms.join(", ") : "—") },
-    { label: "Ratings count", render: (g) => String(g.totalRatingCount ?? 0) },
+    { label: t("store.compare.released"), render: releaseYear },
+    { label: t("store.compare.genres"), render: (g) => (g.genres?.length ? g.genres.join(", ") : "—") },
+    { label: t("store.compare.platforms"), render: (g) => (g.platforms?.length ? g.platforms.join(", ") : "—") },
+    { label: t("store.compare.ratingsCount"), render: (g) => String(g.totalRatingCount ?? 0) },
   ];
 
   return (
@@ -53,12 +55,12 @@ export default function StoreCompareModal({
         onClick={(e) => e.stopPropagation()}
       >
         <div className="store-compare-modal-header">
-          <h2>Compare</h2>
+          <h2>{t("store.compare.title")}</h2>
           <button
             type="button"
             className="store-compare-modal-close"
             onClick={onClose}
-            aria-label="Close comparison"
+            aria-label={t("store.compare.close")}
           >
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
               <line x1="18" y1="6" x2="6" y2="18" />

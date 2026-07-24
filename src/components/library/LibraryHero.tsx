@@ -5,6 +5,7 @@ import type { Game } from "../../types/game";
 import { parsePlayTime, formatPlayTime } from "../../types/game";
 import { useGames } from "../../context/GameContext";
 import { useToast } from "../../context/ToastContext";
+import { useLanguage } from "../../context/LanguageContext";
 import { gameNameFromPath } from "../../types/game";
 
 interface LibraryHeroProps {
@@ -24,13 +25,14 @@ export default function LibraryHero({ games }: LibraryHeroProps) {
   const navigate = useNavigate();
   const { importLocalGames } = useGames();
   const { showToast } = useToast();
+  const { t } = useLanguage();
 
-  const greeting = useMemo(() => {
+  const greetingKey = useMemo(() => {
     const hour = new Date().getHours();
-    if (hour < 5) return "Up late";
-    if (hour < 12) return "Good morning";
-    if (hour < 18) return "Good afternoon";
-    return "Good evening";
+    if (hour < 5) return "lib.hero.greeting.upLate";
+    if (hour < 12) return "lib.hero.greeting.morning";
+    if (hour < 18) return "lib.hero.greeting.afternoon";
+    return "lib.hero.greeting.evening";
   }, []);
 
   const stats = useMemo(() => {
@@ -85,18 +87,20 @@ export default function LibraryHero({ games }: LibraryHeroProps) {
       <div className="lib-hero-content">
         <div className="lib-hero-text">
           <h1 className="lib-hero-greeting">
-            {greeting}
+            {t(greetingKey)}
             <span className="lib-hero-greeting-dot" aria-hidden>
               .
             </span>
           </h1>
           <p className="lib-hero-subtitle">
             {stats.total === 0
-              ? "Your library is looking a little empty — let's fix that."
+              ? t("lib.hero.subtitle.empty")
               : stats.recentlyAdded > 0
-                ? `You've spent ${stats.totalPlayTime} across ${stats.total} game${
-                    stats.total === 1 ? "" : "s"
-                  } · ${stats.recentlyAdded} added this week.`
+                ? t("lib.hero.subtitle.body", {
+                    time: stats.totalPlayTime,
+                    count: stats.total,
+                    added: stats.recentlyAdded,
+                  })
                 : `You've spent ${stats.totalPlayTime} across ${stats.total} game${
                     stats.total === 1 ? "" : "s"
                   }.`}
@@ -109,14 +113,14 @@ export default function LibraryHero({ games }: LibraryHeroProps) {
               <line x1="12" y1="5" x2="12" y2="19" />
               <line x1="5" y1="12" x2="19" y2="12" />
             </svg>
-            Import Games
+            {t("lib.hero.importGames")}
           </button>
           <button type="button" className="lib-hero-btn lib-hero-btn--ghost" onClick={handleBrowseStore}>
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
               <polyline points="23 6 13.5 15.5 8.5 10.5 1 18" />
               <polyline points="17 6 23 6 23 12" />
             </svg>
-            Browse Store
+            {t("lib.hero.browseStore")}
           </button>
         </div>
       </div>
@@ -124,7 +128,7 @@ export default function LibraryHero({ games }: LibraryHeroProps) {
       <div className="lib-hero-stats">
         <StatTile
           value={stats.total}
-          label="Total Games"
+          label={t("lib.hero.stat.total")}
           accent="var(--color-accent)"
           delayMs={0}
           icon={
@@ -137,8 +141,8 @@ export default function LibraryHero({ games }: LibraryHeroProps) {
         />
         <StatTile
           value={stats.installed}
-          label="Installed"
-          subtext={stats.total > 0 ? `${stats.installedPct}% of library` : "No games yet"}
+          label={t("lib.hero.stat.installed")}
+          subtext={stats.total > 0 ? `${stats.installedPct}% of library` : t("lib.hero.stat.installedPct")}
           accent="var(--color-success)"
           delayMs={70}
           icon={
@@ -149,7 +153,7 @@ export default function LibraryHero({ games }: LibraryHeroProps) {
         />
         <StatTile
           value={stats.totalPlayTime}
-          label="Total Playtime"
+          label={t("lib.hero.stat.playtime")}
           accent="var(--color-info)"
           delayMs={140}
           icon={
@@ -161,8 +165,8 @@ export default function LibraryHero({ games }: LibraryHeroProps) {
         />
         <StatTile
           value={stats.recentlyAdded}
-          label="Added This Week"
-          subtext={stats.recentlyAdded === 1 ? "new arrival" : undefined}
+          label={t("lib.hero.stat.addedWeek")}
+          subtext={stats.recentlyAdded === 1 ? t("lib.hero.stat.addedWeekSub") : undefined}
           accent="var(--color-warning)"
           delayMs={210}
           icon={
