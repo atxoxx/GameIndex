@@ -26,6 +26,7 @@
 import { useState } from "react";
 import { useDownloads } from "../../context/DownloadContext";
 import { useToast } from "../../context/ToastContext";
+import { useLanguage } from "../../context/LanguageContext";
 import { Button } from "../ui";
 
 const URI_PATTERN = /^(magnet:|https?:\/\/)/i;
@@ -47,6 +48,7 @@ async function resolveSavePath(
 export default function MagnetInputBar() {
   const { addDownload, addDirectDownload, selectSavePath } = useDownloads();
   const { showToast } = useToast();
+  const { t } = useLanguage();
   const [value, setValue] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [dragOver, setDragOver] = useState(false);
@@ -55,7 +57,7 @@ export default function MagnetInputBar() {
     const trimmed = rawUri.trim();
     if (!trimmed) return;
     if (!URI_PATTERN.test(trimmed)) {
-      showToast("Must be a magnet: link or http(s):// .torrent URL", "error");
+      showToast(t('magnetInput.mustBeMagnet'), "error");
       return;
     }
     setSubmitting(true);
@@ -85,10 +87,10 @@ export default function MagnetInputBar() {
         await addDownload(trimmed, path, null, "Direct link");
       }
 
-      showToast("Download added", "success");
+      showToast(t('magnetInput.downloadAdded'), "success");
       setValue("");
     } catch (err) {
-      showToast(`Couldn't add download: ${err}`, "error");
+      showToast(t('magnetInput.addFailed', { error: String(err) }), "error");
     } finally {
       setSubmitting(false);
     }
@@ -131,7 +133,7 @@ export default function MagnetInputBar() {
         if (uri) {
           setValue(uri);
         } else {
-          showToast("Dropped item isn't a magnet or .torrent URL", "error");
+          showToast(t('magnetInput.invalidDrop'), "error");
         }
       }}
     >
@@ -151,7 +153,7 @@ export default function MagnetInputBar() {
       <input
         className="dl-magnet-bar-input"
         type="text"
-        placeholder="Paste or drop a magnet link or .torrent URL…"
+        placeholder={t('magnetInput.placeholder')}
         value={value}
         onChange={(e) => setValue(e.target.value)}
         onKeyDown={(e) => {
@@ -160,7 +162,7 @@ export default function MagnetInputBar() {
         disabled={submitting}
         spellCheck={false}
         autoComplete="off"
-        aria-label="Magnet link or torrent URL"
+        aria-label={t('magnetInput.inputAria')}
       />
       <Button
         variant="primary"
@@ -169,7 +171,7 @@ export default function MagnetInputBar() {
         isLoading={submitting}
         size="sm"
       >
-        Add
+        {t('common.add')}
       </Button>
     </div>
   );

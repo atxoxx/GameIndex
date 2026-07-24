@@ -148,14 +148,14 @@ export default function DownloadsPage() {
     try {
       await pauseDownload(id);
     } catch (err) {
-      showToast(`Pause failed: ${err}`, "error");
+      showToast(t("downloads.pauseFailed", { error: err }), "error");
     }
   }
   async function handleResume(id: string) {
     try {
       await resumeDownload(id);
     } catch (err) {
-      showToast(`Resume failed: ${err}`, "error");
+      showToast(t("downloads.resumeFailed", { error: err }), "error");
     }
   }
   async function handleRemove(id: string) {
@@ -169,9 +169,9 @@ export default function DownloadsPage() {
     }
     try {
       await removeDownload(id, false);
-      showToast("Download removed", "info");
+      showToast(t("downloads.removed"), "info");
     } catch (err) {
-      showToast(`Remove failed: ${err}`, "error");
+      showToast(t("downloads.removeFailed", { error: err }), "error");
     }
   }
 
@@ -181,10 +181,10 @@ export default function DownloadsPage() {
     setRemovingBusy(true);
     try {
       await removeDownload(target.id, false);
-      showToast(`Removed "${target.name}"`, "info");
+      showToast(t("downloads.removedNamed", { name: target.name }), "info");
       setRemovingContext(null);
     } catch (err) {
-      showToast(`Remove failed: ${err}`, "error");
+      showToast(t("downloads.removeFailed", { error: err }), "error");
     } finally {
       setRemovingBusy(false);
     }
@@ -206,13 +206,13 @@ export default function DownloadsPage() {
       await removeDownload(target.id, true);
       showToast(
         target.autoExtract
-          ? `Deleted archives for "${target.name}"; installed files kept`
-          : `Deleted "${target.name}" from disk`,
+          ? t("downloads.deletedArchives", { name: target.name })
+          : t("downloads.deletedFromDisk", { name: target.name }),
         "info",
       );
       setDeletingContext(null);
     } catch (err) {
-      showToast(`Delete failed: ${err}`, "error");
+      showToast(t("downloads.deleteFailed", { error: err }), "error");
     } finally {
       setDeletingBusy(false);
     }

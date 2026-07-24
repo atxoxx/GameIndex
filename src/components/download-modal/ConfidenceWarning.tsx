@@ -1,4 +1,5 @@
 import type { MatchedDownload } from "../../types/source";
+import { useLanguage } from "../../context/LanguageContext";
 
 /**
  * Confidence gate. The Rust side already filters out anything below
@@ -17,10 +18,11 @@ export function ConfidenceWarning({
   matches: MatchedDownload[];
   gameName: string;
 }) {
+  const { t } = useLanguage();
   if (matches.length === 0) return null;
   const best = matches.reduce((acc, m) => (m.matchScore > acc ? m.matchScore : acc), 0);
   if (best >= 0.8) return null;
-  const label = best >= 0.4 ? "partial match" : "low-confidence match";
+  const label = best >= 0.4 ? t('downloadModal.partialMatch') : t('downloadModal.lowConfidenceMatch');
 
   return (
     <div className="dl-confirm-warning" role="alert">
@@ -41,10 +43,9 @@ export function ConfidenceWarning({
         <line x1="12" y1="17" x2="12.01" y2="17" />
       </svg>
       <span>
-        Search returned only a <strong>{label}</strong> for
-        &nbsp;“{gameName}”. Verify the title below is the exact game you want
-        before downloading — pick a higher-confidence result if one appears, or
-        refine via <strong>Settings → Download Sources</strong>.
+        {t('downloadModal.confidenceBefore')} <strong>{label}</strong>
+        {t('downloadModal.confidenceAfter', { gameName })}{" "}
+        <strong>{t('downloadModal.confidenceSettings')}</strong>.
       </span>
     </div>
   );

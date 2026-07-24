@@ -20,10 +20,13 @@ export default function StoreHeader({ catalogue: c }: StoreHeaderProps) {
           <span className="brand-eyebrow">{t("nav.store")}</span>
           <h2 className="brand-text">{c.resultsTitle}</h2>
           <span className="store-toolbar-count">
-            {c.sourceFilterChipCount !== undefined
-              ? c.sourceFilterChipCount
-              : c.displayedGames.length}{" "}
-            game{c.displayedGames.length !== 1 ? "s" : ""}
+            {t("storage.gamesCount", {
+              count:
+                c.sourceFilterChipCount !== undefined
+                  ? c.sourceFilterChipCount
+                  : c.displayedGames.length,
+              plural: c.displayedGames.length !== 1 ? "s" : "",
+            })}
           </span>
         </div>
 
@@ -33,7 +36,7 @@ export default function StoreHeader({ catalogue: c }: StoreHeaderProps) {
               type="button"
               className={`store-toolbar-toggle${c.showHidden ? " active" : ""}`}
               onClick={() => c.setShowHidden(!c.showHidden)}
-              title={c.showHidden ? "Hide dismissed games" : "Show dismissed games"}
+              title={c.showHidden ? t("storeHeader.toggleDismissed") : t("storeHeader.toggleDismissedShow")}
             >
               {c.showHidden ? t("store.hideDismissed") : t("store.showHidden", { count: c.hiddenCount })}
             </button>

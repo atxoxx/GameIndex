@@ -68,14 +68,14 @@ export default function StoreFilterChips({
     <div className="store-filter-chips">
       {resultCount != null && (
         <span className="store-filter-count">
-          {resultCount} game{resultCount !== 1 ? "s" : ""}
+          {t("storage.gamesCount", { count: resultCount, plural: resultCount !== 1 ? "s" : "" })}
         </span>
       )}
 
       {selectedGenres.map((genre) => (
         <span key={`g-${genre}`} className="store-filter-chip">
           {genre}
-          <button onClick={() => onRemoveGenre(genre)} aria-label={`Remove ${genre}`}>
+          <button onClick={() => onRemoveGenre(genre)} aria-label={t("store.filter.removeItem", { name: genre })}>
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
               <line x1="18" y1="6" x2="6" y2="18" />
               <line x1="6" y1="6" x2="18" y2="18" />
@@ -87,7 +87,7 @@ export default function StoreFilterChips({
       {selectedPlatforms.map((platform) => (
         <span key={`p-${platform}`} className="store-filter-chip">
           {platform}
-          <button onClick={() => onRemovePlatform(platform)} aria-label={`Remove ${platform}`}>
+          <button onClick={() => onRemovePlatform(platform)} aria-label={t("store.filter.removeItem", { name: platform })}>
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
               <line x1="18" y1="6" x2="6" y2="18" />
               <line x1="6" y1="6" x2="18" y2="18" />
@@ -99,7 +99,7 @@ export default function StoreFilterChips({
       {(yearMin != null || yearMax != null) && (
         <span className="store-filter-chip">
           {yearMin ?? "..."} – {yearMax ?? "..."}
-          <button onClick={onRemoveYear} aria-label="Remove year filter">
+          <button onClick={onRemoveYear} aria-label={t("store.filter.removeYear")}>
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
               <line x1="18" y1="6" x2="6" y2="18" />
               <line x1="6" y1="6" x2="18" y2="18" />
@@ -111,7 +111,7 @@ export default function StoreFilterChips({
       {ratingMin != null && (
         <span className="store-filter-chip">
           ⭐ {ratingMin}+
-          <button onClick={onRemoveRating} aria-label="Remove rating filter">
+          <button onClick={onRemoveRating} aria-label={t("store.filter.removeRating")}>
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
               <line x1="18" y1="6" x2="6" y2="18" />
               <line x1="6" y1="6" x2="18" y2="18" />
@@ -121,7 +121,7 @@ export default function StoreFilterChips({
       )}
 
       {selectedSourceIds.map((sourceId) => {
-        const name = sourceNameById.get(sourceId) ?? "Unknown source";
+        const name = sourceNameById.get(sourceId) ?? t("store.filter.unknownSource");
         return (
           <span key={`s-${sourceId}`} className="store-filter-chip store-filter-chip-source">
             <svg
@@ -141,7 +141,7 @@ export default function StoreFilterChips({
             {name}
             <button
               onClick={() => onRemoveSource(sourceId)}
-              aria-label={`Remove source ${name}`}
+              aria-label={t("store.filter.removeSource", { name })}
             >
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                 <line x1="18" y1="6" x2="6" y2="18" />

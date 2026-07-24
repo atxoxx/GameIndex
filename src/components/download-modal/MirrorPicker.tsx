@@ -1,4 +1,5 @@
 import { hostLabelForUri } from "./helpers";
+import { useLanguage } from "../../context/LanguageContext";
 
 /**
  * Mirror / hoster selector. Renders each mirror URI as a compact,
@@ -15,10 +16,11 @@ export function MirrorPicker({
   selectedMirrorIdx: number;
   onChange: (idx: number) => void;
 }) {
+  const { t } = useLanguage();
   if (uris.length <= 1) return null;
 
   return (
-    <div className="dl-mirror-chips" role="radiogroup" aria-label="Select mirror or hoster">
+    <div className="dl-mirror-chips" role="radiogroup" aria-label={t('downloadModal.selectMirror')}>
       {uris.map((uri, idx) => {
         const hoster = hostLabelForUri(uri, idx);
         const selected = idx === selectedMirrorIdx;

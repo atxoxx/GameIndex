@@ -4,6 +4,7 @@ import {
   SORT_LABELS,
   type LibrarySort,
 } from "../../hooks/useLibraryFilters";
+import { useLanguage } from "../../context/LanguageContext";
 
 interface LibrarySortMenuProps {
   value: LibrarySort;
@@ -49,6 +50,7 @@ export default function LibrarySortMenu({
   onChange,
   className,
 }: LibrarySortMenuProps) {
+  const { t } = useLanguage();
   const [open, setOpen] = useState(false);
   const rootRef = useRef<HTMLDivElement>(null);
 
@@ -78,7 +80,7 @@ export default function LibrarySortMenu({
         aria-haspopup="listbox"
         aria-expanded={open}
         onClick={() => setOpen((o) => !o)}
-        title="Sort library"
+        title={t("library.sortLibrary")}
       >
         <span className="lib-sort-trigger-icon" aria-hidden="true">{SORT_ICONS[value]}</span>
         <span className="lib-sort-trigger-label">{SORT_LABELS[value]}</span>
@@ -88,7 +90,7 @@ export default function LibrarySortMenu({
       </button>
 
       {open && (
-        <ul className="lib-sort-list" role="listbox" aria-label="Sort order">
+        <ul className="lib-sort-list" role="listbox" aria-label={t("library.sortOrder")}>
           {SORT_OPTIONS.map((opt) => (
             <li key={opt} role="option" aria-selected={opt === value}>
               <button

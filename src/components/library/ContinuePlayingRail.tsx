@@ -58,7 +58,7 @@ export default function ContinuePlayingRail({
   return (
     <section
       className={`lib-rail lib-rail--continue${collapsed ? " lib-rail--collapsed" : ""}`}
-      aria-label="Continue playing — recently played games"
+      aria-label={t("gameCard.continuePlaying")}
     >
       <div className="lib-rail-header">
         <div className="lib-rail-title-row">
@@ -78,8 +78,8 @@ export default function ContinuePlayingRail({
           onClick={toggleCollapsed}
           aria-expanded={!collapsed}
           aria-controls={viewportId}
-          aria-label={collapsed ? "Expand Continue Playing rail" : "Collapse Continue Playing rail"}
-          title={collapsed ? "Expand" : "Collapse"}
+          aria-label={collapsed ? t("lib.rail.continue.expand") : t("lib.rail.continue.collapse")}
+          title={collapsed ? t("common.expand") : t("common.collapse")}
         >
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
             <polyline points="6 9 12 15 18 9" />
@@ -126,6 +126,7 @@ function ContinuePlayingCard({
   game: Game;
   onClick: (game: Game) => void;
 }) {
+  const { t } = useLanguage();
   const { appId: resolvedSteamAppId } = useSteamAppId(game);
   const steamAppId =
     typeof resolvedSteamAppId === "number" ? resolvedSteamAppId : game.steamAppId ?? null;
@@ -151,7 +152,7 @@ function ContinuePlayingCard({
       </div>
       <div className="lib-rail-card-body">
         <div className="lib-rail-name" title={game.name}>{game.name}</div>
-        <div className="lib-rail-meta lib-rail-meta--continue" title={`Last played ${new Date(game.lastPlayed ?? 0).toLocaleString()}`}>
+        <div className="lib-rail-meta lib-rail-meta--continue" title={t("lib.rail.continue.lastPlayed", { date: new Date(game.lastPlayed ?? 0).toLocaleString() })}>
           {formatAgo(game.lastPlayed ?? 0)}
         </div>
       </div>

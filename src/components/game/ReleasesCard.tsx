@@ -1,5 +1,6 @@
 import type { Game } from "../../types/game";
 import { IconCalendar } from "./icons";
+import { useLanguage } from "../../context/LanguageContext";
 
 /**
  * ReleasesCard
@@ -19,6 +20,7 @@ interface ReleasesCardProps {
 }
 
 export default function ReleasesCard({ game }: ReleasesCardProps) {
+  const { t } = useLanguage();
   if (!game.releases || game.releases.length === 0) return null;
 
   return (
@@ -27,7 +29,7 @@ export default function ReleasesCard({ game }: ReleasesCardProps) {
         <span className="game-section-title__icon" aria-hidden>
           <IconCalendar size={16} />
         </span>
-        Releases
+        {t("editExtras.releases")}
         <span className="game-section-title__count">
           {game.releases.length}
         </span>

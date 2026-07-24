@@ -220,6 +220,7 @@ export default function BigScreenHeader({
 }: {
   onOpenSearch?: () => void;
 }) {
+  const { t } = useLanguage();
   const gamepad = useGamepad();
   const navigate = useNavigate();
   const location = useLocation();
@@ -297,7 +298,7 @@ export default function BigScreenHeader({
         </div>
 
         {/* Primary Tabs */}
-        <nav className="bigscreen-header-tabs" role="navigation" aria-label="Main sections" ref={tabsNavRef}>
+        <nav className="bigscreen-header-tabs" role="navigation" aria-label={t("bigscreen.mainSections")} ref={tabsNavRef}>
           {tabs.map((tab) => {
             const activePath = getActiveTabPath(location.pathname);
             const isActive = activePath === tab.path;
@@ -319,8 +320,8 @@ export default function BigScreenHeader({
           type="button"
           className="bigscreen-header-tab bigscreen-header-tab--system bigscreen-header-tab--search"
           {...focusableSearch}
-          aria-label="Search"
-          title="Search ( / )"
+          aria-label={t("bigscreen.search")}
+          title={t("bigscreen.searchShortcut")}
         >
           <span className="bigscreen-header-tab-icon">
             <SearchIcon />
@@ -332,8 +333,8 @@ export default function BigScreenHeader({
           type="button"
           className="bigscreen-header-tab bigscreen-header-tab--system bigscreen-header-tab--exit"
           {...focusableExit}
-          aria-label="Exit Big Screen"
-          title="Exit Big Screen"
+          aria-label={t("bigscreen.exitBigScreen")}
+          title={t("bigscreen.exitBigScreen")}
         >
           <span className="bigscreen-header-tab-icon">
             <PowerIcon />
@@ -343,7 +344,7 @@ export default function BigScreenHeader({
         {/* Clock & Profile */}
         <div className="bigscreen-header-clock">{timeString}</div>
 
-        <div className="bigscreen-header-profile" aria-label="Profile">
+        <div className="bigscreen-header-profile" aria-label={t("bigscreen.profile")}>
           <div className="bigscreen-header-avatar">
             <svg viewBox="0 0 24 24" fill="currentColor" width="20" height="20">
               <path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z" />

@@ -1,6 +1,7 @@
 import { useState, useMemo } from "react";
 import { Button } from "../ui";
 import { formatBytesShort } from "../../types/download";
+import { useLanguage } from "../../context/LanguageContext";
 
 export function FileSelection({
   files,
@@ -11,6 +12,7 @@ export function FileSelection({
   selectedFiles: Set<number>;
   onChange: (indices: Set<number>) => void;
 }) {
+  const { t } = useLanguage();
   const [filter, setFilter] = useState("");
 
   const filtered = useMemo(() => {
@@ -43,34 +45,34 @@ export function FileSelection({
       <div className="dl-file-selection-header">
         <input
           type="text"
-          placeholder="Filter files…"
+          placeholder={t('downloadFiles.filterPlaceholder')}
           className="search-input dl-file-filter"
           value={filter}
           onChange={(e) => setFilter(e.target.value)}
-          aria-label="Filter files"
+          aria-label={t('downloadFiles.filterAria')}
         />
         <div className="dl-file-selection-actions">
           <Button variant="secondary" size="sm" onClick={handleSelectAll}>
-            Select All
+            {t('downloadFiles.selectAll')}
           </Button>
           <Button variant="secondary" size="sm" onClick={handleDeselectAll}>
-            Clear
+            {t('common.clear')}
           </Button>
         </div>
       </div>
 
       <div className="dl-file-selection-summary">
         <span>
-          <strong>{selectedFiles.size}</strong> of {files.length} files selected
+          <strong>{selectedFiles.size}</strong> {t('downloadFiles.ofFilesSelected', { total: files.length })}
         </span>
         <span className="dl-file-selection-bytes">
-          {formatBytesShort(selectedBytes)} of {formatBytesShort(totalBytes)}
+          {t('downloadFiles.bytesOf', { selected: formatBytesShort(selectedBytes), total: formatBytesShort(totalBytes) })}
         </span>
       </div>
 
       <div className="dl-file-list scrollable">
         {filtered.length === 0 ? (
-          <div className="dl-file-empty">No files match filter</div>
+          <div className="dl-file-empty">{t('downloadFiles.noMatch')}</div>
         ) : (
           filtered.map(({ file, idx }) => {
             const isChecked = selectedFiles.has(idx);

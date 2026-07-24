@@ -15,6 +15,7 @@
 import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import type { GamepadState } from "../../hooks/useGamepad";
+import { useLanguage } from "../../context/LanguageContext";
 
 interface GamepadHintProps {
   gamepad: GamepadState;
@@ -39,48 +40,48 @@ interface RowBinding {
 const bindings: RowBinding[] = [
   {
     key: "dpad",
-    label: "Move",
+    label: "gamepad.move",
     entries: [
       {
-        label: "D-pad / L-stick",
+        label: "gamepad.dpadStick",
         glyph: <DpadGlyph />,
       },
     ],
   },
   {
     key: "stick",
-    label: "Cursor",
+    label: "gamepad.cursor",
     entries: [
       {
-        label: "Right stick",
+        label: "gamepad.rightStick",
         glyph: <RStickGlyph />,
       },
     ],
   },
   {
     key: "face",
-    label: "Actions",
+    label: "gamepad.actions",
     entries: [
-      { label: "Click", glyph: <FaceButtonGlyph letter="A" tone="green" /> },
-      { label: "Back", glyph: <FaceButtonGlyph letter="B" tone="red" /> },
-      { label: "Close", glyph: <FaceButtonGlyph letter="X" tone="blue" /> },
-      { label: "Hide cursor", glyph: <FaceButtonGlyph letter="Y" tone="yellow" /> },
+      { label: "gamepad.click", glyph: <FaceButtonGlyph letter="A" tone="green" /> },
+      { label: "common.back", glyph: <FaceButtonGlyph letter="B" tone="red" /> },
+      { label: "common.close", glyph: <FaceButtonGlyph letter="X" tone="blue" /> },
+      { label: "gamepad.hideCursor", glyph: <FaceButtonGlyph letter="Y" tone="yellow" /> },
     ],
   },
   {
     key: "bumpers",
-    label: "Tabs",
+    label: "bigscreen.tabbar.tabs",
     entries: [
-      { label: "Prev", glyph: <BumperGlyph side="left" /> },
-      { label: "Next", glyph: <BumperGlyph side="right" /> },
+      { label: "gamepad.prev", glyph: <BumperGlyph side="left" /> },
+      { label: "common.next", glyph: <BumperGlyph side="right" /> },
     ],
   },
   {
     key: "triggers",
-    label: "Mouse",
+    label: "gamepad.mouse",
     entries: [
-      { label: "Right click (LT)", glyph: <TriggerGlyph side="left" /> },
-      { label: "Left click (RT)", glyph: <TriggerGlyph side="right" /> },
+      { label: "gamepad.rightClickLT", glyph: <TriggerGlyph side="left" /> },
+      { label: "gamepad.leftClickRT", glyph: <TriggerGlyph side="right" /> },
     ],
   },
 ];
@@ -88,6 +89,7 @@ const bindings: RowBinding[] = [
 const ENTRANCE_MS = 4000;
 
 export default function GamepadHint({ gamepad }: GamepadHintProps) {
+  const { t } = useLanguage();
   const [showFullHint, setShowFullHint] = useState(false);
   const [dismissed, setDismissed] = useState(false);
   const lastConnectedRef = useRef<boolean>(gamepad.connected);
@@ -136,13 +138,13 @@ export default function GamepadHint({ gamepad }: GamepadHintProps) {
     >
       <div className="gamepad-hint-header">
         <GamepadIcon />
-        <span>Controller</span>
+        <span>{t("gamepad.controller")}</span>
         <button
           type="button"
           className="gamepad-hint-dismiss"
           onClick={handleDismiss}
-          title="Hide hints"
-          aria-label="Hide controller hints"
+          title={t("gamepad.hideHintsTitle")}
+          aria-label={t("gamepad.hideHints")}
         >
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" width="12" height="12">
             <line x1="6" y1="6" x2="18" y2="18" />
@@ -153,12 +155,12 @@ export default function GamepadHint({ gamepad }: GamepadHintProps) {
       <div className="gamepad-hint-body">
         {bindings.map((row) => (
           <div key={row.key} className="gamepad-hint-row">
-            <span className="gamepad-hint-row-label">{row.label}</span>
+            <span className="gamepad-hint-row-label">{t(row.label)}</span>
             <div className="gamepad-hint-row-entries">
               {row.entries.map((entry) => (
                 <span key={entry.label} className="gamepad-hint-entry">
                   {entry.glyph}
-                  <span className="gamepad-hint-entry-label">{entry.label}</span>
+                  <span className="gamepad-hint-entry-label">{t(entry.label)}</span>
                 </span>
               ))}
             </div>

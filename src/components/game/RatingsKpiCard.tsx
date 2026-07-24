@@ -1,6 +1,7 @@
 import { KpiTile } from "../ui";
 import type { Game } from "../../types/game";
 import { IconStar } from "./icons";
+import { useLanguage } from "../../context/LanguageContext";
 
 /**
  * RatingsKpiCard
@@ -76,14 +77,15 @@ function computeBreakdown(game: Game) {
 }
 
 export default function RatingsKpiCard({ game }: RatingsKpiCardProps) {
+  const { t } = useLanguage();
   if (!game.igdbRating && !game.criticRating) return null;
 
   const breakdown = computeBreakdown(game);
   const items = [
-    { label: "Exceptional", val: breakdown.exceptional, color: "var(--color-success)" },
-    { label: "Recommended", val: breakdown.recommended, color: "var(--color-info)" },
-    { label: "Meh", val: breakdown.meh, color: "var(--color-warning)" },
-    { label: "Skip", val: breakdown.skip, color: "var(--color-danger)" },
+    { label: t("ratings.exceptional"), val: breakdown.exceptional, color: "var(--color-success)" },
+    { label: t("ratings.recommended"), val: breakdown.recommended, color: "var(--color-info)" },
+    { label: t("ratings.meh"), val: breakdown.meh, color: "var(--color-warning)" },
+    { label: t("ratings.skip"), val: breakdown.skip, color: "var(--color-danger)" },
   ];
 
   return (
@@ -92,14 +94,14 @@ export default function RatingsKpiCard({ game }: RatingsKpiCardProps) {
         <span className="game-section-title__icon" aria-hidden>
           <IconStar size={16} />
         </span>
-        Ratings
+        {t("ratings.title")}
       </h2>
 
       <div className="ratings-kpi-grid">
         {game.igdbRating && (
           <KpiTile
             size="md"
-            label="IGDB Community"
+            label={t("ratings.igdbCommunity")}
             icon={<IconStar size={12} />}
             value={Math.round(game.igdbRating)}
             subtext={`/ 100`}
@@ -110,7 +112,7 @@ export default function RatingsKpiCard({ game }: RatingsKpiCardProps) {
         {game.criticRating && (
           <KpiTile
             size="md"
-            label="Critics"
+            label={t("ratings.critics")}
             icon={<IconStar size={12} />}
             value={Math.round(game.criticRating)}
             subtext={`/ 100`}
@@ -121,7 +123,7 @@ export default function RatingsKpiCard({ game }: RatingsKpiCardProps) {
       </div>
 
       <div className="ratings-breakdown">
-        <span className="ratings-breakdown__title">Score Breakdown</span>
+        <span className="ratings-breakdown__title">{t("ratings.scoreBreakdown")}</span>
         {items.map((item) => (
           <div key={item.label} className="ratings-breakdown__row">
             <span className="ratings-breakdown__label">{item.label}</span>

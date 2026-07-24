@@ -30,6 +30,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { useDownloads } from "../../context/DownloadContext";
+import { useLanguage } from "../../context/LanguageContext";
 import {
   formatBytesPerSecond,
   type TorrentDownload,
@@ -66,6 +67,7 @@ interface Sample {
 
 export default function BandwidthSparkline() {
   const { activeDownloads } = useDownloads();
+  const { t } = useLanguage();
 
   // Mirror the live list into a ref so the sampling effect can
   // run with an empty dep array. Setting the ref in a `useEffect`
@@ -188,11 +190,11 @@ export default function BandwidthSparkline() {
   // without having to read the SVG path. Includes the live peak
   // and the most recent sample so the user knows roughly what
   // they're looking at.
-  const ariaLabel =
-    `Bandwidth over the last 60 seconds. ` +
-    `Current download ${formatBytesPerSecond(current.dl)}, ` +
-    `current upload ${formatBytesPerSecond(current.ul)}, ` +
-    `peak in window ${formatBytesPerSecond(peak)}`;
+  const ariaLabel = t('bandwidth.sparklineAria', {
+    dl: formatBytesPerSecond(current.dl),
+    ul: formatBytesPerSecond(current.ul),
+    peak: formatBytesPerSecond(peak),
+  });
 
   return (
     <div className="dl-sparkline" aria-label={ariaLabel}>
@@ -210,7 +212,7 @@ export default function BandwidthSparkline() {
           >
             <polyline points="22 12 18 12 15 21 9 3 6 12 2 12" />
           </svg>
-          Last 60 seconds
+          {t('bandwidth.last60s')}
         </span>
         <span className="dl-sparkline-legend">
           <span className="dl-sparkline-legend-item dl-sparkline-legend-dl">

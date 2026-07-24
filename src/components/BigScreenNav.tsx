@@ -181,6 +181,7 @@ function BigScreenNavTab({
 }
 
 export default function BigScreenNav() {
+  const { t } = useLanguage();
   const gamepad = useGamepad();
   const navigate = useNavigate();
   const location = useLocation();
@@ -207,7 +208,7 @@ export default function BigScreenNav() {
   }, [gamepad, location.pathname, navigate]);
 
   return (
-    <nav className="bigscreen-nav" role="navigation" aria-label="Main navigation">
+    <nav className="bigscreen-nav" role="navigation" aria-label={t("bigscreen.nav.mainNav")}>
       <div className="bigscreen-nav-glow" />
       <div className="bigscreen-nav-tabs">
         {tabs.map((tab) => {

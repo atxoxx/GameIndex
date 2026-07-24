@@ -1,4 +1,5 @@
 import { useState, useRef, type KeyboardEvent } from "react";
+import { useLanguage } from "../../context/LanguageContext";
 
 interface TagInputProps {
   id?: string;
@@ -23,6 +24,7 @@ export function TagInput({
   suggestions = [],
   ariaLabel,
 }: TagInputProps) {
+  const { t } = useLanguage();
   const [draft, setDraft] = useState("");
   const [focused, setFocused] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -68,7 +70,7 @@ export function TagInput({
             <button
               type="button"
               className="tag-chip-remove"
-              aria-label={`Remove ${tag}`}
+              aria-label={t("ui.removeTag", { tag })}
               onClick={(e) => {
                 e.stopPropagation();
                 removeAt(i);

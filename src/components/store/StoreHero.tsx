@@ -5,6 +5,7 @@ import type { StoreGameSummary } from "../../types/game";
 import PlayerCountBadge from "../PlayerCountBadge";
 import HeroTrailer from "../hero/HeroTrailer";
 import FriendsPlayingStrip from "../hero/FriendsPlayingStrip";
+import { useLanguage } from "../../context/LanguageContext";
 
 interface StoreHeroProps {
   /** Called when the user clicks "View" on a featured game. */
@@ -30,6 +31,7 @@ const HERO_POOL_SIZE = 5; // preload a wider pool; rotate through it
  * - Memoized so unrelated Store re-renders don't re-fetch the trending pool.
  */
 function StoreHero({ onCardClick, trailerUrl }: StoreHeroProps) {
+  const { t } = useLanguage();
   const navigate = useNavigate();
 
   const [pool, setPool] = useState<StoreGameSummary[]>([]);
@@ -152,7 +154,7 @@ function StoreHero({ onCardClick, trailerUrl }: StoreHeroProps) {
       <div
         className="store-hero store-hero-loading"
         aria-busy="true"
-        aria-label="Loading featured games"
+        aria-label={t("store.hero.loadingAria")}
       >
         <div className="store-hero-shimmer" />
         <div className="store-hero-content">
@@ -183,7 +185,7 @@ function StoreHero({ onCardClick, trailerUrl }: StoreHeroProps) {
       tabIndex={0}
       role="region"
       aria-roledescription="carousel"
-      aria-label="Featured trending games"
+      aria-label={t("store.hero.featuredAria")}
     >
       {trailerSrc ? (
         <HeroTrailer
@@ -231,7 +233,7 @@ function StoreHero({ onCardClick, trailerUrl }: StoreHeroProps) {
           <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
             <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" />
           </svg>
-          Featured Today
+          {t("store.hero.featuredToday")}
         </span>
 
         <h1 className="store-hero-title">{active.name}</h1>
@@ -271,7 +273,7 @@ function StoreHero({ onCardClick, trailerUrl }: StoreHeroProps) {
           )}
 
           <button type="button" className="store-hero-cta" onClick={handleView}>
-            View {active.name}
+            {t("store.hero.viewGame", { name: active.name })}
             <svg
               viewBox="0 0 24 24"
               fill="none"
@@ -301,7 +303,7 @@ function StoreHero({ onCardClick, trailerUrl }: StoreHeroProps) {
             type="button"
             className="store-hero-nav store-hero-nav-prev"
             onClick={prev}
-            aria-label="Previous featured game"
+            aria-label={t("store.hero.prevAria")}
           >
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
               <polyline points="15 18 9 12 15 6" />
@@ -311,7 +313,7 @@ function StoreHero({ onCardClick, trailerUrl }: StoreHeroProps) {
             type="button"
             className="store-hero-nav store-hero-nav-next"
             onClick={next}
-            aria-label="Next featured game"
+            aria-label={t("store.hero.nextAria")}
           >
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
               <polyline points="9 18 15 12 9 6" />
@@ -335,14 +337,14 @@ function StoreHero({ onCardClick, trailerUrl }: StoreHeroProps) {
 
       {/* Dot indicators */}
       {pool.length > 1 && (
-        <div className="store-hero-dots" role="tablist" aria-label="Featured games">
+        <div className="store-hero-dots" role="tablist" aria-label={t("store.hero.dotsAria")}>
           {pool.map((g, i) => (
             <button
               key={g.id + "-" + i}
               type="button"
               role="tab"
               aria-selected={i === activeIdx}
-              aria-label={`Show featured game ${i + 1}: ${g.name}`}
+              aria-label={t("store.hero.showSlideAria", { index: i + 1, name: g.name })}
               className={`store-hero-dot${i === activeIdx ? " active" : ""}`}
               onClick={() => goTo(i)}
             />

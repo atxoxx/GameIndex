@@ -145,13 +145,13 @@ export default function StoragePage() {
     async (game: { sizeRootPath?: string; path?: string; name: string }) => {
       const target = game.sizeRootPath || game.path;
       if (!target) {
-        showToast(`No folder known for ${game.name}`, "info");
+        showToast(t("storage.noFolderKnown", { name: game.name }), "info");
         return;
       }
       try {
         await invoke("open_folder", { path: target });
       } catch (err) {
-        showToast(`Could not open folder: ${err}`, "error");
+        showToast(t("storage.couldNotOpenFolder", { error: err }), "error");
       }
     },
     [showToast]
@@ -188,7 +188,7 @@ export default function StoragePage() {
     (targets: Game[]) => {
       const movable = targets.filter((g) => g.sizeRootPath || g.path);
       if (movable.length === 0) {
-        showToast("Select games with a known install folder to move.", "info");
+        showToast(t("storage.selectToMove"), "info");
         return;
       }
       setMoveGames(movable);
@@ -231,7 +231,7 @@ export default function StoragePage() {
         console.error("re-measure failed for", g.name, err);
       }
     }
-    showToast(`Re-measured ${done} game${done === 1 ? "" : "s"}.`, "success");
+        showToast(t("storage.remeasured", { count: done, plural: done === 1 ? "" : "s" }), "success");
     refreshAll();
   }, [selectedGames, updateGame, showToast, refreshAll]);
 
@@ -240,7 +240,7 @@ export default function StoragePage() {
     (targets: Game[]) => {
       const removable = targets.filter((g) => g.sizeRootPath || g.path);
       if (removable.length === 0) {
-        showToast("Select games with a known install folder to uninstall.", "info");
+        showToast(t("storage.selectToUninstall"), "info");
         return;
       }
       setUninstallGames(removable);
@@ -264,7 +264,7 @@ export default function StoragePage() {
         removeGame(g.id);
         removed += 1;
       } catch (err) {
-        showToast(`Uninstall failed for ${g.name}: ${err}`, "error");
+        showToast(t("storage.uninstallFailed", { name: g.name, error: err }), "error");
       }
     }
     setUninstalling(false);
@@ -273,7 +273,7 @@ export default function StoragePage() {
     setSelectMode(false);
     refreshAll();
     showToast(
-      `Uninstalled ${removed} game${removed === 1 ? "" : "s"}.`,
+      t("storage.uninstalled", { count: removed, plural: removed === 1 ? "" : "s" }),
       "success"
     );
   }, [uninstallGames, removeGame, showToast, refreshAll]);
@@ -305,23 +305,23 @@ export default function StoragePage() {
       />
 
       {/* ── Status + drive filter chips ──────────────────────── */}
-      <div className="storage__filters" role="group" aria-label="Filter games by storage status">
+      <div className="storage__filters" role="group" aria-label={t("storage.filterByStatus")}>
         {(
           [
-            { key: "all", label: "All", count: installedGames.length },
+            { key: "all", label: t("storage.all"), count: installedGames.length },
             {
               key: "sized",
-              label: "Sized",
+              label: t("storage.sized"),
               count: installedGames.filter(
                 (g) => g.sizeBytes != null && g.sizeBytes > 0
               ).length,
             },
             {
               key: "missing",
-              label: "Missing",
+              label: t("storage.missing"),
               count: unsizedCount,
             },
-            { key: "stale", label: "Stale", count: staleCount },
+            { key: "stale", label: t("storage.stale"), count: staleCount },
           ] as { key: StorageFilter; label: string; count: number }[]
         ).map(({ key, label, count }) => (
           <button
@@ -342,9 +342,9 @@ export default function StoragePage() {
             type="button"
             className="storage__filter-chip storage__filter-chip--active storage__filter-chip--drive"
             onClick={() => setDriveFilter(null)}
-            aria-label={`Clear drive filter ${driveFilter}`}
+            aria-label={t("storage.clearDriveFilter", { drive: driveFilter })}
           >
-            Drive: {driveFilter}
+            {t("storage.driveLabel", { drive: driveFilter })}
             <span className="storage__filter-chip-clear" aria-hidden>
               {"×"}
             </span>
@@ -364,17 +364,17 @@ export default function StoragePage() {
             <input
               className="storage__search-input"
               type="text"
-              placeholder="Search games…"
+              placeholder={t("storage.searchPlaceholder")}
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              aria-label="Search installed games"
+              aria-label={t("storage.searchAria")}
             />
             {search && (
               <button
                 type="button"
                 className="storage__search-clear"
                 onClick={() => setSearch("")}
-                aria-label="Clear search"
+                aria-label={t("storage.clearSearch")}
               >
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                   <line x1="18" y1="6" x2="6" y2="18" />
@@ -388,7 +388,7 @@ export default function StoragePage() {
 
           {/* Density toggle */}
           <div className="storage__density-group">
-            <span className="storage__density-label">Density</span>
+            <span className="storage__density-label">{t("storage.density")}</span>
             <DensityToggle density={density} onChange={setDensity} />
           </div>
 
@@ -398,9 +398,9 @@ export default function StoragePage() {
             size="sm"
             active={selectMode}
             onClick={() => (selectMode ? exitSelectMode() : setSelectMode(true))}
-            title="Select multiple games for batch move / uninstall"
+            title={t("storage.batchMoveTitle")}
           >
-            Select
+            {t("storage.select")}
           </Button>
         </div>
 
@@ -411,26 +411,26 @@ export default function StoragePage() {
             size="sm"
             onClick={handleRefreshPaths}
             isLoading={refreshingPaths}
-            title="Re-check every measured folder against the disk"
+            title={t("storage.recheckTitle")}
           >
-            Refresh
+            {t("common.refresh")}
           </Button>
           <span className="storage__toolbar-count">
-            {sortedGames.length} game{sortedGames.length === 1 ? "" : "s"}
+            {t("storage.gamesCount", { count: sortedGames.length, plural: sortedGames.length === 1 ? "" : "s" })}
             {(showingFiltered || filter !== "all" || driveFilter) &&
               installedGames.length !== sortedGames.length &&
-              ` of ${installedGames.length}`}
+              ` ${t("storage.ofTotal", { total: installedGames.length })}`}
             {!showingFiltered && filter === "all" && !driveFilter && unsizedCount > 0 &&
-              ` ${"·"} ${unsizedCount} missing`}
+              ` ${"·"} ${t("storageHeader.missingCount", { count: unsizedCount, plural: "" })}`}
           </span>
         </div>
       </div>
 
       {/* ── Selection / batch toolbar ──────────────────────────── */}
       {selectMode && (
-        <div className="storage__batch-bar" role="toolbar" aria-label="Batch actions">
+        <div className="storage__batch-bar" role="toolbar" aria-label={t("storage.batchActions")}>
           <span className="storage__batch-count">
-            {selected.size} selected
+            {t("storage.selected", { count: selected.size })}
           </span>
           <div className="storage__batch-actions">
             <Button
@@ -439,7 +439,7 @@ export default function StoragePage() {
               onClick={() => openMove(selectedGames)}
               disabled={selected.size === 0}
             >
-              Move…
+              {t("storage.move")}
             </Button>
             <Button
               variant="danger"
@@ -447,7 +447,7 @@ export default function StoragePage() {
               onClick={() => openUninstall(selectedGames)}
               disabled={selected.size === 0}
             >
-              Uninstall
+              {t("storage.uninstall")}
             </Button>
             <Button
               variant="ghost"
@@ -455,13 +455,13 @@ export default function StoragePage() {
               onClick={remeasureSelected}
               disabled={selected.size === 0}
             >
-              Re-measure
+              {t("storage.remeasure")}
             </Button>
             <Button variant="ghost" size="sm" onClick={selectAll}>
-              Select all
+              {t("storage.selectAll")}
             </Button>
             <Button variant="ghost" size="sm" onClick={clearSelection}>
-              Clear
+              {t("common.clear")}
             </Button>
           </div>
         </div>
@@ -481,31 +481,31 @@ export default function StoragePage() {
           </div>
           <p className="storage__empty-state-title">
             {showingFiltered
-              ? "No games match your search"
+              ? t("storage.emptySearch")
               : filter === "stale"
-                ? "No stale games"
+                ? t("storage.emptyStale")
                 : filter === "missing"
-                  ? "No missing sizes"
+                  ? t("storage.emptyMissing")
                   : filter === "sized"
-                    ? "No sized games"
+                    ? t("storage.emptySized")
                     : driveFilter
-                      ? `No games measured on ${driveFilter}`
+                      ? t("storage.emptyDrive", { drive: driveFilter })
                       : installedGames.length === 0
-                        ? "No installed games detected"
-                        : "No sized games yet"}
+                        ? t("storage.emptyNone")
+                        : t("storage.emptySizedYet")}
           </p>
           <p className="storage__empty-state-subtitle">
             {showingFiltered
-              ? "Try a different search term or clear the search to see all installed games."
+              ? t("storage.hintSearch")
               : installedGames.length === 0
-                ? "Import games from Steam, Epic, or manually to start tracking disk usage."
+                ? t("storage.hintImport")
                 : driveFilter
-                  ? "Switch to another drive bucket, or clear the filter to see every install."
-                  : "Use Auto-detect or Set size on each game to measure its folder."}
+                  ? t("storage.hintDrive")
+                  : t("storage.hintMeasure")}
           </p>
           {showingFiltered && (
             <Button variant="ghost" onClick={() => setSearch("")}>
-              Clear search
+              {t("storage.clearSearch")}
             </Button>
           )}
         </div>
@@ -546,17 +546,17 @@ export default function StoragePage() {
         open={uninstallGames !== null}
         title={
           uninstallGames && uninstallGames.length === 1
-            ? `Uninstall ${uninstallGames[0].name}?`
-            : `Uninstall ${uninstallGames?.length ?? 0} games?`
+            ? t("storage.uninstallTitle", { name: uninstallGames[0].name })
+            : t("storage.uninstallTitleMulti", { count: uninstallGames?.length ?? 0 })
         }
         message={
           uninstallGames && uninstallGames.length === 1
-            ? "This permanently deletes the game's install folder from disk and removes it from your library."
-            : "This permanently deletes each game's install folder from disk and removes them from your library."
+            ? t("storage.uninstallBody")
+            : t("storage.uninstallBodyMulti")
         }
-        warning="This action cannot be undone."
-        confirmLabel="Uninstall"
-        cancelLabel="Cancel"
+        warning={t("storage.uninstallWarn")}
+        confirmLabel={t("storage.uninstallLabel")}
+        cancelLabel={t("common.cancel")}
         busy={uninstalling}
         onConfirm={confirmUninstall}
         onCancel={() => !uninstalling && setUninstallGames(null)}

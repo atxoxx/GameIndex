@@ -1,3 +1,5 @@
+import { useLanguage } from "../../context/LanguageContext";
+
 interface NewsSourcePillsProps {
   sourceNames: string[];
   activeSource: string | null;
@@ -11,10 +13,11 @@ export default function NewsSourcePills({
   articleCount,
   onSourceChange,
 }: NewsSourcePillsProps) {
+  const { t } = useLanguage();
   if (sourceNames.length === 0) return null;
 
   return (
-    <div className="news-source-pills" role="tablist" aria-label="Filter by news source">
+    <div className="news-source-pills" role="tablist" aria-label={t("news.filterBySource")}>
       <button
         type="button"
         role="tab"
@@ -22,7 +25,7 @@ export default function NewsSourcePills({
         className={`news-source-pill all-pill${activeSource === null ? " active" : ""}`}
         onClick={() => onSourceChange(null)}
       >
-        All
+        {t("common.all")}
         <span className="news-source-pill-count">{articleCount}</span>
       </button>
 

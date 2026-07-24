@@ -9,6 +9,7 @@ import GameLaunchActions from "./GameLaunchActions";
 import HeroTrailer from "../hero/HeroTrailer";
 import FriendsPlayingStrip from "../hero/FriendsPlayingStrip";
 import { IconClock, IconPlatform, IconShield, IconUsers } from "./icons";
+import { useLanguage } from "../../context/LanguageContext";
 
 /**
  * GameHero
@@ -76,6 +77,7 @@ export default function GameHero({
   variant: variantProp,
 }: GameHeroProps) {
   const { updateGame } = useGames();
+  const { t } = useLanguage();
 
   const isGame = !!game;
   const name = game?.name ?? nameProp ?? "";
@@ -129,11 +131,11 @@ export default function GameHero({
         {game!.platform}
       </span>
       <span className="game-hero-meta-dot" />
-      <span>Play time: {game!.playTime}</span>
+      <span>{t("hero.playTime")}: {game!.playTime}</span>
       {addedDate && (
         <>
           <span className="game-hero-meta-dot" />
-          <span>Added {addedDate}</span>
+          <span>{t("hero.added")} {addedDate}</span>
         </>
       )}
     </>
@@ -218,7 +220,7 @@ export default function GameHero({
             <KpiTile
               glass
               size="sm"
-              label="Players Now"
+              label={t("hero.playersNow")}
               icon={<IconUsers size={12} />}
               value={<PlayerCountBadge appId={steamAppId} />}
               intent="accent"
@@ -228,10 +230,10 @@ export default function GameHero({
             <KpiTile
               glass
               size="sm"
-              label="Play Time"
+              label={t("hero.playTime")}
               icon={<IconClock size={12} />}
               value={formatHeroPlayTime(game!.playTime)}
-              subtext={game!.installed ? "Installed" : "Not installed"}
+              subtext={game!.installed ? t("filter.installed") : t("game.notInstalled")}
               intent={game!.installed ? "success" : "default"}
             />
           )}
@@ -239,7 +241,7 @@ export default function GameHero({
             <KpiTile
               glass
               size="sm"
-              label="Status"
+              label={t("hero.status")}
               icon={
                 <span
                   className="status-dot"
@@ -281,7 +283,7 @@ export default function GameHero({
             <KpiTile
               glass
               size="sm"
-              label="Achievements"
+              label={t("nav.achievements")}
               icon={<IconShield size={12} />}
               value={`${achPercent}%`}
               subtext={`${achUnlocked}/${achTotal}`}

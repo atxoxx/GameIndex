@@ -1,10 +1,12 @@
 import { useState, useMemo, useCallback } from "react";
+import { useLanguage } from "../../context/LanguageContext";
 import { useNewsFeeds, formatArticleDate, type NewsArticle } from "../../hooks/useNewsFeeds";
 import { useFocusable } from "../../hooks/useFocusable";
 import { openUrl } from "@tauri-apps/plugin-opener";
 import BigScreenPill from "./BigScreenPill";
 
 export default function BigScreenNews() {
+  const { t } = useLanguage();
   const {
     articles,
     loading,
@@ -24,7 +26,7 @@ export default function BigScreenNews() {
     <div className="bigscreen-system-hub">
       {/* Left Menu Pane - Filter by Source */}
       <div className="bigscreen-system-left-pane">
-        <h2 className="bigscreen-system-title">News Feeds</h2>
+        <h2 className="bigscreen-system-title">{t("bigscreen.news.feeds")}</h2>
         <div className="bigscreen-system-menu" role="tablist">
           {allSources.map((src) => {
             const isAll = src === "All Sources";
@@ -41,7 +43,7 @@ export default function BigScreenNews() {
                 {...focusProps}
               >
                 <span className="menu-item-icon">📰</span>
-                <span className="menu-item-label">{src}</span>
+                <span className="menu-item-label">{isAll ? t("bigscreen.news.allSources") : src}</span>
               </button>
             );
           })}
@@ -52,29 +54,29 @@ export default function BigScreenNews() {
       <div className="bigscreen-system-right-pane" style={{ padding: "0" }}>
         <div className="bigscreen-system-section-view" style={{ height: "100%", overflowY: "auto", padding: "30px" }}>
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "20px" }}>
-            <h3 style={{ margin: 0 }}>Latest Articles</h3>
+            <h3 style={{ margin: 0 }}>{t("bigscreen.news.latestArticles")}</h3>
             <button
               type="button"
               className="bigscreen-details-btn bigscreen-details-btn--secondary"
               {...useFocusable(refresh)}
               style={{ padding: "6px 12px", fontSize: "12px" }}
             >
-              🔄 Refresh
+              {t("bigscreen.news.refresh")}
             </button>
           </div>
 
           {loading ? (
             <div className="store-tab-loading">
               <div className="store-spinner" />
-              <span>Loading news articles...</span>
+              <span>{t("bigscreen.news.loading")}</span>
             </div>
           ) : error && articles.length === 0 ? (
             <div className="system-view-empty">
-              <p>Couldn't load news feeds: {error}</p>
+              <p>{t("bigscreen.news.loadError", { error })}</p>
             </div>
           ) : articles.length === 0 ? (
             <div className="system-view-empty">
-              <p>No news articles found from this source.</p>
+              <p>{t("bigscreen.news.noArticles")}</p>
             </div>
           ) : (
             <div className="bigscreen-library-grid" style={{ gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))", gap: "20px" }}>
@@ -165,6 +167,7 @@ function BigScreenNewsReader({
   article: NewsArticle;
   onClose: () => void;
 }) {
+  const { t } = useLanguage();
   const handleOpenBrowser = useCallback(async () => {
     try {
       await openUrl(article.link);
@@ -220,7 +223,7 @@ function BigScreenNewsReader({
           </div>
           <h2 style={{ margin: "5px 0 10px 0", fontSize: "22px", lineHeight: "1.4", fontWeight: 700 }}>{article.title}</h2>
           <p style={{ fontSize: "14px", lineHeight: "1.6", color: "var(--color-text-secondary)", margin: 0, whiteSpace: "pre-wrap" }}>
-            {article.description || "No preview text available. Use the button below to read the full article."}
+            {article.description || t("bigscreen.news.noPreview")}
           </p>
         </div>
 
@@ -240,14 +243,14 @@ function BigScreenNewsReader({
             className="bigscreen-details-btn bigscreen-details-btn--secondary"
             {...browserProps}
           >
-            🌐 Open in Browser
+            {t("bigscreen.news.openBrowser")}
           </button>
           <button
             type="button"
             className="bigscreen-details-btn bigscreen-details-btn--primary"
             {...closeProps}
           >
-            ✕ Close
+            {t("bigscreen.news.close")}
           </button>
         </div>
       </div>

@@ -237,7 +237,7 @@ function GameDetail({ game }: { game: Game }) {
 
   function handleConfirmRemove() {
     removeGame(game.id);
-    showToast(`Removed ${game.name}`, "info");
+    showToast(t("game.removed", { name: game.name }), "info");
     // Navigate immediately so we don't render the "Game Not Found"
     // empty state for the about-to-be-deleted game for a single tick.
     // GameDetail is keyed by game.id (see the parent GamePage render),
@@ -268,7 +268,7 @@ function GameDetail({ game }: { game: Game }) {
         <button
           className="game-back-link"
           onClick={handleBack}
-          aria-label="Return to library"
+          aria-label={t("gamePage.returnToLibrary")}
         >
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
             <polyline points="15 18 9 12 15 6" />
@@ -280,7 +280,7 @@ function GameDetail({ game }: { game: Game }) {
               type="button"
               className="game-edit-btn"
               onClick={handleEditRequest}
-              aria-label={`Edit ${game.name}`}
+              aria-label={t("gamePage.editGame", { name: game.name })}
             >
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                 <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
@@ -292,7 +292,7 @@ function GameDetail({ game }: { game: Game }) {
               type="button"
               className="game-edit-btn game-edit-btn-danger"
               onClick={handleRemoveRequest}
-              aria-label={`Remove ${game.name} from library`}
+              aria-label={t("gamePage.removeGame", { name: game.name })}
             >
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                 <polyline points="3 6 5 6 21 6" />
@@ -409,7 +409,7 @@ function GameDetail({ game }: { game: Game }) {
         >
           <button
             className="lightbox-nav lightbox-nav--prev"
-            aria-label="Previous screenshot"
+            aria-label={t("gamePage.prevScreenshot")}
             onClick={(e) => { e.stopPropagation(); stepLightbox(-1); }}
             style={{
               position: 'fixed',
@@ -443,7 +443,7 @@ function GameDetail({ game }: { game: Game }) {
               border: '1px solid rgba(255,255,255,0.1)'
             }}
           >
-            <img src={lightboxImage} alt="Fullscreen Screenshot" style={{ maxWidth: '100%', maxHeight: '85vh', objectFit: 'contain', display: 'block' }} />
+            <img src={lightboxImage}             alt={t("gamePage.fullscreenScreenshot")} style={{ maxWidth: '100%', maxHeight: '85vh', objectFit: 'contain', display: 'block' }} />
             {game.screenshots && game.screenshots.length > 1 && (
               <div
                 className="lightbox-counter"
@@ -492,7 +492,7 @@ function GameDetail({ game }: { game: Game }) {
           </div>
           <button
             className="lightbox-nav lightbox-nav--next"
-            aria-label="Next screenshot"
+            aria-label={t("gamePage.nextScreenshot")}
             onClick={(e) => { e.stopPropagation(); stepLightbox(1); }}
             style={{
               position: 'fixed',
@@ -523,7 +523,7 @@ function GameDetail({ game }: { game: Game }) {
       <ConfirmModal
         open={showRemoveConfirm}
         title={t("game.removeConfirmTitle", { name: game.name })}
-        message="This removes the game's metadata, cover, and tracked play time from GameLib. Your installed files on disk are not touched; you can re-import the game later if you change your mind."
+        message={t("gamePage.removeConfirmBody")}
         confirmLabel={t("common.remove")}
         cancelLabel={t("game.keep")}
         onConfirm={handleConfirmRemove}

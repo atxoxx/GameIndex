@@ -3,6 +3,7 @@ import useSteamPlayerCount from "../hooks/useSteamPlayerCount";
 import useHydraGameStats from "../hooks/useHydraGameStats";
 import PlayerCountPopover from "./PlayerCountPopover";
 import { formatCompactPlayerCount } from "./SteamPlayerCount";
+import { useLanguage } from "../context/LanguageContext";
 
 /**
  * PlayerCountBadge
@@ -46,6 +47,7 @@ export default function PlayerCountBadge({
 }: PlayerCountBadgeProps) {
   const steamCount = useSteamPlayerCount(appId);
   const hydraStats = useHydraGameStats(appId);
+  const { t } = useLanguage();
 
   // Open on click only (per product decision). The popover closes via
   // its own click-outside / Escape / X handlers.
@@ -62,12 +64,15 @@ export default function PlayerCountBadge({
   if (!appId || total <= 0) return null;
 
   const breakdown = [
-    steam > 0 ? `${steam.toLocaleString()} on Steam` : null,
-    hydra > 0 ? `${hydra.toLocaleString()} on Hydra` : null,
+    steam > 0 ? t("steamPlayer.onSteam", { count: steam.toLocaleString() }) : null,
+    hydra > 0 ? t("steamPlayer.onHydra", { count: hydra.toLocaleString() }) : null,
   ]
     .filter(Boolean)
     .join(" · ");
-  const title = `${total.toLocaleString()} playing right now (${breakdown}) — click for details`;
+  const title = t("steamPlayer.badgeTitle", {
+    count: total.toLocaleString(),
+    breakdown,
+  });
 
   return (
     <>
@@ -77,7 +82,10 @@ export default function PlayerCountBadge({
         title={title}
         role="button"
         tabIndex={0}
-        aria-label={`${total.toLocaleString()} players currently in this game (${breakdown}). Click for Steam and Hydra stats.`}
+        aria-label={t("steamPlayer.badgeAria", {
+          count: total.toLocaleString(),
+          breakdown,
+        })}
         aria-haspopup="dialog"
         aria-expanded={popoverOpen}
         onClick={() => setPopoverOpen((o) => !o)}
@@ -106,7 +114,7 @@ export default function PlayerCountBadge({
           aria-atomic="true"
         >
           {formatCompactPlayerCount(total)}
-          <span className="steam-player-count-suffix"> playing</span>
+          <span className="steam-player-count-suffix"> {t("steamPlayer.playingSuffix")}</span>
         </span>
       </div>
       {popoverOpen && (

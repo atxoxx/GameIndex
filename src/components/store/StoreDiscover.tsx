@@ -4,6 +4,7 @@ import StoreHero from "./StoreHero";
 import StoreRail from "./StoreRail";
 import StoreLocalRail from "./StoreLocalRail";
 import { useForYou } from "../../hooks/useForYou";
+import { useLanguage } from "../../context/LanguageContext";
 
 /**
  * The Discover sections shown on the landing, in display order. Kept as data
@@ -15,11 +16,11 @@ const DISCOVER_RAILS: ReadonlyArray<{
   category: StoreCategory;
   badge: string;
 }> = [
-  { title: "Trending Now", category: "trending", badge: "🔥" },
-  { title: "Most Popular", category: "popular", badge: "⭐" },
-  { title: "Top Critics", category: "top", badge: "🏆" },
-  { title: "Coming Soon", category: "coming_soon", badge: "🎮" },
-  { title: "New Releases", category: "new_releases", badge: "✨" },
+  { title: "store.rail.trendingNow", category: "trending", badge: "🔥" },
+  { title: "store.rail.mostPopular", category: "popular", badge: "⭐" },
+  { title: "store.rail.topCritics", category: "top", badge: "🏆" },
+  { title: "store.tab.comingSoon", category: "coming_soon", badge: "🎮" },
+  { title: "store.rail.newReleases", category: "new_releases", badge: "✨" },
 ];
 
 interface StoreDiscoverProps {
@@ -52,6 +53,7 @@ function StoreDiscover({
   recentlyViewed = [],
   isInLibrary,
 }: StoreDiscoverProps) {
+  const { t } = useLanguage();
   const forYou = useForYou();
 
   return (
@@ -61,7 +63,7 @@ function StoreDiscover({
       <div className="store-rails">
         {recentlyViewed.length > 0 && (
           <StoreLocalRail
-            title="Recently Viewed"
+            title={t("store.rail.recentlyViewed")}
             badge="🕑"
             games={recentlyViewed}
             onCardClick={onCardClick}
@@ -71,7 +73,7 @@ function StoreDiscover({
 
         {forYou.games.length > 0 && (
           <StoreLocalRail
-            title={forYou.genre ? `For You — More ${forYou.genre}` : "For You"}
+            title={forYou.genre ? t("store.rail.forYouMore", { genre: forYou.genre }) : t("store.rail.forYou")}
             badge="💜"
             games={forYou.games}
             onCardClick={onCardClick}
@@ -82,7 +84,7 @@ function StoreDiscover({
         {DISCOVER_RAILS.map((rail) => (
           <StoreRail
             key={rail.category}
-            title={rail.title}
+            title={t(rail.title)}
             category={rail.category}
             onCardClick={onCardClick}
             onSeeAll={onSeeAll}

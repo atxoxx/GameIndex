@@ -42,10 +42,10 @@ interface BigScreenStoreGamePageProps {
 type StorePageTab = "overview" | "media" | "specs" | "more";
 
 const STORE_PAGE_TABS: TabDef<StorePageTab>[] = [
-  { id: "overview", label: "Overview", icon: <OverviewIcon /> },
-  { id: "media", label: "Media", icon: <MediaIcon /> },
-  { id: "specs", label: "Specs", icon: <SpecsIcon /> },
-  { id: "more", label: "More", icon: <MoreIcon /> },
+  { id: "overview", label: "game.tab.overview", icon: <OverviewIcon /> },
+  { id: "media", label: "game.tab.media", icon: <MediaIcon /> },
+  { id: "specs", label: "game.tab.specs", icon: <SpecsIcon /> },
+  { id: "more", label: "game.tab.more", icon: <MoreIcon /> },
 ];
 
 export default function BigScreenStoreGamePage({
@@ -108,7 +108,7 @@ export default function BigScreenStoreGamePage({
   return (
     <div className="bigscreen-gamepage">
       {/* ── Hero (pauses on Overview) ── */}
-      <section className="bigscreen-gamepage-hero" aria-label={`${game.name} banner`}>
+      <section className="bigscreen-gamepage-hero" aria-label={t("bigscreen.store.gameBanner", { name: game.name })}>
         <BigScreenHeroBackground
           bannerUrl={game.bannerUrl}
           coverArtUrl={game.coverArtUrl}
@@ -124,7 +124,7 @@ export default function BigScreenStoreGamePage({
             type="button"
             className="bigscreen-gamepage-hero-back"
             {...focusableBack}
-            aria-label="Back to store"
+            aria-label={t("store.backToStore")}
           >
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden width="22" height="22">
               <polyline points="15 18 9 12 15 6" />
@@ -201,7 +201,7 @@ export default function BigScreenStoreGamePage({
                 type="button"
                 className="bigscreen-details-btn bigscreen-details-btn--secondary"
                 {...focusableTrailer}
-                aria-label="Watch trailer"
+                aria-label={t("game.watchTrailer")}
               >
                 <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden width="20" height="20">
                   <polygon points="6 4 20 12 6 20 6 4" />
@@ -222,13 +222,13 @@ export default function BigScreenStoreGamePage({
       </section>
 
       {/* ── Metadata pills ── */}
-      <BigScreenMetaStrip aria-label="Game metadata" className="bigscreen-gamepage-meta-strip">
+      <BigScreenMetaStrip aria-label={t("bigscreen.store.gameMetadata")} className="bigscreen-gamepage-meta-strip">
         <BigScreenPill tone="accent" size="md">
           {game.platform}
         </BigScreenPill>
         {resolvedSteamAppId != null && (
           <BigScreenPill tone="muted" size="md">
-            <PlayerCountBadge appId={resolvedSteamAppId} className="bigscreen-steam-players" /> on Steam + Hydra
+            <PlayerCountBadge appId={resolvedSteamAppId} className="bigscreen-steam-players" /> {t("bigscreen.store.onSteamHydra")}
           </BigScreenPill>
         )}
         {rating != null && rating > 0 && (
@@ -237,17 +237,17 @@ export default function BigScreenStoreGamePage({
               <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" />
             </svg>
           }>
-            {Math.round(rating)}% rating
+            {t("bigscreen.store.pctRating", { pct: Math.round(rating) })}
           </BigScreenPill>
         )}
       </BigScreenMetaStrip>
 
       {/* ── Tab bar ── */}
       <BigScreenTabBar
-        tabs={STORE_PAGE_TABS}
+        tabs={STORE_PAGE_TABS.map((tab) => ({ ...tab, label: t(tab.label) }))}
         activeTab={activeTab}
         onActivate={setActiveTab}
-        ariaLabel="Store game details sections"
+        ariaLabel={t("bigscreen.store.detailsSections")}
       />
 
       {/* ── Scroll regions ── */}

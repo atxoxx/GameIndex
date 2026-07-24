@@ -1,3 +1,5 @@
+import { useLanguage } from "../../context/LanguageContext";
+
 /**
  * Download options card: auto-extract toggle and (for torrents) the
  * "choose files" toggle. Grouped into a single tidy surface so the
@@ -16,13 +18,14 @@ export function OptionsSection({
   onChooseFiles: (v: boolean) => void;
   isDirect: boolean;
 }) {
+  const { t } = useLanguage();
   return (
     <div className="dl-options-card">
-      <div className="dl-options-card-title">Options</div>
+      <div className="dl-options-card-title">{t('downloadModal.options')}</div>
 
       <label className="dl-switch-row">
         <span className="dl-switch-label">
-          Auto extract archives and delete after extraction
+          {t('downloadModal.autoExtract')}
         </span>
         <span className="dl-switch">
           <input
@@ -38,7 +41,7 @@ export function OptionsSection({
 
       {!isDirect && (
         <label className="dl-switch-row">
-          <span className="dl-switch-label">Choose files to download</span>
+          <span className="dl-switch-label">{t('downloadModal.chooseFiles')}</span>
           <span className="dl-switch">
             <input
               type="checkbox"

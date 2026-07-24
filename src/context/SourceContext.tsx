@@ -28,6 +28,7 @@ import {
 } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { useToast } from "./ToastContext";
+import { useLanguage } from "./LanguageContext";
 import type { BulkAddResult, MatchedDownload, SourceLink } from "../types/source";
 
 interface SourceContextValue {
@@ -56,6 +57,7 @@ const EMPTY_SOURCES: SourceLink[] = [];
 
 export function SourceProvider({ children }: { children: ReactNode }) {
   const { showToast } = useToast();
+  const { t } = useLanguage();
   const [sources, setSources] = useState<SourceLink[]>(EMPTY_SOURCES);
   const [loading, setLoading] = useState(true);
   // Suppress toast spam if the user clicks Refresh All rapidly.
@@ -77,7 +79,7 @@ export function SourceProvider({ children }: { children: ReactNode }) {
         // Not catastrophic — the Settings page will show the empty
         // state and the user can add a source.
         console.error("[SourceContext] sources_list failed:", err);
-        showToast(`Failed to load sources: ${err}`, "error");
+        showToast(t("sourceContext.loadFailed", { error: String(err) }), "error");
       } finally {
         if (!cancelled) setLoading(false);
       }
@@ -85,7 +87,7 @@ export function SourceProvider({ children }: { children: ReactNode }) {
     return () => {
       cancelled = true;
     };
-  }, [showToast]);
+  }, [showToast, t]);
 
   // ── Mutations ──────────────────────────────────────────────────────
   // Each mutation goes through a `setSources` callback to keep the
@@ -108,10 +110,10 @@ export function SourceProvider({ children }: { children: ReactNode }) {
         // be re-read right now.
         setSources((prev) => [...prev, created]);
       }
-      showToast(`Added source "${created.name}"`, "success");
+      showToast(t("sourceContext.added", { name: created.name }), "success");
       return created;
     },
-    [showToast],
+    [showToast, t],
   );
 
   const removeSource = useCallback(
@@ -166,11 +168,11 @@ export function SourceProvider({ children }: { children: ReactNode }) {
         const list = await invoke<SourceLink[]>("sources_list");
         if (Array.isArray(list)) setSources(list);
       } catch (err) {
-        showToast(`Refresh failed: ${err}`, "error");
+        showToast(t("sourceContext.refreshFailed", { error: String(err) }), "error");
         throw err;
       }
     },
-    [showToast],
+    [showToast, t],
   );
 
   const refreshAllSources = useCallback(async () => {
@@ -185,9 +187,9 @@ export function SourceProvider({ children }: { children: ReactNode }) {
         await invoke("sources_refresh_all");
         const list = await invoke<SourceLink[]>("sources_list");
         if (Array.isArray(list)) setSources(list);
-        showToast("All sources refreshed", "success");
+        showToast(t("sourceContext.allRefreshed"), "success");
       } catch (err) {
-        showToast(`Refresh failed: ${err}`, "error");
+        showToast(t("sourceContext.refreshFailed", { error: String(err) }), "error");
         throw err;
       }
     })();
@@ -197,7 +199,7 @@ export function SourceProvider({ children }: { children: ReactNode }) {
     } finally {
       inFlightRefresh.current = null;
     }
-  }, [showToast]);
+  }, [showToast, t]);
 
   const searchSources = useCallback(
     async (query: string, steamAppId?: number): Promise<MatchedDownload[]> => {

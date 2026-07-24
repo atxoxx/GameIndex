@@ -15,6 +15,7 @@
 import { type Game } from "../../types/game";
 import { useGames } from "../../context/GameContext";
 import { useFocusable } from "../../hooks/useFocusable";
+import { useLanguage } from "../../context/LanguageContext";
 
 interface BigScreenGameCardProps {
   game: Game;
@@ -26,6 +27,7 @@ export default function BigScreenGameCard({
   onClick,
 }: BigScreenGameCardProps) {
   const { runningGameIds } = useGames();
+  const { t } = useLanguage();
   const isRunning = runningGameIds.includes(game.id);
   // Stable focusable props; ref + cleanup are owned by useFocusable.
   const focusable = useFocusable(onClick);
@@ -57,7 +59,7 @@ export default function BigScreenGameCard({
           </div>
         )}
         {isRunning && (
-          <span className="bigscreen-game-card-running-dot" title="Running" />
+          <span className="bigscreen-game-card-running-dot" title={t("game.running")} />
         )}
       </div>
       <div className="bigscreen-game-card-body">

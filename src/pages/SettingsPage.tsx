@@ -258,7 +258,7 @@ export default function SettingsPage() {
         localStorage.setItem("gamelib-download-always-ask-path", "false");
       }
     } catch (e) {
-      showToast(`Couldn't open folder picker: ${e}`, "error");
+      showToast(t("settings.couldNotOpenFolder", { error: e }), "error");
     }
   };
 
@@ -281,9 +281,9 @@ export default function SettingsPage() {
         provider: debridProvider,
         apikey: debridApiKey,
       });
-      showToast(`Success! Logged in as ${res.username}`, "success");
+      showToast(t("settings.loginSuccess", { username: res.username }), "success");
     } catch (e) {
-      showToast(`Connection failed: ${e}`, "error");
+      showToast(t("settings.connectionFailed", { error: e }), "error");
     } finally {
       setTestingDebrid(false);
     }
@@ -455,7 +455,7 @@ export default function SettingsPage() {
     try {
       await invoke("uplay_save_settings", { settings: next });
     } catch (err) {
-      showToast(`Failed to save Uplay setting: ${err}`, "error");
+      showToast(t("settings.uplaySaveFailed", { error: err }), "error");
     }
   }
 
@@ -463,7 +463,7 @@ export default function SettingsPage() {
   function handleThemeChange(themeId: string) {
     setTheme(themeId);
     const themeMeta = themes.find((t) => t.id === themeId)?.meta;
-    showToast(`Theme changed to ${themeMeta?.name ?? themeId}`, "success");
+    showToast(t("settings.themeChanged", { theme: themeMeta?.name ?? themeId }), "success");
   }
 
   // Tracks whether the user has navigated away mid-probe so we
@@ -657,7 +657,7 @@ export default function SettingsPage() {
     // 17-digit SteamID64, but don't spin up the loading state for
     // a request the user clearly didn't authorise.
     if (!steamApiKey.trim() || !steamId.trim()) {
-      showToast("API key and Steam ID are required", "error");
+      showToast(t("settings.apiKeyRequired"), "error");
       return;
     }
     setIsSteamLoggingIn(true);
@@ -677,7 +677,7 @@ export default function SettingsPage() {
       localStorage.setItem("gamelib-steam-sync-info", JSON.stringify({
         displayName: session.displayName,
       }));
-      showToast(`Connected to Steam${session.displayName ? ` as ${session.displayName}` : ""}`, "success");
+      showToast(t("settings.steamConnected", { display: session.displayName ? ` as ${session.displayName}` : "" }), "success");
 
       // Auto-sync after a manual Connect (same handleSyncNow
       // path as the Sync Library button). The auto-reconnect
@@ -691,7 +691,7 @@ export default function SettingsPage() {
         void handleSyncNow(session);
       }
     } catch (err) {
-      showToast(`Steam connection failed: ${err}`, "error");
+      showToast(t("settings.steamConnectFailed", { error: err }), "error");
     } finally {
       setIsSteamLoggingIn(false);
     }
@@ -765,14 +765,14 @@ export default function SettingsPage() {
         const achMsg = steamSettings.syncAchievements ? ` · ${a} games achievements synced` : "";
         if (newGames.length > 0) {
           addGames(newGames);
-          showToast(`Synced ${g} games · ${p} playtime updates${achMsg} (${newGames.length} new)`, "success");
+          showToast(t("settings.steamSyncedNew", { games: g, playtime: p, ach: achMsg, new: newGames.length }), "success");
         } else {
-          showToast(`Synced ${g} games · ${p} playtime updates${achMsg} (all already in library)`, "success");
+          showToast(t("settings.steamSyncedAll", { games: g, playtime: p, ach: achMsg }), "success");
         }
       }
     } catch (err) {
       setSyncResult({ success: false, gamesSynced: 0, playtimeUpdated: 0, achievementsSynced: 0, syncedGames: [], installedAppids: [], error: String(err) });
-      showToast(`Sync failed: ${err}`, "error");
+      showToast(t("settings.steamSyncFailed", { error: err }), "error");
     } finally {
       setIsSyncing(false);
     }
@@ -789,9 +789,9 @@ export default function SettingsPage() {
       // `gamelib-steam-steamid` here: the requirement is for the
       // user's pasted input to persist, so reconnecting shouldn't
       // force them to re-paste the 32-char key and 17-digit ID.
-      showToast("Steam disconnected", "info");
+      showToast(t("settings.steamDisconnected"), "info");
     } catch (err) {
-      showToast(`Failed: ${err}`, "error");
+      showToast(t("settings.failed", { error: err }), "error");
     }
   }
 
@@ -802,7 +802,7 @@ export default function SettingsPage() {
     try {
       // epic_start_login now does everything:
       // binds port 80 → opens WebView → waits for login redirect → returns auth code
-      showToast("A login window will open — log in to Epic Games there", "info");
+      showToast(t("settings.epicLoginHint"), "info");
       const authCode: string = await invoke("epic_start_login");
 
       // Exchange code for tokens
@@ -828,11 +828,11 @@ export default function SettingsPage() {
           lastSync: Date.now(),
         })
       );
-      showToast(`Connected to Epic Games${tokens.displayName ? ` as ${tokens.displayName}` : ""}`, "success");
+      showToast(t("settings.epicConnected", { display: tokens.displayName ? ` as ${tokens.displayName}` : "" }), "success");
       // Auto-sync after login
       await handleEpicSync();
     } catch (err) {
-      showToast(`Epic connection failed: ${err}`, "error");
+      showToast(t("settings.epicConnectFailed", { error: err }), "error");
     } finally {
       setIsEpicLoggingIn(false);
     }
@@ -876,9 +876,9 @@ export default function SettingsPage() {
         }
         if (newGames.length > 0) {
           addGames(newGames);
-          showToast(`Synced ${result.gamesImported} Epic games · ${newGames.length} new`, "success");
+          showToast(t("settings.epicSyncedNew", { games: result.gamesImported, new: newGames.length }), "success");
         } else {
-          showToast(`Synced ${result.gamesImported} Epic games (all already in library)`, "success");
+          showToast(t("settings.epicSyncedAll", { games: result.gamesImported }), "success");
         }
 
         // Update lastPlayed for existing Epic games when Epic reports a
@@ -913,7 +913,7 @@ export default function SettingsPage() {
         lastSync: 0,
         syncedGames: [],
       });
-      showToast(`Epic sync failed: ${err}`, "error");
+      showToast(t("settings.epicSyncFailed", { error: err }), "error");
     } finally {
       setIsEpicSyncing(false);
     }
@@ -926,13 +926,13 @@ export default function SettingsPage() {
       setEpicAuth({ isAuthenticated: false });
       setEpicSyncResult(null);
       localStorage.removeItem("gamelib-epic-sync-info");
-      showToast("Epic Games disconnected", "info");
+      showToast(t("settings.epicDisconnected"), "info");
       // Clear any pending stale-session banner so the recovery prompt
       // doesn't linger after an explicit Disconnect — the user picked
       // the logout path on purpose.
       setEpicStaleSession(null);
     } catch (err) {
-      showToast(`Failed: ${err}`, "error");
+      showToast(t("settings.failed", { error: err }), "error");
     }
   }
 
@@ -971,7 +971,7 @@ export default function SettingsPage() {
       );
       setEpicStaleSession(null);
       showToast(
-        `Recovered Epic Games session${fresh.displayName ? ` as ${fresh.displayName}` : ""}`,
+        t("settings.epicRecovered", { display: fresh.displayName ? ` as ${fresh.displayName}` : "" }),
         "success"
       );
       await handleEpicSync();
@@ -979,7 +979,7 @@ export default function SettingsPage() {
       // The refresh token was exhausted / revoked \u2014 clear the stale
       // banner so it doesn't loop on the next mount. Strip the dead
       // refreshToken from localStorage to prevent future false banners.
-      showToast(`Recovery failed \u2014 please re-login: ${err}`, "error");
+      showToast(t("settings.gogRecoveryFailed", { error: err }), "error");
       setEpicStaleSession(null);
       try {
         const raw = localStorage.getItem("gamelib-epic-sync-info");
@@ -1011,7 +1011,7 @@ export default function SettingsPage() {
       // state and fires `gog_webview_callback` with the bundle, the
       // awaiting command resolves with the persisted GogSession.
       // No more `gog_finish_login` follow-up — that command is gone.
-      showToast("A login window will open — log in to GOG Galaxy there", "info");
+      showToast(t("settings.gogLoginHint"), "info");
       const session = await invoke<{ userId: string; username: string }>(
         "gog_start_login"
       );
@@ -1025,14 +1025,14 @@ export default function SettingsPage() {
         JSON.stringify(session)
       );
       showToast(
-        `Connected to GOG${session.username ? ` as ${session.username}` : ""}`,
+        t("settings.gogConnected", { display: session.username ? ` as ${session.username}` : "" }),
         "success"
       );
       // Auto-sync after first connect — same UX as Steam/Epic so the
       // user sees their library immediately on success.
       await handleGogSync();
     } catch (err) {
-      showToast(`GOG connection failed: ${err}`, "error");
+      showToast(t("settings.gogConnectFailed", { error: err }), "error");
     } finally {
       setIsGogLoggingIn(false);
     }
@@ -1099,12 +1099,12 @@ export default function SettingsPage() {
         if (newGames.length > 0) {
           addGames(newGames);
           showToast(
-            `Synced ${result.gamesImported} GOG games · ${newGames.length} new`,
+            t("settings.gogSyncedNew", { games: result.gamesImported, new: newGames.length }),
             "success"
           );
         } else {
           showToast(
-            `Synced ${result.gamesImported} GOG games (all already in library)`,
+            t("settings.gogSyncedAll", { games: result.gamesImported }),
             "success"
           );
         }
@@ -1130,7 +1130,7 @@ export default function SettingsPage() {
         lastSync: 0,
         syncedGames: [],
       });
-      showToast(`GOG sync failed: ${err}`, "error");
+      showToast(t("settings.gogSyncFailed", { error: err }), "error");
     } finally {
       setIsGogSyncing(false);
     }
@@ -1143,9 +1143,9 @@ export default function SettingsPage() {
       setGogAuth({ isAuthenticated: false });
       setGogSyncResult(null);
       localStorage.removeItem("gamelib-gog-sync-info");
-      showToast("GOG Galaxy disconnected", "info");
+      showToast(t("settings.gogDisconnected"), "info");
     } catch (err) {
-      showToast(`Failed: ${err}`, "error");
+      showToast(t("settings.failed", { error: err }), "error");
     }
   }
 
@@ -1187,12 +1187,12 @@ export default function SettingsPage() {
         if (newGames.length > 0) {
           addGames(newGames);
           showToast(
-            `Scanned ${result.gamesImported} Rockstar games · ${newGames.length} new`,
+            t("settings.rockstarScannedNew", { games: result.gamesImported, new: newGames.length }),
             "success"
           );
         } else {
           showToast(
-            `Scanned ${result.gamesImported} Rockstar games (all already in library)`,
+            t("settings.rockstarScannedAll", { games: result.gamesImported }),
             "success"
           );
         }
@@ -1223,7 +1223,7 @@ export default function SettingsPage() {
         clientPath: "",
         syncedGames: [],
       });
-      showToast(`Rockstar scan failed: ${err}`, "error");
+      showToast(t("settings.rockstarScanFailed", { error: err }), "error");
     } finally {
       setIsRockstarSyncing(false);
     }
@@ -1267,12 +1267,12 @@ export default function SettingsPage() {
         if (newGames.length > 0) {
           addGames(newGames);
           showToast(
-            `Scanned ${result.gamesImported} Ubisoft games · ${newGames.length} new`,
+            t("settings.ubisoftScannedNew", { games: result.gamesImported, new: newGames.length }),
             "success"
           );
         } else {
           showToast(
-            `Scanned ${result.gamesImported} Ubisoft games (all already in library)`,
+            t("settings.ubisoftScannedAll", { games: result.gamesImported }),
             "success"
           );
         }
@@ -1303,7 +1303,7 @@ export default function SettingsPage() {
         clientPath: "",
         syncedGames: [],
       });
-      showToast(`Ubisoft scan failed: ${err}`, "error");
+      showToast(t("settings.ubisoftScanFailed", { error: err }), "error");
     } finally {
       setIsUplaySyncing(false);
     }
@@ -1314,7 +1314,7 @@ export default function SettingsPage() {
   async function handleHumbleLogin() {
     setIsHumbleLoggingIn(true);
     try {
-      showToast("A login window will open — log in to Humble Bundle there", "info");
+      showToast(t("settings.humbleLoginHint"), "info");
       const session = await invoke<{ username: string }>("humble_start_login");
       setHumbleAuth({ isAuthenticated: true, username: session.username });
       await loadHumbleSettings();
@@ -1323,12 +1323,12 @@ export default function SettingsPage() {
         JSON.stringify({ username: session.username })
       );
       showToast(
-        `Connected to Humble${session.username ? ` as ${session.username}` : ""}`,
+        t("settings.humbleConnected", { display: session.username ? ` as ${session.username}` : "" }),
         "success"
       );
       await handleHumbleSync();
     } catch (err) {
-      showToast(`Humble connection failed: ${err}`, "error");
+      showToast(t("settings.humbleConnectFailed", { error: err }), "error");
     } finally {
       setIsHumbleLoggingIn(false);
     }
@@ -1380,12 +1380,12 @@ export default function SettingsPage() {
         if (newGames.length > 0) {
           addGames(newGames);
           showToast(
-            `Synced ${result.gamesImported} Humble games · ${newGames.length} new`,
+            t("settings.humbleSyncedNew", { games: result.gamesImported, new: newGames.length }),
             "success"
           );
         } else {
           showToast(
-            `Synced ${result.gamesImported} Humble games (all already in library)`,
+            t("settings.humbleSyncedAll", { games: result.gamesImported }),
             "success"
           );
         }
@@ -1408,7 +1408,7 @@ export default function SettingsPage() {
         lastSync: 0,
         syncedGames: [],
       });
-      showToast(`Humble sync failed: ${err}`, "error");
+      showToast(t("settings.humbleSyncFailed", { error: err }), "error");
     } finally {
       setIsHumbleSyncing(false);
     }
@@ -1421,9 +1421,9 @@ export default function SettingsPage() {
       setHumbleAuth({ isAuthenticated: false });
       setHumbleSyncResult(null);
       localStorage.removeItem("gamelib-humble-sync-info");
-      showToast("Humble Bundle disconnected", "info");
+      showToast(t("settings.humbleDisconnected"), "info");
     } catch (err) {
-      showToast(`Failed: ${err}`, "error");
+      showToast(t("settings.failed", { error: err }), "error");
     }
   }
 
@@ -1436,7 +1436,7 @@ export default function SettingsPage() {
     try {
       await invoke("humble_save_settings", { settings: next });
     } catch (err) {
-      showToast(`Failed to save Humble setting: ${err}`, "error");
+      showToast(t("settings.humbleSaveFailed", { error: err }), "error");
     }
   }
 
@@ -1693,7 +1693,7 @@ export default function SettingsPage() {
                 <div className="settings-section-header-text">
                   <h2 className="settings-section-title">{t("settings.language")}</h2>
                   <p className="settings-section-desc">
-                    Display language for the interface and localized game descriptions.
+                    {t("settingsPage.languageDesc")}
                   </p>
                 </div>
               </header>
@@ -1872,8 +1872,8 @@ export default function SettingsPage() {
                       </option>
                     ))}
                   </select>
-                  <Button variant="secondary" size="sm" onClick={refreshGpus} leftIcon={<RefreshIcon />}>
-                    Refresh
+                  <Button variant="secondary" size="sm" onClick={refreshGpus} leftIcon={                    <RefreshIcon />}>
+                    {t("settings.refresh")}
                   </Button>
                 </div>
               </div>
@@ -1897,7 +1897,7 @@ export default function SettingsPage() {
                       )}
                     </div>
                   </div>
-                  <span className="settings-gpu-info-badge">Active</span>
+                  <span className="settings-gpu-info-badge">{t("settingsPage.active")}</span>
                 </div>
               )}
             </div>
@@ -1911,11 +1911,9 @@ export default function SettingsPage() {
               <div className="settings-control">
                 <label className="settings-label">{t("settings.label.sizeUnit")}</label>
                 <p className="settings-helper-lead">
-                  Choose how disk sizes are displayed in the Storage tab.
-                  <strong> GB</strong> is decimal (1 GB = 1,000,000,000 bytes — matches
-                  Steam and the OS file-explorer).
-                  <strong> GiB</strong> is binary (1 GiB = 1,073,741,824 bytes — matches
-                  <code> df -h</code> and Windows Task Manager).
+                  {t("settingsPage.sizeUnitHelp")}
+                  <strong> GB</strong> {t("settingsPage.sizeUnitGbDesc")}
+                  <strong> GiB</strong> {t("settingsPage.sizeUnitGibDesc")}
                 </p>
                 <div className="settings-input-group">
                   <select
@@ -1933,8 +1931,8 @@ export default function SettingsPage() {
                     }}
                     aria-label={t("settings.label.sizeUnit")}
                   >
-                    <option value="gb">GB — decimal (1,000,000,000 bytes)</option>
-                    <option value="gib">GiB — binary (1,073,741,824 bytes)</option>
+                    <option value="gb">{t("settingsPage.gbDecimal")}</option>
+                    <option value="gib">{t("settingsPage.gibBinary")}</option>
                   </select>
                 </div>
               </div>
@@ -1947,17 +1945,17 @@ export default function SettingsPage() {
               <div className="settings-control">
                 <label className="settings-label">{t("settings.label.systemSummary")}</label>
                 <p className="settings-helper-lead">
-                  Hardware detected on this machine.
+                  {t("settingsPage.hardwareDetected")}
                 </p>
                 <div className="settings-system-summary__grid">
                   <div className="settings-system-summary__item">
-                    <span className="settings-system-summary__label">CPU</span>
+                    <span className="settings-system-summary__label">{t("settingsPage.cpu")}</span>
                     <span className="settings-system-summary__value">
                       {systemInfo?.cpuName ?? "Detecting…"}
                     </span>
                   </div>
                   <div className="settings-system-summary__item">
-                    <span className="settings-system-summary__label">Memory</span>
+                    <span className="settings-system-summary__label">{t("settingsPage.memory")}</span>
                     <span className="settings-system-summary__value">
                       {systemInfo ? `${systemInfo.ramGb} GB` : "—"}
                     </span>
@@ -2004,12 +2002,11 @@ export default function SettingsPage() {
                   <div className="integration-tile-name-row">
                     <h3 className="integration-tile-name">Steam</h3>
                     {steamAuth.isAuthenticated && (
-                      <span className="integration-badge active">Connected</span>
+                      <span className="integration-badge active">{t("settingsPage.connected")}</span>
                     )}
                   </div>
                   <p className="integration-tile-desc">
-                    Import your Steam library, playtime, and
-                    achievements using a Steam Web API key.
+                    {t("settingsPage.steamIntegration")}
                   </p>
                 </div>
               </div>
@@ -2017,21 +2014,19 @@ export default function SettingsPage() {
               <div className="integration-tile-body">
                 {steamAuth.isAuthenticated ? (
                   <div className="auth-status">
-                    Connected
+                    {t("settingsPage.connected")}
                     {steamAuth.session?.displayName ? ` as ${steamAuth.session.displayName}` : ""}
                     {steamAuth.session?.steamId ? ` (ID: ${steamAuth.session.steamId.slice(0, 8)}…)` : ""}
                   </div>
                 ) : (
                   <p className="connect-prompt">
-                    Log in with your Steam account to import your
-                    library. A login window will open inside the app.
+                    {t("settingsPage.steamConnectPrompt")}
                   </p>
                 )}
 
-                <p className="auth-note">
-                  Your API key stays local — stored only in the
-                  encrypted OS keychain.
-                </p>
+                  <p className="auth-note">
+                    {t("settingsPage.steamAuthNote")}
+                  </p>
 
                 {/* API-key + SteamID64 paste-in flow. Only rendered
                  *  when the user isn't connected — once
@@ -2058,7 +2053,7 @@ export default function SettingsPage() {
                           rel="noopener noreferrer"
                           className="settings-link"
                         >
-                          Get your Steam API key →
+                          {t("settingsPage.getApiKey")}
                         </a>
                       </div>
                       <input
@@ -2070,7 +2065,7 @@ export default function SettingsPage() {
                           localStorage.setItem("gamelib-steam-apikey", e.target.value);
                         }}
                         autoComplete="off"
-                        placeholder="32-char hex string from steamcommunity.com/dev/apikey"
+                        placeholder={t("settingsPage.steamApiKey")}
                         disabled={isSteamLoggingIn}
                       />
                     </label>
@@ -2083,7 +2078,7 @@ export default function SettingsPage() {
                           rel="noopener noreferrer"
                           className="settings-link"
                         >
-                          Find your Steam ID →
+                          {t("settingsPage.findSteamId")}
                         </a>
                       </div>
                       <input
@@ -2097,7 +2092,7 @@ export default function SettingsPage() {
                         autoComplete="off"
                         inputMode="numeric"
                         pattern="[0-9]{17}"
-                        placeholder="17-digit number, e.g. 76561197960287930"
+                        placeholder={t("settingsPage.steamIdHint")}
                         disabled={isSteamLoggingIn}
                       />
                     </label>
@@ -2139,7 +2134,7 @@ export default function SettingsPage() {
 
                 {steamAuth.isAuthenticated && (
                   <div className="settings-toggles-group">
-                    <p className="settings-toggles-title">Sync behaviour</p>
+                    <p className="settings-toggles-title">{t("settingsPage.syncBehaviour")}</p>
                     <label className="settings-checkbox-label">
                       <input
                         type="checkbox"
@@ -2150,7 +2145,7 @@ export default function SettingsPage() {
                           localStorage.setItem("gamelib-steam-settings", JSON.stringify(u));
                         }}
                       />
-                      <span>Auto-sync on launch</span>
+                      <span>{t("settingsPage.autoSyncLaunch")}</span>
                     </label>
                     <label className="settings-checkbox-label">
                       <input
@@ -2162,7 +2157,7 @@ export default function SettingsPage() {
                           localStorage.setItem("gamelib-steam-settings", JSON.stringify(u));
                         }}
                       />
-                      <span>Sync playtime</span>
+                      <span>{t("settingsPage.syncPlaytime")}</span>
                     </label>
                     <label className="settings-checkbox-label">
                       <input
@@ -2174,11 +2169,11 @@ export default function SettingsPage() {
                           localStorage.setItem("gamelib-steam-settings", JSON.stringify(u));
                         }}
                       />
-                      <span>Sync achievements</span>
+                      <span>{t("settingsPage.syncAchievements")}</span>
                     </label>
                     <label className="settings-checkbox-label settings-checkbox-label--disabled">
                       <input type="checkbox" checked disabled />
-                      <span>IGDB metadata loads automatically when you open a game</span>
+                      <span>{t("settingsPage.igdbAutoLoad")}</span>
                     </label>
                     {/* Steam auto-detect: when enabled, a background
                      *  watcher polls steamapps/ every 5 minutes and
@@ -2194,13 +2189,13 @@ export default function SettingsPage() {
                           setSteamAutoDetect(e.target.checked);
                           showToast(
                             e.target.checked
-                              ? "Will notify when new Steam games are installed"
-                              : "Auto-detect disabled",
+                              ? t("settingsPage.autoDetectEnabledToast")
+                              : t("settingsPage.autoDetectDisabledToast"),
                             "info",
                           );
                         }}
                       />
-                      <span>Detect new Steam installs automatically</span>
+                      <span>{t("settingsPage.detectNewSteam")}</span>
                     </label>
                   </div>
                 )}
@@ -2210,8 +2205,7 @@ export default function SettingsPage() {
             {steamAuth.isAuthenticated && (
               <div className="danger-zone">
                 <p className="danger-zone-text">
-                  <strong>Disconnect Steam.</strong> Clears your local
-                  session — your Steam account is untouched.
+                  {t("settingsPage.disconnectSteam")}
                 </p>
                 <Button variant="danger" size="sm" onClick={handleDisconnect}>
                       {t("settings.disconnect")}
@@ -2229,12 +2223,11 @@ export default function SettingsPage() {
                   <div className="integration-tile-name-row">
                     <h3 className="integration-tile-name">Epic Games</h3>
                     {epicAuth.isAuthenticated && (
-                      <span className="integration-badge active">Connected</span>
+                      <span className="integration-badge active">{t("settingsPage.connected")}</span>
                     )}
                   </div>
                   <p className="integration-tile-desc">
-                    Import your owned Epic Games Store library. Only
-                    owned, launchable games are imported.
+                    {t("settingsPage.epicIntegration")}
                   </p>
                 </div>
               </div>
@@ -2242,23 +2235,20 @@ export default function SettingsPage() {
               <div className="integration-tile-body">
                 {epicAuth.isAuthenticated ? (
                   <div className="auth-status">
-                    Connected
+                    {t("settingsPage.connected")}
                     {epicAuth.displayName ? ` as ${epicAuth.displayName}` : ""}
                     {epicAuth.accountId ? ` (ID: ${epicAuth.accountId.slice(0, 8)}…)` : ""}
                   </div>
                 ) : (
                   <p className="connect-prompt">
-                    Log in with your Epic Games account to import your
-                    library. A login window will open inside the app.
+                    {t("settingsPage.epicConnectPrompt")}
                   </p>
                 )}
 
                 {epicStaleSession && (
                   <div className="epic-stale-banner">
                     <p className="epic-stale-banner-text">
-                      <strong>Previous Epic session unreachable.</strong>{" "}
-                      Local tokens were cleared, but a stored refresh
-                      token can restore your connection with one click.
+                      {t("settingsPage.epicStaleBanner")}
                     </p>
                     <Button
                       size="sm"
@@ -2310,8 +2300,7 @@ export default function SettingsPage() {
             {epicAuth.isAuthenticated && (
               <div className="danger-zone">
                 <p className="danger-zone-text">
-                  <strong>Disconnect Epic Games.</strong> Clears local
-                  tokens — your Epic account is unaffected.
+                  {t("settingsPage.disconnectEpic")}
                 </p>
                 <Button variant="danger" size="sm" onClick={handleEpicDisconnect}>
                       {t("settings.disconnect")}
@@ -2329,13 +2318,11 @@ export default function SettingsPage() {
                   <div className="integration-tile-name-row">
                     <h3 className="integration-tile-name">GOG Galaxy</h3>
                     {gogAuth.isAuthenticated && (
-                      <span className="integration-badge active">Connected</span>
+                      <span className="integration-badge active">{t("settingsPage.connected")}</span>
                     )}
                   </div>
                   <p className="integration-tile-desc">
-                    Import your owned GOG Galaxy library, including
-                    playtime and last-session stats, plus installed
-                    games detected from the standard GOG install paths.
+                    {t("settingsPage.gogIntegration")}
                   </p>
                 </div>
               </div>
@@ -2343,21 +2330,19 @@ export default function SettingsPage() {
               <div className="integration-tile-body">
                 {gogAuth.isAuthenticated ? (
                   <div className="auth-status">
-                    Connected
+                    {t("settingsPage.connected")}
                     {gogAuth.username ? ` as ${gogAuth.username}` : ""}
                     {gogAuth.userId ? ` (ID: ${gogAuth.userId})` : ""}
                   </div>
                 ) : (
                   <p className="connect-prompt">
-                    Log in with your GOG Galaxy account to import your
-                    library. A login window will open inside the app.
+                    {t("settingsPage.gogConnectPrompt")}
                   </p>
                 )}
 
-                <p className="auth-note">
-                  Your tokens stay local — stored only in the
-                  encrypted OS keychain, just like Steam and Epic.
-                </p>
+                  <p className="auth-note">
+                    {t("settingsPage.gogAuthNote")}
+                  </p>
 
                 <div className="integration-tile-actions">
                   {gogAuth.isAuthenticated ? (
@@ -2398,8 +2383,7 @@ export default function SettingsPage() {
             {gogAuth.isAuthenticated && (
               <div className="danger-zone">
                 <p className="danger-zone-text">
-                  <strong>Disconnect GOG Galaxy.</strong> Clears local
-                  tokens — your GOG account is unaffected.
+                  {t("settingsPage.disconnectGog")}
                 </p>
                 <Button variant="danger" size="sm" onClick={handleGogDisconnect}>
                       {t("settings.disconnect")}
@@ -2417,13 +2401,11 @@ export default function SettingsPage() {
                   <div className="integration-tile-name-row">
                     <h3 className="integration-tile-name">Humble Bundle</h3>
                     {humbleAuth.isAuthenticated && (
-                      <span className="integration-badge active">Connected</span>
+                      <span className="integration-badge active">{t("settingsPage.connected")}</span>
                     )}
                   </div>
                   <p className="integration-tile-desc">
-                    Import your Humble library — orders, Trove games, and
-                    bonus extras — plus installed games detected from the
-                    Humble App.
+                    {t("settingsPage.humbleIntegration")}
                   </p>
                 </div>
               </div>
@@ -2431,20 +2413,18 @@ export default function SettingsPage() {
               <div className="integration-tile-body">
                 {humbleAuth.isAuthenticated ? (
                   <div className="auth-status">
-                    Connected
+                    {t("settingsPage.connected")}
                     {humbleAuth.username ? ` as ${humbleAuth.username}` : ""}
                   </div>
                 ) : (
                   <p className="connect-prompt">
-                    Log in with your Humble Bundle account to import your
-                    library. A login window will open inside the app.
+                    {t("settingsPage.humbleConnectPrompt")}
                   </p>
                 )}
 
-                <p className="auth-note">
-                  Your session stays local — only the Humble session cookie
-                  is stored, just like GOG and Epic.
-                </p>
+                  <p className="auth-note">
+                    {t("settingsPage.humbleAuthNote")}
+                  </p>
 
                 <div className="integration-tile-actions">
                   {humbleAuth.isAuthenticated ? (
@@ -2483,43 +2463,43 @@ export default function SettingsPage() {
                 {/* Humble settings toggles (Playnite parity) */}
                 <div className="humble-settings-grid">
                   <HumbleToggle
-                    label="Import general library"
-                    hint="Import owned library subproducts from your Humble orders."
+                    label={t("settingsPage.humbleToggleGeneralLib")}
+                    hint={t("settingsPage.humbleToggleGeneralLibHint")}
                     checked={humbleSettings.importGeneralLibrary}
                     disabled={!humbleAuth.isAuthenticated}
                     onChange={(v) => updateHumbleSetting("importGeneralLibrary", v)}
                   />
                   <HumbleToggle
-                    label="Import game extras"
-                    hint="Import soundtracks, artbooks, and other bonus downloads as separate entries."
+                    label={t("settingsPage.humbleToggleGameExtras")}
+                    hint={t("settingsPage.humbleToggleGameExtrasHint")}
                     checked={humbleSettings.importGameExtras}
                     disabled={!humbleAuth.isAuthenticated}
                     onChange={(v) => updateHumbleSetting("importGameExtras", v)}
                   />
                   <HumbleToggle
-                    label="Import Trove games"
-                    hint="Import the Humble Trove subscriber catalog."
+                    label={t("settingsPage.humbleToggleTrove")}
+                    hint={t("settingsPage.humbleToggleTroveHint")}
                     checked={humbleSettings.importTroveGames}
                     disabled={!humbleAuth.isAuthenticated}
                     onChange={(v) => updateHumbleSetting("importTroveGames", v)}
                   />
                   <HumbleToggle
-                    label="Ignore third-party store games"
-                    hint="Skip games provided via a partner store (e.g. Steam) rather than drm-free downloads."
+                    label={t("settingsPage.humbleToggleIgnoreThirdParty")}
+                    hint={t("settingsPage.humbleToggleIgnoreThirdPartyHint")}
                     checked={humbleSettings.ignoreThirdPartyStoreGames}
                     disabled={!humbleAuth.isAuthenticated}
                     onChange={(v) => updateHumbleSetting("ignoreThirdPartyStoreGames", v)}
                   />
                   <HumbleToggle
-                    label="Import third-party DRM-free"
-                    hint="Still import a third-party game when it also has a drm-free download."
+                    label={t("settingsPage.humbleToggleThirdPartyDrmFree")}
+                    hint={t("settingsPage.humbleToggleThirdPartyDrmFreeHint")}
                     checked={humbleSettings.importThirdPartyDrmFree}
                     disabled={!humbleAuth.isAuthenticated}
                     onChange={(v) => updateHumbleSetting("importThirdPartyDrmFree", v)}
                   />
                   <HumbleToggle
-                    label="Launch via Humble App"
-                    hint="Prefer humble://launch for Trove games over the on-disk executable."
+                    label={t("settingsPage.humbleToggleLaunchApp")}
+                    hint={t("settingsPage.humbleToggleLaunchAppHint")}
                     checked={humbleSettings.launchViaHumbleApp}
                     disabled={!humbleAuth.isAuthenticated}
                     onChange={(v) => updateHumbleSetting("launchViaHumbleApp", v)}
@@ -2531,8 +2511,7 @@ export default function SettingsPage() {
             {humbleAuth.isAuthenticated && (
               <div className="danger-zone">
                 <p className="danger-zone-text">
-                  <strong>Disconnect Humble Bundle.</strong> Clears local
-                  session cookies — your Humble account is unaffected.
+                    {t("settingsPage.disconnectHumble")}
                 </p>
                 <Button variant="danger" size="sm" onClick={handleHumbleDisconnect}>
                       {t("settings.disconnect")}

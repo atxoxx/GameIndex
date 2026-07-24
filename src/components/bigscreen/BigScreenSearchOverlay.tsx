@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { useLanguage } from "../../context/LanguageContext";
 import { useFocusable } from "../../hooks/useFocusable";
 
 interface BigScreenSearchOverlayProps {
@@ -39,6 +40,7 @@ export default function BigScreenSearchOverlay({
   onClose,
 }: BigScreenSearchOverlayProps) {
   const navigate = useNavigate();
+  const { t } = useLanguage();
   const [query, setQuery] = useState("");
   const inputRef = useRef<HTMLInputElement | null>(null);
   const inputFocusable = useFocusable(() => inputRef.current?.focus());
@@ -91,7 +93,7 @@ export default function BigScreenSearchOverlay({
   }
 
   return (
-    <div className="bigscreen-search-overlay" role="dialog" aria-modal="true" aria-label="Search the store">
+    <div className="bigscreen-search-overlay" role="dialog" aria-modal="true" aria-label={t("bigscreen.search.searchStore")}>
       <div className="bigscreen-search-scrim" onClick={onClose} />
       <div className="bigscreen-search-panel">
         <div className="bigscreen-search-field">
@@ -102,19 +104,19 @@ export default function BigScreenSearchOverlay({
             ref={setInputRef}
             className="bigscreen-search-input"
             type="text"
-            placeholder="Search the store…"
+            placeholder={t("bigscreen.search.placeholder")}
             value={query}
             tabIndex={inputFocusable.tabIndex}
             role={inputFocusable.role}
             onClick={inputFocusable.onClick}
             onChange={(e) => setQuery(e.target.value)}
-            aria-label="Search the store"
+            aria-label={t("bigscreen.search.searchStore")}
           />
           {query && (
             <button
               type="button"
               className="bigscreen-search-clear"
-              aria-label="Clear search"
+              aria-label={t("bigscreen.search.clearSearch")}
               onClick={() => {
                 setQuery("");
                 inputRef.current?.focus();
@@ -131,19 +133,19 @@ export default function BigScreenSearchOverlay({
             className="bigscreen-search-btn bigscreen-search-btn--primary"
             onClick={submit}
           >
-            Search
+            {t("common.search")}
           </button>
           <button
             type="button"
             className="bigscreen-search-btn"
             onClick={onClose}
           >
-            Cancel
+            {t("common.cancel")}
           </button>
         </div>
 
         <p className="bigscreen-search-hint">
-          Press <kbd>Enter</kbd> to search · <kbd>Esc</kbd> to close
+          {t("bigscreen.search.pressEnter")}
         </p>
       </div>
     </div>

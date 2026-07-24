@@ -39,7 +39,7 @@ export default function StoreToolbar({ catalogue: c }: StoreToolbarProps) {
             c.setBulkMode(!c.bulkMode);
             c.clearSelection();
           }}
-          title="Select multiple games"
+          title={t("storeToolbar.selectMultiple")}
         >
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
             <polyline points="9 11 12 14 22 4" />
@@ -48,7 +48,7 @@ export default function StoreToolbar({ catalogue: c }: StoreToolbarProps) {
           {t("store.selectLabel")}
         </button>
 
-        <div className="store-density-toolbar" aria-label="Layout controls">
+        <div className="store-density-toolbar" aria-label={t("store.toolbar.layoutControls")}>
           <DensityToggle density={c.density} onChange={c.setDensity} />
         </div>
       </div>

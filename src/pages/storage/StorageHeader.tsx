@@ -2,6 +2,7 @@ import { useMemo } from "react";
 import type { Game, SizeUnit } from "../../types/game";
 import { formatSize } from "../../types/game";
 import { useSizeUnit } from "../../hooks/useSizeUnit";
+import { useLanguage } from "../../context/LanguageContext";
 import {
   driveBuckets,
   platformBuckets,
@@ -36,6 +37,7 @@ export function StorageHeader({
   activeDrive = null,
   onDriveClick,
 }: Props) {
+  const { t } = useLanguage();
   const { unit } = useSizeUnit();
   const total = useMemo(() => totalBytes(games), [games]);
   const coverage = useMemo(() => sizeCoverage(games), [games]);
@@ -48,26 +50,26 @@ export function StorageHeader({
     <div className="storage__header-grid">
         {/* Totals card */}
         <section className="storage__card storage__card--totals">
-          <span className="storage__card-label">Tracked size</span>
+          <span className="storage__card-label">{t("storagePage.trackedSize")}</span>
           <span className="storage__card-value">{formatSize(total, unit)}</span>
           <span className="storage__card-meta">
-            {coverage.sized} sized game{coverage.sized === 1 ? "" : "s"}
+            {t("storageHeader.sizedGames", { count: coverage.sized, plural: coverage.sized === 1 ? "" : "s" })}
             {uncategorized > 0 &&
-              `  ${"·"}  ${uncategorized} missing${uncategorized === 1 ? "" : "s"}`}
+              `  ${"·"}  ${t("storageHeader.missingCount", { count: uncategorized, plural: uncategorized === 1 ? "" : "s" })}`}
             {staleCount > 0 && (
               <>
                 {`  ${"·"}  `}
                 <span className="storage__card-meta-stale">
-                  {staleCount} stale
+                  {t("storageHeader.staleCount", { count: staleCount })}
                 </span>
               </>
             )}
           </span>
         </section>
 
-        <BreakdownCard title="By platform" buckets={platforms} total={total} unit={unit} />
+        <BreakdownCard title={t("storageHeader.byPlatform")} buckets={platforms} total={total} unit={unit} />
         <BreakdownCard
-          title="By drive"
+          title={t("storageHeader.byDrive")}
           buckets={drives}
           total={total}
           unit={unit}
@@ -109,12 +111,13 @@ function BreakdownCard({
    *  passes one. */
   onRowClick?: (label: string) => void;
 }) {
+  const { t } = useLanguage();
   const interactive = !!onRowClick;
   return (
     <section className="storage__card storage__card--breakdown">
       <span className="storage__card-label">{title}</span>
       {buckets.length === 0 ? (
-        <span className="storage__breakdown-empty">No measurements yet.</span>
+        <span className="storage__breakdown-empty">{t("storageHeader.noMeasurements")}</span>
       ) : (
         <ul className="storage__breakdown-list">
           {buckets.map((b) => {
@@ -139,11 +142,11 @@ function BreakdownCard({
                 aria-valuemin={interactive ? undefined : 0}
                 aria-valuemax={interactive ? undefined : 100}
                 aria-pressed={interactive ? isActive : undefined}
-                aria-label={`${b.label}: ${formatSize(b.bytes, unit)} across ${b.count} game${b.count === 1 ? "" : "s"}`}
+                aria-label={t("storageHeader.bucketLabel", { label: b.label, size: formatSize(b.bytes, unit), count: b.count, plural: b.count === 1 ? "" : "s" })}
                 title={
                   interactive
-                    ? `Filter by ${b.label}`
-                    : `${b.label}: ${formatSize(b.bytes, unit)} across ${b.count} game${b.count === 1 ? "" : "s"}`
+                    ? t("storageHeader.filterBy", { label: b.label })
+                    : t("storageHeader.bucketLabel", { label: b.label, size: formatSize(b.bytes, unit), count: b.count, plural: b.count === 1 ? "" : "s" })
                 }
                 onClick={interactive ? () => onRowClick?.(b.label) : undefined}
                 tabIndex={interactive ? 0 : undefined}
@@ -177,8 +180,7 @@ function BreakdownCard({
                       />
                     </span>
                     <span className="storage__drive-usage-label">
-                      {formatSize(u.total - u.available, unit)} of{" "}
-                      {formatSize(u.total, unit)} used
+                      {t("storageHeader.usedOf", { used: formatSize(u.total - u.available, unit), total: formatSize(u.total, unit) })}
                     </span>
                   </span>
                 )}

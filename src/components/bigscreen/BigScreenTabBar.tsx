@@ -33,6 +33,7 @@
 
 import { useEffect, useRef } from "react";
 import type { ReactNode } from "react";
+import { useLanguage } from "../../context/LanguageContext";
 import { useFocusable } from "../../hooks/useFocusable";
 
 export interface TabDef<T extends string> {
@@ -59,10 +60,12 @@ export default function BigScreenTabBar<T extends string>({
   tabs,
   activeTab,
   onActivate,
-  ariaLabel = "Tabs",
+  ariaLabel,
   className,
 }: BigScreenTabBarProps<T>) {
+  const { t } = useLanguage();
   const containerRef = useRef<HTMLDivElement | null>(null);
+  const tablistLabel = ariaLabel ?? t("bigscreen.tabbar.tabs");
 
   useEffect(() => {
     if (!containerRef.current) return;
@@ -85,7 +88,7 @@ export default function BigScreenTabBar<T extends string>({
         .filter(Boolean)
         .join(" ")}
       role="tablist"
-      aria-label={ariaLabel}
+      aria-label={tablistLabel}
     >
       {/* Decorative LB chevron — visual affordance only. */}
       <span className="bigscreen-tab-bar-bumper bigscreen-tab-bar-bumper--lb" aria-hidden>

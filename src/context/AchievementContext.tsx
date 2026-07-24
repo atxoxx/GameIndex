@@ -11,6 +11,7 @@ import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
 import { useGames } from "./GameContext";
 import { useToast } from "./ToastContext";
+import { useLanguage } from "./LanguageContext";
 import type {
   Game,
   GameAchievementData,
@@ -234,6 +235,7 @@ export function AchievementProvider({ children }: { children: ReactNode }) {
   );
 
   const { showToast } = useToast();
+  const { t } = useLanguage();
 
   const syncLocalAchievements = useCallback(
     async (gameId: string, steamAppId?: number) => {
@@ -374,8 +376,8 @@ export function AchievementProvider({ children }: { children: ReactNode }) {
       if (!achievements?.length) return;
       const label =
         achievements.length === 1
-          ? `🏆 ${achievements[0].displayName} unlocked in ${gameName}`
-          : `🏆 ${achievements.length} achievements unlocked in ${gameName}`;
+          ? t("achievementsTab.unlockedSingular", { name: achievements[0].displayName, game: gameName })
+          : t("achievementsTab.unlockedPlural", { count: achievements.length, game: gameName });
       showToast(label, "success");
     });
 
@@ -383,7 +385,7 @@ export function AchievementProvider({ children }: { children: ReactNode }) {
       unlistenUpdated.then((fn) => fn());
       unlistenUnlocked.then((fn) => fn());
     };
-  }, [reloadCache, showToast]);
+  }, [reloadCache, showToast, t]);
 
   // Push the persisted local-achievement toggle to the Rust watcher on
   // startup so the two stay in sync across restarts.

@@ -1,4 +1,5 @@
 import { useState, useMemo, useCallback } from "react";
+import { useLanguage } from "../../context/LanguageContext";
 import { useFocusable } from "../../hooks/useFocusable";
 import BigScreenPill from "./BigScreenPill";
 import BigScreenTabBar, { type TabDef } from "./BigScreenTabBar";
@@ -39,12 +40,6 @@ interface BigScreenFriendsProps {
 
 type FriendsTab = "list" | "sessions" | "profile";
 
-const FRIENDS_TABS: TabDef<FriendsTab>[] = [
-  { id: "list", label: "Friends List" },
-  { id: "sessions", label: "Game Lobbies" },
-  { id: "profile", label: "My Profile" },
-];
-
 export default function BigScreenFriends({
   profile,
   friends,
@@ -65,6 +60,12 @@ export default function BigScreenFriends({
   handleDeleteFriend,
   setProfile,
 }: BigScreenFriendsProps) {
+  const { t } = useLanguage();
+  const FRIENDS_TABS: TabDef<FriendsTab>[] = [
+    { id: "list", label: t("bigscreen.friends.friendsList") },
+    { id: "sessions", label: t("bigscreen.friends.gameLobbies") },
+    { id: "profile", label: t("bigscreen.friends.myProfile") },
+  ];
   const [activeTab, setActiveTab] = useState<FriendsTab>("list");
   const [showAddModal, setShowAddModal] = useState(false);
   const [chattingSessionId, setChattingSessionId] = useState<string | null>(null);
@@ -112,7 +113,7 @@ export default function BigScreenFriends({
               {...focusSyncBtn}
               style={{ padding: "6px 12px", fontSize: "12px" }}
             >
-              🔄 Sync Network
+              {t("bigscreen.friends.syncNetwork")}
             </button>
             {activeTab === "list" && (
               <button
@@ -121,7 +122,7 @@ export default function BigScreenFriends({
                 {...focusAddFriendBtn}
                 style={{ padding: "6px 12px", fontSize: "12px" }}
               >
-                ➕ Add Friend
+                {t("bigscreen.friends.addFriend")}
               </button>
             )}
           </div>
@@ -134,7 +135,7 @@ export default function BigScreenFriends({
           <BigScreenTabPanel tabId="list" activeTab={activeTab}>
             {friends.length === 0 ? (
               <div className="system-view-empty">
-                <p>No friends added yet. Share your Public Key from the Profile tab, or click "Add Friend" to add one!</p>
+                <p>{t("bigscreen.friends.noFriendsDesc")}</p>
               </div>
             ) : (
               <div className="bigscreen-library-grid" style={{ gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))", gap: "20px" }}>
@@ -155,7 +156,7 @@ export default function BigScreenFriends({
           <BigScreenTabPanel tabId="sessions" activeTab={activeTab}>
             {activeSessions.length === 0 ? (
               <div className="system-view-empty">
-                <p>No upcoming game sessions scheduled. Create sessions in desktop mode to coordinate co-op games!</p>
+                <p>{t("bigscreen.friends.noSessions")}</p>
               </div>
             ) : (
               <div style={{ display: "flex", flexDirection: "column", gap: "16px" }}>
@@ -185,13 +186,13 @@ export default function BigScreenFriends({
                   <div>
                     <h3 style={{ margin: 0 }}>{profile.name}</h3>
                     <div style={{ fontSize: "12px", color: "var(--color-text-muted)", marginTop: "4px" }}>
-                      "{profile.status || "No status set"}"
+                      "{profile.status || t("bigscreen.friends.noStatus")}"
                     </div>
                   </div>
                 </div>
 
                 <div style={{ borderTop: "1px solid var(--color-border)", paddingTop: "16px" }}>
-                  <div style={{ fontSize: "11px", textTransform: "uppercase", color: "var(--color-text-muted)", marginBottom: "6px" }}>My Public Key</div>
+                  <div style={{ fontSize: "11px", textTransform: "uppercase", color: "var(--color-text-muted)", marginBottom: "6px" }}>{t("bigscreen.friends.myPublicKey")}</div>
                   <div style={{ fontFamily: "monospace", fontSize: "11px", wordBreak: "break-all", background: "rgba(0,0,0,0.2)", padding: "10px", borderRadius: "6px" }}>
                     {generatedFriendCode}
                   </div>
@@ -200,25 +201,25 @@ export default function BigScreenFriends({
                 <div className="profile-stats-grid" style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: "10px", marginTop: "10px" }}>
                   <div className="profile-stat-box" style={{ background: "rgba(255,255,255,0.02)", padding: "10px", borderRadius: "6px", textAlign: "center" }}>
                     <span style={{ display: "block", fontSize: "18px", fontWeight: "700" }}>{selfStats.gamesCount}</span>
-                    <span style={{ fontSize: "11px", color: "var(--color-text-muted)" }}>Games</span>
+                    <span style={{ fontSize: "11px", color: "var(--color-text-muted)" }}>{t("bigscreen.friends.games")}</span>
                   </div>
                   <div className="profile-stat-box" style={{ background: "rgba(255,255,255,0.02)", padding: "10px", borderRadius: "6px", textAlign: "center" }}>
                     <span style={{ display: "block", fontSize: "18px", fontWeight: "700" }}>{formatHours(selfStats.playtimeMinutes)}</span>
-                    <span style={{ fontSize: "11px", color: "var(--color-text-muted)" }}>Playtime</span>
+                    <span style={{ fontSize: "11px", color: "var(--color-text-muted)" }}>{t("bigscreen.friends.playtime")}</span>
                   </div>
                   <div className="profile-stat-box" style={{ background: "rgba(255,255,255,0.02)", padding: "10px", borderRadius: "6px", textAlign: "center" }}>
                     <span style={{ display: "block", fontSize: "18px", fontWeight: "700" }}>{selfStats.achievementsCount}</span>
-                    <span style={{ fontSize: "11px", color: "var(--color-text-muted)" }}>Trophies</span>
+                    <span style={{ fontSize: "11px", color: "var(--color-text-muted)" }}>{t("bigscreen.friends.trophies")}</span>
                   </div>
                 </div>
               </div>
 
               {/* Edit gamer details form */}
               <div className="bigscreen-widget-card" style={{ padding: "24px" }}>
-                <h3 style={{ marginTop: 0, marginBottom: "20px" }}>Edit Profile</h3>
+                <h3 style={{ marginTop: 0, marginBottom: "20px" }}>{t("bigscreen.friends.editProfile")}</h3>
                 <form onSubmit={handleSaveProfile} style={{ display: "flex", flexDirection: "column", gap: "16px" }}>
                   <div className="friends-input-group">
-                    <label style={{ fontSize: "12px", color: "var(--color-text-secondary)" }}>Gamer Tag</label>
+                    <label style={{ fontSize: "12px", color: "var(--color-text-secondary)" }}>{t("bigscreen.friends.gamerTag")}</label>
                     <input
                       type="text"
                       className="profile-input"
@@ -229,7 +230,7 @@ export default function BigScreenFriends({
                     />
                   </div>
                   <div className="friends-input-group">
-                    <label style={{ fontSize: "12px", color: "var(--color-text-secondary)" }}>Current Status</label>
+                    <label style={{ fontSize: "12px", color: "var(--color-text-secondary)" }}>{t("bigscreen.friends.currentStatus")}</label>
                     <input
                       type="text"
                       className="profile-input"
@@ -244,7 +245,7 @@ export default function BigScreenFriends({
                     {...useFocusable(() => {})}
                     style={{ alignSelf: "flex-start", marginTop: "10px" }}
                   >
-                    Save & Sync
+                    {t("bigscreen.friends.saveSync")}
                   </button>
                 </form>
               </div>
@@ -271,13 +272,13 @@ export default function BigScreenFriends({
             }}
             onClick={(e) => e.stopPropagation()}
           >
-            <h3 style={{ margin: 0 }}>Add a Friend</h3>
-            <p style={{ fontSize: "13px", color: "var(--color-text-secondary)", margin: 0 }}>Paste your friend's Public Key code below.</p>
+            <h3 style={{ margin: 0 }}>{t("bigscreen.friends.addFriendTitle")}</h3>
+            <p style={{ fontSize: "13px", color: "var(--color-text-secondary)", margin: 0 }}>{t("bigscreen.friends.addFriendDesc")}</p>
             <textarea
               className="friends-textarea"
               value={friendCodeInput}
               onChange={(e) => setFriendCodeInput(e.target.value)}
-              placeholder="Paste public key here..."
+              placeholder={t("bigscreen.friends.publicKeyPlaceholder")}
               style={{ background: "rgba(0,0,0,0.2)", border: "1px solid var(--color-border)", color: "white", padding: "10px", borderRadius: "6px", height: "80px", resize: "none" }}
             />
 
@@ -293,7 +294,7 @@ export default function BigScreenFriends({
               </div>
             ) : (
               friendCodeInput.trim() && (
-                <div style={{ fontSize: "12px", color: "var(--color-danger)" }}>Invalid Public Key.</div>
+                <div style={{ fontSize: "12px", color: "var(--color-danger)" }}>{t("bigscreen.friends.invalidKey")}</div>
               )
             )}
 
@@ -303,7 +304,7 @@ export default function BigScreenFriends({
                 className="bigscreen-details-btn bigscreen-details-btn--secondary"
                 {...useFocusable(() => setShowAddModal(false))}
               >
-                Cancel
+                {t("common.cancel")}
               </button>
               <button
                 type="button"
@@ -316,7 +317,7 @@ export default function BigScreenFriends({
                   }
                 })}
               >
-                Add Friend
+                {t("bigscreen.friends.addFriendBtn")}
               </button>
             </div>
           </div>
@@ -341,14 +342,14 @@ export default function BigScreenFriends({
             onClick={(e) => e.stopPropagation()}
           >
             <div style={{ padding: "20px 24px", borderBottom: "1px solid var(--color-border)", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-              <h3 style={{ margin: 0 }}>Lobby Chat: {chatSession.gameName}</h3>
+              <h3 style={{ margin: 0 }}>{t("bigscreen.friends.lobbyChat", { gameName: chatSession.gameName })}</h3>
               <button type="button" style={{ background: "none", border: "none", color: "white", fontSize: "18px", cursor: "pointer" }} onClick={() => setChattingSessionId(null)}>✕</button>
             </div>
             
             {/* Messages body */}
             <div style={{ flex: 1, padding: "20px 24px", overflowY: "auto", display: "flex", flexDirection: "column", gap: "12px" }}>
               {(chatSession.messages || []).length === 0 ? (
-                <div style={{ textAlign: "center", color: "var(--color-text-muted)", fontSize: "13px", padding: "40px 0" }}>No messages in this lobby yet.</div>
+                <div style={{ textAlign: "center", color: "var(--color-text-muted)", fontSize: "13px", padding: "40px 0" }}>{t("bigscreen.friends.noMessages")}</div>
               ) : (
                 (chatSession.messages || []).map((m) => {
                   const isMe = m.author === profile.name;
@@ -370,7 +371,7 @@ export default function BigScreenFriends({
                 type="text"
                 value={chatDraft}
                 onChange={(e) => setChatDraft(e.target.value)}
-                placeholder="Type a message..."
+                placeholder={t("bigscreen.friends.typeMessage")}
                 style={{ flex: 1, background: "rgba(0,0,0,0.2)", border: "1px solid var(--color-border)", color: "white", padding: "8px 12px", borderRadius: "4px", fontSize: "13px" }}
                 onKeyDown={(e) => {
                   if (e.key === "Enter") submitChat();
@@ -382,7 +383,7 @@ export default function BigScreenFriends({
                 style={{ padding: "6px 16px" }}
                 {...useFocusable(submitChat)}
               >
-                Send
+                {t("bigscreen.friends.send")}
               </button>
             </div>
           </div>
@@ -406,6 +407,7 @@ function FriendCard({
   onBlock: () => void;
   onDelete: () => void;
 }) {
+  const { t } = useLanguage();
   const [showOptions, setShowOptions] = useState(false);
 
   const focusCard = useFocusable(() => setShowOptions(true));
@@ -425,7 +427,7 @@ function FriendCard({
             {displayName(friend)}
           </h4>
           <p style={{ margin: "4px 0 0 0", fontSize: "11px", color: "var(--color-text-muted)", textOverflow: "ellipsis", overflow: "hidden", whiteSpace: "nowrap" }}>
-            {friend.currentlyPlaying ? `🎮 Playing: ${friend.currentlyPlaying}` : friend.status || "Offline"}
+            {friend.currentlyPlaying ? t("bigscreen.friends.playing", { game: friend.currentlyPlaying }) : friend.status || t("bigscreen.friends.offline")}
           </p>
         </div>
         {friend.pinned && <span style={{ fontSize: "12px" }}>📌</span>}
@@ -433,9 +435,9 @@ function FriendCard({
 
       <div style={{ fontSize: "11px", color: "var(--color-text-muted)", borderTop: "1px solid rgba(255,255,255,0.03)", paddingTop: "8px" }}>
         {friend.libStats ? (
-          <div>🎮 {friend.libStats.gamesCount} games · 🏆 {friend.libStats.achievementsCount} trophies</div>
+          <div>{t("bigscreen.friends.friendStats", { games: friend.libStats.gamesCount, trophies: friend.libStats.achievementsCount })}</div>
         ) : (
-          <div>No sync statistics yet</div>
+          <div>{t("bigscreen.friends.noSyncStats")}</div>
         )}
       </div>
 
@@ -449,16 +451,16 @@ function FriendCard({
           >
             <h4 style={{ margin: "0 0 5px 0", textAlign: "center" }}>{displayName(friend)}</h4>
             <button type="button" className="bigscreen-details-btn bigscreen-details-btn--secondary" {...useFocusable(() => { onPin(); setShowOptions(false); })} style={{ width: "100%", justifyContent: "center" }}>
-              {friend.pinned ? "📌 Unpin Friend" : "📌 Pin Friend"}
+              {friend.pinned ? t("bigscreen.friends.unpinFriend") : t("bigscreen.friends.pinFriend")}
             </button>
             <button type="button" className="bigscreen-details-btn bigscreen-details-btn--secondary" {...useFocusable(() => { onBlock(); setShowOptions(false); })} style={{ width: "100%", justifyContent: "center" }}>
-              {friend.blocked ? "🚫 Unblock Friend" : "🚫 Block Friend"}
+              {friend.blocked ? t("bigscreen.friends.unblockFriend") : t("bigscreen.friends.blockFriend")}
             </button>
             <button type="button" className="bigscreen-details-btn bigscreen-details-btn--danger" {...useFocusable(() => { onDelete(); setShowOptions(false); })} style={{ width: "100%", justifyContent: "center" }}>
-              🗑️ Delete Friend
+              {t("bigscreen.friends.deleteFriend")}
             </button>
             <button type="button" className="bigscreen-details-btn bigscreen-details-btn--secondary" {...useFocusable(() => setShowOptions(false))} style={{ width: "100%", justifyContent: "center", marginTop: "5px" }}>
-              Cancel
+              {t("common.cancel")}
             </button>
           </div>
         </div>
@@ -482,6 +484,7 @@ function SessionRow({
   onOpenChat: () => void;
   onDelete: () => void;
 }) {
+  const { t } = useLanguage();
   const myRsvp = session.rsvps?.[profileName] || "none";
 
   const focusRsvpGoing = useFocusable(() => onRsvp("going"));
@@ -507,10 +510,10 @@ function SessionRow({
       <div style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
         <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
           <h4 style={{ margin: 0, fontSize: "16px", fontWeight: "700" }}>{session.gameName}</h4>
-          <BigScreenPill tone="accent" size="sm">Lobby</BigScreenPill>
+          <BigScreenPill tone="accent" size="sm">{t("bigscreen.friends.lobby")}</BigScreenPill>
         </div>
         <div style={{ fontSize: "12px", color: "var(--color-text-muted)" }}>
-          📅 {formattedDate} · 👥 {attendeesCount} / {session.maxPlayers} going
+          {t("bigscreen.friends.sessionMeta", { date: formattedDate, going: attendeesCount, max: session.maxPlayers })}
         </div>
         {session.description && (
           <div style={{ fontSize: "12px", color: "var(--color-text-secondary)", marginTop: "4px" }}>
@@ -523,23 +526,23 @@ function SessionRow({
         {/* RSVP button strip */}
         <div style={{ display: "flex", borderRadius: "6px", background: "rgba(255,255,255,0.02)", border: "1px solid var(--color-border)", padding: "2px" }}>
           <button type="button" {...focusRsvpGoing} style={{ border: "none", background: myRsvp === "going" ? "var(--color-success)" : "transparent", color: "white", padding: "6px 12px", borderRadius: "4px", fontSize: "12px", cursor: "pointer", fontWeight: myRsvp === "going" ? "700" : "400" }}>
-            Going
+            {t("bigscreen.friends.going")}
           </button>
           <button type="button" {...focusRsvpMaybe} style={{ border: "none", background: myRsvp === "maybe" ? "var(--color-warning)" : "transparent", color: "white", padding: "6px 12px", borderRadius: "4px", fontSize: "12px", cursor: "pointer", fontWeight: myRsvp === "maybe" ? "700" : "400" }}>
-            Maybe
+            {t("bigscreen.friends.maybe")}
           </button>
           <button type="button" {...focusRsvpDeclined} style={{ border: "none", background: myRsvp === "declined" ? "var(--color-danger)" : "transparent", color: "white", padding: "6px 12px", borderRadius: "4px", fontSize: "12px", cursor: "pointer", fontWeight: myRsvp === "declined" ? "700" : "400" }}>
-            Decline
+            {t("bigscreen.friends.decline")}
           </button>
         </div>
 
         <button type="button" className="bigscreen-details-btn bigscreen-details-btn--secondary" {...focusChat}>
-          💬 Chat
+          {t("bigscreen.friends.chat")}
         </button>
 
         {session.creatorName === profileName && (
           <button type="button" className="bigscreen-details-btn bigscreen-details-btn--secondary" {...focusDelete} style={{ color: "var(--color-danger)" }}>
-            🗑️ Cancel
+            {t("bigscreen.friends.cancel")}
           </button>
         )}
       </div>

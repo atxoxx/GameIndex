@@ -28,6 +28,7 @@ import {
 import { StatusDot } from "./shared";
 import { useSteamGameStats, formatSteamPrice } from "../../hooks/useSteamGameStats";
 import { useToast } from "../../context/ToastContext";
+import { useLanguage } from "../../context/LanguageContext";
 
 /**
  * InfoKpiCard
@@ -138,6 +139,7 @@ export default function InfoKpiCard({
   hideStatus,
 }: InfoKpiCardProps) {
   const { showToast } = useToast();
+  const { t } = useLanguage();
 
   // Fetch the combined Steam stats payload so the price tile has
   // its data ready without re-firing the IPC call the popover also
@@ -208,7 +210,7 @@ export default function InfoKpiCard({
       <KpiTile
         key="play-status"
         size="sm"
-        label="Status"
+        label={t("hero.status")}
         icon={<IconStar size={12} />}
         value={
           <span style={{ display: "flex", alignItems: "center", gap: 6 }}>
@@ -234,10 +236,10 @@ export default function InfoKpiCard({
       <KpiTile
         key="play-time"
         size="sm"
-        label="Play Time"
+        label={t("hero.playTime")}
         icon={<IconClock size={12} />}
         value={game.playTime}
-        subtext={game.installed ? "Installed" : "Not installed"}
+        subtext={game.installed ? t("filter.installed") : t("game.notInstalled")}
         intent={game.installed ? "success" : "default"}
       />
     );
@@ -247,7 +249,7 @@ export default function InfoKpiCard({
         <KpiTile
           key="size"
           size="sm"
-          label="Size"
+          label={t("info.size")}
           icon={<IconHardDrive size={12} />}
           value={formatSize(game.sizeBytes, sizeUnit)}
           trailing={<IconPencil size={12} className="kpi-tile__pencil" />}
@@ -256,7 +258,7 @@ export default function InfoKpiCard({
                 onClick: onEditSize,
                 role: "button",
                 tabIndex: 0,
-                title: "Edit size",
+                title: t("info.editSize"),
               }
             : {})}
           className="kpi-tile--clickable"
@@ -274,10 +276,10 @@ export default function InfoKpiCard({
       <KpiTile
         key="price"
         size="sm"
-        label="Price"
+          label={t("info.price")}
         icon={<IconTag size={12} />}
         value={showPrice ? formatSteamPrice(priceCents, priceCurrency, priceIsFree) : "—"}
-        subtext={showPrice ? (priceIsFree ? "Steam" : "On Steam") : "Loading…"}
+        subtext={showPrice ? (priceIsFree ? "Steam" : t("info.onSteam")) : t("common.loading")}
         intent={!showPrice ? "default" : priceIsFree ? "success" : "default"}
       />
     );
@@ -304,47 +306,47 @@ export default function InfoKpiCard({
       day: "numeric",
     });
     const out: DetailRow[] = [
-      { label: "Platform", value: game.platform, icon: <IconPlatform size={12} /> },
-      { label: "Added", value: addedDate, icon: <IconCalendar size={12} /> },
+       { label: t("info.platform"), value: game.platform, icon: <IconPlatform size={12} /> },
+      { label: t("hero.added"), value: addedDate, icon: <IconCalendar size={12} /> },
     ];
     if (game.developer) {
       out.push({
-        label: "Developer",
+        label: t("info.developer"),
         value: game.developer,
         icon: <IconUser size={12} />,
       });
     }
     if (game.publisher) {
       out.push({
-        label: "Publisher",
+        label: t("info.publisher"),
         value: game.publisher,
         icon: <IconBuilding size={12} />,
       });
     }
     if (game.releaseDate) {
       out.push({
-        label: "Released",
+        label: t("info.released"),
         value: game.releaseDate,
         icon: <IconCalendar size={12} />,
       });
     }
     if (game.collection) {
       out.push({
-        label: "Series",
+        label: t("info.series"),
         value: game.collection,
         icon: <IconCollection size={12} />,
       });
     }
     if (game.franchise) {
       out.push({
-        label: "Franchise",
+        label: t("info.franchise"),
         value: game.franchise,
         icon: <IconCollection size={12} />,
       });
     }
     if (game.gameCategory) {
       out.push({
-        label: "Game Type",
+        label: t("info.gameType"),
         value: game.gameCategory,
         icon: <IconInfo size={12} />,
       });
@@ -376,7 +378,7 @@ export default function InfoKpiCard({
             ? "info"
             : "default";
       out.push({
-        label: "Release Status",
+        label: t("info.releaseStatus"),
         value: (
           <span className={`info-dl-value-tag info-dl-value-tag--${intent}`}>
             {effectiveStatus}
@@ -387,7 +389,7 @@ export default function InfoKpiCard({
     }
     if (game.alternativeNames && game.alternativeNames.length > 0) {
       out.push({
-        label: "Also Known As",
+        label: t("info.aka"),
         value: game.alternativeNames.join(", "),
         icon: <IconUsers size={12} />,
       });
@@ -401,7 +403,7 @@ export default function InfoKpiCard({
         <span className="game-section-title__icon" aria-hidden>
           <IconInfo size={16} />
         </span>
-        Info
+        {t("info.title")}
       </h2>
 
       {kpis.length > 0 && <div className="kpi-row">{kpis}</div>}
@@ -421,7 +423,7 @@ export default function InfoKpiCard({
         {!kpis.length && rows.length === 0 && (
           <div className="info-dl-empty">
             <IconX size={14} />
-            No metadata available
+            {t("info.noMetadata")}
           </div>
         )}
       </dl>
@@ -438,14 +440,14 @@ export default function InfoKpiCard({
           type="button"
           className="info-exe-path"
           onClick={handleOpenInExplorer}
-          title={`Open folder containing ${exePath}`}
-          aria-label={`Open folder containing ${exePath}`}
+          title={t("info.openFolderTitle", { path: exePath })}
+          aria-label={t("info.openFolderTitle", { path: exePath })}
         >
           <span className="info-exe-path__head">
             <span className="info-exe-path__folder" aria-hidden>
               <IconFolder size={12} />
             </span>
-            <span className="info-exe-path__label">Executable</span>
+            <span className="info-exe-path__label">{t("info.executable")}</span>
           </span>
           <span className="info-exe-path__body">
             <span className="info-exe-path__text">{displayPath}</span>

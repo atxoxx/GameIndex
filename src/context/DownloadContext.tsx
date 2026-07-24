@@ -33,6 +33,7 @@ import {
 import { invoke } from "@tauri-apps/api/core";
 import { listen, type UnlistenFn } from "@tauri-apps/api/event";
 import { useToast } from "./ToastContext";
+import { useLanguage } from "./LanguageContext";
 import {
   getStatusError,
   isActiveStatus,
@@ -205,6 +206,7 @@ export function DownloadProvider({ children }: { children: ReactNode }) {
   const [downloads, setDownloads] = useState<TorrentDownload[]>(EMPTY_DOWNLOADS);
   const [loading, setLoading] = useState(true);
   const { showToast } = useToast();
+  const { t } = useLanguage();
   // Keep a stable ref to the latest list so the `download-progress`
   // event handler (which we register once on mount) doesn't capture
   // a stale snapshot.
@@ -247,9 +249,9 @@ export function DownloadProvider({ children }: { children: ReactNode }) {
         const now = d.status.kind;
         if (now === "completed" && before !== undefined && before !== "completed") {
           if (notifyEnabled) {
-            showToast(`Download complete: ${d.name}`, "success");
+            showToast(t("download.complete", { name: d.name }), "success");
             if (osNotifyEnabled) {
-              fireOsNotification("Download complete", d.name);
+              fireOsNotification(t("download.completeTitle"), d.name);
             }
           }
         }
@@ -265,7 +267,7 @@ export function DownloadProvider({ children }: { children: ReactNode }) {
         }
       }
     },
-    [showToast],
+    [showToast, t],
   );
 
   // Stable ref to the latest notifier so the mount effect (which

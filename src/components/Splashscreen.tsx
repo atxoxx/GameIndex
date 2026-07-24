@@ -4,6 +4,7 @@ import {
 } from "../context/SplashContext";
 import type { Game } from "../types/game";
 import type { LaunchStep } from "../context/SplashContext";
+import { useLanguage } from "../context/LanguageContext";
 
 /**
  * Minimum visibility before fade-out begins. Holds the splash long
@@ -16,11 +17,11 @@ const ERROR_HOLD_REDUCTION_MS = 600;
 const LAUNCH_STEP_INTERVAL_MS = 900;
 const MAX_LAUNCH_STEP: LaunchStep = 3;
 
-const LAUNCH_STEP_MESSAGES: Record<LaunchStep, string> = {
-  0: "Resolving paths",
-  1: "Starting game",
-  2: "Loading assets",
-  3: "Game is launching",
+const LAUNCH_STEP_KEYS: Record<LaunchStep, string> = {
+  0: "splash.resolvingPaths",
+  1: "splash.startingGame",
+  2: "splash.loadingAssets",
+  3: "splash.launching",
 };
 
 /**
@@ -44,15 +45,18 @@ function formatMinutes(min: number): string {
 }
 
 /** Relative date string ("3 days ago", "Yesterday", etc.). */
-function relativeDate(iso: string): string {
+function relativeDate(
+  iso: string,
+  t: (key: string, vars?: Record<string, string | number>) => string
+): string {
   const then = new Date(iso).getTime();
-  if (Number.isNaN(then)) return "Unknown";
+  if (Number.isNaN(then)) return t("splash.unknown");
   const deltaMs = Date.now() - then;
   const day = 24 * 60 * 60 * 1000;
-  if (deltaMs < day) return "Today";
-  if (deltaMs < 2 * day) return "Yesterday";
-  if (deltaMs < 7 * day) return `${Math.floor(deltaMs / day)} days ago`;
-  if (deltaMs < 30 * day) return `${Math.floor(deltaMs / (7 * day))} weeks ago`;
+  if (deltaMs < day) return t("splash.today");
+  if (deltaMs < 2 * day) return t("splash.yesterday");
+  if (deltaMs < 7 * day) return t("splash.daysAgo", { count: Math.floor(deltaMs / day) });
+  if (deltaMs < 30 * day) return t("splash.weeksAgo", { count: Math.floor(deltaMs / (7 * day)) });
   return new Date(iso).toLocaleDateString();
 }
 
@@ -83,6 +87,7 @@ function InfoCard({ icon, label, children }: InfoCardProps) {
  */
 export default function Splashscreen() {
   const { record, close, updateLaunchStep } = useSplash();
+  const { t } = useLanguage();
   const fadeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const lastScheduledStartedAtRef = useRef<number | null>(null);
   const stepTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -170,7 +175,7 @@ export default function Splashscreen() {
   // ── Derive displayed info from record (no ActivityContext here) ──
   const game: Game = record.game;
   const lastSession = record.lastSession;
-  const lastSessionDate = lastSession ? relativeDate(lastSession.date) : null;
+  const lastSessionDate = lastSession ? relativeDate(lastSession.date, t) : null;
   const lastSessionDuration = lastSession ? formatMinutes(lastSession.durationMin) : null;
   const lastSessionFps = lastSession?.metrics?.avgFps;
 
@@ -186,7 +191,7 @@ export default function Splashscreen() {
       className="splashscreen-root"
       role="dialog"
       aria-modal="true"
-      aria-label={`Launching ${game.name}`}
+      aria-label={t("splash.launchingName", { name: game.name })}
     >
       <div className="splashscreen-card animate-scale-up">
         {/* Hero artwork + gradient fallback */}
@@ -235,12 +240,12 @@ export default function Splashscreen() {
                   <polyline points="12 6 12 12 16 14" />
                 </svg>
               }
-              label="Time to Beat"
+              label={t("splash.timeToBeat")}
             >
-              {ttbMain !== null && <span>Main · {ttbMain}h</span>}
+              {ttbMain !== null && <span>{t("splash.ttbMain", { hours: ttbMain })}</span>}
               {ttbComplete !== null && (
                 <span className="splashscreen-info-divider">
-                  Complete · {ttbComplete}h
+                  {t("splash.ttbComplete", { hours: ttbComplete })}
                 </span>
               )}
             </InfoCard>
@@ -255,7 +260,7 @@ export default function Splashscreen() {
                 <line x1="3" y1="10" x2="21" y2="10" />
               </svg>
             }
-            label="Last Played"
+            label={t("splash.lastPlayed")}
           >
             {lastSessionDate ? (
               <>
@@ -268,7 +273,7 @@ export default function Splashscreen() {
                 )}
               </>
             ) : (
-              <span className="splashscreen-info-muted">First time playing</span>
+              <span className="splashscreen-info-muted">{t("splash.firstTimePlaying")}</span>
             )}
           </InfoCard>
 
@@ -278,7 +283,7 @@ export default function Splashscreen() {
                 <polygon points="5 3 19 12 5 21 5 3" />
               </svg>
             }
-            label="Total Play Time"
+            label={t("splash.totalPlayTime")}
           >
             <span>{hasPlayed ? totalPlayTime : "0h"}</span>
           </InfoCard>
@@ -289,10 +294,10 @@ export default function Splashscreen() {
           <span className="splashscreen-status-dot" />
           <span className="splashscreen-status-text">
             {record.status === "started"
-              ? "Game is launching"
+              ? t("splash.launching")
               : record.status === "error"
-              ? "Launch failed"
-              : LAUNCH_STEP_MESSAGES[record.launchStep]}
+              ? t("splash.launchFailed")
+              : t(LAUNCH_STEP_KEYS[record.launchStep])}
             {record.status === "launching" && (
               <span className="splashscreen-status-dots" aria-hidden="true">
                 <span>.</span>

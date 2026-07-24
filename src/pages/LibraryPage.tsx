@@ -111,7 +111,7 @@ export default function LibraryPage() {
     (game: Game) => {
       setContextMenu(null);
       removeGame(game.id);
-      showToast(`Removed ${game.name} from library`, "info");
+      showToast(t("library.removedFromLibrary", { name: game.name }), "info");
     },
     [removeGame, showToast]
   );
@@ -205,12 +205,14 @@ export default function LibraryPage() {
                 {isLibraryEmpty
                   ? t("page.library.yourGames")
                   : `${t("nav.library")} (${
-                      hasFilters ? `${filteredGames.length} of ${games.length}` : games.length
+                      hasFilters
+                        ? t("bigscreen.library.countOf", { count: filteredGames.length, total: games.length })
+                        : games.length
                     })`}
               </h2>
               {!isLibraryEmpty && hasFilters && (
                 <span className="lib-toolbar-count">
-                  {filteredGames.length} result{filteredGames.length !== 1 ? "s" : ""}
+                  {t("libraryPage.resultCount", { count: filteredGames.length, plural: filteredGames.length !== 1 ? "s" : "" })}
                 </span>
               )}
             </div>
@@ -231,7 +233,7 @@ export default function LibraryPage() {
                   />
                 </div>
                 <LibrarySortMenu value={filters.sort} onChange={setSort} />
-                <div className="lib-toolbar-group" role="radiogroup" aria-label="Layout density">
+                <div className="lib-toolbar-group" role="radiogroup" aria-label={t("libraryPage.layoutDensity")}>
                   <DensityToggle density={density} onChange={setDensity} />
                 </div>
               </div>

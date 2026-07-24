@@ -8,6 +8,7 @@ import { useSettings } from "../../context/SettingsContext";
 import { useActivity } from "../../context/ActivityContext";
 import { buildSingleSessionSeries } from "../../utils/perfSamples";
 import { formatTemp, toDisplayTemp, toDisplayTemps, tempUnitLabel, tempThreshold, tempMinY, tempMaxY } from "../../utils/temp";
+import { useLanguage } from "../../context/LanguageContext";
 import * as Icons from "./Icons";
 
 export interface ActivitySessionsProps {
@@ -62,6 +63,7 @@ function ActivitySessionItem({ session, game, onDelete }: SessionItemProps) {
   const [activeChartTab, setActiveChartTab] = useState<"usage" | "temps" | "ram" | "fps">("usage");
   const { tempUnit } = useSettings();
   const { totalRamGb } = useActivity();
+  const { t } = useLanguage();
 
   // Resolve the Steam appid for this session's game. The hook also
   // persists successful lookups back onto the library row via
@@ -138,23 +140,23 @@ function ActivitySessionItem({ session, game, onDelete }: SessionItemProps) {
     if (!chartProps) return [];
     if (activeChartTab === "usage") {
       return [
-        { data: chartProps.cpu, color: "var(--color-brand-blue)", label: "CPU Load" },
-        { data: chartProps.gpu, color: "var(--color-accent)", label: "GPU Load" },
+        { data: chartProps.cpu, color: "var(--color-brand-blue)", label: t("activity.sessions.cpuLoad") },
+        { data: chartProps.gpu, color: "var(--color-accent)", label: t("activity.sessions.gpuLoad") },
       ];
     } else if (activeChartTab === "temps") {
       return [
-        { data: toDisplayTemps(chartProps.cpuTemp, tempUnit), color: "var(--color-danger)", label: `CPU Temp` },
-        { data: toDisplayTemps(chartProps.gpuTemp, tempUnit), color: "var(--color-warning)", label: `GPU Temp` },
+        { data: toDisplayTemps(chartProps.cpuTemp, tempUnit), color: "var(--color-danger)", label: t("activityPerf.cpuTemp") },
+        { data: toDisplayTemps(chartProps.gpuTemp, tempUnit), color: "var(--color-warning)", label: t("activityPerf.gpuTemp") },
       ];
     } else if (activeChartTab === "ram") {
       // Read total system RAM from the activity context (no localStorage).
       const totalRam = totalRamGb || 16;
       const ramGb = chartProps.ram.map((v) => Math.round((totalRam * v) / 10) / 10);
-      return [{ data: ramGb, color: "var(--color-success)", label: "RAM Usage" }];
+      return [{ data: ramGb, color: "var(--color-success)", label: t("activityPerf.ramUsage") }];
     } else {
-      return [{ data: chartProps.fps, color: "var(--color-brand-teal)", label: "FPS" }];
+      return [{ data: chartProps.fps, color: "var(--color-brand-teal)", label: t("activityPerf.fps") }];
     }
-  }, [chartProps, activeChartTab, tempUnit]);
+  }, [chartProps, activeChartTab, tempUnit, t]);
 
   const yValFormatter = (val: number) => {
     if (activeChartTab === "usage") return `${Math.round(val)}%`;
@@ -170,7 +172,7 @@ function ActivitySessionItem({ session, game, onDelete }: SessionItemProps) {
         smooth: true,
         minY: 0,
         maxY: 100,
-        thresholds: [{ value: 90, label: "High 90%", color: "var(--color-warning)" }],
+        thresholds: [{ value: 90, label: t("activityPerf.highPercentile"), color: "var(--color-warning)" }],
       };
     }
     if (activeChartTab === "temps") {
@@ -182,8 +184,8 @@ function ActivitySessionItem({ session, game, onDelete }: SessionItemProps) {
           { from: tempThreshold(85, tempUnit), to: tempMaxY(tempUnit), color: "var(--color-danger)", opacity: 0.1 },
         ],
         thresholds: [
-          { value: tempThreshold(75, tempUnit), label: "Warm 75°", color: "var(--color-warning)" },
-          { value: tempThreshold(85, tempUnit), label: "Hot 85°", color: "var(--color-danger)" },
+          { value: tempThreshold(75, tempUnit), label: t("activityPerf.warmThreshold"), color: "var(--color-warning)" },
+          { value: tempThreshold(85, tempUnit), label: t("activityPerf.hotThreshold"), color: "var(--color-danger)" },
         ],
       };
     }
@@ -194,9 +196,9 @@ function ActivitySessionItem({ session, game, onDelete }: SessionItemProps) {
       smooth: true,
       minY: 0,
       niceMax: true,
-      thresholds: [{ value: 60, label: "60 FPS", color: "var(--color-success)" }],
+      thresholds: [{ value: 60, label: t("activityPerf.threshold60fps"), color: "var(--color-success)" }],
     };
-  }, [activeChartTab, tempUnit]);
+  }, [activeChartTab, tempUnit, t]);
 
   // Build sparkline structures
   const sparklineData = useMemo(() => {
@@ -257,7 +259,7 @@ function ActivitySessionItem({ session, game, onDelete }: SessionItemProps) {
               e.stopPropagation();
               onDelete(session.id);
             }}
-            title="Delete session"
+            title={t("activitySessions.delete")}
           >
             <Icons.Trash2 size={13} />
           </button>
@@ -269,11 +271,11 @@ function ActivitySessionItem({ session, game, onDelete }: SessionItemProps) {
         <div className="activity-session-item__collapsible">
           {session.metrics && sparklineData ? (
             <div className="activity-hardware-card">
-              <h4 className="activity-hardware-card__title">Hardware Telemetry Summary</h4>
+              <h4 className="activity-hardware-card__title">{t("activitySessions.hardwareSummary")}</h4>
               <div className="activity-hardware-card__metrics">
                 <ActivitySparkline
                   data={sparklineData.cpu}
-                  label="CPU Usage"
+                  label={t("activityPerf.cpuUsage")}
                   unit="%"
                   value={session.metrics.avgCpuUsage}
                   max={Math.round(session.metrics.avgCpuUsage * 1.5)}
@@ -282,7 +284,7 @@ function ActivitySessionItem({ session, game, onDelete }: SessionItemProps) {
 
                 <ActivitySparkline
                   data={sparklineData.gpu}
-                  label="GPU Usage"
+                  label={t("activityPerf.gpuUsage")}
                   unit="%"
                   value={session.metrics.avgGpuUsage}
                   max={Math.round(session.metrics.avgGpuUsage * 1.4)}
@@ -291,7 +293,7 @@ function ActivitySessionItem({ session, game, onDelete }: SessionItemProps) {
 
                 <ActivitySparkline
                   data={sparklineData.cpuTemp.map((p) => ({ ...p, y: toDisplayTemp(p.y, tempUnit) }))}
-                  label="CPU Temperature"
+                  label={t("activitySessions.cpuTemperature")}
                   unit={tempUnitLabel(tempUnit)}
                   value={toDisplayTemp(session.metrics.avgCpuTemp, tempUnit)}
                   max={toDisplayTemp(session.metrics.avgCpuTemp + 10, tempUnit)}
@@ -300,7 +302,7 @@ function ActivitySessionItem({ session, game, onDelete }: SessionItemProps) {
 
                 <ActivitySparkline
                   data={sparklineData.gpuTemp.map((p) => ({ ...p, y: toDisplayTemp(p.y, tempUnit) }))}
-                  label="GPU Temperature"
+                  label={t("activitySessions.gpuTemperature")}
                   unit={tempUnitLabel(tempUnit)}
                   value={toDisplayTemp(session.metrics.avgGpuTemp, tempUnit)}
                   max={toDisplayTemp(session.metrics.avgGpuTemp + 8, tempUnit)}
@@ -309,7 +311,7 @@ function ActivitySessionItem({ session, game, onDelete }: SessionItemProps) {
 
                 <ActivitySparkline
                   data={sparklineData.ram}
-                  label="RAM Load"
+                  label={t("activitySessions.ramLoad")}
                   unit="%"
                   value={session.metrics.avgRamUsage}
                   max={Math.round(session.metrics.avgRamUsage * 1.15)}
@@ -317,7 +319,7 @@ function ActivitySessionItem({ session, game, onDelete }: SessionItemProps) {
 
                 <ActivitySparkline
                   data={sparklineData.fps}
-                  label="FPS"
+                  label={t("activityPerf.fps")}
                   unit=""
                   value={session.metrics.avgFps}
                   max={session.metrics.maxFps}
@@ -333,13 +335,13 @@ function ActivitySessionItem({ session, game, onDelete }: SessionItemProps) {
                   <div className="activity-session-item__chart-header">
                     <div className="activity-session-item__chart-title">
                       <Icons.BarChart3 size={12} />
-                      Performance Timeline
+                      {t("activitySessions.perfTimeline")}
                       {!chartProps.real && (
                         <span
                           className="activity-session-item__chart-estimated"
-                          title="No per-sample telemetry was captured for this session; the curve is estimated from recorded averages."
+                          title={t("activitySessions.telemetryCurve")}
                         >
-                          estimated
+                          {t("activityPerf.estimated")}
                         </span>
                       )}
                     </div>
@@ -375,7 +377,7 @@ function ActivitySessionItem({ session, game, onDelete }: SessionItemProps) {
           ) : (
             <div className="activity-session-item__no-hardware">
               <Icons.Info size={16} style={{ marginBottom: 4, opacity: 0.5 }} />
-              <div>No hardware performance logs recorded for this session.</div>
+              <div>{t("activitySessions.noHardwareLogs")}</div>
             </div>
           )}
         </div>
@@ -389,6 +391,7 @@ export function ActivitySessions({
   games,
   onDeleteSession,
 }: ActivitySessionsProps) {
+  const { t } = useLanguage();
   const [searchQuery, setSearchQuery] = useState("");
   const [visibleCount, setVisibleCount] = useState(15);
 
@@ -409,14 +412,14 @@ export function ActivitySessions({
   return (
     <div className="section-panel">
       <div className="global-session-list__header">
-        <h3 className="section-panel__title">Recent Gameplay Sessions</h3>
+        <h3 className="section-panel__title">{t("activitySessions.recentSessions")}</h3>
         <div className="global-session-list__actions">
           <div className="global-session-list__search">
             <Icons.Search size={12} className="global-session-list__search-icon" />
             <input
               type="text"
               className="global-session-list__search-input"
-              placeholder="Search sessions..."
+              placeholder={t("activitySessions.search")}
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
             />
@@ -425,7 +428,7 @@ export function ActivitySessions({
             type="button"
             className="global-session-list__refresh-btn"
             onClick={() => setVisibleCount(15)}
-            title="Reset view count"
+            title={t("activitySessions.resetView")}
           >
             <Icons.RotateCcw size={12} />
           </button>
@@ -446,7 +449,7 @@ export function ActivitySessions({
         })}
 
         {filteredSessions.length === 0 && (
-          <div className="section-panel__empty">No sessions matching search query.</div>
+          <div className="section-panel__empty">{t("activitySessions.noMatchQuery")}</div>
         )}
 
         {filteredSessions.length > visibleCount && (
@@ -455,7 +458,7 @@ export function ActivitySessions({
             className="global-session-list__load-more"
             onClick={() => setVisibleCount((prev) => prev + 15)}
           >
-            Load More Sessions
+            {t("activitySessions.loadMore")}
           </button>
         )}
       </div>

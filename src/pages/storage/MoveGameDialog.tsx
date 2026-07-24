@@ -4,6 +4,7 @@ import { invoke } from "@tauri-apps/api/core";
 import { listen, type UnlistenFn } from "@tauri-apps/api/event";
 import { open } from "@tauri-apps/plugin-dialog";
 import { useToast } from "../../context/ToastContext";
+import { useLanguage } from "../../context/LanguageContext";
 import { useSizeUnit } from "../../hooks/useSizeUnit";
 import { formatSize, type Game } from "../../types/game";
 import { Button } from "../../components/ui";
@@ -35,6 +36,7 @@ interface Props {
  *  already done). */
 export function MoveGameDialog({ games, onMoved, onClose }: Props) {
   const { showToast } = useToast();
+  const { t } = useLanguage();
   const { unit } = useSizeUnit();
 
   const [destDir, setDestDir] = useState("");
@@ -71,7 +73,7 @@ export function MoveGameDialog({ games, onMoved, onClose }: Props) {
     const picked = await open({
       directory: true,
       multiple: false,
-      title: "Select destination folder",
+      title: t("storagePage.selectDestFolder"),
     });
     if (typeof picked === "string" && picked.trim() !== "") {
       setDestDir(picked);
@@ -92,7 +94,7 @@ export function MoveGameDialog({ games, onMoved, onClose }: Props) {
       setPhase("copying");
       const fromRoot = g.sizeRootPath || g.path;
       if (!fromRoot) {
-        failed.push(`${g.name}: no install folder known`);
+        failed.push(t("storageMove.noInstallFolder", { name: g.name }));
         continue;
       }
       try {
@@ -114,14 +116,14 @@ export function MoveGameDialog({ games, onMoved, onClose }: Props) {
     setPhase("idle");
     if (failed.length === 0) {
       showToast(
-        `Moved ${done} game${done === 1 ? "" : "s"} to ${destDir}`,
+        t("storageMove.movedTo", { count: done, plural: done === 1 ? "" : "s", dest: destDir }),
         "success"
       );
       onClose();
     } else {
       setErrors(failed);
       showToast(
-        `Moved ${done} of ${games.length}. ${failed.length} failed — see details.`,
+        t("storageMove.movedPartial", { done, total: games.length, failed: failed.length }),
         "error"
       );
     }
@@ -130,10 +132,10 @@ export function MoveGameDialog({ games, onMoved, onClose }: Props) {
   const pct = total > 0 ? Math.min(100, (copied / total) * 100) : 0;
   const phaseLabel =
     phase === "verifying"
-      ? "Verifying…"
+      ? t("storageMove.verifying")
       : phase === "cleaning"
-        ? "Cleaning up old folder…"
-        : "Copying…";
+        ? t("storageMove.cleaning")
+        : t("storageMove.copying");
 
   const multiple = games.length > 1;
 
@@ -159,7 +161,9 @@ export function MoveGameDialog({ games, onMoved, onClose }: Props) {
           </div>
           <div className="modal-header-text">
             <h2 className="modal-title" id="move-dialog-title">
-              {multiple ? `Move ${games.length} games` : `Move ${games[0]?.name ?? ""}`}
+              {multiple
+                ? t("storageMove.moveCount", { count: games.length })
+                : t("storageMove.moveName", { name: games[0]?.name ?? "" })}
             </h2>
           </div>
         </div>
@@ -168,8 +172,7 @@ export function MoveGameDialog({ games, onMoved, onClose }: Props) {
           {!running && errors.length === 0 && (
             <>
               <p className="move-dialog-lead">
-                Choose a destination folder. Each game keeps its own folder
-                name, so it will be copied underneath the location you pick.
+                {t("storageMove.lead")}
               </p>
               <button
                 type="button"
@@ -181,7 +184,7 @@ export function MoveGameDialog({ games, onMoved, onClose }: Props) {
                   <path d="M3 7h6l2 2h10v10a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" />
                 </svg>
                 <span className="move-dialog-dest-value">
-                  {destDir || "Select destination folder…"}
+                  {destDir || t("storageMove.selectDestEllipsis")}
                 </span>
               </button>
               {multiple && (
@@ -204,8 +207,8 @@ export function MoveGameDialog({ games, onMoved, onClose }: Props) {
               <div className="move-dialog-progress-head">
                 <span>
                   {multiple
-                    ? `Moving ${current + 1} of ${games.length}: ${games[current]?.name ?? ""}`
-                    : `Moving ${games[0]?.name ?? ""}`}
+                    ? t("storageMove.movingOf", { current: current + 1, total: games.length, name: games[current]?.name ?? "" })
+                    : t("storageMove.movingName", { name: games[0]?.name ?? "" })}
                 </span>
                 <span className="move-dialog-progress-pct">{pct.toFixed(0)}%</span>
               </div>
@@ -229,7 +232,7 @@ export function MoveGameDialog({ games, onMoved, onClose }: Props) {
           {!running && errors.length > 0 && (
             <div className="move-dialog-errors">
               <p className="move-dialog-errors-title">
-                {done} moved, {errors.length} failed:
+                {t("storageMove.movedFailed", { done, failed: errors.length })}
               </p>
               <ul>
                 {errors.map((e, i) => (
@@ -241,7 +244,7 @@ export function MoveGameDialog({ games, onMoved, onClose }: Props) {
                 className="move-dialog-dest"
                 onClick={pickDestination}
               >
-                <span className="move-dialog-dest-value">Choose a different folder…</span>
+                <span className="move-dialog-dest-value">{t("storagePage.chooseFolder")}</span>
               </button>
             </div>
           )}
@@ -250,15 +253,17 @@ export function MoveGameDialog({ games, onMoved, onClose }: Props) {
         <div className="modal-footer">
           <span className="modal-footer-count">
             {multiple && !running && errors.length === 0
-              ? `${formatSize(
-                  games.reduce((s, g) => s + (g.sizeBytes ?? 0), 0),
-                  unit
-                )} total`
-              : " "}
+              ? t("storageMove.totalSize", {
+                  size: formatSize(
+                    games.reduce((s, g) => s + (g.sizeBytes ?? 0), 0),
+                    unit
+                  ),
+                })
+              : " "}
           </span>
           <div className="modal-footer-actions">
             <Button variant="ghost" onClick={onClose} disabled={running}>
-              {errors.length > 0 ? "Close" : "Cancel"}
+              {errors.length > 0 ? t("common.close") : t("common.cancel")}
             </Button>
             {errors.length === 0 && (
               <Button
@@ -267,7 +272,7 @@ export function MoveGameDialog({ games, onMoved, onClose }: Props) {
                 isLoading={running}
                 disabled={!destDir || running}
               >
-                {running ? "Moving…" : "Move here"}
+                {running ? t("storageMove.moving") : t("storageMove.moveHere")}
               </Button>
             )}
           </div>

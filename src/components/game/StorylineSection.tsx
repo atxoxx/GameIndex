@@ -1,5 +1,6 @@
 import type { Game } from "../../types/game";
 import { IconShield } from "./icons";
+import { useLanguage } from "../../context/LanguageContext";
 
 /**
  * StorylineSection
@@ -15,6 +16,7 @@ interface StorylineSectionProps {
 }
 
 export default function StorylineSection({ game }: StorylineSectionProps) {
+  const { t } = useLanguage();
   if (!game.storyline) return null;
   return (
     <section className="game-section storyline-section">
@@ -22,7 +24,7 @@ export default function StorylineSection({ game }: StorylineSectionProps) {
         <span className="game-section-title__icon" aria-hidden>
           <IconShield size={16} />
         </span>
-        Storyline
+        {t("edit.label.storyline")}
       </h2>
       <blockquote className="storyline-quote">
         "{game.storyline}"

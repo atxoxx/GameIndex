@@ -1,5 +1,6 @@
 import { useState, useMemo, useEffect, useCallback } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
+import { useLanguage } from "../../context/LanguageContext";
 import { useDownloads } from "../../context/DownloadContext";
 import { useGames } from "../../context/GameContext";
 import { useAchievements } from "../../context/AchievementContext";
@@ -11,16 +12,17 @@ import { driveBuckets } from "../../pages/storage/utils";
 
 type SystemSection = "downloads" | "storage" | "achievements" | "settings";
 
-const SECTIONS: { id: SystemSection; label: string; icon: string }[] = [
-  { id: "downloads", label: "Downloads Queue", icon: "📥" },
-  { id: "storage", label: "Storage Manager", icon: "💾" },
-  { id: "achievements", label: "Achievements Hub", icon: "🏆" },
-  { id: "settings", label: "System Preferences", icon: "⚙️" },
-];
-
 export default function BigScreenSystem() {
+  const { t } = useLanguage();
   const location = useLocation();
   const navigate = useNavigate();
+
+  const SECTIONS: { id: SystemSection; label: string; icon: string }[] = [
+    { id: "downloads", label: t("bigscreen.system.menuDownloads"), icon: "📥" },
+    { id: "storage", label: t("bigscreen.system.menuStorage"), icon: "💾" },
+    { id: "achievements", label: t("bigscreen.system.menuAchievements"), icon: "🏆" },
+    { id: "settings", label: t("bigscreen.system.menuPreferences"), icon: "⚙️" },
+  ];
 
   // Find initial section from current pathname
   const initialSection = useMemo<SystemSection>(() => {
@@ -58,7 +60,7 @@ export default function BigScreenSystem() {
     <div className="bigscreen-system-hub">
       {/* Left Menu Pane */}
       <div className="bigscreen-system-left-pane">
-        <h2 className="bigscreen-system-title">System Hub</h2>
+        <h2 className="bigscreen-system-title">{t("bigscreen.system.title")}</h2>
         <div className="bigscreen-system-menu" role="tablist">
           {SECTIONS.map((sec) => {
             const isActive = activeSection === sec.id;
@@ -94,6 +96,7 @@ export default function BigScreenSystem() {
 
 // 1. Downloads View
 function DownloadsView() {
+  const { t } = useLanguage();
   const { downloads, pauseDownload, resumeDownload, removeDownload } = useDownloads();
 
   const handlePause = useCallback((id: string) => {
@@ -110,10 +113,10 @@ function DownloadsView() {
 
   return (
     <div className="bigscreen-system-section-view">
-      <h3>Active Downloads</h3>
+      <h3>{t("bigscreen.system.activeDownloads")}</h3>
       {downloads.length === 0 ? (
         <div className="system-view-empty">
-          <p>No active or completed downloads in the queue.</p>
+          <p>{t("bigscreen.system.noDownloads")}</p>
         </div>
       ) : (
         <div className="system-downloads-list">
@@ -138,15 +141,15 @@ function DownloadsView() {
                 <div className="dl-actions-row">
                   {isDownloading ? (
                     <button type="button" className="dl-action-btn dl-btn-pause" {...pauseProps}>
-                      Pause
+                      {t("bigscreen.system.pause")}
                     </button>
                   ) : (
                     <button type="button" className="dl-action-btn dl-btn-play" {...resumeProps}>
-                      Resume
+                      {t("bigscreen.system.resume")}
                     </button>
                   )}
                   <button type="button" className="dl-action-btn dl-btn-cancel" {...cancelProps}>
-                    Cancel / Remove
+                    {t("bigscreen.system.cancel")}
                   </button>
                 </div>
               </div>
@@ -160,6 +163,7 @@ function DownloadsView() {
 
 // 2. Storage View
 function StorageView() {
+  const { t } = useLanguage();
   const { games } = useGames();
   const driveUsage = useDriveUsage(games);
 
@@ -167,10 +171,10 @@ function StorageView() {
 
   return (
     <div className="bigscreen-system-section-view">
-      <h3>Storage Breakdown</h3>
+      <h3>{t("bigscreen.system.storageBreakdown")}</h3>
       {buckets.length === 0 ? (
         <div className="system-view-empty">
-          <p>No installed games tracked on disk.</p>
+          <p>{t("bigscreen.system.noStorage")}</p>
         </div>
       ) : (
         <div className="system-storage-list">
@@ -186,14 +190,14 @@ function StorageView() {
                 <div className="storage-row-header">
                   <span className="drive-label">{b.label}</span>
                   <span className="drive-counts">
-                    {b.count} Games ({usedGb} GB used)
+                    {t("bigscreen.system.driveCounts", { count: b.count, used: usedGb })}
                   </span>
                 </div>
                 <div className="dl-progress-bar">
                   <div className="dl-progress-fill storage-fill" style={{ width: `${pct}%` }} />
                 </div>
                 <div className="drive-space-meta">
-                  <span>{freeGb} GB free of {totalGb} GB</span>
+                  <span>{t("bigscreen.system.storageUsage", { free: freeGb, total: totalGb })}</span>
                 </div>
               </div>
             );
@@ -206,6 +210,7 @@ function StorageView() {
 
 // 3. Achievements Hub
 function AchievementsHubView() {
+  const { t } = useLanguage();
   const { games } = useGames();
   const { getGameAchievements } = useAchievements();
   const navigate = useNavigate();
@@ -225,10 +230,10 @@ function AchievementsHubView() {
 
   return (
     <div className="bigscreen-system-section-view">
-      <h3>Achievements Tracker</h3>
+      <h3>{t("bigscreen.system.achievementsTracker")}</h3>
       {gamesWithAchievements.length === 0 ? (
         <div className="system-view-empty">
-          <p>No achievements cache detected. Try syncing achievements in a Game Hub page.</p>
+          <p>{t("bigscreen.system.noAchievements")}</p>
         </div>
       ) : (
         <div className="system-achievements-list">
@@ -241,7 +246,7 @@ function AchievementsHubView() {
                 <div className="ach-game-header">
                   <span className="ach-game-name">{game.name}</span>
                   <span className="ach-game-counts">
-                    {data?.unlocked} / {data?.total} ({pct}%)
+                    {t("bigscreen.system.achCounts", { unlocked: data?.unlocked ?? 0, total: data?.total ?? 0, pct })}
                   </span>
                 </div>
                 <div className="dl-progress-bar">
@@ -258,6 +263,7 @@ function AchievementsHubView() {
 
 // 5. Settings View
 function SettingsView() {
+  const { t } = useLanguage();
   const { currentTheme, setTheme, themes } = useTheme();
   const { landingPage, setLandingPage } = useSettings();
 
@@ -286,12 +292,12 @@ function SettingsView() {
 
   return (
     <div className="bigscreen-system-section-view">
-      <h3>System Preferences</h3>
+      <h3>{t("bigscreen.system.preferencesTitle")}</h3>
       <div className="system-settings-list">
         <div className="system-setting-row">
           <div className="setting-info">
-            <span className="setting-label">Appearance Theme</span>
-            <span className="setting-desc">Cycle active application color scheme presets</span>
+            <span className="setting-label">{t("bigscreen.system.appearance")}</span>
+            <span className="setting-desc">{t("bigscreen.system.appearanceDesc")}</span>
           </div>
           <button type="button" className="setting-cycle-btn" {...themeBtnProps}>
             {currentTheme.toUpperCase()}
@@ -300,8 +306,8 @@ function SettingsView() {
 
         <div className="system-setting-row">
           <div className="setting-info">
-            <span className="setting-label">Default Start Page</span>
-            <span className="setting-desc">Configure default active tab on application launch</span>
+            <span className="setting-label">{t("bigscreen.system.defaultPage")}</span>
+            <span className="setting-desc">{t("bigscreen.system.defaultPageDesc")}</span>
           </div>
           <button type="button" className="setting-cycle-btn" {...landingBtnProps}>
             {landingPage.toUpperCase()}

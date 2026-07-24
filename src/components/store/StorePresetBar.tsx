@@ -37,7 +37,7 @@ export default function StorePresetBar({
   if (presets.length === 0 && !canSave) return null;
 
   return (
-    <div className="store-preset-bar" aria-label="Filter presets">
+    <div className="store-preset-bar" aria-label={t("store.presets.aria")}>
       <span className="store-preset-bar-label">{t("store.presets")}</span>
 
       {presets.map((p) => (
@@ -46,7 +46,7 @@ export default function StorePresetBar({
             type="button"
             className="store-preset-chip-apply"
             onClick={() => onApply(p.id)}
-            title={`Apply preset "${p.name}"`}
+            title={t("store.presets.applyTitle", { name: p.name })}
           >
             {p.name}
           </button>
@@ -54,7 +54,7 @@ export default function StorePresetBar({
             type="button"
             className="store-preset-chip-remove"
             onClick={() => onRemove(p.id)}
-            aria-label={`Delete preset ${p.name}`}
+            aria-label={t("store.presets.deleteAria", { name: p.name })}
           >
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
               <line x1="18" y1="6" x2="6" y2="18" />

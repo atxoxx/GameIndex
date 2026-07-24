@@ -4,6 +4,7 @@ import "../styles/page-achievements.css";
 import { useAchievements } from "../context/AchievementContext";
 import { useGames } from "../context/GameContext";
 import { useToast } from "../context/ToastContext";
+import { useLanguage } from "../context/LanguageContext";
 import {
   type Game,
   type Achievement,
@@ -28,6 +29,7 @@ export default function AchievementsPage() {
   const { games } = useGames();
   const { cache, syncAllAchievements, isSyncing, syncProgress } = useAchievements();
   const { showToast } = useToast();
+  const { t } = useLanguage();
   const navigate = useNavigate();
 
   const [completionFilter, setCompletionFilter] = useState<CompletionFilter>("all");
@@ -111,7 +113,7 @@ export default function AchievementsPage() {
       const game = games.find((g) => g.id === gameId);
       for (const a of data.achievements) {
         if (a.achieved && a.unlockTime > 0) {
-          all.push({ achievement: a, gameName: game?.name ?? "Unknown", gameId });
+          all.push({ achievement: a, gameName: game?.name ?? t("splash.unknown"), gameId });
         }
       }
     }
@@ -139,9 +141,9 @@ export default function AchievementsPage() {
   async function handleSyncAll() {
     try {
       await syncAllAchievements(games);
-      showToast("All achievements synced!", "success");
+      showToast(t("achievements.allSynced"), "success");
     } catch (err) {
-      showToast(`Sync failed: ${err}`, "error");
+      showToast(t("achievements.syncFailed", { error: err }), "error");
     }
   }
 
@@ -149,8 +151,8 @@ export default function AchievementsPage() {
     <div className="achievements-page page">
       {/* Page header */}
       <PageHeader
-        eyebrow="Your Progress"
-        title="Achievements"
+        eyebrow={t("achievementsPage.yourProgress")}
+        title={t("achievements.title")}
         icon={
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" width="24" height="24">
             <circle cx="12" cy="8" r="6" />
@@ -166,7 +168,9 @@ export default function AchievementsPage() {
             {isSyncing ? (
               <>
                 <span className="achievements-spinner" />
-                Syncing {syncProgress ? `(${syncProgress.current}/${syncProgress.total})` : "…"}
+                {syncProgress
+                  ? t("achievementsPage.syncingProgress", { current: syncProgress.current, total: syncProgress.total })
+                  : t("achievements.syncing")}
               </>
             ) : (
               <>
@@ -175,7 +179,7 @@ export default function AchievementsPage() {
                   <polyline points="1 20 1 14 7 14" />
                   <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15" />
                 </svg>
-                Sync All
+                {t("achievementsPage.syncAll")}
               </>
             )}
           </button>
@@ -186,30 +190,30 @@ export default function AchievementsPage() {
       <div className="achievements-summary-grid">
         <div className="achievements-summary-card">
           <span className="achievements-summary-value">{stats.totalUnlocked}</span>
-          <span className="achievements-summary-label">Unlocked</span>
+          <span className="achievements-summary-label">{t("achievementsPage.unlocked")}</span>
         </div>
         <div className="achievements-summary-card">
           <span className="achievements-summary-value">{stats.totalAchievements}</span>
-          <span className="achievements-summary-label">Total</span>
+          <span className="achievements-summary-label">{t("achievementsPage.total")}</span>
         </div>
         <div className="achievements-summary-card">
           <span className="achievements-summary-value">{stats.overallPct}%</span>
-          <span className="achievements-summary-label">Completion</span>
+          <span className="achievements-summary-label">{t("achievementsPage.completion")}</span>
         </div>
         <div className="achievements-summary-card achievements-summary-perfect">
           <span className="achievements-summary-value">{stats.perfectGames}</span>
-          <span className="achievements-summary-label">Perfect Games</span>
+          <span className="achievements-summary-label">{t("achievementsPage.perfectGames")}</span>
         </div>
         <div className="achievements-summary-card">
           <span className="achievements-summary-value">{stats.avgCompletion}%</span>
-          <span className="achievements-summary-label">Avg. Completion</span>
+          <span className="achievements-summary-label">{t("achievementsPage.avgCompletion")}</span>
         </div>
       </div>
 
       {/* Rarity distribution */}
       {stats.totalAchievements > 0 && (
         <div className="achievements-page-rarity-section">
-          <h3 className="achievements-section-title">Rarity Distribution</h3>
+          <h3 className="achievements-section-title">{t("achievementsPage.rarityDistribution")}</h3>
           <div className="achievements-rarity-bar-wrap">
             <div className="achievements-rarity-bar achievements-rarity-bar-lg">
               {(["ultra_rare", "rare", "uncommon", "common"] as const).map((tier) => {
@@ -243,7 +247,7 @@ export default function AchievementsPage() {
       {/* Recent Achievements Timeline */}
       {recentAchievements.length > 0 && (
         <div className="achievements-recent-section">
-          <h3 className="achievements-section-title">Recent Unlocks</h3>
+          <h3 className="achievements-section-title">{t("achievementsPage.recentUnlocks")}</h3>
           <div className="achievements-timeline">
             {recentAchievements.map((item, i) => (
               <div
@@ -276,7 +280,7 @@ export default function AchievementsPage() {
 
       {/* Games list with toolbar */}
       <div className="achievements-games-section">
-        <h3 className="achievements-section-title">Games</h3>
+        <h3 className="achievements-section-title">{t("achievementsPage.games")}</h3>
         <div className="achievements-toolbar">
           <div className="achievements-filters">
             {(["all", "perfect", "in_progress", "not_started"] as const).map((f) => (
@@ -286,12 +290,12 @@ export default function AchievementsPage() {
                 onClick={() => setCompletionFilter(f)}
               >
                 {f === "all"
-                  ? "All"
+                  ? t("common.all")
                   : f === "perfect"
-                    ? "Perfect"
+                    ? t("achievementsPage.filterPerfect")
                     : f === "in_progress"
-                      ? "In Progress"
-                      : "Not Started"}
+                      ? t("achievementsPage.filterInProgress")
+                      : t("achievementsPage.filterNotStarted")}
               </button>
             ))}
           </div>
@@ -303,22 +307,22 @@ export default function AchievementsPage() {
             <input
               type="text"
               className="achievements-search-input"
-              placeholder="Search games…"
+              placeholder={t("achievements.searchPlaceholder")}
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
             />
           </div>
           <div className="achievements-sort">
-            <label className="achievements-sort-label">Sort:</label>
+            <label className="achievements-sort-label">{t("achievementsPage.sort")}</label>
             <select
               value={sortBy}
               onChange={(e) => setSortBy(e.target.value as SortBy)}
               className="achievements-sort-select"
             >
-              <option value="completion">Completion %</option>
-              <option value="name">Name</option>
-              <option value="total">Total Achievements</option>
-              <option value="recent">Recently Synced</option>
+              <option value="completion">{t("achievementsPage.completionPct")}</option>
+              <option value="name">{t("achievementsPage.name")}</option>
+              <option value="total">{t("achievementsPage.totalAchievements")}</option>
+              <option value="recent">{t("achievementsPage.recentlySynced")}</option>
             </select>
           </div>
         </div>
@@ -337,7 +341,7 @@ export default function AchievementsPage() {
           ))}
           {gamesWithAchievements.length === 0 && (
             <div className="achievements-no-results">
-              {searchQuery ? "No games match your search." : "No Steam games found. Sync your Steam library first."}
+              {searchQuery ? t("achievements.noMatchSearch") : t("achievements.noSteamGames")}
             </div>
           )}
         </div>
@@ -361,6 +365,7 @@ function GameAchievementRow({
   lastSynced: number;
   onClick: () => void;
 }) {
+  const { t } = useLanguage();
   return (
     <div className="achievements-game-row" onClick={onClick}>
       <div className="achievements-game-cover">
@@ -396,11 +401,11 @@ function GameAchievementRow({
             </span>
           </div>
         ) : (
-          <span className="achievements-game-not-synced">Not synced</span>
+          <span className="achievements-game-not-synced">{t("achievementsPage.notSynced")}</span>
         )}
       </div>
       {pct === 100 && total > 0 && (
-        <div className="achievements-perfect-badge" title="100% Complete">
+        <div className="achievements-perfect-badge" title={t("achievements.perfectComplete")}>
           <svg viewBox="0 0 24 24" fill="currentColor" width="18" height="18">
             <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z" />
           </svg>

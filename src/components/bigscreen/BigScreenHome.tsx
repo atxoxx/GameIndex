@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
+import { useLanguage } from "../../context/LanguageContext";
 import { useGames } from "../../context/GameContext";
 import { useDownloads } from "../../context/DownloadContext";
 import { useDriveUsage } from "../../pages/storage/useDriveUsage";
@@ -26,6 +27,7 @@ function formatSpeed(bytesPerSecond: number): string {
 }
 
 export default function BigScreenHome() {
+  const { t } = useLanguage();
   const { games, launchGame, runningGameIds } = useGames();
   const { activeDownloads } = useDownloads();
   const driveUsage = useDriveUsage(games);
@@ -205,7 +207,7 @@ export default function BigScreenHome() {
                   <svg viewBox="0 0 24 24" fill="currentColor" width="20" height="20">
                     <polygon points="6 4 20 12 6 20 6 4" />
                   </svg>
-                  <span>{isRunning ? "Running" : "Play"}</span>
+                  <span>{isRunning ? t("game.running") : t("game.play")}</span>
                 </button>
                 <button
                   type="button"
@@ -217,15 +219,15 @@ export default function BigScreenHome() {
                     <line x1="12" y1="16" x2="12" y2="12" />
                     <line x1="12" y1="8" x2="12.01" y2="8" />
                   </svg>
-                  <span>Game Hub</span>
+                  <span>{t("bigscreen.home.gameHub")}</span>
                 </button>
               </div>
             </>
           ) : (
             <div className="bigscreen-details-placeholder">
-              <h2 className="bigscreen-details-title">Welcome to GameLib</h2>
+              <h2 className="bigscreen-details-title">{t("bigscreen.home.welcome")}</h2>
               <p className="bigscreen-details-description">
-                Connect a gamepad controller or use your keyboard arrows to navigate. Import games in desktop mode to build your library.
+                {t("bigscreen.home.welcomeDesc")}
               </p>
             </div>
           )}
@@ -257,8 +259,8 @@ export default function BigScreenHome() {
             {activeDownload ? (
               <div className="bigscreen-widget-card" {...downloadWidgetProps}>
                 <div className="bigscreen-widget-header">
-                  <span className="bigscreen-widget-title">Active Download</span>
-                  <span className="bigscreen-widget-badge">LIVE</span>
+                  <span className="bigscreen-widget-title">{t("bigscreen.home.activeDownload")}</span>
+                  <span className="bigscreen-widget-badge">{t("bigscreen.home.live")}</span>
                 </div>
                 <div className="bigscreen-widget-body">
                   <div className="bigscreen-widget-game-name">{activeDownload.name}</div>
@@ -282,11 +284,11 @@ export default function BigScreenHome() {
             ) : (
               <div className="bigscreen-widget-card bigscreen-widget-card--idle">
                 <div className="bigscreen-widget-header">
-                  <span className="bigscreen-widget-title">System Status</span>
+                  <span className="bigscreen-widget-title">{t("bigscreen.home.systemStatus")}</span>
                 </div>
                 <div className="bigscreen-widget-body">
-                  <div className="bigscreen-widget-status-msg">All systems ready</div>
-                  <div className="bigscreen-widget-status-desc">No active downloads running</div>
+                  <div className="bigscreen-widget-status-msg">{t("bigscreen.home.allReady")}</div>
+                  <div className="bigscreen-widget-status-desc">{t("bigscreen.home.noActiveDownloads")}</div>
                 </div>
               </div>
             )}
@@ -295,7 +297,7 @@ export default function BigScreenHome() {
             {storageOverview && (
               <div className="bigscreen-widget-card" {...storageWidgetProps}>
                 <div className="bigscreen-widget-header">
-                  <span className="bigscreen-widget-title">Storage ({storageOverview.label})</span>
+                  <span className="bigscreen-widget-title">{t("bigscreen.home.storage", { label: storageOverview.label })}</span>
                 </div>
                 <div className="bigscreen-widget-body">
                   <div className="bigscreen-widget-progress-row">
@@ -312,9 +314,9 @@ export default function BigScreenHome() {
                   </div>
                   <div className="bigscreen-widget-download-meta">
                     <span>
-                      {formatBytes(storageOverview.usage.total - storageOverview.usage.free)} used
+                      {t("bigscreen.home.used", { size: formatBytes(storageOverview.usage.total - storageOverview.usage.free) })}
                     </span>
-                    <span>{formatBytes(storageOverview.usage.free)} free</span>
+                    <span>{t("bigscreen.home.free", { size: formatBytes(storageOverview.usage.free) })}</span>
                   </div>
                 </div>
               </div>
@@ -328,7 +330,7 @@ export default function BigScreenHome() {
             <>
               {renderDetailsPane("continue-playing")}
               <BigScreenRail
-                title="Continue Playing"
+                title={t("lib.rail.continue.title")}
                 games={continuePlaying}
                 onCardClick={handleDetails}
                 railId="continue-playing"
@@ -339,9 +341,9 @@ export default function BigScreenHome() {
           <>
             {renderDetailsPane("recently-added")}
             <BigScreenRail
-              title="Recently Added"
+              title={t("lib.rail.recentlyAdded.title")}
               games={recentlyAdded.length > 0 ? recentlyAdded : games.slice(0, 12)}
-              emptyLabel="No games in library. Switch to desktop to import them."
+              emptyLabel={t("bigscreen.library.noGamesDesc")}
               onCardClick={handleDetails}
               railId="recently-added"
             />

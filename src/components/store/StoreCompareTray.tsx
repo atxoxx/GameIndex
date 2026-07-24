@@ -22,7 +22,7 @@ export default function StoreCompareTray({
   if (games.length === 0) return null;
 
   return (
-    <div className="store-compare-tray" role="region" aria-label="Compare tray">
+    <div className="store-compare-tray" role="region" aria-label={t("store.compare.trayAria")}>
       <span className="store-compare-tray-label">{t("store.compare.tray", { count: games.length })}</span>
       <div className="store-compare-tray-items">
         {games.map((g) => (
@@ -35,7 +35,7 @@ export default function StoreCompareTray({
               type="button"
               className="store-compare-chip-remove"
               onClick={() => onRemove(g.slug)}
-              aria-label={`Remove ${g.name} from compare`}
+              aria-label={t("store.compare.removeFromCompare", { name: g.name })}
             >
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
                 <line x1="18" y1="6" x2="6" y2="18" />

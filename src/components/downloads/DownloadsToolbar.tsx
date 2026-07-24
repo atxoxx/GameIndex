@@ -16,6 +16,7 @@
 import { useState } from "react";
 import { useDownloads } from "../../context/DownloadContext";
 import { useToast } from "../../context/ToastContext";
+import { useLanguage } from "../../context/LanguageContext";
 import { Button } from "../ui";
 
 interface DownloadsToolbarProps {
@@ -34,6 +35,7 @@ export default function DownloadsToolbar({
   const { pauseAll, resumeAll, removeDownload, completedDownloads } =
     useDownloads();
   const { showToast } = useToast();
+  const { t } = useLanguage();
   const [busy, setBusy] = useState<"pause" | "resume" | "clear" | null>(null);
 
   async function handlePauseAll() {
@@ -41,9 +43,9 @@ export default function DownloadsToolbar({
     setBusy("pause");
     try {
       const n = await pauseAll();
-      showToast(n > 0 ? `Paused ${n} download${n !== 1 ? "s" : ""}` : "Nothing to pause", "info");
+      showToast(n > 0 ? t('downloadsToolbar.paused', { count: n, s: n !== 1 ? "s" : "" }) : t('downloadsToolbar.nothingToPause'), "info");
     } catch (err) {
-      showToast(`Pause all failed: ${err}`, "error");
+      showToast(t('downloadsToolbar.pauseAllFailed', { error: String(err) }), "error");
     } finally {
       setBusy(null);
     }
@@ -54,9 +56,9 @@ export default function DownloadsToolbar({
     setBusy("resume");
     try {
       const n = await resumeAll();
-      showToast(n > 0 ? `Resumed ${n} download${n !== 1 ? "s" : ""}` : "Nothing to resume", "info");
+      showToast(n > 0 ? t('downloadsToolbar.resumed', { count: n, s: n !== 1 ? "s" : "" }) : t('downloadsToolbar.nothingToResume'), "info");
     } catch (err) {
-      showToast(`Resume all failed: ${err}`, "error");
+      showToast(t('downloadsToolbar.resumeAllFailed', { error: String(err) }), "error");
     } finally {
       setBusy(null);
     }
@@ -83,15 +85,15 @@ export default function DownloadsToolbar({
       }
     }
     if (failed === 0) {
-      showToast(`Cleared ${success} from history`, "info");
+      showToast(t('downloadsToolbar.clearedFromHistory', { count: success }), "info");
     } else {
-      showToast(`Cleared ${success}, ${failed} failed`, "error");
+      showToast(t('downloadsToolbar.clearedFailed', { success, failed }), "error");
     }
     setBusy(null);
   }
 
   return (
-    <div className="dl-toolbar" role="toolbar" aria-label="Download bulk actions">
+    <div className="dl-toolbar" role="toolbar" aria-label={t('downloadsToolbar.bulkActions')}>
       <div className="dl-toolbar-group">
         <Button
           variant="secondary"
@@ -105,9 +107,9 @@ export default function DownloadsToolbar({
               <rect x="14" y="4" width="4" height="16" />
             </svg>
           }
-          title="Pause every active download"
+          title={t('downloadsToolbar.pauseAll')}
         >
-          Pause all
+          {t('downloadsToolbar.pauseAllBtn')}
         </Button>
         <Button
           variant="secondary"
@@ -120,9 +122,9 @@ export default function DownloadsToolbar({
               <polygon points="5 3 19 12 5 21 5 3" />
             </svg>
           }
-          title="Resume every paused download"
+          title={t('downloadsToolbar.resumeAll')}
         >
-          Resume all
+          {t('downloadsToolbar.resumeAllBtn')}
         </Button>
       </div>
 
@@ -142,9 +144,9 @@ export default function DownloadsToolbar({
             <path d="M14 11v6" />
           </svg>
         }
-        title="Remove every entry from history (files are kept on disk)"
+        title={t('downloadsToolbar.clearHint')}
       >
-        Clear history
+        {t('downloadsToolbar.clearHistory')}
         {historyCount > 0 && (
           <span className="dl-toolbar-count">{historyCount}</span>
         )}

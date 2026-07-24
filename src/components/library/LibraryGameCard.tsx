@@ -3,6 +3,7 @@ import { Card, Badge } from "../ui";
 import type { Game } from "../../types/game";
 import { PLAY_STATUS_DETAILS } from "../../types/game";
 import { useGames, NO_IGDB_MATCH_SOURCE } from "../../context/GameContext";
+import { useLanguage } from "../../context/LanguageContext";
 
 interface LibraryGameCardProps {
   game: Game;
@@ -30,6 +31,7 @@ function LibraryGameCardBase({
   className,
 }: LibraryGameCardProps) {
   const { updateGame, enrichGameMetadata, launchGame } = useGames();
+  const { t } = useLanguage();
   const coverRef = useRef<HTMLDivElement | null>(null);
 
   const canAutoFetchCover =
@@ -106,7 +108,7 @@ function LibraryGameCardBase({
         <div className="lib-card-badges">
           {isRunning && (
             <Badge variant="success" size="sm" dot className="lib-card-badge lib-card-badge--running">
-              Running
+              {t("library.running")}
             </Badge>
           )}
           <Badge variant="default" size="sm" className="lib-card-badge lib-card-badge--playtime">
@@ -118,8 +120,8 @@ function LibraryGameCardBase({
           type="button"
           className="lib-card-fab"
           onClick={handleLaunch}
-          aria-label={isRunning ? `Resume ${game.name}` : `Play ${game.name}`}
-          title={isRunning ? "Resume" : "Play"}
+          aria-label={isRunning ? t("game.resumeAria", { name: game.name }) : t("game.playAria", { name: game.name })}
+          title={isRunning ? t("game.resume") : t("game.play")}
         >
           <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden>
             <polygon points="5 3 19 12 5 21 5 3" />
@@ -148,7 +150,7 @@ function LibraryGameCardBase({
               variant="accent"
               size="sm"
               className="lib-card-rating"
-              title={`${game.igdbRating != null ? "IGDB" : "Critic"} Rating: ${Math.round(rating)}%`}
+              title={`${t(game.igdbRating != null ? "gameInfo.igdbRating" : "gameInfo.criticRating")}: ${Math.round(rating)}%`}
             >
               <svg viewBox="0 0 24 24" fill="currentColor" width="10" height="10" style={{ marginRight: 3 }} aria-hidden>
                 <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" />
@@ -176,7 +178,7 @@ function LibraryGameCardBase({
         ) : game.description ? (
           <p className="lib-card-notes">{game.description.slice(0, 80)}{game.description.length > 80 ? "..." : ""}</p>
         ) : (
-          <p className="lib-card-notes is-empty">No notes</p>
+          <p className="lib-card-notes is-empty">{t("library.noNotes")}</p>
         )}
       </div>
     </Card>

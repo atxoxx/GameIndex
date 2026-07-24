@@ -24,7 +24,7 @@ interface LanguageContextValue {
   /** The full list of selectable languages. */
   languages: typeof UI_LANGUAGES;
   /** Translate `key` in the active language (English fallback). */
-  t: (key: string, vars?: Record<string, string | number>) => string;
+  t: (key: string, vars?: Record<string, unknown>) => string;
 }
 
 const LanguageContext = createContext<LanguageContextValue | null>(null);
@@ -52,7 +52,7 @@ export function LanguageProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const t = useCallback(
-    (key: string, vars?: Record<string, string | number>) =>
+    (key: string, vars?: Record<string, unknown>) =>
       translate(key, language, vars),
     [language],
   );

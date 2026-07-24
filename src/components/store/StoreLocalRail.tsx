@@ -1,6 +1,7 @@
 import { memo, useEffect, useRef } from "react";
 import type { StoreGameSummary, ViewDensity } from "../../types/game";
 import StoreGameCard from "./StoreGameCard";
+import { useLanguage } from "../../context/LanguageContext";
 
 interface StoreLocalRailProps {
   /** Display heading. */
@@ -31,6 +32,7 @@ function StoreLocalRail({
   density = "cozy",
   isInLibrary,
 }: StoreLocalRailProps) {
+  const { t } = useLanguage();
   const trackRef = useRef<HTMLDivElement>(null);
 
   // Pointer-driven horizontal scroll (mouse-wheel h-scroll), matching StoreRail.
@@ -62,7 +64,7 @@ function StoreLocalRail({
   if (games.length === 0) return null;
 
   return (
-    <section className="store-rail" aria-label={`${title} rail`}>
+    <section className="store-rail" aria-label={t("store.rail.railAria", { title })}>
       <header className="store-rail-header">
         <h3 className="store-rail-title">
           {badge && <span className="store-rail-badge">{badge}</span>}
@@ -74,7 +76,7 @@ function StoreLocalRail({
         <button
           type="button"
           className="store-rail-arrow store-rail-arrow-prev"
-          aria-label={`Scroll ${title} left`}
+          aria-label={t("store.rail.scrollLeft", { title })}
           onClick={() => scrollBy(-1)}
         >
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
@@ -96,7 +98,7 @@ function StoreLocalRail({
         <button
           type="button"
           className="store-rail-arrow store-rail-arrow-next"
-          aria-label={`Scroll ${title} right`}
+          aria-label={t("store.rail.scrollRight", { title })}
           onClick={() => scrollBy(1)}
         >
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">

@@ -1,4 +1,5 @@
 import { useState, useMemo, useEffect, useCallback } from "react";
+import { useLanguage } from "../../context/LanguageContext";
 import { useGames } from "../../context/GameContext";
 import { useAchievements } from "../../context/AchievementContext";
 import { useFocusable } from "../../hooks/useFocusable";
@@ -31,18 +32,19 @@ interface BigScreenGameHubProps {
 
 type HubTab = "overview" | "achievements" | "media" | "specs" | "more";
 
-const HUB_TABS: TabDef<HubTab>[] = [
-  { id: "overview", label: "Overview" },
-  { id: "achievements", label: "Achievements" },
-  { id: "media", label: "Media" },
-  { id: "specs", label: "Specs" },
-  { id: "more", label: "More" },
-];
-
 export default function BigScreenGameHub({ gameId, onBack }: BigScreenGameHubProps) {
+  const { t } = useLanguage();
   const { games, launchGame, forceCloseGame, runningGameIds } = useGames();
   const { getGameAchievements, syncGameAchievements, isSyncing } = useAchievements();
   const gamepad = useGamepad();
+
+  const HUB_TABS: TabDef<HubTab>[] = [
+    { id: "overview", label: t("game.tab.overview") },
+    { id: "achievements", label: t("game.tab.achievements") },
+    { id: "media", label: t("game.tab.media") },
+    { id: "specs", label: t("game.tab.specs") },
+    { id: "more", label: t("game.tab.more") },
+  ];
 
   const game = useMemo(() => games.find((g) => g.id === gameId), [games, gameId]);
   const [activeTab, setActiveTab] = useState<HubTab>("overview");
@@ -53,9 +55,9 @@ export default function BigScreenGameHub({ gameId, onBack }: BigScreenGameHubPro
   if (!game) {
     return (
       <div className="bigscreen-gamepage bigscreen-gamepage--error">
-        <h3>Game not found</h3>
+        <h3>{t("bigscreen.gameHub.gameNotFound")}</h3>
         <button type="button" className="bigscreen-details-btn" onClick={onBack}>
-          Go Back
+          {t("bigscreen.gameHub.goBack")}
         </button>
       </div>
     );
@@ -131,7 +133,7 @@ export default function BigScreenGameHub({ gameId, onBack }: BigScreenGameHubPro
         {/* Back navigation button */}
         <div className="bigscreen-gamepage-nav-row">
           <button type="button" className="bigscreen-gamepage-back-btn" {...backProps}>
-            ← Back to Library
+            ← {t("page.game.backToLibrary")}
           </button>
         </div>
 
@@ -158,7 +160,7 @@ export default function BigScreenGameHub({ gameId, onBack }: BigScreenGameHubPro
               )}
               {game.playTime && (
                 <BigScreenPill tone="muted" size="sm">
-                  {game.playTime} Played
+                  {game.playTime} {t("friendsPage.played")}
                 </BigScreenPill>
               )}
             </div>
@@ -179,7 +181,7 @@ export default function BigScreenGameHub({ gameId, onBack }: BigScreenGameHubPro
                     <polygon points="6 4 20 12 6 20 6 4" />
                   )}
                 </svg>
-                <span>{isRunning ? "Force Close" : "Play"}</span>
+                <span>{isRunning ? t("game.forceClose") : t("game.play")}</span>
               </button>
 
               {game.steamAppId && (
@@ -192,7 +194,7 @@ export default function BigScreenGameHub({ gameId, onBack }: BigScreenGameHubPro
                   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" width="18" height="18">
                     <path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38l5.67-5.67" />
                   </svg>
-                  <span>{isSyncing || syncing ? "Syncing..." : "Sync Achievements"}</span>
+                  <span>{isSyncing || syncing ? t("achievements.syncing") : t("achievements.sync")}</span>
                 </button>
               )}
             </div>
@@ -214,27 +216,27 @@ export default function BigScreenGameHub({ gameId, onBack }: BigScreenGameHubPro
             <div className="bigscreen-gamepage-overview">
               {game.description ? (
                 <div className="overview-summary-card">
-                  <h3>About the Game</h3>
+                  <h3>{t("bigscreen.gameHub.about")}</h3>
                   <p>{game.description}</p>
                 </div>
               ) : (
                 <div className="overview-summary-card placeholder-card">
-                  <p>No description available for this game.</p>
+                  <p>{t("bigscreen.gameHub.noDescription")}</p>
                 </div>
               )}
 
               <div className="overview-stats-grid">
                 <div className="overview-stat-card">
-                  <span className="stat-label">Developer</span>
-                  <span className="stat-value">{game.developer || "Unknown"}</span>
+                  <span className="stat-label">{t("bigscreen.gameHub.developer")}</span>
+                  <span className="stat-value">{game.developer || t("splash.unknown")}</span>
                 </div>
                 <div className="overview-stat-card">
-                  <span className="stat-label">Publisher</span>
-                  <span className="stat-value">{game.publisher || "Unknown"}</span>
+                  <span className="stat-label">{t("bigscreen.gameHub.publisher")}</span>
+                  <span className="stat-value">{game.publisher || t("splash.unknown")}</span>
                 </div>
                 {game.sizeBytes && (
                   <div className="overview-stat-card">
-                    <span className="stat-label">Disk Space</span>
+                    <span className="stat-label">{t("bigscreen.gameHub.diskSpace")}</span>
                     <span className="stat-value">
                       {parseFloat((game.sizeBytes / (1024 * 1024 * 1024)).toFixed(1))} GB
                     </span>
@@ -250,7 +252,7 @@ export default function BigScreenGameHub({ gameId, onBack }: BigScreenGameHubPro
                 <>
                   <div className="achievements-progress-container">
                     <div className="achievements-progress-text">
-                      Achievements: {achievementsData?.unlocked} / {achievementsData?.total} ({pct}%)
+                      {t("bigscreen.gameHub.achievements", { unlocked: achievementsData?.unlocked ?? 0, total: achievementsData?.total ?? 0, pct })}
                     </div>
                     <div className="achievements-progress-bar">
                       <div className="achievements-progress-fill" style={{ width: `${pct}%` }} />
@@ -273,7 +275,7 @@ export default function BigScreenGameHub({ gameId, onBack }: BigScreenGameHubPro
                         </div>
                         <div className="achievement-info-wrapper">
                           <h4 className="achievement-title">{ach.displayName}</h4>
-                          <p className="achievement-desc">{ach.description || "Hidden Achievement"}</p>
+                          <p className="achievement-desc">{ach.description || t("bigscreen.gameHub.hiddenAchievement")}</p>
                         </div>
                         {ach.achieved && ach.unlockTime && (
                           <div className="achievement-date">
@@ -286,9 +288,9 @@ export default function BigScreenGameHub({ gameId, onBack }: BigScreenGameHubPro
                 </>
               ) : (
                 <div className="achievements-empty-state">
-                  <p>No achievements cache found for this game.</p>
+                  <p>{t("bigscreen.gameHub.noAchievements")}</p>
                   {game.steamAppId && (
-                    <p className="sub-text">Click "Sync Achievements" above to pull achievements from Steam.</p>
+                    <p className="sub-text">{t("bigscreen.gameHub.syncAchievementsHint")}</p>
                   )}
                 </div>
               )}

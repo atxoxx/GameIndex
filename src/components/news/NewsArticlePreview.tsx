@@ -5,6 +5,7 @@ import { getCurrentWindow } from "@tauri-apps/api/window";
 import { LogicalSize, LogicalPosition } from "@tauri-apps/api/dpi";
 import type { NewsArticle } from "../../hooks/useNewsFeeds";
 import { formatArticleDate } from "../../hooks/useNewsFeeds";
+import { useLanguage } from "../../context/LanguageContext";
 
 interface NewsArticlePreviewProps {
   article: NewsArticle | null;
@@ -19,6 +20,7 @@ export default function NewsArticlePreview({
   saved = false,
   onToggleSave,
 }: NewsArticlePreviewProps) {
+  const { t } = useLanguage();
   const placeholderRef = useRef<HTMLDivElement>(null);
   const [webviewReady, setWebviewReady] = useState(false);
   const [webviewError, setWebviewError] = useState(false);
@@ -198,7 +200,7 @@ export default function NewsArticlePreview({
       }}
       role="dialog"
       aria-modal="true"
-      aria-label={`Article: ${article.title}`}
+      aria-label={t("news.articleLabel", { title: article.title })}
     >
       <div className="modal news-preview-modal">
         {/* Header */}
@@ -259,7 +261,7 @@ export default function NewsArticlePreview({
             className="edit-btn edit-btn-ghost"
             onClick={onClose}
           >
-            Close
+            {t("newsArticle.close")}
           </button>
           <div className="news-preview-footer-actions">
             {onToggleSave && (
@@ -267,21 +269,21 @@ export default function NewsArticlePreview({
                 type="button"
                 className={`news-preview-action-btn${saved ? " is-saved" : ""}`}
                 onClick={() => onToggleSave(article)}
-                title={saved ? "Remove bookmark" : "Save for later"}
-                aria-label={saved ? "Remove bookmark" : "Save for later"}
+                title={saved ? t("news.removeBookmark") : t("news.saveForLater")}
+                aria-label={saved ? t("news.removeBookmark") : t("news.saveForLater")}
               >
                 <svg viewBox="0 0 24 24" fill={saved ? "currentColor" : "none"} stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" width="14" height="14">
                   <path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z" />
                 </svg>
-                {saved ? "Saved" : "Save"}
+                {saved ? t("news.saved") : t("common.save")}
               </button>
             )}
             <button
               type="button"
               className="news-preview-action-btn"
               onClick={handleShare}
-              title="Share article"
-              aria-label="Share article"
+              title={t("news.shareArticle")}
+              aria-label={t("news.shareArticle")}
             >
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" width="14" height="14">
                 <circle cx="18" cy="5" r="3" />
@@ -290,7 +292,7 @@ export default function NewsArticlePreview({
                 <line x1="8.59" y1="13.51" x2="15.42" y2="17.49" />
                 <line x1="15.41" y1="6.51" x2="8.59" y2="10.49" />
               </svg>
-              {shareCopied ? "Copied!" : "Share"}
+              {shareCopied ? t("gameInfo.copied") : t("news.share")}
             </button>
             <button
               type="button"
@@ -302,7 +304,7 @@ export default function NewsArticlePreview({
               <polyline points="15 3 21 3 21 9" />
               <line x1="10" y1="14" x2="21" y2="3" />
             </svg>
-            Open in Browser
+            {t("newsArticle.openInBrowser")}
           </button>
           </div>
         </div>

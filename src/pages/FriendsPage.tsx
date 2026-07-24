@@ -177,6 +177,7 @@ function P2pSyncIcon() {
 
 // Render the friend code as a scannable QR image (data URL).
 function FriendCodeQR({ code }: { code: string }) {
+  const { t } = useLanguage();
   const [dataUrl, setDataUrl] = useState<string | null>(null);
 
   useEffect(() => {
@@ -198,7 +199,7 @@ function FriendCodeQR({ code }: { code: string }) {
   }, [code]);
 
   if (!dataUrl) return null;
-  return <img src={dataUrl} alt="Friend code QR" className="friend-qr-img" width={160} height={160} />;
+  return <img src={dataUrl} alt={t("friends.friendQrCode")} className="friend-qr-img" width={160} height={160} />;
 }
 
 // ── Session Card Component ──────────────────────────────────────────
@@ -238,6 +239,7 @@ function SessionCard({
   onSendMessage: (sessionId: string, text: string) => void;
   onTogglePinMessage: (sessionId: string, messageId: string) => void;
 }) {
+  const { t } = useLanguage();
   const [now, setNow] = useState(Date.now());
   const [chatOpen, setChatOpen] = useState(false);
   const [chatDraft, setChatDraft] = useState("");
@@ -311,16 +313,16 @@ function SessionCard({
             {formatDateTime(session.scheduledAt, session.creatorTimezone)}
             {tzAbbrev(session.scheduledAt, session.creatorTimezone)}
             {showTimeForViewer && (
-              <span className="session-date-local"> · your time: {formatDateTime(session.scheduledAt, viewerTimezone)}{tzAbbrev(session.scheduledAt, viewerTimezone)}</span>
+              <span className="session-date-local"> · {t("friendsPage.yourTime")} {formatDateTime(session.scheduledAt, viewerTimezone)}{tzAbbrev(session.scheduledAt, viewerTimezone)}</span>
             )}
           </div>
           {session.creatorTimezone && (
-            <div className="session-tz-note">Scheduled in {session.creatorTimezone.replace(/_/g, " ")}</div>
+            <div className="session-tz-note">{t("friendsPage.scheduledIn", { tz: session.creatorTimezone.replace(/_/g, " ") })}</div>
           )}
           </div>
         </div>
         <div className="session-card-actions">
-          <span className={`session-countdown${new Date(session.scheduledAt).getTime() - now <= 0 ? " live" : ""}`} title="Time until start">
+          <span className={`session-countdown${new Date(session.scheduledAt).getTime() - now <= 0 ? " live" : ""}`} title={t("friendsPage.timeUntilStart")}>
             ⏱ {countdownLabel(session.scheduledAt)}
           </span>
           {isCreator && (
@@ -329,7 +331,7 @@ function SessionCard({
               className="friend-delete-btn"
               style={{ opacity: 1, position: "static" }}
               onClick={() => onDelete(session.id)}
-              title="Remove Session"
+              title={t("friends.removeSession")}
             >
               <TrashIcon />
             </button>
@@ -341,7 +343,7 @@ function SessionCard({
 
       {conflicting && (
         <div className="session-conflict-banner">
-          ⚠ Overlaps your "{conflicting.gameName}" session at {formatDateTime(conflicting.scheduledAt, conflicting.creatorTimezone)}
+          {t("friendsPage.overlapsWarning", { game: conflicting.gameName, time: formatDateTime(conflicting.scheduledAt, conflicting.creatorTimezone) })}
         </div>
       )}
 
@@ -353,24 +355,24 @@ function SessionCard({
             const online = friend ? isOnline(friend) : false;
             return (
               <div key={p.name} className={`roster-row${p.name === profile.name ? " self" : ""}`}>
-                <span className={`roster-dot${online ? " online" : ""}`} title={online ? "Online now" : "Offline"} />
-                <span className="roster-name">{p.name}{p.guest ? " (guest)" : ""}</span>
-                <span className={`roster-role role-${p.role}`}>{p.role}</span>
+                <span className={`roster-dot${online ? " online" : ""}`} title={online ? t("friendsPage.onlineNow") : t("friendsPage.offline")} />
+                <span className="roster-name">{p.name}{p.guest ? t("friendsPage.guestSuffix") : ""}</span>
+                <span className={`roster-role role-${p.role}`}>{t(`friends.${p.role}`)}</span>
                 {p.note && <span className="roster-note" title={p.note}>🎒 {p.note}</span>}
                 {(canManage && p.name !== profile.name) && (
                   <select
                     className="roster-role-select"
                     value={p.role}
                     onChange={(e) => onSetRole(session.id, p.name, e.target.value as SessionRole)}
-                    title="Change role"
+                    title={t("friends.changeRole")}
                   >
-                    <option value="player">Player</option>
-                    <option value="cohost">Co-host</option>
-                    <option value="host">Host</option>
+                    <option value="player">{t("friends.player")}</option>
+                    <option value="cohost">{t("friends.cohost")}</option>
+                    <option value="host">{t("friends.host")}</option>
                   </select>
                 )}
                 {p.guest && canManage && (
-                  <button type="button" className="roster-remove" onClick={() => onRemoveGuest(session.id, p.name)} title="Remove guest">✕</button>
+                  <button type="button" className="roster-remove" onClick={() => onRemoveGuest(session.id, p.name)} title={t("friends.removeGuest")}>✕</button>
                 )}
               </div>
             );
@@ -381,10 +383,10 @@ function SessionCard({
               <span key={i} className={`attendee-badge${name === profile.name ? " self" : ""}`}>{name}</span>
             ))}
             {maybe.map((name, i) => (
-              <span key={`maybe-${i}`} className="attendee-badge maybe" title="Maybe">{name}?</span>
+              <span key={`maybe-${i}`} className="attendee-badge maybe" title={t("friendsPage.maybe")}>{name}?</span>
             ))}
             {declined.map((name, i) => (
-              <span key={`dec-${i}`} className="attendee-badge declined" title="Declined">{name}✕</span>
+              <span key={`dec-${i}`} className="attendee-badge declined" title={t("friends.declined")}>{name}✕</span>
             ))}
           </div>
         )}
@@ -395,7 +397,7 @@ function SessionCard({
         <div className="session-guest-row">
           <input
             className="profile-input session-guest-input"
-            placeholder="Bring a +1 guest (name)"
+            placeholder={t("friends.bringGuest")}
             value={guestDraft}
             onChange={(e) => setGuestDraft(e.target.value)}
             onKeyDown={(e) => e.key === "Enter" && submitGuest()}
@@ -406,9 +408,9 @@ function SessionCard({
 
       <div className="session-footer">
         <span className="session-players-count">
-          👥 {going.length} / {session.maxPlayers} going
+          👥 {t("friendsPage.goingCount", { going: going.length, max: session.maxPlayers })}
         </span>
-        <span className="session-creator">By {isCreator ? "me" : session.creatorName}</span>
+        <span className="session-creator">{t("friendsPage.by")}{isCreator ? t("friendsPage.me") : session.creatorName}</span>
       </div>
 
       {/* RSVP note editor */}
@@ -416,12 +418,12 @@ function SessionCard({
         <div className="session-note-row">
           <input
             className="profile-input session-note-input"
-            placeholder="What are you bringing?"
+            placeholder={t("friends.whatBringing")}
             value={noteDraft}
             onChange={(e) => setNoteDraft(e.target.value)}
             onBlur={submitNote}
           />
-          <button type="button" className="btn btn-secondary" style={{ padding: "4px 10px", fontSize: "11px" }} onClick={submitNote}>Save</button>
+          <button type="button" className="btn btn-secondary" style={{ padding: "4px 10px", fontSize: "11px" }} onClick={submitNote}>{t("common.save")}</button>
         </div>
       )}
 
@@ -433,10 +435,10 @@ function SessionCard({
             className={`rsvp-btn rsvp-${status}${myRsvp === status ? " active" : ""}`}
             onClick={() => onRsvp(session.id, status)}
           >
-            {status === "going" ? "✓ Going" : status === "maybe" ? "? Maybe" : "✕ Can't"}
+            {status === "going" ? t("friends.going") : status === "maybe" ? t("friends.maybe") : t("friends.cant")}
           </button>
         ))}
-        <button type="button" className={`session-chat-toggle${chatOpen ? " active" : ""}`} onClick={() => setChatOpen((v) => !v)} title="Session chat">
+        <button type="button" className={`session-chat-toggle${chatOpen ? " active" : ""}`} onClick={() => setChatOpen((v) => !v)} title={t("friends.sessionChat")}>
           💬 {messages.length > 0 ? messages.length : ""}
         </button>
       </div>
@@ -450,20 +452,20 @@ function SessionCard({
                   <span className="chat-author">{m.author}</span>
                   <span className="chat-text">{m.text}</span>
                   {canManage && (
-                    <button type="button" className="chat-pin-btn" onClick={() => onTogglePinMessage(session.id, m.id)} title="Unpin">📌</button>
+                    <button type="button" className="chat-pin-btn" onClick={() => onTogglePinMessage(session.id, m.id)} title={t("friends.unpin")}>📌</button>
                   )}
                 </div>
               ))}
             </div>
           )}
           <div className="session-chat-thread">
-            {thread.length === 0 && pinned.length === 0 && <div className="chat-empty">No messages yet.</div>}
+            {thread.length === 0 && pinned.length === 0 && <div className="chat-empty">{t("friendsPage.noMessages")}</div>}
             {thread.map((m) => (
               <div key={m.id} className={`chat-msg${m.author === profile.name ? " mine" : ""}`}>
                 <span className="chat-author">{m.author}</span>
                 <span className="chat-text">{m.text}</span>
                 {canManage && (
-                  <button type="button" className="chat-pin-btn" onClick={() => onTogglePinMessage(session.id, m.id)} title="Pin">📌</button>
+                  <button type="button" className="chat-pin-btn" onClick={() => onTogglePinMessage(session.id, m.id)} title={t("friends.pin")}>📌</button>
                 )}
               </div>
             ))}
@@ -472,12 +474,12 @@ function SessionCard({
           <div className="session-chat-input">
             <input
               className="profile-input"
-              placeholder="Message the group..."
+              placeholder={t("friends.messageGroup")}
               value={chatDraft}
               onChange={(e) => setChatDraft(e.target.value)}
               onKeyDown={(e) => e.key === "Enter" && submitChat()}
             />
-            <button type="button" className="btn btn-primary" style={{ padding: "4px 10px", fontSize: "11px" }} onClick={submitChat}>Send</button>
+            <button type="button" className="btn btn-primary" style={{ padding: "4px 10px", fontSize: "11px" }} onClick={submitChat}>{t("common.send")}</button>
           </div>
         </div>
       )}
@@ -630,13 +632,14 @@ function SearchableGameSelector({
   games,
   selectedGameId,
   onSelect,
-  placeholder = "Type game name...",
+  placeholder,
 }: {
   games: any[];
   selectedGameId: string;
   onSelect: (gameId: string) => void;
   placeholder?: string;
 }) {
+  const { t } = useLanguage();
   const [searchQuery, setSearchQuery] = useState("");
   const [isOpen, setIsOpen] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -675,7 +678,7 @@ function SearchableGameSelector({
           style={{ padding: "4px 10px", fontSize: "11px" }}
           onClick={() => onSelect("")}
         >
-          Change
+          {t("common.change")}
         </button>
       </div>
     );
@@ -687,7 +690,7 @@ function SearchableGameSelector({
         <input
           type="text"
           className="game-search-input"
-          placeholder={placeholder}
+          placeholder={placeholder ?? t("friends.typeGameName")}
           value={searchQuery}
           onChange={(e) => {
             setSearchQuery(e.target.value);
@@ -700,7 +703,7 @@ function SearchableGameSelector({
             type="button"
             className="game-search-clear-btn"
             onClick={() => setSearchQuery("")}
-            title="Clear text"
+            title={t("friends.clearText")}
           >
             ×
           </button>
@@ -710,7 +713,7 @@ function SearchableGameSelector({
       {isOpen && (
         <div className="game-search-results">
           {filteredGames.length === 0 ? (
-            <div className="game-search-no-results">No matches found in library</div>
+            <div className="game-search-no-results">{t("friends.noMatchesLibrary")}</div>
           ) : (
             filteredGames.map((game) => (
               <button
@@ -753,6 +756,7 @@ function GamePicker({
   selectedGameName: string;
   onSelect: (game: { id: string; name: string }) => void;
 }) {
+  const { t } = useLanguage();
   const [mode, setMode] = useState<"library" | "friend" | "store">("library");
   const [friendId, setFriendId] = useState("");
   const [search, setSearch] = useState("");
@@ -841,7 +845,7 @@ function GamePicker({
           <span className="selected-game-title">{selectedGameName}</span>
         </div>
         <button type="button" className="btn btn-secondary" style={{ padding: "4px 10px", fontSize: "11px" }} onClick={() => onSelect({ id: "", name: "" })}>
-          Change
+          {t("common.change")}
         </button>
       </div>
     );
@@ -850,14 +854,14 @@ function GamePicker({
   return (
     <div className="game-picker" ref={containerRef}>
       <div className="game-picker-modes">
-        <button type="button" className={`picker-mode${mode === "library" ? " active" : ""}`} onClick={() => { setMode("library"); setIsOpen(true); }}>My Library</button>
-        <button type="button" className={`picker-mode${mode === "friend" ? " active" : ""}`} onClick={() => { setMode("friend"); setIsOpen(true); }}>Friend's</button>
-        <button type="button" className={`picker-mode${mode === "store" ? " active" : ""}`} onClick={() => { setMode("store"); setIsOpen(true); }}>Store Search</button>
+        <button type="button" className={`picker-mode${mode === "library" ? " active" : ""}`} onClick={() => { setMode("library"); setIsOpen(true); }}>{t("friends.myLibrary")}</button>
+        <button type="button" className={`picker-mode${mode === "friend" ? " active" : ""}`} onClick={() => { setMode("friend"); setIsOpen(true); }}>{t("friends.friendsLibrary")}</button>
+        <button type="button" className={`picker-mode${mode === "store" ? " active" : ""}`} onClick={() => { setMode("store"); setIsOpen(true); }}>{t("friends.storeSearch")}</button>
       </div>
 
       {mode === "friend" && (
         <select className="profile-input" value={friendId} onChange={(e) => setFriendId(e.target.value)}>
-          <option value="">Select a friend…</option>
+          <option value="">{t("friends.selectFriend")}</option>
           {friends.map((f) => (
             <option key={f.id} value={f.id}>{displayName(f)}</option>
           ))}
@@ -868,13 +872,13 @@ function GamePicker({
         <input
           type="text"
           className="game-search-input"
-          placeholder={mode === "store" ? "Search the store catalog…" : "Search games…"}
+          placeholder={mode === "store" ? t("friends.searchStoreCatalog") : t("friends.searchGamesPlaceholder")}
           value={search}
           onChange={(e) => { setSearch(e.target.value); setIsOpen(true); }}
           onFocus={() => setIsOpen(true)}
         />
         {search && (
-          <button type="button" className="game-search-clear-btn" onClick={() => setSearch("")} title="Clear">×</button>
+          <button type="button" className="game-search-clear-btn" onClick={() => setSearch("")} title={t("common.clear")}>×</button>
         )}
       </div>
 
@@ -882,9 +886,9 @@ function GamePicker({
         <div className="game-search-results">
           {mode === "store" ? (
             storeLoading ? (
-              <div className="game-search-no-results">Searching store…</div>
+              <div className="game-search-no-results">{t("friends.searchingStore")}</div>
             ) : storeResults.length === 0 ? (
-              <div className="game-search-no-results">No store matches{search.trim() ? "" : " — type to search"}</div>
+              <div className="game-search-no-results">{search.trim() ? t("friends.noStoreMatches") : t("friendsPage.noStoreMatches")}</div>
             ) : (
               storeResults.map((g) => (
                 <button key={g.id} type="button" className="game-search-item" onClick={() => { onSelect({ id: `store_${g.id}`, name: g.name }); setSearch(""); setIsOpen(false); }}>
@@ -894,7 +898,7 @@ function GamePicker({
               ))
             )
           ) : filtered.length === 0 ? (
-            <div className="game-search-no-results">{mode === "friend" && !friendId ? "Pick a friend first" : "No matches found"}</div>
+            <div className="game-search-no-results">{mode === "friend" && !friendId ? t("friends.pickFriendFirst") : t("friendsPage.noMatchesFound")}</div>
           ) : (
             filtered.map((g) => (
               <button key={g.id} type="button" className="game-search-item" onClick={() => { onSelect(g); setSearch(""); setIsOpen(false); }}>
@@ -1005,7 +1009,7 @@ export default function FriendsPage() {
               if (prev.some((i) => i.syncId === newInvite.syncId)) return prev;
               return [...prev, newInvite];
             });
-            showToast(`New friend invitation from ${remoteProfile.name}!`, "info");
+            showToast(t("friendsPage.newInvitation", { name: remoteProfile.name }), "info");
             return; // Do not merge databases for non-friends
           }
         }
@@ -1417,7 +1421,7 @@ export default function FriendsPage() {
     if (!folder) {
       setIsSyncing(false);
       if (manual) {
-        showToast("Sync folder is missing — cannot sync with friends.", "error");
+        showToast(t("friendsPage.syncFolderMissing"), "error");
       }
       return;
     }
@@ -1610,21 +1614,21 @@ export default function FriendsPage() {
 
     if (manual) {
       if (!pushed.ok) {
-        showToast(`Sync failed: ${pushed.reason || "could not write outbox"}`, "error");
+        showToast(t("friendsPage.syncFailed", { reason: pushed.reason || t("friendsPage.couldNotWriteOutbox") }), "error");
       } else if (pullErrors.length > 0) {
         showToast(
-          `Synced, but ${pullErrors.length} friend(s) had errors: ${pullErrors.join("; ")}`,
+          t("friendsPage.syncedWithErrors", { count: pullErrors.length, errors: pullErrors.join("; ") }),
           "warning"
         );
       } else if (pulledSessions > 0 || pulledRecs > 0 || discoveredNew || friendsUpdated || changesMade) {
         const bits: string[] = [];
-        if (discoveredNew) bits.push("new friend(s) found");
-        if (pulledSessions > 0) bits.push(`${pulledSessions} session(s)`);
-        if (pulledRecs > 0) bits.push(`${pulledRecs} recommendation(s)`);
-        if (friendsUpdated) bits.push("profile updates");
-        showToast(`Sync successful — ${bits.join(", ")}.`, "success");
+        if (discoveredNew) bits.push(t("friendsPage.newFriendsFound"));
+        if (pulledSessions > 0) bits.push(t("friendsPage.sessionsCount", { count: pulledSessions }));
+        if (pulledRecs > 0) bits.push(t("friendsPage.recommendationsCount", { count: pulledRecs }));
+        if (friendsUpdated) bits.push(t("friendsPage.profileUpdates"));
+        showToast(t("friendsPage.syncSuccessDetails", { details: bits.join(", ") }), "success");
       } else {
-        showToast("Sync successful — already up to date.", "success");
+        showToast(t("friendsPage.syncUpToDate"), "success");
       }
     }
     
@@ -1748,7 +1752,7 @@ export default function FriendsPage() {
       const diff = start - now;
       if (diff > 0 && diff <= REMINDER_MS && !remindedSessionIds.current.has(s.id)) {
         remindedSessionIds.current.add(s.id);
-        showToast(`🔔 "${s.gameName}" starts in ${Math.round(diff / 60000)} min!`, "info");
+        showToast(t("friendsPage.sessionStartsSoon", { game: s.gameName, min: Math.round(diff / 60000) }), "info");
       }
       // Reset the reminder flag once the session is well in the past.
       if (diff < -60 * 60 * 1000) {
@@ -1766,7 +1770,7 @@ export default function FriendsPage() {
     if (!file) return;
 
     if (file.size > 2 * 1024 * 1024) {
-      showToast("File size too large. Under 2MB required.", "error");
+      showToast(t("friendsPage.fileTooLarge"), "error");
       return;
     }
 
@@ -1792,9 +1796,9 @@ export default function FriendsPage() {
             setProfile(updated);
             saveUserProfile(updated);
             pushMyOutbox(updated, selfStats, sessions, recommendations, selfSharedGames, suggestions);
-            showToast("Custom avatar uploaded successfully!", "success");
+            showToast(t("friendsPage.avatarUploaded"), "success");
           } catch {
-            showToast("Failed to process image.", "error");
+            showToast(t("friendsPage.imageProcessingFailed"), "error");
           }
         }
       };
@@ -1807,7 +1811,7 @@ export default function FriendsPage() {
     e.preventDefault();
     saveUserProfile(profile);
     await pushMyOutbox(profile, selfStats, sessions, recommendations, selfSharedGames, suggestions);
-    showToast("Profile updated and synced successfully!", "success");
+    showToast(t("friendsPage.profileUpdated"), "success");
   };
 
   // Add a friend
@@ -1816,14 +1820,14 @@ export default function FriendsPage() {
 
     const exists = friends.some((f) => f.syncId === decodedFriend.syncId);
     if (exists) {
-      showToast(`${decodedFriend.name} is already in your friends list.`, "error");
+      showToast(t("friendsPage.alreadyInFriends", { name: decodedFriend.name }), "error");
       return;
     }
 
     const updatedFriends = [...friends, decodedFriend];
     setFriends(updatedFriends);
     saveFriends(updatedFriends);
-    showToast(`${decodedFriend.name} added!`, "success");
+    showToast(t("friendsPage.friendAdded", { name: decodedFriend.name }), "success");
     setFriendCodeInput("");
     setShowAddModal(false);
 
@@ -1856,7 +1860,7 @@ export default function FriendsPage() {
     setFriends(updatedFriends);
     saveFriends(updatedFriends);
     setInvitations((prev) => prev.filter((i) => i.syncId !== invite.syncId));
-    showToast(`Accepted friend invitation from ${invite.name}!`, "success");
+    showToast(t("friendsPage.acceptedInvitation", { name: invite.name }), "success");
 
     // Trigger instant synchronization to exchange data
     setTimeout(() => {
@@ -1870,7 +1874,7 @@ export default function FriendsPage() {
     setDeniedIds(nextDenied);
     localStorage.setItem("gamelib.friends.denied", JSON.stringify(nextDenied));
     setInvitations((prev) => prev.filter((i) => i.syncId !== syncId));
-    showToast("Invitation denied.", "info");
+    showToast(t("friendsPage.invitationDenied"), "info");
   };
 
   // Delete a friend
@@ -1881,7 +1885,7 @@ export default function FriendsPage() {
     if (selectedCompareFriendId === friendId) {
       setSelectedCompareFriendId("");
     }
-    showToast(`Removed ${friendName} from friends.`, "info");
+    showToast(t("friendsPage.removedFromFriends", { name: friendName }), "info");
   };
 
   // Toggle pin (favorite) for a friend
@@ -1912,7 +1916,7 @@ export default function FriendsPage() {
     setFriends(updated);
     saveFriends(updated);
     showToast(
-      friend.blocked ? `Unblocked ${friendName}.` : `Blocked ${friendName} — their updates are ignored.`,
+      friend.blocked ? t("friendsPage.unblockedFriend", { name: friendName }) : t("friendsPage.blockedFriend", { name: friendName }),
       "info"
     );
   };
@@ -1935,15 +1939,15 @@ export default function FriendsPage() {
 
   const handleBulkPin = () => {
     applyBulk((f) => ({ ...f, pinned: true }));
-    showToast("Pinned selected friends.", "info");
+    showToast(t("friendsPage.pinnedFriends"), "info");
   };
   const handleBulkUnpin = () => {
     applyBulk((f) => ({ ...f, pinned: false }));
-    showToast("Unpinned selected friends.", "info");
+    showToast(t("friendsPage.unpinnedFriends"), "info");
   };
   const handleBulkBlock = () => {
     applyBulk((f) => ({ ...f, blocked: true }));
-    showToast("Blocked selected friends.", "info");
+    showToast(t("friendsPage.blockedFriends"), "info");
   };
   const handleBulkRemove = () => {
     const selected = new Set(selectedFriendIds);
@@ -1953,7 +1957,7 @@ export default function FriendsPage() {
     if (selected.has(selectedCompareFriendId)) setSelectedCompareFriendId("");
     setSelectedFriendIds([]);
     setSelectMode(false);
-    showToast("Removed selected friends.", "info");
+    showToast(t("friendsPage.removedFriends"), "info");
   };
 
   // Quick actions that cross into other tabs
@@ -1962,7 +1966,7 @@ export default function FriendsPage() {
       setSessionInvited((prev) => [...prev, friend.name]);
     }
     setActiveTab("sessions");
-    showToast(`Inviting ${displayName(friend)} to a session.`, "info");
+    showToast(t("friendsPage.invitingToSession", { name: displayName(friend) }), "info");
   };
 
   const handleCompareFromCard = (friend: Friend) => {
@@ -1975,14 +1979,14 @@ export default function FriendsPage() {
       setSessionInvited((prev) => [...prev, friend.name]);
     }
     setActiveTab("sessions");
-    showToast(`Open the Sessions tab to chat with ${displayName(friend)}.`, "info");
+    showToast(t("friendsPage.openSessionsToChat", { name: displayName(friend) }), "info");
   };
 
   // Copy public key
   const handleCopyCode = () => {
     if (!generatedFriendCode) return;
     navigator.clipboard.writeText(generatedFriendCode);
-    showToast("Public Key copied to clipboard!", "success");
+    showToast(t("friendsPage.keyCopied"), "success");
   };
 
   // Avatar renderer helper
@@ -1997,7 +2001,7 @@ export default function FriendsPage() {
     }
     return (
       <div className={`friend-avatar-wrapper ${sizeClass}`}>
-        <img src={avatarKey} alt={`${name} Avatar`} onError={(e) => {
+        <img src={avatarKey} alt={t("friendsPage.avatarAlt", { name })} onError={(e) => {
           (e.target as HTMLElement).style.display = "none";
         }} />
       </div>
@@ -2009,7 +2013,7 @@ export default function FriendsPage() {
   const handleCreateSession = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!sessionGameId || !sessionDateTime) {
-      showToast("Please select a game and schedule time.", "error");
+      showToast(t("friendsPage.selectGameAndTime"), "error");
       return;
     }
 
@@ -2044,9 +2048,9 @@ export default function FriendsPage() {
           ? { ...s, rsvps: { ...(s.rsvps || {}), [profile.name]: "declined" }, attendees: s.attendees.filter((n) => n !== profile.name), updatedAt: Date.now() }
           : s
       );
-      showToast(`Scheduled! Auto-declined overlapping "${conflict.gameName}".`, "warning");
+      showToast(t("friendsPage.scheduledAutoDeclined", { game: conflict.gameName }), "warning");
     } else {
-      showToast("Game session scheduled!", "success");
+      showToast(t("friendsPage.sessionScheduled"), "success");
     }
 
     setSessions(updated);
@@ -2085,8 +2089,8 @@ export default function FriendsPage() {
       if (isGoing) {
         participants.unshift({ name: profile.name, role: "player", timezone: viewerTimezone });
       }
-      const label = rsvps[profile.name] ? rsvps[profile.name] : "no response";
-      showToast(`RSVP: ${label}.`, "info");
+      const label = rsvps[profile.name] ? t(`friendsPage.rsvp_${rsvps[profile.name]}`) : t("friendsPage.noResponse");
+      showToast(t("friendsPage.rsvpSet", { status: label }), "info");
       return { ...s, rsvps, attendees, participants, updatedAt: Date.now() };
     });
 
@@ -2103,7 +2107,7 @@ export default function FriendsPage() {
     setSessions(updated);
     saveSessions(updated);
     await pushMyOutbox(profile, selfStats, updated, recommendations, selfSharedGames, suggestions);
-    showToast("Session removed.", "info");
+    showToast(t("friendsPage.sessionRemoved"), "info");
   };
 
   // Update a participant's role (host/cohost/player). Only host/cohost may change.
@@ -2135,7 +2139,7 @@ export default function FriendsPage() {
     setSessions(updated);
     saveSessions(updated);
     await pushMyOutbox(profile, selfStats, updated, recommendations, selfSharedGames, suggestions);
-    showToast(`${guestName} added as a +1 guest.`, "success");
+    showToast(t("friendsPage.guestAdded", { name: guestName }), "success");
   };
 
   const handleRemoveGuest = async (sessionId: string, guestName: string) => {
@@ -2231,7 +2235,7 @@ export default function FriendsPage() {
   const handleCreateRecommendation = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!recGameId || !recReason.trim()) {
-      showToast("Please select a game and share notes.", "error");
+      showToast(t("friendsPage.selectGameAndNotes"), "error");
       return;
     }
 
@@ -2255,7 +2259,7 @@ export default function FriendsPage() {
     setRecommendations(updated);
     saveRecommendations(updated);
     await pushMyOutbox(profile, selfStats, sessions, updated, selfSharedGames, suggestions);
-    showToast("Game recommended!", "success");
+    showToast(t("friendsPage.gameRecommended"), "success");
 
     setRecGameId("");
     setRecToFriend("All Friends");
@@ -2289,7 +2293,7 @@ export default function FriendsPage() {
     saveRecommendations(updated);
     await pushMyOutbox(profile, selfStats, sessions, updated, selfSharedGames, suggestions);
     setCommentInputs((prev) => ({ ...prev, [recId]: "" }));
-    showToast("Comment posted.", "success");
+    showToast(t("friendsPage.commentPosted"), "success");
   };
 
   // Remove a recommendation entirely (hard delete from local list replaced with tombstone)
@@ -2300,7 +2304,7 @@ export default function FriendsPage() {
     setRecommendations(updated);
     saveRecommendations(updated);
     await pushMyOutbox(profile, selfStats, sessions, updated, selfSharedGames, suggestions);
-    showToast("Recommendation removed.", "info");
+    showToast(t("friendsPage.recommendationRemoved"), "info");
   };
 
   // Toggle a reaction (like/love/play) on a recommendation. Toggling the same
@@ -2331,13 +2335,13 @@ export default function FriendsPage() {
     saveRecommendations(updated);
     await pushMyOutbox(profile, selfStats, sessions, updated, selfSharedGames, suggestions);
     const rec = updated.find((r) => r.id === recId);
-    showToast(rec?.wantToPlay ? "Added to your Want to Play list." : "Removed from Want to Play.", "info");
+    showToast(rec?.wantToPlay ? t("friendsPage.addedToWantToPlay") : t("friendsPage.removedFromWantToPlay"), "info");
   };
 
   // Delete a single comment (only allowed for the author's own comments).
   const handleDeleteComment = async (recId: string, commentId: string, authorName: string) => {
     if (authorName !== profile.name) {
-      showToast("You can only delete your own comments.", "error");
+      showToast(t("friendsPage.cantDeleteOthers"), "error");
       return;
     }
     const updated = recommendations.map((r) => {
@@ -2359,12 +2363,12 @@ export default function FriendsPage() {
   const handleCreateSuggestion = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!suggestionGameId) {
-      showToast("Pick a game from your wishlist to share.", "error");
+      showToast(t("friendsPage.pickWishlistedGame"), "error");
       return;
     }
     const wishItem = wishlist.find((w) => w.slug === suggestionGameId);
     if (!wishItem) {
-      showToast("That game is no longer in your wishlist.", "error");
+      showToast(t("friendsPage.gameNotInWishlist"), "error");
       return;
     }
 
@@ -2385,7 +2389,7 @@ export default function FriendsPage() {
     setSuggestions(updated);
     saveSuggestions(updated);
     await pushMyOutbox(profile, selfStats, sessions, recommendations, selfSharedGames, updated);
-    showToast(`Shared "${wishItem.name}" from your wishlist!`, "success");
+    showToast(t("friendsPage.sharedFromWishlist", { game: wishItem.name }), "success");
 
     setSuggestionGameId("");
     setSuggestionNote("");
@@ -2399,7 +2403,7 @@ export default function FriendsPage() {
     setSuggestions(updated);
     saveSuggestions(updated);
     await pushMyOutbox(profile, selfStats, sessions, recommendations, selfSharedGames, updated);
-    showToast("Suggestion removed.", "info");
+    showToast(t("friendsPage.suggestionRemoved"), "info");
   };
 
   const handleToggleSuggestionReaction = async (sugId: string, kind: SuggestionReactionKind) => {
@@ -2440,7 +2444,7 @@ export default function FriendsPage() {
 
   const handleDeleteSuggestionComment = async (sugId: string, commentId: string, authorName: string) => {
     if (authorName !== profile.name) {
-      showToast("You can only delete your own comments.", "error");
+      showToast(t("friendsPage.cantDeleteOthers"), "error");
       return;
     }
     const updated = suggestions.map((s) => {
@@ -2456,7 +2460,7 @@ export default function FriendsPage() {
   const handleAddSuggestionToWishlist = async (sug: GameSuggestion) => {
     const alreadyThere = wishlist.some((w) => w.slug === sug.gameId);
     if (alreadyThere) {
-      showToast(`"${sug.gameName}" is already in your wishlist.`, "info");
+      showToast(t("friendsPage.alreadyInWishlist", { game: sug.gameName }), "info");
     } else {
       const asSummary: StoreGameSummary = {
         id: 0,
@@ -2474,7 +2478,7 @@ export default function FriendsPage() {
         hypes: 0,
       };
       toggle(asSummary);
-      showToast(`Added "${sug.gameName}" to your wishlist!`, "success");
+      showToast(t("friendsPage.addedToWishlistToast", { game: sug.gameName }), "success");
     }
     const updated = suggestions.map((s) =>
       s.id === sug.id ? { ...s, addedToWishlist: true, updatedAt: Date.now() } : s
@@ -2793,9 +2797,9 @@ export default function FriendsPage() {
   const leaderboardTab = (
     <div className="leaderboard-section">
       <div className="leaderboard-header">
-        <h3 className="leaderboard-title">🏆 Friends Leaderboard</h3>
+        <h3 className="leaderboard-title">🏆 {t("friendsPage.friendsLeaderboard")}</h3>
         <p className="leaderboard-subtitle">
-          Ranked by shared library stats. Only friends who have synced their stats appear.
+          {t("friendsPage.leaderboardSubtitle")}
         </p>
         <div className="compare-filter-chips">
           <button
@@ -2803,30 +2807,30 @@ export default function FriendsPage() {
             className={`compare-filter-chip${leaderboardMetric === "playtime" ? " active" : ""}`}
             onClick={() => setLeaderboardMetric("playtime")}
           >
-            Playtime
+            {t("friendsPage.playtime")}
           </button>
           <button
             type="button"
             className={`compare-filter-chip${leaderboardMetric === "games" ? " active" : ""}`}
             onClick={() => setLeaderboardMetric("games")}
           >
-            Games Owned
+            {t("friendsPage.gamesOwned")}
           </button>
           <button
             type="button"
             className={`compare-filter-chip${leaderboardMetric === "achievements" ? " active" : ""}`}
             onClick={() => setLeaderboardMetric("achievements")}
           >
-            Achievements
+            {t("friendsPage.sortAchievements")}
           </button>
         </div>
       </div>
 
       {leaderboardPlayers.filter((p) => p.value > 0).length === 0 ? (
         <div className="friends-empty-state">
-          <h3 className="friends-empty-title">No Stats Yet</h3>
+          <h3 className="friends-empty-title">{t("friendsPage.noStatsYet")}</h3>
           <p className="friends-empty-desc">
-            Once you and your friends sync library stats, the leaderboard will rank everyone here.
+            {t("friendsPage.noStatsDesc")}
           </p>
         </div>
       ) : (
@@ -2838,7 +2842,7 @@ export default function FriendsPage() {
               <div className="leaderboard-player-info">
                 <div className="leaderboard-player-name">
                   {p.name}
-                  {p.isYou && <span className="leaderboard-you-badge">YOU</span>}
+                  {p.isYou && <span className="leaderboard-you-badge">{t("friendsPage.you")}</span>}
                   {p.currentlyPlaying && <span className="leaderboard-now-playing">{p.currentlyPlaying}</span>}
                 </div>
                 <div className="leaderboard-bar-track">
@@ -2929,7 +2933,7 @@ export default function FriendsPage() {
     <div className="friends-page page">
       {/* Tab bar and Sync controller row */}
       <div className="friends-tab-bar-container">
-        <div className="friends-tab-bar" role="tablist" aria-label="Friends sections">
+        <div className="friends-tab-bar" role="tablist" aria-label={t("friendsPage.sectionsAria")}>
           <button
             type="button"
             role="tab"
@@ -3191,7 +3195,7 @@ export default function FriendsPage() {
                     className="profile-input friends-sort-select"
                     value={friendSort}
                     onChange={(e) => setFriendSort(e.target.value as any)}
-                    aria-label="Sort friends"
+                    aria-label={t("friendsPage.sortFriendsAria")}
                   >
                     <option value="default">{t("friends.sort.pinned")}</option>
                     <option value="name">{t("friends.sort.name")}</option>
@@ -3234,9 +3238,9 @@ export default function FriendsPage() {
                           }${selectMode ? " selectable" : ""}`}
                           onClick={selectMode ? () => toggleSelect(friend.id) : undefined}
                         >
-                          {friend.pinned && <span className="friend-pin-badge" title="Pinned">📌</span>}
+                          {friend.pinned && <span className="friend-pin-badge" title={t("friendsPage.pinned")}>📌</span>}
                           {selectMode && (
-                            <span className={`friend-select-check${selected ? " checked" : ""}`} title="Select">
+                            <span className={`friend-select-check${selected ? " checked" : ""}`} title={t("friendsPage.select")}>
                               {selected ? "✓" : ""}
                             </span>
                           )}
@@ -3249,11 +3253,11 @@ export default function FriendsPage() {
                               )}
                             </div>
                             {friend.blocked ? (
-                              <div className="friend-status-text" title="Blocked — updates ignored">
-                                🚫 Blocked
+                              <div className="friend-status-text" title={t("friendsPage.blockedUpdatesIgnored")}>
+                                🚫 {t("friendsPage.blocked")}
                               </div>
                             ) : friend.currentlyPlaying ? (
-                              <div className="friend-now-playing" title={`Playing ${friend.currentlyPlaying}`}>
+                              <div className="friend-now-playing" title={t("friendsPage.playingGame", { game: friend.currentlyPlaying })}>
                                 <span className="now-playing-dot" />
                                 {friend.currentlyPlaying}
                               </div>
@@ -3266,15 +3270,15 @@ export default function FriendsPage() {
                                 {friend.status}
                               </div>
                             )}
-                            <div className="friend-last-seen" title="Last synced">
-                              Last seen: {formatLastSeen(friend.lastSeen)}
+                            <div className="friend-last-seen" title={t("friendsPage.lastSynced")}>
+                              {t("friendsPage.lastSeenLabel")} {formatLastSeen(friend.lastSeen)}
                             </div>
                             {friend.region && (
-                              <div className="friend-region" title="Region">🌍 {friend.region}</div>
+                              <div className="friend-region" title={t("friendsPage.region")}>🌍 {friend.region}</div>
                             )}
                             {friend.libStats && (
                               <div className="friend-stats">
-                                <span>{friend.libStats.gamesCount} games</span>
+                                <span>{t("friendsPage.gamesCountLabel", { count: friend.libStats.gamesCount })}</span>
                                 <span>•</span>
                                 <span>{formatHours(friend.libStats.playtimeMinutes)}</span>
                                 {friend.libStats.achievementsCount > 0 && (
@@ -3286,7 +3290,7 @@ export default function FriendsPage() {
                               </div>
                             )}
                             {friend.favoriteGame && (
-                              <div className="friend-favorite-game" title={`Fav: ${friend.favoriteGame}`}>
+                              <div className="friend-favorite-game" title={t("friendsPage.favPrefix", { game: friend.favoriteGame })}>
                                 ⭐ {friend.favoriteGame}
                               </div>
                             )}
@@ -3294,13 +3298,13 @@ export default function FriendsPage() {
                               <button
                                 type="button"
                                 className="friend-shared-badge"
-                                title="Games in common — compare libraries"
+                                title={t("friendsPage.gamesInCommon")}
                                 onClick={(e) => {
                                   e.stopPropagation();
                                   handleCompareFromCard(friend);
                                 }}
                               >
-                                🎮 {shared} in common
+                                🎮 {t("friendsPage.inCommon", { count: shared })}
                               </button>
                             )}
                             {friend.bio && (
@@ -3315,7 +3319,7 @@ export default function FriendsPage() {
                               <button
                                 type="button"
                                 className="friend-quick-btn"
-                                title={`Compare libraries with ${displayName(friend)}`}
+                                title={t("friendsPage.compareLibrariesWith", { name: displayName(friend) })}
                                 onClick={() => handleCompareFromCard(friend)}
                               >
                                 {t("friends.compare")}
@@ -3323,7 +3327,7 @@ export default function FriendsPage() {
                               <button
                                 type="button"
                                 className="friend-quick-btn"
-                                title={`Invite ${displayName(friend)} to a session`}
+                                title={t("friendsPage.inviteToSessionTitle", { name: displayName(friend) })}
                                 onClick={() => handleInviteToSession(friend)}
                               >
                                 {t("friends.invite")}
@@ -3331,7 +3335,7 @@ export default function FriendsPage() {
                               <button
                                 type="button"
                                 className="friend-quick-btn"
-                                title={`Message ${displayName(friend)}`}
+                                title={t("friendsPage.messageFriendTitle", { name: displayName(friend) })}
                                 onClick={() => handleMessageFriend(friend)}
                               >
                                 {t("friends.message")}
@@ -3339,7 +3343,7 @@ export default function FriendsPage() {
                               <button
                                 type="button"
                                 className={`friend-icon-btn${friend.pinned ? " active" : ""}`}
-                                title={friend.pinned ? "Unpin" : "Pin to top"}
+                                title={friend.pinned ? t("friends.unpin") : t("friendsPage.pinToTop")}
                                 onClick={() => handleTogglePin(friend.id)}
                               >
                                 📌
@@ -3347,10 +3351,10 @@ export default function FriendsPage() {
                               <button
                                 type="button"
                                 className="friend-icon-btn"
-                                title="Set nickname"
+                                title={t("friendsPage.setNickname")}
                                 onClick={() => {
                                   const current = friend.nickname || friend.name;
-                                  const next = window.prompt("Nickname for this friend (blank to reset):", current);
+                                  const next = window.prompt(t("friendsPage.nicknamePrompt"), current);
                                   if (next !== null) handleSetNickname(friend.id, next);
                                 }}
                               >
@@ -3359,7 +3363,7 @@ export default function FriendsPage() {
                               <button
                                 type="button"
                                 className={`friend-icon-btn${friend.blocked ? " active" : ""}`}
-                                title={friend.blocked ? "Unblock" : "Block (ignore updates)"}
+                                title={friend.blocked ? t("friendsPage.unblock") : t("friendsPage.blockIgnore")}
                                 onClick={() => handleToggleBlock(friend.id, displayName(friend))}
                               >
                                 🚫
@@ -3367,7 +3371,7 @@ export default function FriendsPage() {
                               <button
                                 type="button"
                                 className="friend-delete-btn"
-                                title={`Remove ${displayName(friend)}`}
+                                title={t("friendsPage.removeFriendTitle", { name: displayName(friend) })}
                                 onClick={() => handleDeleteFriend(friend.id, displayName(friend))}
                               >
                                 <TrashIcon />
@@ -3390,10 +3394,10 @@ export default function FriendsPage() {
             <div className="profile-editor-layout">
               {/* Left Column: Form */}
               <div className="profile-edit-section">
-                <h3 className="profile-edit-title">Schedule Game Session</h3>
+                <h3 className="profile-edit-title">{t("friendsPage.scheduleGameSession")}</h3>
                 <form className="profile-form" onSubmit={handleCreateSession}>
                   <div className="friends-input-group">
-                    <label>Select Game</label>
+                    <label>{t("friendsPage.selectGame")}</label>
                     <GamePicker
                       libraryGames={games}
                       friends={friends}
@@ -3404,7 +3408,7 @@ export default function FriendsPage() {
                   </div>
 
                   <div className="friends-input-group">
-                    <label htmlFor="sessionDateTime">Scheduled Time ({viewerTimezone || "local"})</label>
+                    <label htmlFor="sessionDateTime">{t("friendsPage.scheduledTime", { tz: viewerTimezone || t("friendsPage.localTz") })}</label>
                     <input
                       type="datetime-local"
                       id="sessionDateTime"
@@ -3417,7 +3421,7 @@ export default function FriendsPage() {
 
                   <div className="sessions-form-row">
                     <div className="friends-input-group">
-                      <label htmlFor="sessionMaxPlayers">Max Players</label>
+                      <label htmlFor="sessionMaxPlayers">{t("friendsPage.maxPlayers")}</label>
                       <input
                         type="number"
                         id="sessionMaxPlayers"
@@ -3430,7 +3434,7 @@ export default function FriendsPage() {
                       />
                     </div>
                     <div className="friends-input-group">
-                      <label htmlFor="sessionDuration">Duration (min)</label>
+                      <label htmlFor="sessionDuration">{t("friendsPage.durationMin")}</label>
                       <input
                         type="number"
                         id="sessionDuration"

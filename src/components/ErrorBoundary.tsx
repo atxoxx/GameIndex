@@ -1,5 +1,6 @@
 import { Component, type ErrorInfo, type ReactNode } from "react";
 import { Button } from "./ui";
+import { useLanguage } from "../context/LanguageContext";
 
 interface ErrorBoundaryProps {
   children: ReactNode;
@@ -82,7 +83,7 @@ export class ErrorBoundary extends Component<
 
   override render(): ReactNode {
     const { error, componentStack } = this.state;
-    const { children, label = "this page" } = this.props;
+    const { children, label } = this.props;
 
     if (!error) {
       return children;
@@ -93,48 +94,73 @@ export class ErrorBoundary extends Component<
     const failingComponent = extractFirstComponent(componentStack);
 
     return (
-      <div className="page-error" role="alert">
-        <div className="page-error-card">
-          <div className="page-error-icon" aria-hidden="true">
-            <svg
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="1.5"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            >
-              <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" />
-              <line x1="12" y1="9" x2="12" y2="13" />
-              <line x1="12" y1="17" x2="12.01" y2="17" />
-            </svg>
-          </div>
-
-          <h2 className="page-error-title">
-            Something went wrong loading {label}
-          </h2>
-
-          <p className="page-error-message">{error.message}</p>
-
-          {failingComponent && (
-            <p className="page-error-component">
-              <span className="page-error-component-label">Failing component:</span>{" "}
-              <code>{failingComponent}</code>
-            </p>
-          )}
-
-          <div className="page-error-actions">
-            <Button variant="primary" size="md" onClick={this.handleRetry}>
-              Try Again
-            </Button>
-            <Button variant="ghost" size="md" onClick={this.handleReload}>
-              Reload App
-            </Button>
-          </div>
-        </div>
-      </div>
+      <ErrorFallback
+        error={error}
+        label={label}
+        failingComponent={failingComponent}
+        onRetry={this.handleRetry}
+        onReload={this.handleReload}
+      />
     );
   }
+}
+
+function ErrorFallback({
+  error,
+  label,
+  failingComponent,
+  onRetry,
+  onReload,
+}: {
+  error: Error;
+  label?: string;
+  failingComponent: string;
+  onRetry: () => void;
+  onReload: () => void;
+}) {
+  const { t } = useLanguage();
+  return (
+    <div className="page-error" role="alert">
+      <div className="page-error-card">
+        <div className="page-error-icon" aria-hidden="true">
+          <svg
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="1.5"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          >
+            <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" />
+            <line x1="12" y1="9" x2="12" y2="13" />
+            <line x1="12" y1="17" x2="12.01" y2="17" />
+          </svg>
+        </div>
+
+        <h2 className="page-error-title">
+          {t("error.somethingWentWrong", { label: label ?? t("error.thisPage") })}
+        </h2>
+
+        <p className="page-error-message">{error.message}</p>
+
+        {failingComponent && (
+          <p className="page-error-component">
+            <span className="page-error-component-label">{t("error.failingComponent")}</span>{" "}
+            <code>{failingComponent}</code>
+          </p>
+        )}
+
+        <div className="page-error-actions">
+          <Button variant="primary" size="md" onClick={onRetry}>
+            {t("error.tryAgain")}
+          </Button>
+          <Button variant="ghost" size="md" onClick={onReload}>
+            {t("error.reloadApp")}
+          </Button>
+        </div>
+      </div>
+    </div>
+  );
 }
 
 /**

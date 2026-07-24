@@ -28,6 +28,7 @@
 import { useCallback } from "react";
 import type { Game } from "../../types/game";
 import { useGames } from "../../context/GameContext";
+import { useLanguage } from "../../context/LanguageContext";
 import { useFocusable } from "../../hooks/useFocusable";
 import { PLAY_STATUS_DETAILS } from "../../types/game";
 import PlayerCountBadge from "../PlayerCountBadge";
@@ -90,6 +91,7 @@ export default function BigScreenSpotlight({
   onDetails,
 }: BigScreenSpotlightProps) {
   const { runningGameIds } = useGames();
+  const { t } = useLanguage();
   // Steam look-up lives in BigScreenLibrary so the spotlight stays
   // purely presentational and we don't burn a Steam round-trip when
   // no game is focused. The resolved appid is passed down via the
@@ -119,7 +121,7 @@ export default function BigScreenSpotlight({
     return (
       <section
         className="bigscreen-spotlight bigscreen-spotlight--empty"
-        aria-label="Featured game"
+        aria-label={t("bigscreen.spotlight.featured")}
         data-empty="true"
       >
         <div className="bigscreen-spotlight-glow" aria-hidden />
@@ -130,10 +132,9 @@ export default function BigScreenSpotlight({
           className="bigscreen-spotlight-cover bigscreen-spotlight-cover--placeholder"
         />
         <div className="bigscreen-spotlight-meta">
-          <h2 className="bigscreen-spotlight-title">Welcome to your library</h2>
+          <h2 className="bigscreen-spotlight-title">{t("bigscreen.spotlight.welcomeLib")}</h2>
           <p className="bigscreen-spotlight-subtitle">
-            Highlight any game on the right to see its cover, summary,
-            and a quick Play button here.
+            {t("bigscreen.spotlight.welcomeHint")}
           </p>
         </div>
       </section>
@@ -148,7 +149,7 @@ export default function BigScreenSpotlight({
   return (
     <section
       className="bigscreen-spotlight"
-      aria-label={`Featured game: ${game.name}`}
+      aria-label={t("bigscreen.spotlight.featuredGame", { game: game.name })}
     >
       <div className="bigscreen-spotlight-glow" aria-hidden />
 
@@ -189,7 +190,7 @@ export default function BigScreenSpotlight({
 
         {game.developer && (
           <p className="bigscreen-spotlight-developer">
-            by {game.developer}
+            {t("bigscreen.spotlight.byDeveloper", { developer: game.developer })}
           </p>
         )}
 
@@ -205,7 +206,7 @@ export default function BigScreenSpotlight({
             className="bigscreen-spotlight-btn bigscreen-spotlight-btn--play"
             {...playProps}
             disabled={isRunning}
-            aria-label={isRunning ? `Resume ${game.name}` : `Play ${game.name}`}
+            aria-label={isRunning ? t("game.resumeAria", { name: game.name }) : t("game.playAria", { name: game.name })}
           >
             <svg
               viewBox="0 0 24 24"
@@ -216,13 +217,13 @@ export default function BigScreenSpotlight({
             >
               <polygon points="5 3 19 12 5 21 5 3" />
             </svg>
-            <span>{isRunning ? "Running" : "Play"}</span>
+            <span>{isRunning ? t("game.running") : t("game.play")}</span>
           </button>
           <button
             type="button"
             className="bigscreen-spotlight-btn bigscreen-spotlight-btn--details"
             {...detailsProps}
-            aria-label={`Open ${game.name} details`}
+            aria-label={t("bigscreen.spotlight.openDetails", { game: game.name })}
           >
             <svg
               viewBox="0 0 24 24"
@@ -239,22 +240,22 @@ export default function BigScreenSpotlight({
               <line x1="12" y1="16" x2="12" y2="12" />
               <line x1="12" y1="8" x2="12.01" y2="8" />
             </svg>
-            <span>Details</span>
+            <span>{t("common.details")}</span>
           </button>
         </div>
 
         <div className="bigscreen-spotlight-stats">
-          <SpotlightStat label="Play time" value={game.playTime || "—"} />
+          <SpotlightStat label={t("game.playTime")} value={game.playTime || "—"} />
           <SpotlightStat
-            label="Last played"
+            label={t("game.lastPlayed")}
             value={
               game.lastPlayed
                 ? formatLastPlayed(game.lastPlayed)
-                : "Never"
+                : t("common.never")
             }
           />
           <SpotlightStat
-            label="Genres"
+            label={t("edit.label.genres")}
             value={
               game.genres && game.genres.length > 0
                 ? game.genres.slice(0, 2).join(" · ")

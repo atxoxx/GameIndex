@@ -1,5 +1,6 @@
 import { useFriendsPlaying } from "../../hooks/useFriendsPlaying";
 import { IconUsers } from "../game/icons";
+import { useLanguage } from "../../context/LanguageContext";
 
 /**
  * FriendsPlayingStrip
@@ -32,6 +33,7 @@ export default function FriendsPlayingStrip({
   onOpenSession,
   className,
 }: FriendsPlayingStripProps) {
+  const { t } = useLanguage();
   const { playingNow, sessions, avatars, count } = useFriendsPlaying(gameName, gameId);
 
   if (count === 0) return null;
@@ -42,7 +44,7 @@ export default function FriendsPlayingStrip({
   return (
     <div
       className={`friends-playing${className ? ` ${className}` : ""}`}
-      title={`${count} friend${count === 1 ? "" : "s"} playing`}
+      title={t("friends.playingCount", { count, plural: count === 1 ? "" : "s" })}
     >
       <div className="friends-playing__avatars" aria-hidden="true">
         {showAvatars.map((a, i) =>
@@ -74,8 +76,8 @@ export default function FriendsPlayingStrip({
       <span className="friends-playing__label">
         <IconUsers size={12} />
         {playingNow.length > 0
-          ? `${playingNow.length} playing now`
-          : `${count} in this game`}
+          ? t("friends.playingNow", { count: playingNow.length })
+          : t("friends.inThisGame", { count })}
       </span>
 
       {sessions.length > 0 && onOpenSession && (
@@ -84,7 +86,7 @@ export default function FriendsPlayingStrip({
           className="friends-playing__session"
           onClick={() => onOpenSession(sessions[0].id)}
         >
-          Join session
+          {t("friends.joinSession")}
         </button>
       )}
     </div>

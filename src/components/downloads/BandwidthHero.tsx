@@ -19,10 +19,12 @@ import { useMemo } from "react";
 import { useDownloads } from "../../context/DownloadContext";
 import { formatBytesPerSecond, isActiveStatus } from "../../types/download";
 import { useSizeUnit } from "../../hooks/useSizeUnit";
+import { useLanguage } from "../../context/LanguageContext";
 
 export default function BandwidthHero() {
   const { activeDownloads } = useDownloads();
   const { unit } = useSizeUnit();
+  const { t } = useLanguage();
 
   const stats = useMemo(() => {
     let totalDown = 0;
@@ -48,16 +50,16 @@ export default function BandwidthHero() {
   const isLive = stats.downloading > 0;
 
   return (
-    <div className="dl-hero" aria-label="Bandwidth summary">
+    <div className="dl-hero" aria-label={t('bandwidth.summary')}>
       <div className="dl-hero-stat">
-        <div className="dl-hero-label">Active</div>
+        <div className="dl-hero-label">{t('bandwidth.active')}</div>
         <div className="dl-hero-value">{stats.downloading}</div>
         <div className="dl-hero-sub">
           {stats.paused > 0
-            ? `${stats.paused} paused`
+            ? t('bandwidth.pausedCount', { count: stats.paused })
             : stats.downloading === 0
-              ? "No downloads in flight"
-              : "In progress"}
+              ? t('bandwidth.noDownloads')
+              : t('bandwidth.inProgress')}
         </div>
       </div>
 
@@ -69,12 +71,12 @@ export default function BandwidthHero() {
             className={`dl-hero-dot${isLive ? " pulse" : ""}`}
             aria-hidden
           />
-          Download
+          {t('downloadButton.download')}
         </div>
         <div className="dl-hero-value dl-hero-value-down">
           {formatBytesPerSecond(stats.totalDown, unit)}
         </div>
-        <div className="dl-hero-sub">Across all active torrents</div>
+        <div className="dl-hero-sub">{t('bandwidth.acrossTorrents')}</div>
       </div>
 
       <div className="dl-hero-divider" aria-hidden />
@@ -85,15 +87,15 @@ export default function BandwidthHero() {
             className={`dl-hero-dot${isLive ? " pulse" : ""}`}
             aria-hidden
           />
-          Upload
+          {t('bandwidth.upload')}
         </div>
         <div className="dl-hero-value dl-hero-value-up">
           {formatBytesPerSecond(stats.totalUp, unit)}
         </div>
         <div className="dl-hero-sub">
           {stats.totalUp > 0
-            ? "Seeding back to the swarm"
-            : "Nothing uploading"}
+            ? t('bandwidth.seeding')
+            : t('bandwidth.nothingUploading')}
         </div>
       </div>
     </div>

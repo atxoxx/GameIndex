@@ -3,6 +3,7 @@ import { IconImage } from "./icons";
 import { useBigScreen } from "../../context/BigScreenContext";
 import { useFocusable } from "../../hooks/useFocusable";
 import { useRef } from "react";
+import { useLanguage } from "../../context/LanguageContext";
 
 interface ScreenshotsSectionProps {
   game: Game;
@@ -20,16 +21,17 @@ function BigScreenScreenshotItem({
   index: number;
   name: string;
 }) {
+  const { t } = useLanguage();
   const focusProps = useFocusable(() => onOpen(src));
   return (
     <div
       className="screenshot-item"
       {...focusProps}
-      aria-label={`Open screenshot ${index + 1}`}
+      aria-label={t("screenshots.openAria", { n: index + 1 })}
     >
       <img
         src={src}
-        alt={`${name} Screenshot ${index + 1}`}
+        alt={t("screenshots.imgAlt", { name, n: index + 1 })}
         className="screenshot-img"
         loading="lazy"
       />
@@ -41,6 +43,7 @@ export default function ScreenshotsSection({
   game,
   onOpen,
 }: ScreenshotsSectionProps) {
+  const { t } = useLanguage();
   const { isBigScreen } = useBigScreen();
   const carouselRef = useRef<HTMLDivElement | null>(null);
 
@@ -61,7 +64,7 @@ export default function ScreenshotsSection({
         <span className="game-section-title__icon" aria-hidden>
           <IconImage size={16} />
         </span>
-        Screenshots
+        {t("community.tab.screenshots")}
         <span className="game-section-title__count">
           {game.screenshots.length}
         </span>
@@ -70,7 +73,7 @@ export default function ScreenshotsSection({
         <button
           type="button"
           className="carousel-arrow carousel-arrow--prev"
-          aria-label="Scroll screenshots left"
+          aria-label={t("screenshots.scrollLeft")}
           onClick={() => scrollBy(-1)}
         >
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -103,11 +106,11 @@ export default function ScreenshotsSection({
                     onOpen(src);
                   }
                 }}
-                aria-label={`Open screenshot ${index + 1}`}
+                aria-label={t("screenshots.openAria", { n: index + 1 })}
               >
                 <img
                   src={src}
-                  alt={`${game.name} Screenshot ${index + 1}`}
+                  alt={t("screenshots.imgAlt", { name: game.name, n: index + 1 })}
                   className="screenshot-img"
                   loading="lazy"
                 />
@@ -118,7 +121,7 @@ export default function ScreenshotsSection({
         <button
           type="button"
           className="carousel-arrow carousel-arrow--next"
-          aria-label="Scroll screenshots right"
+          aria-label={t("screenshots.scrollRight")}
           onClick={() => scrollBy(1)}
         >
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">

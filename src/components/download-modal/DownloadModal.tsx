@@ -32,6 +32,7 @@ import { useDownloads } from "../../context/DownloadContext";
 import { useSources } from "../../context/SourceContext";
 import { useGames } from "../../context/GameContext";
 import { useToast } from "../../context/ToastContext";
+import { useLanguage } from "../../context/LanguageContext";
 import { Button } from "../ui";
 import { ConfirmModal } from "../ui/ConfirmModal";
 import { type OwnershipResult } from "../../types/download";
@@ -80,6 +81,7 @@ export default function DownloadModal({
   const { searchSources } = useSources();
   const { games } = useGames();
   const { showToast } = useToast();
+  const { t } = useLanguage();
 
   const [step, setStep] = useState<DownloadStep>("checking");
   const [ownership, setOwnership] = useState<OwnershipResult | null>(null);
@@ -215,9 +217,7 @@ export default function DownloadModal({
       );
       setTempTorrentId(null);
       setMetadataTimedOut(true);
-      setError(
-        "Timed out fetching the torrent's file list. The source may be unreachable — try another mirror or download the full torrent.",
-      );
+      setError(t('downloadModal.metadataTimeout'));
       setStep("results");
     }, remaining);
     return () => window.clearTimeout(timeout);
@@ -355,7 +355,7 @@ export default function DownloadModal({
         localStorage.setItem("gamelib-last-download-path", path);
       }
     } catch (err) {
-      showToast(`Couldn't open folder picker: ${err}`, "error");
+      showToast(t('settings.couldNotOpenFolder', { error: String(err) }), "error");
     }
   }, [selectSavePath, showToast]);
 
@@ -367,11 +367,11 @@ export default function DownloadModal({
     startAttemptedRef.current = true;
     setMetadataTimedOut(false);
     if (!selectedMatch) {
-      setError("Pick a source result to download from.");
+      setError(t('downloadModal.pickResult'));
       return;
     }
     if (!savePath) {
-      setError("Choose where to save the downloaded files.");
+      setError(t('downloadModal.chooseSave'));
       return;
     }
     const match = selectedMatch;
@@ -379,7 +379,7 @@ export default function DownloadModal({
     // mirror dropdown; falls back to magnet then first URI.
     const sourceUri = resolveSourceUri(match, selectedMirrorIdx);
     if (!sourceUri) {
-      setError("Selected source has no downloadable link.");
+      setError(t('downloadModal.noLink'));
       return;
     }
     setError(null);
@@ -424,7 +424,7 @@ export default function DownloadModal({
         // direct-link unrestriction here.
         await addDirectDownload(sourceUri, fullSavePath, gameId ?? null, match.sourceName, autoExtract, match.uris);
         showToast(
-          `Downloading direct link "${targetFileName}" from ${match.sourceName}`,
+          t('downloadModal.downloadingDirect', { fileName: targetFileName, source: match.sourceName }),
           "success",
         );
         onClose();
@@ -448,7 +448,7 @@ export default function DownloadModal({
         } catch (addErr) {
           if (cancelledRef.current) return;
           console.error("[DownloadModal] list-only add failed:", addErr);
-          setError(`Couldn't start the download: ${addErr}`);
+          setError(t('downloadModal.couldNotStart', { error: String(addErr) }));
           setStep("results");
           return;
         }
@@ -463,7 +463,7 @@ export default function DownloadModal({
         setStep("starting");
         await addDownload(sourceUri, finalSavePath, gameId ?? null, match.sourceName, autoExtract, false);
         showToast(
-          `Downloading "${match.title}" from ${match.sourceName}`,
+          t('downloadModal.downloadingFrom', { title: match.title, source: match.sourceName }),
           "success",
         );
         onClose();
@@ -603,19 +603,19 @@ export default function DownloadModal({
   const statusChip = useMemo(() => {
     switch (step) {
       case "checking":
-        return { label: "Searching", tone: "muted" as const };
+        return { label: t('downloadModal.stepSearching'), tone: "muted" as const };
       case "results":
-        return { label: "Ready", tone: "success" as const };
+        return { label: t('downloadModal.stepReady'), tone: "success" as const };
       case "starting":
-        return { label: "Starting", tone: "accent" as const };
+        return { label: t('downloadModal.stepStarting'), tone: "accent" as const };
       case "fetching_metadata":
-        return { label: "Preparing", tone: "accent" as const };
+        return { label: t('downloadModal.stepPreparing'), tone: "accent" as const };
       case "file_selection":
-        return { label: "Select files", tone: "accent" as const };
+        return { label: t('downloadModal.stepSelectFiles'), tone: "accent" as const };
       case "error":
-        return { label: "Error", tone: "danger" as const };
+        return { label: t('downloadModal.stepError'), tone: "danger" as const };
     }
-  }, [step]);
+  }, [step, t]);
 
   const showResultsUI = step === "results" || step === "starting";
 
@@ -640,7 +640,7 @@ export default function DownloadModal({
           className="modal dl-modal"
           onMouseDown={(e) => e.stopPropagation()}
           role="dialog"
-          aria-label="Download"
+          aria-label={t('downloadButton.download')}
         >
           <div className="modal-header">
             <div className="modal-header-icon">
@@ -651,7 +651,7 @@ export default function DownloadModal({
               </svg>
             </div>
             <div className="modal-header-text">
-              <h2 className="modal-title">Download</h2>
+              <h2 className="modal-title">{t('downloadButton.download')}</h2>
               <p className="modal-subtitle">{gameName}</p>
             </div>
             <span className={`dl-status-chip dl-status-chip--${statusChip.tone}`}>
@@ -736,7 +736,7 @@ export default function DownloadModal({
                     size="sm"
                     onClick={() => handleStart()}
                   >
-                    Try again
+                    {t('downloadModal.tryAgain')}
                   </Button>
                 )}
               </div>
@@ -754,19 +754,19 @@ export default function DownloadModal({
           <div className="modal-footer">
             <span className="modal-footer-count">
               {step === "results" && matches.length > 0
-                ? `${matches.length} source result${matches.length !== 1 ? "s" : ""}`
+                ? t('downloadModal.sourceResults', { count: matches.length, s: matches.length !== 1 ? "s" : "" })
                 : step === "file_selection"
-                  ? `${
-                      activeDownloads.find((d) => d.id === tempTorrentId)?.files.length ?? 0
-                    } total files`
-                  : " " /* non-breaking space so the row doesn't collapse */}
+                  ? t('downloadModal.totalFiles', {
+                      count: activeDownloads.find((d) => d.id === tempTorrentId)?.files.length ?? 0,
+                    })
+                  : " " /* non-breaking space so the row doesn't collapse */}
             </span>
             <div className="modal-footer-actions">
               <Button
                 variant="ghost"
                 onClick={() => handleCloseAttempt()}
               >
-                Cancel
+                {t('common.cancel')}
               </Button>
               {step === "file_selection" ? (
                 <Button
@@ -778,7 +778,7 @@ export default function DownloadModal({
                     try {
                       setTempTorrentId(null);
                       await startSelectedDownload(activeId, Array.from(selectedFiles), autoExtract);
-                      showToast("Download started with file selection", "success");
+                      showToast(t('downloadModal.startedWithFileSelection'), "success");
                       onClose();
                     } catch (e) {
                       setTempTorrentId(activeId);
@@ -788,7 +788,7 @@ export default function DownloadModal({
                   }}
                   disabled={selectedFiles.size === 0}
                 >
-                  Confirm Download ({selectedFiles.size} selected)
+                  {t('downloadModal.confirmDownload', { count: selectedFiles.size })}
                 </Button>
               ) : (
                 <Button
@@ -819,8 +819,8 @@ export default function DownloadModal({
                     // The "Choose files" prompt only applies to torrents;
                     // direct links can't pre-list files, so they always
                     // start immediately.
-                    if (chooseFiles && !isDirect) return "Fetch Files List";
-                    return "Start Download";
+                    if (chooseFiles && !isDirect) return t('downloadModal.fetchFiles');
+                    return t('downloadModal.startDownload');
                   })()}
                 </Button>
               )}
@@ -831,10 +831,10 @@ export default function DownloadModal({
 
       <ConfirmModal
         open={confirmCancelOpen}
-        title="Cancel this download?"
-        message="A download is still starting. Closing now will cancel it."
-        confirmLabel="Cancel download"
-        cancelLabel="Keep waiting"
+        title={t('downloadModal.cancelTitle')}
+        message={t('downloadModal.cancelBody')}
+        confirmLabel={t('downloadModal.cancelDownload')}
+        cancelLabel={t('downloadModal.keepWaiting')}
         onConfirm={handleConfirmCancel}
         onCancel={() => setConfirmCancelOpen(false)}
       />

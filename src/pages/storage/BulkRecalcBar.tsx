@@ -2,6 +2,7 @@ import { useCallback, useRef, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { useGames } from "../../context/GameContext";
 import { useToast } from "../../context/ToastContext";
+import { useLanguage } from "../../context/LanguageContext";
 import type { Game } from "../../types/game";
 import { Button } from "../../components/ui";
 
@@ -40,6 +41,7 @@ interface DetectResult {
 export function BulkRecalcBar({ unsizedGames, onComplete }: Props) {
   const { updateGame } = useGames();
   const { showToast } = useToast();
+  const { t } = useLanguage();
 
   const [running, setRunning] = useState(false);
   const [done, setDone] = useState(0);
@@ -92,30 +94,34 @@ export function BulkRecalcBar({ unsizedGames, onComplete }: Props) {
 
     const succeeded = target.length - failures.length;
     const wasAborted = abortedRef.current;
-    const stopped = wasAborted ? " (stopped)" : "";
+    const stopped = wasAborted ? t("storageBulk.stoppedSuffix") : "";
 
     if (failures.length === 0 && !wasAborted) {
       showToast(
-        `Recalculated ${succeeded} game${succeeded === 1 ? "" : "s"}${stopped}.`,
+        t("storageBulk.recalculated", {
+          count: succeeded,
+          plural: succeeded === 1 ? "" : "s",
+          stopped,
+        }),
         "success"
       );
     } else if (failures.length === 0) {
-      showToast(`Stopped at ${succeeded} (no failures).`, "info");
+      showToast(t("storageBulk.stoppedAt", { succeeded }), "info");
     } else if (wasAborted) {
       showToast(
-        `Stopped at ${succeeded}. ${failures.length} failed.`,
+        t("storageBulk.stoppedFailed", { succeeded, failed: failures.length }),
         "info"
       );
     } else {
       showToast(
-        `${succeeded} recalculated. ${failures.length} failed -- check toast log.`,
+        t("storageBulk.recalcFailed", { succeeded, failed: failures.length }),
         "error"
       );
     }
 
     setRunning(false);
     onComplete?.();
-  }, [running, target, updateGame, showToast, onComplete]);
+  }, [running, target, updateGame, showToast, onComplete, t]);
 
   const stop = useCallback(() => {
     abortedRef.current = true;
@@ -133,13 +139,13 @@ export function BulkRecalcBar({ unsizedGames, onComplete }: Props) {
     return (
       <div className="storage__bulk-recalc storage__bulk-recalc--running">
         <span className="storage__bulk-progress" aria-live="polite">
-          Recalculating {done}/{total} ({pct}%)
+          {t("storageBulk.progress", { done, total, pct })}
         </span>
         <Button
           variant="ghost"
           onClick={stop}
         >
-          Stop
+          {t("storageBulk.stop")}
         </Button>
       </div>
     );
@@ -151,11 +157,11 @@ export function BulkRecalcBar({ unsizedGames, onComplete }: Props) {
       onClick={run}
       title={
         skipped > 0
-          ? `Recalculate ${target.length} of ${unsizedGames.length} missing (${skipped} skipped -- missing exe path).`
-          : `Recalculate ${target.length} missing game${target.length === 1 ? "" : "s"}.`
+          ? t("storageBulk.titleSkipped", { target: target.length, total: unsizedGames.length, skipped })
+          : t("storageBulk.titleMissing", { count: target.length, plural: target.length === 1 ? "" : "s" })
       }
     >
-      Recalculate {target.length} missing
+      {t("storageBulk.recalcMissing", { count: target.length })}
     </Button>
   );
 }

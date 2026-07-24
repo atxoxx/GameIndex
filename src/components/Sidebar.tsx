@@ -140,7 +140,7 @@ function ActiveFilterChips({
   if (filterState.source !== "all") {
     chips.push({
       key: `source-${filterState.source}`,
-      label: `Source: ${filterState.source}`,
+      label: t("sidebar.sourceChip", { source: filterState.source }),
       remove: onRemoveSource,
     });
   }
@@ -177,17 +177,17 @@ function ActiveFilterChips({
     <div
       className="sidebar-active-filters"
       role="region"
-      aria-label="Active advanced filters"
+      aria-label={t("sidebar.activeAdvancedFilters")}
     >
       {chips.length > 1 && (
         <span className="sidebar-active-filter">
-          Clear all
+          {t("wishlist.clearAll")}
           <button
             type="button"
             onClick={onReset}
             className="sidebar-active-filter__remove"
-            aria-label="Clear all active filters"
-            title="Clear all filters"
+            aria-label={t("sidebar.clearAllFilters")}
+            title={t("sidebar.clearFilters")}
           >
             <svg
               viewBox="0 0 24 24"
@@ -211,7 +211,7 @@ function ActiveFilterChips({
             type="button"
             onClick={c.remove}
             className="sidebar-active-filter__remove"
-            aria-label={`Remove filter: ${c.label}`}
+            aria-label={t("sidebar.removeFilter", { name: c.label })}
           >
             <svg
               viewBox="0 0 24 24"
@@ -441,13 +441,13 @@ export default function Sidebar() {
       const filePath = await open({
         multiple: false,
         directory: false,
-        title: "Select Game Executable",
+        title: t("sidebar.selectGameExe"),
         filters: [{ name: "Executable", extensions: ["exe"] }],
       });
       if (filePath && typeof filePath === "string") {
         const existing = games.find((g) => g.path.toLowerCase().trim() === filePath.toLowerCase().trim());
         if (existing) {
-          showToast(`${gameNameFromPath(filePath)} is already in your library`, "info");
+          showToast(t("sidebar.alreadyInLibrary", { name: gameNameFromPath(filePath) }), "info");
           return;
         }
         setScannedExes([{ path: filePath, size: 0, modifiedAt: Math.round(Date.now() / 1000) }]);
@@ -465,14 +465,14 @@ export default function Sidebar() {
       const folderPath = await open({
         multiple: false,
         directory: true,
-        title: "Select Folder to Scan for Games",
+        title: t("sidebar.selectFolderScan"),
       });
       if (folderPath && typeof folderPath === "string") {
         const exes: ExeInfo[] = await invoke("scan_folder_for_exes", {
           folderPath,
         });
         if (exes.length === 0) {
-          showToast("No executable files found in the selected folder", "info");
+          showToast(t("sidebar.noExesFound"), "info");
           return;
         }
         // Deduplicate against existing games before showing modal
@@ -481,7 +481,7 @@ export default function Sidebar() {
           (exe) => !existingPaths.has(exe.path.toLowerCase())
         );
         if (newExes.length === 0) {
-          showToast("All executables in this folder are already in your library", "info");
+          showToast(t("sidebar.allExesInLibrary"), "info");
           return;
         }
         setScannedExes(newExes);
@@ -518,7 +518,7 @@ export default function Sidebar() {
   function handleRemoveFromContextMenu(game: Game) {
     removeGame(game.id);
     setContextMenu(null);
-    showToast(`Removed ${game.name}`, "info");
+    showToast(t("gamePage.removed", { name: game.name }), "info");
   }
 
   // ──────────────────────────────────────────────────────────────────
@@ -630,10 +630,10 @@ export default function Sidebar() {
     bulkSelectedIds.forEach((id) => removeGame(id));
     setBulkSelectedIds(new Set());
     showToast(
-      `Removed ${count} game${count !== 1 ? "s" : ""} from library`,
+      t("sidebar.removedCount", { count, plural: count !== 1 ? "s" : "" }),
       "info"
     );
-  }, [bulkSelectedIds, removeGame, showToast]);
+  }, [bulkSelectedIds, removeGame, showToast, t]);
 
   const bulkSetPlayStatus = useCallback(
     (status: PlayStatus) => {
@@ -643,11 +643,11 @@ export default function Sidebar() {
       setBulkSelectedIds(new Set());
       const meta = PLAY_STATUS_DETAILS[status];
       showToast(
-        `Marked ${count} game${count !== 1 ? "s" : ""} as ${meta?.label || status}`,
+        t("sidebar.markedCount", { count, plural: count !== 1 ? "s" : "", status: meta?.label || status }),
         "success"
       );
     },
-    [bulkSelectedIds, updateGame, showToast]
+    [bulkSelectedIds, updateGame, showToast, t]
   );
 
   // ── Context menu actions (Feature #18) ───────────────────────────
@@ -660,7 +660,7 @@ export default function Sidebar() {
     setContextMenu(null);
     if (!game.path) {
       showToast(
-        `${game.name} has no local path to reveal`,
+        t("sidebar.noLocalPath", { name: game.name }),
         "info"
       );
       return;
@@ -669,7 +669,7 @@ export default function Sidebar() {
       const parent = game.path.replace(/[\\/][^\\/]+$/, "");
       await openPath(parent);
     } catch (err) {
-      showToast(`Couldn't open folder: ${err}`, "error");
+      showToast(t("sidebar.couldNotOpenFolder", { error: String(err) }), "error");
     }
   }
 
@@ -710,7 +710,7 @@ export default function Sidebar() {
       }
     }
     showToast(
-      copied ? "Copied to clipboard" : "Couldn't copy to clipboard",
+      copied ? t("sidebar.copiedToClipboard") : t("sidebar.copyFailed"),
       copied ? "success" : "error"
     );
   }
@@ -721,7 +721,7 @@ export default function Sidebar() {
     setContextMenu(null);
     const meta = PLAY_STATUS_DETAILS[status];
     showToast(
-      `${game.name} → ${meta?.label || status}`,
+      t("sidebar.statusSet", { name: game.name, status: meta?.label || status }),
       "success"
     );
   }
@@ -744,9 +744,9 @@ export default function Sidebar() {
             type="button"
             className="sidebar-collapse-toggle"
             onClick={toggleIconRail}
-            aria-label={isIconRail ? "Expand sidebar" : "Collapse sidebar"}
+            aria-label={isIconRail ? t("sidebar.expand") : t("sidebar.collapse")}
             aria-pressed={isIconRail}
-            title={isIconRail ? "Expand sidebar" : "Collapse to icon rail"}
+            title={isIconRail ? t("sidebar.expand") : t("sidebar.collapseToRail")}
           >
             {isIconRail ? (
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
@@ -776,7 +776,7 @@ export default function Sidebar() {
             </svg>
             <input
               type="text"
-              placeholder="Search games..."
+              placeholder={t("friends.searchGames")}
               value={filterState.search}
               onChange={(e) => setSearch(e.target.value)}
               onKeyDown={(e) => {
@@ -813,7 +813,7 @@ export default function Sidebar() {
           <button
             ref={filterBtnRef}
             className={`sidebar-filter-btn${advancedFilterCount > 0 ? " active" : ""}`}
-            aria-label="Filter games"
+            aria-label={t("sidebar.filterGames")}
             aria-haspopup="dialog"
             aria-expanded={showFilterPopover}
             onClick={() => setShowFilterPopover((v) => !v)}
@@ -839,7 +839,7 @@ export default function Sidebar() {
             ref={importBtnRef}
             variant="secondary"
             className="sidebar-import-btn"
-            title="Import games"
+            title={t("sidebar.importGamesTitle")}
             onClick={(e) => {
               e.stopPropagation();
               setShowImportMenu((v) => !v);
@@ -859,7 +859,7 @@ export default function Sidebar() {
               </svg>
             }
           >
-            Import Games
+            {t("lib.hero.importGames")}
           </Button>
 
           {showImportMenu &&
@@ -902,10 +902,10 @@ export default function Sidebar() {
                 </svg>
                 <div className="sidebar-import-option-text">
                   <span className="sidebar-import-option-title">
-                    Import Game EXE
+                    {t("sidebar.importGameExe")}
                   </span>
                   <span className="sidebar-import-option-desc">
-                    Add a single game executable
+                    {t("sidebar.importExeDesc")}
                   </span>
                 </div>
               </button>
@@ -927,10 +927,10 @@ export default function Sidebar() {
                 </svg>
                 <div className="sidebar-import-option-text">
                   <span className="sidebar-import-option-title">
-                    Import Folder
+                    {t("sidebar.importFolder")}
                   </span>
                   <span className="sidebar-import-option-desc">
-                    Scan folder for all executables
+                    {t("sidebar.importFolderDesc")}
                   </span>
                 </div>
               </button>
@@ -978,7 +978,7 @@ export default function Sidebar() {
               >
                 <path d="M12 2 9 9 2 9.5l5.5 4.5L5 22l7-4 7 4-2.5-8 5.5-4.5L15 9z" />
               </svg>
-              Pinned
+              {t("friendsPage.pinned")}
             </span>
             <span className="sidebar-list-count">{pinnedGames.length}</span>
           </div>
@@ -1004,7 +1004,7 @@ export default function Sidebar() {
       )}
 
       <div className="sidebar-list-header">
-        <span>Games</span>
+        <span>{t("bigscreen.friends.games")}</span>
         <span className="sidebar-list-count">{filteredNonPinned.length}</span>
       </div>
 
@@ -1021,10 +1021,10 @@ export default function Sidebar() {
               <line x1="8" y1="21" x2="16" y2="21" />
               <line x1="12" y1="17" x2="12" y2="21" />
             </svg>
-            <p>{games.length === 0 ? "No games imported yet" : "No games found"}</p>
+            <p>{games.length === 0 ? t("sidebar.noGamesImported") : t("sidebar.noGamesFound")}</p>
             {games.length === 0 && (
               <button onClick={() => setShowImportMenu(true)}>
-                + Import Games
+                {t("sidebar.importGames")}
               </button>
             )}
           </div>
@@ -1182,6 +1182,7 @@ function ContextMenu({
   onOpenStore,
   onCopyPath,
 }: SidebarContextMenuProps) {
+  const { t } = useLanguage();
   // Width grew from 190 with the new items (Pin, Status submenu,
   // Show in folder, Open store, Copy path). Height grew similarly
   // because of the Status submenu expander. Update the
@@ -1262,7 +1263,7 @@ function ContextMenu({
         <svg viewBox="0 0 24 24" fill="currentColor">
           <polygon points="5 3 19 12 5 21 5 3" />
         </svg>
-        {isRunning ? "Running" : "Play Game"}
+        {isRunning ? t("game.running") : t("game.playGame")}
       </button>
       <button className="context-menu-item" onClick={onViewDetails}>
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -1270,13 +1271,13 @@ function ContextMenu({
           <line x1="12" y1="16" x2="12" y2="12" />
           <line x1="12" y1="8" x2="12.01" y2="8" />
         </svg>
-        View Details
+        {t("game.viewDetails")}
       </button>
       <button className="context-menu-item" onClick={onTogglePin}>
         <svg viewBox="0 0 24 24" fill={isPinned ? "currentColor" : "none"} stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
           <path d="M12 2 9 9 2 9.5l5.5 4.5L5 22l7-4 7 4-2.5-8 5.5-4.5L15 9z" />
         </svg>
-        {isPinned ? "Unpin" : "Pin to Top"}
+        {isPinned ? t("sidebar.unpin") : t("sidebar.pinToTop")}
       </button>
       {/* Set Status — toggles a fly-out submenu that is portaled to
        *  document.body with position: fixed coords derived from
@@ -1307,7 +1308,7 @@ function ContextMenu({
           <path d="M14.5 6.5 21 13" />
           <circle cx="9" cy="7" r="3" />
         </svg>
-        Set Status
+        {t("sidebar.setStatus")}
       </div>
       {statusOpen && submenuPos &&
         createPortal(
@@ -1321,7 +1322,7 @@ function ContextMenu({
               zIndex: 9300,
             }}
             role="menu"
-            aria-label="Play status options"
+            aria-label={t("sidebar.playStatusOptions")}
           >
             {(["backlog", "playing", "completed", "on_hold", "abandoned"] as PlayStatus[]).map(
               (s) => {
@@ -1353,7 +1354,7 @@ function ContextMenu({
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
           <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z" />
         </svg>
-        Show in Folder
+        {t("sidebar.showInFolder")}
       </button>
       <button className="context-menu-item" onClick={onOpenStore}>
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -1361,14 +1362,14 @@ function ContextMenu({
           <circle cx="20" cy="21" r="1" />
           <path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6" />
         </svg>
-        Open in Store
+        {t("sidebar.openInStore")}
       </button>
       <button className="context-menu-item" onClick={onCopyPath}>
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
           <rect width="14" height="14" x="8" y="8" rx="2" ry="2" />
           <path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2" />
         </svg>
-        Copy Path
+        {t("sidebar.copyPath")}
       </button>
       <div className="context-menu-separator" />
       <button className="context-menu-item remove-action" onClick={onRemove}>
@@ -1376,7 +1377,7 @@ function ContextMenu({
           <polyline points="3 6 5 6 21 6" />
           <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
         </svg>
-        Remove from Library
+        {t("sidebar.removeFromLibrary")}
       </button>
     </div>
   );
@@ -1434,6 +1435,7 @@ function SidebarGameItem({
   onPointerLeave: () => void;
 }) {
   const { updateGame, enrichGameMetadata } = useGames();
+  const { t } = useLanguage();
   // The ref is attached to the OUTER `<button className="sidebar-game-item">`,
   // not the inner icon — see the doc comment above for why the larger
   // rectangle wins for IntersectionObserver rootMargin. React 19 infers
@@ -1596,10 +1598,10 @@ function SidebarGameItem({
         className={`sidebar-game-status ${isRunning ? "running" : game.installed ? "installed" : "not-installed"}`}
         aria-label={
           isRunning
-            ? "Running"
+            ? t("game.running")
             : game.installed
-            ? "Installed"
-            : "Not installed"
+            ? t("filter.installed")
+            : t("game.notInstalled")
         }
       />
     </button>
@@ -1642,49 +1644,50 @@ function BulkActionBar({
   onRemove: () => void;
   onCancel: () => void;
 }) {
+  const { t } = useLanguage();
   return (
     <div
       className="sidebar-bulk-action-bar"
       role="region"
-      aria-label={`Bulk actions for ${count} selected games`}
+      aria-label={t("sidebar.bulkActionsFor", { count })}
     >
       <div className="sidebar-bulk-action-bar__count" aria-live="polite">
-        <span>{count} selected</span>
+        <span>{t("storage.selected", { count })}</span>
       </div>
       <div className="sidebar-bulk-action-bar__actions">
         <button
           type="button"
           className="sidebar-bulk-action-bar__btn"
           onClick={allPinned ? onUnpin : onPin}
-          title={allPinned ? "Unpin selected" : "Pin selected"}
+          title={allPinned ? t("sidebar.unpinSelected") : t("sidebar.pinSelected")}
         >
           <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
             <path d="M12 2 9 9 2 9.5l5.5 4.5L5 22l7-4 7 4-2.5-8 5.5-4.5L15 9z" />
           </svg>
-          <span>{allPinned ? "Unpin" : "Pin"}</span>
+          <span>{allPinned ? t("sidebar.unpin") : t("sidebar.pin")}</span>
         </button>
         <PlayStatusMenuButton
           onSelect={(s) => onSetStatus(s)}
-          ariaLabel="Set play status for selection"
+          ariaLabel={t("sidebar.setPlayStatus")}
         />
         <button
           type="button"
           className="sidebar-bulk-action-bar__btn sidebar-bulk-action-bar__btn--danger"
           onClick={onRemove}
-          title="Remove from library"
+          title={t("sidebar.removeFromLibrary")}
         >
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
             <polyline points="3 6 5 6 21 6" />
             <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
           </svg>
-          <span>Remove</span>
+          <span>{t("sidebar.remove")}</span>
         </button>
         <button
           type="button"
           className="sidebar-bulk-action-bar__btn"
           onClick={onCancel}
-          title="Cancel selection (Esc)"
-          aria-label="Cancel selection"
+          title={t("sidebar.cancelSelection")}
+          aria-label={t("sidebar.cancelSelectionShort")}
         >
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
             <line x1="18" y1="6" x2="6" y2="18" />
@@ -1709,6 +1712,7 @@ function PlayStatusMenuButton({
   onSelect: (s: PlayStatus) => void;
   ariaLabel: string;
 }) {
+  const { t } = useLanguage();
   const options: PlayStatus[] = ["backlog", "playing", "completed", "on_hold", "abandoned"];
   return (
     <select
@@ -1724,7 +1728,7 @@ function PlayStatusMenuButton({
       defaultValue=""
     >
       <option value="" disabled>
-        Status…
+        {t("sidebar.statusPlaceholder")}
       </option>
       {options.map((s) => (
         <option key={s} value={s}>

@@ -1,6 +1,7 @@
 import type { NewsArticle } from "../../hooks/useNewsFeeds";
 import { formatArticleDate } from "../../hooks/useNewsFeeds";
 import type { ViewDensity } from "../../types/game";
+import { useLanguage } from "../../context/LanguageContext";
 
 interface NewsArticleCardProps {
   article: NewsArticle;
@@ -11,6 +12,7 @@ interface NewsArticleCardProps {
 }
 
 export default function NewsArticleCard({ article, onClick, density = "cozy", read = false, saved = false }: NewsArticleCardProps) {
+  const { t } = useLanguage();
   const isList = density === "list";
   const showBody = density !== "compact";
 
@@ -20,7 +22,7 @@ export default function NewsArticleCard({ article, onClick, density = "cozy", re
       onClick={() => onClick(article)}
       role="button"
       tabIndex={0}
-      aria-label={`Read article: ${article.title}`}
+      aria-label={t("news.readArticle", { title: article.title })}
       data-density={density}
       onKeyDown={(e) => {
         if (e.key === "Enter" || e.key === " ") {
@@ -54,7 +56,7 @@ export default function NewsArticleCard({ article, onClick, density = "cozy", re
           </svg>
         </div>
         {saved && (
-          <span className="news-card-saved-badge" title="Saved" aria-label="Saved">
+          <span className="news-card-saved-badge" title={t("news.saved")} aria-label={t("news.saved")}>
             <svg viewBox="0 0 24 24" fill="currentColor" width="12" height="12">
               <path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z" />
             </svg>

@@ -117,9 +117,9 @@ export default function StoreFeaturedHero({ onPickGame }: StoreFeaturedHeroProps
   };
 
   return (
-    <section className="store-featured-section" aria-label="Store highlights">
+    <section className="store-featured-section" aria-label={t("store.highlightsAria")}>
       <div className="store-featured-head">
-        <div className="store-featured-tablist" role="tablist" aria-label="Featured categories">
+        <div className="store-featured-tablist" role="tablist" aria-label={t("store.featuredCategoriesAria")}>
           {TABS.map((tabItem) => (
             <button
               key={tabItem.id}
@@ -141,7 +141,7 @@ export default function StoreFeaturedHero({ onPickGame }: StoreFeaturedHeroProps
           type="button"
           className={`store-featured-surprise${surprising ? " is-spinning" : ""}`}
           onClick={handleSurprise}
-          title="Jump to a random game"
+          title={t("store.surpriseTitle")}
           disabled={surprising}
         >
           <svg

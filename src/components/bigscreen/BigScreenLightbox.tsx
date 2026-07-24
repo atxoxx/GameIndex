@@ -10,6 +10,7 @@
 // preview surface without re-implementing the modal pattern.
 
 import { createPortal } from "react-dom";
+import { useLanguage } from "../../context/LanguageContext";
 import { isVideoUrl } from "./bigscreenFormat";
 
 export interface BigScreenLightboxProps {
@@ -24,17 +25,20 @@ export interface BigScreenLightboxProps {
 export default function BigScreenLightbox({
   src,
   onClose,
-  ariaLabel = "Preview",
+  ariaLabel,
 }: BigScreenLightboxProps) {
+  const { t } = useLanguage();
   if (typeof document === "undefined") return null;
   if (!src) return null;
+
+  const dialogLabel = ariaLabel ?? t("bigscreen.lightbox.preview");
 
   return createPortal(
     <div
       className="bigscreen-lightbox-mask"
       role="dialog"
       aria-modal="true"
-      aria-label={ariaLabel}
+      aria-label={dialogLabel}
       onClick={onClose}
     >
       {/* Inner frame swallows click-propagation so a click on the
@@ -48,7 +52,7 @@ export default function BigScreenLightbox({
         ) : (
           <img
             src={src}
-            alt="Fullscreen preview"
+            alt={t("bigscreen.lightbox.fullscreenPreview")}
             style={{
               maxWidth: "100%",
               maxHeight: "85vh",

@@ -25,6 +25,7 @@ import { useEffect, useRef, type ReactNode } from "react";
 import { useGamepad } from "../../hooks/GamepadProvider";
 import BigScreenGameCard from "./BigScreenGameCard";
 import type { Game } from "../../types/game";
+import { useLanguage } from "../../context/LanguageContext";
 
 interface BigScreenRailProps {
   /** Display title for the rail (e.g. "Continue Playing"). */
@@ -55,11 +56,12 @@ export default function BigScreenRail({
   title,
   icon,
   games,
-  emptyLabel = "No games to show yet",
+  emptyLabel,
   onCardClick,
   railId,
 }: BigScreenRailProps) {
   const gamepad = useGamepad();
+  const { t } = useLanguage();
   const scrollRef = useRef<HTMLDivElement | null>(null);
 
   // ── Auto-scroll a focused card into view ─────────────────────
@@ -110,7 +112,7 @@ export default function BigScreenRail({
       <div className="bigscreen-rail-viewport">
         {games.length === 0 ? (
           <div className="bigscreen-rail-empty" role="status">
-            <span>{emptyLabel}</span>
+            <span>{emptyLabel ?? t("bigscreen.rail.empty")}</span>
           </div>
         ) : (
           <>

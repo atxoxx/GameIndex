@@ -126,7 +126,7 @@ export default function StoreGameCard({
       }}
       role="button"
       tabIndex={0}
-      aria-label={`${game.name}${game.rating != null ? `, rated ${Math.round(game.rating)} out of 100` : ""}${inLibrary ? ", in your library" : ""}`}
+      aria-label={`${game.name}${game.rating != null ? `, ${t("store.gameCard.rated", { rating: Math.round(game.rating) })}` : ""}${inLibrary ? `, ${t("storeCard.inLibrary")}` : ""}`}
       data-density={density}
       data-wishlisted={wishlisted ? "true" : "false"}
     >
@@ -180,7 +180,7 @@ export default function StoreGameCard({
         {crackStatus && (
           <span
             className={`store-card-cw-badge${crackStatus.isCracked ? " cw-cracked" : " cw-uncracked"}`}
-            title={crackStatus.isCracked ? "Cracked" : "Uncracked"}
+            title={crackStatus.isCracked ? t("store.gameCard.cracked") : t("store.gameCard.uncracked")}
           >
             <svg
               viewBox="0 0 24 24"
@@ -192,12 +192,12 @@ export default function StoreGameCard({
             >
               <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
             </svg>
-            {crackStatus.isCracked ? "CRACKED" : "UNCRACKED"}
+            {crackStatus.isCracked ? t("crackwatch.cracked") : t("crackwatch.uncracked")}
           </span>
         )}
 
         {inLibrary && (
-          <span className="store-card-inlib" title="In your library">
+          <span className="store-card-inlib" title={t("storeCard.inLibrary")}>
             <svg
               viewBox="0 0 24 24"
               fill="none"
@@ -219,7 +219,7 @@ export default function StoreGameCard({
           <button
             type="button"
             className="store-card-hide"
-            aria-label={`Hide ${game.name}`}
+            aria-label={t("store.gameCard.hideAria", { name: game.name })}
             title={t("store.notInterested")}
             onClick={(e) => {
               e.stopPropagation();
@@ -245,7 +245,7 @@ export default function StoreGameCard({
           <button
             type="button"
             className="store-card-compare"
-            aria-label={`Add ${game.name} to compare`}
+            aria-label={t("store.gameCard.addToCompareAria", { name: game.name })}
             title={t("store.addToCompare")}
             onClick={(e) => {
               e.stopPropagation();
@@ -274,8 +274,8 @@ export default function StoreGameCard({
             className={`store-card-heart${wishlisted ? " active" : ""}`}
             aria-label={
               wishlisted
-                ? `Remove ${game.name} from wishlist`
-                : `Add ${game.name} to wishlist`
+                ? t("store.gameCard.removeWishlistAria", { name: game.name })
+                : t("store.gameCard.addWishlistAria", { name: game.name })
             }
             aria-pressed={wishlisted}
             onClick={(e) => {

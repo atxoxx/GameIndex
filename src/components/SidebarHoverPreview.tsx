@@ -4,6 +4,7 @@ import { useNavigate } from "react-router-dom";
 import { invoke } from "@tauri-apps/api/core";
 import type { Game } from "../types/game";
 import { PLAY_STATUS_DETAILS } from "../types/game";
+import { useLanguage } from "../context/LanguageContext";
 
 /**
  * Relative-time helper. e.g. "just now", "5m ago", "3h ago",
@@ -13,24 +14,24 @@ import { PLAY_STATUS_DETAILS } from "../types/game";
  * Returns "Never" for undefined / non-finite / zero timestamps so
  * the row stays legible without a conditional on every caller.
  */
-function formatRelative(unixMs: number | undefined): string {
-  if (!unixMs || !Number.isFinite(unixMs)) return "Never";
+function formatRelative(unixMs: number | undefined, t: (k: string, v?: Record<string, string | number>) => string): string {
+  if (!unixMs || !Number.isFinite(unixMs)) return t("sidebarHover.never");
   const delta = Math.max(0, Date.now() - unixMs);
   const s = Math.floor(delta / 1000);
-  if (s < 60) return "just now";
+  if (s < 60) return t("sidebarHover.justNow");
   const m = Math.floor(s / 60);
-  if (m < 60) return `${m}m ago`;
+  if (m < 60) return t("sidebarHover.minutesAgo", { count: m });
   const h = Math.floor(m / 60);
-  if (h < 24) return `${h}h ago`;
+  if (h < 24) return t("sidebarHover.hoursAgo", { count: h });
   const d = Math.floor(h / 24);
-  if (d < 60) return `${d}d ago`;
+  if (d < 60) return t("sidebarHover.daysAgo", { count: d });
   try {
     return new Date(unixMs).toLocaleDateString(undefined, {
       month: "short",
       day: "numeric",
     });
   } catch {
-    return `${d}d ago`;
+    return t("sidebarHover.daysAgo", { count: d });
   }
 }
 
@@ -93,6 +94,7 @@ export function SidebarHoverPreview({
   active,
   delay = 350,
 }: SidebarHoverPreviewProps) {
+  const { t } = useLanguage();
   const previewRef = useRef<HTMLDivElement>(null);
   const showTimerRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   const hideTimerRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
@@ -273,7 +275,7 @@ export function SidebarHoverPreview({
         : null;
   const year = parseYear(game.releaseDate);
   const status = PLAY_STATUS_DETAILS[game.playStatus || "backlog"];
-  const lastPlayed = formatRelative(game.lastPlayed);
+  const lastPlayed = formatRelative(game.lastPlayed, t);
   const developer = game.developer || "—";
   const anchorKey = cssEscape(game.id);
 
@@ -332,25 +334,25 @@ export function SidebarHoverPreview({
 
         <div className="sidebar-hover-preview__meta-grid">
           <div className="sidebar-hover-preview__meta">
-            <span className="sidebar-hover-preview__meta-label">Year</span>
+            <span className="sidebar-hover-preview__meta-label">{t("sidebarHover.year")}</span>
             <span className="sidebar-hover-preview__meta-value">
               {year ?? "—"}
             </span>
           </div>
           <div className="sidebar-hover-preview__meta">
-            <span className="sidebar-hover-preview__meta-label">Rating</span>
+            <span className="sidebar-hover-preview__meta-label">{t("sidebarHover.rating")}</span>
             <span className="sidebar-hover-preview__meta-value">
               {rating != null ? `${rating}` : "—"}
             </span>
           </div>
           <div className="sidebar-hover-preview__meta">
-            <span className="sidebar-hover-preview__meta-label">Played</span>
+            <span className="sidebar-hover-preview__meta-label">{t("sidebarHover.played")}</span>
             <span className="sidebar-hover-preview__meta-value">
               {game.playTime || "0h"}
             </span>
           </div>
           <div className="sidebar-hover-preview__meta">
-            <span className="sidebar-hover-preview__meta-label">Last</span>
+            <span className="sidebar-hover-preview__meta-label">{t("sidebarHover.last")}</span>
             <span className="sidebar-hover-preview__meta-value">{lastPlayed}</span>
           </div>
         </div>
@@ -369,7 +371,7 @@ export function SidebarHoverPreview({
               <path d="M5 12h14" />
               <path d="m12 5 7 7-7 7" />
             </svg>
-            Open
+            {t("sidebarHover.open")}
           </button>
           <button
             type="button"
@@ -402,13 +404,13 @@ export function SidebarHoverPreview({
                 }
               }
             }}
-            title={`Copy path: ${game.path || game.name}`}
+            title={t("sidebarHover.copyPathTitle", { path: game.path || game.name })}
           >
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
               <rect width="14" height="14" x="8" y="8" rx="2" ry="2" />
               <path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2" />
             </svg>
-            Copy path
+            {t("sidebarHover.copyPath")}
           </button>
         </div>
       </div>

@@ -1,5 +1,6 @@
 import type { ReactNode } from "react";
 import type { ViewDensity } from "../types/game";
+import { useLanguage } from "../context/LanguageContext";
 
 interface DensityToggleProps {
   density: ViewDensity;
@@ -10,7 +11,7 @@ interface DensityToggleProps {
 
 interface DensityOption {
   value: ViewDensity;
-  ariaLabel: string;
+  ariaLabelKey: string;
   /** Inline SVG icon. */
   icon: ReactNode;
 }
@@ -18,7 +19,7 @@ interface DensityOption {
 const OPTIONS: DensityOption[] = [
   {
     value: "compact",
-    ariaLabel: "Compact card density",
+    ariaLabelKey: "density.compact",
     icon: (
       <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
         <rect x="3" y="3" width="7" height="7" rx="1.2" />
@@ -30,7 +31,7 @@ const OPTIONS: DensityOption[] = [
   },
   {
     value: "cozy",
-    ariaLabel: "Cozy card density (default)",
+    ariaLabelKey: "density.cozy",
     icon: (
       <svg
         viewBox="0 0 24 24"
@@ -48,7 +49,7 @@ const OPTIONS: DensityOption[] = [
   },
   {
     value: "cinematic",
-    ariaLabel: "Cinematic card density (large)",
+    ariaLabelKey: "density.cinematic",
     icon: (
       <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
         <rect x="2" y="4" width="20" height="14" rx="2" />
@@ -57,7 +58,7 @@ const OPTIONS: DensityOption[] = [
   },
   {
     value: "list",
-    ariaLabel: "List view with small preview",
+    ariaLabelKey: "density.list",
     icon: (
       <svg
         viewBox="0 0 24 24"
@@ -89,11 +90,12 @@ export default function DensityToggle({
   onChange,
   className,
 }: DensityToggleProps) {
+  const { t } = useLanguage();
   return (
     <div
       className={`store-density-toggle${className ? " " + className : ""}`}
       role="radiogroup"
-      aria-label="Store card density"
+      aria-label={t("density.groupLabel")}
     >
       {OPTIONS.map((opt) => {
         const active = density === opt.value;
@@ -103,8 +105,8 @@ export default function DensityToggle({
             type="button"
             role="radio"
             aria-checked={active}
-            aria-label={opt.ariaLabel}
-            title={opt.ariaLabel}
+            aria-label={t(opt.ariaLabelKey)}
+            title={t(opt.ariaLabelKey)}
             className={`store-density-btn${active ? " active" : ""}`}
             onClick={() => onChange(opt.value)}
           >

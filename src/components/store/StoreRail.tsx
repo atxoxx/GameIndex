@@ -2,6 +2,7 @@ import { memo, useEffect, useRef, useState } from "react";
 import type { StoreGameSummary, StoreCategory, ViewDensity } from "../../types/game";
 import StoreGameCard from "./StoreGameCard";
 import { useDiscoverSection } from "../../hooks/useDiscoverRails";
+import { useLanguage } from "../../context/LanguageContext";
 
 interface StoreRailProps {
   /** Display heading (e.g. "Trending", "Coming Soon"). */
@@ -39,6 +40,7 @@ function StoreRail({
   badge,
   density = "cozy",
 }: StoreRailProps) {
+  const { t } = useLanguage();
   const { data, error, loading, refresh } = useDiscoverSection(category, limit);
   const trackRef = useRef<HTMLDivElement>(null);
   const rootRef = useRef<HTMLDivElement>(null);
@@ -96,7 +98,7 @@ function StoreRail({
 
   if (isEmpty && error) {
     return (
-      <section className="store-rail store-rail-error" aria-label={`${title} rail (error)`}>
+      <section className="store-rail store-rail-error" aria-label={t("store.rail.railErrorAria", { title })}>
         <header className="store-rail-header">
           <h3 className="store-rail-title">
             {badge && <span className="store-rail-badge">{badge}</span>}
@@ -105,10 +107,10 @@ function StoreRail({
         </header>
         <div className="store-rail-error-box" role="alert">
           <p className="store-rail-error-message">
-            ⚠️ Failed to load: {error.length > 200 ? error.slice(0, 200) + "…" : error}
+            ⚠️ {t("store.rail.failedToLoad", { error: error.length > 200 ? error.slice(0, 200) + "…" : error })}
           </p>
           <button type="button" className="store-rail-retry" onClick={refresh}>
-            Retry
+            {t("hydra.retry")}
           </button>
         </div>
       </section>
@@ -118,7 +120,7 @@ function StoreRail({
   if (isEmpty) return null;
 
   return (
-    <section className="store-rail" aria-label={`${title} rail`} ref={rootRef}>
+    <section className="store-rail" aria-label={t("store.rail.railAria", { title })} ref={rootRef}>
       <header className="store-rail-header">
         <h3 className="store-rail-title">
           {badge && <span className="store-rail-badge">{badge}</span>}
@@ -129,9 +131,9 @@ function StoreRail({
           type="button"
           className="store-rail-see-all"
           onClick={() => onSeeAll(category)}
-          aria-label={`See all ${title}`}
+          aria-label={t("store.rail.seeAllAria", { title })}
         >
-          See all
+          {t("store.rail.seeAll")}
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
             <polyline points="9 18 15 12 9 6" />
           </svg>
@@ -152,7 +154,7 @@ function StoreRail({
             <button
               type="button"
               className="store-rail-arrow store-rail-arrow-prev"
-              aria-label={`Scroll ${title} left`}
+              aria-label={t("store.rail.scrollLeft", { title })}
               onClick={() => scrollBy(-1)}
             >
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
@@ -169,7 +171,7 @@ function StoreRail({
             <button
               type="button"
               className="store-rail-arrow store-rail-arrow-next"
-              aria-label={`Scroll ${title} right`}
+              aria-label={t("store.rail.scrollRight", { title })}
               onClick={() => scrollBy(1)}
             >
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">

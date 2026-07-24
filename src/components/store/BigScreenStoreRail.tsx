@@ -1,5 +1,6 @@
 import { useEffect, useRef, type ReactNode } from "react";
 import { useGamepad } from "../../hooks/GamepadProvider";
+import { useLanguage } from "../../context/LanguageContext";
 import BigScreenStoreGameCard from "./BigScreenStoreGameCard";
 import type { StoreGameSummary } from "../../types/game";
 
@@ -23,10 +24,11 @@ export default function BigScreenStoreRail({
   title,
   icon,
   games,
-  emptyLabel = "No games to show yet",
+  emptyLabel,
   onCardClick,
   railId,
 }: BigScreenStoreRailProps) {
+  const { t } = useLanguage();
   const gamepad = useGamepad();
   const scrollRef = useRef<HTMLDivElement | null>(null);
 
@@ -71,7 +73,7 @@ export default function BigScreenStoreRail({
       <div className="bigscreen-rail-viewport">
         {games.length === 0 ? (
           <div className="bigscreen-rail-empty" role="status">
-            <span>{emptyLabel}</span>
+            <span>{emptyLabel ?? t("bigscreen.store.railEmpty")}</span>
           </div>
         ) : (
           <>

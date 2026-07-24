@@ -1,4 +1,5 @@
 import { useMemo, useState } from "react";
+import { useLanguage } from "../../context/LanguageContext";
 
 /**
  * HeroTrailer
@@ -60,6 +61,7 @@ export default function HeroTrailer({
   autoplay = false,
   className,
 }: HeroTrailerProps) {
+  const { t } = useLanguage();
   const parsed = useMemo(() => parseSource(src), [src]);
   const [activated, setActivated] = useState(false);
 
@@ -93,7 +95,7 @@ export default function HeroTrailer({
           <button
             type="button"
             className="hero-trailer__play"
-            aria-label="Play trailer"
+            aria-label={t("game.playTrailer")}
             onClick={() => setActivated(true)}
           >
             <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
@@ -112,7 +114,7 @@ export default function HeroTrailer({
         <iframe
           className="hero-trailer__video"
           src={youtubeEmbed(parsed.id, true, shouldAutoplay)}
-          title="Game trailer"
+          title={t("game.gameTrailer")}
           frameBorder={0}
           allow="autoplay; encrypted-media; picture-in-picture"
           allowFullScreen
@@ -125,7 +127,7 @@ export default function HeroTrailer({
           <button
             type="button"
             className="hero-trailer__play"
-            aria-label="Play trailer"
+            aria-label={t("game.playTrailer")}
             onClick={() => setActivated(true)}
           >
             <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">

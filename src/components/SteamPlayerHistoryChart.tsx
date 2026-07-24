@@ -1,6 +1,7 @@
 import { useMemo, useState } from "react";
 import LineChart from "./charts/LineChart";
 import { formatCompactPlayerCount } from "./SteamPlayerCount";
+import { useLanguage } from "../context/LanguageContext";
 import {
   useSteamPlayerHistory,
   type PlayerHistoryRange,
@@ -68,6 +69,7 @@ function formatLabel(ts: number, allTime: boolean): string {
 export default function SteamPlayerHistoryChart({
   appId,
 }: SteamPlayerHistoryChartProps) {
+  const { t } = useLanguage();
   const [range, setRange] = useState<PlayerHistoryRange>(90);
   const { data, isLoading, error } = useSteamPlayerHistory(appId, range);
 
@@ -94,12 +96,12 @@ export default function SteamPlayerHistoryChart({
     <section className="steam-history-chart">
       <div className="steam-history-chart-header">
         <span className="steam-stats-popover-section-title">
-          Player Activity
+          {t("steamPlayer.activityTitle")}
         </span>
         <div
           className="player-history-range-toggle"
           role="group"
-          aria-label="Player history range"
+          aria-label={t("steamPlayer.historyRangeAria")}
         >
           {RANGE_OPTIONS.map((opt) => (
             <button
@@ -129,7 +131,7 @@ export default function SteamPlayerHistoryChart({
           </div>
         ) : error ? (
           <div className="steam-stats-popover-section-error">
-            Player history unavailable
+            {t("steamPlayer.historyUnavailable")}
           </div>
         ) : showChart ? (
           <LineChart
@@ -149,7 +151,7 @@ export default function SteamPlayerHistoryChart({
               aria-hidden="true"
             />
             <span className="steam-stats-popover-activity-empty-text">
-              No history yet — check back soon.
+              {t("steamPlayer.noHistoryYet")}
             </span>
           </div>
         )}
@@ -158,15 +160,15 @@ export default function SteamPlayerHistoryChart({
       {hasData && data && (
         <div className="steam-history-chart-stats">
           <HistoryStat
-            label="Current"
+            label={t("steamPlayer.statCurrent")}
             value={formatCompactPlayerCount(data.current)}
           />
           <HistoryStat
-            label="Peak"
+            label={t("steamPlayer.statPeak")}
             value={formatCompactPlayerCount(data.peakInRange)}
           />
           <HistoryStat
-            label="Avg"
+            label={t("steamPlayer.statAvg")}
             value={formatCompactPlayerCount(Math.round(data.averageInRange))}
           />
         </div>

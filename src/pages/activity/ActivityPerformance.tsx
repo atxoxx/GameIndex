@@ -5,6 +5,7 @@ import { useSettings } from "../../context/SettingsContext";
 import { useActivity } from "../../context/ActivityContext";
 import { buildTimelineFromSessions, buildSingleSessionSeries, type PerfTimelineSeries } from "../../utils/perfSamples";
 import { formatTemp, toDisplayTemp, toDisplayTemps, tempMinY, tempMaxY, tempUnitLabel, tempThreshold } from "../../utils/temp";
+import { useLanguage } from "../../context/LanguageContext";
 import * as Icons from "./Icons";
 
 export interface ActivityPerformanceProps {
@@ -68,6 +69,7 @@ export function ActivityPerformance({ sessions, games }: ActivityPerformanceProp
   const [selectedSessionIndex, setSelectedSessionIndex] = useState<string>("all");
   const { tempUnit } = useSettings();
   const { totalRamGb } = useActivity();
+  const { t } = useLanguage();
 
   // 1. Filter sessions that have valid hardware metrics
   const hwSessions = useMemo(() => {
@@ -265,12 +267,12 @@ export function ActivityPerformance({ sessions, games }: ActivityPerformanceProp
       labels,
       estimated: !realSeries,
       cpuGpu: [
-        { data: cpu, color: "var(--color-brand-blue)", label: "CPU Usage" },
-        { data: gpu, color: "var(--color-accent)", label: "GPU Usage" },
+        { data: cpu, color: "var(--color-brand-blue)", label: t("activityPerf.cpuUsage") },
+        { data: gpu, color: "var(--color-accent)", label: t("activityPerf.gpuUsage") },
       ],
       temps: [
-        { data: cpuTemp, color: "var(--color-danger)", label: "CPU Temp" },
-        { data: gpuTemp, color: "var(--color-warning)", label: "GPU Temp" },
+        { data: cpuTemp, color: "var(--color-danger)", label: t("activityPerf.cpuTemp") },
+        { data: gpuTemp, color: "var(--color-warning)", label: t("activityPerf.gpuTemp") },
       ],
       ram: [{
         // Feed percentage values straight through so the Y-axis can lock to
@@ -278,9 +280,9 @@ export function ActivityPerformance({ sessions, games }: ActivityPerformanceProp
         // surface the plain GB value computed from the user's total RAM.
         data: ram,
         color: "var(--color-success)",
-        label: "RAM Usage",
+        label: t("activityPerf.ramUsage"),
       }],
-      fps: [{ data: fps, color: "var(--color-brand-teal)", label: "FPS" }],
+      fps: [{ data: fps, color: "var(--color-brand-teal)", label: t("activityPerf.fps") }],
       // Averaged metrics for summary cards
       raw: avgMetrics,
       sparklines: {
@@ -292,17 +294,17 @@ export function ActivityPerformance({ sessions, games }: ActivityPerformanceProp
         fps: fps.map((y, x) => ({ x, y })),
       },
     };
-  }, [selectedGameFilter, selectedSessionIndex, gameAverages, sessionsForSelectedGame, hwSessions]);
+  }, [selectedGameFilter, selectedSessionIndex, gameAverages, sessionsForSelectedGame, hwSessions, t]);
 
   if (gameAverages.length === 0) {
     return (
       <div className="section-panel">
-        <h3 className="section-panel__title">Performance Insights</h3>
+        <h3 className="section-panel__title">{t("activityPerf.performanceInsights")}</h3>
         <div className="section-panel__empty">
           <Icons.Info size={24} style={{ marginBottom: 8, opacity: 0.5 }} />
-          <div>No performance telemetry metrics available.</div>
+          <div>{t("activityPerf.noTelemetry")}</div>
           <small style={{ color: "var(--color-text-muted)", marginTop: 4, display: "block" }}>
-            Enable hardware monitoring while playing games to compile performance charts.
+            {t("activityPerf.enableMonitoringHint")}
           </small>
         </div>
       </div>
@@ -316,7 +318,7 @@ export function ActivityPerformance({ sessions, games }: ActivityPerformanceProp
         <div className="performance-insights__chart-header">
           <h3 className="section-panel__title">
             <Icons.BarChart3 size={14} style={{ marginRight: 6 }} />
-            Game Comparisons
+            {t("activityPerf.gameComparisons")}
           </h3>
           <div className="performance-insights__tabs">
             {(["fps", "temps", "ram"] as const).map((m) => (
@@ -331,7 +333,7 @@ export function ActivityPerformance({ sessions, games }: ActivityPerformanceProp
                 {m === "fps" && <Icons.BarChart3 size={12} />}
                 {m === "temps" && <Icons.Flame size={12} />}
                 {m === "ram" && <Icons.Cpu size={12} />}
-                {m === "fps" ? "Avg FPS" : m === "temps" ? `Temps (${tempUnitLabel(tempUnit)})` : "RAM (GB)"}
+                {m === "fps" ? t("activityPerf.avgFps") : m === "temps" ? t("activityPerf.tempsUnit", { unit: tempUnitLabel(tempUnit) }) : t("activityPerf.ramGb")}
               </button>
             ))}
           </div>
@@ -363,19 +365,19 @@ export function ActivityPerformance({ sessions, games }: ActivityPerformanceProp
 
       {/* Detailed Board Table */}
       <div className="section-panel performance-insights__table-panel">
-        <h3 className="section-panel__title">Detailed Performance Board</h3>
+        <h3 className="section-panel__title">{t("activityPerf.detailedBoard")}</h3>
         <div className="performance-insights__table-wrapper">
           <table className="performance-insights__table">
             <thead>
               <tr>
-                <th>Game</th>
-                <th>Sessions</th>
-                <th>Avg FPS</th>
-                <th>Avg CPU Temp</th>
-                <th>Avg GPU Temp</th>
-                <th>Avg RAM</th>
-                <th>Avg CPU Load</th>
-                <th>Avg GPU Load</th>
+                <th>{t("activityPerf.columnGame")}</th>
+                <th>{t("activityPerf.columnSessions")}</th>
+                <th>{t("activityPerf.columnAvgFps")}</th>
+                <th>{t("activityPerf.columnAvgCpuTemp")}</th>
+                <th>{t("activityPerf.columnAvgGpuTemp")}</th>
+                <th>{t("activityPerf.columnAvgRam")}</th>
+                <th>{t("activityPerf.columnAvgCpuLoad")}</th>
+                <th>{t("activityPerf.columnAvgGpuLoad")}</th>
               </tr>
             </thead>
             <tbody>
@@ -431,13 +433,13 @@ export function ActivityPerformance({ sessions, games }: ActivityPerformanceProp
               <div className="performance-timeline__header">
                 <h3 className="performance-timeline__title">
                   <Icons.History size={14} />
-                  Session Performance Timeline
+                  {t("activityPerf.sessionTimeline")}
                   {timelineCharts?.estimated && (
                     <span
                       className="performance-timeline__estimated"
-                      title="No per-sample telemetry was captured for the selected sessions; the curve is estimated from recorded averages."
+                      title={t("activityPerf.telemetryCurve")}
                     >
-                      estimated
+                      {t("activityPerf.estimated")}
                     </span>
                   )}
                 </h3>
@@ -445,7 +447,7 @@ export function ActivityPerformance({ sessions, games }: ActivityPerformanceProp
             <div className="performance-timeline__controls">
               {/* Game Filter */}
               <div className="performance-timeline__game-selector">
-                <span className="performance-timeline__game-selector-label">GAME</span>
+                <span className="performance-timeline__game-selector-label">{t("activityPerf.gameLabel")}</span>
                 <select
                   className="performance-timeline__game-select"
                   value={selectedGameFilter}
@@ -454,7 +456,7 @@ export function ActivityPerformance({ sessions, games }: ActivityPerformanceProp
                     setSelectedSessionIndex("all");
                   }}
                 >
-                  <option value="all">All Games</option>
+                  <option value="all">{t("activityPerf.allGames")}</option>
                   {gameSelectorList.map((g) => (
                     <option key={g.id} value={g.id}>
                       {g.title}
@@ -466,13 +468,13 @@ export function ActivityPerformance({ sessions, games }: ActivityPerformanceProp
               {/* Session Selector */}
               {selectedGameFilter !== "all" && sessionsForSelectedGame.length > 1 && (
                 <div className="performance-timeline__session-selector">
-                  <span className="performance-timeline__session-selector-label">SESSION</span>
+                  <span className="performance-timeline__session-selector-label">{t("activityPerf.sessionLabel")}</span>
                   <select
                     className="performance-timeline__session-select"
                     value={selectedSessionIndex}
                     onChange={(e) => setSelectedSessionIndex(e.target.value)}
                   >
-                    <option value="all">All Sessions (Average)</option>
+                    <option value="all">{t("activityPerf.allSessionsAvg")}</option>
                     {sessionsForSelectedGame.map((s, idx) => {
                       const date = new Date(s.date).toLocaleDateString(undefined, {
                         month: "short",
@@ -497,7 +499,7 @@ export function ActivityPerformance({ sessions, games }: ActivityPerformanceProp
             <>
               <div className="performance-stat-cards">
                 <div className="performance-stat-cards__card">
-                  <span className="performance-stat-cards__label">CPU Usage</span>
+                  <span className="performance-stat-cards__label">{t("activityPerf.cpuUsage")}</span>
                   <div className="performance-stat-cards__sparkline">
                     <ActivitySparkline
                       data={timelineCharts.sparklines.cpu}
@@ -510,7 +512,7 @@ export function ActivityPerformance({ sessions, games }: ActivityPerformanceProp
                 </div>
 
                 <div className="performance-stat-cards__card">
-                  <span className="performance-stat-cards__label">GPU Usage</span>
+                  <span className="performance-stat-cards__label">{t("activityPerf.gpuUsage")}</span>
                   <div className="performance-stat-cards__sparkline">
                     <ActivitySparkline
                       data={timelineCharts.sparklines.gpu}
@@ -523,7 +525,7 @@ export function ActivityPerformance({ sessions, games }: ActivityPerformanceProp
                 </div>
 
                 <div className="performance-stat-cards__card">
-                  <span className="performance-stat-cards__label">CPU Temp</span>
+                  <span className="performance-stat-cards__label">{t("activityPerf.cpuTemp")}</span>
                   <div className="performance-stat-cards__sparkline">
                     <ActivitySparkline
                       data={timelineCharts.sparklines.cpuTemp.map((p) => ({ ...p, y: toDisplayTemp(p.y, tempUnit) }))}
@@ -537,7 +539,7 @@ export function ActivityPerformance({ sessions, games }: ActivityPerformanceProp
                 </div>
 
                 <div className="performance-stat-cards__card">
-                  <span className="performance-stat-cards__label">GPU Temp</span>
+                  <span className="performance-stat-cards__label">{t("activityPerf.gpuTemp")}</span>
                   <div className="performance-stat-cards__sparkline">
                     <ActivitySparkline
                       data={timelineCharts.sparklines.gpuTemp.map((p) => ({ ...p, y: toDisplayTemp(p.y, tempUnit) }))}
@@ -551,7 +553,7 @@ export function ActivityPerformance({ sessions, games }: ActivityPerformanceProp
                 </div>
 
                 <div className="performance-stat-cards__card">
-                  <span className="performance-stat-cards__label">RAM Usage</span>
+                  <span className="performance-stat-cards__label">{t("activityPerf.ramUsage")}</span>
                   <div className="performance-stat-cards__sparkline">
                     <ActivitySparkline
                       data={timelineCharts.sparklines.ram}
@@ -564,7 +566,7 @@ export function ActivityPerformance({ sessions, games }: ActivityPerformanceProp
                 </div>
 
                 <div className="performance-stat-cards__card">
-                  <span className="performance-stat-cards__label">Avg FPS</span>
+                  <span className="performance-stat-cards__label">{t("activityPerf.avgFps")}</span>
                   <div className="performance-stat-cards__sparkline">
                     <ActivitySparkline
                       data={timelineCharts.sparklines.fps}
@@ -581,7 +583,7 @@ export function ActivityPerformance({ sessions, games }: ActivityPerformanceProp
               {/* Timeline Multi-line Charts */}
               <div className="performance-timeline__charts">
                 <div className="performance-timeline__chart-card">
-                  <div className="performance-timeline__chart-title">CPU & GPU Usage</div>
+                  <div className="performance-timeline__chart-title">{t("activityPerf.chartCpuGpuUsage")}</div>
                   <LineChart
                     series={timelineCharts.cpuGpu}
                     labels={timelineCharts.labels}
@@ -590,12 +592,12 @@ export function ActivityPerformance({ sessions, games }: ActivityPerformanceProp
                     minY={0}
                     maxY={100}
                     smooth
-                    thresholds={[{ value: 90, label: "High 90%", color: "var(--color-warning)" }]}
+                    thresholds={[{ value: 90, label: t("activityPerf.highPercentile"), color: "var(--color-warning)" }]}
                   />
                 </div>
 
                 <div className="performance-timeline__chart-card">
-                  <div className="performance-timeline__chart-title">Temperatures</div>
+                  <div className="performance-timeline__chart-title">{t("activityPerf.temperatures")}</div>
                   <LineChart
                     series={timelineCharts.temps.map((s) => ({
                       ...s,
@@ -616,14 +618,14 @@ export function ActivityPerformance({ sessions, games }: ActivityPerformanceProp
                       },
                     ]}
                     thresholds={[
-                      { value: tempThreshold(75, tempUnit), label: "Warm 75°", color: "var(--color-warning)" },
-                      { value: tempThreshold(85, tempUnit), label: "Hot 85°", color: "var(--color-danger)" },
+                      { value: tempThreshold(75, tempUnit), label: t("activityPerf.warmThreshold"), color: "var(--color-warning)" },
+                      { value: tempThreshold(85, tempUnit), label: t("activityPerf.hotThreshold"), color: "var(--color-danger)" },
                     ]}
                   />
                 </div>
 
                 <div className="performance-timeline__chart-card">
-                  <div className="performance-timeline__chart-title">RAM Usage</div>
+                  <div className="performance-timeline__chart-title">{t("activityPerf.ramUsage")}</div>
                   <LineChart
                     series={timelineCharts.ram}
                     labels={timelineCharts.labels}
@@ -666,12 +668,12 @@ export function ActivityPerformance({ sessions, games }: ActivityPerformanceProp
                     minY={0}
                     maxY={100}
                     smooth
-                    thresholds={[{ value: 90, label: "High 90%", color: "var(--color-warning)" }]}
+                    thresholds={[{ value: 90, label: t("activityPerf.highPercentile"), color: "var(--color-warning)" }]}
                   />
                 </div>
 
                 <div className="performance-timeline__chart-card">
-                  <div className="performance-timeline__chart-title">FPS</div>
+                  <div className="performance-timeline__chart-title">{t("activityPerf.fps")}</div>
                   <LineChart
                     series={timelineCharts.fps}
                     labels={timelineCharts.labels}
@@ -680,7 +682,7 @@ export function ActivityPerformance({ sessions, games }: ActivityPerformanceProp
                     minY={0}
                     niceMax
                     smooth
-                    thresholds={[{ value: 60, label: "60 FPS", color: "var(--color-success)" }]}
+                    thresholds={[{ value: 60, label: t("activityPerf.threshold60fps"), color: "var(--color-success)" }]}
                   />
                 </div>
               </div>

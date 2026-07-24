@@ -8,6 +8,7 @@ import {
 import { createPortal } from "react-dom";
 import type { HydraGameStats } from "../types/game";
 import { formatCompactPlayerCount } from "./SteamPlayerCount";
+import { useLanguage } from "../context/LanguageContext";
 
 /**
  * HydraStatsPopover
@@ -53,13 +54,14 @@ const FALLBACK_WIDTH_PX = 360;
  *  filled overlay clipped to `score / 5` width. Pure CSS clip — no
  *  per-star SVG math. */
 function StarRow({ score }: { score: number }) {
+  const { t } = useLanguage();
   const pct = Math.max(0, Math.min(100, (score / 5) * 100));
   const stars = "★★★★★";
   return (
     <span
       className="hydra-stats-stars"
       role="img"
-      aria-label={`${score.toFixed(1)} out of 5 stars`}
+      aria-label={t("steamPlayer.outOfStars", { score: score.toFixed(1) })}
     >
       <span className="hydra-stats-stars-base" aria-hidden="true">
         {stars}
@@ -84,6 +86,7 @@ function StarRow({ score }: { score: number }) {
  * without duplicating the markup.
  */
 export function HydraStatsPopoverBody({ stats }: { stats: HydraGameStats }) {
+  const { t } = useLanguage();
   const hasScore = stats.reviewCount > 0 && stats.averageScore > 0;
 
   return (
@@ -99,7 +102,7 @@ export function HydraStatsPopoverBody({ stats }: { stats: HydraGameStats }) {
           {stats.playerCount.toLocaleString()}
         </div>
         <div className="steam-stats-popover-stat-label">
-          playing on Hydra right now
+          {t("steamPlayer.playingOnHydraNow")}
         </div>
       </div>
 
@@ -109,15 +112,15 @@ export function HydraStatsPopoverBody({ stats }: { stats: HydraGameStats }) {
       <section className="steam-stats-popover-section">
         <div className="steam-stats-popover-section-header">
           <span className="steam-stats-popover-section-title">
-            Community downloads
+            {t("steamPlayer.communityDownloads")}
           </span>
           <span className="steam-stats-popover-section-badge hydra-stats-badge">
             {formatCompactPlayerCount(stats.downloadCount)}
           </span>
         </div>
         <div className="steam-stats-popover-reviews-count">
-          <strong>{stats.downloadCount.toLocaleString()}</strong> downloads
-          across community sources
+          <strong>{stats.downloadCount.toLocaleString()}</strong>{" "}
+          {t("steamPlayer.downloadsAcross", { count: stats.downloadCount.toLocaleString() })}
         </div>
       </section>
 
@@ -128,7 +131,7 @@ export function HydraStatsPopoverBody({ stats }: { stats: HydraGameStats }) {
       <section className="steam-stats-popover-section">
         <div className="steam-stats-popover-section-header">
           <span className="steam-stats-popover-section-title">
-            Community score
+            {t("steamPlayer.communityScore")}
           </span>
           {hasScore ? (
             <span className="steam-stats-popover-section-badge hydra-stats-badge">
@@ -142,13 +145,12 @@ export function HydraStatsPopoverBody({ stats }: { stats: HydraGameStats }) {
           <div className="hydra-stats-score-row">
             <StarRow score={stats.averageScore} />
             <span className="steam-stats-popover-reviews-count">
-              {stats.reviewCount.toLocaleString()}{" "}
-              {stats.reviewCount === 1 ? "review" : "reviews"}
+              {t("steamPlayer.reviewCount", { count: stats.reviewCount.toLocaleString() })}
             </span>
           </div>
         ) : (
           <div className="steam-stats-popover-section-error">
-            No Hydra reviews yet
+            {t("steamPlayer.noHydraReviews")}
           </div>
         )}
       </section>
@@ -161,6 +163,7 @@ export default function HydraStatsPopover({
   anchorRef,
   onClose,
 }: HydraStatsPopoverProps) {
+  const { t } = useLanguage();
   const popoverRef = useRef<HTMLDivElement>(null);
   const onCloseRef = useRef(onClose);
   // Keep the latest onClose in a ref so the global keydown / mousedown
@@ -273,7 +276,7 @@ export default function HydraStatsPopover({
       style={{ top: position.top, left: position.left }}
       role="dialog"
       aria-modal="true"
-      aria-label="Hydra community stats"
+      aria-label={t("steamPlayer.hydraStatsTitle")}
     >
       {/* ── Header ──────────────────────────────────────────────── */}
       <header className="steam-stats-popover-header">
@@ -282,18 +285,18 @@ export default function HydraStatsPopover({
         </div>
         <div className="steam-stats-popover-header-body">
           <div className="steam-stats-popover-header-title">
-            Hydra Community
+            {t("steamPlayer.hydraCommunity")}
           </div>
           <div className="steam-stats-popover-header-subtitle">
-            Hydra Launcher
+            {t("steamPlayer.hydraLauncher")}
           </div>
         </div>
         <button
           type="button"
           className="steam-stats-popover-close"
           onClick={onClose}
-          aria-label="Close Hydra stats"
-          title="Close"
+          aria-label={t("steamPlayer.closeHydraAria")}
+          title={t("steamPlayer.close")}
         >
           <svg
             viewBox="0 0 24 24"

@@ -356,7 +356,7 @@ export default function TopNav() {
   return (
     <nav
       className="topnav"
-      aria-label="Main navigation"
+      aria-label={t("bigscreen.nav.mainNav")}
       onDoubleClick={handleTitleBarDoubleClick}
     >
       <div className="topnav-left">
@@ -389,7 +389,7 @@ export default function TopNav() {
                   <span
                     className="topnav-tab-badge"
                     role="status"
-                    aria-label={`${unseenCommunity} new community item${unseenCommunity !== 1 ? "s" : ""}`}
+                    aria-label={t("topnav.newCommunityItems", { count: unseenCommunity, plural: unseenCommunity !== 1 ? "s" : "" })}
                   >
                     {unseenCommunity > 99 ? "99+" : unseenCommunity}
                   </span>
@@ -426,18 +426,18 @@ export default function TopNav() {
             type="button"
             className={`topnav-btn topnav-btn-downloads${downloadsOpen ? " active" : ""}`}
             onClick={() => setDownloadsOpen((o) => !o)}
-            aria-label={`Downloads${activeDownloads > 0 ? ` (${activeDownloads} active)` : ""}`}
+            aria-label={activeDownloads > 0 ? t("topnav.downloadsActive", { count: activeDownloads }) : t("nav.downloads")}
             aria-expanded={downloadsOpen}
             aria-haspopup="dialog"
             aria-controls={popoverId}
-            title="Downloads"
+            title={t("nav.downloads")}
           >
             <DownloadIcon />
             {activeDownloads > 0 && (
               <span
                 className="topnav-btn-badge"
                 role="status"
-                aria-label={`${activeDownloads} active downloads`}
+                aria-label={t("topnav.activeDownloads", { count: activeDownloads })}
               >
                 {activeDownloads}
               </span>
@@ -460,8 +460,8 @@ export default function TopNav() {
             className={({ isActive }) =>
               `topnav-btn topnav-btn-settings${isActive ? " active" : ""}`
             }
-            aria-label="Settings"
-            title="Settings"
+            aria-label={t("nav.settings")}
+            title={t("nav.settings")}
           >
             <SettingsIcon />
           </NavLink>
@@ -469,8 +469,8 @@ export default function TopNav() {
             type="button"
             className={`topnav-btn topnav-btn-bigscreen${isBigScreen ? " active" : ""}`}
             onClick={() => setBigScreen(!isBigScreen)}
-            aria-label={isBigScreen ? "Exit Big Screen Mode" : "Enter Big Screen Mode"}
-            title={isBigScreen ? "Exit Big Screen Mode" : "Enter Big Screen Mode"}
+            aria-label={isBigScreen ? t("topnav.exitBigScreen") : t("topnav.enterBigScreen")}
+            title={isBigScreen ? t("topnav.exitBigScreen") : t("topnav.enterBigScreen")}
           >
             <svg
               viewBox="0 0 24 24"

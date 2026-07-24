@@ -2,15 +2,16 @@ import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import type { LibraryStatus, LibrarySort } from "../hooks/useLibraryFilters";
 import { SORT_LABELS, SORT_OPTIONS } from "../hooks/useLibraryFilters";
+import { useLanguage } from "../context/LanguageContext";
 
 /** Status toggle options. Declared at module scope so the literal
  *  `LibraryStatus` type is preserved on each `value` instead of widening
  *  to `string`. Matches the option set used elsewhere so the UX is
  *  identical between Library, Store, and the sidebar popover. */
-const STATUS_OPTIONS: readonly { value: LibraryStatus; label: string }[] = [
-  { value: "all", label: "All" },
-  { value: "installed", label: "Installed" },
-  { value: "not_installed", label: "Uninstalled" },
+const STATUS_OPTIONS: readonly { value: LibraryStatus; labelKey: string }[] = [
+  { value: "all", labelKey: "sidebarFilter.statusAll" },
+  { value: "installed", labelKey: "sidebarFilter.statusInstalled" },
+  { value: "not_installed", labelKey: "sidebarFilter.statusUninstalled" },
 ];  /** Fallback width, used only if the browser hasn't yet laid out the
  *  popover when the position manager runs (extremely rare, since
  *  `useLayoutEffect` runs after layout). The canonical width is set
@@ -136,6 +137,7 @@ export default function SidebarFilterPopover({
   onReset,
   onClose,
 }: SidebarFilterPopoverProps) {
+  const { t } = useLanguage();
   const popoverRef = useRef<HTMLDivElement>(null);
   const previouslyFocusedRef = useRef<HTMLElement | null>(null);
   // Storing `onClose` in a ref lets the keydown handler (registered
@@ -351,7 +353,7 @@ export default function SidebarFilterPopover({
       style={{ top: position.top, left: position.left }}
       role="dialog"
       aria-modal="true"
-      aria-label="Filter games"
+      aria-label={t("sidebarFilter.ariaLabel")}
     >
       {/* Header ───────────────────────────────────────────────────── */}
       <header className="sidebar-filter-popover-header">
@@ -367,15 +369,15 @@ export default function SidebarFilterPopover({
           >
             <polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3" />
           </svg>
-          <span>Filters</span>
+          <span>{t("sidebarFilter.title")}</span>
         </div>
         <div className="sidebar-filter-popover-header-actions">
           <button
             type="button"
             className="sidebar-filter-popover-icon-btn"
-            aria-label="Reset filters"
+            aria-label={t("sidebarFilter.resetAria")}
             onClick={onReset}
-            title="Reset all filters"
+            title={t("sidebarFilter.resetTitle")}
           >
             <svg
               viewBox="0 0 24 24"
@@ -393,9 +395,9 @@ export default function SidebarFilterPopover({
           <button
             type="button"
             className="sidebar-filter-popover-icon-btn"
-            aria-label="Close filters"
+            aria-label={t("sidebarFilter.closeAria")}
             onClick={onClose}
-            title="Close"
+            title={t("steamPlayer.close")}
           >
             <svg
               viewBox="0 0 24 24"
@@ -417,7 +419,7 @@ export default function SidebarFilterPopover({
       <div className="sidebar-filter-popover-body">
         {/* ── Status: segmented pill control ── */}
         <section className="sidebar-filter-popover-section">
-          <h4 className="sidebar-filter-popover-heading">Status</h4>
+          <h4 className="sidebar-filter-popover-heading">{t("sidebarFilter.status")}</h4>
           <div className="sidebar-filter-popover-segmented">
             {STATUS_OPTIONS.map((opt) => {
               const active = status === opt.value;
@@ -429,7 +431,7 @@ export default function SidebarFilterPopover({
                   aria-pressed={active}
                   onClick={() => onStatusChange(opt.value)}
                 >
-                  {opt.label}
+                  {t(opt.labelKey)}
                 </button>
               );
             })}
@@ -438,7 +440,7 @@ export default function SidebarFilterPopover({
 
         {/* ── Sort: compact dropdown ── */}
         <section className="sidebar-filter-popover-section">
-          <h4 className="sidebar-filter-popover-heading">Sort</h4>
+          <h4 className="sidebar-filter-popover-heading">{t("sidebarFilter.sort")}</h4>
           <select
             className="sidebar-filter-popover-select"
             value={sort}
@@ -454,7 +456,7 @@ export default function SidebarFilterPopover({
         {genreChips.length > 0 && (
           <section className="sidebar-filter-popover-section">
             <h4 className="sidebar-filter-popover-heading">
-              Genres
+              {t("sidebarFilter.genres")}
               {selectedGenres.length > 0 && (
                 <span className="sidebar-filter-popover-heading-count">
                   {selectedGenres.length}
@@ -484,7 +486,7 @@ export default function SidebarFilterPopover({
         {platformChips.length > 0 && (
           <section className="sidebar-filter-popover-section">
             <h4 className="sidebar-filter-popover-heading">
-              Platforms
+              {t("sidebarFilter.platforms")}
               {selectedPlatforms.length > 0 && (
                 <span className="sidebar-filter-popover-heading-count">
                   {selectedPlatforms.length}
@@ -512,13 +514,13 @@ export default function SidebarFilterPopover({
 
         {/* ── Year range: side-by-side compact inputs ── */}
         <section className="sidebar-filter-popover-section">
-          <h4 className="sidebar-filter-popover-heading">Release Year</h4>
+          <h4 className="sidebar-filter-popover-heading">{t("sidebarFilter.releaseYear")}</h4>
           <div className="sidebar-filter-popover-year">
             <input
               type="number"
               inputMode="numeric"
               className="sidebar-filter-popover-year-input"
-              placeholder="From"
+              placeholder={t("sidebarFilter.from")}
               value={yearMin ?? ""}
               min={1970}
               max={2030}
@@ -534,7 +536,7 @@ export default function SidebarFilterPopover({
               type="number"
               inputMode="numeric"
               className="sidebar-filter-popover-year-input"
-              placeholder="To"
+              placeholder={t("sidebarFilter.to")}
               value={yearMax ?? ""}
               min={1970}
               max={2030}
@@ -549,7 +551,7 @@ export default function SidebarFilterPopover({
         {/* ── Rating: slider with live numeric badge ── */}
         <section className="sidebar-filter-popover-section">
           <div className="sidebar-filter-popover-heading-row">
-            <h4 className="sidebar-filter-popover-heading">Minimum Rating</h4>
+            <h4 className="sidebar-filter-popover-heading">{t("sidebarFilter.minRating")}</h4>
             <span
               className={`sidebar-filter-popover-rating-value${ratingMin != null ? " active" : ""}`}
             >
@@ -557,7 +559,7 @@ export default function SidebarFilterPopover({
                *  doesn't visually claim "rating ≥ 0" (which every game
                *  satisfies). The number itself only appears once the
                *  user has dragged the slider above zero. */}
-              {ratingMin ?? "Any"}
+              {ratingMin ?? t("sidebarFilter.any")}
             </span>
           </div>
           <input

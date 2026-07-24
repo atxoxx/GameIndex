@@ -1,6 +1,7 @@
 import { useState, useCallback, useEffect } from "react";
 import type { NewsFeed } from "../../hooks/useNewsFeeds";
 import { DEFAULT_FEEDS, discoverFeedUrl } from "../../hooks/useNewsFeeds";
+import { useLanguage } from "../../context/LanguageContext";
 
 interface NewsFeedSettingsProps {
   allFeeds: NewsFeed[];
@@ -21,6 +22,7 @@ export default function NewsFeedSettings({
   onRemoveFeed,
   onClose,
 }: NewsFeedSettingsProps) {
+  const { t } = useLanguage();
   const [name, setName] = useState("");
   const [url, setUrl] = useState("");
   const [addError, setAddError] = useState<string | null>(null);
@@ -50,7 +52,7 @@ export default function NewsFeedSettings({
     let trimmedUrl = url.trim();
 
     if (!trimmedName || !trimmedUrl) {
-      setAddError("Both name and URL are required.");
+      setAddError(t("news.feedErrorNameUrl"));
       return;
     }
 
@@ -63,7 +65,7 @@ export default function NewsFeedSettings({
     try {
       new URL(trimmedUrl);
     } catch {
-      setAddError("Please enter a valid URL.");
+      setAddError(t("news.feedErrorInvalidUrl"));
       return;
     }
 
@@ -73,7 +75,7 @@ export default function NewsFeedSettings({
       ...customFeeds.map((f) => f.url),
     ];
     if (allUrls.some((u) => u.toLowerCase() === trimmedUrl.toLowerCase())) {
-      setAddError("This feed URL is already added.");
+      setAddError(t("news.feedErrorDuplicate"));
       return;
     }
 
@@ -86,7 +88,7 @@ export default function NewsFeedSettings({
   const handleDiscover = async () => {
     let homepage = url.trim();
     if (!homepage) {
-      setAddError("Paste a website URL to discover its feed.");
+      setAddError(t("news.feedErrorPasteUrl"));
       return;
     }
     if (!/^https?:\/\//i.test(homepage)) homepage = "https://" + homepage;
@@ -104,10 +106,10 @@ export default function NewsFeedSettings({
           }
         }
       } else {
-        setAddError("No RSS/Atom feed found on that page.");
+        setAddError(t("news.feedErrorNoFeed"));
       }
     } catch {
-      setAddError("Could not reach that page.");
+      setAddError(t("news.feedErrorUnreachable"));
     } finally {
       setDiscovering(false);
     }
@@ -128,7 +130,7 @@ export default function NewsFeedSettings({
       }}
       role="dialog"
       aria-modal="true"
-      aria-label="News feed settings"
+      aria-label={t("news.feedSettingsTitle")}
     >
       <div className="modal news-feed-settings-modal">
         {/* Header */}
@@ -140,9 +142,9 @@ export default function NewsFeedSettings({
             </svg>
           </div>
           <div className="modal-header-text">
-            <h2 className="modal-title">News Feed Settings</h2>
+            <h2 className="modal-title">{t("news.feedSettingsTitle")}</h2>
             <p className="modal-subtitle">
-              Manage your RSS feed sources. Default feeds are always available.
+              {t("news.feedSettingsSubtitle")}
             </p>
           </div>
         </div>
@@ -152,9 +154,9 @@ export default function NewsFeedSettings({
           {/* Default feeds */}
           <div className="news-feed-settings-section">
             <h3 className="news-feed-settings-section-title">
-              Default Feeds
+              {t("news.defaultFeeds")}
               <span style={{ fontWeight: 400, textTransform: "none", marginLeft: "auto", fontSize: "var(--font-size-xs)", color: "var(--color-text-muted)" }}>
-                {allFeeds.filter((f) => f.isDefault && enabledFeedUrls.has(f.url)).length}/{DEFAULT_FEEDS.length} enabled
+                {t("news.feedsEnabled", { enabled: allFeeds.filter((f) => f.isDefault && enabledFeedUrls.has(f.url)).length, total: DEFAULT_FEEDS.length })}
               </span>
             </h3>
             {DEFAULT_FEEDS.map((feed) => {
@@ -175,9 +177,9 @@ export default function NewsFeedSettings({
                     className={`news-source-pill${isEnabled ? " active" : ""}`}
                     style={{ fontSize: "10px", padding: "2px 10px" }}
                     onClick={() => onToggleFeed(feed.url)}
-                    title={isEnabled ? `Disable ${feed.name}` : `Enable ${feed.name}`}
+                    title={isEnabled ? t("news.disableFeed", { name: feed.name }) : t("news.enableFeed", { name: feed.name })}
                   >
-                    {isEnabled ? "On" : "Off"}
+                    {isEnabled ? t("news.on") : t("news.off")}
                   </button>
                 </div>
               );
@@ -187,7 +189,7 @@ export default function NewsFeedSettings({
           {/* Custom feeds */}
           <div className="news-feed-settings-section">
             <h3 className="news-feed-settings-section-title">
-              Custom Feeds
+              {t("news.customFeeds")}
               {customFeeds.length > 0 && ` (${customFeeds.length})`}
             </h3>
             {customFeeds.length === 0 ? (
@@ -195,7 +197,7 @@ export default function NewsFeedSettings({
                 className="news-feed-error"
                 style={{ color: "var(--color-text-muted)", marginTop: 0 }}
               >
-                No custom feeds added yet. Add one below.
+                {t("news.noCustomFeeds")}
               </p>
             ) : (
               customFeeds.map((feed) => (
@@ -209,8 +211,8 @@ export default function NewsFeedSettings({
                   <button
                     type="button"
                     className="news-feed-remove-btn"
-                    title={`Remove ${feed.name}`}
-                    aria-label={`Remove ${feed.name}`}
+                    title={t("sourceManager.removeSourceLabel", { source: feed.name })}
+                    aria-label={t("sourceManager.removeSourceLabel", { source: feed.name })}
                     onClick={() => onRemoveFeed(feed.url)}
                   >
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -225,13 +227,13 @@ export default function NewsFeedSettings({
 
           {/* Add feed form */}
           <div className="news-feed-settings-section">
-            <h3 className="news-feed-settings-section-title">Add Custom Feed</h3>
+            <h3 className="news-feed-settings-section-title">{t("news.addCustomFeed")}</h3>
             <div className="news-feed-add-form">
               <div className="news-feed-add-row">
                 <input
                   type="text"
                   className="news-feed-input"
-                  placeholder="Feed name (e.g., My Blog)"
+                  placeholder={t("news.feedNamePlaceholder")}
                   value={name}
                   onChange={(e) => setName(e.target.value)}
                   onKeyDown={handleInputKeyDown}
@@ -240,7 +242,7 @@ export default function NewsFeedSettings({
                 <input
                   type="url"
                   className="news-feed-input"
-                  placeholder="RSS Feed URL (e.g., https://example.com/feed)"
+                  placeholder={t("news.feedUrlPlaceholder")}
                   value={url}
                   onChange={(e) => setUrl(e.target.value)}
                   onKeyDown={handleInputKeyDown}
@@ -258,16 +260,16 @@ export default function NewsFeedSettings({
                     <line x1="12" y1="5" x2="12" y2="19" />
                     <line x1="5" y1="12" x2="19" y2="12" />
                   </svg>
-                  Add Feed
+                  {t("news.addFeed")}
                 </button>
                 <button
                   type="button"
                   className="news-feed-discover-btn"
                   onClick={handleDiscover}
                   disabled={discovering}
-                  title="Find the RSS/Atom feed for a website URL"
+                  title={t("news.discoverTitle")}
                 >
-                  {discovering ? "Discovering…" : "Discover from URL"}
+                  {discovering ? t("news.discovering") : t("news.discoverFromUrl")}
                 </button>
               </div>
             </div>
@@ -277,7 +279,7 @@ export default function NewsFeedSettings({
         {/* Footer */}
         <div className="modal-footer">
           <span className="modal-footer-count">
-            {DEFAULT_FEEDS.length} default + {customFeeds.length} custom
+            {t("news.feedCounts", { default: DEFAULT_FEEDS.length, custom: customFeeds.length })}
           </span>
           <div className="modal-footer-actions">
             <button
@@ -285,7 +287,7 @@ export default function NewsFeedSettings({
               className="edit-btn edit-btn-secondary"
               onClick={onClose}
             >
-              Done
+              {t("editImage.done")}
             </button>
           </div>
         </div>

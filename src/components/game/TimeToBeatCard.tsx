@@ -2,6 +2,7 @@ import { KpiTile } from "../ui";
 import type { Game } from "../../types/game";
 import { IconClock, IconStar } from "./icons";
 import { TimeToBeatRow } from "./shared";
+import { useLanguage } from "../../context/LanguageContext";
 
 /**
  * TimeToBeatCard
@@ -23,7 +24,7 @@ interface TimeToBeatCardProps {
 }
 
 interface TierRow {
-  label: "Main Story" | "Completionist" | "Rushed";
+  label: string;
   seconds: number;
   intent: "default" | "accent" | "info";
   icon: typeof IconClock;
@@ -34,6 +35,7 @@ function formatHours(seconds: number): string {
 }
 
 export default function TimeToBeatCard({ game }: TimeToBeatCardProps) {
+  const { t } = useLanguage();
   const ttb = game.timeToBeat;
   if (!ttb) return null;
   const hasAny =
@@ -45,7 +47,7 @@ export default function TimeToBeatCard({ game }: TimeToBeatCardProps) {
   const tiers: TierRow[] = [];
   if (ttb.normally !== undefined && ttb.normally > 0) {
     tiers.push({
-      label: "Main Story",
+      label: t("gameInfo.mainStory"),
       seconds: ttb.normally,
       intent: "accent",
       icon: IconStar,
@@ -53,7 +55,7 @@ export default function TimeToBeatCard({ game }: TimeToBeatCardProps) {
   }
   if (ttb.completely !== undefined && ttb.completely > 0) {
     tiers.push({
-      label: "Completionist",
+      label: t("gameInfo.completionist"),
       seconds: ttb.completely,
       intent: "info",
       icon: IconStar,
@@ -61,7 +63,7 @@ export default function TimeToBeatCard({ game }: TimeToBeatCardProps) {
   }
   if (ttb.hastily !== undefined && ttb.hastily > 0) {
     tiers.push({
-      label: "Rushed",
+      label: t("gameInfo.rushed"),
       seconds: ttb.hastily,
       intent: "default",
       icon: IconClock,
@@ -74,7 +76,7 @@ export default function TimeToBeatCard({ game }: TimeToBeatCardProps) {
         <span className="game-section-title__icon" aria-hidden>
           <IconClock size={16} />
         </span>
-        Time to Beat
+        {t("game.timeToBeatTitle")}
       </h2>
 
       <div className="ttb-kpi-grid">

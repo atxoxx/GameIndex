@@ -47,16 +47,19 @@ interface DealsFiltersState {
   store: string;
 }
 
+// `label` values are either i18n keys (resolved through `t`) or literal
+// brand names — `translate` falls back to the raw string when the key
+// isn't in the dictionary, so brands pass through untranslated.
 const GP_REGIONS: { code: string; label: string }[] = [
-  { code: "US", label: "United States" },
-  { code: "UK", label: "United Kingdom" },
-  { code: "CA", label: "Canada" },
-  { code: "AU", label: "Australia" },
-  { code: "DE", label: "Germany" },
-  { code: "FR", label: "France" },
-  { code: "JP", label: "Japan" },
-  { code: "BR", label: "Brazil" },
-  { code: "MX", label: "Mexico" },
+  { code: "US", label: "deals.regionUS" },
+  { code: "UK", label: "deals.regionUK" },
+  { code: "CA", label: "deals.regionCA" },
+  { code: "AU", label: "deals.regionAU" },
+  { code: "DE", label: "deals.regionDE" },
+  { code: "FR", label: "deals.regionFR" },
+  { code: "JP", label: "deals.regionJP" },
+  { code: "BR", label: "deals.regionBR" },
+  { code: "MX", label: "deals.regionMX" },
 ];
 
 const GP_CATEGORIES = [
@@ -74,31 +77,42 @@ const GP_CATEGORIES = [
   "Music",
 ];
 
+// Display keys for GP_CATEGORIES. The raw English value stays the
+// filter payload sent to the backend; only the label is translated.
+const GP_CATEGORY_KEYS: Record<string, string> = {
+  "Action & adventure": "deals.catAction",
+  RPG: "deals.catRpg",
+  Shooter: "deals.catShooter",
+  Strategy: "deals.catStrategy",
+  "Sports & racing": "deals.catSports",
+  Platformer: "deals.catPlatformer",
+  "Puzzle & trivia": "deals.catPuzzle",
+  Simulation: "deals.catSimulation",
+  Fighting: "deals.catFighting",
+  "Family & kids": "deals.catFamily",
+  "Card & board": "deals.catCard",
+  Music: "deals.catMusic",
+};
+
 const GP_PLATFORMS = [
-  { value: "all", label: "All platforms" },
-  { value: "xbox", label: "Xbox console" },
+  { value: "all", label: "deals.allPlatforms" },
+  { value: "xbox", label: "deals.xboxConsole" },
   { value: "pc", label: "PC" },
-  { value: "cloud", label: "Cloud gaming" },
+  { value: "cloud", label: "deals.cloudGaming" },
 ];
 
 const DEAL_PLATFORMS = [
-  { value: "all", label: "All platforms" },
+  { value: "all", label: "deals.allPlatforms" },
   { value: "steam", label: "Steam" },
   { value: "epic", label: "Epic Games Store" },
   { value: "gog", label: "GOG" },
   { value: "humble", label: "Humble Store" },
 ];
 
-const DEAL_DISCOUNTS = [
-  { value: 0, label: "Any discount" },
-  { value: 25, label: "25% or more" },
-  { value: 50, label: "50% or more" },
-  { value: 75, label: "75% or more" },
-  { value: 90, label: "90% or more" },
-];
+const DEAL_DISCOUNTS = [{ value: 0 }, { value: 25 }, { value: 50 }, { value: 75 }, { value: 90 }];
 
 const DEAL_STORES = [
-  { value: "all", label: "All stores" },
+  { value: "all", label: "deals.allStores" },
   { value: "steam", label: "Steam" },
   { value: "gog", label: "GOG" },
   { value: "epic", label: "Epic Games Store" },
@@ -216,13 +230,13 @@ export default function DealsPage() {
           ? err.message
           : typeof err === "string"
             ? err
-            : "Failed to load GamePass catalog.";
+            : t("deals.errorGamepass");
       setGpError(message);
       setGpGames([]);
     } finally {
       if (myRequest === gpRequestId.current) setGpLoading(false);
     }
-  }, [gpFilters]);
+  }, [gpFilters, t]);
 
   const loadDeals = useCallback(async () => {
     const myRequest = ++dealsRequestId.current;
@@ -243,13 +257,13 @@ export default function DealsPage() {
           ? err.message
           : typeof err === "string"
             ? err
-            : "Failed to load deals.";
+            : t("deals.errorDeals");
       setDealsError(message);
       setDeals([]);
     } finally {
       if (myRequest === dealsRequestId.current) setDealsLoading(false);
     }
-  }, [dealFilters]);
+  }, [dealFilters, t]);
 
   const loadGiveaways = useCallback(async () => {
     const myRequest = ++giveawaysRequestId.current;
@@ -268,14 +282,14 @@ export default function DealsPage() {
           ? err.message
           : typeof err === "string"
             ? err
-            : "Failed to load giveaways.";
+            : t("deals.errorGiveaways");
       setGiveawaysError(message);
       setGiveaways([]);
     } finally {
       if (myRequest === giveawaysRequestId.current)
         setGiveawaysLoading(false);
     }
-  }, []);
+  }, [t]);
 
   useEffect(() => {
     if (activeSubTab === "gamepass") {
@@ -307,11 +321,11 @@ export default function DealsPage() {
             ? err.message
             : typeof err === "string"
               ? err
-              : "Could not open link in browser";
+              : t("deals.errorOpenLink");
         showToast(message, "error");
       }
     },
-    [showToast],
+    [showToast, t],
   );
 
   const toggleCategory = (category: string) => {
@@ -432,7 +446,7 @@ export default function DealsPage() {
       </div>
 
       {activeSubTab === "gamepass" && (
-        <section className="deals-section" aria-label="Xbox GamePass">
+        <section className="deals-section" aria-label={t("deals.gamepass")}>
           <div className="deals-filters">
             <div className="deals-filter-group">
               <label htmlFor="gp-region">{t("deals.region")}</label>
@@ -446,7 +460,7 @@ export default function DealsPage() {
               >
                 {GP_REGIONS.map((r) => (
                   <option key={r.code} value={r.code}>
-                    {r.label} ({r.code})
+                    {t(r.label)} ({r.code})
                   </option>
                 ))}
               </select>
@@ -467,7 +481,7 @@ export default function DealsPage() {
               >
                 {GP_PLATFORMS.map((p) => (
                   <option key={p.value} value={p.value}>
-                    {p.label}
+                    {t(p.label)}
                   </option>
                 ))}
               </select>
@@ -486,7 +500,7 @@ export default function DealsPage() {
                     onClick={() => toggleCategory(cat)}
                     aria-pressed={gpFilters.categories.includes(cat)}
                   >
-                    {cat}
+                    {t(GP_CATEGORY_KEYS[cat] ?? cat)}
                   </button>
                 ))}
               </div>
@@ -497,7 +511,7 @@ export default function DealsPage() {
               size="sm"
               isLoading={gpLoading}
               onClick={() => setGpReloadNonce((n) => n + 1)}
-              title="Refresh GamePass catalog"
+              title={t("deals.refreshGamepass")}
               leftIcon={
                 <svg
                   viewBox="0 0 24 24"
@@ -616,7 +630,7 @@ export default function DealsPage() {
                     )}
                     {game.publisher && (
                       <div className="deals-gamepass-card-company deals-gamepass-card-company--muted">
-                        Published by {game.publisher}
+                        {t("deals.publishedBy", { publisher: game.publisher })}
                       </div>
                     )}
                     {game.deeplink && (
@@ -666,7 +680,7 @@ export default function DealsPage() {
               >
                 {DEAL_PLATFORMS.map((p) => (
                   <option key={p.value} value={p.value}>
-                    {p.label}
+                    {t(p.label)}
                   </option>
                 ))}
               </select>
@@ -684,7 +698,7 @@ export default function DealsPage() {
               >
                 {DEAL_STORES.map((s) => (
                   <option key={s.value} value={s.value}>
-                    {s.label}
+                    {t(s.label)}
                   </option>
                 ))}
               </select>
@@ -705,7 +719,9 @@ export default function DealsPage() {
               >
                 {DEAL_DISCOUNTS.map((d) => (
                   <option key={d.value} value={d.value}>
-                    {d.label}
+                    {d.value === 0
+                      ? t("deals.anyDiscount")
+                      : t("deals.discountOrMore", { pct: d.value })}
                   </option>
                 ))}
               </select>
@@ -716,7 +732,7 @@ export default function DealsPage() {
               size="sm"
               isLoading={dealsLoading}
               onClick={() => setDealsReloadNonce((n) => n + 1)}
-              title="Refresh deals"
+              title={t("deals.refreshDeals")}
               leftIcon={
                 <svg
                   viewBox="0 0 24 24"
@@ -812,7 +828,7 @@ export default function DealsPage() {
                         void handleOpenUrl(deal.storeUrl);
                       }
                     }}
-                    aria-label={`Open deal for ${deal.gameTitle} on ${deal.storeName}`}
+                    aria-label={t("deals.openDealLabel", { game: deal.gameTitle, store: deal.storeName })}
                   >
                     {deal.thumbnail ? (
                       <div className="deals-deal-card-image-wrap">
@@ -924,12 +940,11 @@ export default function DealsPage() {
       )}
 
       {activeSubTab === "giveaways" && (
-        <section className="deals-section" aria-label="Free Games">
+        <section className="deals-section" aria-label={t("deals.freeGames")}>
           <div className="deals-filters">
             <div className="deals-filters-info">
               <span>
-                Individual free games currently live on IsThereAnyDeal.
-                Click any card to open its claim page in your browser.
+                {t("deals.giveawaysInfo")}
               </span>
             </div>
             <Button
@@ -937,7 +952,7 @@ export default function DealsPage() {
               size="sm"
               isLoading={giveawaysLoading}
               onClick={() => setGiveawaysReloadNonce((n) => n + 1)}
-              title="Refresh giveaways"
+              title={t("deals.refreshGiveaways")}
               leftIcon={
                 <svg
                   viewBox="0 0 24 24"
@@ -1050,7 +1065,7 @@ export default function DealsPage() {
                         </div>
                       )}
                       <span className="deals-giveaway-card-free-badge">
-                        FREE
+                        {t("deals.freeBadge")}
                       </span>
                       {giveaway.isMature && (
                         <span className="deals-giveaway-card-mature-badge">

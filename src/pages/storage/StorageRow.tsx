@@ -3,6 +3,7 @@ import { invoke } from "@tauri-apps/api/core";
 import { open } from "@tauri-apps/plugin-dialog";
 import { useGames } from "../../context/GameContext";
 import { useToast } from "../../context/ToastContext";
+import { useLanguage } from "../../context/LanguageContext";
 import { useSizeUnit } from "../../hooks/useSizeUnit";
 import { formatSize, type Game } from "../../types/game";
 import { Button } from "../../components/ui";
@@ -52,6 +53,7 @@ interface SizeDetectionResult {
 export function StorageRow({ game, stale = false, density = "cozy", onSizeUpdated, onOpenFolder, selectMode = false, selected = false, onToggleSelect, onMove, onUninstall }: Props) {
   const { updateGame } = useGames();
   const { showToast } = useToast();
+  const { t } = useLanguage();
   const { unit } = useSizeUnit();
   const [expanded, setExpanded] = useState(false);
   const [detecting, setDetecting] = useState(false);
@@ -67,7 +69,7 @@ export function StorageRow({ game, stale = false, density = "cozy", onSizeUpdate
         const picked = await open({
           directory: true,
           multiple: false,
-          title: "Select game folder",
+          title: t("edit.selectFolder"),
         });
         if (!picked) return;
         override = picked;
@@ -84,12 +86,12 @@ export function StorageRow({ game, stale = false, density = "cozy", onSizeUpdate
       });
       onSizeUpdated?.();
       showToast(
-        `Detected ${formatSize(result.sizeBytes, unit)} for ${game.name}`,
+        t("storageRow.detectedSize", { size: formatSize(result.sizeBytes, unit), name: game.name }),
         "success"
       );
     } catch (err) {
       console.error("detect_game_size failed", err);
-      showToast(`Could not read folder size: ${err}`, "error");
+      showToast(t("storageRow.readError", { error: String(err) }), "error");
     } finally {
       setDetecting(false);
     }
@@ -101,7 +103,7 @@ export function StorageRow({ game, stale = false, density = "cozy", onSizeUpdate
       sizeRootPath: undefined,
       sizeDetectedAt: undefined,
     });
-    showToast(`Cleared size for ${game.name}`, "info");
+    showToast(t("storageRow.clearedSize", { name: game.name }), "info");
   }
 
   return (
@@ -139,7 +141,7 @@ export function StorageRow({ game, stale = false, density = "cozy", onSizeUpdate
               type="checkbox"
               checked={selected}
               onChange={() => onToggleSelect?.()}
-              aria-label={`Select ${game.name}`}
+              aria-label={t("storageRow.selectGame", { name: game.name })}
             />
           </label>
         )}
@@ -158,11 +160,11 @@ export function StorageRow({ game, stale = false, density = "cozy", onSizeUpdate
         <span className="storage__row-name" title={game.name}>
           {game.name}
           {stale && (
-            <span className="storage__stale-badge">Stale</span>
+            <span className="storage__stale-badge">{t("storage.stale")}</span>
           )}
         </span>
         <span className="storage__row-platform">
-          {game.platform || "Unknown"}
+          {game.platform || t("splash.unknown")}
         </span>
         {isSized ? (
           <span className="storage__row-size">{formatSize(game.sizeBytes, unit)}</span>
@@ -174,23 +176,23 @@ export function StorageRow({ game, stale = false, density = "cozy", onSizeUpdate
               e.stopPropagation();
               detect();
             }}
-            title="Pick a folder and calculate size"
+            title={t("storageRow.pickFolder")}
             style={{ padding: "2px 8px", fontSize: "11px", height: "auto" }}
           >
-            Set size
+            {t("storageRow.setSize")}
           </Button>
         )}
         <span
           className={`storage__row-detected${stale ? " storage__row-detected--stale" : ""}`}
           title={
             stale
-              ? `Last seen ${formatTimestamp(game.sizeDetectedAt, true)}`
+              ? t("storageRow.lastSeenTitle", { time: formatTimestamp(game.sizeDetectedAt, true, t("editExtras.notSet")) })
               : game.sizeDetectedAt ?? ""
           }
         >
           {stale
-            ? `Last seen: ${formatTimestamp(game.sizeDetectedAt)}`
-            : formatTimestamp(game.sizeDetectedAt)}
+            ? t("storageRow.lastSeen", { time: formatTimestamp(game.sizeDetectedAt, false, t("editExtras.notSet")) })
+            : formatTimestamp(game.sizeDetectedAt, false, t("editExtras.notSet"))}
         </span>
         <span
           className={`storage__row-chevron${expanded ? " storage__row-chevron--open" : ""}`}
@@ -205,10 +207,10 @@ export function StorageRow({ game, stale = false, density = "cozy", onSizeUpdate
         <div
           className="storage__row-panel"
           role="region"
-          aria-label={`${game.name} storage details`}
+          aria-label={t("storageRow.detailsAria", { name: game.name })}
         >
           <div className="storage__row-path">
-            <span className="storage__row-path-label">Path</span>
+            <span className="storage__row-path-label">{t("storagePage.path")}</span>
             <span className="storage__row-path-value" title={game.sizeRootPath ?? ""}>
               {game.sizeRootPath ?? game.path ?? "—"}
             </span>
@@ -217,18 +219,18 @@ export function StorageRow({ game, stale = false, density = "cozy", onSizeUpdate
             {isSized && (
               <>
                 <span>
-                  <span className="storage__row-meta-label">Bytes</span>
+                  <span className="storage__row-meta-label">{t("storagePage.bytes")}</span>
                   {game.sizeBytes!.toLocaleString()}
                 </span>
                 <span>
-                  <span className="storage__row-meta-label">Detected</span>
-                  {formatTimestamp(game.sizeDetectedAt, true) || "—"}
+                  <span className="storage__row-meta-label">{t("storagePage.detected")}</span>
+                  {formatTimestamp(game.sizeDetectedAt, true, t("editExtras.notSet")) || "—"}
                 </span>
               </>
             )}
             {!isSized && (
               <span className="storage__row-meta-empty">
-                Unset — pick a folder to measure, or open the game page to set it.
+                {t("storageRow.unsetHint")}
               </span>
             )}
           </div>
@@ -239,11 +241,11 @@ export function StorageRow({ game, stale = false, density = "cozy", onSizeUpdate
               isLoading={detecting}
               title={
                 stale
-                  ? "Pick a new folder to re-link the size measurement"
+                  ? t("storageRow.relinkFolder")
                   : undefined
               }
             >
-              {stale ? "Re-link" : "Auto-detect"}
+              {stale ? t("storageRow.relink") : t("edit.autoDetect")}
             </Button>
             {isSized && (
               <Button
@@ -251,7 +253,7 @@ export function StorageRow({ game, stale = false, density = "cozy", onSizeUpdate
                 onClick={clearSize}
                 disabled={detecting}
               >
-                Clear
+                {t("common.clear")}
               </Button>
             )}
             {isSized && (
@@ -259,9 +261,9 @@ export function StorageRow({ game, stale = false, density = "cozy", onSizeUpdate
                 variant="ghost"
                 onClick={() => onOpenFolder?.()}
                 disabled={detecting}
-                title="Open this game's folder in your file manager"
+                title={t("storageRow.openFolder")}
               >
-                Open folder
+                {t("downloadRow.openFolder")}
               </Button>
             )}
             {onMove && game.sizeRootPath && (
@@ -269,9 +271,9 @@ export function StorageRow({ game, stale = false, density = "cozy", onSizeUpdate
                 variant="ghost"
                 onClick={() => onMove()}
                 disabled={detecting}
-                title="Move this install to another drive"
+                title={t("storagePage.moveInstall")}
               >
-                Move
+                {t("storageRow.move")}
               </Button>
             )}
             {onUninstall && (game.sizeRootPath || game.path) && (
@@ -279,9 +281,9 @@ export function StorageRow({ game, stale = false, density = "cozy", onSizeUpdate
                 variant="danger"
                 onClick={() => onUninstall()}
                 disabled={detecting}
-                title="Uninstall and delete this game's folder"
+                title={t("storagePage.uninstallGame")}
               >
-                Uninstall
+                {t("storage.uninstall")}
               </Button>
             )}
             <span className="storage__row-spacer" />
@@ -297,11 +299,12 @@ export function StorageRow({ game, stale = false, density = "cozy", onSizeUpdate
  *  date+time string used inside the expanded panel. */
 function formatTimestamp(
   iso: string | undefined | null,
-  verbose = false
+  verbose = false,
+  notSetLabel = "Not set"
 ): string {
-  if (!iso) return "Not set";
+  if (!iso) return notSetLabel;
   const t = Date.parse(iso);
-  if (!Number.isFinite(t)) return "Not set";
+  if (!Number.isFinite(t)) return notSetLabel;
   const date = new Date(t);
   if (verbose) {
     return date.toLocaleString(undefined, {

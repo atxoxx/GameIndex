@@ -5,6 +5,7 @@ import LineChart from "../../components/charts/LineChart";
 import DonutChart from "../../components/charts/DonutChart";
 import { GameThumbnail } from "./GameThumbnail";
 import { useSteamAppId } from "../../hooks/useSteamAppId";
+import { useLanguage } from "../../context/LanguageContext";
 import * as Icons from "./Icons";
 
 export interface ActivityDashboardProps {
@@ -28,6 +29,7 @@ export function ActivityDashboard({
   chartType,
   sourceFilter,
 }: ActivityDashboardProps) {
+  const { t } = useLanguage();
   const [selectedGameId, setSelectedGameId] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
 
@@ -322,7 +324,7 @@ export function ActivityDashboard({
             <Icons.Clock size={14} />
           </span>
           <div className="activity-stats-bar__pill-content">
-            <span className="activity-stats-bar__pill-label">Total Playtime</span>
+            <span className="activity-stats-bar__pill-label">{t("activityDash.totalPlaytime")}</span>
             <span className="activity-stats-bar__pill-value">{stats.playtimeStr}</span>
           </div>
         </div>
@@ -332,7 +334,7 @@ export function ActivityDashboard({
             <Icons.Gamepad2 size={14} />
           </span>
           <div className="activity-stats-bar__pill-content">
-            <span className="activity-stats-bar__pill-label">Games Played</span>
+            <span className="activity-stats-bar__pill-label">{t("activityDash.gamesPlayed")}</span>
             <span className="activity-stats-bar__pill-value">{stats.gamesPlayed}</span>
           </div>
         </div>
@@ -342,7 +344,7 @@ export function ActivityDashboard({
             <Icons.TrendingUp size={14} />
           </span>
           <div className="activity-stats-bar__pill-content">
-            <span className="activity-stats-bar__pill-label">Average Per Day</span>
+            <span className="activity-stats-bar__pill-label">{t("activityDash.averagePerDay")}</span>
             <span className="activity-stats-bar__pill-value">{stats.avgPerDayStr}</span>
           </div>
         </div>
@@ -352,7 +354,7 @@ export function ActivityDashboard({
             <Icons.Calendar size={14} />
           </span>
           <div className="activity-stats-bar__pill-content">
-            <span className="activity-stats-bar__pill-label">Sessions</span>
+            <span className="activity-stats-bar__pill-label">{t("activityDash.sessions")}</span>
             <span className="activity-stats-bar__pill-value">{stats.sessionsCount}</span>
           </div>
         </div>
@@ -362,7 +364,7 @@ export function ActivityDashboard({
             <Icons.Zap size={14} />
           </span>
           <div className="activity-stats-bar__pill-content">
-            <span className="activity-stats-bar__pill-label">Longest Streak</span>
+            <span className="activity-stats-bar__pill-label">{t("activityDash.longestStreak")}</span>
             <span className="activity-stats-bar__pill-value">{stats.longestStreak}</span>
           </div>
         </div>
@@ -375,13 +377,13 @@ export function ActivityDashboard({
           <div className="activity-game-sidebar__header">
             <h3 className="activity-game-sidebar__title">
               <Icons.LayoutDashboard size={14} />
-              Games
+              {t("activityDash.games")}
             </h3>
             <span className="activity-game-sidebar__count">{sidebarGamesList.length}</span>
           </div>
 
           <div className="activity-game-sidebar__summary">
-            <span className="activity-game-sidebar__summary-label">Total Playtime</span>
+            <span className="activity-game-sidebar__summary-label">{t("activityDash.totalPlaytime")}</span>
             <span className="activity-game-sidebar__summary-value">{formatPlayTime(totalPlaytimeMinutes)}</span>
           </div>
 
@@ -390,7 +392,7 @@ export function ActivityDashboard({
             <input
               type="text"
               className="activity-game-sidebar__search-input"
-              placeholder="Search games..."
+              placeholder={t("activityDash.searchGames")}
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
             />
@@ -409,7 +411,7 @@ export function ActivityDashboard({
               </span>
               <div className="activity-game-sidebar__info">
                 <span className="activity-game-sidebar__name" style={{ color: "var(--color-text-primary)" }}>
-                  All Games
+                  {t("activityPerf.allGames")}
                 </span>
               </div>
               <span className="activity-game-sidebar__time">{sidebarGamesList.length}</span>
@@ -434,7 +436,7 @@ export function ActivityDashboard({
             })}
 
             {filteredSidebarGames.length === 0 && (
-              <div className="activity-game-sidebar__empty">No games found</div>
+              <div className="activity-game-sidebar__empty">{t("activityDash.noGames")}</div>
             )}
           </div>
         </aside>
@@ -446,7 +448,7 @@ export function ActivityDashboard({
             <div className="activity-main-chart__header">
               <div className="activity-main-chart__header-left">
                 <h3 className="activity-main-chart__title">
-                  {selectedGame ? selectedGame.name : "Overview"}
+                  {selectedGame ? selectedGame.name : t("game.tab.overview")}
                 </h3>
               </div>
               <span className="activity-main-chart__subtitle">{stats.playtimeStr}</span>
@@ -454,7 +456,7 @@ export function ActivityDashboard({
 
             <div className="activity-main-chart__body">
               {chartData.length === 0 ? (
-                <div className="activity-main-chart__empty">No activity recorded for this period</div>
+                <div className="activity-main-chart__empty">{t("activityDash.noActivity")}</div>
               ) : chartType === "bar" ? (
                 <BarChart
                   data={chartData}
@@ -465,7 +467,7 @@ export function ActivityDashboard({
                 />
               ) : (
                 <LineChart
-                  series={[{ data: chartData, color: "var(--color-brand-teal)", label: "Playtime (Hours)" }]}
+                  series={[{ data: chartData, color: "var(--color-brand-teal)", label: t("activityDash.playtimeHours") }]}
                   labels={chartLabels}
                   formatValue={(v) => `${v}h`}
                   height={220}
@@ -480,9 +482,9 @@ export function ActivityDashboard({
             <>
               <div className="activity__two-column">
                 <div className="section-panel">
-                  <h3 className="section-panel__title">Platform Breakdown</h3>
+                  <h3 className="section-panel__title">{t("activityDash.platformBreakdown")}</h3>
                   {platformBreakdownSlices.length === 0 ? (
-                    <div className="section-panel__empty">No platform data available</div>
+                    <div className="section-panel__empty">{t("activityDash.noPlatformData")}</div>
                   ) : (
                     <div className="platform-breakdown__content">
                       <DonutChart slices={platformBreakdownSlices} size={150} formatValue={(v) => `${Math.round(v * 10) / 10}h`} />
@@ -491,9 +493,9 @@ export function ActivityDashboard({
                 </div>
 
                 <div className="section-panel">
-                  <h3 className="section-panel__title">Playtime by Genre</h3>
+                  <h3 className="section-panel__title">{t("activityDash.playtimeByGenre")}</h3>
                   {genreBreakdownSlices.length === 0 ? (
-                    <div className="section-panel__empty">No genre data available</div>
+                    <div className="section-panel__empty">{t("activityDash.noGenreData")}</div>
                   ) : (
                     <div className="genre-breakdown__content">
                       <DonutChart slices={genreBreakdownSlices} size={150} formatValue={(v) => `${Math.round(v * 10) / 10}h`} />
@@ -504,20 +506,20 @@ export function ActivityDashboard({
 
               {/* Weekly Heatmap */}
               <div className="section-panel">
-                <h3 className="section-panel__title">Weekly Activity Heatmap</h3>
+                <h3 className="section-panel__title">{t("activityDash.weeklyHeatmap")}</h3>
                 {heatmapDays.length === 0 ? (
-                  <div className="section-panel__empty">No activity in this timeframe</div>
+                  <div className="section-panel__empty">{t("activityDash.noTimeframe")}</div>
                 ) : (
                   <>
                     <div className="weekly-heatmap__container">
                       <div className="weekly-heatmap__row-labels">
-                        <span>Sun</span>
-                        <span>Mon</span>
-                        <span>Tue</span>
-                        <span>Wed</span>
-                        <span>Thu</span>
-                        <span>Fri</span>
-                        <span>Sat</span>
+                        <span>{t("activityDash.sun")}</span>
+                        <span>{t("activityDash.mon")}</span>
+                        <span>{t("activityDash.tue")}</span>
+                        <span>{t("activityDash.wed")}</span>
+                        <span>{t("activityDash.thu")}</span>
+                        <span>{t("activityDash.fri")}</span>
+                        <span>{t("activityDash.sat")}</span>
                       </div>
                       <div className="weekly-heatmap__grid">
                         {heatmapPaddedDays.map((day, idx) => {
@@ -528,20 +530,20 @@ export function ActivityDashboard({
                             <div
                               key={day.date}
                               className={`weekly-heatmap__cell ${getHeatmapIntensity(day.hours)}`}
-                              title={`${day.date} · ${Math.round(day.hours * 10) / 10}h played`}
+                              title={t("activityDash.heatmapCellTitle", { date: day.date, hours: Math.round(day.hours * 10) / 10 })}
                             />
                           );
                         })}
                       </div>
                     </div>
                     <div className="weekly-heatmap__footer">
-                      <span>Less</span>
+                      <span>{t("activityDash.less")}</span>
                       <div className="weekly-heatmap__cell weekly-heatmap__cell--empty" />
                       <div className="weekly-heatmap__cell weekly-heatmap__cell--low" />
                       <div className="weekly-heatmap__cell weekly-heatmap__cell--medium" />
                       <div className="weekly-heatmap__cell weekly-heatmap__cell--high" />
                       <div className="weekly-heatmap__cell weekly-heatmap__cell--peak" />
-                      <span>More</span>
+                      <span>{t("activityDash.more")}</span>
                     </div>
                   </>
                 )}

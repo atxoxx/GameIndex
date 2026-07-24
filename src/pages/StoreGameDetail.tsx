@@ -270,7 +270,7 @@ export default function StoreGameDetail() {
     try {
       await addStoreGame(data);
     } catch (err) {
-      showToast(`Failed to add game: ${err}`, "error");
+      showToast(t("storeDetail.addFailed", { error: err }), "error");
     } finally {
       setAdding(false);
     }
@@ -319,7 +319,7 @@ export default function StoreGameDetail() {
         coverUrl={data.images.cover ?? null}
         logoUrl={data.images.logo ?? null}
         accentSrc={data.images.cover ?? data.images.hero ?? data.images.banner ?? null}
-        eyebrow="GameLib Store"
+        eyebrow={t("gamePage.store")}
         steamAppId={steamAppId ?? null}
         metaItems={[data.developer, data.publisher, releaseYear, data.sourceName].filter(
           (v): v is string => Boolean(v),
@@ -441,7 +441,7 @@ export default function StoreGameDetail() {
         >
           <button
             className="lightbox-nav lightbox-nav--prev"
-            aria-label="Previous screenshot"
+            aria-label={t("storeDetail.prevScreenshot")}
             onClick={(e) => { e.stopPropagation(); stepLightbox(-1); }}
             style={{
               position: 'fixed',
@@ -475,7 +475,7 @@ export default function StoreGameDetail() {
               border: '1px solid rgba(255,255,255,0.1)'
             }}
           >
-            <img src={lightboxImage} alt="Fullscreen Screenshot" style={{ maxWidth: '100%', maxHeight: '85vh', objectFit: 'contain', display: 'block' }} />
+            <img src={lightboxImage}             alt={t("storeDetail.fullscreenScreenshot")} style={{ maxWidth: '100%', maxHeight: '85vh', objectFit: 'contain', display: 'block' }} />
             {mockGame.screenshots && mockGame.screenshots.length > 1 && (
               <div
                 className="lightbox-counter"
@@ -524,7 +524,7 @@ export default function StoreGameDetail() {
           </div>
           <button
             className="lightbox-nav lightbox-nav--next"
-            aria-label="Next screenshot"
+            aria-label={t("storeDetail.nextScreenshot")}
             onClick={(e) => { e.stopPropagation(); stepLightbox(1); }}
             style={{
               position: 'fixed',

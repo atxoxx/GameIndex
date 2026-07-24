@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { getCurrentWindow } from "@tauri-apps/api/window";
+import { useLanguage } from "../context/LanguageContext";
 
 /**
  * WindowControls — custom minimize / maximize(+restore) / close buttons
@@ -43,6 +44,7 @@ import { getCurrentWindow } from "@tauri-apps/api/window";
  * themes defined in `App.css`.
  */
 export default function WindowControls() {
+  const { t } = useLanguage();
   const [isMaximized, setIsMaximized] = useState(false);
 
   useEffect(() => {
@@ -156,14 +158,14 @@ export default function WindowControls() {
     <div
       className="window-controls"
       role="group"
-      aria-label="Window controls"
+      aria-label={t("window.controls")}
     >
       <button
         type="button"
         className="window-controls-btn"
         onClick={handleMinimize}
-        aria-label="Minimize"
-        title="Minimize"
+        aria-label={t("window.minimize")}
+        title={t("window.minimize")}
       >
         {/* Horizontal line — restrained so it doesn't compete
          *  with the close X for visual weight. */}
@@ -184,8 +186,8 @@ export default function WindowControls() {
         type="button"
         className="window-controls-btn"
         onClick={handleToggleMaximize}
-        aria-label={isMaximized ? "Restore" : "Maximize"}
-        title={isMaximized ? "Restore" : "Maximize"}
+        aria-label={isMaximized ? t("window.restore") : t("window.maximize")}
+        title={isMaximized ? t("window.restore") : t("window.maximize")}
       >
         {isMaximized ? (
           // Restore: two overlapping squares. The back square is
@@ -236,8 +238,8 @@ export default function WindowControls() {
         type="button"
         className="window-controls-btn window-controls-btn--close"
         onClick={handleClose}
-        aria-label="Close"
-        title="Close"
+        aria-label={t("common.close")}
+        title={t("common.close")}
       >
         {/* An X drawn from two crossing strokes. Slightly shorter
          *  than the viewbox edge so the corners read as "clean

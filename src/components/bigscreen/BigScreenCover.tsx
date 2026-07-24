@@ -8,6 +8,7 @@
 // this game" uses a lightning bolt).
 
 import type { ReactNode } from "react";
+import { useLanguage } from "../../context/LanguageContext";
 
 export interface BigScreenCoverProps {
   /** Primary image URL. `undefined` renders the placeholder. */
@@ -43,6 +44,7 @@ export default function BigScreenCover({
   placeholderIcon = DefaultPlaceholderIcon,
   className,
 }: BigScreenCoverProps) {
+  const { t } = useLanguage();
   return (
     <div
       className={["bigscreen-cover", className ?? ""].filter(Boolean).join(" ")}
@@ -56,8 +58,8 @@ export default function BigScreenCover({
       {isRunning ? (
         <span
           className="bigscreen-cover-running-dot"
-          title="Running"
-          aria-label="This game is currently running"
+          title={t("game.running")}
+          aria-label={t("bigscreen.cover.runningAria")}
         />
       ) : null}
     </div>

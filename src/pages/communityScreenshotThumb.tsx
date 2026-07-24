@@ -5,6 +5,7 @@
 
 import { useState } from "react";
 import { convertFileSrc, invoke } from "@tauri-apps/api/core";
+import { useLanguage } from "../context/LanguageContext";
 
 const ImageIcon = (
   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" width="28" height="28">
@@ -31,6 +32,7 @@ export function ScreenshotThumb({
   onToggleFavorite,
   onOpen,
 }: ScreenshotThumbProps) {
+  const { t } = useLanguage();
   const [failed, setFailed] = useState(false);
   const video = path.toLowerCase().endsWith(".mp4") ||
     path.toLowerCase().endsWith(".webm") ||
@@ -43,7 +45,11 @@ export function ScreenshotThumb({
       onClick={() => onOpen(index)}
       role="button"
       tabIndex={0}
-      aria-label={`${gameName} ${video ? "clip" : "screenshot"} ${index + 1}`}
+      aria-label={t("community.thumbLabel", {
+        gameName,
+        type: video ? t("community.thumbTypeClip") : t("community.thumbTypeScreenshot"),
+        n: index + 1,
+      })}
       onKeyDown={(e) => {
         if (e.key === "Enter" || e.key === " ") {
           e.preventDefault();
@@ -62,7 +68,7 @@ export function ScreenshotThumb({
         ) : (
           <img
             src={convertFileSrc(path)}
-            alt={`${gameName} ${index + 1}`}
+            alt={t("community.thumbAlt", { gameName, n: index + 1 })}
             loading="lazy"
             onError={(e) => {
               const img = e.currentTarget;
@@ -84,7 +90,7 @@ export function ScreenshotThumb({
       )}
 
       {video && !failed && (
-        <span className="community-thumb-badge community-thumb-video">▶ Clip</span>
+        <span className="community-thumb-badge community-thumb-video">▶ {t("community.thumbTypeClip")}</span>
       )}
 
       <button
@@ -94,8 +100,8 @@ export function ScreenshotThumb({
           e.stopPropagation();
           onToggleFavorite(path);
         }}
-        aria-label={isFavorite ? "Remove favorite" : "Add favorite"}
-        title={isFavorite ? "Remove favorite" : "Add favorite"}
+        aria-label={isFavorite ? t("community.removeFavorite") : t("community.addFavorite")}
+        title={isFavorite ? t("community.removeFavorite") : t("community.addFavorite")}
       >
         {isFavorite ? "★" : "☆"}
       </button>

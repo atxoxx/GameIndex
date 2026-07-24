@@ -2,12 +2,14 @@ import type { MatchedDownload } from "../../types/source";
 import type { DownloadStep } from "./types";
 import { resolveSourceUri } from "./helpers";
 import { Button } from "../ui";
+import { useLanguage } from "../../context/LanguageContext";
 
 export function CheckingState() {
+  const { t } = useLanguage();
   return (
     <div className="dl-search-loading">
       <div className="spinner-small" />
-      <span>Checking ownership and searching sources…</span>
+      <span>{t('downloadModal.checkingState')}</span>
     </div>
   );
 }
@@ -19,6 +21,7 @@ export function ErrorState({
   error: string | null;
   onRetry: () => void;
 }) {
+  const { t } = useLanguage();
   return (
     <div className="dl-results-empty dl-results-empty--error">
       <svg
@@ -34,10 +37,10 @@ export function ErrorState({
         <line x1="12" y1="8" x2="12" y2="12" />
         <line x1="12" y1="16" x2="12.01" y2="16" />
       </svg>
-      <p>Couldn't load download information</p>
-      <p className="dl-results-empty-hint">{error ?? "Unknown error"}</p>
+      <p>{t('downloadModal.errorTitle')}</p>
+      <p className="dl-results-empty-hint">{error ?? t('downloadModal.unknownError')}</p>
       <Button variant="primary" size="sm" onClick={onRetry}>
-        Retry
+        {t('downloadModal.retry')}
       </Button>
     </div>
   );

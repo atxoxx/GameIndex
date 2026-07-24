@@ -4,6 +4,7 @@
 // presentational component fed by data computed in communityProfileStats.
 
 import { useMemo, useState } from "react";
+import { useLanguage } from "../context/LanguageContext";
 import DonutChart from "../components/charts/DonutChart";
 import { Card } from "../components/ui";
 import type {
@@ -46,6 +47,7 @@ export function ActivityHeatmap({
   maxMinutes: number;
   activeDays: number;
 }) {
+  const { t } = useLanguage();
   // Group cells into 7 columns (Mon–Sun) × up to 7 rows.
   const weeks = useMemo(() => {
     const cols: DayCell[][] = [];
@@ -58,16 +60,16 @@ export function ActivityHeatmap({
   return (
     <Card variant="surface" elevation="1" className="community-chart-card community-heatmap-card">
       <div className="community-chart-header">
-        <h3>Activity Heatmap</h3>
+        <h3>{t("communityExtras.activityHeatmap")}</h3>
         <span className="community-chart-subtitle">
-          last 7 weeks · {activeDays} active days
+          {t("communityExtras.heatmapSubtitle", { count: activeDays })}
         </span>
       </div>
       <div className="community-heatmap">
         <div className="community-heatmap-weekdays">
           {WEEKDAY_LABELS.map((l) => (
             <span key={l} className="community-heatmap-weekday">
-              {l}
+              {t(`communityExtras.weekday.${l.toLowerCase()}`)}
             </span>
           ))}
         </div>
@@ -87,7 +89,7 @@ export function ActivityHeatmap({
                         : `${cell.date.toLocaleDateString(undefined, {
                             month: "short",
                             day: "numeric",
-                          })}: ${cell.minutes > 0 ? formatHours(cell.minutes) : "No play"}`
+                          })}: ${cell.minutes > 0 ? formatHours(cell.minutes) : t("communityExtras.noPlay")}`
                     }
                   />
                 );
@@ -97,40 +99,42 @@ export function ActivityHeatmap({
         </div>
       </div>
       <div className="community-heatmap-legend">
-        <span>Less</span>
+        <span>{t("activityDash.less")}</span>
         {[0, 1, 2, 3, 4].map((l) => (
           <span key={l} className={`community-heatmap-cell level-${l}`} />
         ))}
-        <span>More</span>
+        <span>{t("activityDash.more")}</span>
       </div>
     </Card>
   );
 }
 
 export function StreakCard({ streak }: { streak: StreakInfo }) {
+  const { t } = useLanguage();
   const flame = streak.current > 0 ? "🔥" : "❄️";
   return (
     <Card variant="surface" elevation="1" className="community-streak-card">
       <div className="community-streak-flame">{flame}</div>
       <div className="community-streak-body">
         <span className="community-streak-current">{streak.current}</span>
-        <span className="community-streak-label">day streak</span>
+        <span className="community-streak-label">{t("communityExtras.dayStreak")}</span>
       </div>
       <div className="community-streak-meta">
-        <span>Longest: {streak.longest}</span>
-        <span>{streak.playedToday ? "Played today ✓" : "No play today"}</span>
+        <span>{t("communityExtras.longest", { days: streak.longest })}</span>
+        <span>{streak.playedToday ? t("communityExtras.playedToday") : t("communityExtras.noPlayToday")}</span>
       </div>
     </Card>
   );
 }
 
 export function TimeOfDayCard({ slices }: { slices: TimeOfDaySlice[] }) {
+  const { t } = useLanguage();
   const filtered = slices.filter((s) => s.minutes > 0);
   return (
     <Card variant="surface" elevation="1" className="community-chart-card">
       <div className="community-chart-header">
-        <h3>Time of Day</h3>
-        <span className="community-chart-subtitle">by total playtime</span>
+        <h3>{t("communityExtras.timeOfDay")}</h3>
+        <span className="community-chart-subtitle">{t("communityExtras.byTotalPlaytime")}</span>
       </div>
       {filtered.length > 0 ? (
         <DonutChart
@@ -145,7 +149,7 @@ export function TimeOfDayCard({ slices }: { slices: TimeOfDaySlice[] }) {
         />
       ) : (
         <div className="community-empty-chart">
-          <p>Play some games to see your time-of-day split</p>
+          <p>{t("communityExtras.playGamesSplit")}</p>
         </div>
       )}
     </Card>
@@ -161,6 +165,7 @@ export function GoalCard({
   goalMin: number;
   onChangeGoal: (min: number) => void;
 }) {
+  const { t } = useLanguage();
   const pct = goalMin > 0 ? Math.min(100, Math.round((currentMin / goalMin) * 100)) : 0;
   const ringRadius = 52;
   const circumference = 2 * Math.PI * ringRadius;
@@ -171,7 +176,7 @@ export function GoalCard({
   return (
     <Card variant="surface" elevation="1" className="community-goal-card">
       <div className="community-chart-header">
-        <h3>Monthly Goal</h3>
+        <h3>{t("communityExtras.monthlyGoal")}</h3>
         <button
           type="button"
           className="community-goal-edit"
@@ -180,7 +185,7 @@ export function GoalCard({
             setEditing((e) => !e);
           }}
         >
-          {editing ? "Done" : "Set"}
+          {editing ? t("editImage.done") : t("communityExtras.setGoal")}
         </button>
       </div>
       {editing ? (
@@ -191,9 +196,9 @@ export function GoalCard({
             className="community-goal-input"
             value={draft}
             onChange={(e) => setDraft(e.target.value)}
-            aria-label="Goal in hours"
+            aria-label={t("communityExtras.goalInHours")}
           />
-          <span className="community-goal-unit">hours</span>
+          <span className="community-goal-unit">{t("communityExtras.hoursUnit")}</span>
           <button
             type="button"
             className="community-goal-save"
@@ -202,9 +207,9 @@ export function GoalCard({
               onChangeGoal(hours * 60);
               setEditing(false);
             }}
-          >
-            Save
-          </button>
+            >
+              {t("common.save")}
+            </button>
         </div>
       ) : (
         <div className="community-goal-ring-wrap">
@@ -238,7 +243,7 @@ export function GoalCard({
             </text>
           </svg>
           <span className="community-goal-target">
-            {goalMin > 0 ? `of ${formatHours(goalMin)} goal` : "No goal set"}
+            {goalMin > 0 ? t("communityExtras.ofGoal", { time: formatHours(goalMin) }) : t("communityExtras.noGoalSet")}
           </span>
         </div>
       )}
@@ -247,6 +252,7 @@ export function GoalCard({
 }
 
 export function PeriodCompareBadge({ compare }: { compare: PeriodCompare }) {
+  const { t } = useLanguage();
   const up = compare.deltaMin >= 0;
   const label =
     compare.pct === null
@@ -255,9 +261,10 @@ export function PeriodCompareBadge({ compare }: { compare: PeriodCompare }) {
   return (
     <span
       className={`community-compare-badge ${up ? "up" : "down"}`}
-      title={`This month ${formatHours(compare.thisMonthMin)} vs last month ${formatHours(
-        compare.lastMonthMin
-      )}`}
+      title={t("communityExtras.compareTitle", {
+        this: formatHours(compare.thisMonthMin),
+        last: formatHours(compare.lastMonthMin),
+      })}
     >
       {up ? "▲" : "▼"} {label}
     </span>
@@ -277,15 +284,16 @@ export function AchievementsShowcase({
 }: {
   items: UnlockedAchievement[];
 }) {
+  const { t } = useLanguage();
   if (items.length === 0) {
     return (
       <Card variant="surface" elevation="1" className="community-year-card community-breakdown-card">
         <div className="community-year-header">
           <span className="community-year-icon">🏅</span>
-          <span>Recently Unlocked</span>
+          <span>{t("communityExtras.recentlyUnlocked")}</span>
         </div>
         <div className="community-empty-chart">
-          <p>Unlock achievements to see them here</p>
+          <p>{t("communityExtras.unlockToSee")}</p>
         </div>
       </Card>
     );
@@ -299,7 +307,7 @@ export function AchievementsShowcase({
       header={
         <div className="community-year-header">
           <span className="community-year-icon">🏅</span>
-          <span>Recently Unlocked</span>
+          <span>{t("communityExtras.recentlyUnlocked")}</span>
         </div>
       }
     >

@@ -1,4 +1,5 @@
 import type { StoreCategory } from "../../types/game";
+import { useLanguage } from "../../context/LanguageContext";
 
 /**
  * Synthetic "mode" tabs that are not real IGDB categories:
@@ -103,14 +104,14 @@ function SearchIcon() {
 }
 
 const TABS: TabDef[] = [
-  { key: "discover", label: "Discover", icon: <DiscoverIcon /> },
-  { key: "trending", label: "Trending", icon: <TrendingIcon /> },
-  { key: "popular", label: "Popular", icon: <PopularIcon /> },
-  { key: "top", label: "Top Rated", icon: <TopRatedIcon /> },
-  { key: "coming_soon", label: "Coming Soon", icon: <ComingSoonIcon /> },
-  { key: "new_releases", label: "New", icon: <NewReleasesIcon /> },
-  { key: "all", label: "All Games", icon: <AllGamesIcon /> },
-  { key: "search", label: "Search", icon: <SearchIcon /> },
+  { key: "discover", label: "store.tab.discover", icon: <DiscoverIcon /> },
+  { key: "trending", label: "store.tab.trending", icon: <TrendingIcon /> },
+  { key: "popular", label: "store.tab.popular", icon: <PopularIcon /> },
+  { key: "top", label: "store.tab.topRated", icon: <TopRatedIcon /> },
+  { key: "coming_soon", label: "store.tab.comingSoon", icon: <ComingSoonIcon /> },
+  { key: "new_releases", label: "store.tab.new", icon: <NewReleasesIcon /> },
+  { key: "all", label: "store.tab.allGames", icon: <AllGamesIcon /> },
+  { key: "search", label: "common.search", icon: <SearchIcon /> },
 ];
 
 interface StoreTabBarProps {
@@ -119,8 +120,9 @@ interface StoreTabBarProps {
 }
 
 export default function StoreTabBar({ activeTab, onTabChange }: StoreTabBarProps) {
+  const { t } = useLanguage();
   return (
-    <div className="store-tab-bar" role="tablist" aria-label="Store sections">
+    <div className="store-tab-bar" role="tablist" aria-label={t("store.tab.sectionsAria")}>
       {TABS.map((tab) => {
         const active = activeTab === tab.key;
         return (
@@ -132,7 +134,7 @@ export default function StoreTabBar({ activeTab, onTabChange }: StoreTabBarProps
             onClick={() => onTabChange(tab.key)}
           >
             <span className="store-tab-icon">{tab.icon}</span>
-            <span className="store-tab-label">{tab.label}</span>
+            <span className="store-tab-label">{t(tab.label)}</span>
           </button>
         );
       })}

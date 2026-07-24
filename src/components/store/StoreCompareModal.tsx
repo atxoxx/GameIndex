@@ -51,7 +51,7 @@ export default function StoreCompareModal({
         className="store-compare-modal"
         role="dialog"
         aria-modal="true"
-        aria-label="Compare games"
+        aria-label={t("store.compare.gamesAria")}
         onClick={(e) => e.stopPropagation()}
       >
         <div className="store-compare-modal-header">

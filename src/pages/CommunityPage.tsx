@@ -160,7 +160,7 @@ export default function CommunityPage() {
   return (
     <div className="community-page">
       {/* Tab bar */}
-      <div className="community-tab-bar" role="tablist" aria-label="Community sections">
+      <div className="community-tab-bar" role="tablist" aria-label={t("community.sectionsLabel")}>
         <button
           type="button"
           role="tab"
@@ -255,9 +255,9 @@ function ProfileSection() {
       value: g.minutes,
       color: DONUT_PALETTE[i % DONUT_PALETTE.length],
     }));
-    if (rest > 0) slices.push({ label: "Other", value: rest, color: "var(--color-text-muted)" });
+    if (rest > 0) slices.push({ label: t("communityExtras.other"), value: rest, color: "var(--color-text-muted)" });
     return slices;
-  }, [stats.genreBreakdown]);
+  }, [stats.genreBreakdown, t]);
 
   // Platform breakdown
   const platformSlices = useMemo(() => {
@@ -328,9 +328,9 @@ function ProfileSection() {
     ].join("\n");
     try {
       await navigator.clipboard.writeText(md);
-      showToast("Profile summary copied to clipboard", "success");
+      showToast(t("community.profileCopied"), "success");
     } catch {
-      showToast("Could not copy to clipboard", "error");
+      showToast(t("community.copyFailed"), "error");
     }
   }, [stats, games.length, streak.current, goalMin, monthToDate, showToast]);
 
@@ -358,7 +358,7 @@ function ProfileSection() {
         <KpiTile
           label={t("community.totalPlaytime")}
           value={formatHours(stats.totalPlayTimeMin)}
-          subtext={`${stats.totalSessions} sessions`}
+          subtext={t("gameActivity.sessionCount", { count: stats.totalSessions, s: stats.totalSessions !== 1 ? "s" : "" })}
           icon={ClockIcon}
           intent="accent"
           size="md"
@@ -367,7 +367,7 @@ function ProfileSection() {
         <KpiTile
           label={t("community.gamesOwned")}
           value={totalGames}
-          subtext={`${gamesAddedThisMonth} added this month`}
+          subtext={t("community.addedThisMonth", { count: gamesAddedThisMonth })}
           icon={GamepadIcon}
           intent="info"
           size="md"
@@ -376,7 +376,7 @@ function ProfileSection() {
             <KpiTile
               label={t("community.achievements")}
             value={`${achievementPct}%`}
-            subtext={`${achievementCounts.unlocked} of ${achievementCounts.total} unlocked`}
+            subtext={t("community.unlockedOf", { unlocked: achievementCounts.unlocked, total: achievementCounts.total })}
             icon={TrophyIcon}
             intent={achievementPct >= 50 ? "success" : "warning"}
             size="md"
@@ -385,7 +385,7 @@ function ProfileSection() {
         <KpiTile
           label={t("community.recentlyPlayed")}
           value={recentlyPlayed}
-          subtext="games in the last 14 days"
+          subtext={t("community.last14Days")}
           icon={SparkleIcon}
           intent="success"
           size="md"
@@ -398,7 +398,7 @@ function ProfileSection() {
         <Card variant="surface" elevation="1" className="community-chart-card">
           <div className="community-chart-header">
             <h3>{t("community.genreBreakdown")}</h3>
-            <span className="community-chart-subtitle">by total playtime</span>
+            <span className="community-chart-subtitle">{t("communityExtras.byTotalPlaytime")}</span>
           </div>
           {genreSlices.length > 0 ? (
             <DonutChart
@@ -418,7 +418,7 @@ function ProfileSection() {
         <Card variant="surface" elevation="1" className="community-chart-card">
           <div className="community-chart-header">
             <h3>{t("community.platformSplit")}</h3>
-            <span className="community-chart-subtitle">by total playtime</span>
+            <span className="community-chart-subtitle">{t("communityExtras.byTotalPlaytime")}</span>
           </div>
           {platformSlices.length > 0 ? (
             <DonutChart
@@ -440,7 +440,7 @@ function ProfileSection() {
         <Card variant="surface" elevation="1" className="community-chart-card community-weekly-card">
           <div className="community-chart-header">
             <h3>{t("community.last7Days")}</h3>
-            <span className="community-chart-subtitle">daily playtime (minutes)</span>
+            <span className="community-chart-subtitle">{t("communityExtras.dailyPlaytimeMinutes")}</span>
           </div>
           <BarChart
             data={stats.dailyAvg}
@@ -528,7 +528,7 @@ function ProfileSection() {
             <span>{t("community.mostPlayedGames")}</span>
             {topGames.length > 0 && (
               <span className="community-breakdown-total">
-                {topGames.length} of {stats.topGames.length} ranked
+                {t("community.rankedOf", { count: topGames.length, total: stats.topGames.length })}
               </span>
             )}
           </div>
@@ -559,7 +559,7 @@ function ProfileSection() {
                   </div>
                   <div className="community-breakdown-meta">
                     {g.platform && <span className="community-breakdown-platform">{g.platform}</span>}
-                    <span>{g.sessions} session{g.sessions !== 1 ? "s" : ""}</span>
+                    <span>{t("gameActivity.sessionCount", { count: g.sessions, s: g.sessions !== 1 ? "s" : "" })}</span>
                   </div>
                 </div>
               </li>
@@ -784,7 +784,7 @@ function ScreenshotsSection() {
       }
 
       if (enriched.length === 0) {
-        if (!silent) showToast("No screenshots found. Take some captures first!", "info");
+        if (!silent) showToast(t("community.noScreenshots"), "info");
         setIsDetecting(false);
         return;
       }
@@ -817,11 +817,11 @@ function ScreenshotsSection() {
         ? ` (${steamFolders.length} Steam, ${systemFolders.length} system)`
         : "";
       if (!silent) {
-        showToast(`Found ${enriched.length} groups with ${totalCount} screenshots${srcCount}`, "success");
+        showToast(t("community.groupsFound", { groups: enriched.length, total: totalCount, sources: srcCount }), "success");
       }
     } catch (err) {
       console.error("[Community] Steam screenshot detection failed:", err);
-      if (!silent) showToast("Failed to detect Steam screenshots", "error");
+      if (!silent) showToast(t("community.detectFailed"), "error");
     } finally {
       setIsDetecting(false);
     }
@@ -833,7 +833,7 @@ function ScreenshotsSection() {
       const folderPath = await tauriOpen({
         directory: true,
         multiple: false,
-        title: "Select Screenshot Folder",
+        title: t("communityExtras.selectFolder"),
       });
       if (!folderPath || typeof folderPath !== "string") return;
 
@@ -855,11 +855,11 @@ function ScreenshotsSection() {
         },
       ]);
       if (paths.length === 0) {
-        showToast("No images found in this folder", "info");
+        showToast(t("community.noImagesInFolder"), "info");
       }
     } catch (err) {
       console.error("[Community] Failed to scan folder:", err);
-      showToast("Failed to scan folder for images", "error");
+      showToast(t("community.scanFailed"), "error");
     } finally {
       setIsScanning(false);
     }
@@ -1001,7 +1001,7 @@ function ScreenshotsSection() {
                 (groups[0]?.folderPath);
               if (folder) {
                 invoke("open_folder", { path: folder }).catch(() => {
-                  showToast("Could not open folder", "error");
+                  showToast(t("community.couldNotOpenFolder"), "error");
                 });
               }
             }}
@@ -1020,7 +1020,7 @@ function ScreenshotsSection() {
           <span className="community-screenshots-folder" title={selectedFolder}>
             {selectedFolder.split(/[\\/]/).pop() || selectedFolder}
             <span className="community-screenshots-count">
-              {isScanning ? "Scanning…" : `${manualImages.length} media`}
+              {isScanning ? t("community.scanning") : t("community.mediaCount", { count: manualImages.length })}
             </span>
           </span>
         )}
@@ -1035,7 +1035,7 @@ function ScreenshotsSection() {
             placeholder={t("community.searchGamesPlaceholder")}
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            aria-label="Search screenshots by game"
+            aria-label={t("community.searchByGame")}
           />
           <button
             type="button"
@@ -1147,7 +1147,7 @@ function ScreenshotsSection() {
                   </div>
                   <div className="community-screenshot-group-right">
                     <span className="community-screenshot-group-count">
-                      {group.screenshots.length} screenshot{group.screenshots.length !== 1 ? "s" : ""}
+                      {t("community.screenshotCount", { count: group.screenshots.length, plural: group.screenshots.length !== 1 ? "s" : "" })}
                     </span>
                     <svg
                       viewBox="0 0 24 24"
@@ -1228,7 +1228,7 @@ function ScreenshotsSection() {
             <button
               className="community-lightbox-nav"
               onClick={goPrev}
-              aria-label="Previous image"
+              aria-label={t("community.prevImage")}
             >
               {ChevronLeftIcon}
             </button>
@@ -1245,14 +1245,14 @@ function ScreenshotsSection() {
             <button
               className="community-lightbox-nav"
               onClick={goNext}
-              aria-label="Next image"
+              aria-label={t("community.nextImage")}
             >
               {ChevronRightIcon}
             </button>
             <button
               className="community-lightbox-close"
               onClick={closeLightbox}
-              aria-label="Close lightbox"
+              aria-label={t("community.closeLightbox")}
             >
               {XIcon}
             </button>
@@ -1260,8 +1260,8 @@ function ScreenshotsSection() {
               type="button"
               className={`community-lightbox-nav community-slideshow-toggle${slideshow ? " active" : ""}`}
               onClick={() => setSlideshow((s) => !s)}
-              aria-label={slideshow ? "Stop slideshow" : "Start slideshow"}
-              title={slideshow ? "Stop slideshow" : "Start slideshow"}
+              aria-label={slideshow ? t("community.stopSlideshow") : t("community.startSlideshow")}
+              title={slideshow ? t("community.stopSlideshow") : t("community.startSlideshow")}
             >
               {slideshow ? "❚❚" : "▶"}
             </button>
@@ -1277,7 +1277,7 @@ function ScreenshotsSection() {
             ) : (
               <img
                 src={convertFileSrc(allImagePaths[lightboxIndex])}
-                alt={`Screenshot ${lightboxIndex + 1}`}
+                alt={t("community.lightboxAlt", { n: lightboxIndex + 1 })}
                 onError={(e) => {
                   const img = e.currentTarget;
                   if (img.dataset.fallbackTried === "1") return;

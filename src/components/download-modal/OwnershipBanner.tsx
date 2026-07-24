@@ -1,5 +1,6 @@
 import type { OwnershipResult } from "../../types/download";
 import type { DownloadStep } from "./types";
+import { useLanguage } from "../../context/LanguageContext";
 
 /**
  * Build the ownership banner. The check can land in three states:
@@ -14,6 +15,7 @@ export function OwnershipBanner({
   ownership: OwnershipResult | null;
   step: DownloadStep;
 }) {
+  const { t } = useLanguage();
   if (step === "checking" || !ownership) {
     return (
       <div className="dl-ownership checking">
@@ -29,9 +31,9 @@ export function OwnershipBanner({
           <polyline points="12 6 12 12 16 14" />
         </svg>
         <div className="dl-ownership-body">
-          <div className="dl-ownership-title">Checking ownership…</div>
+          <div className="dl-ownership-title">{t('downloadModal.checkingOwnership')}</div>
           <div className="dl-ownership-text">
-            Looking up on Steam, Epic, and your local library.
+            {t('downloadModal.checkingOwnershipDesc')}
           </div>
         </div>
       </div>
@@ -48,7 +50,7 @@ export function OwnershipBanner({
   const others = ownedStores.slice(1);
   const othersText =
     others.length > 0
-      ? ` Also owned on ${others.map((o) => o.store).join(", ")}.`
+      ? t('downloadModal.alsoOwnedOn', { stores: others.map((o) => o.store).join(", ") })
       : "";
   const detailsText = primary.details ? ` (${primary.details})` : "";
 
@@ -70,12 +72,11 @@ export function OwnershipBanner({
       </svg>
       <div className="dl-ownership-body">
         <div className="dl-ownership-title">
-          You own this on {primary.store}
+          {t('downloadModal.youOwnThis', { store: primary.store })}
           {detailsText}
         </div>
         <div className="dl-ownership-text">
-          Consider launching the game from your library rather than downloading
-          it. Your purchase supports the developers.
+          {t('downloadModal.ownedText')}
           {othersText}
         </div>
       </div>

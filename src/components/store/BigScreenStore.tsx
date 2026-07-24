@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { invoke } from "@tauri-apps/api/core";
 import { useWishlistContext } from "../../context/WishlistContext";
+import { useLanguage } from "../../context/LanguageContext";
 import { useFocusable } from "../../hooks/useFocusable";
 import { useGamepad } from "../../hooks/GamepadProvider";
 import BigScreenStoreRail from "./BigScreenStoreRail";
@@ -13,12 +14,13 @@ import type { DealItem } from "../../types/deals";
 type StoreTab = "trending" | "deals" | "wishlist";
 
 const STORE_TABS: TabDef<StoreTab>[] = [
-  { id: "trending", label: "Discover" },
-  { id: "deals", label: "Deals" },
-  { id: "wishlist", label: "Wishlist" },
+  { id: "trending", label: "store.tab.discover" },
+  { id: "deals", label: "nav.deals" },
+  { id: "wishlist", label: "nav.wishlist" },
 ];
 
 export default function BigScreenStore() {
+  const { t } = useLanguage();
   const gamepad = useGamepad();
   const navigate = useNavigate();
   const location = useLocation();
@@ -215,7 +217,7 @@ export default function BigScreenStore() {
   const renderDetailsPane = (railId: string) => {
     if (activeRailId !== railId) return null;
     return (
-      <section className="bigscreen-dashboard-details-pane animate-fade-in" aria-label="Game info" style={{ padding: "0 64px 24px 64px" }}>
+      <section className="bigscreen-dashboard-details-pane animate-fade-in" aria-label={t("bigscreen.store.gameInfo")} style={{ padding: "0 64px 24px 64px" }}>
         <div className="bigscreen-details-pane-content">
           {featuredGame ? (
             <>
@@ -236,7 +238,7 @@ export default function BigScreenStore() {
               <div className="bigscreen-details-meta">
                 {featuredGame.rating && (
                   <BigScreenPill tone="accent" size="sm">
-                    Score: {Math.round(featuredGame.rating)}
+                    {t("bigscreen.store.score", { score: Math.round(featuredGame.rating) })}
                   </BigScreenPill>
                 )}
                 {featuredGame.genres && featuredGame.genres.slice(0, 2).map((g: string) => (
@@ -265,15 +267,15 @@ export default function BigScreenStore() {
                     <line x1="12" y1="16" x2="12" y2="12" />
                     <line x1="12" y1="8" x2="12.01" y2="8" />
                   </svg>
-                  <span>Store Details</span>
+                  <span>{t("bigscreen.store.storeDetails")}</span>
                 </button>
               </div>
             </>
           ) : (
             <div className="bigscreen-details-placeholder">
-              <h2 className="bigscreen-details-title">Welcome to GameLib Store</h2>
+              <h2 className="bigscreen-details-title">{t("bigscreen.store.welcomeTitle")}</h2>
               <p className="bigscreen-details-description">
-                Browse trending, popular, and coming soon games.
+                {t("bigscreen.store.welcomeDesc")}
               </p>
             </div>
           )}
@@ -305,7 +307,7 @@ export default function BigScreenStore() {
         {/* Navigation tabs */}
         <div className="bigscreen-store-tabs-wrapper">
           <BigScreenTabBar
-            tabs={STORE_TABS}
+            tabs={STORE_TABS.map((tb) => ({ ...tb, label: t(tb.label) }))}
             activeTab={activeTab}
             onActivate={handleSelectTab}
           />
@@ -318,7 +320,7 @@ export default function BigScreenStore() {
               {loadingTrending ? (
                 <div className="store-tab-loading">
                   <div className="store-spinner" />
-                  <span>Loading Discover Storefront...</span>
+                  <span>{t("bigscreen.store.loading")}</span>
                 </div>
               ) : (
                 <>
@@ -328,7 +330,7 @@ export default function BigScreenStore() {
                       {renderDetailsPane("trending")}
                       <BigScreenStoreRail
                         railId="trending"
-                        title="Trending"
+                        title={t("store.tab.trending")}
                         games={trending}
                         onCardClick={handleCardClick}
                       />
@@ -337,7 +339,7 @@ export default function BigScreenStore() {
                       {renderDetailsPane("popular")}
                       <BigScreenStoreRail
                         railId="popular"
-                        title="Popular Now"
+                        title={t("bigscreen.store.popularNow")}
                         games={popular}
                         onCardClick={handleCardClick}
                       />
@@ -346,7 +348,7 @@ export default function BigScreenStore() {
                       {renderDetailsPane("top")}
                       <BigScreenStoreRail
                         railId="top"
-                        title="Top Critic Scores"
+                        title={t("bigscreen.store.topCritic")}
                         games={top}
                         onCardClick={handleCardClick}
                       />
@@ -355,7 +357,7 @@ export default function BigScreenStore() {
                       {renderDetailsPane("coming-soon")}
                       <BigScreenStoreRail
                         railId="coming-soon"
-                        title="Coming Soon"
+                        title={t("store.tab.comingSoon")}
                         games={comingSoon}
                         onCardClick={handleCardClick}
                       />
@@ -371,7 +373,7 @@ export default function BigScreenStore() {
               {loadingDeals ? (
                 <div className="store-tab-loading">
                   <div className="store-spinner" />
-                  <span>Scanning active gaming deals...</span>
+                  <span>{t("bigscreen.store.scanningDeals")}</span>
                 </div>
               ) : (
                 <div className="store-deals-grid">
@@ -419,8 +421,8 @@ export default function BigScreenStore() {
                   <svg viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" strokeWidth="2" width="64" height="64" opacity="0.3">
                     <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z" />
                   </svg>
-                  <h3>Your Wishlist is empty</h3>
-                  <p>Add games to your wishlist in store or search tabs to track them here.</p>
+                  <h3>{t("bigscreen.store.wishlistEmpty")}</h3>
+                  <p>{t("bigscreen.store.wishlistHint")}</p>
                 </div>
               ) : (
                 <div className="store-wishlist-grid">

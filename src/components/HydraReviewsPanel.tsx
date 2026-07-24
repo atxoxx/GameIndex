@@ -8,6 +8,7 @@ import {
   type HydraSortOption,
   HYDRA_SORT_OPTIONS,
 } from "../types/game";
+import { useLanguage } from "../context/LanguageContext";
 
 // ─── Hydra community reviews panel ──────────────────────────────────────────
 //
@@ -33,31 +34,32 @@ interface HydraReviewsPanelProps {
 
 // ─── Formatting helpers ─────────────────────────────────────────────────────
 
-function formatHydraPlaytime(seconds: number): string {
+function formatHydraPlaytime(seconds: number, t: (k: string, v?: Record<string, string | number>) => string): string {
   const minutes = Math.floor(seconds / 60);
-  if (minutes < 120) return `${minutes} min`;
+  if (minutes < 120) return t("hydra.min", { count: minutes });
   const hours = seconds / 3600;
-  if (hours >= 100) return `${Math.round(hours).toLocaleString()} h`;
-  return `${hours.toFixed(1)} h`;
+  if (hours >= 100) return t("hydra.hours", { count: Math.round(hours).toLocaleString() });
+  return t("hydra.hours", { count: hours.toFixed(1) });
 }
 
-function formatRelativeDate(iso?: string | null): string {
+function formatRelativeDate(iso?: string | null, t?: (k: string, v?: Record<string, string | number>) => string): string {
   if (!iso) return "";
   const date = new Date(iso);
   if (Number.isNaN(date.getTime())) return "";
+  const translate = t ?? ((k: string) => k);
   const diffMs = Date.now() - date.getTime();
   const sec = Math.floor(diffMs / 1000);
-  if (sec < 60) return "just now";
+  if (sec < 60) return translate("hydra.justNow");
   const min = Math.floor(sec / 60);
-  if (min < 60) return `${min} minute${min === 1 ? "" : "s"} ago`;
+  if (min < 60) return translate("hydra.minutesAgo", { count: min });
   const hr = Math.floor(min / 60);
-  if (hr < 24) return `${hr} hour${hr === 1 ? "" : "s"} ago`;
+  if (hr < 24) return translate("hydra.hoursAgo", { count: hr });
   const day = Math.floor(hr / 24);
-  if (day < 30) return `${day} day${day === 1 ? "" : "s"} ago`;
+  if (day < 30) return translate("hydra.daysAgo", { count: day });
   const month = Math.floor(day / 30);
-  if (month < 12) return `${month} month${month === 1 ? "" : "s"} ago`;
+  if (month < 12) return translate("hydra.monthsAgo", { count: month });
   const year = Math.floor(day / 365);
-  return `${year} year${year === 1 ? "" : "s"} ago`;
+  return translate("hydra.yearsAgo", { count: year });
 }
 
 function formatAbsoluteDate(iso?: string | null): string {
@@ -116,6 +118,7 @@ function SortDropdown({
   value: HydraSortOption;
   onChange: (value: HydraSortOption) => void;
 }) {
+  const { t } = useLanguage();
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
   useEffect(() => {
@@ -134,7 +137,7 @@ function SortDropdown({
         className={`rv-dd-trigger${open ? " active" : ""}`}
         onClick={() => setOpen((p) => !p)}
       >
-        <span>Sort: {selected?.label ?? "Newest"}</span>
+        <span>{t("hydra.sortLabel", { label: selected?.label ?? t("hydra.sortNewest") })}</span>
         <svg className="rv-dd-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
           <polyline points="6 9 12 15 18 9" />
         </svg>
@@ -231,10 +234,11 @@ function HydraVotes({ upvotes, downvotes }: { upvotes: number; downvotes: number
 // ─── Reply row ──────────────────────────────────────────────────────────────
 
 function HydraReplyRow({ answer }: { answer: HydraReviewAnswer }) {
+  const { t } = useLanguage();
   const [showOriginal, setShowOriginal] = useState(false);
   const translated = pickTranslation(answer.translations, answer.detectedLanguage);
   const html = translated && !showOriginal ? translated : answer.answerHtml;
-  const name = answer.user.displayName?.trim() || "Anonymous";
+  const name = answer.user.displayName?.trim() || t("hydra.anonymous");
   return (
     <div className="hrv-reply">
       <HydraAvatar user={answer.user} size={26} />
@@ -242,14 +246,14 @@ function HydraReplyRow({ answer }: { answer: HydraReviewAnswer }) {
         <div className="hrv-reply-meta">
           <span className="hrv-name">{name}</span>
           <span className="hrv-date" title={formatAbsoluteDate(answer.createdAt)}>
-            {formatRelativeDate(answer.createdAt)}
+            {formatRelativeDate(answer.createdAt, t)}
           </span>
           <HydraVotes upvotes={answer.upvotes} downvotes={answer.downvotes} />
         </div>
         <div className="hrv-html" dangerouslySetInnerHTML={{ __html: html }} />
         {translated && (
           <button type="button" className="hrv-translate-toggle" onClick={() => setShowOriginal((p) => !p)}>
-            {showOriginal ? "Show translation" : "Show original"}
+            {showOriginal ? t("hydra.showTranslation") : t("hydra.showOriginal")}
           </button>
         )}
       </div>
@@ -265,6 +269,7 @@ function mergeReplies(existing: HydraReviewAnswer[], incoming: HydraReviewAnswer
 }
 
 function HydraReplyThread({ review, appId }: { review: HydraReview; appId: number }) {
+  const { t } = useLanguage();
   const [replies, setReplies] = useState<HydraReviewAnswer[]>(review.answers ?? []);
   const [totalCount, setTotalCount] = useState<number>(review.answerCount ?? 0);
   const [expanded, setExpanded] = useState(false);
@@ -328,12 +333,12 @@ function HydraReplyThread({ review, appId }: { review: HydraReview; appId: numbe
             <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
           </svg>
           {loading
-            ? "Loading replies…"
+            ? t("hydra.loadingReplies")
             : expanded
-            ? "Hide replies"
+            ? t("hydra.hideReplies")
             : totalCount === 1
-            ? "View 1 reply"
-            : `View all ${totalCount.toLocaleString()} replies`}
+            ? t("hydra.viewOneReply")
+            : t("hydra.viewReplies", { count: totalCount.toLocaleString() })}
         </button>
       )}
 
@@ -345,13 +350,13 @@ function HydraReplyThread({ review, appId }: { review: HydraReview; appId: numbe
 
           {expanded && hasMoreOnServer && (
             <button type="button" className="hrv-thread-more" onClick={() => void fetchReplies(false)} disabled={loading}>
-              {loading ? "Loading…" : "Load more replies"}
+              {loading ? t("hydra.loading") : t("hydra.loadMoreReplies")}
             </button>
           )}
         </div>
       )}
 
-      {error && <p className="hrv-error-inline">Could not load replies: {error}</p>}
+      {error && <p className="hrv-error-inline">{t("hydra.loadError", { error })}</p>}
     </div>
   );
 }
@@ -359,10 +364,11 @@ function HydraReplyThread({ review, appId }: { review: HydraReview; appId: numbe
 // ─── Review row ─────────────────────────────────────────────────────────────
 
 function HydraReviewRow({ review, appId }: { review: HydraReview; appId: number }) {
+  const { t } = useLanguage();
   const [showOriginal, setShowOriginal] = useState(false);
   const translated = pickTranslation(review.translations, review.detectedLanguage);
   const html = translated && !showOriginal ? translated : review.reviewHtml;
-  const name = review.user.displayName?.trim() || "Anonymous";
+  const name = review.user.displayName?.trim() || t("hydra.anonymous");
   const playtime = review.playTimeInSeconds ?? 0;
 
   return (
@@ -372,38 +378,38 @@ function HydraReviewRow({ review, appId }: { review: HydraReview; appId: number 
         <div className="hrv-row-id">
           <span className="hrv-name">{name}</span>
           <div className="hrv-row-sub">
-            <span className="hrv-date" title={formatAbsoluteDate(review.createdAt)}>
-              {formatRelativeDate(review.createdAt)}
+          <span className="hrv-date" title={formatAbsoluteDate(review.createdAt)}>
+            {formatRelativeDate(review.createdAt, t)}
+          </span>
+          {playtime > 0 && (
+            <span className="hrv-playtime" title={t("hydra.authorPlaytimeTitle")}>
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                <circle cx="12" cy="12" r="10" />
+                <polyline points="12 6 12 12 16 14" />
+              </svg>
+              {formatHydraPlaytime(playtime, t)} {t("hydra.played")}
             </span>
-            {playtime > 0 && (
-              <span className="hrv-playtime" title="Author playtime in this game">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-                  <circle cx="12" cy="12" r="10" />
-                  <polyline points="12 6 12 12 16 14" />
-                </svg>
-                {formatHydraPlaytime(playtime)} played
-              </span>
-            )}
+          )}
           </div>
         </div>
         <HydraStarScore score={review.score} />
       </div>
 
       <div className="hrv-html" dangerouslySetInnerHTML={{ __html: html }} />
-      {translated && (
-        <button type="button" className="hrv-translate-toggle" onClick={() => setShowOriginal((p) => !p)}>
-          {showOriginal ? "Show translation" : "Show original"}
-        </button>
-      )}
-
-      <div className="hrv-row-footer">
-        <HydraVotes upvotes={review.upvotes} downvotes={review.downvotes} />
-        {review.answerCount > 0 && (
-          <span className="hrv-reply-count">
-            {review.answerCount === 1 ? "1 reply" : `${review.answerCount.toLocaleString()} replies`}
-          </span>
+        {translated && (
+          <button type="button" className="hrv-translate-toggle" onClick={() => setShowOriginal((p) => !p)}>
+            {showOriginal ? t("hydra.showTranslation") : t("hydra.showOriginal")}
+          </button>
         )}
-      </div>
+
+        <div className="hrv-row-footer">
+          <HydraVotes upvotes={review.upvotes} downvotes={review.downvotes} />
+          {review.answerCount > 0 && (
+            <span className="hrv-reply-count">
+              {t("hydra.replyCount", { count: review.answerCount.toLocaleString() })}
+            </span>
+          )}
+        </div>
 
       <HydraReplyThread review={review} appId={appId} />
     </div>
@@ -413,6 +419,7 @@ function HydraReviewRow({ review, appId }: { review: HydraReview; appId: number 
 // ─── Panel ──────────────────────────────────────────────────────────────────
 
 export default function HydraReviewsPanel({ appId, gameName }: HydraReviewsPanelProps) {
+  const { t } = useLanguage();
   const [reviews, setReviews] = useState<HydraReview[]>([]);
   const [totalCount, setTotalCount] = useState(0);
   const [sortBy, setSortBy] = useState<HydraSortOption>("newest");
@@ -485,22 +492,22 @@ export default function HydraReviewsPanel({ appId, gameName }: HydraReviewsPanel
       <div className="hrv-toolbar">
         <span className="hrv-toolbar-count">
           {loading
-            ? "Loading user reviews…"
+            ? t("hydra.loadingReviews")
             : totalCount === 0
-            ? "No user reviews yet"
+            ? t("hydra.noReviews")
             : totalCount === 1
-            ? "1 user review"
-            : `${totalCount.toLocaleString()} user reviews`}
+            ? t("hydra.oneReview")
+            : t("hydra.userReviews", { count: totalCount.toLocaleString() })}
         </span>
         <SortDropdown value={sortBy} onChange={setSortBy} />
       </div>
 
       {error ? (
         <div className="rv-empty rv-empty-small">
-          <h3 className="rv-empty-title">Could not load Hydra reviews</h3>
+          <h3 className="rv-empty-title">{t("hydra.loadErrorReviews")}</h3>
           <p className="rv-empty-subtitle">{error}</p>
           <button type="button" className="rv-btn rv-btn-ghost" onClick={() => void fetchPage(0, sortBy, true)}>
-            Retry
+            {t("hydra.retry")}
           </button>
         </div>
       ) : loading ? (

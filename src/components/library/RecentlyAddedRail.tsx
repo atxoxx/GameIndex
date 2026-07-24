@@ -48,7 +48,7 @@ export default function RecentlyAddedRail({
   const viewportId = "lib-rail-recently-added-viewport";
 
   return (
-    <section className={`lib-rail${collapsed ? " lib-rail--collapsed" : ""}`} aria-label="Recently added games">
+    <section className={`lib-rail${collapsed ? " lib-rail--collapsed" : ""}`} aria-label={t("lib.rail.recentlyAdded.aria")}>
       <div className="lib-rail-header">
         <div className="lib-rail-title-row">
           <div className="lib-rail-icon lib-rail-icon--recent" aria-hidden>
@@ -70,8 +70,8 @@ export default function RecentlyAddedRail({
           onClick={toggleCollapsed}
           aria-expanded={!collapsed}
           aria-controls={viewportId}
-          aria-label={collapsed ? "Expand Recently Added rail" : "Collapse Recently Added rail"}
-          title={collapsed ? "Expand" : "Collapse"}
+          aria-label={collapsed ? t("lib.rail.recentlyAdded.expand") : t("lib.rail.recentlyAdded.collapse")}
+          title={collapsed ? t("common.expand") : t("common.collapse")}
         >
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
             <polyline points="6 9 12 15 18 9" />

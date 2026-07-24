@@ -1,6 +1,7 @@
 import type { ReactNode } from "react";
 import type { Game } from "../../types/game";
 import { IconLayers, IconImage, IconUser } from "./icons";
+import { useLanguage } from "../../context/LanguageContext";
 
 /**
  * SpecsCard
@@ -28,11 +29,12 @@ interface SpecGroup {
 }
 
 export default function SpecsCard({ game }: SpecsCardProps) {
+  const { t } = useLanguage();
   const groups: SpecGroup[] = [
-    { label: "Modes", icon: <IconLayers size={12} />, values: game.gameModes },
-    { label: "Themes", icon: <IconImage size={12} />, values: game.themes },
+    { label: t("gameInfo.modes"), icon: <IconLayers size={12} />, values: game.gameModes },
+    { label: t("gameInfo.themes"), icon: <IconImage size={12} />, values: game.themes },
     {
-      label: "Perspectives",
+      label: t("gameInfo.perspectives"),
       icon: <IconUser size={12} />,
       values: game.playerPerspectives,
     },
@@ -46,7 +48,7 @@ export default function SpecsCard({ game }: SpecsCardProps) {
         <span className="game-section-title__icon" aria-hidden>
           <IconLayers size={16} />
         </span>
-        Game Specs
+        {t("game.specsTitle")}
       </h2>
 
       <div className="specs-groups">

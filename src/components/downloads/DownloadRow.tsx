@@ -17,6 +17,7 @@ import React, { useState } from "react";
 import { useSizeUnit } from "../../hooks/useSizeUnit";
 import { useDownloads } from "../../context/DownloadContext";
 import { useToast } from "../../context/ToastContext";
+import { useLanguage } from "../../context/LanguageContext";
 import {
   PlayIcon,
   PauseIcon,
@@ -64,6 +65,7 @@ const DownloadRow = React.memo(({
   const { unit } = useSizeUnit();
   const { updateSelectedFiles, updateDirectDownloadUrl, openDownloadFolder } = useDownloads();
   const { showToast } = useToast();
+  const { t } = useLanguage();
   const [expanded, setExpanded] = useState(false);
 
   const handleToggleFile = async (idx: number) => {
@@ -77,7 +79,7 @@ const DownloadRow = React.memo(({
     let newSelected: number[];
     if (download.files[idx].selected) {
       if (currentSelected.length <= 1) {
-        showToast("At least one file must be selected for download.", "error");
+        showToast(t('downloadModal.fileSelectRequired'), "error");
         return;
       }
       newSelected = currentSelected.filter((i) => i !== idx);
@@ -88,7 +90,7 @@ const DownloadRow = React.memo(({
     try {
       await updateSelectedFiles(download.id, newSelected);
     } catch (err) {
-      showToast(`Failed to update file selection: ${err}`, "error");
+      showToast(t('downloadRow.fileSelectionFailed', { error: String(err) }), "error");
     }
   };
   const status = download.status;
@@ -129,7 +131,7 @@ const DownloadRow = React.memo(({
         <span
           className={`dl-row-status dl-row-status--${getStatusClassSuffix(status)}`}
           title={getStatusLabel(status)}
-          aria-label={`Status: ${getStatusLabel(status)}`}
+          aria-label={t('downloadRow.statusLabel', { status: getStatusLabel(status) })}
         >
           {getStatusLabel(status)}
         </span>
@@ -139,13 +141,13 @@ const DownloadRow = React.memo(({
             <span className="dl-row-name" title={download.name}>
               {download.name}
               {download.id.startsWith("dd_") && (
-                <span className="dl-row-badge dl-row-badge--direct">DIRECT</span>
+                <span className="dl-row-badge dl-row-badge--direct">{t('downloadRow.badgeDirect')}</span>
               )}
               {download.id.startsWith("db_") && (
-                <span className="dl-row-badge dl-row-badge--debrid">DEBRID</span>
+                <span className="dl-row-badge dl-row-badge--debrid">{t('downloadRow.badgeDebrid')}</span>
               )}
             </span>
-            <span className="dl-row-source" title={`Source: ${download.sourceName}`}>
+            <span className="dl-row-source" title={t('downloadRow.sourceTitle', { source: download.sourceName })}>
               {download.sourceName}
             </span>
           </div>
@@ -203,34 +205,34 @@ const DownloadRow = React.memo(({
         <div className="dl-row-speed">
           {isActiveStatus(status) && download.downloadSpeed > 0 ? (
             <>
-              <span className="dl-row-speed-dl" title="Download speed">
+              <span className="dl-row-speed-dl" title={t('downloadRow.downloadSpeed')}>
                 <span aria-hidden>↓</span>
                 {formatBytesPerSecond(download.downloadSpeed, unit)}
               </span>
               {download.uploadSpeed > 0 && (
-                <span className="dl-row-speed-ul" title="Upload speed">
+                <span className="dl-row-speed-ul" title={t('downloadRow.uploadSpeed')}>
                   <span aria-hidden>↑</span>
                   {formatBytesPerSecond(download.uploadSpeed, unit)}
                 </span>
               )}
             </>
           ) : isPaused ? (
-            <span className="dl-row-speed-muted">Paused</span>
+            <span className="dl-row-speed-muted">{t('download.status.paused')}</span>
           ) : isCompleted ? (
-            <span className="dl-row-speed-muted">Done</span>
+            <span className="dl-row-speed-muted">{t('downloadRow.done')}</span>
           ) : (
             <span className="dl-row-speed-muted">—</span>
           )}
         </div>
 
-        <div className="dl-row-swarm" aria-label="Swarm">
+        <div className="dl-row-swarm" aria-label={t('downloadRow.swarm')}>
           {download.peers > 0 || download.seeds > 0 ? (
             <>
-              <span title="Known peers in swarm">
+              <span title={t('downloadRow.peersInSwarm')}>
                 <PeersIcon style={{ width: 11, height: 11 }} />
                 {download.peers}
               </span>
-              <span title="Seeds in swarm" className="dl-row-swarm-seeds">
+              <span title={t('downloadRow.seeds')} className="dl-row-swarm-seeds">
                 <SeedsIcon style={{ width: 11, height: 11 }} />
                 {download.seeds}
               </span>
@@ -249,16 +251,16 @@ const DownloadRow = React.memo(({
                 onChange={async (e) => {
                   try {
                     await updateDirectDownloadUrl(download.id, e.target.value);
-                    showToast("Download mirror updated successfully", "success");
+                    showToast(t('downloadRow.mirrorUpdated'), "success");
                   } catch (err) {
-                    showToast(`Failed to update mirror: ${err}`, "error");
+                    showToast(t('downloadRow.mirrorFailed', { error: String(err) }), "error");
                   }
                 }}
-                title="Switch mirror hoster"
-                aria-label="Switch mirror hoster"
+                title={t('downloadRow.switchMirror')}
+                aria-label={t('downloadRow.switchMirror')}
               >
                 {download.uris.map((uri, idx) => {
-                  let hoster = "Mirror " + (idx + 1);
+                  let hoster = t('downloadRow.mirrorLabel', { idx: idx + 1 });
                   try {
                     const parsed = new URL(uri);
                     hoster = parsed.hostname.replace("www.", "");
@@ -279,11 +281,11 @@ const DownloadRow = React.memo(({
               try {
                 await openDownloadFolder(download.id);
               } catch (err) {
-                showToast(`Failed to open folder: ${err}`, "error");
+                showToast(t('downloadRow.openFolderFailed', { error: String(err) }), "error");
               }
             }}
-            title="Open folder"
-            aria-label="Open download folder"
+            title={t('downloadRow.openFolder')}
+            aria-label={t('downloadRow.openFolderLabel')}
           >
             <FolderIcon />
           </button>
@@ -291,8 +293,8 @@ const DownloadRow = React.memo(({
             <button
               className={`dl-row-btn ${expanded ? "active" : ""}`}
               onClick={() => setExpanded(!expanded)}
-              title={expanded ? "Hide files" : "Show files"}
-              aria-label={expanded ? "Hide files" : "Show files"}
+              title={expanded ? t('downloadRow.hideFiles') : t('downloadRow.showFiles')}
+              aria-label={expanded ? t('downloadRow.hideFiles') : t('downloadRow.showFiles')}
             >
               <ChevronIcon
                 style={{
@@ -308,8 +310,8 @@ const DownloadRow = React.memo(({
             <button
               className="dl-row-btn"
               onClick={() => onPause(download.id)}
-              title="Pause"
-              aria-label="Pause download"
+              title={t('downloadRow.pause')}
+              aria-label={t('downloadRow.pauseDownload')}
             >
               <PauseIcon />
             </button>
@@ -318,8 +320,8 @@ const DownloadRow = React.memo(({
             <button
               className="dl-row-btn"
               onClick={() => onResume(download.id)}
-              title="Resume"
-              aria-label="Resume download"
+              title={t('downloadRow.resume')}
+              aria-label={t('downloadRow.resumeDownload')}
             >
               <PlayIcon />
             </button>
@@ -327,16 +329,16 @@ const DownloadRow = React.memo(({
           <button
             className="dl-row-btn danger"
             onClick={() => onRemove(download.id)}
-            title={isCompleted ? "Remove from history" : "Remove"}
-            aria-label="Remove download"
+            title={isCompleted ? t('downloadRow.removeLabel') : t('common.remove')}
+            aria-label={t('downloadRow.removeDownload')}
           >
             <RemoveIcon />
           </button>
           <button
             className="dl-row-btn danger-fill"
             onClick={() => onDeleteFiles(download)}
-            title="Delete from disk"
-            aria-label="Delete download from disk"
+            title={t('downloadRow.deleteFromDisk')}
+            aria-label={t('downloadRow.deleteLabel')}
           >
             <TrashIcon />
           </button>
@@ -356,10 +358,10 @@ const DownloadRow = React.memo(({
                   onChange={() => handleToggleFile(idx)}
                   aria-label={
                     file.selected
-                      ? `Deselect ${file.name}`
-                      : `Select ${file.name}`
+                      ? t('downloadRow.deselectFile', { name: file.name })
+                      : t('downloadRow.selectFile', { name: file.name })
                   }
-                  title={file.selected ? "File selected for download" : "File skipped"}
+                  title={file.selected ? t('downloadRow.fileSelected') : t('downloadRow.fileSkipped')}
                 />
                 <span
                   className={`dl-file-name${file.selected ? "" : " dl-file-name--skipped"}`}

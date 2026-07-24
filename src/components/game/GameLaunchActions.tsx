@@ -5,6 +5,7 @@ import { useGames } from "../../context/GameContext";
 import { IconDownload, IconPlay } from "./icons";
 import DownloadButton from "../DownloadButton";
 import type { Game } from "../../types/game";
+import { useLanguage } from "../../context/LanguageContext";
 
 /**
  * GameLaunchActions
@@ -34,6 +35,7 @@ export default function GameLaunchActions({
 }: GameLaunchActionsProps) {
   const { runningGameIds, forceCloseGame } = useGames();
   const { showToast } = useToast();
+  const { t } = useLanguage();
   const isRunning = runningGameIds.includes(game.id);
   // In-flight flag for the destructive action. Set when the user
   // clicks "Force Close" and held until the running indicator
@@ -70,7 +72,7 @@ export default function GameLaunchActions({
   function handleInstall() {
     if (!game.steamAppId) return;
     openUrl(`steam://install/${game.steamAppId}`).catch((err) =>
-      showToast(`Failed to open Steam install: ${err}`, "error")
+      showToast(t("launch.installFailedToast", { err: String(err) }), "error")
     );
   }
 
@@ -82,7 +84,7 @@ export default function GameLaunchActions({
           onClick={handleInstall}
         >
           <IconDownload size={16} />
-          Install via Steam
+          {t("game.installViaSteam")}
         </button>
       )}
       {isRunning ? (
@@ -95,14 +97,14 @@ export default function GameLaunchActions({
         <>
           <button className="game-launch-btn running" disabled>
             <span className="running-dot-pulse" />
-            Running…
+            {t("game.running")}
           </button>
           <button
             className="game-launch-btn game-launch-btn--force-close"
             onClick={handleForceClose}
             disabled={isClosing}
-            title={isClosing ? `Closing ${game.name}…` : `Force close ${game.name}`}
-            aria-label={`Force close ${game.name}`}
+            title={isClosing ? t("launch.closingTitle", { name: game.name }) : t("launch.forceCloseTitle", { name: game.name })}
+            aria-label={t("launch.forceCloseTitle", { name: game.name })}
           >
             <svg
               viewBox="0 0 24 24"
@@ -117,7 +119,7 @@ export default function GameLaunchActions({
             >
               <rect x="6" y="6" width="12" height="12" rx="1.5" />
             </svg>
-            {isClosing ? "Closing…" : "Force Close"}
+            {isClosing ? t("game.closing") : t("game.forceClose")}
           </button>
         </>
       ) : (
@@ -126,7 +128,7 @@ export default function GameLaunchActions({
           onClick={onLaunch}
         >
           <IconPlay size={16} />
-          Launch Game
+          {t("launch.launchGame")}
         </button>
       )}
       <DownloadButton

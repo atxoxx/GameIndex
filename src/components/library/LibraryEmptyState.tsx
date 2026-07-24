@@ -2,6 +2,7 @@ import { useNavigate } from "react-router-dom";
 import { open } from "@tauri-apps/plugin-dialog";
 import { useGames } from "../../context/GameContext";
 import { useToast } from "../../context/ToastContext";
+import { useLanguage } from "../../context/LanguageContext";
 import { gameNameFromPath } from "../../types/game";
 
 interface LibraryEmptyStateProps {
@@ -17,23 +18,24 @@ export default function LibraryEmptyState({ onImported }: LibraryEmptyStateProps
   const navigate = useNavigate();
   const { importLocalGames } = useGames();
   const { showToast } = useToast();
+  const { t } = useLanguage();
 
   async function handleImportExe() {
     try {
       const filePath = await open({
         multiple: false,
         directory: false,
-        title: "Import a Game Executable",
+        title: t("library.importDialogTitle"),
         filters: [{ name: "Executable", extensions: ["exe"] }],
       });
       if (filePath && typeof filePath === "string") {
         await importLocalGames([{ path: filePath, metadata: null }]);
-        showToast(`Imported ${gameNameFromPath(filePath)}`, "success");
+        showToast(t("library.importedName", { name: gameNameFromPath(filePath) }), "success");
         onImported?.();
       }
     } catch (err) {
       console.error("Import failed:", err);
-      showToast(`Import failed: ${err}`, "error");
+      showToast(t("library.importFailed", { error: String(err) }), "error");
     }
   }
 
@@ -46,7 +48,7 @@ export default function LibraryEmptyState({ onImported }: LibraryEmptyStateProps
     if (sidebarImportBtn) {
       sidebarImportBtn.scrollIntoView({ block: "center" });
       sidebarImportBtn.click();
-      showToast("Pick 'Import Folder' from the sidebar menu to scan a directory.", "info");
+      showToast(t("library.pickImportFolderHint"), "info");
     }
   }
 
@@ -61,9 +63,9 @@ export default function LibraryEmptyState({ onImported }: LibraryEmptyStateProps
         </svg>
       </div>
 
-      <h2 className="lib-empty-title">Welcome to GameIndex</h2>
+      <h2 className="lib-empty-title">{t("library.welcomeTitle")}</h2>
       <p className="lib-empty-subtitle">
-        Your collection is looking a little empty. Pick a path below to get started — you can always import more games later.
+        {t("library.welcomeSubtitle")}
       </p>
 
       <div className="lib-empty-actions">
@@ -77,8 +79,8 @@ export default function LibraryEmptyState({ onImported }: LibraryEmptyStateProps
             </svg>
           </div>
           <div className="lib-empty-card-text">
-            <h3 className="lib-empty-card-title">Import an EXE</h3>
-            <p className="lib-empty-card-desc">Add a single game executable. Quickest way to start.</p>
+            <h3 className="lib-empty-card-title">{t("library.importExe")}</h3>
+            <p className="lib-empty-card-desc">{t("library.importExeDesc")}</p>
           </div>
           <span className="lib-empty-card-cta" aria-hidden>
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -97,8 +99,8 @@ export default function LibraryEmptyState({ onImported }: LibraryEmptyStateProps
             </svg>
           </div>
           <div className="lib-empty-card-text">
-            <h3 className="lib-empty-card-title">Scan a Folder</h3>
-            <p className="lib-empty-card-desc">Bulk-import every .exe in a directory at once.</p>
+            <h3 className="lib-empty-card-title">{t("library.scanFolder")}</h3>
+            <p className="lib-empty-card-desc">{t("library.scanFolderDesc")}</p>
           </div>
           <span className="lib-empty-card-cta" aria-hidden>
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -116,8 +118,8 @@ export default function LibraryEmptyState({ onImported }: LibraryEmptyStateProps
             </svg>
           </div>
           <div className="lib-empty-card-text">
-            <h3 className="lib-empty-card-title">Browse the Store</h3>
-            <p className="lib-empty-card-desc">Discover and track new releases from the IGDB catalog.</p>
+            <h3 className="lib-empty-card-title">{t("library.browseStore")}</h3>
+            <p className="lib-empty-card-desc">{t("library.browseStoreDesc")}</p>
           </div>
           <span className="lib-empty-card-cta" aria-hidden>
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">

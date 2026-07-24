@@ -1,4 +1,5 @@
 import { useState, useRef } from "react";
+import { useLanguage } from "../../context/LanguageContext";
 import type { Game } from "../../types/game";
 import { IconVideo } from "./icons";
 import { getVideoEmbedUrl, getVideoThumbnail } from "./video";
@@ -22,13 +23,14 @@ function BigScreenVideoSelectorBtn({
   setActiveUrl: (url: string) => void;
   children: React.ReactNode;
 }) {
+  const { t } = useLanguage();
   const focusProps = useFocusable(() => setActiveUrl(url));
   return (
     <button
       type="button"
       {...focusProps}
       className={`video-selector-btn ${isSelected ? "active" : ""}`}
-      aria-label={`Play trailer ${idx + 1}`}
+      aria-label={t("videos.playTrailerAria", { n: idx + 1 })}
       aria-pressed={isSelected}
     >
       {children}
@@ -37,6 +39,7 @@ function BigScreenVideoSelectorBtn({
 }
 
 export default function VideosSection({ game }: VideosSectionProps) {
+  const { t } = useLanguage();
   const [activeUrl, setActiveUrl] = useState<string | null>(null);
   const { isBigScreen } = useBigScreen();
   const selectorRef = useRef<HTMLDivElement | null>(null);
@@ -58,7 +61,7 @@ export default function VideosSection({ game }: VideosSectionProps) {
         <span className="game-section-title__icon" aria-hidden>
           <IconVideo size={16} />
         </span>
-        Trailers &amp; Videos
+        {t("videos.title")}
         <span className="game-section-title__count">{game.videos.length}</span>
       </h2>
 
@@ -67,13 +70,13 @@ export default function VideosSection({ game }: VideosSectionProps) {
           <div className="video-iframe-wrapper">
             <iframe
               src={embedUrl}
-              title={`${game.name} Video Trailer`}
+              title={t("videos.iframeTitle", { name: game.name })}
               allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
               allowFullScreen
             />
           </div>
         ) : (
-          <p className="videos-empty">Video link is invalid</p>
+          <p className="videos-empty">{t("videos.invalidLink")}</p>
         )}
 
         {game.videos.length > 1 && (
@@ -81,7 +84,7 @@ export default function VideosSection({ game }: VideosSectionProps) {
             <button
               type="button"
               className="carousel-arrow carousel-arrow--prev"
-              aria-label="Scroll trailers left"
+              aria-label={t("videos.scrollTrailersLeft")}
               onClick={() => scrollSelector(-1)}
             >
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -98,7 +101,7 @@ export default function VideosSection({ game }: VideosSectionProps) {
                       <>
                         <img
                           src={thumb.src}
-                          alt={`Trailer ${idx + 1}`}
+                          alt={t("videos.thumbAlt", { n: idx + 1 })}
                           className="video-selector-img"
                         />
                         <span className="video-selector-play-overlay">
@@ -125,7 +128,7 @@ export default function VideosSection({ game }: VideosSectionProps) {
                       </span>
                     ) : (
                       <span className="video-selector-fallback">
-                        Trailer {idx + 1}
+                        {t("videos.fallback", { n: idx + 1 })}
                       </span>
                     )}
                   </>
@@ -151,7 +154,7 @@ export default function VideosSection({ game }: VideosSectionProps) {
                     type="button"
                     className={`video-selector-btn ${isSelected ? "active" : ""}`}
                     onClick={() => setActiveUrl(url)}
-                    aria-label={`Play trailer ${idx + 1}`}
+                    aria-label={t("videos.playTrailerAria", { n: idx + 1 })}
                     aria-pressed={isSelected}
                   >
                     {innerContent}
@@ -162,7 +165,7 @@ export default function VideosSection({ game }: VideosSectionProps) {
             <button
               type="button"
               className="carousel-arrow carousel-arrow--next"
-              aria-label="Scroll trailers right"
+              aria-label={t("videos.scrollTrailersRight")}
               onClick={() => scrollSelector(1)}
             >
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">

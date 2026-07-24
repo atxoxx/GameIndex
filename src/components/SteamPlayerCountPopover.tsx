@@ -9,6 +9,7 @@ import {
 import { createPortal } from "react-dom";
 import type { SteamGameReviews } from "../types/game";
 import { useSteamGameStats } from "../hooks/useSteamGameStats";
+import { useLanguage } from "../context/LanguageContext";
 import SteamPlayerHistoryChart from "./SteamPlayerHistoryChart";
 
 /**
@@ -104,6 +105,7 @@ export function SteamStatsPopoverBody({
     isLoading: statsLoading,
     error: fetchError,
   } = useSteamGameStats(appId);
+  const { t } = useLanguage();
 
   const reviewsLoading = statsLoading;
 
@@ -144,7 +146,7 @@ export function SteamStatsPopoverBody({
             {currentCount.toLocaleString()}
           </div>
           <div className="steam-stats-popover-stat-label">
-            playing on Steam right now
+            {t("steamPlayer.playingNow")}
           </div>
         </div>
 
@@ -154,14 +156,14 @@ export function SteamStatsPopoverBody({
             the backend to keep the response small). */}
         <section className="steam-stats-popover-section">
           <div className="steam-stats-popover-section-header">
-            <span className="steam-stats-popover-section-title">Reviews</span>
+            <span className="steam-stats-popover-section-title">{t("steamPlayer.reviews")}</span>
             {reviewsLoading ? (
               <span className="steam-stats-popover-skeleton-pill" />
             ) : reviewSummary ? (
               <span
                 className={`steam-stats-popover-section-badge steam-stats-popover-tone-${reviewTone}`}
               >
-                {reviewSummary.scoreDesc ?? "Unrated"}
+                {reviewSummary.scoreDesc ?? t("steamPlayer.unrated")}
               </span>
             ) : (
               <span className="steam-stats-popover-section-empty">—</span>
@@ -180,7 +182,7 @@ export function SteamStatsPopoverBody({
                 aria-valuemin={0}
                 aria-valuemax={100}
                 aria-valuenow={reviewPositivePct ?? 0}
-                aria-label={`${reviewPositivePct ?? 0}% positive reviews`}
+                aria-label={t("steamPlayer.positiveReviewsAria", { pct: reviewPositivePct ?? 0 })}
               >
                 <div
                   className="steam-stats-popover-reviews-bar-fill"
@@ -189,17 +191,17 @@ export function SteamStatsPopoverBody({
               </div>
               <div className="steam-stats-popover-reviews-count">
                 <strong>{reviewSummary.totalPositive.toLocaleString()}</strong>{" "}
-                positive
+                {t("steamPlayer.positive")}
                 <span className="steam-stats-popover-reviews-count-sep">·</span>
-                {reviewSummary.totalNegative.toLocaleString()} negative
+                {reviewSummary.totalNegative.toLocaleString()} {t("steamPlayer.negative")}
                 <span className="steam-stats-popover-reviews-count-sep">·</span>
-                {reviewSummary.totalReviews.toLocaleString()} total
+                {reviewSummary.totalReviews.toLocaleString()} {t("steamPlayer.total")}
               </div>
             </>
           ) : (
-            <div className="steam-stats-popover-section-error">
-              {stats?.reviewsError ?? "No review data"}
-            </div>
+              <div className="steam-stats-popover-section-error">
+                {stats?.reviewsError ?? t("steamPlayer.noReviewData")}
+              </div>
           )}
         </section>
 
@@ -215,7 +217,7 @@ export function SteamStatsPopoverBody({
             inline message instead of three "—" placeholders. */}
         {fetchError && !stats && (
           <div className="steam-stats-popover-fetch-error" role="alert">
-            Couldn't reach Steam. Check your connection and try again.
+            {t("steamPlayer.reachError")}
           </div>
         )}
       </div>
@@ -242,7 +244,7 @@ export function SteamStatsPopoverBody({
             <polyline points="15 3 21 3 21 9" />
             <line x1="10" y1="14" x2="21" y2="3" />
           </svg>
-          View on Steam
+          {t("steamPlayer.viewOnSteam")}
         </a>
       </footer>
     </>
@@ -264,6 +266,7 @@ export default function SteamPlayerCountPopover({
   currentCount,
   onClose,
 }: SteamPlayerCountPopoverProps) {
+  const { t } = useLanguage();
   const popoverRef = useRef<HTMLDivElement>(null);
   const onCloseRef = useRef(onClose);
   // Keep the latest onClose in a ref so the global keydown / mousedown
@@ -401,7 +404,7 @@ export default function SteamPlayerCountPopover({
       style={{ top: position.top, left: position.left }}
       role="dialog"
       aria-modal="true"
-      aria-label="Steam game stats"
+      aria-label={t("steamPlayer.steamStatsTitle")}
     >
       {/* ── Header ────────────────────────────────────────────────── */}
       <header className="steam-stats-popover-header">
@@ -409,17 +412,17 @@ export default function SteamPlayerCountPopover({
           <span className="steam-stats-popover-header-dot" />
         </div>
         <div className="steam-stats-popover-header-body">
-          <div className="steam-stats-popover-header-title">Steam</div>
+          <div className="steam-stats-popover-header-title">{t("steamPlayer.steam")}</div>
           <div className="steam-stats-popover-header-subtitle">
-            Live player stats
+            {t("steamPlayer.livePlayerStats")}
           </div>
         </div>
         <button
           type="button"
           className="steam-stats-popover-close"
           onClick={onClose}
-          aria-label="Close stats"
-          title="Close"
+          aria-label={t("steamPlayer.closeStatsAria")}
+          title={t("steamPlayer.close")}
         >
           <svg
             viewBox="0 0 24 24"

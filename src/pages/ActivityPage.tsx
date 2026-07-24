@@ -84,7 +84,7 @@ export default function ActivityPage() {
   // Handler to export session history to a CSV file
   const handleExportCSV = () => {
     if (sessions.length === 0) {
-      alert("No sessions to export!");
+      alert(t("activityPage.noSessionsExport"));
       return;
     }
 
@@ -173,7 +173,7 @@ export default function ActivityPage() {
       const dataUrl = canvas.toDataURL("image/png");
 
       const filePath = await save({
-        title: "Save Activity Screenshot",
+        title: t("activity.saveScreenshot"),
         defaultPath: `gamelib_activity_screenshot_${new Date().toISOString().slice(0, 10)}.png`,
         filters: [{ name: "PNG Image", extensions: ["png"] }],
       });
@@ -181,10 +181,10 @@ export default function ActivityPage() {
       if (!filePath) return;
 
       await invoke("save_screenshot", { filePath, base64Data: dataUrl });
-      showToast("Activity screenshot saved", "success");
+      showToast(t("gameActivity.screenshotSaved"), "success");
     } catch (error) {
       console.error("Screenshot error:", error);
-      showToast(`Failed to save screenshot: ${error}`, "error");
+      showToast(t("gameActivity.screenshotFailed", { error }), "error");
     }
   };
 
@@ -306,7 +306,7 @@ export default function ActivityPage() {
                         }`}
                         onClick={() => setAggregation(mode)}
                       >
-                        {mode.charAt(0).toUpperCase() + mode.slice(1)}
+                        {t(`activityPage.agg${mode.charAt(0).toUpperCase() + mode.slice(1)}`)}
                       </button>
                     ))}
                   </div>
@@ -323,7 +323,7 @@ export default function ActivityPage() {
                         chartType === "bar" ? "activity-toolbar__icon-btn--active" : ""
                       }`}
                       onClick={() => setChartType("bar")}
-                      title="Bar Chart"
+                      title={t("activity.barChart")}
                     >
                       <Icons.BarChart3 size={11} />
                     </button>
@@ -333,7 +333,7 @@ export default function ActivityPage() {
                         chartType === "line" ? "activity-toolbar__icon-btn--active" : ""
                       }`}
                       onClick={() => setChartType("line")}
-                      title="Line Chart"
+                      title={t("activity.lineChart")}
                     >
                       <Icons.TrendingUp size={11} />
                     </button>

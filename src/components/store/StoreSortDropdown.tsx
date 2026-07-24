@@ -4,6 +4,7 @@ import {
   STORE_SORT_LABELS,
   type StoreSort,
 } from "../../types/game";
+import { useLanguage } from "../../context/LanguageContext";
 
 interface StoreSortDropdownProps {
   value: StoreSort;
@@ -22,6 +23,7 @@ export default function StoreSortDropdown({
   value,
   onChange,
 }: StoreSortDropdownProps) {
+  const { t } = useLanguage();
   const [open, setOpen] = useState(false);
   const rootRef = useRef<HTMLDivElement>(null);
 
@@ -67,7 +69,7 @@ export default function StoreSortDropdown({
           <line x1="9" y1="18" x2="15" y2="18" />
         </svg>
         <span className="store-sort-label">
-          Sort: {STORE_SORT_LABELS[value]}
+          {t("achievements.sort")} {STORE_SORT_LABELS[value]}
         </span>
         <svg
           className="store-sort-chevron"

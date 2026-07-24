@@ -102,7 +102,7 @@ export default function NewsPage() {
         const text = await file.text();
         const feeds = parseOpml(text);
         if (feeds.length === 0) {
-          setOpmlMessage("No feeds found in that OPML file.");
+          setOpmlMessage(t("newsPage.opmlNoFeeds"));
           return;
         }
         let added = 0;
@@ -111,10 +111,10 @@ export default function NewsPage() {
           addCustomFeed(f.name, f.url);
           added++;
         }
-        setOpmlMessage(`Imported ${added} feed${added === 1 ? "" : "s"}.`);
+        setOpmlMessage(t("newsPage.opmlImported", { count: added, plural: added === 1 ? "" : "s" }));
         refresh();
       } catch {
-        setOpmlMessage("Failed to read OPML file.");
+        setOpmlMessage(t("newsPage.opmlReadFailed"));
       }
     },
     [addCustomFeed, refresh]
@@ -156,8 +156,8 @@ export default function NewsPage() {
               type="button"
               className="news-settings-btn"
               onClick={markAllRead}
-              title="Mark all as read"
-              aria-label="Mark all as read"
+              title={t("newsPage.markAllRead")}
+              aria-label={t("newsPage.markAllRead")}
             >
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" width="14" height="14">
                 <polyline points="20 6 9 17 4 12" />
@@ -169,8 +169,8 @@ export default function NewsPage() {
             type="button"
             className="news-settings-btn"
             onClick={handleExportOpml}
-            title="Export feeds as OPML"
-            aria-label="Export feeds as OPML"
+            title={t("newsPage.exportOpml")}
+            aria-label={t("newsPage.exportOpml")}
           >
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" width="14" height="14">
               <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
@@ -183,8 +183,8 @@ export default function NewsPage() {
             type="button"
             className="news-settings-btn"
             onClick={() => opmlInput?.click()}
-            title="Import feeds from OPML"
-            aria-label="Import feeds from OPML"
+            title={t("newsPage.importOpml")}
+            aria-label={t("newsPage.importOpml")}
           >
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" width="14" height="14">
               <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
@@ -208,8 +208,8 @@ export default function NewsPage() {
             type="button"
             className="news-settings-btn"
             onClick={handleOpenSettings}
-            title="Manage news feeds"
-            aria-label="Manage news feeds"
+            title={t("newsPage.manageFeeds")}
+            aria-label={t("newsPage.manageFeeds")}
           >
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
               <circle cx="12" cy="12" r="3" />
@@ -270,7 +270,7 @@ export default function NewsPage() {
             </button>
           ) : (
             <button type="button" className="news-retry-btn" onClick={refresh}>
-              {t("news.refresh")}
+              {t("common.refresh")}
             </button>
           )}
         </div>

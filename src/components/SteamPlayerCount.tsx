@@ -1,6 +1,7 @@
 import { useRef, useState } from "react";
 import useSteamPlayerCount from "../hooks/useSteamPlayerCount";
 import SteamPlayerCountPopover from "./SteamPlayerCountPopover";
+import { useLanguage } from "../context/LanguageContext";
 
 /**
  * Compact, pulsing "X playing now" badge powered by the official Steam
@@ -57,6 +58,7 @@ export default function SteamPlayerCount({
   // exact same behavior. `null` covers "no data / errored / zero
   // players" — the badge hides for all of them.
   const count = useSteamPlayerCount(appId);
+  const { t } = useLanguage();
 
   // Popover open/close state. Clicking the badge toggles it; the
   // popover itself dismisses on Escape / click-outside / X and
@@ -81,10 +83,10 @@ export default function SteamPlayerCount({
         // stays untouched so positioning across Store / Game page
         // banners is unchanged.
         className={`steam-player-count steam-player-count--clickable ${className}`.trim()}
-        title={`${count.toLocaleString()} playing on Steam right now — click for more stats`}
+        title={t("steamPlayer.steamBadgeTitle", { count: count.toLocaleString() })}
         role="button"
         tabIndex={0}
-        aria-label={`${count.toLocaleString()} players currently in this game on Steam. Click for reviews, developer, and more.`}
+        aria-label={t("steamPlayer.steamBadgeAria", { count: count.toLocaleString() })}
         aria-haspopup="dialog"
         aria-expanded={popoverOpen}
         onClick={() => setPopoverOpen((o) => !o)}
@@ -110,7 +112,7 @@ export default function SteamPlayerCount({
           aria-atomic="true"
         >
           {formatCompactPlayerCount(count)}
-          <span className="steam-player-count-suffix"> playing</span>
+          <span className="steam-player-count-suffix"> {t("steamPlayer.playingSuffix")}</span>
         </span>
       </div>
       {popoverOpen && appId && (

@@ -4,6 +4,7 @@ import type { LibraryFilters, LibraryStatus, LibrarySort } from "../../hooks/use
 import { useFocusable } from "../../hooks/useFocusable";
 import BigScreenGameCard from "./BigScreenGameCard";
 import { SORT_LABELS } from "../../hooks/useLibraryFilters";
+import { useLanguage } from "../../context/LanguageContext";
 
 interface BigScreenLibraryProps {
   filteredGames: Game[];
@@ -38,6 +39,7 @@ export default function BigScreenLibrary({
   setSort,
   reset,
 }: BigScreenLibraryProps) {
+  const { t } = useLanguage();
   const [dropdown, setDropdown] = useState<DropdownType>(null);
   const [searchFocused, setSearchFocused] = useState(false);
   const searchInputRef = useRef<HTMLInputElement | null>(null);
@@ -71,25 +73,25 @@ export default function BigScreenLibrary({
 
   // Clean label helper for platforms filter
   const platformLabel = useMemo(() => {
-    if (filters.platforms.length === 0) return "All Platforms";
+    if (filters.platforms.length === 0) return t("bigscreen.library.allPlatforms");
     if (filters.platforms.length === 1) return filters.platforms[0];
-    return `${filters.platforms.length} Platforms`;
-  }, [filters.platforms]);
+    return t("bigscreen.library.platformsCount", { count: filters.platforms.length });
+  }, [filters.platforms, t]);
 
   // Clean label helper for genres filter
   const genreLabel = useMemo(() => {
-    if (filters.genres.length === 0) return "All Genres";
+    if (filters.genres.length === 0) return t("bigscreen.library.allGenres");
     if (filters.genres.length === 1) return filters.genres[0];
-    return `${filters.genres.length} Genres`;
-  }, [filters.genres]);
+    return t("bigscreen.library.genresCount", { count: filters.genres.length });
+  }, [filters.genres, t]);
 
   return (
     <div className="bigscreen-library-dashboard">
       <div className="bigscreen-library-header-section">
         <div className="bigscreen-library-title-row">
-          <h2 className="bigscreen-library-title">My Collection</h2>
+          <h2 className="bigscreen-library-title">{t("bigscreen.library.myCollection")}</h2>
           <span className="bigscreen-library-count">
-            {filteredGames.length} of {totalGames}
+            {t("bigscreen.library.countOf", { count: filteredGames.length, total: totalGames })}
           </span>
         </div>
 
@@ -109,7 +111,7 @@ export default function BigScreenLibrary({
             <input
               ref={searchInputRef}
               type="text"
-              placeholder="Search..."
+              placeholder={t("bigscreen.library.search")}
               value={filters.search}
               onChange={(e) => setSearch(e.target.value)}
               onBlur={() => setSearchFocused(false)}
@@ -117,23 +119,23 @@ export default function BigScreenLibrary({
           </div>
 
           <button type="button" className="bigscreen-filter-chip" {...platformChip}>
-            Platform: <span>{platformLabel}</span>
+            {t("bigscreen.library.chipPlatform")} <span>{platformLabel}</span>
           </button>
 
           <button type="button" className="bigscreen-filter-chip" {...genreChip}>
-            Genre: <span>{genreLabel}</span>
+            {t("bigscreen.library.chipGenre")} <span>{genreLabel}</span>
           </button>
 
           <button type="button" className="bigscreen-filter-chip" {...statusChip}>
-            Status: <span>{filters.status === "all" ? "All" : filters.status === "installed" ? "Installed" : "Not Installed"}</span>
+            {t("bigscreen.library.chipStatus")} <span>{filters.status === "all" ? t("common.all") : filters.status === "installed" ? t("filter.installed") : t("filter.notInstalled")}</span>
           </button>
 
           <button type="button" className="bigscreen-filter-chip" {...sourceChip}>
-            Source: <span>{filters.source === "all" ? "All Sources" : filters.source.toUpperCase()}</span>
+            {t("bigscreen.library.chipSource")} <span>{filters.source === "all" ? t("bigscreen.library.allSources") : filters.source.toUpperCase()}</span>
           </button>
 
           <button type="button" className="bigscreen-filter-chip" {...sortChip}>
-            Sort: <span>{SORT_LABELS[filters.sort]}</span>
+            {t("bigscreen.library.chipSort")} <span>{SORT_LABELS[filters.sort]}</span>
           </button>
 
           {(filters.search ||
@@ -143,7 +145,7 @@ export default function BigScreenLibrary({
             filters.source !== "all" ||
             filters.sort !== "alphabetical") && (
             <button type="button" className="bigscreen-filter-chip bigscreen-filter-chip--reset" {...resetChip}>
-              Reset Filters
+              {t("bigscreen.library.resetFilters")}
             </button>
           )}
         </div>
@@ -156,8 +158,8 @@ export default function BigScreenLibrary({
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" width="64" height="64" opacity="0.3">
               <polygon points="12 2 2 22 22 22" />
             </svg>
-            <h3>No games match your criteria</h3>
-            <p>Try clearing filters or search parameters to see your library.</p>
+            <h3>{t("bigscreen.library.noMatch")}</h3>
+            <p>{t("bigscreen.library.noMatchHint")}</p>
           </div>
         ) : (
           <div className="bigscreen-library-grid">
@@ -216,16 +218,17 @@ function FilterDropdownOverlay({
   setSort,
   onClose,
 }: DropdownOverlayProps) {
+  const { t } = useLanguage();
   const title = useMemo(() => {
     switch (type) {
-      case "platform": return "Select Platforms";
-      case "genre": return "Select Genres";
-      case "status": return "Filter by Status";
-      case "source": return "Filter by Source";
-      case "sort": return "Sort order";
+      case "platform": return t("bigscreen.library.selectPlatforms");
+      case "genre": return t("bigscreen.library.selectGenres");
+      case "status": return t("bigscreen.library.filterByStatus");
+      case "source": return t("bigscreen.library.filterBySource");
+      case "sort": return t("library.sortOrder");
       default: return "";
     }
-  }, [type]);
+  }, [type, t]);
 
   return (
     <div className="bigscreen-overlay-drawer" onClick={onClose}>
@@ -267,6 +270,7 @@ function DropdownOptionsList({
   setSort,
   onClose,
 }: Omit<DropdownOverlayProps, "title">) {
+  const { t } = useLanguage();
   const renderOption = (label: string, active: boolean, onClick: () => void) => {
     const optionProps = useFocusable(() => {
       onClick();
@@ -326,9 +330,9 @@ function DropdownOptionsList({
   if (type === "status") {
     return (
       <div className="bigscreen-overlay-options-list">
-        {renderOption("All", filters.status === "all", () => setStatus("all"))}
-        {renderOption("Installed", filters.status === "installed", () => setStatus("installed"))}
-        {renderOption("Not Installed", filters.status === "not_installed", () => setStatus("not_installed"))}
+        {renderOption(t("common.all"), filters.status === "all", () => setStatus("all"))}
+        {renderOption(t("filter.installed"), filters.status === "installed", () => setStatus("installed"))}
+        {renderOption(t("filter.notInstalled"), filters.status === "not_installed", () => setStatus("not_installed"))}
       </div>
     );
   }
@@ -339,7 +343,7 @@ function DropdownOptionsList({
       <div className="bigscreen-overlay-options-list">
         {sources.map((src) =>
           renderOption(
-            src === "all" ? "All Sources" : src.toUpperCase(),
+            src === "all" ? t("bigscreen.library.allSources") : src.toUpperCase(),
             filters.source === src,
             () => setSource(src)
           )

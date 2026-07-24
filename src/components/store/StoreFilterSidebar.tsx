@@ -1,5 +1,6 @@
 import { useSources } from "../../context/SourceContext";
 import type { SourceLink } from "../../types/source";
+import { useLanguage } from "../../context/LanguageContext";
 
 export const GENRES = [
   "Action",
@@ -58,6 +59,7 @@ export default function StoreFilterSidebar({
   onApply,
   onReset,
 }: StoreFilterSidebarProps) {
+  const { t } = useLanguage();
   // Hook up to the live source list so the sidebar re-renders when the
   // user adds/removes/toggles a source in Settings. Only enabled
   // sources are surfaced — a disabled source wouldn't contribute to
@@ -94,7 +96,7 @@ export default function StoreFilterSidebar({
     <aside className="store-filter-sidebar">
       <div className="store-filter-section">
         <h4 className="store-filter-heading">
-          Genres
+          {t("store.compare.genres")}
           {selectedGenres.length > 0 && (
             <span className="store-filter-count-badge">{selectedGenres.length}</span>
           )}
@@ -115,7 +117,7 @@ export default function StoreFilterSidebar({
 
       <div className="store-filter-section">
         <h4 className="store-filter-heading">
-          Platforms
+          {t("store.compare.platforms")}
           {selectedPlatforms.length > 0 && (
             <span className="store-filter-count-badge">{selectedPlatforms.length}</span>
           )}
@@ -135,12 +137,12 @@ export default function StoreFilterSidebar({
       </div>
 
       <div className="store-filter-section">
-        <h4 className="store-filter-heading">Release Year</h4>
+        <h4 className="store-filter-heading">{t("store.filter.releaseYear")}</h4>
         <div className="store-filter-year-row">
           <input
             type="number"
             className="store-filter-year-input"
-            placeholder="From"
+            placeholder={t("store.filter.yearFrom")}
             value={yearMin ?? ""}
             onChange={(e) =>
               onYearRangeChange(
@@ -155,7 +157,7 @@ export default function StoreFilterSidebar({
           <input
             type="number"
             className="store-filter-year-input"
-            placeholder="To"
+            placeholder={t("store.filter.yearTo")}
             value={yearMax ?? ""}
             onChange={(e) =>
               onYearRangeChange(
@@ -171,7 +173,7 @@ export default function StoreFilterSidebar({
 
       <div className="store-filter-section">
         <div className="store-filter-rating-head">
-          <h4 className="store-filter-heading">Minimum Rating</h4>
+          <h4 className="store-filter-heading">{t("store.filter.minRating")}</h4>
           <span className="store-filter-rating-value">{ratingMin ?? 0}+</span>
         </div>
         <input
@@ -191,16 +193,14 @@ export default function StoreFilterSidebar({
 
       <div className="store-filter-section">
         <h4 className="store-filter-heading">
-          Download Sources
+          {t("store.filter.downloadSources")}
           {selectedSourceIds.length > 0 && (
             <span className="store-filter-count-badge">{selectedSourceIds.length}</span>
           )}
         </h4>
         {enabledSources.length === 0 ? (
           <p className="store-filter-empty-text">
-            No sources added yet — open Settings → Sources to add one. The
-            filter will only show store games whose titles are present in
-            every selected source.
+            {t("store.filter.noSources")}
           </p>
         ) : (
           <div className="store-filter-pills store-filter-pills-sources">
@@ -228,10 +228,10 @@ export default function StoreFilterSidebar({
 
       <div className="store-filter-actions">
         <button className="store-filter-btn apply" onClick={onApply}>
-          Apply Filters
+          {t("store.filter.applyFilters")}
         </button>
         <button className="store-filter-btn reset" onClick={onReset}>
-          Reset
+          {t("common.reset")}
         </button>
       </div>
     </aside>

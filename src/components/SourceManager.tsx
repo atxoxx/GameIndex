@@ -14,17 +14,20 @@
 import { useState, useCallback } from "react";
 import { useSources } from "../context/SourceContext";
 import { useToast } from "../context/ToastContext";
+import { useLanguage } from "../context/LanguageContext";
 import { Button } from "./ui";
 import type { SourceLink } from "../types/source";
 
+type Translator = (key: string, vars?: Record<string, string | number>) => string;
+
 /** Format a unix-seconds timestamp as a short relative string. */
-function formatRelative(unixSeconds: number | null): string {
-  if (unixSeconds == null) return "Never";
+function formatRelative(unixSeconds: number | null, t: Translator): string {
+  if (unixSeconds == null) return t("sourceManager.never");
   const diff = Date.now() / 1000 - unixSeconds;
-  if (diff < 60) return "Just now";
-  if (diff < 3600) return `${Math.round(diff / 60)}m ago`;
-  if (diff < 86400) return `${Math.round(diff / 3600)}h ago`;
-  if (diff < 30 * 86400) return `${Math.round(diff / 86400)}d ago`;
+  if (diff < 60) return t("sourceManager.justNow");
+  if (diff < 3600) return t("sourceManager.minutesAgo", { count: Math.round(diff / 60) });
+  if (diff < 86400) return t("sourceManager.hoursAgo", { count: Math.round(diff / 3600) });
+  if (diff < 30 * 86400) return t("sourceManager.daysAgo", { count: Math.round(diff / 86400) });
   return new Date(unixSeconds * 1000).toLocaleDateString();
 }
 
@@ -39,6 +42,7 @@ export default function SourceManager() {
     refreshAllSources,
   } = useSources();
   const { showToast } = useToast();
+  const { t } = useLanguage();
 
   const [showAddForm, setShowAddForm] = useState(false);
   // `addMode` switches between the single-URL form and the bulk
@@ -68,11 +72,11 @@ export default function SourceManager() {
   const handleAdd = useCallback(async () => {
     const url = newUrl.trim();
     if (!url) {
-      showToast("Source URL is required", "error");
+      showToast(t("sourceManager.urlRequired"), "error");
       return;
     }
     if (!url.startsWith("http://") && !url.startsWith("https://")) {
-      showToast("Source URL must start with http:// or https://", "error");
+      showToast(t("sourceManager.urlMustStartHttp"), "error");
       return;
     }
     // The Rust command POSTs the URL to the Hydra API
@@ -85,11 +89,11 @@ export default function SourceManager() {
       resetAddForm();
     } catch (err) {
       const msg = String(err);
-      showToast(`Add source failed: ${msg}`, "error");
+      showToast(t("sourceManager.addFailed", { error: msg }), "error");
     } finally {
       setAdding(false);
     }
-  }, [newUrl, newName, addSource, showToast, resetAddForm]);
+  }, [newUrl, newName, addSource, showToast, resetAddForm, t]);
 
   // Parse the bulk textarea into a de-duplicated list of valid URLs.
   const parseBulkUrls = useCallback((text: string): string[] => {
@@ -108,7 +112,7 @@ export default function SourceManager() {
   const handleBulkAdd = useCallback(async () => {
     const urls = parseBulkUrls(bulkText);
     if (urls.length === 0) {
-      showToast("Paste at least one source URL", "error");
+      showToast(t("sourceManager.pasteUrl"), "error");
       return;
     }
     const bad = urls.filter(
@@ -116,7 +120,7 @@ export default function SourceManager() {
     );
     if (bad.length > 0) {
       showToast(
-        `Every URL must start with http:// or https:// (${bad.length} invalid)`,
+        t("sourceManager.bulkInvalidUrls", { count: bad.length }),
         "error",
       );
       return;
@@ -126,14 +130,14 @@ export default function SourceManager() {
       const result = await addSourceBulk(urls);
       const { added, skipped, failed } = result;
       if (added.length > 0) {
-        showToast(`Added ${added.length} source${added.length === 1 ? "" : "s"}`, "success");
+        showToast(t("sourceManager.addedSources", { count: added.length, s: added.length === 1 ? "" : "s" }), "success");
       }
       if (skipped.length > 0) {
-        showToast(`Skipped ${skipped.length} duplicate URL${skipped.length === 1 ? "" : "s"}`, "info");
+        showToast(t("sourceManager.skippedDuplicates", { count: skipped.length, s: skipped.length === 1 ? "" : "s" }), "info");
       }
       if (failed.length > 0) {
         showToast(
-          `${failed.length} source${failed.length === 1 ? "" : "s"} failed to add`,
+          t("sourceManager.failedToAdd", { count: failed.length, s: failed.length === 1 ? "" : "s" }),
           "error",
         );
       }
@@ -141,11 +145,11 @@ export default function SourceManager() {
         resetAddForm();
       }
     } catch (err) {
-      showToast(`Bulk add failed: ${String(err)}`, "error");
+      showToast(t("sourceManager.bulkAddFailed", { error: String(err) }), "error");
     } finally {
       setAdding(false);
     }
-  }, [bulkText, parseBulkUrls, addSourceBulk, showToast, resetAddForm]);
+  }, [bulkText, parseBulkUrls, addSourceBulk, showToast, resetAddForm, t]);
 
   const handleRefreshOne = useCallback(
     async (id: string) => {
@@ -180,21 +184,21 @@ export default function SourceManager() {
   const handleRemove = useCallback(
     async (source: SourceLink) => {
       const confirmed = window.confirm(
-        `Remove source "${source.name}"?\n\nThe source list entry will be deleted. Cached downloads for this source are not affected.`,
+        t("sourceManager.removeConfirm", { name: source.name }),
       );
       if (!confirmed) return;
       try {
         await removeSource(source.id);
-        showToast(`Removed source "${source.name}"`, "info");
+        showToast(t("sourceManager.removedSource", { name: source.name }), "info");
       } catch (err) {
-        showToast(`Remove failed: ${err}`, "error");
+        showToast(t("sourceManager.removeFailed", { error: String(err) }), "error");
         // Re-throw so the caller (e.g. an optimistic-UI layer) can
         // roll back if needed. The current caller ignores it but a
         // future caller may want to react.
         throw err;
       }
     },
-    [removeSource, showToast],
+    [removeSource, showToast, t],
   );
 
   const hasSources = sources.length > 0;
@@ -210,13 +214,10 @@ export default function SourceManager() {
               <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71" />
               <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71" />
             </svg>
-            Download Sources
+            {t("settings.section.downloadSources")}
           </h3>
           <p className="src-manager-desc">
-            Add JSON-formatted source URLs to find download mirrors for your games.
-            The built-in format is <code>{`{ name, downloads: [{ title, fileSize, uris }] }`}</code> — Hydra-compatible sources work out of the box.
-            Adding a source registers it with the Hydra API, which fetches
-            and validates the source JSON on your behalf.
+            {t("sourceManager.desc1")} <code>{`{ name, downloads: [{ title, fileSize, uris }] }`}</code> {t("sourceManager.desc2")}
           </p>
         </div>
         <div className="src-manager-bulk">
@@ -226,7 +227,7 @@ export default function SourceManager() {
               size="sm"
               onClick={handleRefreshAll}
               disabled={refreshingAll || enabledCount === 0}
-              title="Re-fetch every enabled source"
+              title={t("sourceManager.refetchAll")}
               leftIcon={
                 <svg
                   viewBox="0 0 24 24"
@@ -241,7 +242,7 @@ export default function SourceManager() {
                 </svg>
               }
             >
-              {refreshingAll ? "Refreshing…" : "Refresh All"}
+              {refreshingAll ? t("sourceManager.refreshing") : t("sourceManager.refreshAll")}
             </Button>
           )}
           <Button
@@ -262,7 +263,7 @@ export default function SourceManager() {
               )
             }
           >
-            {showAddForm ? "Close" : "Add Source"}
+            {showAddForm ? t("common.close") : t("sourceManager.addSource")}
           </Button>
         </div>
       </div>
@@ -278,7 +279,7 @@ export default function SourceManager() {
           }}
         >
           {/* Mode toggle: single URL vs. bulk paste. */}
-          <div className="src-form-modes" role="tablist" aria-label="Add source mode">
+          <div className="src-form-modes" role="tablist" aria-label={t("sourceManager.addModeLabel")}>
             <button
               type="button"
               role="tab"
@@ -286,7 +287,7 @@ export default function SourceManager() {
               className={`src-mode-btn${addMode === "single" ? " active" : ""}`}
               onClick={() => setAddMode("single")}
             >
-              Single link
+              {t("sourceManager.singleLink")}
             </button>
             <button
               type="button"
@@ -295,7 +296,7 @@ export default function SourceManager() {
               className={`src-mode-btn${addMode === "bulk" ? " active" : ""}`}
               onClick={() => setAddMode("bulk")}
             >
-              Bulk add
+              {t("sourceManager.bulkAdd")}
             </button>
           </div>
 
@@ -309,16 +310,16 @@ export default function SourceManager() {
                 onChange={(e) => setNewUrl(e.target.value)}
                 autoFocus
                 required
-                aria-label="Source URL"
+                aria-label={t("sourceManager.sourceUrl")}
               />
               <input
                 className="src-form-input"
                 type="text"
-                placeholder="Display name (optional)"
+                placeholder={t("sourceManager.displayNamePlaceholder")}
                 value={newName}
                 onChange={(e) => setNewName(e.target.value)}
                 style={{ maxWidth: "200px" }}
-                aria-label="Source name"
+                aria-label={t("sourceManager.sourceName")}
               />
             </div>
           ) : (
@@ -330,7 +331,7 @@ export default function SourceManager() {
               onChange={(e) => setBulkText(e.target.value)}
               autoFocus
               spellCheck={false}
-              aria-label="Bulk source URLs"
+              aria-label={t("sourceManager.bulkUrlsLabel")}
               style={{ width: "100%", resize: "vertical", minHeight: "120px", fontFamily: "SFMono-Regular, Consolas, monospace" }}
             />
           )}
@@ -343,17 +344,11 @@ export default function SourceManager() {
             </svg>
             <span>
               {addMode === "bulk" ? (
-                <>
-                  Paste one source URL per line. Each valid link is
-                  registered with the Hydra API independently — duplicates
-                  are skipped and a single bad link won&apos;t stop the
-                  rest. All sources are cached locally for offline use.
-                </>
+                <>{t("sourceManager.bulkHint")}</>
               ) : (
                 <>
-                  Clicking <strong>Add Source</strong> registers the URL
-                  with the Hydra API, which fetches and parses the source
-                  JSON. The downloads list is cached locally for offline use.
+                  {t("sourceManager.singleHint1")} <strong>{t("sourceManager.addSource")}</strong>{" "}
+                  {t("sourceManager.singleHint2")}
                 </>
               )}
             </span>
@@ -365,7 +360,7 @@ export default function SourceManager() {
               onClick={resetAddForm}
               disabled={adding}
             >
-              Cancel
+              {t("common.cancel")}
             </Button>
             {addMode === "bulk" ? (
               <Button
@@ -375,7 +370,7 @@ export default function SourceManager() {
                 disabled={!bulkText.trim() || adding}
                 isLoading={adding}
               >
-                {adding ? "Adding…" : "Add All"}
+                {adding ? t("store.adding") : t("sourceManager.addAll")}
               </Button>
             ) : (
               <Button
@@ -385,7 +380,7 @@ export default function SourceManager() {
                 disabled={!newUrl.trim() || adding}
                 isLoading={adding}
               >
-                Add Source
+                {t("sourceManager.addSource")}
               </Button>
             )}
           </div>
@@ -421,13 +416,11 @@ export default function SourceManager() {
             <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71" />
             <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71" />
           </svg>
-          <p className="src-empty-title">No sources yet</p>
+          <p className="src-empty-title">{t("sourceManager.noSources")}</p>
           <p className="src-empty-hint">
-            Click <strong>Add Source</strong> to paste a JSON source URL. The built-in
-            schema is{" "}
-            <code>{`{ name, downloads: [{ title, fileSize, uris }] }`}</code>; any
-            Hydra-compatible source should work. The URL is registered
-            with the Hydra API, which fetches and validates the source JSON.
+            {t("sourceManager.emptyHintPre")}{" "}
+            <code>{`{ name, downloads: [{ title, fileSize, uris }] }`}</code>
+            {t("sourceManager.emptyHintPost")}
           </p>
         </div>
       )}
@@ -449,13 +442,14 @@ function SourceRow({
   onRefresh: () => void;
   onRemove: () => void;
 }) {
+  const { t } = useLanguage();
   return (
     <div className={`src-item${source.enabled ? "" : " disabled"}${isRefreshing ? " refreshing" : ""}`}>
       <div className="src-item-info">
         <div className="src-item-header">
           <span className="src-item-name">{source.name}</span>
           <span className={`src-item-status ${source.enabled ? "enabled" : "disabled"}`}>
-            {source.enabled ? "Enabled" : "Disabled"}
+            {source.enabled ? t("sourceManager.enabled") : t("sourceManager.disabled")}
           </span>
         </div>
         <div className="src-item-url">
@@ -469,7 +463,7 @@ function SourceRow({
               <circle cx="12" cy="12" r="10" />
               <polyline points="12 6 12 12 16 14" />
             </svg>
-            {formatRelative(source.lastFetched)}
+            {formatRelative(source.lastFetched, t)}
           </span>
           <span>
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
@@ -477,18 +471,18 @@ function SourceRow({
               <line x1="8" y1="21" x2="16" y2="21" />
               <line x1="12" y1="17" x2="12" y2="21" />
             </svg>
-            {source.gameCount.toLocaleString()} game{source.gameCount === 1 ? "" : "s"}
+            {t("storage.gamesCount", { count: source.gameCount.toLocaleString(), plural: source.gameCount === 1 ? "" : "s" })}
           </span>
         </div>
       </div>
 
       <div className="src-item-controls">
-        <label className="src-toggle" title={source.enabled ? "Disable source" : "Enable source"}>
+        <label className="src-toggle" title={source.enabled ? t("sourceManager.disableSource") : t("sourceManager.enableSource")}>
           <input
             type="checkbox"
             checked={source.enabled}
             onChange={onToggle}
-            aria-label={`Toggle ${source.name}`}
+            aria-label={t("sourceManager.toggleSource", { source: source.name })}
           />
           <span className="src-toggle-slider" />
         </label>
@@ -497,8 +491,8 @@ function SourceRow({
           className={`src-action-btn${isRefreshing ? " spinning" : ""}`}
           onClick={onRefresh}
           disabled={isRefreshing}
-          title="Re-fetch this source"
-          aria-label={`Refresh ${source.name}`}
+          title={t("sourceManager.refetchSource")}
+          aria-label={t("sourceManager.refreshSource", { source: source.name })}
         >
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
             <polyline points="23 4 23 10 17 10" />
@@ -510,8 +504,8 @@ function SourceRow({
           className="src-action-btn danger"
           onClick={onRemove}
           disabled={isRefreshing}
-          title="Remove source"
-          aria-label={`Remove ${source.name}`}
+          title={t("sourceManager.removeSource")}
+          aria-label={t("sourceManager.removeSourceLabel", { source: source.name })}
         >
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
             <polyline points="3 6 5 6 21 6" />

@@ -1,4 +1,5 @@
 import { useId, useMemo, useRef, useState } from "react";
+import { useLanguage } from "../../context/LanguageContext";
 
 export interface ActivitySparklineProps {
   data: { x: number; y: number }[];
@@ -44,6 +45,7 @@ export function ActivitySparkline({
   inverted,
   smooth = true,
 }: Readonly<ActivitySparklineProps>) {
+  const { t } = useLanguage();
   const gradientId = useId().replace(/[:]/g, "");
   const svgRef = useRef<SVGSVGElement>(null);
   const [hoverIdx, setHoverIdx] = useState<number | null>(null);
@@ -71,7 +73,7 @@ export function ActivitySparkline({
   const renderValueGroup = () => (
     <div className="activity-sparkline__value-group">
       <div className="activity-sparkline__value-item">
-        <span className="activity-sparkline__value-item-label">avg</span>
+        <span className="activity-sparkline__value-item-label">{t("activitySpark.avg")}</span>
         <span
           className={`activity-sparkline__value activity-sparkline__value--${status}`}
           style={{ color }}
@@ -82,7 +84,7 @@ export function ActivitySparkline({
       </div>
       {max !== undefined && Number.isFinite(max) && (
         <div className="activity-sparkline__value-item">
-          <span className="activity-sparkline__value-item-label">max</span>
+          <span className="activity-sparkline__value-item-label">{t("activitySpark.max")}</span>
           <span className="activity-sparkline__value activity-sparkline__value--max">
             {max}
             {unit}
@@ -91,7 +93,7 @@ export function ActivitySparkline({
       )}
       {min !== undefined && Number.isFinite(min) && (
         <div className="activity-sparkline__value-item">
-          <span className="activity-sparkline__value-item-label">min</span>
+          <span className="activity-sparkline__value-item-label">{t("activitySpark.min")}</span>
           <span className="activity-sparkline__value activity-sparkline__value--min">
             {min}
             {unit}

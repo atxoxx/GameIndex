@@ -13,10 +13,10 @@ type WishlistSort = "date_added" | "name" | "rating" | "release_date";
 type WishlistGroup = "all" | "released" | "coming_soon";
 
 const SORT_LABELS: Record<WishlistSort, string> = {
-  date_added: "Date Added (Newest)",
-  name: "Name (A–Z)",
-  rating: "Highest Rated",
-  release_date: "Release Date",
+  date_added: "wishlist.sortDateAdded",
+  name: "wishlist.sortNameAZ",
+  rating: "wishlist.sortHighestRated",
+  release_date: "wishlist.sortReleaseDate",
 };
 
 const WISHLIST_FILTERS_KEY = "gamelib_wishlist_filters_v1";
@@ -345,21 +345,21 @@ export default function WishlistPage() {
                 value={filters.search}
                 placeholder={t("wishlist.searchPlaceholder")}
                 onChange={(e) => setSearch(e.target.value)}
-                aria-label="Search wishlist"
+                aria-label={t("wishlist.searchPlaceholder")}
               />
               {filters.search && (
                 <button
                   type="button"
                   className="wishlist-search-clear"
                   onClick={() => setSearch("")}
-                  aria-label="Clear search"
+                  aria-label={t("wishlist.clearSearch")}
                 >
                   ×
                 </button>
               )}
             </div>
 
-            <div className="wishlist-group-tabs" role="group" aria-label="Group by status">
+              <div className="wishlist-group-tabs" role="group" aria-label={t("wishlist.groupByStatus")}>
               <button
                 type="button"
                 className={filters.group === "all" ? "active" : ""}
@@ -388,11 +388,11 @@ export default function WishlistPage() {
               <select
                 value={filters.sort}
                 onChange={(e) => setSort(e.target.value as WishlistSort)}
-                aria-label="Sort wishlist"
+                aria-label={t("wishlist.sortAria")}
               >
                 {(Object.keys(SORT_LABELS) as WishlistSort[]).map((s) => (
                   <option key={s} value={s}>
-                    {SORT_LABELS[s]}
+                    {t(SORT_LABELS[s])}
                   </option>
                 ))}
               </select>
@@ -480,7 +480,7 @@ export default function WishlistPage() {
           className="wishlist-modal-overlay"
           role="dialog"
           aria-modal="true"
-          aria-label="Clear wishlist"
+          aria-label={t("wishlist.clearWishlistAria")}
           onClick={() => setConfirmClear(false)}
         >
           <div
@@ -627,7 +627,7 @@ function WishlistCard({
           type="button"
           className="wishlist-share-btn"
           onClick={shareToFriends}
-          title="Share this game with friends"
+          title={t("wishlist.shareWithFriends")}
         >
           <svg
             viewBox="0 0 24 24"
@@ -701,7 +701,7 @@ function WishlistCard({
               }}
               autoFocus
               rows={3}
-              aria-label={`Note for ${entry.name}`}
+              aria-label={t("wishlist.noteForAria", { name: entry.name })}
             />
             <div className="wishlist-note-actions">
               <button
@@ -742,8 +742,8 @@ function WishlistCard({
                 setDraft(entry.note ?? "");
                 setEditing(true);
               }}
-              aria-label={`Edit note for ${entry.name}`}
-              title="Edit note"
+              aria-label={t("wishlist.editNoteLabel", { name: entry.name })}
+              title={t("wishlist.editNote")}
             >
               <svg
                 viewBox="0 0 24 24"

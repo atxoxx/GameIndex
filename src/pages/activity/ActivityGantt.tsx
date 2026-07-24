@@ -5,6 +5,7 @@ import html2canvas from "html2canvas";
 import { prepareClonedDocumentForCanvasCapture } from "../../utils/color";
 import { useToast } from "../../context/ToastContext";
 import { useSessionNotes } from "../../context/SessionNotesContext";
+import { useLanguage } from "../../context/LanguageContext";
 import type { Game, GameSession, SessionMetrics } from "../../types/game";
 import { formatPlayTime } from "../../types/game";
 
@@ -128,6 +129,7 @@ export function ActivityGantt({
 }: ActivityGanttProps) {
   const { showToast } = useToast();
   const { getNote, setTags, setNote } = useSessionNotes();
+  const { t } = useLanguage();
   const ganttRef = useRef<HTMLDivElement>(null);
 
   const [highlightGame, setHighlightGame] = useState<string | null>(null);
@@ -340,16 +342,16 @@ export function ActivityGantt({
       });
       const dataUrl = canvas.toDataURL("image/png");
       const filePath = await save({
-        title: "Save Timeline",
+        title: t("activityGantt.saveTimeline"),
         defaultPath: `gameindex_timeline_${new Date().toISOString().slice(0, 10)}.png`,
         filters: [{ name: "PNG Image", extensions: ["png"] }],
       });
       if (!filePath) return;
       await invoke("save_screenshot", { filePath, base64Data: dataUrl });
-      showToast("Timeline image saved", "success");
+      showToast(t("activityGantt.timelineSaved"), "success");
     } catch (error) {
       console.error("Timeline export error:", error);
-      showToast(`Failed to save timeline: ${error}`, "error");
+      showToast(t("activityGantt.timelineFailed", { error: String(error) }), "error");
     }
   };
 
@@ -365,7 +367,7 @@ export function ActivityGantt({
     return (
       <div className="section-panel">
         <div className="section-panel__empty">
-          No gameplay sessions recorded in the selected date range.
+          {t("activityGantt.noSessions")}
         </div>
       </div>
     );
@@ -396,22 +398,20 @@ export function ActivityGantt({
     <div className="activity-gantt" ref={ganttRef}>
       {/* ── Header / actions ──────────────────────────────────────── */}
       <div className="activity-gantt__head">
-        <div className="activity-gantt__head-title">Daily Timeline</div>
+        <div className="activity-gantt__head-title">{t("activityGantt.dailyTimeline")}</div>
         <button
           type="button"
           className="activity-gantt__export-btn"
           onClick={handleExportImage}
-          title="Save timeline as image"
+          title={t("activityGantt.saveAsImage")}
         >
-          Save Image
+          {t("activityGantt.saveImage")}
         </button>
       </div>
 
       {sampled && (
         <div className="activity-gantt__caption">
-          Showing the {buckets.length} most recent days with activity (of{" "}
-          {totalDayCount} days in range). Narrow the date range for a full
-          continuous view.
+          {t("activityGantt.sampledCaption", { count: buckets.length, total: totalDayCount })}
         </div>
       )}
 
@@ -431,7 +431,7 @@ export function ActivityGantt({
               onClick={() =>
                 setHighlightGame((prev) => (prev === gameId ? null : gameId))
               }
-              title={`${g?.name || "Unknown"} · click to isolate`}
+              title={t("activityGantt.legendTitle", { name: g?.name || t("splash.unknown") })}
             >
               <span
                 className="activity-gantt__legend-dot"
@@ -441,7 +441,7 @@ export function ActivityGantt({
                 <img className="activity-gantt__legend-icon" src={g.iconUrl} alt="" />
               ) : null}
               <span className="activity-gantt__legend-label">
-                {g?.name || "Unknown"} · {formatPlayTime(minutes)}
+                {g?.name || t("splash.unknown")} · {formatPlayTime(minutes)}
               </span>
             </button>
           );
@@ -453,7 +453,7 @@ export function ActivityGantt({
             className="activity-gantt__legend-more"
             onClick={() => setShowAllLegend(true)}
           >
-            + {overflowCount} more game{overflowCount === 1 ? "" : "s"}
+            {t("activityGantt.moreGames", { count: overflowCount, plural: overflowCount === 1 ? "" : "s" })}
           </button>
         )}
         {showAllLegend && allGameCount > topGames.length && (
@@ -462,7 +462,7 @@ export function ActivityGantt({
             className="activity-gantt__legend-more"
             onClick={() => setShowAllLegend(false)}
           >
-            Show less
+            {t("about.showLess")}
           </button>
         )}
 
@@ -472,18 +472,18 @@ export function ActivityGantt({
             className="activity-gantt__legend-clear"
             onClick={() => setHighlightGame(null)}
           >
-            Clear filter
+            {t("activityGantt.clearFilter")}
           </button>
         )}
 
         <span className="activity-gantt__legend-total">
-          {formatPlayTime(totalPlayedMinutes)} total
+          {t("activityGantt.total", { time: formatPlayTime(totalPlayedMinutes) })}
         </span>
       </div>
 
       {/* ── Time-of-day play-pattern heatmap ───────────────────────── */}
       <div className="activity-gantt__heatmap">
-        <div className="activity-gantt__heatmap-header">Play pattern</div>
+        <div className="activity-gantt__heatmap-header">{t("activityGantt.playPattern")}</div>
         <div className="activity-gantt__heatmap-track">
           {hourBuckets.map(({ hour, mins }) => {
             const pct = (mins / maxHourMins) * 100;
@@ -605,9 +605,12 @@ export function ActivityGantt({
                       key={seg.id}
                       role="button"
                       tabIndex={0}
-                      aria-label={`${seg.gameName}, ${formatPlayTime(
-                        segDur,
-                      )}, ${timeStr} to ${endStr}`}
+                      aria-label={t("activityGantt.barAria", {
+                        game: seg.gameName,
+                        duration: formatPlayTime(segDur),
+                        start: timeStr,
+                        end: endStr,
+                      })}
                       className={`activity-gantt__bar ${
                         isDim ? "activity-gantt__bar--dim" : ""
                       } ${seg.isContinuation ? "activity-gantt__bar--cont-start" : ""} ${
@@ -677,7 +680,7 @@ export function ActivityGantt({
               style={{ background: colorForGame(hover.seg.gameId) }}
             />
             {hover.seg.gameName}
-            {hover.seg.isContinuation ? " (cont.)" : ""}
+            {hover.seg.isContinuation ? ` ${t("activityGantt.contSuffix")}` : ""}
           </span>
           <span className="activity-gantt__tooltip-time">
             {hover.seg.absoluteStart.toLocaleTimeString(undefined, {
@@ -691,7 +694,7 @@ export function ActivityGantt({
             })}
           </span>
           <span className="activity-gantt__tooltip-duration">
-            {formatPlayTime(Math.round(hover.seg.endMin - hover.seg.startMin))} this day
+            {t("activityGantt.thisDay", { time: formatPlayTime(Math.round(hover.seg.endMin - hover.seg.startMin)) })}
           </span>
           {(() => {
             const g = gameById.get(hover.seg.gameId);
@@ -748,7 +751,7 @@ export function ActivityGantt({
             onClick={(e) => e.stopPropagation()}
             role="dialog"
             aria-modal="true"
-            aria-label={`${selected.gameName} session details`}
+            aria-label={t("activityGantt.sessionDetailsAria", { game: selected.gameName })}
             onKeyDown={(e) => {
               if (e.key === "Escape") setSelected(null);
             }}
@@ -775,7 +778,7 @@ export function ActivityGantt({
                 type="button"
                 className="modal-close"
                 onClick={() => setSelected(null)}
-                aria-label="Close"
+                aria-label={t("common.close")}
               >
                 ×
               </button>
@@ -784,7 +787,7 @@ export function ActivityGantt({
             <div className="modal-body activity-gantt__detail-body">
               <div className="activity-gantt__detail-grid">
                 <div>
-                  <span className="activity-gantt__detail-k">Time</span>
+                  <span className="activity-gantt__detail-k">{t("activityGantt.time")}</span>
                   <span className="activity-gantt__detail-v">
                     {selected.absoluteStart.toLocaleTimeString(undefined, {
                       hour: "2-digit",
@@ -798,20 +801,20 @@ export function ActivityGantt({
                   </span>
                 </div>
                 <div>
-                  <span className="activity-gantt__detail-k">Duration</span>
+                  <span className="activity-gantt__detail-k">{t("activityGantt.duration")}</span>
                   <span className="activity-gantt__detail-v">
                     {formatPlayTime(selected.durationMin)}
                   </span>
                 </div>
                 <div>
-                  <span className="activity-gantt__detail-k">Platform</span>
+                  <span className="activity-gantt__detail-k">{t("deals.platform")}</span>
                   <span className="activity-gantt__detail-v">
                     {gameById.get(selected.gameId)?.platform || "Local"}
                   </span>
                 </div>
                 {selected.metrics?.resolution && (
                   <div>
-                    <span className="activity-gantt__detail-k">Resolution</span>
+                    <span className="activity-gantt__detail-k">{t("activityGantt.resolution")}</span>
                     <span className="activity-gantt__detail-v">
                       {selected.metrics.resolution}
                     </span>
@@ -820,25 +823,25 @@ export function ActivityGantt({
                 {selected.metrics && (
                   <>
                     <div>
-                      <span className="activity-gantt__detail-k">Avg FPS</span>
+                      <span className="activity-gantt__detail-k">{t("activityPerf.avgFps")}</span>
                       <span className="activity-gantt__detail-v">
                         {selected.metrics.avgFps}
                       </span>
                     </div>
                     <div>
-                      <span className="activity-gantt__detail-k">FPS range</span>
+                      <span className="activity-gantt__detail-k">{t("activityGantt.fpsRange")}</span>
                       <span className="activity-gantt__detail-v">
                         {selected.metrics.minFps}–{selected.metrics.maxFps}
                       </span>
                     </div>
                     <div>
-                      <span className="activity-gantt__detail-k">CPU / GPU</span>
+                      <span className="activity-gantt__detail-k">{t("activityGantt.cpuGpu")}</span>
                       <span className="activity-gantt__detail-v">
                         {selected.metrics.avgCpuUsage}% / {selected.metrics.avgGpuUsage}%
                       </span>
                     </div>
                     <div>
-                      <span className="activity-gantt__detail-k">CPU / GPU temp</span>
+                      <span className="activity-gantt__detail-k">{t("activityGantt.cpuGpuTemp")}</span>
                       <span className="activity-gantt__detail-v">
                         {selected.metrics.avgCpuTemp}° / {selected.metrics.avgGpuTemp}°
                       </span>
@@ -849,7 +852,7 @@ export function ActivityGantt({
 
               <div className="activity-gantt__notes-section">
                 <div className="activity-gantt__notes-header">
-                  <span className="activity-gantt__notes-title">Tags</span>
+                  <span className="activity-gantt__notes-title">{t("activityGantt.tags")}</span>
                   {editingNoteId === selected.sessionId ? (
                     <div className="activity-gantt__notes-actions">
                       <button
@@ -857,14 +860,14 @@ export function ActivityGantt({
                         className="activity-gantt__notes-save"
                         onClick={saveNoteEditor}
                       >
-                        Save
+                        {t("common.save")}
                       </button>
                       <button
                         type="button"
                         className="activity-gantt__notes-cancel"
                         onClick={() => setEditingNoteId(null)}
                       >
-                        Cancel
+                        {t("common.cancel")}
                       </button>
                     </div>
                   ) : (
@@ -873,7 +876,7 @@ export function ActivityGantt({
                       className="activity-gantt__notes-edit"
                       onClick={() => openNoteEditor(selected.sessionId)}
                     >
-                      Edit
+                      {t("common.edit")}
                     </button>
                   )}
                 </div>
@@ -881,7 +884,7 @@ export function ActivityGantt({
                   <input
                     type="text"
                     className="activity-gantt__notes-input"
-                    placeholder="Comma-separated tags"
+                    placeholder={t("activityGantt.tagsPlaceholder")}
                     value={editingTagsText}
                     onChange={(e) => setEditingTagsText(e.target.value)}
                     autoFocus
@@ -892,13 +895,13 @@ export function ActivityGantt({
                       <span key={t} className="activity-gantt__tag">{t}</span>
                     ))}
                     {getNote(selected.sessionId).tags.length === 0 && (
-                      <span className="activity-gantt__notes-empty">No tags</span>
+                      <span className="activity-gantt__notes-empty">{t("activityGantt.noTags")}</span>
                     )}
                   </div>
                 )}
 
                 <div className="activity-gantt__notes-header">
-                  <span className="activity-gantt__notes-title">Note</span>
+                  <span className="activity-gantt__notes-title">{t("activityGantt.note")}</span>
                   {editingNoteId === selected.sessionId && (
                     <div className="activity-gantt__notes-actions">
                       <button
@@ -906,14 +909,14 @@ export function ActivityGantt({
                         className="activity-gantt__notes-save"
                         onClick={saveNoteEditor}
                       >
-                        Save
+                        {t("common.save")}
                       </button>
                       <button
                         type="button"
                         className="activity-gantt__notes-cancel"
                         onClick={() => setEditingNoteId(null)}
                       >
-                        Cancel
+                        {t("common.cancel")}
                       </button>
                     </div>
                   )}
@@ -921,22 +924,21 @@ export function ActivityGantt({
                 {editingNoteId === selected.sessionId ? (
                   <textarea
                     className="activity-gantt__notes-textarea"
-                    placeholder="Add a note for this session..."
+                    placeholder={t("activityGantt.addNote")}
                     value={editingNoteText}
                     onChange={(e) => setEditingNoteText(e.target.value)}
                     rows={3}
                   />
                 ) : (
                   <div className="activity-gantt__note-text">
-                    {getNote(selected.sessionId).note || <span className="activity-gantt__notes-empty">No note</span>}
+                    {getNote(selected.sessionId).note || <span className="activity-gantt__notes-empty">{t("activityGantt.noNote")}</span>}
                   </div>
                 )}
               </div>
 
               {selected.isContinuation || selected.continuationTail ? (
                 <p className="activity-gantt__detail-note">
-                  This session spans midnight and is split across multiple days in
-                  the timeline.
+                  {t("activityGantt.spansMidnight")}
                 </p>
               ) : null}
             </div>

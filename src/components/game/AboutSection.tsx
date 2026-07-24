@@ -313,7 +313,7 @@ export default function AboutSection({
         ) : null}
 
         {payload && payload.movies.length > 0 && (
-          <div className="about-movies" aria-label="Trailers & gameplay videos">
+          <div className="about-movies" aria-label={t("about.moviesAria")}>
             {payload.movies.map((m) => (
               <AboutMovieTile key={m.id} movie={m} />
             ))}
@@ -328,7 +328,7 @@ export default function AboutSection({
             rel="noopener noreferrer"
           >
             <IconLink size={14} />
-            View on {payload?.sourceName ?? game.metadataSource ?? "source"}
+            {t("about.viewOn", { source: payload?.sourceName ?? game.metadataSource ?? "source" })}
           </a>
         )}
       </div>
@@ -344,7 +344,7 @@ export default function AboutSection({
             aria-controls="about-section-body"
           >
             <span className="about-section__toggle-label">
-              {effectiveCollapsed ? "Show about" : "Hide about"}
+              {effectiveCollapsed ? t("about.showAbout") : t("about.hideAbout")}
             </span>
             {summaryHint && effectiveCollapsed && (
               <span className="about-section__toggle-hint">{summaryHint}</span>
@@ -368,11 +368,12 @@ export default function AboutSection({
  * `<source>` so the browser picks the best supported codec.
  */
 function AboutMovieTile({ movie }: { movie: RichAboutPayload["movies"][number] }) {
+  const { t } = useLanguage();
   const sources: { src: string; type: string }[] = [];
   if (movie.webm) sources.push({ src: movie.webm, type: "video/webm" });
   if (movie.mp4) sources.push({ src: movie.mp4, type: "video/mp4" });
   const hasAny = sources.length > 0;
-  const accessibleName = movie.name || (movie.highlight ? "Highlight reel" : "Trailer");
+  const accessibleName = movie.name || (movie.highlight ? t("about.highlightReel") : t("game.trailer"));
 
   return (
     <div

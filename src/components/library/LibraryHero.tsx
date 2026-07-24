@@ -56,16 +56,16 @@ export default function LibraryHero({ games }: LibraryHeroProps) {
       const filePath = await open({
         multiple: false,
         directory: false,
-        title: "Import a Game Executable",
+        title: t("library.importDialogTitle"),
         filters: [{ name: "Executable", extensions: ["exe"] }],
       });
       if (filePath && typeof filePath === "string") {
         await importLocalGames([{ path: filePath, metadata: null }]);
-        showToast(`Imported ${gameNameFromPath(filePath)}`, "success");
+        showToast(t("library.importedName", { name: gameNameFromPath(filePath) }), "success");
       }
     } catch (err) {
       console.error("Quick import failed:", err);
-      showToast(`Import failed: ${err}`, "error");
+      showToast(t("library.importFailed", { error: String(err) }), "error");
     }
   }
 
@@ -74,7 +74,7 @@ export default function LibraryHero({ games }: LibraryHeroProps) {
   }
 
   return (
-    <section className="lib-hero" aria-label="Library overview">
+    <section className="lib-hero" aria-label={t("library.overviewAria")}>
       {collage.length > 0 && (
         <div className="lib-hero-collage" aria-hidden>
           {collage.map((src, i) => (
@@ -101,9 +101,11 @@ export default function LibraryHero({ games }: LibraryHeroProps) {
                     count: stats.total,
                     added: stats.recentlyAdded,
                   })
-                : `You've spent ${stats.totalPlayTime} across ${stats.total} game${
-                    stats.total === 1 ? "" : "s"
-                  }.`}
+                : t("lib.hero.subtitle.noAdded", {
+                    time: stats.totalPlayTime,
+                    count: stats.total,
+                    plural: stats.total === 1 ? "" : "s",
+                  })}
           </p>
         </div>
 
@@ -142,7 +144,7 @@ export default function LibraryHero({ games }: LibraryHeroProps) {
         <StatTile
           value={stats.installed}
           label={t("lib.hero.stat.installed")}
-          subtext={stats.total > 0 ? `${stats.installedPct}% of library` : t("lib.hero.stat.installedPct")}
+          subtext={stats.total > 0 ? t("lib.hero.stat.pctOfLibrary", { pct: stats.installedPct }) : t("lib.hero.stat.installedPct")}
           accent="var(--color-success)"
           delayMs={70}
           icon={

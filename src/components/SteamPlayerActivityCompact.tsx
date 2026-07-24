@@ -1,5 +1,6 @@
 import { useId, useMemo } from "react";
 import { usePlayerCountHistory } from "../hooks/usePlayerCountHistory";
+import { useLanguage } from "../context/LanguageContext";
 import type { PlayerCountHistory as PlayerCountHistoryType } from "../types/game";
 
 /**
@@ -56,6 +57,7 @@ export default function SteamPlayerActivityCompact({
 
 function SteamPlayerActivityCompactInner({ appId }: { appId: number }) {
   const { data, isLoading } = usePlayerCountHistory(appId);
+  const { t } = useLanguage();
 
   // React-provided unique id so the SVG gradient stops don't collide
   // when multiple popovers are mounted on the same page (e.g. if the
@@ -82,26 +84,30 @@ function SteamPlayerActivityCompactInner({ appId }: { appId: number }) {
   // `pathData`-guarded JSX below can safely use it without the
   // "data is possibly null" narrowing TypeScript would otherwise
   // demand at every access.
-  const ariaSummary = `Player activity over the last 24 hours. Peak ${data?.peak?.toLocaleString() ?? "—"}. Average ${data?.average != null ? Math.round(data.average).toLocaleString() : "—"} across ${data?.sampleCount ?? 0} samples.`;
+  const ariaSummary = t("steamPlayer.activityAria", {
+    peak: data?.peak?.toLocaleString() ?? "—",
+    average: data?.average != null ? Math.round(data.average).toLocaleString() : "—",
+    samples: data?.sampleCount ?? 0,
+  });
 
   return (
     <section className="steam-stats-popover-activity">
       <div className="steam-stats-popover-section-header">
         <span className="steam-stats-popover-section-title">
-          Player Activity · 24h
+          {t("steamPlayer.activityTitle")}
         </span>
         {isLoading && data == null ? (
-          <span className="steam-stats-popover-section-empty">Loading…</span>
+          <span className="steam-stats-popover-section-empty">{t("steamPlayer.loading")}</span>
         ) : hasData ? (
           <span className="steam-stats-popover-activity-live">
             <span
               className="steam-stats-popover-activity-live-dot"
               aria-hidden="true"
             />
-            Live
+            {t("steamPlayer.live")}
           </span>
         ) : (
-          <span className="steam-stats-popover-section-empty">Awaiting data</span>
+          <span className="steam-stats-popover-section-empty">{t("steamPlayer.awaitingData")}</span>
         )}
       </div>
 
@@ -175,8 +181,8 @@ function SteamPlayerActivityCompactInner({ appId }: { appId: number }) {
             />
             <span className="steam-stats-popover-activity-empty-text">
               {isLoading
-                ? "Collecting first reading…"
-                : "Collecting data — the chart will appear after a few samples."}
+                ? t("steamPlayer.collectingFirst")
+                : t("steamPlayer.collectingData")}
             </span>
           </div>
         )}
@@ -184,7 +190,7 @@ function SteamPlayerActivityCompactInner({ appId }: { appId: number }) {
 
       <div className="steam-stats-popover-activity-stats">
         <ActivityStat
-          label="Current"
+          label={t("steamPlayer.statCurrent")}
           value={
             data && data.current != null && data.current > 0
               ? data.current.toLocaleString()
@@ -192,11 +198,11 @@ function SteamPlayerActivityCompactInner({ appId }: { appId: number }) {
           }
         />
         <ActivityStat
-          label="Peak"
+          label={t("steamPlayer.statPeak")}
           value={data?.peak != null ? data.peak.toLocaleString() : "—"}
         />
         <ActivityStat
-          label="Avg"
+          label={t("steamPlayer.statAvg")}
           value={
             data?.average != null
               ? Math.round(data.average).toLocaleString()

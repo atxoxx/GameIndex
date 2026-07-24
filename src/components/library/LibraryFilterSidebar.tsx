@@ -1,17 +1,19 @@
 import type { LibraryStatus, LibrarySort } from "../../hooks/useLibraryFilters";
 import { SORT_LABELS, SORT_OPTIONS } from "../../hooks/useLibraryFilters";
 import type { LibrarySource, PlayStatus } from "../../types/game";
+import { useLanguage } from "../../context/LanguageContext";
 
-const STATUS_OPTIONS: readonly { value: LibraryStatus; label: string }[] = [
-  { value: "all", label: "All" },
-  { value: "installed", label: "Installed" },
-  { value: "not_installed", label: "Not Installed" },
+const STATUS_OPTIONS: readonly { value: LibraryStatus; labelKey: string }[] = [
+  { value: "all", labelKey: "common.all" },
+  { value: "installed", labelKey: "filter.installed" },
+  { value: "not_installed", labelKey: "filter.notInstalled" },
 ];
 
-const SOURCE_OPTIONS: readonly { value: LibrarySource; label: string }[] = [
-  { value: "all", label: "All" },
+// Brand names (Steam, GOG, Epic, Humble, …) stay untranslated.
+const SOURCE_OPTIONS: readonly { value: LibrarySource; label?: string; labelKey?: string }[] = [
+  { value: "all", labelKey: "common.all" },
   { value: "steam", label: "Steam" },
-  { value: "local", label: "Local" },
+  { value: "local", labelKey: "common.local" },
   { value: "gog", label: "GOG" },
   { value: "epic", label: "Epic" },
   { value: "humble", label: "Humble" },
@@ -19,13 +21,13 @@ const SOURCE_OPTIONS: readonly { value: LibrarySource; label: string }[] = [
   { value: "ubisoft", label: "Ubisoft" },
 ];
 
-const PLAY_STATUS_OPTIONS: readonly { value: PlayStatus | "all"; label: string }[] = [
-  { value: "all", label: "All" },
-  { value: "backlog", label: "Backlog" },
-  { value: "playing", label: "Playing" },
-  { value: "completed", label: "Completed" },
-  { value: "abandoned", label: "Abandoned" },
-  { value: "on_hold", label: "On Hold" },
+const PLAY_STATUS_OPTIONS: readonly { value: PlayStatus | "all"; labelKey: string }[] = [
+  { value: "all", labelKey: "common.all" },
+  { value: "backlog", labelKey: "game.status.backlog" },
+  { value: "playing", labelKey: "game.status.playing" },
+  { value: "completed", labelKey: "game.status.completed" },
+  { value: "abandoned", labelKey: "game.status.abandoned" },
+  { value: "on_hold", labelKey: "game.status.onHold" },
 ];
 
 interface LibraryFilterSidebarProps {
@@ -82,6 +84,7 @@ export default function LibraryFilterSidebar({
   onSortChange,
   onReset,
 }: LibraryFilterSidebarProps) {
+  const { t } = useLanguage();
   const toggleGenre = (genre: string) =>
     onGenresChange(
       selectedGenres.includes(genre)
@@ -97,20 +100,20 @@ export default function LibraryFilterSidebar({
     );
 
   return (
-    <aside className="lib-filter" aria-label="Library filters">
+    <aside className="lib-filter" aria-label={t("library.filtersAria")}>
       <div className="lib-filter-section">
-        <h4 className="lib-filter-heading">Search</h4>
+        <h4 className="lib-filter-heading">{t("library.filter.search")}</h4>
         <input
           type="text"
           className="lib-filter-search"
-          placeholder="Filter games by name..."
+          placeholder={t("library.filter.searchPlaceholder")}
           value={search}
           onChange={(e) => onSearchChange(e.target.value)}
         />
       </div>
 
       <div className="lib-filter-section">
-        <h4 className="lib-filter-heading">Status</h4>
+        <h4 className="lib-filter-heading">{t("library.filter.status")}</h4>
         <div className="lib-segment">
           {STATUS_OPTIONS.map((opt) => (
             <button
@@ -119,14 +122,14 @@ export default function LibraryFilterSidebar({
               className={`lib-segment-option${status === opt.value ? " active" : ""}`}
               onClick={() => onStatusChange(opt.value)}
             >
-              {opt.label}
+              {t(opt.labelKey)}
             </button>
           ))}
         </div>
       </div>
 
       <div className="lib-filter-section">
-        <h4 className="lib-filter-heading">Play Status</h4>
+        <h4 className="lib-filter-heading">{t("edit.label.playStatus")}</h4>
         <div className="lib-segment">
           {PLAY_STATUS_OPTIONS.map((opt) => (
             <button
@@ -135,14 +138,14 @@ export default function LibraryFilterSidebar({
               className={`lib-segment-option${playStatus === opt.value ? " active" : ""}`}
               onClick={() => onPlayStatusChange(opt.value)}
             >
-              {opt.label}
+              {t(opt.labelKey)}
             </button>
           ))}
         </div>
       </div>
 
       <div className="lib-filter-section">
-        <h4 className="lib-filter-heading">Source</h4>
+        <h4 className="lib-filter-heading">{t("library.filter.source")}</h4>
         <div className="lib-segment">
           {SOURCE_OPTIONS.map((opt) => (
             <button
@@ -151,14 +154,14 @@ export default function LibraryFilterSidebar({
               className={`lib-segment-option${source === opt.value ? " active" : ""}`}
               onClick={() => onSourceChange(opt.value)}
             >
-              {opt.label}
+              {opt.labelKey ? t(opt.labelKey) : opt.label}
             </button>
           ))}
         </div>
       </div>
 
       <div className="lib-filter-section">
-        <h4 className="lib-filter-heading">Sort</h4>
+        <h4 className="lib-filter-heading">{t("wishlist.sort")}</h4>
         <select
           className="lib-filter-search"
           value={sort}
@@ -173,7 +176,7 @@ export default function LibraryFilterSidebar({
       {availableGenres.length > 0 && (
         <div className="lib-filter-section">
           <h4 className="lib-filter-heading">
-            Genres
+            {t("edit.label.genres")}
             {selectedGenres.length > 0 && (
               <span className="lib-filter-count-badge">{selectedGenres.length}</span>
             )}
@@ -196,7 +199,7 @@ export default function LibraryFilterSidebar({
       {availablePlatforms.length > 0 && (
         <div className="lib-filter-section">
           <h4 className="lib-filter-heading">
-            Platforms
+            {t("store.compare.platforms")}
             {selectedPlatforms.length > 0 && (
               <span className="lib-filter-count-badge">{selectedPlatforms.length}</span>
             )}
@@ -217,12 +220,12 @@ export default function LibraryFilterSidebar({
       )}
 
       <div className="lib-filter-section">
-        <h4 className="lib-filter-heading">Release Year</h4>
+        <h4 className="lib-filter-heading">{t("library.filter.releaseYear")}</h4>
         <div className="lib-year-row">
           <input
             type="number"
             className="lib-year-input"
-            placeholder="From"
+            placeholder={t("library.filter.yearFrom")}
             value={yearMin ?? ""}
             onChange={(e) => {
               const raw = e.target.value.trim();
@@ -235,7 +238,7 @@ export default function LibraryFilterSidebar({
           <input
             type="number"
             className="lib-year-input"
-            placeholder="To"
+            placeholder={t("library.filter.yearTo")}
             value={yearMax ?? ""}
             onChange={(e) => {
               const raw = e.target.value.trim();
@@ -249,7 +252,7 @@ export default function LibraryFilterSidebar({
 
       <div className="lib-filter-section">
         <div className="lib-rating-head">
-          <h4 className="lib-filter-heading">Minimum Rating</h4>
+          <h4 className="lib-filter-heading">{t("library.filter.minRating")}</h4>
           <span className="lib-rating-value">{ratingMin ?? 0}+</span>
         </div>
         <input
@@ -266,7 +269,7 @@ export default function LibraryFilterSidebar({
       </div>
 
       <button className="lib-filter-reset" onClick={onReset}>
-        Reset Filters
+        {t("bigscreen.library.resetFilters")}
       </button>
     </aside>
   );

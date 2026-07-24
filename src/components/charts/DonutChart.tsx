@@ -1,4 +1,5 @@
 import { useMemo, useState } from "react";
+import { useLanguage } from "../../context/LanguageContext";
 
 interface DonutSlice {
   value: number;
@@ -34,6 +35,7 @@ export default function DonutChart({
   showLegend = true,
   formatValue = (v) => String(v),
 }: DonutChartProps) {
+  const { t } = useLanguage();
   // Phase 2.9 PR 4 ("data viz touches") — hover state for
   // segment scale-up. Single local `hoveredIndex` keeps the
   // hover gesture cheap (one int per chart) and lets the
@@ -165,7 +167,7 @@ export default function DonutChart({
           fill="var(--color-text-muted)"
           fontSize="11"
         >
-          Total
+          {t("achievements.total")}
         </text>
       </svg>
 

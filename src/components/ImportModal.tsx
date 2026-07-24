@@ -430,7 +430,7 @@ export default function ImportModal({
             name: fileName,
             i,
             total: selectedGroups.length,
-            extra: selectedExtraPaths.size ? ` + ${selectedExtraPaths.size} extra` : "",
+            extra: selectedExtraPaths.size ? t("import.extraSuffix", { count: selectedExtraPaths.size }) : "",
           })
         );
         seen.add(path);
@@ -441,7 +441,7 @@ export default function ImportModal({
       for (let j = 0; j < extras.length; j++) {
         const path = extras[j];
         setImportProgress(
-          `Processing extra executable "${gameNameFromPath(path)}" (${j + 1} of ${extras.length})...`
+          t("import.processingExtra", { name: gameNameFromPath(path), i: j + 1, total: extras.length })
         );
         importResults.push(await buildImportForPath(path));
       }
@@ -564,7 +564,7 @@ export default function ImportModal({
                         <button
                           className={`import-group-toggle${isExpanded ? " expanded" : ""}`}
                           onClick={() => toggleExpand(g.id)}
-                          aria-label={isExpanded ? "Collapse" : "Expand"}
+                          aria-label={isExpanded ? t("ui.collapse") : t("ui.expand")}
                         >
                           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                             <polyline points="9 18 15 12 9 6" />
@@ -581,7 +581,7 @@ export default function ImportModal({
                             </span>
                           ) : (
                             <span className="import-sidebar-item-match skipped">
-                              ⚠ No Metadata Match
+                              ⚠ {t("import.noMetadataMatch")}
                             </span>
                           )}
                         </div>
@@ -638,7 +638,7 @@ export default function ImportModal({
                                 </div>
                                 <button
                                   className="make-main-btn"
-                                  title="Use this as the main game executable"
+                                  title={t("import.makeMainTitle")}
                                   onClick={(ev) => {
                                     ev.stopPropagation();
                                     setPrimaryForGroup(g.id, e.path);
@@ -704,7 +704,7 @@ export default function ImportModal({
                     <input
                       type="text"
                       className="import-search-input"
-                      placeholder="Search game on IGDB..."
+                      placeholder={t("import.searchIgdb")}
                       value={activeQuery}
                       onChange={(e) => handleQueryChange(e.target.value)}
                     />
@@ -750,11 +750,11 @@ export default function ImportModal({
                               <div className="suggestion-info">
                                 <span className="suggestion-name">{game.name}</span>
                                 <span className="suggestion-meta">
-                                  {releaseYear ? `${releaseYear}` : "Unknown Year"}
+                                  {releaseYear ? `${releaseYear}` : t("import.unknownYear")}
                                   {game.platforms.length > 0 && ` · ${game.platforms[0]}`}
                                 </span>
                               </div>
-                              {isLinked && <span className="linked-badge">Linked</span>}
+                              {isLinked && <span className="linked-badge">{t("import.linked")}</span>}
                             </button>
                           );
                         })}
@@ -816,10 +816,10 @@ export default function ImportModal({
                                   )}
                                 </div>
                                 <p className="preview-meta-label">
-                                  <strong>Developer:</strong> {activeDetail.developer || "Unknown"}
+                                  <strong>{t("edit.label.developer")}:</strong> {activeDetail.developer || t("splash.unknown")}
                                 </p>
                                 <p className="preview-meta-label">
-                                  <strong>Publisher:</strong> {activeDetail.publisher || "Unknown"}
+                                  <strong>{t("edit.label.publisher")}:</strong> {activeDetail.publisher || t("splash.unknown")}
                                 </p>
                                 <div className="preview-genres">
                                   {activeDetail.genres.slice(0, 3).map((g) => (
@@ -838,28 +838,28 @@ export default function ImportModal({
                               )}
                               {activeDetail.storyline && (
                                 <div className="preview-storyline">
-                                  <h5>Storyline</h5>
+                                  <h5>{t("edit.label.storyline")}</h5>
                                   <p>{activeDetail.storyline}</p>
                                 </div>
                               )}
                               {activeDetail.timeToBeat && (activeDetail.timeToBeat.normally || activeDetail.timeToBeat.completely || activeDetail.timeToBeat.hastily) && (
                                 <div className="preview-hltb" style={{ marginTop: 'var(--space-md)', padding: 'var(--space-sm)', background: 'var(--color-bg-secondary)', borderRadius: 'var(--radius-sm)', border: '1px solid var(--color-border)' }}>
-                                  <h5 style={{ margin: '0 0 var(--space-xs) 0', fontSize: 'var(--font-size-sm)', fontWeight: '600' }}>Time to Beat</h5>
+                                  <h5 style={{ margin: '0 0 var(--space-xs) 0', fontSize: 'var(--font-size-sm)', fontWeight: '600' }}>{t("splash.timeToBeat")}</h5>
                                   <div style={{ display: 'flex', gap: 'var(--space-md)', fontSize: 'var(--font-size-xs)' }}>
-                                    {activeDetail.timeToBeat.normally && <div>Main Story: <strong>{Math.round(activeDetail.timeToBeat.normally / 3600)}h</strong></div>}
-                                  {activeDetail.timeToBeat.hastily && <div>Rushed: <strong>{Math.round(activeDetail.timeToBeat.hastily / 3600)}h</strong></div>}
-                                    {activeDetail.timeToBeat.completely && <div>Completionist: <strong>{Math.round(activeDetail.timeToBeat.completely / 3600)}h</strong></div>}
+                                    {activeDetail.timeToBeat.normally && <div>{t("gameInfo.mainStory")}: <strong>{Math.round(activeDetail.timeToBeat.normally / 3600)}h</strong></div>}
+                                  {activeDetail.timeToBeat.hastily && <div>{t("import.rushed")}: <strong>{Math.round(activeDetail.timeToBeat.hastily / 3600)}h</strong></div>}
+                                    {activeDetail.timeToBeat.completely && <div>{t("gameInfo.completionist")}: <strong>{Math.round(activeDetail.timeToBeat.completely / 3600)}h</strong></div>}
                                   </div>
                                 </div>
                               )}
                               {activeDetail.igdbReviews && activeDetail.igdbReviews.length > 0 && (
                                 <div className="preview-reviews-section" style={{ marginTop: 'var(--space-md)' }}>
-                                  <h5 style={{ margin: '0 0 var(--space-xs) 0', fontSize: 'var(--font-size-sm)', fontWeight: '600' }}>Community Reviews ({activeDetail.igdbReviews.length})</h5>
+                                  <h5 style={{ margin: '0 0 var(--space-xs) 0', fontSize: 'var(--font-size-sm)', fontWeight: '600' }}>{t("editExtras.communityReviews")} ({activeDetail.igdbReviews.length})</h5>
                                   <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-xs)', maxHeight: '180px', overflowY: 'auto' }}>
                                     {activeDetail.igdbReviews.slice(0, 3).map((rev, idx) => (
                                       <div key={idx} style={{ padding: 'var(--space-sm)', background: 'var(--color-bg-secondary)', borderRadius: 'var(--radius-sm)', border: '1px solid var(--color-border)' }}>
                                         <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '10px', color: 'var(--color-text-muted)', marginBottom: '4px' }}>
-                                          <strong>{rev.username || 'Anonymous'}</strong>
+                                          <strong>{rev.username || t("import.anonymous")}</strong>
                                           {rev.rating && <span style={{ color: 'var(--color-accent)' }}>{rev.rating}/100</span>}
                                         </div>
                                         {rev.title && <div style={{ fontSize: 'var(--font-size-xs)', fontWeight: '600', marginBottom: '2px' }}>{rev.title}</div>}

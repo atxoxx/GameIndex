@@ -95,14 +95,14 @@ export default function AchievementsTab({ game }: { game: Game }) {
       } else {
         const appid = await resolveAppId();
         if (!appid) {
-          showToast("Couldn't find achievements for this game", "error");
+          showToast(t("achievements.noAppidToast"), "error");
           return;
         }
         await syncLocalAchievements(game.id, appid);
       }
-      showToast("Achievements synced!", "success");
+      showToast(t("achievements.syncedToast"), "success");
     } catch (err) {
-      showToast(`Achievement sync failed: ${err}`, "error");
+      showToast(t("achievements.syncFailedToast", { err: String(err) }), "error");
     } finally {
       setSyncing(false);
     }
@@ -363,7 +363,7 @@ export default function AchievementsTab({ game }: { game: Game }) {
           className="achievements-sync-btn achievements-sync-btn-sm"
           {...(isBigScreen ? toolbarSyncFocus : { onClick: handleSync })}
           disabled={syncing || isSyncing}
-          title="Sync achievements from Steam"
+          title={t("achievements.syncTitle")}
         >
           {syncing ? (
             <span className="achievements-spinner" />
@@ -386,7 +386,11 @@ export default function AchievementsTab({ game }: { game: Game }) {
 
       {displayAchievements.length === 0 && (
         <div className="achievements-no-results">
-          No {filter !== "all" ? filter : ""} achievements found.
+          {filter === "all"
+            ? t("achievements.noResults")
+            : t("achievements.noResultsFilter", {
+                filter: t(`achievements.filterWord.${filter}`),
+              })}
         </div>
       )}
 

@@ -21,6 +21,7 @@ import {
   type SessionMetrics,
 } from "../types/game";
 import { useToast } from "./ToastContext";
+import { useLanguage } from "./LanguageContext";
 import {
   isSplashEnabled,
   useSplash,
@@ -190,6 +191,7 @@ const isFrontendUsableImage = (u: string | undefined): boolean =>
 
 export function GameProvider({ children }: { children: ReactNode }) {
   const { showToast } = useToast();
+  const { t } = useLanguage();
   // SplashProvider wraps GameProvider in App.tsx, so we can read the
   // splash dispatcher straight from context. No cross-window IPC,
   // no async round-trip — the splash is an in-process React overlay.
@@ -646,23 +648,23 @@ export function GameProvider({ children }: { children: ReactNode }) {
       //   - pid == 0 (always killed=false): pending session (Steam
       //     protocol / UAC) — nothing to terminate. Treat as success.
       if (result.killed) {
-        showToast(`Force closed ${game.name}`, "success");
+        showToast(t("gameContext.forceClosed", { name: game.name }), "success");
       } else if (result.pid > 0) {
         showToast(
-          `Ended session for ${game.name} — the game process may still be running. Close it manually if needed.`,
+          t("gameContext.endedSession", { name: game.name }),
           "warning"
         );
       } else {
-        showToast(`Force closed ${game.name}`, "success");
+        showToast(t("gameContext.forceClosed", { name: game.name }), "success");
       }
     } catch (err) {
-      showToast(`Failed to force close ${game.name}: ${err}`, "error");
+      showToast(t("gameContext.forceCloseFailed", { name: game.name, error: String(err) }), "error");
     }
-  }, [showToast]);
+  }, [showToast, t]);
 
   const launchGame = useCallback(async (game: Game) => {
     if (runningGameIds.includes(game.id)) {
-      showToast(`${game.name} is already running`, "info");
+      showToast(t("gameContext.alreadyRunning", { name: game.name }), "info");
       return;
     }
 
@@ -726,7 +728,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
           titleId: game.rockstarTitleId,
         });
         if (splashOn) splash.updateStatus("started");
-        showToast(`Launched ${game.name}`, "success");
+        showToast(t("gameContext.launched", { name: game.name }), "success");
         return;
       }
 
@@ -739,7 +741,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
           uplayId: game.uplayGameId,
         });
         if (splashOn) splash.updateStatus("started");
-        showToast(`Launched ${game.name}`, "success");
+        showToast(t("gameContext.launched", { name: game.name }), "success");
         return;
       }
 
@@ -767,13 +769,13 @@ export function GameProvider({ children }: { children: ReactNode }) {
       });
 
       if (splashOn) splash.updateStatus("started");
-      showToast(`Launched ${game.name}`, "success");
+      showToast(t("gameContext.launched", { name: game.name }), "success");
     } catch (err: any) {
       setRunningGameIds((prev) => prev.filter((id) => id !== game.id));
       if (splashOn) splash.updateStatus("error");
-      showToast(`Launch failed: ${err}`, "error");
+      showToast(t("gameContext.launchFailed", { error: String(err) }), "error");
     }
-  }, [runningGameIds, showToast, splash]);
+  }, [runningGameIds, showToast, splash, t]);
 
   const addStoreGame = useCallback(async (metadata: GameMetadataResult): Promise<string> => {
     // Duplicate check — normalized name comparison
@@ -782,7 +784,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
       (g) => g.name.toLowerCase().trim() === normName
     );
     if (existing) {
-      showToast(`${metadata.title} is already in your library`, "info");
+      showToast(t("gameContext.alreadyInLibrary", { name: metadata.title }), "info");
       return existing.id;
     }
 
@@ -831,7 +833,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
     };
 
     setGames((prev) => [...prev, newGame]);
-    showToast(`Added ${metadata.title} to your library`, "success");
+    showToast(t("gameContext.addedToLibrary", { name: metadata.title }), "success");
 
     // Kick off a background review fetch so reviews are ready when the user
     // opens the Reviews tab. The store metadata doesn't carry a Steam app id,
@@ -841,7 +843,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
     );
 
     return newGame.id;
-  }, [games, showToast, fetchGameReviews]);
+  }, [games, showToast, fetchGameReviews, t]);
 
   const importLocalGames = useCallback(async (
     items: { path: string; metadata: GameMetadataResult | null }[]
@@ -912,7 +914,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
 
     if (imported.length > 0) {
       setGames((prev) => [...prev, ...imported]);
-      showToast(`Imported ${imported.length} game${imported.length !== 1 ? "s" : ""}`, "success");
+      showToast(t("gameContext.imported", { count: imported.length }), "success");
 
       // Kick off background review fetches so the Reviews tab is populated
       // when the user opens it. Each import is a potential "game added"
@@ -956,9 +958,9 @@ export function GameProvider({ children }: { children: ReactNode }) {
           });
       }
     } else {
-      showToast("No new games were imported", "info");
+      showToast(t("gameContext.noNewImports"), "info");
     }
-  }, [games, showToast, fetchGameReviews, updateGame]);
+  }, [games, showToast, fetchGameReviews, updateGame, t]);
 
   return (
     <GameContext.Provider

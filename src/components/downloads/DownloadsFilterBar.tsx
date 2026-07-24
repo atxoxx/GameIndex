@@ -15,6 +15,7 @@ import type {
   DownloadSort,
   DownloadStatusFilter,
 } from "../../types/download";
+import { useLanguage } from "../../context/LanguageContext";
 
 interface StatusPill {
   value: DownloadStatusFilter;
@@ -33,13 +34,13 @@ interface DownloadsFilterBarProps {
   counts: Record<DownloadStatusFilter, number>;
 }
 
-const SORT_OPTIONS: { value: DownloadSort; label: string }[] = [
-  { value: "added-desc", label: "Newest first" },
-  { value: "added-asc", label: "Oldest first" },
-  { value: "name-asc", label: "Name (A–Z)" },
-  { value: "size-desc", label: "Largest first" },
-  { value: "progress-desc", label: "Most complete" },
-  { value: "speed-desc", label: "Fastest first" },
+const SORT_OPTIONS: { value: DownloadSort; labelKey: string }[] = [
+  { value: "added-desc", labelKey: "downloadsFilter.sortNewest" },
+  { value: "added-asc", labelKey: "downloadsFilter.sortOldest" },
+  { value: "name-asc", labelKey: "downloadsFilter.sortNameAZ" },
+  { value: "size-desc", labelKey: "downloadsFilter.sortLargest" },
+  { value: "progress-desc", labelKey: "downloadsFilter.sortMostComplete" },
+  { value: "speed-desc", labelKey: "downloadsFilter.sortFastest" },
 ];
 
 export default function DownloadsFilterBar({
@@ -51,12 +52,13 @@ export default function DownloadsFilterBar({
   onSortChange,
   counts,
 }: DownloadsFilterBarProps) {
+  const { t } = useLanguage();
   const pills: StatusPill[] = [
-    { value: "all", label: "All", count: counts.all },
-    { value: "downloading", label: "Active", count: counts.downloading },
-    { value: "paused", label: "Paused", count: counts.paused },
-    { value: "completed", label: "Completed", count: counts.completed },
-    { value: "error", label: "Errored", count: counts.error },
+    { value: "all", label: t('downloadsFilter.statusAll'), count: counts.all },
+    { value: "downloading", label: t('downloadsFilter.statusActive'), count: counts.downloading },
+    { value: "paused", label: t('downloadsFilter.statusPaused'), count: counts.paused },
+    { value: "completed", label: t('downloadsFilter.statusCompleted'), count: counts.completed },
+    { value: "error", label: t('downloadsFilter.statusErrored'), count: counts.error },
   ];
 
   return (
@@ -78,19 +80,19 @@ export default function DownloadsFilterBar({
         <input
           className="dl-filters-search-input"
           type="text"
-          placeholder="Search downloads…"
+          placeholder={t('downloadsFilter.searchPlaceholder')}
           value={query}
           onChange={(e) => onQueryChange(e.target.value)}
           spellCheck={false}
           autoComplete="off"
-          aria-label="Search downloads by name or source"
+          aria-label={t('downloadsFilter.searchLabel')}
         />
         {query && (
           <button
             className="dl-filters-search-clear"
             onClick={() => onQueryChange("")}
-            aria-label="Clear search"
-            title="Clear search"
+            aria-label={t('downloadsFilter.clearSearch')}
+            title={t('downloadsFilter.clearSearch')}
             type="button"
           >
             ×
@@ -101,7 +103,7 @@ export default function DownloadsFilterBar({
       <div
         className="dl-filters-pills"
         role="group"
-        aria-label="Filter downloads by status"
+        aria-label={t('downloadsFilter.filterByStatus')}
       >
         {pills.map((pill) => (
           <button
@@ -121,7 +123,7 @@ export default function DownloadsFilterBar({
 
       <div className="dl-filters-sort">
         <label className="dl-filters-sort-label" htmlFor="dl-sort-select">
-          Sort
+          {t('downloadsFilter.sort')}
         </label>
         <select
           id="dl-sort-select"
@@ -131,7 +133,7 @@ export default function DownloadsFilterBar({
         >
           {SORT_OPTIONS.map((opt) => (
             <option key={opt.value} value={opt.value}>
-              {opt.label}
+              {t(opt.labelKey)}
             </option>
           ))}
         </select>

@@ -12,6 +12,7 @@ import { buildTimelineFromSessions, buildSingleSessionSeries } from "../../utils
 import BarChart from "../charts/BarChart";
 import LineChart from "../charts/LineChart";
 import { ConfirmModal } from "../ui/ConfirmModal";
+import { useLanguage } from "../../context/LanguageContext";
 
 type Timeframe = "7d" | "30d" | "90d" | "all";
 type ViewMode = "playtime" | "performance";
@@ -71,6 +72,7 @@ export function GameActivityTab({ game }: { game: Game }) {
   // a sibling component to GameDetail, so its own useToast() (rather
   // than the one inside GameDetail) is in scope here.
   const { showToast } = useToast();
+  const { t } = useLanguage();
   const sessions = useMemo(() => getGameSessions(game.id), [game.id, getGameSessions]);
 
   const [viewMode, setViewMode] = useState<ViewMode>("playtime");
@@ -118,18 +120,18 @@ export function GameActivityTab({ game }: { game: Game }) {
       const dataUrl = canvas.toDataURL("image/png");
 
       const filePath = await save({
-        title: `Save ${game.name} Activity Screenshot`,
+        title: t("gameActivity.saveScreenshot", { game: game.name }),
         defaultPath: `${game.name.toLowerCase().replace(/[^a-z0-9]/g, "_")}_activity_screenshot_${new Date().toISOString().slice(0, 10)}.png`,
-        filters: [{ name: "PNG Image", extensions: ["png"] }],
+        filters: [{ name: t("activity.pngImage"), extensions: ["png"] }],
       });
 
       if (!filePath) return;
 
       await invoke("save_screenshot", { filePath, base64Data: dataUrl });
-      showToast("Activity screenshot saved", "success");
+      showToast(t("activity.screenshotSaved"), "success");
     } catch (error) {
       console.error("Screenshot error:", error);
-      showToast(`Failed to save screenshot: ${error}`, "error");
+      showToast(t("activity.screenshotFailed", { error: String(error) }), "error");
     }
   };
 
@@ -140,9 +142,9 @@ export function GameActivityTab({ game }: { game: Game }) {
     try {
       const baseName = `${game.name.toLowerCase().replace(/[^a-z0-9]/g, "_")}_sessions_${new Date().toISOString().slice(0, 10)}`;
       const filePath = await save({
-        title: `Export ${game.name} Sessions`,
+        title: t("activity.exportTitle", { name: game.name }),
         defaultPath: `${baseName}.${format}`,
-        filters: [{ name: format === "csv" ? "CSV File" : "JSON File", extensions: [format] }],
+        filters: [{ name: format === "csv" ? t("activity.csvFile") : t("activity.jsonFile"), extensions: [format] }],
       });
       if (!filePath) return;
 
@@ -186,10 +188,10 @@ export function GameActivityTab({ game }: { game: Game }) {
       }
 
       await invoke("save_text_file", { filePath, contents });
-      showToast(`Sessions exported as ${format.toUpperCase()}`, "success");
+      showToast(t("activity.exportedAs", { format: format.toUpperCase() }), "success");
     } catch (error) {
       console.error("Export error:", error);
-      showToast(`Failed to export sessions: ${error}`, "error");
+      showToast(t("activity.exportFailed", { error: String(error) }), "error");
     }
   };
 
@@ -569,7 +571,7 @@ export function GameActivityTab({ game }: { game: Game }) {
           <circle cx="12" cy="12" r="10" />
           <polyline points="12 6 12 12 16 14" />
         </svg>
-        <p>No sessions recorded for this game. Launch the game to start tracking activity.</p>
+        <p>{t("activity.noSessions")}</p>
       </div>
     );
   }
@@ -584,7 +586,7 @@ export function GameActivityTab({ game }: { game: Game }) {
             <polyline points="23 6 13.5 15.5 8.5 10.5 1 18" />
             <polyline points="17 6 23 6 23 12" />
           </svg>
-          <h2>Activity</h2>
+          <h2>{t("nav.activity")}</h2>
         </div>
 
         <div className="game-activity-controls">
@@ -597,7 +599,7 @@ export function GameActivityTab({ game }: { game: Game }) {
               <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" strokeWidth="2.5">
                 <circle cx="12" cy="12" r="10" /><polyline points="12 6 12 12 16 14" />
               </svg>
-              Playtime
+              {t("activity.playtime")}
             </button>
             <button
               className={`game-activity-toggle-btn ${viewMode === "performance" ? "active" : ""}`}
@@ -606,28 +608,28 @@ export function GameActivityTab({ game }: { game: Game }) {
               <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" strokeWidth="2.5">
                 <rect x="4" y="4" width="16" height="16" rx="2" ry="2" /><rect x="9" y="9" width="6" height="6" /><line x1="9" y1="1" x2="9" y2="4" /><line x1="15" y1="1" x2="15" y2="4" /><line x1="20" y1="9" x2="23" y2="9" /><line x1="1" y1="9" x2="4" y2="9" />
               </svg>
-              Performance
+              {t("activity.performance")}
             </button>
           </div>
 
           {/* Timeframe selector */}
           <div className="game-activity-timeframe-group">
-            {(["7d", "30d", "90d", "all"] as const).map((t) => (
+            {(["7d", "30d", "90d", "all"] as const).map((tf) => (
               <button
-                key={t}
-                className={`game-activity-timeframe-btn ${timeframe === t ? "active" : ""}`}
+                key={tf}
+                className={`game-activity-timeframe-btn ${timeframe === tf ? "active" : ""}`}
                 onClick={() => {
-                  setTimeframe(t);
+                  setTimeframe(tf);
                   setIsolatedSessionIndex(null);
                 }}
               >
-                {t === "7d" ? "7 Days" : t === "30d" ? "30 Days" : t === "90d" ? "90 Days" : "All Time"}
+                {tf === "7d" ? t("activity.7d") : tf === "30d" ? t("activity.30d") : tf === "90d" ? t("activity.90d") : t("activity.allTime")}
               </button>
             ))}
           </div>
 
           {/* Camera screenshot button */}
-          <button className="game-activity-action-btn" title="Save Screenshot" onClick={handleCaptureScreenshot}>
+           <button className="game-activity-action-btn" title={t("gameActivity.saveScreenshotBtn")} onClick={handleCaptureScreenshot}>
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
               <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z" /><circle cx="12" cy="13" r="4" />
             </svg>
@@ -637,7 +639,7 @@ export function GameActivityTab({ game }: { game: Game }) {
           <div className="game-activity-export-group" ref={exportMenuRef}>
             <button
               className="game-activity-action-btn"
-              title="Export Sessions"
+              title={t("activity.exportBtn")}
               onClick={(e) => {
                 const menu = (e.currentTarget.nextElementSibling as HTMLElement | null);
                 if (menu) menu.style.display = menu.style.display === "block" ? "none" : "block";
@@ -648,8 +650,8 @@ export function GameActivityTab({ game }: { game: Game }) {
               </svg>
             </button>
             <div className="game-activity-export-menu">
-              <button onClick={() => handleExportSessions("csv")}>Export as CSV</button>
-              <button onClick={() => handleExportSessions("json")}>Export as JSON</button>
+               <button onClick={() => handleExportSessions("csv")}>{t("activity.exportCsv")}</button>
+               <button onClick={() => handleExportSessions("json")}>{t("activity.exportJson")}</button>
             </div>
           </div>
         </div>
@@ -661,38 +663,38 @@ export function GameActivityTab({ game }: { game: Game }) {
         <div className="game-activity-left-col">
           <div className="game-activity-stats-grid">
             <StatCard
-              label="Total Playtime"
+              label={t("activity.totalPlaytime")}
               value={formatPlayTime(stats.totalPlayTimeMin)}
               icon={<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10" /><polyline points="12 6 12 12 16 14" /></svg>}
             />
             <StatCard
-              label="Sessions"
+              label={t("activity.sessions")}
               value={stats.totalSessions}
               icon={<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><line x1="18" y1="20" x2="18" y2="10" /><line x1="12" y1="20" x2="12" y2="4" /><line x1="6" y1="20" x2="6" y2="14" /></svg>}
             />
             <StatCard
-              label="Average Session"
+              label={t("activity.avgSession")}
               value={stats.avgSessionMin > 0 ? `${stats.avgSessionMin}m` : "—"}
               icon={<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10" /><polyline points="12 6 12 12 16 14" /></svg>}
             />
             <StatCard
-              label="Longest Session"
+              label={t("activity.longestSession")}
               value={stats.longestSessionMin > 0 ? formatPlayTime(stats.longestSessionMin) : "—"}
               icon={<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M6 9H4.5a2.5 2.5 0 0 1 0-5H6" /><path d="M18 9h1.5a2.5 2.5 0 0 0 0-5H18" /><path d="M4 22h16" /><path d="M10 14.66V17c0 .55-.45 1-1 1H4v2h16v-2h-5c-.55 0-1-.45-1-1v-2.34" /><path d="M12 2a6 6 0 0 1 6 6v5a6 6 0 0 1-6 6 6 6 0 0 1-6-6V8a6 6 0 0 1 6-6z" /></svg>}
             />
             <StatCard
-              label="Current Streak"
+              label={t("activity.currentStreak")}
               value={stats.currentStreak > 0 ? `${stats.currentStreak}d` : "—"}
               icon={<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2" /></svg>}
             />
             <StatCard
-              label="Best Streak"
+              label={t("activity.bestStreak")}
               value={stats.bestStreak > 0 ? `${stats.bestStreak}d` : "—"}
               icon={<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2" /></svg>}
             />
             <StatCard
-              label="Trend"
-              value={stats.trendDirection === "up" ? "Increasing" : stats.trendDirection === "down" ? "Decreasing" : "Flat"}
+              label={t("activity.trend")}
+              value={stats.trendDirection === "up" ? t("activity.increasing") : stats.trendDirection === "down" ? t("activity.decreasing") : t("activity.flat")}
               icon={
                 stats.trendDirection === "up" ? (
                   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18" /><polyline points="17 6 23 6 23 12" /></svg>
@@ -704,7 +706,7 @@ export function GameActivityTab({ game }: { game: Game }) {
               }
             />
             <StatCard
-              label="Most Active Day"
+              label={t("activity.mostActiveDay")}
               value={stats.mostActiveDay}
               icon={<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="3" y="4" width="18" height="18" rx="2" ry="2" /><line x1="3" y1="10" x2="21" y2="10" /></svg>}
             />
@@ -714,12 +716,12 @@ export function GameActivityTab({ game }: { game: Game }) {
               icon={<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="3" y="4" width="18" height="18" rx="2" ry="2" /><line x1="3" y1="10" x2="21" y2="10" /></svg>}
             />
             <StatCard
-              label="First Session"
+              label={t("activity.firstSession")}
               value={stats.firstPlayed}
               icon={<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="3" y="4" width="18" height="18" rx="2" ry="2" /><line x1="3" y1="10" x2="21" y2="10" /></svg>}
             />
             <StatCard
-              label="Last Session"
+              label={t("activity.lastSession")}
               value={stats.lastPlayed}
               icon={<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="3" y="4" width="18" height="18" rx="2" ry="2" /><line x1="3" y1="10" x2="21" y2="10" /></svg>}
               className="game-activity-stat-card-full"
@@ -729,7 +731,7 @@ export function GameActivityTab({ game }: { game: Game }) {
           {/* RECENT SESSIONS */}
           <div className="game-activity-recent-sessions">
             <h3 className="game-activity-sessions-title">
-              Recent Sessions
+              {t("activity.recentSessions")}
               <span className="game-activity-sessions-count-tag">{filteredSessions.length}</span>
             </h3>
             {filteredSessions.map((session) => {
@@ -779,7 +781,7 @@ export function GameActivityTab({ game }: { game: Game }) {
                             borderRadius: "var(--radius-xs)"
                           }}
                         >
-                          Telemetry
+                           {t("activity.telemetry")}
                         </span>
                       )}
                     </span>
@@ -788,7 +790,7 @@ export function GameActivityTab({ game }: { game: Game }) {
                   <span className="game-activity-session-duration">{formatPlayTime(session.durationMin)}</span>
                   <button
                     className="game-activity-session-delete-btn"
-                    title="Delete Session"
+                     title={t("activity.deleteSessionBtn")}
                     onClick={(e) => {
                       e.stopPropagation();
                       setPendingDeleteId(session.id);
