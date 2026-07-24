@@ -1,8 +1,8 @@
-//! Embedded SQL schema strings.
+//! Embedded SQL schema strings, one per logical database file.
 //!
-//! Every table GameIndex uses lives in a constant here, so the schema
-//! is reviewable in one place and can be unit-tested (we apply each
-//! DDL against a temp DB and verify it's idempotent).
+//! Every domain GameIndex persists lives in its own constant here, so
+//! the schema is reviewable in one place and can be unit-tested (we
+//! apply each DDL against a temp DB and verify it's idempotent).
 //!
 //! ## Conventions
 //!
@@ -15,40 +15,38 @@
 //!   `sources` table is the canonical source of truth; deleting a
 //!   source cascades to its cache, downloads, and FTS5 mirrors.
 
-/// DDL for v1 of the schema. Ordered so dependencies come first
-/// (parents before children, tables before their `CREATE TRIGGER`
-/// statements).
-pub const V1_SCHEMA: &str = include_str!("schema_v1.sql");
+/// DDL for the `sources` domain: `sources`, `sources_cache`,
+/// `downloads`, `downloads_fts` (+ sync triggers). These four are
+/// FK/trigger-coupled and must live in the same file.
+pub const SOURCES_DDL: &str = include_str!("schema_sources.sql");
 
-/// DDL for v2 of the schema. Adds two columns to `games` to support
-/// the GOG Galaxy integration (`gog_game_id`, `gog_playtime`).
-/// Both default `NULL` to preserve backward-compat for installs
-/// that have pre-existing rows without GOG metadata — the Rust DAO
-/// uses `Option<..>` for both.
-pub const V2_SCHEMA: &str = include_str!("schema_v2.sql");
+/// DDL for the `games` domain: the `games` table plus the v2 (GOG)
+/// and v5 (launch orchestration) column additions, in historical
+/// order so the Rust DAO's positional column reads stay valid.
+pub const GAMES_DDL: &str = include_str!("schema_games.sql");
 
-/// DDL for v3 of the schema. Recreates the `downloads_fts` mirror
-/// triggers so they key off the globally-unique `downloads.rowid`
-/// rather than the per-source `row_id` (which collided across
-/// sources and caused "Refresh failed: downloads insert N: constraint
-/// failed" the second time a source was added).
-pub const V3_SCHEMA: &str = include_str!("schema_v3.sql");
+/// DDL for the `sessions` domain: `sessions` plus the v4 `game_name`
+/// denormalization.
+pub const SESSIONS_DDL: &str = include_str!("schema_sessions.sql");
 
-/// DDL for v4 of the schema. Adds a `game_name` column to `sessions`
-/// so the Activity dashboard can group / rank sessions by name without
-/// a JOIN back to `games` (see `schema_v4.sql`).
-pub const V4_SCHEMA: &str = include_str!("schema_v4.sql");
+/// DDL for the `wishlist` domain.
+pub const WISHLIST_DDL: &str = include_str!("schema_wishlist.sql");
 
-/// DDL for v5 of the schema. Adds launch-orchestration columns to
-/// `games`: `pre_launch_script`, `pre_launch_admin`, `post_exit_script`,
-/// `post_exit_admin`, and `companion_apps_json` (a JSON array of extra
-/// executables launched alongside the game, each on its own timer).
-/// See `schema_v5.sql`.
-pub const V5_SCHEMA: &str = include_str!("schema_v5.sql");
+/// DDL for the `store_cache` domain: `store_cache` + `store_detail`.
+pub const STORE_CACHE_DDL: &str = include_str!("schema_store_cache.sql");
 
-/// Bootstrap the schema-meta table on a fresh DB. This table is
-/// itself part of v1, but we need to read `PRAGMA user_version`
-/// *before* applying v1, so bootstrap is logically a separate step.
+/// DDL for the `achievements` domain.
+pub const ACHIEVEMENTS_DDL: &str = include_str!("schema_achievements.sql");
+
+/// DDL for the `kv` domain: the generic `kv_store` table.
+pub const KV_DDL: &str = include_str!("schema_kv.sql");
+
+/// DDL for the `news` domain.
+pub const NEWS_DDL: &str = include_str!("schema_news.sql");
+
+/// Bootstrap the schema-meta table on a fresh domain DB. This table is
+/// itself part of v1, but we need to read `schema_version` *before*
+/// applying v1, so bootstrap is logically a separate step.
 pub const META_BOOTSTRAP: &str = "
 CREATE TABLE IF NOT EXISTS schema_meta (
     k TEXT PRIMARY KEY,
@@ -56,23 +54,54 @@ CREATE TABLE IF NOT EXISTS schema_meta (
 );
 ";
 
-/// All currently known schema versions, oldest first.
+/// One physical database file and the ordered list of migrations that
+/// build it up. Each `versions` entry is `(label, ddl)`; the runner
+/// applies any entry whose label is newer than the domain's recorded
+/// `schema_version`, inside a single transaction.
 ///
-/// `db::migrate::run_migrations` iterates this list, skipping versions
-/// that are already in `PRAGMA user_version`, and applies the rest in
-/// order inside individual transactions.
-///
-/// **Adding a new version**: append `(vN, &new_const)` at the end —
-/// never renumber existing tuples (existing installs row-locked on
-/// the corresponding `schema_meta` entry would otherwise miss the
-/// bump). New columns should be appended via `ALTER TABLE … ADD
-/// COLUMN`, never by editing the existing schema file's
-/// `CREATE TABLE` clause (existing installs would never see the
-/// edit because their `schema_version` is already past v1).
-pub const SCHEMA_VERSIONS: &[(&str, &str)] = &[
-    ("v1", V1_SCHEMA),
-    ("v2", V2_SCHEMA),
-    ("v3", V3_SCHEMA),
-    ("v4", V4_SCHEMA),
-    ("v5", V5_SCHEMA),
+/// **Adding a new migration to a domain**: append
+/// `("vN", &new_ddl)` at the end of that domain's slice — never
+/// renumber existing tuples.
+pub struct DomainSchema {
+    /// File/pool label, e.g. `"games"`. Must match a `Db` pool.
+    pub label: &'static str,
+    /// Ordered migrations, oldest first.
+    pub versions: &'static [(&'static str, &'static str)],
+}
+
+/// All known domain schemas, in no particular order (the runner
+/// iterates them independently).
+pub const DOMAIN_SCHEMAS: &[DomainSchema] = &[
+    DomainSchema {
+        label: "sources",
+        versions: &[("v1", SOURCES_DDL)],
+    },
+    DomainSchema {
+        label: "games",
+        versions: &[("v1", GAMES_DDL)],
+    },
+    DomainSchema {
+        label: "sessions",
+        versions: &[("v1", SESSIONS_DDL)],
+    },
+    DomainSchema {
+        label: "wishlist",
+        versions: &[("v1", WISHLIST_DDL)],
+    },
+    DomainSchema {
+        label: "store_cache",
+        versions: &[("v1", STORE_CACHE_DDL)],
+    },
+    DomainSchema {
+        label: "achievements",
+        versions: &[("v1", ACHIEVEMENTS_DDL)],
+    },
+    DomainSchema {
+        label: "kv",
+        versions: &[("v1", KV_DDL)],
+    },
+    DomainSchema {
+        label: "news",
+        versions: &[("v1", NEWS_DDL)],
+    },
 ];

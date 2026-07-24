@@ -1,10 +1,23 @@
-//! SQLite connection pool.
+//! SQLite connection pools, one per logical database file.
 //!
-//! [`Db`] owns an [`r2d2::Pool`] of [`rusqlite::Connection`]s.
-//! Every backend command reads from or writes to this pool instead of
-//! hitting the filesystem directly (Phase 0's atomic helper is now only
-//! used by the legacy JSON files that are still being auto-imported
-//! from disk, see [`crate::db::legacy`]).
+//! [`Db`] owns eight [`r2d2::Pool`]s of [`rusqlite::Connection`]s, each
+//! backed by its own physical file under `<app_data_dir>`:
+//!
+//! | Pool / file        | Tables                                              |
+//! |--------------------|-----------------------------------------------------|
+//! | `sources.db`       | `sources`, `sources_cache`, `downloads`, `downloads_fts` |
+//! | `games.db`         | `games`                                             |
+//! | `sessions.db`      | `sessions`                                          |
+//! | `wishlist.db`      | `wishlist`                                          |
+//! | `store_cache.db`   | `store_cache`, `store_detail`                       |
+//! | `achievements.db`  | `achievements_cache`                                |
+//! | `kv.db`            | `kv_store`                                          |
+//! | `news.db`          | `news_cache`                                        |
+//!
+//! Splitting into separate files means a corrupt or WAL-stuck file can
+//! only take down its own domain — the rest of the app keeps working —
+//! and each domain gets an independent connection pool, WAL, and
+//! checkpoint cadence.
 //!
 //! ## Why a pool
 //!
@@ -38,35 +51,106 @@ use r2d2::Pool;
 use r2d2_sqlite::SqliteConnectionManager;
 use rusqlite::Connection;
 
-/// Wrapper around the SQLite pool. We pass this through Tauri's
-/// `State` container so commands can pull it via
-/// `app.state::<Db>()` or accept it directly through a `State`
-/// parameter.
+/// Concrete pool type shared by every domain.
+pub type SqlitePool = Pool<SqliteConnectionManager>;
+/// A connection borrowed from one of the domain pools.
+pub type PooledConn = r2d2::PooledConnection<SqliteConnectionManager>;
+
+/// Registry of one connection pool per logical database file.
+///
+/// Cloning is cheap (each inner `Pool` is an `Arc`); Tauri's `State`
+/// container holds a clone and hands it to commands via
+/// `app.state::<Db>().inner().clone()`.
 #[derive(Clone)]
 pub struct Db {
-    pool: Pool<SqliteConnectionManager>,
+    pub sources: SqlitePool,
+    pub games: SqlitePool,
+    pub sessions: SqlitePool,
+    pub wishlist: SqlitePool,
+    pub store_cache: SqlitePool,
+    pub achievements: SqlitePool,
+    pub kv: SqlitePool,
+    pub news: SqlitePool,
 }
 
 impl Db {
-    /// Open (and create if missing) gamelib.db under `app_data_dir`,
-    /// then set up PRAGMAs via a connection customizer.
+    /// Open (creating if missing) the eight `<name>.db` files under
+    /// `app_data_dir`, each with its own pool and PRAGMA customizer.
     pub fn open(app_data_dir: &Path) -> Result<Self, String> {
         std::fs::create_dir_all(app_data_dir)
             .map_err(|e| format!("create app_data_dir: {e}"))?;
-        let db_path = app_data_dir.join("gamelib.db");
-        let manager = SqliteConnectionManager::file(&db_path)
-            .with_init(init_connection);
-        let pool = Pool::builder()
-            .max_size(8)
-            .build(manager)
-            .map_err(|e| format!("build pool: {e}"))?;
-        Ok(Self { pool })
+        let mk = |name: &str| -> Result<SqlitePool, String> {
+            let db_path = app_data_dir.join(format!("{name}.db"));
+            let manager =
+                SqliteConnectionManager::file(&db_path).with_init(init_connection);
+            Pool::builder()
+                .max_size(8)
+                .build(manager)
+                .map_err(|e| format!("build {name} pool: {e}"))
+        };
+        Ok(Self {
+            sources: mk("sources")?,
+            games: mk("games")?,
+            sessions: mk("sessions")?,
+            wishlist: mk("wishlist")?,
+            store_cache: mk("store_cache")?,
+            achievements: mk("achievements")?,
+            kv: mk("kv")?,
+            news: mk("news")?,
+        })
     }
 
-    /// Borrow a connection from the pool. Returns the r2d2
-    /// `PooledConnection` which auto-returns to the pool on drop.
-    pub fn conn(&self) -> Result<r2d2::PooledConnection<SqliteConnectionManager>, String> {
-        self.pool.get().map_err(|e| format!("acquire conn: {e}"))
+    /// Borrow a connection from the `sources` pool.
+    pub fn sources(&self) -> Result<PooledConn, String> {
+        self.sources.get().map_err(|e| format!("acquire sources conn: {e}"))
+    }
+    /// Borrow a connection from the `games` pool.
+    pub fn games(&self) -> Result<PooledConn, String> {
+        self.games.get().map_err(|e| format!("acquire games conn: {e}"))
+    }
+    /// Borrow a connection from the `sessions` pool.
+    pub fn sessions(&self) -> Result<PooledConn, String> {
+        self.sessions.get().map_err(|e| format!("acquire sessions conn: {e}"))
+    }
+    /// Borrow a connection from the `wishlist` pool.
+    pub fn wishlist(&self) -> Result<PooledConn, String> {
+        self.wishlist.get().map_err(|e| format!("acquire wishlist conn: {e}"))
+    }
+    /// Borrow a connection from the `store_cache` pool.
+    pub fn store_cache(&self) -> Result<PooledConn, String> {
+        self.store_cache
+            .get()
+            .map_err(|e| format!("acquire store_cache conn: {e}"))
+    }
+    /// Borrow a connection from the `achievements` pool.
+    pub fn achievements(&self) -> Result<PooledConn, String> {
+        self.achievements
+            .get()
+            .map_err(|e| format!("acquire achievements conn: {e}"))
+    }
+    /// Borrow a connection from the `kv` pool.
+    pub fn kv(&self) -> Result<PooledConn, String> {
+        self.kv.get().map_err(|e| format!("acquire kv conn: {e}"))
+    }
+    /// Borrow a connection from the `news` pool.
+    pub fn news(&self) -> Result<PooledConn, String> {
+        self.news.get().map_err(|e| format!("acquire news conn: {e}"))
+    }
+
+    /// Return the pool backing a domain `label` (used by the migration
+    /// runner). Returns `None` for unknown labels.
+    pub fn pool(&self, label: &str) -> Option<&SqlitePool> {
+        match label {
+            "sources" => Some(&self.sources),
+            "games" => Some(&self.games),
+            "sessions" => Some(&self.sessions),
+            "wishlist" => Some(&self.wishlist),
+            "store_cache" => Some(&self.store_cache),
+            "achievements" => Some(&self.achievements),
+            "kv" => Some(&self.kv),
+            "news" => Some(&self.news),
+            _ => None,
+        }
     }
 }
 
@@ -91,15 +175,26 @@ mod tests {
     use super::*;
 
     #[test]
-    fn open_creates_db_in_tempdir() {
+    fn open_creates_all_domain_dbs_in_tempdir() {
         let dir = tempfile::tempdir().unwrap();
         let db = Db::open(dir.path()).unwrap();
-        let conn = db.conn().unwrap();
-        // `journal_mode` returns the actual mode in the single column.
-        let mode: String = conn
-            .query_row("PRAGMA journal_mode", [], |r| r.get(0))
-            .unwrap();
-        assert_eq!(mode.to_lowercase(), "wal");
+        // Each domain pool yields a WAL-mode connection.
+        for acquire in [
+            Db::sources,
+            Db::games,
+            Db::sessions,
+            Db::wishlist,
+            Db::store_cache,
+            Db::achievements,
+            Db::kv,
+            Db::news,
+        ] {
+            let conn = acquire(&db).unwrap();
+            let mode: String = conn
+                .query_row("PRAGMA journal_mode", [], |r| r.get(0))
+                .unwrap();
+            assert_eq!(mode.to_lowercase(), "wal");
+        }
     }
 
     #[test]
@@ -107,7 +202,7 @@ mod tests {
         let dir = tempfile::tempdir().unwrap();
         let db = Db::open(dir.path()).unwrap();
         for _ in 0..16 {
-            let _conn = db.conn().unwrap();
+            let _conn = db.games().unwrap();
         }
     }
 }

@@ -40,7 +40,7 @@ pub fn insert(
     avg_ram: Option<f32>,
     metrics_json: Option<&str>,
 ) -> Result<i64, String> {
-    let conn = db.conn().map_err(|e| format!("sessions conn: {e}"))?;
+    let conn = db.sessions().map_err(|e| format!("sessions conn: {e}"))?;
     conn.execute(
         "INSERT INTO sessions(
             game_id, game_name, started_at, ended_at, elapsed_seconds,
@@ -66,7 +66,7 @@ pub fn insert(
 /// Return the most-recent N sessions across all games (newest
 /// first).
 pub fn list_recent(db: &Db, limit: u32) -> Result<Vec<SessionRecord>, String> {
-    let conn = db.conn().map_err(|e| format!("sessions conn: {e}"))?;
+    let conn = db.sessions().map_err(|e| format!("sessions conn: {e}"))?;
     let mut stmt = conn
         .prepare(
             "SELECT id, game_id, started_at, ended_at, elapsed_seconds,
@@ -102,7 +102,7 @@ pub fn list_recent(db: &Db, limit: u32) -> Result<Vec<SessionRecord>, String> {
 
 /// Return every session for a single game.
 pub fn list_for_game(db: &Db, game_id: &str) -> Result<Vec<SessionRecord>, String> {
-    let conn = db.conn().map_err(|e| format!("sessions conn: {e}"))?;
+    let conn = db.sessions().map_err(|e| format!("sessions conn: {e}"))?;
     let mut stmt = conn
         .prepare(
             "SELECT id, game_id, started_at, ended_at, elapsed_seconds,
@@ -138,7 +138,7 @@ pub fn list_for_game(db: &Db, game_id: &str) -> Result<Vec<SessionRecord>, Strin
 
 /// Library-wide session count (for the home dashboard).
 pub fn count_all(db: &Db) -> Result<u64, String> {
-    let conn = db.conn().map_err(|e| format!("sessions conn: {e}"))?;
+    let conn = db.sessions().map_err(|e| format!("sessions conn: {e}"))?;
     let n: i64 = conn
         .query_row("SELECT COUNT(*) FROM sessions", [], |r| r.get(0))
         .map_err(|e| format!("sessions count: {e}"))?;
@@ -150,7 +150,7 @@ pub fn count_all(db: &Db) -> Result<u64, String> {
 /// for aggregation. Pagination is unnecessary here — the dataset is
 /// bounded by real playtime and SQLite returns it in well under a ms.
 pub fn list_all(db: &Db) -> Result<Vec<SessionRecord>, String> {
-    let conn = db.conn().map_err(|e| format!("sessions conn: {e}"))?;
+    let conn = db.sessions().map_err(|e| format!("sessions conn: {e}"))?;
     let mut stmt = conn
         .prepare(
             "SELECT id, game_id, started_at, ended_at, elapsed_seconds,
@@ -186,7 +186,7 @@ pub fn list_all(db: &Db) -> Result<Vec<SessionRecord>, String> {
 /// Delete a single session row by its primary key. Returns the number
 /// of rows removed (0 if the id didn't exist).
 pub fn delete(db: &Db, id: i64) -> Result<u64, String> {
-    let conn = db.conn().map_err(|e| format!("sessions conn: {e}"))?;
+    let conn = db.sessions().map_err(|e| format!("sessions conn: {e}"))?;
     let n = conn
         .execute("DELETE FROM sessions WHERE id = ?1", params![id])
         .map_err(|e| format!("sessions delete: {e}"))?;

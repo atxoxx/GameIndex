@@ -22,7 +22,7 @@ use super::pool::Db;
 const DEFAULT_TTL_SEC: u64 = 30 * 60; // 30 min — RSS feeds aren't time-critical
 
 pub fn upsert(db: &Db, source_url: &str, payload_json: &str) -> Result<(), String> {
-    let conn = db.conn().map_err(|e| format!("news conn: {e}"))?;
+    let conn = db.news().map_err(|e| format!("news conn: {e}"))?;
     let now = unix_now();
     conn.execute(
         "INSERT INTO news_cache(source_url, payload_json, fetched_at)
@@ -37,7 +37,7 @@ pub fn upsert(db: &Db, source_url: &str, payload_json: &str) -> Result<(), Strin
 }
 
 pub fn read(db: &Db, source_url: &str, ttl_seconds: Option<u64>) -> Result<Option<String>, String> {
-    let conn = db.conn().map_err(|e| format!("news conn: {e}"))?;
+    let conn = db.news().map_err(|e| format!("news conn: {e}"))?;
     let ttl = ttl_seconds.unwrap_or(DEFAULT_TTL_SEC);
     let min_ts = unix_now().saturating_sub(ttl);
     let mut stmt = conn

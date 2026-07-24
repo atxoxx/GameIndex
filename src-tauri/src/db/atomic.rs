@@ -20,9 +20,9 @@
 //! UTF-8 bytes) and persist atomically via tempfile + `fs::rename`, so a
 //! crash mid-write leaves the previous intact copy in place.
 //!
-//! On Windows, `tempfile::NamedTempFile::persist_noclobber` is implemented
-//! via `MoveFileExW(... MOVEFILE_REPLACE_EXISTING)` so a partial target
-//! is overwritten atomically. On macOS / Linux it's a plain `rename(2)`
+//! On Windows, `tempfile::NamedTempFile::persist` is implemented via
+//! `MoveFileExW(... MOVEFILE_REPLACE_EXISTING)` so a partial target is
+//! overwritten atomically. On macOS / Linux it's a plain `rename(2)`
 //! which is atomic on POSIX. Either way, readers either see the old
 //! content or the new content — never a half-written blob.
 
@@ -68,11 +68,15 @@ pub fn write_bytes<P: AsRef<Path>>(target_path: P, bytes: &[u8]) -> Result<(), S
     tmp.write_all(bytes)
         .map_err(|e| format!("write tmp: {e}"))?;
     tmp.flush().map_err(|e| format!("flush tmp: {e}"))?;
-    // Persist with `noclobber`: if the target reappeared (e.g. a
-    // concurrent writer raced us), the rename fails rather than
-    // silently overwriting. Re-callers can retry after observing
-    // the failure.
-    tmp.persist_noclobber(target)
+    // Atomically replace the target: `persist` renames the temp file
+    // over the destination (overwriting any existing file). On POSIX
+    // this is `rename(2)`; on Windows it is `MoveFileExW` with
+    // `MOVEFILE_REPLACE_EXISTING` — both are atomic, so readers see
+    // either the old content or the new, never a half-written blob.
+    // A previous `persist_noclobber` build broke overwrites on
+    // Windows (os error 183: file already exists), which silently
+    // dropped every re-save of an existing cache file.
+    tmp.persist(target)
         .map_err(|e| format!("rename tmp → {}: {}", target.display(), e))?;
     Ok(())
 }

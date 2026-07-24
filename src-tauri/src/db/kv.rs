@@ -15,7 +15,7 @@ use rusqlite::params;
 use super::pool::Db;
 
 pub fn get(db: &Db, key: &str) -> Result<Option<String>, String> {
-    let conn = db.conn().map_err(|e| format!("kv conn: {e}"))?;
+    let conn = db.kv().map_err(|e| format!("kv conn: {e}"))?;
     let mut stmt = conn
         .prepare("SELECT v FROM kv_store WHERE k = ?1")
         .map_err(|e| format!("kv get prepare: {e}"))?;
@@ -30,7 +30,7 @@ pub fn get(db: &Db, key: &str) -> Result<Option<String>, String> {
 }
 
 pub fn set(db: &Db, key: &str, value: &str) -> Result<(), String> {
-    let conn = db.conn().map_err(|e| format!("kv conn: {e}"))?;
+    let conn = db.kv().map_err(|e| format!("kv conn: {e}"))?;
     conn.execute(
         "INSERT INTO kv_store(k, v, updated_at) VALUES (?1, ?2, ?3)
          ON CONFLICT(k) DO UPDATE SET
@@ -43,7 +43,7 @@ pub fn set(db: &Db, key: &str, value: &str) -> Result<(), String> {
 }
 
 pub fn delete(db: &Db, key: &str) -> Result<(), String> {
-    let conn = db.conn().map_err(|e| format!("kv conn: {e}"))?;
+    let conn = db.kv().map_err(|e| format!("kv conn: {e}"))?;
     conn.execute("DELETE FROM kv_store WHERE k = ?1", params![key])
         .map_err(|e| format!("kv delete: {e}"))?;
     Ok(())

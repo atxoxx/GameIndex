@@ -584,7 +584,7 @@ impl GameWatcher {
                 ),
                 None => (None, None, None, None),
             };
-            let _ = db::sessions::insert(
+            if let Err(e) = db::sessions::insert(
                 &self.db,
                 game_id,
                 &session.game_name,
@@ -596,13 +596,19 @@ impl GameWatcher {
                 avg_gpu,
                 avg_ram,
                 metrics_json.as_deref(),
-            );
+            ) {
+                eprintln!("[game_watcher] failed to record session for {game_id}: {e}");
+            }
 
             // Mirror the timestamp into the games table so the
             // Library "Continue Playing" rail can sort without a
             // JOIN. Phase 3 hot-path: replaces the old
             // full-library-rewrite triggered by save_games.
-            let _ = db::games::update_last_played(&self.db, game_id, finished_at_ms);
+            if let Err(e) =
+                db::games::update_last_played(&self.db, game_id, finished_at_ms)
+            {
+                eprintln!("[game_watcher] failed to update last_played for {game_id}: {e}");
+            }
 
             let _ = app_handle.emit(
                 "game-exited",

@@ -148,7 +148,7 @@ pub struct GameRow {
 /// Bulk upsert: replace the entire library with `rows`. Wrapped in
 /// one transaction so we never have a partial library on disk.
 pub fn upsert_all(db: &Db, rows: &[GameRow]) -> Result<(), String> {
-    let mut conn = db.conn().map_err(|e| e.to_string())?;
+    let mut conn = db.games().map_err(|e| e.to_string())?;
     let tx = conn.transaction().map_err(|e| e.to_string())?;
     tx.execute("DELETE FROM games", [])
         .map_err(|e| format!("games delete: {e}"))?;
@@ -268,7 +268,7 @@ pub fn upsert_all(db: &Db, rows: &[GameRow]) -> Result<(), String> {
 /// Hot-path: bump one game's `last_played` without rewriting the
 /// rest of the row or the whole library.
 pub fn update_last_played(db: &Db, game_id: &str, last_played_ms: u64) -> Result<(), String> {
-    let conn = db.conn().map_err(|e| e.to_string())?;
+    let conn = db.games().map_err(|e| e.to_string())?;
     conn.execute(
         "UPDATE games SET last_played = ?1 WHERE id = ?2",
         params![last_played_ms, game_id],
@@ -279,7 +279,7 @@ pub fn update_last_played(db: &Db, game_id: &str, last_played_ms: u64) -> Result
 
 /// Read every game, in Continue-Playing-friendly order.
 pub fn list_all(db: &Db) -> Result<Vec<GameRow>, String> {
-    let conn = db.conn().map_err(|e| e.to_string())?;
+    let conn = db.games().map_err(|e| e.to_string())?;
     let mut stmt = conn
         .prepare(GAMES_SELECT_SQL)
         .map_err(|e| format!("games list prepare: {e}"))?;
@@ -295,7 +295,7 @@ pub fn list_all(db: &Db) -> Result<Vec<GameRow>, String> {
 
 /// Read a single game by id.
 pub fn get(db: &Db, id: &str) -> Result<Option<GameRow>, String> {
-    let conn = db.conn().map_err(|e| e.to_string())?;
+    let conn = db.games().map_err(|e| e.to_string())?;
     let mut stmt = conn
         .prepare(format!("{GAMES_SELECT_SQL} WHERE id = ?1").as_str())
         .map_err(|e| format!("games get prepare: {e}"))?;
@@ -312,7 +312,7 @@ pub fn get(db: &Db, id: &str) -> Result<Option<GameRow>, String> {
 
 /// Delete a game by id.
 pub fn delete(db: &Db, id: &str) -> Result<(), String> {
-    let conn = db.conn().map_err(|e| e.to_string())?;
+    let conn = db.games().map_err(|e| e.to_string())?;
     conn.execute("DELETE FROM games WHERE id = ?1", params![id])
         .map_err(|e| format!("games delete: {e}"))?;
     Ok(())
@@ -323,7 +323,7 @@ pub fn delete_many(db: &Db, ids: &[String]) -> Result<(), String> {
     if ids.is_empty() {
         return Ok(());
     }
-    let mut conn = db.conn().map_err(|e| e.to_string())?;
+    let mut conn = db.games().map_err(|e| e.to_string())?;
     let tx = conn.transaction().map_err(|e| e.to_string())?;
     let mut stmt = tx
         .prepare("DELETE FROM games WHERE id = ?1")

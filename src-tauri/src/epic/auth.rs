@@ -403,7 +403,9 @@ fn save_tokens(app: &AppHandle, tokens: &EpicAuthTokens) -> Result<(), String> {
 
     // Stash the login timestamp as non-sensitive metadata.
     let now_secs = current_unix().to_string();
-    let _ = db::kv::set(db_state.inner(), "epic_last_login_unix", &now_secs);
+    if let Err(e) = db::kv::set(db_state.inner(), "epic_last_login_unix", &now_secs) {
+        eprintln!("[epic-auth] save_tokens: failed to record login timestamp: {e}");
+    }
     Ok(())
 }
 
@@ -452,7 +454,11 @@ fn load_tokens(app: &AppHandle) -> Result<EpicAuthTokens, String> {
             // memory for this session).
             let json = serde_json::to_string(&tokens).unwrap_or_default();
             if !json.is_empty() {
-                let _ = db::kv::set(db_state.inner(), EPIC_TOKENS_KV_KEY, &json);
+                if let Err(e) = db::kv::set(db_state.inner(), EPIC_TOKENS_KV_KEY, &json) {
+                    eprintln!(
+                        "[epic-auth] load_tokens: legacy-keychain migration write failed: {e}"
+                    );
+                }
             }
             // Clean up the legacy keychain entry so we don't
             // migrate again next time.

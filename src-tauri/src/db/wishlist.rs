@@ -27,7 +27,7 @@ pub type WishlistEntryJson = String;
 /// Upsert a wishlisted game. `added_at` is unix milliseconds to match
 /// the frontend's existing key (`Date.now()`).
 pub fn upsert(db: &Db, slug: &str, payload_json: &str, added_at: u64) -> Result<(), String> {
-    let conn = db.conn().map_err(|e| format!("wishlist conn: {e}"))?;
+    let conn = db.wishlist().map_err(|e| format!("wishlist conn: {e}"))?;
     conn.execute(
         "INSERT INTO wishlist(slug, payload_json, added_at) VALUES (?1, ?2, ?3)
          ON CONFLICT(slug) DO UPDATE SET
@@ -42,7 +42,7 @@ pub fn upsert(db: &Db, slug: &str, payload_json: &str, added_at: u64) -> Result<
 /// Delete a wishlisted game by slug. Idempotent: returns Ok even if
 /// the row never existed.
 pub fn remove(db: &Db, slug: &str) -> Result<(), String> {
-    let conn = db.conn().map_err(|e| format!("wishlist conn: {e}"))?;
+    let conn = db.wishlist().map_err(|e| format!("wishlist conn: {e}"))?;
     conn.execute("DELETE FROM wishlist WHERE slug = ?1", params![slug])
         .map_err(|e| format!("wishlist remove: {e}"))?;
     Ok(())
@@ -50,7 +50,7 @@ pub fn remove(db: &Db, slug: &str) -> Result<(), String> {
 
 /// Return every wishlisted entry sorted by added_at desc.
 pub fn list(db: &Db) -> Result<Vec<(String, WishlistEntryJson, u64)>, String> {
-    let conn = db.conn().map_err(|e| format!("wishlist conn: {e}"))?;
+    let conn = db.wishlist().map_err(|e| format!("wishlist conn: {e}"))?;
     let mut stmt = conn
         .prepare("SELECT slug, payload_json, added_at FROM wishlist ORDER BY added_at DESC")
         .map_err(|e| format!("wishlist list prepare: {e}"))?;

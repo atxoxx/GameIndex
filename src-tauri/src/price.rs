@@ -105,7 +105,9 @@ pub async fn fetch_game_price(app: tauri::AppHandle, game_name: String) -> Optio
             updated_at: now_ms(),
         };
         if let Ok(json) = serde_json::to_string(&envelope) {
-            let _ = crate::db::kv::set(db_state.inner(), &key, &json);
+            if let Err(e) = crate::db::kv::set(db_state.inner(), &key, &json) {
+                eprintln!("[price] cache write failed for {key}: {e}");
+            }
         }
     }
 
@@ -163,7 +165,9 @@ pub async fn fetch_game_prices_batch(
                 updated_at: now_ms(),
             };
             if let Ok(json) = serde_json::to_string(&envelope) {
-                let _ = crate::db::kv::set(db_state.inner(), &key, &json);
+                if let Err(e) = crate::db::kv::set(db_state.inner(), &key, &json) {
+                    eprintln!("[price] cache write failed for {key}: {e}");
+                }
             }
             resolved.insert(name, p);
         }

@@ -3,7 +3,7 @@ use std::sync::Arc;
 use std::collections::{HashMap, VecDeque};
 use std::time::{Duration, Instant, SystemTime};
 use std::sync::OnceLock;
-use serde::{Deserialize, Serialize};
+use serde::{Deserialize, Deserializer, Serialize};
 use tauri::{Emitter, Manager, WindowEvent};
 use tokio::sync::Mutex;
 
@@ -136,7 +136,11 @@ struct GameData {
     similar_games: Option<Vec<SimilarGame>>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     releases: Option<Vec<ReleaseDateInfo>>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[serde(
+        default,
+        deserialize_with = "deserialize_tolerant_igdb_reviews",
+        skip_serializing_if = "Option::is_none"
+    )]
     igdb_reviews: Option<Vec<IgdbReview>>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     alternative_names: Option<Vec<String>>,
@@ -234,6 +238,40 @@ struct SteamAchievementSerde {
     icongray: Option<String>,
 }
 
+/// Tolerant deserializer for `GameData::igdb_reviews`.
+///
+/// A handful of legacy game rows stored a raw URL string (e.g. a
+/// YouTube link) inside the `igdb_reviews` array instead of an
+/// `IgdbReview` object. Deserializing that naively into
+/// `Vec<IgdbReview>` aborts the *entire* library load. This keeps only
+/// the elements that actually parse as `IgdbReview`, dropping the
+/// malformed ones so the game still loads — and self-heals on the
+/// next save (which re-serializes only the good reviews).
+fn deserialize_tolerant_igdb_reviews<'de, D>(
+    d: D,
+) -> Result<Option<Vec<IgdbReview>>, D::Error>
+where
+    D: Deserializer<'de>,
+{
+    let raw = Option::<Vec<serde_json::Value>>::deserialize(d)?;
+    match raw {
+        None => Ok(None),
+        Some(values) => {
+            let mut out = Vec::with_capacity(values.len());
+            for v in values {
+                if let Ok(review) = serde_json::from_value::<IgdbReview>(v) {
+                    out.push(review);
+                }
+            }
+            if out.is_empty() {
+                Ok(None)
+            } else {
+                Ok(Some(out))
+            }
+        }
+    }
+}
+
 /// Persist the game library.
 ///
 /// Phase 3: writes every row to the `games` SQLite table in a single
@@ -261,10 +299,25 @@ fn load_games(app: tauri::AppHandle) -> Result<Vec<GameData>, String> {
     let rows = db::games::list_all(db_state.inner()).map_err(|e| e.to_string())?;
     let mut out: Vec<GameData> = Vec::with_capacity(rows.len());
     for r in rows {
-        let value = serde_json::to_value(&r).map_err(|e| format!("to_value: {e}"))?;
-        let g: GameData = serde_json::from_value(value)
-            .map_err(|e| format!("to GameData: {e}"))?;
-        out.push(g);
+        let value = match serde_json::to_value(&r) {
+            Ok(v) => v,
+            Err(e) => {
+                eprintln!("[load_games] skipping row (serialize failed): {e}");
+                continue;
+            }
+        };
+        match serde_json::from_value::<GameData>(value) {
+            Ok(g) => out.push(g),
+            Err(e) => {
+                // A single malformed row must not take down the whole
+                // library. Log it and skip so the rest of the games
+                // still load (the bad row self-heals on next save).
+                eprintln!(
+                    "[load_games] skipping game {}: {e}",
+                    r.id
+                );
+            }
+        }
     }
     Ok(out)
 }
@@ -1132,7 +1185,7 @@ fn load_store_cache(app: tauri::AppHandle) -> Result<String, String> {
     // Categories â€” list every (category, page=0) row. We don't currently
     // paginate beyond 0; if future code adds higher pages this JSON
     // shape will need a `pages` sub-object.
-    let conn = db_state.conn().map_err(|e| e.to_string())?;
+    let conn = db_state.store_cache().map_err(|e| e.to_string())?;
     let mut stmt = conn
         .prepare("SELECT category, payload_json FROM store_cache WHERE page = 0")
         .map_err(|e| e.to_string())?;

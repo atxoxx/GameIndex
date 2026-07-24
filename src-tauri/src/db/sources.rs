@@ -52,7 +52,7 @@ const NEW_SOURCE_WINDOW_SECS: u64 = 7 * 24 * 60 * 60;
 /// transaction so a crash between the DELETE and the INSERT cannot
 /// leave the row orphaned.
 pub fn upsert_source(db: &Db, source: &SourceLink) -> Result<(), String> {
-    let mut conn = db.conn().map_err(|e| format!("sources conn: {e}"))?;
+    let mut conn = db.sources().map_err(|e| format!("sources conn: {e}"))?;
     let tx = conn.transaction().map_err(|e| format!("sources tx: {e}"))?;
     // 1. Remove any stale row that already holds this URL under a
     //    different local id.  If no such row exists this is a no-op.
@@ -91,7 +91,7 @@ pub fn upsert_source(db: &Db, source: &SourceLink) -> Result<(), String> {
 
 /// Toggle a source's `enabled` bit.
 pub fn toggle_source(db: &Db, id: &str) -> Result<(), String> {
-    let conn = db.conn().map_err(|e| format!("sources conn: {e}"))?;
+    let conn = db.sources().map_err(|e| format!("sources conn: {e}"))?;
     conn.execute(
         "UPDATE sources SET enabled = 1 - enabled WHERE id = ?1",
         params![id],
@@ -103,7 +103,7 @@ pub fn toggle_source(db: &Db, id: &str) -> Result<(), String> {
 /// Delete a source and all its cache / downloads / FTS rows
 /// (cascading FKs).
 pub fn remove_source(db: &Db, id: &str) -> Result<(), String> {
-    let conn = db.conn().map_err(|e| format!("sources conn: {e}"))?;
+    let conn = db.sources().map_err(|e| format!("sources conn: {e}"))?;
     conn.execute("DELETE FROM sources WHERE id = ?1", params![id])
         .map_err(|e| format!("sources delete: {e}"))?;
     Ok(())
@@ -114,7 +114,7 @@ pub fn remove_source(db: &Db, id: &str) -> Result<(), String> {
 /// JSON was unreachable (HTTP 403, Cloudflare, etc.) — the UI should
 /// still show the correct tally from Hydra rather than "0 games".
 pub fn update_game_count(db: &Db, id: &str, count: usize) -> Result<(), String> {
-    let conn = db.conn().map_err(|e| format!("sources conn: {e}"))?;
+    let conn = db.sources().map_err(|e| format!("sources conn: {e}"))?;
     conn.execute(
         "UPDATE sources SET game_count = ?1 WHERE id = ?2",
         params![count as i64, id],
@@ -125,7 +125,7 @@ pub fn update_game_count(db: &Db, id: &str, count: usize) -> Result<(), String> 
 
 /// Return every source (metadata only).
 pub fn list_sources(db: &Db) -> Result<Vec<SourceLink>, String> {
-    let conn = db.conn().map_err(|e| format!("sources conn: {e}"))?;
+    let conn = db.sources().map_err(|e| format!("sources conn: {e}"))?;
     let mut stmt = conn
         .prepare(
             "SELECT id, hydra_source_id, url, name, enabled,
@@ -171,7 +171,7 @@ pub fn commit_cached_source(
     let payload_json =
         serde_json::to_string(game_source).map_err(|e| format!("serialize GameSource: {e}"))?;
 
-    let mut conn = db.conn().map_err(|e| format!("sources cache: {e}"))?;
+    let mut conn = db.sources().map_err(|e| format!("sources cache: {e}"))?;
     let tx = conn.transaction().map_err(|e| format!("sources cache tx: {e}"))?;
 
     tx.execute(
@@ -231,7 +231,7 @@ pub fn commit_cached_source(
 /// Return the cached `GameSource` for `source_id` (or None if
 /// there isn't one yet).
 pub fn read_cached_source(db: &Db, source_id: &str) -> Result<Option<CachedSource>, String> {
-    let conn = db.conn().map_err(|e| format!("sources conn: {e}"))?;
+    let conn = db.sources().map_err(|e| format!("sources conn: {e}"))?;
     let mut stmt = conn
         .prepare(
             "SELECT source_id, hydra_source_id, fetched_at, payload_json
@@ -324,7 +324,7 @@ pub fn search(db: &Db, query: &str, limit: usize) -> Result<Vec<MatchedDownload>
     }
     let fts_query = tokens.join(" ");
 
-    let conn = db.conn().map_err(|e| format!("sources conn: {e}"))?;
+    let conn = db.sources().map_err(|e| format!("sources conn: {e}"))?;
     // Rank by bm25(downloads_fts): smaller = better. We sort ASC.
     // The JOIN drops rows whose source is disabled.
     let mut stmt = conn

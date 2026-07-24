@@ -32,7 +32,7 @@ pub fn upsert_category_page(
     page: u32,
     payload_json: &str,
 ) -> Result<(), String> {
-    let conn = db.conn().map_err(|e| format!("store_cache conn: {e}"))?;
+    let conn = db.store_cache().map_err(|e| format!("store_cache conn: {e}"))?;
     let now = unix_now();
     conn.execute(
         "INSERT INTO store_cache(category, page, payload_json, fetched_at)
@@ -48,7 +48,7 @@ pub fn upsert_category_page(
 
 /// Upsert a per-slug detail payload.
 pub fn upsert_detail(db: &Db, slug: &str, payload_json: &str) -> Result<(), String> {
-    let conn = db.conn().map_err(|e| format!("store_cache conn: {e}"))?;
+    let conn = db.store_cache().map_err(|e| format!("store_cache conn: {e}"))?;
     let now = unix_now();
     conn.execute(
         "INSERT INTO store_detail(slug, payload_json, fetched_at)
@@ -70,7 +70,7 @@ pub fn read_category_page(
     page: u32,
     ttl_seconds: Option<u64>,
 ) -> Result<Option<String>, String> {
-    let conn = db.conn().map_err(|e| format!("store_cache conn: {e}"))?;
+    let conn = db.store_cache().map_err(|e| format!("store_cache conn: {e}"))?;
     let ttl = ttl_seconds.unwrap_or(DEFAULT_TTL_SEC);
     let min_ts = unix_now().saturating_sub(ttl);
     let mut stmt = conn
@@ -96,7 +96,7 @@ pub fn read_detail(
     slug: &str,
     ttl_seconds: Option<u64>,
 ) -> Result<Option<String>, String> {
-    let conn = db.conn().map_err(|e| format!("store_cache conn: {e}"))?;
+    let conn = db.store_cache().map_err(|e| format!("store_cache conn: {e}"))?;
     let ttl = ttl_seconds.unwrap_or(DEFAULT_TTL_SEC);
     let min_ts = unix_now().saturating_sub(ttl);
     let mut stmt = conn

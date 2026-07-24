@@ -419,7 +419,7 @@ fn import_games(db: &Db, path: &Path) -> Result<(), String> {
 // ── schema_meta helpers ─────────────────────────────────────────────────────
 
 fn read_meta(db: &Db, key: &str) -> Result<Option<String>, String> {
-    let conn = db.conn().map_err(|e| format!("legacy conn: {e}"))?;
+    let conn = db.games().map_err(|e| format!("legacy conn: {e}"))?;
     let mut stmt = conn
         .prepare("SELECT v FROM schema_meta WHERE k = ?1")
         .map_err(|e| format!("schema_meta read prepare: {e}"))?;
@@ -434,7 +434,7 @@ fn read_meta(db: &Db, key: &str) -> Result<Option<String>, String> {
 }
 
 fn write_meta(db: &Db, key: &str, value: &str) -> Result<(), String> {
-    let conn = db.conn().map_err(|e| format!("legacy conn: {e}"))?;
+    let conn = db.games().map_err(|e| format!("legacy conn: {e}"))?;
     conn.execute(
         "INSERT INTO schema_meta(k, v) VALUES(?1, ?2)
          ON CONFLICT(k) DO UPDATE SET v = excluded.v",

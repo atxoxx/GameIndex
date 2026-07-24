@@ -28,7 +28,7 @@ pub fn upsert(
     payload_json: &str,
     last_synced: u64,
 ) -> Result<(), String> {
-    let conn = db.conn().map_err(|e| e.to_string())?;
+    let conn = db.achievements().map_err(|e| e.to_string())?;
     conn.execute(
         "INSERT INTO achievements_cache(game_id, steam_app_id, payload_json, last_synced)
          VALUES (?1, ?2, ?3, ?4)
@@ -45,7 +45,7 @@ pub fn upsert(
 /// Read a single cached game as `(steam_app_id, payload_json, last_synced)`.
 /// Returns `None` when the game has no cached achievement row yet.
 pub fn get(db: &Db, game_id: &str) -> Result<Option<(u32, String, Option<u64>)>, String> {
-    let conn = db.conn().map_err(|e| e.to_string())?;
+    let conn = db.achievements().map_err(|e| e.to_string())?;
     let mut stmt = conn
         .prepare(
             "SELECT steam_app_id, payload_json, last_synced
@@ -67,7 +67,7 @@ pub fn get(db: &Db, game_id: &str) -> Result<Option<(u32, String, Option<u64>)>,
 
 /// Read every cached game as `(game_id, steam_app_id, payload_json)`.
 pub fn list_all(db: &Db) -> Result<Vec<(String, u32, String)>, String> {
-    let conn = db.conn().map_err(|e| e.to_string())?;
+    let conn = db.achievements().map_err(|e| e.to_string())?;
     let mut stmt = conn
         .prepare("SELECT game_id, steam_app_id, payload_json FROM achievements_cache")
         .map_err(|e| format!("achievements list prepare: {e}"))?;
@@ -92,7 +92,7 @@ pub fn list_all(db: &Db) -> Result<Vec<(String, u32, String)>, String> {
 
 /// Drop every cached game (used by `clearCache`).
 pub fn clear(db: &Db) -> Result<(), String> {
-    let conn = db.conn().map_err(|e| e.to_string())?;
+    let conn = db.achievements().map_err(|e| e.to_string())?;
     conn.execute("DELETE FROM achievements_cache", [])
         .map_err(|e| format!("achievements clear: {e}"))?;
     Ok(())
@@ -109,7 +109,7 @@ pub fn upsert_many_from_payload(
     if games.is_empty() {
         return Ok(());
     }
-    let mut conn = db.conn().map_err(|e| e.to_string())?;
+    let mut conn = db.achievements().map_err(|e| e.to_string())?;
     let tx = conn.transaction().map_err(|e| e.to_string())?;
     {
         let mut stmt = tx
@@ -253,7 +253,7 @@ fn union_achieved_into(incoming: &mut serde_json::Value, existing: &serde_json::
 /// `{ "games": { "<gameId>": <payload> } }` JSON shape the React
 /// frontend's `AchievementContext` already understands.
 pub fn read_all_as_payload_json(db: &Db) -> Result<String, String> {
-    let conn = db.conn().map_err(|e| e.to_string())?;
+    let conn = db.achievements().map_err(|e| e.to_string())?;
     let mut stmt = conn
         .prepare(
             "SELECT game_id, steam_app_id, payload_json, last_synced
