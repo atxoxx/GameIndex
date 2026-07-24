@@ -197,6 +197,16 @@ struct GameData {
     launch_arguments: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     run_as_admin: Option<bool>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pre_launch_script: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pre_launch_admin: Option<bool>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    post_exit_script: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    post_exit_admin: Option<bool>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    companion_apps: Option<Vec<CompanionApp>>,
     /// Unix-millisecond timestamp of when the user most recently exited a
     /// session for this game. `None` until the first session ends. Used by
     /// the Library page's "Continue Playing" rail to surface recently-active
@@ -566,6 +576,134 @@ fn is_autostart_enabled(app: tauri::AppHandle) -> Result<bool, String> {
     app.autolaunch().is_enabled().map_err(|e| format!("autostart status: {e}"))
 }
 
+/// An additional executable launched alongside the main game.
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct CompanionApp {
+    path: String,
+    arguments: Option<String>,
+    delay_ms: u64,
+    run_as_admin: Option<bool>,
+}
+
+/// Run a script file to completion (blocking). Used for pre-launch and
+/// post-exit scripts. Admin scripts are elevated via PowerShell's
+/// `Start-Process -Verb RunAs -Wait` so we still wait for completion.
+#[cfg(windows)]
+pub(crate) fn run_script_blocking(script: &str, admin: bool) -> Result<(), String> {
+    if admin {
+        let escaped = script.replace('\'', "''");
+        let ps = format!(
+            "Start-Process -FilePath '{}' -Verb RunAs -Wait -WindowStyle Hidden",
+            escaped
+        );
+        let status = std::process::Command::new("powershell")
+            .args(["-NoProfile", "-Command", &ps])
+            .status()
+            .map_err(|e| format!("Failed to run elevated script {}: {}", script, e))?;
+        if !status.success() {
+            return Err(format!(
+                "Elevated script {} exited with status {}",
+                script,
+                status
+                    .code()
+                    .map(|c| c.to_string())
+                    .unwrap_or_else(|| "?".to_string())
+            ));
+        }
+        return Ok(());
+    }
+    run_script_direct(script)
+}
+
+#[cfg(windows)]
+fn run_script_direct(script: &str) -> Result<(), String> {
+    let lower = script.to_lowercase();
+    let mut cmd = if lower.ends_with(".ps1") {
+        let mut c = std::process::Command::new("powershell");
+        c.args(["-NoProfile", "-File", script]);
+        c
+    } else {
+        std::process::Command::new(script)
+    };
+    let status = cmd
+        .status()
+        .map_err(|e| format!("Failed to run script {}: {}", script, e))?;
+    if !status.success() {
+        return Err(format!(
+            "Script {} exited with status {}",
+            script,
+            status
+                .code()
+                .map(|c| c.to_string())
+                .unwrap_or_else(|| "?".to_string())
+        ));
+    }
+    Ok(())
+}
+
+#[cfg(not(windows))]
+pub(crate) fn run_script_blocking(script: &str, _admin: bool) -> Result<(), String> {
+    let status = std::process::Command::new(script)
+        .status()
+        .map_err(|e| format!("Failed to run script {}: {}", script, e))?;
+    if !status.success() {
+        return Err(format!(
+            "Script {} exited with status {}",
+            script,
+            status
+                .code()
+                .map(|c| c.to_string())
+                .unwrap_or_else(|| "?".to_string())
+        ));
+    }
+    Ok(())
+}
+
+/// Launch a companion executable in the background after a delay.
+/// Fire-and-forget: not tracked by the game watcher.
+fn spawn_companion(app: CompanionApp) {
+    std::thread::spawn(move || {
+        if app.delay_ms > 0 {
+            std::thread::sleep(std::time::Duration::from_millis(app.delay_ms));
+        }
+        #[cfg(windows)]
+        {
+            if app.run_as_admin.unwrap_or(false) {
+                let escaped = app.path.replace('\'', "''");
+                let mut ps = format!(
+                    "Start-Process -FilePath '{}' -Verb RunAs -WindowStyle Hidden",
+                    escaped
+                );
+                if let Some(args) = &app.arguments {
+                    if !args.trim().is_empty() {
+                        ps.push_str(&format!(" -ArgumentList '{}'", args.replace('\'', "''")));
+                    }
+                }
+                let _ = std::process::Command::new("powershell")
+                    .args(["-NoProfile", "-Command", &ps])
+                    .spawn();
+                return;
+            }
+        }
+        let mut cmd = std::process::Command::new(&app.path);
+        if let Some(args) = &app.arguments {
+            if !args.trim().is_empty() {
+                #[cfg(windows)]
+                {
+                    use std::os::windows::process::CommandExt;
+                    cmd.raw_arg(args);
+                }
+                #[cfg(not(windows))]
+                {
+                    cmd.args(args.split_whitespace());
+                }
+            }
+        }
+        let _ = cmd.spawn();
+    });
+}
+
 /// Launch a game executable with unified process tracking.
 ///
 /// Replaces the old split between `launch_game` (local, child.wait()),
@@ -600,6 +738,11 @@ fn launch_game(
     gpu_name: Option<String>,
     launch_arguments: Option<String>,
     run_as_admin: Option<bool>,
+    pre_launch_script: Option<String>,
+    pre_launch_admin: Option<bool>,
+    post_exit_script: Option<String>,
+    post_exit_admin: Option<bool>,
+    companion_apps: Option<Vec<CompanionApp>>,
 ) -> Result<String, String> {
     let watcher: tauri::State<'_, Arc<std::sync::Mutex<GameWatcher>>> = app.state();
     let launcher: tauri::State<'_, Arc<std::sync::Mutex<LauncherSettings>>> = app.state();
@@ -621,6 +764,21 @@ fn launch_game(
             "Launch with admin elevation is blocked by Settings â†’ Disable UAC elevation prompts. Enable the setting or unset \"Run as administrator\" on the game to launch."
                 .to_string(),
         );
+    }
+
+    // ── Pre-launch script (synchronous, blocking) ──
+    // Runs before any window-hide / process spawn so a failure aborts the
+    // launch cleanly without leaving the main window hidden.
+    if let Some(script) = pre_launch_script.as_deref() {
+        if !script.trim().is_empty() {
+            if launcher_settings.disable_elevation_prompts && pre_launch_admin.unwrap_or(false) {
+                return Err(
+                    "Pre-launch script requires admin elevation but Settings → Disable UAC elevation prompts is on."
+                        .to_string(),
+                );
+            }
+            run_script_blocking(script, pre_launch_admin.unwrap_or(false))?;
+        }
     }
 
     let _ = app.emit(
@@ -784,6 +942,9 @@ fn launch_game(
     };
 
     {
+        let post_exit = post_exit_script
+            .filter(|s| !s.trim().is_empty())
+            .map(|s| (s, post_exit_admin.unwrap_or(false)));
         w.register_launched_session(
             &app,
             &game_id,
@@ -794,7 +955,19 @@ fn launch_game(
             initial_pid,
             metrics_stop_tx,
             metrics_rx,
+            post_exit,
         );
+    }
+
+    // ── Companion apps (delayed, fire-and-forget) ──
+    // Launched after the main game so a server/overlay can start in the
+    // background on its own timer. Not tracked by the watcher.
+    if let Some(apps) = companion_apps.as_ref() {
+        for app in apps.iter() {
+            if !app.path.trim().is_empty() {
+                spawn_companion(app.clone());
+            }
+        }
     }
 
     let msg = if platform == "Steam" && initial_pid == 0 {

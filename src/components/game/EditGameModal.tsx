@@ -8,6 +8,7 @@ import {
   type Game,
   type GameMetadataResult,
   type LaunchBoxImageResult,
+  type CompanionApp,
   type SimilarGame,
   type ReleaseDateInfo,
   type IgdbReview,
@@ -96,6 +97,15 @@ export function EditGameModal({ game, onClose }: EditGameModalProps) {
   const [editPath, setEditPath] = useState(game.path || "");
   const [editLaunchArguments, setEditLaunchArguments] = useState(game.launchArguments || "");
   const [editRunAsAdmin, setEditRunAsAdmin] = useState(game.runAsAdmin || false);
+  const [editPreLaunchScript, setEditPreLaunchScript] = useState(game.preLaunchScript || "");
+  const [editPreLaunchAdmin, setEditPreLaunchAdmin] = useState(game.preLaunchAdmin || false);
+  const [editPostExitScript, setEditPostExitScript] = useState(game.postExitScript || "");
+  const [editPostExitAdmin, setEditPostExitAdmin] = useState(game.postExitAdmin || false);
+  const [editCompanionApps, setEditCompanionApps] = useState<CompanionApp[]>(
+    game.companionApps && game.companionApps.length > 0
+      ? game.companionApps.map((c) => ({ ...c }))
+      : []
+  );
 
   // ── Metadata search ───────────────────────────────────────────
   const [fetchingMetadata, setFetchingMetadata] = useState(false);
@@ -396,6 +406,64 @@ export function EditGameModal({ game, onClose }: EditGameModalProps) {
     }
   }
 
+  async function handlePickScript(
+    setter: (path: string) => void,
+    title: string
+  ) {
+    try {
+      const filePath = await open({
+        multiple: false,
+        directory: false,
+        title,
+        filters: [
+          { name: "Scripts", extensions: ["bat", "cmd", "ps1", "exe"] },
+          { name: "All Files", extensions: ["*"] },
+        ],
+      });
+      if (filePath && typeof filePath === "string") setter(filePath);
+    } catch (err) {
+      showToast("Failed to select file", "error");
+    }
+  }
+
+  async function handlePickCompanion(index: number) {
+    try {
+      const filePath = await open({
+        multiple: false,
+        directory: false,
+        title: "Select Companion Executable",
+        filters: [
+          { name: "Executables", extensions: ["exe", "bat", "lnk", "cmd"] },
+          { name: "All Files", extensions: ["*"] },
+        ],
+      });
+      if (filePath && typeof filePath === "string") {
+        setEditCompanionApps((prev) =>
+          prev.map((c, i) => (i === index ? { ...c, path: filePath } : c))
+        );
+      }
+    } catch (err) {
+      showToast("Failed to select file", "error");
+    }
+  }
+
+  function addCompanionApp() {
+    setEditCompanionApps((prev) => [
+      ...prev,
+      { path: "", arguments: "", delayMs: 0, runAsAdmin: false },
+    ]);
+  }
+
+  function updateCompanionApp(index: number, patch: Partial<CompanionApp>) {
+    setEditCompanionApps((prev) =>
+      prev.map((c, i) => (i === index ? { ...c, ...patch } : c))
+    );
+  }
+
+  function removeCompanionApp(index: number) {
+    setEditCompanionApps((prev) => prev.filter((_, i) => i !== index));
+  }
+
   // ─── Save ───────────────────────────────────────────────────────
   function saveEdits() {
     const newName = editName.trim() || game.name;
@@ -490,6 +558,21 @@ export function EditGameModal({ game, onClose }: EditGameModalProps) {
       path: editPath.trim() || undefined,
       launchArguments: editLaunchArguments.trim() || undefined,
       runAsAdmin: editRunAsAdmin || undefined,
+      preLaunchScript: editPreLaunchScript.trim() || undefined,
+      preLaunchAdmin: editPreLaunchAdmin || undefined,
+      postExitScript: editPostExitScript.trim() || undefined,
+      postExitAdmin: editPostExitAdmin || undefined,
+      companionApps:
+        editCompanionApps.length > 0
+          ? editCompanionApps
+              .filter((c) => c.path.trim())
+              .map((c) => ({
+                path: c.path.trim(),
+                arguments: c.arguments?.trim() || undefined,
+                delayMs: Math.max(0, Number(c.delayMs) || 0),
+                runAsAdmin: c.runAsAdmin || undefined,
+              }))
+          : undefined,
       playStatus: editPlayStatus,
     });
     onClose();
@@ -897,6 +980,91 @@ export function EditGameModal({ game, onClose }: EditGameModalProps) {
                 </label>
                 <span className="size-edit-hint" style={{ display: "block", marginTop: "4px", marginLeft: "26px" }}>Elevate process privileges using Windows UAC when launching.</span>
               </div>
+
+              <fieldset className="edit-fieldset" style={{ marginTop: "var(--space-lg)" }}>
+                <legend className="edit-fieldset-legend">Scripts</legend>
+                <LaunchScriptRow
+                  label="Pre-launch Script"
+                  hint="Runs synchronously before the game starts. The launch is aborted if this script fails."
+                  value={editPreLaunchScript}
+                  admin={editPreLaunchAdmin}
+                  onPick={() => handlePickScript(setEditPreLaunchScript, "Select Pre-launch Script")}
+                  onChange={setEditPreLaunchScript}
+                  onAdminChange={setEditPreLaunchAdmin}
+                />
+                <LaunchScriptRow
+                  label="Post-exit Script"
+                  hint="Runs after the game process exits (success or crash)."
+                  value={editPostExitScript}
+                  admin={editPostExitAdmin}
+                  onPick={() => handlePickScript(setEditPostExitScript, "Select Post-exit Script")}
+                  onChange={setEditPostExitScript}
+                  onAdminChange={setEditPostExitAdmin}
+                />
+              </fieldset>
+
+              <fieldset className="edit-fieldset" style={{ marginTop: "var(--space-lg)" }}>
+                <legend className="edit-fieldset-legend">Companion Apps</legend>
+                <span className="size-edit-hint" style={{ display: "block", marginBottom: "var(--space-md)" }}>
+                  Launch additional executables alongside the game — e.g. a dedicated server or overlay. Each starts after a delay timer you set.
+                </span>
+                {editCompanionApps.length === 0 ? (
+                  <p className="array-editor-empty">No companion apps yet.</p>
+                ) : (
+                  <div className="companion-app-list">
+                    {editCompanionApps.map((app, idx) => (
+                      <div key={idx} className="companion-app-row">
+                        <div className="companion-app-path">
+                          <input
+                            className="edit-input"
+                            type="text"
+                            value={app.path}
+                            onChange={(e) => updateCompanionApp(idx, { path: e.target.value })}
+                            placeholder="Path to companion executable"
+                            style={{ flex: 1 }}
+                          />
+                          <button type="button" className="edit-btn edit-btn-secondary" onClick={() => handlePickCompanion(idx)} style={{ whiteSpace: "nowrap" }}>Browse...</button>
+                        </div>
+                        <div className="companion-app-meta">
+                          <input
+                            className="edit-input"
+                            type="text"
+                            value={app.arguments || ""}
+                            onChange={(e) => updateCompanionApp(idx, { arguments: e.target.value })}
+                            placeholder="Arguments (optional)"
+                            style={{ flex: 1 }}
+                          />
+                          <div className="companion-app-delay">
+                            <input
+                              className="edit-input"
+                              type="number"
+                              min={0}
+                              step={500}
+                              value={app.delayMs || 0}
+                              onChange={(e) => updateCompanionApp(idx, { delayMs: Math.max(0, Number(e.target.value)) })}
+                              aria-label="Delay before launch (ms)"
+                            />
+                            <span className="companion-app-delay-unit">ms delay</span>
+                          </div>
+                          <label className="checkbox-container companion-app-admin" style={{ display: "flex", alignItems: "center", gap: "var(--space-xs)", cursor: "pointer", userSelect: "none" }}>
+                            <input
+                              type="checkbox"
+                              checked={app.runAsAdmin || false}
+                              onChange={(e) => updateCompanionApp(idx, { runAsAdmin: e.target.checked })}
+                              style={{ width: "16px", height: "16px", accentColor: "var(--color-accent)", cursor: "pointer" }}
+                            />
+                            <span style={{ fontSize: "var(--font-size-xs)", color: "var(--color-text-primary)" }}>Admin</span>
+                          </label>
+                          <button type="button" className="lb-apply-btn url-list-remove" onClick={() => removeCompanionApp(idx)}>Remove</button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+                <button type="button" className="edit-btn edit-btn-secondary" style={{ marginTop: "var(--space-md)" }} onClick={addCompanionApp}>
+                  + Add companion app
+                </button>
+              </fieldset>
             </div>
           )}
         </div>
@@ -1081,6 +1249,53 @@ function UrlAddRow({ placeholder, onAdd }: { placeholder: string; onAdd: (url: s
     <div className="url-add-row">
       <input className="edit-input" type="text" value={val} placeholder={placeholder} onChange={(e) => setVal(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter" && val.trim()) { onAdd(val.trim()); setVal(""); } }} />
       <button className="lb-apply-btn" onClick={() => { if (val.trim()) { onAdd(val.trim()); setVal(""); } }}>Add</button>
+    </div>
+  );
+}
+
+function LaunchScriptRow({
+  label,
+  hint,
+  value,
+  admin,
+  onChange,
+  onAdminChange,
+  onPick,
+}: {
+  label: string;
+  hint: string;
+  value: string;
+  admin: boolean;
+  onChange: (path: string) => void;
+  onAdminChange: (admin: boolean) => void;
+  onPick: () => void;
+}) {
+  return (
+    <div className="edit-field full-width" style={{ marginTop: "var(--space-md)" }}>
+      <label className="edit-label">{label}</label>
+      <div style={{ display: "flex", gap: "var(--space-sm)" }}>
+        <input
+          className="edit-input"
+          type="text"
+          value={value}
+          onChange={(e) => onChange(e.target.value)}
+          placeholder="Path to script (bat, cmd, ps1, exe)"
+          style={{ flex: 1 }}
+        />
+        <button type="button" className="edit-btn edit-btn-secondary" onClick={onPick} style={{ whiteSpace: "nowrap" }}>
+          Browse...
+        </button>
+      </div>
+      <label className="checkbox-container" style={{ display: "flex", alignItems: "center", gap: "var(--space-sm)", cursor: "pointer", userSelect: "none", marginTop: "var(--space-xs)" }}>
+        <input
+          type="checkbox"
+          checked={admin}
+          onChange={(e) => onAdminChange(e.target.checked)}
+          style={{ width: "16px", height: "16px", accentColor: "var(--color-accent)", cursor: "pointer" }}
+        />
+        <span style={{ fontSize: "var(--font-size-xs)", fontWeight: 500, color: "var(--color-text-primary)" }}>Run as Administrator</span>
+      </label>
+      <span className="size-edit-hint">{hint}</span>
     </div>
   );
 }

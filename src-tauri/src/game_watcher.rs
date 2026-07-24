@@ -86,6 +86,9 @@ struct ActiveSession {
     /// When the process was first noticed as dead/missing.
     /// If Some, the session is in a grace period.
     lost_at: Option<Instant>,
+    /// Optional script (path + admin flag) run after the game process
+    /// exits. Wired by `register_launched_session` for app-launched games.
+    post_exit_script: Option<(String, bool)>,
 }
 
 /// How long a pending session (last_pid == 0) may exist before it is
@@ -239,6 +242,7 @@ impl GameWatcher {
         initial_pid: u32,
         metrics_stop_tx: std::sync::mpsc::Sender<()>,
         metrics_rx: std::sync::mpsc::Receiver<Option<metrics_collector::SessionMetrics>>,
+        post_exit_script: Option<(String, bool)>,
     ) {
         let install_dir = if platform == "Steam" {
             steam_app_id
@@ -265,6 +269,7 @@ impl GameWatcher {
                 matched_exe: exe_path.unwrap_or("").to_string(),
                 install_dir,
                 lost_at: None,
+                post_exit_script,
             },
         );
 
@@ -504,6 +509,7 @@ impl GameWatcher {
                 matched_exe: proc.exe_path.clone(),
                 install_dir: game.install_dir.clone(),
                 lost_at: None,
+                post_exit_script: None,
             },
         );
 
@@ -529,6 +535,12 @@ impl GameWatcher {
             .map(|s| s.game_name.clone());
 
         if let Some(mut session) = self.active_sessions.remove(game_id) {
+            // Run the post-exit script (if any) before recording the
+            // session. Blocking is fine — the poll loop is a background
+            // thread and the game has already exited.
+            if let Some((script, admin)) = &session.post_exit_script {
+                let _ = crate::run_script_blocking(script, *admin);
+            }
             let _ = session.stop_tx.send(());
             let elapsed = session.started_at.elapsed().as_secs();
             let metrics = session

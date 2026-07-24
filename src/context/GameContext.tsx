@@ -680,6 +680,11 @@ export function GameProvider({ children }: { children: ReactNode }) {
         gpuName,
         launchArguments: game.launchArguments || null,
         runAsAdmin: game.runAsAdmin || null,
+        preLaunchScript: game.preLaunchScript || null,
+        preLaunchAdmin: game.preLaunchAdmin || null,
+        postExitScript: game.postExitScript || null,
+        postExitAdmin: game.postExitAdmin || null,
+        companionApps: game.companionApps || null,
       });
 
       if (splashOn) splash.updateStatus("started");

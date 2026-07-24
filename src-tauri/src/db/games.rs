@@ -94,6 +94,16 @@ pub struct GameRow {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub run_as_admin: Option<bool>,
     #[serde(skip_serializing_if = "Option::is_none")]
+    pub pre_launch_script: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub pre_launch_admin: Option<bool>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub post_exit_script: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub post_exit_admin: Option<bool>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub companion_apps: Option<Vec<serde_json::Value>>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub last_played: Option<u64>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub play_status: Option<String>,
@@ -159,7 +169,9 @@ pub fn upsert_all(db: &Db, rows: &[GameRow]) -> Result<(), String> {
                 igdb_reviews_json, alternative_names_json, steam_achievements_json,
                 language_supports_json,
                 collection, franchise, game_category, release_status,
-                gog_game_id, gog_playtime
+                gog_game_id, gog_playtime,
+                pre_launch_script, pre_launch_admin, post_exit_script, post_exit_admin,
+                companion_apps_json
             ) VALUES (
                 ?1,?2,?3,?4,?5,?6,?7,
                 ?8,?9,?10,?11,?12,
@@ -175,7 +187,9 @@ pub fn upsert_all(db: &Db, rows: &[GameRow]) -> Result<(), String> {
                 ?44,?45,?46,
                 ?47,
                 ?48,?49,?50,?51,
-                ?52,?53
+                ?52,?53,
+                ?54,?55,?56,?57,
+                ?58
             )",
         )
         .map_err(|e| format!("games prepare: {e}"))?;
@@ -212,6 +226,11 @@ pub fn upsert_all(db: &Db, rows: &[GameRow]) -> Result<(), String> {
             r.epic_catalog_item_id,
             r.launch_arguments,
             r.run_as_admin.map(|b| b as i32),
+            r.pre_launch_script,
+            r.pre_launch_admin.map(|b| b as i32),
+            r.post_exit_script,
+            r.post_exit_admin.map(|b| b as i32),
+            json_opt(&r.companion_apps),
             r.last_played,
             r.play_status,
             json_opt(&r.genres),
@@ -318,7 +337,7 @@ pub fn delete_many(db: &Db, ids: &[String]) -> Result<(), String> {
     Ok(())
 }
 
-const GAMES_SELECT_SQL: &str = "SELECT id, name, path, platform, installed, play_time, added_at, cover_art_url, notes, size_bytes, size_detected_at, size_root_path, icon_url, banner_url, logo_url, description, developer, publisher, release_date, metadata_source, metadata_url, storyline, igdb_rating, critic_rating, steam_app_id, steam_playtime, store_source, epic_namespace, epic_catalog_item_id, launch_arguments, run_as_admin, last_played, play_status, genres_json, themes_json, game_modes_json, player_perspectives_json, screenshots_json, videos_json, websites_json, time_to_beat_json, similar_games_json, releases_json, igdb_reviews_json, alternative_names_json, steam_achievements_json, language_supports_json, collection, franchise, game_category, release_status, gog_game_id, gog_playtime FROM games";
+const GAMES_SELECT_SQL: &str = "SELECT id, name, path, platform, installed, play_time, added_at, cover_art_url, notes, size_bytes, size_detected_at, size_root_path, icon_url, banner_url, logo_url, description, developer, publisher, release_date, metadata_source, metadata_url, storyline, igdb_rating, critic_rating, steam_app_id, steam_playtime, store_source, epic_namespace, epic_catalog_item_id, launch_arguments, run_as_admin, last_played, play_status, genres_json, themes_json, game_modes_json, player_perspectives_json, screenshots_json, videos_json, websites_json, time_to_beat_json, similar_games_json, releases_json, igdb_reviews_json, alternative_names_json, steam_achievements_json, language_supports_json, collection, franchise, game_category, release_status, gog_game_id, gog_playtime, pre_launch_script, pre_launch_admin, post_exit_script, post_exit_admin, companion_apps_json FROM games";
 
 fn game_row_from_row(r: &rusqlite::Row<'_>) -> rusqlite::Result<GameRow> {
     Ok(GameRow {
@@ -380,6 +399,12 @@ fn game_row_from_row(r: &rusqlite::Row<'_>) -> rusqlite::Result<GameRow> {
         // fields `None` and silently adopts the new shape.
         gog_game_id: r.get(51)?,
         gog_playtime: r.get::<_, Option<i64>>(52)?.map(|n| n as u32),
+        // v5 migration columns — read past the original 53 columns.
+        pre_launch_script: r.get(53)?,
+        pre_launch_admin: r.get::<_, Option<i64>>(54)?.map(|n| n != 0),
+        post_exit_script: r.get(55)?,
+        post_exit_admin: r.get::<_, Option<i64>>(56)?.map(|n| n != 0),
+        companion_apps: json_opt_get(r, 57)?,
     })
 }
 

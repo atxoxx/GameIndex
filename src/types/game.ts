@@ -129,7 +129,29 @@ export interface Game {
   collectionId?: number;
   launchArguments?: string;
   runAsAdmin?: boolean;
+  /** Path to a script (bat/ps1/cmd/exe) executed synchronously before the game launches. */
+  preLaunchScript?: string;
+  /** Run the pre-launch script with UAC elevation (Windows). */
+  preLaunchAdmin?: boolean;
+  /** Path to a script (bat/ps1/cmd/exe) executed after the game process exits. */
+  postExitScript?: string;
+  /** Run the post-exit script with UAC elevation (Windows). */
+  postExitAdmin?: boolean;
+  /** Extra executables launched alongside the game (e.g. a server or overlay). */
+  companionApps?: CompanionApp[];
   playStatus?: PlayStatus;
+}
+
+/** An additional executable launched alongside the main game. */
+export interface CompanionApp {
+  /** Full path to the executable. */
+  path: string;
+  /** Optional command-line arguments. */
+  arguments?: string;
+  /** Delay in milliseconds before this app is launched (timer). */
+  delayMs: number;
+  /** Run with UAC elevation (Windows). */
+  runAsAdmin?: boolean;
 }
 
 export interface TimeToBeat {

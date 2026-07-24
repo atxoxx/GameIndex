@@ -524,3 +524,53 @@
     grid-template-columns: 1fr !important;
   }
 }
+
+/* ─── Companion apps (Launch subtab) ──────────────────── */
+.companion-app-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-md);
+}
+
+.companion-app-row {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-xs);
+  padding: var(--space-sm);
+  background: var(--color-bg-secondary);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+}
+
+.companion-app-path {
+  display: flex;
+  gap: var(--space-sm);
+  align-items: center;
+}
+
+.companion-app-meta {
+  display: flex;
+  gap: var(--space-sm);
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.companion-app-delay {
+  display: flex;
+  align-items: center;
+  gap: var(--space-xs);
+}
+
+.companion-app-delay input {
+  width: 110px;
+}
+
+.companion-app-delay-unit {
+  font-size: var(--font-size-xs);
+  color: var(--color-text-muted);
+  white-space: nowrap;
+}
+
+.companion-app-admin {
+  white-space: nowrap;
+}

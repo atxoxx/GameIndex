@@ -39,6 +39,13 @@ pub const V3_SCHEMA: &str = include_str!("schema_v3.sql");
 /// a JOIN back to `games` (see `schema_v4.sql`).
 pub const V4_SCHEMA: &str = include_str!("schema_v4.sql");
 
+/// DDL for v5 of the schema. Adds launch-orchestration columns to
+/// `games`: `pre_launch_script`, `pre_launch_admin`, `post_exit_script`,
+/// `post_exit_admin`, and `companion_apps_json` (a JSON array of extra
+/// executables launched alongside the game, each on its own timer).
+/// See `schema_v5.sql`.
+pub const V5_SCHEMA: &str = include_str!("schema_v5.sql");
+
 /// Bootstrap the schema-meta table on a fresh DB. This table is
 /// itself part of v1, but we need to read `PRAGMA user_version`
 /// *before* applying v1, so bootstrap is logically a separate step.
@@ -67,4 +74,5 @@ pub const SCHEMA_VERSIONS: &[(&str, &str)] = &[
     ("v2", V2_SCHEMA),
     ("v3", V3_SCHEMA),
     ("v4", V4_SCHEMA),
+    ("v5", V5_SCHEMA),
 ];
