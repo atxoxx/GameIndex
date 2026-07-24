@@ -11,66 +11,242 @@ export interface ExeInfo {
   modifiedAt: number;
 }
 
+/**
+ * Directory names that are "transparent" helpers (binary/redist/runtime
+ * folders). When an executable lives inside one of these, we keep walking up
+ * the tree to find the real game folder. Mirrors `get_game_root_dir` in the
+ * Rust game_watcher.
+ */
+const HELPER_DIRS = new Set([
+  "bin",
+  "binaries",
+  "win64",
+  "win32",
+  "x64",
+  "x86",
+  "win-x64",
+  "win-x86",
+  "release",
+  "debug",
+  "retail",
+  "launcher",
+  "redist",
+  "redistributables",
+  "_commonredist",
+  "support",
+  "directx",
+  "dotnet",
+  "vcredist",
+  "engine",
+  "native",
+  "plugins",
+  "setup",
+  "install",
+]);
+
+function splitPath(p: string): string[] {
+  return p.split(/[\\/]/).filter(Boolean);
+}
+
+function dirOf(p: string): string {
+  const parts = splitPath(p);
+  parts.pop();
+  return parts.join("/");
+}
+
+function baseOf(p: string): string {
+  const parts = splitPath(p);
+  return parts[parts.length - 1] || p;
+}
+
+/**
+ * Determine which "game folder" an executable belongs to by grouping on the
+ * immediate subfolder of the scanned root. e.g. choosing `games` groups
+ * `games/GameA/...`, `games/GameB/...` into "GameA" / "GameB".
+ *
+ * If the exe sits directly in the scanned folder (single-game-folder scan), or
+ * only inside a helper/binary subfolder (bin, redist, ...), it belongs to the
+ * scanned folder itself and is grouped under that folder's name.
+ */
+function groupKeyForExe(exePath: string, rootPath: string): string {
+  const normalizedRoot = rootPath.replace(/[\\/]$/, "");
+  const rootParts = splitPath(normalizedRoot);
+  const rel = splitPath(exePath).slice(rootParts.length);
+
+  if (rel.length <= 1) {
+    // exe sits directly in the scanned folder (or is the folder itself)
+    return baseOf(normalizedRoot);
+  }
+
+  const first = rel[0];
+  if (!HELPER_DIRS.has(first.toLowerCase())) {
+    // immediate subfolder of the scanned folder = a distinct game
+    return first;
+  }
+
+  // The immediate child is a helper/binary folder; the exe belongs to the
+  // scanned folder itself (a single-game-folder scan).
+  return baseOf(normalizedRoot);
+}
+
+/** Score an executable as the most likely "main" game exe of a folder. */
+function scoreExe(exe: ExeInfo, folderName: string): number {
+  let score = 0;
+  const fn = folderName.toLowerCase().replace(/[^a-z0-9]/g, "");
+  const stem = baseOf(exe.path)
+    .toLowerCase()
+    .replace(/\.exe$/i, "")
+    .replace(/[^a-z0-9]/g, "");
+
+  if (fn && stem.includes(fn)) score += 60;
+  if (fn && fn.includes(stem) && stem.length >= 3) score += 30;
+  if (fn && stem === fn) score += 40;
+
+  const depth = splitPath(dirOf(exe.path)).length;
+  score -= depth * 5;
+  score += Math.log10(exe.size + 1) * 3;
+
+  const d = dirOf(exe.path).toLowerCase();
+  if (/(^|[\\/])(bin|redist|support|directx|dotnet|vcredist)([\\/]|$)/.test(d)) {
+    score -= 25;
+  }
+  return score;
+}
+
+function pickPrimary(exes: ExeInfo[], folderName: string): ExeInfo {
+  let best = exes[0];
+  let bestScore = -Infinity;
+  for (const e of exes) {
+    const s = scoreExe(e, folderName);
+    if (s > bestScore) {
+      bestScore = s;
+      best = e;
+    }
+  }
+  return best;
+}
+
+export interface ExeGroup {
+  id: string;
+  folderName: string;
+  exes: ExeInfo[];
+  suggestedPrimary: ExeInfo;
+  primaryPath: string;
+}
+
+function groupExes(infos: ExeInfo[], rootPath: string): ExeGroup[] {
+  const map = new Map<string, ExeInfo[]>();
+  for (const info of infos) {
+    const key = groupKeyForExe(info.path, rootPath);
+    if (!map.has(key)) map.set(key, []);
+    map.get(key)!.push(info);
+  }
+
+  const groups: ExeGroup[] = [];
+  let idx = 0;
+  for (const [folderName, exes] of map.entries()) {
+    const suggested = pickPrimary(exes, folderName);
+    groups.push({
+      id: `${idx++}-${folderName}`,
+      folderName,
+      exes,
+      suggestedPrimary: suggested,
+      primaryPath: suggested.path,
+    });
+  }
+  groups.sort((a, b) => a.folderName.localeCompare(b.folderName));
+  return groups;
+}
+
 interface ImportModalProps {
   exeInfos: ExeInfo[];
+  rootPath: string;
   onConfirm: (imports: { path: string; metadata: GameMetadataResult | null }[]) => void;
   onCancel: () => void;
 }
 
 export default function ImportModal({
   exeInfos,
+  rootPath,
   onConfirm,
   onCancel,
 }: ImportModalProps) {
-  // Selection state (which files to actually import)
-  const [selectedPaths, setSelectedPaths] = useState<Set<string>>(new Set());
+  // Group executables by their detected game folder.
+  const groups = useMemo(
+    () => (rootPath ? groupExes(exeInfos, rootPath) : []),
+    [exeInfos, rootPath]
+  );
 
-  // Active executable index for detail panel
-  const [activeIndex, setActiveIndex] = useState<number>(0);
+  // Which game groups to import (keyed by group id).
+  const [selectedGroupIds, setSelectedGroupIds] = useState<Set<string>>(new Set());
 
-  // Search query strings per executable path
+  // Which executable is the "main" exe for each group.
+  const [primaryByGroup, setPrimaryByGroup] = useState<Record<string, string>>({});
+
+  // Extra executables explicitly chosen for individual import.
+  const [selectedExtraPaths, setSelectedExtraPaths] = useState<Set<string>>(new Set());
+
+  // Expanded group sections (to reveal extra executables).
+  const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set());
+
+  // Active executable path for the detail/matching panel.
+  const [activePath, setActivePath] = useState<string>("");
+
+  // Search query strings per executable path.
   const [searchQueries, setSearchQueries] = useState<Record<string, string>>({});
 
-  // Matched IGDB game summaries per executable path
+  // Matched IGDB game summaries per executable path.
   const [matches, setMatches] = useState<Record<string, StoreGameSummary | null>>({});
 
-  // Cached IGDB full metadata details per game slug (for previews & import)
+  // Cached IGDB full metadata details per game slug (for previews & import).
   const [previews, setPreviews] = useState<Record<string, GameMetadataResult>>({});
 
-  // Cached IGDB suggestions lists per query string
+  // Cached IGDB suggestions lists per query string.
   const [suggestions, setSuggestions] = useState<Record<string, StoreGameSummary[]>>({});
 
-  // Loading states
+  // Loading states.
   const [loadingSuggestions, setLoadingSuggestions] = useState<boolean>(false);
   const [loadingPreview, setLoadingPreview] = useState<boolean>(false);
   const [importing, setImporting] = useState<boolean>(false);
   const [importProgress, setImportProgress] = useState<string>("");
 
-  const activePath = useMemo(() => exeInfos[activeIndex]?.path || "", [exeInfos, activeIndex]);
   const activeQuery = searchQueries[activePath] || "";
 
-  // Initialize queries and automatically check all scanned executables
+  // Initialize groups, primary selections and queries once the scan resolves.
   useEffect(() => {
-    if (exeInfos.length > 0) {
+    if (exeInfos.length > 0 && groups.length > 0) {
       const initialQueries: Record<string, string> = {};
-      const paths = new Set<string>();
-      exeInfos.forEach((info) => {
-        initialQueries[info.path] = gameNameFromPath(info.path);
-        paths.add(info.path);
-      });
-      setSearchQueries(initialQueries);
-      setSelectedPaths(paths);
-      setActiveIndex(0);
-    }
-  }, [exeInfos]);
+      const groupIds = new Set<string>();
+      const primaries: Record<string, string> = {};
 
-  // Debounced search logic for suggestions
+      groups.forEach((g) => {
+        groupIds.add(g.id);
+        primaries[g.id] = g.suggestedPrimary.path;
+        // Seed the main exe search with the folder name for better IGDB matches.
+        initialQueries[g.suggestedPrimary.path] = g.folderName;
+        g.exes.forEach((e) => {
+          if (e.path !== g.suggestedPrimary.path) {
+            initialQueries[e.path] = gameNameFromPath(e.path);
+          }
+        });
+      });
+
+      setSearchQueries(initialQueries);
+      setSelectedGroupIds(groupIds);
+      setPrimaryByGroup(primaries);
+      setSelectedExtraPaths(new Set());
+      setExpandedGroups(new Set());
+      setActivePath(groups[0].primaryPath);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [exeInfos, rootPath]);
+
+  // Debounced search logic for suggestions.
   useEffect(() => {
     if (!activeQuery.trim()) {
       return;
     }
 
-    // If suggestions are already cached for this query, don't refetch
     if (suggestions[activeQuery]) {
       return;
     }
@@ -94,15 +270,15 @@ export default function ImportModal({
     return () => clearTimeout(timer);
   }, [activeQuery, suggestions]);
 
-  // Handle query input change
+  // Handle query input change.
   function handleQueryChange(val: string) {
     setSearchQueries((prev) => ({ ...prev, [activePath]: val }));
   }
 
-  // Get suggestions for the active item
+  // Get suggestions for the active item.
   const activeSuggestions = suggestions[activeQuery] || [];
 
-  // When active item changes, trigger an immediate search if it hasn't been searched yet
+  // When active item changes, trigger an immediate search if it hasn't been searched yet.
   useEffect(() => {
     if (activePath && activeQuery && !suggestions[activeQuery] && !loadingSuggestions) {
       setLoadingSuggestions(true);
@@ -117,13 +293,13 @@ export default function ImportModal({
         .catch((err) => console.error("Immediate suggestions search failed:", err))
         .finally(() => setLoadingSuggestions(false));
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activePath]);
 
-  // Link a suggestion to the active executable and fetch details
+  // Link a suggestion to the active executable and fetch details.
   async function handleLinkGame(game: StoreGameSummary) {
     setMatches((prev) => ({ ...prev, [activePath]: game }));
 
-    // Fetch full details if not already loaded
     if (previews[game.slug]) {
       return;
     }
@@ -143,83 +319,126 @@ export default function ImportModal({
     }
   }
 
-  // Remove the IGDB link for the active executable
+  // Remove the IGDB link for the active executable.
   function handleUnlinkGame() {
     setMatches((prev) => ({ ...prev, [activePath]: null }));
   }
 
-  // Selection toggle handlers
-  function toggleSelectPath(path: string) {
-    setSelectedPaths((prev) => {
+  // ── Group selection helpers ──────────────────────────────────────────────
+  function toggleGroup(id: string) {
+    setSelectedGroupIds((prev) => {
       const next = new Set(prev);
-      if (next.has(path)) {
-        next.delete(path);
-      } else {
-        next.add(path);
-      }
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
       return next;
     });
   }
 
-  const allSelected = selectedPaths.size === exeInfos.length;
-  const someSelected = selectedPaths.size > 0 && selectedPaths.size < exeInfos.length;
+  function setPrimaryForGroup(id: string, path: string) {
+    setPrimaryByGroup((prev) => ({ ...prev, [id]: path }));
+    setSelectedExtraPaths((prev) => {
+      if (!prev.has(path)) return prev;
+      const next = new Set(prev);
+      next.delete(path);
+      return next;
+    });
+    setActivePath(path);
+  }
+
+  function toggleExtra(path: string) {
+    setSelectedExtraPaths((prev) => {
+      const next = new Set(prev);
+      if (next.has(path)) next.delete(path);
+      else next.add(path);
+      return next;
+    });
+  }
+
+  function toggleExpand(id: string) {
+    setExpandedGroups((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }
+
+  const allGroupsSelected = groups.length > 0 && selectedGroupIds.size === groups.length;
+  const someGroupsSelected = selectedGroupIds.size > 0 && selectedGroupIds.size < groups.length;
 
   const selectAllRef = useRef<HTMLInputElement>(null);
   useEffect(() => {
     if (selectAllRef.current) {
-      selectAllRef.current.indeterminate = someSelected;
+      selectAllRef.current.indeterminate = someGroupsSelected;
     }
-  }, [someSelected]);
+  }, [someGroupsSelected]);
 
-  function toggleSelectAll() {
-    if (allSelected) {
-      setSelectedPaths(new Set());
+  function toggleSelectAllGroups() {
+    if (allGroupsSelected) {
+      setSelectedGroupIds(new Set());
     } else {
-      setSelectedPaths(new Set(exeInfos.map((e) => e.path)));
+      setSelectedGroupIds(new Set(groups.map((g) => g.id)));
     }
   }
 
-  // Confirm import and download metadata/images
+  const selectionCount = selectedGroupIds.size + selectedExtraPaths.size;
+
+  // Build a single import entry for a path, fetching full metadata if needed.
+  async function buildImportForPath(
+    path: string
+  ): Promise<{ path: string; metadata: GameMetadataResult | null }> {
+    const match = matches[path];
+    if (match) {
+      let details = previews[match.slug];
+      if (!details) {
+        try {
+          const fetched = await invoke<GameMetadataResult | null>("get_store_game_detail", {
+            slug: match.slug,
+          });
+          if (fetched) {
+            details = fetched;
+            setPreviews((prev) => ({ ...prev, [match.slug]: fetched }));
+          }
+        } catch (err) {
+          console.error(`Failed to fetch details for ${match.slug}:`, err);
+        }
+      }
+      return { path, metadata: details || null };
+    }
+    return { path, metadata: null };
+  }
+
+  // Confirm import and download metadata/images.
   async function handleConfirm() {
-    if (selectedPaths.size === 0) return;
+    if (selectionCount === 0) return;
     setImporting(true);
 
     const importResults: { path: string; metadata: GameMetadataResult | null }[] = [];
-    const pathsArray = Array.from(selectedPaths);
+    const seen = new Set<string>();
 
     try {
-      for (let i = 0; i < pathsArray.length; i++) {
-        const path = pathsArray[i];
-        const match = matches[path];
-        const fileName = gameNameFromPath(path);
+      const selectedGroups = groups.filter((g) => selectedGroupIds.has(g.id));
+      let i = 0;
+      for (const g of selectedGroups) {
+        const path = primaryByGroup[g.id];
+        i++;
+        const fileName = g.folderName;
+        setImportProgress(
+          `Processing "${fileName}" (${i} of ${selectedGroups.length}${
+            selectedExtraPaths.size ? ` + ${selectedExtraPaths.size} extra` : ""
+          })...`
+        );
+        seen.add(path);
+        importResults.push(await buildImportForPath(path));
+      }
 
-        if (match) {
-          setImportProgress(
-            `Fetching metadata for "${match.name}" (${i + 1} of ${pathsArray.length})...`
-          );
-
-          let details = previews[match.slug];
-          if (!details) {
-            // Fallback fetch if details weren't loaded yet
-            try {
-              const fetched = await invoke<GameMetadataResult | null>("get_store_game_detail", {
-                slug: match.slug,
-              });
-              if (fetched) {
-                details = fetched;
-              }
-            } catch (err) {
-              console.error(`Failed to fetch details for ${match.slug}:`, err);
-            }
-          }
-
-          importResults.push({ path, metadata: details || null });
-        } else {
-          setImportProgress(
-            `Processing "${fileName}" (${i + 1} of ${pathsArray.length})...`
-          );
-          importResults.push({ path, metadata: null });
-        }
+      const extras = Array.from(selectedExtraPaths).filter((p) => !seen.has(p));
+      for (let j = 0; j < extras.length; j++) {
+        const path = extras[j];
+        setImportProgress(
+          `Processing extra executable "${gameNameFromPath(path)}" (${j + 1} of ${extras.length})...`
+        );
+        importResults.push(await buildImportForPath(path));
       }
 
       onConfirm(importResults);
@@ -230,7 +449,7 @@ export default function ImportModal({
     }
   }
 
-  // Format utility functions
+  // Format utility functions.
   function getDirectory(fullPath: string): string {
     const parts = fullPath.split(/[\\/]/);
     parts.pop();
@@ -239,11 +458,12 @@ export default function ImportModal({
 
   const activeMatch = matches[activePath] || null;
   const activeDetail = activeMatch ? previews[activeMatch.slug] : null;
+  const showGroups = exeInfos.length > 1 && groups.length > 0;
 
   return createPortal(
     <div className="modal-backdrop" onMouseDown={onCancel}>
       <div
-        className={`modal import-modal${exeInfos.length > 1 ? " batch-import-layout" : ""}`}
+        className={`modal import-modal${showGroups ? " batch-import-layout" : ""}`}
         onMouseDown={(e) => e.stopPropagation()}
       >
         {importing && (
@@ -272,67 +492,171 @@ export default function ImportModal({
           </div>
           <div className="modal-header-text">
             <h2 className="modal-title">
-              {exeInfos.length > 1 ? "Scan & Link Games to Import" : "Import Game Executable"}
+              {showGroups
+                ? `Found ${groups.length} Game${groups.length !== 1 ? "s" : ""} in Folder`
+                : exeInfos.length > 1
+                ? "Scan & Link Games to Import"
+                : "Import Game Executable"}
             </h2>
             <p className="modal-subtitle">
-              {exeInfos.length > 1
+              {showGroups
+                ? "We detected a game in each folder and highlighted its most likely main executable. Review the suggestion or pick a different one for any game."
+                : exeInfos.length > 1
                 ? `Found ${exeInfos.length} executables. Link them with IGDB for rich metadata.`
                 : "Select a game from IGDB to link with your local executable."}
             </p>
           </div>
         </div>
 
+        {showGroups && (
+          <div className="import-banner">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <circle cx="12" cy="12" r="10" />
+              <line x1="12" y1="16" x2="12" y2="12" />
+              <line x1="12" y1="8" x2="12.01" y2="8" />
+            </svg>
+            <span>
+              Executables are grouped by their game folder. The <strong>suggested</strong>{" "}
+              executable is auto-selected as the main game — uncheck games you don't want, or
+              click <strong>Make main</strong> on another executable to change it.
+            </span>
+          </div>
+        )}
+
         <div className="modal-body-container">
-          {/* Side panel with executables list (only for batch folder imports) */}
-          {exeInfos.length > 1 && (
+          {/* Side panel with executables grouped by game folder */}
+          {showGroups && (
             <div className="import-sidebar">
               <div className="import-sidebar-header">
                 <label className="modal-select-all">
                   <input
                     type="checkbox"
-                    checked={allSelected}
+                    checked={allGroupsSelected}
                     ref={selectAllRef}
-                    onChange={toggleSelectAll}
+                    onChange={toggleSelectAllGroups}
                   />
                   <span>
-                    Select All ({selectedPaths.size}/{exeInfos.length})
+                    Select All ({selectedGroupIds.size}/{groups.length} games)
                   </span>
                 </label>
               </div>
               <div className="import-sidebar-list">
-                {exeInfos.map((exe, index) => {
-                  const isChecked = selectedPaths.has(exe.path);
-                  const isActive = index === activeIndex;
-                  const match = matches[exe.path];
+                {groups.map((g) => {
+                  const groupSelected = selectedGroupIds.has(g.id);
+                  const primaryPath = primaryByGroup[g.id] ?? g.suggestedPrimary.path;
+                  const isExpanded = expandedGroups.has(g.id);
+                  const extras = g.exes.filter((e) => e.path !== primaryPath);
+                  const primMatch = matches[primaryPath];
 
                   return (
                     <div
-                      key={exe.path}
-                      className={`import-sidebar-item${isActive ? " active" : ""}${
-                        isChecked ? " checked" : ""
-                      }`}
-                      onClick={() => setActiveIndex(index)}
+                      className={`import-group${groupSelected ? " selected" : ""}`}
+                      key={g.id}
                     >
-                      <input
-                        type="checkbox"
-                        checked={isChecked}
-                        onChange={(e) => {
-                          e.stopPropagation();
-                          toggleSelectPath(exe.path);
-                        }}
-                      />
-                      <div className="import-sidebar-item-info">
-                        <span className="import-sidebar-item-filename">
-                          {gameNameFromPath(exe.path)}
-                        </span>
-                        {match ? (
-                          <span className="import-sidebar-item-match matched">
-                            ✓ Linked: {match.name}
-                          </span>
-                        ) : (
-                          <span className="import-sidebar-item-match skipped">
-                            ⚠ No Metadata Match
-                          </span>
+                      <div className="import-group-header">
+                        <input
+                          type="checkbox"
+                          checked={groupSelected}
+                          onChange={() => toggleGroup(g.id)}
+                          onClick={(e) => e.stopPropagation()}
+                        />
+                        <button
+                          className={`import-group-toggle${isExpanded ? " expanded" : ""}`}
+                          onClick={() => toggleExpand(g.id)}
+                          aria-label={isExpanded ? "Collapse" : "Expand"}
+                        >
+                          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                            <polyline points="9 18 15 12 9 6" />
+                          </svg>
+                        </button>
+                        <div
+                          className="import-group-info"
+                          onClick={() => setActivePath(primaryPath)}
+                        >
+                          <span className="import-group-name">{g.folderName}</span>
+                          {primMatch ? (
+                            <span className="import-sidebar-item-match matched">
+                              ✓ {primMatch.name}
+                            </span>
+                          ) : (
+                            <span className="import-sidebar-item-match skipped">
+                              ⚠ No Metadata Match
+                            </span>
+                          )}
+                        </div>
+                      </div>
+
+                      <div className="import-group-body">
+                        <div
+                          className={`import-sidebar-item primary${
+                            activePath === primaryPath ? " active" : ""
+                          }`}
+                          onClick={() => setActivePath(primaryPath)}
+                        >
+                          <span className="suggested-badge">Suggested</span>
+                          <div className="import-sidebar-item-info">
+                            <span className="import-sidebar-item-filename">
+                              {gameNameFromPath(primaryPath)}
+                            </span>
+                            <span className="import-sidebar-item-sub">
+                              Main executable
+                            </span>
+                          </div>
+                        </div>
+
+                        {isExpanded &&
+                          extras.map((e) => {
+                            const extraSelected = selectedExtraPaths.has(e.path);
+                            const em = matches[e.path];
+                            return (
+                              <div
+                                className={`import-sidebar-item extra${
+                                  activePath === e.path ? " active" : ""
+                                }`}
+                                key={e.path}
+                                onClick={() => setActivePath(e.path)}
+                              >
+                                <input
+                                  type="checkbox"
+                                  checked={extraSelected}
+                                  onChange={(ev) => {
+                                    ev.stopPropagation();
+                                    toggleExtra(e.path);
+                                  }}
+                                  onClick={(ev) => ev.stopPropagation()}
+                                />
+                                <div className="import-sidebar-item-info">
+                                  <span className="import-sidebar-item-filename">
+                                    {gameNameFromPath(e.path)}
+                                  </span>
+                                  {em && (
+                                    <span className="import-sidebar-item-match matched">
+                                      ✓ {em.name}
+                                    </span>
+                                  )}
+                                </div>
+                                <button
+                                  className="make-main-btn"
+                                  title="Use this as the main game executable"
+                                  onClick={(ev) => {
+                                    ev.stopPropagation();
+                                    setPrimaryForGroup(g.id, e.path);
+                                  }}
+                                >
+                                  Make main
+                                </button>
+                              </div>
+                            );
+                          })}
+
+                        {!isExpanded && extras.length > 0 && (
+                          <button
+                            className="import-group-more"
+                            onClick={() => toggleExpand(g.id)}
+                          >
+                            Show {extras.length} more executable
+                            {extras.length !== 1 ? "s" : ""}
+                          </button>
                         )}
                       </div>
                     </div>
@@ -632,7 +956,7 @@ export default function ImportModal({
 
         <div className="modal-footer">
           <span className="modal-footer-count">
-            {selectedPaths.size} file{selectedPaths.size !== 1 ? "s" : ""} selected for import
+            {selectionCount} game{selectionCount !== 1 ? "s" : ""} selected for import
           </span>
           <div className="modal-footer-actions">
             <Button variant="ghost" onClick={onCancel}>
@@ -640,7 +964,7 @@ export default function ImportModal({
             </Button>
             <Button
               variant="primary"
-              disabled={selectedPaths.size === 0}
+              disabled={selectionCount === 0}
               onClick={handleConfirm}
               leftIcon={
                 <svg

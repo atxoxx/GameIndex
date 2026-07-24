@@ -279,6 +279,7 @@ export default function Sidebar() {
   const [contextMenu, setContextMenu] = useState<{ game: Game; x: number; y: number } | null>(null);
   const [showImportModal, setShowImportModal] = useState(false);
   const [scannedExes, setScannedExes] = useState<ExeInfo[]>([]);
+  const [importRootPath, setImportRootPath] = useState<string>("");
 
   // ── Sidebar collapse (icon-rail mode) ─────────────────────────────
   // The SidebarCollapseProvider in App.tsx owns the persisted
@@ -444,6 +445,7 @@ export default function Sidebar() {
           return;
         }
         setScannedExes([{ path: filePath, size: 0, modifiedAt: Math.round(Date.now() / 1000) }]);
+        setImportRootPath(filePath.replace(/[\\/][^\\/]*$/, ""));
         setShowImportModal(true);
       }
     } catch (err) {
@@ -477,6 +479,7 @@ export default function Sidebar() {
           return;
         }
         setScannedExes(newExes);
+        setImportRootPath(folderPath);
         setShowImportModal(true);
       }
     } catch (err) {
@@ -1095,6 +1098,7 @@ export default function Sidebar() {
       {showImportModal && (
         <ImportModal
           exeInfos={scannedExes}
+          rootPath={importRootPath}
           onConfirm={handleConfirmImport}
           onCancel={() => setShowImportModal(false)}
         />
