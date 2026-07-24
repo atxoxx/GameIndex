@@ -280,6 +280,26 @@ impl TorrentEngine {
         // peers reach us through the home router) and the
         // shorter `peer_opts` timeouts (cycle to fast peers
         // faster).
+        // Persistent DHT routing table, stored at an explicit
+        // WRITABLE path inside our own state dir (NOT librqbit's
+        // default OS-cache-dir location, which can be read-only,
+        // contain invalid unicode, or hold a corrupted table — any
+        // of which aborts `Session::new_with_opts` with "error
+        // initializing persistent DHT" and forces the slow
+        // in-memory-only fallback below).
+        //
+        // Keeping the routing table across restarts is the single
+        // biggest metadata-fetch speedup: on the 2nd+ run the DHT
+        // is already bootstrapped, so a magnet's metadata resolves
+        // in seconds instead of waiting 30–120 s for fresh node
+        // discovery. Applies to BOTH the primary and fallback paths
+        // below so DHT persistence never silently degrades.
+        let dht_persist_path = self.state_dir.join("dht.json");
+        let make_dht_config = || librqbit::dht::PersistentDhtConfig {
+            config_filename: Some(dht_persist_path.clone()),
+            ..Default::default()
+        };
+
         let persistent_opts = librqbit::SessionOptions {
             persistence: Some(librqbit::SessionPersistenceConfig::Json {
                 folder: Some(self.state_dir.clone()),
@@ -289,6 +309,8 @@ impl TorrentEngine {
             enable_upnp_port_forwarding: true,
             peer_opts: Self::build_peer_opts(),
             concurrent_init_limit: Some(4),
+            // Persistent DHT at our writable path (see note above).
+            dht_config: Some(make_dht_config()),
             // `defer_writes_up_to` is in MEGABYTES (per librqbit's
             // doc comment), NOT pieces or bytes. 4 MiB is enough
             // to coalesce piece-sized writes into ~1–2 disk
@@ -332,6 +354,10 @@ impl TorrentEngine {
                     enable_upnp_port_forwarding: true,
                     peer_opts: Self::build_peer_opts(),
                     concurrent_init_limit: Some(4),
+                    // Keep DHT persistent at our writable path even in
+                    // the session-state fallback, so metadata fetch
+                    // stays fast across restarts.
+                    dht_config: Some(make_dht_config()),
                     defer_writes_up_to: Some(4),
                     ..Default::default()
                 };
@@ -1563,24 +1589,32 @@ pub async fn initialize_engine(
 
 /// Curated list of reliable public BitTorrent trackers (2025).
 /// Sourced from the ngosang/trackerslist project. We inject them
-/// into magnet links that have fewer than 3 existing `tr=` parameters
-/// to ensure librqbit can find peers even when the source-provided
-/// magnet has no trackers at all (common with Hydra API repacks that
-/// rely on DHT-only discovery).
+/// into EVERY add (magnets AND `.torrent` files) via
+/// `AddTorrentOptions.trackers`, which librqbit *extends* onto the
+/// torrent's own announce list — so this is the #1 fix for the
+/// "stuck at Fetching Metadata" problem.
 ///
-/// The list is intentionally **mixed-protocol**: UDP trackers are
-/// compact and fast but are frequently blocked by corporate/ISP
-/// firewalls and some home routers — which is the single most common
-/// cause of a torrent being stuck at "Contacting trackers &
-/// bootstrapping DHT…" forever. The TCP (`http://`) and HTTPS
-/// (`https://`) trackers below traverse most firewalls the same way
-/// ordinary web traffic does, giving librqbit a working peer-
-/// discovery path when UDP is blocked. This mirrors what qBittorrent
-/// does (Settings → BitTorrent → "Automatically append these
-/// trackers to new downloads") and is the #1 fix for the "stuck at
-/// Fetching Metadata" problem.
+/// **Ordering matters.** Many corporate/ISP firewalls and home
+/// routers silently drop UDP, so we lead with HTTPS/TCP trackers
+/// that traverse ordinary web-traffic paths. UDP entries are kept
+/// LAST as a fallback when TCP/HTTPS announce is slow. This mirrors
+/// what qBittorrent does (Settings → BitTorrent → "Automatically
+/// append these trackers to new downloads").
+///
+/// Note on source-provided trackers: a magnet that already carries
+/// 1-3 `tr=` params usually has *dead* trackers (the common cause
+/// of a hang), so we always append our curated set rather than
+/// trusting the source's count — duplicates are harmless (libqbit
+/// just announces to the same working tracker twice).
 const DEFAULT_TRACKERS: &[&str] = &[
-    // UDP (fast, but often firewalled)
+    // TCP / HTTPS first — traverse most firewalls.
+    "https://tracker.tamersunion.org:443/announce",
+    "https://tracker.bittorrentic.com:443/announce",
+    "https://tracker.cyberia.is:6969/announce",
+    "http://tracker.opentrackr.org:80/announce",
+    "http://tracker.internetwarriors.net:1337/announce",
+    "http://tracker.gbitt.info:80/announce",
+    // UDP fallback (fast, but often firewalled).
     "udp://tracker.opentrackr.org:1337/announce",
     "udp://tracker.openbittorrent.com:6969/announce",
     "udp://tracker.tiny-vps.com:6969/announce",
@@ -1589,15 +1623,17 @@ const DEFAULT_TRACKERS: &[&str] = &[
     "udp://tracker.dler.org:6969/announce",
     "udp://opentracker.i2p.rocks:6969/announce",
     "udp://tracker.openbittorrent.com:80/announce",
-    // TCP / HTTPS (traverse most firewalls; used when UDP is blocked)
-    "http://tracker.opentrackr.org:80/announce",
     "udp://tracker.internetwarriors.net:1337/announce",
-    "http://tracker.internetwarriors.net:1337/announce",
-    "https://tracker.tamersunion.org:443/announce",
-    "https://tracker.bittorrentic.com:443/announce",
-    "https://tracker.cyberia.is:6969/announce",
-    "http://tracker.gbitt.info:80/announce",
 ];
+
+/// Build the curated tracker list as owned `String`s for passing into
+/// `AddTorrentOptions.trackers`. librqbit *extends* this onto the
+/// torrent's existing trackers, so it works for both magnets (adds
+/// to their `tr=` params) and `.torrent` files (which otherwise
+/// only have whatever announce-list the file embeds).
+fn default_trackers_vec() -> Vec<String> {
+    DEFAULT_TRACKERS.iter().map(|s| s.to_string()).collect()
+}
 
 /// How long a torrent may remain in "Fetching Metadata" (Initializing,
 /// zero bytes transferred) before we stop waiting and surface a clear
@@ -1606,122 +1642,6 @@ const DEFAULT_TRACKERS: &[&str] = &[
 /// record's `added_at`; paused torrents are excluded because their
 /// status is `Paused`, not `FetchingMetadata`.
 const METADATA_FETCH_TIMEOUT_SECS: u64 = 180;
-
-/// Minimum number of trackers a magnet must have before we skip
-/// augmentation. If the source already provided 3+ trackers, the
-/// swarm is likely well-announced and adding more would just
-/// generate unnecessary announce traffic. Magnets with 1-2 trackers
-/// still get the fallback defaults from `DEFAULT_TRACKERS` below
-/// because a single source-provided tracker is often defunct or
-/// unreliable — the documented defence against the
-/// "stuck at FetchingMetadata" failure mode. The bare-magnet
-/// case (0 trackers) is handled on the source-resolution side in
-/// `source_manager::search_online` and `db::sources::search`,
-/// which rearrange `match.uris` so a `.torrent` URL — which has
-/// an embedded announce-list — wins over a bare magnet sibling.
-const MIN_TRACKERS_BEFORE_AUGMENT: usize = 3;
-
-/// Augment a magnet URI with default public trackers if it has fewer
-/// than `MIN_TRACKERS_BEFORE_AUGMENT` existing `tr=` parameters.
-///
-/// Non-magnet URIs (http/https `.torrent` URLs) are returned
-/// unchanged — trackers are embedded in the .torrent file itself.
-///
-/// This is the #1 fix for downloads stuck at "Fetching Metadata":
-/// many Hydra API repacks provide bare magnet links with zero
-/// `tr=` parameters, relying entirely on DHT for peer discovery.
-/// When the DHT hasn't bootstrapped enough nodes (common on first
-/// run, behind a firewall, or with a fresh session), the torrent
-/// can't find any peers to fetch metadata from and sits at
-/// FetchingMetadata until the 120s timeout.
-///
-/// Adding even 2-3 reliable public trackers gives librqbit an
-/// alternative peer discovery path that works immediately, without
-/// waiting for DHT bootstrap.
-fn augment_magnet_with_trackers(uri: &str) -> String {
-    // Only augment magnet: URIs. http(s):// .torrent URLs contain
-    // their own tracker list embedded in the torrent metadata.
-    if !uri.starts_with("magnet:") {
-        return uri.to_string();
-    }
-
-    // Count existing tr= parameters.
-    let existing_trackers: Vec<&str> = uri
-        .split('&')
-        .filter(|param| param.starts_with("tr=") && param.len() > 3)
-        .collect();
-
-    if existing_trackers.len() >= MIN_TRACKERS_BEFORE_AUGMENT {
-        return uri.to_string();
-    }
-
-    // Collect existing tracker URLs (URL-decoded) to avoid duplicates.
-    let existing_set: std::collections::HashSet<String> = existing_trackers
-        .iter()
-        .filter_map(|param| {
-            let raw = &param[3..]; // strip "tr="
-            percent_decode(raw)
-        })
-        .collect();
-
-    let mut result = uri.to_string();
-    let mut added = 0;
-    for tracker in DEFAULT_TRACKERS {
-        // Skip if this tracker is already present (compare both
-        // encoded and decoded forms to catch edge cases).
-        if existing_set.contains(*tracker) {
-            continue;
-        }
-        let encoded = percent_encode_tracker(tracker);
-        result.push_str("&tr=");
-        result.push_str(&encoded);
-        added += 1;
-    }
-
-    if added > 0 {
-        eprintln!(
-            "[gameindex] Magnet had {} tracker(s) — added {} default public tracker(s) ({} total)",
-            existing_trackers.len(),
-            added,
-            existing_trackers.len() + added
-        );
-    }
-
-    result
-}
-
-/// Percent-encode a tracker URL for use in a magnet `tr=` parameter.
-/// Colons and slashes must be encoded in the query value per the
-/// magnet URI spec, though many clients accept them raw. We encode
-/// conservatively to maximise compatibility.
-fn percent_encode_tracker(url: &str) -> String {
-    url.replace(':', "%3A")
-        .replace('/', "%2F")
-}
-
-/// Percent-decode a `tr=` value from a magnet URI. Reverses
-/// `percent_encode_tracker`. Returns `None` if the input is empty.
-fn percent_decode(s: &str) -> Option<String> {
-    if s.is_empty() {
-        return None;
-    }
-    let mut result = String::with_capacity(s.len());
-    let mut chars = s.chars().peekable();
-    while let Some(c) = chars.next() {
-        if c == '%' {
-            let hex: String = chars.by_ref().take(2).collect();
-            if let Ok(byte) = u8::from_str_radix(&hex, 16) {
-                result.push(byte as char);
-            } else {
-                result.push('%');
-                result.push_str(&hex);
-            }
-        } else {
-            result.push(c);
-        }
-    }
-    Some(result)
-}
 
 fn normalize_path(p: &str) -> String {
     let mut normalized = p.replace('/', "\\");
@@ -1891,14 +1811,14 @@ pub async fn torrent_add(
             // Augment magnet links with default public trackers to
             // ensure peer discovery works even when the source-provided
             // magnet has no `tr=` parameters (common with Hydra API
-            // repacks). Without this, librqbit relies entirely on DHT
-            // and the torrent can sit at FetchingMetadata indefinitely
-            // if the DHT hasn't bootstrapped enough nodes.
-            let augmented = augment_magnet_with_trackers(&trimmed_clone);
-            // A local `.torrent` file path is read into bytes and fed
-            // to librqbit via `AddTorrent::from_bytes` — `from_url`
-            // only accepts magnet/http(s) URIs and would otherwise
-            // reject a filesystem path.
+            // repacks). Trackers are injected uniformly below via
+            // `AddTorrentOptions.trackers` (librqbit extends them onto
+            // the torrent's own list), which ALSO covers `.torrent`
+            // file adds — those would otherwise rely only on the
+            // announce-list embedded in the file. Without either path,
+            // librqbit falls back to DHT-only and the torrent can sit
+            // at FetchingMetadata indefinitely if the DHT hasn't
+            // bootstrapped enough nodes.
             let add = match &local_path_clone {
                 Some(path) => match tokio::fs::read(path).await {
                     Ok(bytes) => librqbit::AddTorrent::from_bytes(bytes),
@@ -1917,12 +1837,20 @@ pub async fn torrent_add(
                         return;
                     }
                 },
-                None => librqbit::AddTorrent::from_url(augmented),
+                None => librqbit::AddTorrent::from_url(trimmed_clone.clone()),
             };
             let add_opts = librqbit::AddTorrentOptions {
                 output_folder: Some(save_path_clone.clone().into()),
                 overwrite: true,
                 list_only: false,
+                // Inject curated trackers (extends the torrent's own
+                // list). HTTPS/TCP-first ordering maximizes the chance
+                // of a live announce when UDP is firewalled.
+                trackers: Some(default_trackers_vec()),
+                // Re-announce to trackers every 30s so a slow/dead
+                // source tracker doesn't strand metadata resolution for
+                // the full 120s window.
+                force_tracker_interval: Some(Duration::from_secs(30)),
                 ..Default::default()
             };
 
@@ -2158,12 +2086,12 @@ pub async fn torrent_add(
     //   2. The frontend (DownloadModal "Fetch Files List" step) needs
     //      the file list immediately so the file-selection UI appears.
 
-    // Augment magnet links with default public trackers (see the
-    // doc comment on `augment_magnet_with_trackers` for the full
-    // rationale — short version: many Hydra repacks ship bare
-    // magnets with 0 trackers, and without trackers librqbit can
-    // sit at FetchingMetadata forever if DHT hasn't bootstrapped).
-    let augmented = augment_magnet_with_trackers(&trimmed);
+    // Trackers are injected uniformly via `AddTorrentOptions.trackers`
+    // below (librqbit extends them onto the torrent's own list),
+    // which covers BOTH magnets (many Hydra repacks ship bare magnets
+    // with 0 trackers) AND `.torrent` files. Without trackers,
+    // librqbit falls back to DHT-only and can sit at FetchingMetadata
+    // forever if the DHT hasn't bootstrapped.
     // Local `.torrent` file path → read bytes and use
     // `AddTorrent::from_bytes` (mirrors the non-blocking path above).
     let add = match &local_path {
@@ -2172,12 +2100,14 @@ pub async fn torrent_add(
                 .map_err(|e| format!("Failed to read .torrent file: {}", e))?;
             librqbit::AddTorrent::from_bytes(bytes)
         }
-        None => librqbit::AddTorrent::from_url(augmented),
+        None => librqbit::AddTorrent::from_url(trimmed.clone()),
     };
     let add_opts = librqbit::AddTorrentOptions {
         output_folder: Some(save_path.clone().into()),
         overwrite: true,
         list_only: is_list_only,
+        trackers: Some(default_trackers_vec()),
+        force_tracker_interval: Some(Duration::from_secs(30)),
         ..Default::default()
     };
 
@@ -2930,14 +2860,17 @@ pub async fn torrent_start_selected(
                 }
             }
         } else {
-            let augmented = augment_magnet_with_trackers(&source_uri);
-            librqbit::AddTorrent::from_url(augmented)
+            librqbit::AddTorrent::from_url(source_uri.clone())
         };
         let add_opts = librqbit::AddTorrentOptions {
             output_folder: Some(save_path.clone().into()),
             overwrite: true,
             list_only: false,
             only_files: Some(only_files.clone()),
+            // Inject curated trackers (extends the torrent's own list)
+            // so metadata resolution doesn't depend solely on DHT.
+            trackers: Some(default_trackers_vec()),
+            force_tracker_interval: Some(Duration::from_secs(30)),
             ..Default::default()
         };
 
@@ -3062,8 +2995,7 @@ pub async fn torrent_start_selected(
                                 e
                             );
                         }
-                        let augmented_retry = augment_magnet_with_trackers(&source_uri);
-                        let retry = librqbit::AddTorrent::from_url(augmented_retry);
+                        let retry = librqbit::AddTorrent::from_url(source_uri.clone());
                         let retry_opts = librqbit::AddTorrentOptions {
                             output_folder: Some(save_path.clone().into()),
                             overwrite: true,
@@ -3071,6 +3003,8 @@ pub async fn torrent_start_selected(
                             only_files: Some(
                                 only_files_set.iter().copied().collect(),
                             ),
+                            trackers: Some(default_trackers_vec()),
+                            force_tracker_interval: Some(Duration::from_secs(30)),
                             ..Default::default()
                         };
                         // 120s matches the original `add_torrent` budget so a slow

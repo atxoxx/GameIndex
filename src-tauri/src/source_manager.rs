@@ -1484,9 +1484,11 @@ pub(crate) fn merge_magnet_into_uris(uris: &mut Vec<String>, magnet: Option<&Str
 /// `magnet:?xt=…&dn=…` URI alongside a sibling `.torrent` URL that
 /// already carries an embedded announce-list. Without promotion,
 /// the modal's default picks the bare magnet and
-/// `augment_magnet_with_trackers` in `torrent_engine.rs` emits
-/// `[gameindex] Magnet had 0 tracker(s) — added 8 default public
-/// tracker(s)` even though a tracker-bearing alternative was a
+/// `default_trackers_vec` (injected into every add via
+/// `AddTorrentOptions.trackers` in `torrent_engine.rs`) still
+/// applies curated public trackers, but a tracker-bearing `.torrent`
+/// alternative is preferable when DHT hasn't bootstrapped — so a
+/// bare magnet is never the best default.
 /// click away in the mirror selector.
 ///
 /// ## What it does — strict `.torrent` over magnet precedence
