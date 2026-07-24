@@ -97,67 +97,84 @@
 .store-search-bar {
   display: flex;
   align-items: center;
-  gap: var(--space-sm);
-  padding: var(--space-sm) var(--space-md);
-  background: var(--color-bg-tertiary);
+  gap: 10px;
+  height: 44px;
+  padding: 0 var(--space-md);
+  background: linear-gradient(
+    180deg,
+    color-mix(in srgb, var(--color-bg-tertiary) 92%, #ffffff 6%),
+    var(--color-bg-tertiary)
+  );
   border: 1px solid var(--color-border);
-  border-radius: var(--radius-md);
-  margin-bottom: var(--space-lg);
-  transition: border-color var(--transition-fast);
+  border-radius: var(--radius-full);
+  transition: border-color var(--transition-fast), box-shadow var(--transition-fast),
+    background var(--transition-fast), transform var(--transition-fast);
+}
+
+.store-search-bar:hover {
+  border-color: color-mix(in srgb, var(--color-accent) 45%, var(--color-border));
 }
 
 .store-search-bar:focus-within {
   border-color: var(--color-accent);
-  box-shadow: 0 0 10px var(--color-accent-glow);
+  background: color-mix(in srgb, var(--color-bg-secondary) 96%, var(--color-accent) 4%);
+  box-shadow: 0 0 0 3px var(--color-accent-glow), 0 8px 22px rgba(0, 0, 0, 0.22);
 }
 
 .store-search-icon {
-  width: 16px;
-  height: 16px;
+  width: 17px;
+  height: 17px;
   color: var(--color-text-muted);
   flex-shrink: 0;
+  transition: color var(--transition-fast), transform var(--transition-fast);
 }
 
 .store-search-bar:focus-within .store-search-icon {
   color: var(--color-accent);
+  transform: scale(1.08);
 }
 
 .store-search-input {
   flex: 1;
+  min-width: 0;
   border: none;
   background: transparent;
   color: var(--color-text-primary);
   font-size: var(--font-size-md);
+  font-family: inherit;
   outline: none;
 }
 
 .store-search-input::placeholder {
   color: var(--color-text-muted);
+  opacity: 0.85;
 }
 
 .store-search-clear {
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 28px;
-  height: 28px;
+  width: 26px;
+  height: 26px;
   border: none;
-  background: transparent;
+  background: color-mix(in srgb, var(--color-bg-hover) 80%, transparent);
   color: var(--color-text-muted);
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-full);
   cursor: pointer;
   flex-shrink: 0;
-  transition: all var(--transition-fast);
+  transition: color var(--transition-fast), background var(--transition-fast),
+    transform var(--transition-fast);
 }
 
 .store-search-clear:hover {
   color: var(--color-text-primary);
   background: var(--color-bg-hover);
+  transform: rotate(90deg);
 }
 
 .store-search-clear svg {
-  width: 14px;
-  height: 14px;
+  width: 13px;
+  height: 13px;
 }
 
 .store-search-results-label {

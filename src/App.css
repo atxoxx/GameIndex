@@ -13461,17 +13461,35 @@ ol.rv-bbcode-list {
 
 .store-search-dropdown {
   position: absolute;
-  top: calc(100% + 6px);
+  top: calc(100% + 8px);
   left: 0;
   right: 0;
   z-index: 30;
-  padding: 4px;
-  background: var(--color-bg-secondary);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-md);
-  box-shadow: var(--shadow-lg, 0 8px 24px rgba(0, 0, 0, 0.3));
+  padding: 6px;
+  background: color-mix(in srgb, var(--color-bg-secondary) 96%, var(--color-accent) 4%);
+  border: 1px solid color-mix(in srgb, var(--color-accent) 30%, var(--color-border));
+  border-radius: var(--radius-lg);
+  box-shadow: 0 12px 34px rgba(0, 0, 0, 0.34);
   max-height: 380px;
   overflow-y: auto;
+  animation: storeSearchPop 0.16s ease-out both;
+}
+
+@keyframes storeSearchPop {
+  from {
+    opacity: 0;
+    transform: translateY(-4px) scale(0.99);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .store-search-dropdown {
+    animation: none !important;
+  }
 }
 
 .store-search-dropdown-loading,

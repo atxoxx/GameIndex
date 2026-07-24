@@ -28,13 +28,6 @@ export default function StoreSearchBar({
 
   const { suggestions, loading } = useSearchSuggestions(value);
 
-  // Auto-focus the input when it becomes visible.
-  useEffect(() => {
-    if (visible && inputRef.current) {
-      inputRef.current.focus();
-    }
-  }, [visible]);
-
   // Close the dropdown on outside click.
   useEffect(() => {
     if (!focused) return;
