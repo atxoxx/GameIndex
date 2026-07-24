@@ -4,6 +4,7 @@ import { CrackWatchProvider } from "../context/CrackWatchContext";
 import { PriceProvider } from "../context/PriceContext";
 import { useStoreCatalogue } from "../hooks/useStoreCatalogue";
 import StoreHeader from "../components/store/StoreHeader";
+import StoreToolbar from "../components/store/StoreToolbar";
 import StoreFilterPanel from "../components/store/StoreFilterPanel";
 import StoreFeaturedHero from "../components/store/StoreFeaturedHero";
 import StoreFilterChips from "../components/store/StoreFilterChips";
@@ -82,6 +83,8 @@ export default function StorePage() {
         <StoreFilterPanel catalogue={c} />
 
         <div className="store-main">
+          <StoreToolbar catalogue={c} />
+
           <StoreGameGrid
             games={c.displayedGames}
             loading={c.loading}

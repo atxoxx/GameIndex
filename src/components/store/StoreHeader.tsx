@@ -1,6 +1,3 @@
-import StoreSearchBar from "./StoreSearchBar";
-import StoreSortDropdown from "./StoreSortDropdown";
-import DensityToggle from "../DensityToggle";
 import type { StoreCatalogue } from "../../hooks/useStoreCatalogue";
 
 interface StoreHeaderProps {
@@ -8,10 +5,10 @@ interface StoreHeaderProps {
 }
 
 /**
- * Hydra-style sticky top bar for the Store catalogue: prominent search,
- * live result count, sort dropdown, density toggle, and the Select /
- * Filters triggers. Keeping it as its own component keeps `StorePage`
- * a thin composition root.
+ * Hydra-style sticky top bar for the Store catalogue: branding, live result
+ * count, the "Show hidden" toggle, and the Filters trigger. The search, sort,
+ * select, and density controls live in `StoreToolbar` between the rail and the
+ * grid. Keeping it as its own component keeps `StorePage` a thin root.
  */
 export default function StoreHeader({ catalogue: c }: StoreHeaderProps) {
   return (
@@ -28,20 +25,7 @@ export default function StoreHeader({ catalogue: c }: StoreHeaderProps) {
           </span>
         </div>
 
-        <div className="store-header-search">
-          <StoreSearchBar
-            value={c.searchQuery}
-            onChange={c.setSearchQuery}
-            visible
-            recentSearches={c.recentSearches}
-            onRemoveRecent={c.removeRecentSearch}
-            onPickSuggestion={c.onCardClick}
-          />
-        </div>
-
         <div className="store-header-actions">
-          <StoreSortDropdown value={c.sort} onChange={c.setSort} />
-
           {c.hiddenCount > 0 && (
             <button
               type="button"
@@ -52,22 +36,6 @@ export default function StoreHeader({ catalogue: c }: StoreHeaderProps) {
               {c.showHidden ? "Hide dismissed" : `Show hidden (${c.hiddenCount})`}
             </button>
           )}
-
-          <button
-            type="button"
-            className={`store-toolbar-toggle${c.bulkMode ? " active" : ""}`}
-            onClick={() => {
-              c.setBulkMode(!c.bulkMode);
-              c.clearSelection();
-            }}
-            title="Select multiple games"
-          >
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-              <polyline points="9 11 12 14 22 4" />
-              <path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11" />
-            </svg>
-            Select
-          </button>
 
           <button
             type="button"
@@ -86,10 +54,6 @@ export default function StoreHeader({ catalogue: c }: StoreHeaderProps) {
               <span className="store-filter-trigger-badge">{c.activeFilterCount}</span>
             )}
           </button>
-
-          <div className="store-density-toolbar" aria-label="Layout controls">
-            <DensityToggle density={c.density} onChange={c.setDensity} />
-          </div>
         </div>
       </div>
     </header>
