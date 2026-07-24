@@ -232,6 +232,7 @@ fn current_unix() -> u64 {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use reqwest::cookie::CookieStore;
 
     #[test]
     fn gog_domain_filter_accepts_subdomains() {
@@ -263,8 +264,8 @@ mod tests {
         };
         let jar = jar_from(&cookies).expect("jar build ok");
         let test_url: url::Url = "https://www.gog.com/".parse().unwrap();
-        let header_bytes = jar.cookies(test_url).expect("cookie header");
-        let header = header_bytes.value();
+        let header_bytes = jar.cookies(&test_url).expect("cookie header");
+        let header = header_bytes.to_str().unwrap();
         assert!(header.contains("gogus=abc123"), "got: {header}");
     }
 }

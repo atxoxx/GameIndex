@@ -342,22 +342,10 @@ fn detect_installed_steam_appids() -> Vec<u32> {
 }
 
 fn find_steam_library_folders() -> Vec<PathBuf> {
-    let candidate_paths = [
-        PathBuf::from(r"C:\Program Files (x86)\Steam"),
-        PathBuf::from(r"C:\Program Files\Steam"),
-        PathBuf::from(r"D:\Steam"),
-        PathBuf::from(r"E:\Steam"),
-    ];
-
-    let mut steam_root: Option<PathBuf> = None;
-    for p in &candidate_paths {
-        if p.join("steamapps").exists() {
-            steam_root = Some(p.clone());
-            break;
-        }
-    }
-
-    let steam_root = match steam_root {
+    // Resolve the primary Steam root via the registry-aware detector so
+    // non-default install locations (any drive / custom folder) are
+    // picked up. Falls back to the classic default folders.
+    let steam_root = match steam_game_watcher::find_steam_install_dir() {
         Some(r) => r,
         None => return Vec::new(),
     };

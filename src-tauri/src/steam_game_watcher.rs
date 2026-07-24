@@ -26,12 +26,65 @@ pub struct AppManifest {
     pub library_root: PathBuf,
 }
 
-/// Find the local Steam install root. Only the two well-known default
-/// locations; advanced deployments with a non-default Steam path are
-/// uncommon and we surface a clear error from `find_app_install_dir`
-/// rather than reaching into the Windows registry from Rust (avoids a
-/// new dependency just for a single key read).
+/// Normalize a raw `SteamPath` registry string into a candidate install
+/// root. Steam sometimes stores the value with surrounding double quotes
+/// and/or forward slashes; both are tolerated here. Returns `None` for
+/// empty input. The caller is still responsible for verifying the path
+/// actually looks like a Steam root (e.g. contains `steamapps`).
+fn normalize_steam_registry_path(raw: &str) -> Option<PathBuf> {
+    let trimmed = raw.trim().trim_matches('"').to_string();
+    if trimmed.is_empty() {
+        return None;
+    }
+    Some(PathBuf::from(trimmed))
+}
+
+/// Read the canonical Steam install path from the Windows registry.
+///
+/// Steam always writes its install location to
+/// `HKCU\Software\Valve\Steam` → `SteamPath` (regardless of where the
+/// user installed it), so this is the authoritative way to detect a
+/// non-default Steam location without hardcoding candidate folders.
+/// Returns `None` when the key is absent or unreadable (e.g. Steam was
+/// never installed, or we're off Windows).
+#[cfg(windows)]
+fn read_steam_path_from_registry() -> Option<PathBuf> {
+    use winreg::enums::HKEY_CURRENT_USER;
+    use winreg::RegKey;
+
+    let hkcu = RegKey::predef(HKEY_CURRENT_USER);
+    let valve = hkcu.open_subkey("Software\\Valve\\Steam").ok()?;
+    let raw: String = valve.get_value("SteamPath").ok()?;
+    let p = normalize_steam_registry_path(&raw)?;
+    // Only trust the value if it actually looks like a Steam root
+    // (i.e. it still holds the steamapps data dir).
+    if p.join("steamapps").is_dir() {
+        Some(p)
+    } else {
+        None
+    }
+}
+
+#[cfg(not(windows))]
+fn read_steam_path_from_registry() -> Option<PathBuf> {
+    None
+}
+
+/// Find the local Steam install root.
+///
+/// Detection priority:
+/// 1. The registry `SteamPath` value — authoritative for *any* install
+///    location (including drive-letter / custom-folder installs).
+/// 2. The two well-known default folders, verified by the presence of
+///    `steam.exe` (directory existence alone can match a half-installed
+///    Steam). Kept as a fallback for portable / registry-less setups.
 pub fn find_steam_install_dir() -> Option<PathBuf> {
+    // 1. Registry — covers non-default installs.
+    if let Some(reg) = read_steam_path_from_registry() {
+        return Some(reg);
+    }
+
+    // 2. Classic default locations.
     #[cfg(windows)]
     {
         let candidates = [
@@ -46,12 +99,8 @@ pub fn find_steam_install_dir() -> Option<PathBuf> {
                 return Some(p.to_path_buf());
             }
         }
-        None
     }
-    #[cfg(not(windows))]
-    {
-        None
-    }
+    None
 }
 
 /// Read `<root>\steamapps\libraryfolders.vdf` and return every library
@@ -350,5 +399,24 @@ mod tests {
     #[test]
     fn is_absolute_unc() {
         assert!(is_absolute_path_string("\\\\server\\share"));
+    }
+
+    #[test]
+    fn normalize_steam_registry_path_strips_quotes_and_whitespace() {
+        assert_eq!(
+            normalize_steam_registry_path("\"D:\\Games\\Steam\""),
+            Some(PathBuf::from("D:\\Games\\Steam"))
+        );
+        assert_eq!(
+            normalize_steam_registry_path("  C:\\Steam  "),
+            Some(PathBuf::from("C:\\Steam"))
+        );
+    }
+
+    #[test]
+    fn normalize_steam_registry_path_handles_empty() {
+        assert_eq!(normalize_steam_registry_path(""), None);
+        assert_eq!(normalize_steam_registry_path("   "), None);
+        assert_eq!(normalize_steam_registry_path("\"\""), None);
     }
 }
