@@ -124,3 +124,4 @@ ammonia = "4"
 # Magnet URI parsing — extract the info-hash, trackers, and
 # exact-topic fields without rolling our own URI parser.
 url = "2"
+discord-rich-presence = "1.1.0"

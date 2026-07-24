@@ -4,10 +4,11 @@ use std::collections::{HashMap, VecDeque};
 use std::time::{Duration, Instant, SystemTime};
 use std::sync::OnceLock;
 use serde::{Deserialize, Deserializer, Serialize};
-use tauri::{Emitter, Manager, WindowEvent};
+use tauri::{Emitter, Listener, Manager, WindowEvent};
 use tokio::sync::Mutex;
 
 mod config;
+mod discord_presence;
 mod crackwatch;
 mod price;
 mod protondb;
@@ -611,6 +612,26 @@ fn if_enabled(b: bool) -> &'static str {
     } else {
         "false"
     }
+}
+
+/// Enable or disable Discord Rich Presence.
+///
+/// When enabled, lazily spawns the IPC connection thread (if it isn't
+/// already running) so subsequent `discord-presence-update` events from
+/// `launch_game` / `force_close_game` start driving the presence. When
+/// disabled, flips the flag off and clears any active presence so the
+/// status line goes back to idle immediately.
+#[tauri::command]
+fn set_discord_presence_enabled(app: tauri::AppHandle, enabled: bool) -> Result<(), String> {
+    let state: tauri::State<'_, discord_presence::DiscordPresenceState> = app.state();
+    if enabled {
+        state.ensure_started();
+        state.set_enabled(true);
+    } else {
+        state.set_enabled(false);
+        state.clear();
+    }
+    Ok(())
 }
 
 /// L4: Toggle the OS-level auto-launch on boot. Wraps the
@@ -3210,7 +3231,8 @@ pub fn run() {
             host_p2p_sync,
             client_p2p_sync,
             get_internet_sync_status,
-            trigger_internet_sync])
+            trigger_internet_sync,
+            set_discord_presence_enabled])
         .on_window_event(|window, event| {
             // L2: intercept the user clicking the OS-level close
             // button (or the in-app WindowControls close button, since
@@ -3254,6 +3276,46 @@ pub fn run() {
             // Load .env file for development (production builds have
             // credentials baked in at compile time via option_env!()).
             config::load_env_file();
+
+            // ── Discord Rich Presence ──────────────────────────────────
+            // Manages the command sender + enabled flag. The connection
+            // thread itself is spawned lazily when the user enables the
+            // setting (see `set_discord_presence_enabled`). The frontend
+            // emits `discord-presence-update` on launch/exit and we
+            // translate that into thread commands here.
+            let discord_state = discord_presence::DiscordPresenceState::new();
+            app.manage(discord_state);
+
+            {
+                let handle = app.handle().clone();
+                let _ = handle.listen("discord-presence-update", {
+                    let handle = handle.clone();
+                    move |event| {
+                        #[derive(serde::Deserialize)]
+                        struct DiscordPresencePayload {
+                            state: String,
+                            #[serde(default)]
+                            game_name: Option<String>,
+                            #[serde(default)]
+                            started_at: u64,
+                        }
+                        let Ok(payload) =
+                            serde_json::from_str::<DiscordPresencePayload>(event.payload())
+                        else {
+                            return;
+                        };
+                        let state = handle.state::<discord_presence::DiscordPresenceState>();
+                        match payload.state.as_str() {
+                            "playing" => {
+                                if let Some(name) = payload.game_name {
+                                    state.set_playing(&name, payload.started_at);
+                                }
+                            }
+                            _ => state.clear(),
+                        }
+                    }
+                });
+            }
 
             // â”€â”€ Initialize the SQLite database â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
             // Phase 1â€“4 storage layer. opened & migrated before

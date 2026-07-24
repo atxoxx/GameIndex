@@ -355,9 +355,25 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
   const [discordRichPresence, setDiscordRichPresenceState] = useState<boolean>(
     () => lsGet(LS_DISCORD_PRESENCE) === "true",
   );
-  const setDiscordRichPresence = useCallback((next: boolean) => {
+  const setDiscordRichPresence = useCallback(async (next: boolean) => {
     setDiscordRichPresenceState(next);
     lsSet(LS_DISCORD_PRESENCE, String(next));
+    try {
+      await invoke("set_discord_presence_enabled", { enabled: next });
+    } catch (err) {
+      console.warn("[SettingsContext] set_discord_presence_enabled failed:", err);
+    }
+  }, []);
+
+  // Apply the persisted Discord Rich Presence choice on mount so the
+  // backend connection thread starts (or stays off) without requiring a
+  // manual toggle after every launch.
+  useEffect(() => {
+    invoke("set_discord_presence_enabled", {
+      enabled: lsGet(LS_DISCORD_PRESENCE) === "true",
+    }).catch((err) =>
+      console.warn("[SettingsContext] discord presence init failed:", err),
+    );
   }, []);
 
   const [historyCapDays, setHistoryCapDaysState] = useState<1 | 7 | 30>(() => {

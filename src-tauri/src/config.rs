@@ -90,3 +90,16 @@ pub fn get_opencritic_rapidapi_key() -> String {
         .or_else(|| std::env::var("OPENCRITIC_RAPIDAPI_KEY").ok())
         .unwrap_or_default()
 }
+
+/// Returns the Discord application (client) ID used for Rich Presence.
+///
+/// Priority: compile-time `DISCORD_CLIENT_ID` env var → runtime env var
+/// (loaded from `.env` by `load_env_file()`) → empty string. The ID is the
+/// only required value for local Rich Presence — no bot token or OAuth flow
+/// is needed.
+pub fn get_discord_client_id() -> String {
+    option_env!("DISCORD_CLIENT_ID")
+        .map(|s| s.to_string())
+        .or_else(|| std::env::var("DISCORD_CLIENT_ID").ok())
+        .unwrap_or_default()
+}
