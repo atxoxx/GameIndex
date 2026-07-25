@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useMemo, useRef } from "react";
 import { invoke } from "@tauri-apps/api/core";
 
 import { useToast } from "../context/ToastContext";
@@ -60,25 +60,30 @@ const THEME_PREVIEW_COLORS: Record<string, { bg: string; text: string; accent: s
  * staying saturated enough to survive the `#0007`-fading recipe the
  * SettingsContext uses to derive `--color-accent-glow`.
  */
-const ACCENT_PRESETS: { name: string; value: string }[] = [
+// `key` is a stable machine identifier; localized display names are
+// derived inside the component via `t("settings.accent.color" + key)`
+// because the i18n hook isn't available at module scope. Hex values
+// are stable so a `gamelib.accent_color` localStorage entry written
+// before the translation pass still maps to the matching tooltip.
+const ACCENT_PRESETS: { key: string; value: string }[] = [
   // Cool spectrum — magenta through green
-  { name: "Fuchsia", value: "#d946ef" },
-  { name: "Purple",  value: "#a855f7" },
-  { name: "Violet",  value: "#7c66ff" }, // (replaces the old "Purple" preset — same hex)
-  { name: "Indigo",  value: "#6366f1" },
-  { name: "Blue",    value: "#3b82f6" },
-  { name: "Sky",     value: "#0ea5e9" },
-  { name: "Cyan",    value: "#06b6d4" },
-  { name: "Teal",    value: "#14b8a6" },
-  { name: "Emerald", value: "#10b981" }, // (replaces the old "Green" preset — same hex)
-  { name: "Lime",    value: "#84cc16" },
+  { key: "Fuchsia", value: "#d946ef" },
+  { key: "Purple",  value: "#a855f7" },
+  { key: "Violet",  value: "#7c66ff" }, // (replaces the old "Purple" preset — same hex)
+  { key: "Indigo",  value: "#6366f1" },
+  { key: "Blue",    value: "#3b82f6" },
+  { key: "Sky",     value: "#0ea5e9" },
+  { key: "Cyan",    value: "#06b6d4" },
+  { key: "Teal",    value: "#14b8a6" },
+  { key: "Emerald", value: "#10b981" }, // (replaces the old "Green" preset — same hex)
+  { key: "Lime",    value: "#84cc16" },
   // Warm spectrum — yellow through pink
-  { name: "Yellow",  value: "#eab308" },
-  { name: "Amber",   value: "#f59e0b" },
-  { name: "Orange",  value: "#f97316" },
-  { name: "Rose",    value: "#f43f5e" },
-  { name: "Crimson", value: "#ef4444" },
-  { name: "Pink",    value: "#ec4899" },
+  { key: "Yellow",  value: "#eab308" },
+  { key: "Amber",   value: "#f59e0b" },
+  { key: "Orange",  value: "#f97316" },
+  { key: "Rose",    value: "#f43f5e" },
+  { key: "Crimson", value: "#ef4444" },
+  { key: "Pink",    value: "#ec4899" },
 ];
 
 // Lower-cased set so the "is this a custom pick?" branch below only
@@ -157,6 +162,18 @@ export default function SettingsPage() {
 
   const [activeSettingsTab, setActiveSettingsTab] = useState<SettingsTab>("appearance");
   const { language, setLanguage, languages, t } = useLanguage();
+
+  // Translate the color preset display names inside the component
+  // (the i18n hook isn't available at module scope, so the raw
+  // ACCENT_PRESETS array only carries stable `key`+`value` fields).
+  const accentSwatches = useMemo(
+    () =>
+      ACCENT_PRESETS.map((p) => ({
+        value: p.value,
+        name: t(`settings.accent.color${p.key}`),
+      })),
+    [t]
+  );
 
   // System summary (CPU / RAM / all GPUs) for the Hardware tab. Fetched
   // once on mount; the Rust side reads real hardware via WMI.
@@ -779,7 +796,7 @@ export default function SettingsPage() {
   }
 
   async function handleDisconnect() {
-    if (!confirm("Remove your Steam connection?")) return;
+    if (!confirm(t("settings.integrations.confirmRemove.steam"))) return;
     try {
       await invoke("steam_logout");
       setSteamAuth({ isAuthenticated: false });
@@ -920,7 +937,7 @@ export default function SettingsPage() {
   }
 
   async function handleEpicDisconnect() {
-    if (!confirm("Remove your Epic Games connection?")) return;
+    if (!confirm(t("settings.integrations.confirmRemove.epic"))) return;
     try {
       await invoke("epic_logout");
       setEpicAuth({ isAuthenticated: false });
@@ -1137,7 +1154,7 @@ export default function SettingsPage() {
   }
 
   async function handleGogDisconnect() {
-    if (!confirm("Remove your GOG Galaxy connection?")) return;
+    if (!confirm(t("settings.integrations.confirmRemove.gog"))) return;
     try {
       await invoke("gog_logout");
       setGogAuth({ isAuthenticated: false });
@@ -1415,7 +1432,7 @@ export default function SettingsPage() {
   }
 
   async function handleHumbleDisconnect() {
-    if (!confirm("Remove your Humble Bundle connection?")) return;
+    if (!confirm(t("settings.integrations.confirmRemove.humble"))) return;
     try {
       await invoke("humble_logout");
       setHumbleAuth({ isAuthenticated: false });
@@ -1624,13 +1641,13 @@ export default function SettingsPage() {
                 your theme. Resets to the theme's built-in accent when
                 cleared.
               </p>
-              <div className="accent-picker" role="group" aria-label="Preset accent colors">
+              <div className="accent-picker" role="group" aria-label={t("settings.aria.presetAccentColors")}>
                 {/* Render the 16 preset swatches from ACCENT_PRESETS so
                  *  adding a new color is a one-line constant edit.
                  *  Clicking an active swatch clears the override back
                  *  to the per-theme default so users can undo without
                  *  hunting for a "clear" button. */}
-                {ACCENT_PRESETS.map((swatch) => {
+                {accentSwatches.map((swatch) => {
                   // ACCENT_PRESETS values are lowercase by construction,
                   // so a single .toLowerCase() on the user-controlled
                   // accentColor is enough — no need to normalise both
@@ -1645,7 +1662,7 @@ export default function SettingsPage() {
                       onClick={() => {
                         setAccentColor(isActive ? null : swatch.value);
                       }}
-                      aria-label={`Use ${swatch.name} accent`}
+                      aria-label={t("settings.accent.useSwatch", { name: swatch.name })}
                       aria-pressed={isActive}
                       title={swatch.name}
                     />
@@ -1822,7 +1839,7 @@ export default function SettingsPage() {
                   Used everywhere temperatures are shown across the app —
                   the Activity page, session cards, and performance charts.
                 </p>
-                <div className="settings-segmented" role="group" aria-label="Temperature unit">
+                <div className="settings-segmented" role="group" aria-label={t("settings.aria.tempUnit")}>
                   <button
                     type="button"
                     className={tempUnit === "c" ? "active" : ""}
@@ -1924,8 +1941,8 @@ export default function SettingsPage() {
                       setSizeUnit(next);
                       showToast(
                         next === "gb"
-                          ? "Storage sizes now in GB (decimal)"
-                          : "Storage sizes now in GiB (binary)",
+                          ? t("settings.storage.sizeNowGB")
+                          : t("settings.storage.sizeNowGiB"),
                         "success"
                       );
                     }}
@@ -1951,7 +1968,7 @@ export default function SettingsPage() {
                   <div className="settings-system-summary__item">
                     <span className="settings-system-summary__label">{t("settingsPage.cpu")}</span>
                     <span className="settings-system-summary__value">
-                      {systemInfo?.cpuName ?? "Detecting…"}
+                      {systemInfo?.cpuName ?? t("settings.hardware.detecting")}
                     </span>
                   </div>
                   <div className="settings-system-summary__item">
@@ -2000,7 +2017,7 @@ export default function SettingsPage() {
                 <span className="integration-tile-icon"><SteamIcon /></span>
                 <div className="integration-tile-info">
                   <div className="integration-tile-name-row">
-                    <h3 className="integration-tile-name">Steam</h3>
+                    <h3 className="integration-tile-name">{t("settings.integration.steam")}</h3>
                     {steamAuth.isAuthenticated && (
                       <span className="integration-badge active">{t("settingsPage.connected")}</span>
                     )}
@@ -2127,8 +2144,7 @@ export default function SettingsPage() {
                 {syncResult && (
                   <div className={`sync-result ${syncResult.success ? "success" : "error"}`}>
                     {syncResult.success
-                      ? `✓ Synced ${syncResult.gamesSynced ?? 0} games · ${syncResult.playtimeUpdated ?? 0} playtime updates${syncResult.achievementsSynced ? ` · ${syncResult.achievementsSynced} games achievements synced` : ""}`
-                      : `✗ ${syncResult.error || "Sync failed"}`}
+                      ? `✓ Synced ${syncResult.gamesSynced ?? 0} games · ${syncResult.playtimeUpdated ?? 0} playtime updates${syncResult.achievementsSynced ? ` · ${syncResult.achievementsSynced} games achievements synced` : ""}`                       : `✗ ${syncResult.error || t("settings.sync.failed")}`}
                   </div>
                 )}
 
@@ -2221,7 +2237,7 @@ export default function SettingsPage() {
                 <span className="integration-tile-icon"><EpicIcon /></span>
                 <div className="integration-tile-info">
                   <div className="integration-tile-name-row">
-                    <h3 className="integration-tile-name">Epic Games</h3>
+                    <h3 className="integration-tile-name">{t("settings.integration.epicGames")}</h3>
                     {epicAuth.isAuthenticated && (
                       <span className="integration-badge active">{t("settingsPage.connected")}</span>
                     )}
@@ -2284,8 +2300,7 @@ export default function SettingsPage() {
                 {epicSyncResult && (
                   <div className={`sync-result ${epicSyncResult.success ? "success" : "error"}`}>
                     {epicSyncResult.success
-                      ? `✓ Imported ${epicSyncResult.gamesImported} games · ${epicSyncResult.gamesSkipped} skipped`
-                      : `✗ ${epicSyncResult.errors?.[0] || "Sync failed"}`}
+                      ? `✓ Imported ${epicSyncResult.gamesImported} games · ${epicSyncResult.gamesSkipped} skipped`                       : `✗ ${epicSyncResult.errors?.[0] || t("settings.sync.failed")}`}
                   </div>
                 )}
 
@@ -2316,7 +2331,7 @@ export default function SettingsPage() {
                 <span className="integration-tile-icon"><GogIcon /></span>
                 <div className="integration-tile-info">
                   <div className="integration-tile-name-row">
-                    <h3 className="integration-tile-name">GOG Galaxy</h3>
+                    <h3 className="integration-tile-name">{t("settings.integration.gogGalaxy")}</h3>
                     {gogAuth.isAuthenticated && (
                       <span className="integration-badge active">{t("settingsPage.connected")}</span>
                     )}
@@ -2367,8 +2382,7 @@ export default function SettingsPage() {
                 {gogSyncResult && (
                   <div className={`sync-result ${gogSyncResult.success ? "success" : "error"}`}>
                     {gogSyncResult.success
-                      ? `✓ Imported ${gogSyncResult.gamesImported} games${gogSyncResult.errors.length ? ` · ${gogSyncResult.errors.length} warning(s)` : ""}`
-                      : `✗ ${gogSyncResult.errors?.[0] || "Sync failed"}`}
+                      ? `✓ Imported ${gogSyncResult.gamesImported} games${gogSyncResult.errors.length ? ` · ${gogSyncResult.errors.length} warning(s)` : ""}`                       : `✗ ${gogSyncResult.errors?.[0] || t("settings.sync.failed")}`}
                   </div>
                 )}
 
@@ -2399,7 +2413,7 @@ export default function SettingsPage() {
                 <span className="integration-tile-icon"><HumbleIcon /></span>
                 <div className="integration-tile-info">
                   <div className="integration-tile-name-row">
-                    <h3 className="integration-tile-name">Humble Bundle</h3>
+                    <h3 className="integration-tile-name">{t("settings.integration.humbleBundle")}</h3>
                     {humbleAuth.isAuthenticated && (
                       <span className="integration-badge active">{t("settingsPage.connected")}</span>
                     )}
@@ -2449,8 +2463,7 @@ export default function SettingsPage() {
                 {humbleSyncResult && (
                   <div className={`sync-result ${humbleSyncResult.success ? "success" : "error"}`}>
                     {humbleSyncResult.success
-                      ? `✓ Imported ${humbleSyncResult.gamesImported} games${humbleSyncResult.errors.length ? ` · ${humbleSyncResult.errors.length} warning(s)` : ""}`
-                      : `✗ ${humbleSyncResult.errors?.[0] || "Sync failed"}`}
+                      ? `✓ Imported ${humbleSyncResult.gamesImported} games${humbleSyncResult.errors.length ? ` · ${humbleSyncResult.errors.length} warning(s)` : ""}`                       : `✗ ${humbleSyncResult.errors?.[0] || t("settings.sync.failed")}`}
                   </div>
                 )}
 
@@ -2527,9 +2540,9 @@ export default function SettingsPage() {
                 <span className="integration-tile-icon"><RockstarIcon /></span>
                 <div className="integration-tile-info">
                   <div className="integration-tile-name-row">
-                    <h3 className="integration-tile-name">Rockstar Games Launcher</h3>
+                    <h3 className="integration-tile-name">{t("settings.integration.rockstarGamesLauncher")}</h3>
                     {rockstarSyncResult?.clientInstalled && (
-                      <span className="integration-badge active">Detected</span>
+                      <span className="integration-badge active">{t("settings.integration.detected")}</span>
                     )}
                   </div>
                   <p className="integration-tile-desc">
@@ -2573,8 +2586,7 @@ export default function SettingsPage() {
                 {rockstarSyncResult && (
                   <div className={`sync-result ${rockstarSyncResult.success ? "success" : "error"}`}>
                     {rockstarSyncResult.success
-                      ? `✓ Scanned ${rockstarSyncResult.gamesImported} game(s)${rockstarSyncResult.errors.length ? ` · ${rockstarSyncResult.errors.length} warning(s)` : ""}`
-                      : `✗ ${rockstarSyncResult.errors?.[0] || "Scan failed"}`}
+                      ? `✓ Scanned ${rockstarSyncResult.gamesImported} game(s)${rockstarSyncResult.errors.length ? ` · ${rockstarSyncResult.errors.length} warning(s)` : ""}`                       : `✗ ${rockstarSyncResult.errors?.[0] || t("settings.scan.failed")}`}
                   </div>
                 )}
 
@@ -2594,9 +2606,9 @@ export default function SettingsPage() {
                 <span className="integration-tile-icon"><UplayIcon /></span>
                 <div className="integration-tile-info">
                   <div className="integration-tile-name-row">
-                    <h3 className="integration-tile-name">Ubisoft Connect</h3>
+                    <h3 className="integration-tile-name">{t("settings.integration.ubisoftConnect")}</h3>
                     {uplaySyncResult?.clientInstalled && (
-                      <span className="integration-badge active">Detected</span>
+                      <span className="integration-badge active">{t("settings.integration.detected")}</span>
                     )}
                   </div>
                   <p className="integration-tile-desc">
@@ -2641,8 +2653,7 @@ export default function SettingsPage() {
                 {uplaySyncResult && (
                   <div className={`sync-result ${uplaySyncResult.success ? "success" : "error"}`}>
                     {uplaySyncResult.success
-                      ? `✓ Scanned ${uplaySyncResult.gamesImported} game(s)${uplaySyncResult.errors.length ? ` · ${uplaySyncResult.errors.length} warning(s)` : ""}`
-                      : `✗ ${uplaySyncResult.errors?.[0] || "Sync failed"}`}
+                      ? `✓ Scanned ${uplaySyncResult.gamesImported} game(s)${uplaySyncResult.errors.length ? ` · ${uplaySyncResult.errors.length} warning(s)` : ""}`                       : `✗ ${uplaySyncResult.errors?.[0] || t("settings.sync.failed")}`}
                   </div>
                 )}
 
@@ -2655,14 +2666,14 @@ export default function SettingsPage() {
                 {/* Uplay settings toggles (Playnite parity) */}
                 <div className="humble-settings-grid">
                   <UplayToggle
-                    label="Import installed games"
-                    hint="Import games detected as installed via the Windows registry."
+                    label={t("settings.integrations.uplay.importInstalled")}
+                    hint={t("settings.integrations.uplay.importInstalledHint")}
                     checked={uplaySettings.importInstalledGames}
                     onChange={(v) => updateUplaySetting("importInstalledGames", v)}
                   />
                   <UplayToggle
-                    label="Import uninstalled games"
-                    hint="Import your full owned library (incl. uninstalled) from the Ubisoft Connect cache."
+                    label={t("settings.integrations.uplay.importUninstalled")}
+                    hint={t("settings.integrations.uplay.importUninstalledHint")}
                     checked={uplaySettings.importUninstalledGames}
                     onChange={(v) => updateUplaySetting("importUninstalledGames", v)}
                   />
@@ -2710,19 +2721,19 @@ export default function SettingsPage() {
                       setSyncIntervalMinutes(next);
                       showToast(
                         next === 0
-                          ? "Auto-sync disabled (manual only)"
+                          ? t("settings.sync.autoDisabled")
                           : `Auto-sync set to every ${next === 60 ? "hour" : next === 360 ? "6 hours" : next === 720 ? "12 hours" : next === 1440 ? "24 hours" : `${next} min`}`,
                         "success",
                       );
                     }}
                   >
-                    <option value={0}>Off — manual only</option>
-                    <option value={15}>Every 15 minutes</option>
-                    <option value={30}>Every 30 minutes</option>
-                    <option value={60}>Every hour</option>
-                    <option value={360}>Every 6 hours</option>
-                    <option value={720}>Every 12 hours</option>
-                    <option value={1440}>Every 24 hours</option>
+                    <option value={0}>{t("settings.autosync.off")}</option>
+                    <option value={15}>{t("settings.autosync.15m")}</option>
+                    <option value={30}>{t("settings.autosync.30m")}</option>
+                    <option value={60}>{t("settings.autosync.1h")}</option>
+                    <option value={360}>{t("settings.autosync.6h")}</option>
+                    <option value={720}>{t("settings.autosync.12h")}</option>
+                    <option value={1440}>{t("settings.autosync.24h")}</option>
                   </select>
                 </div>
               </div>
@@ -2749,10 +2760,10 @@ export default function SettingsPage() {
                       setHistoryCapDays(next);
                       showToast(
                         next === 1
-                          ? "History will roll off after 1 day"
+                          ? t("settings.history.rollsOffOneDay")
                           : next === 7
-                          ? "History will roll off after 1 week"
-                          : "History will roll off after 1 month",
+                          ? t("settings.history.rollsOffOneWeek")
+                          : t("settings.history.rollsOffOneMonth"),
                         "info",
                       );
                     }}
@@ -2778,8 +2789,8 @@ export default function SettingsPage() {
                     setHideAchievementProgress(e.target.checked);
                     showToast(
                       e.target.checked
-                        ? "Achievement progress hidden — no spoilers"
-                        : "Achievement progress visible",
+                        ? t("settings.achievements.hidden")
+                        : t("settings.achievements.visible"),
                       "info",
                     );
                   }}
@@ -2812,8 +2823,8 @@ export default function SettingsPage() {
                     });
                     showToast(
                       e.target.checked
-                        ? "Local achievement tracking enabled"
-                        : "Local achievement tracking disabled",
+                        ? t("settings.achievements.localEnabled")
+                        : t("settings.achievements.localDisabled"),
                       "info",
                     );
                   }}
@@ -2845,8 +2856,8 @@ export default function SettingsPage() {
                     setDiscordRichPresence(e.target.checked);
                     showToast(
                       e.target.checked
-                        ? "Discord rich presence will broadcast while playing"
-                        : "Discord presence disabled",
+                        ? t("settings.discord.enabled")
+                        : t("settings.discord.disabled"),
                       "info",
                     );
                   }}
@@ -2877,7 +2888,7 @@ export default function SettingsPage() {
                 <p className="settings-section-desc">
                   Where quick-added magnet links and torrent URLs are saved.
                   When set, the Downloads page skips the folder picker unless
-                  "Always ask" is enabled.
+                  {t("settings.downloads.alwaysAskEnabledNote")}
                 </p>
               </div>
             </header>
@@ -2900,11 +2911,11 @@ export default function SettingsPage() {
                   className={`dl-save-path-text${defaultDownloadPath ? "" : " placeholder"}`}
                   title={defaultDownloadPath}
                 >
-                  {defaultDownloadPath || "No default folder — downloads will always prompt"}
+                  {defaultDownloadPath || t("settings.downloads.noFolderPrompt")}
                 </span>
                 <div style={{ display: "flex", gap: "var(--space-xs)", flexShrink: 0 }}>
                   <Button variant="secondary" size="sm" onClick={handlePickDefaultPath}>
-                    {defaultDownloadPath ? "Change" : "Choose…"}
+                    {defaultDownloadPath ? t("common.change") : t("settings.downloads.choose")}
                   </Button>
                   {defaultDownloadPath && (
                     <Button
@@ -2936,7 +2947,7 @@ export default function SettingsPage() {
                     localStorage.setItem("gamelib-download-always-ask-path", String(e.target.checked));
                   }}
                 />
-                <span>Always ask where to save (ignore the default folder)</span>
+                <span>{t("settings.downloads.askSaveLocation")}</span>
               </label>
             </div>
           </section>
@@ -2963,7 +2974,7 @@ export default function SettingsPage() {
                     localStorage.setItem("gamelib-download-notify-complete", String(e.target.checked));
                   }}
                 />
-                <span>Show an in-app toast when a download completes</span>
+                <span>{t("settings.downloads.showToast")}</span>
               </label>
 
               <label className="settings-checkbox-label" style={{ display: "flex", alignItems: "center", gap: "8px", cursor: "pointer", opacity: notifyComplete ? 1 : 0.5 }}>
@@ -2983,7 +2994,7 @@ export default function SettingsPage() {
                     }
                   }}
                 />
-                <span>Also send a desktop notification</span>
+                <span>{t("settings.downloads.desktopNotification")}</span>
               </label>
             </div>
           </section>
@@ -3010,7 +3021,7 @@ export default function SettingsPage() {
                       void saveAndApplyLimits(e.target.checked, dlLimitValue, ulLimitEnabled, ulLimitValue, disableUpload);
                     }}
                   />
-                  <span>Limit download speed</span>
+                  <span>{t("settings.downloads.limitDownload")}</span>
                 </label>
                 {dlLimitEnabled && (
                   <div style={{ display: "flex", alignItems: "center", gap: "var(--space-xs)" }}>
@@ -3025,9 +3036,9 @@ export default function SettingsPage() {
                         setDlLimitValue(val);
                         void saveAndApplyLimits(dlLimitEnabled, val, ulLimitEnabled, ulLimitValue, disableUpload);
                       }}
-                      placeholder="Speed"
+                      placeholder={t("settings.downloads.speedPlaceholder")}
                     />
-                    <span style={{ fontSize: "var(--font-size-sm)", color: "var(--color-text-secondary)" }}>KB/s</span>
+                    <span style={{ fontSize: "var(--font-size-sm)", color: "var(--color-text-secondary)" }}>{t("settings.downloads.kbps")}</span>
                   </div>
                 )}
               </div>
@@ -3043,7 +3054,7 @@ export default function SettingsPage() {
                       void saveAndApplyLimits(dlLimitEnabled, dlLimitValue, e.target.checked, ulLimitValue, disableUpload);
                     }}
                   />
-                  <span>Limit upload speed</span>
+                  <span>{t("settings.downloads.limitUpload")}</span>
                 </label>
                 {ulLimitEnabled && !disableUpload && (
                   <div style={{ display: "flex", alignItems: "center", gap: "var(--space-xs)" }}>
@@ -3058,9 +3069,9 @@ export default function SettingsPage() {
                         setUlLimitValue(val);
                         void saveAndApplyLimits(dlLimitEnabled, dlLimitValue, ulLimitEnabled, val, disableUpload);
                       }}
-                      placeholder="Speed"
+                      placeholder={t("settings.downloads.speedPlaceholder")}
                     />
-                    <span style={{ fontSize: "var(--font-size-sm)", color: "var(--color-text-secondary)" }}>KB/s</span>
+                    <span style={{ fontSize: "var(--font-size-sm)", color: "var(--color-text-secondary)" }}>{t("settings.downloads.kbps")}</span>
                   </div>
                 )}
               </div>
@@ -3075,7 +3086,7 @@ export default function SettingsPage() {
                       void saveAndApplyLimits(dlLimitEnabled, dlLimitValue, ulLimitEnabled, ulLimitValue, e.target.checked);
                     }}
                   />
-                  <span>Disable upload completely (do not seed)</span>
+                  <span>{t("settings.downloads.disableUpload")}</span>
                 </label>
             </div>
           </div>
@@ -3100,7 +3111,7 @@ export default function SettingsPage() {
               <textarea
                 className="settings-input"
                 rows={5}
-                placeholder="example-tracker.com&#10;suspicious-mirror.net"
+                placeholder={t("settings.blockedDomainsPlaceholder")}
                 value={blockedSourceDomains.join("\n")}
                 onChange={(e) => {
                   setBlockedSourceDomains(
@@ -3146,7 +3157,7 @@ export default function SettingsPage() {
             
             <div className="settings-card" style={{ padding: "var(--space-md)", display: "flex", flexDirection: "column", gap: "var(--space-md)" }}>
               <div className="settings-limit-row" style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
-                <label className="settings-label" style={{ fontSize: "var(--font-size-sm)", fontWeight: "var(--font-weight-semibold)" }}>Debrid Provider</label>
+                <label className="settings-label" style={{ fontSize: "var(--font-size-sm)", fontWeight: "var(--font-weight-semibold)" }}>{t("settings.debrid.provider")}</label>
                 <select
                   value={debridProvider}
                   onChange={(e) => {
@@ -3165,16 +3176,16 @@ export default function SettingsPage() {
                     maxWidth: "320px"
                   }}
                 >
-                  <option value="none">Disabled</option>
-                  <option value="alldebrid">AllDebrid</option>
-                  <option value="torbox">TorBox</option>
+                  <option value="none">{t("settings.debrid.disabled")}</option>
+                  <option value="alldebrid">{t("settings.debrid.allDebrid")}</option>
+                  <option value="torbox">{t("settings.debrid.torBox")}</option>
                 </select>
               </div>
 
               {debridProvider !== "none" && (
                 <>
                   <div className="settings-limit-row" style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
-                    <label className="settings-label" style={{ fontSize: "var(--font-size-sm)", fontWeight: "var(--font-weight-semibold)" }}>API Key / Token</label>
+                    <label className="settings-label" style={{ fontSize: "var(--font-size-sm)", fontWeight: "var(--font-weight-semibold)" }}>{t("settings.debrid.apiKeyToken")}</label>
                     <div style={{ display: "flex", gap: "8px", maxWidth: "480px" }}>
                       <input
                         type="password"
@@ -3183,7 +3194,7 @@ export default function SettingsPage() {
                           setDebridApiKey(e.target.value);
                           localStorage.setItem("gamelib-debrid-apikey", e.target.value);
                         }}
-                        placeholder="Paste your API key here..."
+                        placeholder={t("settings.debrid.apiKeyPlaceholder")}
                         style={{
                           flex: 1,
                           padding: "8px 12px",
@@ -3199,7 +3210,7 @@ export default function SettingsPage() {
                         onClick={handleTestDebrid}
                         disabled={testingDebrid || !debridApiKey}
                       >
-                        {testingDebrid ? "Testing..." : "Test Connection"}
+                        {testingDebrid ? t("settings.debrid.testing") : t("settings.debrid.testConnection")}
                       </Button>
                     </div>
                   </div>
@@ -3283,8 +3294,8 @@ export default function SettingsPage() {
                     void setCloseToTray(e.target.checked);
                     showToast(
                       e.target.checked
-                        ? "Closing will now minimize to tray"
-                        : "Closing will now exit GameIndex",
+                        ? t("settings.launcher.closeMinimize")
+                        : t("settings.launcher.closeExit"),
                       "info",
                     );
                   }}
@@ -3313,8 +3324,8 @@ export default function SettingsPage() {
                     void setMinimizeOnLaunch(e.target.checked);
                     showToast(
                       e.target.checked
-                        ? "GameIndex will minimize when you launch a game"
-                        : "GameIndex will stay open while you play",
+                        ? t("settings.launcher.minimizeOnLaunch")
+                        : t("settings.launcher.stayOpenOnLaunch"),
                       "info",
                     );
                   }}
@@ -3344,8 +3355,8 @@ export default function SettingsPage() {
                     const target = e.target.checked;
                     showToast(
                       target
-                        ? "Enabling auto-launch on boot…"
-                        : "Disabling auto-launch…",
+                        ? t("settings.launcher.enablingAutoLaunch")
+                        : t("settings.launcher.disablingAutoLaunch"),
                       "info",
                     );
                     setAutoStartEnabled(target).catch((err) => {
