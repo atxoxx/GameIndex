@@ -3513,8 +3513,8 @@ export default function FriendsPage() {
 
                   {sessionView === "agenda" && (
                     <div className="agenda-mode-toggle">
-                      <button type="button" className={`agenda-mode-btn${agendaMode === "grid" ? " active" : ""}`} onClick={() => setAgendaMode("grid")}>📅 Calendar</button>
-                      <button type="button" className={`agenda-mode-btn${agendaMode === "list" ? " active" : ""}`} onClick={() => setAgendaMode("list")}>☰ List</button>
+                      <button type="button" className={`agenda-mode-btn${agendaMode === "grid" ? " active" : ""}`} onClick={() => setAgendaMode("grid")}>{t("friendsPage.agendaCalendar")}</button>
+                      <button type="button" className={`agenda-mode-btn${agendaMode === "list" ? " active" : ""}`} onClick={() => setAgendaMode("list")}>{t("friendsPage.agendaList")}</button>
                     </div>
                   )}
 
@@ -3716,7 +3716,7 @@ export default function FriendsPage() {
                                                 <span className="calendar-chip-name">{s.gameName}</span>
                                               </div>
                                             ))}
-                                            {daySessions.length > 3 && <div className="calendar-chip-more">+{daySessions.length - 3} more</div>}
+                                            {daySessions.length > 3 && <div className="calendar-chip-more">{t("friendsPage.calendarMore", { count: daySessions.length - 3 })}</div>}
                                           </div>
                                         )}
                                         {isExpanded && (
@@ -3781,7 +3781,7 @@ export default function FriendsPage() {
 
                   return (
                     <>
-                      <h3 className="friends-list-title">Friend Recommendations ({activeRecs.length})</h3>
+                      <h3 className="friends-list-title">{t("friendsPage.friendRecommendations", { count: activeRecs.length })}</h3>
 
                       {activeRecs.length > 0 && (
                         <div className="compare-filter-chips rec-filter-chips">
@@ -3838,7 +3838,7 @@ export default function FriendsPage() {
                                 <div className="rec-meta">
                                   <span className="rec-game">{rec.gameName}</span>
                                   <span className="rec-author">
-                                    Recommended by <strong>{rec.recommendedBy}</strong> to <em>{rec.recommendedTo}</em>
+                                    {t("friendsPage.recommendedByTo", { by: rec.recommendedBy, to: rec.recommendedTo })}
                                   </span>
                                 </div>
                                 <div className="rec-header-actions">
@@ -3885,13 +3885,13 @@ export default function FriendsPage() {
                               onClick={() => handleToggleWantToPlay(rec.id)}
                               title={t("friendsPage.addToWantToPlay")}
                             >
-                              {rec.wantToPlay ? "✓ Want to Play" : "+ Want to Play"}
+                              {rec.wantToPlay ? t("friendsPage.wantToPlayAlready") : t("friendsPage.wantToPlayAdd")}
                             </button>
                           </div>
 
                           {/* Threaded comments */}
                           <div className="rec-comments-section">
-                            <h4 className="rec-comments-title">Comments ({rec.comments.length})</h4>
+                            <h4 className="rec-comments-title">{t("friendsPage.commentsCount", { count: rec.comments.length })}</h4>
                             {rec.comments.length > 0 && (
                               <div className="rec-comments-list">
                                 {rec.comments.map((comment) => (
@@ -4048,7 +4048,7 @@ export default function FriendsPage() {
 
                   return (
                     <>
-                      <h3 className="friends-list-title">Shared From Wishlists ({activeSugs.length})</h3>
+                      <h3 className="friends-list-title">{t("friendsPage.sharedFromWishlists", { count: activeSugs.length })}</h3>
 
                       {activeSugs.length > 0 && (
                         <div className="compare-filter-chips rec-filter-chips">
@@ -4200,12 +4200,12 @@ export default function FriendsPage() {
                                   disabled={alreadyWishlisted}
                                   title={alreadyWishlisted ? t("friendsPage.alreadyInWishlist") : t("friendsPage.addToMyWishlist")}
                                 >
-                                  {alreadyWishlisted ? "✓ In Wishlist" : "+ Wishlist"}
+                                  {alreadyWishlisted ? t("friendsPage.inWishlistShort") : t("friendsPage.addToWishlistShort")}
                                 </button>
                               </div>
 
                               <div className="rec-comments-section">
-                                <h4 className="rec-comments-title">Comments ({sug.comments.length})</h4>
+                                <h4 className="rec-comments-title">{t("friendsPage.commentsCount", { count: sug.comments.length })}</h4>
                                 {sug.comments.length > 0 && (
                                   <div className="rec-comments-list">
                                     {sug.comments.map((comment) => (
@@ -4275,7 +4275,7 @@ export default function FriendsPage() {
                         onChange={(e) => setSuggestionGameId(e.target.value)}
                         required
                       >
-                        <option value="">Select a wishlisted game…</option>
+                        <option value="">{t("friends.selectWishlistedGame")}</option>
                         {wishlist.map((w) => (
                           <option key={w.slug} value={w.slug}>
                             {w.name}
@@ -4347,13 +4347,11 @@ export default function FriendsPage() {
 
               {compareFriend && (
                 <div className="compare-selector-badges">
-                  <div className="compare-match-score-badge">
-                    <span>🎯 Match</span>
-                    <strong>{matchScore}%</strong>
+                  <div className="compare-match-score-badge"><span>{t("friendsPage.matchLabel")}</span>
+                      <strong>{matchScore}%</strong>
                   </div>
-                  <div className="compare-match-score-badge compat">
-                    <span>🤝 Compatibility</span>
-                    <strong>{compatibilityScore}%</strong>
+                  <div className="compare-match-score-badge compat"><span>{t("friendsPage.compatibilityLabel")}</span>
+                      <strong>{compatibilityScore}%</strong>
                   </div>
                   {comparisonData.length > 0 && (
                     <div
@@ -4362,7 +4360,7 @@ export default function FriendsPage() {
                         comparisonData.some((i) => i.estimated)                          ? t("friendsPage.friendNoSharedData")
                           : t("friendsPage.basedOnRealSharedData")}
                     >
-                      {comparisonData.some((i) => i.estimated) ? "⚠ Estimated" : "✓ Real data"}
+                      {comparisonData.some((i) => i.estimated) ? t("friendsPage.dataEstimated") : t("friendsPage.dataReal")}
                     </div>
                   )}
                 </div>
@@ -4392,7 +4390,7 @@ export default function FriendsPage() {
                       </span>
                     )}
                   </div>
-                  <div className="compare-vs-badge">VS</div>
+                  <div className="compare-vs-badge">{t("friendsPage.compareVs")}</div>
                   <div className="compare-user-profile right">
                     {renderAvatar(compareFriend.avatar, compareFriend.name, "compare-user-avatar friend")}
                     <span className="compare-user-name">{compareFriend.name}</span>
@@ -4623,7 +4621,7 @@ export default function FriendsPage() {
                     </div>
 
                     <div className="compare-library-title-row">
-                      <span className="compare-count">{sortedCompareData.length} games shown</span>
+                      <span className="compare-count">{t("friendsPage.gamesShownCount", { count: sortedCompareData.length })}</span>
                     </div>
 
                     {sortedCompareData.length === 0 ? (
@@ -4798,7 +4796,7 @@ export default function FriendsPage() {
                           <span className="dot left" /> Shared games you've played more
                         </h4>
                         {compareInsights.iPlayMore.length === 0 ? (
-                          <p className="compare-insight-empty">No shared games where you're ahead — yet.</p>
+                          <p className="compare-insight-empty">{t("friendsPage.noAheadGamesMessage")}</p>
                         ) : (
                           <ul className="compare-insight-list">
                             {compareInsights.iPlayMore.map((g) => (
@@ -4855,7 +4853,7 @@ export default function FriendsPage() {
                 <h3 className="profile-name-big">{profile.name}</h3>
                 <p className="profile-status-big">"{profile.status}"</p>
                 <p className="profile-last-active-big" title={t("friendsPage.lastOutboxTimeTitle")}>
-                  🟢 Last active: {profile.lastPublished ? formatLastSeen(profile.lastPublished, t) : t("friendsPage.formatJustNow")}
+                  {t("friendsPage.lastActiveWithTime", { time: profile.lastPublished ? formatLastSeen(profile.lastPublished, t) : t("friendsPage.formatJustNow") })}
                 </p>
                 {profile.region && (
                   <p className="profile-region-big">📍 {profile.region}</p>

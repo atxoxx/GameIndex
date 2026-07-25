@@ -1882,7 +1882,7 @@ export default function SettingsPage() {
                     }}
                     aria-label={t("settings.label.gpu")}
                   >
-                    <option value="">— Select a GPU —</option>
+                    <option value="">{t("settings.gpuPlaceholder")}</option>
                     {availableGpus.map((gpu) => (
                       <option key={gpu.id} value={gpu.id}>
                         {gpu.name} ({gpu.vramMb} MB)
@@ -2306,7 +2306,7 @@ export default function SettingsPage() {
 
                 {epicAuth.lastSync && (
                   <p className="sync-result-time">
-                    Last sync: {new Date(epicAuth.lastSync * 1000).toLocaleString()}
+                    {t("settingsPage.lastSync", { time: new Date(epicAuth.lastSync * 1000).toLocaleString() })}
                   </p>
                 )}
               </div>
@@ -2388,7 +2388,7 @@ export default function SettingsPage() {
 
                 {gogAuth.lastSync && (
                   <p className="sync-result-time">
-                    Last sync: {new Date(gogAuth.lastSync * 1000).toLocaleString()}
+                    {t("settingsPage.lastSync", { time: new Date(gogAuth.lastSync * 1000).toLocaleString() })}
                   </p>
                 )}
               </div>
@@ -2469,7 +2469,7 @@ export default function SettingsPage() {
 
                 {humbleAuth.lastSync && (
                   <p className="sync-result-time">
-                    Last sync: {new Date(humbleAuth.lastSync * 1000).toLocaleString()}
+                    {t("settingsPage.lastSync", { time: new Date(humbleAuth.lastSync * 1000).toLocaleString() })}
                   </p>
                 )}
 
@@ -2592,7 +2592,7 @@ export default function SettingsPage() {
 
                 {rockstarSyncResult?.lastSync ? (
                   <p className="sync-result-time">
-                    Last scan: {new Date(rockstarSyncResult.lastSync * 1000).toLocaleString()}
+                    {t("settingsPage.lastScan", { time: new Date(rockstarSyncResult.lastSync * 1000).toLocaleString() })}
                   </p>
                 ) : null}
               </div>
@@ -2659,7 +2659,7 @@ export default function SettingsPage() {
 
                 {uplaySyncResult?.lastSync ? (
                   <p className="sync-result-time">
-                    Last sync: {new Date(uplaySyncResult.lastSync * 1000).toLocaleString()}
+                    {t("settingsPage.lastSync", { time: new Date(uplaySyncResult.lastSync * 1000).toLocaleString() })}
                   </p>
                 ) : null}
 
@@ -2768,9 +2768,9 @@ export default function SettingsPage() {
                       );
                     }}
                   >
-                    <option value={1}>1 day</option>
-                    <option value={7}>1 week</option>
-                    <option value={30}>1 month</option>
+                    <option value={1}>{t("settingsPage.retention1Day")}</option>
+                    <option value={7}>{t("settingsPage.retention1Week")}</option>
+                    <option value={30}>{t("settingsPage.retention1Month")}</option>
                   </select>
                 </div>
               </div>
@@ -3216,8 +3216,8 @@ export default function SettingsPage() {
                   </div>
 
                   <p className="settings-help-text" style={{ marginTop: "var(--space-xs)", fontSize: "var(--font-size-xs)", color: "var(--color-text-muted)" }}>
-                    Debrid is used <strong>only</strong> to unrestrict direct download links. Magnet URIs
-                    and <code>.torrent</code> file URLs always go through the P2P torrent engine, regardless
+                    {t("settingsPage.debridBefore")}{" "}<strong>{t("settingsPage.debridOnly")}</strong>{" "}{t("settingsPage.debridMiddle")}
+                    {" "}<code>.torrent</code>{" "}{t("settingsPage.debridAfter")}
                     of this setting.
                   </p>
                 </>
@@ -3267,17 +3267,17 @@ export default function SettingsPage() {
                       );
                     }}
                   >
-                    <option value="home">✨ Home</option>
-                    <option value="library">📚 Library</option>
-                    <option value="store">🏬 Store</option>
-                    <option value="wishlist">❤️ Wishlist</option>
-                    <option value="deals">💰 Deals</option>
-                    <option value="activity">📊 Activity</option>
-                    <option value="achievements">🏆 Achievements</option>
-                    <option value="downloads">⬇️ Downloads</option>
-                    <option value="storage">💾 Storage</option>
-                    <option value="news">📰 News</option>
-                    <option value="community">📊 Stats</option>
+                    <option value="home">{t("nav.home")}</option>
+                    <option value="library">{t("nav.library")}</option>
+                    <option value="store">{t("nav.store")}</option>
+                    <option value="wishlist">{t("nav.wishlist")}</option>
+                    <option value="deals">{t("nav.deals")}</option>
+                    <option value="activity">{t("nav.activity")}</option>
+                    <option value="achievements">{t("nav.achievements")}</option>
+                    <option value="downloads">{t("nav.downloads")}</option>
+                    <option value="storage">{t("nav.storage")}</option>
+                    <option value="news">{t("nav.news")}</option>
+                    <option value="community">{t("nav.community")}</option>
                   </select>
                 </div>
               </div>
