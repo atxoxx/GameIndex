@@ -1753,3 +1753,608 @@
     transition: none;
   }
 }
+
+/* ── 11. Hardware tab — redesigned control-panel layout ─────────── */
+/*
+ * The hardware tab used to be a vertical stack of identical
+ * `.settings-hardware-control-card` rectangles. That read as a list,
+ * not as a coherent "control panel". This section groups the
+ * controls into themed sub-sections (Telemetry / GPU / Detected /
+ * Display preferences), punctuates the master monitoring toggle with
+ * a hero card, and turns the system summary into a row of stat tiles.
+ *
+ * New class prefix: `settings-hw-*` to keep the rules cleanly
+ * separated from the legacy `.settings-*` utilities above.
+ */
+
+/* Subsection — a band inside the hardware tab that groups related
+ * controls. The small icon + uppercase title gives the user a quick
+ * scannable cue before they dive into the controls. */
+.settings-hw-subsection {
+  margin-top: var(--space-xl);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-md);
+}
+
+.settings-hw-subsection:first-of-type {
+  margin-top: var(--space-lg);
+}
+
+.settings-hw-subsection-header {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  padding-bottom: var(--space-xs);
+  border-bottom: 1px solid var(--color-border);
+}
+
+.settings-hw-subsection-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  border-radius: var(--radius-sm);
+  background: color-mix(in srgb, var(--color-accent) 12%, transparent);
+  color: var(--color-accent);
+  border: 1px solid color-mix(in srgb, var(--color-accent) 22%, transparent);
+  flex-shrink: 0;
+}
+
+.settings-hw-subsection-icon svg {
+  width: 12px;
+  height: 12px;
+}
+
+.settings-hw-subsection-title {
+  font-size: 11px;
+  font-weight: var(--font-weight-bold);
+  color: var(--color-text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.7px;
+  margin: 0;
+  flex: 1;
+  min-width: 0;
+}
+
+/* 2-column responsive grid for paired controls (sampling interval +
+ * temperature unit, etc.). Collapses to one column on narrow
+ * viewports so the cards never stack awkwardly. */
+.settings-hw-grid-2 {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: var(--space-md);
+}
+
+/* 3-column responsive grid for stat tiles. Three full tiles in the
+ * 940px settings container, two on tablet, one on phone. */
+.settings-hw-grid-3 {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: var(--space-md);
+}
+
+/* Hero card for the master hardware-monitoring toggle. Bigger,
+ * accent-tinted, with a left rail that signals "this is the main
+ * control of the tab". Visually anchors the user the same way theme
+ * cards anchor the Appearance section. */
+.settings-hw-hero {
+  display: flex;
+  align-items: center;
+  gap: var(--space-lg);
+  padding: var(--space-lg) var(--space-xl);
+  background: linear-gradient(
+    135deg,
+    color-mix(in srgb, var(--color-accent) 8%, var(--color-bg-secondary)),
+    var(--color-bg-secondary)
+  );
+  border: 1px solid color-mix(in srgb, var(--color-accent) 22%, var(--color-border));
+  border-radius: var(--radius-md);
+  position: relative;
+  overflow: hidden;
+  cursor: pointer;
+  transition: border-color var(--transition-fast),
+    background var(--transition-fast),
+    box-shadow var(--transition-fast);
+}
+
+.settings-hw-hero:hover {
+  border-color: color-mix(in srgb, var(--color-accent) 38%, var(--color-border));
+}
+
+/* Left "rail" — a thin accent gradient strip that visually anchors
+ * the hero card. Pure decoration, no functional content. */
+.settings-hw-hero::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 4px;
+  background: linear-gradient(
+    180deg,
+    var(--color-accent),
+    var(--color-accent-hover)
+  );
+}
+
+/* When monitoring is on, ramp the gradient + outline so the
+ * active state reads as "engaged" rather than just "selected". */
+.settings-hw-hero[data-on="true"] {
+  background: linear-gradient(
+    135deg,
+    color-mix(in srgb, var(--color-accent) 16%, var(--color-bg-secondary)),
+    var(--color-bg-secondary)
+  );
+  border-color: color-mix(in srgb, var(--color-accent) 42%, var(--color-border));
+  box-shadow:
+    0 0 0 1px color-mix(in srgb, var(--color-accent) 35%, transparent),
+    0 6px 20px color-mix(in srgb, var(--color-accent) 18%, transparent);
+}
+
+.settings-hw-hero-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  border-radius: var(--radius-md);
+  background: color-mix(in srgb, var(--color-accent) 16%, transparent);
+  color: var(--color-accent);
+  border: 1px solid color-mix(in srgb, var(--color-accent) 32%, transparent);
+  flex-shrink: 0;
+  box-shadow: 0 0 14px var(--color-accent-glow);
+  position: relative;
+  z-index: 1;
+}
+
+.settings-hw-hero-icon svg {
+  width: 22px;
+  height: 22px;
+}
+
+.settings-hw-hero-body {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.settings-hw-hero-title-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  flex-wrap: wrap;
+}
+
+.settings-hw-hero-title {
+  font-size: var(--font-size-md);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text-primary);
+  margin: 0;
+  line-height: 1.3;
+}
+
+/* Status pill — small uppercase badge to the right of the title
+ * showing whether monitoring is currently engaged. */
+.settings-hw-hero-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 8px;
+  font-size: 10px;
+  font-weight: var(--font-weight-bold);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  border-radius: var(--radius-full);
+  font-variant-numeric: tabular-nums;
+}
+
+.settings-hw-hero-status[data-on="true"] {
+  background: color-mix(in srgb, var(--color-success) 14%, transparent);
+  color: var(--color-success);
+  border: 1px solid color-mix(in srgb, var(--color-success) 35%, transparent);
+}
+
+.settings-hw-hero-status[data-on="true"]::before {
+  content: "";
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--color-success);
+  box-shadow: 0 0 6px var(--color-success);
+  flex-shrink: 0;
+  /* Slow pulse so the "engaged" state reads as alive — only when
+   * monitoring is on. Disabled via prefers-reduced-motion below. */
+  animation: settingsHeroPulse 2.4s ease-in-out infinite;
+}
+
+@keyframes settingsHeroPulse {
+  0%, 100% { opacity: 0.85; }
+  50% {
+    opacity: 1;
+    box-shadow: 0 0 10px var(--color-success);
+  }
+}
+
+.settings-hw-hero-status[data-on="false"] {
+  background: color-mix(in srgb, var(--color-text-muted) 14%, transparent);
+  color: var(--color-text-muted);
+  border: 1px solid var(--color-border);
+}
+
+.settings-hw-hero-desc {
+  font-size: var(--font-size-xs);
+  color: var(--color-text-secondary);
+  margin: 0;
+  line-height: 1.55;
+  max-width: 56ch;
+}
+
+/* Big pill toggle. Pure CSS (no checkbox) so the size and proportions
+ * match the hero card. Toggled via `data-on` so JSX only needs to
+ * thread one attribute. */
+.settings-hw-toggle {
+  position: relative;
+  display: inline-block;
+  width: 52px;
+  height: 28px;
+  flex-shrink: 0;
+  cursor: pointer;
+  background: var(--color-bg-tertiary);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-full);
+  padding: 0;
+  transition: background var(--transition-fast),
+    border-color var(--transition-fast);
+}
+
+.settings-hw-toggle::after {
+  content: "";
+  position: absolute;
+  top: 3px;
+  left: 3px;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: var(--color-text-secondary);
+  transition: transform var(--transition-fast),
+    background var(--transition-fast);
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3);
+}
+
+.settings-hw-toggle[data-on="true"] {
+  background: var(--color-accent);
+  border-color: var(--color-accent);
+  box-shadow: 0 0 14px var(--color-accent-glow);
+}
+
+.settings-hw-toggle[data-on="true"]::after {
+  transform: translateX(24px);
+  background: #fff;
+  box-shadow: 0 2px 6px color-mix(in srgb, var(--color-accent) 35%, transparent);
+}
+
+.settings-hw-toggle:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 3px;
+}
+
+/* Stat tile — small dashboard tile used in the Detected Hardware
+ * subsection and inside the active-GPU card. Icon on the left,
+ * label + big value + sub-line on the right. */
+.settings-hw-stat-tile {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-md);
+  padding: var(--space-lg);
+  background: var(--color-bg-secondary);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  transition: border-color var(--transition-fast),
+    background var(--transition-fast),
+    transform var(--transition-fast);
+  position: relative;
+  overflow: hidden;
+  min-width: 0;
+}
+
+.settings-hw-stat-tile:hover {
+  border-color: var(--color-border-light);
+}
+
+.settings-hw-stat-tile-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  border-radius: var(--radius-md);
+  background: color-mix(in srgb, var(--color-accent) 12%, transparent);
+  color: var(--color-accent);
+  border: 1px solid color-mix(in srgb, var(--color-accent) 22%, transparent);
+  flex-shrink: 0;
+}
+
+.settings-hw-stat-tile-icon svg {
+  width: 18px;
+  height: 18px;
+}
+
+/* Per-resource icon tinting so the three stat tiles read as visibly
+ * distinct at a glance. Each color is consistent with the GamingStat
+ * chart palette used elsewhere in the app. */
+.settings-hw-stat-tile-icon--cpu {
+  color: #38bdf8;
+  background: color-mix(in srgb, #38bdf8 12%, transparent);
+  border-color: color-mix(in srgb, #38bdf8 28%, transparent);
+}
+
+.settings-hw-stat-tile-icon--memory {
+  color: #c084fc;
+  background: color-mix(in srgb, #c084fc 12%, transparent);
+  border-color: color-mix(in srgb, #c084fc 28%, transparent);
+}
+
+.settings-hw-stat-tile-icon--gpu {
+  color: #34d399;
+  background: color-mix(in srgb, #34d399 12%, transparent);
+  border-color: color-mix(in srgb, #34d399 28%, transparent);
+}
+
+.settings-hw-stat-tile-body {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.settings-hw-stat-tile-label {
+  font-size: 10px;
+  font-weight: var(--font-weight-bold);
+  color: var(--color-text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.6px;
+  margin: 0;
+}
+
+.settings-hw-stat-tile-value {
+  font-size: var(--font-size-md);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text-primary);
+  line-height: 1.3;
+  word-break: break-word;
+  /* Cap absurdly long GPU names so the 3-column grid stays balanced
+   * on the rare system that exposes 6+ adapters. */
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.settings-hw-stat-tile-sub {
+  font-size: var(--font-size-xs);
+  color: var(--color-text-secondary);
+  margin-top: 2px;
+  word-break: break-word;
+}
+
+/* Inline placeholder card shown next to the GPU dropdown when no
+ * GPU is selected yet. Same card geometry as the active-GPU tile
+ * for consistent column heights, but a muted dashed border + a
+ * small prompt so users notice the empty state. */
+.settings-hw-gpu-empty {
+  display: flex;
+  align-items: center;
+  gap: var(--space-md);
+  padding: var(--space-lg);
+  background: color-mix(in srgb, var(--color-text-muted) 4%, var(--color-bg-secondary));
+  border: 1px dashed var(--color-border);
+  border-radius: var(--radius-md);
+  height: 100%;
+  min-height: 96px;
+}
+
+.settings-hw-gpu-empty-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  border-radius: var(--radius-md);
+  background: color-mix(in srgb, var(--color-text-muted) 12%, transparent);
+  color: var(--color-text-muted);
+  border: 1px solid var(--color-border);
+  flex-shrink: 0;
+}
+
+.settings-hw-gpu-empty-icon svg {
+  width: 18px;
+  height: 18px;
+}
+
+.settings-hw-gpu-empty-text {
+  font-size: var(--font-size-sm);
+  color: var(--color-text-secondary);
+  line-height: 1.5;
+  font-style: italic;
+}
+
+/* Reduced motion: kill the engagement pulse and any transitions
+ * the hero / stat tile / toggle would normally animate. */
+@media (prefers-reduced-motion: reduce) {
+  .settings-hw-hero-status[data-on="true"]::before {
+    animation: none;
+  }
+  .settings-hw-toggle,
+  .settings-hw-toggle::after,
+  .settings-hw-hero,
+  .settings-hw-stat-tile {
+    transition: none;
+  }
+}
+
+/* ── 11.b Hardware tab — GPU card (multi-GPU list) ──────────────── */
+/*
+ * The Detected Hardware grid's GPU stat tile used to cram every GPU
+ * name into a single truncated comma-separated string, with the count
+ * jammed into the label. With 2–4 GPUs (common for streamers / mining
+ * rigs / dev boxes) the names truncated and the VRAM line overlapped
+ * the value visually. The redesign below swaps the cramped value/sub
+ * pair for an inset mini-list of GPUs when more than one is present,
+ * surfaces the count as a small badge, and highlights whichever GPU
+ * is currently selected in the Telemetry subsection.
+ */
+
+/* Header row of a stat tile — wraps the label + any badges/chips
+ * inline so the count doesn't fight the small-caps label typography. */
+.settings-hw-stat-tile-header {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  margin-bottom: 2px;
+}
+
+/* Small pill badge for short numeric labels next to a stat-tile header
+ * (e.g. "GPUs  2" without sacrificing the small-caps label style). */
+.settings-hw-stat-tile-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 22px;
+  height: 18px;
+  padding: 0 6px;
+  font-size: 10px;
+  font-weight: var(--font-weight-bold);
+  color: var(--color-accent);
+  background: color-mix(in srgb, var(--color-accent) 14%, transparent);
+  border: 1px solid color-mix(in srgb, var(--color-accent) 30%, transparent);
+  border-radius: var(--radius-full);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0;
+}
+
+/* Empty-state body text used when a stat tile has no value to show.
+ * Italic + muted so it reads as a non-actionable hint, not a missing
+ * field. */
+.settings-hw-stat-tile-empty {
+  font-size: var(--font-size-sm);
+  color: var(--color-text-secondary);
+  font-style: italic;
+  margin: 0;
+  line-height: 1.4;
+}
+
+/* Inset list of GPUs used inside the multi-GPU stat tile. Scrolls
+ * vertically when the system exposes 3+ adapters so the tile never
+ * grows tall enough to unbalance the 3-column grid, keeping the
+ * siblings (CPU / Memory) at the same height as before. */
+.settings-hw-gpu-list {
+  list-style: none;
+  padding: 4px;
+  margin: var(--space-xs) 0 0 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  max-height: 132px;
+  overflow-y: auto;
+  /* Small inset border so the list reads as a separate sub-region
+   *  inside the tile instead of bleeding into the tile's chrome. */
+  background: var(--color-bg-tertiary);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  scrollbar-width: thin;
+  scrollbar-color: var(--color-border-light) transparent;
+}
+
+.settings-hw-gpu-list::-webkit-scrollbar {
+  width: 6px;
+}
+
+.settings-hw-gpu-list::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.settings-hw-gpu-list::-webkit-scrollbar-thumb {
+  background: var(--color-border-light);
+  border-radius: var(--radius-full);
+}
+
+/* Single GPU row inside the list. Two-column layout (dot + name left,
+ * vram right) so the right-aligned spec doesn't fight the name's
+ * truncation. */
+.settings-hw-gpu-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  padding: 5px 8px;
+  border-radius: var(--radius-xs);
+  font-size: var(--font-size-xs);
+  color: var(--color-text-primary);
+  background: transparent;
+  transition: background var(--transition-fast);
+}
+
+.settings-hw-gpu-row:hover {
+  background: color-mix(in srgb, var(--color-accent) 10%, transparent);
+}
+
+.settings-hw-gpu-row--active {
+  background: color-mix(in srgb, var(--color-success) 14%, transparent);
+  box-shadow: inset 0 0 0 1px
+    color-mix(in srgb, var(--color-success) 35%, transparent);
+}
+
+/* Small status dot at the start of every row. Stays muted for
+ * inactive GPUs and lights up in success-color for the selected one. */
+.settings-hw-gpu-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--color-text-muted);
+  flex-shrink: 0;
+  box-shadow: 0 0 0 2px var(--color-bg-tertiary);
+  transition: background var(--transition-fast),
+    box-shadow var(--transition-fast);
+}
+
+.settings-hw-gpu-dot[data-active="true"] {
+  background: var(--color-success);
+  box-shadow: 0 0 6px var(--color-success), 0 0 0 2px var(--color-bg-tertiary);
+}
+
+/* Name takes the middle (flex: 1) so the VRAM chips hug the right edge
+ *  and long names truncate with a real tooltip instead of wrapping. */
+.settings-hw-gpu-row-name {
+  flex: 1;
+  min-width: 0;
+  font-weight: var(--font-weight-medium);
+  color: var(--color-text-primary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* VRAM badge on the right. Right-aligned + tabular-nums so the
+ *  plus/minus signs and decimal points stay stable between rows. */
+.settings-hw-gpu-row-vram {
+  font-size: 10px;
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text-secondary);
+  background: var(--color-bg-secondary);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  padding: 1px 6px;
+  font-variant-numeric: tabular-nums;
+  flex-shrink: 0;
+  letter-spacing: 0.2px;
+}
+
+.settings-hw-gpu-row--active .settings-hw-gpu-row-vram {
+  color: var(--color-success);
+  border-color: color-mix(in srgb, var(--color-success) 35%, transparent);
+  background: color-mix(in srgb, var(--color-success) 8%, transparent);
+}

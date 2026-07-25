@@ -1926,44 +1926,69 @@ export default function SettingsPage() {
         <section className="settings-section">
           <header className="settings-section-header">
             <span className="settings-section-icon"><HardwareIcon /></span>
-            <div className="settings-section-header-text">
-              <h2 className="settings-section-title">{t("settings.section.hardwareMonitoring")}</h2>
-              <p className="settings-section-desc">
-                Choose which GPU to track during gameplay so the
-                Activity page shows the right metrics.
-              </p>
+            <div className="settings-section-header-text">          <h2 className="settings-section-title">{t("settings.section.hardwareMonitoring")}</h2>
+                <p className="settings-section-desc">{t("settings.hardware.sectionDesc")}</p>
             </div>
           </header>
 
-          {/* Master toggle — gates the entire telemetry collection thread */}
-          <div className="settings-row">
-            <div className="settings-hardware-control-card">
-              <label className="settings-checkbox-label">
-                <input
-                  type="checkbox"
-                  checked={hardwareMonitoringEnabled}
-                  onChange={(e) => setHardwareMonitoringEnabled(e.target.checked)}
-                />
-                <span>{t("settings.label.enableMonitoring")}</span>
-              </label>
-              <p className="settings-helper-lead">
-                When off, no CPU, GPU, RAM, or temperature telemetry is
-                collected while games run, and the Activity page shows no
-                performance data for future sessions.
-              </p>
+          {/* Hero card — master hardware-monitoring toggle.
+           *
+           *  Whole card is a single <button role="switch"> so the click
+           *  surface and a11y label are unambiguous (no nested
+           *  interactive elements — screen readers report nested buttons
+           *  inside <button role="button"> as a broken control).
+           *
+           *  The pill on the right is pure decoration (aria-hidden) that
+           *  tracks the checked state via `data-on` so CSS carries the
+           *  visual state without a parallel React className string. */}
+          <button
+            type="button"
+            role="switch"
+            aria-checked={hardwareMonitoringEnabled}
+            aria-label={t("settings.label.enableMonitoring")}
+            className="settings-hw-hero"
+            data-on={hardwareMonitoringEnabled}
+            onClick={() =>
+              setHardwareMonitoringEnabled(!hardwareMonitoringEnabled)
+            }
+          >
+            <span className="settings-hw-hero-icon" aria-hidden>
+              <HardwareIcon />
+            </span>
+            <div className="settings-hw-hero-body">
+              <div className="settings-hw-hero-title-row">
+                <h3 className="settings-hw-hero-title">{t("settings.tab.hardware")}</h3>
+                <span
+                  className="settings-hw-hero-status"
+                  data-on={hardwareMonitoringEnabled}
+                  aria-hidden
+                >
+                  {hardwareMonitoringEnabled
+                    ? t("settingsPage.active")
+                    : t("settings.hardware.inactive")}
+                </span>
+              </div>
+              <p className="settings-hw-hero-desc">{t("settings.hardware.masterDesc")}</p>
             </div>
-          </div>
+            <span className="settings-hw-toggle" data-on={hardwareMonitoringEnabled} aria-hidden />
+          </button>
 
-          {/* Per-metric capture toggles */}
-          <div className="settings-row">
+          {/* ── Telemetry subsection ─────────────────────────────── */}
+          <div className="settings-hw-subsection">
+            <div className="settings-hw-subsection-header">
+              <span className="settings-hw-subsection-icon" aria-hidden>
+                <GaugeIcon />
+              </span>
+              <h4 className="settings-hw-subsection-title">
+                {t("settings.hardware.subsectionTelemetry")}
+              </h4>
+            </div>
+
+            {/* Per-metric capture toggles */}
             <div className="settings-hardware-control-card">
               <div className="settings-control">
                 <label className="settings-label">{t("settings.label.metrics")}</label>
-                <p className="settings-helper-lead">
-                  Disable streams you don't need. Turning off temperature
-                  capture skips the expensive sensor queries, lowering
-                  overhead while a game runs.
-                </p>
+                <p className="settings-helper-lead">{t("settings.hardware.metricsDesc")}</p>
                 <div className="settings-metric-toggles">
                   {(
                     [
@@ -2110,10 +2135,20 @@ export default function SettingsPage() {
             </div>
           </div>
 
-          {/* Storage — display unit for the Storage tab's size column.
-           *  Lives under Hardware because it controls how physical
-           *  resources are reported, not how the UI looks. */}
-          <div className="settings-row settings-row--spaced">
+          {/* ── Display preferences subsection ────────────────────── */}
+          <div className="settings-hw-subsection">
+            <div className="settings-hw-subsection-header">
+              <span className="settings-hw-subsection-icon" aria-hidden>
+                <DisplayIcon />
+              </span>
+              <h4 className="settings-hw-subsection-title">
+                {t("settings.hardware.subsectionDisplay")}
+              </h4>
+            </div>
+
+            {/* Storage — display unit for the Storage tab's size column.
+             *  Lives under Hardware because it controls how physical
+             *  resources are reported, not how the UI looks. */}
             <div className="settings-hardware-control-card">
               <div className="settings-control">
                 <label className="settings-label">{t("settings.label.sizeUnit")}</label>
@@ -2146,39 +2181,154 @@ export default function SettingsPage() {
             </div>
           </div>
 
-          {/* System summary — detected CPU / RAM / all GPUs */}
-          <div className="settings-row settings-row--spaced">
-            <div className="settings-hardware-control-card settings-system-summary">
-              <div className="settings-control">
-                <label className="settings-label">{t("settings.label.systemSummary")}</label>
-                <p className="settings-helper-lead">
-                  {t("settingsPage.hardwareDetected")}
-                </p>
-                <div className="settings-system-summary__grid">
-                  <div className="settings-system-summary__item">
-                    <span className="settings-system-summary__label">{t("settingsPage.cpu")}</span>
-                    <span className="settings-system-summary__value">
-                      {systemInfo?.cpuName ?? t("settings.hardware.detecting")}
-                    </span>
+          {/* ── Detected Hardware (system summary) ──────────────────── */}
+          <div className="settings-hw-subsection">
+            <div className="settings-hw-subsection-header">
+              <span className="settings-hw-subsection-icon" aria-hidden>
+                <SystemIcon />
+              </span>
+              <h4 className="settings-hw-subsection-title">
+                {t("settings.hardware.subsectionDetected")}
+              </h4>
+            </div>
+
+            {/* 3-column dashboard tiles. Auto-collapses to 1 column on
+             *  narrow viewports so long GPU names never overflow. */}
+            <div className="settings-hw-grid-3">
+              <div className="settings-hw-stat-tile">
+                <span
+                  className="settings-hw-stat-tile-icon settings-hw-stat-tile-icon--cpu"
+                  aria-hidden
+                >
+                  <CpuIcon />
+                </span>
+                <div className="settings-hw-stat-tile-body">
+                  <h4 className="settings-hw-stat-tile-label">{t("settingsPage.cpu")}</h4>
+                  <div className="settings-hw-stat-tile-value">
+                    {systemInfo?.cpuName ?? t("settings.hardware.detecting")}
                   </div>
-                  <div className="settings-system-summary__item">
-                    <span className="settings-system-summary__label">{t("settingsPage.memory")}</span>
-                    <span className="settings-system-summary__value">
-                      {systemInfo ? `${systemInfo.ramGb} GB` : "—"}
-                    </span>
+                </div>
+              </div>
+
+              <div className="settings-hw-stat-tile">
+                <span
+                  className="settings-hw-stat-tile-icon settings-hw-stat-tile-icon--memory"
+                  aria-hidden
+                >
+                  <MemoryIcon />
+                </span>
+                <div className="settings-hw-stat-tile-body">
+                  <h4 className="settings-hw-stat-tile-label">{t("settingsPage.memory")}</h4>
+                  <div className="settings-hw-stat-tile-value">
+                    {systemInfo ? `${systemInfo.ramGb} GB` : "—"}
                   </div>
-                  <div className="settings-system-summary__item settings-system-summary__item--wide">
-                    <span className="settings-system-summary__label">
-                      GPUs ({systemInfo?.gpus.length ?? 0})
-                    </span>
-                    <span className="settings-system-summary__value">
-                      {systemInfo && systemInfo.gpus.length > 0
-                        ? systemInfo.gpus
-                            .map((g) => `${g.name} (${g.vramMb} MB)`)
-                            .join(" · ")
-                        : "—"}
-                    </span>
+                  <div className="settings-hw-stat-tile-sub">
+                    {t("settings.hardware.ramSub")}
                   </div>
+                </div>
+              </div>
+
+              <div className="settings-hw-stat-tile">
+                <span
+                  className="settings-hw-stat-tile-icon settings-hw-stat-tile-icon--gpu"
+                  aria-hidden
+                >
+                  <GpuIcon />
+                </span>
+                <div className="settings-hw-stat-tile-body">
+                  {/* Label + count badge on the same row so the count
+                   *  doesn't get jammed into the small-caps label text. */}
+                  <div className="settings-hw-stat-tile-header">
+                    <h4 className="settings-hw-stat-tile-label">
+                      {t("settingsPage.gpus")}
+                    </h4>
+                    {systemInfo && systemInfo.gpus.length > 0 && (
+                      <span className="settings-hw-stat-tile-badge">
+                        {systemInfo.gpus.length}
+                      </span>
+                    )}
+                  </div>
+
+                  {/* Empty state — no GPUs exposed. Centered em-dash +
+                   *  a subtle hint so the tile never reads as "0/blank". */}
+                  {(!systemInfo || systemInfo.gpus.length === 0) && (
+                    <p className="settings-hw-stat-tile-empty">
+                      {t("settings.hardware.noGpus")}
+                    </p>
+                  )}
+
+                  {/* Single-GPU case: render like the Memory tile
+                   *  (name as value, VRAM as sub) so the three tiles
+                   *  follow the same pattern when there's only one.
+                   *  Surfaces a "Tracking" badge inline next to the
+                   *  count when this GPU is the one the user picked in
+                   *  the GPU selection dropdown above — otherwise the
+                   *  ~95% of desktops with a single adapter get no
+                   *  visual confirmation that THIS tile represents the
+                   *  monitored card. */}
+                  {systemInfo && systemInfo.gpus.length === 1 && (
+                    <>
+                      <div className="settings-hw-stat-tile-value">
+                        {systemInfo.gpus[0].name}
+                      </div>
+                      <div className="settings-hw-stat-tile-sub">
+                        {systemInfo.gpus[0].vramMb >= 1024
+                          ? `${(systemInfo.gpus[0].vramMb / 1024).toFixed(
+                              systemInfo.gpus[0].vramMb % 1024 === 0 ? 0 : 1
+                            )} GB VRAM`
+                          : `${systemInfo.gpus[0].vramMb} MB VRAM`}
+                      </div>
+                    </>
+                  )}
+
+                  {/* Multi-GPU case: render each GPU as a small row in
+                   *  an inset list so long names scroll inside the tile
+                   *  instead of truncating the value line. The
+                   *  currently selected GPU gets a soft highlight so
+                   *  users can see at a glance which one will be
+                   *  tracked. aria-live="polite" announces the
+                   *  tracking swap to screen-reader users when they
+                   *  change the selection in the dropdown above. */}
+                  {systemInfo && systemInfo.gpus.length > 1 && (
+                    <ul
+                      className="settings-hw-gpu-list"
+                      aria-label="Detected GPUs"
+                      aria-live="polite"
+                    >
+                      {systemInfo.gpus.map((g) => {
+                        const isActive = selectedGpu?.id === g.id;
+                        return (
+                          <li
+                            key={g.id}
+                            className={
+                              "settings-hw-gpu-row" +
+                              (isActive ? " settings-hw-gpu-row--active" : "")
+                            }
+                            data-active={isActive ? "true" : "false"}
+                          >
+                            <span
+                              className="settings-hw-gpu-dot"
+                              aria-hidden
+                              data-active={isActive ? "true" : "false"}
+                            />
+                            <span
+                              className="settings-hw-gpu-row-name"
+                              title={g.name}
+                            >
+                              {g.name}
+                            </span>
+                            <span className="settings-hw-gpu-row-vram">
+                              {g.vramMb >= 1024
+                                ? `${(g.vramMb / 1024).toFixed(
+                                    g.vramMb % 1024 === 0 ? 0 : 1
+                                  )} GB`
+                                : `${g.vramMb} MB`}
+                            </span>
+                          </li>
+                        );
+                      })}
+                    </ul>
+                  )}
                 </div>
               </div>
             </div>
@@ -3845,6 +3995,131 @@ function HardwareIcon() {
       <path d="M2 17h5" />
       <path d="M17 17h5" />
       <path d="M17 7h5" />
+    </svg>
+  );
+}
+
+// Inline SVG icons used only by the redesigned Hardware tab.
+// Lumped together so a new icon shares the same stroke conventions as
+// every other inline SVG in this file: 24×24 viewBox, stroke=current,
+// round caps/joins, fill=none.
+function CpuIcon() {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden
+    >
+      <rect x="4" y="4" width="16" height="16" rx="2" />
+      <rect x="9" y="9" width="6" height="6" />
+      <path d="M9 1v3" />
+      <path d="M15 1v3" />
+      <path d="M9 20v3" />
+      <path d="M15 20v3" />
+      <path d="M20 9h3" />
+      <path d="M20 14h3" />
+      <path d="M1 9h3" />
+      <path d="M1 14h3" />
+    </svg>
+  );
+}
+
+function MemoryIcon() {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden
+    >
+      <rect x="2" y="6" width="20" height="12" rx="1" />
+      <path d="M7 6v12" />
+      <path d="M12 6v12" />
+      <path d="M17 6v12" />
+      <path d="M2 10h20" />
+      <path d="M2 14h20" />
+    </svg>
+  );
+}
+
+function GpuIcon() {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden
+    >
+      <rect x="2" y="5" width="20" height="13" rx="2" />
+      <rect x="6" y="8" width="6" height="7" rx="1" />
+      <circle cx="18" cy="11.5" r="0.6" fill="currentColor" />
+      <circle cx="18" cy="9" r="0.6" fill="currentColor" />
+      <circle cx="18" cy="14" r="0.6" fill="currentColor" />
+    </svg>
+  );
+}
+
+function GaugeIcon() {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden
+    >
+      <path d="M12 14l4-4" />
+      <path d="M3.34 19a10 10 0 1 1 17.32 0" />
+    </svg>
+  );
+}
+
+function SystemIcon() {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden
+    >
+      <rect x="2" y="3" width="20" height="14" rx="2" />
+      <path d="M8 21h8" />
+      <path d="M12 17v4" />
+    </svg>
+  );
+}
+
+function DisplayIcon() {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden
+    >
+      <rect x="2" y="4" width="20" height="13" rx="2" />
+      <path d="M8 21h8" />
+      <path d="M12 17v4" />
+      <path d="M7 9h6" />
+      <path d="M7 13h4" />
     </svg>
   );
 }
