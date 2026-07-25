@@ -711,7 +711,7 @@ export function GameActivityTab({ game }: { game: Game }) {
               icon={<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="3" y="4" width="18" height="18" rx="2" ry="2" /><line x1="3" y1="10" x2="21" y2="10" /></svg>}
             />
             <StatCard
-              label="Active Days"
+              label={t("activity.activeDays")}
               value={stats.activeDaysCount}
               icon={<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="3" y="4" width="18" height="18" rx="2" ry="2" /><line x1="3" y1="10" x2="21" y2="10" /></svg>}
             />
@@ -825,7 +825,7 @@ export function GameActivityTab({ game }: { game: Game }) {
                           className={`game-activity-agg-btn ${playtimeAgg === agg ? "active" : ""}`}
                           onClick={() => setPlaytimeAgg(agg)}
                         >
-                          {agg.replace(/^AGG_/, "").replace(/^./, (c) => c.toUpperCase())}
+                          {agg === "AGG_DAY" ? t("activity.1d") : agg === "AGG_WEEK" ? t("activity.1w") : t("activity.1m")}
                         </button>
                       ))}
                     </div>
@@ -864,7 +864,7 @@ export function GameActivityTab({ game }: { game: Game }) {
                   ) : (
                     <LineChart
                       series={[
-                        { data: playtimeChartData.data, color: "var(--color-accent)", label: "Playtime" }
+                        { data: playtimeChartData.data, color: "var(--color-accent)", label: t("activity.playtime") }
                       ]}
                       labels={playtimeChartData.labels}
                       formatValue={formatPlayTime}
@@ -873,14 +873,14 @@ export function GameActivityTab({ game }: { game: Game }) {
                   )
                 ) : (
                   <div style={{ height: "220px", display: "flex", alignItems: "center", justifyContent: "center", color: "var(--color-text-muted)" }}>
-                    No playtime data recorded for this period.
+                    {t("activity.noPlaytimeData")}
                   </div>
                 )}
               </div>
 
               {/* Heatmap Panel */}
               <div className="game-activity-panel">
-                <WeeklyHeatmap sessions={filteredSessions} timeframeDays={timeframe === "7d" ? 7 : timeframe === "30d" ? 30 : timeframe === "90d" ? 90 : 365} />
+                <WeeklyHeatmap sessions={filteredSessions} timeframeDays={timeframe === "7d" ? 7 : timeframe === "30d" ? 30 : timeframe === "90d" ? 90 : 365} t={t} />
               </div>
             </>
           ) : (
@@ -890,14 +890,14 @@ export function GameActivityTab({ game }: { game: Game }) {
                 <>
                   {/* Hardware mini cards */}
                   <div className="game-activity-perf-cards">
-                    <PerfMiniCard label="Avg FPS" avg={`${hwAverages.avgFps}`} max={`MAX: ${hwAverages.maxFps}`} />
-                    <PerfMiniCard label="CPU Usage" avg={`${hwAverages.avgCpu}%`} max={`MAX: ${hwAverages.maxCpu}%`} />
-                    <PerfMiniCard label="GPU Usage" avg={`${hwAverages.avgGpu}%`} max={`MAX: ${hwAverages.maxGpu}%`} />
-                    <PerfMiniCard label="RAM Usage" avg={`${hwAverages.avgRamPct}%`} max={`MAX: ${hwAverages.maxRamPct}%`} />
+                    <PerfMiniCard label={t("activityPerf.avgFps")} avg={`${hwAverages.avgFps}`} max={`MAX: ${hwAverages.maxFps}`} />
+                    <PerfMiniCard label={t("activityPerf.cpuUsage")} avg={`${hwAverages.avgCpu}%`} max={`MAX: ${hwAverages.maxCpu}%`} />
+                    <PerfMiniCard label={t("activityPerf.gpuUsage")} avg={`${hwAverages.avgGpu}%`} max={`MAX: ${hwAverages.maxGpu}%`} />
+                    <PerfMiniCard label={t("activityPerf.ramUsage")} avg={`${hwAverages.avgRamPct}%`} max={`MAX: ${hwAverages.maxRamPct}%`} />
                     {hasTemps && (
                       <>
-                        <PerfMiniCard label="CPU Temp" avg={formatTemp(hwAverages.avgCpuT, tempUnit)} max={`MAX: ${formatTemp(hwAverages.maxCpuT, tempUnit)}`} />
-                        <PerfMiniCard label="GPU Temp" avg={formatTemp(hwAverages.avgGpuT, tempUnit)} max={`MAX: ${formatTemp(hwAverages.maxGpuT, tempUnit)}`} />
+                        <PerfMiniCard label={t("activityPerf.cpuTemp")} avg={formatTemp(hwAverages.avgCpuT, tempUnit)} max={`MAX: ${formatTemp(hwAverages.maxCpuT, tempUnit)}`} />
+                        <PerfMiniCard label={t("activityPerf.gpuTemp")} avg={formatTemp(hwAverages.avgGpuT, tempUnit)} max={`MAX: ${formatTemp(hwAverages.maxGpuT, tempUnit)}`} />
                       </>
                     )}
                   </div>
@@ -906,9 +906,9 @@ export function GameActivityTab({ game }: { game: Game }) {
                   {sessionsWithHw.length > 1 && (
                     <div className="game-activity-panel" style={{ padding: "10px 16px" }}>
                       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: "var(--space-md)", flexWrap: "wrap" }}>
-                        <span style={{ fontSize: "11px", fontWeight: "bold", color: "var(--color-text-secondary)", textTransform: "uppercase", letterSpacing: "0.5px" }}>
-                          Session Telemetry Tracking
-                        </span>
+                          <span style={{ fontSize: "11px", fontWeight: "bold", color: "var(--color-text-secondary)", textTransform: "uppercase", letterSpacing: "0.5px" }}>
+                            {t("activity.sessionTelemetry")}
+                          </span>
                         <select
                           style={{
                             background: "var(--color-bg-primary)",
@@ -925,7 +925,7 @@ export function GameActivityTab({ game }: { game: Game }) {
                             setIsolatedSessionIndex(val === "all" ? null : Number(val));
                           }}
                         >
-                          <option value="all">All Sessions (Average)</option>
+                          <option value="all">{t("activityPerf.allSessionsAvg")}</option>
                           {sessionsWithHw.map((s, i) => (
                             <option key={s.id} value={String(i)}>
                               {new Date(s.date).toLocaleDateString("en-US", { day: "numeric", month: "short" })} - {formatPlayTime(s.durationMin)}
@@ -941,31 +941,31 @@ export function GameActivityTab({ game }: { game: Game }) {
                     <div className="game-activity-stacked-charts">
                       <p className="game-activity-perf-estimated-note">
                         {perfTimelineData.real
-                          ? "Curves use the real per-sample telemetry captured during the session(s)."
-                          : "Curves are estimated from each session's average / peak metrics — raw per-sample telemetry is not stored, so these lines illustrate shape, not exact readings."}
+                          ? t("gameActivity.curveReal")
+                          : t("gameActivity.curveEstimated")}
                       </p>
-                      <ChartSection title="CPU & GPU Load">
+                      <ChartSection title={t("gameActivity.chartCpuGpu")}>
                         <LineChart
                           series={[
-                            { data: perfTimelineData.cpu, color: "#3e62c0", label: "CPU" },
-                            { data: perfTimelineData.gpu, color: "#9b59b6", label: "GPU" },
+                            { data: perfTimelineData.cpu, color: "#3e62c0", label: t("activityPerf.cpuUsage") },
+                            { data: perfTimelineData.gpu, color: "#9b59b6", label: t("activityPerf.gpuUsage") },
                           ]}
                           labels={perfTimelineData.labels}
                           height={180}
                           minY={0}
                           maxY={100}
                           smooth
-                          thresholds={[{ value: 90, label: "High 90%", color: "var(--color-warning)" }]}
+                          thresholds={[{ value: 90, label: t("activityPerf.highPercentile"), color: "var(--color-warning)" }]}
                           formatValue={(v) => `${Math.round(v)}%`}
                         />
                       </ChartSection>
 
                       {hasTemps && (
-                        <ChartSection title="CPU & GPU Temperatures">
+                        <ChartSection title={t("gameActivity.chartTemps")}>
                           <LineChart
                             series={[
-                              { data: toDisplayTemps(perfTimelineData.cpuTemp, tempUnit), color: "#ffab00", label: "CPU" },
-                              { data: toDisplayTemps(perfTimelineData.gpuTemp, tempUnit), color: "#ff5252", label: "GPU" },
+                              { data: toDisplayTemps(perfTimelineData.cpuTemp, tempUnit), color: "#ffab00", label: t("activityPerf.cpuTemp") },
+                              { data: toDisplayTemps(perfTimelineData.gpuTemp, tempUnit), color: "#ff5252", label: t("activityPerf.gpuTemp") },
                             ]}
                             labels={perfTimelineData.labels}
                             height={180}
@@ -976,40 +976,40 @@ export function GameActivityTab({ game }: { game: Game }) {
                               { from: tempThreshold(85, tempUnit), to: tempMaxY(tempUnit), color: "var(--color-danger)", opacity: 0.1 },
                             ]}
                             thresholds={[
-                              { value: tempThreshold(75, tempUnit), label: "Warm 75°", color: "var(--color-warning)" },
-                              { value: tempThreshold(85, tempUnit), label: "Hot 85°", color: "var(--color-danger)" },
+                              { value: tempThreshold(75, tempUnit), label: t("activityPerf.warmThreshold"), color: "var(--color-warning)" },
+                              { value: tempThreshold(85, tempUnit), label: t("activityPerf.hotThreshold"), color: "var(--color-danger)" },
                             ]}
                             formatValue={(v) => formatTemp(v, tempUnit)}
                           />
                         </ChartSection>
                       )}
 
-                      <ChartSection title="RAM Usage">
+                      <ChartSection title={t("gameActivity.chartRam")}>
                           <LineChart
                             series={[
-                              { data: perfTimelineData.ram, color: "#2ecc71", label: "RAM" }
+                              { data: perfTimelineData.ram, color: "#2ecc71", label: t("activityPerf.ramUsage") }
                             ]}
                             labels={perfTimelineData.labels}
                             height={180}
                             minY={0}
                             maxY={100}
                             smooth
-                            thresholds={[{ value: 90, label: "High 90%", color: "var(--color-warning)" }]}
+                            thresholds={[{ value: 90, label: t("activityPerf.highPercentile"), color: "var(--color-warning)" }]}
                             formatValue={(v) => `${v}%`}
                           />
                       </ChartSection>
 
-                      <ChartSection title="FPS">
+                      <ChartSection title={t("gameActivity.chartFps")}>
                           <LineChart
                             series={[
-                              { data: perfTimelineData.fps, color: "#16b195", label: "FPS" }
+                              { data: perfTimelineData.fps, color: "#16b195", label: t("activityPerf.fps") }
                             ]}
                             labels={perfTimelineData.labels}
                             height={180}
                             minY={0}
                             niceMax
                             smooth
-                            thresholds={[{ value: 60, label: "60 FPS", color: "var(--color-success)" }]}
+                            thresholds={[{ value: 60, label: t("activityPerf.threshold60fps"), color: "var(--color-success)" }]}
                             formatValue={(v) => `${Math.round(v)} FPS`}
                           />
                       </ChartSection>
@@ -1024,12 +1024,10 @@ export function GameActivityTab({ game }: { game: Game }) {
                   </svg>
                   {filteredSessions.length > 0 ? (
                     <p>
-                      {filteredSessions.length} session{filteredSessions.length > 1 ? "s" : ""} recorded in this
-                      period, but no performance telemetry was captured. Launch the game with the performance
-                      monitor active to start collecting FPS, CPU, GPU and temperature data.
+                      {t("gameActivity.sessionCount", { count: filteredSessions.length, s: filteredSessions.length > 1 ? "s" : "" })} {t("gameActivity.noPerformanceHint")}
                     </p>
                   ) : (
-                    <p>No performance data recorded for these sessions. Launch the game with the performance monitor active.</p>
+                    <p>{t("gameActivity.noPerformance")}</p>
                   )}
                 </div>
               )}
@@ -1040,13 +1038,13 @@ export function GameActivityTab({ game }: { game: Game }) {
     </div>
     <ConfirmModal
       open={pendingDeleteId !== null}
-      title="Delete this session?"
+      title={t("gameActivity.deleteTitle")}
       message={
         <span>
-          This will permanently remove the selected play session from your activity history. This action cannot be undone.
+          {t("gameActivity.deleteBody")}
         </span>
       }
-      confirmLabel="Delete Session"
+      confirmLabel={t("gameActivity.deleteSession")}
       onCancel={() => setPendingDeleteId(null)}
       onConfirm={() => {
         if (pendingDeleteId) {
@@ -1112,7 +1110,7 @@ function ChartSection({ title, children }: { title: string; children: React.Reac
 }
 
 // ─── Heatmap Subcomponent ─────────────────────────────────────────────────────
-function WeeklyHeatmap({ sessions, timeframeDays = 365 }: { sessions: GameSession[]; timeframeDays?: number }) {
+function WeeklyHeatmap({ sessions, timeframeDays = 365, t }: { sessions: GameSession[]; timeframeDays?: number; t: (key: string, vars?: Record<string, unknown>) => string }) {
   
   const cells = useMemo(() => {
     const list: { date: string; duration: number }[] = [];
@@ -1166,15 +1164,15 @@ function WeeklyHeatmap({ sessions, timeframeDays = 365 }: { sessions: GameSessio
 
   return (
     <div style={{ display: "flex", flexDirection: "column" }}>
-      <h3 className="game-activity-heatmap-title">Weekly Activity</h3>
+      <h3 className="game-activity-heatmap-title">{t("gameActivity.weeklyActivity")}</h3>
       <div className="weekly-heatmap-container">
         <div className="weekly-heatmap-row-labels">
           <span></span>
-          <span>Mon</span>
+          <span>{t("gameActivity.mon")}</span>
           <span></span>
-          <span>Wed</span>
+          <span>{t("gameActivity.wed")}</span>
           <span></span>
-          <span>Fri</span>
+          <span>{t("gameActivity.fri")}</span>
           <span></span>
         </div>
         <div className="weekly-heatmap-grid">
@@ -1194,13 +1192,13 @@ function WeeklyHeatmap({ sessions, timeframeDays = 365 }: { sessions: GameSessio
       </div>
       <div className="weekly-heatmap-grid-legend" style={{ alignSelf: "flex-end" }}>
         <div className="weekly-heatmap-footer">
-          <span>Less</span>
+          <span>{t("activityDash.less")}</span>
           <div className="weekly-heatmap-cell weekly-heatmap-cell-empty" />
           <div className="weekly-heatmap-cell weekly-heatmap-cell-low" />
           <div className="weekly-heatmap-cell weekly-heatmap-cell-medium" />
           <div className="weekly-heatmap-cell weekly-heatmap-cell-high" />
           <div className="weekly-heatmap-cell weekly-heatmap-cell-peak" />
-          <span>More</span>
+          <span>{t("activityDash.more")}</span>
         </div>
       </div>
     </div>
