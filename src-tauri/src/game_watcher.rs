@@ -64,31 +64,38 @@ pub struct GameRef {
 }
 
 /// A running game session tracked by the watcher.
-struct ActiveSession {
-    game_id: String,
-    game_name: String,
-    started_at: Instant,
-    last_pid: u32,
-    stop_tx: std::sync::mpsc::Sender<()>,
-    metrics_rx: Option<std::sync::mpsc::Receiver<Option<metrics_collector::SessionMetrics>>>,
+///
+/// Field-level visibility (`pub`) lets `lib.rs::force_close_game` destructure
+/// the session out of the watcher mutex and run the slow post-kill steps
+/// (post-exit script, metrics collection flush, db writes, game-exited
+/// emit) without holding the global `Arc<Mutex<GameWatcher>>` — without
+/// this, a 10-second `recv_timeout` would block the background poll loop
+/// and any concurrent force-close IPC for the full duration.
+pub struct ActiveSession {
+    pub game_id: String,
+    pub game_name: String,
+    pub started_at: Instant,
+    pub last_pid: u32,
+    pub stop_tx: std::sync::mpsc::Sender<()>,
+    pub metrics_rx: Option<std::sync::mpsc::Receiver<Option<metrics_collector::SessionMetrics>>>,
     /// `true` if the session was started by `register_launched_session`
     /// (user clicked Launch); `false` if detected passively by
     /// `start_passive_session`. Wired up so future telemetry and
     /// Activity-page filters can distinguish manual launches from
     /// games the user started outside the app.
     #[allow(dead_code)]
-    launched_by_app: bool,
-    matched_exe: String,
+    pub launched_by_app: bool,
+    pub matched_exe: String,
     /// Install directory used to re-attach the session when the initial
     /// process exits but a launcher has spawned the real game process, or
     /// when the launch provided no PID (UAC elevation, Steam protocol).
-    install_dir: Option<PathBuf>,
+    pub install_dir: Option<PathBuf>,
     /// When the process was first noticed as dead/missing.
     /// If Some, the session is in a grace period.
-    lost_at: Option<Instant>,
+    pub lost_at: Option<Instant>,
     /// Optional script (path + admin flag) run after the game process
     /// exits. Wired by `register_launched_session` for app-launched games.
-    post_exit_script: Option<(String, bool)>,
+    pub post_exit_script: Option<(String, bool)>,
 }
 
 /// How long a pending session (last_pid == 0) may exist before it is
@@ -723,48 +730,77 @@ impl GameWatcher {
     /// returns an empty list on every non-Windows target today, so we
     /// have nothing to `kill` even if we pulled in `libc`. The session
     /// is still cleaned up via `finish_session`.
-    pub fn force_close(
+    /// Atomically remove the active session for `game_id` from
+    /// `active_sessions` and return it alongside the (Option<String>)
+    /// name of any *other* currently-active session.
+    ///
+    /// Returns `None` when no session exists for `game_id` — callers
+    /// should treat that as a benign race with the background poll
+    /// loop or another concurrent `force_close_game` IPC.
+    ///
+    /// Why this exists: previously, `force_close` held `&mut
+    /// self.active_sessions` for the entire kill + 10-second
+    /// `metrics_rx.recv_timeout` window, freezing the background poll
+    /// loop and any concurrent force-close click. By taking ownership
+    /// in this short critical section, the caller can drop the
+    /// `Arc<Mutex<GameWatcher>>` lock before doing the slow finalization
+    /// work.
+    pub fn take_active_session(
         &mut self,
-        app_handle: &AppHandle,
         game_id: &str,
-    ) -> Result<ForceCloseResult, String> {
-        // Copy out the fields we need so we can drop the immutable
-        // borrow on `active_sessions` mutating operations below.
-        let (pid, expected_exe_lower, install_dir_lower) = match self.active_sessions.get(game_id) {
-            Some(session) => (
-                session.last_pid,
-                session
-                    .matched_exe
-                    .to_lowercase()
-                    .replace('/', "\\"),
-                session.install_dir.as_ref().map(|d| {
-                    d.to_string_lossy()
-                        .to_lowercase()
-                        .replace('/', "\\")
-                        .trim_end_matches('\\')
-                        .to_string()
-                }),
-            ),
-            None => return Err(format!("Game is not running: {game_id}")),
-        };
-
-        // Kill every live process that belongs to this game. We don't
-        // rely on `last_pid` alone: a pending session has `last_pid ==
-        // 0`, and a launcher-spawned game may have already re-parented
-        // to a different PID (so the tracked PID is stale). Scanning by
-        // exe path / install dir guarantees the actual game process
-        // (and its tree) is terminated regardless of which PID the
-        // watcher last saw.
-        #[cfg(windows)]
-        let killed = kill_matching_processes(&expected_exe_lower, install_dir_lower.as_deref());
-        #[cfg(not(windows))]
-        let killed = false;
-
-        // Same `game-exited` emission path as a normal exit, so the
-        // frontend listeners see one consistent event payload.
-        self.finish_session(app_handle, game_id);
-        Ok(ForceCloseResult { pid, killed })
+    ) -> Option<(ActiveSession, Option<String>)> {
+        let remaining_name = self
+            .active_sessions
+            .values()
+            .find(|s| s.game_id != game_id)
+            .map(|s| s.game_name.clone());
+        let session = self.active_sessions.remove(game_id)?;
+        Some((session, remaining_name))
     }
+
+    /// Snapshot the kill-target fields for `game_id` and return them
+    /// as fully-owned data so the caller can drop the watcher mutex
+    /// before invoking `kill_matching_processes` (which performs a
+    /// slow Win32 enumeration of every running PID).
+    ///
+    /// Returns `None` when no session exists for `game_id`. The caller
+    /// (`force_close_game` Tauri command) treats that as the
+    /// "Game is not running" error path.
+    pub fn gather_force_close_data(&self, game_id: &str) -> Option<ForceCloseData> {
+        let session = self.active_sessions.get(game_id)?;
+        Some(ForceCloseData {
+            pid: session.last_pid,
+            expected_exe_lower: session.matched_exe.to_lowercase().replace('/', "\\"),
+            install_dir_lower: session.install_dir.as_ref().map(|d| {
+                d.to_string_lossy()
+                    .to_lowercase()
+                    .replace('/', "\\")
+                    .trim_end_matches('\\')
+                    .to_string()
+            }),
+        })
+    }
+
+    /// Cheap clone of the inner `Db` so callers can release the
+    /// watcher mutex before doing SQLite writes (the pool is an
+    /// `Arc<...>` collection, so cloning is just an atomic refcount
+    /// bump). See `db::pool::Db`.
+    pub fn db_clone(&self) -> db::Db {
+        self.db.clone()
+    }
+}
+
+/// Owned kill-target data produced by
+/// [`GameWatcher::gather_force_close_data`] — extracted under the
+/// watcher mutex so the caller can drop the lock and pass the strings
+/// (which include normalized exe paths used by
+/// [`kill_matching_processes`]) into the slow Win32 phase without
+/// holding the global mutex.
+#[derive(Debug, Clone)]
+pub struct ForceCloseData {
+    pub pid: u32,
+    pub expected_exe_lower: String,
+    pub install_dir_lower: Option<String>,
 }
 
 /// Terminate every currently-running process belonging to a game.
@@ -785,7 +821,7 @@ impl GameWatcher {
 ///
 /// Returns `true` if at least one matching process was terminated.
 #[cfg(windows)]
-fn kill_matching_processes(expected_exe_lower: &str, install_dir_lower: Option<&str>) -> bool {
+pub fn kill_matching_processes(expected_exe_lower: &str, install_dir_lower: Option<&str>) -> bool {
     let processes = query_running_processes();
     if processes.is_empty() {
         return false;

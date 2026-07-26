@@ -384,28 +384,183 @@ pub struct SystemInfo {
 /// watcher doesn't track processes at all (the cross-platform
 /// `query_running_processes()` returns empty on non-Windows), so
 /// there is nothing to terminate â€” but we still run the full
-/// `finish_session` cleanup so the running indicator clears and the
-/// activity session is recorded.
+/// session cleanup so the running indicator clears and the activity
+/// session is recorded.
+///
+/// **Lock discipline**: this command used to acquire the watcher
+/// mutex once and hold it through both the `kill_matching_processes`
+/// Win32 enumeration AND a 10-second `metrics_rx.recv_timeout`,
+/// freezing the background poll loop and any concurrent
+/// `force_close_game` IPC (a frantic double-click) for the full
+/// duration. The phases below split the work so the watcher mutex
+/// is only held during two short critical sections (~sub-millisecond
+/// each): gather the kill-target paths, then pluck the session out
+/// of `active_sessions`. The post-exit script, the metrics
+/// `recv_timeout` (now capped at 1 s — metrics are nice-to-have
+/// telemetry, not a UX blocker), SQLite writes, and the
+/// `game-exited` emit all run with the lock RELEASED.
 #[tauri::command]
 fn force_close_game(
     app: tauri::AppHandle,
     game_id: String,
 ) -> Result<game_watcher::ForceCloseResult, String> {
     let watcher: tauri::State<'_, Arc<std::sync::Mutex<GameWatcher>>> = app.state();
-    let mut w = watcher.lock().map_err(|e| e.to_string())?;
-    let result = w.force_close(&app, &game_id);
+
+    // Phase 1 — read session lookup fields we need for the kill. Brief
+    // critical section; everything copied out as owned data.
+    let kill_data = {
+        let w = watcher.lock().map_err(|e| e.to_string())?;
+        match w.gather_force_close_data(&game_id) {
+            Some(d) => d,
+            None => return Err(format!("Game is not running: {game_id}")),
+        }
+    }; // <-- watcher mutex released here.
+
+    // Phase 2 — kill matching processes WITHOUT the lock. May spawn
+    // `taskkill.exe` and calls `query_running_processes()`, which opens
+    // a Win32 handle on every running PID. Doing this outside the
+    // mutex was the missing piece behind the "second click crash":
+    // a stuck WaitForSingleObject on a system process could block the
+    // lock for seconds, during which the forced-close button's click
+    // handler queued a second IPC.
+    #[cfg(windows)]
+    let killed = game_watcher::kill_matching_processes(
+        &kill_data.expected_exe_lower,
+        kill_data.install_dir_lower.as_deref(),
+    );
+    #[cfg(not(windows))]
+    let killed = false;
+
+    // Phase 3 — emit discord-presence-update OUTSIDE the lock so any
+    // listener closure runs without starving the background poll loop.
+    let finished_at_ms = SystemTime::now()
+        .duration_since(SystemTime::UNIX_EPOCH)
+        .map(|d| d.as_millis() as u64)
+        .unwrap_or(0);
     let _ = app.emit(
         "discord-presence-update",
         serde_json::json!({
             "state": "stopped",
             "gameId": game_id,
-            "finishedAt": SystemTime::now()
-                .duration_since(SystemTime::UNIX_EPOCH)
-                .map(|d| d.as_millis() as u64)
-                .unwrap_or(0),
+            "finishedAt": finished_at_ms,
         }),
     );
-    result
+
+    // Phase 4 — take ownership of the session AND clone the db handle
+    // (`Db` is a cheap-to-clone `Arc<Pool>` bag). After this block,
+    // no watcher lock is held during the slow finalization work.
+    let (mut session, remaining_name, db) = {
+        let mut w = watcher.lock().map_err(|e| e.to_string())?;
+        match w.take_active_session(&game_id) {
+            Some((s, rn)) => (s, rn, w.db_clone()),
+            None => {
+                // Race — the background poll loop (or a second
+                // concurrent `force_close_game` IPC) already cleared
+                // the session. We still emit `game-exited` here so the
+                // frontend React listener drops the id from
+                // `runningGameIds` and the tray status flips; without
+                // this a fast double-click leaves the UI stuck on the
+                // running indicator even though no process is alive.
+                //
+                // The natural-clear path will most likely emit its own
+                // `game-exited` shortly after (the background poll's
+                // emit happens AFTER its `active_sessions.remove`), which
+                // is fine: React's filter is idempotent and the tray
+                // listener re-reads `remainingGameName` either way. We
+                // can't cheaply recover the *real* `remaining_name`
+                // here without another lock step, so we send `None`
+                // and let the natural emit carry the canonical value
+                // when it lands. There is a small race window where the
+                // tray briefly flips to "idle" before the natural emit
+                // restores the correct remaining game — accepted as
+                // cheaper than a second lock round-trip in this branch.
+                eprintln!(
+                    "[force_close_game] session {game_id} already cleared before take; killed={killed}"
+                );
+                let _ = app.emit(
+                    "game-exited",
+                    game_watcher::GameExitPayload {
+                        // Use the function-arg `game_id` (the stable id used
+                        // in `runningGameIds`), NOT the game's display name, so
+                        // the frontend filter `event.payload.gameId` matches.
+                        game_id: game_id.clone(),
+                        elapsed_seconds: 0,
+                        finished_at: finished_at_ms,
+                        metrics: None,
+                        remaining_game_name: None,
+                    },
+                );
+                return Ok(game_watcher::ForceCloseResult {
+                    pid: kill_data.pid,
+                    killed,
+                });
+            }
+        }
+    }; // <-- watcher mutex released here.
+
+    // Phase 5 — post-kill cleanup without the lock. The previous
+    // implementation blocked on `metrics_rx.recv_timeout(10s)` here;
+    // we cap at 1 s because metrics are nice-to-have telemetry, not a
+    // UX blocker — the running indicator clears on `game-exited`,
+    // which fires immediately below and the user sees within a
+    // sub-second of the kill returning.
+    if let Some((script, admin)) = &session.post_exit_script {
+        let _ = crate::run_script_blocking(script, *admin);
+    }
+    let _ = session.stop_tx.send(());
+    let elapsed = session.started_at.elapsed().as_secs();
+    let metrics = session
+        .metrics_rx
+        .as_mut()
+        .and_then(|rx| rx.recv_timeout(std::time::Duration::from_secs(1)).unwrap_or(None));
+    let started_at_ms = finished_at_ms.saturating_sub(elapsed * 1000);
+
+    let metrics_json = metrics
+        .as_ref()
+        .and_then(|m| serde_json::to_string(m).ok());
+    let (avg_fps, avg_cpu, avg_gpu, avg_ram) = match metrics.as_ref() {
+        Some(m) => (
+            Some(m.avg_fps as f32),
+            Some(m.avg_cpu_usage as f32),
+            Some(m.avg_gpu_usage as f32),
+            Some(m.avg_ram_usage as f32),
+        ),
+        None => (None, None, None, None),
+    };
+    if let Err(e) = db::sessions::insert(
+        &db,
+        &game_id,
+        &session.game_name,
+        started_at_ms,
+        finished_at_ms,
+        elapsed,
+        avg_fps,
+        avg_cpu,
+        avg_gpu,
+        avg_ram,
+        metrics_json.as_deref(),
+    ) {
+        eprintln!("[force_close_game] failed to record session for {game_id}: {e}");
+    }
+    if let Err(e) = db::games::update_last_played(&db, &game_id, finished_at_ms) {
+        eprintln!("[force_close_game] failed to update last_played for {game_id}: {e}");
+    }
+
+    let _ = app.emit(
+        "game-exited",
+        game_watcher::GameExitPayload {
+            game_id: session.game_id.clone(),
+            elapsed_seconds: elapsed,
+            finished_at: finished_at_ms,
+            metrics,
+            remaining_game_name: remaining_name,
+        },
+    );
+
+    Ok(game_watcher::ForceCloseResult {
+        pid: kill_data.pid,
+        killed,
+    })
 }
 
 /// Windows error code ERROR_ELEVATION_REQUIRED (740). Returned when a
