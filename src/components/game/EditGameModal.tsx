@@ -1,4 +1,4 @@
-import { useEffect, useState, type ReactNode } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { open } from "@tauri-apps/plugin-dialog";
 import { useGames } from "../../context/GameContext";
@@ -15,6 +15,8 @@ import {
   type IgdbReview,
   type LanguageSupportInfo,
   formatSize,
+  formatPlayTime,
+  parsePlayTime,
   type PlayStatus,
   PLAY_STATUS_DETAILS,
   extractSteamAppIdFromWebsites,
@@ -94,6 +96,49 @@ export function EditGameModal({ game, onClose }: EditGameModalProps) {
   const [editReleases, setEditReleases] = useState<ReleaseDateInfo[]>(game.releases || []);
   const [editIgdbReviews, setEditIgdbReviews] = useState<IgdbReview[]>(game.igdbReviews || []);
   const [editLanguageSupports, setEditLanguageSupports] = useState<LanguageSupportInfo[]>(game.languageSupports || []);
+
+  // ── Playtime editing ──────────────────────────────────────────
+  // Manual override for the `Game.playTime` string. The save flow
+  // round-trips through `parsePlayTime` / `formatPlayTime` so a
+  // tampered "5h30m" still gets normalised to "5h 30m" on disk.
+  // Seeded from `game.playTime` so opening the modal immediately
+  // reflects the current tracked total — users see the running
+  // value, edit it, and click Save to commit. Note that every
+  // Steam/GOG/Epic library sync re-writes `playTime` from the
+  // upstream API (see SettingsPage + src-tauri steam/gog/epic
+  // sync paths), so a manual edit is best-effort and may be
+  // clobbered by the next sync. Hint copy below makes that
+  // transparent.
+  const [editPlaytimeHours, setEditPlaytimeHours] = useState<number>(
+    Math.floor(parsePlayTime(game.playTime) / 60)
+  );
+  const [editPlaytimeMinutes, setEditPlaytimeMinutes] = useState<number>(
+    parsePlayTime(game.playTime) % 60
+  );
+
+  function resetPlaytimeEdits() {
+    setEditPlaytimeHours(0);
+    setEditPlaytimeMinutes(0);
+  }
+
+  // Re-seed the inputs when `game.playTime` changes from OUTSIDE the
+  // modal — e.g. a session-end event fires from the Rust `game-exited`
+  // listener while the modal is open (`updateGame(... { playTime:
+  // addSessionTime(...) })` in GameContext). Without this effect the
+  // modal's local state would go stale, and a Save click would silently
+  // overwrite the freshly-appended session minutes with the older
+  // value the modal first mounted with. The ref tracks the last value
+  // we observed via this effect so we ignore the initial mount (whose
+  // seed already happens in the `useState` initialiser) and avoid
+  // unnecessary re-renders.
+  const lastSeenPlaytimeRef = useRef(game.playTime);
+  useEffect(() => {
+    if (game.playTime === lastSeenPlaytimeRef.current) return;
+    lastSeenPlaytimeRef.current = game.playTime;
+    const total = parsePlayTime(game.playTime);
+    setEditPlaytimeHours(Math.floor(total / 60));
+    setEditPlaytimeMinutes(total % 60);
+  }, [game.playTime]);
 
   // ── Launch options ────────────────────────────────────────────
   const [editPath, setEditPath] = useState(game.path || "");
@@ -576,6 +621,15 @@ export function EditGameModal({ game, onClose }: EditGameModalProps) {
               }))
           : undefined,
       playStatus: editPlayStatus,
+      // Round-trip the manual override through parsePlayTime + formatPlayTime so
+      // any oddity in the user's input ("5h30m", "12h 0m", etc.) is normalised
+      // to the canonical `"Xh Ym"` form before it hits the SQLite row. We cap
+      // the per-field values to a reasonable range so a stray keystroke can't
+      // push absurd numbers into the persisted string.
+      playTime: formatPlayTime(
+        Math.max(0, Math.floor(editPlaytimeHours)) * 60 +
+        Math.max(0, Math.min(59, Math.floor(editPlaytimeMinutes)))
+      ),
     });
     onClose();
     showToast("Game updated", "success");
@@ -898,6 +952,51 @@ export function EditGameModal({ game, onClose }: EditGameModalProps) {
                   <button type="button" className="edit-btn edit-btn-ghost" onClick={clearSize} disabled={editSizeBytes == null}>{t("common.clear")}</button>
                 </div>
                 {editSizeRootPath && <span className="size-edit-hint" title={editSizeRootPath}>{editSizeRootPath}</span>}
+              </div>
+
+              <div className="edit-field full-width" data-storage-row style={{ marginTop: "var(--space-md)" }}>
+                <label className="edit-label">{t("edit.label.playtime")}</label>
+                <div className="edit-form-grid" style={{ gridTemplateColumns: "1fr 1fr auto", alignItems: "end" }}>
+                  <div className="edit-field">
+                    <label className="edit-label" htmlFor="edit-playtime-hours">{t("edit.playtime.hours")}</label>
+                    <input
+                      id="edit-playtime-hours"
+                      className="edit-input"
+                      type="number"
+                      min={0}
+                      step={1}
+                      value={editPlaytimeHours || ""}
+                      onChange={(e) => setEditPlaytimeHours(Math.max(0, Math.floor(Number(e.target.value) || 0)))}
+                      placeholder="0"
+                    />
+                  </div>
+                  <div className="edit-field">
+                    <label className="edit-label" htmlFor="edit-playtime-minutes">{t("edit.playtime.minutes")}</label>
+                    <input
+                      id="edit-playtime-minutes"
+                      className="edit-input"
+                      type="number"
+                      min={0}
+                      max={59}
+                      step={1}
+                      value={editPlaytimeMinutes || ""}
+                      onChange={(e) => setEditPlaytimeMinutes(Math.max(0, Math.min(59, Math.floor(Number(e.target.value) || 0))))}
+                      placeholder="0"
+                    />
+                  </div>
+                  <div className="edit-field">
+                    <button
+                      type="button"
+                      className="edit-btn edit-btn-ghost"
+                      onClick={resetPlaytimeEdits}
+                      disabled={editPlaytimeHours === 0 && editPlaytimeMinutes === 0}
+                      title={t("edit.playtime.resetTitle")}
+                    >
+                      {t("common.reset")}
+                    </button>
+                  </div>
+                </div>
+                <span className="size-edit-hint">{t("edit.playtime.hint")}</span>
               </div>
 
               <div className="edit-form-grid">
