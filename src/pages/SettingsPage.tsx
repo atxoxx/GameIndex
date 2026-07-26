@@ -370,7 +370,7 @@ export default function SettingsPage() {
   });
   // The user gets their API key from
   // https://steamcommunity.com/dev/apikey and their SteamID64 from
-  // https://steamcommunity.com/my (both linked from the inputs
+  // https://steamid.pro/ (both linked from the inputs
   // below). Both fields are persisted to localStorage on every
   // keystroke (see the onChange handlers below) and re-hydrated
   // on mount, so navigating away — or a reboot — doesn't wipe them.
@@ -2396,9 +2396,9 @@ export default function SettingsPage() {
                  *  - API key: https://steamcommunity.com/dev/apikey
                  *    (the user logs into Steam in their own browser
                  *    and registers the key against this app's domain)
-                 *  - SteamID64: https://steamcommunity.com/my
-                 *    (Steam's "My profile" page exposes the 17-digit
-                 *    ID under the vanity-URL block at the top) */}
+                 *  - SteamID64: https://steamid.pro/
+                 *    (SteamID lookup that derives the 17-digit
+                 *    SteamID64 from a profile URL / name) */}
                 {!steamAuth.isAuthenticated && steamAuthReady && (
                   <div className="integration-tile-form">
                     <label className="settings-control">
@@ -2430,7 +2430,7 @@ export default function SettingsPage() {
                       <div className="settings-label-row">
                         <span className="settings-label">{t("settings.label.steamId")}</span>
                         <a
-                          href="https://steamcommunity.com/my"
+                          href="https://steamid.pro/"
                           target="_blank"
                           rel="noopener noreferrer"
                           className="settings-link"
