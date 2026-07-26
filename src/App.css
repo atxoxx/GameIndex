@@ -933,10 +933,12 @@
   letter-spacing: 0.5px;
 }
 
+/* The mark uses fixed stroke colors (purple/cyan/orange) so no
+   `color` token is inherited — the hover transform is the only
+   motif this rule still owns. */
 .topnav-logo__mark {
   width: 22px;
   height: 22px;
-  color: var(--brand-1);
   transition: transform var(--duration-normal) var(--ease-standard);
 }
 

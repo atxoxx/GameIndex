@@ -361,8 +361,47 @@ export default function TopNav() {
     >
       <div className="topnav-left">
         <div className="topnav-logo">
-          <svg className="topnav-logo__mark" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-            <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2" />
+          {/*
+           * Brand mark — three interlocking rings (purple, cyan, orange)
+           * with a small white sphere at the triple intersection. The
+           * rings echo the Vision Pro-style icon while staying legible
+           * inside the 22×22 slot governed by `.topnav-logo__mark` (CSS
+           * keeps the rotate/scale hover, the wordmark gradient, and the
+           * the app-region: no-drag behaviour — no CSS changes needed).
+           *
+           * Painter's order: back → front is purple → cyan → orange so
+           * the orange ring appears in front of the other two at the
+           * bottom intersection, and the white sphere paints on top of
+           * the triple intersection. The gradient `id` is namespaced to
+           * this component so it can never collide with another mark on
+           * the page; `aria-hidden` keeps the SVG out of the accessible
+           * name (the adjacent <span>wordmark already labels the link).
+           */}
+          <svg
+            className="topnav-logo__mark"
+            viewBox="0 0 24 24"
+            fill="none"
+            aria-hidden="true"
+          >
+            <defs>
+              <radialGradient id="topnav-logo-glow" cx="50%" cy="50%" r="50%">
+                <stop offset="0%" stopColor="#bfe0ff" stopOpacity="0.75" />
+                <stop offset="55%" stopColor="#5ab7ff" stopOpacity="0.18" />
+                <stop offset="100%" stopColor="#5ab7ff" stopOpacity="0" />
+              </radialGradient>
+            </defs>
+            <circle cx="9" cy="9.5" r="5.4" stroke="#7c66ff" strokeWidth="2" />
+            <circle cx="15" cy="9.5" r="5.4" stroke="#22d3ee" strokeWidth="2" />
+            <circle cx="12" cy="15" r="5.4" stroke="#ff8a52" strokeWidth="2" />
+            <circle cx="12" cy="11.5" r="3.4" fill="url(#topnav-logo-glow)" />
+            <circle
+              cx="12"
+              cy="11.5"
+              r="1.9"
+              fill="#ffffff"
+              stroke="rgba(122,184,255,0.4)"
+              strokeWidth="0.6"
+            />
           </svg>
           <span className="topnav-logo__word">GameIndex</span>
         </div>
