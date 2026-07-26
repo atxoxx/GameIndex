@@ -148,7 +148,7 @@ function ActiveFilterChips({
     const meta = PLAY_STATUS_DETAILS[filterState.playStatus as PlayStatus];
     chips.push({
       key: "play-status",
-      label: meta?.label || filterState.playStatus,
+      label: meta ? t(meta.labelKey) : filterState.playStatus,
       remove: onRemovePlayStatus,
     });
   }
@@ -257,6 +257,7 @@ export default function Sidebar() {
     setYearRange,
     setRatingMin,
     setStatus,
+    setPlayStatus,
     setSort,
     removeGenre,
     removePlatform,
@@ -269,16 +270,21 @@ export default function Sidebar() {
   } = useLibraryFilters(games);
 
   // Count of active advanced facets (everything except the always-visible
-  // search). Drives BOTH the filter button's `active` class and its badge
-  // so the two visuals stay in sync — typing in the sidebar search alone
-  // shouldn't turn the button purple with no badge to justify it. The
-  // search field itself is the visual indicator that search is active.
+  // search and the source segmented row inside the popover). Drives BOTH
+  // the filter button's `active` class and its badge so the two visuals stay
+  // in sync — typing in the sidebar search alone shouldn't turn the button
+  // purple with no badge to justify it. The search field itself is the
+  // visual indicator that search is active; the source picker is already
+  // exposed inside the popover so its own row in the popover is enough.
+  // Play status is included here so selecting "Playing" surfaces in the
+  // badge the same way it does on the in-page Library filter rail.
   const advancedFilterCount =
     (filterState.status !== "all" ? 1 : 0) +
     (filterState.genres.length > 0 ? 1 : 0) +
     (filterState.platforms.length > 0 ? 1 : 0) +
     (filterState.yearMin != null || filterState.yearMax != null ? 1 : 0) +
-    (filterState.ratingMin != null ? 1 : 0);
+    (filterState.ratingMin != null ? 1 : 0) +
+    (filterState.playStatus !== "all" ? 1 : 0);
 
   const [showImportMenu, setShowImportMenu] = useState(false);
   const [showFilterPopover, setShowFilterPopover] = useState(false);
@@ -643,7 +649,7 @@ export default function Sidebar() {
       setBulkSelectedIds(new Set());
       const meta = PLAY_STATUS_DETAILS[status];
       showToast(
-        t("sidebar.markedCount", { count, plural: count !== 1 ? "s" : "", status: meta?.label || status }),
+        t("sidebar.markedCount", { count, plural: count !== 1 ? "s" : "", status: meta ? t(meta.labelKey) : status }),
         "success"
       );
     },
@@ -721,7 +727,7 @@ export default function Sidebar() {
     setContextMenu(null);
     const meta = PLAY_STATUS_DETAILS[status];
     showToast(
-      t("sidebar.statusSet", { name: game.name, status: meta?.label || status }),
+      t("sidebar.statusSet", { name: game.name, status: meta ? t(meta.labelKey) : status }),
       "success"
     );
   }
@@ -1114,6 +1120,7 @@ export default function Sidebar() {
         <SidebarFilterPopover
           anchorRef={filterBtnRef}
           status={filterState.status}
+          playStatus={filterState.playStatus}
           selectedGenres={filterState.genres}
           selectedPlatforms={filterState.platforms}
           yearMin={filterState.yearMin}
@@ -1125,6 +1132,7 @@ export default function Sidebar() {
           totalGames={games.length}
           filteredCount={filteredGames.length}
           onStatusChange={setStatus}
+          onPlayStatusChange={setPlayStatus}
           onGenresChange={setGenres}
           onPlatformsChange={setPlatforms}
           onYearRangeChange={setYearRange}
@@ -1323,30 +1331,29 @@ function ContextMenu({
             }}
             role="menu"
             aria-label={t("sidebar.playStatusOptions")}
-          >
-            {(["backlog", "playing", "completed", "on_hold", "abandoned"] as PlayStatus[]).map(
-              (s) => {
-                const meta = PLAY_STATUS_DETAILS[s];
-                const active = (game.playStatus || "backlog") === s;
-                return (
-                  <button
-                    key={s}
-                    type="button"
-                    className={`sidebar-context-submenu__item${active ? " active" : ""}`}
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      onSetStatus(s);
-                    }}
-                  >
-                    <span
-                      className="dot"
-                      style={{ background: meta.color }}
-                    />
-                    {meta.label}
-                  </button>
-                );
-              }
-            )}
+          >              {(["backlog", "playing", "completed", "on_hold", "abandoned"] as PlayStatus[]).map(
+                (s) => {
+                  const meta = PLAY_STATUS_DETAILS[s];
+                  const active = (game.playStatus || "backlog") === s;
+                  return (
+                    <button
+                      key={s}
+                      type="button"
+                      className={`sidebar-context-submenu__item${active ? " active" : ""}`}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        onSetStatus(s);
+                      }}
+                    >
+                      <span
+                        className="dot"
+                        style={{ background: meta.color }}
+                      />
+                      {t(meta.labelKey)}
+                    </button>
+                  );
+                }
+              )}
           </div>,
           document.body
         )}
@@ -1732,7 +1739,7 @@ function PlayStatusMenuButton({
       </option>
       {options.map((s) => (
         <option key={s} value={s}>
-          {PLAY_STATUS_DETAILS[s].label}
+          {t(PLAY_STATUS_DETAILS[s].labelKey)}
         </option>
       ))}
     </select>

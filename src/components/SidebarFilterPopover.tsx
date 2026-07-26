@@ -2,6 +2,7 @@ import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import type { LibraryStatus, LibrarySort } from "../hooks/useLibraryFilters";
 import { SORT_LABELS, SORT_OPTIONS } from "../hooks/useLibraryFilters";
+import type { PlayStatus } from "../types/game";
 import { useLanguage } from "../context/LanguageContext";
 
 /** Status toggle options. Declared at module scope so the literal
@@ -12,6 +13,21 @@ const STATUS_OPTIONS: readonly { value: LibraryStatus; labelKey: string }[] = [
   { value: "all", labelKey: "sidebarFilter.statusAll" },
   { value: "installed", labelKey: "sidebarFilter.statusInstalled" },
   { value: "not_installed", labelKey: "sidebarFilter.statusUninstalled" },
+];
+/** Play status segmented control. Mirrors the same shape used by
+ *  `LibraryFilterSidebar` so the two UIs feel identical. The
+ *  literal `PlayStatus | "all"` type is preserved on each `value`
+ *  instead of widening to `string`. The labels resolve via the
+ *  same `game.status.*` keys the Game page hero uses, so the
+ *  filter chip stays consistent with the pill on the GamePage
+ *  banner. */
+const PLAY_STATUS_OPTIONS: readonly { value: PlayStatus | "all"; labelKey: string }[] = [
+  { value: "all", labelKey: "sidebarFilter.statusAll" },
+  { value: "backlog", labelKey: "game.status.backlog" },
+  { value: "playing", labelKey: "game.status.playing" },
+  { value: "completed", labelKey: "game.status.completed" },
+  { value: "on_hold", labelKey: "game.status.onHold" },
+  { value: "abandoned", labelKey: "game.status.abandoned" },
 ];  /** Fallback width, used only if the browser hasn't yet laid out the
  *  popover when the position manager runs (extremely rare, since
  *  `useLayoutEffect` runs after layout). The canonical width is set
@@ -38,6 +54,14 @@ interface SidebarFilterPopoverProps {
   anchorRef: React.RefObject<HTMLElement | null>;
   /** Currently active status filter. */
   status: LibraryStatus;
+  /** Currently active play-status filter (all | backlog | playing
+   *  | completed | on_hold | abandoned). Wired to the segmented
+   *  control directly below the install-status toggle so the
+   *  user can narrow the sidebar game list to e.g. only "Playing"
+   *  without leaving the popover. Pulled out of `useLibraryFilters`
+   *  so the same source of truth powers the LibraryPage filter
+   *  rail, chip strip, and this popover chip. */
+  playStatus: PlayStatus | "all";
   /** Currently selected genres (OR). */
   selectedGenres: string[];
   /** Currently selected platforms (exact match). */
@@ -59,6 +83,7 @@ interface SidebarFilterPopoverProps {
   /** Games passing the current filter set (numerator for the count line). */
   filteredCount: number;
   onStatusChange: (s: LibraryStatus) => void;
+  onPlayStatusChange: (ps: PlayStatus | "all") => void;
   onGenresChange: (g: string[]) => void;
   onPlatformsChange: (p: string[]) => void;
   onYearRangeChange: (min: number | null, max: number | null) => void;
@@ -104,8 +129,13 @@ interface SidebarFilterPopoverProps {
  *
  *  Visual approach
  *  ───────────────
- *  - Pill toggles for status / genres / platforms instead of a
- *    checkbox list. Chips wrap, multi-select via re-click.
+ *  - Two segmented pill rows up top: install status (all / installed /
+ *    not installed) and play status (all / backlog / playing /
+ *    completed / on hold / abandoned). Each row reuses the same
+ *    `.sidebar-filter-popover-segmented` + `.sidebar-filter-popover-segment`
+ *    markup so they read as a paired "what am I looking at" facet group.
+ *  - Pill toggles for genres / platforms instead of a checkbox list.
+ *    Chips wrap, multi-select via re-click.
  *  - Year range as compact dual numeric inputs with a thin "—" separator.
  *  - Rating slider with a numeric badge that updates live.
  *  - Header has the title and a small (recycle) reset + (X) close pair.
@@ -118,6 +148,7 @@ interface SidebarFilterPopoverProps {
 export default function SidebarFilterPopover({
   anchorRef,
   status,
+  playStatus,
   selectedGenres,
   selectedPlatforms,
   yearMin,
@@ -129,6 +160,7 @@ export default function SidebarFilterPopover({
   totalGames,
   filteredCount,
   onStatusChange,
+  onPlayStatusChange,
   onGenresChange,
   onPlatformsChange,
   onYearRangeChange,
@@ -430,6 +462,32 @@ export default function SidebarFilterPopover({
                   className={`sidebar-filter-popover-segment${active ? " active" : ""}`}
                   aria-pressed={active}
                   onClick={() => onStatusChange(opt.value)}
+                >
+                  {t(opt.labelKey)}
+                </button>
+              );
+            })}
+          </div>
+        </section>
+
+        {/* ── Play Status: segmented pill control ── */}
+        {/* Sits between the install-status toggle and the sort
+         *  dropdown so it reads as part of the "what am I looking
+         *  at" facet group. Mirrors `LibraryFilterSidebar`'s
+         *  segmented control so the popover and the in-page filter
+         *  rail feel like the same UI expressed in two places. */}
+        <section className="sidebar-filter-popover-section">
+          <h4 className="sidebar-filter-popover-heading">{t("edit.label.playStatus")}</h4>
+          <div className="sidebar-filter-popover-segmented">
+            {PLAY_STATUS_OPTIONS.map((opt) => {
+              const active = playStatus === opt.value;
+              return (
+                <button
+                  key={opt.value}
+                  type="button"
+                  className={`sidebar-filter-popover-segment${active ? " active" : ""}`}
+                  aria-pressed={active}
+                  onClick={() => onPlayStatusChange(opt.value)}
                 >
                   {t(opt.labelKey)}
                 </button>
