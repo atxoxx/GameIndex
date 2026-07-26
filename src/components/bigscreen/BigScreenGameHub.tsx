@@ -150,7 +150,7 @@ export default function BigScreenGameHub({ gameId, onBack }: BigScreenGameHubPro
               </BigScreenPill>
               {status && (
                 <BigScreenPill tone="muted" size="sm" dot customColor={status.color}>
-                  {status.label}
+                  {t(status.labelKey)}
                 </BigScreenPill>
               )}
               {releaseYear && (

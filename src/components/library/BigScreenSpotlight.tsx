@@ -172,7 +172,7 @@ export default function BigScreenSpotlight({
             dot
             customColor={status.color}
           >
-            {status.label}
+            {t(status.labelKey)}
           </BigScreenPill>
           {resolvedSteamAppId != null && (
             <BigScreenPill tone="info" size="sm">

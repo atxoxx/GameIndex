@@ -303,7 +303,7 @@ export default function BigScreenGamePage({
                 dot
                 customColor={status.color}
               >
-                {status.label}
+                {t(status.labelKey)}
               </BigScreenPill>
               <BigScreenPill
                 tone="muted"

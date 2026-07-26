@@ -215,7 +215,7 @@ export default function InfoKpiCard({
         value={
           <span style={{ display: "flex", alignItems: "center", gap: 6 }}>
             <StatusDot color={PLAY_STATUS_DETAILS[game.playStatus || "backlog"].color} />
-            {PLAY_STATUS_DETAILS[game.playStatus || "backlog"].label}
+            {t(PLAY_STATUS_DETAILS[game.playStatus || "backlog"].labelKey)}
           </span>
         }
         intent={

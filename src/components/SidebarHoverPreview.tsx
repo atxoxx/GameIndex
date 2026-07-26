@@ -322,7 +322,7 @@ export function SidebarHoverPreview({
             background: "rgba(0, 0, 0, 0.6)",
           }}
         >
-          {status.label}
+          {t(status.labelKey)}
         </div>
       </div>
 

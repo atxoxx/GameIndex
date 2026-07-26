@@ -143,7 +143,7 @@ function LibraryGameCardBase({
             dot
             className="lib-card-status-badge status-${game.playStatus || 'backlog'}"
           >
-            {PLAY_STATUS_DETAILS[game.playStatus || "backlog"].label}
+            {t(PLAY_STATUS_DETAILS[game.playStatus || "backlog"].labelKey)}
           </Badge>
           {rating != null && rating > 0 && (
             <Badge

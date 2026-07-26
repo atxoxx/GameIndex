@@ -257,7 +257,7 @@ export default function GameHero({
               }
               value={
                 <span className="game-hero__status-value">
-                  {PLAY_STATUS_DETAILS[statusKey].label}
+                  {t(PLAY_STATUS_DETAILS[statusKey].labelKey)}
                 </span>
               }
               trailing={

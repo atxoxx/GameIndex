@@ -179,7 +179,7 @@ export default function BigScreenHome() {
                 </BigScreenPill>
                 {status && (
                   <BigScreenPill tone="muted" size="sm" dot customColor={status.color}>
-                    {status.label}
+                    {t(status.labelKey)}
                   </BigScreenPill>
                 )}
                 {releaseYear && (

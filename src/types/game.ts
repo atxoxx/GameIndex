@@ -712,19 +712,29 @@ export type LibrarySource = "all" | "steam" | "local" | "gog" | "epic" | "humble
 
 export type PlayStatus = "backlog" | "playing" | "completed" | "abandoned" | "on_hold";
 
+/**
+ * Per-status visual metadata. `labelKey` is an i18n key (resolved at the
+ *  call site via `t(labelKey)`) so the same map drives any of the 6
+ *  supported languages. `variant` and `color` stay engraved here because
+ *  they are non-translatable UI primitives (badge tone + dot color).
+ *  Every renderer used to read `PLAY_STATUS_DETAILS[s].label` directly,
+ *  which silently locked the UI to English even after users switched
+ *  their display language. Renaming to `labelKey` flips every consumer
+ *  onto the translation pipeline in one TS-error-driven pass.
+ */
 export const PLAY_STATUS_DETAILS: Record<
   PlayStatus,
   {
-    label: string;
+    labelKey: string;
     variant: "default" | "success" | "warning" | "danger" | "info" | "accent";
     color: string;
   }
 > = {
-  backlog: { label: "Backlog", variant: "default", color: "#64748b" },
-  playing: { label: "Playing", variant: "success", color: "#10b981" },
-  completed: { label: "Completed", variant: "info", color: "#3b82f6" },
-  on_hold: { label: "On Hold", variant: "warning", color: "#f59e0b" },
-  abandoned: { label: "Abandoned", variant: "danger", color: "#ef4444" },
+  backlog: { labelKey: "game.status.backlog", variant: "default", color: "#64748b" },
+  playing: { labelKey: "game.status.playing", variant: "success", color: "#10b981" },
+  completed: { labelKey: "game.status.completed", variant: "info", color: "#3b82f6" },
+  on_hold: { labelKey: "game.status.onHold", variant: "warning", color: "#f59e0b" },
+  abandoned: { labelKey: "game.status.abandoned", variant: "danger", color: "#ef4444" },
 };
 
 /** Metadata returned from the backend scraper. */

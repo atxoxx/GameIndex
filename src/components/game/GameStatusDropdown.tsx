@@ -5,6 +5,7 @@ import {
   type Game,
   type PlayStatus,
 } from "../../types/game";
+import { useLanguage } from "../../context/LanguageContext";
 
 /**
  * GameStatusDropdown
@@ -33,6 +34,7 @@ export default function GameStatusDropdown({
   game,
   onChange,
 }: GameStatusDropdownProps) {
+  const { t } = useLanguage();
   const [open, setOpen] = useState(false);
   const [menuPosition, setMenuPosition] = useState<{
     top: number;
@@ -133,7 +135,7 @@ export default function GameStatusDropdown({
             boxShadow: `0 0 8px ${details.color}`,
           }}
         />
-        <span>{details.label}</span>
+        <span>{t(details.labelKey)}</span>
         <svg
           viewBox="0 0 24 24"
           width="12"
@@ -182,7 +184,7 @@ export default function GameStatusDropdown({
                   className="status-dot"
                   style={{ backgroundColor: d.color }}
                 />
-                {d.label}
+                {t(d.labelKey)}
               </button>
             ))}
           </div>,

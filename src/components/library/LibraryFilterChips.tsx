@@ -96,7 +96,7 @@ export default function LibraryFilterChips({
 
       {filters.playStatus !== "all" && (
         <span className="lib-chip">
-          {PLAY_STATUS_DETAILS[filters.playStatus].label}
+          {t(PLAY_STATUS_DETAILS[filters.playStatus].labelKey)}
           <button type="button" onClick={onRemovePlayStatus} aria-label={t("library.clearPlayStatusFilter")}>{CloseIcon}</button>
         </span>
       )}

@@ -657,7 +657,7 @@ export function EditGameModal({ game, onClose }: EditGameModalProps) {
             {editIcon && <img className="edit-preview-icon" src={editIcon} alt="icon" />}
           </div>
           <div className="edit-modal-preview-meta">
-            <span className="edit-preview-eyebrow">{editPlatform || "Platform"} · {PLAY_STATUS_DETAILS[editPlayStatus].label}</span>
+            <span className="edit-preview-eyebrow">{editPlatform || "Platform"} · {t(PLAY_STATUS_DETAILS[editPlayStatus].labelKey)}</span>
             <h3 className="edit-preview-title">{editName || game.name}</h3>
             {(editDeveloper || editPublisher) && (
               <p className="edit-preview-sub">
@@ -770,7 +770,7 @@ export function EditGameModal({ game, onClose }: EditGameModalProps) {
                     <label className="edit-label" htmlFor="edit-play-status">{t("edit.label.playStatus")}</label>
                     <select id="edit-play-status" className="edit-input" value={editPlayStatus} onChange={(e) => setEditPlayStatus(e.target.value as PlayStatus)}>
                       {Object.entries(PLAY_STATUS_DETAILS).map(([key, details]) => (
-                        <option key={key} value={key}>{details.label}</option>
+                        <option key={key} value={key}>{t(details.labelKey)}</option>
                       ))}
                     </select>
                   </div>
