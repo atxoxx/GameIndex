@@ -44,20 +44,21 @@ function formatMinutes(min: number): string {
   return `${h}h ${m}m`;
 }
 
-/** Relative date string ("3 days ago", "Yesterday", etc.). */
-function relativeDate(
-  iso: string,
+/** Relative date string ("3 days ago", "Yesterday", etc.) from a
+ *  millisecond timestamp. Falls back to the localized absolute date for
+ *  anything older than ~30 days. */
+function relativeFromMs(
+  thenMs: number,
   t: (key: string, vars?: Record<string, string | number>) => string
 ): string {
-  const then = new Date(iso).getTime();
-  if (Number.isNaN(then)) return t("splash.unknown");
-  const deltaMs = Date.now() - then;
+  if (!Number.isFinite(thenMs)) return t("splash.unknown");
+  const deltaMs = Date.now() - thenMs;
   const day = 24 * 60 * 60 * 1000;
   if (deltaMs < day) return t("splash.today");
   if (deltaMs < 2 * day) return t("splash.yesterday");
   if (deltaMs < 7 * day) return t("splash.daysAgo", { count: Math.floor(deltaMs / day) });
   if (deltaMs < 30 * day) return t("splash.weeksAgo", { count: Math.floor(deltaMs / (7 * day)) });
-  return new Date(iso).toLocaleDateString();
+  return new Date(thenMs).toLocaleDateString();
 }
 
 interface InfoCardProps {
@@ -175,7 +176,24 @@ export default function Splashscreen() {
   // ── Derive displayed info from record (no ActivityContext here) ──
   const game: Game = record.game;
   const lastSession = record.lastSession;
-  const lastSessionDate = lastSession ? relativeDate(lastSession.date, t) : null;
+
+  // "Last Played" should reflect the game's canonical last-played time,
+  // which lives on `game.lastPlayed` (stamped on launch and synced from
+  // Steam/GOG/Epic). Fall back to the session history (whose `date` is an
+  // ISO string) only when the game has no stamp — e.g. an in-app session
+  // was recorded but the sync field is missing. Without this fallback,
+  // any game with a last-played stamp but no session row wrongly showed
+  // "First time playing".
+  const lastPlayedMs =
+    typeof game.lastPlayed === "number" && Number.isFinite(game.lastPlayed)
+      ? game.lastPlayed
+      : lastSession
+        ? Date.parse(lastSession.date)
+        : undefined;
+  const lastSessionDate =
+    typeof lastPlayedMs === "number" && Number.isFinite(lastPlayedMs)
+      ? relativeFromMs(lastPlayedMs, t)
+      : null;
   const lastSessionDuration = lastSession ? formatMinutes(lastSession.durationMin) : null;
   const lastSessionFps = lastSession?.metrics?.avgFps;
 
