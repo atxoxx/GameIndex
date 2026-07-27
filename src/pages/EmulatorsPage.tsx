@@ -24,6 +24,55 @@ function formatDate(ts?: number): string {
   return d.toLocaleDateString(undefined, { year: "numeric", month: "short", day: "numeric" });
 }
 
+function renderRow(
+  r: EmuRow,
+  t: (key: string, vars?: Record<string, unknown>) => string,
+  selectedRow: EmuRow | null,
+  setSelectedId: (id: string) => void,
+) {
+  const active = selectedRow?.id === r.id;
+  return (
+    <button
+      key={r.id}
+      role="option"
+      aria-selected={active}
+      className={`emu-row${active ? " is-active" : ""}${r.added ? "" : " is-catalog"}`}
+      style={{ ["--emu-accent" as string]: r.accent }}
+      onClick={() => setSelectedId(r.id)}
+    >
+      <span className="emu-row-stripe" />
+      <span className="emu-row-glyph">{r.glyph}</span>
+      <span className="emu-row-main">
+        <span className="emu-row-name">{r.name}</span>
+        <span className="emu-row-platform">{r.platform}</span>
+      </span>
+      <span className="emu-row-meta">
+        <span className={`emu-badge ${r.added ? "is-added" : "is-notadded"}`}>
+          {r.added
+            ? t("emulators.status.added")
+            : t("emulators.status.notAdded")}
+        </span>
+        {r.added && (
+          <span
+            className={`emu-badge ${
+              r.configured ? "is-configured" : "is-notconfigured"
+            }`}
+          >
+            {r.configured
+              ? t("emulators.status.configured")
+              : t("emulators.status.notConfigured")}
+          </span>
+        )}
+        <span className="emu-row-count">
+          {r.gameCount === 1
+            ? t("emulators.romCountSingle", { count: r.gameCount })
+            : t("emulators.romCount", { count: r.gameCount })}
+        </span>
+      </span>
+    </button>
+  );
+}
+
 type SortKey = "name" | "games" | "platform" | "dateAdded";
 type SortDir = "asc" | "desc";
 
@@ -74,6 +123,9 @@ export default function EmulatorsPage() {
   const [search, setSearch] = useState("");
   const [sortKey, setSortKey] = useState<SortKey>("name");
   const [sortDir, setSortDir] = useState<SortDir>("asc");
+  const [filter, setFilter] = useState<
+    "all" | "added" | "notAdded" | "configured" | "notConfigured"
+  >("all");
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [gameSearch, setGameSearch] = useState("");
 
@@ -150,12 +202,22 @@ export default function EmulatorsPage() {
 
   const filteredRows = useMemo(() => {
     const q = search.trim().toLowerCase();
-    const base = q
-      ? rows.filter(
-          (r) =>
-            r.name.toLowerCase().includes(q) || r.platform.toLowerCase().includes(q)
-        )
-      : rows;
+    const base = rows.filter((r) => {
+      if (q && !r.name.toLowerCase().includes(q) && !r.platform.toLowerCase().includes(q))
+        return false;
+      switch (filter) {
+        case "added":
+          return r.added;
+        case "notAdded":
+          return !r.added;
+        case "configured":
+          return r.configured;
+        case "notConfigured":
+          return r.added && !r.configured;
+        default:
+          return true;
+      }
+    });
 
     const sorted = [...base].sort((a, b) => {
       let res = 0;
@@ -177,7 +239,25 @@ export default function EmulatorsPage() {
       return sortDir === "desc" ? -res : res;
     });
     return sorted;
-  }, [rows, search, sortKey, sortDir]);
+  }, [rows, search, sortKey, sortDir, filter]);
+
+  // Summary stats for the header strip.
+  const stats = useMemo(() => {
+    const totalRoms = rows.reduce((sum, r) => sum + r.gameCount, 0);
+    return {
+      catalog: rows.length,
+      added: rows.filter((r) => r.added).length,
+      configured: rows.filter((r) => r.configured).length,
+      roms: totalRoms,
+    };
+  }, [rows]);
+
+  // Split the visible rows into two navigable groups.
+  const groups = useMemo(() => {
+    const added = filteredRows.filter((r) => r.added);
+    const catalog = filteredRows.filter((r) => !r.added);
+    return { added, catalog };
+  }, [filteredRows]);
 
   const selectedRow = useMemo<EmuRow | null>(() => {
     if (selectedId) {
@@ -202,6 +282,11 @@ export default function EmulatorsPage() {
       .filter((g) => (q ? g.name.toLowerCase().includes(q) : true))
       .sort((a, b) => a.name.localeCompare(b.name));
   }, [games, selectedRow, gameSearch]);
+
+  const selectedTotalBytes = useMemo(
+    () => selectedGames.reduce((sum, g) => sum + (g.sizeBytes ?? 0), 0),
+    [selectedGames],
+  );
 
   const addedCount = useMemo(() => rows.filter((r) => r.added).length, [rows]);
 
@@ -408,6 +493,26 @@ export default function EmulatorsPage() {
     setSortDir((d) => (d === "asc" ? "desc" : "asc"));
   }, []);
 
+  // Arrow-key navigation across the visible (filtered) list.
+  const handleListKeyDown = useCallback(
+    (e: React.KeyboardEvent<HTMLDivElement>) => {
+      if (e.key !== "ArrowDown" && e.key !== "ArrowUp") return;
+      const ids = filteredRows.map((r) => r.id);
+      if (ids.length === 0) return;
+      const current = selectedRow?.id ?? ids[0];
+      const idx = ids.indexOf(current);
+      const next =
+        e.key === "ArrowDown"
+          ? Math.min(ids.length - 1, idx + 1)
+          : Math.max(0, idx - 1);
+      if (next !== idx) {
+        e.preventDefault();
+        setSelectedId(ids[next]);
+      }
+    },
+    [filteredRows, selectedRow],
+  );
+
   const sortLabel: Record<SortKey, string> = {
     name: t("emulators.sort.name"),
     games: t("emulators.sort.games"),
@@ -437,6 +542,31 @@ export default function EmulatorsPage() {
           )}
         </div>
       </div>
+
+      {!loading && (
+        <div className="emulators-stats">
+          <div className="emu-stat">
+            <span className="emu-stat-glyph">🗂️</span>
+            <span className="emu-stat-value">{stats.catalog}</span>
+            <span className="emu-stat-label">{t("emulators.stats.catalog")}</span>
+          </div>
+          <div className="emu-stat">
+            <span className="emu-stat-glyph">✅</span>
+            <span className="emu-stat-value">{stats.added}</span>
+            <span className="emu-stat-label">{t("emulators.stats.added")}</span>
+          </div>
+          <div className="emu-stat">
+            <span className="emu-stat-glyph">⚙️</span>
+            <span className="emu-stat-value">{stats.configured}</span>
+            <span className="emu-stat-label">{t("emulators.stats.configured")}</span>
+          </div>
+          <div className="emu-stat">
+            <span className="emu-stat-glyph">🎮</span>
+            <span className="emu-stat-value">{stats.roms}</span>
+            <span className="emu-stat-label">{t("emulators.stats.roms")}</span>
+          </div>
+        </div>
+      )}
 
       {loading ? (
         <div className="emulators-empty">
@@ -480,57 +610,61 @@ export default function EmulatorsPage() {
               </div>
             </div>
 
+            <div className="emulators-filters">
+              {(
+                [
+                  ["all", t("emulators.filter.all")],
+                  ["added", t("emulators.filter.added")],
+                  ["notAdded", t("emulators.filter.notAdded")],
+                  ["configured", t("emulators.filter.configured")],
+                  ["notConfigured", t("emulators.filter.notConfigured")],
+                ] as const
+              ).map(([key, label]) => (
+                <button
+                  key={key}
+                  className={`emu-filter-chip${filter === key ? " is-active" : ""}`}
+                  onClick={() => setFilter(key)}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
+
             <div className="emulators-list-count">
               {t("emulators.list.count", { added: addedCount, total: rows.length })}
             </div>
 
-            <div className="emulators-list">
+            <div
+              className="emulators-list"
+              role="listbox"
+              tabIndex={0}
+              onKeyDown={handleListKeyDown}
+            >
               {filteredRows.length === 0 ? (
                 <div className="emulators-list-empty">{t("emulators.list.empty")}</div>
               ) : (
-                filteredRows.map((r) => {
-                  const active = selectedRow?.id === r.id;
-                  return (
-                    <button
-                      key={r.id}
-                      className={`emu-row${active ? " is-active" : ""}`}
-                      style={{ ["--emu-accent" as string]: r.accent }}
-                      onClick={() => setSelectedId(r.id)}
-                    >
-                      <span className="emu-row-stripe" />
-                      <span className="emu-row-glyph">{r.glyph}</span>
-                      <span className="emu-row-main">
-                        <span className="emu-row-name">{r.name}</span>
-                        <span className="emu-row-platform">{r.platform}</span>
-                      </span>
-                      <span className="emu-row-meta">
-                        <span
-                          className={`emu-badge ${r.added ? "is-added" : "is-notadded"}`}
-                        >
-                          {r.added
-                            ? t("emulators.status.added")
-                            : t("emulators.status.notAdded")}
-                        </span>
-                        {r.added && (
-                          <span
-                            className={`emu-badge ${
-                              r.configured ? "is-configured" : "is-notconfigured"
-                            }`}
-                          >
-                            {r.configured
-                              ? t("emulators.status.configured")
-                              : t("emulators.status.notConfigured")}
-                          </span>
-                        )}
-                        <span className="emu-row-count">
-                          {r.gameCount === 1
-                            ? t("emulators.romCountSingle", { count: r.gameCount })
-                            : t("emulators.romCount", { count: r.gameCount })}
-                        </span>
-                      </span>
-                    </button>
-                  );
-                })
+                <>
+                  {groups.added.length > 0 && (
+                    <div className="emu-group">
+                      <div className="emu-group-header">
+                        <span>{t("emulators.group.added")}</span>
+                        <span className="emu-group-count">{groups.added.length}</span>
+                      </div>
+                      {groups.added.map((r) => renderRow(r, t, selectedRow, setSelectedId))}
+                    </div>
+                  )}
+                  {groups.catalog.length > 0 && (
+                    <div className="emu-group">
+                      <div className="emu-group-header">
+                        <span>{t("emulators.group.catalog")}</span>
+                        <span className="emu-group-count">{groups.catalog.length}</span>
+                      </div>
+                      {groups.catalog.map((r) =>
+                        renderRow(r, t, selectedRow, setSelectedId),
+                      )}
+                    </div>
+                  )}
+                </>
               )}
             </div>
           </aside>
@@ -544,7 +678,7 @@ export default function EmulatorsPage() {
             ) : !selectedRow.added ? (
               <div className="emulators-detail">
                 <div
-                  className="emu-detail-head"
+                  className="emu-detail-head emu-detail-banner"
                   style={{ ["--emu-accent" as string]: selectedRow.accent }}
                 >
                   <span className="emu-detail-glyph">{selectedRow.glyph}</span>
@@ -582,7 +716,7 @@ export default function EmulatorsPage() {
             ) : (
               <div className="emulators-detail">
                 <div
-                  className="emu-detail-head"
+                  className="emu-detail-head emu-detail-banner"
                   style={{ ["--emu-accent" as string]: selectedRow.accent }}
                 >
                   <span className="emu-detail-glyph">{selectedRow.glyph}</span>
@@ -729,6 +863,15 @@ export default function EmulatorsPage() {
                     </div>
                   ) : (
                     <div className="emu-games-table">
+                      <div className="emu-game-row emu-game-row-head">
+                        <span className="emu-game-icon" />
+                        <span className="emu-game-main">
+                          {t("emulators.name")}
+                        </span>
+                        <span className="emu-game-size">{t("emulators.games.size")}</span>
+                        <span className="emu-game-actions" />
+                        <span className="emu-game-launch" />
+                      </div>
                       {selectedGames.map((g) => {
                         const running = runningGameIds.includes(g.id);
                         return (
@@ -774,7 +917,7 @@ export default function EmulatorsPage() {
                               </button>
                             </span>
                             <button
-                              className="btn-primary btn-sm"
+                              className="btn-primary btn-sm emu-game-launch"
                               onClick={() => launchGame(g)}
                               disabled={running}
                             >
@@ -783,6 +926,17 @@ export default function EmulatorsPage() {
                           </div>
                         );
                       })}
+                      <div className="emu-games-footer">
+                        <span className="emu-games-footer-count">
+                          {t("emulators.detail.gamesCount", {
+                            count: selectedGames.length,
+                          })}
+                        </span>
+                        <span className="emu-games-footer-size">
+                          {t("emulators.detail.totalSize")}:{" "}
+                          {formatBytesShort(selectedTotalBytes)}
+                        </span>
+                      </div>
                     </div>
                   )}
                 </div>

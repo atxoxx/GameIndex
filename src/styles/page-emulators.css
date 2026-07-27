@@ -6,7 +6,7 @@
 
 .emulators-page {
   padding: 28px 32px;
-  max-width: 1100px;
+  max-width: 1500px;
   min-height: 100%;
 }
 
@@ -73,7 +73,7 @@
 
 .emulators-split {
   display: grid;
-  grid-template-columns: minmax(300px, 360px) 1fr;
+  grid-template-columns: minmax(260px, 300px) 1fr;
   gap: 20px;
   align-items: start;
 }
@@ -873,6 +873,196 @@
   box-shadow: 0 0 0 1px var(--color-accent-glow);
 }
 
+/* ── Stats strip ───────────────────────────────────────────────── */
+
+.emulators-stats {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 12px;
+  margin-bottom: 22px;
+}
+
+.emu-stat {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+  padding: 14px 16px;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: 12px;
+  position: relative;
+  overflow: hidden;
+  transition: border-color 0.15s, transform 0.15s;
+}
+
+.emu-stat:hover {
+  border-color: var(--color-border-light);
+  transform: translateY(-1px);
+}
+
+.emu-stat-glyph {
+  font-size: 16px;
+  opacity: 0.85;
+}
+
+.emu-stat-value {
+  font-size: 22px;
+  font-weight: 700;
+  line-height: 1.1;
+  color: var(--color-text-primary);
+}
+
+.emu-stat-label {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--color-text-secondary, #8b8fa3);
+}
+
+/* ── Filter chips ───────────────────────────────────────────────── */
+
+.emulators-filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 12px 0 8px;
+}
+
+.emu-filter-chip {
+  font-size: 11px;
+  font-weight: 600;
+  padding: 4px 10px;
+  border-radius: 999px;
+  cursor: pointer;
+  color: var(--color-text-secondary, #8b8fa3);
+  background: var(--color-bg-primary);
+  border: 1px solid var(--color-border);
+  transition: border-color 0.15s, color 0.15s, background 0.15s;
+}
+
+.emu-filter-chip:hover {
+  border-color: var(--color-accent);
+  color: var(--color-text-primary);
+}
+
+.emu-filter-chip.is-active {
+  color: #fff;
+  background: var(--color-accent);
+  border-color: var(--color-accent);
+}
+
+/* ── Grouped list ───────────────────────────────────────────────── */
+
+.emu-group {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.emu-group + .emu-group {
+  margin-top: 14px;
+}
+
+.emu-group-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 2px 6px 4px;
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--color-text-secondary, #8b8fa3);
+  position: sticky;
+  top: 0;
+  background: var(--color-surface);
+  z-index: 1;
+}
+
+.emu-group-count {
+  background: var(--color-bg-primary);
+  border: 1px solid var(--color-border);
+  border-radius: 999px;
+  padding: 0 7px;
+  font-size: 9px;
+}
+
+.emu-row.is-catalog {
+  opacity: 0.82;
+}
+
+.emu-row.is-catalog:hover,
+.emu-row.is-catalog.is-active {
+  opacity: 1;
+}
+
+/* ── Detail banner ──────────────────────────────────────────────── */
+
+.emu-detail-banner {
+  border: 1px solid var(--color-border);
+  border-radius: 14px;
+  padding: 20px;
+  position: relative;
+  overflow: hidden;
+  background:
+    radial-gradient(
+      120% 140% at 0% 0%,
+      color-mix(in srgb, var(--emu-accent, var(--color-accent)) 30%, transparent),
+      transparent 60%
+    ),
+    var(--color-surface);
+  border-bottom: 1px solid var(--color-border);
+}
+
+.emu-detail-banner .emu-detail-glyph {
+  box-shadow: 0 4px 16px color-mix(in srgb, var(--emu-accent, var(--color-accent)) 45%, transparent);
+}
+
+/* ── Games grid ─────────────────────────────────────────────────── */
+
+.emu-game-row-head {
+  background: transparent;
+  border: none;
+  padding: 4px 10px;
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--color-text-secondary, #8b8fa3);
+  cursor: default;
+}
+
+.emu-game-row-head:hover {
+  border-color: transparent;
+}
+
+.emu-game-launch {
+  flex-shrink: 0;
+  min-width: 78px;
+  justify-content: center;
+}
+
+.emu-games-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 12px;
+  margin-top: 4px;
+  border-top: 1px solid var(--color-border);
+  font-size: 12px;
+  color: var(--color-text-secondary, #8b8fa3);
+}
+
+.emu-games-footer-count {
+  font-weight: 600;
+  color: var(--color-text-primary);
+}
+
+.emu-games-footer-size {
+  font-variant-numeric: tabular-nums;
+}
+
 /* ── Responsive tweaks ──────────────────────────────────────────── */
 
 @media (max-width: 900px) {
@@ -887,6 +1077,10 @@
   .emulators-list {
     max-height: 320px;
   }
+
+  .emulators-stats {
+    grid-template-columns: repeat(2, 1fr);
+  }
 }
 
 @media (max-width: 600px) {
@@ -900,5 +1094,9 @@
 
   .emu-game-size {
     display: none;
+  }
+
+  .emulators-stats {
+    grid-template-columns: repeat(2, 1fr);
   }
 }
