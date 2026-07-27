@@ -95,6 +95,7 @@ export const ru: TranslationDict = {
   "game.tab.more": "Ещё",
   "game.tab.mods": "Моды",
 
+  "mods.eyebrow": "Моды и кастомизация",
   "mods.title": "Менеджер модов",
   "mods.subtitle": "Обнаруживайте, упорядочивайте и управляйте установленными модами — порядок загрузки, конфликты и обновления Nexus Mods.",
   "mods.scan": "Найти моды",
@@ -2864,6 +2865,7 @@ export const ru: TranslationDict = {
   "settings.integrations.confirmRemove.gog": "Удалить ваше подключение к GOG Galaxy?",
   "settings.integrations.confirmRemove.humble": "Удалить ваше подключение к Humble Bundle?",
   "settings.integrations.confirmRemoveGeneric": "Удалить ваше подключение к {platform}?",
+  "emulators.eyebrow": "Ретро и эмуляция",
   "emulators.title": "Эмуляторы",
   "emulators.stats.catalog": "Каталог",
   "emulators.stats.added": "Добавлено",

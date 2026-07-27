@@ -95,6 +95,7 @@ export const zhCN: TranslationDict = {
   "game.tab.more": "更多",
   "game.tab.mods": "模组",
 
+  "mods.eyebrow": "模组与自定义",
   "mods.title": "模组管理器",
   "mods.subtitle": "检测、整理并管理游戏已安装的模组——加载顺序、冲突检测与 Nexus Mods 更新。",
   "mods.scan": "扫描模组",
@@ -2864,6 +2865,7 @@ export const zhCN: TranslationDict = {
   "settings.integrations.confirmRemove.gog": "移除你的 GOG Galaxy 连接？",
   "settings.integrations.confirmRemove.humble": "移除你的 Humble Bundle 连接？",
   "settings.integrations.confirmRemoveGeneric": "移除你的 {platform} 连接？",
+  "emulators.eyebrow": "复古与模拟",
   "emulators.title": "模拟器",
   "emulators.stats.catalog": "目录",
   "emulators.stats.added": "已添加",

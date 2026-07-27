@@ -99,6 +99,7 @@ export const en: TranslationDict = {
   "game.tab.more": "More",
   "game.tab.mods": "Mods",
 
+  "mods.eyebrow": "Mods & Customization",
   "mods.title": "Mod Manager",
   "mods.subtitle": "Detect, organize and manage installed mods for your games — load order, conflicts and Nexus Mods updates.",
   "mods.scan": "Scan for mods",
@@ -3085,6 +3086,7 @@ export const en: TranslationDict = {
   "settings.integrations.confirmRemove.humble": "Remove your Humble Bundle connection?",
   "settings.integrations.confirmRemoveGeneric": "Remove your {platform} connection?",
 
+  "emulators.eyebrow": "Retro & Emulation",
   "emulators.title": "Emulators",
   "emulators.subtitle": "Link an emulator to a ROM folder and launch your retro library from GameIndex.",
   "emulators.addEmulator": "Add Emulator",

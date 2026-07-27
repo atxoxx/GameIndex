@@ -8,6 +8,7 @@ import { useGames } from "../context/GameContext";
 import type { Game } from "../types/game";
 import { accentForPlatform, KNOWN_EMULATORS, type Emulator, type KnownEmulator } from "../types/emulator";
 import { formatBytesShort } from "../types/download";
+import { PageHeader } from "../components/ui";
 import "../styles/page-emulators.css";
 import EmulatorEditorModal from "./EmulatorEditorModal";
 
@@ -541,26 +542,27 @@ export default function EmulatorsPage() {
 
   return (
     <div className="emulators-page">
-      <div className="emulators-header">
-        <div>
-          <h1 className="emulators-title">{t("emulators.title")}</h1>
-          <p className="emulators-subtitle">{t("emulators.subtitle")}</p>
-        </div>
-        <div className="emulators-header-actions">
-          <button className="btn-primary" onClick={openAdd}>
-            + {t("emulators.addEmulator")}
-          </button>
-          {addedCount > 0 && (
-            <button
-              className="btn-secondary"
-              onClick={handleScanAll}
-              disabled={scanningId !== null}
-            >
-              {t("emulators.scanAll")}
+      <PageHeader
+        eyebrow={t("emulators.eyebrow")}
+        title={t("emulators.title")}
+        description={t("emulators.subtitle")}
+        actions={
+          <>
+            <button className="btn-primary" onClick={openAdd}>
+              + {t("emulators.addEmulator")}
             </button>
-          )}
-        </div>
-      </div>
+            {addedCount > 0 && (
+              <button
+                className="btn-secondary"
+                onClick={handleScanAll}
+                disabled={scanningId !== null}
+              >
+                {t("emulators.scanAll")}
+              </button>
+            )}
+          </>
+        }
+      />
 
       {!loading && (
         <div className="emulators-stats">

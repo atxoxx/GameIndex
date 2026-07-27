@@ -6,6 +6,7 @@ import { useEffect, useMemo, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { useGames } from "../../context/GameContext";
 import { useLanguage } from "../../context/LanguageContext";
+import { PageHeader } from "../../components/ui";
 import ModManager from "../../components/mods/ModManager";
 import { ENGINE_LABELS, type ModEngine, type ModsOverviewEntry } from "../../types/mods";
 import type { Game } from "../../types/game";
@@ -61,12 +62,11 @@ export default function ModsPage() {
 
   return (
     <div className="mods-page">
-      <div className="mods-page-header">
-        <div>
-          <h1 className="mods-page-title">{t("mods.title")}</h1>
-          <p className="mods-page-subtitle">{t("mods.subtitle")}</p>
-        </div>
-      </div>
+      <PageHeader
+        eyebrow={t("mods.eyebrow")}
+        title={t("mods.title")}
+        description={t("mods.subtitle")}
+      />
 
       {candidates.length === 0 ? (
         <div className="mods-empty">

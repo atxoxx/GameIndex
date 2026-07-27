@@ -95,6 +95,7 @@ export const fr: TranslationDict = {
   "game.tab.more": "Plus",
   "game.tab.mods": "Mods",
 
+  "mods.eyebrow": "Mods & personnalisation",
   "mods.title": "Gestionnaire de mods",
   "mods.subtitle": "Détectez, organisez et gérez les mods installés de vos jeux — ordre de chargement, conflits et mises à jour Nexus Mods.",
   "mods.scan": "Rechercher des mods",
@@ -2864,6 +2865,7 @@ export const fr: TranslationDict = {
   "settings.integrations.confirmRemove.gog": "Supprimer votre connexion GOG Galaxy ?",
   "settings.integrations.confirmRemove.humble": "Supprimer votre connexion Humble Bundle ?",
   "settings.integrations.confirmRemoveGeneric": "Supprimer votre connexion {platform} ?",
+  "emulators.eyebrow": "Rétro & émulation",
   "emulators.title": "Émulateurs",
   "emulators.stats.catalog": "Catalogue",
   "emulators.stats.added": "Ajoutés",

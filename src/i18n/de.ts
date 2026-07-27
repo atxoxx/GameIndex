@@ -95,6 +95,7 @@ export const de: TranslationDict = {
   "game.tab.more": "Mehr",
   "game.tab.mods": "Mods",
 
+  "mods.eyebrow": "Mods & Anpassung",
   "mods.title": "Mod-Verwaltung",
   "mods.subtitle": "Erkenne, organisiere und verwalte installierte Mods deiner Spiele — Ladereihenfolge, Konflikte und Nexus-Mods-Updates.",
   "mods.scan": "Nach Mods suchen",
@@ -2865,6 +2866,7 @@ export const de: TranslationDict = {
   "settings.integrations.confirmRemove.humble": "Deine Humble Bundle-Verbindung entfernen?",
   "settings.integrations.confirmRemoveGeneric": "Deine {platform}-Verbindung entfernen?",
 
+  "emulators.eyebrow": "Retro & Emulation",
   "emulators.title": "Emulatoren",
   "emulators.stats.catalog": "Katalog",
   "emulators.stats.added": "Hinzugefügt",
