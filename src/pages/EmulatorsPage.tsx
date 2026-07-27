@@ -565,22 +565,18 @@ export default function EmulatorsPage() {
       {!loading && (
         <div className="emulators-stats">
           <div className="emu-stat">
-            <span className="emu-stat-glyph">🗂️</span>
             <span className="emu-stat-value">{stats.catalog}</span>
             <span className="emu-stat-label">{t("emulators.stats.catalog")}</span>
           </div>
           <div className="emu-stat">
-            <span className="emu-stat-glyph">✅</span>
             <span className="emu-stat-value">{stats.added}</span>
             <span className="emu-stat-label">{t("emulators.stats.added")}</span>
           </div>
           <div className="emu-stat">
-            <span className="emu-stat-glyph">⚙️</span>
             <span className="emu-stat-value">{stats.configured}</span>
             <span className="emu-stat-label">{t("emulators.stats.configured")}</span>
           </div>
           <div className="emu-stat">
-            <span className="emu-stat-glyph">🎮</span>
             <span className="emu-stat-value">{stats.roms}</span>
             <span className="emu-stat-label">{t("emulators.stats.roms")}</span>
           </div>

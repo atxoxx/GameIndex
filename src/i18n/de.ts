@@ -2793,6 +2793,10 @@ export const de: TranslationDict = {
   "settings.integrations.confirmRemoveGeneric": "Deine {platform}-Verbindung entfernen?",
 
   "emulators.title": "Emulatoren",
+  "emulators.stats.catalog": "Katalog",
+  "emulators.stats.added": "Hinzugefügt",
+  "emulators.stats.configured": "Konfiguriert",
+  "emulators.stats.roms": "ROMs",
   "emulators.subtitle": "Verknüpfe einen Emulator mit einem ROM-Ordner und starte deine Retro-Sammlung aus GameIndex.",
   "emulators.addEmulator": "Emulator hinzufügen",
   "emulators.scanAll": "Alle scannen",
