@@ -753,31 +753,91 @@ fn aggregate_metrics(samples: &[MetricsSample], config: &MetricsConfig) -> Optio
 }
 
 /// Helper to get the total system RAM in GB.
+///
+/// Prefers the Win32 `GlobalMemoryStatusEx` API, which reports the real
+/// installed physical memory and has no dependency on COM/WMI init (so it
+/// still works on background threads where `CoInitializeSecurity` has already
+/// been called). Falls back to a WMI query, then to `0` if both fail.
 pub fn get_system_ram_gb() -> u32 {
-    let com_lib = match COMLibrary::new() {
-        Ok(lib) => lib,
-        Err(_) => return 16,
-    };
-    let wmi_con = match WMIConnection::new(com_lib) {
-        Ok(con) => con,
-        Err(_) => return 16,
-    };
-    let total_mb = get_total_ram_mb(&wmi_con);
-    // Convert MB to GB: MB / 1024
-    let total_gb = (total_mb as f64 / 1024.0).round();
-    total_gb as u32
+    if let Some(gb) = get_phys_ram_gb_windows_api() {
+        return gb;
+    }
+    // WMI fallback (only meaningful on Windows where COM is available).
+    if let Some(gb) = get_phys_ram_gb_wmi() {
+        return gb;
+    }
+    0
 }
 
-/// Query the CPU model name from WMI (e.g. "AMD Ryzen 7 5800X 8-Core
-/// Processor"). Returns "Unknown CPU" when COM/WMI is unavailable.
-pub fn get_cpu_name() -> String {
+/// Read total physical RAM via `GlobalMemoryStatusEx`. Returns `None` on
+/// non-Windows targets or if the call fails.
+#[cfg(windows)]
+fn get_phys_ram_gb_windows_api() -> Option<u32> {
+    use windows::Win32::System::SystemInformation::{GlobalMemoryStatusEx, MEMORYSTATUSEX};
+    let mut status: MEMORYSTATUSEX = unsafe { std::mem::zeroed() };
+    status.dwLength = std::mem::size_of::<MEMORYSTATUSEX>() as u32;
+    // SAFETY: `dwLength` is initialised to the struct size; the OS fills the
+    // rest. `ullTotalPhys` is valid when the call succeeds.
+    let ok = unsafe { GlobalMemoryStatusEx(&mut status).is_ok() };
+    if !ok {
+        return None;
+    }
+    let total_bytes = status.ullTotalPhys;
+    if total_bytes == 0 {
+        return None;
+    }
+    let total_gb = (total_bytes as f64 / (1024.0 * 1024.0 * 1024.0)).round();
+    Some(total_gb as u32)
+}
+
+#[cfg(not(windows))]
+fn get_phys_ram_gb_windows_api() -> Option<u32> {
+    None
+}
+
+/// Read total physical RAM via WMI (`Win32_OperatingSystem`). Returns `None`
+/// when COM/WMI is unavailable or the query yields nothing.
+fn get_phys_ram_gb_wmi() -> Option<u32> {
     let com_lib = match COMLibrary::new() {
         Ok(lib) => lib,
-        Err(_) => return "Unknown CPU".to_string(),
+        Err(_) => return None,
     };
     let wmi_con = match WMIConnection::new(com_lib) {
         Ok(con) => con,
-        Err(_) => return "Unknown CPU".to_string(),
+        Err(_) => return None,
+    };
+    let total_mb = get_total_ram_mb(&wmi_con);
+    if total_mb == 0 {
+        return None;
+    }
+    // Convert MB to GB: MB / 1024
+    let total_gb = (total_mb as f64 / 1024.0).round();
+    Some(total_gb as u32)
+}
+
+/// Query the CPU model name (e.g. "AMD Ryzen 7 5800X 8-Core Processor").
+///
+/// Tries WMI (`Win32_Processor`) first, then falls back to the registry
+/// `ProcessorNameString` value, returning "Unknown CPU" only if both fail.
+pub fn get_cpu_name() -> String {
+    if let Some(name) = get_cpu_name_wmi() {
+        return name;
+    }
+    if let Some(name) = get_cpu_name_registry() {
+        return name;
+    }
+    "Unknown CPU".to_string()
+}
+
+/// Read the CPU name from WMI `Win32_Processor`.
+fn get_cpu_name_wmi() -> Option<String> {
+    let com_lib = match COMLibrary::new() {
+        Ok(lib) => lib,
+        Err(_) => return None,
+    };
+    let wmi_con = match WMIConnection::new(com_lib) {
+        Ok(con) => con,
+        Err(_) => return None,
     };
     #[derive(serde::Deserialize)]
     #[serde(rename_all = "PascalCase")]
@@ -789,10 +849,62 @@ pub fn get_cpu_name() -> String {
             .into_iter()
             .next()
             .and_then(|p| p.name)
-            .filter(|n| !n.trim().is_empty())
-            .unwrap_or_else(|| "Unknown CPU".to_string()),
-        Err(_) => "Unknown CPU".to_string(),
+            .filter(|n| !n.trim().is_empty()),
+        Err(_) => None,
     }
+}
+
+/// Read the CPU name from the registry
+/// `HKLM\HARDWARE\DESCRIPTION\System\CentralProcessor\0\ProcessorNameString`.
+/// Used as a fallback when WMI is unavailable.
+#[cfg(windows)]
+fn get_cpu_name_registry() -> Option<String> {
+    use windows::core::PCWSTR;
+    use windows::Win32::System::Registry::{
+        RegGetValueW, HKEY_LOCAL_MACHINE, RRF_RT_REG_SZ,
+    };
+    let sub_key: Vec<u16> = widen("HARDWARE\\DESCRIPTION\\System\\CentralProcessor\\0");
+    let value: Vec<u16> = widen("ProcessorNameString");
+    let mut data_len: u32 = 512;
+    let mut buf = [0u16; 256];
+    // SAFETY: `buf` is large enough for the documented registry string; on
+    // success `data_len` reflects the bytes written.
+    let status = unsafe {
+        RegGetValueW(
+            HKEY_LOCAL_MACHINE,
+            PCWSTR(sub_key.as_ptr()),
+            PCWSTR(value.as_ptr()),
+            RRF_RT_REG_SZ,
+            None,
+            Some(buf.as_mut_ptr() as *mut _),
+            Some(&mut data_len),
+        )
+    };
+    if status.is_err() {
+        return None;
+    }
+    // `data_len` includes the trailing NUL; trim it for the conversion.
+    let len = (data_len as usize / 2).saturating_sub(1).min(buf.len());
+    let name = String::from_utf16_lossy(&buf[..len]).trim().to_string();
+    if name.is_empty() {
+        None
+    } else {
+        Some(name)
+    }
+}
+
+#[cfg(not(windows))]
+fn get_cpu_name_registry() -> Option<String> {
+    None
+}
+
+/// Helper: widen a `&str` into a NUL-terminated `u16` slice for the Windows
+/// registry APIs (which expect `PCWSTR`).
+#[cfg(windows)]
+fn widen(s: &str) -> Vec<u16> {
+    let mut v: Vec<u16> = s.encode_utf16().collect();
+    v.push(0);
+    v
 }
 
 #[cfg(test)]
