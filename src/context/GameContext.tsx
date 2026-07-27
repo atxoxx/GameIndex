@@ -113,6 +113,10 @@ interface GameContextType {
   addGame: (game: Game) => void;
   addGames: (games: Game[]) => void;
   removeGame: (id: string) => void;
+  /** Bulk-remove every game matching `predicate` (e.g. all games from a
+   *  given integration). Used by the Settings integrations panel to wipe
+   *  an integration's imported library in one action. */
+  removeGames: (predicate: (game: Game) => boolean) => void;
   updateGame: (id: string, updates: Partial<Game>) => void;
   getGame: (id: string) => Game | undefined;
   runningGameIds: string[];
@@ -626,6 +630,13 @@ export function GameProvider({ children }: { children: ReactNode }) {
     setSelectedGameId((current) => (current === id ? null : current));
   }, []);
 
+  const removeGames = useCallback((predicate: (game: Game) => boolean) => {
+    setGames((prev) => {
+      if (!prev.some(predicate)) return prev;
+      return prev.filter((g) => !predicate(g));
+    });
+  }, []);
+
   const getGame = useCallback(
     (id: string) => games.find((g) => g.id === id),
     [games]
@@ -971,6 +982,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
         addGame,
         addGames,
         removeGame,
+        removeGames,
         updateGame,
         getGame,
         runningGameIds,

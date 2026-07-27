@@ -120,6 +120,10 @@ export const en: TranslationDict = {
   "settings.integrations.connectEpic": "Connect Epic Account",
   "settings.integrations.connectGog": "Connect GOG Account",
   "settings.integrations.connectHumble": "Connect Humble Account",
+  "settings.integrations.removeGames": "Remove Games",
+  "settings.integrations.confirmRemoveGames": "Remove all {count} games imported from {platform}?",
+  "settings.integrations.removedGames": "Removed {count} games from {platform}",
+  "settings.integrations.noGamesToRemove": "No games imported from {platform} to remove",
   "settings.integrations.reconnectToken": "Reconnect with stored token",
   "settings.label.accent": "Accent color override",
   "settings.label.metrics": "Metrics to capture",
@@ -2973,4 +2977,5 @@ export const en: TranslationDict = {
   "settings.integrations.confirmRemove.gog": "Remove your GOG Galaxy connection?",
   "settings.integrations.confirmRemove.humble": "Remove your Humble Bundle connection?",
   "settings.integrations.confirmRemoveGeneric": "Remove your {platform} connection?",
+
 };

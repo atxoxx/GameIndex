@@ -113,7 +113,7 @@ export default function SettingsPage() {
   }
   const { showToast } = useToast();
   const { availableGpus, selectedGpu, setSelectedGpu, refreshGpus } = useActivity();
-  const { games, addGames, updateGame } = useGames();
+  const { games, addGames, updateGame, removeGames } = useGames();
   const { reloadCache, settings: achievementSettings, updateSettings: updateAchievementSettings } =
     useAchievements();
   const { sources } = useSources();
@@ -882,6 +882,20 @@ export default function SettingsPage() {
     } catch (err) {
       showToast(t("settings.failed", { error: err }), "error");
     }
+  }
+
+  // Wipe every game imported from a given integration in one click.
+  // We match on `platform` because each integration's sync flow stamps
+  // its games with a dedicated `platform` string ("Steam", "Epic", …).
+  function handleRemoveIntegrationGames(platform: string) {
+    const count = games.filter((g) => g.platform === platform).length;
+    if (count === 0) {
+      showToast(t("settings.integrations.noGamesToRemove", { platform }), "info");
+      return;
+    }
+    if (!confirm(t("settings.integrations.confirmRemoveGames", { count, platform }))) return;
+    removeGames((g) => g.platform === platform);
+    showToast(t("settings.integrations.removedGames", { count, platform }), "success");
   }
 
   // ── Epic handlers ──────────────────────────────────────────────────
@@ -2479,6 +2493,12 @@ export default function SettingsPage() {
                       {t("settings.integrations.connectSteam")}
                     </Button>
                   )}
+                  <Button
+                    variant="danger"
+                    onClick={() => handleRemoveIntegrationGames("Steam")}
+                  >
+                    {t("settings.integrations.removeGames")}
+                  </Button>
                 </div>
 
                 {syncResult && (
@@ -2635,6 +2655,12 @@ export default function SettingsPage() {
                       {t("settings.integrations.connectEpic")}
                     </Button>
                   )}
+                  <Button
+                    variant="danger"
+                    onClick={() => handleRemoveIntegrationGames("Epic")}
+                  >
+                    {t("settings.integrations.removeGames")}
+                  </Button>
                 </div>
 
                 {epicSyncResult && (
@@ -2717,6 +2743,12 @@ export default function SettingsPage() {
                       {t("settings.integrations.connectGog")}
                     </Button>
                   )}
+                  <Button
+                    variant="danger"
+                    onClick={() => handleRemoveIntegrationGames("GOG")}
+                  >
+                    {t("settings.integrations.removeGames")}
+                  </Button>
                 </div>
 
                 {gogSyncResult && (
@@ -2798,6 +2830,12 @@ export default function SettingsPage() {
                       {t("settings.integrations.connectHumble")}
                     </Button>
                   )}
+                  <Button
+                    variant="danger"
+                    onClick={() => handleRemoveIntegrationGames("Humble")}
+                  >
+                    {t("settings.integrations.removeGames")}
+                  </Button>
                 </div>
 
                 {humbleSyncResult && (
@@ -2921,6 +2959,12 @@ export default function SettingsPage() {
                   >
                     Scan Installed Games
                   </Button>
+                  <Button
+                    variant="danger"
+                    onClick={() => handleRemoveIntegrationGames("Rockstar")}
+                  >
+                    {t("settings.integrations.removeGames")}
+                  </Button>
                 </div>
 
                 {rockstarSyncResult && (
@@ -2987,6 +3031,12 @@ export default function SettingsPage() {
                     isLoading={isUplaySyncing}
                   >
                     Sync Library
+                  </Button>
+                  <Button
+                    variant="danger"
+                    onClick={() => handleRemoveIntegrationGames("Ubisoft")}
+                  >
+                    {t("settings.integrations.removeGames")}
                   </Button>
                 </div>
 
