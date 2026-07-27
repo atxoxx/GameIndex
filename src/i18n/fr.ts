@@ -274,7 +274,7 @@ export const fr: TranslationDict = {
   "wishlist.saveNote": "Enregistrer la note",
   "wishlist.notePlaceholder": "Ajoutez une note (pourquoi vous voulez ce jeu, objectif de prix, etc.)…",
   "wishlist.clearTitle": "Vider votre liste de souhaits ?",
-  "wishlist.clearBody": "Cela supprime les {count} jeu{plural} et les notes de votre liste de souhaits. Cette action est irréversible.",
+  "wishlist.clearBody": "Cela supprime les {count} jeu(x) et les notes de votre liste de souhaits. Cette action est irréversible.",
 
   // ── News ───────────────────────────────────────────────────
   "news.eyebrow": "Restez informé",
@@ -385,7 +385,7 @@ export const fr: TranslationDict = {
   "storage.uninstallWarn": "Cette action est irréversible.",
   "storage.uninstallLabel": "Désinstaller",
   "storage.selected": "{count} sélectionné(s)",
-  "storage.gamesCount": "{count} jeu{plural}",
+  "storage.gamesCount": "{count} jeu(x)",
 
   // ── Library hero & rails ───────────────────────────────────────
   "lib.hero.greeting.upLate": "Tard le soir",
@@ -2475,7 +2475,7 @@ export const fr: TranslationDict = {
   "friendsPage.favPrefix": "Favori : {game}",
   "friendsPage.friendAdded": "{name} ajouté·e comme ami·e !",
   "friendsPage.friendsLeaderboard": "Classement des amis",
-  "friendsPage.gamesCountLabel": "{count} jeu{plural}",
+  "friendsPage.gamesCountLabel": "{count} jeu(x)",
   "friendsPage.goingCount": "👥 {going}/{max} participent",
   "friendsPage.guestAdded": "Invité·e {name} ajouté·e",
   "friendsPage.guestSuffix": " (invité·e)",
@@ -2581,7 +2581,7 @@ export const fr: TranslationDict = {
   "storage.driveLabel": "Lecteur : {name}",
   "storage.ofTotal": "{used} sur {total}",
   "weblinks.steam.searchStore": "Rechercher dans le Store",
-  "wishlist.gamesCount": "{count} jeu{plural}",
+  "wishlist.gamesCount": "{count} jeu(x)",
   "library.filter.minRatingLabel": "Note minimale",
 
   // ── Friends page UI strings ────────────────────────────────────
