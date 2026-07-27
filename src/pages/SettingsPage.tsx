@@ -2069,413 +2069,243 @@ export default function SettingsPage() {
 
       {/* Hardware */}
       {activeSettingsTab === "hardware" && (
-        <section className="settings-section">
-          <header className="settings-section-header">
-            <span className="settings-section-icon"><HardwareIcon /></span>
-            <div className="settings-section-header-text">          <h2 className="settings-section-title">{t("settings.section.hardwareMonitoring")}</h2>
-                <p className="settings-section-desc">{t("settings.hardware.sectionDesc")}</p>
+        <section className="settings-section hw">
+          {/* Header — title + master monitoring switch */}
+          <header className="hw-head">
+            <div className="hw-head-text">
+              <span className="hw-head-icon" aria-hidden>
+                <HardwareIcon />
+              </span>
+              <div className="hw-head-titles">
+                <h2 className="hw-title">{t("settings.section.hardwareMonitoring")}</h2>
+                <p className="hw-subtitle">{t("settings.hardware.sectionDesc")}</p>
+              </div>
             </div>
+            <button
+              type="button"
+              role="switch"
+              aria-checked={hardwareMonitoringEnabled}
+              aria-label={t("settings.label.enableMonitoring")}
+              className="hw-master"
+              data-on={hardwareMonitoringEnabled}
+              onClick={() => setHardwareMonitoringEnabled(!hardwareMonitoringEnabled)}
+            >
+              <span className="hw-master-state" data-on={hardwareMonitoringEnabled} aria-hidden>
+                {hardwareMonitoringEnabled ? t("settingsPage.active") : t("settings.hardware.inactive")}
+              </span>
+              <span className="hw-switch" aria-hidden>
+                <span className="hw-switch-knob" />
+              </span>
+            </button>
           </header>
 
-          {/* Hero card — master hardware-monitoring toggle.
-           *
-           *  Whole card is a single <button role="switch"> so the click
-           *  surface and a11y label are unambiguous (no nested
-           *  interactive elements — screen readers report nested buttons
-           *  inside <button role="button"> as a broken control).
-           *
-           *  The pill on the right is pure decoration (aria-hidden) that
-           *  tracks the checked state via `data-on` so CSS carries the
-           *  visual state without a parallel React className string. */}
-          <button
-            type="button"
-            role="switch"
-            aria-checked={hardwareMonitoringEnabled}
-            aria-label={t("settings.label.enableMonitoring")}
-            className="settings-hw-hero"
-            data-on={hardwareMonitoringEnabled}
-            onClick={() =>
-              setHardwareMonitoringEnabled(!hardwareMonitoringEnabled)
-            }
-          >
-            <span className="settings-hw-hero-icon" aria-hidden>
-              <HardwareIcon />
-            </span>
-            <div className="settings-hw-hero-body">
-              <div className="settings-hw-hero-title-row">
-                <h3 className="settings-hw-hero-title">{t("settings.tab.hardware")}</h3>
-                <span
-                  className="settings-hw-hero-status"
-                  data-on={hardwareMonitoringEnabled}
-                  aria-hidden
+          {/* ── Detected hardware ───────────────────────────────────── */}
+          <div id="hw-detected" className="hw-pane">
+            <div className="hw-pane-head">
+              <h3 className="hw-pane-title">{t("settings.hardware.subsectionDetected")}</h3>
+              <p className="hw-pane-desc">{t("settings.label.systemSummary")}</p>
+            </div>
+
+            <div className="hw-specs">
+              {/* CPU */}
+              <div className="hw-spec">
+                <span className="hw-spec-icon hw-spec-icon--cpu" aria-hidden><CpuIcon /></span>
+                <div className="hw-spec-body">
+                  <span className="hw-spec-label">{t("settingsPage.cpu")}</span>
+                  <span className="hw-spec-value">
+                    {systemInfo?.cpuName ?? t("settings.hardware.detecting")}
+                  </span>
+                </div>
+              </div>
+
+              {/* Memory */}
+              <div className="hw-spec">
+                <span className="hw-spec-icon hw-spec-icon--memory" aria-hidden><MemoryIcon /></span>
+                <div className="hw-spec-body">
+                  <span className="hw-spec-label">{t("settingsPage.memory")}</span>
+                  <span className="hw-spec-value">{systemInfo ? `${systemInfo.ramGb} GB` : "—"}</span>
+                  <span className="hw-spec-sub">{t("settings.hardware.ramSub")}</span>
+                </div>
+              </div>
+
+              {/* GPU(s) — every adapter is a clickable chip so the user can
+               *  pick the monitored card directly from the summary. */}
+              <div className="hw-spec hw-spec--gpu">
+                <span className="hw-spec-icon hw-spec-icon--gpu" aria-hidden><GpuIcon /></span>
+                <div className="hw-spec-body">
+                  <span className="hw-spec-label">
+                    {t("settingsPage.gpus")}
+                    {systemInfo && systemInfo.gpus.length > 0 && (
+                      <span className="hw-spec-count">{systemInfo.gpus.length}</span>
+                    )}
+                  </span>
+
+                  {(!systemInfo || systemInfo.gpus.length === 0) && (
+                    <span className="hw-spec-empty">{t("settings.hardware.noGpus")}</span>
+                  )}
+
+                  {systemInfo && systemInfo.gpus.length > 0 && (
+                    <div className="hw-gpu-chips" role="listbox" aria-label={t("settings.hardware.gpuListAria")}>
+                      {systemInfo.gpus.map((g) => {
+                        const isActive = selectedGpu?.id === g.id;
+                        const vram =
+                          g.vramMb >= 1024
+                            ? `${(g.vramMb / 1024).toFixed(g.vramMb % 1024 === 0 ? 0 : 1)} GB`
+                            : `${g.vramMb} MB`;
+                        return (
+                          <button
+                            key={g.id}
+                            type="button"
+                            role="option"
+                            aria-selected={isActive}
+                            className={"hw-gpu-chip" + (isActive ? " active" : "")}
+                            data-active={isActive ? "true" : "false"}
+                            title={`${g.name} · ${vram}`}
+                            onClick={() => {
+                              setSelectedGpu(g);
+                              showToast(`Selected ${g.name}`, "success");
+                            }}
+                          >
+                            <span className="hw-gpu-chip-dot" aria-hidden />
+                            <span className="hw-gpu-chip-name">{g.name}</span>
+                            <span className="hw-gpu-chip-vram">{vram}</span>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* ── Telemetry / monitoring ─────────────────────────────── */}
+          <div id="hw-monitor" className={"hw-pane" + (hardwareMonitoringEnabled ? "" : " is-disabled")}>
+            <div className="hw-pane-head">
+              <h3 className="hw-pane-title">{t("settings.hardware.subsectionTelemetry")}</h3>
+              <p className="hw-pane-desc">{t("settings.hardware.metricsDesc")}</p>
+            </div>
+
+            {/* Per-metric capture toggles as a grid of switch cards */}
+            <div className="hw-metric-grid">
+              {([
+                ["fps", "FPS", GaugeIcon],
+                ["cpu", t("settingsPage.cpu") + " Load", CpuIcon],
+                ["gpu", t("settingsPage.gpus") + " Load", GpuIcon],
+                ["ram", t("settingsPage.memory") + " Usage", MemoryIcon],
+                ["cpuTemp", t("settingsPage.cpu") + " Temp", CpuIcon],
+                ["gpuTemp", t("settingsPage.gpus") + " Temp", GpuIcon],
+              ] as const).map(([key, label, Icon]) => (
+                <label
+                  key={key}
+                  className={"hw-metric" + (metricCapture[key] ? " on" : "")}
+                  data-on={metricCapture[key]}
                 >
-                  {hardwareMonitoringEnabled
-                    ? t("settingsPage.active")
-                    : t("settings.hardware.inactive")}
-                </span>
-              </div>
-              <p className="settings-hw-hero-desc">{t("settings.hardware.masterDesc")}</p>
-            </div>
-            <span className="settings-hw-toggle" data-on={hardwareMonitoringEnabled} aria-hidden />
-          </button>
-
-          {/* ── Telemetry subsection ─────────────────────────────── */}
-          <div className="settings-hw-subsection">
-            <div className="settings-hw-subsection-header">
-              <span className="settings-hw-subsection-icon" aria-hidden>
-                <GaugeIcon />
-              </span>
-              <h4 className="settings-hw-subsection-title">
-                {t("settings.hardware.subsectionTelemetry")}
-              </h4>
+                  <span className="hw-metric-icon" aria-hidden><Icon /></span>
+                  <span className="hw-metric-label">{label}</span>
+                  <span className="hw-metric-switch" aria-hidden>
+                    <input
+                      type="checkbox"
+                      checked={metricCapture[key]}
+                      disabled={!hardwareMonitoringEnabled}
+                      onChange={(e) => setMetricCapture({ ...metricCapture, [key]: e.target.checked })}
+                    />
+                    <span className="hw-metric-knob" />
+                  </span>
+                </label>
+              ))}
             </div>
 
-            {/* Per-metric capture toggles */}
-            <div className="settings-hardware-control-card">
-              <div className="settings-control">
-                <label className="settings-label">{t("settings.label.metrics")}</label>
-                <p className="settings-helper-lead">{t("settings.hardware.metricsDesc")}</p>
-                <div className="settings-metric-toggles">
-                  {(
-                    [
-                      ["fps", "FPS"],
-                      ["cpu", "CPU Load"],
-                      ["gpu", "GPU Load"],
-                      ["ram", "RAM Usage"],
-                      ["cpuTemp", "CPU Temp"],
-                      ["gpuTemp", "GPU Temp"],
-                    ] as const
-                  ).map(([key, label]) => (
-                    <label key={key} className="settings-metric-toggle">
-                      <input
-                        type="checkbox"
-                        checked={metricCapture[key]}
-                        disabled={!hardwareMonitoringEnabled}
-                        onChange={(e) =>
-                          setMetricCapture({ ...metricCapture, [key]: e.target.checked })
-                        }
-                      />
-                      <span>{label}</span>
-                    </label>
-                  ))}
+            {/* Sampling interval + GPU monitor side by side */}
+            <div className="hw-duo">
+              <div className="hw-card">
+                <div className="hw-card-head">
+                  <label className="hw-card-label">{t("settings.label.samplingInterval")}</label>
+                  <span className="hw-card-value">{samplingIntervalSec} s</span>
                 </div>
+                <p className="hw-card-help">{t("settings.hardware.samplingDesc")}</p>
+                <input
+                  type="range"
+                  className="hw-range"
+                  min={0.25}
+                  max={60}
+                  step={0.25}
+                  value={samplingIntervalSec}
+                  disabled={!hardwareMonitoringEnabled}
+                  onChange={(e) => setSamplingIntervalSec(Number(e.target.value))}
+                  aria-label={t("settings.aria.samplingInterval")}
+                />
               </div>
-            </div>
-          </div>
 
-          {/* Sampling interval */}
-          <div className="settings-row">
-            <div className="settings-hardware-control-card">
-              <div className="settings-control">
-                <label className="settings-label">{t("settings.label.samplingInterval")}</label>
-                <p className="settings-helper-lead">
-                  How often telemetry is polled while a game runs. Lower
-                  values produce finer charts but add more overhead.
-                </p>
-                <div className="settings-input-group">
-                  <input
-                    type="range"
-                    min={0.25}
-                    max={60}
-                    step={0.25}
-                    value={samplingIntervalSec}
-                    disabled={!hardwareMonitoringEnabled}
-                    onChange={(e) =>
-                      setSamplingIntervalSec(Number(e.target.value))
-                    }
-                    aria-label={t("settings.aria.samplingInterval")}
-                  />
-                  <span className="settings-range-value">{samplingIntervalSec} s</span>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          {/* Temperature unit */}
-          <div className="settings-row">
-            <div className="settings-hardware-control-card">
-              <div className="settings-control">
-                <label className="settings-label">{t("settings.label.tempUnit")}</label>
-                <p className="settings-helper-lead">
-                  Used everywhere temperatures are shown across the app —
-                  the Activity page, session cards, and performance charts.
-                </p>
-                <div className="settings-segmented" role="group" aria-label={t("settings.aria.tempUnit")}>
-                  <button
-                    type="button"
-                    className={tempUnit === "c" ? "active" : ""}
-                    onClick={() => setTempUnit("c")}
-                  >
-                    °C
-                  </button>
-                  <button
-                    type="button"
-                    className={tempUnit === "f" ? "active" : ""}
-                    onClick={() => setTempUnit("f")}
-                  >
-                    °F
-                  </button>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          {/* GPU selection */}
-          <div className="settings-row">
-            <div className="settings-hardware-control-card">
-              <div className="settings-control">
-                <label className="settings-label">{t("settings.label.gpu")}</label>
-                <p className="settings-helper-lead">
-                  Select a GPU to monitor during gameplay. Stats only
-                  appear when a game is running.
-                </p>
-                <div className="settings-input-group">
-                  <select
-                    className="settings-select"
-                    value={selectedGpu?.id || ""}
-                    onChange={(e) => {
-                      const gpu = availableGpus.find((g) => g.id === e.target.value);
-                      setSelectedGpu(gpu || null);
-                      showToast(
-                        gpu ? `Selected ${gpu.name}` : "GPU selection cleared",
-                        "success"
-                      );
-                    }}
-                    aria-label={t("settings.label.gpu")}
-                  >
-                    <option value="">{t("settings.gpuPlaceholder")}</option>
-                    {availableGpus.map((gpu) => (
-                      <option key={gpu.id} value={gpu.id}>
-                        {gpu.name} ({gpu.vramMb} MB)
-                      </option>
-                    ))}
-                  </select>
-                  <Button variant="secondary" size="sm" onClick={refreshGpus} leftIcon={                    <RefreshIcon />}>
+              <div className="hw-card">
+                <div className="hw-card-head">
+                  <label className="hw-card-label">{t("settings.label.gpu")}</label>
+                  <Button variant="secondary" size="sm" onClick={refreshGpus} leftIcon={<RefreshIcon />}>
                     {t("settings.refresh")}
                   </Button>
                 </div>
+                <p className="hw-card-help">{t("settings.hardware.gpuDesc")}</p>
+                <select
+                  className="settings-select hw-select"
+                  value={selectedGpu?.id || ""}
+                  onChange={(e) => {
+                    const gpu = availableGpus.find((g) => g.id === e.target.value);
+                    setSelectedGpu(gpu || null);
+                    showToast(gpu ? `Selected ${gpu.name}` : "GPU selection cleared", "success");
+                  }}
+                  aria-label={t("settings.label.gpu")}
+                >
+                  <option value="">{t("settings.gpuPlaceholder")}</option>
+                  {availableGpus.map((gpu) => (
+                    <option key={gpu.id} value={gpu.id}>
+                      {gpu.name} ({gpu.vramMb} MB)
+                    </option>
+                  ))}
+                </select>
               </div>
-
-              {/* GPU info card — shown when a GPU is selected */}
-              {selectedGpu && (
-                <div className="settings-gpu-info-card">
-                  <span className="settings-gpu-info-icon">
-                    <HardwareIcon />
-                  </span>
-                  <div className="settings-gpu-info-text">
-                    <span className="settings-gpu-info-name">{selectedGpu.name}</span>
-                    <div className="settings-gpu-info-specs">
-                      <span className="settings-gpu-info-spec">
-                        {selectedGpu.vramMb} MB VRAM
-                      </span>
-                      {selectedGpu.id && (
-                        <span className="settings-gpu-info-spec">
-                          ID: {selectedGpu.id}
-                        </span>
-                      )}
-                    </div>
-                  </div>
-                  <span className="settings-gpu-info-badge">{t("settingsPage.active")}</span>
-                </div>
-              )}
             </div>
           </div>
 
-          {/* ── Display preferences subsection ────────────────────── */}
-          <div className="settings-hw-subsection">
-            <div className="settings-hw-subsection-header">
-              <span className="settings-hw-subsection-icon" aria-hidden>
-                <DisplayIcon />
-              </span>
-              <h4 className="settings-hw-subsection-title">
-                {t("settings.hardware.subsectionDisplay")}
-              </h4>
+          {/* ── Display preferences ────────────────────────────────── */}
+          <div id="hw-display" className="hw-pane">
+            <div className="hw-pane-head">
+              <h3 className="hw-pane-title">{t("settings.hardware.subsectionDisplay")}</h3>
+              <p className="hw-pane-desc">{t("settingsPage.sizeUnitHelp")}</p>
             </div>
 
-            {/* Storage — display unit for the Storage tab's size column.
-             *  Lives under Hardware because it controls how physical
-             *  resources are reported, not how the UI looks. */}
-            <div className="settings-hardware-control-card">
-              <div className="settings-control">
-                <label className="settings-label">{t("settings.label.sizeUnit")}</label>
-                <p className="settings-helper-lead">
-                  {t("settingsPage.sizeUnitHelp")}
-                  <strong> GB</strong> {t("settingsPage.sizeUnitGbDesc")}
+            <div className="hw-duo">
+              <div className="hw-card">
+                <div className="hw-card-head">
+                  <label className="hw-card-label">{t("settings.label.tempUnit")}</label>
+                </div>
+                <p className="hw-card-help">{t("settings.hardware.tempUnitDesc")}</p>
+                <div className="settings-segmented hw-seg" role="group" aria-label={t("settings.aria.tempUnit")}>
+                  <button type="button" className={tempUnit === "c" ? "active" : ""} onClick={() => setTempUnit("c")}>°C</button>
+                  <button type="button" className={tempUnit === "f" ? "active" : ""} onClick={() => setTempUnit("f")}>°F</button>
+                </div>
+              </div>
+
+              <div className="hw-card">
+                <div className="hw-card-head">
+                  <label className="hw-card-label">{t("settings.label.sizeUnit")}</label>
+                </div>
+                <p className="hw-card-help">
+                  <strong>GB</strong> {t("settingsPage.sizeUnitGbDesc")}
                   <strong> GiB</strong> {t("settingsPage.sizeUnitGibDesc")}
                 </p>
-                <div className="settings-input-group">
-                  <select
-                    className="settings-select"
-                    value={sizeUnit}
-                    onChange={(e) => {
-                      const next = e.target.value as SizeUnit;
-                      setSizeUnit(next);
-                      showToast(
-                        next === "gb"
-                          ? t("settings.storage.sizeNowGB")
-                          : t("settings.storage.sizeNowGiB"),
-                        "success"
-                      );
-                    }}
-                    aria-label={t("settings.label.sizeUnit")}
-                  >
-                    <option value="gb">{t("settingsPage.gbDecimal")}</option>
-                    <option value="gib">{t("settingsPage.gibBinary")}</option>
-                  </select>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          {/* ── Detected Hardware (system summary) ──────────────────── */}
-          <div className="settings-hw-subsection">
-            <div className="settings-hw-subsection-header">
-              <span className="settings-hw-subsection-icon" aria-hidden>
-                <SystemIcon />
-              </span>
-              <h4 className="settings-hw-subsection-title">
-                {t("settings.hardware.subsectionDetected")}
-              </h4>
-            </div>
-
-            {/* 3-column dashboard tiles. Auto-collapses to 1 column on
-             *  narrow viewports so long GPU names never overflow. */}
-            <div className="settings-hw-grid-3">
-              <div className="settings-hw-stat-tile">
-                <span
-                  className="settings-hw-stat-tile-icon settings-hw-stat-tile-icon--cpu"
-                  aria-hidden
+                <select
+                  className="settings-select hw-select"
+                  value={sizeUnit}
+                  onChange={(e) => {
+                    const next = e.target.value as SizeUnit;
+                    setSizeUnit(next);
+                    showToast(next === "gb" ? t("settings.storage.sizeNowGB") : t("settings.storage.sizeNowGiB"), "success");
+                  }}
+                  aria-label={t("settings.label.sizeUnit")}
                 >
-                  <CpuIcon />
-                </span>
-                <div className="settings-hw-stat-tile-body">
-                  <h4 className="settings-hw-stat-tile-label">{t("settingsPage.cpu")}</h4>
-                  <div className="settings-hw-stat-tile-value">
-                    {systemInfo?.cpuName ?? t("settings.hardware.detecting")}
-                  </div>
-                </div>
-              </div>
-
-              <div className="settings-hw-stat-tile">
-                <span
-                  className="settings-hw-stat-tile-icon settings-hw-stat-tile-icon--memory"
-                  aria-hidden
-                >
-                  <MemoryIcon />
-                </span>
-                <div className="settings-hw-stat-tile-body">
-                  <h4 className="settings-hw-stat-tile-label">{t("settingsPage.memory")}</h4>
-                  <div className="settings-hw-stat-tile-value">
-                    {systemInfo ? `${systemInfo.ramGb} GB` : "—"}
-                  </div>
-                  <div className="settings-hw-stat-tile-sub">
-                    {t("settings.hardware.ramSub")}
-                  </div>
-                </div>
-              </div>
-
-              <div className="settings-hw-stat-tile">
-                <span
-                  className="settings-hw-stat-tile-icon settings-hw-stat-tile-icon--gpu"
-                  aria-hidden
-                >
-                  <GpuIcon />
-                </span>
-                <div className="settings-hw-stat-tile-body">
-                  {/* Label + count badge on the same row so the count
-                   *  doesn't get jammed into the small-caps label text. */}
-                  <div className="settings-hw-stat-tile-header">
-                    <h4 className="settings-hw-stat-tile-label">
-                      {t("settingsPage.gpus")}
-                    </h4>
-                    {systemInfo && systemInfo.gpus.length > 0 && (
-                      <span className="settings-hw-stat-tile-badge">
-                        {systemInfo.gpus.length}
-                      </span>
-                    )}
-                  </div>
-
-                  {/* Empty state — no GPUs exposed. Centered em-dash +
-                   *  a subtle hint so the tile never reads as "0/blank". */}
-                  {(!systemInfo || systemInfo.gpus.length === 0) && (
-                    <p className="settings-hw-stat-tile-empty">
-                      {t("settings.hardware.noGpus")}
-                    </p>
-                  )}
-
-                  {/* Single-GPU case: render like the Memory tile
-                   *  (name as value, VRAM as sub) so the three tiles
-                   *  follow the same pattern when there's only one.
-                   *  Surfaces a "Tracking" badge inline next to the
-                   *  count when this GPU is the one the user picked in
-                   *  the GPU selection dropdown above — otherwise the
-                   *  ~95% of desktops with a single adapter get no
-                   *  visual confirmation that THIS tile represents the
-                   *  monitored card. */}
-                  {systemInfo && systemInfo.gpus.length === 1 && (
-                    <>
-                      <div className="settings-hw-stat-tile-value">
-                        {systemInfo.gpus[0].name}
-                      </div>
-                      <div className="settings-hw-stat-tile-sub">
-                        {systemInfo.gpus[0].vramMb >= 1024
-                          ? `${(systemInfo.gpus[0].vramMb / 1024).toFixed(
-                              systemInfo.gpus[0].vramMb % 1024 === 0 ? 0 : 1
-                            )} GB VRAM`
-                          : `${systemInfo.gpus[0].vramMb} MB VRAM`}
-                      </div>
-                    </>
-                  )}
-
-                  {/* Multi-GPU case: render each GPU as a small row in
-                   *  an inset list so long names scroll inside the tile
-                   *  instead of truncating the value line. The
-                   *  currently selected GPU gets a soft highlight so
-                   *  users can see at a glance which one will be
-                   *  tracked. aria-live="polite" announces the
-                   *  tracking swap to screen-reader users when they
-                   *  change the selection in the dropdown above. */}
-                  {systemInfo && systemInfo.gpus.length > 1 && (
-                    <ul
-                      className="settings-hw-gpu-list"
-                      aria-label="Detected GPUs"
-                      aria-live="polite"
-                    >
-                      {systemInfo.gpus.map((g) => {
-                        const isActive = selectedGpu?.id === g.id;
-                        return (
-                          <li
-                            key={g.id}
-                            className={
-                              "settings-hw-gpu-row" +
-                              (isActive ? " settings-hw-gpu-row--active" : "")
-                            }
-                            data-active={isActive ? "true" : "false"}
-                          >
-                            <span
-                              className="settings-hw-gpu-dot"
-                              aria-hidden
-                              data-active={isActive ? "true" : "false"}
-                            />
-                            <span
-                              className="settings-hw-gpu-row-name"
-                              title={g.name}
-                            >
-                              {g.name}
-                            </span>
-                            <span className="settings-hw-gpu-row-vram">
-                              {g.vramMb >= 1024
-                                ? `${(g.vramMb / 1024).toFixed(
-                                    g.vramMb % 1024 === 0 ? 0 : 1
-                                  )} GB`
-                                : `${g.vramMb} MB`}
-                            </span>
-                          </li>
-                        );
-                      })}
-                    </ul>
-                  )}
-                </div>
+                  <option value="gb">{t("settingsPage.gbDecimal")}</option>
+                  <option value="gib">{t("settingsPage.gibBinary")}</option>
+                </select>
               </div>
             </div>
           </div>
@@ -4265,44 +4095,6 @@ function GaugeIcon() {
     >
       <path d="M12 14l4-4" />
       <path d="M3.34 19a10 10 0 1 1 17.32 0" />
-    </svg>
-  );
-}
-
-function SystemIcon() {
-  return (
-    <svg
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      aria-hidden
-    >
-      <rect x="2" y="3" width="20" height="14" rx="2" />
-      <path d="M8 21h8" />
-      <path d="M12 17v4" />
-    </svg>
-  );
-}
-
-function DisplayIcon() {
-  return (
-    <svg
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      aria-hidden
-    >
-      <rect x="2" y="4" width="20" height="13" rx="2" />
-      <path d="M8 21h8" />
-      <path d="M12 17v4" />
-      <path d="M7 9h6" />
-      <path d="M7 13h4" />
     </svg>
   );
 }

@@ -1754,607 +1754,445 @@
   }
 }
 
-/* ── 11. Hardware tab — redesigned control-panel layout ─────────── */
-/*
- * The hardware tab used to be a vertical stack of identical
- * `.settings-hardware-control-card` rectangles. That read as a list,
- * not as a coherent "control panel". This section groups the
- * controls into themed sub-sections (Telemetry / GPU / Detected /
- * Display preferences), punctuates the master monitoring toggle with
- * a hero card, and turns the system summary into a row of stat tiles.
+/* =============================================================================
+ * 11. Hardware tab — redesigned, navigable control panel
  *
- * New class prefix: `settings-hw-*` to keep the rules cleanly
- * separated from the legacy `.settings-*` utilities above.
- */
+ * Layered as: a header with a master switch, a sticky in-page tab bar
+ * (Detected / Telemetry / Display) for quick jumps, then three panes.
+ * Detected hardware is a row of spec cards whose GPU adapters are
+ * clickable chips; telemetry metrics are switch cards; display prefs
+ * are paired cards. Every surface uses the shared design tokens.
+ * ========================================================================== */
 
-/* Subsection — a band inside the hardware tab that groups related
- * controls. The small icon + uppercase title gives the user a quick
- * scannable cue before they dive into the controls. */
-.settings-hw-subsection {
-  margin-top: var(--space-xl);
+.hw {
   display: flex;
   flex-direction: column;
-  gap: var(--space-md);
+  gap: var(--space-xl);
 }
 
-.settings-hw-subsection:first-of-type {
-  margin-top: var(--space-lg);
-}
-
-.settings-hw-subsection-header {
+/* ── Header ─────────────────────────────────────────────────────────── */
+.hw-head {
   display: flex;
   align-items: center;
-  gap: var(--space-sm);
-  padding-bottom: var(--space-xs);
-  border-bottom: 1px solid var(--color-border);
-}
-
-.settings-hw-subsection-icon {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 22px;
-  height: 22px;
-  border-radius: var(--radius-sm);
-  background: color-mix(in srgb, var(--color-accent) 12%, transparent);
-  color: var(--color-accent);
-  border: 1px solid color-mix(in srgb, var(--color-accent) 22%, transparent);
-  flex-shrink: 0;
-}
-
-.settings-hw-subsection-icon svg {
-  width: 12px;
-  height: 12px;
-}
-
-.settings-hw-subsection-title {
-  font-size: 11px;
-  font-weight: var(--font-weight-bold);
-  color: var(--color-text-secondary);
-  text-transform: uppercase;
-  letter-spacing: 0.7px;
-  margin: 0;
-  flex: 1;
-  min-width: 0;
-}
-
-/* 2-column responsive grid for paired controls (sampling interval +
- * temperature unit, etc.). Collapses to one column on narrow
- * viewports so the cards never stack awkwardly. */
-.settings-hw-grid-2 {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
-  gap: var(--space-md);
-}
-
-/* 3-column responsive grid for stat tiles. Three full tiles in the
- * 940px settings container, two on tablet, one on phone. */
-.settings-hw-grid-3 {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-  gap: var(--space-md);
-}
-
-/* Hero card for the master hardware-monitoring toggle. Bigger,
- * accent-tinted, with a left rail that signals "this is the main
- * control of the tab". Visually anchors the user the same way theme
- * cards anchor the Appearance section. */
-.settings-hw-hero {
-  display: flex;
-  align-items: center;
+  justify-content: space-between;
   gap: var(--space-lg);
   padding: var(--space-lg) var(--space-xl);
   background: linear-gradient(
     135deg,
-    color-mix(in srgb, var(--color-accent) 8%, var(--color-bg-secondary)),
+    color-mix(in srgb, var(--color-accent) 12%, var(--color-bg-secondary)),
     var(--color-bg-secondary)
   );
-  border: 1px solid color-mix(in srgb, var(--color-accent) 22%, var(--color-border));
-  border-radius: var(--radius-md);
-  position: relative;
-  overflow: hidden;
-  cursor: pointer;
-  transition: border-color var(--transition-fast),
-    background var(--transition-fast),
-    box-shadow var(--transition-fast);
+  border: 1px solid color-mix(in srgb, var(--color-accent) 28%, var(--color-border));
+  border-radius: var(--radius-xl);
+  box-shadow: 0 0 30px color-mix(in srgb, var(--color-accent) 10%, transparent);
 }
 
-.settings-hw-hero:hover {
-  border-color: color-mix(in srgb, var(--color-accent) 38%, var(--color-border));
+.hw-head-text {
+  display: flex;
+  align-items: center;
+  gap: var(--space-md);
+  min-width: 0;
 }
 
-/* Left "rail" — a thin accent gradient strip that visually anchors
- * the hero card. Pure decoration, no functional content. */
-.settings-hw-hero::before {
-  content: "";
-  position: absolute;
-  left: 0;
-  top: 0;
-  bottom: 0;
-  width: 4px;
-  background: linear-gradient(
-    180deg,
-    var(--color-accent),
-    var(--color-accent-hover)
-  );
-}
-
-/* When monitoring is on, ramp the gradient + outline so the
- * active state reads as "engaged" rather than just "selected". */
-.settings-hw-hero[data-on="true"] {
-  background: linear-gradient(
-    135deg,
-    color-mix(in srgb, var(--color-accent) 16%, var(--color-bg-secondary)),
-    var(--color-bg-secondary)
-  );
-  border-color: color-mix(in srgb, var(--color-accent) 42%, var(--color-border));
-  box-shadow:
-    0 0 0 1px color-mix(in srgb, var(--color-accent) 35%, transparent),
-    0 6px 20px color-mix(in srgb, var(--color-accent) 18%, transparent);
-}
-
-.settings-hw-hero-icon {
+.hw-head-icon {
   display: inline-flex;
   align-items: center;
   justify-content: center;
   width: 44px;
   height: 44px;
-  border-radius: var(--radius-md);
+  flex-shrink: 0;
+  border-radius: var(--radius-lg);
   background: color-mix(in srgb, var(--color-accent) 16%, transparent);
   color: var(--color-accent);
   border: 1px solid color-mix(in srgb, var(--color-accent) 32%, transparent);
-  flex-shrink: 0;
   box-shadow: 0 0 14px var(--color-accent-glow);
-  position: relative;
-  z-index: 1;
 }
 
-.settings-hw-hero-icon svg {
-  width: 22px;
-  height: 22px;
-}
+.hw-head-icon svg { width: 22px; height: 22px; }
 
-.settings-hw-hero-body {
-  flex: 1;
-  min-width: 0;
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-}
+.hw-head-titles { min-width: 0; }
 
-.settings-hw-hero-title-row {
-  display: flex;
-  align-items: center;
-  gap: var(--space-sm);
-  flex-wrap: wrap;
-}
-
-.settings-hw-hero-title {
-  font-size: var(--font-size-md);
-  font-weight: var(--font-weight-semibold);
-  color: var(--color-text-primary);
+.hw-title {
   margin: 0;
-  line-height: 1.3;
+  font-size: var(--font-size-lg);
+  font-weight: var(--font-weight-bold);
+  color: var(--color-text-primary);
+  letter-spacing: -0.3px;
 }
 
-/* Status pill — small uppercase badge to the right of the title
- * showing whether monitoring is currently engaged. */
-.settings-hw-hero-status {
+.hw-subtitle {
+  margin: 2px 0 0;
+  font-size: var(--font-size-sm);
+  color: var(--color-text-secondary);
+  line-height: 1.4;
+}
+
+/* Master switch */
+.hw-master {
   display: inline-flex;
   align-items: center;
-  gap: 4px;
-  padding: 2px 8px;
-  font-size: 10px;
-  font-weight: var(--font-weight-bold);
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
-  border-radius: var(--radius-full);
-  font-variant-numeric: tabular-nums;
-}
-
-.settings-hw-hero-status[data-on="true"] {
-  background: color-mix(in srgb, var(--color-success) 14%, transparent);
-  color: var(--color-success);
-  border: 1px solid color-mix(in srgb, var(--color-success) 35%, transparent);
-}
-
-.settings-hw-hero-status[data-on="true"]::before {
-  content: "";
-  width: 6px;
-  height: 6px;
-  border-radius: 50%;
-  background: var(--color-success);
-  box-shadow: 0 0 6px var(--color-success);
+  gap: var(--space-sm);
   flex-shrink: 0;
-  /* Slow pulse so the "engaged" state reads as alive — only when
-   * monitoring is on. Disabled via prefers-reduced-motion below. */
-  animation: settingsHeroPulse 2.4s ease-in-out infinite;
-}
-
-@keyframes settingsHeroPulse {
-  0%, 100% { opacity: 0.85; }
-  50% {
-    opacity: 1;
-    box-shadow: 0 0 10px var(--color-success);
-  }
-}
-
-.settings-hw-hero-status[data-on="false"] {
-  background: color-mix(in srgb, var(--color-text-muted) 14%, transparent);
-  color: var(--color-text-muted);
-  border: 1px solid var(--color-border);
-}
-
-.settings-hw-hero-desc {
-  font-size: var(--font-size-xs);
-  color: var(--color-text-secondary);
-  margin: 0;
-  line-height: 1.55;
-  max-width: 56ch;
-}
-
-/* Big pill toggle. Pure CSS (no checkbox) so the size and proportions
- * match the hero card. Toggled via `data-on` so JSX only needs to
- * thread one attribute. */
-.settings-hw-toggle {
-  position: relative;
-  display: inline-block;
-  width: 52px;
-  height: 28px;
-  flex-shrink: 0;
-  cursor: pointer;
+  padding: 6px 8px 6px 14px;
   background: var(--color-bg-tertiary);
   border: 1px solid var(--color-border);
   border-radius: var(--radius-full);
-  padding: 0;
-  transition: background var(--transition-fast),
-    border-color var(--transition-fast);
+  cursor: pointer;
+  transition: border-color var(--transition-fast), background var(--transition-fast);
 }
 
-.settings-hw-toggle::after {
-  content: "";
+.hw-master:hover { border-color: var(--color-border-light); }
+
+.hw-master-state {
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-bold);
+  text-transform: uppercase;
+  letter-spacing: 0.6px;
+  color: var(--color-text-muted);
+}
+.hw-master-state[data-on="true"] { color: var(--color-success); }
+
+.hw-switch {
+  position: relative;
+  width: 46px;
+  height: 26px;
+  border-radius: var(--radius-full);
+  background: var(--color-bg-secondary);
+  border: 1px solid var(--color-border);
+  transition: background var(--transition-fast), border-color var(--transition-fast);
+  flex-shrink: 0;
+}
+.hw-switch-knob {
   position: absolute;
-  top: 3px;
-  left: 3px;
+  top: 2px;
+  left: 2px;
   width: 20px;
   height: 20px;
   border-radius: 50%;
-  background: var(--color-text-secondary);
-  transition: transform var(--transition-fast),
-    background var(--transition-fast);
-  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3);
+  background: var(--color-text-muted);
+  transition: transform var(--transition-fast), background var(--transition-fast);
 }
-
-.settings-hw-toggle[data-on="true"] {
-  background: var(--color-accent);
+.hw-master[data-on="true"] .hw-switch {
+  background: color-mix(in srgb, var(--color-accent) 32%, transparent);
   border-color: var(--color-accent);
-  box-shadow: 0 0 14px var(--color-accent-glow);
+}
+.hw-master[data-on="true"] .hw-switch-knob {
+  transform: translateX(20px);
+  background: var(--color-accent);
+  box-shadow: 0 0 10px var(--color-accent-glow);
+}
+.hw-master:focus-visible { outline: 2px solid var(--color-accent); outline-offset: 2px; }
+
+/* ── Panes ────────────────────────────────────────────────────────── */
+.hw-pane {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-lg);
+  scroll-margin-top: calc(var(--space-xl) + 56px);
+  animation: importMenuIn 220ms ease;
+}
+.hw-pane.is-disabled { opacity: 0.55; }
+
+.hw-pane-head { display: flex; flex-direction: column; gap: 2px; }
+.hw-pane-title {
+  margin: 0;
+  font-size: var(--font-size-md);
+  font-weight: var(--font-weight-bold);
+  color: var(--color-text-primary);
+}
+.hw-pane-desc {
+  margin: 0;
+  font-size: var(--font-size-sm);
+  color: var(--color-text-muted);
 }
 
-.settings-hw-toggle[data-on="true"]::after {
-  transform: translateX(24px);
-  background: #fff;
-  box-shadow: 0 2px 6px color-mix(in srgb, var(--color-accent) 35%, transparent);
+/* ── Detected hardware spec cards ─────────────────────────────────── */
+.hw-specs {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: var(--space-md);
 }
 
-.settings-hw-toggle:focus-visible {
-  outline: 2px solid var(--color-accent);
-  outline-offset: 3px;
-}
-
-/* Stat tile — small dashboard tile used in the Detected Hardware
- * subsection and inside the active-GPU card. Icon on the left,
- * label + big value + sub-line on the right. */
-.settings-hw-stat-tile {
+.hw-spec {
   display: flex;
   align-items: flex-start;
   gap: var(--space-md);
   padding: var(--space-lg);
   background: var(--color-bg-secondary);
   border: 1px solid var(--color-border);
-  border-radius: var(--radius-md);
-  transition: border-color var(--transition-fast),
-    background var(--transition-fast),
-    transform var(--transition-fast);
-  position: relative;
-  overflow: hidden;
-  min-width: 0;
+  border-radius: var(--radius-lg);
+  transition: border-color var(--transition-fast), transform var(--transition-fast), box-shadow var(--transition-fast);
 }
-
-.settings-hw-stat-tile:hover {
+.hw-spec:hover {
   border-color: var(--color-border-light);
+  transform: translateY(-2px);
+  box-shadow: 0 8px 24px color-mix(in srgb, var(--color-bg-secondary) 40%, transparent);
 }
 
-.settings-hw-stat-tile-icon {
+.hw-spec-icon {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 36px;
-  height: 36px;
-  border-radius: var(--radius-md);
-  background: color-mix(in srgb, var(--color-accent) 12%, transparent);
-  color: var(--color-accent);
-  border: 1px solid color-mix(in srgb, var(--color-accent) 22%, transparent);
+  width: 42px;
+  height: 42px;
   flex-shrink: 0;
+  border-radius: var(--radius-md);
+  color: #fff;
+}
+.hw-spec-icon svg { width: 22px; height: 22px; }
+.hw-spec-icon--cpu {
+  background: linear-gradient(135deg, #6366f1, #8b5cf6);
+  box-shadow: 0 0 14px rgba(99, 102, 241, 0.45);
+}
+.hw-spec-icon--memory {
+  background: linear-gradient(135deg, #06b6d4, #14b8a6);
+  box-shadow: 0 0 14px rgba(6, 182, 212, 0.4);
+}
+.hw-spec-icon--gpu {
+  background: linear-gradient(135deg, #f97316, #ef4444);
+  box-shadow: 0 0 14px rgba(249, 115, 22, 0.4);
 }
 
-.settings-hw-stat-tile-icon svg {
-  width: 18px;
-  height: 18px;
-}
+.hw-spec-body { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
 
-/* Per-resource icon tinting so the three stat tiles read as visibly
- * distinct at a glance. Each color is consistent with the GamingStat
- * chart palette used elsewhere in the app. */
-.settings-hw-stat-tile-icon--cpu {
-  color: #38bdf8;
-  background: color-mix(in srgb, #38bdf8 12%, transparent);
-  border-color: color-mix(in srgb, #38bdf8 28%, transparent);
-}
-
-.settings-hw-stat-tile-icon--memory {
-  color: #c084fc;
-  background: color-mix(in srgb, #c084fc 12%, transparent);
-  border-color: color-mix(in srgb, #c084fc 28%, transparent);
-}
-
-.settings-hw-stat-tile-icon--gpu {
-  color: #34d399;
-  background: color-mix(in srgb, #34d399 12%, transparent);
-  border-color: color-mix(in srgb, #34d399 28%, transparent);
-}
-
-.settings-hw-stat-tile-body {
-  flex: 1;
-  min-width: 0;
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-}
-
-.settings-hw-stat-tile-label {
+.hw-spec-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
   font-size: 10px;
   font-weight: var(--font-weight-bold);
-  color: var(--color-text-muted);
   text-transform: uppercase;
-  letter-spacing: 0.6px;
-  margin: 0;
+  letter-spacing: 0.8px;
+  color: var(--color-text-muted);
 }
-
-.settings-hw-stat-tile-value {
+.hw-spec-count {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 18px;
+  height: 16px;
+  padding: 0 5px;
+  font-size: 10px;
+  font-weight: var(--font-weight-bold);
+  color: var(--color-accent);
+  background: color-mix(in srgb, var(--color-accent) 18%, transparent);
+  border-radius: var(--radius-full);
+  font-variant-numeric: tabular-nums;
+}
+.hw-spec-value {
   font-size: var(--font-size-md);
   font-weight: var(--font-weight-semibold);
   color: var(--color-text-primary);
-  line-height: 1.3;
-  word-break: break-word;
-  /* Cap absurdly long GPU names so the 3-column grid stays balanced
-   * on the rare system that exposes 6+ adapters. */
-  display: -webkit-box;
-  -webkit-line-clamp: 2;
-  -webkit-box-orient: vertical;
-  overflow: hidden;
+  line-height: 1.35;
 }
+.hw-spec-sub { font-size: var(--font-size-xs); color: var(--color-text-muted); }
+.hw-spec-empty { font-size: var(--font-size-sm); color: var(--color-text-muted); font-style: italic; }
 
-.settings-hw-stat-tile-sub {
-  font-size: var(--font-size-xs);
-  color: var(--color-text-secondary);
-  margin-top: 2px;
-  word-break: break-word;
-}
-
-/* Inline placeholder card shown next to the GPU dropdown when no
- * GPU is selected yet. Same card geometry as the active-GPU tile
- * for consistent column heights, but a muted dashed border + a
- * small prompt so users notice the empty state. */
-.settings-hw-gpu-empty {
+/* GPU chips — clickable adapters; the monitored one is highlighted */
+.hw-gpu-chips {
   display: flex;
-  align-items: center;
-  gap: var(--space-md);
-  padding: var(--space-lg);
-  background: color-mix(in srgb, var(--color-text-muted) 4%, var(--color-bg-secondary));
-  border: 1px dashed var(--color-border);
-  border-radius: var(--radius-md);
-  height: 100%;
-  min-height: 96px;
+  flex-wrap: wrap;
+  gap: var(--space-xs);
+  margin-top: var(--space-xs);
 }
-
-.settings-hw-gpu-empty-icon {
+.hw-gpu-chip {
   display: inline-flex;
   align-items: center;
-  justify-content: center;
-  width: 36px;
-  height: 36px;
-  border-radius: var(--radius-md);
-  background: color-mix(in srgb, var(--color-text-muted) 12%, transparent);
-  color: var(--color-text-muted);
+  gap: 6px;
+  padding: 5px 10px;
+  background: var(--color-bg-tertiary);
   border: 1px solid var(--color-border);
+  border-radius: var(--radius-full);
+  color: var(--color-text-secondary);
+  font-family: inherit;
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-medium);
+  cursor: pointer;
+  max-width: 100%;
+  transition: border-color var(--transition-fast), background var(--transition-fast), color var(--transition-fast);
+}
+.hw-gpu-chip:hover { border-color: var(--color-border-light); color: var(--color-text-primary); }
+.hw-gpu-chip-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--color-text-muted);
   flex-shrink: 0;
 }
+.hw-gpu-chip-name {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  min-width: 0;
+}
+.hw-gpu-chip-vram {
+  color: var(--color-text-muted);
+  font-variant-numeric: tabular-nums;
+  flex-shrink: 0;
+}
+.hw-gpu-chip.active {
+  color: var(--color-text-primary);
+  background: color-mix(in srgb, var(--color-accent) 16%, transparent);
+  border-color: color-mix(in srgb, var(--color-accent) 45%, transparent);
+}
+.hw-gpu-chip.active .hw-gpu-chip-dot {
+  background: var(--color-success);
+  box-shadow: 0 0 8px var(--color-success);
+}
+.hw-gpu-chip.active .hw-gpu-chip-vram { color: var(--color-text-secondary); }
 
-.settings-hw-gpu-empty-icon svg {
-  width: 18px;
-  height: 18px;
+/* ── Telemetry metric switch cards ────────────────────────────────── */
+.hw-metric-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  gap: var(--space-sm);
 }
 
-.settings-hw-gpu-empty-text {
-  font-size: var(--font-size-sm);
-  color: var(--color-text-secondary);
-  line-height: 1.5;
-  font-style: italic;
-}
-
-/* Reduced motion: kill the engagement pulse and any transitions
- * the hero / stat tile / toggle would normally animate. */
-@media (prefers-reduced-motion: reduce) {
-  .settings-hw-hero-status[data-on="true"]::before {
-    animation: none;
-  }
-  .settings-hw-toggle,
-  .settings-hw-toggle::after,
-  .settings-hw-hero,
-  .settings-hw-stat-tile {
-    transition: none;
-  }
-}
-
-/* ── 11.b Hardware tab — GPU card (multi-GPU list) ──────────────── */
-/*
- * The Detected Hardware grid's GPU stat tile used to cram every GPU
- * name into a single truncated comma-separated string, with the count
- * jammed into the label. With 2–4 GPUs (common for streamers / mining
- * rigs / dev boxes) the names truncated and the VRAM line overlapped
- * the value visually. The redesign below swaps the cramped value/sub
- * pair for an inset mini-list of GPUs when more than one is present,
- * surfaces the count as a small badge, and highlights whichever GPU
- * is currently selected in the Telemetry subsection.
- */
-
-/* Header row of a stat tile — wraps the label + any badges/chips
- * inline so the count doesn't fight the small-caps label typography. */
-.settings-hw-stat-tile-header {
+.hw-metric {
   display: flex;
   align-items: center;
   gap: var(--space-sm);
-  margin-bottom: 2px;
+  padding: var(--space-md);
+  background: var(--color-bg-secondary);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  cursor: pointer;
+  user-select: none;
+  transition: border-color var(--transition-fast), background var(--transition-fast);
 }
-
-/* Small pill badge for short numeric labels next to a stat-tile header
- * (e.g. "GPUs  2" without sacrificing the small-caps label style). */
-.settings-hw-stat-tile-badge {
+.hw-metric:hover { border-color: var(--color-border-light); }
+.hw-metric.on {
+  border-color: color-mix(in srgb, var(--color-accent) 45%, transparent);
+  background: color-mix(in srgb, var(--color-accent) 8%, var(--color-bg-secondary));
+}
+.hw-metric-icon {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  min-width: 22px;
-  height: 18px;
-  padding: 0 6px;
-  font-size: 10px;
+  width: 32px;
+  height: 32px;
+  flex-shrink: 0;
+  border-radius: var(--radius-md);
+  background: var(--color-bg-tertiary);
+  color: var(--color-text-muted);
+  transition: color var(--transition-fast), background var(--transition-fast);
+}
+.hw-metric-icon svg { width: 17px; height: 17px; }
+.hw-metric.on .hw-metric-icon {
+  color: var(--color-accent);
+  background: color-mix(in srgb, var(--color-accent) 16%, transparent);
+}
+.hw-metric-label {
+  flex: 1;
+  min-width: 0;
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-medium);
+  color: var(--color-text-primary);
+}
+
+.hw-metric-switch {
+  position: relative;
+  width: 40px;
+  height: 22px;
+  flex-shrink: 0;
+  border-radius: var(--radius-full);
+  background: var(--color-bg-tertiary);
+  border: 1px solid var(--color-border);
+  transition: background var(--transition-fast), border-color var(--transition-fast);
+}
+.hw-metric-knob {
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: var(--color-text-muted);
+  transition: transform var(--transition-fast), background var(--transition-fast);
+}
+.hw-metric.on .hw-metric-switch {
+  background: color-mix(in srgb, var(--color-accent) 30%, transparent);
+  border-color: var(--color-accent);
+}
+.hw-metric.on .hw-metric-knob {
+  transform: translateX(18px);
+  background: var(--color-accent);
+  box-shadow: 0 0 8px var(--color-accent-glow);
+}
+/* visually-hidden checkbox keeps it clickable + a11y-friendly */
+.hw-metric-switch input {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  opacity: 0;
+  cursor: pointer;
+}
+.hw-metric-switch input:disabled { cursor: not-allowed; }
+
+/* ── Paired cards (sampling / gpu / units) ────────────────────────── */
+.hw-duo {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: var(--space-md);
+}
+
+.hw-card {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+  padding: var(--space-lg);
+  background: var(--color-bg-secondary);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  transition: border-color var(--transition-fast);
+}
+.hw-card:hover { border-color: var(--color-border-light); }
+
+.hw-card-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-sm);
+}
+.hw-card-label {
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text-primary);
+}
+.hw-card-value {
+  font-size: var(--font-size-sm);
   font-weight: var(--font-weight-bold);
   color: var(--color-accent);
   background: color-mix(in srgb, var(--color-accent) 14%, transparent);
   border: 1px solid color-mix(in srgb, var(--color-accent) 30%, transparent);
-  border-radius: var(--radius-full);
+  border-radius: var(--radius-md);
+  padding: 2px 10px;
   font-variant-numeric: tabular-nums;
-  letter-spacing: 0;
 }
-
-/* Empty-state body text used when a stat tile has no value to show.
- * Italic + muted so it reads as a non-actionable hint, not a missing
- * field. */
-.settings-hw-stat-tile-empty {
-  font-size: var(--font-size-sm);
-  color: var(--color-text-secondary);
-  font-style: italic;
+.hw-card-help {
   margin: 0;
-  line-height: 1.4;
-}
-
-/* Inset list of GPUs used inside the multi-GPU stat tile. Scrolls
- * vertically when the system exposes 3+ adapters so the tile never
- * grows tall enough to unbalance the 3-column grid, keeping the
- * siblings (CPU / Memory) at the same height as before. */
-.settings-hw-gpu-list {
-  list-style: none;
-  padding: 4px;
-  margin: var(--space-xs) 0 0 0;
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-  max-height: 132px;
-  overflow-y: auto;
-  /* Small inset border so the list reads as a separate sub-region
-   *  inside the tile instead of bleeding into the tile's chrome. */
-  background: var(--color-bg-tertiary);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-sm);
-  scrollbar-width: thin;
-  scrollbar-color: var(--color-border-light) transparent;
-}
-
-.settings-hw-gpu-list::-webkit-scrollbar {
-  width: 6px;
-}
-
-.settings-hw-gpu-list::-webkit-scrollbar-track {
-  background: transparent;
-}
-
-.settings-hw-gpu-list::-webkit-scrollbar-thumb {
-  background: var(--color-border-light);
-  border-radius: var(--radius-full);
-}
-
-/* Single GPU row inside the list. Two-column layout (dot + name left,
- * vram right) so the right-aligned spec doesn't fight the name's
- * truncation. */
-.settings-hw-gpu-row {
-  display: flex;
-  align-items: center;
-  gap: var(--space-sm);
-  padding: 5px 8px;
-  border-radius: var(--radius-xs);
   font-size: var(--font-size-xs);
-  color: var(--color-text-primary);
-  background: transparent;
-  transition: background var(--transition-fast);
+  color: var(--color-text-muted);
+  line-height: 1.45;
 }
+.hw-card-help strong { color: var(--color-text-secondary); }
 
-.settings-hw-gpu-row:hover {
-  background: color-mix(in srgb, var(--color-accent) 10%, transparent);
+.hw-range {
+  width: 100%;
+  accent-color: var(--color-accent);
+  cursor: pointer;
+  margin-top: var(--space-xs);
 }
+.hw-range:disabled { opacity: 0.5; cursor: not-allowed; }
 
-.settings-hw-gpu-row--active {
-  background: color-mix(in srgb, var(--color-success) 14%, transparent);
-  box-shadow: inset 0 0 0 1px
-    color-mix(in srgb, var(--color-success) 35%, transparent);
-}
+.hw-select { width: 100%; }
 
-/* Small status dot at the start of every row. Stays muted for
- * inactive GPUs and lights up in success-color for the selected one. */
-.settings-hw-gpu-dot {
-  width: 6px;
-  height: 6px;
-  border-radius: 50%;
-  background: var(--color-text-muted);
-  flex-shrink: 0;
-  box-shadow: 0 0 0 2px var(--color-bg-tertiary);
-  transition: background var(--transition-fast),
-    box-shadow var(--transition-fast);
-}
+.hw-seg { margin-top: 2px; }
 
-.settings-hw-gpu-dot[data-active="true"] {
-  background: var(--color-success);
-  box-shadow: 0 0 6px var(--color-success), 0 0 0 2px var(--color-bg-tertiary);
-}
-
-/* Name takes the middle (flex: 1) so the VRAM chips hug the right edge
- *  and long names truncate with a real tooltip instead of wrapping. */
-.settings-hw-gpu-row-name {
-  flex: 1;
-  min-width: 0;
-  font-weight: var(--font-weight-medium);
-  color: var(--color-text-primary);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-/* VRAM badge on the right. Right-aligned + tabular-nums so the
- *  plus/minus signs and decimal points stay stable between rows. */
-.settings-hw-gpu-row-vram {
-  font-size: 10px;
-  font-weight: var(--font-weight-semibold);
-  color: var(--color-text-secondary);
-  background: var(--color-bg-secondary);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-sm);
-  padding: 1px 6px;
-  font-variant-numeric: tabular-nums;
-  flex-shrink: 0;
-  letter-spacing: 0.2px;
-}
-
-.settings-hw-gpu-row--active .settings-hw-gpu-row-vram {
-  color: var(--color-success);
-  border-color: color-mix(in srgb, var(--color-success) 35%, transparent);
-  background: color-mix(in srgb, var(--color-success) 8%, transparent);
+/* ── Responsive ───────────────────────────────────────────────────── */
+@media (max-width: 880px) {
+  .hw-head { flex-direction: column; align-items: stretch; }
+  .hw-master { align-self: flex-start; }
 }
