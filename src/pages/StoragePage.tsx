@@ -1,38 +1,47 @@
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { useGames } from "../context/GameContext";
 import { useDensityContext } from "../context/DensityContext";
 import { useToast } from "../context/ToastContext";
 import { Button, ConfirmModal, PageHeader } from "../components/ui";
 import DensityToggle from "../components/DensityToggle";
-import { DEFAULT_SORT, driveOf, sortGames, type SortKey } from "./storage/utils";
+import { DEFAULT_SORT, driveOf, sortGames, buildSections, type GroupKey, type SortKey } from "./storage/utils";
 import { BulkRecalcBar } from "./storage/BulkRecalcBar";
 import { StorageHeader } from "./storage/StorageHeader";
 import { StorageSortSelect } from "./storage/StorageSortSelect";
 import { StorageRow } from "./storage/StorageRow";
+import { StorageGroup } from "./storage/StorageGroup";
+import { EmulatorStorageCard } from "./storage/EmulatorStorageCard";
 import { MoveGameDialog } from "./storage/MoveGameDialog";
 import { useStalePaths } from "./storage/useStalePaths";
 import type { Game } from "../types/game";
+import type { Emulator } from "../types/emulator";
 import "./StoragePage.css";
 import "../styles/page-storage.css";
 
 /** Active list filter for the Storage tab. */
 export type StorageFilter = "all" | "sized" | "missing" | "stale";
 
+/** Top-level Storage view: a flat (groupable) game list, or a per-emulator
+ *  breakdown of install + ROM footprints. */
+type StorageView = "games" | "emulators";
+
 /** Refactored Storage page — density-aware, searchable, themed, and now a
  *  real game *manager*: multi-select rows, batch move between drives, and
- *  uninstall with confirmation.
- *
- *  Orchestration:
- *    1. `useGames()` gives us the live library; the rows react to size
- *       mutations the same way any other consumer would.
- *    2. `sort` lives in local state — never persisted, so visits always
- *       start at Largest first per the spec.
- *    3. Search filtering is done client-side against game names.
- *    4. Density is shared with Store/Library via `DensityProvider`. */
+ *  uninstall with confirmation. Games can be reorganised into collapsible
+ *  sections (by Platform / Emulator / Drive) and a dedicated Emulators view
+ *  rolls every emulator's install folder + linked ROMs into one footprint. */
 import { useBigScreen } from "../context/BigScreenContext";
 import { useLanguage } from "../context/LanguageContext";
 import BigScreenSystem from "../components/bigscreen/BigScreenSystem";
+
+/** Best-effort parent directory of a file path (used to size an emulator's
+ *  install folder from its executable). */
+function parentDir(p: string): string {
+  const norm = p.replace(/\\/g, "/");
+  const idx = norm.lastIndexOf("/");
+  return idx > 0 ? norm.slice(0, idx) : p;
+}
 
 export default function StoragePage() {
   const { isBigScreen } = useBigScreen();
@@ -47,6 +56,8 @@ export default function StoragePage() {
   const [search, setSearch] = useState("");
   const [filter, setFilter] = useState<StorageFilter>("all");
   const [driveFilter, setDriveFilter] = useState<string | null>(null);
+  const [view, setView] = useState<StorageView>("games");
+  const [groupBy, setGroupBy] = useState<GroupKey>("none");
 
   // Selection / batch-management state.
   const [selectMode, setSelectMode] = useState(false);
@@ -54,6 +65,11 @@ export default function StoragePage() {
   const [moveGames, setMoveGames] = useState<Game[] | null>(null);
   const [uninstallGames, setUninstallGames] = useState<Game[] | null>(null);
   const [uninstalling, setUninstalling] = useState(false);
+
+  // Emulators (Emulators view).
+  const [emulators, setEmulators] = useState<Emulator[]>([]);
+  const [installBytes, setInstallBytes] = useState<Record<string, number | null>>({});
+  const [measuringEmu, setMeasuringEmu] = useState<Set<string>>(new Set());
 
   // Storage is only meaningful for games actually installed on disk.
   const installedGames = useMemo(
@@ -122,6 +138,28 @@ export default function StoragePage() {
     [installedGames]
   );
 
+  // Map of emulatorId -> display name (for grouping + "Other" fallback).
+  const emuNameById = useMemo(() => {
+    const m: Record<string, string> = {};
+    for (const e of emulators) m[e.id] = e.name;
+    return m;
+  }, [emulators]);
+
+  // Build collapsible sections when grouping is active.
+  const sections = useMemo(() => {
+    if (groupBy === "none") return null;
+    return buildSections(sortedGames, groupBy, (g) => {
+      if (groupBy === "platform") return g.platform || t("storage.section.unknown");
+      if (groupBy === "emulator")
+        return g.emulatorId
+          ? emuNameById[g.emulatorId] ?? t("storage.section.other")
+          : t("storage.section.other");
+      // drive
+      const d = driveOf(g.sizeRootPath);
+      return d === "Unknown" ? t("storage.section.unknown") : d;
+    });
+  }, [sortedGames, groupBy, emuNameById, t]);
+
   const handleRowSizeUpdated = useCallback(
     (gameId: string) => {
       void refresh(gameId);
@@ -131,9 +169,8 @@ export default function StoragePage() {
 
   const showingFiltered = search.trim().length > 0;
 
-  // Re-check every measured path's existence on disk (e.g. after a
-  // drive was re-plugged). Exposed to the user via the toolbar refresh
-  // button so the stale count updates on demand, not only on mount.
+  // Re-check every measured path's existence on disk. Exposed via the toolbar
+  // refresh button so the stale count updates on demand.
   const [refreshingPaths, setRefreshingPaths] = useState(false);
   const handleRefreshPaths = useCallback(() => {
     setRefreshingPaths(true);
@@ -154,7 +191,7 @@ export default function StoragePage() {
         showToast(t("storage.couldNotOpenFolder", { error: err }), "error");
       }
     },
-    [showToast]
+    [showToast, t]
   );
 
   // ── Selection helpers ────────────────────────────────────────────────
@@ -193,7 +230,7 @@ export default function StoragePage() {
       }
       setMoveGames(movable);
     },
-    [showToast]
+    [showToast, t]
   );
 
   const handleMoved = useCallback(
@@ -231,9 +268,9 @@ export default function StoragePage() {
         console.error("re-measure failed for", g.name, err);
       }
     }
-        showToast(t("storage.remeasured", { count: done, plural: done === 1 ? "" : "s" }), "success");
+    showToast(t("storage.remeasured", { count: done, plural: done === 1 ? "" : "s" }), "success");
     refreshAll();
-  }, [selectedGames, updateGame, showToast, refreshAll]);
+  }, [selectedGames, updateGame, showToast, refreshAll, t]);
 
   // ── Uninstall (single + batch) ───────────────────────────────────────
   const openUninstall = useCallback(
@@ -245,7 +282,7 @@ export default function StoragePage() {
       }
       setUninstallGames(removable);
     },
-    [showToast]
+    [showToast, t]
   );
 
   const confirmUninstall = useCallback(async () => {
@@ -276,7 +313,57 @@ export default function StoragePage() {
       t("storage.uninstalled", { count: removed, plural: removed === 1 ? "" : "s" }),
       "success"
     );
-  }, [uninstallGames, removeGame, showToast, refreshAll]);
+  }, [uninstallGames, removeGame, showToast, refreshAll, t]);
+
+  // ── Emulators view data ───────────────────────────────────────────────
+  useEffect(() => {
+    if (view !== "emulators") return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const list = await invoke<Emulator[]>("list_emulators");
+        if (!cancelled) setEmulators(list);
+      } catch (err) {
+        console.error("list_emulators failed", err);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [view]);
+
+  const emuRoms = useCallback(
+    (emuId: string) => games.filter((g) => g.emulatorId === emuId),
+    [games]
+  );
+
+  const measureEmulator = useCallback(
+    async (emu: Emulator) => {
+      if (!emu.executablePath) {
+        setInstallBytes((prev) => ({ ...prev, [emu.id]: null }));
+        return;
+      }
+      setMeasuringEmu((prev) => new Set(prev).add(emu.id));
+      try {
+        const result = await invoke<{ sizeBytes: number; rootPath: string }>(
+          "measure_path_size",
+          { path: parentDir(emu.executablePath) }
+        );
+        setInstallBytes((prev) => ({ ...prev, [emu.id]: result.sizeBytes }));
+      } catch (err) {
+        console.error("measure_path_size failed", err);
+        setInstallBytes((prev) => ({ ...prev, [emu.id]: null }));
+        showToast(t("storage.measureFailed", { name: emu.name, error: err }), "error");
+      } finally {
+        setMeasuringEmu((prev) => {
+          const next = new Set(prev);
+          next.delete(emu.id);
+          return next;
+        });
+      }
+    },
+    [showToast, t]
+  );
 
   return (
     <div className="storage-page page">
@@ -296,237 +383,339 @@ export default function StoragePage() {
         }
       />
 
-      {/* ── Dashboard cards ──────────────────────────────────── */}
-      <StorageHeader
-        games={installedGames}
-        staleCount={staleCount}
-        activeDrive={driveFilter}
-        onDriveClick={(label) => setDriveFilter((cur) => (cur === label ? null : label))}
-      />
-
-      {/* ── Status + drive filter chips ──────────────────────── */}
-      <div className="storage__filters" role="group" aria-label={t("storage.filterByStatus")}>
-        {(
-          [
-            { key: "all", label: t("storage.all"), count: installedGames.length },
-            {
-              key: "sized",
-              label: t("storage.sized"),
-              count: installedGames.filter(
-                (g) => g.sizeBytes != null && g.sizeBytes > 0
-              ).length,
-            },
-            {
-              key: "missing",
-              label: t("storage.missing"),
-              count: unsizedCount,
-            },
-            { key: "stale", label: t("storage.stale"), count: staleCount },
-          ] as { key: StorageFilter; label: string; count: number }[]
-        ).map(({ key, label, count }) => (
-          <button
-            key={key}
-            type="button"
-            className={`storage__filter-chip${
-              filter === key ? " storage__filter-chip--active" : ""
-            }`}
-            aria-pressed={filter === key}
-            onClick={() => setFilter(key)}
-          >
-            {label}
-            <span className="storage__filter-chip-count">{count}</span>
-          </button>
-        ))}
-        {driveFilter && (
-          <button
-            type="button"
-            className="storage__filter-chip storage__filter-chip--active storage__filter-chip--drive"
-            onClick={() => setDriveFilter(null)}
-            aria-label={t("storage.clearDriveFilter", { drive: driveFilter })}
-          >
-            {t("storage.driveLabel", { drive: driveFilter })}
-            <span className="storage__filter-chip-clear" aria-hidden>
-              {"×"}
-            </span>
-          </button>
-        )}
+      {/* ── View switcher ────────────────────────────────────── */}
+      <div className="storage__views" role="tablist" aria-label={t("storage.viewsAria")}>
+        <button
+          type="button"
+          role="tab"
+          aria-selected={view === "games"}
+          className={`storage__view-tab${view === "games" ? " storage__view-tab--active" : ""}`}
+          onClick={() => setView("games")}
+        >
+          {t("storage.view.games")}
+        </button>
+        <button
+          type="button"
+          role="tab"
+          aria-selected={view === "emulators"}
+          className={`storage__view-tab${view === "emulators" ? " storage__view-tab--active" : ""}`}
+          onClick={() => setView("emulators")}
+        >
+          {t("storage.view.emulators")}
+        </button>
       </div>
 
-      {/* ── Toolbar ──────────────────────────────────────────── */}
-      <div className="storage__toolbar">
-        <div className="storage__toolbar-left">
-          {/* Search */}
-          <div className="storage__search">
-            <svg className="storage__search-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-              <circle cx="11" cy="11" r="8" />
-              <line x1="21" y1="21" x2="16.65" y2="16.65" />
-            </svg>
-            <input
-              className="storage__search-input"
-              type="text"
-              placeholder={t("storage.searchPlaceholder")}
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              aria-label={t("storage.searchAria")}
-            />
-            {search && (
+      {view === "games" ? (
+        <>
+          {/* ── Dashboard cards ──────────────────────────────── */}
+          <StorageHeader
+            games={installedGames}
+            staleCount={staleCount}
+            activeDrive={driveFilter}
+            onDriveClick={(label) => setDriveFilter((cur) => (cur === label ? null : label))}
+          />
+
+          {/* ── Status + drive filter chips ──────────────────── */}
+          <div className="storage__filters" role="group" aria-label={t("storage.filterByStatus")}>
+            {(
+              [
+                { key: "all", label: t("storage.all"), count: installedGames.length },
+                {
+                  key: "sized",
+                  label: t("storage.sized"),
+                  count: installedGames.filter(
+                    (g) => g.sizeBytes != null && g.sizeBytes > 0
+                  ).length,
+                },
+                {
+                  key: "missing",
+                  label: t("storage.missing"),
+                  count: unsizedCount,
+                },
+                { key: "stale", label: t("storage.stale"), count: staleCount },
+              ] as { key: StorageFilter; label: string; count: number }[]
+            ).map(({ key, label, count }) => (
+              <button
+                key={key}
+                type="button"
+                className={`storage__filter-chip${
+                  filter === key ? " storage__filter-chip--active" : ""
+                }`}
+                aria-pressed={filter === key}
+                onClick={() => setFilter(key)}
+              >
+                {label}
+                <span className="storage__filter-chip-count">{count}</span>
+              </button>
+            ))}
+            {driveFilter && (
               <button
                 type="button"
-                className="storage__search-clear"
-                onClick={() => setSearch("")}
-                aria-label={t("storage.clearSearch")}
+                className="storage__filter-chip storage__filter-chip--active storage__filter-chip--drive"
+                onClick={() => setDriveFilter(null)}
+                aria-label={t("storage.clearDriveFilter", { drive: driveFilter })}
               >
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                  <line x1="18" y1="6" x2="6" y2="18" />
-                  <line x1="6" y1="6" x2="18" y2="18" />
-                </svg>
+                {t("storage.driveLabel", { drive: driveFilter })}
+                <span className="storage__filter-chip-clear" aria-hidden>
+                  {"×"}
+                </span>
               </button>
             )}
           </div>
 
-          <StorageSortSelect value={sort} onChange={setSort} />
+          {/* ── Toolbar ──────────────────────────────────────── */}
+          <div className="storage__toolbar">
+            <div className="storage__toolbar-left">
+              {/* Search */}
+              <div className="storage__search">
+                <svg className="storage__search-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                  <circle cx="11" cy="11" r="8" />
+                  <line x1="21" y1="21" x2="16.65" y2="16.65" />
+                </svg>
+                <input
+                  className="storage__search-input"
+                  type="text"
+                  placeholder={t("storage.searchPlaceholder")}
+                  value={search}
+                  onChange={(e) => setSearch(e.target.value)}
+                  aria-label={t("storage.searchAria")}
+                />
+                {search && (
+                  <button
+                    type="button"
+                    className="storage__search-clear"
+                    onClick={() => setSearch("")}
+                    aria-label={t("storage.clearSearch")}
+                  >
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <line x1="18" y1="6" x2="6" y2="18" />
+                      <line x1="6" y1="6" x2="18" y2="18" />
+                    </svg>
+                  </button>
+                )}
+              </div>
 
-          {/* Density toggle */}
-          <div className="storage__density-group">
-            <span className="storage__density-label">{t("storage.density")}</span>
-            <DensityToggle density={density} onChange={setDensity} />
+              <StorageSortSelect value={sort} onChange={setSort} />
+
+              {/* Group-by control */}
+              <div className="storage__groupby">
+                <span className="storage__groupby-label">{t("storage.groupBy")}</span>
+                <div className="storage__groupby-options" role="group" aria-label={t("storage.groupBy")}>
+                  {(["none", "platform", "emulator", "drive"] as GroupKey[]).map((k) => (
+                    <button
+                      key={k}
+                      type="button"
+                      className={`storage__groupby-opt${groupBy === k ? " storage__groupby-opt--active" : ""}`}
+                      aria-pressed={groupBy === k}
+                      onClick={() => setGroupBy(k)}
+                    >
+                      {t(`storage.group.${k}`)}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Density toggle */}
+              <div className="storage__density-group">
+                <span className="storage__density-label">{t("storage.density")}</span>
+                <DensityToggle density={density} onChange={setDensity} />
+              </div>
+
+              {/* Selection mode toggle */}
+              <Button
+                variant={selectMode ? "secondary" : "ghost"}
+                size="sm"
+                active={selectMode}
+                onClick={() => (selectMode ? exitSelectMode() : setSelectMode(true))}
+                title={t("storage.batchMoveTitle")}
+              >
+                {t("storage.select")}
+              </Button>
+            </div>
+
+            <div className="storage__toolbar-right">
+              <BulkRecalcBar unsizedGames={missingGames} onComplete={refreshAll} />
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={handleRefreshPaths}
+                isLoading={refreshingPaths}
+                title={t("storage.recheckTitle")}
+              >
+                {t("common.refresh")}
+              </Button>
+              <span className="storage__toolbar-count">
+                {t("storage.gamesCount", { count: sortedGames.length, plural: sortedGames.length === 1 ? "" : "s" })}
+                {(showingFiltered || filter !== "all" || driveFilter) &&
+                  installedGames.length !== sortedGames.length &&
+                  ` ${t("storage.ofTotal", { total: installedGames.length })}`}
+                {!showingFiltered && filter === "all" && !driveFilter && unsizedCount > 0 &&
+                  ` ${"·"} ${t("storageHeader.missingCount", { count: unsizedCount, plural: "" })}`}
+              </span>
+            </div>
           </div>
 
-          {/* Selection mode toggle */}
-          <Button
-            variant={selectMode ? "secondary" : "ghost"}
-            size="sm"
-            active={selectMode}
-            onClick={() => (selectMode ? exitSelectMode() : setSelectMode(true))}
-            title={t("storage.batchMoveTitle")}
-          >
-            {t("storage.select")}
-          </Button>
-        </div>
-
-        <div className="storage__toolbar-right">
-          <BulkRecalcBar unsizedGames={missingGames} onComplete={refreshAll} />
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={handleRefreshPaths}
-            isLoading={refreshingPaths}
-            title={t("storage.recheckTitle")}
-          >
-            {t("common.refresh")}
-          </Button>
-          <span className="storage__toolbar-count">
-            {t("storage.gamesCount", { count: sortedGames.length, plural: sortedGames.length === 1 ? "" : "s" })}
-            {(showingFiltered || filter !== "all" || driveFilter) &&
-              installedGames.length !== sortedGames.length &&
-              ` ${t("storage.ofTotal", { total: installedGames.length })}`}
-            {!showingFiltered && filter === "all" && !driveFilter && unsizedCount > 0 &&
-              ` ${"·"} ${t("storageHeader.missingCount", { count: unsizedCount, plural: "" })}`}
-          </span>
-        </div>
-      </div>
-
-      {/* ── Selection / batch toolbar ──────────────────────────── */}
-      {selectMode && (
-        <div className="storage__batch-bar" role="toolbar" aria-label={t("storage.batchActions")}>
-          <span className="storage__batch-count">
-            {t("storage.selected", { count: selected.size })}
-          </span>
-          <div className="storage__batch-actions">
-            <Button
-              variant="primary"
-              size="sm"
-              onClick={() => openMove(selectedGames)}
-              disabled={selected.size === 0}
-            >
-              {t("storage.move")}
-            </Button>
-            <Button
-              variant="danger"
-              size="sm"
-              onClick={() => openUninstall(selectedGames)}
-              disabled={selected.size === 0}
-            >
-              {t("storage.uninstall")}
-            </Button>
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={remeasureSelected}
-              disabled={selected.size === 0}
-            >
-              {t("storage.remeasure")}
-            </Button>
-            <Button variant="ghost" size="sm" onClick={selectAll}>
-              {t("storage.selectAll")}
-            </Button>
-            <Button variant="ghost" size="sm" onClick={clearSelection}>
-              {t("common.clear")}
-            </Button>
-          </div>
-        </div>
-      )}
-
-      {/* ── Game list ────────────────────────────────────────── */}
-      {sortedGames.length === 0 ? (
-        <div className="storage__empty-state">
-          <div className="storage__empty-state-icon">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-              <rect x="2" y="2" width="20" height="20" rx="2" />
-              <circle cx="8.5" cy="8.5" r="1.5" />
-              <path d="M20.4 14.7 16.1 19l-1.8-1.8" />
-              <line x1="12" y1="6" x2="18" y2="6" />
-              <line x1="12" y1="10" x2="15" y2="10" />
-            </svg>
-          </div>
-          <p className="storage__empty-state-title">
-            {showingFiltered
-              ? t("storage.emptySearch")
-              : filter === "stale"
-                ? t("storage.emptyStale")
-                : filter === "missing"
-                  ? t("storage.emptyMissing")
-                  : filter === "sized"
-                    ? t("storage.emptySized")
-                    : driveFilter
-                      ? t("storage.emptyDrive", { drive: driveFilter })
-                      : installedGames.length === 0
-                        ? t("storage.emptyNone")
-                        : t("storage.emptySizedYet")}
-          </p>
-          <p className="storage__empty-state-subtitle">
-            {showingFiltered
-              ? t("storage.hintSearch")
-              : installedGames.length === 0
-                ? t("storage.hintImport")
-                : driveFilter
-                  ? t("storage.hintDrive")
-                  : t("storage.hintMeasure")}
-          </p>
-          {showingFiltered && (
-            <Button variant="ghost" onClick={() => setSearch("")}>
-              {t("storage.clearSearch")}
-            </Button>
+          {/* ── Selection / batch toolbar ────────────────────── */}
+          {selectMode && (
+            <div className="storage__batch-bar" role="toolbar" aria-label={t("storage.batchActions")}>
+              <span className="storage__batch-count">
+                {t("storage.selected", { count: selected.size })}
+              </span>
+              <div className="storage__batch-actions">
+                <Button
+                  variant="primary"
+                  size="sm"
+                  onClick={() => openMove(selectedGames)}
+                  disabled={selected.size === 0}
+                >
+                  {t("storage.move")}
+                </Button>
+                <Button
+                  variant="danger"
+                  size="sm"
+                  onClick={() => openUninstall(selectedGames)}
+                  disabled={selected.size === 0}
+                >
+                  {t("storage.uninstall")}
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={remeasureSelected}
+                  disabled={selected.size === 0}
+                >
+                  {t("storage.remeasure")}
+                </Button>
+                <Button variant="ghost" size="sm" onClick={selectAll}>
+                  {t("storage.selectAll")}
+                </Button>
+                <Button variant="ghost" size="sm" onClick={clearSelection}>
+                  {t("common.clear")}
+                </Button>
+              </div>
+            </div>
           )}
-        </div>
+
+          {/* ── Game list (flat or grouped) ──────────────────── */}
+          {sortedGames.length === 0 ? (
+            <div className="storage__empty-state">
+              <div className="storage__empty-state-icon">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                  <rect x="2" y="2" width="20" height="20" rx="2" />
+                  <circle cx="8.5" cy="8.5" r="1.5" />
+                  <path d="M20.4 14.7 16.1 19l-1.8-1.8" />
+                  <line x1="12" y1="6" x2="18" y2="6" />
+                  <line x1="12" y1="10" x2="15" y2="10" />
+                </svg>
+              </div>
+              <p className="storage__empty-state-title">
+                {showingFiltered
+                  ? t("storage.emptySearch")
+                  : filter === "stale"
+                    ? t("storage.emptyStale")
+                    : filter === "missing"
+                      ? t("storage.emptyMissing")
+                      : filter === "sized"
+                        ? t("storage.emptySized")
+                        : driveFilter
+                          ? t("storage.emptyDrive", { drive: driveFilter })
+                          : installedGames.length === 0
+                            ? t("storage.emptyNone")
+                            : t("storage.emptySizedYet")}
+              </p>
+              <p className="storage__empty-state-subtitle">
+                {showingFiltered
+                  ? t("storage.hintSearch")
+                  : installedGames.length === 0
+                    ? t("storage.hintImport")
+                    : driveFilter
+                      ? t("storage.hintDrive")
+                      : t("storage.hintMeasure")}
+              </p>
+              {showingFiltered && (
+                <Button variant="ghost" onClick={() => setSearch("")}>
+                  {t("storage.clearSearch")}
+                </Button>
+              )}
+            </div>
+          ) : sections ? (
+            <ul className="storage__groups">
+              {sections.map((s) => (
+                <StorageGroup
+                  key={s.key}
+                  label={s.label}
+                  games={s.games}
+                  bytes={s.bytes}
+                  density={density}
+                  selectMode={selectMode}
+                  selected={selected}
+                  onToggleSelect={toggleSelect}
+                  onSizeUpdated={handleRowSizeUpdated}
+                  onOpenFolder={handleOpenFolder}
+                  onMove={(g) => openMove([g])}
+                  onUninstall={(g) => openUninstall([g])}
+                  staleMap={staleMap}
+                />
+              ))}
+            </ul>
+          ) : (
+            <ul className={`storage__list density-${density}`}>
+              {sortedGames.map((g) => (
+                <StorageRow
+                  key={g.id}
+                  game={g}
+                  stale={staleMap.get(g.id) === true}
+                  density={density}
+                  selectMode={selectMode}
+                  selected={selected.has(g.id)}
+                  onToggleSelect={() => toggleSelect(g.id)}
+                  onSizeUpdated={() => handleRowSizeUpdated(g.id)}
+                  onOpenFolder={() => handleOpenFolder(g)}
+                  onMove={() => openMove([g])}
+                  onUninstall={() => openUninstall([g])}
+                />
+              ))}
+            </ul>
+          )}
+        </>
       ) : (
-        <ul className={`storage__list density-${density}`}>
-          {sortedGames.map((g) => (
-            <StorageRow
-              key={g.id}
-              game={g}
-              stale={staleMap.get(g.id) === true}
-              density={density}
-              selectMode={selectMode}
-              selected={selected.has(g.id)}
-              onToggleSelect={() => toggleSelect(g.id)}
-              onSizeUpdated={() => handleRowSizeUpdated(g.id)}
-              onOpenFolder={() => handleOpenFolder(g)}
-              onMove={() => openMove([g])}
-              onUninstall={() => openUninstall([g])}
-            />
-          ))}
-        </ul>
+        <>
+          {/* ── Emulators view ──────────────────────────────── */}
+          <div className="storage__emu-summary">
+            <span className="storage__emu-summary-label">{t("storage.emuTracked")}</span>
+            <span className="storage__emu-summary-value">{t("storage.emuTotals", { install: emulators.length, roms: installedGames.filter((g) => g.emulatorId).length })}</span>
+          </div>
+
+          {emulators.length === 0 ? (
+            <div className="storage__empty-state">
+              <div className="storage__empty-state-icon">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                  <rect x="2" y="2" width="20" height="20" rx="2" />
+                  <circle cx="8.5" cy="8.5" r="1.5" />
+                  <path d="M20.4 14.7 16.1 19l-1.8-1.8" />
+                  <line x1="12" y1="6" x2="18" y2="6" />
+                  <line x1="12" y1="10" x2="15" y2="10" />
+                </svg>
+              </div>
+              <p className="storage__empty-state-title">{t("emulators.empty.title")}</p>
+              <p className="storage__empty-state-subtitle">{t("emulators.empty.desc")}</p>
+            </div>
+          ) : (
+            <ul className="storage__emu-list">
+              {emulators.map((emu) => (
+                <EmulatorStorageCard
+                  key={emu.id}
+                  emulator={emu}
+                  roms={emuRoms(emu.id)}
+                  installBytes={installBytes[emu.id]}
+                  measuring={measuringEmu.has(emu.id)}
+                  onMeasure={() => measureEmulator(emu)}
+                  onOpenRomFolder={handleOpenFolder}
+                />
+              ))}
+            </ul>
+          )}
+        </>
       )}
 
       {/* ── Move dialog ───────────────────────────────────────── */}

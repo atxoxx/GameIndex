@@ -7,7 +7,7 @@ import {
   driveBuckets,
   platformBuckets,
   sizeCoverage,
-  totalBytes,
+  totalBytesWithMods,
   type StorageBucket,
 } from "./utils";
 import { useDriveUsage } from "./useDriveUsage";
@@ -39,7 +39,7 @@ export function StorageHeader({
 }: Props) {
   const { t } = useLanguage();
   const { unit } = useSizeUnit();
-  const total = useMemo(() => totalBytes(games), [games]);
+  const total = useMemo(() => totalBytesWithMods(games), [games]);
   const coverage = useMemo(() => sizeCoverage(games), [games]);
   const platforms = useMemo(() => platformBuckets(games), [games]);
   const drives = useMemo(() => driveBuckets(games), [games]);

@@ -20,6 +20,15 @@ export interface Game {
   sizeDetectedAt?: string;
   /** The folder the size was measured against (or the user picked). Auditable from the size-edit modal. */
   sizeRootPath?: string;
+  /** ── Mods size ───────────────────────────────────────────────
+   *  When a game has a user-linked mods folder, `modsSizeBytes` is the
+   *  on-disk footprint of that folder in bytes and `modsFolder` is the
+   *  absolute path measured. Surfaced in the Storage tab as a separate
+   *  "Mods" line inside the game's expanded row, and folded into the
+   *  row's total (game + mods) so the Storage header stays honest. */
+  modsFolder?: string;
+  modsSizeBytes?: number;
+  modsDetectedAt?: string;
   /** Steam AppID if sourced from Steam (used for sync and store links) */
   steamAppId?: number;
   /** Epic Games Store namespace (used for sync and store links) */

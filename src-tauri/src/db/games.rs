@@ -40,6 +40,16 @@ pub struct GameRow {
     pub size_detected_at: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub size_root_path: Option<String>,
+    /// Path of the game's linked mods folder (None = no mods tracked).
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub mods_folder: Option<String>,
+    /// On-disk footprint of `mods_folder` in bytes, folded into the game's
+    /// total (game + mods) reported by the Storage tab.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub mods_size_bytes: Option<u64>,
+    /// ISO-8601 timestamp of the last mods-folder measurement.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub mods_detected_at: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub icon_url: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -164,9 +174,9 @@ pub fn upsert_all(db: &Db, rows: &[GameRow]) -> Result<(), String> {
     let mut stmt = tx
         .prepare(
             "INSERT INTO games(
-                id, name, path, platform, installed, play_time, added_at,
-                cover_art_url, notes, size_bytes, size_detected_at, size_root_path,
-                icon_url, banner_url, logo_url,
+                 id, name, path, platform, installed, play_time, added_at,
+                 cover_art_url, notes, size_bytes, size_detected_at, size_root_path,
+                 icon_url, banner_url, logo_url,
                 description, developer, publisher, release_date,
                 metadata_source, metadata_url, storyline, igdb_rating, critic_rating,
                 steam_app_id, steam_playtime, store_source,
@@ -179,27 +189,29 @@ pub fn upsert_all(db: &Db, rows: &[GameRow]) -> Result<(), String> {
                 language_supports_json,
                 collection, franchise, game_category, release_status,
                 gog_game_id, gog_playtime,
-                pre_launch_script, pre_launch_admin, post_exit_script, post_exit_admin,
-                companion_apps_json
-            ) VALUES (
-                ?1,?2,?3,?4,?5,?6,?7,
-                ?8,?9,?10,?11,?12,
-                ?13,?14,?15,
-                ?16,?17,?18,?19,
-                ?20,?21,?22,?23,?24,
-                ?25,?26,?27,
-                ?28,?29,?30,?31,
-                ?32,?33,
-                ?34,?35,?36,?37,
-                ?38,?39,?40,
-                ?41,?42,?43,
-                ?44,?45,?46,
-                ?47,
-                ?48,?49,?50,?51,
-                ?52,?53,
-                ?54,?55,?56,?57,
-                ?58
-            )",
+                 pre_launch_script, pre_launch_admin, post_exit_script, post_exit_admin,
+                 companion_apps_json,
+                 mods_folder, mods_size_bytes, mods_detected_at
+             ) VALUES (
+                 ?1,?2,?3,?4,?5,?6,?7,
+                 ?8,?9,?10,?11,?12,
+                 ?13,?14,?15,
+                 ?16,?17,?18,?19,
+                 ?20,?21,?22,?23,?24,
+                 ?25,?26,?27,
+                 ?28,?29,?30,?31,
+                 ?32,?33,
+                 ?34,?35,?36,?37,
+                 ?38,?39,?40,
+                 ?41,?42,?43,
+                 ?44,?45,?46,
+                 ?47,
+                 ?48,?49,?50,?51,
+                 ?52,?53,
+                 ?54,?55,?56,?57,
+                 ?58,
+                 ?59,?60,?61
+             )",
         )
         .map_err(|e| format!("games prepare: {e}"))?;
     for (i, r) in rows.iter().enumerate() {
@@ -275,6 +287,9 @@ pub fn upsert_all(db: &Db, rows: &[GameRow]) -> Result<(), String> {
             r.post_exit_script,
             r.post_exit_admin.map(|b| b as i32),
             json_opt(&r.companion_apps),
+            r.mods_folder,
+            r.mods_size_bytes.map(|n| n as i64),
+            r.mods_detected_at,
         ])
         .map_err(|e| format!("games insert {i}: {e}"))?;
         persist_emulation_link(&tx, &r.id, &r.emulator_id, &r.rom_path)?;
@@ -315,7 +330,8 @@ pub fn upsert_one(db: &Db, r: &GameRow) -> Result<(), String> {
             collection, franchise, game_category, release_status,
             gog_game_id, gog_playtime,
             pre_launch_script, pre_launch_admin, post_exit_script, post_exit_admin,
-            companion_apps_json
+            companion_apps_json,
+            mods_folder, mods_size_bytes, mods_detected_at
         ) VALUES (
             ?1,?2,?3,?4,?5,?6,?7,
             ?8,?9,?10,?11,?12,
@@ -333,7 +349,8 @@ pub fn upsert_one(db: &Db, r: &GameRow) -> Result<(), String> {
             ?48,?49,?50,?51,
             ?52,?53,
             ?54,?55,?56,?57,
-            ?58
+            ?58,
+            ?59,?60,?61
         )",
         params![
             r.id,
@@ -395,6 +412,9 @@ pub fn upsert_one(db: &Db, r: &GameRow) -> Result<(), String> {
             r.post_exit_script,
             r.post_exit_admin.map(|b| b as i32),
             json_opt(&r.companion_apps),
+            r.mods_folder,
+            r.mods_size_bytes.map(|n| n as i64),
+            r.mods_detected_at,
         ],
     )
     .map_err(|e| format!("games upsert_one: {e}"))?;
@@ -486,7 +506,7 @@ pub fn delete_by_emulator(db: &Db, emulator_id: &str) -> Result<(), String> {
     Ok(())
 }
 
-const GAMES_SELECT_SQL: &str = "SELECT id, name, path, platform, installed, play_time, added_at, cover_art_url, notes, size_bytes, size_detected_at, size_root_path, icon_url, banner_url, logo_url, description, developer, publisher, release_date, metadata_source, metadata_url, storyline, igdb_rating, critic_rating, steam_app_id, steam_playtime, store_source, epic_namespace, epic_catalog_item_id, launch_arguments, run_as_admin, last_played, play_status, genres_json, themes_json, game_modes_json, player_perspectives_json, screenshots_json, videos_json, websites_json, time_to_beat_json, similar_games_json, releases_json, igdb_reviews_json, alternative_names_json, steam_achievements_json, language_supports_json, collection, franchise, game_category, release_status, gog_game_id, gog_playtime, pre_launch_script, pre_launch_admin, post_exit_script, post_exit_admin, companion_apps_json, emulator_id, rom_path FROM games";
+const GAMES_SELECT_SQL: &str = "SELECT id, name, path, platform, installed, play_time, added_at, cover_art_url, notes, size_bytes, size_detected_at, size_root_path, icon_url, banner_url, logo_url, description, developer, publisher, release_date, metadata_source, metadata_url, storyline, igdb_rating, critic_rating, steam_app_id, steam_playtime, store_source, epic_namespace, epic_catalog_item_id, launch_arguments, run_as_admin, last_played, play_status, genres_json, themes_json, game_modes_json, player_perspectives_json, screenshots_json, videos_json, websites_json, time_to_beat_json, similar_games_json, releases_json, igdb_reviews_json, alternative_names_json, steam_achievements_json, language_supports_json, collection, franchise, game_category, release_status, gog_game_id, gog_playtime, pre_launch_script, pre_launch_admin, post_exit_script, post_exit_admin, companion_apps_json, emulator_id, rom_path, mods_folder, mods_size_bytes, mods_detected_at FROM games";
 
 fn game_row_from_row(r: &rusqlite::Row<'_>) -> rusqlite::Result<GameRow> {
     Ok(GameRow {
@@ -557,6 +577,10 @@ fn game_row_from_row(r: &rusqlite::Row<'_>) -> rusqlite::Result<GameRow> {
         // v2 migration columns — read after the original 58 columns.
         emulator_id: r.get(58)?,
         rom_path: r.get(59)?,
+        // v3 migration columns — mods-tracking, read after rom_path.
+        mods_folder: r.get(60)?,
+        mods_size_bytes: r.get::<_, Option<i64>>(61)?.map(|n| n as u64),
+        mods_detected_at: r.get(62)?,
     })
 }
 

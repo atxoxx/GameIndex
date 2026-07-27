@@ -1140,3 +1140,426 @@
   font-size: var(--font-size-sm);
   color: var(--color-text-secondary);
 }
+
+/* ─── View switcher (Games / Emulators) ─────────────────────────────────── */
+.storage__views {
+  display: flex;
+  gap: var(--space-xs);
+  padding: var(--space-xs);
+  background: var(--color-surface-2, rgba(255, 255, 255, 0.04));
+  border: 1px solid var(--color-border, rgba(255, 255, 255, 0.08));
+  border-radius: var(--radius-md, 10px);
+  width: fit-content;
+  margin-bottom: var(--space-lg);
+}
+
+.storage__view-tab {
+  appearance: none;
+  border: none;
+  background: transparent;
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-medium);
+  padding: 6px 16px;
+  border-radius: var(--radius-sm, 7px);
+  cursor: pointer;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+
+.storage__view-tab:hover {
+  color: var(--color-text);
+}
+
+.storage__view-tab--active {
+  background: var(--color-accent, #7c66ff);
+  color: #fff;
+}
+
+/* ─── Group-by control ──────────────────────────────────────────────────── */
+.storage__groupby {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+}
+
+.storage__groupby-label {
+  font-size: var(--font-size-sm);
+  color: var(--color-text-secondary);
+}
+
+.storage__groupby-options {
+  display: inline-flex;
+  gap: 2px;
+  padding: 2px;
+  background: var(--color-surface-2, rgba(255, 255, 255, 0.04));
+  border: 1px solid var(--color-border, rgba(255, 255, 255, 0.08));
+  border-radius: var(--radius-sm, 7px);
+}
+
+.storage__groupby-opt {
+  appearance: none;
+  border: none;
+  background: transparent;
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-medium);
+  padding: 4px 10px;
+  border-radius: 5px;
+  cursor: pointer;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+
+.storage__groupby-opt:hover {
+  color: var(--color-text);
+}
+
+.storage__groupby-opt--active {
+  background: var(--color-accent, #7c66ff);
+  color: #fff;
+}
+
+/* ─── Grouped sections ──────────────────────────────────────────────────── */
+.storage__groups {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-md);
+}
+
+.storage__group {
+  border: 1px solid var(--color-border, rgba(255, 255, 255, 0.08));
+  border-radius: var(--radius-md, 10px);
+  overflow: hidden;
+  background: var(--color-surface-1, rgba(255, 255, 255, 0.02));
+}
+
+.storage__group--collapsed .storage__list {
+  display: none;
+}
+
+.storage__group-header {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: var(--space-md);
+  padding: 12px 16px;
+  background: var(--color-surface-2, rgba(255, 255, 255, 0.04));
+  border: none;
+  cursor: pointer;
+  color: var(--color-text);
+  text-align: left;
+}
+
+.storage__group-header:hover {
+  background: var(--color-surface-3, rgba(255, 255, 255, 0.06));
+}
+
+.storage__group-chevron {
+  transition: transform 0.15s ease;
+  color: var(--color-text-secondary);
+  font-size: 12px;
+}
+
+.storage__group--collapsed .storage__group-chevron {
+  transform: rotate(-90deg);
+}
+
+.storage__group-label {
+  font-weight: var(--font-weight-semibold);
+  font-size: var(--font-size-md);
+  flex: 1;
+}
+
+.storage__group-count {
+  font-size: var(--font-size-sm);
+  color: var(--color-text-secondary);
+  white-space: nowrap;
+}
+
+.storage__group-size {
+  font-variant-numeric: tabular-nums;
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-accent, #7c66ff);
+  white-space: nowrap;
+}
+
+/* ─── Row: total + mods size ────────────────────────────────────────────── */
+.storage__row-size {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  font-variant-numeric: tabular-nums;
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text);
+  white-space: nowrap;
+}
+
+.storage__row-size-mods {
+  font-size: 11px;
+  font-weight: var(--font-weight-medium);
+  color: var(--color-text-secondary);
+}
+
+/* ─── Row: mods subsection ──────────────────────────────────────────────── */
+.storage__row-mods {
+  border-top: 1px dashed var(--color-border, rgba(255, 255, 255, 0.1));
+  margin-top: var(--space-sm);
+  padding-top: var(--space-sm);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+}
+
+.storage__row-mods-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--space-md);
+}
+
+.storage__row-mods-title {
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.storage__row-mods-size {
+  font-variant-numeric: tabular-nums;
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text);
+}
+
+.storage__row-mods-size--empty {
+  color: var(--color-text-secondary);
+  font-weight: var(--font-weight-normal);
+  font-style: italic;
+}
+
+.storage__row-mods-path {
+  font-size: var(--font-size-xs);
+  color: var(--color-text-secondary);
+  font-family: var(--font-mono, monospace);
+  word-break: break-all;
+}
+
+.storage__row-mods-actions {
+  display: flex;
+  gap: var(--space-sm);
+  flex-wrap: wrap;
+}
+
+/* ─── Emulators view ────────────────────────────────────────────────────── */
+.storage__emu-summary {
+  display: flex;
+  align-items: center;
+  gap: var(--space-md);
+  margin-bottom: var(--space-lg);
+}
+
+.storage__emu-summary-label {
+  font-size: var(--font-size-sm);
+  color: var(--color-text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.storage__emu-summary-value {
+  font-weight: var(--font-weight-semibold);
+}
+
+.storage__emu-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-md);
+}
+
+.emu-storage-card {
+  border: 1px solid var(--color-border, rgba(255, 255, 255, 0.08));
+  border-left: 3px solid var(--emu-accent, var(--color-accent, #7c66ff));
+  border-radius: var(--radius-md, 10px);
+  background: var(--color-surface-1, rgba(255, 255, 255, 0.02));
+  overflow: hidden;
+}
+
+.emu-storage-card-head {
+  display: flex;
+  align-items: center;
+  gap: var(--space-md);
+  padding: 14px 16px;
+}
+
+.emu-storage-card-toggle {
+  display: flex;
+  align-items: center;
+  gap: var(--space-md);
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: var(--color-text);
+  padding: 0;
+  flex: 1;
+  min-width: 0;
+}
+
+.emu-storage-card-glyph {
+  width: 38px;
+  height: 38px;
+  border-radius: var(--radius-sm, 8px);
+  display: grid;
+  place-items: center;
+  background: color-mix(in srgb, var(--emu-accent, #7c66ff) 18%, transparent);
+  color: var(--emu-accent, #7c66ff);
+  font-weight: var(--font-weight-bold);
+  overflow: hidden;
+  flex-shrink: 0;
+}
+
+.emu-storage-card-glyph img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+
+.emu-glyph-fallback {
+  font-size: 18px;
+}
+
+.emu-storage-card-meta {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.emu-storage-card-name {
+  font-weight: var(--font-weight-semibold);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.emu-storage-card-platform {
+  font-size: var(--font-size-xs);
+  color: var(--color-text-secondary);
+}
+
+.emu-storage-card-size {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  white-space: nowrap;
+}
+
+.emu-storage-card-size-value {
+  font-variant-numeric: tabular-nums;
+  font-weight: var(--font-weight-bold);
+  color: var(--emu-accent, var(--color-accent, #7c66ff));
+}
+
+.emu-storage-card-size-breakdown {
+  font-size: 11px;
+  color: var(--color-text-secondary);
+}
+
+.emu-storage-card-actions {
+  display: flex;
+  align-items: center;
+  gap: var(--space-xs);
+}
+
+.emu-storage-card-chevron {
+  appearance: none;
+  border: none;
+  background: transparent;
+  color: var(--color-text-secondary);
+  cursor: pointer;
+  font-size: 12px;
+  transition: transform 0.15s ease;
+}
+
+.emu-storage-card--collapsed .emu-storage-card-chevron {
+  transform: rotate(-90deg);
+}
+
+.emu-storage-card-body {
+  border-top: 1px solid var(--color-border, rgba(255, 255, 255, 0.08));
+  padding: var(--space-sm) 16px var(--space-md);
+  background: var(--color-surface-2, rgba(255, 255, 255, 0.03));
+}
+
+.emu-storage-card-empty {
+  margin: 0;
+  font-size: var(--font-size-sm);
+  color: var(--color-text-secondary);
+  font-style: italic;
+}
+
+.emu-storage-card-roms {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.emu-storage-rom {
+  display: flex;
+  align-items: center;
+  gap: var(--space-md);
+  padding: 8px 0;
+  border-bottom: 1px solid var(--color-border, rgba(255, 255, 255, 0.05));
+}
+
+.emu-storage-rom:last-child {
+  border-bottom: none;
+}
+
+.emu-storage-rom-name {
+  flex: 1;
+  font-size: var(--font-size-sm);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.emu-storage-rom-size {
+  font-variant-numeric: tabular-nums;
+  font-weight: var(--font-weight-semibold);
+  font-size: var(--font-size-sm);
+  white-space: nowrap;
+}
+
+.emu-storage-rom-mods {
+  font-size: 11px;
+  font-weight: var(--font-weight-medium);
+  color: var(--color-text-secondary);
+}
+
+.emu-storage-rom-open {
+  appearance: none;
+  border: none;
+  background: transparent;
+  color: var(--color-text-secondary);
+  cursor: pointer;
+  padding: 4px;
+  border-radius: 5px;
+  display: grid;
+  place-items: center;
+}
+
+.emu-storage-rom-open:hover {
+  color: var(--color-text);
+  background: var(--color-surface-3, rgba(255, 255, 255, 0.08));
+}
+
+.emu-storage-rom-open svg {
+  width: 16px;
+  height: 16px;
+}
+

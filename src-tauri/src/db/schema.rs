@@ -31,6 +31,12 @@ pub const GAMES_DDL: &str = include_str!("schema_games.sql");
 /// launch; fresh installs apply v1 then v2.
 pub const GAMES_V2_DDL: &str = include_str!("schema_games_v2.sql");
 
+/// DDL for the `games` domain, v3 migration: mods-tracking columns
+/// (`mods_folder`, `mods_size_bytes`, `mods_detected_at`). Applied as a
+/// separate migration version so existing installs (already at `games` v2)
+/// pick it up on next launch; fresh installs apply v1 → v2 → v3.
+pub const GAMES_V3_DDL: &str = include_str!("schema_games_v3.sql");
+
 /// DDL for the `emulators` domain: the `emulators` table.
 pub const EMULATORS_DDL: &str = include_str!("schema_emulators.sql");
 
@@ -92,10 +98,10 @@ pub const DOMAIN_SCHEMAS: &[DomainSchema] = &[
         label: "sources",
         versions: &[("v1", SOURCES_DDL)],
     },
-    DomainSchema {
-        label: "games",
-        versions: &[("v1", GAMES_DDL), ("v2", GAMES_V2_DDL)],
-    },
+DomainSchema {
+    label: "games",
+    versions: &[("v1", GAMES_DDL), ("v2", GAMES_V2_DDL), ("v3", GAMES_V3_DDL)],
+},
     DomainSchema {
         label: "sessions",
         versions: &[("v1", SESSIONS_DDL)],

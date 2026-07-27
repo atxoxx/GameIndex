@@ -234,6 +234,37 @@ pub fn detect_game_size(
     sum_folder_size(&root)
 }
 
+/// Measure the on-disk size of an arbitrary path: a folder (sum of every
+/// regular file beneath it, symlinks skipped) or a single file (its own
+/// byte length). Used by the Storage tab's Emulators view to size an
+/// emulator install directory and by the per-game mods-size measurement
+/// (where the chosen mods folder is summed the same way `detect_game_size`
+/// would).
+///
+/// Returns an error if the path does not exist so the frontend can surface
+/// a toast rather than silently showing `0 B`.
+#[tauri::command]
+pub fn measure_path_size(path: String) -> Result<SizeDetectionResult, String> {
+    if path.trim().is_empty() {
+        return Err("measure_path_size: empty path".into());
+    }
+    let p = Path::new(&path);
+    if !p.exists() {
+        return Err(format!("Path does not exist: {}", path));
+    }
+    if p.is_file() {
+        let len = p
+            .metadata()
+            .map_err(|e| format!("Could not read {}: {}", path, e))?
+            .len();
+        return Ok(SizeDetectionResult {
+            root_path: path,
+            size_bytes: len,
+        });
+    }
+    sum_folder_size(p)
+}
+
 /// Bulk staleness check used by the Storage tab's lazy mount-time refresh.
 ///
 /// Returns a parallel `Vec<bool>` where each entry corresponds to the

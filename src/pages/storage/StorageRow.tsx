@@ -6,6 +6,7 @@ import { useToast } from "../../context/ToastContext";
 import { useLanguage } from "../../context/LanguageContext";
 import { useSizeUnit } from "../../hooks/useSizeUnit";
 import { formatSize, type Game } from "../../types/game";
+import { gameTotalBytes } from "./utils";
 import { Button } from "../../components/ui";
 
 interface Props {
@@ -57,8 +58,11 @@ export function StorageRow({ game, stale = false, density = "cozy", onSizeUpdate
   const { unit } = useSizeUnit();
   const [expanded, setExpanded] = useState(false);
   const [detecting, setDetecting] = useState(false);
+  const [detectingMods, setDetectingMods] = useState(false);
   const hasSize = game.sizeBytes != null && game.sizeBytes > 0;
+  const hasMods = game.modsSizeBytes != null && game.modsSizeBytes > 0;
   const isSized = hasSize;
+  const total = gameTotalBytes(game);
 
   async function detect(folderOverride?: string) {
     if (detecting) return;
@@ -95,6 +99,59 @@ export function StorageRow({ game, stale = false, density = "cozy", onSizeUpdate
     } finally {
       setDetecting(false);
     }
+  }
+
+  async function detectMods(folderOverride?: string) {
+    if (detectingMods) return;
+    setDetectingMods(true);
+    try {
+      let override = folderOverride;
+      if (!override) {
+        const picked = await open({
+          directory: true,
+          multiple: false,
+          title: t("storageRow.mods.selectFolder"),
+        });
+        if (!picked) return;
+        override = picked;
+      }
+      const result = await invoke<SizeDetectionResult>("measure_path_size", {
+        path: override,
+      });
+      updateGame(game.id, {
+        modsSizeBytes: result.sizeBytes,
+        modsFolder: result.rootPath,
+        modsDetectedAt: new Date().toISOString(),
+      });
+      onSizeUpdated?.();
+      showToast(
+        t("storageRow.mods.detectedSize", { size: formatSize(result.sizeBytes, unit), name: game.name }),
+        "success"
+      );
+    } catch (err) {
+      console.error("measure_path_size failed", err);
+      showToast(t("storageRow.readError", { error: String(err) }), "error");
+    } finally {
+      setDetectingMods(false);
+    }
+  }
+
+  async function openModsFolder() {
+    if (!game.modsFolder) return;
+    try {
+      await invoke("open_folder", { path: game.modsFolder });
+    } catch (err) {
+      showToast(t("storage.couldNotOpenFolder", { error: err }), "error");
+    }
+  }
+
+  function clearMods() {
+    updateGame(game.id, {
+      modsSizeBytes: undefined,
+      modsFolder: undefined,
+      modsDetectedAt: undefined,
+    });
+    showToast(t("storageRow.mods.clearedSize", { name: game.name }), "info");
   }
 
   function clearSize() {
@@ -166,8 +223,16 @@ export function StorageRow({ game, stale = false, density = "cozy", onSizeUpdate
         <span className="storage__row-platform">
           {game.platform || t("splash.unknown")}
         </span>
-        {isSized ? (
-          <span className="storage__row-size">{formatSize(game.sizeBytes, unit)}</span>
+        {total > 0 ? (
+          <span className="storage__row-size">
+            {formatSize(total, unit)}
+            {hasMods && (
+              <span className="storage__row-size-mods" title={t("storageRow.mods.label")}>
+                {" + "}
+                {formatSize(game.modsSizeBytes ?? 0, unit)}
+              </span>
+            )}
+          </span>
         ) : (
           <Button
             variant="secondary"
@@ -219,7 +284,7 @@ export function StorageRow({ game, stale = false, density = "cozy", onSizeUpdate
             {isSized && (
               <>
                 <span>
-                  <span className="storage__row-meta-label">{t("storagePage.bytes")}</span>
+                  <span className="storage__row-meta-label">{t("storageRow.game")}</span>
                   {game.sizeBytes!.toLocaleString()}
                 </span>
                 <span>
@@ -233,6 +298,58 @@ export function StorageRow({ game, stale = false, density = "cozy", onSizeUpdate
                 {t("storageRow.unsetHint")}
               </span>
             )}
+          </div>
+
+          {/* Mods subsection — separate footprint folded into the row total. */}
+          <div className="storage__row-mods">
+            <div className="storage__row-mods-head">
+              <span className="storage__row-mods-title">{t("storageRow.mods.label")}</span>
+              {hasMods ? (
+                <span className="storage__row-mods-size">
+                  {formatSize(game.modsSizeBytes ?? 0, unit)}
+                </span>
+              ) : (
+                <span className="storage__row-mods-size storage__row-mods-size--empty">
+                  {t("storageRow.mods.none")}
+                </span>
+              )}
+            </div>
+            {hasMods && game.modsFolder && (
+              <div className="storage__row-mods-path" title={game.modsFolder}>
+                {game.modsFolder}
+              </div>
+            )}
+            <div className="storage__row-mods-actions">
+              <Button
+                variant="secondary"
+                size="sm"
+                onClick={() => detectMods()}
+                isLoading={detectingMods}
+                title={t("storageRow.mods.pickFolder")}
+              >
+                {hasMods ? t("storageRow.mods.remeasure") : t("storageRow.mods.set")}
+              </Button>
+              {hasMods && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={openModsFolder}
+                  title={t("storageRow.openFolder")}
+                >
+                  {t("downloadRow.openFolder")}
+                </Button>
+              )}
+              {hasMods && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={clearMods}
+                  disabled={detectingMods}
+                >
+                  {t("common.clear")}
+                </Button>
+              )}
+            </div>
           </div>
           <div className="storage__row-actions">
             <Button

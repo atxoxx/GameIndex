@@ -64,7 +64,7 @@ use steam::auth::{
     steam_connect, steam_is_authenticated, steam_logout, steam_get_session,
 };
 use steam::sync::steam_sync_games;
-use size::{detect_game_size, check_paths_exist, open_folder, disk_usage, move_game_install, uninstall_game};
+use size::{detect_game_size, check_paths_exist, open_folder, disk_usage, move_game_install, uninstall_game, measure_path_size};
 use system_screenshots::detect_system_screenshot_folders;
 
 /// Serializable game data matching the frontend Game type.
@@ -94,6 +94,16 @@ struct GameData {
     /// size-edit modal so users can see (and override) the root we summed.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     size_root_path: Option<String>,
+    /// Path of the game's linked mods folder (None = no mods tracked).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    mods_folder: Option<String>,
+    /// On-disk footprint of `mods_folder` in bytes, folded into the game's
+    /// total (game + mods) reported by the Storage tab.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    mods_size_bytes: Option<u64>,
+    /// ISO-8601 timestamp of the last mods-folder measurement.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    mods_detected_at: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     icon_url: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -3756,7 +3766,7 @@ pub fn run() {
             tauri_plugin_autostart::MacosLauncher::LaunchAgent,
             Some(vec![]),
         ))
-        .invoke_handler(tauri::generate_handler![scan_folder_for_exes, launch_game, force_close_game, save_games, save_game, load_games, update_game_last_played, read_cover_image, search_game_metadata, fetch_game_images, download_image, spider_extract, spider_fetch_page, search_launchbox_images, detect_gpus, list_image_files, list_media_files, save_screenshot, save_text_file, load_sessions, get_sessions, delete_session, insert_session, debug_mahm_entries, get_system_ram_gb, get_system_info, get_metrics_config, set_metrics_config, resolve_steam_exe, detect_game_size, check_paths_exist, open_folder, disk_usage, move_game_install, uninstall_game, detect_steam_screenshot_folders, detect_system_screenshot_folders, save_store_cache, load_store_cache, fetch_store_games, search_store_games,            get_store_game_detail, get_collection_games,            fetch_game_reviews, fetch_external_reviews, fetch_hydra_reviews, fetch_hydra_review_replies,             get_hydra_game_stats, get_about_section, get_recommended_config,
+        .invoke_handler(tauri::generate_handler![scan_folder_for_exes, launch_game, force_close_game, save_games, save_game, load_games, update_game_last_played, read_cover_image, search_game_metadata, fetch_game_images, download_image, spider_extract, spider_fetch_page, search_launchbox_images, detect_gpus, list_image_files, list_media_files, save_screenshot, save_text_file, load_sessions, get_sessions, delete_session, insert_session, debug_mahm_entries, get_system_ram_gb, get_system_info, get_metrics_config, set_metrics_config, resolve_steam_exe, detect_game_size, check_paths_exist, open_folder, disk_usage, move_game_install, uninstall_game, measure_path_size, detect_steam_screenshot_folders, detect_system_screenshot_folders, save_store_cache, load_store_cache, fetch_store_games, search_store_games,            get_store_game_detail, get_collection_games,            fetch_game_reviews, fetch_external_reviews, fetch_hydra_reviews, fetch_hydra_review_replies,             get_hydra_game_stats, get_about_section, get_recommended_config,
             get_language, set_language, get_about_bundle,             save_wishlist, load_wishlist, list_recent_sessions, get_last_session_for_game, save_source_cache, load_source_cache, deals::fetch_gamepass_catalog, deals::fetch_isthereanydeal_deals, deals::fetch_giveaways, deals::open_deal_url,            steam_sync_games,
             steam_connect, steam_is_authenticated, steam_logout, steam_get_session,
             epic_start_login, epic_finish_login, epic_login_with_refresh_token, epic_sync_library, epic_get_filters, epic_is_authenticated, epic_logout,
