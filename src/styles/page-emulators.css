@@ -411,6 +411,17 @@
   margin-bottom: 20px;
 }
 
+.emu-detail-github {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.emu-detail-github-icon {
+  font-size: 13px;
+  line-height: 1;
+}
+
 .emulators-notadded {
   margin-top: 18px;
   padding: 18px;

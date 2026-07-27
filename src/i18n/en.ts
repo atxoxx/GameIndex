@@ -3061,5 +3061,6 @@ export const en: TranslationDict = {
   "emulators.games.noRomPath": "Path unknown",
   "emulators.games.search": "Search games…",
   "emulators.games.none": "No games match your search.",
+  "emulators.github": "GitHub",
 };
 

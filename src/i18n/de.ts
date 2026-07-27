@@ -2867,4 +2867,5 @@ export const de: TranslationDict = {
   "emulators.games.noRomPath": "Pfad unbekannt",
   "emulators.games.search": "Spiele suchen…",
   "emulators.games.none": "Keine Spiele entsprechen deiner Suche.",
+  "emulators.github": "GitHub",
 };

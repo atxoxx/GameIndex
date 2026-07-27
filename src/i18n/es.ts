@@ -2862,5 +2862,6 @@ export const es: TranslationDict = {
   "emulators.games.source": "ROM escaneada",
   "emulators.games.noRomPath": "Ruta desconocida",
   "emulators.games.search": "Buscar juegos…",
-  "emulators.games.none": "Ningún juego coincide con tu búsqueda."
+  "emulators.games.none": "Ningún juego coincide con tu búsqueda.",
+  "emulators.github": "GitHub",
 };

@@ -2862,5 +2862,6 @@ export const ru: TranslationDict = {
   "emulators.games.source": "Отсканированная ROM",
   "emulators.games.noRomPath": "Путь неизвестен",
   "emulators.games.search": "Искать игры…",
-  "emulators.games.none": "Ни одна игра не соответствует поиску."
+  "emulators.games.none": "Ни одна игра не соответствует поиску.",
+  "emulators.github": "GitHub",
 };

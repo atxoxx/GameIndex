@@ -2862,5 +2862,6 @@ export const zhCN: TranslationDict = {
   "emulators.games.source": "已扫描的 ROM",
   "emulators.games.noRomPath": "路径未知",
   "emulators.games.search": "搜索游戏…",
-  "emulators.games.none": "没有游戏匹配你的搜索。"
+  "emulators.games.none": "没有游戏匹配你的搜索。",
+  "emulators.github": "GitHub",
 };

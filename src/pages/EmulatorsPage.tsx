@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { openPath } from "@tauri-apps/plugin-opener";
+import { openPath, openUrl } from "@tauri-apps/plugin-opener";
 import { invoke } from "@tauri-apps/api/core";
 import { useLanguage } from "../context/LanguageContext";
 import { useToast } from "../context/ToastContext";
@@ -462,6 +462,15 @@ export default function EmulatorsPage() {
                 {selectedRow.known && (
                   <p className="emu-detail-desc">{selectedRow.known.description}</p>
                 )}
+                {selectedRow.known?.githubUrl && (
+                  <button
+                    className="btn-ghost btn-sm emu-detail-github"
+                    onClick={() => openUrl(selectedRow.known!.githubUrl!)}
+                  >
+                    <span className="emu-detail-github-icon" aria-hidden>★</span>
+                    {t("emulators.github")}
+                  </button>
+                )}
                 <div className="emulators-notadded">
                   <h3>{t("emulators.detail.addTitle")}</h3>
                   <p>{t("emulators.detail.addDesc")}</p>
@@ -565,6 +574,15 @@ export default function EmulatorsPage() {
                   >
                     {t("emulators.delete")}
                   </button>
+                  {selectedRow.known?.githubUrl && (
+                    <button
+                      className="btn-ghost btn-sm emu-detail-github"
+                      onClick={() => openUrl(selectedRow.known!.githubUrl!)}
+                    >
+                      <span className="emu-detail-github-icon" aria-hidden>★</span>
+                      {t("emulators.github")}
+                    </button>
+                  )}
                 </div>
 
                 <div className="emu-games">

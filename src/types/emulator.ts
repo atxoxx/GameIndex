@@ -47,6 +47,8 @@ export interface KnownEmulator {
   /** Short glyph/emoji shown on the card. */
   glyph: string;
   description: string;
+  /** Official source repository (GitHub) for the emulator project. */
+  githubUrl?: string;
 }
 
 export const KNOWN_EMULATORS: KnownEmulator[] = [
@@ -61,6 +63,7 @@ export const KNOWN_EMULATORS: KnownEmulator[] = [
     glyph: "🕹️",
     description:
       "All-in-one multi-system frontend. Pair it with the right core for each console.",
+    githubUrl: "https://github.com/libretro/RetroArch",
   },
   {
     key: "dolphin",
@@ -72,6 +75,7 @@ export const KNOWN_EMULATORS: KnownEmulator[] = [
     accent: "#22d3ee",
     glyph: "🐬",
     description: "GameCube & Wii emulator.",
+    githubUrl: "https://github.com/dolphin-emu/dolphin",
   },
   {
     key: "dolphin-wii",
@@ -83,6 +87,7 @@ export const KNOWN_EMULATORS: KnownEmulator[] = [
     accent: "#06b6d4",
     glyph: "🐬",
     description: "Dolphin configured for Wii discs.",
+    githubUrl: "https://github.com/dolphin-emu/dolphin",
   },
   {
     key: "pcsx2",
@@ -94,6 +99,7 @@ export const KNOWN_EMULATORS: KnownEmulator[] = [
     accent: "#f59e0b",
     glyph: "🟢",
     description: "PlayStation 2 emulator.",
+    githubUrl: "https://github.com/PCSX2/pcsx2",
   },
   {
     key: "ppsspp",
@@ -105,6 +111,7 @@ export const KNOWN_EMULATORS: KnownEmulator[] = [
     accent: "#10b981",
     glyph: "🎮",
     description: "PlayStation Portable emulator.",
+    githubUrl: "https://github.com/hrydgard/ppsspp",
   },
   {
     key: "duckstation",
@@ -116,6 +123,7 @@ export const KNOWN_EMULATORS: KnownEmulator[] = [
     accent: "#ef4444",
     glyph: "💿",
     description: "PlayStation 1 emulator.",
+    githubUrl: "https://github.com/stenzek/duckstation",
   },
   {
     key: "citra",
@@ -127,6 +135,7 @@ export const KNOWN_EMULATORS: KnownEmulator[] = [
     accent: "#3b82f6",
     glyph: "🍊",
     description: "Nintendo 3DS emulator.",
+    githubUrl: "https://github.com/citra-emu/citra",
   },
   {
     key: "yuzu",
@@ -138,6 +147,7 @@ export const KNOWN_EMULATORS: KnownEmulator[] = [
     accent: "#6366f1",
     glyph: "🍋",
     description: "Nintendo Switch emulator.",
+    githubUrl: "https://github.com/yuzu-emu/yuzu",
   },
   {
     key: "cemu",
@@ -149,6 +159,7 @@ export const KNOWN_EMULATORS: KnownEmulator[] = [
     accent: "#14b8a6",
     glyph: "🟦",
     description: "Wii U emulator.",
+    githubUrl: "https://github.com/cemu-project/Cemu",
   },
   {
     key: "snes9x",
@@ -160,6 +171,7 @@ export const KNOWN_EMULATORS: KnownEmulator[] = [
     accent: "#a855f7",
     glyph: "🟣",
     description: "Super Nintendo Entertainment System emulator.",
+    githubUrl: "https://github.com/snes9xgit/snes9x",
   },
   {
     key: "mesen",
@@ -171,6 +183,7 @@ export const KNOWN_EMULATORS: KnownEmulator[] = [
     accent: "#eab308",
     glyph: "🟡",
     description: "NES / Famicom emulator.",
+    githubUrl: "https://github.com/SourMesen/Mesen",
   },
   {
     key: "mgba",
@@ -182,6 +195,7 @@ export const KNOWN_EMULATORS: KnownEmulator[] = [
     accent: "#84cc16",
     glyph: "🟩",
     description: "Game Boy / Color / Advance emulator.",
+    githubUrl: "https://github.com/mgba-emu/mgba",
   },
   {
     key: "desmume",
@@ -193,6 +207,7 @@ export const KNOWN_EMULATORS: KnownEmulator[] = [
     accent: "#0ea5e9",
     glyph: "💠",
     description: "Nintendo DS emulator.",
+    githubUrl: "https://github.com/TASEmulators/desmume",
   },
   {
     key: "project64",
@@ -204,6 +219,7 @@ export const KNOWN_EMULATORS: KnownEmulator[] = [
     accent: "#f97316",
     glyph: "🔶",
     description: "Nintendo 64 emulator.",
+    githubUrl: "https://github.com/project64/project64",
   },
   {
     key: "demul",
@@ -226,6 +242,7 @@ export const KNOWN_EMULATORS: KnownEmulator[] = [
     accent: "#0ea5e9",
     glyph: "🔵",
     description: "PlayStation 3 emulator.",
+    githubUrl: "https://github.com/RPCS3/rpcs3",
   },
   {
     key: "xenia",
@@ -237,6 +254,7 @@ export const KNOWN_EMULATORS: KnownEmulator[] = [
     accent: "#22c55e",
     glyph: "🟢",
     description: "Xbox 360 emulator.",
+    githubUrl: "https://github.com/xenia-project/xenia",
   },
   {
     key: "bsnes",
@@ -248,6 +266,7 @@ export const KNOWN_EMULATORS: KnownEmulator[] = [
     accent: "#ec4899",
     glyph: "🎯",
     description: "Multi-system emulator (Arcade / retro).",
+    githubUrl: "https://github.com/TASEmulators/BizHawk",
   },
 ];
 
