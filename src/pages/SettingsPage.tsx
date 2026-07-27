@@ -116,7 +116,7 @@ export default function SettingsPage() {
   const { games, addGames, updateGame, removeGames } = useGames();
   const { reloadCache, settings: achievementSettings, updateSettings: updateAchievementSettings } =
     useAchievements();
-  const { sources } = useSources();
+  useSources();
   const { unit: sizeUnit, setUnit: setSizeUnit } = useSizeUnit();
   const { currentTheme, setTheme, themes, systemSync, setSystemSync } = useTheme();
   const { updateSpeedLimits, selectSavePath } = useDownloads();
@@ -161,7 +161,99 @@ export default function SettingsPage() {
   } = useSettings();
 
   const [activeSettingsTab, setActiveSettingsTab] = useState<SettingsTab>("appearance");
+  const [activeAnchor, setActiveAnchor] = useState<string | null>(null);
+  const [navQuery, setNavQuery] = useState("");
+  const pendingAnchor = useRef<string | null>(null);
+
+  // Sidebar navigation: jump to a top-level tab, optionally scrolling
+  // to a sub-section anchor (an integration tile or a downloads card).
+  const navigate = (tab: SettingsTab, anchor?: string) => {
+    setActiveSettingsTab(tab);
+    setActiveAnchor(anchor ?? null);
+    pendingAnchor.current = anchor ?? null;
+  };
+
+  // After a tab switch, scroll the pending sub-section into view.
+  useEffect(() => {
+    if (!pendingAnchor.current) return;
+    const id = pendingAnchor.current;
+    pendingAnchor.current = null;
+    requestAnimationFrame(() => {
+      const el = document.getElementById(id);
+      if (el) el.scrollIntoView({ behavior: "smooth", block: "start" });
+    });
+  }, [activeSettingsTab]);
+
   const { language, setLanguage, languages, t } = useLanguage();
+
+  // Flat list of every navigable destination, grouped in the sidebar.
+  const NAV_GROUPS: {
+    id: string;
+    label: string;
+    items: {
+      tab: SettingsTab;
+      anchor?: string;
+      label: string;
+      keywords: string;
+      icon?: React.ReactNode;
+      badge?: number;
+    }[];
+  }[] = [
+    {
+      id: "personalize",
+      label: t("settings.group.personalize"),
+      items: [
+        { tab: "appearance", label: t("settings.appearance"), keywords: "theme accent color language display", icon: <PaletteIcon /> },
+        { tab: "hardware", label: t("settings.tab.hardware"), keywords: "gpu cpu ram monitor telemetry temperature", icon: <HardwareIcon /> },
+      ],
+    },
+    {
+      id: "connections",
+      label: t("settings.group.connections"),
+      items: [
+        { tab: "integrations", anchor: "integration-steam", label: t("settings.integration.steam"), keywords: "steam connect sync", icon: <SteamIcon /> },
+        { tab: "integrations", anchor: "integration-epic", label: t("settings.integration.epicGames"), keywords: "epic connect sync", icon: <EpicIcon /> },
+        { tab: "integrations", anchor: "integration-gog", label: t("settings.integration.gogGalaxy"), keywords: "gog connect sync", icon: <GogIcon /> },
+        { tab: "integrations", anchor: "integration-humble", label: t("settings.integration.humbleBundle"), keywords: "humble connect sync", icon: <HumbleIcon /> },
+        { tab: "integrations", anchor: "integration-rockstar", label: t("settings.integration.rockstarGamesLauncher"), keywords: "rockstar scan launcher", icon: <RockstarIcon /> },
+        { tab: "integrations", anchor: "integration-uplay", label: t("settings.integration.ubisoftConnect"), keywords: "ubisoft uplay scan", icon: <UplayIcon /> },
+        { tab: "integrations", anchor: "section-datasync", label: t("settings.section.dataSync"), keywords: "sync interval retention discord achievements", icon: <IntegrationsIcon /> },
+      ],
+    },
+    {
+      id: "downloads",
+      label: t("settings.group.downloads"),
+      items: [
+        { tab: "downloads", anchor: "downloads-location", label: t("settings.section.downloadLocation"), keywords: "save path folder default" },
+        { tab: "downloads", anchor: "downloads-notifications", label: t("settings.section.notifications"), keywords: "notify complete toast desktop" },
+        { tab: "downloads", anchor: "downloads-bandwidth", label: t("settings.section.bandwidth"), keywords: "speed limit download upload" },
+        { tab: "downloads", anchor: "downloads-blocked", label: t("settings.section.blockedDomains"), keywords: "block domain filter sources" },
+        { tab: "downloads", anchor: "downloads-sources", label: t("settings.section.downloadSources"), keywords: "sources hydra json mirrors" },
+        { tab: "downloads", anchor: "downloads-debrid", label: t("settings.section.debrid"), keywords: "debrid alldebrid torbox api key" },
+      ],
+    },
+    {
+      id: "system",
+      label: t("settings.group.system"),
+      items: [
+        { tab: "launcher", label: t("settings.tab.launcher"), keywords: "startup launch tray autostart uac", icon: <RocketIcon /> },
+      ],
+    },
+  ];
+
+  const normalizedQuery = navQuery.trim().toLowerCase();
+  const groupMatches = (g: (typeof NAV_GROUPS)[number]) =>
+    normalizedQuery === "" ||
+    g.label.toLowerCase().includes(normalizedQuery) ||
+    g.items.some(
+      (it) =>
+        it.label.toLowerCase().includes(normalizedQuery) ||
+        it.keywords.toLowerCase().includes(normalizedQuery),
+    );
+  const itemMatches = (it: (typeof NAV_GROUPS)[number]["items"][number]) =>
+    normalizedQuery === "" ||
+    it.label.toLowerCase().includes(normalizedQuery) ||
+    it.keywords.toLowerCase().includes(normalizedQuery);
 
   // Custom-language-picker state. The native <select> was replaced with
   // a richer listbox-style picker (flag pill + native label + code badge),
@@ -1552,8 +1644,104 @@ export default function SettingsPage() {
     (gogAuth.isAuthenticated ? 1 : 0) +
     (humbleAuth.isAuthenticated ? 1 : 0);
 
+  const connectionStatus: Record<string, boolean> = {
+    "integration-steam": steamAuth.isAuthenticated,
+    "integration-epic": epicAuth.isAuthenticated,
+    "integration-gog": gogAuth.isAuthenticated,
+    "integration-humble": humbleAuth.isAuthenticated,
+  };
+
   return (
-    <div className="settings-container">
+    <div className="settings-shell">
+      <aside className="settings-sidebar" aria-label={t("settings.sectionsAria")}>
+        <div className="settings-sidebar-head">
+          <span className="settings-sidebar-title">
+            <SettingsGearIcon />
+            {t("settings.title")}
+          </span>
+        </div>
+
+        <div className="settings-search">
+          <svg
+            className="settings-search-icon"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            aria-hidden
+          >
+            <circle cx="11" cy="11" r="7" />
+            <line x1="21" y1="21" x2="16.65" y2="16.65" />
+          </svg>
+          <input
+            type="text"
+            className="settings-search-input"
+            placeholder={t("settings.navSearch")}
+            value={navQuery}
+            onChange={(e) => setNavQuery(e.target.value)}
+            aria-label={t("settings.navSearch")}
+          />
+          {navQuery && (
+            <button
+              type="button"
+              className="settings-search-clear"
+              onClick={() => setNavQuery("")}
+              aria-label="Clear search"
+            >
+              ×
+            </button>
+          )}
+        </div>
+
+        <nav className="settings-nav" role="tablist" aria-label={t("settings.sectionsAria")}>
+          {NAV_GROUPS.filter(groupMatches).map((group) => {
+            const items = group.items.filter(itemMatches);
+            if (items.length === 0) return null;
+            return (
+              <div className="settings-nav-group" key={group.id}>
+                <div className="settings-nav-group-label">
+                  {group.label}
+                  {group.id === "connections" && connectedIntegrations > 0 && (
+                    <span className="settings-nav-group-count">{connectedIntegrations}</span>
+                  )}
+                </div>
+                {items.map((item) => {
+                  const isActive =
+                    activeSettingsTab === item.tab &&
+                    (item.anchor ?? null) === activeAnchor;
+                  return (
+                    <button
+                      key={`${item.tab}-${item.anchor ?? ""}`}
+                      type="button"
+                      role="tab"
+                      aria-selected={isActive}
+                      className={`settings-nav-item${isActive ? " active" : ""}`}
+                      onClick={() => navigate(item.tab, item.anchor)}
+                    >
+                      {item.icon ? (
+                        <span className="settings-nav-item-icon">{item.icon}</span>
+                      ) : (
+                        <span className="settings-nav-item-bullet" aria-hidden />
+                      )}
+                      <span className="settings-nav-item-label">{item.label}</span>
+                      {connectionStatus[item.anchor ?? ""] ? (
+                        <span className="settings-nav-item-dot" aria-hidden />
+                      ) : null}
+                    </button>
+                  );
+                })}
+              </div>
+            );
+          })}
+          {normalizedQuery !== "" && NAV_GROUPS.filter(groupMatches).length === 0 && (
+            <p className="settings-nav-empty">{t("settings.navEmpty")}</p>
+          )}
+        </nav>
+      </aside>
+
+      <main className="settings-content">
       <div className="settings-panel-accent" aria-hidden="true" />
       <header className="settings-header">
         <div className="settings-header-text">
@@ -1568,62 +1756,6 @@ export default function SettingsPage() {
             </p>
         </div>
       </header>
-
-      {/* Pill segmented sub-nav. Replaces the older "folder tab" look.
-       *  `.settings-nav-pill-count` shows the # of connected integrations. */}
-      <nav className="settings-nav-pills" role="tablist" aria-label={t("settings.sectionsAria")}>
-        <button
-          type="button"
-          role="tab"
-          aria-selected={activeSettingsTab === "appearance"}
-          className={`settings-nav-pill${activeSettingsTab === "appearance" ? " active" : ""}`}
-          onClick={() => setActiveSettingsTab("appearance")}
-        >
-          <PaletteIcon /> {t("settings.appearance")}
-        </button>
-        <button
-          type="button"
-          role="tab"
-          aria-selected={activeSettingsTab === "hardware"}
-          className={`settings-nav-pill${activeSettingsTab === "hardware" ? " active" : ""}`}
-          onClick={() => setActiveSettingsTab("hardware")}
-        >
-          <HardwareIcon /> {t("settings.tab.hardware")}
-        </button>
-        <button
-          type="button"
-          role="tab"
-          aria-selected={activeSettingsTab === "integrations"}
-          className={`settings-nav-pill${activeSettingsTab === "integrations" ? " active" : ""}`}
-          onClick={() => setActiveSettingsTab("integrations")}
-        >
-          <IntegrationsIcon /> {t("settings.tab.integrations")}
-          {connectedIntegrations > 0 && (
-            <span className="settings-nav-pill-count">{connectedIntegrations}</span>
-          )}
-        </button>
-        <button
-          type="button"
-          role="tab"
-          aria-selected={activeSettingsTab === "downloads"}
-          className={`settings-nav-pill${activeSettingsTab === "downloads" ? " active" : ""}`}
-          onClick={() => setActiveSettingsTab("downloads")}
-        >
-          <DownloadIcon /> {t("nav.downloads")}
-          {sources.length > 0 && (
-            <span className="settings-nav-pill-count">{sources.length}</span>
-          )}
-        </button>
-        <button
-          type="button"
-          role="tab"
-          aria-selected={activeSettingsTab === "launcher"}
-          className={`settings-nav-pill${activeSettingsTab === "launcher" ? " active" : ""}`}
-          onClick={() => setActiveSettingsTab("launcher")}
-        >
-          <RocketIcon /> {t("settings.tab.launcher")}
-        </button>
-      </nav>
 
       {/* Appearance */}
       {activeSettingsTab === "appearance" && (
@@ -2365,7 +2497,7 @@ export default function SettingsPage() {
           </header>
 
           {/* ── Steam ── */}
-          <div className="integration-tile steam">
+          <div className="integration-tile steam" id="integration-steam">
             <div className="integration-tile-body-wrap">
               <div className="integration-tile-header">
                 <span className="integration-tile-icon"><SteamIcon /></span>
@@ -2591,7 +2723,7 @@ export default function SettingsPage() {
           </div>
 
           {/* ── Epic Games ── */}
-          <div className="integration-tile epic">
+          <div className="integration-tile epic" id="integration-epic">
             <div className="integration-tile-body-wrap">
               <div className="integration-tile-header">
                 <span className="integration-tile-icon"><EpicIcon /></span>
@@ -2691,7 +2823,7 @@ export default function SettingsPage() {
           </div>
 
           {/* ── GOG Galaxy ── */}
-          <div className="integration-tile gog">
+          <div className="integration-tile gog" id="integration-gog">
             <div className="integration-tile-body-wrap">
               <div className="integration-tile-header">
                 <span className="integration-tile-icon"><GogIcon /></span>
@@ -2779,7 +2911,7 @@ export default function SettingsPage() {
           </div>
 
           {/* ── Humble Bundle ── */}
-          <div className="integration-tile humble">
+          <div className="integration-tile humble" id="integration-humble">
             <div className="integration-tile-body-wrap">
               <div className="integration-tile-header">
                 <span className="integration-tile-icon"><HumbleIcon /></span>
@@ -2912,7 +3044,7 @@ export default function SettingsPage() {
           </div>
 
           {/* ── Rockstar Games Launcher ── */}
-          <div className="integration-tile rockstar">
+          <div className="integration-tile rockstar" id="integration-rockstar">
             <div className="integration-tile-body-wrap">
               <div className="integration-tile-header">
                 <span className="integration-tile-icon"><RockstarIcon /></span>
@@ -2984,7 +3116,7 @@ export default function SettingsPage() {
           </div>
 
           {/* ── Ubisoft Connect (Uplay) ── */}
-          <div className="integration-tile uplay">
+          <div className="integration-tile uplay" id="integration-uplay">
             <div className="integration-tile-body-wrap">
               <div className="integration-tile-header">
                 <span className="integration-tile-icon"><UplayIcon /></span>
@@ -3078,7 +3210,7 @@ export default function SettingsPage() {
 
 
           {/* ── Data & sync preferences (across vendors) ── */}
-          <header className="settings-section-header" style={{ marginTop: "var(--space-xl)" }}>
+          <header className="settings-section-header" id="section-datasync" style={{ marginTop: "var(--space-xl)" }}>
             <span className="settings-section-icon"><IntegrationsIcon /></span>
             <div className="settings-section-header-text">
               <h2 className="settings-section-title">{t("settings.section.dataSync")}</h2>
@@ -3270,7 +3402,7 @@ export default function SettingsPage() {
       {/* Downloads — manage download sources for finding game mirrors. */}
       {activeSettingsTab === "downloads" && (
         <>
-          <section className="settings-section">
+          <section className="settings-section" id="downloads-location">
             <header className="settings-section-header">
               <span className="settings-section-icon"><DownloadIcon /></span>
               <div className="settings-section-header-text">
@@ -3342,7 +3474,7 @@ export default function SettingsPage() {
             </div>
           </section>
 
-          <section className="settings-section">
+          <section className="settings-section" id="downloads-notifications">
             <header className="settings-section-header">
               <span className="settings-section-icon"><DownloadIcon /></span>
               <div className="settings-section-header-text">
@@ -3389,7 +3521,7 @@ export default function SettingsPage() {
             </div>
           </section>
 
-          <section className="settings-section">
+          <section className="settings-section" id="downloads-bandwidth">
             <header className="settings-section-header">
               <span className="settings-section-icon"><DownloadIcon /></span>
               <div className="settings-section-header-text">
@@ -3483,7 +3615,7 @@ export default function SettingsPage() {
 
         </section>
 
-          <section className="settings-section">
+          <section className="settings-section" id="downloads-blocked">
             <header className="settings-section-header">
               <span className="settings-section-icon"><DownloadIcon /></span>
               <div className="settings-section-header-text">
@@ -3517,7 +3649,7 @@ export default function SettingsPage() {
             </div>
           </section>
 
-          <section className="settings-section">
+          <section className="settings-section" id="downloads-sources">
             <header className="settings-section-header">
               <span className="settings-section-icon"><DownloadIcon /></span>
               <div className="settings-section-header-text">
@@ -3534,7 +3666,7 @@ export default function SettingsPage() {
             <SourceManager />
           </section>
 
-          <section className="settings-section">
+          <section className="settings-section" id="downloads-debrid">
             <header className="settings-section-header">
               <span className="settings-section-icon"><DownloadIcon /></span>
               <div className="settings-section-header-text">
@@ -3796,9 +3928,10 @@ export default function SettingsPage() {
                 </div>
               </label>
             </div>
-          </div>
-        </section>
+            </div>
+          </section>
       )}
+    </main>
     </div>
   );
 }

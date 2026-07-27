@@ -1,4 +1,12 @@
-/* Page-level brand styling for settings (gradient + depth design language). */
+/* =============================================================================
+ * Settings page — layout shell (sidebar + content)
+ *
+ * Replaces the old top "pill" sub-nav with a fixed, searchable,
+ * grouped sidebar. A single left rail holds every destination
+ * (Appearance, Hardware, each integration, every downloads card,
+ * Launcher) so the page is scannable and jump-able instead of a
+ * flat row of 5 tabs. The content column scrolls beside it.
+ * ========================================================================== */
 
 /* Thin brand-gradient accent bar pinned to the very top of the panel. */
 .settings-panel-accent {
@@ -6,23 +14,290 @@
   width: 100%;
   border-radius: var(--radius-full, 9999px);
   background: var(--brand-gradient);
-  margin-bottom: var(--space-md);
+  margin-bottom: var(--space-lg);
 }
 
-/* The main settings card gets a tactile layered depth lift. */
-.settings-section {
-  background: var(--color-surface-raised, var(--color-surface));
-  border: 1px solid var(--color-border-subtle, var(--color-border));
-  border-radius: var(--radius-xl);
-  box-shadow: var(--depth-2);
+.settings-shell {
+  max-width: 1280px;
+  margin: 0 auto;
+  padding: var(--space-2xl) var(--space-xl) var(--space-3xl);
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-xl);
+  animation: importMenuIn 220ms ease;
 }
 
-.settings-title {
+/* ── Sidebar ─────────────────────────────────────────────────────────── */
+
+.settings-sidebar {
+  width: 264px;
+  flex-shrink: 0;
+  position: sticky;
+  top: var(--space-xl);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-md);
+  max-height: calc(100vh - var(--space-2xl) * 2);
+  padding-right: var(--space-sm);
+}
+
+.settings-sidebar-head {
+  display: flex;
+  align-items: center;
+}
+
+.settings-sidebar-title {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-sm);
+  font-size: var(--font-size-lg);
+  font-weight: var(--font-weight-bold);
+  color: var(--color-text-primary);
+  letter-spacing: -0.3px;
+}
+
+.settings-sidebar-title svg {
+  width: 20px;
+  height: 20px;
+  color: var(--color-accent);
+  filter: drop-shadow(0 0 6px var(--color-accent-glow));
+}
+
+/* Search box */
+.settings-search {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.settings-search-icon {
+  position: absolute;
+  left: 12px;
+  width: 15px;
+  height: 15px;
+  color: var(--color-text-muted);
+  pointer-events: none;
+}
+
+.settings-search-input {
+  width: 100%;
+  padding: 9px 30px 9px 34px;
+  background: var(--color-bg-secondary);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-full);
+  color: var(--color-text-primary);
+  font-family: inherit;
+  font-size: var(--font-size-sm);
+  outline: none;
+  transition: border-color var(--transition-fast), box-shadow var(--transition-fast);
+}
+
+.settings-search-input::placeholder {
+  color: var(--color-text-muted);
+}
+
+.settings-search-input:focus {
+  border-color: var(--color-accent);
+  box-shadow: 0 0 0 3px var(--color-accent-glow);
+}
+
+.settings-search-clear {
+  position: absolute;
+  right: 8px;
+  width: 20px;
+  height: 20px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  background: var(--color-bg-tertiary);
+  color: var(--color-text-secondary);
+  border-radius: 50%;
+  cursor: pointer;
+  font-size: 15px;
+  line-height: 1;
+  transition: all var(--transition-fast);
+}
+
+.settings-search-clear:hover {
+  background: var(--color-bg-hover);
+  color: var(--color-text-primary);
+}
+
+/* Nav groups + items */
+.settings-nav {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-md);
+  overflow-y: auto;
+  padding-right: 2px;
+  scrollbar-width: thin;
+}
+
+.settings-nav-group {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.settings-nav-group-label {
   display: flex;
   align-items: center;
   gap: var(--space-sm);
+  padding: 0 var(--space-md) var(--space-xs);
+  font-size: 10px;
+  font-weight: var(--font-weight-bold);
+  text-transform: uppercase;
+  letter-spacing: 0.8px;
+  color: var(--color-text-muted);
 }
 
-.settings-title-icon {
-  color: color-mix(in srgb, var(--brand-1) 85%, var(--color-text));
+.settings-nav-group-count {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 18px;
+  height: 16px;
+  padding: 0 5px;
+  font-size: 10px;
+  font-weight: var(--font-weight-bold);
+  color: var(--color-accent);
+  background: color-mix(in srgb, var(--color-accent) 18%, transparent);
+  border-radius: var(--radius-full);
+  font-variant-numeric: tabular-nums;
+}
+
+.settings-nav-item {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  width: 100%;
+  padding: 9px var(--space-md);
+  background: transparent;
+  border: none;
+  border-radius: var(--radius-md);
+  color: var(--color-text-secondary);
+  font-family: inherit;
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-medium);
+  text-align: left;
+  cursor: pointer;
+  transition: background var(--transition-fast), color var(--transition-fast);
+}
+
+.settings-nav-item:hover {
+  background: var(--color-bg-hover);
+  color: var(--color-text-primary);
+}
+
+.settings-nav-item.active {
+  background: color-mix(in srgb, var(--color-accent) 14%, transparent);
+  color: var(--color-text-primary);
+  box-shadow: inset 3px 0 0 var(--color-accent);
+}
+
+.settings-nav-item-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  flex-shrink: 0;
+  color: var(--color-text-muted);
+  transition: color var(--transition-fast);
+}
+
+.settings-nav-item.active .settings-nav-item-icon {
+  color: var(--color-accent);
+}
+
+.settings-nav-item-icon svg {
+  width: 16px;
+  height: 16px;
+}
+
+.settings-nav-item-bullet {
+  width: 6px;
+  height: 6px;
+  margin: 0 6px;
+  border-radius: 50%;
+  background: var(--color-text-muted);
+  flex-shrink: 0;
+}
+
+.settings-nav-item-label {
+  flex: 1;
+  min-width: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.settings-nav-item-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--color-success);
+  box-shadow: 0 0 8px var(--color-success);
+  flex-shrink: 0;
+}
+
+.settings-nav-empty {
+  padding: var(--space-md);
+  font-size: var(--font-size-sm);
+  color: var(--color-text-muted);
+  text-align: center;
+  font-style: italic;
+}
+
+/* ── Content column ────────────────────────────────────────────────── */
+
+.settings-content {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-xl);
+}
+
+/* Smooth-scroll anchors land with breathing room under the sticky bar. */
+.settings-content [id] {
+  scroll-margin-top: var(--space-xl);
+}
+
+/* ── Responsive ───────────────────────────────────────────────────── */
+
+@media (max-width: 880px) {
+  .settings-shell {
+    flex-direction: column;
+    gap: var(--space-lg);
+    padding: var(--space-xl) var(--space-md) var(--space-2xl);
+  }
+
+  .settings-sidebar {
+    position: static;
+    width: 100%;
+    max-height: none;
+  }
+
+  .settings-nav {
+    flex-direction: row;
+    flex-wrap: wrap;
+    overflow: visible;
+  }
+
+  .settings-nav-group {
+    flex: 1 1 100%;
+  }
+
+  .settings-nav-item {
+    flex: 0 1 auto;
+    width: auto;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .settings-shell {
+    animation: none;
+  }
 }
