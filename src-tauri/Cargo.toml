@@ -78,6 +78,10 @@ keyring = { version = "3", features = ["sync-secret-service"] }
 # persist tokens (file -> OS keychain), not the encryption flow.
 rand = "0.8"
 sha2 = "0.10"
+# MD5 for Nexus Mods file identification (`md5_search` endpoint hashes
+# the local artifact and asks Nexus which mod it belongs to — the same
+# linking trick Vortex uses for manually-installed mods).
+md-5 = "0.10"
 wmi = "0.14"
 # Windows registry reader for GOG installed-game detection
 # (HKLM+HKCU Uninstall entries). Linux/macOS builds pull this in

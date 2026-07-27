@@ -14,6 +14,7 @@ import ReviewsTab from "../components/ReviewsTab";
 import CrackWatchCard from "../components/CrackWatchCard";
 import ProtonDBCard from "../components/ProtonDBCard";
 import AchievementsTab from "../components/AchievementsTab";
+import ModsTab from "../components/mods/ModsTab";
 import GameRelationsCard from "../components/GameRelationsCard";
 import {
   GameHero,
@@ -95,7 +96,7 @@ function GameDetail({ game }: { game: Game }) {
   // by the IGDB / downloads tabs, vs. the silent toast path the
   // sidebar right-click uses).
   const [showRemoveConfirm, setShowRemoveConfirm] = useState(false);
-  const [activeTab, setActiveTab] = useState<"overview" | "reviews" | "activity" | "weblinks" | "achievements">("overview");
+  const [activeTab, setActiveTab] = useState<"overview" | "reviews" | "activity" | "weblinks" | "achievements" | "mods">("overview");
 
   // Metadata fetching state
   const [editing, setEditing] = useState(false);
@@ -310,7 +311,7 @@ function GameDetail({ game }: { game: Game }) {
           set imperatively from the measured active button so it
           slides between tab positions. Hidden until measured. */}
       <div className="game-tabs">
-        {(["overview", "reviews", "activity", "achievements", "weblinks"] as const).map((tab) => (
+        {(["overview", "reviews", "activity", "achievements", "mods", "weblinks"] as const).map((tab) => (
           <button
             key={tab}
             className={`game-tab ${activeTab === tab ? "active" : ""}`}
@@ -385,6 +386,8 @@ function GameDetail({ game }: { game: Game }) {
       )}
 
       {activeTab === "achievements" && <AchievementsTab game={game} />}
+
+      {activeTab === "mods" && <ModsTab game={game} />}
 
       {/* Edit Modal */}
        {editing && <EditGameModal game={game} onClose={() => setEditing(false)} />}

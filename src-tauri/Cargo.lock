@@ -1782,6 +1782,7 @@ dependencies = [
  "igd-next",
  "keyring",
  "librqbit",
+ "md-5",
  "mime_guess",
  "r2d2",
  "r2d2_sqlite",
@@ -3242,6 +3243,16 @@ dependencies = [
  "proc-macro2",
  "quote",
  "syn 2.0.118",
+]
+
+[[package]]
+name = "md-5"
+version = "0.10.6"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "d89e7ee0cfbedfc4da3340218492196241d89eefb6dab27de5df917a6d2e78cf"
+dependencies = [
+ "cfg-if",
+ "digest",
 ]
 
 [[package]]

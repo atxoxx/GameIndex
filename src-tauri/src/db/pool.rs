@@ -73,6 +73,7 @@ pub struct Db {
     pub kv: SqlitePool,
     pub news: SqlitePool,
     pub emulators: SqlitePool,
+    pub mods: SqlitePool,
 }
 
 impl Db {
@@ -100,6 +101,7 @@ impl Db {
             kv: mk("kv")?,
             news: mk("news")?,
             emulators: mk("emulators")?,
+            mods: mk("mods")?,
         })
     }
 
@@ -145,6 +147,10 @@ impl Db {
             .get()
             .map_err(|e| format!("acquire emulators conn: {e}"))
     }
+    /// Borrow a connection from the `mods` pool.
+    pub fn mods(&self) -> Result<PooledConn, String> {
+        self.mods.get().map_err(|e| format!("acquire mods conn: {e}"))
+    }
 
     /// Return the pool backing a domain `label` (used by the migration
     /// runner). Returns `None` for unknown labels.
@@ -159,6 +165,7 @@ impl Db {
             "kv" => Some(&self.kv),
             "news" => Some(&self.news),
             "emulators" => Some(&self.emulators),
+            "mods" => Some(&self.mods),
             _ => None,
         }
     }
@@ -199,6 +206,7 @@ mod tests {
             Db::kv,
             Db::news,
             Db::emulators,
+            Db::mods,
         ] {
             let conn = acquire(&db).unwrap();
             let mode: String = conn

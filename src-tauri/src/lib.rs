@@ -38,6 +38,7 @@ mod achievements;
 mod local_achievements;
 mod achievement_watcher;
 mod downloader;
+mod mods;
 mod tray;
 mod system_screenshots;
 use game_scraper::{GameMetadataResult, LaunchBoxImageResult, StoreGameSummary, TimeToBeat, SimilarGame, ReleaseDateInfo, IgdbReview, LanguageSupportInfo, ReviewFetchResult, RichAboutPayload, PcRequirementsPayload};
@@ -3867,7 +3868,22 @@ pub fn run() {
             add_rom_file,
             rename_rom_file,
             delete_rom_file,
-            recalc_rom_sizes])
+            recalc_rom_sizes,
+            // Mod support — engine-aware detection, enable/disable,
+            // load order, conflicts, and Nexus Mods integration.
+            mods::mods_scan_game,
+            mods::mods_list,
+            mods::mods_set_enabled,
+            mods::mods_reorder,
+            mods::mods_delete,
+            mods::mods_list_files,
+            mods::mods_conflicts,
+            mods::mods_overview,
+            mods::mods_set_nexus_domain,
+            mods::mods_set_custom_root,
+            mods::nexus_set_api_key,
+            mods::nexus_get_status,
+            mods::nexus_check_updates])
         .on_window_event(|window, event| {
             // L2: intercept the user clicking the OS-level close
             // button (or the in-app WindowControls close button, since

@@ -71,6 +71,7 @@ pub mod games;
 pub mod kv;
 pub mod legacy;
 pub mod migrate;
+pub mod mods;
 pub mod news;
 pub mod pool;
 pub mod schema;

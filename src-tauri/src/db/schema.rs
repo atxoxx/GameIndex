@@ -53,6 +53,13 @@ pub const KV_DDL: &str = include_str!("schema_kv.sql");
 /// DDL for the `news` domain.
 pub const NEWS_DDL: &str = include_str!("schema_news.sql");
 
+/// DDL for the `mods` domain: `mods` + `game_mod_settings`.
+pub const MODS_DDL: &str = include_str!("schema_mods.sql");
+
+/// DDL for the `mods` domain, v2: destructive rebuild (fixes stale
+/// dev-era tables with a different column set) + `custom_root`.
+pub const MODS_V2_DDL: &str = include_str!("schema_mods_v2.sql");
+
 /// Bootstrap the schema-meta table on a fresh domain DB. This table is
 /// itself part of v1, but we need to read `schema_version` *before*
 /// applying v1, so bootstrap is logically a separate step.
@@ -116,5 +123,9 @@ pub const DOMAIN_SCHEMAS: &[DomainSchema] = &[
     DomainSchema {
         label: "emulators",
         versions: &[("v1", EMULATORS_DDL)],
+    },
+    DomainSchema {
+        label: "mods",
+        versions: &[("v1", MODS_DDL), ("v2", MODS_V2_DDL)],
     },
 ];
