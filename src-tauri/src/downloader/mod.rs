@@ -1,5 +1,6 @@
 pub mod debrid;
 pub mod direct;
+pub mod hosters;
 
 use std::sync::Arc;
 use std::sync::atomic::AtomicU64;
