@@ -525,116 +525,13 @@ fn scan_emulator_roms(
             continue;
         }
         let rom_path = path.to_string_lossy().to_string();
-        let name = path
-            .file_stem()
-            .and_then(|s| s.to_str())
-            .unwrap_or("Unknown")
-            .to_string();
-        let id = format!("emu-{}-{}", emulator_id, hash_str(&rom_path));
-        let args = emu.arguments_template.replace("%ROM%", &rom_path);
-
-        let mut game = GameData {
-            id: id.clone(),
-            name,
-            path: emu.executable_path.clone(),
-            platform: emu.platform.clone(),
-            installed: true,
-            play_time: "0h".into(),
-            added_at: now_ms,
-            cover_art_url: None,
-            notes: None,
-            size_bytes: None,
-            size_detected_at: None,
-            size_root_path: None,
-            icon_url: None,
-            banner_url: None,
-            logo_url: None,
-            description: None,
-            developer: None,
-            publisher: None,
-            release_date: None,
-            genres: None,
-            metadata_source: None,
-            metadata_url: None,
-            storyline: None,
-            igdb_rating: None,
-            critic_rating: None,
-            themes: None,
-            game_modes: None,
-            player_perspectives: None,
-            screenshots: None,
-            videos: None,
-            websites: None,
-            time_to_beat: None,
-            similar_games: None,
-            releases: None,
-            igdb_reviews: None,
-            alternative_names: None,
-            collection: None,
-            franchise: None,
-            game_category: None,
-            release_status: None,
-            steam_app_id: None,
-            steam_playtime: None,
-            gog_game_id: None,
-            gog_playtime: None,
-            steam_achievements: None,
-            language_supports: None,
-            store_source: None,
-            epic_namespace: None,
-            epic_catalog_item_id: None,
-            humble_game_id: None,
-            humble_is_trove: None,
-            humble_is_extra: None,
-            uplay_game_id: None,
-            uplay_is_connect: None,
-            launch_arguments: Some(args),
-            run_as_admin: None,
-            pre_launch_script: None,
-            pre_launch_admin: None,
-            post_exit_script: None,
-            post_exit_admin: None,
-            companion_apps: None,
-            last_played: None,
-            play_status: None,
-            emulator_id: Some(emulator_id.clone()),
-            rom_path: Some(rom_path.clone()),
-        };
+        let mut game = build_rom_game(&emu, &rom_path, now_ms);
 
         // Preserve progress / metadata if this ROM was scanned before.
-        if let Some(existing) = db::games::get(db_state.inner(), &id).map_err(|e| e.to_string())? {
+        if let Some(existing) = db::games::get(db_state.inner(), &game.id).map_err(|e| e.to_string())? {
             let value = serde_json::to_value(&existing).map_err(|e| format!("to_value: {e}"))?;
             if let Ok(prev) = serde_json::from_value::<GameData>(value) {
-                game.play_time = prev.play_time;
-                game.added_at = prev.added_at;
-                game.last_played = prev.last_played;
-                game.cover_art_url = prev.cover_art_url;
-                game.icon_url = prev.icon_url;
-                game.banner_url = prev.banner_url;
-                game.logo_url = prev.logo_url;
-                game.description = prev.description;
-                game.developer = prev.developer;
-                game.publisher = prev.publisher;
-                game.release_date = prev.release_date;
-                game.genres = prev.genres;
-                game.metadata_source = prev.metadata_source;
-                game.metadata_url = prev.metadata_url;
-                game.screenshots = prev.screenshots;
-                game.videos = prev.videos;
-                game.igdb_rating = prev.igdb_rating;
-                game.critic_rating = prev.critic_rating;
-                game.play_status = prev.play_status;
-                game.notes = prev.notes;
-                game.size_bytes = prev.size_bytes;
-                game.size_detected_at = prev.size_detected_at;
-                game.size_root_path = prev.size_root_path;
-                game.steam_app_id = prev.steam_app_id;
-                // Refresh emulator linkage so a changed exe / template
-                // or platform still applies on re-scan.
-                game.path = emu.executable_path.clone();
-                game.platform = emu.platform.clone();
-                game.launch_arguments =
-                    Some(emu.arguments_template.replace("%ROM%", &rom_path));
+                apply_existing_rom(&prev, &mut game);
             }
         }
 
@@ -645,6 +542,238 @@ fn scan_emulator_roms(
         out.push(game);
     }
 
+    Ok(out)
+}
+
+/// Build a fresh `GameData` for a ROM file, measuring its on-disk size.
+/// All library/progress/metadata fields are left at their defaults
+/// (None) so callers can layer any preserved values on top.
+fn build_rom_game(emu: &db::emulators::EmulatorRow, rom_path: &str, now_ms: u64) -> GameData {
+    let p = std::path::Path::new(rom_path);
+    let name = p
+        .file_stem()
+        .and_then(|s| s.to_str())
+        .unwrap_or("Unknown")
+        .to_string();
+    let args = emu.arguments_template.replace("%ROM%", rom_path);
+    let size = std::fs::metadata(p).ok().map(|m| m.len());
+    let value = serde_json::json!({
+        "id": format!("emu-{}-{}", emu.id, hash_str(rom_path)),
+        "name": name,
+        "path": emu.executable_path,
+        "platform": emu.platform,
+        "installed": true,
+        "playTime": "0h",
+        "addedAt": now_ms,
+        "sizeBytes": size,
+        "sizeDetectedAt": size.map(|_| now_ms.to_string()),
+        "sizeRootPath": rom_path,
+        "launchArguments": args,
+        "emulatorId": emu.id,
+        "romPath": rom_path,
+    });
+    serde_json::from_value(value).expect("build_rom_game: constructed GameData must be valid")
+}
+
+/// Copy progress / metadata from a previously-scanned ROM onto a freshly
+/// built one, while keeping the refreshed emulator linkage (path /
+/// platform / launch arguments) from the current emulator config.
+fn apply_existing_rom(prev: &GameData, game: &mut GameData) {
+    game.play_time = prev.play_time.clone();
+    game.added_at = prev.added_at;
+    game.last_played = prev.last_played;
+    game.cover_art_url = prev.cover_art_url.clone();
+    game.icon_url = prev.icon_url.clone();
+    game.banner_url = prev.banner_url.clone();
+    game.logo_url = prev.logo_url.clone();
+    game.description = prev.description.clone();
+    game.developer = prev.developer.clone();
+    game.publisher = prev.publisher.clone();
+    game.release_date = prev.release_date.clone();
+    game.genres = prev.genres.clone();
+    game.metadata_source = prev.metadata_source.clone();
+    game.metadata_url = prev.metadata_url.clone();
+    game.screenshots = prev.screenshots.clone();
+    game.videos = prev.videos.clone();
+    game.igdb_rating = prev.igdb_rating;
+    game.critic_rating = prev.critic_rating;
+    game.play_status = prev.play_status.clone();
+    game.notes = prev.notes.clone();
+    game.size_bytes = prev.size_bytes;
+    game.size_detected_at = prev.size_detected_at.clone();
+    game.size_root_path = prev.size_root_path.clone();
+    game.steam_app_id = prev.steam_app_id;
+}
+
+/// Manually register a single ROM file under an emulator (the
+/// "Add ROM" action). Validates the extension against the platform's
+/// recognised set, then upserts a `GameData` row identical to a scan.
+#[tauri::command]
+fn add_rom_file(
+    app: tauri::AppHandle,
+    emulator_id: String,
+    path: String,
+) -> Result<GameData, String> {
+    let db_state: tauri::State<'_, db::Db> = app.state();
+    let emu = db::emulators::get(db_state.inner(), &emulator_id)
+        .map_err(|e| e.to_string())?
+        .ok_or_else(|| format!("Emulator not found: {emulator_id}"))?;
+    let p = std::path::Path::new(&path);
+    if !p.is_file() {
+        return Err(format!("File does not exist: {path}"));
+    }
+    let ext = match p.extension().and_then(|e| e.to_str()) {
+        Some(e) => e.to_lowercase(),
+        None => return Err("File has no extension".into()),
+    };
+    let exts = rom_extensions_for_platform(&emu.platform);
+    if !exts.iter().any(|x| x.eq_ignore_ascii_case(&ext)) {
+        return Err(format!(
+            "File type .{ext} is not a recognised ROM for {}",
+            emu.platform
+        ));
+    }
+    let now_ms = SystemTime::now()
+        .duration_since(SystemTime::UNIX_EPOCH)
+        .map(|d| d.as_millis() as u64)
+        .unwrap_or(0);
+    let mut game = build_rom_game(&emu, &path, now_ms);
+    // Preserve any prior entry (e.g. re-adding a previously removed ROM).
+    if let Some(existing) = db::games::get(db_state.inner(), &game.id).map_err(|e| e.to_string())? {
+        let value = serde_json::to_value(&existing).map_err(|e| format!("to_value: {e}"))?;
+        if let Ok(prev) = serde_json::from_value::<GameData>(value) {
+            apply_existing_rom(&prev, &mut game);
+        }
+    }
+    let row_value = serde_json::to_value(&game).map_err(|e| format!("to_value: {e}"))?;
+    let row: db::games::GameRow = serde_json::from_value(row_value)
+        .map_err(|e| format!("to GameRow: {e}"))?;
+    db::games::upsert_one(db_state.inner(), &row)?;
+    Ok(game)
+}
+
+/// Rename a ROM's file on disk and update its library entry. `new_name`
+/// is a base name (the existing extension is preserved). The game id is
+/// regenerated from the new path so future re-scans stay idempotent.
+#[tauri::command]
+fn rename_rom_file(
+    app: tauri::AppHandle,
+    game_id: String,
+    new_name: String,
+) -> Result<GameData, String> {
+    let db_state: tauri::State<'_, db::Db> = app.state();
+    let existing = db::games::get(db_state.inner(), &game_id)
+        .map_err(|e| e.to_string())?
+        .ok_or_else(|| format!("ROM not found: {game_id}"))?;
+    let rom_path = existing
+        .rom_path
+        .clone()
+        .ok_or_else(|| "ROM has no file path".to_string())?;
+    let old_path = std::path::Path::new(&rom_path);
+    if !old_path.is_file() {
+        return Err(format!("ROM file does not exist: {rom_path}"));
+    }
+    let trimmed = new_name.trim();
+    if trimmed.is_empty()
+        || trimmed == "."
+        || trimmed == ".."
+        || trimmed.contains('/')
+        || trimmed.contains('\\')
+    {
+        return Err("New name contains invalid characters".into());
+    }
+    let ext = old_path.extension().and_then(|e| e.to_str()).unwrap_or("");
+    let mut file_name = String::from(trimmed);
+    if !ext.is_empty() {
+        file_name.push('.');
+        file_name.push_str(ext);
+    }
+    let parent = old_path.parent().unwrap_or_else(|| std::path::Path::new(""));
+    let new_path = parent.join(&file_name);
+    if new_path.exists() {
+        return Err(format!("A file named {file_name} already exists"));
+    }
+    std::fs::rename(old_path, &new_path).map_err(|e| format!("rename failed: {e}"))?;
+    let new_rom_path = new_path.to_string_lossy().to_string();
+    let emu_id = existing.emulator_id.clone().unwrap_or_default();
+    let new_id = format!("emu-{}-{}", emu_id, hash_str(&new_rom_path));
+    let value = serde_json::to_value(&existing).map_err(|e| format!("to_value: {e}"))?;
+    let mut game: GameData = serde_json::from_value(value)
+        .map_err(|e| format!("from_value: {e}"))?;
+    game.id = new_id.clone();
+    game.name = trimmed.to_string();
+    game.rom_path = Some(new_rom_path.clone());
+    if let Some(args) = game.launch_arguments.clone() {
+        game.launch_arguments = Some(args.replace(&rom_path, &new_rom_path));
+    }
+    if game.size_root_path.as_deref() == Some(rom_path.as_str()) {
+        game.size_root_path = Some(new_rom_path.clone());
+    }
+    let row_value = serde_json::to_value(&game).map_err(|e| format!("to_value: {e}"))?;
+    let row: db::games::GameRow = serde_json::from_value(row_value)
+        .map_err(|e| format!("to GameRow: {e}"))?;
+    db::games::upsert_one(db_state.inner(), &row)?;
+    if new_id != game_id {
+        let _ = db::games::delete(db_state.inner(), &game_id);
+    }
+    Ok(game)
+}
+
+/// Delete a ROM's file from disk and remove its library entry. Returns
+/// the number of bytes freed so the frontend can show a meaningful toast.
+#[tauri::command]
+fn delete_rom_file(app: tauri::AppHandle, game_id: String) -> Result<u64, String> {
+    let db_state: tauri::State<'_, db::Db> = app.state();
+    let existing = db::games::get(db_state.inner(), &game_id)
+        .map_err(|e| e.to_string())?
+        .ok_or_else(|| format!("ROM not found: {game_id}"))?;
+    let mut freed: u64 = 0;
+    if let Some(rom_path) = existing.rom_path.clone() {
+        if let Ok(meta) = std::fs::metadata(&rom_path) {
+            freed = meta.len();
+        }
+        let _ = std::fs::remove_file(&rom_path);
+    }
+    db::games::delete(db_state.inner(), &game_id)?;
+    Ok(freed)
+}
+
+/// Re-measure the on-disk size of every ROM belonging to an emulator and
+/// persist it. Used by the "Re-calc sizes" action; a ROM's size is its
+/// own file length.
+#[tauri::command]
+fn recalc_rom_sizes(
+    app: tauri::AppHandle,
+    emulator_id: String,
+) -> Result<Vec<GameData>, String> {
+    let db_state: tauri::State<'_, db::Db> = app.state();
+    let now_ms = SystemTime::now()
+        .duration_since(SystemTime::UNIX_EPOCH)
+        .map(|d| d.as_millis() as u64)
+        .unwrap_or(0);
+    let rows = db::games::list_all(db_state.inner()).map_err(|e| e.to_string())?;
+    let mut out: Vec<GameData> = Vec::new();
+    for row in rows {
+        if row.emulator_id.as_deref() != Some(emulator_id.as_str()) {
+            continue;
+        }
+        let rom_path = match row.rom_path.clone() {
+            Some(p) => p,
+            None => continue,
+        };
+        let value = serde_json::to_value(&row).map_err(|e| format!("to_value: {e}"))?;
+        let mut game: GameData = serde_json::from_value(value)
+            .map_err(|e| format!("from_value: {e}"))?;
+        let size = std::fs::metadata(&rom_path).ok().map(|m| m.len());
+        game.size_bytes = size;
+        game.size_detected_at = size.map(|_| now_ms.to_string());
+        game.size_root_path = Some(rom_path);
+        let row_value = serde_json::to_value(&game).map_err(|e| format!("to_value: {e}"))?;
+        let game_row: db::games::GameRow = serde_json::from_value(row_value)
+            .map_err(|e| format!("to GameRow: {e}"))?;
+        db::games::upsert_one(db_state.inner(), &game_row)?;
+        out.push(game);
+    }
     Ok(out)
 }
 
@@ -3734,7 +3863,11 @@ pub fn run() {
             list_emulators,
             save_emulator,
             delete_emulator,
-            scan_emulator_roms])
+            scan_emulator_roms,
+            add_rom_file,
+            rename_rom_file,
+            delete_rom_file,
+            recalc_rom_sizes])
         .on_window_event(|window, event| {
             // L2: intercept the user clicking the OS-level close
             // button (or the in-app WindowControls close button, since

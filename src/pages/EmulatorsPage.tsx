@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { openPath, openUrl } from "@tauri-apps/plugin-opener";
+import { open } from "@tauri-apps/plugin-dialog";
 import { invoke } from "@tauri-apps/api/core";
 import { useLanguage } from "../context/LanguageContext";
 import { useToast } from "../context/ToastContext";
@@ -65,6 +66,10 @@ export default function EmulatorsPage() {
   const [scanningId, setScanningId] = useState<string | null>(null);
   const [lastScanned, setLastScanned] = useState<Record<string, number>>({});
   const [confirmDelete, setConfirmDelete] = useState<Emulator | null>(null);
+  const [renameGame, setRenameGame] = useState<Game | null>(null);
+  const [renameValue, setRenameValue] = useState("");
+  const [confirmDeleteRom, setConfirmDeleteRom] = useState<Game | null>(null);
+  const [recalcId, setRecalcId] = useState<string | null>(null);
 
   const [search, setSearch] = useState("");
   const [sortKey, setSortKey] = useState<SortKey>("name");
@@ -288,6 +293,98 @@ export default function EmulatorsPage() {
     },
     [removeGames, showToast, t]
   );
+
+  const handleAddRom = useCallback(
+    async (emu: Emulator) => {
+      try {
+        const picked = await open({
+          multiple: false,
+          title: t("emulators.games.addRomTitle"),
+        });
+        if (!picked || typeof picked !== "string") return;
+        const added = await invoke<Game>("add_rom_file", {
+          emulatorId: emu.id,
+          path: picked,
+        });
+        addGame(added);
+        showToast(t("emulators.games.addRom") + " ✓", "success");
+      } catch (err) {
+        showToast(String(err), "error");
+      }
+    },
+    [addGame, showToast, t]
+  );
+
+  const handleOpenLocation = useCallback(
+    async (path: string) => {
+      try {
+        await invoke("open_folder", { path });
+      } catch (err) {
+        showToast(String(err), "error");
+      }
+    },
+    [showToast]
+  );
+
+  const handleRenameRom = useCallback(async () => {
+    if (!renameGame) return;
+    const trimmed = renameValue.trim();
+    if (trimmed === (renameGame.name ?? "")) {
+      showToast(t("emulators.games.renameSame"), "error");
+      return;
+    }
+    try {
+      const updated = await invoke<Game>("rename_rom_file", {
+        gameId: renameGame.id,
+        newName: trimmed,
+      });
+      removeGames((g) => g.id === renameGame.id);
+      addGame(updated);
+      setRenameGame(null);
+      setRenameValue("");
+      showToast(t("emulators.games.rename") + " ✓", "success");
+    } catch (err) {
+      showToast(String(err), "error");
+    }
+  }, [renameGame, renameValue, addGame, removeGames, showToast, t]);
+
+  const handleDeleteRom = useCallback(async () => {
+    if (!confirmDeleteRom) return;
+    try {
+      await invoke("delete_rom_file", { gameId: confirmDeleteRom.id });
+      removeGames((g) => g.id === confirmDeleteRom.id);
+      setConfirmDeleteRom(null);
+      showToast(t("emulators.games.deleteRom") + " ✓", "success");
+    } catch (err) {
+      showToast(String(err), "error");
+    }
+  }, [confirmDeleteRom, removeGames, showToast, t]);
+
+  const handleRecalcSizes = useCallback(
+    async (emu: Emulator) => {
+      setRecalcId(emu.id);
+      try {
+        const updated = await invoke<Game[]>("recalc_rom_sizes", {
+          emulatorId: emu.id,
+        });
+        for (const g of updated) updateGame(g.id, g);
+        showToast(
+          t("emulators.games.recalcDone", { count: updated.length }),
+          "success"
+        );
+      } catch (err) {
+        showToast(String(err), "error");
+      } finally {
+        setRecalcId(null);
+      }
+    },
+    [updateGame, showToast, t]
+  );
+
+  const openRename = useCallback((g: Game) => {
+    setRenameGame(g);
+    setRenameValue(g.name ?? "");
+  }, []);
 
   const openAdd = useCallback(() => {
     setEditing(null);
@@ -602,6 +699,25 @@ export default function EmulatorsPage() {
                         onChange={(e) => setGameSearch(e.target.value)}
                       />
                     )}
+                    {selectedRow.emulator && (
+                      <div className="emu-games-actions">
+                        <button
+                          className="btn-ghost btn-sm"
+                          onClick={() => handleAddRom(selectedRow.emulator!)}
+                        >
+                          + {t("emulators.games.addRom")}
+                        </button>
+                        <button
+                          className="btn-ghost btn-sm"
+                          onClick={() => handleRecalcSizes(selectedRow.emulator!)}
+                          disabled={recalcId === selectedRow.emulator.id}
+                        >
+                          {recalcId === selectedRow.emulator.id
+                            ? "…"
+                            : t("emulators.games.recalc")}
+                        </button>
+                      </div>
+                    )}
                   </div>
 
                   {selectedGames.length === 0 ? (
@@ -634,6 +750,28 @@ export default function EmulatorsPage() {
                             </span>
                             <span className="emu-game-size">
                               {g.sizeBytes ? formatBytesShort(g.sizeBytes) : "—"}
+                            </span>
+                            <span className="emu-game-actions">
+                              <button
+                                className="btn-ghost btn-sm"
+                                title={t("emulators.games.openLocation")}
+                                onClick={() => g.romPath && handleOpenLocation(g.romPath)}
+                                disabled={!g.romPath}
+                              >
+                                {t("emulators.games.openLocation")}
+                              </button>
+                              <button
+                                className="btn-ghost btn-sm"
+                                onClick={() => openRename(g)}
+                              >
+                                {t("emulators.games.rename")}
+                              </button>
+                              <button
+                                className="btn-danger btn-sm"
+                                onClick={() => setConfirmDeleteRom(g)}
+                              >
+                                {t("emulators.games.deleteRom")}
+                              </button>
                             </span>
                             <button
                               className="btn-primary btn-sm"
@@ -689,6 +827,63 @@ export default function EmulatorsPage() {
               </button>
               <button className="btn-danger" onClick={() => handleDelete(confirmDelete)}>
                 {t("emulators.delete")}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {renameGame && (
+        <div className="modal-overlay" onMouseDown={() => setRenameGame(null)}>
+          <div className="modal" onMouseDown={(e) => e.stopPropagation()} role="dialog">
+            <div className="modal-header">
+              <h2>{t("emulators.games.renameTitle")}</h2>
+            </div>
+            <div className="modal-body">
+              <label className="modal-label" htmlFor="rom-rename">
+                {t("emulators.games.renameLabel")}
+              </label>
+              <input
+                id="rom-rename"
+                className="modal-input"
+                type="text"
+                value={renameValue}
+                autoFocus
+                onChange={(e) => setRenameValue(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") handleRenameRom();
+                }}
+              />
+            </div>
+            <div className="modal-footer">
+              <button className="btn-ghost" onClick={() => setRenameGame(null)}>
+                {t("common.cancel")}
+              </button>
+              <button className="btn-primary" onClick={handleRenameRom}>
+                {t("emulators.games.rename")}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {confirmDeleteRom && (
+        <div className="modal-overlay" onMouseDown={() => setConfirmDeleteRom(null)}>
+          <div className="modal confirm-modal" onMouseDown={(e) => e.stopPropagation()} role="alertdialog">
+            <div className="modal-header">
+              <h2>{t("emulators.games.deleteRom")}?</h2>
+            </div>
+            <div className="modal-body">
+              <p>
+                {t("emulators.games.deleteConfirm", { name: confirmDeleteRom.name })}
+              </p>
+            </div>
+            <div className="modal-footer">
+              <button className="btn-ghost" onClick={() => setConfirmDeleteRom(null)}>
+                {t("common.cancel")}
+              </button>
+              <button className="btn-danger" onClick={handleDeleteRom}>
+                {t("emulators.games.deleteRom")}
               </button>
             </div>
           </div>

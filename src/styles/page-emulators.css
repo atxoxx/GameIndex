@@ -576,6 +576,18 @@
   text-align: right;
 }
 
+.emu-games-actions {
+  display: flex;
+  gap: 6px;
+  flex-shrink: 0;
+}
+
+.emu-game-actions {
+  display: flex;
+  gap: 4px;
+  flex-shrink: 0;
+}
+
 /* ── Button classes for the emulators page ──────────────────────── */
 /* These are self-contained so the page doesn't depend on global btn
    classes. Reuse is intentional — they match the app's existing look. */
@@ -832,6 +844,33 @@
   line-height: 1.5;
   color: var(--color-text-primary);
   margin: 0;
+}
+
+.modal-label {
+  display: block;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--color-text-secondary, #8b8fa3);
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  margin-bottom: 6px;
+}
+
+.modal-input {
+  width: 100%;
+  padding: 8px 10px;
+  font-size: 13px;
+  border: 1px solid var(--color-border);
+  border-radius: 6px;
+  background: var(--color-bg-primary);
+  color: var(--color-text-primary);
+  outline: none;
+  transition: border-color 0.15s;
+}
+
+.modal-input:focus {
+  border-color: var(--color-accent);
+  box-shadow: 0 0 0 1px var(--color-accent-glow);
 }
 
 /* ── Responsive tweaks ──────────────────────────────────────────── */
