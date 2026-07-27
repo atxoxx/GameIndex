@@ -12,6 +12,8 @@ import {
 interface Props {
   /** Existing emulator to edit, or null/undefined to add a new one. */
   emulator?: Emulator | null;
+  /** A known catalog entry to pre-select when adding a brand-new emulator. */
+  presetKnown?: KnownEmulator | null;
   onClose: () => void;
   onSaved: (emulator: Emulator, scanAfter: boolean) => void;
 }
@@ -21,24 +23,26 @@ interface Props {
  * catalog to auto-fill the executable name, platform and supported file
  * extensions, or choose "Custom" to enter a free-form platform.
  */
-export default function EmulatorEditorModal({ emulator, onClose, onSaved }: Props) {
+export default function EmulatorEditorModal({ emulator, presetKnown, onClose, onSaved }: Props) {
   const { t } = useLanguage();
   const { showToast } = useToast();
   const isEdit = !!emulator;
 
   const [knownKey, setKnownKey] = useState<string>(() => {
-    if (!emulator) return "";
-    const hit = KNOWN_EMULATORS.find(
-      (k) => k.name === emulator.name && k.platform === emulator.platform
-    );
-    return hit?.key ?? "custom";
+    if (emulator) {
+      const hit = KNOWN_EMULATORS.find(
+        (k) => k.name === emulator.name && k.platform === emulator.platform
+      );
+      return hit?.key ?? "custom";
+    }
+    return presetKnown?.key ?? "";
   });
-  const [name, setName] = useState(emulator?.name ?? "");
-  const [platform, setPlatform] = useState(emulator?.platform ?? "");
+  const [name, setName] = useState(emulator?.name ?? presetKnown?.name ?? "");
+  const [platform, setPlatform] = useState(emulator?.platform ?? presetKnown?.platform ?? "");
   const [executablePath, setExecutablePath] = useState(emulator?.executablePath ?? "");
   const [romFolder, setRomFolder] = useState(emulator?.romFolder ?? "");
   const [argumentsTemplate, setArgumentsTemplate] = useState(
-    emulator?.argumentsTemplate ?? '"%ROM%"'
+    emulator?.argumentsTemplate ?? presetKnown?.argumentsTemplate ?? '"%ROM%"'
   );
   const [notes, setNotes] = useState(emulator?.notes ?? "");
   const [scanAfter, setScanAfter] = useState(false);

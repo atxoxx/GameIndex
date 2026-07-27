@@ -4,12 +4,13 @@ import { invoke } from "@tauri-apps/api/core";
 import { useLanguage } from "../context/LanguageContext";
 import { useToast } from "../context/ToastContext";
 import { useGames } from "../context/GameContext";
-import type { Emulator, Game } from "../types/game";
+import type { Game } from "../types/game";
+import { accentForPlatform, KNOWN_EMULATORS, type Emulator, type KnownEmulator } from "../types/emulator";
+import { formatBytesShort } from "../types/download";
 import "../styles/page-emulators.css";
-import { accentForPlatform } from "../types/emulator";
 import EmulatorEditorModal from "./EmulatorEditorModal";
 
-function truncateMiddle(path: string, max = 42): string {
+function truncateMiddle(path: string, max = 48): string {
   if (path.length <= max) return path;
   const head = path.slice(0, max / 2 - 1);
   const tail = path.slice(path.length - (max / 2 - 1));
@@ -22,24 +23,54 @@ function formatDate(ts?: number): string {
   return d.toLocaleDateString(undefined, { year: "numeric", month: "short", day: "numeric" });
 }
 
+type SortKey = "name" | "games" | "platform" | "dateAdded";
+type SortDir = "asc" | "desc";
+
+/** A flattened view-model row that unifies the curated catalog with the
+ *  user's configured emulators, so the left list can show every known
+ *  emulator (Added / Not added) alongside its live info. */
+interface EmuRow {
+  id: string;
+  known?: KnownEmulator;
+  emulator?: Emulator;
+  name: string;
+  platform: string;
+  accent: string;
+  glyph: string;
+  added: boolean;
+  /** True once an executable path has been configured. */
+  configured: boolean;
+  gameCount: number;
+  createdAt?: number;
+  scannedAt?: number;
+}
+
 /**
- * The Emulators tab. Lists configured emulators as cards (each linked to
- * one ROM folder), supports add / edit / delete and scanning, and merges
- * scanned ROMs into the library so they appear in the sidebar by console
- * platform. ROMs launch through the existing `launch_game` path.
+ * The Emulators tab, redesigned as a master / detail split:
+ *  - Left: a searchable, sortable list of every known emulator with an
+ *    Added / Not added + Configured status and live game counts.
+ *  - Right: details for the selected emulator, including a launchable
+ *    table of every ROM game detected/scanned for it.
  */
 export default function EmulatorsPage() {
   const { t } = useLanguage();
   const { showToast } = useToast();
-  const { games, addGame, updateGame, removeGames } = useGames();
+  const { games, addGame, updateGame, removeGames, launchGame, runningGameIds } = useGames();
 
   const [emulators, setEmulators] = useState<Emulator[]>([]);
   const [loading, setLoading] = useState(true);
   const [showEditor, setShowEditor] = useState(false);
   const [editing, setEditing] = useState<Emulator | null>(null);
+  const [presetKnown, setPresetKnown] = useState<KnownEmulator | null>(null);
   const [scanningId, setScanningId] = useState<string | null>(null);
   const [lastScanned, setLastScanned] = useState<Record<string, number>>({});
   const [confirmDelete, setConfirmDelete] = useState<Emulator | null>(null);
+
+  const [search, setSearch] = useState("");
+  const [sortKey, setSortKey] = useState<SortKey>("name");
+  const [sortDir, setSortDir] = useState<SortDir>("asc");
+  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [gameSearch, setGameSearch] = useState("");
 
   const load = useCallback(async () => {
     try {
@@ -64,6 +95,110 @@ export default function EmulatorsPage() {
     }
     return m;
   }, [games]);
+
+  // Merge the curated catalog with the configured emulators.
+  const rows = useMemo<EmuRow[]>(() => {
+    const result: EmuRow[] = [];
+    const used = new Set<string>();
+
+    for (const k of KNOWN_EMULATORS) {
+      const emu =
+        emulators.find((e) => e.platform === k.platform) ??
+        emulators.find((e) => e.name === k.name);
+      if (emu) used.add(emu.id);
+      result.push({
+        id: emu ? emu.id : `known:${k.key}`,
+        known: k,
+        emulator: emu,
+        name: emu?.name ?? k.name,
+        platform: k.platform,
+        accent: k.accent,
+        glyph: k.glyph,
+        added: !!emu,
+        configured: !!emu?.executablePath,
+        gameCount: emu ? (romCounts[emu.id] ?? 0) : 0,
+        createdAt: emu?.createdAt,
+        scannedAt: emu ? lastScanned[emu.id] : undefined,
+      });
+    }
+
+    for (const e of emulators) {
+      if (used.has(e.id)) continue;
+      const accent = accentForPlatform(e.platform);
+      result.push({
+        id: e.id,
+        emulator: e,
+        name: e.name,
+        platform: e.platform,
+        accent,
+        glyph: "🎮",
+        added: true,
+        configured: !!e.executablePath,
+        gameCount: romCounts[e.id] ?? 0,
+        createdAt: e.createdAt,
+        scannedAt: lastScanned[e.id],
+      });
+    }
+
+    return result;
+  }, [emulators, romCounts, lastScanned]);
+
+  const filteredRows = useMemo(() => {
+    const q = search.trim().toLowerCase();
+    const base = q
+      ? rows.filter(
+          (r) =>
+            r.name.toLowerCase().includes(q) || r.platform.toLowerCase().includes(q)
+        )
+      : rows;
+
+    const sorted = [...base].sort((a, b) => {
+      let res = 0;
+      switch (sortKey) {
+        case "games":
+          res = a.gameCount - b.gameCount;
+          break;
+        case "platform":
+          res = a.platform.localeCompare(b.platform);
+          break;
+        case "dateAdded":
+          res = (a.createdAt ?? 0) - (b.createdAt ?? 0);
+          break;
+        case "name":
+        default:
+          res = a.name.localeCompare(b.name);
+          break;
+      }
+      return sortDir === "desc" ? -res : res;
+    });
+    return sorted;
+  }, [rows, search, sortKey, sortDir]);
+
+  const selectedRow = useMemo<EmuRow | null>(() => {
+    if (selectedId) {
+      const hit = rows.find((r) => r.id === selectedId);
+      if (hit) return hit;
+    }
+    return rows.find((r) => r.added) ?? rows[0] ?? null;
+  }, [rows, selectedId]);
+
+  useEffect(() => {
+    if (!selectedId && rows.length) {
+      const first = rows.find((r) => r.added) ?? rows[0];
+      setSelectedId(first.id);
+    }
+  }, [rows, selectedId]);
+
+  const selectedGames = useMemo(() => {
+    if (!selectedRow?.emulator) return [];
+    const q = gameSearch.trim().toLowerCase();
+    return games
+      .filter((g) => g.emulatorId === selectedRow.emulator!.id)
+      .filter((g) => (q ? g.name.toLowerCase().includes(q) : true))
+      .sort((a, b) => a.name.localeCompare(b.name));
+  }, [games, selectedRow, gameSearch]);
+
+  const addedCount = useMemo(() => rows.filter((r) => r.added).length, [rows]);
 
   const mergeScanned = useCallback(
     (scanned: Game[]) => {
@@ -119,7 +254,9 @@ export default function EmulatorsPage() {
     async (emu: Emulator, scanAfter: boolean) => {
       setShowEditor(false);
       setEditing(null);
+      setPresetKnown(null);
       await load();
+      setSelectedId(emu.id);
       if (scanAfter) await handleScan(emu);
     },
     [load, handleScan]
@@ -152,6 +289,35 @@ export default function EmulatorsPage() {
     [removeGames, showToast, t]
   );
 
+  const openAdd = useCallback(() => {
+    setEditing(null);
+    setPresetKnown(null);
+    setShowEditor(true);
+  }, []);
+
+  const openAddKnown = useCallback((known: KnownEmulator) => {
+    setEditing(null);
+    setPresetKnown(known);
+    setShowEditor(true);
+  }, []);
+
+  const openEdit = useCallback((emu: Emulator) => {
+    setEditing(emu);
+    setPresetKnown(null);
+    setShowEditor(true);
+  }, []);
+
+  const toggleSortDir = useCallback(() => {
+    setSortDir((d) => (d === "asc" ? "desc" : "asc"));
+  }, []);
+
+  const sortLabel: Record<SortKey, string> = {
+    name: t("emulators.sort.name"),
+    games: t("emulators.sort.games"),
+    platform: t("emulators.sort.platform"),
+    dateAdded: t("emulators.sort.dateAdded"),
+  };
+
   return (
     <div className="emulators-page">
       <div className="emulators-header">
@@ -160,17 +326,15 @@ export default function EmulatorsPage() {
           <p className="emulators-subtitle">{t("emulators.subtitle")}</p>
         </div>
         <div className="emulators-header-actions">
-          <button
-            className="btn-primary"
-            onClick={() => {
-              setEditing(null);
-              setShowEditor(true);
-            }}
-          >
+          <button className="btn-primary" onClick={openAdd}>
             + {t("emulators.addEmulator")}
           </button>
-          {emulators.length > 0 && (
-            <button className="btn-secondary" onClick={handleScanAll} disabled={scanningId !== null}>
+          {addedCount > 0 && (
+            <button
+              className="btn-secondary"
+              onClick={handleScanAll}
+              disabled={scanningId !== null}
+            >
               {t("emulators.scanAll")}
             </button>
           )}
@@ -181,106 +345,305 @@ export default function EmulatorsPage() {
         <div className="emulators-empty">
           <p>{t("common.loading")}</p>
         </div>
-      ) : emulators.length === 0 ? (
-        <div className="emulators-empty">
-          <div className="emulators-empty-glyph">🕹️</div>
-          <h2>{t("emulators.empty.title")}</h2>
-          <p>{t("emulators.empty.desc")}</p>
-          <button
-            className="btn-primary"
-            onClick={() => {
-              setEditing(null);
-              setShowEditor(true);
-            }}
-          >
-            {t("emulators.empty.cta")}
-          </button>
-        </div>
       ) : (
-        <div className="emulators-grid">
-          {emulators.map((emu) => {
-            const accent = accentForPlatform(emu.platform);
-            const count = romCounts[emu.id] ?? 0;
-            const scanning = scanningId === emu.id;
-            return (
-              <div
-                key={emu.id}
-                className="emulator-card"
-                style={{ ["--emu-accent" as string]: accent }}
-              >
-                <div className="emulator-card-accent" />
-                <div className="emulator-card-head">
-                  <span className="emulator-card-glyph" style={{ background: accent }}>
-                    {accentForPlatform(emu.platform)}
+        <div className="emulators-split">
+          {/* ── Left: emulator list ── */}
+          <aside className="emulators-list-pane">
+            <div className="emulators-list-controls">
+              <input
+                className="emulators-search"
+                type="text"
+                placeholder={t("emulators.list.search")}
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+              />
+              <div className="emulators-sort">
+                <label className="emulators-sort-label" htmlFor="emu-sort">
+                  {t("emulators.sortBy")}
+                </label>
+                <select
+                  id="emu-sort"
+                  value={sortKey}
+                  onChange={(e) => setSortKey(e.target.value as SortKey)}
+                >
+                  {(Object.keys(sortLabel) as SortKey[]).map((k) => (
+                    <option key={k} value={k}>
+                      {sortLabel[k]}
+                    </option>
+                  ))}
+                </select>
+                <button
+                  className="emulators-sort-dir"
+                  onClick={toggleSortDir}
+                  title={sortDir === "asc" ? "↑" : "↓"}
+                  aria-label={sortDir === "asc" ? "Ascending" : "Descending"}
+                >
+                  {sortDir === "asc" ? "↑" : "↓"}
+                </button>
+              </div>
+            </div>
+
+            <div className="emulators-list-count">
+              {t("emulators.list.count", { added: addedCount, total: rows.length })}
+            </div>
+
+            <div className="emulators-list">
+              {filteredRows.length === 0 ? (
+                <div className="emulators-list-empty">{t("emulators.list.empty")}</div>
+              ) : (
+                filteredRows.map((r) => {
+                  const active = selectedRow?.id === r.id;
+                  return (
+                    <button
+                      key={r.id}
+                      className={`emu-row${active ? " is-active" : ""}`}
+                      style={{ ["--emu-accent" as string]: r.accent }}
+                      onClick={() => setSelectedId(r.id)}
+                    >
+                      <span className="emu-row-stripe" />
+                      <span className="emu-row-glyph">{r.glyph}</span>
+                      <span className="emu-row-main">
+                        <span className="emu-row-name">{r.name}</span>
+                        <span className="emu-row-platform">{r.platform}</span>
+                      </span>
+                      <span className="emu-row-meta">
+                        <span
+                          className={`emu-badge ${r.added ? "is-added" : "is-notadded"}`}
+                        >
+                          {r.added
+                            ? t("emulators.status.added")
+                            : t("emulators.status.notAdded")}
+                        </span>
+                        {r.added && (
+                          <span
+                            className={`emu-badge ${
+                              r.configured ? "is-configured" : "is-notconfigured"
+                            }`}
+                          >
+                            {r.configured
+                              ? t("emulators.status.configured")
+                              : t("emulators.status.notConfigured")}
+                          </span>
+                        )}
+                        <span className="emu-row-count">
+                          {r.gameCount === 1
+                            ? t("emulators.romCountSingle", { count: r.gameCount })
+                            : t("emulators.romCount", { count: r.gameCount })}
+                        </span>
+                      </span>
+                    </button>
+                  );
+                })
+              )}
+            </div>
+          </aside>
+
+          {/* ── Right: detail / games ── */}
+          <section className="emulators-detail-pane">
+            {!selectedRow ? (
+              <div className="emulators-detail-empty">
+                {t("emulators.detail.emptySelection")}
+              </div>
+            ) : !selectedRow.added ? (
+              <div className="emulators-detail">
+                <div
+                  className="emu-detail-head"
+                  style={{ ["--emu-accent" as string]: selectedRow.accent }}
+                >
+                  <span className="emu-detail-glyph">{selectedRow.glyph}</span>
+                  <div className="emu-detail-titles">
+                    <h2 className="emu-detail-name">{selectedRow.name}</h2>
+                    <span className="emu-detail-platform">{selectedRow.platform}</span>
+                  </div>
+                  <span className="emu-badge is-notadded">
+                    {t("emulators.status.notAdded")}
                   </span>
-                  <div className="emulator-card-titles">
-                    <h3 className="emulator-card-name">{emu.name}</h3>
-                    <span className="emulator-card-platform" style={{ color: accent }}>
-                      {emu.platform}
+                </div>
+                {selectedRow.known && (
+                  <p className="emu-detail-desc">{selectedRow.known.description}</p>
+                )}
+                <div className="emulators-notadded">
+                  <h3>{t("emulators.detail.addTitle")}</h3>
+                  <p>{t("emulators.detail.addDesc")}</p>
+                  <button
+                    className="btn-primary"
+                    onClick={() => openAddKnown(selectedRow.known!)}
+                  >
+                    + {t("emulators.detail.addCta", { name: selectedRow.name })}
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <div className="emulators-detail">
+                <div
+                  className="emu-detail-head"
+                  style={{ ["--emu-accent" as string]: selectedRow.accent }}
+                >
+                  <span className="emu-detail-glyph">{selectedRow.glyph}</span>
+                  <div className="emu-detail-titles">
+                    <h2 className="emu-detail-name">{selectedRow.name}</h2>
+                    <span className="emu-detail-platform">{selectedRow.platform}</span>
+                  </div>
+                  <span
+                    className={`emu-badge ${
+                      selectedRow.configured ? "is-configured" : "is-notconfigured"
+                    }`}
+                  >
+                    {selectedRow.configured
+                      ? t("emulators.status.configured")
+                      : t("emulators.status.notConfigured")}
+                  </span>
+                </div>
+
+                <div className="emu-detail-meta">
+                  <div className="emu-detail-meta-row">
+                    <span className="emu-detail-meta-label">
+                      {t("emulators.detail.executable")}
+                    </span>
+                    <span
+                      className="emu-detail-meta-value"
+                      title={selectedRow.emulator?.executablePath}
+                    >
+                      {selectedRow.emulator?.executablePath
+                        ? truncateMiddle(selectedRow.emulator.executablePath)
+                        : "—"}
+                    </span>
+                  </div>
+                  <div className="emu-detail-meta-row">
+                    <span className="emu-detail-meta-label">
+                      {t("emulators.detail.romFolder")}
+                    </span>
+                    <span
+                      className="emu-detail-meta-value"
+                      title={selectedRow.emulator?.romFolder}
+                    >
+                      {selectedRow.emulator?.romFolder
+                        ? truncateMiddle(selectedRow.emulator.romFolder)
+                        : "—"}
+                    </span>
+                    <button
+                      className="btn-ghost btn-sm"
+                      onClick={() =>
+                        selectedRow.emulator && handleOpenFolder(selectedRow.emulator.romFolder)
+                      }
+                      disabled={!selectedRow.emulator?.romFolder}
+                    >
+                      {t("emulators.openFolder")}
+                    </button>
+                  </div>
+                  <div className="emu-detail-meta-row">
+                    <span className="emu-detail-meta-label">
+                      {t("emulators.detail.lastScanned")}
+                    </span>
+                    <span className="emu-detail-meta-value">
+                      {selectedRow.scannedAt
+                        ? formatDate(selectedRow.scannedAt)
+                        : t("emulators.neverScanned")}
                     </span>
                   </div>
                 </div>
 
-                <div className="emulator-card-folder" title={emu.romFolder}>
-                  📁 {truncateMiddle(emu.romFolder)}
-                </div>
-
-                <div className="emulator-card-meta">
-                  <span className="emulator-card-count">
-                    {count === 1
-                      ? t("emulators.romCountSingle", { count })
-                      : t("emulators.romCount", { count })}
-                  </span>
-                  <span className="emulator-card-scanned">
-                    {lastScanned[emu.id]
-                      ? t("emulators.lastScanned", { date: formatDate(lastScanned[emu.id]) })
-                      : t("emulators.neverScanned")}
-                  </span>
-                </div>
-
-                <div className="emulator-card-actions">
+                <div className="emu-detail-actions">
                   <button
                     className="btn-primary btn-sm"
-                    onClick={() => handleScan(emu)}
-                    disabled={scanning}
+                    onClick={() => selectedRow.emulator && handleScan(selectedRow.emulator)}
+                    disabled={scanningId === selectedRow.id}
                   >
-                    {scanning ? t("emulators.scanning") : t("emulators.scan")}
+                    {scanningId === selectedRow.id
+                      ? t("emulators.scanning")
+                      : t("emulators.scan")}
                   </button>
                   <button
                     className="btn-ghost btn-sm"
-                    onClick={() => handleOpenFolder(emu.romFolder)}
-                    disabled={!emu.romFolder}
-                  >
-                    {t("emulators.openFolder")}
-                  </button>
-                  <button
-                    className="btn-ghost btn-sm"
-                    onClick={() => {
-                      setEditing(emu);
-                      setShowEditor(true);
-                    }}
+                    onClick={() => openEdit(selectedRow.emulator!)}
                   >
                     {t("emulators.edit")}
                   </button>
                   <button
                     className="btn-danger btn-sm"
-                    onClick={() => setConfirmDelete(emu)}
+                    onClick={() => setConfirmDelete(selectedRow.emulator!)}
                   >
                     {t("emulators.delete")}
                   </button>
                 </div>
+
+                <div className="emu-games">
+                  <div className="emu-games-head">
+                    <h3 className="emu-games-title">
+                      {t("emulators.detail.gamesTitle")}
+                      <span className="emu-games-count">
+                        {t("emulators.detail.gamesCount", { count: selectedRow.gameCount })}
+                      </span>
+                    </h3>
+                    {selectedGames.length > 0 && (
+                      <input
+                        className="emulators-search emu-games-search"
+                        type="text"
+                        placeholder={t("emulators.games.search")}
+                        value={gameSearch}
+                        onChange={(e) => setGameSearch(e.target.value)}
+                      />
+                    )}
+                  </div>
+
+                  {selectedGames.length === 0 ? (
+                    <div className="emu-games-empty">
+                      <p>{t("emulators.detail.emptyGames")}</p>
+                      <p className="emu-games-empty-hint">
+                        {t("emulators.detail.emptyGamesHint")}
+                      </p>
+                    </div>
+                  ) : (
+                    <div className="emu-games-table">
+                      {selectedGames.map((g) => {
+                        const running = runningGameIds.includes(g.id);
+                        return (
+                          <div className="emu-game-row" key={g.id}>
+                            <span className="emu-game-icon">
+                              {g.iconUrl || g.coverArtUrl ? (
+                                <img src={g.iconUrl ?? g.coverArtUrl} alt="" />
+                              ) : (
+                                <span className="emu-game-icon-fallback">🎮</span>
+                              )}
+                            </span>
+                            <span className="emu-game-main">
+                              <span className="emu-game-name" title={g.name}>
+                                {g.name}
+                              </span>
+                              <span className="emu-game-path" title={g.romPath}>
+                                {g.romPath ? truncateMiddle(g.romPath, 60) : t("emulators.games.noRomPath")}
+                              </span>
+                            </span>
+                            <span className="emu-game-size">
+                              {g.sizeBytes ? formatBytesShort(g.sizeBytes) : "—"}
+                            </span>
+                            <button
+                              className="btn-primary btn-sm"
+                              onClick={() => launchGame(g)}
+                              disabled={running}
+                            >
+                              {running ? "…" : t("emulators.games.launch")}
+                            </button>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
               </div>
-            );
-          })}
+            )}
+          </section>
         </div>
       )}
 
       {showEditor && (
         <EmulatorEditorModal
           emulator={editing}
+          presetKnown={presetKnown}
           onClose={() => {
             setShowEditor(false);
             setEditing(null);
+            setPresetKnown(null);
           }}
           onSaved={handleSaved}
         />

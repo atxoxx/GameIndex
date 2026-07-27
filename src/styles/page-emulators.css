@@ -69,66 +69,179 @@
   line-height: 1.5;
 }
 
-/* ── Card grid ──────────────────────────────────────────────────── */
+/* ── Split layout (master / detail) ─────────────────────────────── */
 
-.emulators-grid {
+.emulators-split {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
-  gap: 16px;
+  grid-template-columns: minmax(300px, 360px) 1fr;
+  gap: 20px;
+  align-items: start;
 }
 
-.emulator-card {
-  position: relative;
+/* ── Left list pane ─────────────────────────────────────────────── */
+
+.emulators-list-pane {
   background: var(--color-surface);
   border: 1px solid var(--color-border);
   border-radius: 12px;
-  overflow: hidden;
+  padding: 14px;
+  position: sticky;
+  top: 16px;
+}
+
+.emulators-list-controls {
   display: flex;
   flex-direction: column;
-  transition: border-color 0.2s, box-shadow 0.2s, transform 0.15s;
+  gap: 10px;
 }
 
-.emulator-card:hover {
-  border-color: var(--color-border-light);
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
-  transform: translateY(-2px);
+.emulators-search {
+  width: 100%;
+  height: 34px;
+  padding: 0 12px;
+  font-size: 13px;
+  color: var(--color-text-primary);
+  background: var(--color-bg-primary);
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+  outline: none;
+  transition: border-color 0.15s;
 }
 
-.emulator-card-accent {
-  height: 4px;
-  background: var(--emu-accent, var(--color-accent));
-  flex-shrink: 0;
+.emulators-search:focus {
+  border-color: var(--color-accent);
+  box-shadow: 0 0 0 1px var(--color-accent-glow);
 }
 
-.emulator-card-head {
+.emulators-sort {
   display: flex;
   align-items: center;
-  gap: 12px;
-  padding: 16px 16px 8px;
+  gap: 8px;
 }
 
-.emulator-card-glyph {
-  width: 36px;
-  height: 36px;
+.emulators-sort-label {
+  font-size: 12px;
+  color: var(--color-text-secondary, #8b8fa3);
+  white-space: nowrap;
+}
+
+.emulators-sort select {
+  flex: 1;
+  height: 32px;
+  padding: 0 8px;
+  font-size: 12px;
+  color: var(--color-text-primary);
+  background: var(--color-bg-primary);
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+  outline: none;
+}
+
+.emulators-sort-dir {
+  width: 32px;
+  height: 32px;
+  flex-shrink: 0;
+  font-size: 14px;
+  color: var(--color-text-primary);
+  background: var(--color-bg-primary);
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+  cursor: pointer;
+  transition: border-color 0.15s, background 0.15s;
+}
+
+.emulators-sort-dir:hover {
+  border-color: var(--color-accent);
+  background: var(--color-accent-soft);
+}
+
+.emulators-list-count {
+  margin: 12px 2px 8px;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--color-text-secondary, #8b8fa3);
+}
+
+.emulators-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  max-height: calc(100vh - 280px);
+  overflow-y: auto;
+  padding-right: 4px;
+}
+
+.emulators-list-empty {
+  padding: 24px 8px;
+  text-align: center;
+  font-size: 13px;
+  color: var(--color-text-secondary, #8b8fa3);
+}
+
+.emu-row {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 10px 12px 10px 14px;
+  text-align: left;
+  background: transparent;
+  border: 1px solid transparent;
   border-radius: 10px;
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s;
+}
+
+.emu-row:hover {
+  background: var(--color-bg-hover);
+}
+
+.emu-row.is-active {
+  background: var(--color-accent-soft);
+  border-color: var(--color-accent);
+}
+
+.emu-row-stripe {
+  position: absolute;
+  left: 0;
+  top: 8px;
+  bottom: 8px;
+  width: 3px;
+  border-radius: 3px;
+  background: var(--emu-accent, var(--color-accent));
+  opacity: 0;
+  transition: opacity 0.15s;
+}
+
+.emu-row.is-active .emu-row-stripe {
+  opacity: 1;
+}
+
+.emu-row-glyph {
+  width: 32px;
+  height: 32px;
+  flex-shrink: 0;
+  border-radius: 8px;
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 14px;
-  font-weight: 700;
+  font-size: 15px;
   color: #fff;
   background: var(--emu-accent, var(--color-accent));
-  flex-shrink: 0;
 }
 
-.emulator-card-titles {
+.emu-row-main {
   flex: 1;
   min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
 }
 
-.emulator-card-name {
-  margin: 0;
-  font-size: 16px;
+.emu-row-name {
+  font-size: 13px;
   font-weight: 600;
   color: var(--color-text-primary);
   white-space: nowrap;
@@ -136,50 +249,320 @@
   text-overflow: ellipsis;
 }
 
-.emulator-card-platform {
+.emu-row-platform {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  color: var(--color-text-secondary, #8b8fa3);
+}
+
+.emu-row-meta {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 4px;
+  flex-shrink: 0;
+}
+
+.emu-row-count {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--color-text-secondary, #8b8fa3);
+}
+
+.emu-badge {
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  padding: 1px 6px;
+  border-radius: 5px;
+  border: 1px solid transparent;
+  white-space: nowrap;
+}
+
+.emu-badge.is-added {
+  color: var(--color-accent);
+  border-color: var(--color-accent);
+  background: var(--color-accent-soft);
+}
+
+.emu-badge.is-notadded {
+  color: var(--color-text-secondary, #8b8fa3);
+  border-color: var(--color-border);
+}
+
+.emu-badge.is-configured {
+  color: #4ade80;
+  border-color: rgba(74, 222, 128, 0.4);
+  background: rgba(74, 222, 128, 0.1);
+}
+
+.emu-badge.is-notconfigured {
+  color: #f59e0b;
+  border-color: rgba(245, 158, 11, 0.4);
+  background: rgba(245, 158, 11, 0.1);
+}
+
+/* ── Right detail pane ──────────────────────────────────────────── */
+
+.emulators-detail-pane {
+  min-width: 0;
+}
+
+.emulators-detail-empty {
+  padding: 80px 24px;
+  text-align: center;
+  font-size: 14px;
+  color: var(--color-text-secondary, #8b8fa3);
+}
+
+.emulators-detail {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: 12px;
+  padding: 20px;
+}
+
+.emu-detail-head {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding-bottom: 16px;
+  border-bottom: 1px solid var(--color-border);
+}
+
+.emu-detail-glyph {
+  width: 48px;
+  height: 48px;
+  flex-shrink: 0;
+  border-radius: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 22px;
+  color: #fff;
+  background: var(--emu-accent, var(--color-accent));
+}
+
+.emu-detail-titles {
+  flex: 1;
+  min-width: 0;
+}
+
+.emu-detail-name {
+  margin: 0;
+  font-size: 20px;
+  font-weight: 700;
+  color: var(--color-text-primary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.emu-detail-platform {
   font-size: 12px;
   font-weight: 500;
   text-transform: uppercase;
   letter-spacing: 0.04em;
+  color: var(--color-text-secondary, #8b8fa3);
 }
 
-.emulator-card-folder {
-  padding: 8px 16px;
+.emu-detail-desc {
+  margin: 14px 0 0;
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--color-text-secondary, #8b8fa3);
+}
+
+.emu-detail-meta {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin: 16px 0;
+}
+
+.emu-detail-meta-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 13px;
+}
+
+.emu-detail-meta-label {
+  width: 110px;
+  flex-shrink: 0;
+  color: var(--color-text-secondary, #8b8fa3);
+}
+
+.emu-detail-meta-value {
+  flex: 1;
+  min-width: 0;
+  color: var(--color-text-primary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.emu-detail-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 20px;
+}
+
+.emulators-notadded {
+  margin-top: 18px;
+  padding: 18px;
+  border: 1px dashed var(--color-border-light);
+  border-radius: 10px;
+  text-align: center;
+}
+
+.emulators-notadded h3 {
+  margin: 0 0 8px;
+  font-size: 16px;
+  color: var(--color-text-primary);
+}
+
+.emulators-notadded p {
+  margin: 0 0 16px;
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--color-text-secondary, #8b8fa3);
+}
+
+/* ── Games table ────────────────────────────────────────────────── */
+
+.emu-games {
+  border-top: 1px solid var(--color-border);
+  padding-top: 16px;
+}
+
+.emu-games-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 12px;
+  flex-wrap: wrap;
+}
+
+.emu-games-title {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--color-text-primary);
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+}
+
+.emu-games-count {
   font-size: 12px;
+  font-weight: 500;
+  color: var(--color-text-secondary, #8b8fa3);
+}
+
+.emu-games-search {
+  width: 200px;
+  height: 30px;
+}
+
+.emu-games-empty {
+  padding: 28px 12px;
+  text-align: center;
+}
+
+.emu-games-empty p {
+  margin: 0 0 6px;
+  font-size: 13px;
+  color: var(--color-text-primary);
+}
+
+.emu-games-empty-hint {
+  color: var(--color-text-secondary, #8b8fa3) !important;
+  font-size: 12px !important;
+}
+
+.emu-games-table {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  max-height: calc(100vh - 360px);
+  overflow-y: auto;
+  padding-right: 4px;
+}
+
+.emu-game-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 10px;
+  border: 1px solid var(--color-border);
+  border-radius: 10px;
+  background: var(--color-surface-raised);
+  transition: border-color 0.15s;
+}
+
+.emu-game-row:hover {
+  border-color: var(--color-border-light);
+}
+
+.emu-game-icon {
+  width: 36px;
+  height: 36px;
+  flex-shrink: 0;
+  border-radius: 8px;
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--color-bg-primary);
+}
+
+.emu-game-icon img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.emu-game-icon-fallback {
+  font-size: 16px;
+  opacity: 0.6;
+}
+
+.emu-game-main {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.emu-game-name {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--color-text-primary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.emu-game-path {
+  font-size: 11px;
   color: var(--color-text-secondary, #8b8fa3);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
 }
 
-.emulator-card-folder::before {
-  content: "📁 ";
-}
-
-.emulator-card-meta {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 4px 16px 12px;
+.emu-game-size {
   font-size: 12px;
   color: var(--color-text-secondary, #8b8fa3);
-}
-
-.emulator-card-count {
-  font-weight: 600;
-}
-
-.emulator-card-scanned {
-  opacity: 0.7;
-}
-
-.emulator-card-actions {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
-  padding: 10px 16px 14px;
-  border-top: 1px solid var(--color-border);
-  background: var(--color-surface-raised);
+  flex-shrink: 0;
+  min-width: 64px;
+  text-align: right;
 }
 
 /* ── Button classes for the emulators page ──────────────────────── */
@@ -442,16 +825,30 @@
 
 /* ── Responsive tweaks ──────────────────────────────────────────── */
 
+@media (max-width: 900px) {
+  .emulators-split {
+    grid-template-columns: 1fr;
+  }
+
+  .emulators-list-pane {
+    position: static;
+  }
+
+  .emulators-list {
+    max-height: 320px;
+  }
+}
+
 @media (max-width: 600px) {
   .emulators-header {
     flex-direction: column;
   }
 
-  .emulators-grid {
+  .emulators-field-row {
     grid-template-columns: 1fr;
   }
 
-  .emulators-field-row {
-    grid-template-columns: 1fr;
+  .emu-game-size {
+    display: none;
   }
 }
