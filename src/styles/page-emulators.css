@@ -1,0 +1,457 @@
+/* ────────────────────────────────────────────────────────────────────────
+ * Emulators page (page-emulators.css)
+ * ──────────────────────────────────────────────────────────────────────── */
+
+/* ── Card grid ──────────────────────────────────────────────────── */
+
+.emulators-page {
+  padding: 28px 32px;
+  max-width: 1100px;
+  min-height: 100%;
+}
+
+.emulators-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 24px;
+  margin-bottom: 28px;
+}
+
+.emulators-title {
+  margin: 0 0 6px;
+  font-size: 26px;
+  font-weight: 700;
+  color: var(--color-text-primary);
+}
+
+.emulators-subtitle {
+  margin: 0;
+  font-size: 14px;
+  color: var(--color-text-secondary, #8b8fa3);
+  max-width: 520px;
+  line-height: 1.5;
+}
+
+.emulators-header-actions {
+  display: flex;
+  gap: 10px;
+  flex-shrink: 0;
+}
+
+/* ── Empty state ────────────────────────────────────────────────── */
+
+.emulators-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 80px 24px;
+  text-align: center;
+}
+
+.emulators-empty-glyph {
+  font-size: 48px;
+  margin-bottom: 16px;
+  opacity: 0.6;
+}
+
+.emulators-empty h2 {
+  margin: 0 0 8px;
+  font-size: 20px;
+  color: var(--color-text-primary);
+}
+
+.emulators-empty p {
+  margin: 0 0 20px;
+  color: var(--color-text-secondary, #8b8fa3);
+  max-width: 360px;
+  line-height: 1.5;
+}
+
+/* ── Card grid ──────────────────────────────────────────────────── */
+
+.emulators-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+  gap: 16px;
+}
+
+.emulator-card {
+  position: relative;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: 12px;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  transition: border-color 0.2s, box-shadow 0.2s, transform 0.15s;
+}
+
+.emulator-card:hover {
+  border-color: var(--color-border-light);
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+  transform: translateY(-2px);
+}
+
+.emulator-card-accent {
+  height: 4px;
+  background: var(--emu-accent, var(--color-accent));
+  flex-shrink: 0;
+}
+
+.emulator-card-head {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 16px 16px 8px;
+}
+
+.emulator-card-glyph {
+  width: 36px;
+  height: 36px;
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 14px;
+  font-weight: 700;
+  color: #fff;
+  background: var(--emu-accent, var(--color-accent));
+  flex-shrink: 0;
+}
+
+.emulator-card-titles {
+  flex: 1;
+  min-width: 0;
+}
+
+.emulator-card-name {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--color-text-primary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.emulator-card-platform {
+  font-size: 12px;
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.emulator-card-folder {
+  padding: 8px 16px;
+  font-size: 12px;
+  color: var(--color-text-secondary, #8b8fa3);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.emulator-card-folder::before {
+  content: "📁 ";
+}
+
+.emulator-card-meta {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 4px 16px 12px;
+  font-size: 12px;
+  color: var(--color-text-secondary, #8b8fa3);
+}
+
+.emulator-card-count {
+  font-weight: 600;
+}
+
+.emulator-card-scanned {
+  opacity: 0.7;
+}
+
+.emulator-card-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  padding: 10px 16px 14px;
+  border-top: 1px solid var(--color-border);
+  background: var(--color-surface-raised);
+}
+
+/* ── Button classes for the emulators page ──────────────────────── */
+/* These are self-contained so the page doesn't depend on global btn
+   classes. Reuse is intentional — they match the app's existing look. */
+
+.btn-primary {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 34px;
+  padding: 0 16px;
+  font-size: 13px;
+  font-weight: 600;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  color: #fff;
+  background: var(--color-accent);
+  transition: background 0.15s, box-shadow 0.15s;
+}
+
+.btn-primary:hover {
+  background: var(--color-accent-hover);
+  box-shadow: 0 0 12px var(--color-accent-glow);
+}
+
+.btn-primary:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  box-shadow: none;
+}
+
+.btn-secondary {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 34px;
+  padding: 0 16px;
+  font-size: 13px;
+  font-weight: 600;
+  border: 1px solid var(--color-border-light);
+  border-radius: 8px;
+  cursor: pointer;
+  color: var(--color-text-primary);
+  background: transparent;
+  transition: border-color 0.15s, background 0.15s;
+}
+
+.btn-secondary:hover {
+  border-color: var(--color-accent);
+  background: var(--color-accent-soft);
+}
+
+.btn-secondary:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.btn-ghost {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 32px;
+  padding: 0 12px;
+  font-size: 12px;
+  font-weight: 500;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  color: var(--color-text-secondary, #8b8fa3);
+  background: transparent;
+  transition: color 0.15s, background 0.15s;
+}
+
+.btn-ghost:hover {
+  color: var(--color-text-primary);
+  background: var(--color-bg-hover);
+}
+
+.btn-danger {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 32px;
+  padding: 0 12px;
+  font-size: 12px;
+  font-weight: 500;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  cursor: pointer;
+  color: var(--color-danger);
+  background: transparent;
+  transition: border-color 0.15s, background 0.15s;
+}
+
+.btn-danger:hover {
+  border-color: var(--color-danger);
+  background: rgba(255, 92, 122, 0.1);
+}
+
+.btn-sm {
+  height: 28px;
+  padding: 0 10px;
+  font-size: 11px;
+}
+
+/* ── Modal overrides for emulator editor ────────────────────────── */
+
+/* Base modal overlay — the dark scrim behind every modal dialog. */
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: var(--color-surface-overlay, rgba(7, 8, 12, 0.85));
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 9000;
+}
+
+.emulators-modal-overlay {
+  z-index: 10000;
+}
+
+.emulators-modal {
+  max-width: 520px;
+  width: 90%;
+}
+
+.emulators-editor-body {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding: 20px 24px;
+}
+
+.emulators-field {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.emulators-field > span {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--color-text-secondary, #8b8fa3);
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+.emulators-field input,
+.emulators-field select,
+.emulators-field textarea {
+  padding: 8px 10px;
+  font-size: 13px;
+  border: 1px solid var(--color-border);
+  border-radius: 6px;
+  background: var(--color-bg-primary);
+  color: var(--color-text-primary);
+  outline: none;
+  transition: border-color 0.15s;
+}
+
+.emulators-field input:focus,
+.emulators-field select:focus,
+.emulators-field textarea:focus {
+  border-color: var(--color-accent);
+  box-shadow: 0 0 0 1px var(--color-accent-glow);
+}
+
+.emulators-field textarea {
+  resize: vertical;
+  min-height: 48px;
+  font-family: inherit;
+}
+
+.emulators-field-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+
+.emulators-path-row {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.emulators-path-row input {
+  flex: 1;
+}
+
+.emulators-hint {
+  font-size: 11px;
+  color: var(--color-text-secondary, #8b8fa3);
+  opacity: 0.7;
+}
+
+.emulators-known-hint {
+  margin: 0;
+  font-size: 12px;
+  color: var(--color-text-secondary, #8b8fa3);
+  font-style: italic;
+  padding: 2px 0 0;
+}
+
+.emulators-extensions {
+  margin: 0;
+  font-size: 11px;
+  color: var(--color-text-secondary, #8b8fa3);
+  opacity: 0.7;
+}
+
+.emulators-checkbox {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  color: var(--color-text-primary);
+  cursor: pointer;
+}
+
+.emulators-checkbox input[type="checkbox"] {
+  accent-color: var(--color-accent);
+  width: 16px;
+  height: 16px;
+}
+
+/* ── Sidebar console badge ──────────────────────────────────────── */
+
+.sidebar-game-console-badge {
+  display: inline-block;
+  padding: 1px 6px;
+  margin-right: 6px;
+  font-size: 9px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  line-height: 1.3;
+  border: 1px solid;
+  border-radius: 4px;
+  vertical-align: middle;
+  flex-shrink: 0;
+  opacity: 0.85;
+}
+
+/* ── Confirm delete modal reuse ─────────────────────────────────── */
+
+.confirm-modal {
+  max-width: 400px;
+  width: 90%;
+}
+
+.confirm-modal .modal-body p {
+  font-size: 14px;
+  line-height: 1.5;
+  color: var(--color-text-primary);
+  margin: 0;
+}
+
+/* ── Responsive tweaks ──────────────────────────────────────────── */
+
+@media (max-width: 600px) {
+  .emulators-header {
+    flex-direction: column;
+  }
+
+  .emulators-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .emulators-field-row {
+    grid-template-columns: 1fr;
+  }
+}

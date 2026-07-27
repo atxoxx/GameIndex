@@ -13,6 +13,7 @@
 //! | `achievements.db`  | `achievements_cache`                                |
 //! | `kv.db`            | `kv_store`                                          |
 //! | `news.db`          | `news_cache`                                        |
+//! | `emulators.db`     | `emulators`                                         |
 //!
 //! Splitting into separate files means a corrupt or WAL-stuck file can
 //! only take down its own domain — the rest of the app keeps working —
@@ -71,6 +72,7 @@ pub struct Db {
     pub achievements: SqlitePool,
     pub kv: SqlitePool,
     pub news: SqlitePool,
+    pub emulators: SqlitePool,
 }
 
 impl Db {
@@ -97,6 +99,7 @@ impl Db {
             achievements: mk("achievements")?,
             kv: mk("kv")?,
             news: mk("news")?,
+            emulators: mk("emulators")?,
         })
     }
 
@@ -136,6 +139,12 @@ impl Db {
     pub fn news(&self) -> Result<PooledConn, String> {
         self.news.get().map_err(|e| format!("acquire news conn: {e}"))
     }
+    /// Borrow a connection from the `emulators` pool.
+    pub fn emulators(&self) -> Result<PooledConn, String> {
+        self.emulators
+            .get()
+            .map_err(|e| format!("acquire emulators conn: {e}"))
+    }
 
     /// Return the pool backing a domain `label` (used by the migration
     /// runner). Returns `None` for unknown labels.
@@ -149,6 +158,7 @@ impl Db {
             "achievements" => Some(&self.achievements),
             "kv" => Some(&self.kv),
             "news" => Some(&self.news),
+            "emulators" => Some(&self.emulators),
             _ => None,
         }
     }
@@ -188,6 +198,7 @@ mod tests {
             Db::achievements,
             Db::kv,
             Db::news,
+            Db::emulators,
         ] {
             let conn = acquire(&db).unwrap();
             let mode: String = conn

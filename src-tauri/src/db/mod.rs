@@ -66,6 +66,7 @@
 
 pub mod achievements;
 pub mod atomic;
+pub mod emulators;
 pub mod games;
 pub mod kv;
 pub mod legacy;

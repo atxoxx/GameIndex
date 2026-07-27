@@ -25,6 +25,15 @@ pub const SOURCES_DDL: &str = include_str!("schema_sources.sql");
 /// order so the Rust DAO's positional column reads stay valid.
 pub const GAMES_DDL: &str = include_str!("schema_games.sql");
 
+/// DDL for the `games` domain, v2 migration: emulation linkage columns
+/// (`emulator_id`, `rom_path`). Applied as a separate migration version
+/// so existing installs (already at `games` v1) pick it up on next
+/// launch; fresh installs apply v1 then v2.
+pub const GAMES_V2_DDL: &str = include_str!("schema_games_v2.sql");
+
+/// DDL for the `emulators` domain: the `emulators` table.
+pub const EMULATORS_DDL: &str = include_str!("schema_emulators.sql");
+
 /// DDL for the `sessions` domain: `sessions` plus the v4 `game_name`
 /// denormalization.
 pub const SESSIONS_DDL: &str = include_str!("schema_sessions.sql");
@@ -78,7 +87,7 @@ pub const DOMAIN_SCHEMAS: &[DomainSchema] = &[
     },
     DomainSchema {
         label: "games",
-        versions: &[("v1", GAMES_DDL)],
+        versions: &[("v1", GAMES_DDL), ("v2", GAMES_V2_DDL)],
     },
     DomainSchema {
         label: "sessions",
@@ -103,5 +112,9 @@ pub const DOMAIN_SCHEMAS: &[DomainSchema] = &[
     DomainSchema {
         label: "news",
         versions: &[("v1", NEWS_DDL)],
+    },
+    DomainSchema {
+        label: "emulators",
+        versions: &[("v1", EMULATORS_DDL)],
     },
 ];

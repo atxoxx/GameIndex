@@ -89,6 +89,13 @@ export interface Game {
   lastPlayed?: number;
   /** Store source for metadata; drives the GamePage store selector */
   storeSource?: StoreSource;
+  /** ── Emulation linkage ──────────────────────────────────────────
+   *  When this game is a scanned ROM, `emulatorId` ties it back to the
+   *  owning emulator instance and `romPath` is the absolute path to the
+   *  ROM file handed to the emulator as a launch argument. Drives the
+   *  sidebar console badge and cascade-delete on emulator removal. */
+  emulatorId?: string;
+  romPath?: string;
   /** Fetched metadata fields */
   description?: string;
   developer?: string;

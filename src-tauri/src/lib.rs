@@ -222,6 +222,38 @@ struct GameData {
     last_played: Option<u64>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     play_status: Option<String>,
+    // ── Emulation linkage ──
+    /// Id of the owning emulator instance when this row is a scanned
+    /// ROM. Lets the backend cascade-delete ROMs when the emulator is
+    /// removed, and lets the frontend show a console badge.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    emulator_id: Option<String>,
+    /// Absolute path to the ROM file handed to the emulator as a
+    /// launch argument.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    rom_path: Option<String>,
+}
+
+/// Serializable emulator configuration, mirroring the frontend
+/// `Emulator` type. One instance per configured emulator; each is
+/// linked to exactly one ROM folder.
+#[derive(Debug, Serialize, Deserialize, Clone)]
+#[serde(rename_all = "camelCase")]
+struct EmulatorData {
+    id: String,
+    name: String,
+    platform: String,
+    executable_path: String,
+    /// Launch-argument template; the literal `%ROM%` is replaced with
+    /// the ROM file path at launch time. Defaults to `"%ROM%"`.
+    arguments_template: String,
+    rom_folder: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    notes: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    icon_url: Option<String>,
+    created_at: u64,
+    updated_at: u64,
 }
 
 /// Serializable Steam achievement for the GameData struct.
@@ -334,6 +366,285 @@ fn load_games(app: tauri::AppHandle) -> Result<Vec<GameData>, String> {
             }
         }
     }
+    Ok(out)
+}
+
+// === Emulation support =====================================================
+//
+// Emulators are configured in their own `emulators` table. Scanning an
+// emulator's ROM folder produces `Game` rows (in the `games` table)
+// that carry `emulator_id` + `rom_path` and whose `path`/`launch_arguments`
+// point at the emulator exe with the ROM as an argument. This lets ROMs
+// reuse the existing `launch_game` path, the GameWatcher playtime tracking,
+// and the sidebar/platform filter — ROMs are just games with a console
+// `platform`.
+
+/// Stable, short, non-cryptographic hash of a ROM's absolute path. Used
+/// to build a deterministic `Game.id` (`emu-<emulatorId>-<hash>`) so a
+/// re-scan updates the same row instead of duplicating it.
+fn hash_str(s: &str) -> String {
+    use std::collections::hash_map::DefaultHasher;
+    use std::hash::{Hash, Hasher};
+    let mut h = DefaultHasher::new();
+    s.hash(&mut h);
+    format!("{:x}", h.finish())
+}
+
+/// ROM file extensions recognised per console platform. Keys MUST match
+/// the `platform` strings used by the frontend emulator catalog so the
+/// backend and UI agree on what a "GameCube" ROM looks like.
+fn rom_extensions_for_platform(platform: &str) -> Vec<String> {
+    let table: &[(&str, &[&str])] = &[
+        ("NES", &["nes"]),
+        ("Super Nintendo", &["smc", "sfc", "swc", "fig"]),
+        ("Nintendo 64", &["n64", "z64", "v64"]),
+        ("GameCube", &["iso", "gcm", "rvz", "gcz"]),
+        ("Wii", &["iso", "wbfs", "rvz", "gcz"]),
+        ("Wii U", &["wud", "wux", "rpx"]),
+        ("Nintendo DS", &["nds"]),
+        ("Nintendo 3DS", &["3ds", "cia", "cxi"]),
+        ("Game Boy", &["gb"]),
+        ("Game Boy Color", &["gbc"]),
+        ("Game Boy Advance", &["gba"]),
+        ("PlayStation", &["iso", "bin", "cue", "img", "pbp", "chd"]),
+        ("PlayStation 2", &["iso", "bin", "cue", "chd", "img", "gz"]),
+        ("PlayStation Portable", &["iso", "cso", "pbp"]),
+        ("PlayStation 3", &["iso", "pkg", "rap"]),
+        ("Sega Genesis", &["md", "gen", "smd", "bin"]),
+        ("Sega Saturn", &["iso", "bin", "cue"]),
+        ("Sega Dreamcast", &["cdi", "gdi", "chd"]),
+        ("Xbox", &["iso", "xbe"]),
+        ("Xbox 360", &["iso", "xex"]),
+        ("Atari 2600", &["a26"]),
+        ("PC Engine", &["pce", "cue", "iso"]),
+        ("Neo Geo", &["neo", "zip"]),
+        ("Arcade", &["zip", "7z"]),
+    ];
+    for (name, exts) in table {
+        if name.eq_ignore_ascii_case(platform) {
+            return exts.iter().map(|s| s.to_string()).collect();
+        }
+    }
+    // Unknown platform: fall back to a permissive set so a custom
+    // emulator still scans something rather than nothing.
+    vec!["iso".into(), "bin".into(), "cue".into(), "rom".into(), "zip".into()]
+}
+
+/// List all configured emulators.
+#[tauri::command]
+fn list_emulators(app: tauri::AppHandle) -> Result<Vec<EmulatorData>, String> {
+    let db_state: tauri::State<'_, db::Db> = app.state();
+    let rows = db::emulators::list_all(db_state.inner()).map_err(|e| e.to_string())?;
+    Ok(rows
+        .into_iter()
+        .map(|r| EmulatorData {
+            id: r.id,
+            name: r.name,
+            platform: r.platform,
+            executable_path: r.executable_path,
+            arguments_template: r.arguments_template,
+            rom_folder: r.rom_folder,
+            notes: r.notes,
+            icon_url: r.icon_url,
+            created_at: r.created_at,
+            updated_at: r.updated_at,
+        })
+        .collect())
+}
+
+/// Upsert a single emulator configuration.
+#[tauri::command]
+fn save_emulator(app: tauri::AppHandle, emulator: EmulatorData) -> Result<(), String> {
+    let db_state: tauri::State<'_, db::Db> = app.state();
+    let row = db::emulators::EmulatorRow {
+        id: emulator.id,
+        name: emulator.name,
+        platform: emulator.platform,
+        executable_path: emulator.executable_path,
+        arguments_template: emulator.arguments_template,
+        rom_folder: emulator.rom_folder,
+        notes: emulator.notes,
+        icon_url: emulator.icon_url,
+        created_at: emulator.created_at,
+        updated_at: emulator.updated_at,
+    };
+    db::emulators::upsert_one(db_state.inner(), &row)
+}
+
+/// Delete an emulator and cascade-delete all of its scanned ROMs.
+#[tauri::command]
+fn delete_emulator(app: tauri::AppHandle, id: String) -> Result<(), String> {
+    let db_state: tauri::State<'_, db::Db> = app.state();
+    db::games::delete_by_emulator(db_state.inner(), &id)?;
+    db::emulators::delete(db_state.inner(), &id)
+}
+
+/// Scan an emulator's ROM folder (flat — top-level files only) and
+/// upsert a `Game` row per recognised ROM. Returns the full list of
+/// scanned games (including any existing rows that were preserved).
+///
+/// Existing rows are merged so playtime / metadata / covers survive a
+/// re-scan; only the emulator linkage + launch arguments are refreshed.
+#[tauri::command]
+fn scan_emulator_roms(
+    app: tauri::AppHandle,
+    emulator_id: String,
+) -> Result<Vec<GameData>, String> {
+    let db_state: tauri::State<'_, db::Db> = app.state();
+    let emu = db::emulators::get(db_state.inner(), &emulator_id)
+        .map_err(|e| e.to_string())?
+        .ok_or_else(|| format!("Emulator not found: {emulator_id}"))?;
+
+    if emu.rom_folder.trim().is_empty() {
+        return Err("Emulator has no ROM folder configured".into());
+    }
+    let folder = std::path::Path::new(&emu.rom_folder);
+    if !folder.exists() {
+        return Err(format!("ROM folder does not exist: {}", emu.rom_folder));
+    }
+
+    let exts = rom_extensions_for_platform(&emu.platform);
+    let now_ms = SystemTime::now()
+        .duration_since(SystemTime::UNIX_EPOCH)
+        .map(|d| d.as_millis() as u64)
+        .unwrap_or(0);
+
+    let mut out: Vec<GameData> = Vec::new();
+    let entries = std::fs::read_dir(folder).map_err(|e| format!("read ROM folder: {e}"))?;
+    for entry in entries {
+        let entry = entry.map_err(|e| format!("read ROM entry: {e}"))?;
+        let path = entry.path();
+        if !path.is_file() {
+            continue;
+        }
+        let ext = match path.extension().and_then(|e| e.to_str()) {
+            Some(e) => e.to_lowercase(),
+            None => continue,
+        };
+        if !exts.iter().any(|x| x.eq_ignore_ascii_case(&ext)) {
+            continue;
+        }
+        let rom_path = path.to_string_lossy().to_string();
+        let name = path
+            .file_stem()
+            .and_then(|s| s.to_str())
+            .unwrap_or("Unknown")
+            .to_string();
+        let id = format!("emu-{}-{}", emulator_id, hash_str(&rom_path));
+        let args = emu.arguments_template.replace("%ROM%", &rom_path);
+
+        let mut game = GameData {
+            id: id.clone(),
+            name,
+            path: emu.executable_path.clone(),
+            platform: emu.platform.clone(),
+            installed: true,
+            play_time: "0h".into(),
+            added_at: now_ms,
+            cover_art_url: None,
+            notes: None,
+            size_bytes: None,
+            size_detected_at: None,
+            size_root_path: None,
+            icon_url: None,
+            banner_url: None,
+            logo_url: None,
+            description: None,
+            developer: None,
+            publisher: None,
+            release_date: None,
+            genres: None,
+            metadata_source: None,
+            metadata_url: None,
+            storyline: None,
+            igdb_rating: None,
+            critic_rating: None,
+            themes: None,
+            game_modes: None,
+            player_perspectives: None,
+            screenshots: None,
+            videos: None,
+            websites: None,
+            time_to_beat: None,
+            similar_games: None,
+            releases: None,
+            igdb_reviews: None,
+            alternative_names: None,
+            collection: None,
+            franchise: None,
+            game_category: None,
+            release_status: None,
+            steam_app_id: None,
+            steam_playtime: None,
+            gog_game_id: None,
+            gog_playtime: None,
+            steam_achievements: None,
+            language_supports: None,
+            store_source: None,
+            epic_namespace: None,
+            epic_catalog_item_id: None,
+            humble_game_id: None,
+            humble_is_trove: None,
+            humble_is_extra: None,
+            uplay_game_id: None,
+            uplay_is_connect: None,
+            launch_arguments: Some(args),
+            run_as_admin: None,
+            pre_launch_script: None,
+            pre_launch_admin: None,
+            post_exit_script: None,
+            post_exit_admin: None,
+            companion_apps: None,
+            last_played: None,
+            play_status: None,
+            emulator_id: Some(emulator_id.clone()),
+            rom_path: Some(rom_path.clone()),
+        };
+
+        // Preserve progress / metadata if this ROM was scanned before.
+        if let Some(existing) = db::games::get(db_state.inner(), &id).map_err(|e| e.to_string())? {
+            let value = serde_json::to_value(&existing).map_err(|e| format!("to_value: {e}"))?;
+            if let Ok(prev) = serde_json::from_value::<GameData>(value) {
+                game.play_time = prev.play_time;
+                game.added_at = prev.added_at;
+                game.last_played = prev.last_played;
+                game.cover_art_url = prev.cover_art_url;
+                game.icon_url = prev.icon_url;
+                game.banner_url = prev.banner_url;
+                game.logo_url = prev.logo_url;
+                game.description = prev.description;
+                game.developer = prev.developer;
+                game.publisher = prev.publisher;
+                game.release_date = prev.release_date;
+                game.genres = prev.genres;
+                game.metadata_source = prev.metadata_source;
+                game.metadata_url = prev.metadata_url;
+                game.screenshots = prev.screenshots;
+                game.videos = prev.videos;
+                game.igdb_rating = prev.igdb_rating;
+                game.critic_rating = prev.critic_rating;
+                game.play_status = prev.play_status;
+                game.notes = prev.notes;
+                game.size_bytes = prev.size_bytes;
+                game.size_detected_at = prev.size_detected_at;
+                game.size_root_path = prev.size_root_path;
+                game.steam_app_id = prev.steam_app_id;
+                // Refresh emulator linkage so a changed exe / template
+                // or platform still applies on re-scan.
+                game.path = emu.executable_path.clone();
+                game.platform = emu.platform.clone();
+                game.launch_arguments =
+                    Some(emu.arguments_template.replace("%ROM%", &rom_path));
+            }
+        }
+
+        let value = serde_json::to_value(&game).map_err(|e| format!("to_value: {e}"))?;
+        let row: db::games::GameRow = serde_json::from_value(value)
+            .map_err(|e| format!("to GameRow: {e}"))?;
+        db::games::upsert_one(db_state.inner(), &row)?;
+        out.push(game);
+    }
+
     Ok(out)
 }
 
@@ -3418,7 +3729,12 @@ pub fn run() {
             client_p2p_sync,
             get_internet_sync_status,
             trigger_internet_sync,
-            set_discord_presence_enabled])
+            set_discord_presence_enabled,
+            // Emulation support — emulator configs + ROM scanning.
+            list_emulators,
+            save_emulator,
+            delete_emulator,
+            scan_emulator_roms])
         .on_window_event(|window, event| {
             // L2: intercept the user clicking the OS-level close
             // button (or the in-app WindowControls close button, since

@@ -18,6 +18,7 @@ import NewsPage from "./pages/NewsPage";
 import DealsPage from "./pages/deals/DealsPage";
 import DownloadsPage from "./pages/DownloadsPage";
 import AchievementsPage from "./pages/AchievementsPage";
+import EmulatorsPage from "./pages/EmulatorsPage";
 import { GameProvider } from "./context/GameContext";
 import { ToastProvider } from "./context/ToastContext";
 import { ActivityProvider } from "./context/ActivityContext";
@@ -127,6 +128,7 @@ function AppShell() {
           <Route path="store/:gameSlug" element={<StoreGameDetail />} />
           <Route path="community" element={<CommunityPage />} />
           <Route path="friends" element={<FriendsPage />} />
+          <Route path="emulators" element={<EmulatorsPage />} />
           <Route path="settings" element={<SettingsPage />} />
         </Route>
       </Routes>

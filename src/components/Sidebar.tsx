@@ -16,6 +16,7 @@ import {
   type GameMetadataResult,
   type PlayStatus,
 } from "../types/game";
+import { accentForPlatform } from "../types/emulator";
 import ImportModal, { type ExeInfo } from "./ImportModal";
 import SidebarFilterPopover from "./SidebarFilterPopover";
 import {
@@ -1584,6 +1585,23 @@ function SidebarGameItem({
       </div>
       <div className="sidebar-game-info">
         <div className="sidebar-game-name">
+          {/* Emulated-game console badge: a small platform-coloured
+           *  pill shown when this row is a scanned ROM. Keeps emulated
+           *  titles distinguishable in the merged list without a
+           *  separate section; the Library platform filter does the
+           *  grouping. */}
+          {game.emulatorId && (
+            <span
+              className="sidebar-game-console-badge"
+              style={{
+                color: accentForPlatform(game.platform),
+                borderColor: accentForPlatform(game.platform),
+              }}
+              title={t("emulators.consoleBadge")}
+            >
+              {game.platform}
+            </span>
+          )}
           {/* Wraps the matched substring in <mark> for the search
            *  highlight (Feature #5). React renders the mark as a
            *  real element so XSS is impossible by construction. */}

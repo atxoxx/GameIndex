@@ -103,6 +103,15 @@ pub struct GameRow {
     pub post_exit_admin: Option<bool>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub companion_apps: Option<Vec<serde_json::Value>>,
+    // ── Emulation linkage (v2 migration) ──
+    /// Id of the owning emulator instance. Lets `delete_emulator`
+    /// cascade-remove its ROMs.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub emulator_id: Option<String>,
+    /// Absolute path to the ROM file handed to the emulator as a
+    /// launch argument.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub rom_path: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub last_played: Option<u64>,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -268,6 +277,7 @@ pub fn upsert_all(db: &Db, rows: &[GameRow]) -> Result<(), String> {
             json_opt(&r.companion_apps),
         ])
         .map_err(|e| format!("games insert {i}: {e}"))?;
+        persist_emulation_link(&tx, &r.id, &r.emulator_id, &r.rom_path)?;
     }
     drop(stmt);
     tx.commit().map_err(|e| format!("games commit: {e}"))?;
@@ -388,6 +398,7 @@ pub fn upsert_one(db: &Db, r: &GameRow) -> Result<(), String> {
         ],
     )
     .map_err(|e| format!("games upsert_one: {e}"))?;
+    persist_emulation_link(&conn, &r.id, &r.emulator_id, &r.rom_path)?;
     Ok(())
 }
 
@@ -463,7 +474,19 @@ pub fn delete_many(db: &Db, ids: &[String]) -> Result<(), String> {
     Ok(())
 }
 
-const GAMES_SELECT_SQL: &str = "SELECT id, name, path, platform, installed, play_time, added_at, cover_art_url, notes, size_bytes, size_detected_at, size_root_path, icon_url, banner_url, logo_url, description, developer, publisher, release_date, metadata_source, metadata_url, storyline, igdb_rating, critic_rating, steam_app_id, steam_playtime, store_source, epic_namespace, epic_catalog_item_id, launch_arguments, run_as_admin, last_played, play_status, genres_json, themes_json, game_modes_json, player_perspectives_json, screenshots_json, videos_json, websites_json, time_to_beat_json, similar_games_json, releases_json, igdb_reviews_json, alternative_names_json, steam_achievements_json, language_supports_json, collection, franchise, game_category, release_status, gog_game_id, gog_playtime, pre_launch_script, pre_launch_admin, post_exit_script, post_exit_admin, companion_apps_json FROM games";
+/// Delete every game tied to a given emulator instance (cascade when an
+/// emulator is removed).
+pub fn delete_by_emulator(db: &Db, emulator_id: &str) -> Result<(), String> {
+    let conn = db.games().map_err(|e| e.to_string())?;
+    conn.execute(
+        "DELETE FROM games WHERE emulator_id = ?1",
+        params![emulator_id],
+    )
+    .map_err(|e| format!("games delete_by_emulator: {e}"))?;
+    Ok(())
+}
+
+const GAMES_SELECT_SQL: &str = "SELECT id, name, path, platform, installed, play_time, added_at, cover_art_url, notes, size_bytes, size_detected_at, size_root_path, icon_url, banner_url, logo_url, description, developer, publisher, release_date, metadata_source, metadata_url, storyline, igdb_rating, critic_rating, steam_app_id, steam_playtime, store_source, epic_namespace, epic_catalog_item_id, launch_arguments, run_as_admin, last_played, play_status, genres_json, themes_json, game_modes_json, player_perspectives_json, screenshots_json, videos_json, websites_json, time_to_beat_json, similar_games_json, releases_json, igdb_reviews_json, alternative_names_json, steam_achievements_json, language_supports_json, collection, franchise, game_category, release_status, gog_game_id, gog_playtime, pre_launch_script, pre_launch_admin, post_exit_script, post_exit_admin, companion_apps_json, emulator_id, rom_path FROM games";
 
 fn game_row_from_row(r: &rusqlite::Row<'_>) -> rusqlite::Result<GameRow> {
     Ok(GameRow {
@@ -531,7 +554,27 @@ fn game_row_from_row(r: &rusqlite::Row<'_>) -> rusqlite::Result<GameRow> {
         post_exit_script: r.get(55)?,
         post_exit_admin: r.get::<_, Option<i64>>(56)?.map(|n| n != 0),
         companion_apps: json_opt_get(r, 57)?,
+        // v2 migration columns — read after the original 58 columns.
+        emulator_id: r.get(58)?,
+        rom_path: r.get(59)?,
     })
+}
+
+/// Persist the emulation-linkage columns (`emulator_id`, `rom_path`)
+/// for an already-inserted game row. Kept separate from the 58-column
+/// bulk INSERT so the legacy positional binding stays untouched.
+fn persist_emulation_link(
+    conn: &rusqlite::Connection,
+    id: &str,
+    emulator_id: &Option<String>,
+    rom_path: &Option<String>,
+) -> Result<(), String> {
+    conn.execute(
+        "UPDATE games SET emulator_id = ?1, rom_path = ?2 WHERE id = ?3",
+        params![emulator_id, rom_path, id],
+    )
+    .map_err(|e| format!("games persist_emulation_link: {e}"))?;
+    Ok(())
 }
 
 fn json_opt<T: serde::Serialize>(v: &Option<T>) -> Option<String> {
@@ -550,7 +593,7 @@ fn json_opt_get<T: serde::de::DeserializeOwned>(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::db::schema::GAMES_DDL;
+    use crate::db::schema::{GAMES_DDL, GAMES_V2_DDL, EMULATORS_DDL};
     use serde_json::json;
 
     fn test_db() -> (tempfile::TempDir, Db) {
@@ -559,6 +602,7 @@ mod tests {
         {
             let conn = db.games().unwrap();
             conn.execute_batch(GAMES_DDL).unwrap();
+            conn.execute_batch(GAMES_V2_DDL).unwrap();
         }
         (dir, db)
     }

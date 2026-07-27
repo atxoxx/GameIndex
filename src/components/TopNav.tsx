@@ -265,6 +265,25 @@ function FriendsIcon() {
   );
 }
 
+function EmulatorsIcon() {
+  return (
+    <svg
+      className="topnav-tab-icon"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <rect x="2" y="6" width="20" height="12" rx="4" />
+      <line x1="7" y1="12" x2="11" y2="12" />
+      <circle cx="16" cy="10" r="1" fill="currentColor" />
+      <circle cx="18.5" cy="14" r="1" fill="currentColor" />
+    </svg>
+  );
+}
+
 const tabs: Tab[] = [
   { path: "/store", label: "Store", icon: <StoreIcon /> },
   { path: "/library", label: "Library", icon: <LibraryIcon /> },
@@ -277,6 +296,7 @@ const tabs: Tab[] = [
   { path: "/news", label: "News", icon: <NewsIcon /> },
   { path: "/community", label: "Stats", icon: <CommunityIcon /> },
   { path: "/friends", label: "Community", icon: <FriendsIcon /> },
+  { path: "/emulators", label: "Emulators", icon: <EmulatorsIcon /> },
 ];
 
 export default function TopNav() {
@@ -299,8 +319,9 @@ export default function TopNav() {
       case "/storage": return "nav.storage";
       case "/news": return "nav.news";
       case "/community": return "nav.stats";
-      case "/friends": return "nav.friends";
-      default: return "nav.library";
+        case "/friends": return "nav.friends";
+        case "/emulators": return "nav.emulators";
+        default: return "nav.library";
     }
   };
 
