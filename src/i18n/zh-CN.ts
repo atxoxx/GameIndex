@@ -4,6 +4,7 @@ export const zhCN: TranslationDict = {
   "nav.library": "库",
   "nav.store": "商店",
   "nav.wishlist": "愿望单",
+  "nav.emulators": "模拟器",
   "nav.home": "主页",
   "nav.news": "新闻",
   "nav.deals": "特惠",

@@ -4,6 +4,7 @@ export const de: TranslationDict = {
   "nav.library": "Bibliothek",
   "nav.store": "Shop",
   "nav.wishlist": "Wunschliste",
+  "nav.emulators": "Emulatoren",
   "nav.home": "Start",
   "nav.news": "Neuigkeiten",
   "nav.deals": "Angebote",

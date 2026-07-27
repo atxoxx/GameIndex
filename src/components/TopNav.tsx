@@ -287,6 +287,7 @@ function EmulatorsIcon() {
 const tabs: Tab[] = [
   { path: "/store", label: "Store", icon: <StoreIcon /> },
   { path: "/library", label: "Library", icon: <LibraryIcon /> },
+  { path: "/emulators", label: "Emulators", icon: <EmulatorsIcon /> },
   { path: "/wishlist", label: "Wishlist", icon: <WishlistIcon /> },
   { path: "/deals", label: "Deals", icon: <DealsIcon /> },
   { path: "/activity", label: "Activity", icon: <ActivityIcon /> },
@@ -296,7 +297,6 @@ const tabs: Tab[] = [
   { path: "/news", label: "News", icon: <NewsIcon /> },
   { path: "/community", label: "Stats", icon: <CommunityIcon /> },
   { path: "/friends", label: "Community", icon: <FriendsIcon /> },
-  { path: "/emulators", label: "Emulators", icon: <EmulatorsIcon /> },
 ];
 
 export default function TopNav() {
