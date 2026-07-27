@@ -1288,17 +1288,30 @@
 /* ─── Row: total + mods size ────────────────────────────────────────────── */
 .storage__row-size {
   display: flex;
-  flex-direction: column;
-  align-items: flex-end;
+  flex-direction: row;
+  align-items: baseline;
+  gap: 4px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
   font-variant-numeric: tabular-nums;
   font-weight: var(--font-weight-semibold);
   color: var(--color-text);
   white-space: nowrap;
 }
 
+.storage__row-size-game {
+  color: var(--color-text);
+}
+
 .storage__row-size-mods {
   font-size: 11px;
   font-weight: var(--font-weight-medium);
+  color: var(--color-text-secondary);
+}
+
+.storage__row-size-total {
+  font-size: 11px;
+  font-weight: var(--font-weight-semibold);
   color: var(--color-text-secondary);
 }
 

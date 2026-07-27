@@ -16,7 +16,7 @@ export const DEFAULT_SORT: SortKey = "size:desc";
 export function compareGames(sort: SortKey): (a: Game, b: Game) => number {
   switch (sort) {
     case "size:desc":
-      return (a, b) => (b.sizeBytes ?? 0) - (a.sizeBytes ?? 0);
+      return (a, b) => gameTotalBytes(b) - gameTotalBytes(a);
     case "name:asc":
       return (a, b) => a.name.localeCompare(b.name);
     case "platform:asc":

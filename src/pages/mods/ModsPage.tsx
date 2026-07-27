@@ -12,7 +12,7 @@ import type { Game } from "../../types/game";
 import "../../styles/page-mods.css";
 
 export default function ModsPage() {
-  const { games } = useGames();
+  const { games, updateGame } = useGames();
   const { t } = useLanguage();
   const [overview, setOverview] = useState<Map<string, ModsOverviewEntry>>(new Map());
   const [selectedGameId, setSelectedGameId] = useState<string | null>(null);
@@ -139,6 +139,14 @@ export default function ModsPage() {
                 key={selectedGame.id}
                 game={selectedGame}
                 onChanged={refreshOverview}
+                onModsSized={(info) =>
+                  updateGame(selectedGame.id, {
+                    modsSizeBytes: info.totalBytes > 0 ? info.totalBytes : undefined,
+                    modsFolder: info.folder,
+                    modsDetectedAt:
+                      info.totalBytes > 0 ? new Date().toISOString() : undefined,
+                  })
+                }
               />
             ) : (
               <div className="mods-detail-empty">{t("mods.selectGame")}</div>

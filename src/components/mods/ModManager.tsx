@@ -47,11 +47,17 @@ function EngineChip({ engine }: { engine: ModEngine | string }) {
 export default function ModManager({
   game,
   onChanged,
+  onModsSized,
 }: {
   game: Game;
   /** Fired after any mutation (scan/toggle/delete/update-check) so
    *  hosts (the Mods page overview rail) can refresh their counts. */
   onChanged?: () => void;
+  /** Fired whenever the total on-disk mods footprint changes. Hosts
+   *  (the game page) persist this back to the game record so the
+   *  Storage tab can read the already-calculated size instead of
+   *  re-measuring the mods folder itself. */
+  onModsSized?: (info: { totalBytes: number; folder?: string }) => void;
 }) {
   const { t } = useLanguage();
   const { showToast } = useToast();
@@ -72,6 +78,7 @@ export default function ModManager({
   } = useGameMods(game);
 
   const [search, setSearch] = useState("");
+  const [modSort, setModSort] = useState<"order" | "name" | "size:desc" | "size:asc">("order");
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<GameMod | null>(null);
   const [deleting, setDeleting] = useState(false);
@@ -88,6 +95,7 @@ export default function ModManager({
   const enabledCount = mods.filter((m) => m.enabled).length;
   const updateCount = mods.filter((m) => m.updateAvailable).length;
   const supportsReorder = payload?.supportsReorder ?? false;
+  const totalModsBytes = mods.reduce((sum, m) => sum + (m.sizeBytes ?? 0), 0);
 
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
@@ -99,6 +107,28 @@ export default function ModManager({
         m.engine.toLowerCase().includes(q)
     );
   }, [mods, search]);
+
+  // Sort the visible list (independently of the search filter). The
+  // default "order" keeps the engine load order; the other options let
+  // the user rank mods by name or on-disk size.
+  const sortedMods = useMemo(() => {
+    const list = [...filtered];
+    switch (modSort) {
+      case "name":
+        list.sort((a, b) => a.name.localeCompare(b.name));
+        break;
+      case "size:desc":
+        list.sort((a, b) => (b.sizeBytes ?? 0) - (a.sizeBytes ?? 0));
+        break;
+      case "size:asc":
+        list.sort((a, b) => (a.sizeBytes ?? 0) - (b.sizeBytes ?? 0));
+        break;
+      case "order":
+      default:
+        break;
+    }
+    return list;
+  }, [filtered, modSort]);
 
   const conflictsByMod = useMemo(() => {
     const map = new Map<string, ModConflict[]>();
@@ -113,6 +143,22 @@ export default function ModManager({
   }, [conflicts]);
 
   const selected = mods.find((m) => m.id === selectedId) ?? null;
+
+  // Persist the total mods footprint to the game record whenever the
+  // scan/load payload changes. The Storage tab reads `game.modsSizeBytes`
+  // from here rather than re-measuring the mods folder itself.
+  const onModsSizedRef = useRef(onModsSized);
+  onModsSizedRef.current = onModsSized;
+  useEffect(() => {
+    if (!onModsSizedRef.current) return;
+    const total = (payload?.mods ?? []).reduce(
+      (sum, m) => sum + (m.sizeBytes ?? 0),
+      0
+    );
+    const folder =
+      payload?.settings?.modsRoot ?? payload?.settings?.customRoot ?? undefined;
+    onModsSizedRef.current({ totalBytes: total, folder });
+  }, [payload]);
 
   // Keep a sane selection when the list changes.
   useEffect(() => {
@@ -258,8 +304,8 @@ export default function ModManager({
     }
   };
 
-  // ── Drag & drop reorder (full unfiltered list only) ──────────────
-  const dragEnabled = supportsReorder && search.trim() === "";
+  // ── Drag & drop reorder (only meaningful in load-order view) ─────
+  const dragEnabled = supportsReorder && search.trim() === "" && modSort === "order";
 
   const handleDrop = async (targetId: string) => {
     const sourceId = dragId.current;
@@ -304,6 +350,9 @@ export default function ModManager({
               total: String(mods.length),
             })}
           </span>
+          <span className="mods-total-size" title={t("mods.totalSize")}>
+            {t("mods.totalSize", { size: formatModSize(totalModsBytes) })}
+          </span>
           {updateCount > 0 && (
             <span className="mods-update-pill">
               {t("mods.updatesAvailable", { count: String(updateCount) })}
@@ -318,6 +367,17 @@ export default function ModManager({
             value={search}
             onChange={(e) => setSearch(e.target.value)}
           />
+          <select
+            className="mods-sort"
+            value={modSort}
+            onChange={(e) => setModSort(e.target.value as typeof modSort)}
+            title={t("mods.sortBy")}
+          >
+            <option value="order">{t("mods.sort.order")}</option>
+            <option value="name">{t("mods.sort.name")}</option>
+            <option value="size:desc">{t("mods.sort.sizeDesc")}</option>
+            <option value="size:asc">{t("mods.sort.sizeAsc")}</option>
+          </select>
           <Button variant="secondary" size="sm" onClick={handleScan} isLoading={scanning}>
             {scanning ? t("mods.scanning") : mods.length > 0 ? t("mods.rescan") : t("mods.scan")}
           </Button>
@@ -427,7 +487,7 @@ export default function ModManager({
               </span>
             </div>
             <div className="mods-list">
-              {filtered.map((mod) => {
+              {sortedMods.map((mod) => {
                 const hasConflict = conflictsByMod.has(mod.id);
                 const orderIndex = mods.indexOf(mod);
                 return (

@@ -5,10 +5,16 @@
 import type { Game } from "../../types/game";
 import ModManager from "./ModManager";
 
-export default function ModsTab({ game }: { game: Game }) {
+export default function ModsTab({
+  game,
+  onModsSized,
+}: {
+  game: Game;
+  onModsSized?: (info: { totalBytes: number; folder?: string }) => void;
+}) {
   return (
     <div className="mods-tab">
-      <ModManager game={game} />
+      <ModManager game={game} onModsSized={onModsSized} />
     </div>
   );
 }

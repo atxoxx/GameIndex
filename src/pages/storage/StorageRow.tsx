@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { invoke } from "@tauri-apps/api/core";
 import { open } from "@tauri-apps/plugin-dialog";
 import { useGames } from "../../context/GameContext";
@@ -53,12 +54,12 @@ interface SizeDetectionResult {
  *  snake_case Rust parameters via Tauri's default rename behavior. */
 export function StorageRow({ game, stale = false, density = "cozy", onSizeUpdated, onOpenFolder, selectMode = false, selected = false, onToggleSelect, onMove, onUninstall }: Props) {
   const { updateGame } = useGames();
+  const navigate = useNavigate();
   const { showToast } = useToast();
   const { t } = useLanguage();
   const { unit } = useSizeUnit();
   const [expanded, setExpanded] = useState(false);
   const [detecting, setDetecting] = useState(false);
-  const [detectingMods, setDetectingMods] = useState(false);
   const hasSize = game.sizeBytes != null && game.sizeBytes > 0;
   const hasMods = game.modsSizeBytes != null && game.modsSizeBytes > 0;
   const isSized = hasSize;
@@ -101,41 +102,6 @@ export function StorageRow({ game, stale = false, density = "cozy", onSizeUpdate
     }
   }
 
-  async function detectMods(folderOverride?: string) {
-    if (detectingMods) return;
-    setDetectingMods(true);
-    try {
-      let override = folderOverride;
-      if (!override) {
-        const picked = await open({
-          directory: true,
-          multiple: false,
-          title: t("storageRow.mods.selectFolder"),
-        });
-        if (!picked) return;
-        override = picked;
-      }
-      const result = await invoke<SizeDetectionResult>("measure_path_size", {
-        path: override,
-      });
-      updateGame(game.id, {
-        modsSizeBytes: result.sizeBytes,
-        modsFolder: result.rootPath,
-        modsDetectedAt: new Date().toISOString(),
-      });
-      onSizeUpdated?.();
-      showToast(
-        t("storageRow.mods.detectedSize", { size: formatSize(result.sizeBytes, unit), name: game.name }),
-        "success"
-      );
-    } catch (err) {
-      console.error("measure_path_size failed", err);
-      showToast(t("storageRow.readError", { error: String(err) }), "error");
-    } finally {
-      setDetectingMods(false);
-    }
-  }
-
   async function openModsFolder() {
     if (!game.modsFolder) return;
     try {
@@ -145,13 +111,8 @@ export function StorageRow({ game, stale = false, density = "cozy", onSizeUpdate
     }
   }
 
-  function clearMods() {
-    updateGame(game.id, {
-      modsSizeBytes: undefined,
-      modsFolder: undefined,
-      modsDetectedAt: undefined,
-    });
-    showToast(t("storageRow.mods.clearedSize", { name: game.name }), "info");
+  function manageMods() {
+    navigate(`/library/${game.id}`);
   }
 
   function clearSize() {
@@ -225,12 +186,20 @@ export function StorageRow({ game, stale = false, density = "cozy", onSizeUpdate
         </span>
         {total > 0 ? (
           <span className="storage__row-size">
-            {formatSize(total, unit)}
+            <span className="storage__row-size-game">
+              {formatSize(game.sizeBytes ?? 0, unit)}
+            </span>
             {hasMods && (
-              <span className="storage__row-size-mods" title={t("storageRow.mods.label")}>
-                {" + "}
-                {formatSize(game.modsSizeBytes ?? 0, unit)}
-              </span>
+              <>
+                <span className="storage__row-size-mods" title={t("storageRow.mods.label")}>
+                  {" + "}
+                  {formatSize(game.modsSizeBytes ?? 0, unit)}
+                </span>
+                <span className="storage__row-size-total">
+                  {" = "}
+                  {formatSize(total, unit)}
+                </span>
+              </>
             )}
           </span>
         ) : (
@@ -323,11 +292,10 @@ export function StorageRow({ game, stale = false, density = "cozy", onSizeUpdate
               <Button
                 variant="secondary"
                 size="sm"
-                onClick={() => detectMods()}
-                isLoading={detectingMods}
-                title={t("storageRow.mods.pickFolder")}
+                onClick={manageMods}
+                title={t("storageRow.mods.manage")}
               >
-                {hasMods ? t("storageRow.mods.remeasure") : t("storageRow.mods.set")}
+                {hasMods ? t("storageRow.mods.manage") : t("storageRow.mods.set")}
               </Button>
               {hasMods && (
                 <Button
@@ -337,16 +305,6 @@ export function StorageRow({ game, stale = false, density = "cozy", onSizeUpdate
                   title={t("storageRow.openFolder")}
                 >
                   {t("downloadRow.openFolder")}
-                </Button>
-              )}
-              {hasMods && (
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={clearMods}
-                  disabled={detectingMods}
-                >
-                  {t("common.clear")}
                 </Button>
               )}
             </div>

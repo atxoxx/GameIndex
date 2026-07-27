@@ -87,7 +87,7 @@ function GameDetail({ game }: { game: Game }) {
   const navigate = useNavigate();
   const { showToast } = useToast();
   const { t } = useLanguage();
-  const { launchGame, enrichGameMetadata, removeGame } = useGames();
+  const { launchGame, enrichGameMetadata, removeGame, updateGame } = useGames();
   const { unit: sizeUnit } = useSizeUnit();
   const { appId: heroSteamAppId } = useSteamAppId(game);
   // Confirm-remove flow state. Clicking the Remove button in the
@@ -387,7 +387,19 @@ function GameDetail({ game }: { game: Game }) {
 
       {activeTab === "achievements" && <AchievementsTab game={game} />}
 
-      {activeTab === "mods" && <ModsTab game={game} />}
+      {activeTab === "mods" && (
+        <ModsTab
+          game={game}
+          onModsSized={(info) =>
+            updateGame(game.id, {
+              modsSizeBytes: info.totalBytes > 0 ? info.totalBytes : undefined,
+              modsFolder: info.folder,
+              modsDetectedAt:
+                info.totalBytes > 0 ? new Date().toISOString() : undefined,
+            })
+          }
+        />
+      )}
 
       {/* Edit Modal */}
        {editing && <EditGameModal game={game} onClose={() => setEditing(false)} />}
