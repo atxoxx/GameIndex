@@ -232,6 +232,16 @@
   background: var(--emu-accent, var(--color-accent));
 }
 
+.emu-row-glyph-img {
+  width: 32px;
+  height: 32px;
+  flex-shrink: 0;
+  border-radius: 8px;
+  object-fit: contain;
+  padding: 4px;
+  background: rgba(0, 0, 0, 0.32);
+}
+
 .emu-row-main {
   flex: 1;
   min-width: 0;
@@ -343,6 +353,16 @@
   font-size: 22px;
   color: #fff;
   background: var(--emu-accent, var(--color-accent));
+}
+
+.emu-detail-glyph-img {
+  width: 48px;
+  height: 48px;
+  flex-shrink: 0;
+  border-radius: 12px;
+  object-fit: contain;
+  padding: 5px;
+  background: rgba(0, 0, 0, 0.32);
 }
 
 .emu-detail-titles {

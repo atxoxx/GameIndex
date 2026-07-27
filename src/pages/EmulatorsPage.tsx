@@ -24,6 +24,23 @@ function formatDate(ts?: number): string {
   return d.toLocaleDateString(undefined, { year: "numeric", month: "short", day: "numeric" });
 }
 
+/** Renders an emulator's real logo when available, otherwise falls back to
+ *  the (emoji) glyph. */
+function EmulatorGlyph({
+  logo,
+  glyph,
+  className,
+}: {
+  logo?: string;
+  glyph: string;
+  className: string;
+}) {
+  if (logo) {
+    return <img className={`${className}-img`} src={logo} alt="" draggable={false} />;
+  }
+  return <span className={className}>{glyph}</span>;
+}
+
 function renderRow(
   r: EmuRow,
   t: (key: string, vars?: Record<string, unknown>) => string,
@@ -41,7 +58,7 @@ function renderRow(
       onClick={() => setSelectedId(r.id)}
     >
       <span className="emu-row-stripe" />
-      <span className="emu-row-glyph">{r.glyph}</span>
+      <EmulatorGlyph logo={r.logo} glyph={r.glyph} className="emu-row-glyph" />
       <span className="emu-row-main">
         <span className="emu-row-name">{r.name}</span>
         <span className="emu-row-platform">{r.platform}</span>
@@ -87,6 +104,7 @@ interface EmuRow {
   platform: string;
   accent: string;
   glyph: string;
+  logo?: string;
   added: boolean;
   /** True once an executable path has been configured. */
   configured: boolean;
@@ -171,6 +189,7 @@ export default function EmulatorsPage() {
         platform: k.platform,
         accent: k.accent,
         glyph: k.glyph,
+        logo: k.logo,
         added: !!emu,
         configured: !!emu?.executablePath,
         gameCount: emu ? (romCounts[emu.id] ?? 0) : 0,
@@ -681,7 +700,7 @@ export default function EmulatorsPage() {
                   className="emu-detail-head emu-detail-banner"
                   style={{ ["--emu-accent" as string]: selectedRow.accent }}
                 >
-                  <span className="emu-detail-glyph">{selectedRow.glyph}</span>
+                  <EmulatorGlyph logo={selectedRow.logo} glyph={selectedRow.glyph} className="emu-detail-glyph" />
                   <div className="emu-detail-titles">
                     <h2 className="emu-detail-name">{selectedRow.name}</h2>
                     <span className="emu-detail-platform">{selectedRow.platform}</span>
@@ -719,7 +738,7 @@ export default function EmulatorsPage() {
                   className="emu-detail-head emu-detail-banner"
                   style={{ ["--emu-accent" as string]: selectedRow.accent }}
                 >
-                  <span className="emu-detail-glyph">{selectedRow.glyph}</span>
+                  <EmulatorGlyph logo={selectedRow.logo} glyph={selectedRow.glyph} className="emu-detail-glyph" />
                   <div className="emu-detail-titles">
                     <h2 className="emu-detail-name">{selectedRow.name}</h2>
                     <span className="emu-detail-platform">{selectedRow.platform}</span>

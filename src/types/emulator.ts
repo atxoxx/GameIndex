@@ -44,8 +44,10 @@ export interface KnownEmulator {
   argumentsTemplate: string;
   /** Accent colour (hex) used for the card + console badge. */
   accent: string;
-  /** Short glyph/emoji shown on the card. */
+  /** Short glyph/emoji shown on the card (fallback when no logo). */
   glyph: string;
+  /** Path to the emulator's real logo asset (served from /public). */
+  logo?: string;
   description: string;
   /** Official source repository (GitHub) for the emulator project. */
   githubUrl?: string;
@@ -54,6 +56,7 @@ export interface KnownEmulator {
 export const KNOWN_EMULATORS: KnownEmulator[] = [
   {
     key: "retroarch",
+    logo: "/emulator-logos/retroarch.svg",
     name: "RetroArch",
     platform: "RetroArch",
     executableName: "retroarch.exe",
@@ -67,6 +70,7 @@ export const KNOWN_EMULATORS: KnownEmulator[] = [
   },
   {
     key: "dolphin",
+    logo: "/emulator-logos/dolphin.png",
     name: "Dolphin",
     platform: "GameCube",
     executableName: "Dolphin.exe",
@@ -79,6 +83,7 @@ export const KNOWN_EMULATORS: KnownEmulator[] = [
   },
   {
     key: "dolphin-wii",
+    logo: "/emulator-logos/dolphin-wii.png",
     name: "Dolphin (Wii)",
     platform: "Wii",
     executableName: "Dolphin.exe",
@@ -91,6 +96,7 @@ export const KNOWN_EMULATORS: KnownEmulator[] = [
   },
   {
     key: "pcsx2",
+    logo: "/emulator-logos/pcsx2.svg",
     name: "PCSX2",
     platform: "PlayStation 2",
     executableName: "pcsx2.exe",
@@ -103,6 +109,7 @@ export const KNOWN_EMULATORS: KnownEmulator[] = [
   },
   {
     key: "ppsspp",
+    logo: "/emulator-logos/ppsspp.svg",
     name: "PPSSPP",
     platform: "PlayStation Portable",
     executableName: "PPSSPPWindows.exe",
@@ -115,6 +122,7 @@ export const KNOWN_EMULATORS: KnownEmulator[] = [
   },
   {
     key: "duckstation",
+    logo: "/emulator-logos/duckstation.png",
     name: "DuckStation",
     platform: "PlayStation",
     executableName: "duckstation.exe",
@@ -127,6 +135,7 @@ export const KNOWN_EMULATORS: KnownEmulator[] = [
   },
   {
     key: "citra",
+    logo: "/emulator-logos/citra.svg",
     name: "Citra",
     platform: "Nintendo 3DS",
     executableName: "citra.exe",
@@ -139,6 +148,7 @@ export const KNOWN_EMULATORS: KnownEmulator[] = [
   },
   {
     key: "yuzu",
+    logo: "/emulator-logos/yuzu.svg",
     name: "Yuzu",
     platform: "Nintendo Switch",
     executableName: "yuzu.exe",
@@ -151,6 +161,7 @@ export const KNOWN_EMULATORS: KnownEmulator[] = [
   },
   {
     key: "cemu",
+    logo: "/emulator-logos/cemu.png",
     name: "Cemu",
     platform: "Wii U",
     executableName: "Cemu.exe",
@@ -163,6 +174,7 @@ export const KNOWN_EMULATORS: KnownEmulator[] = [
   },
   {
     key: "snes9x",
+    logo: "/emulator-logos/snes9x.svg",
     name: "Snes9x",
     platform: "Super Nintendo",
     executableName: "snes9x.exe",
@@ -175,6 +187,7 @@ export const KNOWN_EMULATORS: KnownEmulator[] = [
   },
   {
     key: "mesen",
+    logo: "/emulator-logos/mesen.svg",
     name: "Mesen",
     platform: "NES",
     executableName: "Mesen.exe",
@@ -187,6 +200,7 @@ export const KNOWN_EMULATORS: KnownEmulator[] = [
   },
   {
     key: "mgba",
+    logo: "/emulator-logos/mgba.svg",
     name: "mGBA",
     platform: "Game Boy Advance",
     executableName: "mgba.exe",
@@ -199,6 +213,7 @@ export const KNOWN_EMULATORS: KnownEmulator[] = [
   },
   {
     key: "desmume",
+    logo: "/emulator-logos/desmume.svg",
     name: "DeSmuME",
     platform: "Nintendo DS",
     executableName: "DeSmuME.exe",
@@ -211,6 +226,7 @@ export const KNOWN_EMULATORS: KnownEmulator[] = [
   },
   {
     key: "project64",
+    logo: "/emulator-logos/project64.svg",
     name: "Project64",
     platform: "Nintendo 64",
     executableName: "Project64.exe",
@@ -223,6 +239,7 @@ export const KNOWN_EMULATORS: KnownEmulator[] = [
   },
   {
     key: "demul",
+    logo: "/emulator-logos/demul.svg",
     name: "Demul",
     platform: "Sega Dreamcast",
     executableName: "demul.exe",
@@ -234,6 +251,7 @@ export const KNOWN_EMULATORS: KnownEmulator[] = [
   },
   {
     key: "rpcn",
+    logo: "/emulator-logos/rpcs3.svg",
     name: "RPCS3",
     platform: "PlayStation 3",
     executableName: "rpcs3.exe",
@@ -246,6 +264,7 @@ export const KNOWN_EMULATORS: KnownEmulator[] = [
   },
   {
     key: "xenia",
+    logo: "/emulator-logos/xenia.svg",
     name: "Xenia",
     platform: "Xbox 360",
     executableName: "xenia.exe",
@@ -258,6 +277,7 @@ export const KNOWN_EMULATORS: KnownEmulator[] = [
   },
   {
     key: "bsnes",
+    logo: "/emulator-logos/bizhawk.png",
     name: "BizHawk",
     platform: "Arcade",
     executableName: "BizHawk.exe",
@@ -282,3 +302,4 @@ export function accentForPlatform(platform: string): string {
   );
   return hit?.accent ?? "#7c66ff";
 }
+
