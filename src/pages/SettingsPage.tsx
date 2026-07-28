@@ -1688,7 +1688,7 @@ export default function SettingsPage() {
               type="button"
               className="settings-search-clear"
               onClick={() => setNavQuery("")}
-              aria-label="Clear search"
+              aria-label={t("common.clearSearch")}
             >
               ×
             </button>

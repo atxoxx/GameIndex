@@ -1020,7 +1020,7 @@ export default function GameRelationsCard(props: GameRelationsCardProps) {
   // Render order matches the canonical order, but our groups are
   // already built in that order, so we just render.
   return (
-    <section className="game-section game-relations-card" aria-label="Game relations">
+    <section className="game-section game-relations-card" aria-label={t("gameRelations.aria")}>
       <h2 className="game-section-title">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
           <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71" />

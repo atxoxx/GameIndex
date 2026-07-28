@@ -3,6 +3,7 @@ import { type Game, type GameSession, buildSessionMetricsSeries } from "../../ty
 import LineChart from "../charts/LineChart";
 import { useActivity } from "../../context/ActivityContext";
 import { useSettings } from "../../context/SettingsContext";
+import { useLanguage } from "../../context/LanguageContext";
 import { formatTemp, toDisplayTemps, tempMinY, tempMaxY, tempUnitLabel } from "../../utils/temp";
 import * as Icons from "./Icons";
 
@@ -33,6 +34,7 @@ export function ActivityPerformance({
 }) {
   const { getGameStats } = useActivity();
   const { tempUnit } = useSettings();
+  const { t } = useLanguage();
 
   // Sessions with usable metrics are the only data we can chart. The
   // helper sorts them oldest→newest so the x-axis timeline reads
@@ -106,8 +108,7 @@ export function ActivityPerformance({
       {isEmpty ? (
         <div className="section-panel">
           <div className="section-panel__empty">
-            No performance data yet. Launch a game and play for at least a
-            minute — its metrics will appear here.
+            {t("activity.noPerfData")}
           </div>
         </div>
       ) : (
@@ -117,10 +118,10 @@ export function ActivityPerformance({
             <div className="performance-insights__chart-header">
               <h3 className="section-panel__title performance-timeline__title">
                 <Icons.Activity size={12} />
-                Frames Per Second Over Time
+                {t("activity.fpsOverTime")}
               </h3>
               <span className="performance-timeline__game-selector-label">
-                {series.labels.length} session{series.labels.length === 1 ? "" : "s"}
+                {t("activity.sessionCount", { count: series.labels.length })}
               </span>
             </div>
             <div className="performance-insights__chart-container">
@@ -130,8 +131,6 @@ export function ActivityPerformance({
                 width={640}
                 height={220}
                 formatValue={(v) => `${Math.round(v)} FPS`}
-                // Dynamic Y-axis: shows honest FPS even when value
-                // exceeds a fixed cap (e.g. 360 Hz monitor).
               />
             </div>
           </div>
@@ -141,10 +140,10 @@ export function ActivityPerformance({
             <div className="performance-insights__chart-header">
               <h3 className="section-panel__title performance-timeline__title">
                 <Icons.Cpu size={12} />
-                System Load (CPU · GPU · RAM)
+                {t("activity.systemLoad")}
               </h3>
               <span className="performance-timeline__game-selector-label">
-                Fixed 0-100 % scale
+                {t("activity.fixedScale")}
               </span>
             </div>
             <div className="performance-insights__chart-container">
@@ -171,7 +170,7 @@ export function ActivityPerformance({
             <div className="performance-insights__chart-header">
               <h3 className="section-panel__title performance-timeline__title">
                 <Icons.Thermometer size={12} />
-                Temperatures (CPU · GPU)
+                {t("activity.temperatures")}
               </h3>
               <span className="performance-timeline__game-selector-label">
                 Fixed {tempMinY(tempUnit)}-{tempMaxY(tempUnit)} {tempUnitLabel(tempUnit)} scale
@@ -203,14 +202,14 @@ export function ActivityPerformance({
         <div className="performance-insights__chart-header">
           <h3 className="section-panel__title performance-timeline__title">
             <Icons.BarChart3 size={12} />
-            Game Performance Breakdown
+            {t("activity.perfBreakdown")}
           </h3>
           <div className="performance-timeline__game-selector">
             <label
               htmlFor="perf-game-select"
               className="performance-timeline__game-selector-label"
             >
-              Game:
+              {t("activity.gameLabel")}
             </label>
             <select
               id="perf-game-select"
@@ -218,7 +217,7 @@ export function ActivityPerformance({
               value={selectedGameId}
               onChange={(e) => setSelectedGameId(e.target.value)}
             >
-              <option value="all">All</option>
+              <option value="all">{t("common.all")}</option>
               {gamesWithSessions.map((g) => (
                 <option key={g.id} value={g.id}>
                   {g.name}
@@ -232,18 +231,18 @@ export function ActivityPerformance({
           <table className="performance-insights__table">
             <thead>
               <tr>
-                <th>Game</th>
-                <th>Avg FPS</th>
-                <th>Avg CPU</th>
-                <th>Avg GPU</th>
-                <th>Sessions</th>
+                <th>{t("activity.gameHeader")}</th>
+                <th>{t("activity.avgFps")}</th>
+                <th>{t("activity.avgCpu")}</th>
+                <th>{t("activity.avgGpu")}</th>
+                <th>{t("activity.sessions")}</th>
               </tr>
             </thead>
             <tbody>
               {leaderboard.length === 0 ? (
                 <tr>
                   <td colSpan={5} className="section-panel__empty">
-                    No per-game metrics available.
+                    {t("activity.noMetrics")}
                   </td>
                 </tr>
               ) : (

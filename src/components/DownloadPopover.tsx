@@ -43,6 +43,7 @@ import {
 } from "../types/download";
 import { useToast } from "../context/ToastContext";
 import { useSizeUnit } from "../hooks/useSizeUnit";
+import { useLanguage } from "../context/LanguageContext";
 import { ConfirmModal } from "./ui";
 
 import React from "react";
@@ -93,6 +94,7 @@ const DownloadCard = React.memo(({
   onDeleteFiles: (download: TorrentDownload) => void;
 }) => {
   const { unit } = useSizeUnit();
+  const { t } = useLanguage();
   const status = download.status;
   const errorMessage = getStatusError(status);
   const indeterminate = download.progress == null && isActiveStatus(status);
@@ -135,15 +137,15 @@ const DownloadCard = React.memo(({
             <span style={{ marginLeft: "6px", fontSize: "9px", padding: "2px 4px", background: "rgba(0, 240, 255, 0.15)", color: "#00f0ff", borderRadius: "3px", fontWeight: "bold" }}>DEBRID</span>
           )}
         </span>
-        <span className={`dl-progress-card-status dl-progress-card-status--${getStatusClassSuffix(status)}`}>
+        <span className="dl-progress-card-status">
           {getStatusLabel(status)}
         </span>
       </div>
 
       <div className="dl-progress-card-bar">
         <div
-          className="dl-progress-card-bar-fill"
-          style={{ width: indeterminate ? "30%" : `${(download.progress ?? 0) * 100}%` }}
+          className={`dl-progress-card-fill dl-progress-card-fill--${getStatusClassSuffix(status)}`}
+          style={{ width: `${Math.min(100, Math.max(0, download.progress ?? 0))}%` }}
         />
       </div>
 
@@ -173,7 +175,7 @@ const DownloadCard = React.memo(({
             {isActiveStatus(status) && download.downloadSpeed > 0 && (
               <span
                 className="dl-progress-card-stat-dl"
-                title="Download speed"
+                title={t("downloads.downloadSpeed")}
                 aria-label={`Download speed: ${formatBytesPerSecond(download.downloadSpeed, unit)}`}
               >
                 <span className="dl-progress-card-stat-icon" aria-hidden>↓</span>
@@ -192,11 +194,6 @@ const DownloadCard = React.memo(({
             </div>
           )}
           {(() => {
-            // Show the secondary row whenever the torrent is
-            // active OR paused with a non-zero swarm. Paused
-            // torrents don't get an upload-speed slot (the
-            // count is stale) but their swarm numbers are
-            // still useful for "should I resume?" decisions.
             const isPaused = status.kind === "paused";
             const hasSwarm = download.peers > 0 || download.seeds > 0;
             const hasUl = isActiveStatus(status) && download.uploadSpeed > 0;
@@ -209,7 +206,7 @@ const DownloadCard = React.memo(({
                 {hasUl && (
                   <span
                     className="dl-progress-card-stat-ul"
-                    title="Upload speed"
+                    title={t("downloads.uploadSpeed")}
                     aria-label={`Upload speed: ${formatBytesPerSecond(download.uploadSpeed, unit)}`}
                   >
                     <span
@@ -221,7 +218,7 @@ const DownloadCard = React.memo(({
                 )}
                 <span
                   className="dl-progress-card-stat-seeds"
-                  title="Known peers in swarm (approximate; excludes those currently connected)"
+                  title={t("downloads.knownPeersTitle")}
                   aria-label={`${download.seeds} known peers in swarm`}
                 >
                   <SeedsIcon className="dl-progress-card-stat-svg" />
@@ -229,7 +226,7 @@ const DownloadCard = React.memo(({
                 </span>
                 <span
                   className="dl-progress-card-stat-peers"
-                  title="Peers currently connected"
+                  title={t("downloads.connectedPeersTitle")}
                   aria-label={`${download.peers} peers currently connected`}
                 >
                   <PeersIcon className="dl-progress-card-stat-svg" />
@@ -244,8 +241,8 @@ const DownloadCard = React.memo(({
             <button
               className="dl-progress-card-btn"
               onClick={() => onPause(download.id)}
-              title="Pause"
-              aria-label="Pause download"
+              title={t("downloads.pauseTitle")}
+              aria-label={t("downloads.pauseAria")}
             >
               <PauseIcon />
             </button>
@@ -254,8 +251,8 @@ const DownloadCard = React.memo(({
             <button
               className="dl-progress-card-btn"
               onClick={() => onResume(download.id)}
-              title="Resume"
-              aria-label="Resume download"
+              title={t("downloads.resumeTitle")}
+              aria-label={t("downloads.resumeAria")}
             >
               <PlayIcon />
             </button>
@@ -264,15 +261,15 @@ const DownloadCard = React.memo(({
             className="dl-progress-card-btn danger"
             onClick={() => onRemove(download.id)}
             title={isCompleted ? "Remove from history" : "Remove"}
-            aria-label="Remove download"
+            aria-label={t("downloads.removeAria")}
           >
             <RemoveIcon />
           </button>
           <button
             className="dl-progress-card-btn danger-fill"
             onClick={() => onDeleteFiles(download)}
-            title="Delete from disk"
-            aria-label="Delete download from disk"
+            title={t("downloads.deleteFromDiskTitle")}
+            aria-label={t("downloads.deleteFromDiskAria")}
           >
             <TrashIcon />
           </button>
@@ -483,13 +480,15 @@ export default function DownloadPopover({
   const list = tab === "active" ? activeDownloads : completedDownloads;
   const totalCount = activeCount + historyCount;
 
+  const { t } = useLanguage();
+
   return (
     <div
       id={id}
       className="dl-popover"
       ref={popoverRef}
       role="dialog"
-      aria-label="Downloads manager"
+      aria-label={t("downloads.managerAria")}
     >
       <div className="dl-popover-header">
         <div className="dl-popover-tabs" role="tablist">
@@ -499,7 +498,7 @@ export default function DownloadPopover({
             className={`dl-popover-tab${tab === "active" ? " active" : ""}`}
             onClick={() => setTab("active")}
           >
-            Active
+            {t("downloads.tabActive")}
             {activeCount > 0 && (
               <span className={`dl-popover-tab-count${activeCount > 0 && tab !== "active" ? " pulse" : ""}`}>
                 {activeCount}
@@ -512,17 +511,20 @@ export default function DownloadPopover({
             className={`dl-popover-tab${tab === "history" ? " active" : ""}`}
             onClick={() => setTab("history")}
           >
-            History
+            {t("downloads.tabHistory")}
             {historyCount > 0 && (
               <span className="dl-popover-tab-count">{historyCount}</span>
             )}
           </button>
         </div>
         <button
-          className="dl-popover-close"
-          onClick={onClose}
-          aria-label="Close downloads panel"
-          title="Close"
+          type="button"
+          className="dl-popover-open-full"
+          onClick={() => {
+            onClose();
+            navigate("/downloads");
+          }}
+          title={t("downloads.openFullPage")}
         >
           <svg
             viewBox="0 0 24 24"
@@ -557,14 +559,14 @@ export default function DownloadPopover({
             <p className="dl-popover-empty-title">
               {tab === "active"
                 ? totalCount === 0
-                  ? "No downloads yet"
-                  : "No active downloads"
-                : "No completed downloads"}
+                  ? t("downloads.noDownloadsYet")
+                  : t("downloads.noActiveDownloads")
+                : t("downloads.noCompletedDownloads")}
             </p>
             <p className="dl-popover-empty-hint">
               {tab === "active"
-                ? "Start one from a game's Store or Library page."
-                : "Completed downloads will appear here for easy access."}
+                ? t("downloads.emptyHintActive")
+                : t("downloads.emptyHintHistory")}
             </p>
           </div>
         ) : (
@@ -603,7 +605,7 @@ export default function DownloadPopover({
               <path d="M14 11v6" />
               <path d="M9 6V4a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2v2" />
             </svg>
-            {clearing ? "Clearing…" : "Clear history"}
+            {clearing ? t("downloads.clearing") : t("downloads.clearHistory")}
           </button>
         </div>
       )}
@@ -618,7 +620,7 @@ export default function DownloadPopover({
         <button
           className="dl-popover-footer-link"
           onClick={handleViewAll}
-          title="Open the full Downloads page"
+          title={t("downloads.openFullPage")}
         >
           <svg
             viewBox="0 0 24 24"
@@ -633,7 +635,7 @@ export default function DownloadPopover({
             <polyline points="7 10 12 15 17 10" />
             <line x1="12" y1="15" x2="12" y2="3" />
           </svg>
-          View all downloads
+          {t("downloads.viewAllDownloads")}
           <svg
             viewBox="0 0 24 24"
             fill="none"

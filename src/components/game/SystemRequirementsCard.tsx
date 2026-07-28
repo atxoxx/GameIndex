@@ -298,7 +298,7 @@ export default function SystemRequirementsCard({
           <div
             className="system-requirements-card__toggle"
             role="tablist"
-            aria-label="System requirements tier"
+            aria-label={t("sysreq.tierAria")}
           >
             <button
               type="button"
@@ -363,7 +363,7 @@ export default function SystemRequirementsCard({
                   {sameAsOther && (
                     <span
                       className="system-requirements-card__row-tag"
-                      aria-label="Same on minimum"
+                      aria-label={t("sysreq.sameOnMinAria")}
                       title={t("sysreq.same")}
                     >
                       {t("sysreq.same")}

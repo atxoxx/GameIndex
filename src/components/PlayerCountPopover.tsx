@@ -9,6 +9,7 @@ import { createPortal } from "react-dom";
 import type { HydraGameStats } from "../types/game";
 import { SteamStatsPopoverBody } from "./SteamPlayerCountPopover";
 import { HydraStatsPopoverBody } from "./HydraStatsPopover";
+import { useLanguage } from "../context/LanguageContext";
 
 /**
  * PlayerCountPopover
@@ -196,6 +197,8 @@ export default function PlayerCountPopover({
     // anchorRef intentionally excluded (stable ref).
   }, [anchorRef]);
 
+  const { t } = useLanguage();
+
   return createPortal(
     <div
       ref={popoverRef}
@@ -203,7 +206,7 @@ export default function PlayerCountPopover({
       style={{ top: position.top, left: position.left }}
       role="dialog"
       aria-modal="true"
-      aria-label="Player stats"
+      aria-label={t("playerStats.aria")}
     >
       {/* ── Header — combined total, agrees with the badge. ──────── */}
       <header className="steam-stats-popover-header">
@@ -223,8 +226,8 @@ export default function PlayerCountPopover({
           type="button"
           className="steam-stats-popover-close"
           onClick={onClose}
-          aria-label="Close stats"
-          title="Close"
+          aria-label={t("playerStats.closeAria")}
+          title={t("common.close")}
         >
           <svg
             viewBox="0 0 24 24"
@@ -243,7 +246,7 @@ export default function PlayerCountPopover({
       </header>
 
       {/* ── Source tabs ───────────────────────────────────────────── */}
-      <div className="player-stats-tabs" role="tablist" aria-label="Stats source">
+      <div className="player-stats-tabs" role="tablist" aria-label={t("playerStats.sourceAria")}>
         <button
           type="button"
           role="tab"

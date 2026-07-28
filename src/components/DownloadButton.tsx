@@ -14,6 +14,7 @@
 
 import { useState, type CSSProperties } from "react";
 import DownloadModal from "./DownloadModal";
+import { useLanguage } from "../context/LanguageContext";
 
 export interface DownloadButtonProps {
   gameName: string;
@@ -38,6 +39,7 @@ export default function DownloadButton({
   style,
   className,
 }: DownloadButtonProps) {
+  const { t } = useLanguage();
   const [open, setOpen] = useState(false);
 
   return (
@@ -47,8 +49,8 @@ export default function DownloadButton({
         className={`game-download-btn game-download-btn--${variant}${className ? ` ${className}` : ""}`}
         onClick={() => setOpen(true)}
         style={style}
-        title="Find a download source"
-        aria-label="Open download sources"
+        title={t("downloads.findDownloadSource")}
+        aria-label={t("downloads.openDownloadSourcesAria")}
       >
         <svg
           viewBox="0 0 24 24"

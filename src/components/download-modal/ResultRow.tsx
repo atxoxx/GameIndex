@@ -1,4 +1,5 @@
 import type { DisplayMatch } from "./types";
+import { useLanguage } from "../../context/LanguageContext";
 
 export function ResultRow({
   match,
@@ -11,6 +12,7 @@ export function ResultRow({
   onSelect: (id: string) => void;
   isDownloaded: (title: string) => boolean;
 }) {
+  const { t } = useLanguage();
   const score = match.matchScore;
   const scoreLabel =
     score >= 0.8 ? "High match" : score >= 0.4 ? "Partial match" : "Possible";
@@ -27,12 +29,12 @@ export function ResultRow({
           <span className="dl-result-title-text">{match.title}</span>
           <span className="dl-result-badges">
             {match.isNew && (
-              <span className="dl-badge dl-badge-new" title="Newly added source">
+              <span className="dl-badge dl-badge-new" title={t("downloads.newlyAddedSource")}>
                 NEW
               </span>
             )}
             {isDownloaded(match.title) && (
-              <span className="dl-badge dl-badge-downloaded" title="Already downloaded">
+              <span className="dl-badge dl-badge-downloaded" title={t("downloads.alreadyDownloaded")}>
                 Downloaded
               </span>
             )}

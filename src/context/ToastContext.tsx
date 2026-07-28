@@ -6,6 +6,7 @@ import {
   useEffect,
   type ReactNode,
 } from "react";
+import { useLanguage } from "./LanguageContext";
 
 export type ToastType = "success" | "error" | "info" | "warning";
 
@@ -60,6 +61,8 @@ function ToastItem({
   toast: Toast;
   onDismiss: (id: number) => void;
 }) {
+  const { t } = useLanguage();
+
   useEffect(() => {
     const timer = setTimeout(() => onDismiss(toast.id), 4000);
     return () => clearTimeout(timer);
@@ -100,7 +103,7 @@ function ToastItem({
       <button
         className="toast-close"
         onClick={() => onDismiss(toast.id)}
-        aria-label="Dismiss"
+        aria-label={t("toast.dismiss")}
       >
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
           <line x1="18" y1="6" x2="6" y2="18" />

@@ -3838,7 +3838,7 @@ export default function FriendsPage() {
                                 <div className="rec-meta">
                                   <span className="rec-game">{rec.gameName}</span>
                                   <span className="rec-author">
-                                    {t("friendsPage.recommendedByTo", { by: rec.recommendedBy, to: rec.recommendedTo })}
+                                    {t("friendsPage.recommendedByTo", { by: rec.recommendedBy, to: rec.recommendedTo === "All Friends" ? t("friendsPage.allFriends") : rec.recommendedTo })}
                                   </span>
                                 </div>
                                 <div className="rec-header-actions">

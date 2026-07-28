@@ -5,15 +5,10 @@ import {
   formatPlayTime,
 } from "../../types/game";
 import { useSettings } from "../../context/SettingsContext";
+import { useLanguage } from "../../context/LanguageContext";
 import { formatTemp, toDisplayTemp, tempMaxY } from "../../utils/temp";
 import * as Icons from "./Icons";
 
-/**
- * Sessions Log tab. Lists every recorded session with its duration, when it
- * happened, and—if metrics were captured—collapsible hardware stats for that
- * session. Numbers are formatted in `formatSessionValue` so a stored value of
- * 18.333333333333332% becomes "18.3 %" rather than the raw float.
- */
 export function ActivitySessions({
   sessions,
   games,
@@ -23,6 +18,7 @@ export function ActivitySessions({
   games: Game[];
   onDeleteSession: (sessionId: string) => void;
 }) {
+  const { t } = useLanguage();
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
 
@@ -47,8 +43,7 @@ export function ActivitySessions({
     return (
       <div className="section-panel">
         <div className="section-panel__empty">
-          No sessions recorded yet. Launch a game and play for at least a
-          minute to see it appear here.
+          {t("activity.noSessionsRecorded")}
         </div>
       </div>
     );
@@ -57,15 +52,15 @@ export function ActivitySessions({
   return (
     <>
       <div className="global-session-list__header">
-        <h3 className="section-panel__title">Sessions Log ({sessions.length})</h3>
+        <h3 className="section-panel__title">{t("activity.sessionsLog", { count: sessions.length })}</h3>
         <div className="global-session-list__actions">
           <div className="global-session-list__search">
             <Icons.Search size={11} className="global-session-list__search-icon" />
             <input
               className="global-session-list__search-input"
               type="search"
-              placeholder="Search sessions..."
-              aria-label="Search sessions by game name"
+              placeholder={t("activity.searchSessionsPlaceholder")}
+              aria-label={t("activity.searchSessionsAria")}
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
             />
@@ -76,7 +71,7 @@ export function ActivitySessions({
       <div className="global-session-list__items">
         {filteredSessions.length === 0 ? (
           <div className="section-panel__empty">
-            No sessions match "{searchQuery}".
+            {t("activity.noSessionsMatch", { query: searchQuery })}
           </div>
         ) : (
           filteredSessions.map((session) => {
@@ -158,8 +153,8 @@ export function ActivitySessions({
                     <button
                       type="button"
                       className="activity-session-item__delete-btn"
-                      title="Delete session"
-                      aria-label={`Delete session for ${session.gameName}`}
+                      title={t("activity.deleteSessionTitle")}
+                      aria-label={t("activity.deleteSessionAria", { name: session.gameName })}
                       onClick={(e) => {
                         e.stopPropagation();
                         onDeleteSession(session.id);
@@ -176,7 +171,7 @@ export function ActivitySessions({
                       <SessionMetricsCard metrics={session.metrics} />
                     ) : (
                       <div className="activity-session-item__no-hardware">
-                        No hardware metrics were recorded for this session.
+                        {t("activity.noHardwareMetrics")}
                       </div>
                     )}
                   </div>
@@ -201,30 +196,29 @@ function SessionMetricsCard({
   metrics: NonNullable<GameSession["metrics"]>;
 }) {
   const { tempUnit } = useSettings();
+  const { t } = useLanguage();
   return (
     <div className="activity-hardware-card">
       <h4 className="activity-hardware-card__title">
-        Captured Metrics ({metrics.resolution})
+        {t("activity.capturedMetrics", { res: metrics.resolution })}
       </h4>
       <div className="activity-hardware-card__metrics">
         <StatTile
           icon={<Icons.Activity size={11} />}
-          label="Avg FPS"
+          label={t("activity.avgFps")}
           value={metrics.avgFps ? String(metrics.avgFps) : "—"}
           extra={`${metrics.minFps || "—"}-${metrics.maxFps || "—"}`}
-          // FPS scale: 240 ceiling. Bar normalises against 240 so a
-          // 144-fps cap visibly fills ~60 % of the inline bar.
           fraction={metrics.avgFps / 240}
         />
         <StatTile
           icon={<Icons.Cpu size={11} />}
-          label="CPU Load"
+          label={t("activity.cpuLoad")}
           value={formatSessionValue(metrics.avgCpuUsage, "%", 1)}
           fraction={metrics.avgCpuUsage / 100}
         />
         <StatTile
           icon={<Icons.Gauge size={11} />}
-          label="GPU Load"
+          label={t("activity.gpuLoad")}
           value={formatSessionValue(metrics.avgGpuUsage, "%", 1)}
           fraction={metrics.avgGpuUsage / 100}
         />
@@ -236,14 +230,13 @@ function SessionMetricsCard({
         />
         <StatTile
           icon={<Icons.Thermometer size={11} />}
-          label="CPU Temp"
+          label={t("activity.cpuTemp")}
           value={formatTemp(metrics.avgCpuTemp, tempUnit)}
-          // 0-100 (°C) / 32-212 (°F) scale (cool → hot).
           fraction={toDisplayTemp(metrics.avgCpuTemp, tempUnit) / tempMaxY(tempUnit)}
         />
         <StatTile
           icon={<Icons.Thermometer size={11} />}
-          label="GPU Temp"
+          label={t("activity.gpuTemp")}
           value={formatTemp(metrics.avgGpuTemp, tempUnit)}
           fraction={toDisplayTemp(metrics.avgGpuTemp, tempUnit) / tempMaxY(tempUnit)}
         />
@@ -270,9 +263,7 @@ function StatTile({
   extra?: string;
   fraction: number;
 }) {
-  // Clamp the bar fill so over-range readings (rare but possible if a
-  // session reports >100% CPU from a faulty MAHM sensor) don't render
-  // past the tile edge.
+  const { t } = useLanguage();
   const clamped = Math.max(0, Math.min(1, fraction || 0));
   return (
     <div className="activity-sparkline">
@@ -295,12 +286,12 @@ function StatTile({
       </svg>
       <div className="activity-sparkline__value-group">
         <div className="activity-sparkline__value-item">
-          <span className="activity-sparkline__value-item-label">Avg</span>
+          <span className="activity-sparkline__value-item-label">{t("activity.avg")}</span>
           <span className="activity-sparkline__value">{value}</span>
         </div>
         {extra && (
           <div className="activity-sparkline__value-item">
-            <span className="activity-sparkline__value-item-label">Range</span>
+            <span className="activity-sparkline__value-item-label">{t("activity.range")}</span>
             <span className="activity-sparkline__value activity-sparkline__value--min">
               {extra}
             </span>

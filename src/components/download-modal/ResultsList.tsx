@@ -1,5 +1,6 @@
 import type { SortKey, DisplayMatch } from "./types";
 import { ResultRow } from "./ResultRow";
+import { useLanguage } from "../../context/LanguageContext";
 
 export function ResultsList({
   matches,
@@ -20,6 +21,8 @@ export function ResultsList({
   sortBy: SortKey;
   onSortChange: (sortBy: SortKey) => void;
 }) {
+  const { t } = useLanguage();
+
   if (matches.length === 0) {
     return (
       <div className="dl-results-empty">
@@ -35,7 +38,7 @@ export function ResultsList({
           <circle cx="11" cy="11" r="8" />
           <line x1="21" y1="21" x2="16.65" y2="16.65" />
         </svg>
-        <p>No matches found in your sources</p>
+        <p>{t("downloads.noMatchesFound")}</p>
         <p className="dl-results-empty-hint">
           Add more sources in <strong>Settings → Download Sources</strong>, or
           verify that one of your enabled sources actually lists this game. The
@@ -56,18 +59,18 @@ export function ResultsList({
   return (
     <div>
       <div className="dl-results-header">
-        <span className="dl-results-header-title">Sources</span>
+        <span className="dl-results-header-title">{t("downloads.sources")}</span>
         <label className="dl-sort">
-          <span className="dl-sort-label">Sort</span>
+          <span className="dl-sort-label">{t("downloads.sort")}</span>
           <select
             className="dl-sort-select"
             value={sortBy}
             onChange={(e) => onSortChange(e.target.value as SortKey)}
-            aria-label="Sort results"
+            aria-label={t("downloads.sortResultsAria")}
           >
-            <option value="date">Date (newest)</option>
-            <option value="source">Source</option>
-            <option value="relevance">Relevance</option>
+            <option value="date">{t("downloads.sortDateNewest")}</option>
+            <option value="source">{t("downloads.sortSource")}</option>
+            <option value="relevance">{t("downloads.sortRelevance")}</option>
           </select>
         </label>
       </div>

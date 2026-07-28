@@ -744,7 +744,7 @@ export default function WebLinksTab({ game, visible = true }: WebLinksTabProps) 
           {url.replace(/^https?:\/\//, "").replace(/^www\./, "")}
         </span>
         <div className="wl-urlbar-actions">
-          <button className="wl-urlbar-btn" onClick={handleReload} type="button" title="Reload preview">
+          <button className="wl-urlbar-btn" onClick={handleReload} type="button" title={t("weblinks.reloadPreview")}>
             <ReloadIcon />
             <span>{t("weblinks.reload")}</span>
           </button>
@@ -752,7 +752,7 @@ export default function WebLinksTab({ game, visible = true }: WebLinksTabProps) 
             className="wl-urlbar-btn primary"
             onClick={handleOpenExternal}
             type="button"
-            title="Open in your default browser"
+            title={t("weblinks.openInBrowser")}
           >
             <OpenExternalIcon />
             <span>{t("weblinks.openBrowser")}</span>

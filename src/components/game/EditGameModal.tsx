@@ -649,10 +649,10 @@ export function EditGameModal({ game, onClose }: EditGameModalProps) {
         <div className="edit-modal-preview">
           <div className="edit-modal-preview-art">
             <div className="edit-preview-hero" style={editHero ? { backgroundImage: `url(${editHero})` } : undefined}>
-              {!editHero && <span className="edit-preview-hero-ph">Hero</span>}
+              {!editHero && <span className="edit-preview-hero-ph">{t("edit.label.hero")}</span>}
             </div>
             <div className="edit-preview-cover" style={editCover ? { backgroundImage: `url(${editCover})` } : undefined}>
-              {!editCover && <span>Cover</span>}
+              {!editCover && <span>{t("edit.label.cover")}</span>}
             </div>
             {editIcon && <img className="edit-preview-icon" src={editIcon} alt="icon" />}
           </div>
@@ -680,7 +680,7 @@ export function EditGameModal({ game, onClose }: EditGameModalProps) {
             >
               {fetchingMetadata ? t("edit.searching") : t("edit.fetchMetadata")}
             </Button>
-            <button className="metadata-panel-close" onClick={onClose} aria-label="Close">
+            <button className="metadata-panel-close" onClick={onClose} aria-label={t("common.close")}>
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" /></svg>
             </button>
           </div>
@@ -1063,27 +1063,27 @@ export function EditGameModal({ game, onClose }: EditGameModalProps) {
           {editTab === "launch" && (
             <div className="edit-form">
               <div className="edit-field full-width">
-                <label className="edit-label" htmlFor="edit-path">Executable Path</label>
+                <label className="edit-label" htmlFor="edit-path">{t("edit.label.executablePath")}</label>
                 <div style={{ display: "flex", gap: "var(--space-sm)" }}>
                   <input id="edit-path" className="edit-input" type="text" value={editPath} onChange={(e) => setEditPath(e.target.value)} placeholder="Path to game executable" style={{ flex: 1 }} />
-                  <button type="button" className="edit-btn edit-btn-secondary" onClick={handlePickExecutable} style={{ whiteSpace: "nowrap" }}>Browse...</button>
+                  <button type="button" className="edit-btn edit-btn-secondary" onClick={handlePickExecutable} style={{ whiteSpace: "nowrap" }}>{t("edit.browse")}</button>
                 </div>
               </div>
               <div className="edit-field full-width" style={{ marginTop: "var(--space-md)" }}>
-                <label className="edit-label" htmlFor="edit-launch-arguments">Launch Arguments</label>
+                <label className="edit-label" htmlFor="edit-launch-arguments">{t("edit.label.launchArguments")}</label>
                 <input id="edit-launch-arguments" className="edit-input" type="text" value={editLaunchArguments} onChange={(e) => setEditLaunchArguments(e.target.value)} placeholder="e.g. -windowed -novid -dev" />
-                <span className="size-edit-hint">Custom command-line parameters passed directly to the executable on startup.</span>
+                <span className="size-edit-hint">{t("edit.launchArgsHint")}</span>
               </div>
               <div className="edit-field full-width" style={{ marginTop: "var(--space-lg)" }}>
                 <label className="checkbox-container" style={{ display: "flex", alignItems: "center", gap: "var(--space-sm)", cursor: "pointer", userSelect: "none" }}>
                   <input type="checkbox" checked={editRunAsAdmin} onChange={(e) => setEditRunAsAdmin(e.target.checked)} style={{ width: "18px", height: "18px", accentColor: "var(--color-accent)", cursor: "pointer" }} />
-                  <span style={{ fontSize: "var(--font-size-sm)", fontWeight: 500, color: "var(--color-text-primary)" }}>Run as Administrator</span>
+                  <span style={{ fontSize: "var(--font-size-sm)", fontWeight: 500, color: "var(--color-text-primary)" }}>{t("edit.runAsAdmin")}</span>
                 </label>
-                <span className="size-edit-hint" style={{ display: "block", marginTop: "4px", marginLeft: "26px" }}>Elevate process privileges using Windows UAC when launching.</span>
+                <span className="size-edit-hint" style={{ display: "block", marginTop: "4px", marginLeft: "26px" }}>{t("edit.runAsAdminHint")}</span>
               </div>
 
               <fieldset className="edit-fieldset" style={{ marginTop: "var(--space-lg)" }}>
-                <legend className="edit-fieldset-legend">Scripts</legend>
+                <legend className="edit-fieldset-legend">{t("edit.tab.scripts")}</legend>
                 <LaunchScriptRow
                   label="Pre-launch Script"
                   hint="Runs synchronously before the game starts. The launch is aborted if this script fails."
@@ -1105,12 +1105,12 @@ export function EditGameModal({ game, onClose }: EditGameModalProps) {
               </fieldset>
 
               <fieldset className="edit-fieldset" style={{ marginTop: "var(--space-lg)" }}>
-                <legend className="edit-fieldset-legend">Companion Apps</legend>
+                <legend className="edit-fieldset-legend">{t("edit.tab.companionApps")}</legend>
                 <span className="size-edit-hint" style={{ display: "block", marginBottom: "var(--space-md)" }}>
                   Launch additional executables alongside the game — e.g. a dedicated server or overlay. Each starts after a delay timer you set.
                 </span>
                 {editCompanionApps.length === 0 ? (
-                  <p className="array-editor-empty">No companion apps yet.</p>
+                  <p className="array-editor-empty">{t("edit.noCompanionApps")}</p>
                 ) : (
                   <div className="companion-app-list">
                     {editCompanionApps.map((app, idx) => (

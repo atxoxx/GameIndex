@@ -641,7 +641,7 @@ export default function ModManager({
                   type="button"
                   className="mods-search-clear"
                   onClick={() => setSearch("")}
-                  title="Clear search"
+                  title={t("mods.clearSearchTitle")}
                 >
                   <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                     <line x1="18" y1="6" x2="6" y2="18"></line>
@@ -920,11 +920,11 @@ export default function ModManager({
                       onChange={(e) =>
                         toggleSelectMod(mod.id, (e.nativeEvent as MouseEvent).shiftKey)
                       }
-                      title="Select mod"
+                      title={t("mods.selectModTitle")}
                     />
 
                     {dragEnabled && (
-                      <span className="mods-drag-handle" aria-hidden title="Drag to reorder">
+                      <span className="mods-drag-handle" aria-hidden title={t("mods.dragToReorder")}>
                         <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
                           <circle cx="9" cy="5" r="1"></circle>
                           <circle cx="9" cy="12" r="1"></circle>

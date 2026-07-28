@@ -1,6 +1,7 @@
 import { useMemo } from "react";
 import { type Game, type GameSession, formatPlayTime } from "../../types/game";
 import { useActivity } from "../../context/ActivityContext";
+import { useLanguage } from "../../context/LanguageContext";
 import LineChart from "../charts/LineChart";
 import BarChart from "../charts/BarChart";
 import DonutChart from "../charts/DonutChart";
@@ -55,6 +56,7 @@ export function ActivityDashboard({
   sourceFilter: string;
 }) {
   const { getAllStats } = useActivity();
+  const { t } = useLanguage();
 
   // Filter sessions to the active date range AND source filter. Doing it
   // here keeps the charts and stat pills in sync — they all derive from
@@ -157,24 +159,24 @@ export function ActivityDashboard({
       {/* ── Top stats pills ──────────────────────────────────────────────── */}
       <div className="activity-stats-bar">
         <StatPill
-          label="Total Sessions"
+          label={t("activity.totalSessions")}
           value={String(rangedStats.totalSessions)}
         />
         <StatPill
-          label="Play Time (Window)"
+          label={t("activity.playTimeWindow")}
           value={formatPlayTime(rangedStats.totalPlayTimeMin)}
           highlight
         />
         <StatPill
-          label="Avg Session"
+          label={t("activity.avgSession")}
           value={formatPlayTime(rangedStats.avgSessionMin)}
         />
         <StatPill
-          label="Total Library Time"
+          label={t("activity.totalLibraryTime")}
           value={formatPlayTime(allStats.totalPlayTimeMin)}
         />
         <StatPill
-          label="Most Played"
+          label={t("activity.mostPlayed")}
           value={rangedStats.mostPlayedGame}
         />
       </div>
@@ -184,17 +186,21 @@ export function ActivityDashboard({
         <div className="activity-main-chart__header">
           <div className="activity-main-chart__header-left">
             <h3 className="activity-main-chart__title">
-              Playtime by {aggregation === "day" ? "Day" : aggregation === "week" ? "Week" : "Month"}
+              {aggregation === "day"
+                ? t("activity.playtimeByDay")
+                : aggregation === "week"
+                  ? t("activity.playtimeByWeek")
+                  : t("activity.playtimeByMonth")}
             </h3>
             <span className="activity-main-chart__subtitle">
-              {formatPlayTime(totalMinutes)} · {dateRange === "all" ? "All time" : dateRange.toUpperCase()}
+              {formatPlayTime(totalMinutes)} · {dateRange === "all" ? t("activity.allTime") : dateRange.toUpperCase()}
             </span>
           </div>
         </div>
         <div className="activity-main-chart__body">
           {chartData.data.length === 0 ? (
             <div className="activity-main-chart--empty">
-              No sessions in the selected range.
+              {t("activity.noSessionsRange")}
             </div>
           ) : chartType === "bar" ? (
             <BarChart
@@ -227,11 +233,11 @@ export function ActivityDashboard({
       {/* ── Genre + Platform donut breakdowns ───────────────────────────── */}
       <div className="activity__two-column">
         <div className="section-panel platform-breakdown">
-          <h3 className="section-panel__title">Play Time by Platform</h3>
+          <h3 className="section-panel__title">{t("activity.playTimeByPlatform")}</h3>
           <div className="platform-breakdown__content">
             {platformSlices.length === 0 ? (
               <div className="section-panel__empty">
-                No platform data yet. Play a session to populate this chart.
+                {t("activity.noPlatformData")}
               </div>
             ) : (
               <DonutChart
@@ -246,12 +252,11 @@ export function ActivityDashboard({
         </div>
 
         <div className="section-panel genre-breakdown">
-          <h3 className="section-panel__title">Play Time by Genre</h3>
+          <h3 className="section-panel__title">{t("activity.playTimeByGenre")}</h3>
           <div className="genre-breakdown__content">
             {genreSlices.length === 0 ? (
               <div className="section-panel__empty">
-                Genre data comes from IGDB-tagged games. Fetch metadata from
-                a game's page to populate this chart.
+                {t("activity.genreDataHint")}
               </div>
             ) : (
               <DonutChart
