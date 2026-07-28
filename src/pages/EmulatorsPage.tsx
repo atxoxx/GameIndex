@@ -383,6 +383,22 @@ export default function EmulatorsPage() {
     [showToast]
   );
 
+  const handleLaunchExe = useCallback(
+    async (emu: Emulator) => {
+      if (!emu.executablePath) {
+        showToast(t("emulators.launcherNotSet"), "error");
+        return;
+      }
+      try {
+        await openPath(emu.executablePath);
+        showToast(t("emulators.launchExeSuccess", { name: emu.name }), "success");
+      } catch (err) {
+        showToast(t("emulators.launchExeError", { error: String(err) }), "error");
+      }
+    },
+    [showToast, t]
+  );
+
   const handleDelete = useCallback(
     async (emu: Emulator) => {
       try {
@@ -765,6 +781,16 @@ export default function EmulatorsPage() {
                         ? truncateMiddle(selectedRow.emulator.executablePath)
                         : "—"}
                     </span>
+                    <button
+                      className="btn-ghost btn-sm"
+                      onClick={() =>
+                        selectedRow.emulator && handleLaunchExe(selectedRow.emulator)
+                      }
+                      disabled={!selectedRow.emulator?.executablePath}
+                      title={t("emulators.launchExe")}
+                    >
+                      ▶ {t("emulators.launchExe")}
+                    </button>
                   </div>
                   <div className="emu-detail-meta-row">
                     <span className="emu-detail-meta-label">
@@ -802,7 +828,17 @@ export default function EmulatorsPage() {
 
                 <div className="emu-detail-actions">
                   <button
-                    className="btn-primary btn-sm"
+                    className="btn-primary btn-sm emu-launch-btn"
+                    onClick={() =>
+                      selectedRow.emulator && handleLaunchExe(selectedRow.emulator)
+                    }
+                    disabled={!selectedRow.configured}
+                    title={!selectedRow.configured ? t("emulators.launcherNotSet") : undefined}
+                  >
+                    ▶ {t("emulators.launchExe")}
+                  </button>
+                  <button
+                    className="btn-secondary btn-sm"
                     onClick={() => selectedRow.emulator && handleScan(selectedRow.emulator)}
                     disabled={scanningId === selectedRow.id}
                   >
