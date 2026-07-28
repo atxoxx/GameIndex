@@ -94,11 +94,17 @@ const PRESET_VALUE_SET: Set<string> = new Set(
   ACCENT_PRESETS.map((p) => p.value.toLowerCase()),
 );
 
-const DESCRIPTOR_LABELS: Record<ThemeDescriptor, string> = {
-  vibrant: "🎮 Vibrant",
-  calm: "🧘 Calm",
-  "high-contrast": "♿ High Contrast",
-  minimal: "✨ Minimal",
+const getDescriptorLabel = (descriptor: ThemeDescriptor, t: (k: string) => string): string => {
+  switch (descriptor) {
+    case "vibrant":
+      return t("settings.descriptor.vibrant");
+    case "calm":
+      return t("settings.descriptor.calm");
+    case "high-contrast":
+      return t("settings.descriptor.highContrast");
+    case "minimal":
+      return t("settings.descriptor.minimal");
+  }
 };
 
 type SettingsTab = "appearance" | "hardware" | "integrations" | "downloads" | "launcher";
@@ -861,10 +867,10 @@ export default function SettingsPage() {
       showToast(t("settings.steamConnected", { display: session.displayName ? ` as ${session.displayName}` : "" }), "success");
 
       // Auto-sync after a manual Connect (same handleSyncNow
-      // path as the Sync Library button). The auto-reconnect
+      // path as the {t("settings.ubisoft.syncBtn")} button). The auto-reconnect
       // path passes { autoSync: false } so reboots don't sneak
       // in a heavy sync the user didn't ask for — they can
-      // click Sync Library manually for fresh data.
+      // click {t("settings.ubisoft.syncBtn")} manually for fresh data.
       if (autoSync) {
         // Run the library sync in the background so the "Connecting…"
         // spinner clears as soon as the key validates. The sync keeps
@@ -1122,7 +1128,7 @@ export default function SettingsPage() {
       setEpicSyncResult(null);
       localStorage.removeItem("gamelib-epic-sync-info");
       showToast(t("settings.epicDisconnected"), "info");
-      // Clear any pending stale-session banner so the recovery prompt
+      // {t("common.clear")} any pending stale-session banner so the recovery prompt
       // doesn't linger after an explicit Disconnect — the user picked
       // the logout path on purpose.
       setEpicStaleSession(null);
@@ -1774,7 +1780,7 @@ export default function SettingsPage() {
             {themes.map((theme) => {
               const isActive = currentTheme === theme.id;
               const colors = THEME_PREVIEW_COLORS[theme.id] ?? THEME_PREVIEW_COLORS.dark;
-              const descriptorLabel = DESCRIPTOR_LABELS[theme.meta.descriptor] ?? null;
+              const descriptorLabel = getDescriptorLabel(theme.meta.descriptor, t);
               return (
                 <div
                   key={theme.id}
@@ -1855,9 +1861,7 @@ export default function SettingsPage() {
             <div className="settings-control">
               <label className="settings-label">{t("settings.label.accent")}</label>
               <p className="settings-helper-lead">
-                Tint buttons, links, and active states without losing
-                your theme. Resets to the theme's built-in accent when
-                cleared.
+                {t("settings.accent.desc")}
               </p>
               <div className="accent-picker" role="group" aria-label={t("settings.aria.presetAccentColors")}>
                 {/* Render the 16 preset swatches from ACCENT_PRESETS so
@@ -2886,9 +2890,7 @@ export default function SettingsPage() {
                     )}
                   </div>
                   <p className="integration-tile-desc">
-                    Scan installed Rockstar Games Launcher titles (GTA,
-                    Red Dead, Max Payne &amp; more) and launch them
-                    through the Rockstar client. No account required.
+                    {t("settings.rockstar.desc")}
                   </p>
                 </div>
               </div>
@@ -2896,15 +2898,14 @@ export default function SettingsPage() {
               <div className="integration-tile-body">
                 {rockstarSyncResult?.clientInstalled ? (
                   <div className="auth-status">
-                    Rockstar Games Launcher detected
+                    {t("settings.rockstar.detected")}
                     {rockstarSyncResult.clientPath
                       ? ` at ${rockstarSyncResult.clientPath}`
                       : ""}
                   </div>
                 ) : (
                   <p className="connect-prompt">
-                    The Rockstar Games Launcher isn't installed — only
-                    titles already on disk can be detected.
+                    {t("settings.rockstar.notInstalled")}
                   </p>
                 )}
 
@@ -2919,7 +2920,7 @@ export default function SettingsPage() {
                     onClick={handleRockstarSync}
                     isLoading={isRockstarSyncing}
                   >
-                    Scan Installed Games
+                    {t("settings.rockstar.scanBtn")}
                   </Button>
                   <Button
                     variant="danger"
@@ -2958,9 +2959,7 @@ export default function SettingsPage() {
                     )}
                   </div>
                   <p className="integration-tile-desc">
-                    Import your Ubisoft Connect library — installed games and
-                    your full owned catalog — plus launch titles through the
-                    Ubisoft Connect client. No account required.
+                    {t("settings.ubisoft.desc")}
                   </p>
                 </div>
               </div>
@@ -2968,22 +2967,19 @@ export default function SettingsPage() {
               <div className="integration-tile-body">
                 {uplaySyncResult?.clientInstalled ? (
                   <div className="auth-status">
-                    Ubisoft Connect detected
+                    {t("settings.ubisoft.detected")}
                     {uplaySyncResult.clientPath
                       ? ` at ${uplaySyncResult.clientPath}`
                       : ""}
                   </div>
                 ) : (
                   <p className="connect-prompt">
-                    Ubisoft Connect isn't installed — only games already on disk
-                    can be detected via the registry.
+                    {t("settings.ubisoft.notInstalled")}
                   </p>
                 )}
 
                 <p className="auth-note">
-                  Detection is fully local: GameIndex reads the Windows
-                  uninstall registry for installed titles and the Ubisoft
-                  Connect cache for your owned library.
+                  {t("settings.ubisoft.localNote")}
                 </p>
 
                 <div className="integration-tile-actions">
@@ -2992,7 +2988,7 @@ export default function SettingsPage() {
                     onClick={handleUplaySync}
                     isLoading={isUplaySyncing}
                   >
-                    Sync Library
+                    {t("settings.ubisoft.syncBtn")}
                   </Button>
                   <Button
                     variant="danger"
@@ -3035,7 +3031,7 @@ export default function SettingsPage() {
           </div>
 
           <p className="integration-footer">
-            More integrations coming soon — itch.io and more.
+            {t("settings.integrations.footerNotice")}
           </p>
 
 
@@ -3045,9 +3041,7 @@ export default function SettingsPage() {
             <div className="settings-section-header-text">
               <h2 className="settings-section-title">{t("settings.section.dataSync")}</h2>
               <p className="settings-section-desc">
-                Settings that apply across Steam, Epic, and GOG — or
-                control how shared data (player counts, achievements)
-                is presented.
+                {t("settings.dataSync.desc")}
               </p>
             </div>
           </header>
@@ -3098,9 +3092,7 @@ export default function SettingsPage() {
               <div className="settings-control">
                 <label className="settings-label">{t("settings.label.historyRetention")}</label>
                 <p className="settings-helper-lead">
-                  How long to keep historical Steam player counts
-                  for the trend sparklines on each game page.
-                  Shorter = less disk used; longer = richer sparklines.
+                  {t("settings.historyRetention.desc")}
                 </p>
                 <div className="settings-input-group">
                   <select
@@ -3149,12 +3141,10 @@ export default function SettingsPage() {
                 />
                 <div className="settings-checkbox-text">
                   <span className="settings-checkbox-title">
-                    Hide achievement progress (no spoilers)
+                    {t("settings.achievements.noSpoilersTitle")}
                   </span>
                   <span className="settings-checkbox-desc">
-                    Strips global unlock percentages and rarity rings
-                    from the Achievements tab and Game page so
-                    achievement lists read like a clean checklist.
+                    {t("settings.achievements.noSpoilersDesc")}
                   </span>
                 </div>
               </label>
@@ -3183,13 +3173,10 @@ export default function SettingsPage() {
                 />
                 <div className="settings-checkbox-text">
                   <span className="settings-checkbox-title">
-                    Track achievements for cracked / downloaded games
+                    {t("settings.achievements.localTitle")}
                   </span>
                   <span className="settings-checkbox-desc">
-                    Watches local crack &amp; emulator achievement files
-                    (Goldberg, CODEX, RUNE, OnlineFix, and more) and
-                    unlocks achievements for non-Steam games. Achievement
-                    details are fetched anonymously from the Hydra API.
+                    {t("settings.achievements.localDesc")}
                   </span>
                 </div>
               </label>
@@ -3216,11 +3203,10 @@ export default function SettingsPage() {
                 />
                 <div className="settings-checkbox-text">
                   <span className="settings-checkbox-title">
-                    Show what you’re playing on Discord
+                    {t("settings.discord.title")}
                   </span>
                   <span className="settings-checkbox-desc">
-                    Posts a “Playing X” status to your Discord profile
-                    and clears it when the game exits.
+                    {t("settings.discord.desc")}
                   </span>
                 </div>
               </label>
@@ -3310,8 +3296,7 @@ export default function SettingsPage() {
               <div className="settings-section-header-text">
                  <h2 className="settings-section-title">{t("settings.section.notifications")}</h2>
                 <p className="settings-section-desc">
-                  Get notified when a download finishes so you can leave
-                  transfers running in the background.
+                  {t("settings.downloads.notifyDesc")}
                 </p>
               </div>
             </header>
@@ -3357,7 +3342,7 @@ export default function SettingsPage() {
               <div className="settings-section-header-text">
                  <h2 className="settings-section-title">{t("settings.section.bandwidth")}</h2>
                 <p className="settings-section-desc">
-                  Control the maximum speed used for downloading and uploading game torrents.
+                  {t("settings.downloads.bandwidthDesc")}
                 </p>
               </div>
             </header>
@@ -3451,10 +3436,7 @@ export default function SettingsPage() {
               <div className="settings-section-header-text">
                  <h2 className="settings-section-title">{t("settings.section.blockedDomains")}</h2>
                 <p className="settings-section-desc">
-                  Domains listed here are filtered out of every
-                  download search — nothing from these hosts appears
-                  in the Download modal’s results list. One domain
-                  per line.
+                  {t("settings.downloads.blockedDesc")}
                 </p>
               </div>
             </header>
@@ -3485,11 +3467,7 @@ export default function SettingsPage() {
               <div className="settings-section-header-text">
                  <h2 className="settings-section-title">{t("settings.section.downloadSources")}</h2>
                 <p className="settings-section-desc">
-                  Add JSON-formatted source URLs to find download mirrors for
-                  your games. Sources use the Hydra-compatible format with a
-                  <code> name </code>and a <code> downloads </code>array and
-                  are registered with the Hydra API. The Download button on
-                  any game's page will search your enabled sources.
+                  {t("settings.downloads.sourcesDescStart")} <code>name</code> {t("common.and")} <code>downloads</code> {t("settings.downloads.sourcesDescEnd")}
                 </p>
               </div>
             </header>
@@ -3502,7 +3480,7 @@ export default function SettingsPage() {
               <div className="settings-section-header-text">
                  <h2 className="settings-section-title">{t("settings.section.debrid")}</h2>
                 <p className="settings-section-desc">
-                  Configure a debrid service (AllDebrid or TorBox) to download torrent magnet links via high-speed direct HTTP connections.
+                  {t("settings.downloads.debridDesc")}
                 </p>
               </div>
             </header>
@@ -3587,8 +3565,7 @@ export default function SettingsPage() {
             <div className="settings-section-header-text">
               <h2 className="settings-section-title">{t("settings.section.launcherBehaviour")}</h2>
               <p className="settings-section-desc">
-                Decide what GameIndex does at boot, when you launch a game,
-                and how the window itself behaves.
+                {t("settings.launcher.desc")}
               </p>
             </div>
           </header>
@@ -3598,12 +3575,10 @@ export default function SettingsPage() {
             <div className="settings-launcher-card">
               <div className="settings-control">
                 <label className="settings-label" htmlFor="settings-landing-page">
-                  Default landing page
+                  {t("settings.launcher.landingTitle")}
                 </label>
                 <p className="settings-helper-lead">
-                  Which route opens when GameIndex launches. Useful if your
-                  workflow starts in Activity, Downloads, or Deals rather
-                  than the Library.
+                  {t("settings.launcher.landingDesc")}
                 </p>
                 <div className="settings-input-group">
                   <select
@@ -3654,12 +3629,10 @@ export default function SettingsPage() {
                 />
                 <div className="settings-checkbox-text">
                   <span className="settings-checkbox-title">
-                    Close to tray instead of quitting
+                    {t("settings.launcher.trayTitle")}
                   </span>
                   <span className="settings-checkbox-desc">
-                    Clicking the × keeps the launcher running in the
-                    background. Right-click the tray icon to quit
-                    for real.
+                    {t("settings.launcher.trayDesc")}
                   </span>
                 </div>
               </label>
@@ -3684,12 +3657,10 @@ export default function SettingsPage() {
                 />
                 <div className="settings-checkbox-text">
                   <span className="settings-checkbox-title">
-                    Minimize when a game starts
+                    {t("settings.launcher.minimizeTitle")}
                   </span>
                   <span className="settings-checkbox-desc">
-                    Drops the launcher out of the way while a game is
-                    in the foreground — useful for one-monitor
-                    set-ups.
+                    {t("settings.launcher.minimizeDesc")}
                   </span>
                 </div>
               </label>
@@ -3718,11 +3689,10 @@ export default function SettingsPage() {
                 />
                 <div className="settings-checkbox-text">
                   <span className="settings-checkbox-title">
-                    Start GameIndex when you sign in
+                    {t("settings.launcher.autostartTitle")}
                   </span>
                   <span className="settings-checkbox-desc">
-                    Registers the app in your OS startup list (Windows
-                    Registry / macOS Login Items / Linux .desktop).
+                    {t("settings.launcher.autostartDesc")}
                   </span>
                 </div>
               </label>
@@ -3747,13 +3717,10 @@ export default function SettingsPage() {
                 />
                 <div className="settings-checkbox-text">
                   <span className="settings-checkbox-title">
-                    Never request elevation (UAC prompt)
+                    {t("settings.launcher.uacTitle")}
                   </span>
                   <span className="settings-checkbox-desc">
-                    Suppresses the Windows "run as administrator"
-                    prompt when a game requires it. Games that genuinely
-                    need elevation will silently fail to launch —
-                    leave off unless you know what you're doing.
+                    {t("settings.launcher.uacDesc")}
                   </span>
                 </div>
               </label>
