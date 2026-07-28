@@ -3169,6 +3169,7 @@
 .sidebar-filter-popover-body {
   flex: 1;
   overflow-y: auto;
+  overflow-x: hidden;
   padding: var(--space-md);
   display: flex;
   flex-direction: column;
@@ -3230,25 +3231,33 @@
 /* Status segmented control */
 .sidebar-filter-popover-segmented {
   display: flex;
+  flex-wrap: wrap;
   padding: 3px;
   background: var(--color-bg-tertiary);
   border: 1px solid var(--color-border);
   border-radius: var(--radius-md);
-  gap: 2px;
+  gap: 3px;
+  max-width: 100%;
+  box-sizing: border-box;
 }
 
 .sidebar-filter-popover-segment {
-  flex: 1;
-  padding: var(--space-xs) var(--space-sm);
+  flex: 1 1 calc(33.333% - 4px);
+  min-width: 0;
+  box-sizing: border-box;
+  text-align: center;
+  padding: 6px var(--space-xs);
   border: none;
   background: transparent;
   color: var(--color-text-secondary);
-  font-size: var(--font-size-sm);
+  font-size: var(--font-size-xs);
   font-weight: var(--font-weight-medium);
   border-radius: calc(var(--radius-md) - 3px);
   cursor: pointer;
   transition: all var(--transition-fast);
   white-space: nowrap;
+  text-overflow: ellipsis;
+  overflow: hidden;
 }
 
 .sidebar-filter-popover-segment:hover {
