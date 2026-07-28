@@ -708,118 +708,158 @@
   transform: translateX(0);
 }
 
-/* ── GameHero (compact layout) ──────────────────────────────────
-   Single-row layout: compact banner with KPI overlay on top, then
-   a single flex row below combining logo/title (left) + meta
-   (middle) + launch actions (right). The Library/Edit/Remove
-   top bar that used to live above the banner has been removed
-   (use the TopNav Library tab + Sidebar right-click context menu).
-   Total hero height is ~200-260px instead of the previous
-   ~400-500px. */
+/* ── GameHero (fixed-height poster + content layout) ────────
+   A single rounded card with a fixed height (--hero-h). A blurred
+   banner/trailer backdrop fills the card; a scrim keeps the left
+   content legible. A crisp 2:3 poster sits on the left; the content
+   column on the right stacks the head (eyebrow + title + meta) on top
+   and the footer (KPI strip + actions) on the bottom. The height is
+   capped so the hero never dominates the page, and collapses to an
+   auto-height stacked layout on narrow viewports. */
 
-.game-hero--compact {
+.game-hero {
+  --hero-h: 360px;
   position: relative;
+  height: var(--hero-h);
   border-radius: var(--radius-lg);
   overflow: hidden;
   margin-bottom: var(--space-xl);
-  background: var(--color-surface);
+  background:
+    radial-gradient(120% 120% at 0% 0%, color-mix(in srgb, var(--game-accent) 12%, transparent), transparent 60%),
+    var(--color-bg-secondary);
   border: 1px solid var(--color-border-light);
-  box-shadow: var(--shadow-sm);
-  /* Create a fresh stacking context so the hero's internal
-   * z-indices (.game-hero__kpis at 3, .game-hero__info-row at 2)
-   * can't leak out and paint above page-level overlays like the
-   * Download modal (z-index 9998) or the downloads popover. */
+  box-shadow: var(--shadow-md);
+  /* Fresh stacking context so inner z-indices can't paint above
+   * page-level overlays (download modal, popovers). */
   isolation: isolate;
-  /* Per-game accent: when GameHero samples the cover art it sets
-   * --game-accent inline; otherwise this falls back to the global
-   * accent so every hero visual (stripe, KPI tiles, status dot)
-   * stays consistent. */
   --game-accent: var(--color-accent);
   --game-accent-hover: var(--color-accent-hover);
   --game-accent-glow: var(--color-accent-glow);
 }
 
-.game-hero__banner {
-  position: relative;
-  min-height: clamp(220px, 28vw, 340px);
+/* Store detail hero is a touch shorter — it sits above its own
+ * content and shouldn't dominate the store page. */
+.game-hero--compact {
+  --hero-h: 320px;
 }
 
-/* Brand mesh wash + legibility scrim layered over the banner art, so
-   every game hero carries the signature violet→cyan→magenta gradient
-   identity while keeping the KPI strip readable. Sits above the art
-   (z-index 0) but below the KPI strip (z-index 3). */
-.game-hero__banner::after {
+/* Backdrop art layer (z 0): trailer, banner image, or gradient. */
+.game-hero__media {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+}
+
+.game-hero__bg {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  background-size: cover;
+  background-position: center;
+  filter: saturate(115%);
+}
+
+/* Brand mesh wash over the art for the signature identity. */
+.game-hero__bg::after {
   content: "";
   position: absolute;
   inset: 0;
-  z-index: 1;
   background: var(--mesh-gradient);
-  opacity: 0.38;
+  opacity: 0.26;
   mix-blend-mode: screen;
-  pointer-events: none;
 }
 
-.game-hero__banner::before {
-  content: "";
+.game-hero__bg--fallback {
+  background:
+    linear-gradient(135deg,
+      color-mix(in srgb, var(--game-accent) 26%, var(--color-bg-secondary)),
+      var(--color-bg-tertiary));
+}
+.game-hero__bg--fallback::after { content: none; }
+
+/* Legibility scrim: strong on the left (poster + text), lighter on the
+ * right so the art still reads. */
+.game-hero__scrim {
   position: absolute;
   inset: 0;
   z-index: 1;
-  background: linear-gradient(180deg, transparent 50%, rgba(0, 0, 0, 0.5));
   pointer-events: none;
+  background:
+    linear-gradient(90deg,
+      rgba(0,0,0,0.74) 0%,
+      rgba(0,0,0,0.5) 34%,
+      rgba(0,0,0,0.22) 68%,
+      rgba(0,0,0,0.34) 100%),
+    linear-gradient(0deg, rgba(0,0,0,0.45), rgba(0,0,0,0) 55%);
 }
 
-.game-hero__kpis {
-  position: absolute;
-  bottom: var(--space-md);
-  right: var(--space-md);
-  display: flex;
-  gap: var(--space-sm);
-  z-index: 3;
-  max-width: 65%;
-  flex-wrap: wrap;
-  justify-content: flex-end;
-  pointer-events: none; /* let the underlying banner show through */
-}
-
-.game-hero__kpis > * { pointer-events: auto; }
-
-/* Single row below the banner: title (left) + meta (middle, takes
-   remaining space) + launch actions (right). No stacked blocks. */
-.game-hero__info-row {
-  display: flex;
-  align-items: center;
-  gap: var(--space-lg);
-  padding: var(--space-md) var(--space-xl);
-  background: linear-gradient(
-    180deg,
-    transparent,
-    color-mix(in srgb, var(--game-accent) 4%, var(--color-bg-secondary))
-  );
+/* Inner grid: poster (left) + content (right). The layer is
+ * transparent to pointer events so the centered trailer play button
+ * (behind it) stays clickable; only the interactive controls below
+ * re-enable pointer events. */
+.game-hero__inner {
   position: relative;
   z-index: 2;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  gap: var(--space-xl);
+  padding: var(--space-lg) var(--space-xl);
+  pointer-events: none;
+}
+.game-hero__content,
+.game-hero__poster,
+.game-hero__actions,
+.game-hero__kpis > * {
+  pointer-events: auto;
 }
 
-/* Within the hero, route accent-driven visuals (KPI intent +
- * status dot glow, info-row gradient) through the per-game
- * --game-accent so each game tints its own hero. */
-.game-hero .kpi-tile--intent-accent .kpi-tile__icon,
-.game-hero .kpi-tile--intent-accent .kpi-tile__value {
-  color: var(--game-accent);
-}
-
-.game-hero__title-block {
+/* Crisp 2:3 poster card. Height tracks the hero so it always fits. */
+.game-hero__poster {
   flex: 0 0 auto;
+  height: calc(var(--hero-h) - var(--space-2xl));
+  aspect-ratio: 2 / 3;
+  border-radius: var(--radius-md);
+  overflow: hidden;
+  border: 1px solid var(--color-border-light);
+  background: var(--color-bg-tertiary);
+  box-shadow:
+    var(--shadow-lg),
+    0 0 30px color-mix(in srgb, var(--game-accent) 30%, transparent);
+  transition: transform var(--transition-base), box-shadow var(--transition-base);
+}
+.game-hero:hover .game-hero__poster {
+  transform: translateY(-3px);
+  box-shadow:
+    var(--shadow-lg),
+    0 0 42px color-mix(in srgb, var(--game-accent) 46%, transparent);
+}
+.game-hero__poster-img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+/* Content column. */
+.game-hero__content {
+  flex: 1 1 auto;
+  min-width: 0;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  gap: var(--space-md);
+}
+
+.game-hero__head {
   display: flex;
   flex-direction: column;
   align-items: flex-start;
-  justify-content: center;
-  gap: var(--space-xs);
+  gap: var(--space-sm);
   min-width: 0;
-  max-width: 42%;
 }
 
-/* Small label above the logo/title (e.g. "GameLib Store"). Shared by
-   both the Library and Store heroes so the eyebrow reads identically. */
 .game-hero__eyebrow {
   font-size: var(--font-size-xs);
   font-weight: var(--font-weight-bold);
@@ -843,41 +883,50 @@
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+  text-shadow: 0 2px 12px rgba(0,0,0,0.45);
 }
 
-/* Canvas logo — scales proportionally and never forces the column to a
-   fixed width. Previously the <img> carried hardcoded width/height
-   attributes (300x90 / 200x60) that fought object-fit and overflowed on
-   narrow viewports; now it keeps its aspect ratio and shrinks to fit. */
 .game-hero-logo {
   width: auto;
   height: auto;
   max-width: 100%;
-  max-height: clamp(64px, 9vw, 120px);
+  max-height: clamp(64px, 9vw, 116px);
   object-fit: contain;
   object-position: left center;
   display: block;
   margin: 0;
+  filter: drop-shadow(0 2px 12px rgba(0,0,0,0.45));
 }
 
 .game-hero-meta {
-  flex: 1;
   display: flex;
   align-items: center;
+  flex-wrap: wrap;
   gap: var(--space-sm);
   font-size: var(--font-size-sm);
   color: var(--color-text-secondary);
-  min-width: 0;
-  flex-wrap: wrap;
   margin: 0;
 }
 
+/* Footer: KPI strip (left) + actions (right). */
+.game-hero__footer {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: var(--space-lg);
+  flex-wrap: wrap;
+}
+.game-hero__kpis {
+  display: flex;
+  gap: var(--space-sm);
+  flex-wrap: wrap;
+}
 .game-hero__actions {
-  flex: 0 0 auto;
   display: flex;
   align-items: center;
   gap: var(--space-sm);
   justify-content: flex-end;
+  flex-wrap: wrap;
 }
 
 .game-hero__status-value {
@@ -888,158 +937,60 @@
   line-height: 1;
 }
 
-/* Immersive ambient backdrop: a heavily blurred, scaled copy of the
- * hero/cover art that tints the entire banner with the game's own
- * palette. Sits behind the banner image + KPI overlay; the dark
- * scrim keeps text/tiles legible. Gives banner-less games the same
- * colored glow as games with a full hero. */
-.game-hero__ambient {
-  position: absolute;
-  inset: -20%;
-  background-size: cover;
-  background-position: center;
-  filter: blur(48px) saturate(150%) brightness(0.7);
-  transform: scale(1.1);
-  z-index: 0;
+/* Accent routing for KPI intent + status dot glow. */
+.game-hero .kpi-tile--intent-accent .kpi-tile__icon,
+.game-hero .kpi-tile--intent-accent .kpi-tile__value {
+  color: var(--game-accent);
 }
 
-.game-hero__ambient::after {
-  content: "";
-  position: absolute;
-  inset: 0;
-  background:
-    linear-gradient(
-      to bottom,
-      color-mix(in srgb, var(--color-bg-primary) 35%, transparent) 0%,
-      color-mix(in srgb, var(--color-bg-primary) 75%, transparent) 100%
-    );
+.game-hero-meta-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  color: var(--color-text-secondary);
+  white-space: nowrap;
 }
 
-/* Floating cover: a 2:3 thumbnail anchored to the banner's
- * bottom-left, overlapping the lower edge so it "breaks out" of the
- * banner into the info row — the canonical Steam/EGS detail look.
- * Only rendered when a cover exists. The info-row is padded-left to
- * clear it (see .game-hero__info-row --with-cover below). */
-.game-hero__cover {
-  position: absolute;
-  left: var(--space-xl);
-  bottom: calc(-1 * var(--space-3xl));
-  width: clamp(96px, 11vw, 150px);
-  aspect-ratio: 2 / 3;
-  border-radius: var(--radius-md);
-  overflow: hidden;
-  border: 1px solid var(--color-border-light);
-  box-shadow:
-    var(--shadow-lg),
-    0 0 26px color-mix(in srgb, var(--color-accent) 26%, transparent);
-  background: var(--color-bg-tertiary);
-  z-index: 4;
-  transition: transform var(--transition-base), box-shadow var(--transition-base);
+.game-hero-meta-dot {
+  width: 4px;
+  height: 4px;
+  background: var(--color-text-muted);
+  border-radius: 50%;
+  flex: 0 0 auto;
 }
 
-/* Gentle lift on hover — shared by both the Library and Store heroes. */
-.game-hero:hover .game-hero__cover {
-  transform: translateY(-4px);
-  box-shadow:
-    var(--shadow-lg),
-    0 0 36px color-mix(in srgb, var(--color-accent) 42%, transparent);
-}
-
-.game-hero__cover-img {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-  display: block;
-}
-
-/* When the cover floats out, push the info row's content right so
- * the title/logo never collides with the cover thumbnail. */
-.game-hero__info-row--with-cover {
-  padding-left: calc(var(--space-xl) + clamp(96px, 11vw, 150px) + var(--space-lg));
-}
-
-/* ── Responsive: hero collapses gracefully on narrow viewports ─────
- * Below 860px the info-row wraps; the logo/title block takes the full
- * width, meta drops beneath it, and the action cluster left-aligns so
- * nothing overflows. The logo already scales via max-height, so it
- * simply shrinks with the column. */
-.game-hero__info-row {
-  flex-wrap: wrap;
-}
-
+/* ── Responsive ─────────────────────────────────────────────── */
 @media (max-width: 860px) {
-  .game-hero__info-row {
-    gap: var(--space-md);
-    padding: var(--space-md);
+  .game-hero {
+    height: auto;
   }
-  .game-hero__info-row--with-cover {
-    padding-left: var(--space-md);
-    padding-top: calc(clamp(96px, 11vw, 150px) + var(--space-lg));
+  .game-hero__inner {
+    flex-direction: column;
+    align-items: stretch;
+    gap: var(--space-lg);
+    padding: var(--space-xl);
   }
-  .game-hero__title-block {
-    flex: 1 1 100%;
-    max-width: 100%;
+  .game-hero__poster {
+    height: auto;
+    width: clamp(150px, 42vw, 210px);
+    margin: 0 auto;
   }
-  .game-hero-meta {
-    flex: 1 1 100%;
+  .game-hero__footer {
+    flex-direction: column;
+    align-items: stretch;
   }
   .game-hero__actions {
-    flex: 1 1 100%;
     justify-content: flex-start;
   }
 }
 
 @media (max-width: 600px) {
-  .game-hero__banner {
-    min-height: clamp(180px, 44vw, 260px);
-  }
-  .game-hero--cinematic .game-hero__banner {
-    min-height: clamp(200px, 52vw, 300px);
-  }
-  .game-hero__kpis {
-    max-width: 100%;
-    left: var(--space-sm);
-    right: var(--space-sm);
-    bottom: var(--space-sm);
+  .game-hero__inner {
+    padding: var(--space-md);
   }
   .game-hero-logo {
     max-height: clamp(48px, 16vw, 88px);
   }
-}
-
-/* ── Cinematic variant (GameHero) ───────────────────────────────
- * Taller full-bleed banner with the trailer/ambient carrying the
- * visual weight. Inherits the compact hero's framed look. */
-.game-hero--cinematic {
-  background: var(--color-surface);
-  border: 1px solid var(--color-border-light);
-  box-shadow: var(--shadow-md);
-  isolation: isolate;
-  --game-accent: var(--color-accent);
-  --game-accent-hover: var(--color-accent-hover);
-  --game-accent-glow: var(--color-accent-glow);
-}
-
-.game-hero--cinematic .game-hero__banner {
-  min-height: clamp(300px, 36vw, 440px);
-}
-
-/* Store detail hero stays compact — shorter banner than the Library
- * cinematic hero so it doesn't dominate the page. */
-.game-hero--compact .game-hero__banner {
-  min-height: clamp(160px, 19vw, 240px);
-}
-
-/* The still banner image (when no trailer) fills the cinematic
- * frame; sits above the ambient + trailer layers. */
-.game-hero__banner > img.game-cover-img {
-  position: absolute;
-  inset: 0;
-  z-index: 1;
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-  display: block;
 }
 
 /* ── Hero trailer (shared Game + Store) ───────────────────────── */
@@ -1172,10 +1123,10 @@
 }
 
 /* ── Store detail hero refinements ────────────────────────────────
- * Layered on top of the shared GameHero look. The floating cover glow
- * + hover lift now live on the base `.game-hero__cover` so both the
- * Library and Store heroes share them; the Store hero keeps its
- * brand-aligned player-count badge positioning. */
+ * Layered on top of the shared GameHero look. The poster glow + hover
+ * lift now live on the base `.game-hero__poster` so both the Library
+ * and Store heroes share them; the Store hero keeps its brand-aligned
+ * player-count badge positioning. */
 
 .game-hero-meta-item {
   display: inline-flex;
@@ -2329,15 +2280,8 @@
   color: var(--color-accent);
 }
 
-/* ── Hero responsive: drop the floating cover on phones so it
- * doesn't overlap the meta row, and reset the info-row padding. ── */
+/* ── Hero responsive: keep legend text from overflowing on phones. ── */
 @media (max-width: 600px) {
-  .game-hero__cover {
-    display: none;
-  }
-  .game-hero__info-row--with-cover {
-    padding-left: var(--space-xl);
-  }
   .game-hero__title-block {
     max-width: none;
   }

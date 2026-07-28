@@ -3503,13 +3503,6 @@
   }
 }
 
-.game-hero {
-  position: relative;
-  border-radius: var(--radius-lg);
-  overflow: hidden;
-  margin-bottom: var(--space-2xl);
-}
-
 .game-launch-btn {
   display: flex;
   align-items: center;
