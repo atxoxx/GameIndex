@@ -7,9 +7,7 @@ import "../styles/page-docs.css";
  *
  * Content lives entirely in i18n (`docs.*` keys) so it translates with
  * the rest of the app. Each section is one `docs.<id>.title` + one
- * `docs.<id>.body` string; the body renderer turns lines starting with
- * "- " into bullets, blank lines into paragraph breaks, and common
- * key/shortcut tokens (F11, Ctrl+B, Escape…) into <kbd> chips.
+ * `docs.<id>.body` string.
  */
 
 // Order of sections in the guide. The same ids are used as anchor targets
@@ -39,9 +37,9 @@ const SECTION_IDS = [
 
 type SectionId = (typeof SECTION_IDS)[number];
 
-// Inline formatting inside the prose: **bold** and keyboard-key chips.
+// Inline formatting inside prose: [label](url), `code`, **bold**, *italic*, and keyboard-key chips.
 const INLINE_RE =
-  /\*\*([^*]+?)\*\*|(F\d{1,2}|Ctrl\+[A-Za-z]|Shift\+[A-Za-z]|Alt\+[A-Za-z]|Escape|Enter|Backspace|Tab)/g;
+  /\[([^\]]+)\]\(([^)]+)\)|`([^`]+)`|\*\*([^*]+?)\*\*|\*([^*]+?)\*|(F\d{1,2}|Ctrl\+[A-Za-z0-9]+|Shift\+[A-Za-z0-9]+|Alt\+[A-Za-z0-9]+|Cmd\+[A-Za-z0-9]+|Meta\+[A-Za-z0-9]+|Escape|Enter|Backspace|Tab|Space|Delete|ArrowUp|ArrowDown|ArrowLeft|ArrowRight)/g;
 
 function renderInline(text: string): ReactNode[] {
   const out: ReactNode[] = [];
@@ -51,13 +49,39 @@ function renderInline(text: string): ReactNode[] {
   INLINE_RE.lastIndex = 0;
   while ((m = INLINE_RE.exec(text)) !== null) {
     if (m.index > last) out.push(text.slice(last, m.index));
-    if (m[1] !== undefined) {
-      out.push(<strong key={`b-${key++}`}>{m[1]}</strong>);
-    } else {
+    if (m[1] !== undefined && m[2] !== undefined) {
+      // Markdown link [text](url)
+      const isExternal = m[2].startsWith("http://") || m[2].startsWith("https://");
+      out.push(
+        <a
+          href={m[2]}
+          key={`a-${key++}`}
+          className="doc-link"
+          target={isExternal ? "_blank" : undefined}
+          rel={isExternal ? "noopener noreferrer" : undefined}
+        >
+          {m[1]}
+        </a>
+      );
+    } else if (m[3] !== undefined) {
+      // Code `code`
+      out.push(
+        <code className="doc-code" key={`c-${key++}`}>
+          {m[3]}
+        </code>
+      );
+    } else if (m[4] !== undefined) {
+      // **bold**
+      out.push(<strong key={`b-${key++}`}>{m[4]}</strong>);
+    } else if (m[5] !== undefined) {
+      // *italic*
+      out.push(<em key={`i-${key++}`}>{m[5]}</em>);
+    } else if (m[6] !== undefined) {
+      // Keyboard shortcut chip
       out.push(
         <kbd className="doc-kbd" key={`k-${key++}`}>
-          {m[2]}
-        </kbd>,
+          {m[6]}
+        </kbd>
       );
     }
     last = m.index + m[0].length;
@@ -90,28 +114,22 @@ interface BulletItem {
 
 function renderBulletItems(items: BulletItem[]): ReactNode {
   return items.map((it, i) => (
-    <li key={i}>
-      {renderInline(it.text)}
-      {it.children.length > 0 && (
-        <ul className="doc-bullets doc-bullets--nested">
-          {renderBulletItems(it.children)}
-        </ul>
-      )}
+    <li key={i} className="doc-bullet-item">
+      <span className="doc-bullet-marker" aria-hidden />
+      <div className="doc-bullet-content">
+        {renderInline(it.text)}
+        {it.children.length > 0 && (
+          <ul className="docs-bullets doc-bullets--nested">
+            {renderBulletItems(it.children)}
+          </ul>
+        )}
+      </div>
     </li>
   ));
 }
 
 /**
- * Render a docs body string into a list of blocks.
- *
- * Supported syntax (all optional, all safe — no raw HTML):
- *   - Blank line            → separates blocks
- *   - `## Heading`          → a sub-heading inside the section
- *   - `- Item`              → a top-level bullet
- *   - `  - Item` (2 spaces) → a nested bullet (arbitrary depth by indent)
- *   - `**bold**`            → inline bold
- *   - `F11` / `Ctrl+B` …    → rendered as <kbd> chips
- * Consecutive plain lines are merged into a single paragraph.
+ * Render a docs body string into structured block components.
  */
 function DocBody({ text }: { text: string }) {
   const lines = text.split("\n");
@@ -125,9 +143,9 @@ function DocBody({ text }: { text: string }) {
   const flushPara = () => {
     if (para.length) {
       blocks.push(
-        <p className="doc-paragraph" key={`p-${blocks.length}`}>
+        <p className="docs-paragraph" key={`p-${blocks.length}`}>
           {renderInline(para.join(" "))}
-        </p>,
+        </p>
       );
       para = [];
     }
@@ -136,9 +154,9 @@ function DocBody({ text }: { text: string }) {
   const flushList = () => {
     if (rootItems.length) {
       blocks.push(
-        <ul className="doc-bullets" key={`ul-${blocks.length}`}>
+        <ul className="docs-bullets" key={`ul-${blocks.length}`}>
           {renderBulletItems(rootItems)}
-        </ul>,
+        </ul>
       );
       rootItems = [];
       stack = [{ level: -1, items: rootItems }];
@@ -161,7 +179,7 @@ function DocBody({ text }: { text: string }) {
       blocks.push(
         <h3 className="docs-subhead" key={`h-${blocks.length}`}>
           {renderInline(trimmed.slice(3))}
-        </h3>,
+        </h3>
       );
       continue;
     }
@@ -198,12 +216,25 @@ export default function DocsPage() {
   // Scroll-spy: highlight the TOC entry for the section in view.
   useEffect(() => {
     const sections = SECTION_IDS.map((id) => document.getElementById(`doc-${id}`)).filter(
-      (el): el is HTMLElement => el !== null,
+      (el): el is HTMLElement => el !== null
     );
     if (!sections.length) return;
 
+    const handleScroll = () => {
+      // Check if user has scrolled all the way to the bottom of the page
+      const isAtBottom =
+        window.innerHeight + window.scrollY >= document.documentElement.scrollHeight - 60;
+      if (isAtBottom) {
+        setActive(SECTION_IDS[SECTION_IDS.length - 1]);
+      }
+    };
+
     const observer = new IntersectionObserver(
       (entries) => {
+        const isAtBottom =
+          window.innerHeight + window.scrollY >= document.documentElement.scrollHeight - 60;
+        if (isAtBottom) return;
+
         const visible = entries
           .filter((e) => e.isIntersecting)
           .sort((a, b) => a.boundingClientRect.top - b.boundingClientRect.top);
@@ -211,28 +242,23 @@ export default function DocsPage() {
           setActive(visible[0].target.id.replace("doc-", "") as SectionId);
         }
       },
-      { rootMargin: "-18% 0px -70% 0px", threshold: 0 },
+      { rootMargin: "-12% 0px -60% 0px", threshold: 0 }
     );
 
     sections.forEach((s) => observer.observe(s));
-    return () => observer.disconnect();
+    window.addEventListener("scroll", handleScroll, { passive: true });
+
+    return () => {
+      observer.disconnect();
+      window.removeEventListener("scroll", handleScroll);
+    };
   }, []);
 
-  // Keep the active TOC entry in view: when you scroll to the very bottom
-  // of the guide, the summary on the left scrolls along so the highlighted
-  // item is always visible (without yanking the page itself).
+  // Keep the active TOC entry smoothly in view inside the TOC panel
   useEffect(() => {
-    const nav = tocRef.current;
     const btn = activeBtnRef.current;
-    if (!nav || !btn) return;
-    const navRect = nav.getBoundingClientRect();
-    const btnRect = btn.getBoundingClientRect();
-    const offset = btnRect.top - navRect.top + nav.scrollTop;
-    const viewTop = nav.scrollTop;
-    const viewBottom = nav.scrollTop + nav.clientHeight;
-    if (offset < viewTop + 8 || offset + btnRect.height > viewBottom - 8) {
-      nav.scrollTop = offset - nav.clientHeight / 2 + btnRect.height / 2;
-    }
+    if (!btn) return;
+    btn.scrollIntoView({ behavior: "smooth", block: "nearest" });
   }, [active]);
 
   const scrollTo = (id: SectionId) => {
@@ -249,7 +275,6 @@ export default function DocsPage() {
   return (
     <div className="docs-page">
       <header className="docs-hero">
-        <div className="docs-hero__glow" aria-hidden />
         <div className="docs-hero__icon">
           <DocBookIcon />
         </div>

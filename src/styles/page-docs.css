@@ -1,21 +1,18 @@
 /* =============================================================================
  * Documentation page — visual design
  *
- * A polished, magazine-style guide: a gradient hero, a sticky contents
- * card with a reading-progress bar and numbered entries, and each topic
- * rendered as a calm, well-spaced card. All colors are theme tokens so it
- * adapts to dark / light / custom-accent themes automatically.
+ * A polished guide layout: a sleek hero header, a sticky table of contents
+ * with a reading-progress bar, and full-width cards rendered with clean
+ * typography and modern keycaps/bullets.
  * ========================================================================== */
 
 /* ── Page shell ─────────────────────────────────────────────────────────── */
 
 .docs-page {
-  max-width: 1200px;
-  margin: 0 auto;
-  padding: var(--space-2xl) var(--space-xl) var(--space-4xl);
-  background:
-    radial-gradient(1200px 480px at 12% -8%, var(--color-accent-soft) 0%, transparent 60%),
-    radial-gradient(900px 420px at 96% 4%, color-mix(in srgb, var(--color-accent) 9%, transparent) 0%, transparent 55%);
+  width: 100%;
+  max-width: 100%;
+  margin: 0;
+  padding: var(--space-xl) var(--space-xl) var(--space-4xl);
   animation: docsFade 260ms ease both;
 }
 
@@ -31,41 +28,30 @@
   display: flex;
   align-items: center;
   gap: var(--space-xl);
-  padding: var(--space-2xl);
+  padding: var(--space-xl) var(--space-2xl);
   border-radius: var(--radius-xl);
-  background:
-    linear-gradient(180deg, var(--color-bg-secondary), var(--color-bg-tertiary));
+  background: var(--color-surface, var(--color-bg-secondary));
   border: 1px solid var(--color-border);
+  box-shadow: 0 10px 30px -20px rgba(0, 0, 0, 0.4);
   overflow: hidden;
-  box-shadow: 0 24px 60px -36px rgba(0, 0, 0, 0.65);
-}
-
-.docs-hero__glow {
-  position: absolute;
-  inset: -40% -10% auto -10%;
-  height: 220px;
-  background: var(--brand-gradient);
-  filter: blur(70px);
-  opacity: 0.18;
-  pointer-events: none;
 }
 
 .docs-hero__icon {
   position: relative;
   flex-shrink: 0;
-  width: 64px;
-  height: 64px;
+  width: 56px;
+  height: 56px;
   display: grid;
   place-items: center;
-  border-radius: 18px;
+  border-radius: 16px;
   color: #fff;
   background: var(--brand-gradient);
-  box-shadow: 0 10px 26px -10px var(--color-accent-glow);
+  box-shadow: 0 8px 20px -8px var(--color-accent-glow);
 }
 
 .docs-hero__icon svg {
-  width: 32px;
-  height: 32px;
+  width: 28px;
+  height: 28px;
 }
 
 .docs-hero__text {
@@ -76,7 +62,7 @@
 
 .docs-hero__title {
   margin: var(--space-2xs) 0 var(--space-xs);
-  font-size: clamp(1.5rem, 2.4vw, 2rem);
+  font-size: clamp(1.4rem, 2.2vw, 1.85rem);
   font-weight: 800;
   letter-spacing: -0.01em;
   color: var(--color-text-primary);
@@ -84,8 +70,8 @@
 
 .docs-hero__subtitle {
   margin: 0;
-  max-width: 64ch;
-  font-size: 0.98rem;
+  max-width: 100%;
+  font-size: 0.95rem;
   line-height: 1.6;
   color: var(--color-text-secondary);
 }
@@ -111,7 +97,7 @@
   height: 8px;
   border-radius: 50%;
   background: var(--color-accent);
-  box-shadow: 0 0 0 4px var(--color-accent-glow);
+  box-shadow: 0 0 0 3px var(--color-accent-glow);
 }
 
 /* ── Layout ─────────────────────────────────────────────────────────────── */
@@ -119,9 +105,10 @@
 .docs-layout {
   display: grid;
   grid-template-columns: 264px 1fr;
-  gap: var(--space-2xl);
+  gap: var(--space-xl);
   align-items: start;
-  margin-top: var(--space-2xl);
+  margin-top: var(--space-xl);
+  width: 100%;
 }
 
 /* ── Table of contents ──────────────────────────────────────────────────── */
@@ -132,15 +119,14 @@
   display: flex;
   flex-direction: column;
   gap: var(--space-sm);
-  max-height: calc(100vh - var(--space-2xl) * 2);
+  max-height: calc(100vh - var(--space-xl) * 2);
   overflow-y: auto;
-  scroll-behavior: smooth;
   overscroll-behavior: contain;
-  padding: var(--space-md) var(--space-md) var(--space-lg);
+  padding: var(--space-md);
   border-radius: var(--radius-lg);
   background: var(--color-surface, var(--color-bg-secondary));
   border: 1px solid var(--color-border);
-  box-shadow: 0 18px 44px -34px rgba(0, 0, 0, 0.6);
+  box-shadow: 0 12px 32px -24px rgba(0, 0, 0, 0.5);
 }
 
 .docs-toc__progress {
@@ -172,7 +158,7 @@
 .docs-toc ul {
   list-style: none;
   margin: 0;
-  padding: 0;
+  padding: 0 0 var(--space-sm) 0;
   display: flex;
   flex-direction: column;
   gap: 2px;
@@ -188,7 +174,7 @@
   background: transparent;
   color: var(--color-text-secondary);
   font: inherit;
-  font-size: 0.9rem;
+  font-size: 0.88rem;
   padding: var(--space-xs) var(--space-sm);
   border-radius: var(--radius-md, 10px);
   cursor: pointer;
@@ -239,6 +225,7 @@
 
 .docs-content {
   min-width: 0;
+  width: 100%;
   display: flex;
   flex-direction: column;
   gap: var(--space-xl);
@@ -246,12 +233,18 @@
 
 .docs-section {
   scroll-margin-top: var(--space-xl);
-  padding: var(--space-xl) var(--space-2xl) var(--space-2xl);
+  width: 100%;
+  padding: var(--space-xl) var(--space-2xl);
   border-radius: var(--radius-xl);
   background: var(--color-surface, var(--color-bg-secondary));
   border: 1px solid var(--color-border);
-  box-shadow: 0 20px 50px -42px rgba(0, 0, 0, 0.7);
+  box-shadow: 0 12px 32px -24px rgba(0, 0, 0, 0.4);
   animation: docsSectionIn 420ms cubic-bezier(0.22, 1, 0.36, 1) both;
+  transition: border-color 200ms ease;
+}
+
+.docs-section:hover {
+  border-color: color-mix(in srgb, var(--color-accent) 30%, var(--color-border));
 }
 
 @keyframes docsSectionIn {
@@ -264,18 +257,18 @@
   align-items: center;
   gap: var(--space-md);
   margin-bottom: var(--space-lg);
-  padding-bottom: var(--space-md);
-  border-bottom: 1px solid var(--color-border);
+  padding-bottom: var(--space-sm);
+  border-bottom: 1px solid var(--color-border-light, var(--color-border));
 }
 
 .docs-section__index {
   flex-shrink: 0;
-  width: 34px;
-  height: 34px;
+  width: 32px;
+  height: 32px;
   display: grid;
   place-items: center;
-  border-radius: 11px;
-  font-size: 0.95rem;
+  border-radius: 10px;
+  font-size: 0.9rem;
   font-weight: 800;
   color: var(--color-accent);
   background: var(--color-accent-soft);
@@ -284,7 +277,7 @@
 
 .docs-section__title {
   margin: 0;
-  font-size: 1.4rem;
+  font-size: 1.35rem;
   font-weight: 750;
   letter-spacing: -0.01em;
   color: var(--color-text-primary);
@@ -294,33 +287,35 @@
 
 .docs-paragraph {
   margin: 0 0 var(--space-md);
-  max-width: 70ch;
-  line-height: 1.72;
+  width: 100%;
+  max-width: 100%;
+  line-height: 1.7;
   color: var(--color-text-secondary);
-  font-size: 0.98rem;
+  font-size: 0.96rem;
 }
 
-/* The opening paragraph of a card acts as a lead / intro line */
-.docs-section .doc-paragraph:first-of-type {
-  max-width: 74ch;
-  font-size: 1.05rem;
-  line-height: 1.78;
+.docs-section .docs-paragraph:first-of-type {
+  width: 100%;
+  max-width: 100%;
+  font-size: 1.02rem;
+  line-height: 1.74;
   color: var(--color-text-primary);
+  margin-bottom: var(--space-md);
 }
 
 .docs-paragraph:last-child {
   margin-bottom: 0;
 }
 
+/* Bullet list card styling */
 .docs-bullets {
-  position: relative;
-  margin: 0 0 var(--space-lg);
-  padding: var(--space-md) var(--space-lg) var(--space-md) var(--space-xl);
+  margin: var(--space-md) 0 var(--space-lg);
+  padding: var(--space-sm) var(--space-md);
   list-style: none;
   display: flex;
   flex-direction: column;
-  gap: var(--space-sm);
-  max-width: 74ch;
+  gap: var(--space-xs);
+  width: 100%;
   background: var(--color-bg-tertiary);
   border: 1px solid var(--color-border);
   border-radius: var(--radius-lg);
@@ -330,77 +325,77 @@
   margin-bottom: 0;
 }
 
-/* Connecting timeline drawn behind the bullet dots */
-.docs-bullets::before {
-  content: "";
-  position: absolute;
-  left: 29px;
-  top: calc(var(--space-md) + 10px);
-  bottom: calc(var(--space-md) + 10px);
-  width: 2px;
-  border-radius: 2px;
-  background: var(--color-border-light);
-  pointer-events: none;
+.doc-bullet-item {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-sm);
+  padding: var(--space-xs) 0;
+  width: 100%;
 }
 
-.docs-bullets li {
-  position: relative;
-  padding-left: calc(var(--space-xl) + 16px);
-  line-height: 1.7;
-  color: var(--color-text-secondary);
-  font-size: 0.98rem;
-}
-
-.docs-bullets li::before {
-  content: "";
-  position: absolute;
-  left: 1px;
-  top: calc(0.62em + 1px);
-  width: 9px;
-  height: 9px;
+.doc-bullet-marker {
+  flex-shrink: 0;
+  width: 7px;
+  height: 7px;
+  margin-top: 0.55em;
   border-radius: 50%;
-  background: var(--brand-gradient);
-  /* ring in the panel colour masks the timeline line at each dot */
-  box-shadow: 0 0 0 3px var(--color-bg-tertiary), 0 0 0 4px var(--color-accent-glow);
+  background: var(--color-accent);
+  box-shadow: 0 0 0 3px var(--color-accent-soft);
 }
 
-/* Nested bullet lists keep a subtle, borderless indent (no double panel) */
+.doc-bullet-content {
+  flex: 1;
+  min-width: 0;
+  line-height: 1.68;
+  color: var(--color-text-secondary);
+  font-size: 0.96rem;
+}
+
+.doc-bullet-content strong {
+  color: var(--color-text-primary);
+  font-weight: 650;
+}
+
+/* Nested bullet lists */
 .docs-bullets--nested {
   margin: var(--space-xs) 0 0;
-  padding: var(--space-xs) 0 var(--space-xs) var(--space-lg);
+  padding: 0 0 0 var(--space-sm);
   background: transparent;
   border: none;
   gap: var(--space-2xs);
 }
 
-.docs-bullets--nested::before {
-  left: 13px;
-  top: calc(var(--space-xs) + 8px);
-  bottom: calc(var(--space-xs) + 8px);
-  background: var(--color-border);
-}
-
-.docs-bullets--nested li {
-  padding-left: calc(var(--space-lg) + 8px);
-  font-size: 0.94rem;
-}
-
-.docs-bullets--nested li::before {
-  left: 1px;
-  width: 6px;
-  height: 6px;
-  top: calc(0.7em);
+.docs-bullets--nested .doc-bullet-marker {
+  width: 5px;
+  height: 5px;
   background: var(--color-text-secondary);
-  box-shadow: 0 0 0 3px var(--color-bg-secondary);
+  box-shadow: none;
+  opacity: 0.7;
+}
+
+.docs-bullets--nested .doc-bullet-content {
+  font-size: 0.92rem;
 }
 
 /* Inline sub-heading inside a section */
 .docs-subhead {
+  display: flex;
+  align-items: center;
+  gap: var(--space-xs);
   margin: var(--space-lg) 0 var(--space-xs);
-  font-size: 1.06rem;
+  font-size: 1.05rem;
   font-weight: 700;
   letter-spacing: -0.005em;
   color: var(--color-text-primary);
+}
+
+.docs-subhead::before {
+  content: "";
+  display: inline-block;
+  width: 3px;
+  height: 1em;
+  border-radius: 2px;
+  background: var(--brand-gradient);
 }
 
 .docs-subhead:first-child {
@@ -410,25 +405,53 @@
 /* Inline bold emphasis */
 .docs-section strong {
   color: var(--color-text-primary);
-  font-weight: 700;
+  font-weight: 650;
 }
 
-/* ── Keyboard chips ─────────────────────────────────────────────────────── */
+/* ── Keyboard chips, Code, and Links ─────────────────────────────────────── */
 
 .doc-kbd {
-  display: inline-block;
-  padding: 0.1em 0.5em;
-  margin: 0 0.1em;
-  font-family: ui-monospace, "SF Mono", "Cascadia Code", Menlo, Consolas, monospace;
-  font-size: 0.82em;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.12em 0.48em;
+  margin: 0 0.15em;
+  font-family: ui-monospace, "SF Mono", "Cascadia Code", Consolas, monospace;
+  font-size: 0.8em;
   font-weight: 600;
-  line-height: 1.4;
+  line-height: 1.35;
   color: var(--color-text-primary);
-  background: var(--color-bg-tertiary);
-  border: 1px solid var(--color-border-light);
-  border-bottom-width: 2px;
+  background: linear-gradient(180deg, var(--color-bg-secondary), var(--color-bg-tertiary));
+  border: 1px solid var(--color-border);
+  border-bottom: 2px solid var(--color-border);
   border-radius: 6px;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.15);
   white-space: nowrap;
+}
+
+.doc-code {
+  display: inline-block;
+  padding: 0.1em 0.4em;
+  margin: 0 0.1em;
+  font-family: ui-monospace, "SF Mono", "Cascadia Code", Consolas, monospace;
+  font-size: 0.85em;
+  color: var(--color-accent);
+  background: var(--color-accent-soft);
+  border-radius: 5px;
+}
+
+.doc-link {
+  color: var(--color-accent);
+  text-decoration: none;
+  font-weight: 500;
+  border-bottom: 1px dashed color-mix(in srgb, var(--color-accent) 50%, transparent);
+  transition: border-bottom-color 150ms ease, color 150ms ease;
+}
+
+.doc-link:hover {
+  color: var(--color-accent-hover, var(--color-accent));
+  border-bottom-style: solid;
+  border-bottom-color: var(--color-accent);
 }
 
 /* ── Responsive ─────────────────────────────────────────────────────────── */
@@ -470,6 +493,7 @@
   .docs-toc ul {
     flex-direction: row;
     flex-wrap: wrap;
+    padding-bottom: 0;
   }
 
   .docs-toc__link {
@@ -492,6 +516,6 @@
   }
 
   .docs-hero__title {
-    font-size: 1.4rem;
+    font-size: 1.3rem;
   }
 }
