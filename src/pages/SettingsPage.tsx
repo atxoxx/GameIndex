@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useRef } from "react";
+import { useState, useEffect, useMemo, useRef, useCallback } from "react";
 import { invoke } from "@tauri-apps/api/core";
 
 import { useToast } from "../context/ToastContext";
@@ -19,7 +19,7 @@ import { useAchievements } from "../context/AchievementContext";
 import { useLanguage } from "../context/LanguageContext";
 import SourceManager from "../components/SourceManager";
 import { useDownloads } from "../context/DownloadContext";
-import { Button } from "../components/ui";
+import { Button, ConfirmModal } from "../components/ui";
 import "../styles/page-settings.css";
 
 /** Maps theme ids to preview colors — kept in sync with App.css overrides. */
@@ -107,7 +107,7 @@ const getDescriptorLabel = (descriptor: ThemeDescriptor, t: (k: string) => strin
   }
 };
 
-type SettingsTab = "appearance" | "hardware" | "integrations" | "downloads" | "launcher";
+type SettingsTab = "appearance" | "hardware" | "integrations" | "downloads" | "launcher" | "privacy";
 
 import { useBigScreen } from "../context/BigScreenContext";
 import BigScreenSystem from "../components/bigscreen/BigScreenSystem";
@@ -243,6 +243,7 @@ export default function SettingsPage() {
       label: t("settings.group.system"),
       items: [
         { tab: "launcher", label: t("settings.tab.launcher"), keywords: "startup launch tray autostart uac", icon: <RocketIcon /> },
+        { tab: "privacy", label: t("settings.tab.privacy"), keywords: "wipe clear local storage cache data reset privacy", icon: <TrashIcon /> },
       ],
     },
   ];
@@ -3728,6 +3729,14 @@ export default function SettingsPage() {
             </div>
           </section>
       )}
+
+      {activeSettingsTab === "privacy" && (
+        <PrivacyTab
+          t={t}
+          showToast={showToast}
+          onStorageChange={() => { /* hook for future cache invalidation */ }}
+        />
+      )}
     </main>
     </div>
   );
@@ -4098,5 +4107,179 @@ function SettingsGearIcon() {
       <circle cx="12" cy="12" r="3" />
       <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z" />
     </svg>
+  );
+}
+
+function TrashIcon() {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden
+    >
+      <polyline points="3 6 5 6 21 6" />
+      <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
+      <line x1="10" y1="11" x2="10" y2="17" />
+      <line x1="14" y1="11" x2="14" y2="17" />
+    </svg>
+  );
+}
+
+function formatStorageBytes(bytes: number): string {
+  if (bytes < 1024) return `${bytes} B`;
+  const units = ["KB", "MB", "GB"];
+  let val = bytes / 1024;
+  let i = 0;
+  while (val >= 1024 && i < units.length - 1) {
+    val /= 1024;
+    i++;
+  }
+  return `${val.toFixed(1)} ${units[i]}`;
+}
+
+type ToastKind = "success" | "error" | "info" | "warning";
+
+function PrivacyTab({
+  t,
+  showToast,
+  onStorageChange,
+}: {
+  t: (key: string, vars?: Record<string, unknown>) => string;
+  showToast: (message: string, kind: ToastKind) => void;
+  onStorageChange: () => void;
+}) {
+  const [items, setItems] = useState<{ key: string; value: string; size: number }[]>([]);
+  const [wipeAllOpen, setWipeAllOpen] = useState(false);
+  const [wipeKeyOpen, setWipeKeyOpen] = useState<string | null>(null);
+
+  const refresh = useCallback(() => {
+    const next: { key: string; value: string; size: number }[] = [];
+    for (let i = 0; i < localStorage.length; i++) {
+      const key = localStorage.key(i);
+      if (!key) continue;
+      const value = localStorage.getItem(key) ?? "";
+      const size = new Blob([value]).size;
+      next.push({ key, value, size });
+    }
+    next.sort((a, b) => a.key.localeCompare(b.key));
+    setItems(next);
+  }, []);
+
+  useEffect(() => {
+    refresh();
+    return () => {
+      setWipeAllOpen(false);
+      setWipeKeyOpen(null);
+    };
+  }, [refresh]);
+
+  const wipeKey = (key: string) => {
+    localStorage.removeItem(key);
+    refresh();
+    onStorageChange();
+    showToast(t("settings.wipe.removed", { key }), "success");
+    setWipeKeyOpen(null);
+  };
+
+  const wipeAll = () => {
+    const keys: string[] = [];
+    for (let i = 0; i < localStorage.length; i++) {
+      const k = localStorage.key(i);
+      if (k) keys.push(k);
+    }
+    keys.forEach((k) => localStorage.removeItem(k));
+    refresh();
+    onStorageChange();
+    showToast(t("settings.wipe.allRemoved"), "success");
+    setWipeAllOpen(false);
+  };
+
+  return (
+    <section className="settings-section">
+      <header className="settings-section-header">
+        <span className="settings-section-icon"><TrashIcon /></span>
+        <div className="settings-section-header-text">
+          <h2 className="settings-section-title">{t("settings.section.wipeData")}</h2>
+          <p className="settings-section-desc">
+            {t("settings.wipe.desc")}
+          </p>
+        </div>
+      </header>
+
+      <div className="settings-wipe-toolbar">
+        <span className="settings-wipe-count">
+          {t("settings.wipe.itemCount", { count: items.length })}
+        </span>
+        <div className="settings-wipe-actions">
+          <Button variant="ghost" size="sm" onClick={refresh}>
+            {t("settings.wipe.refresh")}
+          </Button>
+          <Button
+            variant="danger"
+            size="sm"
+            onClick={() => setWipeAllOpen(true)}
+            disabled={items.length === 0}
+          >
+            {t("settings.wipe.wipeAll")}
+          </Button>
+        </div>
+      </div>
+
+      {items.length === 0 ? (
+        <p className="settings-wipe-empty">{t("settings.wipe.empty")}</p>
+      ) : (
+        <ul className="settings-wipe-list">
+          {items.map((item) => {
+            const preview = item.value.length > 160
+              ? `${item.value.slice(0, 160)}…`
+              : item.value || t("settings.wipe.noValue");
+            return (
+              <li className="settings-wipe-item" key={item.key}>
+                <div className="settings-wipe-item-info">
+                  <code className="settings-wipe-key">{item.key}</code>
+                  <span className="settings-wipe-size">
+                    {t("settings.wipe.size", { size: formatStorageBytes(item.size) })}
+                  </span>
+                  <pre className="settings-wipe-value" title={item.value}>{preview}</pre>
+                </div>
+                <div className="settings-wipe-item-action">
+                  <Button
+                    variant="secondary"
+                    size="sm"
+                    onClick={() => setWipeKeyOpen(item.key)}
+                  >
+                    {t("settings.wipe.remove")}
+                  </Button>
+                </div>
+              </li>
+            );
+          })}
+        </ul>
+      )}
+
+      <ConfirmModal
+        open={wipeAllOpen}
+        title={t("settings.wipe.wipeAll")}
+        message={t("settings.wipe.wipeAllConfirm", { count: items.length })}
+        confirmLabel={t("settings.wipe.wipeAllConfirmBtn")}
+        cancelLabel={t("settings.wipe.cancel")}
+        onConfirm={wipeAll}
+        onCancel={() => setWipeAllOpen(false)}
+      />
+
+      <ConfirmModal
+        open={wipeKeyOpen !== null}
+        title={t("settings.wipe.remove")}
+        message={t("settings.wipe.removeConfirm")}
+        confirmLabel={t("settings.wipe.remove")}
+        cancelLabel={t("settings.wipe.cancel")}
+        onConfirm={() => wipeKeyOpen !== null && wipeKey(wipeKeyOpen)}
+        onCancel={() => setWipeKeyOpen(null)}
+      />
+    </section>
   );
 }

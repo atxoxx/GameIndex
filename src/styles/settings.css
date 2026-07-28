@@ -2196,3 +2196,93 @@
   .hw-head { flex-direction: column; align-items: stretch; }
   .hw-master { align-self: flex-start; }
 }
+
+/* ── Privacy / Local storage wipe ──────────────────────────────────── */
+.settings-wipe-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-md);
+  flex-wrap: wrap;
+  margin-bottom: var(--space-md);
+}
+
+.settings-wipe-count {
+  font-size: 0.85rem;
+  color: var(--text-muted);
+}
+
+.settings-wipe-actions {
+  display: flex;
+  gap: var(--space-sm);
+  flex-wrap: wrap;
+}
+
+.settings-wipe-empty {
+  padding: var(--space-lg);
+  text-align: center;
+  color: var(--text-muted);
+  background: var(--surface-2, rgba(255, 255, 255, 0.03));
+  border: 1px dashed var(--border, rgba(255, 255, 255, 0.1));
+  border-radius: var(--radius-md, 10px);
+}
+
+.settings-wipe-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+}
+
+.settings-wipe-item {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--space-md);
+  padding: var(--space-md);
+  background: var(--surface-2, rgba(255, 255, 255, 0.03));
+  border: 1px solid var(--border, rgba(255, 255, 255, 0.08));
+  border-radius: var(--radius-md, 10px);
+}
+
+.settings-wipe-item-info {
+  min-width: 0;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.settings-wipe-key {
+  font-family: var(--font-mono, ui-monospace, "SF Mono", Menlo, monospace);
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--text, #f0f2f7);
+  word-break: break-all;
+}
+
+.settings-wipe-size {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+}
+
+.settings-wipe-value {
+  margin: 0;
+  font-family: var(--font-mono, ui-monospace, "SF Mono", Menlo, monospace);
+  font-size: 0.75rem;
+  line-height: 1.4;
+  color: var(--text-muted);
+  white-space: pre-wrap;
+  word-break: break-word;
+  max-height: 6.5em;
+  overflow: auto;
+  background: rgba(0, 0, 0, 0.2);
+  border-radius: 6px;
+  padding: 6px 8px;
+}
+
+.settings-wipe-item-action {
+  flex-shrink: 0;
+}
