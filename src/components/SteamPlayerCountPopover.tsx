@@ -135,28 +135,25 @@ export function SteamStatsPopoverBody({
   return (
     <>
       <div className="steam-stats-popover-body">
-        {/* Live current players — reuses the parent badge's count so
-            the two agree at the moment of click. */}
-        <div className="steam-stats-popover-stat steam-stats-popover-stat--current">
-          <div
-            className="steam-stats-popover-stat-value"
-            aria-live="polite"
-            aria-atomic="true"
-          >
-            {currentCount.toLocaleString()}
-          </div>
-          <div className="steam-stats-popover-stat-label">
-            {t("steamPlayer.playingNow")}
-          </div>
-        </div>
+        {/* Steam Hero Banner Card — Live Player Count + Review Summary */}
+        <div className="steam-stats-hero-banner">
+          <div className="steam-stats-hero-row">
+            <div className="steam-stats-live-badge">
+              <span className="steam-stats-live-dot" aria-hidden="true" />
+              <div className="steam-stats-live-info">
+                <span
+                  className="steam-stats-live-count"
+                  aria-live="polite"
+                  aria-atomic="true"
+                >
+                  {currentCount > 0 ? currentCount.toLocaleString() : "—"}
+                </span>
+                <span className="steam-stats-live-label">
+                  {t("steamPlayer.playingNow")}
+                </span>
+              </div>
+            </div>
 
-        <div className="steam-stats-popover-divider" />
-
-        {/* Reviews — aggregate only (the per-review list is hidden in
-            the backend to keep the response small). */}
-        <section className="steam-stats-popover-section">
-          <div className="steam-stats-popover-section-header">
-            <span className="steam-stats-popover-section-title">{t("steamPlayer.reviews")}</span>
             {reviewsLoading ? (
               <span className="steam-stats-popover-skeleton-pill" />
             ) : reviewSummary ? (
@@ -169,13 +166,12 @@ export function SteamStatsPopoverBody({
               <span className="steam-stats-popover-section-empty">—</span>
             )}
           </div>
+
+          {/* Review breakdown progress bar */}
           {reviewsLoading ? (
-            <>
-              <div className="steam-stats-popover-skeleton-bar" />
-              <div className="steam-stats-popover-skeleton-line short" />
-            </>
+            <div className="steam-stats-popover-skeleton-bar" />
           ) : reviewSummary ? (
-            <>
+            <div className="steam-stats-hero-reviews">
               <div
                 className={`steam-stats-popover-reviews-bar steam-stats-popover-tone-${reviewTone}`}
                 role="progressbar"
@@ -190,27 +186,19 @@ export function SteamStatsPopoverBody({
                 />
               </div>
               <div className="steam-stats-popover-reviews-count">
-                <strong>{reviewSummary.totalPositive.toLocaleString()}</strong>{" "}
-                {t("steamPlayer.positive")}
-                <span className="steam-stats-popover-reviews-count-sep">·</span>
-                {reviewSummary.totalNegative.toLocaleString()} {t("steamPlayer.negative")}
+                <strong>{reviewPositivePct ?? 0}%</strong> {t("steamPlayer.positive")}
                 <span className="steam-stats-popover-reviews-count-sep">·</span>
                 {reviewSummary.totalReviews.toLocaleString()} {t("steamPlayer.total")}
               </div>
-            </>
+            </div>
           ) : (
-              <div className="steam-stats-popover-section-error">
-                {stats?.reviewsError ?? t("steamPlayer.noReviewData")}
-              </div>
+            <div className="steam-stats-popover-section-error">
+              {stats?.reviewsError ?? t("steamPlayer.noReviewData")}
+            </div>
           )}
-        </section>
+        </div>
 
-        <div className="steam-stats-popover-divider" />
-
-        {/* Player activity — long-range historical line chart
-            (steamcharts.com CCU feed) with a 30/90/180/All range
-            toggle, defaulting to 90d. Replaces the old 24h compact
-            sparkline; the `LineChart` handles hover tooltips. */}
+        {/* Player activity — historical line chart */}
         <SteamPlayerHistoryChart appId={appId} />
 
         {/* If the whole fetch failed (e.g. offline), surface a single
@@ -258,7 +246,7 @@ const VIEWPORT_MARGIN = 12;
  *  property `--steam-stats-popover-width` (set in `store.css` on
  *  `.steam-stats-popover`); this constant exists solely so the
  *  position math doesn't read `0` on the first layout pass. */
-const FALLBACK_WIDTH_PX = 360;
+const FALLBACK_WIDTH_PX = 420;
 
 export default function SteamPlayerCountPopover({
   appId,

@@ -55,7 +55,7 @@ const VIEWPORT_MARGIN = 12;
 /** Fallback width for the first-paint position pass, before the
  *  browser has measured the rendered popover (canonical width lives
  *  in `store.css` on `.steam-stats-popover`). */
-const FALLBACK_WIDTH_PX = 360;
+const FALLBACK_WIDTH_PX = 420;
 
 export default function PlayerCountPopover({
   appId,

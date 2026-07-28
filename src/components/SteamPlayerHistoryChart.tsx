@@ -82,7 +82,7 @@ export default function SteamPlayerHistoryChart({
     const counts = data.points.map((p) => p.count);
     const lbls = data.points.map((p) => formatLabel(p.timestamp, allTime));
     return {
-      series: [{ data: counts, color: "var(--color-accent)", label: "Players" }],
+      series: [{ data: counts, color: "var(--color-accent, #38bdf8)", label: "Players" }],
       labels: lbls,
     };
   }, [data, allTime]);
@@ -96,6 +96,20 @@ export default function SteamPlayerHistoryChart({
     <section className="steam-history-chart">
       <div className="steam-history-chart-header">
         <span className="steam-stats-popover-section-title">
+          <svg
+            viewBox="0 0 24 24"
+            width="13"
+            height="13"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2.2"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            className="steam-history-title-icon"
+            aria-hidden="true"
+          >
+            <polyline points="22 12 18 12 15 21 9 3 6 12 2 12" />
+          </svg>
           {t("steamPlayer.activityTitle")}
         </span>
         <div
@@ -137,11 +151,11 @@ export default function SteamPlayerHistoryChart({
           <LineChart
             series={series}
             labels={labels}
-            height={180}
+            height={190}
             smooth
             niceMax
             legend={false}
-            fillOpacity={0.12}
+            fillOpacity={0.16}
             formatValue={formatCompactPlayerCount}
           />
         ) : (
@@ -160,32 +174,40 @@ export default function SteamPlayerHistoryChart({
       {hasData && data && (
         <div className="steam-history-chart-stats">
           <HistoryStat
-            label={t("steamPlayer.statCurrent")}
-            value={formatCompactPlayerCount(data.current)}
-          />
-          <HistoryStat
             label={t("steamPlayer.statPeak")}
             value={formatCompactPlayerCount(data.peakInRange)}
+            highlight="peak"
           />
           <HistoryStat
             label={t("steamPlayer.statAvg")}
             value={formatCompactPlayerCount(Math.round(data.averageInRange))}
           />
-        </div>
-      )}
-
-      {hasData && data && data.peakAllTime > data.peakInRange && (
-        <div className="steam-history-chart-footnote">
-          All-time peak {formatCompactPlayerCount(data.peakAllTime)}
+          <HistoryStat
+            label="All-Time Peak"
+            value={formatCompactPlayerCount(Math.max(data.peakAllTime, data.peakInRange))}
+            highlight="alltime"
+          />
         </div>
       )}
     </section>
   );
 }
 
-function HistoryStat({ label, value }: { label: string; value: string }) {
+function HistoryStat({
+  label,
+  value,
+  highlight,
+}: {
+  label: string;
+  value: string;
+  highlight?: "peak" | "alltime";
+}) {
   return (
-    <div className="steam-history-chart-stat">
+    <div
+      className={`steam-history-chart-stat ${
+        highlight ? `steam-history-chart-stat--${highlight}` : ""
+      }`.trim()}
+    >
       <span className="steam-history-chart-stat-value">{value}</span>
       <span className="steam-history-chart-stat-label">{label}</span>
     </div>

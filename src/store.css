@@ -1640,7 +1640,7 @@
    * JavaScript fallback width is the matching constant in
    * `SteamPlayerCountPopover.tsx` so the layout-effect position
    * recalc measures the right size on first render. */
-  width: var(--steam-stats-popover-width, 360px);
+  width: var(--steam-stats-popover-width, 420px);
   max-width: calc(100vw - 24px);
   background: var(--color-bg-elevated, color-mix(in srgb, var(--color-bg-primary) 92%, transparent));
   backdrop-filter: blur(20px) saturate(1.4);
@@ -2179,7 +2179,81 @@
  * range toggle, the summary stat strip, and the loading/empty states.
  */
 .steam-history-chart {
-  padding: 2px 0 4px;
+  padding: 2px 0 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.steam-stats-hero-banner {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 12px 14px;
+  background: color-mix(in srgb, var(--color-bg-tertiary) 50%, transparent);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+}
+
+.steam-stats-hero-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.steam-stats-live-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.steam-stats-live-dot {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: var(--color-success, #22c55e);
+  box-shadow: 0 0 10px var(--color-success, #22c55e);
+  animation: steam-live-pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+
+@keyframes steam-live-pulse {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.5; transform: scale(0.85); }
+}
+
+.steam-stats-live-info {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+}
+
+.steam-stats-live-count {
+  font-size: 20px;
+  font-weight: var(--font-weight-bold, 700);
+  color: var(--color-text-primary);
+  line-height: 1.1;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.3px;
+  background: linear-gradient(135deg, var(--color-text-primary) 30%, color-mix(in srgb, var(--color-success) 80%, var(--color-text-primary)));
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+.steam-stats-live-label {
+  font-size: 9px;
+  font-weight: var(--font-weight-semibold, 600);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--color-text-muted);
+}
+
+.steam-stats-hero-reviews {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
 }
 
 .steam-history-chart-header {
@@ -2187,15 +2261,21 @@
   align-items: center;
   justify-content: space-between;
   gap: 8px;
-  margin-bottom: 6px;
+  margin-bottom: 2px;
+}
+
+.steam-history-title-icon {
+  color: var(--color-accent);
+  vertical-align: text-bottom;
+  margin-right: 4px;
 }
 
 .player-history-range-toggle {
   display: inline-flex;
-  background: color-mix(in srgb, var(--color-bg-tertiary) 70%, transparent);
+  background: color-mix(in srgb, var(--color-bg-tertiary) 75%, transparent);
   border: 1px solid var(--color-border);
-  border-radius: var(--radius-sm);
-  padding: 2px;
+  border-radius: var(--radius-full, 9999px);
+  padding: 3px;
   gap: 2px;
 }
 
@@ -2206,20 +2286,22 @@
   color: var(--color-text-muted);
   font-size: 10px;
   font-weight: var(--font-weight-semibold);
-  padding: 3px 7px;
-  border-radius: calc(var(--radius-sm) - 2px);
+  padding: 3px 9px;
+  border-radius: var(--radius-full, 9999px);
   cursor: pointer;
   transition: all var(--transition-fast);
   letter-spacing: 0.2px;
 }
 
 .player-history-range-btn:hover {
-  color: var(--color-text-secondary);
+  color: var(--color-text-primary);
+  background: color-mix(in srgb, var(--color-text-muted) 12%, transparent);
 }
 
 .player-history-range-btn.is-active {
   background: var(--color-accent);
   color: #fff;
+  box-shadow: 0 2px 8px color-mix(in srgb, var(--color-accent) 40%, transparent);
 }
 
 .player-history-range-btn:focus-visible {
@@ -2228,21 +2310,26 @@
 }
 
 .steam-history-chart-plot {
-  min-height: 180px;
+  min-height: 190px;
   display: flex;
   flex-direction: column;
   justify-content: center;
+  background: color-mix(in srgb, var(--color-bg-tertiary) 65%, rgba(15, 23, 42, 0.75));
+  border: 1px solid color-mix(in srgb, var(--color-accent) 22%, var(--color-border));
+  border-radius: var(--radius-md);
+  padding: 8px 4px 4px 0;
+  box-shadow: inset 0 0 24px rgba(0, 0, 0, 0.3);
 }
 
 .steam-history-chart-skeleton {
   display: flex;
   flex-direction: column;
   gap: 10px;
-  padding: 4px 0;
+  padding: 4px 8px;
 }
 
 .steam-history-chart-skeleton-bar {
-  height: 120px;
+  height: 130px;
   border-radius: var(--radius-md);
   background: linear-gradient(
     90deg,
@@ -2265,21 +2352,36 @@
 }
 
 .steam-history-chart-stats {
-  display: flex;
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
   gap: 6px;
-  margin-top: 8px;
+  margin-top: 4px;
 }
 
 .steam-history-chart-stat {
-  flex: 1;
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 1px;
-  padding: 6px 4px;
+  justify-content: center;
+  gap: 2px;
+  padding: 7px 4px;
   background: color-mix(in srgb, var(--color-bg-tertiary) 45%, transparent);
   border: 1px solid var(--color-border);
   border-radius: var(--radius-sm);
+  transition: all var(--transition-fast);
+}
+
+.steam-history-chart-stat:hover {
+  background: color-mix(in srgb, var(--color-bg-tertiary) 70%, transparent);
+  border-color: color-mix(in srgb, var(--color-accent) 25%, var(--color-border));
+}
+
+.steam-history-chart-stat--peak .steam-history-chart-stat-value {
+  color: var(--color-accent);
+}
+
+.steam-history-chart-stat--alltime .steam-history-chart-stat-value {
+  color: var(--color-warning, #f59e0b);
 }
 
 .steam-history-chart-stat-value {
@@ -2287,17 +2389,19 @@
   font-weight: var(--font-weight-bold);
   color: var(--color-text-primary);
   font-variant-numeric: tabular-nums;
+  line-height: 1.1;
 }
 
 .steam-history-chart-stat-label {
   font-size: 9px;
   text-transform: uppercase;
   letter-spacing: 0.5px;
+  font-weight: var(--font-weight-semibold);
   color: var(--color-text-muted);
 }
 
 .steam-history-chart-footnote {
-  margin-top: 6px;
+  margin-top: 4px;
   font-size: 10px;
   color: var(--color-text-muted);
   text-align: center;

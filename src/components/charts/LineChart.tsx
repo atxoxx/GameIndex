@@ -47,6 +47,8 @@ interface LineChartProps {
   thresholds?: ChartThreshold[];
   /** Shaded vertical regions spanning a value range (e.g. a hot-zone band). */
   bands?: ChartBand[];
+  /** Control data point circles: 'hover-only' (default, clean line), 'always', or 'never'. */
+  showDots?: "hover-only" | "always" | "never";
 }
 
 /** Round a value up to the nearest "nice" number (1/2/2.5/5/10 × 10ⁿ). */
@@ -104,6 +106,7 @@ export default function LineChart({
   niceMax = false,
   thresholds,
   bands,
+  showDots = "hover-only",
 }: LineChartProps) {
   const svgRef = useRef<SVGSVGElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -131,7 +134,7 @@ export default function LineChart({
     // "100 %") from clipping. Right gutter stays slim — the floating
     // tooltip can render past the chart bounds when it would otherwise
     // overflow the right edge.
-    const padding = { top: 20, right: 20, bottom: 32, left: 48 };
+    const padding = { top: 20, right: 20, bottom: 32, left: 54 };
     const chartW = effectiveWidth - padding.left - padding.right;
     const chartH = height - padding.top - padding.bottom;
 
@@ -269,6 +272,22 @@ export default function LineChart({
         onMouseMove={handleMouseMove}
         onMouseLeave={handleMouseLeave}
       >
+        <defs>
+          {series.map((s, si) => (
+            <linearGradient
+              key={`grad-${si}`}
+              id={`line-chart-grad-${si}`}
+              x1="0"
+              y1="0"
+              x2="0"
+              y2="1"
+            >
+              <stop offset="0%" stopColor={s.color} stopOpacity={fillOpacity * 2.2} />
+              <stop offset="100%" stopColor={s.color} stopOpacity={0} />
+            </linearGradient>
+          ))}
+        </defs>
+
         {/* Shaded bands (drawn under grid + series) */}
         {bands?.map((band, bi) => {
           const lo = Math.min(band.from, band.to);
@@ -321,14 +340,18 @@ export default function LineChart({
         {/* Series areas and lines */}
         {series.map((s, si) => (
           <g key={`series-${si}`}>
-            <path d={seriesAreaPath(si)} fill={s.color} opacity={fillOpacity} />
+            <path
+              d={seriesAreaPath(si)}
+              fill={`url(#line-chart-grad-${si})`}
+            />
             <path
               d={seriesLinePath(si)}
               fill="none"
               stroke={s.color}
-              strokeWidth="2"
+              strokeWidth="2.2"
               strokeLinecap="round"
               strokeLinejoin="round"
+              style={{ filter: `drop-shadow(0 2px 4px ${s.color}40)` }}
             />
           </g>
         ))}
@@ -367,69 +390,71 @@ export default function LineChart({
           );
         })}
 
-        {/* Data dots (dimmed when hovering, except the active column) */}
-        {pointPositions.map((points, si) =>
-          points.map(({ x, y }, i) => {
-            const isActive = hoverIndex === i;
-            const isDimmed = hoverIndex !== null && hoverIndex !== i;
-            return (
-              <circle
-                key={`dot-${si}-${i}`}
-                cx={x}
-                cy={y}
-                r={isActive ? 5 : 3}
-                fill={series[si].color}
-                stroke="var(--color-bg-primary)"
-                strokeWidth={isActive ? 2 : 1.5}
-                opacity={isDimmed ? 0.3 : 1}
-                style={{
-                  transition: "opacity 150ms, r 150ms",
-                  // Phase 2.9 PR 4: an outer-glow drop-shadow on the
-                  // active dot telegraphs "this column is what you're
-                  // pointing at" even when the cursor is two-three
-                  // pixels off. The shadow inherits the series color
-                  // so each line keeps its own hue and doesn't
-                  // muddy the palette. Inactive dots stay flat so
-                  // the only moving target is the active one.
-                  filter: isActive
-                    ? `drop-shadow(0 0 6px ${series[si].color})`
-                    : "none",
-                }}
-              />
-            );
-          })
-        )}
+        {/* Data dots (drawn only when enabled or for small datasets) */}
+        {(showDots === "always" || (showDots === "hover-only" && (series[0]?.data.length ?? 0) <= 12)) &&
+          pointPositions.map((points, si) =>
+            points.map(({ x, y }, i) => {
+              const isActive = hoverIndex === i;
+              const isDimmed = hoverIndex !== null && hoverIndex !== i;
+              return (
+                <circle
+                  key={`dot-${si}-${i}`}
+                  cx={x}
+                  cy={y}
+                  r={isActive ? 5 : 2.5}
+                  fill={series[si].color}
+                  stroke="var(--color-bg-primary)"
+                  strokeWidth={isActive ? 2 : 1}
+                  opacity={isDimmed ? 0.2 : 0.8}
+                  style={{
+                    transition: "opacity 150ms, r 150ms",
+                    filter: isActive
+                      ? `drop-shadow(0 0 6px ${series[si].color})`
+                      : "none",
+                  }}
+                />
+              );
+            })
+          )}
 
-        {/* Crosshair vertical line */}
+        {/* Crosshair vertical guide line */}
         {crosshairX !== null && (
           <line
             x1={crosshairX}
             y1={padding.top}
             x2={crosshairX}
             y2={padding.top + chartH}
-            stroke="var(--color-text-muted)"
-            strokeWidth="1"
-            strokeDasharray="3 3"
-            opacity={0.6}
+            stroke="var(--color-accent, #38bdf8)"
+            strokeWidth="1.5"
+            strokeDasharray="4 3"
+            opacity={0.65}
           />
         )}
 
-        {/* Crosshair dots on lines */}
+        {/* Active hover point highlight (pulsing multi-ring target dot) */}
         {hoverIndex !== null &&
           pointPositions.map((points, si) => {
             const pt = points[hoverIndex];
             if (!pt) return null;
             return (
-              <circle
-                key={`cross-${si}`}
-                cx={pt.x}
-                cy={pt.y}
-                r="5"
-                fill={series[si].color}
-                stroke="var(--color-bg-primary)"
-                strokeWidth="2"
-                style={{ filter: "drop-shadow(0 1px 3px rgba(0,0,0,0.3))" }}
-              />
+              <g key={`cross-${si}`}>
+                <circle
+                  cx={pt.x}
+                  cy={pt.y}
+                  r="7"
+                  fill={series[si].color}
+                  opacity={0.25}
+                />
+                <circle
+                  cx={pt.x}
+                  cy={pt.y}
+                  r="4"
+                  fill={series[si].color}
+                  stroke="var(--color-bg-primary)"
+                  strokeWidth="2"
+                  style={{ filter: `drop-shadow(0 0 8px ${series[si].color})` }}
+                />
+              </g>
             );
           })}
 
