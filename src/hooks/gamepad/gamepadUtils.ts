@@ -144,6 +144,60 @@ function findCandidate(
   return best;
 }
 
+export function scrollElementIntoViewControlled(el: HTMLElement) {
+  // 1. Find if `el` is inside a horizontal rail container
+  const track = el.closest(".bigscreen-rail-track, .bigscreen-cards, .bigscreen-header-tabs, [data-rail-id]") as HTMLElement | null;
+  if (track) {
+    const cardRect = el.getBoundingClientRect();
+    const trackRect = track.getBoundingClientRect();
+    const offsetWithinContainer = cardRect.left - trackRect.left + track.scrollLeft;
+    const desiredLeft = trackRect.width * 0.25;
+    const delta = offsetWithinContainer - desiredLeft;
+    if (Math.abs(delta) > 8) {
+      track.scrollTo({
+        left: Math.max(0, track.scrollLeft + delta),
+        behavior: "smooth",
+      });
+    }
+  }
+
+  // 2. Find the main vertical scroll container
+  const scrollParent = getVerticalScrollParent(el);
+  if (scrollParent) {
+    const elRect = el.getBoundingClientRect();
+    const parentRect = scrollParent.getBoundingClientRect();
+    const topMargin = 100; // Account for 80px fixed header + 20px padding
+    const bottomMargin = 40;
+
+    if (elRect.top < parentRect.top + topMargin) {
+      const diff = parentRect.top + topMargin - elRect.top;
+      scrollParent.scrollTo({
+        top: Math.max(0, scrollParent.scrollTop - diff),
+        behavior: "smooth",
+      });
+    } else if (elRect.bottom > parentRect.bottom - bottomMargin) {
+      const diff = elRect.bottom - (parentRect.bottom - bottomMargin);
+      scrollParent.scrollTo({
+        top: scrollParent.scrollTop + diff,
+        behavior: "smooth",
+      });
+    }
+  }
+}
+
+function getVerticalScrollParent(el: HTMLElement): HTMLElement | null {
+  let parent = el.parentElement;
+  while (parent && parent !== document.body && parent !== document.documentElement) {
+    const style = window.getComputedStyle(parent);
+    const overflowY = style.overflowY;
+    if ((overflowY === "auto" || overflowY === "scroll") && parent.scrollHeight > parent.clientHeight) {
+      return parent;
+    }
+    parent = parent.parentElement;
+  }
+  return document.documentElement;
+}
+
 /**
  * Nearest-in-direction picker.
  *
@@ -153,6 +207,8 @@ function findCandidate(
  *   • Performs a two-pass scan (first tight ±45° tolerance, then falling
  *     back to a wider ±85° tolerance if no candidates match) to avoid
  *     navigation getting stuck in complex grids.
+ *   • Prioritizes same-rail candidates during horizontal navigation so
+ *     left/right stays within the active rail.
  *   • Computes a weighted distance that penalizes both angular
  *     deviation and cross-axis offset.
  *
@@ -166,6 +222,28 @@ export function nearestInDirection(
 ): HTMLElement | null {
   const cur = center(current);
   const viewport = viewportRect();
+
+  // If current element is inside a horizontal rail, and user is pressing left/right,
+  // prioritize candidates that are inside the same rail container.
+  const currentTrack = current.closest(".bigscreen-rail-track, .bigscreen-cards, .bigscreen-header-tabs, [data-rail-id]");
+  const isHorizontalMove = Math.abs(Math.cos(dirAngle)) > Math.abs(Math.sin(dirAngle));
+
+  if (currentTrack && isHorizontalMove) {
+    const sameTrackCandidates = candidates.filter(
+      (c) => c.element !== current && currentTrack.contains(c.element)
+    );
+    if (sameTrackCandidates.length > 0) {
+      const sameTrackMatch = findCandidate(
+        cur,
+        current,
+        sameTrackCandidates,
+        dirAngle,
+        (Math.PI / 180) * 45,
+        viewport,
+      );
+      if (sameTrackMatch) return sameTrackMatch;
+    }
+  }
 
   // First pass: tight tolerance, on-screen + off-screen allowed.
   const tightMatch = findCandidate(

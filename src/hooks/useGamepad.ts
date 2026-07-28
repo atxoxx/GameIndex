@@ -26,6 +26,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
   nearestInDirection,
+  scrollElementIntoViewControlled,
   dispatchMouse,
   dispatchKey,
   virtualMouseSpeed,
@@ -388,14 +389,7 @@ export function useGamepadInternal(enabled: boolean): GamepadState {
             focusedRef.current.removeAttribute("data-focused");
             focusedRef.current = next;
             next.setAttribute("data-focused", "true");
-            // `inline: "nearest"` keeps horizontal rails scrolling along
-            // their own axis instead of yanking the whole page. `nearest`
-            // on block avoids over-scrolling past the viewport edges.
-            next.scrollIntoView({
-              block: "nearest",
-              inline: "nearest",
-              behavior: "smooth",
-            });
+            scrollElementIntoViewControlled(next);
             setFocusedElement(next);
             next.focus({ preventScroll: true });
           }

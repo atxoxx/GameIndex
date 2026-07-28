@@ -2191,6 +2191,31 @@ export default function FriendsPage() {
     await pushMyOutbox(profile, selfStats, updated, recommendations, selfSharedGames, suggestions);
   };
 
+  if (isBigScreen) {
+    return (
+      <BigScreenFriends
+        profile={profile}
+        friends={friends}
+        sessions={sessions}
+        generatedFriendCode={generatedFriendCode}
+        selfStats={selfStats}
+        performSync={performSync}
+        handleSetRsvp={handleSetRsvp}
+        handleDeleteSession={handleDeleteSession}
+        handleSendMessage={handleSendMessage}
+        handleSaveProfile={handleSaveProfile}
+        handleAddFriend={handleAddFriend}
+        friendCodeInput={friendCodeInput}
+        setFriendCodeInput={setFriendCodeInput}
+        decodedFriend={decodedFriend}
+        handleTogglePin={handleTogglePin}
+        handleToggleBlock={handleToggleBlock}
+        handleDeleteFriend={handleDeleteFriend}
+        setProfile={setProfile}
+      />
+    );
+  }
+
   // Toggle a message's pinned state (host/cohost only, enforced in UI).
   const handleTogglePinMessage = async (sessionId: string, messageId: string) => {
     const updated = sessions.map((s) => {

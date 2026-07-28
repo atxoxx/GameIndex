@@ -544,11 +544,17 @@
   border-radius: 6px;
 }
 
+.bigscreen-rail-viewport {
+  position: relative;
+  overflow: hidden;
+}
+
 .bigscreen-rail-track {
   display: flex;
   gap: 20px;
   overflow-x: auto;
-  padding: 10px 0;
+  overflow-y: hidden;
+  padding: 12px 4px;
   margin-right: 64px;
   scroll-behavior: smooth;
 }

@@ -165,13 +165,13 @@ function storeTint(storeName: string): string {
 }
 
 import { useBigScreen } from "../../context/BigScreenContext";
-import BigScreenStore from "../../components/store/BigScreenStore";
+import BigScreenDeals from "../../components/bigscreen/BigScreenDeals";
 
 export default function DealsPage() {
   const { isBigScreen } = useBigScreen();
   const { t } = useLanguage();
   if (isBigScreen) {
-    return <BigScreenStore />;
+    return <BigScreenDeals />;
   }
   const { density } = useDensityContext();
   const { showToast } = useToast();
