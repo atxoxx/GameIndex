@@ -406,14 +406,15 @@ fn hash_str(s: &str) -> String {
 /// backend and UI agree on what a "GameCube" ROM looks like.
 fn rom_extensions_for_platform(platform: &str) -> Vec<String> {
     let table: &[(&str, &[&str])] = &[
-        ("NES", &["nes"]),
+        ("NES", &["nes", "fds"]),
         ("Super Nintendo", &["smc", "sfc", "swc", "fig"]),
         ("Nintendo 64", &["n64", "z64", "v64"]),
         ("GameCube", &["iso", "gcm", "rvz", "gcz"]),
         ("Wii", &["iso", "wbfs", "rvz", "gcz"]),
         ("Wii U", &["wud", "wux", "rpx"]),
         ("Nintendo DS", &["nds"]),
-        ("Nintendo 3DS", &["3ds", "cia", "cxi"]),
+        ("Nintendo 3DS", &["3ds", "cia", "cxi", "app"]),
+        ("Nintendo Switch", &["xci", "nsp", "nca"]),
         ("Game Boy", &["gb"]),
         ("Game Boy Color", &["gbc"]),
         ("Game Boy Advance", &["gba"]),
@@ -421,15 +422,18 @@ fn rom_extensions_for_platform(platform: &str) -> Vec<String> {
         ("PlayStation 2", &["iso", "bin", "cue", "chd", "img", "gz"]),
         ("PlayStation Portable", &["iso", "cso", "pbp"]),
         ("PlayStation 3", &["iso", "pkg", "rap"]),
+        ("PlayStation 4", &["pkg", "elf"]),
+        ("PlayStation Vita", &["vpk", "zip", "bin"]),
         ("Sega Genesis", &["md", "gen", "smd", "bin"]),
-        ("Sega Saturn", &["iso", "bin", "cue"]),
+        ("Sega Saturn", &["iso", "bin", "cue", "chd", "toc"]),
         ("Sega Dreamcast", &["cdi", "gdi", "chd"]),
         ("Xbox", &["iso", "xbe"]),
         ("Xbox 360", &["iso", "xex"]),
-        ("Atari 2600", &["a26"]),
+        ("Atari 2600", &["a26", "bin"]),
         ("PC Engine", &["pce", "cue", "iso"]),
         ("Neo Geo", &["neo", "zip"]),
-        ("Arcade", &["zip", "7z"]),
+        ("Arcade", &["zip", "7z", "chd"]),
+        ("Multi-system", &["iso", "bin", "cue", "rom", "zip", "7z", "sfc", "nes", "n64", "md", "gba"]),
     ];
     for (name, exts) in table {
         if name.eq_ignore_ascii_case(platform) {
