@@ -572,8 +572,10 @@ fn scan_workshop(game_id: &str, game_path: &Path, steam_app_id: Option<&str>, ou
     let Some(appid) = steam_app_id.filter(|s| !s.is_empty()) else {
         return;
     };
-    // .../steamapps/common/<Game>/... -> .../steamapps/workshop/content/<appid>
-    let mut steamapps: Option<PathBuf> = None;
+    
+    let mut candidate_content_dirs: Vec<PathBuf> = Vec::new();
+
+    // 1. Check parent path relative to game_path (.../steamapps/common/<Game>/... -> .../steamapps/workshop/content/<appid>)
     let mut cur = game_path.to_path_buf();
     while let Some(parent) = cur.parent() {
         if cur
@@ -581,50 +583,197 @@ fn scan_workshop(game_id: &str, game_path: &Path, steam_app_id: Option<&str>, ou
             .map(|f| f.to_string_lossy().eq_ignore_ascii_case("steamapps"))
             .unwrap_or(false)
         {
-            steamapps = Some(cur.clone());
+            candidate_content_dirs.push(cur.join("workshop").join("content").join(appid));
             break;
         }
         cur = parent.to_path_buf();
     }
-    let Some(steamapps) = steamapps else {
-        return;
-    };
-    let content = steamapps.join("workshop").join("content").join(appid);
-    if !content.is_dir() {
-        return;
-    }
-    let Ok(rd) = fs::read_dir(&content) else {
-        return;
-    };
-    let mut rows = Vec::new();
-    let mut entries: Vec<PathBuf> = rd.flatten().map(|e| e.path()).collect();
-    entries.sort_by_key(|p| p.file_name().map(|f| f.to_string_lossy().to_string()));
-    for p in entries {
-        if !p.is_dir() {
-            continue;
+
+    // 2. Check Steam install root & libraryfolders.vdf (secondary library drives)
+    if let Some(primary_root) = crate::steam_game_watcher::find_steam_install_dir() {
+        candidate_content_dirs.push(primary_root.join("steamapps").join("workshop").join("content").join(appid));
+
+        let vdf_path = primary_root.join("steamapps").join("libraryfolders.vdf");
+        if let Ok(raw) = fs::read_to_string(&vdf_path) {
+            let secondary_roots = crate::steam_game_watcher::parse_library_folders(&raw);
+            for sec in secondary_roots {
+                candidate_content_dirs.push(sec.join("steamapps").join("workshop").join("content").join(appid));
+            }
         }
-        let item_id = p
-            .file_name()
-            .map(|f| f.to_string_lossy().to_string())
-            .unwrap_or_default();
-        let name = workshop_item_name(&p).unwrap_or_else(|| format!("Workshop #{item_id}"));
-        let mut cap = 20_000u32;
-        let (bytes, files) = dir_stats(&p, &mut cap);
-        let mut row = base_row(game_id, &name, "workshop", "folder", &p, true);
-        row.size_bytes = Some(bytes as i64);
-        row.file_count = Some(files as i64);
-        row.notes = Some(format!("workshop:{item_id}"));
-        rows.push(row);
     }
+
+    // Deduplicate existing candidate directories
+    let mut seen_dirs = std::collections::HashSet::new();
+    candidate_content_dirs.retain(|p| p.is_dir() && seen_dirs.insert(p.clone()));
+
+    if candidate_content_dirs.is_empty() {
+        return;
+    }
+
+    let mut rows = Vec::new();
+    let mut primary_mods_root: Option<String> = None;
+
+    for content_dir in candidate_content_dirs {
+        if primary_mods_root.is_none() {
+            primary_mods_root = Some(content_dir.to_string_lossy().to_string());
+        }
+
+        let Ok(rd) = fs::read_dir(&content_dir) else {
+            continue;
+        };
+
+        let mut entries: Vec<PathBuf> = rd.flatten().map(|e| e.path()).collect();
+        entries.sort_by_key(|p| p.file_name().map(|f| f.to_string_lossy().to_string()));
+
+        for p in entries {
+            if !p.is_dir() {
+                continue;
+            }
+            let raw_item_id = p
+                .file_name()
+                .map(|f| f.to_string_lossy().to_string())
+                .unwrap_or_default();
+
+            let (item_id, disabled) = strip_disabled(&raw_item_id);
+            if item_id.is_empty() {
+                continue;
+            }
+
+            let name = workshop_item_name(&p).unwrap_or_else(|| format!("Workshop #{item_id}"));
+            let mut cap = 20_000u32;
+            let (bytes, files) = dir_stats(&p, &mut cap);
+            let mut row = base_row(game_id, &name, "workshop", "folder", &p, !disabled);
+            row.size_bytes = Some(bytes as i64);
+            row.file_count = Some(files as i64);
+            row.notes = Some(format!("workshop:{item_id}"));
+            rows.push(row);
+        }
+    }
+
     if rows.is_empty() {
         return;
     }
-    out.engines.push("workshop".into());
+
+    if !out.engines.contains(&"workshop".to_string()) {
+        out.engines.push("workshop".into());
+    }
     if out.mods_root.is_none() {
-        out.mods_root = Some(content.to_string_lossy().to_string());
+        out.mods_root = primary_mods_root;
     }
     out.mods.extend(rows);
 }
+
+/// Query Steam Web API to enrich Workshop items with official titles, preview images, and author info.
+pub async fn enrich_workshop_metadata(mods: &mut [ModRow]) {
+    let workshop_indices: Vec<usize> = mods
+        .iter()
+        .enumerate()
+        .filter(|(_, m)| m.engine == "workshop")
+        .map(|(i, _)| i)
+        .collect();
+
+    if workshop_indices.is_empty() {
+        return;
+    }
+
+    let mut item_ids: Vec<String> = Vec::new();
+    let mut item_id_to_indices: HashMap<String, Vec<usize>> = HashMap::new();
+
+    for &idx in &workshop_indices {
+        let m = &mods[idx];
+        let item_id = if let Some(notes) = &m.notes {
+            notes
+                .split('|')
+                .find_map(|s| s.strip_prefix("workshop:"))
+                .map(|s| s.to_string())
+        } else {
+            None
+        };
+        let item_id = item_id.unwrap_or_else(|| {
+            let p = Path::new(&m.path);
+            let name = p.file_name().map(|f| f.to_string_lossy().to_string()).unwrap_or_default();
+            strip_disabled(&name).0.to_string()
+        });
+
+        if !item_id.is_empty() && item_id.chars().all(|c| c.is_ascii_digit()) {
+            item_id_to_indices.entry(item_id.clone()).or_default().push(idx);
+            if !item_ids.contains(&item_id) {
+                item_ids.push(item_id);
+            }
+        }
+    }
+
+    if item_ids.is_empty() {
+        return;
+    }
+
+    let client = match reqwest::Client::builder()
+        .timeout(std::time::Duration::from_secs(6))
+        .build()
+    {
+        Ok(c) => c,
+        Err(_) => return,
+    };
+
+    for chunk in item_ids.chunks(50) {
+        let mut params = HashMap::new();
+        params.insert("itemcount".to_string(), chunk.len().to_string());
+        for (i, id) in chunk.iter().enumerate() {
+            params.insert(format!("publishedfileids[{i}]"), id.clone());
+        }
+
+        let res = match client
+            .post("https://api.steampowered.com/ISteamRemoteStorage/GetPublishedFileDetails/v1/")
+            .form(&params)
+            .send()
+            .await
+        {
+            Ok(r) => r,
+            Err(_) => continue,
+        };
+
+        let json: serde_json::Value = match res.json().await {
+            Ok(v) => v,
+            Err(_) => continue,
+        };
+
+        let Some(details) = json["response"]["publishedfiledetails"].as_array() else {
+            continue;
+        };
+
+        for item in details {
+            let Some(file_id) = item["publishedfileid"].as_str() else {
+                continue;
+            };
+
+            let title = item["title"].as_str().unwrap_or("").trim();
+            let preview_url = item["preview_url"].as_str().unwrap_or("").trim();
+            let time_updated = item["time_updated"].as_u64();
+
+            if let Some(indices) = item_id_to_indices.get(file_id) {
+                for &idx in indices {
+                    let m = &mut mods[idx];
+                    if (!title.is_empty()) && (m.name.starts_with("Workshop #") || m.name.is_empty()) {
+                        m.name = title.to_string();
+                    }
+                    if m.author.is_none() {
+                        m.author = Some("Steam Workshop".to_string());
+                    }
+                    if let Some(updated) = time_updated {
+                        if updated > 0 && m.version.is_none() {
+                            m.version = Some(format!("{updated}"));
+                        }
+                    }
+                    if !preview_url.is_empty() {
+                        let base_notes = format!("workshop:{file_id}");
+                        m.notes = Some(format!("{base_notes}|preview:{preview_url}"));
+                    }
+                }
+            }
+        }
+    }
+}
+
 
 // === Entry point ===========================================================
 

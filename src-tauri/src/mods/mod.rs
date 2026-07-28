@@ -179,7 +179,14 @@ pub async fn mods_scan_game(
 ) -> Result<GameModsPayload, String> {
     let db = app.state::<db::Db>().inner().clone();
     let gid = game_id.clone();
-    let appid = steam_app_id_string(steam_app_id);
+    let mut appid = steam_app_id_string(steam_app_id);
+    if appid.is_none() {
+        if let Ok(Some(g)) = db::games::get(&db, &game_id) {
+            if let Some(sid) = g.steam_app_id {
+                appid = Some(sid.to_string());
+            }
+        }
+    }
     let custom_root = db::mods::get_settings(&db, &game_id)?.and_then(|s| s.custom_root);
     let custom_root_clone = custom_root.clone();
     let outcome = tokio::task::spawn_blocking(move || {
@@ -222,6 +229,9 @@ pub async fn mods_scan_game(
             }
         }
     }
+    // Enrich Workshop mods with Steam Web API metadata (titles, preview images)
+    detect::enrich_workshop_metadata(&mut mods).await;
+
     db::mods::replace_for_game(&db, &game_id, &mods)?;
 
     let prev_settings = db::mods::get_settings(&db, &game_id)?;
@@ -259,7 +269,6 @@ pub fn mods_set_enabled(
     let db = app.state::<db::Db>().inner().clone();
     let mut row = db::mods::get(&db, &mod_id)?.ok_or("mod not found")?;
     match row.engine.as_str() {
-        "workshop" => return Err("Steam Workshop items are managed by Steam".into()),
         "bethesda" => {
             row.enabled = enabled;
             row.updated_at = now_secs();
@@ -301,14 +310,11 @@ pub fn mods_reorder(
 }
 
 /// Delete a mod's on-disk artifact (plus Unreal `.ucas`/`.utoc`
-/// siblings) and its DB row. Workshop items are refused.
+/// siblings) and its DB row.
 #[tauri::command]
 pub fn mods_delete(app: tauri::AppHandle, mod_id: String) -> Result<(), String> {
     let db = app.state::<db::Db>().inner().clone();
     let row = db::mods::get(&db, &mod_id)?.ok_or("mod not found")?;
-    if row.engine == "workshop" {
-        return Err("Steam Workshop items are managed by Steam".into());
-    }
     let p = PathBuf::from(&row.path);
     if p.is_dir() {
         fs::remove_dir_all(&p).map_err(|e| format!("delete folder: {e}"))?;

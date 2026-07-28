@@ -349,6 +349,22 @@ export default function ModManager({
   };
 
   // Drag & Drop reordering
+  const workshopItemId = useMemo(() => {
+    if (!selected || selected.engine !== "workshop") return null;
+    if (selected.notes) {
+      const match = selected.notes.match(/workshop:(\d+)/);
+      if (match) return match[1];
+    }
+    const match = selected.path.match(/(\d+)(?:\.disabled)?$/);
+    return match ? match[1] : null;
+  }, [selected]);
+
+  const workshopPreviewUrl = useMemo(() => {
+    if (!selected?.notes) return null;
+    const match = selected.notes.match(/preview:(https?:\/\/[^\s|]+)/);
+    return match ? match[1] : null;
+  }, [selected]);
+
   const dragEnabled = supportsReorder && search.trim() === "" && filterTab === "all" && modSort === "order";
 
   const handleDrop = async (targetId: string) => {
@@ -780,12 +796,10 @@ export default function ModManager({
                     <label
                       className="mods-toggle-switch"
                       onClick={(e) => e.stopPropagation()}
-                      title={mod.engine === "workshop" ? t("mods.workshopManaged") : undefined}
                     >
                       <input
                         type="checkbox"
                         checked={mod.enabled}
-                        disabled={mod.engine === "workshop"}
                         onChange={() => void handleToggle(mod)}
                       />
                       <span className="mods-toggle-slider" />
@@ -843,28 +857,24 @@ export default function ModManager({
                   </div>
 
                   <div className="mods-detail-actions">
-                    {selected.engine !== "workshop" && (
-                      <>
-                        <Button
-                          variant={selected.enabled ? "secondary" : "primary"}
-                          size="sm"
-                          onClick={() => void handleToggle(selected)}
-                        >
-                          {selected.enabled ? t("mods.disable") : t("mods.enable")}
-                        </Button>
-                        <Button
-                          variant="danger"
-                          size="sm"
-                          onClick={() => setDeleteTarget(selected)}
-                        >
-                          <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ marginRight: "4px" }}>
-                            <polyline points="3 6 5 6 21 6"></polyline>
-                            <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
-                          </svg>
-                          {t("mods.delete")}
-                        </Button>
-                      </>
-                    )}
+                    <Button
+                      variant={selected.enabled ? "secondary" : "primary"}
+                      size="sm"
+                      onClick={() => void handleToggle(selected)}
+                    >
+                      {selected.enabled ? t("mods.disable") : t("mods.enable")}
+                    </Button>
+                    <Button
+                      variant="danger"
+                      size="sm"
+                      onClick={() => setDeleteTarget(selected)}
+                    >
+                      <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ marginRight: "4px" }}>
+                        <polyline points="3 6 5 6 21 6"></polyline>
+                        <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+                      </svg>
+                      {t("mods.delete")}
+                    </Button>
 
                     <Button
                       variant="ghost"
@@ -887,8 +897,14 @@ export default function ModManager({
                   </div>
                 </div>
 
+                {workshopPreviewUrl && (
+                  <div className="mods-workshop-preview" style={{ marginBottom: "12px", borderRadius: "10px", overflow: "hidden", border: "1px solid rgba(255, 255, 255, 0.1)", maxHeight: "180px", background: "rgba(0, 0, 0, 0.2)" }}>
+                    <img src={workshopPreviewUrl} alt={selected.name} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+                  </div>
+                )}
+
                 {selected.engine === "workshop" && (
-                  <div className="mods-nexus-hint" style={{ background: "rgba(102, 192, 244, 0.1)", padding: "8px 12px", borderRadius: "8px", color: "#66c0f4" }}>
+                  <div className="mods-nexus-hint" style={{ background: "rgba(102, 192, 244, 0.1)", padding: "8px 12px", borderRadius: "8px", color: "#66c0f4", marginBottom: "12px" }}>
                     ℹ {t("mods.workshopManaged")}
                   </div>
                 )}
@@ -968,6 +984,21 @@ export default function ModManager({
                     )}
                   </button>
                 </div>
+
+                {/* Steam Workshop Direct Web Link Button */}
+                {workshopItemId && (
+                  <button
+                    type="button"
+                    className="mods-nexus-link"
+                    style={{ background: "rgba(102, 192, 244, 0.15)", color: "#66c0f4", borderColor: "rgba(102, 192, 244, 0.3)" }}
+                    onClick={() => void openUrl(`https://steamcommunity.com/sharedfiles/filedetails/?id=${workshopItemId}`)}
+                  >
+                    <svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor">
+                      <path d="M12 2a10 10 0 0 0-10 10c0 4.42 2.87 8.17 6.84 9.5l2.67-3.7a3.48 3.48 0 0 1-.51-1.8c0-1.93 1.57-3.5 3.5-3.5s3.5 1.57 3.5 3.5-1.57 3.5-3.5 3.5c-.32 0-.63-.04-.93-.13l-2.6 3.6a10 10 0 0 0 11.03-9.47A10 10 0 0 0 12 2z"/>
+                    </svg>
+                    {t("mods.viewOnWorkshop")} (Item #{workshopItemId})
+                  </button>
+                )}
 
                 {/* Nexus Direct Web Link Button */}
                 {nexusUrlFor(selected) && (
