@@ -10,6 +10,7 @@ import StorePage from "./pages/StorePage";
 import StoreGameDetail from "./pages/StoreGameDetail";
 import CommunityPage from "./pages/CommunityPage";
 import SettingsPage from "./pages/SettingsPage";
+import DocsPage from "./pages/DocsPage";
 import FriendsPage from "./pages/FriendsPage";
 import ActivityPage from "./pages/ActivityPage";
 import StoragePage from "./pages/StoragePage";
@@ -101,6 +102,7 @@ function AppShell() {
           <Route path="emulators" element={<EmulatorsPage />} />
           <Route path="mods" element={<ModsPage />} />
           <Route path="settings" element={<SettingsPage />} />
+          <Route path="docs" element={<DocsPage />} />
         </Route>
       </Routes>
     </GamepadProvider>

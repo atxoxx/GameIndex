@@ -3184,4 +3184,70 @@ export const en: TranslationDict = {
   "settings.wipe.allRemoved": "Cleared all local storage",
   "settings.wipe.size": "Size: {size}",
   "settings.wipe.noValue": "(empty)",
+
+  "nav.docs": "Documentation",
+
+  "docs.title": "Documentation",
+  "docs.subtitle": "A friendly, non-technical guide to every screen and button in GameIndex — written for new players, no jargon required.",
+  "docs.toc": "Contents",
+
+  "docs.welcome.title": "Welcome to GameIndex",
+  "docs.welcome.body": "GameIndex is a single place to keep all your PC games. Instead of opening Steam, GOG, Epic, and others one by one, you can see and launch every game from one window.\n\nThis guide explains the screens and buttons you'll use day to day. It does not require any technical knowledge — just click through and you'll be oriented in a few minutes.\n- Browse and search every game you own in one **Library**.\n- Discover new games in the **Store** and track the best **deals**.\n- Keep your saves, **mods**, and **emulators** organized.\n- Relax on the couch with **Big Picture Mode**.",
+
+  "docs.firststeps.title": "Getting started",
+  "docs.firststeps.body": "On first launch, your **Library** is empty. Here's how to fill it:\n- Connect a **store** account (Steam, GOG, Epic, Rockstar, Ubisoft, or Humble) in **Settings** → Sources. GameIndex will pull in the games you already own.\n- Or choose 'Add Game' in the **sidebar** to point GameIndex at a game installed anywhere on your PC.\n- Prefer a clean start? Use the **Library** search and filters to focus on what you feel like playing right now.\nOnce games are imported, just double-click one to launch it.",
+
+  "docs.layout.title": "The main screen",
+  "docs.layout.body": "The app is built from three areas:\n- The top bar holds search, quick actions, and the buttons for **Downloads**, **Settings**, and **Big Picture Mode**.\n- The left **sidebar** lists your games and filters, plus the 'Add Game' button.\n- The large center area shows the page you're currently viewing (**Library**, **Store**, and so on).\nThe row of tabs near the top (**Library**, **Store**, **Emulators**, **Mods**…) switches the center area between the different sections of the app.",
+
+  "docs.library.title": "Your Library",
+  "docs.library.body": "Your **Library** is the home base — every game you've added shows up here as a tile.\n- Click a tile to open that game's page: description, screenshots, **achievements**, how long to beat, and a big 'Play' button.\n- Hover a tile for quick actions like Play, favorite, or hide.\n- Use the search box and filter chips (genre, **store**, played/unplayed) to narrow the list.\n- Switch the view between grid and list using the layout toggle in the **sidebar**.",
+
+  "docs.sidebar.title": "The sidebar",
+  "docs.sidebar.body": "The **sidebar** on the left helps you navigate and organize:\n- 'Add Game' imports a game from your computer or a connected **store**.\n- Favorites and Recent give you fast access to the games you play most.\n- Filter groups (**store**, genre, status) collapse and expand to tidy up long libraries.\n- Collapse the whole **sidebar** with the arrow at its top to get more room for your games.",
+
+  "docs.topnav.title": "The top bar buttons",
+  "docs.topnav.body": "On the right side of the top bar you'll find:\n- **Downloads**: opens a panel showing games and files currently downloading, plus a badge with the active count.\n- **Settings** (gear): opens preferences — accounts, appearance, language, and privacy.\n- **Big Picture Mode** (monitor): expands the app into a full-screen, controller-friendly view for TV and couch play.\nThe center of the bar usually holds a search field and the section tabs.",
+
+  "docs.store.title": "Discovering games (Store)",
+  "docs.store.body": "The **Store** is where you browse what's available to play, not just what you own.\n- Scroll curated rails like 'Trending' and 'Top Rated', or search for a title directly.\n- Open a game to see its price, description, ratings, and which **store**s sell it.\n- Filter by genre, price, and platform to find something that fits your mood.\nNote: the **Store** is for discovery and information; buying happens on the **store**'s own website.",
+
+  "docs.wishlist.title": "Wishlist",
+  "docs.wishlist.body": "See a game you like but aren't ready to play? Add it to your **Wishlist**.\n- Click the heart on any game or **store** page to save it.\n- Open the **Wishlist** tab to see everything you've saved in one place.\n- **Wishlist**ed games also surface in **Deals** so you'll spot a price drop.",
+
+  "docs.deals.title": "Deals & prices",
+  "docs.deals.body": "The **Deals** section helps you spend wisely.\n- See current discounts across **store**s with the percentage saved and the new price.\n- Filter by **store**, genre, or how big the discount is.\n- Games on your **Wishlist** are highlighted so price drops are easy to catch.\n- Historical price info helps you tell a real bargain from a fake one.",
+
+  "docs.news.title": "News",
+  "docs.news.body": "Stay up to date without leaving the app.\n- The **News** page shows articles and announcements pulled from gaming feeds.\n- Add your own RSS feeds in **News** **settings** to follow your favorite sites.\n- Click any headline to read the full article in a clean reader view.",
+
+  "docs.activity.title": "Activity & performance",
+  "docs.activity.body": "GameIndex can show how your games actually run.\n- When tracking is on, each play session records frame rate (FPS) and frame timing.\n- The **Activity** page charts your performance over time with interactive graphs.\n- Use it to spot stutters or compare **settings** — no need to understand the numbers, just look for smooth vs. spiky.",
+
+  "docs.achievements.title": "Achievements",
+  "docs.achievements.body": "Track the challenges you've unlocked.\n- Connect Steam to pull in your achievement lists, or sync local/emulator saves.\n- See locked and unlocked **achievements** per game, with progress at a glance.\n- Filter to 'locked' when you want ideas for what to go after next.",
+
+  "docs.downloads.title": "Downloads",
+  "docs.downloads.body": "The **Downloads** area manages everything GameIndex fetches.\n- Open it from the top bar to watch active **downloads** and completed files.\n- One download runs at a time by default, with the rest queued, so your connection stays stable.\n- Supports direct links and torrent/Debrid sources where available.\nClick a finished item to reveal it in your file manager or install it.",
+
+  "docs.storage.title": "Storage manager",
+  "docs.storage.body": "Running low on disk space? The **Storage** page shows where your games live.\n- See a breakdown of space used by each game, emulator, and mod collection.\n- Move a game from one drive to another without breaking its launch.\n- Recalculate sizes any time to keep the numbers accurate.",
+
+  "docs.emulators.title": "Emulators & ROMs",
+  "docs.emulators.body": "GameIndex brings retro games into the same **library**.\n- Add an emulator (like a SNES or PlayStation emulator) so GameIndex knows how to launch it.\n- Catalog your ROMs by system and browse them alongside your modern games.\n- Bulk actions let you organize large ROM collections quickly.\n**Emulators** must be installed separately; GameIndex launches them for you.",
+
+  "docs.mods.title": "Mods",
+  "docs.mods.body": "Change how your games look and play with the Mod Manager.\n- Browse **mods** from Steam Workshop and Nexus **Mods** for a selected game.\n- Enable, disable, or delete **mods** with multi-select bulk actions.\n- Stat cards show how many **mods** are active and how much space they take.\n**Mods** are applied through the game's own mod system; GameIndex just organizes them.",
+
+  "docs.community.title": "Community & friends",
+  "docs.community.body": "Gaming is better together.\n- The **Community** tab shows a feed of **activity** and recommendations.\n- Add friends to see what they're playing and share your own **library**.\n- Local-first: your data stays on your device, and sharing is opt-in.\nProfiles and friend sync help you discover games your friends love.",
+
+  "docs.settings.title": "Settings",
+  "docs.settings.body": "Open **Settings** (the gear icon) to make GameIndex yours.\n- Sources: connect or disconnect **store** accounts.\n- Appearance: pick a theme and accent color, or choose light/dark.\n- Language: switch the interface between the supported languages.\n- Privacy & Data: review what's **store**d locally and wipe it if you want a fresh start.\nMost changes apply instantly.",
+
+  "docs.bigscreen.title": "Big Picture Mode",
+  "docs.bigscreen.body": "**Big Picture Mode** turns GameIndex into a 10-foot, couch-friendly interface.\n- Click the monitor icon in the top bar (or press F11 / Ctrl+B) to enter it.\n- Navigate entirely with a game controller or arrow keys — large tiles, simple menus.\n- It includes your **Library**, **Store**, **Deals**, Friends, and **Community** in a TV-friendly layout.\n- Press Escape to leave **Big Picture Mode** and return to the desktop view.",
+
+  "docs.tips.title": "Tips & shortcuts",
+  "docs.tips.body": "A few things that make everyday use smoother:\n- Press F11 or Ctrl+B to toggle **Big Picture Mode**; Escape leaves it.\n- Use the **Library** search to jump to any game by name instantly.\n- Right-click (or long-press) a game tile for extra actions.\n- Collapse the **sidebar** when you want more room for game art.\n- Change the language any time in **Settings** if something doesn't read right."
 };

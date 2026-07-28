@@ -109,6 +109,23 @@ function SettingsIcon() {
   );
 }
 
+function DocIcon() {
+  return (
+    <svg
+      className="topnav-tab-icon"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20" />
+      <path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z" />
+    </svg>
+  );
+}
+
 interface Tab {
   path: string;
   label: string;
@@ -542,6 +559,16 @@ export default function TopNav() {
             title={t("nav.settings")}
           >
             <SettingsIcon />
+          </NavLink>
+          <NavLink
+            to="/docs"
+            className={({ isActive }) =>
+              `topnav-btn topnav-btn-docs${isActive ? " active" : ""}`
+            }
+            aria-label={t("nav.docs")}
+            title={t("nav.docs")}
+          >
+            <DocIcon />
           </NavLink>
           <button
             type="button"
