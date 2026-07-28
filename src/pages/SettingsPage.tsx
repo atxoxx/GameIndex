@@ -125,7 +125,7 @@ export default function SettingsPage() {
   useSources();
   const { unit: sizeUnit, setUnit: setSizeUnit } = useSizeUnit();
   const { currentTheme, setTheme, themes, systemSync, setSystemSync } = useTheme();
-  const { updateSpeedLimits, selectSavePath } = useDownloads();
+  const { updateSpeedLimits, selectSavePath, setSeedConfig, seedAfterComplete } = useDownloads();
   // New settings slice (covers all 12 settings added in this drop:
   // Rust-backed launcher settings + localStorage knobs for sync
   // intervals / privacy / accent / blocklist / discord presence /
@@ -3428,6 +3428,20 @@ export default function SettingsPage() {
                 </label>
             </div>
           </div>
+
+              <div className="settings-limit-row">
+                <label className="settings-checkbox-label" style={{ display: "flex", alignItems: "center", gap: "8px", cursor: "pointer" }}>
+                  <input
+                    type="checkbox"
+                    checked={seedAfterComplete}
+                    onChange={(e) => {
+                      void setSeedConfig(e.target.checked);
+                    }}
+                  />
+                  <span>{t("settings.downloads.seedAfterComplete")}</span>
+                </label>
+                <p className="settings-helper-text">{t("settings.downloads.seedAfterCompleteDesc")}</p>
+              </div>
 
         </section>
 

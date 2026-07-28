@@ -33,11 +33,10 @@ mod size;
 // top-of-file doc comment for the design rationale.
 mod source_manager;
 mod store_checker;
-mod torrent_engine;
+mod downloads;
 mod achievements;
 mod local_achievements;
 mod achievement_watcher;
-mod downloader;
 mod mods;
 mod tray;
 mod system_screenshots;
@@ -3803,18 +3802,21 @@ pub fn run() {
             store_checker::check_ownership_for_ids,
             store_checker::set_steam_owned,
             store_checker::set_epic_owned,
-            torrent_engine::torrent_add,
-            torrent_engine::torrent_pause,
-            torrent_engine::torrent_resume,
-            torrent_engine::torrent_remove,
-            torrent_engine::torrent_get_all,
-            torrent_engine::torrent_select_save_path,
-            torrent_engine::torrent_pause_all,
-            torrent_engine::torrent_resume_all,
-            torrent_engine::torrent_update_only_files,
-            torrent_engine::torrent_start_selected,
-            torrent_engine::torrent_set_speed_limits,
-            torrent_engine::torrent_open_folder,
+            downloads::torrent_add,
+            downloads::torrent_pause,
+            downloads::torrent_resume,
+            downloads::torrent_remove,
+            downloads::torrent_get_all,
+            downloads::torrent_select_save_path,
+            downloads::torrent_pause_all,
+            downloads::torrent_resume_all,
+            downloads::torrent_update_only_files,
+            downloads::torrent_start_selected,
+            downloads::torrent_set_speed_limits,
+            downloads::torrent_open_folder,
+            downloads::download_queue_reorder,
+            downloads::download_set_seed_config,
+            downloads::download_set_seeding,
             crackwatch::fetch_crackwatch_status,
             crackwatch::fetch_crackwatch_status_batch,
             price::fetch_game_price,
@@ -3829,12 +3831,12 @@ pub fn run() {
             achievement_watcher::scan_all_local_achievements,
             achievement_watcher::get_local_achievements_enabled,
             achievement_watcher::set_local_achievements_enabled,
-            downloader::test_debrid_key,
-            downloader::check_debrid_cache,
-            downloader::direct_download_start,
-            downloader::debrid_download_start,
-            downloader::direct_download_update_url,
-            downloader::debrid_unrestrict_link,
+            downloads::test_debrid_key,
+            downloads::check_debrid_cache,
+            downloads::direct_download_start,
+            downloads::debrid_download_start,
+            downloads::direct_download_update_url,
+            downloads::debrid_unrestrict_link,
             // Live Steam concurrent-player count. Powers the player
             // badges on the store hero, store detail, and game detail
             // banners â€” see PlayerCountCache above for caching policy.
@@ -4100,13 +4102,13 @@ pub fn run() {
             let app_handle = app.handle().clone();
             let app_data_dir_for_engine = app_data_dir.clone();
             let _ = tauri::async_runtime::spawn(async move {
-                if let Err(e) = torrent_engine::initialize_engine(
+                if let Err(e) = downloads::initialize_engine(
                     app_handle,
                     app_data_dir_for_engine,
                 )
                 .await
                 {
-                    eprintln!("[gameindex] torrent_engine::initialize_engine failed: {}", e);
+                    eprintln!("[gameindex] downloads::initialize_engine failed: {}", e);
                 }
             });
 
@@ -4125,7 +4127,7 @@ pub fn run() {
         .expect("error while building tauri application")
         .run(|_app_handle, event| {
             if let tauri::RunEvent::Exit = event {
-                torrent_engine::cleanup_extractions();
+                downloads::cleanup_extractions();
                 std::process::exit(0);
             }
         });

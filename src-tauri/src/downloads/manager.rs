@@ -1,0 +1,1132 @@
+//! Hydra-style download manager: a single ACTIVE download at a time,
+//! everything else waits in a persistent queue. When the active
+//! download completes (or errors, or is paused/removed), the next
+//! queued item starts automatically.
+//!
+//! Torrents run on librqbit; direct/debrid downloads run on the HTTP
+//! worker in `http.rs`. All records live in one map and are emitted
+//! together on the `download-progress` event every second.
+
+use std::collections::HashMap;
+use std::future::Future;
+use std::path::PathBuf;
+use std::pin::Pin;
+use std::sync::atomic::AtomicU64;
+use std::sync::Arc;
+use std::time::Duration;
+
+use tauri::{AppHandle, Emitter};
+use tokio::sync::RwLock;
+
+use super::extract;
+use super::http;
+use super::persistence;
+use super::torrent;
+use super::types::{
+    gate_completion, unix_now, Download, DownloadKind, DownloadStatus,
+};
+
+/// How long a torrent may sit in FetchingMetadata without any real
+/// transfer before we surface an error.
+const METADATA_FETCH_TIMEOUT_SECS: u64 = 180;
+
+pub type SharedManager = Arc<RwLock<DownloadManager>>;
+pub type WeakManager = std::sync::Weak<RwLock<DownloadManager>>;
+
+pub struct DownloadManager {
+    session: Option<Arc<librqbit::Session>>,
+    downloads: HashMap<String, Download>,
+    /// Ids waiting for the active slot, in order.
+    queue: Vec<String>,
+    /// The download currently occupying the active slot.
+    active_id: Option<String>,
+    state_dir: PathBuf,
+    app: Option<AppHandle>,
+    dirty: bool,
+    last_emitted_hash: u64,
+    /// Live byte counters for direct downloads (shared with workers).
+    pub direct_counters: HashMap<String, Arc<AtomicU64>>,
+    direct_last_calc: HashMap<String, (u64, std::time::Instant)>,
+    /// "Seed after download complete" user preference (pushed from the
+    /// frontend at startup and on toggle).
+    pub seed_after_complete: bool,
+    /// In-memory debrid credentials per download id (never persisted).
+    pub debrid_params: HashMap<String, (String, String)>,
+}
+
+impl DownloadManager {
+    pub fn new(state_dir: PathBuf) -> Self {
+        Self {
+            session: None,
+            downloads: HashMap::new(),
+            queue: Vec::new(),
+            active_id: None,
+            state_dir,
+            app: None,
+            dirty: false,
+            last_emitted_hash: 0,
+            direct_counters: HashMap::new(),
+            direct_last_calc: HashMap::new(),
+            seed_after_complete: false,
+            debrid_params: HashMap::new(),
+        }
+    }
+
+    pub fn set_app(&mut self, app: AppHandle) {
+        self.app = Some(app);
+    }
+
+    pub fn session(&self) -> Option<&Arc<librqbit::Session>> {
+        self.session.as_ref()
+    }
+
+    pub fn downloads_map(&self) -> &HashMap<String, Download> {
+        &self.downloads
+    }
+
+    pub fn downloads_mut(&mut self) -> &mut HashMap<String, Download> {
+        &mut self.downloads
+    }
+
+    pub fn active_id(&self) -> Option<&String> {
+        self.active_id.as_ref()
+    }
+
+    // ── Persistence / emission ─────────────────────────────────────────
+
+    pub fn mark_dirty(&mut self) {
+        self.dirty = true;
+    }
+
+    pub fn flush_if_dirty(&mut self) {
+        if self.dirty {
+            persistence::save(&self.state_dir, &self.downloads, &self.queue);
+            self.dirty = false;
+        }
+    }
+
+    /// Snapshot for the frontend: queue positions stamped, completed
+    /// records at the bottom, everything else newest-first.
+    pub fn list(&self) -> Vec<Download> {
+        let positions: HashMap<&String, usize> = self
+            .queue
+            .iter()
+            .enumerate()
+            .map(|(i, id)| (id, i))
+            .collect();
+        let mut all: Vec<Download> = self
+            .downloads
+            .values()
+            .cloned()
+            .map(|mut d| {
+                d.queue_position = positions.get(&d.id).copied();
+                d
+            })
+            .collect();
+        all.sort_by(|a, b| {
+            let a_done = matches!(a.status, DownloadStatus::Completed);
+            let b_done = matches!(b.status, DownloadStatus::Completed);
+            match (a_done, b_done) {
+                (true, true) | (false, false) => b.added_at.cmp(&a.added_at),
+                (true, false) => std::cmp::Ordering::Greater,
+                (false, true) => std::cmp::Ordering::Less,
+            }
+        });
+        all
+    }
+
+    pub fn emit_progress(&mut self) {
+        if let Some(app) = &self.app {
+            let snapshot = self.list();
+            let hash = hash_snapshot(&snapshot);
+            if hash != self.last_emitted_hash {
+                self.last_emitted_hash = hash;
+                let _ = app.emit("download-progress", &snapshot);
+            }
+        }
+    }
+
+    pub fn emit_progress_force(&mut self) {
+        if let Some(app) = &self.app {
+            let snapshot = self.list();
+            self.last_emitted_hash = hash_snapshot(&snapshot);
+            let _ = app.emit("download-progress", &snapshot);
+        }
+    }
+
+    // ── Queue primitives ───────────────────────────────────────────────
+
+    /// True when the active slot is taken by a live download.
+    pub fn has_active(&self) -> bool {
+        match &self.active_id {
+            Some(id) => self
+                .downloads
+                .get(id)
+                .map(|d| d.status.is_active())
+                .unwrap_or(false),
+            None => false,
+        }
+    }
+
+    /// Append to the back of the queue (idempotent).
+    pub fn enqueue_back(&mut self, id: &str) {
+        if !self.queue.iter().any(|q| q == id) {
+            self.queue.push(id.to_string());
+        }
+        if let Some(d) = self.downloads.get_mut(id) {
+            d.status = DownloadStatus::Queued;
+        }
+        self.mark_dirty();
+    }
+
+    /// Push to the FRONT of the queue (used when the active download
+    /// is preempted by an explicit user resume of another item).
+    pub fn enqueue_front(&mut self, id: &str) {
+        self.queue.retain(|q| q != id);
+        self.queue.insert(0, id.to_string());
+        if let Some(d) = self.downloads.get_mut(id) {
+            d.status = DownloadStatus::Queued;
+        }
+        self.mark_dirty();
+    }
+
+    pub fn remove_from_queue(&mut self, id: &str) {
+        self.queue.retain(|q| q != id);
+    }
+
+    /// Reorder the queue to match `ids` (unknown ids ignored, missing
+    /// ids keep their relative order at the back).
+    pub fn reorder_queue(&mut self, ids: &[String]) {
+        let mut new_queue: Vec<String> = ids
+            .iter()
+            .filter(|id| self.queue.iter().any(|q| &q == id))
+            .cloned()
+            .collect();
+        for id in &self.queue {
+            if !new_queue.contains(id) {
+                new_queue.push(id.clone());
+            }
+        }
+        self.queue = new_queue;
+        self.mark_dirty();
+    }
+
+    /// Pop the next runnable queued id.
+    fn next_queued(&mut self) -> Option<String> {
+        while let Some(id) = self.queue.first().cloned() {
+            match self.downloads.get(&id) {
+                Some(d) if matches!(d.status, DownloadStatus::Queued) => {
+                    self.queue.remove(0);
+                    return Some(id);
+                }
+                _ => {
+                    // Stale entry (removed / no longer queued).
+                    self.queue.remove(0);
+                }
+            }
+        }
+        None
+    }
+
+    /// Release the active slot if `id` holds it.
+    pub fn release_active(&mut self, id: &str) {
+        if self.active_id.as_deref() == Some(id) {
+            self.active_id = None;
+        }
+    }
+
+    /// Swap a record's id (torrent placeholder → real infohash id),
+    /// carrying queue membership and the active slot along.
+    pub fn rekey(&mut self, old_id: &str, new_id: &str) {
+        if old_id == new_id {
+            return;
+        }
+        if let Some(mut d) = self.downloads.remove(old_id) {
+            d.id = new_id.to_string();
+            self.downloads.insert(new_id.to_string(), d);
+        }
+        for q in self.queue.iter_mut() {
+            if q == old_id {
+                *q = new_id.to_string();
+            }
+        }
+        if self.active_id.as_deref() == Some(old_id) {
+            self.active_id = Some(new_id.to_string());
+        }
+        if let Some(c) = self.direct_counters.remove(old_id) {
+            self.direct_counters.insert(new_id.to_string(), c);
+        }
+        if let Some(p) = self.debrid_params.remove(old_id) {
+            self.debrid_params.insert(new_id.to_string(), p);
+        }
+        self.mark_dirty();
+    }
+
+    // ── Initialisation ─────────────────────────────────────────────────
+
+    /// Open the librqbit session, load persisted state and reconcile
+    /// with whatever librqbit restored from its own session state.
+    pub async fn initialize(&mut self) -> Result<(), String> {
+        if self.session.is_some() {
+            return Ok(());
+        }
+        let session = torrent::init_session(&self.state_dir).await?;
+        self.session = Some(session.clone());
+
+        let loaded = persistence::load(&self.state_dir);
+        self.downloads = loaded.downloads;
+        self.queue = loaded.queue;
+
+        // Reconcile the librqbit-restored torrents:
+        //  * seeding records keep their session entry alive,
+        //  * completed ones are deleted from the session (releases
+        //    file locks),
+        //  * everything else is paused — the queue decides what runs.
+        struct Restored {
+            fid: String,
+            handle: Arc<librqbit::ManagedTorrent>,
+            name: Option<String>,
+        }
+        let restored: Vec<Restored> = session.with_torrents(|iter| {
+            iter.map(|(_id, mt)| Restored {
+                fid: torrent::frontend_id_from_hash(&mt.shared().info_hash.0),
+                handle: Arc::clone(mt),
+                name: mt.name(),
+            })
+            .collect()
+        });
+
+        for r in restored {
+            let record_status = self.downloads.get(&r.fid).map(|d| d.status.clone());
+            match record_status {
+                Some(DownloadStatus::Seeding) => {
+                    // Leave running — librqbit seeds completed torrents.
+                    let _ = session.unpause(&r.handle).await;
+                }
+                Some(DownloadStatus::Completed) => {
+                    let stats = r.handle.stats();
+                    if stats.progress_bytes > 0 {
+                        let _ = session
+                            .delete(
+                                librqbit::api::TorrentIdOrHash::Id(r.handle.id()),
+                                false,
+                            )
+                            .await;
+                    }
+                }
+                Some(_) => {
+                    let _ = session.pause(&r.handle).await;
+                }
+                None => {
+                    // Torrent in the session without a record —
+                    // register it paused so the user can see it.
+                    let _ = session.pause(&r.handle).await;
+                    let name = r.name.unwrap_or_else(|| "Restored".to_string());
+                    let mut d = Download::new(
+                        r.fid.clone(),
+                        DownloadKind::Torrent,
+                        name,
+                        String::new(),
+                        String::new(),
+                        None,
+                        "Discovered".to_string(),
+                        false,
+                    );
+                    d.status = DownloadStatus::Paused;
+                    self.downloads.insert(r.fid.clone(), d);
+                }
+            }
+        }
+
+        // Make sure every Queued record is actually in the queue.
+        let mut missing: Vec<(u64, String)> = self
+            .downloads
+            .values()
+            .filter(|d| {
+                matches!(d.status, DownloadStatus::Queued)
+                    && !self.queue.contains(&d.id)
+            })
+            .map(|d| (d.added_at, d.id.clone()))
+            .collect();
+        missing.sort();
+        for (_, id) in missing {
+            self.queue.push(id);
+        }
+
+        self.mark_dirty();
+        Ok(())
+    }
+
+    // ── Stats refresh (1 s tick) ───────────────────────────────────────
+
+    /// Poll librqbit + the direct counters, update every record, and
+    /// detect completions. Returns true when the caller should try to
+    /// start the next queued download.
+    pub async fn refresh_stats(&mut self) -> bool {
+        let mut want_advance = false;
+
+        // ---- Torrents ----
+        if let Some(session) = self.session.clone() {
+            struct StatsEntry {
+                fid: String,
+                downloaded: u64,
+                total: Option<u64>,
+                progress: Option<f32>,
+                status: DownloadStatus,
+                name: Option<String>,
+                download_speed: u64,
+                upload_speed: u64,
+                seeds: u32,
+                peers: u32,
+                files: Option<Vec<super::types::DownloadFile>>,
+                handle: Arc<librqbit::ManagedTorrent>,
+            }
+            let collected: Vec<StatsEntry> = session.with_torrents(|iter| {
+                let mut entries = Vec::new();
+                for (_id, mt) in iter {
+                    let stats = mt.stats();
+                    let total = stats.total_bytes;
+                    let downloaded = stats.progress_bytes;
+                    let (download_speed, upload_speed, seeds, peers) =
+                        torrent::extract_live_stats(&stats);
+                    entries.push(StatsEntry {
+                        fid: torrent::frontend_id_from_hash(&mt.shared().info_hash.0),
+                        downloaded,
+                        total: if total > 0 { Some(total) } else { None },
+                        progress: if total > 0 {
+                            Some(downloaded as f32 / total as f32)
+                        } else {
+                            None
+                        },
+                        status: torrent::map_state_to_status(
+                            &stats.state,
+                            total,
+                            downloaded,
+                            stats.error.as_deref(),
+                        ),
+                        name: mt.name(),
+                        download_speed,
+                        upload_speed,
+                        seeds,
+                        peers,
+                        files: torrent::files_from_handle(mt, &stats),
+                        handle: Arc::clone(mt),
+                    });
+                }
+                entries
+            });
+
+            let mut to_extract: Vec<(String, String, String, Vec<super::types::DownloadFile>)> =
+                Vec::new();
+            let mut to_delete: Vec<Arc<librqbit::ManagedTorrent>> = Vec::new();
+            let mut save_needed = false;
+
+            for entry in collected {
+                let Some(d) = self.downloads.get_mut(&entry.fid) else {
+                    continue;
+                };
+                let was_done = matches!(
+                    d.status,
+                    DownloadStatus::Completed | DownloadStatus::Seeding
+                );
+
+                d.downloaded = entry.downloaded;
+                d.total_size = entry.total.or(d.total_size);
+                d.progress = entry.progress.or(d.progress);
+                d.download_speed = entry.download_speed;
+                d.upload_speed = entry.upload_speed;
+                d.seeds = entry.seeds;
+                d.peers = entry.peers;
+
+                // Activity gate: only live speed is trustworthy —
+                // librqbit can fake `progress == total` right after
+                // metadata arrives (see `gate_completion`).
+                if entry.download_speed > 0 || entry.upload_speed > 0 {
+                    d.had_real_downloads = Some(true);
+                }
+
+                // Status reconciliation. States the MANAGER owns
+                // (Queued / Seeding / user-facing Error) are not
+                // overwritten by librqbit's view.
+                let keep_manager_status = matches!(
+                    d.status,
+                    DownloadStatus::Queued | DownloadStatus::Seeding
+                ) || (matches!(d.status, DownloadStatus::Error(_))
+                    && !matches!(entry.status, DownloadStatus::Error(_)));
+                if !keep_manager_status {
+                    d.status = gate_completion(entry.status.clone(), d.had_real_downloads);
+                }
+
+                // Metadata watchdog for the active torrent.
+                if matches!(d.status, DownloadStatus::FetchingMetadata)
+                    && d.had_real_downloads != Some(true)
+                    && unix_now().saturating_sub(d.added_at) > METADATA_FETCH_TIMEOUT_SECS
+                {
+                    d.status = DownloadStatus::Error(
+                        "Timed out fetching metadata — no peers responded. Your \
+                         network may be blocking trackers/DHT; try another source."
+                            .to_string(),
+                    );
+                }
+
+                if let Some(files) = entry.files {
+                    d.files = files;
+                }
+                if d.name.is_empty() || d.name == "Fetching metadata\u{2026}" {
+                    if let Some(n) = entry.name {
+                        d.name = n;
+                        save_needed = true;
+                    }
+                }
+
+                // ---- Completion transition ----
+                let now_completed = matches!(d.status, DownloadStatus::Completed);
+                let actually_downloaded = d.downloaded > 0;
+                if !was_done && now_completed && actually_downloaded {
+                    save_needed = true;
+                    let auto_extract = d.auto_extract.unwrap_or(false);
+                    let wants_seed = self.seed_after_complete && !auto_extract;
+                    if wants_seed {
+                        // Keep the session entry alive and uploading.
+                        d.status = DownloadStatus::Seeding;
+                        d.should_seed = Some(true);
+                    } else {
+                        d.should_seed = Some(false);
+                        // Delete from the session to release file locks.
+                        to_delete.push(entry.handle.clone());
+                        if auto_extract && !d.extracted.unwrap_or(false) {
+                            d.extracted = Some(true);
+                            to_extract.push((
+                                d.id.clone(),
+                                d.save_path.clone(),
+                                d.name.clone(),
+                                d.files.clone(),
+                            ));
+                        }
+                    }
+                }
+
+                // Free the active slot when its download stopped being
+                // active (completed / seeding / errored / paused).
+                if self.active_id.as_deref() == Some(entry.fid.as_str())
+                    && !d.status.is_active()
+                {
+                    self.active_id = None;
+                    want_advance = true;
+                    save_needed = true;
+                }
+            }
+
+            if save_needed {
+                self.mark_dirty();
+            }
+
+            for (id, save_path, name, files) in to_extract {
+                spawn_extraction(id, save_path, name, files);
+            }
+            for handle in to_delete {
+                let session_clone = session.clone();
+                tokio::spawn(async move {
+                    println!(
+                        "[downloads] Torrent completed. Deleting from librqbit \
+                         session to release file locks."
+                    );
+                    let _ = session_clone
+                        .delete(librqbit::api::TorrentIdOrHash::Id(handle.id()), false)
+                        .await;
+                });
+            }
+        }
+
+        // ---- Direct downloads: speed from the shared byte counters ----
+        let mut direct_save_needed = false;
+        let ids: Vec<String> = self.downloads.keys().cloned().collect();
+        for id in ids {
+            let Some(kind) = self.downloads.get(&id).map(|d| d.kind) else {
+                continue;
+            };
+            if kind == DownloadKind::Torrent {
+                continue;
+            }
+            let mut speed = 0;
+            let mut current_bytes = 0;
+            if let Some(counter) = self.direct_counters.get(&id) {
+                current_bytes = counter.load(std::sync::atomic::Ordering::SeqCst);
+                let now = std::time::Instant::now();
+                if let Some((last_bytes, last_instant)) = self.direct_last_calc.get(&id) {
+                    let elapsed = now.duration_since(*last_instant).as_secs_f64();
+                    let bytes_diff = current_bytes.saturating_sub(*last_bytes);
+                    speed = if elapsed > 0.0 {
+                        (bytes_diff as f64 / elapsed) as u64
+                    } else {
+                        0
+                    };
+                }
+                self.direct_last_calc.insert(id.clone(), (current_bytes, now));
+            }
+
+            if let Some(d) = self.downloads.get_mut(&id) {
+                if current_bytes > 0 || speed > 0 {
+                    d.had_real_downloads = Some(true);
+                }
+                if matches!(d.status, DownloadStatus::Downloading) {
+                    if d.downloaded != current_bytes {
+                        d.downloaded = current_bytes;
+                        direct_save_needed = true;
+                    }
+                    if d.download_speed != speed {
+                        d.download_speed = speed;
+                        direct_save_needed = true;
+                    }
+                    if let Some(total) = d.total_size {
+                        if total > 0 {
+                            let prog =
+                                Some((current_bytes as f32 / total as f32).min(1.0));
+                            if d.progress != prog {
+                                d.progress = prog;
+                                direct_save_needed = true;
+                            }
+                        }
+                    }
+                } else if d.download_speed != 0 {
+                    d.download_speed = 0;
+                    direct_save_needed = true;
+                }
+            }
+        }
+        if direct_save_needed {
+            self.mark_dirty();
+        }
+
+        // Clean up counters for removed downloads.
+        self.direct_counters
+            .retain(|id, _| self.downloads.contains_key(id));
+        self.direct_last_calc
+            .retain(|id, _| self.downloads.contains_key(id));
+
+        // If nothing holds the slot but the queue has work, advance.
+        if !self.has_active() && !self.queue.is_empty() {
+            want_advance = true;
+        }
+
+        want_advance
+    }
+}
+
+// ─── Queue orchestration (needs the shared Arc, so free functions) ──────────
+
+/// Start the next queued download when the active slot is free.
+pub fn advance_queue(manager: &SharedManager) -> Pin<Box<dyn Future<Output = ()> + Send + '_>> {
+    Box::pin(async move {
+        loop {
+            let next = {
+                let mut guard = manager.write().await;
+                if guard.has_active() {
+                    return;
+                }
+                guard.next_queued()
+            };
+            let Some(id) = next else { return };
+            if start_download(manager, &id).await {
+                return;
+            }
+            // Start failed synchronously — try the next queued item.
+        }
+    })
+}
+
+/// Occupy the active slot with `id` and kick off its worker. Returns
+/// false when the record vanished or couldn't start.
+pub async fn start_download(manager: &SharedManager, id: &str) -> bool {
+    let (kind, status) = {
+        let guard = manager.read().await;
+        match guard.downloads_map().get(id) {
+            Some(d) => (d.kind, d.status.clone()),
+            None => return false,
+        }
+    };
+    if status.is_active() {
+        return true;
+    }
+
+    match kind {
+        DownloadKind::Torrent => start_torrent(manager, id).await,
+        DownloadKind::Direct => start_direct(manager, id).await,
+        DownloadKind::Debrid => start_debrid(manager, id).await,
+    }
+}
+
+/// Start (or resume) a torrent download.
+async fn start_torrent(manager: &SharedManager, id: &str) -> bool {
+    let (session, source_uri, save_path, only_files) = {
+        let mut guard = manager.write().await;
+        let Some(session) = guard.session().cloned() else {
+            return false;
+        };
+        let Some(d) = guard.downloads_mut().get_mut(id) else {
+            return false;
+        };
+        d.status = DownloadStatus::FetchingMetadata;
+        d.added_at = unix_now();
+        let tuple = (
+            session,
+            d.source_uri.clone(),
+            d.save_path.clone(),
+            d.only_files.clone(),
+        );
+        guard.active_id = Some(id.to_string());
+        guard.remove_from_queue(id);
+        guard.mark_dirty();
+        guard.emit_progress_force();
+        tuple
+    };
+
+    if save_path.trim().is_empty() {
+        fail_download(
+            manager,
+            id,
+            "Save folder missing — please remove and re-add this download \
+             with a folder selected."
+                .to_string(),
+        )
+        .await;
+        return false;
+    }
+
+    // Fast path: the torrent is already in the session (paused
+    // earlier) with its file selection applied → just unpause.
+    if source_uri.is_empty() || torrent::find_handle(&session, id).is_some() {
+        if let Some(handle) = torrent::find_handle(&session, id) {
+            // A leftover list_only entry never downloads; only reuse
+            // handles that carry a real output folder (non-list_only
+            // adds). Detect by checking metadata + paused state.
+            let reusable = handle.with_metadata(|_| ()).is_ok()
+                && only_files.is_none();
+            if reusable {
+                let _ = session.unpause(&handle).await;
+                let mut guard = manager.write().await;
+                if let Some(d) = guard.downloads_mut().get_mut(id) {
+                    let stats = handle.stats();
+                    let status = torrent::map_state_to_status(
+                        &stats.state,
+                        stats.total_bytes,
+                        stats.progress_bytes,
+                        stats.error.as_deref(),
+                    );
+                    d.status = gate_completion(status, d.had_real_downloads);
+                }
+                guard.mark_dirty();
+                guard.emit_progress_force();
+                return true;
+            }
+        }
+        if source_uri.is_empty() {
+            fail_download(
+                manager,
+                id,
+                "This download has no source URI and can't be restarted."
+                    .to_string(),
+            )
+            .await;
+            return false;
+        }
+    }
+
+    // Full (re-)add in the background — add_torrent can take up to
+    // 120 s for magnets while metadata is fetched.
+    let manager_clone = Arc::clone(manager);
+    let id_owned = id.to_string();
+    let spawn_fut: std::pin::Pin<Box<dyn std::future::Future<Output = ()> + Send>> =
+        Box::pin(async move {
+        // Clear any stale session entry (e.g. a list_only add from the
+        // file-picker flow) so the re-add starts fresh.
+        torrent::delete_from_session(&session, &id_owned).await;
+
+        match torrent::add_and_start(
+            &session,
+            &source_uri,
+            &save_path,
+            only_files.as_deref(),
+        )
+        .await
+        {
+            Ok(handle) => {
+                let real_id =
+                    torrent::frontend_id_from_hash(&handle.shared().info_hash.0);
+                let name = handle
+                    .name()
+                    .unwrap_or_else(|| "Fetching metadata\u{2026}".to_string());
+                let stats = handle.stats();
+                let live_files = torrent::files_from_handle(&handle, &stats);
+                let status_now = gate_completion(
+                    torrent::map_state_to_status(
+                        &stats.state,
+                        stats.total_bytes,
+                        stats.progress_bytes,
+                        stats.error.as_deref(),
+                    ),
+                    Some(false),
+                );
+
+                let mut guard = manager_clone.write().await;
+                // The user may have removed the download while we were
+                // adding it — clean the session back up.
+                if !guard.downloads_map().contains_key(&id_owned) {
+                    drop(guard);
+                    let _ = session
+                        .delete(
+                            librqbit::api::TorrentIdOrHash::Id(handle.id()),
+                            false,
+                        )
+                        .await;
+                    return;
+                }
+                guard.rekey(&id_owned, &real_id);
+                let was_paused = guard
+                    .downloads_map()
+                    .get(&real_id)
+                    .map(|d| matches!(d.status, DownloadStatus::Paused))
+                    .unwrap_or(false);
+                if let Some(d) = guard.downloads_mut().get_mut(&real_id) {
+                    d.name = name;
+                    if let Some(files) = live_files {
+                        // Selected-files sum as the progress denominator.
+                        let selected_sum: u64 =
+                            files.iter().filter(|f| f.selected).map(|f| f.size).sum();
+                        d.total_size = if selected_sum > 0 {
+                            Some(selected_sum)
+                        } else if stats.total_bytes > 0 {
+                            Some(stats.total_bytes)
+                        } else {
+                            None
+                        };
+                        d.files = files;
+                    } else if stats.total_bytes > 0 {
+                        d.total_size = Some(stats.total_bytes);
+                    }
+                    if !was_paused {
+                        d.status = status_now;
+                    }
+                }
+                if was_paused {
+                    let _ = session.pause(&handle).await;
+                    guard.release_active(&real_id);
+                }
+                guard.mark_dirty();
+                guard.emit_progress_force();
+                drop(guard);
+                if was_paused {
+                    advance_queue(&manager_clone).await;
+                }
+            }
+            Err(e) => {
+                fail_download(&manager_clone, &id_owned, e).await;
+                advance_queue(&manager_clone).await;
+            }
+        }
+    });
+    tokio::spawn(spawn_fut);
+    true
+}
+
+/// Start (or resume) a direct HTTP download.
+async fn start_direct(manager: &SharedManager, id: &str) -> bool {
+    let (url, save_path) = {
+        let mut guard = manager.write().await;
+        let Some(d) = guard.downloads_mut().get_mut(id) else {
+            return false;
+        };
+        if d.source_uri.starts_with("magnet:") {
+            d.status = DownloadStatus::Error(
+                "Direct download has a magnet source — cannot restart.".to_string(),
+            );
+            return false;
+        }
+        d.status = DownloadStatus::Downloading;
+        let tuple = (d.source_uri.clone(), d.save_path.clone());
+        let counter = Arc::new(AtomicU64::new(0));
+        guard
+            .direct_counters
+            .insert(id.to_string(), Arc::clone(&counter));
+        guard.active_id = Some(id.to_string());
+        guard.remove_from_queue(id);
+        guard.mark_dirty();
+        guard.emit_progress_force();
+        tuple
+    };
+
+    let counter = {
+        let guard = manager.read().await;
+        guard.direct_counters.get(id).cloned()
+    };
+    let Some(counter) = counter else { return false };
+
+    let weak = Arc::downgrade(manager);
+    let id_owned = id.to_string();
+    let spawn_fut: std::pin::Pin<Box<dyn std::future::Future<Output = ()> + Send>> =
+        Box::pin(async move {
+            http::run_direct_download(id_owned, url, save_path, counter, weak).await;
+        });
+    tokio::spawn(spawn_fut);
+    true
+}
+
+/// Start a debrid download: upload the magnet, poll until ready, then
+/// hand the resolved link to the HTTP worker.
+async fn start_debrid(manager: &SharedManager, id: &str) -> bool {
+    let (magnet, params) = {
+        let mut guard = manager.write().await;
+        let params = guard.debrid_params.get(id).cloned();
+        let Some(d) = guard.downloads_mut().get_mut(id) else {
+            return false;
+        };
+        // Already resolved to a direct link earlier? Run as direct.
+        if !d.source_uri.starts_with("magnet:") {
+            drop(guard);
+            return start_direct(manager, id).await;
+        }
+        d.status = DownloadStatus::FetchingMetadata;
+        let magnet = d.source_uri.clone();
+        guard.active_id = Some(id.to_string());
+        guard.remove_from_queue(id);
+        guard.mark_dirty();
+        guard.emit_progress_force();
+        (magnet, params)
+    };
+
+    let Some((provider, apikey)) = params else {
+        fail_download(
+            manager,
+            id,
+            "Debrid credentials are no longer available (app restarted). \
+             Remove this download and add it again."
+                .to_string(),
+        )
+        .await;
+        return false;
+    };
+
+    let manager_clone = Arc::clone(manager);
+    let id_owned = id.to_string();
+    let spawn_fut: std::pin::Pin<Box<dyn std::future::Future<Output = ()> + Send>> =
+        Box::pin(async move {
+            run_debrid_flow(manager_clone, id_owned, magnet, provider, apikey).await;
+        });
+    tokio::spawn(spawn_fut);
+    true
+}
+
+async fn run_debrid_flow(
+    manager: SharedManager,
+    id: String,
+    magnet: String,
+    provider: String,
+    apikey: String,
+) {
+    use super::debrid::{AllDebridClient, TorBoxClient};
+
+    println!("[downloads] Uploading magnet to debrid ({})", provider);
+    let upload_res = if provider == "alldebrid" {
+        AllDebridClient::upload_magnet(&apikey, &magnet).await
+    } else if provider == "torbox" {
+        TorBoxClient::upload_magnet(&apikey, &magnet).await
+    } else {
+        Err("Unsupported provider".to_string())
+    };
+
+    let transfer_id = match upload_res {
+        Ok(tid) => tid,
+        Err(e) => {
+            fail_download(&manager, &id, format!("Debrid upload failed: {}", e)).await;
+            advance_queue(&manager).await;
+            return;
+        }
+    };
+
+    let mut interval = tokio::time::interval(Duration::from_secs(3));
+    loop {
+        interval.tick().await;
+
+        // Stop polling when the user paused or removed the download.
+        {
+            let guard = manager.read().await;
+            match guard.downloads_map().get(&id) {
+                Some(d) => {
+                    if !matches!(
+                        d.status,
+                        DownloadStatus::FetchingMetadata | DownloadStatus::Downloading
+                    ) {
+                        return;
+                    }
+                }
+                None => return,
+            }
+        }
+
+        let status_res = if provider == "alldebrid" {
+            AllDebridClient::get_status(&apikey, &transfer_id).await
+        } else {
+            TorBoxClient::get_status(&apikey, &transfer_id).await
+        };
+
+        let status = match status_res {
+            Ok(s) => s,
+            Err(e) => {
+                fail_download(&manager, &id, format!("Failed to poll debrid: {}", e))
+                    .await;
+                advance_queue(&manager).await;
+                return;
+            }
+        };
+
+        if status.status == "ready" {
+            if status.links.is_empty() {
+                fail_download(
+                    &manager,
+                    &id,
+                    "No download links returned by debrid".to_string(),
+                )
+                .await;
+                advance_queue(&manager).await;
+                return;
+            }
+
+            println!("[downloads] Debrid ready. Links: {:?}", status.links);
+            let first_link = status.links[0].clone();
+            let (url, save_path, counter) = {
+                let mut guard = manager.write().await;
+                let Some(d) = guard.downloads_mut().get_mut(&id) else {
+                    return;
+                };
+                d.source_uri = first_link.clone();
+                d.uris = Some(status.links.clone());
+                d.status = DownloadStatus::Downloading;
+                d.progress = Some(0.0);
+                let save_path = d.save_path.clone();
+                let counter = Arc::new(AtomicU64::new(0));
+                guard
+                    .direct_counters
+                    .insert(id.clone(), Arc::clone(&counter));
+                guard.mark_dirty();
+                guard.emit_progress_force();
+                (first_link, save_path, counter)
+            };
+
+            let weak = Arc::downgrade(&manager);
+            http::run_direct_download(id, url, save_path, counter, weak).await;
+            return;
+        } else if status.status == "error" {
+            let err_msg = status
+                .error_message
+                .unwrap_or_else(|| "Debrid download error".to_string());
+            fail_download(&manager, &id, err_msg).await;
+            advance_queue(&manager).await;
+            return;
+        } else {
+            let mut guard = manager.write().await;
+            if let Some(d) = guard.downloads_mut().get_mut(&id) {
+                d.progress = Some(status.progress / 100.0);
+                d.status = DownloadStatus::Downloading;
+            }
+            guard.mark_dirty();
+            guard.emit_progress();
+        }
+    }
+}
+
+/// Mark a download as errored and free the active slot.
+pub async fn fail_download(manager: &SharedManager, id: &str, err: String) {
+    let mut guard = manager.write().await;
+    if let Some(d) = guard.downloads_mut().get_mut(id) {
+        d.status = DownloadStatus::Error(err);
+        d.download_speed = 0;
+    }
+    guard.release_active(id);
+    guard.mark_dirty();
+    guard.emit_progress_force();
+}
+
+/// Called by workers when a download finished successfully: frees the
+/// active slot and starts the next queued item.
+pub async fn on_download_finished(manager: &SharedManager, id: &str) {
+    {
+        let mut guard = manager.write().await;
+        guard.release_active(id);
+        guard.mark_dirty();
+        guard.emit_progress_force();
+    }
+    advance_queue(manager).await;
+}
+
+/// Spawn an archive-extraction task for a completed download.
+pub fn spawn_extraction(
+    id: String,
+    save_path: String,
+    name: String,
+    files: Vec<super::types::DownloadFile>,
+) {
+    let manager = super::manager_handle();
+    tokio::spawn(async move {
+        println!("[downloads] Starting auto-extraction for {}", name);
+        let id_clone = id.clone();
+        let files_clone = files.clone();
+        let save_path_clone = save_path.clone();
+        let success = tokio::task::spawn_blocking(move || {
+            extract::extract_archives_for_download(&id_clone, &save_path_clone, &files_clone)
+        })
+        .await
+        .map(|r| r.is_ok())
+        .unwrap_or(false);
+
+        if success {
+            println!(
+                "[downloads] Extraction complete for {}. Deleting archives.",
+                name
+            );
+            extract::delete_archives_for_download(&save_path, &files);
+        }
+        if let Some(manager) = manager {
+            let mut guard = manager.write().await;
+            if let Some(d) = guard.downloads_mut().get_mut(&id) {
+                d.extracted = Some(true);
+            }
+            guard.mark_dirty();
+            guard.emit_progress_force();
+        }
+    });
+}
+
+fn hash_snapshot(downloads: &[Download]) -> u64 {
+    use std::collections::hash_map::DefaultHasher;
+    use std::hash::{Hash, Hasher};
+    let mut hasher = DefaultHasher::new();
+    for d in downloads {
+        d.id.hash(&mut hasher);
+        d.name.hash(&mut hasher);
+        d.downloaded.hash(&mut hasher);
+        d.total_size.hash(&mut hasher);
+        if let Some(p) = d.progress {
+            p.to_bits().hash(&mut hasher);
+        }
+        d.download_speed.hash(&mut hasher);
+        d.upload_speed.hash(&mut hasher);
+        d.peers.hash(&mut hasher);
+        d.seeds.hash(&mut hasher);
+        d.queue_position.hash(&mut hasher);
+        d.had_real_downloads.hash(&mut hasher);
+        d.extracted.hash(&mut hasher);
+        match &d.status {
+            DownloadStatus::Queued => 0u8.hash(&mut hasher),
+            DownloadStatus::FetchingMetadata => 1u8.hash(&mut hasher),
+            DownloadStatus::Downloading => 2u8.hash(&mut hasher),
+            DownloadStatus::Paused => 3u8.hash(&mut hasher),
+            DownloadStatus::Seeding => 4u8.hash(&mut hasher),
+            DownloadStatus::Completed => 5u8.hash(&mut hasher),
+            DownloadStatus::Error(msg) => {
+                6u8.hash(&mut hasher);
+                msg.hash(&mut hasher);
+            }
+        }
+    }
+    hasher.finish()
+}

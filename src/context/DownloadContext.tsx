@@ -108,6 +108,14 @@ interface DownloadContextValue {
   ) => Promise<void>;
   updateSelectedFiles: (id: string, onlyFiles: number[]) => Promise<void>;
   openDownloadFolder: (id: string) => Promise<void>;
+  /** Reorder the waiting queue by supplying the full ordered id list. */
+  reorderQueue: (orderedIds: string[]) => Promise<void>;
+  /** Globally enable/disable seeding after completion. */
+  setSeedConfig: (enabled: boolean) => Promise<void>;
+  /** Stop/start seeding for a single torrent. */
+  setSeeding: (id: string, seed: boolean) => Promise<void>;
+  /** Whether new torrents seed after completion (mirrors the backend pref). */
+  seedAfterComplete: boolean;
 }
 
 const DownloadContext = createContext<DownloadContextValue | null>(null);
@@ -170,7 +178,9 @@ function areDownloadsEqual(a: TorrentDownload[], b: TorrentDownload[]): boolean 
       da.peers !== db.peers ||
       da.seeds !== db.seeds ||
       da.status.kind !== db.status.kind ||
-      da.sourceUri !== db.sourceUri
+      da.sourceUri !== db.sourceUri ||
+      (da.queuePosition ?? -1) !== (db.queuePosition ?? -1) ||
+      da.kind !== db.kind
     ) {
       return false;
     }
@@ -205,6 +215,7 @@ function areDownloadsEqual(a: TorrentDownload[], b: TorrentDownload[]): boolean 
 export function DownloadProvider({ children }: { children: ReactNode }) {
   const [downloads, setDownloads] = useState<TorrentDownload[]>(EMPTY_DOWNLOADS);
   const [loading, setLoading] = useState(true);
+  const [seedAfterComplete, setSeedAfterComplete] = useState(false);
   const { showToast } = useToast();
   const { t } = useLanguage();
   // Keep a stable ref to the latest list so the `download-progress`
@@ -301,6 +312,18 @@ export function DownloadProvider({ children }: { children: ReactNode }) {
           });
         } catch (e) {
           console.error("Failed to apply initial speed limits:", e);
+        }
+
+        // Apply the seed-after-complete preference on startup.
+        try {
+          const seedEnabled =
+            localStorage.getItem("gamelib-seed-after-complete") === "true";
+          setSeedAfterComplete(seedEnabled);
+          await invoke("download_set_seed_config", {
+            seedAfterComplete: seedEnabled,
+          });
+        } catch (e) {
+          console.error("Failed to apply initial seed config:", e);
         }
 
         // 1. Subscribe to the background-polling event FIRST so we
@@ -538,6 +561,20 @@ export function DownloadProvider({ children }: { children: ReactNode }) {
     await invoke("torrent_open_folder", { id });
   }, []);
 
+  const reorderQueue = useCallback(async (orderedIds: string[]) => {
+    await invoke("download_queue_reorder", { ids: orderedIds });
+  }, []);
+
+  const setSeedConfig = useCallback(async (enabled: boolean) => {
+    localStorage.setItem("gamelib-seed-after-complete", String(enabled));
+    setSeedAfterComplete(enabled);
+    await invoke("download_set_seed_config", { seedAfterComplete: enabled });
+  }, []);
+
+  const setSeeding = useCallback(async (id: string, seed: boolean) => {
+    await invoke("download_set_seeding", { id, seed });
+  }, []);
+
   // ── Derived state ──────────────────────────────────────────────────
   const sorted = useMemo(() => [...downloads].sort(sortDownloads), [downloads]);
   const activeDownloads = useMemo(
@@ -570,6 +607,10 @@ export function DownloadProvider({ children }: { children: ReactNode }) {
       updateSpeedLimits,
       updateSelectedFiles,
       openDownloadFolder,
+      reorderQueue,
+      setSeedConfig,
+      setSeeding,
+      seedAfterComplete,
     }),
     [
       sorted,
@@ -590,6 +631,10 @@ export function DownloadProvider({ children }: { children: ReactNode }) {
       updateSpeedLimits,
       updateSelectedFiles,
       openDownloadFolder,
+      reorderQueue,
+      setSeedConfig,
+      setSeeding,
+      seedAfterComplete,
     ],
   );
 

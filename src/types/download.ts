@@ -14,8 +14,8 @@ import type { SizeUnit } from "./game";
 //
 //     #[serde(rename_all = "camelCase", tag = "kind", content = "message")]
 //     pub enum DownloadStatus {
-//         Queued, FetchingMetadata, Downloading, Paused, Completed,
-//         Error(String),
+//         Queued, FetchingMetadata, Downloading, Paused, Seeding,
+//         Completed, Error(String),
 //     }
 //
 // `rename_all = "camelCase"` lower-cases the variant name's first letter
@@ -26,6 +26,7 @@ import type { SizeUnit } from "./game";
 //     FetchingMetadata   → {"kind":"fetchingMetadata"}
 //     Downloading        → {"kind":"downloading"}
 //     Paused             → {"kind":"paused"}
+//     Seeding            → {"kind":"seeding"}
 //     Completed          → {"kind":"completed"}
 //     Error("...")       → {"kind":"error","message":"..."}
 //
@@ -42,8 +43,12 @@ export type DownloadStatus =
   | { kind: "fetchingMetadata" }
   | { kind: "downloading" }
   | { kind: "paused" }
+  | { kind: "seeding" }
   | { kind: "completed" }
   | { kind: "error"; message: string };
+
+/** Which pipeline a download runs on (mirrors the Rust `DownloadKind`). */
+export type DownloadKind = "torrent" | "direct" | "debrid";
 
 /**
  * One torrent's full state. The Rust side hands us a copy of this
@@ -64,6 +69,8 @@ export interface TorrentFile {
 
 export interface TorrentDownload {
   id: string;
+  /** Pipeline this download runs on. Replaces the old `dd_`/`db_` id-prefix detection. */
+  kind: DownloadKind;
   name: string;
   /** The magnet URI or .torrent URL that was passed in. */
   sourceUri: string;
@@ -99,6 +106,10 @@ export interface TorrentDownload {
   autoExtract?: boolean;
   extracted?: boolean;
   uris?: string[];
+  /** True when this torrent should seed after it finishes. */
+  shouldSeed?: boolean;
+  /** 0-based position in the waiting queue (only set while `queued`). */
+  queuePosition?: number;
 }
 
 /**
@@ -207,6 +218,8 @@ export function getStatusLabel(status: DownloadStatus): string {
       return "Downloading";
     case "paused":
       return "Paused";
+    case "seeding":
+      return "Seeding";
     case "completed":
       return "Completed";
     case "error":
@@ -275,7 +288,7 @@ export function formatEta(downloaded: number, totalSize: number | null, speed: n
 export function getActivityMessage(download: TorrentDownload): string | null {
   const status = download.status;
   const isDirect =
-    download.id.startsWith("dd_") || download.id.startsWith("db_");
+    download.kind === "direct" || download.kind === "debrid";
   const speed = download.downloadSpeed;
   const peers = download.peers;
   const seeds = download.seeds;
@@ -347,6 +360,9 @@ export function getActivityMessage(download: TorrentDownload): string | null {
         return "Extracting archives…";
       }
       return "Ready to play";
+
+    case "seeding":
+      return "Seeding to peers…";
 
     case "error":
       // Errors have their own dedicated `dl-row-error` line.

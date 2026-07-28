@@ -63,10 +63,32 @@ const DownloadRow = React.memo(({
   onDeleteFiles,
 }: DownloadRowProps) => {
   const { unit } = useSizeUnit();
-  const { updateSelectedFiles, updateDirectDownloadUrl, openDownloadFolder } = useDownloads();
+  const {
+    updateSelectedFiles,
+    updateDirectDownloadUrl,
+    openDownloadFolder,
+    reorderQueue,
+    setSeeding,
+    downloads,
+  } = useDownloads();
   const { showToast } = useToast();
   const { t } = useLanguage();
   const [expanded, setExpanded] = useState(false);
+
+  const handleReorder = async (direction: "up" | "down") => {
+    const queued = downloads.filter((d) => d.status.kind === "queued");
+    const idx = queued.findIndex((d) => d.id === download.id);
+    if (idx === -1) return;
+    const newIdx = direction === "up" ? idx - 1 : idx + 1;
+    if (newIdx < 0 || newIdx >= queued.length) return;
+    const reordered = [...queued];
+    [reordered[idx], reordered[newIdx]] = [reordered[newIdx], reordered[idx]];
+    try {
+      await reorderQueue(reordered.map((d) => d.id));
+    } catch (err) {
+      showToast(t("downloadRow.reorderFailed", { error: String(err) }), "error");
+    }
+  };
 
   const handleToggleFile = async (idx: number) => {
     if (!download.files) return;
@@ -100,7 +122,7 @@ const DownloadRow = React.memo(({
   const isError = status.kind === "error";
   const errorMessage = getStatusError(status);
   const isDirect =
-    download.id.startsWith("dd_") || download.id.startsWith("db_");
+    download.kind === "direct" || download.kind === "debrid";
   const activity = getActivityMessage(download);
   // One-line answer to "is the torrent actually making progress?"
   // becomes extra-emphasised when the swarm reports active peers but
@@ -114,6 +136,8 @@ const DownloadRow = React.memo(({
     download.peers > 0 &&
     download.downloadSpeed === 0 &&
     (download.totalSize ?? 0) > 0;
+  const isQueued = status.kind === "queued";
+  const isSeeding = status.kind === "seeding";
 
   const rowClass = [
     "dl-row",
@@ -140,16 +164,24 @@ const DownloadRow = React.memo(({
           <div className="dl-row-name-row">
             <span className="dl-row-name" title={download.name}>
               {download.name}
-              {download.id.startsWith("dd_") && (
+              {download.kind === "direct" && (
                 <span className="dl-row-badge dl-row-badge--direct">{t('downloadRow.badgeDirect')}</span>
               )}
-              {download.id.startsWith("db_") && (
+              {download.kind === "debrid" && (
                 <span className="dl-row-badge dl-row-badge--debrid">{t('downloadRow.badgeDebrid')}</span>
+              )}
+              {isSeeding && (
+                <span className="dl-row-badge dl-row-badge--seeding">{t('downloadRow.badgeSeeding')}</span>
               )}
             </span>
             <span className="dl-row-source" title={t('downloadRow.sourceTitle', { source: download.sourceName })}>
               {download.sourceName}
             </span>
+            {isQueued && (
+              <span className="dl-row-queue">
+                {t('downloadRow.queuePosition', { pos: (download.queuePosition ?? 0) + 1 })}
+              </span>
+            )}
           </div>
           <div className="dl-row-progress-row">
             <div className="dl-row-bar">
@@ -203,7 +235,12 @@ const DownloadRow = React.memo(({
         </div>
 
         <div className="dl-row-speed">
-          {isActiveStatus(status) && download.downloadSpeed > 0 ? (
+          {isSeeding && download.uploadSpeed > 0 ? (
+            <span className="dl-row-speed-ul" title={t('downloadRow.uploadSpeed')}>
+              <span aria-hidden>↑</span>
+              {formatBytesPerSecond(download.uploadSpeed, unit)}
+            </span>
+          ) : isActiveStatus(status) && download.downloadSpeed > 0 ? (
             <>
               <span className="dl-row-speed-dl" title={t('downloadRow.downloadSpeed')}>
                 <span aria-hidden>↓</span>
@@ -306,7 +343,27 @@ const DownloadRow = React.memo(({
               />
             </button>
           )}
-          {isActiveStatus(status) && !isPaused && (
+          {isQueued && (
+            <>
+              <button
+                className="dl-row-btn"
+                onClick={() => handleReorder("up")}
+                title={t('downloadRow.moveUp')}
+                aria-label={t('downloadRow.moveUp')}
+              >
+                <ChevronIcon style={{ width: 14, height: 14, transform: "rotate(180deg)" }} />
+              </button>
+              <button
+                className="dl-row-btn"
+                onClick={() => handleReorder("down")}
+                title={t('downloadRow.moveDown')}
+                aria-label={t('downloadRow.moveDown')}
+              >
+                <ChevronIcon style={{ width: 14, height: 14 }} />
+              </button>
+            </>
+          )}
+          {(status.kind === "downloading" || status.kind === "fetchingMetadata") && (
             <button
               className="dl-row-btn"
               onClick={() => onPause(download.id)}
@@ -324,6 +381,22 @@ const DownloadRow = React.memo(({
               aria-label={t('downloadRow.resumeDownload')}
             >
               <PlayIcon />
+            </button>
+          )}
+          {isSeeding && (
+            <button
+              className="dl-row-btn"
+              onClick={async () => {
+                try {
+                  await setSeeding(download.id, false);
+                } catch (err) {
+                  showToast(t('downloadRow.reorderFailed', { error: String(err) }), "error");
+                }
+              }}
+              title={t('downloadRow.stopSeeding')}
+              aria-label={t('downloadRow.stopSeeding')}
+            >
+              <PauseIcon />
             </button>
           )}
           <button
@@ -408,6 +481,8 @@ const DownloadRow = React.memo(({
   ) {
     return false;
   }
+
+  if ((a.queuePosition ?? -1) !== (b.queuePosition ?? -1)) return false;
   
   if (a.status.kind === "error" && b.status.kind === "error" && a.status.message !== b.status.message) {
     return false;

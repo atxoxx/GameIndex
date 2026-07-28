@@ -102,7 +102,7 @@ const DownloadCard = React.memo(({
   const isCompleted = status.kind === "completed";
   const isError = status.kind === "error";
   const isDirect =
-    download.id.startsWith("dd_") || download.id.startsWith("db_");
+    download.kind === "direct" || download.kind === "debrid";
   const activity = getActivityMessage(download);
   // Same stalled-detect heuristic as the row — peers connected but
   // zero bytes/sec while status === "downloading". Tints the
@@ -130,10 +130,10 @@ const DownloadCard = React.memo(({
       <div className="dl-progress-card-header">
         <span className="dl-progress-card-name" title={download.name}>
           {download.name}
-          {download.id.startsWith("dd_") && (
+          {download.kind === "direct" && (
             <span style={{ marginLeft: "6px", fontSize: "9px", padding: "2px 4px", background: "color-mix(in srgb, var(--color-accent) 15%, transparent)", color: "var(--color-accent)", borderRadius: "3px", fontWeight: "bold" }}>DIRECT</span>
           )}
-          {download.id.startsWith("db_") && (
+          {download.kind === "debrid" && (
             <span style={{ marginLeft: "6px", fontSize: "9px", padding: "2px 4px", background: "rgba(0, 240, 255, 0.15)", color: "#00f0ff", borderRadius: "3px", fontWeight: "bold" }}>DEBRID</span>
           )}
         </span>
