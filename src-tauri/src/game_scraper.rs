@@ -3,12 +3,88 @@ use std::collections::HashMap;
 
 // ─── Title Matching Helpers ─────────────────────────────────────────────────────
 
+/// Remove common accents / diacritics (e.g. é -> e, ö -> o) for uniform title matching.
+fn deaccent(s: &str) -> String {
+    let mut out = String::with_capacity(s.len());
+    for c in s.chars() {
+        match c {
+            'à' | 'á' | 'â' | 'ã' | 'ä' | 'å' | 'À' | 'Á' | 'Â' | 'Ã' | 'Ä' | 'Å' => out.push('a'),
+            'æ' | 'Æ' => out.push_str("ae"),
+            'ç' | 'Ç' => out.push('c'),
+            'è' | 'é' | 'ê' | 'ë' | 'È' | 'É' | 'Ê' | 'Ë' => out.push('e'),
+            'ì' | 'í' | 'î' | 'ï' | 'Ì' | 'Í' | 'Î' | 'Ï' => out.push('i'),
+            'ñ' | 'Ñ' => out.push('n'),
+            'ò' | 'ó' | 'ô' | 'õ' | 'ö' | 'ø' | 'Ò' | 'Ó' | 'Ô' | 'Õ' | 'Ö' | 'Ø' => out.push('o'),
+            'œ' | 'Œ' => out.push_str("oe"),
+            'ß' => out.push_str("ss"),
+            'ù' | 'ú' | 'û' | 'ü' | 'Ù' | 'Ú' | 'Û' | 'Ü' => out.push('u'),
+            'ý' | 'ÿ' | 'Ý' => out.push('y'),
+            _ => out.push(c),
+        }
+    }
+    out
+}
+
+/// Split camelCase, PascalCase, or number-letter transitions (e.g., "TheFinals" -> "The Finals").
+fn split_camel_case(s: &str) -> String {
+    let mut out = String::with_capacity(s.len() + 8);
+    let chars: Vec<char> = s.chars().collect();
+    for i in 0..chars.len() {
+        let curr = chars[i];
+        if i > 0 {
+            let prev = chars[i - 1];
+            let next = chars.get(i + 1).copied();
+            let is_prev_lower = prev.is_lowercase();
+            let is_prev_digit = prev.is_ascii_digit();
+            let is_curr_upper = curr.is_uppercase();
+            let is_curr_digit = curr.is_ascii_digit();
+            let is_prev_letter = prev.is_alphabetic();
+            let is_curr_letter = curr.is_alphabetic();
+
+            if (is_prev_lower && is_curr_upper)
+                || (is_prev_letter && is_curr_digit)
+                || (is_prev_digit && is_curr_letter)
+                || (prev.is_uppercase() && is_curr_upper && next.map_or(false, |n| n.is_lowercase()))
+            {
+                out.push(' ');
+            }
+        }
+        out.push(curr);
+    }
+    out
+}
+
+/// Clean a raw executable or imported game name before metadata searching:
+/// - Strips `.exe` extension
+/// - Splits camelCase/PascalCase
+/// - Strips bracketed noise like `[FitGirl]`, `(v1.0)`, `(2023)`
+/// - Replaces `_` and `.` with spaces
+/// - Deaccents diacritics
+pub fn clean_game_name_for_search(name: &str) -> String {
+    let s = if name.to_lowercase().ends_with(".exe") {
+        &name[..name.len() - 4]
+    } else {
+        name
+    };
+
+    let s = split_camel_case(s);
+
+    if let Ok(re_brackets) = regex::Regex::new(r"(?i)\[.*?\]|\{.*?\}|\(v\d+.*?\)|(?:\(|\[)(?:fitgirl|dodi|repack|gog|proper|multi\d*)(?:\)|\])") {
+        let s_cleaned = re_brackets.replace_all(&s, " ");
+        let s_spaced = s_cleaned.replace(['.', '_'], " ");
+        return deaccent(&s_spaced).split_whitespace().collect::<Vec<_>>().join(" ");
+    }
+
+    let s_spaced = s.replace(['.', '_'], " ");
+    deaccent(&s_spaced).split_whitespace().collect::<Vec<_>>().join(" ")
+}
+
 /// Normalize a game title for fuzzy comparison: lowercase, strip punctuation
-/// and non-alphanumeric separators, and collapse whitespace. This makes
-/// "The Wolf Among Us" vs "Among Us" (or "Halo: Combat Evolved" vs "Halo")
-/// compare on the meaningful words rather than exact punctuation/casing.
+/// and non-alphanumeric separators, and collapse whitespace.
 fn normalize_title(name: &str) -> String {
-    name.to_lowercase()
+    let cleaned = clean_game_name_for_search(name);
+    cleaned
+        .to_lowercase()
         .chars()
         .map(|c| if c.is_alphanumeric() { c } else { ' ' })
         .collect::<String>()
@@ -19,10 +95,7 @@ fn normalize_title(name: &str) -> String {
 
 /// Score how well a candidate title matches the query.
 /// Returns a value in `[0.0, 1.0]` where `1.0` means an exact normalized
-/// match. A candidate that is a substring of the query (or vice-versa), or
-/// that shares all of the query's significant tokens, scores highly; a
-/// loosely-related title like "The Wolf Among Us" for query "Among Us"
-/// scores low because it contains extra significant words.
+/// match.
 fn title_similarity(query: &str, candidate: &str) -> f64 {
     let q = normalize_title(query);
     let c = normalize_title(candidate);
@@ -32,21 +105,18 @@ fn title_similarity(query: &str, candidate: &str) -> f64 {
     if q == c {
         return 1.0;
     }
-    // Substring containment: only meaningful when the shorter string is the
-    // whole query or the whole candidate. Score by how much of the longer
-    // title the shorter one covers *in significant words*, so a much longer
-    // unrelated title (e.g. "The Wolf Among Us" for query "Among Us") scores
-    // low instead of winning on a bare substring hit.
-    if c.contains(&q) || q.contains(&c) {
-        let q_tokens = q.split_whitespace().count().max(1);
-        let c_tokens = c.split_whitespace().count().max(1);
-        return (q_tokens as f64) / (c_tokens as f64);
-    }
-    // Token overlap (Jaccard over significant words). This prevents a
-    // longer unrelated title from winning just because it contains the
-    // query as a token subset.
+
     let q_tokens: Vec<&str> = q.split_whitespace().collect();
     let c_tokens: Vec<&str> = c.split_whitespace().collect();
+
+    // Substring containment: bounded by min_tok / max_tok so ratio is always <= 1.0
+    if c.contains(&q) || q.contains(&c) {
+        let min_tok = q_tokens.len().min(c_tokens.len()) as f64;
+        let max_tok = q_tokens.len().max(c_tokens.len()) as f64;
+        return (min_tok / max_tok).min(1.0);
+    }
+
+    // Token overlap (Jaccard over significant words)
     let q_set: std::collections::HashSet<&str> = q_tokens.iter().copied().collect();
     let c_set: std::collections::HashSet<&str> = c_tokens.iter().copied().collect();
     let intersection = q_set.intersection(&c_set).count() as f64;
@@ -54,17 +124,12 @@ fn title_similarity(query: &str, candidate: &str) -> f64 {
     if union == 0.0 {
         return 0.0;
     }
-    intersection / union
+    (intersection / union).min(1.0)
 }
 
 /// Minimum similarity a metadata source title must reach before we accept it
 /// as a match for the queried game. Below this we treat the source as having
-/// no real match (which lets the next source, or a "no metadata" sentinel,
-/// take over) instead of wrongly attributing "The Wolf Among Us" to "Among Us".
-///
-/// Set to 0.6 so that a query covering only half of a longer candidate's
-/// significant words (e.g. "Among Us" inside "The Wolf Among Us", which
-/// scores exactly 0.5) is rejected rather than accepted.
+/// no real match instead of wrongly attributing an unrelated game.
 const MIN_TITLE_SIMILARITY: f64 = 0.6;
 
 #[cfg(test)]
@@ -108,6 +173,23 @@ mod title_match_tests {
             b.1.partial_cmp(&a.1).unwrap_or(std::cmp::Ordering::Equal)
         });
         assert_eq!(candidates[0].0, "Among Us");
+    }
+
+    #[test]
+    fn test_the_finals_not_matching_final_fantasy() {
+        let score = title_similarity("The Finals", "Final Fantasy IV");
+        assert!(
+            score < MIN_TITLE_SIMILARITY,
+            "The Finals vs Final Fantasy IV score was {score}, should be < {MIN_TITLE_SIMILARITY}"
+        );
+    }
+
+    #[test]
+    fn test_camel_case_and_clean_search_name() {
+        assert_eq!(clean_game_name_for_search("TheFinals.exe"), "The Finals");
+        assert_eq!(clean_game_name_for_search("Pokémon"), "Pokemon");
+        assert_eq!(clean_game_name_for_search("The_Finals_[FitGirl]"), "The Finals");
+        assert_eq!(title_similarity("TheFinals", "THE FINALS"), 1.0);
     }
 }
 
@@ -1571,9 +1653,11 @@ async fn search_steam(game_name: &str) -> Option<GameMetadataResult> {
     let client = http_client();
 
     // Step 1: Search the Steam store
+    let cleaned_name = clean_game_name_for_search(game_name);
+    let term = if cleaned_name.is_empty() { game_name } else { &cleaned_name };
     let search_url = format!(
         "https://store.steampowered.com/api/storesearch/?term={}&l=english&cc=us",
-        url_encode(game_name)
+        url_encode(term)
     );
 
     let search_resp = client.get(&search_url).send().await.ok()?;
@@ -1581,15 +1665,13 @@ async fn search_steam(game_name: &str) -> Option<GameMetadataResult> {
 
     // Steam's storesearch ranks results by its own relevance, which can put a
     // loosely-related title first — e.g. "The Wolf Among Us" ahead of the
-    // actual "Among Us" because of substring overlap. Instead of blindly
-    // taking the first item, pick the candidate whose normalized title is
-    // most similar to the query and reject it if even the best is a poor
-    // match. This prevents one game's metadata being attributed to another.
+    // actual "Among Us" because of substring overlap. Pick candidate whose
+    // title similarity matches game_name or term best.
     let best_match = search_data
         .items
         .into_iter()
         .map(|item| {
-            let score = title_similarity(game_name, &item.name);
+            let score = title_similarity(game_name, &item.name).max(title_similarity(term, &item.name));
             (score, item)
         })
         .filter(|(score, _)| *score >= MIN_TITLE_SIMILARITY)
@@ -1858,6 +1940,12 @@ async fn search_launchbox(game_name: &str) -> Option<GameMetadataResult> {
         .map(|(i, _)| i)
         .unwrap_or(0);
     let best = &hits[best_idx];
+    let cleaned_q = clean_game_name_for_search(game_name);
+    if title_similarity(game_name, &best.title) < MIN_TITLE_SIMILARITY
+        && title_similarity(&cleaned_q, &best.title) < MIN_TITLE_SIMILARITY
+    {
+        return None;
+    }
 
     // Step 2: Fetch the detail page for richer metadata
     let (description, developer, publisher, genres, release_date, images) =
@@ -2607,8 +2695,10 @@ pub async fn search_igdb(game_name: &str) -> Vec<GameMetadataResult> {
     };
     
     let client = http_client();
+    let cleaned_query = clean_game_name_for_search(game_name);
+    let search_term = if cleaned_query.is_empty() { game_name } else { &cleaned_query };
     
-    let escaped_name = game_name.replace('"', "\\\"");
+    let escaped_name = search_term.replace('"', "\\\"");
     let body = format!(
         r#"search "{}";
 fields name, slug, summary, storyline, first_release_date, rating, aggregated_rating,
@@ -2948,9 +3038,14 @@ limit 8;"#,
         }
         
         results.sort_by(|a, b| {
-            let sa = title_similarity(game_name, &a.title);
-            let sb = title_similarity(game_name, &b.title);
+            let sa = title_similarity(game_name, &a.title).max(title_similarity(&cleaned_query, &a.title));
+            let sb = title_similarity(game_name, &b.title).max(title_similarity(&cleaned_query, &b.title));
             sb.partial_cmp(&sa).unwrap_or(std::cmp::Ordering::Equal)
+        });
+
+        results.retain(|r| {
+            title_similarity(game_name, &r.title) >= MIN_TITLE_SIMILARITY
+                || title_similarity(&cleaned_query, &r.title) >= MIN_TITLE_SIMILARITY
         });
 
         results
