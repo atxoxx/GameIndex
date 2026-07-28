@@ -1212,3 +1212,72 @@
   border: 1px dashed var(--color-border-light);
   border-radius: var(--radius-xl, 16px);
 }
+
+/* ── Bulk Selection & Toolbar ────────────────────────────────────── */
+
+.mods-header-checkbox,
+.mods-row-checkbox {
+  appearance: none;
+  -webkit-appearance: none;
+  width: 16px;
+  height: 16px;
+  border-radius: 4px;
+  border: 1px solid var(--color-border, rgba(255, 255, 255, 0.2));
+  background: var(--color-bg-tertiary, rgba(24, 27, 35, 0.8));
+  cursor: pointer;
+  display: inline-grid;
+  place-content: center;
+  margin: 0;
+  transition: all 0.15s ease;
+  flex-shrink: 0;
+}
+
+.mods-header-checkbox:hover,
+.mods-row-checkbox:hover {
+  border-color: var(--color-accent, #7c66ff);
+  background: rgba(124, 102, 255, 0.1);
+}
+
+.mods-header-checkbox:checked,
+.mods-row-checkbox:checked {
+  background: var(--color-accent, #7c66ff);
+  border-color: var(--color-accent, #7c66ff);
+}
+
+.mods-header-checkbox:checked::before,
+.mods-row-checkbox:checked::before {
+  content: "";
+  width: 9px;
+  height: 5px;
+  border-left: 2px solid #fff;
+  border-bottom: 2px solid #fff;
+  transform: rotate(-45deg) translate(1px, -1px);
+}
+
+.mods-row.multi-selected {
+  background: color-mix(in srgb, var(--color-accent, #7c66ff) 16%, var(--color-surface, rgba(17, 19, 26, 0.75)));
+  border-color: color-mix(in srgb, var(--color-accent) 30%, transparent);
+}
+
+.mods-bulk-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 16px;
+  background: color-mix(in srgb, var(--color-accent, #7c66ff) 15%, var(--color-bg-secondary, #11131a));
+  border-bottom: 1px solid color-mix(in srgb, var(--color-accent) 30%, transparent);
+  animation: modsSlideDown 0.2s ease;
+}
+
+.mods-bulk-count {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--color-accent-light, #a394ff);
+}
+
+.mods-bulk-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}

@@ -92,6 +92,10 @@ export default function ModManager({
   const [domainDraft, setDomainDraft] = useState("");
   const dragId = useRef<string | null>(null);
   const [dragOverId, setDragOverId] = useState<string | null>(null);
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [lastClickedId, setLastClickedId] = useState<string | null>(null);
+  const [bulkProcessing, setBulkProcessing] = useState(false);
+  const [showBulkDeleteModal, setShowBulkDeleteModal] = useState(false);
 
   const mods = payload?.mods ?? [];
   const enabledCount = mods.filter((m) => m.enabled).length;
@@ -272,6 +276,101 @@ export default function ModManager({
     } finally {
       setDeleting(false);
     }
+  };
+
+  const toggleSelectMod = useCallback(
+    (id: string, shiftKey: boolean) => {
+      setSelectedIds((prev) => {
+        const next = new Set(prev);
+        if (shiftKey && lastClickedId && sortedMods.some((m) => m.id === lastClickedId)) {
+          const idx1 = sortedMods.findIndex((m) => m.id === lastClickedId);
+          const idx2 = sortedMods.findIndex((m) => m.id === id);
+          const start = Math.min(idx1, idx2);
+          const end = Math.max(idx1, idx2);
+          for (let i = start; i <= end; i++) {
+            next.add(sortedMods[i].id);
+          }
+        } else {
+          if (next.has(id)) {
+            next.delete(id);
+          } else {
+            next.add(id);
+          }
+        }
+        return next;
+      });
+      setLastClickedId(id);
+    },
+    [lastClickedId, sortedMods]
+  );
+
+  const allSelected = useMemo(() => {
+    if (sortedMods.length === 0) return false;
+    return sortedMods.every((m) => selectedIds.has(m.id));
+  }, [sortedMods, selectedIds]);
+
+  const handleToggleSelectAll = useCallback(() => {
+    if (allSelected) {
+      setSelectedIds(new Set());
+    } else {
+      setSelectedIds(new Set(sortedMods.map((m) => m.id)));
+    }
+  }, [allSelected, sortedMods]);
+
+  const handleBulkEnable = async () => {
+    const ids = Array.from(selectedIds);
+    if (ids.length === 0) return;
+    setBulkProcessing(true);
+    let success = 0;
+    for (const id of ids) {
+      try {
+        await setEnabled(id, true);
+        success++;
+      } catch (e) {
+        // continue
+      }
+    }
+    setBulkProcessing(false);
+    showToast(t("mods.bulkEnabled", { count: String(success) }), "success");
+    onChanged?.();
+  };
+
+  const handleBulkDisable = async () => {
+    const ids = Array.from(selectedIds);
+    if (ids.length === 0) return;
+    setBulkProcessing(true);
+    let success = 0;
+    for (const id of ids) {
+      try {
+        await setEnabled(id, false);
+        success++;
+      } catch (e) {
+        // continue
+      }
+    }
+    setBulkProcessing(false);
+    showToast(t("mods.bulkDisabled", { count: String(success) }), "success");
+    onChanged?.();
+  };
+
+  const handleBulkDelete = async () => {
+    const ids = Array.from(selectedIds);
+    if (ids.length === 0) return;
+    setBulkProcessing(true);
+    let success = 0;
+    for (const id of ids) {
+      try {
+        await remove(id);
+        success++;
+      } catch (e) {
+        // continue
+      }
+    }
+    setBulkProcessing(false);
+    setSelectedIds(new Set());
+    setShowBulkDeleteModal(false);
+    showToast(t("mods.bulkDeleted", { count: String(success) }), "success");
+    onChanged?.();
   };
 
   const handleOpenFolder = (path?: string) => {
@@ -737,25 +836,61 @@ export default function ModManager({
           <div className="mods-list-pane">
             <div className="mods-list-header">
               <div className="mods-list-header-title">
+                <input
+                  type="checkbox"
+                  className="mods-header-checkbox"
+                  checked={allSelected}
+                  onChange={handleToggleSelectAll}
+                  title={allSelected ? t("mods.deselectAll") : t("mods.selectAll")}
+                />
                 <span>{t("mods.loadOrder")}</span>
                 {(payload?.engines ?? []).map((e) => (
                   <EngineChip key={e} engine={e} />
                 ))}
               </div>
               <span className="mods-list-header-hint">
-                {supportsReorder ? t("mods.loadOrderHint") : t("mods.loadOrderReadOnly")}
+                {selectedIds.size > 0
+                  ? t("mods.selectedCount", { count: String(selectedIds.size) })
+                  : supportsReorder
+                  ? t("mods.loadOrderHint")
+                  : t("mods.loadOrderReadOnly")}
               </span>
             </div>
+
+            {selectedIds.size > 0 && (
+              <div className="mods-bulk-toolbar">
+                <span className="mods-bulk-count">
+                  {t("mods.selectedCount", { count: String(selectedIds.size) })}
+                </span>
+                <div className="mods-bulk-actions">
+                  <Button variant="secondary" size="sm" onClick={handleBulkEnable} isLoading={bulkProcessing}>
+                    {t("mods.enable")}
+                  </Button>
+                  <Button variant="secondary" size="sm" onClick={handleBulkDisable} isLoading={bulkProcessing}>
+                    {t("mods.disable")}
+                  </Button>
+                  <Button variant="danger" size="sm" onClick={() => setShowBulkDeleteModal(true)} isLoading={bulkProcessing}>
+                    {t("mods.delete")}
+                  </Button>
+                  <Button variant="ghost" size="sm" onClick={() => setSelectedIds(new Set())}>
+                    {t("mods.clearSelection")}
+                  </Button>
+                </div>
+              </div>
+            )}
+
             <div className="mods-list">
               {sortedMods.map((mod) => {
                 const hasConflict = conflictsByMod.has(mod.id);
                 const orderIndex = mods.indexOf(mod);
+                const isMultiSelected = selectedIds.has(mod.id);
                 return (
                   <div
                     key={mod.id}
                     className={[
                       "mods-row",
                       mod.id === selectedId ? "selected" : "",
+                      isMultiSelected ? "multi-selected" : "",
                       mod.enabled ? "" : "disabled",
                       dragOverId === mod.id ? "drag-over" : "",
                     ]
@@ -777,6 +912,17 @@ export default function ModManager({
                       void handleDrop(mod.id);
                     }}
                   >
+                    <input
+                      type="checkbox"
+                      className="mods-row-checkbox"
+                      checked={isMultiSelected}
+                      onClick={(e) => e.stopPropagation()}
+                      onChange={(e) =>
+                        toggleSelectMod(mod.id, (e.nativeEvent as MouseEvent).shiftKey)
+                      }
+                      title="Select mod"
+                    />
+
                     {dragEnabled && (
                       <span className="mods-drag-handle" aria-hidden title="Drag to reorder">
                         <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
@@ -1121,6 +1267,15 @@ export default function ModManager({
         busy={deleting}
         onConfirm={() => void handleDelete()}
         onCancel={() => setDeleteTarget(null)}
+      />
+
+      <ConfirmModal
+        open={showBulkDeleteModal}
+        title={t("mods.bulkDeleteConfirmTitle", { count: String(selectedIds.size) })}
+        message={t("mods.bulkDeleteConfirmMessage", { count: String(selectedIds.size) })}
+        busy={bulkProcessing}
+        onConfirm={() => void handleBulkDelete()}
+        onCancel={() => setShowBulkDeleteModal(false)}
       />
     </div>
   );
