@@ -6,7 +6,6 @@ import { useGameAccent } from "../../hooks/useGameAccent";
 import PlayerCountBadge from "../PlayerCountBadge";
 import GameStatusDropdown from "./GameStatusDropdown";
 import GameLaunchActions from "./GameLaunchActions";
-import HeroTrailer from "../hero/HeroTrailer";
 import FriendsPlayingStrip from "../hero/FriendsPlayingStrip";
 import { IconClock, IconPlatform, IconShield, IconUsers } from "./icons";
 import { useLanguage } from "../../context/LanguageContext";
@@ -43,7 +42,6 @@ interface GameHeroProps {
   coverUrl?: string | null;
   bannerUrl?: string | null;
   logoUrl?: string | null;
-  videoUrl?: string | null;
   /** Source image for the per-game accent tint (defaults to cover/banner). */
   accentSrc?: string | null;
   /** Small label above the logo/title (e.g. "GameLib Store"). */
@@ -72,7 +70,6 @@ export default function GameHero({
   coverUrl: coverProp,
   bannerUrl: bannerProp,
   logoUrl: logoProp,
-  videoUrl: videoProp,
   accentSrc: accentProp,
   eyebrow,
   steamAppId: steamAppIdProp,
@@ -89,7 +86,6 @@ export default function GameHero({
   const coverUrl = game?.coverArtUrl ?? coverProp ?? null;
   const bannerUrl = game?.bannerUrl ?? bannerProp ?? null;
   const logoUrl = game?.logoUrl ?? logoProp ?? null;
-  const videoUrl = game?.videos && game.videos.length ? game.videos[0] : videoProp ?? null;
   const accentSrc = accentProp ?? coverUrl ?? bannerUrl ?? null;
   const steamAppId = steamAppIdProp ?? null;
 
@@ -237,16 +233,10 @@ export default function GameHero({
       className={heroClassName}
       style={gameAccent ? ({ "--game-accent": gameAccent } as CSSProperties) : undefined}
     >
-      {/* Background art: trailer (when available), else a blurred copy of the
-          banner/cover that tints the whole hero with the game's palette. A
+      {/* Background art: a blurred copy of the banner/cover that tints the
+          whole hero with the game's palette, or a gradient fallback. A
           legibility scrim sits on top so the poster + content stay readable. */}
-      {videoUrl ? (
-        <HeroTrailer
-          className="game-hero__media"
-          src={videoUrl}
-          poster={bannerUrl || coverUrl || undefined}
-        />
-      ) : ambientSrc ? (
+      {ambientSrc ? (
         <div
           className="game-hero__bg"
           style={{ backgroundImage: `url(${ambientSrc})` }}
