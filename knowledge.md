@@ -17,19 +17,22 @@ This file gives Codebuff context about your project: goals, commands, convention
 
 ### Frontend (`src/`)
 - **Router:** React Router v7 with `HashRouter` in `src/main.tsx` (required — Tauri ships `file://` in production).
-- **Layout:** `App.tsx` wraps `ThemeProvider > ToastProvider > SplashProvider > GameProvider > ... > DownloadProvider > SourceProvider > ...`. The shell renders `TopNav`, `Sidebar`, and `MainContent` via nested routes. `<Splashscreen />` is mounted inside `SplashProvider` at z-index 9500.
-- **Pages (`src/pages/`)** — 14 page files; `App.tsx` registers 14 `<Route>` entries (so `ActivityPage` itself has sub-tabs `Dashboard / Gantt / Performance / Sessions / Sparkline` listed below):
+- **Layout:** `App.tsx` wraps `ThemeProvider > LanguageProvider > ToastProvider > SplashProvider > GameProvider > ActivityProvider > AchievementProvider > DensityProvider > WishlistProvider > SourceProvider > DownloadProvider > SettingsProvider > SessionNotesProvider > BigScreenProvider`. The shell renders `TopNav`, `Sidebar`, and `MainContent` via nested routes. `<Splashscreen />` is mounted inside `SplashProvider` at z-index 9500.
+- **Pages (`src/pages/`)** — 17 page entries registered in `App.tsx`:
+  - `HomePage` (`/home`) — dashboard landing view.
   - `LibraryPage` (`/library`, `/library/:gameId` → `GamePage`) — main library grid + game detail.
   - `GamePage` — rich detail view with hero, metadata, reviews, achievements, screenshots, web links, player count, force-close.
-  - `StorePage` (`/store`) + `StoreGameDetail` (`/store/:gameSlug`) — IGDB-backed catalog with rails.
+  - `StorePage` (`/store`) + `StoreGameDetail` (`/store/:gameSlug`) — IGDB & Hydra-backed catalog with rails.
   - `WishlistPage` (`/wishlist`), `NewsPage` (`/news`), `DealsPage` (`/deals`) — discovery surfaces.
   - `ActivityPage` (`/activity`) — dashboard / Gantt / performance / sessions / sparkline sub-tabs in `src/pages/activity/`.
-   - `AchievementsPage` (`/achievements`), `DownloadsPage` (`/downloads`), `StoragePage` (`/storage`).
-   - `CommunityPage` (`/community`), `FriendsPage` (`/friends`), `NewsPage` (`/news`), `WishlistPage` (`/wishlist`).
-   - `SettingsPage` (`/settings`). There is **no** `PluginsPage` — the plugin system (todo #28) is not implemented yet.
-  - Default redirect on `/` → `/library`.
-- **Components (`src/components/`)** — 20+ files grouped by area: `game/`, `library/`, `store/`, `downloads/`, `news/`, `activity/`, `charts/`, `ui/` (`Card`, `Button`, `Badge`, `KpiTile`, `Skeleton`, `Tooltip`, `ConfirmModal`).
-- **Contexts (`src/context/`)** — one provider per cross-cutting concern: `GameContext` (library CRUD / launch), `ActivityContext`, `AchievementContext`, `WishlistContext`, `DownloadContext` (active downloads + speed limits), `SourceContext` (download sources), `SplashContext`, `ToastContext`, `ThemeContext` (light/dark), `DensityContext` (compact/comfortable).
+  - `AchievementsPage` (`/achievements`), `DownloadsPage` (`/downloads`), `StoragePage` (`/storage`).
+  - `CommunityPage` (`/community`), `FriendsPage` (`/friends`).
+  - `EmulatorsPage` (`/emulators`) — multi-system emulator catalog, ROM management, executable launcher, and `EmulatorEditorModal`.
+  - `ModsPage` (`/mods`) — dual-pane manager for Steam Workshop & Nexus Mods with bulk actions and stat cards.
+  - `SettingsPage` (`/settings`) — General, Appearance, Integrations, Downloads, Privacy & Data tabs. There is **no** `PluginsPage` — the plugin system (todo #28) is not implemented yet.
+  - Default redirect on `/` → `LandingRedirect` (`/library`).
+- **Components (`src/components/`)** — grouped by area: `game/`, `library/`, `store/`, `downloads/`, `news/`, `activity/`, `charts/`, `bigscreen/`, `ui/` (`Card`, `Button`, `Badge`, `KpiTile`, `Skeleton`, `Tooltip`, `ConfirmModal`, `PageHeader`).
+- **Contexts (`src/context/`)** — providers per cross-cutting concern: `GameContext` (library CRUD / launch), `ActivityContext`, `AchievementContext`, `WishlistContext`, `DownloadContext` (single-active queue + seeding + speed limits), `SourceContext` (download sources), `SplashContext`, `ToastContext`, `ThemeContext` (light/dark), `LanguageContext` (i18n translations), `DensityContext`, `SettingsContext`, `SessionNotesContext`, `SidebarCollapseContext`, `BigScreenContext`.
 - **Hooks (`src/hooks/`)** — extracted filters/store-cache/player-count helpers (`useLibraryFilters`, `useStoreGames`, `useStoreCache`, `useProgressiveImages`, `useSteamGameStats`, `usePlayerCountHistory`, `useNewsFeeds`, `useWishlist`, etc.).
 - **Types (`src/types/`)** — hand-written TypeScript types mirroring the Rust serde models: `game.ts`, `steam.ts`, `gog.ts`, `epic.ts`, `source.ts`, `download.ts`, `deals.ts`.
 - **Styles (`src/styles/`, `src/*.css`)** — co-located CSS files (`App.css` for layout + theme tokens, `library.css`, `store.css`, plus themed style sheets under `src/styles/`). All theme colors go through CSS custom properties defined in `:root` / `[data-theme="light"]` in `App.css`. **Never hardcode hex/rgb values** — use `var(--…)`.
@@ -78,11 +81,25 @@ Phase 1–4 of a migration that moved every JSON file under `<app_data_dir>` plu
 - **Crackwatch** — `crackwatch::fetch_crackwatch_status(game_name, app_id?)` scrapes gamestatus.info for crack status (Hydra-style: `CrackWatchService` + 24h KV cache keyed by slug+appid, returns `CrackWatchStatus { isCracked, crackDate, crackGroup, protection }` or `null`). Rendered by `CrackWatchCard` (`CrackWatchSection` presentational + skeleton).
 - **Torrents** — `torrent_engine.rs` wraps `librqbit` (see Cargo.toml — `librqbit 8`, `default-tls`, **no** `http-api`). Upload disabled via runtime `SessionOptions`. Cleanup hook (`cleanup_extractions`) registered on the Tauri `RunEvent::Exit`.
 
-### Big Screen Mode
-- **`BigScreenContext`** (`src/context/BigScreenContext.tsx`) toggles a 10-foot TV UI (`BigScreenLayout`) with gamepad navigation (`GamepadProvider` + `useFocusable`). When `isBigScreen` is true, `App.tsx` short-circuits to `<BigScreenLayout />` and pages render their `*BigScreen*` variants (`BigScreenGamePage`, `BigScreenLibrary`, `BigScreenSystem`, `BigScreenStoreGamePage`, `BigScreenGameHub`). Persisted under `gamelib-bigscreen`.
+### Emulators & ROMs Management
+- `EmulatorsPage` (`src/pages/EmulatorsPage.tsx`) manages retro/multi-system emulator platforms, launcher executable paths, and ROM catalogues. Supports manual ROM creation, file size tracking, bulk ROM actions (rename, delete), real platform logo SVG rendering, and Storage page disk usage breakdown. Configured via `EmulatorEditorModal.tsx`.
 
-### Hydra integration
-- GameIndex pulls catalog + community stats from the **Hydra** API (`hydra-api-source-spec.md`). Powers `StorePage` rails, `StoreGameDetail`, `HydraStatsPopover` (players/downloads/star score), and `HydraReviewsPanel` (user reviews with replies/votes/sorting). The `CrackWatchContext`/`PriceContext` batch per-card lookups into single backend round-trips (`fetch_crackwatch_status_batch`, `fetch_price_batch`).
+### Mod Manager (Steam Workshop & Nexus Mods)
+- `ModsPage` (`src/pages/mods/ModsPage.tsx`) provides a dual-pane interface with glassmorphism styling, stat cards, and status filtering. Integrates Steam Workshop mod fetching enriched with Steam Web API metadata and Nexus Mods structures. Supports bulk multi-select (enable, disable, delete) and mod storage footprint tracking.
+
+### Internationalization (i18n)
+- `LanguageContext` (`src/context/LanguageContext.tsx`) provides app-wide translation capabilities using structured JSON locale dictionaries (`en`, `de`, `fr`, `es`, etc.). Components consume `useTranslation()` / `t(key)` for localized string lookup with fallback support. Controlled via Settings page language selector.
+
+### Big Screen Mode
+- **`BigScreenContext`** (`src/context/BigScreenContext.tsx`) toggles a 10-foot TV UI (`BigScreenLayout`) with rail-aware gamepad navigation (`GamepadProvider` + `useFocusable`). Features dedicated Big Screen Deals view (`BigScreenDealsPage`) and system pages (`BigScreenGamePage`, `BigScreenLibrary`, `BigScreenSystem`, `BigScreenStoreGamePage`, `BigScreenGameHub`). Persisted under `gamelib-bigscreen`.
+
+### Storefront Engine & Hydra Ported Features
+- **Storefront Catalog**: Powered by **IGDB** for catalogue browsing, featured rails, search, genre/platform filtering, and game detail metadata.
+- **Ported Hydra Integrations**: GameIndex ports specific Hydra public APIs:
+  - **Public Source Specification** (`hydra-api-source-spec.md`): Parser and format support for Hydra-compatible community download sources / repacks.
+  - **Community Stats**: Live active players, total download counts, and community star ratings (`useHydraGameStats` + `HydraStatsPopover`).
+  - **Community Reviews**: Full user reviews panel (`HydraReviewsPanel`) supporting community reviews, user replies, upvotes/downvotes, and sorting filters.
+  - `CrackWatchContext`/`PriceContext` batch per-card lookups into single backend round-trips (`fetch_crackwatch_status_batch`, `fetch_price_batch`).
 
 ### Friends & Community
 - `FriendsPage` (`/friends`) + `CommunityPage` (`/community`) are social surfaces backed by local storage (`friendsStorage.ts`, `communityStorage.ts`). Not in the original roadmap — treat as experimental/self-contained.

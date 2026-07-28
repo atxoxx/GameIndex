@@ -219,14 +219,11 @@
 
 ## 🌍 Cross-Cutting
 
-### 24. Translations / i18n
-- Add internationalization (i18n) support to the entire app.
-- Use a lightweight i18n library compatible with React + Tauri (e.g. `i18next` + `react-i18next`).
-- Extract all user-facing strings into locale JSON files (e.g. `locales/en.json`, `locales/fr.json`, `locales/de.json`).
-- Initial languages: English, French, German, Spanish, Japanese, Simplified Chinese.
-- Auto-detect OS language on first launch, with language switcher in Settings.
-- Ensure all dates, number formatting, and plurals are locale-aware.
-- Tooling: set up a script to scan for missing translation keys.
+### 24. Translations / i18n — ✅ Done
+- Full internationalization (i18n) support built into the app via `LanguageContext`.
+- Extracted and structured translation strings across core views, Settings, Emulators, Mods, and UI components.
+- Auto-detect OS language on launch with runtime language selector in Settings.
+- Replaced hardcoded UI strings with dynamic `t()` lookups across pages.
 
 ### 25. Performance Optimizations — ⚠️ Partial
 - **Frontend:**
@@ -241,6 +238,38 @@
   - Cache scraped metadata in SQLite (via `rusqlite`) to avoid re-scraping.
   - Stream large file operations instead of loading into memory.
 - Measure: use Lighthouse, Chrome DevTools Performance tab, and Rust `perf`/`flamegraph`.
+
+---
+
+## 🕹️ Additional Features & Overhauls (Completed)
+
+### 29. Emulators & ROM Management Page — ✅ Done
+- Dedicated **Emulators tab** positioned in the main navigation.
+- Multi-system platform catalog with real emulator logos & GitHub repository links.
+- Direct executable launch for configured emulators.
+- Complete ROM management: manual add, rename, delete, file size metadata, and bulk ROM operations.
+- Per-emulator detail view and Storage page integration for emulator disk footprint tracking.
+
+### 30. Mod Manager (Steam Workshop & Nexus Mods) — ✅ Done
+- Dedicated **Mods tab** with glassmorphism UI, stat cards, and status filters.
+- Engine-aware mod detection and dual-pane manager for installed mods.
+- Steam Workshop integration enriched with Steam Web API metadata.
+- Bulk multi-select actions: enable, disable, delete mods in batch.
+- Storage page integration: track total mod footprint and sort mods by disk usage.
+
+### 31. Downloads Engine Rewrite — ✅ Done
+- Rewritten download manager with a single-active queue pipeline.
+- Added seeding support and status tracking for torrents (`librqbit`).
+- Unified pipeline supporting direct HTTP downloads, debrid services (Real-Debrid / AllDebrid), and torrents.
+
+### 32. Settings Privacy & Data Tab — ✅ Done
+- Added **Privacy & Data** sub-tab in Settings page.
+- Direct UI tools to inspect cached data and wipe local storage safely.
+
+### 33. Big Screen Mode & Navigation Polish — ✅ Done
+- Controller-first TV interface with rail-aware gamepad navigation.
+- Dedicated Deals view in Big Screen mode.
+- Overhauled Steam player stats popover with hero banner and interactive historical chart.
 
 ---
 
@@ -304,10 +333,15 @@
 | 🟢 Normal | 21 | Downloads tab | ✅ Done |
 | 🟢 Normal | 22 | Statistics tab | ✅ Done |
 | 🟢 Normal | 23 | Watchlist tab | ✅ Done |
-| 🟢 Normal | 24 | Translations / i18n | ❌ Not done |
+| 🟢 Normal | 24 | Translations / i18n | ✅ Done |
 | 🟢 Normal | 25 | Performance optimizations | ⚠️ Partial (virtualized library grid; no `react-window` elsewhere, no code-splitting yet) |
+| 🟢 Normal | 29 | Emulators & ROM management | ✅ Done |
+| 🟢 Normal | 30 | Mod manager (Steam Workshop & Nexus) | ✅ Done |
+| 🟢 Normal | 31 | Single-active downloads engine | ✅ Done |
+| 🟢 Normal | 32 | Privacy & Data settings tab | ✅ Done |
+| 🟢 Normal | 33 | Big screen rail navigation & deals | ✅ Done |
 | ⚪ Later | 26 | Linux support | ❌ Not done |
 | ⚪ Later | 27 | Theming system v2 | ⚠️ Partial (multiple themes enabled + accent override; no theme editor/import-export yet) |
-| ⚪ Later | 28 | Plugin system v2 | ❌ Not done (no `PluginsPage`) |
+| ⚪ Later | 28 | Plugin system v2 | ❌ Not done |
 
-> Note: Several surfaces beyond the original roadmap now exist — **Big Screen Mode** (10-foot/gamepad UI), **Hydra** catalog + community stats/reviews integration, **Friends** and **Community** pages. These were added ad-hoc and are not yet tracked above.
+> Note: All major ad-hoc surfaces (**Big Screen Mode**, **Hydra** catalog + community stats/reviews, **Emulators**, **Mods**, **Friends**, **Community**, **i18n**) are now tracked above.

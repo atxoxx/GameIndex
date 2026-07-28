@@ -43,15 +43,17 @@ Unify your Steam, GOG, Epic, Rockstar, Ubisoft, and DRM-free libraries into a si
 |---------|-------------|
 | **Unified Library** | Steam, GOG Galaxy, Epic Games Store, Rockstar, Ubisoft Connect, Humble Bundle, and manual imports in one cohesive grid. |
 | **Rich Game Pages** | Hero, metadata, reviews, achievements, screenshots, videos, web links, HowLongToBeat, Crackwatch, ProtonDB, and live player counts. |
-| **Hydra-powered Storefront** | Browse the Hydra community catalogue with featured rails, search, filters, price badges, comparisons, and wishlist tracking. |
-| **Community Reviews & Stats** | Read Hydra user reviews (replies, votes, sorting) and surface community player/download counts and star scores per game. |
+| **Emulators & ROMs** | Integrated emulator manager: launch emulator executables, catalog multi-system platforms, and manage ROMs with bulk actions. |
+| **Mod Manager** | Dual-pane mod manager for Steam Workshop & Nexus Mods with bulk multi-select (enable/disable/delete), stat cards, and mod size tracking. |
+| **IGDB & Hydra Storefront** | IGDB-powered catalog browsing (search, filters, rails, price badges, comparisons) enriched with ported Hydra community features. |
+| **Ported Hydra Features** | Integrated Hydra public APIs: community reviews (replies, votes, sorting), community stats (player/download counts, star ratings), and Hydra-compatible public download source format. |
 | **Activity Tracking** | FPS, frametime, and per-session metrics via MSI Afterburner / RTSS, with interactive timeline, Gantt, performance, and sparkline views. |
-| **Downloads** | Direct downloads, debrid (Real-Debrid / AllDebrid), and torrents via `librqbit`. |
-| **Storage Manager** | Visualize disk usage, move installs between drives, and bulk-recalculate sizes. |
+| **Downloads** | Unified download engine with single-active queueing, seeding, HTTP direct, debrid (Real-Debrid / AllDebrid), and torrents via `librqbit`. |
+| **Storage Manager** | Visualize disk usage, move installs between drives, track emulator & mod footprints, and bulk-recalculate sizes. |
 | **Community & Friends** | Local-first social layer: profiles, friend sync, shared recommendations, and a community feed. |
-| **Big Picture Mode** | Controller-friendly, full-screen launcher UI for couch and TV play — Friends, Community, News, and more, all gamepad-navigable. |
-| **Live Player Counts** | Combined Steam + Hydra counts with a tabbed popover and a historical player-count graph with range toggle. |
-| **Theming & Density** | Dark-first design with light mode, a theme gallery (aurora, cyberpunk, catppuccin, tokyonight, …), compact/comfortable layouts, and a custom accent picker. |
+| **Big Picture Mode** | Controller-friendly, full-screen launcher UI for couch and TV play — rail-aware gamepad navigation, Friends, Deals view, and Community. |
+| **Live Player Counts** | Combined Steam + Hydra counts with a hero banner, tabbed popover, and historical player-count graph with range toggle. |
+| **i18n & Privacy** | Multi-language translation support (`LanguageContext`), theme gallery with custom accent picker, and a Privacy & Data tab to view/wipe local storage. |
 
 > 🚧 **Planned / in progress:** Discord Rich Presence (event hook wired, IPC plugin pending) · Linux + Steam Deck support.
 
@@ -123,7 +125,7 @@ Unify your Steam, GOG, Epic, Rockstar, Ubisoft, and DRM-free libraries into a si
 
 GameIndex is built *with* — not just inspired by — excellent projects in the launcher space:
 
-- **[Hydra Launcher](https://hydralauncher.gg)** — the clean, modern, torrent-first approach to game distribution. GameIndex integrates Hydra's public APIs for its store catalogue, community reviews, and community stats.
+- **[Hydra Launcher](https://hydralauncher.gg)** — the clean, modern approach to game distribution. GameIndex ports Hydra's public APIs for community reviews, community stats (active players, downloads, star ratings), and public download source specs (with primary storefront search & catalog powered by IGDB).
 - **[Playnite](https://playnite.com)** — the extensible, library-aggregation philosophy and customization depth.
 - **[LaunchBox](https://www.launchbox-app.com)** — rich metadata, media, and emulation-focused cataloging.
 - **[Steam](https://store.steampowered.com)** + **[GOG Galaxy](https://www.gog.com/galaxy)** — unified-library UX patterns.
@@ -189,17 +191,17 @@ npx tsc --noEmit
 ├── src/                 React + TypeScript frontend
 │   ├── pages/           Top-level route components (Library, Store, News, Deals,
 │   │                   Activity, Achievements, Downloads, Storage, Community,
-│   │                   Friends, Wishlist, Settings, Plugins)
+│   │                   Friends, Wishlist, Emulators, Mods, Settings)
 │   ├── components/      Feature-scoped UI (game/, library/, store/, downloads/,
 │   │                   news/, activity/, charts/, bigscreen/, ui/)
-│   ├── context/         Cross-cutting providers (Game, Activity, …)
+│   ├── context/         Cross-cutting providers (Game, Activity, Theme, Language, ...)
 │   ├── hooks/           Reusable stateful helpers
 │   ├── types/           Mirrors of Rust serde models
 │   └── styles/          Themed CSS
 └── src-tauri/           Rust backend
     ├── src/             Tauri commands, DB DAOs, integrations
     │   ├── steam|gog|epic|rockstar|uplay|humble/   Per-store sync + auth
-    │   ├── downloader/       Direct + debrid downloads
+    │   ├── downloader/       Direct + debrid downloads & queue management
     │   ├── db/               SQLite pool + schema
     │   └── torrent_engine.rs librqbit wrapper
     └── tauri.conf.json  Frameless window + bundle config
@@ -216,12 +218,16 @@ Track progress, ideas, and priorities in [`todo.md`](./todo.md). Highlights:
 - ✅ Steam, GOG, Epic, Rockstar, Ubisoft, Humble library sync
 - ✅ Steam achievements, HowLongToBeat, Crackwatch, live + historical player counts
 - ✅ Activity dashboard with FPS + frametime charts
-- ✅ Downloads (direct, debrid, torrents)
-- ✅ Storage manager + bulk operations
+- ✅ Downloads engine rewrite (single-active queue, seeding, direct & debrid torrents)
+- ✅ Storage manager + emulator & mod footprint breakdown
 - ✅ News page with RSS feeds
 - ✅ Hydra-backed storefront, community reviews & stats
 - ✅ Community & Friends social layer
-- ✅ Big Picture Mode (controller-first TV UI)
+- ✅ Big Picture Mode (controller-first TV UI with rail navigation)
+- ✅ Emulators manager & ROM library tools
+- ✅ Mod manager (Steam Workshop & Nexus Mods integration)
+- ✅ Internationalization (i18n) & language switcher
+- ✅ Privacy & Data management in Settings
 - ✅ Theme gallery + custom accent picker
 - 🚧 Discord Rich Presence (event hook wired, IPC plugin pending)
 - 🚧 Steam reviews & multi-source ratings
