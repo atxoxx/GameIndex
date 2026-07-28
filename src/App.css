@@ -2944,8 +2944,7 @@
    Main Content Area
    ============================== */
 .main-content {
-  height: 100%;
-  overflow-y: auto;
+  min-height: 100%;
 }
 
 /* Import Button & Menu */

@@ -3170,64 +3170,48 @@ export const de: TranslationDict = {
   "docs.title": "Dokumentation",
   "docs.subtitle": "Ein freundlicher, nicht-technischer Leitfaden für jeden Bildschirm und jede Schaltfläche in GameIndex — geschrieben für neue Spieler, ohne Fachbegriffe.",
   "docs.toc": "Inhalt",
-
   "docs.welcome.title": "Willkommen bei GameIndex",
   "docs.welcome.body": "GameIndex ist ein einziger Ort für all deine PC-Spiele. Statt Steam, GOG, Epic und andere einzeln zu öffnen, siehst und startest du jedes Spiel aus einem Fenster.\n\nDieser Leitfaden erklärt die Bildschirme und Schaltflächen, die du im Alltag nutzt. Er erfordert kein technisches Wissen — klicke einfach durch und du bist in wenigen Minuten zurecht.\n- Durchsuche und finde jedes Spiel, das du besitzt, in einer **Bibliothek**.\n- Entdecke neue Spiele im **Store** und behalte die besten **Angebote** im Blick.\n- Behalte deine Spielstände, **Mods** und **Emulatoren** im Überblick.\n- Entspanne auf der Couch im **Big-Picture-Modus**.",
-
   "docs.firststeps.title": "Erste Schritte",
   "docs.firststeps.body": "Beim ersten Start ist deine **Bibliothek** leer. So füllst du sie:\n- Verbinde ein **Store**-Konto (Steam, GOG, Epic, Rockstar, Ubisoft oder Humble) unter **Einstellungen** → Quellen. GameIndex lädt die Spiele, die du bereits besitzt.\n- Oder wähle 'Spiel hinzufügen' in der **Seitenleiste**, um GameIndex auf ein Spiel hinzuweisen, das irgendwo auf deinem PC installiert ist.\n- Lieber schlank beginnen? Nutze die Suche und Filter der **Bibliothek**, um dich auf das zu konzentrieren, was du gerade spielen möchtest.\nSobald Spiele importiert sind, doppelklicke einfach auf eines, um es zu starten.",
-
   "docs.layout.title": "Der Hauptbildschirm",
   "docs.layout.body": "Die App besteht aus drei Bereichen:\n- Die obere Leiste enthält Suche, Schnellaktionen sowie die Schaltflächen für **Downloads**, **Einstellungen** und **Big-Picture-Modus**.\n- Die linke **Seitenleiste** listet deine Spiele und Filter auf, plus den Button 'Spiel hinzufügen'.\n- Der große mittlere Bereich zeigt die Seite, die du gerade ansiehst (**Bibliothek**, **Store** usw.).\nDie Reihe von Tabs oben (**Bibliothek**, **Store**, **Emulatoren**, **Mods**…) wechselt den mittleren Bereich zwischen den verschiedenen Abschnitten der App.",
-
   "docs.library.title": "Deine Bibliothek",
-  "docs.library.body": "Deine **Bibliothek** ist die Zentrale — jedes hinzugefügte Spiel erscheint hier als Kachel.\n- Klicke eine Kachel an, um die Seite des Spiels zu öffnen: Beschreibung, Screenshots, **Errungenschaften**, Spielzeit und ein großer 'Spielen'-Button.\n- Fahre mit der Maus über eine Kachel für Schnellaktionen wie Spielen, Favorisieren oder Ausblenden.\n- Nutze das Suchfeld und Filter-Chips (Genre, **Store**, gespielt/ungespielt), um die Liste einzugrenzen.\n- Wechsle zwischen Raster- und Listenansicht über den Umschalter in der **Seitenleiste**.",
-
+  "docs.library.body": "Deine **Bibliothek** ist die Basis — jedes hinzugefügte Spiel erscheint hier als Kachel.\n- Klicke auf eine Kachel, um die Seite des Spiels zu öffnen: Beschreibung, Screenshots, **Errungenschaften**, Spieldauer und ein großer 'Spielen'-Button.\n- Fahre über eine Kachel für Schnellaktionen wie Spielen, Favorit oder Ausblenden.\n- Nutze das Suchfeld und die Filter-Pills (Genre, **Store**, gespielt/ungespielt), um die Liste einzuschränken.\n- Wechsel die Ansicht zwischen Raster und Liste mit dem Schalter in der **Seitenleiste**.",
+  "docs.gamedetails.title": "Spieldetails & Anpassung",
+  "docs.gamedetails.body": "Klicke auf eine Spielkachel, um die Detailseite zu öffnen und vollständige Verwaltungsoptionen für diesen Titel aufzurufen.\n\n## Funktionen & Einstellungen\n- **Großer Spielen-Button**: Startet das Spiel direkt und beginnt die automatische Spielzeit- und Hardware-Aufzeichnung.\n- **Eigene Grafiken**: Ersetze Standard-Cover, Hintergrundbanner und Logos durch eigene Bilder.\n- **Startparameter**: Übergib eigene Befehlszeilen-Parameter (z.B. `-fullscreen`, `-dx11`).\n- **Pfad & Ausführbare Datei**: Ändere den Pfad zur exe-Datei oder das Arbeitsverzeichnis.\n- **IGDB-Metadaten**: Lade Beschreibungen, Erscheinungsdaten, Entwickler, Genres und Screenshots von IGDB.\n- **Persönliche Notizen & Bewertung**: Füge Notizen, Sterne-Bewertungen und Status-Tags hinzu.",
   "docs.sidebar.title": "Die Seitenleiste",
-  "docs.sidebar.body": "Die **Seitenleiste** links hilft bei Navigation und Ordnung:\n- 'Spiel hinzufügen' importiert ein Spiel von deinem Computer oder einem verbundenen **Store**.\n- Favoriten und Zuletzt geben schnellen Zugriff auf die Spiele, die du am meisten spielst.\n- Filtergruppen (**Store**, Genre, Status) klappen zusammen und auf, um lange **Bibliothek**en aufzuräumen.\n- Klappe die ganze **Seitenleiste** mit dem Pfeil oben ein, um mehr Platz für deine Spiele zu bekommen.",
-
-  "docs.topnav.title": "Die Schaltflächen der oberen Leiste",
+  "docs.sidebar.body": "Die **Seitenleiste** links hilft dir beim Navigieren und Organisieren:\n- 'Spiel hinzufügen' importiert ein Spiel von deinem Computer oder einem verbundenen **Store**.\n- Favoriten und Letzte geben dir schnellen Zugriff auf die am meisten gespielten Spiele.\n- Filtergruppen (**Store**, Genre, Status) lassen sich ein- und ausklappen, um lange **Bibliotheken** aufzuräumen.\n- Klappe die ganze **Seitenleiste** mit dem Pfeil oben ein, um mehr Platz für deine Spiele zu haben.",
+  "docs.topnav.title": "Die Knöpfe der oberen Leiste",
   "docs.topnav.body": "Auf der rechten Seite der oberen Leiste findest du:\n- **Downloads**: öffnet ein Panel mit Spielen und Dateien, die gerade heruntergeladen werden, plus ein Badge mit der aktiven Anzahl.\n- **Einstellungen** (Zahnrad): öffnet die **Einstellungen** — Konten, Darstellung, Sprache und Datenschutz.\n- **Big-Picture-Modus** (Monitor): erweitert die App zu einer bildschirmfüllenden, controllerfreundlichen Ansicht für TV und Couch.\nIn der Mitte der Leiste befinden sich meist ein Suchfeld und die Abschnitts-Tabs.",
-
   "docs.store.title": "Spiele entdecken (Store)",
   "docs.store.body": "Im **Store** stöberst du durch das Verfügbare, nicht nur das, was du besitzt.\n- Scrolle durch kuratierte Reihen wie 'Trending' und 'Top bewertet' oder suche direkt nach einem Titel.\n- Öffne ein Spiel, um Preis, Beschreibung, Bewertungen und die verkaufenden **Store**s zu sehen.\n- Filtere nach Genre, Preis und Plattform, um etwas zu finden, das dir gefällt.\nHinweis: Der **Store** dient dem Entdecken und Informieren; der Kauf erfolgt auf der Website des **Store**s.",
-
   "docs.wishlist.title": "Wunschliste",
   "docs.wishlist.body": "Ein Spiel gefällt dir, aber du bist noch nicht bereit zu spielen? Füge es deiner **Wunschliste** hinzu.\n- Klicke auf das Herz bei einem Spiel oder auf der **Store**-Seite, um es zu speichern.\n- Öffne den Reiter **Wunschliste**, um alles Gespeicherte an einem Ort zu sehen.\n- Spiele auf deiner **Wunschliste** tauchen auch bei **Angebote**n auf, damit dir ein Preissturz auffällt.",
-
   "docs.deals.title": "Angebote & Preise",
   "docs.deals.body": "Der Abschnitt **Angebote** hilft dir, klug auszugeben.\n- Sieh aktuelle Rabatte über **Store**s hinweg mit dem Prozentsatz der Ersparnis und dem neuen Preis.\n- Filtere nach **Store**, Genre oder Rabatthöhe.\n- Spiele auf deiner **Wunschliste** sind hervorgehoben, damit Preisstürze leicht zu entdecken sind.\n- Historische Preisinfos helfen dir, ein echtes Schnäppchen von einem falschen zu unterscheiden.",
-
   "docs.news.title": "Neuigkeiten",
   "docs.news.body": "Bleib auf dem Laufenden, ohne die App zu verlassen.\n- Die Seite **Neuigkeiten** zeigt Artikel und Ankündigungen aus Gaming-Feeds.\n- Füge deine eigenen RSS-Feeds in den News-**Einstellungen** hinzu, um deine Lieblingsseiten zu folgen.\n- Klicke auf eine Überschrift, um den vollen Artikel in einer aufgeräumten Leseansicht zu lesen.",
-
   "docs.activity.title": "Aktivität & Leistung",
   "docs.activity.body": "GameIndex kann zeigen, wie deine Spiele tatsächlich laufen.\n- Wenn die Aufzeichnung aktiv ist, speichert jede Spielsitzung die Bildrate (FPS) und Frame-Zeiten.\n- Die **Aktivität**sseite zeigt deine Leistung über die Zeit in interaktiven Diagrammen.\n- Nutze es, um Ruckler zu erkennen oder **Einstellungen** zu vergleichen — du musst die Zahlen nicht verstehen, achte einfach auf glatt versus spitz.",
-
   "docs.achievements.title": "Errungenschaften",
   "docs.achievements.body": "Verfolge die Herausforderungen, die du gemeistert hast.\n- Verbinde Steam, um deine Errungenschaftslisten zu laden, oder synchronisiere lokale/emulator-Speicherstände.\n- Sieh gesperrte und freigeschaltete **Errungenschaften** pro Spiel mit Fortschritt auf einen Blick.\n- Filtere auf 'gesperrt', wenn du Ideen suchst, was du als Nächstes angehst.",
-
   "docs.downloads.title": "Downloads",
   "docs.downloads.body": "Der Bereich **Downloads** verwaltet alles, was GameIndex lädt.\n- Öffne ihn über die obere Leiste, um laufende **Downloads** und fertige Dateien zu sehen.\n- Standardmäßig läuft ein Download zur Zeit, der Rest ist eingereiht, damit deine Verbindung stabil bleibt.\n- Unterstützt Direktlinks sowie Torrent-/Debrid-Quellen, wo verfügbar.\nKlicke ein fertiges Element an, um es im Dateimanager zu öffnen oder es zu installieren.",
-
   "docs.storage.title": "Speicherverwaltung",
   "docs.storage.body": "Wenig Platz auf der Festplatte? Die Speicherseite zeigt, wo deine Spiele liegen.\n- Sieh eine Aufschlüsselung des belegten Platzes je Spiel, Emulator und Mod-Sammlung.\n- Verschiebe ein Spiel von einem Laufwerk auf ein anderes, ohne den Start zu brechen.\n- Berechne die Größen jederzeit neu, um die Zahlen aktuell zu halten.",
-
   "docs.emulators.title": "Emulatoren & ROMs",
   "docs.emulators.body": "GameIndex bringt Retro-Spiele in dieselbe **Bibliothek**.\n- Füge einen Emulator (wie einen SNES- oder PlayStation-Emulator) hinzu, damit GameIndex weiß, wie er gestartet wird.\n- Katalogisiere deine ROMs nach System und stöbere sie neben deinen modernen Spielen.\n- Massenaktionen helfen dir, große ROM-Sammlungen schnell zu ordnen.\n**Emulatoren** müssen separat installiert werden; GameIndex startet sie für dich.",
-
   "docs.mods.title": "Mods",
   "docs.mods.body": "Ändere mit dem Mod-Manager, wie deine Spiele aussehen und spielen.\n- Durchsuche **Mods** von Steam Workshop und Nexus **Mods** für ein ausgewähltes Spiel.\n- Aktiviere, deaktiviere oder lösche **Mods** mit Mehrfachauswahl-Aktionen.\n- Stat-Karten zeigen, wie viele **Mods** aktiv sind und wie viel Platz sie belegen.\n**Mods** werden über das eigene Mod-System des Spiels angewendet; GameIndex ordnet sie nur.",
-
   "docs.community.title": "Community & Freunde",
   "docs.community.body": "Zusammen spielen ist besser.\n- Der Reiter **Community** zeigt einen Feed mit **Aktivität** und Empfehlungen.\n- Füge Freunde hinzu, um zu sehen, was sie spielen, und teile deine eigene **Bibliothek**.\n- Local-first: deine Daten bleiben auf deinem Gerät, und Teilen ist optional.\nProfile und Freundes-Sync helfen dir, Spiele zu entdecken, die deine Freunde lieben.",
-
   "docs.settings.title": "Einstellungen",
   "docs.settings.body": "Öffne die **Einstellungen** (das Zahnrad-Symbol), um GameIndex dir anzupassen.\n- Quellen: **Store**-Konten verbinden oder trennen.\n- Darstellung: wähle ein Theme und eine Akzentfarbe oder hell/dunkel.\n- Sprache: wechsle die Oberfläche zwischen den unterstützten Sprachen.\n- Datenschutz & Daten: sieh dir an, was lokal gespeichert ist, und lösche es bei Bedarf.\nDie meisten Änderungen werden sofort angewendet.",
-
   "docs.bigscreen.title": "Big-Picture-Modus",
   "docs.bigscreen.body": "Der **Big-Picture-Modus** verwandelt GameIndex in eine couch-freundliche 10-Fuß-Oberfläche.\n- Klicke auf das Monitor-Symbol in der oberen Leiste (oder drücke F11 / Ctrl+B), um ihn zu betreten.\n- Navigiere komplett mit einem Game-Controller oder den Pfeiltasten — große Kacheln, einfache Menüs.\n- Er enthält deine **Bibliothek**, den **Store**, **Angebote**, Freunde und **Community** in einem TV-freundlichen Layout.\n- Drücke Escape, um den **Big-Picture-Modus** zu verlassen und zur Desktop-Ansicht zurückzukehren.",
-
+  "docs.shortcuts.title": "Tastatur- & Controller-Kürzel",
+  "docs.shortcuts.body": "Meistere die Navigation in GameIndex mit diesen weltweiten Tastatur- und Controller-Tastenkürzeln.\n\n## Tastatur-Tastenkürzel\n- `F11` oder `Ctrl+B`: Umschalten des **Big-Picture-Modus** ein / aus.\n- `Ctrl+F`: Sofortiges Fokussieren des globalen Suchfelds.\n- `Ctrl+,`: Öffnet die **Einstellungen**.\n- `Ctrl+D`: Öffnet das **Downloads**-Panel.\n- `Ctrl+L`: Wechselt zur **Bibliothek**.\n- `Escape`: Schließt Dialoge, bricht Suchen ab oder verlässt den Big-Picture-Modus.\n- `Tab` / `Shift+Tab`: Navigiert zwischen interaktiven Elementen.\n- `ArrowUp` / `ArrowDown` / `ArrowLeft` / `ArrowRight`: Navigiert durch Kacheln und Listen.\n\n## Controller-Kürzel (Big-Picture-Modus)\n- `D-Pad` / `Linker Stick`: Navigiert durch Menüs und Kacheln.\n- `Taste A` (Xbox) / `Kreuz` (PlayStation): Spiel auswählen / starten.\n- `Taste B` (Xbox) / `Kreis` (PlayStation): Zurück / Menü schließen.\n- `Taste X` (Xbox) / `Quadrat` (PlayStation): Favoritenstatus umschalten.\n- `Taste Y` (Xbox) / `Dreieck` (PlayStation): Spieldetails öffnen.\n- `Start` / `Menü`: Schnellauswahl-Menü öffnen.",
   "docs.tips.title": "Tipps & Tastenkürzel",
   "docs.tips.body": "Ein paar Dinge, die den Alltag erleichtern:\n- Drücke F11 oder Ctrl+B, um den **Big-Picture-Modus** umzuschalten; Escape verlässt ihn.\n- Nutze die **Bibliothek**ssuche, um sofort zu einem Spiel nach Namen zu springen.\n- Rechtsklick (oder langes Drücken) auf eine Spielkachel für weitere Aktionen.\n- Klappe die **Seitenleiste** ein, wenn du mehr Platz für Spielgrafiken willst.\n- Ändere die Sprache jederzeit in den **Einstellungen**, falls etwas nicht passt."
 };

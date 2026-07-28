@@ -17,6 +17,7 @@ const SECTION_IDS = [
   "firststeps",
   "layout",
   "library",
+  "gamedetails",
   "sidebar",
   "topnav",
   "store",
@@ -32,6 +33,7 @@ const SECTION_IDS = [
   "community",
   "settings",
   "bigscreen",
+  "shortcuts",
   "tips",
 ] as const;
 
@@ -207,23 +209,49 @@ function DocBody({ text }: { text: string }) {
   return <>{blocks}</>;
 }
 
+function getScrollContainer(node: HTMLElement | null): HTMLElement {
+  let parent = node?.parentElement;
+  while (parent && parent !== document.body) {
+    const { overflowY } = window.getComputedStyle(parent);
+    if (
+      (overflowY === "auto" || overflowY === "scroll") &&
+      parent.scrollHeight > parent.clientHeight
+    ) {
+      return parent;
+    }
+    parent = parent.parentElement;
+  }
+  return (
+    (document.querySelector(".app-main") as HTMLElement) ||
+    (document.querySelector(".main-content") as HTMLElement) ||
+    (document.documentElement as HTMLElement)
+  );
+}
+
 export default function DocsPage() {
   const { t } = useLanguage();
   const [active, setActive] = useState<SectionId>("welcome");
+  const pageRef = useRef<HTMLDivElement>(null);
   const tocRef = useRef<HTMLElement>(null);
   const activeBtnRef = useRef<HTMLButtonElement>(null);
+  const isScrollingToRef = useRef<boolean>(false);
+  const scrollTimeoutRef = useRef<number | null>(null);
 
   // Scroll-spy: highlight the TOC entry for the section in view.
   useEffect(() => {
+    const container = getScrollContainer(pageRef.current);
+
     const sections = SECTION_IDS.map((id) => document.getElementById(`doc-${id}`)).filter(
       (el): el is HTMLElement => el !== null
     );
     if (!sections.length) return;
 
+    const isViewport = container === document.documentElement || container === document.body;
+
     const handleScroll = () => {
-      // Check if user has scrolled all the way to the bottom of the page
+      if (isScrollingToRef.current) return;
       const isAtBottom =
-        window.innerHeight + window.scrollY >= document.documentElement.scrollHeight - 60;
+        container.scrollTop + container.clientHeight >= container.scrollHeight - 60;
       if (isAtBottom) {
         setActive(SECTION_IDS[SECTION_IDS.length - 1]);
       }
@@ -231,8 +259,9 @@ export default function DocsPage() {
 
     const observer = new IntersectionObserver(
       (entries) => {
+        if (isScrollingToRef.current) return;
         const isAtBottom =
-          window.innerHeight + window.scrollY >= document.documentElement.scrollHeight - 60;
+          container.scrollTop + container.clientHeight >= container.scrollHeight - 60;
         if (isAtBottom) return;
 
         const visible = entries
@@ -242,30 +271,58 @@ export default function DocsPage() {
           setActive(visible[0].target.id.replace("doc-", "") as SectionId);
         }
       },
-      { rootMargin: "-12% 0px -60% 0px", threshold: 0 }
+      {
+        root: isViewport ? null : container,
+        rootMargin: "-8% 0px -60% 0px",
+        threshold: 0,
+      }
     );
 
     sections.forEach((s) => observer.observe(s));
-    window.addEventListener("scroll", handleScroll, { passive: true });
+    const targetEl = isViewport ? window : container;
+    targetEl.addEventListener("scroll", handleScroll, { passive: true });
 
     return () => {
       observer.disconnect();
-      window.removeEventListener("scroll", handleScroll);
+      targetEl.removeEventListener("scroll", handleScroll);
     };
   }, []);
 
-  // Keep the active TOC entry smoothly in view inside the TOC panel
+  // Keep active TOC item in view inside TOC sidebar without calling scrollIntoView on window
   useEffect(() => {
+    const toc = tocRef.current;
     const btn = activeBtnRef.current;
-    if (!btn) return;
-    btn.scrollIntoView({ behavior: "smooth", block: "nearest" });
+    if (!toc || !btn) return;
+    const tocRect = toc.getBoundingClientRect();
+    const btnRect = btn.getBoundingClientRect();
+    if (btnRect.top < tocRect.top || btnRect.bottom > tocRect.bottom) {
+      toc.scrollTop += (btnRect.top - tocRect.top) - (tocRect.height / 2 - btnRect.height / 2);
+    }
   }, [active]);
 
   const scrollTo = (id: SectionId) => {
     const el = document.getElementById(`doc-${id}`);
-    if (el) {
+    if (!el) return;
+
+    // Suppress scroll-spy updates during programatic scroll animation
+    isScrollingToRef.current = true;
+    if (scrollTimeoutRef.current) window.clearTimeout(scrollTimeoutRef.current);
+    scrollTimeoutRef.current = window.setTimeout(() => {
+      isScrollingToRef.current = false;
+    }, 750);
+
+    setActive(id);
+
+    const container = getScrollContainer(pageRef.current);
+    const isViewport = container === document.documentElement || container === document.body;
+
+    if (!isViewport && container) {
+      const containerRect = container.getBoundingClientRect();
+      const elRect = el.getBoundingClientRect();
+      const targetScroll = container.scrollTop + (elRect.top - containerRect.top) - 24;
+      container.scrollTo({ top: targetScroll, behavior: "smooth" });
+    } else {
       el.scrollIntoView({ behavior: "smooth", block: "start" });
-      setActive(id);
     }
   };
 
@@ -273,7 +330,7 @@ export default function DocsPage() {
   const progress = ((activeIndex + 1) / SECTION_IDS.length) * 100;
 
   return (
-    <div className="docs-page">
+    <div className="docs-page" ref={pageRef}>
       <header className="docs-hero">
         <div className="docs-hero__icon">
           <DocBookIcon />
