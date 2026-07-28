@@ -25,6 +25,22 @@ function formatDate(ts?: number): string {
   return d.toLocaleDateString(undefined, { year: "numeric", month: "short", day: "numeric" });
 }
 
+/** Human-friendly relative time for "last scanned", e.g. "5m ago". */
+function relativeTime(
+  ts: number,
+  t: (key: string, vars?: Record<string, unknown>) => string,
+): string {
+  const diff = Date.now() - ts;
+  const min = 60_000;
+  const hr = 3_600_000;
+  const day = 86_400_000;
+  if (diff < min) return t("emulators.relative.justNow");
+  if (diff < hr) return t("emulators.relative.minutes", { n: Math.floor(diff / min) });
+  if (diff < day) return t("emulators.relative.hours", { n: Math.floor(diff / hr) });
+  if (diff < 30 * day) return t("emulators.relative.days", { n: Math.floor(diff / day) });
+  return formatDate(ts);
+}
+
 /** Renders an emulator's real logo when available, otherwise falls back to
  *  the (emoji) glyph. */
 function EmulatorGlyph({
@@ -138,6 +154,8 @@ export default function EmulatorsPage() {
   const [renameValue, setRenameValue] = useState("");
   const [confirmDeleteRom, setConfirmDeleteRom] = useState<Game | null>(null);
   const [recalcId, setRecalcId] = useState<string | null>(null);
+  const [confirmBulkDelete, setConfirmBulkDelete] = useState(false);
+  const [selectedGameIds, setSelectedGameIds] = useState<Set<string>>(new Set());
 
   const [search, setSearch] = useState("");
   const [sortKey, setSortKey] = useState<SortKey>("name");
@@ -178,9 +196,13 @@ export default function EmulatorsPage() {
     const used = new Set<string>();
 
     for (const k of KNOWN_EMULATORS) {
+      // Match by unique catalog name first, then fall back to platform.
+      // Name-first avoids collapsing same-platform catalog entries (e.g.
+      // Demul / Flycast / Redream all share "Sega Dreamcast") into one
+      // false "Added" row.
       const emu =
-        emulators.find((e) => e.platform === k.platform) ??
-        emulators.find((e) => e.name === k.name);
+        emulators.find((e) => e.name === k.name) ??
+        emulators.find((e) => e.platform === k.platform);
       if (emu) used.add(emu.id);
       result.push({
         id: emu ? emu.id : `known:${k.key}`,
@@ -190,7 +212,7 @@ export default function EmulatorsPage() {
         platform: k.platform,
         accent: k.accent,
         glyph: k.glyph,
-        logo: k.logo,
+        logo: emu?.iconUrl ?? k.logo,
         added: !!emu,
         configured: !!emu?.executablePath,
         gameCount: emu ? (romCounts[emu.id] ?? 0) : 0,
@@ -199,17 +221,18 @@ export default function EmulatorsPage() {
       });
     }
 
-    for (const e of emulators) {
-      if (used.has(e.id)) continue;
-      const accent = accentForPlatform(e.platform);
-      result.push({
-        id: e.id,
-        emulator: e,
-        name: e.name,
-        platform: e.platform,
-        accent,
-        glyph: "🎮",
-        added: true,
+      for (const e of emulators) {
+        if (used.has(e.id)) continue;
+        const accent = accentForPlatform(e.platform);
+        result.push({
+          id: e.id,
+          emulator: e,
+          name: e.name,
+          platform: e.platform,
+          accent,
+          glyph: "🎮",
+          logo: e.iconUrl,
+          added: true,
         configured: !!e.executablePath,
         gameCount: romCounts[e.id] ?? 0,
         createdAt: e.createdAt,
@@ -302,6 +325,11 @@ export default function EmulatorsPage() {
       .filter((g) => (q ? g.name.toLowerCase().includes(q) : true))
       .sort((a, b) => a.name.localeCompare(b.name));
   }, [games, selectedRow, gameSearch]);
+
+  // Clear ROM selection when switching to a different emulator.
+  useEffect(() => {
+    setSelectedGameIds(new Set());
+  }, [selectedRow?.emulator?.id]);
 
   const selectedTotalBytes = useMemo(
     () => selectedGames.reduce((sum, g) => sum + (g.sizeBytes ?? 0), 0),
@@ -507,6 +535,49 @@ export default function EmulatorsPage() {
     setRenameValue(g.name ?? "");
   }, []);
 
+  const toggleGameSelected = useCallback((id: string) => {
+    setSelectedGameIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }, []);
+
+  const toggleSelectAll = useCallback(() => {
+    setSelectedGameIds((prev) =>
+      prev.size === selectedGames.length && selectedGames.length > 0
+        ? new Set()
+        : new Set(selectedGames.map((g) => g.id)),
+    );
+  }, [selectedGames]);
+
+  const handleBulkOpen = useCallback(() => {
+    for (const g of selectedGames) {
+      if (selectedGameIds.has(g.id) && g.romPath) handleOpenLocation(g.romPath);
+    }
+  }, [selectedGames, selectedGameIds, handleOpenLocation]);
+
+  const handleBulkLaunch = useCallback(() => {
+    for (const g of selectedGames) {
+      if (selectedGameIds.has(g.id)) launchGame(g);
+    }
+  }, [selectedGames, selectedGameIds, launchGame]);
+
+  const handleBulkDelete = useCallback(async () => {
+    const ids = [...selectedGameIds];
+    for (const id of ids) {
+      try {
+        await invoke("delete_rom_file", { gameId: id });
+      } catch (err) {
+        showToast(String(err), "error");
+      }
+    }
+    removeGames((g) => selectedGameIds.has(g.id));
+    setSelectedGameIds(new Set());
+    setConfirmBulkDelete(false);
+  }, [selectedGameIds, removeGames, showToast]);
+
   const openAdd = useCallback(() => {
     setEditing(null);
     setPresetKnown(null);
@@ -532,15 +603,22 @@ export default function EmulatorsPage() {
   // Arrow-key navigation across the visible (filtered) list.
   const handleListKeyDown = useCallback(
     (e: React.KeyboardEvent<HTMLDivElement>) => {
-      if (e.key !== "ArrowDown" && e.key !== "ArrowUp") return;
+      if (
+        e.key !== "ArrowDown" &&
+        e.key !== "ArrowUp" &&
+        e.key !== "Home" &&
+        e.key !== "End"
+      )
+        return;
       const ids = filteredRows.map((r) => r.id);
       if (ids.length === 0) return;
       const current = selectedRow?.id ?? ids[0];
       const idx = ids.indexOf(current);
-      const next =
-        e.key === "ArrowDown"
-          ? Math.min(ids.length - 1, idx + 1)
-          : Math.max(0, idx - 1);
+      let next = idx;
+      if (e.key === "ArrowDown") next = Math.min(ids.length - 1, idx + 1);
+      else if (e.key === "ArrowUp") next = Math.max(0, idx - 1);
+      else if (e.key === "Home") next = 0;
+      else if (e.key === "End") next = ids.length - 1;
       if (next !== idx) {
         e.preventDefault();
         setSelectedId(ids[next]);
@@ -582,28 +660,67 @@ export default function EmulatorsPage() {
 
       {!loading && (
         <div className="emulators-stats">
-          <div className="emu-stat">
-            <span className="emu-stat-value">{stats.catalog}</span>
-            <span className="emu-stat-label">{t("emulators.stats.catalog")}</span>
-          </div>
-          <div className="emu-stat">
-            <span className="emu-stat-value">{stats.added}</span>
-            <span className="emu-stat-label">{t("emulators.stats.added")}</span>
-          </div>
-          <div className="emu-stat">
-            <span className="emu-stat-value">{stats.configured}</span>
-            <span className="emu-stat-label">{t("emulators.stats.configured")}</span>
-          </div>
-          <div className="emu-stat">
-            <span className="emu-stat-value">{stats.roms}</span>
-            <span className="emu-stat-label">{t("emulators.stats.roms")}</span>
-          </div>
+          {(
+            [
+              {
+                key: "catalog",
+                icon: "📚",
+                value: stats.catalog,
+                label: t("emulators.stats.catalog"),
+                filter: null,
+              },
+              {
+                key: "added",
+                icon: "✅",
+                value: stats.added,
+                label: t("emulators.stats.added"),
+                filter: "added",
+              },
+              {
+                key: "configured",
+                icon: "⚙️",
+                value: stats.configured,
+                label: t("emulators.stats.configured"),
+                filter: "configured",
+              },
+              {
+                key: "roms",
+                icon: "🎮",
+                value: stats.roms,
+                label: t("emulators.stats.roms"),
+                filter: null,
+              },
+            ] as const
+          ).map((s) => (
+            <button
+              key={s.key}
+              type="button"
+              className={`emu-stat${s.filter ? " is-clickable" : ""}${
+                s.filter && filter === s.filter ? " is-active" : ""
+              }`}
+              onClick={() => s.filter && setFilter(s.filter as typeof filter)}
+              disabled={!s.filter}
+              title={s.filter ? t("emulators.stats.clickToFilter") : undefined}
+            >
+              <span className="emu-stat-glyph">{s.icon}</span>
+              <span className="emu-stat-value">{s.value}</span>
+              <span className="emu-stat-label">{s.label}</span>
+            </button>
+          ))}
         </div>
       )}
 
       {loading ? (
-        <div className="emulators-empty">
-          <p>{t("common.loading")}</p>
+        <div className="emulators-loading">
+          <div className="emulators-skeleton-stats">
+            {["", "", "", ""].map((_, i) => (
+              <div key={i} className="emu-skeleton emu-skeleton-stat" />
+            ))}
+          </div>
+          <div className="emulators-split">
+            <div className="emu-skeleton emu-skeleton-list" />
+            <div className="emu-skeleton emu-skeleton-detail" />
+          </div>
         </div>
       ) : (
         <div className="emulators-split">
@@ -773,25 +890,15 @@ export default function EmulatorsPage() {
                     <span className="emu-detail-meta-label">
                       {t("emulators.detail.executable")}
                     </span>
-                    <span
-                      className="emu-detail-meta-value"
-                      title={selectedRow.emulator?.executablePath}
-                    >
-                      {selectedRow.emulator?.executablePath
-                        ? truncateMiddle(selectedRow.emulator.executablePath)
-                        : "—"}
-                    </span>
-                    <button
-                      className="btn-ghost btn-sm"
-                      onClick={() =>
-                        selectedRow.emulator && handleLaunchExe(selectedRow.emulator)
-                      }
-                      disabled={!selectedRow.emulator?.executablePath}
-                      title={t("emulators.launchExe")}
-                    >
-                      ▶ {t("emulators.launchExe")}
-                    </button>
-                  </div>
+                  <span
+                    className="emu-detail-meta-value"
+                    title={selectedRow.emulator?.executablePath}
+                  >
+                    {selectedRow.emulator?.executablePath
+                      ? truncateMiddle(selectedRow.emulator.executablePath)
+                      : "—"}
+                  </span>
+                </div>
                   <div className="emu-detail-meta-row">
                     <span className="emu-detail-meta-label">
                       {t("emulators.detail.romFolder")}
@@ -820,11 +927,27 @@ export default function EmulatorsPage() {
                     </span>
                     <span className="emu-detail-meta-value">
                       {selectedRow.scannedAt
-                        ? formatDate(selectedRow.scannedAt)
+                        ? relativeTime(selectedRow.scannedAt, t)
                         : t("emulators.neverScanned")}
                     </span>
                   </div>
+                  <div className="emu-detail-meta-row">
+                    <span className="emu-detail-meta-label">
+                      {t("emulators.argumentsTemplate")}
+                    </span>
+                    <span className="emu-detail-meta-value emu-mono">
+                      {selectedRow.emulator?.argumentsTemplate
+                        ? selectedRow.emulator.argumentsTemplate
+                        : "—"}
+                    </span>
+                  </div>
                 </div>
+
+                {selectedRow.emulator?.notes && (
+                  <p className="emu-detail-notes">
+                    {selectedRow.emulator.notes}
+                  </p>
+                )}
 
                 <div className="emu-detail-actions">
                   <button
@@ -907,7 +1030,33 @@ export default function EmulatorsPage() {
                     )}
                   </div>
 
-                  {selectedGames.length === 0 ? (
+                   {selectedGameIds.size > 0 && (
+                     <div className="emu-games-bulkbar">
+                       <span className="emu-games-bulkcount">
+                         {t("emulators.games.selected", { count: selectedGameIds.size })}
+                       </span>
+                       <button className="btn-ghost btn-sm" onClick={handleBulkLaunch}>
+                         ▶ {t("emulators.games.launch")}
+                       </button>
+                       <button className="btn-ghost btn-sm" onClick={handleBulkOpen}>
+                         {t("emulators.games.openLocation")}
+                       </button>
+                       <button
+                         className="btn-danger btn-sm"
+                         onClick={() => setConfirmBulkDelete(true)}
+                       >
+                         {t("emulators.games.deleteRom")}
+                       </button>
+                       <button
+                         className="btn-ghost btn-sm"
+                         onClick={() => setSelectedGameIds(new Set())}
+                       >
+                         {t("common.cancel")}
+                       </button>
+                     </div>
+                   )}
+
+                   {selectedGames.length === 0 ? (
                     <div className="emu-games-empty">
                       <p>{t("emulators.detail.emptyGames")}</p>
                       <p className="emu-games-empty-hint">
@@ -916,37 +1065,71 @@ export default function EmulatorsPage() {
                     </div>
                   ) : (
                     <div className="emu-games-table">
-                      <div className="emu-game-row emu-game-row-head">
-                        <span className="emu-game-icon" />
-                        <span className="emu-game-main">
-                          {t("emulators.name")}
-                        </span>
-                        <span className="emu-game-size">{t("emulators.games.size")}</span>
-                        <span className="emu-game-actions" />
-                        <span className="emu-game-launch" />
-                      </div>
+                       <div className="emu-game-row emu-game-row-head">
+                         <span className="emu-game-check">
+                           <input
+                             type="checkbox"
+                             checked={
+                               selectedGames.length > 0 &&
+                               selectedGameIds.size === selectedGames.length
+                             }
+                             ref={(el) => {
+                               if (el)
+                                 el.indeterminate =
+                                   selectedGameIds.size > 0 &&
+                                   selectedGameIds.size < selectedGames.length;
+                             }}
+                             onChange={toggleSelectAll}
+                             aria-label={t("emulators.games.selectAll")}
+                           />
+                         </span>
+                         <span className="emu-game-icon" />
+                         <span className="emu-game-main">
+                           {t("emulators.name")}
+                         </span>
+                         <span className="emu-game-size">{t("emulators.games.size")}</span>
+                         <span className="emu-game-actions" />
+                         <span className="emu-game-launch" />
+                       </div>
                       {selectedGames.map((g) => {
                         const running = runningGameIds.includes(g.id);
                         return (
-                          <div className="emu-game-row" key={g.id}>
-                            <span className="emu-game-icon">
-                              {g.iconUrl || g.coverArtUrl ? (
-                                <img src={g.iconUrl ?? g.coverArtUrl} alt="" />
-                              ) : (
-                                <span className="emu-game-icon-fallback">🎮</span>
-                              )}
-                            </span>
-                            <span className="emu-game-main">
-                              <span className="emu-game-name" title={g.name}>
-                                {g.name}
-                              </span>
-                              <span className="emu-game-path" title={g.romPath}>
-                                {g.romPath ? truncateMiddle(g.romPath, 60) : t("emulators.games.noRomPath")}
-                              </span>
-                            </span>
-                            <span className="emu-game-size">
-                              {g.sizeBytes ? formatBytesShort(g.sizeBytes) : "—"}
-                            </span>
+                           <div className="emu-game-row" key={g.id}>
+                             <span className="emu-game-check">
+                               <input
+                                 type="checkbox"
+                                 checked={selectedGameIds.has(g.id)}
+                                 onChange={() => toggleGameSelected(g.id)}
+                                 aria-label={t("emulators.games.selectOne", { name: g.name })}
+                               />
+                             </span>
+                             <span className="emu-game-icon">
+                               {g.iconUrl || g.coverArtUrl ? (
+                                 <img src={g.iconUrl ?? g.coverArtUrl} alt="" />
+                               ) : (
+                                 <span className="emu-game-icon-fallback">🎮</span>
+                               )}
+                             </span>
+                             <span className="emu-game-main">
+                               <span className="emu-game-name" title={g.name}>
+                                 {g.name}
+                               </span>
+                               <span className="emu-game-path" title={g.romPath}>
+                                 {g.romPath ? truncateMiddle(g.romPath, 60) : t("emulators.games.noRomPath")}
+                               </span>
+                             </span>
+                             <span className="emu-game-size">
+                               {g.sizeBytes ? formatBytesShort(g.sizeBytes) : "—"}
+                               {g.modsSizeBytes ? (
+                                 <span
+                                   className="emu-game-mods"
+                                   title={t("emulators.games.hasMods")}
+                                 >
+                                   {" +"}
+                                   {formatBytesShort(g.modsSizeBytes)}
+                                 </span>
+                               ) : null}
+                             </span>
                             <span className="emu-game-actions">
                               <button
                                 className="btn-ghost btn-sm"
@@ -1090,6 +1273,29 @@ export default function EmulatorsPage() {
                 {t("common.cancel")}
               </button>
               <button className="btn-danger" onClick={handleDeleteRom}>
+                {t("emulators.games.deleteRom")}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {confirmBulkDelete && (
+        <div className="modal-overlay" onMouseDown={() => setConfirmBulkDelete(false)}>
+          <div className="modal confirm-modal" onMouseDown={(e) => e.stopPropagation()} role="alertdialog">
+            <div className="modal-header">
+              <h2>{t("emulators.games.deleteRom")}?</h2>
+            </div>
+            <div className="modal-body">
+              <p>
+                {t("emulators.games.bulkDeleteConfirm", { count: selectedGameIds.size })}
+              </p>
+            </div>
+            <div className="modal-footer">
+              <button className="btn-ghost" onClick={() => setConfirmBulkDelete(false)}>
+                {t("common.cancel")}
+              </button>
+              <button className="btn-danger" onClick={handleBulkDelete}>
                 {t("emulators.games.deleteRom")}
               </button>
             </div>

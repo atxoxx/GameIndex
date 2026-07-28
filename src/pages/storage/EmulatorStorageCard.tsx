@@ -8,7 +8,7 @@ import { gameTotalBytes } from "./utils";
 import { useSizeUnit } from "../../hooks/useSizeUnit";
 import { useToast } from "../../context/ToastContext";
 import { useLanguage } from "../../context/LanguageContext";
-import { accentForPlatform } from "../../types/emulator";
+import { accentForPlatform, KNOWN_EMULATORS } from "../../types/emulator";
 import { Button } from "../../components/ui";
 
 interface Props {
@@ -44,6 +44,7 @@ export function EmulatorStorageCard({
   const romBytes = roms.reduce((s, g) => s + gameTotalBytes(g), 0);
   const globalBytes = (installBytes ?? 0) + romBytes;
   const accent = accentForPlatform(emulator.platform);
+  const known = KNOWN_EMULATORS.find((k) => k.name === emulator.name);
 
   async function openInstallFolder() {
     if (!emulator.executablePath) return;
@@ -66,13 +67,13 @@ export function EmulatorStorageCard({
           onClick={() => setExpanded((v) => !v)}
           aria-expanded={expanded}
         >
-          <span className="emu-storage-card-glyph" aria-hidden="true">
-            {emulator.iconUrl ? (
-              <img src={emulator.iconUrl} alt="" />
-            ) : (
-              <span className="emu-glyph-fallback">{emulator.name.charAt(0)}</span>
-            )}
-          </span>
+           <span className="emu-storage-card-glyph" aria-hidden="true">
+             {known?.logo || emulator.iconUrl ? (
+               <img src={known?.logo ?? emulator.iconUrl} alt="" />
+             ) : (
+               <span className="emu-glyph-fallback">{emulator.name.charAt(0)}</span>
+             )}
+           </span>
           <span className="emu-storage-card-meta">
             <span className="emu-storage-card-name">{emulator.name}</span>
             <span className="emu-storage-card-platform">{emulator.platform}</span>
@@ -94,6 +95,15 @@ export function EmulatorStorageCard({
         </div>
 
         <div className="emu-storage-card-actions">
+          <span
+            className={`emu-storage-card-badge ${
+              emulator.executablePath ? "is-configured" : "is-notconfigured"
+            }`}
+          >
+            {emulator.executablePath
+              ? t("emulators.status.configured")
+              : t("emulators.status.notConfigured")}
+          </span>
           {installBytes == null ? (
             <Button
               variant="secondary"

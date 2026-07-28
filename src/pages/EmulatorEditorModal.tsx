@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { open } from "@tauri-apps/plugin-dialog";
+import { openPath } from "@tauri-apps/plugin-opener";
 import { invoke } from "@tauri-apps/api/core";
 import { useLanguage } from "../context/LanguageContext";
 import { useToast } from "../context/ToastContext";
@@ -79,7 +80,20 @@ export default function EmulatorEditorModal({ emulator, presetKnown, onClose, on
         title: t("emulators.browseExe"),
         filters: [{ name: "Executable", extensions: ["exe", "app", "sh", "AppImage"] }],
       });
-      if (typeof p === "string") setExecutablePath(p);
+      if (typeof p !== "string") return;
+      setExecutablePath(p);
+      // Auto-suggest a known emulator when the picked file matches one by
+      // executable name (e.g. picking "dolphin.exe" fills name/platform).
+      if (!name.trim()) {
+        const base = p.split(/[\\/]/).pop()?.toLowerCase() ?? "";
+        const hit = KNOWN_EMULATORS.find((k) => k.executableName.toLowerCase() === base);
+        if (hit) {
+          setKnownKey(hit.key);
+          setName(hit.name);
+          setPlatform(hit.platform);
+          setArgumentsTemplate(hit.argumentsTemplate);
+        }
+      }
     } catch (err) {
       console.error(err);
     }
@@ -91,6 +105,18 @@ export default function EmulatorEditorModal({ emulator, presetKnown, onClose, on
       if (typeof p === "string") setRomFolder(p);
     } catch (err) {
       console.error(err);
+    }
+  }
+
+  async function testLaunch() {
+    if (!executablePath.trim()) {
+      showToast(t("emulators.launcherNotSet"), "error");
+      return;
+    }
+    try {
+      await openPath(executablePath.trim());
+    } catch (err) {
+      showToast(String(err), "error");
     }
   }
 
@@ -181,6 +207,13 @@ export default function EmulatorEditorModal({ emulator, presetKnown, onClose, on
             <p className="emulators-known-hint">{selectedKnown.description}</p>
           )}
 
+          {selectedKnown?.logo && (
+            <div className="emulators-known-logo">
+              <img src={selectedKnown.logo} alt="" />
+              <span>{selectedKnown.name}</span>
+            </div>
+          )}
+
           <div className="emulators-field-row">
             <label className="emulators-field">
               <span>{t("emulators.name")}</span>
@@ -248,6 +281,14 @@ export default function EmulatorEditorModal({ emulator, presetKnown, onClose, on
         <div className="modal-footer">
           <button className="btn-ghost" onClick={onClose}>
             {t("common.cancel")}
+          </button>
+          <button
+            className="btn-ghost"
+            onClick={testLaunch}
+            disabled={!executablePath.trim()}
+            title={t("emulators.editor.testLaunch")}
+          >
+            {t("emulators.editor.testLaunch")}
           </button>
           <button className="btn-primary" onClick={handleSave} disabled={saving}>
             {saving ? t("common.loading") : t("emulators.editor.save")}

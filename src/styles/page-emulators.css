@@ -914,6 +914,23 @@
   position: relative;
   overflow: hidden;
   transition: border-color 0.15s, transform 0.15s;
+  text-align: left;
+  font: inherit;
+  color: inherit;
+  cursor: default;
+}
+
+.emu-stat.is-clickable {
+  cursor: pointer;
+}
+
+.emu-stat.is-clickable:hover {
+  border-color: var(--color-accent);
+  transform: translateY(-1px);
+}
+
+.emu-stat.is-active {
+  border-color: var(--color-accent);
 }
 
 .emu-stat:hover {
@@ -1119,4 +1136,168 @@
   .emulators-stats {
     grid-template-columns: repeat(2, 1fr);
   }
+}
+
+/* ── Detail: notes + monospace args ─────────────────────────────── */
+
+.emu-detail-notes {
+  margin: 14px 0 0;
+  padding: 12px 14px;
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--color-text-secondary, #8b8fa3);
+  background: var(--color-bg-primary);
+  border: 1px solid var(--color-border);
+  border-radius: 10px;
+  white-space: pre-wrap;
+}
+
+.emu-mono {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 12px;
+}
+
+/* ── ROM table: checkboxes, mods badge, bulk bar ────────────────── */
+
+.emu-game-check {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: 26px;
+}
+
+.emu-game-check input[type="checkbox"] {
+  width: 16px;
+  height: 16px;
+  accent-color: var(--color-accent);
+  cursor: pointer;
+}
+
+.emu-game-mods {
+  margin-left: 6px;
+  color: var(--color-accent);
+  font-weight: 600;
+}
+
+.emu-games-bulkbar {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding: 10px 12px;
+  margin-bottom: 12px;
+  background: var(--color-accent-soft);
+  border: 1px solid var(--color-accent);
+  border-radius: 10px;
+}
+
+.emu-games-bulkcount {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--color-text-primary);
+  margin-right: auto;
+}
+
+/* ── Loading skeletons ──────────────────────────────────────────── */
+
+.emulators-loading {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.emulators-skeleton-stats {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 12px;
+}
+
+.emu-skeleton {
+  border-radius: 12px;
+  background: linear-gradient(
+    100deg,
+    var(--color-surface) 30%,
+    var(--color-bg-hover) 50%,
+    var(--color-surface) 70%
+  );
+  background-size: 200% 100%;
+  animation: emu-skeleton-shimmer 1.3s ease-in-out infinite;
+}
+
+.emu-skeleton-stat {
+  height: 64px;
+}
+
+.emu-skeleton-list {
+  height: calc(100vh - 280px);
+  min-height: 320px;
+}
+
+.emu-skeleton-detail {
+  height: calc(100vh - 280px);
+  min-height: 320px;
+}
+
+@keyframes emu-skeleton-shimmer {
+  0% { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}
+
+@media (max-width: 900px) {
+  .emulators-skeleton-stats {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+/* ── Editor: known logo preview ─────────────────────────────────── */
+
+.emulators-known-logo {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  background: var(--color-bg-primary);
+  border: 1px solid var(--color-border);
+  border-radius: 10px;
+}
+
+.emulators-known-logo img {
+  width: 32px;
+  height: 32px;
+  object-fit: contain;
+  padding: 3px;
+  background: rgba(0, 0, 0, 0.32);
+  border-radius: 8px;
+}
+
+.emulators-known-logo span {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--color-text-primary);
+}
+
+/* ── Storage card: status badge ─────────────────────────────────── */
+
+.emu-storage-card-badge {
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  padding: 2px 7px;
+  border-radius: 5px;
+  border: 1px solid transparent;
+  white-space: nowrap;
+}
+
+.emu-storage-card-badge.is-configured {
+  color: #4ade80;
+  border-color: rgba(74, 222, 128, 0.4);
+  background: rgba(74, 222, 128, 0.1);
+}
+
+.emu-storage-card-badge.is-notconfigured {
+  color: #f59e0b;
+  border-color: rgba(245, 158, 11, 0.4);
+  background: rgba(245, 158, 11, 0.1);
 }
