@@ -1,11 +1,8 @@
 // Dual-pane mod manager (Vortex/MO2-inspired), shared by the game
 // page "Mods" tab and the main Mods page.
 //
-// Left pane  — load-order list: enable checkboxes, drag-to-reorder
-//              (when the engine supports write-back), engine chips,
-//              update/conflict badges.
-// Right pane — detail of the selected mod: metadata grid, Nexus
-//              linkage, file listing, conflicts, actions.
+// Modernized UI: Glassmorphism, KPI Hero Stats, Quick Filter Tabs, Custom Toggle Switches,
+// Inline SVG icons, Interactive File Inspector & Conflict Visualizer.
 
 import {
   useCallback,
@@ -44,6 +41,8 @@ function EngineChip({ engine }: { engine: ModEngine | string }) {
   return <span className={`mods-engine-chip mods-engine-${engine}`}>{label}</span>;
 }
 
+type FilterTab = "all" | "enabled" | "disabled" | "updates" | "conflicts";
+
 export default function ModManager({
   game,
   onChanged,
@@ -78,12 +77,15 @@ export default function ModManager({
   } = useGameMods(game);
 
   const [search, setSearch] = useState("");
+  const [filterTab, setFilterTab] = useState<FilterTab>("all");
   const [modSort, setModSort] = useState<"order" | "name" | "size:desc" | "size:asc">("order");
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<GameMod | null>(null);
   const [deleting, setDeleting] = useState(false);
   const [files, setFiles] = useState<string[] | null>(null);
+  const [fileSearch, setFileSearch] = useState("");
   const [showFiles, setShowFiles] = useState(false);
+  const [copiedPath, setCopiedPath] = useState(false);
   const [nexusOpen, setNexusOpen] = useState(false);
   const [nexusKey, setNexusKey] = useState("");
   const [nexusStatus, setNexusStatus] = useState<NexusStatus | null>(null);
@@ -93,24 +95,68 @@ export default function ModManager({
 
   const mods = payload?.mods ?? [];
   const enabledCount = mods.filter((m) => m.enabled).length;
+  const disabledCount = mods.length - enabledCount;
   const updateCount = mods.filter((m) => m.updateAvailable).length;
   const supportsReorder = payload?.supportsReorder ?? false;
   const totalModsBytes = mods.reduce((sum, m) => sum + (m.sizeBytes ?? 0), 0);
 
-  const filtered = useMemo(() => {
-    const q = search.trim().toLowerCase();
-    if (!q) return mods;
-    return mods.filter(
-      (m) =>
-        m.name.toLowerCase().includes(q) ||
-        (m.author ?? "").toLowerCase().includes(q) ||
-        m.engine.toLowerCase().includes(q)
-    );
-  }, [mods, search]);
+  const conflictsByMod = useMemo(() => {
+    const map = new Map<string, ModConflict[]>();
+    for (const c of conflicts) {
+      for (const id of c.modIds) {
+        const list = map.get(id) ?? [];
+        list.push(c);
+        map.set(id, list);
+      }
+    }
+    return map;
+  }, [conflicts]);
 
-  // Sort the visible list (independently of the search filter). The
-  // default "order" keeps the engine load order; the other options let
-  // the user rank mods by name or on-disk size.
+  const conflictCount = useMemo(() => {
+    const conflictingModIds = new Set<string>();
+    for (const c of conflicts) {
+      for (const id of c.modIds) conflictingModIds.add(id);
+    }
+    return conflictingModIds.size;
+  }, [conflicts]);
+
+  const filtered = useMemo(() => {
+    let result = mods;
+
+    // Apply Tab Filter
+    switch (filterTab) {
+      case "enabled":
+        result = result.filter((m) => m.enabled);
+        break;
+      case "disabled":
+        result = result.filter((m) => !m.enabled);
+        break;
+      case "updates":
+        result = result.filter((m) => m.updateAvailable);
+        break;
+      case "conflicts":
+        result = result.filter((m) => conflictsByMod.has(m.id));
+        break;
+      case "all":
+      default:
+        break;
+    }
+
+    // Apply Search
+    const q = search.trim().toLowerCase();
+    if (q) {
+      result = result.filter(
+        (m) =>
+          m.name.toLowerCase().includes(q) ||
+          (m.author ?? "").toLowerCase().includes(q) ||
+          m.engine.toLowerCase().includes(q)
+      );
+    }
+
+    return result;
+  }, [mods, filterTab, search, conflictsByMod]);
+
+  // Sort the visible list
   const sortedMods = useMemo(() => {
     const list = [...filtered];
     switch (modSort) {
@@ -130,23 +176,9 @@ export default function ModManager({
     return list;
   }, [filtered, modSort]);
 
-  const conflictsByMod = useMemo(() => {
-    const map = new Map<string, ModConflict[]>();
-    for (const c of conflicts) {
-      for (const id of c.modIds) {
-        const list = map.get(id) ?? [];
-        list.push(c);
-        map.set(id, list);
-      }
-    }
-    return map;
-  }, [conflicts]);
-
   const selected = mods.find((m) => m.id === selectedId) ?? null;
 
-  // Persist the total mods footprint to the game record whenever the
-  // scan/load payload changes. The Storage tab reads `game.modsSizeBytes`
-  // from here rather than re-measuring the mods folder itself.
+  // Persist total footprint
   const onModsSizedRef = useRef(onModsSized);
   onModsSizedRef.current = onModsSized;
   useEffect(() => {
@@ -160,20 +192,24 @@ export default function ModManager({
     onModsSizedRef.current({ totalBytes: total, folder });
   }, [payload]);
 
-  // Keep a sane selection when the list changes.
+  // Keep selection sane
   useEffect(() => {
     if (selectedId && !mods.some((m) => m.id === selectedId)) {
+      setSelectedId(mods[0]?.id ?? null);
+    } else if (!selectedId && mods.length > 0) {
       setSelectedId(mods[0]?.id ?? null);
     }
   }, [mods, selectedId]);
 
-  // Reset the file listing when the selection changes.
+  // Reset file listing when selected changes
   useEffect(() => {
     setFiles(null);
+    setFileSearch("");
     setShowFiles(false);
+    setCopiedPath(false);
   }, [selectedId]);
 
-  // Sync the Nexus-domain draft with the loaded settings.
+  // Sync Nexus-domain draft
   useEffect(() => {
     setDomainDraft(payload?.settings?.nexusDomain ?? "");
   }, [payload?.settings?.nexusDomain]);
@@ -244,8 +280,6 @@ export default function ModManager({
     invoke("open_folder", { path: target }).catch((e) => showToast(String(e), "error"));
   };
 
-  // Manually pick a mods folder (for games none of the engine
-  // detectors recognize). Saved as customRoot, then re-scanned.
   const handlePickFolder = async () => {
     try {
       const picked = await openDialog({
@@ -289,6 +323,16 @@ export default function ModManager({
     }
   };
 
+  const handleCopyPath = (path: string) => {
+    navigator.clipboard.writeText(path).then(() => {
+      setCopiedPath(true);
+      showToast(t("mods.pathCopied"), "info");
+      setTimeout(() => setCopiedPath(false), 2500);
+    }).catch(() => {
+      showToast("Failed to copy path", "error");
+    });
+  };
+
   const loadFiles = async (mod: GameMod) => {
     if (showFiles) {
       setShowFiles(false);
@@ -304,8 +348,8 @@ export default function ModManager({
     }
   };
 
-  // ── Drag & drop reorder (only meaningful in load-order view) ─────
-  const dragEnabled = supportsReorder && search.trim() === "" && modSort === "order";
+  // Drag & Drop reordering
+  const dragEnabled = supportsReorder && search.trim() === "" && filterTab === "all" && modSort === "order";
 
   const handleDrop = async (targetId: string) => {
     const sourceId = dragId.current;
@@ -336,95 +380,263 @@ export default function ModManager({
     [mods]
   );
 
+  const filteredFiles = useMemo(() => {
+    if (!files) return [];
+    const q = fileSearch.trim().toLowerCase();
+    if (!q) return files;
+    return files.filter((f) => f.toLowerCase().includes(q));
+  }, [files, fileSearch]);
+
   return (
     <div className="mods-manager">
-      {/* ── Toolbar ─────────────────────────────────────────────── */}
-      <div className="mods-toolbar">
-        <div className="mods-toolbar-info">
-          {(payload?.engines ?? []).map((e) => (
-            <EngineChip key={e} engine={e} />
-          ))}
-          <span className="mods-count">
-            {t("mods.enabledCount", {
-              enabled: String(enabledCount),
-              total: String(mods.length),
-            })}
-          </span>
-          <span className="mods-total-size" title={t("mods.totalSize")}>
-            {t("mods.totalSize", { size: formatModSize(totalModsBytes) })}
-          </span>
-          {updateCount > 0 && (
-            <span className="mods-update-pill">
-              {t("mods.updatesAvailable", { count: String(updateCount) })}
+      {/* ── KPI Hero Stats Bar ──────────────────────────────────── */}
+      {mods.length > 0 && (
+        <div className="mods-stats-bar">
+          <div className="mods-stat-card">
+            <span className="mods-stat-card-label">
+              <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path>
+                <polyline points="3.27 6.96 12 12.01 20.73 6.96"></polyline>
+                <line x1="12" y1="22.08" x2="12" y2="12"></line>
+              </svg>
+              {t("mods.stats.total")}
             </span>
+            <span className="mods-stat-card-value">{mods.length}</span>
+          </div>
+
+          <div className="mods-stat-card accent-active">
+            <span className="mods-stat-card-label">
+              <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                <polyline points="20 6 9 17 4 12"></polyline>
+              </svg>
+              {t("mods.stats.active")}
+            </span>
+            <span className="mods-stat-card-value">
+              {enabledCount}
+              <span className="mods-stat-card-sub">/ {mods.length}</span>
+            </span>
+          </div>
+
+          <div className={`mods-stat-card ${updateCount > 0 ? "accent-update" : ""}`}>
+            <span className="mods-stat-card-label">
+              <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                <polyline points="18 15 12 9 6 15"></polyline>
+              </svg>
+              {t("mods.stats.updates")}
+            </span>
+            <span className="mods-stat-card-value">{updateCount}</span>
+          </div>
+
+          <div className="mods-stat-card">
+            <span className="mods-stat-card-label">
+              <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                <polyline points="7 10 12 15 17 10"></polyline>
+                <line x1="12" y1="15" x2="12" y2="3"></line>
+              </svg>
+              {t("mods.stats.storage")}
+            </span>
+            <span className="mods-stat-card-value" style={{ fontSize: "16px" }}>
+              {formatModSize(totalModsBytes)}
+            </span>
+          </div>
+
+          {conflictCount > 0 && (
+            <div className="mods-stat-card accent-conflict">
+              <span className="mods-stat-card-label">
+                <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path>
+                  <line x1="12" y1="9" x2="12" y2="13"></line>
+                  <line x1="12" y1="17" x2="12.01" y2="17"></line>
+                </svg>
+                {t("mods.stats.conflicts")}
+              </span>
+              <span className="mods-stat-card-value">{conflictCount}</span>
+            </div>
           )}
         </div>
-        <div className="mods-toolbar-actions">
-          <input
-            type="text"
-            className="mods-search"
-            placeholder={t("mods.searchPlaceholder")}
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-          />
-          <select
-            className="mods-sort"
-            value={modSort}
-            onChange={(e) => setModSort(e.target.value as typeof modSort)}
-            title={t("mods.sortBy")}
-          >
-            <option value="order">{t("mods.sort.order")}</option>
-            <option value="name">{t("mods.sort.name")}</option>
-            <option value="size:desc">{t("mods.sort.sizeDesc")}</option>
-            <option value="size:asc">{t("mods.sort.sizeAsc")}</option>
-          </select>
-          <Button variant="secondary" size="sm" onClick={handleScan} isLoading={scanning}>
-            {scanning ? t("mods.scanning") : mods.length > 0 ? t("mods.rescan") : t("mods.scan")}
-          </Button>
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={handleCheckUpdates}
-            isLoading={checkingUpdates}
-            title={t("mods.checkUpdates")}
-          >
-            {checkingUpdates ? t("mods.checkingUpdates") : t("mods.checkUpdates")}
-          </Button>
-          {payload?.settings?.modsRoot && (
-            <Button variant="ghost" size="sm" onClick={() => handleOpenFolder()}>
-              {t("mods.openFolder")}
+      )}
+
+      {/* ── Toolbar Container ───────────────────────────────────── */}
+      <div className="mods-toolbar-container">
+        <div className="mods-toolbar-top">
+          {/* Quick Filter Tabs */}
+          <div className="mods-quick-filters">
+            <button
+              type="button"
+              className={`mods-filter-btn ${filterTab === "all" ? "active" : ""}`}
+              onClick={() => setFilterTab("all")}
+            >
+              {t("mods.filter.all")}
+              <span className="mods-filter-badge">{mods.length}</span>
+            </button>
+            <button
+              type="button"
+              className={`mods-filter-btn ${filterTab === "enabled" ? "active" : ""}`}
+              onClick={() => setFilterTab("enabled")}
+            >
+              {t("mods.filter.enabled")}
+              <span className="mods-filter-badge">{enabledCount}</span>
+            </button>
+            <button
+              type="button"
+              className={`mods-filter-btn ${filterTab === "disabled" ? "active" : ""}`}
+              onClick={() => setFilterTab("disabled")}
+            >
+              {t("mods.filter.disabled")}
+              <span className="mods-filter-badge">{disabledCount}</span>
+            </button>
+            {updateCount > 0 && (
+              <button
+                type="button"
+                className={`mods-filter-btn ${filterTab === "updates" ? "active" : ""}`}
+                onClick={() => setFilterTab("updates")}
+              >
+                {t("mods.filter.updates")}
+                <span className="mods-filter-badge">{updateCount}</span>
+              </button>
+            )}
+            {conflictCount > 0 && (
+              <button
+                type="button"
+                className={`mods-filter-btn ${filterTab === "conflicts" ? "active" : ""}`}
+                onClick={() => setFilterTab("conflicts")}
+              >
+                {t("mods.filter.conflicts")}
+                <span className="mods-filter-badge">{conflictCount}</span>
+              </button>
+            )}
+          </div>
+
+          <div className="mods-toolbar-actions">
+            {/* Search Input */}
+            <div className="mods-search-input-wrapper" style={{ width: "220px" }}>
+              <svg className="mods-search-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <circle cx="11" cy="11" r="8"></circle>
+                <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+              </svg>
+              <input
+                type="text"
+                placeholder={t("mods.searchPlaceholder")}
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+              />
+              {search && (
+                <button
+                  type="button"
+                  className="mods-search-clear"
+                  onClick={() => setSearch("")}
+                  title="Clear search"
+                >
+                  <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <line x1="18" y1="6" x2="6" y2="18"></line>
+                    <line x1="6" y1="6" x2="18" y2="18"></line>
+                  </svg>
+                </button>
+              )}
+            </div>
+
+            {/* Sort Select */}
+            <select
+              className="mods-sort-select"
+              value={modSort}
+              onChange={(e) => setModSort(e.target.value as typeof modSort)}
+              title={t("mods.sortBy")}
+            >
+              <option value="order">{t("mods.sort.order")}</option>
+              <option value="name">{t("mods.sort.name")}</option>
+              <option value="size:desc">{t("mods.sort.sizeDesc")}</option>
+              <option value="size:asc">{t("mods.sort.sizeAsc")}</option>
+            </select>
+
+            {/* Scan Button */}
+            <Button variant="secondary" size="sm" onClick={handleScan} isLoading={scanning}>
+              <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ marginRight: "4px" }}>
+                <polyline points="23 4 23 10 17 10"></polyline>
+                <path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"></path>
+              </svg>
+              {scanning ? t("mods.scanning") : mods.length > 0 ? t("mods.rescan") : t("mods.scan")}
             </Button>
-          )}
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={() => void handlePickFolder()}
-            title={payload?.settings?.customRoot ?? undefined}
-          >
-            {t("mods.setFolder")}
-          </Button>
-          <Button
-            variant="ghost"
-            size="sm"
-            active={nexusOpen}
-            onClick={() => setNexusOpen((v) => !v)}
-          >
-            {t("mods.nexus")}
-          </Button>
+
+            {/* Check Updates Button */}
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={handleCheckUpdates}
+              isLoading={checkingUpdates}
+              title={t("mods.checkUpdates")}
+            >
+              <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ marginRight: "4px" }}>
+                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                <polyline points="17 8 12 3 7 8"></polyline>
+                <line x1="12" y1="3" x2="12" y2="15"></line>
+              </svg>
+              {checkingUpdates ? t("mods.checkingUpdates") : t("mods.checkUpdates")}
+            </Button>
+
+            {/* Open Folder */}
+            {payload?.settings?.modsRoot && (
+              <Button variant="ghost" size="sm" onClick={() => handleOpenFolder()}>
+                <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ marginRight: "4px" }}>
+                  <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path>
+                </svg>
+                {t("mods.openFolder")}
+              </Button>
+            )}
+
+            {/* Set Custom Folder */}
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => void handlePickFolder()}
+              title={payload?.settings?.customRoot ?? undefined}
+            >
+              <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ marginRight: "4px" }}>
+                <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path>
+                <line x1="12" y1="11" x2="12" y2="17"></line>
+                <line x1="9" y1="14" x2="15" y2="14"></line>
+              </svg>
+              {t("mods.setFolder")}
+            </Button>
+
+            {/* Nexus Integration Drawer Toggle */}
+            <Button
+              variant="ghost"
+              size="sm"
+              active={nexusOpen}
+              onClick={() => setNexusOpen((v) => !v)}
+            >
+              <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ marginRight: "4px" }}>
+                <circle cx="12" cy="12" r="10"></circle>
+                <line x1="2" y1="12" x2="22" y2="12"></line>
+                <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"></path>
+              </svg>
+              {t("mods.nexus")}
+            </Button>
+          </div>
         </div>
       </div>
 
-      {/* ── Nexus settings panel ────────────────────────────────── */}
+      {/* ── Nexus Settings Panel Drawer ─────────────────────────── */}
       {nexusOpen && (
         <div className="mods-nexus-panel">
           <div className="mods-nexus-status">
             {nexusStatus?.connected ? (
               <span className="mods-nexus-connected">
+                <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path>
+                  <polyline points="22 4 12 14.01 9 11.01"></polyline>
+                </svg>
                 {t("mods.nexusConnected", { name: nexusStatus.userName ?? "?" })}
                 {nexusStatus.isPremium ? ` · ${t("mods.nexusPremium")}` : ""}
               </span>
             ) : (
               <span className="mods-nexus-disconnected">
+                <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <circle cx="12" cy="12" r="10"></circle>
+                  <line x1="12" y1="8" x2="12" y2="12"></line>
+                  <line x1="12" y1="16" x2="12.01" y2="16"></line>
+                </svg>
                 {t("mods.nexusNotConnected")}
                 {nexusStatus?.error ? ` (${nexusStatus.error})` : ""}
               </span>
@@ -459,9 +671,18 @@ export default function ModManager({
         </div>
       )}
 
-      {error && <div className="mods-error">{error}</div>}
+      {error && (
+        <div className="mods-error">
+          <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <circle cx="12" cy="12" r="10"></circle>
+            <line x1="12" y1="8" x2="12" y2="12"></line>
+            <line x1="12" y1="16" x2="12.01" y2="16"></line>
+          </svg>
+          {error}
+        </div>
+      )}
 
-      {/* ── Empty / loading states ──────────────────────────────── */}
+      {/* ── Empty / Loading / Dual-Pane Layout ──────────────────── */}
       {mods.length === 0 ? (
         <div className="mods-empty">
           <div className="mods-empty-glyph">🧩</div>
@@ -476,12 +697,35 @@ export default function ModManager({
             </Button>
           </div>
         </div>
+      ) : sortedMods.length === 0 ? (
+        <div className="mods-empty" style={{ padding: "48px 24px" }}>
+          <div className="mods-empty-glyph">🔍</div>
+          <h3>{t("mods.noModsMatch")}</h3>
+          <p>{t("mods.searchPlaceholder")}</p>
+          <div className="mods-empty-actions">
+            <Button
+              variant="secondary"
+              size="sm"
+              onClick={() => {
+                setSearch("");
+                setFilterTab("all");
+              }}
+            >
+              {t("mods.clearFilter")}
+            </Button>
+          </div>
+        </div>
       ) : (
         <div className="mods-split">
-          {/* ── Left pane: load order list ─────────────────────── */}
+          {/* ── Left Pane: Load Order List ─────────────────────── */}
           <div className="mods-list-pane">
             <div className="mods-list-header">
-              <span>{t("mods.loadOrder")}</span>
+              <div className="mods-list-header-title">
+                <span>{t("mods.loadOrder")}</span>
+                {(payload?.engines ?? []).map((e) => (
+                  <EngineChip key={e} engine={e} />
+                ))}
+              </div>
               <span className="mods-list-header-hint">
                 {supportsReorder ? t("mods.loadOrderHint") : t("mods.loadOrderReadOnly")}
               </span>
@@ -518,35 +762,49 @@ export default function ModManager({
                     }}
                   >
                     {dragEnabled && (
-                      <span className="mods-drag-handle" aria-hidden>
-                        ⋮⋮
+                      <span className="mods-drag-handle" aria-hidden title="Drag to reorder">
+                        <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                          <circle cx="9" cy="5" r="1"></circle>
+                          <circle cx="9" cy="12" r="1"></circle>
+                          <circle cx="9" cy="19" r="1"></circle>
+                          <circle cx="15" cy="5" r="1"></circle>
+                          <circle cx="15" cy="12" r="1"></circle>
+                          <circle cx="15" cy="19" r="1"></circle>
+                        </svg>
                       </span>
                     )}
-                    <span className="mods-order-num">{orderIndex + 1}</span>
-                    <input
-                      type="checkbox"
-                      className="mods-row-toggle"
-                      checked={mod.enabled}
-                      disabled={mod.engine === "workshop"}
-                      title={
-                        mod.engine === "workshop" ? t("mods.workshopManaged") : undefined
-                      }
+
+                    <span className="mods-order-num">#{orderIndex + 1}</span>
+
+                    {/* Cyber Switch Toggle */}
+                    <label
+                      className="mods-toggle-switch"
                       onClick={(e) => e.stopPropagation()}
-                      onChange={() => void handleToggle(mod)}
-                    />
+                      title={mod.engine === "workshop" ? t("mods.workshopManaged") : undefined}
+                    >
+                      <input
+                        type="checkbox"
+                        checked={mod.enabled}
+                        disabled={mod.engine === "workshop"}
+                        onChange={() => void handleToggle(mod)}
+                      />
+                      <span className="mods-toggle-slider" />
+                    </label>
+
                     <div className="mods-row-main">
-                      <span className="mods-row-name">{mod.name}</span>
+                      <span className="mods-row-name" title={mod.name}>{mod.name}</span>
                       {mod.version && (
                         <span className="mods-row-version">v{mod.version}</span>
                       )}
                     </div>
+
                     <div className="mods-row-badges">
                       {mod.updateAvailable && (
                         <span
                           className="mods-badge mods-badge-update"
                           title={t("mods.updateAvailable")}
                         >
-                          ↑
+                          ↑ Update
                         </span>
                       )}
                       {hasConflict && (
@@ -554,7 +812,7 @@ export default function ModManager({
                           className="mods-badge mods-badge-conflict"
                           title={t("mods.conflicts")}
                         >
-                          ⚠
+                          ⚠ Conflict
                         </span>
                       )}
                       <EngineChip engine={mod.engine} />
@@ -568,24 +826,27 @@ export default function ModManager({
             </div>
           </div>
 
-          {/* ── Right pane: mod detail ─────────────────────────── */}
+          {/* ── Right Pane: Mod Inspector Detail ───────────────── */}
           <div className="mods-detail-pane">
             {selected ? (
               <>
+                {/* Header & Quick Actions */}
                 <div className="mods-detail-header">
                   <div className="mods-detail-title">
                     <h3>{selected.name}</h3>
                     <span
                       className={`mods-state-pill ${selected.enabled ? "on" : "off"}`}
                     >
+                      <span style={{ width: "6px", height: "6px", borderRadius: "50%", background: "currentColor" }} />
                       {selected.enabled ? t("mods.enabled") : t("mods.disabled")}
                     </span>
                   </div>
+
                   <div className="mods-detail-actions">
                     {selected.engine !== "workshop" && (
                       <>
                         <Button
-                          variant="secondary"
+                          variant={selected.enabled ? "secondary" : "primary"}
                           size="sm"
                           onClick={() => void handleToggle(selected)}
                         >
@@ -596,10 +857,15 @@ export default function ModManager({
                           size="sm"
                           onClick={() => setDeleteTarget(selected)}
                         >
+                          <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ marginRight: "4px" }}>
+                            <polyline points="3 6 5 6 21 6"></polyline>
+                            <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+                          </svg>
                           {t("mods.delete")}
                         </Button>
                       </>
                     )}
+
                     <Button
                       variant="ghost"
                       size="sm"
@@ -611,110 +877,202 @@ export default function ModManager({
                         )
                       }
                     >
+                      <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ marginRight: "4px" }}>
+                        <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path>
+                        <polyline points="15 3 21 3 21 9"></polyline>
+                        <line x1="10" y1="14" x2="21" y2="3"></line>
+                      </svg>
                       {t("mods.openLocation")}
                     </Button>
                   </div>
                 </div>
 
                 {selected.engine === "workshop" && (
-                  <div className="mods-detail-note">{t("mods.workshopManaged")}</div>
+                  <div className="mods-nexus-hint" style={{ background: "rgba(102, 192, 244, 0.1)", padding: "8px 12px", borderRadius: "8px", color: "#66c0f4" }}>
+                    ℹ {t("mods.workshopManaged")}
+                  </div>
                 )}
 
+                {/* Grid KPI Stat Cards */}
                 <div className="mods-detail-grid">
-                  <div className="mods-detail-item">
-                    <span className="mods-detail-label">{t("mods.version")}</span>
-                    <span>{selected.version ?? "—"}</span>
+                  <div className="mods-detail-stat-card">
+                    <span className="mods-detail-stat-label">{t("mods.version")}</span>
+                    <span className="mods-detail-stat-val">{selected.version ?? "—"}</span>
                   </div>
-                  <div className="mods-detail-item">
-                    <span className="mods-detail-label">{t("mods.latestVersion")}</span>
-                    <span className={selected.updateAvailable ? "mods-text-update" : ""}>
+
+                  <div className="mods-detail-stat-card">
+                    <span className="mods-detail-stat-label">{t("mods.latestVersion")}</span>
+                    <span className={`mods-detail-stat-val ${selected.updateAvailable ? "mods-text-update" : ""}`}>
                       {selected.latestVersion ?? "—"}
                     </span>
                   </div>
-                  <div className="mods-detail-item">
-                    <span className="mods-detail-label">{t("mods.author")}</span>
-                    <span>{selected.author ?? "—"}</span>
+
+                  <div className="mods-detail-stat-card">
+                    <span className="mods-detail-stat-label">{t("mods.author")}</span>
+                    <span className="mods-detail-stat-val">{selected.author ?? "—"}</span>
                   </div>
-                  <div className="mods-detail-item">
-                    <span className="mods-detail-label">{t("mods.engine")}</span>
+
+                  <div className="mods-detail-stat-card">
+                    <span className="mods-detail-stat-label">{t("mods.engine")}</span>
                     <EngineChip engine={selected.engine} />
                   </div>
-                  <div className="mods-detail-item">
-                    <span className="mods-detail-label">{t("mods.kind")}</span>
-                    <span>{selected.kind}</span>
+
+                  <div className="mods-detail-stat-card">
+                    <span className="mods-detail-stat-label">{t("mods.kind")}</span>
+                    <span className="mods-detail-stat-val">{selected.kind}</span>
                   </div>
-                  <div className="mods-detail-item">
-                    <span className="mods-detail-label">{t("mods.order")}</span>
-                    <span>#{mods.indexOf(selected) + 1}</span>
+
+                  <div className="mods-detail-stat-card">
+                    <span className="mods-detail-stat-label">{t("mods.order")}</span>
+                    <span className="mods-detail-stat-val">#{mods.indexOf(selected) + 1}</span>
                   </div>
-                  <div className="mods-detail-item">
-                    <span className="mods-detail-label">{t("mods.size")}</span>
-                    <span>{formatModSize(selected.sizeBytes)}</span>
+
+                  <div className="mods-detail-stat-card">
+                    <span className="mods-detail-stat-label">{t("mods.size")}</span>
+                    <span className="mods-detail-stat-val">{formatModSize(selected.sizeBytes)}</span>
                   </div>
-                  <div className="mods-detail-item">
-                    <span className="mods-detail-label">{t("mods.files")}</span>
-                    <span>{selected.fileCount ?? "—"}</span>
+
+                  <div className="mods-detail-stat-card">
+                    <span className="mods-detail-stat-label">{t("mods.files")}</span>
+                    <span className="mods-detail-stat-val">{selected.fileCount ?? "—"}</span>
                   </div>
                 </div>
 
-                <div className="mods-detail-path" title={selected.path}>
-                  <span className="mods-detail-label">{t("mods.path")}</span>
-                  <code>{selected.path}</code>
+                {/* Path Bar with Copy Button */}
+                <div className="mods-detail-path-box">
+                  <div className="mods-detail-path-info">
+                    <span className="mods-detail-stat-label">{t("mods.path")}</span>
+                    <code>{selected.path}</code>
+                  </div>
+                  <button
+                    type="button"
+                    className={`mods-copy-btn ${copiedPath ? "copied" : ""}`}
+                    onClick={() => handleCopyPath(selected.path)}
+                    title={t("mods.copyPath")}
+                  >
+                    {copiedPath ? (
+                      <>
+                        <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                          <polyline points="20 6 9 17 4 12"></polyline>
+                        </svg>
+                        {t("mods.pathCopied")}
+                      </>
+                    ) : (
+                      <>
+                        <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                          <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+                          <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+                        </svg>
+                        {t("mods.copyPath")}
+                      </>
+                    )}
+                  </button>
                 </div>
 
+                {/* Nexus Direct Web Link Button */}
                 {nexusUrlFor(selected) && (
                   <button
                     type="button"
                     className="mods-nexus-link"
                     onClick={() => void openUrl(nexusUrlFor(selected)!)}
                   >
+                    <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <circle cx="12" cy="12" r="10"></circle>
+                      <line x1="2" y1="12" x2="22" y2="12"></line>
+                      <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"></path>
+                    </svg>
                     {t("mods.viewOnNexus")}
-                    {selected.updateAvailable
-                      ? ` · ${t("mods.updateAvailable")}`
-                      : ""}
+                    {selected.updateAvailable ? ` · ${t("mods.updateAvailable")}` : ""}
                   </button>
                 )}
 
-                {/* Conflicts involving this mod */}
+                {/* Conflict Visualizer Section */}
                 <div className="mods-detail-section">
-                  <h4>{t("mods.conflicts")}</h4>
+                  <div className="mods-detail-section-title">
+                    <span>{t("mods.conflicts")}</span>
+                    {selectedConflicts.length > 0 && (
+                      <span className="mods-badge mods-badge-conflict">
+                        {selectedConflicts.length}
+                      </span>
+                    )}
+                  </div>
                   {selectedConflicts.length === 0 ? (
-                    <p className="mods-detail-muted">{t("mods.noConflicts")}</p>
+                    <p className="mods-nexus-hint" style={{ margin: 0 }}>{t("mods.noConflicts")}</p>
                   ) : (
-                    <ul className="mods-conflict-list">
-                      {selectedConflicts.slice(0, 30).map((c) => (
-                        <li key={c.relativePath}>
-                          <code>{c.relativePath}</code>
-                          <span>
-                            {c.modIds
-                              .filter((id) => id !== selected.id)
-                              .map((id) => modNameById.get(id) ?? id)
-                              .join(", ")}
-                          </span>
-                        </li>
-                      ))}
-                    </ul>
+                    <div className="mods-conflict-panel">
+                      <ul className="mods-conflict-list">
+                        {selectedConflicts.slice(0, 30).map((c) => (
+                          <li key={c.relativePath} className="mods-conflict-item">
+                            <code>{c.relativePath}</code>
+                            <span>
+                              {c.modIds
+                                .filter((id) => id !== selected.id)
+                                .map((id) => modNameById.get(id) ?? id)
+                                .join(", ")}
+                            </span>
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
                   )}
                 </div>
 
-                {/* File listing */}
+                {/* Interactive File Inspector Section */}
                 <div className="mods-detail-section">
-                  <button
-                    type="button"
-                    className="mods-files-toggle"
-                    onClick={() => void loadFiles(selected)}
-                  >
-                    {showFiles ? t("mods.hideFiles") : t("mods.showFiles")}
-                  </button>
+                  <div className="mods-detail-section-title">
+                    <span>{t("mods.files")}</span>
+                    <button
+                      type="button"
+                      className={`mods-files-toggle ${showFiles ? "active" : ""}`}
+                      onClick={() => void loadFiles(selected)}
+                    >
+                      <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                        {showFiles ? (
+                          <>
+                            <path d="M4 20h16a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.93a2 2 0 0 1-1.66-.9l-.82-1.2A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13c0 1.1.9 2 2 2z"></path>
+                            <line x1="18" y1="13" x2="6" y2="13"></line>
+                          </>
+                        ) : (
+                          <>
+                            <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path>
+                            <line x1="12" y1="11" x2="12" y2="17"></line>
+                            <line x1="9" y1="14" x2="15" y2="14"></line>
+                          </>
+                        )}
+                      </svg>
+                      {showFiles ? t("mods.hideFiles") : t("mods.showFiles")}
+                    </button>
+                  </div>
+
                   {showFiles && (
-                    <ul className="mods-file-list">
-                      {(files ?? []).map((f) => (
-                        <li key={f}>
-                          <code>{f}</code>
-                        </li>
-                      ))}
-                      {files === null && <li>{t("common.loading")}</li>}
-                    </ul>
+                    <div className="mods-file-explorer">
+                      <input
+                        type="text"
+                        className="mods-file-search"
+                        placeholder={t("mods.searchFiles")}
+                        value={fileSearch}
+                        onChange={(e) => setFileSearch(e.target.value)}
+                      />
+                      <ul className="mods-file-list">
+                        {files === null ? (
+                          <li className="mods-file-item">{t("common.loading")}</li>
+                        ) : filteredFiles.length === 0 ? (
+                          <li className="mods-file-item" style={{ color: "var(--color-text-muted)" }}>
+                            No matching files found.
+                          </li>
+                        ) : (
+                          filteredFiles.map((f) => (
+                            <li key={f} className="mods-file-item">
+                              <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ color: "var(--color-text-muted)" }}>
+                                <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+                                <polyline points="14 2 14 8 20 8"></polyline>
+                              </svg>
+                              <code>{f}</code>
+                            </li>
+                          ))
+                        )}
+                      </ul>
+                    </div>
                   )}
                 </div>
               </>

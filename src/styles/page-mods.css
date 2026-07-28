@@ -1,109 +1,196 @@
 /* ────────────────────────────────────────────────────────────────────────
- * Mods — shared ModManager (game tab + main page) + ModsPage rail
- * (page-mods.css)
+ * Mods — Remade Modern ModManager & ModsPage Layout (page-mods.css)
  * ──────────────────────────────────────────────────────────────────────── */
 
-/* ── Page shell ─────────────────────────────────────────────────── */
+/* ── Page Shell ─────────────────────────────────────────────────── */
 
 .mods-page {
-  padding: 28px 32px;
-  max-width: 1500px;
+  padding: 24px 32px 40px;
+  max-width: 1600px;
+  margin: 0 auto;
   min-height: 100%;
-}
-
-.mods-page-header {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 24px;
-  margin-bottom: 24px;
-}
-
-.mods-page-title {
-  margin: 0 0 6px;
-  font-size: 26px;
-  font-weight: 700;
-  color: var(--color-text-primary);
-}
-
-.mods-page-subtitle {
-  margin: 0;
-  font-size: 14px;
-  color: var(--color-text-secondary);
-  max-width: 560px;
-  line-height: 1.5;
 }
 
 .mods-page-split {
   display: grid;
-  grid-template-columns: minmax(260px, 320px) 1fr;
-  gap: 20px;
+  grid-template-columns: minmax(340px, 380px) 1fr;
+  gap: 28px;
   align-items: start;
 }
 
-/* ── Games rail (main page, left) ───────────────────────────────── */
+@media (max-width: 1150px) {
+  .mods-page-split {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* ── Games Rail (Main Mods Page, Left) ──────────────────────────── */
 
 .mods-games-pane {
-  background: var(--color-surface);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-lg);
-  padding: 14px;
+  background: var(--color-surface, rgba(17, 19, 26, 0.75));
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid var(--color-border, rgba(255, 255, 255, 0.08));
+  border-radius: var(--radius-xl, 16px);
+  padding: 18px;
   position: sticky;
   top: 16px;
   display: flex;
   flex-direction: column;
-  gap: 10px;
-  max-height: calc(100vh - 160px);
+  gap: 16px;
+  max-height: calc(100vh - 140px);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.25);
 }
 
-.mods-games-search {
-  flex-shrink: 0;
+.mods-games-pane-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid var(--color-border, rgba(255, 255, 255, 0.06));
+}
+
+.mods-games-pane-title {
+  font-size: 12px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.8px;
+  color: var(--color-text-muted, #6b7285);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.mods-games-pane-count {
+  font-size: 11px;
+  font-weight: 600;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: var(--color-bg-tertiary, #181b23);
+  color: var(--color-text-secondary, #a8adb9);
+}
+
+.mods-search-input-wrapper {
+  position: relative;
+  width: 100%;
+  display: flex;
+  align-items: center;
+}
+
+.mods-search-icon {
+  position: absolute;
+  left: 12px;
+  width: 15px;
+  height: 15px;
+  color: var(--color-text-muted, #6b7285);
+  pointer-events: none;
+}
+
+.mods-search-input-wrapper input {
+  width: 100%;
+  padding-left: 36px;
+  padding-right: 30px;
+  height: 38px;
+  border-radius: var(--radius-lg, 10px);
+  border: 1px solid var(--color-border, rgba(255, 255, 255, 0.08));
+  background: var(--color-bg-tertiary, rgba(24, 27, 35, 0.8));
+  color: var(--color-text-primary, #f0f2f7);
+  font-size: 13px;
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.mods-search-input-wrapper input:focus {
+  border-color: var(--color-accent, #7c66ff);
+  box-shadow: 0 0 0 3px var(--color-accent-glow, rgba(124, 102, 255, 0.2));
+  background: var(--color-bg-secondary, #11131a);
+}
+
+.mods-search-clear {
+  position: absolute;
+  right: 10px;
+  background: transparent;
+  border: none;
+  color: var(--color-text-muted);
+  cursor: pointer;
+  padding: 2px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: color 0.15s ease;
+}
+
+.mods-search-clear:hover {
+  color: var(--color-text-primary);
 }
 
 .mods-games-list {
   overflow-y: auto;
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: 8px;
+  padding-right: 4px;
 }
 
 .mods-game-row {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 14px;
   width: 100%;
-  padding: 8px;
-  background: transparent;
-  border: 1px solid transparent;
-  border-radius: var(--radius-md);
+  padding: 12px 14px;
+  background: rgba(255, 255, 255, 0.02);
+  border: 1px solid var(--color-border, rgba(255, 255, 255, 0.05));
+  border-radius: var(--radius-xl, 14px);
   cursor: pointer;
   text-align: left;
   color: var(--color-text-primary);
-  transition: background var(--transition-fast, 0.15s) ease;
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  position: relative;
+  overflow: hidden;
+  flex-shrink: 0;
+  min-height: 76px;
 }
 
 .mods-game-row:hover {
-  background: var(--color-bg-hover);
+  background: var(--color-bg-hover, rgba(30, 34, 45, 0.6));
+  border-color: var(--color-border-light);
+  transform: translateX(3px);
 }
 
 .mods-game-row.selected {
-  background: var(--color-accent-soft);
-  border-color: var(--color-border-glow);
+  background: color-mix(in srgb, var(--color-accent, #7c66ff) 14%, var(--color-surface, rgba(17, 19, 26, 0.85)));
+  border-color: color-mix(in srgb, var(--color-accent, #7c66ff) 45%, transparent);
+  box-shadow: 0 4px 20px -4px var(--color-accent-glow, rgba(124, 102, 255, 0.25));
+}
+
+.mods-game-row.selected::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 10%;
+  bottom: 10%;
+  width: 4px;
+  border-radius: 0 4px 4px 0;
+  background: var(--color-accent, #7c66ff);
+  box-shadow: 0 0 10px var(--color-accent);
 }
 
 .mods-game-cover {
-  width: 38px;
-  height: 52px;
+  width: 50px;
+  height: 68px;
   flex-shrink: 0;
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-md, 8px);
   overflow: hidden;
   background: var(--color-bg-tertiary);
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 12px;
+  font-size: 14px;
   font-weight: 700;
   color: var(--color-text-muted);
+  box-shadow: 0 3px 10px rgba(0, 0, 0, 0.35);
+  border: 1px solid rgba(255, 255, 255, 0.1);
 }
 
 .mods-game-cover img {
@@ -115,25 +202,37 @@
 .mods-game-info {
   display: flex;
   flex-direction: column;
-  gap: 2px;
+  gap: 4px;
   min-width: 0;
   flex: 1;
 }
 
 .mods-game-name {
-  font-size: 13px;
+  font-size: 14px;
   font-weight: 600;
+  color: var(--color-text-primary);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+  letter-spacing: -0.01em;
+  line-height: 1.3;
 }
 
 .mods-game-meta {
-  font-size: 11px;
+  font-size: 12px;
   color: var(--color-text-secondary);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.mods-game-engines-list {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex-wrap: wrap;
+  margin-top: 2px;
 }
 
 .mods-game-engines {
@@ -148,12 +247,12 @@
   min-width: 0;
 }
 
-/* ── Manager shell ──────────────────────────────────────────────── */
+/* ── Manager Shell ──────────────────────────────────────────────── */
 
 .mods-manager {
   display: flex;
   flex-direction: column;
-  gap: 14px;
+  gap: 18px;
   min-width: 0;
 }
 
@@ -161,24 +260,101 @@
   padding: 4px 0 32px;
 }
 
-/* ── Toolbar ────────────────────────────────────────────────────── */
+/* ── Hero Stats Summary Bar ─────────────────────────────────────── */
 
-.mods-toolbar {
+.mods-stats-bar {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
+  gap: 12px;
+}
+
+.mods-stat-card {
+  background: var(--color-surface, rgba(17, 19, 26, 0.75));
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid var(--color-border, rgba(255, 255, 255, 0.07));
+  border-radius: var(--radius-lg, 12px);
+  padding: 12px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  position: relative;
+  overflow: hidden;
+  transition: transform 0.2s ease, border-color 0.2s ease;
+}
+
+.mods-stat-card:hover {
+  transform: translateY(-2px);
+  border-color: var(--color-border-light);
+}
+
+.mods-stat-card-label {
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--color-text-muted);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.mods-stat-card-value {
+  font-size: 20px;
+  font-weight: 700;
+  color: var(--color-text-primary);
+  letter-spacing: -0.02em;
+  font-variant-numeric: tabular-nums;
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+}
+
+.mods-stat-card-sub {
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--color-text-secondary);
+}
+
+.mods-stat-card.accent-active .mods-stat-card-value {
+  color: var(--color-success, #00d68f);
+}
+
+.mods-stat-card.accent-update .mods-stat-card-value {
+  color: var(--color-info, #5ab7ff);
+}
+
+.mods-stat-card.accent-conflict .mods-stat-card-value {
+  color: var(--color-warning, #ffb84d);
+}
+
+/* ── Toolbar & Filter Controls ──────────────────────────────────── */
+
+.mods-toolbar-container {
+  background: var(--color-surface, rgba(17, 19, 26, 0.75));
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid var(--color-border, rgba(255, 255, 255, 0.08));
+  border-radius: var(--radius-xl, 16px);
+  padding: 14px 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.2);
+}
+
+.mods-toolbar-top {
   display: flex;
   align-items: center;
   justify-content: space-between;
   flex-wrap: wrap;
-  gap: 10px;
-  background: var(--color-surface);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-lg);
-  padding: 10px 14px;
+  gap: 12px;
 }
 
-.mods-toolbar-info {
+.mods-toolbar-left {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 12px;
   flex-wrap: wrap;
 }
 
@@ -189,147 +365,191 @@
   flex-wrap: wrap;
 }
 
-.mods-count {
-  font-size: 12px;
-  color: var(--color-text-secondary);
-  white-space: nowrap;
+/* Quick Filter Tabs */
+.mods-quick-filters {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  background: var(--color-bg-tertiary, #181b23);
+  padding: 3px;
+  border-radius: var(--radius-lg, 10px);
+  border: 1px solid var(--color-border, rgba(255, 255, 255, 0.06));
 }
 
-.mods-total-size {
+.mods-filter-btn {
+  background: transparent;
+  border: none;
+  color: var(--color-text-secondary, #a8adb9);
+  padding: 6px 12px;
+  border-radius: var(--radius-md, 8px);
   font-size: 12px;
   font-weight: 600;
-  color: var(--color-text);
-  white-space: nowrap;
-}
-
-.mods-update-pill {
-  font-size: 11px;
-  font-weight: 600;
-  color: var(--color-info);
-  background: color-mix(in srgb, var(--color-info) 14%, transparent);
-  border: 1px solid color-mix(in srgb, var(--color-info) 30%, transparent);
-  border-radius: 999px;
-  padding: 2px 8px;
-  white-space: nowrap;
-}
-
-.mods-sort {
-  height: 32px;
-  padding: 0 8px;
-  border-radius: var(--radius-md);
-  border: 1px solid var(--color-border);
-  background: var(--color-surface, transparent);
-  color: var(--color-text);
-  font-size: 12px;
   cursor: pointer;
+  transition: all 0.15s ease;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  user-select: none;
 }
 
-.mods-search {
-  height: 32px;
-  padding: 0 10px;
-  border-radius: var(--radius-md);
-  border: 1px solid var(--color-border);
-  background: var(--color-bg-tertiary);
+.mods-filter-btn:hover {
+  color: var(--color-text-primary, #f0f2f7);
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.mods-filter-btn.active {
+  background: var(--color-accent, #7c66ff);
+  color: #ffffff;
+  box-shadow: 0 2px 10px var(--color-accent-glow, rgba(124, 102, 255, 0.3));
+}
+
+.mods-filter-badge {
+  font-size: 10px;
+  font-weight: 700;
+  padding: 1px 6px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.15);
+}
+
+.mods-filter-btn.active .mods-filter-badge {
+  background: rgba(255, 255, 255, 0.25);
+  color: #fff;
+}
+
+.mods-sort-select {
+  height: 36px;
+  padding: 0 12px;
+  border-radius: var(--radius-md, 8px);
+  border: 1px solid var(--color-border, rgba(255, 255, 255, 0.08));
+  background: var(--color-bg-tertiary, #181b23);
   color: var(--color-text-primary);
-  font-size: 13px;
-  min-width: 170px;
-}
-
-.mods-search:focus {
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
   outline: none;
-  border-color: var(--color-accent);
-  box-shadow: 0 0 0 2px var(--color-accent-glow);
+  transition: border-color 0.15s ease;
 }
 
-/* ── Engine chips ───────────────────────────────────────────────── */
+.mods-sort-select:focus {
+  border-color: var(--color-accent);
+}
+
+/* ── Engine Chips ───────────────────────────────────────────────── */
 
 .mods-engine-chip {
   font-size: 10px;
   font-weight: 700;
   text-transform: uppercase;
-  letter-spacing: 0.4px;
-  padding: 2px 7px;
+  letter-spacing: 0.5px;
+  padding: 3px 8px;
   border-radius: 999px;
   border: 1px solid var(--color-border-light);
   color: var(--color-text-secondary);
   white-space: nowrap;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
 }
 
 .mods-engine-bethesda {
-  color: #d7b56d;
-  border-color: color-mix(in srgb, #d7b56d 40%, transparent);
+  color: #f3ce78;
+  background: rgba(243, 206, 120, 0.1);
+  border-color: rgba(243, 206, 120, 0.3);
 }
 
 .mods-engine-bepinex {
-  color: #8be28b;
-  border-color: color-mix(in srgb, #8be28b 40%, transparent);
+  color: #92f092;
+  background: rgba(146, 240, 146, 0.1);
+  border-color: rgba(146, 240, 146, 0.3);
 }
 
 .mods-engine-melonloader {
-  color: #c6e26f;
-  border-color: color-mix(in srgb, #c6e26f 40%, transparent);
+  color: #d8f572;
+  background: rgba(216, 245, 114, 0.1);
+  border-color: rgba(216, 245, 114, 0.3);
 }
 
 .mods-engine-unreal {
-  color: #7fb8ff;
-  border-color: color-mix(in srgb, #7fb8ff 40%, transparent);
+  color: #8ac0ff;
+  background: rgba(138, 192, 255, 0.1);
+  border-color: rgba(138, 192, 255, 0.3);
 }
 
 .mods-engine-workshop {
   color: #66c0f4;
-  border-color: color-mix(in srgb, #66c0f4 40%, transparent);
+  background: rgba(102, 192, 244, 0.1);
+  border-color: rgba(102, 192, 244, 0.3);
 }
 
 .mods-engine-generic {
   color: var(--color-text-secondary);
+  background: rgba(255, 255, 255, 0.04);
 }
 
-/* ── Nexus panel ────────────────────────────────────────────────── */
+/* ── Nexus Panel Drawer ─────────────────────────────────────────── */
 
 .mods-nexus-panel {
-  background: var(--color-surface);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-lg);
-  padding: 14px;
+  background: var(--color-surface-raised, rgba(24, 27, 35, 0.95));
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid color-mix(in srgb, #d98f40 30%, var(--color-border));
+  border-radius: var(--radius-xl, 14px);
+  padding: 16px 20px;
   display: flex;
   flex-direction: column;
-  gap: 8px;
-  max-width: 520px;
+  gap: 12px;
+  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.3);
+  animation: modsSlideDown 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@keyframes modsSlideDown {
+  from {
+    opacity: 0;
+    transform: translateY(-8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
 .mods-nexus-status {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
   font-size: 13px;
 }
 
 .mods-nexus-connected {
-  color: var(--color-success);
+  color: var(--color-success, #00d68f);
   font-weight: 600;
+  display: flex;
+  align-items: center;
+  gap: 6px;
 }
 
 .mods-nexus-disconnected {
   color: var(--color-text-secondary);
+  display: flex;
+  align-items: center;
+  gap: 6px;
 }
 
 .mods-nexus-row {
   display: flex;
-  gap: 8px;
+  gap: 10px;
+  align-items: center;
 }
 
 .mods-nexus-input {
   flex: 1;
-  height: 32px;
-  padding: 0 10px;
-  border-radius: var(--radius-md);
+  height: 36px;
+  padding: 0 12px;
+  border-radius: var(--radius-md, 8px);
   border: 1px solid var(--color-border);
   background: var(--color-bg-tertiary);
   color: var(--color-text-primary);
   font-size: 13px;
-}
-
-.mods-nexus-input:focus {
-  outline: none;
-  border-color: var(--color-accent);
-  box-shadow: 0 0 0 2px var(--color-accent-glow);
 }
 
 .mods-nexus-hint {
@@ -339,60 +559,12 @@
   line-height: 1.4;
 }
 
-/* ── Error / empty states ───────────────────────────────────────── */
-
-.mods-error {
-  padding: 10px 14px;
-  border-radius: var(--radius-md);
-  border: 1px solid color-mix(in srgb, var(--color-danger) 35%, transparent);
-  background: color-mix(in srgb, var(--color-danger) 10%, transparent);
-  color: var(--color-danger);
-  font-size: 13px;
-}
-
-.mods-empty {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 8px;
-  padding: 64px 24px;
-  text-align: center;
-  background: var(--color-surface);
-  border: 1px dashed var(--color-border-light);
-  border-radius: var(--radius-lg);
-}
-
-.mods-empty-glyph {
-  font-size: 42px;
-  opacity: 0.65;
-}
-
-.mods-empty h3 {
-  margin: 0;
-  font-size: 18px;
-  color: var(--color-text-primary);
-}
-
-.mods-empty p {
-  margin: 0 0 10px;
-  color: var(--color-text-secondary);
-  max-width: 460px;
-  line-height: 1.5;
-  font-size: 13px;
-}
-
-.mods-empty-actions {
-  display: flex;
-  gap: 8px;
-}
-
-/* ── Dual-pane split ────────────────────────────────────────────── */
+/* ── Dual Pane Layout ───────────────────────────────────────────── */
 
 .mods-split {
   display: grid;
-  grid-template-columns: minmax(340px, 1.15fr) 1fr;
-  gap: 16px;
+  grid-template-columns: minmax(360px, 1.15fr) 1fr;
+  gap: 20px;
   align-items: start;
   min-width: 0;
 }
@@ -403,28 +575,38 @@
   }
 }
 
-/* ── Left pane: load-order list ─────────────────────────────────── */
+/* ── Left Pane: Load Order List ─────────────────────────────────── */
 
 .mods-list-pane {
-  background: var(--color-surface);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-lg);
+  background: var(--color-surface, rgba(17, 19, 26, 0.75));
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid var(--color-border, rgba(255, 255, 255, 0.08));
+  border-radius: var(--radius-xl, 16px);
   overflow: hidden;
   min-width: 0;
+  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.2);
 }
 
 .mods-list-header {
   display: flex;
-  align-items: baseline;
+  align-items: center;
   justify-content: space-between;
   gap: 10px;
-  padding: 10px 14px;
-  border-bottom: 1px solid var(--color-border);
-  font-size: 12px;
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--color-border, rgba(255, 255, 255, 0.06));
+  background: rgba(255, 255, 255, 0.02);
+  font-size: 11px;
   font-weight: 700;
   text-transform: uppercase;
-  letter-spacing: 0.5px;
+  letter-spacing: 0.6px;
   color: var(--color-text-secondary);
+}
+
+.mods-list-header-title {
+  display: flex;
+  align-items: center;
+  gap: 6px;
 }
 
 .mods-list-header-hint {
@@ -433,23 +615,26 @@
   text-transform: none;
   letter-spacing: 0;
   color: var(--color-text-muted);
-  text-align: right;
 }
 
 .mods-list {
-  max-height: 560px;
+  max-height: 600px;
   overflow-y: auto;
+  display: flex;
+  flex-direction: column;
 }
 
 .mods-row {
   display: flex;
   align-items: center;
-  gap: 10px;
-  padding: 8px 14px;
-  border-bottom: 1px solid var(--color-border);
+  gap: 12px;
+  padding: 10px 16px;
+  border-bottom: 1px solid var(--color-border, rgba(255, 255, 255, 0.04));
   cursor: pointer;
-  transition: background var(--transition-fast, 0.15s) ease;
+  transition: all 0.15s ease;
   min-width: 0;
+  position: relative;
+  user-select: none;
 }
 
 .mods-row:last-child {
@@ -457,50 +642,114 @@
 }
 
 .mods-row:hover {
-  background: var(--color-bg-hover);
+  background: var(--color-bg-hover, rgba(30, 34, 45, 0.6));
 }
 
 .mods-row.selected {
-  background: var(--color-accent-soft);
-  box-shadow: inset 2px 0 0 var(--color-accent);
+  background: color-mix(in srgb, var(--color-accent, #7c66ff) 12%, var(--color-surface));
+  box-shadow: inset 3px 0 0 var(--color-accent);
+}
+
+.mods-row.disabled {
+  opacity: 0.6;
 }
 
 .mods-row.disabled .mods-row-name {
   color: var(--color-text-muted);
   text-decoration: line-through;
-  text-decoration-color: color-mix(in srgb, var(--color-text-muted) 60%, transparent);
+  text-decoration-color: rgba(255, 255, 255, 0.2);
 }
 
 .mods-row.drag-over {
-  box-shadow: inset 0 2px 0 var(--color-accent);
+  box-shadow: inset 0 2px 0 var(--color-accent, #7c66ff);
+  background: color-mix(in srgb, var(--color-accent) 20%, transparent);
 }
 
 .mods-drag-handle {
   cursor: grab;
   color: var(--color-text-muted);
-  font-size: 12px;
-  letter-spacing: -2px;
-  user-select: none;
+  font-size: 14px;
+  display: flex;
+  align-items: center;
+  opacity: 0.5;
+  transition: opacity 0.15s ease;
+}
+
+.mods-row:hover .mods-drag-handle {
+  opacity: 1;
 }
 
 .mods-order-num {
-  width: 26px;
-  flex-shrink: 0;
   font-size: 11px;
+  font-weight: 700;
   font-variant-numeric: tabular-nums;
   color: var(--color-text-muted);
-  text-align: right;
+  background: var(--color-bg-tertiary);
+  border-radius: var(--radius-sm, 4px);
+  padding: 2px 6px;
+  min-width: 28px;
+  text-align: center;
 }
 
-.mods-row-toggle {
-  accent-color: var(--color-accent);
-  cursor: pointer;
+/* Custom Cyber Toggle Switch */
+.mods-toggle-switch {
+  position: relative;
+  display: inline-block;
+  width: 34px;
+  height: 18px;
   flex-shrink: 0;
+}
+
+.mods-toggle-switch input {
+  opacity: 0;
+  width: 0;
+  height: 0;
+}
+
+.mods-toggle-slider {
+  position: absolute;
+  cursor: pointer;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: var(--color-bg-tertiary, #181b23);
+  border: 1px solid var(--color-border, rgba(255, 255, 255, 0.15));
+  transition: 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+  border-radius: 999px;
+}
+
+.mods-toggle-slider:before {
+  position: absolute;
+  content: "";
+  height: 12px;
+  width: 12px;
+  left: 2px;
+  bottom: 2px;
+  background-color: var(--color-text-muted, #6b7285);
+  transition: 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+  border-radius: 50%;
+}
+
+.mods-toggle-switch input:checked + .mods-toggle-slider {
+  background-color: var(--color-accent, #7c66ff);
+  border-color: var(--color-accent);
+  box-shadow: 0 0 10px var(--color-accent-glow, rgba(124, 102, 255, 0.4));
+}
+
+.mods-toggle-switch input:checked + .mods-toggle-slider:before {
+  transform: translateX(16px);
+  background-color: #ffffff;
+}
+
+.mods-toggle-switch input:disabled + .mods-toggle-slider {
+  opacity: 0.4;
+  cursor: not-allowed;
 }
 
 .mods-row-main {
   display: flex;
-  align-items: baseline;
+  align-items: center;
   gap: 8px;
   min-width: 0;
   flex: 1;
@@ -508,7 +757,7 @@
 
 .mods-row-name {
   font-size: 13px;
-  font-weight: 500;
+  font-weight: 600;
   color: var(--color-text-primary);
   white-space: nowrap;
   overflow: hidden;
@@ -517,6 +766,7 @@
 
 .mods-row-version {
   font-size: 11px;
+  font-weight: 500;
   color: var(--color-text-muted);
   white-space: nowrap;
 }
@@ -532,116 +782,125 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 18px;
-  height: 18px;
-  border-radius: 50%;
-  font-size: 11px;
+  padding: 2px 6px;
+  border-radius: 999px;
+  font-size: 10px;
   font-weight: 700;
 }
 
 .mods-badge-update {
-  color: var(--color-info);
-  background: color-mix(in srgb, var(--color-info) 15%, transparent);
+  color: var(--color-info, #5ab7ff);
+  background: color-mix(in srgb, var(--color-info) 18%, transparent);
+  border: 1px solid color-mix(in srgb, var(--color-info) 35%, transparent);
 }
 
 .mods-badge-conflict {
-  color: var(--color-warning);
-  background: color-mix(in srgb, var(--color-warning) 15%, transparent);
+  color: var(--color-warning, #ffb84d);
+  background: color-mix(in srgb, var(--color-warning) 18%, transparent);
+  border: 1px solid color-mix(in srgb, var(--color-warning) 35%, transparent);
 }
 
 .mods-row-size {
   font-size: 11px;
   color: var(--color-text-muted);
-  min-width: 58px;
+  min-width: 54px;
   text-align: right;
   font-variant-numeric: tabular-nums;
 }
 
-/* ── Right pane: detail ─────────────────────────────────────────── */
+/* ── Right Pane: Mod Inspector Detail ──────────────────────────── */
 
 .mods-detail-pane {
-  background: var(--color-surface);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-lg);
-  padding: 16px;
+  background: var(--color-surface, rgba(17, 19, 26, 0.75));
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid var(--color-border, rgba(255, 255, 255, 0.08));
+  border-radius: var(--radius-xl, 16px);
+  padding: 20px;
   display: flex;
   flex-direction: column;
-  gap: 14px;
+  gap: 18px;
   position: sticky;
   top: 16px;
   min-width: 0;
+  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.2);
 }
 
 .mods-detail-header {
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: 12px;
+  padding-bottom: 16px;
+  border-bottom: 1px solid var(--color-border, rgba(255, 255, 255, 0.06));
 }
 
 .mods-detail-title {
   display: flex;
   align-items: center;
-  gap: 10px;
+  justify-content: space-between;
+  gap: 12px;
   min-width: 0;
 }
 
 .mods-detail-title h3 {
   margin: 0;
-  font-size: 17px;
+  font-size: 18px;
+  font-weight: 700;
   color: var(--color-text-primary);
   overflow-wrap: anywhere;
+  letter-spacing: -0.02em;
 }
 
 .mods-state-pill {
   font-size: 10px;
   font-weight: 700;
   text-transform: uppercase;
-  letter-spacing: 0.4px;
-  padding: 2px 8px;
+  letter-spacing: 0.6px;
+  padding: 4px 10px;
   border-radius: 999px;
   flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  gap: 4px;
 }
 
 .mods-state-pill.on {
-  color: var(--color-success);
-  background: color-mix(in srgb, var(--color-success) 14%, transparent);
+  color: var(--color-success, #00d68f);
+  background: color-mix(in srgb, var(--color-success) 15%, transparent);
+  border: 1px solid color-mix(in srgb, var(--color-success) 35%, transparent);
 }
 
 .mods-state-pill.off {
   color: var(--color-text-muted);
   background: var(--color-bg-tertiary);
+  border: 1px solid var(--color-border);
 }
 
 .mods-detail-actions {
   display: flex;
+  align-items: center;
   gap: 8px;
   flex-wrap: wrap;
 }
 
-.mods-detail-note {
-  font-size: 12px;
-  color: var(--color-text-secondary);
-  background: var(--color-bg-tertiary);
-  border-radius: var(--radius-md);
-  padding: 8px 10px;
-}
-
+/* Inspector KPI Stat Grid */
 .mods-detail-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
-  gap: 10px 14px;
+  grid-template-columns: repeat(auto-fill, minmax(130px, 1fr));
+  gap: 10px;
 }
 
-.mods-detail-item {
+.mods-detail-stat-card {
+  background: var(--color-bg-tertiary, #181b23);
+  border: 1px solid var(--color-border, rgba(255, 255, 255, 0.06));
+  border-radius: var(--radius-lg, 10px);
+  padding: 10px 12px;
   display: flex;
   flex-direction: column;
   gap: 2px;
-  font-size: 13px;
-  color: var(--color-text-primary);
-  min-width: 0;
 }
 
-.mods-detail-label {
+.mods-detail-stat-label {
   font-size: 10px;
   font-weight: 700;
   text-transform: uppercase;
@@ -649,57 +908,128 @@
   color: var(--color-text-muted);
 }
 
-.mods-text-update {
-  color: var(--color-info);
+.mods-detail-stat-val {
+  font-size: 13px;
   font-weight: 600;
+  color: var(--color-text-primary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
-.mods-detail-path {
+.mods-text-update {
+  color: var(--color-info, #5ab7ff);
+  font-weight: 700;
+}
+
+/* Path Bar & Copy Action */
+.mods-detail-path-box {
+  background: var(--color-bg-tertiary, #181b23);
+  border: 1px solid var(--color-border, rgba(255, 255, 255, 0.06));
+  border-radius: var(--radius-lg, 10px);
+  padding: 10px 12px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.mods-detail-path-info {
   display: flex;
   flex-direction: column;
   gap: 2px;
   min-width: 0;
+  flex: 1;
 }
 
-.mods-detail-path code {
+.mods-detail-path-info code {
+  font-family: var(--font-family-mono, monospace);
   font-size: 11px;
   color: var(--color-text-secondary);
-  background: var(--color-bg-tertiary);
-  border-radius: var(--radius-sm);
-  padding: 6px 8px;
   overflow-wrap: anywhere;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
+.mods-copy-btn {
+  background: transparent;
+  border: 1px solid var(--color-border);
+  color: var(--color-text-secondary);
+  border-radius: var(--radius-md, 6px);
+  padding: 4px 8px;
+  font-size: 11px;
+  font-weight: 600;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  transition: all 0.15s ease;
+  flex-shrink: 0;
+}
+
+.mods-copy-btn:hover {
+  color: var(--color-text-primary);
+  background: var(--color-bg-hover);
+  border-color: var(--color-border-light);
+}
+
+.mods-copy-btn.copied {
+  color: var(--color-success);
+  border-color: var(--color-success);
+}
+
+/* Nexus Link Button */
 .mods-nexus-link {
-  align-self: flex-start;
-  background: color-mix(in srgb, #d98f40 12%, transparent);
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  background: color-mix(in srgb, #d98f40 14%, transparent);
   border: 1px solid color-mix(in srgb, #d98f40 35%, transparent);
   color: #e8a45c;
   font-size: 12px;
   font-weight: 600;
-  border-radius: var(--radius-md);
-  padding: 6px 12px;
+  border-radius: var(--radius-lg, 10px);
+  padding: 8px 14px;
   cursor: pointer;
-  transition: background var(--transition-fast, 0.15s) ease;
+  transition: all 0.15s ease;
+  width: fit-content;
 }
 
 .mods-nexus-link:hover {
-  background: color-mix(in srgb, #d98f40 22%, transparent);
+  background: color-mix(in srgb, #d98f40 25%, transparent);
+  box-shadow: 0 4px 14px color-mix(in srgb, #d98f40 20%, transparent);
 }
 
-.mods-detail-section h4 {
-  margin: 0 0 6px;
+/* Sections (Conflicts & Files Explorer) */
+.mods-detail-section {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding-top: 10px;
+  border-top: 1px solid var(--color-border, rgba(255, 255, 255, 0.05));
+}
+
+.mods-detail-section-title {
   font-size: 12px;
   font-weight: 700;
   text-transform: uppercase;
-  letter-spacing: 0.5px;
+  letter-spacing: 0.6px;
   color: var(--color-text-secondary);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
 }
 
-.mods-detail-muted {
-  margin: 0;
-  font-size: 12px;
-  color: var(--color-text-muted);
+/* Conflict Visualizer Panel */
+.mods-conflict-panel {
+  background: color-mix(in srgb, var(--color-warning, #ffb84d) 8%, transparent);
+  border: 1px solid color-mix(in srgb, var(--color-warning, #ffb84d) 25%, transparent);
+  border-radius: var(--radius-lg, 10px);
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
 }
 
 .mods-conflict-list {
@@ -708,72 +1038,177 @@
   list-style: none;
   display: flex;
   flex-direction: column;
-  gap: 4px;
-  max-height: 160px;
+  gap: 6px;
+  max-height: 180px;
   overflow-y: auto;
 }
 
-.mods-conflict-list li {
+.mods-conflict-item {
   display: flex;
   flex-direction: column;
-  gap: 1px;
+  gap: 2px;
   font-size: 11px;
-  padding: 5px 8px;
-  background: color-mix(in srgb, var(--color-warning) 7%, transparent);
-  border-radius: var(--radius-sm);
+  padding: 6px 10px;
+  background: rgba(0, 0, 0, 0.2);
+  border-radius: var(--radius-md, 6px);
 }
 
-.mods-conflict-list code {
-  color: var(--color-warning);
+.mods-conflict-item code {
+  color: var(--color-warning, #ffb84d);
+  font-family: var(--font-family-mono, monospace);
   overflow-wrap: anywhere;
 }
 
-.mods-conflict-list span {
+.mods-conflict-item span {
   color: var(--color-text-secondary);
 }
 
+/* Interactive File Explorer */
 .mods-files-toggle {
-  background: none;
-  border: none;
-  padding: 0;
-  color: var(--color-accent);
+  background: var(--color-bg-tertiary, #181b23);
+  border: 1px solid var(--color-border, rgba(255, 255, 255, 0.1));
+  border-radius: var(--radius-md, 8px);
+  padding: 6px 12px;
+  color: var(--color-text-secondary, #a8adb9);
   font-size: 12px;
   font-weight: 600;
   cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  transition: all 0.18s cubic-bezier(0.16, 1, 0.3, 1);
+  user-select: none;
 }
 
 .mods-files-toggle:hover {
-  text-decoration: underline;
+  background: var(--color-bg-hover, #1e222d);
+  border-color: var(--color-border-light, rgba(255, 255, 255, 0.2));
+  color: var(--color-text-primary, #f0f2f7);
+  transform: translateY(-1px);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+}
+
+.mods-files-toggle.active {
+  background: color-mix(in srgb, var(--color-accent, #7c66ff) 18%, var(--color-bg-tertiary, #181b23));
+  border-color: color-mix(in srgb, var(--color-accent, #7c66ff) 50%, transparent);
+  color: var(--color-accent, #7c66ff);
+  box-shadow: 0 2px 10px var(--color-accent-glow, rgba(124, 102, 255, 0.3));
+}
+
+.mods-file-explorer {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  background: var(--color-bg-tertiary, #181b23);
+  border: 1px solid var(--color-border, rgba(255, 255, 255, 0.06));
+  border-radius: var(--radius-lg, 10px);
+  padding: 12px;
+}
+
+.mods-file-search {
+  height: 32px;
+  padding: 0 10px;
+  font-size: 12px;
+  border-radius: var(--radius-md, 6px);
+  border: 1px solid var(--color-border);
+  background: var(--color-bg-secondary);
+  color: var(--color-text-primary);
+  width: 100%;
 }
 
 .mods-file-list {
-  margin: 8px 0 0;
+  margin: 0;
   padding: 0;
   list-style: none;
   max-height: 220px;
   overflow-y: auto;
   display: flex;
   flex-direction: column;
-  gap: 2px;
+  gap: 3px;
 }
 
-.mods-file-list li {
+.mods-file-item {
   font-size: 11px;
+  font-family: var(--font-family-mono, monospace);
   color: var(--color-text-secondary);
+  padding: 4px 8px;
+  border-radius: var(--radius-sm, 4px);
+  background: rgba(255, 255, 255, 0.02);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  overflow-wrap: anywhere;
 }
 
-.mods-file-list code {
-  overflow-wrap: anywhere;
+.mods-file-item:hover {
+  background: rgba(255, 255, 255, 0.05);
+  color: var(--color-text-primary);
+}
+
+/* ── Empty & Error States ───────────────────────────────────────── */
+
+.mods-error {
+  padding: 12px 16px;
+  border-radius: var(--radius-lg, 10px);
+  border: 1px solid color-mix(in srgb, var(--color-danger) 35%, transparent);
+  background: color-mix(in srgb, var(--color-danger) 10%, transparent);
+  color: var(--color-danger);
+  font-size: 13px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.mods-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  padding: 64px 24px;
+  text-align: center;
+  background: var(--color-surface, rgba(17, 19, 26, 0.75));
+  backdrop-filter: blur(16px);
+  border: 1px dashed var(--color-border-light);
+  border-radius: var(--radius-xl, 16px);
+}
+
+.mods-empty-glyph {
+  font-size: 48px;
+  opacity: 0.8;
+  filter: drop-shadow(0 4px 12px rgba(0, 0, 0, 0.3));
+}
+
+.mods-empty h3 {
+  margin: 0;
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--color-text-primary);
+}
+
+.mods-empty p {
+  margin: 0;
+  color: var(--color-text-secondary);
+  max-width: 480px;
+  line-height: 1.5;
+  font-size: 13px;
+}
+
+.mods-empty-actions {
+  display: flex;
+  gap: 10px;
+  margin-top: 8px;
 }
 
 .mods-detail-empty {
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: 60px 20px;
+  padding: 80px 24px;
   color: var(--color-text-muted);
   font-size: 13px;
-  background: var(--color-surface);
+  background: var(--color-surface, rgba(17, 19, 26, 0.75));
+  backdrop-filter: blur(16px);
   border: 1px dashed var(--color-border-light);
-  border-radius: var(--radius-lg);
+  border-radius: var(--radius-xl, 16px);
 }

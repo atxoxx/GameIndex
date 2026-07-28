@@ -1,6 +1,7 @@
 // Main "Mods" page — dual-pane: a moddable-games rail on the left
 // (installed games + per-game mod counts from mods.db), the shared
 // ModManager on the right for the selected game.
+// Remade modern UI styling with glassmorphism & SVG search input.
 
 import { useEffect, useMemo, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
@@ -78,13 +79,45 @@ export default function ModsPage() {
         <div className="mods-page-split">
           {/* ── Games rail ─────────────────────────────────────── */}
           <div className="mods-games-pane">
-            <input
-              type="text"
-              className="mods-search mods-games-search"
-              placeholder={t("mods.searchPlaceholder")}
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-            />
+            <div className="mods-games-pane-header">
+              <span className="mods-games-pane-title">
+                <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <rect x="2" y="6" width="20" height="12" rx="2"></rect>
+                  <path d="M6 12h4m-2-2v4"></path>
+                  <circle cx="17" cy="10" r="1" fill="currentColor"></circle>
+                  <circle cx="15" cy="13" r="1" fill="currentColor"></circle>
+                </svg>
+                Games Library
+              </span>
+              <span className="mods-games-pane-count">{candidates.length}</span>
+            </div>
+
+            <div className="mods-search-input-wrapper">
+              <svg className="mods-search-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <circle cx="11" cy="11" r="8"></circle>
+                <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+              </svg>
+              <input
+                type="text"
+                placeholder={t("mods.searchPlaceholder")}
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+              />
+              {search && (
+                <button
+                  type="button"
+                  className="mods-search-clear"
+                  onClick={() => setSearch("")}
+                  title="Clear search"
+                >
+                  <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <line x1="18" y1="6" x2="6" y2="18"></line>
+                    <line x1="6" y1="6" x2="18" y2="18"></line>
+                  </svg>
+                </button>
+              )}
+            </div>
+
             <div className="mods-games-list">
               {ordered.map((g) => {
                 const entry = overview.get(g.id);
@@ -103,28 +136,37 @@ export default function ModsPage() {
                       )}
                     </div>
                     <div className="mods-game-info">
-                      <span className="mods-game-name">{g.name}</span>
-                      <span className="mods-game-meta">
-                        {entry
-                          ? `${t("mods.modsCount", { count: String(entry.total) })} · ${t(
-                              "mods.enabledCount",
-                              {
-                                enabled: String(entry.enabled),
-                                total: String(entry.total),
-                              }
-                            )}`
-                          : g.platform}
-                      </span>
+                      <span className="mods-game-name" title={g.name}>{g.name}</span>
+                      <div className="mods-game-meta">
+                        {entry ? (
+                          <>
+                            <span className="mods-games-pane-count" style={{ padding: "1px 6px", fontSize: "10px" }}>
+                              {entry.total} mods ({entry.enabled} active)
+                            </span>
+                          </>
+                        ) : (
+                          <span style={{ fontSize: "11px", opacity: 0.7 }}>{g.platform}</span>
+                        )}
+                      </div>
                       {entry && entry.engines.length > 0 && (
-                        <span className="mods-game-engines">
-                          {entry.engines
-                            .map((e) => ENGINE_LABELS[e as ModEngine] ?? e)
-                            .join(" · ")}
-                        </span>
+                        <div className="mods-game-engines-list">
+                          {entry.engines.slice(0, 2).map((e) => (
+                            <span key={e} className={`mods-engine-chip mods-engine-${e}`} style={{ fontSize: "9px", padding: "1px 5px" }}>
+                              {ENGINE_LABELS[e as ModEngine] ?? e}
+                            </span>
+                          ))}
+                          {entry.engines.length > 2 && (
+                            <span className="mods-game-engines" style={{ fontSize: "9px" }}>
+                              +{entry.engines.length - 2}
+                            </span>
+                          )}
+                        </div>
                       )}
                     </div>
                     {entry && entry.updates > 0 && (
-                      <span className="mods-update-pill">↑ {entry.updates}</span>
+                      <span className="mods-badge mods-badge-update" title={t("mods.updatesAvailable", { count: String(entry.updates) })} style={{ alignSelf: "flex-start", marginTop: "2px" }}>
+                        ↑ {entry.updates}
+                      </span>
                     )}
                   </button>
                 );
