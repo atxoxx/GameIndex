@@ -162,22 +162,43 @@ function groupExes(infos: ExeInfo[], rootPath: string): ExeGroup[] {
 interface ImportModalProps {
   exeInfos: ExeInfo[];
   rootPath: string;
-  onConfirm: (imports: { path: string; metadata: GameMetadataResult | null }[]) => void;
+  /** Lowercased paths already present in the library (for "already in library" badges). */
+  existingPaths?: string[];
+  onConfirm: (
+    imports: { path: string; metadata: GameMetadataResult | null }[],
+    errors?: { name: string; message: string }[]
+  ) => void;
   onCancel: () => void;
 }
 
 export default function ImportModal({
   exeInfos,
   rootPath,
+  existingPaths,
   onConfirm,
   onCancel,
 }: ImportModalProps) {
   const { t } = useLanguage();
-  // Group executables by their detected game folder.
-  const groups = useMemo(
-    () => (rootPath ? groupExes(exeInfos, rootPath) : []),
-    [exeInfos, rootPath]
+
+  // Normalize once for fast lookup.
+  const existingSet = useMemo(
+    () => new Set((existingPaths ?? []).map((p) => p.toLowerCase())),
+    [existingPaths]
   );
+
+  // Group executables by their detected game folder. Falls back to one group
+  // per executable when no root folder is available so the modal is always
+  // usable rather than rendering a broken empty state.
+  const groups = useMemo(() => {
+    if (rootPath) return groupExes(exeInfos, rootPath);
+    return exeInfos.map((info, idx) => ({
+      id: `${idx}-${baseOf(info.path)}`,
+      folderName: baseOf(info.path),
+      exes: [info],
+      suggestedPrimary: info,
+      primaryPath: info.path,
+    }));
+  }, [exeInfos, rootPath]);
 
   // Which game groups to import (keyed by group id).
   const [selectedGroupIds, setSelectedGroupIds] = useState<Set<string>>(new Set());
@@ -212,6 +233,12 @@ export default function ImportModal({
   const [importing, setImporting] = useState<boolean>(false);
   const [importProgress, setImportProgress] = useState<string>("");
 
+  // Search / detail error states (surfaced to the user, not just console).
+  const [searchError, setSearchError] = useState<boolean>(false);
+  const [detailError, setDetailError] = useState<boolean>(false);
+  // Monotonic token guarding async IGDB searches against stale responses.
+  const searchToken = useRef(0);
+
   const activeQuery = searchQueries[activePath] || "";
 
   // Initialize groups, primary selections and queries once the scan resolves.
@@ -243,34 +270,49 @@ export default function ImportModal({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [exeInfos, rootPath]);
 
-  // Debounced search logic for suggestions.
+  // Always fall back to a usable active selection if grouping produced nothing
+  // usable (defensive: keeps the workspace from rendering an empty dead-end).
   useEffect(() => {
-    if (!activeQuery.trim()) {
+    if (exeInfos.length > 0 && !activePath && groups.length > 0) {
+      setActivePath(groups[0].primaryPath);
+    }
+  }, [exeInfos, groups, activePath]);
+
+  // Unified, guarded IGDB suggestion search. Re-runs when the active
+  // executable or its query changes; a monotonic token discards stale
+  // responses so switching executables quickly can't leak old results.
+  useEffect(() => {
+    const q = searchQueries[activePath] || "";
+    setSearchError(false);
+    if (!q.trim()) {
+      return;
+    }
+    if (suggestions[q]) {
       return;
     }
 
-    if (suggestions[activeQuery]) {
-      return;
-    }
-
+    const token = ++searchToken.current;
     const timer = setTimeout(async () => {
       setLoadingSuggestions(true);
       try {
         const results = await invoke<StoreGameSummary[]>("search_store_games", {
-          query: activeQuery,
+          query: q,
           offset: 0,
           limit: 8,
         });
-        setSuggestions((prev) => ({ ...prev, [activeQuery]: results }));
+        if (token === searchToken.current) {
+          setSuggestions((prev) => ({ ...prev, [q]: results }));
+        }
       } catch (err) {
         console.error("IGDB suggestions search failed:", err);
+        if (token === searchToken.current) setSearchError(true);
       } finally {
-        setLoadingSuggestions(false);
+        if (token === searchToken.current) setLoadingSuggestions(false);
       }
     }, 350);
 
     return () => clearTimeout(timer);
-  }, [activeQuery, suggestions]);
+  }, [activePath, activeQuery, suggestions, searchQueries]);
 
   // Handle query input change.
   function handleQueryChange(val: string) {
@@ -280,27 +322,21 @@ export default function ImportModal({
   // Get suggestions for the active item.
   const activeSuggestions = suggestions[activeQuery] || [];
 
-  // When active item changes, trigger an immediate search if it hasn't been searched yet.
-  useEffect(() => {
-    if (activePath && activeQuery && !suggestions[activeQuery] && !loadingSuggestions) {
-      setLoadingSuggestions(true);
-      invoke<StoreGameSummary[]>("search_store_games", {
-        query: activeQuery,
-        offset: 0,
-        limit: 8,
-      })
-        .then((results) => {
-          setSuggestions((prev) => ({ ...prev, [activeQuery]: results }));
-        })
-        .catch((err) => console.error("Immediate suggestions search failed:", err))
-        .finally(() => setLoadingSuggestions(false));
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [activePath]);
+  function retrySearch() {
+    if (!activeQuery.trim()) return;
+    // Force a re-fetch by clearing the cached entry for the current query.
+    setSuggestions((prev) => {
+      const next = { ...prev };
+      delete next[activeQuery];
+      return next;
+    });
+    setSearchError(false);
+  }
 
   // Link a suggestion to the active executable and fetch details.
   async function handleLinkGame(game: StoreGameSummary) {
     setMatches((prev) => ({ ...prev, [activePath]: game }));
+    setDetailError(false);
 
     if (previews[game.slug]) {
       return;
@@ -313,9 +349,14 @@ export default function ImportModal({
       });
       if (detail) {
         setPreviews((prev) => ({ ...prev, [game.slug]: detail }));
+      } else {
+        // Endpoint succeeded but returned nothing; treat as a soft failure so
+        // the user knows the rich preview may be incomplete.
+        setDetailError(true);
       }
     } catch (err) {
       console.error("Failed to fetch game details:", err);
+      setDetailError(true);
     } finally {
       setLoadingPreview(false);
     }
@@ -328,20 +369,40 @@ export default function ImportModal({
 
   // ── Group selection helpers ──────────────────────────────────────────────
   function toggleGroup(id: string) {
+    const group = groups.find((g) => g.id === id);
+    const willSelect = !selectedGroupIds.has(id);
     setSelectedGroupIds((prev) => {
       const next = new Set(prev);
-      if (next.has(id)) next.delete(id);
-      else next.add(id);
+      if (willSelect) next.add(id);
+      else next.delete(id);
       return next;
     });
+
+    // Clearing a group also clears its individually-checked extra executables
+    // so the sidebar can't show a contradictory "unchecked group, checked extra".
+    if (!willSelect && group) {
+      const primary = primaryByGroup[id] ?? group.suggestedPrimary.path;
+      setSelectedExtraPaths((prev) => {
+        const next = new Set(prev);
+        group.exes.forEach((e) => {
+          if (e.path !== primary) next.delete(e.path);
+        });
+        return next;
+      });
+    }
   }
 
   function setPrimaryForGroup(id: string, path: string) {
+    const group = groups.find((g) => g.id === id);
+    const oldPrimary = primaryByGroup[id] ?? group?.suggestedPrimary.path;
     setPrimaryByGroup((prev) => ({ ...prev, [id]: path }));
     setSelectedExtraPaths((prev) => {
-      if (!prev.has(path)) return prev;
       const next = new Set(prev);
+      // The new main is no longer an "extra" of this group.
       next.delete(path);
+      // Demote the previous main so it isn't silently dropped — it stays
+      // available as an extra (separate) executable to import.
+      if (oldPrimary && oldPrimary !== path) next.add(oldPrimary);
       return next;
     });
     setActivePath(path);
@@ -365,6 +426,19 @@ export default function ImportModal({
     });
   }
 
+  function expandAll() {
+    setExpandedGroups(new Set(groups.map((g) => g.id)));
+  }
+
+  function collapseAll() {
+    setExpandedGroups(new Set());
+  }
+
+  function clearSelection() {
+    setSelectedGroupIds(new Set());
+    setSelectedExtraPaths(new Set());
+  }
+
   const allGroupsSelected = groups.length > 0 && selectedGroupIds.size === groups.length;
   const someGroupsSelected = selectedGroupIds.size > 0 && selectedGroupIds.size < groups.length;
 
@@ -384,6 +458,11 @@ export default function ImportModal({
   }
 
   const selectionCount = selectedGroupIds.size + selectedExtraPaths.size;
+
+  // Of the selected games, how many already have an IGDB match linked.
+  const matchedSelectedCount = groups.filter(
+    (g) => selectedGroupIds.has(g.id) && matches[primaryByGroup[g.id] ?? g.suggestedPrimary.path]
+  ).length;
 
   // Build a single import entry for a path, fetching full metadata if needed.
   async function buildImportForPath(
@@ -414,8 +493,10 @@ export default function ImportModal({
   async function handleConfirm() {
     if (selectionCount === 0) return;
     setImporting(true);
+    setImportProgress(t("import.importing"));
 
     const importResults: { path: string; metadata: GameMetadataResult | null }[] = [];
+    const importErrors: { name: string; message: string }[] = [];
     const seen = new Set<string>();
 
     try {
@@ -433,8 +514,13 @@ export default function ImportModal({
             extra: selectedExtraPaths.size ? t("import.extraSuffix", { count: selectedExtraPaths.size }) : "",
           })
         );
-        seen.add(path);
-        importResults.push(await buildImportForPath(path));
+        try {
+          seen.add(path);
+          importResults.push(await buildImportForPath(path));
+        } catch (err) {
+          console.error(`Import failed for ${path}:`, err);
+          importErrors.push({ name: fileName, message: String(err) });
+        }
       }
 
       const extras = Array.from(selectedExtraPaths).filter((p) => !seen.has(p));
@@ -443,15 +529,18 @@ export default function ImportModal({
         setImportProgress(
           t("import.processingExtra", { name: gameNameFromPath(path), i: j + 1, total: extras.length })
         );
-        importResults.push(await buildImportForPath(path));
+        try {
+          importResults.push(await buildImportForPath(path));
+        } catch (err) {
+          console.error(`Import failed for ${path}:`, err);
+          importErrors.push({ name: gameNameFromPath(path), message: String(err) });
+        }
       }
-
-      onConfirm(importResults);
-    } catch (err) {
-      console.error("Import failed:", err);
     } finally {
       setImporting(false);
     }
+
+    onConfirm(importResults, importErrors);
   }
 
   // Format utility functions.
@@ -524,6 +613,15 @@ export default function ImportModal({
           </div>
         )}
 
+        {showGroups && selectedGroupIds.size > 0 && (
+          <div className="import-coverage">
+            {t("import.matchedCount", {
+              matched: matchedSelectedCount,
+              total: selectedGroupIds.size,
+            })}
+          </div>
+        )}
+
         <div className="modal-body-container">
           {/* Side panel with executables grouped by game folder */}
           {showGroups && (
@@ -540,6 +638,33 @@ export default function ImportModal({
                     {t("import.selectAll", { selected: selectedGroupIds.size, total: groups.length })}
                   </span>
                 </label>
+                <div className="import-sidebar-actions">
+                  <button
+                    type="button"
+                    className="import-mini-btn"
+                    onClick={expandAll}
+                    title={t("import.expandAll")}
+                  >
+                    {t("import.expandAll")}
+                  </button>
+                  <button
+                    type="button"
+                    className="import-mini-btn"
+                    onClick={collapseAll}
+                    title={t("import.collapseAll")}
+                  >
+                    {t("import.collapseAll")}
+                  </button>
+                  <button
+                    type="button"
+                    className="import-mini-btn"
+                    onClick={clearSelection}
+                    disabled={selectionCount === 0}
+                    title={t("import.clearSelection")}
+                  >
+                    {t("import.clearSelection")}
+                  </button>
+                </div>
               </div>
               <div className="import-sidebar-list">
                 {groups.map((g) => {
@@ -575,7 +700,11 @@ export default function ImportModal({
                           onClick={() => setActivePath(primaryPath)}
                         >
                           <span className="import-group-name">{g.folderName}</span>
-                          {primMatch ? (
+                          {existingSet.has(primaryPath.toLowerCase()) ? (
+                            <span className="import-sidebar-item-match library">
+                              ♻ {t("import.alreadyInLibrary")}
+                            </span>
+                          ) : primMatch ? (
                             <span className="import-sidebar-item-match matched">
                               ✓ {primMatch.name}
                             </span>
@@ -630,11 +759,15 @@ export default function ImportModal({
                                   <span className="import-sidebar-item-filename">
                                     {gameNameFromPath(e.path)}
                                   </span>
-                                  {em && (
+                                  {existingSet.has(e.path.toLowerCase()) ? (
+                                    <span className="import-sidebar-item-match library">
+                                      ♻ {t("import.alreadyInLibrary")}
+                                    </span>
+                                  ) : em ? (
                                     <span className="import-sidebar-item-match matched">
                                       ✓ {em.name}
                                     </span>
-                                  )}
+                                  ) : null}
                                 </div>
                                 <button
                                   className="make-main-btn"
@@ -759,6 +892,13 @@ export default function ImportModal({
                           );
                         })}
                       </div>
+                    ) : searchError ? (
+                      <div className="suggestions-empty error">
+                        <p>{t("import.searchFailed")}</p>
+                        <button type="button" className="import-retry-btn" onClick={retrySearch}>
+                          {t("import.retry")}
+                        </button>
+                      </div>
                     ) : (
                       <div className="suggestions-empty">
                         <p>{t("import.noSuggestions")}</p>
@@ -770,6 +910,18 @@ export default function ImportModal({
                   {/* Right: Detailed Preview */}
                   <div className="import-preview-panel">
                     <h4 className="section-title">{t("import.matchPreview")}</h4>
+                    {detailError && (
+                      <div className="import-detail-error">
+                        <span>{t("import.detailLoadFailed")}</span>
+                        <button
+                          type="button"
+                          className="import-retry-btn"
+                          onClick={() => activeMatch && handleLinkGame(activeMatch)}
+                        >
+                          {t("import.retry")}
+                        </button>
+                      </div>
+                    )}
                     {loadingPreview ? (
                       <div className="preview-skeleton-loader">
                         <div className="skeleton-hero" />
@@ -954,7 +1106,12 @@ export default function ImportModal({
 
         <div className="modal-footer">
           <span className="modal-footer-count">
-            {t("import.selectedCount", { count: selectionCount })}
+            {selectionCount === 1
+              ? t("import.selectedCountOne")
+              : t("import.selectionSummary", {
+                  games: selectedGroupIds.size,
+                  extras: selectedExtraPaths.size,
+                })}
           </span>
           <div className="modal-footer-actions">
             <Button variant="ghost" onClick={onCancel}>

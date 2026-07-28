@@ -500,9 +500,18 @@ export default function Sidebar() {
     }
   }
 
-  async function handleConfirmImport(imports: { path: string; metadata: GameMetadataResult | null }[]) {
+  async function handleConfirmImport(
+    imports: { path: string; metadata: GameMetadataResult | null }[],
+    errors?: { name: string; message: string }[]
+  ) {
     setShowImportModal(false);
     await importLocalGames(imports);
+    if (errors && errors.length > 0) {
+      showToast(
+        t("import.importPartial", { ok: imports.length, failed: errors.length }),
+        "error"
+      );
+    }
   }
 
   function handleGameContextMenu(e: React.MouseEvent, game: Game) {
@@ -1112,6 +1121,7 @@ export default function Sidebar() {
         <ImportModal
           exeInfos={scannedExes}
           rootPath={importRootPath}
+          existingPaths={games.map((g) => g.path)}
           onConfirm={handleConfirmImport}
           onCancel={() => setShowImportModal(false)}
         />

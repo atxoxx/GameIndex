@@ -5266,6 +5266,92 @@
   text-decoration: underline;
 }
 
+/* Sidebar header action buttons (expand/collapse all, clear) */
+.import-sidebar-actions {
+  display: flex;
+  gap: var(--space-xs);
+  margin-top: var(--space-xs);
+  flex-wrap: wrap;
+}
+
+.import-mini-btn {
+  font-size: 11px;
+  font-weight: var(--font-weight-medium);
+  color: var(--color-text-secondary);
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  padding: 3px 8px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.import-mini-btn:hover:not(:disabled) {
+  background: var(--color-surface-hover);
+  color: var(--color-text-primary);
+  border-color: var(--color-accent);
+}
+
+.import-mini-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+/* Matched / coverage status line */
+.import-coverage {
+  padding: var(--space-sm) var(--space-xl);
+  font-size: var(--font-size-xs);
+  color: var(--color-text-secondary);
+  background: var(--color-bg-tertiary);
+  border-bottom: 1px solid var(--color-border);
+}
+
+.import-sidebar-item-match.library {
+  color: var(--color-warning, #e1b12c);
+  font-weight: var(--font-weight-medium);
+}
+
+/* Search / detail error states */
+.suggestions-empty.error {
+  text-align: center;
+}
+
+.import-retry-btn {
+  margin-top: var(--space-md);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-medium);
+  color: #fff;
+  background: var(--color-accent);
+  border: none;
+  border-radius: var(--radius-sm);
+  padding: 6px 14px;
+  cursor: pointer;
+  transition: opacity 0.15s ease;
+}
+
+.import-retry-btn:hover {
+  opacity: 0.9;
+}
+
+.import-detail-error {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-md);
+  margin-bottom: var(--space-md);
+  padding: var(--space-sm) var(--space-md);
+  font-size: var(--font-size-xs);
+  color: var(--color-text-secondary);
+  background: rgba(225, 177, 44, 0.12);
+  border: 1px solid rgba(225, 177, 44, 0.35);
+  border-radius: var(--radius-sm);
+}
+
+.import-detail-error .import-retry-btn {
+  margin-top: 0;
+  padding: 3px 10px;
+}
+
 .import-workspace {
   flex: 1;
   display: flex;
