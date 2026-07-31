@@ -1804,7 +1804,7 @@ export const fr: TranslationDict = {
   "lib.hero.greeting.afternoon": "Bon après-midi",
   "lib.hero.greeting.evening": "Bonsoir",
   "lib.hero.greeting.morning": "Bonjour",
-  "lib.hero.greeting.upLate": "Tard le soir",
+  "lib.hero.greeting.upLate": "Vous êtes encore debout ?",
   "lib.hero.importGames": "Importer des jeux",
   "lib.hero.stat.addedWeek": "Ajoutés cette semaine",
   "lib.hero.stat.addedWeekSub": "nouvelle arrivée",
