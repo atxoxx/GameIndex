@@ -409,7 +409,6 @@ export default function StoreGameDetail() {
         coverUrl={data.images.cover ?? null}
         logoUrl={data.images.logo ?? null}
         accentSrc={data.images.cover ?? data.images.hero ?? data.images.banner ?? null}
-        eyebrow={t("gamePage.store")}
         steamAppId={steamAppId ?? null}
         metaItems={[data.developer, data.publisher, releaseYear, data.sourceName].filter(
           (v): v is string => Boolean(v),
