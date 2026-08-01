@@ -621,6 +621,12 @@
   border: 1px solid color-mix(in srgb, #d8d8d8 25%, transparent);
 }
 
+.community-source-windows {
+  background: color-mix(in srgb, #107c10 16%, transparent);
+  color: #4bb84b;
+  border: 1px solid color-mix(in srgb, #107c10 30%, transparent);
+}
+
 .community-screenshot-group-right {
   display: flex;
   align-items: center;

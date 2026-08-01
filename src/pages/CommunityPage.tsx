@@ -34,6 +34,8 @@ import {
   saveMonthlyGoal,
   loadScreenshotCache,
   saveScreenshotCache,
+  loadManualFolder,
+  saveManualFolder,
 } from "./communityStorage";
 import { ScreenshotThumb } from "./communityScreenshotThumb";
 import "./community.css";
@@ -604,6 +606,18 @@ function isVideoPath(p: string): boolean {
   return VIDEO_EXTS.includes(ext);
 }
 
+/** Human-readable source badge label for a detection source id. */
+const SOURCE_PILLS = ["nvidia", "amd", "obs", "windows"] as const;
+function sourceLabel(src: string): string {
+  switch (src) {
+    case "nvidia": return "NVIDIA";
+    case "amd": return "AMD";
+    case "obs": return "OBS";
+    case "windows": return "Xbox";
+    default: return src;
+  }
+}
+
 function ScreenshotsSection() {
   const { games } = useGames();
   const { showToast } = useToast();
@@ -620,13 +634,29 @@ function ScreenshotsSection() {
   // any newer captures surface once the scan finishes.
   useEffect(() => {
     const cached = loadScreenshotCache();
-    if (cached.length > 0) {
-      setGroups(cached as unknown as ScreenshotGroup[]);
+    // The manual folder used to be persisted inside the screenshot cache as
+    // a synthetic "manual-" group. It is now stored separately (see
+    // loadManualFolder) so filter those legacy entries out to avoid showing
+    // the picked folder twice after an upgrade.
+    const detected = cached.filter((g) => !g.key.startsWith("manual-"));
+    if (detected.length > 0) {
+      setGroups(detected as unknown as ScreenshotGroup[]);
       const initialExpanded = new Set<string>();
-      for (let i = 0; i < Math.min(cached.length, 3); i++) {
-        initialExpanded.add(cached[i].key);
+      for (let i = 0; i < Math.min(detected.length, 3); i++) {
+        initialExpanded.add(detected[i].key);
       }
       setExpandedKeys(initialExpanded);
+    }
+    // Restore a manually picked folder across reboots and re-scan it so
+    // freshly captured images show up even if detection finds nothing new.
+    const savedFolder = loadManualFolder();
+    if (savedFolder) {
+      setSelectedFolder(savedFolder);
+      setIsScanning(true);
+      invoke<string[]>("list_media_files", { folderPath: savedFolder })
+        .then((paths) => setManualImages(paths))
+        .catch(() => setManualImages([]))
+        .finally(() => setIsScanning(false));
     }
     handleAutoDetect(true);
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -846,14 +876,7 @@ function ScreenshotsSection() {
         folderPath,
       });
       setManualImages(paths);
-      saveScreenshotCache([
-        {
-          key: `manual-${folderPath.replace(/[^a-zA-Z0-9]/g, "-")}`,
-          gameName: folderPath.split(/[\\/]/).pop() || folderPath,
-          folderPath,
-          screenshots: paths,
-        },
-      ]);
+      saveManualFolder(folderPath);
       if (paths.length === 0) {
         showToast(t("community.noImagesInFolder"), "info");
       }
@@ -1044,14 +1067,14 @@ function ScreenshotsSection() {
           >
             ★ {t("common.favorites")}{showFavOnly ? ` (${visibleFavCount})` : ""}
           </button>
-          {["nvidia", "amd", "obs"].map((src) => (
+          {SOURCE_PILLS.map((src) => (
             <button
               key={src}
               type="button"
               className={`community-filter-pill${sourceFilter === src ? " active" : ""}`}
               onClick={() => setSourceFilter((prev) => (prev === src ? null : src))}
             >
-              {src.toUpperCase()}
+              {sourceLabel(src)}
             </button>
           ))}
           <button
@@ -1137,7 +1160,7 @@ function ScreenshotsSection() {
                     <div className="community-screenshot-group-tags">
                       {group.source && (
                         <span className={`community-source-badge community-source-${group.source}`}>
-                          {group.source === "nvidia" ? "NVIDIA" : group.source === "amd" ? "AMD" : group.source === "obs" ? "OBS" : group.source}
+                          {sourceLabel(group.source)}
                         </span>
                       )}
                       {group.platform && (
@@ -1269,6 +1292,7 @@ function ScreenshotsSection() {
           <div className="community-lightbox-image-wrapper" onClick={(e) => e.stopPropagation()}>
             {isVideoPath(allImagePaths[lightboxIndex]) ? (
               <video
+                key={lightboxIndex}
                 src={convertFileSrc(allImagePaths[lightboxIndex])}
                 controls
                 autoPlay
@@ -1276,6 +1300,7 @@ function ScreenshotsSection() {
               />
             ) : (
               <img
+                key={lightboxIndex}
                 src={convertFileSrc(allImagePaths[lightboxIndex])}
                 alt={t("community.lightboxAlt", { n: lightboxIndex + 1 })}
                 onError={(e) => {

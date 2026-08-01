@@ -8,6 +8,7 @@ const LS_FAVORITES = "gamelib.community.favorites";
 const LS_GOAL_MIN = "gamelib.community.monthly_goal_min";
 const LS_SAVED_ARTICLES = "gamelib.community.saved_articles";
 const LS_SCREENSHOT_CACHE = "gamelib.community.screenshot_cache";
+const LS_MANUAL_FOLDER = "gamelib.community.manual_folder";
 
 function readJson<T>(key: string, fallback: T): T {
   try {
@@ -62,6 +63,20 @@ export function loadScreenshotCache(): CachedScreenshotGroup[] {
 
 export function saveScreenshotCache(groups: CachedScreenshotGroup[]): void {
   writeJson(LS_SCREENSHOT_CACHE, groups);
+}
+
+// ── Manual screenshot folder ───────────────────────────────────────────
+// The last folder the user picked with the "Pick Screenshot Folder"
+// button, persisted separately from the auto-detected groups so it
+// survives app restarts and re-detection.
+
+export function loadManualFolder(): string | null {
+  const v = readJson<string | null>(LS_MANUAL_FOLDER, null);
+  return typeof v === "string" && v.length > 0 ? v : null;
+}
+
+export function saveManualFolder(folderPath: string | null): void {
+  writeJson(LS_MANUAL_FOLDER, folderPath);
 }
 
 // ── Monthly playtime goal (minutes) ────────────────────────────────────

@@ -4,6 +4,7 @@
 //! - NVIDIA ShadowPlay / GeForce Experience
 //! - AMD Radeon ReLive / Adrenalin
 //! - OBS Studio
+//! - Windows Game Bar / Xbox (Videos\Captures)
 //!
 //! Each discovered folder is returned with a `source` label so the
 //! frontend can badge groups distinctly.
@@ -100,6 +101,47 @@ pub fn detect_system_screenshot_folders() -> Vec<SystemScreenshotFolder> {
                     });
                 }
             }
+        }
+    }
+
+    // ---- Windows Game Bar / Xbox captures ----
+    // %USERPROFILE%\Videos\Captures is the default destination for Xbox
+    // Game Bar screenshots and clips (Win+G). Recent Windows versions
+    // organise captures into per-game subfolders; loose files also land
+    // at the root of the Captures folder.
+    let win_root = userprofile.join("Videos").join("Captures");
+    if win_root.exists() && win_root.is_dir() {
+        if let Ok(entries) = std::fs::read_dir(&win_root) {
+            for entry in entries.flatten() {
+                let p = entry.path();
+                if !p.is_dir() {
+                    continue;
+                }
+                let game_name = p
+                    .file_name()
+                    .and_then(|n| n.to_str())
+                    .unwrap_or("Unknown")
+                    .to_string();
+                let images = list_image_files_flat(&p);
+                if !images.is_empty() {
+                    results.push(SystemScreenshotFolder {
+                        source: "windows".to_string(),
+                        game_name,
+                        folder_path: p.to_string_lossy().to_string(),
+                        screenshots: images,
+                    });
+                }
+            }
+        }
+        // Loose captures at the root of the Captures folder.
+        let root_images = list_image_files_flat(&win_root);
+        if !root_images.is_empty() {
+            results.push(SystemScreenshotFolder {
+                source: "windows".to_string(),
+                game_name: "Xbox Game Bar".to_string(),
+                folder_path: win_root.to_string_lossy().to_string(),
+                screenshots: root_images,
+            });
         }
     }
 
