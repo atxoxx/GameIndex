@@ -131,6 +131,23 @@ export function displayName(friend: Friend): string {
   return friend.nickname?.trim() || friend.name;
 }
 
+/**
+ * App blacklist for friend surfaces. Wallpaper Engine is an always-running
+ * desktop app that peers' presence and shared libraries frequently include;
+ * it is never a real game and just clutters the friends tab, so it is hidden
+ * everywhere a friend's "now playing" or game list is rendered.
+ */
+export function isAppBlacklisted(name?: string, id?: string | number): boolean {
+  if (id != null && String(id) === "431960") return true;
+  const lower = (name || "").toLowerCase();
+  return lower.includes("wallpaper engine");
+}
+
+/** Returns `undefined` for a blacklisted "now playing" value, otherwise the value. */
+export function safeCurrentlyPlaying(value?: string): string | undefined {
+  return value && !isAppBlacklisted(value) ? value : undefined;
+}
+
 export type RsvpStatus = "going" | "maybe" | "declined";
 
 /** Roles a participant can hold in a session. */

@@ -58,6 +58,8 @@ import {
   listPeerOutboxes,
   getNostrKeys,
   addUnseenCommunityItems,
+  isAppBlacklisted,
+  safeCurrentlyPlaying,
 } from "./friendsStorage";
 import "./friends.css";
 import "../styles/page-friends.css";
@@ -827,7 +829,7 @@ function formatFriendsSince(addedAt: number | undefined, t: (key: string, vars?:
 // True online status derived from live `currentlyPlaying` or status text
 function isOnline(friend: Friend): boolean {
   return (
-    !!friend.currentlyPlaying ||
+    !!safeCurrentlyPlaying(friend.currentlyPlaying) ||
     (friend.status || "").toLowerCase().includes("online") ||
     (friend.status || "").toLowerCase().includes("playing")
   );
@@ -835,7 +837,8 @@ function isOnline(friend: Friend): boolean {
 
 // Rich presence label for display (online / in-game / last seen).
 function presenceLabel(friend: Friend, t: (key: string, vars?: Record<string, unknown>) => string): string {
-  if (friend.currentlyPlaying) return `Playing ${friend.currentlyPlaying}`;
+  const playing = safeCurrentlyPlaying(friend.currentlyPlaying);
+  if (playing) return `Playing ${playing}`;
   if (isOnline(friend)) return t("friendsPage.formatOnline");
   return "";
 }
@@ -845,6 +848,7 @@ function sharedGamesCount(friend: Friend, myGameIds: Set<string>): number {
   if (!friend.games || friend.games.length === 0) return 0;
   let count = 0;
   for (const g of friend.games) {
+    if (isAppBlacklisted(g.name, g.id)) continue;
     if (myGameIds.has(g.id)) count++;
   }
   return count;
@@ -1019,7 +1023,7 @@ function GamePicker({
   }, [mode, search]);
 
   const selectedFriend = friends.find((f) => f.id === friendId);
-  const friendLibGames = selectedFriend?.games || [];
+  const friendLibGames = (selectedFriend?.games || []).filter((g) => !isAppBlacklisted(g.name, g.id));
 
   const baseList =
     mode === "friend"
@@ -2748,7 +2752,7 @@ export default function FriendsPage() {
   const comparisonData = useMemo(() => {
     if (!compareFriend) return [];
 
-    const friendGames = compareFriend.games || [];
+    const friendGames = (compareFriend.games || []).filter((g) => !isAppBlacklisted(g.name, g.id));
     const friendGameMap = new Map(friendGames.map((g) => [g.id, g]));
 
     // Deterministic legacy fallback (seeded by friend name) — only used when
@@ -2768,8 +2772,11 @@ export default function FriendsPage() {
 
     const selfById = new Map(games.map((g) => [g.id, g]));
 
-    // All unique game ids across both libraries.
-    const ids = new Set<string>([...games.map((g) => g.id), ...friendGames.map((g) => g.id)]);
+    // All unique game ids across both libraries (blacklisted apps excluded).
+    const ids = new Set<string>([
+      ...games.filter((g) => !isAppBlacklisted(g.name, g.id)).map((g) => g.id),
+      ...friendGames.map((g) => g.id),
+    ]);
 
     ids.forEach((id) => {
       const myGame = selfById.get(id);
@@ -3010,7 +3017,7 @@ export default function FriendsPage() {
         avatar: profile.avatar,
         isYou: true,
         status: profile.status,
-        currentlyPlaying: profile.currentlyPlaying,
+        currentlyPlaying: safeCurrentlyPlaying(profile.currentlyPlaying),
         gamesCount: selfStats.gamesCount,
         playtimeMinutes: selfStats.playtimeMinutes,
         achievementsCount: selfStats.achievementsCount,
@@ -3023,7 +3030,7 @@ export default function FriendsPage() {
           avatar: f.avatar,
           isYou: false,
           status: f.status,
-          currentlyPlaying: f.currentlyPlaying,
+          currentlyPlaying: safeCurrentlyPlaying(f.currentlyPlaying),
           gamesCount: f.libStats?.gamesCount || 0,
           playtimeMinutes: f.libStats?.playtimeMinutes || 0,
           achievementsCount: f.libStats?.achievementsCount || 0,
@@ -3474,11 +3481,12 @@ export default function FriendsPage() {
                       const presence = presenceLabel(friend, t);
                       const shared = sharedGamesCount(friend, myGameIds);
                       const selected = selectedFriendIds.includes(friend.id);
+                      const playingName = safeCurrentlyPlaying(friend.currentlyPlaying);
                       return (
                         <div
                           key={friend.id}
                           className={`friend-card hover-lift status-${online ? "online" : "offline"}${
-                            friend.currentlyPlaying ? " playing" : ""
+                            playingName ? " playing" : ""
                           }${friend.pinned ? " pinned" : ""}${
                             friend.blocked ? " blocked" : ""
                           }${friendDensity === "list" ? " list-row" : ""}${
@@ -3504,10 +3512,10 @@ export default function FriendsPage() {
                               <div className="friend-status-text" title={t("friendsPage.blockedUpdatesIgnored")}>
                                 🚫 {t("friendsPage.blocked")}
                               </div>
-                            ) : friend.currentlyPlaying ? (
-                              <div className="friend-now-playing" title={t("friendsPage.playingGame", { game: friend.currentlyPlaying })}>
+                            ) : playingName ? (
+                              <div className="friend-now-playing" title={t("friendsPage.playingGame", { game: playingName })}>
                                 <span className="now-playing-dot" />
-                                {friend.currentlyPlaying}
+                                {playingName}
                               </div>
                             ) : presence ? (
                               <div className="friend-status-text" title={friend.status}>
@@ -3537,7 +3545,7 @@ export default function FriendsPage() {
                                 )}
                               </div>
                             )}
-                            {friend.favoriteGame && (
+                            {friend.favoriteGame && !isAppBlacklisted(friend.favoriteGame) && (
                               <div className="friend-favorite-game" title={t("friendsPage.favPrefix", { game: friend.favoriteGame })}>
                                 ⭐ {friend.favoriteGame}
                               </div>
@@ -4582,7 +4590,7 @@ export default function FriendsPage() {
                     {profile.currentlyPlaying && (
                       <span className="compare-now-playing">
                         <span className="now-playing-dot" />
-                        {profile.currentlyPlaying}
+                        {safeCurrentlyPlaying(profile.currentlyPlaying)}
                       </span>
                     )}
                   </div>
@@ -4593,7 +4601,7 @@ export default function FriendsPage() {
                     {compareFriend.currentlyPlaying && (
                       <span className="compare-now-playing">
                         <span className="now-playing-dot" />
-                        {compareFriend.currentlyPlaying}
+                        {safeCurrentlyPlaying(compareFriend.currentlyPlaying)}
                       </span>
                     )}
                   </div>

@@ -1,5 +1,12 @@
 import { useMemo } from "react";
-import { loadFriends, loadSessions, type Friend, type GameSession } from "../pages/friendsStorage";
+import {
+  loadFriends,
+  loadSessions,
+  isAppBlacklisted,
+  safeCurrentlyPlaying,
+  type Friend,
+  type GameSession,
+} from "../pages/friendsStorage";
 
 /**
  * useFriendsPlaying
@@ -42,12 +49,13 @@ export function useFriendsPlaying(
 
     const friends = loadFriends();
     const playingNow = friends.filter(
-      (f) => !f.blocked && normalizeName(f.currentlyPlaying) === target
+      (f) => !f.blocked && normalizeName(safeCurrentlyPlaying(f.currentlyPlaying)) === target
     );
 
     const sessions = loadSessions().filter(
       (s) =>
         !s.deleted &&
+        !isAppBlacklisted(s.gameName, s.gameId) &&
         (s.gameId === String(gameId ?? "") ||
           normalizeName(s.gameName) === target)
     );
