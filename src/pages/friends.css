@@ -824,90 +824,125 @@
   align-items: center;
 }
 
+/* Magnifier icon anchored to the left of the search field */
+.game-search-input-wrapper::before {
+  content: "";
+  position: absolute;
+  left: 12px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 14px;
+  height: 14px;
+  background: var(--color-text-muted);
+  -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2.5' stroke-linecap='round'%3E%3Ccircle cx='11' cy='11' r='7'/%3E%3Cline x1='21' y1='21' x2='16.5' y2='16.5'/%3E%3C/svg%3E") center / contain no-repeat;
+  mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2.5' stroke-linecap='round'%3E%3Ccircle cx='11' cy='11' r='7'/%3E%3Cline x1='21' y1='21' x2='16.5' y2='16.5'/%3E%3C/svg%3E") center / contain no-repeat;
+  pointer-events: none;
+  opacity: 0.9;
+  z-index: 1;
+}
+
 .game-search-input {
   width: 100%;
-  background: var(--color-bg-inset, #0d0d12);
+  background: var(--color-bg-secondary);
   border: 1px solid var(--color-border);
   border-radius: var(--radius-md);
   color: var(--color-text-primary);
-  padding: var(--space-sm) var(--space-md);
-  padding-right: 32px;
+  padding: var(--space-sm) 34px var(--space-sm) 34px;
   font-size: var(--font-size-sm);
   outline: none;
-  transition: border-color var(--transition-fast);
+  transition: border-color var(--transition-fast), box-shadow var(--transition-fast);
+}
+
+.game-search-input::placeholder {
+  color: var(--color-text-muted);
 }
 
 .game-search-input:focus {
   border-color: var(--color-accent);
+  box-shadow: 0 0 0 3px var(--color-accent-glow);
 }
 
 .game-search-clear-btn {
   position: absolute;
   right: var(--space-sm);
-  background: transparent;
-  border: none;
+  width: 20px;
+  height: 20px;
+  background: var(--color-bg-hover);
+  border: 1px solid var(--color-border);
+  border-radius: 50%;
   color: var(--color-text-muted);
   cursor: pointer;
-  padding: 4px;
+  padding: 0;
   display: flex;
   align-items: center;
+  justify-content: center;
+  font-size: 13px;
+  line-height: 1;
+  transition: color var(--transition-fast), background-color var(--transition-fast);
+}
+
+.game-search-clear-btn:hover {
+  color: var(--color-text-primary);
+  background: var(--color-bg-active);
 }
 
 .game-search-results {
   position: absolute;
-  top: 105%;
+  top: calc(100% + 6px);
   left: 0;
   width: 100%;
-  background: var(--color-bg-card, #1a1a24);
-  border: 1px solid var(--color-border);
+  background: var(--color-bg-secondary);
+  border: 1px solid var(--color-border-light);
   border-radius: var(--radius-md);
-  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.45);
-  max-height: 240px;
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.5), 0 2px 8px rgba(0, 0, 0, 0.3);
+  max-height: 260px;
   overflow-y: auto;
   z-index: 100;
   display: flex;
   flex-direction: column;
+  padding: 4px;
 }
 
 .game-search-item {
   display: flex;
   align-items: center;
   gap: var(--space-md);
-  padding: var(--space-sm) var(--space-md);
-  border-bottom: 1px solid rgba(255, 255, 255, 0.03);
+  padding: 7px var(--space-md);
+  border: none;
+  border-radius: 6px;
   cursor: pointer;
   transition: background-color var(--transition-fast);
   color: var(--color-text-primary);
   font-size: var(--font-size-sm);
   text-align: left;
   background: transparent;
-  border-left: none;
-  border-right: none;
   font-family: inherit;
   width: 100%;
 }
 
-.game-search-item:last-child {
-  border-bottom: none;
-}
-
 .game-search-item:hover,
 .game-search-item.highlighted {
-  background-color: var(--color-bg-hover, rgba(255,255,255,0.06));
+  background: var(--color-accent-soft);
+}
+
+.game-search-item:hover .game-search-item-name,
+.game-search-item.highlighted .game-search-item-name {
   color: var(--color-accent);
 }
 
 .game-search-item-thumb {
-  width: 32px;
-  height: 42px;
-  background: linear-gradient(135deg, rgba(255,255,255,0.05) 0%, rgba(255,255,255,0.01) 100%);
+  width: 34px;
+  height: 46px;
+  background: linear-gradient(160deg, var(--color-bg-hover) 0%, var(--color-bg-secondary) 100%);
   border: 1px solid var(--color-border);
-  border-radius: var(--radius-sm);
+  border-radius: 5px;
   flex-shrink: 0;
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 8px;
+  font-size: 10px;
+  font-weight: var(--font-weight-bold);
+  letter-spacing: 0.5px;
   color: var(--color-text-muted);
   overflow: hidden;
   object-fit: cover;
@@ -918,10 +953,11 @@
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+  transition: color var(--transition-fast);
 }
 
 .game-search-no-results {
-  padding: var(--space-md);
+  padding: var(--space-lg) var(--space-md);
   text-align: center;
   color: var(--color-text-muted);
   font-size: var(--font-size-xs);
@@ -1638,24 +1674,37 @@
 
 .game-picker-modes {
   display: flex;
-  gap: 4px;
+  gap: 2px;
+  padding: 3px;
+  background: var(--color-bg-secondary);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
 }
 
 .picker-mode {
   flex: 1;
-  border: 1px solid var(--color-border);
-  background: var(--color-bg-input, rgba(255, 255, 255, 0.04));
-  color: var(--color-text-muted);
-  border-radius: var(--radius-sm);
-  padding: 5px 4px;
-  font-size: 11px;
+  min-width: 0;
+  border: none;
+  background: transparent;
+  color: var(--color-text-secondary);
+  border-radius: calc(var(--radius-md) - 4px);
+  padding: 6px 8px;
+  font-size: 12px;
+  font-weight: var(--font-weight-medium);
+  line-height: 1.3;
   cursor: pointer;
+  transition: background-color var(--transition-fast), color var(--transition-fast), box-shadow var(--transition-fast);
+}
+
+.picker-mode:hover {
+  background: var(--color-bg-hover);
+  color: var(--color-text-primary);
 }
 
 .picker-mode.active {
-  border-color: var(--color-accent);
+  background: var(--color-accent-soft);
   color: var(--color-accent);
-  background: rgba(138, 75, 246, 0.1);
+  box-shadow: inset 0 0 0 1px var(--color-border-glow);
 }
 
 /* Invite chips */
