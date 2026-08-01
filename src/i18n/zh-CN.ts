@@ -1308,6 +1308,7 @@ export const zhCN: TranslationDict = {
   "friendsPage.allGenres": "所有类型",
   "friendsPage.alreadyInFriends": "{name} 已经是你的好友",
   "friendsPage.alreadyInWishlist": "{game} 已在心愿单中",
+  "friendsPage.actions": "操作",
   "friendsPage.avatarAlt": "{name}",
   "friendsPage.avatarStyle": "头像视觉风格",
   "friendsPage.avatarUploaded": "自定义头像上传成功！",

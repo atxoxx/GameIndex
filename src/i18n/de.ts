@@ -1297,6 +1297,7 @@ export const de: TranslationDict = {
   "friendsPage.allGenres": "Alle Genres",
   "friendsPage.alreadyInFriends": "{name} ist bereits deine Freund:in",
   "friendsPage.alreadyInWishlist": "{game} ist bereits in deiner Wunschliste",
+  "friendsPage.actions": "Aktionen",
   "friendsPage.avatarAlt": "{name}",
   "friendsPage.avatarStyle": "Avatar-Visual-Stil",
   "friendsPage.avatarUploaded": "Benutzerdefinierter Avatar erfolgreich hochgeladen!",

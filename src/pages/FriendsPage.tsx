@@ -1,4 +1,5 @@
 import { useState, useMemo, useEffect, useRef } from "react";
+import { createPortal } from "react-dom";
 import { useNavigate } from "react-router-dom";
 import { useGames } from "../context/GameContext";
 import { useAchievements } from "../context/AchievementContext";
@@ -175,6 +176,55 @@ function P2pSyncIcon() {
   );
 }
 
+// Vertical ellipsis icon for the friend card action menu trigger
+function ThreeDotsIcon() {
+  return (
+    <svg viewBox="0 0 24 24" fill="currentColor" width="16" height="16">
+      <circle cx="12" cy="5" r="1.8" />
+      <circle cx="12" cy="12" r="1.8" />
+      <circle cx="12" cy="19" r="1.8" />
+    </svg>
+  );
+}
+
+// Message / chat bubble icon
+function MessageIcon() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" width="15" height="15">
+      <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
+    </svg>
+  );
+}
+
+// Map pin icon
+function PinIcon() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" width="15" height="15">
+      <path d="M12 17v5" />
+      <path d="M9 3h6v3l-1.5 2v4l2 2H8.5l2-2V6L9 3Z" />
+    </svg>
+  );
+}
+
+// Pencil icon (set nickname)
+function PencilIcon() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" width="15" height="15">
+      <path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z" />
+    </svg>
+  );
+}
+
+// Block / ignore icon
+function BlockIcon() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" width="15" height="15">
+      <circle cx="12" cy="12" r="10" />
+      <line x1="4.93" y1="4.93" x2="19.07" y2="19.07" />
+    </svg>
+  );
+}
+
 // Render the friend code as a scannable QR image (data URL).
 function FriendCodeQR({ code }: { code: string }) {
   const { t } = useLanguage();
@@ -200,6 +250,175 @@ function FriendCodeQR({ code }: { code: string }) {
 
   if (!dataUrl) return null;
   return <img src={dataUrl} alt={t("friends.friendQrCode")} className="friend-qr-img" width={160} height={160} />;
+}
+
+// ── Friend Card Action Menu ─────────────────────────────────────────
+// Modern replacement for the legacy button row on friend cards: a single
+// vertical-ellipsis trigger that opens a compact portaled dropdown with
+// every friend action. Portaling escapes the card's `overflow: hidden`
+// clip so the menu is never cut off.
+
+function FriendCardMenu({
+  friend,
+  onCompare,
+  onInvite,
+  onMessage,
+  onTogglePin,
+  onSetNickname,
+  onToggleBlock,
+  onDelete,
+}: {
+  friend: Friend;
+  onCompare: () => void;
+  onInvite: () => void;
+  onMessage: () => void;
+  onTogglePin: () => void;
+  onSetNickname: () => void;
+  onToggleBlock: () => void;
+  onDelete: () => void;
+}) {
+  const { t } = useLanguage();
+  const [open, setOpen] = useState(false);
+  const [pos, setPos] = useState<{ top: number; left: number } | null>(null);
+  const triggerRef = useRef<HTMLButtonElement>(null);
+  const menuRef = useRef<HTMLDivElement>(null);
+
+  const MENU_WIDTH = 208;
+
+  function openMenu() {
+    const btn = triggerRef.current;
+    if (!btn) return;
+    const rect = btn.getBoundingClientRect();
+    const left = Math.min(Math.max(8, rect.right - MENU_WIDTH), window.innerWidth - MENU_WIDTH - 8);
+    setPos({ top: rect.bottom + 6, left });
+    setOpen(true);
+  }
+
+  // Close on outside click / Escape.
+  useEffect(() => {
+    if (!open) return;
+    function handlePointerDown(event: MouseEvent) {
+      const target = event.target as Node;
+      if (menuRef.current && menuRef.current.contains(target)) return;
+      if (triggerRef.current && triggerRef.current.contains(target)) return;
+      setOpen(false);
+    }
+    function handleKeyDown(event: KeyboardEvent) {
+      if (event.key === "Escape") setOpen(false);
+    }
+    document.addEventListener("mousedown", handlePointerDown);
+    window.addEventListener("keydown", handleKeyDown);
+    return () => {
+      document.removeEventListener("mousedown", handlePointerDown);
+      window.removeEventListener("keydown", handleKeyDown);
+    };
+  }, [open]);
+
+  const name = displayName(friend);
+
+  const items: {
+    icon: React.ReactNode;
+    label: string;
+    title: string;
+    onClick: () => void;
+    danger?: boolean;
+    active?: boolean;
+  }[] = [
+    {
+      icon: <CompareIcon />,
+      label: t("friends.compare"),
+      title: t("friendsPage.compareLibrariesWith", { name }),
+      onClick: onCompare,
+    },
+    {
+      icon: <UsersIcon />,
+      label: t("friends.invite"),
+      title: t("friendsPage.inviteToSessionTitle", { name }),
+      onClick: onInvite,
+    },
+    {
+      icon: <MessageIcon />,
+      label: t("friends.message"),
+      title: t("friendsPage.messageFriendTitle", { name }),
+      onClick: onMessage,
+    },
+    {
+      icon: <PinIcon />,
+      label: friend.pinned ? t("friends.unpin") : t("friendsPage.pinToTop"),
+      title: friend.pinned ? t("friends.unpin") : t("friendsPage.pinToTop"),
+      active: friend.pinned,
+      onClick: onTogglePin,
+    },
+    {
+      icon: <PencilIcon />,
+      label: t("friendsPage.setNickname"),
+      title: t("friendsPage.setNickname"),
+      onClick: onSetNickname,
+    },
+    {
+      icon: <BlockIcon />,
+      label: friend.blocked ? t("friendsPage.unblock") : t("friendsPage.blockIgnore"),
+      title: friend.blocked ? t("friendsPage.unblock") : t("friendsPage.blockIgnore"),
+      active: friend.blocked,
+      onClick: onToggleBlock,
+    },
+    {
+      icon: <TrashIcon />,
+      label: t("friendsPage.removeFriendTitle", { name }),
+      title: t("friendsPage.removeFriendTitle", { name }),
+      danger: true,
+      onClick: onDelete,
+    },
+  ];
+
+  return (
+    <>
+      <button
+        type="button"
+        ref={triggerRef}
+        className={`friend-menu-trigger${open ? " open" : ""}`}
+        title={t("friendsPage.actions")}
+        aria-label={t("friendsPage.actions")}
+        aria-haspopup="menu"
+        aria-expanded={open}
+        onClick={(e) => {
+          e.stopPropagation();
+          if (open) setOpen(false);
+          else openMenu();
+        }}
+      >
+        <ThreeDotsIcon />
+      </button>
+      {open && pos &&
+        createPortal(
+          <div
+            className="friend-menu"
+            role="menu"
+            ref={menuRef}
+            style={{ position: "fixed", top: pos.top, left: pos.left, width: MENU_WIDTH, zIndex: 1200 }}
+            onMouseDown={(e) => e.stopPropagation()}
+          >
+            {items.map((item, i) => (
+              <button
+                key={i}
+                type="button"
+                role="menuitem"
+                className={`friend-menu-item${item.danger ? " danger" : ""}${item.active ? " active" : ""}`}
+                title={item.title}
+                onClick={() => {
+                  setOpen(false);
+                  item.onClick();
+                }}
+              >
+                {item.icon}
+                <span>{item.label}</span>
+              </button>
+            ))}
+          </div>,
+          document.body
+        )}
+    </>
+  );
 }
 
 // ── Session Card Component ──────────────────────────────────────────
@@ -3344,68 +3563,20 @@ export default function FriendsPage() {
                             )}
                           </div>
                           {!selectMode && (
-                            <div className="friend-card-actions">
-                              <button
-                                type="button"
-                                className="friend-quick-btn"
-                                title={t("friendsPage.compareLibrariesWith", { name: displayName(friend) })}
-                                onClick={() => handleCompareFromCard(friend)}
-                              >
-                                {t("friends.compare")}
-                              </button>
-                              <button
-                                type="button"
-                                className="friend-quick-btn"
-                                title={t("friendsPage.inviteToSessionTitle", { name: displayName(friend) })}
-                                onClick={() => handleInviteToSession(friend)}
-                              >
-                                {t("friends.invite")}
-                              </button>
-                              <button
-                                type="button"
-                                className="friend-quick-btn"
-                                title={t("friendsPage.messageFriendTitle", { name: displayName(friend) })}
-                                onClick={() => handleMessageFriend(friend)}
-                              >
-                                {t("friends.message")}
-                              </button>
-                              <button
-                                type="button"
-                                className={`friend-icon-btn${friend.pinned ? " active" : ""}`}
-                                title={friend.pinned ? t("friends.unpin") : t("friendsPage.pinToTop")}
-                                onClick={() => handleTogglePin(friend.id)}
-                              >
-                                📌
-                              </button>
-                              <button
-                                type="button"
-                                className="friend-icon-btn"
-                                title={t("friendsPage.setNickname")}
-                                onClick={() => {
-                                  const current = friend.nickname || friend.name;
-                                  const next = window.prompt(t("friendsPage.nicknamePrompt"), current);
-                                  if (next !== null) handleSetNickname(friend.id, next);
-                                }}
-                              >
-                                ✏️
-                              </button>
-                              <button
-                                type="button"
-                                className={`friend-icon-btn${friend.blocked ? " active" : ""}`}
-                                title={friend.blocked ? t("friendsPage.unblock") : t("friendsPage.blockIgnore")}
-                                onClick={() => handleToggleBlock(friend.id, displayName(friend))}
-                              >
-                                🚫
-                              </button>
-                              <button
-                                type="button"
-                                className="friend-delete-btn"
-                                title={t("friendsPage.removeFriendTitle", { name: displayName(friend) })}
-                                onClick={() => handleDeleteFriend(friend.id, displayName(friend))}
-                              >
-                                <TrashIcon />
-                              </button>
-                            </div>
+                            <FriendCardMenu
+                              friend={friend}
+                              onCompare={() => handleCompareFromCard(friend)}
+                              onInvite={() => handleInviteToSession(friend)}
+                              onMessage={() => handleMessageFriend(friend)}
+                              onTogglePin={() => handleTogglePin(friend.id)}
+                              onSetNickname={() => {
+                                const current = friend.nickname || friend.name;
+                                const next = window.prompt(t("friendsPage.nicknamePrompt"), current);
+                                if (next !== null) handleSetNickname(friend.id, next);
+                              }}
+                              onToggleBlock={() => handleToggleBlock(friend.id, displayName(friend))}
+                              onDelete={() => handleDeleteFriend(friend.id, displayName(friend))}
+                            />
                           )}
                         </div>
                       );

@@ -1297,6 +1297,7 @@ export const ru: TranslationDict = {
   "friendsPage.allGenres": "Все жанры",
   "friendsPage.alreadyInFriends": "{name} уже ваш друг",
   "friendsPage.alreadyInWishlist": "{game} уже в вашем списке желаемого",
+  "friendsPage.actions": "Действия",
   "friendsPage.avatarAlt": "{name}",
   "friendsPage.avatarStyle": "Визуальный стиль аватара",
   "friendsPage.avatarUploaded": "Пользовательский аватар успешно загружен!",

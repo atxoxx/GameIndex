@@ -410,43 +410,107 @@
   margin: 0;
 }
 
-/* Card action buttons (pin / nickname / block) */
-.friend-card-actions {
+/* Card action 3-dot menu (Compare / Invite / Message / Pin / Nickname / Block / Delete) */
+.friend-menu-trigger {
   position: absolute;
-  top: var(--space-xs);
-  right: var(--space-xs);
-  display: flex;
-  gap: 2px;
-  opacity: 0;
-  transition: opacity var(--transition-fast);
-}
-
-.friend-card:hover .friend-card-actions {
-  opacity: 1;
-}
-
-.friend-icon-btn {
-  background: transparent;
-  border: none;
-  color: var(--color-text-muted);
-  cursor: pointer;
-  padding: 4px;
-  border-radius: var(--radius-sm);
-  font-size: 13px;
-  line-height: 1;
+  top: var(--space-sm, 8px);
+  right: var(--space-sm, 8px);
+  width: 28px;
+  height: 28px;
   display: flex;
   align-items: center;
   justify-content: center;
-  transition: background-color var(--transition-fast), color var(--transition-fast);
+  background: transparent;
+  border: none;
+  border-radius: var(--radius-sm, 8px);
+  color: var(--color-text-muted);
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity var(--transition-fast), background-color var(--transition-fast), color var(--transition-fast);
+  z-index: 3;
 }
 
-.friend-icon-btn:hover {
+.friend-card:hover .friend-menu-trigger,
+.friend-menu-trigger.open {
+  opacity: 1;
+}
+
+.friend-menu-trigger:hover,
+.friend-menu-trigger.open {
   background-color: rgba(255, 255, 255, 0.08);
   color: var(--color-text);
 }
 
-.friend-icon-btn.active {
+.friend-menu {
+  padding: 6px;
+  border-radius: var(--radius-md, 12px);
+  background: var(--color-bg-card, #1b1b26);
+  border: 1px solid var(--color-border);
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.45), 0 2px 8px rgba(0, 0, 0, 0.3);
+  backdrop-filter: blur(16px);
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  animation: friendMenuIn 0.14s ease-out;
+  transform-origin: top right;
+}
+
+@keyframes friendMenuIn {
+  from { opacity: 0; transform: translateY(-4px) scale(0.98); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+.friend-menu-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 8px 10px;
+  border: none;
+  border-radius: var(--radius-sm, 8px);
+  background: transparent;
+  color: var(--color-text);
+  font-size: 13px;
+  font-weight: var(--font-weight-medium, 500);
+  text-align: left;
+  cursor: pointer;
+  transition: background-color var(--transition-fast), color var(--transition-fast);
+}
+
+.friend-menu-item svg {
+  flex-shrink: 0;
+  color: var(--color-text-muted);
+  transition: color var(--transition-fast);
+}
+
+.friend-menu-item:hover {
+  background-color: rgba(255, 255, 255, 0.08);
+  color: var(--color-text-primary);
+}
+
+.friend-menu-item:hover svg {
+  color: var(--color-text);
+}
+
+.friend-menu-item.active {
   color: var(--color-accent, #6366f1);
+}
+
+.friend-menu-item.active svg {
+  color: var(--color-accent, #6366f1);
+}
+
+.friend-menu-item.danger {
+  color: var(--color-danger, #ef4444);
+}
+
+.friend-menu-item.danger svg {
+  color: var(--color-danger, #ef4444);
+}
+
+.friend-menu-item.danger:hover {
+  background-color: rgba(239, 68, 68, 0.12);
+  color: var(--color-danger, #ef4444);
 }
 
 .friend-pin-badge {
@@ -530,26 +594,6 @@
 .friend-card.playing::before {
   background: var(--color-success, #22c55e);
   animation: nowPlayingPulse 1.6s infinite;
-}
-
-/* Quick action buttons (Compare / Invite / Message) */
-.friend-quick-btn {
-  background: rgba(255, 255, 255, 0.06);
-  border: 1px solid var(--color-border);
-  color: var(--color-text);
-  cursor: pointer;
-  padding: 3px 8px;
-  border-radius: var(--radius-sm);
-  font-size: 11px;
-  font-weight: var(--font-weight-semibold);
-  line-height: 1.2;
-  transition: background-color var(--transition-fast), border-color var(--transition-fast);
-}
-
-.friend-quick-btn:hover {
-  background: var(--color-accent, #6366f1);
-  border-color: var(--color-accent, #6366f1);
-  color: #fff;
 }
 
 /* Header action cluster */
