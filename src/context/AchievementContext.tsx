@@ -17,6 +17,7 @@ import type {
   GameAchievementData,
   AchievementsCache,
 } from "../types/game";
+import type { SteamSession } from "../types/steam";
 
 // ── Settings persistence ────────────────────────────────────────────────
 
@@ -145,12 +146,27 @@ export function AchievementProvider({ children }: { children: ReactNode }) {
   );
 
   const getSteamSession = useCallback(async () => {
+    // Probe the OS keychain first — it owns the verified session blob.
     try {
-      const session = await invoke<{
-        steamId: string;
-        webApiToken: string;
-      } | null>("steam_get_session");
-      return session;
+      const session = await invoke<SteamSession | null>("steam_get_session");
+      if (session) return session;
+    } catch {
+      // fall through to the recovery path below
+    }
+
+    // The OS keychain occasionally loses entries across reboots (Windows
+    // Credential Manager after OS upgrades, Secret Service daemon
+    // hiccups on Linux). SettingsPage auto-reconnects from the
+    // localStorage-persisted inputs when it mounts; mirror that recovery
+    // here so achievement syncs heal themselves too instead of failing
+    // with "Not connected to Steam" while the user is actually connected.
+    // `steam_connect` re-validates the pair and rewrites the keychain
+    // entry, so subsequent calls hit the fast path again.
+    const apiKey = localStorage.getItem("gamelib-steam-apikey")?.trim();
+    const steamId = localStorage.getItem("gamelib-steam-steamid")?.trim();
+    if (!apiKey || !steamId) return null;
+    try {
+      return await invoke<SteamSession>("steam_connect", { apiKey, steamId });
     } catch {
       return null;
     }
@@ -166,7 +182,7 @@ export function AchievementProvider({ children }: { children: ReactNode }) {
       const data: GameAchievementData = await invoke("fetch_achievements", {
         steamAppId,
         steamId: session.steamId,
-        apiToken: session.webApiToken,
+        apiToken: session.apiKey,
       });
 
       // Stamp sync time
@@ -205,7 +221,7 @@ export function AchievementProvider({ children }: { children: ReactNode }) {
           const data: GameAchievementData = await invoke("fetch_achievements", {
             steamAppId: game.steamAppId!,
             steamId: session.steamId,
-            apiToken: session.webApiToken,
+            apiToken: session.apiKey,
           });
           data.lastSynced = Date.now();
           updatedGames[game.id] = data;

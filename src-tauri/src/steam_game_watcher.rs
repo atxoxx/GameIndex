@@ -106,7 +106,7 @@ pub fn find_steam_install_dir() -> Option<PathBuf> {
 /// Read `<root>\steamapps\libraryfolders.vdf` and return every library
 /// root it declares. The file is a flat list under "LibraryFolders":
 ///
-/// ```
+/// ```text
 /// "LibraryFolders"
 /// {
 ///     "TimeNextStatsReport" "..."
