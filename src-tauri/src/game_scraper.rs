@@ -5761,6 +5761,9 @@ mod tests {
 
     #[tokio::test]
     async fn test_search_igdb() {
+        // The app loads .env at startup; tests don't get that path, so
+        // load the credentials here (no-op when .env is absent).
+        crate::config::load_env_file();
         let results = search_igdb("Portal 2").await;
         println!("IGDB results count: {}", results.len());
         assert!(!results.is_empty());

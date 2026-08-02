@@ -938,16 +938,29 @@ export default function SettingsPage() {
           await reloadCache();
         }
 
-        // Update lastPlayed for existing Steam games when Steam reports
-        // a more recent session, so the "Continue Playing" rail stays
-        // accurate after a sync.
+        // Refresh existing Steam entries from the sync result. Steam
+        // imports every owned game (installed or not), so a game that
+        // was already in the library while uninstalled must flip to
+        // installed once the user installs it — otherwise it stays
+        // "Not installed" forever. Mirrors the Rockstar/Uplay refresh.
         for (const entry of result.syncedGames ?? []) {
           if (!existingAppIds.has(entry.appid)) continue;
           const game = games.find((g) => g.steamAppId === entry.appid);
-          const syncedLastPlayed = entry.rtimeLastPlayed ? entry.rtimeLastPlayed * 1000 : undefined;
-          if (game && syncedLastPlayed && (!game.lastPlayed || syncedLastPlayed > game.lastPlayed)) {
-            updateGame(game.id, { lastPlayed: syncedLastPlayed });
+          if (!game) continue;
+          const patch: Partial<Game> = {};
+          const isInstalled = installedSet.has(entry.appid) || !!entry.exePath;
+          if (game.installed !== isInstalled) patch.installed = isInstalled;
+          if (entry.exePath && entry.exePath !== game.path) patch.path = entry.exePath;
+          if (entry.sizeBytes !== undefined) {
+            patch.sizeBytes = entry.sizeBytes;
+            patch.sizeRootPath = entry.sizeRootPath;
+            patch.sizeDetectedAt = new Date().toISOString();
           }
+          const syncedLastPlayed = entry.rtimeLastPlayed ? entry.rtimeLastPlayed * 1000 : undefined;
+          if (syncedLastPlayed && (!game.lastPlayed || syncedLastPlayed > game.lastPlayed)) {
+            patch.lastPlayed = syncedLastPlayed;
+          }
+          if (Object.keys(patch).length > 0) updateGame(game.id, patch);
         }
 
         const achMsg = steamSettings.syncAchievements ? ` · ${a} games achievements synced` : "";
@@ -1083,19 +1096,31 @@ export default function SettingsPage() {
           showToast(t("settings.epicSyncedAll", { games: result.gamesImported }), "success");
         }
 
-        // Update lastPlayed for existing Epic games when Epic reports a
-        // more recent session, so the "Continue Playing" rail stays
-        // accurate after a sync.
+        // Refresh existing Epic entries from the sync result — flip
+        // `installed` / path / size when Epic's local-manifest scan
+        // reports a different install state (games imported while
+        // uninstalled must not stay "Not installed" after the user
+        // installs them). Mirrors the Rockstar/Uplay refresh.
         for (const entry of result.syncedGames ?? []) {
           const existingId = `${entry.namespace}-${entry.catalogItemId}`;
           if (!existingEpicIds.has(existingId)) continue;
           const game = games.find(
             (g) => g.epicNamespace === entry.namespace && g.epicCatalogItemId === entry.catalogItemId
           );
-          const syncedLastPlayed = entry.lastPlayed ? entry.lastPlayed * 1000 : undefined;
-          if (game && syncedLastPlayed && (!game.lastPlayed || syncedLastPlayed > game.lastPlayed)) {
-            updateGame(game.id, { lastPlayed: syncedLastPlayed });
+          if (!game) continue;
+          const patch: Partial<Game> = {};
+          if (game.installed !== entry.isInstalled) patch.installed = entry.isInstalled;
+          if (entry.installPath && entry.installPath !== game.path) patch.path = entry.installPath;
+          if (entry.sizeBytes !== undefined) {
+            patch.sizeBytes = entry.sizeBytes;
+            patch.sizeRootPath = entry.sizeRootPath;
+            patch.sizeDetectedAt = new Date().toISOString();
           }
+          const syncedLastPlayed = entry.lastPlayed ? entry.lastPlayed * 1000 : undefined;
+          if (syncedLastPlayed && (!game.lastPlayed || syncedLastPlayed > game.lastPlayed)) {
+            patch.lastPlayed = syncedLastPlayed;
+          }
+          if (Object.keys(patch).length > 0) updateGame(game.id, patch);
         }
 
         // Persist sync info
@@ -1279,23 +1304,33 @@ export default function SettingsPage() {
           });
         }
 
-        // Refresh `lastPlayed` for existing GOG entries when GOG
-        // reports a more recent session — same pattern as Steam/Epic,
-        // keeps the Library "Continue Playing" rail honest across
-        // sync rounds.
+        // Refresh existing GOG entries from the sync result — flip
+        // `installed` / path / size when the local-install scan reports
+        // a different install state (games imported while uninstalled
+        // must not stay "Not installed" after the user installs them).
+        // Mirrors the Rockstar/Uplay refresh.
         for (const entry of result.syncedGames ?? []) {
           if (!existingGogIds.has(entry.gogGameId)) continue;
           const game = games.find((g) => g.gogGameId === entry.gogGameId);
+          if (!game) continue;
+          const patch: Partial<Game> = {};
+          if (game.installed !== entry.isInstalled) patch.installed = entry.isInstalled;
+          if (entry.installPath && entry.installPath !== game.path) patch.path = entry.installPath;
+          if (entry.sizeBytes !== undefined) {
+            patch.sizeBytes = entry.sizeBytes;
+            patch.sizeRootPath = entry.sizeRootPath;
+            patch.sizeDetectedAt = new Date().toISOString();
+          }
           const syncedLastPlayed = entry.lastPlayed
             ? entry.lastPlayed * 1000
             : undefined;
           if (
-            game &&
             syncedLastPlayed &&
             (!game.lastPlayed || syncedLastPlayed > game.lastPlayed)
           ) {
-            updateGame(game.id, { lastPlayed: syncedLastPlayed });
+            patch.lastPlayed = syncedLastPlayed;
           }
+          if (Object.keys(patch).length > 0) updateGame(game.id, patch);
         }
 
         if (newGames.length > 0) {

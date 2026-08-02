@@ -376,4 +376,88 @@ fn find_steam_library_folders() -> Vec<PathBuf> {
     folders
 }
 
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// Integration check against the machine's real Steam install (when
+    /// present): the appmanifest scan must exactly match an independent
+    /// walk of the same library folders. This is the mechanism that
+    /// picks up newly installed games — a fresh `appmanifest_<id>.acf`
+    /// written by Steam is exactly what this detector reads. Skips
+    /// gracefully when Steam is absent so the suite stays green on
+    /// dev boxes without Steam.
+    #[test]
+    fn detect_installed_matches_independent_manifest_walk() {
+        let folders = find_steam_library_folders();
+        if folders.is_empty() {
+            eprintln!("[test] Steam not installed — skipping integration check");
+            return;
+        }
+
+        // Ground truth: every appmanifest_<appid>.acf in the same folders.
+        let mut expected: Vec<u32> = Vec::new();
+        for folder in &folders {
+            if let Ok(entries) = fs::read_dir(folder) {
+                for entry in entries.flatten() {
+                    let name = entry.file_name();
+                    let name_str = name.to_string_lossy();
+                    if name_str.starts_with("appmanifest_") && name_str.ends_with(".acf") {
+                        let id_str =
+                            &name_str["appmanifest_".len()..name_str.len() - ".acf".len()];
+                        if let Ok(appid) = id_str.parse::<u32>() {
+                            expected.push(appid);
+                        }
+                    }
+                }
+            }
+        }
+        expected.sort();
+        expected.dedup();
+
+        let detected = detect_installed_steam_appids();
+        assert_eq!(
+            detected, expected,
+            "detector must match the real appmanifest files on disk"
+        );
+    }
+
+    /// The sync.rs library-folder parser (naive `"path"` line scan) and
+    /// the watcher's smart VDF parser must agree on the real
+    /// libraryfolders.vdf — otherwise games on secondary drives are
+    /// silently invisible to install detection. Skips without Steam.
+    #[test]
+    fn library_folder_parsers_agree_on_real_vdf() {
+        let naive_steamapps = find_steam_library_folders();
+        if naive_steamapps.is_empty() {
+            eprintln!("[test] Steam not installed — skipping integration check");
+            return;
+        }
+
+        let steam_root =
+            crate::steam_game_watcher::find_steam_install_dir().expect("steam root present");
+        let vdf = fs::read_to_string(steam_root.join("steamapps").join("libraryfolders.vdf"))
+            .expect("read libraryfolders.vdf");
+        let smart_roots = crate::steam_game_watcher::parse_library_folders(&vdf);
+
+        // Smart parser yields library roots; map to steamapps folders and
+        // keep only folders that actually exist on disk (the naive parser
+        // skips missing ones, e.g. an unplugged drive).
+        let mut smart_steamapps: Vec<PathBuf> = smart_roots
+            .into_iter()
+            .map(|r| r.join("steamapps"))
+            .filter(|p| p.exists())
+            .collect();
+        smart_steamapps.push(steam_root.join("steamapps"));
+        smart_steamapps.sort();
+        smart_steamapps.dedup();
+
+        let mut naive = naive_steamapps;
+        naive.sort();
+        naive.dedup();
+
+        assert_eq!(naive, smart_steamapps);
+    }
+}
+
 

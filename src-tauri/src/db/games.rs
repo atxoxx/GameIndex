@@ -617,7 +617,7 @@ fn json_opt_get<T: serde::de::DeserializeOwned>(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::db::schema::{GAMES_DDL, GAMES_V2_DDL, EMULATORS_DDL};
+    use crate::db::schema::{GAMES_DDL, GAMES_V2_DDL, GAMES_V3_DDL, EMULATORS_DDL};
     use serde_json::json;
 
     fn test_db() -> (tempfile::TempDir, Db) {
@@ -627,6 +627,7 @@ mod tests {
             let conn = db.games().unwrap();
             conn.execute_batch(GAMES_DDL).unwrap();
             conn.execute_batch(GAMES_V2_DDL).unwrap();
+            conn.execute_batch(GAMES_V3_DDL).unwrap();
         }
         (dir, db)
     }
