@@ -1,9 +1,10 @@
 import { useLanguage } from "../../context/LanguageContext";
 
 /**
- * Download options card: auto-extract toggle and (for torrents) the
- * "choose files" toggle. Grouped into a single tidy surface so the
- * main flow stays focused on picking a source.
+ * Download options: auto-extract toggle and (for torrents) the
+ * "choose files" toggle. Rendered inside the detail panel, which
+ * supplies the section heading — this component only draws the
+ * switch rows so the whole pane reads as one organised surface.
  */
 export function OptionsSection({
   autoExtract,
@@ -21,8 +22,6 @@ export function OptionsSection({
   const { t } = useLanguage();
   return (
     <div className="dl-options-card">
-      <div className="dl-options-card-title">{t('downloadModal.options')}</div>
-
       <label className="dl-switch-row">
         <span className="dl-switch-label">
           {t('downloadModal.autoExtract')}

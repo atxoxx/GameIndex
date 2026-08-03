@@ -42,6 +42,11 @@ export function FileSelection({
 
   return (
     <div className="dl-file-selection">
+      <div className="dl-file-selection-heading">
+        <h3>{t('downloadFiles.heading')}</h3>
+        <p>{t('downloadFiles.headingHint')}</p>
+      </div>
+
       <div className="dl-file-selection-header">
         <input
           type="text"

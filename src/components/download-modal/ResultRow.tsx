@@ -1,5 +1,6 @@
 import type { DisplayMatch } from "./types";
 import { useLanguage } from "../../context/LanguageContext";
+import { formatUploadDate } from "./helpers";
 
 export function ResultRow({
   match,
@@ -12,10 +13,18 @@ export function ResultRow({
   onSelect: (id: string) => void;
   isDownloaded: (title: string) => boolean;
 }) {
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
   const score = match.matchScore;
-  const scoreLabel =
-    score >= 0.8 ? "High match" : score >= 0.4 ? "Partial match" : "Possible";
+  // Confidence tier, kept intentionally out of the row's cramped meta
+  // line: the row shows a compact colored dot + tier label, while the
+  // detail panel carries the full percentage and a richer breakdown.
+  const tier = score >= 0.8 ? "high" : score >= 0.4 ? "partial" : "low";
+  const tierLabel =
+    score >= 0.8
+      ? t("downloadModal.matchHigh")
+      : score >= 0.4
+        ? t("downloadModal.matchPartial")
+        : t("downloadModal.matchPossible");
 
   return (
     <button
@@ -43,15 +52,16 @@ export function ResultRow({
         <div className="dl-result-meta">
           <span className="dl-result-source">{match.sourceName}</span>
           <span>·</span>
-          <span>{match.fileSize || "Unknown size"}</span>
+          <span>{match.fileSize || t("downloadModal.unknownSize")}</span>
           {match.uploadDate && (
             <>
               <span>·</span>
-              <span>{match.uploadDate}</span>
+              <span>{formatUploadDate(match.uploadDate, language)}</span>
             </>
           )}
-          <span className={`dl-result-score ${score >= 0.8 ? "high" : ""}`}>
-            {scoreLabel} ({(score * 100).toFixed(0)}%)
+          <span className={`dl-result-score ${tier}`} title={t("downloadModal.detailConfidence")}>
+            <span className="dl-tier-dot" aria-hidden />
+            {tierLabel}
           </span>
         </div>
       </div>

@@ -1,4 +1,5 @@
 import { Button } from "../ui";
+import { useLanguage } from "../../context/LanguageContext";
 
 /**
  * Save-path selector. Shows the picked folder (+ a preview of the
@@ -14,6 +15,7 @@ export function SavePathPicker({
   gameName: string;
   onPickPath: () => void;
 }) {
+  const { t } = useLanguage();
   const safeGameFolder = gameName.replace(/[:*?"<>|\\/]/g, "").trim();
   const nested = savePath ? `${savePath}/${safeGameFolder}` : null;
 
@@ -32,10 +34,10 @@ export function SavePathPicker({
         <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z" />
       </svg>
       <span className={`dl-save-path-text${savePath ? "" : " placeholder"}`} title={savePath ?? ""}>
-        {savePath ?? "No folder selected — pick where the download will be saved"}
+        {savePath ?? t("downloadModal.noFolderSelected")}
       </span>
       <Button variant="secondary" size="sm" onClick={onPickPath}>
-        {savePath ? "Change" : "Choose…"}
+        {savePath ? t("downloadModal.changeFolder") : t("downloadModal.chooseFolder")}
       </Button>
       {nested && (
         <span className="dl-save-path-nested" title={nested}>

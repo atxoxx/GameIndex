@@ -16,12 +16,20 @@
 /* ─── Modal: search step ──────────────────────────────────────────── */
 
 .dl-modal {
-  max-width: 720px;
+  max-width: 960px;
   width: 90vw;
   max-height: 86vh;
   display: flex;
   flex-direction: column;
   animation: dl-modal-in 0.22s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+/* The results step can outgrow the viewport (two panes + ownership
+ * banner), so the body scrolls internally while the header/footer stay
+ * pinned. `min-height: 0` lets the flex child actually shrink. */
+.dl-modal .modal-body {
+  overflow-y: auto;
+  min-height: 0;
 }
 
 @keyframes dl-modal-in {
@@ -91,14 +99,8 @@
   font-weight: 700;
 }
 
-/* Options area: mirror chips + options card, grouped under results. */
-.dl-options-area {
-  margin-top: var(--space-md);
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-sm);
-}
-
+/* Mirror host chips. Rendered inside the detail panel's "Mirrors"
+ * section; the section supplies the heading and spacing. */
 .dl-mirror-chips {
   display: flex;
   flex-wrap: wrap;
@@ -133,7 +135,9 @@
   box-shadow: 0 0 0 1px var(--color-accent);
 }
 
-/* Options card — groups auto-extract + choose-files toggles. */
+/* Options card — groups auto-extract + choose-files toggles. The
+ * section heading lives in the detail panel; this card only provides
+ * the switch rows and their spacing. */
 .dl-options-card {
   display: flex;
   flex-direction: column;
@@ -142,15 +146,6 @@
   background: var(--color-bg-secondary);
   border: 1px solid var(--color-border);
   border-radius: var(--radius-md);
-}
-
-.dl-options-card-title {
-  font-size: var(--font-size-xs);
-  font-weight: var(--font-weight-semibold);
-  text-transform: uppercase;
-  letter-spacing: 0.6px;
-  color: var(--color-text-muted);
-  margin-bottom: 2px;
 }
 
 .dl-switch-row {
@@ -257,6 +252,24 @@
   font-size: var(--font-size-xs);
   max-width: 420px;
   margin: 0;
+}
+
+/* Live swarm line — rendered while the temp torrent resolves its file
+ * list. Accent-tinted so it reads as live activity, not a hint. */
+.dl-fetching-swarm {
+  text-align: center;
+  color: var(--color-accent);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-medium);
+  font-variant-numeric: tabular-nums;
+  margin: 0;
+}
+
+/* Live swarm line appended to the starting-status text. */
+.dl-starting-swarm {
+  color: var(--color-accent);
+  font-weight: var(--font-weight-medium);
+  font-variant-numeric: tabular-nums;
 }
 
 /* ─── File selection ──────────────────────────────────────────── */
@@ -562,20 +575,34 @@
   color: var(--color-accent);
 }
 
+/* Confidence tier chip on each result row — a compact colored dot +
+ * tier label. The percentage lives in the detail panel so the row's
+ * meta line stays scannable. Colors map to the same High/Partial/Low
+ * tiers the detail panel shows, tying a row to its detail pane. */
 .dl-result-score {
   display: inline-flex;
   align-items: center;
-  gap: 4px;
+  gap: 5px;
   font-size: 10px;
-  padding: 2px 6px;
+  padding: 2px 8px;
   background: var(--color-bg-tertiary);
-  border-radius: 3px;
+  border-radius: var(--radius-full);
   color: var(--color-text-muted);
 }
 
 .dl-result-score.high {
   background: color-mix(in srgb, var(--color-success) 12%, transparent);
   color: var(--color-success);
+}
+
+.dl-result-score.partial {
+  background: color-mix(in srgb, var(--color-warning) 12%, transparent);
+  color: var(--color-warning);
+}
+
+.dl-result-score.low {
+  background: color-mix(in srgb, var(--color-danger) 10%, transparent);
+  color: var(--color-danger);
 }
 
 .dl-result-actions {
@@ -713,7 +740,8 @@
   font-size: 11px;
 }
 
-/* Save-path selector — shows the picked folder + a "Change" button. */
+/* Save-path selector — shows the picked folder + a "Change" button.
+ * Spacing is provided by its parent (the detail pane's section gap). */
 .dl-save-path {
   display: flex;
   align-items: center;
@@ -722,7 +750,6 @@
   background: var(--color-bg-secondary);
   border: 1px solid var(--color-border);
   border-radius: var(--radius-md);
-  margin-top: var(--space-md);
 }
 
 .dl-save-path-icon {
@@ -745,6 +772,259 @@
 .dl-save-path-text.placeholder {
   color: var(--color-text-muted);
   font-style: italic;
+}
+
+/* ─── Results step: two-pane layout ───────────────────────────────
+ * Results list on the left, a persistent detail/summary panel on the
+ * right that always describes the currently selected match. The pane
+ * owns the mirror picker, options and save-path controls, so they are
+ * visually attached to the exact result the user picked instead of
+ * floating below the whole list. */
+
+.dl-results-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(280px, 360px);
+  gap: var(--space-lg);
+  align-items: start;
+}
+
+.dl-results-pane {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-xs);
+}
+
+/* Detail panel — the darker, elevated surface that "locks in" the
+ * selection. The results list scrolls inside its own column, so the
+ * pane stays put beside it. */
+.dl-detail-pane {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+  padding: var(--space-md);
+  background: var(--color-bg-tertiary);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+}
+
+/* Selected-source head: kicker, title, NEW/Downloaded badges. */
+.dl-detail-head {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 0;
+}
+
+.dl-detail-kicker {
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-semibold);
+  text-transform: uppercase;
+  letter-spacing: 0.6px;
+  color: var(--color-accent);
+}
+
+.dl-detail-title {
+  margin: 0;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text-primary);
+  line-height: 1.4;
+}
+
+.dl-detail-title-text {
+  min-width: 0;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+
+.dl-detail-badges {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  flex-shrink: 0;
+}
+
+/* Meta grid — 2×2 facts about the selected match. The confidence row
+ * spans the full width so the tier chip has room to breathe. */
+.dl-detail-meta {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--space-sm) var(--space-md);
+  padding: var(--space-sm) 0;
+  border-top: 1px solid var(--color-border);
+  border-bottom: 1px solid var(--color-border);
+}
+
+.dl-detail-meta-item {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.dl-detail-meta-item--full {
+  grid-column: 1 / -1;
+}
+
+.dl-detail-meta-label {
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-medium);
+  letter-spacing: 0.3px;
+  text-transform: uppercase;
+  color: var(--color-text-muted);
+}
+
+.dl-detail-meta-value {
+  font-size: var(--font-size-sm);
+  color: var(--color-text-primary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Confidence tier indicator — colored dot + label + percentage. The
+ * dot inherits the tier color so one rule drives all three tones. */
+.dl-tier {
+  display: inline-flex;
+  align-items: center;
+  align-self: flex-start;
+  gap: 6px;
+  padding: 3px 10px;
+  border-radius: var(--radius-full);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-semibold);
+  font-variant-numeric: tabular-nums;
+}
+
+.dl-tier--high {
+  background: color-mix(in srgb, var(--color-success) 14%, transparent);
+  color: var(--color-success);
+}
+
+.dl-tier--partial {
+  background: color-mix(in srgb, var(--color-warning) 14%, transparent);
+  color: var(--color-warning);
+}
+
+.dl-tier--low {
+  background: color-mix(in srgb, var(--color-danger) 12%, transparent);
+  color: var(--color-danger);
+}
+
+.dl-tier-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: currentColor;
+  flex-shrink: 0;
+}
+
+/* Download-type chip (torrent / magnet / direct link). */
+.dl-type-chip {
+  display: inline-flex;
+  align-items: center;
+  align-self: flex-start;
+  padding: 2px 8px;
+  border-radius: var(--radius-full);
+  background: var(--color-bg-secondary);
+  border: 1px solid var(--color-border);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text-secondary);
+}
+
+/* Detail pane sections — "Mirrors", "Options", "Save location". */
+.dl-detail-section {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-xs);
+}
+
+.dl-detail-section-title {
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-semibold);
+  text-transform: uppercase;
+  letter-spacing: 0.6px;
+  color: var(--color-text-muted);
+}
+
+/* The options card sits inside the pane now — flatten its box so it
+ * reads as a section row, not a nested card. */
+.dl-detail-pane .dl-options-card {
+  padding: 0;
+  background: transparent;
+  border: none;
+}
+
+/* Empty detail pane — shown until the user picks a result. */
+.dl-detail-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-sm);
+  min-height: 260px;
+  padding: var(--space-xl) var(--space-md);
+  text-align: center;
+  color: var(--color-text-muted);
+}
+
+.dl-detail-empty svg {
+  width: 32px;
+  height: 32px;
+  opacity: 0.5;
+}
+
+.dl-detail-empty p {
+  margin: 0;
+  font-size: var(--font-size-sm);
+  max-width: 240px;
+  line-height: 1.45;
+}
+
+/* Below ~1024px viewports the modal (90vw, capped at 960px) is too
+ * narrow for two real panes — stack them, results on top, detail
+ * below. The detail pane still echoes the selected title so the
+ * connection survives the reflow. */
+@media (max-width: 1024px) {
+  .dl-results-layout {
+    grid-template-columns: 1fr;
+  }
+
+  .dl-results-pane .dl-results-list {
+    max-height: 280px;
+  }
+
+  .dl-detail-pane {
+    margin-top: var(--space-xs);
+  }
+}
+
+/* Vertical loading states (checking / fetching metadata). */
+.dl-search-loading--column {
+  flex-direction: column;
+  text-align: center;
+  gap: var(--space-xs);
+}
+
+/* File-selection step heading. */
+.dl-file-selection-heading h3 {
+  margin: 0 0 2px;
+  font-size: var(--font-size-md);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text-primary);
+}
+
+.dl-file-selection-heading p {
+  margin: 0;
+  font-size: var(--font-size-xs);
+  color: var(--color-text-muted);
 }
 
 /* ─── Floating progress panel ────────────────────────────────────── */

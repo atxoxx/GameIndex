@@ -7,9 +7,10 @@ import { useLanguage } from "../../context/LanguageContext";
 export function CheckingState() {
   const { t } = useLanguage();
   return (
-    <div className="dl-search-loading">
+    <div className="dl-search-loading dl-search-loading--column">
       <div className="spinner-small" />
       <span>{t('downloadModal.checkingState')}</span>
+      <p className="dl-fetching-hint">{t('downloadModal.checkingHint')}</p>
     </div>
   );
 }
@@ -46,14 +47,34 @@ export function ErrorState({
   );
 }
 
-export function FetchingMetadataState() {
+export function FetchingMetadataState({
+  peers = 0,
+  seeds = 0,
+}: {
+  peers?: number;
+  seeds?: number;
+}) {
+  const { t } = useLanguage();
+  // The temp (list-only) torrent is live in `activeDownloads` while we
+  // wait for the file list, so its 2s-polled swarm stats are genuine —
+  // show them once any peer has been contacted, as a live status line.
+  const hasSwarm = peers > 0;
   return (
     <div className="dl-search-loading dl-search-loading--column">
       <div className="spinner-small" style={{ width: 24, height: 24 }} />
-      <span>Fetching torrent files list…</span>
+      <span>{t('downloadModal.fetchingFileList')}</span>
+      {hasSwarm && (
+        <p className="dl-fetching-swarm" role="status" aria-live="polite">
+          {t('downloadModal.connectedPeers', {
+            peers,
+            s: peers !== 1 ? "s" : "",
+            seeds,
+            seedPlural: seeds !== 1 ? "s" : "",
+          })}
+        </p>
+      )}
       <p className="dl-fetching-hint">
-        Connecting to peers to retrieve files metadata. This usually takes a few
-        seconds.
+        {t('downloadModal.fetchingPeersHint')}
       </p>
     </div>
   );
@@ -72,23 +93,42 @@ export function StartingStatus({
   match,
   selectedMirrorIdx,
   elapsedSec,
+  peers = 0,
+  seeds = 0,
 }: {
   match: MatchedDownload | null;
   selectedMirrorIdx: number;
   elapsedSec: number;
+  peers?: number;
+  seeds?: number;
 }) {
+  const { t } = useLanguage();
   const uri = resolveSourceUri(match ?? undefined, selectedMirrorIdx);
   const isHttpFetch = !!uri && /^https?:/i.test(uri);
   const slow = elapsedSec >= 10;
   const label = isHttpFetch
     ? slow
-      ? "Source server is slow — you can cancel and try another source"
-      : "Fetching torrent file from source server…"
-    : "Starting download…";
+      ? t('downloadModal.slowSource')
+      : t('downloadModal.fetchingTorrentFile')
+    : t('downloadModal.startingDownload');
+  // Best-effort live swarm: only rendered when the caller found the
+  // download in `activeDownloads` with peers > 0.
+  const hasSwarm = peers > 0;
   return (
     <p className="dl-starting-status" role="status" aria-live="polite">
       {label}
       {elapsedSec > 0 && <> ({elapsedSec}s)</>}
+      {hasSwarm && (
+        <span className="dl-starting-swarm">
+          {" · "}
+          {t('downloadModal.connectedPeers', {
+            peers,
+            s: peers !== 1 ? "s" : "",
+            seeds,
+            seedPlural: seeds !== 1 ? "s" : "",
+          })}
+        </span>
+      )}
     </p>
   );
 }

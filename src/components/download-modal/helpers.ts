@@ -54,6 +54,33 @@ function dateValue(date: string | null | undefined): number {
   return Number.isNaN(parsed) ? 0 : parsed;
 }
 
+/**
+ * Render a source's raw upload date in the user's locale. Sources hand
+ * us the string verbatim (usually an ISO timestamp like
+ * "2026-01-05T09:52:00.000Z"), which is unfriendly to read — so we
+ * format it as e.g. "Jan 5, 2026". Anything we can't parse is shown
+ * as-is, and a missing date becomes an em dash.
+ */
+export function formatUploadDate(
+  raw: string | null | undefined,
+  language: string,
+): string {
+  if (raw == null || raw === "") return "—";
+  const parsed = new Date(raw);
+  if (Number.isNaN(parsed.getTime())) return raw;
+  try {
+    return new Intl.DateTimeFormat(language, {
+      year: "numeric",
+      month: "short",
+      day: "numeric",
+    }).format(parsed);
+  } catch {
+    // Unknown/unusual locale code — fall back to the raw string rather
+    // than crashing the modal.
+    return raw;
+  }
+}
+
 /** Return a re-sorted copy of the matches for display. The canonical
  *  `matches` array stays score-ordered; this only affects presentation
  *  and the selection mapping (which is id-based, so reordering is safe). */

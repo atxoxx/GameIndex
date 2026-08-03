@@ -41,9 +41,7 @@ import type { DownloadStep, SortKey, DisplayMatch } from "./types";
 import { OwnershipBanner } from "./OwnershipBanner";
 import { ConfidenceWarning } from "./ConfidenceWarning";
 import { ResultsList } from "./ResultsList";
-import { MirrorPicker } from "./MirrorPicker";
-import { OptionsSection } from "./OptionsSection";
-import { SavePathPicker } from "./SavePathPicker";
+import { DetailPanel } from "./DetailPanel";
 import { FileSelection } from "./FileSelection";
 import {
   CheckingState,
@@ -546,7 +544,18 @@ export default function DownloadModal({
     const onKey = (e: KeyboardEvent) => {
       if (e.key !== "ArrowDown" && e.key !== "ArrowUp" && e.key !== "Enter") return;
       if (e.key === "Enter") {
-        if (step === "results" && selectedId != null) handleStart();
+        if (step === "results" && selectedId != null) {
+          // Enter starts the download — but only when focus isn't sitting
+          // on one of the detail-pane's interactive controls (mirror chips,
+          // toggles, save-path button). Those should handle Enter natively
+          // (e.g. "Change" opening the folder picker) instead of
+          // double-firing a download. The result rows themselves still
+          // start the download, matching the click-to-start flow.
+          const target = e.target as HTMLElement | null;
+          const isInteractive = !!target?.closest("input, select, textarea, button");
+          const isResultRow = !!target?.closest(".dl-result-row");
+          if (!isInteractive || isResultRow) handleStart();
+        }
         return;
       }
       e.preventDefault();
@@ -673,51 +682,64 @@ export default function DownloadModal({
             )}
 
             {showResultsUI && (
-              <>
-                <div ref={resultsListRef}>
-                  <ResultsList
-                    matches={sortedMatches}
-                    selectedId={selectedId}
-                    onSelect={setSelectedId}
-                    showWeakMatches={showWeakMatches}
-                    onToggleWeak={() => setShowWeakMatches((v) => !v)}
+              matches.length === 0 ? (
+                // No candidates at all — a full-width empty state beats a
+                // pointless split pane. The save-path/options controls live
+                // in the detail pane now, so there is nothing to attach
+                // them to when nothing matched.
+                <ResultsList
+                  matches={sortedMatches}
+                  selectedId={selectedId}
+                  onSelect={setSelectedId}
+                  showWeakMatches={showWeakMatches}
+                  onToggleWeak={() => setShowWeakMatches((v) => !v)}
+                  isDownloaded={isDownloaded}
+                  sortBy={sortBy}
+                  onSortChange={setSortBy}
+                />
+              ) : (
+                <div className="dl-results-layout">
+                  <div className="dl-results-pane" ref={resultsListRef}>
+                    <ResultsList
+                      matches={sortedMatches}
+                      selectedId={selectedId}
+                      onSelect={setSelectedId}
+                      showWeakMatches={showWeakMatches}
+                      onToggleWeak={() => setShowWeakMatches((v) => !v)}
+                      isDownloaded={isDownloaded}
+                      sortBy={sortBy}
+                      onSortChange={setSortBy}
+                    />
+                  </div>
+                  <DetailPanel
+                    match={selectedMatch}
                     isDownloaded={isDownloaded}
-                    sortBy={sortBy}
-                    onSortChange={setSortBy}
+                    savePath={savePath}
+                    gameName={gameName}
+                    onPickPath={handlePickSavePath}
+                    selectedMirrorIdx={selectedMirrorIdx}
+                    onMirrorChange={handleMirrorChange}
+                    autoExtract={autoExtract}
+                    onAutoExtract={setAutoExtract}
+                    chooseFiles={chooseFiles}
+                    onChooseFiles={setChooseFiles}
                   />
                 </div>
-
-                <SavePathPicker
-                  savePath={savePath}
-                  gameName={gameName}
-                  onPickPath={handlePickSavePath}
-                />
-
-                {selectedMatch && (() => {
-                  const match = selectedMatch;
-                  const sourceUri = resolveSourceUri(match, selectedMirrorIdx);
-                  const { isDirect } = classifyUri(sourceUri);
-                  return (
-                    <div className="dl-options-area">
-                      <MirrorPicker
-                        uris={match.uris}
-                        selectedMirrorIdx={selectedMirrorIdx}
-                        onChange={handleMirrorChange}
-                      />
-                      <OptionsSection
-                        autoExtract={autoExtract}
-                        onAutoExtract={setAutoExtract}
-                        chooseFiles={chooseFiles}
-                        onChooseFiles={setChooseFiles}
-                        isDirect={isDirect}
-                      />
-                    </div>
-                  );
-                })()}
-              </>
+              )
             )}
 
-            {step === "fetching_metadata" && <FetchingMetadataState />}
+            {step === "fetching_metadata" && (() => {
+              // The temp (list-only) torrent is live in `activeDownloads`
+              // while we wait for the file list — surface its 2s-polled
+              // swarm stats so the wait reads as active, not stalled.
+              const live = activeDownloads.find((d) => d.id === tempTorrentId);
+              return (
+                <FetchingMetadataState
+                  peers={live?.peers ?? 0}
+                  seeds={live?.seeds ?? 0}
+                />
+              );
+            })()}
 
             {step === "file_selection" && (
               <FileSelection
@@ -742,13 +764,26 @@ export default function DownloadModal({
               </div>
             )}
 
-            {step === "starting" && (
-              <StartingStatus
-                match={selectedMatch}
-                selectedMirrorIdx={selectedMirrorIdx}
-                elapsedSec={elapsedSec}
-              />
-            )}
+            {step === "starting" && (() => {
+              // Best-effort live swarm for the status line: once
+              // `torrent_add` resolves the new download appears in
+              // `activeDownloads` (same `sourceUri`). Matching by URI
+              // avoids touching the state machine — no id is kept for
+              // the non-file-selection start path.
+              const liveUri = resolveSourceUri(selectedMatch ?? undefined, selectedMirrorIdx);
+              const live = liveUri
+                ? activeDownloads.find((d) => d.sourceUri === liveUri)
+                : undefined;
+              return (
+                <StartingStatus
+                  match={selectedMatch}
+                  selectedMirrorIdx={selectedMirrorIdx}
+                  elapsedSec={elapsedSec}
+                  peers={live?.peers ?? 0}
+                  seeds={live?.seeds ?? 0}
+                />
+              );
+            })()}
           </div>
 
           <div className="modal-footer">

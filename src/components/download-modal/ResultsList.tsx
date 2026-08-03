@@ -40,9 +40,10 @@ export function ResultsList({
         </svg>
         <p>{t("downloads.noMatchesFound")}</p>
         <p className="dl-results-empty-hint">
-          Add more sources in <strong>Settings → Download Sources</strong>, or
-          verify that one of your enabled sources actually lists this game. The
-          expected JSON format is <code>{`{ title, fileSize, uris }`}</code>.
+          {t("downloadModal.addMoreSources")}
+        </p>
+        <p className="dl-results-empty-hint">
+          {t("downloadModal.jsonFormatHint")}
         </p>
       </div>
     );
@@ -95,8 +96,11 @@ export function ResultsList({
           aria-expanded={showWeakMatches}
         >
           {showWeakMatches
-            ? "Hide weaker matches"
-            : `Show ${weakCount} weaker match${weakCount !== 1 ? "es" : ""}`}
+            ? t("downloadModal.hideWeakMatches")
+            : t("downloadModal.showWeakMatches", {
+                count: weakCount,
+                plural: weakCount !== 1 ? "es" : "",
+              })}
         </button>
       )}
     </div>
