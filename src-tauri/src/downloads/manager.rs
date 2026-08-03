@@ -52,6 +52,15 @@ pub struct DownloadManager {
     pub seed_after_complete: bool,
     /// In-memory debrid credentials per download id (never persisted).
     pub debrid_params: HashMap<String, (String, String)>,
+    /// Monotonic worker generation per download id; bumped on every
+    /// worker spawn. A worker whose captured generation is stale must
+    /// stop immediately (superseded by a newer worker).
+    pub direct_generations: HashMap<String, u64>,
+    /// Per-download worker lifetime lock (C1 single-writer invariant).
+    pub direct_locks: HashMap<String, Arc<tokio::sync::Mutex<()>>>,
+    /// Download ids whose URL changed while a partial existed; the next
+    /// worker drops the stale `.gamelib_tmp` before streaming.
+    pub direct_reset_partial: std::collections::HashSet<String>,
 }
 
 impl DownloadManager {
@@ -69,6 +78,9 @@ impl DownloadManager {
             direct_last_calc: HashMap::new(),
             seed_after_complete: false,
             debrid_params: HashMap::new(),
+            direct_generations: HashMap::new(),
+            direct_locks: HashMap::new(),
+            direct_reset_partial: std::collections::HashSet::new(),
         }
     }
 
@@ -259,6 +271,15 @@ impl DownloadManager {
         if let Some(p) = self.debrid_params.remove(old_id) {
             self.debrid_params.insert(new_id.to_string(), p);
         }
+        if let Some(g) = self.direct_generations.remove(old_id) {
+            self.direct_generations.insert(new_id.to_string(), g);
+        }
+        if let Some(l) = self.direct_locks.remove(old_id) {
+            self.direct_locks.insert(new_id.to_string(), l);
+        }
+        if self.direct_reset_partial.remove(old_id) {
+            self.direct_reset_partial.insert(new_id.to_string());
+        }
         self.mark_dirty();
     }
 
@@ -420,6 +441,7 @@ impl DownloadManager {
                 Vec::new();
             let mut to_delete: Vec<Arc<librqbit::ManagedTorrent>> = Vec::new();
             let mut save_needed = false;
+            let mut pause_sweep: Vec<Arc<librqbit::ManagedTorrent>> = Vec::new();
 
             for entry in collected {
                 let Some(d) = self.downloads.get_mut(&entry.fid) else {
@@ -450,15 +472,32 @@ impl DownloadManager {
                 // overwritten by librqbit's view.
                 let keep_manager_status = matches!(
                     d.status,
-                    DownloadStatus::Queued | DownloadStatus::Seeding
+                    DownloadStatus::Queued | DownloadStatus::Seeding | DownloadStatus::Paused
                 ) || (matches!(d.status, DownloadStatus::Error(_))
                     && !matches!(entry.status, DownloadStatus::Error(_)));
                 if !keep_manager_status {
                     d.status = gate_completion(entry.status.clone(), d.had_real_downloads);
                 }
 
+                // M2: enforce Paused/Queued intent against the session.
+                // librqbit cannot pause a torrent while it is
+                // Initializing (file re-check), so we retry every tick;
+                // the moment the check completes the pause lands.
+                // Completed is excluded so the sweep can never flip a
+                // Completed record to Paused; Seeding/Error entries are
+                // excluded by design.
+                if matches!(d.status, DownloadStatus::Paused | DownloadStatus::Queued)
+                    && matches!(
+                        entry.status,
+                        DownloadStatus::FetchingMetadata | DownloadStatus::Downloading
+                    )
+                {
+                    pause_sweep.push(entry.handle.clone());
+                }
+
                 // Metadata watchdog for the active torrent.
                 if matches!(d.status, DownloadStatus::FetchingMetadata)
+                    && d.kind == DownloadKind::Torrent
                     && d.had_real_downloads != Some(true)
                     && unix_now().saturating_sub(d.added_at) > METADATA_FETCH_TIMEOUT_SECS
                 {
@@ -515,6 +554,12 @@ impl DownloadManager {
                     want_advance = true;
                     save_needed = true;
                 }
+            }
+
+            for handle in pause_sweep {
+                // Expected errors: "torrent is initializing, can't pause",
+                // "already paused" — ignore.
+                let _ = session.pause(&handle).await;
             }
 
             if save_needed {
@@ -603,6 +648,12 @@ impl DownloadManager {
             .retain(|id, _| self.downloads.contains_key(id));
         self.direct_last_calc
             .retain(|id, _| self.downloads.contains_key(id));
+        self.direct_generations
+            .retain(|id, _| self.downloads.contains_key(id));
+        self.direct_locks
+            .retain(|id, _| self.downloads.contains_key(id));
+        self.direct_reset_partial
+            .retain(|id| self.downloads.contains_key(id));
 
         // If nothing holds the slot but the queue has work, advance.
         if !self.has_active() && !self.queue.is_empty() {
@@ -630,9 +681,66 @@ pub fn advance_queue(manager: &SharedManager) -> Pin<Box<dyn Future<Output = ()>
             if start_download(manager, &id).await {
                 return;
             }
-            // Start failed synchronously — try the next queued item.
+            // Claim failed. If another download grabbed the slot in the
+            // meantime, put the item back at the front and stop; if the
+            // record vanished, try the next queued item.
+            let slot_busy = {
+                let guard = manager.read().await;
+                guard.has_active()
+            };
+            if slot_busy {
+                let mut guard = manager.write().await;
+                if guard.downloads_map().contains_key(&id) {
+                    guard.enqueue_front(&id);
+                }
+                return;
+            }
         }
     })
+}
+
+/// Outcome of an atomic active-slot claim (M3).
+pub enum SlotClaim {
+    /// Slot taken by `id`; the caller must finish setup or roll back.
+    Claimed,
+    /// `id` already held an active status; a worker is already running.
+    AlreadyActive,
+    /// Another download holds the slot.
+    Busy,
+    /// The record no longer exists.
+    NotFound,
+}
+
+/// Atomically check-and-claim the single active slot. One write lock
+/// covers the check and the claim, so two concurrent starts can never
+/// both observe a free slot.
+pub async fn claim_active_slot(
+    manager: &SharedManager,
+    id: &str,
+    in_flight_status: DownloadStatus,
+) -> SlotClaim {
+    let mut guard = manager.write().await;
+    let already_active = guard
+        .downloads_map()
+        .get(id)
+        .map(|d| d.status.is_active())
+        .unwrap_or(false);
+    if already_active {
+        return SlotClaim::AlreadyActive;
+    }
+    if guard.has_active() {
+        return SlotClaim::Busy;
+    }
+    let Some(d) = guard.downloads_mut().get_mut(id) else {
+        return SlotClaim::NotFound;
+    };
+    d.status = in_flight_status;
+    d.added_at = unix_now();
+    guard.active_id = Some(id.to_string());
+    guard.remove_from_queue(id);
+    guard.mark_dirty();
+    guard.emit_progress_force();
+    SlotClaim::Claimed
 }
 
 /// Occupy the active slot with `id` and kick off its worker. Returns
@@ -658,27 +766,29 @@ pub async fn start_download(manager: &SharedManager, id: &str) -> bool {
 
 /// Start (or resume) a torrent download.
 async fn start_torrent(manager: &SharedManager, id: &str) -> bool {
+    match claim_active_slot(manager, id, DownloadStatus::FetchingMetadata).await {
+        SlotClaim::Claimed => {}
+        SlotClaim::AlreadyActive => return true,
+        SlotClaim::Busy | SlotClaim::NotFound => return false,
+    }
     let (session, source_uri, save_path, only_files) = {
         let mut guard = manager.write().await;
         let Some(session) = guard.session().cloned() else {
+            drop(guard);
+            fail_download(manager, id, "Torrent engine not initialized.".to_string()).await;
             return false;
         };
         let Some(d) = guard.downloads_mut().get_mut(id) else {
+            drop(guard);
+            fail_download(manager, id, "Download vanished.".to_string()).await;
             return false;
         };
-        d.status = DownloadStatus::FetchingMetadata;
-        d.added_at = unix_now();
-        let tuple = (
+        (
             session,
             d.source_uri.clone(),
             d.save_path.clone(),
             d.only_files.clone(),
-        );
-        guard.active_id = Some(id.to_string());
-        guard.remove_from_queue(id);
-        guard.mark_dirty();
-        guard.emit_progress_force();
-        tuple
+        )
     };
 
     if save_path.trim().is_empty() {
@@ -738,10 +848,6 @@ async fn start_torrent(manager: &SharedManager, id: &str) -> bool {
     let id_owned = id.to_string();
     let spawn_fut: std::pin::Pin<Box<dyn std::future::Future<Output = ()> + Send>> =
         Box::pin(async move {
-        // Clear any stale session entry (e.g. a list_only add from the
-        // file-picker flow) so the re-add starts fresh.
-        torrent::delete_from_session(&session, &id_owned).await;
-
         match torrent::add_and_start(
             &session,
             &source_uri,
@@ -750,7 +856,11 @@ async fn start_torrent(manager: &SharedManager, id: &str) -> bool {
         )
         .await
         {
-            Ok(handle) => {
+            Ok(outcome) => {
+                let (handle, already_managed) = match outcome {
+                    torrent::AddOutcome::Added { handle } => (handle, false),
+                    torrent::AddOutcome::AlreadyManaged { handle } => (handle, true),
+                };
                 let real_id =
                     torrent::frontend_id_from_hash(&handle.shared().info_hash.0);
                 let name = handle
@@ -770,15 +880,50 @@ async fn start_torrent(manager: &SharedManager, id: &str) -> bool {
 
                 let mut guard = manager_clone.write().await;
                 // The user may have removed the download while we were
-                // adding it — clean the session back up.
+                // adding it — clean the session back up (only the entry
+                // we created; never a pre-existing torrent).
                 if !guard.downloads_map().contains_key(&id_owned) {
                     drop(guard);
-                    let _ = session
-                        .delete(
-                            librqbit::api::TorrentIdOrHash::Id(handle.id()),
-                            false,
-                        )
-                        .await;
+                    if !already_managed {
+                        let _ = session
+                            .delete(
+                                librqbit::api::TorrentIdOrHash::Id(handle.id()),
+                                false,
+                            )
+                            .await;
+                    }
+                    return;
+                }
+                // M1: another record already owns this infohash.
+                let existing_dup = guard
+                    .downloads_map()
+                    .get(&real_id)
+                    .filter(|d| d.id != id_owned)
+                    .map(|d| d.clone());
+                if let Some(existing) = existing_dup {
+                    drop(guard);
+                    // AlreadyManaged: the handle IS the pre-existing
+                    // torrent — touching it would kill the first
+                    // download. Added: undo only the entry we created.
+                    if !already_managed {
+                        let _ = session
+                            .delete(
+                                librqbit::api::TorrentIdOrHash::Id(handle.id()),
+                                false,
+                            )
+                            .await;
+                    }
+                    fail_download(
+                        &manager_clone,
+                        &id_owned,
+                        format!(
+                            "This torrent is already in your downloads ({}). \
+                             Resume it there, or remove it first if you want to re-download.",
+                            existing.name
+                        ),
+                    )
+                    .await;
+                    advance_queue(&manager_clone).await;
                     return;
                 }
                 guard.rekey(&id_owned, &real_id);
@@ -831,7 +976,13 @@ async fn start_torrent(manager: &SharedManager, id: &str) -> bool {
 
 /// Start (or resume) a direct HTTP download.
 async fn start_direct(manager: &SharedManager, id: &str) -> bool {
-    let (url, save_path) = {
+    match claim_active_slot(manager, id, DownloadStatus::Downloading).await {
+        SlotClaim::Claimed => {}
+        SlotClaim::AlreadyActive => return true,
+        SlotClaim::Busy | SlotClaim::NotFound => return false,
+    }
+    // Magnet guard: roll the claim back.
+    {
         let mut guard = manager.write().await;
         let Some(d) = guard.downloads_mut().get_mut(id) else {
             return false;
@@ -840,32 +991,60 @@ async fn start_direct(manager: &SharedManager, id: &str) -> bool {
             d.status = DownloadStatus::Error(
                 "Direct download has a magnet source — cannot restart.".to_string(),
             );
+            guard.release_active(id);
+            guard.mark_dirty();
+            guard.emit_progress_force();
             return false;
         }
-        d.status = DownloadStatus::Downloading;
-        let tuple = (d.source_uri.clone(), d.save_path.clone());
+    }
+    spawn_direct_worker(manager, id).await
+}
+
+/// Create the byte counter, bump the worker generation, and spawn the
+/// direct-download worker for `id`. The worker is handed a per-download
+/// lifetime lock so a replacement (mirror switch / URL edit) can never
+/// write concurrently with a still-running predecessor (C1).
+/// Returns false when the record vanished before the spawn.
+pub async fn spawn_direct_worker(manager: &SharedManager, id: &str) -> bool {
+    let (url, save_path, counter, generation, lock) = {
+        let mut guard = manager.write().await;
+        let (source_uri, save_path) = {
+            let Some(d) = guard.downloads_mut().get_mut(id) else {
+                return false;
+            };
+            (d.source_uri.clone(), d.save_path.clone())
+        };
+        let generation = {
+            let e = guard.direct_generations.entry(id.to_string()).or_insert(0u64);
+            *e += 1;
+            *e
+        };
         let counter = Arc::new(AtomicU64::new(0));
         guard
             .direct_counters
             .insert(id.to_string(), Arc::clone(&counter));
-        guard.active_id = Some(id.to_string());
-        guard.remove_from_queue(id);
-        guard.mark_dirty();
-        guard.emit_progress_force();
-        tuple
+        let lock = guard
+            .direct_locks
+            .entry(id.to_string())
+            .or_insert_with(|| Arc::new(tokio::sync::Mutex::new(())))
+            .clone();
+        (source_uri, save_path, counter, generation, lock)
     };
-
-    let counter = {
-        let guard = manager.read().await;
-        guard.direct_counters.get(id).cloned()
-    };
-    let Some(counter) = counter else { return false };
 
     let weak = Arc::downgrade(manager);
     let id_owned = id.to_string();
     let spawn_fut: std::pin::Pin<Box<dyn std::future::Future<Output = ()> + Send>> =
         Box::pin(async move {
-            http::run_direct_download(id_owned, url, save_path, counter, weak).await;
+            http::run_direct_download(
+                id_owned,
+                url,
+                save_path,
+                counter,
+                weak,
+                generation,
+                lock,
+            )
+            .await;
         });
     tokio::spawn(spawn_fut);
     true
@@ -874,24 +1053,31 @@ async fn start_direct(manager: &SharedManager, id: &str) -> bool {
 /// Start a debrid download: upload the magnet, poll until ready, then
 /// hand the resolved link to the HTTP worker.
 async fn start_debrid(manager: &SharedManager, id: &str) -> bool {
+    // Already resolved to a direct link earlier? Run as direct (it claims
+    // the slot itself).
+    let is_magnet = {
+        let guard = manager.read().await;
+        guard
+            .downloads_map()
+            .get(id)
+            .map(|d| d.source_uri.starts_with("magnet:"))
+            .unwrap_or(false)
+    };
+    if !is_magnet {
+        return start_direct(manager, id).await;
+    }
+    match claim_active_slot(manager, id, DownloadStatus::FetchingMetadata).await {
+        SlotClaim::Claimed => {}
+        SlotClaim::AlreadyActive => return true,
+        SlotClaim::Busy | SlotClaim::NotFound => return false,
+    }
     let (magnet, params) = {
         let mut guard = manager.write().await;
         let params = guard.debrid_params.get(id).cloned();
         let Some(d) = guard.downloads_mut().get_mut(id) else {
             return false;
         };
-        // Already resolved to a direct link earlier? Run as direct.
-        if !d.source_uri.starts_with("magnet:") {
-            drop(guard);
-            return start_direct(manager, id).await;
-        }
-        d.status = DownloadStatus::FetchingMetadata;
-        let magnet = d.source_uri.clone();
-        guard.active_id = Some(id.to_string());
-        guard.remove_from_queue(id);
-        guard.mark_dirty();
-        guard.emit_progress_force();
-        (magnet, params)
+        (d.source_uri.clone(), params)
     };
 
     let Some((provider, apikey)) = params else {
@@ -993,7 +1179,7 @@ async fn run_debrid_flow(
 
             println!("[downloads] Debrid ready. Links: {:?}", status.links);
             let first_link = status.links[0].clone();
-            let (url, save_path, counter) = {
+            {
                 let mut guard = manager.write().await;
                 let Some(d) = guard.downloads_mut().get_mut(&id) else {
                     return;
@@ -1002,18 +1188,12 @@ async fn run_debrid_flow(
                 d.uris = Some(status.links.clone());
                 d.status = DownloadStatus::Downloading;
                 d.progress = Some(0.0);
-                let save_path = d.save_path.clone();
-                let counter = Arc::new(AtomicU64::new(0));
-                guard
-                    .direct_counters
-                    .insert(id.clone(), Arc::clone(&counter));
                 guard.mark_dirty();
                 guard.emit_progress_force();
-                (first_link, save_path, counter)
-            };
-
-            let weak = Arc::downgrade(&manager);
-            http::run_direct_download(id, url, save_path, counter, weak).await;
+            }
+            // Same worker machinery as start_direct (generation + lock),
+            // so a mirror switch during the debrid HTTP phase is safe.
+            spawn_direct_worker(&manager, &id).await;
             return;
         } else if status.status == "error" {
             let err_msg = status
@@ -1071,19 +1251,30 @@ pub fn spawn_extraction(
         let id_clone = id.clone();
         let files_clone = files.clone();
         let save_path_clone = save_path.clone();
-        let success = tokio::task::spawn_blocking(move || {
+        let result = tokio::task::spawn_blocking(move || {
             extract::extract_archives_for_download(&id_clone, &save_path_clone, &files_clone)
         })
-        .await
-        .map(|r| r.is_ok())
-        .unwrap_or(false);
+        .await;
 
-        if success {
-            println!(
-                "[downloads] Extraction complete for {}. Deleting archives.",
-                name
-            );
-            extract::delete_archives_for_download(&save_path, &files);
+        match result {
+            Ok(Ok(extracted)) => {
+                // Delete only what actually extracted (first parts +
+                // their volume siblings). Nothing is deleted on failure.
+                if !extracted.is_empty() {
+                    println!(
+                        "[downloads] Extraction complete for {}. Deleting {} archive(s).",
+                        name,
+                        extracted.len()
+                    );
+                    extract::delete_archives_for_download(&save_path, &files, &extracted);
+                }
+            }
+            Ok(Err(e)) => {
+                println!("[downloads] Extraction failed for {}: {}", name, e);
+            }
+            Err(e) => {
+                println!("[downloads] Extraction task panicked for {}: {}", name, e);
+            }
         }
         if let Some(manager) = manager {
             let mut guard = manager.write().await;

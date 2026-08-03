@@ -79,14 +79,11 @@ pub async fn resolve(url: &str) -> ResolveOutcome {
             Ok(u) => ResolveOutcome::Resolved(ResolvedTarget { url: u, headers: vec![] }),
             Err(e) => ResolveOutcome::Error(e),
         }
-    } else if host.contains("buzzheavier.com") || host.contains("buzzheavier") {
-        // Buzzheavier (a common AnkerGames mirror) hotlink-protects its files:
-        // a plain GET returns an HTML/404 page unless a `Referer` to the site
-        // origin is sent. Mirrors the behaviour Hydra sources rely on.
-        ResolveOutcome::Resolved(ResolvedTarget {
-            url: url.to_string(),
-            headers: vec![("Referer".to_string(), "https://buzzheavier.com/".to_string())],
-        })
+    } else if host.contains("buzzheavier") {
+        match buzzheavier_get_download_url(url).await {
+            Ok(t) => ResolveOutcome::Resolved(t),
+            Err(e) => ResolveOutcome::Error(e),
+        }
     } else if host.contains("gofile.io") || host.contains("gofilecdn") {
         // Gofile requires executing its obfuscated `wt.obf.js` to derive a
         // "website token" (Hydra uses Node's `vm`). Not implemented here
@@ -409,4 +406,126 @@ async fn vikingfile_get_download_url(uri: &str) -> Result<String, String> {
     // The downloader already follows redirects, so returning the unlocked
     // link (which may itself 301/302 to the CDN) is sufficient.
     Ok(redirect_url)
+}
+
+// ── Buzzheavier ───────────────────────────────────────────────────────────────
+// Buzzheavier (an htmx-driven hoster, a common AnkerGames mirror) hotlink-
+// protects everything: a plain GET returns 403. Flow verified live (2026-08):
+//   1. GET the landing page with htmx headers (HX-Request, HX-Current-URL)
+//      → the HTML embeds a signed token: `hx-get="/<id>/download?t=..."` on
+//      the `.download-btn` element.
+//   2. GET that path with the same htmx headers and redirects DISABLED
+//      → `204` + `Hx-Redirect: https://ts.buzzheavier.com/d/<id>?v=<signed>`
+//      (htmx convention; some versions use a `Location` header instead).
+//   3. The CDN hop (ts.buzzheavier.com) is Cloudflare-fronted and requires a
+//      Chrome UA + Sec-CH-UA client hints — plain/Firefox clients are
+//      challenged. We return those headers for the download stream.
+
+/// Chrome UA for the buzzheavier CDN hop (Cloudflare challenges the app's
+/// default Firefox UA with a managed challenge).
+const BUZZHEAVIER_CDN_UA: &str = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) \
+    AppleWebKit/537.36 (KHTML, like Gecko) Chrome/144.0.0.0 Safari/537.36";
+
+fn buzzheavier_download_btn_re() -> &'static Regex {
+    static RE: OnceLock<Regex> = OnceLock::new();
+    RE.get_or_init(|| Regex::new(r#"class="download-btn[^"]*"[^>]*hx-get="([^"]+)""#).unwrap())
+}
+
+fn buzzheavier_any_download_re() -> &'static Regex {
+    static RE: OnceLock<Regex> = OnceLock::new();
+    RE.get_or_init(|| Regex::new(r#"hx-get="([^"]*download[^"]*)""#).unwrap())
+}
+
+async fn buzzheavier_get_download_url(url: &str) -> Result<ResolvedTarget, String> {
+    let client = http_client();
+    let parsed = url::Url::parse(url).map_err(|e| e.to_string())?;
+    let origin = format!(
+        "{}://{}",
+        parsed.scheme(),
+        parsed.host_str().unwrap_or("buzzheavier.com")
+    );
+
+    // 1. Landing page — the signed token is generated per page load.
+    let page = client
+        .get(url)
+        .header(USER_AGENT, HOSTER_UA)
+        .header(ACCEPT, "text/html")
+        .header(REFERER, &origin)
+        .header("HX-Current-URL", url)
+        .header("HX-Request", "true")
+        .send()
+        .await
+        .map_err(|e| e.to_string())?;
+    let html = page.text().await.map_err(|e| e.to_string())?;
+
+    let hx_get = buzzheavier_download_btn_re()
+        .captures(&html)
+        .and_then(|c| c.get(1))
+        .map(|m| m.as_str().to_string())
+        .or_else(|| {
+            buzzheavier_any_download_re()
+                .captures(&html)
+                .and_then(|c| c.get(1))
+                .map(|m| m.as_str().to_string())
+        })
+        .ok_or("Could not find a download link on the buzzheavier page")?;
+    // The HTML may escape the query separator as `&amp;`.
+    let hx_get = hx_get.replace("&amp;", "&");
+    let dl_url = if hx_get.starts_with("http") {
+        hx_get
+    } else {
+        format!("{}{}", origin, hx_get)
+    };
+
+    // 2. Download endpoint with redirects disabled — the CDN link comes
+    //    back in the Hx-Redirect header (fallback: Location). Bounded so a
+    //    wedged endpoint can't stall the download slot (the C1 worker lock
+    //    is held while this resolver runs).
+    let no_redirect = reqwest::Client::builder()
+        .user_agent(HOSTER_UA)
+        .redirect(reqwest::redirect::Policy::none())
+        .timeout(Duration::from_secs(30))
+        .build()
+        .map_err(|e| e.to_string())?;
+    let dl = no_redirect
+        .get(&dl_url)
+        .header(USER_AGENT, HOSTER_UA)
+        .header(REFERER, url)
+        .header("HX-Current-URL", url)
+        .header("HX-Request", "true")
+        .header("Priority", "u=1, i")
+        .send()
+        .await
+        .map_err(|e| e.to_string())?;
+
+    let cdn = dl
+        .headers()
+        .get("Hx-Redirect")
+        .or_else(|| dl.headers().get("Location"))
+        .and_then(|v| v.to_str().ok())
+        .map(|s| s.to_string())
+        .ok_or("Buzzheavier did not return a download link (no Hx-Redirect)")?;
+    let cdn = if cdn.starts_with("http") {
+        cdn
+    } else {
+        format!("{}{}", origin, cdn)
+    };
+
+    Ok(ResolvedTarget {
+        url: cdn,
+        // 3. Chrome fingerprint + client hints so the CDN hop passes
+        //    Cloudflare's challenge gate.
+        headers: vec![
+            ("User-Agent".to_string(), BUZZHEAVIER_CDN_UA.to_string()),
+            (
+                "Sec-CH-UA".to_string(),
+                "\"Chromium\";v=\"144\", \"Google Chrome\";v=\"144\", \
+                 \"Not.A/Brand\";v=\"24\""
+                    .to_string(),
+            ),
+            ("Sec-CH-UA-Mobile".to_string(), "?0".to_string()),
+            ("Sec-CH-UA-Platform".to_string(), "\"Windows\"".to_string()),
+            ("Referer".to_string(), format!("{}/", origin)),
+        ],
+    })
 }

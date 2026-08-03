@@ -128,8 +128,11 @@ async fn resume_persisted_seeding(shared: &SharedManager) {
             match torrent::add_and_start(&session, &source_uri, &save_path, only_files.as_deref())
                 .await
             {
-                Ok(_) => {
+                Ok(torrent::AddOutcome::Added { .. }) => {
                     println!("[downloads] Resumed seeding for {}", id);
+                }
+                Ok(torrent::AddOutcome::AlreadyManaged { .. }) => {
+                    println!("[downloads] {} already in session; keeping it as-is", id);
                 }
                 Err(e) => {
                     eprintln!("[downloads] Failed to resume seeding for {}: {}", id, e);
@@ -160,18 +163,81 @@ fn normalize_path(p: &str) -> String {
 
 /// Queue the record if something else is active, otherwise start it.
 async fn queue_or_start(manager: &SharedManager, id: &str) {
-    let busy = {
+    if !manager::start_download(manager, id).await {
+        // Slot busy or the record vanished — make sure it waits.
         let mut guard = manager.write().await;
-        let busy = guard.has_active();
-        if busy {
+        if guard.downloads_map().contains_key(id) {
             guard.enqueue_back(id);
             guard.emit_progress_force();
         }
-        busy
-    };
-    if !busy {
-        manager::start_download(manager, id).await;
     }
+}
+
+/// M1: re-add of an infohash that already has a record. Live records
+/// are rejected; stable records (Paused/Completed/Seeding) are
+/// repurposed as an explicit re-download.
+async fn handle_duplicate_add(
+    mgr: &SharedManager,
+    existing: &Download,
+    trimmed: String,
+    save_path: String,
+    game_id: Option<String>,
+    source_name: String,
+    auto_extract: bool,
+) -> Result<Download, String> {
+    if matches!(
+        existing.status,
+        DownloadStatus::Queued
+            | DownloadStatus::FetchingMetadata
+            | DownloadStatus::Downloading
+            | DownloadStatus::Error(_)
+    ) {
+        return Err(format!(
+            "This torrent is already in your downloads ({}). \
+             Resume it there, or remove it first if you want to re-download.",
+            existing.name
+        ));
+    }
+
+    // Repurpose the existing record as a fresh download.
+    let snapshot = {
+        let mut guard = mgr.write().await;
+        let Some(d) = guard.downloads_mut().get_mut(&existing.id) else {
+            return Err("Download vanished while adding".to_string());
+        };
+        d.source_uri = trimmed;
+        d.save_path = save_path;
+        d.game_id = game_id;
+        d.source_name = source_name;
+        d.auto_extract = Some(auto_extract);
+        d.only_files = None;
+        d.downloaded = 0;
+        d.total_size = None;
+        d.progress = Some(0.0);
+        d.download_speed = 0;
+        d.upload_speed = 0;
+        d.peers = 0;
+        d.seeds = 0;
+        d.files.clear();
+        d.had_real_downloads = Some(false);
+        d.extracted = Some(false);
+        d.status = DownloadStatus::Queued;
+        d.added_at = unix_now();
+        let snapshot = d.clone();
+        guard.mark_dirty();
+        guard.emit_progress_force();
+        snapshot
+    };
+
+    // Drop any live session entry (keep files) so the start path
+    // re-adds with the new save_path/selection as a fresh `Added`.
+    let session = { mgr.read().await.session().cloned() };
+    if let Some(session) = session {
+        torrent::delete_from_session(&session, &existing.id).await;
+    }
+
+    queue_or_start(mgr, &existing.id).await;
+    Ok(snapshot)
 }
 
 /// Preempt whatever is active in favour of `id` (explicit user resume).
@@ -362,6 +428,34 @@ pub async fn torrent_add(
         return Ok(d);
     }
 
+    // ── M1: duplicate-infohash fast-fail (magnets only; base32 /
+    // .torrent URLs are caught authoritatively in the start task). ──
+    if let Some(btih) = torrent::btih_from_magnet(&trimmed) {
+        let candidate_id = torrent::frontend_id_from_btih_hex(&btih);
+        let duplicate = {
+            let guard = mgr.read().await;
+            let by_real_id = candidate_id
+                .as_deref()
+                .and_then(|cid| guard.downloads_map().get(cid));
+            let by_source = guard.downloads_map().values().find(|d| {
+                torrent::btih_from_magnet(&d.source_uri).as_deref() == Some(btih.as_str())
+            });
+            by_real_id.or(by_source).cloned()
+        };
+        if let Some(existing) = duplicate {
+            return handle_duplicate_add(
+                &mgr,
+                &existing,
+                trimmed,
+                save_path,
+                game_id,
+                source_name,
+                auto_extract.unwrap_or(false),
+            )
+            .await;
+        }
+    }
+
     // ── Normal add: create the record and queue-or-start. ──
     static TEMP_ID_CTR: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);
     let ctr = TEMP_ID_CTR.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
@@ -501,6 +595,11 @@ pub async fn torrent_pause(id: String) -> Result<(), String> {
 
     if let Some(session) = session {
         if let Some(handle) = torrent::find_handle(&session, &id) {
+            // M2: this can fail while the torrent is Initializing (file
+            // re-check). The 1s tick sweep in refresh_stats keeps
+            // retrying, so the pause lands within ~1s of the check
+            // completing; Paused is now in keep_manager_status so the
+            // record stays Paused throughout.
             let _ = session.pause(&handle).await;
         }
     }
@@ -542,6 +641,9 @@ pub async fn torrent_remove(id: String, delete_files: Option<bool>) -> Result<()
         guard.remove_from_queue(&id);
         guard.debrid_params.remove(&id);
         guard.direct_counters.remove(&id);
+        guard.direct_generations.remove(&id);
+        guard.direct_locks.remove(&id);
+        guard.direct_reset_partial.remove(&id);
         let download_opt = guard.downloads_mut().remove(&id);
         guard.release_active(&id);
         guard.mark_dirty();
@@ -966,7 +1068,15 @@ pub async fn download_set_seeding(id: String, seed: bool) -> Result<(), String> 
         match torrent::add_and_start(&session, &source_uri, &save_path, only_files.as_deref())
             .await
         {
-            Ok(_) => println!("[downloads] Seeding started for {}", id_clone),
+            Ok(torrent::AddOutcome::Added { .. }) => {
+                println!("[downloads] Seeding started for {}", id_clone)
+            }
+            Ok(torrent::AddOutcome::AlreadyManaged { .. }) => {
+                println!(
+                    "[downloads] {} already in session; keeping it as-is",
+                    id_clone
+                )
+            }
             Err(e) => {
                 eprintln!("[downloads] Failed to start seeding: {}", e);
                 let mut guard = mgr_clone.write().await;
@@ -999,19 +1109,26 @@ pub async fn direct_download_update_url(id: String, new_url: String) -> Result<(
             d.status,
             DownloadStatus::Downloading | DownloadStatus::Error(_)
         );
-        // Pausing makes the running worker abort its stream.
+        // URL changed while a partial may exist: the next worker must
+        // drop the stale `.gamelib_tmp` before streaming (the old
+        // worker's bytes belong to the old URL).
+        let url_changed = d.source_uri != new_url;
+        d.source_uri = new_url.clone();
+        // Pausing gives the running worker an immediate abort signal;
+        // ordering safety comes from the per-download worker lock, so
+        // no sleep is needed here.
         if matches!(d.status, DownloadStatus::Downloading) {
             d.status = DownloadStatus::Paused;
         }
-        d.source_uri = new_url.clone();
         guard.mark_dirty();
         guard.emit_progress_force();
+        if url_changed {
+            guard.direct_reset_partial.insert(id.clone());
+        }
         was_running
     };
 
     if was_running {
-        // Give the old worker a moment to observe the abort.
-        tokio::time::sleep(Duration::from_millis(300)).await;
         preempt_and_start(&mgr, &id).await;
     }
 

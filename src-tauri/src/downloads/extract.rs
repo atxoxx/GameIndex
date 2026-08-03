@@ -92,15 +92,52 @@ fn run_command_tracked(id: &str, mut cmd: std::process::Command) -> Result<(), S
     }
 }
 
-/// Extract every archive in the download's file list. Returns `Ok` if
-/// at least one archive extracted (or there was nothing to extract).
+/// True when this file is the FIRST part of an archive and should be
+/// handed to the extractor. Multi-part volumes are extracted once from
+/// their first part only; the extractor follows the remaining volumes.
+fn is_extractable_first_part(name: &str, ext: &str) -> bool {
+    let lower = name.to_lowercase();
+    match ext {
+        "zip" => true,
+        "7z" => match volume_number(&lower) {
+            // game.7z.001 / .01 / .1 → first volume only (7z follows .002…)
+            Some(n) => n == 1,
+            // plain game.7z
+            None => true,
+        },
+        "rar" => {
+            if let Some(p) = lower.find(".part") {
+                let num_seg = lower[p + 5..].trim_end_matches(".rar");
+                num_seg.parse::<u32>().map(|n| n == 1).unwrap_or(false)
+            } else {
+                true
+            }
+        }
+        // .tar.gz / .tgz: single-pass `tar -xf` (see extract_archive).
+        "gz" | "tgz" => lower.ends_with(".tar.gz") || lower.ends_with(".tgz"),
+        _ => false,
+    }
+}
+
+/// Trailing numeric volume number: "game.7z.001" → Some(1), "game.7z" → None.
+fn volume_number(name_lower: &str) -> Option<u32> {
+    let (_, ext) = name_lower.rsplit_once('.')?;
+    if ext.is_empty() || !ext.chars().all(|c| c.is_ascii_digit()) {
+        return None;
+    }
+    ext.parse::<u32>().ok()
+}
+
+/// Extract every extractable FIRST-part archive in the download's file
+/// list. Returns the names of the archives that were successfully
+/// extracted (multi-part volumes are keyed by their first part).
 pub fn extract_archives_for_download(
     id: &str,
     save_path: &str,
     files: &[DownloadFile],
-) -> Result<(), String> {
+) -> Result<Vec<String>, String> {
     let save_path_buf = PathBuf::from(save_path);
-    let mut extracted_any = false;
+    let mut extracted: Vec<String> = Vec::new();
     let mut last_err = None;
 
     for file in files {
@@ -115,78 +152,125 @@ pub fn extract_archives_for_download(
             .unwrap_or("")
             .to_lowercase();
 
-        let name_lower = file.name.to_lowercase();
-        let is_archive = match ext.as_str() {
-            "zip" => true,
-            "7z" => !name_lower.ends_with(".7z.002") && !name_lower.contains(".7z.00"),
-            "rar" => {
-                if name_lower.contains(".part") {
-                    name_lower.contains(".part1.rar") || name_lower.contains(".part01.rar")
-                } else {
-                    true
-                }
-            }
-            _ => false,
-        };
-
-        if is_archive {
-            let dest_dir = file_path.parent().unwrap_or(&save_path_buf);
-            println!("[downloads] Extracting {:?} to {:?}", file_path, dest_dir);
-            match extract_archive(id, &file_path, dest_dir) {
-                Ok(_) => {
-                    extracted_any = true;
-                }
-                Err(e) => {
-                    println!("[downloads] Extract error for {:?}: {}", file_path, e);
-                    last_err = Some(e);
-                }
-            }
-        }
-    }
-
-    if extracted_any {
-        Ok(())
-    } else if let Some(e) = last_err {
-        Err(e)
-    } else {
-        Ok(())
-    }
-}
-
-/// Delete archive parts after successful extraction.
-pub fn delete_archives_for_download(save_path: &str, files: &[DownloadFile]) {
-    let save_path_buf = PathBuf::from(save_path);
-    for file in files {
-        let file_path = save_path_buf.join(&file.name);
-        if !file_path.exists() {
+        if !is_extractable_first_part(&file.name, &ext) {
             continue;
         }
 
-        let ext = file_path
-            .extension()
-            .and_then(|s| s.to_str())
-            .unwrap_or("")
-            .to_lowercase();
-
-        let name_lower = file.name.to_lowercase();
-        let is_archive_part = match ext.as_str() {
-            "zip" | "rar" | "7z" | "tar" | "gz" => true,
-            _ => {
-                let has_numeric_part = ext.chars().all(|c| c.is_ascii_digit());
-                let is_rar_part =
-                    ext.starts_with('r') && ext[1..].chars().all(|c| c.is_ascii_digit());
-                let is_zip_part =
-                    ext.starts_with('z') && ext[1..].chars().all(|c| c.is_ascii_digit());
-
-                has_numeric_part || is_rar_part || is_zip_part || name_lower.contains(".7z.")
+        let dest_dir = file_path.parent().unwrap_or(&save_path_buf);
+        println!("[downloads] Extracting {:?} to {:?}", file_path, dest_dir);
+        match extract_archive(id, &file_path, dest_dir) {
+            Ok(_) => {
+                extracted.push(file.name.clone());
             }
-        };
-
-        if is_archive_part {
-            println!("[downloads] Deleting archive file {:?}", file_path);
-            let _ = std::fs::remove_file(file_path);
+            Err(e) => {
+                println!("[downloads] Extract error for {:?}: {}", file_path, e);
+                last_err = Some(e);
+            }
         }
     }
+
+    if !extracted.is_empty() {
+        Ok(extracted)
+    } else if let Some(e) = last_err {
+        Err(e)
+    } else {
+        Ok(Vec::new()) // nothing to extract — nothing to delete
+    }
+}
+
+/// Canonical family key for an archive and its volume parts:
+///   "game.7z", "game.7z.001", "game.7z.002"      → "game.7z"
+///   "game.rar", "game.part1.rar", "game.part2.rar" → "game.rar"
+///   "game.r00", "game.r01"                        → "game.rar"
+///   "game.z01"                                    → "game.zip"
+///   "game.tar.gz"                                 → "game.tar.gz"
+fn archive_family(name: &str) -> String {
+    let mut n = name.to_lowercase();
+    let mut last_was_rz: Option<char> = None;
+    loop {
+        let Some(dot) = n.rfind('.') else { break };
+        let ext = &n[dot + 1..];
+        let all_digits = !ext.is_empty() && ext.chars().all(|c| c.is_ascii_digit());
+        let r_part =
+            ext.len() >= 2 && ext.starts_with('r') && ext[1..].chars().all(|c| c.is_ascii_digit());
+        let z_part =
+            ext.len() >= 2 && ext.starts_with('z') && ext[1..].chars().all(|c| c.is_ascii_digit());
+        if all_digits || r_part || z_part {
+            if r_part {
+                last_was_rz = Some('r');
+            }
+            if z_part {
+                last_was_rz = Some('z');
+            }
+            n.truncate(dot);
+        } else {
+            break;
+        }
+    }
+    // Collapse RAR part segments: "game.part1.rar" → "game.rar"
+    if let Some(p) = n.find(".part") {
+        if let Some(rar) = n.rfind(".rar") {
+            let seg = &n[p + 5..rar];
+            if !seg.is_empty() && seg.chars().all(|c| c.is_ascii_digit()) {
+                n = format!("{}.rar", &n[..p]);
+            }
+        }
+    }
+    // Bare volumes stripped to a bare base ("game.r00" → "game"):
+    // restore the rar/zip convention so they join the right family.
+    if !n.contains('.') {
+        match last_was_rz {
+            Some('r') => n.push_str(".rar"),
+            Some('z') => n.push_str(".zip"),
+            _ => {}
+        }
+    }
+    n
+}
+
+/// Delete the archive files that were actually part of a successful
+/// extraction: the extracted first part plus its volume siblings
+/// (game.7z.002…, game.part2.rar…, game.r00…). Files whose family was
+/// NOT extracted are never touched — this is the C2 fix: nothing is
+/// deleted when extraction failed or was skipped.
+pub fn delete_archives_for_download(
+    save_path: &str,
+    files: &[DownloadFile],
+    extracted: &[String],
+) {
+    if extracted.is_empty() {
+        return;
+    }
+    let fams: std::collections::HashSet<String> =
+        extracted.iter().map(|n| archive_family(n)).collect();
+    let save_path_buf = PathBuf::from(save_path);
+    for file in files {
+        if fams.contains(&archive_family(&file.name)) {
+            let file_path = save_path_buf.join(&file.name);
+            if file_path.exists() {
+                println!("[downloads] Deleting archive file {:?}", file_path);
+                let _ = std::fs::remove_file(file_path);
+            }
+        }
+    }
+}
+
+fn find_7z() -> Option<std::path::PathBuf> {
+    let paths_to_try = [
+        PathBuf::from("7z"),
+        PathBuf::from("C:\\Program Files\\7-Zip\\7z.exe"),
+        PathBuf::from("C:\\Program Files (x86)\\7-Zip\\7z.exe"),
+    ];
+    for p in &paths_to_try {
+        if p.to_string_lossy() == "7z" {
+            if std::process::Command::new("7z").arg("-h").output().is_ok() {
+                return Some(p.clone());
+            }
+        } else if p.exists() {
+            return Some(p.clone());
+        }
+    }
+    None
 }
 
 fn extract_archive(
@@ -195,62 +279,56 @@ fn extract_archive(
     dest_dir: &std::path::Path,
 ) -> Result<(), String> {
     use std::process::Command;
-    let paths_to_try = [
-        PathBuf::from("7z"),
-        PathBuf::from("C:\\Program Files\\7-Zip\\7z.exe"),
-        PathBuf::from("C:\\Program Files (x86)\\7-Zip\\7z.exe"),
-    ];
-
-    let mut found_7z = false;
-    let mut exe_path = PathBuf::new();
-
-    for p in &paths_to_try {
-        if p.to_string_lossy() == "7z" {
-            if Command::new("7z").arg("-h").output().is_ok() {
-                found_7z = true;
-                exe_path = p.clone();
-                break;
-            }
-        } else if p.exists() {
-            found_7z = true;
-            exe_path = p.clone();
-            break;
-        }
-    }
-
-    if found_7z {
-        let mut cmd = Command::new(&exe_path);
-        cmd.arg("x")
-            .arg(archive_path)
-            .arg(format!("-o{}", dest_dir.to_string_lossy()))
-            .arg("-y");
-
-        return run_command_tracked(id, cmd);
-    }
-
     let ext = archive_path
         .extension()
         .and_then(|s| s.to_str())
         .unwrap_or("")
         .to_lowercase();
+    let name_lower = archive_path
+        .file_name()
+        .and_then(|s| s.to_str())
+        .unwrap_or("")
+        .to_lowercase();
+    let is_tar_gz = (ext == "gz" || ext == "tgz")
+        && (name_lower.ends_with(".tar.gz") || name_lower.ends_with(".tgz"));
+
+    // .tar.gz / .tgz: single-pass `tar -xf` (bsdtar/GNU tar transparently
+    // handle the gzip layer; 7-Zip would only yield the inner .tar).
+    if is_tar_gz {
+        let mut cmd = Command::new("tar");
+        cmd.arg("-xf").arg(archive_path).arg("-C").arg(dest_dir);
+        if run_command_tracked(id, cmd).is_ok() {
+            return Ok(());
+        }
+        return Err(format!(
+            "Failed to extract {} (tar unavailable or failed)",
+            archive_path.display()
+        ));
+    }
+
+    // zip / rar / 7z (incl. multi-part volumes, opened from the first
+    // part): 7-Zip first.
+    if let Some(exe) = find_7z() {
+        let mut cmd = Command::new(&exe);
+        cmd.arg("x")
+            .arg(archive_path)
+            .arg(format!("-o{}", dest_dir.to_string_lossy()))
+            .arg("-y");
+        return run_command_tracked(id, cmd);
+    }
 
     if ext == "zip" {
         let mut cmd = Command::new("tar");
         cmd.arg("-xf").arg(archive_path).arg("-C").arg(dest_dir);
-
         if run_command_tracked(id, cmd).is_ok() {
             return Ok(());
         }
-    }
-
-    if ext == "zip" {
         let mut cmd = Command::new("powershell");
         cmd.arg("-Command").arg(format!(
             "Expand-Archive -Path '{}' -DestinationPath '{}' -Force",
             archive_path.to_string_lossy(),
             dest_dir.to_string_lossy()
         ));
-
         return run_command_tracked(id, cmd);
     }
 

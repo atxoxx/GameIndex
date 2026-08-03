@@ -28,6 +28,7 @@ const MAX_RETRY_ATTEMPTS: u32 = 10;
 const INITIAL_RETRY_DELAY_MS: u64 = 1000;
 const MAX_RETRY_DELAY_MS: u64 = 15000;
 const STALL_TIMEOUT_SECS: u64 = 30;
+const REQUEST_TIMEOUT_SECS: u64 = 60;
 const RETRYABLE_STATUSES: &[u16] = &[429, 500, 502, 503, 504];
 
 /// Firefox UA: several game hosters throttle/block Chrome-based UAs.
@@ -59,7 +60,42 @@ pub async fn run_direct_download(
     save_path: String,
     bytes_counter: Arc<AtomicU64>,
     manager_weak: WeakManager,
+    generation: u64,
+    worker_lock: Arc<tokio::sync::Mutex<()>>,
 ) {
+    // ── C1 single-writer invariant ────────────────────────────────
+    // We hold the per-download worker lock for our entire lifetime
+    // (including finalize). A replacement worker spawned by a mirror
+    // switch / URL edit blocks here until we have fully exited, so it
+    // can never write a byte while we are alive.
+    let _lock_guard = worker_lock.lock().await;
+
+    // A newer worker was spawned while we waited for the lock — we
+    // never started; exit without touching the record or the files.
+    if is_superseded(&manager_weak, &id, generation).await {
+        return;
+    }
+
+    // URL was switched while a partial existed: the old worker (now
+    // fully stopped — we hold the lock) wrote bytes of the OLD url.
+    // Drop the stale partial so we never resume foreign bytes.
+    if let Some(manager) = manager_weak.upgrade() {
+        let mut guard = manager.write().await;
+        if guard.direct_reset_partial.remove(&id) {
+            let path = Path::new(&save_path);
+            let fname = path
+                .file_name()
+                .and_then(|s| s.to_str())
+                .unwrap_or("direct_download")
+                .to_string();
+            let parent = path.parent().unwrap_or_else(|| Path::new("."));
+            let stale = parent.join(format!("{}.gamelib_tmp", fname));
+            if stale.exists() {
+                let _ = std::fs::remove_file(&stale);
+            }
+        }
+    }
+
     let client = reqwest::Client::builder()
         .user_agent(DOWNLOAD_USER_AGENT)
         // Carry cookies set on redirect/error responses — some hosters
@@ -84,13 +120,13 @@ pub async fn run_direct_download(
                     (t.url, t.headers)
                 }
                 super::hosters::ResolveOutcome::Error(e) => {
-                    match next_mirror(&manager_weak, &id, &current_save_path).await {
+                    match next_mirror(&manager_weak, &id, &current_save_path, generation).await {
                         Some(next) => {
                             current_url = next;
                             continue 'mirrors;
                         }
                         None => {
-                            finish_with_error(&manager_weak, &id, e).await;
+                            finish_with_error(&manager_weak, &id, e, generation).await;
                             return;
                         }
                     }
@@ -99,6 +135,10 @@ pub async fn run_direct_download(
 
         let mut attempt: u32 = 0;
         loop {
+            // Stop immediately if a newer worker took over (C1).
+            if is_superseded(&manager_weak, &id, generation).await {
+                return;
+            }
             match attempt_download(
                 &client,
                 &id,
@@ -107,24 +147,31 @@ pub async fn run_direct_download(
                 &bytes_counter,
                 &manager_weak,
                 &extra_headers,
+                generation,
             )
             .await
             {
                 AttemptResult::Completed => {
-                    finalize_success(&manager_weak, &id, &current_save_path, &bytes_counter)
-                        .await;
+                    finalize_success(
+                        &manager_weak,
+                        &id,
+                        &current_save_path,
+                        &bytes_counter,
+                        generation,
+                    )
+                    .await;
                     return;
                 }
                 AttemptResult::Aborted => return,
                 AttemptResult::Fatal(msg) => {
-                    match next_mirror(&manager_weak, &id, &current_save_path).await {
+                    match next_mirror(&manager_weak, &id, &current_save_path, generation).await {
                         Some(next) => {
                             current_url = next;
                             bytes_counter.store(0, Ordering::SeqCst);
                             continue 'mirrors;
                         }
                         None => {
-                            finish_with_error(&manager_weak, &id, msg).await;
+                            finish_with_error(&manager_weak, &id, msg, generation).await;
                             return;
                         }
                     }
@@ -134,21 +181,21 @@ pub async fn run_direct_download(
                     if attempt > MAX_RETRY_ATTEMPTS {
                         let final_msg =
                             format!("Exhausted {} retries: {}", MAX_RETRY_ATTEMPTS, msg);
-                        match next_mirror(&manager_weak, &id, &current_save_path).await {
+                        match next_mirror(&manager_weak, &id, &current_save_path, generation).await {
                             Some(next) => {
                                 current_url = next;
                                 bytes_counter.store(0, Ordering::SeqCst);
                                 continue 'mirrors;
                             }
                             None => {
-                                finish_with_error(&manager_weak, &id, final_msg).await;
+                                finish_with_error(&manager_weak, &id, final_msg, generation).await;
                                 return;
                             }
                         }
                     }
 
                     // Bail out if the user paused/removed meanwhile.
-                    if !still_downloading(&manager_weak, &id).await {
+                    if !still_downloading(&manager_weak, &id, generation).await {
                         return;
                     }
 
@@ -178,7 +225,11 @@ async fn next_mirror(
     manager_weak: &WeakManager,
     id: &str,
     save_path: &str,
+    generation: u64,
 ) -> Option<String> {
+    if is_superseded(manager_weak, id, generation).await {
+        return None;
+    }
     let manager = manager_weak.upgrade()?;
     let mut guard = manager.write().await;
     let item = guard.downloads_mut().get_mut(id)?;
@@ -219,7 +270,7 @@ async fn next_mirror(
     Some(next_url)
 }
 
-async fn still_downloading(manager_weak: &WeakManager, id: &str) -> bool {
+async fn still_downloading(manager_weak: &WeakManager, id: &str, generation: u64) -> bool {
     let Some(manager) = manager_weak.upgrade() else {
         return false;
     };
@@ -227,10 +278,30 @@ async fn still_downloading(manager_weak: &WeakManager, id: &str) -> bool {
     matches!(
         guard.downloads_map().get(id).map(|d| &d.status),
         Some(DownloadStatus::Downloading)
-    )
+    ) && guard.direct_generations.get(id).copied() == Some(generation)
 }
 
-async fn finish_with_error(manager_weak: &WeakManager, id: &str, err: String) {
+/// True when a newer worker has been spawned for this id, or the
+/// manager/record is gone. The current worker must stop immediately —
+/// it no longer owns the temp file, the final path, or the record.
+async fn is_superseded(manager_weak: &WeakManager, id: &str, generation: u64) -> bool {
+    let Some(manager) = manager_weak.upgrade() else {
+        return true;
+    };
+    let guard = manager.read().await;
+    guard.direct_generations.get(id).copied() != Some(generation)
+}
+
+async fn finish_with_error(
+    manager_weak: &WeakManager,
+    id: &str,
+    err: String,
+    generation: u64,
+) {
+    // Stale worker must not fail the record.
+    if is_superseded(manager_weak, id, generation).await {
+        return;
+    }
     if let Some(manager) = manager_weak.upgrade() {
         manager::fail_download(&manager, id, err).await;
         manager::advance_queue(&manager).await;
@@ -242,7 +313,11 @@ async fn finalize_success(
     id: &str,
     save_path: &str,
     bytes_counter: &Arc<AtomicU64>,
+    generation: u64,
 ) {
+    if is_superseded(manager_weak, id, generation).await {
+        return;
+    }
     let Some(manager) = manager_weak.upgrade() else {
         return;
     };
@@ -326,6 +401,7 @@ async fn attempt_download(
     bytes_counter: &Arc<AtomicU64>,
     manager_weak: &WeakManager,
     extra_headers: &[(String, String)],
+    generation: u64,
 ) -> AttemptResult {
     let path = Path::new(save_path);
     let filename = path
@@ -360,15 +436,25 @@ async fn attempt_download(
         req = req.header(RANGE, format!("bytes={}-", current_size));
     }
 
-    let mut resp = match req.send().await {
-        Ok(r) => r,
-        Err(e) => {
+    // Bound the connect/response phase (reqwest default has no timeout):
+    // the C1 worker lock is held for our whole lifetime, so a wedged
+    // server must not hold it forever.
+    let send_res = tokio::time::timeout(Duration::from_secs(REQUEST_TIMEOUT_SECS), req.send())
+        .await;
+    let mut resp = match send_res {
+        Ok(Ok(r)) => r,
+        Ok(Err(e)) => {
             return AttemptResult::Retryable(format!("Connection failed: {}", e), None)
+        }
+        Err(_) => {
+            return AttemptResult::Retryable(
+                format!("No response from server within {}s", REQUEST_TIMEOUT_SECS),
+                None,
+            )
         }
     };
 
     let status = resp.status();
-
     // ── Response validation (Hydra-style preflight, applied to the
     // real transfer response so no extra round-trip is needed) ──
     if status != StatusCode::OK && status != StatusCode::PARTIAL_CONTENT {
@@ -487,8 +573,13 @@ async fn attempt_download(
                 let guard = manager.read().await;
                 match guard.downloads_map().get(id) {
                     Some(item) => {
-                        if !matches!(item.status, DownloadStatus::Downloading) {
-                            println!("[downloads] Download no longer active for {}", filename);
+                        let superseded =
+                            guard.direct_generations.get(id).copied() != Some(generation);
+                        if superseded || !matches!(item.status, DownloadStatus::Downloading) {
+                            println!(
+                                "[downloads] Download no longer active for {} (superseded={})",
+                                filename, superseded
+                            );
                             drop(file);
                             return AttemptResult::Aborted;
                         }
@@ -552,6 +643,13 @@ async fn attempt_download(
         buffer_size += to_write.len() as u64;
         bytes_counter.store(buffer_size, Ordering::SeqCst);
         throttle.account(to_write.len() as u64).await;
+    }
+
+    // C1: never rename over the final path on behalf of a superseded
+    // worker — the newer worker owns that path now.
+    if is_superseded(manager_weak, id, generation).await {
+        drop(file);
+        return AttemptResult::Aborted;
     }
 
     let _ = file.flush().await;

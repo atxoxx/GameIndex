@@ -58,8 +58,13 @@ pub async fn init_session(
         peer_opts: build_peer_opts(),
         concurrent_init_limit: Some(4),
         dht_config: Some(make_dht_config()),
-        // MEGABYTES; coalesces piece writes into ~1-2 flushes/sec.
-        defer_writes_up_to: Some(4),
+        // Disabled: librqbit 8.1.1's pause() drains file handles out of
+        // the Live storage (live/mod.rs:721 -> OpenedFile.take()) WITHOUT
+        // draining the deferred-write queue, so queued chunks fail with
+        // "file is None" (fs.rs:101-110) and the torrent errors. Writes
+        // are synchronous per chunk (spawn_block_in_place) and the
+        // per-file RwLock serializes them against pause.
+        defer_writes_up_to: None,
         ..Default::default()
     };
 
@@ -80,7 +85,9 @@ pub async fn init_session(
                 peer_opts: build_peer_opts(),
                 concurrent_init_limit: Some(4),
                 dht_config: Some(make_dht_config()),
-                defer_writes_up_to: Some(4),
+                // Same as persistent_opts: synchronous writes so pause
+                // can't strand queued chunks on drained handles.
+                defer_writes_up_to: None,
                 ..Default::default()
             };
             librqbit::Session::new_with_opts(state_dir.to_path_buf(), transient_opts)
@@ -135,6 +142,47 @@ pub fn frontend_id_from_hash(info_hash: &[u8; 20]) -> String {
 
 pub fn parse_frontend_id(frontend_id: &str) -> Option<usize> {
     frontend_id.strip_prefix("dl_")?.parse::<usize>().ok()
+}
+
+/// Best-effort BTv1 infohash from a magnet URI (40-hex only). Base32
+/// hashes and percent-encoded `xt=` fall through to the authoritative
+/// post-add duplicate check in the start task.
+pub fn btih_from_magnet(uri: &str) -> Option<String> {
+    let query = uri.strip_prefix("magnet:?")?;
+    for pair in query.split('&') {
+        if let Some(v) = pair.strip_prefix("xt=") {
+            let v = v.to_lowercase();
+            if let Some(h) = v.strip_prefix("urn:btih:") {
+                if h.len() == 40 && h.chars().all(|c| c.is_ascii_hexdigit()) {
+                    return Some(h.to_string());
+                }
+            }
+        }
+    }
+    None
+}
+
+/// Frontend id (`dl_<n>`) for a 40-hex infohash — mirrors
+/// `frontend_id_from_hash`.
+pub fn frontend_id_from_btih_hex(btih_hex: &str) -> Option<String> {
+    let h = btih_hex.trim();
+    if h.len() != 40 || !h.chars().all(|c| c.is_ascii_hexdigit()) {
+        return None;
+    }
+    let mut bytes = [0u8; 20];
+    for (i, pair) in h.as_bytes().chunks_exact(2).enumerate() {
+        bytes[i] = (hex_digit(pair[0]) << 4) | hex_digit(pair[1]);
+    }
+    Some(frontend_id_from_hash(&bytes))
+}
+
+fn hex_digit(c: u8) -> u8 {
+    match c {
+        b'0'..=b'9' => c - b'0',
+        b'a'..=b'f' => c - b'a' + 10,
+        b'A'..=b'F' => c - b'A' + 10,
+        _ => 0,
+    }
 }
 
 /// Find a `ManagedTorrent` by the numeric part of its frontend id.
@@ -277,9 +325,18 @@ async fn build_add_torrent(uri: &str) -> Result<librqbit::AddTorrent<'static>, S
     }
 }
 
+/// Result of adding a torrent. `Added` means we own a fresh session
+/// entry; `AlreadyManaged` means the infohash was already in the
+/// session — the handle is the PRE-EXISTING torrent, which callers
+/// must never unpause, re-select or delete.
+pub enum AddOutcome {
+    Added { handle: Arc<librqbit::ManagedTorrent> },
+    AlreadyManaged { handle: Arc<librqbit::ManagedTorrent> },
+}
+
 /// Add a torrent to the session and bring it Live, applying an
 /// optional file selection. Waits (bounded) for metadata when a file
-/// selection needs to be applied. Returns the live handle.
+/// selection needs to be applied.
 ///
 /// This is the single start path used for fresh starts, queue starts
 /// and seeding re-adds — replacing the three divergent copies in the
@@ -289,7 +346,7 @@ pub async fn add_and_start(
     source_uri: &str,
     save_path: &str,
     only_files: Option<&[usize]>,
-) -> Result<Arc<librqbit::ManagedTorrent>, String> {
+) -> Result<AddOutcome, String> {
     // A previous list_only add of the same infohash leaves librqbit
     // treating the torrent as metadata-only; delete-then-re-add gives
     // a clean slate (metadata stays cached, so the re-add is fast).
@@ -298,6 +355,8 @@ pub async fn add_and_start(
         output_folder: Some(save_path.into()),
         overwrite: true,
         list_only: false,
+        // Selection is applied at add time (compute_only_files); the old
+        // post-add update_only_files retry loop was redundant.
         only_files: only_files.map(|v| v.to_vec()),
         trackers: Some(default_trackers_vec()),
         force_tracker_interval: Some(Duration::from_secs(30)),
@@ -316,49 +375,20 @@ pub async fn add_and_start(
     })?
     .map_err(|e| format!("Failed to add torrent: {}", e))?;
 
+    let already_managed =
+        matches!(&response, librqbit::AddTorrentResponse::AlreadyManaged(..));
     let handle = response
         .into_handle()
         .ok_or_else(|| "Failed to start torrent: no handle returned".to_string())?;
 
-    // Apply the file selection once metadata is parsed. Calling
-    // update_only_files before metadata is loaded silently fails and
-    // the torrent would download ALL files.
-    if let Some(indices) = only_files {
-        let only_files_set: std::collections::HashSet<usize> =
-            indices.iter().copied().collect();
-        let mut update_ok = false;
-        for attempt in 0..30 {
-            if handle.with_metadata(|_| ()).is_ok() {
-                match session.update_only_files(&handle, &only_files_set).await {
-                    Ok(()) => {
-                        update_ok = true;
-                        break;
-                    }
-                    Err(e) => {
-                        eprintln!(
-                            "[downloads] update_only_files failed (will retry): {}",
-                            e
-                        );
-                    }
-                }
-            } else if attempt == 9 {
-                eprintln!(
-                    "[downloads] metadata not parsed after 10s; still waiting to \
-                     apply file selection..."
-                );
-            }
-            tokio::time::sleep(Duration::from_secs(1)).await;
-        }
-        if !update_ok {
-            eprintln!(
-                "[downloads] gave up waiting for metadata; file selection may \
-                 not be applied."
-            );
-        }
+    if already_managed {
+        // M1: never unpause or change the selection of a torrent we
+        // don't own.
+        return Ok(AddOutcome::AlreadyManaged { handle });
     }
 
     let _ = session.unpause(&handle).await;
-    Ok(handle)
+    Ok(AddOutcome::Added { handle })
 }
 
 /// Delete a torrent from the session by frontend id (keeps files).
