@@ -13,6 +13,7 @@ import type {
   TimeOfDaySlice,
   PeriodCompare,
 } from "./communityProfileStats";
+import { computeGoalPace } from "./communityProfileStats";
 import type { GameAchievementData } from "../types/game";
 
 function formatHours(totalMinutes: number): string {
@@ -42,10 +43,14 @@ export function ActivityHeatmap({
   cells,
   maxMinutes,
   activeDays,
+  totalMinutes,
+  bestDay,
 }: {
   cells: DayCell[];
   maxMinutes: number;
   activeDays: number;
+  totalMinutes: number;
+  bestDay: DayCell | null;
 }) {
   const { t } = useLanguage();
   // Group cells into 7 columns (Mon–Sun) × up to 7 rows.
@@ -105,6 +110,79 @@ export function ActivityHeatmap({
         ))}
         <span>{t("activityDash.more")}</span>
       </div>
+      <div className="community-heatmap-footer">
+        <div className="community-heatmap-stat">
+          <span className="community-heatmap-stat-value">
+            {bestDay
+              ? `${bestDay.date.toLocaleDateString(undefined, {
+                  month: "short",
+                  day: "numeric",
+                })} · ${formatHours(bestDay.minutes)}`
+              : "—"}
+          </span>
+          <span className="community-heatmap-stat-label">{t("communityExtras.bestDay")}</span>
+        </div>
+        <div className="community-heatmap-stat">
+          <span className="community-heatmap-stat-value">{activeDays}</span>
+          <span className="community-heatmap-stat-label">{t("communityExtras.activeDays")}</span>
+        </div>
+        <div className="community-heatmap-stat">
+          <span className="community-heatmap-stat-value">{formatHours(totalMinutes)}</span>
+          <span className="community-heatmap-stat-label">{t("communityExtras.heatmapTotal")}</span>
+        </div>
+      </div>
+    </Card>
+  );
+}
+
+// ── Weekday split (Mon–Sun horizontal bars) ──────────────────────────
+
+const WEEKDAY_KEYS = ["mon", "tue", "wed", "thu", "fri", "sat", "sun"] as const;
+
+export function WeekdaySplitCard({
+  minutes,
+  maxMinutes,
+  favoriteIndex,
+}: {
+  minutes: number[];
+  maxMinutes: number;
+  favoriteIndex: number;
+}) {
+  const { t } = useLanguage();
+  const total = minutes.reduce((s, m) => s + m, 0);
+
+  return (
+    <Card variant="surface" elevation="1" className="community-chart-card community-weekday-card">
+      <div className="community-chart-header">
+        <h3>{t("communityExtras.weekdaySplit")}</h3>
+        <span className="community-chart-subtitle">{t("communityExtras.byTotalPlaytime")}</span>
+      </div>
+      {total > 0 ? (
+        <div className="community-weekday-list">
+          {minutes.map((m, i) => {
+            const isFav = i === favoriteIndex;
+            const pct = maxMinutes > 0 ? Math.round((m / maxMinutes) * 100) : 0;
+            return (
+              <div
+                key={WEEKDAY_KEYS[i]}
+                className={`community-weekday-row${isFav ? " is-favorite" : ""}`}
+              >
+                <span className="community-weekday-label">
+                  {t(`communityExtras.weekday.${WEEKDAY_KEYS[i]}`)}
+                </span>
+                <div className="community-weekday-track" aria-hidden>
+                  <div className="community-weekday-fill" style={{ width: `${pct}%` }} />
+                </div>
+                <span className="community-weekday-value">{formatHours(m)}</span>
+              </div>
+            );
+          })}
+        </div>
+      ) : (
+        <div className="community-empty-chart">
+          <p>{t("communityExtras.weekdayEmpty")}</p>
+        </div>
+      )}
     </Card>
   );
 }
@@ -172,6 +250,7 @@ export function GoalCard({
   const offset = circumference - (pct / 100) * circumference;
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState(String(goalMin / 60 || 0));
+  const pace = useMemo(() => computeGoalPace(currentMin, goalMin), [currentMin, goalMin]);
 
   return (
     <Card variant="surface" elevation="1" className="community-goal-card">
@@ -245,6 +324,17 @@ export function GoalCard({
           <span className="community-goal-target">
             {goalMin > 0 ? t("communityExtras.ofGoal", { time: formatHours(goalMin) }) : t("communityExtras.noGoalSet")}
           </span>
+          {pace && (
+            <span
+              className={`community-goal-pace ${pace.diffMin > 0 ? "ahead" : pace.diffMin < 0 ? "behind" : "on"}`}
+            >
+              {pace.diffMin > 0
+                ? t("communityExtras.goalAhead", { time: formatHours(pace.diffMin) })
+                : pace.diffMin < 0
+                ? t("communityExtras.goalBehind", { time: formatHours(-pace.diffMin) })
+                : t("communityExtras.goalOnPace")}
+            </span>
+          )}
         </div>
       )}
     </Card>
@@ -305,10 +395,10 @@ export function AchievementsShowcase({
       elevation="1"
       className="community-year-card community-breakdown-card"
       header={
-        <div className="community-year-header">
+        <h3 className="community-year-header">
           <span className="community-year-icon">🏅</span>
           <span>{t("communityExtras.recentlyUnlocked")}</span>
-        </div>
+        </h3>
       }
     >
       <div className="community-unlocked-rail">

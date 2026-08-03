@@ -180,3 +180,96 @@ export function computeMonthToDate(sessions: GameSession[]): number {
     .filter((s) => new Date(s.date) >= start)
     .reduce((sum, s) => sum + s.durationMin, 0);
 }
+
+// ── Weekday split ────────────────────────────────────────────────────
+
+export interface WeekdaySplit {
+  /** Minutes per weekday, Monday-first (index 0 = Mon … 6 = Sun). */
+  minutes: number[];
+  totalMinutes: number;
+  maxMinutes: number;
+  /** Index into `minutes` of the busiest weekday (-1 when nothing played). */
+  favoriteIndex: number;
+}
+
+/** Aggregate playtime by weekday (Mon–Sun, Monday-first). */
+export function computeWeekdaySplit(sessions: GameSession[]): WeekdaySplit {
+  const minutes = [0, 0, 0, 0, 0, 0, 0];
+  for (const s of sessions) {
+    const day = new Date(s.date).getDay(); // 0 = Sun … 6 = Sat
+    minutes[(day + 6) % 7] += s.durationMin; // shift to Mon-first
+  }
+
+  let favoriteIndex = -1;
+  let maxMinutes = 0;
+  let totalMinutes = 0;
+  minutes.forEach((m, i) => {
+    totalMinutes += m;
+    if (m > maxMinutes) {
+      maxMinutes = m;
+      favoriteIndex = i;
+    }
+  });
+
+  return { minutes, totalMinutes, maxMinutes, favoriteIndex };
+}
+
+// ── Monthly trend ────────────────────────────────────────────────────
+
+/** Playtime per calendar month for the last `months` months (incl. current). */
+export function computeMonthlyTrend(
+  sessions: GameSession[],
+  months = 6
+): { label: string; minutes: number }[] {
+  const now = new Date();
+  const out: { label: string; minutes: number }[] = [];
+  for (let i = months - 1; i >= 0; i--) {
+    const monthStart = new Date(now.getFullYear(), now.getMonth() - i, 1);
+    const monthEnd = new Date(now.getFullYear(), now.getMonth() - i + 1, 1);
+    let mins = 0;
+    for (const s of sessions) {
+      const d = new Date(s.date);
+      if (d >= monthStart && d < monthEnd) mins += s.durationMin;
+    }
+    out.push({
+      label: monthStart.toLocaleDateString(undefined, { month: "short" }),
+      minutes: mins,
+    });
+  }
+  return out;
+}
+
+// ── Best single day ──────────────────────────────────────────────────
+
+/** The most-played day within a heatmap window (skips future cells). */
+export function findBestDay(cells: DayCell[]): DayCell | null {
+  let best: DayCell | null = null;
+  const now = new Date();
+  for (const c of cells) {
+    if (c.date > now) continue;
+    if (c.minutes > 0 && (!best || c.minutes > best.minutes)) best = c;
+  }
+  return best;
+}
+
+// ── Monthly goal pace ────────────────────────────────────────────────
+
+export interface GoalPace {
+  /** Minutes the goal expects by today, assuming a linear monthly rate. */
+  expectedMin: number;
+  /** actual - expected (positive = ahead of pace). */
+  diffMin: number;
+}
+
+/** How the current month's playtime compares to a linear goal pace. */
+export function computeGoalPace(
+  currentMin: number,
+  goalMin: number
+): GoalPace | null {
+  if (goalMin <= 0) return null;
+  const now = new Date();
+  const dayOfMonth = now.getDate();
+  const daysInMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
+  const expectedMin = (goalMin * dayOfMonth) / daysInMonth;
+  return { expectedMin, diffMin: currentMin - expectedMin };
+}

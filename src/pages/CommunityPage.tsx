@@ -17,6 +17,9 @@ import {
   computeTimeOfDay,
   computePeriodCompare,
   computeMonthToDate,
+  computeWeekdaySplit,
+  computeMonthlyTrend,
+  findBestDay,
 } from "./communityProfileStats";
 import {
   ActivityHeatmap,
@@ -25,6 +28,7 @@ import {
   GoalCard,
   PeriodCompareBadge,
   AchievementsShowcase,
+  WeekdaySplitCard,
   collectUnlockedAchievements,
 } from "./communityProfileExtras";
 import {
@@ -213,6 +217,9 @@ function ProfileSection() {
   const timeOfDay = useMemo(() => computeTimeOfDay(sessions), [sessions]);
   const periodCompare = useMemo(() => computePeriodCompare(sessions), [sessions]);
   const monthToDate = useMemo(() => computeMonthToDate(sessions), [sessions]);
+  const weekday = useMemo(() => computeWeekdaySplit(sessions), [sessions]);
+  const monthlyTrend = useMemo(() => computeMonthlyTrend(sessions, 6), [sessions]);
+  const bestDay = useMemo(() => findBestDay(heatmap.cells), [heatmap.cells]);
   const unlockedAchievements = useMemo(
     () => collectUnlockedAchievements(cache.games, games),
     [cache, games]
@@ -269,6 +276,25 @@ function ProfileSection() {
       color: DONUT_PALETTE[i % DONUT_PALETTE.length],
     }));
   }, [stats.platformBreakdown]);
+
+  // Top genre / platform highlights (shown under each donut)
+  const topGenre = useMemo(() => {
+    const total = genreSlices.reduce((s, g) => s + g.value, 0);
+    if (total <= 0 || genreSlices.length === 0) return null;
+    return { name: genreSlices[0].label, pct: Math.round((genreSlices[0].value / total) * 100) };
+  }, [genreSlices]);
+
+  const topPlatform = useMemo(() => {
+    const total = platformSlices.reduce((s, p) => s + p.value, 0);
+    if (total <= 0 || platformSlices.length === 0) return null;
+    return { name: platformSlices[0].label, pct: Math.round((platformSlices[0].value / total) * 100) };
+  }, [platformSlices]);
+
+  // Monthly trend in whole hours (friendlier y-axis than raw minutes)
+  const monthlyHours = useMemo(() => {
+    return monthlyTrend.map((m) => Math.round((m.minutes / 60) * 10) / 10);
+  }, [monthlyTrend]);
+  const monthlyLabels = useMemo(() => monthlyTrend.map((m) => m.label), [monthlyTrend]);
 
   // Games added this month
   const gamesAddedThisMonth = useMemo(() => {
@@ -394,130 +420,187 @@ function ProfileSection() {
         />
       </div>
 
-      {/* ── Charts Row ────────────────────────────────────────────────── */}
-      <div className="community-charts-row">
-        {/* Genre breakdown donut */}
-        <Card variant="surface" elevation="1" className="community-chart-card">
-          <div className="community-chart-header">
-            <h3>{t("community.genreBreakdown")}</h3>
-            <span className="community-chart-subtitle">{t("communityExtras.byTotalPlaytime")}</span>
-          </div>
-          {genreSlices.length > 0 ? (
-            <DonutChart
-              slices={genreSlices}
-              size={200}
-              innerRadius={55}
-              formatValue={(v) => formatHours(v)}
-            />
-          ) : (
-            <div className="community-empty-chart">
-              <p>{t("community.emptyGenre")}</p>
-            </div>
-          )}
-        </Card>
-
-        {/* Platform breakdown donut */}
-        <Card variant="surface" elevation="1" className="community-chart-card">
-          <div className="community-chart-header">
-            <h3>{t("community.platformSplit")}</h3>
-            <span className="community-chart-subtitle">{t("communityExtras.byTotalPlaytime")}</span>
-          </div>
-          {platformSlices.length > 0 ? (
-            <DonutChart
-              slices={platformSlices}
-              size={200}
-              innerRadius={55}
-              formatValue={(v) => formatHours(v)}
-            />
-          ) : (
-            <div className="community-empty-chart">
-              <p>{t("community.emptyPlatform")}</p>
-            </div>
-          )}
-        </Card>
-      </div>
-
-      {/* ── Weekly Activity Chart ─────────────────────────────────────── */}
-      {stats.dailyAvg.length > 0 && (
-        <Card variant="surface" elevation="1" className="community-chart-card community-weekly-card">
-          <div className="community-chart-header">
-            <h3>{t("community.last7Days")}</h3>
-            <span className="community-chart-subtitle">{t("communityExtras.dailyPlaytimeMinutes")}</span>
-          </div>
-          <BarChart
-            data={stats.dailyAvg}
-            labels={stats.dailyLabels}
-            height={200}
-            color="var(--color-accent)"
-            formatValue={(v) => `${v}m`}
-          />
-        </Card>
-      )}
-
-      {/* ── New: Streak + Heatmap + Time of Day + Goal ─────────────────── */}
-      <div className="community-profile-extra-grid">
-        <StreakCard streak={streak} />
-        <GoalCard currentMin={monthToDate} goalMin={goalMin} onChangeGoal={onGoalChange} />
-        <TimeOfDayCard slices={timeOfDay} />
-      </div>
-
-      {heatmap.cells.length > 0 && (
-        <ActivityHeatmap
-          cells={heatmap.cells}
-          maxMinutes={heatmap.maxMinutes}
-          activeDays={heatmap.activeDays}
-        />
-      )}
-
-      {/* ── Year in Review Summary Card ───────────────────────────────── */}
+      {/* ── Year in Review summary strip ───────────────────────────────── */}
       <Card
         variant="glass"
         elevation="glow"
-        className="community-year-card"
+        className="community-year-card community-year-strip"
         header={
-          <div className="community-year-header">
+          <h3 className="community-year-header">
             <span className="community-year-icon">🎮</span>
             <span>{t("community.yearInReview")}</span>
-          </div>
+          </h3>
         }
       >
-        <div className="community-year-grid">
-          <div className="community-year-stat">
-            <span className="community-year-stat-value">{formatHours(stats.totalPlayTimeMin)}</span>
-            <span className="community-year-stat-label">{t("community.totalPlaytime")}</span>
+        <div className="community-year-strip-grid">
+          <div className="community-year-strip-cell">
+            <span className="community-year-strip-value">{formatHours(stats.totalPlayTimeMin)}</span>
+            <span className="community-year-strip-label">{t("community.totalPlaytime")}</span>
           </div>
-          <div className="community-year-stat">
-            <span className="community-year-stat-value">{stats.totalSessions}</span>
-            <span className="community-year-stat-label">{t("community.sessions")}</span>
+          <div className="community-year-strip-cell">
+            <span className="community-year-strip-value">{stats.totalSessions}</span>
+            <span className="community-year-strip-label">{t("community.sessions")}</span>
           </div>
-          <div className="community-year-stat">
-            <span className="community-year-stat-value">{totalGames}</span>
-            <span className="community-year-stat-label">{t("community.gamesInLibrary")}</span>
+          <div className="community-year-strip-cell">
+            <span className="community-year-strip-value">{totalGames}</span>
+            <span className="community-year-strip-label">{t("community.gamesInLibrary")}</span>
           </div>
-          <div className="community-year-stat">
-            <span className="community-year-stat-value">{stats.topGames.length}</span>
-            <span className="community-year-stat-label">{t("community.gamesPlayed")}</span>
+          <div className="community-year-strip-cell">
+            <span className="community-year-strip-value">{stats.topGames.length}</span>
+            <span className="community-year-strip-label">{t("community.gamesPlayed")}</span>
           </div>
-          <div className="community-year-stat">
-            <span className="community-year-stat-value">{stats.longestSessionMin > 0 ? formatHours(stats.longestSessionMin) : "—"}</span>
-            <span className="community-year-stat-label">{t("community.longestSession")}</span>
+          <div className="community-year-strip-cell">
+            <span className="community-year-strip-value">{stats.longestSessionMin > 0 ? formatHours(stats.longestSessionMin) : "—"}</span>
+            <span className="community-year-strip-label">{t("community.longestSession")}</span>
           </div>
-          <div className="community-year-stat">
-            <span className="community-year-stat-value">{stats.avgSessionMin > 0 ? formatHours(stats.avgSessionMin) : "—"}</span>
-            <span className="community-year-stat-label">{t("community.avgSession")}</span>
+          <div className="community-year-strip-cell">
+            <span className="community-year-strip-value">{stats.avgSessionMin > 0 ? formatHours(stats.avgSessionMin) : "—"}</span>
+            <span className="community-year-strip-label">{t("community.avgSession")}</span>
           </div>
-          <div className="community-year-stat">
-            <span className="community-year-stat-value">{distinctGenres}</span>
-            <span className="community-year-stat-label">{t("community.genresPlayed")}</span>
+          <div className="community-year-strip-cell">
+            <span className="community-year-strip-value">{distinctGenres}</span>
+            <span className="community-year-strip-label">{t("community.genresPlayed")}</span>
           </div>
           {stats.avgFpsAll > 0 && (
-            <div className="community-year-stat">
-              <span className="community-year-stat-value">{stats.avgFpsAll} fps</span>
-              <span className="community-year-stat-label">{t("community.avgFps")}</span>
+            <div className="community-year-strip-cell">
+              <span className="community-year-strip-value">{stats.avgFpsAll} fps</span>
+              <span className="community-year-strip-label">{t("community.avgFps")}</span>
             </div>
           )}
         </div>
       </Card>
+
+      {/* ── When you play: heatmap + weekday rhythm + trends ────────────── */}
+      <section className="community-section" aria-labelledby="community-when-heading">
+        <h2 id="community-when-heading" className="community-section-heading">
+          {t("communityExtras.whenYouPlay")}
+        </h2>
+        <div className="community-when-grid">
+          {heatmap.cells.length > 0 && (
+            <ActivityHeatmap
+              cells={heatmap.cells}
+              maxMinutes={heatmap.maxMinutes}
+              activeDays={heatmap.activeDays}
+              totalMinutes={heatmap.totalMinutes}
+              bestDay={bestDay}
+            />
+          )}
+          <WeekdaySplitCard
+            minutes={weekday.minutes}
+            maxMinutes={weekday.maxMinutes}
+            favoriteIndex={weekday.favoriteIndex}
+          />
+        </div>
+
+        {/* Recent + monthly playtime trends */}
+        <div className="community-trends-row">
+          {stats.dailyAvg.length > 0 && (
+            <Card variant="surface" elevation="1" className="community-chart-card community-weekly-card">
+              <div className="community-chart-header">
+                <h3>{t("community.last7Days")}</h3>
+                <span className="community-chart-subtitle">{t("communityExtras.dailyPlaytimeMinutes")}</span>
+              </div>
+              <BarChart
+                data={stats.dailyAvg}
+                labels={stats.dailyLabels}
+                height={200}
+                color="var(--color-accent)"
+                formatValue={(v) => `${v}m`}
+              />
+            </Card>
+          )}
+          <Card variant="surface" elevation="1" className="community-chart-card community-weekly-card">
+            <div className="community-chart-header">
+              <h3>{t("communityExtras.last6Months")}</h3>
+              <span className="community-chart-subtitle">{t("communityExtras.monthlyPlaytime")}</span>
+            </div>
+            <BarChart
+              data={monthlyHours}
+              labels={monthlyLabels}
+              height={200}
+              color="var(--color-info)"
+              formatValue={(v) => `${v}h`}
+            />
+          </Card>
+        </div>
+      </section>
+
+      {/* ── What you play: genre / platform / time-of-day donuts ─────────── */}
+      <section className="community-section" aria-labelledby="community-what-heading">
+        <h2 id="community-what-heading" className="community-section-heading">
+          {t("communityExtras.whatYouPlay")}
+        </h2>
+        <div className="community-donut-row">
+          {/* Genre breakdown donut */}
+          <Card variant="surface" elevation="1" className="community-chart-card">
+            <div className="community-chart-header">
+              <h3>{t("community.genreBreakdown")}</h3>
+              <span className="community-chart-subtitle">{t("communityExtras.byTotalPlaytime")}</span>
+            </div>
+            {genreSlices.length > 0 ? (
+              <>
+                <DonutChart
+                  slices={genreSlices}
+                  size={200}
+                  innerRadius={55}
+                  formatValue={(v) => formatHours(v)}
+                />
+                {topGenre && (
+                  <div className="community-donut-highlight">
+                    <span className="community-donut-highlight-label">{t("communityExtras.topGenreLabel")}</span>
+                    <span className="community-donut-highlight-value">{topGenre.name} · {topGenre.pct}%</span>
+                  </div>
+                )}
+              </>
+            ) : (
+              <div className="community-empty-chart">
+                <p>{t("community.emptyGenre")}</p>
+              </div>
+            )}
+          </Card>
+
+          {/* Platform breakdown donut */}
+          <Card variant="surface" elevation="1" className="community-chart-card">
+            <div className="community-chart-header">
+              <h3>{t("community.platformSplit")}</h3>
+              <span className="community-chart-subtitle">{t("communityExtras.byTotalPlaytime")}</span>
+            </div>
+            {platformSlices.length > 0 ? (
+              <>
+                <DonutChart
+                  slices={platformSlices}
+                  size={200}
+                  innerRadius={55}
+                  formatValue={(v) => formatHours(v)}
+                />
+                {topPlatform && (
+                  <div className="community-donut-highlight">
+                    <span className="community-donut-highlight-label">{t("communityExtras.topPlatformLabel")}</span>
+                    <span className="community-donut-highlight-value">{topPlatform.name} · {topPlatform.pct}%</span>
+                  </div>
+                )}
+              </>
+            ) : (
+              <div className="community-empty-chart">
+                <p>{t("community.emptyPlatform")}</p>
+              </div>
+            )}
+          </Card>
+
+          <TimeOfDayCard slices={timeOfDay} />
+        </div>
+      </section>
+
+      {/* ── Goals: streak + monthly goal ─────────────────────────────────── */}
+      <section className="community-section" aria-labelledby="community-goals-heading">
+        <h2 id="community-goals-heading" className="community-section-heading">
+          {t("communityExtras.goalsSection")}
+        </h2>
+        <div className="community-highlights-row">
+          <StreakCard streak={streak} />
+          <GoalCard currentMin={monthToDate} goalMin={goalMin} onChangeGoal={onGoalChange} />
+        </div>
+      </section>
 
       {/* ── Most Played Games Breakdown ─────────────────────────────────── */}
       <Card
@@ -525,7 +608,7 @@ function ProfileSection() {
         elevation="1"
         className="community-year-card community-breakdown-card"
         header={
-          <div className="community-year-header">
+          <h3 className="community-year-header">
             <span className="community-year-icon">🏆</span>
             <span>{t("community.mostPlayedGames")}</span>
             {topGames.length > 0 && (
@@ -533,7 +616,7 @@ function ProfileSection() {
                 {t("community.rankedOf", { count: topGames.length, total: stats.topGames.length })}
               </span>
             )}
-          </div>
+          </h3>
         }
       >
         {topGames.length > 0 ? (

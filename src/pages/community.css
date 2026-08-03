@@ -91,16 +91,36 @@
 
 .community-kpi-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
   gap: var(--space-md);
 }
 
-/* ── Charts Row ────────────────────────────────────────────────────── */
+/* ── Section headings (narrative grouping) ─────────────────────────── */
 
-.community-charts-row {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: var(--space-lg);
+.community-section {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-md);
+}
+
+.community-section-heading {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  margin: 0;
+  font-size: var(--font-size-md);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text-secondary);
+  letter-spacing: 0.3px;
+}
+
+.community-section-heading::before {
+  content: "";
+  flex: 0 0 auto;
+  width: 4px;
+  height: 16px;
+  border-radius: var(--radius-full);
+  background: var(--color-accent);
 }
 
 .community-chart-card {
@@ -154,32 +174,41 @@
   font-size: var(--font-size-md);
   font-weight: var(--font-weight-bold);
   color: var(--color-text-primary);
+  margin: 0;
 }
 
 .community-year-icon {
   font-size: 22px;
 }
 
-.community-year-grid {
+/* Year in Review strip — compact scoreboard with hairline dividers
+   (1px grid gap shows the container background as dividers, so cells
+   wrap cleanly on narrow widths without orphaned borders). */
+.community-year-strip-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
-  gap: var(--space-lg);
+  grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
+  gap: 1px;
   margin-top: var(--space-md);
+  background: var(--color-border-light);
+  border: 1px solid var(--color-border-light);
+  border-radius: var(--radius-lg);
+  overflow: hidden;
 }
 
-.community-year-stat {
+.community-year-strip-cell {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: var(--space-xs);
-  padding: var(--space-md);
-  background: var(--color-bg-tertiary);
-  border-radius: var(--radius-lg);
+  justify-content: center;
+  gap: var(--space-2xs);
+  padding: var(--space-md) var(--space-sm);
+  background: color-mix(in srgb, var(--color-bg-tertiary) 55%, transparent);
   text-align: center;
+  min-width: 0;
 }
 
-.community-year-stat-value {
-  font-size: var(--font-size-xl);
+.community-year-strip-value {
+  font-size: var(--font-size-lg);
   font-weight: var(--font-weight-bold);
   color: var(--color-accent);
   line-height: 1.2;
@@ -189,11 +218,15 @@
   white-space: nowrap;
 }
 
-.community-year-stat-label {
-  font-size: var(--font-size-xs);
+.community-year-strip-label {
+  font-size: var(--font-size-2xs, 10px);
   color: var(--color-text-muted);
   text-transform: uppercase;
   letter-spacing: 0.5px;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 /* ── Most Played Games Breakdown ─────────────────────────────────────── */
@@ -1209,12 +1242,20 @@
    Responsive
    ══════════════════════════════════════════════════════════════════════ */
 
+/* The heatmap needs ~900px to render 49 cells without horizontal
+   scroll, so the heatmap + weekday pairing stacks on smaller windows. */
+@media (max-width: 1200px) {
+  .community-when-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
 @media (max-width: 768px) {
   .community-page {
     padding: var(--space-md);
   }
 
-  .community-charts-row {
+  .community-trends-row {
     grid-template-columns: 1fr;
   }
 
@@ -1273,15 +1314,157 @@
   margin: 0;
 }
 
-/* ── Profile extra grid (streak / goal / time-of-day) ────────────── */
-.community-profile-extra-grid {
+/* ── When-you-play cluster (heatmap + weekday rhythm) ─────────────── */
+.community-when-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  grid-template-columns: minmax(0, 2.2fr) minmax(280px, 1fr);
+  gap: var(--space-lg);
+  align-items: stretch;
+}
+
+/* Heatmap footer stats (best day / active days / period total) */
+.community-heatmap-footer {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-sm);
+  margin-top: var(--space-lg);
+  padding-top: var(--space-md);
+  border-top: 1px solid var(--color-border);
+}
+
+.community-heatmap-stat {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-xs);
+  padding: var(--space-xs) var(--space-md);
+  border-radius: var(--radius-full);
+  background: var(--color-bg-tertiary);
+}
+
+.community-heatmap-stat-value {
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text-primary);
+  font-variant-numeric: tabular-nums;
+}
+
+.community-heatmap-stat-label {
+  font-size: var(--font-size-2xs, 10px);
+  color: var(--color-text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+/* Weekday split card */
+.community-weekday-card .community-empty-chart {
+  min-height: 120px;
+}
+
+.community-weekday-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+}
+
+.community-weekday-row {
+  display: grid;
+  grid-template-columns: 42px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: var(--space-sm);
+}
+
+.community-weekday-label {
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-medium);
+  color: var(--color-text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+}
+
+.community-weekday-row.is-favorite .community-weekday-label {
+  color: var(--color-accent);
+  font-weight: var(--font-weight-bold);
+}
+
+.community-weekday-track {
+  height: 8px;
+  border-radius: var(--radius-full);
+  background: var(--color-bg-tertiary);
+  overflow: hidden;
+}
+
+.community-weekday-fill {
+  height: 100%;
+  border-radius: var(--radius-full);
+  background: var(--color-bg-active);
+  transition: width var(--transition-normal);
+}
+
+.community-weekday-row.is-favorite .community-weekday-fill {
+  background: var(--color-accent);
+}
+
+.community-weekday-value {
+  font-size: var(--font-size-xs);
+  color: var(--color-text-secondary);
+  text-align: right;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+
+/* ── Trends row (last 7 days + last 6 months) ────────────────────── */
+.community-trends-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--space-lg);
+}
+
+/* ── What-you-play row (genre / platform / time-of-day donuts) ───── */
+.community-donut-row {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(330px, 1fr));
+  gap: var(--space-lg);
+}
+
+.community-donut-highlight {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-xs);
+  margin-top: var(--space-md);
+  padding-top: var(--space-md);
+  border-top: 1px solid var(--color-border);
+  font-size: var(--font-size-xs);
+}
+
+.community-donut-highlight-label {
+  color: var(--color-text-muted);
+}
+
+.community-donut-highlight-value {
+  color: var(--color-accent);
+  font-weight: var(--font-weight-semibold);
+}
+
+/* ── Goals row (streak + monthly goal) ───────────────────────────── */
+.community-highlights-row {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
   gap: var(--space-md);
 }
 
-.community-profile-extra-grid .community-chart-card {
-  padding: var(--space-lg);
+/* Goal pace indicator */
+.community-goal-pace {
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-semibold);
+}
+
+.community-goal-pace.ahead,
+.community-goal-pace.on {
+  color: var(--color-success);
+}
+
+.community-goal-pace.behind {
+  color: var(--color-danger);
 }
 
 /* Streak card */
