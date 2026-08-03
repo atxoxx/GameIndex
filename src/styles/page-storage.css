@@ -1,52 +1,30 @@
-/* Page-level styling for storage — flat surfaces, restrained accent. */
+/* Page-level styling for storage — flat surfaces, restrained accent.
+ *
+ *  The dashboard, control panel, and emulator summary all share the
+ *  app surface so the page reads as one stacked dashboard rather than
+ *  a collection of floating cards. Individual accent/hover refinements
+ *  that should only apply on the Storage route live here. */
 
 /* ── Page title ──────────────────────────────────────────────────── */
 .storage__page-title.brand-text {
   letter-spacing: -0.01em;
 }
 
-/* Page header icon chip */
-.storage-page .storage__page-header-icon {
-  background: color-mix(in srgb, var(--color-accent) 14%, transparent);
-  border: 1px solid color-mix(in srgb, var(--color-accent) 30%, transparent);
+/* Dashboard + control panels sit on the same surface. */
+.storage-page .storage__dashboard,
+.storage-page .storage__controls,
+.storage-page .storage__emu-summary {
+  background: var(--color-surface);
 }
 
-.storage-page .storage__page-header-icon svg {
-  color: var(--color-accent);
-}
-
-/* ── Dashboard / drive / usage panels ────────────────────────────── */
-.storage-page .storage__card {
-  border: 1px solid var(--color-border);
-  transition: transform var(--duration-normal) var(--ease-standard),
-    box-shadow var(--duration-normal) var(--ease-standard),
-    border-color var(--duration-normal) var(--ease-standard);
-}
-
-.storage-page .storage__card:hover {
-  transform: translateY(-2px);
-  box-shadow: var(--shadow-md);
-  border-color: var(--color-border-light);
-}
-
-/* Usage breakdown bar tracks */
-.storage-page .storage__breakdown-track {
-  background: var(--color-bg-tertiary);
-}
-
-.storage-page .storage__drive-usage-track {
-  background: var(--color-bg-tertiary);
-}
-
-/* ── Empty state ─────────────────────────────────────────────────── */
+/* Keep the empty state on a softer backing than the list rows. */
 .storage-page .storage__empty-state {
-  position: relative;
-  overflow: hidden;
-  border-radius: var(--radius-xl);
-  border: 1px dashed var(--color-border);
   background: var(--color-bg-secondary);
 }
 
-.storage-page .storage__empty-state-icon svg {
-  color: var(--color-accent);
+/* Breakdown usage bars share the accent-warning tint used for capacity
+   pressure so the "by drive" zone reads consistently with the totals
+   coverage bar. */
+.storage-page .storage__breakdown-fill--usage {
+  background: color-mix(in srgb, var(--color-warning) 70%, var(--color-accent));
 }

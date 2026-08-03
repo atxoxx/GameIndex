@@ -5,7 +5,9 @@ import { useDensityContext } from "../context/DensityContext";
 import { useToast } from "../context/ToastContext";
 import { Button, ConfirmModal, PageHeader } from "../components/ui";
 import DensityToggle from "../components/DensityToggle";
-import { DEFAULT_SORT, driveOf, sortGames, buildSections, type GroupKey, type SortKey } from "./storage/utils";
+import { DEFAULT_SORT, driveOf, sortGames, buildSections, gameTotalBytes, type GroupKey, type SortKey } from "./storage/utils";
+import { formatSize } from "../types/game";
+import { useSizeUnit } from "../hooks/useSizeUnit";
 import { BulkRecalcBar } from "./storage/BulkRecalcBar";
 import { StorageHeader } from "./storage/StorageHeader";
 import { StorageSortSelect } from "./storage/StorageSortSelect";
@@ -43,6 +45,24 @@ function parentDir(p: string): string {
   return idx > 0 ? norm.slice(0, idx) : p;
 }
 
+/** refresh-cw icon used by the toolbar re-check action. */
+const RefreshIcon = (
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M21 2v6h-6" />
+    <path d="M3 12a9 9 0 0 1 15-6.7L21 8" />
+    <path d="M3 22v-6h6" />
+    <path d="M21 12a9 9 0 0 1-15 6.7L3 16" />
+  </svg>
+);
+
+/** check-square icon used by the selection-mode toggle. */
+const SelectIcon = (
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <polyline points="9 11 12 14 22 4" />
+    <path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11" />
+  </svg>
+);
+
 export default function StoragePage() {
   const { isBigScreen } = useBigScreen();
   const { t } = useLanguage();
@@ -52,6 +72,7 @@ export default function StoragePage() {
   const { games, updateGame, removeGame } = useGames();
   const { density, setDensity } = useDensityContext();
   const { showToast } = useToast();
+  const { unit } = useSizeUnit();
   const [sort, setSort] = useState<SortKey>(DEFAULT_SORT);
   const [search, setSearch] = useState("");
   const [filter, setFilter] = useState<StorageFilter>("all");
@@ -337,6 +358,19 @@ export default function StoragePage() {
     [games]
   );
 
+  // Emulator-view summary stats: configured emulators, linked ROMs, and the
+  // combined install + ROM footprint.
+  const emuRomsList = useMemo(
+    () => installedGames.filter((g) => g.emulatorId),
+    [installedGames]
+  );
+  const emuTotalBytes = useMemo(() => {
+    let total = 0;
+    for (const e of emulators) total += installBytes[e.id] ?? 0;
+    for (const g of emuRomsList) total += gameTotalBytes(g);
+    return total;
+  }, [emulators, installBytes, emuRomsList]);
+
   const measureEmulator = useCallback(
     async (emu: Emulator) => {
       if (!emu.executablePath) {
@@ -367,7 +401,7 @@ export default function StoragePage() {
 
   return (
     <div className="storage-page page">
-      {/* ── Page header ──────────────────────────────────────── */}
+      {/* ── Page header + view switcher ─────────────────────────── */}
       <PageHeader
         eyebrow={t("storage.eyebrow")}
         title={t("storage.title")}
@@ -381,33 +415,33 @@ export default function StoragePage() {
             <line x1="12" y1="10" x2="15" y2="10" />
           </svg>
         }
+        actions={
+          <div className="storage__views" role="tablist" aria-label={t("storage.viewsAria")}>
+            <button
+              type="button"
+              role="tab"
+              aria-selected={view === "games"}
+              className={`storage__view-tab${view === "games" ? " storage__view-tab--active" : ""}`}
+              onClick={() => setView("games")}
+            >
+              {t("storage.view.games")}
+            </button>
+            <button
+              type="button"
+              role="tab"
+              aria-selected={view === "emulators"}
+              className={`storage__view-tab${view === "emulators" ? " storage__view-tab--active" : ""}`}
+              onClick={() => setView("emulators")}
+            >
+              {t("storage.view.emulators")}
+            </button>
+          </div>
+        }
       />
-
-      {/* ── View switcher ────────────────────────────────────── */}
-      <div className="storage__views" role="tablist" aria-label={t("storage.viewsAria")}>
-        <button
-          type="button"
-          role="tab"
-          aria-selected={view === "games"}
-          className={`storage__view-tab${view === "games" ? " storage__view-tab--active" : ""}`}
-          onClick={() => setView("games")}
-        >
-          {t("storage.view.games")}
-        </button>
-        <button
-          type="button"
-          role="tab"
-          aria-selected={view === "emulators"}
-          className={`storage__view-tab${view === "emulators" ? " storage__view-tab--active" : ""}`}
-          onClick={() => setView("emulators")}
-        >
-          {t("storage.view.emulators")}
-        </button>
-      </div>
 
       {view === "games" ? (
         <>
-          {/* ── Dashboard cards ──────────────────────────────── */}
+          {/* ── Dashboard (totals · by platform · by drive) ───────── */}
           <StorageHeader
             games={installedGames}
             staleCount={staleCount}
@@ -415,58 +449,69 @@ export default function StoragePage() {
             onDriveClick={(label) => setDriveFilter((cur) => (cur === label ? null : label))}
           />
 
-          {/* ── Status + drive filter chips ──────────────────── */}
-          <div className="storage__filters" role="group" aria-label={t("storage.filterByStatus")}>
-            {(
-              [
-                { key: "all", label: t("storage.all"), count: installedGames.length },
-                {
-                  key: "sized",
-                  label: t("storage.sized"),
-                  count: installedGames.filter(
-                    (g) => g.sizeBytes != null && g.sizeBytes > 0
-                  ).length,
-                },
-                {
-                  key: "missing",
-                  label: t("storage.missing"),
-                  count: unsizedCount,
-                },
-                { key: "stale", label: t("storage.stale"), count: staleCount },
-              ] as { key: StorageFilter; label: string; count: number }[]
-            ).map(({ key, label, count }) => (
-              <button
-                key={key}
-                type="button"
-                className={`storage__filter-chip${
-                  filter === key ? " storage__filter-chip--active" : ""
-                }`}
-                aria-pressed={filter === key}
-                onClick={() => setFilter(key)}
-              >
-                {label}
-                <span className="storage__filter-chip-count">{count}</span>
-              </button>
-            ))}
-            {driveFilter && (
-              <button
-                type="button"
-                className="storage__filter-chip storage__filter-chip--active storage__filter-chip--drive"
-                onClick={() => setDriveFilter(null)}
-                aria-label={t("storage.clearDriveFilter", { drive: driveFilter })}
-              >
-                {t("storage.driveLabel", { drive: driveFilter })}
-                <span className="storage__filter-chip-clear" aria-hidden>
-                  {"×"}
-                </span>
-              </button>
-            )}
-          </div>
+          {/* ── Filters + toolbar (one unified control panel) ────── */}
+          <div className="storage__controls">
+            {/* Status filter chips + active drive chip + result count */}
+            <div className="storage__controls-row">
+              <div className="storage__filters" role="group" aria-label={t("storage.filterByStatus")}>
+                {(
+                  [
+                    { key: "all", label: t("storage.all"), count: installedGames.length },
+                    {
+                      key: "sized",
+                      label: t("storage.sized"),
+                      count: installedGames.filter(
+                        (g) => g.sizeBytes != null && g.sizeBytes > 0
+                      ).length,
+                    },
+                    {
+                      key: "missing",
+                      label: t("storage.missing"),
+                      count: unsizedCount,
+                    },
+                    { key: "stale", label: t("storage.stale"), count: staleCount },
+                  ] as { key: StorageFilter; label: string; count: number }[]
+                ).map(({ key, label, count }) => (
+                  <button
+                    key={key}
+                    type="button"
+                    className={`storage__filter-chip${
+                      filter === key ? " storage__filter-chip--active" : ""
+                    }`}
+                    aria-pressed={filter === key}
+                    onClick={() => setFilter(key)}
+                  >
+                    {label}
+                    <span className="storage__filter-chip-count">{count}</span>
+                  </button>
+                ))}
+              </div>
+              {driveFilter && (
+                <button
+                  type="button"
+                  className="storage__drive-chip"
+                  onClick={() => setDriveFilter(null)}
+                  aria-label={t("storage.clearDriveFilter", { drive: driveFilter })}
+                  title={t("storage.clearDriveFilter", { drive: driveFilter })}
+                >
+                  {t("storage.driveLabel", { drive: driveFilter })}
+                  <span className="storage__drive-chip-clear" aria-hidden>
+                    {"×"}
+                  </span>
+                </button>
+              )}
+              <span className="storage__controls-count">
+                {t("storage.gamesCount", { count: sortedGames.length, plural: sortedGames.length === 1 ? "" : "s" })}
+                {(showingFiltered || filter !== "all" || driveFilter) &&
+                  installedGames.length !== sortedGames.length &&
+                  ` ${t("storage.ofTotal", { total: installedGames.length })}`}
+                {!showingFiltered && filter === "all" && !driveFilter && unsizedCount > 0 &&
+                  ` ${"·"} ${t("storageHeader.missingCount", { count: unsizedCount, plural: "" })}`}
+              </span>
+            </div>
 
-          {/* ── Toolbar ──────────────────────────────────────── */}
-          <div className="storage__toolbar">
-            <div className="storage__toolbar-left">
-              {/* Search */}
+            {/* Search + sort + group-by + density + actions */}
+            <div className="storage__controls-row storage__controls-row--tools">
               <div className="storage__search">
                 <svg className="storage__search-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
                   <circle cx="11" cy="11" r="8" />
@@ -497,68 +542,58 @@ export default function StoragePage() {
 
               <StorageSortSelect value={sort} onChange={setSort} />
 
-              {/* Group-by control */}
-              <div className="storage__groupby">
-                <span className="storage__groupby-label">{t("storage.groupBy")}</span>
-                <div className="storage__groupby-options" role="group" aria-label={t("storage.groupBy")}>
-                  {(["none", "platform", "emulator", "drive"] as GroupKey[]).map((k) => (
-                    <button
-                      key={k}
-                      type="button"
-                      className={`storage__groupby-opt${groupBy === k ? " storage__groupby-opt--active" : ""}`}
-                      aria-pressed={groupBy === k}
-                      onClick={() => setGroupBy(k)}
-                    >
-                      {t(`storage.group.${k}`)}
-                    </button>
-                  ))}
-                </div>
+              {/* Group-by segmented control */}
+              <div className="storage__groupby" role="group" aria-label={t("storage.groupBy")}>
+                {(["none", "platform", "emulator", "drive"] as GroupKey[]).map((k) => (
+                  <button
+                    key={k}
+                    type="button"
+                    className={`storage__groupby-opt${groupBy === k ? " storage__groupby-opt--active" : ""}`}
+                    aria-pressed={groupBy === k}
+                    onClick={() => setGroupBy(k)}
+                  >
+                    {t(`storage.group.${k}`)}
+                  </button>
+                ))}
               </div>
 
               {/* Density toggle */}
               <div className="storage__density-group">
-                <span className="storage__density-label">{t("storage.density")}</span>
                 <DensityToggle density={density} onChange={setDensity} />
               </div>
 
-              {/* Selection mode toggle */}
-              <Button
-                variant={selectMode ? "secondary" : "ghost"}
-                size="sm"
-                active={selectMode}
-                onClick={() => (selectMode ? exitSelectMode() : setSelectMode(true))}
-                title={t("storage.batchMoveTitle")}
-              >
-                {t("storage.select")}
-              </Button>
-            </div>
-
-            <div className="storage__toolbar-right">
-              <BulkRecalcBar unsizedGames={missingGames} onComplete={refreshAll} />
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={handleRefreshPaths}
-                isLoading={refreshingPaths}
-                title={t("storage.recheckTitle")}
-              >
-                {t("common.refresh")}
-              </Button>
-              <span className="storage__toolbar-count">
-                {t("storage.gamesCount", { count: sortedGames.length, plural: sortedGames.length === 1 ? "" : "s" })}
-                {(showingFiltered || filter !== "all" || driveFilter) &&
-                  installedGames.length !== sortedGames.length &&
-                  ` ${t("storage.ofTotal", { total: installedGames.length })}`}
-                {!showingFiltered && filter === "all" && !driveFilter && unsizedCount > 0 &&
-                  ` ${"·"} ${t("storageHeader.missingCount", { count: unsizedCount, plural: "" })}`}
-              </span>
+              {/* Actions: bulk recalc · re-check paths · selection mode */}
+              <div className="storage__controls-actions">
+                <BulkRecalcBar unsizedGames={missingGames} onComplete={refreshAll} />
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={handleRefreshPaths}
+                  isLoading={refreshingPaths}
+                  leftIcon={RefreshIcon}
+                  title={t("storage.recheckTitle")}
+                >
+                  {t("common.refresh")}
+                </Button>
+                <Button
+                  variant={selectMode ? "secondary" : "ghost"}
+                  size="sm"
+                  active={selectMode}
+                  leftIcon={SelectIcon}
+                  onClick={() => (selectMode ? exitSelectMode() : setSelectMode(true))}
+                  title={t("storage.batchMoveTitle")}
+                >
+                  {t("storage.select")}
+                </Button>
+              </div>
             </div>
           </div>
 
-          {/* ── Selection / batch toolbar ────────────────────── */}
+          {/* ── Selection / batch toolbar ────────────────────────── */}
           {selectMode && (
             <div className="storage__batch-bar" role="toolbar" aria-label={t("storage.batchActions")}>
               <span className="storage__batch-count">
+                {SelectIcon}
                 {t("storage.selected", { count: selected.size })}
               </span>
               <div className="storage__batch-actions">
@@ -596,7 +631,7 @@ export default function StoragePage() {
             </div>
           )}
 
-          {/* ── Game list (flat or grouped) ──────────────────── */}
+          {/* ── Game list (flat or grouped) ──────────────────────── */}
           {sortedGames.length === 0 ? (
             <div className="storage__empty-state">
               <div className="storage__empty-state-icon">
@@ -680,10 +715,20 @@ export default function StoragePage() {
         </>
       ) : (
         <>
-          {/* ── Emulators view ──────────────────────────────── */}
+          {/* ── Emulators view: summary strip + per-emulator cards ── */}
           <div className="storage__emu-summary">
-            <span className="storage__emu-summary-label">{t("storage.emuTracked")}</span>
-            <span className="storage__emu-summary-value">{t("storage.emuTotals", { install: emulators.length, roms: installedGames.filter((g) => g.emulatorId).length })}</span>
+            <div className="storage__emu-stat">
+              <span className="storage__emu-stat-value">{emulators.length}</span>
+              <span className="storage__emu-stat-label">{t("storage.emuTracked")}</span>
+            </div>
+            <div className="storage__emu-stat">
+              <span className="storage__emu-stat-value">{emuRomsList.length}</span>
+              <span className="storage__emu-stat-label">{t("storage.emuRoms")}</span>
+            </div>
+            <div className="storage__emu-stat">
+              <span className="storage__emu-stat-value">{formatSize(emuTotalBytes, unit)}</span>
+              <span className="storage__emu-stat-label">{t("storage.emuTotalSize")}</span>
+            </div>
           </div>
 
           {emulators.length === 0 ? (

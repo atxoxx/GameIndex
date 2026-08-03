@@ -7,7 +7,7 @@ import { useToast } from "../../context/ToastContext";
 import { useLanguage } from "../../context/LanguageContext";
 import { useSizeUnit } from "../../hooks/useSizeUnit";
 import { formatSize, type Game } from "../../types/game";
-import { gameTotalBytes } from "./utils";
+import { driveOf, gameTotalBytes } from "./utils";
 import { Button } from "../../components/ui";
 
 interface Props {
@@ -46,8 +46,8 @@ interface SizeDetectionResult {
 
 /** Phase-5 Storage row.
  *
- *  Collapsed layout: [name | platform | size / Set size pill | last detected | chevron]
- *  Expanded panel:  [absolute path · raw bytes · detected-at · Auto-detect · Clear]
+ *  Collapsed layout: [checkbox? | thumb | name | platform | size / Set size pill | last detected | chevron]
+ *  Expanded panel:  [path · stale hint · meta · mods subsection · actions]
  *
  *  Tauri command convention from earlier work -- args are camelCase on
  *  the JS side (`exePath`, `gameName`, `rootOverride`) and map to the
@@ -64,6 +64,7 @@ export function StorageRow({ game, stale = false, density = "cozy", onSizeUpdate
   const hasMods = game.modsSizeBytes != null && game.modsSizeBytes > 0;
   const isSized = hasSize;
   const total = gameTotalBytes(game);
+  const drive = game.sizeRootPath ? driveOf(game.sizeRootPath) : null;
 
   async function detect(folderOverride?: string) {
     if (detecting) return;
@@ -185,36 +186,31 @@ export function StorageRow({ game, stale = false, density = "cozy", onSizeUpdate
           {game.platform || t("splash.unknown")}
         </span>
         {total > 0 ? (
-          <span className="storage__row-size">
-            <span className="storage__row-size-game">
-              {formatSize(game.sizeBytes ?? 0, unit)}
+          <div className="storage__row-size" title={game.sizeBytes != null ? game.sizeBytes.toLocaleString() : undefined}>
+            <span className="storage__row-size-total">
+              {formatSize(total, unit)}
             </span>
             {hasMods && (
-              <>
-                <span className="storage__row-size-mods" title={t("storageRow.mods.label")}>
-                  {" + "}
-                  {formatSize(game.modsSizeBytes ?? 0, unit)}
-                </span>
-                <span className="storage__row-size-total">
-                  {" = "}
-                  {formatSize(total, unit)}
-                </span>
-              </>
+              <span className="storage__row-size-mods" title={t("storageRow.mods.label")}>
+                {t("storageRow.mods.plus", { size: formatSize(game.modsSizeBytes ?? 0, unit) })}
+              </span>
             )}
-          </span>
+          </div>
         ) : (
-          <Button
-            variant="secondary"
-            size="sm"
-            onClick={(e) => {
-              e.stopPropagation();
-              detect();
-            }}
-            title={t("storageRow.pickFolder")}
-            style={{ padding: "2px 8px", fontSize: "11px", height: "auto" }}
-          >
-            {t("storageRow.setSize")}
-          </Button>
+          <div className="storage__row-size">
+            <Button
+              variant="secondary"
+              size="sm"
+              className="storage__set-size-pill"
+              onClick={(e) => {
+                e.stopPropagation();
+                detect();
+              }}
+              title={t("storageRow.pickFolder")}
+            >
+              {t("storageRow.setSize")}
+            </Button>
+          </div>
         )}
         <span
           className={`storage__row-detected${stale ? " storage__row-detected--stale" : ""}`}
@@ -232,7 +228,9 @@ export function StorageRow({ game, stale = false, density = "cozy", onSizeUpdate
           className={`storage__row-chevron${expanded ? " storage__row-chevron--open" : ""}`}
           aria-hidden="true"
         >
-          {"\u25BE"}
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <polyline points="6 9 12 15 18 9" />
+          </svg>
         </span>
       </div>
 
@@ -248,18 +246,41 @@ export function StorageRow({ game, stale = false, density = "cozy", onSizeUpdate
             <span className="storage__row-path-value" title={game.sizeRootPath ?? ""}>
               {game.sizeRootPath ?? game.path ?? "—"}
             </span>
+            {stale && (
+              <span className="storage__row-path-stale">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                  <path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" />
+                  <line x1="12" y1="9" x2="12" y2="13" />
+                  <line x1="12" y1="17" x2="12.01" y2="17" />
+                </svg>
+                {t("storageRow.staleHint")}
+              </span>
+            )}
           </div>
           <div className="storage__row-meta">
             {isSized && (
               <>
-                <span>
+                <div className="storage__row-meta-item">
                   <span className="storage__row-meta-label">{t("storageRow.game")}</span>
-                  {game.sizeBytes!.toLocaleString()}
-                </span>
-                <span>
+                  <span
+                    className="storage__row-meta-value"
+                    title={game.sizeBytes != null ? game.sizeBytes.toLocaleString() : undefined}
+                  >
+                    {formatSize(game.sizeBytes ?? 0, unit)}
+                  </span>
+                </div>
+                <div className="storage__row-meta-item">
                   <span className="storage__row-meta-label">{t("storagePage.detected")}</span>
-                  {formatTimestamp(game.sizeDetectedAt, true, t("editExtras.notSet")) || "—"}
-                </span>
+                  <span className="storage__row-meta-value">
+                    {formatTimestamp(game.sizeDetectedAt, true, t("editExtras.notSet")) || "—"}
+                  </span>
+                </div>
+                {drive && (
+                  <div className="storage__row-meta-item">
+                    <span className="storage__row-meta-label">{t("storageRow.drive")}</span>
+                    <span className="storage__row-meta-value">{drive}</span>
+                  </div>
+                )}
               </>
             )}
             {!isSized && (
