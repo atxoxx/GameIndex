@@ -4481,3 +4481,520 @@
     margin-left: 0;
   }
 }
+
+/* ============================================================================
+   Friends v2 — redesign layer.
+   Token-driven refinements: unified icon treatment, segmented family polish,
+   flat hierarchy, converted inline styles. Sits at the end so it wins.
+   ============================================================================ */
+
+/* ── Tab bar: count chip + icon alignment ──────────────────────────────── */
+.friends-tab-count {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 5px;
+  border-radius: var(--radius-full);
+  background: var(--color-bg-tertiary);
+  border: 1px solid var(--color-border);
+  color: var(--color-text-secondary);
+  font-size: 10px;
+  font-weight: var(--font-weight-bold);
+  font-variant-numeric: tabular-nums;
+  transition: background-color var(--transition-fast), border-color var(--transition-fast), color var(--transition-fast);
+}
+
+.friends-tab.active .friends-tab-count {
+  background: color-mix(in srgb, var(--color-accent) 22%, transparent);
+  border-color: color-mix(in srgb, var(--color-accent) 42%, transparent);
+  color: var(--color-accent);
+}
+
+/* ── Empty states: consistent icon medallion family ───────────────────── */
+.friends-empty-icon {
+  width: 64px;
+  height: 64px;
+  border-radius: var(--radius-full);
+  background: color-mix(in srgb, var(--color-accent) 10%, transparent);
+  border: 1px solid color-mix(in srgb, var(--color-accent) 25%, transparent);
+  color: var(--color-accent);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 1;
+}
+
+.friends-empty-icon svg {
+  width: 26px;
+  height: 26px;
+}
+
+/* Compact medallion for inline empty states inside panels */
+.friends-empty-icon--sm {
+  width: 52px;
+  height: 52px;
+}
+
+.friends-empty-icon--sm svg {
+  width: 22px;
+  height: 22px;
+}
+
+.friends-empty-state .ui-btn {
+  margin-top: var(--space-xs);
+}
+
+/* ── Search field: magnifier glyph (matches game picker family) ───────── */
+.friends-search-wrapper::before {
+  content: "";
+  position: absolute;
+  left: 12px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 13px;
+  height: 13px;
+  background: var(--color-text-muted);
+  -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2.5' stroke-linecap='round'%3E%3Ccircle cx='11' cy='11' r='7'/%3E%3Cline x1='21' y1='21' x2='16.5' y2='16.5'/%3E%3C/svg%3E") center / contain no-repeat;
+  mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2.5' stroke-linecap='round'%3E%3Ccircle cx='11' cy='11' r='7'/%3E%3Cline x1='21' y1='21' x2='16.5' y2='16.5'/%3E%3C/svg%3E") center / contain no-repeat;
+  pointer-events: none;
+  opacity: 0.9;
+  z-index: 1;
+}
+
+.friends-search-input {
+  padding: 0 30px 0 32px;
+}
+
+/* Density segmented: 30px total height, matching the control family */
+.friends-density-btn {
+  height: 26px;
+  width: 30px;
+}
+
+/* ── Friend card: icon chips + structured footer ──────────────────────── */
+.friend-card-main {
+  gap: 6px;
+}
+
+.friend-pin-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  border-radius: var(--radius-sm);
+  background: color-mix(in srgb, var(--color-accent) 14%, transparent);
+  border: 1px solid color-mix(in srgb, var(--color-accent) 35%, transparent);
+  color: var(--color-accent);
+  filter: none;
+  opacity: 1;
+}
+
+.friend-pin-badge svg {
+  width: 12px;
+  height: 12px;
+}
+
+.friend-select-check svg {
+  width: 12px;
+  height: 12px;
+}
+
+.friend-status-text--blocked {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.friend-status-text--blocked svg {
+  width: 13px;
+  height: 13px;
+  flex-shrink: 0;
+}
+
+.friend-stats-trophy {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.friend-stats-trophy svg {
+  width: 12px;
+  height: 12px;
+  color: var(--color-text-secondary);
+}
+
+.friend-favorite-game,
+.friend-region,
+.friend-last-seen,
+.friend-shared-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.friend-favorite-game svg,
+.friend-region svg,
+.friend-last-seen svg,
+.friend-shared-badge svg {
+  width: 12px;
+  height: 12px;
+  flex-shrink: 0;
+}
+
+.friend-last-seen svg {
+  color: var(--color-text-muted);
+  opacity: 0.8;
+}
+
+/* Footer reads as a hairline-separated meta strip on grid cards */
+.friend-card .friend-card-foot {
+  border-top: 1px solid var(--color-border);
+  padding-top: var(--space-sm);
+  margin-top: 2px;
+  width: 100%;
+}
+
+.friends-grid.is-list .friend-card-foot {
+  border-top: none;
+  padding-top: 0;
+  margin-top: 0;
+  width: auto;
+}
+
+/* ── Invitations: icon medallion + compact rows ───────────────────────── */
+.friend-invitations-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border-radius: var(--radius-sm);
+  background: color-mix(in srgb, var(--color-accent) 14%, transparent);
+  border: 1px solid color-mix(in srgb, var(--color-accent) 30%, transparent);
+  color: var(--color-accent);
+}
+
+.friend-invitations-icon svg {
+  width: 14px;
+  height: 14px;
+}
+
+.friend-invitation-card .friend-avatar-wrapper {
+  width: 44px;
+  height: 44px;
+  font-size: var(--font-size-sm);
+}
+
+.friend-invitation-fav {
+  margin-top: 3px;
+}
+
+.friend-invitation-stats {
+  margin-top: 4px;
+  padding: 2px 8px;
+}
+
+.friend-invitation-actions {
+  gap: var(--space-sm);
+}
+
+/* ── Bulk bar: use the UI kit buttons at compact size ─────────────────── */
+.friends-bulk-actions .ui-btn {
+  font-size: var(--font-size-xs);
+}
+
+/* ── Session cards: icon alignment ────────────────────────────────────── */
+.session-countdown {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.session-countdown svg {
+  width: 11px;
+  height: 11px;
+}
+
+.session-players-count {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.session-players-count svg {
+  width: 12px;
+  height: 12px;
+}
+
+.session-chat-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.session-chat-toggle svg {
+  width: 13px;
+  height: 13px;
+}
+
+.chat-pin-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.chat-pin-btn svg {
+  width: 12px;
+  height: 12px;
+}
+
+.roster-note {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.roster-note svg {
+  width: 11px;
+  height: 11px;
+}
+
+.roster-remove {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.roster-remove svg {
+  width: 12px;
+  height: 12px;
+}
+
+/* Agenda mode toggle: icon + label in the segmented family */
+.agenda-mode-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.agenda-mode-btn svg {
+  width: 13px;
+  height: 13px;
+  flex-shrink: 0;
+}
+
+.profile-summary-section--sessions {
+  gap: var(--space-md);
+}
+
+/* ── Recommendations + suggestions: reactions, comments ───────────────── */
+.rec-reaction-icon {
+  display: inline-flex;
+}
+
+.rec-reaction-btn svg,
+.rec-want-btn svg {
+  width: 13px;
+  height: 13px;
+}
+
+/* Comment items are flex rows; timestamp flows inline, delete docks right */
+.comment-item {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 4px;
+}
+
+.comment-time {
+  flex-basis: auto;
+  margin-top: 0;
+}
+
+.comment-delete-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  margin-left: auto;
+  margin-right: 2px;
+}
+
+.comment-delete-btn svg {
+  width: 12px;
+  height: 12px;
+}
+
+/* Comment form: input + send button on one row */
+.comment-form {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+}
+
+.comment-form .comment-input {
+  min-width: 0;
+}
+
+/* ── Compare: badges, subtabs, highlights ─────────────────────────────── */
+.compare-badge-icon {
+  display: inline-flex;
+}
+
+.compare-badge-icon svg {
+  width: 13px;
+  height: 13px;
+}
+
+.compare-match-score-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-xs);
+}
+
+.compare-subtab-icon {
+  display: inline-flex;
+  align-items: center;
+}
+
+.compare-subtab-icon svg {
+  width: 14px;
+  height: 14px;
+}
+
+.compare-highlight-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 38px;
+  height: 38px;
+  border-radius: var(--radius-md);
+  background: color-mix(in srgb, var(--color-accent) 12%, transparent);
+  border: 1px solid color-mix(in srgb, var(--color-accent) 28%, transparent);
+  color: var(--color-accent);
+  flex-shrink: 0;
+}
+
+.compare-highlight-icon svg {
+  width: 17px;
+  height: 17px;
+}
+
+/* ── Leaderboard ──────────────────────────────────────────────────────── */
+.leaderboard-title {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.leaderboard-title-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border-radius: var(--radius-sm);
+  background: color-mix(in srgb, var(--color-accent) 12%, transparent);
+  border: 1px solid color-mix(in srgb, var(--color-accent) 28%, transparent);
+  color: var(--color-accent);
+}
+
+.leaderboard-title-icon svg {
+  width: 15px;
+  height: 15px;
+}
+
+/* ── Profile tab ──────────────────────────────────────────────────────── */
+.profile-region-big {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.profile-region-big svg {
+  width: 13px;
+  height: 13px;
+  color: var(--color-text-muted);
+}
+
+.avatar-file-input {
+  display: none;
+}
+
+.friend-code-card > .ui-btn {
+  width: 100%;
+  justify-content: center;
+}
+
+/* ── Add Friend modal ─────────────────────────────────────────────────── */
+.friend-decode-preview-invalid {
+  color: var(--color-danger);
+}
+
+.friend-decode-preview .friend-favorite-game {
+  margin-top: 2px;
+}
+
+/* ── P2P modal: converted inline styles ───────────────────────────────── */
+.p2p-detail-val--key {
+  font-size: 11px;
+  word-break: break-all;
+  color: var(--color-accent);
+}
+
+.p2p-detail-row--stack {
+  align-items: flex-start;
+}
+
+.p2p-relay-list {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  font-size: 10px;
+  margin-top: 4px;
+  align-items: flex-end;
+}
+
+.p2p-relay-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.p2p-relay-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--color-success);
+  box-shadow: 0 0 5px color-mix(in srgb, var(--color-success) 50%, transparent);
+  flex-shrink: 0;
+}
+
+.p2p-friend-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  min-width: 0;
+}
+
+.p2p-friend-key {
+  font-family: var(--font-family-mono);
+  font-size: 10px;
+  flex-shrink: 0;
+}
+
+.p2p-friend-row {
+  gap: var(--space-sm);
+}
+
+/* ── Narrow widths: keep the redesigned clusters tidy ─────────────────── */
+@media (max-width: 720px) {
+  .friends-tab-count {
+    display: none;
+  }
+  .compare-badge-icon {
+    display: none;
+  }
+}

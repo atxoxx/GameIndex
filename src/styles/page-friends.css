@@ -1,6 +1,7 @@
 /* ============================================================================
    Friends — flat surfaces, restrained accent.
    Lane-polish layer: token-driven tweaks that sit on top of friends.css.
+   Loads after friends.css so these rules win the cascade.
    ============================================================================ */
 
 /* List heading: stack eyebrow above the title */
@@ -24,6 +25,27 @@
   transform: translateY(-2px);
   box-shadow: var(--shadow-md);
   border-color: var(--color-accent-hover);
+}
+
+/* Flat surface treatment: the social page reads as stacked panels on the
+   app surface, not floating glass. */
+.friend-card,
+.session-card,
+.rec-card,
+.sug-card,
+.compare-profiles-header,
+.compare-game-card,
+.calendar-month,
+.profile-card-preview,
+.friend-invitation-card {
+  background: var(--color-surface);
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+}
+
+/* Pinned cards keep a whisper of the accent tint on the flat surface */
+.friend-card.pinned {
+  background: color-mix(in srgb, var(--color-accent) 5%, var(--color-surface));
 }
 
 /* Grid cards read as vertical compositions; the status bar is the accent */
@@ -52,14 +74,8 @@
   color: var(--color-accent);
 }
 
-/* Session cards: keep the quiet glass surface, lift on hover only */
-.session-card {
-  background: var(--color-surface-glass);
-  border-color: var(--color-border);
-}
-
 /* Compare selector bar reads as a control strip, not a heavy panel */
 .compare-selector-bar {
-  background: color-mix(in srgb, var(--color-surface) 55%, transparent);
+  background: var(--color-surface);
   border-color: var(--color-border);
 }

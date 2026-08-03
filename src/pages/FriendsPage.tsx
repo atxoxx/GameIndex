@@ -227,6 +227,194 @@ function BlockIcon() {
   );
 }
 
+// Star icon (favorite game, want-to-play)
+function StarIcon() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" width="14" height="14">
+      <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" />
+    </svg>
+  );
+}
+
+// Trophy icon (achievements, leaderboard)
+function TrophyIcon() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" width="14" height="14">
+      <path d="M6 9H4.5a2.5 2.5 0 0 1 0-5H6" />
+      <path d="M18 9h1.5a2.5 2.5 0 0 0 0-5H18" />
+      <path d="M4 22h16" />
+      <path d="M10 14.66V17c0 .55-.47.98-.97 1.21C7.85 18.75 7 20.24 7 22" />
+      <path d="M14 14.66V17c0 .55.47.98.97 1.21C16.15 18.75 17 20.24 17 22" />
+      <path d="M18 2H6v7a6 6 0 0 0 12 0V2Z" />
+    </svg>
+  );
+}
+
+// Gamepad icon (now playing, shared games, "play" reactions)
+function GamepadIcon() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" width="14" height="14">
+      <line x1="6" y1="12" x2="10" y2="12" />
+      <line x1="8" y1="10" x2="8" y2="14" />
+      <line x1="15" y1="13" x2="15.01" y2="13" />
+      <line x1="18" y1="11" x2="18.01" y2="11" />
+      <rect x="2" y="6" width="20" height="12" rx="2" />
+    </svg>
+  );
+}
+
+// Map pin icon (region)
+function MapPinIcon() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" width="14" height="14">
+      <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0Z" />
+      <circle cx="12" cy="10" r="3" />
+    </svg>
+  );
+}
+
+// Clock icon (countdown, last seen)
+function ClockIcon() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" width="14" height="14">
+      <circle cx="12" cy="12" r="10" />
+      <polyline points="12 6 12 12 16 14" />
+    </svg>
+  );
+}
+
+// Thumbs up icon (like reaction)
+function ThumbsUpIcon() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" width="14" height="14">
+      <path d="M7 10v12" />
+      <path d="M15 5.88 14 10h5.83a2 2 0 0 1 1.92 2.56l-2.33 8A2 2 0 0 1 17.5 22H4a2 2 0 0 1-2-2v-8a2 2 0 0 1 2-2h2.76a2 2 0 0 0 1.79-1.11L12 2a3.13 3.13 0 0 1 3 3.88Z" />
+    </svg>
+  );
+}
+
+// Heart icon (love reaction)
+function HeartIcon() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" width="14" height="14">
+      <path d="M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.3 1.5 4.05 3 5.5l7 7Z" />
+    </svg>
+  );
+}
+
+// Fire icon (interest reaction)
+function FireIcon() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" width="14" height="14">
+      <path d="M8.5 14.5A2.5 2.5 0 0 0 11 12c0-1.38-.5-2-1-3-1.072-2.143-.224-4.054 2-6 .5 2.5 2 4.9 4 6.5 2 1.6 3 3.5 3 5.5a7 7 0 1 1-14 0c0-1.153.433-2.294 1-3a2.5 2.5 0 0 0 2.5 2.5z" />
+    </svg>
+  );
+}
+
+// Check icon (played reaction, accept, done)
+function CheckIcon() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" width="14" height="14">
+      <polyline points="20 6 9 17 4 12" />
+    </svg>
+  );
+}
+
+// X icon (deny, dismiss)
+function XIcon() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" width="14" height="14">
+      <line x1="18" y1="6" x2="6" y2="18" />
+      <line x1="6" y1="6" x2="18" y2="18" />
+    </svg>
+  );
+}
+
+// Tag icon (genres)
+function TagIcon() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" width="14" height="14">
+      <path d="M12 2H2v10l9.29 9.29a1 1 0 0 0 1.42 0l8.58-8.58a1 1 0 0 0 0-1.42Z" />
+      <line x1="7" y1="7" x2="7.01" y2="7" />
+    </svg>
+  );
+}
+
+// Lightbulb icon (insights)
+function LightbulbIcon() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" width="14" height="14">
+      <path d="M15 14c.2-1 .7-1.7 1.5-2.5 1-.9 1.5-2.2 1.5-3.5A6 6 0 0 0 6 8c0 1 .2 2.2 1.5 3.5.7.7 1.3 1.5 1.5 2.5" />
+      <path d="M9 18h6" />
+      <path d="M10 22h4" />
+    </svg>
+  );
+}
+
+// Bar chart icon (compare overview)
+function BarChartIcon() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" width="14" height="14">
+      <line x1="18" y1="20" x2="18" y2="10" />
+      <line x1="12" y1="20" x2="12" y2="4" />
+      <line x1="6" y1="20" x2="6" y2="14" />
+    </svg>
+  );
+}
+
+// Handshake icon (best together highlight)
+function HandshakeIcon() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" width="15" height="15">
+      <path d="m11 17 2 2a1 1 0 1 0 3-3" />
+      <path d="m14 14 2.5 2.5a1 1 0 1 0 3-3l-3.88-3.88a3 3 0 0 0-4.24 0l-.88.88a1 1 0 1 1-3-3l2.81-2.81a5.79 5.79 0 0 1 7.06-.87l.47.28a2 2 0 0 0 1.42.25L21 4" />
+      <path d="m21 3 1 11h-2" />
+      <path d="M3 3 2 14l6.5 6.5a1 1 0 1 0 3-3" />
+      <path d="M3 4h8" />
+    </svg>
+  );
+}
+
+// Copy icon (copy public key)
+function CopyIcon() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" width="14" height="14">
+      <rect x="9" y="9" width="13" height="13" rx="2" ry="2" />
+      <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
+    </svg>
+  );
+}
+
+// Send icon (post comment)
+function SendIcon() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" width="13" height="13">
+      <line x1="22" y1="2" x2="11" y2="13" />
+      <polygon points="22 2 15 22 11 13 2 9 22 2" />
+    </svg>
+  );
+}
+
+// Plus icon (add)
+function PlusIcon() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" width="14" height="14">
+      <line x1="12" y1="5" x2="12" y2="19" />
+      <line x1="5" y1="12" x2="19" y2="12" />
+    </svg>
+  );
+}
+
+// Sticky-note icon (roster "what I'm bringing" notes)
+function NoteIcon() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" width="12" height="12">
+      <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8Z" />
+      <path d="M14 2v6h6" />
+    </svg>
+  );
+}
+
 // Render the friend code as a scannable QR image (data URL).
 function FriendCodeQR({ code }: { code: string }) {
   const { t } = useLanguage();
@@ -544,7 +732,8 @@ function SessionCard({
         </div>
         <div className="session-card-actions">
           <span className={`session-countdown${new Date(session.scheduledAt).getTime() - now <= 0 ? " live" : ""}`} title={t("friendsPage.timeUntilStart")}>
-            ⏱ {countdownLabel(session.scheduledAt, t)}
+            <ClockIcon />
+            {countdownLabel(session.scheduledAt, t)}
           </span>
           {isCreator && (
             <button
@@ -578,7 +767,7 @@ function SessionCard({
                 <span className={`roster-dot${online ? " online" : ""}`} title={online ? t("friendsPage.onlineNow") : t("friendsPage.offline")} />
                 <span className="roster-name">{p.name}{p.guest ? t("friendsPage.guestSuffix") : ""}</span>
                 <span className={`roster-role role-${p.role}`}>{t(`friends.${p.role}`)}</span>
-                {p.note && <span className="roster-note" title={p.note}>🎒 {p.note}</span>}
+                {p.note && <span className="roster-note" title={p.note}><NoteIcon />{p.note}</span>}
                 {(canManage && p.name !== profile.name) && (
                   <select
                     className="roster-role-select"
@@ -592,7 +781,7 @@ function SessionCard({
                   </select>
                 )}
                 {p.guest && canManage && (
-                  <button type="button" className="roster-remove" onClick={() => onRemoveGuest(session.id, p.name)} title={t("friends.removeGuest")}>✕</button>
+                  <button type="button" className="roster-remove" onClick={() => onRemoveGuest(session.id, p.name)} title={t("friends.removeGuest")}><XIcon /></button>
                 )}
               </div>
             );
@@ -628,7 +817,7 @@ function SessionCard({
 
       <div className="session-footer">
         <span className="session-players-count">
-          👥 {t("friendsPage.goingCount", { going: going.length, max: session.maxPlayers })}
+          <UsersIcon /> {t("friendsPage.goingCount", { going: going.length, max: session.maxPlayers })}
         </span>
         <span className="session-creator">{t("friendsPage.by")}{isCreator ? t("friendsPage.me") : session.creatorName}</span>
       </div>
@@ -659,7 +848,7 @@ function SessionCard({
           </button>
         ))}
         <button type="button" className={`session-chat-toggle${chatOpen ? " active" : ""}`} onClick={() => setChatOpen((v) => !v)} title={t("friends.sessionChat")}>
-          💬 {messages.length > 0 ? messages.length : ""}
+          <MessageIcon />{messages.length > 0 ? messages.length : ""}
         </button>
       </div>
 
@@ -672,7 +861,7 @@ function SessionCard({
                   <span className="chat-author">{m.author}</span>
                   <span className="chat-text">{m.text}</span>
                   {canManage && (
-                    <button type="button" className="chat-pin-btn" onClick={() => onTogglePinMessage(session.id, m.id)} title={t("friends.unpin")}>📌</button>
+                    <button type="button" className="chat-pin-btn" onClick={() => onTogglePinMessage(session.id, m.id)} title={t("friends.unpin")}><PinIcon /></button>
                   )}
                 </div>
               ))}
@@ -685,7 +874,7 @@ function SessionCard({
                 <span className="chat-author">{m.author}</span>
                 <span className="chat-text">{m.text}</span>
                 {canManage && (
-                  <button type="button" className="chat-pin-btn" onClick={() => onTogglePinMessage(session.id, m.id)} title={t("friends.pin")}>📌</button>
+                  <button type="button" className="chat-pin-btn" onClick={() => onTogglePinMessage(session.id, m.id)} title={t("friends.pin")}><PinIcon /></button>
                 )}
               </div>
             ))}
@@ -837,7 +1026,7 @@ function isOnline(friend: Friend): boolean {
 // Rich presence label for display (online / in-game / last seen).
 function presenceLabel(friend: Friend, t: (key: string, vars?: Record<string, unknown>) => string): string {
   const playing = safeCurrentlyPlaying(friend.currentlyPlaying);
-  if (playing) return `Playing ${playing}`;
+  if (playing) return t("friendsPage.playingGame", { game: playing });
   if (isOnline(friend)) return t("friendsPage.formatOnline");
   return "";
 }
@@ -3050,11 +3239,11 @@ export default function FriendsPage() {
   const leaderboardTab = (
     <div className="leaderboard-section">
       <div className="leaderboard-header">
-        <h3 className="leaderboard-title">🏆 {t("friendsPage.friendsLeaderboard")}</h3>
+        <h3 className="leaderboard-title"><span className="leaderboard-title-icon" aria-hidden><TrophyIcon /></span>{t("friendsPage.friendsLeaderboard")}</h3>
         <p className="leaderboard-subtitle">
           {t("friendsPage.leaderboardSubtitle")}
         </p>
-        <div className="compare-filter-chips">
+        <div className="compare-filter-chips" role="group" aria-label={t("friendsPage.leaderboardMetricAria")}>
           <button
             type="button"
             className={`compare-filter-chip${leaderboardMetric === "playtime" ? " active" : ""}`}
@@ -3081,6 +3270,7 @@ export default function FriendsPage() {
 
       {leaderboardPlayers.filter((p) => p.value > 0).length === 0 ? (
         <div className="friends-empty-state">
+          <div className="friends-empty-icon" aria-hidden><TrophyIcon /></div>
           <h3 className="friends-empty-title">{t("friendsPage.noStatsYet")}</h3>
           <p className="friends-empty-desc">
             {t("friendsPage.noStatsDesc")}
@@ -3196,6 +3386,7 @@ export default function FriendsPage() {
           >
             <UsersIcon />
             <span>{t("friends.tab.friends")}</span>
+            {friends.length > 0 && <span className="friends-tab-count">{friends.length}</span>}
           </button>
           <button
             type="button"
@@ -3298,7 +3489,7 @@ export default function FriendsPage() {
               <div className="friend-invitations-section">
                 <div className="friend-invitations-head">
                   <h3 className="friend-invitations-title">
-                    <span className="friend-invitations-icon" aria-hidden>✉️</span>
+                    <span className="friend-invitations-icon" aria-hidden><MessageIcon /></span>
                     {t("friends.pendingInvites", { count: invitations.length })}
                   </h3>
                   <p className="friend-invitations-hint">{t("friendsPage.invitesHint")}</p>
@@ -3310,22 +3501,32 @@ export default function FriendsPage() {
                       <div className="friend-invitation-info">
                         <div className="friend-invitation-name">{invite.name}</div>
                         <div className="friend-invitation-status">{invite.status || t("friends.wantsToConnect")}</div>
+                        {invite.favoriteGame && (
+                          <div className="friend-favorite-game friend-invitation-fav">
+                            <StarIcon /> {invite.favoriteGame}
+                          </div>
+                        )}
+                        {invite.libStats && (
+                          <div className="friend-stats friend-invitation-stats">
+                            <span>{t("friendsPage.gamesCountLabel", { count: invite.libStats.gamesCount })}</span>
+                            <span className="friend-stats-dot" aria-hidden>•</span>
+                            <span>{formatHours(invite.libStats.playtimeMinutes)}</span>
+                            {invite.libStats.achievementsCount > 0 && (
+                              <>
+                                <span className="friend-stats-dot" aria-hidden>•</span>
+                                <span className="friend-stats-trophy"><TrophyIcon />{invite.libStats.achievementsCount}</span>
+                              </>
+                            )}
+                          </div>
+                        )}
                       </div>
                       <div className="friend-invitation-actions">
-                        <button
-                          type="button"
-                          className="btn btn-primary btn--mini"
-                          onClick={() => handleAcceptInvitation(invite)}
-                        >
+                        <Button variant="primary" size="sm" leftIcon={<CheckIcon />} onClick={() => handleAcceptInvitation(invite)}>
                           {t("common.confirm")}
-                        </button>
-                        <button
-                          type="button"
-                          className="btn btn-secondary btn--mini"
-                          onClick={() => handleDenyInvitation(invite.syncId)}
-                        >
+                        </Button>
+                        <Button variant="secondary" size="sm" leftIcon={<XIcon />} onClick={() => handleDenyInvitation(invite.syncId)}>
                           {t("friends.deny")}
-                        </button>
+                        </Button>
                       </div>
                     </div>
                   ))}
@@ -3346,10 +3547,11 @@ export default function FriendsPage() {
                       setSelectedFriendIds([]);
                     }}
                     disabled={friends.length === 0}
+                    leftIcon={selectMode ? <XIcon /> : <CheckIcon />}
                   >
                     {selectMode ? t("common.cancel") : t("common.select")}
                   </Button>
-                  <Button variant="primary" onClick={() => setShowAddModal(true)}>
+                  <Button variant="primary" leftIcon={<PlusIcon />} onClick={() => setShowAddModal(true)}>
                     {t("friends.addFriend")}
                   </Button>
                 </>
@@ -3360,35 +3562,28 @@ export default function FriendsPage() {
               <div className="friends-bulk-bar">
                 <span className="friends-bulk-count">{t("store.bulk.selected", { count: selectedFriendIds.length })}</span>
                 <div className="friends-bulk-actions">
-                  <button type="button" className="btn btn-secondary" onClick={handleBulkPin} disabled={selectedFriendIds.length === 0}>{t("friends.pin")}</button>
-                  <button type="button" className="btn btn-secondary" onClick={handleBulkUnpin} disabled={selectedFriendIds.length === 0}>{t("friends.unpin")}</button>
-                  <button type="button" className="btn btn-secondary" onClick={handleBulkBlock} disabled={selectedFriendIds.length === 0}>{t("friends.block")}</button>
-                  <button type="button" className="btn btn-secondary friend-bulk-remove" onClick={handleBulkRemove} disabled={selectedFriendIds.length === 0}>{t("common.remove")}</button>
+                  <Button variant="secondary" size="sm" leftIcon={<PinIcon />} onClick={handleBulkPin} disabled={selectedFriendIds.length === 0}>{t("friends.pin")}</Button>
+                  <Button variant="secondary" size="sm" leftIcon={<PinIcon />} onClick={handleBulkUnpin} disabled={selectedFriendIds.length === 0}>{t("friends.unpin")}</Button>
+                  <Button variant="secondary" size="sm" leftIcon={<BlockIcon />} onClick={handleBulkBlock} disabled={selectedFriendIds.length === 0}>{t("friends.block")}</Button>
+                  <Button variant="danger" size="sm" className="friend-bulk-remove" leftIcon={<TrashIcon />} onClick={handleBulkRemove} disabled={selectedFriendIds.length === 0}>{t("common.remove")}</Button>
                 </div>
               </div>
             )}
 
             {friends.length === 0 ? (
               <div className="friends-empty-state">
-                <div className="friends-empty-icon">
-                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" width="64" height="64">
-                    <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
-                    <circle cx="9" cy="7" r="4" />
-                    <path d="M23 21v-2a4 4 0 0 0-3-3.87" />
-                    <path d="M16 3.13a4 4 0 0 1 0 7.75" />
-                  </svg>
-                </div>
+                <div className="friends-empty-icon" aria-hidden><UsersIcon /></div>
                 <h3 className="friends-empty-title">{t("friends.noFriends")}</h3>
                 <p className="friends-empty-desc">
                   {t("friends.noFriendsDesc")}
                 </p>
-                <button
-                  type="button"
-                  className="btn btn-primary"
+                <Button
+                  variant="primary"
+                  leftIcon={<PlusIcon />}
                   onClick={() => setShowAddModal(true)}
                 >
                   {t("friends.addFriend")}
-                </button>
+                </Button>
               </div>
             ) : (
               <>
@@ -3535,10 +3730,10 @@ export default function FriendsPage() {
                           }${selectMode ? " selectable" : ""}`}
                           onClick={selectMode ? () => toggleSelect(friend.id) : undefined}
                         >
-                          {friend.pinned && <span className="friend-pin-badge" title={t("friendsPage.pinned")}>📌</span>}
+                          {friend.pinned && <span className="friend-pin-badge" title={t("friendsPage.pinned")}><PinIcon /></span>}
                           {selectMode && (
                             <span className={`friend-select-check${selected ? " checked" : ""}`} title={t("friendsPage.select")}>
-                              {selected ? "✓" : ""}
+                              {selected && <CheckIcon />}
                             </span>
                           )}
                           <div className="friend-card-avatar">
@@ -3562,7 +3757,7 @@ export default function FriendsPage() {
 
                             {friend.blocked ? (
                               <div className="friend-status-text friend-status-text--blocked" title={t("friendsPage.blockedUpdatesIgnored")}>
-                                🚫 {t("friendsPage.blocked")}
+                                <BlockIcon /> {t("friendsPage.blocked")}
                               </div>
                             ) : playingName ? (
                               <div className="friend-now-playing" title={t("friendsPage.playingGame", { game: playingName })}>
@@ -3587,14 +3782,14 @@ export default function FriendsPage() {
                                 {friend.libStats.achievementsCount > 0 && (
                                   <>
                                     <span className="friend-stats-dot" aria-hidden>•</span>
-                                    <span>🏆 {friend.libStats.achievementsCount}</span>
+                                    <span className="friend-stats-trophy"><TrophyIcon />{friend.libStats.achievementsCount}</span>
                                   </>
                                 )}
                               </div>
                             )}
                             {friend.favoriteGame && !isAppBlacklisted(friend.favoriteGame) && (
                               <div className="friend-favorite-game" title={t("friendsPage.favPrefix", { game: friend.favoriteGame })}>
-                                ⭐ {friend.favoriteGame}
+                                <StarIcon /> {friend.favoriteGame}
                               </div>
                             )}
                             {friend.bio && (
@@ -3612,14 +3807,14 @@ export default function FriendsPage() {
                                     handleCompareFromCard(friend);
                                   }}
                                 >
-                                  🎮 {t("friendsPage.inCommon", { count: shared })}
+                                  <GamepadIcon /> {t("friendsPage.inCommon", { count: shared })}
                                 </button>
                               )}
                               {friend.region && (
-                                <span className="friend-region" title={t("friendsPage.region")}>🌍 {friend.region}</span>
+                                <span className="friend-region" title={t("friendsPage.region")}><MapPinIcon /> {friend.region}</span>
                               )}
                               <span className="friend-last-seen" title={t("friendsPage.lastSynced")}>
-                                {t("friendsPage.lastSeenLabel")} {formatLastSeen(friend.lastSeen, t)}
+                                <ClockIcon /> {t("friendsPage.lastSeenLabel")} {formatLastSeen(friend.lastSeen, t)}
                               </span>
                             </div>
                           </div>
@@ -3748,14 +3943,14 @@ export default function FriendsPage() {
                     />
                   </div>
 
-                  <button type="submit" className="btn btn-primary btn--start">
-                    Plan Event
-                  </button>
+                  <Button type="submit" variant="primary" className="btn--start" leftIcon={<CalendarIcon />}>
+                    {t("friendsPage.planEvent")}
+                  </Button>
                 </form>
               </div>
 
               {/* Right Column: Sessions Grid */}
-                <div className="profile-summary-section" style={{ gap: "var(--space-md)" }}>
+                <div className="profile-summary-section profile-summary-section--sessions">
                   <div className="sessions-view-header">
                     <h3 className="friends-list-title">
                       {sessionView === "past" ? t("friendsPage.pastSessions") : sessionView === "agenda" ? t("friendsPage.agenda") : t("friendsPage.upcomingSessions")}
@@ -3768,9 +3963,27 @@ export default function FriendsPage() {
                   </div>
 
                   {sessionView === "agenda" && (
-                    <div className="agenda-mode-toggle">
-                      <button type="button" className={`agenda-mode-btn${agendaMode === "grid" ? " active" : ""}`} onClick={() => setAgendaMode("grid")}>{t("friendsPage.agendaCalendar")}</button>
-                      <button type="button" className={`agenda-mode-btn${agendaMode === "list" ? " active" : ""}`} onClick={() => setAgendaMode("list")}>{t("friendsPage.agendaList")}</button>
+                    <div className="agenda-mode-toggle" role="group" aria-label={t("friendsPage.agendaModeAria")}>
+                      <button type="button" className={`agenda-mode-btn${agendaMode === "grid" ? " active" : ""}`} onClick={() => setAgendaMode("grid")} aria-label={t("friendsPage.agendaModeCalendar")} title={t("friendsPage.agendaModeCalendar")}>
+                        <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+                          <rect x="3" y="3" width="8" height="8" rx="1.4" />
+                          <rect x="13" y="3" width="8" height="8" rx="1.4" />
+                          <rect x="3" y="13" width="8" height="8" rx="1.4" />
+                          <rect x="13" y="13" width="8" height="8" rx="1.4" />
+                        </svg>
+                        {t("friendsPage.agendaModeCalendar")}
+                      </button>
+                      <button type="button" className={`agenda-mode-btn${agendaMode === "list" ? " active" : ""}`} onClick={() => setAgendaMode("list")} aria-label={t("friendsPage.agendaModeList")} title={t("friendsPage.agendaModeList")}>
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
+                          <rect x="3" y="4" width="6" height="6" rx="1" />
+                          <line x1="12" y1="7" x2="21" y2="7" />
+                          <line x1="12" y1="10" x2="21" y2="10" />
+                          <rect x="3" y="14" width="6" height="6" rx="1" />
+                          <line x1="12" y1="17" x2="21" y2="17" />
+                          <line x1="12" y1="20" x2="21" y2="20" />
+                        </svg>
+                        {t("friendsPage.agendaModeList")}
+                      </button>
                     </div>
                   )}
 
@@ -3820,6 +4033,7 @@ export default function FriendsPage() {
                     if (visible.length === 0) {
                       return (
                         <div className="friends-empty-state friends-empty-state--inline">
+                          <div className="friends-empty-icon friends-empty-icon--sm" aria-hidden><CalendarIcon /></div>
                           <h3 className="friends-empty-title">
                             {sessionView === "past" ? t("friendsPage.noPastSessions") : t("friendsPage.noEventsScheduled")}
                           </h3>
@@ -4040,40 +4254,41 @@ export default function FriendsPage() {
                       <h3 className="friends-list-title">{t("friendsPage.friendRecommendations", { count: activeRecs.length })}</h3>
 
                       {activeRecs.length > 0 && (
-                        <div className="compare-filter-chips rec-filter-chips">
+                        <div className="compare-filter-chips rec-filter-chips" role="group" aria-label={t("friendsPage.recFiltersAria")}>
                           <button
                             type="button"
                             className={`compare-filter-chip${recFilter === "all" ? " active" : ""}`}
                             onClick={() => setRecFilter("all")}
                           >
-                            All ({activeRecs.length})
+                            {t("friendsPage.recFilterAll", { count: activeRecs.length })}
                           </button>
                           <button
                             type="button"
                             className={`compare-filter-chip${recFilter === "to_me" ? " active" : ""}`}
                             onClick={() => setRecFilter("to_me")}
                           >
-                            To Me ({activeRecs.filter((r) => r.recommendedTo === profile.name || r.recommendedTo === "All Friends").length})
+                            {t("friendsPage.recFilterToMe", { count: activeRecs.filter((r) => r.recommendedTo === profile.name || r.recommendedTo === "All Friends").length })}
                           </button>
                           <button
                             type="button"
                             className={`compare-filter-chip${recFilter === "by_me" ? " active" : ""}`}
                             onClick={() => setRecFilter("by_me")}
                           >
-                            By Me ({activeRecs.filter((r) => r.recommendedBy === profile.name).length})
+                            {t("friendsPage.recFilterByMe", { count: activeRecs.filter((r) => r.recommendedBy === profile.name).length })}
                           </button>
                           <button
                             type="button"
                             className={`compare-filter-chip${recFilter === "want" ? " active" : ""}`}
                             onClick={() => setRecFilter("want")}
                           >
-                            Want to Play ({activeRecs.filter((r) => r.wantToPlay).length})
+                            {t("friendsPage.recFilterWant", { count: activeRecs.filter((r) => r.wantToPlay).length })}
                           </button>
                         </div>
                       )}
 
                       {activeRecs.length === 0 ? (
                         <div className="friends-empty-state friends-empty-state--inline">
+                          <div className="friends-empty-icon friends-empty-icon--sm" aria-hidden><RecommendIcon /></div>
                           <h3 className="friends-empty-title">{t("friendsPage.noRecsYet")}</h3>
                           <p className="friends-empty-desc">
                             {t("friendsPage.recsEmptyDesc")}
@@ -4128,9 +4343,10 @@ export default function FriendsPage() {
                                 type="button"
                                 className={`rec-reaction-btn${myReaction === kind ? " active" : ""}`}
                                 onClick={() => handleToggleReaction(rec.id, kind)}
-                                title={`React: ${kind}`}
+                                title={t("friendsPage.reactionLabel", { kind })}
+                                aria-pressed={myReaction === kind}
                               >
-                                <span>{kind === "like" ? "👍" : kind === "love" ? "❤️" : "🎮"}</span>
+                                <span className="rec-reaction-icon">{kind === "like" ? <ThumbsUpIcon /> : kind === "love" ? <HeartIcon /> : <GamepadIcon />}</span>
                                 {reactionCounts[kind] ? <span className="rec-reaction-count">{reactionCounts[kind]}</span> : null}
                               </button>
                             ))}
@@ -4139,7 +4355,9 @@ export default function FriendsPage() {
                               className={`rec-want-btn${rec.wantToPlay ? " active" : ""}`}
                               onClick={() => handleToggleWantToPlay(rec.id)}
                               title={t("friendsPage.addToWantToPlay")}
+                              aria-pressed={rec.wantToPlay}
                             >
+                              {rec.wantToPlay ? <CheckIcon /> : <StarIcon />}
                               {rec.wantToPlay ? t("friendsPage.wantToPlayAlready") : t("friendsPage.wantToPlayAdd")}
                             </button>
                           </div>
@@ -4161,7 +4379,7 @@ export default function FriendsPage() {
                                         onClick={() => handleDeleteComment(rec.id, comment.id, comment.authorName)}
                                         title={t("friendsPage.deleteCommentTitle")}
                                       >
-                                        ×
+                                        <XIcon />
                                       </button>
                                     )}
                                   </div>
@@ -4181,9 +4399,9 @@ export default function FriendsPage() {
                                 onChange={(e) => handleCommentInputChange(rec.id, e.target.value)}
                                 required
                               />
-                              <button type="submit" className="btn btn-primary btn--mini">
-                                Post
-                              </button>
+                              <Button type="submit" variant="primary" size="sm" leftIcon={<SendIcon />}>
+                                {t("friendsPage.postComment")}
+                              </Button>
                             </form>
                           </div>
                         </div>
@@ -4254,9 +4472,9 @@ export default function FriendsPage() {
                     />
                   </div>
 
-                  <button type="submit" className="btn btn-primary btn--start">
-                    Recommend
-                  </button>
+                  <Button type="submit" variant="primary" className="btn--start" leftIcon={<RecommendIcon />}>
+                    {t("friendsPage.recommendCta")}
+                  </Button>
                 </form>
               </div>
             </div>
@@ -4305,41 +4523,41 @@ export default function FriendsPage() {
                       <h3 className="friends-list-title">{t("friendsPage.sharedFromWishlists", { count: activeSugs.length })}</h3>
 
                       {activeSugs.length > 0 && (
-                        <div className="compare-filter-chips rec-filter-chips">
+                        <div className="compare-filter-chips rec-filter-chips" role="group" aria-label={t("friendsPage.sugFiltersAria")}>
                           <button
                             type="button"
                             className={`compare-filter-chip${suggestionFilter === "all" ? " active" : ""}`}
                             onClick={() => setSuggestionFilter("all")}
                           >
-                            All ({activeSugs.length})
+                            {t("friendsPage.sugFilterAll", { count: activeSugs.length })}
                           </button>
                           <button
                             type="button"
                             className={`compare-filter-chip${suggestionFilter === "by_me" ? " active" : ""}`}
                             onClick={() => setSuggestionFilter("by_me")}
                           >
-                            {t("friendsPage.sharedByMeCount", { count: activeSugs.filter((s) => s.suggestedBy === profile.name).length })}
+                            {t("friendsPage.sugFilterByMe", { count: activeSugs.filter((s) => s.suggestedBy === profile.name).length })}
                           </button>
                           <button
                             type="button"
                             className={`compare-filter-chip${suggestionFilter === "to_me" ? " active" : ""}`}
                             onClick={() => setSuggestionFilter("to_me")}
                           >
-                            For me ({activeSugs.filter((s) => s.suggestedTo === profile.name || s.suggestedTo === "All Friends").length})
+                            {t("friendsPage.sugFilterForMe", { count: activeSugs.filter((s) => s.suggestedTo === profile.name || s.suggestedTo === "All Friends").length })}
                           </button>
                           <button
                             type="button"
                             className={`compare-filter-chip${suggestionFilter === "added" ? " active" : ""}`}
                             onClick={() => setSuggestionFilter("added")}
                           >
-                            Added to WL ({activeSugs.filter((s) => s.addedToWishlist).length})
+                            {t("friendsPage.sugFilterAdded", { count: activeSugs.filter((s) => s.addedToWishlist).length })}
                           </button>
                           <button
                             type="button"
                             className={`compare-filter-chip${suggestionFilter === "unadded" ? " active" : ""}`}
                             onClick={() => setSuggestionFilter("unadded")}
                           >
-                            Not added ({activeSugs.filter((s) => !s.addedToWishlist).length})
+                            {t("friendsPage.sugFilterNotAdded", { count: activeSugs.filter((s) => !s.addedToWishlist).length })}
                           </button>
                         </div>
                       )}
@@ -4367,13 +4585,16 @@ export default function FriendsPage() {
 
                       {activeSugs.length === 0 ? (
                         <div className="friends-empty-state friends-empty-state--inline">
+                          <div className="friends-empty-icon friends-empty-icon--sm" aria-hidden><SuggestionIcon /></div>
                           <h3 className="friends-empty-title">{t("friendsPage.noSharedGamesYet")}</h3>
                           <p className="friends-empty-desc">
-                            Share a game from your Wishlist tab on the right. Friends can react and comment — everything syncs automatically!
+                            {t("friendsPage.sugEmptyDesc")}
                           </p>
                         </div>
                       ) : sorted.length === 0 ? (
                         <div className="friends-empty-state friends-empty-state--inline">
+                          <div className="friends-empty-icon friends-empty-icon--sm" aria-hidden><SuggestionIcon /></div>
+                          <h3 className="friends-empty-title">{t("friendsPage.noSharedGamesMatchTitle")}</h3>
                           <p className="friends-empty-desc">{t("friendsPage.noSharedGamesMatch")}</p>
                         </div>
                       ) : (
@@ -4429,22 +4650,21 @@ export default function FriendsPage() {
                               {sug.note && <p className="sug-note">"{sug.note}"</p>}
 
                               <div className="rec-reactions-row">
-                                {(["like", "love", "interest", "played"] as SuggestionReactionKind[]).map((kind) => {
-                                  const label =
-                                    kind === "like" ? "👍" : kind === "love" ? "❤️" : kind === "interest" ? "🔥" : "✅";
-                                  return (
-                                    <button
-                                      key={kind}
-                                      type="button"
-                                      className={`rec-reaction-btn${myReaction === kind ? " active" : ""}`}
-                                      onClick={() => handleToggleSuggestionReaction(sug.id, kind)}
-                                      title={`React: ${kind}`}
-                                    >
-                                      <span>{label}</span>
-                                      {reactionCounts[kind] ? <span className="rec-reaction-count">{reactionCounts[kind]}</span> : null}
-                                    </button>
-                                  );
-                                })}
+                                {(["like", "love", "interest", "played"] as SuggestionReactionKind[]).map((kind) => (
+                                  <button
+                                    key={kind}
+                                    type="button"
+                                    className={`rec-reaction-btn${myReaction === kind ? " active" : ""}`}
+                                    onClick={() => handleToggleSuggestionReaction(sug.id, kind)}
+                                    title={t("friendsPage.reactionLabel", { kind })}
+                                    aria-pressed={myReaction === kind}
+                                  >
+                                    <span className="rec-reaction-icon">
+                                      {kind === "like" ? <ThumbsUpIcon /> : kind === "love" ? <HeartIcon /> : kind === "interest" ? <FireIcon /> : <CheckIcon />}
+                                    </span>
+                                    {reactionCounts[kind] ? <span className="rec-reaction-count">{reactionCounts[kind]}</span> : null}
+                                  </button>
+                                ))}
                                 <button
                                   type="button"
                                   className={`rec-want-btn${sug.addedToWishlist || alreadyWishlisted ? " active" : ""}`}
@@ -4452,6 +4672,7 @@ export default function FriendsPage() {
                                   disabled={alreadyWishlisted}
                                   title={alreadyWishlisted ? t("friendsPage.alreadyInWishlist") : t("friendsPage.addToMyWishlist")}
                                 >
+                                  {alreadyWishlisted ? <CheckIcon /> : <StarIcon />}
                                   {alreadyWishlisted ? t("friendsPage.inWishlistShort") : t("friendsPage.addToWishlistShort")}
                                 </button>
                               </div>
@@ -4472,7 +4693,7 @@ export default function FriendsPage() {
                                             onClick={() => handleDeleteSuggestionComment(sug.id, comment.id, comment.authorName)}
                                             title={t("friendsPage.deleteCommentTitle")}
                                           >
-                                            ×
+                                            <XIcon />
                                           </button>
                                         )}
                                       </div>
@@ -4494,9 +4715,9 @@ export default function FriendsPage() {
                                     }
                                     required
                                   />
-                                  <button type="submit" className="btn btn-primary btn--mini">
-                                    Post
-                                  </button>
+                                  <Button type="submit" variant="primary" size="sm" leftIcon={<SendIcon />}>
+                                    {t("friendsPage.postComment")}
+                                  </Button>
                                 </form>
                               </div>
                             </div>
@@ -4513,8 +4734,10 @@ export default function FriendsPage() {
                 <h3 className="profile-edit-title">{t("friendsPage.shareGameWishlist")}</h3>
                 {wishlist.length === 0 ? (
                   <div className="friends-empty-state friends-empty-state--inline">
+                    <div className="friends-empty-icon friends-empty-icon--sm" aria-hidden><SuggestionIcon /></div>
+                    <h3 className="friends-empty-title">{t("friendsPage.noWishlistYet")}</h3>
                     <p className="friends-empty-desc">
-                      Your wishlist is empty. Add games via the heart on any Store card, then share them here with friends.
+                      {t("friendsPage.wishlistEmptyDesc")}
                     </p>
                   </div>
                 ) : (
@@ -4564,9 +4787,9 @@ export default function FriendsPage() {
                       />
                     </div>
 
-                    <button type="submit" className="btn btn-primary btn--start">
-                      Share to Friends
-                    </button>
+                    <Button type="submit" variant="primary" className="btn--start" leftIcon={<SuggestionIcon />}>
+                      {t("friendsPage.shareToFriendsCta")}
+                    </Button>
                   </form>
                 )}
               </div>
@@ -4597,10 +4820,10 @@ export default function FriendsPage() {
 
               {compareFriend && (
                 <div className="compare-selector-badges">
-                  <div className="compare-match-score-badge"><span>{t("friendsPage.matchLabel")}</span>
+                  <div className="compare-match-score-badge"><span className="compare-badge-icon" aria-hidden><GamepadIcon /></span><span>{t("friendsPage.matchScoreBadge")}</span>
                       <strong>{matchScore}%</strong>
                   </div>
-                  <div className="compare-match-score-badge compat"><span>{t("friendsPage.compatibilityLabel")}</span>
+                  <div className="compare-match-score-badge compat"><span className="compare-badge-icon" aria-hidden><HeartIcon /></span><span>{t("friendsPage.compatibilityBadge")}</span>
                       <strong>{compatibilityScore}%</strong>
                   </div>
                   {comparisonData.length > 0 && (
@@ -4610,7 +4833,10 @@ export default function FriendsPage() {
                         comparisonData.some((i) => i.estimated)                          ? t("friendsPage.friendNoSharedData")
                           : t("friendsPage.basedOnRealSharedData")}
                     >
-                      {comparisonData.some((i) => i.estimated) ? t("friendsPage.dataEstimated") : t("friendsPage.dataReal")}
+                      <span className="compare-badge-icon" aria-hidden>
+                        {comparisonData.some((i) => i.estimated) ? <XIcon /> : <CheckIcon />}
+                      </span>
+                      {comparisonData.some((i) => i.estimated) ? t("friendsPage.dataEstimatedBadge") : t("friendsPage.dataRealBadge")}
                     </div>
                   )}
                 </div>
@@ -4619,11 +4845,10 @@ export default function FriendsPage() {
 
             {!compareFriend ? (
               <div className="friends-empty-state">
+                <div className="friends-empty-icon" aria-hidden><CompareIcon /></div>
                 <h3 className="friends-empty-title">{t("friendsPage.selectAFriendFirst")}</h3>
                 <p className="friends-empty-desc">
-                  Choose one of your friends above to compare owned games, playtimes,
-                  achievements, genre tastes, and get personalized recommendations
-                  side-by-side!
+                  {t("friendsPage.compareEmptyDesc")}
                 </p>
               </div>
             ) : (
@@ -4632,7 +4857,7 @@ export default function FriendsPage() {
                 <div className="compare-profiles-header">
                   <div className="compare-user-profile">
                     {renderAvatar(profile.avatar, profile.name, "compare-user-avatar")}
-                    <span className="compare-user-name">{profile.name} (You)</span>
+                    <span className="compare-user-name">{profile.name} ({t("friendsPage.you")})</span>
                     {profile.currentlyPlaying && (
                       <span className="compare-now-playing">
                         <span className="now-playing-dot" />
@@ -4654,23 +4879,23 @@ export default function FriendsPage() {
                 </div>
 
                 {/* Sub-tab navigation */}
-                <div className="compare-subtabs" role="tablist">
+                <div className="compare-subtabs" role="tablist" aria-label={t("friendsPage.compareSubtabsAria")}>
                   {([
-                    { id: "overview", label: t("friendsPage.compareTab.overview"), icon: "📊" },
-                    { id: "games", label: t("friendsPage.compareTab.games"), icon: "🎮" },
-                    { id: "genres", label: t("friendsPage.compareTab.genres"), icon: "🏷️" },
-                    { id: "insights", label: t("friendsPage.compareTab.insights"), icon: "💡" },
-                  ] as const).map((t) => (
+                    { id: "overview", label: t("friendsPage.compareTab.overview"), icon: <BarChartIcon /> },
+                    { id: "games", label: t("friendsPage.compareTab.games"), icon: <GamepadIcon /> },
+                    { id: "genres", label: t("friendsPage.compareTab.genres"), icon: <TagIcon /> },
+                    { id: "insights", label: t("friendsPage.compareTab.insights"), icon: <LightbulbIcon /> },
+                  ] as const).map((sub) => (
                     <button
-                      key={t.id}
+                      key={sub.id}
                       type="button"
                       role="tab"
-                      aria-selected={compareSubTab === t.id}
-                      className={`compare-subtab${compareSubTab === t.id ? " active" : ""}`}
-                      onClick={() => setCompareSubTab(t.id)}
+                      aria-selected={compareSubTab === sub.id}
+                      className={`compare-subtab${compareSubTab === sub.id ? " active" : ""}`}
+                      onClick={() => setCompareSubTab(sub.id)}
                     >
-                      <span className="compare-subtab-icon">{t.icon}</span>
-                      <span>{t.label}</span>
+                      <span className="compare-subtab-icon" aria-hidden>{sub.icon}</span>
+                      <span>{sub.label}</span>
                     </button>
                   ))}
                 </div>
@@ -4743,7 +4968,7 @@ export default function FriendsPage() {
                       </div>
                       <div className="compare-overlap-seg friend">
                         <span className="compare-overlap-num">{comparisonSummary.friendOnlyCount}</span>
-                        <span className="compare-overlap-lbl">Only {compareFriend.name}</span>
+                        <span className="compare-overlap-lbl">{t("friendsPage.onlyThem", { name: compareFriend.name })}</span>
                       </div>
                     </div>
 
@@ -4752,39 +4977,39 @@ export default function FriendsPage() {
                       <div className="compare-highlights">
                         {compareInsights.topShared && (
                           <div className="compare-highlight-card">
-                            <span className="compare-highlight-icon">🤝</span>
+                            <span className="compare-highlight-icon" aria-hidden><HandshakeIcon /></span>
                             <div className="compare-highlight-body">
                               <span className="compare-highlight-title">{t("friendsPage.bestPlayTogether")}</span>
                               <span className="compare-highlight-value">{compareInsights.topShared.name}</span>
                               <span className="compare-highlight-sub">
-                                {formatHours(compareInsights.topShared.playTimeMe)} you · {formatHours(compareInsights.topShared.playTimeFriend)} them
+                                {t("friendsPage.highlightPlayTogetherSub", { you: formatHours(compareInsights.topShared.playTimeMe), them: formatHours(compareInsights.topShared.playTimeFriend) })}
                               </span>
                             </div>
                           </div>
                         )}
                         <div className="compare-highlight-card">
-                          <span className="compare-highlight-icon">🏆</span>
+                          <span className="compare-highlight-icon" aria-hidden><TrophyIcon /></span>
                           <div className="compare-highlight-body">
                             <span className="compare-highlight-title">{t("friendsPage.achievementLeader")}</span>
                             <span className="compare-highlight-value">
                               {compareInsights.achLeaderMe === compareInsights.achLeaderFriend
                                 ? t("friendsPage.compareNeckAndNeck")
                                 : compareInsights.achLeaderMe > compareInsights.achLeaderFriend
-                                ? `${profile.name} (You)`
+                                ? `${profile.name} (${t("friendsPage.you")})`
                                 : compareFriend.name}
                             </span>
                             <span className="compare-highlight-sub">
-                              You lead {compareInsights.achLeaderMe} · They lead {compareInsights.achLeaderFriend}
+                              {t("friendsPage.highlightAchLeaderSub", { me: compareInsights.achLeaderMe, them: compareInsights.achLeaderFriend })}
                             </span>
                           </div>
                         </div>
                         <div className="compare-highlight-card">
-                          <span className="compare-highlight-icon">🏷️</span>
+                          <span className="compare-highlight-icon" aria-hidden><TagIcon /></span>
                           <div className="compare-highlight-body">
                             <span className="compare-highlight-title">{t("friendsPage.genreAffinity")}</span>
-                            <span className="compare-highlight-value">{genreAffinity}% aligned</span>
+                            <span className="compare-highlight-value">{t("friendsPage.genreAffinityValue", { pct: genreAffinity })}</span>
                             <span className="compare-highlight-sub">
-                              {genreBreakdown.filter((g) => g.meOwned > 0 && g.friendOwned > 0).length} shared genres
+                              {t("friendsPage.genreAffinitySub", { count: genreBreakdown.filter((g) => g.meOwned > 0 && g.friendOwned > 0).length })}
                             </span>
                           </div>
                         </div>
@@ -4797,34 +5022,34 @@ export default function FriendsPage() {
                 {compareSubTab === "games" && (
                   <div className="compare-games-view">
                     <div className="compare-controls-row">
-                      <div className="compare-filter-chips">
+                      <div className="compare-filter-chips" role="group" aria-label={t("friendsPage.compareFiltersAria")}>
                         <button
                           type="button"
                           className={`compare-filter-chip${compareFilter === "all" ? " active" : ""}`}
                           onClick={() => setCompareFilter("all")}
                         >
-                          All ({comparisonData.length})
+                          {t("friendsPage.cmpFilterAll", { count: comparisonData.length })}
                         </button>
                         <button
                           type="button"
                           className={`compare-filter-chip${compareFilter === "shared" ? " active" : ""}`}
                           onClick={() => setCompareFilter("shared")}
                         >
-                          Shared ({comparisonData.filter(i => i.ownedByMe && i.ownedByFriend).length})
+                          {t("friendsPage.cmpFilterShared", { count: comparisonData.filter(i => i.ownedByMe && i.ownedByFriend).length })}
                         </button>
                         <button
                           type="button"
                           className={`compare-filter-chip${compareFilter === "me_only" ? " active" : ""}`}
                           onClick={() => setCompareFilter("me_only")}
                         >
-                          Only Me ({comparisonData.filter(i => i.ownedByMe && !i.ownedByFriend).length})
+                          {t("friendsPage.cmpFilterMeOnly", { count: comparisonData.filter(i => i.ownedByMe && !i.ownedByFriend).length })}
                         </button>
                         <button
                           type="button"
                           className={`compare-filter-chip${compareFilter === "friend_only" ? " active" : ""}`}
                           onClick={() => setCompareFilter("friend_only")}
                         >
-                          Only Them ({comparisonData.filter(i => !i.ownedByMe && i.ownedByFriend).length})
+                          {t("friendsPage.cmpFilterFriendOnly", { count: comparisonData.filter(i => !i.ownedByMe && i.ownedByFriend).length })}
                         </button>
                       </div>
 
@@ -4875,8 +5100,20 @@ export default function FriendsPage() {
                     </div>
 
                     {sortedCompareData.length === 0 ? (
-                      <div className="game-search-no-results game-search-no-results--tall">
-                        No games match these filters.
+                      <div className="friends-empty-state friends-empty-state--inline">
+                        <div className="friends-empty-icon friends-empty-icon--sm" aria-hidden><GamepadIcon /></div>
+                        <h3 className="friends-empty-title">{t("friendsPage.noCompareMatches")}</h3>
+                        <button
+                          type="button"
+                          className="btn btn-secondary"
+                          onClick={() => {
+                            setCompareFilter("all");
+                            setCompareSearch("");
+                            setCompareGenre("all");
+                          }}
+                        >
+                          {t("friends.clearFilters")}
+                        </button>
                       </div>
                     ) : (
                       <div className="compare-games-grid">
@@ -4907,7 +5144,7 @@ export default function FriendsPage() {
                               <div className="compare-game-stats">
                                 <div className="compare-player-stat">
                                   <div className="compare-player-label">
-                                    <span className="dot left" /> You
+                                    <span className="dot left" /> {t("friendsPage.you")}
                                   </div>
                                   {game.ownedByMe ? (
                                     <>
@@ -4917,7 +5154,7 @@ export default function FriendsPage() {
                                           <div className="compare-playtime-fill left" style={{ width: `${myPlayPercent}%` }} />
                                         </div>
                                       </div>
-                                      <span className="compare-ach">{game.achievementMe}% achievements</span>
+                                      <span className="compare-ach">{t("friendsPage.achPercent", { pct: game.achievementMe })}</span>
                                     </>
                                   ) : (
                                     <span className="compare-not-owned">{t("friendsPage.compareNotInLibrary")}</span>
@@ -4936,7 +5173,7 @@ export default function FriendsPage() {
                                           <div className="compare-playtime-fill right" style={{ width: `${friendPlayPercent}%` }} />
                                         </div>
                                       </div>
-                                      <span className="compare-ach">{game.achievementFriend}% achievements</span>
+                                      <span className="compare-ach">{t("friendsPage.achPercent", { pct: game.achievementFriend })}</span>
                                     </>
                                   ) : (
                                     <span className="compare-not-owned">{t("friendsPage.compareNotInTheirLibrary")}</span>
@@ -4955,8 +5192,9 @@ export default function FriendsPage() {
                 {compareSubTab === "genres" && (
                   <div className="compare-genres-view">
                     {genreBreakdown.length === 0 ? (
-                      <div className="game-search-no-results game-search-no-results--tall">
-                        No genre data available to compare yet.
+                      <div className="friends-empty-state friends-empty-state--inline">
+                        <div className="friends-empty-icon friends-empty-icon--sm" aria-hidden><TagIcon /></div>
+                        <h3 className="friends-empty-title">{t("friendsPage.noGenreData")}</h3>
                       </div>
                     ) : (
                       <div className="compare-genre-list">
@@ -4967,7 +5205,7 @@ export default function FriendsPage() {
                               <div className="compare-genre-head">
                                 <span className="compare-genre-name">{g.genre}</span>
                                 <span className="compare-genre-shared">
-                                  {g.shared > 0 ? `${g.shared} shared` : "no overlap"}
+                                  {g.shared > 0 ? t("friendsPage.genreSharedCount", { count: g.shared }) : t("friendsPage.genreNoOverlap")}
                                 </span>
                               </div>
                               <div className="compare-genre-bars">
@@ -5005,7 +5243,7 @@ export default function FriendsPage() {
                       {/* Recommendations for you */}
                       <div className="compare-insight-panel">
                         <h4 className="compare-insight-title">
-                          <span className="dot right" /> Games {compareFriend.name} loves that you don't own
+                          <span className="dot right" /> {t("friendsPage.insightForYouTitle", { name: compareFriend.name })}
                         </h4>
                         {compareInsights.forYou.length === 0 ? (
                           <p className="compare-insight-empty">{t("friendsPage.ownEverything")}</p>
@@ -5024,7 +5262,7 @@ export default function FriendsPage() {
                       {/* Recommendations for them */}
                       <div className="compare-insight-panel">
                         <h4 className="compare-insight-title">
-                          <span className="dot left" /> Games you love that {compareFriend.name} is missing
+                          <span className="dot left" /> {t("friendsPage.insightForThemTitle", { name: compareFriend.name })}
                         </h4>
                         {compareInsights.forThem.length === 0 ? (
                           <p className="compare-insight-empty">{t("friendsPage.compareInsightAllFavOwned")}</p>
@@ -5043,7 +5281,7 @@ export default function FriendsPage() {
                       {/* Where you play more */}
                       <div className="compare-insight-panel">
                         <h4 className="compare-insight-title">
-                          <span className="dot left" /> Shared games you've played more
+                          <span className="dot left" /> {t("friendsPage.insightIPlayMoreTitle")}
                         </h4>
                         {compareInsights.iPlayMore.length === 0 ? (
                           <p className="compare-insight-empty">{t("friendsPage.noAheadGamesMessage")}</p>
@@ -5064,7 +5302,7 @@ export default function FriendsPage() {
                       {/* Where they play more */}
                       <div className="compare-insight-panel">
                         <h4 className="compare-insight-title">
-                          <span className="dot right" /> Shared games {compareFriend.name} has played more
+                          <span className="dot right" /> {t("friendsPage.insightTheyPlayMoreTitle", { name: compareFriend.name })}
                         </h4>
                         {compareInsights.theyPlayMore.length === 0 ? (
                           <p className="compare-insight-empty">{t("friendsPage.compareInsightYouLeadAll")}</p>
@@ -5106,7 +5344,7 @@ export default function FriendsPage() {
                   {t("friendsPage.lastActiveWithTime", { time: profile.lastPublished ? formatLastSeen(profile.lastPublished, t) : t("friendsPage.formatJustNow") })}
                 </p>
                 {profile.region && (
-                  <p className="profile-region-big">📍 {profile.region}</p>
+                  <p className="profile-region-big"><MapPinIcon /> {profile.region}</p>
                 )}
                 {profile.bio && (
                   <p className="profile-bio-big">{profile.bio}</p>
@@ -5132,19 +5370,19 @@ export default function FriendsPage() {
 
               <div className="friend-code-card">                    <h4 className="friend-code-label">{t("friends.profile.publicKey")}</h4>
                 <p className="friends-modal-desc">
-                  Share this public key with your friends so they can add you to their network.
+                  {t("friendsPage.shareKeyDesc")}
                 </p>
                 <div className="friend-code-qr">
                   <FriendCodeQR code={generatedFriendCode} />
                 </div>
                 <div className="friend-code-box">{generatedFriendCode}</div>
-                <button
-                  type="button"
-                  className="btn btn-primary"
+                <Button
+                  variant="primary"
                   onClick={handleCopyCode}
+                  leftIcon={<CopyIcon />}
                 >
-                  Copy Key
-                </button>
+                  {t("friends.profile.copyKey")}
+                </Button>
               </div>
             </div>
 
@@ -5239,19 +5477,19 @@ export default function FriendsPage() {
                   <label>{t("friends.profile.avatarStyle")}</label>
                   <div className="avatar-upload-box">
                     <label htmlFor="avatar-file-upload-input" className="avatar-upload-label">
-                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" width="14" height="14">
+                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" width="14" height="14" aria-hidden="true">
                         <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
                         <polyline points="17 8 12 3 7 8" />
                         <line x1="12" y1="3" x2="12" y2="15" />
                       </svg>
-                      Upload custom picture
+                      {t("friends.profile.upload")}
                     </label>
                     <input
                       type="file"
                       id="avatar-file-upload-input"
                       accept="image/*"
                       onChange={handleImageUpload}
-                      style={{ display: "none" }}
+                      className="avatar-file-input"
                     />
                     
                     {profile.avatar !== "procedural" && (
@@ -5265,16 +5503,16 @@ export default function FriendsPage() {
                           await pushMyOutbox(updated, selfStats, sessions, recommendations, selfSharedGames, suggestions);
                         }}
                       >
-                        Reset to Procedural
+                        {t("friends.profile.resetProcedural")}
                       </button>
                     )}
                     <span className="avatar-upload-info">{t("friendsPage.proceduralAvatarInfo")}</span>
                   </div>
                 </div>
 
-                <button type="submit" className="btn btn-primary btn--start">
-                  Save Profile
-                </button>
+                <Button type="submit" variant="primary" className="btn--start" leftIcon={<CheckIcon />}>
+                  {t("friends.profile.save")}
+                </Button>
               </form>
             </div>
           </div>
@@ -5330,49 +5568,48 @@ export default function FriendsPage() {
                     <div className="friend-status-text">{decodedFriend.status}</div>
                     {decodedFriend.libStats && (
                       <div className="friend-stats">
-                        <span>{decodedFriend.libStats.gamesCount} games</span>
-                        <span>•</span>
+                        <span>{t("friendsPage.gamesCountLabel", { count: decodedFriend.libStats.gamesCount })}</span>
+                        <span className="friend-stats-dot" aria-hidden>•</span>
                         <span>{formatHours(decodedFriend.libStats.playtimeMinutes)}</span>
                         {decodedFriend.libStats.achievementsCount > 0 && (
                           <>
-                            <span>•</span>
-                            <span>🏆 {decodedFriend.libStats.achievementsCount}</span>
+                            <span className="friend-stats-dot" aria-hidden>•</span>
+                            <span className="friend-stats-trophy"><TrophyIcon />{decodedFriend.libStats.achievementsCount}</span>
                           </>
                         )}
                       </div>
                     )}
                     {decodedFriend.favoriteGame && (
                       <div className="friend-favorite-game">
-                        ⭐ {decodedFriend.favoriteGame}
+                        <StarIcon /> {decodedFriend.favoriteGame}
                       </div>
                     )}
                   </div>
                 </div>
               ) : (
                 friendCodeInput.trim() && (
-                  <div className="friend-decode-preview-empty" style={{ color: "var(--color-danger)" }}>
-                    Invalid Public Key. Ensure you copied the entire 64-character hex key.
+                  <div className="friend-decode-preview-empty friend-decode-preview-invalid">
+                    {t("friendsPage.invalidPublicKey")}
                   </div>
                 )
               )}
             </div>
 
             <div className="friends-modal-footer">
-              <button
-                type="button"
-                className="btn btn-secondary"
+              <Button
+                variant="secondary"
                 onClick={() => setShowAddModal(false)}
               >
                 {t("common.cancel")}
-              </button>
-              <button
-                type="button"
-                className="btn btn-primary"
+              </Button>
+              <Button
+                variant="primary"
+                leftIcon={<PlusIcon />}
                 onClick={handleAddFriend}
                 disabled={!decodedFriend}
               >
                 {t("friends.addFriend")}
-              </button>
+              </Button>
             </div>
           </div>
         </div>
@@ -5420,15 +5657,18 @@ export default function FriendsPage() {
                 <div className="p2p-status-details">
                   <div className="p2p-detail-row">
                     <span className="p2p-detail-key">{t("friends.p2p.myKey")}</span>
-                    <span className="p2p-detail-val" style={{ fontFamily: "monospace", fontSize: "11px", wordBreak: "break-all", color: "var(--color-accent)" }}>
+                    <span className="p2p-detail-val p2p-detail-val--key">
                       {getNostrKeys().publicKey}
                     </span>
                   </div>
-                  <div className="p2p-detail-row">
+                  <div className="p2p-detail-row p2p-detail-row--stack">
                     <span className="p2p-detail-key">{t("friends.p2p.relays")}</span>
-                    <div className="p2p-detail-val" style={{ display: "flex", flexDirection: "column", gap: "2px", fontSize: "10px", marginTop: "4px" }}>
+                    <div className="p2p-detail-val p2p-relay-list">
                       {nostrRelays.map((r) => (
-                        <span key={r}>🟢 {r}</span>
+                        <span key={r} className="p2p-relay-item">
+                          <span className="p2p-relay-dot" aria-hidden />
+                          {r}
+                        </span>
                       ))}
                     </div>
                   </div>
@@ -5445,8 +5685,8 @@ export default function FriendsPage() {
                   ) : (
                     friends.map((friend) => (
                       <div key={friend.id} className="p2p-friend-row">
-                        <span>{friend.name}</span>
-                        <span className="p2p-last-sync-ok" style={{ fontFamily: "monospace", fontSize: "10px" }}>
+                        <span className="p2p-friend-name">{friend.name}</span>
+                        <span className="p2p-last-sync-ok p2p-friend-key">
                           {friend.syncId.slice(0, 8)}...{friend.syncId.slice(-8)}
                         </span>
                       </div>
@@ -5480,15 +5720,16 @@ export default function FriendsPage() {
                 )}
               </div>
 
-              <button
-                type="button"
-                className="btn btn-primary p2p-sync-now-btn"
+              <Button
+                variant="primary"
+                className="p2p-sync-now-btn"
+                leftIcon={<RefreshIcon />}
                 onClick={() => {
                   performSync(true);
                 }}
               >
-                🔄 {t("friends.syncNow")}
-              </button>
+                {t("friends.syncNow")}
+              </Button>
             </div>
 
             <div className="friends-modal-footer">
