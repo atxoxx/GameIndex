@@ -255,7 +255,12 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
       await invoke("set_autostart_enabled", { enabled: next });
     } catch (err) {
       console.warn("[SettingsContext] set_autostart_enabled failed:", err);
-      throw err; // Let SettingsPage roll back the optimistic state.
+      // Roll back the optimistic flip so the toggle reflects the OS
+      // state the backend actually persisted (or failed to). The page
+      // surfaces the error via toast; without this revert the checkbox
+      // would stay flipped until the next app restart.
+      setAutoStartEnabledState(!next);
+      throw err;
     }
   }, []);
 
