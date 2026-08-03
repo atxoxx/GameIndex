@@ -3,23 +3,49 @@
    ============================================================ */
 
 :root {
-  --bigscreen-focus-glow: 0 0 24px rgba(59, 130, 246, 0.4), 0 0 8px rgba(255, 255, 255, 0.2);
-  --bigscreen-glass-bg: rgba(18, 18, 24, 0.65);
-  --bigscreen-glass-border: 1px solid rgba(255, 255, 255, 0.08);
+  /* Big Screen is a dark-only TV shell, so its neutral ramp is defined
+   * here (page-scoped custom properties) instead of following the
+   * light/dark theme. The accent + status colors still come from the
+   * app's token system so the shell tracks the active theme's accent.
+   * Every hardcoded value in this file must resolve through one of
+   * these variables — never inline hex/rgba. */
+  --bigscreen-bg: #030305;
+  --bigscreen-bg-raised: #0e1016;
+  --bigscreen-text: #ffffff;
+  --bigscreen-surface: color-mix(in srgb, var(--bigscreen-text) 5%, transparent);
+  --bigscreen-surface-hover: color-mix(in srgb, var(--bigscreen-text) 12%, transparent);
+  --bigscreen-border: color-mix(in srgb, var(--bigscreen-text) 10%, transparent);
+  --bigscreen-shadow: #000000;
+  --bigscreen-accent: var(--color-accent);
+  --bigscreen-accent-glow: var(--color-accent-glow);
+  --bigscreen-accent-soft-text: color-mix(in srgb, var(--color-accent) 70%, white 30%);
+  --bigscreen-success: var(--color-success);
+  --bigscreen-success-soft: color-mix(in srgb, var(--color-success) 75%, white 25%);
+  --bigscreen-warning: var(--color-warning);
+  --bigscreen-warning-soft: color-mix(in srgb, var(--color-warning) 75%, white 25%);
+  --bigscreen-danger: var(--color-danger);
+  --bigscreen-danger-soft: color-mix(in srgb, var(--color-danger) 80%, white 20%);
+  --bigscreen-info: var(--color-info);
+  --bigscreen-info-soft: color-mix(in srgb, var(--color-info) 75%, white 25%);
+  --bigscreen-glass-bg: color-mix(in srgb, var(--bigscreen-bg) 65%, transparent);
+  --bigscreen-glass-border: 1px solid var(--bigscreen-border);
   --bigscreen-glass-blur: blur(20px);
+  /* Single accent ring + one soft glow — the only glow this surface uses
+   * (focus states), per the design contract. */
+  --bigscreen-focus-glow: 0 0 0 2px var(--bigscreen-bg), 0 0 0 3px var(--bigscreen-accent), 0 4px 16px var(--bigscreen-accent-glow);
 }
 
 [data-bigscreen="true"] {
   font-size: 16px;
-  background-color: #030305;
-  color: #ffffff;
+  background-color: var(--bigscreen-bg);
+  color: var(--bigscreen-text);
   overflow: hidden;
   user-select: none;
 }
 
 [data-bigscreen="true"] body {
-  background-color: #030305;
-  color: #ffffff;
+  background-color: var(--bigscreen-bg);
+  color: var(--bigscreen-text);
 }
 
 /* Base Layout */
@@ -30,7 +56,7 @@
   display: flex;
   flex-direction: column;
   overflow: hidden;
-  background-color: #030305;
+  background-color: var(--bigscreen-bg);
   font-family: "Outfit", "Inter", system-ui, -apple-system, sans-serif;
 }
 
@@ -67,7 +93,7 @@
   align-items: center;
   justify-content: space-between;
   padding: 0 48px;
-  background: linear-gradient(to bottom, rgba(3, 3, 5, 0.85) 0%, rgba(3, 3, 5, 0.3) 70%, transparent 100%);
+  background: linear-gradient(to bottom, color-mix(in srgb, var(--bigscreen-bg) 85%, transparent) 0%, color-mix(in srgb, var(--bigscreen-bg) 30%, transparent) 70%, transparent 100%);
   backdrop-filter: blur(12px);
   -webkit-backdrop-filter: blur(12px);
 }
@@ -93,19 +119,16 @@
   font-weight: 900;
   font-size: 22px;
   letter-spacing: 2px;
-  color: #ffffff;
+  color: var(--bigscreen-text);
   margin-right: 24px;
 }
 
 .bigscreen-header-logo svg {
-  color: var(--color-accent, #3b82f6);
-  filter: drop-shadow(0 0 8px var(--color-accent-glow, rgba(59, 130, 246, 0.4)));
+  color: var(--color-accent);
 }
 
 .bigscreen-header-logo-text {
-  background: linear-gradient(135deg, #ffffff 40%, rgba(255, 255, 255, 0.7) 100%);
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
+  color: var(--bigscreen-text);
 }
 
 .bigscreen-header-tabs {
@@ -118,8 +141,8 @@
   overflow-y: hidden;
   scrollbar-width: none;
   -ms-overflow-style: none;
-  -webkit-mask-image: linear-gradient(to right, transparent 0, #000 16px, #000 calc(100% - 16px), transparent 100%);
-  mask-image: linear-gradient(to right, transparent 0, #000 16px, #000 calc(100% - 16px), transparent 100%);
+  -webkit-mask-image: linear-gradient(to right, transparent 0, var(--bigscreen-shadow) 16px, var(--bigscreen-shadow) calc(100% - 16px), transparent 100%);
+  mask-image: linear-gradient(to right, transparent 0, var(--bigscreen-shadow) 16px, var(--bigscreen-shadow) calc(100% - 16px), transparent 100%);
 }
 
 .bigscreen-header-tabs::-webkit-scrollbar {
@@ -133,15 +156,15 @@
   padding: 8px 18px;
   border-radius: 30px;
   border: 1px solid transparent;
-  background: rgba(255, 255, 255, 0.03);
-  color: rgba(255, 255, 255, 0.55);
+  background: color-mix(in srgb, var(--bigscreen-text) 3%, transparent);
+  color: color-mix(in srgb, var(--bigscreen-text) 55.00000000000001%, transparent);
   font-size: 15px;
   font-weight: 700;
   text-decoration: none;
   cursor: pointer;
   outline: none;
   white-space: nowrap;
-  transition: all 0.25s cubic-bezier(0.2, 0.8, 0.2, 1);
+  transition: color 0.25s cubic-bezier(0.2, 0.8, 0.2, 1), background 0.25s cubic-bezier(0.2, 0.8, 0.2, 1), border-color 0.25s cubic-bezier(0.2, 0.8, 0.2, 1), box-shadow 0.25s cubic-bezier(0.2, 0.8, 0.2, 1), opacity 0.25s cubic-bezier(0.2, 0.8, 0.2, 1), transform 0.25s cubic-bezier(0.2, 0.8, 0.2, 1);
 }
 
 .bigscreen-header-tab-icon {
@@ -151,21 +174,21 @@
 
 .bigscreen-header-tab:hover,
 .bigscreen-header-tab[data-focused="true"] {
-  color: #ffffff;
-  background: rgba(255, 255, 255, 0.12);
-  border-color: rgba(255, 255, 255, 0.25);
+  color: var(--bigscreen-text);
+  background: color-mix(in srgb, var(--bigscreen-text) 12%, transparent);
+  border-color: color-mix(in srgb, var(--bigscreen-text) 25%, transparent);
   transform: translateY(-2px);
 }
 
 .bigscreen-header-tab[data-focused="true"] {
-  border-color: #ffffff;
+  border-color: var(--bigscreen-text);
   box-shadow: var(--bigscreen-focus-glow);
 }
 
 .bigscreen-header-tab.active {
-  color: #ffffff;
-  background: rgba(59, 130, 246, 0.15);
-  border-color: rgba(59, 130, 246, 0.35);
+  color: var(--bigscreen-text);
+  background: color-mix(in srgb, var(--bigscreen-accent) 15%, transparent);
+  border-color: color-mix(in srgb, var(--bigscreen-accent) 35%, transparent);
   font-weight: 800;
 }
 
@@ -178,22 +201,22 @@
 }
 
 .bigscreen-header-tab--exit {
-  background: rgba(239, 68, 68, 0.08);
-  color: rgba(239, 68, 68, 0.7);
+  background: color-mix(in srgb, var(--bigscreen-danger) 8%, transparent);
+  color: color-mix(in srgb, var(--bigscreen-danger) 70%, transparent);
 }
 
 .bigscreen-header-tab--exit:hover,
 .bigscreen-header-tab--exit[data-focused="true"] {
-  background: rgba(239, 68, 68, 0.2);
-  color: #ef4444;
-  border-color: rgba(239, 68, 68, 0.35);
+  background: color-mix(in srgb, var(--bigscreen-danger) 20%, transparent);
+  color: var(--bigscreen-danger);
+  border-color: color-mix(in srgb, var(--bigscreen-danger) 35%, transparent);
 }
 
 .bigscreen-header-clock {
   font-size: 16px;
   font-weight: 800;
-  color: rgba(255, 255, 255, 0.95);
-  border-left: 2px solid rgba(255, 255, 255, 0.1);
+  color: color-mix(in srgb, var(--bigscreen-text) 95%, transparent);
+  border-left: 2px solid color-mix(in srgb, var(--bigscreen-text) 10%, transparent);
   padding-left: 16px;
   letter-spacing: 0.5px;
 }
@@ -202,12 +225,12 @@
   width: 36px;
   height: 36px;
   border-radius: 50%;
-  background: rgba(255, 255, 255, 0.08);
-  border: 1.5px solid rgba(255, 255, 255, 0.15);
+  background: color-mix(in srgb, var(--bigscreen-text) 8%, transparent);
+  border: 1.5px solid color-mix(in srgb, var(--bigscreen-text) 15%, transparent);
   display: flex;
   align-items: center;
   justify-content: center;
-  color: rgba(255, 255, 255, 0.85);
+  color: color-mix(in srgb, var(--bigscreen-text) 85%, transparent);
 }
 
 /* ── BACKDROP SYSTEM ────────────────────────────────────────────────── */
@@ -231,9 +254,9 @@
 .bigscreen-dashboard-backdrop-overlay {
   position: absolute;
   inset: 0;
-  background: radial-gradient(circle at 10% 30%, rgba(3, 3, 5, 0.1) 0%, rgba(3, 3, 5, 0.8) 60%, #030305 100%),
-              linear-gradient(to top, #030305 0%, rgba(3, 3, 5, 0.8) 20%, transparent 60%),
-              linear-gradient(to bottom, rgba(3, 3, 5, 0.8) 0%, transparent 20%);
+  background: radial-gradient(circle at 10% 30%, color-mix(in srgb, var(--bigscreen-bg) 10%, transparent) 0%, color-mix(in srgb, var(--bigscreen-bg) 80%, transparent) 60%, var(--bigscreen-bg) 100%),
+              linear-gradient(to top, var(--bigscreen-bg) 0%, color-mix(in srgb, var(--bigscreen-bg) 80%, transparent) 20%, transparent 60%),
+              linear-gradient(to bottom, color-mix(in srgb, var(--bigscreen-bg) 80%, transparent) 0%, transparent 20%);
 }
 
 /* Ken Burns / Fade In animation for backdrop */
@@ -302,11 +325,11 @@
 .bigscreen-details-title {
   font-size: 52px;
   font-weight: 900;
-  color: #ffffff;
+  color: var(--bigscreen-text);
   margin: 0;
   letter-spacing: -1px;
   line-height: 1.1;
-  text-shadow: 0 4px 24px rgba(0, 0, 0, 0.85);
+  text-shadow: 0 4px 24px color-mix(in srgb, var(--bigscreen-shadow) 85%, transparent);
 }
 
 .bigscreen-details-meta {
@@ -319,9 +342,9 @@
 .bigscreen-details-description {
   font-size: 17px;
   line-height: 1.6;
-  color: rgba(255, 255, 255, 0.75);
+  color: color-mix(in srgb, var(--bigscreen-text) 75%, transparent);
   margin: 0 0 28px 0;
-  text-shadow: 0 2px 10px rgba(0, 0, 0, 0.6);
+  text-shadow: 0 2px 10px color-mix(in srgb, var(--bigscreen-shadow) 60%, transparent);
   max-width: 680px;
 }
 
@@ -341,7 +364,7 @@
   font-weight: 800;
   text-decoration: none;
   cursor: pointer;
-  transition: all 0.25s cubic-bezier(0.2, 0.8, 0.2, 1);
+  transition: color 0.25s cubic-bezier(0.2, 0.8, 0.2, 1), background 0.25s cubic-bezier(0.2, 0.8, 0.2, 1), border-color 0.25s cubic-bezier(0.2, 0.8, 0.2, 1), box-shadow 0.25s cubic-bezier(0.2, 0.8, 0.2, 1), opacity 0.25s cubic-bezier(0.2, 0.8, 0.2, 1), transform 0.25s cubic-bezier(0.2, 0.8, 0.2, 1);
   outline: none;
   border: 2px solid transparent;
 }
@@ -350,7 +373,7 @@
   background: var(--color-accent);
   color: var(--color-text-inverse);
   padding: 12px 36px;
-  box-shadow: 0 8px 24px var(--color-accent-glow);
+  box-shadow: 0 2px 8px color-mix(in srgb, var(--color-accent) 30%, transparent);
 }
 
 .bigscreen-details-btn--primary[data-focused="true"] {
@@ -358,37 +381,35 @@
   color: var(--color-text-inverse);
   border-color: var(--color-text-inverse);
   box-shadow: var(--bigscreen-focus-glow);
-  transform: scale(1.06);
+  transform: translateY(-2px);
 }
 
 .bigscreen-details-btn--danger {
   background: var(--color-danger);
   color: var(--color-text-inverse);
   padding: 12px 36px;
-  box-shadow: 0 8px 24px color-mix(in srgb, var(--color-danger) 30%, transparent);
+  box-shadow: 0 2px 8px color-mix(in srgb, var(--color-danger) 30%, transparent);
 }
 
 .bigscreen-details-btn--danger[data-focused="true"] {
   background: color-mix(in srgb, var(--color-danger) 85%, black 15%);
   border-color: var(--color-text-inverse);
-  box-shadow: 0 0 20px color-mix(in srgb, var(--color-danger) 50%, transparent), 0 0 4px var(--color-text-inverse);
-  transform: scale(1.06);
+  box-shadow: var(--bigscreen-focus-glow);
+  transform: translateY(-2px);
 }
 
 .bigscreen-details-btn--secondary {
-  background: rgba(255, 255, 255, 0.08);
-  color: #ffffff;
+  background: color-mix(in srgb, var(--bigscreen-text) 8%, transparent);
+  color: var(--bigscreen-text);
   padding: 12px 28px;
-  border-color: rgba(255, 255, 255, 0.15);
-  backdrop-filter: var(--bigscreen-glass-blur);
-  -webkit-backdrop-filter: var(--bigscreen-glass-blur);
+  border-color: color-mix(in srgb, var(--bigscreen-text) 15%, transparent);
 }
 
 .bigscreen-details-btn--secondary[data-focused="true"] {
-  background: rgba(255, 255, 255, 0.2);
-  border-color: #ffffff;
+  background: color-mix(in srgb, var(--bigscreen-text) 20%, transparent);
+  border-color: var(--bigscreen-text);
   box-shadow: var(--bigscreen-focus-glow);
-  transform: scale(1.06);
+  transform: translateY(-2px);
 }
 
 /* Home Page Right Widgets Panel */
@@ -402,10 +423,8 @@
 }
 
 .bigscreen-widget-card {
-  background: var(--bigscreen-glass-bg);
+  background: var(--color-bg-secondary);
   border: var(--bigscreen-glass-border);
-  backdrop-filter: var(--bigscreen-glass-blur);
-  -webkit-backdrop-filter: var(--bigscreen-glass-blur);
   border-radius: 16px;
   padding: 20px;
   display: flex;
@@ -413,13 +432,13 @@
   gap: 12px;
   cursor: pointer;
   outline: none;
-  transition: all 0.25s cubic-bezier(0.2, 0.8, 0.2, 1);
+  transition: color 0.25s cubic-bezier(0.2, 0.8, 0.2, 1), background 0.25s cubic-bezier(0.2, 0.8, 0.2, 1), border-color 0.25s cubic-bezier(0.2, 0.8, 0.2, 1), box-shadow 0.25s cubic-bezier(0.2, 0.8, 0.2, 1), opacity 0.25s cubic-bezier(0.2, 0.8, 0.2, 1), transform 0.25s cubic-bezier(0.2, 0.8, 0.2, 1);
 }
 
 .bigscreen-widget-card[data-focused="true"] {
-  border-color: #ffffff;
+  border-color: var(--bigscreen-text);
   box-shadow: var(--bigscreen-focus-glow);
-  transform: scale(1.03) translateY(-2px);
+  transform: translateY(-2px);
 }
 
 .bigscreen-widget-header {
@@ -433,14 +452,14 @@
   font-weight: 800;
   text-transform: uppercase;
   letter-spacing: 1px;
-  color: rgba(255, 255, 255, 0.45);
+  color: color-mix(in srgb, var(--bigscreen-text) 45%, transparent);
 }
 
 .bigscreen-widget-badge {
   font-size: 10px;
   font-weight: 900;
-  background: #ef4444;
-  color: #ffffff;
+  background: var(--bigscreen-danger);
+  color: var(--bigscreen-text);
   padding: 2px 8px;
   border-radius: 10px;
   letter-spacing: 0.5px;
@@ -449,7 +468,7 @@
 .bigscreen-widget-game-name {
   font-size: 18px;
   font-weight: 800;
-  color: #ffffff;
+  color: var(--bigscreen-text);
 }
 
 .bigscreen-widget-progress-row {
@@ -463,7 +482,7 @@
 .dl-progress-bar {
   flex: 1;
   height: 6px;
-  background: rgba(255, 255, 255, 0.08);
+  background: color-mix(in srgb, var(--bigscreen-text) 8%, transparent);
   border-radius: 4px;
   overflow: hidden;
 }
@@ -471,21 +490,19 @@
 .bigscreen-widget-progress-fill,
 .dl-progress-fill {
   height: 100%;
-  background: linear-gradient(90deg, var(--color-accent, #3b82f6) 0%, var(--color-accent-hover, #60a5fa) 100%);
-  box-shadow: 0 0 10px var(--color-accent-glow, rgba(59, 130, 246, 0.5));
+  background: var(--bigscreen-accent);
   border-radius: 4px;
 }
 
 .storage-fill {
-  background: var(--color-accent) !important;
-  box-shadow: 0 0 10px var(--color-accent-glow) !important;
+  background: var(--bigscreen-accent) !important;
 }
 
 .bigscreen-widget-progress-percent,
 .dl-percent {
   font-size: 14px;
   font-weight: 800;
-  color: #ffffff;
+  color: var(--bigscreen-text);
 }
 
 .bigscreen-widget-download-meta {
@@ -493,18 +510,18 @@
   justify-content: space-between;
   font-size: 13px;
   font-weight: 700;
-  color: rgba(255, 255, 255, 0.55);
+  color: color-mix(in srgb, var(--bigscreen-text) 55.00000000000001%, transparent);
 }
 
 .bigscreen-widget-status-msg {
   font-size: 20px;
   font-weight: 800;
-  color: #10b981;
+  color: var(--bigscreen-success);
 }
 
 .bigscreen-widget-status-desc {
   font-size: 14px;
-  color: rgba(255, 255, 255, 0.5);
+  color: color-mix(in srgb, var(--bigscreen-text) 50%, transparent);
   font-weight: 600;
 }
 
@@ -530,7 +547,7 @@
 .bigscreen-rail-title {
   font-size: 20px;
   font-weight: 800;
-  color: rgba(255, 255, 255, 0.9);
+  color: color-mix(in srgb, var(--bigscreen-text) 90%, transparent);
   margin: 0;
   letter-spacing: 0.5px;
 }
@@ -538,8 +555,8 @@
 .bigscreen-rail-count {
   font-size: 12px;
   font-weight: 800;
-  background: rgba(255, 255, 255, 0.08);
-  color: rgba(255, 255, 255, 0.5);
+  background: color-mix(in srgb, var(--bigscreen-text) 8%, transparent);
+  color: color-mix(in srgb, var(--bigscreen-text) 50%, transparent);
   padding: 3px 10px;
   border-radius: 6px;
 }
@@ -568,10 +585,10 @@
   position: relative;
   background-color: var(--color-bg-card);
   border: var(--bigscreen-glass-border);
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
+  box-shadow: 0 8px 24px color-mix(in srgb, var(--bigscreen-shadow) 50%, transparent);
   cursor: pointer;
   outline: none;
-  transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
+  transition: color 0.3s cubic-bezier(0.25, 0.8, 0.25, 1), background 0.3s cubic-bezier(0.25, 0.8, 0.25, 1), border-color 0.3s cubic-bezier(0.25, 0.8, 0.25, 1), box-shadow 0.3s cubic-bezier(0.25, 0.8, 0.25, 1), opacity 0.3s cubic-bezier(0.25, 0.8, 0.25, 1), transform 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
 }
 
 .bigscreen-game-card-cover {
@@ -588,9 +605,9 @@
 }
 
 .bigscreen-game-card[data-focused="true"] {
-  transform: scale(1.08) translateY(-6px);
-  border-color: #ffffff;
-  box-shadow: 0 16px 36px rgba(0, 0, 0, 0.7), var(--bigscreen-focus-glow);
+  transform: translateY(-2px);
+  border-color: var(--bigscreen-text);
+  box-shadow: 0 8px 24px color-mix(in srgb, var(--bigscreen-shadow) 60%, transparent), var(--bigscreen-focus-glow);
 }
 
 .bigscreen-game-card-running-dot {
@@ -600,8 +617,8 @@
   width: 10px;
   height: 10px;
   border-radius: 50%;
-  background-color: #10b981;
-  box-shadow: 0 0 10px #10b981, 0 0 20px #10b981;
+  background-color: var(--bigscreen-success);
+  box-shadow: 0 0 6px color-mix(in srgb, var(--bigscreen-success) 60%, transparent);
   z-index: 5;
 }
 
@@ -611,20 +628,18 @@
   bottom: 0;
   left: 0;
   right: 0;
-  background: linear-gradient(to top, rgba(10, 10, 15, 0.95) 0%, rgba(10, 10, 15, 0.6) 60%, transparent 100%);
+  background: linear-gradient(to top, color-mix(in srgb, var(--bigscreen-bg) 95%, transparent) 0%, color-mix(in srgb, var(--bigscreen-bg) 60%, transparent) 60%, transparent 100%);
   padding: 12px;
   display: flex;
   flex-direction: column;
   gap: 4px;
-  backdrop-filter: blur(4px);
-  -webkit-backdrop-filter: blur(4px);
   z-index: 4;
 }
 
 .bigscreen-game-card-name {
   font-size: 13px;
   font-weight: 800;
-  color: #ffffff;
+  color: var(--bigscreen-text);
   margin: 0;
   white-space: nowrap;
   overflow: hidden;
@@ -637,18 +652,18 @@
   align-items: center;
   font-size: 11px;
   font-weight: 700;
-  color: rgba(255, 255, 255, 0.5);
+  color: color-mix(in srgb, var(--bigscreen-text) 50%, transparent);
 }
 
 .bigscreen-game-card-platform {
-  background: rgba(255, 255, 255, 0.1);
+  background: color-mix(in srgb, var(--bigscreen-text) 10%, transparent);
   padding: 1px 6px;
   border-radius: 4px;
-  color: #ffffff;
+  color: var(--bigscreen-text);
 }
 
 .bigscreen-game-card-playtime {
-  color: var(--color-accent, #3b82f6);
+  color: var(--color-accent);
 }
 
 /* Virtual Cursor Styles */
@@ -672,9 +687,9 @@
   width: 100%;
   height: 100%;
   border-radius: 50%;
-  background: rgba(255, 255, 255, 0.2);
-  border: 2px solid #ffffff;
-  box-shadow: 0 0 10px rgba(59, 130, 246, 0.8), 0 0 2px rgba(255, 255, 255, 0.8);
+  background: color-mix(in srgb, var(--bigscreen-text) 20%, transparent);
+  border: 2px solid var(--bigscreen-text);
+  box-shadow: 0 0 8px var(--bigscreen-accent-glow);
   box-sizing: border-box;
 }
 
@@ -685,8 +700,8 @@
   width: 6px;
   height: 6px;
   border-radius: 50%;
-  background: var(--color-accent, #3b82f6);
-  box-shadow: 0 0 4px var(--color-accent, #3b82f6);
+  background: var(--color-accent);
+  box-shadow: 0 0 4px var(--color-accent);
 }
 
 .virtual-cursor-ring {
@@ -695,7 +710,7 @@
   left: -4px;
   width: 32px;
   height: 32px;
-  border: 1.5px dashed rgba(59, 130, 246, 0.5);
+  border: 1.5px dashed color-mix(in srgb, var(--bigscreen-accent) 50%, transparent);
   border-radius: 50%;
   box-sizing: border-box;
   opacity: 0;
@@ -749,27 +764,27 @@
   gap: 8px;
   padding: 10px 20px;
   border-radius: 30px;
-  background: rgba(255, 255, 255, 0.04);
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  color: rgba(255, 255, 255, 0.7);
+  background: color-mix(in srgb, var(--bigscreen-text) 4%, transparent);
+  border: 1px solid color-mix(in srgb, var(--bigscreen-text) 8%, transparent);
+  color: color-mix(in srgb, var(--bigscreen-text) 70%, transparent);
   font-size: 14px;
   font-weight: 700;
   cursor: pointer;
   outline: none;
-  transition: all 0.25s cubic-bezier(0.2, 0.8, 0.2, 1);
+  transition: color 0.25s cubic-bezier(0.2, 0.8, 0.2, 1), background 0.25s cubic-bezier(0.2, 0.8, 0.2, 1), border-color 0.25s cubic-bezier(0.2, 0.8, 0.2, 1), box-shadow 0.25s cubic-bezier(0.2, 0.8, 0.2, 1), opacity 0.25s cubic-bezier(0.2, 0.8, 0.2, 1), transform 0.25s cubic-bezier(0.2, 0.8, 0.2, 1);
 }
 
 .bigscreen-filter-chip span {
-  color: var(--color-accent, #3b82f6);
+  color: var(--color-accent);
   font-weight: 800;
 }
 
 .bigscreen-filter-chip:hover,
 .bigscreen-filter-chip[data-focused="true"] {
-  background: rgba(255, 255, 255, 0.12);
-  border-color: #ffffff;
-  color: #ffffff;
-  transform: scale(1.04);
+  background: color-mix(in srgb, var(--bigscreen-text) 12%, transparent);
+  border-color: var(--bigscreen-text);
+  color: var(--bigscreen-text);
+  transform: translateY(-2px);
 }
 
 .bigscreen-filter-chip[data-focused="true"] {
@@ -789,7 +804,7 @@
   background: transparent;
   border: none;
   outline: none;
-  color: #ffffff;
+  color: var(--bigscreen-text);
   font-size: 14px;
   font-weight: 700;
   width: 100%;
@@ -798,21 +813,21 @@
 }
 
 .bigscreen-filter-chip--search.search-active {
-  background: rgba(255, 255, 255, 0.15) !important;
-  border-color: #ffffff !important;
+  background: color-mix(in srgb, var(--bigscreen-text) 15%, transparent) !important;
+  border-color: var(--bigscreen-text) !important;
 }
 
 .bigscreen-filter-chip--reset {
-  background: rgba(239, 68, 68, 0.08);
-  border-color: rgba(239, 68, 68, 0.2);
-  color: #f87171;
+  background: color-mix(in srgb, var(--bigscreen-danger) 8%, transparent);
+  border-color: color-mix(in srgb, var(--bigscreen-danger) 20%, transparent);
+  color: var(--bigscreen-danger-soft);
 }
 
 .bigscreen-filter-chip--reset:hover,
 .bigscreen-filter-chip--reset[data-focused="true"] {
-  background: rgba(239, 68, 68, 0.2);
-  border-color: #ef4444;
-  color: #ffffff;
+  background: color-mix(in srgb, var(--bigscreen-danger) 20%, transparent);
+  border-color: var(--bigscreen-danger);
+  color: var(--bigscreen-text);
 }
 
 /* Covers Grid */
@@ -835,7 +850,7 @@
   align-items: center;
   justify-content: center;
   min-height: 300px;
-  color: rgba(255, 255, 255, 0.55);
+  color: color-mix(in srgb, var(--bigscreen-text) 55.00000000000001%, transparent);
 }
 
 /* ── SYSTEM HUB (SETTINGS & WIDGETS) ────────────────────────────────── */
@@ -873,22 +888,22 @@
   gap: 16px;
   padding: 16px 24px;
   border-radius: 12px;
-  background: rgba(255, 255, 255, 0.03);
+  background: color-mix(in srgb, var(--bigscreen-text) 3%, transparent);
   border: var(--bigscreen-glass-border);
-  color: rgba(255, 255, 255, 0.6);
+  color: color-mix(in srgb, var(--bigscreen-text) 60%, transparent);
   font-size: 16px;
   font-weight: 700;
   text-align: left;
   cursor: pointer;
   outline: none;
-  transition: all 0.25s cubic-bezier(0.2, 0.8, 0.2, 1);
+  transition: color 0.25s cubic-bezier(0.2, 0.8, 0.2, 1), background 0.25s cubic-bezier(0.2, 0.8, 0.2, 1), border-color 0.25s cubic-bezier(0.2, 0.8, 0.2, 1), box-shadow 0.25s cubic-bezier(0.2, 0.8, 0.2, 1), opacity 0.25s cubic-bezier(0.2, 0.8, 0.2, 1), transform 0.25s cubic-bezier(0.2, 0.8, 0.2, 1);
 }
 
 .bigscreen-system-menu-item:hover,
 .bigscreen-system-menu-item[data-focused="true"] {
-  color: #ffffff;
-  background: rgba(255, 255, 255, 0.1);
-  border-color: #ffffff;
+  color: var(--bigscreen-text);
+  background: color-mix(in srgb, var(--bigscreen-text) 10%, transparent);
+  border-color: var(--bigscreen-text);
   transform: translateX(4px);
 }
 
@@ -897,18 +912,16 @@
 }
 
 .bigscreen-system-menu-item.active {
-  color: #ffffff;
-  background: rgba(59, 130, 246, 0.15);
-  border-color: rgba(59, 130, 246, 0.35);
+  color: var(--bigscreen-text);
+  background: color-mix(in srgb, var(--bigscreen-accent) 15%, transparent);
+  border-color: color-mix(in srgb, var(--bigscreen-accent) 35%, transparent);
   font-weight: 800;
 }
 
 .bigscreen-system-right-pane {
   flex: 2.2;
-  background: var(--bigscreen-glass-bg);
+  background: var(--color-bg-secondary);
   border: var(--bigscreen-glass-border);
-  backdrop-filter: var(--bigscreen-glass-blur);
-  -webkit-backdrop-filter: var(--bigscreen-glass-blur);
   border-radius: 20px;
   padding: 32px;
   overflow-y: auto;
@@ -927,7 +940,7 @@
   align-items: center;
   justify-content: center;
   height: 250px;
-  color: rgba(255, 255, 255, 0.5);
+  color: color-mix(in srgb, var(--bigscreen-text) 50%, transparent);
   font-weight: 600;
 }
 
@@ -943,9 +956,9 @@
   justify-content: space-between;
   align-items: center;
   padding: 16px 24px;
-  background: rgba(255, 255, 255, 0.03);
+  background: color-mix(in srgb, var(--bigscreen-text) 3%, transparent);
   border-radius: 12px;
-  border: 1px solid rgba(255, 255, 255, 0.05);
+  border: 1px solid color-mix(in srgb, var(--bigscreen-text) 5%, transparent);
 }
 
 .setting-info {
@@ -957,34 +970,34 @@
 .setting-label {
   font-size: 16px;
   font-weight: 800;
-  color: #ffffff;
+  color: var(--bigscreen-text);
 }
 
 .setting-desc {
   font-size: 13px;
-  color: rgba(255, 255, 255, 0.5);
+  color: color-mix(in srgb, var(--bigscreen-text) 50%, transparent);
   font-weight: 600;
 }
 
 .setting-cycle-btn {
   padding: 10px 24px;
-  background: rgba(255, 255, 255, 0.08);
-  border: 1px solid rgba(255, 255, 255, 0.15);
-  color: #ffffff;
+  background: color-mix(in srgb, var(--bigscreen-text) 8%, transparent);
+  border: 1px solid color-mix(in srgb, var(--bigscreen-text) 15%, transparent);
+  color: var(--bigscreen-text);
   border-radius: 20px;
   font-size: 14px;
   font-weight: 800;
   cursor: pointer;
   outline: none;
-  transition: all 0.2s;
+  transition: color var(--transition-fast), background var(--transition-fast), border-color var(--transition-fast), box-shadow var(--transition-fast), opacity var(--transition-fast), transform var(--transition-fast);
 }
 
 .setting-cycle-btn[data-focused="true"] {
-  background: #ffffff;
-  color: #030305;
-  border-color: #ffffff;
-  box-shadow: 0 0 16px rgba(255, 255, 255, 0.2);
-  transform: scale(1.05);
+  background: var(--bigscreen-text);
+  color: var(--bigscreen-bg);
+  border-color: var(--bigscreen-text);
+  box-shadow: var(--bigscreen-focus-glow);
+  transform: translateY(-2px);
 }
 
 /* Downloads view rows */
@@ -996,9 +1009,9 @@
 
 .system-download-row {
   padding: 20px;
-  background: rgba(255, 255, 255, 0.03);
+  background: color-mix(in srgb, var(--bigscreen-text) 3%, transparent);
   border-radius: 12px;
-  border: 1px solid rgba(255, 255, 255, 0.05);
+  border: 1px solid color-mix(in srgb, var(--bigscreen-text) 5%, transparent);
   display: flex;
   flex-direction: column;
   gap: 12px;
@@ -1018,8 +1031,8 @@
 .dl-status-badge {
   font-size: 11px;
   font-weight: 900;
-  background: rgba(59, 130, 246, 0.2);
-  color: #60a5fa;
+  background: color-mix(in srgb, var(--bigscreen-accent) 20%, transparent);
+  color: var(--bigscreen-accent-soft-text);
   padding: 3px 10px;
   border-radius: 8px;
 }
@@ -1036,34 +1049,34 @@
   font-weight: 800;
   cursor: pointer;
   outline: none;
-  transition: all 0.2s;
+  transition: color var(--transition-fast), background var(--transition-fast), border-color var(--transition-fast), box-shadow var(--transition-fast), opacity var(--transition-fast), transform var(--transition-fast);
   border: 1px solid transparent;
 }
 
 .dl-btn-pause,
 .dl-btn-play {
-  background: #ffffff;
-  color: #030305;
+  background: var(--bigscreen-text);
+  color: var(--bigscreen-bg);
 }
 
 .dl-btn-pause[data-focused="true"],
 .dl-btn-play[data-focused="true"] {
-  background: var(--color-accent, #3b82f6);
-  color: #ffffff;
-  border-color: #ffffff;
+  background: var(--color-accent);
+  color: var(--bigscreen-text);
+  border-color: var(--bigscreen-text);
   box-shadow: var(--bigscreen-focus-glow);
 }
 
 .dl-btn-cancel {
-  background: rgba(239, 68, 68, 0.1);
-  color: #f87171;
-  border-color: rgba(239, 68, 68, 0.2);
+  background: color-mix(in srgb, var(--bigscreen-danger) 10%, transparent);
+  color: var(--bigscreen-danger-soft);
+  border-color: color-mix(in srgb, var(--bigscreen-danger) 20%, transparent);
 }
 
 .dl-btn-cancel[data-focused="true"] {
-  background: #ef4444;
-  color: #ffffff;
-  border-color: #ffffff;
+  background: var(--bigscreen-danger);
+  color: var(--bigscreen-text);
+  border-color: var(--bigscreen-text);
 }
 
 /* Storage view rows */
@@ -1075,9 +1088,9 @@
 
 .system-storage-row {
   padding: 20px;
-  background: rgba(255, 255, 255, 0.03);
+  background: color-mix(in srgb, var(--bigscreen-text) 3%, transparent);
   border-radius: 12px;
-  border: 1px solid rgba(255, 255, 255, 0.05);
+  border: 1px solid color-mix(in srgb, var(--bigscreen-text) 5%, transparent);
   display: flex;
   flex-direction: column;
   gap: 10px;
@@ -1095,14 +1108,14 @@
 
 .drive-counts {
   font-size: 14px;
-  color: rgba(255, 255, 255, 0.55);
+  color: color-mix(in srgb, var(--bigscreen-text) 55.00000000000001%, transparent);
 }
 
 .drive-space-meta {
   display: flex;
   justify-content: flex-end;
   font-size: 13px;
-  color: rgba(255, 255, 255, 0.45);
+  color: color-mix(in srgb, var(--bigscreen-text) 45%, transparent);
   font-weight: 700;
 }
 
@@ -1115,21 +1128,21 @@
 
 .system-achievement-game-row {
   padding: 16px 20px;
-  background: rgba(255, 255, 255, 0.03);
+  background: color-mix(in srgb, var(--bigscreen-text) 3%, transparent);
   border-radius: 12px;
-  border: 1px solid rgba(255, 255, 255, 0.05);
+  border: 1px solid color-mix(in srgb, var(--bigscreen-text) 5%, transparent);
   display: flex;
   flex-direction: column;
   gap: 10px;
   cursor: pointer;
   outline: none;
-  transition: all 0.2s;
+  transition: color var(--transition-fast), background var(--transition-fast), border-color var(--transition-fast), box-shadow var(--transition-fast), opacity var(--transition-fast), transform var(--transition-fast);
 }
 
 .system-achievement-game-row[data-focused="true"] {
-  border-color: #ffffff;
-  background: rgba(255, 255, 255, 0.08);
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+  border-color: var(--bigscreen-text);
+  background: color-mix(in srgb, var(--bigscreen-text) 8%, transparent);
+  box-shadow: 0 4px 12px color-mix(in srgb, var(--bigscreen-shadow) 20%, transparent);
   transform: translateX(2px);
 }
 
@@ -1145,7 +1158,7 @@
 
 .ach-game-counts {
   font-size: 13px;
-  color: rgba(255, 255, 255, 0.55);
+  color: color-mix(in srgb, var(--bigscreen-text) 55.00000000000001%, transparent);
 }
 
 /* ── OVERLAY DRAWER MODAL (Filters Dropdown) ───────────────────────── */
@@ -1153,7 +1166,7 @@
 .bigscreen-overlay-drawer {
   position: fixed;
   inset: 0;
-  background: rgba(0, 0, 0, 0.7);
+  background: color-mix(in srgb, var(--bigscreen-shadow) 70%, transparent);
   backdrop-filter: blur(8px);
   -webkit-backdrop-filter: blur(8px);
   z-index: 9999;
@@ -1164,9 +1177,9 @@
 .bigscreen-overlay-drawer-panel {
   width: 440px;
   height: 100%;
-  background: #0b0c10;
+  background: var(--bigscreen-bg-raised);
   border-left: var(--bigscreen-glass-border);
-  box-shadow: -10px 0 36px rgba(0, 0, 0, 0.8);
+  box-shadow: -10px 0 36px color-mix(in srgb, var(--bigscreen-shadow) 80%, transparent);
   display: flex;
   flex-direction: column;
   padding: 32px;
@@ -1190,7 +1203,7 @@
 .bigscreen-overlay-drawer-close {
   background: transparent;
   border: none;
-  color: rgba(255, 255, 255, 0.55);
+  color: color-mix(in srgb, var(--bigscreen-text) 55.00000000000001%, transparent);
   font-size: 20px;
   cursor: pointer;
   outline: none;
@@ -1219,56 +1232,56 @@
   gap: 12px;
   padding: 12px 18px;
   border-radius: 8px;
-  background: rgba(255, 255, 255, 0.03);
-  border: 1px solid rgba(255, 255, 255, 0.05);
-  color: rgba(255, 255, 255, 0.65);
+  background: color-mix(in srgb, var(--bigscreen-text) 3%, transparent);
+  border: 1px solid color-mix(in srgb, var(--bigscreen-text) 5%, transparent);
+  color: color-mix(in srgb, var(--bigscreen-text) 65%, transparent);
   font-size: 14px;
   font-weight: 700;
   text-align: left;
   cursor: pointer;
   outline: none;
-  transition: all 0.2s;
+  transition: color var(--transition-fast), background var(--transition-fast), border-color var(--transition-fast), box-shadow var(--transition-fast), opacity var(--transition-fast), transform var(--transition-fast);
 }
 
 .bigscreen-overlay-drawer-option:hover,
 .bigscreen-overlay-drawer-option[data-focused="true"] {
-  background: rgba(255, 255, 255, 0.1);
-  border-color: #ffffff;
-  color: #ffffff;
+  background: color-mix(in srgb, var(--bigscreen-text) 10%, transparent);
+  border-color: var(--bigscreen-text);
+  color: var(--bigscreen-text);
 }
 
 .bigscreen-overlay-drawer-option[data-focused="true"] {
-  box-shadow: 0 0 12px rgba(255, 255, 255, 0.15);
+  box-shadow: var(--bigscreen-focus-glow);
 }
 
 .bigscreen-overlay-drawer-option.option-active {
-  border-color: var(--color-accent, #3b82f6);
-  background: rgba(59, 130, 246, 0.1);
-  color: #ffffff;
+  border-color: var(--color-accent);
+  background: color-mix(in srgb, var(--bigscreen-accent) 10%, transparent);
+  color: var(--bigscreen-text);
 }
 
 .option-checkbox {
   width: 18px;
   height: 18px;
   border-radius: 4px;
-  border: 1.5px solid rgba(255, 255, 255, 0.2);
+  border: 1.5px solid color-mix(in srgb, var(--bigscreen-text) 20%, transparent);
   display: flex;
   align-items: center;
   justify-content: center;
   font-size: 10px;
   font-weight: 900;
-  color: var(--color-accent, #3b82f6);
+  color: var(--color-accent);
 }
 
 .option-active .option-checkbox {
-  border-color: var(--color-accent, #3b82f6);
-  background: rgba(59, 130, 246, 0.1);
+  border-color: var(--color-accent);
+  background: color-mix(in srgb, var(--bigscreen-accent) 10%, transparent);
 }
 
 /* ── GAME HUB PAGE DETAILS ────────────────────────────────────────── */
 
 .bigscreen-gamepage {
-  background-color: #030305;
+  background-color: var(--bigscreen-bg);
   display: flex;
   flex-direction: column;
   height: 100%;
@@ -1286,28 +1299,28 @@
 }
 
 .bigscreen-gamepage-back-btn {
-  background: rgba(255, 255, 255, 0.05);
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  color: rgba(255, 255, 255, 0.7);
+  background: color-mix(in srgb, var(--bigscreen-text) 5%, transparent);
+  border: 1px solid color-mix(in srgb, var(--bigscreen-text) 10%, transparent);
+  color: color-mix(in srgb, var(--bigscreen-text) 70%, transparent);
   padding: 8px 18px;
   border-radius: 20px;
   font-size: 14px;
   font-weight: 700;
   cursor: pointer;
   outline: none;
-  transition: all 0.2s;
+  transition: color var(--transition-fast), background var(--transition-fast), border-color var(--transition-fast), box-shadow var(--transition-fast), opacity var(--transition-fast), transform var(--transition-fast);
 }
 
 .bigscreen-gamepage-back-btn:hover,
 .bigscreen-gamepage-back-btn[data-focused="true"] {
-  background: rgba(255, 255, 255, 0.12);
-  border-color: #ffffff;
-  color: #ffffff;
+  background: color-mix(in srgb, var(--bigscreen-text) 12%, transparent);
+  border-color: var(--bigscreen-text);
+  color: var(--bigscreen-text);
   transform: translateX(-4px);
 }
 
 .bigscreen-gamepage-back-btn[data-focused="true"] {
-  box-shadow: 0 0 12px rgba(255, 255, 255, 0.15);
+  box-shadow: var(--bigscreen-focus-glow);
 }
 
 .bigscreen-gamepage-hero-row {
@@ -1323,7 +1336,7 @@
   border-radius: 12px;
   overflow: hidden;
   border: var(--bigscreen-glass-border);
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
+  box-shadow: 0 8px 24px color-mix(in srgb, var(--bigscreen-shadow) 50%, transparent);
   flex-shrink: 0;
 }
 
@@ -1354,7 +1367,7 @@
 
 .bigscreen-gamepage-tabs-container {
   margin-bottom: 24px;
-  border-bottom: 1.5px solid rgba(255, 255, 255, 0.08);
+  border-bottom: 1.5px solid color-mix(in srgb, var(--bigscreen-text) 8%, transparent);
 }
 
 /* Generic Tab Bar */
@@ -1370,7 +1383,7 @@
 .bigscreen-gamepage > .bigscreen-tab-bar {
   padding: 0 64px;
   margin-bottom: 0;
-  border-bottom: 1.5px solid rgba(255, 255, 255, 0.08);
+  border-bottom: 1.5px solid color-mix(in srgb, var(--bigscreen-text) 8%, transparent);
 }
 
 .bigscreen-tab-bar-tabs {
@@ -1390,17 +1403,17 @@
   padding: 12px 24px;
   background: transparent;
   border: none;
-  color: rgba(255, 255, 255, 0.5);
+  color: color-mix(in srgb, var(--bigscreen-text) 50%, transparent);
   font-size: 15px;
   font-weight: 800;
   cursor: pointer;
   outline: none;
   position: relative;
-  transition: all 0.2s;
+  transition: color var(--transition-fast), background var(--transition-fast), border-color var(--transition-fast), box-shadow var(--transition-fast), opacity var(--transition-fast), transform var(--transition-fast);
 }
 
 .bigscreen-tab-bar-tab.active {
-  color: #ffffff;
+  color: var(--bigscreen-text);
 }
 
 .bigscreen-tab-bar-tab.active::after {
@@ -1410,25 +1423,24 @@
   left: 20%;
   right: 20%;
   height: 3px;
-  background: var(--color-accent, #3b82f6);
+  background: var(--color-accent);
   border-radius: 2px;
-  box-shadow: 0 0 10px var(--color-accent, #3b82f6);
 }
 
 .bigscreen-tab-bar-tab[data-focused="true"] {
-  color: #ffffff;
-  background: rgba(255, 255, 255, 0.06);
+  color: var(--bigscreen-text);
+  background: color-mix(in srgb, var(--bigscreen-text) 6%, transparent);
   border-radius: 6px;
 }
 
 .bigscreen-tab-bar-bumper {
   font-size: 11px;
   font-weight: 900;
-  color: rgba(255, 255, 255, 0.35);
+  color: color-mix(in srgb, var(--bigscreen-text) 35%, transparent);
   display: inline-flex;
   align-items: center;
   gap: 4px;
-  background: rgba(255, 255, 255, 0.05);
+  background: color-mix(in srgb, var(--bigscreen-text) 5%, transparent);
   padding: 2px 8px;
   border-radius: 4px;
 }
@@ -1473,10 +1485,10 @@
   inset: 0;
   background: linear-gradient(
     to bottom,
-    rgba(3, 3, 5, 0.1) 0%,
-    rgba(3, 3, 5, 0.4) 40%,
-    rgba(3, 3, 5, 0.85) 75%,
-    #030305 100%
+    color-mix(in srgb, var(--bigscreen-bg) 10%, transparent) 0%,
+    color-mix(in srgb, var(--bigscreen-bg) 40%, transparent) 40%,
+    color-mix(in srgb, var(--bigscreen-bg) 85%, transparent) 75%,
+    var(--bigscreen-bg) 100%
   );
   z-index: 1;
   pointer-events: none;
@@ -1492,7 +1504,7 @@
   background: linear-gradient(
     90deg,
     transparent 5%,
-    var(--color-accent, #3b82f6) 50%,
+    var(--color-accent) 50%,
     transparent 95%
   );
   opacity: 0.35;
@@ -1521,24 +1533,24 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  background: rgba(18, 18, 24, 0.6);
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  color: rgba(255, 255, 255, 0.7);
+  background: color-mix(in srgb, var(--bigscreen-bg) 60%, transparent);
+  border: 1px solid color-mix(in srgb, var(--bigscreen-text) 10%, transparent);
+  color: color-mix(in srgb, var(--bigscreen-text) 70%, transparent);
   backdrop-filter: blur(10px);
   -webkit-backdrop-filter: blur(10px);
   cursor: pointer;
   outline: none;
-  transition: all 0.25s cubic-bezier(0.2, 0.8, 0.2, 1);
+  transition: color 0.25s cubic-bezier(0.2, 0.8, 0.2, 1), background 0.25s cubic-bezier(0.2, 0.8, 0.2, 1), border-color 0.25s cubic-bezier(0.2, 0.8, 0.2, 1), box-shadow 0.25s cubic-bezier(0.2, 0.8, 0.2, 1), opacity 0.25s cubic-bezier(0.2, 0.8, 0.2, 1), transform 0.25s cubic-bezier(0.2, 0.8, 0.2, 1);
   z-index: 10;
 }
 
 .bigscreen-gamepage-hero-back:hover,
 .bigscreen-gamepage-hero-back[data-focused="true"] {
-  background: rgba(255, 255, 255, 0.15);
-  border-color: #ffffff;
-  color: #ffffff;
-  transform: scale(1.1);
-  box-shadow: 0 0 16px rgba(255, 255, 255, 0.2);
+  background: color-mix(in srgb, var(--bigscreen-text) 15%, transparent);
+  border-color: var(--bigscreen-text);
+  color: var(--bigscreen-text);
+  transform: translateY(-2px);
+  box-shadow: var(--bigscreen-focus-glow);
 }
 
 /* Game info cluster: logo or title + subtitle line. */
@@ -1554,18 +1566,18 @@
   max-width: 480px;
   object-fit: contain;
   display: block;
-  filter: drop-shadow(0 8px 24px rgba(0, 0, 0, 0.85));
+  filter: drop-shadow(0 8px 24px color-mix(in srgb, var(--bigscreen-shadow) 85%, transparent));
   margin-bottom: 8px;
 }
 
 .bigscreen-gamepage-hero-title {
   font-size: 58px;
   font-weight: 900;
-  color: #ffffff;
+  color: var(--bigscreen-text);
   margin: 0;
   letter-spacing: -1.5px;
   line-height: 1.05;
-  text-shadow: 0 8px 32px rgba(0, 0, 0, 0.9);
+  text-shadow: 0 8px 32px color-mix(in srgb, var(--bigscreen-shadow) 90%, transparent);
   margin-bottom: 8px;
 }
 
@@ -1580,15 +1592,15 @@
 .bigscreen-gamepage-hero-subtitle {
   font-size: 17px;
   font-weight: 600;
-  color: rgba(255, 255, 255, 0.6);
-  text-shadow: 0 2px 8px rgba(0, 0, 0, 0.5);
+  color: color-mix(in srgb, var(--bigscreen-text) 60%, transparent);
+  text-shadow: 0 2px 8px color-mix(in srgb, var(--bigscreen-shadow) 50%, transparent);
 }
 
 .bigscreen-gamepage-hero-subtitle-dot {
   width: 4px;
   height: 4px;
   border-radius: 50%;
-  background: rgba(255, 255, 255, 0.4);
+  background: color-mix(in srgb, var(--bigscreen-text) 40%, transparent);
   flex-shrink: 0;
 }
 
@@ -1612,24 +1624,24 @@
 
 /* Danger-tinted hero button (Remove). */
 .bigscreen-gamepage-hero-btn--danger {
-  border-color: rgba(239, 68, 68, 0.35) !important;
-  color: rgba(255, 255, 255, 0.6) !important;
+  border-color: color-mix(in srgb, var(--bigscreen-danger) 35%, transparent) !important;
+  color: color-mix(in srgb, var(--bigscreen-text) 60%, transparent) !important;
 }
 
 .bigscreen-gamepage-hero-btn--danger:hover,
 .bigscreen-gamepage-hero-btn--danger[data-focused="true"] {
-  background: rgba(239, 68, 68, 0.15) !important;
-  border-color: #ef4444 !important;
-  color: #ef4444 !important;
+  background: color-mix(in srgb, var(--bigscreen-danger) 15%, transparent) !important;
+  border-color: var(--bigscreen-danger) !important;
+  color: var(--bigscreen-danger) !important;
 }
 
 /* Tab bar inside the game page needs side padding + bottom border + sticky blur. */
 .bigscreen-gamepage > .bigscreen-tab-bar {
   padding: 16px 64px;
-  background: rgba(10, 10, 15, 0.7);
+  background: color-mix(in srgb, var(--bigscreen-bg) 70%, transparent);
   backdrop-filter: blur(25px) saturate(180%);
   -webkit-backdrop-filter: blur(25px) saturate(180%);
-  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  border-bottom: 1px solid color-mix(in srgb, var(--bigscreen-text) 8%, transparent);
   position: sticky;
   top: 0;
   z-index: 10;
@@ -1643,20 +1655,20 @@
   overflow-y: auto;
   padding: 0 64px 80px 64px;
   position: relative;
-  background: linear-gradient(180deg, rgba(3, 3, 5, 0.8) 0%, #030305 100%);
+  background: linear-gradient(180deg, color-mix(in srgb, var(--bigscreen-bg) 80%, transparent) 0%, var(--bigscreen-bg) 100%);
 }
 
 /* Interactive focusable cards scaling inside Game Hub */
 .bigscreen-gamepage-overview .bigscreen-focusable-card-wrapper,
 .bigscreen-gamepage-specs .bigscreen-focusable-card-wrapper,
 .bigscreen-gamepage-more .bigscreen-focusable-card-wrapper {
-  transition: all 0.3s cubic-bezier(0.2, 0.8, 0.2, 1);
+  transition: color 0.3s cubic-bezier(0.2, 0.8, 0.2, 1), background 0.3s cubic-bezier(0.2, 0.8, 0.2, 1), border-color 0.3s cubic-bezier(0.2, 0.8, 0.2, 1), box-shadow 0.3s cubic-bezier(0.2, 0.8, 0.2, 1), opacity 0.3s cubic-bezier(0.2, 0.8, 0.2, 1), transform 0.3s cubic-bezier(0.2, 0.8, 0.2, 1);
 }
 .bigscreen-gamepage-overview .bigscreen-focusable-card-wrapper[data-focused="true"],
 .bigscreen-gamepage-specs .bigscreen-focusable-card-wrapper[data-focused="true"],
 .bigscreen-gamepage-more .bigscreen-focusable-card-wrapper[data-focused="true"] {
-  transform: scale(1.02);
-  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.5), 0 0 0 2px rgba(255, 255, 255, 0.15);
+  transform: translateY(-2px);
+  box-shadow: var(--bigscreen-focus-glow);
 }
 
 /* Per-tab content wrapper — consistent spacing and readable width. */
@@ -1684,8 +1696,8 @@
   width: 8px;
   height: 8px;
   border-radius: 50%;
-  background: #10b981;
-  box-shadow: 0 0 8px rgba(16, 185, 129, 0.6);
+  background: var(--bigscreen-success);
+  box-shadow: 0 0 8px color-mix(in srgb, var(--bigscreen-success) 60%, transparent);
   animation: bigscreen-running-pulse 1.5s ease-in-out infinite;
 }
 
@@ -1702,7 +1714,7 @@
 }
 
 .overview-summary-card {
-  background: rgba(255, 255, 255, 0.03);
+  background: color-mix(in srgb, var(--bigscreen-text) 3%, transparent);
   border: var(--bigscreen-glass-border);
   border-radius: 16px;
   padding: 24px;
@@ -1718,7 +1730,7 @@
 .overview-summary-card p {
   font-size: 15px;
   line-height: 1.6;
-  color: rgba(255, 255, 255, 0.65);
+  color: color-mix(in srgb, var(--bigscreen-text) 65%, transparent);
   margin: 0;
 }
 
@@ -1729,8 +1741,8 @@
 }
 
 .overview-stat-card {
-  background: rgba(255, 255, 255, 0.02);
-  border: 1px solid rgba(255, 255, 255, 0.04);
+  background: color-mix(in srgb, var(--bigscreen-text) 2%, transparent);
+  border: 1px solid color-mix(in srgb, var(--bigscreen-text) 4%, transparent);
   border-radius: 12px;
   padding: 16px;
   display: flex;
@@ -1741,7 +1753,7 @@
 .stat-label {
   font-size: 11px;
   font-weight: 800;
-  color: rgba(255, 255, 255, 0.4);
+  color: color-mix(in srgb, var(--bigscreen-text) 40%, transparent);
   text-transform: uppercase;
   letter-spacing: 0.5px;
 }
@@ -1749,7 +1761,7 @@
 .stat-value {
   font-size: 15px;
   font-weight: 700;
-  color: #ffffff;
+  color: var(--bigscreen-text);
 }
 
 /* Achievements tab page */
@@ -1758,7 +1770,7 @@
   flex-direction: column;
   gap: 8px;
   margin-bottom: 24px;
-  background: rgba(255, 255, 255, 0.03);
+  background: color-mix(in srgb, var(--bigscreen-text) 3%, transparent);
   padding: 16px 20px;
   border-radius: 12px;
 }
@@ -1779,14 +1791,14 @@
   align-items: center;
   gap: 16px;
   padding: 12px 20px;
-  background: rgba(255, 255, 255, 0.02);
-  border: 1px solid rgba(255, 255, 255, 0.04);
+  background: color-mix(in srgb, var(--bigscreen-text) 2%, transparent);
+  border: 1px solid color-mix(in srgb, var(--bigscreen-text) 4%, transparent);
   border-radius: 10px;
 }
 
 .achievement-unlocked {
-  border-color: rgba(16, 185, 129, 0.2);
-  background: rgba(16, 185, 129, 0.02);
+  border-color: color-mix(in srgb, var(--bigscreen-success) 20%, transparent);
+  background: color-mix(in srgb, var(--bigscreen-success) 2%, transparent);
 }
 
 .achievement-icon-wrapper {
@@ -1794,7 +1806,7 @@
   height: 44px;
   border-radius: 6px;
   overflow: hidden;
-  background: rgba(255, 255, 255, 0.05);
+  background: color-mix(in srgb, var(--bigscreen-text) 5%, transparent);
   flex-shrink: 0;
 }
 
@@ -1815,14 +1827,14 @@
 
 .achievement-desc {
   font-size: 13px;
-  color: rgba(255, 255, 255, 0.45);
+  color: color-mix(in srgb, var(--bigscreen-text) 45%, transparent);
   margin: 0;
 }
 
 .achievement-date {
   font-size: 13px;
   font-weight: 700;
-  color: rgba(255, 255, 255, 0.35);
+  color: color-mix(in srgb, var(--bigscreen-text) 35%, transparent);
 }
 
 /* Specs/Requirements page */
@@ -1833,7 +1845,7 @@
 }
 
 .spec-card {
-  background: rgba(255, 255, 255, 0.03);
+  background: color-mix(in srgb, var(--bigscreen-text) 3%, transparent);
   border: var(--bigscreen-glass-border);
   border-radius: 16px;
   padding: 24px;
@@ -1849,7 +1861,7 @@
   font-family: inherit;
   font-size: 14px;
   line-height: 1.5;
-  color: rgba(255, 255, 255, 0.65);
+  color: color-mix(in srgb, var(--bigscreen-text) 65%, transparent);
   margin: 0;
   white-space: pre-wrap;
 }
@@ -1858,7 +1870,7 @@
 
 .bigscreen-store-tabs-wrapper {
   padding: 24px 64px 8px 64px;
-  border-bottom: 1.5px solid rgba(255, 255, 255, 0.08);
+  border-bottom: 1.5px solid color-mix(in srgb, var(--bigscreen-text) 8%, transparent);
 }
 
 .bigscreen-store-panel-content {
@@ -1871,7 +1883,7 @@
   align-items: center;
   justify-content: center;
   height: 350px;
-  color: rgba(255, 255, 255, 0.55);
+  color: color-mix(in srgb, var(--bigscreen-text) 55.00000000000001%, transparent);
 }
 
 .store-deals-grid,
@@ -1891,8 +1903,8 @@
   position: absolute;
   top: 10px;
   left: 10px;
-  background: #e11d48;
-  color: #ffffff;
+  background: var(--bigscreen-danger);
+  color: var(--bigscreen-text);
   font-size: 12px;
   font-weight: 900;
   padding: 3px 8px;
@@ -1924,12 +1936,12 @@
 }
 
 .deal-price-old {
-  color: rgba(255, 255, 255, 0.35);
+  color: color-mix(in srgb, var(--bigscreen-text) 35%, transparent);
   text-decoration: line-through;
 }
 
 .deal-price-new {
-  color: #10b981;
+  color: var(--bigscreen-success);
   font-weight: 900;
 }
 
@@ -1937,7 +1949,7 @@
   font-size: 10px;
   font-weight: 900;
   text-transform: uppercase;
-  color: rgba(255, 255, 255, 0.35);
+  color: color-mix(in srgb, var(--bigscreen-text) 35%, transparent);
 }
 
 .wishlist-empty-state {
@@ -1946,7 +1958,7 @@
   align-items: center;
   justify-content: center;
   height: 400px;
-  color: rgba(255, 255, 255, 0.55);
+  color: color-mix(in srgb, var(--bigscreen-text) 55.00000000000001%, transparent);
 }
 
 .wishlist-empty-state h3 {
@@ -1969,7 +1981,7 @@
 
 .bigscreen-pill--sm {
   padding: 4px 10px;
-  font-size: 11.5px;
+  font-size: 12px;
 }
 
 .bigscreen-pill--md {
@@ -1979,39 +1991,39 @@
 
 /* Tone styling when customColor is not used */
 .bigscreen-pill--accent {
-  background: rgba(59, 130, 246, 0.15);
-  border-color: rgba(59, 130, 246, 0.3);
-  color: #60a5fa;
+  background: color-mix(in srgb, var(--bigscreen-accent) 15%, transparent);
+  border-color: color-mix(in srgb, var(--bigscreen-accent) 30%, transparent);
+  color: var(--bigscreen-accent-soft-text);
 }
 
 .bigscreen-pill--success {
-  background: rgba(16, 185, 129, 0.15);
-  border-color: rgba(16, 185, 129, 0.3);
-  color: #34d399;
+  background: color-mix(in srgb, var(--bigscreen-success) 15%, transparent);
+  border-color: color-mix(in srgb, var(--bigscreen-success) 30%, transparent);
+  color: var(--bigscreen-success-soft);
 }
 
 .bigscreen-pill--warning {
-  background: rgba(245, 158, 11, 0.15);
-  border-color: rgba(245, 158, 11, 0.3);
-  color: #fbbf24;
+  background: color-mix(in srgb, var(--bigscreen-warning) 15%, transparent);
+  border-color: color-mix(in srgb, var(--bigscreen-warning) 30%, transparent);
+  color: var(--bigscreen-warning-soft);
 }
 
 .bigscreen-pill--danger {
-  background: rgba(239, 68, 68, 0.15);
-  border-color: rgba(239, 68, 68, 0.3);
-  color: #f87171;
+  background: color-mix(in srgb, var(--bigscreen-danger) 15%, transparent);
+  border-color: color-mix(in srgb, var(--bigscreen-danger) 30%, transparent);
+  color: var(--bigscreen-danger-soft);
 }
 
 .bigscreen-pill--muted {
-  background: rgba(255, 255, 255, 0.08);
-  border-color: rgba(255, 255, 255, 0.12);
-  color: rgba(255, 255, 255, 0.7);
+  background: color-mix(in srgb, var(--bigscreen-text) 8%, transparent);
+  border-color: color-mix(in srgb, var(--bigscreen-text) 12%, transparent);
+  color: color-mix(in srgb, var(--bigscreen-text) 70%, transparent);
 }
 
 .bigscreen-pill--info {
-  background: rgba(139, 92, 246, 0.15);
-  border-color: rgba(139, 92, 246, 0.3);
-  color: #a78bfa;
+  background: color-mix(in srgb, var(--bigscreen-info) 15%, transparent);
+  border-color: color-mix(in srgb, var(--bigscreen-info) 30%, transparent);
+  color: var(--bigscreen-info-soft);
 }
 
 /* Icons and dots */
@@ -2108,5 +2120,21 @@
   }
   100% {
     transform: scale(1.09) translate(1%, 0.5%);
+  }
+}
+
+/* Motion-off users: kill ambient animation + crossfades. Focus ring
+   and hover lifts stay (they're 1:1 with the pointer state, not
+   decoration). */
+@media (prefers-reduced-motion: reduce) {
+  .bigscreen-cover-running-dot,
+  .bigscreen-game-card-running-dot,
+  .virtual-cursor--dragging .virtual-cursor-ring,
+  .animate-fade-in,
+  .bigscreen-gamepage-hero-bg-slide img {
+    animation: none !important;
+  }
+  .bigscreen-gamepage-hero-bg-slide {
+    transition: none;
   }
 }

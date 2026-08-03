@@ -188,7 +188,7 @@ export default function BarChart({
                 opacity={isDimmed ? 0.35 : 0.85}
                 style={{
                   transition: "opacity 200ms, filter 200ms",
-                  filter: isHovered ? "brightness(1.3) drop-shadow(0 2px 4px rgba(0,0,0,0.3))" : "none",
+                  filter: isHovered ? "brightness(1.25)" : "none",
                 }}
               >
                 {tooltip && <title>{labels[i]}: {formatValue(value)}</title>}

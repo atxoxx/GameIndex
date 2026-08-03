@@ -297,7 +297,6 @@
   line-height: 1.02;
   letter-spacing: -1px;
   color: var(--color-text-primary);
-  text-shadow: 0 2px 10px rgba(0, 0, 0, 0.55), 0 12px 40px rgba(0, 0, 0, 0.4);
   max-width: 720px;
   display: -webkit-box;
   -webkit-line-clamp: 2;
@@ -605,7 +604,10 @@
   font-weight: var(--font-weight-semibold);
   border-radius: var(--radius-full);
   cursor: pointer;
-  transition: all var(--transition-fast);
+  transition: color var(--transition-fast),
+    background var(--transition-fast),
+    border-color var(--transition-fast),
+    transform var(--transition-fast);
 }
 .store-rail-see-all:hover {
   background: var(--color-bg-hover);
@@ -891,7 +893,6 @@
 }
 .store-game-card.density-cinematic .store-card-name {
   color: var(--color-text-primary);
-  text-shadow: 0 2px 8px rgba(0, 0, 0, 0.55);
   font-size: var(--font-size-lg);
 }
 .store-game-card.density-cinematic .store-card-genre {

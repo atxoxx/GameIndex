@@ -14,9 +14,9 @@ import { useState } from "react";
  *      (`library_600x900_2x` → `library_600x900` → `header.jpg`) before
  *      giving up — the same chain the sidebar uses, so behaviour stays
  *      consistent across surfaces.
- *   3. Gradient letter placeholder — the first letter of the game name
- *      on a stable hash-derived gradient, so the row stays visually
- *      identifiable even when no asset is reachable.
+ *   3. Letter placeholder — the first letter of the game name on a
+ *      stable hash-derived tint, so the row stays visually identifiable
+ *      even when no asset is reachable.
  *
  * The outer container class controls the size (28x28 for session rows,
  * 32x32 for the dashboard sidebar). The component always renders a
@@ -111,16 +111,16 @@ export function GameThumbnail({
     );
   }
 
-  // Final fallback: gradient letter placeholder. First character of the
-  // game name, uppercased. "BeamNG.drive" → "B". Empty / whitespace-only
+  // Final fallback: letter placeholder. First character of the game
+  // name, uppercased. "BeamNG.drive" → "B". Empty / whitespace-only
   // names collapse to "?" so the placeholder never looks blank.
   const trimmed = (name || "").trim();
   const letter = trimmed.charAt(0).toUpperCase() || "?";
 
-  // Deterministic gradient index from the game name. Same name → same
-  // color every render, so a player's library feels consistent between
+  // Deterministic slot index from the game name. Same name → same tint
+  // every render, so a player's library feels consistent between
   // sessions even when icons are missing.
-  const gradientIndex = hashStringToIndex(trimmed || "?", GRADIENTS.length);
+  const gradientIndex = hashStringToIndex(trimmed || "?", GRADIENT_SLOTS);
 
   return (
     <div
@@ -137,19 +137,11 @@ export function GameThumbnail({
   );
 }
 
-// Eight theme-friendly gradients. Each pair (from / to) is hand-picked
-// to stay readable in both light and dark themes, with white text
-// contrast. Order is fixed; the hash picks the index.
-const GRADIENTS = [
-  "linear-gradient(135deg, #6366f1, #8b5cf6)", // indigo → violet
-  "linear-gradient(135deg, #06b6d4, #3b82f6)", // cyan → blue
-  "linear-gradient(135deg, #10b981, #06b6d4)", // emerald → cyan
-  "linear-gradient(135deg, #f59e0b, #ef4444)", // amber → red
-  "linear-gradient(135deg, #ec4899, #f43f5e)", // pink → rose
-  "linear-gradient(135deg, #8b5cf6, #ec4899)", // violet → pink
-  "linear-gradient(135deg, #14b8a6, #22c55e)", // teal → green
-  "linear-gradient(135deg, #f97316, #facc15)", // orange → yellow
-];
+// Eight tint slots — the flat colors live in ActivityPage.css as
+// theme-token color-mixes over the tertiary surface (readable in both
+// light and dark themes). Only the count matters here; the hash picks
+// the index.
+const GRADIENT_SLOTS = 8;
 
 /** Stable hash → index in [0, max). Used for picking a gradient. */
 function hashStringToIndex(str: string, max: number): number {

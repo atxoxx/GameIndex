@@ -155,7 +155,9 @@
   font-weight: var(--font-weight-medium);
   cursor: pointer;
   position: relative;
-  transition: all var(--transition-fast);
+  transition: color var(--transition-fast),
+    background var(--transition-fast),
+    border-color var(--transition-fast);
   border-bottom: 2px solid transparent;
   margin-bottom: -1px;
   white-space: nowrap;
@@ -260,7 +262,8 @@
   color: var(--color-text-secondary);
   border-radius: 50%;
   cursor: pointer;
-  transition: all var(--transition-fast);
+  transition: color var(--transition-fast),
+    background var(--transition-fast);
 }
 
 .tag-chip-remove:hover {
@@ -304,7 +307,9 @@
   font-size: var(--font-size-xs);
   color: var(--color-text-secondary);
   cursor: pointer;
-  transition: all var(--transition-fast);
+  transition: color var(--transition-fast),
+    border-color var(--transition-fast),
+    background var(--transition-fast);
 }
 
 .tag-suggestion:hover {
@@ -373,7 +378,9 @@
   color: var(--color-text-secondary);
   border-radius: var(--radius-sm);
   cursor: pointer;
-  transition: all var(--transition-fast);
+  transition: color var(--transition-fast),
+    background var(--transition-fast),
+    border-color var(--transition-fast);
   margin-bottom: 1px;
 }
 
@@ -420,7 +427,9 @@
   font-size: var(--font-size-sm);
   font-weight: var(--font-weight-medium);
   cursor: pointer;
-  transition: all var(--transition-fast);
+  transition: color var(--transition-fast),
+    border-color var(--transition-fast),
+    background var(--transition-fast);
 }
 
 .array-editor-add-trigger:hover {

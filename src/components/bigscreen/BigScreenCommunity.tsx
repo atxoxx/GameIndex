@@ -74,7 +74,7 @@ export default function BigScreenCommunity() {
 
         <div className="bigscreen-widget-card" {...focusStatsCard2} style={{ padding: "20px" }}>
           <div style={{ fontSize: "12px", textTransform: "uppercase", color: "var(--color-text-muted)", marginBottom: "8px" }}>{t("bigscreen.community.achievements")}</div>
-          <div style={{ fontSize: "28px", fontWeight: "700", color: "#10b981" }}>{achievementCounts.unlocked} / {achievementCounts.total}</div>
+          <div style={{ fontSize: "28px", fontWeight: "700", color: "var(--color-success)" }}>{achievementCounts.unlocked} / {achievementCounts.total}</div>
           <div style={{ fontSize: "11px", marginTop: "6px", color: "var(--color-text-muted)" }}>{achievementPct}{t("bigscreen.community.pctUnlocked")}</div>
         </div>
 
@@ -115,7 +115,7 @@ export default function BigScreenCommunity() {
                       padding: "10px 14px",
                       border: "1px solid transparent",
                       borderRadius: "8px",
-                      background: "rgba(255, 255, 255, 0.02)",
+                      background: "color-mix(in srgb, var(--bigscreen-text) 2%, transparent)",
                     }}
                   >
                     <div style={{ width: "36px", height: "48px", borderRadius: "4px", overflow: "hidden", background: "var(--color-bg-tertiary)" }}>
@@ -154,7 +154,7 @@ export default function BigScreenCommunity() {
                       <span>{gen.genre}</span>
                       <span style={{ color: "var(--color-text-muted)" }}>{formatHours(gen.minutes)}</span>
                     </div>
-                    <div style={{ height: "6px", borderRadius: "3px", background: "rgba(255,255,255,0.05)", overflow: "hidden" }}>
+                    <div style={{ height: "6px", borderRadius: "3px", background: "var(--bigscreen-surface)", overflow: "hidden" }}>
                       <div style={{ height: "100%", background: "var(--color-accent)", width: `${Math.min(100, (gen.minutes / stats.totalPlayTimeMin) * 100)}%` }} />
                     </div>
                   </div>
@@ -175,7 +175,7 @@ export default function BigScreenCommunity() {
                       <span>{plat.platform}</span>
                       <span style={{ color: "var(--color-text-muted)" }}>{formatHours(plat.minutes)}</span>
                     </div>
-                    <div style={{ height: "6px", borderRadius: "3px", background: "rgba(255,255,255,0.05)", overflow: "hidden" }}>
+                    <div style={{ height: "6px", borderRadius: "3px", background: "var(--bigscreen-surface)", overflow: "hidden" }}>
                       <div style={{ height: "100%", background: "var(--color-warning)", width: `${Math.min(100, (plat.minutes / stats.totalPlayTimeMin) * 100)}%` }} />
                     </div>
                   </div>

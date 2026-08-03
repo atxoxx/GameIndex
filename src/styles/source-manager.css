@@ -34,7 +34,7 @@
 
 .src-manager-title {
   font-size: var(--font-size-md);
-  font-weight: 600;
+  font-weight: var(--font-weight-semibold);
   color: var(--color-text-primary);
   margin: 0 0 4px 0;
   display: flex;
@@ -58,8 +58,8 @@
 .src-manager-desc code {
   background: var(--color-bg-tertiary);
   padding: 1px 4px;
-  border-radius: 3px;
-  font-size: 11px;
+  border-radius: var(--radius-sm);
+  font-size: var(--font-size-xs);
 }
 
 .src-manager-bulk {
@@ -77,7 +77,7 @@
   background: var(--color-bg-secondary);
   border: 1px solid var(--color-border);
   border-radius: var(--radius-md);
-  animation: src-form-in 0.2s ease-out;
+  animation: src-form-in var(--duration-normal) var(--ease-standard);
 }
 
 @keyframes src-form-in {
@@ -101,13 +101,13 @@
   color: var(--color-text-primary);
   font-size: var(--font-size-sm);
   font-family: inherit;
-  transition: all var(--transition-fast);
+  transition: border-color var(--transition-fast), box-shadow var(--transition-fast);
 }
 
 .src-form-input:focus {
   outline: none;
   border-color: var(--color-accent);
-  box-shadow: 0 0 0 2px rgba(108, 92, 231, 0.15);
+  box-shadow: 0 0 0 2px var(--color-accent-glow);
 }
 
 .src-form-input::placeholder {
@@ -139,8 +139,8 @@
 .src-form-hint code {
   background: var(--color-bg-tertiary);
   padding: 1px 4px;
-  border-radius: 3px;
-  font-size: 10px;
+  border-radius: var(--radius-sm);
+  font-size: var(--font-size-xs);
 }
 
 .src-form-actions {
@@ -170,7 +170,7 @@
   padding: 5px 14px;
   border-radius: calc(var(--radius-md) - 3px);
   cursor: pointer;
-  transition: all var(--transition-fast);
+  transition: background var(--transition-fast), color var(--transition-fast);
 }
 
 .src-mode-btn:hover {
@@ -192,14 +192,14 @@
   color: var(--color-text-primary);
   font-size: var(--font-size-sm);
   font-family: SFMono-Regular, Consolas, monospace;
-  transition: all var(--transition-fast);
+  transition: border-color var(--transition-fast), box-shadow var(--transition-fast);
   line-height: 1.6;
 }
 
 .src-form-textarea:focus {
   outline: none;
   border-color: var(--color-accent);
-  box-shadow: 0 0 0 2px rgba(108, 92, 231, 0.15);
+  box-shadow: 0 0 0 2px var(--color-accent-glow);
 }
 
 .src-form-textarea::placeholder {
@@ -222,7 +222,7 @@
   background: var(--color-bg-secondary);
   border: 1px solid var(--color-border);
   border-radius: var(--radius-md);
-  transition: all var(--transition-fast);
+  transition: border-color var(--transition-fast), background var(--transition-fast);
   gap: var(--space-md);
 }
 
@@ -255,16 +255,16 @@
 }
 
 .src-item-name {
-  font-weight: 600;
+  font-weight: var(--font-weight-semibold);
   font-size: var(--font-size-sm);
   color: var(--color-text-primary);
 }
 
 .src-item-status {
-  font-size: 10px;
+  font-size: var(--font-size-xs);
   padding: 2px 6px;
   border-radius: var(--radius-sm);
-  font-weight: 500;
+  font-weight: var(--font-weight-medium);
   text-transform: uppercase;
   letter-spacing: 0.3px;
 }
@@ -301,7 +301,7 @@
 .src-item-meta {
   display: flex;
   gap: var(--space-md);
-  font-size: 11px;
+  font-size: var(--font-size-xs);
   color: var(--color-text-muted);
   flex-wrap: wrap;
 }
@@ -345,7 +345,7 @@
   inset: 0;
   background: var(--color-bg-tertiary);
   border-radius: 20px;
-  transition: 0.3s;
+  transition: background var(--duration-normal) var(--ease-standard);
   border: 1px solid var(--color-border);
 }
 
@@ -358,7 +358,8 @@
   bottom: 2px;
   background: var(--color-text-muted);
   border-radius: 50%;
-  transition: 0.3s;
+  transition: transform var(--duration-normal) var(--ease-standard),
+    background var(--duration-normal) var(--ease-standard);
 }
 
 .src-toggle input:checked + .src-toggle-slider {
@@ -367,7 +368,7 @@
 }
 
 .src-toggle input:checked + .src-toggle-slider::before {
-  background: white;
+  background: var(--color-surface-raised);
   transform: translateX(16px);
 }
 
@@ -383,7 +384,8 @@
   border-radius: var(--radius-sm);
   color: var(--color-text-muted);
   cursor: pointer;
-  transition: all var(--transition-fast);
+  transition: background var(--transition-fast), color var(--transition-fast),
+    border-color var(--transition-fast);
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -443,7 +445,7 @@
 
 .src-empty-title {
   font-size: var(--font-size-sm);
-  font-weight: 600;
+  font-weight: var(--font-weight-semibold);
   color: var(--color-text-secondary);
   margin: 0;
 }
@@ -459,6 +461,6 @@
 .src-empty-hint code {
   background: var(--color-bg-tertiary);
   padding: 2px 6px;
-  border-radius: 3px;
-  font-size: 11px;
+  border-radius: var(--radius-sm);
+  font-size: var(--font-size-xs);
 }

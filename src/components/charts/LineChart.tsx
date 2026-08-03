@@ -351,7 +351,6 @@ export default function LineChart({
               strokeWidth="2.2"
               strokeLinecap="round"
               strokeLinejoin="round"
-              style={{ filter: `drop-shadow(0 2px 4px ${s.color}40)` }}
             />
           </g>
         ))}
@@ -408,9 +407,6 @@ export default function LineChart({
                   opacity={isDimmed ? 0.2 : 0.8}
                   style={{
                     transition: "opacity 150ms, r 150ms",
-                    filter: isActive
-                      ? `drop-shadow(0 0 6px ${series[si].color})`
-                      : "none",
                   }}
                 />
               );
@@ -424,7 +420,7 @@ export default function LineChart({
             y1={padding.top}
             x2={crosshairX}
             y2={padding.top + chartH}
-            stroke="var(--color-accent, #38bdf8)"
+            stroke="var(--color-accent)"
             strokeWidth="1.5"
             strokeDasharray="4 3"
             opacity={0.65}
@@ -452,7 +448,6 @@ export default function LineChart({
                   fill={series[si].color}
                   stroke="var(--color-bg-primary)"
                   strokeWidth="2"
-                  style={{ filter: `drop-shadow(0 0 8px ${series[si].color})` }}
                 />
               </g>
             );

@@ -1,9 +1,8 @@
 /* ============================================================================
-   Community (Stats) — bold gradient + depth brand language.
-   Accent on headers, elevated cards/panels, branded empty states.
+   Community (Stats) — flat surfaces, restrained accent.
    ============================================================================ */
 
-/* Profile heading: stack eyebrow above the gradient title */
+/* Profile heading: stack eyebrow above the title */
 .community-profile-heading {
   display: flex;
   flex-direction: column;
@@ -14,41 +13,33 @@
   align-items: flex-end;
 }
 
-/* Panels / cards get real depth + a brand-tinted top hairline */
+/* Panels / cards — flat fills, subtle lift on hover */
 .community-chart-card,
 .community-year-card,
 .community-breakdown-card,
 .community-screenshot-group {
   position: relative;
-  box-shadow: var(--depth-2);
-  border-top: 1px solid color-mix(in srgb, var(--brand-1) 28%, transparent);
+  transition: transform var(--duration-normal) var(--ease-standard),
+    box-shadow var(--duration-normal) var(--ease-standard),
+    border-color var(--duration-normal) var(--ease-standard);
 }
 
 .community-chart-card:hover,
 .community-year-card:hover,
 .community-breakdown-card:hover {
-  box-shadow: var(--depth-3);
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-md);
 }
 
-/* Branded empty states (mesh wash) for charts + screenshots */
+/* Empty states */
 .community-empty-chart,
 .community-screenshots-empty {
   position: relative;
   overflow: hidden;
 }
 
-.community-empty-chart::before,
-.community-screenshots-empty::before {
-  content: "";
-  position: absolute;
-  inset: 0;
-  z-index: -1;
-  background: var(--mesh-gradient);
-  opacity: 0.3;
-}
-
 .community-screenshots-empty-icon {
-  color: var(--brand-2);
+  color: var(--color-accent);
 }
 
 .community-screenshot-group {

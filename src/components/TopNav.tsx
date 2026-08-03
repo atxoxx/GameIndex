@@ -470,7 +470,7 @@ export default function TopNav() {
               <NavLink
                 key={tab.path}
                 to={tab.path}
-                className={`topnav-tab hover-lift${isActive ? " active" : ""}`}
+                className={`topnav-tab${isActive ? " active" : ""}`}
                 aria-current={isActive ? "page" : undefined}
                 role="tab"
                 aria-selected={isActive ? "true" : "false"}

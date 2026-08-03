@@ -487,7 +487,7 @@ export default function DealsPage() {
               </select>
             </div>
 
-            <div className="deals-filter-group" style={{ flex: "2 1 280px" }}>
+            <div className="deals-filter-group deals-filter-group--chips">
               <label>{t("deals.categories")}</label>
               <div className="deals-category-chips">
                 {GP_CATEGORIES.map((cat) => (
@@ -1047,7 +1047,8 @@ export default function DealsPage() {
                         <div
                           className="deals-giveaway-card-image-fallback"
                           style={{
-                            background: storeTint(giveaway.storeName),
+                            background: `color-mix(in srgb, ${storeTint(giveaway.storeName)} 14%, var(--color-bg-tertiary))`,
+                            color: storeTint(giveaway.storeName),
                           }}
                         >
                           <svg

@@ -64,9 +64,9 @@ export function ActivitySparkline({
 
   const status = getStatus();
   const statusColors = {
-    good: "var(--color-success, #16b195)",
-    warn: "var(--color-warning, #d4a853)",
-    danger: "var(--color-danger, #e74c3c)",
+    good: "var(--color-success)",
+    warn: "var(--color-warning)",
+    danger: "var(--color-danger)",
   };
   const color = statusColors[status];
 

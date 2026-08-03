@@ -193,21 +193,21 @@ export default function BigScreenFriends({
 
                 <div style={{ borderTop: "1px solid var(--color-border)", paddingTop: "16px" }}>
                   <div style={{ fontSize: "11px", textTransform: "uppercase", color: "var(--color-text-muted)", marginBottom: "6px" }}>{t("bigscreen.friends.myPublicKey")}</div>
-                  <div style={{ fontFamily: "monospace", fontSize: "11px", wordBreak: "break-all", background: "rgba(0,0,0,0.2)", padding: "10px", borderRadius: "6px" }}>
+                  <div style={{ fontFamily: "monospace", fontSize: "11px", wordBreak: "break-all", background: "color-mix(in srgb, var(--bigscreen-shadow) 20%, transparent)", padding: "10px", borderRadius: "6px" }}>
                     {generatedFriendCode}
                   </div>
                 </div>
 
                 <div className="profile-stats-grid" style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: "10px", marginTop: "10px" }}>
-                  <div className="profile-stat-box" style={{ background: "rgba(255,255,255,0.02)", padding: "10px", borderRadius: "6px", textAlign: "center" }}>
+                  <div className="profile-stat-box" style={{ background: "color-mix(in srgb, var(--bigscreen-text) 2%, transparent)", padding: "10px", borderRadius: "6px", textAlign: "center" }}>
                     <span style={{ display: "block", fontSize: "18px", fontWeight: "700" }}>{selfStats.gamesCount}</span>
                     <span style={{ fontSize: "11px", color: "var(--color-text-muted)" }}>{t("bigscreen.friends.games")}</span>
                   </div>
-                  <div className="profile-stat-box" style={{ background: "rgba(255,255,255,0.02)", padding: "10px", borderRadius: "6px", textAlign: "center" }}>
+                  <div className="profile-stat-box" style={{ background: "color-mix(in srgb, var(--bigscreen-text) 2%, transparent)", padding: "10px", borderRadius: "6px", textAlign: "center" }}>
                     <span style={{ display: "block", fontSize: "18px", fontWeight: "700" }}>{formatHours(selfStats.playtimeMinutes)}</span>
                     <span style={{ fontSize: "11px", color: "var(--color-text-muted)" }}>{t("bigscreen.friends.playtime")}</span>
                   </div>
-                  <div className="profile-stat-box" style={{ background: "rgba(255,255,255,0.02)", padding: "10px", borderRadius: "6px", textAlign: "center" }}>
+                  <div className="profile-stat-box" style={{ background: "color-mix(in srgb, var(--bigscreen-text) 2%, transparent)", padding: "10px", borderRadius: "6px", textAlign: "center" }}>
                     <span style={{ display: "block", fontSize: "18px", fontWeight: "700" }}>{selfStats.achievementsCount}</span>
                     <span style={{ fontSize: "11px", color: "var(--color-text-muted)" }}>{t("bigscreen.friends.trophies")}</span>
                   </div>
@@ -225,7 +225,7 @@ export default function BigScreenFriends({
                       className="profile-input"
                       value={profile.name}
                       onChange={(e) => setProfile({ ...profile, name: e.target.value })}
-                      style={{ background: "rgba(0,0,0,0.2)", border: "1px solid var(--color-border)", color: "white", padding: "8px", borderRadius: "4px" }}
+                      style={{ background: "color-mix(in srgb, var(--bigscreen-shadow) 20%, transparent)", border: "1px solid var(--color-border)", color: "var(--bigscreen-text)", padding: "8px", borderRadius: "4px" }}
                       required
                     />
                   </div>
@@ -236,7 +236,7 @@ export default function BigScreenFriends({
                       className="profile-input"
                       value={profile.status}
                       onChange={(e) => setProfile({ ...profile, status: e.target.value })}
-                      style={{ background: "rgba(0,0,0,0.2)", border: "1px solid var(--color-border)", color: "white", padding: "8px", borderRadius: "4px" }}
+                      style={{ background: "color-mix(in srgb, var(--bigscreen-shadow) 20%, transparent)", border: "1px solid var(--color-border)", color: "var(--bigscreen-text)", padding: "8px", borderRadius: "4px" }}
                     />
                   </div>
                   <button
@@ -257,7 +257,7 @@ export default function BigScreenFriends({
 
       {/* Add Friend Modal */}
       {showAddModal && (
-        <div className="bigscreen-overlay-drawer" style={{ display: "flex", justifyContent: "center", alignItems: "center", background: "rgba(10, 11, 16, 0.9)" }} onClick={() => setShowAddModal(false)}>
+        <div className="bigscreen-overlay-drawer" style={{ display: "flex", justifyContent: "center", alignItems: "center", background: "color-mix(in srgb, var(--bigscreen-bg) 90%, transparent)" }} onClick={() => setShowAddModal(false)}>
           <div
             className="bigscreen-overlay-drawer-panel"
             style={{
@@ -279,11 +279,11 @@ export default function BigScreenFriends({
               value={friendCodeInput}
               onChange={(e) => setFriendCodeInput(e.target.value)}
               placeholder={t("bigscreen.friends.publicKeyPlaceholder")}
-              style={{ background: "rgba(0,0,0,0.2)", border: "1px solid var(--color-border)", color: "white", padding: "10px", borderRadius: "6px", height: "80px", resize: "none" }}
+              style={{ background: "color-mix(in srgb, var(--bigscreen-shadow) 20%, transparent)", border: "1px solid var(--color-border)", color: "var(--bigscreen-text)", padding: "10px", borderRadius: "6px", height: "80px", resize: "none" }}
             />
 
             {decodedFriend ? (
-              <div style={{ display: "flex", alignItems: "center", gap: "12px", background: "rgba(255,255,255,0.02)", padding: "10px", borderRadius: "8px" }}>
+              <div style={{ display: "flex", alignItems: "center", gap: "12px", background: "color-mix(in srgb, var(--bigscreen-text) 2%, transparent)", padding: "10px", borderRadius: "8px" }}>
                 <div className="friend-avatar-wrapper" style={{ width: "40px", height: "40px", borderRadius: "50%", background: "var(--color-warning)" }}>
                   {decodedFriend.name.slice(0, 2).toUpperCase()}
                 </div>
@@ -326,7 +326,7 @@ export default function BigScreenFriends({
 
       {/* Lobbies Chat Modal */}
       {chattingSessionId && chatSession && (
-        <div className="bigscreen-overlay-drawer" style={{ display: "flex", justifyContent: "center", alignItems: "center", background: "rgba(10, 11, 16, 0.9)" }} onClick={() => setChattingSessionId(null)}>
+        <div className="bigscreen-overlay-drawer" style={{ display: "flex", justifyContent: "center", alignItems: "center", background: "color-mix(in srgb, var(--bigscreen-bg) 90%, transparent)" }} onClick={() => setChattingSessionId(null)}>
           <div
             className="bigscreen-overlay-drawer-panel"
             style={{
@@ -372,7 +372,7 @@ export default function BigScreenFriends({
                 value={chatDraft}
                 onChange={(e) => setChatDraft(e.target.value)}
                 placeholder={t("bigscreen.friends.typeMessage")}
-                style={{ flex: 1, background: "rgba(0,0,0,0.2)", border: "1px solid var(--color-border)", color: "white", padding: "8px 12px", borderRadius: "4px", fontSize: "13px" }}
+                style={{ flex: 1, background: "color-mix(in srgb, var(--bigscreen-shadow) 20%, transparent)", border: "1px solid var(--color-border)", color: "var(--bigscreen-text)", padding: "8px 12px", borderRadius: "4px", fontSize: "13px" }}
                 onKeyDown={(e) => {
                   if (e.key === "Enter") submitChat();
                 }}
@@ -433,7 +433,7 @@ function FriendCard({
         {friend.pinned && <span style={{ fontSize: "12px" }}>📌</span>}
       </div>
 
-      <div style={{ fontSize: "11px", color: "var(--color-text-muted)", borderTop: "1px solid rgba(255,255,255,0.03)", paddingTop: "8px" }}>
+      <div style={{ fontSize: "11px", color: "var(--color-text-muted)", borderTop: "1px solid color-mix(in srgb, var(--bigscreen-text) 3%, transparent)", paddingTop: "8px" }}>
         {friend.libStats ? (
           <div>{t("bigscreen.friends.friendStats", { games: friend.libStats.gamesCount, trophies: friend.libStats.achievementsCount })}</div>
         ) : (
@@ -443,7 +443,7 @@ function FriendCard({
 
       {/* Quick popup options on click */}
       {showOptions && (
-        <div className="bigscreen-overlay-drawer" style={{ display: "flex", justifyContent: "center", alignItems: "center", background: "rgba(10, 11, 16, 0.8)" }} onClick={() => setShowOptions(false)}>
+        <div className="bigscreen-overlay-drawer" style={{ display: "flex", justifyContent: "center", alignItems: "center", background: "color-mix(in srgb, var(--bigscreen-bg) 80%, transparent)" }} onClick={() => setShowOptions(false)}>
           <div
             className="bigscreen-overlay-drawer-panel"
             style={{ width: "260px", padding: "16px", borderRadius: "12px", background: "var(--color-bg-primary)", border: "1px solid var(--color-border)", display: "flex", flexDirection: "column", gap: "10px" }}
@@ -524,7 +524,7 @@ function SessionRow({
 
       <div style={{ display: "flex", gap: "10px", alignItems: "center" }}>
         {/* RSVP button strip */}
-        <div style={{ display: "flex", borderRadius: "6px", background: "rgba(255,255,255,0.02)", border: "1px solid var(--color-border)", padding: "2px" }}>
+        <div style={{ display: "flex", borderRadius: "6px", background: "color-mix(in srgb, var(--bigscreen-text) 2%, transparent)", border: "1px solid var(--color-border)", padding: "2px" }}>
           <button type="button" {...focusRsvpGoing} style={{ border: "none", background: myRsvp === "going" ? "var(--color-success)" : "transparent", color: "white", padding: "6px 12px", borderRadius: "4px", fontSize: "12px", cursor: "pointer", fontWeight: myRsvp === "going" ? "700" : "400" }}>
             {t("bigscreen.friends.going")}
           </button>

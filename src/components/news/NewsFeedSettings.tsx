@@ -155,7 +155,7 @@ export default function NewsFeedSettings({
           <div className="news-feed-settings-section">
             <h3 className="news-feed-settings-section-title">
               {t("news.defaultFeeds")}
-              <span style={{ fontWeight: 400, textTransform: "none", marginLeft: "auto", fontSize: "var(--font-size-xs)", color: "var(--color-text-muted)" }}>
+              <span className="news-feed-settings-count">
                 {t("news.feedsEnabled", { enabled: allFeeds.filter((f) => f.isDefault && enabledFeedUrls.has(f.url)).length, total: DEFAULT_FEEDS.length })}
               </span>
             </h3>
@@ -174,8 +174,7 @@ export default function NewsFeedSettings({
                   </div>
                   <button
                     type="button"
-                    className={`news-source-pill${isEnabled ? " active" : ""}`}
-                    style={{ fontSize: "10px", padding: "2px 10px" }}
+                    className={`news-source-pill news-feed-item-toggle${isEnabled ? " active" : ""}`}
                     onClick={() => onToggleFeed(feed.url)}
                     title={isEnabled ? t("news.disableFeed", { name: feed.name }) : t("news.enableFeed", { name: feed.name })}
                   >
@@ -194,8 +193,7 @@ export default function NewsFeedSettings({
             </h3>
             {customFeeds.length === 0 ? (
               <p
-                className="news-feed-error"
-                style={{ color: "var(--color-text-muted)", marginTop: 0 }}
+                className="news-feed-error news-feed-empty-hint"
               >
                 {t("news.noCustomFeeds")}
               </p>

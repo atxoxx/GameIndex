@@ -68,11 +68,28 @@ const LANE_STEP = 16;
 const BAR_H = 14;
 const MIN_BAR_W_PCT = 0.4;
 
-// Distinct categorical palette — top-played games get the cleanest colors.
+// Distinct categorical palette — top-played games get the cleanest
+// colors. Slots are theme-token tints (color-mix over the surface) so
+// the timeline stays coherent with the app's accent + status colors and
+// reads in both light and dark themes.
+const TINT = (c: string) => `color-mix(in srgb, ${c} 45%, var(--color-bg-primary))`;
+const MIX = (a: string, b: string) => `color-mix(in srgb, ${a} 50%, ${TINT(b)})`;
 const PALETTE = [
-  "#4cc9f0", "#f72585", "#b5e48c", "#ffd166", "#ff7b54",
-  "#9b5de5", "#00bbf9", "#fee440", "#f15bb5", "#06d6a0",
-  "#ef476f", "#8338ec", "#fb5607", "#3a86ff", "#ffbe0b",
+  TINT("var(--color-info)"),
+  TINT("var(--color-danger)"),
+  TINT("var(--color-success)"),
+  TINT("var(--color-warning)"),
+  TINT("var(--color-accent)"),
+  MIX("var(--color-info)", "var(--color-accent)"),
+  MIX("var(--color-success)", "var(--color-info)"),
+  MIX("var(--color-warning)", "var(--color-success)"),
+  MIX("var(--color-danger)", "var(--color-warning)"),
+  MIX("var(--color-accent)", "var(--color-danger)"),
+  MIX("var(--color-info)", "var(--color-success)"),
+  MIX("var(--color-warning)", "var(--color-danger)"),
+  MIX("var(--color-accent)", "var(--color-info)"),
+  MIX("var(--color-success)", "var(--color-accent)"),
+  MIX("var(--color-danger)", "var(--color-info)"),
 ];
 
 function ymd(d: Date): string {
@@ -330,7 +347,7 @@ export function ActivityGantt({
       const fullHeight = el.scrollHeight;
       const fullWidth = el.scrollWidth;
       const canvas = await html2canvas(el, {
-        backgroundColor: "#0f1117",
+        backgroundColor: "var(--color-bg-secondary)",
         scale: 2,
         logging: false,
         useCORS: true,

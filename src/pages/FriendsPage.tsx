@@ -549,8 +549,7 @@ function SessionCard({
           {isCreator && (
             <button
               type="button"
-              className="friend-delete-btn"
-              style={{ opacity: 1, position: "static" }}
+              className="friend-delete-btn friend-delete-btn--inline"
               onClick={() => onDelete(session.id)}
               title={t("friends.removeSession")}
             >
@@ -623,7 +622,7 @@ function SessionCard({
             onChange={(e) => setGuestDraft(e.target.value)}
             onKeyDown={(e) => e.key === "Enter" && submitGuest()}
           />
-          <button type="button" className="btn btn-secondary" style={{ padding: "4px 10px", fontSize: "11px" }} onClick={submitGuest}>+1</button>
+          <button type="button" className="btn btn-secondary btn--mini" onClick={submitGuest}>+1</button>
         </div>
       )}
 
@@ -644,7 +643,7 @@ function SessionCard({
             onChange={(e) => setNoteDraft(e.target.value)}
             onBlur={submitNote}
           />
-          <button type="button" className="btn btn-secondary" style={{ padding: "4px 10px", fontSize: "11px" }} onClick={submitNote}>{t("common.save")}</button>
+          <button type="button" className="btn btn-secondary btn--mini" onClick={submitNote}>{t("common.save")}</button>
         </div>
       )}
 
@@ -700,7 +699,7 @@ function SessionCard({
               onChange={(e) => setChatDraft(e.target.value)}
               onKeyDown={(e) => e.key === "Enter" && submitChat()}
             />
-            <button type="button" className="btn btn-primary" style={{ padding: "4px 10px", fontSize: "11px" }} onClick={submitChat}>{t("common.send")}</button>
+            <button type="button" className="btn btn-primary btn--mini" onClick={submitChat}>{t("common.send")}</button>
           </div>
         </div>
       )}
@@ -902,8 +901,7 @@ function SearchableGameSelector({
         </div>
         <button
           type="button"
-          className="btn btn-secondary"
-          style={{ padding: "4px 10px", fontSize: "11px" }}
+          className="btn btn-secondary btn--mini"
           onClick={() => onSelect("")}
         >
           {t("common.change")}
@@ -1072,7 +1070,7 @@ function GamePicker({
           <GameCover id={selectedGameId} name={selectedGameName} className="selected-game-thumb" />
           <span className="selected-game-title">{selectedGameName}</span>
         </div>
-        <button type="button" className="btn btn-secondary" style={{ padding: "4px 10px", fontSize: "11px" }} onClick={() => onSelect({ id: "", name: "" })}>
+        <button type="button" className="btn btn-secondary btn--mini" onClick={() => onSelect({ id: "", name: "" })}>
           {t("common.change")}
         </button>
       </div>
@@ -3277,7 +3275,6 @@ export default function FriendsPage() {
           <button
             type="button"
             className="btn-sync p2p-sync-btn"
-            style={{ marginLeft: "4px" }}
             onClick={() => {
               setShowP2pModal(true);
             }}
@@ -3309,16 +3306,14 @@ export default function FriendsPage() {
                       <div className="friend-invitation-actions">
                         <button
                           type="button"
-                          className="btn btn-primary"
-                          style={{ padding: "4px 8px", fontSize: "11px", marginRight: "4px" }}
+                          className="btn btn-primary btn--mini"
                           onClick={() => handleAcceptInvitation(invite)}
                         >
                           {t("common.confirm")}
                         </button>
                         <button
                           type="button"
-                          className="btn btn-secondary"
-                          style={{ padding: "4px 8px", fontSize: "11px" }}
+                          className="btn btn-secondary btn--mini"
                           onClick={() => handleDenyInvitation(invite.syncId)}
                         >
                           {t("friends.deny")}
@@ -3460,12 +3455,11 @@ export default function FriendsPage() {
                 </div>
 
                 {visibleFriends.length === 0 ? (
-                  <div className="game-search-no-results" style={{ padding: "40px" }}>
+                  <div className="game-search-no-results game-search-no-results--tall">
                     <div>{t("friends.noMatch")}</div>
                     <button
                       type="button"
                       className="btn btn-secondary"
-                      style={{ marginTop: "12px" }}
                       onClick={() => {
                         setFriendSearch("");
                         setFriendFilter("all");
@@ -3688,15 +3682,14 @@ export default function FriendsPage() {
                     <label htmlFor="sessionDesc">{t("friendsPage.eventNotes")}</label>
                     <textarea
                       id="sessionDesc"
-                      className="profile-input"
-                      style={{ height: "80px", resize: "none" }}
+                      className="profile-input profile-input--textarea"
                       value={sessionDesc}
                       onChange={(e) => setSessionDesc(e.target.value)}
                       placeholder={t("friendsPage.eventNotesPlaceholder")}
                     />
                   </div>
 
-                  <button type="submit" className="btn btn-primary" style={{ alignSelf: "flex-start" }}>
+                  <button type="submit" className="btn btn-primary btn--start">
                     Plan Event
                   </button>
                 </form>
@@ -3767,7 +3760,7 @@ export default function FriendsPage() {
 
                     if (visible.length === 0) {
                       return (
-                        <div className="friends-empty-state" style={{ margin: "0", maxWidth: "100%" }}>
+                        <div className="friends-empty-state friends-empty-state--inline">
                           <h3 className="friends-empty-title">
                             {sessionView === "past" ? t("friendsPage.noPastSessions") : t("friendsPage.noEventsScheduled")}
                           </h3>
@@ -4021,7 +4014,7 @@ export default function FriendsPage() {
                       )}
 
                       {activeRecs.length === 0 ? (
-                        <div className="friends-empty-state" style={{ margin: "0", maxWidth: "100%" }}>
+                        <div className="friends-empty-state friends-empty-state--inline">
                           <h3 className="friends-empty-title">{t("friendsPage.noRecsYet")}</h3>
                           <p className="friends-empty-desc">
                             {t("friendsPage.recsEmptyDesc")}
@@ -4056,8 +4049,7 @@ export default function FriendsPage() {
                                   {rec.recommendedBy === profile.name && (
                                     <button
                                       type="button"
-                                      className="friend-delete-btn"
-                                      style={{ opacity: 1, position: "static" }}
+                                      className="friend-delete-btn friend-delete-btn--inline"
                                       onClick={() => handleDeleteRecommendation(rec.id)}
                                       title={t("friendsPage.removeRecommendation")}
                                     >
@@ -4130,7 +4122,7 @@ export default function FriendsPage() {
                                 onChange={(e) => handleCommentInputChange(rec.id, e.target.value)}
                                 required
                               />
-                              <button type="submit" className="btn btn-primary" style={{ padding: "4px 10px", fontSize: "11px" }}>
+                              <button type="submit" className="btn btn-primary btn--mini">
                                 Post
                               </button>
                             </form>
@@ -4177,7 +4169,7 @@ export default function FriendsPage() {
 
                   <div className="friends-input-group">
                     <label>{t("friendsPage.rating")}</label>
-                    <div className="rating-stars" style={{ fontSize: "20px", marginTop: "4px" }}>
+                    <div className="rating-stars rating-stars--lg">
                       {[1, 2, 3, 4, 5].map((star) => (
                         <button
                           key={star}
@@ -4195,8 +4187,7 @@ export default function FriendsPage() {
                     <label htmlFor="recReason">{t("friendsPage.recommendWhy")}</label>
                     <textarea
                       id="recReason"
-                      className="profile-input"
-                      style={{ height: "80px", resize: "none" }}
+                      className="profile-input profile-input--textarea"
                       value={recReason}
                       onChange={(e) => setRecReason(e.target.value)}
                       placeholder={t("friendsPage.reviewNotesPlaceholder")}
@@ -4204,7 +4195,7 @@ export default function FriendsPage() {
                     />
                   </div>
 
-                  <button type="submit" className="btn btn-primary" style={{ alignSelf: "flex-start" }}>
+                  <button type="submit" className="btn btn-primary btn--start">
                     Recommend
                   </button>
                 </form>
@@ -4316,14 +4307,14 @@ export default function FriendsPage() {
                       </div>
 
                       {activeSugs.length === 0 ? (
-                        <div className="friends-empty-state" style={{ margin: "0", maxWidth: "100%" }}>
+                        <div className="friends-empty-state friends-empty-state--inline">
                           <h3 className="friends-empty-title">{t("friendsPage.noSharedGamesYet")}</h3>
                           <p className="friends-empty-desc">
                             Share a game from your Wishlist tab on the right. Friends can react and comment — everything syncs automatically!
                           </p>
                         </div>
                       ) : sorted.length === 0 ? (
-                        <div className="friends-empty-state" style={{ margin: "0", maxWidth: "100%" }}>
+                        <div className="friends-empty-state friends-empty-state--inline">
                           <p className="friends-empty-desc">{t("friendsPage.noSharedGamesMatch")}</p>
                         </div>
                       ) : (
@@ -4353,8 +4344,7 @@ export default function FriendsPage() {
                                 <div className="sug-header-actions">
                                   <button
                                     type="button"
-                                    className="friend-delete-btn"
-                                    style={{ opacity: 1, position: "static" }}
+                                    className="friend-delete-btn friend-delete-btn--inline"
                                     onClick={() => navigate(`/store/${sug.gameId}`)}
                                     title={t("friendsPage.viewOnStore")}
                                   >
@@ -4367,8 +4357,7 @@ export default function FriendsPage() {
                                   {sug.suggestedBy === profile.name && (
                                     <button
                                       type="button"
-                                      className="friend-delete-btn"
-                                      style={{ opacity: 1, position: "static" }}
+                                      className="friend-delete-btn friend-delete-btn--inline"
                                       onClick={() => handleDeleteSuggestion(sug.id)}
                                       title={t("friendsPage.removeShare")}
                                     >
@@ -4446,7 +4435,7 @@ export default function FriendsPage() {
                                     }
                                     required
                                   />
-                                  <button type="submit" className="btn btn-primary" style={{ padding: "4px 10px", fontSize: "11px" }}>
+                                  <button type="submit" className="btn btn-primary btn--mini">
                                     Post
                                   </button>
                                 </form>
@@ -4464,7 +4453,7 @@ export default function FriendsPage() {
               <div className="profile-edit-section">
                 <h3 className="profile-edit-title">{t("friendsPage.shareGameWishlist")}</h3>
                 {wishlist.length === 0 ? (
-                  <div className="friends-empty-state" style={{ margin: "0", maxWidth: "100%" }}>
+                  <div className="friends-empty-state friends-empty-state--inline">
                     <p className="friends-empty-desc">
                       Your wishlist is empty. Add games via the heart on any Store card, then share them here with friends.
                     </p>
@@ -4509,15 +4498,14 @@ export default function FriendsPage() {
                       <label htmlFor="sugNote">{t("friendsPage.shareNoteOptional")}</label>
                       <textarea
                         id="sugNote"
-                        className="profile-input"
-                        style={{ height: "80px", resize: "none" }}
+                        className="profile-input profile-input--textarea"
                         value={suggestionNote}
                         onChange={(e) => setSuggestionNote(e.target.value)}
                         placeholder={t("friendsPage.shareNotePlaceholder")}
                       />
                     </div>
 
-                    <button type="submit" className="btn btn-primary" style={{ alignSelf: "flex-start" }}>
+                    <button type="submit" className="btn btn-primary btn--start">
                       Share to Friends
                     </button>
                   </form>
@@ -4536,7 +4524,6 @@ export default function FriendsPage() {
                 <select
                   id="compareFriendSelect"
                   className="profile-input"
-                  style={{ width: "220px", margin: "0" }}
                   value={selectedCompareFriendId}
                   onChange={(e) => setSelectedCompareFriendId(e.target.value)}
                 >
@@ -4829,7 +4816,7 @@ export default function FriendsPage() {
                     </div>
 
                     {sortedCompareData.length === 0 ? (
-                      <div className="game-search-no-results" style={{ padding: "40px" }}>
+                      <div className="game-search-no-results game-search-no-results--tall">
                         No games match these filters.
                       </div>
                     ) : (
@@ -4909,7 +4896,7 @@ export default function FriendsPage() {
                 {compareSubTab === "genres" && (
                   <div className="compare-genres-view">
                     {genreBreakdown.length === 0 ? (
-                      <div className="game-search-no-results" style={{ padding: "40px" }}>
+                      <div className="game-search-no-results game-search-no-results--tall">
                         No genre data available to compare yet.
                       </div>
                     ) : (
@@ -5096,7 +5083,6 @@ export default function FriendsPage() {
                   type="button"
                   className="btn btn-primary"
                   onClick={handleCopyCode}
-                  style={{ marginTop: "4px" }}
                 >
                   Copy Key
                 </button>
@@ -5158,8 +5144,7 @@ export default function FriendsPage() {
                   <label htmlFor="profileBioInput">{t("friends.profile.bio")}</label>
                   <textarea
                     id="profileBioInput"
-                    className="profile-input"
-                    style={{ height: "70px", resize: "none" }}
+                    className="profile-input profile-input--textarea profile-input--textarea--sm"
                     value={profile.bio || ""}
                     onChange={(e) => setProfile({ ...profile, bio: e.target.value })}
                     placeholder={t("friendsPage.bioPlaceholder")}
@@ -5213,14 +5198,13 @@ export default function FriendsPage() {
                     {profile.avatar !== "procedural" && (
                       <button
                         type="button"
-                        className="btn btn-secondary"
+                        className="btn btn-secondary btn--mini"
                         onClick={async () => {
                           const updated = { ...profile, avatar: "procedural" };
                           setProfile(updated);
                           saveUserProfile(updated);
                           await pushMyOutbox(updated, selfStats, sessions, recommendations, selfSharedGames, suggestions);
                         }}
-                        style={{ fontSize: "11px", padding: "4px 10px" }}
                       >
                         Reset to Procedural
                       </button>
@@ -5229,7 +5213,7 @@ export default function FriendsPage() {
                   </div>
                 </div>
 
-                <button type="submit" className="btn btn-primary" style={{ alignSelf: "flex-start" }}>
+                <button type="submit" className="btn btn-primary btn--start">
                   Save Profile
                 </button>
               </form>
@@ -5333,7 +5317,6 @@ export default function FriendsPage() {
           <div
             className="friends-modal-content p2p-modal-content"
             onClick={(e) => e.stopPropagation()}
-            style={{ maxWidth: "480px" }}
           >
             <h3 className="friends-modal-title">{t("friends.p2p.title")}</h3>
             <p className="friends-modal-desc">

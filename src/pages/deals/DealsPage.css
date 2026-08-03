@@ -10,7 +10,7 @@
   flex-direction: column;
   gap: var(--space-xl);
   min-height: 100%;
-  animation: importMenuIn 200ms ease;
+  animation: importMenuIn var(--duration-normal) var(--ease-standard);
 }
 
 /* Sub-tabs */
@@ -96,6 +96,11 @@
   flex: 1 1 180px;
 }
 
+/* Wide filter group hosting the category chip row */
+.deals-filter-group--chips {
+  flex: 2 1 280px;
+}
+
 .deals-filter-group label {
   font-size: var(--font-size-xs);
   font-weight: var(--font-weight-semibold);
@@ -144,7 +149,9 @@
   font-size: var(--font-size-xs);
   font-weight: var(--font-weight-medium);
   cursor: pointer;
-  transition: all var(--transition-fast);
+  transition: background var(--transition-fast),
+    color var(--transition-fast),
+    border-color var(--transition-fast);
 }
 
 .deals-category-chip:hover {
@@ -210,7 +217,7 @@
 }
 
 .deals-gamepass-card:hover .deals-gamepass-card-image {
-  transform: scale(1.04);
+  transform: scale(1.03);
 }
 
 .deals-gamepass-card-image-fallback {
@@ -221,9 +228,7 @@
   justify-content: center;
   color: var(--color-text-muted);
   font-size: 36px;
-  background: linear-gradient(135deg,
-    color-mix(in srgb, var(--color-accent) 10%, var(--color-bg-tertiary)),
-    var(--color-bg-tertiary));
+  background: var(--color-bg-tertiary);
 }
 
 .deals-gamepass-card-body {
@@ -287,18 +292,22 @@
   font-size: var(--font-size-sm);
   font-weight: var(--font-weight-medium);
   cursor: pointer;
-  transition: background var(--transition-fast), box-shadow var(--transition-fast);
+  transition: background var(--transition-fast),
+    transform var(--transition-fast),
+    box-shadow var(--transition-fast);
   font-family: inherit;
+  box-shadow: 0 2px 8px color-mix(in srgb, var(--color-accent) 30%, transparent);
 }
 
 .deals-gamepass-card-link:hover {
   background: var(--color-accent-hover);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px color-mix(in srgb, var(--color-accent) 35%, transparent);
 }
 
 .deals-gamepass-card-link:focus-visible {
   outline: 2px solid var(--color-accent);
   outline-offset: 2px;
-  box-shadow: 0 0 0 4px var(--color-accent-glow);
 }
 
 .deals-gamepass-card-link svg {
@@ -321,9 +330,8 @@
 }
 
 .deals-deal-card:hover {
-  transform: translateY(-3px);
-  box-shadow: var(--shadow-lg);
-  border-color: var(--color-accent);
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-md);
 }
 
 .deals-deal-card-image-wrap {
@@ -343,7 +351,7 @@
 }
 
 .deals-deal-card:hover .deals-deal-card-image {
-  transform: scale(1.05);
+  transform: scale(1.03);
   filter: brightness(0.65);
 }
 
@@ -355,9 +363,7 @@
   justify-content: center;
   color: var(--color-text-muted);
   font-size: 32px;
-  background: linear-gradient(135deg,
-    color-mix(in srgb, var(--color-success) 14%, var(--color-bg-tertiary)),
-    var(--color-bg-tertiary));
+  background: var(--color-bg-tertiary);
 }
 
 .deals-deal-card-discount-corner {
@@ -370,7 +376,7 @@
   font-weight: var(--font-weight-bold);
   color: #fff;
   background: var(--color-danger);
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.35);
+  box-shadow: var(--shadow-xs);
   z-index: 2;
 }
 
@@ -451,7 +457,7 @@
 .deals-deal-card-overlay {
   position: absolute;
   inset: 0;
-  background: linear-gradient(to top, rgba(0, 0, 0, 0.85) 0%, transparent 50%);
+  background: linear-gradient(to top, var(--color-surface-overlay) 0%, transparent 50%);
   display: flex;
   align-items: flex-end;
   justify-content: center;
@@ -568,7 +574,6 @@
 .deals-giveaway-card:hover {
   transform: translateY(-2px);
   box-shadow: var(--shadow-md);
-  border-color: var(--color-success);
 }
 
 .deals-giveaway-card-image-wrap {
@@ -588,7 +593,7 @@
 }
 
 .deals-giveaway-card:hover .deals-giveaway-card-image {
-  transform: scale(1.04);
+  transform: scale(1.03);
 }
 
 .deals-giveaway-card-image-fallback {
@@ -597,11 +602,9 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  color: rgba(255, 255, 255, 0.92);
+  color: var(--color-text-muted);
   font-size: 32px;
-  background: var(--store-tint, linear-gradient(135deg,
-    color-mix(in srgb, var(--color-success) 14%, var(--color-bg-tertiary)),
-    var(--color-bg-tertiary)));
+  background: var(--color-bg-tertiary);
 }
 
 .deals-giveaway-card-free-badge {
@@ -614,7 +617,7 @@
   font-weight: var(--font-weight-bold);
   color: #000;
   background: var(--color-success);
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.35);
+  box-shadow: var(--shadow-xs);
   z-index: 2;
   letter-spacing: 0.05em;
 }
@@ -629,7 +632,7 @@
   font-weight: var(--font-weight-bold);
   color: #fff;
   background: var(--color-danger);
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.35);
+  box-shadow: var(--shadow-xs);
   z-index: 2;
 }
 

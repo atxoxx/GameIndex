@@ -67,7 +67,6 @@
   line-height: 1.05;
   letter-spacing: -0.03em;
   color: var(--color-text-primary);
-  text-shadow: 0 2px 24px rgba(0, 0, 0, 0.35);
 }
 
 .home-hero__title-accent {
@@ -114,13 +113,12 @@
 .home-hero__btn--primary {
   background: var(--brand-gradient);
   color: #fff;
-  box-shadow: 0 8px 28px color-mix(in srgb, var(--brand-1) 45%, transparent),
-    inset 0 1px 0 rgba(255, 255, 255, 0.2);
+  box-shadow: 0 4px 14px color-mix(in srgb, var(--brand-1) 35%, transparent);
 }
 
 .home-hero__btn--primary:hover {
   transform: translateY(-2px);
-  box-shadow: 0 12px 36px color-mix(in srgb, var(--brand-1) 55%, transparent);
+  box-shadow: 0 6px 18px color-mix(in srgb, var(--brand-1) 40%, transparent);
 }
 
 .home-hero__btn--ghost {

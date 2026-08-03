@@ -51,13 +51,7 @@
   color: #fff;
 }
 
-/* ── Depth + brand glow on store rail/grid cards ────────────────── */
-.store-page .store-game-card {
-  box-shadow: var(--depth-1);
-}
-.store-page .store-game-card:hover {
-  box-shadow: var(--depth-2);
-}
+/* ── Store rail/grid cards stay flat (hover lift + shadow live in store.css) ── */
 
 /* ── Detail-page primary "Add to Library" CTA tinted brand ──────── */
 .game-page .store-add-btn {
@@ -218,18 +212,13 @@
 
 .store-featured-tab:hover .store-featured-tab-icon {
   opacity: 1;
-  transform: scale(1.08);
 }
 
 .store-featured-tab.active {
   color: #fff;
-  background: linear-gradient(
-    135deg,
-    var(--color-accent),
-    color-mix(in srgb, var(--color-accent) 65%, #000)
-  );
+  background: var(--color-accent);
   border-color: transparent;
-  box-shadow: 0 4px 16px color-mix(in srgb, var(--color-accent) 45%, transparent);
+  box-shadow: 0 2px 8px color-mix(in srgb, var(--color-accent) 30%, transparent);
 }
 
 .store-featured-tab.active .store-featured-tab-icon {
@@ -252,7 +241,9 @@
   font-size: var(--font-size-sm);
   font-weight: var(--font-weight-semibold);
   cursor: pointer;
-  transition: all var(--transition-fast);
+  transition: color var(--transition-fast), background var(--transition-fast),
+    border-color var(--transition-fast), transform var(--transition-fast),
+    box-shadow var(--transition-fast);
   font-family: inherit;
   flex-shrink: 0;
 }
@@ -277,7 +268,7 @@
   background: color-mix(in srgb, var(--brand-1) 14%, transparent);
   border-color: var(--brand-1);
   transform: translateY(-1px);
-  box-shadow: 0 4px 14px color-mix(in srgb, var(--brand-1) 30%, transparent);
+  box-shadow: 0 4px 12px color-mix(in srgb, var(--brand-1) 35%, transparent);
 }
 
 .store-featured-surprise:disabled {
@@ -335,7 +326,7 @@
 }
 
 .store-featured-rail > .store-game-card:hover {
-  transform: translateY(-6px);
+  transform: translateY(-2px);
 }
 
 .store-game-card-skeleton {

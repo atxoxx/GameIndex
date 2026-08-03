@@ -150,7 +150,6 @@ export default function NewsPage() {
         actions={
           <>
             <DensityToggle density={density} onChange={setDensity} />
-          <DensityToggle density={density} onChange={setDensity} />
           {unreadCount < articles.length && articles.length > 0 && (
             <button
               type="button"

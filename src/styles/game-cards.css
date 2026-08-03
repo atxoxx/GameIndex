@@ -449,7 +449,9 @@
   background: var(--color-bg-tertiary);
   border: 1px solid var(--color-border);
   border-radius: var(--radius-full);
-  transition: all var(--duration-fast) var(--ease-standard);
+  transition: color var(--duration-fast) var(--ease-standard),
+    background var(--duration-fast) var(--ease-standard),
+    border-color var(--duration-fast) var(--ease-standard);
   cursor: default;
 }
 
@@ -876,7 +878,6 @@
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-  text-shadow: 0 2px 12px rgba(0,0,0,0.45);
 }
 
 .game-hero-logo {
@@ -1263,7 +1264,11 @@
   color: var(--color-text-secondary);
   cursor: pointer;
   box-shadow: var(--shadow-sm);
-  transition: all var(--duration-fast) var(--ease-standard);
+  transition: color var(--duration-fast) var(--ease-standard),
+    background var(--duration-fast) var(--ease-standard),
+    border-color var(--duration-fast) var(--ease-standard),
+    box-shadow var(--duration-fast) var(--ease-standard),
+    transform var(--duration-fast) var(--ease-standard);
 }
 
 .carousel-arrow svg {
@@ -1473,7 +1478,9 @@
   overflow: hidden;
   cursor: pointer;
   border: 1px solid var(--color-border);
-  transition: all var(--transition-fast) var(--ease-standard);
+  transition: border-color var(--transition-fast) var(--ease-standard),
+    box-shadow var(--transition-fast) var(--ease-standard),
+    transform var(--transition-fast) var(--ease-standard);
   scroll-snap-align: start;
   background: var(--color-bg-tertiary);
 }
@@ -1493,7 +1500,7 @@
 }
 
 .screenshot-item:hover .screenshot-img {
-  transform: scale(1.05);
+  transform: scale(1.03);
 }
 
 /* ── Game section elevated card surface ─────────────────────────
@@ -2160,9 +2167,9 @@
   align-items: center;
   padding: 2px 8px;
   border-radius: var(--radius-full);
-  background: color-mix(in srgb, var(--color-info, var(--color-accent)) 12%, var(--color-bg-tertiary));
-  border: 1px solid color-mix(in srgb, var(--color-info, var(--color-accent)) 30%, var(--color-border));
-  color: var(--color-info, var(--color-accent));
+  background: color-mix(in srgb, var(--color-info) 12%, var(--color-bg-tertiary));
+  border: 1px solid color-mix(in srgb, var(--color-info) 30%, var(--color-border));
+  color: var(--color-info);
   font-size: 10px;
   font-weight: var(--font-weight-semibold);
   letter-spacing: 0.4px;

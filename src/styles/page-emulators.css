@@ -5,7 +5,7 @@
 /* ── Card grid ──────────────────────────────────────────────────── */
 
 .emulators-page {
-  padding: 28px 32px;
+  padding: var(--space-xl) var(--space-2xl) var(--space-3xl);
   max-width: 1500px;
   min-height: 100%;
 }
@@ -14,28 +14,29 @@
   display: flex;
   align-items: flex-start;
   justify-content: space-between;
-  gap: 24px;
-  margin-bottom: 28px;
+  gap: var(--space-xl);
+  margin-bottom: var(--space-xl);
 }
 
 .emulators-title {
   margin: 0 0 6px;
-  font-size: 26px;
-  font-weight: 700;
+  font-size: var(--font-size-2xl);
+  font-weight: var(--font-weight-semibold);
+  letter-spacing: -0.02em;
   color: var(--color-text-primary);
 }
 
 .emulators-subtitle {
   margin: 0;
-  font-size: 14px;
-  color: var(--color-text-secondary, #8b8fa3);
+  font-size: var(--font-size-md);
+  color: var(--color-text-secondary);
   max-width: 520px;
   line-height: 1.5;
 }
 
 .emulators-header-actions {
   display: flex;
-  gap: 10px;
+  gap: var(--space-sm);
   flex-shrink: 0;
 }
 
@@ -46,25 +47,25 @@
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  padding: 80px 24px;
+  padding: var(--space-4xl) var(--space-xl);
   text-align: center;
 }
 
 .emulators-empty-glyph {
   font-size: 48px;
-  margin-bottom: 16px;
+  margin-bottom: var(--space-lg);
   opacity: 0.6;
 }
 
 .emulators-empty h2 {
-  margin: 0 0 8px;
-  font-size: 20px;
+  margin: 0 0 var(--space-sm);
+  font-size: var(--font-size-xl);
   color: var(--color-text-primary);
 }
 
 .emulators-empty p {
-  margin: 0 0 20px;
-  color: var(--color-text-secondary, #8b8fa3);
+  margin: 0 0 var(--space-xl);
+  color: var(--color-text-secondary);
   max-width: 360px;
   line-height: 1.5;
 }
@@ -74,7 +75,7 @@
 .emulators-split {
   display: grid;
   grid-template-columns: minmax(260px, 300px) 1fr;
-  gap: 20px;
+  gap: var(--space-xl);
   align-items: start;
 }
 
@@ -83,8 +84,8 @@
 .emulators-list-pane {
   background: var(--color-surface);
   border: 1px solid var(--color-border);
-  border-radius: 12px;
-  padding: 14px;
+  border-radius: var(--radius-lg);
+  padding: var(--space-md);
   position: sticky;
   top: 16px;
 }
@@ -92,48 +93,48 @@
 .emulators-list-controls {
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: var(--space-sm);
 }
 
 .emulators-search {
   width: 100%;
   height: 34px;
-  padding: 0 12px;
-  font-size: 13px;
+  padding: 0 var(--space-md);
+  font-size: var(--font-size-sm);
   color: var(--color-text-primary);
   background: var(--color-bg-primary);
   border: 1px solid var(--color-border);
-  border-radius: 8px;
+  border-radius: var(--radius-md);
   outline: none;
-  transition: border-color 0.15s;
+  transition: border-color var(--transition-fast), box-shadow var(--transition-fast);
 }
 
 .emulators-search:focus {
   border-color: var(--color-accent);
-  box-shadow: 0 0 0 1px var(--color-accent-glow);
+  box-shadow: 0 0 0 2px var(--color-accent-glow);
 }
 
 .emulators-sort {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: var(--space-sm);
 }
 
 .emulators-sort-label {
-  font-size: 12px;
-  color: var(--color-text-secondary, #8b8fa3);
+  font-size: var(--font-size-xs);
+  color: var(--color-text-secondary);
   white-space: nowrap;
 }
 
 .emulators-sort select {
   flex: 1;
   height: 32px;
-  padding: 0 8px;
-  font-size: 12px;
+  padding: 0 var(--space-sm);
+  font-size: var(--font-size-xs);
   color: var(--color-text-primary);
   background: var(--color-bg-primary);
   border: 1px solid var(--color-border);
-  border-radius: 8px;
+  border-radius: var(--radius-md);
   outline: none;
 }
 
@@ -141,13 +142,13 @@
   width: 32px;
   height: 32px;
   flex-shrink: 0;
-  font-size: 14px;
+  font-size: var(--font-size-md);
   color: var(--color-text-primary);
   background: var(--color-bg-primary);
   border: 1px solid var(--color-border);
-  border-radius: 8px;
+  border-radius: var(--radius-md);
   cursor: pointer;
-  transition: border-color 0.15s, background 0.15s;
+  transition: border-color var(--transition-fast), background var(--transition-fast);
 }
 
 .emulators-sort-dir:hover {
@@ -156,11 +157,11 @@
 }
 
 .emulators-list-count {
-  margin: 12px 2px 8px;
-  font-size: 11px;
+  margin: var(--space-md) 2px var(--space-sm);
+  font-size: var(--font-size-xs);
   text-transform: uppercase;
   letter-spacing: 0.04em;
-  color: var(--color-text-secondary, #8b8fa3);
+  color: var(--color-text-secondary);
 }
 
 .emulators-list {
@@ -173,25 +174,25 @@
 }
 
 .emulators-list-empty {
-  padding: 24px 8px;
+  padding: var(--space-xl) var(--space-sm);
   text-align: center;
-  font-size: 13px;
-  color: var(--color-text-secondary, #8b8fa3);
+  font-size: var(--font-size-sm);
+  color: var(--color-text-secondary);
 }
 
 .emu-row {
   position: relative;
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: var(--space-sm);
   width: 100%;
-  padding: 10px 12px 10px 14px;
+  padding: var(--space-sm) var(--space-md) var(--space-sm) var(--space-md);
   text-align: left;
   background: transparent;
   border: 1px solid transparent;
-  border-radius: 10px;
+  border-radius: var(--radius-md);
   cursor: pointer;
-  transition: background 0.15s, border-color 0.15s;
+  transition: background var(--transition-fast), border-color var(--transition-fast);
 }
 
 .emu-row:hover {
@@ -212,7 +213,7 @@
   border-radius: 3px;
   background: var(--emu-accent, var(--color-accent));
   opacity: 0;
-  transition: opacity 0.15s;
+  transition: opacity var(--transition-fast);
 }
 
 .emu-row.is-active .emu-row-stripe {
@@ -223,11 +224,11 @@
   width: 32px;
   height: 32px;
   flex-shrink: 0;
-  border-radius: 8px;
+  border-radius: var(--radius-md);
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 15px;
+  font-size: var(--font-size-md);
   color: #fff;
   background: var(--emu-accent, var(--color-accent));
 }
@@ -236,10 +237,10 @@
   width: 32px;
   height: 32px;
   flex-shrink: 0;
-  border-radius: 8px;
+  border-radius: var(--radius-md);
   object-fit: contain;
   padding: 4px;
-  background: rgba(0, 0, 0, 0.32);
+  background: var(--color-bg-primary);
 }
 
 .emu-row-main {
@@ -251,8 +252,8 @@
 }
 
 .emu-row-name {
-  font-size: 13px;
-  font-weight: 600;
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-semibold);
   color: var(--color-text-primary);
   white-space: nowrap;
   overflow: hidden;
@@ -260,10 +261,10 @@
 }
 
 .emu-row-platform {
-  font-size: 11px;
+  font-size: var(--font-size-xs);
   text-transform: uppercase;
   letter-spacing: 0.03em;
-  color: var(--color-text-secondary, #8b8fa3);
+  color: var(--color-text-secondary);
 }
 
 .emu-row-meta {
@@ -275,43 +276,43 @@
 }
 
 .emu-row-count {
-  font-size: 11px;
-  font-weight: 600;
-  color: var(--color-text-secondary, #8b8fa3);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text-secondary);
 }
 
 .emu-badge {
   font-size: 10px;
-  font-weight: 700;
+  font-weight: var(--font-weight-bold);
   text-transform: uppercase;
   letter-spacing: 0.03em;
   padding: 1px 6px;
-  border-radius: 5px;
+  border-radius: var(--radius-xs);
   border: 1px solid transparent;
   white-space: nowrap;
 }
 
 .emu-badge.is-added {
   color: var(--color-accent);
-  border-color: var(--color-accent);
+  border-color: color-mix(in srgb, var(--color-accent) 40%, transparent);
   background: var(--color-accent-soft);
 }
 
 .emu-badge.is-notadded {
-  color: var(--color-text-secondary, #8b8fa3);
+  color: var(--color-text-secondary);
   border-color: var(--color-border);
 }
 
 .emu-badge.is-configured {
-  color: #4ade80;
-  border-color: rgba(74, 222, 128, 0.4);
-  background: rgba(74, 222, 128, 0.1);
+  color: var(--color-success);
+  border-color: color-mix(in srgb, var(--color-success) 40%, transparent);
+  background: color-mix(in srgb, var(--color-success) 12%, transparent);
 }
 
 .emu-badge.is-notconfigured {
-  color: #f59e0b;
-  border-color: rgba(245, 158, 11, 0.4);
-  background: rgba(245, 158, 11, 0.1);
+  color: var(--color-warning);
+  border-color: color-mix(in srgb, var(--color-warning) 40%, transparent);
+  background: color-mix(in srgb, var(--color-warning) 12%, transparent);
 }
 
 /* ── Right detail pane ──────────────────────────────────────────── */
@@ -321,24 +322,24 @@
 }
 
 .emulators-detail-empty {
-  padding: 80px 24px;
+  padding: var(--space-4xl) var(--space-xl);
   text-align: center;
-  font-size: 14px;
-  color: var(--color-text-secondary, #8b8fa3);
+  font-size: var(--font-size-md);
+  color: var(--color-text-secondary);
 }
 
 .emulators-detail {
   background: var(--color-surface);
   border: 1px solid var(--color-border);
-  border-radius: 12px;
-  padding: 20px;
+  border-radius: var(--radius-lg);
+  padding: var(--space-xl);
 }
 
 .emu-detail-head {
   display: flex;
   align-items: center;
-  gap: 14px;
-  padding-bottom: 16px;
+  gap: var(--space-md);
+  padding-bottom: var(--space-lg);
   border-bottom: 1px solid var(--color-border);
 }
 
@@ -346,7 +347,7 @@
   width: 48px;
   height: 48px;
   flex-shrink: 0;
-  border-radius: 12px;
+  border-radius: var(--radius-lg);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -359,10 +360,10 @@
   width: 48px;
   height: 48px;
   flex-shrink: 0;
-  border-radius: 12px;
+  border-radius: var(--radius-lg);
   object-fit: contain;
   padding: 5px;
-  background: rgba(0, 0, 0, 0.32);
+  background: var(--color-bg-primary);
 }
 
 .emu-detail-titles {
@@ -372,8 +373,8 @@
 
 .emu-detail-name {
   margin: 0;
-  font-size: 20px;
-  font-weight: 700;
+  font-size: var(--font-size-xl);
+  font-weight: var(--font-weight-bold);
   color: var(--color-text-primary);
   white-space: nowrap;
   overflow: hidden;
@@ -381,38 +382,38 @@
 }
 
 .emu-detail-platform {
-  font-size: 12px;
-  font-weight: 500;
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-medium);
   text-transform: uppercase;
   letter-spacing: 0.04em;
-  color: var(--color-text-secondary, #8b8fa3);
+  color: var(--color-text-secondary);
 }
 
 .emu-detail-desc {
-  margin: 14px 0 0;
-  font-size: 13px;
+  margin: var(--space-md) 0 0;
+  font-size: var(--font-size-sm);
   line-height: 1.5;
-  color: var(--color-text-secondary, #8b8fa3);
+  color: var(--color-text-secondary);
 }
 
 .emu-detail-meta {
   display: flex;
   flex-direction: column;
-  gap: 8px;
-  margin: 16px 0;
+  gap: var(--space-sm);
+  margin: var(--space-lg) 0;
 }
 
 .emu-detail-meta-row {
   display: flex;
   align-items: center;
-  gap: 10px;
-  font-size: 13px;
+  gap: var(--space-sm);
+  font-size: var(--font-size-sm);
 }
 
 .emu-detail-meta-label {
   width: 110px;
   flex-shrink: 0;
-  color: var(--color-text-secondary, #8b8fa3);
+  color: var(--color-text-secondary);
 }
 
 .emu-detail-meta-value {
@@ -427,8 +428,8 @@
 .emu-detail-actions {
   display: flex;
   flex-wrap: wrap;
-  gap: 8px;
-  margin-bottom: 20px;
+  gap: var(--space-sm);
+  margin-bottom: var(--space-xl);
 }
 
 .emu-detail-github {
@@ -438,7 +439,7 @@
 }
 
 .emu-detail-github-icon {
-  font-size: 13px;
+  font-size: var(--font-size-sm);
   line-height: 1;
 }
 
@@ -446,53 +447,53 @@
   margin-top: 18px;
   padding: 18px;
   border: 1px dashed var(--color-border-light);
-  border-radius: 10px;
+  border-radius: var(--radius-md);
   text-align: center;
 }
 
 .emulators-notadded h3 {
-  margin: 0 0 8px;
-  font-size: 16px;
+  margin: 0 0 var(--space-sm);
+  font-size: var(--font-size-lg);
   color: var(--color-text-primary);
 }
 
 .emulators-notadded p {
-  margin: 0 0 16px;
-  font-size: 13px;
+  margin: 0 0 var(--space-lg);
+  font-size: var(--font-size-sm);
   line-height: 1.5;
-  color: var(--color-text-secondary, #8b8fa3);
+  color: var(--color-text-secondary);
 }
 
 /* ── Games table ────────────────────────────────────────────────── */
 
 .emu-games {
   border-top: 1px solid var(--color-border);
-  padding-top: 16px;
+  padding-top: var(--space-lg);
 }
 
 .emu-games-head {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 12px;
-  margin-bottom: 12px;
+  gap: var(--space-md);
+  margin-bottom: var(--space-md);
   flex-wrap: wrap;
 }
 
 .emu-games-title {
   margin: 0;
   font-size: 15px;
-  font-weight: 600;
+  font-weight: var(--font-weight-semibold);
   color: var(--color-text-primary);
   display: flex;
   align-items: baseline;
-  gap: 8px;
+  gap: var(--space-sm);
 }
 
 .emu-games-count {
-  font-size: 12px;
-  font-weight: 500;
-  color: var(--color-text-secondary, #8b8fa3);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-medium);
+  color: var(--color-text-secondary);
 }
 
 .emu-games-search {
@@ -501,19 +502,19 @@
 }
 
 .emu-games-empty {
-  padding: 28px 12px;
+  padding: var(--space-2xl) var(--space-md);
   text-align: center;
 }
 
 .emu-games-empty p {
   margin: 0 0 6px;
-  font-size: 13px;
+  font-size: var(--font-size-sm);
   color: var(--color-text-primary);
 }
 
 .emu-games-empty-hint {
-  color: var(--color-text-secondary, #8b8fa3) !important;
-  font-size: 12px !important;
+  color: var(--color-text-secondary) !important;
+  font-size: var(--font-size-xs) !important;
 }
 
 .emu-games-table {
@@ -528,12 +529,12 @@
 .emu-game-row {
   display: flex;
   align-items: center;
-  gap: 12px;
-  padding: 8px 10px;
+  gap: var(--space-md);
+  padding: var(--space-sm) var(--space-sm);
   border: 1px solid var(--color-border);
-  border-radius: 10px;
+  border-radius: var(--radius-md);
   background: var(--color-surface-raised);
-  transition: border-color 0.15s;
+  transition: border-color var(--transition-fast), background var(--transition-fast);
 }
 
 .emu-game-row:hover {
@@ -544,7 +545,7 @@
   width: 36px;
   height: 36px;
   flex-shrink: 0;
-  border-radius: 8px;
+  border-radius: var(--radius-md);
   overflow: hidden;
   display: flex;
   align-items: center;
@@ -559,7 +560,7 @@
 }
 
 .emu-game-icon-fallback {
-  font-size: 16px;
+  font-size: var(--font-size-lg);
   opacity: 0.6;
 }
 
@@ -572,8 +573,8 @@
 }
 
 .emu-game-name {
-  font-size: 13px;
-  font-weight: 600;
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-semibold);
   color: var(--color-text-primary);
   white-space: nowrap;
   overflow: hidden;
@@ -581,16 +582,16 @@
 }
 
 .emu-game-path {
-  font-size: 11px;
-  color: var(--color-text-secondary, #8b8fa3);
+  font-size: var(--font-size-xs);
+  color: var(--color-text-secondary);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
 }
 
 .emu-game-size {
-  font-size: 12px;
-  color: var(--color-text-secondary, #8b8fa3);
+  font-size: var(--font-size-xs);
+  color: var(--color-text-secondary);
   flex-shrink: 0;
   min-width: 64px;
   text-align: right;
@@ -609,28 +610,36 @@
 }
 
 /* ── Button classes for the emulators page ──────────────────────── */
-/* These are self-contained so the page doesn't depend on global btn
-   classes. Reuse is intentional — they match the app's existing look. */
+/* Aligned with the shared button family (ui-btn) so the page reads
+   as part of the same system. */
 
 .btn-primary {
   display: inline-flex;
   align-items: center;
   gap: 6px;
   height: 34px;
-  padding: 0 16px;
-  font-size: 13px;
-  font-weight: 600;
+  padding: 0 var(--space-lg);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-semibold);
   border: none;
-  border-radius: 8px;
+  border-radius: var(--radius-md);
   cursor: pointer;
   color: #fff;
   background: var(--color-accent);
-  transition: background 0.15s, box-shadow 0.15s;
+  box-shadow: 0 2px 8px color-mix(in srgb, var(--color-accent) 30%, transparent);
+  transition: background var(--transition-fast), box-shadow var(--transition-fast),
+    transform var(--transition-fast);
+  font-family: inherit;
 }
 
 .btn-primary:hover {
   background: var(--color-accent-hover);
-  box-shadow: 0 0 12px var(--color-accent-glow);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px color-mix(in srgb, var(--color-accent) 35%, transparent);
+}
+
+.btn-primary:active {
+  transform: translateY(0);
 }
 
 .btn-primary:disabled {
@@ -644,20 +653,24 @@
   align-items: center;
   gap: 6px;
   height: 34px;
-  padding: 0 16px;
-  font-size: 13px;
-  font-weight: 600;
-  border: 1px solid var(--color-border-light);
-  border-radius: 8px;
+  padding: 0 var(--space-lg);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-semibold);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
   cursor: pointer;
   color: var(--color-text-primary);
-  background: transparent;
-  transition: border-color 0.15s, background 0.15s;
+  background: var(--color-bg-tertiary);
+  transition: border-color var(--transition-fast), background var(--transition-fast),
+    box-shadow var(--transition-fast), transform var(--transition-fast);
+  font-family: inherit;
 }
 
 .btn-secondary:hover {
-  border-color: var(--color-accent);
-  background: var(--color-accent-soft);
+  border-color: var(--color-border-light);
+  background: var(--color-bg-hover);
+  transform: translateY(-1px);
+  box-shadow: var(--shadow-sm);
 }
 
 .btn-secondary:disabled {
@@ -670,15 +683,16 @@
   align-items: center;
   gap: 6px;
   height: 32px;
-  padding: 0 12px;
-  font-size: 12px;
-  font-weight: 500;
+  padding: 0 var(--space-md);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-medium);
   border: none;
   border-radius: 6px;
   cursor: pointer;
-  color: var(--color-text-secondary, #8b8fa3);
+  color: var(--color-text-secondary);
   background: transparent;
-  transition: color 0.15s, background 0.15s;
+  transition: color var(--transition-fast), background var(--transition-fast);
+  font-family: inherit;
 }
 
 .btn-ghost:hover {
@@ -691,26 +705,27 @@
   align-items: center;
   gap: 6px;
   height: 32px;
-  padding: 0 12px;
-  font-size: 12px;
-  font-weight: 500;
+  padding: 0 var(--space-md);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-medium);
   border: 1px solid transparent;
   border-radius: 6px;
   cursor: pointer;
   color: var(--color-danger);
   background: transparent;
-  transition: border-color 0.15s, background 0.15s;
+  transition: border-color var(--transition-fast), background var(--transition-fast);
+  font-family: inherit;
 }
 
 .btn-danger:hover {
-  border-color: var(--color-danger);
-  background: rgba(255, 92, 122, 0.1);
+  border-color: color-mix(in srgb, var(--color-danger) 40%, transparent);
+  background: color-mix(in srgb, var(--color-danger) 12%, transparent);
 }
 
 .btn-sm {
   height: 28px;
-  padding: 0 10px;
-  font-size: 11px;
+  padding: 0 var(--space-sm);
+  font-size: var(--font-size-xs);
 }
 
 /* ── Modal overrides for emulator editor ────────────────────────── */
@@ -719,7 +734,7 @@
 .modal-overlay {
   position: fixed;
   inset: 0;
-  background: var(--color-surface-overlay, rgba(7, 8, 12, 0.85));
+  background: var(--color-surface-overlay);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -738,8 +753,8 @@
 .emulators-editor-body {
   display: flex;
   flex-direction: column;
-  gap: 14px;
-  padding: 20px 24px;
+  gap: var(--space-md);
+  padding: var(--space-xl) var(--space-2xl);
 }
 
 .emulators-field {
@@ -749,9 +764,9 @@
 }
 
 .emulators-field > span {
-  font-size: 12px;
-  font-weight: 600;
-  color: var(--color-text-secondary, #8b8fa3);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text-secondary);
   text-transform: uppercase;
   letter-spacing: 0.03em;
 }
@@ -759,21 +774,21 @@
 .emulators-field input,
 .emulators-field select,
 .emulators-field textarea {
-  padding: 8px 10px;
-  font-size: 13px;
+  padding: var(--space-sm) var(--space-sm);
+  font-size: var(--font-size-sm);
   border: 1px solid var(--color-border);
   border-radius: 6px;
   background: var(--color-bg-primary);
   color: var(--color-text-primary);
   outline: none;
-  transition: border-color 0.15s;
+  transition: border-color var(--transition-fast), box-shadow var(--transition-fast);
 }
 
 .emulators-field input:focus,
 .emulators-field select:focus,
 .emulators-field textarea:focus {
   border-color: var(--color-accent);
-  box-shadow: 0 0 0 1px var(--color-accent-glow);
+  box-shadow: 0 0 0 2px var(--color-accent-glow);
 }
 
 .emulators-field textarea {
@@ -785,12 +800,12 @@
 .emulators-field-row {
   display: grid;
   grid-template-columns: 1fr 1fr;
-  gap: 12px;
+  gap: var(--space-md);
 }
 
 .emulators-path-row {
   display: flex;
-  gap: 8px;
+  gap: var(--space-sm);
   align-items: center;
 }
 
@@ -799,31 +814,31 @@
 }
 
 .emulators-hint {
-  font-size: 11px;
-  color: var(--color-text-secondary, #8b8fa3);
+  font-size: var(--font-size-xs);
+  color: var(--color-text-secondary);
   opacity: 0.7;
 }
 
 .emulators-known-hint {
   margin: 0;
-  font-size: 12px;
-  color: var(--color-text-secondary, #8b8fa3);
+  font-size: var(--font-size-xs);
+  color: var(--color-text-secondary);
   font-style: italic;
   padding: 2px 0 0;
 }
 
 .emulators-extensions {
   margin: 0;
-  font-size: 11px;
-  color: var(--color-text-secondary, #8b8fa3);
+  font-size: var(--font-size-xs);
+  color: var(--color-text-secondary);
   opacity: 0.7;
 }
 
 .emulators-checkbox {
   display: flex;
   align-items: center;
-  gap: 8px;
-  font-size: 13px;
+  gap: var(--space-sm);
+  font-size: var(--font-size-sm);
   color: var(--color-text-primary);
   cursor: pointer;
 }
@@ -841,12 +856,12 @@
   padding: 1px 6px;
   margin-right: 6px;
   font-size: 9px;
-  font-weight: 700;
+  font-weight: var(--font-weight-bold);
   text-transform: uppercase;
   letter-spacing: 0.03em;
   line-height: 1.3;
   border: 1px solid;
-  border-radius: 4px;
+  border-radius: var(--radius-xs);
   vertical-align: middle;
   flex-shrink: 0;
   opacity: 0.85;
@@ -860,7 +875,7 @@
 }
 
 .confirm-modal .modal-body p {
-  font-size: 14px;
+  font-size: var(--font-size-md);
   line-height: 1.5;
   color: var(--color-text-primary);
   margin: 0;
@@ -868,9 +883,9 @@
 
 .modal-label {
   display: block;
-  font-size: 12px;
-  font-weight: 600;
-  color: var(--color-text-secondary, #8b8fa3);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text-secondary);
   text-transform: uppercase;
   letter-spacing: 0.03em;
   margin-bottom: 6px;
@@ -878,19 +893,19 @@
 
 .modal-input {
   width: 100%;
-  padding: 8px 10px;
-  font-size: 13px;
+  padding: var(--space-sm) var(--space-sm);
+  font-size: var(--font-size-sm);
   border: 1px solid var(--color-border);
   border-radius: 6px;
   background: var(--color-bg-primary);
   color: var(--color-text-primary);
   outline: none;
-  transition: border-color 0.15s;
+  transition: border-color var(--transition-fast), box-shadow var(--transition-fast);
 }
 
 .modal-input:focus {
   border-color: var(--color-accent);
-  box-shadow: 0 0 0 1px var(--color-accent-glow);
+  box-shadow: 0 0 0 2px var(--color-accent-glow);
 }
 
 /* ── Stats strip ───────────────────────────────────────────────── */
@@ -898,7 +913,7 @@
 .emulators-stats {
   display: grid;
   grid-template-columns: repeat(4, 1fr);
-  gap: 12px;
+  gap: var(--space-md);
   margin-bottom: 22px;
 }
 
@@ -907,13 +922,14 @@
   flex-direction: column;
   align-items: flex-start;
   gap: 2px;
-  padding: 14px 16px;
+  padding: var(--space-md) var(--space-lg);
   background: var(--color-surface);
   border: 1px solid var(--color-border);
-  border-radius: 12px;
+  border-radius: var(--radius-lg);
   position: relative;
   overflow: hidden;
-  transition: border-color 0.15s, transform 0.15s;
+  transition: border-color var(--transition-fast), transform var(--transition-fast),
+    box-shadow var(--transition-fast);
   text-align: left;
   font: inherit;
   color: inherit;
@@ -926,7 +942,8 @@
 
 .emu-stat.is-clickable:hover {
   border-color: var(--color-accent);
-  transform: translateY(-1px);
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-md);
 }
 
 .emu-stat.is-active {
@@ -935,26 +952,25 @@
 
 .emu-stat:hover {
   border-color: var(--color-border-light);
-  transform: translateY(-1px);
 }
 
 .emu-stat-glyph {
-  font-size: 16px;
+  font-size: var(--font-size-lg);
   opacity: 0.85;
 }
 
 .emu-stat-value {
   font-size: 22px;
-  font-weight: 700;
+  font-weight: var(--font-weight-bold);
   line-height: 1.1;
   color: var(--color-text-primary);
 }
 
 .emu-stat-label {
-  font-size: 11px;
+  font-size: var(--font-size-xs);
   text-transform: uppercase;
   letter-spacing: 0.04em;
-  color: var(--color-text-secondary, #8b8fa3);
+  color: var(--color-text-secondary);
 }
 
 /* ── Filter chips ───────────────────────────────────────────────── */
@@ -963,19 +979,21 @@
   display: flex;
   flex-wrap: wrap;
   gap: 6px;
-  margin: 12px 0 8px;
+  margin: var(--space-md) 0 var(--space-sm);
 }
 
 .emu-filter-chip {
-  font-size: 11px;
-  font-weight: 600;
-  padding: 4px 10px;
-  border-radius: 999px;
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-semibold);
+  padding: 4px var(--space-sm);
+  border-radius: var(--radius-full);
   cursor: pointer;
-  color: var(--color-text-secondary, #8b8fa3);
+  color: var(--color-text-secondary);
   background: var(--color-bg-primary);
   border: 1px solid var(--color-border);
-  transition: border-color 0.15s, color 0.15s, background 0.15s;
+  transition: border-color var(--transition-fast), color var(--transition-fast),
+    background var(--transition-fast);
+  font-family: inherit;
 }
 
 .emu-filter-chip:hover {
@@ -998,7 +1016,7 @@
 }
 
 .emu-group + .emu-group {
-  margin-top: 14px;
+  margin-top: var(--space-md);
 }
 
 .emu-group-header {
@@ -1007,10 +1025,10 @@
   justify-content: space-between;
   padding: 2px 6px 4px;
   font-size: 10px;
-  font-weight: 700;
+  font-weight: var(--font-weight-bold);
   text-transform: uppercase;
   letter-spacing: 0.06em;
-  color: var(--color-text-secondary, #8b8fa3);
+  color: var(--color-text-secondary);
   position: sticky;
   top: 0;
   background: var(--color-surface);
@@ -1020,7 +1038,7 @@
 .emu-group-count {
   background: var(--color-bg-primary);
   border: 1px solid var(--color-border);
-  border-radius: 999px;
+  border-radius: var(--radius-full);
   padding: 0 7px;
   font-size: 9px;
 }
@@ -1038,14 +1056,14 @@
 
 .emu-detail-banner {
   border: 1px solid var(--color-border);
-  border-radius: 14px;
-  padding: 20px;
+  border-radius: var(--radius-lg);
+  padding: var(--space-xl);
   position: relative;
   overflow: hidden;
   background:
     radial-gradient(
       120% 140% at 0% 0%,
-      color-mix(in srgb, var(--emu-accent, var(--color-accent)) 30%, transparent),
+      color-mix(in srgb, var(--emu-accent, var(--color-accent)) 22%, transparent),
       transparent 60%
     ),
     var(--color-surface);
@@ -1053,7 +1071,7 @@
 }
 
 .emu-detail-banner .emu-detail-glyph {
-  box-shadow: 0 4px 16px color-mix(in srgb, var(--emu-accent, var(--color-accent)) 45%, transparent);
+  box-shadow: 0 2px 8px color-mix(in srgb, var(--emu-accent, var(--color-accent)) 30%, transparent);
 }
 
 /* ── Games grid ─────────────────────────────────────────────────── */
@@ -1061,12 +1079,12 @@
 .emu-game-row-head {
   background: transparent;
   border: none;
-  padding: 4px 10px;
-  font-size: 11px;
-  font-weight: 700;
+  padding: 4px var(--space-sm);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-bold);
   text-transform: uppercase;
   letter-spacing: 0.04em;
-  color: var(--color-text-secondary, #8b8fa3);
+  color: var(--color-text-secondary);
   cursor: default;
 }
 
@@ -1084,15 +1102,15 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 10px 12px;
+  padding: var(--space-sm) var(--space-md);
   margin-top: 4px;
   border-top: 1px solid var(--color-border);
-  font-size: 12px;
-  color: var(--color-text-secondary, #8b8fa3);
+  font-size: var(--font-size-xs);
+  color: var(--color-text-secondary);
 }
 
 .emu-games-footer-count {
-  font-weight: 600;
+  font-weight: var(--font-weight-semibold);
   color: var(--color-text-primary);
 }
 
@@ -1141,20 +1159,20 @@
 /* ── Detail: notes + monospace args ─────────────────────────────── */
 
 .emu-detail-notes {
-  margin: 14px 0 0;
-  padding: 12px 14px;
-  font-size: 13px;
+  margin: var(--space-md) 0 0;
+  padding: var(--space-md) var(--space-md);
+  font-size: var(--font-size-sm);
   line-height: 1.5;
-  color: var(--color-text-secondary, #8b8fa3);
+  color: var(--color-text-secondary);
   background: var(--color-bg-primary);
   border: 1px solid var(--color-border);
-  border-radius: 10px;
+  border-radius: var(--radius-md);
   white-space: pre-wrap;
 }
 
 .emu-mono {
   font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
-  font-size: 12px;
+  font-size: var(--font-size-xs);
 }
 
 /* ── ROM table: checkboxes, mods badge, bulk bar ────────────────── */
@@ -1177,24 +1195,24 @@
 .emu-game-mods {
   margin-left: 6px;
   color: var(--color-accent);
-  font-weight: 600;
+  font-weight: var(--font-weight-semibold);
 }
 
 .emu-games-bulkbar {
   display: flex;
   align-items: center;
   flex-wrap: wrap;
-  gap: 8px;
-  padding: 10px 12px;
-  margin-bottom: 12px;
+  gap: var(--space-sm);
+  padding: var(--space-sm) var(--space-md);
+  margin-bottom: var(--space-md);
   background: var(--color-accent-soft);
   border: 1px solid var(--color-accent);
-  border-radius: 10px;
+  border-radius: var(--radius-md);
 }
 
 .emu-games-bulkcount {
-  font-size: 12px;
-  font-weight: 600;
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-semibold);
   color: var(--color-text-primary);
   margin-right: auto;
 }
@@ -1204,17 +1222,17 @@
 .emulators-loading {
   display: flex;
   flex-direction: column;
-  gap: 20px;
+  gap: var(--space-xl);
 }
 
 .emulators-skeleton-stats {
   display: grid;
   grid-template-columns: repeat(4, 1fr);
-  gap: 12px;
+  gap: var(--space-md);
 }
 
 .emu-skeleton {
-  border-radius: 12px;
+  border-radius: var(--radius-lg);
   background: linear-gradient(
     100deg,
     var(--color-surface) 30%,
@@ -1255,11 +1273,11 @@
 .emulators-known-logo {
   display: flex;
   align-items: center;
-  gap: 10px;
-  padding: 10px 12px;
+  gap: var(--space-sm);
+  padding: var(--space-sm) var(--space-md);
   background: var(--color-bg-primary);
   border: 1px solid var(--color-border);
-  border-radius: 10px;
+  border-radius: var(--radius-md);
 }
 
 .emulators-known-logo img {
@@ -1267,13 +1285,13 @@
   height: 32px;
   object-fit: contain;
   padding: 3px;
-  background: rgba(0, 0, 0, 0.32);
-  border-radius: 8px;
+  background: var(--color-bg-primary);
+  border-radius: var(--radius-md);
 }
 
 .emulators-known-logo span {
-  font-size: 13px;
-  font-weight: 600;
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-semibold);
   color: var(--color-text-primary);
 }
 
@@ -1281,23 +1299,31 @@
 
 .emu-storage-card-badge {
   font-size: 10px;
-  font-weight: 700;
+  font-weight: var(--font-weight-bold);
   text-transform: uppercase;
   letter-spacing: 0.03em;
   padding: 2px 7px;
-  border-radius: 5px;
+  border-radius: var(--radius-xs);
   border: 1px solid transparent;
   white-space: nowrap;
 }
 
 .emu-storage-card-badge.is-configured {
-  color: #4ade80;
-  border-color: rgba(74, 222, 128, 0.4);
-  background: rgba(74, 222, 128, 0.1);
+  color: var(--color-success);
+  border-color: color-mix(in srgb, var(--color-success) 40%, transparent);
+  background: color-mix(in srgb, var(--color-success) 12%, transparent);
 }
 
 .emu-storage-card-badge.is-notconfigured {
-  color: #f59e0b;
-  border-color: rgba(245, 158, 11, 0.4);
-  background: rgba(245, 158, 11, 0.1);
+  color: var(--color-warning);
+  border-color: color-mix(in srgb, var(--color-warning) 40%, transparent);
+  background: color-mix(in srgb, var(--color-warning) 12%, transparent);
+}
+
+/* ── Reduced motion ─────────────────────────────────────────────── */
+
+@media (prefers-reduced-motion: reduce) {
+  .emu-skeleton {
+    animation: none;
+  }
 }

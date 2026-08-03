@@ -108,14 +108,14 @@ export default function BigScreenDeals() {
         {activeTab === "gamepass" && selectedGamepass ? (
           <div className="bigscreen-spotlight-hero" style={{ marginBottom: 30 }}>
             <div className="bigscreen-spotlight-info">
-              <span className="bigscreen-badge" style={{ background: "rgba(16, 185, 129, 0.2)", color: "#10b981", padding: "4px 12px", borderRadius: 12, fontWeight: 800 }}>
+              <span className="bigscreen-badge" style={{ background: "color-mix(in srgb, var(--color-success) 20%, transparent)", color: "var(--color-success)", padding: "4px 12px", borderRadius: 12, fontWeight: 800 }}>
                 XBOX GAME PASS
               </span>
               <h1 className="bigscreen-spotlight-title" style={{ fontSize: 36, marginTop: 12 }}>
                 {selectedGamepass.title}
               </h1>
               {selectedGamepass.categories && selectedGamepass.categories.length > 0 && (
-                <p style={{ color: "rgba(255, 255, 255, 0.7)", fontSize: 15, margin: "8px 0" }}>
+                <p style={{ color: "color-mix(in srgb, var(--bigscreen-text) 70%, transparent)", fontSize: 15, margin: "8px 0" }}>
                   {selectedGamepass.categories.join(" • ")}
                 </p>
               )}
@@ -124,28 +124,28 @@ export default function BigScreenDeals() {
         ) : activeTab === "deals" && selectedDeal ? (
           <div className="bigscreen-spotlight-hero" style={{ marginBottom: 30 }}>
             <div className="bigscreen-spotlight-info">
-              <span className="bigscreen-badge" style={{ background: "rgba(239, 68, 68, 0.2)", color: "#ef4444", padding: "4px 12px", borderRadius: 12, fontWeight: 800 }}>
+              <span className="bigscreen-badge" style={{ background: "color-mix(in srgb, var(--color-danger) 20%, transparent)", color: "var(--color-danger)", padding: "4px 12px", borderRadius: 12, fontWeight: 800 }}>
                 -{selectedDeal.discountPercent}% DISCOUNT
               </span>
               <h1 className="bigscreen-spotlight-title" style={{ fontSize: 36, marginTop: 12 }}>
                 {selectedDeal.gameTitle}
               </h1>
               <div style={{ display: "flex", gap: 12, alignItems: "center", margin: "12px 0" }}>
-                <span style={{ fontSize: 24, fontWeight: 800, color: "#10b981" }}>{formatPrice(selectedDeal.dealPrice)}</span>
-                <span style={{ color: "rgba(255, 255, 255, 0.6)", fontSize: 14 }}>on {selectedDeal.storeName}</span>
+                <span style={{ fontSize: 24, fontWeight: 800, color: "var(--color-success)" }}>{formatPrice(selectedDeal.dealPrice)}</span>
+                <span style={{ color: "color-mix(in srgb, var(--bigscreen-text) 60%, transparent)", fontSize: 14 }}>on {selectedDeal.storeName}</span>
               </div>
             </div>
           </div>
         ) : activeTab === "giveaways" && selectedGiveaway ? (
           <div className="bigscreen-spotlight-hero" style={{ marginBottom: 30 }}>
             <div className="bigscreen-spotlight-info">
-              <span className="bigscreen-badge" style={{ background: "rgba(56, 189, 248, 0.2)", color: "#38bdf8", padding: "4px 12px", borderRadius: 12, fontWeight: 800 }}>
+              <span className="bigscreen-badge" style={{ background: "color-mix(in srgb, var(--color-info) 20%, transparent)", color: "var(--color-info)", padding: "4px 12px", borderRadius: 12, fontWeight: 800 }}>
                 100% FREE GIVEAWAY
               </span>
               <h1 className="bigscreen-spotlight-title" style={{ fontSize: 36, marginTop: 12 }}>
                 {selectedGiveaway.title}
               </h1>
-              <p style={{ color: "rgba(255, 255, 255, 0.7)", fontSize: 15, margin: "8px 0" }}>
+              <p style={{ color: "color-mix(in srgb, var(--bigscreen-text) 70%, transparent)", fontSize: 15, margin: "8px 0" }}>
                 Free on {selectedGiveaway.storeName}
               </p>
             </div>
@@ -265,8 +265,8 @@ function DealCard({ item, onSelect }: { item: DealItem; onSelect: () => void }) 
       <div className="bigscreen-card-meta">
         <h4 className="bigscreen-card-title">{item.gameTitle}</h4>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: 4 }}>
-          <span style={{ color: "#10b981", fontWeight: 800 }}>{formatPrice(item.dealPrice)}</span>
-          <span style={{ background: "#ef4444", color: "#fff", fontSize: 11, fontWeight: 800, padding: "2px 6px", borderRadius: 4 }}>
+          <span style={{ color: "var(--color-success)", fontWeight: 800 }}>{formatPrice(item.dealPrice)}</span>
+          <span style={{ background: "var(--color-danger)", color: "var(--bigscreen-text)", fontSize: 11, fontWeight: 800, padding: "2px 6px", borderRadius: 4 }}>
             -{item.discountPercent}%
           </span>
         </div>
@@ -292,7 +292,7 @@ function GiveawayCard({ item, onSelect }: { item: Giveaway; onSelect: () => void
       <BigScreenCover url={item.imageUrl || undefined} alt={item.title} aspectRatio="2 / 3" />
       <div className="bigscreen-card-meta">
         <h4 className="bigscreen-card-title">{item.title}</h4>
-        <span style={{ color: "#38bdf8", fontWeight: 800, fontSize: 12 }}>FREE • {item.storeName}</span>
+        <span style={{ color: "var(--color-info)", fontWeight: 800, fontSize: 12 }}>FREE • {item.storeName}</span>
       </div>
     </div>
   );

@@ -180,7 +180,7 @@ function BigScreenNewsReader({
   const browserProps = useFocusable(handleOpenBrowser);
 
   return (
-    <div className="bigscreen-overlay-drawer" style={{ display: "flex", justifyContent: "center", alignItems: "center", background: "rgba(10, 11, 16, 0.9)" }} onClick={onClose}>
+    <div className="bigscreen-overlay-drawer" style={{ display: "flex", justifyContent: "center", alignItems: "center", background: "color-mix(in srgb, var(--bigscreen-bg) 90%, transparent)" }} onClick={onClose}>
       <div
         className="bigscreen-overlay-drawer-panel"
         style={{

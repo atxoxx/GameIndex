@@ -260,7 +260,9 @@
   font-size: var(--font-size-sm);
   font-weight: var(--font-weight-semibold);
   cursor: pointer;
-  transition: all var(--transition-fast);
+  transition: color var(--transition-fast),
+    border-color var(--transition-fast),
+    background var(--transition-fast);
   font-family: inherit;
 }
 
@@ -336,7 +338,9 @@
   border-radius: var(--radius-md);
   color: var(--color-text-secondary);
   cursor: pointer;
-  transition: all var(--transition-fast);
+  transition: color var(--transition-fast),
+    border-color var(--transition-fast),
+    background var(--transition-fast);
 }
 
 .store-filter-rail-toggle svg {
@@ -353,7 +357,6 @@
   color: var(--color-text-primary);
   border-color: var(--color-accent);
   background: var(--color-bg-hover);
-  box-shadow: 0 0 10px var(--color-accent-glow);
 }
 
 .store-filter-rail-toggle:focus-visible {
@@ -529,7 +532,9 @@
   border: 1px solid var(--color-border);
   border-radius: var(--radius-full);
   cursor: pointer;
-  transition: all var(--transition-fast);
+  transition: color var(--transition-fast),
+    border-color var(--transition-fast),
+    background var(--transition-fast);
   font-family: inherit;
   white-space: nowrap;
   line-height: 1.2;
@@ -550,7 +555,7 @@
   color: #fff;
   background: var(--color-accent);
   border-color: var(--color-accent);
-  box-shadow: 0 2px 8px var(--color-accent-glow);
+  box-shadow: 0 2px 8px color-mix(in srgb, var(--color-accent) 30%, transparent);
 }
 
 .store-filter-source-count {
@@ -638,12 +643,12 @@
   border: 2px solid var(--color-surface-raised);
   border-radius: 50%;
   cursor: pointer;
-  box-shadow: 0 0 8px var(--color-accent-glow);
+  box-shadow: 0 1px 3px color-mix(in srgb, var(--color-accent) 30%, transparent);
   transition: transform var(--transition-fast);
 }
 
 .store-filter-slider::-webkit-slider-thumb:hover {
-  transform: scale(1.2);
+  transform: scale(1.1);
 }
 
 .store-filter-slider::-moz-range-thumb {
@@ -653,7 +658,7 @@
   border: 2px solid var(--color-surface-raised);
   border-radius: 50%;
   cursor: pointer;
-  box-shadow: 0 0 8px var(--color-accent-glow);
+  box-shadow: 0 1px 3px color-mix(in srgb, var(--color-accent) 30%, transparent);
 }
 
 .store-filter-actions {
@@ -671,7 +676,10 @@
   font-size: var(--font-size-xs);
   font-weight: var(--font-weight-semibold);
   cursor: pointer;
-  transition: all var(--transition-fast);
+  transition: background var(--transition-fast),
+    border-color var(--transition-fast),
+    color var(--transition-fast),
+    box-shadow var(--transition-fast);
 }
 
 .store-filter-btn.apply {
@@ -723,7 +731,9 @@
   font-size: var(--font-size-xs);
   font-weight: var(--font-weight-medium);
   color: var(--color-accent);
-  transition: all var(--transition-fast);
+  transition: color var(--transition-fast),
+    background var(--transition-fast),
+    border-color var(--transition-fast);
 }
 
 .store-filter-chip button {
@@ -850,9 +860,9 @@
 }
 
 .store-game-card:hover {
-  transform: translateY(-6px);
+  transform: translateY(-2px);
   border-color: var(--color-accent-hover);
-  box-shadow: 0 12px 28px -8px rgba(0, 0, 0, 0.6), 0 0 24px var(--color-accent-glow);
+  box-shadow: var(--shadow-md);
 }
 
 .store-game-card:active {
@@ -1112,8 +1122,12 @@
   font-size: var(--font-size-md);
   font-weight: var(--font-weight-semibold);
   cursor: pointer;
-  transition: all var(--transition-fast);
-  box-shadow: 0 0 20px color-mix(in srgb, var(--color-success) 40%, transparent);
+  transition: filter var(--transition-fast),
+    transform var(--transition-fast),
+    background var(--transition-fast),
+    color var(--transition-fast),
+    box-shadow var(--transition-fast);
+  box-shadow: 0 2px 8px color-mix(in srgb, var(--color-success) 35%, transparent);
   flex-shrink: 0;
 }
 
@@ -1146,7 +1160,9 @@
   font-size: var(--font-size-md);
   font-weight: var(--font-weight-semibold);
   cursor: pointer;
-  transition: all var(--transition-fast);
+  transition: color var(--transition-fast),
+    border-color var(--transition-fast),
+    background var(--transition-fast);
   flex-shrink: 0;
 }
 .store-wishlist-btn:hover {
@@ -1234,7 +1250,9 @@
   color: var(--color-text-secondary);
   border-radius: var(--radius-md);
   cursor: pointer;
-  transition: all var(--transition-fast);
+  transition: color var(--transition-fast),
+    border-color var(--transition-fast),
+    background var(--transition-fast);
 }
 
 .store-filter-drawer-close svg {
@@ -1534,7 +1552,6 @@
   overflow: hidden;
   white-space: nowrap;
   color: var(--hydra-accent, #a78bfa);
-  text-shadow: 0 0 8px color-mix(in srgb, var(--hydra-accent, #a78bfa) 45%, transparent);
 }
 
 /* ===========================================================================
@@ -1672,7 +1689,7 @@
    * recalc measures the right size on first render. */
   width: var(--steam-stats-popover-width, 420px);
   max-width: calc(100vw - 24px);
-  background: var(--color-bg-elevated, color-mix(in srgb, var(--color-bg-primary) 92%, transparent));
+  background: var(--color-bg-elevated);
   backdrop-filter: blur(20px) saturate(1.4);
   -webkit-backdrop-filter: blur(20px) saturate(1.4);
   border: 1px solid var(--color-border);
@@ -1775,7 +1792,8 @@
   border-radius: var(--radius-sm);
   cursor: pointer;
   flex-shrink: 0;
-  transition: all var(--transition-fast);
+  transition: color var(--transition-fast),
+    background var(--transition-fast);
 }
 
 .steam-stats-popover-close:hover {
@@ -1814,12 +1832,6 @@
   line-height: 1;
   font-variant-numeric: tabular-nums;
   letter-spacing: -0.5px;
-  background: linear-gradient(135deg,
-    var(--color-text-primary) 0%,
-    color-mix(in srgb, var(--color-success) 65%, var(--color-text-primary)) 100%);
-  -webkit-background-clip: text;
-  background-clip: text;
-  -webkit-text-fill-color: transparent;
 }
 
 .steam-stats-popover-stat-label {
@@ -2189,7 +2201,8 @@
   text-decoration: none;
   padding: 5px 10px;
   border-radius: var(--radius-md);
-  transition: all var(--transition-fast);
+  transition: color var(--transition-fast),
+    background var(--transition-fast);
 }
 
 .steam-stats-popover-footer-link:hover {
@@ -2243,8 +2256,8 @@
   width: 9px;
   height: 9px;
   border-radius: 50%;
-  background: var(--color-success, #22c55e);
-  box-shadow: 0 0 10px var(--color-success, #22c55e);
+  background: var(--color-success);
+  box-shadow: 0 0 10px var(--color-success);
   animation: steam-live-pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
 }
 
@@ -2266,10 +2279,6 @@
   line-height: 1.1;
   font-variant-numeric: tabular-nums;
   letter-spacing: -0.3px;
-  background: linear-gradient(135deg, var(--color-text-primary) 30%, color-mix(in srgb, var(--color-success) 80%, var(--color-text-primary)));
-  -webkit-background-clip: text;
-  background-clip: text;
-  -webkit-text-fill-color: transparent;
 }
 
 .steam-stats-live-label {
@@ -2319,7 +2328,9 @@
   padding: 3px 9px;
   border-radius: var(--radius-full, 9999px);
   cursor: pointer;
-  transition: all var(--transition-fast);
+  transition: color var(--transition-fast),
+    background var(--transition-fast),
+    box-shadow var(--transition-fast);
   letter-spacing: 0.2px;
 }
 
@@ -2398,7 +2409,8 @@
   background: color-mix(in srgb, var(--color-bg-tertiary) 45%, transparent);
   border: 1px solid var(--color-border);
   border-radius: var(--radius-sm);
-  transition: all var(--transition-fast);
+  transition: background var(--transition-fast),
+    border-color var(--transition-fast);
 }
 
 .steam-history-chart-stat:hover {
@@ -2411,7 +2423,7 @@
 }
 
 .steam-history-chart-stat--alltime .steam-history-chart-stat-value {
-  color: var(--color-warning, #f59e0b);
+  color: var(--color-warning);
 }
 
 .steam-history-chart-stat-value {

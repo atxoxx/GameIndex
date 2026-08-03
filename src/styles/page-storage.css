@@ -1,58 +1,52 @@
-/* Page-level brand styling for storage (gradient + depth design language). */
+/* Page-level styling for storage — flat surfaces, restrained accent. */
 
-/* ── Eyebrow + gradient page title ─────────────────────────────── */
+/* ── Page title ──────────────────────────────────────────────────── */
 .storage__page-title.brand-text {
-  background: var(--brand-gradient-strong);
-  -webkit-background-clip: text;
-  background-clip: text;
-  color: transparent;
   letter-spacing: -0.01em;
 }
 
-/* Brand-tinted elevation for the page header icon chip. */
+/* Page header icon chip */
 .storage-page .storage__page-header-icon {
-  background: color-mix(in srgb, var(--brand-1) 16%, transparent);
-  border: 1px solid color-mix(in srgb, var(--brand-2) 30%, transparent);
-  box-shadow: var(--shadow-brand);
+  background: color-mix(in srgb, var(--color-accent) 14%, transparent);
+  border: 1px solid color-mix(in srgb, var(--color-accent) 30%, transparent);
 }
 
 .storage-page .storage__page-header-icon svg {
-  color: var(--brand-2);
+  color: var(--color-accent);
 }
 
-/* ── Elevate the dashboard / drive / usage panels ──────────────── */
+/* ── Dashboard / drive / usage panels ────────────────────────────── */
 .storage-page .storage__card {
-  border: 1px solid color-mix(in srgb, var(--brand-1) 18%, var(--color-border));
-  box-shadow: var(--shadow-brand), var(--depth-2);
+  border: 1px solid var(--color-border);
+  transition: transform var(--duration-normal) var(--ease-standard),
+    box-shadow var(--duration-normal) var(--ease-standard),
+    border-color var(--duration-normal) var(--ease-standard);
 }
 
 .storage-page .storage__card:hover {
-  box-shadow: var(--shadow-brand), var(--depth-3);
-  border-color: color-mix(in srgb, var(--brand-2) 45%, var(--color-border));
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-md);
+  border-color: var(--color-border-light);
 }
 
-/* Subtle brand-tinted track for the usage breakdown bars
-   (keeps the existing fill colors as the semantic accent). */
+/* Usage breakdown bar tracks */
 .storage-page .storage__breakdown-track {
-  background: color-mix(in srgb, var(--brand-1) 10%, var(--color-bg-tertiary));
+  background: var(--color-bg-tertiary);
 }
 
 .storage-page .storage__drive-usage-track {
-  background: color-mix(in srgb, var(--brand-2) 10%, var(--color-bg-tertiary));
+  background: var(--color-bg-tertiary);
 }
 
-/* ── Branded empty state (low-opacity mesh wash) ───────────────── */
+/* ── Empty state ─────────────────────────────────────────────────── */
 .storage-page .storage__empty-state {
   position: relative;
   overflow: hidden;
   border-radius: var(--radius-xl);
-  border: 1px solid color-mix(in srgb, var(--brand-1) 22%, var(--color-border));
-  background:
-    var(--mesh-gradient),
-    var(--color-bg-secondary);
-  box-shadow: var(--depth-2);
+  border: 1px dashed var(--color-border);
+  background: var(--color-bg-secondary);
 }
 
 .storage-page .storage__empty-state-icon svg {
-  color: color-mix(in srgb, var(--brand-2) 70%, var(--color-text-muted));
+  color: var(--color-accent);
 }

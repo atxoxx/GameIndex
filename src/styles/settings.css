@@ -15,9 +15,21 @@
  *   3. Inline .spinner + .auth-status + .connect-prompt helpers
  *   4. Settings page shell — header, pill sub-nav, sections
  *   5. Theme cards (with a richer mini-app preview on top)
- *   6. Form rows / controls / toggles
- *   7. Integration tiles (Steam, Epic) with a danger-zone footer
+ * 6. Form rows / controls / toggles
+ * 7. Integration tiles (Steam, Epic) with a danger-zone footer
  * ========================================================================== */
+
+/* Brand tints used by the Steam / Epic / Humble / Uplay integrations.
+ * Scoped to the settings shell so they never leak into other pages;
+ * like real brand colors they stay fixed across all themes. */
+.settings-shell {
+  --brand-steam: #66c0f4;
+  --brand-steam-surface: #2a475e;
+  --brand-steam-deep: #1b2838;
+  --brand-epic: #e6e6e6;
+  --brand-humble: #1fb6a6;
+  --brand-uplay: #00aae4;
+}
 
 /* ── 1. Topnav far-right Settings button ───────────────────────────── */
 
@@ -33,13 +45,11 @@
 .topnav-btn-settings.active {
   color: var(--color-accent);
   background: color-mix(in srgb, var(--color-accent) 12%, transparent);
-  box-shadow:
-    0 0 0 1px color-mix(in srgb, var(--color-accent) 40%, transparent),
-    0 0 12px var(--color-accent-glow);
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--color-accent) 40%, transparent);
 }
 
 .topnav-btn-settings.active svg {
-  filter: drop-shadow(0 0 4px var(--color-accent-glow));
+  color: var(--color-accent);
 }
 
 /* ── 2. Generic .btn utility ─────────────────────────────────────── */
@@ -63,7 +73,7 @@
   font-size: var(--font-size-sm);
   font-weight: var(--font-weight-semibold);
   cursor: pointer;
-  transition: all var(--transition-fast);
+  transition: color var(--transition-fast), background var(--transition-fast), border-color var(--transition-fast), box-shadow var(--transition-fast), opacity var(--transition-fast), transform var(--transition-fast);
   white-space: nowrap;
   user-select: none;
 }
@@ -111,14 +121,14 @@
   background: var(--color-accent);
   color: #fff;
   border-color: var(--color-accent);
-  box-shadow: 0 4px 14px var(--color-accent-glow);
+  box-shadow: 0 2px 8px color-mix(in srgb, var(--color-accent) 30%, transparent);
 }
 
 .btn-primary:hover {
   background: var(--color-accent-hover);
   border-color: var(--color-accent-hover);
   transform: translateY(-1px);
-  box-shadow: 0 8px 22px var(--color-accent-glow);
+  box-shadow: 0 4px 12px color-mix(in srgb, var(--color-accent) 35%, transparent);
 }
 
 .btn-danger {
@@ -136,29 +146,29 @@
 
 /* Steam auth button — keeps the in-house Steam dark-blue brand color
  * instead of the accent color so users can visually separate "Steam
- * action" from "GameIndex action". Solid gradient + Steam-blue border
+ * action" from "GameIndex action". Flat fill + Steam-blue border
  * reads as official Steam UI at a glance. */
 .btn-steam {
-  background: linear-gradient(135deg, #1b2838, #2a475e);
+  background: var(--brand-steam-surface);
   color: #fff;
-  border-color: #2a475e;
-  box-shadow: 0 4px 14px rgba(27, 40, 56, 0.5);
+  border-color: var(--brand-steam-surface);
 }
 
 .btn-steam:hover {
-  background: linear-gradient(135deg, #2a475e, #66c0f4);
-  border-color: #66c0f4;
-  box-shadow: 0 6px 18px rgba(102, 192, 244, 0.35);
+  background: color-mix(in srgb, var(--brand-steam-surface) 75%, var(--brand-steam) 25%);
+  border-color: var(--brand-steam);
 }
 
 .btn-steam.btn-primary {
-  background: linear-gradient(135deg, #1b2838, #2a475e);
-  border-color: #2a475e;
+  background: var(--brand-steam-surface);
+  border-color: var(--brand-steam-surface);
+  box-shadow: none;
 }
 
 .btn-steam.btn-primary:hover {
-  background: linear-gradient(135deg, #2a475e, #66c0f4);
-  border-color: #66c0f4;
+  background: color-mix(in srgb, var(--brand-steam-surface) 75%, var(--brand-steam) 25%);
+  border-color: var(--brand-steam);
+  box-shadow: none;
 }
 
 /* ── 3. Inline helpers (spinner, auth, connect) ───────────────────── */
@@ -255,7 +265,6 @@
   background: color-mix(in srgb, var(--color-accent) 15%, transparent);
   border: 1px solid color-mix(in srgb, var(--color-accent) 25%, transparent);
   color: var(--color-accent);
-  box-shadow: 0 0 14px var(--color-accent-glow);
 }
 
 .settings-title-icon svg {
@@ -298,7 +307,7 @@
   font-weight: var(--font-weight-semibold);
   font-family: inherit;
   cursor: pointer;
-  transition: all var(--transition-fast);
+  transition: color var(--transition-fast), background var(--transition-fast), border-color var(--transition-fast), box-shadow var(--transition-fast), opacity var(--transition-fast), transform var(--transition-fast);
   white-space: nowrap;
   position: relative;
 }
@@ -311,7 +320,7 @@
 .settings-nav-pill.active {
   color: #fff;
   background: var(--color-accent);
-  box-shadow: 0 4px 14px var(--color-accent-glow);
+  box-shadow: 0 2px 8px color-mix(in srgb, var(--color-accent) 30%, transparent);
 }
 
 .settings-nav-pill svg {
@@ -343,17 +352,13 @@
 
 /* Sections inside the settings page */
 .settings-section {
-  background: linear-gradient(
-    180deg,
-    color-mix(in srgb, var(--color-surface) 100%, transparent),
-    var(--color-bg-secondary)
-  );
+  background: var(--color-surface);
   border: 1px solid var(--color-border);
   border-radius: var(--radius-lg);
   padding: var(--space-xl);
   margin-bottom: var(--space-xl);
   position: relative;
-  animation: importMenuIn 240ms ease;
+  animation: importMenuIn 240ms var(--ease-standard);
   box-shadow: var(--shadow-sm);
 }
 
@@ -431,7 +436,7 @@
   border: 2px solid var(--color-border);
   border-radius: var(--radius-lg);
   cursor: pointer;
-  transition: all var(--transition-fast);
+  transition: color var(--transition-fast), background var(--transition-fast), border-color var(--transition-fast), box-shadow var(--transition-fast), opacity var(--transition-fast), transform var(--transition-fast);
   display: flex;
   flex-direction: column;
   overflow: hidden;
@@ -449,7 +454,7 @@
   border-color: var(--color-accent);
   background: var(--color-bg-tertiary);
   box-shadow:
-    0 4px 14px var(--color-accent-glow),
+    0 4px 12px color-mix(in srgb, var(--color-accent) 30%, transparent),
     inset 0 0 0 1px color-mix(in srgb, var(--color-accent) 40%, transparent);
 }
 
@@ -621,7 +626,7 @@
   font-size: var(--font-size-sm);
   font-family: inherit;
   outline: none;
-  transition: all var(--transition-fast);
+  transition: color var(--transition-fast), background var(--transition-fast), border-color var(--transition-fast), box-shadow var(--transition-fast), opacity var(--transition-fast), transform var(--transition-fast);
   min-width: 0;
 }
 
@@ -645,7 +650,7 @@
   font-family: inherit;
   outline: none;
   cursor: pointer;
-  transition: all var(--transition-fast);
+  transition: color var(--transition-fast), background var(--transition-fast), border-color var(--transition-fast), box-shadow var(--transition-fast), opacity var(--transition-fast), transform var(--transition-fast);
   min-width: 0;
   /* Custom chevron so the select looks consistent across browsers */
   appearance: none;
@@ -781,14 +786,10 @@
   gap: var(--space-md);
   margin-top: var(--space-md);
   padding: var(--space-md) var(--space-lg);
-  background: linear-gradient(
-    135deg,
-    color-mix(in srgb, var(--color-accent) 8%, var(--color-bg-tertiary)),
-    var(--color-bg-tertiary)
-  );
+  background: var(--color-bg-tertiary);
   border: 1px solid color-mix(in srgb, var(--color-accent) 25%, var(--color-border));
   border-radius: var(--radius-md);
-  animation: importMenuIn 200ms ease;
+  animation: importMenuIn 200ms var(--ease-standard);
 }
 
 .settings-gpu-info-icon {
@@ -802,7 +803,6 @@
   color: var(--color-accent);
   border: 1px solid color-mix(in srgb, var(--color-accent) 30%, transparent);
   flex-shrink: 0;
-  box-shadow: 0 0 12px var(--color-accent-glow);
 }
 
 .settings-gpu-info-icon svg {
@@ -977,7 +977,6 @@
 .settings-segmented button.active {
   background: var(--color-accent);
   color: #fff;
-  box-shadow: 0 0 10px var(--color-accent-glow);
 }
 
 /* System summary card — detected CPU / RAM / all GPUs */
@@ -1021,11 +1020,7 @@
 /* ── 7. Integration tiles (Steam / Epic) ─────────────────────────── */
 
 .integration-tile {
-  background: linear-gradient(
-    180deg,
-    color-mix(in srgb, var(--color-surface) 100%, transparent),
-    var(--color-bg-secondary)
-  );
+  background: var(--color-surface);
   border: 1px solid var(--color-border);
   border-radius: var(--radius-lg);
   overflow: hidden;
@@ -1041,17 +1036,17 @@
   left: 0;
   right: 0;
   height: 3px;
-  background: linear-gradient(90deg, var(--color-accent), var(--color-accent-hover));
+  background: var(--color-accent);
   opacity: 0.85;
   pointer-events: none;
 }
 
 .integration-tile.steam::before {
-  background: linear-gradient(90deg, #1b9ae0, #66c0f4);
+  background: var(--brand-steam);
 }
 
 .integration-tile.epic::before {
-  background: linear-gradient(90deg, #2a2a2a, #6b7280);
+  background: var(--brand-epic);
 }
 
 .integration-tile-body-wrap {
@@ -1076,35 +1071,30 @@
   justify-content: center;
   flex-shrink: 0;
   color: var(--color-accent);
-  box-shadow: 0 0 14px var(--color-accent-glow);
 }
 
 .integration-tile.steam .integration-tile-icon {
-  color: #66c0f4;
-  box-shadow: 0 0 14px rgba(102, 192, 244, 0.35);
+  color: var(--brand-steam);
 }
 
 .integration-tile.epic .integration-tile-icon {
-  color: #e6e6e6;
-  box-shadow: 0 0 14px rgba(230, 230, 230, 0.2);
+  color: var(--brand-epic);
 }
 
 .integration-tile.humble .integration-tile-icon {
-  color: #1fb6a6;
-  box-shadow: 0 0 14px rgba(31, 182, 166, 0.35);
+  color: var(--brand-humble);
 }
 
 .integration-tile.humble::before {
-  background: linear-gradient(90deg, #1d2b32, #1fb6a6);
+  background: var(--brand-humble);
 }
 
 .integration-tile.uplay .integration-tile-icon {
-  color: #00aae4;
-  box-shadow: 0 0 14px rgba(0, 170, 228, 0.35);
+  color: var(--brand-uplay);
 }
 
 .integration-tile.uplay::before {
-  background: linear-gradient(90deg, #04263a, #00aae4);
+  background: var(--brand-uplay);
 }
 
 .integration-tile-icon svg {
@@ -1323,7 +1313,7 @@
   margin-top: 3px;
   width: 16px;
   height: 16px;
-  accent-color: #1fb6a6;
+  accent-color: var(--brand-humble);
   flex-shrink: 0;
   cursor: inherit;
 }
@@ -1356,12 +1346,12 @@
  * pushes the user toward reading the warning copy underneath; they
  * have to actively engage the box to dismiss it. */
 .settings-launcher-card--warn {
-  border-color: color-mix(in srgb, var(--color-warning, #eab308) 35%, var(--color-border));
-  background: color-mix(in srgb, var(--color-warning, #eab308) 5%, var(--color-bg-secondary));
+  border-color: color-mix(in srgb, var(--color-warning) 35%, var(--color-border));
+  background: color-mix(in srgb, var(--color-warning) 5%, var(--color-bg-secondary));
 }
 
 .settings-launcher-card--warn:hover {
-  border-color: color-mix(in srgb, var(--color-warning, #eab308) 55%, var(--color-border));
+  border-color: color-mix(in srgb, var(--color-warning) 55%, var(--color-border));
 }
 
 /* Two-line layout for checkbox labels: a bold title above a muted
@@ -1437,16 +1427,15 @@
  * reading a "current" label. */
 .accent-swatch.active {
   border-color: var(--color-text-primary);
-  box-shadow:
-    0 0 0 2px var(--color-bg-secondary),
-    0 0 12px color-mix(in srgb, currentColor 50%, transparent);
+  box-shadow: 0 0 0 2px var(--color-bg-secondary);
 }
 
 .accent-swatch--custom {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  background: linear-gradient(135deg, #ec4899, #7c66ff, #06b6d4);
+  background: var(--color-bg-tertiary);
+  border-color: var(--color-border);
   font-size: 14px;
   line-height: 1;
 }
@@ -1480,7 +1469,7 @@
   font-weight: var(--font-weight-semibold);
   font-family: inherit;
   cursor: pointer;
-  transition: all var(--transition-fast);
+  transition: color var(--transition-fast), background var(--transition-fast), border-color var(--transition-fast), box-shadow var(--transition-fast), opacity var(--transition-fast), transform var(--transition-fast);
 }
 
 .accent-clear:hover {
@@ -1727,16 +1716,14 @@
   height: 14px;
   color: var(--color-accent);
   flex-shrink: 0;
-  filter: drop-shadow(0 0 6px var(--color-accent-glow));
 }
 
 /* Light theme: shadows need a softer black since the surfaces go
  * luminous. Falls into the same `[data-theme="light"]` token swap the
  * rest of the settings cards already use. */
 [data-theme="light"] .language-panel {
-  background: #ffffff;
-  box-shadow: 0 8px 24px rgba(15, 23, 42, 0.12),
-    0 2px 6px rgba(15, 23, 42, 0.06);
+  background: var(--color-surface);
+  box-shadow: var(--shadow-md);
 }
 
 /* Honor OS-level reduced-motion preference: the chevron rotation and
@@ -1777,14 +1764,9 @@
   justify-content: space-between;
   gap: var(--space-lg);
   padding: var(--space-lg) var(--space-xl);
-  background: linear-gradient(
-    135deg,
-    color-mix(in srgb, var(--color-accent) 12%, var(--color-bg-secondary)),
-    var(--color-bg-secondary)
-  );
+  background: var(--color-surface);
   border: 1px solid color-mix(in srgb, var(--color-accent) 28%, var(--color-border));
   border-radius: var(--radius-xl);
-  box-shadow: 0 0 30px color-mix(in srgb, var(--color-accent) 10%, transparent);
 }
 
 .hw-head-text {
@@ -1805,7 +1787,6 @@
   background: color-mix(in srgb, var(--color-accent) 16%, transparent);
   color: var(--color-accent);
   border: 1px solid color-mix(in srgb, var(--color-accent) 32%, transparent);
-  box-shadow: 0 0 14px var(--color-accent-glow);
 }
 
 .hw-head-icon svg { width: 22px; height: 22px; }
@@ -1879,7 +1860,6 @@
 .hw-master[data-on="true"] .hw-switch-knob {
   transform: translateX(20px);
   background: var(--color-accent);
-  box-shadow: 0 0 10px var(--color-accent-glow);
 }
 .hw-master:focus-visible { outline: 2px solid var(--color-accent); outline-offset: 2px; }
 
@@ -1941,16 +1921,13 @@
 }
 .hw-spec-icon svg { width: 22px; height: 22px; }
 .hw-spec-icon--cpu {
-  background: linear-gradient(135deg, #6366f1, #8b5cf6);
-  box-shadow: 0 0 14px rgba(99, 102, 241, 0.45);
+  background: var(--color-accent);
 }
 .hw-spec-icon--memory {
-  background: linear-gradient(135deg, #06b6d4, #14b8a6);
-  box-shadow: 0 0 14px rgba(6, 182, 212, 0.4);
+  background: var(--color-success);
 }
 .hw-spec-icon--gpu {
-  background: linear-gradient(135deg, #f97316, #ef4444);
-  box-shadow: 0 0 14px rgba(249, 115, 22, 0.4);
+  background: var(--color-warning);
 }
 
 .hw-spec-body { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
@@ -2117,7 +2094,6 @@
 .hw-metric.on .hw-metric-knob {
   transform: translateX(18px);
   background: var(--color-accent);
-  box-shadow: 0 0 8px var(--color-accent-glow);
 }
 /* visually-hidden checkbox keeps it clickable + a11y-friendly */
 .hw-metric-switch input {
@@ -2221,10 +2197,10 @@
 .settings-wipe-empty {
   padding: var(--space-lg);
   text-align: center;
-  color: var(--text-muted);
-  background: var(--surface-2, rgba(255, 255, 255, 0.03));
-  border: 1px dashed var(--border, rgba(255, 255, 255, 0.1));
-  border-radius: var(--radius-md, 10px);
+  color: var(--color-text-muted);
+  background: var(--color-bg-tertiary);
+  border: 1px dashed var(--color-border);
+  border-radius: var(--radius-md);
 }
 
 .settings-wipe-list {
@@ -2242,9 +2218,9 @@
   justify-content: space-between;
   gap: var(--space-md);
   padding: var(--space-md);
-  background: var(--surface-2, rgba(255, 255, 255, 0.03));
-  border: 1px solid var(--border, rgba(255, 255, 255, 0.08));
-  border-radius: var(--radius-md, 10px);
+  background: var(--color-bg-tertiary);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
 }
 
 .settings-wipe-item-info {
@@ -2257,29 +2233,29 @@
 
 .settings-wipe-key {
   font-family: var(--font-mono, ui-monospace, "SF Mono", Menlo, monospace);
-  font-size: 0.85rem;
-  font-weight: 600;
-  color: var(--text, #f0f2f7);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text-primary);
   word-break: break-all;
 }
 
 .settings-wipe-size {
-  font-size: 0.75rem;
-  color: var(--text-muted);
+  font-size: var(--font-size-xs);
+  color: var(--color-text-muted);
 }
 
 .settings-wipe-value {
   margin: 0;
   font-family: var(--font-mono, ui-monospace, "SF Mono", Menlo, monospace);
-  font-size: 0.75rem;
+  font-size: var(--font-size-xs);
   line-height: 1.4;
-  color: var(--text-muted);
+  color: var(--color-text-muted);
   white-space: pre-wrap;
   word-break: break-word;
   max-height: 6.5em;
   overflow: auto;
-  background: rgba(0, 0, 0, 0.2);
-  border-radius: 6px;
+  background: var(--color-bg-primary);
+  border-radius: var(--radius-sm);
   padding: 6px 8px;
 }
 

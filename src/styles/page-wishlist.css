@@ -1,50 +1,23 @@
-/* Page-level brand styling for wishlist (gradient + depth design language). */
+/* Page-level styling for wishlist — flat surfaces, restrained accent. */
 
-/* ── Cards / rows depth ─────────────────────────────────────────────── */
+/* ── Cards / rows ────────────────────────────────────────────────── */
+/* The wrapper is transparent; the StoreGameCard inside owns its own
+   hover lift, so the unit must not lift again (no double transform). */
 .wishlist-card-wrap--brand {
   position: relative;
-  border-radius: var(--radius-lg, 16px);
-  box-shadow: var(--depth-1);
-  transition: box-shadow 0.25s ease, transform 0.25s ease;
 }
 
-.wishlist-card-wrap--brand:hover {
-  box-shadow: var(--depth-3), var(--shadow-brand);
-}
-
-.wishlist-card-wrap--brand::before {
-  content: "";
-  position: absolute;
-  inset: 0;
-  border-radius: inherit;
-  padding: 1px;
-  background: var(--brand-gradient);
-  opacity: 0;
-  pointer-events: none;
-  transition: opacity 0.25s ease;
-  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
-  -webkit-mask-composite: xor;
-  mask-composite: exclude;
-}
-
-.wishlist-card-wrap--brand:hover::before {
-  opacity: 0.7;
-}
-
-/* ── Branded empty state ────────────────────────────────────────────── */
+/* ── Empty state ─────────────────────────────────────────────────── */
 .wishlist-empty--brand {
   position: relative;
   overflow: hidden;
   border-radius: var(--radius-lg, 16px);
-  box-shadow: var(--depth-float);
+  background: var(--color-bg-secondary);
+  border: 1px dashed var(--color-border);
 }
 
 .wishlist-empty-mesh {
-  position: absolute;
-  inset: 0;
-  opacity: 0.28;
-  pointer-events: none;
-  z-index: 0;
+  display: none;
 }
 
 .wishlist-empty--brand > *:not(.wishlist-empty-mesh) {
@@ -53,20 +26,16 @@
 }
 
 .wishlist-empty--brand > svg {
-  color: var(--brand-3);
-  filter: drop-shadow(var(--shadow-brand));
+  color: var(--color-accent);
 }
 
 .wishlist-empty--brand strong {
-  background: var(--brand-gradient-strong);
-  -webkit-background-clip: text;
-  background-clip: text;
-  color: transparent;
+  color: var(--color-accent);
 }
 
 .wishlist-empty--brand .wishlist-empty-cta {
-  background: var(--brand-gradient);
+  background: var(--color-accent);
   border: none;
-  color: var(--color-text-inverse, #fff);
-  box-shadow: var(--shadow-brand);
+  color: #fff;
+  box-shadow: 0 2px 8px color-mix(in srgb, var(--color-accent) 30%, transparent);
 }

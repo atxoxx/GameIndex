@@ -18,7 +18,7 @@ export default function NewsArticleCard({ article, onClick, density = "cozy", re
 
   return (
     <div
-      className={`news-article-card density-${density} hover-lift${isList ? " news-article-card-list" : ""}${read ? " is-read" : ""}`}
+      className={`news-article-card density-${density}${isList ? " news-article-card-list" : ""}${read ? " is-read" : ""}`}
       onClick={() => onClick(article)}
       role="button"
       tabIndex={0}

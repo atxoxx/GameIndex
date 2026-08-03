@@ -1,7 +1,8 @@
 // Main "Mods" page — dual-pane: a moddable-games rail on the left
 // (installed games + per-game mod counts from mods.db), the shared
 // ModManager on the right for the selected game.
-// Remade modern UI styling with glassmorphism & SVG search input.
+// Remade modern UI styling on the token design system (flat surfaces,
+// page-scoped engine brand accents, token-driven motion).
 
 import { useEffect, useMemo, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
@@ -140,23 +141,23 @@ export default function ModsPage() {
                       <div className="mods-game-meta">
                         {entry ? (
                           <>
-                            <span className="mods-games-pane-count" style={{ padding: "1px 6px", fontSize: "10px" }}>
+                            <span className="mods-games-pane-count">
                               {entry.total} mods ({entry.enabled} active)
                             </span>
                           </>
                         ) : (
-                          <span style={{ fontSize: "11px", opacity: 0.7 }}>{g.platform}</span>
+                          <span className="mods-game-platform">{g.platform}</span>
                         )}
                       </div>
                       {entry && entry.engines.length > 0 && (
                         <div className="mods-game-engines-list">
                           {entry.engines.slice(0, 2).map((e) => (
-                            <span key={e} className={`mods-engine-chip mods-engine-${e}`} style={{ fontSize: "9px", padding: "1px 5px" }}>
+                            <span key={e} className={`mods-engine-chip mods-engine-${e}`}>
                               {ENGINE_LABELS[e as ModEngine] ?? e}
                             </span>
                           ))}
                           {entry.engines.length > 2 && (
-                            <span className="mods-game-engines" style={{ fontSize: "9px" }}>
+                            <span className="mods-game-engines">
                               +{entry.engines.length - 2}
                             </span>
                           )}
@@ -164,7 +165,7 @@ export default function ModsPage() {
                       )}
                     </div>
                     {entry && entry.updates > 0 && (
-                      <span className="mods-badge mods-badge-update" title={t("mods.updatesAvailable", { count: String(entry.updates) })} style={{ alignSelf: "flex-start", marginTop: "2px" }}>
+                      <span className="mods-badge mods-badge-update" title={t("mods.updatesAvailable", { count: String(entry.updates) })}>
                         ↑ {entry.updates}
                       </span>
                     )}

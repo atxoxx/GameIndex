@@ -1,9 +1,8 @@
 /* ============================================================================
-   News — bold gradient + depth brand language.
-   Brand reads as accent: gradient title, elevated cards, mesh empty states.
+   News — flat surfaces, restrained accent.
    ============================================================================ */
 
-/* Header: stack eyebrow above the gradient title */
+/* Header: stack eyebrow above the title */
 .news-header-left {
   display: flex;
   flex-direction: column;
@@ -16,35 +15,28 @@
   gap: var(--space-sm);
 }
 
-/* Article cards gain brand depth + a brand-tinted top hairline */
+/* Article cards — flat fills, subtle lift on hover */
 .news-article-card {
   position: relative;
-  box-shadow: var(--depth-2);
-  border-top: 1px solid color-mix(in srgb, var(--brand-1) 30%, transparent);
+  transition: transform var(--duration-normal) var(--ease-standard),
+    box-shadow var(--duration-normal) var(--ease-standard),
+    border-color var(--duration-normal) var(--ease-standard);
 }
 
 .news-article-card:hover {
-  box-shadow: var(--depth-3);
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-md);
+  border-color: var(--color-border-light);
 }
 
-/* Branded empty + error states (low-opacity mesh wash) */
+/* Empty + error states */
 .news-empty,
 .news-error {
   position: relative;
   overflow: hidden;
 }
 
-.news-empty::before,
-.news-error::before {
-  content: "";
-  position: absolute;
-  inset: 0;
-  z-index: -1;
-  background: var(--mesh-gradient);
-  opacity: 0.35;
-}
-
 .news-empty svg,
 .news-error svg {
-  color: var(--brand-2);
+  color: var(--color-accent);
 }

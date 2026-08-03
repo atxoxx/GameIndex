@@ -224,8 +224,8 @@
 }
 
 .hover-lift:hover {
-  transform: translateY(-4px);
-  box-shadow: var(--shadow-lg);
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-md);
 }
 
 /* Animated focus ring using ::after pseudo-element */
@@ -1006,7 +1006,10 @@
   color: var(--color-text-secondary);
   text-decoration: none;
   cursor: pointer;
-  transition: all var(--duration-normal) var(--ease-standard);
+  transition: color var(--duration-normal) var(--ease-standard),
+              background var(--duration-normal) var(--ease-standard),
+              transform var(--duration-normal) var(--ease-standard),
+              box-shadow var(--duration-normal) var(--ease-standard);
   position: relative;
   outline: none;
   /* Keep each tab at its natural width inside the scrollable
@@ -1042,7 +1045,7 @@
   height: 3px;
   background: linear-gradient(90deg, var(--color-accent), var(--color-accent-hover));
   border-radius: var(--radius-full);
-  box-shadow: 0 0 10px var(--color-accent-glow), 0 0 20px var(--color-accent-glow);
+  box-shadow: 0 0 8px var(--color-accent-glow);
   animation: topnavIndicatorIn var(--duration-normal) var(--ease-bounce);
 }
 
@@ -1082,7 +1085,7 @@
   font-weight: var(--font-weight-bold);
   line-height: 1;
   color: #fff;
-  background: var(--color-danger, #ef4444);
+  background: var(--color-danger);
   border-radius: var(--radius-full);
   box-shadow: 0 0 0 2px var(--color-bg-primary, #0c0e14);
   pointer-events: none;
@@ -1112,7 +1115,9 @@
   color: var(--color-text-secondary);
   border-radius: var(--radius-md);
   cursor: pointer;
-  transition: all var(--transition-fast);
+  transition: color var(--transition-fast),
+    background var(--transition-fast),
+    transform var(--transition-fast);
 }
 
 .topnav-btn:hover {
@@ -1300,7 +1305,10 @@
   background: var(--color-bg-tertiary);
   border: 1px solid var(--color-border);
   border-radius: var(--radius-md);
-  transition: all var(--transition-normal);
+  transition: color var(--transition-normal),
+    background var(--transition-normal),
+    border-color var(--transition-normal),
+    box-shadow var(--transition-normal);
 }
 
 .sidebar-search:focus-within {
@@ -1313,14 +1321,12 @@
    * 2px horizontal padding swell is a one-pixel-per-side micro-
    * motion that telegraphs "the input has accepted focus" without
    * crowding the placeholder text. */
-  box-shadow:
-    0 0 0 6px var(--color-accent-glow),
-    0 6px 20px color-mix(in srgb, var(--color-accent) 25%, transparent);
+  box-shadow: 0 0 0 3px var(--color-accent-glow);
   background: var(--color-bg-hover);
 }
 
 .sidebar-search:focus-within .sidebar-search-icon {
-  transform: scale(1.15);
+  transform: scale(1.05);
 }
 
 /* Honor prefers-reduced-motion: skip the icon scale on focus so
@@ -1494,10 +1500,6 @@
   overflow: hidden;
   box-shadow: var(--shadow-sm);
   transition: transform var(--transition-fast);
-}
-
-.sidebar-game-item:hover .sidebar-game-icon {
-  transform: scale(1.05);
 }
 
 .sidebar-game-icon img {
@@ -1713,22 +1715,18 @@
   object-fit: cover;
   /* Visible backdrop while the image is loading or absent so the
    * rail is never a row of invisible rectangles. */
-  background: linear-gradient(
-    135deg,
-    color-mix(in srgb, var(--color-accent) 12%, var(--color-bg-tertiary)),
-    var(--color-bg-tertiary)
-  );
+  background: var(--color-bg-tertiary);
 }
 
 .app-sidebar.sidebar-icon-rail .sidebar-game-item:hover .sidebar-game-icon {
-  transform: scale(1.15);
+  transform: scale(1.04);
   border-color: var(--color-accent);
-  box-shadow: var(--shadow-md), 0 0 14px var(--color-accent-glow);
+  box-shadow: var(--shadow-md);
 }
 
 .app-sidebar.sidebar-icon-rail .sidebar-game-item.active .sidebar-game-icon {
   border-color: var(--color-accent);
-  box-shadow: 0 0 10px var(--color-accent-glow);
+  box-shadow: var(--shadow-sm);
 }
 
 .app-sidebar.sidebar-icon-rail .sidebar-divider {
@@ -1905,7 +1903,9 @@
   font-size: var(--font-size-xs);
   font-weight: var(--font-weight-medium);
   cursor: pointer;
-  transition: all var(--transition-fast);
+  transition: background var(--transition-fast),
+    border-color var(--transition-fast),
+    color var(--transition-fast);
   white-space: nowrap;
   gap: 4px;
 }
@@ -2223,22 +2223,18 @@
   object-fit: cover;
   /* Visible backdrop while the image is loading or absent so the
    * rail is never a row of invisible rectangles. */
-  background: linear-gradient(
-    135deg,
-    color-mix(in srgb, var(--color-accent) 12%, var(--color-bg-tertiary)),
-    var(--color-bg-tertiary)
-  );
+  background: var(--color-bg-tertiary);
 }
 
 .app-sidebar.sidebar-icon-rail .sidebar-game-item:hover .sidebar-game-icon {
-  transform: scale(1.15);
+  transform: scale(1.04);
   border-color: var(--color-accent);
-  box-shadow: var(--shadow-md), 0 0 14px var(--color-accent-glow);
+  box-shadow: var(--shadow-md);
 }
 
 .app-sidebar.sidebar-icon-rail .sidebar-game-item.active .sidebar-game-icon {
   border-color: var(--color-accent);
-  box-shadow: 0 0 10px var(--color-accent-glow);
+  box-shadow: var(--shadow-sm);
 }
 
 /* PinnedGames section header (above the pinned rows). Renders as
@@ -2411,7 +2407,9 @@
   font-size: var(--font-size-xs);
   font-weight: var(--font-weight-medium);
   cursor: pointer;
-  transition: all var(--transition-fast);
+  transition: background var(--transition-fast),
+    border-color var(--transition-fast),
+    color var(--transition-fast);
   white-space: nowrap;
   gap: 4px;
 }
@@ -2645,7 +2643,10 @@
   border: 1px solid var(--color-border);
   border-radius: var(--radius-sm);
   cursor: pointer;
-  transition: all var(--transition-fast);
+  transition: color var(--transition-fast),
+    background var(--transition-fast),
+    border-color var(--transition-fast),
+    transform var(--transition-fast);
 }
 
 .sidebar-collapse-toggle:hover {
@@ -2694,7 +2695,10 @@
   border-radius: var(--radius-md);
   color: var(--color-text-secondary);
   cursor: pointer;
-  transition: all var(--transition-fast);
+  transition: color var(--transition-fast),
+    background var(--transition-fast),
+    border-color var(--transition-fast),
+    box-shadow var(--transition-fast);
 }
 
 .sidebar-filter-btn:hover {
@@ -2897,7 +2901,9 @@
   font-size: var(--font-size-xs);
   font-weight: var(--font-weight-semibold);
   cursor: pointer;
-  transition: all var(--transition-fast);
+  transition: color var(--transition-fast),
+    background var(--transition-fast),
+    border-color var(--transition-fast);
 }
 
 .sidebar-hover-preview__btn:hover {
@@ -2964,7 +2970,10 @@
   border-radius: var(--radius-md);
   color: var(--color-text-secondary);
   cursor: pointer;
-  transition: all var(--transition-fast);
+  transition: color var(--transition-fast),
+    background var(--transition-fast),
+    border-color var(--transition-fast),
+    box-shadow var(--transition-fast);
   box-shadow: var(--shadow-sm);
 }
 
@@ -3146,7 +3155,8 @@
   color: var(--color-text-muted);
   border-radius: var(--radius-sm);
   cursor: pointer;
-  transition: all var(--transition-fast);
+  transition: color var(--transition-fast),
+    background var(--transition-fast);
 }
 
 .sidebar-filter-popover-icon-btn svg {
@@ -3253,7 +3263,8 @@
   font-weight: var(--font-weight-medium);
   border-radius: calc(var(--radius-md) - 3px);
   cursor: pointer;
-  transition: all var(--transition-fast);
+  transition: color var(--transition-fast),
+    background var(--transition-fast);
   white-space: nowrap;
   text-overflow: ellipsis;
   overflow: hidden;
@@ -3319,7 +3330,9 @@
   font-size: var(--font-size-xs);
   font-weight: var(--font-weight-semibold);
   cursor: pointer;
-  transition: all var(--transition-fast);
+  transition: color var(--transition-fast),
+    background var(--transition-fast),
+    border-color var(--transition-fast);
   white-space: nowrap;
 }
 
@@ -3514,7 +3527,7 @@
   font-size: var(--font-size-md);
   font-weight: var(--font-weight-semibold);
   cursor: pointer;
-  transition: all var(--transition-fast);
+  transition: color var(--transition-fast), background var(--transition-fast), border-color var(--transition-fast), box-shadow var(--transition-fast), opacity var(--transition-fast), transform var(--transition-fast);
   box-shadow: 0 0 20px var(--color-accent-glow);
   flex-shrink: 0;
 }
@@ -3799,7 +3812,7 @@
 }
 
 .spec-tag {
-  transition: all var(--transition-fast);
+  transition: color var(--transition-fast), background var(--transition-fast), border-color var(--transition-fast), box-shadow var(--transition-fast), opacity var(--transition-fast), transform var(--transition-fast);
 }
 
 .spec-tag:hover {
@@ -3896,7 +3909,7 @@
   color: var(--color-text-muted);
   font-size: var(--font-size-sm);
   cursor: pointer;
-  transition: all var(--transition-fast);
+  transition: color var(--transition-fast), background var(--transition-fast), border-color var(--transition-fast), box-shadow var(--transition-fast), opacity var(--transition-fast), transform var(--transition-fast);
   position: relative;
   overflow: hidden;
 }
@@ -4027,7 +4040,10 @@
   font-size: var(--font-size-sm);
   font-weight: var(--font-weight-medium);
   cursor: pointer;
-  transition: all var(--transition-fast);
+  transition: color var(--transition-fast),
+    background var(--transition-fast),
+    border-color var(--transition-fast),
+    box-shadow var(--transition-fast);
 }
 
 .game-edit-btn:hover {
@@ -4061,7 +4077,11 @@
   font-weight: var(--font-weight-medium);
   font-family: inherit;
   cursor: pointer;
-  transition: all var(--transition-fast);
+  transition: color var(--transition-fast),
+    background var(--transition-fast),
+    border-color var(--transition-fast),
+    box-shadow var(--transition-fast),
+    transform var(--transition-fast);
   white-space: nowrap;
   flex-shrink: 0;
 }
@@ -4185,7 +4205,8 @@
   font-size: var(--font-size-sm);
   font-weight: var(--font-weight-medium);
   cursor: pointer;
-  transition: all var(--transition-fast);
+  transition: color var(--transition-fast),
+    background var(--transition-fast);
   text-align: left;
 }
 
@@ -4410,7 +4431,9 @@
   color: var(--color-text-muted);
   border-radius: var(--radius-md);
   cursor: pointer;
-  transition: all var(--transition-fast);
+  transition: color var(--transition-fast),
+    background var(--transition-fast),
+    transform var(--transition-fast);
   flex-shrink: 0;
 }
 
@@ -5069,7 +5092,10 @@
   padding: var(--space-md) var(--space-xl);
   cursor: pointer;
   border-bottom: 1px solid var(--color-border-light);
-  transition: all 0.2s ease;
+  transition: background 0.2s ease,
+    color 0.2s ease,
+    transform 0.2s ease,
+    border-color 0.2s ease;
 }
 
 .import-sidebar-item:hover {
@@ -5233,7 +5259,10 @@
   border-radius: var(--radius-sm);
   padding: 3px 8px;
   cursor: pointer;
-  transition: all 0.15s ease;
+  transition: color 0.15s ease,
+    background 0.15s ease,
+    border-color 0.15s ease,
+    transform 0.15s ease;
 }
 
 .make-main-btn:hover {
@@ -5275,7 +5304,10 @@
   border-radius: var(--radius-sm);
   padding: 3px 8px;
   cursor: pointer;
-  transition: all 0.15s ease;
+  transition: color 0.15s ease,
+    background 0.15s ease,
+    border-color 0.15s ease,
+    transform 0.15s ease;
 }
 
 .import-mini-btn:hover:not(:disabled) {
@@ -5299,7 +5331,7 @@
 }
 
 .import-sidebar-item-match.library {
-  color: var(--color-warning, #e1b12c);
+  color: var(--color-warning);
   font-weight: var(--font-weight-medium);
 }
 
@@ -5439,7 +5471,10 @@
   background: var(--color-background);
   color: var(--color-text-primary);
   font-size: var(--font-size-sm);
-  transition: all 0.2s ease;
+  transition: color 0.2s ease,
+    background 0.2s ease,
+    border-color 0.2s ease,
+    box-shadow 0.2s ease;
 }
 
 .search-input-wrapper .import-search-input:focus {
@@ -5513,7 +5548,10 @@
   background: var(--color-surface);
   cursor: pointer;
   text-align: left;
-  transition: all 0.2s ease;
+  transition: background 0.2s ease,
+    color 0.2s ease,
+    border-color 0.2s ease,
+    box-shadow 0.2s ease;
   width: 100%;
 }
 
@@ -5779,7 +5817,10 @@
   cursor: pointer;
   font-size: var(--font-size-xs);
   font-weight: var(--font-weight-medium);
-  transition: all 0.2s ease;
+  transition: color 0.2s ease,
+    background 0.2s ease,
+    border-color 0.2s ease,
+    box-shadow 0.2s ease;
 }
 
 .preview-unlink-btn:hover {
@@ -6212,7 +6253,7 @@
   border-radius: var(--radius-md);
   padding: var(--space-md);
   cursor: pointer;
-  transition: all var(--transition-fast);
+  transition: color var(--transition-fast), background var(--transition-fast), border-color var(--transition-fast), box-shadow var(--transition-fast), opacity var(--transition-fast), transform var(--transition-fast);
   display: flex;
   flex-direction: column;
   gap: var(--space-sm);
@@ -6439,7 +6480,8 @@
   cursor: pointer;
   color: var(--color-text-muted);
   padding: 0;
-  transition: all var(--transition-fast);
+  transition: color var(--transition-fast),
+    transform var(--transition-fast);
 }
 
 .star-select-btn svg {
@@ -6545,7 +6587,10 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  transition: all var(--transition-fast);
+  transition: color var(--transition-fast),
+    background var(--transition-fast),
+    transform var(--transition-fast),
+    box-shadow var(--transition-fast);
 }
 
 .review-action-btn:hover {
@@ -6634,7 +6679,11 @@
   font-size: var(--font-size-sm);
   font-weight: var(--font-weight-semibold);
   cursor: pointer;
-  transition: all var(--transition-fast);
+  transition: color var(--transition-fast),
+    background var(--transition-fast),
+    border-color var(--transition-fast),
+    box-shadow var(--transition-fast),
+    transform var(--transition-fast);
   border: 1px solid transparent;
   white-space: nowrap;
 }
@@ -6731,7 +6780,6 @@
   font-weight: var(--font-weight-bold);
   line-height: 1;
   letter-spacing: -1px;
-  text-shadow: 0 0 30px currentColor;
 }
 
 .rv-summary-score-label {
@@ -6843,7 +6891,10 @@
   font-size: var(--font-size-xs);
   font-weight: var(--font-weight-semibold);
   cursor: pointer;
-  transition: all var(--transition-fast);
+  transition: color var(--transition-fast),
+    background var(--transition-fast),
+    border-color var(--transition-fast),
+    transform var(--transition-fast);
 }
 
 .rv-refresh-btn:hover:not(:disabled) {
@@ -6899,7 +6950,10 @@
   border: 1px solid transparent;
   border-radius: var(--radius-full);
   cursor: pointer;
-  transition: all var(--transition-fast);
+  transition: color var(--transition-fast),
+    background var(--transition-fast),
+    border-color var(--transition-fast),
+    box-shadow var(--transition-fast);
   white-space: nowrap;
 }
 
@@ -6945,7 +6999,10 @@
   font-weight: var(--font-weight-medium);
   cursor: pointer;
   outline: none;
-  transition: all var(--transition-fast);
+  transition: color var(--transition-fast),
+    background var(--transition-fast),
+    border-color var(--transition-fast),
+    box-shadow var(--transition-fast);
   font-family: inherit;
 }
 
@@ -6998,7 +7055,10 @@
   font-size: var(--font-size-sm);
   font-family: inherit;
   outline: none;
-  transition: all var(--transition-fast);
+  transition: color var(--transition-fast),
+    background var(--transition-fast),
+    border-color var(--transition-fast),
+    box-shadow var(--transition-fast);
   box-sizing: border-box;
 }
 
@@ -7026,7 +7086,9 @@
   color: var(--color-text-muted);
   border-radius: 50%;
   cursor: pointer;
-  transition: all var(--transition-fast);
+  transition: color var(--transition-fast),
+    background var(--transition-fast),
+    transform var(--transition-fast);
 }
 
 .rv-search-clear:hover {
@@ -7037,7 +7099,9 @@
 .rv-search-clear svg {
   width: 12px;
   height: 12px;
-  transition: all 200ms ease;
+  transition: transform 200ms ease,
+    opacity 200ms ease,
+    color 200ms ease;
 }
 
 .rv-star-btn:hover {
@@ -7105,7 +7169,9 @@
   display: flex;
   flex-direction: column;
   gap: var(--space-md);
-  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+  transition: transform 0.25s cubic-bezier(0.4, 0, 0.2, 1),
+    border-color 0.25s cubic-bezier(0.4, 0, 0.2, 1),
+    box-shadow 0.25s cubic-bezier(0.4, 0, 0.2, 1);
   overflow: hidden;
   box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
 }
@@ -7424,7 +7490,10 @@
   font-weight: var(--font-weight-semibold);
   border-radius: var(--radius-sm);
   cursor: pointer;
-  transition: all var(--transition-fast);
+  transition: color var(--transition-fast),
+    background var(--transition-fast),
+    border-color var(--transition-fast),
+    transform var(--transition-fast);
 }
 
 .rv-card-action:hover {
@@ -8180,7 +8249,11 @@
   border-radius: var(--radius-md);
   cursor: pointer;
   text-align: left;
-  transition: all var(--transition-fast);
+  transition: transform var(--transition-fast),
+    border-color var(--transition-fast),
+    box-shadow var(--transition-fast),
+    background var(--transition-fast),
+    color var(--transition-fast);
   font-family: inherit;
   position: relative;
   overflow: hidden;
@@ -8501,7 +8574,7 @@
   border: 1px solid rgba(108, 92, 231, 0.25);
   border-radius: var(--radius-md);
   cursor: pointer;
-  transition: all 0.2s;
+  transition: color var(--transition-fast), background var(--transition-fast), border-color var(--transition-fast), box-shadow var(--transition-fast), opacity var(--transition-fast), transform var(--transition-fast);
 }
 
 .lb-sidebar-card-btn:hover {
@@ -8550,7 +8623,10 @@
   border: 1px solid rgba(255, 255, 255, 0.06);
   border-radius: var(--radius-full);
   cursor: pointer;
-  transition: all 0.2s;
+  transition: color 0.2s,
+    background 0.2s,
+    border-color 0.2s,
+    box-shadow 0.2s;
   white-space: nowrap;
 }
 
@@ -8589,7 +8665,10 @@
   overflow: hidden;
   background: rgba(255, 255, 255, 0.03);
   border: 1px solid rgba(255, 255, 255, 0.06);
-  transition: all 0.25s;
+  transition: border-color 0.25s,
+    background 0.25s,
+    box-shadow 0.25s,
+    transform 0.25s;
 }
 
 .lb-image-card:hover {
@@ -8674,7 +8753,10 @@
   border: 1px solid rgba(108, 92, 231, 0.2);
   border-radius: var(--radius-sm);
   cursor: pointer;
-  transition: all 0.2s;
+  transition: background 0.2s,
+    border-color 0.2s,
+    color 0.2s,
+    box-shadow 0.2s;
   text-transform: uppercase;
   letter-spacing: 0.5px;
 }
@@ -8750,7 +8832,7 @@
   font-weight: var(--font-weight-medium);
   cursor: pointer;
   position: relative;
-  transition: all var(--transition-fast);
+  transition: color var(--transition-fast), background var(--transition-fast), border-color var(--transition-fast), box-shadow var(--transition-fast), opacity var(--transition-fast), transform var(--transition-fast);
   border-bottom: 2px solid transparent;
   margin-bottom: -1px;
   border-radius: var(--radius-md) var(--radius-md) 0 0;
@@ -8793,7 +8875,7 @@
   align-items: center;
   gap: var(--space-lg);
   border-top: 3px solid var(--color-accent);
-  transition: all var(--transition-fast);
+  transition: color var(--transition-fast), background var(--transition-fast), border-color var(--transition-fast), box-shadow var(--transition-fast), opacity var(--transition-fast), transform var(--transition-fast);
 }
 
 .activity-stat-card:hover {
@@ -8986,7 +9068,7 @@
   border: 1px solid var(--color-border);
   border-radius: var(--radius-md);
   padding: var(--space-md) var(--space-lg);
-  transition: all var(--transition-fast);
+  transition: color var(--transition-fast), background var(--transition-fast), border-color var(--transition-fast), box-shadow var(--transition-fast), opacity var(--transition-fast), transform var(--transition-fast);
 }
 
 .activity-timeline-card:hover {
@@ -9033,7 +9115,7 @@
   border-radius: var(--radius-full);
   border: 1px solid var(--color-border);
   letter-spacing: 0.3px;
-  transition: all var(--transition-fast);
+  transition: color var(--transition-fast), background var(--transition-fast), border-color var(--transition-fast), box-shadow var(--transition-fast), opacity var(--transition-fast), transform var(--transition-fast);
 }
 
 .activity-metric-tag:hover {
@@ -9083,7 +9165,7 @@
   font-weight: var(--font-weight-medium);
   cursor: pointer;
   position: relative;
-  transition: all var(--transition-fast);
+  transition: color var(--transition-fast), background var(--transition-fast), border-color var(--transition-fast), box-shadow var(--transition-fast), opacity var(--transition-fast), transform var(--transition-fast);
   border-bottom: 2px solid transparent;
   margin-bottom: -1px;
   border-radius: var(--radius-md) var(--radius-md) 0 0;
@@ -9194,7 +9276,7 @@
   position: relative;
   border-bottom: 1px solid var(--color-border);
   border-radius: var(--radius-md);
-  transition: all var(--transition-fast);
+  transition: color var(--transition-fast), background var(--transition-fast), border-color var(--transition-fast), box-shadow var(--transition-fast), opacity var(--transition-fast), transform var(--transition-fast);
 }
 
 .game-session-item:hover {
@@ -9431,7 +9513,7 @@
   display: flex;
   align-items: center;
   gap: var(--space-xs);
-  transition: all var(--transition-fast);
+  transition: color var(--transition-fast), background var(--transition-fast), border-color var(--transition-fast), box-shadow var(--transition-fast), opacity var(--transition-fast), transform var(--transition-fast);
 }
 
 .game-activity-toggle-btn:hover {
@@ -9461,7 +9543,7 @@
   padding: 6px 12px;
   border-radius: var(--radius-sm);
   cursor: pointer;
-  transition: all var(--transition-fast);
+  transition: color var(--transition-fast), background var(--transition-fast), border-color var(--transition-fast), box-shadow var(--transition-fast), opacity var(--transition-fast), transform var(--transition-fast);
 }
 
 .game-activity-timeframe-btn:hover {
@@ -9485,7 +9567,7 @@
   align-items: center;
   justify-content: center;
   cursor: pointer;
-  transition: all var(--transition-fast);
+  transition: color var(--transition-fast), background var(--transition-fast), border-color var(--transition-fast), box-shadow var(--transition-fast), opacity var(--transition-fast), transform var(--transition-fast);
 }
 
 .game-activity-action-btn:active {
@@ -9550,7 +9632,7 @@
   color: var(--color-text-secondary);
   font-size: var(--font-size-xs);
   cursor: pointer;
-  transition: all var(--transition-fast);
+  transition: color var(--transition-fast), background var(--transition-fast), border-color var(--transition-fast), box-shadow var(--transition-fast), opacity var(--transition-fast), transform var(--transition-fast);
 }
 
 .game-activity-export-menu button:hover {
@@ -9606,7 +9688,7 @@
   display: flex;
   align-items: center;
   gap: var(--space-sm);
-  transition: all var(--transition-fast);
+  transition: color var(--transition-fast), background var(--transition-fast), border-color var(--transition-fast), box-shadow var(--transition-fast), opacity var(--transition-fast), transform var(--transition-fast);
   width: calc(50% - var(--space-sm) / 2);
   box-sizing: border-box;
 }
@@ -9702,7 +9784,7 @@
   align-items: center;
   justify-content: space-between;
   gap: var(--space-sm);
-  transition: all var(--transition-fast);
+  transition: color var(--transition-fast), background var(--transition-fast), border-color var(--transition-fast), box-shadow var(--transition-fast), opacity var(--transition-fast), transform var(--transition-fast);
 }
 
 .game-activity-session-card:hover {
@@ -9752,7 +9834,7 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  transition: all var(--transition-fast);
+  transition: color var(--transition-fast), background var(--transition-fast), border-color var(--transition-fast), box-shadow var(--transition-fast), opacity var(--transition-fast), transform var(--transition-fast);
 }
 
 .game-activity-session-delete-btn:hover {
@@ -9821,7 +9903,7 @@
   padding: 4px 10px;
   border-radius: var(--radius-sm);
   cursor: pointer;
-  transition: all var(--transition-fast);
+  transition: color var(--transition-fast), background var(--transition-fast), border-color var(--transition-fast), box-shadow var(--transition-fast), opacity var(--transition-fast), transform var(--transition-fast);
 }
 
 .game-activity-agg-btn.active {
@@ -9848,7 +9930,7 @@
   align-items: center;
   justify-content: center;
   cursor: pointer;
-  transition: all var(--transition-fast);
+  transition: color var(--transition-fast), background var(--transition-fast), border-color var(--transition-fast), box-shadow var(--transition-fast), opacity var(--transition-fast), transform var(--transition-fast);
 }
 
 .game-activity-style-btn.active {
@@ -9902,7 +9984,7 @@
   width: 10px;
   height: 10px;
   border-radius: 2px;
-  transition: all var(--transition-fast);
+  transition: color var(--transition-fast), background var(--transition-fast), border-color var(--transition-fast), box-shadow var(--transition-fast), opacity var(--transition-fast), transform var(--transition-fast);
 }
 
 .weekly-heatmap-cell-empty {
@@ -9974,7 +10056,7 @@
   display: flex;
   flex-direction: column;
   gap: 2px;
-  transition: all var(--transition-fast);
+  transition: color var(--transition-fast), background var(--transition-fast), border-color var(--transition-fast), box-shadow var(--transition-fast), opacity var(--transition-fast), transform var(--transition-fast);
 }
 
 .game-activity-perf-card:hover {
@@ -10086,7 +10168,7 @@
   font-weight: 500;
   color: var(--color-text-primary);
   text-decoration: none;
-  transition: all var(--transition-fast);
+  transition: color var(--transition-fast), background var(--transition-fast), border-color var(--transition-fast), box-shadow var(--transition-fast), opacity var(--transition-fast), transform var(--transition-fast);
   cursor: pointer;
 }
 
@@ -10141,7 +10223,7 @@
   font-size: var(--font-size-xs);
   font-weight: var(--font-weight-medium);
   cursor: pointer;
-  transition: all var(--transition-fast);
+  transition: color var(--transition-fast), background var(--transition-fast), border-color var(--transition-fast), box-shadow var(--transition-fast), opacity var(--transition-fast), transform var(--transition-fast);
   white-space: nowrap;
   max-width: 200px;
   overflow: hidden;
@@ -10179,7 +10261,7 @@
   color: var(--color-text-muted);
   border-radius: var(--radius-full);
   cursor: pointer;
-  transition: all var(--transition-fast);
+  transition: color var(--transition-fast), background var(--transition-fast), border-color var(--transition-fast), box-shadow var(--transition-fast), opacity var(--transition-fast), transform var(--transition-fast);
   flex-shrink: 0;
 }
 
@@ -10266,7 +10348,7 @@
   font-weight: var(--font-weight-medium);
   cursor: pointer;
   position: relative;
-  transition: all var(--transition-fast);
+  transition: color var(--transition-fast), background var(--transition-fast), border-color var(--transition-fast), box-shadow var(--transition-fast), opacity var(--transition-fast), transform var(--transition-fast);
   border-bottom: 2px solid transparent;
   margin-bottom: -1px;
   border-radius: var(--radius-md) var(--radius-md) 0 0;
@@ -10291,7 +10373,7 @@
   align-items: center;
   justify-content: center;
   flex-shrink: 0;
-  transition: all var(--transition-fast);
+  transition: color var(--transition-fast), background var(--transition-fast), border-color var(--transition-fast), box-shadow var(--transition-fast), opacity var(--transition-fast), transform var(--transition-fast);
 }
 
 .wl-source-tab-icon svg {
@@ -10321,7 +10403,7 @@
   font-weight: var(--font-weight-medium);
   cursor: pointer;
   border-radius: var(--radius-full);
-  transition: all var(--transition-fast);
+  transition: color var(--transition-fast), background var(--transition-fast), border-color var(--transition-fast), box-shadow var(--transition-fast), opacity var(--transition-fast), transform var(--transition-fast);
   white-space: nowrap;
 }
 
@@ -10422,7 +10504,7 @@
   font-size: var(--font-size-xs);
   font-weight: var(--font-weight-medium);
   cursor: pointer;
-  transition: all var(--transition-fast);
+  transition: color var(--transition-fast), background var(--transition-fast), border-color var(--transition-fast), box-shadow var(--transition-fast), opacity var(--transition-fast), transform var(--transition-fast);
   font-family: inherit;
 }
 
@@ -10543,7 +10625,7 @@
   font-size: var(--font-size-sm);
   font-weight: var(--font-weight-medium);
   cursor: pointer;
-  transition: all var(--transition-fast);
+  transition: color var(--transition-fast), background var(--transition-fast), border-color var(--transition-fast), box-shadow var(--transition-fast), opacity var(--transition-fast), transform var(--transition-fast);
   font-family: inherit;
 }
 
@@ -10970,7 +11052,6 @@
   font-weight: var(--font-weight-bold);
   color: var(--color-text-primary);
   margin: 0;
-  text-shadow: 0 4px 24px rgba(0, 0, 0, 0.7);
   line-height: 1.1;
 }
 
@@ -11474,7 +11555,7 @@
   color: var(--color-accent);
   text-decoration: none;
   font-weight: var(--font-weight-medium);
-  transition: all var(--transition-fast);
+  transition: color var(--transition-fast), background var(--transition-fast), border-color var(--transition-fast), box-shadow var(--transition-fast), opacity var(--transition-fast), transform var(--transition-fast);
   background: var(--color-bg-tertiary);
   border: 1px solid var(--color-border);
   border-radius: var(--radius-md);
@@ -11584,7 +11665,7 @@
   font-size: var(--font-size-sm);
   font-weight: var(--font-weight-medium);
   cursor: pointer;
-  transition: all var(--transition-fast);
+  transition: color var(--transition-fast), background var(--transition-fast), border-color var(--transition-fast), box-shadow var(--transition-fast), opacity var(--transition-fast), transform var(--transition-fast);
 }
 
 .achievements-sync-btn:hover:not(:disabled) {
@@ -11851,7 +11932,7 @@
   font-family: inherit;
   border-radius: var(--radius-sm);
   cursor: pointer;
-  transition: all var(--transition-fast);
+  transition: color var(--transition-fast), background var(--transition-fast), border-color var(--transition-fast), box-shadow var(--transition-fast), opacity var(--transition-fast), transform var(--transition-fast);
   white-space: nowrap;
 }
 
@@ -11931,7 +12012,7 @@
   border-radius: var(--radius-sm);
   cursor: pointer;
   outline: none;
-  transition: all var(--transition-fast);
+  transition: color var(--transition-fast), background var(--transition-fast), border-color var(--transition-fast), box-shadow var(--transition-fast), opacity var(--transition-fast), transform var(--transition-fast);
   appearance: none;
   -webkit-appearance: none;
   background-image: linear-gradient(45deg, transparent 50%, var(--color-text-muted) 50%),
@@ -11987,7 +12068,7 @@
   border: 1px solid var(--color-border);
   border-radius: var(--radius-md);
   padding: var(--space-md);
-  transition: all var(--transition-fast);
+  transition: color var(--transition-fast), background var(--transition-fast), border-color var(--transition-fast), box-shadow var(--transition-fast), opacity var(--transition-fast), transform var(--transition-fast);
   position: relative;
   overflow: hidden;
 }
@@ -12146,7 +12227,7 @@
   gap: var(--space-xs);
   position: relative;
   overflow: hidden;
-  transition: all var(--transition-fast);
+  transition: color var(--transition-fast), background var(--transition-fast), border-color var(--transition-fast), box-shadow var(--transition-fast), opacity var(--transition-fast), transform var(--transition-fast);
 }
 
 .achievements-summary-card:hover {
@@ -12267,7 +12348,9 @@
   height: 64px;
   border-radius: var(--radius-sm);
   border: 2px solid var(--color-border);
-  transition: all var(--transition-normal);
+  transition: transform var(--transition-normal),
+              box-shadow var(--transition-normal),
+              border-color var(--transition-normal);
   background: var(--color-bg-tertiary);
   object-fit: cover;
 }
@@ -12325,7 +12408,7 @@
   border-radius: var(--radius-md);
   padding: var(--space-md) var(--space-lg);
   cursor: pointer;
-  transition: all var(--transition-fast);
+  transition: color var(--transition-fast), background var(--transition-fast), border-color var(--transition-fast), box-shadow var(--transition-fast), opacity var(--transition-fast), transform var(--transition-fast);
 }
 
 /*
@@ -12531,7 +12614,7 @@
   font-size: var(--font-size-xs);
   font-weight: var(--font-weight-semibold);
   cursor: pointer;
-  transition: all var(--transition-fast);
+  transition: color var(--transition-fast), background var(--transition-fast), border-color var(--transition-fast), box-shadow var(--transition-fast), opacity var(--transition-fast), transform var(--transition-fast);
   text-transform: uppercase;
   letter-spacing: 0.5px;
 }
@@ -12567,7 +12650,7 @@
   font-size: var(--font-size-sm);
   text-align: left;
   cursor: pointer;
-  transition: all var(--transition-fast);
+  transition: color var(--transition-fast), background var(--transition-fast), border-color var(--transition-fast), box-shadow var(--transition-fast), opacity var(--transition-fast), transform var(--transition-fast);
 }
 
 .game-status-dropdown-item:hover {
@@ -12787,7 +12870,9 @@
   font-size: 10px;
   font-weight: var(--font-weight-semibold);
   cursor: pointer;
-  transition: all var(--transition-fast);
+  transition: color var(--transition-fast),
+    background var(--transition-fast),
+    border-color var(--transition-fast);
   font-family: inherit;
 }
 
@@ -12809,7 +12894,10 @@
   text-decoration: none;
   padding: 2px 6px;
   border-radius: var(--radius-sm);
-  transition: all var(--transition-fast);
+  transition: color var(--transition-fast),
+    background var(--transition-fast),
+    border-color var(--transition-fast),
+    box-shadow var(--transition-fast);
   border: 1px solid transparent;
 }
 

@@ -53,7 +53,7 @@
   padding: 6px 14px;
   border-radius: 6px;
   cursor: pointer;
-  transition: all 0.15s ease;
+  transition: color var(--transition-fast), background var(--transition-fast);
   display: flex;
   align-items: center;
   gap: 6px;
@@ -93,7 +93,7 @@
   color: var(--color-text-secondary);
   border-radius: 8px;
   cursor: pointer;
-  transition: all 0.15s ease;
+  transition: color var(--transition-fast), background var(--transition-fast);
 }
 
 .activity__icon-btn:hover {
@@ -250,7 +250,7 @@
   padding: 8px 10px;
   border-radius: 8px;
   cursor: pointer;
-  transition: all 0.12s ease;
+  transition: color var(--transition-fast), background var(--transition-fast);
   background: none;
   border: none;
   color: inherit;
@@ -312,9 +312,11 @@
   flex-shrink: 0;
 }
 
-/* Gradient letter placeholder for missing/broken game icons. The
+/* Flat letter placeholder for missing/broken game icons. The
  * GameThumbnail component sets one of `--g0`..`--g7` based on a hash
- * of the game name, so each game keeps a stable color across sessions. */
+ * of the game name, so each game keeps a stable color across sessions.
+ * Slots are soft theme-token tints (no gradients) so the letter stays
+ * readable in both light and dark themes. */
 .game-thumbnail__placeholder {
   display: flex;
   align-items: center;
@@ -322,11 +324,8 @@
   border-radius: inherit;
   overflow: hidden;
   flex-shrink: 0;
-  /* Sit above any explicit background-color declared by the
-   * `*-icon-placeholder` class on the same element so the gradient is
-   * always visible. */
   background: var(--color-bg-tertiary);
-  color: #fff;
+  color: var(--color-text-primary);
   text-transform: uppercase;
   user-select: none;
 }
@@ -336,7 +335,6 @@
   font-weight: 700;
   letter-spacing: 0;
   line-height: 1;
-  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.25);
 }
 
 /* Slightly smaller letter for the session-row container so it doesn't
@@ -345,16 +343,15 @@
   font-size: 12px;
 }
 
-/* Eight stable gradient slots. Picked to stay readable in both light
- * and dark themes with white text. */
-.game-thumbnail__placeholder--g0 { background: linear-gradient(135deg, #6366f1, #8b5cf6); }
-.game-thumbnail__placeholder--g1 { background: linear-gradient(135deg, #06b6d4, #3b82f6); }
-.game-thumbnail__placeholder--g2 { background: linear-gradient(135deg, #10b981, #06b6d4); }
-.game-thumbnail__placeholder--g3 { background: linear-gradient(135deg, #f59e0b, #ef4444); }
-.game-thumbnail__placeholder--g4 { background: linear-gradient(135deg, #ec4899, #f43f5e); }
-.game-thumbnail__placeholder--g5 { background: linear-gradient(135deg, #8b5cf6, #ec4899); }
-.game-thumbnail__placeholder--g6 { background: linear-gradient(135deg, #14b8a6, #22c55e); }
-.game-thumbnail__placeholder--g7 { background: linear-gradient(135deg, #f97316, #facc15); }
+/* Eight stable tint slots over the tertiary surface. */
+.game-thumbnail__placeholder--g0 { background: color-mix(in srgb, var(--color-info) 28%, var(--color-bg-tertiary)); }
+.game-thumbnail__placeholder--g1 { background: color-mix(in srgb, var(--color-accent) 28%, var(--color-bg-tertiary)); }
+.game-thumbnail__placeholder--g2 { background: color-mix(in srgb, var(--color-success) 28%, var(--color-bg-tertiary)); }
+.game-thumbnail__placeholder--g3 { background: color-mix(in srgb, var(--color-warning) 28%, var(--color-bg-tertiary)); }
+.game-thumbnail__placeholder--g4 { background: color-mix(in srgb, var(--color-danger) 28%, var(--color-bg-tertiary)); }
+.game-thumbnail__placeholder--g5 { background: color-mix(in srgb, var(--color-accent) 18%, var(--color-bg-tertiary)); }
+.game-thumbnail__placeholder--g6 { background: color-mix(in srgb, var(--color-info) 18%, var(--color-bg-tertiary)); }
+.game-thumbnail__placeholder--g7 { background: color-mix(in srgb, var(--color-warning) 18%, var(--color-bg-tertiary)); }
 
 .activity-game-sidebar__info {
   flex: 1;
@@ -385,7 +382,7 @@
   height: 100%;
   background: linear-gradient(90deg, var(--color-brand-teal), var(--color-brand-blue));
   border-radius: 2px;
-  transition: width 0.4s ease;
+  transition: width var(--transition-slow);
 }
 
 .activity-game-sidebar__time {
@@ -425,7 +422,7 @@
   font-size: 12px;
   font-weight: 500;
   cursor: pointer;
-  transition: all 0.15s ease;
+  transition: color var(--transition-fast), background var(--transition-fast);
 }
 
 .date-range-filter__tab:hover {
@@ -449,11 +446,8 @@
   width: 100%;
   padding: var(--space-md);
   border-radius: var(--radius-xl);
-  background: var(--color-surface-glass);
-  backdrop-filter: blur(16px);
-  -webkit-backdrop-filter: blur(16px);
-  border: 1px solid var(--color-border-light);
-  box-shadow: var(--depth-2);
+  background: var(--color-bg-secondary);
+  border: 1px solid var(--color-border);
   position: relative;
   overflow: hidden;
 }
@@ -479,15 +473,11 @@
   align-items: center;
   gap: 12px;
   box-sizing: border-box;
-  transition: transform var(--duration-normal) var(--ease-standard),
-    border-color var(--duration-normal) var(--ease-standard),
-    box-shadow var(--duration-normal) var(--ease-standard);
+  transition: border-color var(--duration-normal) var(--ease-standard);
 }
 
 .activity-stats-bar__pill:hover {
-  transform: translateY(-2px);
   border-color: var(--color-border-light);
-  box-shadow: var(--depth-1);
 }
 
 .activity-stats-bar__pill--highlight {
@@ -527,7 +517,7 @@
   letter-spacing: 0.5px;
 }
 
-/* Broadcast-grade numbers: large, tabular, slightly glowing. */
+/* Broadcast-grade numbers: large and tabular. */
 .activity-stats-bar__pill-value {
   color: var(--color-text-primary);
   font-size: 24px;
@@ -538,14 +528,10 @@
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-  text-shadow: 0 1px 12px rgba(0, 0, 0, 0.35);
 }
 
 .activity-stats-bar__pill--highlight .activity-stats-bar__pill-value {
-  background: var(--brand-gradient-strong);
-  -webkit-background-clip: text;
-  background-clip: text;
-  color: transparent;
+  color: var(--brand-2);
 }
 
 .activity-stats-bar--loading {
@@ -566,7 +552,7 @@
 
 .section-panel__title {
   color: var(--color-text-primary);
-  font-size: 13px;
+  font-size: 14px;
   font-weight: 600;
   margin: 0 0 calc(var(--spacing-unit) * 2.5) 0;
   text-transform: uppercase;
@@ -678,14 +664,12 @@
   width: 14px;
   height: 14px;
   border-radius: 2px;
-  transition: transform 0.1s ease, filter 0.1s ease;
+  transition: filter var(--transition-fast);
   position: relative;
 }
 
 .weekly-heatmap__cell:hover {
-  transform: scale(1.25);
-  z-index: 2;
-  filter: brightness(1.2);
+  filter: brightness(1.25);
 }
 
 .weekly-heatmap__cell--empty {
@@ -791,7 +775,7 @@
   align-items: center;
   justify-content: center;
   cursor: pointer;
-  transition: all 0.15s ease;
+  transition: color var(--transition-fast), background var(--transition-fast), border-color var(--transition-fast);
 }
 
 .global-session-list__refresh-btn:hover {
@@ -818,7 +802,7 @@
   font-size: 12px;
   font-weight: 600;
   cursor: pointer;
-  transition: all 0.15s ease;
+  transition: color var(--transition-fast), background var(--transition-fast);
   text-align: center;
 }
 
@@ -833,7 +817,7 @@
   border: 1px solid var(--color-border);
   border-radius: 10px;
   overflow: hidden;
-  transition: border-color 0.2s ease;
+  transition: border-color var(--transition-fast);
 }
 
 .activity-session-item--expanded {
@@ -929,7 +913,7 @@
   border-radius: 4px;
   display: flex;
   align-items: center;
-  transition: all 0.15s ease;
+  transition: color var(--transition-fast), background var(--transition-fast);
 }
 
 .activity-session-item__delete-btn:hover {
@@ -1021,7 +1005,7 @@
 }
 
 .activity-sparkline__value-item-label {
-  font-size: 8px;
+  font-size: 9px;
   color: var(--color-text-muted);
   text-transform: uppercase;
 }
@@ -1066,13 +1050,13 @@
 
 .activity-session-item__chart-estimated,
 .performance-timeline__estimated {
-  font-size: 9px;
+  font-size: 10px;
   font-weight: 600;
   letter-spacing: 0.4px;
   text-transform: uppercase;
   color: var(--color-text-muted);
   background: var(--color-bg-primary);
-  border: 1px solid var(--color-border, rgba(255, 255, 255, 0.12));
+  border: 1px solid var(--color-border);
   border-radius: 4px;
   padding: 1px 5px;
   margin-left: 4px;
@@ -1090,12 +1074,12 @@
   background: none;
   border: none;
   color: var(--color-text-muted);
-  font-size: 9px;
+  font-size: 10px;
   font-weight: 600;
   padding: 4px 8px;
   border-radius: 4px;
   cursor: pointer;
-  transition: all 0.15s ease;
+  transition: color var(--transition-fast), background var(--transition-fast);
 }
 
 .activity-session-item__chart-tab-btn:hover {
@@ -1135,7 +1119,7 @@
 }
 
 .activity-gantt__head-title {
-  font-size: 13px;
+  font-size: 14px;
   font-weight: 700;
   color: var(--color-text-primary);
   letter-spacing: 0.02em;
@@ -1144,16 +1128,16 @@
 .activity-gantt__export-btn {
   font-size: 11px;
   color: var(--color-text-secondary);
-  background: rgba(255, 255, 255, 0.04);
+  background: var(--color-bg-tertiary);
   border: 1px solid var(--color-border);
   border-radius: 6px;
   padding: 5px 10px;
   cursor: pointer;
-  transition: background 0.15s ease, color 0.15s ease;
+  transition: background var(--transition-fast), color var(--transition-fast);
 }
 
 .activity-gantt__export-btn:hover {
-  background: rgba(255, 255, 255, 0.08);
+  background: var(--color-bg-hover);
   color: var(--color-text-primary);
 }
 
@@ -1184,16 +1168,16 @@
   border-radius: 6px;
   padding: 3px 6px;
   cursor: pointer;
-  transition: background 0.15s ease, border-color 0.15s ease, opacity 0.15s ease;
+  transition: background var(--transition-fast), border-color var(--transition-fast), opacity var(--transition-fast);
 }
 
 .activity-gantt__legend-item:hover {
-  background: rgba(255, 255, 255, 0.05);
+  background: var(--color-bg-hover);
 }
 
 .activity-gantt__legend-item--active {
   border-color: var(--color-border-light);
-  background: rgba(255, 255, 255, 0.08);
+  background: var(--color-bg-hover);
   color: var(--color-text-primary);
 }
 
@@ -1266,7 +1250,7 @@
 .activity-gantt__time-label {
   position: absolute;
   transform: translateX(-50%);
-  font-size: 9px;
+  font-size: 10px;
   color: var(--color-text-muted);
   white-space: nowrap;
 }
@@ -1302,15 +1286,15 @@
   display: flex;
   align-items: stretch;
   border-radius: 4px;
-  transition: background-color 0.15s ease;
+  transition: background-color var(--transition-fast);
 }
 
 .activity-gantt__row--has-data {
-  background: rgba(255, 255, 255, 0.01);
+  background: var(--color-bg-secondary);
 }
 
 .activity-gantt__row:hover {
-  background: rgba(255, 255, 255, 0.02);
+  background: var(--color-bg-secondary);
 }
 
 .activity-gantt__row .activity-gantt__date-col {
@@ -1333,7 +1317,7 @@
 .activity-gantt__bar-area {
   flex: 1;
   position: relative;
-  background: rgba(255, 255, 255, 0.02);
+  background: var(--color-bg-secondary);
   border-radius: 4px;
 }
 
@@ -1342,7 +1326,7 @@
   top: 0;
   bottom: 0;
   width: 1px;
-  background: rgba(255, 255, 255, 0.05);
+  background: var(--color-bg-hover);
   pointer-events: none;
 }
 
@@ -1362,7 +1346,7 @@
   top: 0;
   bottom: 0;
   width: 1px;
-  background: rgba(255, 255, 255, 0.35);
+  background: color-mix(in srgb, var(--color-text-primary) 35%, transparent);
   pointer-events: none;
   z-index: 4;
 }
@@ -1371,14 +1355,12 @@
   position: absolute;
   border-radius: 4px;
   cursor: pointer;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.4);
-  transition: transform 0.15s ease, filter 0.15s ease, opacity 0.15s ease;
+  transition: filter var(--transition-fast), opacity var(--transition-fast);
   z-index: 2;
 }
 
 .activity-gantt__bar:hover {
-  transform: scaleY(1.15);
-  filter: brightness(1.2);
+  filter: brightness(1.25);
   z-index: 5;
 }
 
@@ -1536,7 +1518,7 @@
   border: 1px solid var(--color-border);
   background: var(--color-bg-tertiary);
   color: var(--color-text-secondary);
-  transition: all 0.15s ease;
+  transition: color var(--transition-fast), background var(--transition-fast), border-color var(--transition-fast);
 }
 
 .activity-gantt__notes-save:hover {
@@ -1616,10 +1598,9 @@
   left: 6px;
   top: 50%;
   transform: translateY(-50%);
-  font-size: 9px;
+  font-size: 10px;
   font-weight: 700;
-  color: #fff;
-  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.6);
+  color: var(--color-text-primary);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -1662,7 +1643,7 @@
 }
 
 .activity-gantt__tooltip-tag {
-  font-size: 9px;
+  font-size: 10px;
   font-weight: 700;
   color: var(--color-brand-teal);
   background: color-mix(in srgb, var(--color-accent) 12%, transparent);
@@ -1707,7 +1688,7 @@
   flex: 1;
   border-radius: 2px;
   min-height: 4px;
-  transition: background 0.2s ease, height 0.3s ease;
+  transition: background var(--transition-fast), height var(--transition-normal);
 }
 
 .activity-gantt__heatmap-cell--empty {
@@ -1733,7 +1714,7 @@
 .activity-gantt__heatmap-axis {
   display: flex;
   justify-content: space-between;
-  font-size: 9px;
+  font-size: 10px;
   color: var(--color-text-muted);
   padding: 0 1px;
 }
@@ -1784,7 +1765,7 @@
   padding: 5px 10px;
   border-radius: 4px;
   cursor: pointer;
-  transition: all 0.15s ease;
+  transition: color var(--transition-fast), background var(--transition-fast);
   display: flex;
   align-items: center;
   gap: 4px;
@@ -1829,7 +1810,7 @@
 .performance-compare-bar__track {
   flex: 1;
   height: 14px;
-  background: rgba(255, 255, 255, 0.02);
+  background: var(--color-bg-secondary);
   border-radius: 4px;
   overflow: hidden;
   position: relative;
@@ -1838,14 +1819,14 @@
 .performance-compare-bar__fill {
   height: 100%;
   border-radius: 4px;
-  transition: width 0.4s ease;
+  transition: width var(--transition-slow);
   display: flex;
   align-items: center;
   padding-left: 8px;
 }
 
 .performance-compare-bar__value {
-  font-size: 9px;
+  font-size: 10px;
   font-weight: 700;
   color: #fff;
 }
@@ -1859,7 +1840,7 @@
 }
 
 .performance-compare-bar__tick {
-  font-size: 9px;
+  font-size: 10px;
   color: var(--color-text-muted);
 }
 
@@ -1886,7 +1867,7 @@
   color: var(--color-text-muted);
   font-weight: 600;
   text-transform: uppercase;
-  font-size: 9px;
+  font-size: 10px;
   letter-spacing: 0.6px;
 }
 
@@ -1895,7 +1876,7 @@
 }
 
 .performance-insights__table tbody tr:hover td {
-  background-color: rgba(255, 255, 255, 0.015);
+  background-color: var(--color-bg-secondary);
 }
 
 .performance-insights__game-cell {
@@ -1951,7 +1932,7 @@
 }
 
 .performance-timeline__title {
-  font-size: 13px;
+  font-size: 14px;
   font-weight: 600;
   color: var(--color-text-primary);
   margin: 0;
@@ -1981,7 +1962,7 @@
 
 .performance-timeline__game-selector-label,
 .performance-timeline__session-selector-label {
-  font-size: 8px;
+  font-size: 9px;
   color: var(--color-text-muted);
   font-weight: 600;
 }
@@ -2093,7 +2074,7 @@
 
 .activity-main-chart__title {
   color: var(--color-text-primary);
-  font-size: 13px;
+  font-size: 14px;
   font-weight: 600;
   margin: 0;
   text-transform: uppercase;
@@ -2205,7 +2186,7 @@
   padding: 5px 10px;
   border-radius: 6px;
   cursor: pointer;
-  transition: all 0.12s ease;
+  transition: color var(--transition-fast), background var(--transition-fast);
 }
 
 .activity-toolbar__pill:hover {
@@ -2225,7 +2206,7 @@
 }
 
 .activity-toolbar__label {
-  font-size: 9px;
+  font-size: 10px;
   font-weight: 600;
   color: var(--color-text-muted);
   text-transform: uppercase;
@@ -2249,7 +2230,7 @@
   padding: 4px 10px;
   border-radius: 4px;
   cursor: pointer;
-  transition: all 0.12s ease;
+  transition: color var(--transition-fast), background var(--transition-fast);
 }
 
 .activity-toolbar__segmented-btn:hover {
@@ -2280,7 +2261,7 @@
   justify-content: center;
   border-radius: 4px;
   cursor: pointer;
-  transition: all 0.12s ease;
+  transition: color var(--transition-fast), background var(--transition-fast);
 }
 
 .activity-toolbar__icon-btn:hover {
@@ -2364,7 +2345,7 @@
 
 .player-sparkline-card__title > :first-child {
   color: var(--color-text-primary);
-  font-size: 13px;
+  font-size: 14px;
   font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.8px;
@@ -2405,8 +2386,8 @@
 }
 
 @keyframes player-sparkline-card-pulse {
-  0%, 100% { opacity: 0.7; transform: scale(0.92); }
-  50%      { opacity: 1;   transform: scale(1.15); }
+  0%, 100% { opacity: 0.65; }
+  50%      { opacity: 1; }
 }
 
 .player-sparkline-card__body {
@@ -2468,7 +2449,6 @@
   fill: var(--color-accent);
   stroke: var(--color-bg-secondary);
   stroke-width: 2;
-  filter: drop-shadow(0 0 4px color-mix(in srgb, var(--color-accent) 60%, transparent));
 }
 
 .player-sparkline-card__empty {
@@ -2508,7 +2488,7 @@
 
 .player-sparkline-card__stat-label {
   color: var(--color-text-muted);
-  font-size: 9px;
+  font-size: 10px;
   font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.5px;

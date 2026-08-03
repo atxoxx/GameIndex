@@ -36,13 +36,10 @@ export default function DonutChart({
   formatValue = (v) => String(v),
 }: DonutChartProps) {
   const { t } = useLanguage();
-  // Phase 2.9 PR 4 ("data viz touches") — hover state for
-  // segment scale-up. Single local `hoveredIndex` keeps the
-  // hover gesture cheap (one int per chart) and lets the
-  // transform-origin + filter on each <path> only recompute
-  // when the value flips. Resetting to null on mouseLeave
-  // returns all segments to their resting scale + opacity so
-  // the donut never lingers in a partial-hover state.
+  // Hover state: brighten the focused segment (opacity + filter only —
+  // no scale or bounce, per the design contract). A single local
+  // `hoveredIndex` keeps the gesture cheap; resetting to null on
+  // mouseLeave returns every segment to rest.
   const [hoveredIndex, setHoveredIndex] = useState<number | null>(null);
 
   const total = useMemo(() => {
@@ -105,18 +102,6 @@ export default function DonutChart({
         style={{ flexShrink: 0 }}
       >
         {arcs.map((arc, i) => {
-          // The donut's viewBox center is (size/2, size/2) in
-          // user-space coordinates. We pass that as the
-          // transform-origin so each arc scales radially OUT
-          // from the hole rather than from its own bounding
-          // box's top-left (which would actually look like a
-          // jitter, not a "this slice is the focus" gesture).
-          // transform-box: fill-box would let us write
-          // transform-origin: center, but Chromium + WebKit
-          // differ on its behavior for paths inside `<svg>`,
-          // so we anchor on the absolute SVG coordinates.
-          const cx = size / 2;
-          const cy = size / 2;
           const isHovered = hoveredIndex === i;
           return (
             <g key={`arc-${i}`}>
@@ -127,16 +112,8 @@ export default function DonutChart({
                 stroke="var(--color-bg-primary)"
                 strokeWidth="2"
                 style={{
-                  // transform-origin in SVG user-space: needs to
-                  // be set with `px` (the user units) for the
-                  // scale to radiate from the donut center.
-                  transformOrigin: `${cx}px ${cy}px`,
-                  transform: isHovered ? "scale(1.06)" : "scale(1)",
-                  transition:
-                    "transform 280ms var(--ease-bounce), opacity 200ms, filter 200ms",
-                  filter: isHovered
-                    ? "brightness(1.16) drop-shadow(0 2px 8px rgba(0,0,0,0.35))"
-                    : "none",
+                  transition: "opacity 150ms, filter 150ms",
+                  filter: isHovered ? "brightness(1.12)" : "none",
                   cursor: "pointer",
                 }}
                 onMouseEnter={() => setHoveredIndex(i)}

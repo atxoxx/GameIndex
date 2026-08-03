@@ -551,7 +551,7 @@ export default function ModManager({
               </svg>
               {t("mods.stats.storage")}
             </span>
-            <span className="mods-stat-card-value" style={{ fontSize: "16px" }}>
+            <span className="mods-stat-card-value mods-stat-card-value--compact">
               {formatModSize(totalModsBytes)}
             </span>
           </div>
@@ -625,7 +625,7 @@ export default function ModManager({
 
           <div className="mods-toolbar-actions">
             {/* Search Input */}
-            <div className="mods-search-input-wrapper" style={{ width: "220px" }}>
+            <div className="mods-search-input-wrapper mods-search-input-wrapper--fixed">
               <svg className="mods-search-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                 <circle cx="11" cy="11" r="8"></circle>
                 <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
@@ -665,11 +665,12 @@ export default function ModManager({
             </select>
 
             {/* Scan Button */}
-            <Button variant="secondary" size="sm" onClick={handleScan} isLoading={scanning}>
-              <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ marginRight: "4px" }}>
+            <Button variant="secondary" size="sm" onClick={handleScan} isLoading={scanning} leftIcon={
+              <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                 <polyline points="23 4 23 10 17 10"></polyline>
                 <path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"></path>
               </svg>
+            }>
               {scanning ? t("mods.scanning") : mods.length > 0 ? t("mods.rescan") : t("mods.scan")}
             </Button>
 
@@ -680,21 +681,24 @@ export default function ModManager({
               onClick={handleCheckUpdates}
               isLoading={checkingUpdates}
               title={t("mods.checkUpdates")}
+              leftIcon={
+                <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                  <polyline points="17 8 12 3 7 8"></polyline>
+                  <line x1="12" y1="3" x2="12" y2="15"></line>
+                </svg>
+              }
             >
-              <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ marginRight: "4px" }}>
-                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
-                <polyline points="17 8 12 3 7 8"></polyline>
-                <line x1="12" y1="3" x2="12" y2="15"></line>
-              </svg>
               {checkingUpdates ? t("mods.checkingUpdates") : t("mods.checkUpdates")}
             </Button>
 
             {/* Open Folder */}
             {payload?.settings?.modsRoot && (
-              <Button variant="ghost" size="sm" onClick={() => handleOpenFolder()}>
-                <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ marginRight: "4px" }}>
+              <Button variant="ghost" size="sm" onClick={() => handleOpenFolder()} leftIcon={
+                <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                   <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path>
                 </svg>
+              }>
                 {t("mods.openFolder")}
               </Button>
             )}
@@ -705,12 +709,14 @@ export default function ModManager({
               size="sm"
               onClick={() => void handlePickFolder()}
               title={payload?.settings?.customRoot ?? undefined}
+              leftIcon={
+                <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path>
+                  <line x1="12" y1="11" x2="12" y2="17"></line>
+                  <line x1="9" y1="14" x2="15" y2="14"></line>
+                </svg>
+              }
             >
-              <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ marginRight: "4px" }}>
-                <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path>
-                <line x1="12" y1="11" x2="12" y2="17"></line>
-                <line x1="9" y1="14" x2="15" y2="14"></line>
-              </svg>
               {t("mods.setFolder")}
             </Button>
 
@@ -720,12 +726,14 @@ export default function ModManager({
               size="sm"
               active={nexusOpen}
               onClick={() => setNexusOpen((v) => !v)}
+              leftIcon={
+                <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <circle cx="12" cy="12" r="10"></circle>
+                  <line x1="2" y1="12" x2="22" y2="12"></line>
+                  <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"></path>
+                </svg>
+              }
             >
-              <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ marginRight: "4px" }}>
-                <circle cx="12" cy="12" r="10"></circle>
-                <line x1="2" y1="12" x2="22" y2="12"></line>
-                <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"></path>
-              </svg>
               {t("mods.nexus")}
             </Button>
           </div>
@@ -813,7 +821,7 @@ export default function ModManager({
           </div>
         </div>
       ) : sortedMods.length === 0 ? (
-        <div className="mods-empty" style={{ padding: "48px 24px" }}>
+        <div className="mods-empty">
           <div className="mods-empty-glyph">🔍</div>
           <h3>{t("mods.noModsMatch")}</h3>
           <p>{t("mods.searchPlaceholder")}</p>
@@ -997,7 +1005,7 @@ export default function ModManager({
                     <span
                       className={`mods-state-pill ${selected.enabled ? "on" : "off"}`}
                     >
-                      <span style={{ width: "6px", height: "6px", borderRadius: "50%", background: "currentColor" }} />
+                      <span className="mods-state-dot" />
                       {selected.enabled ? t("mods.enabled") : t("mods.disabled")}
                     </span>
                   </div>
@@ -1014,11 +1022,13 @@ export default function ModManager({
                       variant="danger"
                       size="sm"
                       onClick={() => setDeleteTarget(selected)}
+                      leftIcon={
+                        <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                          <polyline points="3 6 5 6 21 6"></polyline>
+                          <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+                        </svg>
+                      }
                     >
-                      <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ marginRight: "4px" }}>
-                        <polyline points="3 6 5 6 21 6"></polyline>
-                        <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
-                      </svg>
                       {t("mods.delete")}
                     </Button>
 
@@ -1032,25 +1042,27 @@ export default function ModManager({
                             : selected.path.replace(/[\\/][^\\/]+$/, "")
                         )
                       }
+                      leftIcon={
+                        <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                          <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path>
+                          <polyline points="15 3 21 3 21 9"></polyline>
+                          <line x1="10" y1="14" x2="21" y2="3"></line>
+                        </svg>
+                      }
                     >
-                      <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ marginRight: "4px" }}>
-                        <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path>
-                        <polyline points="15 3 21 3 21 9"></polyline>
-                        <line x1="10" y1="14" x2="21" y2="3"></line>
-                      </svg>
                       {t("mods.openLocation")}
                     </Button>
                   </div>
                 </div>
 
                 {workshopPreviewUrl && (
-                  <div className="mods-workshop-preview" style={{ marginBottom: "12px", borderRadius: "10px", overflow: "hidden", border: "1px solid rgba(255, 255, 255, 0.1)", maxHeight: "180px", background: "rgba(0, 0, 0, 0.2)" }}>
-                    <img src={workshopPreviewUrl} alt={selected.name} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+                  <div className="mods-workshop-preview">
+                    <img src={workshopPreviewUrl} alt={selected.name} />
                   </div>
                 )}
 
                 {selected.engine === "workshop" && (
-                  <div className="mods-nexus-hint" style={{ background: "rgba(102, 192, 244, 0.1)", padding: "8px 12px", borderRadius: "8px", color: "#66c0f4", marginBottom: "12px" }}>
+                  <div className="mods-workshop-hint">
                     ℹ {t("mods.workshopManaged")}
                   </div>
                 )}
@@ -1135,8 +1147,7 @@ export default function ModManager({
                 {workshopItemId && (
                   <button
                     type="button"
-                    className="mods-nexus-link"
-                    style={{ background: "rgba(102, 192, 244, 0.15)", color: "#66c0f4", borderColor: "rgba(102, 192, 244, 0.3)" }}
+                    className="mods-nexus-link mods-nexus-link--workshop"
                     onClick={() => void openUrl(`https://steamcommunity.com/sharedfiles/filedetails/?id=${workshopItemId}`)}
                   >
                     <svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor">
@@ -1174,7 +1185,7 @@ export default function ModManager({
                     )}
                   </div>
                   {selectedConflicts.length === 0 ? (
-                    <p className="mods-nexus-hint" style={{ margin: 0 }}>{t("mods.noConflicts")}</p>
+                    <p className="mods-nexus-hint">{t("mods.noConflicts")}</p>
                   ) : (
                     <div className="mods-conflict-panel">
                       <ul className="mods-conflict-list">
