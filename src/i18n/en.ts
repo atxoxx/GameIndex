@@ -2016,6 +2016,7 @@ export const en: TranslationDict = {
   "mods.noGamesMatch": "No games match your search",
   "mods.noModsMatch": "No mods match search",
   "mods.noModsMatchHint": "Try a different name, or clear the filter.",
+  "mods.noModsYet": "No mods yet",
   "mods.noUpdates": "All mods are up to date",
   "mods.openFolder": "Open mods folder",
   "mods.openLocation": "Open location",

@@ -72,7 +72,14 @@ export default function ModsPage() {
 
       {candidates.length === 0 ? (
         <div className="mods-empty">
-          <div className="mods-empty-glyph">🧩</div>
+          <div className="mods-empty-glyph">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+              <rect x="2" y="6" width="20" height="12" rx="2"></rect>
+              <path d="M6 12h4m-2-2v4"></path>
+              <circle cx="17" cy="10" r="1" fill="currentColor"></circle>
+              <circle cx="15" cy="13" r="1" fill="currentColor"></circle>
+            </svg>
+          </div>
           <h3>{t("mods.noGames")}</h3>
           <p>{t("mods.noGamesHint")}</p>
         </div>
@@ -131,7 +138,9 @@ export default function ModsPage() {
                   <button
                     key={g.id}
                     type="button"
-                    className={`mods-game-row ${g.id === selectedGameId ? "selected" : ""}`}
+                    className={`mods-game-row ${g.id === selectedGameId ? "selected" : ""} ${
+                      entry && entry.total > 0 ? "has-mods" : ""
+                    }`}
                     onClick={() => setSelectedGameId(g.id)}
                   >
                     <div className="mods-game-cover">
@@ -145,17 +154,28 @@ export default function ModsPage() {
                       <span className="mods-game-name" title={g.name}>{g.name}</span>
                       <div className="mods-game-meta">
                         {entry ? (
-                          <span className="mods-games-pane-count">
-                            {`${t("mods.modsCount", { count: String(entry.total) })} (${t(
-                              "mods.enabledCount",
-                              {
-                                enabled: String(entry.enabled),
-                                total: String(entry.total),
-                              }
-                            )})`}
-                          </span>
+                          <>
+                            <span
+                              className="mods-game-count"
+                              title={t("mods.modsCount", { count: String(entry.total) })}
+                            >
+                              {t("mods.modsCount", { count: String(entry.total) })}
+                            </span>
+                            {entry.enabled > 0 && (
+                              <span className="mods-game-count-sub">
+                                {t("mods.enabledCount", {
+                                  enabled: String(entry.enabled),
+                                  total: String(entry.total),
+                                })}
+                              </span>
+                            )}
+                            <span className="mods-game-platform">{g.platform}</span>
+                          </>
                         ) : (
-                          <span className="mods-game-platform">{g.platform}</span>
+                          <>
+                            <span className="mods-game-platform">{g.platform}</span>
+                            <span className="mods-game-nomod">{t("mods.noModsYet")}</span>
+                          </>
                         )}
                       </div>
                       {entry && entry.engines.length > 0 && (

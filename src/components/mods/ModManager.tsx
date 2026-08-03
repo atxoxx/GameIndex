@@ -554,65 +554,75 @@ export default function ModManager({
       {mods.length > 0 && (
         <div className="mods-stats-bar">
           <div className="mods-stat-card">
-            <span className="mods-stat-card-label">
-              <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+            <span className="mods-stat-icon">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                 <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path>
                 <polyline points="3.27 6.96 12 12.01 20.73 6.96"></polyline>
                 <line x1="12" y1="22.08" x2="12" y2="12"></line>
               </svg>
-              {t("mods.stats.total")}
             </span>
-            <span className="mods-stat-card-value">{mods.length}</span>
+            <span className="mods-stat-body">
+              <span className="mods-stat-card-label">{t("mods.stats.total")}</span>
+              <span className="mods-stat-card-value">{mods.length}</span>
+            </span>
           </div>
 
           <div className="mods-stat-card accent-active">
-            <span className="mods-stat-card-label">
-              <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+            <span className="mods-stat-icon">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                 <polyline points="20 6 9 17 4 12"></polyline>
               </svg>
-              {t("mods.stats.active")}
             </span>
-            <span className="mods-stat-card-value">
-              {enabledCount}
-              <span className="mods-stat-card-sub">/ {mods.length}</span>
+            <span className="mods-stat-body">
+              <span className="mods-stat-card-label">{t("mods.stats.active")}</span>
+              <span className="mods-stat-card-value">
+                {enabledCount}
+                <span className="mods-stat-card-sub">/ {mods.length}</span>
+              </span>
             </span>
           </div>
 
           <div className={`mods-stat-card ${updateCount > 0 ? "accent-update" : ""}`}>
-            <span className="mods-stat-card-label">
-              <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+            <span className="mods-stat-icon">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                 <polyline points="18 15 12 9 6 15"></polyline>
               </svg>
-              {t("mods.stats.updates")}
             </span>
-            <span className="mods-stat-card-value">{updateCount}</span>
+            <span className="mods-stat-body">
+              <span className="mods-stat-card-label">{t("mods.stats.updates")}</span>
+              <span className="mods-stat-card-value">{updateCount}</span>
+            </span>
           </div>
 
           <div className="mods-stat-card">
-            <span className="mods-stat-card-label">
-              <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+            <span className="mods-stat-icon">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                 <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
                 <polyline points="7 10 12 15 17 10"></polyline>
                 <line x1="12" y1="15" x2="12" y2="3"></line>
               </svg>
-              {t("mods.stats.storage")}
             </span>
-            <span className="mods-stat-card-value mods-stat-card-value--compact">
-              {formatModSize(totalModsBytes)}
+            <span className="mods-stat-body">
+              <span className="mods-stat-card-label">{t("mods.stats.storage")}</span>
+              <span className="mods-stat-card-value mods-stat-card-value--compact">
+                {formatModSize(totalModsBytes)}
+              </span>
             </span>
           </div>
 
           {conflictCount > 0 && (
             <div className="mods-stat-card accent-conflict">
-              <span className="mods-stat-card-label">
-                <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+              <span className="mods-stat-icon">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                   <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path>
                   <line x1="12" y1="9" x2="12" y2="13"></line>
                   <line x1="12" y1="17" x2="12.01" y2="17"></line>
                 </svg>
-                {t("mods.stats.conflicts")}
               </span>
-              <span className="mods-stat-card-value">{conflictCount}</span>
+              <span className="mods-stat-body">
+                <span className="mods-stat-card-label">{t("mods.stats.conflicts")}</span>
+                <span className="mods-stat-card-value">{conflictCount}</span>
+              </span>
             </div>
           )}
         </div>
@@ -620,7 +630,7 @@ export default function ModManager({
 
       {/* ── Toolbar Container ───────────────────────────────────── */}
       <div className="mods-toolbar-container">
-        <div className="mods-toolbar-top">
+        <div className="mods-toolbar-row">
           {/* Quick Filter Tabs */}
           <div className="mods-quick-filters">
             <button
@@ -669,7 +679,7 @@ export default function ModManager({
             )}
           </div>
 
-          <div className="mods-toolbar-actions">
+          <div className="mods-toolbar-group">
             {/* Search Input */}
             <div className="mods-search-input-wrapper mods-search-input-wrapper--fixed">
               <svg className="mods-search-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -710,7 +720,11 @@ export default function ModManager({
               <option value="size:desc">{t("mods.sort.sizeDesc")}</option>
               <option value="size:asc">{t("mods.sort.sizeAsc")}</option>
             </select>
+          </div>
+        </div>
 
+        <div className="mods-toolbar-row mods-toolbar-row--actions">
+          <div className="mods-toolbar-actions">
             {/* Scan Button — disabled (with a hover hint) when the game
                 has no on-disk path for the backend to scan. */}
             <span
@@ -718,7 +732,7 @@ export default function ModManager({
               title={!canScan ? t("mods.scanDisabledHint") : undefined}
             >
               <Button
-                variant="secondary"
+                variant="primary"
                 size="sm"
                 onClick={handleScan}
                 isLoading={scanning}
@@ -736,7 +750,7 @@ export default function ModManager({
 
             {/* Check Updates Button */}
             <Button
-              variant="ghost"
+              variant="secondary"
               size="sm"
               onClick={handleCheckUpdates}
               isLoading={checkingUpdates}
@@ -899,7 +913,13 @@ export default function ModManager({
         </div>
       ) : mods.length === 0 ? (
         <div className="mods-empty">
-          <div className="mods-empty-glyph">🧩</div>
+          <div className="mods-empty-glyph">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path>
+              <polyline points="3.27 6.96 12 12.01 20.73 6.96"></polyline>
+              <line x1="12" y1="22.08" x2="12" y2="12"></line>
+            </svg>
+          </div>
           <h3>{t("mods.emptyTitle")}</h3>
           <p>{t("mods.emptySubtitle")}</p>
           <div className="mods-empty-actions">
@@ -924,7 +944,12 @@ export default function ModManager({
         </div>
       ) : sortedMods.length === 0 ? (
         <div className="mods-empty">
-          <div className="mods-empty-glyph">🔍</div>
+          <div className="mods-empty-glyph">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+              <circle cx="11" cy="11" r="8"></circle>
+              <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+            </svg>
+          </div>
           <h3>{t("mods.noModsMatch")}</h3>
           <p>{t("mods.noModsMatchHint")}</p>
           <div className="mods-empty-actions">
@@ -1084,9 +1109,11 @@ export default function ModManager({
 
                     <div className="mods-row-main">
                       <span className="mods-row-name" title={mod.name}>{mod.name}</span>
-                      {mod.version && (
-                        <span className="mods-row-version">v{mod.version}</span>
-                      )}
+                      <span className="mods-row-sub">
+                        {mod.version && (
+                          <span className="mods-row-version">v{mod.version}</span>
+                        )}
+                      </span>
                     </div>
 
                     <div className="mods-row-badges">
@@ -1239,7 +1266,7 @@ export default function ModManager({
                 <div className="mods-detail-path-box">
                   <div className="mods-detail-path-info">
                     <span className="mods-detail-stat-label">{t("mods.path")}</span>
-                    <code>{selected.path}</code>
+                    <code title={selected.path}>{selected.path}</code>
                   </div>
                   <button
                     type="button"
