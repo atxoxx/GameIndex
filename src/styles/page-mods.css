@@ -148,6 +148,13 @@
   padding-right: 4px;
 }
 
+.mods-games-empty {
+  padding: var(--space-xl);
+  text-align: center;
+  font-size: var(--font-size-sm);
+  color: var(--color-text-muted);
+}
+
 .mods-game-row {
   display: flex;
   align-items: center;
@@ -293,6 +300,13 @@
   padding: 4px 0 var(--space-2xl);
 }
 
+/* In the game-page tab the whole page scrolls, so the detail pane must
+   not stick at top:16px and slide underneath the sticky game-tabs bar.
+   The Mods page (no sticky page header) keeps the sticky behavior. */
+.mods-tab .mods-detail-pane {
+  position: static;
+}
+
 /* ── Hero Stats Summary Bar ─────────────────────────────────────── */
 
 .mods-stats-bar {
@@ -398,6 +412,13 @@
   align-items: center;
   gap: var(--space-sm);
   flex-wrap: wrap;
+}
+
+/* Wrapper around the Scan button when it's disabled for a game without
+   a local path — carries the hover hint (disabled buttons swallow
+   pointer events, so the tooltip lives on the wrapper). */
+.mods-scan-wrap {
+  display: inline-flex;
 }
 
 /* Quick Filter Tabs */
@@ -863,6 +884,7 @@
   gap: 18px;
   position: sticky;
   top: 16px;
+  scroll-margin-top: var(--space-xl);
   min-width: 0;
 }
 
@@ -1297,6 +1319,156 @@
   background: var(--color-bg-secondary);
   border: 1px dashed var(--color-border-light);
   border-radius: var(--radius-xl);
+}
+
+/* ── Loading State (initial fetch in flight, no mods yet) ───────── */
+
+.mods-loading {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+
+.mods-loading-text {
+  margin: 0;
+  text-align: center;
+  font-size: var(--font-size-sm);
+  color: var(--color-text-muted);
+}
+
+.mods-loading-block {
+  border-radius: var(--radius-md);
+  background: var(--color-bg-tertiary);
+  border: 1px solid var(--color-border);
+  animation: modsPulse 1.5s var(--ease-standard) infinite;
+}
+
+@keyframes modsPulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.5;
+  }
+}
+
+/* Stats bar skeleton */
+.mods-loading-stats {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
+  gap: var(--space-md);
+}
+
+.mods-loading-stats .mods-loading-block--stat {
+  height: 64px;
+}
+
+/* Toolbar skeleton */
+.mods-loading-toolbar {
+  display: flex;
+  align-items: center;
+  gap: var(--space-md);
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-xl);
+  padding: var(--space-md) 18px;
+}
+
+.mods-loading-toolbar .mods-loading-block--btn {
+  height: 36px;
+  width: 140px;
+}
+
+.mods-loading-toolbar .mods-loading-block--btn-sm {
+  width: 96px;
+}
+
+/* Split layout skeleton */
+.mods-loading-split {
+  display: grid;
+  grid-template-columns: minmax(360px, 1.15fr) 1fr;
+  gap: var(--space-xl);
+  align-items: start;
+}
+
+@media (max-width: 1100px) {
+  .mods-loading-split {
+    grid-template-columns: 1fr;
+  }
+}
+
+.mods-loading-list {
+  display: flex;
+  flex-direction: column;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-xl);
+  overflow: hidden;
+}
+
+.mods-loading-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-md);
+  padding: var(--space-md) var(--space-lg);
+  border-bottom: 1px solid var(--color-border);
+}
+
+.mods-loading-row:last-child {
+  border-bottom: none;
+}
+
+.mods-loading-row .mods-loading-block {
+  height: 16px;
+}
+
+.mods-loading-row .mods-loading-block--checkbox {
+  width: 16px;
+  height: 16px;
+  border-radius: var(--radius-xs);
+}
+
+.mods-loading-row .mods-loading-block--toggle {
+  width: 34px;
+  height: 18px;
+  border-radius: var(--radius-full);
+}
+
+.mods-loading-row .mods-loading-block--name {
+  flex: 1;
+  max-width: 240px;
+}
+
+.mods-loading-row .mods-loading-block--badge {
+  width: 64px;
+}
+
+.mods-loading-detail {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-md);
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-xl);
+  padding: var(--space-xl);
+}
+
+.mods-loading-detail .mods-loading-block {
+  height: 14px;
+}
+
+.mods-loading-detail .mods-loading-block--title {
+  width: 45%;
+  height: 20px;
+}
+
+.mods-loading-detail .mods-loading-block--line {
+  width: 90%;
+}
+
+.mods-loading-detail .mods-loading-block--line-sm {
+  width: 65%;
 }
 
 /* ── Bulk Selection & Toolbar ────────────────────────────────────── */

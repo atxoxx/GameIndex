@@ -88,7 +88,7 @@ export default function ModsPage() {
                   <circle cx="17" cy="10" r="1" fill="currentColor"></circle>
                   <circle cx="15" cy="13" r="1" fill="currentColor"></circle>
                 </svg>
-                Games Library
+                {t("mods.gamesLibrary")}
               </span>
               <span className="mods-games-pane-count">{candidates.length}</span>
             </div>
@@ -101,6 +101,7 @@ export default function ModsPage() {
               <input
                 type="text"
                 placeholder={t("mods.searchPlaceholder")}
+                aria-label={t("mods.searchPlaceholder")}
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
               />
@@ -118,6 +119,10 @@ export default function ModsPage() {
                 </button>
               )}
             </div>
+
+            {ordered.length === 0 && (
+              <div className="mods-games-empty">{t("mods.noGamesMatch")}</div>
+            )}
 
             <div className="mods-games-list">
               {ordered.map((g) => {
@@ -140,11 +145,15 @@ export default function ModsPage() {
                       <span className="mods-game-name" title={g.name}>{g.name}</span>
                       <div className="mods-game-meta">
                         {entry ? (
-                          <>
-                            <span className="mods-games-pane-count">
-                              {entry.total} mods ({entry.enabled} active)
-                            </span>
-                          </>
+                          <span className="mods-games-pane-count">
+                            {`${t("mods.modsCount", { count: String(entry.total) })} (${t(
+                              "mods.enabledCount",
+                              {
+                                enabled: String(entry.enabled),
+                                total: String(entry.total),
+                              }
+                            )})`}
+                          </span>
                         ) : (
                           <span className="mods-game-platform">{g.platform}</span>
                         )}

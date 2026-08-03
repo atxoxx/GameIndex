@@ -92,6 +92,8 @@ export default function ModManager({
   const [domainDraft, setDomainDraft] = useState("");
   const dragId = useRef<string | null>(null);
   const [dragOverId, setDragOverId] = useState<string | null>(null);
+  const rootRef = useRef<HTMLDivElement>(null);
+  const rowClickRef = useRef(false);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [lastClickedId, setLastClickedId] = useState<string | null>(null);
   const [bulkProcessing, setBulkProcessing] = useState(false);
@@ -103,6 +105,10 @@ export default function ModManager({
   const updateCount = mods.filter((m) => m.updateAvailable).length;
   const supportsReorder = payload?.supportsReorder ?? false;
   const totalModsBytes = mods.reduce((sum, m) => sum + (m.sizeBytes ?? 0), 0);
+  // Scanning reads the game folder on disk; without a local path the
+  // backend has nothing to scan, so gate the CTAs instead of silently
+  // no-opping.
+  const canScan = !!game.path;
 
   const conflictsByMod = useMemo(() => {
     const map = new Map<string, ModConflict[]>();
@@ -196,14 +202,32 @@ export default function ModManager({
     onModsSizedRef.current({ totalBytes: total, folder });
   }, [payload]);
 
-  // Keep selection sane
+  // Keep selection sane — the detail pane must always show a mod that is
+  // actually visible in the (search/filter/sort) list, otherwise the two
+  // panes disagree about what's selected.
   useEffect(() => {
-    if (selectedId && !mods.some((m) => m.id === selectedId)) {
-      setSelectedId(mods[0]?.id ?? null);
-    } else if (!selectedId && mods.length > 0) {
-      setSelectedId(mods[0]?.id ?? null);
+    if (sortedMods.length === 0) {
+      if (selectedId !== null) setSelectedId(null);
+      return;
     }
-  }, [mods, selectedId]);
+    if (!selectedId || !sortedMods.some((m) => m.id === selectedId)) {
+      setSelectedId(sortedMods[0]?.id ?? null);
+    }
+  }, [sortedMods, selectedId]);
+
+  // On narrow/stacked layouts the detail pane sits below the list, so a
+  // user-initiated row selection should bring it into view. Never applies
+  // inside the game-page tab — there the pane simply follows the page
+  // scroll, and the auto-selection on load shouldn't jump the page either.
+  useEffect(() => {
+    if (!rowClickRef.current) return;
+    rowClickRef.current = false;
+    if (selectedId == null) return;
+    if (window.matchMedia("(min-width: 1101px)").matches) return;
+    if (rootRef.current?.closest(".mods-tab")) return;
+    const detail = rootRef.current?.querySelector<HTMLElement>(".mods-detail-pane");
+    detail?.scrollIntoView({ behavior: "smooth", block: "start" });
+  }, [selectedId]);
 
   // Reset file listing when selected changes
   useEffect(() => {
@@ -317,59 +341,81 @@ export default function ModManager({
     }
   }, [allSelected, sortedMods]);
 
-  const handleBulkEnable = async () => {
+  // Shared bulk toggle: aggregate successes vs failures so partial or
+  // total failures surface the first error instead of a misleading
+  // success toast.
+  const runBulkToggle = async (targetEnabled: boolean) => {
     const ids = Array.from(selectedIds);
     if (ids.length === 0) return;
     setBulkProcessing(true);
     let success = 0;
+    let firstError: unknown = null;
     for (const id of ids) {
       try {
-        await setEnabled(id, true);
+        await setEnabled(id, targetEnabled);
         success++;
       } catch (e) {
-        // continue
+        if (firstError === null) firstError = e;
       }
     }
     setBulkProcessing(false);
-    showToast(t("mods.bulkEnabled", { count: String(success) }), "success");
+    const suffix = firstError !== null ? ` — ${String(firstError)}` : "";
+    if (success === 0) {
+      showToast(`${t("mods.bulkFailed", { count: String(ids.length) })}${suffix}`, "error");
+    } else if (success < ids.length) {
+      showToast(
+        `${t(targetEnabled ? "mods.bulkEnabledPartial" : "mods.bulkDisabledPartial", {
+          success: String(success),
+          total: String(ids.length),
+        })}${suffix}`,
+        "warning"
+      );
+    } else {
+      showToast(
+        t(targetEnabled ? "mods.bulkEnabled" : "mods.bulkDisabled", {
+          count: String(success),
+        }),
+        "success"
+      );
+    }
     onChanged?.();
   };
 
-  const handleBulkDisable = async () => {
-    const ids = Array.from(selectedIds);
-    if (ids.length === 0) return;
-    setBulkProcessing(true);
-    let success = 0;
-    for (const id of ids) {
-      try {
-        await setEnabled(id, false);
-        success++;
-      } catch (e) {
-        // continue
-      }
-    }
-    setBulkProcessing(false);
-    showToast(t("mods.bulkDisabled", { count: String(success) }), "success");
-    onChanged?.();
+  const handleBulkEnable = () => {
+    void runBulkToggle(true);
+  };
+
+  const handleBulkDisable = () => {
+    void runBulkToggle(false);
   };
 
   const handleBulkDelete = async () => {
     const ids = Array.from(selectedIds);
     if (ids.length === 0) return;
     setBulkProcessing(true);
-    let success = 0;
-    for (const id of ids) {
-      try {
-        await remove(id);
-        success++;
-      } catch (e) {
-        // continue
-      }
-    }
+    const results = await Promise.allSettled(ids.map((id) => remove(id)));
+    const success = results.filter((r) => r.status === "fulfilled").length;
+    const firstError =
+      (results.find(
+        (r): r is PromiseRejectedResult => r.status === "rejected"
+      )?.reason as unknown) ?? null;
     setBulkProcessing(false);
     setSelectedIds(new Set());
     setShowBulkDeleteModal(false);
-    showToast(t("mods.bulkDeleted", { count: String(success) }), "success");
+    const suffix = firstError !== null ? ` — ${String(firstError)}` : "";
+    if (success === 0) {
+      showToast(`${t("mods.bulkDeleteFailed", { count: String(ids.length) })}${suffix}`, "error");
+    } else if (success < ids.length) {
+      showToast(
+        `${t("mods.bulkDeletedPartial", {
+          success: String(success),
+          total: String(ids.length),
+        })}${suffix}`,
+        "warning"
+      );
+    } else {
+      showToast(t("mods.bulkDeleted", { count: String(success) }), "success");
+    }
     onChanged?.();
   };
 
@@ -428,7 +474,7 @@ export default function ModManager({
       showToast(t("mods.pathCopied"), "info");
       setTimeout(() => setCopiedPath(false), 2500);
     }).catch(() => {
-      showToast("Failed to copy path", "error");
+      showToast(t("mods.copyFailed"), "error");
     });
   };
 
@@ -503,7 +549,7 @@ export default function ModManager({
   }, [files, fileSearch]);
 
   return (
-    <div className="mods-manager">
+    <div className="mods-manager" ref={rootRef}>
       {/* ── KPI Hero Stats Bar ──────────────────────────────────── */}
       {mods.length > 0 && (
         <div className="mods-stats-bar">
@@ -633,6 +679,7 @@ export default function ModManager({
               <input
                 type="text"
                 placeholder={t("mods.searchPlaceholder")}
+                aria-label={t("mods.searchPlaceholder")}
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
               />
@@ -664,15 +711,28 @@ export default function ModManager({
               <option value="size:asc">{t("mods.sort.sizeAsc")}</option>
             </select>
 
-            {/* Scan Button */}
-            <Button variant="secondary" size="sm" onClick={handleScan} isLoading={scanning} leftIcon={
-              <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <polyline points="23 4 23 10 17 10"></polyline>
-                <path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"></path>
-              </svg>
-            }>
-              {scanning ? t("mods.scanning") : mods.length > 0 ? t("mods.rescan") : t("mods.scan")}
-            </Button>
+            {/* Scan Button — disabled (with a hover hint) when the game
+                has no on-disk path for the backend to scan. */}
+            <span
+              className="mods-scan-wrap"
+              title={!canScan ? t("mods.scanDisabledHint") : undefined}
+            >
+              <Button
+                variant="secondary"
+                size="sm"
+                onClick={handleScan}
+                isLoading={scanning}
+                disabled={!canScan}
+                leftIcon={
+                  <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <polyline points="23 4 23 10 17 10"></polyline>
+                    <path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"></path>
+                  </svg>
+                }
+              >
+                {scanning ? t("mods.scanning") : mods.length > 0 ? t("mods.rescan") : t("mods.scan")}
+              </Button>
+            </span>
 
             {/* Check Updates Button */}
             <Button
@@ -805,16 +865,58 @@ export default function ModManager({
         </div>
       )}
 
-      {/* ── Empty / Loading / Dual-Pane Layout ──────────────────── */}
-      {mods.length === 0 ? (
+      {/* ── Loading / Empty / Dual-Pane Layout ──────────────────── */}
+      {loading && mods.length === 0 ? (
+        <div className="mods-loading" role="status" aria-live="polite">
+          <div className="mods-loading-stats">
+            <span className="mods-loading-block mods-loading-block--stat" aria-hidden />
+            <span className="mods-loading-block mods-loading-block--stat" aria-hidden />
+            <span className="mods-loading-block mods-loading-block--stat" aria-hidden />
+            <span className="mods-loading-block mods-loading-block--stat" aria-hidden />
+          </div>
+          <div className="mods-loading-toolbar">
+            <span className="mods-loading-block mods-loading-block--btn" aria-hidden />
+            <span className="mods-loading-block mods-loading-block--btn mods-loading-block--btn-sm" aria-hidden />
+          </div>
+          <div className="mods-loading-split">
+            <div className="mods-loading-list">
+              {[0, 1, 2, 3, 4].map((i) => (
+                <div className="mods-loading-row" key={i}>
+                  <span className="mods-loading-block mods-loading-block--checkbox" aria-hidden />
+                  <span className="mods-loading-block mods-loading-block--toggle" aria-hidden />
+                  <span className="mods-loading-block mods-loading-block--name" aria-hidden />
+                  <span className="mods-loading-block mods-loading-block--badge" aria-hidden />
+                </div>
+              ))}
+            </div>
+            <div className="mods-loading-detail">
+              <span className="mods-loading-block mods-loading-block--title" aria-hidden />
+              <span className="mods-loading-block mods-loading-block--line" aria-hidden />
+              <span className="mods-loading-block mods-loading-block--line mods-loading-block--line-sm" aria-hidden />
+            </div>
+          </div>
+          <p className="mods-loading-text">{t("common.loading")}</p>
+        </div>
+      ) : mods.length === 0 ? (
         <div className="mods-empty">
           <div className="mods-empty-glyph">🧩</div>
           <h3>{t("mods.emptyTitle")}</h3>
-          <p>{loading ? t("common.loading") : t("mods.emptySubtitle")}</p>
+          <p>{t("mods.emptySubtitle")}</p>
           <div className="mods-empty-actions">
-            <Button variant="primary" size="sm" onClick={handleScan} isLoading={scanning}>
-              {scanning ? t("mods.scanning") : t("mods.scan")}
-            </Button>
+            <span
+              className="mods-scan-wrap"
+              title={!canScan ? t("mods.scanDisabledHint") : undefined}
+            >
+              <Button
+                variant="primary"
+                size="sm"
+                onClick={handleScan}
+                isLoading={scanning}
+                disabled={!canScan}
+              >
+                {scanning ? t("mods.scanning") : t("mods.scan")}
+              </Button>
+            </span>
             <Button variant="ghost" size="sm" onClick={() => void handlePickFolder()}>
               {t("mods.setFolder")}
             </Button>
@@ -824,7 +926,7 @@ export default function ModManager({
         <div className="mods-empty">
           <div className="mods-empty-glyph">🔍</div>
           <h3>{t("mods.noModsMatch")}</h3>
-          <p>{t("mods.searchPlaceholder")}</p>
+          <p>{t("mods.noModsMatchHint")}</p>
           <div className="mods-empty-actions">
             <Button
               variant="secondary"
@@ -887,7 +989,7 @@ export default function ModManager({
               </div>
             )}
 
-            <div className="mods-list">
+            <div className="mods-list" role="listbox" aria-label={t("mods.loadOrder")}>
               {sortedMods.map((mod) => {
                 const hasConflict = conflictsByMod.has(mod.id);
                 const orderIndex = mods.indexOf(mod);
@@ -895,6 +997,9 @@ export default function ModManager({
                 return (
                   <div
                     key={mod.id}
+                    role="option"
+                    aria-selected={mod.id === selectedId}
+                    tabIndex={0}
                     className={[
                       "mods-row",
                       mod.id === selectedId ? "selected" : "",
@@ -904,7 +1009,20 @@ export default function ModManager({
                     ]
                       .filter(Boolean)
                       .join(" ")}
-                    onClick={() => setSelectedId(mod.id)}
+                    onClick={() => {
+                      rowClickRef.current = true;
+                      setSelectedId(mod.id);
+                    }}
+                    onKeyDown={(e) => {
+                      // Only handle keys when the row itself is focused —
+                      // inner checkbox/toggle keep their own behavior.
+                      if (e.target !== e.currentTarget) return;
+                      if (e.key === "Enter" || e.key === " ") {
+                        e.preventDefault();
+                        rowClickRef.current = true;
+                        setSelectedId(mod.id);
+                      }
+                    }}
                     draggable={dragEnabled}
                     onDragStart={() => {
                       dragId.current = mod.id;
@@ -929,6 +1047,7 @@ export default function ModManager({
                         toggleSelectMod(mod.id, (e.nativeEvent as MouseEvent).shiftKey)
                       }
                       title={t("mods.selectModTitle")}
+                      aria-label={t("mods.selectModTitle")}
                     />
 
                     {dragEnabled && (
@@ -955,6 +1074,10 @@ export default function ModManager({
                         type="checkbox"
                         checked={mod.enabled}
                         onChange={() => void handleToggle(mod)}
+                        aria-label={t("mods.toggleMod", {
+                          name: mod.name,
+                          state: mod.enabled ? t("mods.disabled") : t("mods.enabled"),
+                        })}
                       />
                       <span className="mods-toggle-slider" />
                     </label>
@@ -972,7 +1095,7 @@ export default function ModManager({
                           className="mods-badge mods-badge-update"
                           title={t("mods.updateAvailable")}
                         >
-                          ↑ Update
+                          ↑ {t("mods.updateAvailable")}
                         </span>
                       )}
                       {hasConflict && (
@@ -980,7 +1103,7 @@ export default function ModManager({
                           className="mods-badge mods-badge-conflict"
                           title={t("mods.conflicts")}
                         >
-                          ⚠ Conflict
+                          ⚠ {t("mods.conflicts")}
                         </span>
                       )}
                       <EngineChip engine={mod.engine} />
@@ -1153,7 +1276,7 @@ export default function ModManager({
                     <svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor">
                       <path d="M12 2a10 10 0 0 0-10 10c0 4.42 2.87 8.17 6.84 9.5l2.67-3.7a3.48 3.48 0 0 1-.51-1.8c0-1.93 1.57-3.5 3.5-3.5s3.5 1.57 3.5 3.5-1.57 3.5-3.5 3.5c-.32 0-.63-.04-.93-.13l-2.6 3.6a10 10 0 0 0 11.03-9.47A10 10 0 0 0 12 2z"/>
                     </svg>
-                    {t("mods.viewOnWorkshop")} (Item #{workshopItemId})
+                    {t("mods.viewOnWorkshop")} ({t("mods.workshopItem", { id: workshopItemId })})
                   </button>
                 )}
 
@@ -1238,6 +1361,7 @@ export default function ModManager({
                         type="text"
                         className="mods-file-search"
                         placeholder={t("mods.searchFiles")}
+                        aria-label={t("mods.searchFiles")}
                         value={fileSearch}
                         onChange={(e) => setFileSearch(e.target.value)}
                       />
@@ -1246,7 +1370,7 @@ export default function ModManager({
                           <li className="mods-file-item">{t("common.loading")}</li>
                         ) : filteredFiles.length === 0 ? (
                           <li className="mods-file-item" style={{ color: "var(--color-text-muted)" }}>
-                            No matching files found.
+                            {t("mods.noFilesMatch")}
                           </li>
                         ) : (
                           filteredFiles.map((f) => (

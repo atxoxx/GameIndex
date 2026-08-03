@@ -42,7 +42,13 @@ export function useGameMods(game: Game | null) {
     setConflicts([]);
     invoke<GameModsPayload>("mods_list", { gameId })
       .then((p) => {
-        if (!cancelled) setPayload(p);
+        if (!cancelled) {
+          setPayload(p);
+          // Refresh conflict detection right after the initial load so
+          // the Conflicts tab/stat/badges aren't empty until the user
+          // happens to rescan. Best-effort, swallowed on failure.
+          void refreshConflicts(gameId);
+        }
       })
       .catch((e) => {
         if (!cancelled) setError(String(e));
@@ -99,6 +105,10 @@ export function useGameMods(game: Game | null) {
             }
           : prev
       );
+      // A disabled mod no longer overwrites files, so its conflicts may
+      // have changed — re-check best-effort after a successful toggle.
+      const gameId = gameIdRef.current;
+      if (gameId) void refreshConflicts(gameId);
     } catch (e) {
       // Roll back on failure.
       setPayload((prev) =>
@@ -113,7 +123,7 @@ export function useGameMods(game: Game | null) {
       );
       throw e;
     }
-  }, []);
+  }, [refreshConflicts]);
 
   const reorder = useCallback(
     async (orderedIds: string[]) => {
