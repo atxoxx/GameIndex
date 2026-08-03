@@ -3260,15 +3260,18 @@ export default function FriendsPage() {
         </div>
 
         <div className="sync-status-container">
+          <span className={`sync-status-dot${isSyncing ? " spinning" : ""}`} aria-hidden />
           <span className="sync-status-text">
             {isSyncing ? t("friends.syncing") : lastSyncedTime ? t("friends.synced", { time: lastSyncedTime }) : t("friendsPage.lastSyncedNever")}
           </span>
+          <span className="sync-status-divider" aria-hidden />
           <button
             type="button"
             className="btn-sync"
             onClick={() => performSync(true)}
             disabled={isSyncing}
             title={t("friends.syncNow")}
+            aria-label={t("friends.syncNow")}
           >
             <RefreshIcon className={isSyncing ? "sync-spinner" : ""} />
           </button>
@@ -3279,6 +3282,7 @@ export default function FriendsPage() {
               setShowP2pModal(true);
             }}
             title={t("friends.p2pSync")}
+            aria-label={t("friends.p2pSync")}
           >
             <P2pSyncIcon />
           </button>
@@ -3292,9 +3296,13 @@ export default function FriendsPage() {
           <div className="friends-list-section">
             {invitations.length > 0 && (
               <div className="friend-invitations-section">
-                <h3 className="friend-invitations-title">
-                  <span>✉️ {t("friends.pendingInvites", { count: invitations.length })}</span>
-                </h3>
+                <div className="friend-invitations-head">
+                  <h3 className="friend-invitations-title">
+                    <span className="friend-invitations-icon" aria-hidden>✉️</span>
+                    {t("friends.pendingInvites", { count: invitations.length })}
+                  </h3>
+                  <p className="friend-invitations-hint">{t("friendsPage.invitesHint")}</p>
+                </div>
                 <div className="friend-invitations-list">
                   {invitations.map((invite) => (
                     <div key={invite.syncId} className="friend-invitation-card">
@@ -3341,16 +3349,6 @@ export default function FriendsPage() {
                   >
                     {selectMode ? t("common.cancel") : t("common.select")}
                   </Button>
-                  <Button
-                    variant="secondary"
-                    onClick={() => {
-                      const next = friendDensity === "grid" ? "list" : "grid";
-                      setFriendDensity(next);
-                      localStorage.setItem("gamelib.friends.density", next);
-                    }}
-                  >
-                    {friendDensity === "grid" ? t("friends.listView") : t("friends.gridView")}
-                  </Button>
                   <Button variant="primary" onClick={() => setShowAddModal(true)}>
                     {t("friends.addFriend")}
                   </Button>
@@ -3394,64 +3392,113 @@ export default function FriendsPage() {
               </div>
             ) : (
               <>
-                {/* Search / Filter / Sort controls */}
+                {/* Search / Filter / Sort / Density controls */}
                 <div className="friends-controls-row">
-                  <div className="friends-search-wrapper">
-                    <input
-                      type="text"
-                      className="friends-search-input"
-                      placeholder={t("friends.searchPlaceholder")}
-                      value={friendSearch}
-                      onChange={(e) => setFriendSearch(e.target.value)}
-                      aria-label={t("friends.searchAria")}
-                    />
-                    {friendSearch && (
+                  <div className="friends-controls-filters">
+                    <div className="compare-filter-chips friends-filter-chips" role="group" aria-label={t("friendsPage.friendFiltersAria")}>
                       <button
                         type="button"
-                        className="friends-search-clear"
-                        onClick={() => setFriendSearch("")}
-                        title={t("friends.clearSearch")}
+                        className={`compare-filter-chip${friendFilter === "all" ? " active" : ""}`}
+                        onClick={() => setFriendFilter("all")}
                       >
-                        ×
+                        {t("friends.filterAll")}
+                        <span className="compare-filter-chip-count">{friends.length}</span>
                       </button>
-                    )}
+                      <button
+                        type="button"
+                        className={`compare-filter-chip${friendFilter === "online" ? " active" : ""}`}
+                        onClick={() => setFriendFilter("online")}
+                      >
+                        {t("friends.filterOnline")}
+                        <span className="compare-filter-chip-count">{friends.filter(isOnline).length}</span>
+                      </button>
+                      <button
+                        type="button"
+                        className={`compare-filter-chip${friendFilter === "pinned" ? " active" : ""}`}
+                        onClick={() => setFriendFilter("pinned")}
+                      >
+                        {t("friends.filterPinned")}
+                        <span className="compare-filter-chip-count">{friends.filter((f) => f.pinned).length}</span>
+                      </button>
+                    </div>
+                    <span className="friends-controls-count">
+                      {t("friendsPage.friendsShownCount", { count: visibleFriends.length, total: friends.length })}
+                    </span>
                   </div>
 
-                  <div className="friends-filter-chips">
-                    <button
-                      type="button"
-                      className={`compare-filter-chip${friendFilter === "all" ? " active" : ""}`}
-                      onClick={() => setFriendFilter("all")}
-                    >
-                      {t("friends.filterAll")} ({friends.length})
-                    </button>
-                    <button
-                      type="button"
-                      className={`compare-filter-chip${friendFilter === "online" ? " active" : ""}`}
-                      onClick={() => setFriendFilter("online")}
-                    >
-                      {t("friends.filterOnline")} ({friends.filter(isOnline).length})
-                    </button>
-                    <button
-                      type="button"
-                      className={`compare-filter-chip${friendFilter === "pinned" ? " active" : ""}`}
-                      onClick={() => setFriendFilter("pinned")}
-                    >
-                      {t("friends.filterPinned")} ({friends.filter((f) => f.pinned).length})
-                    </button>
-                  </div>
+                  <div className="friends-controls-tools">
+                    <div className="friends-search-wrapper">
+                      <input
+                        type="text"
+                        className="friends-search-input friends-ctl"
+                        placeholder={t("friends.searchPlaceholder")}
+                        value={friendSearch}
+                        onChange={(e) => setFriendSearch(e.target.value)}
+                        aria-label={t("friends.searchAria")}
+                      />
+                      {friendSearch && (
+                        <button
+                          type="button"
+                          className="friends-search-clear"
+                          onClick={() => setFriendSearch("")}
+                          title={t("friends.clearSearch")}
+                        >
+                          ×
+                        </button>
+                      )}
+                    </div>
 
-                  <select
-                    className="profile-input friends-sort-select"
-                    value={friendSort}
-                    onChange={(e) => setFriendSort(e.target.value as any)}
-                    aria-label={t("friendsPage.sortFriendsAria")}
-                  >
-                    <option value="default">{t("friends.sort.pinned")}</option>
-                    <option value="name">{t("friends.sort.name")}</option>
-                    <option value="recent">{t("friends.sort.recent")}</option>
-                    <option value="online">{t("friends.sort.online")}</option>
-                  </select>
+                    <select
+                      className="profile-input friends-sort-select friends-ctl"
+                      value={friendSort}
+                      onChange={(e) => setFriendSort(e.target.value as any)}
+                      aria-label={t("friendsPage.sortFriendsAria")}
+                    >
+                      <option value="default">{t("friends.sort.pinned")}</option>
+                      <option value="name">{t("friends.sort.name")}</option>
+                      <option value="recent">{t("friends.sort.recent")}</option>
+                      <option value="online">{t("friends.sort.online")}</option>
+                    </select>
+
+                    <div className="friends-density" role="group" aria-label={t("friendsPage.densityGroupAria")}>
+                      <button
+                        type="button"
+                        className={`friends-density-btn${friendDensity === "grid" ? " active" : ""}`}
+                        onClick={() => {
+                          setFriendDensity("grid");
+                          localStorage.setItem("gamelib.friends.density", "grid");
+                        }}
+                        aria-label={t("friendsPage.densityGrid")}
+                        title={t("friendsPage.densityGrid")}
+                      >
+                        <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+                          <rect x="3" y="3" width="8" height="8" rx="1.4" />
+                          <rect x="13" y="3" width="8" height="8" rx="1.4" />
+                          <rect x="3" y="13" width="8" height="8" rx="1.4" />
+                          <rect x="13" y="13" width="8" height="8" rx="1.4" />
+                        </svg>
+                      </button>
+                      <button
+                        type="button"
+                        className={`friends-density-btn${friendDensity === "list" ? " active" : ""}`}
+                        onClick={() => {
+                          setFriendDensity("list");
+                          localStorage.setItem("gamelib.friends.density", "list");
+                        }}
+                        aria-label={t("friendsPage.densityList")}
+                        title={t("friendsPage.densityList")}
+                      >
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
+                          <rect x="3" y="4" width="6" height="6" rx="1" />
+                          <line x1="12" y1="7" x2="21" y2="7" />
+                          <line x1="12" y1="10" x2="21" y2="10" />
+                          <rect x="3" y="14" width="6" height="6" rx="1" />
+                          <line x1="12" y1="17" x2="21" y2="17" />
+                          <line x1="12" y1="20" x2="21" y2="20" />
+                        </svg>
+                      </button>
+                    </div>
+                  </div>
                 </div>
 
                 {visibleFriends.length === 0 ? (
@@ -3494,16 +3541,27 @@ export default function FriendsPage() {
                               {selected ? "✓" : ""}
                             </span>
                           )}
-                          {renderAvatar(friend.avatar, friend.name)}
-                          <div className="friend-info">
-                            <div className="friend-name">
-                              {displayName(friend)}
-                              {friend.nickname && (
-                                <span className="friend-real-name">({friend.name})</span>
+                          <div className="friend-card-avatar">
+                            {renderAvatar(friend.avatar, friend.name)}
+                            {online && <span className="friend-card-online-dot" title={t("friendsPage.formatOnline")} />}
+                          </div>
+                          <div className="friend-card-main">
+                            <div className="friend-card-head">
+                              <div className="friend-name">
+                                {displayName(friend)}
+                                {friend.nickname && (
+                                  <span className="friend-real-name">({friend.name})</span>
+                                )}
+                              </div>
+                              {formatFriendsSince(friend.addedAt, t) && (
+                                <span className="friend-since">
+                                  {formatFriendsSince(friend.addedAt, t)}
+                                </span>
                               )}
                             </div>
+
                             {friend.blocked ? (
-                              <div className="friend-status-text" title={t("friendsPage.blockedUpdatesIgnored")}>
+                              <div className="friend-status-text friend-status-text--blocked" title={t("friendsPage.blockedUpdatesIgnored")}>
                                 🚫 {t("friendsPage.blocked")}
                               </div>
                             ) : playingName ? (
@@ -3520,20 +3578,15 @@ export default function FriendsPage() {
                                 {friend.status}
                               </div>
                             )}
-                            <div className="friend-last-seen" title={t("friendsPage.lastSynced")}>
-                              {t("friendsPage.lastSeenLabel")} {formatLastSeen(friend.lastSeen, t)}
-                            </div>
-                            {friend.region && (
-                              <div className="friend-region" title={t("friendsPage.region")}>🌍 {friend.region}</div>
-                            )}
+
                             {friend.libStats && (
                               <div className="friend-stats">
                                 <span>{t("friendsPage.gamesCountLabel", { count: friend.libStats.gamesCount })}</span>
-                                <span>•</span>
+                                <span className="friend-stats-dot" aria-hidden>•</span>
                                 <span>{formatHours(friend.libStats.playtimeMinutes)}</span>
                                 {friend.libStats.achievementsCount > 0 && (
                                   <>
-                                    <span>•</span>
+                                    <span className="friend-stats-dot" aria-hidden>•</span>
                                     <span>🏆 {friend.libStats.achievementsCount}</span>
                                   </>
                                 )}
@@ -3544,25 +3597,31 @@ export default function FriendsPage() {
                                 ⭐ {friend.favoriteGame}
                               </div>
                             )}
-                            {shared > 0 && (
-                              <button
-                                type="button"
-                                className="friend-shared-badge"
-                                title={t("friendsPage.gamesInCommon")}
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  handleCompareFromCard(friend);
-                                }}
-                              >
-                                🎮 {t("friendsPage.inCommon", { count: shared })}
-                              </button>
-                            )}
                             {friend.bio && (
                               <div className="friend-bio" title={friend.bio}>{friend.bio}</div>
                             )}
-                            {formatFriendsSince(friend.addedAt, t) && (
-                              <div className="friend-since">{formatFriendsSince(friend.addedAt, t)}</div>
-                            )}
+
+                            <div className="friend-card-foot">
+                              {shared > 0 && (
+                                <button
+                                  type="button"
+                                  className="friend-shared-badge"
+                                  title={t("friendsPage.gamesInCommon")}
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    handleCompareFromCard(friend);
+                                  }}
+                                >
+                                  🎮 {t("friendsPage.inCommon", { count: shared })}
+                                </button>
+                              )}
+                              {friend.region && (
+                                <span className="friend-region" title={t("friendsPage.region")}>🌍 {friend.region}</span>
+                              )}
+                              <span className="friend-last-seen" title={t("friendsPage.lastSynced")}>
+                                {t("friendsPage.lastSeenLabel")} {formatLastSeen(friend.lastSeen, t)}
+                              </span>
+                            </div>
                           </div>
                           {!selectMode && (
                             <FriendCardMenu
@@ -5225,27 +5284,35 @@ export default function FriendsPage() {
       {/* Add Friend Modal Overlay */}
       {showAddModal && (
         <div className="friends-modal-overlay" onClick={() => setShowAddModal(false)}>
-          <div
-            className="friends-modal-content"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <h3 className="friends-modal-title">{t("friends.addFriend")}</h3>
-            <p className="friends-modal-desc">
-              {t("friends.addFriendDesc")}
-            </p>
-            <button
-              type="button"
-              className="friends-modal-close-btn"
-              onClick={() => setShowAddModal(false)}
+            <div
+              className="friends-modal-content"
+              onClick={(e) => e.stopPropagation()}
             >
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" width="16" height="16">
-                <line x1="18" y1="6" x2="6" y2="18" />
-                <line x1="6" y1="6" x2="18" y2="18" />
-              </svg>
-            </button>
+              <button
+                type="button"
+                className="friends-modal-close-btn"
+                onClick={() => setShowAddModal(false)}
+                aria-label={t("common.close")}
+              >
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" width="16" height="16">
+                  <line x1="18" y1="6" x2="6" y2="18" />
+                  <line x1="6" y1="6" x2="18" y2="18" />
+                </svg>
+              </button>
+              <div className="friends-modal-head">
+                <span className="friends-modal-icon" aria-hidden>
+                  <UsersIcon />
+                </span>
+                <div className="friends-modal-head-text">
+                  <h3 className="friends-modal-title">{t("friends.addFriend")}</h3>
+                  <p className="friends-modal-desc">
+                    {t("friends.addFriendDesc")}
+                  </p>
+                </div>
+              </div>
 
-            <div className="friends-modal-body">
-              <div className="friends-input-group">                  <label htmlFor="friendCodeInputArea">{t("friendsPage.publicKeyLabel")}</label>
+              <div className="friends-modal-body">
+                <div className="friends-input-group">                  <label htmlFor="friendCodeInputArea">{t("friendsPage.publicKeyLabel")}</label>
                 <textarea
                   id="friendCodeInputArea"
                   className="friends-textarea"
@@ -5318,20 +5385,28 @@ export default function FriendsPage() {
             className="friends-modal-content p2p-modal-content"
             onClick={(e) => e.stopPropagation()}
           >
-            <h3 className="friends-modal-title">{t("friends.p2p.title")}</h3>
-            <p className="friends-modal-desc">
-              {t("friends.p2p.desc")}
-            </p>
             <button
               type="button"
               className="friends-modal-close-btn"
               onClick={() => setShowP2pModal(false)}
+              aria-label={t("common.close")}
             >
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" width="16" height="16">
                 <line x1="18" y1="6" x2="6" y2="18" />
                 <line x1="6" y1="6" x2="18" y2="18" />
               </svg>
             </button>
+            <div className="friends-modal-head">
+              <span className="friends-modal-icon" aria-hidden>
+                <P2pSyncIcon />
+              </span>
+              <div className="friends-modal-head-text">
+                <h3 className="friends-modal-title">{t("friends.p2p.title")}</h3>
+                <p className="friends-modal-desc">
+                  {t("friends.p2p.desc")}
+                </p>
+              </div>
+            </div>
 
             <div className="friends-modal-body p2p-modal-body p2p-modal-flex">
               <div className="p2p-status-card">

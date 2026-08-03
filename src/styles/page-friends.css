@@ -1,5 +1,6 @@
 /* ============================================================================
    Friends — flat surfaces, restrained accent.
+   Lane-polish layer: token-driven tweaks that sit on top of friends.css.
    ============================================================================ */
 
 /* List heading: stack eyebrow above the title */
@@ -22,7 +23,23 @@
 .session-card:hover {
   transform: translateY(-2px);
   box-shadow: var(--shadow-md);
-  border-color: var(--color-border-light);
+  border-color: var(--color-accent-hover);
+}
+
+/* Grid cards read as vertical compositions; the status bar is the accent */
+.friend-card .friend-avatar-wrapper {
+  transition: transform var(--duration-normal) var(--ease-standard),
+    box-shadow var(--duration-normal) var(--ease-standard);
+}
+
+.friend-card:hover .friend-avatar-wrapper {
+  transform: translateY(-1px);
+  box-shadow: 0 6px 16px color-mix(in srgb, var(--color-accent) 22%, transparent);
+}
+
+/* Selected / selectable cards keep a crisp accent ring */
+.friend-card.selected {
+  box-shadow: 0 0 0 1.5px var(--color-accent), var(--shadow-md);
 }
 
 /* Empty state */
@@ -33,4 +50,16 @@
 
 .friends-empty-icon {
   color: var(--color-accent);
+}
+
+/* Session cards: keep the quiet glass surface, lift on hover only */
+.session-card {
+  background: var(--color-surface-glass);
+  border-color: var(--color-border);
+}
+
+/* Compare selector bar reads as a control strip, not a heavy panel */
+.compare-selector-bar {
+  background: color-mix(in srgb, var(--color-surface) 55%, transparent);
+  border-color: var(--color-border);
 }
