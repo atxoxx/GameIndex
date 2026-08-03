@@ -2770,6 +2770,7 @@ export const en: TranslationDict = {
   "steamPlayer.reachError": "Couldn't reach Steam. Check your connection and try again.",
   "steamPlayer.reviewCount": "{count} reviews",
   "steamPlayer.reviews": "Reviews",
+  "steamPlayer.statAllTimePeak": "All-Time Peak",
   "steamPlayer.statAvg": "Avg",
   "steamPlayer.statCurrent": "Current",
   "steamPlayer.statPeak": "Peak",

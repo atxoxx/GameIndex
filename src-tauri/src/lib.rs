@@ -3217,35 +3217,36 @@ async fn get_steam_player_history(
         in_range
     };
 
-    // ── 3. Downsample to ≤ MAX_POINTS (bucket average; keep last) ────
+    // ── 3. Downsample to ≤ MAX_POINTS (every-Nth decimation) ─────────
+    // Every-Nth sampling instead of bucket averaging: the steamcharts
+    // feed mixes resolutions (monthly for old history, daily for recent,
+    // hourly for the last few days), so averaging across a bucket mixes
+    // month-peaks with intra-day lows and flattens real spikes. Taking
+    // every Nth sample preserves each point's true value, keeps the
+    // visible top of the line consistent with the true peak, and makes
+    // the hover tooltip report real readings.
     let downsampled = in_range.len() > STEAM_HISTORY_MAX_POINTS;
     let points: Vec<SteamPlayerHistoryPoint> = if downsampled {
         let n = in_range.len();
-        let bucket = (n as f64 / STEAM_HISTORY_MAX_POINTS as f64).ceil() as usize;
-        let bucket = bucket.max(1);
-        let mut out: Vec<SteamPlayerHistoryPoint> = Vec::new();
+        let step = (n as f64 / STEAM_HISTORY_MAX_POINTS as f64).ceil() as usize;
+        let step = step.max(1);
+        let mut out: Vec<SteamPlayerHistoryPoint> = Vec::with_capacity(n / step + 1);
         let mut i = 0;
         while i < n {
-            let end = (i + bucket).min(n);
-            let slice = &in_range[i..end];
-            let sum: u64 = slice.iter().map(|&(_, c)| c).sum();
-            let avg = sum as f64 / slice.len() as f64;
-            // Mid-bucket timestamp keeps the x-axis evenly spaced by
-            // time even though buckets cover unequal wall-clock spans.
-            let ts = slice[slice.len() / 2].0;
+            let (ts, c) = in_range[i];
             out.push(SteamPlayerHistoryPoint {
                 timestamp: ts,
-                count: avg.round() as u64,
+                count: c,
             });
-            i = end;
+            i += step;
         }
         // Guarantee the most-recent sample is always present so the
         // "current" marker lands on the right edge.
-        if let Some(last) = in_range.last() {
-            if out.last().map(|p| p.timestamp) != Some(last.0) {
+        if let Some((last_ts, last_c)) = in_range.last() {
+            if out.last().map(|p| p.timestamp) != Some(*last_ts) {
                 out.push(SteamPlayerHistoryPoint {
-                    timestamp: last.0,
-                    count: last.1,
+                    timestamp: *last_ts,
+                    count: *last_c,
                 });
             }
         }
@@ -3258,15 +3259,23 @@ async fn get_steam_player_history(
     };
 
     // ── 4. Aggregates + return ──────────────────────────────────────
-    let count = points.len() as u32;
-    let current = points.last().map(|p| p.count).unwrap_or(0);
-    let peak_in_range = points.iter().map(|p| p.count).max().unwrap_or(0);
-    let total: u64 = points.iter().map(|p| p.count).sum();
-    let average_in_range = if count > 0 {
-        total as f64 / count as f64
+    // Computed over the FULL in-range series (pre-downsample) so the
+    // Peak / Avg tiles stay truthful even when the series was thinned
+    // for rendering. Computing them from the downsampled points used to
+    // understate the peak (bucket averages flatten single-day spikes)
+    // and skew the average (mean of bucket means + a duplicated tail
+    // point). Mean-of-samples matches steamcharts.com's own "Avg.
+    // Players" definition (mean of the daily peak samples).
+    let peak_in_range = in_range.iter().map(|&(_, c)| c).max().unwrap_or(0);
+    let in_range_len = in_range.len() as u64;
+    let total: u64 = in_range.iter().map(|&(_, c)| c).sum();
+    let average_in_range = if in_range_len > 0 {
+        total as f64 / in_range_len as f64
     } else {
         0.0
     };
+    let current = in_range.last().map(|&(_, c)| c).unwrap_or(0);
+    let sample_count = points.len() as u32;
 
     Ok(SteamPlayerHistory {
         app_id,
@@ -3275,7 +3284,7 @@ async fn get_steam_player_history(
         peak_in_range,
         peak_all_time,
         average_in_range,
-        sample_count: count,
+        sample_count,
         downsampled,
     })
 }

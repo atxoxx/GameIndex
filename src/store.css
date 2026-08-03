@@ -2418,7 +2418,7 @@
   border-color: color-mix(in srgb, var(--color-accent) 25%, var(--color-border));
 }
 
-.steam-history-chart-stat--peak .steam-history-chart-stat-value {
+.steam-history-chart-stat--current .steam-history-chart-stat-value {
   color: var(--color-accent);
 }
 

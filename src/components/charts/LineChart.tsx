@@ -51,8 +51,11 @@ interface LineChartProps {
   showDots?: "hover-only" | "always" | "never";
 }
 
-/** Round a value up to the nearest "nice" number (1/2/2.5/5/10 × 10ⁿ). */
-function niceCeil(v: number): number {
+/** Round a value up to the nearest "nice" number (1/2/2.5/5/10 × 10ⁿ).
+ *  Exported so callers can pass a `maxY` consistent with the internal
+ *  `niceMax` logic (e.g. to extend the axis to a true peak that lies
+ *  above a downsampled series). */
+export function niceCeil(v: number): number {
   if (!Number.isFinite(v) || v <= 0) return 1;
   const exp = Math.floor(Math.log10(v));
   const base = Math.pow(10, exp);

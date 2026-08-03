@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import LineChart from "./charts/LineChart";
+import LineChart, { niceCeil } from "./charts/LineChart";
 import { formatCompactPlayerCount } from "./SteamPlayerCount";
 import { useLanguage } from "../context/LanguageContext";
 import {
@@ -157,6 +157,18 @@ export default function SteamPlayerHistoryChart({
             legend={false}
             fillOpacity={0.16}
             formatValue={formatCompactPlayerCount}
+            // Extend the y-axis to the TRUE in-range peak (computed from
+            // the full series pre-downsample) so a decimated line whose
+            // spike day was sampled out still reads against the real
+            // peak, and the dashed Peak guide line below always sits
+            // inside the plot.
+            maxY={niceCeil(data.peakInRange)}
+            thresholds={[
+              {
+                value: data.peakInRange,
+                label: t("steamPlayer.statPeak"),
+              },
+            ]}
           />
         ) : (
           <div className="steam-stats-popover-activity-empty">
@@ -174,17 +186,17 @@ export default function SteamPlayerHistoryChart({
       {hasData && data && (
         <div className="steam-history-chart-stats">
           <HistoryStat
-            label={t("steamPlayer.statPeak")}
-            value={formatCompactPlayerCount(data.peakInRange)}
-            highlight="peak"
+            label={t("steamPlayer.statCurrent")}
+            value={formatCompactPlayerCount(data.current)}
+            highlight="current"
           />
           <HistoryStat
             label={t("steamPlayer.statAvg")}
             value={formatCompactPlayerCount(Math.round(data.averageInRange))}
           />
           <HistoryStat
-            label="All-Time Peak"
-            value={formatCompactPlayerCount(Math.max(data.peakAllTime, data.peakInRange))}
+            label={t("steamPlayer.statAllTimePeak")}
+            value={formatCompactPlayerCount(data.peakAllTime)}
             highlight="alltime"
           />
         </div>
@@ -200,7 +212,7 @@ function HistoryStat({
 }: {
   label: string;
   value: string;
-  highlight?: "peak" | "alltime";
+  highlight?: "current" | "alltime";
 }) {
   return (
     <div
