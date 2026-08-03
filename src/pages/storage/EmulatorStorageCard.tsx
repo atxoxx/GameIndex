@@ -9,7 +9,7 @@ import { useSizeUnit } from "../../hooks/useSizeUnit";
 import { useToast } from "../../context/ToastContext";
 import { useLanguage } from "../../context/LanguageContext";
 import { accentForPlatform, KNOWN_EMULATORS } from "../../types/emulator";
-import { Button } from "../../components/ui";
+import { Badge, Button } from "../../components/ui";
 
 interface Props {
   emulator: Emulator;
@@ -45,6 +45,7 @@ export function EmulatorStorageCard({
   const globalBytes = (installBytes ?? 0) + romBytes;
   const accent = accentForPlatform(emulator.platform);
   const known = KNOWN_EMULATORS.find((k) => k.name === emulator.name);
+  const bodyId = `emu-storage-body-${emulator.id}`;
 
   async function openInstallFolder() {
     if (!emulator.executablePath) return;
@@ -57,7 +58,7 @@ export function EmulatorStorageCard({
 
   return (
     <li
-      className="emu-storage-card"
+      className={`emu-storage-card${expanded ? "" : " emu-storage-card--collapsed"}`}
       style={{ "--emu-accent": accent } as CSSProperties}
     >
       <div className="emu-storage-card-head">
@@ -66,14 +67,15 @@ export function EmulatorStorageCard({
           className="emu-storage-card-toggle"
           onClick={() => setExpanded((v) => !v)}
           aria-expanded={expanded}
+          aria-controls={bodyId}
         >
-           <span className="emu-storage-card-glyph" aria-hidden="true">
-             {known?.logo || emulator.iconUrl ? (
-               <img src={known?.logo ?? emulator.iconUrl} alt="" />
-             ) : (
-               <span className="emu-glyph-fallback">{emulator.name.charAt(0)}</span>
-             )}
-           </span>
+          <span className="emu-storage-card-glyph" aria-hidden="true">
+            {known?.logo || emulator.iconUrl ? (
+              <img src={known?.logo ?? emulator.iconUrl} alt="" />
+            ) : (
+              <span className="emu-glyph-fallback">{emulator.name.charAt(0)}</span>
+            )}
+          </span>
           <span className="emu-storage-card-meta">
             <span className="emu-storage-card-name">{emulator.name}</span>
             <span className="emu-storage-card-platform">{emulator.platform}</span>
@@ -95,15 +97,15 @@ export function EmulatorStorageCard({
         </div>
 
         <div className="emu-storage-card-actions">
-          <span
-            className={`emu-storage-card-badge ${
-              emulator.executablePath ? "is-configured" : "is-notconfigured"
-            }`}
+          <Badge
+            variant={emulator.executablePath ? "success" : "warning"}
+            size="sm"
+            dot
           >
             {emulator.executablePath
               ? t("emulators.status.configured")
               : t("emulators.status.notConfigured")}
-          </span>
+          </Badge>
           {installBytes == null ? (
             <Button
               variant="secondary"
@@ -140,14 +142,27 @@ export function EmulatorStorageCard({
             className="emu-storage-card-chevron"
             onClick={() => setExpanded((v) => !v)}
             aria-label={expanded ? t("common.collapse") : t("common.expand")}
+            aria-controls={bodyId}
           >
-            {"\u25BE"}
+            <svg
+              viewBox="0 0 24 24"
+              width="16"
+              height="16"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              aria-hidden="true"
+            >
+              <polyline points="6 9 12 15 18 9" />
+            </svg>
           </button>
         </div>
       </div>
 
       {expanded && (
-        <div className="emu-storage-card-body">
+        <div className="emu-storage-card-body" id={bodyId}>
           {roms.length === 0 ? (
             <p className="emu-storage-card-empty">{t("emulators.detail.emptyGames")}</p>
           ) : (

@@ -9,6 +9,7 @@ import {
   type KnownEmulator,
   KNOWN_EMULATORS,
 } from "../types/emulator";
+import { Button } from "../components/ui";
 
 interface Props {
   /** Existing emulator to edit, or null/undefined to add a new one. */
@@ -18,6 +19,23 @@ interface Props {
   onClose: () => void;
   onSaved: (emulator: Emulator, scanAfter: boolean) => void;
 }
+
+const ICON = {
+  viewBox: "0 0 24 24",
+  fill: "none",
+  stroke: "currentColor",
+  strokeWidth: 2,
+  strokeLinecap: "round",
+  strokeLinejoin: "round",
+  "aria-hidden": true,
+} as const;
+
+/** Folder icon for the two browse buttons. */
+const IconFolder = () => (
+  <svg {...ICON}>
+    <path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" />
+  </svg>
+);
 
 /**
  * Add / edit emulator modal. Pick a known emulator from the curated
@@ -208,7 +226,10 @@ export default function EmulatorEditorModal({ emulator, presetKnown, onClose, on
           )}
 
           {selectedKnown?.logo && (
-            <div className="emulators-known-logo">
+            <div
+              className="emulators-known-logo"
+              style={{ ["--emu-accent" as string]: selectedKnown.accent }}
+            >
               <img src={selectedKnown.logo} alt="" />
               <span>{selectedKnown.name}</span>
             </div>
@@ -233,9 +254,15 @@ export default function EmulatorEditorModal({ emulator, presetKnown, onClose, on
             <span>{t("emulators.executable")}</span>
             <div className="emulators-path-row">
               <input value={executablePath} onChange={(e) => setExecutablePath(e.target.value)} placeholder="C:\\emu\\dolphin.exe" />
-              <button type="button" className="btn-secondary" onClick={pickExecutable}>
+              <Button
+                type="button"
+                variant="secondary"
+                size="sm"
+                leftIcon={<IconFolder />}
+                onClick={pickExecutable}
+              >
                 {t("emulators.browseExe")}
-              </button>
+              </Button>
             </div>
           </label>
 
@@ -243,9 +270,15 @@ export default function EmulatorEditorModal({ emulator, presetKnown, onClose, on
             <span>{t("emulators.romFolder")}</span>
             <div className="emulators-path-row">
               <input value={romFolder} onChange={(e) => setRomFolder(e.target.value)} placeholder="C:\\roms\\gamecube" />
-              <button type="button" className="btn-secondary" onClick={pickFolder}>
+              <Button
+                type="button"
+                variant="secondary"
+                size="sm"
+                leftIcon={<IconFolder />}
+                onClick={pickFolder}
+              >
                 {t("emulators.browseFolder")}
-              </button>
+              </Button>
             </div>
           </label>
 
@@ -279,20 +312,23 @@ export default function EmulatorEditorModal({ emulator, presetKnown, onClose, on
         </div>
 
         <div className="modal-footer">
-          <button className="btn-ghost" onClick={onClose}>
-            {t("common.cancel")}
-          </button>
-          <button
-            className="btn-ghost"
-            onClick={testLaunch}
-            disabled={!executablePath.trim()}
-            title={t("emulators.editor.testLaunch")}
-          >
-            {t("emulators.editor.testLaunch")}
-          </button>
-          <button className="btn-primary" onClick={handleSave} disabled={saving}>
-            {saving ? t("common.loading") : t("emulators.editor.save")}
-          </button>
+          <span className="modal-footer-count">&nbsp;</span>
+          <div className="modal-footer-actions">
+            <Button variant="ghost" onClick={onClose}>
+              {t("common.cancel")}
+            </Button>
+            <Button
+              variant="secondary"
+              onClick={testLaunch}
+              disabled={!executablePath.trim()}
+              title={t("emulators.editor.testLaunch")}
+            >
+              {t("emulators.editor.testLaunch")}
+            </Button>
+            <Button variant="primary" onClick={handleSave} isLoading={saving}>
+              {t("emulators.editor.save")}
+            </Button>
+          </div>
         </div>
       </div>
     </div>

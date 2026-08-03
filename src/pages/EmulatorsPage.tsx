@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
 import { openPath, openUrl } from "@tauri-apps/plugin-opener";
 import { open } from "@tauri-apps/plugin-dialog";
 import { invoke } from "@tauri-apps/api/core";
@@ -8,9 +8,152 @@ import { useGames } from "../context/GameContext";
 import type { Game } from "../types/game";
 import { accentForPlatform, KNOWN_EMULATORS, type Emulator, type KnownEmulator } from "../types/emulator";
 import { formatBytesShort } from "../types/download";
-import { PageHeader } from "../components/ui";
+import { Button, ConfirmModal, PageHeader, Tooltip } from "../components/ui";
 import "../styles/page-emulators.css";
 import EmulatorEditorModal from "./EmulatorEditorModal";
+
+/* ── Icon primitives ────────────────────────────────────────────────
+ * Small stroke icons shared across the page. Sized by context via
+ * `.emu-stat-icon svg`, `.emulators-search-icon`, `.emu-icon-btn svg`
+ * etc.; all inherit `currentColor` so they tint with the surrounding
+ * status (accent pills, danger buttons, …). */
+
+const ICON = {
+  viewBox: "0 0 24 24",
+  fill: "none",
+  stroke: "currentColor",
+  strokeWidth: 2,
+  strokeLinecap: "round",
+  strokeLinejoin: "round",
+  "aria-hidden": true,
+} as const;
+
+type IconProps = { className?: string };
+
+const IconSearch = ({ className }: IconProps) => (
+  <svg className={className} {...ICON}>
+    <circle cx="11" cy="11" r="8" />
+    <line x1="21" y1="21" x2="16.65" y2="16.65" />
+  </svg>
+);
+const IconX = ({ className }: IconProps) => (
+  <svg className={className} {...ICON}>
+    <line x1="18" y1="6" x2="6" y2="18" />
+    <line x1="6" y1="6" x2="18" y2="18" />
+  </svg>
+);
+const IconLayers = ({ className }: IconProps) => (
+  <svg className={className} {...ICON}>
+    <polygon points="12 2 2 7 12 12 22 7 12 2" />
+    <polyline points="2 17 12 22 22 17" />
+    <polyline points="2 12 12 17 22 12" />
+  </svg>
+);
+const IconCheckSquare = ({ className }: IconProps) => (
+  <svg className={className} {...ICON}>
+    <path d="M9 11l3 3L22 4" />
+    <path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11" />
+  </svg>
+);
+const IconSliders = ({ className }: IconProps) => (
+  <svg className={className} {...ICON}>
+    <line x1="4" y1="21" x2="4" y2="14" />
+    <line x1="4" y1="10" x2="4" y2="3" />
+    <line x1="12" y1="21" x2="12" y2="12" />
+    <line x1="12" y1="8" x2="12" y2="3" />
+    <line x1="20" y1="21" x2="20" y2="16" />
+    <line x1="20" y1="12" x2="20" y2="3" />
+    <line x1="1" y1="14" x2="7" y2="14" />
+    <line x1="9" y1="8" x2="15" y2="8" />
+    <line x1="17" y1="16" x2="23" y2="16" />
+  </svg>
+);
+const IconGamepad = ({ className }: IconProps) => (
+  <svg className={className} {...ICON}>
+    <line x1="6" y1="11" x2="10" y2="11" />
+    <line x1="8" y1="9" x2="8" y2="13" />
+    <line x1="15" y1="12" x2="15.01" y2="12" />
+    <line x1="18" y1="10" x2="18.01" y2="10" />
+    <path d="M17.32 5H6.68a4 4 0 0 0-3.978 3.59c-.006.052-.01.101-.017.152C2.604 9.416 2 14.456 2 16a3 3 0 0 0 3 3c1 0 1.5-.5 2-1l1.414-1.414A2 2 0 0 1 9.828 16h4.344a2 2 0 0 1 1.414.586L17 18c.5.5 1 1 2 1a3 3 0 0 0 3-3c0-1.545-.604-6.584-.685-7.258-.007-.05-.011-.1-.017-.151A4 4 0 0 0 17.32 5z" />
+  </svg>
+);
+const IconPlay = ({ className }: IconProps) => (
+  <svg className={className} {...ICON}>
+    <polygon points="5 3 19 12 5 21 5 3" />
+  </svg>
+);
+const IconScan = ({ className }: IconProps) => (
+  <svg className={className} {...ICON}>
+    <polyline points="23 4 23 10 17 10" />
+    <path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10" />
+  </svg>
+);
+const IconRecalc = ({ className }: IconProps) => (
+  <svg className={className} {...ICON}>
+    <polyline points="1 4 1 10 7 10" />
+    <path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10" />
+  </svg>
+);
+const IconPencil = ({ className }: IconProps) => (
+  <svg className={className} {...ICON}>
+    <path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z" />
+  </svg>
+);
+const IconTrash = ({ className }: IconProps) => (
+  <svg className={className} {...ICON}>
+    <polyline points="3 6 5 6 21 6" />
+    <path d="M19 6l-2 14a2 2 0 0 1-2 2H9a2 2 0 0 1-2-2L5 6" />
+    <path d="M10 11v6" />
+    <path d="M14 11v6" />
+  </svg>
+);
+const IconFolder = ({ className }: IconProps) => (
+  <svg className={className} {...ICON}>
+    <path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" />
+  </svg>
+);
+const IconExternal = ({ className }: IconProps) => (
+  <svg className={className} {...ICON}>
+    <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6" />
+    <polyline points="15 3 21 3 21 9" />
+    <line x1="10" y1="14" x2="21" y2="3" />
+  </svg>
+);
+const IconPlus = ({ className }: IconProps) => (
+  <svg className={className} {...ICON}>
+    <line x1="12" y1="5" x2="12" y2="19" />
+    <line x1="5" y1="12" x2="19" y2="12" />
+  </svg>
+);
+const IconChevronUp = ({ className }: IconProps) => (
+  <svg className={className} {...ICON}>
+    <polyline points="18 15 12 9 6 15" />
+  </svg>
+);
+const IconChevronDown = ({ className }: IconProps) => (
+  <svg className={className} {...ICON}>
+    <polyline points="6 9 12 15 18 9" />
+  </svg>
+);
+const IconPackage = ({ className }: IconProps) => (
+  <svg className={className} {...ICON}>
+    <path d="M21 8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z" />
+    <polyline points="3.27 6.96 12 12.01 20.73 6.96" />
+    <line x1="12" y1="22.08" x2="12" y2="12" />
+  </svg>
+);
+const IconClock = ({ className }: IconProps) => (
+  <svg className={className} {...ICON}>
+    <circle cx="12" cy="12" r="10" />
+    <polyline points="12 6 12 12 16 14" />
+  </svg>
+);
+const IconTerminal = ({ className }: IconProps) => (
+  <svg className={className} {...ICON}>
+    <polyline points="4 17 10 11 4 5" />
+    <line x1="12" y1="19" x2="20" y2="19" />
+  </svg>
+);
 
 function truncateMiddle(path: string, max = 48): string {
   if (path.length <= max) return path;
@@ -58,58 +201,6 @@ function EmulatorGlyph({
   return <span className={className}>{glyph}</span>;
 }
 
-function renderRow(
-  r: EmuRow,
-  t: (key: string, vars?: Record<string, unknown>) => string,
-  selectedRow: EmuRow | null,
-  setSelectedId: (id: string) => void,
-) {
-  const active = selectedRow?.id === r.id;
-  return (
-    <button
-      key={r.id}
-      role="option"
-      aria-selected={active}
-      className={`emu-row${active ? " is-active" : ""}${r.added ? "" : " is-catalog"}`}
-      style={{ ["--emu-accent" as string]: r.accent }}
-      onClick={() => setSelectedId(r.id)}
-    >
-      <span className="emu-row-stripe" />
-      <EmulatorGlyph logo={r.logo} glyph={r.glyph} className="emu-row-glyph" />
-      <span className="emu-row-main">
-        <span className="emu-row-name">{r.name}</span>
-        <span className="emu-row-platform">{r.platform}</span>
-      </span>
-      <span className="emu-row-meta">
-        <span className={`emu-badge ${r.added ? "is-added" : "is-notadded"}`}>
-          {r.added
-            ? t("emulators.status.added")
-            : t("emulators.status.notAdded")}
-        </span>
-        {r.added && (
-          <span
-            className={`emu-badge ${
-              r.configured ? "is-configured" : "is-notconfigured"
-            }`}
-          >
-            {r.configured
-              ? t("emulators.status.configured")
-              : t("emulators.status.notConfigured")}
-          </span>
-        )}
-        <span className="emu-row-count">
-          {r.gameCount === 1
-            ? t("emulators.romCountSingle", { count: r.gameCount })
-            : t("emulators.romCount", { count: r.gameCount })}
-        </span>
-      </span>
-    </button>
-  );
-}
-
-type SortKey = "name" | "games" | "platform" | "dateAdded";
-type SortDir = "asc" | "desc";
-
 /** A flattened view-model row that unifies the curated catalog with the
  *  user's configured emulators, so the left list can show every known
  *  emulator (Added / Not added) alongside its live info. */
@@ -130,8 +221,54 @@ interface EmuRow {
   scannedAt?: number;
 }
 
+function renderRow(
+  r: EmuRow,
+  t: (key: string, vars?: Record<string, unknown>) => string,
+  selectedRow: EmuRow | null,
+  setSelectedId: (id: string) => void,
+) {
+  const active = selectedRow?.id === r.id;
+  const statusPill = r.added ? (
+    <span className={`emu-status-pill ${r.configured ? "is-configured" : "is-unconfigured"}`}>
+      {r.configured
+        ? t("emulators.status.configured")
+        : t("emulators.status.notConfigured")}
+    </span>
+  ) : (
+    <span className="emu-status-pill is-catalog">{t("emulators.status.notAdded")}</span>
+  );
+  return (
+    <button
+      key={r.id}
+      role="option"
+      aria-selected={active}
+      className={`emu-row${active ? " is-active" : ""}${r.added ? "" : " is-catalog"}`}
+      style={{ ["--emu-accent" as string]: r.accent }}
+      onClick={() => setSelectedId(r.id)}
+    >
+      <EmulatorGlyph logo={r.logo} glyph={r.glyph} className="emu-row-glyph" />
+      <span className="emu-row-main">
+        <span className="emu-row-name">{r.name}</span>
+        <span className="emu-row-platform">{r.platform}</span>
+      </span>
+      <span className="emu-row-meta">
+        <span className="emu-row-count">
+          {r.gameCount === 1
+            ? t("emulators.romCountSingle", { count: r.gameCount })
+            : t("emulators.romCount", { count: r.gameCount })}
+        </span>
+        {statusPill}
+      </span>
+    </button>
+  );
+}
+
+type SortKey = "name" | "games" | "platform" | "dateAdded";
+type SortDir = "asc" | "desc";
+type EmuFilter = "all" | "added" | "notAdded" | "configured" | "notConfigured";
+
 /**
- * The Emulators tab, redesigned as a master / detail split:
+ * The Emulators tab — a master / detail split:
  *  - Left: a searchable, sortable list of every known emulator with an
  *    Added / Not added + Configured status and live game counts.
  *  - Right: details for the selected emulator, including a launchable
@@ -160,9 +297,7 @@ export default function EmulatorsPage() {
   const [search, setSearch] = useState("");
   const [sortKey, setSortKey] = useState<SortKey>("name");
   const [sortDir, setSortDir] = useState<SortDir>("asc");
-  const [filter, setFilter] = useState<
-    "all" | "added" | "notAdded" | "configured" | "notConfigured"
-  >("all");
+  const [filter, setFilter] = useState<EmuFilter>("all");
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [gameSearch, setGameSearch] = useState("");
 
@@ -221,18 +356,18 @@ export default function EmulatorsPage() {
       });
     }
 
-      for (const e of emulators) {
-        if (used.has(e.id)) continue;
-        const accent = accentForPlatform(e.platform);
-        result.push({
-          id: e.id,
-          emulator: e,
-          name: e.name,
-          platform: e.platform,
-          accent,
-          glyph: "🎮",
-          logo: e.iconUrl,
-          added: true,
+    for (const e of emulators) {
+      if (used.has(e.id)) continue;
+      const accent = accentForPlatform(e.platform);
+      result.push({
+        id: e.id,
+        emulator: e,
+        name: e.name,
+        platform: e.platform,
+        accent,
+        glyph: "🎮",
+        logo: e.iconUrl,
+        added: true,
         configured: !!e.executablePath,
         gameCount: romCounts[e.id] ?? 0,
         createdAt: e.createdAt,
@@ -634,6 +769,48 @@ export default function EmulatorsPage() {
     dateAdded: t("emulators.sort.dateAdded"),
   };
 
+  const statItems: {
+    key: string;
+    icon: ReactNode;
+    value: number;
+    label: string;
+    filter: EmuFilter | null;
+    tone: string;
+  }[] = [
+    {
+      key: "catalog",
+      icon: <IconLayers />,
+      value: stats.catalog,
+      label: t("emulators.stats.catalog"),
+      filter: null,
+      tone: "emu-stat--neutral",
+    },
+    {
+      key: "added",
+      icon: <IconCheckSquare />,
+      value: stats.added,
+      label: t("emulators.stats.added"),
+      filter: "added",
+      tone: "emu-stat--accent",
+    },
+    {
+      key: "configured",
+      icon: <IconSliders />,
+      value: stats.configured,
+      label: t("emulators.stats.configured"),
+      filter: "configured",
+      tone: "emu-stat--success",
+    },
+    {
+      key: "roms",
+      icon: <IconGamepad />,
+      value: stats.roms,
+      label: t("emulators.stats.roms"),
+      filter: null,
+      tone: "emu-stat--info",
+    },
+  ];
+
   return (
     <div className="emulators-page">
       <PageHeader
@@ -642,17 +819,18 @@ export default function EmulatorsPage() {
         description={t("emulators.subtitle")}
         actions={
           <>
-            <button className="btn-primary" onClick={openAdd}>
-              + {t("emulators.addEmulator")}
-            </button>
+            <Button variant="primary" onClick={openAdd} leftIcon={<IconPlus />}>
+              {t("emulators.addEmulator")}
+            </Button>
             {addedCount > 0 && (
-              <button
-                className="btn-secondary"
+              <Button
+                variant="secondary"
                 onClick={handleScanAll}
                 disabled={scanningId !== null}
+                leftIcon={<IconScan />}
               >
                 {t("emulators.scanAll")}
-              </button>
+              </Button>
             )}
           </>
         }
@@ -660,51 +838,22 @@ export default function EmulatorsPage() {
 
       {!loading && (
         <div className="emulators-stats">
-          {(
-            [
-              {
-                key: "catalog",
-                icon: "📚",
-                value: stats.catalog,
-                label: t("emulators.stats.catalog"),
-                filter: null,
-              },
-              {
-                key: "added",
-                icon: "✅",
-                value: stats.added,
-                label: t("emulators.stats.added"),
-                filter: "added",
-              },
-              {
-                key: "configured",
-                icon: "⚙️",
-                value: stats.configured,
-                label: t("emulators.stats.configured"),
-                filter: "configured",
-              },
-              {
-                key: "roms",
-                icon: "🎮",
-                value: stats.roms,
-                label: t("emulators.stats.roms"),
-                filter: null,
-              },
-            ] as const
-          ).map((s) => (
+          {statItems.map((s) => (
             <button
               key={s.key}
               type="button"
               className={`emu-stat${s.filter ? " is-clickable" : ""}${
                 s.filter && filter === s.filter ? " is-active" : ""
-              }`}
-              onClick={() => s.filter && setFilter(s.filter as typeof filter)}
+              } ${s.tone}`}
+              onClick={() => s.filter && setFilter(s.filter as EmuFilter)}
               disabled={!s.filter}
               title={s.filter ? t("emulators.stats.clickToFilter") : undefined}
             >
-              <span className="emu-stat-glyph">{s.icon}</span>
-              <span className="emu-stat-value">{s.value}</span>
-              <span className="emu-stat-label">{s.label}</span>
+              <span className="emu-stat-icon">{s.icon}</span>
+              <span className="emu-stat-body">
+                <span className="emu-stat-value">{s.value}</span>
+                <span className="emu-stat-label">{s.label}</span>
+              </span>
             </button>
           ))}
         </div>
@@ -724,9 +873,17 @@ export default function EmulatorsPage() {
         </div>
       ) : (
         <div className="emulators-split">
-          {/* ── Left: emulator list ── */}
+          {/* ── Left: emulator library list ── */}
           <aside className="emulators-list-pane">
-            <div className="emulators-list-controls">
+            <div className="emulators-list-pane-header">
+              <span className="emulators-list-pane-title">
+                {t("emulators.list.title")}
+              </span>
+              <span className="emulators-list-pane-count">{rows.length}</span>
+            </div>
+
+            <div className="emulators-search-wrap">
+              <IconSearch className="emulators-search-icon" />
               <input
                 className="emulators-search"
                 type="text"
@@ -734,30 +891,16 @@ export default function EmulatorsPage() {
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
               />
-              <div className="emulators-sort">
-                <label className="emulators-sort-label" htmlFor="emu-sort">
-                  {t("emulators.sortBy")}
-                </label>
-                <select
-                  id="emu-sort"
-                  value={sortKey}
-                  onChange={(e) => setSortKey(e.target.value as SortKey)}
-                >
-                  {(Object.keys(sortLabel) as SortKey[]).map((k) => (
-                    <option key={k} value={k}>
-                      {sortLabel[k]}
-                    </option>
-                  ))}
-                </select>
+              {search && (
                 <button
-                  className="emulators-sort-dir"
-                  onClick={toggleSortDir}
-                  title={sortDir === "asc" ? "↑" : "↓"}
-                  aria-label={sortDir === "asc" ? "Ascending" : "Descending"}
+                  className="emulators-search-clear"
+                  type="button"
+                  aria-label={t("emulators.list.clearSearch")}
+                  onClick={() => setSearch("")}
                 >
-                  {sortDir === "asc" ? "↑" : "↓"}
+                  <IconX />
                 </button>
-              </div>
+              )}
             </div>
 
             <div className="emulators-filters">
@@ -780,6 +923,40 @@ export default function EmulatorsPage() {
               ))}
             </div>
 
+            <div className="emulators-sort">
+              <label className="emulators-sort-label" htmlFor="emu-sort">
+                {t("emulators.sortBy")}
+              </label>
+              <select
+                id="emu-sort"
+                className="emulators-sort-select"
+                value={sortKey}
+                onChange={(e) => setSortKey(e.target.value as SortKey)}
+              >
+                {(Object.keys(sortLabel) as SortKey[]).map((k) => (
+                  <option key={k} value={k}>
+                    {sortLabel[k]}
+                  </option>
+                ))}
+              </select>
+              <button
+                className="emulators-sort-dir"
+                onClick={toggleSortDir}
+                title={
+                  sortDir === "asc"
+                    ? t("emulators.sort.ascending")
+                    : t("emulators.sort.descending")
+                }
+                aria-label={
+                  sortDir === "asc"
+                    ? t("emulators.sort.ascending")
+                    : t("emulators.sort.descending")
+                }
+              >
+                {sortDir === "asc" ? <IconChevronUp /> : <IconChevronDown />}
+              </button>
+            </div>
+
             <div className="emulators-list-count">
               {t("emulators.list.count", { added: addedCount, total: rows.length })}
             </div>
@@ -791,7 +968,10 @@ export default function EmulatorsPage() {
               onKeyDown={handleListKeyDown}
             >
               {filteredRows.length === 0 ? (
-                <div className="emulators-list-empty">{t("emulators.list.empty")}</div>
+                <div className="emulators-list-empty">
+                  <span className="emulators-list-empty-glyph">🕹️</span>
+                  <span>{t("emulators.list.empty")}</span>
+                </div>
               ) : (
                 <>
                   {groups.added.length > 0 && (
@@ -823,358 +1003,455 @@ export default function EmulatorsPage() {
           <section className="emulators-detail-pane">
             {!selectedRow ? (
               <div className="emulators-detail-empty">
-                {t("emulators.detail.emptySelection")}
+                <span className="emulators-detail-empty-glyph">🕹️</span>
+                <p>{t("emulators.detail.emptySelection")}</p>
               </div>
             ) : !selectedRow.added ? (
               <div className="emulators-detail">
-                <div
-                  className="emu-detail-head emu-detail-banner"
+                <header
+                  className="emu-detail-banner"
                   style={{ ["--emu-accent" as string]: selectedRow.accent }}
                 >
-                  <EmulatorGlyph logo={selectedRow.logo} glyph={selectedRow.glyph} className="emu-detail-glyph" />
+                  <EmulatorGlyph
+                    logo={selectedRow.logo}
+                    glyph={selectedRow.glyph}
+                    className="emu-detail-glyph"
+                  />
                   <div className="emu-detail-titles">
                     <h2 className="emu-detail-name">{selectedRow.name}</h2>
                     <span className="emu-detail-platform">{selectedRow.platform}</span>
                   </div>
-                  <span className="emu-badge is-notadded">
+                  <span className="emu-status-pill emu-status-pill--lg is-catalog">
                     {t("emulators.status.notAdded")}
                   </span>
-                </div>
-                {selectedRow.known && (
-                  <p className="emu-detail-desc">{selectedRow.known.description}</p>
-                )}
-                {selectedRow.known?.githubUrl && (
-                  <button
-                    className="btn-ghost btn-sm emu-detail-github"
-                    onClick={() => openUrl(selectedRow.known!.githubUrl!)}
-                  >
-                    <span className="emu-detail-github-icon" aria-hidden>★</span>
-                    {t("emulators.github")}
-                  </button>
-                )}
-                <div className="emulators-notadded">
-                  <h3>{t("emulators.detail.addTitle")}</h3>
-                  <p>{t("emulators.detail.addDesc")}</p>
-                  <button
-                    className="btn-primary"
-                    onClick={() => openAddKnown(selectedRow.known!)}
-                  >
-                    + {t("emulators.detail.addCta", { name: selectedRow.name })}
-                  </button>
+                </header>
+
+                <div className="emu-detail-body">
+                  {selectedRow.known && (
+                    <p className="emu-detail-desc">{selectedRow.known.description}</p>
+                  )}
+
+                  <div className="emulators-notadded">
+                    <EmulatorGlyph
+                      logo={selectedRow.logo}
+                      glyph={selectedRow.glyph}
+                      className="emulators-notadded-glyph"
+                    />
+                    <h3>{t("emulators.detail.addTitle")}</h3>
+                    <p>{t("emulators.detail.addDesc")}</p>
+                    <div className="emulators-notadded-actions">
+                      {selectedRow.known?.githubUrl && (
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          leftIcon={<IconExternal />}
+                          onClick={() => openUrl(selectedRow.known!.githubUrl!)}
+                        >
+                          {t("emulators.github")}
+                        </Button>
+                      )}
+                      <Button
+                        variant="primary"
+                        leftIcon={<IconPlus />}
+                        onClick={() => selectedRow.known && openAddKnown(selectedRow.known)}
+                      >
+                        {t("emulators.detail.addCta", { name: selectedRow.name })}
+                      </Button>
+                    </div>
+                  </div>
                 </div>
               </div>
             ) : (
               <div className="emulators-detail">
-                <div
-                  className="emu-detail-head emu-detail-banner"
+                <header
+                  className="emu-detail-banner"
                   style={{ ["--emu-accent" as string]: selectedRow.accent }}
                 >
-                  <EmulatorGlyph logo={selectedRow.logo} glyph={selectedRow.glyph} className="emu-detail-glyph" />
+                  <EmulatorGlyph
+                    logo={selectedRow.logo}
+                    glyph={selectedRow.glyph}
+                    className="emu-detail-glyph"
+                  />
                   <div className="emu-detail-titles">
                     <h2 className="emu-detail-name">{selectedRow.name}</h2>
                     <span className="emu-detail-platform">{selectedRow.platform}</span>
                   </div>
                   <span
-                    className={`emu-badge ${
-                      selectedRow.configured ? "is-configured" : "is-notconfigured"
+                    className={`emu-status-pill emu-status-pill--lg ${
+                      selectedRow.configured ? "is-configured" : "is-unconfigured"
                     }`}
                   >
                     {selectedRow.configured
                       ? t("emulators.status.configured")
                       : t("emulators.status.notConfigured")}
                   </span>
-                </div>
+                </header>
 
-                <div className="emu-detail-meta">
-                  <div className="emu-detail-meta-row">
-                    <span className="emu-detail-meta-label">
-                      {t("emulators.detail.executable")}
-                    </span>
-                  <span
-                    className="emu-detail-meta-value"
-                    title={selectedRow.emulator?.executablePath}
-                  >
-                    {selectedRow.emulator?.executablePath
-                      ? truncateMiddle(selectedRow.emulator.executablePath)
-                      : "—"}
-                  </span>
-                </div>
-                  <div className="emu-detail-meta-row">
-                    <span className="emu-detail-meta-label">
-                      {t("emulators.detail.romFolder")}
-                    </span>
-                    <span
-                      className="emu-detail-meta-value"
-                      title={selectedRow.emulator?.romFolder}
-                    >
-                      {selectedRow.emulator?.romFolder
-                        ? truncateMiddle(selectedRow.emulator.romFolder)
-                        : "—"}
-                    </span>
-                    <button
-                      className="btn-ghost btn-sm"
-                      onClick={() =>
-                        selectedRow.emulator && handleOpenFolder(selectedRow.emulator.romFolder)
-                      }
-                      disabled={!selectedRow.emulator?.romFolder}
-                    >
-                      {t("emulators.openFolder")}
-                    </button>
-                  </div>
-                  <div className="emu-detail-meta-row">
-                    <span className="emu-detail-meta-label">
-                      {t("emulators.detail.lastScanned")}
-                    </span>
-                    <span className="emu-detail-meta-value">
-                      {selectedRow.scannedAt
-                        ? relativeTime(selectedRow.scannedAt, t)
-                        : t("emulators.neverScanned")}
-                    </span>
-                  </div>
-                  <div className="emu-detail-meta-row">
-                    <span className="emu-detail-meta-label">
-                      {t("emulators.argumentsTemplate")}
-                    </span>
-                    <span className="emu-detail-meta-value emu-mono">
-                      {selectedRow.emulator?.argumentsTemplate
-                        ? selectedRow.emulator.argumentsTemplate
-                        : "—"}
-                    </span>
-                  </div>
-                </div>
-
-                {selectedRow.emulator?.notes && (
-                  <p className="emu-detail-notes">
-                    {selectedRow.emulator.notes}
-                  </p>
-                )}
-
-                <div className="emu-detail-actions">
-                  <button
-                    className="btn-primary btn-sm emu-launch-btn"
-                    onClick={() =>
-                      selectedRow.emulator && handleLaunchExe(selectedRow.emulator)
-                    }
-                    disabled={!selectedRow.configured}
-                    title={!selectedRow.configured ? t("emulators.launcherNotSet") : undefined}
-                  >
-                    ▶ {t("emulators.launchExe")}
-                  </button>
-                  <button
-                    className="btn-secondary btn-sm"
-                    onClick={() => selectedRow.emulator && handleScan(selectedRow.emulator)}
-                    disabled={scanningId === selectedRow.id}
-                  >
-                    {scanningId === selectedRow.id
-                      ? t("emulators.scanning")
-                      : t("emulators.scan")}
-                  </button>
-                  <button
-                    className="btn-ghost btn-sm"
-                    onClick={() => openEdit(selectedRow.emulator!)}
-                  >
-                    {t("emulators.edit")}
-                  </button>
-                  <button
-                    className="btn-danger btn-sm"
-                    onClick={() => setConfirmDelete(selectedRow.emulator!)}
-                  >
-                    {t("emulators.delete")}
-                  </button>
-                  {selectedRow.known?.githubUrl && (
-                    <button
-                      className="btn-ghost btn-sm emu-detail-github"
-                      onClick={() => openUrl(selectedRow.known!.githubUrl!)}
-                    >
-                      <span className="emu-detail-github-icon" aria-hidden>★</span>
-                      {t("emulators.github")}
-                    </button>
+                <div className="emu-detail-body">
+                  {selectedRow.known && (
+                    <p className="emu-detail-desc">{selectedRow.known.description}</p>
                   )}
-                </div>
 
-                <div className="emu-games">
-                  <div className="emu-games-head">
-                    <h3 className="emu-games-title">
-                      {t("emulators.detail.gamesTitle")}
-                      <span className="emu-games-count">
-                        {t("emulators.detail.gamesCount", { count: selectedRow.gameCount })}
+                  <div className="emu-detail-meta-grid">
+                    <div className="emu-detail-meta-tile">
+                      <span className="emu-detail-meta-label">
+                        <IconPackage /> {t("emulators.detail.executable")}
                       </span>
-                    </h3>
-                    {selectedGames.length > 0 && (
-                      <input
-                        className="emulators-search emu-games-search"
-                        type="text"
-                        placeholder={t("emulators.games.search")}
-                        value={gameSearch}
-                        onChange={(e) => setGameSearch(e.target.value)}
-                      />
+                      <span
+                        className="emu-detail-meta-value emu-mono"
+                        title={selectedRow.emulator?.executablePath}
+                      >
+                        {selectedRow.emulator?.executablePath
+                          ? truncateMiddle(selectedRow.emulator.executablePath)
+                          : "—"}
+                      </span>
+                    </div>
+                    <div className="emu-detail-meta-tile">
+                      <span className="emu-detail-meta-label">
+                        <IconFolder /> {t("emulators.detail.romFolder")}
+                      </span>
+                      <span
+                        className="emu-detail-meta-value"
+                        title={selectedRow.emulator?.romFolder}
+                      >
+                        {selectedRow.emulator?.romFolder
+                          ? truncateMiddle(selectedRow.emulator.romFolder)
+                          : "—"}
+                      </span>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        leftIcon={<IconFolder />}
+                        onClick={() =>
+                          selectedRow.emulator &&
+                          handleOpenFolder(selectedRow.emulator.romFolder)
+                        }
+                        disabled={!selectedRow.emulator?.romFolder}
+                      >
+                        {t("emulators.openFolder")}
+                      </Button>
+                    </div>
+                    <div className="emu-detail-meta-tile">
+                      <span className="emu-detail-meta-label">
+                        <IconClock /> {t("emulators.detail.lastScanned")}
+                      </span>
+                      <span className="emu-detail-meta-value">
+                        {selectedRow.scannedAt
+                          ? relativeTime(selectedRow.scannedAt, t)
+                          : t("emulators.neverScanned")}
+                      </span>
+                    </div>
+                    <div className="emu-detail-meta-tile">
+                      <span className="emu-detail-meta-label">
+                        <IconTerminal /> {t("emulators.argumentsTemplate")}
+                      </span>
+                      <span className="emu-detail-meta-value emu-mono">
+                        {selectedRow.emulator?.argumentsTemplate
+                          ? selectedRow.emulator.argumentsTemplate
+                          : "—"}
+                      </span>
+                    </div>
+                  </div>
+
+                  {selectedRow.emulator?.notes && (
+                    <p className="emu-detail-notes">
+                      {selectedRow.emulator.notes}
+                    </p>
+                  )}
+
+                  <div className="emu-detail-actions">
+                    {selectedRow.configured ? (
+                      <Button
+                        variant="primary"
+                        leftIcon={<IconPlay />}
+                        onClick={() =>
+                          selectedRow.emulator && handleLaunchExe(selectedRow.emulator)
+                        }
+                      >
+                        {t("emulators.launchExe")}
+                      </Button>
+                    ) : (
+                      <Tooltip content={t("emulators.launcherNotSet")} placement="bottom">
+                        <Button
+                          variant="primary"
+                          leftIcon={<IconPlay />}
+                          disabled
+                          onClick={() =>
+                            selectedRow.emulator && handleLaunchExe(selectedRow.emulator)
+                          }
+                        >
+                          {t("emulators.launchExe")}
+                        </Button>
+                      </Tooltip>
                     )}
-                    {selectedRow.emulator && (
-                      <div className="emu-games-actions">
-                        <button
-                          className="btn-ghost btn-sm"
-                          onClick={() => handleAddRom(selectedRow.emulator!)}
+                    <Button
+                      variant="secondary"
+                      leftIcon={<IconScan />}
+                      isLoading={scanningId === selectedRow.id}
+                      onClick={() => selectedRow.emulator && handleScan(selectedRow.emulator)}
+                    >
+                      {scanningId === selectedRow.id
+                        ? t("emulators.scanning")
+                        : t("emulators.scan")}
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      leftIcon={<IconPencil />}
+                      onClick={() => openEdit(selectedRow.emulator!)}
+                    >
+                      {t("emulators.edit")}
+                    </Button>
+                    {selectedRow.known?.githubUrl && (
+                      <Button
+                        variant="ghost"
+                        leftIcon={<IconExternal />}
+                        onClick={() => openUrl(selectedRow.known!.githubUrl!)}
+                      >
+                        {t("emulators.github")}
+                      </Button>
+                    )}
+                    <span className="emu-detail-actions-spacer" />
+                    <Button
+                      variant="danger"
+                      leftIcon={<IconTrash />}
+                      onClick={() => setConfirmDelete(selectedRow.emulator!)}
+                    >
+                      {t("emulators.delete")}
+                    </Button>
+                  </div>
+
+                  <div className="emu-games">
+                    <div className="emu-games-head">
+                      <h3 className="emu-games-title">
+                        {t("emulators.detail.gamesTitle")}
+                        <span className="emu-games-count">
+                          {t("emulators.detail.gamesCount", { count: selectedRow.gameCount })}
+                        </span>
+                      </h3>
+                      <div className="emu-games-tools">
+                        {selectedRow.gameCount > 0 && (
+                          <div className="emulators-search-wrap emu-games-search">
+                            <IconSearch className="emulators-search-icon" />
+                            <input
+                              className="emulators-search"
+                              type="text"
+                              placeholder={t("emulators.games.search")}
+                              value={gameSearch}
+                              onChange={(e) => setGameSearch(e.target.value)}
+                            />
+                            {gameSearch && (
+                              <button
+                                className="emulators-search-clear"
+                                type="button"
+                                aria-label={t("emulators.list.clearSearch")}
+                                onClick={() => setGameSearch("")}
+                              >
+                                <IconX />
+                              </button>
+                            )}
+                          </div>
+                        )}
+                        {selectedRow.emulator && (
+                          <div className="emu-games-actions">
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              leftIcon={<IconPlus />}
+                              onClick={() => handleAddRom(selectedRow.emulator!)}
+                            >
+                              {t("emulators.games.addRom")}
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              leftIcon={<IconRecalc />}
+                              onClick={() => handleRecalcSizes(selectedRow.emulator!)}
+                              isLoading={recalcId === selectedRow.emulator.id}
+                            >
+                              {t("emulators.games.recalc")}
+                            </Button>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+
+                    {selectedGameIds.size > 0 && (
+                      <div className="emu-games-bulkbar">
+                        <span className="emu-games-bulkcount">
+                          {t("emulators.games.selected", { count: selectedGameIds.size })}
+                        </span>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          leftIcon={<IconPlay />}
+                          onClick={handleBulkLaunch}
                         >
-                          + {t("emulators.games.addRom")}
-                        </button>
-                        <button
-                          className="btn-ghost btn-sm"
-                          onClick={() => handleRecalcSizes(selectedRow.emulator!)}
-                          disabled={recalcId === selectedRow.emulator.id}
+                          {t("emulators.games.launch")}
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          leftIcon={<IconFolder />}
+                          onClick={handleBulkOpen}
                         >
-                          {recalcId === selectedRow.emulator.id
-                            ? "…"
-                            : t("emulators.games.recalc")}
-                        </button>
+                          {t("emulators.games.openLocation")}
+                        </Button>
+                        <Button
+                          variant="danger"
+                          size="sm"
+                          leftIcon={<IconTrash />}
+                          onClick={() => setConfirmBulkDelete(true)}
+                        >
+                          {t("emulators.games.deleteRom")}
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => setSelectedGameIds(new Set())}
+                        >
+                          {t("common.cancel")}
+                        </Button>
+                      </div>
+                    )}
+
+                    {selectedGames.length === 0 ? (
+                      <div className="emu-games-empty">
+                        {gameSearch ? (
+                          <p>{t("emulators.games.none")}</p>
+                        ) : (
+                          <>
+                            <p>{t("emulators.detail.emptyGames")}</p>
+                            <p className="emu-games-empty-hint">
+                              {t("emulators.detail.emptyGamesHint")}
+                            </p>
+                          </>
+                        )}
+                      </div>
+                    ) : (
+                      <div className="emu-games-table">
+                        <div className="emu-game-row emu-game-row-head">
+                          <span className="emu-game-check">
+                            <input
+                              type="checkbox"
+                              checked={
+                                selectedGames.length > 0 &&
+                                selectedGameIds.size === selectedGames.length
+                              }
+                              ref={(el) => {
+                                if (el)
+                                  el.indeterminate =
+                                    selectedGameIds.size > 0 &&
+                                    selectedGameIds.size < selectedGames.length;
+                              }}
+                              onChange={toggleSelectAll}
+                              aria-label={t("emulators.games.selectAll")}
+                            />
+                          </span>
+                          <span className="emu-game-icon" />
+                          <span className="emu-game-main">
+                            {t("emulators.name")}
+                          </span>
+                          <span className="emu-game-size">{t("emulators.games.size")}</span>
+                          <span className="emu-game-actions" />
+                          <span className="emu-game-launch" />
+                        </div>
+                        {selectedGames.map((g) => {
+                          const running = runningGameIds.includes(g.id);
+                          return (
+                            <div className="emu-game-row" key={g.id}>
+                              <span className="emu-game-check">
+                                <input
+                                  type="checkbox"
+                                  checked={selectedGameIds.has(g.id)}
+                                  onChange={() => toggleGameSelected(g.id)}
+                                  aria-label={t("emulators.games.selectOne", { name: g.name })}
+                                />
+                              </span>
+                              <span className="emu-game-icon">
+                                {g.iconUrl || g.coverArtUrl ? (
+                                  <img src={g.iconUrl ?? g.coverArtUrl} alt="" />
+                                ) : (
+                                  <span className="emu-game-icon-fallback">🎮</span>
+                                )}
+                              </span>
+                              <span className="emu-game-main">
+                                <span className="emu-game-name" title={g.name}>
+                                  {g.name}
+                                </span>
+                                <span className="emu-game-path" title={g.romPath}>
+                                  {g.romPath
+                                    ? truncateMiddle(g.romPath, 60)
+                                    : t("emulators.games.noRomPath")}
+                                </span>
+                              </span>
+                              <span className="emu-game-size">
+                                {g.sizeBytes ? formatBytesShort(g.sizeBytes) : "—"}
+                                {g.modsSizeBytes ? (
+                                  <span
+                                    className="emu-game-mods"
+                                    title={t("emulators.games.hasMods")}
+                                  >
+                                    {" +"}
+                                    {formatBytesShort(g.modsSizeBytes)}
+                                  </span>
+                                ) : null}
+                              </span>
+                              <span className="emu-game-actions">
+                                <button
+                                  type="button"
+                                  className="emu-icon-btn"
+                                  title={t("emulators.games.openLocation")}
+                                  aria-label={t("emulators.games.openLocation")}
+                                  onClick={() => g.romPath && handleOpenLocation(g.romPath)}
+                                  disabled={!g.romPath}
+                                >
+                                  <IconFolder />
+                                </button>
+                                <button
+                                  type="button"
+                                  className="emu-icon-btn"
+                                  title={t("emulators.games.rename")}
+                                  aria-label={t("emulators.games.rename")}
+                                  onClick={() => openRename(g)}
+                                >
+                                  <IconPencil />
+                                </button>
+                                <button
+                                  type="button"
+                                  className="emu-icon-btn emu-icon-btn--danger"
+                                  title={t("emulators.games.deleteRom")}
+                                  aria-label={t("emulators.games.deleteRom")}
+                                  onClick={() => setConfirmDeleteRom(g)}
+                                >
+                                  <IconTrash />
+                                </button>
+                              </span>
+                              <Button
+                                variant="primary"
+                                size="sm"
+                                className="emu-game-launch"
+                                onClick={() => launchGame(g)}
+                                disabled={running}
+                              >
+                                {running ? "…" : t("emulators.games.launch")}
+                              </Button>
+                            </div>
+                          );
+                        })}
+                        <div className="emu-games-footer">
+                          <span className="emu-games-footer-count">
+                            {t("emulators.detail.gamesCount", {
+                              count: selectedGames.length,
+                            })}
+                          </span>
+                          <span className="emu-games-footer-size">
+                            {t("emulators.detail.totalSize")}:{" "}
+                            {formatBytesShort(selectedTotalBytes)}
+                          </span>
+                        </div>
                       </div>
                     )}
                   </div>
-
-                   {selectedGameIds.size > 0 && (
-                     <div className="emu-games-bulkbar">
-                       <span className="emu-games-bulkcount">
-                         {t("emulators.games.selected", { count: selectedGameIds.size })}
-                       </span>
-                       <button className="btn-ghost btn-sm" onClick={handleBulkLaunch}>
-                         ▶ {t("emulators.games.launch")}
-                       </button>
-                       <button className="btn-ghost btn-sm" onClick={handleBulkOpen}>
-                         {t("emulators.games.openLocation")}
-                       </button>
-                       <button
-                         className="btn-danger btn-sm"
-                         onClick={() => setConfirmBulkDelete(true)}
-                       >
-                         {t("emulators.games.deleteRom")}
-                       </button>
-                       <button
-                         className="btn-ghost btn-sm"
-                         onClick={() => setSelectedGameIds(new Set())}
-                       >
-                         {t("common.cancel")}
-                       </button>
-                     </div>
-                   )}
-
-                   {selectedGames.length === 0 ? (
-                    <div className="emu-games-empty">
-                      <p>{t("emulators.detail.emptyGames")}</p>
-                      <p className="emu-games-empty-hint">
-                        {t("emulators.detail.emptyGamesHint")}
-                      </p>
-                    </div>
-                  ) : (
-                    <div className="emu-games-table">
-                       <div className="emu-game-row emu-game-row-head">
-                         <span className="emu-game-check">
-                           <input
-                             type="checkbox"
-                             checked={
-                               selectedGames.length > 0 &&
-                               selectedGameIds.size === selectedGames.length
-                             }
-                             ref={(el) => {
-                               if (el)
-                                 el.indeterminate =
-                                   selectedGameIds.size > 0 &&
-                                   selectedGameIds.size < selectedGames.length;
-                             }}
-                             onChange={toggleSelectAll}
-                             aria-label={t("emulators.games.selectAll")}
-                           />
-                         </span>
-                         <span className="emu-game-icon" />
-                         <span className="emu-game-main">
-                           {t("emulators.name")}
-                         </span>
-                         <span className="emu-game-size">{t("emulators.games.size")}</span>
-                         <span className="emu-game-actions" />
-                         <span className="emu-game-launch" />
-                       </div>
-                      {selectedGames.map((g) => {
-                        const running = runningGameIds.includes(g.id);
-                        return (
-                           <div className="emu-game-row" key={g.id}>
-                             <span className="emu-game-check">
-                               <input
-                                 type="checkbox"
-                                 checked={selectedGameIds.has(g.id)}
-                                 onChange={() => toggleGameSelected(g.id)}
-                                 aria-label={t("emulators.games.selectOne", { name: g.name })}
-                               />
-                             </span>
-                             <span className="emu-game-icon">
-                               {g.iconUrl || g.coverArtUrl ? (
-                                 <img src={g.iconUrl ?? g.coverArtUrl} alt="" />
-                               ) : (
-                                 <span className="emu-game-icon-fallback">🎮</span>
-                               )}
-                             </span>
-                             <span className="emu-game-main">
-                               <span className="emu-game-name" title={g.name}>
-                                 {g.name}
-                               </span>
-                               <span className="emu-game-path" title={g.romPath}>
-                                 {g.romPath ? truncateMiddle(g.romPath, 60) : t("emulators.games.noRomPath")}
-                               </span>
-                             </span>
-                             <span className="emu-game-size">
-                               {g.sizeBytes ? formatBytesShort(g.sizeBytes) : "—"}
-                               {g.modsSizeBytes ? (
-                                 <span
-                                   className="emu-game-mods"
-                                   title={t("emulators.games.hasMods")}
-                                 >
-                                   {" +"}
-                                   {formatBytesShort(g.modsSizeBytes)}
-                                 </span>
-                               ) : null}
-                             </span>
-                            <span className="emu-game-actions">
-                              <button
-                                className="btn-ghost btn-sm"
-                                title={t("emulators.games.openLocation")}
-                                onClick={() => g.romPath && handleOpenLocation(g.romPath)}
-                                disabled={!g.romPath}
-                              >
-                                {t("emulators.games.openLocation")}
-                              </button>
-                              <button
-                                className="btn-ghost btn-sm"
-                                onClick={() => openRename(g)}
-                              >
-                                {t("emulators.games.rename")}
-                              </button>
-                              <button
-                                className="btn-danger btn-sm"
-                                onClick={() => setConfirmDeleteRom(g)}
-                              >
-                                {t("emulators.games.deleteRom")}
-                              </button>
-                            </span>
-                            <button
-                              className="btn-primary btn-sm emu-game-launch"
-                              onClick={() => launchGame(g)}
-                              disabled={running}
-                            >
-                              {running ? "…" : t("emulators.games.launch")}
-                            </button>
-                          </div>
-                        );
-                      })}
-                      <div className="emu-games-footer">
-                        <span className="emu-games-footer-count">
-                          {t("emulators.detail.gamesCount", {
-                            count: selectedGames.length,
-                          })}
-                        </span>
-                        <span className="emu-games-footer-size">
-                          {t("emulators.detail.totalSize")}:{" "}
-                          {formatBytesShort(selectedTotalBytes)}
-                        </span>
-                      </div>
-                    </div>
-                  )}
                 </div>
               </div>
             )}
@@ -1195,41 +1472,45 @@ export default function EmulatorsPage() {
         />
       )}
 
-      {confirmDelete && (
-        <div className="modal-overlay" onMouseDown={() => setConfirmDelete(null)}>
-          <div className="modal confirm-modal" onMouseDown={(e) => e.stopPropagation()} role="alertdialog">
-            <div className="modal-header">
-              <h2>{t("emulators.delete")}?</h2>
-            </div>
-            <div className="modal-body">
-              <p>
-                {romCounts[confirmDelete.id]
-                  ? t("emulators.confirmDelete", {
-                      name: confirmDelete.name,
-                      count: romCounts[confirmDelete.id],
-                    })
-                  : t("emulators.confirmDeleteNoGames", { name: confirmDelete.name })}
-              </p>
-            </div>
-            <div className="modal-footer">
-              <button className="btn-ghost" onClick={() => setConfirmDelete(null)}>
-                {t("common.cancel")}
-              </button>
-              <button className="btn-danger" onClick={() => handleDelete(confirmDelete)}>
-                {t("emulators.delete")}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      <ConfirmModal
+        open={confirmDelete !== null}
+        title={`${t("emulators.delete")}?`}
+        message={
+          confirmDelete
+            ? romCounts[confirmDelete.id]
+              ? t("emulators.confirmDelete", {
+                  name: confirmDelete.name,
+                  count: romCounts[confirmDelete.id],
+                })
+              : t("emulators.confirmDeleteNoGames", { name: confirmDelete.name })
+            : undefined
+        }
+        confirmLabel="emulators.delete"
+        onConfirm={() => {
+          if (confirmDelete) handleDelete(confirmDelete);
+        }}
+        onCancel={() => setConfirmDelete(null)}
+      />
 
       {renameGame && (
         <div className="modal-overlay" onMouseDown={() => setRenameGame(null)}>
-          <div className="modal" onMouseDown={(e) => e.stopPropagation()} role="dialog">
+          <div
+            className="modal emulators-modal"
+            onMouseDown={(e) => e.stopPropagation()}
+            role="dialog"
+            aria-modal="true"
+          >
             <div className="modal-header">
               <h2>{t("emulators.games.renameTitle")}</h2>
+              <button
+                className="modal-close"
+                aria-label={t("common.close")}
+                onClick={() => setRenameGame(null)}
+              >
+                ×
+              </button>
             </div>
-            <div className="modal-body">
+            <div className="modal-body emulators-editor-body">
               <label className="modal-label" htmlFor="rom-rename">
                 {t("emulators.games.renameLabel")}
               </label>
@@ -1246,62 +1527,43 @@ export default function EmulatorsPage() {
               />
             </div>
             <div className="modal-footer">
-              <button className="btn-ghost" onClick={() => setRenameGame(null)}>
-                {t("common.cancel")}
-              </button>
-              <button className="btn-primary" onClick={handleRenameRom}>
-                {t("emulators.games.rename")}
-              </button>
+              <span className="modal-footer-count">&nbsp;</span>
+              <div className="modal-footer-actions">
+                <Button variant="ghost" onClick={() => setRenameGame(null)}>
+                  {t("common.cancel")}
+                </Button>
+                <Button variant="primary" onClick={handleRenameRom}>
+                  {t("emulators.games.rename")}
+                </Button>
+              </div>
             </div>
           </div>
         </div>
       )}
 
-      {confirmDeleteRom && (
-        <div className="modal-overlay" onMouseDown={() => setConfirmDeleteRom(null)}>
-          <div className="modal confirm-modal" onMouseDown={(e) => e.stopPropagation()} role="alertdialog">
-            <div className="modal-header">
-              <h2>{t("emulators.games.deleteRom")}?</h2>
-            </div>
-            <div className="modal-body">
-              <p>
-                {t("emulators.games.deleteConfirm", { name: confirmDeleteRom.name })}
-              </p>
-            </div>
-            <div className="modal-footer">
-              <button className="btn-ghost" onClick={() => setConfirmDeleteRom(null)}>
-                {t("common.cancel")}
-              </button>
-              <button className="btn-danger" onClick={handleDeleteRom}>
-                {t("emulators.games.deleteRom")}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      <ConfirmModal
+        open={confirmDeleteRom !== null}
+        title={`${t("emulators.games.deleteRom")}?`}
+        message={
+          confirmDeleteRom
+            ? t("emulators.games.deleteConfirm", { name: confirmDeleteRom.name })
+            : undefined
+        }
+        confirmLabel="emulators.games.deleteRom"
+        onConfirm={() => {
+          if (confirmDeleteRom) handleDeleteRom();
+        }}
+        onCancel={() => setConfirmDeleteRom(null)}
+      />
 
-      {confirmBulkDelete && (
-        <div className="modal-overlay" onMouseDown={() => setConfirmBulkDelete(false)}>
-          <div className="modal confirm-modal" onMouseDown={(e) => e.stopPropagation()} role="alertdialog">
-            <div className="modal-header">
-              <h2>{t("emulators.games.deleteRom")}?</h2>
-            </div>
-            <div className="modal-body">
-              <p>
-                {t("emulators.games.bulkDeleteConfirm", { count: selectedGameIds.size })}
-              </p>
-            </div>
-            <div className="modal-footer">
-              <button className="btn-ghost" onClick={() => setConfirmBulkDelete(false)}>
-                {t("common.cancel")}
-              </button>
-              <button className="btn-danger" onClick={handleBulkDelete}>
-                {t("emulators.games.deleteRom")}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      <ConfirmModal
+        open={confirmBulkDelete}
+        title={`${t("emulators.games.deleteRom")}?`}
+        message={t("emulators.games.bulkDeleteConfirm", { count: selectedGameIds.size })}
+        confirmLabel="emulators.games.deleteRom"
+        onConfirm={handleBulkDelete}
+        onCancel={() => setConfirmBulkDelete(false)}
+      />
     </div>
   );
 }
