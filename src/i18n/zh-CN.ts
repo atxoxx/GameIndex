@@ -1855,7 +1855,7 @@ export const zhCN: TranslationDict = {
   "lib.hero.stat.addedWeekSub": "新入库",
   "lib.hero.stat.installed": "已安装",
   "lib.hero.stat.installedPct": "还没有游戏",
-  "lib.hero.stat.pctOfLibrary": "你游戏库的 {count}",
+  "lib.hero.stat.pctOfLibrary": "你游戏库的 {count}%",
   "lib.hero.stat.playtime": "总游戏时长",
   "lib.hero.stat.total": "游戏总数",
   "lib.hero.subtitle.body": "你在 {count} 款游戏上花费了 {time} · 本周新增 {added} 款。",

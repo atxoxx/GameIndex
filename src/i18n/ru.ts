@@ -1844,7 +1844,7 @@ export const ru: TranslationDict = {
   "lib.hero.stat.addedWeekSub": "новое поступление",
   "lib.hero.stat.installed": "Установлено",
   "lib.hero.stat.installedPct": "Пока нет игр",
-  "lib.hero.stat.pctOfLibrary": "{count} вашей библиотеки",
+  "lib.hero.stat.pctOfLibrary": "{count}% вашей библиотеки",
   "lib.hero.stat.playtime": "Всего времени в игре",
   "lib.hero.stat.total": "Всего игр",
   "lib.hero.subtitle.body": "Вы провели {time} в {count} играх · {added} добавлено на этой неделе.",

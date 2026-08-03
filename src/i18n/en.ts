@@ -1869,7 +1869,7 @@ export const en: TranslationDict = {
   "lib.hero.stat.addedWeekSub": "new arrival",
   "lib.hero.stat.installed": "Installed",
   "lib.hero.stat.installedPct": "No games yet",
-  "lib.hero.stat.pctOfLibrary": "{count} of your library",
+  "lib.hero.stat.pctOfLibrary": "{count}% of your library",
   "lib.hero.stat.playtime": "Total Playtime",
   "lib.hero.stat.total": "Total Games",
   "lib.hero.subtitle.body": "You've spent {time} across {count} games · {added} added this week.",

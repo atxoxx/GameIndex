@@ -144,7 +144,7 @@ export default function LibraryHero({ games }: LibraryHeroProps) {
         <StatTile
           value={stats.installed}
           label={t("lib.hero.stat.installed")}
-          subtext={stats.total > 0 ? t("lib.hero.stat.pctOfLibrary", { pct: stats.installedPct }) : t("lib.hero.stat.installedPct")}
+          subtext={stats.total > 0 ? t("lib.hero.stat.pctOfLibrary", { count: stats.installedPct }) : t("lib.hero.stat.installedPct")}
           accent="var(--color-success)"
           delayMs={70}
           icon={
