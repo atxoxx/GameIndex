@@ -171,7 +171,9 @@ fn build_client() -> Result<Client, String> {
 
 // ── Tauri commands ──────────────────────────────────────────────────────
 
-/// Fetch achievements for a single game from Steam. (Unchanged.)
+/// Fetch achievements for a single game from Steam. The three Steam API
+/// endpoints are queried concurrently (schema, player unlocks, global
+/// rarity) so the sync takes ~one round-trip instead of three.
 pub async fn fetch_achievements_with_client(
     client: &Client,
     steam_app_id: u32,
@@ -183,26 +185,102 @@ pub async fn fetch_achievements_with_client(
          ?key={}&appid={}&l=english&format=json",
         api_token, steam_app_id
     );
-    let schema_resp = client
-        .get(&schema_url)
-        .send()
-        .await
-        .map_err(|e| format!("Schema request failed: {e}"))?;
+    let player_url = format!(
+        "https://api.steampowered.com/ISteamUserStats/GetPlayerAchievements/v1/\
+         ?key={}&steamid={}&appid={}&format=json",
+        api_token, steam_id, steam_app_id
+    );
+    let global_url = format!(
+        "https://api.steampowered.com/ISteamUserStats/\
+         GetGlobalAchievementPercentagesForApp/v2/\
+         ?gameid={}&format=json",
+        steam_app_id
+    );
 
-    if !schema_resp.status().is_success() {
-        return Err(format!(
-            "Schema API returned HTTP {}",
-            schema_resp.status().as_u16()
-        ));
-    }
+    // The schema, player unlock state, and global rarity endpoints are
+    // fully independent — running them sequentially turned every sync
+    // into three back-to-back round-trips. Fire them concurrently so
+    // the sync latency is the slowest response, not the sum of all
+    // three.
+    let (schema_res, player_res, global_percents) = tokio::join!(
+        async {
+            let resp = client
+                .get(&schema_url)
+                .send()
+                .await
+                .map_err(|e| format!("Schema request failed: {e}"))?;
+            if !resp.status().is_success() {
+                return Err(format!(
+                    "Schema API returned HTTP {}",
+                    resp.status().as_u16()
+                ));
+            }
+            let body = resp.text().await.unwrap_or_else(|_| "{}".to_string());
+            serde_json::from_str::<SchemaResponse>(&body)
+                .map_err(|e| format!("Failed to parse schema response: {e}"))
+        },
+        async {
+            let resp = client
+                .get(&player_url)
+                .send()
+                .await
+                .map_err(|e| format!("Player achievements request failed: {e}"))?;
+            if !resp.status().is_success() {
+                return Err(format!(
+                    "Steam player-achievements API returned HTTP {} — your profile or this \
+                     game's details may be private",
+                    resp.status().as_u16()
+                ));
+            }
+            let body = resp.text().await.unwrap_or_else(|_| "{}".to_string());
+            let parsed: PlayerAchievementsResponse =
+                serde_json::from_str(&body).unwrap_or(PlayerAchievementsResponse {
+                    playerstats: None,
+                });
+            match parsed.playerstats {
+                // Steam signals "unlock state unavailable" (private profile,
+                // restricted game details) with `success: false` and an empty
+                // list. Falling back to an empty list here would make every
+                // achievement render as locked while the sync reports
+                // success — so fail loudly instead and let the caller
+                // surface the real reason.
+                Some(ps) if ps.success || !ps.achievements.is_empty() => Ok(ps.achievements),
+                _ => Err(
+                    "Steam could not return your achievement unlocks for this game — \
+                     your profile or this game's details may be private"
+                        .to_string(),
+                ),
+            }
+        },
+        async {
+            let Ok(resp) = client.get(&global_url).send().await else {
+                return Vec::new();
+            };
+            if !resp.status().is_success() {
+                return Vec::new();
+            }
+            let body = resp.text().await.unwrap_or_else(|_| "{}".to_string());
+            match serde_json::from_str::<GlobalPercentResponse>(&body) {
+                Ok(parsed) => parsed
+                    .achievementpercentages
+                    .map(|ap| ap.achievements)
+                    .unwrap_or_default(),
+                Err(e) => {
+                    // Log instead of silently swallowing — the
+                    // string-as-percent schema mismatch bit us
+                    // once already; a future wire-format change
+                    // should be loud, not invisible.
+                    eprintln!(
+                        "[achievements] failed to parse GetGlobalAchievementPercentagesForApp \
+                         response for appid {steam_app_id}: {e}"
+                    );
+                    Vec::new()
+                }
+            }
+        },
+    );
 
-    let schema_body = schema_resp
-        .text()
-        .await
-        .unwrap_or_else(|_| "{}".to_string());
-    let schema: SchemaResponse = serde_json::from_str(&schema_body)
-        .map_err(|e| format!("Failed to parse schema response: {e}"))?;
-
+    let schema: SchemaResponse = schema_res?;
     let schema_achievements = schema
         .game
         .and_then(|g| g.available_game_stats)
@@ -220,80 +298,7 @@ pub async fn fetch_achievements_with_client(
         });
     }
 
-    let player_url = format!(
-        "https://api.steampowered.com/ISteamUserStats/GetPlayerAchievements/v1/\
-         ?key={}&steamid={}&appid={}&format=json",
-        api_token, steam_id, steam_app_id
-    );
-    let player_resp = client
-        .get(&player_url)
-        .send()
-        .await
-        .map_err(|e| format!("Player achievements request failed: {e}"))?;
-
-    let player_achievements: Vec<PlayerAchievement> = if player_resp.status().is_success() {
-        let body = player_resp
-            .text()
-            .await
-            .unwrap_or_else(|_| "{}".to_string());
-        let parsed: PlayerAchievementsResponse =
-            serde_json::from_str(&body).unwrap_or(PlayerAchievementsResponse {
-                playerstats: None,
-            });
-        match parsed.playerstats {
-            // Steam signals "unlock state unavailable" (private profile,
-            // restricted game details) with `success: false` and an empty
-            // list. Falling back to an empty list here would make every
-            // achievement render as locked while the sync reports
-            // success — so fail loudly instead and let the caller
-            // surface the real reason.
-            Some(ps) if ps.success || !ps.achievements.is_empty() => ps.achievements,
-            _ => {
-                return Err(
-                    "Steam could not return your achievement unlocks for this game — \
-                     your profile or this game's details may be private"
-                        .to_string(),
-                );
-            }
-        }
-    } else {
-        return Err(format!(
-            "Steam player-achievements API returned HTTP {} — your profile or this \
-             game's details may be private",
-            player_resp.status().as_u16()
-        ));
-    };
-
-    let global_url = format!(
-        "https://api.steampowered.com/ISteamUserStats/\
-         GetGlobalAchievementPercentagesForApp/v2/\
-         ?gameid={}&format=json",
-        steam_app_id
-    );
-    let global_percents: Vec<GlobalAchievementPercent> =
-        match client.get(&global_url).send().await {
-            Ok(resp) if resp.status().is_success() => {
-                let body = resp.text().await.unwrap_or_else(|_| "{}".to_string());
-                match serde_json::from_str::<GlobalPercentResponse>(&body) {
-                    Ok(parsed) => parsed
-                        .achievementpercentages
-                        .map(|ap| ap.achievements)
-                        .unwrap_or_default(),
-                    Err(e) => {
-                        // Log instead of silently swallowing — the
-                        // string-as-percent schema mismatch bit us
-                        // once already; a future wire-format change
-                        // should be loud, not invisible.
-                        eprintln!(
-                            "[achievements] failed to parse GetGlobalAchievementPercentagesForApp \
-                             response for appid {steam_app_id}: {e}"
-                        );
-                        Vec::new()
-                    }
-                }
-            }
-            _ => Vec::new(),
-        };
+    let player_achievements: Vec<PlayerAchievement> = player_res?;
 
     let player_map: std::collections::HashMap<String, &PlayerAchievement> = player_achievements
         .iter()
