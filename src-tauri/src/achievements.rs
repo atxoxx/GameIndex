@@ -240,12 +240,28 @@ pub async fn fetch_achievements_with_client(
             serde_json::from_str(&body).unwrap_or(PlayerAchievementsResponse {
                 playerstats: None,
             });
-        parsed
-            .playerstats
-            .map(|ps| ps.achievements)
-            .unwrap_or_default()
+        match parsed.playerstats {
+            // Steam signals "unlock state unavailable" (private profile,
+            // restricted game details) with `success: false` and an empty
+            // list. Falling back to an empty list here would make every
+            // achievement render as locked while the sync reports
+            // success — so fail loudly instead and let the caller
+            // surface the real reason.
+            Some(ps) if ps.success || !ps.achievements.is_empty() => ps.achievements,
+            _ => {
+                return Err(
+                    "Steam could not return your achievement unlocks for this game — \
+                     your profile or this game's details may be private"
+                        .to_string(),
+                );
+            }
+        }
     } else {
-        Vec::new()
+        return Err(format!(
+            "Steam player-achievements API returned HTTP {} — your profile or this \
+             game's details may be private",
+            player_resp.status().as_u16()
+        ));
     };
 
     let global_url = format!(

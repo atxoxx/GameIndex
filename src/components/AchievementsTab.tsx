@@ -130,7 +130,25 @@ export default function AchievementsTab({ game }: { game: Game }) {
           if (!cancelled) setAutoState("noappid");
           return;
         }
-        await syncLocalAchievements(game.id, appid);
+        if (game.platform === "Steam") {
+          // Owned Steam games: pull the authoritative unlock state from
+          // the Steam Web API so achievements show as unlocked right
+          // away instead of a schema that renders everything locked.
+          // Only when Steam isn't connected do we fall back to the
+          // local / Hydra schema so the list is still visible; any other
+          // failure (e.g. a private profile) is left for the Sync button
+          // to surface as an honest error.
+          try {
+            await syncGameAchievements(game.id, appid);
+          } catch (err) {
+            const msg = String(err ?? "");
+            if (msg.includes("Not connected to Steam") && !cancelled) {
+              await syncLocalAchievements(game.id, appid);
+            }
+          }
+        } else {
+          await syncLocalAchievements(game.id, appid);
+        }
         if (!cancelled) setAutoState("done");
       } catch {
         if (!cancelled) setAutoState("done");
