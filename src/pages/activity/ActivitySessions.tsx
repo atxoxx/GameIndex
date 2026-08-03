@@ -376,7 +376,7 @@ function ActivitySessionItem({ session, game, onDelete }: SessionItemProps) {
             </div>
           ) : (
             <div className="activity-session-item__no-hardware">
-              <Icons.Info size={16} style={{ marginBottom: 4, opacity: 0.5 }} />
+              <Icons.Info size={16} />
               <div>{t("activitySessions.noHardwareLogs")}</div>
             </div>
           )}
@@ -412,7 +412,10 @@ export function ActivitySessions({
   return (
     <div className="section-panel">
       <div className="global-session-list__header">
-        <h3 className="section-panel__title">{t("activitySessions.recentSessions")}</h3>
+        <h3 className="section-panel__title">
+          {t("activitySessions.recentSessions")}
+          <span className="activity-session-count">{filteredSessions.length}</span>
+        </h3>
         <div className="global-session-list__actions">
           <div className="global-session-list__search">
             <Icons.Search size={12} className="global-session-list__search-icon" />
@@ -449,7 +452,22 @@ export function ActivitySessions({
         })}
 
         {filteredSessions.length === 0 && (
-          <div className="section-panel__empty">{t("activitySessions.noMatchQuery")}</div>
+          sessions.length === 0 ? (
+            <div className="activity-empty">
+              <div className="activity-empty__icon">
+                <Icons.History size={24} />
+              </div>
+              <div className="activity-empty__title">{t("activitySessions.noSessions")}</div>
+              <div className="activity-empty__hint">{t("activitySessions.noSessionsHint")}</div>
+            </div>
+          ) : (
+            <div className="activity-empty activity-empty--compact">
+              <div className="activity-empty__icon">
+                <Icons.Search size={18} />
+              </div>
+              <div className="activity-empty__title">{t("activitySessions.noMatchQuery")}</div>
+            </div>
+          )
         )}
 
         {filteredSessions.length > visibleCount && (

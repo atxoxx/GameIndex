@@ -566,12 +566,15 @@ export function GameActivityTab({ game }: { game: Game }) {
 
   if (sessions.length === 0) {
     return (
-      <div className="game-activity-empty-state">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
-          <circle cx="12" cy="12" r="10" />
-          <polyline points="12 6 12 12 16 14" />
-        </svg>
-        <p>{t("activity.noSessions")}</p>
+      <div className="game-activity-empty-state game-activity-empty-state--page">
+        <span className="game-activity-empty-icon">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
+            <circle cx="12" cy="12" r="10" />
+            <polyline points="12 6 12 12 16 14" />
+          </svg>
+        </span>
+        <h3 className="game-activity-empty-title">{t("gameActivity.noSessionsTitle")}</h3>
+        <p className="game-activity-empty-sub">{t("activity.noSessions")}</p>
       </div>
     );
   }
@@ -582,30 +585,37 @@ export function GameActivityTab({ game }: { game: Game }) {
       {/* Top Header Panel */}
       <div className="game-activity-header">
         <div className="game-activity-title-group">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-            <polyline points="23 6 13.5 15.5 8.5 10.5 1 18" />
-            <polyline points="17 6 23 6 23 12" />
-          </svg>
-          <h2>{t("nav.activity")}</h2>
+          <span className="game-activity-title-icon" aria-hidden="true">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <polyline points="23 6 13.5 15.5 8.5 10.5 1 18" />
+              <polyline points="17 6 23 6 23 12" />
+            </svg>
+          </span>
+          <div className="game-activity-title-text">
+            <h2>{t("nav.activity")}</h2>
+            <span className="game-activity-title-sub">{t("gameActivity.headerHint")}</span>
+          </div>
         </div>
 
         <div className="game-activity-controls">
           {/* Tabs: Playtime / Performance */}
-          <div className="game-activity-toggle-group">
+          <div className="game-activity-seg">
             <button
-              className={`game-activity-toggle-btn ${viewMode === "playtime" ? "active" : ""}`}
+              className={`game-activity-seg-btn${viewMode === "playtime" ? " active" : ""}`}
+              aria-pressed={viewMode === "playtime"}
               onClick={() => setViewMode("playtime")}
             >
-              <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" strokeWidth="2.5">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
                 <circle cx="12" cy="12" r="10" /><polyline points="12 6 12 12 16 14" />
               </svg>
               {t("activity.playtime")}
             </button>
             <button
-              className={`game-activity-toggle-btn ${viewMode === "performance" ? "active" : ""}`}
+              className={`game-activity-seg-btn${viewMode === "performance" ? " active" : ""}`}
+              aria-pressed={viewMode === "performance"}
               onClick={() => setViewMode("performance")}
             >
-              <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" strokeWidth="2.5">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
                 <rect x="4" y="4" width="16" height="16" rx="2" ry="2" /><rect x="9" y="9" width="6" height="6" /><line x1="9" y1="1" x2="9" y2="4" /><line x1="15" y1="1" x2="15" y2="4" /><line x1="20" y1="9" x2="23" y2="9" /><line x1="1" y1="9" x2="4" y2="9" />
               </svg>
               {t("activity.performance")}
@@ -613,80 +623,142 @@ export function GameActivityTab({ game }: { game: Game }) {
           </div>
 
           {/* Timeframe selector */}
-          <div className="game-activity-timeframe-group">
+          <div className="game-activity-seg">
             {(["7d", "30d", "90d", "all"] as const).map((tf) => (
               <button
                 key={tf}
-                className={`game-activity-timeframe-btn ${timeframe === tf ? "active" : ""}`}
+                className={`game-activity-seg-btn${timeframe === tf ? " active" : ""}`}
+                aria-pressed={timeframe === tf}
                 onClick={() => {
                   setTimeframe(tf);
                   setIsolatedSessionIndex(null);
                 }}
               >
-                {tf === "7d" ? t("activity.7d") : tf === "30d" ? t("activity.30d") : tf === "90d" ? t("activity.90d") : t("activity.allTime")}
+                {tf === "7d" ? "7D" : tf === "30d" ? "30D" : tf === "90d" ? "90D" : t("gameActivity.timeframeAll")}
               </button>
             ))}
           </div>
 
-          {/* Camera screenshot button */}
-           <button className="game-activity-action-btn" title={t("gameActivity.saveScreenshotBtn")} onClick={handleCaptureScreenshot}>
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-              <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z" /><circle cx="12" cy="13" r="4" />
-            </svg>
-          </button>
-
-          {/* Export sessions (CSV / JSON) */}
-          <div className="game-activity-export-group" ref={exportMenuRef}>
+          {/* Screenshot + export actions */}
+          <div className="game-activity-header-actions">
             <button
-              className="game-activity-action-btn"
-              title={t("activity.exportBtn")}
-              onClick={(e) => {
-                const menu = (e.currentTarget.nextElementSibling as HTMLElement | null);
-                if (menu) menu.style.display = menu.style.display === "block" ? "none" : "block";
-              }}
+              className="game-activity-icon-btn"
+              title={t("gameActivity.saveScreenshotBtn")}
+              aria-label={t("gameActivity.saveScreenshotBtn")}
+              onClick={handleCaptureScreenshot}
             >
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" /><polyline points="7 10 12 15 17 10" /><line x1="12" y1="15" x2="12" y2="3" />
+                <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z" /><circle cx="12" cy="13" r="4" />
               </svg>
             </button>
-            <div className="game-activity-export-menu">
-               <button onClick={() => handleExportSessions("csv")}>{t("activity.exportCsv")}</button>
-               <button onClick={() => handleExportSessions("json")}>{t("activity.exportJson")}</button>
+            <div className="game-activity-export-group" ref={exportMenuRef}>
+              <button
+                className="game-activity-icon-btn"
+                title={t("activity.exportBtn")}
+                aria-label={t("activity.exportBtn")}
+                onClick={(e) => {
+                  const menu = (e.currentTarget.nextElementSibling as HTMLElement | null);
+                  if (menu) menu.style.display = menu.style.display === "block" ? "none" : "block";
+                }}
+              >
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" /><polyline points="7 10 12 15 17 10" /><line x1="12" y1="15" x2="12" y2="3" />
+                </svg>
+              </button>
+              <div className="game-activity-export-menu">
+                 <button onClick={() => handleExportSessions("csv")}>{t("activity.exportCsv")}</button>
+                 <button onClick={() => handleExportSessions("json")}>{t("activity.exportJson")}</button>
+              </div>
             </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Headline stats band */}
+      <div className="game-activity-summary">
+        <div className="game-activity-summary-zone game-activity-summary-zone--hero">
+          <div className="game-activity-summary-head">
+            <span className="game-activity-summary-glyph">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10" /><polyline points="12 6 12 12 16 14" /></svg>
+            </span>
+            <span className="game-activity-summary-label">{t("activity.totalPlaytime")}</span>
+          </div>
+          <div className="game-activity-summary-value">{formatPlayTime(stats.totalPlayTimeMin)}</div>
+          <div className="game-activity-summary-meta">
+            <span className={`game-activity-trend game-activity-trend--${stats.trendDirection}`}>
+              {stats.trendDirection === "up" ? (
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18" /><polyline points="17 6 23 6 23 12" /></svg>
+              ) : stats.trendDirection === "down" ? (
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><polyline points="23 18 13.5 8.5 8.5 13.5 1 6" /><polyline points="17 18 23 18 23 12" /></svg>
+              ) : (
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><line x1="5" y1="12" x2="19" y2="12" /></svg>
+              )}
+              {stats.trendDirection === "up" ? t("activity.increasing") : stats.trendDirection === "down" ? t("activity.decreasing") : t("activity.flat")}
+            </span>
+            <span className="game-activity-summary-sub">
+              {timeframe === "all" ? t("activity.allTime") : t("gameActivity.lastDays", { count: timeframe === "7d" ? 7 : timeframe === "30d" ? 30 : 90 })}
+            </span>
+          </div>
+        </div>
+
+        <div className="game-activity-summary-zone">
+          <div className="game-activity-summary-head">
+            <span className="game-activity-summary-glyph">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><line x1="18" y1="20" x2="18" y2="10" /><line x1="12" y1="20" x2="12" y2="4" /><line x1="6" y1="20" x2="6" y2="14" /></svg>
+            </span>
+            <span className="game-activity-summary-label">{t("activity.sessions")}</span>
+          </div>
+          <div className="game-activity-summary-value">{stats.totalSessions}</div>
+          <div className="game-activity-summary-meta">
+            <span className="game-activity-summary-sub">{t("gameActivity.activeDaysSub", { count: stats.activeDaysCount, s: stats.activeDaysCount === 1 ? "" : "s" })}</span>
+          </div>
+        </div>
+
+        <div className="game-activity-summary-zone">
+          <div className="game-activity-summary-head">
+            <span className="game-activity-summary-glyph">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10" /><polyline points="12 6 12 12 16 14" /></svg>
+            </span>
+            <span className="game-activity-summary-label">{t("activity.avgSession")}</span>
+          </div>
+          <div className="game-activity-summary-value">{stats.avgSessionMin > 0 ? `${stats.avgSessionMin}m` : "—"}</div>
+          <div className="game-activity-summary-meta">
+            <span className="game-activity-summary-sub">{t("gameActivity.perSession")}</span>
+          </div>
+        </div>
+
+        <div className="game-activity-summary-zone">
+          <div className="game-activity-summary-head">
+            <span className="game-activity-summary-glyph">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M6 9H4.5a2.5 2.5 0 0 1 0-5H6" /><path d="M18 9h1.5a2.5 2.5 0 0 0 0-5H18" /><path d="M4 22h16" /><path d="M10 14.66V17c0 .55-.45 1-1 1H4v2h16v-2h-5c-.55 0-1-.45-1-1v-2.34" /><path d="M12 2a6 6 0 0 1 6 6v5a6 6 0 0 1-6 6 6 6 0 0 1-6-6V8a6 6 0 0 1 6-6z" /></svg>
+            </span>
+            <span className="game-activity-summary-label">{t("activity.longestSession")}</span>
+          </div>
+          <div className="game-activity-summary-value">{stats.longestSessionMin > 0 ? formatPlayTime(stats.longestSessionMin) : "—"}</div>
+          <div className="game-activity-summary-meta">
+            <span className="game-activity-summary-sub">{t("gameActivity.singleSession")}</span>
+          </div>
+        </div>
+
+        <div className="game-activity-summary-zone">
+          <div className="game-activity-summary-head">
+            <span className="game-activity-summary-glyph">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2" /></svg>
+            </span>
+            <span className="game-activity-summary-label">{t("activity.currentStreak")}</span>
+          </div>
+          <div className="game-activity-summary-value">{stats.currentStreak > 0 ? `${stats.currentStreak}d` : "—"}</div>
+          <div className="game-activity-summary-meta">
+            {stats.bestStreak > 0 && <span className="game-activity-summary-sub">{t("gameActivity.bestStreakSub", { days: stats.bestStreak })}</span>}
           </div>
         </div>
       </div>
 
       {/* Main Two-column layout grid */}
       <div className="game-activity-layout">
-        {/* Left Column: 11 cards + sessions list */}
+        {/* Left Column: stat cards + sessions list */}
         <div className="game-activity-left-col">
           <div className="game-activity-stats-grid">
-            <StatCard
-              label={t("activity.totalPlaytime")}
-              value={formatPlayTime(stats.totalPlayTimeMin)}
-              icon={<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10" /><polyline points="12 6 12 12 16 14" /></svg>}
-            />
-            <StatCard
-              label={t("activity.sessions")}
-              value={stats.totalSessions}
-              icon={<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><line x1="18" y1="20" x2="18" y2="10" /><line x1="12" y1="20" x2="12" y2="4" /><line x1="6" y1="20" x2="6" y2="14" /></svg>}
-            />
-            <StatCard
-              label={t("activity.avgSession")}
-              value={stats.avgSessionMin > 0 ? `${stats.avgSessionMin}m` : "—"}
-              icon={<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10" /><polyline points="12 6 12 12 16 14" /></svg>}
-            />
-            <StatCard
-              label={t("activity.longestSession")}
-              value={stats.longestSessionMin > 0 ? formatPlayTime(stats.longestSessionMin) : "—"}
-              icon={<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M6 9H4.5a2.5 2.5 0 0 1 0-5H6" /><path d="M18 9h1.5a2.5 2.5 0 0 0 0-5H18" /><path d="M4 22h16" /><path d="M10 14.66V17c0 .55-.45 1-1 1H4v2h16v-2h-5c-.55 0-1-.45-1-1v-2.34" /><path d="M12 2a6 6 0 0 1 6 6v5a6 6 0 0 1-6 6 6 6 0 0 1-6-6V8a6 6 0 0 1 6-6z" /></svg>}
-            />
-            <StatCard
-              label={t("activity.currentStreak")}
-              value={stats.currentStreak > 0 ? `${stats.currentStreak}d` : "—"}
-              icon={<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2" /></svg>}
-            />
             <StatCard
               label={t("activity.bestStreak")}
               value={stats.bestStreak > 0 ? `${stats.bestStreak}d` : "—"}
@@ -724,85 +796,77 @@ export function GameActivityTab({ game }: { game: Game }) {
               label={t("activity.lastSession")}
               value={stats.lastPlayed}
               icon={<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="3" y="4" width="18" height="18" rx="2" ry="2" /><line x1="3" y1="10" x2="21" y2="10" /></svg>}
-              className="game-activity-stat-card-full"
             />
           </div>
 
           {/* RECENT SESSIONS */}
-          <div className="game-activity-recent-sessions">
-            <h3 className="game-activity-sessions-title">
-              {t("activity.recentSessions")}
-              <span className="game-activity-sessions-count-tag">{filteredSessions.length}</span>
-            </h3>
-            {filteredSessions.map((session) => {
-              const hwIndex = sessionsWithHw.findIndex((s) => s.id === session.id);
-              const isSelected = isolatedSessionIndex === hwIndex && hwIndex !== -1;
-              const hasHw = hwIndex !== -1;
+          <div className="game-activity-sessions-panel">
+            <div className="game-activity-sessions-head">
+              <h3 className="game-activity-sessions-title">{t("activity.recentSessions")}</h3>
+              <span className="game-activity-sessions-count">{t("activity.sessionCount", { count: filteredSessions.length, s: filteredSessions.length > 1 ? "s" : "" })}</span>
+            </div>
+            <div className="game-activity-sessions-list">
+              {filteredSessions.map((session) => {
+                const hwIndex = sessionsWithHw.findIndex((s) => s.id === session.id);
+                const isSelected = isolatedSessionIndex === hwIndex && hwIndex !== -1;
+                const hasHw = hwIndex !== -1;
 
-              const formattedDate = new Date(session.date).toLocaleDateString("en-US", {
-                weekday: "short",
-                day: "numeric",
-                month: "short",
-              });
-              const startTimeStr = new Date(session.date).toLocaleTimeString("en-US", {
-                hour: "2-digit",
-                minute: "2-digit",
-              });
-              const endTimeStr = new Date(new Date(session.date).getTime() + session.durationMin * 60000).toLocaleTimeString("en-US", {
-                hour: "2-digit",
-                minute: "2-digit",
-              });
+                const formattedDate = new Date(session.date).toLocaleDateString("en-US", {
+                  weekday: "short",
+                  day: "numeric",
+                  month: "short",
+                });
+                const startTimeStr = new Date(session.date).toLocaleTimeString("en-US", {
+                  hour: "2-digit",
+                  minute: "2-digit",
+                });
+                const endTimeStr = new Date(new Date(session.date).getTime() + session.durationMin * 60000).toLocaleTimeString("en-US", {
+                  hour: "2-digit",
+                  minute: "2-digit",
+                });
 
-              return (
-                <div
-                  key={session.id}
-                  className={`game-activity-session-card${isSelected ? " active" : ""}`}
-                  onClick={() => {
-                    if (hasHw) {
-                      setIsolatedSessionIndex(isSelected ? null : hwIndex);
-                    }
-                  }}
-                  style={{
-                    cursor: hasHw ? "pointer" : "default",
-                    opacity: hasHw ? 1 : 0.75
-                  }}
-                >
-                  <div className="game-activity-session-info">
-                    <span className="game-activity-session-date">
-                      {formattedDate}
-                      {hasHw && (
-                        <span
-                          style={{
-                            marginLeft: "var(--space-xs)",
-                            fontSize: "10px",
-                            background: isSelected ? "var(--color-accent)" : "var(--color-bg-tertiary)",
-                            color: isSelected ? "#fff" : "var(--color-text-secondary)",
-                            padding: "1px 4.5px",
-                            borderRadius: "var(--radius-xs)"
-                          }}
-                        >
-                           {t("activity.telemetry")}
-                        </span>
-                      )}
-                    </span>
-                    <span className="game-activity-session-time">{startTimeStr} — {endTimeStr}</span>
-                  </div>
-                  <span className="game-activity-session-duration">{formatPlayTime(session.durationMin)}</span>
-                  <button
-                    className="game-activity-session-delete-btn"
-                     title={t("activity.deleteSessionBtn")}
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      setPendingDeleteId(session.id);
+                return (
+                  <div
+                    key={session.id}
+                    className={`game-activity-session-card${isSelected ? " active" : ""}${hasHw ? " game-activity-session-card--selectable" : " game-activity-session-card--muted"}`}
+                    onClick={() => {
+                      if (hasHw) {
+                        setIsolatedSessionIndex(isSelected ? null : hwIndex);
+                      }
                     }}
                   >
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                      <polyline points="3 6 5 6 21 6" /><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
-                    </svg>
-                  </button>
-                </div>
-              );
-            })}
+                    <div className="game-activity-session-info">
+                      <span className="game-activity-session-date">
+                        {formattedDate}
+                        {hasHw && (
+                          <span className="game-activity-session-badge">{t("activity.telemetry")}</span>
+                        )}
+                      </span>
+                      <span className="game-activity-session-time">{startTimeStr} — {endTimeStr}</span>
+                    </div>
+                    <span className="game-activity-session-duration">{formatPlayTime(session.durationMin)}</span>
+                    {hasHw && (
+                      <span className="game-activity-session-chevron" aria-hidden="true">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><polyline points="9 18 15 12 9 6" /></svg>
+                      </span>
+                    )}
+                    <button
+                      className="game-activity-session-delete-btn"
+                      title={t("activity.deleteSessionBtn")}
+                      aria-label={t("activity.deleteSessionBtn")}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setPendingDeleteId(session.id);
+                      }}
+                    >
+                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                        <polyline points="3 6 5 6 21 6" /><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
+                      </svg>
+                    </button>
+                  </div>
+                );
+              })}
+            </div>
           </div>
         </div>
 
@@ -812,17 +876,18 @@ export function GameActivityTab({ game }: { game: Game }) {
             <>
               {/* Playtime Panel */}
               <div className="game-activity-panel">
-                <div className="game-activity-panel-header">
-                  <h3 className="game-activity-panel-title">
-                    Total Playtime: <strong>{formatPlayTime(stats.totalPlayTimeMin)}</strong>
-                  </h3>
-                  
-                  <div style={{ display: "flex", gap: "var(--space-sm)", alignItems: "center" }}>
-                    <div className="game-activity-agg-tabs">
+                <div className="game-activity-panel-head">
+                  <div className="game-activity-panel-title-group">
+                    <h3 className="game-activity-panel-title">{t("gameActivity.playtimeTitle")}</h3>
+                    <span className="game-activity-panel-sub">{t("gameActivity.playtimeTotal", { total: formatPlayTime(stats.totalPlayTimeMin) })}</span>
+                  </div>
+                  <div className="game-activity-panel-tools">
+                    <div className="game-activity-seg game-activity-seg--sm">
                       {(["AGG_DAY", "AGG_WEEK", "AGG_MONTH"] as const).map((agg) => (
                         <button
                           key={agg}
-                          className={`game-activity-agg-btn ${playtimeAgg === agg ? "active" : ""}`}
+                          className={`game-activity-seg-btn${playtimeAgg === agg ? " active" : ""}`}
+                          aria-pressed={playtimeAgg === agg}
                           onClick={() => setPlaytimeAgg(agg)}
                         >
                           {agg === "AGG_DAY" ? t("activity.1d") : agg === "AGG_WEEK" ? t("activity.1w") : t("activity.1m")}
@@ -830,20 +895,24 @@ export function GameActivityTab({ game }: { game: Game }) {
                       ))}
                     </div>
 
-                    <div className="game-activity-style-toggle">
+                    <div className="game-activity-seg game-activity-seg--sm game-activity-seg--icons">
                       <button
-                        className={`game-activity-style-btn ${playtimeChartStyle === "bar" ? "active" : ""}`}
+                        className={`game-activity-seg-btn${playtimeChartStyle === "bar" ? " active" : ""}`}
+                        aria-pressed={playtimeChartStyle === "bar"}
                         onClick={() => setPlaytimeChartStyle("bar")}
                         title={t("activity.barChart")}
+                        aria-label={t("activity.barChart")}
                       >
                         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-                          <line x1="18" y1="20" x2="18" y2="10" /><line x1="12" y1="20" x2="12" /><line x1="6" y1="20" x2="6" y2="14" />
+                          <line x1="18" y1="20" x2="18" y2="10" /><line x1="12" y1="20" x2="12" y2="4" /><line x1="6" y1="20" x2="6" y2="14" />
                         </svg>
                       </button>
                       <button
-                        className={`game-activity-style-btn ${playtimeChartStyle === "line" ? "active" : ""}`}
+                        className={`game-activity-seg-btn${playtimeChartStyle === "line" ? " active" : ""}`}
+                        aria-pressed={playtimeChartStyle === "line"}
                         onClick={() => setPlaytimeChartStyle("line")}
                         title={t("activity.lineChart")}
+                        aria-label={t("activity.lineChart")}
                       >
                         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
                           <polyline points="22 12 18 12 15 21 9 3 6 12 2 12" />
@@ -872,8 +941,11 @@ export function GameActivityTab({ game }: { game: Game }) {
                     />
                   )
                 ) : (
-                  <div style={{ height: "220px", display: "flex", alignItems: "center", justifyContent: "center", color: "var(--color-text-muted)" }}>
-                    {t("activity.noPlaytimeData")}
+                  <div className="game-activity-chart-empty">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
+                      <circle cx="12" cy="12" r="10" /><polyline points="12 6 12 12 16 14" />
+                    </svg>
+                    <span>{t("activity.noPlaytimeData")}</span>
                   </div>
                 )}
               </div>
@@ -890,60 +962,51 @@ export function GameActivityTab({ game }: { game: Game }) {
                 <>
                   {/* Hardware mini cards */}
                   <div className="game-activity-perf-cards">
-                    <PerfMiniCard label={t("activityPerf.avgFps")} avg={`${hwAverages.avgFps}`} max={`MAX: ${hwAverages.maxFps}`} />
-                    <PerfMiniCard label={t("activityPerf.cpuUsage")} avg={`${hwAverages.avgCpu}%`} max={`MAX: ${hwAverages.maxCpu}%`} />
-                    <PerfMiniCard label={t("activityPerf.gpuUsage")} avg={`${hwAverages.avgGpu}%`} max={`MAX: ${hwAverages.maxGpu}%`} />
-                    <PerfMiniCard label={t("activityPerf.ramUsage")} avg={`${hwAverages.avgRamPct}%`} max={`MAX: ${hwAverages.maxRamPct}%`} />
+                    <PerfMiniCard label={t("activityPerf.avgFps")} avg={`${hwAverages.avgFps}`} max={`MAX: ${hwAverages.maxFps}`} tone={hwAverages.avgFps >= 60 ? "good" : "warn"} />
+                    <PerfMiniCard label={t("activityPerf.cpuUsage")} avg={`${hwAverages.avgCpu}%`} max={`MAX: ${hwAverages.maxCpu}%`} tone={hwAverages.avgCpu >= 90 ? "hot" : hwAverages.avgCpu >= 70 ? "warn" : "good"} />
+                    <PerfMiniCard label={t("activityPerf.gpuUsage")} avg={`${hwAverages.avgGpu}%`} max={`MAX: ${hwAverages.maxGpu}%`} tone={hwAverages.avgGpu >= 90 ? "hot" : hwAverages.avgGpu >= 70 ? "warn" : "good"} />
+                    <PerfMiniCard label={t("activityPerf.ramUsage")} avg={`${hwAverages.avgRamPct}%`} max={`MAX: ${hwAverages.maxRamPct}%`} tone={hwAverages.avgRamPct >= 90 ? "hot" : hwAverages.avgRamPct >= 70 ? "warn" : "good"} />
                     {hasTemps && (
                       <>
-                        <PerfMiniCard label={t("activityPerf.cpuTemp")} avg={formatTemp(hwAverages.avgCpuT, tempUnit)} max={`MAX: ${formatTemp(hwAverages.maxCpuT, tempUnit)}`} />
-                        <PerfMiniCard label={t("activityPerf.gpuTemp")} avg={formatTemp(hwAverages.avgGpuT, tempUnit)} max={`MAX: ${formatTemp(hwAverages.maxGpuT, tempUnit)}`} />
+                        <PerfMiniCard label={t("activityPerf.cpuTemp")} avg={formatTemp(hwAverages.avgCpuT, tempUnit)} max={`MAX: ${formatTemp(hwAverages.maxCpuT, tempUnit)}`} tone={hwAverages.avgCpuT >= tempThreshold(85, tempUnit) ? "hot" : hwAverages.avgCpuT >= tempThreshold(75, tempUnit) ? "warn" : "good"} />
+                        <PerfMiniCard label={t("activityPerf.gpuTemp")} avg={formatTemp(hwAverages.avgGpuT, tempUnit)} max={`MAX: ${formatTemp(hwAverages.maxGpuT, tempUnit)}`} tone={hwAverages.avgGpuT >= tempThreshold(85, tempUnit) ? "hot" : hwAverages.avgGpuT >= tempThreshold(75, tempUnit) ? "warn" : "good"} />
                       </>
                     )}
                   </div>
 
-                  {/* Isolated session selector */}
-                  {sessionsWithHw.length > 1 && (
-                    <div className="game-activity-panel" style={{ padding: "10px 16px" }}>
-                      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: "var(--space-md)", flexWrap: "wrap" }}>
-                          <span style={{ fontSize: "11px", fontWeight: "bold", color: "var(--color-text-secondary)", textTransform: "uppercase", letterSpacing: "0.5px" }}>
-                            {t("activity.sessionTelemetry")}
-                          </span>
-                        <select
-                          style={{
-                            background: "var(--color-bg-primary)",
-                            border: "1px solid var(--color-border)",
-                            color: "var(--color-text-primary)",
-                            fontSize: "var(--font-size-xs)",
-                            padding: "4px 8px",
-                            borderRadius: "var(--radius-sm)",
-                            cursor: "pointer",
-                          }}
-                          value={isolatedSessionIndex !== null ? String(isolatedSessionIndex) : "all"}
-                          onChange={(e) => {
-                            const val = e.target.value;
-                            setIsolatedSessionIndex(val === "all" ? null : Number(val));
-                          }}
-                        >
-                          <option value="all">{t("activityPerf.allSessionsAvg")}</option>
-                          {sessionsWithHw.map((s, i) => (
-                            <option key={s.id} value={String(i)}>
-                              {new Date(s.date).toLocaleDateString("en-US", { day: "numeric", month: "short" })} - {formatPlayTime(s.durationMin)}
-                            </option>
-                          ))}
-                        </select>
+                  {/* Session telemetry selector + curve source badge */}
+                  {perfTimelineData && (
+                    <div className="game-activity-perf-toolbar">
+                      <div className="game-activity-perf-toolbar-left">
+                        <span className="game-activity-perf-toolbar-title">{t("activity.sessionTelemetry")}</span>
+                        {sessionsWithHw.length > 1 && (
+                          <select
+                            className="game-activity-select"
+                            aria-label={t("activity.sessionTelemetry")}
+                            value={isolatedSessionIndex !== null ? String(isolatedSessionIndex) : "all"}
+                            onChange={(e) => {
+                              const val = e.target.value;
+                              setIsolatedSessionIndex(val === "all" ? null : Number(val));
+                            }}
+                          >
+                            <option value="all">{t("activityPerf.allSessionsAvg")}</option>
+                            {sessionsWithHw.map((s, i) => (
+                              <option key={s.id} value={String(i)}>
+                                {new Date(s.date).toLocaleDateString("en-US", { day: "numeric", month: "short" })} - {formatPlayTime(s.durationMin)}
+                              </option>
+                            ))}
+                          </select>
+                        )}
                       </div>
+                      <span className={`game-activity-curve-badge${perfTimelineData.real ? " game-activity-curve-badge--live" : ""}`}>
+                        {perfTimelineData.real ? t("gameActivity.liveData") : t("gameActivity.estimatedData")}
+                      </span>
                     </div>
                   )}
 
                   {/* Stacked Charts */}
                   {perfTimelineData && (
                     <div className="game-activity-stacked-charts">
-                      <p className="game-activity-perf-estimated-note">
-                        {perfTimelineData.real
-                          ? t("gameActivity.curveReal")
-                          : t("gameActivity.curveEstimated")}
-                      </p>
                       <ChartSection title={t("gameActivity.chartCpuGpu")}>
                         <LineChart
                           series={[
@@ -1018,17 +1081,20 @@ export function GameActivityTab({ game }: { game: Game }) {
                 </>
               ) : (
                 <div className="game-activity-empty-state">
-                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
-                    <rect x="4" y="4" width="16" height="16" rx="2" ry="2" />
-                    <line x1="9" y1="9" x2="15" y2="15" />
-                  </svg>
-                  {filteredSessions.length > 0 ? (
-                    <p>
-                      {t("gameActivity.sessionCount", { count: filteredSessions.length, s: filteredSessions.length > 1 ? "s" : "" })} {t("gameActivity.noPerformanceHint")}
-                    </p>
-                  ) : (
-                    <p>{t("gameActivity.noPerformance")}</p>
-                  )}
+                  <span className="game-activity-empty-icon">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
+                      <rect x="4" y="4" width="16" height="16" rx="2" ry="2" />
+                      <line x1="9" y1="9" x2="15" y2="15" />
+                    </svg>
+                  </span>
+                  <h3 className="game-activity-empty-title">
+                    {filteredSessions.length > 0 ? t("gameActivity.noPerfTitle") : t("gameActivity.noSessionsTitle")}
+                  </h3>
+                  <p className="game-activity-empty-sub">
+                    {filteredSessions.length > 0
+                      ? `${t("activity.sessionCount", { count: filteredSessions.length, s: filteredSessions.length > 1 ? "s" : "" })} ${t("gameActivity.noPerformanceHint")}`
+                      : t("gameActivity.noPerformance")}
+                  </p>
                 </div>
               )}
             </>
@@ -1072,24 +1138,35 @@ function StatCard({
 }) {
   return (
     <div className={`game-activity-stat-card ${className}`}>
-      <div className="game-activity-stat-icon">{icon}</div>
-      <div className="game-activity-stat-details">
-        <span className="game-activity-stat-label">{label}</span>
-        <span className="game-activity-stat-value">{value}</span>
-      </div>
+      <span className="game-activity-stat-icon">{icon}</span>
+      <span className="game-activity-stat-value">{value}</span>
+      <span className="game-activity-stat-label">{label}</span>
     </div>
   );
 }
 
 // ─── Performance Mini Card Helper ─────────────────────────────────────────────
-function PerfMiniCard({ label, avg, max }: { label: string; avg: string; max: string }) {
+// `tone` surfaces a small status dot (good / warn / hot) derived from the
+// metric's value at the call site — purely visual, no behavior change.
+function PerfMiniCard({
+  label,
+  avg,
+  max,
+  tone,
+}: {
+  label: string;
+  avg: string;
+  max: string;
+  tone?: "good" | "warn" | "hot";
+}) {
   return (
-    <div className="game-activity-perf-card">
+    <div className={`game-activity-perf-card${tone ? ` game-activity-perf-card--${tone}` : ""}`}>
       <span className="game-activity-perf-label">{label}</span>
       <div className="game-activity-perf-values">
         <span className="game-activity-perf-avg">{avg}</span>
         <span className="game-activity-perf-max">{max}</span>
       </div>
+      {tone && <span className="game-activity-perf-dot" aria-hidden="true" />}
     </div>
   );
 }
@@ -1097,21 +1174,28 @@ function PerfMiniCard({ label, avg, max }: { label: string; avg: string; max: st
 // ─── Chart Section Helper ─────────────────────────────────────────────────────
 function ChartSection({ title, children }: { title: string; children: React.ReactNode }) {
   return (
-    <div className="game-activity-chart-section">
-      <span className="game-activity-chart-title">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-          <polyline points="22 12 18 12 15 21 9 3 6 12 2 12" />
-        </svg>
-        {title}
-      </span>
+    <section className="game-activity-chart-section">
+      <div className="game-activity-chart-section-head">
+        <span className="game-activity-chart-title">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+            <polyline points="22 12 18 12 15 21 9 3 6 12 2 12" />
+          </svg>
+          {title}
+        </span>
+      </div>
       <div className="game-activity-chart-box">{children}</div>
-    </div>
+    </section>
   );
 }
 
 // ─── Heatmap Subcomponent ─────────────────────────────────────────────────────
 function WeeklyHeatmap({ sessions, timeframeDays = 365, t }: { sessions: GameSession[]; timeframeDays?: number; t: (key: string, vars?: Record<string, unknown>) => string }) {
-  
+  // Cell geometry must mirror the `.weekly-heatmap-grid` CSS
+  // (grid-template-rows: repeat(7, 12px); gap: 3px) so the month
+  // label strip lines up with the day columns below it.
+  const CELL = 12;
+  const GAP = 3;
+
   const cells = useMemo(() => {
     const list: { date: string; duration: number }[] = [];
     const dayMap = new Map<string, number>();
@@ -1154,6 +1238,28 @@ function WeeklyHeatmap({ sessions, timeframeDays = 365, t }: { sessions: GameSes
     return list;
   }, [cells]);
 
+  // Month labels sit above the grid, anchored to the first column of
+  // each month. The offset accounts for leading padding cells that push
+  // later columns to the right (columns flow top-to-bottom, 7 rows).
+  const monthLabels = useMemo(() => {
+    const list: { left: number; label: string }[] = [];
+    if (cells.length === 0) return list;
+    const padCount = paddedCells.filter((c) => c === null).length;
+    let prevMonth = "";
+    cells.forEach((c, i) => {
+      const monthKey = c.date.slice(0, 7);
+      if (monthKey !== prevMonth) {
+        const col = Math.floor((padCount + i) / 7);
+        list.push({
+          left: col * (CELL + GAP),
+          label: new Date(c.date + "T00:00:00").toLocaleDateString("en-US", { month: "short" }),
+        });
+        prevMonth = monthKey;
+      }
+    });
+    return list;
+  }, [cells, paddedCells]);
+
   const getIntensityClass = (minutes: number) => {
     if (minutes <= 0) return "weekly-heatmap-cell-empty";
     if (minutes < 15) return "weekly-heatmap-cell-low";
@@ -1163,43 +1269,59 @@ function WeeklyHeatmap({ sessions, timeframeDays = 365, t }: { sessions: GameSes
   };
 
   return (
-    <div style={{ display: "flex", flexDirection: "column" }}>
-      <h3 className="game-activity-heatmap-title">{t("gameActivity.weeklyActivity")}</h3>
+    <div className="game-activity-heatmap">
+      <div className="game-activity-heatmap-head">
+        <h3 className="game-activity-heatmap-title">{t("gameActivity.weeklyActivity")}</h3>
+        <span className="game-activity-heatmap-range">
+          {timeframeDays === 7 ? t("gameActivity.7days") : timeframeDays === 30 ? t("gameActivity.30days") : timeframeDays === 90 ? t("gameActivity.90days") : t("gameActivity.allTime")}
+        </span>
+      </div>
       <div className="weekly-heatmap-container">
         <div className="weekly-heatmap-row-labels">
-          <span></span>
-          <span>{t("gameActivity.mon")}</span>
-          <span></span>
-          <span>{t("gameActivity.wed")}</span>
-          <span></span>
-          <span>{t("gameActivity.fri")}</span>
-          <span></span>
+          <span className="weekly-heatmap-row-spacer" />
+          <span>{t("activityDash.sun")}</span>
+          <span>{t("activityDash.mon")}</span>
+          <span>{t("activityDash.tue")}</span>
+          <span>{t("activityDash.wed")}</span>
+          <span>{t("activityDash.thu")}</span>
+          <span>{t("activityDash.fri")}</span>
+          <span>{t("activityDash.sat")}</span>
         </div>
-        <div className="weekly-heatmap-grid">
-          {paddedCells.map((cell, index) => {
-            if (!cell) {
-              return <div key={`pad-${index}`} className="weekly-heatmap-cell weekly-heatmap-cell-padded" />;
-            }
-            return (
-              <div
-                key={cell.date}
-                className={`weekly-heatmap-cell ${getIntensityClass(cell.duration)}`}
-                title={`${new Date(cell.date).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })} : ${formatPlayTime(cell.duration)}`}
-              />
-            );
-          })}
+        <div className="weekly-heatmap-scroll">
+          <div className="weekly-heatmap-months" aria-hidden="true">
+            {monthLabels.map((m) => (
+              <span
+                key={m.label + m.left}
+                style={{ "--heatmap-label-left": `${m.left}px` } as React.CSSProperties}
+              >
+                {m.label}
+              </span>
+            ))}
+          </div>
+          <div className="weekly-heatmap-grid">
+            {paddedCells.map((cell, index) => {
+              if (!cell) {
+                return <div key={`pad-${index}`} className="weekly-heatmap-cell weekly-heatmap-cell-padded" />;
+              }
+              return (
+                <div
+                  key={cell.date}
+                  className={`weekly-heatmap-cell ${getIntensityClass(cell.duration)}`}
+                  title={`${new Date(cell.date).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })} : ${formatPlayTime(cell.duration)}`}
+                />
+              );
+            })}
+          </div>
         </div>
       </div>
-      <div className="weekly-heatmap-grid-legend" style={{ alignSelf: "flex-end" }}>
-        <div className="weekly-heatmap-footer">
-          <span>{t("activityDash.less")}</span>
-          <div className="weekly-heatmap-cell weekly-heatmap-cell-empty" />
-          <div className="weekly-heatmap-cell weekly-heatmap-cell-low" />
-          <div className="weekly-heatmap-cell weekly-heatmap-cell-medium" />
-          <div className="weekly-heatmap-cell weekly-heatmap-cell-high" />
-          <div className="weekly-heatmap-cell weekly-heatmap-cell-peak" />
-          <span>{t("activityDash.more")}</span>
-        </div>
+      <div className="weekly-heatmap-footer">
+        <span>{t("activityDash.less")}</span>
+        <div className="weekly-heatmap-cell weekly-heatmap-cell-empty" />
+        <div className="weekly-heatmap-cell weekly-heatmap-cell-low" />
+        <div className="weekly-heatmap-cell weekly-heatmap-cell-medium" />
+        <div className="weekly-heatmap-cell weekly-heatmap-cell-high" />
+        <div className="weekly-heatmap-cell weekly-heatmap-cell-peak" />
+        <span>{t("activityDash.more")}</span>
       </div>
     </div>
   );

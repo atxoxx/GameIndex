@@ -300,12 +300,12 @@ export function ActivityPerformance({ sessions, games }: ActivityPerformanceProp
     return (
       <div className="section-panel">
         <h3 className="section-panel__title">{t("activityPerf.performanceInsights")}</h3>
-        <div className="section-panel__empty">
-          <Icons.Info size={24} style={{ marginBottom: 8, opacity: 0.5 }} />
-          <div>{t("activityPerf.noTelemetry")}</div>
-          <small style={{ color: "var(--color-text-muted)", marginTop: 4, display: "block" }}>
-            {t("activityPerf.enableMonitoringHint")}
-          </small>
+        <div className="activity-empty">
+          <div className="activity-empty__icon">
+            <Icons.Cpu size={24} />
+          </div>
+          <div className="activity-empty__title">{t("activityPerf.noTelemetry")}</div>
+          <div className="activity-empty__hint">{t("activityPerf.enableMonitoringHint")}</div>
         </div>
       </div>
     );
@@ -317,7 +317,7 @@ export function ActivityPerformance({ sessions, games }: ActivityPerformanceProp
       <div className="section-panel performance-insights__chart-panel">
         <div className="performance-insights__chart-header">
           <h3 className="section-panel__title">
-            <Icons.BarChart3 size={14} style={{ marginRight: 6 }} />
+            <Icons.BarChart3 size={14} />
             {t("activityPerf.gameComparisons")}
           </h3>
           <div className="performance-insights__tabs">
@@ -351,12 +351,9 @@ export function ActivityPerformance({ sessions, games }: ActivityPerformanceProp
                   <div
                     className="performance-compare-bar__fill"
                     style={{ width: `${pct}%`, backgroundColor: barColor }}
-                  >
-                    <span className="performance-compare-bar__value" style={{ marginLeft: 8 }}>
-                      {row.label}
-                    </span>
-                  </div>
+                  />
                 </div>
+                <span className="performance-compare-bar__value">{row.label}</span>
               </div>
             );
           })}

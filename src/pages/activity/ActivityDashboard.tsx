@@ -317,55 +317,55 @@ export function ActivityDashboard({
 
   return (
     <div className="activity__content">
-      {/* ── Overview Stats Row ── */}
-      <div className="activity-stats-bar">
-        <div className="activity-stats-bar__pill activity-stats-bar__pill--highlight">
-          <span className="activity-stats-bar__pill-icon">
-            <Icons.Clock size={14} />
+      {/* ── Overview Stats Band ── */}
+      <div className="activity__stats">
+        <div className="activity__stat activity__stat--hero">
+          <span className="activity__stat-icon">
+            <Icons.Clock size={15} />
           </span>
-          <div className="activity-stats-bar__pill-content">
-            <span className="activity-stats-bar__pill-label">{t("activityDash.totalPlaytime")}</span>
-            <span className="activity-stats-bar__pill-value">{stats.playtimeStr}</span>
+          <div className="activity__stat-body">
+            <span className="activity__stat-label">{t("activityDash.totalPlaytime")}</span>
+            <span className="activity__stat-value">{stats.playtimeStr}</span>
           </div>
         </div>
 
-        <div className="activity-stats-bar__pill">
-          <span className="activity-stats-bar__pill-icon">
-            <Icons.Gamepad2 size={14} />
+        <div className="activity__stat">
+          <span className="activity__stat-icon">
+            <Icons.Gamepad2 size={15} />
           </span>
-          <div className="activity-stats-bar__pill-content">
-            <span className="activity-stats-bar__pill-label">{t("activityDash.gamesPlayed")}</span>
-            <span className="activity-stats-bar__pill-value">{stats.gamesPlayed}</span>
+          <div className="activity__stat-body">
+            <span className="activity__stat-label">{t("activityDash.gamesPlayed")}</span>
+            <span className="activity__stat-value">{stats.gamesPlayed}</span>
           </div>
         </div>
 
-        <div className="activity-stats-bar__pill">
-          <span className="activity-stats-bar__pill-icon">
-            <Icons.TrendingUp size={14} />
+        <div className="activity__stat">
+          <span className="activity__stat-icon">
+            <Icons.TrendingUp size={15} />
           </span>
-          <div className="activity-stats-bar__pill-content">
-            <span className="activity-stats-bar__pill-label">{t("activityDash.averagePerDay")}</span>
-            <span className="activity-stats-bar__pill-value">{stats.avgPerDayStr}</span>
+          <div className="activity__stat-body">
+            <span className="activity__stat-label">{t("activityDash.averagePerDay")}</span>
+            <span className="activity__stat-value">{stats.avgPerDayStr}</span>
           </div>
         </div>
 
-        <div className="activity-stats-bar__pill">
-          <span className="activity-stats-bar__pill-icon">
-            <Icons.Calendar size={14} />
+        <div className="activity__stat">
+          <span className="activity__stat-icon">
+            <Icons.Calendar size={15} />
           </span>
-          <div className="activity-stats-bar__pill-content">
-            <span className="activity-stats-bar__pill-label">{t("activityDash.sessions")}</span>
-            <span className="activity-stats-bar__pill-value">{stats.sessionsCount}</span>
+          <div className="activity__stat-body">
+            <span className="activity__stat-label">{t("activityDash.sessions")}</span>
+            <span className="activity__stat-value">{stats.sessionsCount}</span>
           </div>
         </div>
 
-        <div className="activity-stats-bar__pill">
-          <span className="activity-stats-bar__pill-icon">
-            <Icons.Zap size={14} />
+        <div className="activity__stat">
+          <span className="activity__stat-icon">
+            <Icons.Zap size={15} />
           </span>
-          <div className="activity-stats-bar__pill-content">
-            <span className="activity-stats-bar__pill-label">{t("activityDash.longestStreak")}</span>
-            <span className="activity-stats-bar__pill-value">{stats.longestStreak}</span>
+          <div className="activity__stat-body">
+            <span className="activity__stat-label">{t("activityDash.longestStreak")}</span>
+            <span className="activity__stat-value">{stats.longestStreak}</span>
           </div>
         </div>
       </div>
@@ -410,7 +410,7 @@ export function ActivityDashboard({
                 <Icons.LayoutDashboard size={15} />
               </span>
               <div className="activity-game-sidebar__info">
-                <span className="activity-game-sidebar__name" style={{ color: "var(--color-text-primary)" }}>
+                <span className="activity-game-sidebar__name">
                   {t("activityPerf.allGames")}
                 </span>
               </div>
@@ -456,13 +456,19 @@ export function ActivityDashboard({
 
             <div className="activity-main-chart__body">
               {chartData.length === 0 ? (
-                <div className="activity-main-chart__empty">{t("activityDash.noActivity")}</div>
+                <div className="activity-empty">
+                  <div className="activity-empty__icon">
+                    <Icons.BarChart3 size={24} />
+                  </div>
+                  <div className="activity-empty__title">{t("activityDash.noActivity")}</div>
+                  <div className="activity-empty__hint">{t("activity.emptyRangeHint")}</div>
+                </div>
               ) : chartType === "bar" ? (
                 <BarChart
                   data={chartData}
                   labels={chartLabels}
                   formatValue={(v) => `${v}h`}
-                  height={220}
+                  height={240}
                   color="var(--color-brand-teal)"
                 />
               ) : (
@@ -470,7 +476,7 @@ export function ActivityDashboard({
                   series={[{ data: chartData, color: "var(--color-brand-teal)", label: t("activityDash.playtimeHours") }]}
                   labels={chartLabels}
                   formatValue={(v) => `${v}h`}
-                  height={220}
+                  height={240}
                   legend={false}
                 />
               )}
@@ -484,7 +490,12 @@ export function ActivityDashboard({
                 <div className="section-panel">
                   <h3 className="section-panel__title">{t("activityDash.platformBreakdown")}</h3>
                   {platformBreakdownSlices.length === 0 ? (
-                    <div className="section-panel__empty">{t("activityDash.noPlatformData")}</div>
+                    <div className="activity-empty activity-empty--compact">
+                      <div className="activity-empty__icon">
+                        <Icons.Gamepad2 size={18} />
+                      </div>
+                      <div className="activity-empty__title">{t("activityDash.noPlatformData")}</div>
+                    </div>
                   ) : (
                     <div className="platform-breakdown__content">
                       <DonutChart slices={platformBreakdownSlices} size={150} formatValue={(v) => `${Math.round(v * 10) / 10}h`} />
@@ -495,7 +506,12 @@ export function ActivityDashboard({
                 <div className="section-panel">
                   <h3 className="section-panel__title">{t("activityDash.playtimeByGenre")}</h3>
                   {genreBreakdownSlices.length === 0 ? (
-                    <div className="section-panel__empty">{t("activityDash.noGenreData")}</div>
+                    <div className="activity-empty activity-empty--compact">
+                      <div className="activity-empty__icon">
+                        <Icons.LayoutDashboard size={18} />
+                      </div>
+                      <div className="activity-empty__title">{t("activityDash.noGenreData")}</div>
+                    </div>
                   ) : (
                     <div className="genre-breakdown__content">
                       <DonutChart slices={genreBreakdownSlices} size={150} formatValue={(v) => `${Math.round(v * 10) / 10}h`} />
@@ -508,7 +524,13 @@ export function ActivityDashboard({
               <div className="section-panel">
                 <h3 className="section-panel__title">{t("activityDash.weeklyHeatmap")}</h3>
                 {heatmapDays.length === 0 ? (
-                  <div className="section-panel__empty">{t("activityDash.noTimeframe")}</div>
+                  <div className="activity-empty activity-empty--compact">
+                    <div className="activity-empty__icon">
+                      <Icons.Calendar size={18} />
+                    </div>
+                    <div className="activity-empty__title">{t("activityDash.noTimeframe")}</div>
+                    <div className="activity-empty__hint">{t("activity.emptyRangeHint")}</div>
+                  </div>
                 ) : (
                   <>
                     <div className="weekly-heatmap__container">

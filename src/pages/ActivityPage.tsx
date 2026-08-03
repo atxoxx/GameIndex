@@ -215,10 +215,11 @@ export default function ActivityPage() {
         }
       />
 
-      <div className="activity__toolbar-row">
-          
+      {/* ── Unified controls panel: primary tabs on top, shared + per-tab filters below ── */}
+      <div className="activity__controls">
+        <div className="activity__controls-row">
           {/* Main Navigation Tabs */}
-          <nav className="activity__tabs">
+          <nav className="activity__tabs" aria-label={t("nav.activity")}>
             <button
               type="button"
               className={`activity__tab-btn ${activeTab === "dashboard" ? "activity__tab-btn--active" : ""}`}
@@ -252,100 +253,99 @@ export default function ActivityPage() {
               {t("activity.tab.performance")}
             </button>
           </nav>
+        </div>
 
-        {/* Global Toolbar Filters */}
-        <div className="activity-toolbar">
-            {/* Timeframe Presets */}
-            <div className="activity-toolbar__group activity-toolbar__date-range">
-              {(["7d", "30d", "90d", "all"] as const).map((preset) => (
-                <button
-                  key={preset}
-                  type="button"
-                  className={`activity-toolbar__pill ${dateRange === preset ? "activity-toolbar__pill--active" : ""}`}
-                  onClick={() => setDateRange(preset)}
-                >
-                  {preset === "all" ? t("activity.allTime") : preset.toUpperCase()}
-                </button>
-              ))}
-            </div>
-
-            <div className="activity-toolbar__divider" />
-
-            {/* Platform/Source Selector */}
-            <div className="activity-toolbar__group">
-              <Icons.Filter size={11} className="activity-toolbar__filter-icon" />
-              <select
-                className="activity-toolbar__select"
-                value={sourceFilter}
-                onChange={(e) => setSourceFilter(e.target.value)}
+        <div className="activity__controls-row activity__controls-row--tools">
+          {/* Timeframe Presets */}
+          <div className="activity-toolbar__group activity-toolbar__date-range">
+            {(["7d", "30d", "90d", "all"] as const).map((preset) => (
+              <button
+                key={preset}
+                type="button"
+                className={`activity-toolbar__pill ${dateRange === preset ? "activity-toolbar__pill--active" : ""}`}
+                onClick={() => setDateRange(preset)}
               >
-                 <option value="all">{t("activity.sourceAll")}</option>
-                {availablePlatforms.map((plat) => (
-                  <option key={plat} value={plat}>
-                    {plat}
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            {/* Dashboard Specific Sub-options */}
-            {activeTab === "dashboard" && (
-              <>
-                <div className="activity-toolbar__divider" />
-
-                {/* Aggregation interval (Day/Week/Month) */}
-                <div className="activity-toolbar__group">
-                  <span className="activity-toolbar__label">{t("activity.interval")}</span>
-                  <div className="activity-toolbar__segmented">
-                    {(["day", "week", "month"] as const).map((mode) => (
-                      <button
-                        key={mode}
-                        type="button"
-                        className={`activity-toolbar__segmented-btn ${
-                          aggregation === mode ? "activity-toolbar__segmented-btn--active" : ""
-                        }`}
-                        onClick={() => setAggregation(mode)}
-                      >
-                        {t(`activityPage.agg${mode.charAt(0).toUpperCase() + mode.slice(1)}`)}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-
-                <div className="activity-toolbar__divider" />
-
-                {/* Chart Type (Bar / Line) */}
-                <div className="activity-toolbar__group">
-                  <div className="activity-toolbar__icon-toggle">
-                    <button
-                      type="button"
-                      className={`activity-toolbar__icon-btn ${
-                        chartType === "bar" ? "activity-toolbar__icon-btn--active" : ""
-                      }`}
-                      onClick={() => setChartType("bar")}
-                      title={t("activity.barChart")}
-                    >
-                      <Icons.BarChart3 size={11} />
-                    </button>
-                    <button
-                      type="button"
-                      className={`activity-toolbar__icon-btn ${
-                        chartType === "line" ? "activity-toolbar__icon-btn--active" : ""
-                      }`}
-                      onClick={() => setChartType("line")}
-                      title={t("activity.lineChart")}
-                    >
-                      <Icons.TrendingUp size={11} />
-                    </button>
-                  </div>
-                </div>
-              </>
-            )}
+                {preset === "all" ? t("activity.allTime") : preset.toUpperCase()}
+              </button>
+            ))}
           </div>
+
+          <span className="activity-toolbar__divider" aria-hidden="true" />
+
+          {/* Platform/Source Selector */}
+          <div className="activity-toolbar__group">
+            <Icons.Filter size={12} className="activity-toolbar__filter-icon" />
+            <span className="activity-toolbar__select-label">{t("activityPage.source")}</span>
+            <select
+              className="activity-toolbar__select"
+              value={sourceFilter}
+              onChange={(e) => setSourceFilter(e.target.value)}
+            >
+              <option value="all">{t("activity.sourceAll")}</option>
+              {availablePlatforms.map((plat) => (
+                <option key={plat} value={plat}>
+                  {plat}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          {/* Dashboard Specific Sub-options */}
+          {activeTab === "dashboard" && (
+            <>
+              <span className="activity-toolbar__divider" aria-hidden="true" />
+
+              {/* Aggregation interval (Day/Week/Month) */}
+              <div className="activity-toolbar__group">
+                <span className="activity-toolbar__label">{t("activity.interval")}</span>
+                <div className="activity-toolbar__segmented">
+                  {(["day", "week", "month"] as const).map((mode) => (
+                    <button
+                      key={mode}
+                      type="button"
+                      className={`activity-toolbar__segmented-btn ${
+                        aggregation === mode ? "activity-toolbar__segmented-btn--active" : ""
+                      }`}
+                      onClick={() => setAggregation(mode)}
+                    >
+                      {t(`activityPage.agg${mode.charAt(0).toUpperCase() + mode.slice(1)}`)}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Chart Type (Bar / Line) */}
+              <div className="activity-toolbar__group">
+                <div className="activity-toolbar__icon-toggle">
+                  <button
+                    type="button"
+                    className={`activity-toolbar__icon-btn ${
+                      chartType === "bar" ? "activity-toolbar__icon-btn--active" : ""
+                    }`}
+                    onClick={() => setChartType("bar")}
+                    title={t("activity.barChart")}
+                  >
+                    <Icons.BarChart3 size={13} />
+                  </button>
+                  <button
+                    type="button"
+                    className={`activity-toolbar__icon-btn ${
+                      chartType === "line" ? "activity-toolbar__icon-btn--active" : ""
+                    }`}
+                    onClick={() => setChartType("line")}
+                    title={t("activity.lineChart")}
+                  >
+                    <Icons.TrendingUp size={13} />
+                  </button>
+                </div>
+              </div>
+            </>
+          )}
+        </div>
       </div>
 
       {/* Tab Router Content Panels */}
-      <main style={{ flex: 1, minHeight: 0 }}>
+      <main className="activity__main">
         {activeTab === "dashboard" && (
           <ActivityDashboard
             sessions={sessions}

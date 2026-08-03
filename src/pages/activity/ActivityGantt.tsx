@@ -8,6 +8,7 @@ import { useSessionNotes } from "../../context/SessionNotesContext";
 import { useLanguage } from "../../context/LanguageContext";
 import type { Game, GameSession, SessionMetrics } from "../../types/game";
 import { formatPlayTime } from "../../types/game";
+import * as Icons from "./Icons";
 
 export interface ActivityGanttProps {
   sessions: GameSession[];
@@ -383,8 +384,12 @@ export function ActivityGantt({
   if (totalPlayedMinutes === 0) {
     return (
       <div className="section-panel">
-        <div className="section-panel__empty">
-          {t("activityGantt.noSessions")}
+        <div className="activity-empty">
+          <div className="activity-empty__icon">
+            <Icons.GanttChart size={24} />
+          </div>
+          <div className="activity-empty__title">{t("activityGantt.noSessions")}</div>
+          <div className="activity-empty__hint">{t("activity.emptyRangeHint")}</div>
         </div>
       </div>
     );
@@ -415,13 +420,22 @@ export function ActivityGantt({
     <div className="activity-gantt" ref={ganttRef}>
       {/* ── Header / actions ──────────────────────────────────────── */}
       <div className="activity-gantt__head">
-        <div className="activity-gantt__head-title">{t("activityGantt.dailyTimeline")}</div>
+        <div className="activity-gantt__head-title">
+          <Icons.GanttChart size={15} />
+          {t("activityGantt.dailyTimeline")}
+        </div>
+        {!sampled && buckets.length > 0 && (
+          <span className="activity-gantt__head-range">
+            {buckets[0].label} – {buckets[buckets.length - 1].label}
+          </span>
+        )}
         <button
           type="button"
           className="activity-gantt__export-btn"
           onClick={handleExportImage}
           title={t("activityGantt.saveAsImage")}
         >
+          <Icons.Download size={13} />
           {t("activityGantt.saveImage")}
         </button>
       </div>
