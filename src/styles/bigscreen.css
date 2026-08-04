@@ -2294,3 +2294,367 @@
 @media (prefers-reduced-motion: reduce) {
   .bigscreen-v2-content-frame, .bigscreen-v2-connection-dot { animation: none !important; }
 }
+
+/* ============================================================
+   Big Screen — spacious density pass
+   Keep the focusable DOM and controller order unchanged while
+   reserving more of the TV viewport for actual content.
+   ============================================================ */
+
+.bigscreen-dashboard-scrollable-content {
+  padding-bottom: 36px;
+}
+
+.bigscreen-rail {
+  padding-left: 56px;
+  margin-bottom: 24px;
+}
+
+.bigscreen-rail-header {
+  margin-bottom: 10px;
+}
+
+.bigscreen-rail-title {
+  font-size: 18px;
+}
+
+.bigscreen-rail-track {
+  gap: 16px;
+  padding: 8px 4px;
+  margin-right: 56px;
+}
+
+.bigscreen-game-card {
+  width: 148px;
+}
+
+.bigscreen-game-card-body {
+  padding: 10px;
+}
+
+.bigscreen-game-card-name {
+  font-size: 12px;
+}
+
+.bigscreen-game-card-meta {
+  font-size: 10px;
+}
+
+.bigscreen-gamepage-hero {
+  min-height: 410px;
+}
+
+.bigscreen-gamepage-hero-content {
+  padding: 76px 56px 24px;
+  gap: 10px;
+}
+
+.bigscreen-gamepage-hero-back {
+  top: 24px;
+  left: 56px;
+  width: 44px;
+  height: 44px;
+}
+
+.bigscreen-gamepage-hero-info {
+  max-width: 1100px;
+  gap: 5px;
+}
+
+.bigscreen-gamepage-hero-logo {
+  max-width: 400px;
+  max-height: 110px;
+  margin-bottom: 4px;
+}
+
+.bigscreen-gamepage-hero-title {
+  font-size: 48px;
+  margin-bottom: 4px;
+}
+
+.bigscreen-gamepage-hero-subtitle {
+  font-size: 15px;
+}
+
+.bigscreen-gamepage-meta-strip-inline {
+  gap: 7px;
+  margin-top: 2px;
+  margin-bottom: 2px;
+}
+
+.bigscreen-gamepage-hero-actions {
+  gap: 10px;
+  margin-top: 4px;
+}
+
+.bigscreen-gamepage-hero-actions .bigscreen-details-btn {
+  padding-top: 10px;
+  padding-bottom: 10px;
+}
+
+.bigscreen-gamepage > .bigscreen-tab-bar {
+  padding: 10px 56px;
+}
+
+.bigscreen-gamepage-tab-scroll-region {
+  padding: 0 56px 48px;
+}
+
+.bigscreen-gamepage-overview,
+.bigscreen-gamepage-media,
+.bigscreen-gamepage-specs,
+.bigscreen-gamepage-more {
+  max-width: 1680px;
+  padding: 20px 0;
+  gap: 20px;
+}
+
+.bigscreen-gamepage-2col {
+  gap: 18px;
+}
+
+.bigscreen-store-featured-pane {
+  padding: 0 56px 14px;
+}
+
+.bigscreen-store-featured-pane .bigscreen-details-pane-content {
+  max-width: 1100px;
+}
+
+.bigscreen-store-featured-pane .bigscreen-details-logo-area {
+  min-height: 44px;
+  margin-bottom: 8px;
+}
+
+.bigscreen-store-featured-pane .bigscreen-store-featured-logo {
+  max-width: 360px;
+  max-height: 88px;
+  margin-bottom: 0;
+}
+
+.bigscreen-store-featured-pane .bigscreen-store-featured-title {
+  font-size: 36px;
+  margin-bottom: 0;
+}
+
+.bigscreen-store-featured-pane .bigscreen-details-meta {
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.bigscreen-store-featured-pane .bigscreen-details-description {
+  max-width: 900px;
+  font-size: 14px;
+  line-height: 1.4;
+  margin-bottom: 12px;
+}
+
+.bigscreen-store-featured-pane .bigscreen-details-actions {
+  gap: 10px;
+}
+
+.bigscreen-store-tabs-wrapper {
+  padding: 12px 56px 4px;
+}
+
+.store-deals-grid,
+.store-wishlist-grid {
+  grid-template-columns: repeat(auto-fill, minmax(148px, 1fr));
+  gap: 18px;
+  padding: 20px 56px 44px;
+}
+
+.bigscreen-store-card-details {
+  padding: 10px;
+}
+
+.deal-game-title {
+  font-size: 13px;
+}
+
+@media (min-width: 1700px) {
+  .bigscreen-game-card {
+    width: 156px;
+  }
+
+  .bigscreen-gamepage-hero {
+    min-height: 440px;
+  }
+
+  .bigscreen-gamepage-overview,
+  .bigscreen-gamepage-media,
+  .bigscreen-gamepage-specs,
+  .bigscreen-gamepage-more {
+    max-width: 1840px;
+  }
+}
+
+@media (max-width: 900px) {
+  .bigscreen-rail,
+  .bigscreen-store-featured-pane,
+  .bigscreen-gamepage-tab-scroll-region {
+    padding-left: 24px;
+    padding-right: 24px;
+  }
+
+  .bigscreen-rail-track {
+    margin-right: 24px;
+  }
+
+  .bigscreen-gamepage-hero {
+    min-height: 360px;
+  }
+
+  .bigscreen-gamepage-2col {
+    grid-template-columns: 1fr;
+  }
+
+  .bigscreen-gamepage-hero-content {
+    padding: 68px 24px 18px;
+  }
+
+  .bigscreen-gamepage-hero-back {
+    left: 24px;
+  }
+
+  .bigscreen-gamepage > .bigscreen-tab-bar {
+    padding-left: 24px;
+    padding-right: 24px;
+  }
+
+  .bigscreen-store-tabs-wrapper {
+    padding-left: 24px;
+    padding-right: 24px;
+  }
+
+  .store-deals-grid,
+  .store-wishlist-grid {
+    padding-left: 24px;
+    padding-right: 24px;
+  }
+}
+
+/* ============================================================
+   Big Screen — navigation clarity pass
+   ============================================================ */
+
+.bigscreen-tab-bar-status {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 8px;
+  flex: 0 0 auto;
+  min-width: 112px;
+  color: color-mix(in srgb, var(--bigscreen-text) 48%, transparent);
+  font-size: 11px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.bigscreen-tab-bar-status strong {
+  color: var(--bigscreen-text);
+  font-size: 12px;
+}
+
+.bigscreen-tab-bar-status span {
+  color: color-mix(in srgb, var(--bigscreen-text) 38%, transparent);
+  font-variant-numeric: tabular-nums;
+}
+
+.bigscreen-gamepage-hero-back {
+  width: auto;
+  min-width: 44px;
+  padding: 0 14px;
+  gap: 7px;
+  border-radius: 24px;
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.bigscreen-gamepage-hero-back span {
+  display: inline;
+}
+
+.bigscreen-gamepage-hero-actions .bigscreen-details-btn--primary {
+  min-width: 150px;
+}
+
+.bigscreen-rail.is-active .bigscreen-rail-header {
+  position: relative;
+}
+
+.bigscreen-rail.is-active .bigscreen-rail-header::after {
+  content: "";
+  width: 7px;
+  height: 7px;
+  margin-left: 2px;
+  border-radius: 50%;
+  background: var(--bigscreen-accent);
+  box-shadow: 0 0 10px var(--bigscreen-accent-glow);
+}
+
+.bigscreen-rail.is-active .bigscreen-rail-title {
+  color: var(--bigscreen-text);
+}
+
+.bigscreen-store-context {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20px;
+  padding: 18px 56px 4px;
+  color: color-mix(in srgb, var(--bigscreen-text) 58%, transparent);
+}
+
+.bigscreen-store-context > div {
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+}
+
+.bigscreen-store-context-eyebrow {
+  color: var(--bigscreen-accent-soft-text);
+  font-size: 10px;
+  font-weight: 900;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+}
+
+.bigscreen-store-context strong {
+  color: var(--bigscreen-text);
+  font-size: 18px;
+  font-weight: 850;
+}
+
+.bigscreen-store-context-hint {
+  color: color-mix(in srgb, var(--bigscreen-text) 38%, transparent);
+  font-size: 11px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+@media (max-width: 900px) {
+  .bigscreen-tab-bar-status {
+    min-width: auto;
+  }
+
+  .bigscreen-store-context {
+    padding-left: 24px;
+    padding-right: 24px;
+  }
+}
+
+@media (max-width: 760px) {
+  .bigscreen-tab-bar-status {
+    display: none;
+  }
+
+  .bigscreen-store-context {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 5px;
+  }
+
+  .bigscreen-store-context-hint {
+    white-space: normal;
+  }
+}

@@ -34,6 +34,9 @@ export default function BigScreenStore() {
   }, [location.pathname]);
 
   const [activeTab, setActiveTab] = useState<StoreTab>(initialTab);
+  const activeTabLabel = t(
+    STORE_TABS.find((tab) => tab.id === activeTab)?.label ?? "store.tab.discover",
+  );
 
   // Sync activeTab when URL pathname changes
   useEffect(() => {
@@ -217,7 +220,7 @@ export default function BigScreenStore() {
   const renderDetailsPane = (railId: string) => {
     if (activeRailId !== railId) return null;
     return (
-      <section className="bigscreen-dashboard-details-pane animate-fade-in" aria-label={t("bigscreen.store.gameInfo")} style={{ padding: "0 64px 24px 64px" }}>
+      <section className="bigscreen-dashboard-details-pane bigscreen-store-featured-pane animate-fade-in" aria-label={t("bigscreen.store.gameInfo")}>
         <div className="bigscreen-details-pane-content">
           {featuredGame ? (
             <>
@@ -226,12 +229,12 @@ export default function BigScreenStore() {
                   <img
                     src={featuredGame.logoUrl}
                     alt={featuredGame.name}
-                    className="bigscreen-gamepage-hero-logo"
-                    width={480}
-                    height={140}
+                    className="bigscreen-gamepage-hero-logo bigscreen-store-featured-logo"
+                    width={360}
+                    height={88}
                   />
                 ) : (
-                  <h1 className="bigscreen-gamepage-hero-title">{featuredGame.name}</h1>
+                  <h1 className="bigscreen-gamepage-hero-title bigscreen-store-featured-title">{featuredGame.name}</h1>
                 )}
               </div>
 
@@ -305,6 +308,13 @@ export default function BigScreenStore() {
       {/* Main scrolling wrapper */}
       <div className="bigscreen-dashboard-scrollable-content">
         {/* Navigation tabs */}
+        <div className="bigscreen-store-context" aria-live="polite">
+          <div>
+            <span className="bigscreen-store-context-eyebrow">{t("nav.store")}</span>
+            <strong>{activeTabLabel}</strong>
+          </div>
+          <span className="bigscreen-store-context-hint">A {t("gamepad.click")} · D-pad {t("gamepad.move")} · LB/RB {t("bigscreen.tabbar.tabs")}</span>
+        </div>
         <div className="bigscreen-store-tabs-wrapper">
           <BigScreenTabBar
             tabs={STORE_TABS.map((tb) => ({ ...tb, label: t(tb.label) }))}
@@ -333,6 +343,7 @@ export default function BigScreenStore() {
                         title={t("store.tab.trending")}
                         games={trending}
                         onCardClick={handleCardClick}
+                        isActive={activeRailId === "trending"}
                       />
                     </>
                     <>
@@ -342,6 +353,7 @@ export default function BigScreenStore() {
                         title={t("bigscreen.store.popularNow")}
                         games={popular}
                         onCardClick={handleCardClick}
+                        isActive={activeRailId === "popular"}
                       />
                     </>
                     <>
@@ -351,6 +363,7 @@ export default function BigScreenStore() {
                         title={t("bigscreen.store.topCritic")}
                         games={top}
                         onCardClick={handleCardClick}
+                        isActive={activeRailId === "top"}
                       />
                     </>
                     <>
@@ -360,6 +373,7 @@ export default function BigScreenStore() {
                         title={t("store.tab.comingSoon")}
                         games={comingSoon}
                         onCardClick={handleCardClick}
+                        isActive={activeRailId === "coming-soon"}
                       />
                     </>
                   </div>
@@ -377,38 +391,9 @@ export default function BigScreenStore() {
                 </div>
               ) : (
                 <div className="store-deals-grid">
-                  {deals.map((deal: DealItem) => {
-                    const dealProps = useFocusable(() => {
-                      if (deal.storeUrl) {
-                        invoke("open_folder", { path: deal.storeUrl }).catch((err) =>
-                          console.error("Failed to open deal URL:", err)
-                        );
-                      }
-                    });
-                    return (
-                      <div
-                        key={deal.id}
-                        className="bigscreen-game-card store-deal-card"
-                        {...dealProps}
-                      >
-                        <div className="bigscreen-game-card-cover">
-                          {deal.thumbnail ? (
-                            <img src={deal.thumbnail} alt={deal.gameTitle} loading="lazy" />
-                          ) : (
-                            <div className="bigscreen-game-card-cover-placeholder">🛒</div>
-                          )}
-                          <div className="deal-discount-badge">-{deal.discountPercent}%</div>
-                        </div>
-                        <div className="bigscreen-store-card-details">
-                          <h4 className="deal-game-title">{deal.gameTitle}</h4>
-                          <div className="deal-price-row">
-                            <span className="deal-price-new">€{deal.dealPrice.toFixed(2)}</span>
-                          </div>
-                          <div className="deal-store-tag">{deal.storeName}</div>
-                        </div>
-                      </div>
-                    );
-                  })}
+                  {deals.map((deal: DealItem) => (
+                    <BigScreenDealCard key={deal.id} deal={deal} />
+                  ))}
                 </div>
               )}
             </div>
@@ -426,34 +411,72 @@ export default function BigScreenStore() {
                 </div>
               ) : (
                 <div className="store-wishlist-grid">
-                  {wishlist.map((item) => {
-                    const wishProps = useFocusable(() => {
-                      navigate(`/store/${item.slug}`);
-                    });
-                    return (
-                      <div
-                        key={item.slug}
-                        className="bigscreen-game-card store-wishlist-card"
-                        {...wishProps}
-                      >
-                        <div className="bigscreen-game-card-cover">
-                          {item.coverUrl ? (
-                            <img src={item.coverUrl} alt={item.name} loading="lazy" />
-                          ) : (
-                            <div className="bigscreen-game-card-cover-placeholder">❤️</div>
-                          )}
-                        </div>
-                        <div className="bigscreen-store-card-details">
-                          <h4 className="deal-game-title">{item.name}</h4>
-                        </div>
-                      </div>
-                    );
-                  })}
+                  {wishlist.map((item) => (
+                    <BigScreenWishlistCard key={item.slug} item={item} />
+                  ))}
                 </div>
               )}
             </div>
           )}
         </div>
+      </div>
+    </div>
+  );
+}
+
+function BigScreenDealCard({ deal }: { deal: DealItem }) {
+  const focusProps = useFocusable(() => {
+    if (deal.storeUrl) {
+      invoke("open_folder", { path: deal.storeUrl }).catch((err) =>
+        console.error("Failed to open deal URL:", err),
+      );
+    }
+  });
+
+  return (
+    <div
+      className="bigscreen-game-card store-deal-card"
+      {...focusProps}
+      aria-label={`${deal.gameTitle} - ${deal.discountPercent}% off`}
+    >
+      <div className="bigscreen-game-card-cover">
+        {deal.thumbnail ? (
+          <img src={deal.thumbnail} alt={deal.gameTitle} loading="lazy" />
+        ) : (
+          <div className="bigscreen-game-card-cover-placeholder">🛒</div>
+        )}
+        <div className="deal-discount-badge">-{deal.discountPercent}%</div>
+      </div>
+      <div className="bigscreen-store-card-details">
+        <h4 className="deal-game-title">{deal.gameTitle}</h4>
+        <div className="deal-price-row">
+          <span className="deal-price-new">€{deal.dealPrice.toFixed(2)}</span>
+        </div>
+        <div className="deal-store-tag">{deal.storeName}</div>
+      </div>
+    </div>
+  );
+}
+
+function BigScreenWishlistCard({ item }: { item: StoreGameSummary }) {
+  const navigate = useNavigate();
+  const focusProps = useFocusable(() => navigate(`/store/${item.slug}`));
+
+  return (
+    <div
+      className="bigscreen-game-card store-wishlist-card"
+      {...focusProps}
+      aria-label={item.name}
+    >
+      <div className="bigscreen-game-card-cover">
+        {item.coverUrl ? (
+          <img src={item.coverUrl} alt={item.name} loading="lazy" />
+        ) : (
+          <div className="bigscreen-game-card-cover-placeholder">❤️</div>
+        )}
+      </div>
+      <div className="bigscreen-store-card-details">
+        <h4 className="deal-game-title">{item.name}</h4>
       </div>
     </div>
   );

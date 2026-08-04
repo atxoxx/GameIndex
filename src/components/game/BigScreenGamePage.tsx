@@ -38,7 +38,7 @@
 // cycle resumes on Media/Specs/More where the user is focused on
 // tab content.
 
-import { useEffect, useState, useMemo } from "react";
+import { useEffect, useState, useMemo, useRef } from "react";
 import type { ReactNode } from "react";
 import type { Game } from "../../types/game";
 import { useGames } from "../../context/GameContext";
@@ -114,6 +114,7 @@ export default function BigScreenGamePage({
   const [downloadOpen, setDownloadOpen] = useState(false);
   const [isClosing, setIsClosing] = useState(false);
   const [logoError, setLogoError] = useState(false);
+  const pageRef = useRef<HTMLDivElement | null>(null);
 
   const resolvedLogo = useMemo(() => {
     if (game.logoUrl) return game.logoUrl;
@@ -154,7 +155,16 @@ export default function BigScreenGamePage({
       { id: "more", label: t("game.tab.more"), icon: <MoreIcon /> }
     );
     return list;
-  }, [resolvedSteamAppId]);
+  }, [resolvedSteamAppId, t]);
+
+  // Start on the primary game action instead of the decorative back button.
+  // This makes the first D-pad/A interaction useful on a TV.
+  useEffect(() => {
+    const firstAction = pageRef.current?.querySelector<HTMLElement>(
+      '.bigscreen-gamepage-hero-actions [tabindex="0"]:not([disabled])',
+    );
+    firstAction?.focus({ preventScroll: true });
+  }, [game.id]);
 
   // Reset isClosing when game stops running
   useEffect(() => {
@@ -220,7 +230,7 @@ export default function BigScreenGamePage({
   const rating = game.igdbRating ?? game.criticRating;
 
   return (
-    <div className="bigscreen-gamepage">
+    <div ref={pageRef} className="bigscreen-gamepage">
       {/* ── Hero (always visible, pauses on Overview) ────────── */}
       <section
         className="bigscreen-gamepage-hero"
@@ -258,6 +268,7 @@ export default function BigScreenGamePage({
               <line x1="19" y1="12" x2="5" y2="12" />
               <polyline points="12 19 5 12 12 5" />
             </svg>
+            <span>{t("common.back")}</span>
           </button>
 
           <div className="bigscreen-gamepage-hero-info">
@@ -511,7 +522,7 @@ export default function BigScreenGamePage({
         tabs={tabs}
         activeTab={activeTab}
         onActivate={setActiveTab}
-        ariaLabel="Game page sections"
+        ariaLabel={t("bigscreen.tabbar.tabs")}
       />
 
       {/* ── Per-tab scroll region ───────────────────────────── */}

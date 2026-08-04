@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { useLanguage } from "../../context/LanguageContext";
 import type { ReactNode } from "react";
 import { useNavigate } from "react-router-dom";
@@ -70,6 +70,16 @@ export default function BigScreenStoreGamePage({
   const [lightbox, setLightbox] = useState<string | null>(null);
   const [downloadOpen, setDownloadOpen] = useState(false);
   const [logoError, setLogoError] = useState(false);
+  const pageRef = useRef<HTMLDivElement | null>(null);
+
+  // Start on the primary store action so the first controller press
+  // has an obvious, useful destination.
+  useEffect(() => {
+    const firstAction = pageRef.current?.querySelector<HTMLElement>(
+      '.bigscreen-gamepage-hero-actions [tabindex="0"]:not([disabled])',
+    );
+    firstAction?.focus({ preventScroll: true });
+  }, [game.id]);
 
   // Bumper tab cycling
   useEffect(() => {
@@ -106,7 +116,7 @@ export default function BigScreenStoreGamePage({
   const rating = game.igdbRating ?? game.criticRating;
 
   return (
-    <div className="bigscreen-gamepage">
+    <div ref={pageRef} className="bigscreen-gamepage">
       {/* ── Hero (pauses on Overview) ── */}
       <section className="bigscreen-gamepage-hero" aria-label={t("bigscreen.store.gameBanner", { name: game.name })}>
         <BigScreenHeroBackground

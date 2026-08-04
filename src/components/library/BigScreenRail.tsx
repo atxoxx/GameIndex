@@ -42,14 +42,10 @@ interface BigScreenRailProps {
   emptyLabel?: string;
   /** Invoked when the user clicks / activates a card. */
   onCardClick: (game: Game) => void;
-  /**
-   * Stable identifier for this rail. Rendered on the section as
-   * `data-rail-id="..."`. Doesn't drive the spotlight today (the
-   * parent reads `data-game-id` directly off the focused element),
-   * but is useful for downstream state like a per-rail header
-   * highlight and for debug inspection in the DOM.
-   */
+  /** Stable identifier used by the parent to track the focused rail. */
   railId?: string;
+  /** Visually marks the rail containing the current controller focus. */
+  isActive?: boolean;
 }
 
 export default function BigScreenRail({
@@ -59,6 +55,7 @@ export default function BigScreenRail({
   emptyLabel,
   onCardClick,
   railId,
+  isActive = false,
 }: BigScreenRailProps) {
   const gamepad = useGamepad();
   const { t } = useLanguage();
@@ -93,9 +90,10 @@ export default function BigScreenRail({
 
   return (
     <section
-      className="bigscreen-rail"
+      className={`bigscreen-rail${isActive ? " is-active" : ""}`}
       aria-label={title}
       data-rail-id={railId}
+      data-active={isActive ? "true" : "false"}
     >
       <div className="bigscreen-rail-header">
         {icon ? (

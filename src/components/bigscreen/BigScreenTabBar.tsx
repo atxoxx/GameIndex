@@ -65,10 +65,18 @@ export default function BigScreenTabBar<T extends string>({
 }: BigScreenTabBarProps<T>) {
   const { t } = useLanguage();
   const containerRef = useRef<HTMLDivElement | null>(null);
+  const didMountRef = useRef(false);
   const tablistLabel = ariaLabel ?? t("bigscreen.tabbar.tabs");
+
+  const activeIndex = tabs.findIndex((tab) => tab.id === activeTab);
+  const activeTabLabel = tabs[activeIndex]?.label ?? tablistLabel;
 
   useEffect(() => {
     if (!containerRef.current) return;
+    if (!didMountRef.current) {
+      didMountRef.current = true;
+      return;
+    }
     const activeEl = containerRef.current.querySelector(
       `#bigscreen-tab-${activeTab}`
     ) as HTMLElement | null;
@@ -78,6 +86,10 @@ export default function BigScreenTabBar<T extends string>({
         block: "nearest",
         inline: "center",
       });
+      // Bumper navigation changes the active section without a click.
+      // Move focus with it so the next D-pad press starts from the
+      // visible tab bar instead of an element from the previous section.
+      activeEl.focus({ preventScroll: true });
     }
   }, [activeTab]);
 
@@ -107,6 +119,11 @@ export default function BigScreenTabBar<T extends string>({
             onActivate={() => onActivate(tab.id)}
           />
         ))}
+      </div>
+
+      <div className="bigscreen-tab-bar-status" aria-live="polite">
+        <strong>{activeTabLabel}</strong>
+        <span>{activeIndex + 1} / {tabs.length}</span>
       </div>
 
       {/* Decorative RB chevron — visual affordance only. */}
