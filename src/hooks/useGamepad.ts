@@ -80,7 +80,7 @@ export interface GamepadState {
    * Register a BigScreenNav tab cycler (LB/RB). The handler is
    * invoked with 'forward' on RB press and 'back' on LB press.
    * Returns an unregister function. Only one cycler is active at a
-   * time — last-registered wins.
+   * time — among equal priorities the last-registered wins.
    */
   registerTabCycler: (
     fn: (direction: "forward" | "back") => void,
@@ -124,9 +124,19 @@ export function useGamepadInternal(enabled: boolean): GamepadState {
   const gamepadStateRef = useRef<GamepadState | null>(null);
 
   // Tab cycler subscription (BigScreenNav uses this for LB/RB).
+  // Each entry carries a monotonic `seq` so that among equal
+  // priorities the MOST RECENTLY registered cycler wins — this is
+  // what lets a page-level cycler (e.g. a game page mounted later)
+  // reliably take over from a persistent shell cycler without
+  // relying on registration order.
   const tabCyclersRef = useRef<
-    { fn: (direction: "forward" | "back") => void; priority: number }[]
+    {
+      fn: (direction: "forward" | "back") => void;
+      priority: number;
+      seq: number;
+    }[]
   >([]);
+  const tabCyclerSeqRef = useRef(0);
 
   // ── Polling-loop state refs ────────────────────────────────
   const holdDirectionRef = useRef<{ h: number; v: number } | null>(null);
@@ -243,10 +253,18 @@ export function useGamepadInternal(enabled: boolean): GamepadState {
   // ── Register tab cycler for BigScreenNav LB/RB ─────────────
   const registerTabCycler = useCallback(
     (fn: (direction: "forward" | "back") => void, priority = 0): (() => void) => {
-      const entry = { fn, priority };
+      const entry = {
+        fn,
+        priority,
+        seq: ++tabCyclerSeqRef.current,
+      };
       tabCyclersRef.current.push(entry);
-      // Sort descending by priority so the highest priority is first
-      tabCyclersRef.current.sort((a, b) => b.priority - a.priority);
+      // Sort descending by priority so the highest priority is first;
+      // ties are broken by registration recency (newest wins). The
+      // active cycler is always tabCyclersRef.current[0].
+      tabCyclersRef.current.sort(
+        (a, b) => b.priority - a.priority || b.seq - a.seq,
+      );
       return () => {
         tabCyclersRef.current = tabCyclersRef.current.filter((x) => x !== entry);
       };

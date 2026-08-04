@@ -38,14 +38,14 @@ export default function BigScreenStore() {
     STORE_TABS.find((tab) => tab.id === activeTab)?.label ?? "store.tab.discover",
   );
 
-  // Sync activeTab when URL pathname changes
+  // Sync activeTab when URL pathname changes. BigScreenStore only
+  // mounts at /store and /wishlist (the /deals route renders the
+  // separate BigScreenDeals page), so only those two tabs need syncing.
   useEffect(() => {
     const path = location.pathname;
     if (path.startsWith("/wishlist")) {
       setActiveTab("wishlist");
-    } else if (path.startsWith("/deals")) {
-      setActiveTab("deals");
-    } else if (path.startsWith("/store")) {
+    } else {
       setActiveTab("trending");
     }
   }, [location.pathname]);
@@ -53,13 +53,18 @@ export default function BigScreenStore() {
   const handleSelectTab = useCallback(
     (tabId: StoreTab) => {
       setActiveTab(tabId);
-      if (tabId === "wishlist") {
-        navigate("/wishlist");
-      } else if (tabId === "deals") {
-        navigate("/deals");
-      } else {
-        navigate("/store");
+      if (tabId === "deals") {
+        // Deals is rendered as an inline panel right here in the
+        // store, so deliberately DO NOT navigate. Hopping to /deals
+        // used to unmount BigScreenStore and mount BigScreenDeals
+        // (a different tab set with no bumper cycler) — after which
+        // the next LB/RB press suddenly cycled the header's top-level
+        // sections instead of tabs. Keeping the tab local makes
+        // bumpers behave consistently across Discover / Deals /
+        // Wishlist.
+        return;
       }
+      navigate(tabId === "wishlist" ? "/wishlist" : "/store");
     },
     [navigate]
   );
@@ -200,7 +205,10 @@ export default function BigScreenStore() {
           : (baseIndex - 1 + STORE_TABS.length) % STORE_TABS.length;
       handleSelectTab(STORE_TABS[nextIndex].id);
     }, 1);
-  }, [gamepad, activeTab, handleSelectTab]);
+    // Dep on the stable `registerTabCycler` only — depending on the
+    // whole `gamepad` object here would re-register the cycler on
+    // every focus change.
+  }, [gamepad.registerTabCycler, activeTab, handleSelectTab]);
 
   const handleCardClick = useCallback(
     (game: StoreGameSummary) => {

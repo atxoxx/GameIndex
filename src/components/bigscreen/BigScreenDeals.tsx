@@ -3,12 +3,17 @@ import { invoke } from "@tauri-apps/api/core";
 import { openUrl } from "@tauri-apps/plugin-opener";
 import { useLanguage } from "../../context/LanguageContext";
 import { useFocusable } from "../../hooks/useFocusable";
+import { useGamepad } from "../../hooks/GamepadProvider";
 import BigScreenTabBar, { type TabDef } from "./BigScreenTabBar";
 import BigScreenTabPanel from "./BigScreenTabPanel";
 import BigScreenCover from "./BigScreenCover";
 import type { DealItem, GamePassGame, Giveaway } from "../../types/deals";
 
 type DealsTab = "gamepass" | "deals" | "giveaways";
+
+// Static tab order shared by the tab bar and the LB/RB bumper cycler
+// so the two can never drift apart.
+const DEALS_TAB_ORDER: DealsTab[] = ["gamepass", "deals", "giveaways"];
 
 function formatPrice(price: number): string {
   if (!Number.isFinite(price)) return "—";
@@ -17,6 +22,7 @@ function formatPrice(price: number): string {
 
 export default function BigScreenDeals() {
   const { t } = useLanguage();
+  const gamepad = useGamepad();
   const DEALS_TABS: TabDef<DealsTab>[] = [
     { id: "gamepass", label: "Xbox Game Pass" },
     { id: "deals", label: t("deals.subTabIsThereAnyDeal") },
@@ -28,6 +34,25 @@ export default function BigScreenDeals() {
   const [deals, setDeals] = useState<DealItem[]>([]);
   const [giveaways, setGiveaways] = useState<Giveaway[]>([]);
   const [loading, setLoading] = useState(true);
+
+  // LB/RB bumper tab cycling, consistent with every other tabbed Big
+  // Screen page (store, game hub, store detail). Without this, landing
+  // on /deals left bumpers owned by the header's section cycler, so the
+  // same button press meant "switch tabs" on one page and "switch
+  // section" on the next.
+  useEffect(() => {
+    return gamepad.registerTabCycler((direction: "forward" | "back") => {
+      setActiveTab((prev) => {
+        const currentIndex = DEALS_TAB_ORDER.indexOf(prev);
+        const baseIndex = currentIndex < 0 ? 0 : currentIndex;
+        const nextIndex =
+          direction === "forward"
+            ? (baseIndex + 1) % DEALS_TAB_ORDER.length
+            : (baseIndex - 1 + DEALS_TAB_ORDER.length) % DEALS_TAB_ORDER.length;
+        return DEALS_TAB_ORDER[nextIndex];
+      });
+    }, 1);
+  }, [gamepad.registerTabCycler]);
 
   const [selectedGamepass, setSelectedGamepass] = useState<GamePassGame | null>(null);
   const [selectedDeal, setSelectedDeal] = useState<DealItem | null>(null);
