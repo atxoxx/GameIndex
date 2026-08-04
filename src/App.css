@@ -7154,7 +7154,9 @@
 }
 
 .rv-dd-opt {
-  display: block;
+  display: flex;
+  align-items: center;
+  gap: 8px;
   width: 100%;
   padding: 8px 10px;
   border: none;
@@ -7173,6 +7175,10 @@
 .rv-dd-opt.active {
   background: var(--color-bg-hover);
   color: var(--color-text-primary);
+}
+
+.rv-dd-flag {
+  flex-shrink: 0;
 }
 
 /* ── Toggle label ───────────────────────────────────────────────────── */

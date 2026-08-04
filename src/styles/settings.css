@@ -1540,13 +1540,10 @@
 }
 
 .language-trigger-flag {
-  font-size: 22px;
-  line-height: 1;
+  /* Wraps the inline-SVG FlagIcon (emoji flags don't render on
+   * Windows, so we draw them as SVGs). */
+  display: inline-flex;
   flex-shrink: 0;
-  /* Slight saturation boost so the flag emojis read crisply on dark
-   * backgrounds without falling back to the muted low-saturation
-   * variants that some rendering engines apply by default. */
-  filter: saturate(1.15);
 }
 
 .language-trigger-info {
@@ -1676,8 +1673,7 @@
 }
 
 .language-option-flag {
-  font-size: 18px;
-  line-height: 1;
+  display: inline-flex;
   flex-shrink: 0;
 }
 

@@ -20,6 +20,7 @@ import HydraReviewsPanel from "./HydraReviewsPanel";
 import { useGames } from "../context/GameContext";
 import { useToast } from "../context/ToastContext";
 import { useLanguage } from "../context/LanguageContext";
+import { FlagIcon } from "./ui";
 
 // ─── Types ──────────────────────────────────────────────────────────────────
 
@@ -556,6 +557,8 @@ function StarRow({ score, size = 14, overrideStars }: { score?: number; size?: n
 interface DropdownItem {
   value: string;
   label: string;
+  /** Optional ISO country code (or "globe") for an inline flag glyph. */
+  flag?: string;
 }
 
 function Dropdown({
@@ -589,6 +592,7 @@ function Dropdown({
         className={`rv-dd-trigger${open ? " active" : ""}`}
         onClick={() => setOpen((p) => !p)}
       >
+        {selected?.flag && <FlagIcon code={selected.flag} size={15} />}
         <span>{selected?.label ?? label}</span>
         <svg className="rv-dd-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
           <polyline points="6 9 12 15 18 9" />
@@ -606,6 +610,7 @@ function Dropdown({
                 setOpen(false);
               }}
             >
+              {item.flag && <FlagIcon code={item.flag} size={15} className="rv-dd-flag" />}
               {item.label}
             </button>
           ))}
@@ -1982,7 +1987,7 @@ export default function ReviewsTab({ game, onReviewsFetched }: ReviewsTabProps) 
                 label={t("common.language")}
                 value={languageFilter}
                 onChange={setLanguageFilter}
-                items={STEAM_LANGUAGES.map((l) => ({ value: l.code, label: `${l.flag} ${l.label}` }))}
+                items={STEAM_LANGUAGES.map((l) => ({ value: l.code, label: l.label, flag: l.flag }))}
               />
 
               {/* Playtime */}

@@ -6,6 +6,7 @@ import { useBigScreen } from "../../context/BigScreenContext";
 import { useFocusable } from "../../hooks/useFocusable";
 import { useLanguage } from "../../context/LanguageContext";
 import { UI_LANGUAGES, steamCodeForUi } from "../../i18n/languages";
+import { FlagIcon } from "../ui";
 
 /**
  * AboutSection
@@ -279,10 +280,11 @@ export default function AboutSection({
                   type="button"
                   className={`about-lang-btn${active ? " about-lang-btn--active" : ""}`}
                   aria-pressed={active}
+                  aria-label={meta?.label ?? code}
                   title={meta?.label ?? code}
                   onClick={() => setLangOverride(active ? null : code)}
                 >
-                  {meta?.flag ?? code}
+                  <FlagIcon code={meta?.flag ?? code} size={16} />
                 </button>
               );
             })}

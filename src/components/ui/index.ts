@@ -21,3 +21,6 @@ export type { KpiTileProps } from "./KpiTile";
 
 export { PageHeader } from "./PageHeader";
 export type { PageHeaderProps } from "./PageHeader";
+
+export { default as FlagIcon } from "./FlagIcon";
+export type { FlagIconProps } from "./FlagIcon";

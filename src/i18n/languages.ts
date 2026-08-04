@@ -18,17 +18,19 @@ export interface UiLanguage {
   steamCode: string;
   /** Native, end-user-facing label. */
   label: string;
-  /** Flag emoji for the selector. */
+  /** Lowercase ISO 3166-1 alpha-2 country code for the selector flag.
+   *  Rendered as an inline SVG via `FlagIcon` — Windows can't render
+   *  flag emoji (they show as bare letter pairs). */
   flag: string;
 }
 
 export const UI_LANGUAGES: UiLanguage[] = [
-  { code: "en", steamCode: "english", label: "English", flag: "🇬🇧" },
-  { code: "fr", steamCode: "french", label: "Français", flag: "🇫🇷" },
-  { code: "es", steamCode: "spanish", label: "Español", flag: "🇪🇸" },
-  { code: "de", steamCode: "german", label: "Deutsch", flag: "🇩🇪" },
-  { code: "ru", steamCode: "russian", label: "Русский", flag: "🇷🇺" },
-  { code: "zh-CN", steamCode: "schinese", label: "简体中文", flag: "🇨🇳" },
+  { code: "en", steamCode: "english", label: "English", flag: "gb" },
+  { code: "fr", steamCode: "french", label: "Français", flag: "fr" },
+  { code: "es", steamCode: "spanish", label: "Español", flag: "es" },
+  { code: "de", steamCode: "german", label: "Deutsch", flag: "de" },
+  { code: "ru", steamCode: "russian", label: "Русский", flag: "ru" },
+  { code: "zh-CN", steamCode: "schinese", label: "简体中文", flag: "cn" },
 ];
 
 /** Default UI language (also the ultimate fallback for missing translations). */

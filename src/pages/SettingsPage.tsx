@@ -19,7 +19,7 @@ import { useAchievements } from "../context/AchievementContext";
 import { useLanguage } from "../context/LanguageContext";
 import SourceManager from "../components/SourceManager";
 import { useDownloads } from "../context/DownloadContext";
-import { Button, ConfirmModal } from "../components/ui";
+import { Button, ConfirmModal, FlagIcon } from "../components/ui";
 import "../styles/page-settings.css";
 
 /** Maps theme ids to preview colors — kept in sync with App.css overrides. */
@@ -107,7 +107,7 @@ const getDescriptorLabel = (descriptor: ThemeDescriptor, t: (k: string) => strin
   }
 };
 
-type SettingsTab = "appearance" | "hardware" | "integrations" | "downloads" | "launcher" | "privacy";
+type SettingsTab = "general" | "appearance" | "hardware" | "integrations" | "downloads" | "launcher" | "privacy";
 
 import { useBigScreen } from "../context/BigScreenContext";
 import BigScreenSystem from "../components/bigscreen/BigScreenSystem";
@@ -211,7 +211,8 @@ export default function SettingsPage() {
       id: "personalize",
       label: t("settings.group.personalize"),
       items: [
-        { tab: "appearance", label: t("settings.appearance"), keywords: "theme accent color language display", icon: <PaletteIcon /> },
+        { tab: "general", label: t("settings.general"), keywords: "language locale interface display", icon: <GlobeIcon /> },
+        { tab: "appearance", label: t("settings.appearance"), keywords: "theme accent color display", icon: <PaletteIcon /> },
         { tab: "hardware", label: t("settings.tab.hardware"), keywords: "gpu cpu ram monitor telemetry temperature", icon: <HardwareIcon /> },
       ],
     },
@@ -1801,6 +1802,144 @@ export default function SettingsPage() {
         </div>
       </header>
 
+      {/* General — app-wide preferences (display language) */}
+      {activeSettingsTab === "general" && (
+        <section className="settings-section">
+          <header className="settings-section-header">
+            <span className="settings-section-icon"><GlobeIcon /></span>
+            <div className="settings-section-header-text">
+              <h2 className="settings-section-title">{t("settings.language")}</h2>
+              <p className="settings-section-desc">
+                {t("settingsPage.languageDesc")}
+              </p>
+            </div>
+          </header>
+          <div
+            ref={languagePickerRef}
+            className={`settings-language-picker${languagePickerOpen ? " open" : ""}`}
+          >
+            <button
+              ref={languagePickerTriggerRef}
+              type="button"
+              className="language-trigger"
+              aria-haspopup="listbox"
+              aria-expanded={languagePickerOpen}
+              aria-activedescendant={
+                languagePickerOpen
+                  ? `language-option-${languages[languagePickerHoverIdx]?.code ?? ""}`
+                  : undefined
+              }
+              aria-label={t("settings.language")}
+              onClick={() => {
+                setLanguagePickerOpen((wasOpen) => {
+                  // When opening, seed the focused index to the
+                  // currently-active language so ArrowDown lands on
+                  // the next entry and ArrowUp lands on the previous
+                  // entry rather than always starting at index 0.
+                  if (!wasOpen) {
+                    const idx = languages.findIndex(
+                      (l) => l.code === language,
+                    );
+                    setLanguagePickerHoverIdx(idx >= 0 ? idx : 0);
+                  }
+                  return !wasOpen;
+                });
+              }}
+            >
+              <span className="language-trigger-flag" aria-hidden="true">
+                <FlagIcon code={currentLanguage.flag} size={22} />
+              </span>
+              <span className="language-trigger-info">
+                <span className="language-trigger-label">
+                  {currentLanguage.label}
+                </span>
+                <span className="language-trigger-code">
+                  {currentLanguage.code.toUpperCase()}
+                </span>
+              </span>
+              {/* Chevron points UP at rest to signal "this opens
+               *  above me". When the panel is open the wrapper
+               *  rotates the SVG 180° so the chevron points down,
+               *  matching the universal "click to collapse" idiom. */}
+              <svg
+                className="language-trigger-chevron"
+                viewBox="0 0 24 24"
+                width="14"
+                height="14"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                aria-hidden="true"
+              >
+                <polyline points="6 15 12 9 18 15" />
+              </svg>
+            </button>
+            {languagePickerOpen && (
+              <div
+                className="language-panel"
+                role="listbox"
+                aria-label={t("settings.language")}
+              >
+                {languages.map((l, idx) => {
+                  const isActive = l.code === language;
+                  const isHovered = idx === languagePickerHoverIdx;
+                  return (
+                    <button
+                      key={l.code}
+                      type="button"
+                      id={`language-option-${l.code}`}
+                      role="option"
+                      aria-selected={isActive}
+                      className={`language-option${isActive ? " active" : ""}${isHovered ? " hovered" : ""}`}
+                      onClick={() => {
+                        void setLanguage(l.code);
+                        setLanguagePickerOpen(false);
+                      }}
+                      onMouseEnter={() =>
+                        setLanguagePickerHoverIdx(idx)
+                      }
+                    >
+                      <span
+                        className="language-option-flag"
+                        aria-hidden="true"
+                      >
+                        <FlagIcon code={l.flag} size={18} />
+                      </span>
+                      <span className="language-option-text">
+                        <span className="language-option-label">
+                          {l.label}
+                        </span>
+                        <span className="language-option-native">
+                          {l.code.toUpperCase()}
+                        </span>
+                      </span>
+                      {isActive && (
+                        <svg
+                          className="language-option-check"
+                          viewBox="0 0 24 24"
+                          width="14"
+                          height="14"
+                          fill="none"
+                          stroke="currentColor"
+                          strokeWidth="2.5"
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          aria-hidden="true"
+                        >
+                          <polyline points="20 6 9 17 4 12" />
+                        </svg>
+                      )}
+                    </button>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        </section>
+      )}
+
       {/* Appearance */}
       {activeSettingsTab === "appearance" && (
         <section className="settings-section">
@@ -1962,149 +2101,6 @@ export default function SettingsPage() {
               </div>
             </div>
 
-            {/* Display language — drives both the UI strings and which
-             *  localized game description Steam/IGDB returns. */}
-            <div className="settings-block">
-              <header className="settings-section-header">
-                <span className="settings-section-icon"><GlobeIcon /></span>
-                <div className="settings-section-header-text">
-                  <h2 className="settings-section-title">{t("settings.language")}</h2>
-                  <p className="settings-section-desc">
-                    {t("settingsPage.languageDesc")}
-                  </p>
-                </div>
-              </header>
-              {/* Custom listbox-style language picker. The native <select>
-               *  was replaced with a richer affordance: a pill trigger that
-               *  surfaces the active flag + native label + code badge, and
-               *  a floating panel of options below it with hover/keyboard
-               *  states, an accent-bordered active row, and a check icon.
-               *  Click-outside + Escape + ArrowUp/Down + Enter are all wired
-               *  via the effect above. */}
-              <div
-                ref={languagePickerRef}
-                className={`settings-language-picker${languagePickerOpen ? " open" : ""}`}
-              >
-                <button
-                  ref={languagePickerTriggerRef}
-                  type="button"
-                  className="language-trigger"
-                  aria-haspopup="listbox"
-                  aria-expanded={languagePickerOpen}
-                  aria-activedescendant={
-                    languagePickerOpen
-                      ? `language-option-${languages[languagePickerHoverIdx]?.code ?? ""}`
-                      : undefined
-                  }
-                  aria-label={t("settings.language")}
-                  onClick={() => {
-                    setLanguagePickerOpen((wasOpen) => {
-                      // When opening, seed the focused index to the
-                      // currently-active language so ArrowDown lands on
-                      // the next entry and ArrowUp lands on the previous
-                      // entry rather than always starting at index 0.
-                      if (!wasOpen) {
-                        const idx = languages.findIndex(
-                          (l) => l.code === language,
-                        );
-                        setLanguagePickerHoverIdx(idx >= 0 ? idx : 0);
-                      }
-                      return !wasOpen;
-                    });
-                  }}
-                >
-                  <span className="language-trigger-flag" aria-hidden="true">
-                    {currentLanguage.flag}
-                  </span>
-                  <span className="language-trigger-info">
-                    <span className="language-trigger-label">
-                      {currentLanguage.label}
-                    </span>
-                    <span className="language-trigger-code">
-                      {currentLanguage.code.toUpperCase()}
-                    </span>
-                  </span>
-                  {/* Chevron points UP at rest to signal "this opens
-                   *  above me". When the panel is open the wrapper
-                   *  rotates the SVG 180° so the chevron points down,
-                   *  matching the universal "click to collapse" idiom. */}
-                  <svg
-                    className="language-trigger-chevron"
-                    viewBox="0 0 24 24"
-                    width="14"
-                    height="14"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="2"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    aria-hidden="true"
-                  >
-                    <polyline points="6 15 12 9 18 15" />
-                  </svg>
-                </button>
-                {languagePickerOpen && (
-                  <div
-                    className="language-panel"
-                    role="listbox"
-                    aria-label={t("settings.language")}
-                  >
-                    {languages.map((l, idx) => {
-                      const isActive = l.code === language;
-                      const isHovered = idx === languagePickerHoverIdx;
-                      return (
-                        <button
-                          key={l.code}
-                          type="button"
-                          id={`language-option-${l.code}`}
-                          role="option"
-                          aria-selected={isActive}
-                          className={`language-option${isActive ? " active" : ""}${isHovered ? " hovered" : ""}`}
-                          onClick={() => {
-                            void setLanguage(l.code);
-                            setLanguagePickerOpen(false);
-                          }}
-                          onMouseEnter={() =>
-                            setLanguagePickerHoverIdx(idx)
-                          }
-                        >
-                          <span
-                            className="language-option-flag"
-                            aria-hidden="true"
-                          >
-                            {l.flag}
-                          </span>
-                          <span className="language-option-text">
-                            <span className="language-option-label">
-                              {l.label}
-                            </span>
-                            <span className="language-option-native">
-                              {l.code.toUpperCase()}
-                            </span>
-                          </span>
-                          {isActive && (
-                            <svg
-                              className="language-option-check"
-                              viewBox="0 0 24 24"
-                              width="14"
-                              height="14"
-                              fill="none"
-                              stroke="currentColor"
-                              strokeWidth="2.5"
-                              strokeLinecap="round"
-                              strokeLinejoin="round"
-                              aria-hidden="true"
-                            >
-                              <polyline points="20 6 9 17 4 12" />
-                            </svg>
-                          )}
-                        </button>
-                      );
-                    })}
-                  </div>
-                )}
-              </div>
-            </div>
           </div>
         </section>
       )}
