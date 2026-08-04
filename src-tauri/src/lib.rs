@@ -1126,6 +1126,9 @@ struct LauncherSettings {
     /// the game gets full-screen focus without a competing GameIndex
     /// window in the taskbar.
     minimize_on_launch_enabled: bool,
+    /// L6: When the last running game exits, restore the main window
+    /// (show + unminimize) if it was hidden by minimize-on-launch.
+    restore_on_exit_enabled: bool,
     /// L5: When true, the launch path REFUSES to silently retry with
     /// ShellExecuteExW(runas) on ERROR_ELEVATION_REQUIRED. The launch
     /// just fails with a clear error message â€” for users who don't
@@ -1138,6 +1141,7 @@ impl Default for LauncherSettings {
         Self {
             close_to_tray_enabled: false,
             minimize_on_launch_enabled: false,
+            restore_on_exit_enabled: false,
             disable_elevation_prompts: false,
         }
     }
@@ -1155,6 +1159,9 @@ fn load_launcher_settings(db: &db::Db) -> LauncherSettings {
         minimize_on_launch_enabled: get(KV_MINIMIZE_ON_LAUNCH)
             .map(|v| v == "true")
             .unwrap_or(false),
+        restore_on_exit_enabled: get(KV_RESTORE_ON_EXIT)
+            .map(|v| v == "true")
+            .unwrap_or(false),
         disable_elevation_prompts: get(KV_DISABLE_ELEVATION_PROMPTS)
             .map(|v| v == "true")
             .unwrap_or(false),
@@ -1163,7 +1170,17 @@ fn load_launcher_settings(db: &db::Db) -> LauncherSettings {
 
 const KV_CLOSE_TO_TRAY: &str = "launcher.close_to_tray_enabled";
 const KV_MINIMIZE_ON_LAUNCH: &str = "launcher.minimize_on_launch_enabled";
+const KV_RESTORE_ON_EXIT: &str = "launcher.restore_on_exit_enabled";
 const KV_DISABLE_ELEVATION_PROMPTS: &str = "launcher.disable_elevation_prompts";
+
+/// L6: `true` while the main window is hidden by the minimize-on-launch
+/// behavior. Set in `launch_game` when the hide succeeds; cleared by the
+/// restore-on-last-exit listener after it re-shows the window. A plain
+/// atomic keeps this readable from the `game-exited` listener without any
+/// mutex — the watcher mutex is held during that synchronous emit, so
+/// re-locking it (or any state behind it) would deadlock.
+static WINDOW_HIDDEN_ON_LAUNCH: std::sync::atomic::AtomicBool =
+    std::sync::atomic::AtomicBool::new(false);
 
 /// L2: Get the current launcher settings. Read-only IPC; the frontend
 /// hydrates its UI forms from this on mount.
@@ -1197,6 +1214,21 @@ fn set_minimize_on_launch_enabled(
     let db_state: tauri::State<'_, db::Db> = app.state();
     db::kv::set(db_state.inner(), KV_MINIMIZE_ON_LAUNCH, if_enabled(enabled))?;
     state.lock().map(|mut s| s.minimize_on_launch_enabled = enabled).map_err(|e| e.to_string())?;
+    Ok(())
+}
+
+/// L6: Toggle restore-window-on-last-exit. When enabled, the main
+/// window is shown + unminimized once the last running game exits
+/// (provided minimize-on-launch hid it in the first place).
+#[tauri::command]
+fn set_restore_on_exit_enabled(
+    app: tauri::AppHandle,
+    state: tauri::State<'_, Arc<std::sync::Mutex<LauncherSettings>>>,
+    enabled: bool,
+) -> Result<(), String> {
+    let db_state: tauri::State<'_, db::Db> = app.state();
+    db::kv::set(db_state.inner(), KV_RESTORE_ON_EXIT, if_enabled(enabled))?;
+    state.lock().map(|mut s| s.restore_on_exit_enabled = enabled).map_err(|e| e.to_string())?;
     Ok(())
 }
 
@@ -1504,6 +1536,9 @@ fn launch_game(
     if launcher_settings.minimize_on_launch_enabled {
         if let Some(win) = app.get_webview_window("main") {
             let _ = win.hide();
+            // L6: remember that we hid the window so the
+            // restore-on-last-exit listener knows it may restore it.
+            WINDOW_HIDDEN_ON_LAUNCH.store(true, std::sync::atomic::Ordering::Relaxed);
         }
     }
 
@@ -3869,6 +3904,7 @@ pub fn run() {
             get_launcher_settings,
             set_close_to_tray_enabled,
             set_minimize_on_launch_enabled,
+            set_restore_on_exit_enabled,
             set_disable_elevation_prompts,
             set_autostart_enabled,
             is_autostart_enabled,
@@ -4049,6 +4085,59 @@ pub fn run() {
                 game_watcher,
                 app.handle().clone(),
             );
+
+            // ── L6: restore-window-on-last-exit ────────────────────────
+            // When `restore_on_exit_enabled` is on and the main window
+            // was hidden by minimize-on-launch, re-show + unminimize it
+            // once the LAST running game exits. The "last" signal comes
+            // from the payload's `remainingGameName` (snapshotted by
+            // `finish_session` before its emit, excluding the exiting
+            // session — so `None` means zero sessions remain). We
+            // deliberately do NOT lock the GameWatcher here: `game-exited`
+            // is emitted synchronously while the watcher mutex is held,
+            // so re-locking from this listener would deadlock (same
+            // constraint as the tray listener in tray.rs). The
+            // `WINDOW_HIDDEN_ON_LAUNCH` atomic scopes the restore to
+            // windows we actually hid, and is cleared once restored.
+            {
+                let handle = app.handle().clone();
+                let _ = handle.listen("game-exited", {
+                    let handle = handle.clone();
+                    move |event| {
+                        let settings = handle
+                            .state::<Arc<std::sync::Mutex<LauncherSettings>>>();
+                        let restore_enabled = settings
+                            .lock()
+                            .map(|s| s.restore_on_exit_enabled)
+                            .unwrap_or(false);
+                        if !restore_enabled {
+                            return;
+                        }
+                        if !WINDOW_HIDDEN_ON_LAUNCH.load(std::sync::atomic::Ordering::Relaxed) {
+                            return;
+                        }
+                        // `remainingGameName` is None only when this exit
+                        // leaves zero active sessions — i.e. the last game quit.
+                        let last_exit =
+                            match serde_json::from_str::<serde_json::Value>(event.payload()) {
+                                Ok(val) => val
+                                    .get("remainingGameName")
+                                    .and_then(|v| v.as_str())
+                                    .is_none(),
+                                Err(_) => return,
+                            };
+                        if !last_exit {
+                            return;
+                        }
+                        if let Some(win) = handle.get_webview_window("main") {
+                            let _ = win.show();
+                            let _ = win.unminimize();
+                        }
+                        WINDOW_HIDDEN_ON_LAUNCH
+                            .store(false, std::sync::atomic::Ordering::Relaxed);
+                    }
+                });
+            }
 
             // ── Local (crack / emulator) achievement watcher ──────────
             // Ports Hydra's achievement watcher: pre-scans on startup to

@@ -89,6 +89,8 @@ export interface SettingsContextValue {
   setCloseToTray: (next: boolean) => Promise<void>;
   minimizeOnLaunch: boolean;
   setMinimizeOnLaunch: (next: boolean) => Promise<void>;
+  restoreOnExit: boolean;
+  setRestoreOnExit: (next: boolean) => Promise<void>;
   disableElevationPrompts: boolean;
   setDisableElevationPrompts: (next: boolean) => Promise<void>;
   autoStartEnabled: boolean;
@@ -170,6 +172,7 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
   // Rust-backed state ──────────────────────────────────────────────────────
   const [closeToTray, setCloseToTrayState] = useState(false);
   const [minimizeOnLaunch, setMinimizeOnLaunchState] = useState(false);
+  const [restoreOnExit, setRestoreOnExitState] = useState(false);
   const [disableElevationPrompts, setDisableElevationPromptsState] =
     useState(false);
   const [autoStartEnabled, setAutoStartEnabledState] = useState(false);
@@ -185,11 +188,13 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
         const s = await invoke<{
           closeToTrayEnabled: boolean;
           minimizeOnLaunchEnabled: boolean;
+          restoreOnExitEnabled: boolean;
           disableElevationPrompts: boolean;
         }>("get_launcher_settings");
         if (cancelled) return;
         setCloseToTrayState(s.closeToTrayEnabled);
         setMinimizeOnLaunchState(s.minimizeOnLaunchEnabled);
+        setRestoreOnExitState(s.restoreOnExitEnabled);
         setDisableElevationPromptsState(s.disableElevationPrompts);
       } catch {
         // Backend call failed (e.g. `npm run dev` in the browser
@@ -232,6 +237,18 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
     } catch (err) {
       console.warn(
         "[SettingsContext] set_minimize_on_launch_enabled failed:",
+        err,
+      );
+    }
+  }, []);
+
+  const setRestoreOnExit = useCallback(async (next: boolean) => {
+    setRestoreOnExitState(next);
+    try {
+      await invoke("set_restore_on_exit_enabled", { enabled: next });
+    } catch (err) {
+      console.warn(
+        "[SettingsContext] set_restore_on_exit_enabled failed:",
         err,
       );
     }
@@ -462,6 +479,8 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
       setCloseToTray,
       minimizeOnLaunch,
       setMinimizeOnLaunch,
+      restoreOnExit,
+      setRestoreOnExit,
       disableElevationPrompts,
       setDisableElevationPrompts,
       autoStartEnabled,
@@ -497,6 +516,8 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
       setCloseToTray,
       minimizeOnLaunch,
       setMinimizeOnLaunch,
+      restoreOnExit,
+      setRestoreOnExit,
       disableElevationPrompts,
       setDisableElevationPrompts,
       autoStartEnabled,

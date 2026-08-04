@@ -135,6 +135,8 @@ export default function SettingsPage() {
     setCloseToTray,
     minimizeOnLaunch,
     setMinimizeOnLaunch,
+    restoreOnExit,
+    setRestoreOnExit,
     disableElevationPrompts,
     setDisableElevationPrompts,
     autoStartEnabled,
@@ -3711,6 +3713,34 @@ export default function SettingsPage() {
                   </span>
                   <span className="settings-checkbox-desc">
                     {t("settings.launcher.minimizeDesc")}
+                  </span>
+                </div>
+              </label>
+            </div>
+
+            {/* Restore window when a game quits */}
+            <div className="settings-launcher-card">
+              <label className="settings-checkbox-label">
+                <input
+                  type="checkbox"
+                  checked={restoreOnExit}
+                  disabled={!ready || !minimizeOnLaunch}
+                  onChange={(e) => {
+                    void setRestoreOnExit(e.target.checked);
+                    showToast(
+                      e.target.checked
+                        ? t("settings.launcher.restoreOnExit")
+                        : t("settings.launcher.stayHiddenOnExit"),
+                      "info",
+                    );
+                  }}
+                />
+                <div className="settings-checkbox-text">
+                  <span className="settings-checkbox-title">
+                    {t("settings.launcher.restoreTitle")}
+                  </span>
+                  <span className="settings-checkbox-desc">
+                    {t("settings.launcher.restoreDesc")}
                   </span>
                 </div>
               </label>
