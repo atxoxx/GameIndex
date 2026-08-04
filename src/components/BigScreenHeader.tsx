@@ -1,356 +1,229 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { NavLink, useLocation, useNavigate } from "react-router-dom";
+import appIconUrl from "../assets/gameindex-icon.png";
 import { useLanguage } from "../context/LanguageContext";
 import { useGamepad } from "../hooks/GamepadProvider";
 import { useFocusable } from "../hooks/useFocusable";
 import { useBigScreen } from "../hooks/useBigScreen";
 
-// ── Icons ────────────────────────────────────────────────────────
-
-function HomeIcon() {
-  return (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" width="18" height="18">
-      <path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" />
-      <polyline points="9 22 9 12 15 12 15 22" />
-    </svg>
-  );
+interface BigScreenHeaderProps {
+  onOpenSearch?: () => void;
 }
 
-function StoreIcon() {
-  return (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" width="18" height="18">
-      <circle cx="9" cy="21" r="1" />
-      <circle cx="20" cy="21" r="1" />
-      <path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6" />
-    </svg>
-  );
-}
-
-function LibraryIcon() {
-  return (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" width="18" height="18">
-      <rect x="2" y="3" width="20" height="14" rx="2" ry="2" />
-      <line x1="8" y1="21" x2="16" y2="21" />
-      <line x1="12" y1="17" x2="12" y2="21" />
-    </svg>
-  );
-}
-
-function SettingsIcon() {
-  return (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" width="18" height="18">
-      <circle cx="12" cy="12" r="3" />
-      <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z" />
-    </svg>
-  );
-}
-
-function PowerIcon() {
-  return (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" width="18" height="18">
-      <path d="M18.36 6.64a9 9 0 1 1-12.73 0" />
-      <line x1="12" y1="2" x2="12" y2="12" />
-    </svg>
-  );
-}
-
-function SearchIcon() {
-  return (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" width="18" height="18">
-      <circle cx="11" cy="11" r="7" />
-      <line x1="21" y1="21" x2="16.65" y2="16.65" />
-    </svg>
-  );
-}
-
-function WishlistIcon() {
-  return (
-    <svg viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" width="18" height="18">
-      <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z" />
-    </svg>
-  );
-}
-
-function DealsIcon() {
-  return (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" width="18" height="18">
-      <path d="M20 7h-3a2 2 0 0 1-2-2V3" />
-      <path d="M9 3H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-3" />
-      <path d="M9 7H4a2 2 0 0 0-2 2v1" />
-      <path d="M14 14l-3 3-3-3" />
-      <path d="M11 17V7" />
-    </svg>
-  );
-}
-
-function AchievementsIcon() {
-  return (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" width="18" height="18">
-      <circle cx="12" cy="8" r="6" />
-      <path d="M15.477 12.89L17 22l-5-3-5 3 1.523-9.11" />
-    </svg>
-  );
-}
-
-function DownloadIcon() {
-  return (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" width="18" height="18">
-      <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
-      <polyline points="7 10 12 15 17 10" />
-      <line x1="12" y1="15" x2="12" y2="3" />
-    </svg>
-  );
-}
-
-function StorageIcon() {
-  return (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" width="18" height="18">
-      <line x1="22" y1="12" x2="2" y2="12" />
-      <path d="M5.45 5.11 2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11Z" />
-      <line x1="6" y1="16" x2="6.01" y2="16" />
-      <line x1="10" y1="16" x2="10.01" y2="16" />
-    </svg>
-  );
-}
-
-function NewsIcon() {
-  return (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" width="18" height="18">
-      <path d="M4 11a9 9 0 0 1 9 9" />
-      <path d="M4 4a16 16 0 0 1 16 16" />
-      <circle cx="5" cy="19" r="1" />
-    </svg>
-  );
-}
-
-function CommunityIcon() {
-  return (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" width="18" height="18">
-      <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
-      <circle cx="9" cy="7" r="4" />
-      <path d="M23 21v-2a4 4 0 0 0-3-3.87" />
-      <path d="M16 3.13a4 4 0 0 1 0 7.75" />
-    </svg>
-  );
-}
-
-function FriendsIcon() {
-  return (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" width="18" height="18">
-      <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
-      <circle cx="9" cy="7" r="4" />
-      <line x1="19" y1="8" x2="19" y2="14" />
-      <line x1="22" y1="11" x2="16" y2="11" />
-    </svg>
-  );
-}
-
-// ── Tabs Definition ──────────────────────────────────────────────
-
-interface HeaderTab {
+interface BigScreenSection {
   path: string;
-  label: string;
-  i18nKey: string;
-  icon: React.ReactNode;
+  labelKey: string;
+  icon: ReactNode;
 }
 
-const tabs: HeaderTab[] = [
-  { path: "/activity", label: "Home", i18nKey: "nav.home", icon: <HomeIcon /> },
-  { path: "/library", label: "Library", i18nKey: "nav.library", icon: <LibraryIcon /> },
-  { path: "/store", label: "Store", i18nKey: "nav.store", icon: <StoreIcon /> },
-  { path: "/wishlist", label: "Wishlist", i18nKey: "nav.wishlist", icon: <WishlistIcon /> },
-  { path: "/deals", label: "Deals", i18nKey: "nav.deals", icon: <DealsIcon /> },
-  { path: "/achievements", label: "Achievements", i18nKey: "nav.achievements", icon: <AchievementsIcon /> },
-  { path: "/downloads", label: "Downloads", i18nKey: "nav.downloads", icon: <DownloadIcon /> },
-  { path: "/storage", label: "Storage", i18nKey: "nav.storage", icon: <StorageIcon /> },
-  { path: "/news", label: "News", i18nKey: "nav.news", icon: <NewsIcon /> },
-  { path: "/community", label: "Stats", i18nKey: "nav.stats", icon: <CommunityIcon /> },
-  { path: "/friends", label: "Community", i18nKey: "nav.friends", icon: <FriendsIcon /> },
-  { path: "/settings", label: "System", i18nKey: "nav.settings", icon: <SettingsIcon /> },
+function Icon({ children }: { children: ReactNode }) {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.8"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+    >
+      {children}
+    </svg>
+  );
+}
+
+const sections: BigScreenSection[] = [
+  {
+    path: "/activity",
+    labelKey: "nav.home",
+    icon: <Icon><path d="m3 10 9-7 9 7" /><path d="M5 9v11h14V9" /><path d="M9 20v-6h6v6" /></Icon>,
+  },
+  {
+    path: "/library",
+    labelKey: "nav.library",
+    icon: <Icon><rect x="3" y="4" width="18" height="14" rx="2" /><path d="M8 21h8" /><path d="M12 18v3" /></Icon>,
+  },
+  {
+    path: "/store",
+    labelKey: "nav.store",
+    icon: <Icon><path d="M4 8h16l-1 12H5L4 8Z" /><path d="m7 8 2-5h6l2 5" /><path d="M9 12h6" /></Icon>,
+  },
+  {
+    path: "/wishlist",
+    labelKey: "nav.wishlist",
+    icon: <Icon><path d="M20.8 8.8c0 5.4-8.8 10.2-8.8 10.2S3.2 14.2 3.2 8.8A4.8 4.8 0 0 1 12 6a4.8 4.8 0 0 1 8.8 2.8Z" /></Icon>,
+  },
+  {
+    path: "/deals",
+    labelKey: "nav.deals",
+    icon: <Icon><path d="M20 12a2 2 0 0 0 0-4h-1a2 2 0 0 1-2-2V5a2 2 0 0 0-4 0 2 2 0 0 1-4 0 2 2 0 0 0-4 0v1a2 2 0 0 1-2 2 2 2 0 0 0 0 4 2 2 0 0 1 2 2v1a2 2 0 0 0 4 0 2 2 0 0 1 4 0 2 2 0 0 0 4 0v-1a2 2 0 0 1 2-2Z" /><path d="m9 15 6-6" /><path d="M9 9h.01M15 15h.01" /></Icon>,
+  },
+  {
+    path: "/friends",
+    labelKey: "nav.friends",
+    icon: <Icon><circle cx="9" cy="8" r="3" /><path d="M3 20a6 6 0 0 1 12 0" /><path d="M16 5a3 3 0 0 1 0 6" /><path d="M18 14a5 5 0 0 1 3 6" /></Icon>,
+  },
+  {
+    path: "/news",
+    labelKey: "nav.news",
+    icon: <Icon><path d="M5 4h14a2 2 0 0 1 2 2v14H5a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2Z" /><path d="M7 8h10M7 12h10M7 16h6" /></Icon>,
+  },
+  {
+    path: "/achievements",
+    labelKey: "nav.achievements",
+    icon: <Icon><circle cx="12" cy="8" r="5" /><path d="m8.5 12.5-1 8 4.5-2.5 4.5 2.5-1-8" /></Icon>,
+  },
+  {
+    path: "/downloads",
+    labelKey: "nav.downloads",
+    icon: <Icon><path d="M12 3v12" /><path d="m7 10 5 5 5-5" /><path d="M5 21h14" /></Icon>,
+  },
+  {
+    path: "/storage",
+    labelKey: "nav.storage",
+    icon: <Icon><ellipse cx="12" cy="5" rx="8" ry="3" /><path d="M4 5v7c0 1.7 3.6 3 8 3s8-1.3 8-3V5" /><path d="M4 12v7c0 1.7 3.6 3 8 3s8-1.3 8-3v-7" /></Icon>,
+  },
+  {
+    path: "/community",
+    labelKey: "nav.stats",
+    icon: <Icon><path d="M4 19V5" /><path d="M4 19h16" /><path d="m7 15 3-4 3 2 5-7" /></Icon>,
+  },
+  {
+    path: "/emulators",
+    labelKey: "nav.emulators",
+    icon: <Icon><rect x="3" y="6" width="18" height="12" rx="3" /><path d="M8 12h4M10 10v4M16 11h.01M18 13h.01" /></Icon>,
+  },
+  {
+    path: "/mods",
+    labelKey: "nav.mods",
+    icon: <Icon><path d="M8 5h8l2 4v10H6V9l2-4Z" /><path d="M9 5v4h6V5" /><path d="M9 13h6M9 16h4" /></Icon>,
+  },
+  {
+    path: "/docs",
+    labelKey: "nav.docs",
+    icon: <Icon><path d="M6 3h9l3 3v15H6a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2Z" /><path d="M14 3v4h4M8 11h8M8 15h8" /></Icon>,
+  },
+  {
+    path: "/settings",
+    labelKey: "nav.settings",
+    icon: <Icon><circle cx="12" cy="12" r="3" /><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.9l.1.1-2.8 2.8-.1-.1a1.7 1.7 0 0 0-1.9-.3 1.7 1.7 0 0 0-1 1.6v.1h-4v-.1a1.7 1.7 0 0 0-1-1.6 1.7 1.7 0 0 0-1.9.3l-.1.1-2.8-2.8.1-.1A1.7 1.7 0 0 0 4.6 15a1.7 1.7 0 0 0-1.6-1H3v-4h.1a1.7 1.7 0 0 0 1.6-1 1.7 1.7 0 0 0-.3-1.9l-.1-.1 2.8-2.8.1.1a1.7 1.7 0 0 0 1.9.3 1.7 1.7 0 0 0 1-1.6V3h4v.1a1.7 1.7 0 0 0 1 1.6 1.7 1.7 0 0 0 1.9-.3l.1-.1 2.8 2.8-.1.1a1.7 1.7 0 0 0-.3 1.9 1.7 1.7 0 0 0 1.6 1h.1v4h-.1a1.7 1.7 0 0 0-1.6 1Z" /></Icon>,
+  },
 ];
 
-// Home (path "/activity") plus the section tabs above give a complete
-// Big Screen navigation. The header tab cycler falls back to the first
-// matching tab when the active path isn't in the list.
-
 export function getActiveTabPath(pathname: string): string {
-  if (pathname.startsWith("/library")) return "/library";
-  if (pathname.startsWith("/wishlist")) return "/wishlist";
-  if (pathname.startsWith("/deals")) return "/deals";
-  if (pathname.startsWith("/store")) return "/store";
-  if (pathname.startsWith("/achievements")) return "/achievements";
-  if (pathname.startsWith("/downloads")) return "/downloads";
-  if (pathname.startsWith("/storage")) return "/storage";
-  if (pathname.startsWith("/news")) return "/news";
-  if (pathname.startsWith("/community")) return "/community";
-  if (pathname.startsWith("/friends")) return "/friends";
-  if (pathname.startsWith("/settings")) return "/settings";
-  if (pathname.startsWith("/activity")) return "/activity";
-  return "/activity"; // Default to Home
+  return sections.find((section) => pathname.startsWith(section.path))?.path ?? "/activity";
 }
 
-function HeaderTabItem({
-  tab,
+function SectionButton({
+  section,
   active,
   onActivate,
 }: {
-  tab: HeaderTab;
+  section: BigScreenSection;
   active: boolean;
   onActivate: () => void;
 }) {
-  const focusable = useFocusable(onActivate);
   const { t } = useLanguage();
-  const label = t(tab.i18nKey);
+  const focusable = useFocusable(onActivate);
+  const label = t(section.labelKey);
+
   return (
     <NavLink
-      to={tab.path}
-      className={`bigscreen-header-tab ${active ? "active" : ""}`}
+      to={section.path}
       {...focusable}
+      className={`bigscreen-v2-section${active ? " is-active" : ""}`}
       aria-label={label}
-      title={label}
+      aria-current={active ? "page" : undefined}
     >
-      <span className="bigscreen-header-tab-icon">{tab.icon}</span>
-      <span className="bigscreen-header-tab-label">{label}</span>
+      <span className="bigscreen-v2-section-icon">{section.icon}</span>
+      <span className="bigscreen-v2-section-label">{label}</span>
     </NavLink>
   );
 }
 
-export default function BigScreenHeader({
-  onOpenSearch,
-}: {
-  onOpenSearch?: () => void;
-}) {
+export default function BigScreenHeader({ onOpenSearch }: BigScreenHeaderProps) {
   const { t } = useLanguage();
-  const gamepad = useGamepad();
+  const { connected, virtualMouse, toggleVirtualMouse, registerTabCycler } = useGamepad();
+  const { setBigScreen } = useBigScreen();
   const navigate = useNavigate();
   const location = useLocation();
-  const { setBigScreen } = useBigScreen();
+  const navRef = useRef<HTMLElement>(null);
+  const [time, setTime] = useState("");
 
-  const [timeString, setTimeString] = useState("");
-  const tabsNavRef = useRef<HTMLElement>(null);
+  const activePath = getActiveTabPath(location.pathname);
+  const activeIndex = useMemo(
+    () => Math.max(0, sections.findIndex((section) => section.path === activePath)),
+    [activePath],
+  );
 
-  // Live clock
   useEffect(() => {
-    const updateTime = () => {
-      const d = new Date();
-      setTimeString(
-        d.toLocaleTimeString([], {
-          hour: "2-digit",
-          minute: "2-digit",
-          hour12: false,
-        })
-      );
+    const update = () => {
+      setTime(new Intl.DateTimeFormat([], { hour: "2-digit", minute: "2-digit" }).format(new Date()));
     };
-    updateTime();
-    const interval = setInterval(updateTime, 1000 * 30);
-    return () => clearInterval(interval);
+    update();
+    const timer = window.setInterval(update, 30_000);
+    return () => window.clearInterval(timer);
   }, []);
 
-  // Keep the active tab scrolled into view as the user cycles tabs
-  // (or navigates between sections). Scrolls the tabs container so
-  // the highlighted item stays visible without shifting the header.
   useEffect(() => {
-    const nav = tabsNavRef.current;
-    const active = nav?.querySelector<HTMLElement>(".bigscreen-header-tab.active");
-    active?.scrollIntoView({ behavior: "smooth", inline: "center", block: "nearest" });
-  }, [location.pathname]);
+    const active = navRef.current?.querySelector<HTMLElement>(".is-active");
+    active?.scrollIntoView({ behavior: "smooth", block: "nearest", inline: "center" });
+  }, [activePath]);
 
-  // Keep the focused tab scrolled into view during controller navigation
   useEffect(() => {
-    const nav = tabsNavRef.current;
-    if (!nav) return;
-    const focused = gamepad.focusedElement;
-    if (focused && nav.contains(focused)) {
-      focused.scrollIntoView({ behavior: "smooth", inline: "center", block: "nearest" });
-    }
-  }, [gamepad.focusedElement]);
+    return registerTabCycler((direction) => {
+      const next = direction === "forward"
+        ? (activeIndex + 1) % sections.length
+        : (activeIndex - 1 + sections.length) % sections.length;
+      navigate(sections[next].path);
+    }, -10);
+  }, [activeIndex, navigate, registerTabCycler]);
 
-  // LB / RB: Cycle main tabs
-  useEffect(() => {
-    return gamepad.registerTabCycler((direction) => {
-      const activePath = getActiveTabPath(location.pathname);
-      const currentIndex = tabs.findIndex((t) => t.path === activePath);
-      const baseIndex = currentIndex < 0 ? 0 : currentIndex;
-      const nextIndex =
-        direction === "forward"
-          ? (baseIndex + 1) % tabs.length
-          : (baseIndex - 1 + tabs.length) % tabs.length;
-      navigate(tabs[nextIndex].path);
-    });
-  }, [gamepad, location.pathname, navigate]);
-
-  const handleExit = () => {
-    setBigScreen(false);
-  };
-
-  const focusableExit = useFocusable(handleExit);
-  const focusableSearch = useFocusable(() => onOpenSearch?.());
+  const searchProps = useFocusable(() => onOpenSearch?.());
+  const pointerProps = useFocusable(toggleVirtualMouse);
+  const exitProps = useFocusable(() => setBigScreen(false));
 
   return (
-    <header className="bigscreen-header" role="banner">
-      <div className="bigscreen-header-left">
-        {/* Brand */}
-        <div className="bigscreen-header-logo">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" width="22" height="22">
-            <polygon points="12 2 2 22 22 22" />
-          </svg>
-          <span className="bigscreen-header-logo-text">GAMELIB</span>
-        </div>
-
-        {/* Primary Tabs */}
-        <nav className="bigscreen-header-tabs" role="navigation" aria-label={t("bigscreen.mainSections")} ref={tabsNavRef}>
-          {tabs.map((tab) => {
-            const activePath = getActiveTabPath(location.pathname);
-            const isActive = activePath === tab.path;
-            return (
-              <HeaderTabItem
-                key={tab.path}
-                tab={tab}
-                active={isActive}
-                onActivate={() => navigate(tab.path)}
-              />
-            );
-          })}
-        </nav>
+    <header className="bigscreen-v2-header">
+      <div className="bigscreen-v2-brand" aria-label="GameIndex Big Screen">
+        <span className="bigscreen-v2-brand-mark">
+          <img src={appIconUrl} alt="" aria-hidden="true" />
+        </span>
+        <span className="bigscreen-v2-brand-copy">
+          <strong>GAMEINDEX</strong>
+          <small>BIG SCREEN</small>
+        </span>
       </div>
 
-      <div className="bigscreen-header-right">
-        {/* Search */}
-        <button
-          type="button"
-          className="bigscreen-header-tab bigscreen-header-tab--system bigscreen-header-tab--search"
-          {...focusableSearch}
-          aria-label={t("bigscreen.search")}
-          title={t("bigscreen.searchShortcut")}
-        >
-          <span className="bigscreen-header-tab-icon">
-            <SearchIcon />
-          </span>
-        </button>
+      <nav ref={navRef} className="bigscreen-v2-sections" aria-label={t("bigscreen.mainSections")}>
+        {sections.map((section) => (
+          <SectionButton
+            key={section.path}
+            section={section}
+            active={section.path === activePath}
+            onActivate={() => navigate(section.path)}
+          />
+        ))}
+      </nav>
 
-        {/* Power / Exit */}
-        <button
-          type="button"
-          className="bigscreen-header-tab bigscreen-header-tab--system bigscreen-header-tab--exit"
-          {...focusableExit}
-          aria-label={t("bigscreen.exitBigScreen")}
-          title={t("bigscreen.exitBigScreen")}
-        >
-          <span className="bigscreen-header-tab-icon">
-            <PowerIcon />
-          </span>
-        </button>
-
-        {/* Clock & Profile */}
-        <div className="bigscreen-header-clock">{timeString}</div>
-
-        <div className="bigscreen-header-profile" aria-label={t("bigscreen.profile")}>
-          <div className="bigscreen-header-avatar">
-            <svg viewBox="0 0 24 24" fill="currentColor" width="20" height="20">
-              <path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z" />
-            </svg>
-          </div>
+      <div className="bigscreen-v2-utilities">
+        <div className={`bigscreen-v2-connection${connected ? " is-connected" : ""}`} title={connected ? "Controller connected" : "Controller disconnected"}>
+          <span className="bigscreen-v2-connection-dot" />
+          <span>{connected ? "READY" : "NO PAD"}</span>
         </div>
+
+        <button type="button" className={`bigscreen-v2-utility${virtualMouse.visible ? " is-active" : ""}`} {...pointerProps} aria-pressed={virtualMouse.visible} aria-label="Toggle virtual mouse">
+          <Icon><circle cx="12" cy="12" r="8" /><path d="M12 8v8M8 12h8" /></Icon>
+          <span>{virtualMouse.visible ? "POINTER" : "FOCUS"}</span>
+        </button>
+        <button type="button" className="bigscreen-v2-utility" {...searchProps} aria-label={t("bigscreen.search")}>
+          <Icon><circle cx="11" cy="11" r="6" /><path d="m16 16 5 5" /></Icon>
+          <span>SEARCH</span>
+        </button>
+        <span className="bigscreen-v2-clock">{time}</span>
+        <button type="button" className="bigscreen-v2-exit" {...exitProps} aria-label={t("bigscreen.exitBigScreen")}>
+          <Icon><path d="M9 6H5v12h4" /><path d="m13 8 4 4-4 4" /><path d="M17 12H9" /></Icon>
+        </button>
       </div>
     </header>
   );

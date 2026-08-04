@@ -44,6 +44,12 @@ export default function BigScreenSearchOverlay({
   const [query, setQuery] = useState("");
   const inputRef = useRef<HTMLInputElement | null>(null);
   const inputFocusable = useFocusable(() => inputRef.current?.focus());
+  const clearFocusable = useFocusable(() => {
+    setQuery("");
+    inputRef.current?.focus();
+  });
+  const submitFocusable = useFocusable(submitSearch);
+  const cancelFocusable = useFocusable(onClose);
 
   // Merge the focusable's callback ref (registers with the Big Screen
   // nav registry) with a local ref so we can still imperatively focus.
@@ -72,7 +78,7 @@ export default function BigScreenSearchOverlay({
         onClose();
       } else if (e.key === "Enter") {
         e.preventDefault();
-        submit();
+        submitSearch();
       }
     }
     window.addEventListener("keydown", onKey);
@@ -82,7 +88,7 @@ export default function BigScreenSearchOverlay({
 
   if (!open) return null;
 
-  function submit() {
+  function submitSearch() {
     const q = query.trim();
     if (!q) {
       onClose();
@@ -117,10 +123,7 @@ export default function BigScreenSearchOverlay({
               type="button"
               className="bigscreen-search-clear"
               aria-label={t("bigscreen.search.clearSearch")}
-              onClick={() => {
-                setQuery("");
-                inputRef.current?.focus();
-              }}
+              {...clearFocusable}
             >
               {CloseIcon}
             </button>
@@ -131,14 +134,14 @@ export default function BigScreenSearchOverlay({
           <button
             type="button"
             className="bigscreen-search-btn bigscreen-search-btn--primary"
-            onClick={submit}
+            {...submitFocusable}
           >
             {t("common.search")}
           </button>
           <button
             type="button"
             className="bigscreen-search-btn"
-            onClick={onClose}
+            {...cancelFocusable}
           >
             {t("common.cancel")}
           </button>

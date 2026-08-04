@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useEffect, useState } from "react";
 import { Outlet, useLocation } from "react-router-dom";
 import BigScreenHeader from "./BigScreenHeader";
 import FocusRing from "./ui/FocusRing";
@@ -12,59 +12,45 @@ export default function BigScreenLayout() {
   const location = useLocation();
   const [searchOpen, setSearchOpen] = useState(false);
 
-  // Open the global search overlay with the `/` key (desktop keyboard on
-  // the TV box) or a dedicated gamepad-binding press handled in the header.
   useEffect(() => {
-    function onKey(e: KeyboardEvent) {
-      if (e.key === "/" && !searchOpen) {
-        const tag = (e.target as HTMLElement)?.tagName;
-        if (tag === "INPUT" || tag === "TEXTAREA") return;
-        e.preventDefault();
-        setSearchOpen(true);
-      }
-    }
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key !== "/" || searchOpen) return;
+      const target = event.target as HTMLElement | null;
+      if (target?.matches("input, textarea, [contenteditable]")) return;
+      event.preventDefault();
+      setSearchOpen(true);
+    };
+
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
   }, [searchOpen]);
 
-  const dashboardPaths = [
-    "/store",
-    "/library",
-    "/wishlist",
-    "/deals",
-    "/activity",
-    "/news",
-    "/community",
-    "/friends",
-    "/achievements",
-    "/downloads",
-    "/storage",
-    "/settings"
-  ];
-  const isDashboardRoute = dashboardPaths.some((path) => location.pathname === path);
+  useEffect(() => {
+    setSearchOpen(false);
+  }, [location.pathname]);
 
   return (
-    <div className="bigscreen-layout" data-bigscreen="true">
-      {/* PS5-inspired Top Navigation Header */}
+    <div className="bigscreen-v2" data-bigscreen="true">
       <BigScreenHeader onOpenSearch={() => setSearchOpen(true)} />
 
-      {/* Main content area */}
-      <main className={`bigscreen-main${isDashboardRoute ? " bigscreen-main--with-header" : ""}`}>
-        <Outlet />
+      <main className="bigscreen-v2-main" aria-label="Big Screen content">
+        <div className="bigscreen-v2-content-frame">
+          <Outlet />
+        </div>
       </main>
 
-      {/* Controller focus ring overlay */}
+      <div className="bigscreen-v2-bottom-bar" aria-hidden="true">
+        <span className="bigscreen-v2-bottom-brand">GAME LIBRARY</span>
+        <span className="bigscreen-v2-bottom-tip"><b>A</b> SELECT</span>
+        <span className="bigscreen-v2-bottom-tip"><b>B</b> BACK</span>
+        <span className="bigscreen-v2-bottom-tip"><b>LB</b><b>RB</b> SECTIONS</span>
+        <span className="bigscreen-v2-bottom-tip"><b>Y</b> POINTER</span>
+      </div>
+
       <FocusRing gamepad={gamepad} />
-
-      {/* Virtual mouse pointer (right stick) */}
       <VirtualCursor gamepad={gamepad} />
-
-      {/* Live button-mapping legend (low-opacity reference card) */}
       <GamepadHint gamepad={gamepad} />
-
-      {/* Global quick-search overlay (opened from header search button
-          or the `/` keyboard shortcut). */}
       <BigScreenSearchOverlay open={searchOpen} onClose={() => setSearchOpen(false)} />
     </div>
   );
-}
+}

@@ -62,7 +62,7 @@ export default function FocusRing({ gamepad }: FocusRingProps) {
 
     rafRef.current = requestAnimationFrame(update);
     return () => cancelAnimationFrame(rafRef.current);
-  }, [gamepad]);
+  }, [gamepad.focusedElement]);
 
   if (!rect) return null;
 

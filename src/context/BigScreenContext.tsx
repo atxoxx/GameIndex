@@ -168,6 +168,12 @@ export function BigScreenProvider({ children }: { children: ReactNode }) {
       // handlers (modal close, etc.) consume it.
       if (e.key === "Escape") {
         if (!isBigScreen) return;
+        // A modal, drawer, search surface, or lightbox owns Back while
+        // it is mounted. This keeps controller B from exiting the whole
+        // shell when the user only meant to close the topmost surface.
+        if (document.querySelector('[role="dialog"], [data-bigscreen-overlay="true"]')) {
+          return;
+        }
         e.preventDefault();
         setBigScreen(false);
         return;

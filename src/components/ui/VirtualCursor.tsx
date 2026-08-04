@@ -49,6 +49,8 @@ const DRAG_OPACITY = 0.7;
  */
 export default function VirtualCursor({ gamepad }: VirtualCursorProps) {
   const cursorRef = useRef<HTMLDivElement | null>(null);
+  const virtualMouseRef = useRef(gamepad.virtualMouse);
+  virtualMouseRef.current = gamepad.virtualMouse;
   const lastRenderRef = useRef<{ x: number; y: number; ts: number }>({
     x: -1,
     y: -1,
@@ -68,7 +70,7 @@ export default function VirtualCursor({ gamepad }: VirtualCursorProps) {
     let lastVisible: boolean | null = null;
 
     function tick() {
-      const cur = gamepad.virtualMouse;
+      const cur = virtualMouseRef.current;
       if (typeof document === "undefined") {
         rafId = requestAnimationFrame(tick);
         return;
@@ -140,7 +142,7 @@ export default function VirtualCursor({ gamepad }: VirtualCursorProps) {
 
     rafId = requestAnimationFrame(tick);
     return () => cancelAnimationFrame(rafId);
-  }, [gamepad]);
+  }, []);
 
   if (typeof document === "undefined") return null;
 

@@ -365,8 +365,9 @@ export function dispatchKey(key: string): void {
     bubbles: true,
     cancelable: true,
   };
-  for (const target of [window, document]) {
-    target.dispatchEvent(new KeyboardEvent("keydown", init));
-    target.dispatchEvent(new KeyboardEvent("keyup", init));
-  }
+  // Dispatch once on document. The event bubbles to window, reaching
+  // listeners registered at either level without firing the same
+  // Escape handler twice.
+  document.dispatchEvent(new KeyboardEvent("keydown", init));
+  document.dispatchEvent(new KeyboardEvent("keyup", init));
 }

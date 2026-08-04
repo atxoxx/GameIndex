@@ -102,6 +102,7 @@ export function useGamepadInternal(enabled: boolean): GamepadState {
   const entriesRef = useRef<FocusableEntry[]>([]);
   const focusedRef = useRef<HTMLElement | null>(null);
   const [connected, setConnected] = useState(false);
+  const connectedRef = useRef(false);
   const [focusedElement, setFocusedElement] = useState<HTMLElement | null>(
     null,
   );
@@ -120,6 +121,7 @@ export function useGamepadInternal(enabled: boolean): GamepadState {
   const [virtualMouse, setVirtualMouse] = useState<VirtualMouseState>(
     () => ({ ...virtualMouseRef.current }),
   );
+  const gamepadStateRef = useRef<GamepadState | null>(null);
 
   // Tab cycler subscription (BigScreenNav uses this for LB/RB).
   const tabCyclersRef = useRef<
@@ -162,7 +164,13 @@ export function useGamepadInternal(enabled: boolean): GamepadState {
       const entry: FocusableEntry = { element, onActivate };
       entriesRef.current.push(entry);
 
+      const isNavigable = () => {
+        const rect = element.getBoundingClientRect();
+        return rect.width > 0 && rect.height > 0 && !element.hidden && element.isConnected;
+      };
+
       const setFocusedInRegistry = () => {
+        if (!isNavigable()) return;
         if (focusedRef.current === element) return;
         if (focusedRef.current) {
           focusedRef.current.removeAttribute("data-focused");
@@ -177,7 +185,7 @@ export function useGamepadInternal(enabled: boolean): GamepadState {
       element.addEventListener("mousedown", setFocusedInRegistry);
       element.addEventListener("mouseenter", setFocusedInRegistry);
 
-      if (!focusedRef.current) {
+      if (!focusedRef.current && isNavigable()) {
         focusedRef.current = element;
         element.setAttribute("data-focused", "true");
         setFocusedElement(element);
@@ -193,10 +201,12 @@ export function useGamepadInternal(enabled: boolean): GamepadState {
         );
         element.removeAttribute("data-focused");
         if (focusedRef.current === element) {
-          focusedRef.current = entriesRef.current[0]?.element ?? null;
-          if (focusedRef.current) {
-            focusedRef.current.setAttribute("data-focused", "true");
-          }
+          const next = entriesRef.current.find((candidate) => {
+            const rect = candidate.element.getBoundingClientRect();
+            return rect.width > 0 && rect.height > 0 && !candidate.element.hidden && candidate.element.isConnected;
+          });
+          focusedRef.current = next?.element ?? null;
+          if (focusedRef.current) focusedRef.current.setAttribute("data-focused", "true");
           setFocusedElement(focusedRef.current);
         }
       };
@@ -206,18 +216,28 @@ export function useGamepadInternal(enabled: boolean): GamepadState {
 
   // ── Toggle virtual cursor visibility (Y button or programmatic) ─
   const toggleVirtualMouse = useCallback(() => {
-    const cur = virtualMouseRef.current;
-    cur.visible = !cur.visible;
-    if (cur.visible) cur.lastInputMs = performance.now();
+    const next = {
+      ...virtualMouseRef.current,
+      visible: !virtualMouseRef.current.visible,
+      lastInputMs: performance.now(),
+    };
+    virtualMouseRef.current = next;
+    lastPublishedVMRef.current = next;
+    setVirtualMouse(next);
   }, []);
 
   // ── Recenter virtual cursor (R3 button or programmatic) ─────
   const recenterVirtualMouse = useCallback(() => {
-    const cur = virtualMouseRef.current;
-    cur.x = window.innerWidth / 2;
-    cur.y = window.innerHeight / 2;
-    cur.lastInputMs = performance.now();
-    if (!cur.visible) cur.visible = true;
+    const next = {
+      ...virtualMouseRef.current,
+      x: window.innerWidth / 2,
+      y: window.innerHeight / 2,
+      visible: true,
+      lastInputMs: performance.now(),
+    };
+    virtualMouseRef.current = next;
+    lastPublishedVMRef.current = next;
+    setVirtualMouse(next);
   }, []);
 
   // ── Register tab cycler for BigScreenNav LB/RB ─────────────
@@ -237,6 +257,7 @@ export function useGamepadInternal(enabled: boolean): GamepadState {
   // ── Polling loop ────────────────────────────────────────────
   useEffect(() => {
     if (!enabled) {
+      connectedRef.current = false;
       setConnected(false);
       return;
     }
@@ -288,12 +309,13 @@ export function useGamepadInternal(enabled: boolean): GamepadState {
     }
 
     function poll(timestamp: number) {
-      const gamepads = navigator.getGamepads();
+      const gamepads = navigator.getGamepads?.() ?? [];
       const gp = gamepads[0];
 
       // ── Disconnect cleanup ─────────────────────────────────
       if (!gp || !gp.connected) {
-        if (connected) {
+        if (connectedRef.current) {
+          connectedRef.current = false;
           setConnected(false);
           const cur = virtualMouseRef.current;
           if (cur.leftDown) {
@@ -313,7 +335,10 @@ export function useGamepadInternal(enabled: boolean): GamepadState {
         return;
       }
 
-      if (!connected) setConnected(true);
+      if (!connectedRef.current) {
+        connectedRef.current = true;
+        setConnected(true);
+      }
 
       // Δt for frame-rate-independent stick motion. Capped so a
       // stall (debugger / tab switch) doesn't fly the cursor
@@ -415,9 +440,10 @@ export function useGamepadInternal(enabled: boolean): GamepadState {
         vy = (rightV / len) * speed;
       }
 
-      if (vx !== 0 || vy !== 0) {
-        // Auto-reveal cursor on first stick motion after a Y-toggle-off.
-        if (!vm.visible) vm.visible = true;
+      // The right stick is deliberately a separate pointer mode. It
+      // never steals focus navigation by revealing the cursor on its
+      // own; press Y (or use the shell's pointer toggle) first.
+      if (vm.visible && (vx !== 0 || vy !== 0)) {
         vm.moving = true;
         vm.lastInputMs = now;
         vm.x = Math.max(0, Math.min(window.innerWidth, vm.x + vx * dtSec));
@@ -466,10 +492,13 @@ export function useGamepadInternal(enabled: boolean): GamepadState {
       }
       prevButtonsRef.current.a = aPressed;
 
-      // ── B button (index 1) → history.back ─────────────────
+      // ── B button (index 1) → Escape/back -------------------
+      // Let the active modal, drawer, search overlay, or page-level
+      // handler consume Escape first. Big Screen's global Escape
+      // handler only exits when no nearer surface handles it.
       const bPressed = gp.buttons[1]?.pressed ?? false;
       if (bPressed && !prevButtonsRef.current.b) {
-        if (window.history.length > 1) window.history.back();
+        dispatchKey("Escape");
       }
       prevButtonsRef.current.b = bPressed;
 
@@ -578,7 +607,7 @@ export function useGamepadInternal(enabled: boolean): GamepadState {
       cancelAnimationFrame(rafId);
       window.removeEventListener("resize", onResize);
     };
-  }, [enabled, connected]);
+  }, [enabled]);
 
   // ── Cleanup ────────────────────────────────────────────────
   useEffect(() => {
@@ -589,7 +618,7 @@ export function useGamepadInternal(enabled: boolean): GamepadState {
     };
   }, []);
 
-  return {
+  const nextState: GamepadState = {
     connected,
     focusedElement,
     registerAction,
@@ -598,8 +627,19 @@ export function useGamepadInternal(enabled: boolean): GamepadState {
     recenterVirtualMouse,
     registerTabCycler,
   };
+  const previousState = gamepadStateRef.current;
+  if (
+    previousState &&
+    previousState.connected === nextState.connected &&
+    previousState.focusedElement === nextState.focusedElement &&
+    previousState.virtualMouse === nextState.virtualMouse
+  ) {
+    return previousState;
+  }
+  gamepadStateRef.current = nextState;
+  return nextState;
 }
 
 // Tuning constants and types live in `./gamepad/gamepadUtils` and
 // are imported by name from there when a consumer needs them — no
-// re-exports here to avoid a second import surface.
+// re-exports here to avoid a second import surface.
