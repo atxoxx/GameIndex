@@ -2333,6 +2333,8 @@ export const en: TranslationDict = {
   "review.reviewCount": "{count} reviews",
   "review.reviewType": "Review Type",
   "review.searchPlaceholder": "Search reviews…",
+  "review.showLess": "Show less",
+  "review.showMore": "Show more",
   "review.steamCount": "Steam ({count})",
   "review.steamDeck": "Steam Deck",
   "review.steamPurchase": "Steam Purchase",

@@ -23,7 +23,7 @@ import { useLanguage } from "../context/LanguageContext";
 
 // ─── Types ──────────────────────────────────────────────────────────────────
 
-type SourceFilter = "all" | "steam" | "you" | "hydra" | "metacritic" | "opencritic" | "rawg";
+type SourceFilter = "all" | "steam" | "you" | "hydra" | "metacritic";
 
 /** A normalized review record we render. Combines local + Steam-fetched data. */
 interface ReviewItem {
@@ -32,7 +32,7 @@ interface ReviewItem {
    *  "featured" sort (Steam's natural order) — string IDs like
    *  `steam-{idx}` would re-introduce the parseInt bug we're fixing. */
   sourceIndex: number;
-  source: "you" | "steam" | "metacritic" | "opencritic" | "rawg";
+  source: "you" | "steam" | "metacritic";
   sourceLabel: string;
   username: string;
   rating: number | null;
@@ -468,15 +468,11 @@ function BbCodeRenderer({ text }: { text: string }) {
 
 // ─── Helpers ────────────────────────────────────────────────────────────────
 
-function buildExternalUrl(game: Game, site: "metacritic" | "opencritic" | "rawg"): string {
+function buildExternalUrl(game: Game, site: "metacritic"): string {
   const q = encodeURIComponent(game.name);
   switch (site) {
     case "metacritic":
       return `https://www.metacritic.com/search/game/${q}/results`;
-    case "opencritic":
-      return `https://opencritic.com/game/search?q=${q}`;
-    case "rawg":
-      return `https://rawg.io/games?query=${q}`;
   }
 }
 
@@ -620,8 +616,8 @@ function Dropdown({
 }
 
 /** Brand glyph for a review source. Steam + person sources render
- *  icons; the critic aggregators render their recognizable monograms
- *  (MC / OC / R). Tiles are tinted via the ambient `--src` color. */
+ *  icons; the Metacritic critic source renders its recognizable
+ *  "MC" monogram. Tiles are tinted via the ambient `--src` color. */
 function SourceMonogram({ source }: { source: ReviewItem["source"] }) {
   if (source === "steam") {
     return (
@@ -638,7 +634,7 @@ function SourceMonogram({ source }: { source: ReviewItem["source"] }) {
       </svg>
     );
   }
-  const label = source === "metacritic" ? "MC" : source === "opencritic" ? "OC" : "R";
+  const label = source === "metacritic" ? "MC" : "";
   return <span className="rv-mono" aria-hidden="true">{label}</span>;
 }
 
@@ -871,6 +867,7 @@ const STEAM_PROFILE_URL = "https://steamcommunity.com/profiles";
 
 function ReviewRow({ review, appId }: { review: ReviewItem; appId: number | null }) {
   const { t } = useLanguage();
+  const [expanded, setExpanded] = useState(false);
   const isYou = review.source === "you";
   const isSteam = review.source === "steam";
   const username = isYou ? "You" : review.username;
@@ -953,9 +950,33 @@ function ReviewRow({ review, appId }: { review: ReviewItem; appId: number | null
       {/* ── Review content ───────────────────────────────────────────── */}
       {review.title && <h3 className="rv-row-title">{review.title}</h3>}
       {review.content && (
-        <div className={`rv-row-content${review.content.length > 400 ? " clamp" : ""}`}>
-          <BbCodeRenderer text={review.content} />
-        </div>
+        <>
+          <div className={`rv-row-content${!expanded && review.content.length > 400 ? " clamp" : ""}`}>
+            <BbCodeRenderer text={review.content} />
+          </div>
+          {review.content.length > 400 && (
+            <button
+              type="button"
+              className="rv-expand-btn"
+              onClick={() => setExpanded((p) => !p)}
+              aria-expanded={expanded}
+            >
+              {t(expanded ? "review.showLess" : "review.showMore")}
+              <svg
+                className={`rv-expand-chevron${expanded ? " open" : ""}`}
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                aria-hidden="true"
+              >
+                <polyline points="6 9 12 15 18 9" />
+              </svg>
+            </button>
+          )}
+        </>
       )}
 
       {/* ── Reactions + helpfulness + comments ───────────────────────── */}
@@ -978,12 +999,13 @@ function ReviewRow({ review, appId }: { review: ReviewItem; appId: number | null
   );
 }
 
-// ─── Critic review row (Metacritic / OpenCritic / RAWG) ────────────────
+// ─── Critic review row (Metacritic) ────────────────────────────────────
 // Same ReviewItem shape, but presented as a critic verdict: publication
 // monogram + score pill + quote-style headline instead of a Steam user row.
 
 function CriticReviewRow({ review }: { review: ReviewItem }) {
   const { t } = useLanguage();
+  const [expanded, setExpanded] = useState(false);
   const isPos = review.sentiment === "positive";
   return (
     <article className={`rv-row rv-critic-row rv-source-${review.source}`}>
@@ -1008,9 +1030,33 @@ function CriticReviewRow({ review }: { review: ReviewItem }) {
 
       {review.title && <h3 className="rv-critic-title">“{review.title}”</h3>}
       {review.content && (
-        <div className={`rv-critic-content${review.content.length > 400 ? " clamp" : ""}`}>
-          <BbCodeRenderer text={review.content} />
-        </div>
+        <>
+          <div className={`rv-critic-content${!expanded && review.content.length > 400 ? " clamp" : ""}`}>
+            <BbCodeRenderer text={review.content} />
+          </div>
+          {review.content.length > 400 && (
+            <button
+              type="button"
+              className="rv-expand-btn"
+              onClick={() => setExpanded((p) => !p)}
+              aria-expanded={expanded}
+            >
+              {t(expanded ? "review.showLess" : "review.showMore")}
+              <svg
+                className={`rv-expand-chevron${expanded ? " open" : ""}`}
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                aria-hidden="true"
+              >
+                <polyline points="6 9 12 15 18 9" />
+              </svg>
+            </button>
+          )}
+        </>
       )}
 
       <footer className="rv-critic-footer">
@@ -1263,7 +1309,7 @@ export default function ReviewsTab({ game, onReviewsFetched }: ReviewsTabProps) 
     reviewsListRef.current = reviewsList;
   }, [reviewsList]);
 
-  // ── External reviews state (Metacritic, OpenCritic, RAWG) ───────
+  // ── External reviews state (Metacritic) ─────────────────────────
   const externalReviewsRef = useRef<Record<string, IgdbReview[]>>({});
   const [externalReviews, setExternalReviews] = useState<Record<string, IgdbReview[]>>({});
   const [externalLoading, setExternalLoading] = useState<Record<string, boolean>>({});
@@ -1284,8 +1330,6 @@ export default function ReviewsTab({ game, onReviewsFetched }: ReviewsTabProps) 
         if (reviews.length > 0) {
           const labels: Record<string, string> = {
             metacritic: "Metacritic",
-            opencritic: "OpenCritic",
-            rawg: "RAWG",
           };
           showToast(
             `Fetched ${reviews.length} review${reviews.length === 1 ? "" : "s"} from ${labels[src] || src}`,
@@ -1311,7 +1355,7 @@ export default function ReviewsTab({ game, onReviewsFetched }: ReviewsTabProps) 
   }, [game.id]);
 
   useEffect(() => {
-    if (sourceFilter === "metacritic" || sourceFilter === "opencritic" || sourceFilter === "rawg") {
+    if (sourceFilter === "metacritic") {
       fetchExternalReviews(sourceFilter);
     }
   }, [sourceFilter, game.id, fetchExternalReviews]);
@@ -1553,8 +1597,6 @@ export default function ReviewsTab({ game, onReviewsFetched }: ReviewsTabProps) 
 
     const externalLabels: Record<string, string> = {
       metacritic: "Metacritic",
-      opencritic: "OpenCritic",
-      rawg: "RAWG",
     };
     let externalIdx = 0;
     for (const [src, label] of Object.entries(externalLabels)) {
@@ -1650,8 +1692,6 @@ export default function ReviewsTab({ game, onReviewsFetched }: ReviewsTabProps) 
     }
     sources.push(
       { id: "metacritic", name: "Metacritic", url: buildExternalUrl(game, "metacritic"), description: `Search "${game.name}" on Metacritic`, accent: "#ffcc33" },
-      { id: "opencritic", name: "OpenCritic", url: buildExternalUrl(game, "opencritic"), description: "Critic reviews aggregator", accent: "#ff0099" },
-      { id: "rawg", name: "RAWG", url: buildExternalUrl(game, "rawg"), description: "Community reviews & ratings", accent: "#f43f5e" },
     );
     return sources;
   }, [game.metadataUrl, game.metadataSource, game.platform, game.path, game.name]);
@@ -1675,17 +1715,12 @@ export default function ReviewsTab({ game, onReviewsFetched }: ReviewsTabProps) 
   }
 
   // ── Critic-source helpers (presentation only — no state changes) ──
-  const isCriticSource =
-    sourceFilter === "metacritic" || sourceFilter === "opencritic" || sourceFilter === "rawg";
+  const isCriticSource = sourceFilter === "metacritic";
   const criticLabels: Record<string, string> = {
     metacritic: "Metacritic",
-    opencritic: "OpenCritic",
-    rawg: "RAWG",
   };
   const criticCounts: Record<string, number> = {
     metacritic: externalReviews.metacritic?.length ?? 0,
-    opencritic: externalReviews.opencritic?.length ?? 0,
-    rawg: externalReviews.rawg?.length ?? 0,
   };
 
   return (
@@ -1807,7 +1842,7 @@ export default function ReviewsTab({ game, onReviewsFetched }: ReviewsTabProps) 
         </div>
 
         <div className="rv-source-seg">
-          {(["metacritic", "opencritic", "rawg"] as const).map((src) => {
+          {(["metacritic"] as const).map((src) => {
             const active = sourceFilter === src;
             const loading = externalLoading[src];
             const count = criticCounts[src];
@@ -2068,7 +2103,7 @@ export default function ReviewsTab({ game, onReviewsFetched }: ReviewsTabProps) 
           <button
             type="button"
             className="rv-btn rv-btn-ghost"
-            onClick={() => openExternal(buildExternalUrl(game, sourceFilter as "metacritic" | "opencritic" | "rawg"))}
+            onClick={() => openExternal(buildExternalUrl(game, sourceFilter as "metacritic"))}
           >
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
               <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6" />
@@ -2112,7 +2147,7 @@ export default function ReviewsTab({ game, onReviewsFetched }: ReviewsTabProps) 
         <div className="rv-list">
           <div className="rv-list-rows">
             {filteredReviews.map((review) =>
-              review.source === "metacritic" || review.source === "opencritic" || review.source === "rawg" ? (
+              review.source === "metacritic" ? (
                 <CriticReviewRow key={review.id} review={review} />
               ) : (
                 <ReviewRow key={review.id} review={review} appId={appId} />
@@ -2120,7 +2155,7 @@ export default function ReviewsTab({ game, onReviewsFetched }: ReviewsTabProps) 
             )}
           </div>
 
-          {nextCursor && sourceFilter !== "you" && sourceFilter !== "metacritic" && sourceFilter !== "opencritic" && sourceFilter !== "rawg" && (
+          {nextCursor && sourceFilter !== "you" && sourceFilter !== "metacritic" && (
             <div className="rv-load-more-row">
               <button type="button" className="rv-btn rv-btn-ghost rv-btn-large"
                 onClick={() => fetchReviews(false, nextCursor, languageFilter)} disabled={isLoadingMore}>
@@ -2163,8 +2198,8 @@ export default function ReviewsTab({ game, onReviewsFetched }: ReviewsTabProps) 
           <div className="rv-external-grid">
             {externalSources.map((src) => {
               const criticSrc =
-                src.id === "metacritic" || src.id === "opencritic" || src.id === "rawg"
-                  ? (src.id as "metacritic" | "opencritic" | "rawg")
+                src.id === "metacritic"
+                  ? (src.id as "metacritic")
                   : null;
               return (
                 <ExternalReviewButton
@@ -2197,7 +2232,7 @@ interface ExternalReviewButtonProps {
 function ExternalReviewButton({ src, openExternal, isBigScreen, inAppCount, onShowInApp }: ExternalReviewButtonProps) {
   const { t } = useLanguage();
   const focusProps = useFocusable(() => openExternal(src.url));
-  const mono = src.id === "metacritic" ? "MC" : src.id === "opencritic" ? "OC" : src.id === "rawg" ? "R" : null;
+  const mono = src.id === "metacritic" ? "MC" : null;
   return (
     <div className="rv-external-cell" style={{ "--accent": src.accent } as React.CSSProperties}>
       <button

@@ -6974,45 +6974,21 @@
   background: var(--color-accent-hover);
 }
 
-/* Critic source buttons — brand-tinted active state. */
+/* Critic source button — brand-tinted active state. */
 .rv-source-seg-btn--metacritic { --src: #ffcc33; }
-.rv-source-seg-btn--opencritic { --src: #ff0099; }
-.rv-source-seg-btn--rawg { --src: #f43f5e; }
 
 .rv-source-seg-btn--metacritic:hover,
 .rv-source-seg-btn--metacritic.active {
   color: #ffcc33;
-}
-.rv-source-seg-btn--opencritic:hover,
-.rv-source-seg-btn--opencritic.active {
-  color: #ff66cc;
-}
-.rv-source-seg-btn--rawg:hover,
-.rv-source-seg-btn--rawg.active {
-  color: #fb7185;
 }
 
 .rv-source-seg-btn--metacritic.active {
   background: color-mix(in srgb, #ffcc33 18%, transparent);
   box-shadow: inset 0 0 0 1px color-mix(in srgb, #ffcc33 45%, transparent);
 }
-.rv-source-seg-btn--opencritic.active {
-  background: color-mix(in srgb, #ff0099 18%, transparent);
-  box-shadow: inset 0 0 0 1px color-mix(in srgb, #ff0099 45%, transparent);
-}
-.rv-source-seg-btn--rawg.active {
-  background: color-mix(in srgb, #f43f5e 18%, transparent);
-  box-shadow: inset 0 0 0 1px color-mix(in srgb, #f43f5e 45%, transparent);
-}
 
 .rv-source-seg-btn--metacritic.active:hover {
   background: color-mix(in srgb, #ffcc33 26%, transparent);
-}
-.rv-source-seg-btn--opencritic.active:hover {
-  background: color-mix(in srgb, #ff0099 26%, transparent);
-}
-.rv-source-seg-btn--rawg.active:hover {
-  background: color-mix(in srgb, #f43f5e 26%, transparent);
 }
 
 .rv-source-seg-mono {
@@ -7500,8 +7476,6 @@
 .rv-source-you { --src: var(--color-accent); }
 .rv-source-steam { --src: #66c0f4; }
 .rv-source-metacritic { --src: #ffcc33; }
-.rv-source-opencritic { --src: #ff0099; }
-.rv-source-rawg { --src: #f43f5e; }
 
 .rv-row-header {
   display: flex;
@@ -7705,6 +7679,46 @@
   -webkit-mask-image: linear-gradient(to bottom, black 55%, transparent 100%);
 }
 
+/* ── Expand / collapse toggle for long review content ───────────────── */
+
+.rv-expand-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  align-self: flex-start;
+  margin-top: 2px;
+  padding: 2px 0;
+  background: none;
+  border: none;
+  color: var(--color-text-muted);
+  font-size: 12px;
+  font-weight: var(--font-weight-semibold);
+  font-family: inherit;
+  cursor: pointer;
+  transition: color var(--transition-fast);
+}
+
+.rv-expand-btn:hover {
+  color: var(--color-accent);
+}
+
+.rv-expand-btn:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 2px;
+  border-radius: var(--radius-xs);
+}
+
+.rv-expand-chevron {
+  width: 12px;
+  height: 12px;
+  flex-shrink: 0;
+  transition: transform var(--transition-fast);
+}
+
+.rv-expand-chevron.open {
+  transform: rotate(180deg);
+}
+
 .rv-row-footer {
   display: flex;
   align-items: center;
@@ -7765,7 +7779,7 @@
   text-align: center;
 }
 
-/* ── Critic review rows (Metacritic / OpenCritic / RAWG) ────────────── */
+/* ── Critic review rows (Metacritic) ─────────────────────────────────── */
 
 .rv-critic-row {
   gap: 8px;
