@@ -309,14 +309,19 @@
 }
 
 .bigscreen-details-logo-area {
-  min-height: 70px;
+  /* Fixed-height slot for the game logo OR title so the dashboard pane
+   * never reflows while navigating between games: the 120px logo and a
+   * 2-line clamped 52px title both fit inside this reserved box. */
+  min-height: 120px;
+  height: 120px;
   display: flex;
   align-items: center;
   margin-bottom: 20px;
+  overflow: hidden;
 }
 
 .bigscreen-details-logo {
-  max-height: 120px;
+  max-height: 116px;
   max-width: 400px;
   object-fit: contain;
   display: block;
@@ -330,6 +335,14 @@
   letter-spacing: -1px;
   line-height: 1.1;
   text-shadow: 0 4px 24px color-mix(in srgb, var(--bigscreen-shadow) 85%, transparent);
+  /* Clamp to exactly two lines so long titles never change the height
+   * of the reserved logo-area slot (kills navigation jitter). */
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .bigscreen-details-meta {
@@ -346,6 +359,15 @@
   margin: 0 0 28px 0;
   text-shadow: 0 2px 10px color-mix(in srgb, var(--bigscreen-shadow) 60%, transparent);
   max-width: 680px;
+  /* Always-on slot: reserve 3 lines and clamp so descriptions of
+   * different lengths (or missing ones) never shift the action row. */
+  min-height: 4.8em;
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 3;
+  line-clamp: 3;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .bigscreen-details-actions {
@@ -1357,6 +1379,12 @@
   font-weight: 900;
   margin: 0;
   letter-spacing: -1px;
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .bigscreen-gamepage-actions-row {
@@ -1579,6 +1607,12 @@
   line-height: 1.05;
   text-shadow: 0 8px 32px color-mix(in srgb, var(--bigscreen-shadow) 90%, transparent);
   margin-bottom: 8px;
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 /* Developer + release year subtitle row. */
@@ -2422,19 +2456,21 @@
 }
 
 .bigscreen-store-featured-pane .bigscreen-details-logo-area {
-  min-height: 44px;
+  min-height: 88px;
+  height: 88px;
   margin-bottom: 8px;
 }
 
 .bigscreen-store-featured-pane .bigscreen-store-featured-logo {
   max-width: 360px;
-  max-height: 88px;
+  max-height: 84px;
   margin-bottom: 0;
 }
 
 .bigscreen-store-featured-pane .bigscreen-store-featured-title {
   font-size: 36px;
   margin-bottom: 0;
+  line-clamp: 2;
 }
 
 .bigscreen-store-featured-pane .bigscreen-details-meta {
@@ -2447,6 +2483,7 @@
   font-size: 14px;
   line-height: 1.4;
   margin-bottom: 12px;
+  min-height: 4.2em;
 }
 
 .bigscreen-store-featured-pane .bigscreen-details-actions {

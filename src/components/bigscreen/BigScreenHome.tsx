@@ -189,13 +189,15 @@ export default function BigScreenHome() {
                 )}
               </div>
 
-              {featuredGame.description && (
-                <p className="bigscreen-details-description">
-                  {featuredGame.description.length > 200
+              {/* Always rendered so the reserved description slot keeps
+                  the actions row stable while navigating between games. */}
+              <p className="bigscreen-details-description">
+                {featuredGame.description
+                  ? featuredGame.description.length > 200
                     ? `${featuredGame.description.substring(0, 200)}...`
-                    : featuredGame.description}
-                </p>
-              )}
+                    : featuredGame.description
+                  : ""}
+              </p>
 
               <div className="bigscreen-details-actions">
                 <button
