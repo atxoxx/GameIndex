@@ -619,29 +619,27 @@ function Dropdown({
   );
 }
 
-function ReviewSourceBadge({ source, label }: { source: ReviewItem["source"]; label: string }) {
-  const iconMap: Record<string, React.ReactNode> = {
-    you: (
+/** Brand glyph for a review source. Steam + person sources render
+ *  icons; the critic aggregators render their recognizable monograms
+ *  (MC / OC / R). Tiles are tinted via the ambient `--src` color. */
+function SourceMonogram({ source }: { source: ReviewItem["source"] }) {
+  if (source === "steam") {
+    return (
+      <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+        <path d="M3 5h18v14H3V5zm9 2L5 19h4l1-2.5h2L13 19h4L12 7zm0 4.6L13.2 14h-2.4L12 11.6z" />
+      </svg>
+    );
+  }
+  if (source === "you") {
+    return (
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
         <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
         <circle cx="12" cy="7" r="4" />
       </svg>
-    ),
-    steam: (
-      <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
-        <path d="M3 5h18v14H3V5zm9 2L5 19h4l1-2.5h2L13 19h4L12 7zm0 4.6L13.2 14h-2.4L12 11.6z" />
-      </svg>
-    ),
-    metacritic: (<span style={{ fontSize: "12px", fontWeight: 900, lineHeight: 1 }}>MC</span>),
-    opencritic: (<span style={{ fontSize: "12px", fontWeight: 900, lineHeight: 1 }}>OC</span>),
-    rawg: (<span style={{ fontSize: "10px", fontWeight: 900, lineHeight: 1 }}>R</span>),
-  };
-  return (
-    <span className={`rv-source-badge rv-source-badge-${source}`}>
-      {iconMap[source] || null}
-      <span>{label}</span>
-    </span>
-  );
+    );
+  }
+  const label = source === "metacritic" ? "MC" : source === "opencritic" ? "OC" : "R";
+  return <span className="rv-mono" aria-hidden="true">{label}</span>;
 }
 
 function ContextBadge({ icon, label, tone }: { icon: React.ReactNode; label: string; tone: "info" | "warning" | "success" }) {
@@ -898,20 +896,24 @@ function ReviewRow({ review, appId }: { review: ReviewItem; appId: number | null
               <span className="rv-row-name">{username}</span>
             )}
             {isYou && <span className="rv-verified-badge">{t("review.verifiedPlayer")}</span>}
-            {review.source !== "steam" && review.source !== "you" && (
-              <ReviewSourceBadge source={review.source} label={review.sourceLabel} />
-            )}
           </div>
 
           {/* Detail row: playtime + date */}
           <div className="rv-row-details">
             {review.authorPlaytimeAtReview !== undefined && (
               <span className="rv-row-pill" title="Playtime on this game at review time">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                  <circle cx="12" cy="12" r="10" />
+                  <polyline points="12 6 12 12 16 14" />
+                </svg>
                 {formatPlayTime(review.authorPlaytimeAtReview)} on record
               </span>
             )}
             {review.authorPlaytimeForever !== undefined && (
-              <span className="rv-row-pill" title="Total playtime across all games">
+              <span className="rv-row-pill rv-row-pill-muted" title="Total playtime across all games">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                  <path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6" />
+                </svg>
                 {formatPlayTime(review.authorPlaytimeForever)} total
               </span>
             )}
@@ -924,7 +926,7 @@ function ReviewRow({ review, appId }: { review: ReviewItem; appId: number | null
           <div className="rv-row-badges">
             {review.steamPurchase !== undefined && (
               <span
-                className={`rv-row-icon-btn${review.steamPurchase ? "" : ""}`}
+                className={`rv-row-icon-btn${review.steamPurchase ? " rv-row-icon-btn-on" : ""}`}
                 title={review.steamPurchase
                   ? "This review is counted in the overall review score (Steam purchase)"
                   : "This review is not counted in the overall review score (Steam key / gift / free license)"}
@@ -972,6 +974,62 @@ function ReviewRow({ review, appId }: { review: ReviewItem; appId: number | null
 
       <ReactionBar review={review} />
       <HardwareSpecs hw={review.hw} />
+    </article>
+  );
+}
+
+// ─── Critic review row (Metacritic / OpenCritic / RAWG) ────────────────
+// Same ReviewItem shape, but presented as a critic verdict: publication
+// monogram + score pill + quote-style headline instead of a Steam user row.
+
+function CriticReviewRow({ review }: { review: ReviewItem }) {
+  const { t } = useLanguage();
+  const isPos = review.sentiment === "positive";
+  return (
+    <article className={`rv-row rv-critic-row rv-source-${review.source}`}>
+      <header className="rv-critic-header">
+        <span className="rv-critic-mono" aria-hidden="true">
+          <SourceMonogram source={review.source} />
+        </span>
+        <div className="rv-critic-meta">
+          <span className="rv-critic-source">{review.sourceLabel}</span>
+          <span className="rv-critic-author">{review.username || review.sourceLabel}</span>
+        </div>
+        {review.rating !== null && review.rating !== undefined && (
+          <span
+            className={`rv-critic-score${isPos ? " rv-critic-score-pos" : " rv-critic-score-neg"}`}
+            title={isPos ? t("review.recommended") : t("review.notRecommended")}
+          >
+            <span className="rv-critic-score-value">{Math.round(review.rating)}</span>
+            <span className="rv-critic-score-denom">/100</span>
+          </span>
+        )}
+      </header>
+
+      {review.title && <h3 className="rv-critic-title">“{review.title}”</h3>}
+      {review.content && (
+        <div className={`rv-critic-content${review.content.length > 400 ? " clamp" : ""}`}>
+          <BbCodeRenderer text={review.content} />
+        </div>
+      )}
+
+      <footer className="rv-critic-footer">
+        {review.dateAdded && <span className="rv-critic-date">{formatShortDate(review.dateAdded)}</span>}
+        <span className={`rv-critic-verdict${isPos ? " rv-critic-verdict-pos" : " rv-critic-verdict-neg"}`}>
+          {isPos ? (
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+              <path d="M7 10v12" />
+              <path d="M15 5.88 14 10h5.83a2 2 0 0 1 1.92 2.56l-2.33 8A2 2 0 0 1 17.5 22H4a2 2 0 0 1-2-2v-8a2 2 0 0 1 2-2h2.76a2 2 0 0 0 1.79-1.11L12 2a3.13 3.13 0 0 1 3 3.88Z" />
+            </svg>
+          ) : (
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+              <path d="M17 14V2" />
+              <path d="M9 18.12 10 14H4.17a2 2 0 0 1-1.92-2.56l2.33-8A2 2 0 0 1 6.5 2H20a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2h-2.76a2 2 0 0 0-1.79 1.11L12 22a3.13 3.13 0 0 1-3-3.88Z" />
+            </svg>
+          )}
+          {isPos ? t("review.recommended") : t("review.notRecommended")}
+        </span>
+      </footer>
     </article>
   );
 }
@@ -1081,14 +1139,7 @@ function ReviewSummary({
           {steamReviewScoreDesc && (
             <div
               className="rv-summary-desc"
-              style={{
-                color: scoreColor,
-                fontWeight: "var(--font-weight-bold)",
-                fontSize: "12px",
-                textTransform: "uppercase",
-                letterSpacing: "0.5px",
-                lineHeight: "1.2",
-              }}
+              style={{ color: scoreColor }}
             >
               {steamReviewScoreDesc}
             </div>
@@ -1109,18 +1160,18 @@ function ReviewSummary({
           <div className="rv-distribution-row">
             <span className="rv-distribution-label rv-distribution-label-pos">{t("review.positive")}</span>
             <div className="rv-distribution-bar-track">
-              <div className="rv-distribution-bar-fill" style={{ width: `${positivePct}%`, background: "var(--color-success)" }} />
+              <div className="rv-distribution-bar-fill rv-distribution-bar-fill-pos" style={{ width: `${positivePct}%` }} />
             </div>
-            <span className="rv-distribution-count" style={{ width: "auto", minWidth: "45px" }}>
+            <span className="rv-distribution-count" style={{ minWidth: "45px" }}>
               {positiveCount.toLocaleString()}
             </span>
           </div>
           <div className="rv-distribution-row">
             <span className="rv-distribution-label rv-distribution-label-neg">{t("review.negative")}</span>
             <div className="rv-distribution-bar-track">
-              <div className="rv-distribution-bar-fill" style={{ width: `${negativePct}%`, background: "var(--color-danger)" }} />
+              <div className="rv-distribution-bar-fill rv-distribution-bar-fill-neg" style={{ width: `${negativePct}%` }} />
             </div>
-            <span className="rv-distribution-count" style={{ width: "auto", minWidth: "45px" }}>
+            <span className="rv-distribution-count" style={{ minWidth: "45px" }}>
               {negativeCount.toLocaleString()}
             </span>
           </div>
@@ -1623,45 +1674,47 @@ export default function ReviewsTab({ game, onReviewsFetched }: ReviewsTabProps) 
     });
   }
 
+  // ── Critic-source helpers (presentation only — no state changes) ──
+  const isCriticSource =
+    sourceFilter === "metacritic" || sourceFilter === "opencritic" || sourceFilter === "rawg";
+  const criticLabels: Record<string, string> = {
+    metacritic: "Metacritic",
+    opencritic: "OpenCritic",
+    rawg: "RAWG",
+  };
+  const criticCounts: Record<string, number> = {
+    metacritic: externalReviews.metacritic?.length ?? 0,
+    opencritic: externalReviews.opencritic?.length ?? 0,
+    rawg: externalReviews.rawg?.length ?? 0,
+  };
+
   return (
     <div className="rv-root">
-      <div className="rv-header">
+      {/* ── Header: icon chip + title + subtitle + refresh ───────────── */}
+      <header className="rv-header">
         <div className="rv-header-left">
-          <h2 className="rv-header-title">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+          <span className="rv-header-icon" aria-hidden="true">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
               <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
               <line x1="9" y1="10" x2="15" y2="10" />
               <line x1="12" y1="13" x2="12" y2="13" />
             </svg>
-            {t("review.communityReviews")}
-          </h2>
-          <p className="rv-header-subtitle">
-            {totalReviewCount > 0
-              ? t("review.subtitleCount", { count: totalReviewCount.toLocaleString() })
-              : totalAll === 0
-              ? t("review.subtitleNone")
-              : totalAll === 1
-              ? t("review.subtitleOne")
-              : t("review.subtitleCount", { count: totalAll })}
-          </p>
+          </span>
+          <div className="rv-header-text">
+            <h2 className="rv-header-title">{t("review.communityReviews")}</h2>
+            <p className="rv-header-subtitle">
+              {totalReviewCount > 0
+                ? t("review.subtitleCount", { count: totalReviewCount.toLocaleString() })
+                : totalAll === 0
+                ? t("review.subtitleNone")
+                : totalAll === 1
+                ? t("review.subtitleOne")
+                : t("review.subtitleCount", { count: totalAll })}
+            </p>
+          </div>
         </div>
-      </div>
-
-      {/* Steam summary + refresh are hidden on the Hydra sub-tab — they
-          describe Steam data and the Hydra panel fetches on its own. */}
-      {sourceFilter !== "hydra" && (
-        <>
-          <ReviewSummary
-            reviews={allReviews}
-            totalReviewCount={totalReviewCount}
-            steamReviewScoreDesc={steamReviewScoreDesc}
-            steamReviewScore={steamReviewScore}
-            steamTotalPositive={steamTotalPositive}
-            steamTotalNegative={steamTotalNegative}
-          />
-
-          {/* ── Refresh button ──────────────────────────────────────── */}
-          <div className="rv-refresh-row">
+        <div className="rv-header-actions">
+          {sourceFilter !== "hydra" && (
             <button
               type="button"
               className="rv-refresh-btn"
@@ -1683,118 +1736,280 @@ export default function ReviewsTab({ game, onReviewsFetched }: ReviewsTabProps) 
                 </>
               )}
             </button>
-          </div>
-        </>
+          )}
+        </div>
+      </header>
+
+      {/* Steam summary is hidden on the Hydra sub-tab — it describes
+          Steam data and the Hydra panel fetches on its own. */}
+      {sourceFilter !== "hydra" && (
+        <ReviewSummary
+          reviews={allReviews}
+          totalReviewCount={totalReviewCount}
+          steamReviewScoreDesc={steamReviewScoreDesc}
+          steamReviewScore={steamReviewScore}
+          steamTotalPositive={steamTotalPositive}
+          steamTotalNegative={steamTotalNegative}
+        />
       )}
 
-      {totalAll > 0 && sourceFilter !== "hydra" && (
+      {/* ── Source tabs (segmented trays — always visible so Hydra and
+             the critic sources stay reachable even with no Steam data) ── */}
+      <div className="rv-source-tabs">
+        <div className="rv-source-seg">
+          <button
+            type="button"
+            aria-pressed={sourceFilter === "all"}
+            className={`rv-source-seg-btn${sourceFilter === "all" ? " active" : ""}`}
+            onClick={() => setSourceFilter("all")}
+          >
+            {t("review.allReviewsCount", { count: totalAll })}
+          </button>
+          <button
+            type="button"
+            aria-pressed={sourceFilter === "steam"}
+            className={`rv-source-seg-btn${sourceFilter === "steam" ? " active" : ""}`}
+            onClick={() => setSourceFilter("steam")}
+          >
+            <SourceMonogram source="steam" />
+            {t("review.steamCount", { count: steamCount > 0 ? steamCount.toLocaleString() : steamCount })}
+          </button>
+          <button
+            type="button"
+            aria-pressed={sourceFilter === "hydra"}
+            className={`rv-source-seg-btn${sourceFilter === "hydra" ? " active" : ""}`}
+            onClick={() => setSourceFilter("hydra")}
+            title="Community reviews from the Hydra launcher"
+          >
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
+              <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
+              <circle cx="9" cy="7" r="4" />
+              <path d="M23 21v-2a4 4 0 0 0-3-3.87" />
+              <path d="M16 3.13a4 4 0 0 1 0 7.75" />
+            </svg>
+            {t("review.userReviews")}
+          </button>
+          {youCount > 0 && (
+            <button
+              type="button"
+              aria-pressed={sourceFilter === "you"}
+              className={`rv-source-seg-btn${sourceFilter === "you" ? " active" : ""}`}
+              onClick={() => setSourceFilter("you")}
+            >
+              <SourceMonogram source="you" />
+              {t("review.youCount", { count: youCount })}
+            </button>
+          )}
+        </div>
+
+        <div className="rv-source-tabs-divider" aria-hidden="true">
+          <span>{t("reviewsTab.critics")}</span>
+        </div>
+
+        <div className="rv-source-seg">
+          {(["metacritic", "opencritic", "rawg"] as const).map((src) => {
+            const active = sourceFilter === src;
+            const loading = externalLoading[src];
+            const count = criticCounts[src];
+            return (
+              <button
+                key={src}
+                type="button"
+                aria-pressed={active}
+                className={`rv-source-seg-btn rv-source-seg-btn--${src}${active ? " active" : ""}`}
+                onClick={() => setSourceFilter(src)}
+              >
+                <span className="rv-source-seg-mono"><SourceMonogram source={src} /></span>
+                <span className="rv-source-seg-name">{criticLabels[src]}</span>
+                {loading ? (
+                  <span className="rv-source-seg-spinner" aria-hidden="true" />
+                ) : count > 0 ? (
+                  <span className="rv-source-seg-count">{count}</span>
+                ) : null}
+              </button>
+            );
+          })}
+        </div>
+      </div>
+
+      {totalAll > 0 && sourceFilter !== "hydra" && !isCriticSource && (
         <>
-          {/* ── Toolbar ──────────────────────────────────────────────── */}
+          {/* ── Toolbar: primary segmented filters + tools row ───────── */}
           <div className="rv-toolbar">
-            {/* Review type */}
-            <Dropdown
-              label={t("review.reviewType")}
-              value={reviewType}
-              onChange={(v) => setReviewType(v as typeof reviewType)}
-              items={[
-                { value: "all", label: t("review.allReviews") },
-                { value: "positive", label: t("review.recommended") },
-                { value: "negative", label: t("review.notRecommended") },
-              ]}
-            />
-
-            {/* Purchase type */}
-            <Dropdown
-              label={t("review.purchaseType")}
-              value={purchaseType}
-              onChange={(v) => setPurchaseType(v as typeof purchaseType)}
-              items={[
-                { value: "all", label: t("review.allPurchases") },
-                { value: "steam", label: t("review.steamPurchasers") },
-                { value: "other", label: t("review.otherSources") },
-              ]}
-            />
-
-            {/* Language */}
-            <Dropdown
-              label={t("common.language")}
-              value={languageFilter}
-              onChange={setLanguageFilter}
-              items={STEAM_LANGUAGES.map((l) => ({ value: l.code, label: `${l.flag} ${l.label}` }))}
-            />
-
-            {/* Playtime */}
-            <Dropdown
-              label={t("review.playtime")}
-              value={playtimePreset}
-              onChange={(v) => setPlaytimePreset(v as typeof playtimePreset)}
-              items={[
-                { value: "none", label: t("review.noMinimum") },
-                { value: "over_1h", label: t("review.over1h") },
-                { value: "over_10h", label: t("review.over10h") },
-                { value: "custom", label: t("review.customOption") },
-              ]}
-            />
-            {playtimePreset === "custom" && (
-              <div className="rv-playtime-range">
-                <input type="number" min={0} max={100} className="rv-input" value={playtimeMinHours}
-                  onChange={(e) => setPlaytimeMinHours(Math.max(0, Math.min(100, Number(e.target.value) || 0)))}
-                  placeholder="Min h" aria-label="Min hours" />
-                <span className="rv-playtime-range-sep">–</span>
-                <input type="number" min={0} max={100} className="rv-input" value={playtimeMaxHours}
-                  onChange={(e) => setPlaytimeMaxHours(Math.max(0, Math.min(100, Number(e.target.value) || 0)))}
-                  placeholder="Max h" aria-label="Max hours" />
-                <span className="rv-playtime-range-hint">hours</span>
-              </div>
-            )}
-
-            {/* Playtime device */}
-            <Dropdown
-              label={t("review.device")}
-              value={playtimeDevice}
-              onChange={(v) => setPlaytimeDevice(v as typeof playtimeDevice)}
-              items={[
-                { value: "all", label: t("review.allDevices") },
-                { value: "deck", label: t("review.steamDeck") },
-              ]}
-            />
-
-            {/* Display order */}
-            <Dropdown
-              label={t("review.display")}
-              value={display}
-              onChange={(v) => setDisplay(v as typeof display)}
-              items={[
-                { value: "summary", label: t("review.summary") },
-                { value: "all", label: t("review.mostHelpful") },
-                { value: "recent", label: t("review.recent") },
-                { value: "funny", label: t("review.funny") },
-              ]}
-            />
-
-            {/* Helpfulness system toggle */}
-            <label className="rv-toggle-label" title="Use new helpfulness system for Summary / Most Helpful">
-              <input type="checkbox" checked={useHelpfulSystem} onChange={(e) => setUseHelpfulSystem(e.target.checked)} />
-              <span>{t("review.helpfulnessSystem")}</span>
-            </label>
-
-            {/* Search */}
-            <div className="rv-search-wrap">
-              <svg className="rv-search-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-                <circle cx="11" cy="11" r="8" />
-                <line x1="21" y1="21" x2="16.65" y2="16.65" />
-              </svg>
-              <input className="rv-search" type="search" value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder={t("review.searchPlaceholder")} aria-label={t("review.searchPlaceholder")} />
-              {searchQuery && (
-                <button type="button" className="rv-search-clear" onClick={() => setSearchQuery("")} aria-label="Clear search">
+            <div className="rv-toolbar-segs">
+              {/* Display order */}
+              <div className="rv-seg" role="group" aria-label={t("review.display")}>
+                <button
+                  type="button"
+                  aria-pressed={display === "summary"}
+                  className={`rv-seg-btn${display === "summary" ? " active" : ""}`}
+                  onClick={() => setDisplay("summary")}
+                >
                   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-                    <line x1="18" y1="6" x2="6" y2="18" />
-                    <line x1="6" y1="6" x2="18" y2="18" />
+                    <line x1="18" y1="20" x2="18" y2="10" />
+                    <line x1="12" y1="20" x2="12" y2="4" />
+                    <line x1="6" y1="20" x2="6" y2="14" />
                   </svg>
+                  {t("review.summary")}
                 </button>
+                <button
+                  type="button"
+                  aria-pressed={display === "all"}
+                  className={`rv-seg-btn${display === "all" ? " active" : ""}`}
+                  onClick={() => setDisplay("all")}
+                >
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                    <path d="M14 9V5a3 3 0 0 0-3-3l-4 9v11h11.28a2 2 0 0 0 2-1.7l1.38-9a2 2 0 0 0-2-2.3zM7 22H4a2 2 0 0 1-2-2v-7a2 2 0 0 1 2-2h3" />
+                  </svg>
+                  {t("review.mostHelpful")}
+                </button>
+                <button
+                  type="button"
+                  aria-pressed={display === "recent"}
+                  className={`rv-seg-btn${display === "recent" ? " active" : ""}`}
+                  onClick={() => setDisplay("recent")}
+                >
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                    <circle cx="12" cy="12" r="10" />
+                    <polyline points="12 6 12 12 16 14" />
+                  </svg>
+                  {t("review.recent")}
+                </button>
+                <button
+                  type="button"
+                  aria-pressed={display === "funny"}
+                  className={`rv-seg-btn${display === "funny" ? " active" : ""}`}
+                  onClick={() => setDisplay("funny")}
+                >
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                    <circle cx="12" cy="12" r="10" />
+                    <path d="M8 14s1.5 2 4 2 4-2 4-2" />
+                    <line x1="9" y1="9" x2="9.01" y2="9" />
+                    <line x1="15" y1="9" x2="15.01" y2="9" />
+                  </svg>
+                  {t("review.funny")}
+                </button>
+              </div>
+
+              {/* Review type */}
+              <div className="rv-seg" role="group" aria-label={t("review.reviewType")}>
+                <button
+                  type="button"
+                  aria-pressed={reviewType === "all"}
+                  className={`rv-seg-btn${reviewType === "all" ? " active" : ""}`}
+                  onClick={() => setReviewType("all")}
+                >
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                    <polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3" />
+                  </svg>
+                  {t("review.allReviews")}
+                </button>
+                <button
+                  type="button"
+                  aria-pressed={reviewType === "positive"}
+                  className={`rv-seg-btn${reviewType === "positive" ? " active" : ""}`}
+                  onClick={() => setReviewType("positive")}
+                >
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                    <path d="M14 9V5a3 3 0 0 0-3-3l-4 9v11h11.28a2 2 0 0 0 2-1.7l1.38-9a2 2 0 0 0-2-2.3zM7 22H4a2 2 0 0 1-2-2v-7a2 2 0 0 1 2-2h3" />
+                  </svg>
+                  {t("review.recommended")}
+                </button>
+                <button
+                  type="button"
+                  aria-pressed={reviewType === "negative"}
+                  className={`rv-seg-btn${reviewType === "negative" ? " active" : ""}`}
+                  onClick={() => setReviewType("negative")}
+                >
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                    <path d="M10 15v4a3 3 0 0 0 3 3l4-9V2H5.72a2 2 0 0 0-2 1.7l-1.38 9a2 2 0 0 0 2 2.3zm7-13h2.67A2.31 2.31 0 0 1 22 4v7a2.31 2.31 0 0 1-2.33 2H17" />
+                  </svg>
+                  {t("review.notRecommended")}
+                </button>
+              </div>
+            </div>
+
+            <div className="rv-toolbar-tools">
+              {/* Purchase type */}
+              <Dropdown
+                label={t("review.purchaseType")}
+                value={purchaseType}
+                onChange={(v) => setPurchaseType(v as typeof purchaseType)}
+                items={[
+                  { value: "all", label: t("review.allPurchases") },
+                  { value: "steam", label: t("review.steamPurchasers") },
+                  { value: "other", label: t("review.otherSources") },
+                ]}
+              />
+
+              {/* Language */}
+              <Dropdown
+                label={t("common.language")}
+                value={languageFilter}
+                onChange={setLanguageFilter}
+                items={STEAM_LANGUAGES.map((l) => ({ value: l.code, label: `${l.flag} ${l.label}` }))}
+              />
+
+              {/* Playtime */}
+              <Dropdown
+                label={t("review.playtime")}
+                value={playtimePreset}
+                onChange={(v) => setPlaytimePreset(v as typeof playtimePreset)}
+                items={[
+                  { value: "none", label: t("review.noMinimum") },
+                  { value: "over_1h", label: t("review.over1h") },
+                  { value: "over_10h", label: t("review.over10h") },
+                  { value: "custom", label: t("review.customOption") },
+                ]}
+              />
+              {playtimePreset === "custom" && (
+                <div className="rv-playtime-range">
+                  <input type="number" min={0} max={100} className="rv-input" value={playtimeMinHours}
+                    onChange={(e) => setPlaytimeMinHours(Math.max(0, Math.min(100, Number(e.target.value) || 0)))}
+                    placeholder="Min h" aria-label="Min hours" />
+                  <span className="rv-playtime-range-sep">–</span>
+                  <input type="number" min={0} max={100} className="rv-input" value={playtimeMaxHours}
+                    onChange={(e) => setPlaytimeMaxHours(Math.max(0, Math.min(100, Number(e.target.value) || 0)))}
+                    placeholder="Max h" aria-label="Max hours" />
+                  <span className="rv-playtime-range-hint">hours</span>
+                </div>
               )}
+
+              {/* Playtime device */}
+              <Dropdown
+                label={t("review.device")}
+                value={playtimeDevice}
+                onChange={(v) => setPlaytimeDevice(v as typeof playtimeDevice)}
+                items={[
+                  { value: "all", label: t("review.allDevices") },
+                  { value: "deck", label: t("review.steamDeck") },
+                ]}
+              />
+
+              {/* Helpfulness system toggle */}
+              <label className="rv-toggle-label" title="Use new helpfulness system for Summary / Most Helpful">
+                <input type="checkbox" checked={useHelpfulSystem} onChange={(e) => setUseHelpfulSystem(e.target.checked)} />
+                <span>{t("review.helpfulnessSystem")}</span>
+              </label>
+
+              {/* Search */}
+              <div className="rv-search-wrap">
+                <svg className="rv-search-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                  <circle cx="11" cy="11" r="8" />
+                  <line x1="21" y1="21" x2="16.65" y2="16.65" />
+                </svg>
+                <input className="rv-search" type="search" value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  placeholder={t("review.searchPlaceholder")} aria-label={t("review.searchPlaceholder")} />
+                {searchQuery && (
+                  <button type="button" className="rv-search-clear" onClick={() => setSearchQuery("")} aria-label="Clear search">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                      <line x1="18" y1="6" x2="6" y2="18" />
+                      <line x1="6" y1="6" x2="18" y2="18" />
+                    </svg>
+                  </button>
+                )}
+              </div>
             </div>
           </div>
 
@@ -1831,57 +2046,37 @@ export default function ReviewsTab({ game, onReviewsFetched }: ReviewsTabProps) 
               </button>
             )}
           </div>
-
         </>
       )}
-
-      {/* ── Source tabs ────────────────────────────────────────────
-          Rendered outside the `totalAll > 0` gate so the Hydra
-          sub-tab stays reachable even when Steam has no reviews. */}
-      <div className="rv-source-tabs">
-          <button type="button" className={`rv-source-tab${sourceFilter === "all" ? " active" : ""}`} onClick={() => setSourceFilter("all")}>
-            {t("review.allReviewsCount", { count: totalAll })}
-          </button>
-          <button type="button" className={`rv-source-tab${sourceFilter === "steam" ? " active" : ""}`} onClick={() => setSourceFilter("steam")}>
-            <svg viewBox="0 0 24 24" fill="currentColor" width="14" height="14" aria-hidden="true">
-              <path d="M3 5h18v14H3V5zm9 2L5 19h4l1-2.5h2L13 19h4L12 7zm0 4.6L13.2 14h-2.4L12 11.6z" />
-            </svg>
-            {t("review.steamCount", { count: steamCount > 0 ? steamCount.toLocaleString() : steamCount })}
-          </button>
-          <button
-            type="button"
-            className={`rv-source-tab${sourceFilter === "hydra" ? " active" : ""}`}
-            onClick={() => setSourceFilter("hydra")}
-            title="Community reviews from the Hydra launcher"
-          >
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" width="14" height="14" aria-hidden="true">
-              <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
-              <circle cx="9" cy="7" r="4" />
-              <path d="M23 21v-2a4 4 0 0 0-3-3.87" />
-              <path d="M16 3.13a4 4 0 0 1 0 7.75" />
-            </svg>
-            {t("review.userReviews")}
-          </button>
-          {youCount > 0 && (
-            <button type="button" className={`rv-source-tab${sourceFilter === "you" ? " active" : ""}`} onClick={() => setSourceFilter("you")}>
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" width="14" height="14" aria-hidden="true">
-                <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
-                <circle cx="12" cy="7" r="4" />
-              </svg>
-              {t("review.youCount", { count: youCount })}
-            </button>
-          )}
-      </div>
 
       {/* ── Content area ──────────────────────────────────────────── */}
       {sourceFilter === "hydra" ? (
         <HydraReviewsPanel appId={appId} gameName={game.name} />
-      ) : (externalLoading["metacritic"] || externalLoading["opencritic"] || externalLoading["rawg"]) &&
-        (sourceFilter === "metacritic" || sourceFilter === "opencritic" || sourceFilter === "rawg") ? (
+      ) : isCriticSource && externalLoading[sourceFilter] ? (
         <div className="rv-empty">
           <div className="rv-empty-icon"><span className="rv-spinner" aria-hidden="true" style={{ width: 28, height: 28, borderWidth: 3 }} /></div>
           <h3 className="rv-empty-title">{t("review.loadingTitle")}</h3>
-          <p className="rv-empty-subtitle">{t("review.loadingFrom", { source: sourceFilter === "metacritic" ? "Metacritic" : sourceFilter === "opencritic" ? "OpenCritic" : "RAWG" })}</p>
+          <p className="rv-empty-subtitle">{t("review.loadingFrom", { source: criticLabels[sourceFilter] })}</p>
+        </div>
+      ) : isCriticSource && (externalReviews[sourceFilter]?.length ?? 0) === 0 ? (
+        <div className="rv-empty">
+          <div className="rv-empty-icon">
+            <SourceMonogram source={sourceFilter as ReviewItem["source"]} />
+          </div>
+          <h3 className="rv-empty-title">{t("reviewsTab.noCriticReviews")}</h3>
+          <p className="rv-empty-subtitle">{t("reviewsTab.noCriticReviewsHint", { source: criticLabels[sourceFilter] })}</p>
+          <button
+            type="button"
+            className="rv-btn rv-btn-ghost"
+            onClick={() => openExternal(buildExternalUrl(game, sourceFilter as "metacritic" | "opencritic" | "rawg"))}
+          >
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+              <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6" />
+              <polyline points="15 3 21 3 21 9" />
+              <line x1="10" y1="14" x2="21" y2="3" />
+            </svg>
+            {t("reviewsTab.openOnSource", { source: criticLabels[sourceFilter] })}
+          </button>
         </div>
       ) : totalAll === 0 ? (
         <div className="rv-empty">
@@ -1916,9 +2111,13 @@ export default function ReviewsTab({ game, onReviewsFetched }: ReviewsTabProps) 
       ) : (
         <div className="rv-list">
           <div className="rv-list-rows">
-            {filteredReviews.map((review) => (
-              <ReviewRow key={review.id} review={review} appId={appId} />
-            ))}
+            {filteredReviews.map((review) =>
+              review.source === "metacritic" || review.source === "opencritic" || review.source === "rawg" ? (
+                <CriticReviewRow key={review.id} review={review} />
+              ) : (
+                <ReviewRow key={review.id} review={review} appId={appId} />
+              ),
+            )}
           </div>
 
           {nextCursor && sourceFilter !== "you" && sourceFilter !== "metacritic" && sourceFilter !== "opencritic" && sourceFilter !== "rawg" && (
@@ -1945,28 +2144,41 @@ export default function ReviewsTab({ game, onReviewsFetched }: ReviewsTabProps) 
         </div>
       )}
 
-      {/* ── External reviews section (hidden on the Hydra sub-tab) ── */}
+      {/* ── Critics / across the web section (hidden on Hydra) ───── */}
       {sourceFilter !== "hydra" && (
-      <div className="rv-external-section">
-        <div className="rv-external-header">
-          <div className="rv-external-header-text">
-            <h3 className="rv-external-title">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-                <circle cx="12" cy="12" r="10" />
-                <line x1="2" y1="12" x2="22" y2="12" />
-                <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z" />
-              </svg>
-              {t("review.externalTitle")}
-            </h3>
-            <p className="rv-external-subtitle">{t("review.externalSubtitle")}</p>
+        <div className="rv-external-section">
+          <div className="rv-external-header">
+            <div className="rv-external-header-text">
+              <h3 className="rv-external-title">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                  <circle cx="12" cy="12" r="10" />
+                  <line x1="2" y1="12" x2="22" y2="12" />
+                  <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z" />
+                </svg>
+                {t("review.externalTitle")}
+              </h3>
+              <p className="rv-external-subtitle">{t("review.externalSubtitle")}</p>
+            </div>
+          </div>
+          <div className="rv-external-grid">
+            {externalSources.map((src) => {
+              const criticSrc =
+                src.id === "metacritic" || src.id === "opencritic" || src.id === "rawg"
+                  ? (src.id as "metacritic" | "opencritic" | "rawg")
+                  : null;
+              return (
+                <ExternalReviewButton
+                  key={src.id}
+                  src={src}
+                  openExternal={openExternal}
+                  isBigScreen={isBigScreen}
+                  inAppCount={criticSrc ? criticCounts[criticSrc] : undefined}
+                  onShowInApp={criticSrc ? () => setSourceFilter(criticSrc) : undefined}
+                />
+              );
+            })}
           </div>
         </div>
-        <div className="rv-external-grid">
-          {externalSources.map((src) => (
-            <ExternalReviewButton key={src.id} src={src} openExternal={openExternal} isBigScreen={isBigScreen} />
-          ))}
-        </div>
-      </div>
       )}
     </div>
   );
@@ -1976,31 +2188,47 @@ interface ExternalReviewButtonProps {
   src: { id: string; name: string; url: string; description: string; accent: string };
   openExternal: (url: string) => void;
   isBigScreen?: boolean;
+  /** When the critic source already has fetched in-app reviews, offer a
+   *  small chip that jumps to the critic source tab instead. */
+  inAppCount?: number;
+  onShowInApp?: () => void;
 }
 
-function ExternalReviewButton({ src, openExternal, isBigScreen }: ExternalReviewButtonProps) {
+function ExternalReviewButton({ src, openExternal, isBigScreen, inAppCount, onShowInApp }: ExternalReviewButtonProps) {
+  const { t } = useLanguage();
   const focusProps = useFocusable(() => openExternal(src.url));
+  const mono = src.id === "metacritic" ? "MC" : src.id === "opencritic" ? "OC" : src.id === "rawg" ? "R" : null;
   return (
-    <button
-      type="button"
-      className="rv-external-card"
-      {...(isBigScreen ? focusProps : { onClick: () => openExternal(src.url) })}
-      style={{ "--accent": src.accent } as React.CSSProperties}
-    >
-      <div className="rv-external-card-icon" style={{ color: src.accent }}>
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-          <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6" />
-          <polyline points="15 3 21 3 21 9" />
-          <line x1="10" y1="14" x2="21" y2="3" />
+    <div className="rv-external-cell" style={{ "--accent": src.accent } as React.CSSProperties}>
+      <button
+        type="button"
+        className="rv-external-card"
+        {...(isBigScreen ? focusProps : { onClick: () => openExternal(src.url) })}
+      >
+        <span className="rv-external-card-icon" style={{ color: src.accent }}>
+          {mono ? (
+            <span className="rv-external-card-mono" aria-hidden="true">{mono}</span>
+          ) : (
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+              <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6" />
+              <polyline points="15 3 21 3 21 9" />
+              <line x1="10" y1="14" x2="21" y2="3" />
+            </svg>
+          )}
+        </span>
+        <span className="rv-external-card-body">
+          <span className="rv-external-card-name">{src.name}</span>
+          <span className="rv-external-card-desc">{src.description}</span>
+        </span>
+        <svg className="rv-external-card-arrow" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+          <polyline points="9 18 15 12 9 6" />
         </svg>
-      </div>
-      <div className="rv-external-card-body">
-        <div className="rv-external-card-name">{src.name}</div>
-        <div className="rv-external-card-desc">{src.description}</div>
-      </div>
-      <svg className="rv-external-card-arrow" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-        <polyline points="9 18 15 12 9 6" />
-      </svg>
-    </button>
+      </button>
+      {inAppCount !== undefined && inAppCount > 0 && onShowInApp && (
+        <button type="button" className="rv-external-inapp" onClick={onShowInApp}>
+          {t("reviewsTab.viewInApp", { count: inAppCount })}
+        </button>
+      )}
+    </div>
   );
 }
