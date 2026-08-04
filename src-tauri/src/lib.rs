@@ -885,20 +885,13 @@ fn force_close_game(
     #[cfg(not(windows))]
     let killed = false;
 
-    // Phase 3 — emit discord-presence-update OUTSIDE the lock so any
-    // listener closure runs without starving the background poll loop.
+    // Phase 3 — compute the wall-clock finish stamp OUTSIDE the lock so the
+    // session finalization below can record it. (The Discord presence
+    // "stopped" event is now frontend-driven on game-exited.)
     let finished_at_ms = SystemTime::now()
         .duration_since(SystemTime::UNIX_EPOCH)
         .map(|d| d.as_millis() as u64)
         .unwrap_or(0);
-    let _ = app.emit(
-        "discord-presence-update",
-        serde_json::json!({
-            "state": "stopped",
-            "gameId": game_id,
-            "finishedAt": finished_at_ms,
-        }),
-    );
 
     // Phase 4 — take ownership of the session AND clone the db handle
     // (`Db` is a cheap-to-clone `Arc<Pool>` bag). After this block,
@@ -1266,7 +1259,7 @@ fn if_enabled(b: bool) -> &'static str {
 fn set_discord_presence_enabled(app: tauri::AppHandle, enabled: bool) -> Result<(), String> {
     let state: tauri::State<'_, discord_presence::DiscordPresenceState> = app.state();
     if enabled {
-        state.ensure_started();
+        state.ensure_started(&app);
         state.set_enabled(true);
     } else {
         state.set_enabled(false);
@@ -1481,11 +1474,6 @@ fn launch_game(
         .map(|s| s.clone())
         .unwrap_or_default();
 
-    // Emit the launch event EARLY so any Discord-rich-presence subscriber
-    // can flip its status before the game window steals focus. The event
-    // name "discord-presence-update" with state="playing" mirrors the
-    // shape the eventual Discord IPC plugin will subscribe to; we ship
-    // the stub now so the contract is stable.
     if launcher_settings.disable_elevation_prompts
         && run_as_admin.unwrap_or(false)
     {
@@ -1509,19 +1497,6 @@ fn launch_game(
             run_script_blocking(script, pre_launch_admin.unwrap_or(false))?;
         }
     }
-
-    let _ = app.emit(
-        "discord-presence-update",
-        serde_json::json!({
-            "state": "playing",
-            "gameId": game_id,
-            "gameName": game_name,
-            "startedAt": SystemTime::now()
-                .duration_since(SystemTime::UNIX_EPOCH)
-                .map(|d| d.as_millis() as u64)
-                .unwrap_or(0),
-        }),
-    );
 
     // Update GPU info on the watcher for metrics collection
     {
@@ -3993,8 +3968,10 @@ pub fn run() {
             // Manages the command sender + enabled flag. The connection
             // thread itself is spawned lazily when the user enables the
             // setting (see `set_discord_presence_enabled`). The frontend
-            // emits `discord-presence-update` on launch/exit and we
-            // translate that into thread commands here.
+            // emits rich presence payloads (details / stateText / assets /
+            // button) on game-started/game-exited; we translate that into
+            // thread commands here. The thread owns the IPC connection,
+            // reconnects with retry, and emits `discord-presence-status`.
             let discord_state = discord_presence::DiscordPresenceState::new();
             app.manage(discord_state);
 
@@ -4003,28 +3980,16 @@ pub fn run() {
                 let _ = handle.listen("discord-presence-update", {
                     let handle = handle.clone();
                     move |event| {
-                        #[derive(serde::Deserialize)]
-                        #[serde(rename_all = "camelCase")]
-                        struct DiscordPresencePayload {
-                            state: String,
-                            #[serde(default)]
-                            game_name: Option<String>,
-                            #[serde(default)]
-                            started_at: u64,
-                        }
                         let Ok(payload) =
-                            serde_json::from_str::<DiscordPresencePayload>(event.payload())
+                            serde_json::from_str::<discord_presence::PresenceData>(event.payload())
                         else {
                             return;
                         };
                         let state = handle.state::<discord_presence::DiscordPresenceState>();
-                        match payload.state.as_str() {
-                            "playing" => {
-                                if let Some(name) = payload.game_name {
-                                    state.set_playing(&name, payload.started_at);
-                                }
-                            }
-                            _ => state.clear(),
+                        if payload.state == "playing" {
+                            state.set_playing(payload);
+                        } else {
+                            state.clear();
                         }
                     }
                 });
@@ -4226,6 +4191,11 @@ pub fn run() {
         .expect("error while building tauri application")
         .run(|_app_handle, event| {
             if let tauri::RunEvent::Exit = event {
+                // Close the Discord IPC pipe and let the presence thread
+                // finish before the process exits.
+                let state = _app_handle.state::<discord_presence::DiscordPresenceState>();
+                state.shutdown();
+                std::thread::sleep(std::time::Duration::from_millis(200));
                 downloads::cleanup_extractions();
                 std::process::exit(0);
             }

@@ -8,7 +8,7 @@ import {
   type ReactNode,
 } from "react";
 import { invoke } from "@tauri-apps/api/core";
-import { listen } from "@tauri-apps/api/event";
+import { emit, listen } from "@tauri-apps/api/event";
 import {
   addSessionTime,
   gameNameFromPath,
@@ -96,6 +96,9 @@ interface GameExitEvent {
    *  active titles. `0` is treated as "unknown" and skipped (an unset
    *  system clock shouldn't burn the field with a poisoned value). */
   finishedAt?: number;
+  /** Name of the next game still running (if any) after this one exits,
+   *  sent by the Rust watcher so Rich Presence can switch to it. */
+  remainingGameName?: string;
 }
 
 /** Payload for the "game-started" event emitted by the watcher
@@ -192,6 +195,22 @@ const enrichAttemptsThisSession = new Map<string, number>();
  */
 const isFrontendUsableImage = (u: string | undefined): boolean =>
   !!u && u.startsWith("data:");
+
+/** Discord's large/small image must be a public https URL; data: URIs are skipped. */
+function discordAsset(url: string | undefined | null): string | undefined {
+  if (!url) return undefined;
+  const normalized = url.startsWith("//") ? `https:${url}` : url;
+  return /^https:\/\//i.test(normalized) ? normalized : undefined;
+}
+
+/** First https website URL for the presence button. */
+function discordButtonUrl(game: Game | undefined): string | undefined {
+  if (!game) return undefined;
+  const candidates = [...(game.websites ?? []), game.metadataUrl].filter(
+    (u): u is string => typeof u === "string" && u.length > 0,
+  );
+  return candidates.find((u) => /^https:\/\//i.test(u));
+}
 
 export function GameProvider({ children }: { children: ReactNode }) {
   const { showToast } = useToast();
@@ -303,6 +322,19 @@ export function GameProvider({ children }: { children: ReactNode }) {
     return () => window.removeEventListener("beforeunload", flushNow);
   }, []);
 
+  // Keep a ref to the latest games array so the enrichGameMetadata callback
+  // identity stays stable across any game mutation. Otherwise the dep on
+  // `games` would re-create this callback on every keystroke or insert,
+  // forcing the GamePage effect to re-run (subsequent guard still prevents
+  // redundant IGDB calls, but the closure churn was wasted CPU).
+  const gamesRef = useRef(games);
+  gamesRef.current = games;
+
+  // Tracks which games are currently running (name + start time) so the
+  // game-exited handler can hand Rich Presence the next still-running game
+  // when the watcher reports a `remainingGameName`.
+  const runningSessionsRef = useRef<Map<string, { name: string; startedAt: number }>>(new Map());
+
   // Listen for game-exited events from the Rust backend
   useEffect(() => {
     const unlisten = listen<GameExitEvent>("game-exited", (event) => {
@@ -329,11 +361,40 @@ export function GameProvider({ children }: { children: ReactNode }) {
           return { ...g, ...updates };
         })
       );
+
+      // ── Discord Rich Presence ──────────────────────────────────────
+      // Drop the finished session, then either hand the presence thread
+      // the next still-running game (watcher sends `remainingGameName`)
+      // or tell it the session stopped entirely.
+      runningSessionsRef.current.delete(gameId);
+      const remainingName = event.payload.remainingGameName;
+      if (remainingName) {
+        const remaining = gamesRef.current.find((g) => g.name === remainingName);
+        const cached = [...runningSessionsRef.current.values()].find((s) => s.name === remainingName);
+        const startedAt = cached?.startedAt ?? Date.now();
+        if (remaining) runningSessionsRef.current.set(remaining.id, { name: remainingName, startedAt });
+        void emit("discord-presence-update", {
+          state: "playing",
+          gameId: remaining?.id ?? "",
+          gameName: remainingName,
+          startedAt,
+          details: remainingName,
+          stateText: t("discordPresence.playingState"),
+          largeImage: discordAsset(remaining?.coverArtUrl),
+          largeText: remainingName,
+          smallImage: discordAsset(remaining?.iconUrl),
+          smallText: t("discordPresence.smallText"),
+          buttonLabel: t("discordPresence.viewWebsite"),
+          buttonUrl: discordButtonUrl(remaining),
+        });
+      } else {
+        void emit("discord-presence-update", { state: "stopped", gameId });
+      }
     });
     return () => {
       unlisten.then((fn) => fn());
     };
-  }, []);
+  }, [t]);
 
   // Listen for game-started events (passive detection by the watcher)
   useEffect(() => {
@@ -356,11 +417,32 @@ export function GameProvider({ children }: { children: ReactNode }) {
             : g
         )
       );
+
+      // ── Discord Rich Presence ──────────────────────────────────────
+      // Record the session start and emit a rich payload (localized text
+      // + public https assets + website button) for the presence thread.
+      const startedAt = Date.now();
+      runningSessionsRef.current.set(event.payload.gameId, { name: event.payload.gameName, startedAt });
+      const game = gamesRef.current.find((g) => g.id === event.payload.gameId);
+      void emit("discord-presence-update", {
+        state: "playing",
+        gameId: event.payload.gameId,
+        gameName: event.payload.gameName,
+        startedAt,
+        details: event.payload.gameName,
+        stateText: t("discordPresence.playingState"),
+        largeImage: discordAsset(game?.coverArtUrl),
+        largeText: event.payload.gameName,
+        smallImage: discordAsset(game?.iconUrl),
+        smallText: t("discordPresence.smallText"),
+        buttonLabel: t("discordPresence.viewWebsite"),
+        buttonUrl: discordButtonUrl(game),
+      });
     });
     return () => {
       unlisten.then((fn) => fn());
     };
-  }, []);
+  }, [t]);
 
   const updateGame = useCallback((id: string, updates: Partial<Game>) => {
     setGames((prev) =>
@@ -405,14 +487,6 @@ export function GameProvider({ children }: { children: ReactNode }) {
    *  * Never throws — silently skips games IGDB doesn't recognise.
    *  * Never overwrites a non-empty Game field with an empty IGDB result.
    */
-  // Keep a ref to the latest games array so the enrichGameMetadata callback
-  // identity stays stable across any game mutation. Otherwise the dep on
-  // `games` would re-create this callback on every keystroke or insert,
-  // forcing the GamePage effect to re-run (subsequent guard still prevents
-  // redundant IGDB calls, but the closure churn was wasted CPU).
-  const gamesRef = useRef(games);
-  gamesRef.current = games;
-
   const enrichGameMetadata = useCallback(async (gameId: string, gameName: string, steamAppId?: number) => {
     // Dedupe + retry cap (see MAX_ENRICH_ATTEMPTS comment above). Both
     // the LibraryPage observer and the GamePage on-mount effect settle

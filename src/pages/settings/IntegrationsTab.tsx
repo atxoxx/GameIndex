@@ -33,7 +33,7 @@ function useConfirm() {
 export default function IntegrationsTab({ integrations }: { integrations: Integrations }) {
   const { t } = useLanguage();
   const { showToast } = useToast();
-  const { syncIntervalMinutes, setSyncIntervalMinutes, historyCapDays, setHistoryCapDays, hideAchievementProgress, setHideAchievementProgress, discordRichPresence, setDiscordRichPresence, steamAutoDetect, setSteamAutoDetect } = useSettings();
+  const { syncIntervalMinutes, setSyncIntervalMinutes, historyCapDays, setHistoryCapDays, hideAchievementProgress, setHideAchievementProgress, discordRichPresence, setDiscordRichPresence, discordStatus, steamAutoDetect, setSteamAutoDetect } = useSettings();
   const { settings: achievementSettings, updateSettings: updateAchievementSettings } = useAchievements();
 
   const confirm = useConfirm();
@@ -783,6 +783,9 @@ export default function IntegrationsTab({ integrations }: { integrations: Integr
                 <span className="settings-checkbox-desc">{t("settings.discord.desc")}</span>
               </div>
             </label>
+            {discordRichPresence && discordStatus === "notRunning" && (
+              <p className="connect-prompt">{t("settings.discord.notRunning")}</p>
+            )}
           </div>
         </div>
       </SettingsSection>

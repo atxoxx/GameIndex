@@ -30,6 +30,7 @@ import {
   type ReactNode,
 } from "react";
 import { invoke } from "@tauri-apps/api/core";
+import { listen } from "@tauri-apps/api/event";
 
 // ── LocalStorage keys (one per localStorage-backed setting) ─────────────────
 //
@@ -70,6 +71,11 @@ export type LandingPage =
 
 export type SyncIntervalMinutes = 0 | 15 | 30 | 60 | 360 | 720 | 1440;
 
+/** Connection state of the Discord presence thread, tracked from
+ *  `discord-presence-status` events so Settings can show "Discord is
+ *  not running" when the desktop app is closed. */
+export type DiscordStatus = "idle" | "connected" | "notRunning";
+
 /** Which individual telemetry streams to record during a session. */
 export interface MetricCapture {
   fps: boolean;
@@ -109,6 +115,7 @@ export interface SettingsContextValue {
   setHideAchievementProgress: (next: boolean) => void;
   discordRichPresence: boolean;
   setDiscordRichPresence: (next: boolean) => void;
+  discordStatus: DiscordStatus;
   historyCapDays: 1 | 7 | 30;
   setHistoryCapDays: (next: 1 | 7 | 30) => void;
   blockedSourceDomains: string[];
@@ -377,8 +384,10 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
   const [discordRichPresence, setDiscordRichPresenceState] = useState<boolean>(
     () => lsGet(LS_DISCORD_PRESENCE) === "true",
   );
+  const [discordStatus, setDiscordStatus] = useState<DiscordStatus>("idle");
   const setDiscordRichPresence = useCallback(async (next: boolean) => {
     setDiscordRichPresenceState(next);
+    if (!next) setDiscordStatus("idle");
     lsSet(LS_DISCORD_PRESENCE, String(next));
     try {
       await invoke("set_discord_presence_enabled", { enabled: next });
@@ -396,6 +405,27 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
     }).catch((err) =>
       console.warn("[SettingsContext] discord presence init failed:", err),
     );
+  }, []);
+
+  // Track the presence thread's connection state (emitted as
+  // `discord-presence-status` with { connected }) so Settings can show
+  // "Discord is not running" when the desktop app is closed.
+  useEffect(() => {
+    let disposed = false;
+    let unlisten: (() => void) | undefined;
+    (async () => {
+      try {
+        unlisten = await listen<{ connected: boolean }>("discord-presence-status", (e) => {
+          if (!disposed) setDiscordStatus(e.payload.connected ? "connected" : "notRunning");
+        });
+      } catch (err) {
+        console.warn("[SettingsContext] discord status listen failed:", err);
+      }
+    })();
+    return () => {
+      disposed = true;
+      unlisten?.();
+    };
   }, []);
 
   const [historyCapDays, setHistoryCapDaysState] = useState<1 | 7 | 30>(() => {
@@ -497,6 +527,7 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
       setHideAchievementProgress,
       discordRichPresence,
       setDiscordRichPresence,
+      discordStatus,
       historyCapDays,
       setHistoryCapDays,
       blockedSourceDomains,
@@ -534,6 +565,7 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
       setHideAchievementProgress,
       discordRichPresence,
       setDiscordRichPresence,
+      discordStatus,
       historyCapDays,
       setHistoryCapDays,
       blockedSourceDomains,
