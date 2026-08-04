@@ -3968,6 +3968,7 @@ pub fn run() {
                     let handle = handle.clone();
                     move |event| {
                         #[derive(serde::Deserialize)]
+                        #[serde(rename_all = "camelCase")]
                         struct DiscordPresencePayload {
                             state: String,
                             #[serde(default)]

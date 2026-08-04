@@ -134,10 +134,12 @@ pub fn start(client_id: String) -> Option<Sender<PresenceCommand>> {
                         connected = client.0.connect().is_ok();
                     }
                     if connected {
+                        // Discord's activity timestamps are unix seconds;
+                        // `started_at_ms` arrives in milliseconds.
                         let activity = Activity::new()
                             .details(game_name)
                             .state("Playing via GameIndex")
-                            .timestamps(Timestamps::new().start(started_at_ms as i64));
+                            .timestamps(Timestamps::new().start((started_at_ms / 1000) as i64));
                         if client.0.set_activity(activity).is_err() {
                             // Connection dropped (Discord restarted, etc.) —
                             // reconnect on the next update rather than dying.
