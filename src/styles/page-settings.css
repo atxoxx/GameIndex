@@ -1,24 +1,18 @@
 /* =============================================================================
  * Settings page — layout shell (sidebar + content)
  *
- * Replaces the old top "pill" sub-nav with a fixed, searchable,
- * grouped sidebar. A single left rail holds every destination
- * (Appearance, Hardware, each integration, every downloads card,
- * Launcher) so the page is scannable and jump-able instead of a
- * flat row of 5 tabs. The content column scrolls beside it.
+ * The left rail is a contained glass panel (matching the app's raised-surface
+ * language) with a brand gradient top edge, a header row, a search box with
+ * keyboard shortcut, and grouped nav rows with icon chips. The content column
+ * renders the active tab beside it. Scrollspy highlights the sidebar row for
+ * whichever sub-section is currently in view, so the page always says where
+ * you are.
  * ========================================================================== */
 
-/* Thin brand-gradient accent bar pinned to the very top of the panel. */
-.settings-panel-accent {
-  height: 3px;
-  width: 100%;
-  border-radius: var(--radius-full, 9999px);
-  background: var(--brand-gradient);
-  margin-bottom: var(--space-lg);
-}
-
 .settings-shell {
-  max-width: 1280px;
+  /* Full-width layout — spans the whole content area (no cap). */
+  width: 100%;
+  max-width: none;
   margin: 0 auto;
   padding: var(--space-2xl) var(--space-xl) var(--space-3xl);
   display: flex;
@@ -27,39 +21,78 @@
   animation: importMenuIn 220ms var(--ease-standard);
 }
 
-/* ── Sidebar ─────────────────────────────────────────────────────────── */
+/* ── Sidebar panel ──────────────────────────────────────────────────── */
 
 .settings-sidebar {
-  width: 264px;
+  width: 272px;
   flex-shrink: 0;
   position: sticky;
-  top: var(--space-xl);
+  top: var(--space-lg);
+  align-self: flex-start;
+  max-height: calc(100vh - var(--space-lg) * 2);
   display: flex;
   flex-direction: column;
-  gap: var(--space-md);
-  max-height: calc(100vh - var(--space-2xl) * 2);
-  padding-right: var(--space-sm);
+  background: var(--color-surface-raised);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-xl);
+  box-shadow: var(--shadow-md);
+  overflow: hidden;
+}
+
+/* Brand gradient top edge — carries the accent the old floating bar did. */
+.settings-sidebar::before {
+  content: "";
+  position: absolute;
+  inset: 0 0 auto 0;
+  height: 3px;
+  background: var(--brand-gradient);
 }
 
 .settings-sidebar-head {
   display: flex;
   align-items: center;
+  justify-content: space-between;
+  gap: var(--space-sm);
+  padding: var(--space-lg) var(--space-lg) var(--space-sm);
 }
 
 .settings-sidebar-title {
   display: inline-flex;
   align-items: center;
   gap: var(--space-sm);
-  font-size: var(--font-size-lg);
+  font-size: var(--font-size-md);
   font-weight: var(--font-weight-bold);
   color: var(--color-text-primary);
-  letter-spacing: -0.3px;
+  letter-spacing: -0.2px;
 }
 
 .settings-sidebar-title svg {
-  width: 20px;
-  height: 20px;
+  width: 18px;
+  height: 18px;
   color: var(--color-accent);
+}
+
+/* Connected-store count pill in the panel header. */
+.settings-sidebar-count {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 3px 10px;
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-bold);
+  color: var(--color-success);
+  background: color-mix(in srgb, var(--color-success) 12%, transparent);
+  border: 1px solid color-mix(in srgb, var(--color-success) 25%, transparent);
+  border-radius: var(--radius-full);
+  font-variant-numeric: tabular-nums;
+}
+
+.settings-sidebar-count-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--color-success);
+  box-shadow: 0 0 6px var(--color-success);
 }
 
 /* Search box */
@@ -67,6 +100,7 @@
   position: relative;
   display: flex;
   align-items: center;
+  margin: 0 var(--space-lg) var(--space-md);
 }
 
 .settings-search-icon {
@@ -80,7 +114,7 @@
 
 .settings-search-input {
   width: 100%;
-  padding: 9px 30px 9px 34px;
+  padding: 9px 34px 9px 34px;
   background: var(--color-bg-secondary);
   border: 1px solid var(--color-border);
   border-radius: var(--radius-full);
@@ -123,14 +157,57 @@
   color: var(--color-text-primary);
 }
 
+/* Keyboard shortcut hint, visible only while the search is empty. */
+.settings-search-kbd {
+  position: absolute;
+  right: 10px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 20px;
+  height: 20px;
+  padding: 0 5px;
+  font-family: inherit;
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-bold);
+  color: var(--color-text-muted);
+  background: var(--color-bg-tertiary);
+  border: 1px solid var(--color-border);
+  border-bottom-width: 2px;
+  border-radius: 6px;
+  pointer-events: none;
+}
+
 /* Nav groups + items */
 .settings-nav {
+  flex: 1 1 auto;
+  min-height: 0;
   display: flex;
   flex-direction: column;
-  gap: var(--space-md);
+  gap: var(--space-sm);
   overflow-y: auto;
-  padding-right: 2px;
+  padding: 0 var(--space-md) var(--space-md);
   scrollbar-width: thin;
+  scrollbar-color: var(--color-border) transparent;
+}
+
+/* Themed scrollbar for the sub-settings list — hidden track, dim
+   thumb that brightens on hover (matches .topnav-tabs + global rules). */
+.settings-nav::-webkit-scrollbar {
+  width: 6px;
+}
+
+.settings-nav::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.settings-nav::-webkit-scrollbar-thumb {
+  background: var(--color-border);
+  border-radius: var(--radius-sm);
+}
+
+.settings-nav::-webkit-scrollbar-thumb:hover {
+  background: var(--color-text-muted);
 }
 
 .settings-nav-group {
@@ -139,31 +216,23 @@
   gap: 2px;
 }
 
+/* Hairline divider between groups. */
+.settings-nav-group + .settings-nav-group {
+  margin-top: var(--space-xs);
+  padding-top: var(--space-sm);
+  border-top: 1px solid var(--color-border);
+}
+
 .settings-nav-group-label {
   display: flex;
   align-items: center;
   gap: var(--space-sm);
-  padding: 0 var(--space-md) var(--space-xs);
-  font-size: var(--font-size-xs);
+  padding: 0 var(--space-sm) var(--space-xs);
+  font-size: 10px;
   font-weight: var(--font-weight-bold);
   text-transform: uppercase;
-  letter-spacing: 0.8px;
+  letter-spacing: 1px;
   color: var(--color-text-muted);
-}
-
-.settings-nav-group-count {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  min-width: 18px;
-  height: 16px;
-  padding: 0 5px;
-  font-size: var(--font-size-xs);
-  font-weight: var(--font-weight-bold);
-  color: var(--color-accent);
-  background: color-mix(in srgb, var(--color-accent) 18%, transparent);
-  border-radius: var(--radius-full);
-  font-variant-numeric: tabular-nums;
 }
 
 .settings-nav-item {
@@ -171,7 +240,7 @@
   align-items: center;
   gap: var(--space-sm);
   width: 100%;
-  padding: 9px var(--space-md);
+  padding: 7px var(--space-sm);
   background: transparent;
   border: none;
   border-radius: var(--radius-md);
@@ -181,7 +250,7 @@
   font-weight: var(--font-weight-medium);
   text-align: left;
   cursor: pointer;
-  transition: background var(--transition-fast), color var(--transition-fast);
+  transition: background var(--transition-fast), color var(--transition-fast), box-shadow var(--transition-fast);
 }
 
 .settings-nav-item:hover {
@@ -190,38 +259,55 @@
 }
 
 .settings-nav-item.active {
-  background: color-mix(in srgb, var(--color-accent) 14%, transparent);
+  background: color-mix(in srgb, var(--color-accent) 13%, transparent);
   color: var(--color-text-primary);
   box-shadow: inset 3px 0 0 var(--color-accent);
 }
 
+/* Icon chip — the small tinted tile every nav row leads with. */
 .settings-nav-item-icon {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 18px;
-  height: 18px;
+  width: 28px;
+  height: 28px;
   flex-shrink: 0;
+  border-radius: var(--radius-sm);
+  background: var(--color-bg-secondary);
+  border: 1px solid var(--color-border);
   color: var(--color-text-muted);
-  transition: color var(--transition-fast);
+  transition: background var(--transition-fast), border-color var(--transition-fast), color var(--transition-fast);
+}
+
+.settings-nav-item:hover .settings-nav-item-icon {
+  background: var(--color-bg-tertiary);
+  color: var(--color-text-secondary);
 }
 
 .settings-nav-item.active .settings-nav-item-icon {
+  background: color-mix(in srgb, var(--color-accent) 16%, transparent);
+  border-color: color-mix(in srgb, var(--color-accent) 32%, transparent);
   color: var(--color-accent);
 }
 
 .settings-nav-item-icon svg {
-  width: 16px;
-  height: 16px;
+  width: 15px;
+  height: 15px;
 }
 
+/* Bare rows (downloads sections) get a bullet instead of a chip. */
 .settings-nav-item-bullet {
   width: 6px;
   height: 6px;
-  margin: 0 6px;
+  margin: 0 11px;
   border-radius: 50%;
   background: var(--color-text-muted);
   flex-shrink: 0;
+  transition: background var(--transition-fast);
+}
+
+.settings-nav-item.active .settings-nav-item-bullet {
+  background: var(--color-accent);
 }
 
 .settings-nav-item-label {
@@ -232,6 +318,7 @@
   text-overflow: ellipsis;
 }
 
+/* Green "connected" dot on linked stores. */
 .settings-nav-item-dot {
   width: 7px;
   height: 7px;
@@ -259,6 +346,35 @@
   gap: var(--space-xl);
 }
 
+/* Current-tab summary chip in the PageHeader actions slot. */
+.settings-header-summary {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 14px;
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-medium);
+  color: var(--color-text-secondary);
+  background: var(--color-surface-raised);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-full);
+  box-shadow: var(--shadow-sm);
+}
+
+.settings-header-summary svg {
+  width: 15px;
+  height: 15px;
+  color: var(--color-accent);
+}
+
+.settings-header-summary-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--color-success);
+  box-shadow: 0 0 8px var(--color-success);
+}
+
 /* Smooth-scroll anchors land with breathing room under the sticky bar. */
 .settings-content [id] {
   scroll-margin-top: var(--space-xl);
@@ -266,7 +382,7 @@
 
 /* ── Responsive ───────────────────────────────────────────────────── */
 
-@media (max-width: 880px) {
+@media (max-width: 960px) {
   .settings-shell {
     flex-direction: column;
     gap: var(--space-lg);
@@ -279,13 +395,36 @@
     max-height: none;
   }
 
+  .settings-sidebar::before {
+    display: none;
+  }
+
+  /* Head keeps its own padding; drop the base 24px side padding so it
+     lines up with the search + nav insets (16px). */
+  .settings-sidebar-head {
+    padding: var(--space-lg) var(--space-md) var(--space-sm);
+  }
+
+  .settings-search {
+    margin-left: var(--space-md);
+    margin-right: var(--space-md);
+  }
+
   .settings-nav {
     flex-direction: row;
     flex-wrap: wrap;
     overflow: visible;
+    padding: 0 var(--space-md) var(--space-md);
   }
 
   .settings-nav-group {
+    flex: 1 1 100%;
+    flex-direction: row;
+    flex-wrap: wrap;
+    align-items: center;
+  }
+
+  .settings-nav-group-label {
     flex: 1 1 100%;
   }
 

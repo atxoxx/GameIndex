@@ -360,6 +360,12 @@
   position: relative;
   animation: importMenuIn 240ms var(--ease-standard);
   box-shadow: var(--shadow-sm);
+  transition: border-color var(--transition-fast), box-shadow var(--transition-fast);
+}
+
+.settings-section:hover {
+  border-color: var(--color-border-light);
+  box-shadow: var(--shadow-md);
 }
 
 .settings-section-header {
@@ -2257,4 +2263,213 @@
 
 .settings-wipe-item-action {
   flex-shrink: 0;
+}
+
+/* ─────────────────────────────────────────────────────────────
+   Settings refactor — layout utilities (converted from the
+   inline styles the old monolith carried on these class names)
+   ───────────────────────────────────────────────────────────── */
+
+/* Inner card used by the downloads sections (location / notifications / debrid). */
+.settings-card {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-md);
+  padding: var(--space-md);
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+}
+
+/* Bandwidth / speed-limit block container. */
+.settings-bandwidth-limits {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-md);
+}
+
+/* One speed-limit row: checkbox label left, value input + unit right. */
+.settings-limit-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-md);
+  flex-wrap: wrap;
+}
+
+/* Seeding toggle with its helper text stacked underneath. */
+.settings-limit-row--seed {
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 6px;
+}
+
+/* Stacked (label above control) rows — debrid provider + API key. */
+.settings-limit-row--stack {
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--space-xs);
+}
+
+.settings-limit-value {
+  display: flex;
+  align-items: center;
+  gap: var(--space-xs);
+}
+
+.settings-limit-input {
+  flex: 0 0 auto;
+  width: 110px;
+}
+
+.settings-limit-unit {
+  font-size: var(--font-size-sm);
+  color: var(--color-text-secondary);
+}
+
+/* Debrid API-key row: input + test button side by side. */
+.settings-debrid-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  width: 100%;
+}
+
+.settings-debrid-row .settings-input {
+  flex: 1;
+}
+
+.settings-helper-text--debrid {
+  max-width: 560px;
+}
+
+/* Small caps label above selects (debrid provider / api key). */
+.settings-label--sm {
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-semibold);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--color-text-secondary);
+}
+
+/* Label + right-aligned external link (Steam API key / SteamID rows). */
+.settings-label-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-sm);
+}
+
+.settings-link {
+  font-size: var(--font-size-xs);
+  color: var(--color-accent);
+  text-decoration: none;
+  font-weight: var(--font-weight-medium);
+}
+
+.settings-link:hover {
+  text-decoration: underline;
+}
+
+/* Narrower control blocks (blocked-domains editor). */
+.settings-control--narrow {
+  max-width: 520px;
+}
+
+/* Monospace textarea for domain lists. */
+.settings-textarea-mono {
+  font-family: var(--font-mono, ui-monospace, "SF Mono", Menlo, monospace);
+  font-size: var(--font-size-sm);
+  resize: vertical;
+}
+
+/* Debrid provider select — a touch wider than the default. */
+.settings-select--debrid {
+  min-width: 220px;
+}
+
+/* Checkbox-label modifiers used across the settings tabs. */
+.settings-checkbox-label--inline {
+  display: flex;
+  align-items: center;
+  gap: var(--space-md);
+}
+
+.settings-checkbox-label--fixed {
+  flex: 0 0 auto;
+  min-width: 190px;
+}
+
+.settings-checkbox-label--disabled {
+  opacity: 0.5;
+  pointer-events: none;
+}
+
+/* Launcher tab — responsive grid of behaviour cards. */
+.settings-launcher-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+  gap: var(--space-md);
+}
+
+/* Integration auth notes (small muted line under the status). */
+.auth-note {
+  font-size: var(--font-size-xs);
+  color: var(--color-text-muted);
+  margin: var(--space-xs) 0 0;
+  line-height: 1.5;
+}
+
+/* Epic stale-session recovery banner. */
+.epic-stale-banner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-md);
+  flex-wrap: wrap;
+  margin-top: var(--space-md);
+  padding: var(--space-md);
+  border: 1px solid var(--color-border);
+  border-left: 3px solid var(--color-warning);
+  border-radius: var(--radius-md);
+  background: var(--color-bg-secondary);
+}
+
+.epic-stale-banner-text {
+  margin: 0;
+  font-size: var(--font-size-sm);
+  color: var(--color-text-secondary);
+  line-height: 1.5;
+}
+
+/* Integration tile — the shared form wrapper under the action buttons. */
+.integration-tile-form {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-md);
+  margin-top: var(--space-md);
+}
+
+/* GPU spec card modifier — subtle accent border. */
+.hw-spec--gpu {
+  border-color: var(--color-border-light);
+}
+
+/* Store tile icons sit in a 48px brand box — size the icon itself. */
+.integration-tile-icon svg {
+  width: 22px;
+  height: 22px;
+}
+
+/* Save-path action buttons (right-aligned inside the path row). */
+.dl-save-path-actions {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  margin-left: auto;
+}
+
+/* Small icon shared by settings-page buttons. */
+.settings-btn-icon {
+  width: 16px;
+  height: 16px;
 }
