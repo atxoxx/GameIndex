@@ -334,6 +334,10 @@ export default function StoreGameDetail() {
     return () => window.removeEventListener("keydown", onKey);
   }, [lightboxImage, stepLightbox]);
 
+  const handleBigScreenBack = useCallback(() => {
+    navigate("/store");
+  }, [navigate]);
+
   const handleAddToLibrary = async () => {
     if (!data || adding) return;
     setAdding(true);
@@ -381,7 +385,7 @@ export default function StoreGameDetail() {
     return (
       <BigScreenStoreGamePage
         game={mockGame}
-        onBack={() => navigate("/store")}
+        onBack={handleBigScreenBack}
         onAddToLibrary={handleAddToLibrary}
         adding={adding}
         isInLibrary={isInLibrary}

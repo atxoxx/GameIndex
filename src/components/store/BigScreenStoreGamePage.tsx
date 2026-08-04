@@ -5,6 +5,7 @@ import { useNavigate } from "react-router-dom";
 import type { Game } from "../../types/game";
 import { useFocusable } from "../../hooks/useFocusable";
 import { useGamepad } from "../../hooks/GamepadProvider";
+import { isBigScreenOverlayOpen } from "../../context/BigScreenContext";
 import { useSteamAppId } from "../../hooks/useSteamAppId";
 import PlayerCountBadge from "../PlayerCountBadge";
 import DownloadModal from "../DownloadModal";
@@ -95,6 +96,23 @@ export default function BigScreenStoreGamePage({
       });
     }, 1);
   }, [gamepad.registerTabCycler, lightbox]);
+
+  // Controller B / Escape goes BACK to the store instead of exiting
+  // Big Screen. Capture-phase so it beats the BigScreenContext shell
+  // handler; preventDefault + stopImmediatePropagation make the shell
+  // back off. Dialogs/overlays (lightbox, search, modal) own Back
+  // while mounted and we defer to them.
+  useEffect(() => {
+    function onEscape(e: KeyboardEvent) {
+      if (e.key !== "Escape") return;
+      if (isBigScreenOverlayOpen()) return;
+      e.preventDefault();
+      e.stopImmediatePropagation();
+      onBack();
+    }
+    document.addEventListener("keydown", onEscape, true);
+    return () => document.removeEventListener("keydown", onEscape, true);
+  }, [onBack]);
 
   const focusableBack = useFocusable(onBack);
   const focusableAction = useFocusable(() => {

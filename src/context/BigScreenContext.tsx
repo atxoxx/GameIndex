@@ -115,6 +115,18 @@ export interface BigScreenContextValue {
 
 const BigScreenContext = createContext<BigScreenContextValue | null>(null);
 
+/**
+ * True when a modal, drawer, search surface, or lightbox is open.
+ * Shared by the shell's Escape handler and the page-level back
+ * handlers so controller B always defers to the topmost surface.
+ */
+export function isBigScreenOverlayOpen(): boolean {
+  if (typeof document === "undefined") return false;
+  return !!document.querySelector(
+    '[role="dialog"], [data-bigscreen-overlay="true"]',
+  );
+}
+
 // ── Provider ────────────────────────────────────────────────────
 
 export function BigScreenProvider({ children }: { children: ReactNode }) {
@@ -171,7 +183,14 @@ export function BigScreenProvider({ children }: { children: ReactNode }) {
         // A modal, drawer, search surface, or lightbox owns Back while
         // it is mounted. This keeps controller B from exiting the whole
         // shell when the user only meant to close the topmost surface.
-        if (document.querySelector('[role="dialog"], [data-bigscreen-overlay="true"]')) {
+        if (isBigScreenOverlayOpen()) {
+          return;
+        }
+        // A nested page with its own back target (game hub, store
+        // detail) claims Escape via a capture-phase handler that calls
+        // preventDefault, so controller B goes back one level instead
+        // of quitting Big Screen. Only exit when nothing claimed it.
+        if (e.defaultPrevented) {
           return;
         }
         e.preventDefault();

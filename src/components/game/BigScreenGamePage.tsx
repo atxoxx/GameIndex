@@ -43,6 +43,7 @@ import type { ReactNode } from "react";
 import type { Game } from "../../types/game";
 import { useGames } from "../../context/GameContext";
 import { useLanguage } from "../../context/LanguageContext";
+import { isBigScreenOverlayOpen } from "../../context/BigScreenContext";
 import { useFocusable } from "../../hooks/useFocusable";
 import { useGamepad } from "../../hooks/GamepadProvider";
 import { useSteamAppId } from "../../hooks/useSteamAppId";
@@ -172,6 +173,24 @@ export default function BigScreenGamePage({
       setIsClosing(false);
     }
   }, [isRunning]);
+
+  // Controller B / Escape goes BACK to the library instead of exiting
+  // Big Screen. Registered in the capture phase so it runs before the
+  // BigScreenContext shell handler (which would otherwise quit Big
+  // Screen); preventDefault + stopImmediatePropagation make the shell
+  // back off. When a dialog/overlay is open (lightbox, search, modal)
+  // it owns Back and we defer to it.
+  useEffect(() => {
+    function onEscape(e: KeyboardEvent) {
+      if (e.key !== "Escape") return;
+      if (isBigScreenOverlayOpen()) return;
+      e.preventDefault();
+      e.stopImmediatePropagation();
+      onBack();
+    }
+    document.addEventListener("keydown", onEscape, true);
+    return () => document.removeEventListener("keydown", onEscape, true);
+  }, [onBack]);
 
   // Bumper-cycled tab navigation (LB / RB). `registerTabCycler`
   // returns an unregister function that runs on unmount, restoring

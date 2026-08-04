@@ -9,6 +9,7 @@
 // callers (e.g. a future Wishlist detail view) can reuse the same
 // preview surface without re-implementing the modal pattern.
 
+import { useEffect } from "react";
 import { createPortal } from "react-dom";
 import { useLanguage } from "../../context/LanguageContext";
 import { isVideoUrl } from "./bigscreenFormat";
@@ -28,6 +29,23 @@ export default function BigScreenLightbox({
   ariaLabel,
 }: BigScreenLightboxProps) {
   const { t } = useLanguage();
+
+  // Controller B / Escape closes the preview. Capture-phase so it runs
+  // before the page's back handler and the BigScreenContext shell
+  // handler; the page back handler also defers to open dialogs, and
+  // this dialog's role="dialog" makes the shell back off.
+  useEffect(() => {
+    if (!src) return;
+    function onEscape(e: KeyboardEvent) {
+      if (e.key !== "Escape") return;
+      e.preventDefault();
+      e.stopImmediatePropagation();
+      onClose();
+    }
+    document.addEventListener("keydown", onEscape, true);
+    return () => document.removeEventListener("keydown", onEscape, true);
+  }, [src, onClose]);
+
   if (typeof document === "undefined") return null;
   if (!src) return null;
 
