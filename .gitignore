@@ -26,3 +26,6 @@ dist-ssr
 .env
 # Windows reserved-name artifacts
 nul
+
+# Deepwork state
+.slim/deepwork/

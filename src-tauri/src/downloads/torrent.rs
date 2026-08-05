@@ -48,6 +48,18 @@ pub async fn init_session(
         ..Default::default()
     };
 
+    // Session-level trackers: merged into EVERY torrent's announce list
+    // by `Session::make_peer_rx` (session.rs:1356). This is the ONLY
+    // place our curated trackers reach MAGNET links — librqbit 8.x
+    // ignores `AddTorrentOptions.trackers` on the magnet add path, so
+    // without this a trackless magnet relies solely on DHT.
+    let session_trackers = || -> std::collections::HashSet<url::Url> {
+        default_trackers_vec()
+            .iter()
+            .filter_map(|t| url::Url::parse(t).ok())
+            .collect()
+    };
+
     let persistent_opts = librqbit::SessionOptions {
         persistence: Some(librqbit::SessionPersistenceConfig::Json {
             folder: Some(state_dir.to_path_buf()),
@@ -58,6 +70,7 @@ pub async fn init_session(
         peer_opts: build_peer_opts(),
         concurrent_init_limit: Some(4),
         dht_config: Some(make_dht_config()),
+        trackers: session_trackers(),
         // Disabled: librqbit 8.1.1's pause() drains file handles out of
         // the Live storage (live/mod.rs:721 -> OpenedFile.take()) WITHOUT
         // draining the deferred-write queue, so queued chunks fail with
@@ -85,6 +98,7 @@ pub async fn init_session(
                 peer_opts: build_peer_opts(),
                 concurrent_init_limit: Some(4),
                 dht_config: Some(make_dht_config()),
+                trackers: session_trackers(),
                 // Same as persistent_opts: synchronous writes so pause
                 // can't strand queued chunks on drained handles.
                 defer_writes_up_to: None,
@@ -105,26 +119,42 @@ pub async fn init_session(
 
 // ─── Trackers ───────────────────────────────────────────────────────────────
 
-/// Curated public trackers (ngosang/trackerslist). HTTPS/TCP first —
-/// they traverse most firewalls; UDP kept last as fallback. Injected
-/// into EVERY add via `AddTorrentOptions.trackers` (librqbit extends
-/// them onto the torrent's own announce list).
+/// Curated public trackers (ngosang/trackerslist, refreshed Aug 2026).
+/// HTTPS/TCP first — they traverse most firewalls; UDP kept as
+/// fallback. These are registered BOTH at the session level
+/// (`SessionOptions.trackers`, applied to every torrent including
+/// magnets — librqbit 8.x ignores per-add trackers for magnet links)
+/// and per-add (where they extend a `.torrent`'s own announce list).
 const DEFAULT_TRACKERS: &[&str] = &[
-    "https://tracker.tamersunion.org:443/announce",
-    "https://tracker.bittorrentic.com:443/announce",
-    "https://tracker.cyberia.is:6969/announce",
-    "http://tracker.opentrackr.org:80/announce",
-    "http://tracker.internetwarriors.net:1337/announce",
-    "http://tracker.gbitt.info:80/announce",
+    "https://tracker.opentrackr.org:443/announce",
+    "https://tracker.bt4g.com:443/announce",
+    "https://open.ftorrent.com:443/announce",
+    "https://tracker.pmman.tech:443/announce",
+    "https://tr.zukizuki.org:443/announce",
+    "https://edgev.duckdns.org:443/announce",
+    "https://tracker.leechshield.link:443/announce",
+    "https://tracker.gcrenwp.top:443/announce",
+    "https://tracker.nekomi.cn:443/announce",
+    "http://tracker.opentrackr.org:1337/announce",
+    "http://tracker.qu.ax:6969/announce",
+    "http://tracker.mywaifu.best:6969/announce",
+    "http://tracker.bz:80/announce",
+    "http://tracker.dler.org:6969/announce",
+    "http://t.overflow.biz:6969/announce",
+    "http://buny.uk:6969/announce",
+    "http://1337.abcvg.info:80/announce",
+    "http://tracker.waaa.moe:6969/announce",
+    "http://ipv4announce.sktorrent.eu:6969/announce",
     "udp://tracker.opentrackr.org:1337/announce",
-    "udp://tracker.openbittorrent.com:6969/announce",
-    "udp://tracker.tiny-vps.com:6969/announce",
-    "udp://explodie.org:6969/announce",
+    "udp://open.tracker.cl:1337/announce",
+    "udp://tracker.qu.ax:6969/announce",
+    "udp://tracker.peerfect.org:6969/announce",
+    "udp://tracker2.dler.org:80/announce",
     "udp://tracker.torrent.eu.org:451/announce",
-    "udp://tracker.dler.org:6969/announce",
-    "udp://opentracker.i2p.rocks:6969/announce",
-    "udp://tracker.openbittorrent.com:80/announce",
-    "udp://tracker.internetwarriors.net:1337/announce",
+    "udp://open.stealth.si:80/announce",
+    "udp://exodus.desync.com:6969/announce",
+    "udp://explodie.org:6969/announce",
+    "udp://open.demonii.com:1337/announce",
 ];
 
 pub fn default_trackers_vec() -> Vec<String> {
@@ -334,9 +364,22 @@ pub enum AddOutcome {
     AlreadyManaged { handle: Arc<librqbit::ManagedTorrent> },
 }
 
+/// How long ONE metadata-fetch attempt may run before we retry. During
+/// resolution librqbit re-announces to the tracker set every
+/// `force_tracker_interval` (30 s), so a single attempt covers several
+/// announce rounds plus a DHT query.
+const ADD_ATTEMPT_TIMEOUT_SECS: u64 = 90;
+/// Maximum add attempts. Each retry re-announces to the (now
+/// session-wide) tracker set and re-queries the DHT — with the
+/// persisted routing table warming up across attempts, cold starts
+/// usually resolve on attempt 2–3.
+const ADD_MAX_ATTEMPTS: u32 = 3;
+/// Delay in seconds between attempt `i` and `i + 1`.
+const ADD_RETRY_DELAYS_SECS: [u64; 2] = [15, 30];
+
 /// Add a torrent to the session and bring it Live, applying an
-/// optional file selection. Waits (bounded) for metadata when a file
-/// selection needs to be applied.
+/// optional file selection. Waits (bounded, with retries) for metadata
+/// when a file selection needs to be applied.
 ///
 /// This is the single start path used for fresh starts, queue starts
 /// and seeding re-adds — replacing the three divergent copies in the
@@ -347,55 +390,179 @@ pub async fn add_and_start(
     save_path: &str,
     only_files: Option<&[usize]>,
 ) -> Result<AddOutcome, String> {
-    // A previous list_only add of the same infohash leaves librqbit
-    // treating the torrent as metadata-only; delete-then-re-add gives
-    // a clean slate (metadata stays cached, so the re-add is fast).
-    let add = build_add_torrent(source_uri).await?;
-    let add_opts = librqbit::AddTorrentOptions {
-        output_folder: Some(save_path.into()),
-        overwrite: true,
-        list_only: false,
-        // Selection is applied at add time (compute_only_files); the old
-        // post-add update_only_files retry loop was redundant.
-        only_files: only_files.map(|v| v.to_vec()),
-        trackers: Some(default_trackers_vec()),
-        force_tracker_interval: Some(Duration::from_secs(30)),
-        ..Default::default()
-    };
+    // Note: `list_only` adds do NOT leave a session entry in librqbit
+    // 8.x (the response returns before the torrent is created), so a
+    // fresh add of a previously list_only-registered infohash comes
+    // back `Added`. An `AlreadyManaged` response means the infohash is
+    // already tracked — the caller owns the adoption decision (it must
+    // never unpause an entry owned by another record, but MAY adopt one
+    // it owns, e.g. a session-restored torrent on resume).
 
-    let response = tokio::time::timeout(
-        Duration::from_secs(120),
-        session.add_torrent(add, Some(add_opts)),
-    )
-    .await
-    .map_err(|_| {
-        "Timed out fetching metadata — no peers responded. Check your \
-         firewall or try a different source."
-            .to_string()
-    })?
-    .map_err(|e| format!("Failed to add torrent: {}", e))?;
+    let mut attempt: u32 = 0;
 
-    let already_managed =
-        matches!(&response, librqbit::AddTorrentResponse::AlreadyManaged(..));
-    let handle = response
-        .into_handle()
-        .ok_or_else(|| "Failed to start torrent: no handle returned".to_string())?;
+    loop {
+        attempt += 1;
+        let add = build_add_torrent(source_uri).await?;
+        let add_opts = librqbit::AddTorrentOptions {
+            output_folder: Some(save_path.into()),
+            overwrite: true,
+            list_only: false,
+            // Selection is applied at add time (compute_only_files); the old
+            // post-add update_only_files retry loop was redundant.
+            only_files: only_files.map(|v| v.to_vec()),
+            trackers: Some(default_trackers_vec()),
+            force_tracker_interval: Some(Duration::from_secs(30)),
+            ..Default::default()
+        };
 
-    if already_managed {
-        // M1: never unpause or change the selection of a torrent we
-        // don't own.
-        return Ok(AddOutcome::AlreadyManaged { handle });
+        let response = match tokio::time::timeout(
+            Duration::from_secs(ADD_ATTEMPT_TIMEOUT_SECS),
+            session.add_torrent(add, Some(add_opts)),
+        )
+        .await
+        {
+            Ok(Ok(resp)) => resp,
+            Ok(Err(e)) => {
+                let msg = format!("Failed to add torrent: {}", e);
+                eprintln!(
+                    "[downloads] add_torrent attempt {}/{} failed: {}",
+                    attempt, ADD_MAX_ATTEMPTS, msg
+                );
+                if attempt >= ADD_MAX_ATTEMPTS {
+                    return Err(finish_metadata_error(&msg));
+                }
+                tokio::time::sleep(Duration::from_secs(
+                    ADD_RETRY_DELAYS_SECS[(attempt - 1) as usize],
+                ))
+                .await;
+                continue;
+            }
+            Err(_) => {
+                // The per-add peer stream (tracker announces + DHT) was
+                // dropped with the timed-out future; the retry below
+                // starts a fresh announce round.
+                let msg = format!(
+                    "Timed out fetching metadata (attempt {}/{}) — no peers responded",
+                    attempt, ADD_MAX_ATTEMPTS
+                );
+                eprintln!("[downloads] {}", msg);
+                if attempt >= ADD_MAX_ATTEMPTS {
+                    return Err(finish_metadata_error(&msg));
+                }
+                tokio::time::sleep(Duration::from_secs(
+                    ADD_RETRY_DELAYS_SECS[(attempt - 1) as usize],
+                ))
+                .await;
+                continue;
+            }
+        };
+
+        let already_managed =
+            matches!(&response, librqbit::AddTorrentResponse::AlreadyManaged(..));
+        let handle = response
+            .into_handle()
+            .ok_or_else(|| "Failed to start torrent: no handle returned".to_string())?;
+
+        if already_managed {
+            // M1: never unpause or change the selection of a torrent we
+            // don't own.
+            return Ok(AddOutcome::AlreadyManaged { handle });
+        }
+
+        let _ = session.unpause(&handle).await;
+        return Ok(AddOutcome::Added { handle });
     }
+}
 
-    let _ = session.unpause(&handle).await;
-    Ok(AddOutcome::Added { handle })
+/// Wrap the last-attempt failure in a user-facing hint.
+fn finish_metadata_error(last_error: &str) -> String {
+    format!(
+        "{} after {} attempts. Check your firewall, wait a minute \
+         and try again (the DHT routing table keeps warming up), or \
+         try a different source.",
+        last_error, ADD_MAX_ATTEMPTS
+    )
 }
 
 /// Delete a torrent from the session by frontend id (keeps files).
 pub async fn delete_from_session(session: &Arc<librqbit::Session>, frontend_id: &str) {
     if let Some(handle) = find_handle(session, frontend_id) {
-        let _ = session
-            .delete(librqbit::api::TorrentIdOrHash::Id(handle.id()), false)
-            .await;
+        delete_torrent_keep_files(session, &handle).await;
     }
+}
+
+// ─── Race-safe pause / delete ───────────────────────────────────────────────
+
+/// librqbit 8.1.1's `pause()` / `delete()` drain the file handles out
+/// of the Live storage (`OpenedFile.take()`), while a peer's chunk
+/// write can still be dispatched after passing the "check_steal" gate
+/// (torrent_state/live/mod.rs:1643 — the gate doesn't cover the write
+/// and pause doesn't take the per-piece locks). The write then fails
+/// with `file is None` (upstream error `FsFileIsNone`, "torrent was
+/// probably paused") and can fatal-error the torrent. Mitigation: wait
+/// until the torrent stops transferring before draining, so no write
+/// is in flight when the handles go.
+async fn wait_quiescent(
+    handle: &Arc<librqbit::ManagedTorrent>,
+    max_wait: Duration,
+) {
+    let deadline = std::time::Instant::now() + max_wait;
+    loop {
+        let stats = handle.stats();
+        if !matches!(stats.state, librqbit::TorrentStatsState::Live) {
+            // paused / initializing / error → no in-flight writes
+            return;
+        }
+        let active = stats
+            .live
+            .as_ref()
+            .map(|l| l.download_speed.mbps > 0.0)
+            .unwrap_or(false);
+        if !active {
+            return; // live but idle → nothing to drain-race
+        }
+        if std::time::Instant::now() >= deadline {
+            return; // best effort; the race is unlikely even then
+        }
+        tokio::time::sleep(Duration::from_millis(100)).await;
+    }
+}
+
+/// Pause a session entry, first waiting (bounded) for in-flight writes
+/// to drain so the handle drain can't race a chunk write. Safe on any
+/// state; the errors ("initializing", "already paused") are expected —
+/// the 1 s manager sweep keeps retrying until it lands.
+pub async fn pause_torrent(
+    session: &Arc<librqbit::Session>,
+    handle: &Arc<librqbit::ManagedTorrent>,
+) {
+    wait_quiescent(handle, Duration::from_millis(2000)).await;
+    if let Err(e) = session.pause(handle).await {
+        println!("[downloads] pause skipped ({}), 1s sweep will retry", e);
+    }
+}
+
+/// Delete a session entry (keep files), quiescing first so the
+/// internal pause inside `session.delete` can't race a chunk write.
+pub async fn delete_torrent_keep_files(
+    session: &Arc<librqbit::Session>,
+    handle: &Arc<librqbit::ManagedTorrent>,
+) {
+    wait_quiescent(handle, Duration::from_millis(2000)).await;
+    let _ = session
+        .delete(librqbit::api::TorrentIdOrHash::Id(handle.id()), false)
+        .await;
+}
+
+/// Delete a session entry (with optional file deletion), quiescing
+/// first. Used by remove-with-files.
+pub async fn delete_torrent(
+    session: &Arc<librqbit::Session>,
+    handle: &Arc<librqbit::ManagedTorrent>,
+    delete_files: bool,
+) {
+    wait_quiescent(handle, Duration::from_millis(2000)).await;
+    let _ = session
+        .delete(librqbit::api::TorrentIdOrHash::Id(handle.id()), delete_files)
+        .await;
 }

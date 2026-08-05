@@ -7,7 +7,7 @@
 //! worker in `http.rs`. All records live in one map and are emitted
 //! together on the `download-progress` event every second.
 
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::future::Future;
 use std::path::PathBuf;
 use std::pin::Pin;
@@ -27,8 +27,11 @@ use super::types::{
 };
 
 /// How long a torrent may sit in FetchingMetadata without any real
-/// transfer before we surface an error.
-const METADATA_FETCH_TIMEOUT_SECS: u64 = 180;
+/// transfer before we surface an error. Must exceed the add-task retry
+/// budget (torrent::add_and_start: 3 × 90 s + 15 s + 30 s ≈ 315 s) so
+/// the watchdog never kills a still-retrying add; it only fires when
+/// the add task itself gave up (or died) without failing the record.
+const METADATA_FETCH_TIMEOUT_SECS: u64 = 360;
 
 pub type SharedManager = Arc<RwLock<DownloadManager>>;
 pub type WeakManager = std::sync::Weak<RwLock<DownloadManager>>;
@@ -327,21 +330,19 @@ impl DownloadManager {
                 Some(DownloadStatus::Completed) => {
                     let stats = r.handle.stats();
                     if stats.progress_bytes > 0 {
-                        let _ = session
-                            .delete(
-                                librqbit::api::TorrentIdOrHash::Id(r.handle.id()),
-                                false,
-                            )
-                            .await;
+                        torrent::delete_torrent_keep_files(&session, &r.handle).await;
                     }
                 }
                 Some(_) => {
-                    let _ = session.pause(&r.handle).await;
+                    // Quiesce-then-pause: a restored torrent may already
+                    // be transferring, and a bare pause() can race an
+                    // in-flight chunk write ("file is None").
+                    torrent::pause_torrent(&session, &r.handle).await;
                 }
                 None => {
                     // Torrent in the session without a record —
                     // register it paused so the user can see it.
-                    let _ = session.pause(&r.handle).await;
+                    torrent::pause_torrent(&session, &r.handle).await;
                     let name = r.name.unwrap_or_else(|| "Restored".to_string());
                     let mut d = Download::new(
                         r.fid.clone(),
@@ -475,8 +476,28 @@ impl DownloadManager {
                     DownloadStatus::Queued | DownloadStatus::Seeding | DownloadStatus::Paused
                 ) || (matches!(d.status, DownloadStatus::Error(_))
                     && !matches!(entry.status, DownloadStatus::Error(_)));
+                let was_active = d.status.is_active();
                 if !keep_manager_status {
                     d.status = gate_completion(entry.status.clone(), d.had_real_downloads);
+                }
+
+                // Auto-heal the librqbit pause/write race: "file is
+                // None" means a chunk write hit a handle that pause()/
+                // delete() drained (upstream `FsFileIsNone`). If we
+                // still want this torrent running, unpause it —
+                // librqbit re-checks the files, re-opens them and goes
+                // Live again, so the download continues instead of
+                // dead-erroring. Only for this specific signature, so
+                // real failures (disk full, permissions) still surface.
+                if was_active {
+                    if let DownloadStatus::Error(msg) = &entry.status {
+                        if msg.contains("file is None") {
+                            println!(
+                                "[downloads] healing torrent after pause/write race (file is None)"
+                            );
+                            let _ = session.unpause(&entry.handle).await;
+                        }
+                    }
                 }
 
                 // M2: enforce Paused/Queued intent against the session.
@@ -495,15 +516,20 @@ impl DownloadManager {
                     pause_sweep.push(entry.handle.clone());
                 }
 
-                // Metadata watchdog for the active torrent.
+                // Metadata watchdog for the active torrent. Fires only
+                // after the add task's own retry budget (see
+                // `torrent::add_and_start`) is exhausted and the record
+                // still hasn't errored on its own.
                 if matches!(d.status, DownloadStatus::FetchingMetadata)
                     && d.kind == DownloadKind::Torrent
                     && d.had_real_downloads != Some(true)
                     && unix_now().saturating_sub(d.added_at) > METADATA_FETCH_TIMEOUT_SECS
                 {
                     d.status = DownloadStatus::Error(
-                        "Timed out fetching metadata — no peers responded. Your \
-                         network may be blocking trackers/DHT; try another source."
+                        "Timed out fetching metadata — no peers responded after \
+                         several attempts. Check your firewall, wait a minute and \
+                         try again (the DHT routing table keeps warming up), or \
+                         try a different source."
                             .to_string(),
                     );
                 }
@@ -557,9 +583,13 @@ impl DownloadManager {
             }
 
             for handle in pause_sweep {
-                // Expected errors: "torrent is initializing, can't pause",
-                // "already paused" — ignore.
-                let _ = session.pause(&handle).await;
+                // Run off the tick: the quiesce wait (up to 2 s) must
+                // not stall the 1 s status loop. Expected pause errors
+                // ("initializing", "already paused") are handled inside.
+                let session_clone = session.clone();
+                tokio::spawn(async move {
+                    torrent::pause_torrent(&session_clone, &handle).await;
+                });
             }
 
             if save_needed {
@@ -576,10 +606,53 @@ impl DownloadManager {
                         "[downloads] Torrent completed. Deleting from librqbit \
                          session to release file locks."
                     );
-                    let _ = session_clone
-                        .delete(librqbit::api::TorrentIdOrHash::Id(handle.id()), false)
-                        .await;
+                    torrent::delete_torrent_keep_files(&session_clone, &handle).await;
                 });
+            }
+
+            // Orphan sweep: a timed-out `add_torrent` can still resolve
+            // internally AFTER the timeout dropped our future, leaving a
+            // Live session entry with no owning record — an invisible
+            // download that writes files the UI never reports. Delete any
+            // session torrent whose infohash has no record AND no
+            // in-flight add (a FetchingMetadata record whose source magnet
+            // carries the same infohash).
+            {
+                let orphans: Vec<Arc<librqbit::ManagedTorrent>> =
+                    session.with_torrents(|iter| {
+                        let mut orphans = Vec::new();
+                        for (_id, mt) in iter {
+                            let fid =
+                                torrent::frontend_id_from_hash(&mt.shared().info_hash.0);
+                            if self.downloads.contains_key(&fid) {
+                                continue;
+                            }
+                            let in_flight = self.downloads.values().any(|d| {
+                                matches!(d.status, DownloadStatus::FetchingMetadata)
+                                    && torrent::btih_from_magnet(&d.source_uri)
+                                        .and_then(|h| {
+                                            torrent::frontend_id_from_btih_hex(&h)
+                                        })
+                                        .as_deref()
+                                        == Some(fid.as_str())
+                            });
+                            if !in_flight {
+                                orphans.push(Arc::clone(mt));
+                            }
+                        }
+                        orphans
+                    });
+                for handle in orphans {
+                    println!(
+                        "[downloads] Removing orphan session torrent (no owning record)"
+                    );
+                    let _ = session
+                        .delete(
+                            librqbit::api::TorrentIdOrHash::Id(handle.id()),
+                            false,
+                        )
+                        .await;
+                }
             }
         }
 
@@ -804,16 +877,35 @@ async fn start_torrent(manager: &SharedManager, id: &str) -> bool {
     }
 
     // Fast path: the torrent is already in the session (paused
-    // earlier) with its file selection applied → just unpause.
+    // earlier, or restored by librqbit's session persistence). Just
+    // unpause it — this is what makes pause → resume and app-restart
+    // resume work for torrents WITH a file selection too (a re-add
+    // of an existing infohash only yields `AlreadyManaged`, which
+    // never starts the torrent on its own).
     if source_uri.is_empty() || torrent::find_handle(&session, id).is_some() {
         if let Some(handle) = torrent::find_handle(&session, id) {
-            // A leftover list_only entry never downloads; only reuse
-            // handles that carry a real output folder (non-list_only
-            // adds). Detect by checking metadata + paused state.
-            let reusable = handle.with_metadata(|_| ()).is_ok()
-                && only_files.is_none();
-            if reusable {
+            // Unpausing requires resolved metadata — librqbit panics
+            // on a metadata-less torrent (torrent_state/mod.rs:382).
+            // Paused / restored handles always carry metadata; a
+            // still-resolving magnet falls through to the re-add path
+            // below, whose bounded timeout covers the fetch.
+            if handle.with_metadata(|_| ()).is_ok() {
+                // Reconcile the session's file selection with the
+                // record before unpausing. A fresh add applies the
+                // selection at add time, but a restored / paused
+                // session entry keeps whatever it had at add time.
+                if let Some(of) = only_files.as_deref() {
+                    let session_of = handle.only_files();
+                    if session_of.as_deref() != Some(of) {
+                        let set: HashSet<usize> = of.iter().copied().collect();
+                        let _ = session.update_only_files(&handle, &set).await;
+                    }
+                }
                 let _ = session.unpause(&handle).await;
+                // Stats are read AFTER the unpause so a resumed entry
+                // reports Live/Downloading — reading the pre-unpause
+                // Paused state would let the 1 s pause sweep re-pause
+                // the torrent on the next tick.
                 let mut guard = manager.write().await;
                 if let Some(d) = guard.downloads_mut().get_mut(id) {
                     let stats = handle.stats();
@@ -866,17 +958,6 @@ async fn start_torrent(manager: &SharedManager, id: &str) -> bool {
                 let name = handle
                     .name()
                     .unwrap_or_else(|| "Fetching metadata\u{2026}".to_string());
-                let stats = handle.stats();
-                let live_files = torrent::files_from_handle(&handle, &stats);
-                let status_now = gate_completion(
-                    torrent::map_state_to_status(
-                        &stats.state,
-                        stats.total_bytes,
-                        stats.progress_bytes,
-                        stats.error.as_deref(),
-                    ),
-                    Some(false),
-                );
 
                 let mut guard = manager_clone.write().await;
                 // The user may have removed the download while we were
@@ -934,6 +1015,68 @@ async fn start_torrent(manager: &SharedManager, id: &str) -> bool {
                     .unwrap_or(false);
                 if let Some(d) = guard.downloads_mut().get_mut(&real_id) {
                     d.name = name;
+                }
+                guard.mark_dirty();
+                guard.emit_progress_force();
+                drop(guard);
+
+                if was_paused {
+                    // The user paused while the add was in flight —
+                    // keep the session entry paused and free the slot.
+                    // Quiesce first: the entry was just made Live by
+                    // `add_and_start` and may be writing already.
+                    torrent::pause_torrent(&session, &handle).await;
+                    let mut guard = manager_clone.write().await;
+                    guard.release_active(&real_id);
+                    guard.mark_dirty();
+                    guard.emit_progress_force();
+                    advance_queue(&manager_clone).await;
+                    return;
+                }
+
+                if already_managed {
+                    // M1-passed `AlreadyManaged`: no other record owns
+                    // this infohash, so the pre-existing session entry
+                    // is ours. This is the resume-after-restart /
+                    // metadata-wasn't-ready-yet path — adopt the entry
+                    // (sync its file selection, then unpause) instead
+                    // of leaving it paused forever.
+                    if let Some(of) = only_files.as_deref() {
+                        let session_of = handle.only_files();
+                        if session_of.as_deref() != Some(of) {
+                            let set: HashSet<usize> = of.iter().copied().collect();
+                            let _ = session.update_only_files(&handle, &set).await;
+                        }
+                    }
+                    let _ = session.unpause(&handle).await;
+                }
+
+                // Stats/files are read AFTER any unpause so a resumed
+                // entry reports Live/Downloading — reading the
+                // pre-unpause Paused state would let the 1 s pause
+                // sweep re-pause the torrent on the next tick.
+                let stats = handle.stats();
+                let live_files = torrent::files_from_handle(&handle, &stats);
+                let mut guard = manager_clone.write().await;
+                // The user may have paused/removed while we were
+                // finalising — respect that instead of overwriting it.
+                let wants_run = guard
+                    .downloads_map()
+                    .get(&real_id)
+                    .map(|d| d.status.is_active())
+                    .unwrap_or(false);
+                if !wants_run {
+                    // User paused/removed while finalising — stop the
+                    // entry without racing its writes.
+                    drop(guard);
+                    torrent::pause_torrent(&session, &handle).await;
+                    let mut guard = manager_clone.write().await;
+                    guard.release_active(&real_id);
+                    guard.mark_dirty();
+                    guard.emit_progress_force();
+                    return;
+                }
+                if let Some(d) = guard.downloads_mut().get_mut(&real_id) {
                     if let Some(files) = live_files {
                         // Selected-files sum as the progress denominator.
                         let selected_sum: u64 =
@@ -949,20 +1092,18 @@ async fn start_torrent(manager: &SharedManager, id: &str) -> bool {
                     } else if stats.total_bytes > 0 {
                         d.total_size = Some(stats.total_bytes);
                     }
-                    if !was_paused {
-                        d.status = status_now;
-                    }
-                }
-                if was_paused {
-                    let _ = session.pause(&handle).await;
-                    guard.release_active(&real_id);
+                    d.status = gate_completion(
+                        torrent::map_state_to_status(
+                            &stats.state,
+                            stats.total_bytes,
+                            stats.progress_bytes,
+                            stats.error.as_deref(),
+                        ),
+                        d.had_real_downloads,
+                    );
                 }
                 guard.mark_dirty();
                 guard.emit_progress_force();
-                drop(guard);
-                if was_paused {
-                    advance_queue(&manager_clone).await;
-                }
             }
             Err(e) => {
                 fail_download(&manager_clone, &id_owned, e).await;

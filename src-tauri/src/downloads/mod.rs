@@ -264,10 +264,11 @@ async fn preempt_and_start(manager: &SharedManager, id: &str) {
     };
 
     // Pause the preempted torrent's session entry (direct workers stop
-    // on their own when they observe the status change).
+    // on their own when they observe the status change). Quiesce first
+    // so the pause can't race the preempted torrent's in-flight writes.
     if let (Some(session), Some(active_id)) = (&session, &preempted) {
         if let Some(handle) = torrent::find_handle(session, active_id) {
-            let _ = session.pause(&handle).await;
+            torrent::pause_torrent(session, &handle).await;
         }
     }
 
@@ -599,8 +600,9 @@ pub async fn torrent_pause(id: String) -> Result<(), String> {
             // re-check). The 1s tick sweep in refresh_stats keeps
             // retrying, so the pause lands within ~1s of the check
             // completing; Paused is now in keep_manager_status so the
-            // record stays Paused throughout.
-            let _ = session.pause(&handle).await;
+            // record stays Paused throughout. Quiesces first so the
+            // handle drain can't race an in-flight chunk write.
+            torrent::pause_torrent(&session, &handle).await;
         }
     }
 
@@ -655,12 +657,9 @@ pub async fn torrent_remove(id: String, delete_files: Option<bool>) -> Result<()
     tokio::spawn(async move {
         if let Some(session) = session {
             if let Some(handle) = torrent::find_handle(&session, &id_clone) {
-                let _ = session
-                    .delete(
-                        librqbit::api::TorrentIdOrHash::Id(handle.id()),
-                        delete_files,
-                    )
-                    .await;
+                // Quiesce first: `session.delete` pauses internally and
+                // can race a download's in-flight writes ("file is None").
+                torrent::delete_torrent(&session, &handle, delete_files).await;
             }
         }
 
@@ -700,44 +699,56 @@ fn delete_download_files(download: &Download) {
         return;
     }
 
-    // Torrents: delete each file, then clean up empty directories.
+    // Torrents: librqbit writes files under `save_path/<torrent-root>/`
+    // when the torrent carries a root folder, and directly under
+    // `save_path/` when it doesn't. Delete each file at either
+    // location, then prune empty directories beneath both roots.
+    let root_folder = save_path_buf.join(&download.name);
     for file in &download.files {
-        let file_path = save_path_buf.join(&file.name);
-        if file_path.exists() && file_path.is_file() {
-            let _ = std::fs::remove_file(&file_path);
+        let rel = std::path::Path::new(&file.name);
+        // A torrent may exist in either layout (flat, or nested under
+        // its root folder) — try both.
+        let flat = save_path_buf.join(rel);
+        if flat.exists() && flat.is_file() {
+            let _ = std::fs::remove_file(&flat);
+        }
+        let nested = root_folder.join(rel);
+        if nested.exists() && nested.is_file() {
+            let _ = std::fs::remove_file(&nested);
         }
     }
 
-    let mut dirs_to_check = Vec::new();
-    for file in &download.files {
-        let file_path = save_path_buf.join(&file.name);
-        let mut parent = file_path.parent();
-        while let Some(p) = parent {
-            if p.starts_with(&save_path_buf) && p != save_path_buf {
-                dirs_to_check.push(p.to_path_buf());
-                parent = p.parent();
-            } else {
-                break;
+    for root in [save_path_buf.clone(), root_folder.clone()] {
+        let mut dirs_to_check = Vec::new();
+        for file in &download.files {
+            let file_path = root.join(std::path::Path::new(&file.name));
+            let mut parent = file_path.parent();
+            while let Some(p) = parent {
+                if p.starts_with(&root) && p != root {
+                    dirs_to_check.push(p.to_path_buf());
+                    parent = p.parent();
+                } else {
+                    break;
+                }
             }
         }
-    }
-    dirs_to_check.sort_by(|a, b| b.components().count().cmp(&a.components().count()));
-    dirs_to_check.dedup();
-    for dir in dirs_to_check {
-        if dir.exists() && dir.is_dir() {
-            if let Ok(entries) = std::fs::read_dir(&dir) {
-                if entries.count() == 0 {
-                    let _ = std::fs::remove_dir(&dir);
+        dirs_to_check.sort_by(|a, b| b.components().count().cmp(&a.components().count()));
+        dirs_to_check.dedup();
+        for dir in dirs_to_check {
+            if dir.exists() && dir.is_dir() {
+                if let Ok(entries) = std::fs::read_dir(&dir) {
+                    if entries.count() == 0 {
+                        let _ = std::fs::remove_dir(&dir);
+                    }
                 }
             }
         }
     }
 
-    let torrent_dir = save_path_buf.join(&download.name);
-    if torrent_dir.exists() && torrent_dir.is_dir() {
-        if let Ok(entries) = std::fs::read_dir(&torrent_dir) {
+    if root_folder.exists() && root_folder.is_dir() {
+        if let Ok(entries) = std::fs::read_dir(&root_folder) {
             if entries.count() == 0 {
-                let _ = std::fs::remove_dir(&torrent_dir);
+                let _ = std::fs::remove_dir(&root_folder);
             }
         }
     }
@@ -796,7 +807,7 @@ pub async fn torrent_pause_all() -> Result<usize, String> {
     if let Some(session) = session {
         for id in to_pause_in_session {
             if let Some(handle) = torrent::find_handle(&session, &id) {
-                let _ = session.pause(&handle).await;
+                torrent::pause_torrent(&session, &handle).await;
             }
         }
     }
