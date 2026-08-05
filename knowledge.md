@@ -35,7 +35,7 @@ This file gives Codebuff context about your project: goals, commands, convention
 - **Contexts (`src/context/`)** — providers per cross-cutting concern: `GameContext` (library CRUD / launch), `ActivityContext`, `AchievementContext`, `WishlistContext`, `DownloadContext` (single-active queue + seeding + speed limits), `SourceContext` (download sources), `SplashContext`, `ToastContext`, `ThemeContext` (light/dark), `LanguageContext` (i18n translations), `DensityContext`, `SettingsContext`, `SessionNotesContext`, `SidebarCollapseContext`, `BigScreenContext`.
 - **Hooks (`src/hooks/`)** — extracted filters/store-cache/player-count helpers (`useLibraryFilters`, `useStoreGames`, `useStoreCache`, `useProgressiveImages`, `useSteamGameStats`, `usePlayerCountHistory`, `useNewsFeeds`, `useWishlist`, etc.).
 - **Types (`src/types/`)** — hand-written TypeScript types mirroring the Rust serde models: `game.ts`, `steam.ts`, `gog.ts`, `epic.ts`, `source.ts`, `download.ts`, `deals.ts`.
-- **Styles (`src/styles/`, `src/*.css`)** — co-located CSS files (`App.css` for layout + theme tokens, `library.css`, `store.css`, plus themed style sheets under `src/styles/`). All theme colors go through CSS custom properties defined in `:root` / `[data-theme="light"]` in `App.css`. **Never hardcode hex/rgb values** — use `var(--…)`.
+- **Styles (`src/styles/`, `src/*.css`)** — co-located CSS files. `App.css` is a thin barrel of `@import`s (imported from `App.tsx`) that wires up the per-feature stylesheets in cascade order; `library.css`, `store.css`, plus themed style sheets under `src/styles/`. All theme colors go through CSS custom properties: the base `:root` dark palette lives in `styles/theme.css`, and the alternate theme overrides (`[data-theme="light"]`, nord, cyberpunk, aurora, …) live in `styles/themes.css`. **Never hardcode hex/rgb values** — use `var(--…)`.
 
 ### Backend (`src-tauri/src/`)
 - **Entry point:** `lib.rs::run()` registers every Tauri command and initializes state in `.setup(...)`. `main.rs` simply calls `gameindex_lib::run()`.
@@ -117,8 +117,8 @@ Phase 1–4 of a migration that moved every JSON file under `<app_data_dir>` plu
 ## Conventions (do / don't)
 
 - **Routing:** Always `HashRouter`. Never `BrowserRouter` — Tauri ships `file://` in production.
-- **Theming:** Use CSS variable tokens (`var(--…)`) defined in `App.css`. Never hardcode colors. Every dark-mode style sees its light counterpart in `[data-theme="light"]`.
-- **Components:** One component per file under `src/components/<area>/`. Co-locate styles in the matching `<area>.css` or `App.css`. Prefer CSS classes over CSS-modules so theme tokens apply.
+- **Theming:** Use CSS variable tokens (`var(--…)`) defined in `styles/theme.css` (base `:root`) with alternate palettes in `styles/themes.css`. Never hardcode colors. Every dark-mode style sees its light counterpart in `[data-theme="light"]`.
+- **Components:** One component per file under `src/components/<area>/`. Co-locate styles in the matching feature stylesheet under `src/styles/` (or `App.css`'s barrel order). Prefer CSS classes over CSS-modules so theme tokens apply.
 - **Icons:** Inline SVGs, no icon library dependency.
 - **Tauri commands:** Round-trip JSON at the boundary (`serde_json::to_value` / `from_value`) — saves hand-rolling field-by-field converters. Use `#[serde(rename_all = "camelCase")]` on Rust structs and `#[serde(default)]` for new optional fields so deserialization of older payloads still works.
 - **State registration:** Register pooled/shared state inside `.setup` and read it via `app.state::<T>()`. Do **not** wrap the existing `Db` in `Arc` (the pool is already shared); other shared state (GameWatcher, SourceManager, StoreChecker) uses `Arc<Mutex<…>>`.

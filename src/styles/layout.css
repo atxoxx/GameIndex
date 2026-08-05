@@ -1,0 +1,123 @@
+/* ==============================
+   App Layout
+   ============================== */
+.app-layout {
+  display: grid;
+  grid-template-rows: var(--topnav-height) 1fr;
+  grid-template-columns: var(--sidebar-width) 1fr;
+  grid-template-areas:
+    "topnav topnav"
+    "sidebar main";
+  height: 100vh;
+  width: 100vw;
+  transition: grid-template-columns var(--transition-normal);
+}
+
+.app-layout.sidebar-collapsed {
+  grid-template-columns: var(--sidebar-collapsed-width) 1fr;
+}
+
+/* Icon-rail partial collapse. Activated by SidebarCollapseContext
+ * via the `.sidebar-icon-rail` modifier on `.app-sidebar`, and
+ * mirrored here for the grid template columns so the main panel
+ * widens slightly while the sidebar stays visible (e.g. cover
+ * thumbnails + status dots). The grid transition is inherited from
+ * `.app-layout` so the column swap animates in 250ms instead of
+ * snapping — same duration the cover-grid uses elsewhere so the
+ * visual tempo stays consistent. */
+.app-layout.sidebar-icon-rail {
+  grid-template-columns: var(--sidebar-icon-rail-width) 1fr;
+}
+
+.app-topnav {
+  grid-area: topnav;
+}
+
+.app-sidebar {
+  grid-area: sidebar;
+  overflow: hidden;
+}
+
+.app-main {
+  grid-area: main;
+  overflow-y: auto;
+  overflow-x: hidden;
+}
+
+
+/* ==============================
+   Main Content Area
+   ============================== */
+.main-content {
+  min-height: 100%;
+}
+
+
+/* Library styles now live in src/library.css (single source of truth).
+   The duplicate `.library-grid` / `.library-card*` rules that used to
+   live here were moved there so the layout, hero, sidebar, chips, and
+   cards share one coherent stylesheet instead of two competing ones. */
+
+/* Empty State */
+.main-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  color: var(--color-text-muted);
+  text-align: center;
+  gap: var(--space-md);
+}
+
+.main-empty-icon {
+  width: 80px;
+  height: 80px;
+  opacity: 0.2;
+  margin-bottom: var(--space-md);
+}
+
+.main-empty-title {
+  font-size: var(--font-size-xl);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text-secondary);
+}
+
+.main-empty-subtitle {
+  font-size: var(--font-size-md);
+  max-width: 400px;
+  line-height: 1.5;
+}
+
+
+/* ==============================
+   Page Placeholders
+   ============================== */
+.page-placeholder {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  color: var(--color-text-muted);
+  text-align: center;
+  gap: var(--space-md);
+}
+
+.page-placeholder-icon {
+  width: 64px;
+  height: 64px;
+  opacity: 0.2;
+}
+
+.page-placeholder-title {
+  font-size: var(--font-size-xl);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text-secondary);
+}
+
+.page-placeholder-subtitle {
+  font-size: var(--font-size-md);
+  color: var(--color-text-muted);
+}
+

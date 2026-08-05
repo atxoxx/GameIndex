@@ -1,0 +1,136 @@
+/* ==============================
+   Toast Notifications
+   ============================== */
+.toast-container {
+  position: fixed;
+  bottom: var(--space-xl);
+  right: var(--space-xl);
+  z-index: 9999;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+  pointer-events: none;
+}
+
+.toast-item {
+  display: flex;
+  align-items: center;
+  gap: var(--space-md);
+  padding: var(--space-md) var(--space-lg);
+  border-radius: var(--radius-md);
+  background: var(--color-surface-raised);
+  border: 1px solid var(--color-border-light);
+  box-shadow: var(--shadow-lg);
+  pointer-events: auto;
+  min-width: 280px;
+  max-width: 420px;
+  animation: toastIn var(--transition-normal) ease;
+}
+
+@keyframes toastIn {
+  /*
+   * Phase 2.9 PR 4 ("data viz touches"): the toast stack now
+   * rises from the bottom-right corner instead of sliding in
+   * from the right edge — feels closer to the actual toast
+   * metaphor of "floating up to the surface" and signals the
+   * bottom-right anchor more strongly than a sideways slide.
+   * The 20-px translateY + 0.96 scale is heavy enough to read
+   * as motion but not heavy enough to fight the toast-content
+   * pulse when a long message replaces a short one. The
+   * --ease-bounce curve gives the trailing edge a tiny settle
+   * so the toast doesn't slam to its final position. */
+  from {
+    opacity: 0;
+    transform: translateY(20px) scale(0.96);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+.toast-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.toast-icon svg {
+  width: 20px;
+  height: 20px;
+}
+
+.toast-success .toast-icon {
+  color: var(--color-success);
+}
+
+.toast-error .toast-icon {
+  color: var(--color-danger);
+}
+
+.toast-info .toast-icon {
+  color: var(--color-info);
+}
+
+/* Warning variant for Force-Close partial-failure toasts */
+.toast-warning {
+  border-left: 3px solid var(--color-warning);
+}
+
+.toast-warning .toast-icon {
+  color: var(--color-warning);
+}
+
+.toast-message {
+  flex: 1;
+  font-size: var(--font-size-sm);
+  color: var(--color-text-primary);
+  line-height: 1.4;
+}
+
+.toast-close {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  border: none;
+  background: transparent;
+  color: var(--color-text-muted);
+  cursor: pointer;
+  padding: 2px;
+  border-radius: var(--radius-sm);
+  transition: color var(--transition-fast);
+}
+
+.toast-close:hover {
+  color: var(--color-text-primary);
+}
+
+.toast-close svg {
+  width: 14px;
+  height: 14px;
+}
+
+/* Fullscreen screenshot viewer nav arrows (shared by the library
+ * GamePage and StoreGameDetail lightboxes). The buttons are
+ * positioned fixed at the viewport edges via inline styles; here we
+ * only add the hover/focus affordance + hide on touch/narrow
+ * where swipe-scroll suffices. */
+.lightbox-nav:hover {
+  background: color-mix(in srgb, var(--color-accent) 35%, rgba(0,0,0,0.6)) !important;
+  border-color: var(--color-accent) !important;
+}
+
+.lightbox-nav:focus-visible {
+  outline: none;
+  border-color: var(--color-accent) !important;
+  box-shadow: 0 0 0 2px var(--color-accent-glow) !important;
+}
+
+@media (max-width: 600px) {
+  .lightbox-nav {
+    display: none;
+  }
+}
+

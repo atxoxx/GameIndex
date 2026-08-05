@@ -1,0 +1,477 @@
+/* ==============================
+   Metadata Fetching
+   ============================== */
+/* Metadata Results Panel */
+.metadata-panel {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border-light);
+  border-radius: var(--radius-lg);
+  margin-bottom: var(--space-xl);
+  overflow: hidden;
+  animation: metadataPanelIn 250ms ease;
+}
+
+@keyframes metadataPanelIn {
+  from {
+    opacity: 0;
+    transform: translateY(-8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.metadata-panel-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--space-lg) var(--space-xl);
+  border-bottom: 1px solid var(--color-border);
+  background: var(--color-bg-tertiary);
+}
+
+.metadata-panel-header h3 {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  font-size: var(--font-size-md);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text-primary);
+  margin: 0;
+}
+
+.metadata-panel-header h3 svg {
+  width: 18px;
+  height: 18px;
+  color: var(--color-accent);
+}
+
+.metadata-panel-close {
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border: none;
+  background: transparent;
+  color: var(--color-text-muted);
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  transition: color var(--transition-fast),
+    background var(--transition-fast),
+    transform var(--transition-fast);
+  flex-shrink: 0;
+}
+
+.metadata-panel-close:hover {
+  color: var(--color-text-primary);
+  background: var(--color-bg-hover);
+}
+
+.metadata-panel-close svg {
+  width: 18px;
+  height: 18px;
+}
+
+.metadata-panel-body {
+  padding: var(--space-xl);
+  max-height: 480px;
+  overflow-y: auto;
+}
+
+/* Loading State */
+.metadata-loading {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-lg);
+  padding: var(--space-3xl) var(--space-xl);
+  color: var(--color-text-muted);
+}
+
+.metadata-loading p {
+  font-size: var(--font-size-sm);
+  margin: 0;
+}
+
+.metadata-spinner {
+  width: 36px;
+  height: 36px;
+  border: 3px solid var(--color-border);
+  border-top-color: var(--color-accent);
+  border-radius: 50%;
+  animation: metadataSpin 800ms linear infinite;
+}
+
+@keyframes metadataSpin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.metadata-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-md);
+  padding: var(--space-2xl) var(--space-xl);
+  color: var(--color-text-muted);
+  text-align: center;
+}
+
+.metadata-empty svg {
+  width: 40px;
+  height: 40px;
+  opacity: 0.3;
+}
+
+.metadata-empty p {
+  font-size: var(--font-size-sm);
+  margin: 0;
+}
+
+/* Results List */
+.metadata-results {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-lg);
+}
+
+.metadata-result-card {
+  background: var(--color-bg-tertiary);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  padding: var(--space-lg);
+  transition: border-color var(--transition-fast);
+}
+
+.metadata-result-card:hover {
+  border-color: var(--color-accent);
+}
+
+.metadata-result-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: var(--space-sm);
+}
+
+.metadata-result-source {
+  display: inline-block;
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-accent);
+  background: rgba(108, 92, 231, 0.12);
+  padding: 2px 10px;
+  border-radius: var(--radius-full);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.metadata-result-link {
+  display: flex;
+  align-items: center;
+  color: var(--color-text-muted);
+  transition: color var(--transition-fast);
+}
+
+.metadata-result-link:hover {
+  color: var(--color-accent);
+}
+
+.metadata-result-link svg {
+  width: 16px;
+  height: 16px;
+}
+
+.metadata-result-title {
+
+  font-size: var(--font-size-lg);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text-primary);
+  margin-bottom: var(--space-sm);
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+
+.metadata-result-desc {
+
+  font-size: var(--font-size-sm);
+  color: var(--color-text-secondary);
+  line-height: 1.6;
+  margin: 0 0 var(--space-md) 0;
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+
+.metadata-result-details {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-md);
+  margin-bottom: var(--space-sm);
+  font-size: var(--font-size-xs);
+  color: var(--color-text-secondary);
+}
+
+.metadata-result-details strong {
+  color: var(--color-text-muted);
+  font-weight: var(--font-weight-medium);
+}
+
+.metadata-result-genres {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-xs);
+  margin-bottom: var(--space-lg);
+}
+
+.metadata-genre-tag {
+  display: inline-block;
+  font-size: var(--font-size-xs);
+  color: var(--color-text-secondary);
+  background: var(--color-bg-hover);
+  padding: 2px 8px;
+  border-radius: var(--radius-full);
+  border: 1px solid var(--color-border);
+}
+/* ==============================
+   Edit Images Grid
+   ============================== */
+
+.edit-images-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--space-lg);
+}
+
+.edit-image-slot {
+  background: var(--color-bg-tertiary);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  padding: var(--space-lg);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-md);
+}
+
+.edit-image-slot-header {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-sm);
+}
+
+.edit-image-slot-label {
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text-primary);
+}
+
+.edit-image-slot-subtitle {
+  font-size: var(--font-size-xs);
+  color: var(--color-text-muted);
+}
+
+.edit-image-slot-preview {
+  background: var(--color-bg-primary);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.edit-image-slot-preview img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.edit-image-slot-preview svg {
+  width: 28px;
+  height: 28px;
+}
+
+.edit-image-slot-actions {
+  display: flex;
+  gap: var(--space-sm);
+  flex-wrap: wrap;
+}
+
+.edit-img-btn {
+  font-size: var(--font-size-xs) !important;
+  padding: var(--space-xs) var(--space-sm) !important;
+}
+
+.edit-img-btn svg {
+  width: 13px !important;
+  height: 13px !important;
+}
+
+.edit-img-fetch {
+  color: var(--color-accent) !important;
+  border-color: var(--color-accent) !important;
+  background: rgba(108, 92, 231, 0.08) !important;
+}
+
+.edit-img-fetch:hover {
+  background: rgba(108, 92, 231, 0.15) !important;
+}
+
+.edit-img-fetch:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.edit-img-remove {
+  color: var(--color-danger) !important;
+}
+
+.edit-img-remove:hover {
+  background: rgba(255, 82, 82, 0.1) !important;
+  border-color: var(--color-danger) !important;
+}
+
+/* ==============================
+   Edit Modal
+   ============================== */
+
+/* Source link in overview */
+.metadata-source-link {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-xs);
+  margin-top: var(--space-md);
+  font-size: var(--font-size-sm);
+  color: var(--color-accent);
+  text-decoration: none;
+  transition: color var(--transition-fast);
+}
+
+.metadata-source-link:hover {
+  color: var(--color-accent-hover);
+  text-decoration: underline;
+}
+
+.metadata-source-link svg {
+  width: 14px;
+  height: 14px;
+}
+
+/* Genres in info section */
+.info-genres {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-xs);
+  margin-top: var(--space-md);
+  padding-top: var(--space-md);
+  border-top: 1px solid var(--color-border);
+}
+
+
+/* ==============================
+   Size field (Info card + Edit modal) -- Phase 3
+   ============================== */
+
+/* The Size cell in the Info card: a clickable span that opens the
+ * edit modal. The dashed underline appears on hover, matching the
+ * "this is editable" affordance used elsewhere in the app. */
+.size-clickable {
+  cursor: pointer;
+  border-bottom: 1px dashed transparent;
+  transition: color var(--transition-fast), border-color var(--transition-fast);
+}
+.size-clickable:hover {
+  color: var(--color-accent);
+  border-bottom-color: var(--color-accent);
+}
+
+/* Horizontal row inside the Size field: read-only input + buttons
+ * (Auto-detect, Clear). Wraps on narrow viewports. */
+.size-edit-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  flex-wrap: wrap;
+}
+
+/* Focus ring on the readOnly size input when the row is tabbed to,
+ * so the affordance is obvious even though the input itself is
+ * readOnly. */
+.size-edit-row:focus-within .size-readonly {
+  border-color: var(--color-accent);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--color-accent) 18%, transparent);
+}
+
+.size-readonly {
+  flex: 1;
+  min-width: 0;
+  font-variant-numeric: tabular-nums;
+  color: var(--color-text-primary);
+  cursor: default;
+  background: var(--color-bg-tertiary);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  padding: var(--space-sm) var(--space-md);
+  font-size: var(--font-size-md);
+  transition: border-color var(--transition-fast), box-shadow var(--transition-fast);
+}
+
+.size-edit-hint {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-xs);
+  width: 100%;
+  margin-top: var(--space-xs);
+  padding: var(--space-xs) var(--space-sm);
+  font-size: var(--font-size-xs);
+  color: var(--color-text-muted);
+  background: var(--color-bg-secondary);
+  border: 1px dashed var(--color-border);
+  border-radius: var(--radius-sm);
+  font-family: var(--font-mono, ui-monospace, "SFMono-Regular", Menlo, monospace);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.size-edit-hint::before {
+  content: "";
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--color-accent);
+  flex-shrink: 0;
+  opacity: 0.7;
+}
+
+/* Read-only input that shows the formatted size ("12.34 GB" / "Not set"). */
+.size-readonly {
+  flex: 1;
+  min-width: 0;
+  font-variant-numeric: tabular-nums;
+  color: var(--color-text-secondary);
+  cursor: default;
+}
+
+/* Hint line below the input that surfaces the detected root path
+ * (truncated with ellipsis; full path is exposed via title=). */
+.size-edit-hint {
+  font-size: var(--font-size-xs);
+  color: var(--color-text-muted);
+  font-family: var(--font-mono, ui-monospace, "SFMono-Regular", Menlo, monospace);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+

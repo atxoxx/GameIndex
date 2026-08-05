@@ -1,0 +1,1434 @@
+/* Game Page */
+.game-page {
+  max-width: var(--content-max-width, 1440px);
+  margin: 0 auto;
+  padding: var(--space-2xl);
+}
+
+/* Mid-width: keep the 2-column rhythm but let the side column
+ * breathe instead of snapping to a cramped stack. Below 860px
+ * the grid fully collapses (see media query below) so phones /
+ * narrow windows get the single-column reading flow. */
+@media (max-width: 1100px) {
+  .game-page {
+    padding: var(--space-xl);
+  }
+}
+
+.game-launch-btn {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  padding: var(--space-md) var(--space-2xl);
+  background: var(--color-accent);
+  color: #fff;
+  border: none;
+  border-radius: var(--radius-md);
+  font-size: var(--font-size-md);
+  font-weight: var(--font-weight-semibold);
+  cursor: pointer;
+  transition: color var(--transition-fast), background var(--transition-fast), border-color var(--transition-fast), box-shadow var(--transition-fast), opacity var(--transition-fast), transform var(--transition-fast);
+  box-shadow: 0 0 20px var(--color-accent-glow);
+  flex-shrink: 0;
+}
+
+.game-launch-btn:hover {
+  background: var(--color-accent-hover);
+  transform: translateY(-1px);
+  box-shadow: 0 0 30px var(--color-accent-glow);
+}
+
+.game-launch-btn svg {
+  width: 18px;
+  height: 18px;
+}
+
+/* Game Tabs — sticky, glass "segmented pill" bar.
+ * A contained, rounded glass pill pinned under the topnav. The
+ * active tab is a *soft* accent-tinted pill (accent text + faint
+ * accent fill + a small leading accent dot) rather than a heavy
+ * solid gradient fill — this reads as a refined control in every
+ * theme and never shows a hard sliding edge. The dot is purely
+ * decorative (aria-hidden) so SR users still get the text label. */
+.game-tabs {
+  display: flex;
+  gap: 2px;
+  align-items: center;
+  position: sticky;
+  top: calc(var(--topnav-height) + var(--space-md));
+  z-index: 50;
+  margin: 0 auto var(--space-xl);
+  padding: 4px;
+  width: fit-content;
+  max-width: 100%;
+  border-radius: var(--radius-full);
+  border: 1px solid var(--color-border-light);
+  background: color-mix(in srgb, var(--color-surface-raised) 80%, transparent);
+  backdrop-filter: blur(16px) saturate(150%);
+  -webkit-backdrop-filter: blur(16px) saturate(150%);
+  box-shadow: var(--shadow-md);
+}
+
+.game-tab {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: var(--space-sm) var(--space-lg);
+  border: 1px solid transparent;
+  background: transparent;
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-semibold);
+  letter-spacing: 0.2px;
+  cursor: pointer;
+  border-radius: var(--radius-full);
+  transition: color var(--transition-fast), background var(--transition-fast),
+              border-color var(--transition-fast), transform var(--transition-fast),
+              box-shadow var(--transition-fast);
+  white-space: nowrap;
+}
+
+/* Decorative leading dot on every tab; only the active tab
+ * lights it up with the accent color + glow. */
+.game-tab::before {
+  content: "";
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--color-text-muted);
+  opacity: 0.5;
+  flex-shrink: 0;
+  transition: background var(--transition-fast), box-shadow var(--transition-fast),
+              opacity var(--transition-fast), transform var(--transition-fast);
+}
+
+.game-tab:not(.active):hover {
+  color: var(--color-text-primary);
+  background: var(--color-bg-hover);
+  border-color: color-mix(in srgb, var(--color-accent) 45%, transparent);
+  transform: translateY(-1px);
+  box-shadow: 0 2px 10px color-mix(in srgb, var(--color-accent) 25%, transparent);
+}
+
+.game-tab:not(.active):hover::before {
+  opacity: 1;
+  background: var(--color-accent);
+  box-shadow: 0 0 6px var(--color-accent-glow);
+  transform: scale(1.15);
+}
+
+.game-tab:not(.active):active {
+  transform: translateY(0);
+}
+
+.game-tab.active {
+  color: var(--color-accent);
+  font-weight: var(--font-weight-bold);
+  background: color-mix(in srgb, var(--color-accent) 18%, transparent);
+  border-color: color-mix(in srgb, var(--color-accent) 45%, transparent);
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--color-accent) 30%, transparent),
+              0 2px 14px color-mix(in srgb, var(--color-accent) 30%, transparent);
+}
+
+.game-tab.active::before {
+  background: var(--color-accent);
+  opacity: 1;
+  box-shadow: 0 0 8px var(--color-accent-glow);
+}
+
+.game-tab:focus-visible {
+  outline: none;
+  border-color: var(--color-accent);
+  box-shadow: 0 0 0 2px var(--color-accent-glow);
+}
+
+.game-tab-placeholder {
+  text-align: center;
+}
+
+.game-tab-placeholder-text {
+  font-size: var(--font-size-md);
+  color: var(--color-text-muted);
+  padding: var(--space-2xl) 0;
+}
+
+@media (max-width: 1100px) {
+  .game-tabs {
+    margin-left: calc(-1 * var(--space-lg));
+    margin-right: calc(-1 * var(--space-lg));
+    padding-left: var(--space-lg);
+    padding-right: var(--space-lg);
+  }
+}
+
+/* Sliding active-indicator: a single pill that animates between
+ * tab positions. The active tab sets --tab-indicator-left /
+ * --tab-indicator-width inline; the underline below reads them and
+ * transitions. Falls back gracefully (no inline vars => hidden). */
+.game-tabs__indicator {
+  position: absolute;
+  bottom: -1px;
+  left: var(--tab-indicator-left, 0);
+  width: var(--tab-indicator-width, 0);
+  height: 2px;
+  background: linear-gradient(90deg, var(--color-accent), var(--color-accent-hover));
+  border-radius: var(--radius-full);
+  box-shadow: 0 0 10px var(--color-accent-glow), 0 0 20px var(--color-accent-glow);
+  transition: left var(--duration-normal) var(--ease-standard),
+              width var(--duration-normal) var(--ease-standard);
+  pointer-events: none;
+}
+
+.game-tab {
+  padding: var(--space-md) var(--space-lg);
+  border: 1px solid transparent;
+  background: transparent;
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-semibold);
+  letter-spacing: 0.2px;
+  cursor: pointer;
+  position: relative;
+  border-radius: var(--radius-full);
+  transition: color var(--transition-fast), background var(--transition-fast),
+              border-color var(--transition-fast),
+              box-shadow var(--transition-fast);
+}
+
+.game-tab:not(.active):hover {
+  color: var(--color-text-primary);
+  background: var(--color-bg-hover);
+  border-color: color-mix(in srgb, var(--color-accent) 40%, transparent);
+  box-shadow: 0 2px 10px color-mix(in srgb, var(--color-accent) 22%, transparent);
+}
+
+.game-tab.active {
+  color: var(--color-accent);
+  border-color: color-mix(in srgb, var(--color-accent) 45%, transparent);
+  background: color-mix(in srgb, var(--color-accent) 12%, transparent);
+  font-weight: var(--font-weight-bold);
+  box-shadow: 0 2px 14px color-mix(in srgb, var(--color-accent) 28%, transparent);
+}
+
+.game-tab-placeholder {
+  text-align: center;
+}
+
+.game-tab-placeholder-text {
+  font-size: var(--font-size-md);
+  color: var(--color-text-muted);
+  padding: var(--space-2xl) 0;
+}
+
+/* Game Content Grid */
+.game-content-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 2.4fr) minmax(320px, 1fr);
+  gap: var(--space-xl);
+  align-items: start;
+}
+
+/* Mid-width: tighten the side column floor so cards don't get
+ * squeezed into an unreadable width before the full stack kicks
+ * in at 860px. */
+@media (max-width: 1100px) {
+  .game-content-grid {
+    grid-template-columns: minmax(0, 2fr) minmax(280px, 1fr);
+    gap: var(--space-lg);
+  }
+}
+
+/* Full collapse to a single reading column on phones / narrow
+ * windows. align-items reset isn't needed since it's one column. */
+@media (max-width: 860px) {
+  .game-content-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .game-side-col {
+    position: static;
+  }
+}
+
+/* Game Sections */
+.game-section {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  padding: var(--space-xl);
+  margin-bottom: var(--space-xl);
+  /* Clear the sticky topnav + sticky tab bar when a section is
+   * scrolled-to (anchor jumps or keyboard focus). */
+  scroll-margin-top: calc(var(--topnav-height) + 64px);
+}
+
+.game-section-title {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  font-size: var(--font-size-lg);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text-primary);
+  margin-bottom: var(--space-lg);
+}
+
+.game-section-title svg {
+  width: 18px;
+  height: 18px;
+  color: var(--color-accent);
+}
+
+/* IGDB Ratings, Specs, Screenshots, and Web links styles */
+.screenshots-carousel::-webkit-scrollbar {
+  height: 6px;
+}
+.screenshots-carousel::-webkit-scrollbar-track {
+  background: transparent;
+  border-radius: var(--radius-sm);
+}
+.screenshots-carousel::-webkit-scrollbar-thumb {
+  background: var(--color-border);
+  border-radius: var(--radius-sm);
+}
+.screenshots-carousel::-webkit-scrollbar-thumb:hover {
+  background: var(--color-text-muted);
+}
+
+.screenshot-item:hover {
+  border-color: var(--color-accent) !important;
+  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.4);
+}
+
+.screenshot-item:hover .screenshot-img {
+  transform: scale(1.05);
+}
+
+/* .video-selector-btn hover/active states live in src/styles/game-cards.css
+ * to keep all video-related styles co-located. The base button
+ * (width, aspect-ratio, border, etc.) is also defined there. */
+
+.rating-circle-progress {
+  transition: stroke-dashoffset 0.8s ease;
+}
+
+.spec-tag {
+  transition: color var(--transition-fast), background var(--transition-fast), border-color var(--transition-fast), box-shadow var(--transition-fast), opacity var(--transition-fast), transform var(--transition-fast);
+}
+
+.spec-tag:hover {
+  background: var(--color-bg-hover) !important;
+  border-color: var(--color-accent) !important;
+  color: var(--color-accent) !important;
+}
+
+/* Edit Form Grid Styles */
+.edit-form-grid {
+  margin-bottom: var(--space-md);
+}
+
+.edit-field.full-width {  grid-column: 1 / -1;}
+.edit-field-row {
+.edit-field-row > .edit-field {
+  flex: 1;
+  min-width: 0;
+}
+  grid-column: 1 / -1;
+  display: flex;
+  gap: var(--space-md);
+  min-width: 0;
+}
+
+/* ── Edit form fieldsets (Metadata tab grouping) ─────────────────
+ * The Metadata edit tab previously rendered 15+ flat inputs in a
+ * single 2-column wall that pushed the human eye to scan
+ * bottom-up. Grouping into semantically-labeled <fieldset>s means
+ * the "Core Identity" / "Ratings & Engagement" / "Catalog &
+ * Tagging" chunks each read as one gestalt, halving the eye's
+ * scanning distance between any two fields. The legend sits as a
+ * pill that "breaks" the top border so it reads as a tab header
+ * rather than an input label.
+ *
+ * Native <fieldset> is used (not a div pretending to be one) so
+ * screen readers correctly announce each group as a labelled
+ * landmark when users tab into the modal — this is the right
+ * accessibility primitive for the use case. */
+.edit-fieldset {
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  padding: var(--space-lg) var(--space-md) var(--space-md);
+  margin: 0;
+  /* Slight background lift vs the modal body so each fieldset
+   * reads as a card; uses --color-bg-secondary which already
+   * matches the modal body's surface, so the only visible change
+   * from the wall-of-inputs version is the border + legend. */
+  background: var(--color-bg-secondary);
+  min-width: 0;
+}
+
+.edit-fieldset + .edit-fieldset {
+  margin-top: var(--space-md);
+}
+
+.edit-fieldset > .edit-form-grid {
+  margin-bottom: 0;
+}
+
+.edit-fieldset-legend {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-xs);
+  font-size: 10px;
+  font-weight: var(--font-weight-bold);
+  color: var(--color-accent);
+  text-transform: uppercase;
+  letter-spacing: 0.8px;
+  padding: 2px var(--space-sm);
+  background: var(--color-bg-secondary);
+  /* Pulls the legend so its background pill sits centered on the
+   * fieldset's top border — the standard visual idiom for
+   * labelled form sections. margin-left keeps the legend from
+   * bleeding into the fieldset's rounded corner. */
+  margin: 0 0 var(--space-md) var(--space-sm);
+  border-radius: var(--radius-sm);
+  /* Negative top margin so the legend pill "breaks" the border
+   * rather than appearing as a separate row of content above
+   * the fieldset. */
+  transform: translateY(-50%);
+}
+
+
+/* Media Player */
+.game-media {
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  background: var(--color-bg-tertiary);
+  border-radius: var(--radius-md);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--color-text-muted);
+  font-size: var(--font-size-sm);
+  cursor: pointer;
+  transition: color var(--transition-fast), background var(--transition-fast), border-color var(--transition-fast), box-shadow var(--transition-fast), opacity var(--transition-fast), transform var(--transition-fast);
+  position: relative;
+  overflow: hidden;
+}
+
+.game-media:hover {
+  filter: brightness(1.1);
+}
+
+.game-media-play-btn {
+  width: 56px;
+  height: 56px;
+  background: var(--color-accent);
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 0 30px var(--color-accent-glow);
+}
+
+.game-media-play-btn svg {
+  width: 24px;
+  height: 24px;
+  color: #fff;
+  margin-left: 3px;
+}
+
+/* Info Panel */
+.info-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--space-md);
+}
+
+.info-item {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-xs);
+}
+
+.info-label {
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-medium);
+  color: var(--color-text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.info-value {
+  font-size: var(--font-size-sm);
+  color: var(--color-text-primary);
+}
+
+/* Web Preview */
+.game-web-preview {
+  width: 100%;
+  height: 300px;
+  background: var(--color-bg-tertiary);
+  border-radius: var(--radius-md);
+  border: 1px solid var(--color-border);
+  overflow: hidden;
+}
+
+.game-web-preview iframe {
+  width: 100%;
+  height: 100%;
+  border: none;
+}
+
+.game-web-preview-placeholder {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  color: var(--color-text-muted);
+  gap: var(--space-sm);
+}
+
+.game-web-preview-placeholder svg {
+  width: 32px;
+  height: 32px;
+  opacity: 0.4;
+}
+
+/* Description */
+.game-description {
+  font-size: var(--font-size-md);
+  line-height: 1.7;
+  color: var(--color-text-secondary);
+}
+
+.game-path {
+  font-size: var(--font-size-sm);
+  color: var(--color-accent);
+  background: var(--color-bg-tertiary);
+  padding: 2px 6px;
+  border-radius: var(--radius-sm);
+  word-break: break-all;
+}
+
+/* Top Bar */
+.game-top-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: var(--space-lg);
+}
+.game-top-bar__actions {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+}
+
+.game-top-actions {
+  display: flex;
+  gap: var(--space-sm);
+}
+
+.game-edit-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-xs);
+  padding: var(--space-sm) var(--space-lg);
+  border: 1px solid var(--color-border);
+  background: var(--color-surface);
+  color: var(--color-text-primary);
+  border-radius: var(--radius-md);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-medium);
+  cursor: pointer;
+  transition: color var(--transition-fast),
+    background var(--transition-fast),
+    border-color var(--transition-fast),
+    box-shadow var(--transition-fast);
+}
+
+.game-edit-btn:hover {
+  background: var(--color-bg-hover);
+  border-color: var(--color-border-light);
+}
+
+.game-edit-btn svg {
+  width: 15px;
+  height: 15px;
+}
+/* Edit-form button family.
+ *
+ * The Game page edit modal uses `edit-btn` + a variant modifier on its
+ * in-row actions (Auto-detect, Clear, Fetch metadata, etc.). Without
+ * these rules the buttons fall back to the browser default and look
+ * unstyled against the themed modal. Class names follow the existing
+ * non-BEM project convention (`.edit-btn-secondary`, not `.edit-btn--secondary`)
+ * so they match the markup in `GamePage.tsx` (`className="edit-btn edit-btn-secondary"`). */
+.edit-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-xs);
+  padding: var(--space-sm) var(--space-md);
+  border: 1px solid var(--color-border);
+  background: var(--color-surface);
+  color: var(--color-text-primary);
+  border-radius: var(--radius-md);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-medium);
+  font-family: inherit;
+  cursor: pointer;
+  transition: color var(--transition-fast),
+    background var(--transition-fast),
+    border-color var(--transition-fast),
+    box-shadow var(--transition-fast),
+    transform var(--transition-fast);
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.edit-btn:hover {
+  background: var(--color-bg-hover);
+  border-color: var(--color-border-light);
+}
+
+.edit-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.edit-btn svg {
+  width: 14px;
+  height: 14px;
+  flex-shrink: 0;
+}
+
+.edit-btn-secondary {
+  background: var(--color-bg-tertiary);
+  border-color: var(--color-border-light);
+  color: var(--color-text-primary);
+}
+
+.edit-btn-secondary:hover {
+  background: var(--color-bg-hover);
+  border-color: var(--color-accent);
+  color: var(--color-accent);
+}
+
+.edit-btn-ghost {
+  background: transparent;
+  border-color: transparent;
+  color: var(--color-text-secondary);
+}
+
+.edit-btn-ghost:hover {
+  background: var(--color-bg-hover);
+  border-color: var(--color-border);
+  color: var(--color-text-primary);
+}
+
+.edit-btn-danger {
+  background: transparent;
+  border-color: var(--color-danger);
+  color: var(--color-danger);
+}
+
+.edit-btn-danger:hover {
+  background: var(--color-danger);
+  color: #fff;
+}
+
+.game-edit-save {
+  background: var(--color-accent);
+  border-color: var(--color-accent);
+  color: #fff;
+}
+
+.game-edit-save:hover {
+  background: var(--color-accent-hover);
+  border-color: var(--color-accent-hover);
+}
+/* Cover Image */
+.game-cover-img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.delete-confirm-text {
+  font-size: var(--font-size-sm);
+  color: var(--color-text-secondary);
+  align-self: center;
+}
+
+/* Context Menu */
+.context-menu {
+  position: fixed;
+  z-index: 9999;
+  background: var(--color-surface-raised);
+  border: 1px solid var(--color-border-light);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-lg);
+  overflow: hidden;
+  min-width: 190px;
+  animation: importMenuIn 120ms ease;
+  display: flex;
+  flex-direction: column;
+}
+
+.context-menu-header {
+  padding: var(--space-md) var(--space-md) var(--space-xs) var(--space-md);
+  font-size: 11px;
+  font-weight: var(--font-weight-bold);
+  color: var(--color-text-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  border-bottom: 1px solid var(--color-border);
+  margin-bottom: var(--space-xs);
+}
+
+.context-menu-separator {
+  height: 1px;
+  background: var(--color-border);
+  margin: var(--space-xs) 0;
+}
+
+.context-menu-item {
+  display: flex;
+  align-items: center;
+  gap: var(--space-md);
+  width: 100%;
+  padding: var(--space-sm) var(--space-md);
+  border: none;
+  background: transparent;
+  color: var(--color-text-primary);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-medium);
+  cursor: pointer;
+  transition: color var(--transition-fast),
+    background var(--transition-fast);
+  text-align: left;
+}
+
+.context-menu-item:hover {
+  background: var(--color-bg-hover);
+}
+
+.context-menu-item:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.context-menu-item.play-action {
+  color: var(--color-accent);
+}
+
+.context-menu-item.play-action:hover {
+  background: color-mix(in srgb, var(--color-accent) 10%, transparent);
+}
+
+.context-menu-item.remove-action {
+  color: var(--color-danger);
+}
+
+.context-menu-item.remove-action:hover {
+  background: rgba(255, 82, 82, 0.08);
+}
+
+.context-menu-item svg {
+  width: 15px;
+  height: 15px;
+  flex-shrink: 0;
+}
+
+/* Edit Form */
+.game-edit-section {
+  margin-bottom: var(--space-xl);
+}
+
+.edit-form {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-lg);
+}
+
+.edit-field {
+
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+  min-width: 0;
+}
+
+.edit-label {
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-medium);
+  color: var(--color-text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.edit-input {
+
+  padding: var(--space-sm) var(--space-md);
+  background: var(--color-bg-tertiary);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  color: var(--color-text-primary);
+  font-size: var(--font-size-md);
+  font-family: inherit;
+  outline: none;
+  transition: border-color var(--transition-fast);
+  box-sizing: border-box;
+  max-width: 100%;
+}
+
+.edit-input:focus {
+  border-color: var(--color-accent);
+}
+
+.edit-textarea {
+
+  resize: vertical;
+  min-height: 72px;
+  line-height: 1.5;
+  font-family: inherit;
+  box-sizing: border-box;
+  max-width: 100%;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+
+.edit-cover-row {
+  display: flex;
+  gap: var(--space-lg);
+  align-items: flex-start;
+}
+
+.edit-cover-preview {
+  width: 120px;
+  height: 160px;
+  border-radius: var(--radius-md);
+  overflow: hidden;
+  background: var(--color-bg-tertiary);
+  border: 1px solid var(--color-border);
+  flex-shrink: 0;
+}
+
+.edit-cover-preview img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.edit-cover-actions {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+}
+
+/* Back Navigation */
+.game-back-link {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-xs);
+  padding: var(--space-sm) 0;
+  border: none;
+  background: transparent;
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-sm);
+  cursor: pointer;
+  transition: color var(--transition-fast);
+  margin-bottom: var(--space-lg);
+}
+
+.game-back-link:hover {
+  color: var(--color-accent);
+}
+
+.game-back-link svg {
+  width: 16px;
+  height: 16px;
+}
+/* Game Page Layout */
+.game-main-col {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-xl);
+}
+
+.game-side-col {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-xl);
+  /* On wide screens keep the KPI / compatibility stack visible
+   * while the (often taller) main column scrolls. The offset
+   * clears the sticky tab bar + breathing room. Disabled below
+   * 860px where the column stacks and sticky would trap it. */
+  position: sticky;
+  top: calc(var(--topnav-height) + 72px);
+  align-self: start;
+}
+
+
+/* ==============================
+   Game Relations Card
+   ============================== */
+/* Unifies "More from this series / developer / publisher" + IGDB
+ * similar-games + same-collection members into a single
+ * grouped card on the Library GamePage and the Store
+ * GameDetail page. Inspired by Playnite's GameRelations
+ * extension. */
+
+.game-relations-card {
+  /* Inherits `.game-section` styles (background, border, padding,
+   * margin). We only add the relations-specific styles below. */
+}
+
+.game-relations-blurb {
+  font-size: var(--font-size-sm);
+  color: var(--color-text-secondary);
+  margin: calc(-1 * var(--space-md)) 0 var(--space-lg) 0;
+  line-height: 1.5;
+}
+
+.game-relations-groups {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-xl);
+}
+
+.game-relations-group {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-md);
+}
+
+.game-relations-group-header {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-sm);
+  padding-bottom: var(--space-xs);
+  border-bottom: 1px solid var(--color-border);
+}
+
+.game-relations-group-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border-radius: var(--radius-sm);
+  background: var(--color-accent-soft);
+  color: var(--color-accent);
+  flex-shrink: 0;
+}
+
+.game-relations-group-icon svg {
+  width: 16px;
+  height: 16px;
+}
+
+.game-relations-group-titles {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.game-relations-group-title {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  font-size: var(--font-size-md);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text-primary);
+  margin: 0;
+}
+
+.game-relations-group-count {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 22px;
+  height: 22px;
+  padding: 0 8px;
+  border-radius: var(--radius-full);
+  background: var(--color-bg-tertiary);
+  border: 1px solid var(--color-border);
+  color: var(--color-text-muted);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-semibold);
+  font-variant-numeric: tabular-nums;
+}
+
+.game-relations-group-subtitle {
+  font-size: var(--font-size-xs);
+  color: var(--color-text-muted);
+  line-height: 1.4;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.game-relations-row {
+  display: flex;
+  gap: var(--space-md);
+  overflow-x: auto;
+  overflow-y: hidden;
+  padding: var(--space-2xs) var(--space-2xs) var(--space-sm) var(--space-2xs);
+  scroll-snap-type: x mandatory;
+  scrollbar-width: thin;
+  scrollbar-color: var(--color-border) transparent;
+}
+
+.game-relations-row::-webkit-scrollbar {
+  height: 6px;
+}
+
+.game-relations-row::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.game-relations-row::-webkit-scrollbar-thumb {
+  background: var(--color-border);
+  border-radius: var(--radius-sm);
+}
+
+.game-relations-row::-webkit-scrollbar-thumb:hover {
+  background: var(--color-text-muted);
+}
+
+.game-relations-row-item {
+  flex: 0 0 auto;
+  width: 130px;
+  scroll-snap-align: start;
+}
+
+.game-relation-card {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-xs);
+  cursor: pointer;
+  transition: transform var(--transition-fast), box-shadow var(--transition-fast);
+  border-radius: var(--radius-md);
+  outline: none;
+}
+
+.game-relation-card:hover {
+  transform: translateY(-3px);
+}
+
+.game-relation-card:focus-visible {
+  box-shadow: 0 0 0 2px var(--color-accent);
+}
+
+.game-relation-card-cover {
+  position: relative;
+  aspect-ratio: 2 / 3;
+  background: var(--color-bg-tertiary);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  overflow: hidden;
+  transition: border-color var(--transition-fast);
+}
+
+.game-relation-card:hover .game-relation-card-cover {
+  border-color: var(--color-accent);
+}
+
+.game-relation-card-cover img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  transition: transform 0.5s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.game-relation-card:hover .game-relation-card-cover img {
+  transform: scale(1.06);
+}
+
+.game-relation-card-cover-placeholder {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: 100%;
+  color: var(--color-text-muted);
+}
+
+.game-relation-card-cover-placeholder svg {
+  width: 32px;
+  height: 32px;
+  opacity: 0.3;
+}
+
+.game-relation-card-pill {
+  position: absolute;
+  top: var(--space-2xs);
+  left: var(--space-2xs);
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  padding: 2px 6px;
+  background: rgba(16, 185, 129, 0.92);
+  color: #fff;
+  font-size: 9px;
+  font-weight: var(--font-weight-bold);
+  letter-spacing: 0.5px;
+  border-radius: var(--radius-sm);
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  text-transform: uppercase;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3);
+}
+
+.game-relation-card-body {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 0 2px;
+}
+
+.game-relation-card-name {
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-medium);
+  color: var(--color-text-primary);
+  line-height: 1.3;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  word-break: break-word;
+}
+
+/* Library Card Enhancements */
+.library-card-cover {
+  position: relative;
+}
+
+.library-card-playtime-badge {
+  position: absolute;
+  top: var(--space-sm);
+  right: var(--space-sm);
+  background: rgba(0, 0, 0, 0.75);
+  backdrop-filter: blur(8px);
+  color: #fff;
+  font-size: 10px;
+  font-weight: var(--font-weight-bold);
+  padding: 3px 8px;
+  border-radius: var(--radius-sm);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  pointer-events: none;
+  letter-spacing: 0.5px;
+  z-index: 5;
+}
+
+.library-card-status-badge {
+  position: absolute;
+  top: var(--space-sm);
+  left: var(--space-sm);
+  background: rgba(0, 0, 0, 0.75);
+  backdrop-filter: blur(8px);
+  font-size: 10px;
+  font-weight: var(--font-weight-bold);
+  padding: 3px 8px;
+  border-radius: var(--radius-sm);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  pointer-events: none;
+  display: flex;
+  align-items: center;
+  gap: var(--space-xs);
+  letter-spacing: 0.5px;
+  z-index: 5;
+}
+
+.library-card-status-badge.installed {
+  color: var(--color-success);
+}
+
+.library-card-status-badge.not-installed {
+  color: var(--color-text-secondary);
+}
+
+/* Custom Platform Badge Colors */
+.library-card-platform.platform-steam {
+  color: #00f0ff;
+  background: rgba(0, 240, 255, 0.1);
+}
+
+.library-card-platform.platform-gog {
+  color: #e9a6ff;
+  background: rgba(233, 166, 255, 0.1);
+}
+
+.library-card-platform.platform-epic {
+  color: #ffffff;
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.library-card-platform.platform-local {
+  color: var(--color-text-secondary);
+  background: var(--color-bg-hover);
+}
+
+
+/* ==============================
+   LaunchBox Card (Game Page Side Column)
+   ============================== */
+.lb-sidebar-card {
+  border: 1px solid rgba(108, 92, 231, 0.15);
+  background: linear-gradient(135deg, rgba(108, 92, 231, 0.05), rgba(30, 33, 50, 0.6));
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+  font-size: var(--font-size-sm);
+  color: var(--color-text-secondary);
+  margin: 0;
+  line-height: 1.5;
+}
+
+.lb-sidebar-card-link {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-sm);
+  font-size: var(--font-size-sm);
+  color: var(--color-accent);
+  text-decoration: none;
+  transition: color 0.2s;
+}
+
+.lb-sidebar-card-link:hover {
+  color: var(--color-accent-hover);
+}
+
+.lb-sidebar-card-link svg {
+  width: 14px;
+  height: 14px;
+  flex-shrink: 0;
+}
+
+.lb-sidebar-card-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-sm);
+  padding: var(--space-sm) var(--space-lg);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-medium);
+  color: var(--color-text-primary);
+  background: rgba(108, 92, 231, 0.12);
+  border: 1px solid rgba(108, 92, 231, 0.25);
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  transition: color var(--transition-fast), background var(--transition-fast), border-color var(--transition-fast), box-shadow var(--transition-fast), opacity var(--transition-fast), transform var(--transition-fast);
+}
+
+.lb-sidebar-card-btn:hover {
+  background: rgba(108, 92, 231, 0.2);
+  border-color: rgba(108, 92, 231, 0.4);
+  box-shadow: 0 0 12px rgba(108, 92, 231, 0.15);
+}
+
+.lb-sidebar-card-btn svg {
+  width: 16px;
+  height: 16px;
+  flex-shrink: 0;
+}
+/* ==============================
+   LaunchBox Browse Button (Edit Modal)
+   ============================== */
+
+/* ==============================
+   LaunchBox Image Browser Modal
+   ============================== */
+
+.lb-browser-modal {
+  width: min(95vw, 1000px);
+  max-height: 85vh;
+  display: flex;
+  flex-direction: column;
+}
+
+/* Category filter tabs */
+.lb-category-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-xs);
+  padding: var(--space-md) var(--space-xl);
+  border-bottom: 1px solid var(--color-border);
+  background: rgba(0, 0, 0, 0.15);
+  overflow-x: auto;
+}
+
+.lb-cat-tab {
+  padding: var(--space-xs) var(--space-md);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-medium);
+  color: var(--color-text-secondary);
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: var(--radius-full);
+  cursor: pointer;
+  transition: color 0.2s,
+    background 0.2s,
+    border-color 0.2s,
+    box-shadow 0.2s;
+  white-space: nowrap;
+}
+
+.lb-cat-tab:hover {
+  color: var(--color-text-primary);
+  background: rgba(255, 255, 255, 0.08);
+  border-color: rgba(255, 255, 255, 0.1);
+}
+
+.lb-cat-tab.active {
+  color: #fff;
+  background: rgba(108, 92, 231, 0.25);
+  border-color: rgba(108, 92, 231, 0.4);
+  box-shadow: 0 0 8px rgba(108, 92, 231, 0.2);
+}
+
+/* Image browser body */
+.lb-browser-body {
+  flex: 1;
+  overflow-y: auto;
+  padding: var(--space-xl);
+}
+
+/* Image grid */
+.lb-image-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: var(--space-md);
+}
+
+/* Individual image card */
+.lb-image-card {
+  display: flex;
+  flex-direction: column;
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  transition: border-color 0.25s,
+    background 0.25s,
+    box-shadow 0.25s,
+    transform 0.25s;
+}
+
+.lb-image-card:hover {
+  border-color: rgba(108, 92, 231, 0.3);
+  background: rgba(255, 255, 255, 0.05);
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+  transform: translateY(-2px);
+}
+
+/* Image thumbnail */
+.lb-image-thumb {
+  aspect-ratio: 4/3;
+  overflow: hidden;
+  background: rgba(0, 0, 0, 0.2);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.lb-image-thumb img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  transition: transform 0.3s;
+}
+
+.lb-image-card:hover .lb-image-thumb img {
+  transform: scale(1.05);
+}
+
+/* Image info */
+.lb-image-info {
+  padding: var(--space-sm) var(--space-md);
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.lb-image-category {
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text-primary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.lb-image-meta {
+  display: flex;
+  gap: var(--space-sm);
+  font-size: 10px;
+  color: var(--color-text-muted);
+}
+
+.lb-image-region {
+  padding: 1px 6px;
+  background: rgba(108, 92, 231, 0.15);
+  border-radius: var(--radius-full);
+  color: var(--color-accent);
+  font-size: 10px;
+}
+
+.lb-image-res {
+  color: var(--color-text-muted);
+}
+
+/* Image action buttons */
+.lb-image-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  padding: var(--space-xs) var(--space-sm);
+  border-top: 1px solid rgba(255, 255, 255, 0.04);
+}
+
+.lb-apply-btn {
+  padding: 3px 10px;
+  font-size: 10px;
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-accent);
+  background: rgba(108, 92, 231, 0.1);
+  border: 1px solid rgba(108, 92, 231, 0.2);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  transition: background 0.2s,
+    border-color 0.2s,
+    color 0.2s,
+    box-shadow 0.2s;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.lb-apply-btn:hover:not(:disabled) {
+  background: rgba(108, 92, 231, 0.2);
+  border-color: rgba(108, 92, 231, 0.4);
+  color: #fff;
+}
+
+.lb-apply-btn:disabled {
+  opacity: 0.5;
+  cursor: wait;
+}
+
+/* Generic apply buttons (icon-only) */
+.lb-apply-generic {
+  padding: 3px 6px;
+  margin-left: auto;
+}
+
+.lb-apply-generic svg {
+  width: 12px;
+  height: 12px;
+}
+
