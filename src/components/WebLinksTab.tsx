@@ -1,10 +1,11 @@
 import { useEffect, useMemo, useState, useRef } from "react";
 import type { ReactNode } from "react";
 import { openUrl } from "@tauri-apps/plugin-opener";
+import { invoke } from "@tauri-apps/api/core";
 import { Webview } from "@tauri-apps/api/webview";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { LogicalSize, LogicalPosition } from "@tauri-apps/api/dpi";
-import type { Game } from "../types/game";
+import { slugify, type Game } from "../types/game";
 import { useBigScreen } from "../context/BigScreenContext";
 import { useLanguage } from "../context/LanguageContext";
 import { useFocusable } from "../hooks/useFocusable";
@@ -20,7 +21,12 @@ type FixedSourceKey =
   | "pcgamingwiki"
   | "ign"
   | "nexusmods"
-  | "moddb";
+  | "moddb"
+  | "steamdb"
+  | "hltb"
+  | "isthereanydeal"
+  | "metacritic"
+  | "youtube";
 
 type SteamSectionKey =
   | "store"
@@ -41,9 +47,7 @@ interface SourceDef {
   iconBg: string;
   /** Inline SVG for the source's logo. */
   icon: ReactNode;
-  /** Set true for user-added custom URLs. */
-  isCustom?: boolean;
-  /** Raw URL — required when isCustom is true (it's also used as the key). */
+  /** Raw URL — set for user-added custom sources (used as the key too). */
   url?: string;
 }
 
@@ -53,6 +57,9 @@ interface SteamSectionDef {
   i18nKey: string;
   icon: ReactNode;
 }
+
+/** Key of the special "My Links" source tab that hosts user-added URLs. */
+const MY_LINKS_KEY = "mylinks";
 
 // ─── Steam AppID Detection ────────────────────────────────────────────────────
 
@@ -91,7 +98,7 @@ function extractSteamAppId(game: Game): string | null {
 
 function getNexusModsDomain(gameName: string): string {
   const normalized = gameName.toLowerCase().trim();
-  
+
   // Custom manual mappings for extremely common games
   if (normalized.includes("cyberpunk 2077")) return "cyberpunk2077";
   if (normalized.includes("skyrim") && normalized.includes("special edition")) return "skyrimspecialedition";
@@ -111,7 +118,7 @@ function getNexusModsDomain(gameName: string): string {
   if (normalized.includes("subnautica")) return "subnautica";
   if (normalized.includes("terraria")) return "terraria";
   if (normalized.includes("mount & blade ii") || normalized.includes("mount and blade 2")) return "mountandblade2bannerlord";
-  
+
   // Default fallback: slugify without hyphens (after stripping quotes)
   const noQuotes = normalized.replace(/['’]/g, "");
   return noQuotes.replace(/[^a-z0-9]/g, "");
@@ -179,6 +186,23 @@ function buildUrl(
     const slug = getModdbSlug(game.name);
     return `https://www.moddb.com/games/${slug}`;
   }
+  if (source === "steamdb") {
+    return appId
+      ? `https://steamdb.info/app/${appId}/`
+      : `https://steamdb.info/search/?q=${enc}`;
+  }
+  if (source === "hltb") {
+    return `https://howlongtobeat.com/?q=${enc}`;
+  }
+  if (source === "isthereanydeal") {
+    return `https://isthereanydeal.com/search/?q=${enc}`;
+  }
+  if (source === "metacritic") {
+    return `https://www.metacritic.com/search/game/${slugify(game.name)}/results`;
+  }
+  if (source === "youtube") {
+    return `https://www.youtube.com/results?search_query=${enc}`;
+  }
   return "about:blank";
 }
 
@@ -237,6 +261,42 @@ const ModDBIcon = (
   </svg>
 );
 
+const SteamDBIcon = (
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <ellipse cx="12" cy="5" rx="8" ry="3" />
+    <path d="M4 5v14c0 1.66 3.58 3 8 3s8-1.34 8-3V5" />
+    <path d="M4 12c0 1.66 3.58 3 8 3s8-1.34 8-3" />
+  </svg>
+);
+
+const HLTBIcon = (
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <circle cx="12" cy="12" r="9" />
+    <path d="M12 7v5l3.5 2" />
+  </svg>
+);
+
+const ITADIcon = (
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <line x1="19" y1="5" x2="5" y2="19" />
+    <circle cx="6.5" cy="6.5" r="2.5" />
+    <circle cx="17.5" cy="17.5" r="2.5" />
+  </svg>
+);
+
+const MetacriticIcon = (
+  <svg viewBox="0 0 24 24" fill="currentColor">
+    <text x="12" y="16.5" fontSize="13" fontWeight="900" textAnchor="middle" fill="currentColor" fontFamily="sans-serif">M</text>
+  </svg>
+);
+
+const YouTubeIcon = (
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <rect x="2" y="5" width="20" height="14" rx="4" ry="4" />
+    <path d="M10 9l5 3-5 3z" fill="currentColor" stroke="none" />
+  </svg>
+);
+
 const CustomLinkIcon = () => (
   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
     <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71" />
@@ -256,6 +316,31 @@ const ReloadIcon = () => (
   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
     <polyline points="23 4 23 10 17 10" />
     <path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10" />
+  </svg>
+);
+
+const BackIcon = () => (
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <polyline points="15 18 9 12 15 6" />
+  </svg>
+);
+
+const ForwardIcon = () => (
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <polyline points="9 18 15 12 9 6" />
+  </svg>
+);
+
+const CopyIcon = () => (
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <rect x="9" y="9" width="13" height="13" rx="2" ry="2" />
+    <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
+  </svg>
+);
+
+const CheckIcon = () => (
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+    <polyline points="20 6 9 17 4 12" />
   </svg>
 );
 
@@ -313,6 +398,11 @@ const FixedSources: SourceDef[] = [
   { key: "protondb", label: "ProtonDB", accent: "#7c5cff", iconBg: "#3a2d8a", icon: ProtonDBIcon },
   { key: "pcgamingwiki", label: "PCGamingWiki", accent: "#d83b3b", iconBg: "#3a1c1c", icon: PCGamingWikiIcon },
   { key: "ign", label: "IGN", accent: "#ff3333", iconBg: "#2a0606", icon: IGNIcon },
+  { key: "steamdb", label: "SteamDB", accent: "#1b9cfc", iconBg: "#0c2540", icon: SteamDBIcon },
+  { key: "metacritic", label: "Metacritic", accent: "#f5c518", iconBg: "#3a2f10", icon: MetacriticIcon },
+  { key: "hltb", label: "HowLongToBeat", accent: "#f0762e", iconBg: "#3a1f12", icon: HLTBIcon },
+  { key: "isthereanydeal", label: "IsThereAnyDeal", accent: "#2ecc71", iconBg: "#123a28", icon: ITADIcon },
+  { key: "youtube", label: "YouTube", accent: "#ff3d3d", iconBg: "#3a0f0f", icon: YouTubeIcon },
   { key: "nexusmods", label: "NexusMods", accent: "#d88e2b", iconBg: "#3a2810", icon: NexusModsIcon },
   { key: "moddb", label: "ModDB", accent: "#5ec469", iconBg: "#15351b", icon: ModDBIcon },
 ];
@@ -342,14 +432,45 @@ function deriveCustomLink(url: string): { label: string; host: string } {
   }
 }
 
+/** Favicon chip for a custom link, with a graceful fallback icon on error. */
+function CustomFavicon({ host }: { host: string }) {
+  const [failed, setFailed] = useState(false);
+  if (failed || !host) {
+    return (
+      <span className="wl-mylink-favicon-fallback">
+        <CustomLinkIcon />
+      </span>
+    );
+  }
+  return (
+    <img
+      className="wl-mylink-favicon-img"
+      src={`https://www.google.com/s2/favicons?domain=${encodeURIComponent(host)}&sz=64`}
+      alt=""
+      loading="lazy"
+      referrerPolicy="no-referrer"
+      onError={() => setFailed(true)}
+    />
+  );
+}
+
 // ─── Component ────────────────────────────────────────────────────────────────
 
 export default function WebLinksTab({ game, visible = true }: WebLinksTabProps) {
   const { t } = useLanguage();
   const [activeSource, setActiveSource] = useState<string>("steam");
   const [steamSection, setSteamSection] = useState<SteamSectionKey>("store");
+  /** URL of the custom link currently loaded in the preview (My Links tab). */
+  const [customPreviewUrl, setCustomPreviewUrl] = useState<string | null>(null);
   /** Bumped (via Reload) to force webview recreation. */
   const [reloadNonce, setReloadNonce] = useState(0);
+  /** True briefly after the user copies the current URL to the clipboard. */
+  const [copied, setCopied] = useState(false);
+  /** Whether the webview can go back / forward (tracked via URL polling). */
+  const [navState, setNavState] = useState<{ back: boolean; forward: boolean }>({ back: false, forward: false });
+  /** Stack of URLs visited inside the current webview (index = current page). */
+  const navHistoryRef = useRef<string[]>([]);
+  const navIndexRef = useRef(0);
 
   const appId = useMemo(() => extractSteamAppId(game), [game.path, game.platform]);
 
@@ -368,7 +489,7 @@ export default function WebLinksTab({ game, visible = true }: WebLinksTabProps) 
     return out;
   }, [game.websites]);
 
-  /** Each custom URL becomes a peer source tab. */
+  /** Each custom URL becomes a card inside the My Links tab. */
   const customSources = useMemo<SourceDef[]>(() => {
     return customLinks.map((url) => {
       const meta = deriveCustomLink(url);
@@ -378,42 +499,51 @@ export default function WebLinksTab({ game, visible = true }: WebLinksTabProps) 
         accent: "var(--color-accent)",
         iconBg: "var(--color-bg-tertiary)",
         icon: <CustomLinkIcon />,
-        isCustom: true,
         url,
       };
     });
   }, [customLinks]);
 
-  const allSources = useMemo(
-    () => [...FixedSources, ...customSources],
-    [customSources]
-  );
+  const isMyLinksActive = activeSource === MY_LINKS_KEY;
+
+  // The custom URL currently shown in the preview (first link by default).
+  const activeCustomUrl = useMemo(() => {
+    if (!isMyLinksActive || customSources.length === 0) return null;
+    if (customPreviewUrl && customSources.some((s) => s.url === customPreviewUrl)) {
+      return customPreviewUrl;
+    }
+    return customSources[0].url ?? null;
+  }, [isMyLinksActive, customSources, customPreviewUrl]);
 
   const activeSourceDef = useMemo(
-    () => allSources.find((s) => s.key === activeSource) ?? FixedSources[0],
-    [allSources, activeSource]
+    () => FixedSources.find((s) => s.key === activeSource) ?? FixedSources[0],
+    [activeSource]
   );
   const isSteamActive = activeSource === "steam";
-  const isCustomActive = activeSourceDef?.isCustom === true;
+  const isCustomActive = activeCustomUrl !== null;
 
   // URL to embed in the webview.
   const url = useMemo(() => {
-    if (isCustomActive && activeSourceDef?.url) return activeSourceDef.url;
+    if (activeCustomUrl) return activeCustomUrl;
     return buildUrl(game, activeSource as FixedSourceKey, steamSection, appId);
-  }, [game, activeSource, steamSection, appId, isCustomActive, activeSourceDef]);
+  }, [game, activeSource, steamSection, appId, activeCustomUrl]);
 
   // Steam sub-sections that REQUIRE an AppID (no useful search URL exists).
   const steamSubDisabled = isSteamActive && steamSection !== "store" && !appId;
+
+  // The URL bar + preview only make sense when there is a URL to show.
+  // My Links with zero custom links renders just the empty-state panel.
+  const hasPreviewableUrl = !isMyLinksActive || customSources.length > 0;
 
   const { isBigScreen } = useBigScreen();
 
   const bigScreenLinks = useMemo(() => {
     const list: { label: string; url: string; icon: ReactNode; accent: string; iconBg: string; disabled?: boolean }[] = [];
-    
+
     // Steam links
     const steamStoreUrl = appId ? `https://store.steampowered.com/app/${appId}` : `https://store.steampowered.com/search/?term=${encodeURIComponent(game.name)}`;
     list.push({ label: "Steam Store", url: steamStoreUrl, icon: SteamIcon, accent: "#66c0f4", iconBg: "#1b2838" });
-    
+
     list.push({
       label: "Steam Discussions",
       url: appId ? `https://steamcommunity.com/app/${appId}/discussions/` : "",
@@ -455,6 +585,22 @@ export default function WebLinksTab({ game, visible = true }: WebLinksTabProps) 
     const pcgwUrl = appId ? `https://www.pcgamingwiki.com/api/appid.php?appid=${appId}` : `https://www.pcgamingwiki.com/w/index.php?search=${encodeURIComponent(game.name)}`;
     list.push({ label: "PCGamingWiki", url: pcgwUrl, icon: PCGamingWikiIcon, accent: "#d83b3b", iconBg: "#3a1c1c" });
 
+    // SteamDB
+    const steamdbUrl = appId ? `https://steamdb.info/app/${appId}/` : `https://steamdb.info/search/?q=${encodeURIComponent(game.name)}`;
+    list.push({ label: "SteamDB", url: steamdbUrl, icon: SteamDBIcon, accent: "#1b9cfc", iconBg: "#0c2540" });
+
+    // HowLongToBeat
+    list.push({ label: "HowLongToBeat", url: `https://howlongtobeat.com/?q=${encodeURIComponent(game.name)}`, icon: HLTBIcon, accent: "#f0762e", iconBg: "#3a1f12" });
+
+    // IsThereAnyDeal
+    list.push({ label: "IsThereAnyDeal", url: `https://isthereanydeal.com/search/?q=${encodeURIComponent(game.name)}`, icon: ITADIcon, accent: "#2ecc71", iconBg: "#123a28" });
+
+    // Metacritic
+    list.push({ label: "Metacritic", url: `https://www.metacritic.com/search/game/${slugify(game.name)}/results`, icon: MetacriticIcon, accent: "#f5c518", iconBg: "#3a2f10" });
+
+    // YouTube
+    list.push({ label: "YouTube", url: `https://www.youtube.com/results?search_query=${encodeURIComponent(game.name)}`, icon: YouTubeIcon, accent: "#ff3d3d", iconBg: "#3a0f0f" });
+
     // IGN
     list.push({ label: "IGN Search", url: `https://www.ign.com/search?q=${encodeURIComponent(game.name)}`, icon: IGNIcon, accent: "#ff3333", iconBg: "#2a0606" });
 
@@ -494,17 +640,71 @@ export default function WebLinksTab({ game, visible = true }: WebLinksTabProps) 
     );
   }
 
-  async function handleOpenExternal() {
+  async function handleOpenExternal(targetUrl?: string) {
+    const urlToOpen = targetUrl ?? url;
     try {
-      await openUrl(url);
+      await openUrl(urlToOpen);
     } catch (err) {
       console.error("openUrl failed:", err);
-      window.open(url, "_blank", "noopener,noreferrer");
+      window.open(urlToOpen, "_blank", "noopener,noreferrer");
     }
   }
 
   function handleReload() {
     setReloadNonce((n) => n + 1);
+  }
+
+  /** Recompute the back/forward button state from the local history stack. */
+  function updateNavState() {
+    const idx = navIndexRef.current;
+    const len = navHistoryRef.current.length;
+    setNavState({ back: idx > 0, forward: idx < len - 1 });
+  }
+
+  function handleGoBack() {
+    if (!webviewInstanceState || !navState.back) return;
+    // Optimistically move the index so the buttons react instantly; the
+    // URL poll reconciles against the webview's actual history.
+    navIndexRef.current -= 1;
+    updateNavState();
+    invoke("webview_history_navigate", {
+      label: webviewInstanceState.label,
+      direction: "back",
+    }).catch((e: any) => console.error("goBack failed:", e));
+  }
+
+  function handleGoForward() {
+    if (!webviewInstanceState || !navState.forward) return;
+    navIndexRef.current += 1;
+    updateNavState();
+    invoke("webview_history_navigate", {
+      label: webviewInstanceState.label,
+      direction: "forward",
+    }).catch((e: any) => console.error("goForward failed:", e));
+  }
+
+  async function handleCopy() {
+    const text = activeCustomUrl ?? url;
+    try {
+      await navigator.clipboard.writeText(text);
+      setCopied(true);
+    } catch {
+      // Clipboard API unavailable (web preview) — legacy fallback.
+      const ta = document.createElement("textarea");
+      ta.value = text;
+      ta.style.position = "fixed";
+      ta.style.opacity = "0";
+      document.body.appendChild(ta);
+      ta.select();
+      try {
+        document.execCommand("copy");
+        setCopied(true);
+      } catch {
+        // ignore
+      }
+      document.body.removeChild(ta);
+    }
+    window.setTimeout(() => setCopied(false), 1600);
   }
 
   // ─── Webview preview state ─────────────────────────────────────────────
@@ -521,10 +721,52 @@ export default function WebLinksTab({ game, visible = true }: WebLinksTabProps) 
   const containerRef = useRef<HTMLDivElement>(null);
   const [webviewInstanceState, setWebviewInstanceState] = useState<Webview | null>(null);
 
+  /** Latest `visible` prop, readable from the poll interval closure. */
+  const visibleRef = useRef(visible);
+  useEffect(() => {
+    visibleRef.current = visible;
+  }, [visible]);
+
   // Initialize and recreate webview on url/nonce change
   useEffect(() => {
     let active = true;
     let webviewInst: any = null;
+
+    // ── Navigation history tracking ───────────────────────────────
+    // Tauri exposes no canGoBack/canGoForward and no JS-visible
+    // navigation event, so we poll the webview's current URL and rebuild
+    // a small history stack from the deltas: a URL we've already seen
+    // means back/forward navigation (index moves to it), a new URL
+    // truncates forward entries and pushes. The buttons derive their
+    // disabled state from where the index sits in that stack.
+    let pollTimer: ReturnType<typeof setInterval> | null = null;
+
+    async function pollCurrentUrl() {
+      if (!webviewInst || !active || !visibleRef.current) return;
+      try {
+        const current = await invoke<string>("webview_current_url", {
+          label: webviewInst.label,
+        });
+        if (!current) return;
+        const hist = navHistoryRef.current;
+        const idx = navIndexRef.current;
+        if (hist[idx] === current) return; // unchanged
+        const known = hist.indexOf(current);
+        if (known !== -1) {
+          // Back/forward landed on an already-recorded URL.
+          navIndexRef.current = known;
+        } else {
+          // Brand-new page: drop forward entries, then append.
+          const truncated = hist.slice(0, idx + 1);
+          truncated.push(current);
+          navHistoryRef.current = truncated;
+          navIndexRef.current = truncated.length - 1;
+        }
+        updateNavState();
+      } catch (e) {
+        // webview closed or mid-navigation — ignore
+      }
+    }
 
     async function initWebview() {
       if (steamSubDisabled || !url) {
@@ -577,6 +819,13 @@ export default function WebLinksTab({ game, visible = true }: WebLinksTabProps) 
         webviewInst = webview;
         setWebviewInstanceState(webview);
 
+        // Reset history for the fresh webview and start polling.
+        navHistoryRef.current = [url];
+        navIndexRef.current = 0;
+        setNavState({ back: false, forward: false });
+        if (pollTimer) clearInterval(pollTimer);
+        pollTimer = setInterval(pollCurrentUrl, 500);
+
         // Mark as ready immediately so the HTML spinner disappears and reveals the webview
         setWebviewReady(true);
 
@@ -593,6 +842,10 @@ export default function WebLinksTab({ game, visible = true }: WebLinksTabProps) 
     return () => {
       active = false;
       setWebviewInstanceState(null);
+      if (pollTimer) {
+        clearInterval(pollTimer);
+        pollTimer = null;
+      }
       if (webviewInst) {
         webviewInst.close().catch(() => {});
       } else {
@@ -614,7 +867,7 @@ export default function WebLinksTab({ game, visible = true }: WebLinksTabProps) 
     const handleResize = () => {
       if (!containerRef.current || !webviewInstanceState) return;
       const rect = containerRef.current.getBoundingClientRect();
-      
+
       webviewInstanceState.setPosition(new LogicalPosition(rect.left, rect.top))
         .catch((e: any) => console.error("Error setting webview position:", e));
       webviewInstanceState.setSize(new LogicalSize(rect.width, rect.height))
@@ -652,17 +905,16 @@ export default function WebLinksTab({ game, visible = true }: WebLinksTabProps) 
   // ─── Render ──────────────────────────────────────────────────────────────
   return (
     <div className="wl-tab">
-      {/* ─── Outer source TABS (fixed + custom user links) ───────────── */}
+      {/* ─── Outer source TABS (fixed sources + My Links) ──────────── */}
       <div className="wl-source-tabs" role="tablist">
-        {allSources.map((src) => {
+        {FixedSources.map((src) => {
           const isActive = activeSource === src.key;
-          const isCustom = src.isCustom === true;
           return (
             <button
               key={src.key}
               role="tab"
               aria-selected={isActive}
-              className={`wl-source-tab${isActive ? " active" : ""}${isCustom ? " custom" : ""}`}
+              className={`wl-source-tab${isActive ? " active" : ""}`}
               onClick={() => setActiveSource(src.key)}
               style={
                 isActive
@@ -673,7 +925,6 @@ export default function WebLinksTab({ game, visible = true }: WebLinksTabProps) 
                     }
                   : undefined
               }
-              title={isCustom ? src.key : undefined}
             >
               <span
                 className="wl-source-tab-icon"
@@ -685,7 +936,83 @@ export default function WebLinksTab({ game, visible = true }: WebLinksTabProps) 
             </button>
           );
         })}
+
+        {/* My Links tab — hosts all user-added custom URLs */}
+        <button
+          key={MY_LINKS_KEY}
+          role="tab"
+          aria-selected={isMyLinksActive}
+          className={`wl-source-tab mylinks${isMyLinksActive ? " active" : ""}`}
+          onClick={() => setActiveSource(MY_LINKS_KEY)}
+          style={
+            isMyLinksActive
+              ? {
+                  color: "var(--color-accent)",
+                  borderBottomColor: "var(--color-accent)",
+                  background: "linear-gradient(180deg, var(--color-accent-soft), transparent)",
+                }
+              : undefined
+          }
+        >
+          <span className="wl-source-tab-icon">
+            <CustomLinkIcon />
+          </span>
+          <span>{t("weblinks.myLinks")}</span>
+          {customSources.length > 0 && (
+            <span className="wl-source-tab-count">{customSources.length}</span>
+          )}
+        </button>
       </div>
+
+      {/* ─── My Links panel: favicon card grid or empty state ───────── */}
+      {isMyLinksActive && (
+        <div className="wl-mylinks">
+          {customSources.length === 0 ? (
+            <div className="wl-mylinks-empty">
+              <span className="wl-mylinks-empty-icon">
+                <CustomLinkIcon />
+              </span>
+              <div className="wl-mylinks-empty-text">
+                <h4>{t("weblinks.noCustomLinks")}</h4>
+                <p>{t("weblinks.noCustomLinksBody")}</p>
+              </div>
+            </div>
+          ) : (
+            <div className="wl-mylinks-grid">
+              {customSources.map((src) => {
+                const isActive = activeCustomUrl === src.url;
+                const meta = deriveCustomLink(src.url ?? "");
+                return (
+                  <div key={src.key} className={`wl-mylink-card${isActive ? " active" : ""}`}>
+                    <button
+                      type="button"
+                      className="wl-mylink-card-main"
+                      onClick={() => setCustomPreviewUrl(src.url ?? null)}
+                      title={t("weblinks.openInPreview")}
+                    >
+                      <span className="wl-mylink-favicon">
+                        <CustomFavicon host={meta.host} />
+                      </span>
+                      <span className="wl-mylink-card-text">
+                        <span className="wl-mylink-card-label">{src.label}</span>
+                        <span className="wl-mylink-card-host">{meta.host}</span>
+                      </span>
+                    </button>
+                    <button
+                      type="button"
+                      className="wl-mylink-card-open"
+                      onClick={() => src.url && handleOpenExternal(src.url)}
+                      title={t("weblinks.openInBrowser")}
+                    >
+                      <OpenExternalIcon />
+                    </button>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      )}
 
       {/* ─── Steam sub-tabs (only when Steam tab is active) ──────────── */}
       {isSteamActive && (
@@ -702,7 +1029,7 @@ export default function WebLinksTab({ game, visible = true }: WebLinksTabProps) 
                 disabled={disabled}
                 className={`wl-steam-subtab${isActive ? " active" : ""}${disabled ? " disabled" : ""}`}
                 onClick={() => !disabled && setSteamSection(sec.key)}
-                title={disabled ? "Steam AppID not detected — Search by name instead." : undefined}
+                title={disabled ? t("weblinks.steamAppIdNotDetected") : undefined}
               >
                 <span className="wl-steam-subtab-icon">{sec.icon}</span>
                 <span>{t(sec.i18nKey)}</span>
@@ -721,104 +1048,141 @@ export default function WebLinksTab({ game, visible = true }: WebLinksTabProps) 
       )}
 
       {/* ─── URL bar (controls over the webview) ──────────────────────── */}
-      <div
-        className="wl-urlbar"
-        style={{
-          borderColor: isCustomActive
-            ? "var(--color-accent)55"
-            : `${activeSourceDef.accent}55`,
-        }}
-      >
-        <span
-          className="wl-urlbar-source-chip"
+      {hasPreviewableUrl && (
+        <div
+          className="wl-urlbar"
           style={{
-            background: isCustomActive
-              ? "var(--color-bg-tertiary)"
-              : activeSourceDef.iconBg,
-            color: isCustomActive ? "var(--color-accent)" : activeSourceDef.accent,
+            borderColor: isCustomActive
+              ? "var(--color-accent)55"
+              : `${activeSourceDef.accent}55`,
           }}
         >
-          {isCustomActive ? t("weblinks.myLink") : activeSourceDef.label}
-        </span>
-        <span className="wl-urlbar-url" title={url}>
-          {url.replace(/^https?:\/\//, "").replace(/^www\./, "")}
-        </span>
-        <div className="wl-urlbar-actions">
-          <button className="wl-urlbar-btn" onClick={handleReload} type="button" title={t("weblinks.reloadPreview")}>
-            <ReloadIcon />
-            <span>{t("weblinks.reload")}</span>
-          </button>
-          <button
-            className="wl-urlbar-btn primary"
-            onClick={handleOpenExternal}
-            type="button"
-            title={t("weblinks.openInBrowser")}
-          >
-            <OpenExternalIcon />
-            <span>{t("weblinks.openBrowser")}</span>
-          </button>
-        </div>
-      </div>
-
-      {/* ─── Preview area: Tauri native webview overlaid on placeholder ── */}
-      <div className="wl-preview">
-        {steamSubDisabled ? (
-          // Steam sub-page (Discussions/News/Workshop) without an AppID
-          <div className="wl-empty">
-            <div className="wl-empty-header">
-              <span
-                className="wl-empty-icon"
-                style={{ color: activeSourceDef.accent, background: activeSourceDef.iconBg }}
-              >
-                {SteamSections.find((s) => s.key === steamSection)?.icon}
-              </span>
-              <h3>{t("weblinks.steamAppIdNotDetected")}</h3>
-            </div>
-            <p>
-              The <strong>{SteamSections.find((s) => s.key === steamSection)?.label}</strong> page for this game
-              can't be opened because no Steam AppID is associated with{" "}
-              <strong>{game.name}</strong>. Set the executable path to{" "}
-              <code>{`{appid}.exe`}</code> inside <code>steamapps/common/</code> to enable
-              direct community links — or use Steam Store search above to find the
-              title and add it back with the correct launch URI.
-            </p>
-            <button className="wl-empty-btn primary" onClick={handleOpenExternal} type="button">
-              <OpenExternalIcon />
-              {t("weblinks.steam.searchStore")}
+          <div className="wl-urlbar-nav">
+            <button
+              className={`wl-urlbar-btn${navState.back ? "" : " disabled"}`}
+              onClick={handleGoBack}
+              type="button"
+              disabled={!navState.back}
+              title={t("weblinks.goBack")}
+              aria-label={t("weblinks.goBack")}
+            >
+              <BackIcon />
+            </button>
+            <button
+              className={`wl-urlbar-btn${navState.forward ? "" : " disabled"}`}
+              onClick={handleGoForward}
+              type="button"
+              disabled={!navState.forward}
+              title={t("weblinks.goForward")}
+              aria-label={t("weblinks.goForward")}
+            >
+              <ForwardIcon />
             </button>
           </div>
-        ) : isSteamActive && !appId ? (
-          // Steam Store fallback (search URL is reasonable)
-          <div className="wl-empty subtle">
-            <div className="wl-empty-header">
-              <span
-                className="wl-empty-icon"
-                style={{ color: activeSourceDef.accent, background: activeSourceDef.iconBg }}
-              >
-                {SteamIcon}
-              </span>
-              <h3>{t("weblinks.steamSearchMode")}</h3>
-            </div>
-            <p>
-              This game isn't tied to a Steam AppID, so we're showing the Steam Store search for{" "}
-              <strong>{game.name}</strong>. Deep links to Discussions, News, and Workshop are
-              unavailable until an AppID is detected.
-            </p>
+          <span
+            className="wl-urlbar-source-chip"
+            style={{
+              background: isCustomActive
+                ? "var(--color-bg-tertiary)"
+                : activeSourceDef.iconBg,
+              color: isCustomActive ? "var(--color-accent)" : activeSourceDef.accent,
+            }}
+          >
+            {isCustomActive
+              ? deriveCustomLink(activeCustomUrl ?? "").label
+              : activeSourceDef.label}
+          </span>
+          <span className="wl-urlbar-url" title={url}>
+            {url.replace(/^https?:\/\//, "").replace(/^www\./, "")}
+          </span>
+          <div className="wl-urlbar-actions">
+            <button className="wl-urlbar-btn" onClick={handleReload} type="button" title={t("weblinks.reloadPreview")}>
+              <ReloadIcon />
+              <span>{t("weblinks.reload")}</span>
+            </button>
+            <button
+              className={`wl-urlbar-btn${copied ? " copied" : ""}`}
+              onClick={handleCopy}
+              type="button"
+              title={t("weblinks.copyLink")}
+            >
+              {copied ? <CheckIcon /> : <CopyIcon />}
+              <span>{copied ? t("weblinks.copied") : t("weblinks.copy")}</span>
+            </button>
+            <button
+              className="wl-urlbar-btn primary"
+              onClick={() => handleOpenExternal()}
+              type="button"
+              title={t("weblinks.openInBrowser")}
+            >
+              <OpenExternalIcon />
+              <span>{t("weblinks.openBrowser")}</span>
+            </button>
           </div>
-        ) : null}
+        </div>
+      )}
 
-        {/* Native Webview container placeholder */}
-        {!steamSubDisabled && (
-          <div ref={containerRef} className="wl-webview-frame">
-            {!webviewReady && (
-              <div className="wl-webview-loader" aria-hidden>
-                <div className="wl-webview-spinner" />
-                <span>{t("weblinks.loading", { source: activeSourceDef.label })}</span>
+      {/* ─── Preview area: Tauri native webview overlaid on placeholder ── */}
+      {hasPreviewableUrl && (
+        <div className="wl-preview">
+          {steamSubDisabled ? (
+            // Steam sub-page (Discussions/News/Workshop) without an AppID
+            <div className="wl-empty">
+              <div className="wl-empty-header">
+                <span
+                  className="wl-empty-icon"
+                  style={{ color: activeSourceDef.accent, background: activeSourceDef.iconBg }}
+                >
+                  {SteamSections.find((s) => s.key === steamSection)?.icon}
+                </span>
+                <h3>{t("weblinks.steamAppIdNotDetected")}</h3>
               </div>
-            )}
-          </div>
-        )}
-      </div>
+              <p>
+                The <strong>{SteamSections.find((s) => s.key === steamSection)?.label}</strong> page for this game
+                can't be opened because no Steam AppID is associated with{" "}
+                <strong>{game.name}</strong>. Set the executable path to{" "}
+                <code>{`{appid}.exe`}</code> inside <code>steamapps/common/</code> to enable
+                direct community links — or use Steam Store search above to find the
+                title and add it back with the correct launch URI.
+              </p>
+              <button className="wl-empty-btn primary" onClick={() => handleOpenExternal()} type="button">
+                <OpenExternalIcon />
+                {t("weblinks.steam.searchStore")}
+              </button>
+            </div>
+          ) : isSteamActive && !appId ? (
+            // Steam Store fallback (search URL is reasonable)
+            <div className="wl-empty subtle">
+              <div className="wl-empty-header">
+                <span
+                  className="wl-empty-icon"
+                  style={{ color: activeSourceDef.accent, background: activeSourceDef.iconBg }}
+                >
+                  {SteamIcon}
+                </span>
+                <h3>{t("weblinks.steamSearchMode")}</h3>
+              </div>
+              <p>
+                This game isn't tied to a Steam AppID, so we're showing the Steam Store search for{" "}
+                <strong>{game.name}</strong>. Deep links to Discussions, News, and Workshop are
+                unavailable until an AppID is detected.
+              </p>
+            </div>
+          ) : null}
+
+          {/* Native Webview container placeholder */}
+          {!steamSubDisabled && (
+            <div ref={containerRef} className="wl-webview-frame">
+              {!webviewReady && (
+                <div className="wl-webview-loader" aria-hidden>
+                  <div className="wl-webview-spinner" />
+                  <span>{t("weblinks.loading", { source: isCustomActive ? t("weblinks.myLinks") : activeSourceDef.label })}</span>
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Footnote */}
       <div className="wl-footnote">

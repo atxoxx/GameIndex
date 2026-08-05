@@ -3692,6 +3692,40 @@ async fn fetch_url(url: String) -> Result<String, String> {
         .map_err(|e| format!("Failed to read response: {}", e))
 }
 
+/// Drive native session-history navigation (back/forward) in a child
+/// webview (the WebLinks preview). The JS `Webview` API in this Tauri
+/// version doesn't expose goBack/goForward, so we eval
+/// `window.history.back()` / `window.history.forward()` inside the
+/// webview's own context — that walks the webview's NATIVE session
+/// history stack, exactly like a browser's back/forward buttons.
+#[tauri::command]
+fn webview_history_navigate(
+    app: tauri::AppHandle,
+    label: String,
+    direction: String,
+) -> Result<(), String> {
+    let webview = app
+        .get_webview(&label)
+        .ok_or_else(|| format!("webview not found: {label}"))?;
+    let js = match direction.as_str() {
+        "back" => "window.history.back()",
+        "forward" => "window.history.forward()",
+        other => return Err(format!("invalid direction: {other}")),
+    };
+    webview.eval(js).map_err(|e| e.to_string())
+}
+
+/// Read the current URL of a child webview. The frontend polls this to
+/// track whether back/forward history is available (Tauri's JS API has
+/// no canGoBack/canGoForward, so we compare against a local stack).
+#[tauri::command]
+fn webview_current_url(app: tauri::AppHandle, label: String) -> Result<String, String> {
+    let webview = app
+        .get_webview(&label)
+        .ok_or_else(|| format!("webview not found: {label}"))?;
+    webview.url().map(|u| u.to_string()).map_err(|e| e.to_string())
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
@@ -3760,6 +3794,8 @@ pub fn run() {
             price::fetch_game_prices_batch,
             protondb::fetch_protondb_status,
             fetch_url,
+            webview_history_navigate,
+            webview_current_url,
             rebuild_watcher_index,
             achievements::fetch_achievements,
             achievements::save_achievements_cache,
