@@ -2655,6 +2655,7 @@ export const ru: TranslationDict = {
   "sidebar.removeFilter": "Убрать фильтр",
   "sidebar.removeFromLibrary": "Удалить из библиотеки",
   "sidebar.removedCount": "{count} удалено",
+  "sidebar.resultOfTotal": "{count} из {total} игр",
   "sidebar.selectFolderScan": "Выберите папку для сканирования",
   "sidebar.selectGameExe": "Выбрать исполняемый файл игры",
   "sidebar.setPlayStatus": "Установить статус для выделенных",

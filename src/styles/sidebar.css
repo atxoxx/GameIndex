@@ -80,6 +80,7 @@
   font-size: var(--font-size-sm);
   outline: none;
   width: 100%;
+  caret-color: var(--color-accent);
 }
 
 .sidebar-search input::placeholder {
@@ -103,23 +104,70 @@
   flex: 1;
   overflow-y: auto;
   padding: 0 var(--space-sm) var(--space-lg);
+  scrollbar-width: thin;
+  scrollbar-color: color-mix(in srgb, var(--color-border) 90%, transparent) transparent;
+}
+
+.sidebar-list::-webkit-scrollbar {
+  width: 8px;
+}
+
+.sidebar-list::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.sidebar-list::-webkit-scrollbar-thumb {
+  background: color-mix(in srgb, var(--color-border) 90%, transparent);
+  border-radius: var(--radius-full);
+  border: 2px solid transparent;
+  background-clip: padding-box;
+}
+
+.sidebar-list::-webkit-scrollbar-thumb:hover {
+  background: color-mix(in srgb, var(--color-text-muted) 55%, transparent);
+  background-clip: padding-box;
 }
 
 .sidebar-list-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: var(--space-sm) var(--space-sm) var(--space-sm);
+  gap: var(--space-xs);
+  padding: var(--space-sm) var(--space-sm) var(--space-2xs);
   font-size: var(--font-size-xs);
-  font-weight: var(--font-weight-bold);
-  color: var(--color-text-muted);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text-secondary);
   text-transform: uppercase;
-  letter-spacing: 0.8px;
+  letter-spacing: 0.6px;
 }
 
+/* Count pill in section headers — accent-tinted, tabular, matching the
+ * app's hw-spec-count / settings count-pill treatment. */
 .sidebar-list-count {
-  color: var(--color-text-muted);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 18px;
+  height: 16px;
+  padding: 0 5px;
+  font-size: 10px;
+  font-weight: var(--font-weight-bold);
+  color: var(--color-accent);
+  background: color-mix(in srgb, var(--color-accent) 16%, transparent);
+  border-radius: var(--radius-full);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0;
+  box-sizing: border-box;
+}
+
+/* Result count shown while search/advanced filters narrow the list —
+ * "N of M games" replaces the plain count pill in the main header. */
+.sidebar-list-result {
+  font-size: var(--font-size-xs);
   font-weight: var(--font-weight-semibold);
+  color: var(--color-text-muted);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
 }
 
 /* Game row inside the sidebar list.
@@ -209,6 +257,27 @@
   );
 }
 
+/* Keyboard focus: an inset accent ring so the outline follows the
+ * rounded row without bleeding past the list's edges. */
+.sidebar-game-item:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: -2px;
+}
+
+/* Press feedback: a flat darkening that never fights the selected
+ * accent tint (the `:not(.active)` guard keeps the tint on top). */
+.sidebar-game-item:active:not(.active) {
+  background: var(--color-bg-active);
+}
+
+/* Full-width mode: lift the thumbnail a touch on hover so the row
+ * reads as interactive without sliding (matches the rail's glow but
+ * stays quieter). Rail mode re-declares its own, stronger variant. */
+.sidebar-game-item:hover .sidebar-game-icon {
+  transform: scale(1.03);
+  box-shadow: var(--shadow-md);
+}
+
 .sidebar-game-icon {
   width: 36px;
   height: 36px;
@@ -220,7 +289,9 @@
   flex-shrink: 0;
   overflow: hidden;
   box-shadow: var(--shadow-sm);
-  transition: transform var(--transition-fast);
+  transition: transform var(--transition-fast),
+    box-shadow var(--transition-fast),
+    border-color var(--transition-fast);
 }
 
 .sidebar-game-icon img {
@@ -244,9 +315,30 @@
 }
 
 .sidebar-game-meta {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  margin-top: 2px;
   font-size: var(--font-size-xs);
   color: var(--color-text-secondary);
-  margin-top: 2px;
+  white-space: nowrap;
+  overflow: hidden;
+}
+
+/* Tiny play-status dot (backlog/playing/completed/on-hold/abandoned),
+ * colored via PLAY_STATUS_DETAILS inline. Only rendered when a game's
+ * status differs from the default backlog, so typical lists stay calm. */
+.sidebar-game-meta-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.sidebar-game-meta-text {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 /* ───── Installation / running status dot ─────
@@ -283,17 +375,21 @@
   border-radius: 50%;
   flex-shrink: 0;
   align-self: center;
-  transition: box-shadow var(--duration-normal) var(--ease-standard);
+  transition: box-shadow var(--duration-normal) var(--ease-standard),
+    background var(--duration-normal) var(--ease-standard);
 }
 
 .sidebar-game-status.installed {
   background: var(--color-success);
-  box-shadow: 0 0 6px var(--color-success);
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--color-success) 35%, transparent),
+    0 0 6px var(--color-success);
 }
 
+/* Not-installed reads as a deliberate hollow dot (hairline ring)
+ * rather than a faded ghost, so the column stays readable. */
 .sidebar-game-status.not-installed {
-  background: var(--color-text-muted);
-  opacity: 0.45;
+  background: color-mix(in srgb, var(--color-text-muted) 55%, transparent);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--color-text-muted) 28%, transparent);
 }
 
 .sidebar-empty {
@@ -301,24 +397,43 @@
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  padding: var(--space-3xl) var(--space-lg);
+  gap: var(--space-sm);
+  margin: var(--space-xs) var(--space-2xs) 0;
+  padding: var(--space-2xl) var(--space-lg);
   color: var(--color-text-muted);
   text-align: center;
+  background: color-mix(in srgb, var(--color-bg-tertiary) 45%, transparent);
+  border: 1px dashed var(--color-border);
+  border-radius: var(--radius-lg);
 }
 
-.sidebar-empty svg {
-  width: 48px;
-  height: 48px;
-  margin-bottom: var(--space-md);
-  opacity: 0.3;
+.sidebar-empty-icon {
+  width: 44px;
+  height: 44px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--radius-md);
+  background: color-mix(in srgb, var(--color-accent) 13%, transparent);
+  color: var(--color-accent);
+  margin-bottom: var(--space-2xs);
 }
 
-.sidebar-empty p {
+.sidebar-empty-icon svg {
+  width: 22px;
+  height: 22px;
+  opacity: 0.85;
+}
+
+.sidebar-empty-title {
+  margin: 0;
   font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-medium);
+  color: var(--color-text-secondary);
 }
 
-.sidebar-empty button {
-  margin-top: var(--space-lg);
+.sidebar-empty-cta {
+  margin-top: var(--space-sm);
   padding: var(--space-sm) var(--space-xl);
   background: var(--color-accent);
   color: #fff;
@@ -327,11 +442,33 @@
   font-size: var(--font-size-sm);
   font-weight: var(--font-weight-medium);
   cursor: pointer;
-  transition: background var(--transition-fast);
+  transition: background var(--transition-fast),
+    box-shadow var(--transition-fast);
 }
 
-.sidebar-empty button:hover {
+.sidebar-empty-cta:hover {
   background: var(--color-accent-hover);
+  box-shadow: 0 4px 14px var(--color-accent-glow);
+}
+
+.sidebar-empty-cta:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 2px;
+}
+
+/* Ghost variant for the "clear filters" recovery action in the
+ * no-match state — calmer than a primary CTA, matches chip buttons. */
+.sidebar-empty-cta--ghost {
+  background: transparent;
+  color: var(--color-text-secondary);
+  border: 1px solid var(--color-border);
+}
+
+.sidebar-empty-cta--ghost:hover {
+  background: var(--color-bg-hover);
+  color: var(--color-text-primary);
+  border-color: var(--color-border-light);
+  box-shadow: none;
 }
 
 /* ==============================
@@ -454,6 +591,16 @@
   margin: var(--space-xs) var(--space-xs);
 }
 
+/* Rail rows are 64px tall (4px --space-xs padding top/bottom + a
+ * 56px cover box) but otherwise inherit the base
+ * `contain-intrinsic-size: 52px` from `.sidebar-game-item`, so
+ * `content-visibility: auto` reserves ~12px too little per row and
+ * the rail's scrollbar drifts as rows enter the visible viewport.
+ * Match the intrinsic size to the real rail row height. */
+.app-sidebar.sidebar-icon-rail .sidebar-game-item {
+  contain-intrinsic-size: 64px;
+}
+
 /* PinnedGames section header (above the pinned rows). Renders as
  * a tiny uppercase label with a small 📌 inline SVG so the
  * intent reads at a glance even when the section is collapsed.
@@ -465,12 +612,13 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: var(--space-sm) var(--space-sm) 4px;
+  gap: var(--space-xs);
+  padding: var(--space-sm) var(--space-sm) var(--space-2xs);
   font-size: var(--font-size-xs);
-  font-weight: var(--font-weight-bold);
-  color: var(--color-text-muted);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text-secondary);
   text-transform: uppercase;
-  letter-spacing: 0.8px;
+  letter-spacing: 0.6px;
 }
 
 .sidebar-section-header svg {
@@ -483,6 +631,12 @@
 /* Hide the pinned section header in icon-rail mode — it would
  * crowd the 68px column. The covers alone read clearly. */
 .app-sidebar.sidebar-icon-rail .sidebar-section-header {
+  display: none;
+}
+
+/* Same for the main list header + its count: only covers fit in the
+ * rail, so "GAMES 40" has nowhere to live. */
+.app-sidebar.sidebar-icon-rail .sidebar-list-header {
   display: none;
 }
 
@@ -506,8 +660,8 @@
  * `overflow-x: auto` keeps the chips on one row. */
 .sidebar-active-filters {
   display: flex;
-  gap: 4px;
-  padding: var(--space-xs) 0 var(--space-xs);
+  gap: 6px;
+  padding: var(--space-xs) var(--space-lg) var(--space-xs);
   overflow-x: auto;
   scrollbar-width: none;
 }
@@ -519,8 +673,8 @@
 .sidebar-active-filter {
   display: inline-flex;
   align-items: center;
-  gap: 4px;
-  padding: 3px 8px;
+  gap: 5px;
+  padding: 3px 10px;
   font-size: var(--font-size-xs);
   font-weight: var(--font-weight-medium);
   color: var(--color-text-primary);
@@ -529,6 +683,13 @@
   border-radius: var(--radius-full);
   white-space: nowrap;
   flex-shrink: 0;
+  transition: background var(--transition-fast),
+    border-color var(--transition-fast);
+}
+
+.sidebar-active-filter:hover {
+  background: var(--color-bg-hover);
+  border-color: var(--color-border-light);
 }
 
 .sidebar-active-filter__remove {
@@ -552,6 +713,11 @@
   background: var(--color-bg-hover);
 }
 
+.sidebar-active-filter__remove:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 0;
+}
+
 .sidebar-active-filter__remove svg {
   width: 10px;
   height: 10px;
@@ -570,16 +736,18 @@
 .sidebar-bulk-action-bar {
   position: sticky;
   bottom: 0;
+  z-index: 50;
   display: flex;
   align-items: center;
   gap: var(--space-xs);
+  margin: var(--space-sm) var(--space-2xs) 0;
   padding: var(--space-sm) var(--space-md);
   background: color-mix(in srgb, var(--color-bg-secondary) 92%, transparent);
   backdrop-filter: blur(14px) saturate(140%);
   -webkit-backdrop-filter: blur(14px) saturate(140%);
-  border-top: 1px solid var(--color-border-light);
-  border-bottom: none;
-  z-index: 50;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-md);
   animation: sidebarBulkBarIn 180ms var(--ease-enter);
 }
 
@@ -641,6 +809,11 @@
   color: var(--color-text-primary);
   border-color: var(--color-accent);
   background: var(--color-bg-hover);
+}
+
+.sidebar-bulk-action-bar__btn:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 1px;
 }
 
 .sidebar-bulk-action-bar__btn--danger:hover {
@@ -825,10 +998,6 @@
 .context-menu-item.has-submenu.submenu-open::after {
   border-color: var(--color-accent);
 }
-
-/* ==============================
-   Sidebar — Enhanced Features
-   ============================== */
 
 /* Restore stack-context priority for the portaled context menu.
  * `.context-menu` is portaled to `document.body` for the right-
@@ -844,490 +1013,6 @@
  * Picking 9200 leaves room for a future above-the-menu overlay. */
 .context-menu {
   z-index: 9200 !important;
-}
-
-/* Body-level toggle of the inner sidebar between full-width and
- * icon-only-rail mode. The `.app-sidebar` wrapper reads
- * `SidebarCollapseContext` and adds `.sidebar-icon-rail` when active.
- * The two classes below force `width` to the icon-rail variable,
- * hide the chrome that would crowd a 68px column (search box,
- * filter button label, import button), and tighten the row markup
- * so it collapses to just (cover · status-dot). The sidebar root
- * is a flex column so inner elements with `flex: 0 0 auto` keep
- * their layout; the icon rail keeps the header's collapse-to-full
- * toggle visible so the user can revert with one click. */
-.app-sidebar.sidebar-icon-rail {
-  width: var(--sidebar-icon-rail-width);
-}
-
-/* The inner .sidebar keeps its own width: var(--sidebar-width) (full-width), which leaves every game row ~280px wide inside the now-68px .app-sidebar. The row uses justify-content: center, so the 56px cover is centered in the 280px row at ~112px -- well outside the visible 68px column -- and overflow: hidden clips it away (the list reads as empty even though rows stay clickable). Collapsing the inner sidebar to the rail width lets the centered cover land inside the visible column. */
-.app-sidebar.sidebar-icon-rail .sidebar {
-  width: 100%;
-}
-
-.app-sidebar.sidebar-icon-rail .sidebar-search,
-.app-sidebar.sidebar-icon-rail .sidebar-filter-btn,
-.app-sidebar.sidebar-icon-rail .sidebar-import-wrapper {
-  display: none;
-}
-
-.app-sidebar.sidebar-icon-rail .sidebar-header-bar {
-  justify-content: center;
-}
-
-.app-sidebar.sidebar-icon-rail .sidebar-header-title {
-  display: none;
-}
-
-/* In rail mode, the row shows only the cover thumbnail and the
- * tiny status dot. The title/meta are hidden but remain in the
- * DOM so the row keeps its semantic structure (good for
- * screen readers via the `aria-label` on `.sidebar-game-status`).
- * The cover sits centered in the rail and gains a soft glow on
- * hover so it doesn't read as a flat icon button.
- *
- * NOTE: SidebarGameItem prefers the high-res `coverArtUrl` (full
- * cover artwork, often IGDB / Steam library_600x900) over the
- * small square `iconUrl` whenever `prefersCover={isIconRail}` is
- * set by the parent. CSS-side we keep the box square so the
- * aspect-ratio cover crops cleanly via `object-fit: cover` on
- * the existing `.sidebar-game-icon img` rule. */
-.app-sidebar.sidebar-icon-rail .sidebar-game-item {
-  justify-content: center;
-  padding: var(--space-xs);
-  gap: 0;
-}
-
-.app-sidebar.sidebar-icon-rail .sidebar-game-item .sidebar-game-info,
-.app-sidebar.sidebar-icon-rail .sidebar-game-item .sidebar-game-status {
-  display: none;
-}
-
-.app-sidebar.sidebar-icon-rail .sidebar-game-icon {
-  /* 56px box is the sweet spot for a 68px rail: 6px breathing
-   * room on each side, and large enough that an aspect-ratio
-   * cover (typically 2:3) reads as a recognizable game card with
-   * `object-fit: cover` cropping the top/bottom to a square. */
-  width: 56px;
-  height: 56px;
-  border-radius: var(--radius-sm);
-  box-shadow: var(--shadow-sm);
-  /* Defensive: covers that downloaded with a transparent border
-   * can let the dark sidebar bleed through sub-pixel rounding.
-   * A 1px opaque border matching the surface color keeps the
-   * cover visually detached from the rail background. */
-  background: var(--color-bg-primary);
-  border: 1px solid var(--color-border-light);
-  overflow: hidden;
-  transition: transform var(--transition-fast),
-    border-color var(--transition-fast),
-    box-shadow var(--transition-fast);
-}
-
-/* Force the cover <img> to render inside the .sidebar-game-icon
- * with explicit dimensions + display:block. Without `display:
- * block` the inline-image baseline adds ~4px of phantom line
- * height below the cover; without explicit `min-*` sizes a
- * CSS race during the first paint after `content-visibility:
- * auto` revealed the row can leave the <img> collapsed to 0×0
- * and the user sees nothing in the rail box. The `object-fit:
- * cover` on the base `.sidebar-game-icon img` rule (line ~1002)
- * handles aspect-ratio cropping — we only restate the explicit
- * dimensions for rail-mode with `!important` to win over any
- * platform-default `<img>` width. */
-.app-sidebar.sidebar-icon-rail .sidebar-game-icon img {
-  display: block !important;
-  width: 56px !important;
-  height: 56px !important;
-  min-width: 56px;
-  min-height: 56px;
-  object-fit: cover;
-  /* Visible backdrop while the image is loading or absent so the
-   * rail is never a row of invisible rectangles. */
-  background: var(--color-bg-tertiary);
-}
-
-.app-sidebar.sidebar-icon-rail .sidebar-game-item:hover .sidebar-game-icon {
-  transform: scale(1.04);
-  border-color: var(--color-accent);
-  box-shadow: var(--shadow-md);
-}
-
-.app-sidebar.sidebar-icon-rail .sidebar-game-item.active .sidebar-game-icon {
-  border-color: var(--color-accent);
-  box-shadow: var(--shadow-sm);
-}
-
-/* PinnedGames section header (above the pinned rows). Renders as
- * a tiny uppercase label with a small 📌 inline SVG so the
- * intent reads at a glance even when the section is collapsed.
- * The horizontal rule above the section is rendered by the parent
- * Sidebar component via `.sidebar-pinned-section::before` (added
- * by Sidebar.tsx inline because pure-CSS hooks are simpler than
- * restructuring the divider HTML). */
-.sidebar-section-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: var(--space-sm) var(--space-sm) 4px;
-  font-size: var(--font-size-xs);
-  font-weight: var(--font-weight-bold);
-  color: var(--color-text-muted);
-  text-transform: uppercase;
-  letter-spacing: 0.8px;
-}
-
-.sidebar-section-header svg {
-  width: 11px;
-  height: 11px;
-  flex-shrink: 0;
-  color: var(--color-accent);
-}
-
-/* Hide the pinned section header in icon-rail mode — it would
- * crowd the 68px column. The covers alone read clearly. */
-.app-sidebar.sidebar-icon-rail .sidebar-section-header {
-  display: none;
-}
-
-/* Search match highlight. Applied by the Sidebar's
- * HighlightedName component (regex split, <mark> wrap). Uses
- * accent-soft fill + accent text, with no padding tweak so the
- * name keeps the same baseline whether highlighted or not. */
-.sidebar-game-name mark {
-  background: var(--color-accent-soft);
-  color: var(--color-accent);
-  border-radius: var(--radius-xs);
-  padding: 0 2px;
-}
-
-/* Active-filter pill row. Renders BELOW the search/filter button
- * row and is hidden whenever no advanced filter is active. Each
- * chip mirrors the Library page's LibraryFilterChips pattern:
- * pill, label, removable × — a single "Clear all" affordance at
- * the start rolls every facet back via the existing `reset()`
- * on useLibraryFilters. Horizontal scroll on overflow via
- * `overflow-x: auto` keeps the chips on one row. */
-.sidebar-active-filters {
-  display: flex;
-  gap: 4px;
-  padding: var(--space-xs) 0 var(--space-xs);
-  overflow-x: auto;
-  scrollbar-width: none;
-}
-
-.sidebar-active-filters::-webkit-scrollbar {
-  display: none;
-}
-
-.sidebar-active-filter {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  padding: 3px 8px;
-  font-size: var(--font-size-xs);
-  font-weight: var(--font-weight-medium);
-  color: var(--color-text-primary);
-  background: var(--color-bg-tertiary);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-full);
-  white-space: nowrap;
-  flex-shrink: 0;
-}
-
-.sidebar-active-filter__remove {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  border: none;
-  background: transparent;
-  color: var(--color-text-muted);
-  cursor: pointer;
-  padding: 0;
-  width: 14px;
-  height: 14px;
-  border-radius: var(--radius-full);
-  transition: color var(--transition-fast),
-    background var(--transition-fast);
-}
-
-.sidebar-active-filter__remove:hover {
-  color: var(--color-danger);
-  background: var(--color-bg-hover);
-}
-
-.sidebar-active-filter__remove svg {
-  width: 10px;
-  height: 10px;
-}
-
-.app-sidebar.sidebar-icon-rail .sidebar-active-filters {
-  display: none;
-}
-
-/* Multi-select bulk action bar. Sits a fixed distance from the
- * bottom of the sidebar's list area, painting above any rows
- * obscured by scroll. Hidden when nothing is selected. Pinned
- * to the bottom of the visible sidebar surface using
- * `position: sticky` so the bar never floats away from the rows
- * the user is interacting with. */
-.sidebar-bulk-action-bar {
-  position: sticky;
-  bottom: 0;
-  display: flex;
-  align-items: center;
-  gap: var(--space-xs);
-  padding: var(--space-sm) var(--space-md);
-  background: color-mix(in srgb, var(--color-bg-secondary) 92%, transparent);
-  backdrop-filter: blur(14px) saturate(140%);
-  -webkit-backdrop-filter: blur(14px) saturate(140%);
-  border-top: 1px solid var(--color-border-light);
-  border-bottom: none;
-  z-index: 50;
-  animation: sidebarBulkBarIn 180ms var(--ease-enter);
-}
-
-@keyframes sidebarBulkBarIn {
-  from {
-    opacity: 0;
-    transform: translateY(8px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
-}
-
-.sidebar-bulk-action-bar__count {
-  font-size: var(--font-size-xs);
-  font-weight: var(--font-weight-semibold);
-  color: var(--color-accent);
-  white-space: nowrap;
-  font-variant-numeric: tabular-nums;
-  letter-spacing: 0.2px;
-}
-
-.sidebar-bulk-action-bar__actions {
-  display: flex;
-  align-items: center;
-  gap: 2px;
-  flex: 1;
-  justify-content: flex-end;
-}
-
-.sidebar-bulk-action-bar__btn {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  height: 28px;
-  padding: 0 8px;
-  background: var(--color-bg-tertiary);
-  color: var(--color-text-secondary);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-sm);
-  font-size: var(--font-size-xs);
-  font-weight: var(--font-weight-medium);
-  cursor: pointer;
-  transition: background var(--transition-fast),
-    border-color var(--transition-fast),
-    color var(--transition-fast);
-  white-space: nowrap;
-  gap: 4px;
-}
-
-.sidebar-bulk-action-bar__btn svg {
-  width: 12px;
-  height: 12px;
-  flex-shrink: 0;
-}
-
-.sidebar-bulk-action-bar__btn:hover {
-  color: var(--color-text-primary);
-  border-color: var(--color-accent);
-  background: var(--color-bg-hover);
-}
-
-.sidebar-bulk-action-bar__btn--danger:hover {
-  color: var(--color-danger);
-  border-color: color-mix(in srgb, var(--color-danger) 40%, var(--color-border));
-}
-
-.sidebar-bulk-action-bar__btn--accent {
-  background: var(--color-accent);
-  color: #fff;
-  border-color: var(--color-accent);
-}
-
-.sidebar-bulk-action-bar__btn--accent:hover {
-  background: var(--color-accent-hover);
-  border-color: var(--color-accent-hover);
-}
-
-.app-sidebar.sidebar-icon-rail .sidebar-bulk-action-bar {
-  /* In rail mode the bulk action buttons would crowd the 68px
-   * column; collapse the bar to a single transparent icon
-   * cluster that fully expands on hover. The pin + remove + exit
-   * actions stay — the user only ever multi-selects from rail
-   * mode by accident, so a compact bar is safe. */
-  justify-content: center;
-}
-
-.app-sidebar.sidebar-icon-rail .sidebar-bulk-action-bar__count,
-.app-sidebar.sidebar-icon-rail .sidebar-bulk-action-bar__btn span {
-  display: none;
-}
-
-/* Multi-select checkmark. Lives in the corner of every row that
- * is part of the current bulk selection. .sidebar-game-item's
- * `position: relative` (already present) lets us absolutely
- * position the badge without introducing new positioning
- * contracts. */
-.sidebar-game-item.bulk-selected {
-  background: color-mix(in srgb, var(--color-accent) 16%, var(--color-bg-tertiary));
-  border-left-color: var(--color-accent);
-}
-
-.sidebar-game-item__check {
-  position: absolute;
-  top: 4px;
-  right: 4px;
-  width: 16px;
-  height: 16px;
-  border-radius: 50%;
-  background: var(--color-accent);
-  color: #fff;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  box-shadow: 0 0 6px var(--color-accent-glow);
-  pointer-events: none;
-  opacity: 0;
-  transform: scale(0.6);
-  transition: opacity var(--transition-fast),
-    transform var(--transition-fast);
-}
-
-.sidebar-game-item.bulk-selected .sidebar-game-item__check {
-  opacity: 1;
-  transform: scale(1);
-}
-
-.sidebar-game-item__check svg {
-  width: 10px;
-  height: 10px;
-}
-
-.app-sidebar.sidebar-icon-rail .sidebar-game-item.bulk-selected .sidebar-game-item__check {
-  top: 8px;
-  right: 8px;
-}
-
-/* Context menu submenu container (used by the Set Status
- * hover-flyout). Positioned absolutely relative to its parent
- * context-menu item so it appears on the right of the trigger
- * item. Hidden by default; `.open` flips it into view after a
- * short hover delay. Auto-flip to the LEFT half of the screen
- * on the right edge via .sidebar-context-submenu--flip. */
-.sidebar-context-submenu {
-  position: absolute;
-  left: 100%;
-  top: 0;
-  min-width: 160px;
-  margin-left: 4px;
-  background: var(--color-surface-raised);
-  border: 1px solid var(--color-border-light);
-  border-radius: var(--radius-md);
-  box-shadow: var(--shadow-lg);
-  padding: 4px;
-  z-index: 1;
-  opacity: 0;
-  pointer-events: none;
-  transform: translateX(-4px);
-  transition: opacity var(--transition-fast),
-    transform var(--transition-fast);
-}
-
-.sidebar-context-submenu.open {
-  opacity: 1;
-  pointer-events: auto;
-  transform: translateX(0);
-}
-
-.sidebar-context-submenu--flip {
-  left: auto;
-  right: 100%;
-  margin-left: 0;
-  margin-right: 4px;
-  transform: translateX(4px);
-}
-
-.sidebar-context-submenu--flip.open {
-  transform: translateX(0);
-}
-
-.sidebar-context-submenu__item {
-  display: flex;
-  align-items: center;
-  width: 100%;
-  padding: 6px 10px;
-  background: transparent;
-  border: none;
-  color: var(--color-text-primary);
-  font-size: var(--font-size-xs);
-  font-weight: var(--font-weight-medium);
-  text-align: left;
-  cursor: pointer;
-  border-radius: var(--radius-sm);
-  transition: background var(--transition-fast);
-  gap: var(--space-xs);
-}
-
-.sidebar-context-submenu__item:hover {
-  background: var(--color-bg-hover);
-}
-
-.sidebar-context-submenu__item.active {
-  background: var(--color-accent);
-  color: #fff;
-}
-
-.sidebar-context-submenu__item .dot {
-  width: 7px;
-  height: 7px;
-  border-radius: 50%;
-  flex-shrink: 0;
-}
-
-/* Position the trigger row as a containing block for the
- * submenu so `.sidebar-context-submenu { left: 100% }`
- * resolves to the right edge of the trigger ROW (not the
- * outermost positioned ancestor). Without `position: relative`
- * here, the submenu would otherwise ride up to the next
- * positioned ancestor — historically the body, which positioned
- * the submenu far off-screen to the right and made "Set Status"
- * appear visually cut off / invisible. */
-.context-menu-item.has-submenu {
-  position: relative;
-}
-
-/* Replace the row's "Search highlight" caret so the open
- * submenu parent gets an arrow pointing into the submenu. */
-.context-menu-item.has-submenu::after {
-  content: "";
-  display: inline-block;
-  width: 5px;
-  height: 5px;
-  border-right: 1.5px solid var(--color-text-secondary);
-  border-top: 1.5px solid var(--color-text-secondary);
-  transform: rotate(45deg);
-  margin-left: auto;
-  margin-right: 2px;
-  flex-shrink: 0;
-}
-
-.context-menu-item.has-submenu:hover::after,
-.context-menu-item.has-submenu.submenu-open::after {
-  border-color: var(--color-accent);
 }
 
 /* ── Sidebar header bar: collapse toggle + title ──────────────
@@ -1745,6 +1430,11 @@
 
 .sidebar-import-option:hover {
   background: var(--color-bg-hover);
+}
+
+.sidebar-import-option:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: -2px;
 }
 
 .sidebar-import-option + .sidebar-import-option {
@@ -2175,5 +1865,18 @@
 .sidebar-filter-popover-count strong {
   color: var(--color-text-primary);
   font-weight: var(--font-weight-bold);
+}
+
+/* ── Motion safety ─────────────────────────────────────────────────
+ * Collapse the bulk-bar entrance and the row's icon micro-lift to
+ * plain state for users who opt out of motion. */
+@media (prefers-reduced-motion: reduce) {
+  .sidebar-bulk-action-bar {
+    animation: none;
+  }
+
+  .sidebar-game-item:hover .sidebar-game-icon {
+    transform: none;
+  }
 }
 

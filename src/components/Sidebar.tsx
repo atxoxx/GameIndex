@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { useNavigate } from "react-router-dom";
 import { open } from "@tauri-apps/plugin-dialog";
@@ -287,6 +287,13 @@ export default function Sidebar() {
     (filterState.ratingMin != null ? 1 : 0) +
     (filterState.playStatus !== "all" ? 1 : 0);
 
+  // True when anything narrows the list — the search box has text OR
+  // at least one advanced facet is active. Drives the "N of M games"
+  // result count in the main header and the recovery CTA in the
+  // no-match empty state.
+  const isFilteringActive =
+    filterState.search.trim() !== "" || advancedFilterCount > 0;
+
   const [showImportMenu, setShowImportMenu] = useState(false);
   const [showFilterPopover, setShowFilterPopover] = useState(false);
   const [contextMenu, setContextMenu] = useState<{ game: Game; x: number; y: number } | null>(null);
@@ -377,6 +384,23 @@ export default function Sidebar() {
     () => buildSidebarAnchorSelector(hoveredGameId),
     [hoveredGameId]
   );
+
+  // Stable hover callbacks. Rows are memoized, so the per-row handler
+  // props MUST keep a stable identity across unrelated re-renders or
+  // the memo is defeated. Both lists pass the SAME two functions;
+  // the game-specific part (which id to set / clear) is supplied by
+  // the row itself when it invokes them, so no closure over a row's
+  // game is ever created in the parent.
+  const handlePointerEnter = useCallback((g: Game) => {
+    setHoveredGameId(g.id);
+  }, []);
+
+  // The `id === g.id` guard preserves the original clear-if-still-hovered
+  // semantics: a mouseleave that arrives AFTER the next row's mouseenter
+  // must not clobber the new hover target.
+  const handlePointerLeave = useCallback((g: Game) => {
+    setHoveredGameId((id) => (id === g.id ? null : id));
+  }, []);
 
   // ── Derived lists for rendering ──────────────────────────────────
   // Pinned games keep their insertion order via Set iteration
@@ -514,11 +538,11 @@ export default function Sidebar() {
     }
   }
 
-  function handleGameContextMenu(e: React.MouseEvent, game: Game) {
+  const handleGameContextMenu = useCallback((e: React.MouseEvent, game: Game) => {
     e.preventDefault();
     e.stopPropagation();
     setContextMenu({ game, x: e.clientX, y: e.clientY });
-  }
+  }, []);
 
   function handleLaunchFromContextMenu(game: Game) {
     setContextMenu(null);
@@ -559,47 +583,93 @@ export default function Sidebar() {
     [pinnedGames, filteredNonPinned]
   );
 
-  function handleRowClick(game: Game, e: React.MouseEvent) {
-    // Shift-click range: compute indices in the canonical list.
-    if (e.shiftKey && lastClickedId) {
-      e.preventDefault();
-      e.stopPropagation();
-      const ids = combinedVisibleGames.map((g) => g.id);
-      const fromIdx = ids.indexOf(lastClickedId);
-      const toIdx = ids.indexOf(game.id);
-      if (fromIdx >= 0 && toIdx >= 0) {
-        const [lo, hi] = fromIdx < toIdx ? [fromIdx, toIdx] : [toIdx, fromIdx];
+  const handleRowClick = useCallback(
+    (game: Game, e: React.MouseEvent) => {
+      // Shift-click range: compute indices in the canonical list.
+      if (e.shiftKey && lastClickedId) {
+        e.preventDefault();
+        e.stopPropagation();
+        const ids = combinedVisibleGames.map((g) => g.id);
+        const fromIdx = ids.indexOf(lastClickedId);
+        const toIdx = ids.indexOf(game.id);
+        if (fromIdx >= 0 && toIdx >= 0) {
+          const [lo, hi] = fromIdx < toIdx ? [fromIdx, toIdx] : [toIdx, fromIdx];
+          setBulkSelectedIds((prev) => {
+            const next = new Set(prev);
+            for (let i = lo; i <= hi; i++) next.add(ids[i]);
+            return next;
+          });
+        }
+        return;
+      }
+      // Ctrl/Cmd-click toggle.
+      if (e.ctrlKey || e.metaKey) {
+        e.preventDefault();
+        e.stopPropagation();
+        setLastClickedId(game.id);
         setBulkSelectedIds((prev) => {
           const next = new Set(prev);
-          for (let i = lo; i <= hi; i++) next.add(ids[i]);
+          if (next.has(game.id)) next.delete(game.id);
+          else next.add(game.id);
           return next;
         });
+        return;
       }
-      return;
-    }
-    // Ctrl/Cmd-click toggle.
-    if (e.ctrlKey || e.metaKey) {
-      e.preventDefault();
-      e.stopPropagation();
+      // Plain click: clear any bulk selection so a stray click
+      // doesn't accidentally carry selections into the new screen,
+      // then navigate. Setting lastClickedId so a follow-up
+      // shift-click anchors against the just-clicked row rather
+      // than whatever was last toggled.
       setLastClickedId(game.id);
-      setBulkSelectedIds((prev) => {
-        const next = new Set(prev);
-        if (next.has(game.id)) next.delete(game.id);
-        else next.add(game.id);
-        return next;
-      });
-      return;
-    }
-    // Plain click: clear any bulk selection so a stray click
-    // doesn't accidentally carry selections into the new screen,
-    // then navigate. Setting lastClickedId so a follow-up
-    // shift-click anchors against the just-clicked row rather
-    // than whatever was last toggled.
-    setLastClickedId(game.id);
-    if (bulkSelectedIds.size > 0) setBulkSelectedIds(new Set());
-    setSelectedGameId(game.id);
-    navigate(`/library/${game.id}`);
-  }
+      if (bulkSelectedIds.size > 0) setBulkSelectedIds(new Set());
+      setSelectedGameId(game.id);
+      navigate(`/library/${game.id}`);
+    },
+    [lastClickedId, combinedVisibleGames, bulkSelectedIds]
+  );
+
+  // ── Delegated row handlers (perf) ────────────────────────────────
+  // Rows are memoized, so they must not receive per-row closures — a
+  // fresh closure on every parent render would defeat the memo. Click
+  // and context-menu therefore live here, at the LIST level, and both
+  // lists (pinned + main) mount the SAME two stable handlers. They
+  // resolve the clicked row via the `data-sidebar-game-id` attribute
+  // every row already carries, then dispatch to the existing
+  // `handleRowClick` / `handleGameContextMenu` logic. `gameById` is
+  // rebuilt only when the games array changes (a real data change),
+  // so these handlers keep a stable identity across hover-state /
+  // selection / filter churn.
+  const gameById = useMemo(() => {
+    const map = new Map<string, Game>();
+    for (const g of games) map.set(g.id, g);
+    return map;
+  }, [games]);
+
+  const handleListClick = useCallback(
+    (e: React.MouseEvent) => {
+      const target = e.target as HTMLElement;
+      const rowEl = target.closest<HTMLElement>("[data-sidebar-game-id]");
+      if (!rowEl) return;
+      const id = rowEl.dataset.sidebarGameId;
+      const game = id ? gameById.get(id) : undefined;
+      if (!game) return;
+      handleRowClick(game, e);
+    },
+    [handleRowClick, gameById]
+  );
+
+  const handleListContextMenu = useCallback(
+    (e: React.MouseEvent) => {
+      const target = e.target as HTMLElement;
+      const rowEl = target.closest<HTMLElement>("[data-sidebar-game-id]");
+      if (!rowEl) return;
+      const id = rowEl.dataset.sidebarGameId;
+      const game = id ? gameById.get(id) : undefined;
+      if (!game) return;
+      handleGameContextMenu(e, game);
+    },
+    [handleGameContextMenu, gameById]
+  );
 
   // ── Pin/unpin single game (Feature #12) ──────────────────────────
   // Used by the context-menu toggle. We use the functional updater
@@ -988,7 +1058,7 @@ export default function Sidebar() {
             </span>
             <span className="sidebar-list-count">{pinnedGames.length}</span>
           </div>
-          <div className="sidebar-pinned-list">
+          <div className="sidebar-pinned-list" onClick={handleListClick} onContextMenu={handleListContextMenu}>
             {pinnedGames.map((game) => (
               <SidebarGameItem
                 key={`pinned-${game.id}`}
@@ -998,10 +1068,8 @@ export default function Sidebar() {
                 bulkSelected={bulkSelectedIds.has(game.id)}
                 searchQuery={filterState.search}
                 prefersCover={isIconRail}
-                onClick={handleRowClick}
-                onContextMenu={(e) => handleGameContextMenu(e, game)}
-                onPointerEnter={(g) => setHoveredGameId(g.id)}
-                onPointerLeave={() => setHoveredGameId((id) => (id === game.id ? null : id))}
+                onPointerEnter={handlePointerEnter}
+                onPointerLeave={handlePointerLeave}
               />
             ))}
           </div>
@@ -1011,28 +1079,60 @@ export default function Sidebar() {
 
       <div className="sidebar-list-header">
         <span>{t("bigscreen.friends.games")}</span>
-        <span className="sidebar-list-count">{filteredNonPinned.length}</span>
+        {/* While search/advanced filters are active, replace the plain
+         * section count with the overall match result — "N of M games"
+         * — so the user always knows how many of the full library the
+         * current narrowing returns. The pinned section above stays
+         * visible regardless. */}
+        {isFilteringActive ? (
+          <span className="sidebar-list-result">
+            {t("sidebar.resultOfTotal", {
+              count: filteredGames.length,
+              total: games.length,
+            })}
+          </span>
+        ) : (
+          <span className="sidebar-list-count">{filteredNonPinned.length}</span>
+        )}
       </div>
 
-      <div className="sidebar-list">
+      <div className="sidebar-list" onClick={handleListClick} onContextMenu={handleListContextMenu}>
         {filteredNonPinned.length === 0 ? (
           <div className="sidebar-empty">
-            <svg
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="1.5"
-            >
-              <rect x="2" y="3" width="20" height="14" rx="2" ry="2" />
-              <line x1="8" y1="21" x2="16" y2="21" />
-              <line x1="12" y1="17" x2="12" y2="21" />
-            </svg>
-            <p>{games.length === 0 ? t("sidebar.noGamesImported") : t("sidebar.noGamesFound")}</p>
-            {games.length === 0 && (
-              <button onClick={() => setShowImportMenu(true)}>
+            <div className="sidebar-empty-icon" aria-hidden="true">
+              <svg
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="1.5"
+              >
+                <rect x="2" y="3" width="20" height="14" rx="2" ry="2" />
+                <line x1="8" y1="21" x2="16" y2="21" />
+                <line x1="12" y1="17" x2="12" y2="21" />
+              </svg>
+            </div>
+            <p className="sidebar-empty-title">
+              {games.length === 0
+                ? t("sidebar.noGamesImported")
+                : t("sidebar.noGamesFound")}
+            </p>
+            {games.length === 0 ? (
+              <button
+                type="button"
+                className="sidebar-empty-cta"
+                onClick={() => setShowImportMenu(true)}
+              >
                 {t("sidebar.importGames")}
               </button>
-            )}
+            ) : isFilteringActive ? (
+              <button
+                type="button"
+                className="sidebar-empty-cta sidebar-empty-cta--ghost"
+                onClick={reset}
+              >
+                {t("sidebar.clearFilters")}
+              </button>
+            ) : null}
           </div>
         ) : (
           <>
@@ -1045,10 +1145,8 @@ export default function Sidebar() {
                 bulkSelected={bulkSelectedIds.has(game.id)}
                 searchQuery={filterState.search}
                 prefersCover={isIconRail}
-                onClick={handleRowClick}
-                onContextMenu={(e) => handleGameContextMenu(e, game)}
-                onPointerEnter={(g) => setHoveredGameId(g.id)}
-                onPointerLeave={() => setHoveredGameId((id) => (id === game.id ? null : id))}
+                onPointerEnter={handlePointerEnter}
+                onPointerLeave={handlePointerLeave}
               />
             ))}
             {/* Floating bulk-action bar — sticky to the bottom of
@@ -1411,15 +1509,13 @@ function ContextMenu({
  * the viewport, which would otherwise miss rows whose icon is just
  * out-of-frame while the title is still readable.
  */
-function SidebarGameItem({
+function SidebarGameItemBase({
   game,
   isSelected,
   isRunning,
   bulkSelected,
   searchQuery,
   prefersCover,
-  onClick,
-  onContextMenu,
   onPointerEnter,
   onPointerLeave,
 }: {
@@ -1437,10 +1533,8 @@ function SidebarGameItem({
    * larger image to read clearly while the title/meta is hidden.
    */
   prefersCover?: boolean;
-  onClick: (game: Game, e: React.MouseEvent) => void;
-  onContextMenu: (e: React.MouseEvent) => void;
   onPointerEnter: (game: Game) => void;
-  onPointerLeave: () => void;
+  onPointerLeave: (game: Game) => void;
 }) {
   const { updateGame, enrichGameMetadata } = useGames();
   const { t } = useLanguage();
@@ -1490,10 +1584,8 @@ function SidebarGameItem({
       ref={coverRef}
       data-sidebar-game-id={game.id}
       className={`sidebar-game-item${isSelected ? " active" : ""}${bulkSelected ? " bulk-selected" : ""}`}
-      onClick={(e) => onClick(game, e)}
-      onContextMenu={onContextMenu}
       onMouseEnter={() => onPointerEnter(game)}
-      onMouseLeave={onPointerLeave}
+      onMouseLeave={() => onPointerLeave(game)}
     >
       <div className="sidebar-game-icon">
         {/* Image priority chain:
@@ -1572,16 +1664,6 @@ function SidebarGameItem({
             <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2" />
           </svg>
         )}
-        {/* Bulk-select check badge — pinned to the row's top-right.
-         *  Always present in the DOM so the entrance animation
-         *  (`opacity 0→1, scale 0.6→1`) can run when the class flips.
-         *  `pointer-events: none` so the badge can't intercept a
-         *  click meant for the row underneath. */}
-        <div className="sidebar-game-item__check" aria-hidden="true">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3">
-            <polyline points="20 6 9 17 4 12" />
-          </svg>
-        </div>
       </div>
       <div className="sidebar-game-info">
         <div className="sidebar-game-name">
@@ -1608,7 +1690,22 @@ function SidebarGameItem({
           <HighlightedName name={game.name} query={searchQuery} />
         </div>
         <div className="sidebar-game-meta">
-          {game.platform} · {game.playTime}
+          {/* Play-status micro-dot — colored via PLAY_STATUS_DETAILS.
+           *  Only rendered when a game is explicitly marked (anything
+           *  but the default backlog), so a typical unmarked library
+           *  keeps the meta line clean. The install/running dot on the
+           *  right edge stays the primary status affordance. */}
+          {game.playStatus && game.playStatus !== "backlog" && (
+            <span
+              className="sidebar-game-meta-dot"
+              style={{ background: PLAY_STATUS_DETAILS[game.playStatus].color }}
+              title={t(PLAY_STATUS_DETAILS[game.playStatus].labelKey)}
+              aria-hidden="true"
+            />
+          )}
+          <span className="sidebar-game-meta-text">
+            {game.platform} · {game.playTime}
+          </span>
         </div>
       </div>
       {/* Status dot (RIGHT) — last in the flex row so it sits
@@ -1629,9 +1726,28 @@ function SidebarGameItem({
             : t("game.notInstalled")
         }
       />
+      {/* Bulk-select check badge — at ROW level (after the status dot),
+       *  NOT inside `.sidebar-game-icon`: the icon clips its overflow,
+       *  and since the badge's absolute position resolves against the
+       *  row, living inside the icon box would cut it off at the row's
+       *  right edge. `pointer-events: none` keeps it click-through. */}
+      <div className="sidebar-game-item__check" aria-hidden="true">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3">
+          <polyline points="20 6 9 17 4 12" />
+        </svg>
+      </div>
     </button>
   );
 }
+
+// Memoized so a parent re-render (hover state, selection set,
+// running-id list, filter/search changes) never re-renders a row
+// whose own props are unchanged. All per-row handler props are
+// stable useCallback identities (see the delegated list handlers
+// and the hover callbacks in `Sidebar` above), and every other
+// prop is a primitive or the game object reference itself, so the
+// default shallow comparison is sufficient.
+const SidebarGameItem = memo(SidebarGameItemBase);
 
 /**
  * BulkActionBar

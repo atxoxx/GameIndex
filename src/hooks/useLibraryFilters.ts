@@ -7,13 +7,19 @@ import { LIBRARY_FILTERS_STORAGE_KEY, parsePlayTime } from "../types/game";
 export type LibraryStatus = "all" | "installed" | "not_installed";
 
 /** Sort order for the library grid. */
-export type LibrarySort = "alphabetical" | "date_added" | "most_played" | "rating";
+export type LibrarySort =
+  | "alphabetical"
+  | "date_added"
+  | "most_played"
+  | "recently_played"
+  | "rating";
 
 /** Label for each sort option (used in dropdown). */
 export const SORT_LABELS: Record<LibrarySort, string> = {
   alphabetical: "Alphabetical (A–Z)",
   date_added: "Date Added (Newest)",
   most_played: "Most Played",
+  recently_played: "Recently Played",
   rating: "Highest Rated",
 };
 
@@ -22,6 +28,7 @@ export const SORT_OPTIONS: readonly LibrarySort[] = [
   "alphabetical",
   "date_added",
   "most_played",
+  "recently_played",
   "rating",
 ];
 
@@ -168,7 +175,7 @@ function parseStoredFilters(raw: unknown): LibraryFilters {
       obj.playStatus === "on_hold"
         ? (obj.playStatus as PlayStatus)
         : "all",
-    sort: obj.sort === "date_added" || obj.sort === "most_played" || obj.sort === "rating" ? obj.sort : "alphabetical",
+    sort: obj.sort === "date_added" || obj.sort === "most_played" || obj.sort === "recently_played" || obj.sort === "rating" ? obj.sort : "alphabetical",
   };
 }
 
@@ -280,6 +287,10 @@ export function useLibraryFilters(games: Game[]) {
         break;
       case "most_played":
         sorted.sort((a, b) => parsePlayTime(b.playTime) - parsePlayTime(a.playTime));
+        break;
+      case "recently_played":
+        // Never-played games (no lastPlayed) sink to the bottom.
+        sorted.sort((a, b) => (b.lastPlayed ?? 0) - (a.lastPlayed ?? 0));
         break;
       case "rating":
         sorted.sort((a, b) => {

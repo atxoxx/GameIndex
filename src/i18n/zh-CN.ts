@@ -2666,6 +2666,7 @@ export const zhCN: TranslationDict = {
   "sidebar.removeFilter": "移除筛选",
   "sidebar.removeFromLibrary": "从库中移除",
   "sidebar.removedCount": "已移除 {count} 个",
+  "sidebar.resultOfTotal": "共 {total} 款中的 {count} 款",
   "sidebar.selectFolderScan": "选择一个文件夹进行扫描",
   "sidebar.selectGameExe": "选择游戏可执行文件",
   "sidebar.setPlayStatus": "为所选游戏设置游玩状态",

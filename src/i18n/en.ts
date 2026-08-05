@@ -2776,6 +2776,7 @@ export const en: TranslationDict = {
   "sidebar.removeFilter": "Remove filter",
   "sidebar.removeFromLibrary": "Remove from library",
   "sidebar.removedCount": "{count} removed",
+  "sidebar.resultOfTotal": "{count} of {total} games",
   "sidebar.selectFolderScan": "Select a folder to scan",
   "sidebar.selectGameExe": "Select game executable",
   "sidebar.setPlayStatus": "Set play status for selection",

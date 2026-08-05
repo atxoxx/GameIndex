@@ -2655,6 +2655,7 @@ export const fr: TranslationDict = {
   "sidebar.removeFilter": "Retirer le filtre",
   "sidebar.removeFromLibrary": "Retirer de la bibliothèque",
   "sidebar.removedCount": "{count} retirés",
+  "sidebar.resultOfTotal": "{count} sur {total} jeux",
   "sidebar.selectFolderScan": "Sélectionner un dossier à analyser",
   "sidebar.selectGameExe": "Sélectionner l'exécutable du jeu",
   "sidebar.setPlayStatus": "Définir le statut de jeu pour la sélection",
