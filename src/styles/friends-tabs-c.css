@@ -1,0 +1,957 @@
+/* =============================================================================
+ * Friends redesign — Lane C (Recommendations + Wishlist Shares feeds, and the
+ * shared SearchableGameSelector used by the recs composer).
+ *
+ * Loads AFTER friends.css and page-friends.css (imported from FriendsPage.tsx),
+ * so these rules win on equal specificity. Follows the app-wide design
+ * language of settings.css: flat var(--color-surface) panels with hairline
+ * var(--color-border) divisions, a uniform 30px control height
+ * (--friends-ctl-h), uppercase-small-semibold section titles with 0.6px
+ * tracking, tabular numbers, muted uppercase xs labels, color-mix accent
+ * tints at 9-16%, focus-visible rings, and prefers-reduced-motion support.
+ *
+ * Only classes scoped under .recs-section / .suggestions-section /
+ * .searchable-game-selector are touched; shared classes used by other tabs
+ * (compare chips, profile panels, game picker) keep their base styling.
+ * ========================================================================== */
+
+/* ── Lane C control height (30px, mirrors --settings-ctl-h) ──────────── */
+.recs-section,
+.suggestions-section,
+.searchable-game-selector {
+  --friends-ctl-h: 30px;
+}
+
+/* =============================================================================
+ * Feed scaffolding — heading + filter tray
+ * ========================================================================== */
+
+/* Feed heading: uppercase section title over a hairline rule. */
+.rec-feed-head,
+.sug-feed-head {
+  display: flex;
+  align-items: center;
+  gap: var(--space-md);
+  padding-bottom: var(--space-md);
+  border-bottom: 1px solid var(--color-border);
+}
+
+.rec-feed-head .friends-list-title,
+.sug-feed-head .friends-list-title {
+  margin: 0;
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-semibold);
+  text-transform: uppercase;
+  letter-spacing: 0.6px;
+  color: var(--color-text-primary);
+}
+
+/* Filter trays ride the feed gap rhythm instead of their own bottom margin. */
+.rec-filter-tray,
+.sug-filter-tray {
+  margin: 0;
+}
+
+/* =============================================================================
+ * Feed cards — flat surfaces, hairline borders, entrance + hover lift
+ * ========================================================================== */
+
+.recs-section .rec-card,
+.suggestions-section .sug-card {
+  background: var(--color-surface);
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  padding: var(--space-lg);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+  animation: fadeIn 240ms var(--ease-standard) both;
+  transition: border-color var(--transition-fast), box-shadow var(--transition-fast), transform var(--transition-fast);
+}
+
+/* Cheap stagger: cards after the first start 40ms later. */
+.recs-section .rec-card + .rec-card,
+.suggestions-section .sug-card + .sug-card {
+  animation-delay: 40ms;
+}
+
+.recs-section .rec-card:hover,
+.suggestions-section .sug-card:hover {
+  border-color: var(--color-accent-hover);
+  box-shadow: var(--shadow-md);
+  transform: translateY(-1px);
+}
+
+/* Card header: title stack left, actions right, hairline below. */
+.recs-section .rec-header,
+.suggestions-section .sug-header {
+  border-bottom: 1px solid var(--color-border);
+  padding-bottom: var(--space-sm);
+  gap: var(--space-md);
+}
+
+.recs-section .rec-meta {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+  min-width: 0;
+}
+
+.recs-section .rec-game,
+.suggestions-section .sug-game {
+  font-size: var(--font-size-md);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text-primary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 100%;
+}
+
+.recs-section .rec-author,
+.suggestions-section .sug-author {
+  font-size: var(--font-size-xs);
+  color: var(--color-text-muted);
+}
+
+/* Header action buttons (delete / store link) — compact 26px icon buttons. */
+.recs-section .rec-header-actions,
+.suggestions-section .sug-header-actions {
+  display: flex;
+  align-items: center;
+  gap: var(--space-xs);
+  flex-shrink: 0;
+}
+
+.recs-section .rec-header-actions .friend-delete-btn--inline,
+.suggestions-section .sug-header-actions .friend-delete-btn--inline {
+  position: static;
+  opacity: 1;
+  width: 26px;
+  height: 26px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--radius-sm);
+  color: var(--color-text-muted);
+  transition: color var(--transition-fast), background var(--transition-fast);
+}
+
+.recs-section .rec-header-actions .friend-delete-btn--inline:hover,
+.suggestions-section .sug-header-actions .friend-delete-btn--inline:hover {
+  color: var(--color-danger);
+  background: color-mix(in srgb, var(--color-danger) 12%, transparent);
+}
+
+.recs-section .rec-header-actions .friend-delete-btn--inline svg,
+.suggestions-section .sug-header-actions .friend-delete-btn--inline svg {
+  width: 13px;
+  height: 13px;
+}
+
+/* ── Rating stars (display, in card headers) ─────────────────────────── */
+.recs-section .rec-header-actions .rating-stars {
+  display: inline-flex;
+  gap: 2px;
+  font-size: 12px;
+  line-height: 1;
+}
+
+.recs-section .rec-header-actions .rating-stars span:not(.active) {
+  color: var(--color-text-muted);
+}
+
+.recs-section .rec-header-actions .rating-stars span.active {
+  color: var(--color-warning);
+}
+
+/* ── Rating picker (composer) — segmented tray of star buttons ───────── */
+.rec-rating-picker {
+  display: inline-flex;
+  gap: 2px;
+  margin: 0;
+  padding: 2px;
+  align-self: flex-start;
+  background: var(--color-bg-tertiary);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+}
+
+.rec-rating-star {
+  appearance: none;
+  border: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: calc(var(--friends-ctl-h) - 6px);
+  border-radius: calc(var(--radius-md) - 2px);
+  background: transparent;
+  color: var(--color-text-muted);
+  font-family: inherit;
+  font-size: 14px;
+  line-height: 1;
+  cursor: pointer;
+  transition: color var(--transition-fast), background var(--transition-fast);
+}
+
+.rec-rating-star:hover {
+  color: var(--color-warning);
+  background: var(--color-bg-hover);
+}
+
+.rec-rating-star.active {
+  color: var(--color-warning);
+  background: color-mix(in srgb, var(--color-warning) 14%, transparent);
+}
+
+.rec-rating-star:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: -2px;
+}
+
+/* ── Reason / note quote blocks ──────────────────────────────────────── */
+.recs-section .rec-reason,
+.suggestions-section .sug-note {
+  margin: 0;
+  font-size: var(--font-size-sm);
+  line-height: 1.6;
+  color: var(--color-text-primary);
+  background: var(--color-bg-tertiary);
+  border: 1px solid var(--color-border);
+  border-left: 3px solid var(--color-accent);
+  border-radius: var(--radius-md);
+  padding: var(--space-sm) var(--space-md);
+}
+
+/* ── Suggestion cover art ────────────────────────────────────────────── */
+.suggestions-section .sug-cover {
+  width: 48px;
+  height: 64px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--color-border);
+  object-fit: cover;
+  flex-shrink: 0;
+  background: var(--color-bg-tertiary);
+}
+
+.suggestions-section .sug-cover-fallback {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 11px;
+  font-weight: var(--font-weight-bold);
+  letter-spacing: 0.5px;
+  color: #fff;
+  background: color-mix(in srgb, var(--color-accent) 82%, var(--color-bg-tertiary));
+  border-color: color-mix(in srgb, var(--color-accent) 40%, transparent);
+}
+
+/* =============================================================================
+ * Reactions + want-to-play pills
+ * ========================================================================== */
+
+.recs-section .rec-reactions-row,
+.suggestions-section .rec-reactions-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+}
+
+.recs-section .rec-reaction-btn,
+.recs-section .rec-want-btn,
+.suggestions-section .rec-reaction-btn,
+.suggestions-section .rec-want-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  height: 26px;
+  padding: 0 10px;
+  border-radius: var(--radius-full);
+  background: var(--color-bg-tertiary);
+  border: 1px solid var(--color-border);
+  color: var(--color-text-secondary);
+  font-family: inherit;
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-semibold);
+  cursor: pointer;
+  white-space: nowrap;
+  transition: border-color var(--transition-fast), background var(--transition-fast), color var(--transition-fast), box-shadow var(--transition-fast);
+}
+
+.recs-section .rec-reaction-btn:hover,
+.recs-section .rec-want-btn:hover,
+.suggestions-section .rec-reaction-btn:hover,
+.suggestions-section .rec-want-btn:hover {
+  border-color: var(--color-border-light);
+  background: var(--color-bg-hover);
+  color: var(--color-text-primary);
+}
+
+.recs-section .rec-reaction-btn:focus-visible,
+.recs-section .rec-want-btn:focus-visible,
+.suggestions-section .rec-reaction-btn:focus-visible,
+.suggestions-section .rec-want-btn:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 2px;
+}
+
+.recs-section .rec-reaction-btn.active,
+.suggestions-section .rec-reaction-btn.active {
+  border-color: color-mix(in srgb, var(--color-accent) 45%, transparent);
+  background: color-mix(in srgb, var(--color-accent) 14%, transparent);
+  color: var(--color-accent);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--color-accent) 18%, transparent);
+}
+
+.recs-section .rec-want-btn.active,
+.suggestions-section .rec-want-btn.active {
+  border-color: color-mix(in srgb, var(--color-success) 45%, transparent);
+  background: color-mix(in srgb, var(--color-success) 14%, transparent);
+  color: var(--color-success);
+}
+
+/* Confirmed wishlist state: keep the success tint readable, no dimming. */
+.recs-section .rec-want-btn:disabled,
+.suggestions-section .rec-want-btn:disabled {
+  opacity: 1;
+  cursor: default;
+}
+
+.recs-section .rec-reaction-count,
+.suggestions-section .rec-reaction-count {
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-bold);
+  font-variant-numeric: tabular-nums;
+}
+
+.recs-section .rec-reaction-btn svg,
+.recs-section .rec-want-btn svg,
+.suggestions-section .rec-reaction-btn svg,
+.suggestions-section .rec-want-btn svg {
+  width: 13px;
+  height: 13px;
+}
+
+/* =============================================================================
+ * Comments — title, thread, items, composer strip
+ * ========================================================================== */
+
+.recs-section .rec-comments-section,
+.suggestions-section .rec-comments-section {
+  margin-top: var(--space-sm);
+  border-top: 1px solid var(--color-border);
+  padding-top: var(--space-sm);
+}
+
+.recs-section .rec-comments-title,
+.suggestions-section .rec-comments-title {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  margin: 0 0 var(--space-sm);
+  font-size: 10px;
+  font-weight: var(--font-weight-bold);
+  text-transform: uppercase;
+  letter-spacing: 0.6px;
+  color: var(--color-text-muted);
+}
+
+.recs-section .rec-comments-title::after,
+.suggestions-section .rec-comments-title::after {
+  content: "";
+  flex: 1;
+  height: 1px;
+  background: var(--color-border);
+}
+
+.recs-section .rec-comments-list,
+.suggestions-section .rec-comments-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-xs);
+  margin-bottom: var(--space-md);
+  max-height: 200px;
+  overflow-y: auto;
+}
+
+/* Comment row: author | text | meta (time + delete) on a baseline grid. */
+.recs-section .comment-item,
+.suggestions-section .comment-item {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  align-items: baseline;
+  gap: var(--space-sm);
+  background: var(--color-bg-tertiary);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  padding: var(--space-sm) var(--space-md);
+  font-size: var(--font-size-xs);
+  line-height: 1.5;
+}
+
+.recs-section .comment-author,
+.suggestions-section .comment-author {
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-accent);
+  white-space: nowrap;
+}
+
+.recs-section .comment-text,
+.suggestions-section .comment-text {
+  color: var(--color-text-primary);
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.recs-section .comment-meta,
+.suggestions-section .comment-meta {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-xs);
+  white-space: nowrap;
+}
+
+.recs-section .comment-time,
+.suggestions-section .comment-time {
+  font-size: 10px;
+  color: var(--color-text-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.recs-section .comment-delete-btn,
+.suggestions-section .comment-delete-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  padding: 0;
+  border: none;
+  border-radius: var(--radius-xs);
+  background: transparent;
+  color: var(--color-text-muted);
+  cursor: pointer;
+  transition: color var(--transition-fast), background var(--transition-fast);
+}
+
+.recs-section .comment-delete-btn:hover,
+.suggestions-section .comment-delete-btn:hover {
+  color: var(--color-danger);
+  background: color-mix(in srgb, var(--color-danger) 12%, transparent);
+}
+
+.recs-section .comment-delete-btn svg,
+.suggestions-section .comment-delete-btn svg {
+  width: 11px;
+  height: 11px;
+}
+
+/* Comment composer strip — 30px input + matching submit button. */
+.recs-section .comment-form,
+.suggestions-section .comment-form {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  margin-top: var(--space-sm);
+}
+
+.recs-section .comment-form .comment-input,
+.suggestions-section .comment-form .comment-input {
+  flex: 1;
+  min-width: 0;
+  height: var(--friends-ctl-h);
+  padding: 0 var(--space-md);
+  background: var(--color-bg-tertiary);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  color: var(--color-text-primary);
+  font-family: inherit;
+  font-size: var(--font-size-sm);
+  outline: none;
+  transition: border-color var(--transition-fast), box-shadow var(--transition-fast), background var(--transition-fast);
+}
+
+.recs-section .comment-form .comment-input:focus,
+.suggestions-section .comment-form .comment-input:focus {
+  border-color: var(--color-accent);
+  box-shadow: 0 0 0 3px var(--color-accent-glow);
+  background: var(--color-bg-secondary);
+}
+
+.recs-section .comment-form .comment-input::placeholder,
+.suggestions-section .comment-form .comment-input::placeholder {
+  color: var(--color-text-muted);
+}
+
+.recs-section .comment-form .ui-btn--sm,
+.suggestions-section .comment-form .ui-btn--sm {
+  height: var(--friends-ctl-h);
+  flex-shrink: 0;
+}
+
+/* =============================================================================
+ * Suggestions toolbar — search + sort control strip
+ * ========================================================================== */
+
+.suggestions-section .suggestions-toolbar {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  margin: 0;
+}
+
+.suggestions-section .sug-search-input {
+  flex: 1;
+  min-width: 0;
+  max-width: 360px;
+  height: var(--friends-ctl-h);
+  padding: 0 12px 0 32px;
+  background-color: var(--color-bg-tertiary);
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%239aa0b0' stroke-width='2.5' stroke-linecap='round'%3E%3Ccircle cx='11' cy='11' r='7'/%3E%3Cline x1='21' y1='21' x2='16.5' y2='16.5'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: left 10px center;
+  background-size: 13px 13px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  color: var(--color-text-primary);
+  font-family: inherit;
+  font-size: var(--font-size-sm);
+  outline: none;
+  transition: border-color var(--transition-fast), box-shadow var(--transition-fast), background var(--transition-fast);
+}
+
+.suggestions-section .sug-search-input:focus {
+  border-color: var(--color-accent);
+  box-shadow: 0 0 0 3px var(--color-accent-glow);
+  background-color: var(--color-bg-secondary);
+}
+
+.suggestions-section .sug-search-input::placeholder {
+  color: var(--color-text-muted);
+}
+
+.suggestions-section .suggestion-sort {
+  height: var(--friends-ctl-h);
+  padding: 0 30px 0 var(--space-md);
+  background-color: var(--color-bg-tertiary);
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%239aa0b0' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 10px center;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  color: var(--color-text-primary);
+  font-family: inherit;
+  font-size: var(--font-size-sm);
+  cursor: pointer;
+  outline: none;
+  appearance: none;
+  -webkit-appearance: none;
+  color-scheme: light dark;
+  transition: border-color var(--transition-fast), box-shadow var(--transition-fast), background var(--transition-fast);
+}
+
+.suggestions-section .suggestion-sort:hover {
+  border-color: var(--color-border-light);
+}
+
+.suggestions-section .suggestion-sort:focus {
+  border-color: var(--color-accent);
+  box-shadow: 0 0 0 3px var(--color-accent-glow);
+  background-color: var(--color-bg-secondary);
+}
+
+.suggestions-section .suggestion-sort option {
+  background: var(--color-bg-primary);
+  color: var(--color-text-primary);
+}
+
+/* =============================================================================
+ * Composer panels (recs + suggestions) — settings-section language
+ * ========================================================================== */
+
+.rec-composer,
+.sug-composer {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-lg);
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  padding: var(--space-xl);
+}
+
+.rec-composer-head,
+.sug-composer-head {
+  display: flex;
+  align-items: center;
+  gap: var(--space-md);
+  padding-bottom: var(--space-md);
+  border-bottom: 1px solid var(--color-border);
+}
+
+.rec-composer-icon,
+.sug-composer-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  flex-shrink: 0;
+  border-radius: var(--radius-md);
+  background: color-mix(in srgb, var(--color-accent) 14%, transparent);
+  border: 1px solid color-mix(in srgb, var(--color-accent) 26%, transparent);
+  color: var(--color-accent);
+}
+
+.rec-composer-icon svg,
+.sug-composer-icon svg {
+  width: 16px;
+  height: 16px;
+}
+
+.rec-composer .profile-edit-title,
+.sug-composer .profile-edit-title {
+  margin: 0;
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-semibold);
+  text-transform: uppercase;
+  letter-spacing: 0.6px;
+  color: var(--color-text-primary);
+  border: none;
+  padding: 0;
+}
+
+.rec-composer .profile-form,
+.sug-composer .profile-form {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-md);
+  margin: 0;
+}
+
+.rec-form-field,
+.sug-form-field {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-xs);
+}
+
+.rec-form-label,
+.sug-form-label {
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-semibold);
+  text-transform: uppercase;
+  letter-spacing: 0.6px;
+  color: var(--color-text-secondary);
+}
+
+/* Native selects — uniform 30px control with the shared chevron. */
+.rec-form-select,
+.sug-form-select {
+  min-height: var(--friends-ctl-h);
+  padding: 0 30px 0 var(--space-md);
+  background-color: var(--color-bg-tertiary);
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%239aa0b0' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 10px center;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  color: var(--color-text-primary);
+  font-family: inherit;
+  font-size: var(--font-size-sm);
+  cursor: pointer;
+  outline: none;
+  appearance: none;
+  -webkit-appearance: none;
+  color-scheme: light dark;
+  transition: border-color var(--transition-fast), box-shadow var(--transition-fast), background var(--transition-fast);
+}
+
+.rec-form-select:hover,
+.sug-form-select:hover {
+  border-color: var(--color-border-light);
+}
+
+.rec-form-select:focus,
+.sug-form-select:focus {
+  border-color: var(--color-accent);
+  box-shadow: 0 0 0 3px var(--color-accent-glow);
+  background-color: var(--color-bg-secondary);
+}
+
+.rec-form-select option,
+.sug-form-select option {
+  background: var(--color-bg-primary);
+  color: var(--color-text-primary);
+}
+
+/* Textareas — keep usable height, allow vertical resize. */
+.rec-form-textarea,
+.sug-form-textarea {
+  height: auto;
+  min-height: 88px;
+  resize: vertical;
+  padding: var(--space-sm) var(--space-md);
+  line-height: 1.6;
+  cursor: text;
+}
+
+/* Submit buttons span the composer column. */
+.rec-composer-submit,
+.sug-composer-submit {
+  width: 100%;
+  justify-content: center;
+}
+
+/* Wishlist-empty state inside the composer stays a compact inline card. */
+.sug-composer .friends-empty-state {
+  margin: 0;
+  max-width: 100%;
+}
+
+/* =============================================================================
+ * SearchableGameSelector — compact 30px autocomplete
+ * ========================================================================== */
+
+.searchable-game-selector {
+  position: relative;
+  width: 100%;
+}
+
+.searchable-game-selector .game-search-input-wrapper {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.searchable-game-selector .game-search-input-wrapper::before {
+  left: 12px;
+  width: 13px;
+  height: 13px;
+  opacity: 0.65;
+}
+
+.searchable-game-selector .game-search-input {
+  width: 100%;
+  height: var(--friends-ctl-h);
+  padding: 0 34px;
+  background: var(--color-bg-tertiary);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  color: var(--color-text-primary);
+  font-family: inherit;
+  font-size: var(--font-size-sm);
+  outline: none;
+  transition: border-color var(--transition-fast), box-shadow var(--transition-fast), background var(--transition-fast);
+}
+
+.searchable-game-selector .game-search-input:focus {
+  border-color: var(--color-accent);
+  box-shadow: 0 0 0 3px var(--color-accent-glow);
+  background: var(--color-bg-secondary);
+}
+
+.searchable-game-selector .game-search-input::placeholder {
+  color: var(--color-text-muted);
+}
+
+.searchable-game-selector .game-search-clear-btn {
+  right: 8px;
+  width: 18px;
+  height: 18px;
+  border-radius: var(--radius-full);
+  background: var(--color-bg-hover);
+  border: 1px solid var(--color-border);
+  color: var(--color-text-muted);
+  font-size: 12px;
+  line-height: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: color var(--transition-fast), background var(--transition-fast);
+}
+
+.searchable-game-selector .game-search-clear-btn:hover {
+  color: var(--color-text-primary);
+  background: var(--color-bg-active);
+}
+
+/* Raised dropdown — surface-raised + shadow-md, same family as the
+ * settings language picker. */
+.searchable-game-selector .game-search-results {
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 0;
+  width: 100%;
+  z-index: 100;
+  padding: 4px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  max-height: 260px;
+  overflow-y: auto;
+  background: var(--color-surface-raised);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-md);
+  transform-origin: top center;
+  animation: languagePanelIn 160ms var(--ease-standard);
+}
+
+.searchable-game-selector .game-search-item {
+  display: flex;
+  align-items: center;
+  gap: var(--space-md);
+  width: 100%;
+  padding: 6px var(--space-md);
+  border: none;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--color-text-primary);
+  font-family: inherit;
+  font-size: var(--font-size-sm);
+  text-align: left;
+  cursor: pointer;
+  transition: background var(--transition-fast), color var(--transition-fast);
+}
+
+.searchable-game-selector .game-search-item:hover,
+.searchable-game-selector .game-search-item.highlighted {
+  background: color-mix(in srgb, var(--color-accent) 12%, transparent);
+}
+
+.searchable-game-selector .game-search-item:hover .game-search-item-name,
+.searchable-game-selector .game-search-item.highlighted .game-search-item-name {
+  color: var(--color-accent);
+}
+
+.searchable-game-selector .game-search-item:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: -2px;
+}
+
+.searchable-game-selector .game-search-item-thumb {
+  width: 30px;
+  height: 40px;
+  flex-shrink: 0;
+  border-radius: var(--radius-sm);
+  background: var(--color-bg-tertiary);
+  border: 1px solid var(--color-border);
+  color: var(--color-text-muted);
+  font-size: 10px;
+  font-weight: var(--font-weight-bold);
+  letter-spacing: 0.5px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  object-fit: cover;
+}
+
+.searchable-game-selector .game-search-item-name {
+  font-weight: var(--font-weight-medium);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  transition: color var(--transition-fast);
+}
+
+.searchable-game-selector .game-search-no-results {
+  padding: var(--space-lg) var(--space-md);
+  text-align: center;
+  color: var(--color-text-muted);
+  font-size: var(--font-size-xs);
+}
+
+/* Selected game — compact confirmation card with an accent thumb. */
+.searchable-game-selector__selected {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-md);
+  width: 100%;
+  padding: var(--space-sm) var(--space-md);
+  background: var(--color-bg-tertiary);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  transition: border-color var(--transition-fast), box-shadow var(--transition-fast);
+}
+
+.searchable-game-selector__selected:focus-within {
+  border-color: var(--color-accent);
+  box-shadow: 0 0 0 3px var(--color-accent-glow);
+}
+
+.searchable-game-selector__selected .selected-game-details {
+  display: flex;
+  align-items: center;
+  gap: var(--space-md);
+  min-width: 0;
+}
+
+.searchable-game-selector__selected .selected-game-thumb {
+  width: 30px;
+  height: 40px;
+  flex-shrink: 0;
+  border-radius: var(--radius-sm);
+  background: var(--color-accent);
+  border: 1px solid color-mix(in srgb, var(--color-accent) 40%, transparent);
+  color: #fff;
+  font-size: 10px;
+  font-weight: var(--font-weight-bold);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  object-fit: cover;
+}
+
+.searchable-game-selector__selected .selected-game-title {
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text-primary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.searchable-game-selector__selected .btn--mini {
+  height: 26px;
+  padding: 0 var(--space-md);
+  flex-shrink: 0;
+}
+
+/* =============================================================================
+ * Empty states — feed variants keep the medallion family, softly enter
+ * ========================================================================== */
+
+.recs-feed .friends-empty-state,
+.suggestions-section .friends-empty-state {
+  animation: fadeIn 240ms var(--ease-standard) both;
+}
+
+/* =============================================================================
+ * Reduced motion
+ * ========================================================================== */
+
+@media (prefers-reduced-motion: reduce) {
+  .recs-section .rec-card,
+  .suggestions-section .sug-card,
+  .recs-feed .friends-empty-state,
+  .suggestions-section .friends-empty-state,
+  .searchable-game-selector .game-search-results {
+    animation: none;
+  }
+
+  .recs-section .rec-card:hover,
+  .suggestions-section .sug-card:hover {
+    transform: none;
+  }
+}

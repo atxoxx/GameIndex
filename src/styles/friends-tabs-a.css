@@ -1,0 +1,876 @@
+/* =============================================================================
+ * Friends — Lane A: page chrome + friends list + modals
+ *
+ * Visual layer for: the subtab bar + sync row, the friends-list subtab
+ * (invitations, header, bulk bar, controls, cards, empty states), the
+ * friend-card action menu, and the Add Friend / P2P modals.
+ *
+ * Follows the app-wide design language (see settings.css): flat
+ * var(--color-surface) panels with hairline 1px var(--color-border)
+ * divisions, a uniform control-strip height, uppercase-small-semibold
+ * section titles with 0.6px tracking, muted uppercase xs labels,
+ * tabular-nums counts, accent tints at 9-16% via color-mix, accent
+ * focus-visible rings, and prefers-reduced-motion support.
+ *
+ * Loads after friends.css and page-friends.css (imported from
+ * FriendsPage.tsx) so these rules win the cascade on equal specificity.
+ * Deliberately overrides in place — zero JSX/class changes.
+ * ========================================================================== */
+
+/* =============================================================================
+ * 1. Page chrome — subtab bar
+ * ========================================================================== */
+
+/* The chrome strip owns its own hairline; the `.page` gap handles the
+   rhythm below, so the old doubled margin-bottom goes away. */
+.friends-tab-bar-container {
+  margin-bottom: 0;
+  border-bottom: 1px solid var(--color-border);
+  animation: friendsChromeIn 260ms var(--ease-standard);
+}
+
+.friends-tab-bar {
+  gap: 4px;
+}
+
+/* Consistent strip height; icon + label + count sit on one baseline. */
+.friends-tab {
+  height: 34px;
+  padding: 0 14px;
+  gap: 8px;
+  border-radius: var(--radius-md);
+  color: var(--color-text-muted);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-medium);
+  letter-spacing: 0.1px;
+  transition: color var(--transition-fast), background var(--transition-fast);
+}
+
+/* Active underline — 2px accent bar that docks into the container hairline. */
+.friends-tab::after {
+  bottom: -1px;
+  left: 12px;
+  right: 12px;
+  height: 2px;
+  background: var(--color-accent);
+  border-radius: 2px 2px 0 0;
+  box-shadow: 0 0 8px color-mix(in srgb, var(--color-accent) 50%, transparent);
+}
+
+.friends-tab:hover {
+  color: var(--color-text-primary);
+  background: var(--color-bg-hover);
+}
+
+/* Inset ring so the highlight never clips against the bar edges. */
+.friends-tab:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: -2px;
+}
+
+.friends-tab.active {
+  color: var(--color-accent);
+  background: color-mix(in srgb, var(--color-accent) 11%, transparent);
+}
+
+.friends-tab svg {
+  width: 15px;
+  height: 15px;
+  flex-shrink: 0;
+}
+
+/* Count pill — tabular, hairline tray, accent-tinted when the tab is live. */
+.friends-tab-count {
+  min-width: 18px;
+  height: 17px;
+  padding: 0 5px;
+  border-radius: var(--radius-full);
+  background: var(--color-bg-tertiary);
+  border: 1px solid var(--color-border);
+  color: var(--color-text-secondary);
+  font-size: 10px;
+  font-weight: var(--font-weight-bold);
+  font-variant-numeric: tabular-nums;
+  transition: background-color var(--transition-fast),
+    border-color var(--transition-fast), color var(--transition-fast);
+}
+
+.friends-tab.active .friends-tab-count {
+  background: color-mix(in srgb, var(--color-accent) 18%, transparent);
+  border-color: color-mix(in srgb, var(--color-accent) 38%, transparent);
+  color: var(--color-accent);
+}
+
+/* =============================================================================
+ * 2. Page chrome — sync status row
+ *
+ * Reads as one self-contained control cluster docked to the right of the
+ * tab strip: a pill tray (bg-tertiary + hairline) holding the status dot,
+ * mono timestamp, divider and the two icon buttons.
+ * ========================================================================== */
+
+.sync-status-container {
+  height: 34px;
+  padding: 3px 4px 3px 12px;
+  background: var(--color-bg-tertiary);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-full);
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+.sync-status-dot {
+  width: 7px;
+  height: 7px;
+}
+
+.sync-status-text {
+  font-size: var(--font-size-xs);
+  color: var(--color-text-muted);
+}
+
+.sync-status-divider {
+  height: 14px;
+  margin: 0;
+}
+
+/* Ghost icon buttons inside the tray — only the hover/active states carry
+   fill, so the cluster stays quiet until you reach for it. */
+.btn-sync {
+  width: 26px;
+  height: 26px;
+  background: transparent;
+  border: none;
+  border-radius: var(--radius-full);
+  color: var(--color-text-secondary);
+  transition: background-color var(--transition-fast),
+    color var(--transition-fast), opacity var(--transition-fast);
+}
+
+.btn-sync:hover {
+  background: var(--color-bg-hover);
+  border: none;
+  color: var(--color-text-primary);
+}
+
+.btn-sync:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 1px;
+}
+
+.btn-sync:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  pointer-events: none;
+}
+
+/* P2P entry stays accent-tinted so the brand action is findable. */
+.p2p-sync-btn,
+.p2p-sync-btn svg {
+  color: var(--color-accent);
+}
+
+.p2p-sync-btn:hover {
+  background: color-mix(in srgb, var(--color-accent) 14%, transparent);
+  color: var(--color-accent);
+}
+
+.p2p-sync-btn:hover svg {
+  color: var(--color-accent);
+}
+
+/* =============================================================================
+ * 3. Pending invitations strip
+ * ========================================================================== */
+
+.friend-invitations-section {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  padding: var(--space-lg);
+  margin-bottom: var(--space-xl);
+  box-shadow: none;
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+  animation: friendsPanelIn 240ms var(--ease-standard) both;
+}
+
+.friend-invitations-head {
+  border-bottom: 1px solid var(--color-border);
+  padding-bottom: var(--space-sm);
+}
+
+/* Section title — uppercase small-semibold, 0.6px tracking. */
+.friend-invitations-title {
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-semibold);
+  text-transform: uppercase;
+  letter-spacing: 0.6px;
+  color: var(--color-text-primary);
+}
+
+.friend-invitations-hint {
+  font-size: var(--font-size-xs);
+  color: var(--color-text-muted);
+}
+
+.friend-invitation-card {
+  background: var(--color-surface);
+  border-color: var(--color-border);
+  animation: friendsCardIn 240ms var(--ease-standard) both;
+}
+
+.friend-invitations-list .friend-invitation-card:nth-child(2) { animation-delay: 40ms; }
+.friend-invitations-list .friend-invitation-card:nth-child(3) { animation-delay: 80ms; }
+.friend-invitations-list .friend-invitation-card:nth-child(4) { animation-delay: 120ms; }
+.friend-invitations-list .friend-invitation-card:nth-child(5) { animation-delay: 160ms; }
+.friend-invitations-list .friend-invitation-card:nth-child(n + 6) { animation-delay: 200ms; }
+
+/* =============================================================================
+ * 4. Friends list — header + bulk select bar
+ * ========================================================================== */
+
+.friends-list-section {
+  animation: friendsPanelIn 260ms var(--ease-standard) both;
+}
+
+.friends-list-section .page-header {
+  margin-bottom: 0;
+}
+
+/* Bulk bar — accent whisper on the flat surface, hairline accent border. */
+.friends-bulk-bar {
+  background: color-mix(in srgb, var(--color-accent) 6%, var(--color-surface));
+  border: 1px solid color-mix(in srgb, var(--color-accent) 26%, var(--color-border));
+  border-radius: var(--radius-md);
+  padding: var(--space-xs) var(--space-md);
+}
+
+.friends-bulk-count {
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-semibold);
+  font-variant-numeric: tabular-nums;
+  color: var(--color-text-primary);
+}
+
+.friends-bulk-count::before {
+  width: 7px;
+  height: 7px;
+  background: var(--color-accent);
+  box-shadow: 0 0 8px color-mix(in srgb, var(--color-accent) 50%, transparent);
+}
+
+.friends-bulk-actions .ui-btn,
+.friends-bulk-actions .btn {
+  font-size: var(--font-size-xs);
+}
+
+/* =============================================================================
+ * 5. Controls row — filter chips / search / sort / density
+ * ========================================================================== */
+
+/* Flat surface panel with hairline — the toolbar of the list. */
+.friends-controls-row {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  padding: var(--space-sm) var(--space-md);
+  gap: var(--space-sm);
+}
+
+.friends-controls-filters {
+  gap: var(--space-sm);
+}
+
+/* Chips keep the segmented-tray family; only refine the count pill. */
+.friends-filter-chips .compare-filter-chip {
+  height: 28px;
+}
+
+.friends-controls-count {
+  font-size: var(--font-size-xs);
+  font-variant-numeric: tabular-nums;
+  color: var(--color-text-muted);
+}
+
+/* Search field — 30px control strip, accent ring on focus. */
+.friends-search-input {
+  background: var(--color-bg-tertiary);
+  border-color: var(--color-border);
+  font-size: var(--font-size-sm);
+}
+
+.friends-search-input:hover {
+  border-color: var(--color-border-light);
+}
+
+.friends-search-input:focus {
+  border-color: var(--color-accent);
+  box-shadow: 0 0 0 3px var(--color-accent-glow);
+}
+
+.friends-search-clear {
+  color: var(--color-text-muted);
+}
+
+.friends-search-clear:hover {
+  color: var(--color-text-primary);
+}
+
+/* Sort select — same family as the search field, with a custom chevron. */
+.friends-sort-select {
+  background-color: var(--color-bg-tertiary);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  color: var(--color-text-primary);
+  font-size: var(--font-size-sm);
+  font-family: inherit;
+  appearance: none;
+  -webkit-appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%239aa0b0' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 10px center;
+}
+
+.friends-sort-select:hover {
+  border-color: var(--color-border-light);
+}
+
+.friends-sort-select:focus {
+  border-color: var(--color-accent);
+  box-shadow: 0 0 0 3px var(--color-accent-glow);
+}
+
+.friends-sort-select option {
+  background: var(--color-bg-primary);
+  color: var(--color-text-primary);
+}
+
+/* Density segmented tray — already in the family; keep its rhythm. */
+.friends-density {
+  border-radius: var(--radius-md);
+}
+
+.friends-density-btn:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: -2px;
+}
+
+/* =============================================================================
+ * 6. Friend cards (grid + list)
+ * ========================================================================== */
+
+.friend-card {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  padding: var(--space-md) var(--space-md) var(--space-sm);
+  gap: var(--space-sm);
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+  transition: transform var(--duration-normal) var(--ease-standard),
+    border-color var(--duration-normal) var(--ease-standard),
+    box-shadow var(--duration-normal) var(--ease-standard);
+  animation: friendsCardIn 260ms var(--ease-standard) both;
+}
+
+/* Staggered entrance — capped so large grids don't drag. */
+.friends-grid .friend-card:nth-child(2) { animation-delay: 28ms; }
+.friends-grid .friend-card:nth-child(3) { animation-delay: 56ms; }
+.friends-grid .friend-card:nth-child(4) { animation-delay: 84ms; }
+.friends-grid .friend-card:nth-child(5) { animation-delay: 112ms; }
+.friends-grid .friend-card:nth-child(6) { animation-delay: 140ms; }
+.friends-grid .friend-card:nth-child(7) { animation-delay: 168ms; }
+.friends-grid .friend-card:nth-child(8) { animation-delay: 196ms; }
+.friends-grid .friend-card:nth-child(n + 9) { animation-delay: 224ms; }
+
+.friend-card:hover {
+  transform: translateY(-2px);
+  border-color: color-mix(in srgb, var(--color-accent) 55%, var(--color-border));
+  box-shadow: var(--shadow-md);
+}
+
+/* Status strip — thinner, quieter when offline. */
+.friend-card::before {
+  height: 2px;
+}
+
+.friend-card.status-online::before {
+  background: var(--color-success);
+}
+
+.friend-card.status-offline::before {
+  background: color-mix(in srgb, var(--color-text-muted) 25%, transparent);
+}
+
+/* Pinned — accent whisper fill + hairline, so it reads "raised" not "tinted
+   glass" (the old --color-surface-glass mix). */
+.friend-card.pinned {
+  background: color-mix(in srgb, var(--color-accent) 5%, var(--color-surface));
+  border-color: color-mix(in srgb, var(--color-accent) 32%, var(--color-border));
+}
+
+.friend-card.blocked {
+  opacity: 0.55;
+  filter: saturate(0.5);
+}
+
+/* Now playing — success hairline instead of a full glow ring. */
+.friend-card.playing {
+  border-color: color-mix(in srgb, var(--color-success) 45%, var(--color-border));
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--color-success) 18%, transparent);
+}
+
+.friend-card.playing::before {
+  background: var(--color-success);
+  animation: nowPlayingPulse 1.6s infinite;
+}
+
+/* Avatar ring reads on both themes. */
+.friend-avatar-wrapper {
+  border: 2px solid var(--color-border-light);
+}
+
+/* Meta labels — muted uppercase xs per the design language. */
+.friend-since {
+  font-size: 10px;
+  font-weight: var(--font-weight-semibold);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--color-text-muted);
+  font-style: normal;
+}
+
+.friend-name {
+  font-size: 15px;
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text-primary);
+}
+
+.friend-status-text {
+  font-size: var(--font-size-xs);
+  color: var(--color-text-muted);
+}
+
+.friend-now-playing {
+  font-size: var(--font-size-xs);
+  color: var(--color-success);
+  font-weight: var(--font-weight-semibold);
+}
+
+.friend-stats {
+  background: var(--color-bg-tertiary);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-full);
+  font-variant-numeric: tabular-nums;
+}
+
+.friend-bio {
+  color: var(--color-text-secondary);
+}
+
+/* Footer meta strip stays hairline-separated (v2 layer); hover-lift only
+   the interactive badge. */
+.friend-shared-badge {
+  color: var(--color-accent);
+  background: color-mix(in srgb, var(--color-accent) 12%, transparent);
+  border: 1px solid color-mix(in srgb, var(--color-accent) 30%, transparent);
+}
+
+.friend-shared-badge:hover {
+  background: color-mix(in srgb, var(--color-accent) 22%, transparent);
+  border-color: var(--color-accent);
+}
+
+/* List density rows — flat hairline rows, no entrance stagger jitter. */
+.friends-grid.is-list .friend-card {
+  animation-duration: 200ms;
+  animation-delay: 0ms !important;
+}
+
+/* =============================================================================
+ * 7. Card action menu (3-dot trigger + portaled dropdown)
+ * ========================================================================== */
+
+.friend-menu-trigger {
+  width: 26px;
+  height: 26px;
+  border-radius: var(--radius-sm);
+  color: var(--color-text-muted);
+}
+
+/* Reveal on hover, open state, and keyboard focus alike. */
+.friend-card:hover .friend-menu-trigger,
+.friend-menu-trigger.open,
+.friend-menu-trigger:focus-visible {
+  opacity: 1;
+}
+
+.friend-menu-trigger:hover,
+.friend-menu-trigger.open {
+  background-color: var(--color-bg-hover);
+  color: var(--color-text-primary);
+}
+
+.friend-menu-trigger:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 1px;
+  background-color: var(--color-bg-hover);
+  color: var(--color-text-primary);
+}
+
+/* Dropdown — flat raised surface, no backdrop blur. */
+.friend-menu {
+  background: var(--color-surface-raised);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-md);
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+  padding: 6px;
+}
+
+.friend-menu-item {
+  font-size: var(--font-size-sm);
+  border-radius: var(--radius-sm);
+  padding: 8px 10px;
+}
+
+.friend-menu-item:hover {
+  background-color: var(--color-bg-hover);
+}
+
+.friend-menu-item:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: -2px;
+}
+
+.friend-menu-item.active {
+  background: color-mix(in srgb, var(--color-accent) 10%, transparent);
+  color: var(--color-accent);
+}
+
+.friend-menu-item.active svg {
+  color: var(--color-accent);
+}
+
+.friend-menu-item.danger:hover {
+  background-color: color-mix(in srgb, var(--color-danger) 12%, transparent);
+}
+
+/* =============================================================================
+ * 8. Empty + no-results states (scoped to the friends list)
+ * ========================================================================== */
+
+.friends-list-section .friends-empty-state {
+  background: var(--color-surface);
+  border: 1px dashed var(--color-border);
+  border-radius: var(--radius-xl);
+  animation: friendsPanelIn 260ms var(--ease-standard) both;
+}
+
+.friends-list-section .friends-empty-state .ui-btn {
+  margin-top: var(--space-xs);
+}
+
+.friends-list-section .game-search-no-results--tall {
+  padding: 48px var(--space-md);
+  background: var(--color-surface);
+  border: 1px dashed var(--color-border);
+  border-radius: var(--radius-lg);
+  animation: friendsPanelIn 260ms var(--ease-standard) both;
+}
+
+/* =============================================================================
+ * 9. Modals — Add Friend + P2P
+ * ========================================================================== */
+
+.friends-modal-overlay {
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+}
+
+.friends-modal-content {
+  background: var(--color-surface-raised);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-xl);
+  padding: var(--space-xl);
+  box-shadow: var(--shadow-xl);
+}
+
+.friends-modal-close-btn {
+  width: 30px;
+  height: 30px;
+}
+
+.friends-modal-close-btn:hover {
+  background-color: var(--color-bg-hover);
+  color: var(--color-text-primary);
+}
+
+.friends-modal-close-btn:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 1px;
+}
+
+.friends-modal-icon {
+  width: 38px;
+  height: 38px;
+}
+
+.friends-modal-desc {
+  color: var(--color-text-muted);
+}
+
+/* Public-key textarea — mono, flat tray, accent focus ring. */
+.friends-textarea {
+  background: var(--color-bg-tertiary);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  color: var(--color-text-primary);
+  font-family: var(--font-family-mono);
+  font-size: var(--font-size-xs);
+  height: 88px;
+  transition: border-color var(--transition-fast), box-shadow var(--transition-fast), background var(--transition-fast);
+}
+
+.friends-textarea:focus {
+  border-color: var(--color-accent);
+  box-shadow: 0 0 0 3px var(--color-accent-glow);
+  background: var(--color-bg-secondary);
+}
+
+.friends-textarea::placeholder {
+  color: var(--color-text-muted);
+}
+
+/* Decoded friend preview — flat tray with a dashed hairline. */
+.friend-decode-preview {
+  background: var(--color-bg-tertiary);
+  border: 1px dashed var(--color-border);
+  border-radius: var(--radius-lg);
+}
+
+.friend-decode-preview-invalid {
+  color: var(--color-danger);
+}
+
+/* Footer — hairline-separated action strip. */
+.friends-modal-footer {
+  border-top: 1px solid var(--color-border);
+  padding-top: var(--space-md);
+  margin-top: var(--space-md);
+}
+
+/* ── P2P modal ─────────────────────────────────────────────────────────── */
+
+.p2p-modal-content {
+  max-width: 480px;
+}
+
+.p2p-status-card {
+  background: var(--color-bg-tertiary);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  padding: var(--space-md);
+}
+
+.p2p-status-label {
+  font-size: 10px;
+  font-weight: var(--font-weight-bold);
+  text-transform: uppercase;
+  letter-spacing: 0.6px;
+  color: var(--color-text-muted);
+}
+
+/* Status badge — tinted pill with hairline, per the label family. */
+.p2p-status-badge {
+  padding: 3px 10px;
+  border-radius: var(--radius-full);
+  border: 1px solid transparent;
+  font-size: 10px;
+  font-weight: var(--font-weight-bold);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.p2p-status-badge.online {
+  background: color-mix(in srgb, var(--color-success) 12%, transparent);
+  border-color: color-mix(in srgb, var(--color-success) 30%, transparent);
+  color: var(--color-success);
+}
+
+.p2p-status-badge.offline {
+  background: color-mix(in srgb, var(--color-danger) 12%, transparent);
+  border-color: color-mix(in srgb, var(--color-danger) 30%, transparent);
+  color: var(--color-danger);
+}
+
+.p2p-detail-key {
+  font-size: var(--font-size-xs);
+  color: var(--color-text-muted);
+}
+
+.p2p-detail-val {
+  font-size: var(--font-size-xs);
+  font-family: var(--font-family-mono);
+  color: var(--color-text-primary);
+}
+
+/* Group titles — muted uppercase with a trailing hairline (the
+   settings-toggles-title family). */
+.p2p-section-title {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  margin: 0;
+  font-size: 10px;
+  font-weight: var(--font-weight-bold);
+  text-transform: uppercase;
+  letter-spacing: 0.6px;
+  color: var(--color-text-muted);
+}
+
+.p2p-section-title::after {
+  content: "";
+  flex: 1;
+  height: 1px;
+  background: var(--color-border);
+}
+
+.p2p-friend-row {
+  background: var(--color-bg-tertiary);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  padding: 6px 10px;
+  font-size: var(--font-size-xs);
+}
+
+.p2p-friend-key {
+  font-family: var(--font-family-mono);
+  font-size: 10px;
+}
+
+.p2p-sync-log {
+  background: var(--color-bg-tertiary);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  padding: var(--space-sm) var(--space-md);
+}
+
+.p2p-log-time {
+  font-size: 11px;
+}
+
+.p2p-log-msg {
+  font-size: var(--font-size-xs);
+  color: var(--color-text-primary);
+}
+
+.p2p-log-detail {
+  font-size: 11px;
+  color: var(--color-text-muted);
+}
+
+.p2p-empty-note {
+  font-size: var(--font-size-xs);
+  color: var(--color-text-muted);
+  font-style: italic;
+}
+
+/* =============================================================================
+ * 10. Friend QR frame
+ * ========================================================================== */
+
+.friend-qr-img {
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  box-shadow: var(--shadow-sm);
+}
+
+/* =============================================================================
+ * 11. Legacy .btn-secondary fill
+ *
+ * `.btn btn-secondary` has been referenced by FriendsPage for a long time
+ * with no definition anywhere; base `.btn` (settings.css) supplied the
+ * look. Give it a proper secondary treatment — transparent fill, hairline
+ * border, hover lift — consistent with the .btn family.
+ * ========================================================================== */
+
+.btn-secondary {
+  background: transparent;
+  color: var(--color-text-secondary);
+  border-color: var(--color-border);
+}
+
+.btn-secondary:hover {
+  background: var(--color-bg-hover);
+  color: var(--color-text-primary);
+  border-color: var(--color-border-light);
+  transform: translateY(-1px);
+}
+
+/* =============================================================================
+ * 12. Entrances + reduced motion
+ * ========================================================================== */
+
+@keyframes friendsChromeIn {
+  from {
+    opacity: 0;
+    transform: translateY(-4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes friendsPanelIn {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes friendsCardIn {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .friends-tab-bar-container,
+  .friends-list-section,
+  .friend-invitations-section,
+  .friend-invitation-card,
+  .friend-card,
+  .friends-list-section .friends-empty-state,
+  .friends-list-section .game-search-no-results--tall {
+    animation: none;
+  }
+
+  .friends-tab,
+  .friends-tab::after,
+  .friends-tab-count,
+  .btn-sync,
+  .friend-card,
+  .friend-card::before,
+  .friend-card-avatar,
+  .friend-menu-trigger,
+  .friend-menu-item,
+  .friends-search-input,
+  .friends-sort-select,
+  .friends-textarea,
+  .friend-shared-badge {
+    transition: none;
+  }
+}

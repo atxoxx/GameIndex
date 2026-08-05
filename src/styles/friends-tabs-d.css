@@ -1,0 +1,1740 @@
+/* ============================================================================
+ * Friends redesign — Lane D (compare + leaderboard + profile)
+ *
+ * Covers the Compare subtab (with its nested overview / games / genres /
+ * insights views), the Leaderboard subtab and the Profile subtab. Loads
+ * AFTER friends.css and page-friends.css (imported from FriendsPage.tsx) so
+ * these rules win the cascade on equal specificity; existing class names are
+ * kept and restyled in place, new hooks are prefixed with the compare- /
+ * leaderboard- / profile- families.
+ *
+ * Follows the app-wide design language: flat var(--color-surface) panels
+ * with hairline 1px var(--color-border) divisions, segmented trays with a
+ * 2px gap and accent-filled active segment, uniform 30px controls
+ * (--fd-ctl-h), uppercase-small-semibold titles with 0.6px tracking,
+ * tabular numbers, muted uppercase xs labels, accent tints at 9-16% via
+ * color-mix, focus-visible rings and keyframe entrances.
+ * ========================================================================== */
+
+/* ── Shared token: uniform control height (mirrors --settings-ctl-h) ────── */
+.compare-section,
+.leaderboard-section,
+.profile-editor-layout {
+  --fd-ctl-h: 30px;
+}
+
+/* ============================================================================
+ * COMPARE — selector strip
+ * ========================================================================== */
+
+/* Picker bar reads as a slim control strip, not a heavy panel. */
+.compare-selector-bar {
+  display: flex;
+  align-items: center;
+  gap: var(--space-md);
+  flex-wrap: wrap;
+  padding: var(--space-sm) var(--space-md);
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+}
+
+.compare-selector-group {
+  display: flex;
+  align-items: center;
+  gap: var(--space-md);
+}
+
+/* Muted uppercase xs label per the design language. */
+.compare-selector-bar label {
+  margin: 0;
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-semibold);
+  text-transform: uppercase;
+  letter-spacing: 0.6px;
+  color: var(--color-text-secondary);
+}
+
+.compare-selector-group .profile-input,
+.compare-selector-bar .profile-input {
+  width: 220px;
+  height: var(--fd-ctl-h);
+  margin: 0;
+  padding: 0 var(--space-md);
+  font-size: var(--font-size-sm);
+  background: var(--color-bg-tertiary);
+}
+
+/* ============================================================================
+ * COMPARE — head-to-head header (the visual centerpiece)
+ *
+ * Two profile cards flank a score column: VS medallion, then the match and
+ * compatibility scores as stacked mini-stats, then a data-provenance pill.
+ * ========================================================================== */
+
+.compare-profiles-header {
+  position: relative;
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  align-items: center;
+  gap: var(--space-lg);
+  padding: var(--space-xl);
+  text-align: center;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-xl);
+  animation: importMenuIn 240ms var(--ease-standard) both;
+}
+
+.compare-user-profile {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-sm);
+  min-width: 0;
+}
+
+/* Avatar ring: crisp accent (me) / info (friend) on a hairline base. */
+.compare-user-avatar {
+  width: 84px;
+  height: 84px;
+  border: 2px solid var(--color-accent);
+  box-shadow: 0 0 0 4px color-mix(in srgb, var(--color-accent) 12%, transparent);
+  font-size: var(--font-size-xl);
+  border-radius: 50%;
+}
+
+.compare-user-avatar.friend {
+  border-color: var(--color-info);
+  box-shadow: 0 0 0 4px color-mix(in srgb, var(--color-info) 12%, transparent);
+}
+
+.compare-user-name {
+  font-size: var(--font-size-md);
+  font-weight: var(--font-weight-bold);
+  color: var(--color-text-primary);
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* "Now playing" chip — success-tinted pill with the live dot. */
+.compare-now-playing {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  max-width: 100%;
+  padding: 3px 10px;
+  border-radius: var(--radius-full);
+  background: color-mix(in srgb, var(--color-success) 10%, transparent);
+  border: 1px solid color-mix(in srgb, var(--color-success) 26%, transparent);
+  color: var(--color-success);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-semibold);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Center column: VS medallion above the score stack. */
+.compare-h2h-score {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-sm);
+  padding: 0 var(--space-md);
+  min-width: 0;
+}
+
+.compare-vs-badge {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  margin: 0 auto;
+  border-radius: var(--radius-full);
+  background: var(--color-bg-tertiary);
+  border: 1px solid var(--color-border);
+  color: var(--color-text-secondary);
+  font-family: var(--font-family-mono);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-bold);
+  letter-spacing: 0.08em;
+}
+
+/* Score stack — one pill per metric, label on top, big tabular value below. */
+.compare-selector-badges {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-sm);
+  margin-top: var(--space-xs);
+}
+
+.compare-match-score-badge {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  min-width: 136px;
+  padding: var(--space-sm) var(--space-md);
+  border-radius: var(--radius-lg);
+  background: color-mix(in srgb, var(--color-accent) 10%, transparent);
+  border: 1px solid color-mix(in srgb, var(--color-accent) 28%, transparent);
+  color: var(--color-text-primary);
+}
+
+.compare-match-score-badge .compare-badge-head {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-semibold);
+  text-transform: uppercase;
+  letter-spacing: 0.6px;
+  color: var(--color-text-secondary);
+}
+
+.compare-match-score-badge strong {
+  font-size: var(--font-size-2xl);
+  font-weight: var(--font-weight-bold);
+  font-variant-numeric: tabular-nums;
+  line-height: 1.1;
+  color: var(--color-accent);
+}
+
+/* Neutralize the legacy dimming rule in friends.css (opacity 0.9 on every
+ * badge span) — labels inside the score pills stay at full strength. */
+.compare-match-score-badge span {
+  opacity: 1;
+}
+
+.compare-match-score-badge.compat {
+  background: color-mix(in srgb, var(--color-success) 9%, transparent);
+  border-color: color-mix(in srgb, var(--color-success) 26%, transparent);
+}
+
+.compare-match-score-badge.compat strong {
+  color: var(--color-success);
+}
+
+/* Data provenance pill under the scores. */
+.compare-data-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 12px;
+  border-radius: var(--radius-full);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-semibold);
+  letter-spacing: 0.3px;
+  border: 1px solid transparent;
+}
+
+.compare-data-badge.real {
+  background: color-mix(in srgb, var(--color-success) 10%, transparent);
+  color: var(--color-success);
+  border-color: color-mix(in srgb, var(--color-success) 30%, transparent);
+}
+
+.compare-data-badge.estimated {
+  background: color-mix(in srgb, var(--color-warning) 10%, transparent);
+  color: var(--color-warning);
+  border-color: color-mix(in srgb, var(--color-warning) 30%, transparent);
+}
+
+.compare-badge-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.compare-badge-icon svg {
+  width: 14px;
+  height: 14px;
+}
+
+/* ============================================================================
+ * COMPARE — nested sub-tab bar (segmented control)
+ * ========================================================================== */
+
+.compare-subtabs {
+  display: flex;
+  gap: 2px;
+  padding: 2px;
+  background: var(--color-bg-tertiary);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  overflow-x: auto;
+  scrollbar-width: none;
+  animation: importMenuIn 240ms var(--ease-standard) both;
+  animation-delay: 40ms;
+}
+
+.compare-subtabs::-webkit-scrollbar {
+  display: none;
+}
+
+.compare-subtab {
+  flex: 1;
+  min-width: 0;
+  height: calc(var(--fd-ctl-h) - 6px);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 0 var(--space-lg);
+  border: none;
+  border-radius: calc(var(--radius-md) - 2px);
+  background: transparent;
+  color: var(--color-text-secondary);
+  font-family: inherit;
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-semibold);
+  text-transform: uppercase;
+  letter-spacing: 0.6px;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: color var(--transition-fast), background-color var(--transition-fast);
+}
+
+.compare-subtab:hover {
+  color: var(--color-text-primary);
+  background-color: var(--color-bg-hover);
+}
+
+.compare-subtab:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: -2px;
+}
+
+.compare-subtab.active,
+.compare-subtab.active:hover {
+  background-color: var(--color-accent);
+  color: #fff;
+}
+
+.compare-subtab-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.compare-subtab-icon svg {
+  width: 14px;
+  height: 14px;
+}
+
+/* ============================================================================
+ * COMPARE — filter chips + games controls (shared with leaderboard toggle)
+ * ========================================================================== */
+
+.compare-filter-chips {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 2px;
+  padding: 2px;
+  background: var(--color-bg-tertiary);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+}
+
+.compare-filter-chip {
+  appearance: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: calc(var(--fd-ctl-h) - 6px);
+  padding: 0 var(--space-md);
+  border: none;
+  border-radius: calc(var(--radius-md) - 2px);
+  background: transparent;
+  color: var(--color-text-secondary);
+  font-family: inherit;
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-semibold);
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: color var(--transition-fast), background-color var(--transition-fast);
+}
+
+.compare-filter-chip:hover {
+  color: var(--color-text-primary);
+  background-color: var(--color-bg-hover);
+}
+
+.compare-filter-chip:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: -2px;
+}
+
+.compare-filter-chip.active,
+.compare-filter-chip.active:hover {
+  background-color: var(--color-accent);
+  color: #fff;
+}
+
+.compare-filter-chip-count {
+  font-size: var(--font-size-xs);
+  font-variant-numeric: tabular-nums;
+  min-width: 18px;
+  padding: 0 5px;
+  height: 16px;
+  line-height: 16px;
+  text-align: center;
+  border-radius: var(--radius-full);
+  background: var(--color-bg-hover);
+  color: var(--color-text-muted);
+}
+
+.compare-filter-chip.active .compare-filter-chip-count {
+  background: color-mix(in srgb, #fff 18%, transparent);
+  color: #fff;
+}
+
+.compare-controls-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--space-md);
+}
+
+.compare-controls-right {
+  display: flex;
+  align-items: center;
+  gap: var(--space-md);
+  flex-wrap: wrap;
+}
+
+.compare-sort-group {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-sm);
+  white-space: nowrap;
+}
+
+.compare-sort-group > span {
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-semibold);
+  text-transform: uppercase;
+  letter-spacing: 0.6px;
+  color: var(--color-text-muted);
+}
+
+.compare-sort-group select {
+  width: 160px;
+  height: var(--fd-ctl-h);
+  padding: 0 28px 0 12px;
+  font-size: var(--font-size-xs);
+  font-family: inherit;
+  cursor: pointer;
+  margin: 0;
+  background: var(--color-bg-tertiary);
+}
+
+.compare-search-input {
+  width: 200px;
+  height: var(--fd-ctl-h);
+  margin: 0;
+  padding: 0 12px;
+  font-size: var(--font-size-xs);
+  font-family: inherit;
+  background: var(--color-bg-tertiary);
+}
+
+.compare-library-title-row {
+  display: flex;
+  justify-content: flex-start;
+  align-items: center;
+  margin-bottom: 0;
+}
+
+.compare-count {
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-semibold);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--color-text-muted);
+}
+
+/* ============================================================================
+ * COMPARE — overview: head-to-head stat rows
+ * ========================================================================== */
+
+.compare-overview {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-xl);
+}
+
+.compare-h2h {
+  display: flex;
+  flex-direction: column;
+  padding: var(--space-xs) 0;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  animation: importMenuIn 240ms var(--ease-standard) both;
+  animation-delay: 70ms;
+}
+
+/* Hairline-divided stat rows; bars read at a glance. */
+.compare-h2h-row {
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  align-items: center;
+  gap: var(--space-md);
+  padding: var(--space-md) var(--space-lg);
+}
+
+.compare-h2h-row + .compare-h2h-row {
+  border-top: 1px solid var(--color-border);
+}
+
+.compare-h2h-side {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  min-width: 0;
+}
+
+.compare-h2h-side.left {
+  flex-direction: row-reverse;
+}
+
+.compare-h2h-bar {
+  flex: 1;
+  height: 6px;
+  border-radius: var(--radius-full);
+  background: var(--color-border);
+  overflow: hidden;
+  display: flex;
+}
+
+.compare-h2h-side.left .compare-h2h-bar {
+  justify-content: flex-end;
+}
+
+.compare-h2h-fill {
+  height: 100%;
+  border-radius: var(--radius-full);
+}
+
+.compare-h2h-fill.left {
+  background: var(--color-accent);
+}
+
+.compare-h2h-fill.right {
+  background: var(--color-info);
+}
+
+.compare-h2h-val {
+  min-width: 60px;
+  font-size: var(--font-size-md);
+  font-weight: var(--font-weight-bold);
+  font-variant-numeric: tabular-nums;
+  color: var(--color-text-muted);
+}
+
+.compare-h2h-side.left .compare-h2h-val {
+  text-align: right;
+}
+
+/* The winning side of each row lights up in its player color. */
+.compare-h2h-side.left .compare-h2h-val.win {
+  color: var(--color-accent);
+}
+
+.compare-h2h-side.right .compare-h2h-val.win {
+  color: var(--color-info);
+}
+
+.compare-h2h-label {
+  text-align: center;
+  min-width: 120px;
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.6px;
+}
+
+/* ── Library overlap segments ─────────────────────────────────────────── */
+.compare-overlap {
+  display: grid;
+  grid-template-columns: 1fr 1.2fr 1fr;
+  gap: var(--space-sm);
+  animation: importMenuIn 240ms var(--ease-standard) both;
+  animation-delay: 110ms;
+}
+
+.compare-overlap-seg {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  padding: var(--space-lg) var(--space-md);
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--color-border);
+  background: var(--color-surface);
+  text-align: center;
+}
+
+.compare-overlap-seg.me {
+  background: color-mix(in srgb, var(--color-accent) 9%, transparent);
+  border-color: color-mix(in srgb, var(--color-accent) 26%, var(--color-border));
+}
+
+.compare-overlap-seg.shared {
+  background: color-mix(in srgb, var(--color-success) 10%, transparent);
+  border-color: color-mix(in srgb, var(--color-success) 30%, var(--color-border));
+}
+
+.compare-overlap-seg.friend {
+  background: color-mix(in srgb, var(--color-info) 9%, transparent);
+  border-color: color-mix(in srgb, var(--color-info) 26%, var(--color-border));
+}
+
+.compare-overlap-num {
+  font-size: var(--font-size-2xl);
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+  color: var(--color-text-primary);
+}
+
+.compare-overlap-lbl {
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.6px;
+}
+
+/* ── Quick highlight cards ─────────────────────────────────────────────── */
+.compare-highlights {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: var(--space-md);
+  animation: importMenuIn 240ms var(--ease-standard) both;
+  animation-delay: 150ms;
+}
+
+.compare-highlight-card {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-md);
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  padding: var(--space-lg);
+}
+
+.compare-highlight-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 38px;
+  height: 38px;
+  border-radius: var(--radius-md);
+  background: color-mix(in srgb, var(--color-accent) 12%, transparent);
+  border: 1px solid color-mix(in srgb, var(--color-accent) 26%, transparent);
+  color: var(--color-accent);
+  flex-shrink: 0;
+}
+
+.compare-highlight-icon svg {
+  width: 17px;
+  height: 17px;
+}
+
+.compare-highlight-body {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.compare-highlight-title {
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.compare-highlight-value {
+  font-size: var(--font-size-md);
+  font-weight: var(--font-weight-bold);
+  color: var(--color-text-primary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.compare-highlight-sub {
+  font-size: var(--font-size-xs);
+  color: var(--color-text-muted);
+}
+
+/* ============================================================================
+ * COMPARE — games view
+ * ========================================================================== */
+
+.compare-games-view,
+.compare-genres-view,
+.compare-insights-view {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-lg);
+}
+
+.compare-games-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: var(--space-md);
+}
+
+.compare-game-card {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+  padding: var(--space-md);
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  transition: border-color var(--transition-fast), transform var(--transition-fast);
+  animation: importMenuIn 220ms var(--ease-standard) both;
+}
+
+.compare-game-card:nth-child(3n + 2) {
+  animation-delay: 30ms;
+}
+
+.compare-game-card:nth-child(3n) {
+  animation-delay: 60ms;
+}
+
+.compare-game-card:hover {
+  border-color: var(--color-accent);
+  transform: translateY(-2px);
+}
+
+.compare-game-card-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: var(--space-sm);
+  padding-bottom: var(--space-sm);
+  border-bottom: 1px solid var(--color-border);
+}
+
+.compare-game-name {
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text-primary);
+  font-size: var(--font-size-sm);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.compare-own-badge {
+  flex-shrink: 0;
+  font-size: 9px;
+  font-weight: var(--font-weight-bold);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  padding: 3px 8px;
+  border-radius: var(--radius-full);
+  border: 1px solid var(--color-border);
+  color: var(--color-text-muted);
+}
+
+.compare-own-badge.both {
+  background: color-mix(in srgb, var(--color-success) 12%, transparent);
+  border-color: color-mix(in srgb, var(--color-success) 34%, transparent);
+  color: var(--color-success);
+}
+
+.compare-own-badge.me {
+  background: color-mix(in srgb, var(--color-accent) 12%, transparent);
+  border-color: color-mix(in srgb, var(--color-accent) 34%, transparent);
+  color: var(--color-accent);
+}
+
+.compare-own-badge.friend {
+  background: color-mix(in srgb, var(--color-info) 12%, transparent);
+  border-color: color-mix(in srgb, var(--color-info) 34%, transparent);
+  color: var(--color-info);
+}
+
+.compare-game-stats {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+}
+
+.compare-player-stat {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.compare-player-label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-semibold);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--color-text-muted);
+}
+
+.compare-player-label .dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+}
+
+.compare-player-label .dot.left {
+  background: var(--color-accent);
+}
+
+.compare-player-label .dot.right {
+  background: var(--color-info);
+}
+
+.compare-bar-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+}
+
+.compare-bar-value {
+  font-size: var(--font-size-xs);
+  color: var(--color-text-primary);
+  font-weight: var(--font-weight-semibold);
+  font-variant-numeric: tabular-nums;
+  min-width: 38px;
+}
+
+.compare-bar-row .compare-playtime-bar {
+  flex: 1;
+}
+
+.compare-playtime-bar {
+  height: 6px;
+  border-radius: var(--radius-full);
+  background: var(--color-border);
+  position: relative;
+  overflow: hidden;
+  width: 100%;
+}
+
+.compare-playtime-fill {
+  position: absolute;
+  top: 0;
+  left: 0;
+  height: 100%;
+  border-radius: var(--radius-full);
+}
+
+.compare-playtime-fill.left {
+  background: var(--color-accent);
+}
+
+.compare-playtime-fill.right {
+  background: var(--color-info);
+}
+
+.compare-ach {
+  font-size: 10px;
+  color: var(--color-text-muted);
+  font-variant-numeric: tabular-nums;
+  padding-left: 14px;
+}
+
+.compare-not-owned {
+  font-size: var(--font-size-xs);
+  color: var(--color-text-muted);
+  font-style: italic;
+}
+
+/* ============================================================================
+ * COMPARE — genres view (affinity bars)
+ * ========================================================================== */
+
+.compare-genre-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+}
+
+.compare-genre-row {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+  padding: var(--space-md) var(--space-lg);
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+}
+
+.compare-genre-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: var(--space-md);
+}
+
+.compare-genre-name {
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text-primary);
+}
+
+.compare-genre-shared {
+  font-size: var(--font-size-xs);
+  color: var(--color-text-muted);
+}
+
+.compare-genre-bars {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--space-lg);
+}
+
+.compare-genre-bar-side {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+}
+
+.compare-genre-bar-track {
+  flex: 1;
+  height: 6px;
+  border-radius: var(--radius-full);
+  background: var(--color-border);
+  overflow: hidden;
+  display: flex;
+}
+
+.compare-genre-bar-track.reverse {
+  justify-content: flex-end;
+}
+
+.compare-genre-bar-fill {
+  height: 100%;
+  border-radius: var(--radius-full);
+}
+
+.compare-genre-bar-fill.left {
+  background: var(--color-accent);
+}
+
+.compare-genre-bar-fill.right {
+  background: var(--color-info);
+}
+
+.compare-genre-count {
+  min-width: 22px;
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-bold);
+  font-variant-numeric: tabular-nums;
+}
+
+.compare-genre-count.left {
+  color: var(--color-accent);
+  text-align: left;
+}
+
+.compare-genre-count.right {
+  color: var(--color-info);
+  text-align: right;
+}
+
+/* ============================================================================
+ * COMPARE — insights view
+ * ========================================================================== */
+
+.compare-insight-columns {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: var(--space-md);
+}
+
+.compare-insight-panel {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-md);
+  padding: var(--space-lg);
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  animation: importMenuIn 240ms var(--ease-standard) both;
+}
+
+.compare-insight-panel:nth-child(2) {
+  animation-delay: 40ms;
+}
+
+.compare-insight-panel:nth-child(3) {
+  animation-delay: 80ms;
+}
+
+.compare-insight-panel:nth-child(4) {
+  animation-delay: 120ms;
+}
+
+.compare-insight-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0;
+  padding-bottom: var(--space-sm);
+  border-bottom: 1px solid var(--color-border);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-semibold);
+  text-transform: uppercase;
+  letter-spacing: 0.6px;
+  color: var(--color-text-primary);
+}
+
+.compare-insight-title .dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.compare-insight-title .dot.left {
+  background: var(--color-accent);
+}
+
+.compare-insight-title .dot.right {
+  background: var(--color-info);
+}
+
+.compare-insight-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.compare-insight-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: var(--space-md);
+  padding: var(--space-sm) 0;
+  border-bottom: 1px solid var(--color-border);
+}
+
+.compare-insight-item:last-child {
+  border-bottom: none;
+}
+
+.compare-insight-game {
+  font-size: var(--font-size-sm);
+  color: var(--color-text-primary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.compare-insight-meta {
+  flex-shrink: 0;
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-semibold);
+  font-variant-numeric: tabular-nums;
+  color: var(--color-text-muted);
+}
+
+.compare-insight-meta.win {
+  color: var(--color-accent);
+}
+
+.compare-insight-meta.win.friend {
+  color: var(--color-info);
+}
+
+.compare-insight-empty {
+  font-size: var(--font-size-sm);
+  color: var(--color-text-muted);
+  font-style: italic;
+  margin: 0;
+}
+
+/* ============================================================================
+ * LEADERBOARD
+ * ========================================================================== */
+
+.leaderboard-section {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-lg);
+}
+
+/* Header: heading stack on the left, metric toggle flush right. */
+.leaderboard-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--space-lg);
+  flex-wrap: wrap;
+  padding-bottom: var(--space-lg);
+  border-bottom: 1px solid var(--color-border);
+}
+
+.leaderboard-heading {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2xs);
+  min-width: 0;
+}
+
+.leaderboard-title {
+  margin: 0;
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  font-size: var(--font-size-lg);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text-primary);
+}
+
+.leaderboard-title-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border-radius: var(--radius-md);
+  background: color-mix(in srgb, var(--color-accent) 14%, transparent);
+  border: 1px solid color-mix(in srgb, var(--color-accent) 26%, transparent);
+  color: var(--color-accent);
+}
+
+.leaderboard-title-icon svg {
+  width: 15px;
+  height: 15px;
+}
+
+.leaderboard-subtitle {
+  margin: 0;
+  color: var(--color-text-muted);
+  font-size: var(--font-size-sm);
+  line-height: 1.5;
+}
+
+.leaderboard-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+}
+
+/* Row: rank medallion | avatar | name+bar | value. */
+.leaderboard-row {
+  display: grid;
+  grid-template-columns: 40px 44px 1fr auto;
+  align-items: center;
+  gap: var(--space-md);
+  padding: var(--space-sm) var(--space-md);
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  transition: border-color var(--transition-fast), background-color var(--transition-fast);
+  animation: importMenuIn 240ms var(--ease-standard) both;
+}
+
+.leaderboard-row:nth-child(2) { animation-delay: 30ms; }
+.leaderboard-row:nth-child(3) { animation-delay: 60ms; }
+.leaderboard-row:nth-child(4) { animation-delay: 90ms; }
+.leaderboard-row:nth-child(5) { animation-delay: 120ms; }
+.leaderboard-row:nth-child(6) { animation-delay: 150ms; }
+.leaderboard-row:nth-child(7) { animation-delay: 180ms; }
+.leaderboard-row:nth-child(8) { animation-delay: 210ms; }
+
+.leaderboard-row:hover {
+  border-color: var(--color-border-light);
+}
+
+/* The viewer's own row keeps a whisper of accent. */
+.leaderboard-row.is-you {
+  border-color: color-mix(in srgb, var(--color-accent) 55%, var(--color-border));
+  background: color-mix(in srgb, var(--color-accent) 5%, var(--color-surface));
+}
+
+/* Podium rows lift off the list. */
+.leaderboard-row.top-three {
+  background: color-mix(in srgb, var(--color-bg-tertiary) 40%, var(--color-surface));
+}
+
+/* Rank medallion — neutral square, themed podium tints for 1-3. */
+.leaderboard-rank {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  border-radius: var(--radius-md);
+  background: var(--color-bg-tertiary);
+  border: 1px solid var(--color-border);
+  color: var(--color-text-muted);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-bold);
+  font-variant-numeric: tabular-nums;
+}
+
+.leaderboard-row.top-three .leaderboard-rank {
+  width: 34px;
+  height: 34px;
+  font-size: var(--font-size-md);
+}
+
+/* Podium colors are token-driven (warning ≈ gold, stale ≈ bronze). */
+.leaderboard-rank.rank-1 {
+  color: var(--color-warning);
+  background: color-mix(in srgb, var(--color-warning) 14%, transparent);
+  border-color: color-mix(in srgb, var(--color-warning) 40%, transparent);
+}
+
+.leaderboard-rank.rank-2 {
+  color: var(--color-text-secondary);
+  background: color-mix(in srgb, var(--color-text-secondary) 12%, transparent);
+  border-color: color-mix(in srgb, var(--color-text-secondary) 30%, transparent);
+}
+
+.leaderboard-rank.rank-3 {
+  color: var(--color-stale);
+  background: color-mix(in srgb, var(--color-stale) 14%, transparent);
+  border-color: color-mix(in srgb, var(--color-stale) 36%, transparent);
+}
+
+.leaderboard-avatar {
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  font-size: var(--font-size-sm);
+}
+
+.leaderboard-player-info {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+}
+
+.leaderboard-player-name {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text-primary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.leaderboard-you-badge {
+  flex-shrink: 0;
+  font-size: 9px;
+  font-weight: var(--font-weight-bold);
+  letter-spacing: 0.6px;
+  text-transform: uppercase;
+  padding: 2px 6px;
+  border-radius: var(--radius-sm);
+  background: var(--color-accent);
+  color: #fff;
+}
+
+.leaderboard-now-playing {
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-medium);
+  color: var(--color-text-muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.leaderboard-bar-track {
+  height: 6px;
+  border-radius: var(--radius-full);
+  background: var(--color-border);
+  overflow: hidden;
+}
+
+.leaderboard-bar-fill {
+  height: 100%;
+  border-radius: var(--radius-full);
+  background: var(--color-accent);
+  transition: width var(--duration-normal) var(--ease-standard);
+}
+
+.leaderboard-value {
+  font-size: var(--font-size-md);
+  font-weight: var(--font-weight-bold);
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+  min-width: 64px;
+  color: var(--color-text-primary);
+}
+
+/* ============================================================================
+ * PROFILE
+ * ========================================================================== */
+
+.profile-editor-layout {
+  display: grid;
+  grid-template-columns: 320px 1fr;
+  gap: var(--space-2xl);
+  align-items: start;
+}
+
+.profile-summary-section {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-lg);
+}
+
+/* Identity card — flat surface, centered composition. */
+.profile-card-preview {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  padding: var(--space-xl);
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-xl);
+  animation: importMenuIn 240ms var(--ease-standard) both;
+}
+
+.profile-avatar-big {
+  width: 92px;
+  height: 92px;
+  border-radius: 50%;
+  border: 2px solid var(--color-accent);
+  box-shadow: 0 0 0 4px color-mix(in srgb, var(--color-accent) 12%, transparent);
+  font-size: 28px;
+  margin-bottom: var(--space-md);
+  overflow: hidden;
+}
+
+.profile-avatar-big img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.profile-name-big {
+  margin: 0 0 2px;
+  font-size: var(--font-size-xl);
+  font-weight: var(--font-weight-bold);
+  color: var(--color-text-primary);
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.profile-status-big {
+  margin: 0 0 var(--space-md);
+  font-size: var(--font-size-sm);
+  color: var(--color-text-secondary);
+  font-style: italic;
+  max-width: 100%;
+  word-wrap: break-word;
+}
+
+/* Last-active + region sit on one quiet meta line. */
+.profile-meta-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-sm) var(--space-md);
+  margin-bottom: var(--space-sm);
+}
+
+.profile-last-active-big {
+  margin: 0;
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-medium);
+  color: var(--color-success);
+}
+
+.profile-region-big {
+  margin: 0;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: var(--font-size-xs);
+  color: var(--color-text-secondary);
+}
+
+.profile-region-big svg {
+  width: 13px;
+  height: 13px;
+  color: var(--color-text-muted);
+}
+
+.profile-bio-big {
+  margin: 0 0 var(--space-lg);
+  font-size: var(--font-size-sm);
+  color: var(--color-text-muted);
+  max-width: 100%;
+  word-wrap: break-word;
+  line-height: 1.5;
+}
+
+/* Stats row — hairline-separated footer of the identity card. */
+.profile-stats-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: var(--space-sm);
+  width: 100%;
+  padding-top: var(--space-lg);
+  border-top: 1px solid var(--color-border);
+}
+
+.profile-stat-box {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+}
+
+.profile-stat-num {
+  font-size: var(--font-size-xl);
+  font-weight: var(--font-weight-bold);
+  font-variant-numeric: tabular-nums;
+  color: var(--color-accent);
+}
+
+.profile-stat-label {
+  font-size: 10px;
+  font-weight: var(--font-weight-semibold);
+  text-transform: uppercase;
+  letter-spacing: 0.6px;
+  color: var(--color-text-muted);
+}
+
+/* ── Public-key QR card ────────────────────────────────────────────────── */
+.friend-code-card {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+  padding: var(--space-lg);
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  animation: importMenuIn 240ms var(--ease-standard) both;
+  animation-delay: 60ms;
+}
+
+.friend-code-label {
+  margin: 0;
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-semibold);
+  text-transform: uppercase;
+  letter-spacing: 0.6px;
+  color: var(--color-text-primary);
+}
+
+.friend-code-card .friends-modal-desc {
+  margin: 0;
+  font-size: var(--font-size-sm);
+  color: var(--color-text-muted);
+  line-height: 1.5;
+}
+
+/* White plate is functionally required — the QR renders black-on-white and
+ * needs a light background to stay scannable in every theme. */
+.friend-code-qr {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  margin: var(--space-xs) 0;
+  padding: var(--space-md);
+  background: #fff;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+}
+
+.friend-qr-img {
+  display: block;
+  border-radius: 4px;
+}
+
+.friend-code-box {
+  margin: 0;
+  padding: var(--space-sm) var(--space-md);
+  background: var(--color-bg-tertiary);
+  border: 1px solid var(--color-border);
+  border-left: 3px solid var(--color-accent);
+  border-radius: var(--radius-md);
+  font-family: var(--font-family-mono);
+  font-size: var(--font-size-xs);
+  color: var(--color-text-secondary);
+  word-break: break-all;
+  max-height: 80px;
+  overflow-y: auto;
+  user-select: all;
+}
+
+.friend-code-card .ui-btn {
+  width: 100%;
+  justify-content: center;
+  margin-top: var(--space-xs);
+}
+
+/* ── Profile editor ────────────────────────────────────────────────────── */
+.profile-edit-section {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-lg);
+  padding: var(--space-xl);
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-xl);
+  animation: importMenuIn 240ms var(--ease-standard) both;
+  animation-delay: 40ms;
+}
+
+.profile-edit-title {
+  margin: 0;
+  padding-bottom: var(--space-sm);
+  border-bottom: 1px solid var(--color-border);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-semibold);
+  text-transform: uppercase;
+  letter-spacing: 0.6px;
+  color: var(--color-text-primary);
+}
+
+.profile-form {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-lg);
+}
+
+/* Uniform 30px controls inside the editor only — .profile-input is shared
+ * with other tabs, so everything here stays scoped to .profile-form. */
+.profile-form .profile-input {
+  width: 100%;
+  min-height: var(--fd-ctl-h);
+  padding: 0 var(--space-md);
+  background: var(--color-bg-tertiary);
+  font-size: var(--font-size-sm);
+}
+
+.profile-form .profile-input--textarea {
+  height: auto;
+  min-height: 80px;
+  padding: var(--space-sm) var(--space-md);
+  resize: vertical;
+  line-height: 1.6;
+}
+
+.profile-form .profile-input:focus {
+  border-color: var(--color-accent);
+  box-shadow: 0 0 0 3px var(--color-accent-glow);
+  background: var(--color-bg-secondary);
+}
+
+/* Native form controls follow the active theme in light mode. */
+[data-theme="light"] .compare-selector-bar .profile-input,
+[data-theme="light"] .compare-controls-right .profile-input,
+[data-theme="light"] .profile-form .profile-input {
+  color-scheme: light;
+}
+
+/* ── Status preset chips ───────────────────────────────────────────────── */
+.status-preset-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: var(--space-sm);
+}
+
+.status-preset-chip {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border-radius: var(--radius-md);
+  background: var(--color-bg-tertiary);
+  border: 1px solid var(--color-border);
+  font-size: 15px;
+  line-height: 1;
+  cursor: pointer;
+  transition: border-color var(--transition-fast), background-color var(--transition-fast), transform var(--transition-fast);
+}
+
+.status-preset-chip:hover {
+  border-color: var(--color-accent);
+  transform: translateY(-1px);
+}
+
+.status-preset-chip:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 2px;
+}
+
+.status-preset-chip.active {
+  border-color: var(--color-accent);
+  background-color: color-mix(in srgb, var(--color-accent) 15%, transparent);
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--color-accent) 40%, transparent);
+}
+
+/* ── Avatar upload box ─────────────────────────────────────────────────── */
+.avatar-selection-container {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+}
+
+.avatar-selection-container > label {
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-semibold);
+  text-transform: uppercase;
+  letter-spacing: 0.6px;
+  color: var(--color-text-secondary);
+}
+
+.avatar-upload-box {
+  display: flex;
+  align-items: center;
+  gap: var(--space-md);
+  margin-top: var(--space-xs);
+  background: var(--color-bg-tertiary);
+  border: 1px dashed var(--color-border);
+  border-radius: var(--radius-md);
+  padding: var(--space-sm) var(--space-md);
+}
+
+.avatar-file-input {
+  display: none;
+}
+
+/* ============================================================================
+ * Responsive
+ * ========================================================================== */
+
+@media (max-width: 860px) {
+  /* The head-to-head stacks; the score column becomes a horizontal row. */
+  .compare-profiles-header {
+    grid-template-columns: 1fr;
+    gap: var(--space-lg);
+  }
+
+  .compare-h2h-score {
+    flex-direction: row;
+    justify-content: center;
+    gap: var(--space-lg);
+    padding: 0;
+  }
+
+  .compare-selector-badges {
+    flex-direction: row;
+    flex-wrap: wrap;
+  }
+}
+
+@media (max-width: 700px) {
+  .compare-h2h-row {
+    gap: var(--space-sm);
+    padding: var(--space-md);
+  }
+
+  .compare-h2h-label {
+    min-width: 76px;
+  }
+
+  .compare-h2h-val {
+    min-width: 44px;
+  }
+
+  .compare-overlap {
+    grid-template-columns: 1fr;
+  }
+
+  .compare-controls-row {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .compare-controls-right {
+    justify-content: flex-start;
+  }
+
+  .compare-search-input,
+  .compare-sort-group select {
+    width: 100%;
+  }
+
+  .leaderboard-row {
+    grid-template-columns: 34px 40px 1fr auto;
+    gap: var(--space-sm);
+    padding: var(--space-sm);
+  }
+
+  .leaderboard-value {
+    min-width: 52px;
+  }
+
+  .leaderboard-header {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .leaderboard-header .compare-filter-chips {
+    align-self: flex-start;
+  }
+}
+
+@media (max-width: 800px) {
+  .profile-editor-layout {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* ============================================================================
+ * Reduced motion
+ * ========================================================================== */
+
+@media (prefers-reduced-motion: reduce) {
+  .compare-profiles-header,
+  .compare-subtabs,
+  .compare-h2h,
+  .compare-overlap,
+  .compare-highlights,
+  .compare-game-card,
+  .compare-insight-panel,
+  .leaderboard-row,
+  .profile-card-preview,
+  .friend-code-card,
+  .profile-edit-section {
+    animation: none;
+  }
+
+  .compare-subtab,
+  .compare-filter-chip,
+  .compare-game-card,
+  .leaderboard-row,
+  .status-preset-chip,
+  .leaderboard-bar-fill {
+    transition: none;
+  }
+}

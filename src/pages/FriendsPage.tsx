@@ -63,6 +63,10 @@ import {
 } from "./friendsStorage";
 import "./friends.css";
 import "../styles/page-friends.css";
+import "../styles/friends-tabs-a.css";
+import "../styles/friends-tabs-b.css";
+import "../styles/friends-tabs-c.css";
+import "../styles/friends-tabs-d.css";
 import { PageHeader, Button } from "../components/ui";
 
 // SVG Icons
@@ -748,13 +752,15 @@ function SessionCard({
         </div>
       </div>
 
-      {session.description && <p className="session-desc">{session.description}</p>}
+      <div className="session-body">
+        {session.description && <p className="session-desc">{session.description}</p>}
 
-      {conflicting && (
-        <div className="session-conflict-banner">
-          {t("friendsPage.overlapsWarning", { game: conflicting.gameName, time: formatDateTime(conflicting.scheduledAt, conflicting.creatorTimezone) })}
-        </div>
-      )}
+        {conflicting && (
+          <div className="session-conflict-banner">
+            {t("friendsPage.overlapsWarning", { game: conflicting.gameName, time: formatDateTime(conflicting.scheduledAt, conflicting.creatorTimezone) })}
+          </div>
+        )}
+      </div>
 
       {/* Roster with roles + guest tags */}
       <div className="session-roster">
@@ -848,7 +854,8 @@ function SessionCard({
           </button>
         ))}
         <button type="button" className={`session-chat-toggle${chatOpen ? " active" : ""}`} onClick={() => setChatOpen((v) => !v)} title={t("friends.sessionChat")}>
-          <MessageIcon />{messages.length > 0 ? messages.length : ""}
+          <MessageIcon />
+          {messages.length > 0 && <span className="session-chat-count">{messages.length}</span>}
         </button>
       </div>
 
@@ -1081,7 +1088,7 @@ function SearchableGameSelector({
 
   if (selectedGame) {
     return (
-      <div className="selected-game-display-card">
+      <div className="selected-game-display-card searchable-game-selector__selected">
         <div className="selected-game-details">
           <div className="selected-game-thumb">
             {selectedGame.name.slice(0, 2).toUpperCase()}
@@ -3239,10 +3246,12 @@ export default function FriendsPage() {
   const leaderboardTab = (
     <div className="leaderboard-section">
       <div className="leaderboard-header">
-        <h3 className="leaderboard-title"><span className="leaderboard-title-icon" aria-hidden><TrophyIcon /></span>{t("friendsPage.friendsLeaderboard")}</h3>
-        <p className="leaderboard-subtitle">
-          {t("friendsPage.leaderboardSubtitle")}
-        </p>
+        <div className="leaderboard-heading">
+          <h3 className="leaderboard-title"><span className="leaderboard-title-icon" aria-hidden><TrophyIcon /></span>{t("friendsPage.friendsLeaderboard")}</h3>
+          <p className="leaderboard-subtitle">
+            {t("friendsPage.leaderboardSubtitle")}
+          </p>
+        </div>
         <div className="compare-filter-chips" role="group" aria-label={t("friendsPage.leaderboardMetricAria")}>
           <button
             type="button"
@@ -4251,10 +4260,12 @@ export default function FriendsPage() {
 
                   return (
                     <>
-                      <h3 className="friends-list-title">{t("friendsPage.friendRecommendations", { count: activeRecs.length })}</h3>
+                      <div className="rec-feed-head">
+                        <h3 className="friends-list-title">{t("friendsPage.friendRecommendations", { count: activeRecs.length })}</h3>
+                      </div>
 
                       {activeRecs.length > 0 && (
-                        <div className="compare-filter-chips rec-filter-chips" role="group" aria-label={t("friendsPage.recFiltersAria")}>
+                        <div className="compare-filter-chips rec-filter-chips rec-filter-tray" role="group" aria-label={t("friendsPage.recFiltersAria")}>
                           <button
                             type="button"
                             className={`compare-filter-chip${recFilter === "all" ? " active" : ""}`}
@@ -4371,17 +4382,19 @@ export default function FriendsPage() {
                                   <div key={comment.id} className="comment-item">
                                     <span className="comment-author">{comment.authorName}</span>
                                     <span className="comment-text">{comment.text}</span>
-                                    <span className="comment-time">{formatDateTime(new Date(comment.timestamp).toISOString())}</span>
-                                    {comment.authorName === profile.name && (
-                                      <button
-                                        type="button"
-                                        className="comment-delete-btn"
-                                        onClick={() => handleDeleteComment(rec.id, comment.id, comment.authorName)}
-                                        title={t("friendsPage.deleteCommentTitle")}
-                                      >
-                                        <XIcon />
-                                      </button>
-                                    )}
+                                    <span className="comment-meta">
+                                      <span className="comment-time">{formatDateTime(new Date(comment.timestamp).toISOString())}</span>
+                                      {comment.authorName === profile.name && (
+                                        <button
+                                          type="button"
+                                          className="comment-delete-btn"
+                                          onClick={() => handleDeleteComment(rec.id, comment.id, comment.authorName)}
+                                          title={t("friendsPage.deleteCommentTitle")}
+                                        >
+                                          <XIcon />
+                                        </button>
+                                      )}
+                                    </span>
                                   </div>
                                 ))}
                               </div>
@@ -4414,11 +4427,14 @@ export default function FriendsPage() {
               </div>
 
               {/* Right Column: Write Form */}
-              <div className="profile-edit-section">
-                <h3 className="profile-edit-title">{t("friendsPage.recommendGame")}</h3>
+              <div className="profile-edit-section rec-composer">
+                <div className="rec-composer-head">
+                  <div className="rec-composer-icon" aria-hidden><RecommendIcon /></div>
+                  <h3 className="profile-edit-title">{t("friendsPage.recommendGame")}</h3>
+                </div>
                 <form className="profile-form" onSubmit={handleCreateRecommendation}>
-                  <div className="friends-input-group">
-                    <label>{t("friendsPage.gameLabel")}</label>
+                  <div className="friends-input-group rec-form-field">
+                    <label className="rec-form-label">{t("friendsPage.gameLabel")}</label>
                     <SearchableGameSelector
                       games={games}
                       selectedGameId={recGameId}
@@ -4427,11 +4443,11 @@ export default function FriendsPage() {
                     />
                   </div>
 
-                  <div className="friends-input-group">
-                    <label htmlFor="recTo">{t("friendsPage.recommendTo")}</label>
+                  <div className="friends-input-group rec-form-field">
+                    <label className="rec-form-label" htmlFor="recTo">{t("friendsPage.recommendTo")}</label>
                     <select
                       id="recTo"
-                      className="profile-input"
+                      className="profile-input rec-form-select"
                       value={recToFriend}
                       onChange={(e) => setRecToFriend(e.target.value)}
                     >
@@ -4444,15 +4460,16 @@ export default function FriendsPage() {
                     </select>
                   </div>
 
-                  <div className="friends-input-group">
-                    <label>{t("friendsPage.rating")}</label>
-                    <div className="rating-stars rating-stars--lg">
+                  <div className="friends-input-group rec-form-field">
+                    <label className="rec-form-label">{t("friendsPage.rating")}</label>
+                    <div className="rating-stars rating-stars--lg rec-rating-picker" role="radiogroup" aria-label={t("friendsPage.rating")}>
                       {[1, 2, 3, 4, 5].map((star) => (
                         <button
                           key={star}
                           type="button"
-                          className={`rating-star-btn${star <= recRating ? " active" : ""}`}
+                          className={`rating-star-btn rec-rating-star${star <= recRating ? " active" : ""}`}
                           onClick={() => setRecRating(star)}
+                          aria-label={String(star)}
                         >
                           ★
                         </button>
@@ -4460,11 +4477,11 @@ export default function FriendsPage() {
                     </div>
                   </div>
 
-                  <div className="friends-input-group">
-                    <label htmlFor="recReason">{t("friendsPage.recommendWhy")}</label>
+                  <div className="friends-input-group rec-form-field">
+                    <label className="rec-form-label" htmlFor="recReason">{t("friendsPage.recommendWhy")}</label>
                     <textarea
                       id="recReason"
-                      className="profile-input profile-input--textarea"
+                      className="profile-input profile-input--textarea rec-form-textarea"
                       value={recReason}
                       onChange={(e) => setRecReason(e.target.value)}
                       placeholder={t("friendsPage.reviewNotesPlaceholder")}
@@ -4472,7 +4489,7 @@ export default function FriendsPage() {
                     />
                   </div>
 
-                  <Button type="submit" variant="primary" className="btn--start" leftIcon={<RecommendIcon />}>
+                  <Button type="submit" variant="primary" className="btn--start rec-composer-submit" leftIcon={<RecommendIcon />}>
                     {t("friendsPage.recommendCta")}
                   </Button>
                 </form>
@@ -4520,10 +4537,12 @@ export default function FriendsPage() {
 
                   return (
                     <>
-                      <h3 className="friends-list-title">{t("friendsPage.sharedFromWishlists", { count: activeSugs.length })}</h3>
+                      <div className="sug-feed-head">
+                        <h3 className="friends-list-title">{t("friendsPage.sharedFromWishlists", { count: activeSugs.length })}</h3>
+                      </div>
 
                       {activeSugs.length > 0 && (
-                        <div className="compare-filter-chips rec-filter-chips" role="group" aria-label={t("friendsPage.sugFiltersAria")}>
+                        <div className="compare-filter-chips rec-filter-chips sug-filter-tray" role="group" aria-label={t("friendsPage.sugFiltersAria")}>
                           <button
                             type="button"
                             className={`compare-filter-chip${suggestionFilter === "all" ? " active" : ""}`}
@@ -4565,7 +4584,7 @@ export default function FriendsPage() {
                       <div className="suggestions-toolbar">
                         <input
                           type="text"
-                          className="comment-input"
+                          className="comment-input sug-search-input"
                           placeholder={t("friendsPage.searchSharedGames")}
                           value={suggestionSearch}
                           onChange={(e) => setSuggestionSearch(e.target.value)}
@@ -4685,17 +4704,19 @@ export default function FriendsPage() {
                                       <div key={comment.id} className="comment-item">
                                         <span className="comment-author">{comment.authorName}</span>
                                         <span className="comment-text">{comment.text}</span>
-                                        <span className="comment-time">{formatDateTime(new Date(comment.timestamp).toISOString())}</span>
-                                        {comment.authorName === profile.name && (
-                                          <button
-                                            type="button"
-                                            className="comment-delete-btn"
-                                            onClick={() => handleDeleteSuggestionComment(sug.id, comment.id, comment.authorName)}
-                                            title={t("friendsPage.deleteCommentTitle")}
-                                          >
-                                            <XIcon />
-                                          </button>
-                                        )}
+                                        <span className="comment-meta">
+                                          <span className="comment-time">{formatDateTime(new Date(comment.timestamp).toISOString())}</span>
+                                          {comment.authorName === profile.name && (
+                                            <button
+                                              type="button"
+                                              className="comment-delete-btn"
+                                              onClick={() => handleDeleteSuggestionComment(sug.id, comment.id, comment.authorName)}
+                                              title={t("friendsPage.deleteCommentTitle")}
+                                            >
+                                              <XIcon />
+                                            </button>
+                                          )}
+                                        </span>
                                       </div>
                                     ))}
                                   </div>
@@ -4730,8 +4751,11 @@ export default function FriendsPage() {
               </div>
 
               {/* Right: Share from wishlist */}
-              <div className="profile-edit-section">
-                <h3 className="profile-edit-title">{t("friendsPage.shareGameWishlist")}</h3>
+              <div className="profile-edit-section sug-composer">
+                <div className="sug-composer-head">
+                  <div className="sug-composer-icon" aria-hidden><SuggestionIcon /></div>
+                  <h3 className="profile-edit-title">{t("friendsPage.shareGameWishlist")}</h3>
+                </div>
                 {wishlist.length === 0 ? (
                   <div className="friends-empty-state friends-empty-state--inline">
                     <div className="friends-empty-icon friends-empty-icon--sm" aria-hidden><SuggestionIcon /></div>
@@ -4742,10 +4766,10 @@ export default function FriendsPage() {
                   </div>
                 ) : (
                   <form className="profile-form" onSubmit={handleCreateSuggestion}>
-                    <div className="friends-input-group">
-                      <label>{t("friendsPage.gameFromWishlist")}</label>
+                    <div className="friends-input-group sug-form-field">
+                      <label className="sug-form-label">{t("friendsPage.gameFromWishlist")}</label>
                       <select
-                        className="profile-input"
+                        className="profile-input sug-form-select"
                         value={suggestionGameId}
                         onChange={(e) => setSuggestionGameId(e.target.value)}
                         required
@@ -4759,11 +4783,11 @@ export default function FriendsPage() {
                       </select>
                     </div>
 
-                    <div className="friends-input-group">
-                      <label htmlFor="sugTo">{t("friendsPage.shareWith")}</label>
+                    <div className="friends-input-group sug-form-field">
+                      <label className="sug-form-label" htmlFor="sugTo">{t("friendsPage.shareWith")}</label>
                       <select
                         id="sugTo"
-                        className="profile-input"
+                        className="profile-input sug-form-select"
                         value={suggestionToFriend}
                         onChange={(e) => setSuggestionToFriend(e.target.value)}
                       >
@@ -4776,18 +4800,18 @@ export default function FriendsPage() {
                       </select>
                     </div>
 
-                    <div className="friends-input-group">
-                      <label htmlFor="sugNote">{t("friendsPage.shareNoteOptional")}</label>
+                    <div className="friends-input-group sug-form-field">
+                      <label className="sug-form-label" htmlFor="sugNote">{t("friendsPage.shareNoteOptional")}</label>
                       <textarea
                         id="sugNote"
-                        className="profile-input profile-input--textarea"
+                        className="profile-input profile-input--textarea sug-form-textarea"
                         value={suggestionNote}
                         onChange={(e) => setSuggestionNote(e.target.value)}
                         placeholder={t("friendsPage.shareNotePlaceholder")}
                       />
                     </div>
 
-                    <Button type="submit" variant="primary" className="btn--start" leftIcon={<SuggestionIcon />}>
+                    <Button type="submit" variant="primary" className="btn--start sug-composer-submit" leftIcon={<SuggestionIcon />}>
                       {t("friendsPage.shareToFriendsCta")}
                     </Button>
                   </form>
@@ -4817,30 +4841,6 @@ export default function FriendsPage() {
                   ))}
                 </select>
               </div>
-
-              {compareFriend && (
-                <div className="compare-selector-badges">
-                  <div className="compare-match-score-badge"><span className="compare-badge-icon" aria-hidden><GamepadIcon /></span><span>{t("friendsPage.matchScoreBadge")}</span>
-                      <strong>{matchScore}%</strong>
-                  </div>
-                  <div className="compare-match-score-badge compat"><span className="compare-badge-icon" aria-hidden><HeartIcon /></span><span>{t("friendsPage.compatibilityBadge")}</span>
-                      <strong>{compatibilityScore}%</strong>
-                  </div>
-                  {comparisonData.length > 0 && (
-                    <div
-                      className={`compare-data-badge ${comparisonData.some((i) => i.estimated) ? "estimated" : "real"}`}
-                      title={
-                        comparisonData.some((i) => i.estimated)                          ? t("friendsPage.friendNoSharedData")
-                          : t("friendsPage.basedOnRealSharedData")}
-                    >
-                      <span className="compare-badge-icon" aria-hidden>
-                        {comparisonData.some((i) => i.estimated) ? <XIcon /> : <CheckIcon />}
-                      </span>
-                      {comparisonData.some((i) => i.estimated) ? t("friendsPage.dataEstimatedBadge") : t("friendsPage.dataRealBadge")}
-                    </div>
-                  )}
-                </div>
-              )}
             </div>
 
             {!compareFriend ? (
@@ -4865,7 +4865,39 @@ export default function FriendsPage() {
                       </span>
                     )}
                   </div>
-                  <div className="compare-vs-badge">{t("friendsPage.compareVs")}</div>
+                  <div className="compare-h2h-score">
+                    <div className="compare-vs-badge">{t("friendsPage.compareVs")}</div>
+                    <div className="compare-selector-badges">
+                      <div className="compare-match-score-badge">
+                        <span className="compare-badge-head">
+                          <span className="compare-badge-icon" aria-hidden><GamepadIcon /></span>
+                          <span>{t("friendsPage.matchScoreBadge")}</span>
+                        </span>
+                        <strong>{matchScore}%</strong>
+                      </div>
+                      <div className="compare-match-score-badge compat">
+                        <span className="compare-badge-head">
+                          <span className="compare-badge-icon" aria-hidden><HeartIcon /></span>
+                          <span>{t("friendsPage.compatibilityBadge")}</span>
+                        </span>
+                        <strong>{compatibilityScore}%</strong>
+                      </div>
+                      {comparisonData.length > 0 && (
+                        <div
+                          className={`compare-data-badge ${comparisonData.some((i) => i.estimated) ? "estimated" : "real"}`}
+                          title={
+                            comparisonData.some((i) => i.estimated)
+                              ? t("friendsPage.friendNoSharedData")
+                              : t("friendsPage.basedOnRealSharedData")}
+                        >
+                          <span className="compare-badge-icon" aria-hidden>
+                            {comparisonData.some((i) => i.estimated) ? <XIcon /> : <CheckIcon />}
+                          </span>
+                          {comparisonData.some((i) => i.estimated) ? t("friendsPage.dataEstimatedBadge") : t("friendsPage.dataRealBadge")}
+                        </div>
+                      )}
+                    </div>
+                  </div>
                   <div className="compare-user-profile right">
                     {renderAvatar(compareFriend.avatar, compareFriend.name, "compare-user-avatar friend")}
                     <span className="compare-user-name">{compareFriend.name}</span>
@@ -5340,12 +5372,14 @@ export default function FriendsPage() {
                 </div>
                 <h3 className="profile-name-big">{profile.name}</h3>
                 <p className="profile-status-big">"{profile.status}"</p>
-                <p className="profile-last-active-big" title={t("friendsPage.lastOutboxTimeTitle")}>
-                  {t("friendsPage.lastActiveWithTime", { time: profile.lastPublished ? formatLastSeen(profile.lastPublished, t) : t("friendsPage.formatJustNow") })}
-                </p>
-                {profile.region && (
-                  <p className="profile-region-big"><MapPinIcon /> {profile.region}</p>
-                )}
+                <div className="profile-meta-row">
+                  <p className="profile-last-active-big" title={t("friendsPage.lastOutboxTimeTitle")}>
+                    {t("friendsPage.lastActiveWithTime", { time: profile.lastPublished ? formatLastSeen(profile.lastPublished, t) : t("friendsPage.formatJustNow") })}
+                  </p>
+                  {profile.region && (
+                    <p className="profile-region-big"><MapPinIcon /> {profile.region}</p>
+                  )}
+                </div>
                 {profile.bio && (
                   <p className="profile-bio-big">{profile.bio}</p>
                 )}
@@ -5368,7 +5402,8 @@ export default function FriendsPage() {
                 </div>
               </div>
 
-              <div className="friend-code-card">                    <h4 className="friend-code-label">{t("friends.profile.publicKey")}</h4>
+              <div className="friend-code-card">
+                <h4 className="friend-code-label">{t("friends.profile.publicKey")}</h4>
                 <p className="friends-modal-desc">
                   {t("friendsPage.shareKeyDesc")}
                 </p>
