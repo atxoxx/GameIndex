@@ -353,7 +353,7 @@ function DropdownOptionsList({
   }
 
   if (type === "sort") {
-    const sorts: LibrarySort[] = ["alphabetical", "date_added", "most_played", "rating"];
+    const sorts: LibrarySort[] = ["alphabetical", "date_added", "most_played", "recently_played", "rating"];
     return (
       <div className="bigscreen-overlay-options-list">
         {sorts.map((srt) =>

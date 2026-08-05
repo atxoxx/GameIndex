@@ -891,6 +891,119 @@
   right: 8px;
 }
 
+/* ───── Quick-play button (row hover) ─────
+ *
+ * A compact accent icon button revealed on row hover, absolutely
+ * positioned at the right edge exactly where the status dot sits.
+ * The dot fades out on hover (rules below) so the button swaps in at
+ * the same X coordinate with ZERO layout shift — the button is
+ * `position: absolute`, so it never contributes to the row's box,
+ * and the 52px (64px rail) `contain-intrinsic-size` contract holds.
+ *
+ * `visibility: hidden` (not just opacity 0) in the resting state so
+ * the hidden button can never intercept a click that should fall
+ * through to the row. The row's `:focus-within` keeps the button
+ * visible while a keyboard user tabs to it.
+ */
+.sidebar-game-play {
+  position: absolute;
+  top: 50%;
+  right: 12px; /* row horizontal padding — sits on the status-dot column */
+  transform: translateY(-50%) scale(0.85);
+  width: 24px;
+  height: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  border-radius: var(--radius-sm);
+  background: var(--color-accent);
+  color: #fff;
+  cursor: pointer;
+  padding: 0;
+  opacity: 0;
+  visibility: hidden;
+  box-shadow: 0 0 8px var(--color-accent-glow);
+  z-index: 2;
+  transition: opacity var(--transition-fast),
+    transform var(--transition-fast),
+    background var(--transition-fast),
+    box-shadow var(--transition-fast);
+}
+
+.sidebar-game-item:hover .sidebar-game-play,
+.sidebar-game-item:focus-within .sidebar-game-play {
+  opacity: 1;
+  visibility: visible;
+  transform: translateY(-50%) scale(1);
+}
+
+.sidebar-game-play:hover {
+  background: var(--color-accent-hover);
+  box-shadow: 0 0 12px var(--color-accent-glow);
+}
+
+.sidebar-game-play:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 1px;
+}
+
+.sidebar-game-play svg {
+  width: 12px;
+  height: 12px;
+  /* Nudge the play glyph a hair right so the triangle reads
+   * optically centered inside the round-cornered box. */
+  margin-left: 1px;
+}
+
+/* Status dot yields to the play button on row hover — EXCEPT on
+ * running rows (the pulsing green dot IS the running affordance;
+ * those rows have no play button at all) and on bulk-selected rows
+ * (the check badge owns the top-right corner and the dot keeps the
+ * column). */
+.sidebar-game-item:hover .sidebar-game-status,
+.sidebar-game-item:focus-within .sidebar-game-status {
+  opacity: 0;
+}
+
+.sidebar-game-item:hover .sidebar-game-status.running,
+.sidebar-game-item:focus-within .sidebar-game-status.running,
+.sidebar-game-item:hover.bulk-selected .sidebar-game-status,
+.sidebar-game-item:focus-within.bulk-selected .sidebar-game-status {
+  opacity: 1;
+}
+
+/* Bulk-selection mode: hide quick play — the check badge occupies
+ * the row's right edge and bulk actions are the interaction at hand.
+ * Rail mode: covers-only rows have no room (and no status dot to
+ * swap with), so the button is dropped there entirely. */
+.sidebar-game-item.bulk-selected .sidebar-game-play,
+.app-sidebar.sidebar-icon-rail .sidebar-game-play {
+  display: none;
+}
+
+/* ───── Recently-played section ─────
+ * Sits at the top of the `.sidebar-list` scroll container, above the
+ * Games header. The `.sidebar-section-header` class carries the
+ * shared section-header language (uppercase, accent icon, count
+ * pill), and the header hides in rail mode automatically via the
+ * existing `.app-sidebar.sidebar-icon-rail .sidebar-section-header`
+ * rule — the rows themselves stay, consistent with every other rail
+ * row. */
+
+/* Motion safety: the play button reveal is opacity + scale; collapse
+ * the scale so reduced-motion users get a pure fade. */
+@media (prefers-reduced-motion: reduce) {
+  .sidebar-game-item:hover .sidebar-game-play,
+  .sidebar-game-item:focus-within .sidebar-game-play {
+    transform: translateY(-50%) scale(1);
+  }
+
+  .sidebar-game-play {
+    transition: opacity var(--transition-fast);
+  }
+}
+
 /* Context menu submenu container (used by the Set Status
  * hover-flyout). Positioned absolutely relative to its parent
  * context-menu item so it appears on the right of the trigger
@@ -1153,7 +1266,19 @@
 
 /* ── Sidebar hover preview (portal-based, anchored right) ── */
 .sidebar-hover-preview {
-  background: var(--color-surface-raised);
+  /* The card floats over the main panel, so it must be FULLY OPAQUE
+   * in every theme. `--color-surface-raised` is a semi-transparent
+   * rgba (0.88–0.98 alpha) in every theme block in themes.css — a
+   * glassy fill that lets the app content behind the card bleed
+   * through. `--color-bg-primary` is defined as a solid hex in all
+   * 17 themes, so the card reads as a clean opaque surface that
+   * matches the app background; the hairline border + xl shadow do
+   * the "raised card" work. The hardcoded #000 first declaration is
+   * a fallback for the (theoretical) case where the token is
+   * undefined or a future theme leaves it unset — a solid base the
+   * themed value can only improve on, never turn transparent. */
+  background: #000;
+  background: var(--color-bg-primary);
   border: 1px solid var(--color-border-light);
   border-radius: var(--radius-lg);
   box-shadow: var(--shadow-xl);

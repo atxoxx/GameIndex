@@ -25,6 +25,10 @@ import {
 } from "./SidebarHoverPreview";
 import { Button } from "./ui";
 
+// How many of the most-recently-played games the sidebar's
+// "Recently Played" section shows at the top of the scroll list.
+const RECENTLY_PLAYED_COUNT = 5;
+
 /**
  * Read the persisted pinned-id set from localStorage. Wrapped in
  * try/catch because private-browsing / sandboxed contexts can throw
@@ -422,6 +426,40 @@ export default function Sidebar() {
     return filteredGames.filter((g) => !pinnedIds.has(g.id));
   }, [filteredGames, pinnedIds]);
 
+  // ── Recently-played section ──────────────────────────────────────
+  // Games with a `lastPlayed` timestamp, newest first, capped at
+  // RECENTLY_PLAYED_COUNT. Pinned games are excluded — they already
+  // sit in the pinned section directly above, so keeping them here
+  // too would render the same row twice in one view. Derived from
+  // `filteredGames` (NOT the full library) so the section stays
+  // coherent with whatever status facet / search / advanced filter
+  // is active: in the "Installed" view it shows recently-played
+  // INSTALLED games, in "Not installed" the uninstalled ones, and a
+  // search narrows it to matches. The section is ALWAYS visible
+  // (unlike the header counts, which switch to "N of M games" while
+  // filtering) — the main list below just excludes these rows so
+  // nothing ever renders twice.
+  const recentlyPlayedGames = useMemo(() => {
+    return filteredGames
+      .filter(
+        (g): g is Game & { lastPlayed: number } =>
+          typeof g.lastPlayed === "number" && !pinnedIds.has(g.id)
+      )
+      .sort((a, b) => b.lastPlayed - a.lastPlayed)
+      .slice(0, RECENTLY_PLAYED_COUNT);
+  }, [filteredGames, pinnedIds]);
+
+  // The main list ALWAYS dedupes against the recently-played section
+  // so no row appears twice in the same scroll region (same
+  // convention as the pinned section above). When the recent list is
+  // empty the recent-id Set is empty too, so main === filteredNonPinned
+  // — today's composition, unchanged.
+  const mainListGames = useMemo(() => {
+    if (recentlyPlayedGames.length === 0) return filteredNonPinned;
+    const recentIds = new Set(recentlyPlayedGames.map((g) => g.id));
+    return filteredNonPinned.filter((g) => !recentIds.has(g.id));
+  }, [filteredNonPinned, recentlyPlayedGames]);
+
   const importMenuRef = useRef<HTMLDivElement>(null);
   const importBtnRef = useRef<HTMLButtonElement>(null);
   // Ref to the filter icon button — passed to `SidebarFilterPopover` so
@@ -578,13 +616,24 @@ export default function Sidebar() {
   // We intentionally do NOT collapse the selection into the global
   // `selectedGameId` — the bulk action bar reads `bulkSelectedIds`
   // directly, and individual-vs-bulk are two orthogonal intents.
-  const combinedVisibleGames = useMemo<Game[]>(
-    () => [...pinnedGames, ...filteredNonPinned],
-    [pinnedGames, filteredNonPinned]
-  );
+  // The canonical flat list in the order the user sees it, used to
+  // compute shift-click ranges. Visible rows are always
+  // pinned → recently-played → main (main already excludes the
+  // recent games), so a range spanning a recent row and a main row
+  // selects the games between them on screen. When the recent list
+  // is empty this collapses to pinned + filtered — the original
+  // composition — so there is no shift-click range regression.
+  const combinedVisibleGames = useMemo<Game[]>(() => {
+    return [...pinnedGames, ...recentlyPlayedGames, ...mainListGames];
+  }, [pinnedGames, recentlyPlayedGames, mainListGames]);
 
   const handleRowClick = useCallback(
-    (game: Game, e: React.MouseEvent) => {
+    // Accepts a mouse OR keyboard event: rows are `<div role="button">`
+    // now, so keyboard activation (Enter/Space) flows through the
+    // delegated `handleListKeyDown` and lands here with a KeyboardEvent.
+    // Both types carry the shiftKey/ctrlKey/metaKey modifiers this
+    // handler reads, and preventDefault/stopPropagation behave the same.
+    (game: Game, e: React.MouseEvent | React.KeyboardEvent) => {
       // Shift-click range: compute indices in the canonical list.
       if (e.shiftKey && lastClickedId) {
         e.preventDefault();
@@ -669,6 +718,42 @@ export default function Sidebar() {
       handleGameContextMenu(e, game);
     },
     [handleGameContextMenu, gameById]
+  );
+
+  // ── Quick play (row hover button) ────────────────────────────────
+  // `launchGame` is re-created by GameContext whenever runningGameIds
+  // changes (any game start/stop), so we hold it in a ref and keep
+  // this handler stable forever — rows are memoized and must not
+  // re-render just because an unrelated game began running.
+  const launchGameRef = useRef(launchGame);
+  useEffect(() => {
+    launchGameRef.current = launchGame;
+  }, [launchGame]);
+
+  const handleQuickPlay = useCallback((game: Game) => {
+    launchGameRef.current(game);
+  }, []);
+
+  // ── Keyboard activation (delegated) ──────────────────────────────
+  // The rows are now `<div role="button">` (they host the nested
+  // quick-play `<button>`, which a real button can't contain), so
+  // Enter/Space must be re-implemented. Delegated to the list
+  // containers like the click handler to keep the memo contract.
+  // Only fires when the ROW itself has focus — the nested play
+  // button handles its own Enter/Space natively and its keydown
+  // bubbles here with a different target, so it is naturally ignored.
+  const handleListKeyDown = useCallback(
+    (e: React.KeyboardEvent) => {
+      if (e.key !== "Enter" && e.key !== " ") return;
+      const target = e.target as HTMLElement | null;
+      if (!target || !target.hasAttribute("data-sidebar-game-id")) return;
+      const id = target.dataset.sidebarGameId;
+      const game = id ? gameById.get(id) : undefined;
+      if (!game) return;
+      e.preventDefault();
+      handleRowClick(game, e);
+    },
+    [handleRowClick, gameById]
   );
 
   // ── Pin/unpin single game (Feature #12) ──────────────────────────
@@ -1058,7 +1143,12 @@ export default function Sidebar() {
             </span>
             <span className="sidebar-list-count">{pinnedGames.length}</span>
           </div>
-          <div className="sidebar-pinned-list" onClick={handleListClick} onContextMenu={handleListContextMenu}>
+          <div
+            className="sidebar-pinned-list"
+            onClick={handleListClick}
+            onContextMenu={handleListContextMenu}
+            onKeyDown={handleListKeyDown}
+          >
             {pinnedGames.map((game) => (
               <SidebarGameItem
                 key={`pinned-${game.id}`}
@@ -1070,6 +1160,7 @@ export default function Sidebar() {
                 prefersCover={isIconRail}
                 onPointerEnter={handlePointerEnter}
                 onPointerLeave={handlePointerLeave}
+                onQuickPlay={handleQuickPlay}
               />
             ))}
           </div>
@@ -1077,66 +1168,129 @@ export default function Sidebar() {
         </>
       )}
 
-      <div className="sidebar-list-header">
-        <span>{t("bigscreen.friends.games")}</span>
-        {/* While search/advanced filters are active, replace the plain
-         * section count with the overall match result — "N of M games"
-         * — so the user always knows how many of the full library the
-         * current narrowing returns. The pinned section above stays
-         * visible regardless. */}
-        {isFilteringActive ? (
-          <span className="sidebar-list-result">
-            {t("sidebar.resultOfTotal", {
-              count: filteredGames.length,
-              total: games.length,
-            })}
-          </span>
-        ) : (
-          <span className="sidebar-list-count">{filteredNonPinned.length}</span>
-        )}
-      </div>
-
-      <div className="sidebar-list" onClick={handleListClick} onContextMenu={handleListContextMenu}>
-        {filteredNonPinned.length === 0 ? (
-          <div className="sidebar-empty">
-            <div className="sidebar-empty-icon" aria-hidden="true">
-              <svg
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="1.5"
-              >
-                <rect x="2" y="3" width="20" height="14" rx="2" ry="2" />
-                <line x1="8" y1="21" x2="16" y2="21" />
-                <line x1="12" y1="17" x2="12" y2="21" />
-              </svg>
+      <div
+        className="sidebar-list"
+        onClick={handleListClick}
+        onContextMenu={handleListContextMenu}
+        onKeyDown={handleListKeyDown}
+      >
+        {/* Recently-played section — top of the scroll list so it
+         * scrolls away naturally with the games below it. Renders
+         * the SAME SidebarGameItem rows with the same delegated
+         * handlers, so memoization, hover, quick play, bulk-select
+         * and the context menu all behave identically to the main
+         * list. ALWAYS visible whenever anything matches (all status
+         * views, searches, advanced facets) — its games are excluded
+         * from the main list below, so the same row never appears
+         * twice. */}
+        {recentlyPlayedGames.length > 0 && (
+          <>
+            <div className="sidebar-section-header">
+              <span>
+                <svg
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="1.8"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  aria-hidden="true"
+                  style={{ display: "inline-block", verticalAlign: "-2px", marginRight: 4 }}
+                >
+                  <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8" />
+                  <path d="M3 3v5h5" />
+                </svg>
+                {t("community.recentlyPlayed")}
+              </span>
+              <span className="sidebar-list-count">{recentlyPlayedGames.length}</span>
             </div>
-            <p className="sidebar-empty-title">
-              {games.length === 0
-                ? t("sidebar.noGamesImported")
-                : t("sidebar.noGamesFound")}
-            </p>
-            {games.length === 0 ? (
-              <button
-                type="button"
-                className="sidebar-empty-cta"
-                onClick={() => setShowImportMenu(true)}
-              >
-                {t("sidebar.importGames")}
-              </button>
-            ) : isFilteringActive ? (
-              <button
-                type="button"
-                className="sidebar-empty-cta sidebar-empty-cta--ghost"
-                onClick={reset}
-              >
-                {t("sidebar.clearFilters")}
-              </button>
-            ) : null}
-          </div>
+            {recentlyPlayedGames.map((game) => (
+              <SidebarGameItem
+                key={`recent-${game.id}`}
+                game={game}
+                isSelected={selectedGameId === game.id}
+                isRunning={runningGameIds.includes(game.id)}
+                bulkSelected={bulkSelectedIds.has(game.id)}
+                searchQuery={filterState.search}
+                prefersCover={isIconRail}
+                onPointerEnter={handlePointerEnter}
+                onPointerLeave={handlePointerLeave}
+                onQuickPlay={handleQuickPlay}
+              />
+            ))}
+            <hr className="sidebar-divider sidebar-divider--thin" />
+          </>
+        )}
+
+        {/* Games header. Rendered INSIDE the scroll container so the
+         * whole list region — recently played then games — scrolls
+         * as one unit (it scrolls away with the rows, like the rows
+         * themselves). While search/advanced filters are active,
+         * replace the plain section count with the overall match
+         * result — "N of M games" — so the user always knows how
+         * many of the full library the current narrowing returns. */}
+        <div className="sidebar-list-header">
+          <span>{t("bigscreen.friends.games")}</span>
+          {isFilteringActive ? (
+            <span className="sidebar-list-result">
+              {t("sidebar.resultOfTotal", {
+                count: filteredGames.length,
+                total: games.length,
+              })}
+            </span>
+          ) : (
+            <span className="sidebar-list-count">{mainListGames.length}</span>
+          )}
+        </div>
+
+        {mainListGames.length === 0 ? (
+          /* Empty state. `filteredNonPinned === 0` covers the real
+           * "nothing to show" cases (no games imported yet, or a
+           * filter/search that matched zero). The second guard lets
+           * a tiny library whose every game sits in the recent
+           * section above render nothing rather than a misleading
+           * "No games found" box. */
+          filteredNonPinned.length === 0 ? (
+            <div className="sidebar-empty">
+              <div className="sidebar-empty-icon" aria-hidden="true">
+                <svg
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="1.5"
+                >
+                  <rect x="2" y="3" width="20" height="14" rx="2" ry="2" />
+                  <line x1="8" y1="21" x2="16" y2="21" />
+                  <line x1="12" y1="17" x2="12" y2="21" />
+                </svg>
+              </div>
+              <p className="sidebar-empty-title">
+                {games.length === 0
+                  ? t("sidebar.noGamesImported")
+                  : t("sidebar.noGamesFound")}
+              </p>
+              {games.length === 0 ? (
+                <button
+                  type="button"
+                  className="sidebar-empty-cta"
+                  onClick={() => setShowImportMenu(true)}
+                >
+                  {t("sidebar.importGames")}
+                </button>
+              ) : isFilteringActive ? (
+                <button
+                  type="button"
+                  className="sidebar-empty-cta sidebar-empty-cta--ghost"
+                  onClick={reset}
+                >
+                  {t("sidebar.clearFilters")}
+                </button>
+              ) : null}
+            </div>
+          ) : null
         ) : (
           <>
-            {filteredNonPinned.map((game) => (
+            {mainListGames.map((game) => (
               <SidebarGameItem
                 key={game.id}
                 game={game}
@@ -1147,6 +1301,7 @@ export default function Sidebar() {
                 prefersCover={isIconRail}
                 onPointerEnter={handlePointerEnter}
                 onPointerLeave={handlePointerLeave}
+                onQuickPlay={handleQuickPlay}
               />
             ))}
             {/* Floating bulk-action bar — sticky to the bottom of
@@ -1501,13 +1656,19 @@ function ContextMenu({
  * before clearing `coverArtUrl` to trigger a re-arm and an IGDB /
  * LaunchBox re-scrape via the observer.
  *
- * Why the ref is on the OUTER `<button className="sidebar-game-item">`
+ * Why the ref is on the OUTER row element (`.sidebar-game-item`)
  * rather than the inner `sidebar-game-icon`: attaching the observer to
  * the larger row rectangle means the trigger fires as soon as the row
  * is anywhere near the viewport — the 300 px rootMargin gives a generous
  * head-start — instead of waiting for the small 36 × 36 icon to enter
  * the viewport, which would otherwise miss rows whose icon is just
  * out-of-frame while the title is still readable.
+ *
+ * The row is a `<div role="button">` rather than a `<button>` so it
+ * can host the nested quick-play `<button>` (a real button cannot
+ * contain another button). Enter/Space activation is re-implemented by
+ * the parent's delegated `handleListKeyDown`; `tabIndex={0}` keeps the
+ * row focusable with the same keyboard behavior as the old button.
  */
 function SidebarGameItemBase({
   game,
@@ -1518,6 +1679,7 @@ function SidebarGameItemBase({
   prefersCover,
   onPointerEnter,
   onPointerLeave,
+  onQuickPlay,
 }: {
   game: Game;
   isSelected: boolean;
@@ -1535,15 +1697,21 @@ function SidebarGameItemBase({
   prefersCover?: boolean;
   onPointerEnter: (game: Game) => void;
   onPointerLeave: (game: Game) => void;
+  /**
+   * Launches the game from the row's hover quick-play button.
+   * Stable useCallback in the parent (see Sidebar) so the memoized
+   * row never re-renders from handler identity churn.
+   */
+  onQuickPlay: (game: Game) => void;
 }) {
   const { updateGame, enrichGameMetadata } = useGames();
   const { t } = useLanguage();
-  // The ref is attached to the OUTER `<button className="sidebar-game-item">`,
+  // The ref is attached to the OUTER row element (`.sidebar-game-item`),
   // not the inner icon — see the doc comment above for why the larger
   // rectangle wins for IntersectionObserver rootMargin. React 19 infers
-  // the ref type from the element, so the explicit `HTMLButtonElement`
+  // the ref type from the element, so the explicit `HTMLDivElement`
   // generic must match the JSX element type.
-  const coverRef = useRef<HTMLButtonElement | null>(null);
+  const coverRef = useRef<HTMLDivElement | null>(null);
 
   // Auto-enrich criteria — short-circuits the observer setup so we
   // don't spam IGDB for games we already know are unmatched.
@@ -1579,8 +1747,9 @@ function SidebarGameItemBase({
   }, [canAutoFetchCover, game.id, game.name, game.steamAppId, enrichGameMetadata]);
 
   return (
-    <button
-      type="button"
+    <div
+      role="button"
+      tabIndex={0}
       ref={coverRef}
       data-sidebar-game-id={game.id}
       className={`sidebar-game-item${isSelected ? " active" : ""}${bulkSelected ? " bulk-selected" : ""}`}
@@ -1726,6 +1895,35 @@ function SidebarGameItemBase({
             : t("game.notInstalled")
         }
       />
+      {/* Quick-play button — hover-revealed at the row's right edge,
+       * in the exact spot the status dot sits (the dot fades out on
+       * hover via CSS so the swap happens without any layout shift).
+       * stopPropagation on click + context-menu keeps the delegated
+       * list handlers from navigating or opening the row menu; the
+       * `disabled`-free render condition means running rows simply
+       * have no play button — their pulsing green status dot is the
+       * running affordance. */}
+      {!isRunning && (
+        <button
+          type="button"
+          className="sidebar-game-play"
+          aria-label={t("game.playGame")}
+          title={t("game.playGame")}
+          onClick={(e) => {
+            e.stopPropagation();
+            e.preventDefault();
+            onQuickPlay(game);
+          }}
+          onContextMenu={(e) => {
+            e.stopPropagation();
+            e.preventDefault();
+          }}
+        >
+          <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+            <polygon points="5 3 19 12 5 21 5 3" />
+          </svg>
+        </button>
+      )}
       {/* Bulk-select check badge — at ROW level (after the status dot),
        *  NOT inside `.sidebar-game-icon`: the icon clips its overflow,
        *  and since the badge's absolute position resolves against the
@@ -1736,7 +1934,7 @@ function SidebarGameItemBase({
           <polyline points="20 6 9 17 4 12" />
         </svg>
       </div>
-    </button>
+    </div>
   );
 }
 
