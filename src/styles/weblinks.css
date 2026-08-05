@@ -70,6 +70,7 @@
   font-weight: var(--font-weight-medium);
   cursor: pointer;
   position: relative;
+  height: 40px;
   transition: color var(--transition-fast), background var(--transition-fast), border-color var(--transition-fast), box-shadow var(--transition-fast), opacity var(--transition-fast), transform var(--transition-fast);
   border-bottom: 2px solid transparent;
   margin-bottom: -1px;
@@ -81,6 +82,11 @@
 .wl-source-tab:hover {
   color: var(--color-text-primary);
   background: var(--color-bg-hover);
+}
+
+.wl-source-tab:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 2px;
 }
 
 .wl-source-tab.active {
@@ -102,6 +108,7 @@
   font-size: 10px;
   font-weight: var(--font-weight-bold);
   line-height: 1;
+  font-variant-numeric: tabular-nums;
   flex-shrink: 0;
 }
 
@@ -134,6 +141,82 @@
   gap: var(--space-sm);
 }
 
+/* Add-link form row: input + accent submit button. */
+.wl-mylinks-add {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  margin-bottom: var(--space-sm);
+}
+
+.wl-mylinks-add-input {
+  flex: 1;
+  min-width: 0;
+  height: 30px;
+  padding: 0 10px;
+  background: var(--color-bg-tertiary);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  color: var(--color-text-primary);
+  font-size: var(--font-size-sm);
+  font-family: inherit;
+  outline: none;
+  transition: border-color var(--transition-fast), box-shadow var(--transition-fast), background var(--transition-fast);
+}
+
+.wl-mylinks-add-input:focus-visible {
+  border-color: var(--color-accent);
+  box-shadow: 0 0 0 3px var(--color-accent-glow);
+  background: var(--color-bg-secondary);
+}
+
+.wl-mylinks-add-input::placeholder {
+  color: var(--color-text-muted);
+}
+
+.wl-mylinks-add-btn {
+  height: 30px;
+  padding: 0 16px;
+  background: var(--color-accent);
+  color: #fff;
+  border: none;
+  border-radius: var(--radius-md);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-semibold);
+  font-family: inherit;
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: background var(--transition-fast), box-shadow var(--transition-fast), opacity var(--transition-fast);
+}
+
+.wl-mylinks-add-btn:hover:not(:disabled) {
+  background: var(--color-accent-hover);
+}
+
+.wl-mylinks-add-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.wl-mylinks-add-btn:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 2px;
+}
+
+.wl-mylinks-add-hint {
+  flex-basis: 100%;
+  font-size: var(--font-size-xs);
+  color: var(--color-text-muted);
+  margin-top: 4px;
+}
+
+.wl-mylinks-add-error {
+  flex-basis: 100%;
+  font-size: var(--font-size-xs);
+  color: var(--color-danger);
+  margin-top: 4px;
+}
+
 .wl-mylinks-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(230px, 1fr));
@@ -145,7 +228,9 @@
   display: flex;
   align-items: center;
   gap: var(--space-sm);
-  padding: var(--space-sm) var(--space-sm) var(--space-sm) var(--space-md);
+  /* Right padding reserves the top-right corner for the absolute remove
+     button (24px + gap) so it never overlaps the open-in-browser button. */
+  padding: var(--space-sm) 34px var(--space-sm) var(--space-md);
   background: var(--color-bg-secondary);
   border: 1px solid var(--color-border);
   border-radius: var(--radius-md);
@@ -176,6 +261,11 @@
   font-family: inherit;
   cursor: pointer;
   text-align: left;
+}
+
+.wl-mylink-card-main:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 2px;
 }
 
 .wl-mylink-favicon {
@@ -255,9 +345,50 @@
   transform: translateY(-1px);
 }
 
+.wl-mylink-card-open:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 2px;
+}
+
 .wl-mylink-card-open svg {
   width: 13px;
   height: 13px;
+}
+
+/* Remove-link button — floats in the card's top-right corner. The card's
+   right padding keeps it clear of the open-in-browser button. */
+.wl-mylink-card-remove {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  width: 24px;
+  height: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  background: var(--color-bg-tertiary);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  color: var(--color-text-muted);
+  cursor: pointer;
+  transition: color var(--transition-fast), background var(--transition-fast), border-color var(--transition-fast);
+}
+
+.wl-mylink-card-remove:hover {
+  color: var(--color-danger);
+  background: color-mix(in srgb, var(--color-danger) 12%, transparent);
+  border-color: color-mix(in srgb, var(--color-danger) 35%, transparent);
+}
+
+.wl-mylink-card-remove:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 2px;
+}
+
+.wl-mylink-card-remove svg {
+  width: 12px;
+  height: 12px;
 }
 
 /* Empty state when the game has no user-added links yet */
@@ -334,6 +465,11 @@
   color: var(--color-text-primary);
   background: var(--color-bg-hover);
   border-color: var(--color-border-light);
+}
+
+.wl-steam-subtab:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 2px;
 }
 
 .wl-steam-subtab.active:not(.disabled) {
@@ -454,6 +590,11 @@
   color: var(--color-text-primary);
   background: var(--color-bg-hover);
   border-color: var(--color-border-light);
+}
+
+.wl-urlbar-btn:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 2px;
 }
 
 .wl-urlbar-btn.primary {
@@ -589,6 +730,11 @@
   transform: translateY(-1px);
 }
 
+.wl-empty-btn:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 2px;
+}
+
 .wl-empty-btn.primary {
   background: var(--color-accent);
   border-color: var(--color-accent);
@@ -635,24 +781,14 @@
   font-size: 10px;
 }
 /* ==============================
-   Web Links — Iframe preview (X-Frame friendly)
+   Web Links — Native webview preview
    ============================== */
 .wl-webview-frame {
-    flex: 1;
+  flex: 1;
   display: flex;
   flex-direction: column;
   background: var(--color-bg-secondary);
-    border-radius: var(--radius-md);
-}
-
-.wl-iframe {
-  flex: 1;
-  width: 100%;
-  height: 100%;
-  border: none;
-  background: transparent;
-  display: block;
-  color-scheme: light dark;
+  border-radius: var(--radius-md);
 }
 
 .wl-webview-loader {
@@ -668,7 +804,6 @@
   background: var(--color-bg-secondary);
   pointer-events: none;
   z-index: 1;
-  animation: wlLoaderFadeIn 200ms ease;
   transition: opacity 220ms ease;
   animation: wlLoaderFadeIn 220ms ease;
 }
@@ -691,52 +826,21 @@
   to { transform: rotate(360deg); }
 }
 
-.wl-iframe-blocked-hint {
-  position: absolute;
-  top: var(--space-md);
-  right: var(--space-md);
-  display: flex;
-  align-items: center;
-  gap: var(--space-sm);
-  padding: var(--space-xs) var(--space-md);
-  background: color-mix(in srgb, var(--color-bg-tertiary) 92%, transparent);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-full);
-  font-size: var(--font-size-xs);
-  color: var(--color-text-secondary);
-  box-shadow: var(--shadow-sm);
-  pointer-events: auto;
-  z-index: 2;
-  animation: wlHintFadeIn 240ms ease;
-}
+/* ==============================
+   Reduced motion
+   ============================== */
+@media (prefers-reduced-motion: reduce) {
+  .wl-tab,
+  .wl-webview-loader {
+    animation: none;
+  }
 
-.wl-iframe-blocked-btn {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  padding: 4px 10px;
-  background: var(--color-accent);
-  color: #fff;
-  border: none;
-  border-radius: var(--radius-full);
-  font-size: var(--font-size-xs);
-  font-weight: var(--font-weight-semibold);
-  cursor: pointer;
-  transition: background var(--transition-fast);
-}
-
-.wl-iframe-blocked-btn:hover {
-  background: var(--color-accent-hover);
-}
-
-.wl-iframe-blocked-btn svg {
-  width: 12px;
-  height: 12px;
-}
-
-@keyframes wlHintFadeIn {
-  from { opacity: 0; transform: translateY(-4px); }
-  to { opacity: 1; transform: translateY(0); }
+  /* Keep color/background/border transitions; drop decorative lifts. */
+  .wl-mylink-card:hover,
+  .wl-mylink-card-open:hover,
+  .wl-empty-btn:hover {
+    transform: none;
+  }
 }
 
 

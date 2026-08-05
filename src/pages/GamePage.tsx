@@ -382,6 +382,7 @@ function GameDetail({ game }: { game: Game }) {
         <WebLinksTab
           game={game}
           visible={!editing && !lightboxImage}
+          onWebsitesChange={(websites) => updateGame(game.id, { websites: websites.length > 0 ? websites : undefined })}
         />
       )}
 

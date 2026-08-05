@@ -13,6 +13,7 @@ import { useFocusable } from "../hooks/useFocusable";
 interface WebLinksTabProps {
   game: Game;
   visible?: boolean;
+  onWebsitesChange?: (websites: string[]) => void;
 }
 
 type FixedSourceKey =
@@ -454,10 +455,34 @@ function CustomFavicon({ host }: { host: string }) {
   );
 }
 
+// ─── Keyboard navigation for tab strips ───────────────────────────────────────
+
+/**
+ * Roving tabindex + arrow-key navigation shared by the outer source tablist
+ * and the Steam sub-tablist. `onSelect(index)` is invoked with the newly
+ * selected tab's index; the tab itself is focused here.
+ */
+function handleTabListKeyDown(e: React.KeyboardEvent<HTMLDivElement>, onSelect: (index: number) => void) {
+  const tabs = Array.from(e.currentTarget.querySelectorAll<HTMLButtonElement>('[role="tab"]'));
+  if (tabs.length === 0) return;
+  const current = tabs.findIndex((t) => t.tabIndex === 0);
+  let next = current;
+  if (e.key === "ArrowRight") next = (current + 1) % tabs.length;
+  else if (e.key === "ArrowLeft") next = (current - 1 + tabs.length) % tabs.length;
+  else if (e.key === "Home") next = 0;
+  else if (e.key === "End") next = tabs.length - 1;
+  else return;
+  e.preventDefault();
+  onSelect(next);
+  tabs[next].focus();
+}
+
 // ─── Component ────────────────────────────────────────────────────────────────
 
-export default function WebLinksTab({ game, visible = true }: WebLinksTabProps) {
+export default function WebLinksTab({ game, visible = true, onWebsitesChange }: WebLinksTabProps) {
   const { t } = useLanguage();
+  /** True when the parent supplies onWebsitesChange (editable mode). */
+  const editable = typeof onWebsitesChange === "function";
   const [activeSource, setActiveSource] = useState<string>("steam");
   const [steamSection, setSteamSection] = useState<SteamSectionKey>("store");
   /** URL of the custom link currently loaded in the preview (My Links tab). */
@@ -466,6 +491,10 @@ export default function WebLinksTab({ game, visible = true }: WebLinksTabProps) 
   const [reloadNonce, setReloadNonce] = useState(0);
   /** True briefly after the user copies the current URL to the clipboard. */
   const [copied, setCopied] = useState(false);
+  /** Add-link input value (My Links panel, editable mode only). */
+  const [linkInput, setLinkInput] = useState("");
+  /** Validation error for the add-link input, if any. */
+  const [linkError, setLinkError] = useState<string | null>(null);
   /** Whether the webview can go back / forward (tracked via URL polling). */
   const [navState, setNavState] = useState<{ back: boolean; forward: boolean }>({ back: false, forward: false });
   /** Stack of URLs visited inside the current webview (index = current page). */
@@ -707,6 +736,31 @@ export default function WebLinksTab({ game, visible = true }: WebLinksTabProps) 
     window.setTimeout(() => setCopied(false), 1600);
   }
 
+  /** Validate and append a user-typed link to the game's website list. */
+  function handleAddLink() {
+    if (!onWebsitesChange) return;
+    const trimmed = linkInput.trim();
+    let parsed: URL;
+    try {
+      parsed = new URL(trimmed);
+    } catch {
+      setLinkError(t("weblinks.addLinkInvalid"));
+      return;
+    }
+    if (parsed.protocol !== "http:" && parsed.protocol !== "https:") {
+      setLinkError(t("weblinks.addLinkInvalid"));
+      return;
+    }
+    if (customLinks.some((u) => u.toLowerCase() === trimmed.toLowerCase())) {
+      setLinkError(t("weblinks.addLinkInvalid"));
+      return;
+    }
+    onWebsitesChange([...customLinks, trimmed]);
+    setLinkInput("");
+    setLinkError(null);
+    setCustomPreviewUrl(trimmed);
+  }
+
   // ─── Webview preview state ─────────────────────────────────────────────
   // Native Tauri Webview overlays the placeholder container. Pages are
   // fully interactive and bypass the X-Frame-Options restrictions that
@@ -906,13 +960,25 @@ export default function WebLinksTab({ game, visible = true }: WebLinksTabProps) 
   return (
     <div className="wl-tab">
       {/* ─── Outer source TABS (fixed sources + My Links) ──────────── */}
-      <div className="wl-source-tabs" role="tablist">
+      <div
+        className="wl-source-tabs"
+        role="tablist"
+        onKeyDown={(e) =>
+          handleTabListKeyDown(e, (i) => {
+            const all = [...FixedSources, { key: MY_LINKS_KEY }];
+            const item = all[i];
+            if (item.key === MY_LINKS_KEY) setActiveSource(MY_LINKS_KEY);
+            else setActiveSource(item.key);
+          })
+        }
+      >
         {FixedSources.map((src) => {
           const isActive = activeSource === src.key;
           return (
             <button
               key={src.key}
               role="tab"
+              tabIndex={isActive ? 0 : -1}
               aria-selected={isActive}
               className={`wl-source-tab${isActive ? " active" : ""}`}
               onClick={() => setActiveSource(src.key)}
@@ -941,6 +1007,7 @@ export default function WebLinksTab({ game, visible = true }: WebLinksTabProps) 
         <button
           key={MY_LINKS_KEY}
           role="tab"
+          tabIndex={isMyLinksActive ? 0 : -1}
           aria-selected={isMyLinksActive}
           className={`wl-source-tab mylinks${isMyLinksActive ? " active" : ""}`}
           onClick={() => setActiveSource(MY_LINKS_KEY)}
@@ -967,6 +1034,37 @@ export default function WebLinksTab({ game, visible = true }: WebLinksTabProps) 
       {/* ─── My Links panel: favicon card grid or empty state ───────── */}
       {isMyLinksActive && (
         <div className="wl-mylinks">
+          {editable && (
+            <div className="wl-mylinks-add">
+              <input
+                className="wl-mylinks-add-input"
+                type="url"
+                placeholder={t("weblinks.addLinkPlaceholder")}
+                aria-label={t("weblinks.addLink")}
+                value={linkInput}
+                onChange={(e) => {
+                  setLinkInput(e.target.value);
+                  if (linkError) setLinkError(null);
+                }}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") {
+                    e.preventDefault();
+                    handleAddLink();
+                  }
+                }}
+              />
+              <button
+                className="wl-mylinks-add-btn"
+                type="button"
+                onClick={handleAddLink}
+                disabled={!linkInput.trim()}
+              >
+                {t("weblinks.addLink")}
+              </button>
+              {linkError && <div className="wl-mylinks-add-error">{linkError}</div>}
+              <div className="wl-mylinks-add-hint">{t("weblinks.addLinkHint")}</div>
+            </div>
+          )}
           {customSources.length === 0 ? (
             <div className="wl-mylinks-empty">
               <span className="wl-mylinks-empty-icon">
@@ -1006,6 +1104,29 @@ export default function WebLinksTab({ game, visible = true }: WebLinksTabProps) 
                     >
                       <OpenExternalIcon />
                     </button>
+                    {editable && src.url && (
+                      <button
+                        type="button"
+                        className="wl-mylink-card-remove"
+                        aria-label={t("weblinks.removeLink")}
+                        title={t("weblinks.removeLink")}
+                        onClick={() => src.url && onWebsitesChange(customLinks.filter((u) => u !== src.url))}
+                      >
+                        <svg
+                          viewBox="0 0 24 24"
+                          fill="none"
+                          stroke="currentColor"
+                          strokeWidth="2"
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          width="12"
+                          height="12"
+                        >
+                          <polyline points="3 6 5 6 21 6" />
+                          <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
+                        </svg>
+                      </button>
+                    )}
                   </div>
                 );
               })}
@@ -1016,7 +1137,18 @@ export default function WebLinksTab({ game, visible = true }: WebLinksTabProps) 
 
       {/* ─── Steam sub-tabs (only when Steam tab is active) ──────────── */}
       {isSteamActive && (
-        <div className="wl-steam-subtabs" role="tablist">
+        <div
+          className="wl-steam-subtabs"
+          role="tablist"
+          onKeyDown={(e) =>
+            handleTabListKeyDown(e, (i) => {
+              const sec = SteamSections[i];
+              // Mirror the click guard: only Store (or any section with an
+              // AppID) can be activated — disabled sections are skipped.
+              if (sec.key === "store" || appId) setSteamSection(sec.key);
+            })
+          }
+        >
           {SteamSections.map((sec) => {
             const isActive = steamSection === sec.key;
             const disabled = sec.key !== "store" && !appId;
@@ -1024,6 +1156,7 @@ export default function WebLinksTab({ game, visible = true }: WebLinksTabProps) 
               <button
                 key={sec.key}
                 role="tab"
+                tabIndex={isActive ? 0 : -1}
                 aria-selected={isActive}
                 aria-disabled={disabled}
                 disabled={disabled}
@@ -1138,12 +1271,11 @@ export default function WebLinksTab({ game, visible = true }: WebLinksTabProps) 
                 <h3>{t("weblinks.steamAppIdNotDetected")}</h3>
               </div>
               <p>
-                The <strong>{SteamSections.find((s) => s.key === steamSection)?.label}</strong> page for this game
-                can't be opened because no Steam AppID is associated with{" "}
-                <strong>{game.name}</strong>. Set the executable path to{" "}
-                <code>{`{appid}.exe`}</code> inside <code>steamapps/common/</code> to enable
-                direct community links — or use Steam Store search above to find the
-                title and add it back with the correct launch URI.
+                {t("weblinks.steamAppIdNotDetectedBody", {
+                  section: SteamSections.find((s) => s.key === steamSection)?.label ?? "",
+                  game: game.name,
+                  appid: "{appid}",
+                })}
               </p>
               <button className="wl-empty-btn primary" onClick={() => handleOpenExternal()} type="button">
                 <OpenExternalIcon />
@@ -1163,9 +1295,7 @@ export default function WebLinksTab({ game, visible = true }: WebLinksTabProps) 
                 <h3>{t("weblinks.steamSearchMode")}</h3>
               </div>
               <p>
-                This game isn't tied to a Steam AppID, so we're showing the Steam Store search for{" "}
-                <strong>{game.name}</strong>. Deep links to Discussions, News, and Workshop are
-                unavailable until an AppID is detected.
+                {t("weblinks.steamSearchModeBody", { game: game.name })}
               </p>
             </div>
           ) : null}
