@@ -904,11 +904,11 @@ function SessionCard({
 }
 
 // Format minutes to hours beautifully
-function formatHours(totalMinutes: number): string {
-  if (!totalMinutes || totalMinutes <= 0) return "0h";
+function formatHours(totalMinutes: number, t: (key: string, vars?: Record<string, unknown>) => string): string {
+  if (!totalMinutes || totalMinutes <= 0) return t("friendsPage.hoursZero");
   const h = Math.floor(totalMinutes / 60);
-  if (h >= 1000) return `${(h / 1000).toFixed(1)}k h`;
-  return `${h}h`;
+  if (h >= 1000) return t("friendsPage.hoursK", { h: (h / 1000).toFixed(1) });
+  return t("friendsPage.hoursH", { h });
 }
 
 // Convert date string to user-friendly local date-time string.
@@ -980,13 +980,19 @@ function countdownLabel(targetIso: string, t: (key: string, vars?: Record<string
   if (Number.isNaN(diff)) return "";
   if (diff <= 0) return t("friendsPage.nowLive");
   const mins = Math.floor(diff / 60_000);
-  if (mins < 60) return `in ${mins}m`;
+  if (mins < 60) return t("friendsPage.countdownMin", { m: mins });
   const hours = Math.floor(mins / 60);
   const remMin = mins % 60;
-  if (hours < 24) return `in ${hours}h${remMin ? ` ${remMin}m` : ""}`;
+  if (hours < 24) {
+    return remMin > 0
+      ? t("friendsPage.countdownHourMin", { h: hours, m: remMin })
+      : t("friendsPage.countdownHour", { h: hours });
+  }
   const days = Math.floor(hours / 24);
   const remH = hours % 24;
-  return `in ${days}d${remH ? ` ${remH}h` : ""}`;
+  return remH > 0
+    ? t("friendsPage.countdownDayHour", { d: days, h: remH })
+    : t("friendsPage.countdownDay", { d: days });
 }
 
 // Human-friendly "last seen" relative string from epoch seconds
@@ -2020,15 +2026,16 @@ export default function FriendsPage() {
 
     // Build a human-readable activity entry for the conflict/activity log.
     const changes: string[] = [];
-    if (discoveredNew) changes.push(`${localFriends.length - friends.length + 0} new friend(s)`);
-    if (pulledSessions > 0) changes.push(`${pulledSessions} session(s)`);
-    if (pulledRecs > 0) changes.push(`${pulledRecs} rec(s)`);
-    if (friendsUpdated) changes.push("profile update(s)");
-    if (pullErrors.length > 0) changes.push(`${pullErrors.length} error(s)`);
+    if (discoveredNew) changes.push(t("friendsPage.syncNewFriends", { count: localFriends.length - friends.length + 0 }));
+    if (pulledSessions > 0) changes.push(t("friendsPage.sessionsCount", { count: pulledSessions }));
+    if (pulledRecs > 0) changes.push(t("friendsPage.recommendationsCount", { count: pulledRecs }));
+    if (friendsUpdated) changes.push(t("friendsPage.profileUpdates"));
+    if (pullErrors.length > 0) changes.push(t("friendsPage.syncErrors", { count: pullErrors.length }));
     const logMsg = pushed.ok
       ? changes.length > 0
-        ? `Pulled ${changes.join(", ")}`                : t("friendsPage.upToDatePublished")
-      : `Publish failed: ${pushed.reason || "unknown"}`;
+        ? t("friendsPage.syncPulled", { items: changes.join(", ") })
+        : t("friendsPage.upToDatePublished")
+      : t("friendsPage.syncPublishFailed", { reason: pushed.reason || t("friendsPage.unknownReason") });
     setSyncLog((prev) =>
       [{ time: syncedAt, message: logMsg, details: friendLogs }, ...prev].slice(0, 12)
     );
@@ -2446,7 +2453,7 @@ export default function FriendsPage() {
     const newSession: GameSession = {
       id: `session_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
       gameId: sessionGameId,
-      gameName: sessionGameName || games.find((g) => g.id === sessionGameId)?.name || "Unknown Game",
+      gameName: sessionGameName || games.find((g) => g.id === sessionGameId)?.name || t("friendsPage.unknownGame"),
       scheduledAt: sessionDateTime,
       maxPlayers: Number(sessionMaxPlayers) || 4,
       description: sessionDesc,
@@ -3303,7 +3310,7 @@ export default function FriendsPage() {
               </div>
               <div className="leaderboard-value">
                 {leaderboardMetric === "playtime"
-                  ? formatHours(p.value)
+                  ? formatHours(p.value, t)
                   : leaderboardMetric === "games"
                   ? `${p.value}`
                   : `${p.value}%`}
@@ -3519,7 +3526,7 @@ export default function FriendsPage() {
                           <div className="friend-stats friend-invitation-stats">
                             <span>{t("friendsPage.gamesCountLabel", { count: invite.libStats.gamesCount })}</span>
                             <span className="friend-stats-dot" aria-hidden>•</span>
-                            <span>{formatHours(invite.libStats.playtimeMinutes)}</span>
+                            <span>{formatHours(invite.libStats.playtimeMinutes, t)}</span>
                             {invite.libStats.achievementsCount > 0 && (
                               <>
                                 <span className="friend-stats-dot" aria-hidden>•</span>
@@ -3787,7 +3794,7 @@ export default function FriendsPage() {
                               <div className="friend-stats">
                                 <span>{t("friendsPage.gamesCountLabel", { count: friend.libStats.gamesCount })}</span>
                                 <span className="friend-stats-dot" aria-hidden>•</span>
-                                <span>{formatHours(friend.libStats.playtimeMinutes)}</span>
+                                <span>{formatHours(friend.libStats.playtimeMinutes, t)}</span>
                                 {friend.libStats.achievementsCount > 0 && (
                                   <>
                                     <span className="friend-stats-dot" aria-hidden>•</span>
@@ -4948,7 +4955,7 @@ export default function FriendsPage() {
                           label: t("friendsPage.stat.totalPlaytime"),
                           me: selfStats.playtimeMinutes,
                           friend: compareFriend.libStats?.playtimeMinutes || comparisonSummary.friendPlaytime,
-                          fmt: (v: number) => formatHours(v),
+                          fmt: (v: number) => formatHours(v, t),
                         },
                         {
                           label: t("friendsPage.stat.avgAchievements"),
@@ -5014,7 +5021,7 @@ export default function FriendsPage() {
                               <span className="compare-highlight-title">{t("friendsPage.bestPlayTogether")}</span>
                               <span className="compare-highlight-value">{compareInsights.topShared.name}</span>
                               <span className="compare-highlight-sub">
-                                {t("friendsPage.highlightPlayTogetherSub", { you: formatHours(compareInsights.topShared.playTimeMe), them: formatHours(compareInsights.topShared.playTimeFriend) })}
+                                {t("friendsPage.highlightPlayTogetherSub", { you: formatHours(compareInsights.topShared.playTimeMe, t), them: formatHours(compareInsights.topShared.playTimeFriend, t) })}
                               </span>
                             </div>
                           </div>
@@ -5181,7 +5188,7 @@ export default function FriendsPage() {
                                   {game.ownedByMe ? (
                                     <>
                                       <div className="compare-bar-row">
-                                        <span className="compare-bar-value">{formatHours(game.playTimeMe)}</span>
+                                        <span className="compare-bar-value">{formatHours(game.playTimeMe, t)}</span>
                                         <div className="compare-playtime-bar">
                                           <div className="compare-playtime-fill left" style={{ width: `${myPlayPercent}%` }} />
                                         </div>
@@ -5200,7 +5207,7 @@ export default function FriendsPage() {
                                   {game.ownedByFriend ? (
                                     <>
                                       <div className="compare-bar-row">
-                                        <span className="compare-bar-value">{formatHours(game.playTimeFriend)}</span>
+                                        <span className="compare-bar-value">{formatHours(game.playTimeFriend, t)}</span>
                                         <div className="compare-playtime-bar">
                                           <div className="compare-playtime-fill right" style={{ width: `${friendPlayPercent}%` }} />
                                         </div>
@@ -5284,7 +5291,7 @@ export default function FriendsPage() {
                             {compareInsights.forYou.map((g) => (
                               <li key={g.id} className="compare-insight-item">
                                 <span className="compare-insight-game">{g.name}</span>
-                                <span className="compare-insight-meta">{formatHours(g.playTimeFriend)}</span>
+                                <span className="compare-insight-meta">{formatHours(g.playTimeFriend, t)}</span>
                               </li>
                             ))}
                           </ul>
@@ -5303,7 +5310,7 @@ export default function FriendsPage() {
                             {compareInsights.forThem.map((g) => (
                               <li key={g.id} className="compare-insight-item">
                                 <span className="compare-insight-game">{g.name}</span>
-                                <span className="compare-insight-meta">{formatHours(g.playTimeMe)}</span>
+                                <span className="compare-insight-meta">{formatHours(g.playTimeMe, t)}</span>
                               </li>
                             ))}
                           </ul>
@@ -5323,7 +5330,7 @@ export default function FriendsPage() {
                               <li key={g.id} className="compare-insight-item">
                                 <span className="compare-insight-game">{g.name}</span>
                                 <span className="compare-insight-meta win">
-                                  +{formatHours(g.playTimeMe - g.playTimeFriend)}
+                                  +{formatHours(g.playTimeMe - g.playTimeFriend, t)}
                                 </span>
                               </li>
                             ))}
@@ -5344,7 +5351,7 @@ export default function FriendsPage() {
                               <li key={g.id} className="compare-insight-item">
                                 <span className="compare-insight-game">{g.name}</span>
                                 <span className="compare-insight-meta win friend">
-                                  +{formatHours(g.playTimeFriend - g.playTimeMe)}
+                                  +{formatHours(g.playTimeFriend - g.playTimeMe, t)}
                                 </span>
                               </li>
                             ))}
@@ -5391,7 +5398,7 @@ export default function FriendsPage() {
                   </div>
                   <div className="profile-stat-box">
                     <span className="profile-stat-num">
-                      {formatHours(selfStats.playtimeMinutes)}
+                      {formatHours(selfStats.playtimeMinutes, t)}
                     </span>
                     <span className="profile-stat-label">{t("friendsPage.profilePlayed")}</span>
                   </div>
@@ -5605,7 +5612,7 @@ export default function FriendsPage() {
                       <div className="friend-stats">
                         <span>{t("friendsPage.gamesCountLabel", { count: decodedFriend.libStats.gamesCount })}</span>
                         <span className="friend-stats-dot" aria-hidden>•</span>
-                        <span>{formatHours(decodedFriend.libStats.playtimeMinutes)}</span>
+                        <span>{formatHours(decodedFriend.libStats.playtimeMinutes, t)}</span>
                         {decodedFriend.libStats.achievementsCount > 0 && (
                           <>
                             <span className="friend-stats-dot" aria-hidden>•</span>
