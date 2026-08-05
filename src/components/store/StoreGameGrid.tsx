@@ -4,6 +4,7 @@ import { Button } from "../ui";
 import { DensityContext } from "../../context/DensityContext";
 import { WishlistContext } from "../../context/WishlistContext";
 import { useLanguage } from "../../context/LanguageContext";
+import { useStoreSearchQuery } from "./storeSearchQuery";
 import type { StoreGameSummary } from "../../types/game";
 
 interface StoreGameGridProps {
@@ -38,6 +39,13 @@ interface StoreGameGridProps {
   selectedSlugs?: Set<string>;
   /** Toggle a game's bulk selection. */
   onToggleSelect?: (game: StoreGameSummary) => void;
+  /**
+   * Clears every active filter (and the search). When provided, the
+   * empty-state box shows a "Clear filters" action so an empty result
+   * set has an obvious way out. Wired from StorePage to the catalogue's
+   * `resetFilters`.
+   */
+  onClearFilters?: () => void;
 }
 
 /** Card skeleton placeholder shown while the initial batch loads. */
@@ -71,12 +79,14 @@ export default function StoreGameGrid({
   bulkMode = false,
   selectedSlugs,
   onToggleSelect,
+  onClearFilters,
 }: StoreGameGridProps) {
   const { t } = useLanguage();
   const sentinelRef = useRef<HTMLDivElement>(null);
   const gridRef = useRef<HTMLDivElement>(null);
   const density = useContext(DensityContext)?.density ?? "cozy";
   const wishlistCtx = useContext(WishlistContext);
+  const searchQuery = useStoreSearchQuery();
   const isList = density === "list";
 
   // ── Keyboard navigation across the card grid ──────────────────────────
@@ -206,6 +216,14 @@ export default function StoreGameGrid({
               ? t("store.noSourceMatchHint")
               : t("store.noSourceMatchHintStrict")}
           </p>
+          {onClearFilters && (
+            <button type="button" className="store-empty-action" onClick={onClearFilters}>
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                <polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3" />
+              </svg>
+              {t("store.clearFilters")}
+            </button>
+          )}
         </div>
       );
     }
@@ -223,6 +241,14 @@ export default function StoreGameGrid({
         </svg>
           <h3>{t("store.noGames")}</h3>
           <p>{t("store.noGamesHint")}</p>
+          {onClearFilters && (
+            <button type="button" className="store-empty-action" onClick={onClearFilters}>
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                <polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3" />
+              </svg>
+              {t("store.clearFilters")}
+            </button>
+          )}
       </div>
     );
   }
@@ -254,6 +280,7 @@ export default function StoreGameGrid({
           <StoreGameCard
             game={game}
             onClick={onCardClick}
+            searchQuery={searchQuery}
             inLibrary={isInLibrary ? isInLibrary(game) : false}
             onHide={onHide ? (g) => onHide(g) : undefined}
             onCompare={onCompare ? (g) => onCompare(g) : undefined}

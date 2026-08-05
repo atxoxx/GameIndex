@@ -1133,19 +1133,6 @@ export type StoreSort =
   | "name"
   | "name_desc";
 
-/** Human-readable labels for the sort dropdown. */
-export const STORE_SORT_LABELS: Record<StoreSort, string> = {
-  default: "Relevance",
-  popularity: "Popularity",
-  rating: "Top Rated",
-  trending: "Trending",
-  follows: "Most Followed",
-  release_new: "Release (newest)",
-  release_old: "Release (oldest)",
-  name: "Name (A–Z)",
-  name_desc: "Name (Z–A)",
-};
-
 /** Ordered list of sort options for rendering the dropdown. */
 export const STORE_SORTS: readonly StoreSort[] = [
   "default",
@@ -1190,6 +1177,12 @@ export const STORE_HIDDEN_KEY = "gamelib_store_hidden_v1";
 export const STORE_PRESETS_KEY = "gamelib_store_presets_v1";
 
 /**
+ * localStorage key for the persisted download-source filter selection
+ * (`{ sourceIds: string[], matchMode: "all" | "any" }`).
+ */
+export const STORE_SOURCE_FILTER_KEY = "gamelib_store_source_filter_v1";
+
+/**
  * A saved filter preset — a named snapshot of the sidebar facets plus
  * the download-source selection so power users can restore a full
  * browse configuration in one click.
@@ -1206,6 +1199,11 @@ export interface StoreFilterPreset {
   ratingMin: number | null;
   /** Download-source ids (may reference deleted sources; pruned on apply). */
   sourceIds: string[];
+  /**
+   * Match semantics for the source filter: "all" (AND — game must exist in
+   * every selected source) or "any" (OR — game exists in at least one).
+   */
+  matchMode: "all" | "any";
   /** Sort order captured with the preset. */
   sort: StoreSort;
 }

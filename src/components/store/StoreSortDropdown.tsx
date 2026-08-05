@@ -1,9 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import {
-  STORE_SORTS,
-  STORE_SORT_LABELS,
-  type StoreSort,
-} from "../../types/game";
+import { STORE_SORTS, type StoreSort } from "../../types/game";
 import { useLanguage } from "../../context/LanguageContext";
 
 interface StoreSortDropdownProps {
@@ -69,7 +65,7 @@ export default function StoreSortDropdown({
           <line x1="9" y1="18" x2="15" y2="18" />
         </svg>
         <span className="store-sort-label">
-          {t("achievements.sort")} {STORE_SORT_LABELS[value]}
+          {t("achievements.sort")} {t(`store.sort.${value}`)}
         </span>
         <svg
           className="store-sort-chevron"
@@ -97,7 +93,7 @@ export default function StoreSortDropdown({
                   setOpen(false);
                 }}
               >
-                {STORE_SORT_LABELS[s]}
+                {t(`store.sort.${s}`)}
                 {s === value && (
                   <svg
                     viewBox="0 0 24 24"

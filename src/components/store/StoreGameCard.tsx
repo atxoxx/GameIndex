@@ -6,10 +6,17 @@ import { WishlistContext } from "../../context/WishlistContext";
 import { DensityContext } from "../../context/DensityContext";
 import type { StoreGameSummary, ViewDensity } from "../../types/game";
 import { useLanguage } from "../../context/LanguageContext";
+import StoreHighlightText from "./StoreHighlightText";
 
 interface StoreGameCardProps {
   game: StoreGameSummary;
   onClick: (game: StoreGameSummary) => void;
+  /**
+   * Active store search query. When present, the card title highlights
+   * every case-insensitive occurrence (presentational only — the raw
+   * `game.name` still drives lookups, aria-labels, and tooltips).
+   */
+  searchQuery?: string;
   /**
    * Layout density override. When omitted, falls back to the user's
    * `DensityContext` preference, then to "cozy". `SnapRail` passes
@@ -53,6 +60,7 @@ function ratingColor(score: number): string {
 export default function StoreGameCard({
   game,
   onClick,
+  searchQuery,
   density: densityProp,
   wishlisted: wishlistedProp,
   onToggleWishlist: onToggleWishlistProp,
@@ -302,7 +310,7 @@ export default function StoreGameCard({
       {showBody && (
         <div className="store-card-body">
           <h3 className="store-card-name" title={game.name}>
-            {game.name}
+            <StoreHighlightText text={game.name} query={searchQuery} />
           </h3>
 
           {(game.genres?.length ?? 0) > 0 && (

@@ -3748,11 +3748,23 @@ pub async fn fetch_store_summaries_by_ids(
     Ok(games.into_iter().map(map_igdb_summary).collect())
 }
 
-/// Search IGDB games by name (live search with debounce expected from frontend).
+/// Search IGDB games by name (live search with debounce expected from
+/// frontend). Accepts the same optional facet filters as
+/// `fetch_store_games` (genre / platform / release-year / rating) plus an
+/// optional sort override. Filters are ANDed with the search text into the
+/// IGDB `where` clause; `None` or empty facets contribute no constraint, and
+/// a `sort` of `None`/`"default"`/unknown emits no sort clause so IGDB keeps
+/// its relevance ranking for the search.
 pub async fn search_store_games(
     query: &str,
     offset: u32,
     limit: u32,
+    genres: Option<Vec<String>>,
+    platforms: Option<Vec<String>>,
+    year_min: Option<i32>,
+    year_max: Option<i32>,
+    rating_min: Option<f64>,
+    sort: Option<String>,
 ) -> Result<Vec<StoreGameSummary>, String> {
     let token = get_twitch_token().await?;
     let client = http_client();
@@ -3760,12 +3772,95 @@ pub async fn search_store_games(
     let client_id = crate::config::get_twitch_client_id();
 
     let escaped = query.replace('"', "\\\"");
-    let body = format!(
-        r#"search "{}"; fields name,slug,summary,first_release_date,rating,aggregated_rating,cover.url,artworks.url,genres.name,platforms.name,total_rating_count,hypes,websites.url; limit {}; offset {};"#,
-        escaped,
-        limit.min(50),
-        offset
+
+    // Build the optional `where` clause using the exact same facet→IGDB
+    // mapping as `fetch_store_games`, so search results respect the same
+    // sidebar filters (ANDed with the search text).
+    let mut clauses: Vec<String> = Vec::new();
+
+    if let Some(g_names) = genres {
+        let ids: Vec<u32> = g_names
+            .iter()
+            .filter_map(|n| genre_name_to_id(n))
+            .collect();
+        if !ids.is_empty() {
+            clauses.push(format!(
+                "genres = ({})",
+                ids.iter()
+                    .map(|i| i.to_string())
+                    .collect::<Vec<_>>()
+                    .join(",")
+            ));
+        }
+    }
+
+    if let Some(p_names) = platforms {
+        let ids: Vec<u32> = p_names
+            .iter()
+            .filter_map(|n| platform_name_to_id(n))
+            .collect();
+        if !ids.is_empty() {
+            clauses.push(format!(
+                "platforms = ({})",
+                ids.iter()
+                    .map(|i| i.to_string())
+                    .collect::<Vec<_>>()
+                    .join(",")
+            ));
+        }
+    }
+
+    // Year filter maps to Unix-timestamp bounds on `first_release_date`,
+    // exactly as `fetch_store_games` does via the shared helper.
+    let (year_min_ts, year_max_ts) =
+        year_bounds_to_timestamps(year_min, year_max);
+    if let Some(ts) = year_min_ts {
+        clauses.push(format!("first_release_date >= {}", ts));
+    }
+    if let Some(ts) = year_max_ts {
+        clauses.push(format!("first_release_date <= {}", ts));
+    }
+
+    if let Some(rating) = rating_min {
+        clauses.push(format!("rating >= {}", rating));
+    }
+
+    let where_clause = if clauses.is_empty() {
+        String::new()
+    } else {
+        clauses.join(" & ")
+    };
+
+    // Optional user-chosen sort override. `None`/`"default"` (or any
+    // unknown value) emits no sort clause so IGDB keeps its relevance
+    // ranking for the search. The value mapping mirrors `fetch_store_games`.
+    let sort_clause = match sort.as_deref() {
+        Some("popularity") => Some("total_rating_count desc".to_string()),
+        Some("rating") => Some("aggregated_rating desc".to_string()),
+        Some("trending") => Some("hypes desc".to_string()),
+        Some("follows") => Some("follows desc".to_string()),
+        Some("release_new") => Some("first_release_date desc".to_string()),
+        Some("release_old") => Some("first_release_date asc".to_string()),
+        Some("name") => Some("name asc".to_string()),
+        Some("name_desc") => Some("name desc".to_string()),
+        // "default", None, or any unknown value: keep IGDB relevance ranking.
+        _ => None,
+    };
+
+    // Compose the IGDB Apicalypse body. `where` and `sort` fragments are
+    // only emitted when non-empty, so the request never carries a bare
+    // `where ;` / `sort ;`.
+    let mut body = format!(
+        r#"search "{}"; fields name,slug,summary,first_release_date,rating,aggregated_rating,cover.url,artworks.url,genres.name,platforms.name,total_rating_count,hypes,websites.url;"#,
+        escaped
     );
+    if !where_clause.is_empty() {
+        body.push_str(&format!(" where {};", where_clause));
+    }
+    if let Some(sort_clause) = sort_clause {
+        body.push_str(&format!(" sort {};", sort_clause));
+    }
+    body.push_str(&format!(" limit {}; offset {};", limit.min(50), offset));
 
     let _guard4 = igdb_acquire().await;
     let resp = client

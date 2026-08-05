@@ -1974,14 +1974,34 @@ async fn fetch_store_games(
     .await
 }
 
-/// Search IGDB games live by name query.
+/// Search IGDB games live by name query. Accepts the same optional facet
+/// filters as `fetch_store_games` (genre / platform / release-year /
+/// rating) plus a sort override. All extra args are optional so callers
+/// that only pass `query`/`offset`/`limit` keep working (defaults to None).
 #[tauri::command]
 async fn search_store_games(
     query: String,
     offset: u32,
     limit: u32,
+    genres: Option<Vec<String>>,
+    platforms: Option<Vec<String>>,
+    year_min: Option<i32>,
+    year_max: Option<i32>,
+    rating_min: Option<f64>,
+    sort: Option<String>,
 ) -> Result<Vec<StoreGameSummary>, String> {
-    game_scraper::search_store_games(&query, offset, limit).await
+    game_scraper::search_store_games(
+        &query,
+        offset,
+        limit,
+        genres,
+        platforms,
+        year_min,
+        year_max,
+        rating_min,
+        sort,
+    )
+    .await
 }
 
 /// Fetch full metadata for a single IGDB game by its slug.

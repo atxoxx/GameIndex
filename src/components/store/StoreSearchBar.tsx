@@ -1,6 +1,8 @@
 import { useRef, useEffect, useState } from "react";
 import { useLanguage } from "../../context/LanguageContext";
 import { useSearchSuggestions } from "../../hooks/useSearchSuggestions";
+import StoreHighlightText from "./StoreHighlightText";
+import { publishSearchQuery } from "./storeSearchQuery";
 import { STORE_POPULAR_SEARCHES, type StoreGameSummary } from "../../types/game";
 
 interface StoreSearchBarProps {
@@ -41,6 +43,19 @@ export default function StoreSearchBar({
     document.addEventListener("mousedown", onDoc);
     return () => document.removeEventListener("mousedown", onDoc);
   }, [focused]);
+
+  // Mirror the query to the external store so the game grid can highlight
+  // matching card titles. Every path (typing, clear button, Escape, recent
+  // search, popular chip) funnels through the `value` prop.
+  useEffect(() => {
+    publishSearchQuery(value);
+  }, [value]);
+
+  // Reset the store when the bar unmounts so a later Store page mount
+  // never starts with a stale query lighting up the card grid.
+  useEffect(() => {
+    return () => publishSearchQuery("");
+  }, []);
 
   if (!visible) return null;
 
@@ -117,7 +132,9 @@ export default function StoreSearchBar({
                 ) : (
                   <span className="store-search-suggestion-thumb placeholder" />
                 )}
-                <span className="store-search-suggestion-name">{g.name}</span>
+                <span className="store-search-suggestion-name">
+                  <StoreHighlightText text={g.name} query={trimmed} />
+                </span>
                 {g.firstReleaseDate && (
                   <span className="store-search-suggestion-year">
                     {new Date(g.firstReleaseDate).getFullYear()}

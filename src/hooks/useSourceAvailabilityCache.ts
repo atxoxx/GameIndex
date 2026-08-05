@@ -72,7 +72,7 @@ function deserialize(raw: string | null): AvailabilityMap {
 }
 
 export interface UseSourceAvailabilityCacheResult {
-  /** `games` narrowed to entries present in every selected source. */
+  /** `games` narrowed to entries matching the selected sources. */
   visibleGames: StoreGameSummary[];
   /** Number of (game, source) checks currently in flight. */
   pending: number;
@@ -80,6 +80,14 @@ export interface UseSourceAvailabilityCacheResult {
   isFilterActive: boolean;
   /** `true` while at least one background check is running. */
   isFetching: boolean;
+  /**
+   * Per-source counts across the current `games` list, computed from the
+   * availability map. `checked` = number of games with a resolved entry
+   * for that source id, `available` = number of those games where the
+   * source actually matched. Feeds the real match counts on the sidebar
+   * pills.
+   */
+  sourceCounts: Record<string, { checked: number; available: number }>;
 }
 
 /**
@@ -92,15 +100,20 @@ export interface UseSourceAvailabilityCacheResult {
  * repeat visits are instant. Resolved results are written back to disk
  * (debounced) so the cache survives across sessions.
  *
+ * When the filter is active the worker pool checks every *meaningful
+ * enabled* source (`enabled && gameCount > 0`), not just the selected
+ * ones, so the sidebar pills can show real per-source match counts.
+ *
  * This removes the previous ~20 Hydra-API calls / page bottleneck:
  * source checks now happen only on explicit user action and are served
  * from cache afterwards.
  */
 export function useSourceAvailabilityCache(
   games: StoreGameSummary[],
-  selectedSourceIds: string[]
+  selectedSourceIds: string[],
+  matchMode: "all" | "any" = "all"
 ): UseSourceAvailabilityCacheResult {
-  const { searchSources } = useSources();
+  const { sources, searchSources } = useSources();
 
   const [availability, setAvailability] = useState<AvailabilityMap>(
     EMPTY_AVAILABILITY
@@ -156,7 +169,17 @@ export function useSourceAvailabilityCache(
     }
 
     const snapshotGames = games;
-    const snapshotSources = [...selectedSourceIds].sort();
+    // Check every ENABLED source (not just the selected ones, and
+    // including gameCount === 0 sources) so the per-game map covers all
+    // sources the sidebar pills report on. `search_online` already
+    // queries all enabled sources per game, so widening this snapshot is
+    // pure bookkeeping — no extra network cost. Excluding gameCount === 0
+    // sources here would silently break "all" mode for them (permanent
+    // empty result set) and hide their real match counts.
+    const snapshotSources = sources
+      .filter((s) => s.enabled)
+      .map((s) => s.id)
+      .sort();
 
     type Task = {
       slug: string;
@@ -258,7 +281,7 @@ export function useSourceAvailabilityCache(
       cancelled = true;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [gamesKey, selectedKey, searchSources]);
+  }, [gamesKey, selectedKey, sources, searchSources]);
 
   const visibleGames = useMemo(() => {
     if (selectedSourceIds.length === 0) return games;
@@ -266,9 +289,29 @@ export function useSourceAvailabilityCache(
     return games.filter((game) => {
       const cache = availability.get(game.slug);
       if (!cache) return false;
+      if (matchMode === "any") {
+        // OR semantics: at least one selected source must have matched.
+        return selectedSourceIds.some((sid) => cache.get(sid) === true);
+      }
+      // AND semantics: the game must be present in every selected source.
       return selectedSourceIds.every((sid) => cache.get(sid) === true);
     });
-  }, [games, selectedSourceIds, availability, gamesKey]);
+  }, [games, selectedSourceIds, matchMode, availability, gamesKey]);
+
+  const sourceCounts = useMemo(() => {
+    const counts: Record<string, { checked: number; available: number }> = {};
+    for (const game of games) {
+      const entry = availability.get(game.slug);
+      if (!entry) continue;
+      for (const [sid, val] of entry) {
+        const rec = counts[sid] ?? { checked: 0, available: 0 };
+        rec.checked += 1;
+        if (val === true) rec.available += 1;
+        counts[sid] = rec;
+      }
+    }
+    return counts;
+  }, [games, availability]);
 
   return useMemo(
     () => ({
@@ -276,7 +319,8 @@ export function useSourceAvailabilityCache(
       pending,
       isFilterActive: selectedSourceIds.length > 0,
       isFetching: pending > 0,
+      sourceCounts,
     }),
-    [visibleGames, pending, selectedSourceIds]
+    [visibleGames, pending, selectedSourceIds, sourceCounts]
   );
 }

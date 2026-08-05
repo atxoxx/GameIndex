@@ -26,6 +26,9 @@ export default function StoreFilterPanel({ catalogue: c }: StoreFilterPanelProps
       onYearRangeChange={c.setYearRange}
       onRatingMinChange={c.setRatingMin}
       onSourcesChange={c.setSelectedSourceIds}
+      sourceCounts={c.sourceCounts}
+      sourceMatchMode={c.sourceMatchMode}
+      onSourceMatchModeChange={c.setSourceMatchMode}
       onApply={() => {
         c.applyFilters();
         c.setFiltersOpen(false);

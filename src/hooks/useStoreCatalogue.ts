@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { invoke } from "@tauri-apps/api/core";
+import { useLanguage } from "../context/LanguageContext";
 import { useStoreGames } from "./useStoreGames";
 import { useSourceAvailabilityCache } from "./useSourceAvailabilityCache";
 import { useDensityContext } from "../context/DensityContext";
@@ -13,6 +14,7 @@ import { useHiddenGames } from "./useHiddenGames";
 import { useRecentlyViewed } from "./useRecentlyViewed";
 import { useRecentSearches } from "./useRecentSearches";
 import { useStorePresets } from "./useStorePresets";
+import { STORE_SOURCE_FILTER_KEY } from "../types/game";
 import type {
   GameMetadataResult,
   StoreGameSummary,
@@ -21,6 +23,37 @@ import type {
 } from "../types/game";
 
 const MAX_AUTO_EMPTY_FETCHES = 3;
+
+/**
+ * Read the persisted download-source filter selection
+ * (`{ sourceIds: string[], matchMode: "all" | "any" }`). Returns `null`
+ * when nothing is stored or the payload is unparsable. `matchMode` is
+ * validated and falls back to "all" for legacy/garbage values.
+ */
+function loadStoredSourceFilter(): {
+  sourceIds: string[];
+  matchMode: "all" | "any";
+} | null {
+  try {
+    const raw = localStorage.getItem(STORE_SOURCE_FILTER_KEY);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw) as {
+      sourceIds?: unknown;
+      matchMode?: unknown;
+    };
+    return {
+      sourceIds: Array.isArray(parsed.sourceIds)
+        ? parsed.sourceIds.filter((s): s is string => typeof s === "string")
+        : [],
+      matchMode:
+        parsed.matchMode === "all" || parsed.matchMode === "any"
+          ? parsed.matchMode
+          : "all",
+    };
+  } catch {
+    return null;
+  }
+}
 
 export interface StoreCatalogue {
   // ── Data ───────────────────────────────────────────────────────────
@@ -51,6 +84,11 @@ export interface StoreCatalogue {
   setRatingMin: (r: number | null) => void;
   selectedSourceIds: string[];
   setSelectedSourceIds: (ids: string[]) => void;
+  /** Match semantics for the source filter: "all" (AND) or "any" (OR). */
+  sourceMatchMode: "all" | "any";
+  setSourceMatchMode: (m: "all" | "any") => void;
+  /** Real per-source match counts from `useSourceAvailabilityCache`. */
+  sourceCounts: Record<string, { checked: number; available: number }>;
   applyFilters: () => void;
   resetFilters: () => void;
   activeFilterCount: number;
@@ -119,8 +157,9 @@ export interface StoreCatalogue {
  */
 export function useStoreCatalogue(): StoreCatalogue {
   const navigate = useNavigate();
+  const { t } = useLanguage();
   const { density, setDensity } = useDensityContext();
-  const { sources } = useSources();
+  const { sources, loading: sourcesLoading } = useSources();
   const wishlist = useWishlistContext();
   const { showToast } = useToast();
   const { addStoreGame } = useGames();
@@ -136,6 +175,7 @@ export function useStoreCatalogue(): StoreCatalogue {
     isSearching,
     applyFilters: applyFiltersRaw,
     resetFilters: resetFiltersRaw,
+    clearSearch,
     sort,
     setSort,
   } = useStoreGames();
@@ -158,7 +198,17 @@ export function useStoreCatalogue(): StoreCatalogue {
   const [yearMin, setYearMin] = useState<number | null>(null);
   const [yearMax, setYearMax] = useState<number | null>(null);
   const [ratingMin, setRatingMin] = useState<number | null>(null);
-  const [selectedSourceIds, setSelectedSourceIds] = useState<string[]>([]);
+
+  // Restore the persisted source-filter selection (ids + match mode) on
+  // first render. `loadStoredSourceFilter` returns null when unset, so a
+  // fresh install still defaults to an empty selection with "all" mode.
+  const storedSourceFilter = useMemo(() => loadStoredSourceFilter(), []);
+  const [selectedSourceIds, setSelectedSourceIds] = useState<string[]>(
+    () => storedSourceFilter?.sourceIds ?? []
+  );
+  const [sourceMatchMode, setSourceMatchMode] = useState<"all" | "any">(
+    () => storedSourceFilter?.matchMode ?? "all"
+  );
 
   const [filtersOpen, setFiltersOpen] = useState(false);
   const [filtersCollapsed, setFiltersCollapsed] = useState(false);
@@ -168,17 +218,35 @@ export function useStoreCatalogue(): StoreCatalogue {
     [sources]
   );
   useEffect(() => {
+    // Only prune against KNOWN sources. `sources` loads asynchronously and
+    // starts empty — pruning before it resolves would wipe the restored
+    // source filter (and re-persist it as empty) on every mount.
+    if (sourcesLoading) return;
     setSelectedSourceIds((prev) => {
       const filtered = prev.filter((id) => enabledSourceIds.has(id));
       return filtered.length === prev.length ? prev : filtered;
     });
-  }, [enabledSourceIds]);
+  }, [enabledSourceIds, sourcesLoading]);
+
+  // Persist the source-filter selection + match mode across sessions.
+  // Empty selection is a valid state, so always write.
+  useEffect(() => {
+    try {
+      localStorage.setItem(
+        STORE_SOURCE_FILTER_KEY,
+        JSON.stringify({ sourceIds: selectedSourceIds, matchMode: sourceMatchMode })
+      );
+    } catch {
+      /* ignore */
+    }
+  }, [selectedSourceIds, sourceMatchMode]);
 
   const {
     visibleGames,
     pending: sourceChecksPending,
     isFilterActive: isSourceFilterActive,
-  } = useSourceAvailabilityCache(games, selectedSourceIds);
+    sourceCounts,
+  } = useSourceAvailabilityCache(games, selectedSourceIds, sourceMatchMode);
 
   const displayedGames = useMemo(() => {
     if (showHidden || hiddenGames.count === 0) return visibleGames;
@@ -208,13 +276,17 @@ export function useStoreCatalogue(): StoreCatalogue {
     if (!isSourceFilterActive) return;
     if (!hasMore || loading) return;
     if (games.length === 0) return;
+    // Don't auto-load while availability checks are still narrowing the
+    // list — "empty so far" during a cold cache is transient, not a real
+    // no-match state, and each loadMore here is a wasted catalogue fetch.
+    if (sourceChecksPending > 0) return;
     if (autoEmptyFetchesRef.current >= MAX_AUTO_EMPTY_FETCHES) return;
     if (autoEmptyDispatchedRef.current) return;
 
     autoEmptyDispatchedRef.current = true;
     autoEmptyFetchesRef.current += 1;
     loadMore();
-  }, [isSourceFilterActive, visibleGames.length, hasMore, loading, games.length, loadMore]);
+  }, [isSourceFilterActive, visibleGames.length, hasMore, loading, games.length, sourceChecksPending, loadMore]);
 
   const onCardClick = useCallback(
     (game: StoreGameSummary) => {
@@ -245,6 +317,19 @@ export function useStoreCatalogue(): StoreCatalogue {
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
+      // Escape clears a non-empty search while the search input is focused.
+      // Route through setSearchQuery("") (NOT clearSearch) so the empty-query
+      // restore branch re-fetches/restores the category list — clearSearch
+      // alone would leave stale search results that loadMore/setSort could
+      // then mix with category pages.
+      if (e.key === "Escape" && searchQuery.trim()) {
+        const el = document.activeElement as HTMLElement | null;
+        if (el?.classList.contains("store-search-input")) {
+          e.preventDefault();
+          setSearchQuery("");
+          return;
+        }
+      }
       if (e.key !== "/" || e.ctrlKey || e.metaKey || e.altKey) return;
       const el = document.activeElement as HTMLElement | null;
       const tag = el?.tagName;
@@ -254,9 +339,10 @@ export function useStoreCatalogue(): StoreCatalogue {
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [focusSearch]);
+  }, [focusSearch, searchQuery, setSearchQuery]);
 
   const applyFilters = useCallback(() => {
+    clearSearch();
     applyFiltersRaw({
       genres: selectedGenres,
       platforms: selectedPlatforms,
@@ -264,18 +350,22 @@ export function useStoreCatalogue(): StoreCatalogue {
       yearMax,
       ratingMin,
     });
-  }, [applyFiltersRaw, selectedGenres, selectedPlatforms, yearMin, yearMax, ratingMin]);
+  }, [clearSearch, applyFiltersRaw, selectedGenres, selectedPlatforms, yearMin, yearMax, ratingMin]);
 
   const resetFilters = useCallback(() => {
+    clearSearch();
     setSelectedGenres([]);
     setSelectedPlatforms([]);
     setYearMin(null);
     setYearMax(null);
     setRatingMin(null);
+    // Deliberately NOT resetting sourceMatchMode — it's a persisted
+    // preference (like sort) that stays inert with 0 sources selected
+    // and re-applies once >=2 sources are chosen again.
     setSelectedSourceIds([]);
     autoEmptyFetchesRef.current = 0;
     resetFiltersRaw();
-  }, [resetFiltersRaw]);
+  }, [clearSearch, resetFiltersRaw]);
 
   const handleHide = useCallback((game: StoreGameSummary) => hiddenGames.hide(game.slug), [hiddenGames]);
 
@@ -377,19 +467,23 @@ export function useStoreCatalogue(): StoreCatalogue {
       yearMax,
       ratingMin,
       sourceIds: selectedSourceIds,
+      matchMode: sourceMatchMode,
       sort,
     });
-  }, [presets, selectedGenres, selectedPlatforms, yearMin, yearMax, ratingMin, selectedSourceIds, sort]);
+  }, [presets, selectedGenres, selectedPlatforms, yearMin, yearMax, ratingMin, selectedSourceIds, sourceMatchMode, sort]);
 
   const applyPreset = useCallback((id: string) => {
     const preset = presets.presets.find((p) => p.id === id);
     if (!preset) return;
+    clearSearch();
     setSelectedGenres(preset.genres);
     setSelectedPlatforms(preset.platforms);
     setYearMin(preset.yearMin);
     setYearMax(preset.yearMax);
     setRatingMin(preset.ratingMin);
     setSelectedSourceIds(preset.sourceIds.filter((sid) => enabledSourceIds.has(sid)));
+    // Old presets predate the field — fall back to "all" (AND) semantics.
+    setSourceMatchMode(preset.matchMode ?? "all");
     setFiltersOpen(false);
     setSort(preset.sort);
     applyFiltersRaw({
@@ -399,19 +493,19 @@ export function useStoreCatalogue(): StoreCatalogue {
       yearMax: preset.yearMax,
       ratingMin: preset.ratingMin,
     });
-  }, [presets.presets, enabledSourceIds, setSort, applyFiltersRaw]);
+  }, [clearSearch, presets.presets, enabledSourceIds, setSort, applyFiltersRaw]);
 
   const sourceFilterChipCount = isSourceFilterActive ? visibleGames.length : undefined;
 
   const resultsTitle = useMemo(() => {
-    if (isSearching) return "Search";
-    if (sort === "trending") return "Trending";
-    if (sort === "popularity") return "Popular";
-    if (sort === "rating") return "Top Rated";
-    if (sort === "release_new") return "New Releases";
-    if (sort === "follows") return "Most Followed";
-    return "All Games";
-  }, [isSearching, sort]);
+    if (isSearching) return t("store.resultsTitle.search");
+    if (sort === "trending") return t("store.resultsTitle.trending");
+    if (sort === "popularity") return t("store.resultsTitle.popular");
+    if (sort === "rating") return t("store.resultsTitle.topRated");
+    if (sort === "release_new") return t("store.resultsTitle.newReleases");
+    if (sort === "follows") return t("store.resultsTitle.mostFollowed");
+    return t("store.resultsTitle.allGames");
+  }, [isSearching, sort, t]);
 
   const isInLibrary = useCallback(
     (g: StoreGameSummary) => libraryIndex.isInLibrary(g),
@@ -445,6 +539,9 @@ export function useStoreCatalogue(): StoreCatalogue {
     setRatingMin,
     selectedSourceIds,
     setSelectedSourceIds,
+    sourceMatchMode,
+    setSourceMatchMode,
+    sourceCounts,
     applyFilters,
     resetFilters,
     activeFilterCount,

@@ -27,6 +27,16 @@ export default function StoreHeader({ catalogue: c }: StoreHeaderProps) {
                   : c.displayedGames.length,
               plural: c.displayedGames.length !== 1 ? "s" : "",
             })}
+            {/* No-flash refetch cue: during a live search the old results
+                stay on screen until the new batch lands, so a quiet
+                "refreshing" readout sits next to the count instead of a
+                skeleton flash. */}
+            {c.isSearching && c.loading && (
+              <span className="store-refresh-cue" role="status" aria-live="polite">
+                <span className="store-refresh-cue-dot" aria-hidden="true" />
+                {t("store.refreshingResults")}
+              </span>
+            )}
           </span>
         </div>
 

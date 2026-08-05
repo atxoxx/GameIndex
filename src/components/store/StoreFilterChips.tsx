@@ -16,6 +16,16 @@ interface StoreFilterChipsProps {
   /** All known sources from `useSources()` (any enabled state). */
   sources: SourceLink[];
   /**
+   * Match semantics for the source filter: "all" (AND) or "any" (OR).
+   * Shown on a display chip (only when >= 2 sources are selected).
+   */
+  sourceMatchMode?: "all" | "any";
+  /**
+   * When provided, the mode chip becomes clickable and toggles between
+   * "any" and "all". When undefined, the chip renders as a plain span.
+   */
+  onToggleSourceMatchMode?: () => void;
+  /**
    * Number of (game, source) checks currently in flight from
    * `useStoreSourceAvailability`. When > 0 alongside an active source
    * filter, we render a "Checking…" chip so the user knows the result
@@ -38,6 +48,8 @@ export default function StoreFilterChips({
   ratingMin,
   selectedSourceIds,
   sources,
+  sourceMatchMode = "all",
+  onToggleSourceMatchMode,
   sourceChecksPending,
   onRemoveGenre,
   onRemovePlatform,
@@ -119,6 +131,65 @@ export default function StoreFilterChips({
           </button>
         </span>
       )}
+
+      {/* Match-mode display chip: clickable (toggles any/all) when a
+          handler is wired, otherwise a plain read-only chip. The icon +
+          hover/active styles make it read as a live toggle rather than a
+          removable filter chip. */}
+      {selectedSourceIds.length >= 2 &&
+        (onToggleSourceMatchMode ? (
+          <button
+            key="s-mode"
+            type="button"
+            className="store-filter-chip store-filter-chip-mode"
+            onClick={onToggleSourceMatchMode}
+            aria-label={
+              sourceMatchMode === "any"
+                ? t("store.filter.matchModeAria", { mode: t("store.filter.matchAll") })
+                : t("store.filter.matchModeAria", { mode: t("store.filter.matchAny") })
+            }
+          >
+            <svg
+              className="store-filter-chip-mode-icon"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              aria-hidden="true"
+            >
+              <polyline points="17 1 21 5 17 9" />
+              <path d="M3 11V9a4 4 0 0 1 4-4h14" />
+              <polyline points="7 23 3 19 7 15" />
+              <path d="M21 13v2a4 4 0 0 1-4 4H3" />
+            </svg>
+            {sourceMatchMode === "any"
+              ? t("store.filter.matchAny")
+              : t("store.filter.matchAll")}
+          </button>
+        ) : (
+          <span key="s-mode" className="store-filter-chip store-filter-chip-mode">
+            <svg
+              className="store-filter-chip-mode-icon"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              aria-hidden="true"
+            >
+              <polyline points="17 1 21 5 17 9" />
+              <path d="M3 11V9a4 4 0 0 1 4-4h14" />
+              <polyline points="7 23 3 19 7 15" />
+              <path d="M21 13v2a4 4 0 0 1-4 4H3" />
+            </svg>
+            {sourceMatchMode === "any"
+              ? t("store.filter.matchAny")
+              : t("store.filter.matchAll")}
+          </span>
+        ))}
 
       {selectedSourceIds.map((sourceId) => {
         const name = sourceNameById.get(sourceId) ?? t("store.filter.unknownSource");

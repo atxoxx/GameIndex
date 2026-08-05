@@ -42,6 +42,12 @@ interface StoreFilterSidebarProps {
   onSourcesChange: (sourceIds: string[]) => void;
   onApply: () => void;
   onReset: () => void;
+  /** Real per-source match counts from `useSourceAvailabilityCache`. */
+  sourceCounts?: Record<string, { checked: number; available: number }>;
+  /** Match semantics for the source filter: "all" (AND) or "any" (OR). */
+  sourceMatchMode?: "all" | "any";
+  /** Called when the user flips the match-mode toggle. */
+  onSourceMatchModeChange?: (m: "all" | "any") => void;
 }
 
 export default function StoreFilterSidebar({
@@ -58,6 +64,9 @@ export default function StoreFilterSidebar({
   onSourcesChange,
   onApply,
   onReset,
+  sourceCounts,
+  sourceMatchMode = "all",
+  onSourceMatchModeChange,
 }: StoreFilterSidebarProps) {
   const { t } = useLanguage();
   // Hook up to the live source list so the sidebar re-renders when the
@@ -203,26 +212,66 @@ export default function StoreFilterSidebar({
             {t("store.filter.noSources")}
           </p>
         ) : (
-          <div className="store-filter-pills store-filter-pills-sources">
-            {enabledSources.map((source) => (
+          <>
+            {/* Match-mode toggle: OR (any) vs AND (all) semantics.
+                De-emphasized while fewer than two sources are selected —
+                with 0 or 1 sources the two modes behave identically, so
+                the control is kept visible for discoverability but reads
+                as inert until it actually does something. */}
+            <div
+              className={`store-filter-match-mode${selectedSourceIds.length < 2 ? " store-filter-match-mode--idle" : ""}`}
+              role="group"
+              aria-label={t("store.filter.downloadSources")}
+              title={selectedSourceIds.length < 2 ? t("store.filter.matchModeHint") : undefined}
+            >
               <button
-                key={source.id}
                 type="button"
-                className={`store-filter-pill store-filter-source-pill${selectedSourceIds.includes(source.id) ? " active" : ""}`}
-                onClick={() => handleSourceToggle(source.id)}
-                title={source.url}
+                className={`store-filter-match-mode-btn${sourceMatchMode === "any" ? " active" : ""}`}
+                aria-pressed={sourceMatchMode === "any"}
+                onClick={() => onSourceMatchModeChange?.("any")}
               >
-                {source.name}
-                {source.gameCount > 0 && (
-                  <span className="store-filter-source-count">
-                    {source.gameCount >= 1000
-                      ? `${(source.gameCount / 1000).toFixed(1)}k`
-                      : source.gameCount}
-                  </span>
-                )}
+                {t("store.filter.matchAny")}
               </button>
-            ))}
-          </div>
+              <button
+                type="button"
+                className={`store-filter-match-mode-btn${sourceMatchMode === "all" ? " active" : ""}`}
+                aria-pressed={sourceMatchMode === "all"}
+                onClick={() => onSourceMatchModeChange?.("all")}
+              >
+                {t("store.filter.matchAll")}
+              </button>
+            </div>
+            <div className="store-filter-pills store-filter-pills-sources">
+              {enabledSources.map((source) => {
+                // Prefer the real per-source match count once the
+                // availability cache covers this source; fall back to the
+                // static config count (from the source fetch) otherwise.
+                const realCount = sourceCounts?.[source.id];
+                const hasRealCount = realCount !== undefined && realCount.checked > 0;
+                const count = hasRealCount ? realCount.available : source.gameCount;
+                return (
+                  <button
+                    key={source.id}
+                    type="button"
+                    className={`store-filter-pill store-filter-source-pill${selectedSourceIds.includes(source.id) ? " active" : ""}`}
+                    onClick={() => handleSourceToggle(source.id)}
+                    title={source.url}
+                  >
+                    {source.name}
+                    {(hasRealCount || count > 0) && (
+                      <span
+                        className={`store-filter-source-count${hasRealCount ? " store-filter-source-count--real" : ""}`}
+                      >
+                        {count >= 1000
+                          ? `${(count / 1000).toFixed(1)}k`
+                          : count}
+                      </span>
+                    )}
+                  </button>
+                );
+              })}
+            </div>
+          </>
         )}
       </div>
 

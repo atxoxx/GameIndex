@@ -53,6 +53,7 @@ export const EMPTY_STORE_FILTERS: StoreGamesFilters = {
  * - **setCategory** — switch category (resets the game list)
  * - **searchQuery** — current live-search text
  * - **setSearchQuery** — triggers a debounced search
+ * - **clearSearch** — clear the search state without triggering a fetch
  * - **isSearching** — true when a search is active (vs. category browsing)
  */
 export function useStoreGames() {
@@ -121,12 +122,14 @@ export function useStoreGames() {
           sort: sortRef.current === "default" ? null : sortRef.current,
         };
         if (query) {
-          // Live search — filters not currently applied (server-side
-          // search has its own ranking; mixing them would muddy results).
+          // Live search — pass the active facet filters (genres, platforms,
+          // year range, rating, sort) so search results are narrowed too;
+          // each key is optional on the Rust side.
           results = await invoke<StoreGameSummary[]>("search_store_games", {
             query,
             offset,
             limit: STORE_PAGE_SIZE,
+            ...filterArgs,
           });
         } else {
           // Category browsing — pass full filter context.
@@ -254,13 +257,14 @@ export function useStoreGames() {
       // new IGDB sort clause.
       requestIdRef.current += 1;
       const reqId = requestIdRef.current;
-      setGames([]);
       offsetRef.current = 0;
       setHasMore(true);
       setError(null);
       if (isSearching && searchQuery) {
+        // Keep old results visible while the search re-fetch is in flight.
         performFetch(reqId, null, searchQuery, 0, false);
       } else {
+        setGames([]);
         performFetch(reqId, activeCategoryRef.current, "", 0, false);
       }
     },
@@ -304,7 +308,11 @@ export function useStoreGames() {
         // Empty query — go back to category browsing
         setIsSearching(false);
         requestIdRef.current += 1;
-        const cached = getCategoryCache(activeCategoryRef.current);
+        // With facet filters active the category cache is unfiltered and
+        // stale — bypass it so clearing search re-fetches the filtered list.
+        const cached = recomputeHasFilters(filtersRef.current)
+          ? null
+          : getCategoryCache(activeCategoryRef.current);
         if (cached) {
           setGames(cached);
           offsetRef.current = cached.length;
@@ -325,13 +333,30 @@ export function useStoreGames() {
       debounceRef.current = setTimeout(() => {
         if (!mountedRef.current) return;
         const reqId = ++requestIdRef.current;
-        setGames([]);
         offsetRef.current = 0;
         performFetch(reqId, null, query, 0, false);
       }, SEARCH_DEBOUNCE_MS);
     },
-    [getCategoryCache, performFetch]
+    [getCategoryCache, performFetch, recomputeHasFilters]
   );
+
+  // ── Clear search (no refetch) ──────────────────────────────────────────
+  /**
+   * Clear the search box and search state without triggering a fetch:
+   * cancels the pending debounce timer and discards any in-flight search
+   * response via the request-id bump. Callers (filter apply/reset/preset,
+   * Escape-to-clear) handle the re-fetch themselves.
+   */
+  const clearSearch = useCallback(() => {
+    setSearchQueryRaw("");
+    setIsSearching(false);
+    if (debounceRef.current) {
+      clearTimeout(debounceRef.current);
+      debounceRef.current = null;
+    }
+    // Discard any in-flight response so it can't overwrite the new list.
+    requestIdRef.current += 1;
+  }, []);
 
   return {
     games,
@@ -343,6 +368,8 @@ export function useStoreGames() {
     setCategory,
     searchQuery,
     setSearchQuery,
+    /** Clear the search box without triggering a fetch. */
+    clearSearch,
     isSearching,
     /** Apply the supplied filter set and re-fetch from the active category. */
     applyFilters,

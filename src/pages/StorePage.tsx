@@ -63,6 +63,10 @@ export default function StorePage() {
           onRemoveYear={() => c.setYearRange(null, null)}
           onRemoveRating={() => c.setRatingMin(null)}
           onRemoveSource={onRemoveSource}
+          sourceMatchMode={c.sourceMatchMode}
+          onToggleSourceMatchMode={() =>
+            c.setSourceMatchMode(c.sourceMatchMode === "any" ? "all" : "any")
+          }
           resultCount={c.sourceFilterChipCount ?? c.displayedGames.length}
         />
       )}
@@ -100,6 +104,7 @@ export default function StorePage() {
             bulkMode={c.bulkMode}
             selectedSlugs={c.selectedSlugs}
             onToggleSelect={c.toggleSelect}
+            onClearFilters={c.resetFilters}
           />
         </div>
       </div>
