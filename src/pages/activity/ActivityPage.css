@@ -2489,12 +2489,11 @@
   flex-shrink: 0;
 }
 
-.performance-insights__game-icon-placeholder {
-  width: 22px;
-  height: 22px;
+/* GameThumbnail letter-placeholder is a <div> carrying both classes; pin
+   the rounding explicitly so it never depends on CSS cascade order. */
+.performance-insights__game-icon.game-thumbnail__placeholder,
+.performance-compare-bar__icon.game-thumbnail__placeholder {
   border-radius: var(--radius-sm);
-  background: var(--color-bg-tertiary);
-  flex-shrink: 0;
 }
 
 .performance-insights__game-title {
@@ -2751,6 +2750,273 @@
 @media (prefers-reduced-motion: reduce) {
   .activity__content,
   .activity__stat {
+    animation: none;
+  }
+}
+
+/* ══ Performance tab — refactor additions ══════════════════════════════ */
+
+/* ── Overview KPI strip (reuses .activity__stats shell) ─────────────── */
+
+.performance-overview {
+  margin: 0;
+}
+
+.activity__stat-value--sub {
+  font-size: var(--text-xl);
+}
+
+.activity__stat-sub {
+  font-size: 10px;
+  color: var(--color-text-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 100%;
+  line-height: 1.3;
+}
+
+/* ── Game comparison bars — identity + rank meta ────────────────────── */
+
+.performance-compare-bar__row {
+  grid-template-columns: minmax(0, 220px) minmax(0, 1fr) auto;
+}
+
+.performance-compare-bar__identity {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.performance-compare-bar__icon {
+  width: 22px;
+  height: 22px;
+  border-radius: var(--radius-sm);
+  object-fit: cover;
+  flex-shrink: 0;
+  /* No background here — the GameThumbnail letter-placeholder supplies its
+     own tinted background; a bare background would override it in the
+     cascade (this rule is appended after the --gN slot tints). */
+}
+
+.performance-compare-bar__meta {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  min-width: 0;
+  justify-content: flex-end;
+}
+
+.performance-compare-bar__rank {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 3px;
+  min-width: 20px;
+  height: 20px;
+  padding: 0 6px;
+  border-radius: var(--radius-full);
+  font-size: 10px;
+  font-weight: var(--font-weight-bold);
+  font-variant-numeric: tabular-nums;
+  flex-shrink: 0;
+}
+
+.performance-compare-bar__rank svg {
+  width: 10px;
+  height: 10px;
+}
+
+.performance-compare-bar__rank--0 {
+  color: var(--color-accent);
+  background: color-mix(in srgb, var(--color-accent) 16%, transparent);
+  border: 1px solid color-mix(in srgb, var(--color-accent) 38%, transparent);
+}
+
+.performance-compare-bar__rank--1 {
+  color: var(--color-text-secondary);
+  background: var(--color-bg-tertiary);
+  border: 1px solid var(--color-border);
+}
+
+.performance-compare-bar__rank--2 {
+  color: var(--color-warning);
+  background: color-mix(in srgb, var(--color-warning) 14%, transparent);
+  border: 1px solid color-mix(in srgb, var(--color-warning) 34%, transparent);
+}
+
+.performance-compare-bar__empty {
+  padding: var(--space-lg);
+  text-align: center;
+  font-size: var(--font-size-xs);
+  color: var(--color-text-muted);
+}
+
+/* ── Detailed board — sortable headers + numeric cells ──────────────── */
+
+.performance-insights__sort-btn {
+  appearance: none;
+  border: none;
+  background: none;
+  font: inherit;
+  color: inherit;
+  text-transform: inherit;
+  letter-spacing: inherit;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 0;
+  cursor: pointer;
+  border-radius: var(--radius-sm);
+  transition: color var(--transition-fast);
+}
+
+.performance-insights__sort-btn:hover {
+  color: var(--color-text-primary);
+}
+
+.performance-insights__sort-btn--active {
+  color: var(--color-accent);
+}
+
+.performance-insights__sort-icon {
+  display: inline-flex;
+  align-items: center;
+  opacity: 0.55;
+}
+
+.performance-insights__sort-btn--active .performance-insights__sort-icon {
+  opacity: 1;
+}
+
+.performance-insights__sort-icon svg {
+  width: 11px;
+  height: 11px;
+}
+
+.performance-insights__th--right {
+  text-align: right;
+}
+
+.performance-insights__th--right .performance-insights__sort-btn {
+  justify-content: flex-end;
+}
+
+.performance-insights__td--num {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+.performance-insights__cell-sub {
+  display: block;
+  font-size: 10px;
+  color: var(--color-text-muted);
+  font-weight: var(--font-weight-medium);
+  margin-top: 1px;
+}
+
+.performance-insights__footer {
+  display: flex;
+  justify-content: center;
+  padding-top: var(--space-md);
+  border-top: 1px solid var(--color-border);
+  margin-top: var(--space-md);
+}
+
+.performance-insights__show-more {
+  appearance: none;
+  border: 1px dashed var(--color-border);
+  background: var(--color-bg-tertiary);
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-semibold);
+  font-family: inherit;
+  height: 30px;
+  padding: 0 16px;
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  transition: color var(--transition-fast), background var(--transition-fast),
+    border-color var(--transition-fast);
+}
+
+.performance-insights__show-more:hover {
+  color: var(--color-text-primary);
+  background: var(--color-bg-hover);
+  border-color: var(--color-border-light);
+}
+
+/* ── Timeline stat cards — label row with icon + accent dot ─────────── */
+
+.performance-stat-cards__label-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+}
+
+.performance-stat-cards__dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.performance-stat-cards__icon {
+  display: inline-flex;
+  align-items: center;
+  margin-left: auto;
+  flex-shrink: 0;
+}
+
+.performance-stat-cards__icon svg {
+  width: 12px;
+  height: 12px;
+}
+
+.performance-stat-cards__card .activity-sparkline {
+  background: var(--color-bg-primary);
+}
+
+/* ── Timeline panel — live / estimated badge ────────────────────────── */
+
+.performance-timeline__badge {
+  display: inline-flex;
+  align-items: center;
+  font-size: 10px;
+  font-weight: var(--font-weight-semibold);
+  letter-spacing: 0.4px;
+  text-transform: uppercase;
+  border-radius: var(--radius-full);
+  padding: 1px 8px;
+  white-space: nowrap;
+  margin-left: 4px;
+}
+
+.performance-timeline__badge--live {
+  color: var(--color-success);
+  background: color-mix(in srgb, var(--color-success) 10%, transparent);
+  border: 1px solid color-mix(in srgb, var(--color-success) 30%, transparent);
+}
+
+.performance-timeline__badge--estimated {
+  color: var(--color-warning);
+  background: color-mix(in srgb, var(--color-warning) 10%, transparent);
+  border: 1px solid color-mix(in srgb, var(--color-warning) 30%, transparent);
+}
+
+/* Staggered reveal for the KPI strip (mirrors the dashboard band). */
+.performance-overview .activity__stat {
+  animation: activityFadeUp var(--duration-normal) var(--ease-standard) both;
+}
+
+.performance-overview .activity__stat:nth-child(2) { animation-delay: 40ms; }
+.performance-overview .activity__stat:nth-child(3) { animation-delay: 80ms; }
+.performance-overview .activity__stat:nth-child(4) { animation-delay: 120ms; }
+.performance-overview .activity__stat:nth-child(5) { animation-delay: 160ms; }
+
+@media (prefers-reduced-motion: reduce) {
+  .performance-overview .activity__stat {
     animation: none;
   }
 }

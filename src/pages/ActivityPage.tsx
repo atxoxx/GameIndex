@@ -424,6 +424,9 @@ export default function ActivityPage() {
           <ActivityPerformance
             sessions={sessions}
             games={games}
+            startDate={startDate}
+            endDate={endDate}
+            sourceFilter={sourceFilter}
           />
         )}
       </main>
