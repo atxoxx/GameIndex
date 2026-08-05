@@ -337,20 +337,6 @@ fn scan_installed_rockstar_games_inner() -> Vec<RockstarInstalledGame> {
 
 // ── Launcher client actions ────────────────────────────────────────────────
 
-/// Launch the Rockstar Games Launcher (background client). Mirrors
-/// Playnite's `RockstarGamesLibraryClient.Open` →
-/// `RockstarGames.StartClient()`.
-pub fn start_client() {
-    let exe = client_exec_path();
-    if exe.is_empty() {
-        eprintln!("[rockstar] Launcher.exe not found — cannot start client");
-        return;
-    }
-    if let Err(e) = std::process::Command::new(&exe).spawn() {
-        eprintln!("[rockstar] Failed to start client: {e}");
-    }
-}
-
 /// Launch a specific installed title *in-place* via the launcher.
 ///
 /// Mirrors Playnite's `RockstarPlayController.Play`, which runs
@@ -376,22 +362,6 @@ pub fn launch_title(title_id: &str) -> Result<u32, String> {
     match cmd.spawn() {
         Ok(child) => Ok(child.id()),
         Err(e) => Err(format!("Failed to launch Rockstar title: {e}")),
-    }
-}
-
-/// Uninstall a specific installed title via the launcher. Mirrors
-/// Playnite's `RockstarUninstallController.Uninstall`, which runs
-/// `Launcher.exe -enableFullMode -uninstall=<titleId>`.
-pub fn uninstall_title(title_id: &str) -> Result<(), String> {
-    let exe = client_exec_path();
-    if exe.is_empty() {
-        return Err("Rockstar Games Launcher is not installed".to_string());
-    }
-    let mut cmd = std::process::Command::new(&exe);
-    cmd.arg("-enableFullMode").arg(format!("-uninstall={title_id}"));
-    match cmd.spawn() {
-        Ok(_) => Ok(()),
-        Err(e) => Err(format!("Failed to start Rockstar uninstall: {e}")),
     }
 }
 

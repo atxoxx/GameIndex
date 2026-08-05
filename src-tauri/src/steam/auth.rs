@@ -219,11 +219,6 @@ pub fn steam_get_session(_app: AppHandle) -> Option<SteamSession> {
 }
 
 #[tauri::command]
-pub fn steam_is_authenticated(app: AppHandle) -> bool {
-    steam_get_session(app).is_some()
-}
-
-#[tauri::command]
 pub fn steam_logout(_app: AppHandle) -> Result<(), String> {
     let store = db::secrets::SecretStore::new();
     store.delete("steam_session")?;

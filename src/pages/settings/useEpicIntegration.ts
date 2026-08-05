@@ -112,6 +112,13 @@ export function useEpicIntegration() {
       const result: EpicSyncResult = await invoke("epic_sync_library");
       setEpicSyncResult(result);
       if (result.success) {
+        // Push the freshly-synced ownership list into the backend
+        // `StoreChecker` (namespace:catalogItemId composite ids) so
+        // DownloadModal's "you own this" pills have real data.
+        const ownedIds = (result.syncedGames ?? []).map(
+          (g) => `${g.namespace}:${g.catalogItemId}`
+        );
+        invoke("set_epic_owned", { ids: ownedIds }).catch(() => undefined);
         const existingEpicIds = new Set(
           games
             .filter((gm) => gm.epicNamespace && gm.epicCatalogItemId)
@@ -199,6 +206,9 @@ export function useEpicIntegration() {
   async function disconnectEpic() {
     try {
       await invoke("epic_logout");
+      // Clear the backend ownership set so stale Epic titles stop
+      // counting as owned after the account is disconnected.
+      invoke("set_epic_owned", { ids: [] }).catch(() => undefined);
       setEpicAuth({ isAuthenticated: false });
       setEpicSyncResult(null);
       localStorage.removeItem("gamelib-epic-sync-info");

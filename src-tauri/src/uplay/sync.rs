@@ -17,9 +17,7 @@
 use tauri::AppHandle;
 use tauri_plugin_opener::OpenerExt;
 
-use super::{
-    cache, client_exec_path, client_install_path, is_client_installed,
-};
+use super::{cache, client_install_path, is_client_installed};
 use super::types::{UplaySettings, UplaySyncResult, UplaySyncedGame};
 use crate::size;
 use crate::uplay::settings::load as load_settings;
@@ -180,44 +178,6 @@ pub async fn uplay_launch_game(
         .open_url(url, None::<&str>)
         .map(|_| 0u32)
         .map_err(|e| format!("Failed to launch Ubisoft game: {e}"))
-}
-
-/// Install a specific Ubisoft Connect game via the
-/// `uplay://install/<id>` protocol. Mirrors Playnite's
-/// `UplayInstallController.Install`.
-#[tauri::command]
-pub async fn uplay_install_game(
-    app: AppHandle,
-    uplay_id: String,
-) -> Result<(), String> {
-    let url = format!("uplay://install/{}", uplay_id);
-    app.opener()
-        .open_url(url, None::<&str>)
-        .map_err(|e| format!("Failed to start Ubisoft install: {e}"))
-}
-
-/// Uninstall a specific Ubisoft Connect game via the
-/// `uplay://uninstall/<id>` protocol. Mirrors Playnite's
-/// `UplayUninstallController.Uninstall`.
-#[tauri::command]
-pub async fn uplay_uninstall_game(
-    app: AppHandle,
-    uplay_id: String,
-) -> Result<(), String> {
-    let url = format!("uplay://uninstall/{}", uplay_id);
-    app.opener()
-        .open_url(url, None::<&str>)
-        .map_err(|e| format!("Failed to start Ubisoft uninstall: {e}"))
-}
-
-/// Open the Ubisoft Connect client itself.
-#[tauri::command]
-pub async fn uplay_open_client() -> Result<(), String> {
-    if client_exec_path().is_empty() {
-        return Err("Ubisoft Connect is not installed".to_string());
-    }
-    super::start_client();
-    Ok(())
 }
 
 fn current_unix() -> u64 {

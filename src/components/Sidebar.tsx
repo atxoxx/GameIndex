@@ -701,9 +701,10 @@ export default function Sidebar() {
     navigate(`/store?q=${encodeURIComponent(game.name)}`);
   }
 
-  // Copy launch path: best-effort clipboard via the browser API,
-  // falling back to Tauri's clipboard-manager plugin. The toast
-  // confirms so the user knows the action succeeded.
+  // Copy launch path: best-effort clipboard via the browser API. There
+  // is no plugin fallback — `tauri-plugin-clipboard-manager` is not
+  // bundled, so a failed `navigator.clipboard` write is surfaced as the
+  // error toast below rather than a doomed second invoke.
   async function handleCopyPath(game: Game) {
     setContextMenu(null);
     const text = game.path || game.name;
@@ -712,18 +713,7 @@ export default function Sidebar() {
       await navigator.clipboard.writeText(text);
       copied = true;
     } catch {
-      /* fall through */
-    }
-    if (!copied) {
-      try {
-        await invoke("plugin:clipboard-manager|write_text", {
-          label: null,
-          text,
-        });
-        copied = true;
-      } catch {
-        /* clipboard unavailable in this sandbox */
-      }
+      /* clipboard unavailable in this webview context */
     }
     showToast(
       copied ? t("sidebar.copiedToClipboard") : t("sidebar.copyFailed"),

@@ -9,7 +9,7 @@
 use tauri::AppHandle;
 
 use super::{
-    client_exec_path, client_install_path, is_client_installed, scan_installed_rockstar_games,
+    client_install_path, is_client_installed, scan_installed_rockstar_games,
     RockstarSyncResult, RockstarSyncedGame,
 };
 use crate::size;
@@ -85,22 +85,6 @@ pub async fn rockstar_sync_library(_app: AppHandle) -> Result<RockstarSyncResult
 #[tauri::command]
 pub async fn rockstar_launch_game(title_id: String) -> Result<u32, String> {
     super::launch_title(&title_id)
-}
-
-/// Start (open) the Rockstar Games Launcher client itself.
-#[tauri::command]
-pub async fn rockstar_open_client() -> Result<(), String> {
-    if client_exec_path().is_empty() {
-        return Err("Rockstar Games Launcher is not installed".to_string());
-    }
-    super::start_client();
-    Ok(())
-}
-
-/// Uninstall a specific installed Rockstar title via the launcher.
-#[tauri::command]
-pub async fn rockstar_uninstall_game(title_id: String) -> Result<(), String> {
-    super::uninstall_title(&title_id)
 }
 
 fn current_unix() -> u64 {

@@ -44,24 +44,18 @@ use game_scraper::{GameMetadataResult, LaunchBoxImageResult, StoreGameSummary, T
 use game_watcher::{GameWatcher, GameRefInput};
 use gpu_detector::GpuInfo;
 use epic::auth::{epic_start_login, epic_finish_login, epic_login_with_refresh_token, epic_is_authenticated, epic_logout};
-use epic::sync::{epic_sync_library, epic_get_filters};
+use epic::sync::epic_sync_library;
 use gog::auth::{gog_is_authenticated, gog_logout, gog_start_login};
 use gog::sync::gog_sync_library;
 use humble::{
     humble_get_settings, humble_is_authenticated, humble_logout, humble_save_settings,
     humble_start_login, humble_sync_library,
 };
-use rockstar::sync::{
-    rockstar_launch_game, rockstar_open_client, rockstar_sync_library,
-    rockstar_uninstall_game,
-};
+use rockstar::sync::{rockstar_launch_game, rockstar_sync_library};
 use uplay::{
-    uplay_get_settings, uplay_install_game, uplay_launch_game, uplay_open_client,
-    uplay_save_settings, uplay_sync_library, uplay_uninstall_game,
+    uplay_get_settings, uplay_launch_game, uplay_save_settings, uplay_sync_library,
 };
-use steam::auth::{
-    steam_connect, steam_is_authenticated, steam_logout, steam_get_session,
-};
+use steam::auth::{steam_connect, steam_logout, steam_get_session};
 use steam::sync::steam_sync_games;
 use size::{detect_game_size, check_paths_exist, open_folder, disk_usage, move_game_install, uninstall_game, measure_path_size};
 use system_screenshots::detect_system_screenshot_folders;
@@ -1766,18 +1760,6 @@ async fn fetch_game_images(urls: Vec<String>) -> Vec<Option<String>> {
     game_scraper::fetch_game_images(urls).await
 }
 
-/// Use Spider to crawl a URL and extract data using CSS selectors.
-#[tauri::command]
-async fn spider_extract(url: String, selectors: std::collections::HashMap<String, String>) -> Result<std::collections::HashMap<String, Vec<String>>, String> {
-    game_scraper::spider_extract(&url, &selectors).await
-}
-
-/// Use Spider to fetch the raw HTML of a single page.
-#[tauri::command]
-async fn spider_fetch_page(url: String) -> Result<String, String> {
-    game_scraper::spider_fetch_page(&url).await
-}
-
 /// Search the LaunchBox Games Database for images of a game.
 #[tauri::command]
 async fn search_launchbox_images(game_name: String) -> Result<Vec<LaunchBoxImageResult>, String> {
@@ -1947,19 +1929,6 @@ fn load_source_cache(app: tauri::AppHandle) -> Result<String, String> {
         return Ok(String::new());
     }
     std::fs::read_to_string(&path).map_err(|e| e.to_string())
-}
-
-/// Phase-3 sessions: read recent finished sessions for the
-/// Activity dashboard. The frontend still maintains its own
-/// `localStorage`-backed session list (Phase 5 will switch that
-/// over); this is the backend's mirror for stats / future exports.
-#[tauri::command]
-fn list_recent_sessions(
-    app: tauri::AppHandle,
-    limit: u32,
-) -> Result<Vec<db::sessions::SessionRecord>, String> {
-    let db_state: tauri::State<'_, db::Db> = app.state();
-    db::sessions::list_recent(db_state.inner(), limit)
 }
 
 /// Return the most recent finished session for a single game (newest
@@ -2252,26 +2221,6 @@ async fn get_recommended_config(steam_app_id: Option<u32>) -> Option<PcRequireme
 /// Recursively scan a folder for image files (jpg, jpeg, png, gif, bmp, webp)
 /// and return their paths. Used by the Community â†’ Screenshots tab to let
 /// users browse their screenshot folders.
-#[tauri::command]
-fn list_image_files(folder_path: String) -> Vec<String> {
-    let mut paths = Vec::new();
-    if let Ok(entries) = std::fs::read_dir(&folder_path) {
-        for entry in entries.flatten() {
-            let p = entry.path();
-            if p.is_dir() {
-                paths.extend(list_image_files(p.to_string_lossy().to_string()));
-            } else if let Some(ext) = p.extension().and_then(|e| e.to_str()) {
-                let lower = ext.to_lowercase();
-                if lower == "jpg" || lower == "jpeg" || lower == "png" || lower == "gif" || lower == "bmp" || lower == "webp" {
-                    paths.push(p.to_string_lossy().to_string());
-                }
-            }
-        }
-    }
-    paths.sort();
-    paths
-}
-
 /// Like `list_image_files` but also returns common video clip formats
 /// (.mp4, .webm, .mov, .mkv) so the Community → Screenshots tab can show
 /// gameplay recordings alongside still captures. Recurses into subfolders.
@@ -2602,23 +2551,6 @@ fn set_metrics_config(
     let mut w = state.lock().map_err(|e| e.to_string())?;
     w.set_metrics_config(config);
     Ok(())
-}
-
-/// Read the current telemetry configuration (seeds the Settings UI on load).
-#[tauri::command]
-fn get_metrics_config(
-    state: tauri::State<Arc<std::sync::Mutex<GameWatcher>>>,
-) -> metrics_collector::MetricsConfig {
-    state
-        .lock()
-        .map(|w| w.metrics_config())
-        .unwrap_or_default()
-}
-
-/// Debug command: dump all MSI Afterburner shared memory entries for diagnostics.
-#[tauri::command]
-fn debug_mahm_entries() -> Vec<(String, String, f32)> {
-    mahm_reader::dump_mahm_entries().unwrap_or_default()
 }
 
 // === Steam Player Count ======================================================
@@ -3723,18 +3655,6 @@ async fn get_steam_game_stats(
     })
 }
 
-/// Resolve the main game executable for a Steam AppID.
-/// Uses the smart resolver in `game_watcher` (PE header analysis,
-/// name scoring, depth heuristics) instead of the old
-/// "largest .exe" heuristic.
-#[tauri::command]
-fn resolve_steam_exe(steam_app_id: u32) -> Option<String> {
-    // Try to get the game name from the manifest for scoring
-    let manifest = steam_game_watcher::find_app_install_dir(steam_app_id);
-    let game_name = manifest.as_ref().map(|m| m.name.as_str()).unwrap_or("");
-    game_watcher::resolve_steam_game_exe(steam_app_id, game_name)
-}
-
 /// Rebuild the game watcher's process index from the current library.
 /// Called by the frontend after loading games and after Steam/Epic syncs.
 /// This enables passive detection â€” the background poll loop can match
@@ -3788,21 +3708,19 @@ pub fn run() {
             tauri_plugin_autostart::MacosLauncher::LaunchAgent,
             Some(vec![]),
         ))
-        .invoke_handler(tauri::generate_handler![scan_folder_for_exes, launch_game, force_close_game, save_games, save_game, load_games, update_game_last_played, read_cover_image, search_game_metadata, fetch_game_images, download_image, spider_extract, spider_fetch_page, search_launchbox_images, detect_gpus, list_image_files, list_media_files, save_screenshot, save_text_file, load_sessions, get_sessions, delete_session, insert_session, debug_mahm_entries, get_system_ram_gb, get_system_info, get_metrics_config, set_metrics_config, resolve_steam_exe, detect_game_size, check_paths_exist, open_folder, disk_usage, move_game_install, uninstall_game, measure_path_size, detect_steam_screenshot_folders, detect_system_screenshot_folders, save_store_cache, load_store_cache, fetch_store_games, search_store_games,            get_store_game_detail, get_collection_games,            fetch_game_reviews, fetch_external_reviews, fetch_hydra_reviews, fetch_hydra_review_replies,             get_hydra_game_stats, get_about_section, get_recommended_config,
-            get_language, set_language, get_about_bundle,             save_wishlist, load_wishlist, list_recent_sessions, get_last_session_for_game, save_source_cache, load_source_cache, deals::fetch_gamepass_catalog, deals::fetch_isthereanydeal_deals, deals::fetch_giveaways, deals::open_deal_url,            steam_sync_games,
-            steam_connect, steam_is_authenticated, steam_logout, steam_get_session,
-            epic_start_login, epic_finish_login, epic_login_with_refresh_token, epic_sync_library, epic_get_filters, epic_is_authenticated, epic_logout,
+        .invoke_handler(tauri::generate_handler![scan_folder_for_exes, launch_game, force_close_game, save_games, save_game, load_games, update_game_last_played, read_cover_image, search_game_metadata, fetch_game_images, download_image, search_launchbox_images, detect_gpus, list_media_files, save_screenshot, save_text_file, load_sessions, get_sessions, delete_session, insert_session, get_system_ram_gb, get_system_info, set_metrics_config, detect_game_size, check_paths_exist, open_folder, disk_usage, move_game_install, uninstall_game, measure_path_size, detect_steam_screenshot_folders, detect_system_screenshot_folders, save_store_cache, load_store_cache, fetch_store_games, search_store_games,            get_store_game_detail, get_collection_games,            fetch_game_reviews, fetch_external_reviews, fetch_hydra_reviews, fetch_hydra_review_replies,             get_hydra_game_stats, get_about_section, get_recommended_config,
+            get_language, set_language, get_about_bundle,             save_wishlist, load_wishlist, get_last_session_for_game, save_source_cache, load_source_cache, deals::fetch_gamepass_catalog, deals::fetch_isthereanydeal_deals, deals::fetch_giveaways, deals::open_deal_url,            steam_sync_games,
+            steam_connect, steam_logout, steam_get_session,
+            epic_start_login, epic_finish_login, epic_login_with_refresh_token, epic_sync_library, epic_is_authenticated, epic_logout,
             gog_start_login, gog_sync_library, gog_is_authenticated, gog_logout,
             humble_start_login, humble_sync_library, humble_is_authenticated, humble_logout,
             humble_get_settings, humble_save_settings,
             // Rockstar Games Launcher integration — installed-games scan
             // + launcher client actions (no cloud auth).
-            rockstar_sync_library, rockstar_launch_game, rockstar_open_client,
-            rockstar_uninstall_game,
+            rockstar_sync_library, rockstar_launch_game,
             // Ubisoft Connect (Uplay) integration — installed + library
             // scan + client actions (uplay:// protocol).
-            uplay_sync_library, uplay_launch_game, uplay_install_game,
-            uplay_uninstall_game, uplay_open_client, uplay_get_settings,
+            uplay_sync_library, uplay_launch_game, uplay_get_settings,
             uplay_save_settings,
             // Download-feature commands. The torrent engine manages
             // its own global session; the source manager and store
@@ -3847,11 +3765,8 @@ pub fn run() {
             achievements::save_achievements_cache,
             achievements::load_achievements_cache,
             achievements::sync_local_achievements,
-            achievement_watcher::scan_all_local_achievements,
-            achievement_watcher::get_local_achievements_enabled,
             achievement_watcher::set_local_achievements_enabled,
             downloads::test_debrid_key,
-            downloads::check_debrid_cache,
             downloads::direct_download_start,
             downloads::debrid_download_start,
             downloads::direct_download_update_url,
@@ -3890,11 +3805,6 @@ pub fn run() {
             list_friend_outboxes,
             load_friends_db,
             save_friends_db,
-            get_local_ip,
-            host_p2p_sync,
-            client_p2p_sync,
-            get_internet_sync_status,
-            trigger_internet_sync,
             set_discord_presence_enabled,
             // Emulation support — emulator configs + ROM scanning.
             list_emulators,
@@ -4328,17 +4238,6 @@ fn save_friends_db(app: tauri::AppHandle, content: String) -> Result<(), String>
     std::fs::rename(&tmp_path, &file_path).map_err(|e| e.to_string())
 }
 
-#[tauri::command]
-fn get_local_ip() -> Result<String, String> {
-    let socket = std::net::UdpSocket::bind("0.0.0.0:0")
-        .map_err(|e| format!("Failed to bind UDP: {}", e))?;
-    socket.connect("8.8.8.8:80")
-        .map_err(|e| format!("Failed to connect to routing IP: {}", e))?;
-    let local_addr = socket.local_addr()
-        .map_err(|e| format!("Failed to resolve local address: {}", e))?;
-    Ok(local_addr.ip().to_string())
-}
-
 async fn write_framed_string<S: tokio::io::AsyncWrite + Unpin>(stream: &mut S, data: &str) -> std::io::Result<()> {
     use tokio::io::AsyncWriteExt;
     let bytes = data.as_bytes();
@@ -4364,54 +4263,6 @@ async fn read_framed_string<S: tokio::io::AsyncRead + Unpin>(stream: &mut S) -> 
     stream.read_exact(&mut buf).await?;
     let s = String::from_utf8(buf).map_err(|e| std::io::Error::new(std::io::ErrorKind::InvalidData, e))?;
     Ok(s)
-}
-
-#[tauri::command]
-async fn host_p2p_sync(app: tauri::AppHandle, port: u16, timeout_secs: u64) -> Result<String, String> {
-    use tokio::net::TcpListener;
-    use tokio::time::{timeout, Duration};
-
-    let addr = format!("0.0.0.0:{}", port);
-    let listener = TcpListener::bind(&addr).await
-        .map_err(|e| format!("Failed to bind host port {}: {}", port, e))?;
-
-    let (mut socket, _) = match timeout(Duration::from_secs(timeout_secs), listener.accept()).await {
-        Ok(Ok(conn)) => conn,
-        Ok(Err(e)) => return Err(format!("Socket connection accept error: {}", e)),
-        Err(_) => return Err(format!("No connection received within {} seconds.", timeout_secs)),
-    };
-
-    let client_db = read_framed_string(&mut socket).await
-        .map_err(|e| format!("Failed to read client data: {}", e))?;
-
-    let host_db = load_friends_db_internal(&app)?;
-
-    write_framed_string(&mut socket, &host_db).await
-        .map_err(|e| format!("Failed to send host data: {}", e))?;
-
-    Ok(client_db)
-}
-
-#[tauri::command]
-async fn client_p2p_sync(app: tauri::AppHandle, host_addr: String) -> Result<String, String> {
-    use tokio::net::TcpStream;
-    use tokio::time::{timeout, Duration};
-
-    let mut socket = match timeout(Duration::from_secs(15), TcpStream::connect(&host_addr)).await {
-        Ok(Ok(stream)) => stream,
-        Ok(Err(e)) => return Err(format!("Failed to connect to host {}: {}", host_addr, e)),
-        Err(_) => return Err(format!("Connection to host {} timed out after 15 seconds.", host_addr)),
-    };
-
-    let client_db = load_friends_db_internal(&app)?;
-
-    write_framed_string(&mut socket, &client_db).await
-        .map_err(|e| format!("Failed to send client data: {}", e))?;
-
-    let host_db = read_framed_string(&mut socket).await
-        .map_err(|e| format!("Failed to read host data: {}", e))?;
-
-    Ok(host_db)
 }
 
 // ── Internet Sync (Automatic P2P sync via KV discovery) ──────────────
@@ -4824,28 +4675,3 @@ pub async fn start_internet_sync_loop(app: tauri::AppHandle, mut trigger_rx: tok
     }
 }
 
-#[tauri::command]
-fn get_internet_sync_status() -> Result<InternetSyncStatus, String> {
-    if let Some(state) = INTERNET_SYNC_STATE.get() {
-        Ok(state.get_status())
-    } else {
-        Ok(InternetSyncStatus {
-            enabled: false,
-            bound_port: None,
-            external_ip: None,
-            upnp_mapped: false,
-            last_synced_times: HashMap::new(),
-            error_message: Some("Internet sync loop not running".to_string()),
-        })
-    }
-}
-
-#[tauri::command]
-async fn trigger_internet_sync() -> Result<(), String> {
-    if let Some(state) = INTERNET_SYNC_STATE.get() {
-        state.trigger_tx.send(()).await.map_err(|e| e.to_string())?;
-        Ok(())
-    } else {
-        Err("Internet sync loop not running".to_string())
-    }
-}

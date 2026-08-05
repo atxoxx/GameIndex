@@ -37,10 +37,7 @@ pub mod types;
 
 // Re-export Tauri commands so `lib.rs` can register them via
 // `use uplay::{...}`.
-pub use sync::{
-    uplay_install_game, uplay_launch_game, uplay_open_client, uplay_sync_library,
-    uplay_uninstall_game,
-};
+pub use sync::{uplay_launch_game, uplay_sync_library};
 pub use types::UplaySettings;
 
 use tauri::AppHandle;
@@ -141,19 +138,6 @@ fn client_install_path_inner() -> Option<String> {
 #[cfg(not(windows))]
 fn client_install_path_inner() -> Option<String> {
     None
-}
-
-/// Launch the Ubisoft Connect client itself (background process).
-/// Mirrors `UplayClient.Open` → `ProcessStarter.StartProcess(...)`.
-pub fn start_client() {
-    let exe = client_exec_path();
-    if exe.is_empty() {
-        eprintln!("[uplay] UbisoftConnect.exe not found — cannot start client");
-        return;
-    }
-    if let Err(e) = std::process::Command::new(&exe).spawn() {
-        eprintln!("[uplay] Failed to start client: {e}");
-    }
 }
 
 /// Load the current Uplay settings for the Settings UI.

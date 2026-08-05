@@ -6,7 +6,7 @@ use std::path::PathBuf;
 use tauri::AppHandle;
 
 use super::auth::refresh_tokens_if_needed;
-use super::types::{EpicAuthTokens, EpicCatalogItem, EpicFilterOptions, EpicGame, EpicGameAsset, EpicMainGameItem, EpicSyncResult, EpicSyncedGame};
+use super::types::{EpicAuthTokens, EpicCatalogItem, EpicGame, EpicGameAsset, EpicMainGameItem, EpicSyncResult, EpicSyncedGame};
 use crate::size;
 
 /// Sync the user's Epic Games library.
@@ -140,23 +140,6 @@ pub async fn epic_sync_library(app: AppHandle) -> Result<EpicSyncResult, String>
     })
 }
 
-/// Get available filter options for Epic games.
-#[tauri::command]
-pub fn epic_get_filters() -> EpicFilterOptions {
-    EpicFilterOptions {
-        statuses: vec![
-            "owned".to_string(),
-            "installed".to_string(),
-            "uninstalled".to_string(),
-        ],
-        categories: vec![
-            "applications".to_string(),
-            "addons".to_string(),
-            "plugins".to_string(),
-        ],
-        namespaces: Vec::new(),
-    }
-}
 
 // ── Internal functions ─────────────────────────────────────────────
 

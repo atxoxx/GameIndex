@@ -1593,59 +1593,6 @@ pub async fn fetch_game_images(urls: Vec<String>) -> Vec<Option<String>> {
     results
 }
 
-/// Use Spider to crawl a single page and return its full HTML content.
-/// Uses Spider v2's Website API for HTTP-only crawling.
-pub async fn spider_fetch_page(url: &str) -> Result<String, String> {
-    // Spider v2: create Website and crawl the target URL.
-    // The Website API handles robots.txt, rate limiting, and user-agent
-    // rotation automatically.
-    let mut website = spider::website::Website::new(url);
-    website.configuration.respect_robots_txt = true;
-    website.configuration.delay = 200;
-
-    website.crawl().await;
-
-    // get_pages returns Option<&Vec<Page>>.
-    if let Some(page) = website.get_pages().and_then(|pages| pages.first()) {
-        Ok(page.get_html())
-    } else {
-        Err(format!(
-            "Spider: no pages scraped for URL: {}",
-            url
-        ))
-    }
-}
-
-/// Use Spider to crawl a page and extract data using CSS selectors.
-/// Returns a map of field name → extracted text values.
-pub async fn spider_extract(
-    url: &str,
-    selectors: &HashMap<String, String>,
-) -> Result<HashMap<String, Vec<String>>, String> {
-    let html = spider_fetch_page(url).await?;
-    let document = scraper::Html::parse_document(&html);
-
-    let mut results: HashMap<String, Vec<String>> = HashMap::new();
-    for (field_name, css_selector) in selectors {
-        let selector = scraper::Selector::parse(css_selector)
-            .map_err(|e| format!("Invalid CSS selector '{}': {}", css_selector, e))?;
-        let values: Vec<String> = document
-            .select(&selector)
-            .map(|el| {
-                el.text()
-                    .collect::<Vec<_>>()
-                    .join(" ")
-                    .trim()
-                    .to_string()
-            })
-            .filter(|s| !s.is_empty())
-            .collect();
-        results.insert(field_name.clone(), values);
-    }
-
-    Ok(results)
-}
-
 // ─── Source: Steam ────────────────────────────────────────────────────────────
 
 /// Search Steam's store for a game and return metadata.

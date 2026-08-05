@@ -368,6 +368,16 @@ export function GameProvider({ children }: { children: ReactNode }) {
         })
       );
 
+      // Persist lastPlayed straight to the SQLite `games` row. The
+      // debounced full-library `save_games` would eventually cover it,
+      // but this targeted write is the documented hot path for the
+      // session-end stamp.
+      if (finishedAt && finishedAt > 0) {
+        invoke("update_game_last_played", { gameId, lastPlayedMs: finishedAt }).catch(
+          () => undefined
+        );
+      }
+
       // ── Discord Rich Presence ──────────────────────────────────────
       // Drop the finished session, then either hand the presence thread
       // the next still-running game (watcher sends `remainingGameName`)

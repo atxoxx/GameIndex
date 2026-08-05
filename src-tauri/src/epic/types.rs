@@ -125,11 +125,3 @@ pub struct EpicSyncedGame {
     pub size_root_path: Option<String>,
 }
 
-/// Filter options for Epic games.
-#[derive(Debug, Serialize, Deserialize, Clone)]
-#[serde(rename_all = "camelCase")]
-pub struct EpicFilterOptions {
-    pub statuses: Vec<String>,
-    pub categories: Vec<String>,
-    pub namespaces: Vec<String>,
-}

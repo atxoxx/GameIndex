@@ -128,7 +128,6 @@ function DocIcon() {
 
 interface Tab {
   path: string;
-  label: string;
   icon: React.ReactNode;
 }
 
@@ -318,19 +317,19 @@ function ModsIcon() {
 }
 
 const tabs: Tab[] = [
-  { path: "/store", label: "Store", icon: <StoreIcon /> },
-  { path: "/library", label: "Library", icon: <LibraryIcon /> },
-  { path: "/emulators", label: "Emulators", icon: <EmulatorsIcon /> },
-  { path: "/mods", label: "Mods", icon: <ModsIcon /> },
-  { path: "/wishlist", label: "Wishlist", icon: <WishlistIcon /> },
-  { path: "/deals", label: "Deals", icon: <DealsIcon /> },
-  { path: "/activity", label: "Activity", icon: <ActivityIcon /> },
-  { path: "/achievements", label: "Achievements", icon: <AchievementsIcon /> },
-  { path: "/downloads", label: "Downloads", icon: <DownloadIcon /> },
-  { path: "/storage", label: "Storage", icon: <StorageIcon /> },
-  { path: "/news", label: "News", icon: <NewsIcon /> },
-  { path: "/community", label: "Stats", icon: <CommunityIcon /> },
-  { path: "/friends", label: "Community", icon: <FriendsIcon /> },
+  { path: "/store", icon: <StoreIcon /> },
+  { path: "/library", icon: <LibraryIcon /> },
+  { path: "/emulators", icon: <EmulatorsIcon /> },
+  { path: "/mods", icon: <ModsIcon /> },
+  { path: "/wishlist", icon: <WishlistIcon /> },
+  { path: "/deals", icon: <DealsIcon /> },
+  { path: "/activity", icon: <ActivityIcon /> },
+  { path: "/achievements", icon: <AchievementsIcon /> },
+  { path: "/downloads", icon: <DownloadIcon /> },
+  { path: "/storage", icon: <StorageIcon /> },
+  { path: "/news", icon: <NewsIcon /> },
+  { path: "/community", icon: <CommunityIcon /> },
+  { path: "/friends", icon: <FriendsIcon /> },
 ];
 
 export default function TopNav() {
@@ -353,10 +352,10 @@ export default function TopNav() {
       case "/storage": return "nav.storage";
       case "/news": return "nav.news";
       case "/community": return "nav.stats";
-        case "/friends": return "nav.friends";
-        case "/emulators": return "nav.emulators";
-        case "/mods": return "nav.mods";
-        default: return "nav.library";
+      case "/friends": return "nav.friends";
+      case "/emulators": return "nav.emulators";
+      case "/mods": return "nav.mods";
+      default: return "nav.library";
     }
   };
 

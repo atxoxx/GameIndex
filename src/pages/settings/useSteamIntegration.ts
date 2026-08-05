@@ -146,6 +146,12 @@ export function useSteamIntegration() {
       });
       setSyncResult(result);
       if (result.success) {
+        // Push the freshly-synced ownership list into the backend
+        // `StoreChecker` so DownloadModal's "you own this" pills have
+        // real data (the name-based fallback alone can't confirm
+        // Steam ownership).
+        const ownedAppIds = (result.syncedGames ?? []).map((g) => g.appid);
+        invoke("set_steam_owned", { appids: ownedAppIds }).catch(() => undefined);
         const g = result.gamesSynced ?? 0;
         const p = result.playtimeUpdated ?? 0;
         const a = result.achievementsSynced ?? 0;
@@ -224,6 +230,9 @@ export function useSteamIntegration() {
   async function disconnectSteam() {
     try {
       await invoke("steam_logout");
+      // Clear the backend ownership set so stale Steam titles stop
+      // counting as owned after the account is disconnected.
+      invoke("set_steam_owned", { appids: [] }).catch(() => undefined);
       setSteamAuth({ isAuthenticated: false });
       setSyncResult(null);
       localStorage.removeItem("gamelib-steam-sync-info");

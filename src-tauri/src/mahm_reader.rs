@@ -112,43 +112,6 @@ fn get_data_offset(entry_size: u32) -> usize {
     }
 }
 
-/// Dump all MAHM entries for diagnostic purposes.
-pub fn dump_mahm_entries() -> Option<Vec<(String, String, f32)>> {
-    unsafe {
-        let handle_raw = try_open_mahm()?;
-        let map_handle = HANDLE(handle_raw as *mut std::ffi::c_void);
-        let view = MapViewOfFile(map_handle, FILE_MAP_READ, 0, 0, 0);
-        let base = view.Value;
-        if base.is_null() {
-            let _ = UnmapViewOfFile(view);
-            return None;
-        }
-
-        let header = *(base as *const MAHMSharedMemoryHeader);
-        if header.signature != 0x4D41484D {
-            let _ = UnmapViewOfFile(view);
-            return None;
-        }
-
-        let data_offset = get_data_offset(header.entry_size);
-        let mut entries = Vec::new();
-        let entries_base = (base as *const u8).add(header.header_size as usize);
-
-        for i in 0..header.entry_count {
-            let entry = entries_base.add((i * header.entry_size) as usize);
-            let name = read_str_at(entry.add(ENTRY_NAME_OFFSET), ENTRY_NAME_SIZE);
-            let units = read_str_at(entry.add(ENTRY_UNITS_OFFSET), ENTRY_UNITS_SIZE);
-            let data = *(entry.add(data_offset) as *const f32);
-            if !name.is_empty() {
-                entries.push((name, units, data));
-            }
-        }
-
-        let _ = UnmapViewOfFile(view);
-        Some(entries)
-    }
-}
-
 /// Determine whether an MAHM shared-memory entry represents the system RAM
 /// sensor (as opposed to GPU memory, pagefile, swap, or commit charge).
 ///

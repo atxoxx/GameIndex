@@ -1150,21 +1150,6 @@ pub async fn test_debrid_key(
 }
 
 #[tauri::command]
-pub async fn check_debrid_cache(
-    provider: String,
-    apikey: String,
-    magnet: String,
-) -> Result<debrid::DebridCacheResult, String> {
-    if provider == "alldebrid" {
-        debrid::AllDebridClient::check_cache(&apikey, &magnet).await
-    } else if provider == "torbox" {
-        debrid::TorBoxClient::check_cache(&apikey, &magnet).await
-    } else {
-        Err("Unsupported debrid provider".to_string())
-    }
-}
-
-#[tauri::command]
 pub async fn debrid_unrestrict_link(
     provider: String,
     apikey: String,

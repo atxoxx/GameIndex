@@ -4,12 +4,6 @@ use serde::{Deserialize, Serialize};
 // ─── Shared response types (consumed by mod.rs) ──────────────────────────────
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
-pub struct DebridCacheResult {
-    pub instant: bool,
-    pub provider: String,
-}
-
-#[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct DebridStatusResult {
     pub id: String,
     pub progress: f32,
@@ -30,8 +24,7 @@ pub struct DebridUserInfo {
 // requests in late 2024 / early 2025 (the old `?agent=gamelib&apikey=…` query
 // approach now returns `404 Endpoint doesn't exist`). Endpoints used here:
 // - GET  /v4/user                 → user info
-// - POST /v4/magnet/upload        → upload & instant-cache check (instant flag)
-// - POST /v4/magnet/delete        → cleanup when an instant check isn't cached
+// - POST /v4/magnet/upload        → upload a magnet (returns the magnet id)
 // - POST /v4.1/magnet/status      → progress / ready status
 // - POST /v4/magnet/files         → per-file download links (moved out of status)
 //
@@ -79,10 +72,6 @@ struct AllDebridUploadResponse {
 #[derive(Deserialize, Debug)]
 struct AllDebridMagnetUpload {
     id: u64,
-    /// `instant` is true when the magnet can be served immediately from the
-    /// AllDebrid cache; false means it has to be downloaded by their servers.
-    #[serde(default)]
-    instant: bool,
 }
 
 #[derive(Deserialize, Debug)]
@@ -174,57 +163,6 @@ impl AllDebridClient {
         Ok(DebridUserInfo {
             username: data.user.username,
             premium_until,
-        })
-    }
-
-    pub async fn check_cache(apikey: &str, magnet: &str) -> Result<DebridCacheResult, String> {
-        // AllDebrid doesn't expose a dedicated cache-check endpoint. The cleanest
-        // approach is to upload the magnet and inspect the returned `instant`
-        // flag. We then delete the magnet on AllDebrid's side when it isn't
-        // cached so we don't leave behind a stranded, queued download.
-        let client = reqwest::Client::new();
-        let resp = ad_request(
-            &client,
-            Method::POST,
-            "/v4/magnet/upload",
-            apikey,
-            Some(&[("magnets[]", magnet)]),
-        )
-        .await?;
-        let status = resp.status();
-        let body: AllDebridResponse<AllDebridUploadResponse> = resp
-            .json()
-            .await
-            .map_err(|e| format!("Failed to parse magnet upload response: {}", e))?;
-
-        if !status.is_success() || body.status != "success" {
-            return Err(ad_err(body));
-        }
-
-        let data = body.data.ok_or_else(|| "Empty response data".to_string())?;
-        let mag = data
-            .magnets
-            .first()
-            .ok_or_else(|| "No magnet entry returned by AllDebrid".to_string())?;
-        let instant = mag.instant;
-
-        // Best-effort cleanup. `check_cache` is a query — we don't want to
-        // leave the magnet registered on the user's AllDebrid account, whether
-        // or not it ended up being cached. Errors here don't affect the cache
-        // verdict we return to the caller.
-        let id_str = mag.id.to_string();
-        let _ = ad_request(
-            &client,
-            Method::POST,
-            "/v4/magnet/delete",
-            apikey,
-            Some(&[("id[]", id_str.as_str())]),
-        )
-        .await;
-
-        Ok(DebridCacheResult {
-            instant,
-            provider: "alldebrid".to_string(),
         })
     }
 
@@ -403,11 +341,6 @@ struct TorBoxUploadResponse {
 }
 
 #[derive(Deserialize, Debug)]
-struct TorBoxInstantResponse {
-    cached: bool,
-}
-
-#[derive(Deserialize, Debug)]
 struct TorBoxTorrentList {
     id: u64,
     progress: f32,
@@ -458,31 +391,6 @@ impl TorBoxClient {
         Ok(DebridUserInfo {
             username: data.user.email,
             premium_until: if data.user.is_premium { Some(u64::MAX) } else { None },
-        })
-    }
-
-    pub async fn check_cache(apikey: &str, magnet: &str) -> Result<DebridCacheResult, String> {
-        let client = reqwest::Client::new();
-        let url = format!(
-            "https://api.torbox.app/v1/api/torrents/checkcached?hash={}",
-            Self::extract_hash(magnet)
-        );
-        let resp = client
-            .get(&url)
-            .header("Authorization", format!("Bearer {}", apikey))
-            .send()
-            .await
-            .map_err(|e| format!("Request failed: {}", e))?;
-
-        let body: TorBoxResponse<TorBoxInstantResponse> = resp
-            .json()
-            .await
-            .map_err(|e| format!("Failed to parse checkcached response: {}", e))?;
-
-        let instant = body.data.map(|d| d.cached).unwrap_or(false);
-        Ok(DebridCacheResult {
-            instant,
-            provider: "torbox".to_string(),
         })
     }
 
@@ -576,16 +484,6 @@ impl TorBoxClient {
             links,
             error_message: None,
         })
-    }
-
-    fn extract_hash(magnet: &str) -> String {
-        // Find exact topic xt=urn:btih:
-        if let Some(pos) = magnet.find("xt=urn:btih:") {
-            let start = pos + "xt=urn:btih:".len();
-            let end = magnet[start..].find('&').map(|idx| start + idx).unwrap_or(magnet.len());
-            return magnet[start..end].to_uppercase();
-        }
-        "".to_string()
     }
 
     /// "Unrestrict" a web download link via TorBox.
