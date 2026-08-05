@@ -37,8 +37,10 @@ use tauri::Emitter;
 
 /// Rich presence payload emitted by the frontend on `discord-presence-update`.
 ///
-/// `state` is `"playing"` or `"stopped"`; everything else is optional and
-/// defaults to `None` / `0` so the frontend can send a minimal payload.
+/// `state` is `"playing"`, `"browsing"` or `"stopped"`; the listener in
+/// `lib.rs` treats `"stopped"` as the clear sentinel and every other value
+/// as an activity payload. Everything else is optional and defaults to
+/// `None` / `0` so the frontend can send a minimal payload.
 #[derive(Debug, Clone, serde::Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct PresenceData {

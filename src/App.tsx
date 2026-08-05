@@ -35,11 +35,13 @@ import { SettingsProvider } from "./context/SettingsContext";
 import { SessionNotesProvider } from "./context/SessionNotesContext";
 import { BigScreenProvider, useBigScreen } from "./context/BigScreenContext";
 import { LanguageProvider } from "./context/LanguageContext";
+import { PresenceProvider } from "./context/PresenceContext";
 import {
   SidebarCollapseProvider,
   useSidebarCollapse,
 } from "./context/SidebarCollapseContext";
 import { GamepadProvider } from "./hooks/GamepadProvider";
+import { useDiscordPresence } from "./hooks/useDiscordPresence";
 import { LandingRedirect } from "./components/LandingRedirect";
 import Splashscreen from "./components/Splashscreen";
 import "./App.css";
@@ -79,6 +81,7 @@ function AppShellLayout() {
 }
 
 function AppShell() {
+  useDiscordPresence();
   const { isBigScreen } = useBigScreen();
   return (
     <GamepadProvider enabled={isBigScreen}>
@@ -126,7 +129,9 @@ function App() {
                             <SettingsProvider>
                               <SessionNotesProvider>
                                 <BigScreenProvider>
-                                  <AppShell />
+                                  <PresenceProvider>
+                                    <AppShell />
+                                  </PresenceProvider>
                                 </BigScreenProvider>
                               </SessionNotesProvider>
                             </SettingsProvider>

@@ -1,5 +1,7 @@
+import { useEffect } from "react";
 import { useBigScreen } from "../context/BigScreenContext";
 import { useSources } from "../context/SourceContext";
+import { usePresence } from "../context/PresenceContext";
 import { CrackWatchProvider } from "../context/CrackWatchContext";
 import { PriceProvider } from "../context/PriceContext";
 import { useStoreCatalogue } from "../hooks/useStoreCatalogue";
@@ -28,6 +30,11 @@ export default function StorePage() {
   const { isBigScreen } = useBigScreen();
   const c = useStoreCatalogue();
   const { sources } = useSources();
+  const { setStorePlatforms } = usePresence();
+
+  useEffect(() => {
+    setStorePlatforms(c.selectedPlatforms);
+  }, [c.selectedPlatforms, setStorePlatforms]);
 
   if (isBigScreen) {
     return <BigScreenStore />;

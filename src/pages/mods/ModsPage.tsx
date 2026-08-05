@@ -8,6 +8,7 @@ import { useEffect, useMemo, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { useGames } from "../../context/GameContext";
 import { useLanguage } from "../../context/LanguageContext";
+import { usePresence } from "../../context/PresenceContext";
 import { PageHeader } from "../../components/ui";
 import ModManager from "../../components/mods/ModManager";
 import { ENGINE_LABELS, type ModEngine, type ModsOverviewEntry } from "../../types/mods";
@@ -20,6 +21,7 @@ export default function ModsPage() {
   const [overview, setOverview] = useState<Map<string, ModsOverviewEntry>>(new Map());
   const [selectedGameId, setSelectedGameId] = useState<string | null>(null);
   const [search, setSearch] = useState("");
+  const { setModsGameName } = usePresence();
 
   // Installed games with a real on-disk path are moddable candidates.
   const candidates = useMemo(
@@ -61,6 +63,10 @@ export default function ModsPage() {
 
   const selectedGame: Game | null =
     candidates.find((g) => g.id === selectedGameId) ?? null;
+
+  useEffect(() => {
+    setModsGameName(selectedGame?.name ?? null);
+  }, [selectedGame, setModsGameName]);
 
   return (
     <div className="mods-page">

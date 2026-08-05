@@ -389,13 +389,21 @@ export function GameProvider({ children }: { children: ReactNode }) {
         const cached = [...runningSessionsRef.current.values()].find((s) => s.name === remainingName);
         const startedAt = cached?.startedAt ?? Date.now();
         if (remaining) runningSessionsRef.current.set(remaining.id, { name: remainingName, startedAt });
+        const platform = remaining?.platform?.trim();
+        const stateLine = platform
+          ? t("discordPresence.playingVia", { platform })
+          : t("discordPresence.playingState");
+        const rawPlayTime = remaining?.playTime;
+        const timeTotal = rawPlayTime && rawPlayTime.trim()
+          ? t("discordPresence.playtimeTotal", { time: rawPlayTime.trim() })
+          : "";
         void emit("discord-presence-update", {
           state: "playing",
           gameId: remaining?.id ?? "",
           gameName: remainingName,
           startedAt,
           details: remainingName,
-          stateText: t("discordPresence.playingState"),
+          stateText: [stateLine, timeTotal].filter(Boolean).join(" • "),
           largeImage: discordAsset(remaining?.coverSourceUrl ?? remaining?.coverArtUrl),
           largeText: remainingName,
           smallImage: discordAsset(remaining?.iconUrl),
@@ -404,7 +412,9 @@ export function GameProvider({ children }: { children: ReactNode }) {
           buttonUrl: discordButtonUrl(remaining),
         });
       } else {
-        void emit("discord-presence-update", { state: "stopped", gameId });
+        // No game left running: the useDiscordPresence hook emits a
+        // "browsing" presence (library/page) so the Discord activity stays
+        // continuous instead of clearing.
       }
     });
     return () => {
@@ -440,13 +450,21 @@ export function GameProvider({ children }: { children: ReactNode }) {
       const startedAt = Date.now();
       runningSessionsRef.current.set(event.payload.gameId, { name: event.payload.gameName, startedAt });
       const game = gamesRef.current.find((g) => g.id === event.payload.gameId);
+      const platform = game?.platform?.trim();
+      const stateLine = platform
+        ? t("discordPresence.playingVia", { platform })
+        : t("discordPresence.playingState");
+      const rawPlayTime = game?.playTime;
+      const timeTotal = rawPlayTime && rawPlayTime.trim()
+        ? t("discordPresence.playtimeTotal", { time: rawPlayTime.trim() })
+        : "";
       void emit("discord-presence-update", {
         state: "playing",
         gameId: event.payload.gameId,
         gameName: event.payload.gameName,
         startedAt,
         details: event.payload.gameName,
-        stateText: t("discordPresence.playingState"),
+        stateText: [stateLine, timeTotal].filter(Boolean).join(" • "),
         largeImage: discordAsset(game?.coverSourceUrl ?? game?.coverArtUrl),
         largeText: event.payload.gameName,
         smallImage: discordAsset(game?.iconUrl),

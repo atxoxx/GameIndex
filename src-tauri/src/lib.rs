@@ -3943,9 +3943,11 @@ pub fn run() {
             // thread itself is spawned lazily when the user enables the
             // setting (see `set_discord_presence_enabled`). The frontend
             // emits rich presence payloads (details / stateText / assets /
-            // button) on game-started/game-exited; we translate that into
-            // thread commands here. The thread owns the IPC connection,
-            // reconnects with retry, and emits `discord-presence-status`.
+            // button) on game-started/game-exited, and "browsing" payloads
+            // from the useDiscordPresence hook while the app is idle; we
+            // translate those into thread commands here. The thread owns
+            // the IPC connection, reconnects with retry, and emits
+            // `discord-presence-status`.
             let discord_state = discord_presence::DiscordPresenceState::new();
             app.manage(discord_state);
 
@@ -3960,10 +3962,13 @@ pub fn run() {
                             return;
                         };
                         let state = handle.state::<discord_presence::DiscordPresenceState>();
-                        if payload.state == "playing" {
-                            state.set_playing(payload);
-                        } else {
+                        // `"stopped"` is the explicit clear sentinel; every other
+                        // state (`"playing"`, `"browsing"`, …) carries an activity
+                        // payload that is built and pushed to Discord.
+                        if payload.state == "stopped" {
                             state.clear();
+                        } else {
+                            state.set_playing(payload);
                         }
                     }
                 });

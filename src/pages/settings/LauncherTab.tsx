@@ -26,6 +26,8 @@ export default function LauncherTab() {
     setAutoStartEnabled,
     landingPage,
     setLandingPage,
+    discordRichPresence,
+    setDiscordRichPresence,
     ready,
   } = useSettings();
 
@@ -161,6 +163,14 @@ export default function LauncherTab() {
               "info",
             );
           }}
+        />
+
+        {/* Discord Rich Presence */}
+        <SettingsToggleCard
+          title={t("settings.discord.title")}
+          desc={t("settings.discord.desc")}
+          checked={discordRichPresence}
+          onChange={(v) => setDiscordRichPresence(v)}
         />
       </div>
     </SettingsSection>
