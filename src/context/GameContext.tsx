@@ -396,7 +396,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
           startedAt,
           details: remainingName,
           stateText: t("discordPresence.playingState"),
-          largeImage: discordAsset(remaining?.coverArtUrl),
+          largeImage: discordAsset(remaining?.coverSourceUrl ?? remaining?.coverArtUrl),
           largeText: remainingName,
           smallImage: discordAsset(remaining?.iconUrl),
           smallText: t("discordPresence.smallText"),
@@ -447,7 +447,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
         startedAt,
         details: event.payload.gameName,
         stateText: t("discordPresence.playingState"),
-        largeImage: discordAsset(game?.coverArtUrl),
+        largeImage: discordAsset(game?.coverSourceUrl ?? game?.coverArtUrl),
         largeText: event.payload.gameName,
         smallImage: discordAsset(game?.iconUrl),
         smallText: t("discordPresence.smallText"),
@@ -487,6 +487,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
     ]);
     return {
       coverArtUrl: coverUrl ?? undefined,
+      coverSourceUrl: discordAsset(images.cover),
       bannerUrl: heroUrl ?? bannerUrl ?? undefined,
       logoUrl: logoUrl ?? undefined,
     };
@@ -607,6 +608,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
         // For images, prefer the IGDB cover/hero over orphaned Steam CDN URLs
         // when IGDB returned one — otherwise keep whatever's already there.
         coverArtUrl: images.coverArtUrl ?? current.coverArtUrl,
+        coverSourceUrl: images.coverSourceUrl ?? current.coverSourceUrl,
         bannerUrl: images.bannerUrl ?? current.bannerUrl,
         logoUrl: images.logoUrl ?? current.logoUrl,
         igdbRating: current.igdbRating ?? meta.igdbRating ?? undefined,
@@ -902,6 +904,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
       playTime: "0h",
       addedAt: Date.now(),
       coverArtUrl: imageData.coverArtUrl,
+      coverSourceUrl: imageData.coverSourceUrl,
       iconUrl: undefined,
       bannerUrl: imageData.bannerUrl,
       logoUrl: imageData.logoUrl,
@@ -970,6 +973,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
           playTime: "0h",
           addedAt: Date.now(),
           coverArtUrl: imageData.coverArtUrl,
+          coverSourceUrl: imageData.coverSourceUrl,
           bannerUrl: imageData.bannerUrl,
           logoUrl: imageData.logoUrl,
           description: item.metadata.description ?? undefined,

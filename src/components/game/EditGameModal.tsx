@@ -572,6 +572,7 @@ export function EditGameModal({ game, onClose }: EditGameModalProps) {
       steamAppId: newSteamAppId,
       iconUrl: newIcon,
       coverArtUrl: newCover,
+      coverSourceUrl: /^https:\/\//i.test(newCover || "") ? newCover : undefined,
       bannerUrl: newHero,
       logoUrl: newLogo,
       notes: newNotes,

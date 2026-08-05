@@ -26,6 +26,12 @@ export interface Game {
   playTime: string;
   addedAt: number; // timestamp
   coverArtUrl?: string; // base64 data URL for cover art image (used in library cards)
+  /** Original public https URL the cover was downloaded from. Kept so
+   *  Discord Rich Presence can show the poster (Discord fetches images
+   *  server-side; the base64 `coverArtUrl` data URI can't be used).
+   *  Populated by metadata enrichment alongside `coverArtUrl`; cleared
+   *  when the user replaces the cover with custom art. */
+  coverSourceUrl?: string;
   iconUrl?: string; // base64 data URL for small square icon (used in sidebar)
   notes?: string; // user notes about the game
   /** Total disk footprint of the game's root folder in bytes (undefined = not yet measured). */

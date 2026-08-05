@@ -32,6 +32,12 @@ pub struct GameRow {
     pub added_at: u64,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub cover_art_url: Option<String>,
+    /// Original public https URL the cover was downloaded from (mirrors
+    /// lib.rs `GameData::cover_source_url`). Lets Discord Rich Presence
+    /// show the poster — base64 `cover_art_url` can't be fetched by
+    /// Discord's media proxy.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub cover_source_url: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub notes: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -191,7 +197,8 @@ pub fn upsert_all(db: &Db, rows: &[GameRow]) -> Result<(), String> {
                 gog_game_id, gog_playtime,
                  pre_launch_script, pre_launch_admin, post_exit_script, post_exit_admin,
                  companion_apps_json,
-                 mods_folder, mods_size_bytes, mods_detected_at
+                 mods_folder, mods_size_bytes, mods_detected_at,
+                 cover_source_url
              ) VALUES (
                  ?1,?2,?3,?4,?5,?6,?7,
                  ?8,?9,?10,?11,?12,
@@ -210,7 +217,7 @@ pub fn upsert_all(db: &Db, rows: &[GameRow]) -> Result<(), String> {
                  ?52,?53,
                  ?54,?55,?56,?57,
                  ?58,
-                 ?59,?60,?61
+                 ?59,?60,?61,?62
              )",
         )
         .map_err(|e| format!("games prepare: {e}"))?;
@@ -290,6 +297,7 @@ pub fn upsert_all(db: &Db, rows: &[GameRow]) -> Result<(), String> {
             r.mods_folder,
             r.mods_size_bytes.map(|n| n as i64),
             r.mods_detected_at,
+            r.cover_source_url,
         ])
         .map_err(|e| format!("games insert {i}: {e}"))?;
         persist_emulation_link(&tx, &r.id, &r.emulator_id, &r.rom_path)?;
@@ -331,7 +339,8 @@ pub fn upsert_one(db: &Db, r: &GameRow) -> Result<(), String> {
             gog_game_id, gog_playtime,
             pre_launch_script, pre_launch_admin, post_exit_script, post_exit_admin,
             companion_apps_json,
-            mods_folder, mods_size_bytes, mods_detected_at
+            mods_folder, mods_size_bytes, mods_detected_at,
+            cover_source_url
         ) VALUES (
             ?1,?2,?3,?4,?5,?6,?7,
             ?8,?9,?10,?11,?12,
@@ -350,7 +359,7 @@ pub fn upsert_one(db: &Db, r: &GameRow) -> Result<(), String> {
             ?52,?53,
             ?54,?55,?56,?57,
             ?58,
-            ?59,?60,?61
+            ?59,?60,?61,?62
         )",
         params![
             r.id,
@@ -415,6 +424,7 @@ pub fn upsert_one(db: &Db, r: &GameRow) -> Result<(), String> {
             r.mods_folder,
             r.mods_size_bytes.map(|n| n as i64),
             r.mods_detected_at,
+            r.cover_source_url,
         ],
     )
     .map_err(|e| format!("games upsert_one: {e}"))?;
@@ -506,7 +516,7 @@ pub fn delete_by_emulator(db: &Db, emulator_id: &str) -> Result<(), String> {
     Ok(())
 }
 
-const GAMES_SELECT_SQL: &str = "SELECT id, name, path, platform, installed, play_time, added_at, cover_art_url, notes, size_bytes, size_detected_at, size_root_path, icon_url, banner_url, logo_url, description, developer, publisher, release_date, metadata_source, metadata_url, storyline, igdb_rating, critic_rating, steam_app_id, steam_playtime, store_source, epic_namespace, epic_catalog_item_id, launch_arguments, run_as_admin, last_played, play_status, genres_json, themes_json, game_modes_json, player_perspectives_json, screenshots_json, videos_json, websites_json, time_to_beat_json, similar_games_json, releases_json, igdb_reviews_json, alternative_names_json, steam_achievements_json, language_supports_json, collection, franchise, game_category, release_status, gog_game_id, gog_playtime, pre_launch_script, pre_launch_admin, post_exit_script, post_exit_admin, companion_apps_json, emulator_id, rom_path, mods_folder, mods_size_bytes, mods_detected_at FROM games";
+const GAMES_SELECT_SQL: &str = "SELECT id, name, path, platform, installed, play_time, added_at, cover_art_url, notes, size_bytes, size_detected_at, size_root_path, icon_url, banner_url, logo_url, description, developer, publisher, release_date, metadata_source, metadata_url, storyline, igdb_rating, critic_rating, steam_app_id, steam_playtime, store_source, epic_namespace, epic_catalog_item_id, launch_arguments, run_as_admin, last_played, play_status, genres_json, themes_json, game_modes_json, player_perspectives_json, screenshots_json, videos_json, websites_json, time_to_beat_json, similar_games_json, releases_json, igdb_reviews_json, alternative_names_json, steam_achievements_json, language_supports_json, collection, franchise, game_category, release_status, gog_game_id, gog_playtime, pre_launch_script, pre_launch_admin, post_exit_script, post_exit_admin, companion_apps_json, emulator_id, rom_path, mods_folder, mods_size_bytes, mods_detected_at, cover_source_url FROM games";
 
 fn game_row_from_row(r: &rusqlite::Row<'_>) -> rusqlite::Result<GameRow> {
     Ok(GameRow {
@@ -581,6 +591,9 @@ fn game_row_from_row(r: &rusqlite::Row<'_>) -> rusqlite::Result<GameRow> {
         mods_folder: r.get(60)?,
         mods_size_bytes: r.get::<_, Option<i64>>(61)?.map(|n| n as u64),
         mods_detected_at: r.get(62)?,
+        // v4 migration column — read after the original 63 columns.
+        // NULL rows (pre-v4) read back as `None`.
+        cover_source_url: r.get(63)?,
     })
 }
 
@@ -617,7 +630,7 @@ fn json_opt_get<T: serde::de::DeserializeOwned>(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::db::schema::{GAMES_DDL, GAMES_V2_DDL, GAMES_V3_DDL, EMULATORS_DDL};
+    use crate::db::schema::{GAMES_DDL, GAMES_V2_DDL, GAMES_V3_DDL, GAMES_V4_DDL, EMULATORS_DDL};
     use serde_json::json;
 
     fn test_db() -> (tempfile::TempDir, Db) {
@@ -628,6 +641,7 @@ mod tests {
             conn.execute_batch(GAMES_DDL).unwrap();
             conn.execute_batch(GAMES_V2_DDL).unwrap();
             conn.execute_batch(GAMES_V3_DDL).unwrap();
+            conn.execute_batch(GAMES_V4_DDL).unwrap();
         }
         (dir, db)
     }
@@ -642,6 +656,7 @@ mod tests {
             "playTime": "3h",
             "addedAt": 111u64,
             "coverArtUrl": "data:image/png;base64,AAAA",
+            "coverSourceUrl": "https://images.igdb.com/igdb/image/upload/t_cover_big/abc.jpg",
             "bannerUrl": "data:image/png;base64,BBBB",
             "logoUrl": "data:image/png;base64,CCCC",
             "lastPlayed": 1700000000000u64,
@@ -667,6 +682,7 @@ mod tests {
 
         let got = get(&db, "g1").unwrap().expect("row should exist");
         assert_eq!(got.cover_art_url.as_deref(), Some("data:image/png;base64,AAAA"));
+        assert_eq!(got.cover_source_url.as_deref(), Some("https://images.igdb.com/igdb/image/upload/t_cover_big/abc.jpg"));
         assert_eq!(got.last_played, Some(1700000000000));
         assert_eq!(got.play_status.as_deref(), Some("playing"));
         assert_eq!(got.genres, Some(vec!["Action".into(), "RPG".into()]));

@@ -1784,7 +1784,7 @@ function SidebarGameItemBase({
                   return;
                 }
               }
-              updateGame(game.id, { coverArtUrl: undefined });
+              updateGame(game.id, { coverArtUrl: undefined, coverSourceUrl: undefined });
             }}
           />
         ) : game.iconUrl ? (
@@ -1817,7 +1817,7 @@ function SidebarGameItemBase({
               console.warn(
                 `Sidebar cover image failed for ${game.name}, falling back to placeholder`
               );
-              updateGame(game.id, { coverArtUrl: undefined });
+              updateGame(game.id, { coverArtUrl: undefined, coverSourceUrl: undefined });
             }}
           />
         ) : (

@@ -37,6 +37,13 @@ pub const GAMES_V2_DDL: &str = include_str!("schema_games_v2.sql");
 /// pick it up on next launch; fresh installs apply v1 → v2 → v3.
 pub const GAMES_V3_DDL: &str = include_str!("schema_games_v3.sql");
 
+/// DDL for the `games` domain, v4 migration: the `cover_source_url`
+/// column holding the original public https URL a cover was downloaded
+/// from (for Discord Rich Presence). Applied as a separate migration
+/// version so existing installs (already at `games` v3) pick it up on
+/// next launch; fresh installs apply v1 → v2 → v3 → v4.
+pub const GAMES_V4_DDL: &str = include_str!("schema_games_v4.sql");
+
 /// DDL for the `emulators` domain: the `emulators` table.
 pub const EMULATORS_DDL: &str = include_str!("schema_emulators.sql");
 
@@ -100,7 +107,7 @@ pub const DOMAIN_SCHEMAS: &[DomainSchema] = &[
     },
 DomainSchema {
     label: "games",
-    versions: &[("v1", GAMES_DDL), ("v2", GAMES_V2_DDL), ("v3", GAMES_V3_DDL)],
+    versions: &[("v1", GAMES_DDL), ("v2", GAMES_V2_DDL), ("v3", GAMES_V3_DDL), ("v4", GAMES_V4_DDL)],
 },
     DomainSchema {
         label: "sessions",

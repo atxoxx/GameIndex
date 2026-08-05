@@ -94,7 +94,7 @@ function LibraryGameCardBase({
                 }
               }
               console.warn(`Cover image failed for ${game.name}, falling back to placeholder`);
-              updateGame(game.id, { coverArtUrl: undefined });
+              updateGame(game.id, { coverArtUrl: undefined, coverSourceUrl: undefined });
             }}
           />
         ) : (

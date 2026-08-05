@@ -73,6 +73,13 @@ struct GameData {
     added_at: u64,
     #[serde(skip_serializing_if = "Option::is_none")]
     cover_art_url: Option<String>,
+    /// Original public https URL the cover was downloaded from — kept
+    /// so the frontend can show the game poster in Discord Rich
+    /// Presence (Discord fetches images server-side; the base64
+    /// `cover_art_url` data URI can't be fetched). `default` keeps
+    /// older payloads deserializing cleanly.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    cover_source_url: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     notes: Option<String>,
     /// Total disk footprint of the game's root folder in bytes (None = not yet measured).
@@ -591,6 +598,7 @@ fn apply_existing_rom(prev: &GameData, game: &mut GameData) {
     game.added_at = prev.added_at;
     game.last_played = prev.last_played;
     game.cover_art_url = prev.cover_art_url.clone();
+    game.cover_source_url = prev.cover_source_url.clone();
     game.icon_url = prev.icon_url.clone();
     game.banner_url = prev.banner_url.clone();
     game.logo_url = prev.logo_url.clone();
