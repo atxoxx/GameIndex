@@ -2,7 +2,7 @@ import { useState, useMemo } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { save } from "@tauri-apps/plugin-dialog";
 import html2canvas from "html2canvas";
-import { prepareClonedDocumentForCanvasCapture } from "../utils/color";
+import { prepareClonedDocumentForCanvasCapture, resolveColorForCapture } from "../utils/color";
 import { useActivity } from "../context/ActivityContext";
 import { useGames } from "../context/GameContext";
 import { useSettings } from "../context/SettingsContext";
@@ -139,6 +139,24 @@ export default function ActivityPage() {
   // `showToast` is destructured at the top of this component alongside
   // the other hooks.
 
+  // Clone-side prep for the full-page screenshot: chains the shared
+  // capture fixes and un-clamps the dashboard's sticky games sidebar so
+  // the whole list is exported instead of only the first viewport's
+  // worth (live CSS caps it at `calc(100vh - 200px)`).
+  const prepareActivityClone = (clonedDoc: Document) => {
+    prepareClonedDocumentForCanvasCapture(clonedDoc);
+    const sidebar = clonedDoc.querySelector<HTMLElement>(".activity-game-sidebar");
+    if (sidebar) {
+      sidebar.style.maxHeight = "none";
+      sidebar.style.position = "static";
+    }
+    const list = clonedDoc.querySelector<HTMLElement>(".activity-game-sidebar__list");
+    if (list) {
+      list.style.maxHeight = "none";
+      list.style.overflow = "visible";
+    }
+  };
+
   const handleCaptureScreenshot = async () => {
     try {
       const container = document.querySelector(".activity__container");
@@ -149,11 +167,36 @@ export default function ActivityPage() {
       // rendered panel including content below the fold; passing it as
       // both `height` and `windowHeight` lets html2canvas paint the
       // complete layout in one pass instead of viewport-clipped pixels.
-      const fullHeight = (container as HTMLElement).scrollHeight;
       const fullWidth = (container as HTMLElement).scrollWidth;
+      // The clone un-clamps the dashboard's sticky games sidebar (live
+      // CSS caps it at `calc(100vh - 200px)`), which makes the layout
+      // taller than the live scrollHeight. Measure the expanded height
+      // so the taller canvas doesn't clip the games list. No-op when
+      // the sidebar isn't rendered (non-dashboard tabs).
+      const sidebar = (container as HTMLElement).querySelector<HTMLElement>(
+        ".activity-game-sidebar",
+      );
+      const sidebarList = sidebar?.querySelector<HTMLElement>(
+        ".activity-game-sidebar__list",
+      );
+      const expandedSidebarHeight =
+        sidebar && sidebarList
+          ? sidebar.offsetHeight - sidebarList.offsetHeight + sidebarList.scrollHeight
+          : null;
+      const fullHeight =
+        !sidebar || expandedSidebarHeight === null
+          ? (container as HTMLElement).scrollHeight
+          : (container as HTMLElement).scrollHeight +
+            Math.max(0, expandedSidebarHeight - sidebar.offsetHeight);
 
       const canvas = await html2canvas(container as HTMLElement, {
-        backgroundColor: "#0f1117",
+        // html2canvas parses the backgroundColor option as raw CSS text
+        // and throws "unsupported color function 'var'" on var() — the
+        // onclone scrub never sees it. Resolve the current theme's page
+        // background to a literal color first (see src/utils/color.ts);
+        // the old hardcoded dark hex made light-theme screenshots
+        // come out with a dark backdrop.
+        backgroundColor: resolveColorForCapture("var(--color-bg-primary)", "#0f1117"),
         scale: 2,
         logging: false,
         useCORS: true,
@@ -167,7 +210,7 @@ export default function ActivityPage() {
         // color-mix in 170+ rules, so we rewrite every `color-mix()`
         // in the clone to a literal rgb() / rgba() before html2canvas
         // reads computed styles (see src/utils/color.ts).
-        onclone: prepareClonedDocumentForCanvasCapture,
+        onclone: prepareActivityClone,
       });
 
       const dataUrl = canvas.toDataURL("image/png");

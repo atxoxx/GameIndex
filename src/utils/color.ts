@@ -773,3 +773,58 @@ export function prepareClonedDocumentForCanvasCapture(
   resolveHtml2CanvasColorMix(clonedDoc, _element, sourceDoc);
   bridgeSvgsForCanvasCapture(clonedDoc);
 }
+
+/**
+ * Resolve a CSS color expression to a literal `rgb(...)`/`rgba(...)`
+ * string that html2canvas 1.4.1 can parse.
+ *
+ * html2canvas parses the `backgroundColor` *option* as raw CSS text
+ * (`parseBackgroundColor` → `parseColor`, before the onclone hook ever
+ * runs), so passing `var(--color-bg-secondary)` throws "Attempting to
+ * parse an unsupported color function 'var'". Probing through a hidden
+ * element lets the browser engine resolve var()/color-mix() chains; the
+ * computed value is always a literal rgb()/rgba() the html2canvas
+ * parser accepts.
+ *
+ * @param value    CSS color expression to resolve (var() / color-mix() /
+ *                 literal) — pass exactly what the app CSS uses.
+ * @param fallback literal color used when the value can't be resolved
+ *                 (undefined variable, unsupported color space, or a
+ *                 non-browser environment).
+ */
+export function resolveColorForCapture(
+  value: string,
+  fallback = "rgba(0, 0, 0, 0)",
+): string {
+  if (
+    typeof window === "undefined" ||
+    typeof document === "undefined" ||
+    !document.body
+  ) {
+    return fallback;
+  }
+  const probe = document.createElement("div");
+  probe.style.position = "absolute";
+  probe.style.visibility = "hidden";
+  probe.style.pointerEvents = "none";
+  probe.style.top = "-9999px";
+  probe.style.left = "-9999px";
+  document.body.appendChild(probe);
+  try {
+    probe.style.backgroundColor = value;
+    const resolved = getComputedStyle(probe).backgroundColor;
+    // An unresolvable value (undefined var, unsupported color space)
+    // collapses to transparent in computed style — fall back.
+    if (
+      !resolved ||
+      resolved === "transparent" ||
+      resolved === "rgba(0, 0, 0, 0)" ||
+      /var\(|color-mix/i.test(resolved)
+    ) {
+      return fallback;
+    }
+    return resolved;
+  } finally {
+    probe.remove();
+  }
+}

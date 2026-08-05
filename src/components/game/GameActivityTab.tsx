@@ -2,7 +2,7 @@ import { useState, useMemo, useEffect, useRef } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { save } from "@tauri-apps/plugin-dialog";
 import html2canvas from "html2canvas";
-import { prepareClonedDocumentForCanvasCapture } from "../../utils/color";
+import { prepareClonedDocumentForCanvasCapture, resolveColorForCapture } from "../../utils/color";
 import { useActivity } from "../../context/ActivityContext";
 import { useSettings } from "../../context/SettingsContext";
 import { useToast } from "../../context/ToastContext";
@@ -100,7 +100,13 @@ export function GameActivityTab({ game }: { game: Game }) {
       const fullWidth = (container as HTMLElement).scrollWidth;
 
       const canvas = await html2canvas(container as HTMLElement, {
-        backgroundColor: "#0f1117",
+        // html2canvas parses the backgroundColor option as raw CSS text
+        // and throws "unsupported color function 'var'" on var() — the
+        // onclone scrub never sees it. Resolve the current theme's page
+        // background to a literal color first (see src/utils/color.ts);
+        // the old hardcoded dark hex made light-theme screenshots
+        // come out with a dark backdrop.
+        backgroundColor: resolveColorForCapture("var(--color-bg-primary)", "#0f1117"),
         scale: 2,
         logging: false,
         useCORS: true,

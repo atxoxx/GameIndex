@@ -2,7 +2,7 @@ import { useState, useMemo, useRef, useCallback } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { save } from "@tauri-apps/plugin-dialog";
 import html2canvas from "html2canvas";
-import { prepareClonedDocumentForCanvasCapture } from "../../utils/color";
+import { prepareClonedDocumentForCanvasCapture, resolveColorForCapture } from "../../utils/color";
 import { useToast } from "../../context/ToastContext";
 import { useSessionNotes } from "../../context/SessionNotesContext";
 import { useLanguage } from "../../context/LanguageContext";
@@ -136,6 +136,25 @@ function getHeatmapIntensity(mins: number): string {
   if (mins < 45) return "activity-gantt__heatmap-cell--medium";
   if (mins < 90) return "activity-gantt__heatmap-cell--high";
   return "activity-gantt__heatmap-cell--peak";
+}
+
+/**
+ * Clone-side prep for the timeline export. Chains the shared capture
+ * fixes, then:
+ *  - un-clamps `.activity-gantt__rows` (live CSS caps it at 60vh, which
+ *    would truncate older sessions from the PNG),
+ *  - hides transient hover/selection UI (floating tooltip, session
+ *    detail modal) so it never leaks into the image.
+ */
+function prepareGanttClone(clonedDoc: Document): void {
+  prepareClonedDocumentForCanvasCapture(clonedDoc);
+  const rows = clonedDoc.querySelector<HTMLElement>(".activity-gantt__rows");
+  if (rows) rows.style.maxHeight = "none";
+  clonedDoc
+    .querySelectorAll<HTMLElement>(".activity-gantt__tooltip, .modal-backdrop")
+    .forEach((n) => {
+      n.style.display = "none";
+    });
 }
 
 export function ActivityGantt({
@@ -345,10 +364,22 @@ export function ActivityGantt({
     const el = ganttRef.current;
     if (!el) return;
     try {
-      const fullHeight = el.scrollHeight;
       const fullWidth = el.scrollWidth;
+      // The live view caps the day rows at 60vh; the export should
+      // contain the *whole* timeline. rows.scrollHeight reports the full
+      // content height even while clamped, so compute the expanded root
+      // height without touching the live layout, then un-clamp the clone
+      // so html2canvas paints every row into the taller canvas.
+      const rows = el.querySelector<HTMLElement>(".activity-gantt__rows");
+      const fullHeight = rows
+        ? el.offsetHeight - rows.offsetHeight + rows.scrollHeight
+        : el.scrollHeight;
       const canvas = await html2canvas(el, {
-        backgroundColor: "var(--color-bg-secondary)",
+        // html2canvas parses the backgroundColor option as raw CSS text
+        // and throws "unsupported color function 'var'" on var() — the
+        // onclone scrub never sees it. Resolve the theme token to a
+        // literal color first (see src/utils/color.ts).
+        backgroundColor: resolveColorForCapture("var(--color-bg-primary)", "#11131a"),
         scale: 2,
         logging: false,
         useCORS: true,
@@ -356,7 +387,7 @@ export function ActivityGantt({
         height: fullHeight,
         windowWidth: fullWidth,
         windowHeight: fullHeight,
-        onclone: prepareClonedDocumentForCanvasCapture,
+        onclone: prepareGanttClone,
       });
       const dataUrl = canvas.toDataURL("image/png");
       const filePath = await save({
