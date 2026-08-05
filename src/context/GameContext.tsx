@@ -239,6 +239,12 @@ export function GameProvider({ children }: { children: ReactNode }) {
             platform: g.platform,
             exePath: g.path || "",
             steamAppId: g.steamAppId ?? null,
+            // Emulator ROMs share the emulator exe as their path; the
+            // backend excludes them from the passive-detection index so
+            // one running emulator process can't record a phantom session
+            // for every imported ROM. App-launched sessions still track
+            // the exact game_id via the launch path.
+            emulatorId: g.emulatorId ?? null,
           }));
           invoke("rebuild_watcher_index", { games: refs }).catch((err) =>
             console.error("Failed to rebuild watcher index:", err)

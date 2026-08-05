@@ -429,6 +429,21 @@ impl GameWatcher {
             .cloned()
             .collect();
 
+        // One process = one session. PIDs already claimed by a live or
+        // pending session must never spawn a second passive session:
+        // multiple library entries can share a single exe path (e.g.
+        // duplicate imports, or emulator ROMs that all point at the
+        // emulator's executable), and without this guard a single running
+        // process fans out into N phantom sessions that are all recorded
+        // on exit. Built before the match loops and extended as matches
+        // are claimed below.
+        let mut claimed_pids: std::collections::HashSet<u32> = self
+            .active_sessions
+            .values()
+            .filter(|s| s.last_pid != 0)
+            .map(|s| s.last_pid)
+            .collect();
+
         // Collect matches before starting sessions (avoid borrow conflicts)
         let mut new_matches: Vec<(GameRef, ProcessInfo)> = Vec::new();
 
@@ -454,8 +469,9 @@ impl GameWatcher {
             // Exact path match
             if let Some(games) = self.process_index.get(&norm) {
                 for game in games {
-                    if !tracked.contains(&game.game_id) {
+                    if !tracked.contains(&game.game_id) && !claimed_pids.contains(&proc.pid) {
                         new_matches.push((game.clone(), proc.clone()));
+                        claimed_pids.insert(proc.pid);
                     }
                 }
             }
@@ -470,11 +486,12 @@ impl GameWatcher {
                         let remainder = &norm[dir.len()..];
                         if remainder.starts_with('\\') || remainder.is_empty() {
                             for game in games {
-                                if !tracked.contains(&game.game_id) {
-                                    // Check not already in new_matches
-                                    if !new_matches.iter().any(|(g, _)| g.game_id == game.game_id) {
-                                        new_matches.push((game.clone(), proc.clone()));
-                                    }
+                                if !tracked.contains(&game.game_id)
+                                    && !claimed_pids.contains(&proc.pid)
+                                    && !new_matches.iter().any(|(g, _)| g.game_id == game.game_id)
+                                {
+                                    new_matches.push((game.clone(), proc.clone()));
+                                    claimed_pids.insert(proc.pid);
                                 }
                             }
                         }
@@ -1650,9 +1667,17 @@ pub fn resolve_steam_game_exe(steam_app_id: u32, game_name: &str) -> Option<Stri
 }
 
 /// Build GameRef entries from a list of game data structs.
+///
+/// Emulator ROMs are filtered out: every ROM of an emulator carries the
+/// emulator's executable as its `exe_path`, so keeping them in the process
+/// index would make one running emulator process match every ROM — fanning
+/// out into N passive sessions (one per ROM) that all get recorded on exit.
+/// ROM sessions are only ever tracked through the app-launch path, which
+/// registers the exact game_id and never consults the process index.
 pub fn build_game_refs_from_library(games: &[GameRefInput]) -> Vec<GameRef> {
     games
         .iter()
+        .filter(|g| g.emulator_id.is_none())
         .map(|g| {
             let install_dir = if g.platform == "Steam" {
                 g.steam_app_id
@@ -1701,6 +1726,14 @@ pub struct GameRefInput {
     pub platform: String,
     pub exe_path: String,
     pub steam_app_id: Option<u32>,
+    /// Emulator linkage when the game is a scanned ROM. Every ROM of one
+    /// emulator shares the emulator's executable as its exe path, so a
+    /// single running emulator process would match every ROM in the
+    /// process index. Emulator games are excluded from passive detection
+    /// (see `build_game_refs_from_library`) — only app-launched sessions
+    /// (which register the exact game_id via `register_launched_session`)
+    /// record ROM sessions.
+    pub emulator_id: Option<String>,
 }
 
 // ─── Tests ────────────────────────────────────────────────────────────────────
@@ -1780,5 +1813,43 @@ mod tests {
             get_game_root_dir(Path::new("C:\\Games\\GameName\\MySubFolder\\game.exe")),
             Some(PathBuf::from("C:\\Games\\GameName\\MySubFolder"))
         );
+    }
+
+    #[test]
+    fn test_emulator_games_excluded_from_passive_index() {
+        // All ROMs of one emulator share the emulator exe as their path.
+        // They must NOT enter the process index: one running emulator
+        // process would otherwise match every ROM and record a phantom
+        // session for each on exit.
+        let input = vec![
+            GameRefInput {
+                game_id: "emu-rom-1".to_string(),
+                game_name: "Super Mario Bros".to_string(),
+                platform: "NES".to_string(),
+                exe_path: "C:\\Emulators\\RetroArch\\retroarch.exe".to_string(),
+                steam_app_id: None,
+                emulator_id: Some("emu-nes".to_string()),
+            },
+            GameRefInput {
+                game_id: "emu-rom-2".to_string(),
+                game_name: "Zelda".to_string(),
+                platform: "NES".to_string(),
+                exe_path: "C:\\Emulators\\RetroArch\\retroarch.exe".to_string(),
+                steam_app_id: None,
+                emulator_id: Some("emu-nes".to_string()),
+            },
+            GameRefInput {
+                game_id: "steam-1".to_string(),
+                game_name: "Skyrim".to_string(),
+                platform: "Steam".to_string(),
+                exe_path: "C:\\Steam\\steamapps\\common\\Skyrim\\Skyrim.exe".to_string(),
+                steam_app_id: Some(489830),
+                emulator_id: None,
+            },
+        ];
+
+        let refs = build_game_refs_from_library(&input);
+        assert_eq!(refs.len(), 1, "only non-emulator games may enter the index");
+        assert_eq!(refs[0].game_id, "steam-1");
     }
 }
