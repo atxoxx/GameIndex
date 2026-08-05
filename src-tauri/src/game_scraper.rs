@@ -191,6 +191,83 @@ mod title_match_tests {
         assert_eq!(clean_game_name_for_search("The_Finals_[FitGirl]"), "The Finals");
         assert_eq!(title_similarity("TheFinals", "THE FINALS"), 1.0);
     }
+
+    #[test]
+    fn year_hint_extraction() {
+        assert_eq!(extract_year_hint("Prototype (2009)").as_deref(), Some("2009"));
+        assert_eq!(extract_year_hint("Prototype").as_deref(), None);
+        assert_eq!(extract_year_hint("Half-Life 2").as_deref(), None);
+    }
+
+    #[test]
+    fn year_marker_stripped_from_search_term() {
+        assert_eq!(strip_year_marker("Prototype (2009)"), "Prototype");
+        assert_eq!(strip_year_marker("Prototype"), "Prototype");
+    }
+
+    /// Minimal IGDB-shaped result used by the tie-break tests below.
+    fn sample_result(
+        title: &str,
+        release_date: Option<&str>,
+        status: Option<&str>,
+        category: Option<&str>,
+        rating: Option<f64>,
+    ) -> GameMetadataResult {
+        GameMetadataResult {
+            title: title.to_string(),
+            description: None,
+            developer: None,
+            publisher: None,
+            release_date: release_date.map(|s| s.to_string()),
+            genres: Vec::new(),
+            images: GameImages {
+                icon: None,
+                cover: Some("https://images.igdb.com/cover.jpg".to_string()),
+                hero: None,
+                banner: None,
+                logo: None,
+            },
+            source_url: String::new(),
+            source_name: "IGDB".to_string(),
+            storyline: None,
+            igdb_rating: rating,
+            critic_rating: None,
+            themes: None,
+            game_modes: None,
+            player_perspectives: None,
+            screenshots: None,
+            videos: None,
+            websites: None,
+            time_to_beat: None,
+            similar_games: None,
+            releases: None,
+            igdb_reviews: None,
+            alternative_names: None,
+            collection: None,
+            collection_id: None,
+            franchise: None,
+            game_category: category.map(|s| s.to_string()),
+            release_status: status.map(|s| s.to_string()),
+            language_supports: None,
+        }
+    }
+
+    #[test]
+    fn same_name_tie_prefers_matching_release_year() {
+        // Two IGDB entries both named "Prototype" — the 2009 release must
+        // outrank the same-named title when the query carries the year hint.
+        let a = sample_result("Prototype", Some("2009-06-09"), Some("Released"), Some("Main Game"), Some(80.0));
+        let b = sample_result("Prototype", Some("2001-01-01"), Some("Released"), Some("Main Game"), Some(60.0));
+        assert!(igdb_quality_key(Some("2009"), &a) > igdb_quality_key(Some("2009"), &b));
+    }
+
+    #[test]
+    fn same_name_tie_prefers_released_main_game() {
+        // No year hint: a released main game beats a cancelled DLC pack.
+        let good = sample_result("Prototype", None, Some("Released"), Some("Main Game"), None);
+        let bad = sample_result("Prototype", None, Some("Cancelled"), Some("DLC / Add-on"), None);
+        assert!(igdb_quality_key(None, &good) > igdb_quality_key(None, &bad));
+    }
 }
 
 // ─── Data Types ───────────────────────────────────────────────────────────────
@@ -1527,25 +1604,51 @@ fn base64_encode(data: &[u8]) -> String {
 /// Search for game metadata across multiple sources.
 /// Returns results ordered by relevance (best match first).
 /// Currently supports Steam and LaunchBox Games Database.
-pub async fn search_game_metadata(game_name: &str, skip_launchbox: bool) -> Vec<GameMetadataResult> {
+pub async fn search_game_metadata(
+    game_name: &str,
+    skip_launchbox: bool,
+    steam_app_id: Option<u32>,
+) -> Vec<GameMetadataResult> {
     let mut results: Vec<GameMetadataResult> = Vec::new();
+
+    // ── Appid-pinned exact IGDB game (Steam-synced titles) ────────────────
+    // The Steam appid is an exact key into IGDB via the external_games
+    // bridge. When we have one we resolve it directly instead of guessing by
+    // name, which kills the same-name collision bug (e.g. "Prototype" 2009
+    // vs another game that happens to share the name): the exact entry is
+    // pinned as the FIRST result and the frontend's IGDB-preference picks it
+    // up immediately.
+    let mut igdb_pinned = false;
+    if let Some(appid) = steam_app_id {
+        if let Some(pinned) = fetch_igdb_game_by_steam_appid(appid).await {
+            results.push(pinned);
+            igdb_pinned = true;
+        }
+    }
 
     if skip_launchbox {
         // Steam-synced games: skip LaunchBox (wasteful scrape), use IGDB + Steam
-        let (steam_result, igdb_results) = tokio::join!(
-            search_steam(game_name),
-            search_igdb(game_name)
-        );
+        let igdb_future = if igdb_pinned {
+            futures::future::Either::Left(futures::future::ready(Vec::new()))
+        } else {
+            futures::future::Either::Right(search_igdb(game_name))
+        };
+        let (steam_result, igdb_results) = tokio::join!(search_steam(game_name), igdb_future);
         if let Some(r) = steam_result {
             results.push(r);
         }
         results.extend(igdb_results);
     } else {
         // Local imports: search all three sources
+        let igdb_future = if igdb_pinned {
+            futures::future::Either::Left(futures::future::ready(Vec::new()))
+        } else {
+            futures::future::Either::Right(search_igdb(game_name))
+        };
         let (steam_result, launchbox_result, igdb_results) = tokio::join!(
             search_steam(game_name),
             search_launchbox(game_name),
-            search_igdb(game_name)
+            igdb_future
         );
         if let Some(r) = steam_result {
             results.push(r);
@@ -1613,17 +1716,23 @@ async fn search_steam(game_name: &str) -> Option<GameMetadataResult> {
     // Steam's storesearch ranks results by its own relevance, which can put a
     // loosely-related title first — e.g. "The Wolf Among Us" ahead of the
     // actual "Among Us" because of substring overlap. Pick candidate whose
-    // title similarity matches game_name or term best.
+    // title similarity matches game_name or term best; among equal-scoring
+    // candidates prefer the one whose name carries the queried year hint
+    // (e.g. "Prototype (2009)" → the 2009 Prototype, not a same-named title).
+    let year_hint = extract_year_hint(game_name);
     let best_match = search_data
         .items
         .into_iter()
         .map(|item| {
             let score = title_similarity(game_name, &item.name).max(title_similarity(term, &item.name));
-            (score, item)
+            let year_match = year_hint.as_deref().map(|y| item.name.contains(y)).unwrap_or(false);
+            (score, year_match, item)
         })
-        .filter(|(score, _)| *score >= MIN_TITLE_SIMILARITY)
-        .max_by(|a, b| a.0.partial_cmp(&b.0).unwrap_or(std::cmp::Ordering::Equal))
-        .map(|(_, item)| item)?;
+        .filter(|(score, _, _)| *score >= MIN_TITLE_SIMILARITY)
+        .max_by(|a, b| {
+            (a.0, a.1).partial_cmp(&(b.0, b.1)).unwrap_or(std::cmp::Ordering::Equal)
+        })
+        .map(|(_, _, item)| item)?;
     let app_id = best_match.id;
     let title = best_match.name;
 
@@ -2632,7 +2741,63 @@ fn map_release_status(status: u32) -> String {
     }.to_string()
 }
 
-pub async fn search_igdb(game_name: &str) -> Vec<GameMetadataResult> {
+/// Apicalypse `fields` list shared by the name search and the appid-pinned
+/// by-id lookup so both paths return identically-shaped results.
+const IGDB_GAME_FIELDS: &str = "name, slug, summary, storyline, first_release_date, rating, aggregated_rating, \
+       cover.url, screenshots.url, artworks.url, videos.video_id, videos.name, \
+       genres.name, themes.name, game_modes.name, player_perspectives.name, \
+       involved_companies.developer, involved_companies.publisher, involved_companies.company.name, \
+       websites.url, websites.category, \
+       similar_games.name, similar_games.cover.url, \
+       release_dates.platform.name, release_dates.human, release_dates.region, \
+       game_type, status, collections.id, collections.name, franchises.name, alternative_names.name, \
+       language_supports.language.name, language_supports.language_support_type.name";
+
+/// Extract a 4-digit year from a game name when present (e.g. "Prototype
+/// (2009)" → Some("2009")). Used to prefer the matching release among
+/// same-name IGDB results so a local folder like "Prototype (2009)" resolves
+/// to the 2009 Prototype instead of an unrelated game that shares the name.
+fn extract_year_hint(name: &str) -> Option<String> {
+    let re = regex::Regex::new(r"\b(?:19|20)\d{2}\b").ok()?;
+    re.find(name).map(|m| m.as_str().to_string())
+}
+
+/// Remove a parenthesised year marker ("(2009)") from a cleaned search name
+/// so IGDB's relevance ranking isn't skewed by the suffix; the year is kept
+/// as a tie-break hint in `igdb_quality_key`.
+fn strip_year_marker(name: &str) -> String {
+    let Some(re) = regex::Regex::new(r"\(\s*(?:19|20)\d{2}\s*\)").ok() else {
+        return name.to_string();
+    };
+    re.replace_all(name, " ")
+        .split_whitespace()
+        .collect::<Vec<_>>()
+        .join(" ")
+}
+
+/// Rank an IGDB result for same-name tie-breaking. Higher tuple = better:
+/// (release year matches the query's year hint, released over cancelled /
+/// alpha / beta, main game over DLC / bundle / expansion, has cover, has a
+/// release date, higher IGDB rating). The similarity score is compared
+/// BEFORE this key, so it only decides ties between identically-named
+/// entries.
+fn igdb_quality_key(year_hint: Option<&str>, r: &GameMetadataResult) -> (bool, bool, bool, bool, bool, f64) {
+    let year_match = match (year_hint, r.release_date.as_deref()) {
+        (Some(h), Some(d)) => d.starts_with(h),
+        _ => false,
+    };
+    let released = r.release_status.as_deref() == Some("Released");
+    let main_game = r.game_category.as_deref() == Some("Main Game");
+    let has_cover = r.images.cover.is_some();
+    let has_date = r.release_date.is_some();
+    let rating = r.igdb_rating.unwrap_or(0.0);
+    (year_match, released, main_game, has_cover, has_date, rating)
+}
+
+/// POST an Apicalypse body to IGDB `/v4/games` and parse the rows. Handles
+/// token acquisition, the shared rate-limit gate, and parse errors by
+/// returning an empty vec so callers degrade gracefully.
+async fn igdb_query_games(body: &str) -> Vec<IgdbGame> {
     let token = match get_twitch_token().await {
         Ok(t) => t,
         Err(e) => {
@@ -2640,35 +2805,15 @@ pub async fn search_igdb(game_name: &str) -> Vec<GameMetadataResult> {
             return Vec::new();
         }
     };
-    
     let client = http_client();
-    let cleaned_query = clean_game_name_for_search(game_name);
-    let search_term = if cleaned_query.is_empty() { game_name } else { &cleaned_query };
-    
-    let escaped_name = search_term.replace('"', "\\\"");
-    let body = format!(
-        r#"search "{}";
-fields name, slug, summary, storyline, first_release_date, rating, aggregated_rating,
-       cover.url, screenshots.url, artworks.url, videos.video_id, videos.name,
-       genres.name, themes.name, game_modes.name, player_perspectives.name,
-       involved_companies.developer, involved_companies.publisher, involved_companies.company.name,
-       websites.url, websites.category,
-       similar_games.name, similar_games.cover.url,
-       release_dates.platform.name, release_dates.human, release_dates.region,
-       game_type, status, collections.id, collections.name, franchises.name, alternative_names.name,
-       language_supports.language.name, language_supports.language_support_type.name;
-limit 8;"#,
-        escaped_name
-    );
-    
     let client_id = crate::config::get_twitch_client_id();
-    
     let _guard = igdb_acquire().await;
-    let resp = match client.post("https://api.igdb.com/v4/games")
+    let resp = match client
+        .post("https://api.igdb.com/v4/games")
         .header("Client-ID", &client_id)
         .header("Authorization", format!("Bearer {}", token))
         .header("Content-Type", "text/plain")
-        .body(body)
+        .body(body.to_string())
         .send()
         .await
     {
@@ -2678,14 +2823,12 @@ limit 8;"#,
             return Vec::new();
         }
     };
-    
     let status = resp.status();
     if !status.is_success() {
         let err_text = resp.text().await.unwrap_or_default();
         eprintln!("IGDB request failed with status {}: {}", status, err_text);
         return Vec::new();
     }
-
     let text = match resp.text().await {
         Ok(t) => t,
         Err(e) => {
@@ -2693,310 +2836,380 @@ limit 8;"#,
             return Vec::new();
         }
     };
-    
-    let igdb_games: Vec<IgdbGame> = match serde_json::from_str(&text) {
+    match serde_json::from_str(&text) {
         Ok(games) => games,
         Err(e) => {
             eprintln!("IGDB parse error: {}, body was: {}", e, text);
-            return Vec::new();
+            Vec::new()
+        }
+    }
+}
+
+/// Fetch IGDB "time to beat" rows for a batch of game ids. Mirrors the
+/// `/v4/game_time_to_beats` schema quirks (`game_id` FK, `hastily` spelling).
+async fn igdb_query_ttbs(game_ids: &[String]) -> HashMap<u64, IgdbTimeToBeatRaw> {
+    let mut out = HashMap::new();
+    if game_ids.is_empty() {
+        return out;
+    }
+    let token = match get_twitch_token().await {
+        Ok(t) => t,
+        Err(e) => {
+            eprintln!("IGDB token error: {}", e);
+            return out;
         }
     };
-
-    let game_ids: Vec<String> = igdb_games.iter().map(|g| g.id.to_string()).collect();
-    // IGDB removed the public /v4/reviews endpoint. Reviews are no longer
-    // fetched. The IgdbReview field is kept only for backward compatibility
-    // with saved library data.
-    if !game_ids.is_empty() {
-        // NOTE: The IGDB /v4/reviews endpoint was removed from the public IGDB API
-    // (returns 404 "Endpoint not found" as of 2024+). Reviews are no longer
-    // available from IGDB. The IgdbReview field on GameMetadataResult is
-    // retained for backward compatibility with saved library data, but new
-    // fetches no longer populate it.
-    }
-
-    let mut time_to_beat_by_game: std::collections::HashMap<u64, IgdbTimeToBeatRaw> = std::collections::HashMap::new();
-    if !game_ids.is_empty() {
-        // IGDB v4/game_time_to_beats schema uses `game_id` (NOT `game`) as the
-        // game foreign key, and `hastily` (NOT `hastly`) for the rushed completion
-        // time. Both must be spelled exactly as the IGDB API requires, otherwise
-        // IGDB responds with HTTP 400 "Invalid field name".
-        let ttb_body = format!(
-            "fields game_id, hastily, normally, completely; where game_id = ({}); limit 50;",
-            game_ids.join(",")
-        );
-        let _guard2 = igdb_acquire().await;
-        let resp = match client.post("https://api.igdb.com/v4/game_time_to_beats")
-            .header("Client-ID", &client_id)
-            .header("Authorization", format!("Bearer {}", token))
-            .header("Content-Type", "text/plain")
-            .body(ttb_body)
-            .send()
-            .await
-        {
-            Ok(r) => Some(r),
-            Err(e) => {
-                eprintln!("IGDB game_time_to_beats request error: {}", e);
-                None
-            }
-        };
-
-        if let Some(r) = resp {
-            if r.status().is_success() {
-                if let Ok(text) = r.text().await {
-                    #[derive(Debug, Deserialize)]
-                    struct IgdbTimeToBeatRawInner {
-                        game_id: u64,
-                        hastily: Option<u64>,
-                        normally: Option<u64>,
-                        completely: Option<u64>,
-                    }
-                    if let Ok(raw_ttbs) = serde_json::from_str::<Vec<IgdbTimeToBeatRawInner>>(&text) {
-                        for ttb in raw_ttbs {
-                            let mapped = IgdbTimeToBeatRaw {
+    let client = http_client();
+    let client_id = crate::config::get_twitch_client_id();
+    let ttb_body = format!(
+        "fields game_id, hastily, normally, completely; where game_id = ({}); limit 50;",
+        game_ids.join(",")
+    );
+    let _guard = igdb_acquire().await;
+    let resp = match client
+        .post("https://api.igdb.com/v4/game_time_to_beats")
+        .header("Client-ID", &client_id)
+        .header("Authorization", format!("Bearer {}", token))
+        .header("Content-Type", "text/plain")
+        .body(ttb_body)
+        .send()
+        .await
+    {
+        Ok(r) => Some(r),
+        Err(e) => {
+            eprintln!("IGDB game_time_to_beats request error: {}", e);
+            None
+        }
+    };
+    if let Some(r) = resp {
+        if r.status().is_success() {
+            if let Ok(text) = r.text().await {
+                #[derive(Debug, Deserialize)]
+                struct IgdbTimeToBeatRawInner {
+                    game_id: u64,
+                    hastily: Option<u64>,
+                    normally: Option<u64>,
+                    completely: Option<u64>,
+                }
+                if let Ok(raw_ttbs) = serde_json::from_str::<Vec<IgdbTimeToBeatRawInner>>(&text) {
+                    for ttb in raw_ttbs {
+                        out.insert(
+                            ttb.game_id,
+                            IgdbTimeToBeatRaw {
                                 hastily: ttb.hastily,
                                 normally: ttb.normally,
                                 completely: ttb.completely,
-                            };
-                            time_to_beat_by_game.insert(ttb.game_id, mapped);
-                        }
-                    } else {
-                        eprintln!("IGDB game_time_to_beats parse error for search: {}", text);
+                            },
+                        );
                     }
+                } else {
+                    eprintln!("IGDB game_time_to_beats parse error for search: {}", text);
                 }
             }
         }
     }
+    out
+}
 
-    let mut results = Vec::new();
-    for game in igdb_games {
-        let mut developers = Vec::new();
-        let mut publishers = Vec::new();
-        if let Some(ref companies) = game.involved_companies {
-            for comp in companies {
-                if comp.developer {
-                    developers.push(comp.company.name.clone());
-                }
-                if comp.publisher {
-                    publishers.push(comp.company.name.clone());
-                }
+/// Map a single IGDB row (+ optional time-to-beat data) into the unified
+/// `GameMetadataResult` shape. Shared by the name search and the
+/// appid-pinned by-id lookup so both paths produce identical metadata.
+fn map_igdb_game(game: IgdbGame, ttb: Option<&IgdbTimeToBeatRaw>) -> GameMetadataResult {
+    let mut developers = Vec::new();
+    let mut publishers = Vec::new();
+    if let Some(ref companies) = game.involved_companies {
+        for comp in companies {
+            if comp.developer {
+                developers.push(comp.company.name.clone());
+            }
+            if comp.publisher {
+                publishers.push(comp.company.name.clone());
             }
         }
-        
-        let developer = if developers.is_empty() { None } else { Some(developers.join("; ")) };
-        let publisher = if publishers.is_empty() { None } else { Some(publishers.join("; ")) };
-        
-        let release_date = game.first_release_date.map(format_unix_timestamp);
-        
-        let genres = game.genres
-            .unwrap_or_default()
-            .into_iter()
-            .map(|g| g.name)
-            .collect::<Vec<_>>();
-            
-        let themes = game.themes
-            .map(|list| list.into_iter().map(|item| item.name).collect::<Vec<_>>());
-            
-        let game_modes = game.game_modes
-            .map(|list| list.into_iter().map(|item| item.name).collect::<Vec<_>>());
-            
-        let player_perspectives = game.player_perspectives
-            .map(|list| list.into_iter().map(|item| item.name).collect::<Vec<_>>());
-            
-        let cover_url = game.cover
-            .and_then(|c| c.url)
-            .map(|url| {
-                let clean = if url.starts_with("//") { format!("https:{}", url) } else { url };
-                clean.replace("t_thumb", "t_cover_big")
-            });
-            
-        let mut screenshot_urls = Vec::new();
-        if let Some(screenshots) = game.screenshots {
-            for scr in screenshots {
-                if let Some(ref url) = scr.url {
-                    let clean = if url.starts_with("//") { format!("https:{}", url) } else { url.clone() };
-                    screenshot_urls.push(clean.replace("t_thumb", "t_720p"));
-                }
-            }
-        }
-        
-        let mut artwork_urls = Vec::new();
-        if let Some(artworks) = game.artworks {
-            for art in artworks {
-                if let Some(ref url) = art.url {
-                    let clean = if url.starts_with("//") { format!("https:{}", url) } else { url.clone() };
-                    artwork_urls.push(clean.replace("t_thumb", "t_720p"));
-                }
-            }
-        }
-        
-        let hero = artwork_urls.first()
-            .or_else(|| screenshot_urls.first())
-            .cloned();
-            
-        let banner = screenshot_urls.first()
-            .or_else(|| artwork_urls.first())
-            .cloned();
-            
-        let images = GameImages {
-            icon: None,
-            cover: cover_url,
-            hero,
-            banner,
-            logo: None,
-        };
-        
-        let videos = game.videos
-            .map(|list| {
-                list.into_iter()
-                    .filter_map(|v| v.video_id.map(|id| format!("https://www.youtube.com/watch?v={}", id)))
-                    .collect::<Vec<_>>()
-            });
-            
-        let websites = game.websites
-            .map(|list| {
-                let mut unique_urls = Vec::new();
-                let mut seen = std::collections::HashSet::new();
-                for w in list {
-                    if let Some(url) = w.url {
-                        if seen.insert(url.clone()) {
-                            unique_urls.push(url);
-                        }
-                    }
-                }
-                unique_urls
-            });
-
-        // Map Time to Beat
-        let time_to_beat = time_to_beat_by_game.get(&game.id).map(|t| TimeToBeat {
-            hastily: t.hastily,
-            normally: t.normally,
-            completely: t.completely,
-        });
-
-        // Map Similar Games
-        let similar_games = game.similar_games.map(|list| {
-            list.into_iter()
-                .map(|g| {
-                    let cover_url = g.cover.and_then(|c| c.url).map(|url| {
-                        let clean = if url.starts_with("//") { format!("https:{}", url) } else { url };
-                        clean.replace("t_thumb", "t_cover_big")
-                    });
-                    SimilarGame {
-                        id: g.id,
-                        name: g.name,
-                        cover_url,
-                    }
-                })
-                .collect::<Vec<_>>()
-        });
-
-        // Map Releases
-        let releases = game.release_dates.map(|list| {
-            list.into_iter()
-                .map(|r| {
-                    let platform = r.platform.map(|p| p.name).unwrap_or_else(|| "Unknown".to_string());
-                    let date_str = r.human.unwrap_or_else(|| "Unknown".to_string());
-                    let region = match r.region {
-                        Some(1) => "Europe",
-                        Some(2) => "North America",
-                        Some(3) => "Australia",
-                        Some(4) => "New Zealand",
-                        Some(5) => "Japan",
-                        Some(6) => "China",
-                        Some(7) => "Asia",
-                        Some(8) => "Worldwide",
-                        Some(9) => "Korea",
-                        Some(10) => "Brazil",
-                        _ => "Global",
-                    }.to_string();
-                    ReleaseDateInfo {
-                        platform,
-                        date_str,
-                        region,
-                    }
-                })
-                .collect::<Vec<_>>()
-        });
-
-        let igdb_reviews: Option<Vec<IgdbReview>> = None;
-        
-        let alternative_names = game.alternative_names.as_ref()
-            .map(|list| list.iter().map(|a| a.name.clone()).collect::<Vec<_>>());
-
-        let collection = game.collections.as_ref()
-            .and_then(|list| list.first().map(|c| c.name.clone()));
-
-        let collection_id = game.collections.as_ref()
-            .and_then(|list| list.first().map(|c| c.id));
-
-        let franchise = game.franchises.as_ref()
-            .and_then(|list| {
-                if list.is_empty() { None }
-                else { Some(list.iter().map(|f| f.name.clone()).collect::<Vec<_>>().join("; ")) }
-            });
-
-        let game_category = Some(map_game_category(game.game_type.unwrap_or(0)));
-        let release_status = Some(map_release_status(game.status.unwrap_or(0)));
-
-        let language_supports = game.language_supports.as_ref().map(|list| {
-            list.iter()
-                .filter_map(|ls| {
-                    let lang = ls.language.as_ref()?.name.clone();
-                    let support_type = ls.language_support_type.as_ref()?.name.clone();
-                    Some(LanguageSupportInfo {
-                        language: lang,
-                        support_type,
-                    })
-                })
-                .collect::<Vec<_>>()
-        });
-            
-        results.push(GameMetadataResult {
-            title: game.name,
-            description: game.summary,
-            developer,
-            publisher,
-            release_date,
-            genres,
-            images,
-            source_url: format!("https://www.igdb.com/games/{}", game.slug),
-            source_name: "IGDB".to_string(),
-            storyline: game.storyline,
-            igdb_rating: game.rating,
-            critic_rating: game.aggregated_rating,
-            themes,
-            game_modes,
-            player_perspectives,
-            screenshots: if screenshot_urls.is_empty() { None } else { Some(screenshot_urls) },
-            videos,
-            websites,
-            time_to_beat,
-            similar_games,
-            releases,
-            igdb_reviews,
-            alternative_names,
-            collection,
-            collection_id,
-            franchise,
-            game_category,
-            release_status,
-            language_supports,
-        });
-        }
-        
-        results.sort_by(|a, b| {
-            let sa = title_similarity(game_name, &a.title).max(title_similarity(&cleaned_query, &a.title));
-            let sb = title_similarity(game_name, &b.title).max(title_similarity(&cleaned_query, &b.title));
-            sb.partial_cmp(&sa).unwrap_or(std::cmp::Ordering::Equal)
-        });
-
-        results.retain(|r| {
-            title_similarity(game_name, &r.title) >= MIN_TITLE_SIMILARITY
-                || title_similarity(&cleaned_query, &r.title) >= MIN_TITLE_SIMILARITY
-        });
-
-        results
     }
+
+    let developer = if developers.is_empty() { None } else { Some(developers.join("; ")) };
+    let publisher = if publishers.is_empty() { None } else { Some(publishers.join("; ")) };
+
+    let release_date = game.first_release_date.map(format_unix_timestamp);
+
+    let genres = game.genres
+        .unwrap_or_default()
+        .into_iter()
+        .map(|g| g.name)
+        .collect::<Vec<_>>();
+
+    let themes = game.themes
+        .map(|list| list.into_iter().map(|item| item.name).collect::<Vec<_>>());
+
+    let game_modes = game.game_modes
+        .map(|list| list.into_iter().map(|item| item.name).collect::<Vec<_>>());
+
+    let player_perspectives = game.player_perspectives
+        .map(|list| list.into_iter().map(|item| item.name).collect::<Vec<_>>());
+
+    let cover_url = game.cover
+        .and_then(|c| c.url)
+        .map(|url| {
+            let clean = if url.starts_with("//") { format!("https:{}", url) } else { url };
+            clean.replace("t_thumb", "t_cover_big")
+        });
+
+    let mut screenshot_urls = Vec::new();
+    if let Some(screenshots) = game.screenshots {
+        for scr in screenshots {
+            if let Some(ref url) = scr.url {
+                let clean = if url.starts_with("//") { format!("https:{}", url) } else { url.clone() };
+                screenshot_urls.push(clean.replace("t_thumb", "t_720p"));
+            }
+        }
+    }
+
+    let mut artwork_urls = Vec::new();
+    if let Some(artworks) = game.artworks {
+        for art in artworks {
+            if let Some(ref url) = art.url {
+                let clean = if url.starts_with("//") { format!("https:{}", url) } else { url.clone() };
+                artwork_urls.push(clean.replace("t_thumb", "t_720p"));
+            }
+        }
+    }
+
+    let hero = artwork_urls.first()
+        .or_else(|| screenshot_urls.first())
+        .cloned();
+
+    let banner = screenshot_urls.first()
+        .or_else(|| artwork_urls.first())
+        .cloned();
+
+    let images = GameImages {
+        icon: None,
+        cover: cover_url,
+        hero,
+        banner,
+        logo: None,
+    };
+
+    let videos = game.videos
+        .map(|list| {
+            list.into_iter()
+                .filter_map(|v| v.video_id.map(|id| format!("https://www.youtube.com/watch?v={}", id)))
+                .collect::<Vec<_>>()
+        });
+
+    let websites = game.websites
+        .map(|list| {
+            let mut unique_urls = Vec::new();
+            let mut seen = std::collections::HashSet::new();
+            for w in list {
+                if let Some(url) = w.url {
+                    if seen.insert(url.clone()) {
+                        unique_urls.push(url);
+                    }
+                }
+            }
+            unique_urls
+        });
+
+    // Map Time to Beat
+    let time_to_beat = ttb.map(|t| TimeToBeat {
+        hastily: t.hastily,
+        normally: t.normally,
+        completely: t.completely,
+    });
+
+    // Map Similar Games
+    let similar_games = game.similar_games.map(|list| {
+        list.into_iter()
+            .map(|g| {
+                let cover_url = g.cover.and_then(|c| c.url).map(|url| {
+                    let clean = if url.starts_with("//") { format!("https:{}", url) } else { url };
+                    clean.replace("t_thumb", "t_cover_big")
+                });
+                SimilarGame {
+                    id: g.id,
+                    name: g.name,
+                    cover_url,
+                }
+            })
+            .collect::<Vec<_>>()
+    });
+
+    // Map Releases
+    let releases = game.release_dates.map(|list| {
+        list.into_iter()
+            .map(|r| {
+                let platform = r.platform.map(|p| p.name).unwrap_or_else(|| "Unknown".to_string());
+                let date_str = r.human.unwrap_or_else(|| "Unknown".to_string());
+                let region = match r.region {
+                    Some(1) => "Europe",
+                    Some(2) => "North America",
+                    Some(3) => "Australia",
+                    Some(4) => "New Zealand",
+                    Some(5) => "Japan",
+                    Some(6) => "China",
+                    Some(7) => "Asia",
+                    Some(8) => "Worldwide",
+                    Some(9) => "Korea",
+                    Some(10) => "Brazil",
+                    _ => "Global",
+                }.to_string();
+                ReleaseDateInfo {
+                    platform,
+                    date_str,
+                    region,
+                }
+            })
+            .collect::<Vec<_>>()
+    });
+
+    let igdb_reviews: Option<Vec<IgdbReview>> = None;
+
+    let alternative_names = game.alternative_names.as_ref()
+        .map(|list| list.iter().map(|a| a.name.clone()).collect::<Vec<_>>());
+
+    let collection = game.collections.as_ref()
+        .and_then(|list| list.first().map(|c| c.name.clone()));
+
+    let collection_id = game.collections.as_ref()
+        .and_then(|list| list.first().map(|c| c.id));
+
+    let franchise = game.franchises.as_ref()
+        .and_then(|list| {
+            if list.is_empty() { None }
+            else { Some(list.iter().map(|f| f.name.clone()).collect::<Vec<_>>().join("; ")) }
+        });
+
+    let game_category = Some(map_game_category(game.game_type.unwrap_or(0)));
+    let release_status = Some(map_release_status(game.status.unwrap_or(0)));
+
+    let language_supports = game.language_supports.as_ref().map(|list| {
+        list.iter()
+            .filter_map(|ls| {
+                let lang = ls.language.as_ref()?.name.clone();
+                let support_type = ls.language_support_type.as_ref()?.name.clone();
+                Some(LanguageSupportInfo {
+                    language: lang,
+                    support_type,
+                })
+            })
+            .collect::<Vec<_>>()
+    });
+
+    GameMetadataResult {
+        title: game.name,
+        description: game.summary,
+        developer,
+        publisher,
+        release_date,
+        genres,
+        images,
+        source_url: format!("https://www.igdb.com/games/{}", game.slug),
+        source_name: "IGDB".to_string(),
+        storyline: game.storyline,
+        igdb_rating: game.rating,
+        critic_rating: game.aggregated_rating,
+        themes,
+        game_modes,
+        player_perspectives,
+        screenshots: if screenshot_urls.is_empty() { None } else { Some(screenshot_urls) },
+        videos,
+        websites,
+        time_to_beat,
+        similar_games,
+        releases,
+        igdb_reviews,
+        alternative_names,
+        collection,
+        collection_id,
+        franchise,
+        game_category,
+        release_status,
+        language_supports,
+    }
+}
+
+/// Fetch a single IGDB game by numeric id (e.g. resolved from a Steam appid
+/// via `resolve_steam_to_igdb`). Returns None when the id doesn't exist.
+async fn fetch_igdb_game_by_id(id: u64) -> Option<GameMetadataResult> {
+    let body = format!("fields {}; where id = {}; limit 1;", IGDB_GAME_FIELDS, id);
+    let mut games = igdb_query_games(&body).await;
+    let game = games.pop()?;
+    let ttbs = igdb_query_ttbs(&[game.id.to_string()]).await;
+    let ttb = ttbs.get(&game.id);
+    Some(map_igdb_game(game, ttb))
+}
+
+/// Resolve a Steam appid to its exact IGDB game via IGDB's `external_games`
+/// bridge (category 1 = Steam) and return the mapped metadata. This is the
+/// authoritative, collision-free path for Steam-synced titles — the appid is
+/// an exact key, so a name that happens to be shared by several games (e.g.
+/// "Prototype" 2009 vs another same-named title) can never pick the wrong
+/// entry.
+async fn fetch_igdb_game_by_steam_appid(appid: u32) -> Option<GameMetadataResult> {
+    let map = resolve_steam_to_igdb(&[appid]).await.ok()?;
+    let igdb_id = *map.get(&appid)?;
+    fetch_igdb_game_by_id(igdb_id).await
+}
+
+pub async fn search_igdb(game_name: &str) -> Vec<GameMetadataResult> {
+    let cleaned_query = clean_game_name_for_search(game_name);
+    let year_hint = extract_year_hint(game_name);
+    // Search with any parenthesised year stripped ("Prototype (2009)" →
+    // "Prototype") so IGDB's relevance ranking isn't skewed by the suffix;
+    // the year is reapplied as a tie-break in `igdb_quality_key`.
+    let stripped_query = strip_year_marker(&cleaned_query);
+    let search_term = if stripped_query.is_empty() { cleaned_query.as_str() } else { stripped_query.as_str() };
+
+    let escaped_name = search_term.replace('"', "\\\"");
+    let body = format!(
+        r#"search "{}"; fields {}; limit 8;"#,
+        escaped_name, IGDB_GAME_FIELDS
+    );
+
+    let igdb_games = igdb_query_games(&body).await;
+    let game_ids: Vec<String> = igdb_games.iter().map(|g| g.id.to_string()).collect();
+    let time_to_beat_by_game = igdb_query_ttbs(&game_ids).await;
+
+    let mut results: Vec<GameMetadataResult> = igdb_games
+        .into_iter()
+        .map(|game| {
+            let ttb = time_to_beat_by_game.get(&game.id);
+            map_igdb_game(game, ttb)
+        })
+        .collect();
+
+    // Rank by title similarity first; ties (same-name games like "Prototype"
+    // 2009 vs an unrelated same-named title) are broken by release-year
+    // match + entry quality so the canonical release wins instead of
+    // whichever IGDB happened to return first.
+    results.sort_by(|a, b| {
+        let sa = title_similarity(game_name, &a.title)
+            .max(title_similarity(&cleaned_query, &a.title))
+            .max(title_similarity(&stripped_query, &a.title));
+        let sb = title_similarity(game_name, &b.title)
+            .max(title_similarity(&cleaned_query, &b.title))
+            .max(title_similarity(&stripped_query, &b.title));
+        let ka = (sa, igdb_quality_key(year_hint.as_deref(), a));
+        let kb = (sb, igdb_quality_key(year_hint.as_deref(), b));
+        kb.partial_cmp(&ka).unwrap_or(std::cmp::Ordering::Equal)
+    });
+
+    results.retain(|r| {
+        title_similarity(game_name, &r.title) >= MIN_TITLE_SIMILARITY
+            || title_similarity(&cleaned_query, &r.title) >= MIN_TITLE_SIMILARITY
+            || title_similarity(&stripped_query, &r.title) >= MIN_TITLE_SIMILARITY
+    });
+
+    // Drop exact same-title duplicates (the same IGDB entry fetched twice,
+    // or a port/remaster that shares the exact display name) — keep the
+    // top-ranked one.
+    let mut seen = std::collections::HashSet::new();
+    results.retain(|r| seen.insert(r.title.to_lowercase()));
+
+    results
+}
 
 // ─── Store: Browse & Search IGDB Catalog ──────────────────────────────────────
 // (post-fix) IGDB results are similarity-sorted above.

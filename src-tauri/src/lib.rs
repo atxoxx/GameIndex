@@ -1750,8 +1750,8 @@ async fn download_image(url: String) -> Result<Option<String>, String> {
 /// When `skip_launchbox` is true (Steam-synced games), LaunchBox is
 /// skipped â€” IGDB and Steam provide better metadata for known titles.
 #[tauri::command]
-async fn search_game_metadata(game_name: String, skip_launchbox: Option<bool>) -> Vec<GameMetadataResult> {
-    game_scraper::search_game_metadata(&game_name, skip_launchbox.unwrap_or(false)).await
+async fn search_game_metadata(game_name: String, skip_launchbox: Option<bool>, steam_app_id: Option<u32>) -> Vec<GameMetadataResult> {
+    game_scraper::search_game_metadata(&game_name, skip_launchbox.unwrap_or(false), steam_app_id).await
 }
 
 /// Download images from URLs and return them as base64 data URLs.

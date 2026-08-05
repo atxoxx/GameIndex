@@ -519,6 +519,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
       const results: GameMetadataResult[] = await invoke("search_game_metadata", {
         gameName,
         skipLaunchbox: !!steamAppId,
+        steamAppId,
       });
       // Find the current game record to merge intelligently (don't
       // overwrite non-empty existing fields with empty IGDB results).

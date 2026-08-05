@@ -185,6 +185,9 @@ export function EditGameModal({ game, onClose }: EditGameModalProps) {
     try {
       const results: GameMetadataResult[] = await invoke("search_game_metadata", {
         gameName: editName.trim() || game.name,
+        // Only pin by appid when searching the game's own name — a custom
+        // search term must not be pinned to the existing game's appid.
+        steamAppId: editName.trim() ? undefined : game.steamAppId,
       });
       setMetadataResults(results);
       if (results.length === 0) showToast("No metadata found for this game", "info");
@@ -202,6 +205,9 @@ export function EditGameModal({ game, onClose }: EditGameModalProps) {
       if (results.length === 0) {
         const freshResults: GameMetadataResult[] = await invoke("search_game_metadata", {
           gameName: editName.trim() || game.name,
+          // Only pin by appid when searching the game's own name — a custom
+          // search term must not be pinned to the existing game's appid.
+          steamAppId: editName.trim() ? undefined : game.steamAppId,
         });
         results = freshResults;
         setMetadataResults(results);

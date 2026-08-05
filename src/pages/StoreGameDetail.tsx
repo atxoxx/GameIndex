@@ -232,6 +232,7 @@ export default function StoreGameDetail() {
     invoke<GameMetadataResult[]>("search_game_metadata", {
       gameName: title,
       skipLaunchbox: !!steamAppId,
+      steamAppId,
     })
       .then((results) => {
         if (cancelled || !results || results.length === 0) return;
