@@ -84,6 +84,7 @@ export default function GeneralTab() {
           className="language-trigger"
           aria-haspopup="listbox"
           aria-expanded={languagePickerOpen}
+          aria-controls="settings-language-listbox"
           aria-activedescendant={
             languagePickerOpen
               ? `language-option-${languages[languagePickerHoverIdx]?.code ?? ""}`
@@ -130,6 +131,7 @@ export default function GeneralTab() {
         </button>
         {languagePickerOpen && (
           <div
+            id="settings-language-listbox"
             className="language-panel"
             role="listbox"
             aria-label={t("settings.language")}

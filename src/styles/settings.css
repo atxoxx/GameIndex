@@ -1,43 +1,45 @@
 /* =============================================================================
- * Settings page — refinements
+ * Settings page — visual layer (Lane A)
  *
- * This file consolidates *every* styling concern related to the Settings
- * page and the far-right Settings button in the topnav. It's imported
- * near the top of App.css so the rules below order AFTER these in
- * the cascade — that lets us safely refine the legacy `.settings-*`
- * selectors that originally lived in App.css.
+ * Shared primitives + the General / Appearance / Hardware tabs. Follows the
+ * app-wide design language: flat var(--color-surface) panels with hairline
+ * 1px var(--color-border) divisions, var(--shadow-md) only for raised
+ * elements (dropdowns / panels), segmented trays with a 2px gap and
+ * accent-filled active segment, a uniform 30px control height
+ * (--settings-ctl-h), uppercase-small-semibold section titles with 0.6px
+ * tracking, tabular numbers, muted uppercase xs labels, hover-surfacing with
+ * color-mix lifts + accent hints, and accent tints at 13-16% opacity.
  *
- * Contents:
- *   1. Far-right Settings button (active state)
- *   2. Generic .btn utility (the Settings page references these via
- *      `class="btn ..."` but the rules were never defined; this also
- *      benefits any future page that wants a standard button).
- *   3. Inline .spinner + .auth-status + .connect-prompt helpers
- *   4. Settings page shell — header, pill sub-nav, sections
- *   5. Theme cards (with a richer mini-app preview on top)
- * 6. Form rows / controls / toggles
- * 7. Integration tiles (Steam, Epic) with a danger-zone footer
+ * Lane B's tabs (Integrations / Downloads / Launcher / Privacy) consume the
+ * shared classes below; their tab-specific layer lives in settings-tabs-b.css
+ * and loads AFTER this file (imported from SettingsPage.tsx). The integration-*
+ * / humble-* / settings-wipe-* / settings-limit-* / settings-debrid-* /
+ * settings-checkbox-label--inline|--fixed|--disabled families belong to
+ * Lane B — this file deliberately does not define them.
  * ========================================================================== */
 
-/* Brand tints used by the Steam / Epic / Humble / Uplay integrations.
- * Scoped to the settings shell so they never leak into other pages;
- * like real brand colors they stay fixed across all themes. */
-.settings-shell {
+/* ── Brand tints (fixed across every theme). Keep values stable so persisted
+ *    settings keep resolving; Lane B's integration tiles consume these. ──── */
+:root {
   --brand-steam: #66c0f4;
-  --brand-steam-surface: #2a475e;
-  --brand-steam-deep: #1b2838;
   --brand-epic: #e6e6e6;
   --brand-humble: #1fb6a6;
   --brand-uplay: #00aae4;
+  --brand-gog: #86328a;
+  --brand-rockstar: #ffd344;
 }
 
-/* ── 1. Topnav far-right Settings button ───────────────────────────── */
+/* Uniform control height for every settings input / select / button.
+ * Lane B defines the same token on .settings-shell — identical value, so the
+ * later declaration simply wins with no visual difference. */
+.settings-shell {
+  --settings-ctl-h: 30px;
+}
 
-/* The settings gear lives on the far right of the topnav instead of in
- * the tabs strip. When the user is on /settings we want the same visual
- * treatment as an active tab so they can still see where they are. The
- * class is composable with .topnav-btn so hover/transforms stay
- * consistent with other topnav buttons. */
+/* =============================================================================
+ * Topnav far-right Settings button
+ * ========================================================================== */
+
 .topnav-btn-settings {
   -webkit-app-region: no-drag;
 }
@@ -52,13 +54,35 @@
   color: var(--color-accent);
 }
 
-/* ── 2. Generic .btn utility ─────────────────────────────────────── */
+/* =============================================================================
+ * Inline spinner (auth buttons / sync states)
+ * ========================================================================== */
 
-/* Standard button used across the app (Steam / Epic actions in
- * Settings, etc.). The Settings page references `.btn`,
- * `.btn-primary`, `.btn-danger`, `.btn-sm` and `.btn-steam` so these
- * styles need to exist somewhere — they were implicitly using browser
- * defaults before this refactor. Color tokens drive the theme look. */
+.spinner {
+  display: inline-block;
+  width: 14px;
+  height: 14px;
+  border: 2px solid color-mix(in srgb, currentColor 30%, transparent);
+  border-top-color: currentColor;
+  border-radius: 50%;
+  animation: settingsSpinnerSpin 0.7s linear infinite;
+  flex-shrink: 0;
+  vertical-align: middle;
+}
+
+@keyframes settingsSpinnerSpin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* =============================================================================
+ * Generic .btn utility — STILL LIVE: FriendsPage renders
+ * `className="btn btn-primary btn--mini"` / `btn btn-secondary btn--mini`,
+ * and the base + .btn-primary rules live here (no other file defines them).
+ * The old .btn-sm / .btn-danger / .btn-steam variants were unused — pruned.
+ * ========================================================================== */
+
 .btn {
   display: inline-flex;
   align-items: center;
@@ -106,17 +130,6 @@
   flex-shrink: 0;
 }
 
-.btn-sm {
-  padding: var(--space-xs) var(--space-md);
-  font-size: var(--font-size-xs);
-  gap: var(--space-xs);
-}
-
-.btn-sm svg {
-  width: 12px;
-  height: 12px;
-}
-
 .btn-primary {
   background: var(--color-accent);
   color: #fff;
@@ -131,263 +144,33 @@
   box-shadow: 0 4px 12px color-mix(in srgb, var(--color-accent) 35%, transparent);
 }
 
-.btn-danger {
-  color: var(--color-danger);
-  background: color-mix(in srgb, var(--color-danger) 8%, transparent);
-  border-color: color-mix(in srgb, var(--color-danger) 40%, var(--color-border));
-}
+/* =============================================================================
+ * Shared primitives — sections
+ * ========================================================================== */
 
-.btn-danger:hover {
-  color: #fff;
-  background: var(--color-danger);
-  border-color: var(--color-danger);
-  box-shadow: 0 4px 14px color-mix(in srgb, var(--color-danger) 35%, transparent);
-}
-
-/* Steam auth button — keeps the in-house Steam dark-blue brand color
- * instead of the accent color so users can visually separate "Steam
- * action" from "GameIndex action". Flat fill + Steam-blue border
- * reads as official Steam UI at a glance. */
-.btn-steam {
-  background: var(--brand-steam-surface);
-  color: #fff;
-  border-color: var(--brand-steam-surface);
-}
-
-.btn-steam:hover {
-  background: color-mix(in srgb, var(--brand-steam-surface) 75%, var(--brand-steam) 25%);
-  border-color: var(--brand-steam);
-}
-
-.btn-steam.btn-primary {
-  background: var(--brand-steam-surface);
-  border-color: var(--brand-steam-surface);
-  box-shadow: none;
-}
-
-.btn-steam.btn-primary:hover {
-  background: color-mix(in srgb, var(--brand-steam-surface) 75%, var(--brand-steam) 25%);
-  border-color: var(--brand-steam);
-  box-shadow: none;
-}
-
-/* ── 3. Inline helpers (spinner, auth, connect) ───────────────────── */
-
-.spinner {
-  display: inline-block;
-  width: 14px;
-  height: 14px;
-  border: 2px solid color-mix(in srgb, currentColor 30%, transparent);
-  border-top-color: currentColor;
-  border-radius: 50%;
-  animation: settingsSpinnerSpin 0.7s linear infinite;
-  flex-shrink: 0;
-  vertical-align: middle;
-}
-
-@keyframes settingsSpinnerSpin {
-  to {
-    transform: rotate(360deg);
-  }
-}
-
-.auth-status {
-  display: inline-flex;
-  align-items: center;
-  gap: var(--space-sm);
-  padding: var(--space-sm) var(--space-md);
-  background: color-mix(in srgb, var(--color-success) 10%, transparent);
-  border: 1px solid color-mix(in srgb, var(--color-success) 30%, transparent);
-  border-radius: var(--radius-md);
-  font-size: var(--font-size-sm);
-  color: var(--color-success);
-  font-weight: var(--font-weight-medium);
-  line-height: 1.5;
-}
-
-.auth-status::before {
-  content: "";
-  width: 8px;
-  height: 8px;
-  background: var(--color-success);
-  border-radius: 50%;
-  box-shadow: 0 0 8px color-mix(in srgb, var(--color-success) 70%, transparent);
-  flex-shrink: 0;
-}
-
-.connect-prompt {
-  font-size: var(--font-size-sm);
-  color: var(--color-text-secondary);
-  line-height: 1.6;
-}
-
-/* ── 4. Settings page shell ───────────────────────────────────────── */
-
-.settings-container {
-  max-width: 940px;
-  margin: 0 auto;
-  padding: var(--space-2xl) var(--space-xl) var(--space-3xl);
-  animation: importMenuIn 220ms ease;
-}
-
-.settings-header {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: var(--space-xl);
-  margin-bottom: var(--space-xl);
-  flex-wrap: wrap;
-}
-
-.settings-header-text {
-  flex: 1;
-  min-width: 0;
-}
-
-.settings-title {
-  display: flex;
-  align-items: center;
-  gap: var(--space-md);
-  font-size: var(--font-size-3xl);
-  font-weight: var(--font-weight-bold);
-  color: var(--color-text-primary);
-  margin: 0 0 var(--space-xs) 0;
-  letter-spacing: -0.4px;
-}
-
-.settings-title-icon {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 36px;
-  height: 36px;
-  border-radius: var(--radius-md);
-  background: color-mix(in srgb, var(--color-accent) 15%, transparent);
-  border: 1px solid color-mix(in srgb, var(--color-accent) 25%, transparent);
-  color: var(--color-accent);
-}
-
-.settings-title-icon svg {
-  width: 18px;
-  height: 18px;
-}
-
-.settings-desc {
-  font-size: var(--font-size-md);
-  color: var(--color-text-secondary);
-  margin: 0;
-  line-height: 1.5;
-  max-width: 640px;
-}
-
-/* Sub-navigation: pill segmented control */
-.settings-nav-pills {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  padding: 4px;
-  margin-bottom: var(--space-xl);
-  background: var(--color-bg-secondary);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-full);
-  box-shadow: var(--shadow-sm);
-  flex-wrap: wrap;
-}
-
-.settings-nav-pill {
-  display: inline-flex;
-  align-items: center;
-  gap: var(--space-sm);
-  padding: var(--space-sm) var(--space-lg);
-  background: transparent;
-  border: none;
-  border-radius: var(--radius-full);
-  color: var(--color-text-secondary);
-  font-size: var(--font-size-sm);
-  font-weight: var(--font-weight-semibold);
-  font-family: inherit;
-  cursor: pointer;
-  transition: color var(--transition-fast), background var(--transition-fast), border-color var(--transition-fast), box-shadow var(--transition-fast), opacity var(--transition-fast), transform var(--transition-fast);
-  white-space: nowrap;
-  position: relative;
-}
-
-.settings-nav-pill:hover {
-  color: var(--color-text-primary);
-  background: var(--color-bg-hover);
-}
-
-.settings-nav-pill.active {
-  color: #fff;
-  background: var(--color-accent);
-  box-shadow: 0 2px 8px color-mix(in srgb, var(--color-accent) 30%, transparent);
-}
-
-.settings-nav-pill svg {
-  width: 14px;
-  height: 14px;
-  flex-shrink: 0;
-}
-
-.settings-nav-pill-count {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  min-width: 18px;
-  height: 18px;
-  padding: 0 6px;
-  font-size: 10px;
-  font-weight: var(--font-weight-bold);
-  background: color-mix(in srgb, var(--color-accent) 25%, transparent);
-  color: var(--color-accent);
-  border-radius: var(--radius-full);
-  font-variant-numeric: tabular-nums;
-  letter-spacing: 0;
-}
-
-.settings-nav-pill.active .settings-nav-pill-count {
-  background: color-mix(in srgb, #fff 30%, transparent);
-  color: #fff;
-}
-
-/* Sections inside the settings page */
+/* Canonical section panel: flat surface, hairline border, soft entrance. */
 .settings-section {
   background: var(--color-surface);
   border: 1px solid var(--color-border);
   border-radius: var(--radius-lg);
   padding: var(--space-xl);
-  margin-bottom: var(--space-xl);
-  position: relative;
-  animation: importMenuIn 240ms var(--ease-standard);
-  box-shadow: var(--shadow-sm);
-  transition: border-color var(--transition-fast), box-shadow var(--transition-fast);
+  animation: importMenuIn 240ms var(--ease-standard) both;
 }
 
-.settings-section:hover {
-  border-color: var(--color-border-light);
-  box-shadow: var(--shadow-md);
+/* Subtle stagger when a tab renders several sections in a row. */
+.settings-section + .settings-section {
+  animation-delay: 50ms;
 }
 
+/* Section header: accent-tinted icon tile + uppercase title + muted desc,
+ * hairline-separated from the content below. */
 .settings-section-header {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   gap: var(--space-md);
   margin-bottom: var(--space-lg);
   padding-bottom: var(--space-md);
   border-bottom: 1px solid var(--color-border);
-}
-
-/* Standalone settings block (e.g. the language picker) placed after
- * the theme/accent grids inside the Appearance section. */
-.settings-block {
-  margin-top: var(--space-xl);
-  padding-top: var(--space-lg);
-  border-top: 1px solid var(--color-border);
-}
-
-.settings-block .settings-select {
-  margin-top: var(--space-md);
-  max-width: 320px;
 }
 
 .settings-section-icon {
@@ -396,11 +179,11 @@
   justify-content: center;
   width: 32px;
   height: 32px;
-  border-radius: var(--radius-md);
-  background: color-mix(in srgb, var(--color-accent) 12%, transparent);
-  color: var(--color-accent);
   flex-shrink: 0;
-  border: 1px solid color-mix(in srgb, var(--color-accent) 20%, transparent);
+  border-radius: var(--radius-md);
+  background: color-mix(in srgb, var(--color-accent) 14%, transparent);
+  border: 1px solid color-mix(in srgb, var(--color-accent) 26%, transparent);
+  color: var(--color-accent);
 }
 
 .settings-section-icon svg {
@@ -413,218 +196,115 @@
   min-width: 0;
 }
 
+/* Trailing header controls (e.g. the Hardware master switch) sit flush right. */
+.settings-section-actions {
+  margin-left: auto;
+  align-self: center;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+}
+
 .settings-section-title {
-  font-size: var(--font-size-md);
-  font-weight: var(--font-weight-semibold);
-  color: var(--color-text-primary);
-  border: none;
   margin: 0;
-  padding: 0;
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-semibold);
+  text-transform: uppercase;
+  letter-spacing: 0.6px;
+  color: var(--color-text-primary);
 }
 
 .settings-section-desc {
+  margin: 3px 0 0;
   font-size: var(--font-size-sm);
   color: var(--color-text-secondary);
-  margin: var(--space-xs) 0 0 0;
   line-height: 1.5;
 }
 
-/* ── 5. Theme cards with a mini-app preview ───────────────────────── */
-
-.theme-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
-  gap: var(--space-md);
-}
-
-.theme-card {
-  background: var(--color-bg-secondary);
-  border: 2px solid var(--color-border);
-  border-radius: var(--radius-lg);
-  cursor: pointer;
-  transition: color var(--transition-fast), background var(--transition-fast), border-color var(--transition-fast), box-shadow var(--transition-fast), opacity var(--transition-fast), transform var(--transition-fast);
-  display: flex;
-  flex-direction: column;
-  overflow: hidden;
-  position: relative;
-  box-shadow: var(--shadow-sm);
-}
-
-.theme-card:hover {
-  border-color: var(--color-border-light);
-  transform: translateY(-3px);
-  box-shadow: var(--shadow-md);
-}
-
-.theme-card.active {
-  border-color: var(--color-accent);
+.settings-section-desc code {
+  padding: 1px 5px;
+  border-radius: var(--radius-xs);
   background: var(--color-bg-tertiary);
-  box-shadow:
-    0 4px 12px color-mix(in srgb, var(--color-accent) 30%, transparent),
-    inset 0 0 0 1px color-mix(in srgb, var(--color-accent) 40%, transparent);
+  border: 1px solid var(--color-border);
+  font-family: var(--font-mono, ui-monospace, "SF Mono", Menlo, monospace);
+  font-size: 0.9em;
+  color: var(--color-accent);
 }
 
-.theme-card-preview {
+/* =============================================================================
+ * Shared primitives — cards, rows, controls
+ * ========================================================================== */
+
+/* Inner card panel (downloads sections etc.). */
+.settings-card {
   display: flex;
   flex-direction: column;
-  height: 96px;
-  overflow: hidden;
-  position: relative;
+  gap: var(--space-md);
+  padding: var(--space-lg);
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
 }
 
-.theme-preview-bar {
-  display: flex;
-  height: 26px;
-  border-bottom: 1px solid var(--color-border);
-}
-
-.theme-preview-color {
-  flex: 1;
-}
-
-.theme-preview-mini {
-  --themePreviewBg: var(--miniBg);
-  --themePreviewText: var(--miniText);
-  --themePreviewAccent: var(--miniAccent);
-  flex: 1;
-  display: grid;
-  grid-template-columns: 32px 1fr;
-  gap: 4px;
-  padding: 6px;
-}
-
-.theme-preview-mini-sidebar {
-  background: var(--themePreviewBg);
-  border-radius: var(--radius-sm);
-  opacity: 0.7;
-}
-
-.theme-preview-mini-main {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-}
-
-.theme-preview-mini-row {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  background: var(--themePreviewBg);
-  border-radius: var(--radius-sm);
-  padding: 4px;
-  height: 14px;
-}
-
-.theme-preview-mini-dot {
-  width: 6px;
-  height: 6px;
-  border-radius: 50%;
-  background: var(--themePreviewAccent);
-  box-shadow: 0 0 4px var(--themePreviewAccent);
-  flex-shrink: 0;
-}
-
-.theme-preview-mini-bar {
-  flex: 1;
-  height: 4px;
-  background: var(--themePreviewText);
-  opacity: 0.4;
-  border-radius: 2px;
-}
-
-.theme-preview-mini-card {
-  flex: 1;
-  background: var(--themePreviewBg);
-  border-radius: var(--radius-sm);
-  display: flex;
-  align-items: flex-end;
-  padding: 4px;
-  opacity: 0.7;
-}
-
-.theme-preview-mini-accent {
-  align-self: flex-end;
-  padding: 2px 6px;
-  background: var(--themePreviewAccent);
-  flex-shrink: 0;
-  border-radius: var(--radius-sm);
-}
-
-.theme-card-info {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: var(--space-md) var(--space-lg);
-  border-top: 1px solid var(--color-border);
-  background: var(--color-bg-secondary);
-}
-
-.theme-card-text {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-  min-width: 0;
-}
-
-.theme-card-name {
-  font-size: var(--font-size-sm);
-  font-weight: var(--font-weight-semibold);
-  color: var(--color-text-primary);
-  letter-spacing: 0.2px;
-}
-
-.theme-card-descriptor {
-  font-size: 10px;
-  font-weight: var(--font-weight-medium);
-  color: var(--color-text-muted);
-  letter-spacing: 0.2px;
-}
-
-.theme-active-dot {
-  width: 8px;
-  height: 8px;
-  border-radius: 50%;
-  background: var(--color-accent);
-  box-shadow: 0 0 10px var(--color-accent-glow);
-}
-
-/* ── 6. Form rows / controls ─────────────────────────────────────── */
-
+/* Vertical spacing rhythm used across the tabs. */
 .settings-row {
   display: flex;
   flex-direction: column;
   gap: var(--space-md);
 }
 
+/* Label + helper + control stack. */
 .settings-control {
   display: flex;
   flex-direction: column;
   gap: var(--space-xs);
 }
 
+/* Field label — muted uppercase xs per the design language. */
 .settings-label {
-  display: flex;
-  align-items: center;
-  gap: var(--space-sm);
-  font-size: var(--font-size-sm);
+  font-size: var(--font-size-xs);
   font-weight: var(--font-weight-semibold);
-  color: var(--color-text-primary);
+  text-transform: uppercase;
+  letter-spacing: 0.6px;
+  color: var(--color-text-secondary);
 }
 
-.settings-input-group {
-  display: flex;
-  gap: var(--space-sm);
-  align-items: stretch;
+/* Descriptive lead paragraph under a label (accent desc, landing page…). */
+.settings-helper-lead {
+  margin: 0;
+  font-size: var(--font-size-sm);
+  color: var(--color-text-muted);
+  line-height: 1.6;
 }
 
-.settings-input-group .settings-select {
-  flex: 1;
-  min-width: 0;
+.settings-helper-lead strong {
+  color: var(--color-text-secondary);
+  font-weight: var(--font-weight-semibold);
 }
 
+.settings-helper-lead code {
+  padding: 1px 5px;
+  border-radius: var(--radius-xs);
+  background: var(--color-bg-tertiary);
+  border: 1px solid var(--color-border);
+  font-family: var(--font-mono, ui-monospace, "SF Mono", Menlo, monospace);
+  font-size: 0.9em;
+  color: var(--color-accent);
+}
+
+/* Small footnote under a control. */
+.settings-helper-text {
+  font-size: var(--font-size-xs);
+  color: var(--color-text-muted);
+  margin-top: var(--space-xs);
+  line-height: 1.5;
+}
+
+/* Text input — uniform 30px control height. */
 .settings-input {
-  flex: 1;
-  padding: 10px var(--space-md);
+  min-height: var(--settings-ctl-h);
+  padding: 0 var(--space-md);
   background: var(--color-bg-tertiary);
   border: 1px solid var(--color-border);
   border-radius: var(--radius-md);
@@ -632,8 +312,18 @@
   font-size: var(--font-size-sm);
   font-family: inherit;
   outline: none;
-  transition: color var(--transition-fast), background var(--transition-fast), border-color var(--transition-fast), box-shadow var(--transition-fast), opacity var(--transition-fast), transform var(--transition-fast);
+  transition: border-color var(--transition-fast), box-shadow var(--transition-fast), background var(--transition-fast);
   min-width: 0;
+}
+
+/* Textareas keep usable padding; min-height comes from Lane B's
+ * .settings-textarea-mono (their file loads after this one), so no
+ * min-height is pinned here. */
+textarea.settings-input {
+  height: auto;
+  padding: var(--space-sm) var(--space-md);
+  resize: vertical;
+  line-height: 1.6;
 }
 
 .settings-input:focus {
@@ -646,8 +336,22 @@
   color: var(--color-text-muted);
 }
 
+/* Input + trailing control (select + refresh button etc.). */
+.settings-input-group {
+  display: flex;
+  align-items: stretch;
+  gap: var(--space-sm);
+}
+
+.settings-input-group .settings-select {
+  flex: 1;
+  min-width: 0;
+}
+
+/* Select — uniform 30px control with a custom chevron. */
 .settings-select {
-  padding: 10px var(--space-md);
+  min-height: var(--settings-ctl-h);
+  padding: 0 30px 0 var(--space-md);
   background: var(--color-bg-tertiary);
   border: 1px solid var(--color-border);
   border-radius: var(--radius-md);
@@ -656,7 +360,7 @@
   font-family: inherit;
   outline: none;
   cursor: pointer;
-  transition: color var(--transition-fast), background var(--transition-fast), border-color var(--transition-fast), box-shadow var(--transition-fast), opacity var(--transition-fast), transform var(--transition-fast);
+  transition: border-color var(--transition-fast), box-shadow var(--transition-fast), background var(--transition-fast);
   min-width: 0;
   /* Custom chevron so the select looks consistent across browsers */
   appearance: none;
@@ -664,7 +368,10 @@
   background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%239aa0b0' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E");
   background-repeat: no-repeat;
   background-position: right 10px center;
-  padding-right: 28px;
+}
+
+.settings-select:hover {
+  border-color: var(--color-border-light);
 }
 
 .settings-select:focus {
@@ -673,10 +380,67 @@
   background-color: var(--color-bg-secondary);
 }
 
-.settings-select:hover {
-  border-color: var(--color-border-light);
+.settings-select option {
+  background: var(--color-bg-primary);
+  color: var(--color-text-primary);
 }
 
+/* Segmented control — bg-tertiary tray, 2px gap, accent-filled active. */
+.settings-segmented {
+  display: inline-flex;
+  gap: 2px;
+  padding: 2px;
+  background: var(--color-bg-tertiary);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+}
+
+.settings-segmented button {
+  appearance: none;
+  border: none;
+  background: transparent;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  height: calc(var(--settings-ctl-h) - 6px);
+  padding: 0 var(--space-lg);
+  border-radius: calc(var(--radius-md) - 2px);
+  font-family: inherit;
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text-secondary);
+  cursor: pointer;
+  white-space: nowrap;
+  transition: color var(--transition-fast), background var(--transition-fast);
+}
+
+.settings-segmented button:hover {
+  color: var(--color-text-primary);
+  background: var(--color-bg-hover);
+}
+
+.settings-segmented button:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: -2px;
+}
+
+.settings-segmented button.active {
+  background: var(--color-accent);
+  color: #fff;
+}
+
+.settings-segmented button.active:hover {
+  background: var(--color-accent);
+  color: #fff;
+}
+
+/* =============================================================================
+ * Shared primitives — checkbox rows
+ * ========================================================================== */
+
+/* Custom square checkbox: 16px, hairline border, accent fill + check on
+ * :checked. Applies to every settings checkbox (including Lane B's rows) so
+ * the whole page reads as one control family. */
 .settings-checkbox-label {
   display: flex;
   align-items: center;
@@ -685,9 +449,8 @@
   user-select: none;
   font-size: var(--font-size-sm);
   color: var(--color-text-secondary);
-  transition: color var(--transition-fast);
-  padding: var(--space-xs) 0;
   line-height: 1.5;
+  transition: color var(--transition-fast);
 }
 
 .settings-checkbox-label:hover {
@@ -695,17 +458,71 @@
 }
 
 .settings-checkbox-label input[type="checkbox"] {
-  width: 18px;
-  height: 18px;
-  accent-color: var(--color-accent);
-  cursor: pointer;
+  appearance: none;
+  -webkit-appearance: none;
+  width: 16px;
+  height: 16px;
+  margin: 0;
   flex-shrink: 0;
+  border: 1px solid var(--color-border-light);
+  border-radius: var(--radius-xs);
+  background: var(--color-bg-tertiary);
+  cursor: pointer;
+  position: relative;
+  transition: border-color var(--transition-fast), background var(--transition-fast), box-shadow var(--transition-fast);
 }
+
+.settings-checkbox-label input[type="checkbox"]:hover {
+  border-color: var(--color-text-muted);
+}
+
+.settings-checkbox-label input[type="checkbox"]:checked {
+  background: var(--color-accent);
+  border-color: var(--color-accent);
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='white' stroke-width='3.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='20 6 9 17 4 12'/%3E%3C/svg%3E");
+  background-size: 10px 10px;
+  background-position: center;
+  background-repeat: no-repeat;
+}
+
+.settings-checkbox-label input[type="checkbox"]:focus-visible {
+  box-shadow: 0 0 0 3px var(--color-accent-glow);
+}
+
+.settings-checkbox-label:has(input:disabled) {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+/* Title + muted description block under a checkbox. */
+.settings-checkbox-text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.settings-checkbox-title {
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text-primary);
+  line-height: 1.35;
+}
+
+.settings-checkbox-desc {
+  font-size: var(--font-size-xs);
+  color: var(--color-text-muted);
+  line-height: 1.5;
+}
+
+/* =============================================================================
+ * Shared primitives — grouped toggles
+ * ========================================================================== */
 
 .settings-toggles-group {
   display: flex;
   flex-direction: column;
-  gap: 2px;
+  gap: var(--space-xs);
   margin-top: var(--space-md);
   padding: var(--space-md);
   background: var(--color-bg-tertiary);
@@ -713,22 +530,20 @@
   border-radius: var(--radius-md);
 }
 
-
-
-
-
+.settings-toggles-group-title,
 .settings-toggles-title {
   display: flex;
   align-items: center;
-  gap: var(--space-xs);
+  gap: var(--space-sm);
+  margin: 0 0 var(--space-xs);
   font-size: 10px;
   font-weight: var(--font-weight-bold);
-  color: var(--color-text-muted);
   text-transform: uppercase;
   letter-spacing: 0.6px;
-  margin: 0 0 var(--space-xs) 0;
+  color: var(--color-text-muted);
 }
 
+.settings-toggles-group-title::after,
 .settings-toggles-title::after {
   content: "";
   flex: 1;
@@ -736,486 +551,89 @@
   background: var(--color-border);
 }
 
-.settings-helper-text {
+/* =============================================================================
+ * Shared primitives — links, label rows, small icons
+ * ========================================================================== */
+
+.settings-link {
   font-size: var(--font-size-xs);
-  color: var(--color-text-muted);
-  margin-top: var(--space-sm);
-  line-height: 1.5;
-}
-
-/* Helper lead — descriptive text below settings-label and before the
- * input group. Used in the Hardware tab to explain GPU selection and
- * storage size unit options. */
-.settings-helper-lead {
-  font-size: var(--font-size-xs);
-  color: var(--color-text-muted);
-  margin: 0;
-  line-height: 1.6;
-}
-
-.settings-helper-lead strong {
-  color: var(--color-text-secondary);
   font-weight: var(--font-weight-semibold);
-}
-
-.settings-helper-lead code {
-  background: var(--color-bg-tertiary);
-  padding: 1px 5px;
-  border-radius: var(--radius-xs);
-  font-size: inherit;
-  font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, monospace;
-  color: var(--color-text-secondary);
-}
-
-/* ── 7.1 Hardware tab — settings card row ────────────────────────── */
-
-/* A card-like container wrapping each hardware setting row, giving
- * them the same visual weight as theme cards in the Appearance tab. */
-.settings-hardware-control-card {
-  background: var(--color-bg-secondary);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-md);
-  padding: var(--space-lg);
-  transition: border-color var(--transition-fast);
-}
-
-.settings-hardware-control-card:hover {
-  border-color: var(--color-border-light);
-}
-
-/* GPU info card — shows the currently selected GPU with key specs.
- * Only rendered when a GPU is selected so it doubles as positive
- * feedback that the selection took effect. */
-.settings-gpu-info-card {
-  display: flex;
-  align-items: center;
-  gap: var(--space-md);
-  margin-top: var(--space-md);
-  padding: var(--space-md) var(--space-lg);
-  background: var(--color-bg-tertiary);
-  border: 1px solid color-mix(in srgb, var(--color-accent) 25%, var(--color-border));
-  border-radius: var(--radius-md);
-  animation: importMenuIn 200ms var(--ease-standard);
-}
-
-.settings-gpu-info-icon {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 40px;
-  height: 40px;
-  border-radius: var(--radius-md);
-  background: color-mix(in srgb, var(--color-accent) 15%, transparent);
-  color: var(--color-accent);
-  border: 1px solid color-mix(in srgb, var(--color-accent) 30%, transparent);
-  flex-shrink: 0;
-}
-
-.settings-gpu-info-icon svg {
-  width: 20px;
-  height: 20px;
-}
-
-.settings-gpu-info-text {
-  flex: 1;
-  min-width: 0;
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-}
-
-.settings-gpu-info-name {
-  font-size: var(--font-size-sm);
-  font-weight: var(--font-weight-semibold);
-  color: var(--color-text-primary);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.settings-gpu-info-specs {
-  display: flex;
-  align-items: center;
-  gap: var(--space-sm);
-  font-size: var(--font-size-xs);
-  color: var(--color-text-secondary);
-  flex-wrap: wrap;
-}
-
-.settings-gpu-info-spec {
-  display: inline-flex;
-  align-items: center;
-  gap: var(--space-2xs);
-  padding: 1px 6px;
-  background: var(--color-bg-secondary);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-sm);
-  font-size: var(--font-size-xs);
-  font-weight: var(--font-weight-medium);
-  color: var(--color-text-secondary);
-  font-variant-numeric: tabular-nums;
-}
-
-.settings-gpu-info-badge {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  padding: 2px 8px;
-  font-size: 10px;
-  font-weight: var(--font-weight-bold);
-  color: var(--color-success);
-  background: color-mix(in srgb, var(--color-success) 12%, transparent);
-  border: 1px solid color-mix(in srgb, var(--color-success) 30%, transparent);
-  border-radius: var(--radius-full);
-  text-transform: uppercase;
-  letter-spacing: 0.4px;
-  flex-shrink: 0;
-}
-
-.settings-gpu-info-badge::before {
-  content: "";
-  width: 6px;
-  height: 6px;
-  background: var(--color-success);
-  border-radius: 50%;
-  box-shadow: 0 0 6px var(--color-success);
-  flex-shrink: 0;
-}
-
-/* Per-metric capture toggles — a compact checkbox grid so the six
- * telemetry streams read as a single grouped control. */
-.settings-metric-toggles {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
-  gap: var(--space-sm);
-  margin-top: var(--space-sm);
-}
-
-.settings-metric-toggle {
-  display: flex;
-  align-items: center;
-  gap: var(--space-sm);
-  padding: var(--space-sm) var(--space-md);
-  background: var(--color-bg-secondary);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-md);
-  font-size: var(--font-size-sm);
-  color: var(--color-text-primary);
-  cursor: pointer;
-  user-select: none;
-  transition: border-color var(--transition-fast), background var(--transition-fast);
-}
-
-.settings-metric-toggle:hover {
-  border-color: var(--color-border-light);
-}
-
-.settings-metric-toggle input {
-  accent-color: var(--color-accent);
-  width: 15px;
-  height: 15px;
-  cursor: pointer;
-}
-
-.settings-metric-toggle input:disabled {
-  cursor: not-allowed;
-  opacity: 0.5;
-}
-
-.settings-metric-toggle:has(input:disabled) {
-  opacity: 0.55;
-  cursor: not-allowed;
-}
-
-/* Sampling interval range + value readout */
-.settings-range-value {
-  min-width: 64px;
-  padding: var(--space-xs) var(--space-md);
-  background: var(--color-bg-tertiary);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-md);
-  font-size: var(--font-size-sm);
-  font-weight: var(--font-weight-semibold);
-  color: var(--color-text-primary);
-  font-variant-numeric: tabular-nums;
-  text-align: center;
-}
-
-.settings-input-group input[type="range"] {
-  flex: 1;
-  accent-color: var(--color-accent);
-  cursor: pointer;
-}
-
-.settings-input-group input[type="range"]:disabled {
-  cursor: not-allowed;
-  opacity: 0.5;
-}
-
-/* Segmented control (temperature unit °C / °F) */
-.settings-segmented {
-  display: inline-flex;
-  padding: 3px;
-  background: var(--color-bg-tertiary);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-md);
-  gap: 2px;
-  margin-top: var(--space-sm);
-}
-
-.settings-segmented button {
-  appearance: none;
-  border: none;
-  background: transparent;
-  color: var(--color-text-secondary);
-  font-size: var(--font-size-sm);
-  font-weight: var(--font-weight-semibold);
-  padding: var(--space-xs) var(--space-lg);
-  border-radius: var(--radius-sm);
-  cursor: pointer;
-  transition: background var(--transition-fast), color var(--transition-fast);
-}
-
-.settings-segmented button:hover {
-  color: var(--color-text-primary);
-}
-
-.settings-segmented button.active {
-  background: var(--color-accent);
-  color: #fff;
-}
-
-/* System summary card — detected CPU / RAM / all GPUs */
-.settings-system-summary__grid {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: var(--space-md);
-  margin-top: var(--space-md);
-}
-
-.settings-system-summary__item {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-  padding: var(--space-sm) var(--space-md);
-  background: var(--color-bg-tertiary);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-md);
-  min-width: 0;
-}
-
-.settings-system-summary__item--wide {
-  grid-column: 1 / -1;
-}
-
-.settings-system-summary__label {
-  font-size: 10px;
-  font-weight: var(--font-weight-bold);
-  text-transform: uppercase;
-  letter-spacing: 0.4px;
-  color: var(--color-text-muted);
-}
-
-.settings-system-summary__value {
-  font-size: var(--font-size-sm);
-  font-weight: var(--font-weight-semibold);
-  color: var(--color-text-primary);
-  word-break: break-word;
-}
-
-/* ── 7. Integration tiles (Steam / Epic) ─────────────────────────── */
-
-.integration-tile {
-  background: var(--color-surface);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-lg);
-  overflow: hidden;
-  position: relative;
-  box-shadow: var(--shadow-sm);
-  margin-bottom: var(--space-xl);
-}
-
-.integration-tile::before {
-  content: "";
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  height: 3px;
-  background: var(--color-accent);
-  opacity: 0.85;
-  pointer-events: none;
-}
-
-.integration-tile.steam::before {
-  background: var(--brand-steam);
-}
-
-.integration-tile.epic::before {
-  background: var(--brand-epic);
-}
-
-.integration-tile-body-wrap {
-  padding: var(--space-xl);
-}
-
-.integration-tile-header {
-  display: flex;
-  align-items: flex-start;
-  gap: var(--space-md);
-  margin-bottom: var(--space-lg);
-}
-
-.integration-tile-icon {
-  width: 48px;
-  height: 48px;
-  border-radius: var(--radius-md);
-  background: var(--color-bg-tertiary);
-  border: 1px solid var(--color-border);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  flex-shrink: 0;
-  color: var(--color-accent);
-}
-
-.integration-tile.steam .integration-tile-icon {
-  color: var(--brand-steam);
-}
-
-.integration-tile.epic .integration-tile-icon {
-  color: var(--brand-epic);
-}
-
-.integration-tile.humble .integration-tile-icon {
-  color: var(--brand-humble);
-}
-
-.integration-tile.humble::before {
-  background: var(--brand-humble);
-}
-
-.integration-tile.uplay .integration-tile-icon {
-  color: var(--brand-uplay);
-}
-
-.integration-tile.uplay::before {
-  background: var(--brand-uplay);
-}
-
-.integration-tile-icon svg {
-  width: 24px;
-  height: 24px;
-}
-
-.integration-tile-info {
-  flex: 1;
-  min-width: 0;
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-xs);
-}
-
-.integration-tile-name-row {
-  display: flex;
-  align-items: center;
-  gap: var(--space-sm);
-  flex-wrap: wrap;
-}
-
-.integration-tile-name {
-  font-size: var(--font-size-md);
-  font-weight: var(--font-weight-semibold);
-  margin: 0;
-  color: var(--color-text-primary);
-}
-
-.integration-tile-desc {
-  font-size: var(--font-size-sm);
-  color: var(--color-text-secondary);
-  margin: 0;
-  line-height: 1.5;
-}
-
-.integration-badge {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  padding: 3px 10px;
-  font-size: 10px;
-  font-weight: var(--font-weight-bold);
-  border-radius: var(--radius-full);
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
-}
-
-.integration-badge.active {
-  color: var(--color-success);
-  background: color-mix(in srgb, var(--color-success) 12%, transparent);
-  border: 1px solid color-mix(in srgb, var(--color-success) 35%, transparent);
-}
-
-.integration-badge.active::before {
-  content: "";
-  width: 6px;
-  height: 6px;
-  background: var(--color-success);
-  border-radius: 50%;
-  box-shadow: 0 0 6px var(--color-success);
-  flex-shrink: 0;
-}
-
-.integration-tile-body {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-md);
-}
-
-.integration-tile-actions {
-  display: flex;
-  align-items: center;
-  gap: var(--space-sm);
-  flex-wrap: wrap;
-  margin-top: var(--space-md);
-}
-
-.integration-link {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  font-size: var(--font-size-xs);
   color: var(--color-accent);
   text-decoration: none;
-  margin-left: var(--space-sm);
-  font-weight: var(--font-weight-semibold);
+  white-space: nowrap;
   transition: color var(--transition-fast);
 }
 
-.integration-link:hover {
+.settings-link:hover {
   color: var(--color-accent-hover);
   text-decoration: underline;
 }
 
-.integration-hint {
-  display: block;
-  font-size: var(--font-size-xs);
-  color: var(--color-text-muted);
-  font-weight: var(--font-weight-normal);
-  margin-top: 2px;
-  line-height: 1.4;
+.settings-label-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-sm);
 }
 
-/* Sync result banners — used inline in the integrations tile body */
+/* Small icon shared by settings-page buttons. */
+.settings-btn-icon {
+  width: 16px;
+  height: 16px;
+}
+
+/* =============================================================================
+ * Shared primitives — auth / sync status, danger zones
+ * ========================================================================== */
+
+.auth-status {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-sm);
+  padding: var(--space-2xs) var(--space-md);
+  background: color-mix(in srgb, var(--color-success) 12%, transparent);
+  border: 1px solid color-mix(in srgb, var(--color-success) 30%, transparent);
+  border-radius: var(--radius-full);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-success);
+  line-height: 1.5;
+}
+
+.auth-status::before {
+  content: "";
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--color-success);
+  box-shadow: 0 0 8px color-mix(in srgb, var(--color-success) 70%, transparent);
+  flex-shrink: 0;
+}
+
+.connect-prompt {
+  font-size: var(--font-size-sm);
+  color: var(--color-text-secondary);
+  line-height: 1.6;
+}
+
+.auth-note {
+  font-size: var(--font-size-xs);
+  color: var(--color-text-muted);
+  margin: var(--space-xs) 0 0;
+  line-height: 1.5;
+}
+
+/* Sync-result banners — tinted success / error surfaces. */
 .sync-result {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-sm);
   padding: var(--space-sm) var(--space-md);
   border-radius: var(--radius-md);
   font-size: var(--font-size-sm);
-  margin-top: var(--space-md);
-  display: flex;
-  align-items: center;
-  gap: var(--space-sm);
   font-weight: var(--font-weight-medium);
-  line-height: 1.4;
+  line-height: 1.5;
+  margin-top: var(--space-md);
 }
 
 .sync-result.success {
@@ -1233,11 +651,10 @@
 .sync-result-time {
   font-size: var(--font-size-xs);
   color: var(--color-text-muted);
-  margin-top: var(--space-sm);
+  margin-top: var(--space-xs);
 }
 
-/* Danger zone — bottom strip that visually separates destructive
- * actions (Disconnect) from primary actions (Save / Sync). */
+/* Danger zone — danger-tinted foot strip with a hairline top border. */
 .danger-zone {
   display: flex;
   align-items: center;
@@ -1260,249 +677,72 @@
   font-weight: var(--font-weight-semibold);
 }
 
-/* Footer line at the bottom of the integrations tab */
-.integration-footer {
-  font-size: var(--font-size-xs);
-  color: var(--color-text-muted);
-  text-align: center;
-  margin-top: var(--space-lg);
-  padding-top: var(--space-md);
-  border-top: 1px solid var(--color-border);
-  font-style: italic;
-}
+/* =============================================================================
+ * Shared primitives — grids + launcher/toggle cards
+ * ========================================================================== */
 
-/* ── Humble settings toggles (Playnite parity) ─────────────────── */
-
-.humble-settings-grid {
+.settings-data-grid,
+.settings-launcher-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
-  gap: var(--space-sm) var(--space-lg);
-  margin-top: var(--space-sm);
-  padding-top: var(--space-md);
-  border-top: 1px dashed var(--color-border);
-}
-
-.humble-toggle {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
+  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
   gap: var(--space-md);
-  cursor: pointer;
-  font-size: var(--font-size-sm);
-  color: var(--color-text-primary);
 }
 
-.humble-toggle.disabled {
-  opacity: 0.45;
-  cursor: not-allowed;
-}
-
-.humble-toggle-text {
+/* Canonical toggle / behavior card: title + desc + square checkbox, or a plain
+ * control container (landing page select). --warn = amber/danger variant. */
+.settings-launcher-card {
   display: flex;
   flex-direction: column;
-  gap: 2px;
-  min-width: 0;
-}
-
-.humble-toggle-label {
-  font-weight: var(--font-weight-medium);
-  color: var(--color-text-primary);
-}
-
-.humble-toggle-hint {
-  font-size: var(--font-size-xs);
-  color: var(--color-text-muted);
-  line-height: 1.4;
-}
-
-.humble-toggle input[type="checkbox"] {
-  margin-top: 3px;
-  width: 16px;
-  height: 16px;
-  accent-color: var(--brand-humble);
-  flex-shrink: 0;
-  cursor: inherit;
-}
-
-/* ── 8. Launcher tab + checkbox inline-text blocks ───────────────── */
-
-/* Two-column responsive grid that lays out the launcher / data cards.
- * Falls back to a single column under 600px so the rows stay readable
- * on narrow windows. */
-.settings-launcher-grid,
-.settings-data-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
-  gap: var(--space-md);
-}
-
-.settings-launcher-card {
-  background: var(--color-bg-secondary);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-md);
+  gap: var(--space-sm);
   padding: var(--space-lg);
-  transition: border-color var(--transition-fast), background var(--transition-fast);
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  transition: border-color var(--transition-fast), background var(--transition-fast), box-shadow var(--transition-fast);
 }
 
 .settings-launcher-card:hover {
   border-color: var(--color-border-light);
+  background: color-mix(in srgb, var(--color-bg-secondary) 40%, var(--color-surface));
 }
 
-/* Yellow-tinted warning variant for the UAC bypass toggle. Visually
- * pushes the user toward reading the warning copy underneath; they
- * have to actively engage the box to dismiss it. */
 .settings-launcher-card--warn {
-  border-color: color-mix(in srgb, var(--color-warning) 35%, var(--color-border));
-  background: color-mix(in srgb, var(--color-warning) 5%, var(--color-bg-secondary));
+  border-color: color-mix(in srgb, var(--color-warning) 40%, var(--color-border));
+  background: color-mix(in srgb, var(--color-warning) 5%, var(--color-surface));
 }
 
 .settings-launcher-card--warn:hover {
-  border-color: color-mix(in srgb, var(--color-warning) 55%, var(--color-border));
+  border-color: color-mix(in srgb, var(--color-warning) 60%, var(--color-border));
 }
 
-/* Two-line layout for checkbox labels: a bold title above a muted
- * helper description. Used in the Launcher tab and Data & Sync
- * cards so each toggle reads like a real option, not a square tick. */
-.settings-checkbox-text {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-  min-width: 0;
+/* Toggle-card checkbox sits on the right edge; text block takes the left.
+ * row-reverse swaps the visual order of input (first in DOM) and text so the
+ * check reads as the trailing control of a canonical settings row. */
+.settings-launcher-card .settings-checkbox-label {
+  flex-direction: row-reverse;
+  justify-content: space-between;
+  gap: var(--space-lg);
 }
 
-.settings-checkbox-title {
-  font-size: var(--font-size-sm);
-  font-weight: var(--font-weight-semibold);
-  color: var(--color-text-primary);
-  line-height: 1.3;
+.settings-launcher-card .settings-checkbox-text {
+  flex: 1;
 }
 
-.settings-checkbox-desc {
-  font-size: var(--font-size-xs);
-  color: var(--color-text-muted);
-  line-height: 1.5;
+/* =============================================================================
+ * Integration tiles — brand icon sizing only (tile layout belongs to Lane B)
+ * ========================================================================== */
+
+.integration-tile-icon svg {
+  width: 24px;
+  height: 24px;
 }
 
-/* ── 9. Accent color picker (Appearance) ──────────────────────────── */
-
-.accent-picker {
-  display: flex;
-  align-items: center;
-  gap: var(--space-sm);
-  flex-wrap: wrap;
-  margin-top: var(--space-sm);
-}
-
-.accent-swatch {
-  position: relative;
-  /* 28px instead of 32px so the full 16-preset row + custom + reset
-   * fits in ~2 wrapped rows inside the 940px settings container
-   * instead of ~3 — keeps the picker from looking overloaded now
-   * that the palette has tripled in size. The custom 🎨 swatch and
-   * the Reset button drop down to match via the same .accent-swatch
-   * + .accent-clear heights below. */
-  width: 28px;
-  height: 28px;
-  border-radius: var(--radius-full);
-  border: 2px solid transparent;
-  cursor: pointer;
-  padding: 0;
-  background-clip: padding-box;
-  transition: transform var(--transition-fast), border-color var(--transition-fast), box-shadow var(--transition-fast);
-}
-
-/* Inner ring so the swatch's background-color shows while the
- * border conveys selection state. Keeps the circle clean against
- * both dark and light themes. */
-.accent-swatch::before {
-  content: "";
-  position: absolute;
-  inset: 2px;
-  border-radius: var(--radius-full);
-  background: inherit;
-  pointer-events: none;
-}
-
-.accent-swatch:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 4px 12px color-mix(in srgb, currentColor 35%, transparent);
-}
-
-/* Solid ring + faint glow on the active selection so users can
- * see at a glance which accent is currently applied without
- * reading a "current" label. */
-.accent-swatch.active {
-  border-color: var(--color-text-primary);
-  box-shadow: 0 0 0 2px var(--color-bg-secondary);
-}
-
-.accent-swatch--custom {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  background: var(--color-bg-tertiary);
-  border-color: var(--color-border);
-  font-size: 14px;
-  line-height: 1;
-}
-
-/* Native color input is rendered above the swatch as an invisible
- * hit target. Width/height 100% so the clickable area covers the
- * whole swatch, opacity:0 so the native UI is hidden. */
-.accent-swatch--custom input[type="color"] {
-  position: absolute;
-  inset: 0;
-  width: 100%;
-  height: 100%;
-  opacity: 0;
-  cursor: pointer;
-  border: none;
-  background: none;
-  padding: 0;
-}
-
-.accent-clear {
-  display: inline-flex;
-  align-items: center;
-  /* Keeps the Reset pill aligned to the 28px swatches. */
-  height: 28px;
-  padding: 0 var(--space-md);
-  border-radius: var(--radius-full);
-  background: transparent;
-  border: 1px solid var(--color-border);
-  color: var(--color-text-secondary);
-  font-size: var(--font-size-xs);
-  font-weight: var(--font-weight-semibold);
-  font-family: inherit;
-  cursor: pointer;
-  transition: color var(--transition-fast), background var(--transition-fast), border-color var(--transition-fast), box-shadow var(--transition-fast), opacity var(--transition-fast), transform var(--transition-fast);
-}
-
-.accent-clear:hover {
-  background: var(--color-bg-tertiary);
-  color: var(--color-text-primary);
-  border-color: var(--color-border-light);
-}
-
-/* ── 10. Display language picker (Appearance) ─────────────────────── */
-
-/* Custom listbox-style language picker that replaces the plain native
- * <select> in the Display language section. Composed of:
- *  - a "trigger" pill showing the active flag, native label and code
- *    badge with an animated chevron,
- *  - a floating "panel" of options that drops in from the top with
- *    a subtle scale/fade, each row styled to match the accent-picker
- *    swatches above it.
- *
- * Width is capped at 360px so the trigger + panel stay legible but
- * don't sprawl across the full 940px settings page width. Keyboard
- * navigation (ArrowUp/Down + Enter) and a focus ring matching the
- * accent color keep it accessible; `prefers-reduced-motion` users
- * get a static reveal instead of the scale/fade animation. */
+/* =============================================================================
+ * General tab — display language listbox picker
+ * ========================================================================== */
 
 .settings-language-picker {
   position: relative;
-  margin-top: var(--space-md);
   max-width: 360px;
 }
 
@@ -1511,7 +751,8 @@
   align-items: center;
   gap: var(--space-md);
   width: 100%;
-  padding: 10px var(--space-md);
+  min-height: var(--settings-ctl-h);
+  padding: var(--space-2xs) var(--space-md);
   background: var(--color-bg-tertiary);
   border: 1px solid var(--color-border);
   border-radius: var(--radius-md);
@@ -1519,65 +760,54 @@
   font-family: inherit;
   font-size: var(--font-size-sm);
   cursor: pointer;
-  outline: none;
-  transition: border-color var(--transition-fast),
-    background var(--transition-fast),
-    box-shadow var(--transition-fast);
+  text-align: left;
+  transition: border-color var(--transition-fast), background var(--transition-fast), box-shadow var(--transition-fast);
 }
 
 .language-trigger:hover {
   border-color: var(--color-border-light);
-  background: color-mix(
-    in srgb,
-    var(--color-bg-tertiary) 75%,
-    var(--color-bg-secondary) 25%
-  );
+  background: var(--color-bg-secondary);
 }
 
 .language-trigger:focus-visible {
   border-color: var(--color-accent);
   box-shadow: 0 0 0 3px var(--color-accent-glow);
+  outline: none;
 }
 
 .settings-language-picker.open .language-trigger {
   border-color: var(--color-accent);
   box-shadow: 0 0 0 3px var(--color-accent-glow);
-  background: var(--color-bg-secondary);
 }
 
 .language-trigger-flag {
-  /* Wraps the inline-SVG FlagIcon (emoji flags don't render on
-   * Windows, so we draw them as SVGs). */
   display: inline-flex;
   flex-shrink: 0;
 }
 
 .language-trigger-info {
   flex: 1;
-  display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  gap: 1px;
   min-width: 0;
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-sm);
 }
 
 .language-trigger-label {
   font-size: var(--font-size-sm);
   font-weight: var(--font-weight-semibold);
   color: var(--color-text-primary);
-  line-height: 1.2;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-  max-width: 100%;
 }
 
 .language-trigger-code {
   font-size: 10px;
   font-weight: var(--font-weight-bold);
-  color: var(--color-text-muted);
   letter-spacing: 0.6px;
-  font-variant-numeric: tabular-nums;
+  color: var(--color-text-muted);
+  flex-shrink: 0;
 }
 
 .language-trigger-chevron {
@@ -1585,8 +815,7 @@
   height: 14px;
   color: var(--color-text-secondary);
   flex-shrink: 0;
-  transition: transform var(--transition-fast),
-    color var(--transition-fast);
+  transition: transform var(--transition-fast), color var(--transition-fast);
 }
 
 .settings-language-picker.open .language-trigger-chevron {
@@ -1594,36 +823,28 @@
   color: var(--color-accent);
 }
 
+/* Raised dropdown — surface-raised + shadow-md. Opens above the trigger so it
+ * never pushes the page content down. */
 .language-panel {
   position: absolute;
-  /* Open ABOVE the trigger so the panel doesn't push the page down or
-   * extend the document height when the picker is dropped open. Mirrors
-   * the convention used by autocomplete menus on the bottom edge of a
-   * viewport (think: VS Code command palette, macOS Notifications popups).
-   * The shadow falls under the trigger so the panel reads as "rising from
-   * the trigger" instead of "dropping below it". */
   bottom: calc(100% + 6px);
   left: 0;
   right: 0;
   z-index: 50;
   padding: 4px;
-  background: var(--color-bg-secondary);
+  background: var(--color-surface-raised);
   border: 1px solid var(--color-border);
   border-radius: var(--radius-md);
-  box-shadow: 0 -8px 32px
-    color-mix(in srgb, var(--color-shadow, #000) 50%, transparent),
-    0 -2px 8px color-mix(in srgb, var(--color-shadow, #000) 30%, transparent);
+  box-shadow: var(--shadow-md);
   display: flex;
   flex-direction: column;
   gap: 2px;
   transform-origin: bottom center;
-  animation: languagePanelIn 160ms ease;
+  animation: languagePanelIn 160ms var(--ease-standard);
 }
 
 @keyframes languagePanelIn {
   from {
-    /* Positive translateY lifts "from below into place" so the panel
-     * feels like it's rising up to settle above the trigger. */
     opacity: 0;
     transform: translateY(6px) scale(0.98);
   }
@@ -1638,7 +859,7 @@
   align-items: center;
   gap: var(--space-md);
   width: 100%;
-  padding: 9px var(--space-md);
+  padding: var(--space-xs) var(--space-sm);
   background: transparent;
   border: none;
   border-radius: var(--radius-sm);
@@ -1647,34 +868,25 @@
   color: var(--color-text-secondary);
   cursor: pointer;
   text-align: left;
-  outline: none;
-  transition: background var(--transition-fast),
-    color var(--transition-fast);
+  transition: background var(--transition-fast), color var(--transition-fast);
 }
 
 .language-option:hover,
 .language-option.hovered {
-  background: color-mix(in srgb, var(--color-accent) 10%, transparent);
+  background: var(--color-bg-hover);
   color: var(--color-text-primary);
 }
 
-/* Distinct focus ring so keyboard users tabbing through the panel can
- * tell focus from hover — the hover styles above don't carry an outer
- * outline, and the option is small enough that an outline is the
- * clearest affordance for "you are here, press Enter". */
 .language-option:focus-visible {
-  background: color-mix(in srgb, var(--color-accent) 10%, transparent);
+  background: var(--color-bg-hover);
   color: var(--color-text-primary);
   outline: 2px solid var(--color-accent);
   outline-offset: -2px;
 }
 
 .language-option.active {
-  background: color-mix(in srgb, var(--color-accent) 18%, transparent);
+  background: color-mix(in srgb, var(--color-accent) 14%, transparent);
   color: var(--color-text-primary);
-  /* Faint left accent rail so the active option is identifiable even
-   * when the user is hovering a different row (useful for confirmation
-   * before committing the click). */
   box-shadow: inset 3px 0 0 var(--color-accent);
 }
 
@@ -1685,11 +897,11 @@
 
 .language-option-text {
   flex: 1;
+  min-width: 0;
   display: flex;
   flex-direction: column;
   align-items: flex-start;
   gap: 1px;
-  min-width: 0;
 }
 
 .language-option-label {
@@ -1709,8 +921,8 @@
 .language-option-native {
   font-size: 10px;
   font-weight: var(--font-weight-bold);
-  color: var(--color-text-muted);
   letter-spacing: 0.6px;
+  color: var(--color-text-muted);
 }
 
 .language-option-check {
@@ -1720,37 +932,296 @@
   flex-shrink: 0;
 }
 
-/* Light theme: shadows need a softer black since the surfaces go
- * luminous. Falls into the same `[data-theme="light"]` token swap the
- * rest of the settings cards already use. */
-[data-theme="light"] .language-panel {
-  background: var(--color-surface);
-  box-shadow: var(--shadow-md);
+/* =============================================================================
+ * Appearance tab — theme cards + accent picker
+ * ========================================================================== */
+
+.theme-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: var(--space-md);
 }
 
-/* Honor OS-level reduced-motion preference: the chevron rotation and
- * panel reveal become instant transitions instead of animated ones.
- * Keeps the picker usable on systems where animations are disabled
- * (Windows "Show animations" off, macOS Reduce motion, etc). */
-@media (prefers-reduced-motion: reduce) {
-  .language-panel {
-    animation: none;
-  }
-  .language-trigger-chevron,
-  .language-trigger,
-  .language-option {
-    transition: none;
-  }
+.theme-card {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  cursor: pointer;
+  position: relative;
+  transition: border-color var(--transition-fast), box-shadow var(--transition-fast), transform var(--transition-fast);
+  animation: importMenuIn 220ms var(--ease-standard) both;
+}
+
+.theme-card:nth-child(2) { animation-delay: 30ms; }
+.theme-card:nth-child(3) { animation-delay: 60ms; }
+.theme-card:nth-child(4) { animation-delay: 90ms; }
+.theme-card:nth-child(5) { animation-delay: 120ms; }
+.theme-card:nth-child(n + 6) { animation-delay: 150ms; }
+
+.theme-card:hover {
+  border-color: var(--color-border-light);
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-sm);
+}
+
+.theme-card:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 2px;
+}
+
+.theme-card.active {
+  border-color: color-mix(in srgb, var(--color-accent) 55%, var(--color-border));
+  box-shadow:
+    0 0 0 1px color-mix(in srgb, var(--color-accent) 35%, transparent),
+    var(--shadow-sm);
+}
+
+/* Mini-app preview built from the theme's --miniBg/--miniText/--miniAccent
+ * palette (inline CSS vars). Title bar with the 3 palette dots + a
+ * sidebar/main mock. */
+.theme-card-preview {
+  --themePreviewBg: var(--miniBg);
+  --themePreviewText: var(--miniText);
+  --themePreviewAccent: var(--miniAccent);
+  display: flex;
+  flex-direction: column;
+  height: 92px;
+  overflow: hidden;
+  background: var(--themePreviewBg);
+}
+
+.theme-preview-bar {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  padding: 7px 9px;
+  background: color-mix(in srgb, var(--themePreviewText) 8%, transparent);
+  border-bottom: 1px solid color-mix(in srgb, var(--themePreviewText) 14%, transparent);
+}
+
+.theme-preview-color {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  flex-shrink: 0;
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--themePreviewText) 35%, transparent);
+}
+
+.theme-preview-mini {
+  flex: 1;
+  display: grid;
+  grid-template-columns: 30px 1fr;
+  gap: 5px;
+  padding: 8px 9px;
+}
+
+.theme-preview-mini-sidebar {
+  background: color-mix(in srgb, var(--themePreviewText) 12%, transparent);
+  border-radius: var(--radius-xs);
+}
+
+.theme-preview-mini-main {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.theme-preview-mini-row {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  padding: 4px;
+  height: 12px;
+  background: color-mix(in srgb, var(--themePreviewText) 10%, transparent);
+  border-radius: var(--radius-xs);
+}
+
+.theme-preview-mini-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--themePreviewAccent);
+  flex-shrink: 0;
+  box-shadow: 0 0 5px var(--themePreviewAccent);
+}
+
+.theme-preview-mini-bar {
+  flex: 1;
+  height: 4px;
+  border-radius: 2px;
+  background: var(--themePreviewText);
+  opacity: 0.45;
+}
+
+.theme-preview-mini-card {
+  flex: 1;
+  display: flex;
+  align-items: flex-end;
+  padding: 4px;
+  background: color-mix(in srgb, var(--themePreviewText) 14%, transparent);
+  border-radius: var(--radius-xs);
+}
+
+.theme-preview-mini-accent {
+  height: 7px;
+  width: 55%;
+  border-radius: 2px;
+  background: var(--themePreviewAccent);
+}
+
+/* Card footer: name + descriptor chip + active dot. */
+.theme-card-info {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-sm);
+  padding: var(--space-sm) var(--space-md);
+  border-top: 1px solid var(--color-border);
+}
+
+.theme-card-text {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  min-width: 0;
+}
+
+.theme-card-name {
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text-primary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.theme-card-descriptor {
+  padding: 1px 8px;
+  border-radius: var(--radius-full);
+  background: color-mix(in srgb, var(--color-accent) 13%, transparent);
+  border: 1px solid color-mix(in srgb, var(--color-accent) 26%, transparent);
+  font-size: 10px;
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-accent);
+  white-space: nowrap;
+}
+
+.theme-active-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--color-accent);
+  box-shadow: 0 0 10px var(--color-accent-glow);
+  flex-shrink: 0;
+}
+
+/* System-theme sync row + accent override block spacing. */
+.theme-sync {
+  margin-top: var(--space-lg);
+}
+
+.settings-row--accent {
+  margin-top: var(--space-xl);
+}
+
+/* Accent color swatches — 28px circles, ring + glow on the active one. */
+.accent-picker {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  flex-wrap: wrap;
+  margin-top: var(--space-sm);
+}
+
+.accent-swatch {
+  position: relative;
+  width: 28px;
+  height: 28px;
+  border-radius: var(--radius-full);
+  border: 2px solid transparent;
+  cursor: pointer;
+  padding: 0;
+  background-clip: padding-box;
+  transition: transform var(--transition-fast), border-color var(--transition-fast), box-shadow var(--transition-fast);
+}
+
+.accent-swatch::before {
+  content: "";
+  position: absolute;
+  inset: 2px;
+  border-radius: var(--radius-full);
+  background: inherit;
+  pointer-events: none;
+}
+
+.accent-swatch:hover {
+  transform: translateY(-2px);
+}
+
+.accent-swatch:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 2px;
+}
+
+.accent-swatch.active {
+  border-color: var(--color-text-primary);
+  box-shadow: 0 0 0 2px var(--color-bg-secondary);
+}
+
+.accent-swatch--custom {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--color-bg-tertiary);
+  border-color: var(--color-border);
+  font-size: 13px;
+  line-height: 1;
+}
+
+.accent-swatch--custom input[type="color"] {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  opacity: 0;
+  cursor: pointer;
+  border: none;
+  background: none;
+  padding: 0;
+}
+
+.accent-clear {
+  display: inline-flex;
+  align-items: center;
+  min-height: var(--settings-ctl-h);
+  padding: 0 var(--space-md);
+  border-radius: var(--radius-full);
+  background: transparent;
+  border: 1px solid var(--color-border);
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-semibold);
+  font-family: inherit;
+  cursor: pointer;
+  transition: color var(--transition-fast), background var(--transition-fast), border-color var(--transition-fast), box-shadow var(--transition-fast), opacity var(--transition-fast), transform var(--transition-fast);
+}
+
+.accent-clear:hover {
+  background: var(--color-bg-tertiary);
+  color: var(--color-text-primary);
+  border-color: var(--color-border-light);
+}
+
+.accent-clear:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 2px;
 }
 
 /* =============================================================================
- * 11. Hardware tab — redesigned, navigable control panel
- *
- * Layered as: a header with a master switch, a sticky in-page tab bar
- * (Detected / Telemetry / Display) for quick jumps, then three panes.
- * Detected hardware is a row of spec cards whose GPU adapters are
- * clickable chips; telemetry metrics are switch cards; display prefs
- * are paired cards. Every surface uses the shared design tokens.
+ * Hardware tab — monitoring master switch, detected specs, telemetry, display
  * ========================================================================== */
 
 .hw {
@@ -1759,64 +1230,15 @@
   gap: var(--space-xl);
 }
 
-/* ── Header ─────────────────────────────────────────────────────────── */
-.hw-head {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: var(--space-lg);
-  padding: var(--space-lg) var(--space-xl);
-  background: var(--color-surface);
-  border: 1px solid color-mix(in srgb, var(--color-accent) 28%, var(--color-border));
-  border-radius: var(--radius-xl);
-}
-
-.hw-head-text {
-  display: flex;
-  align-items: center;
-  gap: var(--space-md);
-  min-width: 0;
-}
-
-.hw-head-icon {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 44px;
-  height: 44px;
-  flex-shrink: 0;
-  border-radius: var(--radius-lg);
-  background: color-mix(in srgb, var(--color-accent) 16%, transparent);
-  color: var(--color-accent);
-  border: 1px solid color-mix(in srgb, var(--color-accent) 32%, transparent);
-}
-
-.hw-head-icon svg { width: 22px; height: 22px; }
-
-.hw-head-titles { min-width: 0; }
-
-.hw-title {
-  margin: 0;
-  font-size: var(--font-size-lg);
-  font-weight: var(--font-weight-bold);
-  color: var(--color-text-primary);
-  letter-spacing: -0.3px;
-}
-
-.hw-subtitle {
-  margin: 2px 0 0;
-  font-size: var(--font-size-sm);
-  color: var(--color-text-secondary);
-  line-height: 1.4;
-}
-
-/* Master switch */
+/* Master switch — pill with state label + sliding switch. Sits in the
+ * section header's actions slot, right-aligned via .settings-section-actions. */
 .hw-master {
   display: inline-flex;
   align-items: center;
   gap: var(--space-sm);
   flex-shrink: 0;
-  padding: 6px 8px 6px 14px;
+  min-height: var(--settings-ctl-h);
+  padding: var(--space-2xs) var(--space-xs) var(--space-2xs) var(--space-md);
   background: var(--color-bg-tertiary);
   border: 1px solid var(--color-border);
   border-radius: var(--radius-full);
@@ -1824,7 +1246,15 @@
   transition: border-color var(--transition-fast), background var(--transition-fast);
 }
 
-.hw-master:hover { border-color: var(--color-border-light); }
+.hw-master:hover {
+  border-color: var(--color-border-light);
+  background: var(--color-bg-secondary);
+}
+
+.hw-master:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 2px;
+}
 
 .hw-master-state {
   font-size: var(--font-size-xs);
@@ -1833,62 +1263,78 @@
   letter-spacing: 0.6px;
   color: var(--color-text-muted);
 }
-.hw-master-state[data-on="true"] { color: var(--color-success); }
+
+.hw-master-state[data-on="true"] {
+  color: var(--color-success);
+}
 
 .hw-switch {
   position: relative;
-  width: 46px;
-  height: 26px;
+  width: 40px;
+  height: 22px;
   border-radius: var(--radius-full);
   background: var(--color-bg-secondary);
   border: 1px solid var(--color-border);
   transition: background var(--transition-fast), border-color var(--transition-fast);
   flex-shrink: 0;
 }
+
 .hw-switch-knob {
   position: absolute;
   top: 2px;
   left: 2px;
-  width: 20px;
-  height: 20px;
+  width: 16px;
+  height: 16px;
   border-radius: 50%;
   background: var(--color-text-muted);
   transition: transform var(--transition-fast), background var(--transition-fast);
 }
+
 .hw-master[data-on="true"] .hw-switch {
-  background: color-mix(in srgb, var(--color-accent) 32%, transparent);
+  background: color-mix(in srgb, var(--color-accent) 30%, transparent);
   border-color: var(--color-accent);
 }
+
 .hw-master[data-on="true"] .hw-switch-knob {
-  transform: translateX(20px);
+  transform: translateX(18px);
   background: var(--color-accent);
 }
-.hw-master:focus-visible { outline: 2px solid var(--color-accent); outline-offset: 2px; }
 
-/* ── Panes ────────────────────────────────────────────────────────── */
+/* ── Panes ──────────────────────────────────────────────────────────────── */
 .hw-pane {
   display: flex;
   flex-direction: column;
   gap: var(--space-lg);
   scroll-margin-top: calc(var(--space-xl) + 56px);
-  animation: importMenuIn 220ms ease;
 }
-.hw-pane.is-disabled { opacity: 0.55; }
 
-.hw-pane-head { display: flex; flex-direction: column; gap: 2px; }
+.hw-pane.is-disabled {
+  opacity: 0.55;
+}
+
+.hw-pane-head {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
 .hw-pane-title {
   margin: 0;
-  font-size: var(--font-size-md);
-  font-weight: var(--font-weight-bold);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-semibold);
+  text-transform: uppercase;
+  letter-spacing: 0.6px;
   color: var(--color-text-primary);
 }
+
 .hw-pane-desc {
   margin: 0;
   font-size: var(--font-size-sm);
   color: var(--color-text-muted);
+  line-height: 1.5;
 }
 
-/* ── Detected hardware spec cards ─────────────────────────────────── */
+/* ── Detected hardware spec cards ───────────────────────────────────────── */
 .hw-specs {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
@@ -1900,39 +1346,64 @@
   align-items: flex-start;
   gap: var(--space-md);
   padding: var(--space-lg);
-  background: var(--color-bg-secondary);
+  background: var(--color-surface);
   border: 1px solid var(--color-border);
   border-radius: var(--radius-lg);
-  transition: border-color var(--transition-fast), transform var(--transition-fast), box-shadow var(--transition-fast);
+  transition: border-color var(--transition-fast), background var(--transition-fast), box-shadow var(--transition-fast);
 }
+
 .hw-spec:hover {
   border-color: var(--color-border-light);
-  transform: translateY(-2px);
-  box-shadow: 0 8px 24px color-mix(in srgb, var(--color-bg-secondary) 40%, transparent);
+  background: color-mix(in srgb, var(--color-bg-secondary) 40%, var(--color-surface));
+}
+
+.hw-spec--gpu {
+  border-color: color-mix(in srgb, var(--color-accent) 24%, var(--color-border));
 }
 
 .hw-spec-icon {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 42px;
-  height: 42px;
+  width: 34px;
+  height: 34px;
   flex-shrink: 0;
   border-radius: var(--radius-md);
-  color: #fff;
-}
-.hw-spec-icon svg { width: 22px; height: 22px; }
-.hw-spec-icon--cpu {
-  background: var(--color-accent);
-}
-.hw-spec-icon--memory {
-  background: var(--color-success);
-}
-.hw-spec-icon--gpu {
-  background: var(--color-warning);
+  background: var(--color-bg-tertiary);
+  border: 1px solid var(--color-border);
+  color: var(--color-text-secondary);
 }
 
-.hw-spec-body { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.hw-spec-icon svg {
+  width: 17px;
+  height: 17px;
+}
+
+/* Tinted icon tiles per component type. */
+.hw-spec-icon--cpu {
+  background: color-mix(in srgb, var(--color-accent) 14%, transparent);
+  border-color: color-mix(in srgb, var(--color-accent) 28%, transparent);
+  color: var(--color-accent);
+}
+
+.hw-spec-icon--memory {
+  background: color-mix(in srgb, var(--color-success) 14%, transparent);
+  border-color: color-mix(in srgb, var(--color-success) 28%, transparent);
+  color: var(--color-success);
+}
+
+.hw-spec-icon--gpu {
+  background: color-mix(in srgb, var(--color-warning) 14%, transparent);
+  border-color: color-mix(in srgb, var(--color-warning) 28%, transparent);
+  color: var(--color-warning);
+}
+
+.hw-spec-body {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
 
 .hw-spec-label {
   display: inline-flex;
@@ -1944,6 +1415,7 @@
   letter-spacing: 0.8px;
   color: var(--color-text-muted);
 }
+
 .hw-spec-count {
   display: inline-flex;
   align-items: center;
@@ -1954,31 +1426,45 @@
   font-size: 10px;
   font-weight: var(--font-weight-bold);
   color: var(--color-accent);
-  background: color-mix(in srgb, var(--color-accent) 18%, transparent);
+  background: color-mix(in srgb, var(--color-accent) 16%, transparent);
   border-radius: var(--radius-full);
   font-variant-numeric: tabular-nums;
 }
+
 .hw-spec-value {
   font-size: var(--font-size-md);
   font-weight: var(--font-weight-semibold);
   color: var(--color-text-primary);
   line-height: 1.35;
+  font-variant-numeric: tabular-nums;
+  word-break: break-word;
 }
-.hw-spec-sub { font-size: var(--font-size-xs); color: var(--color-text-muted); }
-.hw-spec-empty { font-size: var(--font-size-sm); color: var(--color-text-muted); font-style: italic; }
 
-/* GPU chips — clickable adapters; the monitored one is highlighted */
+.hw-spec-sub {
+  font-size: var(--font-size-xs);
+  color: var(--color-text-muted);
+}
+
+.hw-spec-empty {
+  font-size: var(--font-size-sm);
+  color: var(--color-text-muted);
+  font-style: italic;
+}
+
+/* GPU chips — clickable adapters; the monitored one is accent-tinted. */
 .hw-gpu-chips {
   display: flex;
   flex-wrap: wrap;
-  gap: var(--space-xs);
-  margin-top: var(--space-xs);
+  gap: var(--space-2xs);
+  margin-top: var(--space-2xs);
 }
+
 .hw-gpu-chip {
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  padding: 5px 10px;
+  max-width: 100%;
+  padding: var(--space-2xs) var(--space-sm);
   background: var(--color-bg-tertiary);
   border: 1px solid var(--color-border);
   border-radius: var(--radius-full);
@@ -1987,40 +1473,57 @@
   font-size: var(--font-size-xs);
   font-weight: var(--font-weight-medium);
   cursor: pointer;
-  max-width: 100%;
   transition: border-color var(--transition-fast), background var(--transition-fast), color var(--transition-fast);
 }
-.hw-gpu-chip:hover { border-color: var(--color-border-light); color: var(--color-text-primary); }
+
+.hw-gpu-chip:hover {
+  border-color: var(--color-border-light);
+  color: var(--color-text-primary);
+  background: var(--color-bg-secondary);
+}
+
+.hw-gpu-chip:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 2px;
+}
+
 .hw-gpu-chip-dot {
-  width: 7px;
-  height: 7px;
+  width: 6px;
+  height: 6px;
   border-radius: 50%;
   background: var(--color-text-muted);
   flex-shrink: 0;
 }
+
 .hw-gpu-chip-name {
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
   min-width: 0;
 }
+
 .hw-gpu-chip-vram {
   color: var(--color-text-muted);
   font-variant-numeric: tabular-nums;
   flex-shrink: 0;
 }
+
 .hw-gpu-chip.active {
   color: var(--color-text-primary);
   background: color-mix(in srgb, var(--color-accent) 16%, transparent);
   border-color: color-mix(in srgb, var(--color-accent) 45%, transparent);
 }
+
 .hw-gpu-chip.active .hw-gpu-chip-dot {
   background: var(--color-success);
   box-shadow: 0 0 8px var(--color-success);
 }
-.hw-gpu-chip.active .hw-gpu-chip-vram { color: var(--color-text-secondary); }
 
-/* ── Telemetry metric switch cards ────────────────────────────────── */
+.hw-gpu-chip.active .hw-gpu-chip-vram {
+  color: var(--color-text-secondary);
+}
+
+/* ── Telemetry metric toggles ───────────────────────────────────────────── */
 .hw-metric-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
@@ -2031,36 +1534,47 @@
   display: flex;
   align-items: center;
   gap: var(--space-sm);
-  padding: var(--space-md);
-  background: var(--color-bg-secondary);
+  padding: var(--space-sm) var(--space-md);
+  background: var(--color-surface);
   border: 1px solid var(--color-border);
-  border-radius: var(--radius-lg);
+  border-radius: var(--radius-md);
   cursor: pointer;
   user-select: none;
   transition: border-color var(--transition-fast), background var(--transition-fast);
 }
-.hw-metric:hover { border-color: var(--color-border-light); }
+
+.hw-metric:hover {
+  border-color: var(--color-border-light);
+}
+
 .hw-metric.on {
   border-color: color-mix(in srgb, var(--color-accent) 45%, transparent);
-  background: color-mix(in srgb, var(--color-accent) 8%, var(--color-bg-secondary));
+  background: color-mix(in srgb, var(--color-accent) 8%, var(--color-surface));
 }
+
 .hw-metric-icon {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 32px;
-  height: 32px;
+  width: 30px;
+  height: 30px;
   flex-shrink: 0;
   border-radius: var(--radius-md);
   background: var(--color-bg-tertiary);
   color: var(--color-text-muted);
   transition: color var(--transition-fast), background var(--transition-fast);
 }
-.hw-metric-icon svg { width: 17px; height: 17px; }
+
+.hw-metric-icon svg {
+  width: 15px;
+  height: 15px;
+}
+
 .hw-metric.on .hw-metric-icon {
   color: var(--color-accent);
   background: color-mix(in srgb, var(--color-accent) 16%, transparent);
 }
+
 .hw-metric-label {
   flex: 1;
   min-width: 0;
@@ -2069,35 +1583,39 @@
   color: var(--color-text-primary);
 }
 
+/* Custom switch with the native checkbox kept as an invisible hit target. */
 .hw-metric-switch {
   position: relative;
-  width: 40px;
-  height: 22px;
+  width: 36px;
+  height: 20px;
   flex-shrink: 0;
   border-radius: var(--radius-full);
   background: var(--color-bg-tertiary);
   border: 1px solid var(--color-border);
   transition: background var(--transition-fast), border-color var(--transition-fast);
 }
+
 .hw-metric-knob {
   position: absolute;
   top: 2px;
   left: 2px;
-  width: 16px;
-  height: 16px;
+  width: 14px;
+  height: 14px;
   border-radius: 50%;
   background: var(--color-text-muted);
   transition: transform var(--transition-fast), background var(--transition-fast);
 }
+
 .hw-metric.on .hw-metric-switch {
   background: color-mix(in srgb, var(--color-accent) 30%, transparent);
   border-color: var(--color-accent);
 }
+
 .hw-metric.on .hw-metric-knob {
-  transform: translateX(18px);
+  transform: translateX(16px);
   background: var(--color-accent);
 }
-/* visually-hidden checkbox keeps it clickable + a11y-friendly */
+
 .hw-metric-switch input {
   position: absolute;
   inset: 0;
@@ -2107,9 +1625,17 @@
   opacity: 0;
   cursor: pointer;
 }
-.hw-metric-switch input:disabled { cursor: not-allowed; }
 
-/* ── Paired cards (sampling / gpu / units) ────────────────────────── */
+.hw-metric-switch input:disabled {
+  cursor: not-allowed;
+}
+
+.hw-metric:has(input:focus-visible) {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 2px;
+}
+
+/* ── Paired setting cards (sampling / gpu / units) ──────────────────────── */
 .hw-duo {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
@@ -2121,12 +1647,16 @@
   flex-direction: column;
   gap: var(--space-sm);
   padding: var(--space-lg);
-  background: var(--color-bg-secondary);
+  background: var(--color-surface);
   border: 1px solid var(--color-border);
   border-radius: var(--radius-lg);
-  transition: border-color var(--transition-fast);
+  transition: border-color var(--transition-fast), background var(--transition-fast);
 }
-.hw-card:hover { border-color: var(--color-border-light); }
+
+.hw-card:hover {
+  border-color: var(--color-border-light);
+  background: color-mix(in srgb, var(--color-bg-secondary) 40%, var(--color-surface));
+}
 
 .hw-card-head {
   display: flex;
@@ -2134,342 +1664,118 @@
   justify-content: space-between;
   gap: var(--space-sm);
 }
+
 .hw-card-label {
   font-size: var(--font-size-sm);
   font-weight: var(--font-weight-semibold);
   color: var(--color-text-primary);
 }
+
 .hw-card-value {
-  font-size: var(--font-size-sm);
+  display: inline-flex;
+  align-items: center;
+  min-height: 24px;
+  padding: 2px 10px;
+  font-size: var(--font-size-xs);
   font-weight: var(--font-weight-bold);
   color: var(--color-accent);
   background: color-mix(in srgb, var(--color-accent) 14%, transparent);
-  border: 1px solid color-mix(in srgb, var(--color-accent) 30%, transparent);
+  border: 1px solid color-mix(in srgb, var(--color-accent) 28%, transparent);
   border-radius: var(--radius-md);
-  padding: 2px 10px;
   font-variant-numeric: tabular-nums;
 }
+
 .hw-card-help {
   margin: 0;
   font-size: var(--font-size-xs);
   color: var(--color-text-muted);
-  line-height: 1.45;
+  line-height: 1.5;
 }
-.hw-card-help strong { color: var(--color-text-secondary); }
 
+.hw-card-help strong {
+  color: var(--color-text-secondary);
+}
+
+/* Custom range slider — hairline track + accent thumb. */
 .hw-range {
+  -webkit-appearance: none;
+  appearance: none;
   width: 100%;
-  accent-color: var(--color-accent);
+  height: 4px;
+  margin: var(--space-sm) 0 var(--space-2xs);
+  border-radius: var(--radius-full);
+  background: var(--color-bg-tertiary);
+  outline: none;
   cursor: pointer;
-  margin-top: var(--space-xs);
-}
-.hw-range:disabled { opacity: 0.5; cursor: not-allowed; }
-
-.hw-select { width: 100%; }
-
-.hw-seg { margin-top: 2px; }
-
-/* ── Responsive ───────────────────────────────────────────────────── */
-@media (max-width: 880px) {
-  .hw-head { flex-direction: column; align-items: stretch; }
-  .hw-master { align-self: flex-start; }
 }
 
-/* ── Privacy / Local storage wipe ──────────────────────────────────── */
-.settings-wipe-toolbar {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: var(--space-md);
-  flex-wrap: wrap;
-  margin-bottom: var(--space-md);
+.hw-range::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: var(--color-accent);
+  border: 2px solid var(--color-surface);
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--color-accent) 40%, transparent);
 }
 
-.settings-wipe-count {
-  font-size: 0.85rem;
-  color: var(--text-muted);
+.hw-range::-moz-range-thumb {
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: var(--color-accent);
+  border: 2px solid var(--color-surface);
 }
 
-.settings-wipe-actions {
-  display: flex;
-  gap: var(--space-sm);
-  flex-wrap: wrap;
+.hw-range:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
 }
 
-.settings-wipe-empty {
-  padding: var(--space-lg);
-  text-align: center;
-  color: var(--color-text-muted);
-  background: var(--color-bg-tertiary);
-  border: 1px dashed var(--color-border);
-  border-radius: var(--radius-md);
-}
-
-.settings-wipe-list {
-  list-style: none;
-  margin: 0;
-  padding: 0;
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-sm);
-}
-
-.settings-wipe-item {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: var(--space-md);
-  padding: var(--space-md);
-  background: var(--color-bg-tertiary);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-md);
-}
-
-.settings-wipe-item-info {
-  min-width: 0;
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-}
-
-.settings-wipe-key {
-  font-family: var(--font-mono, ui-monospace, "SF Mono", Menlo, monospace);
-  font-size: var(--font-size-sm);
-  font-weight: var(--font-weight-semibold);
-  color: var(--color-text-primary);
-  word-break: break-all;
-}
-
-.settings-wipe-size {
-  font-size: var(--font-size-xs);
-  color: var(--color-text-muted);
-}
-
-.settings-wipe-value {
-  margin: 0;
-  font-family: var(--font-mono, ui-monospace, "SF Mono", Menlo, monospace);
-  font-size: var(--font-size-xs);
-  line-height: 1.4;
-  color: var(--color-text-muted);
-  white-space: pre-wrap;
-  word-break: break-word;
-  max-height: 6.5em;
-  overflow: auto;
-  background: var(--color-bg-primary);
-  border-radius: var(--radius-sm);
-  padding: 6px 8px;
-}
-
-.settings-wipe-item-action {
-  flex-shrink: 0;
-}
-
-/* ─────────────────────────────────────────────────────────────
-   Settings refactor — layout utilities (converted from the
-   inline styles the old monolith carried on these class names)
-   ───────────────────────────────────────────────────────────── */
-
-/* Inner card used by the downloads sections (location / notifications / debrid). */
-.settings-card {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-md);
-  padding: var(--space-md);
-  background: var(--color-surface);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-lg);
-}
-
-/* Bandwidth / speed-limit block container. */
-.settings-bandwidth-limits {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-md);
-}
-
-/* One speed-limit row: checkbox label left, value input + unit right. */
-.settings-limit-row {
-  display: flex;
-  align-items: center;
-  gap: var(--space-md);
-  flex-wrap: wrap;
-}
-
-/* Seeding toggle with its helper text stacked underneath. */
-.settings-limit-row--seed {
-  flex-direction: column;
-  align-items: flex-start;
-  gap: 6px;
-}
-
-/* Stacked (label above control) rows — debrid provider + API key. */
-.settings-limit-row--stack {
-  flex-direction: column;
-  align-items: flex-start;
-  gap: var(--space-xs);
-}
-
-.settings-limit-value {
-  display: flex;
-  align-items: center;
-  gap: var(--space-xs);
-}
-
-.settings-limit-input {
-  flex: 0 0 auto;
-  width: 110px;
-}
-
-.settings-limit-unit {
-  font-size: var(--font-size-sm);
-  color: var(--color-text-secondary);
-}
-
-/* Debrid API-key row: input + test button side by side. */
-.settings-debrid-row {
-  display: flex;
-  align-items: center;
-  gap: var(--space-sm);
+.hw-select {
   width: 100%;
 }
 
-.settings-debrid-row .settings-input {
-  flex: 1;
+.hw-seg {
+  margin-top: var(--space-2xs);
 }
 
-.settings-helper-text--debrid {
-  max-width: 560px;
+/* ── Responsive ─────────────────────────────────────────────────────────── */
+
+/* The Hardware header (title + desc left, master switch right) stacks so the
+ * switch drops below the text when the pane narrows. */
+@media (max-width: 880px) {
+  .settings-section.hw .settings-section-header {
+    flex-wrap: wrap;
+  }
+
+  .settings-section.hw .settings-section-actions {
+    margin-left: 0;
+  }
 }
 
-/* Small caps label above selects (debrid provider / api key). */
-.settings-label--sm {
-  font-size: var(--font-size-xs);
-  font-weight: var(--font-weight-semibold);
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
-  color: var(--color-text-secondary);
-}
+/* =============================================================================
+ * Reduced motion
+ * ========================================================================== */
 
-/* Label + right-aligned external link (Steam API key / SteamID rows). */
-.settings-label-row {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: var(--space-sm);
-}
+@media (prefers-reduced-motion: reduce) {
+  .settings-section,
+  .theme-card,
+  .language-panel,
+  .hw-pane {
+    animation: none;
+  }
 
-.settings-link {
-  font-size: var(--font-size-xs);
-  color: var(--color-accent);
-  text-decoration: none;
-  font-weight: var(--font-weight-medium);
-}
-
-.settings-link:hover {
-  text-decoration: underline;
-}
-
-/* Narrower control blocks (blocked-domains editor). */
-.settings-control--narrow {
-  max-width: 520px;
-}
-
-/* Monospace textarea for domain lists. */
-.settings-textarea-mono {
-  font-family: var(--font-mono, ui-monospace, "SF Mono", Menlo, monospace);
-  font-size: var(--font-size-sm);
-  resize: vertical;
-}
-
-/* Debrid provider select — a touch wider than the default. */
-.settings-select--debrid {
-  min-width: 220px;
-}
-
-/* Checkbox-label modifiers used across the settings tabs. */
-.settings-checkbox-label--inline {
-  display: flex;
-  align-items: center;
-  gap: var(--space-md);
-}
-
-.settings-checkbox-label--fixed {
-  flex: 0 0 auto;
-  min-width: 190px;
-}
-
-.settings-checkbox-label--disabled {
-  opacity: 0.5;
-  pointer-events: none;
-}
-
-/* Launcher tab — responsive grid of behaviour cards. */
-.settings-launcher-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
-  gap: var(--space-md);
-}
-
-/* Integration auth notes (small muted line under the status). */
-.auth-note {
-  font-size: var(--font-size-xs);
-  color: var(--color-text-muted);
-  margin: var(--space-xs) 0 0;
-  line-height: 1.5;
-}
-
-/* Epic stale-session recovery banner. */
-.epic-stale-banner {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: var(--space-md);
-  flex-wrap: wrap;
-  margin-top: var(--space-md);
-  padding: var(--space-md);
-  border: 1px solid var(--color-border);
-  border-left: 3px solid var(--color-warning);
-  border-radius: var(--radius-md);
-  background: var(--color-bg-secondary);
-}
-
-.epic-stale-banner-text {
-  margin: 0;
-  font-size: var(--font-size-sm);
-  color: var(--color-text-secondary);
-  line-height: 1.5;
-}
-
-/* Integration tile — the shared form wrapper under the action buttons. */
-.integration-tile-form {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-md);
-  margin-top: var(--space-md);
-}
-
-/* GPU spec card modifier — subtle accent border. */
-.hw-spec--gpu {
-  border-color: var(--color-border-light);
-}
-
-/* Store tile icons sit in a 48px brand box — size the icon itself. */
-.integration-tile-icon svg {
-  width: 22px;
-  height: 22px;
-}
-
-/* Save-path action buttons (right-aligned inside the path row). */
-.dl-save-path-actions {
-  display: flex;
-  align-items: center;
-  gap: var(--space-sm);
-  margin-left: auto;
-}
-
-/* Small icon shared by settings-page buttons. */
-.settings-btn-icon {
-  width: 16px;
-  height: 16px;
+  .language-trigger-chevron,
+  .language-trigger,
+  .language-option,
+  .accent-swatch,
+  .accent-clear,
+  .hw-switch,
+  .hw-switch-knob,
+  .hw-metric-switch,
+  .hw-metric-knob {
+    transition: none;
+  }
 }

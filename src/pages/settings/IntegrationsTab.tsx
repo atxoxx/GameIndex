@@ -216,7 +216,7 @@ export default function IntegrationsTab({ integrations }: { integrations: Integr
 
           {steam.steamAuth.isAuthenticated && (
             <div className="settings-toggles-group">
-              <p className="settings-toggles-title">{t("settingsPage.syncBehaviour")}</p>
+              <p className="settings-toggles-group-title">{t("settingsPage.syncBehaviour")}</p>
               {(
                 [
                   ["autoSyncOnLaunch", t("settingsPage.autoSyncLaunch")],

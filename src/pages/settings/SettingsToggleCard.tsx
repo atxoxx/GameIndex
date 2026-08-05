@@ -13,11 +13,15 @@ interface SettingsToggleCardProps {
 }
 
 /**
- * SettingsToggleCard — the two-line checkbox card used across the
- * Launcher and Data & sync tabs. Renders a bold title above a muted
- * helper description with a square checkbox, so every toggle reads as
- * a real option instead of a bare tick. `warn` tints the card border
- * amber to flag destructive/sensitive options.
+ * SettingsToggleCard — the canonical toggle card used across the Launcher
+ * and Data & sync tabs. Renders a bold title above a muted helper
+ * description with a square checkbox on the right, so every toggle reads as
+ * a real option instead of a bare tick. `warn` tints the card border amber
+ * to flag destructive/sensitive options.
+ *
+ * Presentation lives in settings.css: the root `.settings-launcher-card`
+ * surface, the checkbox drawn via the shared `.settings-checkbox-label`
+ * square-checkbox styles, and the `--warn` amber/danger variant.
  */
 export default function SettingsToggleCard({
   title,

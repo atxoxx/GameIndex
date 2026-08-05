@@ -380,6 +380,13 @@
   scroll-margin-top: var(--space-xl);
 }
 
+/* The content column already spaces children via `gap`; neutralise the
+ * shared section bottom-margin so stacked sections keep one 24px gutter
+ * instead of two (margin + gap) stacked on top of each other. */
+.settings-content .settings-section {
+  margin-bottom: 0;
+}
+
 /* ── Responsive ───────────────────────────────────────────────────── */
 
 @media (max-width: 960px) {

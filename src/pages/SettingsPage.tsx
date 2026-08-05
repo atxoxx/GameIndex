@@ -4,6 +4,7 @@ import { useBigScreen } from "../context/BigScreenContext";
 import { PageHeader } from "../components/ui";
 import BigScreenSystem from "../components/bigscreen/BigScreenSystem";
 import "../styles/page-settings.css";
+import "../styles/settings-tabs-b.css";
 
 import { useIntegrations } from "./settings/useIntegrations";
 import SettingsSidebar from "./settings/SettingsSidebar";

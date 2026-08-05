@@ -170,10 +170,7 @@ export default function DownloadsTab() {
             </div>
           </div>
 
-          <label
-            className="settings-checkbox-label settings-checkbox-label--inline"
-            style={{ opacity: defaultDownloadPath ? 1 : 0.5 }}
-          >
+          <label className="settings-checkbox-label settings-checkbox-label--inline">
             <input
               type="checkbox"
               checked={alwaysAskPath}
@@ -207,10 +204,7 @@ export default function DownloadsTab() {
             <span>{t("settings.downloads.showToast")}</span>
           </label>
 
-          <label
-            className="settings-checkbox-label settings-checkbox-label--inline"
-            style={{ opacity: notifyComplete ? 1 : 0.5 }}
-          >
+          <label className="settings-checkbox-label settings-checkbox-label--inline">
             <input
               type="checkbox"
               checked={notifyOs}
@@ -252,7 +246,7 @@ export default function DownloadsTab() {
               <div className="settings-limit-value">
                 <input
                   type="number"
-                  className="src-form-input settings-limit-input"
+                  className="settings-limit-input"
                   min="1"
                   value={dlLimitValue || ""}
                   onChange={(e) => {
@@ -268,10 +262,7 @@ export default function DownloadsTab() {
           </div>
 
           <div className="settings-limit-row">
-            <label
-              className="settings-checkbox-label settings-checkbox-label--fixed"
-              style={{ opacity: disableUpload ? 0.5 : 1 }}
-            >
+            <label className="settings-checkbox-label settings-checkbox-label--fixed">
               <input
                 type="checkbox"
                 checked={ulLimitEnabled}
@@ -287,7 +278,7 @@ export default function DownloadsTab() {
               <div className="settings-limit-value">
                 <input
                   type="number"
-                  className="src-form-input settings-limit-input"
+                  className="settings-limit-input"
                   min="1"
                   value={ulLimitValue || ""}
                   onChange={(e) => {
@@ -373,7 +364,9 @@ export default function DownloadsTab() {
           </>
         }
       >
-        <SourceManager />
+        <div className="settings-card">
+          <SourceManager />
+        </div>
       </SettingsSection>
 
       <SettingsSection

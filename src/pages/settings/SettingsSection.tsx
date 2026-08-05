@@ -13,14 +13,19 @@ interface SettingsSectionProps {
   className?: string;
   /** Inline style passthrough (used for spacing tweaks only). */
   style?: CSSProperties;
+  /** Optional trailing control(s) at the end of the header row — e.g. the
+   *  Hardware tab's master monitoring switch. Additive; existing callers
+   *  that don't pass it are unaffected. */
+  actions?: ReactNode;
   children: ReactNode;
 }
 
 /**
  * SettingsSection — the canonical section block used by every settings
- * tab. Renders the accent icon + title + description header once so
+ * tab. Renders the accent icon tile + title + description header once so
  * tabs stop hand-rolling the same `<header className="settings-section-header">`
- * markup, then hosts the tab's controls below it.
+ * markup, then hosts the tab's controls below it. `actions` lets a tab pin
+ * a status control (master switch etc.) to the right edge of the header.
  */
 export default function SettingsSection({
   icon,
@@ -29,6 +34,7 @@ export default function SettingsSection({
   id,
   className,
   style,
+  actions,
   children,
 }: SettingsSectionProps) {
   return (
@@ -43,6 +49,7 @@ export default function SettingsSection({
           <h2 className="settings-section-title">{title}</h2>
           {desc && <p className="settings-section-desc">{desc}</p>}
         </div>
+        {actions && <div className="settings-section-actions">{actions}</div>}
       </header>
       {children}
     </section>

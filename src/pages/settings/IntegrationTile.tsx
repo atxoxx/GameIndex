@@ -49,7 +49,11 @@ export default function IntegrationTile({
   dangerZone,
 }: IntegrationTileProps) {
   return (
-    <div className={`integration-tile ${brand}`} id={id}>
+    <div
+      className={`integration-tile ${brand}`}
+      id={id}
+      data-connected={connected || undefined}
+    >
       <div className="integration-tile-body-wrap">
         <div className="integration-tile-header">
           <span className="integration-tile-icon">{icon}</span>

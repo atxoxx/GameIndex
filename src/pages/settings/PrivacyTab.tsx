@@ -95,7 +95,12 @@ export default function PrivacyTab() {
       </div>
 
       {items.length === 0 ? (
-        <p className="settings-wipe-empty">{t("settings.wipe.empty")}</p>
+        <div className="settings-wipe-empty">
+          <span className="settings-wipe-empty-icon">
+            <TrashIcon />
+          </span>
+          <p>{t("settings.wipe.empty")}</p>
+        </div>
       ) : (
         <ul className="settings-wipe-list">
           {items.map((item) => {

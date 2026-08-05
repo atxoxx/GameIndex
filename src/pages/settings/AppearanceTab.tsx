@@ -160,7 +160,7 @@ export default function AppearanceTab() {
       </div>
 
       {/* System theme sync */}
-      <label className="settings-checkbox-label" style={{ marginTop: "var(--space-lg)" }}>
+      <label className="settings-checkbox-label theme-sync">
         <input
           type="checkbox"
           checked={systemSync}
@@ -170,7 +170,7 @@ export default function AppearanceTab() {
       </label>
 
       {/* Per-theme accent color override */}
-      <div className="settings-row" style={{ marginTop: "var(--space-xl)" }}>
+      <div className="settings-row settings-row--accent">
         <div className="settings-control">
           <label className="settings-label">{t("settings.label.accent")}</label>
           <p className="settings-helper-lead">

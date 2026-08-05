@@ -1,0 +1,791 @@
+/* ============================================================================
+ * Settings page — tab-specific visual layer (Lane B)
+ *
+ * Covers the Integrations / Downloads / Launcher / Privacy tabs plus the
+ * IntegrationTile + HumbleToggle shells. Consumes the shared primitives
+ * (.settings-section / .settings-card / .settings-control / .settings-input /
+ * .settings-select / .settings-checkbox-label / .settings-launcher-grid /
+ * .auth-status / .connect-prompt / .sync-result / .danger-zone / ...) owned
+ * by settings.css — nothing in this file redefines those. The legacy tab
+ * rules that used to live inside settings.css are superseded here because
+ * this file loads after it (imported from SettingsPage.tsx).
+ *
+ * NOTE on .dl-save-path-*: that family is ALSO used by the download modal's
+ * SavePathPicker (styles/download.css), so the settings-page rendition is
+ * scoped under .settings-shell to avoid restyling the modal picker.
+ * ========================================================================== */
+
+/* ── Shared token: uniform control height (mirrors --activity-ctl-h) ─────── */
+.settings-shell {
+  --settings-ctl-h: 30px;
+}
+
+/* ============================================================================
+ * INTEGRATIONS TAB
+ * ========================================================================== */
+
+/* ── Store tiles ─────────────────────────────────────────────────────────── */
+
+.integration-tile {
+  position: relative;
+  overflow: hidden;
+  margin-bottom: var(--space-xl);
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-xl);
+  transition: border-color var(--transition-fast), box-shadow var(--transition-fast);
+  animation: integrationTileIn 320ms var(--ease-standard) both;
+}
+
+/* Staggered entrance so the six stores settle in one after another. */
+.integration-tile:nth-of-type(2) { animation-delay: 40ms; }
+.integration-tile:nth-of-type(3) { animation-delay: 80ms; }
+.integration-tile:nth-of-type(4) { animation-delay: 120ms; }
+.integration-tile:nth-of-type(5) { animation-delay: 160ms; }
+.integration-tile:nth-of-type(6) { animation-delay: 200ms; }
+
+@keyframes integrationTileIn {
+  from { opacity: 0; transform: translateY(8px); }
+  to   { opacity: 1; transform: none; }
+}
+
+.integration-tile:hover {
+  border-color: var(--color-border-light);
+}
+
+/* Connected / client-detected tiles carry a faint success border so the
+ * whole tile reads as "live" at a glance. */
+.integration-tile[data-connected="true"] {
+  border-color: color-mix(in srgb, var(--color-success) 24%, var(--color-border));
+}
+.integration-tile[data-connected="true"]:hover {
+  border-color: color-mix(in srgb, var(--color-success) 38%, var(--color-border));
+}
+
+/* Brand accent bar — fixed brand color on every theme. */
+.integration-tile::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 3px;
+  background: var(--color-accent);
+  pointer-events: none;
+}
+.integration-tile.steam::before    { background: var(--brand-steam); }
+.integration-tile.epic::before     { background: var(--brand-epic); }
+.integration-tile.gog::before      { background: var(--brand-gog, #86328a); }
+.integration-tile.humble::before   { background: var(--brand-humble); }
+.integration-tile.rockstar::before { background: var(--brand-rockstar, #ffd344); }
+.integration-tile.uplay::before    { background: var(--brand-uplay); }
+
+.integration-tile-body-wrap {
+  padding: var(--space-xl);
+}
+
+/* Header — icon tile + name/badge/description, hairline-separated from the
+ * body so every store reads as a card with a clear "title" region. */
+.integration-tile-header {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-lg);
+  padding-bottom: var(--space-lg);
+  border-bottom: 1px solid var(--color-border);
+}
+
+.integration-tile-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  flex-shrink: 0;
+  border-radius: var(--radius-md);
+  background: var(--color-bg-tertiary);
+  border: 1px solid var(--color-border);
+  color: var(--color-text-secondary);
+}
+
+/* Per-brand icon-tile tints (Steam / Epic / Humble / Uplay only — GOG and
+ * Rockstar keep the neutral tile behind their fixed-color marks). */
+.integration-tile.steam .integration-tile-icon {
+  color: var(--brand-steam);
+  background: color-mix(in srgb, var(--brand-steam) 14%, var(--color-bg-tertiary));
+  border-color: color-mix(in srgb, var(--brand-steam) 30%, var(--color-border));
+}
+.integration-tile.epic .integration-tile-icon {
+  color: var(--brand-epic);
+}
+.integration-tile.humble .integration-tile-icon {
+  color: var(--brand-humble);
+  background: color-mix(in srgb, var(--brand-humble) 14%, var(--color-bg-tertiary));
+  border-color: color-mix(in srgb, var(--brand-humble) 30%, var(--color-border));
+}
+.integration-tile.uplay .integration-tile-icon {
+  color: var(--brand-uplay);
+  background: color-mix(in srgb, var(--brand-uplay) 14%, var(--color-bg-tertiary));
+  border-color: color-mix(in srgb, var(--brand-uplay) 30%, var(--color-border));
+}
+
+.integration-tile-info {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2xs);
+}
+
+.integration-tile-name-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  flex-wrap: wrap;
+}
+
+.integration-tile-name {
+  margin: 0;
+  font-size: var(--font-size-lg);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text-primary);
+  letter-spacing: -0.2px;
+}
+
+.integration-tile-desc {
+  margin: 0;
+  font-size: var(--font-size-sm);
+  color: var(--color-text-secondary);
+  line-height: 1.5;
+}
+
+.integration-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 2px 10px;
+  border-radius: var(--radius-full);
+  font-size: 10px;
+  font-weight: var(--font-weight-bold);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.integration-badge.active {
+  color: var(--color-success);
+  background: color-mix(in srgb, var(--color-success) 12%, transparent);
+  border: 1px solid color-mix(in srgb, var(--color-success) 35%, transparent);
+}
+
+.integration-badge.active::before {
+  content: "";
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--color-success);
+  box-shadow: 0 0 6px var(--color-success);
+  flex-shrink: 0;
+}
+
+.integration-tile-body {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-lg);
+  padding-top: var(--space-lg);
+}
+
+.integration-tile-actions {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  flex-wrap: wrap;
+}
+
+/* Steam credential paste-in form — the two fields sit side by side on
+ * wide tiles and stack when the tile narrows. */
+.integration-tile-form {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: var(--space-md) var(--space-lg);
+  padding: var(--space-lg);
+  background: var(--color-bg-secondary);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+}
+
+/* Sync-behaviour checkbox rows (shared group container is Lane A's; only the
+ * disabled IGDB row gets the locked look). */
+.settings-checkbox-label--disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+.settings-checkbox-label--disabled input {
+  cursor: not-allowed;
+}
+
+/* ── Epic stale-session recovery banner ──────────────────────────────────── */
+
+.epic-stale-banner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-md);
+  flex-wrap: wrap;
+  padding: var(--space-md) var(--space-lg);
+  background: color-mix(in srgb, var(--color-warning) 8%, var(--color-bg-secondary));
+  border: 1px solid color-mix(in srgb, var(--color-warning) 30%, var(--color-border));
+  border-left: 3px solid var(--color-warning);
+  border-radius: var(--radius-md);
+}
+
+.epic-stale-banner-text {
+  margin: 0;
+  font-size: var(--font-size-sm);
+  color: var(--color-text-secondary);
+  line-height: 1.5;
+}
+
+/* ── Humble + Uplay toggle grids ─────────────────────────────────────────── */
+
+.humble-settings-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+  gap: var(--space-sm);
+  padding-top: var(--space-md);
+  border-top: 1px dashed var(--color-border);
+}
+
+.humble-toggle {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--space-lg);
+  padding: var(--space-md) var(--space-lg);
+  background: var(--color-bg-secondary);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  transition: border-color var(--transition-fast), background var(--transition-fast);
+}
+
+.humble-toggle:hover {
+  border-color: var(--color-border-light);
+}
+
+.humble-toggle.disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.humble-toggle-text {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 0;
+}
+
+.humble-toggle-label {
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text-primary);
+  line-height: 1.3;
+}
+
+.humble-toggle-hint {
+  font-size: var(--font-size-xs);
+  color: var(--color-text-muted);
+  line-height: 1.4;
+}
+
+/* Switch control — a pill track with a sliding thumb (drawn in CSS; the
+ * native checkbox stays on top as an invisible, focusable hit target). */
+.humble-toggle-switch {
+  position: relative;
+  width: 36px;
+  height: 20px;
+  flex-shrink: 0;
+  margin-top: 1px;
+}
+
+.humble-toggle-switch input[type="checkbox"] {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  opacity: 0;
+  cursor: pointer;
+  z-index: 1;
+}
+
+.humble-toggle-track {
+  position: absolute;
+  inset: 0;
+  border-radius: var(--radius-full);
+  background: var(--color-bg-tertiary);
+  border: 1px solid var(--color-border);
+  pointer-events: none;
+  transition: background var(--transition-fast), border-color var(--transition-fast);
+}
+
+.humble-toggle-thumb {
+  position: absolute;
+  top: 3px;
+  left: 3px;
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: var(--color-text-muted);
+  transition: transform var(--transition-fast), background var(--transition-fast);
+}
+
+.humble-toggle-switch input:checked + .humble-toggle-track {
+  background: color-mix(in srgb, var(--color-accent) 28%, transparent);
+  border-color: var(--color-accent);
+}
+
+.humble-toggle-switch input:checked + .humble-toggle-track .humble-toggle-thumb {
+  transform: translateX(16px);
+  background: var(--color-accent);
+}
+
+.humble-toggle-switch input:focus-visible + .humble-toggle-track {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 2px;
+}
+
+/* Inside the Humble tile the switches lean on the brand teal. */
+.integration-tile.humble .humble-toggle-switch input:checked + .humble-toggle-track {
+  background: color-mix(in srgb, var(--brand-humble) 30%, transparent);
+  border-color: var(--brand-humble);
+}
+.integration-tile.humble .humble-toggle-switch input:checked + .humble-toggle-track .humble-toggle-thumb {
+  background: var(--brand-humble);
+}
+
+/* ── Footer notice ───────────────────────────────────────────────────────── */
+
+.integration-footer {
+  margin: 0;
+  padding: var(--space-lg) var(--space-md) var(--space-sm);
+  font-size: var(--font-size-xs);
+  color: var(--color-text-muted);
+  text-align: center;
+  line-height: 1.5;
+}
+
+/* ============================================================================
+ * DOWNLOADS TAB
+ * ========================================================================== */
+
+/* ── Default save location ───────────────────────────────────────────────── */
+
+.settings-shell .dl-save-path {
+  display: flex;
+  align-items: center;
+  gap: var(--space-md);
+  flex-wrap: wrap;
+}
+
+.settings-shell .dl-save-path-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  flex-shrink: 0;
+  border-radius: var(--radius-md);
+  background: color-mix(in srgb, var(--color-accent) 13%, transparent);
+  border: 1px solid color-mix(in srgb, var(--color-accent) 26%, transparent);
+  color: var(--color-accent);
+}
+
+.settings-shell .dl-save-path-icon svg {
+  width: 20px;
+  height: 20px;
+}
+
+.settings-shell .dl-save-path-text {
+  flex: 1;
+  min-width: 0;
+  padding: var(--space-sm) var(--space-md);
+  background: var(--color-bg-tertiary);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  font-family: var(--font-mono, ui-monospace, "SF Mono", Menlo, monospace);
+  font-size: var(--font-size-sm);
+  color: var(--color-text-primary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.settings-shell .dl-save-path-text.placeholder {
+  color: var(--color-text-muted);
+  font-family: inherit;
+  font-style: italic;
+}
+
+.settings-shell .dl-save-path-actions {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+}
+
+/* "Always ask" checkbox — hairline-separated under the path row. */
+.settings-shell .dl-save-path + .settings-checkbox-label--inline {
+  margin-top: var(--space-md);
+  padding-top: var(--space-md);
+  border-top: 1px solid var(--color-border);
+}
+
+/* ── Notifications + shared inline-checkbox rhythm ───────────────────────── */
+
+.settings-checkbox-label--inline {
+  display: flex;
+  align-items: center;
+  gap: var(--space-md);
+}
+
+.settings-checkbox-label--inline + .settings-checkbox-label--inline {
+  margin-top: var(--space-md);
+  padding-top: var(--space-md);
+  border-top: 1px solid var(--color-border);
+}
+
+/* Locked toggles dim via their disabled state (no inline opacity). */
+.settings-checkbox-label--inline:has(input:disabled),
+.settings-checkbox-label--fixed:has(input:disabled) {
+  opacity: 0.55;
+}
+
+/* ── Bandwidth limits ────────────────────────────────────────────────────── */
+
+.settings-bandwidth-limits {
+  display: flex;
+  flex-direction: column;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-xl);
+  overflow: hidden;
+}
+
+.settings-limit-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-lg);
+  padding: var(--space-md) var(--space-lg);
+}
+
+.settings-limit-row + .settings-limit-row {
+  border-top: 1px solid var(--color-border);
+}
+
+/* Seed-after-complete row — accent-tinted foot of the limits panel. */
+.settings-limit-row--seed {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: var(--space-2xs);
+  background: color-mix(in srgb, var(--color-accent) 4%, transparent);
+}
+
+/* Debrid rows — label above the control instead of beside it. */
+.settings-limit-row--stack {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: var(--space-sm);
+}
+
+.settings-checkbox-label--fixed {
+  flex: 1;
+  min-width: 0;
+}
+
+.settings-limit-value {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  margin-left: auto;
+}
+
+.settings-limit-input {
+  width: 108px;
+  height: var(--settings-ctl-h);
+  padding: 0 var(--space-md);
+  background: var(--color-bg-tertiary);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  color: var(--color-text-primary);
+  font-family: inherit;
+  font-size: var(--font-size-sm);
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+  outline: none;
+  transition: border-color var(--transition-fast), box-shadow var(--transition-fast);
+}
+
+.settings-limit-input:focus {
+  border-color: var(--color-accent);
+  box-shadow: 0 0 0 3px var(--color-accent-glow);
+}
+
+.settings-limit-input::placeholder {
+  color: var(--color-text-muted);
+}
+
+.settings-limit-input::-webkit-outer-spin-button,
+.settings-limit-input::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+
+.settings-limit-input {
+  appearance: textfield;
+  -moz-appearance: textfield;
+}
+
+.settings-limit-unit {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 46px;
+  height: var(--settings-ctl-h);
+  padding: 0 var(--space-sm);
+  background: var(--color-bg-tertiary);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text-secondary);
+  font-variant-numeric: tabular-nums;
+}
+
+/* ── Blocked domains ─────────────────────────────────────────────────────── */
+
+.settings-control--narrow {
+  max-width: 560px;
+}
+
+.settings-textarea-mono {
+  font-family: var(--font-mono, ui-monospace, "SF Mono", Menlo, monospace);
+  font-size: var(--font-size-sm);
+  line-height: 1.6;
+  resize: vertical;
+  min-height: 120px;
+}
+
+/* ── Debrid ──────────────────────────────────────────────────────────────── */
+
+.settings-debrid-row {
+  display: flex;
+  align-items: stretch;
+  gap: var(--space-sm);
+}
+
+.settings-debrid-row .settings-input {
+  flex: 1;
+}
+
+.settings-helper-text--debrid {
+  display: block;
+  max-width: 640px;
+  margin-top: var(--space-md);
+  padding: var(--space-md) var(--space-lg);
+  background: var(--color-bg-tertiary);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  line-height: 1.6;
+}
+
+.settings-helper-text--debrid strong {
+  color: var(--color-text-primary);
+}
+
+.settings-helper-text--debrid code {
+  background: var(--color-bg-secondary);
+  border: 1px solid var(--color-border);
+  padding: 1px 6px;
+  border-radius: var(--radius-xs);
+  font-family: var(--font-mono, ui-monospace, "SF Mono", Menlo, monospace);
+  font-size: var(--font-size-xs);
+  color: var(--color-accent);
+}
+
+.settings-label--sm {
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-semibold);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--color-text-secondary);
+}
+
+.settings-select--debrid {
+  min-width: 220px;
+  align-self: flex-start;
+}
+
+/* ============================================================================
+ * PRIVACY TAB — local storage browser
+ * ========================================================================== */
+
+.settings-wipe-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-md);
+  padding: var(--space-sm) var(--space-md);
+  background: var(--color-bg-secondary);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+}
+
+.settings-wipe-count {
+  display: inline-flex;
+  align-items: center;
+  padding: 3px 12px;
+  background: var(--color-bg-tertiary);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-full);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text-secondary);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.settings-wipe-actions {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+}
+
+/* Empty state — icon tile + line, following the app's .activity-empty shape. */
+.settings-wipe-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-md);
+  margin-top: var(--space-md);
+  padding: var(--space-2xl) var(--space-xl);
+  border: 1px dashed var(--color-border);
+  border-radius: var(--radius-lg);
+  color: var(--color-text-muted);
+  text-align: center;
+  font-size: var(--font-size-sm);
+  line-height: 1.5;
+}
+
+.settings-wipe-empty p {
+  margin: 0;
+}
+
+.settings-wipe-empty-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  border-radius: var(--radius-md);
+  background: color-mix(in srgb, var(--color-text-muted) 12%, transparent);
+  border: 1px solid var(--color-border);
+  color: var(--color-text-secondary);
+}
+
+.settings-wipe-empty-icon svg {
+  width: 20px;
+  height: 20px;
+}
+
+.settings-wipe-list {
+  display: flex;
+  flex-direction: column;
+  margin-top: var(--space-md);
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-xl);
+  overflow: hidden;
+}
+
+.settings-wipe-item {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--space-md);
+  padding: var(--space-md) var(--space-lg);
+  transition: background var(--transition-fast);
+}
+
+.settings-wipe-item:hover {
+  background: color-mix(in srgb, var(--color-bg-secondary) 55%, transparent);
+}
+
+.settings-wipe-item + .settings-wipe-item {
+  border-top: 1px solid var(--color-border);
+}
+
+.settings-wipe-item-info {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2xs);
+}
+
+.settings-wipe-key {
+  font-family: var(--font-mono, ui-monospace, "SF Mono", Menlo, monospace);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text-primary);
+  word-break: break-all;
+}
+
+.settings-wipe-size {
+  align-self: flex-start;
+  padding: 1px 8px;
+  border-radius: var(--radius-full);
+  background: var(--color-bg-tertiary);
+  border: 1px solid var(--color-border);
+  font-size: 10px;
+  font-weight: var(--font-weight-bold);
+  color: var(--color-text-muted);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.settings-wipe-value {
+  margin: 2px 0 0;
+  padding: var(--space-sm);
+  background: var(--color-bg-tertiary);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  font-family: var(--font-mono, ui-monospace, "SF Mono", Menlo, monospace);
+  font-size: var(--font-size-xs);
+  line-height: 1.5;
+  color: var(--color-text-secondary);
+  white-space: pre-wrap;
+  word-break: break-word;
+  max-height: 96px;
+  overflow-y: auto;
+}
+
+.settings-wipe-item-action {
+  flex-shrink: 0;
+}
+
+/* ============================================================================
+ * MOTION
+ * ========================================================================== */
+
+@media (prefers-reduced-motion: reduce) {
+  .integration-tile {
+    animation: none;
+  }
+  .humble-toggle,
+  .humble-toggle-track,
+  .humble-toggle-thumb {
+    transition: none;
+  }
+}

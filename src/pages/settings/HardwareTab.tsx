@@ -8,12 +8,17 @@ import { useLanguage } from "../../context/LanguageContext";
 import { useToast } from "../../context/ToastContext";
 import { Button } from "../../components/ui";
 import type { SizeUnit } from "../../types/game";
-import { CpuIcon, GaugeIcon, GpuIcon, HardwareIcon, MemoryIcon, RefreshIcon } from "./settingsIcons";
+import { CpuIcon, GaugeIcon, GpuIcon, HardwareIcon, MemoryIcon, RefreshIcon, ThermometerIcon } from "./settingsIcons";
+import SettingsSection from "./SettingsSection";
 
 /**
  * HardwareTab — detected-hardware summary (CPU / RAM / GPU chips), the
  * telemetry capture toggles + sampling interval, and the display-unit
  * preferences (temperature + storage size).
+ *
+ * Renders through the canonical SettingsSection header so the tab reads like
+ * every other settings tab: the icon tile + title + desc on the left, and
+ * the master monitoring switch pinned to the right via the `actions` slot.
  */
 export default function HardwareTab() {
   const { availableGpus, selectedGpu, setSelectedGpu, refreshGpus } = useActivity();
@@ -82,18 +87,12 @@ export default function HardwareTab() {
   }, [hardwareMonitoringEnabled, metricCapture, samplingIntervalMs]);
 
   return (
-    <section className="settings-section hw">
-      {/* Header — title + master monitoring switch */}
-      <header className="hw-head">
-        <div className="hw-head-text">
-          <span className="hw-head-icon" aria-hidden>
-            <HardwareIcon />
-          </span>
-          <div className="hw-head-titles">
-            <h2 className="hw-title">{t("settings.section.hardwareMonitoring")}</h2>
-            <p className="hw-subtitle">{t("settings.hardware.sectionDesc")}</p>
-          </div>
-        </div>
+    <SettingsSection
+      className="hw"
+      icon={<HardwareIcon />}
+      title={t("settings.section.hardwareMonitoring")}
+      desc={t("settings.hardware.sectionDesc")}
+      actions={
         <button
           type="button"
           role="switch"
@@ -110,8 +109,8 @@ export default function HardwareTab() {
             <span className="hw-switch-knob" />
           </span>
         </button>
-      </header>
-
+      }
+    >
       {/* ── Detected hardware ───────────────────────────────────── */}
       <div id="hw-detected" className="hw-pane">
         <div className="hw-pane-head">
@@ -204,8 +203,8 @@ export default function HardwareTab() {
             ["cpu", t("settingsPage.cpu") + " Load", CpuIcon],
             ["gpu", t("settingsPage.gpus") + " Load", GpuIcon],
             ["ram", t("settingsPage.memory") + " Usage", MemoryIcon],
-            ["cpuTemp", t("settingsPage.cpu") + " Temp", CpuIcon],
-            ["gpuTemp", t("settingsPage.gpus") + " Temp", GpuIcon],
+            ["cpuTemp", t("settingsPage.cpu") + " Temp", ThermometerIcon],
+            ["gpuTemp", t("settingsPage.gpus") + " Temp", ThermometerIcon],
           ] as const).map(([key, label, Icon]) => (
             <label
               key={key}
@@ -324,6 +323,6 @@ export default function HardwareTab() {
           </div>
         </div>
       </div>
-    </section>
+    </SettingsSection>
   );
 }
