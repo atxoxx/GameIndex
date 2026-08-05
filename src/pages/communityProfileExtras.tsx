@@ -217,7 +217,7 @@ export function TimeOfDayCard({ slices }: { slices: TimeOfDaySlice[] }) {
       {filtered.length > 0 ? (
         <DonutChart
           slices={filtered.map((s) => ({
-            label: s.label,
+            label: t(`communityExtras.timeOfDay.${s.key}`),
             value: s.minutes,
             color: s.color,
           }))}

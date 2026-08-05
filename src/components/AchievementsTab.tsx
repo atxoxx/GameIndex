@@ -8,7 +8,6 @@ import {
   type Game,
   type Achievement,
   getAchievementRarity,
-  RARITY_LABELS,
   RARITY_COLORS,
 } from "../types/game";
 import { useToast } from "../context/ToastContext";
@@ -332,7 +331,7 @@ export default function AchievementsTab({ game }: { game: Game }) {
                       width: `${(count / total) * 100}%`,
                       backgroundColor: RARITY_COLORS[tier],
                     }}
-                    title={`${RARITY_LABELS[tier]}: ${count}`}
+                    title={`${t(`achievementsPage.rarity.${tier}`)}: ${count}`}
                   />
                 );
               })}
@@ -341,7 +340,7 @@ export default function AchievementsTab({ game }: { game: Game }) {
               {(["ultra_rare", "rare", "uncommon", "common"] as const).map((tier) => (
                 <span key={tier} className="achievements-rarity-legend-item">
                   <span className="achievements-rarity-dot" style={{ backgroundColor: RARITY_COLORS[tier] }} />
-                  {RARITY_LABELS[tier]} ({rarityBreakdown[tier]})
+                  {t(`achievementsPage.rarity.${tier}`)} ({rarityBreakdown[tier]})
                 </span>
               ))}
             </div>

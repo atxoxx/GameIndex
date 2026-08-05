@@ -153,23 +153,26 @@ function ContinuePlayingCard({
       <div className="lib-rail-card-body">
         <div className="lib-rail-name" title={game.name}>{game.name}</div>
         <div className="lib-rail-meta lib-rail-meta--continue" title={t("lib.rail.continue.lastPlayed", { date: new Date(game.lastPlayed ?? 0).toLocaleString() })}>
-          {formatAgo(game.lastPlayed ?? 0)}
+          {formatAgo(game.lastPlayed ?? 0, t)}
         </div>
       </div>
     </Card>
   );
 }
 
-function formatAgo(timestamp: number): string {
-  if (!timestamp) return "never";
+function formatAgo(
+  timestamp: number,
+  t: (key: string, vars?: Record<string, unknown>) => string
+): string {
+  if (!timestamp) return t("lib.rail.continue.never");
   const diffMs = Date.now() - timestamp;
-  if (diffMs < 0) return "just now";
+  if (diffMs < 0) return t("lib.rail.continue.justNow");
   const minutes = Math.floor(diffMs / 60_000);
-  if (minutes < 60) return "<1h ago";
+  if (minutes < 60) return t("lib.rail.continue.underHourAgo");
   const hours = Math.floor(minutes / 60);
-  if (hours < 24) return `${hours}h ago`;
+  if (hours < 24) return t("lib.rail.continue.hoursAgo", { n: hours });
   const days = Math.floor(hours / 24);
-  if (days < 7) return `${days}d ago`;
+  if (days < 7) return t("lib.rail.continue.daysAgo", { n: days });
   const weeks = Math.floor(days / 7);
-  return `${weeks}w ago`;
+  return t("lib.rail.continue.weeksAgo", { n: weeks });
 }

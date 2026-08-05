@@ -18,8 +18,10 @@ export interface StreakInfo {
   playedToday: boolean;
 }
 
+export type TimeOfDayKey = "night" | "morning" | "afternoon" | "evening";
+
 export interface TimeOfDaySlice {
-  label: string;
+  key: TimeOfDayKey;
   minutes: number;
   color: string;
 }
@@ -138,9 +140,9 @@ export function computeTimeOfDay(sessions: GameSession[]): TimeOfDaySlice[] {
     const idx = Math.min(3, Math.floor(h / 6));
     buckets[idx] += s.durationMin;
   }
-  const labels = ["Night (00–06)", "Morning (06–12)", "Afternoon (12–18)", "Evening (18–24)"];
-  return labels.map((label, i) => ({
-    label,
+  const keys: TimeOfDayKey[] = ["night", "morning", "afternoon", "evening"];
+  return keys.map((key, i) => ({
+    key,
     minutes: buckets[i],
     color: TOD_PALETTE[i],
   }));

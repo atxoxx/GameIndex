@@ -707,14 +707,6 @@ export function getAchievementRarity(percent: number): AchievementRarity {
   return "ultra_rare";
 }
 
-/** Human-readable labels for rarity tiers. */
-export const RARITY_LABELS: Record<AchievementRarity, string> = {
-  common: "Common",
-  uncommon: "Uncommon",
-  rare: "Rare",
-  ultra_rare: "Ultra Rare",
-};
-
 /** Color codes for rarity tiers. */
 export const RARITY_COLORS: Record<AchievementRarity, string> = {
   common: "#9ca3af",     // gray

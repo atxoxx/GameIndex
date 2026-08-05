@@ -9,7 +9,6 @@ import {
   type Game,
   type Achievement,
   getAchievementRarity,
-  RARITY_LABELS,
   RARITY_COLORS,
   type AchievementRarity,
 } from "../types/game";
@@ -227,7 +226,7 @@ export default function AchievementsPage() {
                       width: `${(count / stats.totalAchievements) * 100}%`,
                       backgroundColor: RARITY_COLORS[tier],
                     }}
-                    title={`${RARITY_LABELS[tier]}: ${count}`}
+                    title={`${t(`achievementsPage.rarity.${tier}`)}: ${count}`}
                   />
                 );
               })}
@@ -236,7 +235,7 @@ export default function AchievementsPage() {
               {(["ultra_rare", "rare", "uncommon", "common"] as const).map((tier) => (
                 <span key={tier} className="achievements-rarity-legend-item">
                   <span className="achievements-rarity-dot" style={{ backgroundColor: RARITY_COLORS[tier] }} />
-                  {RARITY_LABELS[tier]} ({rarityStats[tier]})
+                  {t(`achievementsPage.rarity.${tier}`)} ({rarityStats[tier]})
                 </span>
               ))}
             </div>
