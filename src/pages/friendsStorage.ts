@@ -124,6 +124,8 @@ export interface Friend {
   region?: string;
   /** Per-game stats shared by the friend for truthful library comparison. */
   games?: SharedGameStat[];
+  /** Local-only circle ids this friend belongs to (never synced). */
+  groups?: string[];
 }
 
 /** Returns the display name, preferring a local nickname override. */
@@ -282,6 +284,164 @@ const LS_FRIENDS_PREFIX = "gamelib.friends.list.";
 const LS_SESSIONS_PREFIX = "gamelib.friends.sessions.";
 const LS_RECOMMENDATIONS_PREFIX = "gamelib.friends.recommendations.";
 const LS_SUGGESTIONS_PREFIX = "gamelib.friends.suggestions.";
+const LS_CIRCLES_PREFIX = "gamelib.friends.circles.";
+const LS_DMS_PREFIX = "gamelib.friends.dms.";
+
+// ── Friend circles (local-only organization) ─────────────────────────
+
+/**
+ * A named circle/group used to organize friends locally (e.g. "Co-op
+ * squad", "Competitive"). Circles are purely organizational — they are
+ * stored per-profile and never broadcast in the outbox.
+ */
+export interface FriendCircle {
+  id: string;
+  name: string;
+  /** Optional accent color used for the chip/badge dot. */
+  color?: string;
+}
+
+export function loadCircles(): FriendCircle[] {
+  const profileName = getActiveProfileName();
+  return readJson<FriendCircle[]>(`${LS_CIRCLES_PREFIX}${profileName}`, []);
+}
+
+export function saveCircles(circles: FriendCircle[]): void {
+  const profileName = getActiveProfileName();
+  writeJson(`${LS_CIRCLES_PREFIX}${profileName}`, circles);
+}
+
+// ── 1:1 DM threads (synced through the outbox, filtered to participants) ──
+
+/**
+ * A private direct-message thread between exactly two profiles. Threads
+ * travel inside the broadcast outbox payload, but only the two named
+ * participants ever adopt a thread (`mergeDms` filters), so the content
+ * stays private to the pair in practice.
+ */
+export interface DmThread {
+  id: string;
+  /** Exactly two profile names (stable display names, oldest first). */
+  participants: string[];
+  messages: SessionMessage[];
+  updatedAt: number;
+  deleted?: boolean;
+}
+
+/** Deterministic thread id for a pair of names (order-independent). */
+export function dmThreadId(a: string, b: string): string {
+  return `dm_${[a.trim(), b.trim()].sort().join("_")}`;
+}
+
+export function loadDms(): DmThread[] {
+  const profileName = getActiveProfileName();
+  return readJson<DmThread[]>(`${LS_DMS_PREFIX}${profileName}`, []);
+}
+
+export function saveDms(threads: DmThread[]): void {
+  const profileName = getActiveProfileName();
+  writeJson(`${LS_DMS_PREFIX}${profileName}`, threads);
+}
+
+/**
+ * Merge DM threads from a remote database with local ones. A thread is
+ * only adopted when the local profile name is one of its two
+ * participants; messages merge id-by-id with the newer timestamp winning.
+ */
+export function mergeDms(local: DmThread[], remote: DmThread[], myName: string): DmThread[] {
+  const mergedMap = new Map<string, DmThread>();
+  local.forEach((t) => mergedMap.set(t.id, t));
+
+  for (const remoteThread of remote || []) {
+    if (remoteThread.deleted) {
+      const existing = mergedMap.get(remoteThread.id);
+      if (existing) {
+        mergedMap.set(remoteThread.id, { ...existing, deleted: true, updatedAt: Math.max(existing.updatedAt, remoteThread.updatedAt) });
+      }
+      continue;
+    }
+    if (!remoteThread.participants || !remoteThread.participants.includes(myName)) continue;
+
+    const localThread = mergedMap.get(remoteThread.id);
+    if (!localThread) {
+      mergedMap.set(remoteThread.id, remoteThread);
+      continue;
+    }
+
+    // Merge messages id-by-id, newer timestamp wins.
+    const msgMap = new Map<string, SessionMessage>();
+    [...(localThread.messages || []), ...(remoteThread.messages || [])].forEach((m) => {
+      const existing = msgMap.get(m.id);
+      if (!existing || m.timestamp >= existing.timestamp) msgMap.set(m.id, m);
+    });
+
+    mergedMap.set(remoteThread.id, {
+      ...localThread,
+      participants: localThread.participants,
+      messages: Array.from(msgMap.values()).sort((a, b) => a.timestamp - b.timestamp),
+      updatedAt: Math.max(localThread.updatedAt, remoteThread.updatedAt),
+    });
+  }
+
+  return Array.from(mergedMap.values());
+}
+
+// ── Per-tab unseen counters (notification badges) ────────────────────
+
+const LS_UNSEEN_TABS = "gamelib.friends.unseen_tabs";
+
+type UnseenTabKey = "sessions" | "recs" | "suggestions" | "activity" | "dms";
+
+function readUnseenTabs(): Record<UnseenTabKey, number> {
+  try {
+    const raw = localStorage.getItem(LS_UNSEEN_TABS);
+    if (!raw) return { sessions: 0, recs: 0, suggestions: 0, activity: 0, dms: 0 };
+    const parsed = JSON.parse(raw) as Partial<Record<UnseenTabKey, number>>;
+    return {
+      sessions: Math.max(0, Math.floor(parsed.sessions || 0)),
+      recs: Math.max(0, Math.floor(parsed.recs || 0)),
+      suggestions: Math.max(0, Math.floor(parsed.suggestions || 0)),
+      activity: Math.max(0, Math.floor(parsed.activity || 0)),
+      dms: Math.max(0, Math.floor(parsed.dms || 0)),
+    };
+  } catch {
+    return { sessions: 0, recs: 0, suggestions: 0, activity: 0, dms: 0 };
+  }
+}
+
+function writeUnseenTabs(counts: Record<UnseenTabKey, number>): void {
+  try {
+    localStorage.setItem(LS_UNSEEN_TABS, JSON.stringify(counts));
+  } catch {
+    /* ignore */
+  }
+}
+
+/** Read the unseen badge count for one tab. */
+export function getUnseenTabItems(key: UnseenTabKey): number {
+  return readUnseenTabs()[key] || 0;
+}
+
+/** Add `delta` new unseen items to a tab's badge. */
+export function addUnseenTabItems(key: UnseenTabKey, delta: number): void {
+  if (!Number.isFinite(delta) || delta <= 0) return;
+  const counts = readUnseenTabs();
+  counts[key] = counts[key] + Math.floor(delta);
+  writeUnseenTabs(counts);
+}
+
+/** Reset a tab's unseen badge to zero (called when the tab is opened). */
+export function clearUnseenTabItems(key: UnseenTabKey): void {
+  const counts = readUnseenTabs();
+  if (counts[key] === 0) return;
+  counts[key] = 0;
+  writeUnseenTabs(counts);
+}
+
+/** Reset every tab badge at once. */
+export function clearAllUnseenTabItems(): void {
+  writeUnseenTabs({ sessions: 0, recs: 0, suggestions: 0, activity: 0, dms: 0 });
+}
 
 function readJson<T>(key: string, fallback: T): T {
   try {
@@ -381,6 +541,7 @@ export interface FriendsDatabase {
   sessions: GameSession[];
   recommendations: GameRecommendation[];
   suggestions: GameSuggestion[];
+  dms: DmThread[];
 }
 
 export async function loadFriendsDb(): Promise<FriendsDatabase> {
@@ -389,7 +550,7 @@ export async function loadFriendsDb(): Promise<FriendsDatabase> {
     return JSON.parse(raw);
   } catch (err) {
     console.error("Failed to load friends database:", err);
-    return { profile: null, friends: [], sessions: [], recommendations: [], suggestions: [] };
+    return { profile: null, friends: [], sessions: [], recommendations: [], suggestions: [], dms: [] };
   }
 }
 
@@ -407,7 +568,8 @@ export async function persistLocalStorageToDisk(): Promise<void> {
   const sessions = loadSessions();
   const recommendations = loadRecommendations();
   const suggestions = loadSuggestions();
-  await saveFriendsDb({ profile, friends, sessions, recommendations, suggestions });
+  const dms = loadDms();
+  await saveFriendsDb({ profile, friends, sessions, recommendations, suggestions, dms });
 }
 
 export async function loadFriendsDbToLocalStorage(): Promise<boolean> {
@@ -428,6 +590,9 @@ export async function loadFriendsDbToLocalStorage(): Promise<boolean> {
     }
     if (db.suggestions) {
       writeJson(`${LS_SUGGESTIONS_PREFIX}${profileName}`, db.suggestions);
+    }
+    if (db.dms) {
+      writeJson(`${LS_DMS_PREFIX}${profileName}`, db.dms);
     }
     return true;
   } catch (err) {
@@ -483,6 +648,11 @@ export function loadSuggestions(): GameSuggestion[] {
 export function saveSuggestions(suggestions: GameSuggestion[]): void {
   const profileName = getActiveProfileName();
   writeJson(`${LS_SUGGESTIONS_PREFIX}${profileName}`, suggestions);
+  persistLocalStorageToDisk();
+}
+
+export function saveDmsAndPersist(threads: DmThread[]): void {
+  saveDms(threads);
   persistLocalStorageToDisk();
 }
 
@@ -813,7 +983,8 @@ export async function pushMyOutbox(
   sessions: GameSession[],
   recs: GameRecommendation[],
   sharedGames?: SharedGameStat[],
-  suggestions?: GameSuggestion[]
+  suggestions?: GameSuggestion[],
+  dms?: DmThread[]
 ): Promise<SyncResult> {
   const localFriends = loadFriends();
   const payload = {
@@ -833,6 +1004,7 @@ export async function pushMyOutbox(
     sessions,
     recommendations: recs,
     suggestions: suggestions || [],
+    dms: dms || [],
     updatedAt: Date.now(),
   };
 
@@ -873,6 +1045,7 @@ export async function fetchFriendOutbox(friendSyncId: string): Promise<{
   sessions: GameSession[];
   recommendations: GameRecommendation[];
   suggestions: GameSuggestion[];
+  dms?: DmThread[];
 } | null> {
   if (!friendSyncId) return null;
 
@@ -1023,6 +1196,7 @@ export function mergeDatabases(local: FriendsDatabase, remote: FriendsDatabase):
   const mergedSessions = mergeSessions(local.sessions || [], remote.sessions || []);
   const mergedRecommendations = mergeRecommendations(local.recommendations || [], remote.recommendations || []);
   const mergedSuggestions = mergeSuggestions(local.suggestions || [], remote.suggestions || []);
+  const mergedDms = mergeDms(local.dms || [], remote.dms || [], local.profile?.name || "");
 
   return {
     profile: local.profile,
@@ -1030,5 +1204,6 @@ export function mergeDatabases(local: FriendsDatabase, remote: FriendsDatabase):
     sessions: mergedSessions,
     recommendations: mergedRecommendations,
     suggestions: mergedSuggestions,
+    dms: mergedDms,
   };
 }

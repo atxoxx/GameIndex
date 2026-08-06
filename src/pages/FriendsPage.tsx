@@ -60,6 +60,17 @@ import {
   addUnseenCommunityItems,
   isAppBlacklisted,
   safeCurrentlyPlaying,
+  FriendCircle,
+  DmThread,
+  loadCircles,
+  saveCircles,
+  loadDms,
+  saveDmsAndPersist,
+  dmThreadId,
+  mergeDms,
+  getUnseenTabItems,
+  addUnseenTabItems,
+  clearUnseenTabItems,
 } from "./friendsStorage";
 import "./friends.css";
 import "../styles/page-friends.css";
@@ -67,6 +78,7 @@ import "../styles/friends-tabs-a.css";
 import "../styles/friends-tabs-b.css";
 import "../styles/friends-tabs-c.css";
 import "../styles/friends-tabs-d.css";
+import "../styles/friends-tabs-e.css";
 import { PageHeader, Button } from "../components/ui";
 
 // SVG Icons
@@ -405,6 +417,15 @@ function PlusIcon() {
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" width="14" height="14">
       <line x1="12" y1="5" x2="12" y2="19" />
       <line x1="5" y1="12" x2="19" y2="12" />
+    </svg>
+  );
+}
+
+// Activity / pulse icon (feed tab)
+function ActivityIcon() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" width="15" height="15">
+      <polyline points="22 12 18 12 15 21 9 3 6 12 2 12" />
     </svg>
   );
 }
@@ -1359,8 +1380,8 @@ interface FriendInvitation {
 export default function FriendsPage() {
   const { isBigScreen } = useBigScreen();
   const { t } = useLanguage();
-  const [activeTab, setActiveTab] = useState<"friends" | "sessions" | "recs" | "suggestions" | "compare" | "leaderboard" | "profile">("friends");
-  const { games, runningGameIds } = useGames();
+  const [activeTab, setActiveTab] = useState<"friends" | "activity" | "dms" | "sessions" | "recs" | "suggestions" | "compare" | "leaderboard" | "race" | "profile">("friends");
+  const { games, runningGameIds, launchGame } = useGames();
   const { wishlist, toggle } = useWishlistContext();
   const { cache } = useAchievements();
   const { showToast } = useToast();
@@ -1385,6 +1406,34 @@ export default function FriendsPage() {
   const [sessions, setSessions] = useState<GameSession[]>(() => loadSessions());
   const [recommendations, setRecommendations] = useState<GameRecommendation[]>(() => loadRecommendations());
   const [suggestions, setSuggestions] = useState<GameSuggestion[]>(() => loadSuggestions());
+
+  // Friend circles (local-only grouping) + DM threads + unseen badges
+  const [circles, setCircles] = useState<FriendCircle[]>(() => loadCircles());
+  const [dms, setDms] = useState<DmThread[]>(() => loadDms());
+  const [unseenCounts, setUnseenCounts] = useState<{
+    sessions: number;
+    recs: number;
+    suggestions: number;
+    activity: number;
+    dms: number;
+  }>(() => ({
+    sessions: getUnseenTabItems("sessions"),
+    recs: getUnseenTabItems("recs"),
+    suggestions: getUnseenTabItems("suggestions"),
+    activity: getUnseenTabItems("activity"),
+    dms: getUnseenTabItems("dms"),
+  }));
+  const [selectedCircleId, setSelectedCircleId] = useState<string>("all");
+  const [showCirclesModal, setShowCirclesModal] = useState(false);
+  const [selectedDmId, setSelectedDmId] = useState<string | null>(null);
+  const [selectedDmFriendName, setSelectedDmFriendName] = useState("");
+  const [dmDraft, setDmDraft] = useState("");
+  // Ref mirror of `dms` so handlers can read the freshest threads even when
+  // several sends land in the same tick (avoids stale-closure message loss).
+  const dmsRef = useRef<DmThread[]>(dms);
+  useEffect(() => {
+    dmsRef.current = dms;
+  }, [dms]);
 
   // Pending Friend Invitations state
   const [invitations, setInvitations] = useState<FriendInvitation[]>([]);
@@ -1453,25 +1502,46 @@ export default function FriendsPage() {
       const localRecommendations = loadRecommendations();
       const localSuggestions = loadSuggestions();
 
+      const localDms = loadDms();
+
       const localDb: FriendsDatabase = {
         profile: localProfile,
         friends: localFriends,
         sessions: localSessions,
         recommendations: localRecommendations,
         suggestions: localSuggestions,
+        dms: localDms,
       };
 
       const merged = mergeDatabases(localDb, remoteDb);
+
+      // Count freshly-arrived DM messages that aren't ours for the badge.
+      let newDmMessages = 0;
+      (remoteDb.dms || []).forEach((remoteThread) => {
+        const localThread = localDms.find((t) => t.id === remoteThread.id);
+        const known = new Set((localThread?.messages || []).map((m) => m.id));
+        (remoteThread.messages || []).forEach((m) => {
+          if (!known.has(m.id) && m.author !== localProfile.name) newDmMessages++;
+        });
+      });
 
       // Save and update state
       setFriends(merged.friends);
       setSessions(merged.sessions);
       setRecommendations(merged.recommendations);
       setSuggestions(merged.suggestions);
+      setDms(merged.dms);
       
       saveFriends(merged.friends);
       saveSessions(merged.sessions);
       saveRecommendations(merged.recommendations);
+      saveSuggestions(merged.suggestions);
+      saveDmsAndPersist(merged.dms);
+
+      if (newDmMessages > 0) {
+        addUnseenTabItems("dms", newDmMessages);
+        setUnseenCounts((prev) => ({ ...prev, dms: prev.dms + newDmMessages }));
+      }
       
       console.log(`Synced data automatically with ${remoteDb.profile?.name || "friend"}!`);
     } catch (err) {
@@ -1479,7 +1549,9 @@ export default function FriendsPage() {
     }
   };
 
-  // Publish our local database to configured Nostr relays
+  // Publish our local database to configured Nostr relays.
+  // NOTE: `dms` are intentionally excluded — the Nostr event is world-readable,
+  // so 1:1 threads travel only through the private shared-folder outbox.
   const publishToNostr = async (db: FriendsDatabase, sharedGames?: SharedGameStat[]) => {
     try {
       const keys = getNostrKeys();
@@ -1538,9 +1610,10 @@ export default function FriendsPage() {
     currSessions: GameSession[],
     currRecs: GameRecommendation[],
     currSharedGames?: SharedGameStat[],
-    currSuggestions?: GameSuggestion[]
+    currSuggestions?: GameSuggestion[],
+    currDms?: DmThread[]
   ) => {
-    const res = await pushMyOutboxStorage(currProfile, currStats, currSessions, currRecs, currSharedGames, currSuggestions);
+    const res = await pushMyOutboxStorage(currProfile, currStats, currSessions, currRecs, currSharedGames, currSuggestions, currDms);
 
     // Also publish to Nostr
     const db: FriendsDatabase = {
@@ -1549,6 +1622,7 @@ export default function FriendsPage() {
       sessions: currSessions,
       recommendations: currRecs,
       suggestions: currSuggestions || [],
+      dms: currDms || dms,
     };
     publishToNostr(db, currSharedGames);
     return res;
@@ -1749,6 +1823,101 @@ export default function FriendsPage() {
     });
   }, [currentlyPlaying]);
 
+  // Clear the unseen badge when the user opens the corresponding tab.
+  useEffect(() => {
+    if (activeTab === "sessions") {
+      clearUnseenTabItems("sessions");
+      setUnseenCounts((prev) => ({ ...prev, sessions: 0 }));
+    } else if (activeTab === "recs") {
+      clearUnseenTabItems("recs");
+      setUnseenCounts((prev) => ({ ...prev, recs: 0 }));
+    } else if (activeTab === "suggestions") {
+      clearUnseenTabItems("suggestions");
+      setUnseenCounts((prev) => ({ ...prev, suggestions: 0 }));
+    } else if (activeTab === "activity") {
+      // The feed aggregates sessions / recs / suggestions — viewing it
+      // means those are all seen.
+      clearUnseenTabItems("sessions");
+      clearUnseenTabItems("recs");
+      clearUnseenTabItems("suggestions");
+      clearUnseenTabItems("activity");
+      setUnseenCounts((prev) => ({
+        ...prev,
+        sessions: 0,
+        recs: 0,
+        suggestions: 0,
+        activity: 0,
+      }));
+    } else if (activeTab === "dms") {
+      clearUnseenTabItems("dms");
+      setUnseenCounts((prev) => ({ ...prev, dms: 0 }));
+    }
+  }, [activeTab]);
+
+  // OS-level reminders for upcoming sessions (Web Notifications, best-effort).
+  useEffect(() => {
+    let fired = new Set<string>(
+      (() => {
+        try {
+          return JSON.parse(localStorage.getItem("gamelib.friends.remindedSessions") || "[]") as string[];
+        } catch {
+          return [];
+        }
+      })()
+    );
+
+    const checkReminders = () => {
+      const now = Date.now();
+      const upcoming = sessions
+        .filter((s) => !s.deleted && new Date(s.scheduledAt).getTime() - now <= 30 * 60_000 && new Date(s.scheduledAt).getTime() > now)
+        .filter((s) => !fired.has(s.id));
+
+      if (upcoming.length === 0) return;
+
+      const fire = () => {
+        try {
+          if (typeof Notification === "undefined") return;
+          const notify = (title: string, body: string) => {
+            try {
+              new Notification(title, { body });
+            } catch {
+              /* ignore */
+            }
+          };
+          if (Notification.permission === "granted") {
+            upcoming.forEach((s) => {
+              notify(t("friendsPage.sessionReminderTitle"), t("friendsPage.sessionReminderBody", { game: s.gameName, time: formatDateTime(s.scheduledAt, s.creatorTimezone) }));
+            });
+          } else if (Notification.permission !== "denied") {
+            void Notification.requestPermission().then((perm) => {
+              if (perm === "granted") {
+                upcoming.forEach((s) => {
+                  notify(t("friendsPage.sessionReminderTitle"), t("friendsPage.sessionReminderBody", { game: s.gameName, time: formatDateTime(s.scheduledAt, s.creatorTimezone) }));
+                });
+              }
+            });
+          }
+        } catch (err) {
+          console.debug("[FriendsPage] OS notification failed:", err);
+        }
+
+        upcoming.forEach((s) => fired.add(s.id));
+        try {
+          localStorage.setItem("gamelib.friends.remindedSessions", JSON.stringify(Array.from(fired)));
+        } catch {
+          /* ignore */
+        }
+      };
+
+      // Only fire when a session is within the window — check every 60s.
+      fire();
+    };
+
+    checkReminders();
+    const interval = setInterval(checkReminders, 60_000);
+    return () => clearInterval(interval);
+  }, [sessions, t]);
+
   // Handle friend code paste parsing
   useEffect(() => {
     if (!friendCodeInput.trim()) {
@@ -1805,6 +1974,8 @@ export default function FriendsPage() {
           setSessions(loadSessions());
           setRecommendations(loadRecommendations());
           setSuggestions(loadSuggestions());
+          setDms(loadDms());
+          setCircles(loadCircles());
         }
 
         // 2. Resolve device ID
@@ -1879,6 +2050,7 @@ export default function FriendsPage() {
     let mergedSessions = [...localSessions];
     let mergedRecs = [...localRecs];
     let mergedSuggestions = [...localSuggestions];
+    let mergedDms = [...loadDms()];
 
     // Read the outbox of each friend from the sync folder
     const updatedFriends: Friend[] = [];
@@ -1905,6 +2077,7 @@ export default function FriendsPage() {
             mergedSessions = mergeSessions(mergedSessions, remoteOutbox.sessions);
             const addedSessions = remoteOutbox.sessions.filter((s) => !prevIds.has(s.id)).length;
             newCommunityItems += addedSessions;
+            if (addedSessions > 0) addUnseenTabItems("sessions", addedSessions);
             if (mergedSessions.length !== prevLength || JSON.stringify(mergedSessions) !== localStorage.getItem(`gamelib.friends.sessions.${profileName}`)) {
               changesMade = true;
               friendSessions = remoteOutbox.sessions.length;
@@ -1919,6 +2092,7 @@ export default function FriendsPage() {
             mergedRecs = mergeRecommendations(mergedRecs, remoteOutbox.recommendations);
             const addedRecs = remoteOutbox.recommendations.filter((r) => !prevIds.has(r.id)).length;
             newCommunityItems += addedRecs;
+            if (addedRecs > 0) addUnseenTabItems("recs", addedRecs);
             if (mergedRecs.length !== prevLength || JSON.stringify(mergedRecs) !== localStorage.getItem(`gamelib.friends.recommendations.${profileName}`)) {
               changesMade = true;
               friendRecs = remoteOutbox.recommendations.length;
@@ -1933,9 +2107,30 @@ export default function FriendsPage() {
             mergedSuggestions = mergeSuggestions(mergedSuggestions, remoteOutbox.suggestions);
             const addedSuggestions = remoteOutbox.suggestions.filter((s) => !prevIds.has(s.id)).length;
             newCommunityItems += addedSuggestions;
+            if (addedSuggestions > 0) addUnseenTabItems("suggestions", addedSuggestions);
             if (mergedSuggestions.length !== prevLength || JSON.stringify(mergedSuggestions) !== localStorage.getItem(`gamelib.friends.suggestions.${profileName}`)) {
               changesMade = true;
             }
+          }
+
+          // Merge 1:1 DM threads (only threads involving us are adopted).
+          if (remoteOutbox.dms && remoteOutbox.dms.length > 0) {
+            const knownMessages = new Map<string, Set<string>>();
+            mergedDms.forEach((t) => knownMessages.set(t.id, new Set((t.messages || []).map((m) => m.id))));
+            const prevDmCount = mergedDms.length;
+            mergedDms = mergeDms(mergedDms, remoteOutbox.dms, profile.name);
+            // Count messages that are genuinely new AND not authored by us → badge.
+            let newIncoming = 0;
+            remoteOutbox.dms.forEach((rt) => {
+              const known = knownMessages.get(rt.id);
+              if (!known) {
+                newIncoming += (rt.messages || []).filter((m) => m.author !== profile.name).length;
+              } else {
+                newIncoming += (rt.messages || []).filter((m) => !known.has(m.id) && m.author !== profile.name).length;
+              }
+            });
+            if (newIncoming > 0) addUnseenTabItems("dms", newIncoming);
+            if (mergedDms.length !== prevDmCount || newIncoming > 0) changesMade = true;
           }
 
           // Sync friend profile information and live statistics (playtime, achievements, status)
@@ -2008,9 +2203,12 @@ export default function FriendsPage() {
       saveSessions(mergedSessions);
       saveRecommendations(mergedRecs);
       saveSuggestions(mergedSuggestions);
+      saveDmsAndPersist(mergedDms);
       setSessions(mergedSessions);
       setRecommendations(mergedRecs);
       setSuggestions(mergedSuggestions);
+      setDms(mergedDms);
+      setUnseenCounts((prev) => ({ ...prev, dms: getUnseenTabItems("dms") }));
     }
 
     if (friendsUpdated) {
@@ -2019,7 +2217,7 @@ export default function FriendsPage() {
     }
 
     // Always push our own updated outbox so friends can see us
-    const pushed = await pushMyOutbox(profile, selfStats, mergedSessions, mergedRecs, selfSharedGames, suggestions);
+    const pushed = await pushMyOutbox(profile, selfStats, mergedSessions, mergedRecs, selfSharedGames, suggestions, mergedDms);
 
     const syncedAt = new Date().toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit" });
     setLastSyncedTime(syncedAt);
@@ -2066,6 +2264,7 @@ export default function FriendsPage() {
     // Community tab (sessions / recommendations / suggestions pulled
     // from friends this sync). Only bumps when items are truly new.
     addUnseenCommunityItems(newCommunityItems);
+    refreshUnseenCounts();
 
     setIsSyncing(false);
 
@@ -2403,11 +2602,130 @@ export default function FriendsPage() {
   };
 
   const handleMessageFriend = (friend: Friend) => {
-    if (!sessionInvited.includes(friend.name)) {
-      setSessionInvited((prev) => [...prev, friend.name]);
+    // Open the 1:1 DM thread with this friend (created lazily on first send).
+    const existing = dmsRef.current.find(
+      (th) => th.participants.includes(profile.name) && th.participants.includes(friend.name)
+    );
+    setSelectedDmId(existing ? existing.id : dmThreadId(profile.name, friend.name));
+    setSelectedDmFriendName(friend.name);
+    setActiveTab("dms");
+    clearUnseenTabItems("dms");
+    setUnseenCounts((prev) => ({ ...prev, dms: 0 }));
+  };
+
+  // ── Circles (friend groups) ───────────────────────────────────────
+  const handleCreateCircle = (name: string) => {
+    const trimmed = name.trim();
+    if (!trimmed) return;
+    const circle: FriendCircle = {
+      id: `circle_${Date.now()}_${Math.random().toString(36).substr(2, 6)}`,
+      name: trimmed,
+    };
+    const updated = [...circles, circle];
+    setCircles(updated);
+    saveCircles(updated);
+  };
+
+  const handleRenameCircle = (circleId: string, name: string) => {
+    const trimmed = name.trim();
+    if (!trimmed) return;
+    const updated = circles.map((c) => (c.id === circleId ? { ...c, name: trimmed } : c));
+    setCircles(updated);
+    saveCircles(updated);
+  };
+
+  const handleDeleteCircle = (circleId: string) => {
+    const updatedCircles = circles.filter((c) => c.id !== circleId);
+    setCircles(updatedCircles);
+    saveCircles(updatedCircles);
+    // Detach the circle from every friend.
+    const updatedFriends = friends.map((f) => ({
+      ...f,
+      groups: (f.groups || []).filter((g) => g !== circleId),
+    }));
+    setFriends(updatedFriends);
+    saveFriends(updatedFriends);
+    if (selectedCircleId === circleId) setSelectedCircleId("all");
+  };
+
+  const handleToggleFriendCircle = (friendId: string, circleId: string) => {
+    const updated = friends.map((f) => {
+      if (f.id !== friendId) return f;
+      const groups = f.groups || [];
+      return {
+        ...f,
+        groups: groups.includes(circleId)
+          ? groups.filter((g) => g !== circleId)
+          : [...groups, circleId],
+      };
+    });
+    setFriends(updated);
+    saveFriends(updated);
+  };
+
+  // Quick-select every member of a circle for the session invite list.
+  const handleInviteCircleToSession = (circleId: string) => {
+    const circle = circles.find((c) => c.id === circleId);
+    if (!circle) return;
+    const members = friends
+      .filter((f) => (f.groups || []).includes(circleId))
+      .map((f) => f.name);
+    setSessionInvited((prev) => Array.from(new Set([...prev, ...members])));
+    showToast(t("friendsPage.circleInvited", { name: circle.name, count: members.length }), "info");
+  };
+
+  // ── 1:1 DM chat ───────────────────────────────────────────────────
+  const handleSendDm = async (friendName: string, text: string) => {
+    const trimmed = text.trim();
+    if (!friendName || !trimmed) return;
+    const threadId = dmThreadId(profile.name, friendName);
+    const msg: SessionMessage = {
+      id: `dm_msg_${Date.now()}_${Math.random().toString(36).substr(2, 6)}`,
+      author: profile.name,
+      text: trimmed,
+      timestamp: Date.now(),
+    };
+    // Build from the ref snapshot so rapid consecutive sends don't drop a message.
+    const current = dmsRef.current;
+    let updated = current.map((t) =>
+      t.id === threadId
+        ? { ...t, messages: [...(t.messages || []), msg], updatedAt: Date.now() }
+        : t
+    );
+    if (!updated.some((t) => t.id === threadId)) {
+      updated = [
+        {
+          id: threadId,
+          participants: [profile.name, friendName].sort(),
+          messages: [msg],
+          updatedAt: Date.now(),
+        },
+        ...updated,
+      ];
     }
-    setActiveTab("sessions");
-    showToast(t("friendsPage.openSessionsToChat", { name: displayName(friend) }), "info");
+    dmsRef.current = updated;
+    setDms(updated);
+    saveDmsAndPersist(updated);
+    await pushMyOutbox(profile, selfStats, sessions, recommendations, selfSharedGames, suggestions, updated);
+  };
+
+  // Mark a DM thread as read when the user opens it.
+  const handleOpenDmThread = (threadId: string, friendName: string) => {
+    setSelectedDmId(threadId);
+    setSelectedDmFriendName(friendName);
+    clearUnseenTabItems("dms");
+    setUnseenCounts((prev) => ({ ...prev, dms: 0 }));
+  };
+
+  // Refresh unseen badge state from localStorage (called after sync/merge).
+  const refreshUnseenCounts = () => {
+    setUnseenCounts({
+      sessions: getUnseenTabItems("sessions"),
+      recs: getUnseenTabItems("recs"),
+      suggestions: getUnseenTabItems("suggestions"),
+      activity: getUnseenTabItems("activity"),
+      dms: getUnseenTabItems("dms"),
+    });
   };
 
   // Copy public key
@@ -3197,6 +3515,189 @@ export default function FriendsPage() {
   // Set of the viewer's own game ids, used for "games in common" on cards.
   const myGameIds = useMemo(() => new Set(games.map((g) => g.id)), [games]);
 
+  // ── Activity Feed ─────────────────────────────────────────────────
+  // A unified, time-sorted timeline across every social surface: sessions
+  // scheduled, RSVPs, recommendations, wishlist shares, new friends and
+  // recent achievement unlocks.
+  type ActivityItem = {
+    key: string;
+    timestamp: number;
+    kind:
+      | "session"
+      | "rsvp"
+      | "rec"
+      | "suggestion"
+      | "friend"
+      | "achievement"
+      | "suggestion_reaction"
+      | "rec_reaction";
+    actor: string;
+    title: string;
+    detail: string;
+    gameName?: string;
+  };
+
+  const activityFeed = useMemo<ActivityItem[]>(() => {
+    const items: ActivityItem[] = [];
+
+    // Upcoming + past sessions (created by anyone) with RSVP states.
+    sessions
+      .filter((s) => !s.deleted)
+      .forEach((s) => {
+        const mine = s.creatorName === profile.name;
+        const myRsvp = s.rsvps?.[profile.name];
+        if (mine || myRsvp) {
+          items.push({
+            key: `session_${s.id}`,
+            timestamp: s.updatedAt || new Date(s.scheduledAt).getTime(),
+            kind: "session",
+            actor: mine ? profile.name : s.creatorName,
+            title: t("friendsPage.activitySession", {
+              who: mine ? t("friendsPage.me") : s.creatorName,
+              game: s.gameName,
+            }),
+            detail: formatDateTime(s.scheduledAt, s.creatorTimezone),
+            gameName: s.gameName,
+          });
+        } else if (s.invited?.includes(profile.name)) {
+          items.push({
+            key: `session_inv_${s.id}`,
+            timestamp: s.updatedAt || new Date(s.scheduledAt).getTime(),
+            kind: "session",
+            actor: s.creatorName,
+            title: t("friendsPage.activityInvited", { who: s.creatorName, game: s.gameName }),
+            detail: formatDateTime(s.scheduledAt, s.creatorTimezone),
+            gameName: s.gameName,
+          });
+        }
+      });
+
+    // Recommendations.
+    recommendations
+      .filter((r) => !r.deleted && r.recommendedTo === "All Friends")
+      .forEach((r) => {
+        items.push({
+          key: `rec_${r.id}`,
+          timestamp: r.createdAt || r.updatedAt,
+          kind: "rec",
+          actor: r.recommendedBy,
+          title: t("friendsPage.activityRec", { who: r.recommendedBy, game: r.gameName }),
+          detail: r.reason || "",
+          gameName: r.gameName,
+        });
+      });
+
+    // Wishlist shares.
+    suggestions
+      .filter((s) => !s.deleted && s.suggestedTo === "All Friends")
+      .forEach((s) => {
+        items.push({
+          key: `suggestion_${s.id}`,
+          timestamp: s.createdAt || s.updatedAt,
+          kind: "suggestion",
+          actor: s.suggestedBy,
+          title: t("friendsPage.activitySuggestion", { who: s.suggestedBy, game: s.gameName }),
+          detail: s.note || "",
+          gameName: s.gameName,
+        });
+      });
+
+    // New friends.
+    friends.forEach((f) => {
+      items.push({
+        key: `friend_${f.id}`,
+        timestamp: f.addedAt || 0,
+        kind: "friend",
+        actor: displayName(f),
+        title: t("friendsPage.activityFriend", { who: displayName(f) }),
+        detail: formatFriendsSince(f.addedAt, t),
+      });
+    });
+
+    // Recent achievement unlocks from our own library (visible to friends).
+    const unlockWindow = 30 * 24 * 60 * 60 * 1000;
+    Object.entries(cache?.games || {}).forEach(([gameId, data]) => {
+      const game = games.find((g) => g.id === gameId);
+      if (!game || !data || !data.achievements) return;
+      data.achievements
+        .filter((a) => a.achieved && a.unlockTime > 0 && Date.now() - a.unlockTime * 1000 < unlockWindow)
+        .forEach((a) => {
+          items.push({
+            key: `ach_${gameId}_${a.apiName}`,
+            timestamp: a.unlockTime * 1000,
+            kind: "achievement",
+            actor: profile.name,
+            title: t("friendsPage.activityUnlock", { game: game.name, ach: a.displayName }),
+            detail: "",
+            gameName: game.name,
+          });
+        });
+    });
+
+    return items
+      .filter((i) => i.timestamp > 0)
+      .sort((a, b) => b.timestamp - a.timestamp);
+  }, [sessions, recommendations, suggestions, friends, cache, games, profile.name, t]);
+
+  // ── Playing Now (friends currently in a game I own) ───────────────
+  type PlayingNowEntry = {
+    friend: Friend;
+    playing: string;
+    game?: (typeof games)[number];
+  };
+
+  const playingNowFriends = useMemo<PlayingNowEntry[]>(() => {
+    const byName = new Map<string, (typeof games)[number]>();
+    games.forEach((g) => byName.set(g.name.toLowerCase(), g));
+    const entries: PlayingNowEntry[] = [];
+    for (const f of friends) {
+      if (f.blocked) continue;
+      const playing = safeCurrentlyPlaying(f.currentlyPlaying);
+      if (!playing) continue;
+      const game = byName.get(playing.toLowerCase());
+      entries.push({ friend: f, playing, game });
+      if (entries.length >= 12) break;
+    }
+    return entries;
+  }, [friends, games]);
+
+  // ── Achievement Race ──────────────────────────────────────────────
+  // Per-game achievement % race between me and each friend, built from
+  // the truthful per-game stats they publish. Shows shared titles only.
+  const achievementRaces = useMemo(() => {
+    const selfPercent = new Map<string, number>();
+    selfSharedGames.forEach((g) => selfPercent.set(g.id, g.achievementPercent));
+
+    const races: {
+      key: string;
+      gameId: string;
+      gameName: string;
+      friendName: string;
+      me: number;
+      them: number;
+    }[] = [];
+
+    friends
+      .filter((f) => !f.blocked && f.games && f.games.length > 0)
+      .forEach((f) => {
+        f.games!.forEach((g) => {
+          if (isAppBlacklisted(g.name, g.id)) return;
+          const me = selfPercent.get(g.id);
+          if (me === undefined) return; // only shared titles race
+          races.push({
+            key: `${f.id}_${g.id}`,
+            gameId: g.id,
+            gameName: g.name,
+            friendName: displayName(f),
+            me,
+            them: g.achievementPercent || 0,
+          });
+        });
+      });
+
+    return races.sort((a, b) => Math.abs(b.me - b.them) - Math.abs(a.me - a.them));
+  }, [friends, selfSharedGames]);
+
   // ── Leaderboard Tab ────────────────────────────────────────────────
   const [leaderboardMetric, setLeaderboardMetric] = useState<"playtime" | "games" | "achievements">("playtime");
 
@@ -3337,7 +3838,9 @@ export default function FriendsPage() {
           : friendFilter === "pinned"
           ? !!f.pinned
           : true;
-      return matchesQuery && matchesFilter;
+      const matchesCircle =
+        selectedCircleId === "all" || (f.groups || []).includes(selectedCircleId);
+      return matchesQuery && matchesFilter && matchesCircle;
     });
 
     list = [...list].sort((a, b) => {
@@ -3361,7 +3864,7 @@ export default function FriendsPage() {
     });
 
     return list;
-  }, [friends, friendSearch, friendFilter, friendSort]);
+  }, [friends, friendSearch, friendFilter, friendSort, selectedCircleId]);
 
   if (isBigScreen) {
     return (
@@ -3403,6 +3906,30 @@ export default function FriendsPage() {
             <UsersIcon />
             <span>{t("friends.tab.friends")}</span>
             {friends.length > 0 && <span className="friends-tab-count">{friends.length}</span>}
+          </button>
+          <button
+            type="button"
+            role="tab"
+            aria-selected={activeTab === "activity"}
+            className={`friends-tab${activeTab === "activity" ? " active" : ""}`}
+            onClick={() => setActiveTab("activity")}
+          >
+            <ActivityIcon />
+            <span>{t("friends.tab.activity")}</span>
+            {unseenCounts.sessions + unseenCounts.recs + unseenCounts.suggestions + unseenCounts.dms > 0 && (
+              <span className="friends-tab-count">{unseenCounts.sessions + unseenCounts.recs + unseenCounts.suggestions + unseenCounts.dms}</span>
+            )}
+          </button>
+          <button
+            type="button"
+            role="tab"
+            aria-selected={activeTab === "dms"}
+            className={`friends-tab${activeTab === "dms" ? " active" : ""}`}
+            onClick={() => setActiveTab("dms")}
+          >
+            <MessageIcon />
+            <span>{t("friends.tab.messages")}</span>
+            {unseenCounts.dms > 0 && <span className="friends-tab-count">{unseenCounts.dms}</span>}
           </button>
           <button
             type="button"
@@ -3453,6 +3980,16 @@ export default function FriendsPage() {
             >
               <LeaderboardIcon />
               <span>{t("friends.tab.leaderboard")}</span>
+            </button>
+            <button
+              type="button"
+              role="tab"
+              aria-selected={activeTab === "race"}
+              className={`friends-tab${activeTab === "race" ? " active" : ""}`}
+              onClick={() => setActiveTab("race")}
+            >
+              <TrophyIcon />
+              <span>{t("friends.tab.race")}</span>
             </button>
             <button
               type="button"
@@ -3586,6 +4123,44 @@ export default function FriendsPage() {
               </div>
             )}
 
+            {/* Playing Now rail — friends currently in a game you own */}
+            {playingNowFriends.length > 0 && (
+              <div className="playing-now-section">
+                <div className="playing-now-head">
+                  <h3 className="playing-now-title">
+                    <span className="playing-now-title-icon" aria-hidden><GamepadIcon /></span>
+                    {t("friendsPage.playingNowTitle")}
+                  </h3>
+                  <span className="playing-now-hint">{t("friendsPage.playingNowHint")}</span>
+                </div>
+                <div className="playing-now-strip">
+                  {playingNowFriends.map(({ friend, playing, game }) => (
+                    <div key={friend.id} className="playing-now-card">
+                      {renderAvatar(friend.avatar, friend.name, "playing-now-avatar")}
+                      <div className="playing-now-info">
+                        <span className="playing-now-name">{displayName(friend)}</span>
+                        <span className="playing-now-game" title={playing}>{playing}</span>
+                      </div>
+                      {game ? (
+                        <Button
+                          variant="secondary"
+                          size="sm"
+                          className="playing-now-join"
+                          leftIcon={<GamepadIcon />}
+                          disabled={runningGameIds.includes(game.id)}
+                          onClick={() => launchGame(game)}
+                        >
+                          {runningGameIds.includes(game.id) ? t("friendsPage.running") : t("friendsPage.joinGame")}
+                        </Button>
+                      ) : (
+                        <span className="playing-now-own-hint" title={t("friendsPage.notOwnedHint")}>{t("friendsPage.notOwned")}</span>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
             {friends.length === 0 ? (
               <div className="friends-empty-state">
                 <div className="friends-empty-icon" aria-hidden><UsersIcon /></div>
@@ -3632,12 +4207,46 @@ export default function FriendsPage() {
                         <span className="compare-filter-chip-count">{friends.filter((f) => f.pinned).length}</span>
                       </button>
                     </div>
+                    {circles.length > 0 && (
+                      <div className="compare-filter-chips friends-circle-chips" role="group" aria-label={t("friendsPage.circleFilterAria")}>
+                        <button
+                          type="button"
+                          className={`compare-filter-chip${selectedCircleId === "all" ? " active" : ""}`}
+                          onClick={() => setSelectedCircleId("all")}
+                        >
+                          {t("friendsPage.allCircles")}
+                          <span className="compare-filter-chip-count">{friends.length}</span>
+                        </button>
+                        {circles.map((c) => (
+                          <button
+                            key={c.id}
+                            type="button"
+                            className={`compare-filter-chip circle-chip${selectedCircleId === c.id ? " active" : ""}`}
+                            onClick={() => setSelectedCircleId(selectedCircleId === c.id ? "all" : c.id)}
+                            title={c.name}
+                          >
+                            <span className="circle-chip-dot" style={c.color ? { background: c.color } : undefined} aria-hidden />
+                            {c.name}
+                            <span className="compare-filter-chip-count">{friends.filter((f) => (f.groups || []).includes(c.id)).length}</span>
+                          </button>
+                        ))}
+                      </div>
+                    )}
                     <span className="friends-controls-count">
                       {t("friendsPage.friendsShownCount", { count: visibleFriends.length, total: friends.length })}
                     </span>
                   </div>
 
                   <div className="friends-controls-tools">
+                    <Button
+                      variant="secondary"
+                      size="sm"
+                      className="friends-circles-manage-btn"
+                      leftIcon={<UsersIcon />}
+                      onClick={() => setShowCirclesModal(true)}
+                    >
+                      {t("friendsPage.manageCircles")}
+                    </Button>
                     <div className="friends-search-wrapper">
                       <input
                         type="text"
@@ -3829,6 +4438,25 @@ export default function FriendsPage() {
                               {friend.region && (
                                 <span className="friend-region" title={t("friendsPage.region")}><MapPinIcon /> {friend.region}</span>
                               )}
+                              {friend.groups && friend.groups.length > 0 && (
+                                <span className="friend-circle-tags" aria-label={t("friendsPage.circleTags")}>
+                                  {friend.groups.map((gid) => {
+                                    const circle = circles.find((c) => c.id === gid);
+                                    if (!circle) return null;
+                                    return (
+                                      <span
+                                        key={gid}
+                                        className="friend-circle-tag"
+                                        title={`${t("friendsPage.circleTagTitle")}: ${circle.name}`}
+                                        style={circle.color ? { borderColor: circle.color, color: circle.color } : undefined}
+                                      >
+                                        <span className="circle-chip-dot" style={circle.color ? { background: circle.color } : undefined} aria-hidden />
+                                        {circle.name}
+                                      </span>
+                                    );
+                                  })}
+                                </span>
+                              )}
                               <span className="friend-last-seen" title={t("friendsPage.lastSynced")}>
                                 <ClockIcon /> {t("friendsPage.lastSeenLabel")} {formatLastSeen(friend.lastSeen, t)}
                               </span>
@@ -3857,6 +4485,165 @@ export default function FriendsPage() {
                 )}
               </>
             )}
+          </div>
+        )}
+
+        {/* Tab: Activity Feed */}
+        {activeTab === "activity" && (
+          <div className="activity-feed-section">
+            <div className="activity-feed-head">
+              <h3 className="activity-feed-title">
+                <span className="activity-feed-title-icon" aria-hidden><ActivityIcon /></span>
+                {t("friendsPage.activityFeedTitle")}
+              </h3>
+              <p className="activity-feed-subtitle">{t("friendsPage.activityFeedSubtitle")}</p>
+            </div>
+            {activityFeed.length === 0 ? (
+              <div className="friends-empty-state">
+                <div className="friends-empty-icon" aria-hidden><ActivityIcon /></div>
+                <h3 className="friends-empty-title">{t("friendsPage.activityFeedEmpty")}</h3>
+                <p className="friends-empty-desc">{t("friendsPage.activityFeedEmptyDesc")}</p>
+              </div>
+            ) : (
+              <div className="activity-feed-list">
+                {activityFeed.map((item) => (
+                  <div key={item.key} className={`activity-feed-item kind-${item.kind}`}>
+                    <span className="activity-feed-bullet" aria-hidden>
+                      {item.kind === "session" ? <CalendarIcon /> :
+                       item.kind === "rec" ? <RecommendIcon /> :
+                       item.kind === "suggestion" ? <SuggestionIcon /> :
+                       item.kind === "friend" ? <UsersIcon /> :
+                       item.kind === "achievement" ? <TrophyIcon /> : <ActivityIcon />}
+                    </span>
+                    <div className="activity-feed-body">
+                      <div className="activity-feed-text">{item.title}</div>
+                      {item.detail && <div className="activity-feed-detail">{item.detail}</div>}
+                    </div>
+                    <span className="activity-feed-time" title={new Date(item.timestamp).toLocaleString()}>
+                      {formatLastSeen(Math.floor(item.timestamp / 1000), t)}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Tab: 1:1 Messages */}
+        {activeTab === "dms" && (
+          <div className="dms-section">
+            <div className="dms-layout">
+              <div className="dms-thread-list">
+                <div className="dms-thread-list-head">
+                  <h3 className="dms-thread-list-title">{t("friendsPage.dmThreads")}</h3>
+                  <span className="dms-thread-list-count">{dms.filter((t) => !t.deleted).length}</span>
+                </div>
+                {friends.filter((f) => !f.blocked).length === 0 ? (
+                  <div className="friends-empty-state friends-empty-state--inline">
+                    <div className="friends-empty-icon friends-empty-icon--sm" aria-hidden><MessageIcon /></div>
+                    <h3 className="friends-empty-title">{t("friendsPage.noDmFriends")}</h3>
+                    <p className="friends-empty-desc">{t("friendsPage.noDmFriendsDesc")}</p>
+                  </div>
+                ) : (
+                  <div className="dms-thread-list-items">
+                    {friends.filter((f) => !f.blocked).map((f) => {
+                      const thread = dms.find(
+                        (t) => !t.deleted && t.participants.includes(profile.name) && t.participants.includes(f.name)
+                      );
+                      const lastMsg = thread?.messages?.slice(-1)[0];
+                      return (
+                        <button
+                          key={f.id}
+                          type="button"
+                          className={`dm-thread-row${selectedDmId === (thread?.id || dmThreadId(profile.name, f.name)) ? " active" : ""}`}
+                          onClick={() => handleOpenDmThread(thread?.id || dmThreadId(profile.name, f.name), f.name)}
+                        >
+                          {renderAvatar(f.avatar, f.name, "dm-thread-avatar")}
+                          <span className="dm-thread-meta">
+                            <span className="dm-thread-name">{displayName(f)}</span>
+                            <span className={`dm-thread-preview${lastMsg && lastMsg.author !== profile.name ? " incoming" : ""}`}>
+                              {lastMsg
+                                ? `${lastMsg.author === profile.name ? t("friendsPage.dmYou") : ""}${lastMsg.text}`
+                                : t("friendsPage.dmStart")}
+                            </span>
+                          </span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+
+              <div className="dm-thread-pane">
+                {selectedDmId ? (
+                  (() => {
+                    const thread = dms.find((t) => t.id === selectedDmId);
+                    // Use the explicitly selected friend (works even before the
+                    // first message creates the thread in state).
+                    const friendName =
+                      selectedDmFriendName ||
+                      thread?.participants.find((p) => p !== profile.name) ||
+                      "";
+                    const friend = friends.find((f) => f.name === friendName);
+                    const msgs = thread?.messages || [];
+                    return (
+                      <div className="dm-thread-pane-inner">
+                        <div className="dm-thread-header">
+                          {friend && renderAvatar(friend.avatar, friend.name, "dm-thread-avatar")}
+                          <div className="dm-thread-header-name">
+                            {friend ? displayName(friend) : friendName}
+                            {friend && isOnline(friend) && <span className="dm-thread-online">{t("friendsPage.formatOnline")}</span>}
+                          </div>
+                        </div>
+                        <div className="dm-thread-messages">
+                          {msgs.length === 0 ? (
+                            <div className="chat-empty">{t("friendsPage.dmNoMessages")}</div>
+                          ) : (
+                            msgs.map((m) => (
+                              <div key={m.id} className={`chat-msg dm-msg${m.author === profile.name ? " mine" : ""}`}>
+                                <span className="chat-author">{m.author === profile.name ? t("friendsPage.dmYou") : m.author}</span>
+                                <span className="chat-text">{m.text}</span>
+                              </div>
+                            ))
+                          )}
+                        </div>
+                        <div className="dm-thread-input">
+                          <input
+                            className="profile-input"
+                            placeholder={t("friendsPage.dmPlaceholder")}
+                            value={dmDraft}
+                            onChange={(e) => setDmDraft(e.target.value)}
+                            onKeyDown={(e) => {
+                              if (e.key === "Enter") {
+                                handleSendDm(friendName, dmDraft);
+                                setDmDraft("");
+                              }
+                            }}
+                          />
+                          <Button
+                            variant="primary"
+                            className="btn--mini"
+                            leftIcon={<SendIcon />}
+                            onClick={() => {
+                              handleSendDm(friendName, dmDraft);
+                              setDmDraft("");
+                            }}
+                          >
+                            {t("common.send")}
+                          </Button>
+                        </div>
+                      </div>
+                    );
+                  })()
+                ) : (
+                  <div className="dm-thread-empty">
+                    <div className="friends-empty-icon" aria-hidden><MessageIcon /></div>
+                    <h3 className="friends-empty-title">{t("friendsPage.dmSelectThread")}</h3>
+                    <p className="friends-empty-desc">{t("friendsPage.dmSelectThreadDesc")}</p>
+                  </div>
+                )}
+              </div>
+            </div>
           </div>
         )}
 
@@ -3937,6 +4724,21 @@ export default function FriendsPage() {
                           </option>
                         ))}
                       </select>
+                      {circles.length > 0 && (
+                        <select
+                          className="profile-input session-circle-invite"
+                          value=""
+                          onChange={(e) => {
+                            if (e.target.value) handleInviteCircleToSession(e.target.value);
+                            e.target.value = "";
+                          }}
+                        >
+                          <option value="">{t("friendsPage.inviteCircle")}</option>
+                          {circles.map((c) => (
+                            <option key={c.id} value={c.id}>{c.name}</option>
+                          ))}
+                        </select>
+                      )}
                       <div className="session-invite-chips">
                         {sessionInvited.map((name) => (
                           <span key={name} className="invite-chip">
@@ -5369,6 +6171,59 @@ export default function FriendsPage() {
         {/* Tab 5: Leaderboard */}
         {activeTab === "leaderboard" && (leaderboardTab)}
 
+        {/* Tab: Achievement Race */}
+        {activeTab === "race" && (
+          <div className="race-section">
+            <div className="race-head">
+              <h3 className="race-title">
+                <span className="race-title-icon" aria-hidden><TrophyIcon /></span>
+                {t("friendsPage.raceTitle")}
+              </h3>
+              <p className="race-subtitle">{t("friendsPage.raceSubtitle")}</p>
+            </div>
+            {achievementRaces.length === 0 ? (
+              <div className="friends-empty-state">
+                <div className="friends-empty-icon" aria-hidden><TrophyIcon /></div>
+                <h3 className="friends-empty-title">{t("friendsPage.raceEmpty")}</h3>
+                <p className="friends-empty-desc">{t("friendsPage.raceEmptyDesc")}</p>
+              </div>
+            ) : (
+              <div className="race-list">
+                {achievementRaces.map((r) => {
+                  const gap = r.me - r.them;
+                  const leader = gap >= 0 ? t("friendsPage.me") : r.friendName;
+                  const myWins = gap > 0;
+                  return (
+                    <div key={r.key} className="race-row">
+                      <div className="race-game">
+                        <span className="race-game-name">{r.gameName}</span>
+                        <span className="race-vs">{t("friendsPage.raceVs", { friend: r.friendName })}</span>
+                      </div>
+                      <div className="race-bars">
+                        <div className="race-bar-group">
+                          <span className="race-bar-label">{t("friendsPage.me")} · {r.me}%</span>
+                          <div className="race-bar-track">
+                            <div className="race-bar-fill race-bar-me" style={{ width: `${Math.min(Math.max(r.me, 0), 100)}%` }} />
+                          </div>
+                        </div>
+                        <div className="race-bar-group">
+                          <span className="race-bar-label">{r.friendName} · {r.them}%</span>
+                          <div className="race-bar-track">
+                            <div className="race-bar-fill race-bar-them" style={{ width: `${Math.min(Math.max(r.them, 0), 100)}%` }} />
+                          </div>
+                        </div>
+                      </div>
+                      <div className={`race-result${myWins ? " leading" : gap === 0 ? " tied" : " trailing"}`}>
+                        {gap === 0 ? t("friendsPage.raceTied") : t("friendsPage.raceLeading", { who: leader, gap: Math.abs(gap) })}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        )}
+
         {/* Tab 6: My Profile */}
         {activeTab === "profile" && (
           <div className="profile-editor-layout">
@@ -5786,8 +6641,123 @@ export default function FriendsPage() {
           </div>
         </div>
       )}
+
+      {/* Circles Manager Modal */}
+      {showCirclesModal && (
+        <div className="friends-modal-overlay" onClick={() => setShowCirclesModal(false)}>
+          <div
+            className="friends-modal-content circles-modal-content"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <button
+              type="button"
+              className="friends-modal-close-btn"
+              onClick={() => setShowCirclesModal(false)}
+              aria-label={t("common.close")}
+            >
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" width="16" height="16">
+                <line x1="18" y1="6" x2="6" y2="18" />
+                <line x1="6" y1="6" x2="18" y2="18" />
+              </svg>
+            </button>
+            <div className="friends-modal-head">
+              <span className="friends-modal-icon" aria-hidden><UsersIcon /></span>
+              <div className="friends-modal-head-text">
+                <h3 className="friends-modal-title">{t("friendsPage.circlesTitle")}</h3>
+                <p className="friends-modal-desc">{t("friendsPage.circlesDesc")}</p>
+              </div>
+            </div>
+
+            <div className="friends-modal-body circles-modal-body">
+              <form
+                className="circles-create-row"
+                onSubmit={(e) => {
+                  e.preventDefault();
+                  const input = (e.currentTarget.elements.namedItem("circleName") as HTMLInputElement);
+                  handleCreateCircle(input.value);
+                  input.value = "";
+                }}
+              >
+                <input
+                  name="circleName"
+                  className="profile-input"
+                  placeholder={t("friendsPage.circleNamePlaceholder")}
+                  aria-label={t("friendsPage.circleNamePlaceholder")}
+                />
+                <Button type="submit" variant="primary" size="sm" leftIcon={<PlusIcon />}>{t("friendsPage.circleCreate")}</Button>
+              </form>
+
+              {circles.length === 0 ? (
+                <div className="friends-empty-state friends-empty-state--inline">
+                  <div className="friends-empty-icon friends-empty-icon--sm" aria-hidden><UsersIcon /></div>
+                  <h3 className="friends-empty-title">{t("friendsPage.circlesEmpty")}</h3>
+                  <p className="friends-empty-desc">{t("friendsPage.circlesEmptyDesc")}</p>
+                </div>
+              ) : (
+                <div className="circles-list">
+                  {circles.map((c) => (
+                    <div key={c.id} className="circle-manager-card">
+                      <div className="circle-manager-head">
+                        <span className="circle-chip-dot" style={c.color ? { background: c.color } : undefined} aria-hidden />
+                        <input
+                          className="profile-input circle-name-input"
+                          defaultValue={c.name}
+                          aria-label={t("friendsPage.circleName")}
+                          onBlur={(e) => {
+                            if (e.target.value.trim() && e.target.value.trim() !== c.name) {
+                              handleRenameCircle(c.id, e.target.value);
+                            }
+                          }}
+                        />
+                        <button
+                          type="button"
+                          className="friend-delete-btn"
+                          onClick={() => handleDeleteCircle(c.id)}
+                          title={t("friendsPage.circleDelete")}
+                        >
+                          <TrashIcon />
+                        </button>
+                      </div>
+                      <div className="circle-member-list">
+                        {friends.length === 0 ? (
+                          <span className="circle-member-empty">{t("friendsPage.circleNoFriends")}</span>
+                        ) : (
+                          friends.map((f) => {
+                            const inCircle = (f.groups || []).includes(c.id);
+                            return (
+                              <button
+                                key={f.id}
+                                type="button"
+                                className={`circle-member-chip${inCircle ? " active" : ""}`}
+                                onClick={() => handleToggleFriendCircle(f.id, c.id)}
+                                title={inCircle ? t("friendsPage.circleRemoveMember") : t("friendsPage.circleAddMember")}
+                              >
+                                {renderAvatar(f.avatar, f.name, "circle-member-avatar")}
+                                <span className="circle-member-name">{displayName(f)}</span>
+                                {inCircle && <CheckIcon />}
+                              </button>
+                            );
+                          })
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            <div className="friends-modal-footer">
+              <button
+                type="button"
+                className="btn btn-secondary"
+                onClick={() => setShowCirclesModal(false)}
+              >
+                {t("common.close")}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
-
-

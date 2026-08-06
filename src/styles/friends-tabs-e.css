@@ -1,0 +1,736 @@
+/* =============================================================================
+ * Friends — Lane E: Activity Feed, 1:1 Messages, Achievement Race,
+ * Playing Now rail + friend circles
+ *
+ * Visual layer for the additions on top of the friends page:
+ *  - the Activity Feed tab (unified timeline of sessions / recs / shares /
+ *    new friends / achievement unlocks)
+ *  - the 1:1 Messages tab (thread list + private chat pane)
+ *  - the Achievement Race tab (per-game % bars vs each friend)
+ *  - the Playing Now rail on the Friends tab (friends in a game you own,
+ *    one-click Join)
+ *  - friend circles: filter chips, card tags, the manage modal, session
+ *    circle invite.
+ *
+ * Loads last (after friends-tabs-d.css) so these rules win on equal
+ * specificity. Follows the same design language as the other lanes:
+ * var(--…) tokens, hairline borders, accent tints via color-mix, and
+ * prefers-reduced-motion support.
+ * ========================================================================== */
+
+/* =============================================================================
+ * 1. Activity Feed
+ * ========================================================================== */
+
+.activity-feed-section {
+  padding-top: var(--space-lg);
+}
+
+.activity-feed-head {
+  margin-bottom: var(--space-lg);
+}
+
+.activity-feed-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: var(--font-size-lg);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text-primary);
+  margin: 0 0 4px;
+}
+
+.activity-feed-title-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border-radius: var(--radius-md);
+  background: color-mix(in srgb, var(--color-accent) 12%, transparent);
+  color: var(--color-accent);
+}
+
+.activity-feed-title-icon svg {
+  width: 15px;
+  height: 15px;
+}
+
+.activity-feed-subtitle {
+  margin: 0 0 0 36px;
+  font-size: var(--font-size-sm);
+  color: var(--color-text-muted);
+}
+
+.activity-feed-list {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  padding: var(--space-xs) 0;
+  animation: friendsPanelIn 240ms var(--ease-standard) both;
+}
+
+.activity-feed-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: var(--space-sm) var(--space-lg);
+  border-radius: var(--radius-md);
+  transition: background-color var(--transition-fast);
+}
+
+.activity-feed-item:hover {
+  background: var(--color-bg-hover);
+}
+
+.activity-feed-bullet {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: 30px;
+  height: 30px;
+  border-radius: var(--radius-full);
+  background: var(--color-bg-tertiary);
+  border: 1px solid var(--color-border);
+  color: var(--color-text-secondary);
+}
+
+.activity-feed-item.kind-session .activity-feed-bullet {
+  color: var(--color-accent);
+  background: color-mix(in srgb, var(--color-accent) 12%, transparent);
+  border-color: color-mix(in srgb, var(--color-accent) 30%, transparent);
+}
+
+.activity-feed-item.kind-achievement .activity-feed-bullet {
+  color: var(--color-warning, #f59e0b);
+  background: color-mix(in srgb, var(--color-warning, #f59e0b) 12%, transparent);
+  border-color: color-mix(in srgb, var(--color-warning, #f59e0b) 30%, transparent);
+}
+
+.activity-feed-item.kind-friend .activity-feed-bullet {
+  color: #10b981;
+  background: color-mix(in srgb, #10b981 12%, transparent);
+  border-color: color-mix(in srgb, #10b981 30%, transparent);
+}
+
+.activity-feed-bullet svg {
+  width: 14px;
+  height: 14px;
+}
+
+.activity-feed-body {
+  flex: 1;
+  min-width: 0;
+}
+
+.activity-feed-text {
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-medium);
+  color: var(--color-text-primary);
+  line-height: 1.4;
+}
+
+.activity-feed-detail {
+  font-size: var(--font-size-xs);
+  color: var(--color-text-muted);
+  margin-top: 1px;
+}
+
+.activity-feed-time {
+  flex-shrink: 0;
+  font-size: var(--font-size-xs);
+  color: var(--color-text-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+/* =============================================================================
+ * 2. 1:1 Messages
+ * ========================================================================== */
+
+.dms-section {
+  padding-top: var(--space-lg);
+}
+
+.dms-layout {
+  display: grid;
+  grid-template-columns: 300px 1fr;
+  gap: var(--space-lg);
+  min-height: 460px;
+}
+
+@media (max-width: 900px) {
+  .dms-layout {
+    grid-template-columns: 1fr;
+  }
+}
+
+.dms-thread-list {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  max-height: 560px;
+}
+
+.dms-thread-list-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--space-md) var(--space-lg);
+  border-bottom: 1px solid var(--color-border);
+}
+
+.dms-thread-list-title {
+  margin: 0;
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-semibold);
+  letter-spacing: 0.6px;
+  text-transform: uppercase;
+  color: var(--color-text-secondary);
+}
+
+.dms-thread-list-count {
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-bold);
+  font-variant-numeric: tabular-nums;
+  color: var(--color-text-muted);
+}
+
+.dms-thread-list-items {
+  overflow-y: auto;
+  flex: 1;
+}
+
+.dm-thread-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: var(--space-sm) var(--space-lg);
+  background: transparent;
+  border: none;
+  border-bottom: 1px solid var(--color-border);
+  color: var(--color-text-primary);
+  text-align: left;
+  cursor: pointer;
+  transition: background-color var(--transition-fast);
+}
+
+.dm-thread-row:hover {
+  background: var(--color-bg-hover);
+}
+
+.dm-thread-row.active {
+  background: color-mix(in srgb, var(--color-accent) 10%, transparent);
+}
+
+.dm-thread-avatar {
+  flex-shrink: 0;
+}
+
+.dm-thread-meta {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.dm-thread-name {
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-semibold);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.dm-thread-preview {
+  font-size: var(--font-size-xs);
+  color: var(--color-text-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.dm-thread-preview.incoming {
+  color: var(--color-accent);
+  font-weight: var(--font-weight-medium);
+}
+
+.dm-thread-pane {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  max-height: 560px;
+}
+
+.dm-thread-pane-inner {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-height: 460px;
+}
+
+.dm-thread-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: var(--space-md) var(--space-lg);
+  border-bottom: 1px solid var(--color-border);
+}
+
+.dm-thread-header-name {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-semibold);
+}
+
+.dm-thread-online {
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-medium);
+  color: #10b981;
+}
+
+.dm-thread-messages {
+  flex: 1;
+  overflow-y: auto;
+  padding: var(--space-md) var(--space-lg);
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.dm-msg {
+  max-width: 75%;
+}
+
+.dm-thread-input {
+  display: flex;
+  gap: 8px;
+  padding: var(--space-md) var(--space-lg);
+  border-top: 1px solid var(--color-border);
+}
+
+.dm-thread-input .profile-input {
+  flex: 1;
+}
+
+.dm-thread-empty {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  text-align: center;
+  padding: var(--space-xl);
+}
+
+/* =============================================================================
+ * 3. Achievement Race
+ * ========================================================================== */
+
+.race-section {
+  padding-top: var(--space-lg);
+}
+
+.race-head {
+  margin-bottom: var(--space-lg);
+}
+
+.race-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: var(--font-size-lg);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text-primary);
+  margin: 0 0 4px;
+}
+
+.race-title-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border-radius: var(--radius-md);
+  background: color-mix(in srgb, var(--color-accent) 12%, transparent);
+  color: var(--color-accent);
+}
+
+.race-subtitle {
+  margin: 0 0 0 36px;
+  font-size: var(--font-size-sm);
+  color: var(--color-text-muted);
+}
+
+.race-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-md);
+}
+
+.race-row {
+  display: grid;
+  grid-template-columns: minmax(180px, 240px) 1fr minmax(140px, auto);
+  align-items: center;
+  gap: var(--space-lg);
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  padding: var(--space-md) var(--space-lg);
+  transition: border-color var(--transition-fast);
+  animation: friendsPanelIn 240ms var(--ease-standard) both;
+}
+
+.race-row:hover {
+  border-color: color-mix(in srgb, var(--color-accent) 35%, var(--color-border));
+}
+
+.race-game {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.race-game-name {
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-semibold);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.race-vs {
+  font-size: var(--font-size-xs);
+  color: var(--color-text-muted);
+}
+
+.race-bars {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-width: 0;
+}
+
+.race-bar-group {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.race-bar-label {
+  font-size: var(--font-size-xs);
+  color: var(--color-text-muted);
+}
+
+.race-bar-track {
+  height: 6px;
+  border-radius: var(--radius-full);
+  background: var(--color-bg-tertiary);
+  overflow: hidden;
+}
+
+.race-bar-fill {
+  height: 100%;
+  border-radius: var(--radius-full);
+  transition: width 320ms var(--ease-standard);
+}
+
+.race-bar-me {
+  background: var(--color-accent);
+}
+
+.race-bar-them {
+  background: color-mix(in srgb, var(--color-accent) 45%, var(--color-text-secondary));
+}
+
+.race-result {
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-semibold);
+  text-align: right;
+  white-space: nowrap;
+}
+
+.race-result.leading {
+  color: var(--color-accent);
+}
+
+.race-result.tied {
+  color: var(--color-text-secondary);
+}
+
+.race-result.trailing {
+  color: var(--color-warning, #f59e0b);
+}
+
+/* =============================================================================
+ * 4. Playing Now rail
+ * ========================================================================== */
+
+.playing-now-section {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  padding: var(--space-md) var(--space-lg);
+  margin-bottom: var(--space-xl);
+  animation: friendsPanelIn 240ms var(--ease-standard) both;
+}
+
+.playing-now-head {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  margin-bottom: var(--space-sm);
+}
+
+.playing-now-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0;
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-semibold);
+  letter-spacing: 0.6px;
+  text-transform: uppercase;
+  color: var(--color-text-secondary);
+}
+
+.playing-now-title-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  border-radius: var(--radius-md);
+  background: color-mix(in srgb, #10b981 14%, transparent);
+  color: #10b981;
+}
+
+.playing-now-title-icon svg {
+  width: 13px;
+  height: 13px;
+}
+
+.playing-now-hint {
+  font-size: var(--font-size-xs);
+  color: var(--color-text-muted);
+}
+
+.playing-now-strip {
+  display: flex;
+  gap: 10px;
+  overflow-x: auto;
+  padding-bottom: 4px;
+  scrollbar-width: thin;
+}
+
+.playing-now-card {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-shrink: 0;
+  padding: var(--space-sm) var(--space-md);
+  background: var(--color-bg-tertiary);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  min-width: 0;
+}
+
+.playing-now-avatar {
+  flex-shrink: 0;
+}
+
+.playing-now-info {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  min-width: 0;
+  max-width: 170px;
+}
+
+.playing-now-name {
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-semibold);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.playing-now-game {
+  font-size: var(--font-size-xs);
+  color: var(--color-text-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.playing-now-join {
+  flex-shrink: 0;
+}
+
+.playing-now-own-hint {
+  flex-shrink: 0;
+  font-size: var(--font-size-xs);
+  color: var(--color-text-muted);
+  white-space: nowrap;
+}
+
+/* =============================================================================
+ * 5. Friend circles
+ * ========================================================================== */
+
+.friends-circle-chips {
+  flex-wrap: wrap;
+}
+
+.circle-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.circle-chip-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: var(--radius-full);
+  background: var(--color-accent);
+  flex-shrink: 0;
+}
+
+.friends-circles-manage-btn {
+  flex-shrink: 0;
+}
+
+.friend-circle-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin-top: 4px;
+}
+
+.friend-circle-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 1px 7px;
+  border-radius: var(--radius-full);
+  border: 1px solid color-mix(in srgb, var(--color-accent) 35%, var(--color-border));
+  color: var(--color-accent);
+  font-size: 10px;
+  font-weight: var(--font-weight-medium);
+  line-height: 16px;
+}
+
+.circles-modal-body {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-md);
+}
+
+.circles-create-row {
+  display: flex;
+  gap: 8px;
+}
+
+.circles-create-row .profile-input {
+  flex: 1;
+}
+
+.circles-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-md);
+  max-height: 380px;
+  overflow-y: auto;
+}
+
+.circle-manager-card {
+  background: var(--color-bg-tertiary);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  padding: var(--space-md);
+}
+
+.circle-manager-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: var(--space-sm);
+}
+
+.circle-name-input {
+  flex: 1;
+  min-width: 0;
+}
+
+.circle-member-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.circle-member-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 3px 10px 3px 4px;
+  border-radius: var(--radius-full);
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-xs);
+  cursor: pointer;
+  transition: border-color var(--transition-fast), color var(--transition-fast), background-color var(--transition-fast);
+}
+
+.circle-member-chip:hover {
+  border-color: var(--color-accent);
+  color: var(--color-text-primary);
+}
+
+.circle-member-chip.active {
+  background: color-mix(in srgb, var(--color-accent) 12%, transparent);
+  border-color: color-mix(in srgb, var(--color-accent) 38%, transparent);
+  color: var(--color-accent);
+}
+
+.circle-member-avatar {
+  flex-shrink: 0;
+}
+
+.circle-member-name {
+  font-weight: var(--font-weight-medium);
+}
+
+.circle-member-empty {
+  font-size: var(--font-size-xs);
+  color: var(--color-text-muted);
+}
+
+/* Session form circle invite */
+.session-circle-invite {
+  flex-shrink: 0;
+}
+
+/* Reduced motion */
+@media (prefers-reduced-motion: reduce) {
+  .activity-feed-list,
+  .race-row,
+  .playing-now-section {
+    animation: none;
+  }
+}
