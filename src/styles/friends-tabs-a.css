@@ -25,7 +25,6 @@
    rhythm below, so the old doubled margin-bottom goes away. */
 .friends-tab-bar-container {
   margin-bottom: 0;
-  border-bottom: 1px solid var(--color-border);
   animation: friendsChromeIn 260ms var(--ease-standard);
 }
 
@@ -33,28 +32,18 @@
   gap: 4px;
 }
 
-/* Consistent strip height; icon + label + count sit on one baseline. */
+/* Consistent chip height; icon + label + count sit on one baseline. */
 .friends-tab {
-  height: 34px;
-  padding: 0 14px;
-  gap: 8px;
-  border-radius: var(--radius-md);
-  color: var(--color-text-muted);
-  font-size: var(--font-size-sm);
-  font-weight: var(--font-weight-medium);
+  height: 30px;
+  padding: 0 12px;
+  gap: 7px;
+  border-radius: var(--radius-full);
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-semibold);
   letter-spacing: 0.1px;
-  transition: color var(--transition-fast), background var(--transition-fast);
-}
-
-/* Active underline — 2px accent bar that docks into the container hairline. */
-.friends-tab::after {
-  bottom: -1px;
-  left: 12px;
-  right: 12px;
-  height: 2px;
-  background: var(--color-accent);
-  border-radius: 2px 2px 0 0;
-  box-shadow: 0 0 8px color-mix(in srgb, var(--color-accent) 50%, transparent);
+  transition: background-color var(--transition-fast),
+    color var(--transition-fast), box-shadow var(--transition-fast);
 }
 
 .friends-tab:hover {
@@ -62,43 +51,49 @@
   background: var(--color-bg-hover);
 }
 
-/* Inset ring so the highlight never clips against the bar edges. */
+/* Inset ring so the highlight never clips against the tray edges. */
 .friends-tab:focus-visible {
   outline: 2px solid var(--color-accent);
-  outline-offset: -2px;
+  outline-offset: -1px;
 }
 
 .friends-tab.active {
-  color: var(--color-accent);
-  background: color-mix(in srgb, var(--color-accent) 11%, transparent);
+  background: var(--color-accent);
+  color: #fff;
+  box-shadow: 0 2px 10px color-mix(in srgb, var(--color-accent) 32%, transparent);
+}
+
+.friends-tab.active:hover {
+  background: var(--color-accent-hover);
+  color: #fff;
 }
 
 .friends-tab svg {
-  width: 15px;
-  height: 15px;
+  width: 14px;
+  height: 14px;
   flex-shrink: 0;
 }
 
-/* Count pill — tabular, hairline tray, accent-tinted when the tab is live. */
+/* Count pill — quiet tray by default, inverted on the accent pill. */
 .friends-tab-count {
   min-width: 18px;
   height: 17px;
   padding: 0 5px;
   border-radius: var(--radius-full);
-  background: var(--color-bg-tertiary);
-  border: 1px solid var(--color-border);
-  color: var(--color-text-secondary);
+  background: var(--color-bg-hover);
+  color: var(--color-text-muted);
   font-size: 10px;
   font-weight: var(--font-weight-bold);
   font-variant-numeric: tabular-nums;
+  line-height: 17px;
+  text-align: center;
   transition: background-color var(--transition-fast),
-    border-color var(--transition-fast), color var(--transition-fast);
+    color var(--transition-fast);
 }
 
 .friends-tab.active .friends-tab-count {
-  background: color-mix(in srgb, var(--color-accent) 18%, transparent);
-  border-color: color-mix(in srgb, var(--color-accent) 38%, transparent);
-  color: var(--color-accent);
+  background: rgba(255, 255, 255, 0.18);
+  color: #fff;
 }
 
 /* =============================================================================
@@ -110,9 +105,9 @@
  * ========================================================================== */
 
 .sync-status-container {
-  height: 34px;
-  padding: 3px 4px 3px 12px;
-  background: var(--color-bg-tertiary);
+  height: 30px;
+  padding: 0 4px 0 10px;
+  background: var(--color-surface-raised);
   border: 1px solid var(--color-border);
   border-radius: var(--radius-full);
   gap: 8px;
@@ -135,7 +130,8 @@
 }
 
 /* Ghost icon buttons inside the tray — only the hover/active states carry
-   fill, so the cluster stays quiet until you reach for it. */
+   fill, so the cluster stays quiet until you reach for it. Hover sits one
+   step above the tray's raised surface so it always reads. */
 .btn-sync {
   width: 26px;
   height: 26px;
@@ -148,7 +144,7 @@
 }
 
 .btn-sync:hover {
-  background: var(--color-bg-hover);
+  background: var(--color-bg-tertiary);
   border: none;
   color: var(--color-text-primary);
 }
@@ -859,7 +855,6 @@
   }
 
   .friends-tab,
-  .friends-tab::after,
   .friends-tab-count,
   .btn-sync,
   .friend-card,
