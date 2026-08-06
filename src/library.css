@@ -1,23 +1,24 @@
 /* ════════════════════════════════════════════════════════════════════
-   Library Tab — Modern Refactor
+   Library — Aurora Glass (full redesign)
    ────────────────────────────────────────────────────────────────────
-   A ground-up restyle of the Library page. Built entirely on the app's
-   shared design tokens (--color-*, --space-*, --radius-*, --shadow-*,
-   --transition-*) so every theme (dark / light / nord / cyberpunk …)
-   stays in lockstep. The goals of this pass:
+   A from-scratch visual rewrite of the Library page. Design language:
 
-     1. A unified, sticky top toolbar that owns search + sort + density,
-        so the most-used controls are always one glance away.
-     2. A slimmer, collapsible filter rail with segmented status
-        controls and pill toggles instead of checkbox lists.
-     3. Refined game cards: glass cover, gradient body overlay in
-        cinematic, calmer hover, and a modern "quick action" play FAB.
-     4. A hero that doubles as a cover-collage wallpaper, with animated
-        KPI tiles.
-     5. Polished rails, empty states, and virtualized grid.
+     • Aurora — layered gradient washes + cover-collage backdrop behind
+       the hero give the page a soft, ambient "yours" glow.
+     • Glass — every panel is a frosted surface over the page background
+       (backdrop-filter), with 1px hairline borders and soft shadows.
+     • Rhythm — editorial first-card emphasis, staggered entrance
+       animations, hover lift + cover zoom + FAB reveal.
 
-   All class names are namespaced `lib-` to avoid colliding with the
-   Store page's `store-*` selectors.
+   All colors come from the app tokens (var(--color-*)); nothing is
+   hardcoded. Class names are namespaced `lib-` and match the components
+   exactly — density variants, editorial featured card, and the
+   virtualized grid rely on them.
+
+   ⚠️ Virtualization contract: row strides computed in
+   LibraryVirtualGrid.tsx must match real card heights —
+   cozy 424px / compact 220px / cinematic 420px / list 96px. If card
+   padding or cover aspect ratios change, update BOTH files.
    ════════════════════════════════════════════════════════════════════ */
 
 /* ── Page shell ─────────────────────────────────────────────────────── */
@@ -77,21 +78,43 @@
   }
 }
 
-/* Cover-collage wallpaper: the hero loads a few cover thumbnails as a
-   blurred, dimmed backdrop so the page feels like *your* library
-   rather than a generic panel. Pure decoration. */
+/* Aurora: slow-drifting accent/info gradient blobs behind the collage. */
+.lib-hero-aurora {
+  position: absolute;
+  inset: 0;
+  z-index: -3;
+  overflow: hidden;
+  pointer-events: none;
+  background:
+    radial-gradient(60% 80% at 12% 0%, color-mix(in srgb, var(--color-accent) 26%, transparent) 0%, transparent 60%),
+    radial-gradient(55% 75% at 100% 20%, color-mix(in srgb, var(--color-info) 18%, transparent) 0%, transparent 62%),
+    radial-gradient(70% 90% at 55% 115%, color-mix(in srgb, var(--color-success) 12%, transparent) 0%, transparent 55%);
+  animation: libAuroraShift 16s ease-in-out infinite alternate;
+}
+
+@keyframes libAuroraShift {
+  0% {
+    transform: translate3d(-1.5%, -1%, 0) scale(1.02);
+  }
+  100% {
+    transform: translate3d(1.5%, 1%, 0) scale(1.05);
+  }
+}
+
+/* Cover-collage wallpaper: blurred thumbnails over the aurora so the
+   hero reads as *your* library. Pure decoration. */
 .lib-hero-collage {
   position: absolute;
   inset: 0;
   display: grid;
   grid-template-columns: repeat(6, 1fr);
   grid-auto-rows: 1fr;
-  opacity: 0.5;
+  opacity: 0.4;
   z-index: -2;
-  filter: blur(26px) saturate(1.4);
+  filter: blur(30px) saturate(1.35);
   transform: scale(1.25);
-  mask-image: linear-gradient(110deg, rgba(0, 0, 0, 0.9) 0%, rgba(0, 0, 0, 0.35) 55%, transparent 100%);
-  -webkit-mask-image: linear-gradient(110deg, rgba(0, 0, 0, 0.9) 0%, rgba(0, 0, 0, 0.35) 55%, transparent 100%);
+  mask-image: linear-gradient(110deg, rgba(0, 0, 0, 0.9) 0%, rgba(0, 0, 0, 0.4) 55%, transparent 100%);
+  -webkit-mask-image: linear-gradient(110deg, rgba(0, 0, 0, 0.9) 0%, rgba(0, 0, 0, 0.4) 55%, transparent 100%);
   pointer-events: none;
 }
 
@@ -106,9 +129,8 @@
   inset: 0;
   z-index: -1;
   background:
-    linear-gradient(120deg, color-mix(in srgb, var(--color-bg-secondary) 92%, transparent) 0%, color-mix(in srgb, var(--color-bg-secondary) 55%, transparent) 60%, transparent 100%),
-    radial-gradient(120% 140% at 0% 0%, color-mix(in srgb, var(--color-accent) 22%, transparent) 0%, transparent 55%),
-    radial-gradient(120% 140% at 100% 100%, color-mix(in srgb, var(--color-info) 14%, transparent) 0%, transparent 50%);
+    linear-gradient(120deg, color-mix(in srgb, var(--color-bg-secondary) 90%, transparent) 0%, color-mix(in srgb, var(--color-bg-secondary) 52%, transparent) 58%, transparent 100%),
+    radial-gradient(120% 140% at 0% 0%, color-mix(in srgb, var(--color-accent) 16%, transparent) 0%, transparent 55%);
   pointer-events: none;
 }
 
@@ -141,7 +163,10 @@
 }
 
 .lib-hero-greeting-dot {
-  color: var(--color-accent);
+  background: linear-gradient(135deg, var(--color-accent), var(--color-info));
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
 }
 
 .lib-hero-subtitle {
@@ -182,7 +207,7 @@
 }
 
 .lib-hero-btn--primary {
-  background: var(--color-accent);
+  background: linear-gradient(135deg, var(--color-accent), var(--brand-2, var(--color-accent-hover)));
   color: #fff;
   border-color: transparent;
   box-shadow: 0 4px 14px color-mix(in srgb, var(--color-accent) 30%, transparent);
@@ -190,7 +215,7 @@
 
 .lib-hero-btn--primary:hover {
   transform: translateY(-2px);
-  box-shadow: 0 6px 18px color-mix(in srgb, var(--color-accent) 35%, transparent);
+  box-shadow: 0 6px 18px color-mix(in srgb, var(--color-accent) 38%, transparent);
 }
 
 .lib-hero-btn--ghost {
@@ -515,7 +540,7 @@
   justify-content: space-between;
   gap: var(--space-md);
   padding: var(--space-sm) var(--space-md);
-  background: color-mix(in srgb, var(--color-bg-primary) 80%, transparent);
+  background: color-mix(in srgb, var(--color-bg-primary) 78%, transparent);
   backdrop-filter: blur(18px) saturate(140%);
   -webkit-backdrop-filter: blur(18px) saturate(140%);
   border: 1px solid var(--color-border);
@@ -615,10 +640,6 @@
   border-radius: var(--radius-full);
 }
 
-/* DensityToggle ships store-* classes (shared component) but lives inside
-   the library toolbar pill — strip the nested pill chrome and let the
-   outer .lib-toolbar-group own the border/background so the control keeps
-   the same 38px height as the search + sort controls beside it. */
 .lib-toolbar-group .store-density-toggle {
   display: inline-flex;
   gap: 2px;
@@ -933,7 +954,7 @@
   display: flex;
   flex-direction: column;
   gap: var(--space-md);
-  width: 248px;
+  width: 252px;
   flex-shrink: 0;
   padding: var(--space-lg);
   background: var(--color-surface-glass);
@@ -978,12 +999,28 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
+  gap: 6px;
   font-size: 10px;
   font-weight: var(--font-weight-bold);
   color: var(--color-text-muted);
   text-transform: uppercase;
   letter-spacing: 0.1em;
   margin: 0;
+}
+
+.lib-filter-heading-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  flex-shrink: 0;
+  color: var(--color-accent);
+}
+
+.lib-filter-heading-icon svg {
+  width: 14px;
+  height: 14px;
 }
 
 .lib-filter-count-badge {
@@ -1067,7 +1104,7 @@
 }
 
 .lib-segment-option.active {
-  background: var(--color-accent);
+  background: linear-gradient(135deg, var(--color-accent), var(--brand-2, var(--color-accent-hover)));
   color: #fff;
   box-shadow: 0 2px 8px color-mix(in srgb, var(--color-accent) 30%, transparent);
 }
@@ -1085,6 +1122,7 @@
 .lib-pill {
   display: inline-flex;
   align-items: center;
+  gap: 5px;
   padding: 5px 11px;
   font-size: var(--font-size-xs);
   font-weight: var(--font-weight-medium);
@@ -1099,6 +1137,12 @@
   font-family: inherit;
   white-space: nowrap;
   line-height: 1.2;
+}
+
+.lib-pill svg {
+  width: 10px;
+  height: 10px;
+  flex-shrink: 0;
 }
 
 .lib-pill:hover {
@@ -1207,6 +1251,10 @@
 
 .lib-filter-reset {
   width: 100%;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
   padding: var(--space-sm) var(--space-md);
   border-radius: var(--radius-md);
   font-size: var(--font-size-sm);
@@ -1219,6 +1267,11 @@
     border-color var(--transition-fast),
     background var(--transition-fast);
   font-family: inherit;
+}
+
+.lib-filter-reset svg {
+  width: 14px;
+  height: 14px;
 }
 
 .lib-filter-reset:hover {
@@ -1260,22 +1313,14 @@
 
 /* ── Editorial emphasis ───────────────────────────────────────────────
    When enabled (small libraries, not list/compact), the first game is
-   promoted to a "feature" tile: an accent-tinted border + brand shadow,
-   a gradient accent hairline along the top edge, a soft accent wash over
-   the bottom of the cover art, and a slightly larger bold title. It
-   stays a single normal grid cell so placement stays pixel-aligned with
-   every other card (no spanning, no shift, virtualization math untouched). */
-.lib-cards--editorial {
-  /* normal grid flow — the feature is one cell, so nothing special needed */
-}
-
+   promoted to a "feature" tile: accent hairline, accent wash over the
+   cover, and a slightly larger title. Stays a single grid cell so
+   virtualization math is untouched. */
 .lib-cards--editorial > .lib-card--featured {
   box-shadow: var(--shadow-brand), var(--depth-2);
   border-color: color-mix(in srgb, var(--color-accent) 45%, var(--color-border-light));
 }
 
-/* Accent hairline across the top edge — echoes the .game-section stripe
-   language so the feature reads as "curated" without extra chrome. */
 .lib-cards--editorial > .lib-card--featured::before {
   content: "";
   position: absolute;
@@ -1295,7 +1340,6 @@
   opacity: 0.85;
 }
 
-/* Soft accent wash rising from the bottom of the cover art. */
 .lib-cards--editorial > .lib-card--featured .lib-card-cover::after {
   content: "";
   position: absolute;
@@ -1360,9 +1404,16 @@
   cursor: pointer;
   display: flex;
   flex-direction: column;
+  text-align: left;
+  font-family: inherit;
   transition: transform var(--duration-normal) var(--ease-standard),
     box-shadow var(--duration-normal) var(--ease-standard),
     border-color var(--duration-normal) var(--ease-standard);
+}
+
+.lib-card:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 2px;
 }
 
 .lib-card:hover {
@@ -1471,7 +1522,7 @@
   height: 38px;
   border: none;
   border-radius: 50%;
-  background: var(--color-accent);
+  background: linear-gradient(135deg, var(--color-accent), var(--brand-2, var(--color-accent-hover)));
   color: #fff;
   cursor: pointer;
   box-shadow: 0 4px 12px color-mix(in srgb, var(--color-accent) 35%, transparent);
@@ -1486,13 +1537,13 @@
   height: 17px;
 }
 
-.lib-card:hover .lib-card-fab {
+.lib-card:hover .lib-card-fab,
+.lib-card:focus-visible .lib-card-fab {
   opacity: 1;
   transform: translateY(0) scale(1);
 }
 
 .lib-card-fab:hover {
-  background: var(--color-accent-hover);
   transform: translateY(0) scale(1.06);
 }
 
@@ -1637,10 +1688,6 @@
 /* List density: horizontal row */
 .lib-card.density-list {
   min-height: 88px;
-}
-
-.lib-card.density-list > .ui-card__body {
-  display: flex;
   flex-direction: row;
   align-items: stretch;
 }
@@ -2077,18 +2124,11 @@
 }
 
 /* ────────────────────────────────────────────────────────────────────
-   CONTEXT MENU (reuses existing .context-menu styles if present; the
-   Library page renders it but the base styling lives elsewhere). We
-   keep the class name identical so no behavior change is needed.
-   ──────────────────────────────────────────────────────────────────── */
-
-/* ────────────────────────────────────────────────────────────────────
    BIG SCREEN LIBRARY
    ────────────────────────────────────────────────────────────────────
    Big-screen surface styles live in src/styles/bigscreen.css (imported
-   after this file). The duplicate selectors that used to sit here were
-   consolidated there — bigscreen.css is the single source of truth for
-   the controller-first layout. */
+   after this file). bigscreen.css is the single source of truth for the
+   controller-first layout. */
 
 /* ────────────────────────────────────────────────────────────────────
    RESPONSIVE
@@ -2133,6 +2173,7 @@
 @media (prefers-reduced-motion: reduce) {
   .lib-page,
   .lib-hero,
+  .lib-hero-aurora,
   .lib-stat,
   .lib-rail,
   .lib-sort-list,

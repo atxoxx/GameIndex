@@ -1,242 +1,46 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
-import type { Game, PlayStatus } from "../types/game";
-import type { LibrarySource } from "../types/game";
-import { LIBRARY_FILTERS_STORAGE_KEY, parsePlayTime } from "../types/game";
+import { useMemo } from "react";
+import type { Game } from "../types/game";
+import { useLibraryFilterState } from "../context/LibraryFilterContext";
+import {
+  EMPTY_LIBRARY_FILTERS,
+  filterGames,
+  hasActiveFilters,
+  sortGames,
+  SORT_LABELS,
+  SORT_OPTIONS,
+  type LibraryFilters,
+  type LibrarySort,
+  type LibraryStatus,
+} from "./libraryFilters";
 
-/** Status facets for the library filter sidebar. */
-export type LibraryStatus = "all" | "installed" | "not_installed";
-
-/** Sort order for the library grid. */
-export type LibrarySort =
-  | "alphabetical"
-  | "date_added"
-  | "most_played"
-  | "recently_played"
-  | "rating";
-
-/** Label for each sort option (used in dropdown). */
-export const SORT_LABELS: Record<LibrarySort, string> = {
-  alphabetical: "Alphabetical (A–Z)",
-  date_added: "Date Added (Newest)",
-  most_played: "Most Played",
-  recently_played: "Recently Played",
-  rating: "Highest Rated",
-};
-
-/** All sort options in dropdown order. */
-export const SORT_OPTIONS: readonly LibrarySort[] = [
-  "alphabetical",
-  "date_added",
-  "most_played",
-  "recently_played",
-  "rating",
-];
-
-/**
- * Active filter set for the Library page. All fields are optional; an empty
- * value on a facet means "no constraint from this facet". Mirrors the shape
- * of `useStoreGames.StoreGamesFilters` (Store uses an async backend; Library
- * is local and filters in memory).
- */
-export interface LibraryFilters {
-  /** Free-text name search; case-insensitive substring match. */
-  search: string;
-  /** Genre names; the game must include at least one of these (OR). */
-  genres: string[];
-  /** Platform names (matches `Game.platform` exactly). */
-  platforms: string[];
-  /** Lower bound on the release year (parsed from `Game.releaseDate`). */
-  yearMin: number | null;
-  /** Upper bound on the release year. */
-  yearMax: number | null;
-  /** Minimum IGDB / critic rating (0–100 inclusive). */
-  ratingMin: number | null;
-  /** Installation status filter. */
-  status: LibraryStatus;
-  /** Source platform filter (all | steam | local | gog). */
-  source: LibrarySource;
-  /** Play gameplay status filter (all | backlog | playing | completed | abandoned | on_hold). */
-  playStatus: PlayStatus | "all";
-  /** Sort order for the filtered list. */
-  sort: LibrarySort;
-}
-
-/** Sentinel for "no filter selected from any facet". */
-export const EMPTY_LIBRARY_FILTERS: LibraryFilters = {
-  search: "",
-  genres: [],
-  platforms: [],
-  yearMin: null,
-  yearMax: null,
-  ratingMin: null,
-  status: "all",
-  source: "all",
-  playStatus: "all",
-  sort: "alphabetical",
+export {
+  EMPTY_LIBRARY_FILTERS,
+  SORT_LABELS,
+  SORT_OPTIONS,
+  type LibraryFilters,
+  type LibrarySort,
+  type LibraryStatus,
 };
 
 /**
- * Extract the 4-digit release year from a free-form date string.
- * Handles "2023-05-15", "May 15, 2023", "2023", and ISO timestamps.
- * Returns `null` for missing or malformed values.
- */
-function parseReleaseYear(releaseDate: string | undefined | null): number | null {
-  if (!releaseDate) return null;
-  const head = releaseDate.substring(0, 4);
-  const year = parseInt(head, 10);
-  if (!Number.isFinite(year) || year < 1970 || year > 2100) return null;
-  return year;
-}
-
-/** True if `game` passes every active facet in `filters`. */
-function gameMatchesFilters(game: Game, filters: LibraryFilters): boolean {
-  // Search (name substring, case-insensitive)
-  if (filters.search) {
-    const q = filters.search.toLowerCase().trim();
-    if (q && !game.name.toLowerCase().includes(q)) return false;
-  }
-
-  // Status
-  if (filters.status === "installed" && !game.installed) return false;
-  if (filters.status === "not_installed" && game.installed) return false;
-
-  // Play Status
-  if (filters.playStatus !== "all") {
-    const currentPlayStatus = game.playStatus || "backlog";
-    if (currentPlayStatus !== filters.playStatus) return false;
-  }
-
-  // Source filter
-  if (filters.source !== "all") {
-    if (filters.source === "steam" && game.platform !== "Steam") return false;
-    if (filters.source === "local" && game.platform !== "Local") return false;
-    if (filters.source === "gog" && game.platform !== "GOG") return false;
-    if (filters.source === "epic" && game.platform !== "Epic") return false;
-    if (filters.source === "humble" && game.platform !== "Humble") return false;
-    if (filters.source === "rockstar" && game.platform !== "Rockstar") return false;
-    if (filters.source === "ubisoft" && game.platform !== "Ubisoft") return false;
-  }
-
-  // Genres (OR — game must have at least one selected genre)
-  if (filters.genres.length > 0) {
-    if (!game.genres || game.genres.length === 0) return false;
-    const lowerGenres = game.genres.map((g) => g.toLowerCase());
-    const hasMatch = filters.genres.some((g) =>
-      lowerGenres.includes(g.toLowerCase())
-    );
-    if (!hasMatch) return false;
-  }
-
-  // Platforms (exact match against `game.platform`)
-  if (filters.platforms.length > 0) {
-    if (!filters.platforms.includes(game.platform)) return false;
-  }
-
-  // Year range
-  if (filters.yearMin != null || filters.yearMax != null) {
-    const year = parseReleaseYear(game.releaseDate);
-    if (year == null) return false;
-    if (filters.yearMin != null && year < filters.yearMin) return false;
-    if (filters.yearMax != null && year > filters.yearMax) return false;
-  }
-
-  // Rating (prefer IGDB community rating, fall back to critic rating)
-  if (filters.ratingMin != null) {
-    const rating = game.igdbRating ?? game.criticRating;
-    if (rating == null || rating < filters.ratingMin) return false;
-  }
-
-  return true;
-}
-
-/** Parse and sanitize a LibraryFilters object from localStorage JSON.
- *  Validates each field individually and falls back to EMPTY_LIBRARY_FILTERS
- *  defaults for any invalid/missing fields, so corrupted stored data can't
- *  crash the app. */
-function parseStoredFilters(raw: unknown): LibraryFilters {
-  if (!raw || typeof raw !== "object" || Array.isArray(raw)) {
-    return EMPTY_LIBRARY_FILTERS;
-  }
-  const obj = raw as Record<string, unknown>;
-  return {
-    search: typeof obj.search === "string" ? obj.search : "",
-    genres: Array.isArray(obj.genres) ? obj.genres.filter((g): g is string => typeof g === "string") : [],
-    platforms: Array.isArray(obj.platforms) ? obj.platforms.filter((p): p is string => typeof p === "string") : [],
-    yearMin: typeof obj.yearMin === "number" && Number.isFinite(obj.yearMin) ? obj.yearMin : null,
-    yearMax: typeof obj.yearMax === "number" && Number.isFinite(obj.yearMax) ? obj.yearMax : null,
-    ratingMin: typeof obj.ratingMin === "number" && Number.isFinite(obj.ratingMin) ? obj.ratingMin : null,
-    status: obj.status === "installed" || obj.status === "not_installed" ? obj.status : "all",
-    source: obj.source === "steam" || obj.source === "local" || obj.source === "gog" || obj.source === "epic" || obj.source === "humble" || obj.source === "rockstar" ? obj.source : "all",
-    playStatus:
-      obj.playStatus === "backlog" ||
-      obj.playStatus === "playing" ||
-      obj.playStatus === "completed" ||
-      obj.playStatus === "abandoned" ||
-      obj.playStatus === "on_hold"
-        ? (obj.playStatus as PlayStatus)
-        : "all",
-    sort: obj.sort === "date_added" || obj.sort === "most_played" || obj.sort === "recently_played" || obj.sort === "rating" ? obj.sort : "alphabetical",
-  };
-}
-
-/**
- * useLibraryFilters: in-memory filter state + derivation for the Library
- * page. Unlike `useStoreGames` (which talks to the Rust backend), the
- * library is local so this hook just narrows the supplied `games` array
- * via a memoized `Array.prototype.filter`.
+ * useLibraryFilters: filter state + derivation for the Library surface.
  *
- * Returns a flat API:
- * - **filters** — current filter state
- * - **filteredGames** — narrowed game list
- * - **availableGenres** / **availablePlatforms** — unique values from
- *   the source array, used to populate the sidebar's checkbox lists
- * - per-facet setters + remove helpers (for the chips)
- * - **hasFilters** — true when any facet is active
- * - **reset** — clear every facet back to the empty defaults
+ * The filter STATE (facets, sort, persistence) lives in the shared
+ * `LibraryFilterContext`, so every consumer — the app Sidebar's game
+ * list and the Library page — reads and writes the same live state.
+ * This hook adds the per-consumer derivations that depend on the
+ * `games` array it's called with:
+ *   - **filteredGames** — narrowed + sorted game list
+ *   - **availableGenres** / **availablePlatforms** — unique facet
+ *     values from the source array (populate the filter rail)
+ *   - **hasFilters** — true when any facet is active
+ *
+ * The return shape is deliberately identical to the pre-context hook so
+ * swapping the implementation didn't ripple through callers.
  */
 export function useLibraryFilters(games: Game[]) {
-  // Initialize from localStorage so filter choices (All / Installed /
-  // Not Installed, Source, Sort, etc.) survive app restarts.
-  const [filters, setFilters] = useState<LibraryFilters>(() => {
-    try {
-      const raw = localStorage.getItem(LIBRARY_FILTERS_STORAGE_KEY);
-      if (raw) return parseStoredFilters(JSON.parse(raw));
-    } catch {
-      // localStorage may be unavailable or the stored value corrupt.
-    }
-    return EMPTY_LIBRARY_FILTERS;
-  });
-
-  // Persist filter state to localStorage on every change so choices
-  // survive app restarts. Mirrors the pattern used by useViewDensity
-  // and useSizeUnit.
-  useEffect(() => {
-    try {
-      localStorage.setItem(LIBRARY_FILTERS_STORAGE_KEY, JSON.stringify(filters));
-    } catch {
-      // localStorage may throw in private browsing / sandboxed contexts.
-    }
-  }, [filters]);
-
-  // Cross-instance sync: when multiple useLibraryFilters instances
-  // mount (e.g. Sidebar + LibraryPage), they each write to the same
-  // localStorage key. The `storage` event propagates writes to other
-  // windows/tabs (same origin), so if the app ever opens additional
-  // windows both views stay in lockstep. Within a single window the
-  // event doesn't fire — each instance independently reads the latest
-  // persisted value on its next mount (page nav, etc.).
-  useEffect(() => {
-    const onStorage = (e: StorageEvent) => {
-      if (e.key !== LIBRARY_FILTERS_STORAGE_KEY || !e.newValue) return;
-      try {
-        setFilters(parseStoredFilters(JSON.parse(e.newValue)));
-      } catch {
-        /* stored value unreadable — keep current in-memory state */
-      }
-    };
-    window.addEventListener("storage", onStorage);
-    return () => window.removeEventListener("storage", onStorage);
-  }, []);
+  const state = useLibraryFilterState();
+  const { filters, ...handlers } = state;
 
   // Build unique, sorted facet lists from the source array so the sidebar
   // only shows values that actually exist in the user's library.
@@ -260,167 +64,19 @@ export function useLibraryFilters(games: Game[]) {
     return Array.from(set).sort((a, b) => a.localeCompare(b));
   }, [games]);
 
-  const filteredGames = useMemo(() => {
-    const hasActiveFilters =
-      filters.search.length > 0 ||
-      filters.genres.length > 0 ||
-      filters.platforms.length > 0 ||
-      filters.yearMin != null ||
-      filters.yearMax != null ||
-      filters.ratingMin != null ||
-      filters.status !== "all" ||
-      filters.source !== "all" ||
-      filters.playStatus !== "all";
-
-    const narrowed = hasActiveFilters
-      ? games.filter((g) => gameMatchesFilters(g, filters))
-      : games;
-
-    // Apply sort
-    const sorted = [...narrowed];
-    switch (filters.sort) {
-      case "alphabetical":
-        sorted.sort((a, b) => a.name.localeCompare(b.name));
-        break;
-      case "date_added":
-        sorted.sort((a, b) => (b.addedAt ?? 0) - (a.addedAt ?? 0));
-        break;
-      case "most_played":
-        sorted.sort((a, b) => parsePlayTime(b.playTime) - parsePlayTime(a.playTime));
-        break;
-      case "recently_played":
-        // Never-played games (no lastPlayed) sink to the bottom.
-        sorted.sort((a, b) => (b.lastPlayed ?? 0) - (a.lastPlayed ?? 0));
-        break;
-      case "rating":
-        sorted.sort((a, b) => {
-          const ra = a.igdbRating ?? a.criticRating ?? 0;
-          const rb = b.igdbRating ?? b.criticRating ?? 0;
-          return rb - ra;
-        });
-        break;
-    }
-    return sorted;
-  }, [games, filters]);
-
-  const hasFilters = useMemo(() => {
-    return (
-      filters.search.length > 0 ||
-      filters.genres.length > 0 ||
-      filters.platforms.length > 0 ||
-      filters.yearMin != null ||
-      filters.yearMax != null ||
-      filters.yearMax != null ||
-      filters.ratingMin != null ||
-      filters.status !== "all" ||
-      filters.source !== "all" ||
-      filters.playStatus !== "all"
-    );
-  }, [filters]);
-
-  // ── Bulk setters (replace the whole facet) ─────────────────────────
-  const setSearch = useCallback(
-    (q: string) => setFilters((f) => ({ ...f, search: q })),
-    []
-  );
-  const setGenres = useCallback(
-    (g: string[]) => setFilters((f) => ({ ...f, genres: g })),
-    []
-  );
-  const setPlatforms = useCallback(
-    (p: string[]) => setFilters((f) => ({ ...f, platforms: p })),
-    []
-  );
-  const setYearRange = useCallback(
-    (min: number | null, max: number | null) =>
-      setFilters((f) => ({ ...f, yearMin: min, yearMax: max })),
-    []
-  );
-  const setRatingMin = useCallback(
-    (r: number | null) => setFilters((f) => ({ ...f, ratingMin: r })),
-    []
-  );
-  const setStatus = useCallback(
-    (s: LibraryStatus) => setFilters((f) => ({ ...f, status: s })),
-    []
-  );
-  const setSource = useCallback(
-    (s: LibrarySource) => setFilters((f) => ({ ...f, source: s })),
-    []
-  );
-  const setPlayStatus = useCallback(
-    (ps: PlayStatus | "all") => setFilters((f) => ({ ...f, playStatus: ps })),
-    []
-  );
-  const setSort = useCallback(
-    (s: LibrarySort) => setFilters((f) => ({ ...f, sort: s })),
-    []
+  const filteredGames = useMemo(
+    () => sortGames(filterGames(games, filters), filters.sort),
+    [games, filters]
   );
 
-  // ── Single-value removers (used by the chips) ──────────────────────
-  const removeGenre = useCallback(
-    (g: string) =>
-      setFilters((f) => ({ ...f, genres: f.genres.filter((x) => x !== g) })),
-    []
-  );
-  const removePlatform = useCallback(
-    (p: string) =>
-      setFilters((f) => ({
-        ...f,
-        platforms: f.platforms.filter((x) => x !== p),
-      })),
-    []
-  );
-  const removeYear = useCallback(
-    () => setFilters((f) => ({ ...f, yearMin: null, yearMax: null })),
-    []
-  );
-  const removeRating = useCallback(
-    () => setFilters((f) => ({ ...f, ratingMin: null })),
-    []
-  );
-  const removeStatus = useCallback(
-    () => setFilters((f) => ({ ...f, status: "all" })),
-    []
-  );
-  const removePlayStatus = useCallback(
-    () => setFilters((f) => ({ ...f, playStatus: "all" })),
-    []
-  );
-  const removeSearch = useCallback(
-    () => setFilters((f) => ({ ...f, search: "" })),
-    []
-  );
-  const removeSource = useCallback(
-    () => setFilters((f) => ({ ...f, source: "all" })),
-    []
-  );
-
-  const reset = useCallback(() => setFilters(EMPTY_LIBRARY_FILTERS), []);
+  const hasFilters = useMemo(() => hasActiveFilters(filters), [filters]);
 
   return {
     filters,
     filteredGames,
     availableGenres,
     availablePlatforms,
-    setSearch,
-    setGenres,
-    setPlatforms,
-    setYearRange,
-    setRatingMin,
-    setStatus,
-    setSource,
-    setPlayStatus,
-    setSort,
-    removeGenre,
-    removePlatform,
-    removeYear,
-    removeRating,
-    removeStatus,
-    removePlayStatus,
-    removeSearch,
-    removeSource,
-    reset,
     hasFilters,
+    ...handlers,
   };
 }

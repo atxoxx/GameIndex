@@ -1,5 +1,5 @@
 import { memo, useEffect, useRef } from "react";
-import { Card, Badge } from "../ui";
+import { Badge } from "../ui";
 import type { Game } from "../../types/game";
 import { PLAY_STATUS_DETAILS } from "../../types/game";
 import { useGames, NO_IGDB_MATCH_SOURCE } from "../../context/GameContext";
@@ -63,15 +63,27 @@ function LibraryGameCardBase({
   };
 
   const rating = game.igdbRating ?? game.criticRating;
+  const playStatus = game.playStatus || "backlog";
+  const statusMeta = PLAY_STATUS_DETAILS[playStatus];
 
   return (
-    <Card
-      variant="surface"
-      elevation="1"
-      hoverLift
+    <div
+      role="button"
+      tabIndex={0}
       className={`lib-card density-${density}${isRunning ? " running" : ""}${className ? ` ${className}` : ""}`}
       onClick={onClick}
       onContextMenu={onContextMenu}
+      onKeyDown={(e) => {
+        // Only activate for the card itself — Enter/Space pressed while
+        // focused on the nested play FAB is handled by that button, and
+        // must not ALSO navigate here (double-fire bug).
+        if (e.target !== e.currentTarget) return;
+        if (e.key === "Enter" || e.key === " ") {
+          e.preventDefault();
+          onClick();
+        }
+      }}
+      aria-label={game.name}
     >
       <div className="lib-card-cover" ref={coverRef}>
         {game.coverArtUrl ? (
@@ -137,13 +149,8 @@ function LibraryGameCardBase({
           <Badge variant="info" size="sm" className="lib-card-platform">
             {game.platform}
           </Badge>
-          <Badge
-            variant={PLAY_STATUS_DETAILS[game.playStatus || "backlog"].variant}
-            size="sm"
-            dot
-            className="lib-card-status-badge"
-          >
-            {t(PLAY_STATUS_DETAILS[game.playStatus || "backlog"].labelKey)}
+          <Badge variant={statusMeta.variant} size="sm" dot className="lib-card-status-badge">
+            {t(statusMeta.labelKey)}
           </Badge>
           {rating != null && rating > 0 && (
             <Badge
@@ -181,7 +188,7 @@ function LibraryGameCardBase({
           <p className="lib-card-notes is-empty">{t("library.noNotes")}</p>
         )}
       </div>
-    </Card>
+    </div>
   );
 }
 

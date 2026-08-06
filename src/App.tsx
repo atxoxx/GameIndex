@@ -26,6 +26,7 @@ import { ToastProvider } from "./context/ToastContext";
 import { ActivityProvider } from "./context/ActivityContext";
 import { WishlistProvider } from "./context/WishlistContext";
 import { DensityProvider } from "./context/DensityContext";
+import { LibraryFilterProvider } from "./context/LibraryFilterContext";
 import { SplashProvider } from "./context/SplashContext";
 import { DownloadProvider } from "./context/DownloadContext";
 import { SourceProvider } from "./context/SourceContext";
@@ -123,21 +124,23 @@ function App() {
                 <ActivityProvider>
                   <AchievementProvider>
                     <DensityProvider>
-                      <WishlistProvider>
-                        <SourceProvider>
-                          <DownloadProvider>
-                            <SettingsProvider>
-                              <SessionNotesProvider>
-                                <BigScreenProvider>
-                                  <PresenceProvider>
-                                    <AppShell />
-                                  </PresenceProvider>
-                                </BigScreenProvider>
-                              </SessionNotesProvider>
-                            </SettingsProvider>
-                          </DownloadProvider>
-                        </SourceProvider>
-                      </WishlistProvider>
+                      <LibraryFilterProvider>
+                        <WishlistProvider>
+                          <SourceProvider>
+                            <DownloadProvider>
+                              <SettingsProvider>
+                                <SessionNotesProvider>
+                                  <BigScreenProvider>
+                                    <PresenceProvider>
+                                      <AppShell />
+                                    </PresenceProvider>
+                                  </BigScreenProvider>
+                                </SessionNotesProvider>
+                              </SettingsProvider>
+                            </DownloadProvider>
+                          </SourceProvider>
+                        </WishlistProvider>
+                      </LibraryFilterProvider>
                     </DensityProvider>
                   </AchievementProvider>
                 </ActivityProvider>

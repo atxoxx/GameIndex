@@ -1,30 +1,26 @@
-import { useState, useEffect, useRef, useCallback, useMemo } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useGames } from "../context/GameContext";
 import { useBigScreen } from "../context/BigScreenContext";
 import { useDensityContext } from "../context/DensityContext";
 import { useToast } from "../context/ToastContext";
 import { useLanguage } from "../context/LanguageContext";
-import {
-  useLibraryFilters,
-  type LibraryFilters,
-  type LibraryStatus,
-  type LibrarySort,
-} from "../hooks/useLibraryFilters";
-import type { Game, LibrarySource, PlayStatus } from "../types/game";
+import { useLibraryFilters } from "../hooks/useLibraryFilters";
+import type { Game } from "../types/game";
 import LibraryFilterChips from "../components/library/LibraryFilterChips";
 import LibraryFilterSidebar from "../components/library/LibraryFilterSidebar";
+import LibraryFilterRail from "../components/library/LibraryFilterRail";
 import LibraryHero from "../components/library/LibraryHero";
-import LibrarySortMenu from "../components/library/LibrarySortMenu";
+import LibraryToolbar from "../components/library/LibraryToolbar";
 import RecentlyAddedRail from "../components/library/RecentlyAddedRail";
 import ContinuePlayingRail from "../components/library/ContinuePlayingRail";
 import LibraryEmptyState from "../components/library/LibraryEmptyState";
+import LibraryFilteredEmpty from "../components/library/LibraryFilteredEmpty";
+import LibraryVirtualGrid from "../components/library/LibraryVirtualGrid";
+import LibraryContextMenu from "../components/library/LibraryContextMenu";
 import LibraryGameCard from "../components/library/LibraryGameCard";
 import BigScreenGameCard from "../components/library/BigScreenGameCard";
 import BigScreenLibrary from "../components/library/BigScreenLibrary";
-import DensityToggle from "../components/DensityToggle";
-
-const VIRTUALIZE_THRESHOLD = 60;
 
 export default function LibraryPage() {
   const navigate = useNavigate();
@@ -113,10 +109,8 @@ export default function LibraryPage() {
       removeGame(game.id);
       showToast(t("library.removedFromLibrary", { name: game.name }), "info");
     },
-    [removeGame, showToast]
+    [removeGame, showToast, t]
   );
-
-  const runningSet = useMemo(() => runningGameIds, [runningGameIds]);
 
   // Editorial mode: when the library is small enough to render without
   // virtualization (and not in a list/compact view), promote the first
@@ -135,7 +129,7 @@ export default function LibraryPage() {
           key={game.id}
           game={game}
           density={density}
-          isRunning={runningSet.includes(game.id)}
+          isRunning={runningGameIds.includes(game.id)}
           onClick={() => handleCardClick(game)}
           onContextMenu={(e) => handleGameContextMenu(e, game)}
           onLaunch={handleLaunch}
@@ -143,8 +137,21 @@ export default function LibraryPage() {
         />
       );
     },
-    [isBigScreen, density, editorial, runningSet, handleCardClick, handleGameContextMenu, handleLaunch]
+    [isBigScreen, density, editorial, runningGameIds, handleCardClick, handleGameContextMenu, handleLaunch]
   );
+
+  const toolbarTitle = isLibraryEmpty
+    ? t("page.library.yourGames")
+    : `${t("nav.library")} (${
+        hasFilters
+          ? t("bigscreen.library.countOf", { count: filteredGames.length, total: games.length })
+          : games.length
+      })`;
+
+  const toolbarCount =
+    !isLibraryEmpty && hasFilters
+      ? t("libraryPage.resultCount", { count: filteredGames.length, plural: filteredGames.length !== 1 ? "s" : "" })
+      : null;
 
   const sidebarProps = {
     search: filters.search,
@@ -153,12 +160,12 @@ export default function LibraryPage() {
     yearMin: filters.yearMin,
     yearMax: filters.yearMax,
     ratingMin: filters.ratingMin,
-    status: filters.status as LibraryStatus,
-    playStatus: filters.playStatus as PlayStatus | "all",
+    status: filters.status,
+    playStatus: filters.playStatus,
     availableGenres,
     availablePlatforms,
-    source: filters.source as LibrarySource,
-    sort: filters.sort as LibrarySort,
+    source: filters.source,
+    sort: filters.sort,
     onSearchChange: setSearch,
     onGenresChange: setGenres,
     onPlatformsChange: setPlatforms,
@@ -170,6 +177,29 @@ export default function LibraryPage() {
     onSortChange: setSort,
     onReset: reset,
   };
+
+  const runningSet = useMemo(() => new Set(runningGameIds), [runningGameIds]);
+
+  // Stable key that only changes when the filter/sort facets change.
+  // The virtualized grid resets its scroll offset on this — so a
+  // filtered result starts at the top, but cover-enrichment updates
+  // (which also rebuild `filteredGames`) don't yank the scroll.
+  const filterResetKey = useMemo(
+    () =>
+      JSON.stringify([
+        filters.search,
+        filters.genres,
+        filters.platforms,
+        filters.yearMin,
+        filters.yearMax,
+        filters.ratingMin,
+        filters.status,
+        filters.source,
+        filters.playStatus,
+        filters.sort,
+      ]),
+    [filters]
+  );
 
   return (
     <div className={`lib-page${isBigScreen ? " lib-page--bigscreen" : ""}`}>
@@ -199,50 +229,22 @@ export default function LibraryPage() {
             <RecentlyAddedRail games={games} onCardClick={handleCardClick} />
           )}
 
-          <div className="lib-toolbar">
-            <div className="lib-toolbar-title">
-              <h2>
-                {isLibraryEmpty
-                  ? t("page.library.yourGames")
-                  : `${t("nav.library")} (${
-                      hasFilters
-                        ? t("bigscreen.library.countOf", { count: filteredGames.length, total: games.length })
-                        : games.length
-                    })`}
-              </h2>
-              {!isLibraryEmpty && hasFilters && (
-                <span className="lib-toolbar-count">
-                  {t("libraryPage.resultCount", { count: filteredGames.length, plural: filteredGames.length !== 1 ? "s" : "" })}
-                </span>
-              )}
-            </div>
-
-            {!isLibraryEmpty && !isBigScreen && (
-              <div className="lib-toolbar-controls">
-                <div className="lib-search">
-                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-                    <circle cx="11" cy="11" r="8" />
-                    <line x1="21" y1="21" x2="16.65" y2="16.65" />
-                  </svg>
-                  <input
-                    type="text"
-                    value={filters.search}
-                    onChange={(e) => setSearch(e.target.value)}
-                    placeholder={t("page.library.searchPlaceholder")}
-                    aria-label={t("page.library.searchLabel")}
-                  />
-                </div>
-                <LibrarySortMenu value={filters.sort} onChange={setSort} />
-                <div className="lib-toolbar-group" role="radiogroup" aria-label={t("libraryPage.layoutDensity")}>
-                  <DensityToggle density={density} onChange={setDensity} />
-                </div>
-              </div>
-            )}
-          </div>
+          {!isLibraryEmpty && (
+            <LibraryToolbar
+              title={toolbarTitle}
+              count={toolbarCount}
+              search={filters.search}
+              onSearchChange={setSearch}
+              sort={filters.sort}
+              onSortChange={setSort}
+              density={density}
+              onDensityChange={setDensity}
+            />
+          )}
 
           {!isLibraryEmpty && (
             <LibraryFilterChips
-              filters={filters as LibraryFilters}
+              filters={filters}
               resultCount={filteredGames.length}
               onRemoveSearch={removeSearch}
               onRemoveGenre={removeGenre}
@@ -260,58 +262,33 @@ export default function LibraryPage() {
             <LibraryEmptyState />
           ) : (
             <div className="lib-layout">
-              {!isBigScreen && (
-                <div className={`lib-rail-wrap${sidebarCollapsed ? " collapsed" : ""}`}>
-                  <button
-                    type="button"
-                    className="lib-rail-toggle-btn"
-                    onClick={() => setSidebarCollapsed((c) => !c)}
-                    aria-label={sidebarCollapsed ? t("page.library.expandFilters") : t("page.library.collapseFilters")}
-                    aria-expanded={!sidebarCollapsed}
-                  >
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-                      <line x1="4" y1="21" x2="4" y2="14" />
-                      <line x1="4" y1="10" x2="4" y2="3" />
-                      <line x1="12" y1="21" x2="12" y2="12" />
-                      <line x1="12" y1="8" x2="12" y2="3" />
-                      <line x1="20" y1="21" x2="20" y2="16" />
-                      <line x1="20" y1="12" x2="20" y2="3" />
-                      <line x1="1" y1="14" x2="7" y2="14" />
-                      <line x1="9" y1="8" x2="15" y2="8" />
-                      <line x1="17" y1="16" x2="23" y2="16" />
-                    </svg>
-                  </button>
-                  {!sidebarCollapsed && <LibraryFilterSidebar {...sidebarProps} />}
-                </div>
-              )}
+              <LibraryFilterRail collapsed={sidebarCollapsed} onToggleCollapsed={() => setSidebarCollapsed((c) => !c)}>
+                <LibraryFilterSidebar {...sidebarProps} />
+              </LibraryFilterRail>
 
               <div className="lib-main">
                 {filteredGames.length === 0 ? (
-                  <div className="lib-filtered-empty">
-                    <svg className="lib-filtered-empty-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
-                      <circle cx="11" cy="11" r="8" />
-                      <line x1="21" y1="21" x2="16.65" y2="16.65" />
-                      <line x1="8" y1="11" x2="14" y2="11" />
-                    </svg>
-                    <p className="lib-filtered-empty-title">{t("page.library.noFilterResultsTitle")}</p>
-                    <p className="lib-filtered-empty-subtitle">{t("page.library.noFilterResultsSubtitle")}</p>
-                    <button type="button" className="lib-filtered-empty-reset" onClick={reset}>
-                      {t("page.library.clearFilters")}
-                    </button>
-                  </div>
+                  <LibraryFilteredEmpty onReset={reset} />
                 ) : (
-                  <VirtualGrid items={filteredGames} density={density} isBigScreen={isBigScreen} editorial={editorial} renderItem={renderCard} />
+                  <LibraryVirtualGrid
+                    items={filteredGames}
+                    density={density}
+                    isBigScreen={isBigScreen}
+                    editorial={editorial}
+                    resetKey={filterResetKey}
+                    renderItem={renderCard}
+                  />
                 )}
               </div>
             </div>
           )}
 
           {contextMenu && (
-            <ContextMenu
+            <LibraryContextMenu
               x={contextMenu.x}
               y={contextMenu.y}
               game={contextMenu.game}
-              isRunning={runningSet.includes(contextMenu.game.id)}
+              isRunning={runningSet.has(contextMenu.game.id)}
               onLaunch={() => handleLaunch(contextMenu.game)}
               onViewDetails={() => handleViewDetails(contextMenu.game)}
               onRemove={() => handleRemove(contextMenu.game)}
@@ -319,157 +296,6 @@ export default function LibraryPage() {
           )}
         </>
       )}
-    </div>
-  );
-}
-
-interface VirtualGridProps {
-  items: Game[];
-  density: string;
-  isBigScreen: boolean;
-  editorial?: boolean;
-  renderItem: (game: Game, index: number) => React.ReactNode;
-}
-
-function VirtualGrid({ items, density, isBigScreen, editorial, renderItem }: VirtualGridProps) {
-  const [scrollTop, setScrollTop] = useState(0);
-  const [viewportH, setViewportH] = useState(0);
-  const [containerW, setContainerW] = useState(0);
-  const scrollRef = useRef<HTMLDivElement | null>(null);
-
-  const useVirtual = items.length > VIRTUALIZE_THRESHOLD;
-
-  useEffect(() => {
-    if (!useVirtual) return;
-    const el = scrollRef.current;
-    if (!el) return;
-
-    const scroller: Window = window;
-
-    const measure = () => {
-      const rect = el.getBoundingClientRect();
-      setViewportH(rect.height);
-      setContainerW(rect.width);
-    };
-    measure();
-    const ro = new ResizeObserver(measure);
-    ro.observe(el);
-
-    const computeScrollTop = () => {
-      const elTop = el.getBoundingClientRect().top;
-      setScrollTop(Math.max(0, -elTop));
-    };
-    computeScrollTop();
-
-    scroller.addEventListener("scroll", computeScrollTop, { passive: true });
-    return () => {
-      ro.disconnect();
-      scroller.removeEventListener("scroll", computeScrollTop);
-    };
-  }, [useVirtual]);
-
-  // Virtualized row strides must match the rendered card heights or rows
-  // overlap once the library exceeds VIRTUALIZE_THRESHOLD. A cozy grid card
-  // is ~400-430px tall (2:3 cover at a 180-200px column + ~130px of body:
-  // name, meta badges, developer, genres, 2-line notes), so 340px under-
-  // reserved by ~80px and the second row rendered over the first. 424px
-  // keeps a small safety margin across column widths.
-  const rowHeight =
-    density === "compact" ? 220 : density === "cinematic" ? 420 : density === "list" ? 96 : 424;
-  const gap = density === "compact" ? 12 : density === "cinematic" ? 24 : 16;
-
-  if (!useVirtual) {
-    return (
-      <div
-        className={`lib-cards density-${density}${isBigScreen ? " bigscreen-cards" : ""}${editorial ? " lib-cards--editorial" : ""}`}
-      >
-        {items.map((g, i) => renderItem(g, i))}
-      </div>
-    );
-  }
-
-  const minCol =
-    density === "compact" ? 130 : density === "cinematic" ? 240 : density === "list" ? 99999 : 180;
-  const cols = density === "list" ? 1 : Math.max(1, Math.floor((containerW + gap) / (minCol + gap)));
-
-  const rowCount = Math.ceil(items.length / cols);
-  const totalHeight = rowCount * rowHeight + (rowCount - 1) * gap;
-
-  const overscan = 2;
-  const rowStride = rowHeight + gap;
-  const firstRow = Math.max(0, Math.floor(scrollTop / rowStride) - overscan);
-  const visibleRows = Math.ceil(viewportH / rowStride) + overscan * 2;
-  const lastRow = Math.min(rowCount - 1, firstRow + visibleRows);
-
-  const visible: React.ReactNode[] = [];
-  for (let r = firstRow; r <= lastRow; r++) {
-    const start = r * cols;
-    const rowItems = items.slice(start, start + cols);
-    rowItems.forEach((g, i) => visible.push(renderItem(g, start + i)));
-  }
-
-  return (
-    <div className="lib-grid-scroll" ref={scrollRef}>
-      <div className="lib-grid-spacer" style={{ height: totalHeight }}>
-        <div
-          className={`lib-cards density-${density}${isBigScreen ? " bigscreen-cards" : ""}${editorial ? " lib-cards--editorial" : ""} lib-cards--virtual`}
-          style={{ transform: `translateY(${firstRow * rowStride}px)` }}
-        >
-          {visible}
-        </div>
-      </div>
-    </div>
-  );
-}
-
-interface ContextMenuProps {
-  x: number;
-  y: number;
-  game: Game;
-  isRunning: boolean;
-  onLaunch: () => void;
-  onViewDetails: () => void;
-  onRemove: () => void;
-}
-
-function ContextMenu({ x, y, game, isRunning, onLaunch, onViewDetails, onRemove }: ContextMenuProps) {
-  const { t } = useLanguage();
-  const menuWidth = 190;
-  const menuHeight = 130;
-  const adjustedX = window.innerWidth - x < menuWidth ? x - menuWidth : x;
-  const adjustedY = window.innerHeight - y < menuHeight ? y - menuHeight : y;
-
-  return (
-    <div
-      className="context-menu"
-      style={{ left: adjustedX, top: adjustedY }}
-      onMouseDown={(e) => e.stopPropagation()}
-    >
-      <div className="context-menu-header">
-        <span className="context-menu-title">{game.name}</span>
-      </div>
-       <button className="context-menu-item play-action" onClick={onLaunch} disabled={isRunning}>
-         <svg viewBox="0 0 24 24" fill="currentColor">
-           <polygon points="5 3 19 12 5 21 5 3" />
-         </svg>
-         {isRunning ? t("game.running") : t("game.playGame")}
-       </button>
-       <button className="context-menu-item" onClick={onViewDetails}>
-         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-           <circle cx="12" cy="12" r="10" />
-           <line x1="12" y1="16" x2="12" y2="12" />
-           <line x1="12" y1="8" x2="12.01" y2="8" />
-         </svg>
-         {t("game.viewDetails")}
-       </button>
-       <div className="context-menu-separator" />
-       <button className="context-menu-item remove-action" onClick={onRemove}>
-         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-           <polyline points="3 6 5 6 21 6" />
-           <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
-         </svg>
-         {t("game.remove")}
-       </button>
     </div>
   );
 }

@@ -17,9 +17,9 @@ interface LibraryHeroProps {
  * of quick-action CTAs. Sits at the top of the Library page above the
  * filter chips, giving the page a recognizable "home" feel.
  *
- * The hero also paints a blurred cover-collage wallpaper from the user's
- * own library art, so the panel reads as *their* collection rather than a
- * generic surface. Decorative only (aria-hidden).
+ * The backdrop layers two treatments: a soft aurora gradient (animated)
+ * and a blurred cover-collage wallpaper from the user's own library art,
+ * so the panel reads as *their* collection. Decorative only (aria-hidden).
  */
 export default function LibraryHero({ games }: LibraryHeroProps) {
   const navigate = useNavigate();
@@ -75,6 +75,7 @@ export default function LibraryHero({ games }: LibraryHeroProps) {
 
   return (
     <section className="lib-hero" aria-label={t("library.overviewAria")}>
+      <div className="lib-hero-aurora" aria-hidden />
       {collage.length > 0 && (
         <div className="lib-hero-collage" aria-hidden>
           {collage.map((src, i) => (

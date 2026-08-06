@@ -1,0 +1,245 @@
+import type { Game, LibrarySource, PlayStatus } from "../types/game";
+import { parsePlayTime } from "../types/game";
+
+/** Status facets for the library filter sidebar. */
+export type LibraryStatus = "all" | "installed" | "not_installed";
+
+/** Sort order for the library grid. */
+export type LibrarySort =
+  | "alphabetical"
+  | "date_added"
+  | "most_played"
+  | "recently_played"
+  | "rating";
+
+/** Label for each sort option (used in dropdown). */
+export const SORT_LABELS: Record<LibrarySort, string> = {
+  alphabetical: "Alphabetical (A–Z)",
+  date_added: "Date Added (Newest)",
+  most_played: "Most Played",
+  recently_played: "Recently Played",
+  rating: "Highest Rated",
+};
+
+/** All sort options in dropdown order. */
+export const SORT_OPTIONS: readonly LibrarySort[] = [
+  "alphabetical",
+  "date_added",
+  "most_played",
+  "recently_played",
+  "rating",
+];
+
+/**
+ * Active filter set for the Library page. All fields are optional; an empty
+ * value on a facet means "no constraint from this facet". Mirrors the shape
+ * of `useStoreGames.StoreGamesFilters` (Store uses an async backend; Library
+ * is local and filters in memory).
+ */
+export interface LibraryFilters {
+  /** Free-text name search; case-insensitive substring match. */
+  search: string;
+  /** Genre names; the game must include at least one of these (OR). */
+  genres: string[];
+  /** Platform names (matches `Game.platform` exactly). */
+  platforms: string[];
+  /** Lower bound on the release year (parsed from `Game.releaseDate`). */
+  yearMin: number | null;
+  /** Upper bound on the release year. */
+  yearMax: number | null;
+  /** Minimum IGDB / critic rating (0–100 inclusive). */
+  ratingMin: number | null;
+  /** Installation status filter. */
+  status: LibraryStatus;
+  /** Source platform filter (all | steam | local | gog). */
+  source: LibrarySource;
+  /** Play gameplay status filter (all | backlog | playing | completed | abandoned | on_hold). */
+  playStatus: PlayStatus | "all";
+  /** Sort order for the filtered list. */
+  sort: LibrarySort;
+}
+
+/** Sentinel for "no filter selected from any facet". */
+export const EMPTY_LIBRARY_FILTERS: LibraryFilters = {
+  search: "",
+  genres: [],
+  platforms: [],
+  yearMin: null,
+  yearMax: null,
+  ratingMin: null,
+  status: "all",
+  source: "all",
+  playStatus: "all",
+  sort: "alphabetical",
+};
+
+/**
+ * Extract the 4-digit release year from a free-form date string.
+ * Handles "2023-05-15", "May 15, 2023", "2023", and ISO timestamps.
+ * Returns `null` for missing or malformed values.
+ */
+export function parseReleaseYear(releaseDate: string | undefined | null): number | null {
+  if (!releaseDate) return null;
+  const head = releaseDate.substring(0, 4);
+  const year = parseInt(head, 10);
+  if (!Number.isFinite(year) || year < 1970 || year > 2100) return null;
+  return year;
+}
+
+/** True if `game` passes every active facet in `filters`. */
+export function gameMatchesFilters(game: Game, filters: LibraryFilters): boolean {
+  // Search (name substring, case-insensitive)
+  if (filters.search) {
+    const q = filters.search.toLowerCase().trim();
+    if (q && !game.name.toLowerCase().includes(q)) return false;
+  }
+
+  // Status
+  if (filters.status === "installed" && !game.installed) return false;
+  if (filters.status === "not_installed" && game.installed) return false;
+
+  // Play Status
+  if (filters.playStatus !== "all") {
+    const currentPlayStatus = game.playStatus || "backlog";
+    if (currentPlayStatus !== filters.playStatus) return false;
+  }
+
+  // Source filter
+  if (filters.source !== "all") {
+    if (filters.source === "steam" && game.platform !== "Steam") return false;
+    if (filters.source === "local" && game.platform !== "Local") return false;
+    if (filters.source === "gog" && game.platform !== "GOG") return false;
+    if (filters.source === "epic" && game.platform !== "Epic") return false;
+    if (filters.source === "humble" && game.platform !== "Humble") return false;
+    if (filters.source === "rockstar" && game.platform !== "Rockstar") return false;
+    if (filters.source === "ubisoft" && game.platform !== "Ubisoft") return false;
+  }
+
+  // Genres (OR — game must have at least one selected genre)
+  if (filters.genres.length > 0) {
+    if (!game.genres || game.genres.length === 0) return false;
+    const lowerGenres = game.genres.map((g) => g.toLowerCase());
+    const hasMatch = filters.genres.some((g) =>
+      lowerGenres.includes(g.toLowerCase())
+    );
+    if (!hasMatch) return false;
+  }
+
+  // Platforms (exact match against `game.platform`)
+  if (filters.platforms.length > 0) {
+    if (!filters.platforms.includes(game.platform)) return false;
+  }
+
+  // Year range
+  if (filters.yearMin != null || filters.yearMax != null) {
+    const year = parseReleaseYear(game.releaseDate);
+    if (year == null) return false;
+    if (filters.yearMin != null && year < filters.yearMin) return false;
+    if (filters.yearMax != null && year > filters.yearMax) return false;
+  }
+
+  // Rating (prefer IGDB community rating, fall back to critic rating)
+  if (filters.ratingMin != null) {
+    const rating = game.igdbRating ?? game.criticRating;
+    if (rating == null || rating < filters.ratingMin) return false;
+  }
+
+  return true;
+}
+
+/** True when any facet (besides sort) constrains the list. */
+export function hasActiveFilters(filters: LibraryFilters): boolean {
+  return (
+    filters.search.length > 0 ||
+    filters.genres.length > 0 ||
+    filters.platforms.length > 0 ||
+    filters.yearMin != null ||
+    filters.yearMax != null ||
+    filters.ratingMin != null ||
+    filters.status !== "all" ||
+    filters.source !== "all" ||
+    filters.playStatus !== "all"
+  );
+}
+
+/**
+ * Parse and sanitize a LibraryFilters object from localStorage JSON.
+ * Validates each field individually and falls back to EMPTY_LIBRARY_FILTERS
+ * defaults for any invalid/missing fields, so corrupted stored data can't
+ * crash the app.
+ */
+export function parseStoredFilters(raw: unknown): LibraryFilters {
+  if (!raw || typeof raw !== "object" || Array.isArray(raw)) {
+    return EMPTY_LIBRARY_FILTERS;
+  }
+  const obj = raw as Record<string, unknown>;
+  return {
+    search: typeof obj.search === "string" ? obj.search : "",
+    genres: Array.isArray(obj.genres) ? obj.genres.filter((g): g is string => typeof g === "string") : [],
+    platforms: Array.isArray(obj.platforms) ? obj.platforms.filter((p): p is string => typeof p === "string") : [],
+    yearMin: typeof obj.yearMin === "number" && Number.isFinite(obj.yearMin) ? obj.yearMin : null,
+    yearMax: typeof obj.yearMax === "number" && Number.isFinite(obj.yearMax) ? obj.yearMax : null,
+    ratingMin: typeof obj.ratingMin === "number" && Number.isFinite(obj.ratingMin) ? obj.ratingMin : null,
+    status: obj.status === "installed" || obj.status === "not_installed" ? obj.status : "all",
+    source:
+      obj.source === "steam" ||
+      obj.source === "local" ||
+      obj.source === "gog" ||
+      obj.source === "epic" ||
+      obj.source === "humble" ||
+      obj.source === "rockstar" ||
+      obj.source === "ubisoft"
+        ? obj.source
+        : "all",
+    playStatus:
+      obj.playStatus === "backlog" ||
+      obj.playStatus === "playing" ||
+      obj.playStatus === "completed" ||
+      obj.playStatus === "abandoned" ||
+      obj.playStatus === "on_hold"
+        ? (obj.playStatus as PlayStatus)
+        : "all",
+    sort:
+      obj.sort === "date_added" ||
+      obj.sort === "most_played" ||
+      obj.sort === "recently_played" ||
+      obj.sort === "rating"
+        ? obj.sort
+        : "alphabetical",
+  };
+}
+
+/** Narrow `games` by `filters` (skipping the sort facet). */
+export function filterGames(games: Game[], filters: LibraryFilters): Game[] {
+  return hasActiveFilters(filters)
+    ? games.filter((g) => gameMatchesFilters(g, filters))
+    : games;
+}
+
+/** Apply the sort facet to a (possibly narrowed) game list. */
+export function sortGames(games: Game[], sort: LibrarySort): Game[] {
+  const sorted = [...games];
+  switch (sort) {
+    case "alphabetical":
+      sorted.sort((a, b) => a.name.localeCompare(b.name));
+      break;
+    case "date_added":
+      sorted.sort((a, b) => (b.addedAt ?? 0) - (a.addedAt ?? 0));
+      break;
+    case "most_played":
+      sorted.sort((a, b) => parsePlayTime(b.playTime) - parsePlayTime(a.playTime));
+      break;
+    case "recently_played":
+      // Never-played games (no lastPlayed) sink to the bottom.
+      sorted.sort((a, b) => (b.lastPlayed ?? 0) - (a.lastPlayed ?? 0));
+      break;
+    case "rating":
+      sorted.sort((a, b) => {
+        const ra = a.igdbRating ?? a.criticRating ?? 0;
+        const rb = b.igdbRating ?? b.criticRating ?? 0;
+        return rb - ra;
+      });
+      break;
+  }
+  return sorted;
+}
