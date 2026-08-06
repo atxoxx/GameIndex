@@ -368,8 +368,14 @@ function VirtualGrid({ items, density, isBigScreen, editorial, renderItem }: Vir
     };
   }, [useVirtual]);
 
+  // Virtualized row strides must match the rendered card heights or rows
+  // overlap once the library exceeds VIRTUALIZE_THRESHOLD. A cozy grid card
+  // is ~400-430px tall (2:3 cover at a 180-200px column + ~130px of body:
+  // name, meta badges, developer, genres, 2-line notes), so 340px under-
+  // reserved by ~80px and the second row rendered over the first. 424px
+  // keeps a small safety margin across column widths.
   const rowHeight =
-    density === "compact" ? 220 : density === "cinematic" ? 420 : density === "list" ? 96 : 340;
+    density === "compact" ? 220 : density === "cinematic" ? 420 : density === "list" ? 96 : 424;
   const gap = density === "compact" ? 12 : density === "cinematic" ? 24 : 16;
 
   if (!useVirtual) {
@@ -406,7 +412,7 @@ function VirtualGrid({ items, density, isBigScreen, editorial, renderItem }: Vir
     <div className="lib-grid-scroll" ref={scrollRef}>
       <div className="lib-grid-spacer" style={{ height: totalHeight }}>
         <div
-          className={`lib-cards density-${density}${isBigScreen ? " bigscreen-cards" : ""} lib-cards--virtual`}
+          className={`lib-cards density-${density}${isBigScreen ? " bigscreen-cards" : ""}${editorial ? " lib-cards--editorial" : ""} lib-cards--virtual`}
           style={{ transform: `translateY(${firstRow * rowStride}px)` }}
         >
           {visible}

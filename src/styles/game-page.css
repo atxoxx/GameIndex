@@ -1104,75 +1104,10 @@
   word-break: break-word;
 }
 
-/* Library Card Enhancements */
-.library-card-cover {
-  position: relative;
-}
-
-.library-card-playtime-badge {
-  position: absolute;
-  top: var(--space-sm);
-  right: var(--space-sm);
-  background: rgba(0, 0, 0, 0.75);
-  backdrop-filter: blur(8px);
-  color: #fff;
-  font-size: 10px;
-  font-weight: var(--font-weight-bold);
-  padding: 3px 8px;
-  border-radius: var(--radius-sm);
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  pointer-events: none;
-  letter-spacing: 0.5px;
-  z-index: 5;
-}
-
-.library-card-status-badge {
-  position: absolute;
-  top: var(--space-sm);
-  left: var(--space-sm);
-  background: rgba(0, 0, 0, 0.75);
-  backdrop-filter: blur(8px);
-  font-size: 10px;
-  font-weight: var(--font-weight-bold);
-  padding: 3px 8px;
-  border-radius: var(--radius-sm);
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  pointer-events: none;
-  display: flex;
-  align-items: center;
-  gap: var(--space-xs);
-  letter-spacing: 0.5px;
-  z-index: 5;
-}
-
-.library-card-status-badge.installed {
-  color: var(--color-success);
-}
-
-.library-card-status-badge.not-installed {
-  color: var(--color-text-secondary);
-}
-
-/* Custom Platform Badge Colors */
-.library-card-platform.platform-steam {
-  color: #00f0ff;
-  background: rgba(0, 240, 255, 0.1);
-}
-
-.library-card-platform.platform-gog {
-  color: #e9a6ff;
-  background: rgba(233, 166, 255, 0.1);
-}
-
-.library-card-platform.platform-epic {
-  color: #ffffff;
-  background: rgba(255, 255, 255, 0.1);
-}
-
-.library-card-platform.platform-local {
-  color: var(--color-text-secondary);
-  background: var(--color-bg-hover);
-}
+/* Library card styles (covers, cover badges, platform chips) live in
+   src/library.css — the single source of truth for the Library page.
+   The .library-card-* rules that used to live here were dead (the
+   components render .lib-card-*) and have been removed. */
 
 
 /* ==============================

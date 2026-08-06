@@ -608,47 +608,30 @@
 .lib-toolbar-group {
   display: flex;
   align-items: center;
-  gap: 3px;
-  padding: 3px;
+  gap: 2px;
+  padding: 2px;
   background: var(--color-surface-glass);
   border: 1px solid var(--color-border);
   border-radius: var(--radius-full);
 }
 
-.lib-icon-btn {
+/* DensityToggle ships store-* classes (shared component) but lives inside
+   the library toolbar pill — strip the nested pill chrome and let the
+   outer .lib-toolbar-group own the border/background so the control keeps
+   the same 38px height as the search + sort controls beside it. */
+.lib-toolbar-group .store-density-toggle {
   display: inline-flex;
-  align-items: center;
-  justify-content: center;
+  gap: 2px;
+  padding: 0;
+  background: transparent;
+  border: none;
+  border-radius: 0;
+}
+
+.lib-toolbar-group .store-density-btn {
   width: 32px;
   height: 32px;
-  border: none;
-  background: transparent;
-  color: var(--color-text-secondary);
   border-radius: var(--radius-full);
-  cursor: pointer;
-  transition: color var(--transition-fast),
-    background var(--transition-fast);
-}
-
-.lib-icon-btn svg {
-  width: 16px;
-  height: 16px;
-}
-
-.lib-icon-btn:hover {
-  color: var(--color-text-primary);
-  background: var(--color-bg-hover);
-}
-
-.lib-icon-btn.active {
-  color: #fff;
-  background: var(--color-accent);
-  box-shadow: 0 2px 8px color-mix(in srgb, var(--color-accent) 30%, transparent);
-}
-
-.lib-icon-btn:focus-visible {
-  outline: 2px solid var(--color-accent);
-  outline-offset: 2px;
 }
 
 /* Sort dropdown */
@@ -935,12 +918,6 @@
 .lib-rail-toggle-btn:focus-visible {
   outline: 2px solid var(--color-accent);
   outline-offset: 2px;
-}
-
-.lib-rail-toggle-btn.active {
-  color: #fff;
-  background: var(--color-accent);
-  border-color: var(--color-accent);
 }
 
 .lib-main {
@@ -1282,26 +1259,66 @@
 }
 
 /* ── Editorial emphasis ───────────────────────────────────────────────
-   When enabled (small, non-list libraries), the first game is highlighted
-   as a "feature" with a brand ring, depth, and a larger title — but it
-   stays a single normal grid cell. This keeps placement pixel-aligned
-   with every other card (no spanning, no shift) while still giving the
-   library a sense of curation. */
+   When enabled (small libraries, not list/compact), the first game is
+   promoted to a "feature" tile: an accent-tinted border + brand shadow,
+   a gradient accent hairline along the top edge, a soft accent wash over
+   the bottom of the cover art, and a slightly larger bold title. It
+   stays a single normal grid cell so placement stays pixel-aligned with
+   every other card (no spanning, no shift, virtualization math untouched). */
 .lib-cards--editorial {
   /* normal grid flow — the feature is one cell, so nothing special needed */
 }
 
 .lib-cards--editorial > .lib-card--featured {
   box-shadow: var(--shadow-brand), var(--depth-2);
-  border-color: var(--color-border-light);
+  border-color: color-mix(in srgb, var(--color-accent) 45%, var(--color-border-light));
+}
+
+/* Accent hairline across the top edge — echoes the .game-section stripe
+   language so the feature reads as "curated" without extra chrome. */
+.lib-cards--editorial > .lib-card--featured::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: var(--space-lg);
+  right: var(--space-lg);
+  height: 2px;
+  z-index: 4;
+  pointer-events: none;
+  background: linear-gradient(
+    90deg,
+    transparent,
+    color-mix(in srgb, var(--color-accent) 65%, transparent),
+    transparent
+  );
+  border-radius: 0 0 var(--radius-full) var(--radius-full);
+  opacity: 0.85;
+}
+
+/* Soft accent wash rising from the bottom of the cover art. */
+.lib-cards--editorial > .lib-card--featured .lib-card-cover::after {
+  content: "";
+  position: absolute;
+  inset: auto 0 0 0;
+  height: 45%;
+  z-index: 1;
+  pointer-events: none;
+  background: linear-gradient(
+    to top,
+    color-mix(in srgb, var(--color-accent) 28%, transparent),
+    transparent
+  );
 }
 
 .lib-cards--editorial > .lib-card--featured .lib-card-name {
-  font-size: var(--font-size-xl);
+  font-size: var(--font-size-lg);
+  font-weight: var(--font-weight-bold);
 }
 
 .lib-cards--editorial > .lib-card--featured:hover {
-  transform: translateY(-2px);
+  transform: translateY(-3px);
+  box-shadow: var(--shadow-brand), var(--depth-2),
+    0 0 0 1px color-mix(in srgb, var(--color-accent) 40%, transparent);
 }
 
 .lib-card.density-compact {
@@ -1439,17 +1456,6 @@
   background: rgba(0, 0, 0, 0.62);
   color: #fff;
   border: 1px solid rgba(255, 255, 255, 0.14);
-}
-
-.lib-card-badge--status {
-  background: rgba(0, 0, 0, 0.62);
-  color: #fff;
-  border: 1px solid rgba(255, 255, 255, 0.14);
-}
-
-.lib-card-badge--status.installed {
-  color: var(--color-success);
-  border-color: color-mix(in srgb, var(--color-success) 50%, transparent);
 }
 
 /* Quick play FAB — appears on hover */
@@ -2024,14 +2030,18 @@
 }
 
 .lib-filtered-empty-icon {
-  width: 50px;
-  height: 50px;
-  opacity: 0.4;
+  width: 56px;
+  height: 56px;
+  padding: 11px;
   color: var(--color-accent);
+  background: color-mix(in srgb, var(--color-accent) 14%, transparent);
+  border: 1px solid color-mix(in srgb, var(--color-accent) 30%, transparent);
+  border-radius: var(--radius-xl);
+  margin-bottom: var(--space-2xs);
 }
 
 .lib-filtered-empty-title {
-  font-size: var(--font-size-md);
+  font-size: var(--font-size-lg);
   color: var(--color-text-primary);
   font-weight: var(--font-weight-semibold);
   margin: 0;
@@ -2073,286 +2083,12 @@
    ──────────────────────────────────────────────────────────────────── */
 
 /* ────────────────────────────────────────────────────────────────────
-   BIG SCREEN LIBRARY (controller-first surface)
-   ──────────────────────────────────────────────────────────────────── */
-
-.bigscreen-library-dashboard {
-  padding: var(--space-lg) var(--space-xl) var(--space-3xl);
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-lg);
-}
-
-.bigscreen-library-header-section {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-md);
-}
-
-.bigscreen-library-title-row {
-  display: flex;
-  align-items: baseline;
-  gap: var(--space-md);
-}
-
-.bigscreen-library-title {
-  font-size: var(--font-size-2xl);
-  font-weight: var(--font-weight-bold);
-  color: var(--color-text-primary);
-  margin: 0;
-  letter-spacing: -0.4px;
-}
-
-.bigscreen-library-count {
-  font-size: var(--font-size-sm);
-  color: var(--color-text-muted);
-  font-variant-numeric: tabular-nums;
-  font-weight: var(--font-weight-semibold);
-}
-
-.bigscreen-library-chips-row {
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--space-xs);
-  align-items: center;
-}
-
-.bigscreen-filter-chip {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  padding: 8px var(--space-md);
-  background: var(--color-surface-glass);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-full);
-  color: var(--color-text-secondary);
-  font-size: var(--font-size-sm);
-  font-weight: var(--font-weight-semibold);
-  font-family: inherit;
-  cursor: pointer;
-  transition: color var(--transition-fast),
-    border-color var(--transition-fast),
-    background var(--transition-fast);
-  white-space: nowrap;
-}
-
-.bigscreen-filter-chip span {
-  color: var(--color-text-primary);
-}
-
-.bigscreen-filter-chip:hover,
-.bigscreen-filter-chip:focus-visible {
-  color: var(--color-text-primary);
-  border-color: var(--color-accent);
-  background: var(--color-bg-hover);
-}
-
-.bigscreen-filter-chip--search {
-  padding-left: var(--space-md);
-}
-
-.bigscreen-filter-chip--search svg {
-  width: 15px;
-  height: 15px;
-  color: var(--color-text-muted);
-  flex-shrink: 0;
-}
-
-.bigscreen-filter-chip--search.search-active {
-  border-color: var(--color-accent);
-  box-shadow: 0 0 0 3px var(--color-accent-glow);
-}
-
-.bigscreen-filter-chip--search input {
-  border: none;
-  background: transparent;
-  outline: none;
-  color: var(--color-text-primary);
-  font-size: var(--font-size-sm);
-  font-family: inherit;
-  width: 140px;
-  padding: 0;
-}
-
-.bigscreen-filter-chip--search input::placeholder {
-  color: var(--color-text-muted);
-}
-
-.bigscreen-filter-chip--reset {
-  color: var(--color-danger);
-  border-color: color-mix(in srgb, var(--color-danger) 35%, transparent);
-}
-
-.bigscreen-filter-chip--reset:hover {
-  background: color-mix(in srgb, var(--color-danger) 12%, transparent);
-}
-
-.bigscreen-library-grid-container {
-  min-height: 200px;
-}
-
-.bigscreen-library-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
-  gap: var(--space-lg);
-}
-
-.bigscreen-library-empty-state {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  padding: var(--space-3xl);
-  text-align: center;
-  color: var(--color-text-muted);
-  gap: var(--space-md);
-  border: 1px dashed var(--color-border);
-  border-radius: var(--radius-lg);
-}
-
-.bigscreen-library-empty-state h3 {
-  color: var(--color-text-primary);
-  margin: 0;
-  font-size: var(--font-size-lg);
-}
-
-.bigscreen-library-empty-state p {
-  margin: 0;
-  max-width: 360px;
-  font-size: var(--font-size-sm);
-  line-height: 1.5;
-}
-
-/* Big Screen overlay drawer */
-.bigscreen-overlay-drawer {
-  position: fixed;
-  inset: 0;
-  z-index: 9000;
-  background: rgba(0, 0, 0, 0.5);
-  backdrop-filter: blur(3px);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  animation: libEmptyIn 180ms ease;
-}
-
-.bigscreen-overlay-drawer-panel {
-  width: min(420px, 92vw);
-  max-height: 80vh;
-  display: flex;
-  flex-direction: column;
-  background: var(--color-surface-raised);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-lg);
-  box-shadow: var(--shadow-xl);
-  overflow: hidden;
-}
-
-.bigscreen-overlay-drawer-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: var(--space-md) var(--space-lg);
-  border-bottom: 1px solid var(--color-border);
-}
-
-.bigscreen-overlay-drawer-header h3 {
-  margin: 0;
-  font-size: var(--font-size-lg);
-  font-weight: var(--font-weight-bold);
-  color: var(--color-text-primary);
-}
-
-.bigscreen-overlay-drawer-close {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 32px;
-  height: 32px;
-  border: 1px solid var(--color-border);
-  background: var(--color-bg-tertiary);
-  color: var(--color-text-secondary);
-  border-radius: var(--radius-md);
-  cursor: pointer;
-  font-size: var(--font-size-md);
-  transition: color var(--transition-fast),
-    border-color var(--transition-fast),
-    background var(--transition-fast);
-}
-
-.bigscreen-overlay-drawer-close:hover {
-  color: var(--color-text-primary);
-  border-color: var(--color-accent);
-}
-
-.bigscreen-overlay-drawer-content {
-  flex: 1;
-  overflow-y: auto;
-  padding: var(--space-lg);
-}
-
-.bigscreen-overlay-options-list,
-.bigscreen-overlay-options-grid {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-xs);
-}
-
-.bigscreen-overlay-options-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
-}
-
-.bigscreen-overlay-drawer-option {
-  display: flex;
-  align-items: center;
-  gap: var(--space-sm);
-  padding: var(--space-sm) var(--space-md);
-  background: var(--color-bg-tertiary);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-md);
-  color: var(--color-text-primary);
-  font-size: var(--font-size-sm);
-  font-family: inherit;
-  cursor: pointer;
-  text-align: left;
-  transition: color var(--transition-fast),
-    border-color var(--transition-fast),
-    background var(--transition-fast);
-}
-
-.bigscreen-overlay-options-grid .bigscreen-overlay-drawer-option {
-  justify-content: flex-start;
-}
-
-.bigscreen-overlay-drawer-option:hover,
-.bigscreen-overlay-drawer-option:focus-visible {
-  border-color: var(--color-accent);
-  background: var(--color-bg-hover);
-}
-
-.bigscreen-overlay-drawer-option.option-active {
-  background: color-mix(in srgb, var(--color-accent) 16%, transparent);
-  border-color: var(--color-accent);
-  color: var(--color-accent);
-}
-
-.option-checkbox {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 18px;
-  height: 18px;
-  border-radius: var(--radius-sm);
-  border: 1px solid var(--color-border-light);
-  font-size: 11px;
-  color: var(--color-accent);
-  flex-shrink: 0;
-}
-
-.option-label {
-  flex: 1;
-}
+   BIG SCREEN LIBRARY
+   ────────────────────────────────────────────────────────────────────
+   Big-screen surface styles live in src/styles/bigscreen.css (imported
+   after this file). The duplicate selectors that used to sit here were
+   consolidated there — bigscreen.css is the single source of truth for
+   the controller-first layout. */
 
 /* ────────────────────────────────────────────────────────────────────
    RESPONSIVE
@@ -2404,6 +2140,12 @@
   .lib-filtered-empty,
   .bigscreen-overlay-drawer {
     animation: none !important;
+  }
+  /* .lib-stat starts at opacity 0 and relies on its entrance animation
+     to reach 1 — with the animation disabled it must jump straight to
+     visible, otherwise the KPI tiles vanish for reduced-motion users. */
+  .lib-stat {
+    opacity: 1;
   }
   .lib-cards--virtual {
     will-change: auto;

@@ -287,6 +287,60 @@
   flex-direction: column;
 }
 
+/* BigScreen Library chrome — small rules consolidated from src/library.css
+   so the controller-first surfaces keep a single home in this file. */
+.bigscreen-library-dashboard {
+  padding: var(--space-lg) var(--space-xl) var(--space-3xl);
+  gap: var(--space-lg);
+}
+
+.bigscreen-library-count {
+  font-size: var(--font-size-sm);
+  color: var(--color-text-muted);
+  font-variant-numeric: tabular-nums;
+  font-weight: var(--font-weight-semibold);
+}
+
+.bigscreen-library-grid-container {
+  min-height: 200px;
+}
+
+.bigscreen-library-empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: var(--space-3xl);
+  text-align: center;
+  gap: var(--space-md);
+  border: 1px dashed var(--color-border);
+  border-radius: var(--radius-lg);
+}
+
+.bigscreen-library-empty-state h3 {
+  color: var(--color-text-primary);
+  margin: 0;
+  font-size: var(--font-size-lg);
+}
+
+.bigscreen-library-empty-state p {
+  margin: 0;
+  max-width: 360px;
+  font-size: var(--font-size-sm);
+  line-height: 1.5;
+}
+
+.bigscreen-filter-chip--search svg {
+  width: 15px;
+  height: 15px;
+  color: var(--color-text-muted);
+  flex-shrink: 0;
+}
+
+.bigscreen-filter-chip--search input::placeholder {
+  color: var(--color-text-muted);
+}
+
 .bigscreen-dashboard-scrollable-content {
   flex: 1;
   overflow-y: auto;
@@ -1298,6 +1352,25 @@
 .option-active .option-checkbox {
   border-color: var(--color-accent);
   background: color-mix(in srgb, var(--bigscreen-accent) 10%, transparent);
+}
+
+/* Overlay drawer chrome — consolidated from src/library.css (entrance
+   animation + close-button sizing/color preserve the original look). */
+.bigscreen-overlay-drawer {
+  animation: libEmptyIn 180ms ease;
+}
+
+.bigscreen-overlay-drawer-close {
+  width: 32px;
+  height: 32px;
+}
+
+.bigscreen-overlay-drawer-close:hover {
+  color: var(--color-text-primary);
+}
+
+.option-label {
+  flex: 1;
 }
 
 /* ── GAME HUB PAGE DETAILS ────────────────────────────────────────── */

@@ -89,39 +89,10 @@
   }
 }
 
-/* Play status badges in library cards */
-.library-card-play-status {
-  text-transform: uppercase;
-  font-size: 9px;
-  letter-spacing: 0.5px;
-  font-weight: var(--font-weight-bold);
-  border: 1px solid rgba(255, 255, 255, 0.05);
-  background: rgba(255, 255, 255, 0.03);
-}
-
-.library-card-play-status.status-backlog {
-  color: var(--color-text-muted);
-}
-.library-card-play-status.status-playing {
-  color: #10b981;
-  background: rgba(16, 185, 129, 0.08);
-  border-color: rgba(16, 185, 129, 0.15);
-}
-.library-card-play-status.status-completed {
-  color: #3b82f6;
-  background: rgba(59, 130, 246, 0.08);
-  border-color: rgba(59, 130, 246, 0.15);
-}
-.library-card-play-status.status-on_hold {
-  color: #f59e0b;
-  background: rgba(245, 158, 11, 0.08);
-  border-color: rgba(245, 158, 11, 0.15);
-}
-.library-card-play-status.status-abandoned {
-  color: #ef4444;
-  background: rgba(239, 68, 68, 0.08);
-  border-color: rgba(239, 68, 68, 0.15);
-}
+/* Play-status badge colors for library cards now come from the shared
+   ui-badge variant system (src/styles/ui.css) + src/library.css — the
+   .library-card-play-status rules that used to live here were dead
+   (components render .lib-card-status-badge) and have been removed. */
 
 
 /* ── Sidebar game-item: <button> reset + keyboard focus ring ───────

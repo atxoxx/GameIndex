@@ -134,14 +134,14 @@ function LibraryGameCardBase({
           {game.name}
         </h3>
         <div className="lib-card-meta">
-          <Badge variant="info" size="sm" className="lib-card-platform platform-${platform}">
+          <Badge variant="info" size="sm" className="lib-card-platform">
             {game.platform}
           </Badge>
           <Badge
             variant={PLAY_STATUS_DETAILS[game.playStatus || "backlog"].variant}
             size="sm"
             dot
-            className="lib-card-status-badge status-${game.playStatus || 'backlog'}"
+            className="lib-card-status-badge"
           >
             {t(PLAY_STATUS_DETAILS[game.playStatus || "backlog"].labelKey)}
           </Badge>
