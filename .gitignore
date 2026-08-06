@@ -29,3 +29,12 @@ nul
 
 # Deepwork state
 .slim/deepwork/
+.agents
+.kilo
+.opencode
+.playwright-mcp
+.scratch
+.slim
+.superpowers
+.tmp
+.vscode
