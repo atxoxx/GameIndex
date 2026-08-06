@@ -735,6 +735,7 @@ export const zhCN: TranslationDict = {
   "discordPresence.browsingApp": "浏览 GameIndex",
   "discordPresence.browsingGamePage": "浏览 {game} 的页面",
   "discordPresence.browsingLibrary": "浏览游戏库 — {count} 款游戏",
+  "discordPresence.browsingSettings": "浏览设置",
   "discordPresence.configuringMods": "配置 {game} 的模组",
   "discordPresence.playingState": "正在通过 GameIndex 游玩",
   "discordPresence.playingVia": "通过 {platform} 游玩",

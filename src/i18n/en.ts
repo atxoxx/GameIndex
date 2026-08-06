@@ -736,6 +736,7 @@ export const en: TranslationDict = {
   "discordPresence.browsingApp": "Browsing GameIndex",
   "discordPresence.browsingGamePage": "Browsing {game} page",
   "discordPresence.browsingLibrary": "Browsing library — {count} games",
+  "discordPresence.browsingSettings": "Browsing settings",
   "discordPresence.configuringMods": "Configuring {game} mods",
   "discordPresence.playingState": "Playing via GameIndex",
   "discordPresence.playingVia": "Playing via {platform}",

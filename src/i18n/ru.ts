@@ -735,6 +735,7 @@ export const ru: TranslationDict = {
   "discordPresence.browsingApp": "Просматривает GameIndex",
   "discordPresence.browsingGamePage": "Просматривает страницу {game}",
   "discordPresence.browsingLibrary": "Просматривает библиотеку — {count} игр",
+  "discordPresence.browsingSettings": "Просматривает настройки",
   "discordPresence.configuringMods": "Настраивает моды для {game}",
   "discordPresence.playingState": "Играет через GameIndex",
   "discordPresence.playingVia": "Играет через {platform}",
