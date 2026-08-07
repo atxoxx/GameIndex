@@ -1,6 +1,8 @@
 import { useState, useMemo, useCallback, useEffect, useRef } from "react";
+import { useNavigate } from "react-router-dom";
 import { useLanguage } from "../../context/LanguageContext";
 import { useFocusable } from "../../hooks/useFocusable";
+import { useGamepad } from "../../hooks/GamepadProvider";
 import { useFriendsData } from "../../hooks/useFriendsData";
 import BigScreenPill from "./BigScreenPill";
 import BigScreenTabBar, { type TabDef } from "./BigScreenTabBar";
@@ -27,6 +29,8 @@ type FriendsTab = "list" | "sessions" | "profile";
  */
 export default function BigScreenFriends() {
   const { t } = useLanguage();
+  const navigate = useNavigate();
+  const gamepad = useGamepad();
   const {
     profile,
     setProfile,
@@ -95,6 +99,30 @@ export default function BigScreenFriends() {
     return () => document.removeEventListener("keydown", onEscape, true);
   }, [modalOpen, chatSession]);
 
+  // Controller B returns to the library grid. While an overlay is open
+  // the engine dispatches Escape instead, and the overlay owns B — so
+  // this back handler only fires on the bare page.
+  useEffect(() => {
+    return gamepad.registerBackHandler(() => navigate("/library"), 0);
+  }, [gamepad.registerBackHandler, navigate]);
+
+  // Bumper-cycled tab navigation (LB / RB across the three tabs). The
+  // unregister fn runs on unmount so the shell's section cycler reclaims
+  // LB/RB when the user leaves the Friends hub.
+  useEffect(() => {
+    return gamepad.registerTabCycler((direction) => {
+      if (modalOpen) return;
+      setActiveTab((prev) => {
+        const ids: FriendsTab[] = ["list", "sessions", "profile"];
+        const idx = ids.indexOf(prev);
+        if (idx < 0) return ids[0];
+        return direction === "forward"
+          ? ids[(idx + 1) % ids.length]
+          : ids[(idx - 1 + ids.length) % ids.length];
+      });
+    });
+  }, [gamepad.registerTabCycler, modalOpen]);
+
   // Focusables (top header actions)
   const focusAddFriendBtn = useFocusable(() => setShowAddModal(true));
   const focusSyncBtn = useFocusable(() => performSync(true));
@@ -155,7 +183,7 @@ export default function BigScreenFriends() {
 
   return (
     <div className="bigscreen-store-dashboard">
-      <div className="bigscreen-dashboard-scrollable-content" style={{ padding: "1.875rem 2.5rem" }}>
+      <div className="bigscreen-dashboard-scrollable-content bigscreen-friends-content">
         
         {/* Header Tabs */}
         <div className="bigscreen-friends-toolbar">
@@ -164,12 +192,17 @@ export default function BigScreenFriends() {
             activeTab={activeTab}
             onActivate={handleSelectTab}
           />
-          <div style={{ display: "flex", gap: "12px" }}>
+          <div className="bigscreen-friends-toolbar-actions">
             <button
               type="button"
               className="bigscreen-details-btn bigscreen-details-btn--secondary bigscreen-details-btn--compact"
               {...focusSyncBtn}
             >
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                <polyline points="23 4 23 10 17 10" />
+                <polyline points="1 20 1 14 7 14" />
+                <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15" />
+              </svg>
               {t("bigscreen.friends.syncNetwork")}
             </button>
             {activeTab === "list" && (
@@ -178,6 +211,12 @@ export default function BigScreenFriends() {
                 className="bigscreen-details-btn bigscreen-details-btn--primary bigscreen-details-btn--compact"
                 {...focusAddFriendBtn}
               >
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                  <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" />
+                  <circle cx="9" cy="7" r="4" />
+                  <line x1="19" y1="8" x2="19" y2="14" />
+                  <line x1="22" y1="11" x2="16" y2="11" />
+                </svg>
                 {t("bigscreen.friends.addFriend")}
               </button>
             )}
@@ -185,7 +224,7 @@ export default function BigScreenFriends() {
         </div>
 
         {/* Tab Panels */}
-        <div className="bigscreen-gamepage-tab-scroll-region" style={{ marginTop: "10px" }}>
+        <div className="bigscreen-gamepage-tab-scroll-region bigscreen-friends-tab-region">
           
           {/* 1. Friends List Tab */}
           <BigScreenTabPanel tabId="list" activeTab={activeTab}>
@@ -232,23 +271,23 @@ export default function BigScreenFriends() {
 
           {/* 3. My Profile Tab */}
           <BigScreenTabPanel tabId="profile" activeTab={activeTab}>
-            <div className="bigscreen-gamepage-2col" data-cols="2" style={{ gap: "30px", alignItems: "flex-start" }}>
+            <div className="bigscreen-gamepage-2col bigscreen-profile-layout" data-cols="2">
               {/* Profile Card & Key */}
-              <div className="bigscreen-panel-card" style={{ gap: "16px" }}>
-                <div style={{ display: "flex", alignItems: "center", gap: "16px" }}>
-                  <div className="bigscreen-friend-avatar" style={{ width: "64px", height: "64px", fontSize: "24px" }}>
+              <div className="bigscreen-panel-card">
+                <div className="bigscreen-profile-card-header">
+                  <div className="bigscreen-friend-avatar bigscreen-friend-avatar--lg">
                     {profile.name.slice(0, 2).toUpperCase()}
                   </div>
                   <div>
-                    <h3 style={{ margin: 0 }}>{profile.name}</h3>
-                    <div style={{ fontSize: "12px", color: "color-mix(in srgb, var(--bigscreen-text) 45%, transparent)", marginTop: "4px" }}>
+                    <h3 className="bigscreen-profile-card-name">{profile.name}</h3>
+                    <div className="bigscreen-profile-card-status">
                       "{profile.status || t("bigscreen.friends.noStatus")}"
                     </div>
                   </div>
                 </div>
 
-                <div style={{ borderTop: "1px solid color-mix(in srgb, var(--bigscreen-text) 8%, transparent)", paddingTop: "16px" }}>
-                  <div className="bigscreen-kpi-label" style={{ marginBottom: "6px" }}>{t("bigscreen.friends.myPublicKey")}</div>
+                <div className="bigscreen-profile-key-block">
+                  <div className="bigscreen-kpi-label bigscreen-profile-key-label">{t("bigscreen.friends.myPublicKey")}</div>
                   <div className="bigscreen-profile-key">
                     {generatedFriendCode}
                   </div>
@@ -303,9 +342,8 @@ export default function BigScreenFriends() {
                   </div>
                   <button
                     type="submit"
-                    className="bigscreen-details-btn bigscreen-details-btn--primary"
+                    className="bigscreen-details-btn bigscreen-details-btn--primary bigscreen-profile-save-btn"
                     {...saveProfileFocusable}
-                    style={{ alignSelf: "flex-start", marginTop: "10px" }}
                   >
                     {t("bigscreen.friends.saveSync")}
                   </button>
@@ -321,15 +359,10 @@ export default function BigScreenFriends() {
       {showAddModal && (
         <div data-bigscreen-overlay="true" className="bigscreen-overlay-drawer bigscreen-overlay-drawer--modal" onClick={() => setShowAddModal(false)}>
           <div
-            className="bigscreen-overlay-drawer-panel bigscreen-overlay-drawer-panel--modal"
-            style={{
-              width: "500px",
-              padding: "30px",
-              gap: "20px",
-            }}
+            className="bigscreen-overlay-drawer-panel bigscreen-overlay-drawer-panel--modal bigscreen-addfriend-panel"
             onClick={(e) => e.stopPropagation()}
           >
-            <h3 style={{ margin: 0 }}>{t("bigscreen.friends.addFriendTitle")}</h3>
+            <h3 className="bigscreen-addfriend-title">{t("bigscreen.friends.addFriendTitle")}</h3>
             <p className="bigscreen-modal-body-text">{t("bigscreen.friends.addFriendDesc")}</p>
             <textarea
               ref={setFriendCodeRef}
@@ -343,22 +376,22 @@ export default function BigScreenFriends() {
             />
 
             {decodedFriend ? (
-              <div style={{ display: "flex", alignItems: "center", gap: "12px", background: "color-mix(in srgb, var(--bigscreen-text) 2%, transparent)", padding: "10px", borderRadius: "8px" }}>
-                <div className="bigscreen-friend-avatar" style={{ width: "40px", height: "40px", background: "var(--color-warning)" }}>
+              <div className="bigscreen-addfriend-preview">
+                <div className="bigscreen-friend-avatar bigscreen-friend-avatar--sm">
                   {decodedFriend.name.slice(0, 2).toUpperCase()}
                 </div>
                 <div>
-                  <div style={{ fontWeight: "600" }}>{decodedFriend.name}</div>
-                  <div style={{ fontSize: "11px", color: "color-mix(in srgb, var(--bigscreen-text) 45%, transparent)" }}>{decodedFriend.status}</div>
+                  <div className="bigscreen-addfriend-preview-name">{decodedFriend.name}</div>
+                  <div className="bigscreen-addfriend-preview-status">{decodedFriend.status}</div>
                 </div>
               </div>
             ) : (
               friendCodeInput.trim() && (
-                <div style={{ fontSize: "12px", color: "var(--bigscreen-danger)" }}>{t("bigscreen.friends.invalidKey")}</div>
+                <div className="bigscreen-addfriend-error">{t("bigscreen.friends.invalidKey")}</div>
               )
             )}
 
-            <div className="bigscreen-modal-footer" style={{ marginTop: "10px", paddingTop: "0", borderTop: "none" }}>
+            <div className="bigscreen-modal-footer bigscreen-addfriend-footer">
               <button
                 type="button"
                 className="bigscreen-details-btn bigscreen-details-btn--secondary bigscreen-details-btn--compact"
@@ -383,15 +416,7 @@ export default function BigScreenFriends() {
       {chattingSessionId && chatSession && (
         <div data-bigscreen-overlay="true" className="bigscreen-overlay-drawer bigscreen-overlay-drawer--modal" onClick={() => setChattingSessionId(null)}>
           <div
-            className="bigscreen-overlay-drawer-panel bigscreen-overlay-drawer-panel--modal"
-            style={{
-              width: "600px",
-              height: "500px",
-              padding: "0",
-              display: "flex",
-              flexDirection: "column",
-              overflow: "hidden",
-            }}
+            className="bigscreen-overlay-drawer-panel bigscreen-overlay-drawer-panel--modal bigscreen-chat-panel"
             onClick={(e) => e.stopPropagation()}
           >
             <div className="bigscreen-chat-header">
@@ -475,6 +500,7 @@ function FriendCard({
   const [showOptions, setShowOptions] = useState(false);
 
   const focusCard = useFocusable(() => setShowOptions(true));
+  const isPlaying = !!friend.currentlyPlaying;
 
   // Controller B / X closes the options popover.
   useEffect(() => {
@@ -491,7 +517,7 @@ function FriendCard({
 
   return (
     <div
-      className={`bigscreen-game-card bigscreen-friend-card${friend.pinned ? " running" : ""}`}
+      className={`bigscreen-game-card bigscreen-friend-card${friend.pinned ? " running" : ""}${isPlaying ? " bigscreen-friend-card--playing" : ""}`}
       {...focusCard}
     >
       <div className="bigscreen-friend-card-top">
@@ -502,8 +528,9 @@ function FriendCard({
           <h4 className="bigscreen-friend-name">
             {displayName(friend)}
           </h4>
-          <p className="bigscreen-friend-status">
-            {friend.currentlyPlaying ? t("bigscreen.friends.playing", { game: friend.currentlyPlaying }) : friend.status || t("bigscreen.friends.offline")}
+          <p className={`bigscreen-friend-status${isPlaying ? " bigscreen-friend-status--playing" : ""}`}>
+            {isPlaying && <span className="bigscreen-friend-status-dot" aria-hidden />}
+            {isPlaying ? t("bigscreen.friends.playing", { game: friend.currentlyPlaying }) : friend.status || t("bigscreen.friends.offline")}
           </p>
         </div>
         {friend.pinned && (
@@ -575,21 +602,20 @@ function FriendOptionsPopover({
   return (
     <div data-bigscreen-overlay="true" className="bigscreen-overlay-drawer bigscreen-overlay-drawer--modal" onClick={onClose}>
       <div
-        className="bigscreen-overlay-drawer-panel bigscreen-overlay-drawer-panel--modal"
-        style={{ width: "260px", padding: "16px", gap: "10px", borderRadius: "12px" }}
+        className="bigscreen-overlay-drawer-panel bigscreen-overlay-drawer-panel--modal bigscreen-friendoptions-panel"
         onClick={(e) => e.stopPropagation()}
       >
-        <h4 style={{ margin: "0 0 5px 0", textAlign: "center" }}>{displayName(friend)}</h4>
-        <button type="button" className="bigscreen-details-btn bigscreen-details-btn--secondary bigscreen-details-btn--compact" {...pinProps} style={{ width: "100%", justifyContent: "center" }}>
+        <h4 className="bigscreen-friendoptions-title">{displayName(friend)}</h4>
+        <button type="button" className="bigscreen-details-btn bigscreen-details-btn--secondary bigscreen-details-btn--compact bigscreen-popover-btn" {...pinProps}>
           {friend.pinned ? t("bigscreen.friends.unpinFriend") : t("bigscreen.friends.pinFriend")}
         </button>
-        <button type="button" className="bigscreen-details-btn bigscreen-details-btn--secondary bigscreen-details-btn--compact" {...blockProps} style={{ width: "100%", justifyContent: "center" }}>
+        <button type="button" className="bigscreen-details-btn bigscreen-details-btn--secondary bigscreen-details-btn--compact bigscreen-popover-btn" {...blockProps}>
           {friend.blocked ? t("bigscreen.friends.unblockFriend") : t("bigscreen.friends.blockFriend")}
         </button>
-        <button type="button" className="bigscreen-details-btn bigscreen-details-btn--danger bigscreen-details-btn--compact" {...deleteProps} style={{ width: "100%", justifyContent: "center" }}>
+        <button type="button" className="bigscreen-details-btn bigscreen-details-btn--danger bigscreen-details-btn--compact bigscreen-popover-btn" {...deleteProps}>
           {t("bigscreen.friends.deleteFriend")}
         </button>
-        <button type="button" className="bigscreen-details-btn bigscreen-details-btn--secondary bigscreen-details-btn--compact" {...cancelProps} style={{ width: "100%", justifyContent: "center", marginTop: "5px" }}>
+        <button type="button" className="bigscreen-details-btn bigscreen-details-btn--secondary bigscreen-details-btn--compact bigscreen-popover-btn bigscreen-popover-btn--cancel" {...cancelProps}>
           {t("common.cancel")}
         </button>
       </div>
@@ -634,7 +660,7 @@ function SessionRow({
   const attendeesCount = Object.values(session.rsvps || {}).filter((v) => v === "going").length;
 
   return (
-    <div className="bigscreen-widget-card bigscreen-session-row" style={{ padding: "20px" }}>
+    <div className="bigscreen-widget-card bigscreen-session-row">
       <div className="bigscreen-session-main">
         <div className="bigscreen-session-title-row">
           <h4 className="bigscreen-session-title">{session.gameName}</h4>
@@ -665,11 +691,14 @@ function SessionRow({
         </div>
 
         <button type="button" className="bigscreen-details-btn bigscreen-details-btn--secondary bigscreen-details-btn--compact" {...focusChat}>
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+            <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
+          </svg>
           {t("bigscreen.friends.chat")}
         </button>
 
         {session.creatorName === profileName && (
-          <button type="button" className="bigscreen-details-btn bigscreen-details-btn--secondary bigscreen-details-btn--compact" {...focusDelete} style={{ color: "var(--color-danger)" }}>
+          <button type="button" className="bigscreen-details-btn bigscreen-details-btn--secondary bigscreen-details-btn--compact bigscreen-session-btn--danger" {...focusDelete}>
             {t("bigscreen.friends.cancel")}
           </button>
         )}

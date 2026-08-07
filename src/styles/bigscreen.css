@@ -4326,3 +4326,650 @@
   }
 }
 
+
+
+
+/* ============================================================
+   Big Screen Deals & Friends — cinematic polish pass
+   Applies the game-hub visual language (cinematic backdrop,
+   pill/meta tokens, rem-scaled 10-foot sizing, single focus
+   glow) to the Deals and Friends hubs. Sits after the rem-scale
+   passes so TV sizing wins on equal specificity.
+   ============================================================ */
+
+/* ── DEALS: cinematic backdrop ──────────────────────────────── */
+
+.bigscreen-hero-backdrop {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+.bigscreen-hero-bg-img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  filter: brightness(0.32) saturate(1.15) contrast(1.05) blur(3px);
+  transform: scale(1.05);
+  animation: dashboardFadeIn 0.9s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+.bigscreen-hero-overlay {
+  position: absolute;
+  inset: 0;
+  background:
+    radial-gradient(ellipse 90% 55% at 22% 6%, color-mix(in srgb, var(--bigscreen-accent) 14%, transparent), transparent 55%),
+    linear-gradient(180deg, color-mix(in srgb, var(--bigscreen-bg) 62%, transparent) 0%, color-mix(in srgb, var(--bigscreen-bg) 70%, transparent) 28%, color-mix(in srgb, var(--bigscreen-bg) 84%, transparent) 60%, var(--bigscreen-bg) 100%);
+}
+
+/* Deals scroll body sits above the backdrop and owns its own sides. */
+.bigscreen-deals-content {
+  position: relative;
+  z-index: 1;
+  padding: 0 2.5rem 3rem;
+}
+
+.bigscreen-deals-content > .bigscreen-rail {
+  margin-top: 1.5rem;
+}
+
+.bigscreen-deals-content .bigscreen-rail-header {
+  margin-bottom: 0.75rem;
+}
+
+.bigscreen-deals-content .bigscreen-rail-title {
+  font-size: 1.125rem;
+  letter-spacing: 0.02em;
+}
+
+.bigscreen-deals-content .bigscreen-rail-count {
+  font-size: 0.6875rem;
+  padding: 0.1875rem 0.625rem;
+  border-radius: 999px;
+  border: 1px solid color-mix(in srgb, var(--bigscreen-text) 10%, transparent);
+  color: color-mix(in srgb, var(--bigscreen-text) 55%, transparent);
+}
+
+/* ── DEALS: spotlight hero ──────────────────────────────────── */
+
+.bigscreen-spotlight-hero {
+  position: relative;
+  min-height: 18rem;
+  display: flex;
+  align-items: flex-end;
+  padding: 2.5rem 0 2rem;
+  margin-bottom: 0.5rem;
+}
+
+.bigscreen-spotlight-info {
+  max-width: 56rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.bigscreen-spotlight-title {
+  margin: 0;
+  font-size: clamp(1.875rem, 3.6vw, 3.125rem);
+  font-weight: 900;
+  letter-spacing: -0.02em;
+  line-height: 1.08;
+  color: var(--bigscreen-text);
+  text-shadow: 0 6px 24px color-mix(in srgb, var(--bigscreen-shadow) 85%, transparent);
+}
+
+.bigscreen-spotlight-meta {
+  margin: 0;
+  font-size: 1rem;
+  font-weight: 600;
+  color: color-mix(in srgb, var(--bigscreen-text) 72%, transparent);
+  text-shadow: 0 2px 10px color-mix(in srgb, var(--bigscreen-shadow) 60%, transparent);
+}
+
+.bigscreen-spotlight-price-row {
+  display: flex;
+  align-items: baseline;
+  gap: 0.875rem;
+  margin-top: 0.25rem;
+}
+
+.bigscreen-spotlight-price {
+  font-size: 1.75rem;
+  font-weight: 800;
+  color: var(--bigscreen-success);
+  font-variant-numeric: tabular-nums;
+  text-shadow: 0 4px 16px color-mix(in srgb, var(--bigscreen-shadow) 70%, transparent);
+}
+
+.bigscreen-spotlight-store {
+  font-size: 0.875rem;
+  font-weight: 700;
+  color: color-mix(in srgb, var(--bigscreen-text) 62%, transparent);
+}
+
+/* Spotlight badge pill (GamePass / Discount / Free). */
+.bigscreen-badge {
+  display: inline-flex;
+  align-items: center;
+  align-self: flex-start;
+  padding: 0.375rem 0.875rem;
+  border-radius: 999px;
+  border: 1px solid transparent;
+  font-size: 0.6875rem;
+  font-weight: 800;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+}
+.bigscreen-badge--success {
+  background: color-mix(in srgb, var(--bigscreen-success) 18%, transparent);
+  border-color: color-mix(in srgb, var(--bigscreen-success) 32%, transparent);
+  color: var(--bigscreen-success-soft);
+}
+.bigscreen-badge--danger {
+  background: color-mix(in srgb, var(--bigscreen-danger) 18%, transparent);
+  border-color: color-mix(in srgb, var(--bigscreen-danger) 32%, transparent);
+  color: var(--bigscreen-danger-soft);
+}
+.bigscreen-badge--info {
+  background: color-mix(in srgb, var(--bigscreen-info) 18%, transparent);
+  border-color: color-mix(in srgb, var(--bigscreen-info) 32%, transparent);
+  color: var(--bigscreen-info-soft);
+}
+
+/* ── DEALS: card meta + badges ──────────────────────────────── */
+
+.bigscreen-card-meta {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  padding: 0.875rem 0.75rem 0.75rem;
+  background: linear-gradient(to top, color-mix(in srgb, var(--bigscreen-bg) 96%, transparent) 0%, color-mix(in srgb, var(--bigscreen-bg) 62%, transparent) 55%, transparent 100%);
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  z-index: 4;
+}
+
+.bigscreen-card-title {
+  margin: 0;
+  font-size: 0.8125rem;
+  font-weight: 800;
+  color: var(--bigscreen-text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.bigscreen-card-subtitle {
+  font-size: 0.6875rem;
+  font-weight: 600;
+  color: color-mix(in srgb, var(--bigscreen-text) 55%, transparent);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.bigscreen-card-deal-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  margin-top: 0.125rem;
+}
+
+.bigscreen-card-price {
+  font-size: 0.8125rem;
+  font-weight: 800;
+  color: var(--bigscreen-success);
+  font-variant-numeric: tabular-nums;
+}
+
+.bigscreen-card-discount {
+  padding: 0.125rem 0.4375rem;
+  border-radius: 0.375rem;
+  background: var(--bigscreen-danger);
+  color: var(--bigscreen-text);
+  font-size: 0.6875rem;
+  font-weight: 800;
+  flex-shrink: 0;
+}
+
+.bigscreen-card-free {
+  font-size: 0.6875rem;
+  font-weight: 800;
+  color: var(--bigscreen-info-soft);
+  letter-spacing: 0.03em;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* ── DEALS / FRIENDS: loading & empty rails ─────────────────── */
+
+.bigscreen-rail-empty {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 7rem;
+  margin: 1.5rem 0;
+  padding: 1.25rem;
+  border: 1px dashed color-mix(in srgb, var(--bigscreen-text) 12%, transparent);
+  border-radius: 1rem;
+  background: color-mix(in srgb, var(--bigscreen-text) 2%, transparent);
+  color: color-mix(in srgb, var(--bigscreen-text) 48%, transparent);
+  font-size: 0.9375rem;
+  font-weight: 600;
+  text-align: center;
+}
+
+/* ── FRIENDS: content shell + toolbar ───────────────────────── */
+
+.bigscreen-friends-content {
+  position: relative;
+  z-index: 1;
+  padding: 1.5rem 2.5rem 3rem;
+}
+
+.bigscreen-friends-toolbar {
+  gap: 1.25rem;
+  margin-bottom: 1.5rem;
+}
+
+.bigscreen-friends-toolbar-actions {
+  display: flex;
+  gap: 0.75rem;
+  flex-shrink: 0;
+}
+
+.bigscreen-friends-toolbar .bigscreen-details-btn svg,
+.bigscreen-session-actions .bigscreen-details-btn svg {
+  width: 0.9375rem;
+  height: 0.9375rem;
+}
+
+/* The tab region inherits the game-page scroll chrome; friends
+   provides its own side padding, so strip the game-page extras. */
+.bigscreen-friends-tab-region {
+  padding: 0;
+  background: none;
+  margin-top: 1.25rem;
+}
+
+/* ── FRIENDS: friend cards ──────────────────────────────────── */
+
+.bigscreen-friends-grid {
+  grid-template-columns: repeat(auto-fill, minmax(17rem, 1fr));
+  gap: 1.5rem;
+}
+
+.bigscreen-friend-card {
+  height: auto;
+  min-height: 12.5rem;
+  padding: 1.25rem;
+  background: linear-gradient(180deg, color-mix(in srgb, var(--bigscreen-text) 5%, transparent), color-mix(in srgb, var(--bigscreen-text) 2%, transparent));
+  border: var(--bigscreen-glass-border);
+  border-radius: 1.125rem;
+}
+
+.bigscreen-friend-avatar {
+  width: 3.25rem;
+  height: 3.25rem;
+  border-radius: 50%;
+  background: linear-gradient(135deg, var(--bigscreen-accent), color-mix(in srgb, var(--bigscreen-accent) 55%, var(--color-info)));
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--bigscreen-text) 12%, transparent), 0 6px 16px color-mix(in srgb, var(--bigscreen-shadow) 40%, transparent);
+  font-size: 1.0625rem;
+  font-weight: 800;
+}
+.bigscreen-friend-avatar--lg {
+  width: 4rem;
+  height: 4rem;
+  font-size: 1.375rem;
+}
+.bigscreen-friend-avatar--sm {
+  width: 2.5rem;
+  height: 2.5rem;
+  font-size: 0.8125rem;
+}
+
+.bigscreen-friend-name {
+  font-size: 1.0625rem;
+  font-weight: 800;
+}
+
+.bigscreen-friend-status {
+  margin-top: 0.3125rem;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: color-mix(in srgb, var(--bigscreen-text) 48%, transparent);
+}
+
+.bigscreen-friend-status--playing {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4375rem;
+  color: var(--bigscreen-success-soft);
+  font-weight: 700;
+}
+
+.bigscreen-friend-status-dot {
+  width: 0.4375rem;
+  height: 0.4375rem;
+  border-radius: 50%;
+  background: var(--bigscreen-success);
+  box-shadow: 0 0 8px color-mix(in srgb, var(--bigscreen-success) 70%, transparent);
+  animation: bigscreen-running-pulse 1.5s ease-in-out infinite;
+  flex-shrink: 0;
+}
+
+.bigscreen-friend-pin svg {
+  width: 1rem;
+  height: 1rem;
+}
+
+.bigscreen-friend-stats {
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: color-mix(in srgb, var(--bigscreen-text) 48%, transparent);
+  border-top: 1px solid color-mix(in srgb, var(--bigscreen-text) 7%, transparent);
+  padding-top: 0.625rem;
+}
+
+/* ── FRIENDS: sessions (lobbies) ────────────────────────────── */
+
+.bigscreen-sessions-list {
+  gap: 1.25rem;
+}
+
+.bigscreen-session-row {
+  padding: 1.5rem;
+  border-radius: 1.125rem;
+  gap: 1.5rem;
+  background: linear-gradient(180deg, color-mix(in srgb, var(--bigscreen-text) 4%, transparent), color-mix(in srgb, var(--bigscreen-text) 1.5%, transparent));
+  border: var(--bigscreen-glass-border);
+}
+
+.bigscreen-session-title {
+  font-size: 1.1875rem;
+  font-weight: 800;
+}
+
+.bigscreen-session-meta {
+  font-size: 0.8125rem;
+  color: color-mix(in srgb, var(--bigscreen-text) 52%, transparent);
+}
+
+.bigscreen-session-desc {
+  font-size: 0.8125rem;
+  color: color-mix(in srgb, var(--bigscreen-text) 65%, transparent);
+  line-height: 1.5;
+}
+
+.bigscreen-session-actions {
+  gap: 0.75rem;
+}
+
+.bigscreen-session-btn--danger {
+  color: var(--bigscreen-danger-soft) !important;
+}
+.bigscreen-session-btn--danger:hover,
+.bigscreen-session-btn--danger[data-focused="true"] {
+  color: var(--bigscreen-danger) !important;
+  border-color: color-mix(in srgb, var(--bigscreen-danger) 55%, transparent) !important;
+}
+
+/* RSVP strip. */
+.bigscreen-rsvp-group {
+  border-radius: 0.625rem;
+  background: color-mix(in srgb, var(--bigscreen-text) 3%, transparent);
+  border: 1px solid color-mix(in srgb, var(--bigscreen-text) 10%, transparent);
+  padding: 0.1875rem;
+}
+
+.bigscreen-rsvp-btn {
+  padding: 0.4375rem 0.9375rem;
+  border-radius: 0.4375rem;
+  font-size: 0.8125rem;
+  font-weight: 700;
+  color: color-mix(in srgb, var(--bigscreen-text) 62%, transparent);
+}
+
+.bigscreen-rsvp-btn[data-focused="true"] {
+  background: color-mix(in srgb, var(--bigscreen-text) 9%, transparent);
+  color: var(--bigscreen-text);
+}
+
+.bigscreen-rsvp-btn.is-selected-going {
+  background: var(--bigscreen-success);
+  color: var(--bigscreen-bg);
+  box-shadow: 0 0 10px color-mix(in srgb, var(--bigscreen-success) 45%, transparent);
+}
+
+.bigscreen-rsvp-btn.is-selected-maybe {
+  background: var(--bigscreen-warning);
+  color: var(--bigscreen-bg);
+  box-shadow: 0 0 10px color-mix(in srgb, var(--bigscreen-warning) 45%, transparent);
+}
+
+.bigscreen-rsvp-btn.is-selected-declined {
+  background: var(--bigscreen-danger);
+  color: var(--bigscreen-text);
+  box-shadow: 0 0 10px color-mix(in srgb, var(--bigscreen-danger) 45%, transparent);
+}
+
+/* ── FRIENDS: profile tab ───────────────────────────────────── */
+
+.bigscreen-profile-layout {
+  gap: 1.5rem;
+  align-items: flex-start;
+}
+
+.bigscreen-profile-card-header {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
+.bigscreen-profile-card-name {
+  margin: 0;
+  font-size: 1.5rem;
+  font-weight: 900;
+  letter-spacing: -0.02em;
+  color: var(--bigscreen-text);
+}
+
+.bigscreen-profile-card-status {
+  margin-top: 0.25rem;
+  font-size: 0.875rem;
+  color: color-mix(in srgb, var(--bigscreen-text) 50%, transparent);
+}
+
+.bigscreen-profile-key-block {
+  border-top: 1px solid color-mix(in srgb, var(--bigscreen-text) 8%, transparent);
+  padding-top: 1rem;
+}
+
+.bigscreen-profile-key-label {
+  margin-bottom: 0.5rem;
+}
+
+.bigscreen-profile-key {
+  font-size: 0.75rem;
+  padding: 0.75rem;
+  border-radius: 0.5rem;
+  letter-spacing: 0.02em;
+}
+
+.bigscreen-profile-stat-grid {
+  gap: 0.75rem;
+  margin-top: 1rem;
+}
+
+.bigscreen-profile-stat-box {
+  padding: 0.875rem;
+  border-radius: 0.625rem;
+}
+
+.bigscreen-profile-stat-value {
+  font-size: 1.375rem;
+  font-weight: 800;
+}
+
+.bigscreen-profile-stat-label {
+  font-size: 0.6875rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.bigscreen-profile-save-btn {
+  align-self: flex-start;
+  margin-top: 0.625rem;
+}
+
+/* ── FRIENDS: modals ────────────────────────────────────────── */
+
+.bigscreen-addfriend-panel {
+  width: 31.25rem;
+  padding: 1.75rem;
+  gap: 1.25rem;
+}
+
+.bigscreen-addfriend-title {
+  margin: 0;
+  font-size: 1.25rem;
+  font-weight: 900;
+  letter-spacing: -0.02em;
+  color: var(--bigscreen-text);
+}
+
+.bigscreen-addfriend-preview {
+  display: flex;
+  align-items: center;
+  gap: 0.875rem;
+  padding: 0.75rem;
+  border-radius: 0.75rem;
+  background: color-mix(in srgb, var(--bigscreen-text) 3%, transparent);
+  border: 1px solid color-mix(in srgb, var(--bigscreen-text) 8%, transparent);
+}
+
+.bigscreen-addfriend-preview-name {
+  font-size: 0.9375rem;
+  font-weight: 700;
+  color: var(--bigscreen-text);
+}
+
+.bigscreen-addfriend-preview-status {
+  margin-top: 0.125rem;
+  font-size: 0.75rem;
+  color: color-mix(in srgb, var(--bigscreen-text) 45%, transparent);
+}
+
+.bigscreen-addfriend-error {
+  font-size: 0.8125rem;
+  font-weight: 700;
+  color: var(--bigscreen-danger-soft);
+}
+
+.bigscreen-addfriend-footer {
+  margin-top: 0.625rem;
+  padding-top: 0;
+  border-top: none;
+}
+
+.bigscreen-chat-panel {
+  width: 37.5rem;
+  height: 31.25rem;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.bigscreen-chat-bubble-text {
+  font-size: 0.875rem;
+}
+
+.bigscreen-friendoptions-panel {
+  width: 16.25rem;
+  padding: 1rem;
+  gap: 0.625rem;
+  border-radius: 0.75rem;
+}
+
+.bigscreen-friendoptions-title {
+  margin: 0 0 0.25rem;
+  text-align: center;
+  font-size: 0.9375rem;
+  font-weight: 800;
+  color: var(--bigscreen-text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.bigscreen-popover-btn {
+  width: 100%;
+  justify-content: center;
+}
+
+.bigscreen-popover-btn--cancel {
+  margin-top: 0.3125rem;
+}
+
+/* ── Breakpoints ────────────────────────────────────────────── */
+
+@media (max-width: 56.25rem) { /* 900px */
+  .bigscreen-deals-content {
+    padding-left: 1.5rem;
+    padding-right: 1.5rem;
+  }
+
+  .bigscreen-friends-content {
+    padding-left: 1.5rem;
+    padding-right: 1.5rem;
+  }
+
+  .bigscreen-spotlight-hero {
+    min-height: 16rem;
+    padding: 2rem 0 1.5rem;
+  }
+
+  .bigscreen-spotlight-title {
+    font-size: clamp(1.5rem, 4.5vw, 2.25rem);
+  }
+}
+
+@media (max-width: 47.5rem) { /* 760px */
+  .bigscreen-deals-content,
+  .bigscreen-friends-content {
+    padding-left: 1.25rem;
+    padding-right: 1.25rem;
+  }
+
+  .bigscreen-spotlight-price-row {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.375rem;
+  }
+
+  .bigscreen-session-row {
+    align-items: flex-start;
+  }
+
+  .bigscreen-session-actions {
+    width: 100%;
+    justify-content: flex-start;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .bigscreen-hero-bg-img {
+    animation: none !important;
+  }
+
+  .bigscreen-friend-status-dot {
+    animation: none !important;
+  }
+}
