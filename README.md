@@ -8,7 +8,7 @@
 
 <p><strong>A unified, cross-store game launcher and library manager.</strong></p>
 
-Unify your Steam, GOG, Epic, Rockstar, Ubisoft, and DRM-free libraries into a single, fast, native experience — with discovery, sync, activity tracking, a social layer, and a controller-first Big Picture mode.
+Unify your Steam, GOG, Epic, Rockstar, Ubisoft, and DRM-free libraries into a single, fast, native experience — with discovery, sync, activity tracking, a social layer, and a controller-first 10-foot UI.
 
 <br />
 
@@ -51,73 +51,120 @@ Unify your Steam, GOG, Epic, Rockstar, Ubisoft, and DRM-free libraries into a si
 | **Downloads** | Unified download engine with single-active queueing, seeding, HTTP direct, debrid (Real-Debrid / AllDebrid), and torrents via `librqbit`. |
 | **Storage Manager** | Visualize disk usage, move installs between drives, track emulator & mod footprints, and bulk-recalculate sizes. |
 | **Community & Friends** | Local-first social layer: profiles, friend sync, shared recommendations, and a community feed. |
-| **Big Picture Mode** | Controller-friendly, full-screen launcher UI for couch and TV play — rail-aware gamepad navigation, Friends, Deals view, and Community. |
+| **Discord Rich Presence** | Playing *and* browsing presence — platform/playtime context, dynamic game poster, and a launcher toggle. |
+| **Big Picture Mode** | Full-screen, controller-first 10-foot UI with rail-aware gamepad navigation across Library, Store, News, Deals, Activity, Friends, and Community. |
 | **Live Player Counts** | Combined Steam + Hydra counts with a hero banner, tabbed popover, and historical player-count graph with range toggle. |
 | **i18n & Privacy** | Multi-language translation support (`LanguageContext`), theme gallery with custom accent picker, and a Privacy & Data tab to view/wipe local storage. |
 
-> 🚧 **Planned / in progress:** Discord Rich Presence (event hook wired, IPC plugin pending) · Linux + Steam Deck support.
+> 🚧 **Planned / in progress:** Linux + Steam Deck support · Steam reviews & multi-source ratings · plugin system.
 
 ---
 
 ## 📸 Screenshots
 
-<p align="center"><sub>Dark-first UI, captured on Windows. Layout adapts to light mode and the controller-friendly Big Picture mode.</sub></p>
+<p align="center"><sub>Dark-first UI, captured on Windows at 1920×1080. The same interface adapts to light mode and desktop use.</sub></p>
 
-### 🏠 Main Page / Library
+<p align="center">
+  <img src="Screenshots/Library/1.png" width="90%" loading="lazy" alt="GameIndex library grid" />
+</p>
+
+### 🏠 Library
 
 <p>
-  <img src="Screenshots/Main%20page/1.png" width="49%" alt="Main library view" />
-  <img src="Screenshots/Main%20page/2.png" width="49%" alt="Library detail" />
+  <img src="Screenshots/Library/1.png" width="49%" loading="lazy" alt="Library grid view" />
+  <img src="Screenshots/Library/2.png" width="49%" loading="lazy" alt="Library with filters and detail rail" />
+</p>
+
+### 🎮 Game Page
+
+<p>
+  <img src="Screenshots/Game%20page/1.png" width="32%" loading="lazy" alt="Game page hero banner" />
+  <img src="Screenshots/Game%20page/2.png" width="32%" loading="lazy" alt="Game page metadata" />
+  <img src="Screenshots/Game%20page/3.png" width="32%" loading="lazy" alt="Game page details and media" />
 </p>
 
 ### 🛒 Store
 
 <p>
-  <img src="Screenshots/Store/1.png" width="49%" alt="Store catalogue" />
-  <img src="Screenshots/Store/2.png" width="49%" alt="Store detail" />
+  <img src="Screenshots/Store/Overview/1.png" width="32%" loading="lazy" alt="Store catalogue" />
+  <img src="Screenshots/Store/Overview/2.png" width="32%" loading="lazy" alt="Store browsing with filters" />
+  <img src="Screenshots/Store/Overview/3.png" width="32%" loading="lazy" alt="Store product page" />
+</p>
+
+<p>
+  <img src="Screenshots/Store/Reviews/1.png" width="49%" loading="lazy" alt="Community reviews" />
+  <img src="Screenshots/Store/Weblinks/1.png" width="49%" loading="lazy" alt="Web links panel" />
 </p>
 
 ### 📰 News
 
 <p>
-  <img src="Screenshots/News/1.png" width="49%" alt="News feed" />
-  <img src="Screenshots/News/2.png" width="49%" alt="News article" />
+  <img src="Screenshots/News/1.png" width="49%" loading="lazy" alt="News feed" />
+  <img src="Screenshots/News/2.png" width="49%" loading="lazy" alt="News article" />
 </p>
 
 ### 💰 Deals
 
 <p>
-  <img src="Screenshots/Deals/1.png" width="32%" alt="Deals view 1" />
-  <img src="Screenshots/Deals/2.png" width="32%" alt="Deals view 2" />
-  <img src="Screenshots/Deals/3.png" width="32%" alt="Deals view 3" />
+  <img src="Screenshots/Deals/1.png" width="32%" loading="lazy" alt="Deals view 1" />
+  <img src="Screenshots/Deals/2.png" width="32%" loading="lazy" alt="Deals view 2" />
+  <img src="Screenshots/Deals/3.png" width="32%" loading="lazy" alt="Deals view 3" />
+</p>
+
+### 📊 Stats
+
+<p>
+  <img src="Screenshots/Stats/1.png" width="32%" loading="lazy" alt="Stats overview" />
+  <img src="Screenshots/Stats/2.png" width="32%" loading="lazy" alt="Stats charts" />
+  <img src="Screenshots/Stats/3.png" width="32%" loading="lazy" alt="Stats breakdown" />
+</p>
+
+### 🎯 Activity
+
+<p>
+  <img src="Screenshots/Activity/1.png" width="32%" loading="lazy" alt="Activity timeline" />
+  <img src="Screenshots/Activity/2.png" width="32%" loading="lazy" alt="Activity charts" />
+  <img src="Screenshots/Activity/3.png" width="32%" loading="lazy" alt="Session metrics" />
+</p>
+
+### 👥 Friends
+
+<p>
+  <img src="Screenshots/Friends/1.png" width="32%" loading="lazy" alt="Friends hub" />
+  <img src="Screenshots/Friends/2.png" width="32%" loading="lazy" alt="Friend profile" />
+  <img src="Screenshots/Friends/3.png" width="32%" loading="lazy" alt="Friends chat" />
+</p>
+
+### 🧩 Mods & 🕹️ Emulators
+
+<p>
+  <img src="Screenshots/Mods/1.png" width="32%" loading="lazy" alt="Mod manager" />
+  <img src="Screenshots/Emulators/1.png" width="32%" loading="lazy" alt="Emulator manager" />
+  <img src="Screenshots/Emulators/2.png" width="32%" loading="lazy" alt="Emulator library" />
 </p>
 
 ### 📥 Downloads
 
 <p>
-  <img src="Screenshots/Downloads/1.png" width="49%" alt="Downloads manager" />
+  <img src="Screenshots/Downloads/1.png" width="49%" loading="lazy" alt="Downloads manager" />
 </p>
 
 ### 💾 Storage
 
 <p>
-  <img src="Screenshots/Storage/1.png" width="49%" alt="Storage manager 1" />
-  <img src="Screenshots/Storage/2.png" width="49%" alt="Storage manager 2" />
+  <img src="Screenshots/Storage/1.png" width="32%" loading="lazy" alt="Storage manager" />
+  <img src="Screenshots/Storage/2.png" width="32%" loading="lazy" alt="Storage breakdown" />
+  <img src="Screenshots/Storage/3.png" width="32%" loading="lazy" alt="Storage actions" />
 </p>
 
-### 🏆 Achievements
+### 🏆 Achievements & 💜 Wishlist
 
 <p>
-  <img src="Screenshots/Achievements/1.png" width="49%" alt="Achievements" />
+  <img src="Screenshots/Achievements/1.png" width="49%" loading="lazy" alt="Achievements" />
+  <img src="Screenshots/Wishlist/1.png" width="49%" loading="lazy" alt="Wishlist" />
 </p>
 
-### 💜 Wishlist
-
-<p>
-  <img src="Screenshots/Wishlist/1.png" width="49%" alt="Wishlist" />
-</p>
-
-> 📷 More pages (Activity, Friends, Community, Big Picture) coming soon.
+> 📁 Full sets live in [`Screenshots/`](./Screenshots) — including more Game page (10), Friends (10), Activity (5), and Store (9) shots.
 
 ---
 
@@ -223,13 +270,13 @@ Track progress, ideas, and priorities in [`todo.md`](./todo.md). Highlights:
 - ✅ News page with RSS feeds
 - ✅ Hydra-backed storefront, community reviews & stats
 - ✅ Community & Friends social layer
-- ✅ Big Picture Mode (controller-first TV UI with rail navigation)
+- ✅ Big Picture Mode (controller-first 10-foot UI with rail navigation)
 - ✅ Emulators manager & ROM library tools
 - ✅ Mod manager (Steam Workshop & Nexus Mods integration)
+- ✅ Discord Rich Presence (playing + browsing presence, dynamic poster, launcher toggle)
 - ✅ Internationalization (i18n) & language switcher
 - ✅ Privacy & Data management in Settings
 - ✅ Theme gallery + custom accent picker
-- 🚧 Discord Rich Presence (event hook wired, IPC plugin pending)
 - 🚧 Steam reviews & multi-source ratings
 - 🚧 Per-game launch options & compatibility profiles
 - ⏳ Linux + Steam Deck support
