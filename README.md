@@ -277,7 +277,7 @@ Track progress, ideas, and priorities in [`todo.md`](./todo.md). Highlights:
 - ✅ Internationalization (i18n) & language switcher
 - ✅ Privacy & Data management in Settings
 - ✅ Theme gallery + custom accent picker
-- 🚧 Steam reviews & multi-source ratings
+- ✅ Steam reviews & multi-source ratings
 - 🚧 Per-game launch options & compatibility profiles
 - ⏳ Linux + Steam Deck support
 - ⏳ Plugin system
