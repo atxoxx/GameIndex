@@ -227,8 +227,8 @@ npm run tauri build    # tsc + vite build + native bundles
 
 Independent antivirus scans of the latest release artifacts:
 
-- **Standalone binary:** [virus total](https://www.virustotal.com/gui/file/f3bd51b2cd511c7460847147c37b548084659b78f4cfe955e11350e08a4c5ffd?nocache=1)
-- **Installer:** [virus total](https://www.virustotal.com/gui/file/b618b7577bad2ca36f201e3688e5a36677bd56b390a242ecd9f997ced938de06?nocache=1)
+- **Standalone binary:** [virus total](https://www.virustotal.com/gui/file-analysis/OGIwZGVjYTk5NTVmNjZkNjkyZTZjMjVmZDExOTg0MjE6MTc4NjEzNzI0NQ==)
+- **Installer:** [virus total](https://www.virustotal.com/gui/file-analysis/OGI2MjM4NzgzMzg2MWMyMTNmYTU0MzcyYWMyNGZlNGY6MTc4NjEzNzMwNQ==)
 
 ### Typecheck
 
