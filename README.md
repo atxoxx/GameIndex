@@ -230,6 +230,14 @@ Independent antivirus scans of the latest release artifacts:
 - **Standalone binary:** [virus total](https://www.virustotal.com/gui/file-analysis/OGIwZGVjYTk5NTVmNjZkNjkyZTZjMjVmZDExOTg0MjE6MTc4NjEzNzI0NQ==)
 - **Installer:** [virus total](https://www.virustotal.com/gui/file-analysis/OGI2MjM4NzgzMzg2MWMyMTNmYTU0MzcyYWMyNGZlNGY6MTc4NjEzNzMwNQ==)
 
+**Why does VirusTotal flag GameIndex?** The detections you may see (e.g. Trapmine's `Malicious.moderate.ml.score` or Acronis's Static ML) are **machine-learning heuristics, not malware signatures** — there is no malicious behavior being matched. GameIndex is a **Tauri (Rust) app**, and Rust-compiled binaries are routinely flagged for these characteristics:
+
+- **Unsigned binaries.** Release builds are not code-signed, so antivirus engines have no publisher identity to anchor on and treat the file as an "unknown new binary."
+- **Rust binary traits.** Static Rust executables have high entropy and an import table atypical of native apps — a classic ML trigger.
+- **Self-contained packaging.** The standalone/portable build embeds its WebView2 bootstrap, which heuristic engines find suspicious.
+
+This is a known false-positive pattern affecting many legitimate Tauri and Rust projects. Nothing in the source code matches malware behavior — it's fully open source, so you can verify the code yourself and build from source (`npm run tauri build`). The files are intentionally unsigned because code-signing certificates cost money; the ML flags typically disappear once a release is signed.
+
 ### Typecheck
 
 ```bash
