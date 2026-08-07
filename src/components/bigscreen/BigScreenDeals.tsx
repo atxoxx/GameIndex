@@ -7,6 +7,7 @@ import { useGamepad } from "../../hooks/GamepadProvider";
 import BigScreenTabBar, { type TabDef } from "./BigScreenTabBar";
 import BigScreenTabPanel from "./BigScreenTabPanel";
 import BigScreenCover from "./BigScreenCover";
+import { formatPrice } from "./bigscreenFormat";
 import type { DealItem, GamePassGame, Giveaway } from "../../types/deals";
 
 type DealsTab = "gamepass" | "deals" | "giveaways";
@@ -15,18 +16,13 @@ type DealsTab = "gamepass" | "deals" | "giveaways";
 // so the two can never drift apart.
 const DEALS_TAB_ORDER: DealsTab[] = ["gamepass", "deals", "giveaways"];
 
-function formatPrice(price: number): string {
-  if (!Number.isFinite(price)) return "—";
-  return `€${price.toFixed(2)}`;
-}
-
 export default function BigScreenDeals() {
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
   const gamepad = useGamepad();
   const DEALS_TABS: TabDef<DealsTab>[] = [
-    { id: "gamepass", label: "Xbox Game Pass" },
-    { id: "deals", label: t("deals.subTabIsThereAnyDeal") },
-    { id: "giveaways", label: t("deals.subTabGiveaways") },
+    { id: "gamepass", label: t("bigscreen.deals.tabGamepass") },
+    { id: "deals", label: t("deals.isthereanydeal") },
+    { id: "giveaways", label: t("deals.freeGames") },
   ];
 
   const [activeTab, setActiveTab] = useState<DealsTab>("gamepass");
@@ -134,7 +130,7 @@ export default function BigScreenDeals() {
           <div className="bigscreen-spotlight-hero" style={{ marginBottom: 30 }}>
             <div className="bigscreen-spotlight-info">
               <span className="bigscreen-badge" style={{ background: "color-mix(in srgb, var(--color-success) 20%, transparent)", color: "var(--color-success)", padding: "4px 12px", borderRadius: 12, fontWeight: 800 }}>
-                XBOX GAME PASS
+                {t("bigscreen.deals.xboxGamePass")}
               </span>
               <h1 className="bigscreen-spotlight-title" style={{ fontSize: 36, marginTop: 12 }}>
                 {selectedGamepass.title}
@@ -150,14 +146,16 @@ export default function BigScreenDeals() {
           <div className="bigscreen-spotlight-hero" style={{ marginBottom: 30 }}>
             <div className="bigscreen-spotlight-info">
               <span className="bigscreen-badge" style={{ background: "color-mix(in srgb, var(--color-danger) 20%, transparent)", color: "var(--color-danger)", padding: "4px 12px", borderRadius: 12, fontWeight: 800 }}>
-                -{selectedDeal.discountPercent}% DISCOUNT
+                {t("bigscreen.deals.discountBadge", { pct: selectedDeal.discountPercent })}
               </span>
               <h1 className="bigscreen-spotlight-title" style={{ fontSize: 36, marginTop: 12 }}>
                 {selectedDeal.gameTitle}
               </h1>
               <div style={{ display: "flex", gap: 12, alignItems: "center", margin: "12px 0" }}>
-                <span style={{ fontSize: 24, fontWeight: 800, color: "var(--color-success)" }}>{formatPrice(selectedDeal.dealPrice)}</span>
-                <span style={{ color: "color-mix(in srgb, var(--bigscreen-text) 60%, transparent)", fontSize: 14 }}>on {selectedDeal.storeName}</span>
+                <span style={{ fontSize: 24, fontWeight: 800, color: "var(--color-success)" }}>{formatPrice(selectedDeal.dealPrice, language)}</span>
+                <span style={{ color: "color-mix(in srgb, var(--bigscreen-text) 60%, transparent)", fontSize: 14 }}>
+                  {t("bigscreen.deals.onStore", { store: selectedDeal.storeName })}
+                </span>
               </div>
             </div>
           </div>
@@ -165,13 +163,13 @@ export default function BigScreenDeals() {
           <div className="bigscreen-spotlight-hero" style={{ marginBottom: 30 }}>
             <div className="bigscreen-spotlight-info">
               <span className="bigscreen-badge" style={{ background: "color-mix(in srgb, var(--color-info) 20%, transparent)", color: "var(--color-info)", padding: "4px 12px", borderRadius: 12, fontWeight: 800 }}>
-                100% FREE GIVEAWAY
+                {t("bigscreen.deals.freeGiveawayBadge")}
               </span>
               <h1 className="bigscreen-spotlight-title" style={{ fontSize: 36, marginTop: 12 }}>
                 {selectedGiveaway.title}
               </h1>
               <p style={{ color: "color-mix(in srgb, var(--bigscreen-text) 70%, transparent)", fontSize: 15, margin: "8px 0" }}>
-                Free on {selectedGiveaway.storeName}
+                {t("bigscreen.deals.freeOnStore", { store: selectedGiveaway.storeName })}
               </p>
             </div>
           </div>
@@ -183,13 +181,13 @@ export default function BigScreenDeals() {
         {/* Content Panels */}
         <BigScreenTabPanel tabId="gamepass" activeTab={activeTab}>
           {loading ? (
-            <div className="bigscreen-rail-empty">Loading Xbox Game Pass catalog...</div>
+            <div className="bigscreen-rail-empty">{t("bigscreen.deals.loadingGamepass")}</div>
           ) : gamepassGames.length === 0 ? (
-            <div className="bigscreen-rail-empty">No Game Pass titles found.</div>
+            <div className="bigscreen-rail-empty">{t("bigscreen.deals.noGamepass")}</div>
           ) : (
             <div className="bigscreen-rail" style={{ marginTop: 24 }}>
               <div className="bigscreen-rail-header">
-                <h3 className="bigscreen-rail-title">Game Pass Titles</h3>
+                <h3 className="bigscreen-rail-title">{t("bigscreen.deals.gamepassTitles")}</h3>
                 <span className="bigscreen-rail-count">{gamepassGames.length}</span>
               </div>
               <div className="bigscreen-rail-viewport">
@@ -207,13 +205,13 @@ export default function BigScreenDeals() {
 
         <BigScreenTabPanel tabId="deals" activeTab={activeTab}>
           {loading ? (
-            <div className="bigscreen-rail-empty">Loading bargains...</div>
+            <div className="bigscreen-rail-empty">{t("bigscreen.deals.loadingDeals")}</div>
           ) : deals.length === 0 ? (
-            <div className="bigscreen-rail-empty">No active deals found.</div>
+            <div className="bigscreen-rail-empty">{t("bigscreen.deals.noDeals")}</div>
           ) : (
             <div className="bigscreen-rail" style={{ marginTop: 24 }}>
               <div className="bigscreen-rail-header">
-                <h3 className="bigscreen-rail-title">Top Discounts</h3>
+                <h3 className="bigscreen-rail-title">{t("bigscreen.deals.topDiscounts")}</h3>
                 <span className="bigscreen-rail-count">{deals.length}</span>
               </div>
               <div className="bigscreen-rail-viewport">
@@ -231,13 +229,13 @@ export default function BigScreenDeals() {
 
         <BigScreenTabPanel tabId="giveaways" activeTab={activeTab}>
           {loading ? (
-            <div className="bigscreen-rail-empty">Loading free giveaways...</div>
+            <div className="bigscreen-rail-empty">{t("bigscreen.deals.loadingGiveaways")}</div>
           ) : giveaways.length === 0 ? (
-            <div className="bigscreen-rail-empty">No active giveaways available.</div>
+            <div className="bigscreen-rail-empty">{t("bigscreen.deals.noGiveaways")}</div>
           ) : (
             <div className="bigscreen-rail" style={{ marginTop: 24 }}>
               <div className="bigscreen-rail-header">
-                <h3 className="bigscreen-rail-title">Free Games & Giveaways</h3>
+                <h3 className="bigscreen-rail-title">{t("bigscreen.deals.freeGamesTitle")}</h3>
                 <span className="bigscreen-rail-count">{giveaways.length}</span>
               </div>
               <div className="bigscreen-rail-viewport">
@@ -273,6 +271,7 @@ function GamePassCard({ game, onSelect }: { game: GamePassGame; onSelect: () => 
 }
 
 function DealCard({ item, onSelect }: { item: DealItem; onSelect: () => void }) {
+  const { language } = useLanguage();
   const focusProps = useFocusable(async () => {
     onSelect();
     if (item.storeUrl) {
@@ -290,7 +289,7 @@ function DealCard({ item, onSelect }: { item: DealItem; onSelect: () => void }) 
       <div className="bigscreen-card-meta">
         <h4 className="bigscreen-card-title">{item.gameTitle}</h4>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: 4 }}>
-          <span style={{ color: "var(--color-success)", fontWeight: 800 }}>{formatPrice(item.dealPrice)}</span>
+          <span style={{ color: "var(--color-success)", fontWeight: 800 }}>{formatPrice(item.dealPrice, language)}</span>
           <span style={{ background: "var(--color-danger)", color: "var(--bigscreen-text)", fontSize: 11, fontWeight: 800, padding: "2px 6px", borderRadius: 4 }}>
             -{item.discountPercent}%
           </span>
@@ -301,6 +300,7 @@ function DealCard({ item, onSelect }: { item: DealItem; onSelect: () => void }) 
 }
 
 function GiveawayCard({ item, onSelect }: { item: Giveaway; onSelect: () => void }) {
+  const { t } = useLanguage();
   const focusProps = useFocusable(async () => {
     onSelect();
     if (item.dealUrl) {
@@ -317,7 +317,9 @@ function GiveawayCard({ item, onSelect }: { item: Giveaway; onSelect: () => void
       <BigScreenCover url={item.imageUrl || undefined} alt={item.title} aspectRatio="2 / 3" />
       <div className="bigscreen-card-meta">
         <h4 className="bigscreen-card-title">{item.title}</h4>
-        <span style={{ color: "var(--color-info)", fontWeight: 800, fontSize: 12 }}>FREE • {item.storeName}</span>
+        <span style={{ color: "var(--color-info)", fontWeight: 800, fontSize: 12 }}>
+          {t("bigscreen.deals.freeStoreBadge", { store: item.storeName })}
+        </span>
       </div>
     </div>
   );

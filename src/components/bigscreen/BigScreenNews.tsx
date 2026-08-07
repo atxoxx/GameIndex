@@ -1,4 +1,4 @@
-import { useState, useMemo, useCallback } from "react";
+import { useState, useMemo, useCallback, useEffect } from "react";
 import { useLanguage } from "../../context/LanguageContext";
 import { useNewsFeeds, formatArticleDate, type NewsArticle } from "../../hooks/useNewsFeeds";
 import { useFocusable } from "../../hooks/useFocusable";
@@ -31,20 +31,14 @@ export default function BigScreenNews() {
           {allSources.map((src) => {
             const isAll = src === "All Sources";
             const isActive = isAll ? activeSource === null : activeSource === src;
-            const selectSource = () => setSourceFilter(isAll ? null : src);
-            const focusProps = useFocusable(selectSource);
-
             return (
-              <button
-                type="button"
+              <SourceRow
                 key={src}
-                aria-selected={isActive}
-                className={`bigscreen-system-menu-item ${isActive ? "active" : ""}`}
-                {...focusProps}
-              >
-                <span className="menu-item-icon">📰</span>
-                <span className="menu-item-label">{isAll ? t("bigscreen.news.allSources") : src}</span>
-              </button>
+                src={src}
+                isAll={isAll}
+                isActive={isActive}
+                onSelect={() => setSourceFilter(isAll ? null : src)}
+              />
             );
           })}
         </div>
@@ -52,14 +46,13 @@ export default function BigScreenNews() {
 
       {/* Right Content Pane - Articles Grid */}
       <div className="bigscreen-system-right-pane" style={{ padding: "0" }}>
-        <div className="bigscreen-system-section-view" style={{ height: "100%", overflowY: "auto", padding: "30px" }}>
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "20px" }}>
-            <h3 style={{ margin: 0 }}>{t("bigscreen.news.latestArticles")}</h3>
+        <div className="bigscreen-system-section-view bigscreen-news-content">
+          <div className="bigscreen-news-toolbar">
+            <h3>{t("bigscreen.news.latestArticles")}</h3>
             <button
               type="button"
-              className="bigscreen-details-btn bigscreen-details-btn--secondary"
+              className="bigscreen-details-btn bigscreen-details-btn--secondary bigscreen-details-btn--compact"
               {...useFocusable(refresh)}
-              style={{ padding: "6px 12px", fontSize: "12px" }}
             >
               {t("bigscreen.news.refresh")}
             </button>
@@ -79,7 +72,7 @@ export default function BigScreenNews() {
               <p>{t("bigscreen.news.noArticles")}</p>
             </div>
           ) : (
-            <div className="bigscreen-library-grid" style={{ gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))", gap: "20px" }}>
+            <div className="bigscreen-news-grid">
               {articles.map((article, index) => (
                 <NewsArticleCard
                   key={`${article.link}-${index}`}
@@ -100,6 +93,53 @@ export default function BigScreenNews() {
   );
 }
 
+// ─── Source Row Component ─────────────────────────────────────────
+// Owns its useFocusable call unconditionally (rules-of-hooks) — the
+// previous inline `useFocusable(selectSource)` inside `allSources.map`
+// was a hook-in-map violation. Mirrors the NewsArticleCard pattern.
+
+function SourceRow({
+  src,
+  isAll,
+  isActive,
+  onSelect,
+}: {
+  src: string;
+  isAll: boolean;
+  isActive: boolean;
+  onSelect: () => void;
+}) {
+  const { t } = useLanguage();
+  const focusProps = useFocusable(onSelect);
+
+  return (
+    <button
+      type="button"
+      aria-selected={isActive}
+      className={`bigscreen-system-menu-item ${isActive ? "active" : ""}`}
+      {...focusProps}
+    >
+      <span className="menu-item-icon">
+        <svg
+          viewBox="0 0 24 24"
+          width="20"
+          height="20"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="1.8"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          aria-hidden="true"
+        >
+          <path d="M6 3h9l3 3v15H6a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2Z" />
+          <path d="M14 3v4h4M8 11h8M8 15h8" />
+        </svg>
+      </span>
+      <span className="menu-item-label">{isAll ? t("bigscreen.news.allSources") : src}</span>
+    </button>
+  );
+}
+
 // ─── News Card Component ─────────────────────────────────────────────
 
 function NewsArticleCard({
@@ -113,13 +153,12 @@ function NewsArticleCard({
 
   return (
     <div
-      className="bigscreen-game-card"
+      className="bigscreen-game-card bigscreen-news-card"
       {...focusProps}
-      style={{ display: "flex", flexDirection: "column", height: "300px" }}
     >
-      <div className="bigscreen-game-card-cover" style={{ height: "150px" }}>
+      <div className="bigscreen-news-card-cover">
         {article.imageUrl ? (
-          <img src={article.imageUrl} alt="" loading="lazy" style={{ objectFit: "cover", width: "100%", height: "100%" }} />
+          <img src={article.imageUrl} alt="" loading="lazy" />
         ) : (
           <div className="bigscreen-game-card-cover-placeholder">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" width="40" height="40">
@@ -127,30 +166,16 @@ function NewsArticleCard({
             </svg>
           </div>
         )}
-        <span className="bigscreen-game-card-running-dot" style={{ background: "var(--color-accent)", right: "8px", top: "8px", left: "auto" }} />
+        <span className="bigscreen-news-accent-dot" />
       </div>
-      <div className="bigscreen-game-card-body" style={{ flex: 1, padding: "12px", display: "flex", flexDirection: "column", justifyContent: "space-between" }}>
-        <div>
-          <h4
-            className="bigscreen-game-card-name"
-            style={{
-              fontSize: "14px",
-              lineHeight: "1.4",
-              display: "-webkit-box",
-              WebkitLineClamp: 3,
-              WebkitBoxOrient: "vertical",
-              overflow: "hidden",
-              margin: 0,
-              fontWeight: 600,
-            }}
-          >
-            {article.title}
-          </h4>
-        </div>
-        <div className="bigscreen-game-card-meta" style={{ marginTop: "8px", display: "flex", justifyContent: "space-between", fontSize: "11px" }}>
-          <span className="bigscreen-game-card-platform" style={{ color: "var(--color-accent)", fontWeight: 600 }}>{article.sourceName}</span>
+      <div className="bigscreen-news-card-body">
+        <h4 className="bigscreen-news-card-title">
+          {article.title}
+        </h4>
+        <div className="bigscreen-news-card-meta">
+          <span className="bigscreen-news-source">{article.sourceName}</span>
           {article.pubDate && (
-            <span className="bigscreen-game-card-playtime">{formatArticleDate(article.pubDate)}</span>
+            <span className="bigscreen-news-date">{formatArticleDate(article.pubDate)}</span>
           )}
         </div>
       </div>
@@ -179,28 +204,41 @@ function BigScreenNewsReader({
   const closeProps = useFocusable(onClose);
   const browserProps = useFocusable(handleOpenBrowser);
 
+  // Controller B / X (and keyboard Escape) close the reader modal.
+  // Capture-phase so it runs before the shell's global Escape handler,
+  // and the data-bigscreen-overlay attribute tells the shell this
+  // surface owns Back while mounted.
+  useEffect(() => {
+    function onEscape(e: KeyboardEvent) {
+      if (e.key !== "Escape") return;
+      e.preventDefault();
+      e.stopImmediatePropagation();
+      onClose();
+    }
+    document.addEventListener("keydown", onEscape, true);
+    return () => document.removeEventListener("keydown", onEscape, true);
+  }, [onClose]);
+
   return (
-    <div className="bigscreen-overlay-drawer" style={{ display: "flex", justifyContent: "center", alignItems: "center", background: "color-mix(in srgb, var(--bigscreen-bg) 90%, transparent)" }} onClick={onClose}>
+    <div data-bigscreen-overlay="true" className="bigscreen-overlay-drawer bigscreen-overlay-drawer--modal" onClick={onClose}>
       <div
-        className="bigscreen-overlay-drawer-panel"
+        className="bigscreen-overlay-drawer-panel bigscreen-overlay-drawer-panel--modal"
         style={{
           width: "80%",
           maxWidth: "800px",
           height: "80%",
           maxHeight: "650px",
+          padding: "0",
           display: "flex",
           flexDirection: "column",
-          borderRadius: "16px",
-          border: "1px solid var(--color-border)",
-          background: "var(--color-bg-primary)",
           overflow: "hidden",
         }}
         onClick={(e) => e.stopPropagation()}
       >
         {/* Banner image or placeholder */}
-        <div style={{ position: "relative", width: "100%", height: "220px", background: "var(--color-bg-tertiary)" }}>
+        <div className="bigscreen-news-reader-banner">
           {article.imageUrl ? (
-            <img src={article.imageUrl} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+            <img src={article.imageUrl} alt="" />
           ) : (
             <div style={{ width: "100%", height: "100%", display: "flex", justifyContent: "center", alignItems: "center", opacity: 0.1 }}>
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" width="80" height="80">
@@ -208,36 +246,26 @@ function BigScreenNewsReader({
               </svg>
             </div>
           )}
-          <div style={{ position: "absolute", bottom: 0, left: 0, right: 0, height: "100px", background: "linear-gradient(to top, var(--color-bg-primary), transparent)" }} />
         </div>
 
         {/* Article Details */}
-        <div style={{ flex: 1, padding: "24px 30px", overflowY: "auto", display: "flex", flexDirection: "column", gap: "12px" }}>
-          <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+        <div className="bigscreen-news-reader-body">
+          <div className="bigscreen-news-reader-meta">
             <BigScreenPill tone="accent" size="sm">{article.sourceName}</BigScreenPill>
             {article.pubDate && (
-              <span style={{ fontSize: "12px", color: "var(--color-text-muted)" }}>
+              <span className="bigscreen-news-reader-date">
                 {formatArticleDate(article.pubDate)}
               </span>
             )}
           </div>
-          <h2 style={{ margin: "5px 0 10px 0", fontSize: "22px", lineHeight: "1.4", fontWeight: 700 }}>{article.title}</h2>
-          <p style={{ fontSize: "14px", lineHeight: "1.6", color: "var(--color-text-secondary)", margin: 0, whiteSpace: "pre-wrap" }}>
+          <h2 className="bigscreen-news-reader-title">{article.title}</h2>
+          <p className="bigscreen-news-reader-copy">
             {article.description || t("bigscreen.news.noPreview")}
           </p>
         </div>
 
         {/* Footer Actions */}
-        <div
-          style={{
-            padding: "20px 30px",
-            borderTop: "1px solid var(--color-border)",
-            display: "flex",
-            justifyContent: "flex-end",
-            gap: "12px",
-            background: "var(--color-bg-secondary)",
-          }}
-        >
+        <div className="bigscreen-news-reader-footer">
           <button
             type="button"
             className="bigscreen-details-btn bigscreen-details-btn--secondary"

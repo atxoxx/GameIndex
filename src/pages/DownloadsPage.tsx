@@ -47,16 +47,10 @@ import "../styles/page-downloads.css";
 
 const HISTORY_PREVIEW = 5;
 
-import { useBigScreen } from "../context/BigScreenContext";
 import { useLanguage } from "../context/LanguageContext";
-import BigScreenSystem from "../components/bigscreen/BigScreenSystem";
 
 export default function DownloadsPage() {
-  const { isBigScreen } = useBigScreen();
   const { t } = useLanguage();
-  if (isBigScreen) {
-    return <BigScreenSystem />;
-  }
   const {
     downloads,
     activeDownloads,

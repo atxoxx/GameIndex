@@ -89,22 +89,18 @@ export default function BigScreenHome() {
     return map;
   }, [games]);
 
+  // Spotlight follows spatial focus: when the controller lands on a
+  // game card in either rail, promote it to the details pane.
   useEffect(() => {
     const el = gamepad.focusedElement;
-    if (!el) {
-      console.log("BigScreenHome: No focused element");
-      return;
-    }
+    if (!el) return;
     const id = el.getAttribute("data-game-id");
-    console.log("BigScreenHome Focus Watcher: Focused element:", el.tagName, "Class:", el.className, "data-game-id:", id);
     if (id) {
       const game = allGamesById.get(id);
-      console.log("BigScreenHome Focus Watcher: Looked up game:", game?.name);
       if (game && game.id !== selectedGame?.id) {
-        console.log("BigScreenHome Focus Watcher: Setting selectedGame to:", game.name);
         setSelectedGame(game);
       }
-      
+
       const railEl = el.closest("[data-rail-id]");
       if (railEl) {
         const rId = railEl.getAttribute("data-rail-id");

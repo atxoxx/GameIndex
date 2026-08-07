@@ -1,10 +1,12 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { invoke } from "@tauri-apps/api/core";
+import { openUrl } from "@tauri-apps/plugin-opener";
 import { useWishlistContext } from "../../context/WishlistContext";
 import { useLanguage } from "../../context/LanguageContext";
 import { useFocusable } from "../../hooks/useFocusable";
 import { useGamepad } from "../../hooks/GamepadProvider";
+import { formatPrice } from "../bigscreen/bigscreenFormat";
 import BigScreenStoreRail from "./BigScreenStoreRail";
 import BigScreenPill from "../bigscreen/BigScreenPill";
 import BigScreenTabBar, { type TabDef } from "../bigscreen/BigScreenTabBar";
@@ -435,11 +437,14 @@ export default function BigScreenStore() {
 }
 
 function BigScreenDealCard({ deal }: { deal: DealItem }) {
-  const focusProps = useFocusable(() => {
+  const { t, language } = useLanguage();
+  const focusProps = useFocusable(async () => {
     if (deal.storeUrl) {
-      invoke("open_folder", { path: deal.storeUrl }).catch((err) =>
-        console.error("Failed to open deal URL:", err),
-      );
+      try {
+        await openUrl(deal.storeUrl);
+      } catch (err) {
+        console.error("Failed to open deal URL:", err);
+      }
     }
   });
 
@@ -447,20 +452,39 @@ function BigScreenDealCard({ deal }: { deal: DealItem }) {
     <div
       className="bigscreen-game-card store-deal-card"
       {...focusProps}
-      aria-label={`${deal.gameTitle} - ${deal.discountPercent}% off`}
+      aria-label={t("bigscreen.store.dealCardAria", {
+        game: deal.gameTitle,
+        pct: deal.discountPercent,
+      })}
     >
       <div className="bigscreen-game-card-cover">
         {deal.thumbnail ? (
           <img src={deal.thumbnail} alt={deal.gameTitle} loading="lazy" />
         ) : (
-          <div className="bigscreen-game-card-cover-placeholder">🛒</div>
+          <div className="bigscreen-game-card-cover-placeholder">
+            <svg
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="1.8"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              width="40"
+              height="40"
+              aria-hidden="true"
+            >
+              <path d="M4 8h16l-1 12H5L4 8Z" />
+              <path d="m7 8 2-5h6l2 5" />
+              <path d="M9 12h6" />
+            </svg>
+          </div>
         )}
         <div className="deal-discount-badge">-{deal.discountPercent}%</div>
       </div>
       <div className="bigscreen-store-card-details">
         <h4 className="deal-game-title">{deal.gameTitle}</h4>
         <div className="deal-price-row">
-          <span className="deal-price-new">€{deal.dealPrice.toFixed(2)}</span>
+          <span className="deal-price-new">{formatPrice(deal.dealPrice, language)}</span>
         </div>
         <div className="deal-store-tag">{deal.storeName}</div>
       </div>
@@ -482,7 +506,21 @@ function BigScreenWishlistCard({ item }: { item: StoreGameSummary }) {
         {item.coverUrl ? (
           <img src={item.coverUrl} alt={item.name} loading="lazy" />
         ) : (
-          <div className="bigscreen-game-card-cover-placeholder">❤️</div>
+          <div className="bigscreen-game-card-cover-placeholder">
+            <svg
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="1.8"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              width="40"
+              height="40"
+              aria-hidden="true"
+            >
+              <path d="M20.8 8.8c0 5.4-8.8 10.2-8.8 10.2S3.2 14.2 3.2 8.8A4.8 4.8 0 0 1 12 6a4.8 4.8 0 0 1 8.8 2.8Z" />
+            </svg>
+          </div>
         )}
       </div>
       <div className="bigscreen-store-card-details">

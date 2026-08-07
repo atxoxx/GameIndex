@@ -3,9 +3,7 @@ import { useParams, useNavigate } from "react-router-dom";
 import { invoke } from "@tauri-apps/api/core";
 import { useGames } from "../context/GameContext";
 import { useToast } from "../context/ToastContext";
-import { useBigScreen } from "../context/BigScreenContext";
 import { useLanguage } from "../context/LanguageContext";
-import BigScreenStoreGamePage from "../components/store/BigScreenStoreGamePage";
 import type { GameMetadataResult, IgdbReview, Game, StoreGameSummary } from "../types/game";
 import { useWishlistContext } from "../context/WishlistContext";
 import { useSizeUnit } from "../hooks/useSizeUnit";
@@ -109,7 +107,6 @@ export default function StoreGameDetail() {
   const { games, addStoreGame } = useGames();
   const { showToast } = useToast();
   const { unit: sizeUnit } = useSizeUnit();
-  const { isBigScreen } = useBigScreen();
   const { t } = useLanguage();
   const { isWishlisted, toggle: toggleWishlist } = useWishlistContext();
 
@@ -335,10 +332,6 @@ export default function StoreGameDetail() {
     return () => window.removeEventListener("keydown", onKey);
   }, [lightboxImage, stepLightbox]);
 
-  const handleBigScreenBack = useCallback(() => {
-    navigate("/store");
-  }, [navigate]);
-
   const handleAddToLibrary = async () => {
     if (!data || adding) return;
     setAdding(true);
@@ -381,19 +374,6 @@ export default function StoreGameDetail() {
       {wishlisted ? t("store.inWishlist") : t("store.addToWishlist")}
     </button>
   );
-
-  if (isBigScreen && mockGame) {
-    return (
-      <BigScreenStoreGamePage
-        game={mockGame}
-        onBack={handleBigScreenBack}
-        onAddToLibrary={handleAddToLibrary}
-        adding={adding}
-        isInLibrary={isInLibrary}
-        libraryGameId={libraryGameId}
-      />
-    );
-  }
 
   return (
     <div className="game-page">

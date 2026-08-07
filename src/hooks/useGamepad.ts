@@ -8,7 +8,10 @@
 //   • Bumpers (LB/RB) → cycle BigScreenNav tabs.
 //   • Triggers (LT/RT) → press-and-hold left/right mouse for click-
 //     and-drag interactions.
-//   • Stick clicks (L3/R3) → hide cursor / recenter cursor.
+//   • Stick clicks (L3/R3, W3C indices 10/11) → hide cursor /
+//     recenter cursor.
+//   • Start (W3C index 9) → edge-triggered `bigscreen:start`
+//     CustomEvent (the shell listens for it to open the System hub).
 //   • Virtual mouse pointer (right stick → on-screen cursor with
 //     non-linear acceleration + deadzone), used alongside spatial
 //     navigation so non-focusable surfaces (sliders, drag handles,
@@ -21,7 +24,7 @@
 //   • `useGamepad()` from `./GamepadProvider` returns the shared
 //     singleton state: `{ connected, focusedElement, registerAction,
 //     virtualMouse, toggleVirtualMouse, recenterVirtualMouse,
-//     registerTabCycler }`.
+//     registerTabCycler, registerBackHandler }`.
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
@@ -35,7 +38,11 @@ import {
   TRIGGER_THRESHOLD,
   MAX_FRAME_DT_SEC,
   FIRST_FRAME_DT_MS,
+  REPEAT_DELAY_MS,
+  REPEAT_INTERVAL_MS,
+  CYCLER_PRIORITY_PAGE,
 } from "./gamepad/gamepadUtils";
+import { isBigScreenOverlayOpen } from "../context/BigScreenContext";
 
 // ── Types ───────────────────────────────────────────────────────
 
@@ -86,6 +93,14 @@ export interface GamepadState {
     fn: (direction: "forward" | "back") => void,
     priority?: number,
   ) => () => void;
+  /**
+   * Register a back handler (B button). The top-priority handler is
+   * invoked on B press. Returns an unregister function. Only one
+   * handler is active at a time — among equal priorities the
+   * last-registered wins. If no handler is registered, or a Big
+   * Screen overlay is open, B falls through to keyboard Escape.
+   */
+  registerBackHandler: (fn: () => void, priority?: number) => () => void;
 }
 
 // ── Constants ───────────────────────────────────────────────────
@@ -154,6 +169,7 @@ export function useGamepadInternal(enabled: boolean): GamepadState {
     lt: boolean;
     r3: boolean;
     l3: boolean;
+    start: boolean;
   }>({
     a: false,
     b: false,
@@ -165,6 +181,7 @@ export function useGamepadInternal(enabled: boolean): GamepadState {
     lt: false,
     r3: false,
     l3: false,
+    start: false,
   });
   const lastFrameTimeRef = useRef(0);
 
@@ -252,7 +269,10 @@ export function useGamepadInternal(enabled: boolean): GamepadState {
 
   // ── Register tab cycler for BigScreenNav LB/RB ─────────────
   const registerTabCycler = useCallback(
-    (fn: (direction: "forward" | "back") => void, priority = 0): (() => void) => {
+    (
+      fn: (direction: "forward" | "back") => void,
+      priority = CYCLER_PRIORITY_PAGE,
+    ): (() => void) => {
       const entry = {
         fn,
         priority,
@@ -267,6 +287,39 @@ export function useGamepadInternal(enabled: boolean): GamepadState {
       );
       return () => {
         tabCyclersRef.current = tabCyclersRef.current.filter((x) => x !== entry);
+      };
+    },
+    [],
+  );
+
+  // ── Back-handler subscription (B button) ────────────────────
+  // Same sorted-registry mechanics as the tab cycler: descending
+  // priority, then registration recency (newest wins). The active
+  // back handler is always backHandlersRef.current[0].
+  const backHandlersRef = useRef<
+    {
+      fn: () => void;
+      priority: number;
+      seq: number;
+    }[]
+  >([]);
+  const backHandlerSeqRef = useRef(0);
+
+  const registerBackHandler = useCallback(
+    (fn: () => void, priority = CYCLER_PRIORITY_PAGE): (() => void) => {
+      const entry = {
+        fn,
+        priority,
+        seq: ++backHandlerSeqRef.current,
+      };
+      backHandlersRef.current.push(entry);
+      backHandlersRef.current.sort(
+        (a, b) => b.priority - a.priority || b.seq - a.seq,
+      );
+      return () => {
+        backHandlersRef.current = backHandlersRef.current.filter(
+          (x) => x !== entry,
+        );
       };
     },
     [],
@@ -405,9 +458,8 @@ export function useGamepadInternal(enabled: boolean): GamepadState {
           holdStartRef.current = now;
           lastRepeatRef.current = now;
         } else {
-          // Standard keyboard-like repeat: 400ms delay, then repeat every 150ms
-          const REPEAT_DELAY_MS = 400;
-          const REPEAT_INTERVAL_MS = 150;
+          // Keyboard-like repeat: REPEAT_DELAY_MS delay, then repeat
+          // every REPEAT_INTERVAL_MS (see gamepadUtils).
           const holdTime = now - holdStartRef.current;
           if (holdTime >= REPEAT_DELAY_MS) {
             const timeSinceLastRepeat = now - lastRepeatRef.current;
@@ -416,6 +468,19 @@ export function useGamepadInternal(enabled: boolean): GamepadState {
               lastRepeatRef.current = now;
             }
           }
+        }
+      }
+
+      // Any spatial-navigation press (D-pad / left stick, including
+      // hold-to-repeat) hides the virtual cursor — Steam behavior:
+      // starting to navigate with the stick makes the pointer
+      // disappear; Y re-enables it. The cursor is never revealed by
+      // spatial input, only by R3 / Y / programmatic calls.
+      if (shouldNavigate) {
+        const curVm = virtualMouseRef.current;
+        if (curVm.visible) {
+          curVm.visible = false;
+          curVm.moving = false;
         }
       }
 
@@ -510,22 +575,42 @@ export function useGamepadInternal(enabled: boolean): GamepadState {
       }
       prevButtonsRef.current.a = aPressed;
 
-      // ── B button (index 1) → Escape/back -------------------
-      // Let the active modal, drawer, search overlay, or page-level
-      // handler consume Escape first. Big Screen's global Escape
-      // handler only exits when no nearer surface handles it.
+      // ── B button (index 1) → back --------------------------
+      // If a Big Screen overlay (role=dialog / data-bigscreen-overlay)
+      // is open, it owns Back and closes itself via Escape. Otherwise
+      // the top-priority registered back handler (if any) takes
+      // precedence — page components register one to go back one
+      // level. If nothing claimed it, dispatch Escape so the shell's
+      // global handler can exit Big Screen.
       const bPressed = gp.buttons[1]?.pressed ?? false;
       if (bPressed && !prevButtonsRef.current.b) {
-        dispatchKey("Escape");
+        if (isBigScreenOverlayOpen()) {
+          dispatchKey("Escape");
+        } else {
+          const activeBack = backHandlersRef.current[0];
+          if (activeBack) {
+            activeBack.fn();
+          } else {
+            dispatchKey("Escape");
+          }
+        }
       }
       prevButtonsRef.current.b = bPressed;
 
-      // ── X button (index 2) → keyboard Escape ───────────────
+      // ── X button (index 2) → keyboard Escape (overlays only) ──
       // Closes dialogs/popovers/modals that listen for Escape, even
       // when the cursor can't easily reach their corner X button.
+      // Gated exactly like B: X only dispatches Escape while an
+      // overlay (role=dialog / data-bigscreen-overlay) owns Back. On
+      // regular pages, going back is owned by the registered back
+      // handler (game page, store detail, mods, emulators, docs) or
+      // the shell exit — dispatching Escape there would exit the
+      // entire Big Screen instead of going back one level.
       const xPressed = gp.buttons[2]?.pressed ?? false;
       if (xPressed && !prevButtonsRef.current.x) {
-        dispatchKey("Escape");
+        if (isBigScreenOverlayOpen()) {
+          dispatchKey("Escape");
+        }
       }
       prevButtonsRef.current.x = xPressed;
 
@@ -538,18 +623,24 @@ export function useGamepadInternal(enabled: boolean): GamepadState {
       prevButtonsRef.current.y = yPressed;
 
       // ── LB (button 4) → BigScreenNav cycle back ────────────
+      // Gated: while an overlay (dialog / search surface) is open,
+      // bumpers must not cycle the tab sections behind it.
       const lbPressed = gp.buttons[4]?.pressed ?? false;
       if (lbPressed && !prevButtonsRef.current.lb) {
-        const activeCycler = tabCyclersRef.current[0];
-        if (activeCycler) activeCycler.fn("back");
+        if (!isBigScreenOverlayOpen()) {
+          const activeCycler = tabCyclersRef.current[0];
+          if (activeCycler) activeCycler.fn("back");
+        }
       }
       prevButtonsRef.current.lb = lbPressed;
 
       // ── RB (button 5) → BigScreenNav cycle forward ─────────
       const rbPressed = gp.buttons[5]?.pressed ?? false;
       if (rbPressed && !prevButtonsRef.current.rb) {
-        const activeCycler = tabCyclersRef.current[0];
-        if (activeCycler) activeCycler.fn("forward");
+        if (!isBigScreenOverlayOpen()) {
+          const activeCycler = tabCyclersRef.current[0];
+          if (activeCycler) activeCycler.fn("forward");
+        }
       }
       prevButtonsRef.current.rb = rbPressed;
 
@@ -592,21 +683,10 @@ export function useGamepadInternal(enabled: boolean): GamepadState {
       }
       prevButtonsRef.current.rt = rtPressed;
 
-      // ── R3 (right-stick click, varies 10/11) → recenter ─────
-      const r3Pressed =
-        gp.buttons[10]?.pressed || gp.buttons[11]?.pressed || false;
-      if (r3Pressed && !prevButtonsRef.current.r3) {
-        vm.x = window.innerWidth / 2;
-        vm.y = window.innerHeight / 2;
-        vm.lastInputMs = now;
-        if (!vm.visible) vm.visible = true;
-      }
-      prevButtonsRef.current.r3 = r3Pressed;
-
-      // ── L3 (left-stick click, button 9) → hide cursor ───────
+      // ── L3 (left-stick click, W3C index 10) → hide cursor ──
       // Releases any held mouse buttons so drag operations don't
       // get stuck if the user hides the cursor mid-drag.
-      const l3Pressed = gp.buttons[9]?.pressed ?? false;
+      const l3Pressed = gp.buttons[10]?.pressed ?? false;
       if (l3Pressed && !prevButtonsRef.current.l3) {
         if (vm.leftDown) dispatchMouse("mouseup", vm.x, vm.y, 0, false, vm.rightDown);
         if (vm.rightDown) dispatchMouse("mouseup", vm.x, vm.y, 2, vm.leftDown, false);
@@ -615,6 +695,26 @@ export function useGamepadInternal(enabled: boolean): GamepadState {
         vm.visible = false;
       }
       prevButtonsRef.current.l3 = l3Pressed;
+
+      // ── R3 (right-stick click, W3C index 11) → recenter ─────
+      const r3Pressed = gp.buttons[11]?.pressed ?? false;
+      if (r3Pressed && !prevButtonsRef.current.r3) {
+        vm.x = window.innerWidth / 2;
+        vm.y = window.innerHeight / 2;
+        vm.lastInputMs = now;
+        if (!vm.visible) vm.visible = true;
+      }
+      prevButtonsRef.current.r3 = r3Pressed;
+
+      // ── Start (W3C index 9) → open System hub ──────────────
+      // Edge-triggered once per press (no repeat). The shell
+      // listens for the `bigscreen:start` CustomEvent to open the
+      // System hub.
+      const startPressed = gp.buttons[9]?.pressed ?? false;
+      if (startPressed && !prevButtonsRef.current.start) {
+        window.dispatchEvent(new CustomEvent("bigscreen:start"));
+      }
+      prevButtonsRef.current.start = startPressed;
 
       publishVirtualMouse();
       rafId = requestAnimationFrame(poll);
@@ -644,6 +744,7 @@ export function useGamepadInternal(enabled: boolean): GamepadState {
     toggleVirtualMouse,
     recenterVirtualMouse,
     registerTabCycler,
+    registerBackHandler,
   };
   const previousState = gamepadStateRef.current;
   if (

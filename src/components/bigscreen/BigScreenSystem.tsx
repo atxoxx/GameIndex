@@ -1,7 +1,7 @@
-import { useState, useMemo, useEffect, useCallback } from "react";
+import { useState, useMemo, useEffect, useCallback, type ReactNode } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { useLanguage } from "../../context/LanguageContext";
-import { useDownloads } from "../../context/DownloadContext";
+import { useDownloads, type TorrentDownload } from "../../context/DownloadContext";
 import { useGames } from "../../context/GameContext";
 import { useAchievements } from "../../context/AchievementContext";
 import { useSettings } from "../../context/SettingsContext";
@@ -9,19 +9,102 @@ import { useTheme } from "../../context/ThemeContext";
 import { useDriveUsage } from "../../pages/storage/useDriveUsage";
 import { useFocusable } from "../../hooks/useFocusable";
 import { driveBuckets } from "../../pages/storage/utils";
+import type { Game, GameAchievementData } from "../../types/game";
 
-type SystemSection = "downloads" | "storage" | "achievements" | "settings";
+type SystemSection =
+  | "downloads"
+  | "storage"
+  | "achievements"
+  | "settings"
+  | "mods"
+  | "emulators"
+  | "docs";
+
+/** Minimal inline-SVG wrapper for the left-menu icons (repo convention:
+ *  inline SVG only — no emoji, no icon library). Icons mirror the paths
+ *  used by the shell registry (src/bigscreen/registry.tsx) so the System
+ *  hub menu stays visually consistent with the header strip. */
+function SystemIcon({ children }: { children: ReactNode }) {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      width="20"
+      height="20"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.8"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+    >
+      {children}
+    </svg>
+  );
+}
+
+const SYSTEM_ICONS: Record<Exclude<SystemSection, never>, ReactNode> = {
+  downloads: (
+    <SystemIcon>
+      <path d="M12 3v12" />
+      <path d="m7 10 5 5 5-5" />
+      <path d="M5 21h14" />
+    </SystemIcon>
+  ),
+  storage: (
+    <SystemIcon>
+      <ellipse cx="12" cy="5" rx="8" ry="3" />
+      <path d="M4 5v7c0 1.7 3.6 3 8 3s8-1.3 8-3V5" />
+      <path d="M4 12v7c0 1.7 3.6 3 8 3s8-1.3 8-3v-7" />
+    </SystemIcon>
+  ),
+  achievements: (
+    <SystemIcon>
+      <circle cx="12" cy="8" r="5" />
+      <path d="m8.5 12.5-1 8 4.5-2.5 4.5 2.5-1-8" />
+    </SystemIcon>
+  ),
+  settings: (
+    <SystemIcon>
+      <circle cx="12" cy="12" r="3" />
+      <path d="M19.4 15a1.7 1.7 0 0 0 .3 1.9l.1.1-2.8 2.8-.1-.1a1.7 1.7 0 0 0-1.9-.3 1.7 1.7 0 0 0-1 1.6v.1h-4v-.1a1.7 1.7 0 0 0-1-1.6 1.7 1.7 0 0 0-1.9.3l-.1.1-2.8-2.8.1-.1A1.7 1.7 0 0 0 4.6 15a1.7 1.7 0 0 0-1.6-1H3v-4h.1a1.7 1.7 0 0 0 1.6-1 1.7 1.7 0 0 0-.3-1.9l-.1-.1 2.8-2.8.1.1a1.7 1.7 0 0 0 1.9.3 1.7 1.7 0 0 0 1-1.6V3h4v.1a1.7 1.7 0 0 0 1 1.6 1.7 1.7 0 0 0 1.9-.3l.1-.1 2.8 2.8-.1.1a1.7 1.7 0 0 0-.3 1.9 1.7 1.7 0 0 0 1.6 1h.1v4h-.1a1.7 1.7 0 0 0-1.6 1Z" />
+    </SystemIcon>
+  ),
+  mods: (
+    <SystemIcon>
+      <path d="M8 5h8l2 4v10H6V9l2-4Z" />
+      <path d="M9 5v4h6V5" />
+      <path d="M9 13h6M9 16h4" />
+    </SystemIcon>
+  ),
+  emulators: (
+    <SystemIcon>
+      <rect x="3" y="6" width="18" height="12" rx="3" />
+      <path d="M8 12h4M10 10v4M16 11h.01M18 13h.01" />
+    </SystemIcon>
+  ),
+  docs: (
+    <SystemIcon>
+      <path d="M6 3h9l3 3v15H6a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2Z" />
+      <path d="M14 3v4h4M8 11h8M8 15h8" />
+    </SystemIcon>
+  ),
+};
 
 export default function BigScreenSystem() {
   const { t } = useLanguage();
   const location = useLocation();
   const navigate = useNavigate();
 
-  const SECTIONS: { id: SystemSection; label: string; icon: string }[] = [
-    { id: "downloads", label: t("bigscreen.system.menuDownloads"), icon: "📥" },
-    { id: "storage", label: t("bigscreen.system.menuStorage"), icon: "💾" },
-    { id: "achievements", label: t("bigscreen.system.menuAchievements"), icon: "🏆" },
-    { id: "settings", label: t("bigscreen.system.menuPreferences"), icon: "⚙️" },
+  const SECTIONS: { id: SystemSection; label: string; icon: ReactNode }[] = [
+    { id: "downloads", label: t("bigscreen.system.menuDownloads"), icon: SYSTEM_ICONS.downloads },
+    { id: "storage", label: t("bigscreen.system.menuStorage"), icon: SYSTEM_ICONS.storage },
+    { id: "achievements", label: t("bigscreen.system.menuAchievements"), icon: SYSTEM_ICONS.achievements },
+    { id: "settings", label: t("bigscreen.system.menuPreferences"), icon: SYSTEM_ICONS.settings },
+    // These three are full routes, not in-hub sub-views — selecting one
+    // navigates to its own bigscreen page (wired in the registry).
+    { id: "mods", label: t("nav.mods"), icon: SYSTEM_ICONS.mods },
+    { id: "emulators", label: t("nav.emulators"), icon: SYSTEM_ICONS.emulators },
+    { id: "docs", label: t("nav.docs"), icon: SYSTEM_ICONS.docs },
   ];
 
   // Find initial section from current pathname
@@ -30,12 +113,17 @@ export default function BigScreenSystem() {
     if (path.startsWith("/storage")) return "storage";
     if (path.startsWith("/downloads")) return "downloads";
     if (path.startsWith("/achievements")) return "achievements";
+    if (path.startsWith("/mods")) return "mods";
+    if (path.startsWith("/emulators")) return "emulators";
+    if (path.startsWith("/docs")) return "docs";
     return "settings";
   }, [location.pathname]);
 
   const [activeSection, setActiveSection] = useState<SystemSection>(initialSection);
 
-  // Sync active section with route changes (header/deep-linking)
+  // Sync active section with route changes (header/deep-linking). Only the
+  // in-hub sub-views keep the hub mounted; /mods, /emulators and /docs swap
+  // to their own pages, so the highlights below cover the hub routes only.
   useEffect(() => {
     const path = location.pathname;
     if (path.startsWith("/storage")) {
@@ -62,22 +150,14 @@ export default function BigScreenSystem() {
       <div className="bigscreen-system-left-pane">
         <h2 className="bigscreen-system-title">{t("bigscreen.system.title")}</h2>
         <div className="bigscreen-system-menu" role="tablist">
-          {SECTIONS.map((sec) => {
-            const isActive = activeSection === sec.id;
-            const focusProps = useFocusable(() => handleSelectSection(sec.id));
-            return (
-              <button
-                type="button"
-                key={sec.id}
-                aria-selected={isActive}
-                className={`bigscreen-system-menu-item ${isActive ? "active" : ""}`}
-                {...focusProps}
-              >
-                <span className="menu-item-icon">{sec.icon}</span>
-                <span className="menu-item-label">{sec.label}</span>
-              </button>
-            );
-          })}
+          {SECTIONS.map((sec) => (
+            <SystemMenuItem
+              key={sec.id}
+              section={sec}
+              isActive={activeSection === sec.id}
+              onSelect={() => handleSelectSection(sec.id)}
+            />
+          ))}
         </div>
       </div>
 
@@ -87,6 +167,8 @@ export default function BigScreenSystem() {
         {activeSection === "storage" && <StorageView />}
         {activeSection === "achievements" && <AchievementsHubView />}
         {activeSection === "settings" && <SettingsView />}
+        {/* mods / emulators / docs navigate to their own pages, so the hub
+            unmounts before this pane needs content for them. */}
       </div>
     </div>
   );
@@ -120,41 +202,15 @@ function DownloadsView() {
         </div>
       ) : (
         <div className="system-downloads-list">
-          {downloads.map((dl) => {
-            const isDownloading = dl.status.kind === "downloading" || dl.status.kind === "fetchingMetadata";
-            const resumeProps = useFocusable(() => handleResume(dl.id));
-            const pauseProps = useFocusable(() => handlePause(dl.id));
-            const cancelProps = useFocusable(() => handleCancel(dl.id));
-
-            return (
-              <div key={dl.id} className="system-download-row">
-                <div className="dl-row-header">
-                  <span className="dl-name">{dl.name}</span>
-                  <span className="dl-status-badge">{dl.status.kind.toUpperCase()}</span>
-                </div>
-                <div className="dl-progress-container">
-                  <div className="dl-progress-bar">
-                    <div className="dl-progress-fill" style={{ width: `${(dl.progress || 0) * 100}%` }} />
-                  </div>
-                  <span className="dl-percent">{Math.round((dl.progress || 0) * 100)}%</span>
-                </div>
-                <div className="dl-actions-row">
-                  {isDownloading ? (
-                    <button type="button" className="dl-action-btn dl-btn-pause" {...pauseProps}>
-                      {t("bigscreen.system.pause")}
-                    </button>
-                  ) : (
-                    <button type="button" className="dl-action-btn dl-btn-play" {...resumeProps}>
-                      {t("bigscreen.system.resume")}
-                    </button>
-                  )}
-                  <button type="button" className="dl-action-btn dl-btn-cancel" {...cancelProps}>
-                    {t("bigscreen.system.cancel")}
-                  </button>
-                </div>
-              </div>
-            );
-          })}
+          {downloads.map((dl) => (
+            <DownloadRow
+              key={dl.id}
+              dl={dl}
+              onPause={() => handlePause(dl.id)}
+              onResume={() => handleResume(dl.id)}
+              onCancel={() => handleCancel(dl.id)}
+            />
+          ))}
         </div>
       )}
     </div>
@@ -237,24 +293,14 @@ function AchievementsHubView() {
         </div>
       ) : (
         <div className="system-achievements-list">
-          {gamesWithAchievements.map(({ game, data }) => {
-            const pct = data ? Math.round((data.unlocked / data.total) * 100) : 0;
-            const cardProps = useFocusable(() => navigate(`/library/${game.id}`));
-
-            return (
-              <div key={game.id} className="system-achievement-game-row" {...cardProps}>
-                <div className="ach-game-header">
-                  <span className="ach-game-name">{game.name}</span>
-                  <span className="ach-game-counts">
-                    {t("bigscreen.system.achCounts", { unlocked: data?.unlocked ?? 0, total: data?.total ?? 0, pct })}
-                  </span>
-                </div>
-                <div className="dl-progress-bar">
-                  <div className="dl-progress-fill" style={{ width: `${pct}%` }} />
-                </div>
-              </div>
-            );
-          })}
+          {gamesWithAchievements.map(({ game, data }) => (
+            <AchievementGameRow
+              key={game.id}
+              game={game}
+              data={data}
+              onOpen={() => navigate(`/library/${game.id}`)}
+            />
+          ))}
         </div>
       )}
     </div>
@@ -313,6 +359,121 @@ function SettingsView() {
             {landingPage.toUpperCase()}
           </button>
         </div>
+      </div>
+    </div>
+  );
+}
+
+// ── Focusable sub-components ──────────────────────────────────────
+// Each owns its useFocusable calls unconditionally (rules-of-hooks).
+// The earlier inline hooks inside `SECTIONS.map` / `downloads.map` /
+// `gamesWithAchievements.map` were hook-in-map violations — safe only
+// because those lists happened to be constant. Extracting them makes
+// the hook count stable regardless of list shape.
+
+function SystemMenuItem({
+  section,
+  isActive,
+  onSelect,
+}: {
+  section: { id: SystemSection; label: string; icon: ReactNode };
+  isActive: boolean;
+  onSelect: () => void;
+}) {
+  const focusProps = useFocusable(onSelect);
+
+  return (
+    <button
+      type="button"
+      aria-selected={isActive}
+      className={`bigscreen-system-menu-item ${isActive ? "active" : ""}`}
+      {...focusProps}
+    >
+      <span className="menu-item-icon">{section.icon}</span>
+      <span className="menu-item-label">{section.label}</span>
+    </button>
+  );
+}
+
+function DownloadRow({
+  dl,
+  onPause,
+  onResume,
+  onCancel,
+}: {
+  dl: TorrentDownload;
+  onPause: () => void;
+  onResume: () => void;
+  onCancel: () => void;
+}) {
+  const { t } = useLanguage();
+  const resumeProps = useFocusable(onResume);
+  const pauseProps = useFocusable(onPause);
+  const cancelProps = useFocusable(onCancel);
+
+  const isDownloading =
+    dl.status.kind === "downloading" || dl.status.kind === "fetchingMetadata";
+
+  // Human status label — the six shared kinds reuse the desktop
+  // `download.status.*` keys; `seeding` has no desktop key yet.
+  const statusLabel =
+    dl.status.kind === "seeding"
+      ? t("bigscreen.system.statusSeeding")
+      : t(`download.status.${dl.status.kind}`);
+
+  return (
+    <div className="system-download-row">
+      <div className="dl-row-header">
+        <span className="dl-name">{dl.name}</span>
+        <span className="dl-status-badge">{statusLabel}</span>
+      </div>
+      <div className="dl-progress-container">
+        <div className="dl-progress-bar">
+          <div className="dl-progress-fill" style={{ width: `${(dl.progress || 0) * 100}%` }} />
+        </div>
+        <span className="dl-percent">{Math.round((dl.progress || 0) * 100)}%</span>
+      </div>
+      <div className="dl-actions-row">
+        {isDownloading ? (
+          <button type="button" className="dl-action-btn dl-btn-pause" {...pauseProps}>
+            {t("bigscreen.system.pause")}
+          </button>
+        ) : (
+          <button type="button" className="dl-action-btn dl-btn-play" {...resumeProps}>
+            {t("bigscreen.system.resume")}
+          </button>
+        )}
+        <button type="button" className="dl-action-btn dl-btn-cancel" {...cancelProps}>
+          {t("bigscreen.system.cancel")}
+        </button>
+      </div>
+    </div>
+  );
+}
+
+function AchievementGameRow({
+  game,
+  data,
+  onOpen,
+}: {
+  game: Game;
+  data: GameAchievementData | null;
+  onOpen: () => void;
+}) {
+  const { t } = useLanguage();
+  const cardProps = useFocusable(onOpen);
+  const pct = data ? Math.round((data.unlocked / data.total) * 100) : 0;
+
+  return (
+    <div className="system-achievement-game-row" {...cardProps}>
+      <div className="ach-game-header">
+        <span className="ach-game-name">{game.name}</span>
+        <span className="ach-game-counts">
+          {t("bigscreen.system.achCounts", { unlocked: data?.unlocked ?? 0, total: data?.total ?? 0, pct })}
+        </span>
+      </div>
+      <div className="dl-progress-bar">
+        <div className="dl-progress-fill" style={{ width: `${pct}%` }} />
       </div>
     </div>
   );

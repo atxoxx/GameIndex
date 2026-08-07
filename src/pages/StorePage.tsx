@@ -1,5 +1,4 @@
 import { useEffect } from "react";
-import { useBigScreen } from "../context/BigScreenContext";
 import { useSources } from "../context/SourceContext";
 import { usePresence } from "../context/PresenceContext";
 import { CrackWatchProvider } from "../context/CrackWatchContext";
@@ -15,7 +14,6 @@ import StorePresetBar from "../components/store/StorePresetBar";
 import StoreBulkBar from "../components/store/StoreBulkBar";
 import StoreCompareTray from "../components/store/StoreCompareTray";
 import StoreCompareModal from "../components/store/StoreCompareModal";
-import BigScreenStore from "../components/store/BigScreenStore";
 import "../styles/page-store.css";
 
 /**
@@ -27,7 +25,6 @@ import "../styles/page-store.css";
  * sorting, filtering, and search drive one unified grid.
  */
 export default function StorePage() {
-  const { isBigScreen } = useBigScreen();
   const c = useStoreCatalogue();
   const { sources } = useSources();
   const { setStorePlatforms } = usePresence();
@@ -35,10 +32,6 @@ export default function StorePage() {
   useEffect(() => {
     setStorePlatforms(c.selectedPlatforms);
   }, [c.selectedPlatforms, setStorePlatforms]);
-
-  if (isBigScreen) {
-    return <BigScreenStore />;
-  }
 
   const onRemoveGenre = (g: string) =>
     c.setSelectedGenres(c.selectedGenres.filter((x) => x !== g));

@@ -1,4 +1,5 @@
 import { useMemo } from "react";
+import { useNavigate } from "react-router-dom";
 import { useLanguage } from "../../context/LanguageContext";
 import { useActivity } from "../../context/ActivityContext";
 import { useAchievements } from "../../context/AchievementContext";
@@ -20,6 +21,7 @@ export default function BigScreenCommunity() {
   const { getAllStats, sessions } = useActivity();
   const { cache } = useAchievements();
   const { games } = useGames();
+  const navigate = useNavigate();
 
   const stats = useMemo(() => getAllStats(), [getAllStats]);
 
@@ -54,108 +56,77 @@ export default function BigScreenCommunity() {
     });
   }, [stats.topGames, games]);
 
-  // Quick stats lists
-  const focusStatsCard1 = useFocusable(() => {});
-  const focusStatsCard2 = useFocusable(() => {});
-  const focusStatsCard3 = useFocusable(() => {});
-  const focusStatsCard4 = useFocusable(() => {});
-
   return (
-    <div className="bigscreen-system-section-view" style={{ padding: "40px", overflowY: "auto", height: "100%" }}>
-      <h2 style={{ marginBottom: "24px" }}>{t("bigscreen.community.gamerStats")}</h2>
+    <div className="bigscreen-community-page">
+      <h2>{t("bigscreen.community.gamerStats")}</h2>
 
-      {/* KPI Cards Row */}
-      <div className="bigscreen-gamepage-2col" data-cols="4" style={{ marginBottom: "30px", gap: "20px" }}>
-        <div className="bigscreen-widget-card" {...focusStatsCard1} style={{ padding: "20px" }}>
-          <div style={{ fontSize: "12px", textTransform: "uppercase", color: "var(--color-text-muted)", marginBottom: "8px" }}>{t("bigscreen.community.totalPlaytime")}</div>
-          <div style={{ fontSize: "28px", fontWeight: "700", color: "var(--color-accent)" }}>{formatHours(stats.totalPlayTimeMin)}</div>
-          <div style={{ fontSize: "11px", marginTop: "6px", color: "var(--color-text-muted)" }}>{t("bigscreen.community.acrossLaunches")}</div>
+      {/* KPI Cards Row — informational tiles (not focusable) */}
+      <div className="bigscreen-gamepage-2col bigscreen-kpi-grid" data-cols="4">
+        <div className="bigscreen-kpi-card">
+          <span className="bigscreen-kpi-label">{t("bigscreen.community.totalPlaytime")}</span>
+          <span className="bigscreen-kpi-value bigscreen-kpi-value--accent">{formatHours(stats.totalPlayTimeMin)}</span>
+          <span className="bigscreen-kpi-sub">{t("bigscreen.community.acrossLaunches")}</span>
         </div>
 
-        <div className="bigscreen-widget-card" {...focusStatsCard2} style={{ padding: "20px" }}>
-          <div style={{ fontSize: "12px", textTransform: "uppercase", color: "var(--color-text-muted)", marginBottom: "8px" }}>{t("bigscreen.community.achievements")}</div>
-          <div style={{ fontSize: "28px", fontWeight: "700", color: "var(--color-success)" }}>{achievementCounts.unlocked} / {achievementCounts.total}</div>
-          <div style={{ fontSize: "11px", marginTop: "6px", color: "var(--color-text-muted)" }}>{achievementPct}{t("bigscreen.community.pctUnlocked")}</div>
+        <div className="bigscreen-kpi-card">
+          <span className="bigscreen-kpi-label">{t("bigscreen.community.achievements")}</span>
+          <span className="bigscreen-kpi-value bigscreen-kpi-value--success">{achievementCounts.unlocked} / {achievementCounts.total}</span>
+          <span className="bigscreen-kpi-sub">{achievementPct}{t("bigscreen.community.pctUnlocked")}</span>
         </div>
 
-        <div className="bigscreen-widget-card" {...focusStatsCard3} style={{ padding: "20px" }}>
-          <div style={{ fontSize: "12px", textTransform: "uppercase", color: "var(--color-text-muted)", marginBottom: "8px" }}>{t("bigscreen.community.librarySize")}</div>
-          <div style={{ fontSize: "28px", fontWeight: "700", color: "white" }}>{games.length} {t("bigscreen.friends.games")}</div>
-          <div style={{ fontSize: "11px", marginTop: "6px", color: "var(--color-text-muted)" }}>{t("bigscreen.community.importedFrom")}</div>
+        <div className="bigscreen-kpi-card">
+          <span className="bigscreen-kpi-label">{t("bigscreen.community.librarySize")}</span>
+          <span className="bigscreen-kpi-value">{games.length} {t("bigscreen.friends.games")}</span>
+          <span className="bigscreen-kpi-sub">{t("bigscreen.community.importedFrom")}</span>
         </div>
 
-        <div className="bigscreen-widget-card" {...focusStatsCard4} style={{ padding: "20px" }}>
-          <div style={{ fontSize: "12px", textTransform: "uppercase", color: "var(--color-text-muted)", marginBottom: "8px" }}>{t("bigscreen.community.launchActivity")}</div>
-          <div style={{ fontSize: "28px", fontWeight: "700", color: "var(--color-warning)" }}>{sessions.length} {t("bigscreen.community.launches")}</div>
-          <div style={{ fontSize: "11px", marginTop: "6px", color: "var(--color-text-muted)" }}>{t("bigscreen.community.sessionsTracked")}</div>
+        <div className="bigscreen-kpi-card">
+          <span className="bigscreen-kpi-label">{t("bigscreen.community.launchActivity")}</span>
+          <span className="bigscreen-kpi-value bigscreen-kpi-value--warning">{sessions.length} {t("bigscreen.community.launches")}</span>
+          <span className="bigscreen-kpi-sub">{t("bigscreen.community.sessionsTracked")}</span>
         </div>
       </div>
 
       {/* Main Grid: Left side Top Played, Right side breakdowns */}
-      <div className="bigscreen-gamepage-2col" data-cols="2" style={{ gap: "30px", alignItems: "flex-start" }}>
-        
+      <div className="bigscreen-gamepage-2col bigscreen-community-main-grid" data-cols="2">
+
         {/* Top Played Games */}
-        <div className="bigscreen-widget-card" style={{ padding: "24px" }}>
-          <h3 style={{ marginTop: 0, marginBottom: "20px" }}>{t("bigscreen.community.mostPlayed")}</h3>
+        <div className="bigscreen-panel-card">
+          <h3>{t("bigscreen.community.mostPlayed")}</h3>
           {topGames.length === 0 ? (
-            <p style={{ color: "var(--color-text-muted)", fontSize: "13px" }}>{t("bigscreen.community.noPlaytime")}</p>
+            <p className="bigscreen-kpi-sub" style={{ fontSize: "0.8125rem" }}>{t("bigscreen.community.noPlaytime")}</p>
           ) : (
-            <div style={{ display: "flex", flexDirection: "column", gap: "16px" }}>
-              {topGames.slice(0, 5).map((g) => {
-                const gameFocusProps = useFocusable(() => {});
-                return (
-                  <div
-                    key={g.gameId}
-                    {...gameFocusProps}
-                    className="bigscreen-system-menu-item"
-                    style={{
-                      display: "flex",
-                      alignItems: "center",
-                      gap: "14px",
-                      padding: "10px 14px",
-                      border: "1px solid transparent",
-                      borderRadius: "8px",
-                      background: "color-mix(in srgb, var(--bigscreen-text) 2%, transparent)",
-                    }}
-                  >
-                    <div style={{ width: "36px", height: "48px", borderRadius: "4px", overflow: "hidden", background: "var(--color-bg-tertiary)" }}>
-                      {g.coverArtUrl ? (
-                        <img src={g.coverArtUrl} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
-                      ) : (
-                        <div style={{ width: "100%", height: "100%", display: "flex", justifyContent: "center", alignItems: "center", opacity: 0.1 }}>
-                          🎮
-                        </div>
-                      )}
-                    </div>
-                    <div style={{ flex: 1 }}>
-                      <div style={{ fontSize: "14px", fontWeight: "600", color: "white" }}>{g.gameName}</div>
-                      <div style={{ fontSize: "12px", color: "var(--color-text-muted)", marginTop: "4px" }}>
-                        {t("bigscreen.community.gameLaunches", { time: formatHours(g.minutes), count: g.sessions })}
-                      </div>
-                    </div>
-                  </div>
-                );
-              })}
+            <div className="bigscreen-sessions-list" style={{ gap: "1rem" }}>
+              {topGames.slice(0, 5).map((g) => (
+                <TopGameRow
+                  key={g.gameId}
+                  game={g}
+                  onOpen={() => navigate(`/library/${g.gameId}`)}
+                />
+              ))}
             </div>
           )}
         </div>
 
         {/* Breakdown by Genre and Platform */}
-        <div style={{ display: "flex", flexDirection: "column", gap: "24px", width: "100%" }}>
-          <div className="bigscreen-widget-card" style={{ padding: "24px" }}>
-            <h3 style={{ marginTop: 0, marginBottom: "16px" }}>{t("bigscreen.community.playtimeByGenre")}</h3>
+        <div className="bigscreen-sessions-list" style={{ gap: "1.5rem", width: "100%" }}>
+          <div className="bigscreen-panel-card">
+            <h3>{t("bigscreen.community.playtimeByGenre")}</h3>
             {stats.genreBreakdown.length === 0 ? (
-              <p style={{ color: "var(--color-text-muted)", fontSize: "13px" }}>{t("bigscreen.community.noGenres")}</p>
+              <p className="bigscreen-kpi-sub" style={{ fontSize: "0.8125rem" }}>{t("bigscreen.community.noGenres")}</p>
             ) : (
-              <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
+              <div className="bigscreen-breakdown-list">
                 {stats.genreBreakdown.slice(0, 5).map((gen) => (
-                  <div key={gen.genre} style={{ fontSize: "13px" }}>
-                    <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "4px" }}>
-                      <span>{gen.genre}</span>
-                      <span style={{ color: "var(--color-text-muted)" }}>{formatHours(gen.minutes)}</span>
+                  <div key={gen.genre} className="bigscreen-breakdown-row">
+                    <div className="bigscreen-breakdown-header">
+                      <span className="bigscreen-breakdown-name">{gen.genre}</span>
+                      <span className="bigscreen-breakdown-value">{formatHours(gen.minutes)}</span>
                     </div>
-                    <div style={{ height: "6px", borderRadius: "3px", background: "var(--bigscreen-surface)", overflow: "hidden" }}>
-                      <div style={{ height: "100%", background: "var(--color-accent)", width: `${Math.min(100, (gen.minutes / stats.totalPlayTimeMin) * 100)}%` }} />
+                    <div className="bigscreen-breakdown-track">
+                      <div
+                        className="bigscreen-breakdown-fill bigscreen-breakdown-fill--accent"
+                        style={{ width: `${Math.min(100, (gen.minutes / stats.totalPlayTimeMin) * 100)}%` }}
+                      />
                     </div>
                   </div>
                 ))}
@@ -163,20 +134,23 @@ export default function BigScreenCommunity() {
             )}
           </div>
 
-          <div className="bigscreen-widget-card" style={{ padding: "24px" }}>
-            <h3 style={{ marginTop: 0, marginBottom: "16px" }}>{t("bigscreen.community.playtimeByPlatform")}</h3>
+          <div className="bigscreen-panel-card">
+            <h3>{t("bigscreen.community.playtimeByPlatform")}</h3>
             {stats.platformBreakdown.length === 0 ? (
-              <p style={{ color: "var(--color-text-muted)", fontSize: "13px" }}>{t("bigscreen.community.noPlatforms")}</p>
+              <p className="bigscreen-kpi-sub" style={{ fontSize: "0.8125rem" }}>{t("bigscreen.community.noPlatforms")}</p>
             ) : (
-              <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
+              <div className="bigscreen-breakdown-list">
                 {stats.platformBreakdown.slice(0, 5).map((plat) => (
-                  <div key={plat.platform} style={{ fontSize: "13px" }}>
-                    <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "4px" }}>
-                      <span>{plat.platform}</span>
-                      <span style={{ color: "var(--color-text-muted)" }}>{formatHours(plat.minutes)}</span>
+                  <div key={plat.platform} className="bigscreen-breakdown-row">
+                    <div className="bigscreen-breakdown-header">
+                      <span className="bigscreen-breakdown-name">{plat.platform}</span>
+                      <span className="bigscreen-breakdown-value">{formatHours(plat.minutes)}</span>
                     </div>
-                    <div style={{ height: "6px", borderRadius: "3px", background: "var(--bigscreen-surface)", overflow: "hidden" }}>
-                      <div style={{ height: "100%", background: "var(--color-warning)", width: `${Math.min(100, (plat.minutes / stats.totalPlayTimeMin) * 100)}%` }} />
+                    <div className="bigscreen-breakdown-track">
+                      <div
+                        className="bigscreen-breakdown-fill bigscreen-breakdown-fill--warning"
+                        style={{ width: `${Math.min(100, (plat.minutes / stats.totalPlayTimeMin) * 100)}%` }}
+                      />
                     </div>
                   </div>
                 ))}
@@ -185,6 +159,52 @@ export default function BigScreenCommunity() {
           </div>
         </div>
 
+      </div>
+    </div>
+  );
+}
+
+// ─── Top Played Game Row ────────────────────────────────────────────
+// Focusable: controller A opens the game's library hub page.
+
+function TopGameRow({
+  game,
+  onOpen,
+}: {
+  game: {
+    gameId: string;
+    gameName: string;
+    minutes: number;
+    sessions: number;
+    coverArtUrl?: string;
+  };
+  onOpen: () => void;
+}) {
+  const { t } = useLanguage();
+  const focusProps = useFocusable(onOpen);
+
+  return (
+    <div
+      {...focusProps}
+      className="bigscreen-topgame-row"
+    >
+      <div className="bigscreen-topgame-cover">
+        {game.coverArtUrl ? (
+          <img src={game.coverArtUrl} alt="" />
+        ) : (
+          <div className="bigscreen-topgame-cover-fallback">
+            <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+              <path d="M6 3h12v18H6z" />
+              <path d="M9 7h6M9 11h6M9 15h4" />
+            </svg>
+          </div>
+        )}
+      </div>
+      <div className="bigscreen-topgame-id">
+        <div className="bigscreen-topgame-name">{game.gameName}</div>
+        <div className="bigscreen-topgame-meta">
+          {t("bigscreen.community.gameLaunches", { time: formatHours(game.minutes), count: game.sessions })}
+        </div>
       </div>
     </div>
   );

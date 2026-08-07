@@ -36,7 +36,7 @@
 }
 
 [data-bigscreen="true"] {
-  font-size: 16px;
+  font-size: 19px;
   background-color: var(--bigscreen-bg);
   color: var(--bigscreen-text);
   overflow: hidden;
@@ -80,157 +80,19 @@
   scrollbar-width: none;
 }
 
-/* ── TOP HEADER (PS5 & Apple TV hybrid) ────────────────────────────────── */
+/* ── GLOBAL FOCUS RING ─────────────────────────────────────────────
+   The shell's controller focus indicator. Replaces the deleted
+   FocusRing overlay component: the engine marks the focused element
+   with [data-focused="true"], and we draw the ring there. The
+   :focus-visible clause is the keyboard fallback.
 
-.bigscreen-header {
-  position: fixed;
-  top: 0;
-  left: 0;
-  right: 0;
-  height: 80px;
-  z-index: 9100;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 0 48px;
-  background: linear-gradient(to bottom, color-mix(in srgb, var(--bigscreen-bg) 85%, transparent) 0%, color-mix(in srgb, var(--bigscreen-bg) 30%, transparent) 70%, transparent 100%);
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
-}
-
-.bigscreen-header-left {
-  display: flex;
-  align-items: center;
-  gap: 20px;
-  flex: 1;
-  min-width: 0;
-}
-
-.bigscreen-header-right {
-  display: flex;
-  align-items: center;
-  gap: 20px;
-}
-
-.bigscreen-header-logo {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  font-weight: 900;
-  font-size: 22px;
-  letter-spacing: 2px;
-  color: var(--bigscreen-text);
-  margin-right: 24px;
-}
-
-.bigscreen-header-logo svg {
-  color: var(--color-accent);
-}
-
-.bigscreen-header-logo-text {
-  color: var(--bigscreen-text);
-}
-
-.bigscreen-header-tabs {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  flex: 1;
-  min-width: 0;
-  overflow-x: auto;
-  overflow-y: hidden;
-  scrollbar-width: none;
-  -ms-overflow-style: none;
-  -webkit-mask-image: linear-gradient(to right, transparent 0, var(--bigscreen-shadow) 16px, var(--bigscreen-shadow) calc(100% - 16px), transparent 100%);
-  mask-image: linear-gradient(to right, transparent 0, var(--bigscreen-shadow) 16px, var(--bigscreen-shadow) calc(100% - 16px), transparent 100%);
-}
-
-.bigscreen-header-tabs::-webkit-scrollbar {
-  display: none;
-}
-
-.bigscreen-header-tab {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  padding: 8px 18px;
-  border-radius: 30px;
-  border: 1px solid transparent;
-  background: color-mix(in srgb, var(--bigscreen-text) 3%, transparent);
-  color: color-mix(in srgb, var(--bigscreen-text) 55.00000000000001%, transparent);
-  font-size: 15px;
-  font-weight: 700;
-  text-decoration: none;
-  cursor: pointer;
-  outline: none;
-  white-space: nowrap;
-  transition: color 0.25s cubic-bezier(0.2, 0.8, 0.2, 1), background 0.25s cubic-bezier(0.2, 0.8, 0.2, 1), border-color 0.25s cubic-bezier(0.2, 0.8, 0.2, 1), box-shadow 0.25s cubic-bezier(0.2, 0.8, 0.2, 1), opacity 0.25s cubic-bezier(0.2, 0.8, 0.2, 1), transform 0.25s cubic-bezier(0.2, 0.8, 0.2, 1);
-}
-
-.bigscreen-header-tab-icon {
-  display: flex;
-  align-items: center;
-}
-
-.bigscreen-header-tab:hover,
-.bigscreen-header-tab[data-focused="true"] {
-  color: var(--bigscreen-text);
-  background: color-mix(in srgb, var(--bigscreen-text) 12%, transparent);
-  border-color: color-mix(in srgb, var(--bigscreen-text) 25%, transparent);
-  transform: translateY(-2px);
-}
-
-.bigscreen-header-tab[data-focused="true"] {
-  border-color: var(--bigscreen-text);
+   Deliberately placed BEFORE the component rules: components that
+   style their own [data-focused="true"] state (equal specificity,
+   later in the file) keep their custom focus treatment, while every
+   element without one still gets the canonical ring. */
+[data-bigscreen="true"] [data-focused="true"],
+[data-bigscreen="true"] :focus-visible {
   box-shadow: var(--bigscreen-focus-glow);
-}
-
-.bigscreen-header-tab.active {
-  color: var(--bigscreen-text);
-  background: color-mix(in srgb, var(--bigscreen-accent) 15%, transparent);
-  border-color: color-mix(in srgb, var(--bigscreen-accent) 35%, transparent);
-  font-weight: 800;
-}
-
-.bigscreen-header-tab--system {
-  width: 42px;
-  height: 42px;
-  padding: 0;
-  border-radius: 50%;
-  justify-content: center;
-}
-
-.bigscreen-header-tab--exit {
-  background: color-mix(in srgb, var(--bigscreen-danger) 8%, transparent);
-  color: color-mix(in srgb, var(--bigscreen-danger) 70%, transparent);
-}
-
-.bigscreen-header-tab--exit:hover,
-.bigscreen-header-tab--exit[data-focused="true"] {
-  background: color-mix(in srgb, var(--bigscreen-danger) 20%, transparent);
-  color: var(--bigscreen-danger);
-  border-color: color-mix(in srgb, var(--bigscreen-danger) 35%, transparent);
-}
-
-.bigscreen-header-clock {
-  font-size: 16px;
-  font-weight: 800;
-  color: color-mix(in srgb, var(--bigscreen-text) 95%, transparent);
-  border-left: 2px solid color-mix(in srgb, var(--bigscreen-text) 10%, transparent);
-  padding-left: 16px;
-  letter-spacing: 0.5px;
-}
-
-.bigscreen-header-avatar {
-  width: 36px;
-  height: 36px;
-  border-radius: 50%;
-  background: color-mix(in srgb, var(--bigscreen-text) 8%, transparent);
-  border: 1.5px solid color-mix(in srgb, var(--bigscreen-text) 15%, transparent);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  color: color-mix(in srgb, var(--bigscreen-text) 85%, transparent);
 }
 
 /* ── BACKDROP SYSTEM ────────────────────────────────────────────────── */
@@ -2247,17 +2109,24 @@
 }
 
 /* ============================================================
-   Big Screen v2 — TV-first shell override
-   ============================================================ */
+   Big Screen v3 — console shell (three-zone chrome)
+   ============================================================
+   Fixed top strip (brand · 8 sections + System · utilities), a
+   full-height content area, and a fixed bottom bar that is a
+   non-focusable glyph+label legend (A SELECT · B BACK · LB/RB
+   SECTIONS · Y POINTER) plus brand + clock.
+   All sizes are rem so the whole surface tracks the root font size;
+   the display type below uses clamp(). Dark glass, single accent,
+   one focus ring — see the design contract at the top of this file. */
 
 .bigscreen-v2 {
-  --bs2-header-height: 92px;
-  --bs2-footer-height: 52px;
+  --bs3-header-height: 5.75rem; /* 92px */
+  --bs3-footer-height: 3.25rem; /* 52px */
   position: fixed;
   inset: 0;
   z-index: 5000;
-  display: flex;
-  flex-direction: column;
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr) auto;
   overflow: hidden;
   color: var(--bigscreen-text);
   background:
@@ -2274,345 +2143,534 @@
   pointer-events: none;
   opacity: 0.28;
   background-image: linear-gradient(color-mix(in srgb, var(--bigscreen-text) 3%, transparent) 1px, transparent 1px), linear-gradient(90deg, color-mix(in srgb, var(--bigscreen-text) 3%, transparent) 1px, transparent 1px);
-  background-size: 48px 48px;
+  background-size: 3rem 3rem;
   mask-image: linear-gradient(to bottom, black, transparent 75%);
 }
 
-.bigscreen-v2-header {
+/* ── Header strip ─────────────────────────────────────────────── */
+
+.bigscreen-v3-header {
   position: relative;
   z-index: 20;
-  min-height: var(--bs2-header-height);
+  min-height: var(--bs3-header-height);
   display: flex;
   align-items: center;
-  gap: 28px;
-  padding: 0 38px;
-  background: color-mix(in srgb, var(--bigscreen-bg) 88%, transparent);
+  gap: 1.75rem;
+  padding: 0 2.375rem;
+  background: var(--bigscreen-glass-bg);
   border-bottom: 1px solid color-mix(in srgb, var(--bigscreen-text) 9%, transparent);
   box-shadow: 0 14px 42px color-mix(in srgb, var(--bigscreen-shadow) 25%, transparent);
   backdrop-filter: blur(22px) saturate(140%);
   -webkit-backdrop-filter: blur(22px) saturate(140%);
 }
 
-.bigscreen-v2-brand {
+.bigscreen-v3-brand {
   flex: 0 0 auto;
   display: flex;
   align-items: center;
-  gap: 12px;
-  min-width: 166px;
+  gap: 0.75rem;
+  min-width: 10.375rem;
   user-select: none;
 }
 
-.bigscreen-v2-brand-mark {
+.bigscreen-v3-brand-mark {
   display: grid;
   place-items: center;
-  width: 42px;
-  height: 42px;
-  border-radius: 14px;
+  width: 2.625rem;
+  height: 2.625rem;
+  border-radius: 0.875rem;
   color: var(--bigscreen-text);
   background: linear-gradient(135deg, var(--bigscreen-accent), color-mix(in srgb, var(--bigscreen-accent) 45%, var(--color-info)));
   box-shadow: 0 8px 22px var(--bigscreen-accent-glow);
 }
 
-.bigscreen-v2-brand-mark img { width: 100%; height: 100%; border-radius: inherit; object-fit: cover; display: block; }
-.bigscreen-v2-brand-copy { display: flex; flex-direction: column; gap: 3px; letter-spacing: 0.12em; }
-.bigscreen-v2-brand-copy strong { font-size: 15px; line-height: 1; }
-.bigscreen-v2-brand-copy small { color: var(--color-text-muted); font-size: 9px; font-weight: 800; letter-spacing: 0.24em; }
+.bigscreen-v3-brand-mark img { width: 100%; height: 100%; border-radius: inherit; object-fit: cover; display: block; }
+.bigscreen-v3-brand-copy { display: flex; flex-direction: column; gap: 0.1875rem; letter-spacing: 0.12em; }
+.bigscreen-v3-brand-copy strong { font-size: 0.9375rem; line-height: 1; }
+.bigscreen-v3-brand-copy small { color: var(--color-text-muted); font-size: 0.5625rem; font-weight: 800; letter-spacing: 0.24em; }
 
-.bigscreen-v2-sections {
+/* ── Primary section strip (8 + System) ───────────────────────── */
+
+.bigscreen-v3-sections {
   display: flex;
   align-items: stretch;
-  gap: 6px;
+  gap: 0.375rem;
   flex: 1;
   min-width: 0;
   overflow-x: auto;
   scrollbar-width: none;
+  -webkit-mask-image: linear-gradient(to right, transparent 0, var(--bigscreen-shadow) 1.25rem, var(--bigscreen-shadow) calc(100% - 1.25rem), transparent 100%);
+  mask-image: linear-gradient(to right, transparent 0, var(--bigscreen-shadow) 1.25rem, var(--bigscreen-shadow) calc(100% - 1.25rem), transparent 100%);
 }
-.bigscreen-v2-sections::-webkit-scrollbar { display: none; }
+.bigscreen-v3-sections::-webkit-scrollbar { display: none; }
 
-.bigscreen-v2-section {
+.bigscreen-v3-section {
   position: relative;
   flex: 0 0 auto;
   display: inline-flex;
   align-items: center;
-  gap: 10px;
-  min-height: 56px;
-  padding: 0 17px;
+  gap: 0.625rem;
+  min-height: 3.5rem;
+  padding: 0 1.0625rem;
   border: 1px solid transparent;
-  border-radius: 14px;
+  border-radius: 0.875rem;
   color: color-mix(in srgb, var(--bigscreen-text) 58%, transparent);
   text-decoration: none;
-  font-size: 14px;
+  font-size: 0.875rem;
   font-weight: 750;
   outline: none;
   transition: transform var(--duration-normal) var(--ease-standard), color var(--duration-normal) var(--ease-standard), background var(--duration-normal) var(--ease-standard), border-color var(--duration-normal) var(--ease-standard), box-shadow var(--duration-normal) var(--ease-standard);
 }
-.bigscreen-v2-section svg { width: 19px; height: 19px; }
-.bigscreen-v2-section:hover,
-.bigscreen-v2-section[data-focused="true"] { color: var(--bigscreen-text); background: color-mix(in srgb, var(--bigscreen-text) 8%, transparent); transform: translateY(-2px); }
-.bigscreen-v2-section[data-focused="true"] { border-color: var(--bigscreen-accent); box-shadow: 0 0 0 2px var(--bigscreen-bg), 0 0 0 4px var(--bigscreen-accent), 0 8px 24px var(--bigscreen-accent-glow); }
-.bigscreen-v2-section.is-active { color: var(--bigscreen-text); background: color-mix(in srgb, var(--bigscreen-accent) 13%, transparent); }
-.bigscreen-v2-section.is-active::after { content: ""; position: absolute; right: 16px; bottom: 8px; left: 16px; height: 3px; border-radius: 99px; background: var(--bigscreen-accent); box-shadow: 0 0 14px var(--bigscreen-accent-glow); }
+.bigscreen-v3-section svg { width: 1.1875rem; height: 1.1875rem; }
+.bigscreen-v3-section:hover,
+.bigscreen-v3-section[data-focused="true"] { color: var(--bigscreen-text); background: color-mix(in srgb, var(--bigscreen-text) 8%, transparent); transform: translateY(-2px); }
+.bigscreen-v3-section[data-focused="true"] { border-color: var(--bigscreen-accent); box-shadow: 0 0 0 2px var(--bigscreen-bg), 0 0 0 4px var(--bigscreen-accent), 0 8px 24px var(--bigscreen-accent-glow); }
+.bigscreen-v3-section.is-active { color: var(--bigscreen-text); background: color-mix(in srgb, var(--bigscreen-accent) 13%, transparent); }
+.bigscreen-v3-section.is-active::after { content: ""; position: absolute; right: 1rem; bottom: 0.5rem; left: 1rem; height: 0.1875rem; border-radius: 99px; background: var(--bigscreen-accent); box-shadow: 0 0 14px var(--bigscreen-accent-glow); }
 
-.bigscreen-v2-utilities { display: flex; align-items: center; gap: 9px; flex: 0 0 auto; }
-.bigscreen-v2-connection,
-.bigscreen-v2-utility,
-.bigscreen-v2-exit { min-height: 42px; border-radius: 12px; }
-.bigscreen-v2-connection { display: inline-flex; align-items: center; gap: 7px; padding: 0 10px; color: var(--color-text-muted); font-size: 9px; font-weight: 850; letter-spacing: 0.12em; }
-.bigscreen-v2-connection.is-connected { color: var(--bigscreen-success-soft); }
-.bigscreen-v2-connection-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--color-text-muted); }
-.bigscreen-v2-connection.is-connected .bigscreen-v2-connection-dot { background: var(--bigscreen-success); box-shadow: 0 0 10px color-mix(in srgb, var(--bigscreen-success) 70%, transparent); animation: bs2-pulse 2s ease-in-out infinite; }
-.bigscreen-v2-utility,
-.bigscreen-v2-exit { display: inline-flex; align-items: center; justify-content: center; gap: 7px; padding: 0 11px; border: 1px solid transparent; color: color-mix(in srgb, var(--bigscreen-text) 60%, transparent); background: color-mix(in srgb, var(--bigscreen-text) 5%, transparent); font-size: 9px; font-weight: 850; letter-spacing: 0.08em; cursor: pointer; outline: none; transition: all var(--duration-normal) var(--ease-standard); }
-.bigscreen-v2-utility svg, .bigscreen-v2-exit svg { width: 17px; height: 17px; }
-.bigscreen-v2-utility:hover, .bigscreen-v2-utility[data-focused="true"], .bigscreen-v2-utility.is-active { color: var(--bigscreen-text); border-color: var(--bigscreen-accent); background: color-mix(in srgb, var(--bigscreen-accent) 14%, transparent); box-shadow: 0 0 0 2px var(--bigscreen-bg), 0 0 0 4px var(--bigscreen-accent), 0 8px 20px var(--bigscreen-accent-glow); }
-.bigscreen-v2-clock { min-width: 48px; color: var(--bigscreen-text); font-size: 13px; font-weight: 800; text-align: center; font-variant-numeric: tabular-nums; }
-.bigscreen-v2-exit { width: 42px; padding: 0; color: var(--bigscreen-danger-soft); background: color-mix(in srgb, var(--bigscreen-danger) 8%, transparent); }
-.bigscreen-v2-exit:hover, .bigscreen-v2-exit[data-focused="true"] { color: var(--bigscreen-text); border-color: var(--bigscreen-danger); background: color-mix(in srgb, var(--bigscreen-danger) 22%, transparent); box-shadow: 0 0 0 2px var(--bigscreen-bg), 0 0 0 4px var(--bigscreen-danger); }
+/* System entry — 9th slot, styled as a separator/utility. */
+.bigscreen-v3-section--system {
+  margin-left: 0.375rem;
+  padding: 0 0.9375rem;
+  border-left: 1px solid color-mix(in srgb, var(--bigscreen-text) 14%, transparent);
+  border-radius: 0;
+  color: var(--bigscreen-accent-soft-text);
+}
+.bigscreen-v3-section--system:hover,
+.bigscreen-v3-section--system[data-focused="true"] { border-radius: 0.875rem; border-left-color: transparent; }
+.bigscreen-v3-section--system.is-active { border-radius: 0.875rem; background: color-mix(in srgb, var(--bigscreen-accent) 18%, transparent); }
 
-.bigscreen-v2-main { position: relative; z-index: 1; flex: 1; min-height: 0; overflow: hidden; }
-.bigscreen-v2-content-frame { width: 100%; height: 100%; overflow: hidden; animation: bs2-content-in 360ms var(--ease-enter) both; }
-.bigscreen-v2-content-frame > * { height: 100%; }
-.bigscreen-v2-bottom-bar { position: relative; z-index: 20; min-height: var(--bs2-footer-height); display: flex; align-items: center; gap: 20px; padding: 0 38px; border-top: 1px solid color-mix(in srgb, var(--bigscreen-text) 8%, transparent); background: color-mix(in srgb, var(--bigscreen-bg) 92%, transparent); color: var(--color-text-muted); font-size: 10px; font-weight: 750; letter-spacing: 0.08em; }
-.bigscreen-v2-bottom-brand { margin-right: auto; color: color-mix(in srgb, var(--bigscreen-text) 36%, transparent); }
-.bigscreen-v2-bottom-tip { display: inline-flex; align-items: center; gap: 7px; }
-.bigscreen-v2-bottom-tip b { min-width: 21px; padding: 3px 5px; border: 1px solid color-mix(in srgb, var(--bigscreen-text) 24%, transparent); border-radius: 5px; color: var(--bigscreen-text); font-size: 9px; text-align: center; }
+/* ── Header utilities ─────────────────────────────────────────── */
 
-@keyframes bs2-content-in { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
-@keyframes bs2-pulse { 0%, 100% { opacity: 0.7; transform: scale(0.9); } 50% { opacity: 1; transform: scale(1.1); } }
+.bigscreen-v3-utilities { display: flex; align-items: center; gap: 0.5625rem; flex: 0 0 auto; }
+.bigscreen-v3-connection,
+.bigscreen-v3-utility,
+.bigscreen-v3-exit { min-height: 2.625rem; border-radius: 0.75rem; }
+.bigscreen-v3-connection { display: inline-flex; align-items: center; gap: 0.4375rem; padding: 0 0.625rem; color: var(--color-text-muted); font-size: 0.5625rem; font-weight: 850; letter-spacing: 0.12em; }
+.bigscreen-v3-connection.is-connected { color: var(--bigscreen-success-soft); }
+.bigscreen-v3-connection-dot { width: 0.4375rem; height: 0.4375rem; border-radius: 50%; background: var(--color-text-muted); }
+.bigscreen-v3-connection.is-connected .bigscreen-v3-connection-dot { background: var(--bigscreen-success); box-shadow: 0 0 10px color-mix(in srgb, var(--bigscreen-success) 70%, transparent); animation: bs3-pulse 2s ease-in-out infinite; }
+.bigscreen-v3-utility,
+.bigscreen-v3-exit { display: inline-flex; align-items: center; justify-content: center; gap: 0.4375rem; padding: 0 0.6875rem; border: 1px solid transparent; color: color-mix(in srgb, var(--bigscreen-text) 60%, transparent); background: color-mix(in srgb, var(--bigscreen-text) 5%, transparent); font-size: 0.5625rem; font-weight: 850; letter-spacing: 0.08em; cursor: pointer; outline: none; transition: all var(--duration-normal) var(--ease-standard); }
+.bigscreen-v3-utility svg, .bigscreen-v3-exit svg { width: 1.0625rem; height: 1.0625rem; }
+.bigscreen-v3-utility:hover, .bigscreen-v3-utility[data-focused="true"], .bigscreen-v3-utility.is-active { color: var(--bigscreen-text); border-color: var(--bigscreen-accent); background: color-mix(in srgb, var(--bigscreen-accent) 14%, transparent); box-shadow: 0 0 0 2px var(--bigscreen-bg), 0 0 0 4px var(--bigscreen-accent), 0 8px 20px var(--bigscreen-accent-glow); }
+.bigscreen-v3-clock { min-width: 3rem; color: var(--bigscreen-text); font-size: 0.8125rem; font-weight: 800; text-align: center; font-variant-numeric: tabular-nums; }
+.bigscreen-v3-exit { width: 2.625rem; padding: 0; color: var(--bigscreen-danger-soft); background: color-mix(in srgb, var(--bigscreen-danger) 8%, transparent); }
+.bigscreen-v3-exit:hover, .bigscreen-v3-exit[data-focused="true"] { color: var(--bigscreen-text); border-color: var(--bigscreen-danger); background: color-mix(in srgb, var(--bigscreen-danger) 22%, transparent); box-shadow: 0 0 0 2px var(--bigscreen-bg), 0 0 0 4px var(--bigscreen-danger); }
 
-@media (max-width: 1180px) {
-  .bigscreen-v2-header { gap: 14px; padding: 0 22px; }
-  .bigscreen-v2-brand { min-width: 135px; }
-  .bigscreen-v2-brand-copy { display: none; }
-  .bigscreen-v2-section { padding: 0 12px; }
-  .bigscreen-v2-section-label { display: none; }
-  .bigscreen-v2-connection span:last-child, .bigscreen-v2-utility span { display: none; }
-  .bigscreen-v2-utility { width: 42px; padding: 0; }
-  .bigscreen-v2-bottom-bar { padding: 0 22px; gap: 12px; }
+/* ── Content area ─────────────────────────────────────────────── */
+
+.bigscreen-v3-main {
+  position: relative;
+  z-index: 1;
+  min-height: 0;
+  overflow: hidden;
+  font-size: 1.1rem;
+}
+.bigscreen-v3-content-frame { width: 100%; height: 100%; overflow: hidden; animation: bs3-content-in 360ms var(--ease-enter) both; }
+.bigscreen-v3-content-frame > * { height: 100%; }
+
+/* ── Bottom bar (non-focusable legend) ────────────────────────── */
+
+.bigscreen-v3-bottom-bar {
+  position: relative;
+  z-index: 20;
+  min-height: var(--bs3-footer-height);
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  align-items: center;
+  gap: 1.25rem;
+  padding: 0 2.375rem;
+  border-top: 1px solid color-mix(in srgb, var(--bigscreen-text) 8%, transparent);
+  background: var(--bigscreen-glass-bg);
+  backdrop-filter: blur(18px) saturate(140%);
+  -webkit-backdrop-filter: blur(18px) saturate(140%);
+  color: var(--color-text-muted);
+  font-size: 0.625rem;
+  font-weight: 750;
+  letter-spacing: 0.08em;
+}
+.bigscreen-v3-bottom-brand { justify-self: start; color: color-mix(in srgb, var(--bigscreen-text) 36%, transparent); font-size: 0.625rem; font-weight: 850; letter-spacing: 0.16em; }
+.bigscreen-v3-bottom-legend { display: flex; align-items: center; justify-content: center; gap: 1.5rem; }
+.bigscreen-v3-bottom-tip { display: inline-flex; align-items: center; gap: 0.4375rem; white-space: nowrap; }
+.bigscreen-v3-bottom-tip b { min-width: 1.3125rem; padding: 0.1875rem 0.3125rem; border: 1px solid color-mix(in srgb, var(--bigscreen-text) 24%, transparent); border-radius: 0.3125rem; color: var(--bigscreen-text); font-size: 0.5625rem; font-weight: 800; text-align: center; }
+.bigscreen-v3-bottom-clock { justify-self: end; color: color-mix(in srgb, var(--bigscreen-text) 55%, transparent); font-size: 0.625rem; font-weight: 800; font-variant-numeric: tabular-nums; }
+
+@keyframes bs3-content-in { from { opacity: 0; transform: translateY(0.5rem); } to { opacity: 1; transform: translateY(0); } }
+@keyframes bs3-pulse { 0%, 100% { opacity: 0.7; transform: scale(0.9); } 50% { opacity: 1; transform: scale(1.1); } }
+@keyframes bs3-overlay-in { from { opacity: 0; transform: translateY(0.75rem) scale(0.985); } to { opacity: 1; transform: translateY(0) scale(1); } }
+
+/* ── Display type scale (10-foot titles) ──────────────────────── */
+
+.bigscreen-gamepage-hero-title,
+.bigscreen-library-title,
+.bigscreen-system-title {
+  font-size: clamp(2rem, 4vw, 3.5rem);
+}
+/* The dashboard details title sits inside a fixed logo slot (120px)
+   reserved to kill navigation jitter, so its clamp caps at 3.25rem
+   to keep two lines inside the slot. */
+.bigscreen-details-title {
+  font-size: clamp(2rem, 3.5vw, 3.25rem);
 }
 
-@media (max-width: 760px) {
-  .bigscreen-v2-header { --bs2-header-height: 70px; }
-  .bigscreen-v2-connection, .bigscreen-v2-clock { display: none; }
-  .bigscreen-v2-bottom-brand, .bigscreen-v2-bottom-tip:nth-child(n+4) { display: none; }
-  .bigscreen-v2-bottom-bar { justify-content: space-between; }
+/* ── Search overlay (BigScreenSearchOverlay) ──────────────────── */
+
+.bigscreen-search-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 9500;
+  display: grid;
+  place-items: start center;
+  padding-top: 18vh;
+}
+.bigscreen-search-scrim {
+  position: absolute;
+  inset: 0;
+  background: color-mix(in srgb, var(--bigscreen-shadow) 72%, transparent);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  cursor: pointer;
+}
+.bigscreen-search-panel {
+  position: relative;
+  width: min(44rem, calc(100vw - 3rem));
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+  padding: 1.5rem;
+  background: var(--bigscreen-bg-raised);
+  border: var(--bigscreen-glass-border);
+  border-radius: 1.25rem;
+  box-shadow: 0 24px 64px color-mix(in srgb, var(--bigscreen-shadow) 80%, transparent);
+  animation: bs3-overlay-in 220ms var(--ease-enter) both;
+}
+.bigscreen-search-field {
+  display: flex;
+  align-items: center;
+  gap: 0.875rem;
+  height: 4rem;
+  padding: 0 1.25rem;
+  border-radius: 1rem;
+  background: color-mix(in srgb, var(--bigscreen-text) 4%, transparent);
+  border: 1px solid color-mix(in srgb, var(--bigscreen-text) 12%, transparent);
+}
+.bigscreen-search-field-icon { display: flex; color: var(--bigscreen-accent); flex-shrink: 0; }
+.bigscreen-search-input {
+  flex: 1;
+  min-width: 0;
+  height: 100%;
+  background: transparent;
+  border: none;
+  outline: none;
+  color: var(--bigscreen-text);
+  font-size: 1.5rem;
+  font-weight: 700;
+}
+.bigscreen-search-input::placeholder { color: color-mix(in srgb, var(--bigscreen-text) 40%, transparent); }
+.bigscreen-search-clear {
+  display: grid;
+  place-items: center;
+  width: 2.5rem;
+  height: 2.5rem;
+  border-radius: 0.75rem;
+  border: 1px solid transparent;
+  background: color-mix(in srgb, var(--bigscreen-text) 6%, transparent);
+  color: color-mix(in srgb, var(--bigscreen-text) 70%, transparent);
+  cursor: pointer;
+  outline: none;
+  transition: color var(--duration-normal) var(--ease-standard), background var(--duration-normal) var(--ease-standard), border-color var(--duration-normal) var(--ease-standard), box-shadow var(--duration-normal) var(--ease-standard);
+}
+.bigscreen-search-clear:hover,
+.bigscreen-search-clear[data-focused="true"] { color: var(--bigscreen-text); border-color: var(--bigscreen-accent); background: color-mix(in srgb, var(--bigscreen-text) 12%, transparent); }
+.bigscreen-search-actions { display: flex; justify-content: flex-end; gap: 0.875rem; }
+.bigscreen-search-btn {
+  padding: 0.75rem 1.75rem;
+  border-radius: 2rem;
+  border: 1px solid transparent;
+  font-size: 1rem;
+  font-weight: 800;
+  cursor: pointer;
+  outline: none;
+  background: color-mix(in srgb, var(--bigscreen-text) 8%, transparent);
+  color: color-mix(in srgb, var(--bigscreen-text) 75%, transparent);
+  transition: color var(--duration-normal) var(--ease-standard), background var(--duration-normal) var(--ease-standard), border-color var(--duration-normal) var(--ease-standard), box-shadow var(--duration-normal) var(--ease-standard);
+}
+.bigscreen-search-btn:hover,
+.bigscreen-search-btn[data-focused="true"] { color: var(--bigscreen-text); border-color: var(--bigscreen-text); }
+.bigscreen-search-btn--primary { background: var(--color-accent); color: var(--color-text-inverse); }
+.bigscreen-search-btn--primary:hover,
+.bigscreen-search-btn--primary[data-focused="true"] { background: var(--color-accent-hover, var(--color-accent)); color: var(--color-text-inverse); border-color: var(--color-text-inverse); }
+.bigscreen-search-hint { margin: 0; text-align: center; color: color-mix(in srgb, var(--bigscreen-text) 45%, transparent); font-size: 0.8125rem; font-weight: 600; }
+
+/* ── Lightbox (BigScreenLightbox) ─────────────────────────────── */
+
+.bigscreen-lightbox-mask {
+  position: fixed;
+  inset: 0;
+  z-index: 9600;
+  display: grid;
+  place-items: center;
+  background: color-mix(in srgb, var(--bigscreen-shadow) 80%, transparent);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  cursor: zoom-out;
+  animation: bs3-overlay-in 200ms var(--ease-enter) both;
+}
+.bigscreen-lightbox-frame {
+  max-width: calc(100vw - 4rem);
+  max-height: calc(100vh - 4rem);
+  display: grid;
+  place-items: center;
+  padding: 0.5rem;
+  border: 1px solid color-mix(in srgb, var(--bigscreen-text) 12%, transparent);
+  border-radius: 1rem;
+  background: var(--bigscreen-bg-raised);
+  box-shadow: 0 24px 80px color-mix(in srgb, var(--bigscreen-shadow) 85%, transparent);
+}
+.bigscreen-lightbox-frame video { max-width: calc(100vw - 5rem); max-height: calc(100vh - 5rem); border-radius: 0.75rem; }
+
+/* ── Breakpoints (rem) ────────────────────────────────────────── */
+
+@media (max-width: 73.75rem) { /* 1180px */
+  .bigscreen-v3-header { gap: 0.875rem; padding: 0 1.375rem; }
+  .bigscreen-v3-brand { min-width: 8.4375rem; }
+  .bigscreen-v3-brand-copy { display: none; }
+  .bigscreen-v3-section { padding: 0 0.75rem; }
+  .bigscreen-v3-section-label { display: none; }
+  .bigscreen-v3-connection span:last-child, .bigscreen-v3-utility span { display: none; }
+  .bigscreen-v3-utility { width: 2.625rem; padding: 0; }
+  .bigscreen-v3-bottom-bar { padding: 0 1.375rem; gap: 0.75rem; }
+  .bigscreen-v3-bottom-legend { gap: 1rem; }
+}
+
+@media (max-width: 47.5rem) { /* 760px */
+  .bigscreen-v3-header { --bs3-header-height: 4.375rem; }
+  .bigscreen-v3-connection, .bigscreen-v3-clock { display: none; }
+  .bigscreen-v3-bottom-brand, .bigscreen-v3-bottom-tip:nth-child(n+4) { display: none; }
+  .bigscreen-v3-bottom-bar { grid-template-columns: 1fr; }
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .bigscreen-v2-content-frame, .bigscreen-v2-connection-dot { animation: none !important; }
+  .bigscreen-v3-content-frame,
+  .bigscreen-v3-connection-dot,
+  .bigscreen-search-panel,
+  .bigscreen-search-overlay,
+  .bigscreen-lightbox-mask {
+    animation: none !important;
+  }
 }
 
 /* ============================================================
-   Big Screen — spacious density pass
+   Big Screen — spacious density pass (rem-scaled)
    Keep the focusable DOM and controller order unchanged while
    reserving more of the TV viewport for actual content.
    ============================================================ */
 
 .bigscreen-dashboard-scrollable-content {
-  padding-bottom: 36px;
+  padding-bottom: 2.25rem;
 }
 
 .bigscreen-rail {
-  padding-left: 56px;
-  margin-bottom: 24px;
+  padding-left: 3.5rem;
+  margin-bottom: 1.5rem;
 }
 
 .bigscreen-rail-header {
-  margin-bottom: 10px;
+  margin-bottom: 0.625rem;
 }
 
 .bigscreen-rail-title {
-  font-size: 18px;
+  font-size: 1.125rem;
 }
 
 .bigscreen-rail-track {
-  gap: 16px;
-  padding: 8px 4px;
-  margin-right: 56px;
+  gap: 1rem;
+  padding: 0.5rem 0.25rem;
+  margin-right: 3.5rem;
 }
 
 .bigscreen-game-card {
-  width: 148px;
+  width: 9.25rem;
 }
 
 .bigscreen-game-card-body {
-  padding: 10px;
+  padding: 0.625rem;
 }
 
 .bigscreen-game-card-name {
-  font-size: 12px;
+  font-size: 0.75rem;
 }
 
 .bigscreen-game-card-meta {
-  font-size: 10px;
+  font-size: 0.625rem;
 }
 
 .bigscreen-gamepage-hero {
-  min-height: 410px;
+  min-height: 25.625rem;
 }
 
 .bigscreen-gamepage-hero-content {
-  padding: 76px 56px 24px;
-  gap: 10px;
+  padding: 4.75rem 3.5rem 1.5rem;
+  gap: 0.625rem;
 }
 
 .bigscreen-gamepage-hero-back {
-  top: 24px;
-  left: 56px;
-  width: 44px;
-  height: 44px;
+  top: 1.5rem;
+  left: 3.5rem;
+  width: 2.75rem;
+  height: 2.75rem;
 }
 
 .bigscreen-gamepage-hero-info {
-  max-width: 1100px;
-  gap: 5px;
+  max-width: 68.75rem;
+  gap: 0.3125rem;
 }
 
 .bigscreen-gamepage-hero-logo {
-  max-width: 400px;
-  max-height: 110px;
-  margin-bottom: 4px;
+  max-width: 25rem;
+  max-height: 6.875rem;
+  margin-bottom: 0.25rem;
 }
 
 .bigscreen-gamepage-hero-title {
-  font-size: 48px;
-  margin-bottom: 4px;
+  margin-bottom: 0.25rem;
 }
 
 .bigscreen-gamepage-hero-subtitle {
-  font-size: 15px;
+  font-size: 0.9375rem;
 }
 
 .bigscreen-gamepage-meta-strip-inline {
-  gap: 7px;
-  margin-top: 2px;
-  margin-bottom: 2px;
+  gap: 0.4375rem;
+  margin-top: 0.125rem;
+  margin-bottom: 0.125rem;
 }
 
 .bigscreen-gamepage-hero-actions {
-  gap: 10px;
-  margin-top: 4px;
+  gap: 0.625rem;
+  margin-top: 0.25rem;
 }
 
 .bigscreen-gamepage-hero-actions .bigscreen-details-btn {
-  padding-top: 10px;
-  padding-bottom: 10px;
+  padding-top: 0.625rem;
+  padding-bottom: 0.625rem;
 }
 
 .bigscreen-gamepage > .bigscreen-tab-bar {
-  padding: 10px 56px;
+  padding: 0.625rem 3.5rem;
 }
 
 .bigscreen-gamepage-tab-scroll-region {
-  padding: 0 56px 48px;
+  padding: 0 3.5rem 3rem;
 }
 
 .bigscreen-gamepage-overview,
 .bigscreen-gamepage-media,
 .bigscreen-gamepage-specs,
 .bigscreen-gamepage-more {
-  max-width: 1680px;
-  padding: 20px 0;
-  gap: 20px;
+  max-width: 105rem;
+  padding: 1.25rem 0;
+  gap: 1.25rem;
 }
 
 .bigscreen-gamepage-2col {
-  gap: 18px;
+  gap: 1.125rem;
 }
 
 .bigscreen-store-featured-pane {
-  padding: 0 56px 14px;
+  padding: 0 3.5rem 0.875rem;
 }
 
 .bigscreen-store-featured-pane .bigscreen-details-pane-content {
-  max-width: 1100px;
+  max-width: 68.75rem;
 }
 
 .bigscreen-store-featured-pane .bigscreen-details-logo-area {
-  min-height: 88px;
-  height: 88px;
-  margin-bottom: 8px;
+  min-height: 5.5rem;
+  height: 5.5rem;
+  margin-bottom: 0.5rem;
 }
 
 .bigscreen-store-featured-pane .bigscreen-store-featured-logo {
-  max-width: 360px;
-  max-height: 84px;
+  max-width: 22.5rem;
+  max-height: 5.25rem;
   margin-bottom: 0;
 }
 
 .bigscreen-store-featured-pane .bigscreen-store-featured-title {
-  font-size: 36px;
+  font-size: 2.25rem;
   margin-bottom: 0;
   line-clamp: 2;
 }
 
 .bigscreen-store-featured-pane .bigscreen-details-meta {
-  gap: 8px;
-  margin-bottom: 8px;
+  gap: 0.5rem;
+  margin-bottom: 0.5rem;
 }
 
 .bigscreen-store-featured-pane .bigscreen-details-description {
-  max-width: 900px;
-  font-size: 14px;
+  max-width: 56.25rem;
+  font-size: 0.875rem;
   line-height: 1.4;
-  margin-bottom: 12px;
+  margin-bottom: 0.75rem;
   min-height: 4.2em;
 }
 
 .bigscreen-store-featured-pane .bigscreen-details-actions {
-  gap: 10px;
+  gap: 0.625rem;
 }
 
 .bigscreen-store-tabs-wrapper {
-  padding: 12px 56px 4px;
+  padding: 0.75rem 3.5rem 0.25rem;
 }
 
 .store-deals-grid,
 .store-wishlist-grid {
-  grid-template-columns: repeat(auto-fill, minmax(148px, 1fr));
-  gap: 18px;
-  padding: 20px 56px 44px;
+  grid-template-columns: repeat(auto-fill, minmax(9.25rem, 1fr));
+  gap: 1.125rem;
+  padding: 1.25rem 3.5rem 2.75rem;
 }
 
 .bigscreen-store-card-details {
-  padding: 10px;
+  padding: 0.625rem;
 }
 
 .deal-game-title {
-  font-size: 13px;
+  font-size: 0.8125rem;
 }
 
-@media (min-width: 1700px) {
+@media (min-width: 106.25rem) { /* 1700px */
   .bigscreen-game-card {
-    width: 156px;
+    width: 9.75rem;
   }
 
   .bigscreen-gamepage-hero {
-    min-height: 440px;
+    min-height: 27.5rem;
   }
 
   .bigscreen-gamepage-overview,
   .bigscreen-gamepage-media,
   .bigscreen-gamepage-specs,
   .bigscreen-gamepage-more {
-    max-width: 1840px;
+    max-width: 115rem;
   }
 }
 
-@media (max-width: 900px) {
+@media (max-width: 56.25rem) { /* 900px */
   .bigscreen-rail,
   .bigscreen-store-featured-pane,
   .bigscreen-gamepage-tab-scroll-region {
-    padding-left: 24px;
-    padding-right: 24px;
+    padding-left: 1.5rem;
+    padding-right: 1.5rem;
   }
 
   .bigscreen-rail-track {
-    margin-right: 24px;
+    margin-right: 1.5rem;
   }
 
   .bigscreen-gamepage-hero {
-    min-height: 360px;
+    min-height: 22.5rem;
   }
 
   .bigscreen-gamepage-2col {
@@ -2620,49 +2678,49 @@
   }
 
   .bigscreen-gamepage-hero-content {
-    padding: 68px 24px 18px;
+    padding: 4.25rem 1.5rem 1.125rem;
   }
 
   .bigscreen-gamepage-hero-back {
-    left: 24px;
+    left: 1.5rem;
   }
 
   .bigscreen-gamepage > .bigscreen-tab-bar {
-    padding-left: 24px;
-    padding-right: 24px;
+    padding-left: 1.5rem;
+    padding-right: 1.5rem;
   }
 
   .bigscreen-store-tabs-wrapper {
-    padding-left: 24px;
-    padding-right: 24px;
+    padding-left: 1.5rem;
+    padding-right: 1.5rem;
   }
 
   .store-deals-grid,
   .store-wishlist-grid {
-    padding-left: 24px;
-    padding-right: 24px;
+    padding-left: 1.5rem;
+    padding-right: 1.5rem;
   }
 }
 
 /* ============================================================
-   Big Screen — navigation clarity pass
+   Big Screen — navigation clarity pass (rem-scaled)
    ============================================================ */
 
 .bigscreen-tab-bar-status {
   display: inline-flex;
   align-items: baseline;
-  gap: 8px;
+  gap: 0.5rem;
   flex: 0 0 auto;
-  min-width: 112px;
+  min-width: 7rem;
   color: color-mix(in srgb, var(--bigscreen-text) 48%, transparent);
-  font-size: 11px;
+  font-size: 0.6875rem;
   font-weight: 700;
   white-space: nowrap;
 }
 
 .bigscreen-tab-bar-status strong {
   color: var(--bigscreen-text);
-  font-size: 12px;
+  font-size: 0.75rem;
 }
 
 .bigscreen-tab-bar-status span {
@@ -2672,11 +2730,11 @@
 
 .bigscreen-gamepage-hero-back {
   width: auto;
-  min-width: 44px;
-  padding: 0 14px;
-  gap: 7px;
-  border-radius: 24px;
-  font-size: 12px;
+  min-width: 2.75rem;
+  padding: 0 0.875rem;
+  gap: 0.4375rem;
+  border-radius: 1.5rem;
+  font-size: 0.75rem;
   font-weight: 800;
 }
 
@@ -2685,7 +2743,7 @@
 }
 
 .bigscreen-gamepage-hero-actions .bigscreen-details-btn--primary {
-  min-width: 150px;
+  min-width: 9.375rem;
 }
 
 .bigscreen-rail.is-active .bigscreen-rail-header {
@@ -2694,9 +2752,9 @@
 
 .bigscreen-rail.is-active .bigscreen-rail-header::after {
   content: "";
-  width: 7px;
-  height: 7px;
-  margin-left: 2px;
+  width: 0.4375rem;
+  height: 0.4375rem;
+  margin-left: 0.125rem;
   border-radius: 50%;
   background: var(--bigscreen-accent);
   box-shadow: 0 0 10px var(--bigscreen-accent-glow);
@@ -2710,20 +2768,20 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 20px;
-  padding: 18px 56px 4px;
+  gap: 1.25rem;
+  padding: 1.125rem 3.5rem 0.25rem;
   color: color-mix(in srgb, var(--bigscreen-text) 58%, transparent);
 }
 
 .bigscreen-store-context > div {
   display: flex;
   align-items: baseline;
-  gap: 12px;
+  gap: 0.75rem;
 }
 
 .bigscreen-store-context-eyebrow {
   color: var(--bigscreen-accent-soft-text);
-  font-size: 10px;
+  font-size: 0.625rem;
   font-weight: 900;
   letter-spacing: 0.16em;
   text-transform: uppercase;
@@ -2731,29 +2789,29 @@
 
 .bigscreen-store-context strong {
   color: var(--bigscreen-text);
-  font-size: 18px;
+  font-size: 1.125rem;
   font-weight: 850;
 }
 
 .bigscreen-store-context-hint {
   color: color-mix(in srgb, var(--bigscreen-text) 38%, transparent);
-  font-size: 11px;
+  font-size: 0.6875rem;
   font-weight: 700;
   white-space: nowrap;
 }
 
-@media (max-width: 900px) {
+@media (max-width: 56.25rem) {
   .bigscreen-tab-bar-status {
     min-width: auto;
   }
 
   .bigscreen-store-context {
-    padding-left: 24px;
-    padding-right: 24px;
+    padding-left: 1.5rem;
+    padding-right: 1.5rem;
   }
 }
 
-@media (max-width: 760px) {
+@media (max-width: 47.5rem) {
   .bigscreen-tab-bar-status {
     display: none;
   }
@@ -2761,10 +2819,1069 @@
   .bigscreen-store-context {
     align-items: flex-start;
     flex-direction: column;
-    gap: 5px;
+    gap: 0.3125rem;
   }
 
   .bigscreen-store-context-hint {
     white-space: normal;
   }
 }
+
+/* ============================================================
+   Big Screen — page polish (Lane H)
+   Mods / Emulators / Docs / System hub / Community / News /
+   Friends. Rows, tiles, modals, back headers and inputs that
+   the fixer lanes wired with inline styles are consolidated here
+   so every controller-first surface shares one token language.
+   All sizes are rem (19px root), all colors resolve through
+   the --bigscreen-* token set at the top of this file.
+   ============================================================ */
+
+/* ── Back header (BigScreenBackHeader) ─────────────────────────── */
+
+.bigscreen-back-header {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  min-width: 0;
+  flex-shrink: 0;
+}
+
+.bigscreen-back-header-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  flex-shrink: 0;
+  padding: 0.625rem 1.25rem;
+  border-radius: 2rem;
+  border: 1px solid color-mix(in srgb, var(--bigscreen-text) 14%, transparent);
+  background: color-mix(in srgb, var(--bigscreen-text) 6%, transparent);
+  color: color-mix(in srgb, var(--bigscreen-text) 72%, transparent);
+  font-size: 0.875rem;
+  font-weight: 800;
+  cursor: pointer;
+  outline: none;
+  transition: color var(--duration-normal) var(--ease-standard), background var(--duration-normal) var(--ease-standard), border-color var(--duration-normal) var(--ease-standard), box-shadow var(--duration-normal) var(--ease-standard), transform var(--duration-normal) var(--ease-standard);
+}
+.bigscreen-back-header-btn svg { width: 1rem; height: 1rem; }
+.bigscreen-back-header-btn:hover,
+.bigscreen-back-header-btn[data-focused="true"] {
+  background: color-mix(in srgb, var(--bigscreen-text) 14%, transparent);
+  border-color: var(--bigscreen-text);
+  color: var(--bigscreen-text);
+  transform: translateX(-2px);
+}
+.bigscreen-back-header-btn[data-focused="true"] {
+  box-shadow: var(--bigscreen-focus-glow);
+}
+.bigscreen-back-header-copy {
+  display: flex;
+  flex-direction: column;
+  gap: 0.125rem;
+  min-width: 0;
+}
+.bigscreen-back-header-title {
+  margin: 0;
+  font-size: 1.5rem;
+  font-weight: 900;
+  letter-spacing: -0.5px;
+  color: var(--bigscreen-text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.bigscreen-back-header-subtitle {
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: color-mix(in srgb, var(--bigscreen-text) 50%, transparent);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+/* Breathing room between the drill-down header and the scroll body. */
+.bigscreen-library-dashboard > .bigscreen-back-header {
+  margin-bottom: 1.25rem;
+}
+
+/* ── Compact action buttons (modal footers, toolbars) ──────────── */
+
+.bigscreen-details-btn--compact {
+  padding: 0.5rem 1.125rem;
+  font-size: 0.875rem;
+}
+
+.bigscreen-details-btn:disabled,
+.setting-cycle-btn:disabled {
+  opacity: 0.45;
+}
+
+/* ── System hub left menu: icon chip + label ───────────────────── */
+
+.bigscreen-system-menu-item .menu-item-icon {
+  display: grid;
+  place-items: center;
+  width: 2.25rem;
+  height: 2.25rem;
+  flex-shrink: 0;
+  border-radius: 0.625rem;
+  background: color-mix(in srgb, var(--bigscreen-text) 6%, transparent);
+  color: color-mix(in srgb, var(--bigscreen-text) 62%, transparent);
+  transition: color var(--duration-normal) var(--ease-standard), background var(--duration-normal) var(--ease-standard);
+}
+.bigscreen-system-menu-item svg {
+  width: 1.25rem;
+  height: 1.25rem;
+}
+.bigscreen-system-menu-item:hover .menu-item-icon,
+.bigscreen-system-menu-item[data-focused="true"] .menu-item-icon {
+  color: var(--bigscreen-accent);
+  background: color-mix(in srgb, var(--bigscreen-accent) 14%, transparent);
+}
+.bigscreen-system-menu-item.active .menu-item-icon {
+  color: var(--bigscreen-accent);
+  background: color-mix(in srgb, var(--bigscreen-accent) 18%, transparent);
+}
+.menu-item-label {
+  flex: 1;
+  min-width: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* ── Two-line list rows (mods / ROMs) ──────────────────────────── */
+
+.bigscreen-option-row {
+  padding: 0.875rem 1.25rem;
+  border-radius: 0.75rem;
+  justify-content: space-between;
+  gap: 1rem;
+}
+.bigscreen-option-row[data-focused="true"] {
+  transform: translateX(2px);
+}
+.bigscreen-option-row-main {
+  display: flex;
+  flex-direction: column;
+  gap: 0.125rem;
+  min-width: 0;
+  flex: 1;
+}
+.bigscreen-option-row-title {
+  font-size: 0.875rem;
+  font-weight: 800;
+  color: var(--bigscreen-text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.bigscreen-option-row-sub {
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: color-mix(in srgb, var(--bigscreen-text) 45%, transparent);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.bigscreen-option-row-trail {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  flex-shrink: 0;
+}
+.bigscreen-option-badge {
+  font-size: 0.6875rem;
+  font-weight: 800;
+  padding: 0.25rem 0.625rem;
+  border-radius: 0.5rem;
+  line-height: 1.2;
+  white-space: nowrap;
+}
+.bigscreen-option-size {
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: color-mix(in srgb, var(--bigscreen-text) 55%, transparent);
+  min-width: 2.75rem;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+/* ── Centered console dialog (BigScreenModal + friends/news) ───── */
+
+.bigscreen-overlay-drawer--modal {
+  justify-content: center;
+  align-items: center;
+  background: color-mix(in srgb, var(--bigscreen-shadow) 72%, transparent);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  animation: none;
+}
+.bigscreen-overlay-drawer-panel--modal {
+  width: auto;
+  height: auto;
+  max-height: 80%;
+  border-radius: 1.25rem;
+  border: var(--bigscreen-glass-border);
+  background: var(--bigscreen-bg-raised);
+  box-shadow: 0 1.5rem 3.75rem color-mix(in srgb, var(--bigscreen-shadow) 80%, transparent);
+  animation: bs3-overlay-in 220ms var(--ease-enter) both;
+}
+.bigscreen-modal-footer {
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  gap: 0.75rem;
+  padding-top: 1.25rem;
+  margin-top: 1.25rem;
+  border-top: 1px solid color-mix(in srgb, var(--bigscreen-text) 8%, transparent);
+}
+.bigscreen-modal-body-text {
+  margin: 0;
+  font-size: 0.875rem;
+  line-height: 1.6;
+  color: color-mix(in srgb, var(--bigscreen-text) 75%, transparent);
+}
+.bigscreen-modal-stat-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.75rem;
+}
+.bigscreen-modal-stat-full {
+  grid-column: 1 / -1;
+}
+.bigscreen-modal-stat {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  padding: 0.75rem 0.875rem;
+  border-radius: 0.625rem;
+  background: color-mix(in srgb, var(--bigscreen-text) 3%, transparent);
+  border: 1px solid color-mix(in srgb, var(--bigscreen-text) 6%, transparent);
+}
+.bigscreen-modal-stat-label {
+  font-size: 0.6875rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: color-mix(in srgb, var(--bigscreen-text) 45%, transparent);
+}
+.bigscreen-modal-stat-value {
+  font-size: 0.875rem;
+  font-weight: 700;
+  color: var(--bigscreen-text);
+  word-break: break-word;
+}
+
+/* ── Shared text inputs (friends profile / chat / add-friend) ───── */
+
+.bigscreen-input {
+  flex: 1;
+  background: color-mix(in srgb, var(--bigscreen-shadow) 25%, transparent);
+  border: 1px solid color-mix(in srgb, var(--bigscreen-text) 12%, transparent);
+  color: var(--bigscreen-text);
+  padding: 0.5rem 0.75rem;
+  border-radius: 0.375rem;
+  font-size: 0.8125rem;
+  font-family: inherit;
+  outline: none;
+  transition: border-color var(--duration-normal) var(--ease-standard), box-shadow var(--duration-normal) var(--ease-standard);
+}
+.bigscreen-input::placeholder {
+  color: color-mix(in srgb, var(--bigscreen-text) 35%, transparent);
+}
+.bigscreen-input[data-focused="true"],
+.bigscreen-input:focus {
+  border-color: var(--bigscreen-accent);
+  box-shadow: 0 0 0 2px var(--bigscreen-bg), 0 0 0 3px var(--bigscreen-accent);
+}
+.bigscreen-input--textarea {
+  height: 5rem;
+  resize: none;
+  width: 100%;
+}
+.bigscreen-input-group {
+  display: flex;
+  flex-direction: column;
+  gap: 0.375rem;
+}
+.bigscreen-input-group label {
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: color-mix(in srgb, var(--bigscreen-text) 55%, transparent);
+}
+
+/* ── Card cover placeholder (library / news / store tiles) ─────── */
+
+.bigscreen-game-card-cover-placeholder {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: color-mix(in srgb, var(--bigscreen-text) 35%, transparent);
+  background: radial-gradient(ellipse at 50% 40%, color-mix(in srgb, var(--bigscreen-text) 5%, transparent), transparent 70%);
+}
+
+/* ── Emulator tiles ────────────────────────────────────────────── */
+
+.bigscreen-game-card-cover-logo {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--color-bg-tertiary);
+  padding: 1.25rem;
+  box-sizing: border-box;
+}
+.bigscreen-tile-glyph {
+  font-size: 2.75rem;
+  line-height: 1;
+}
+
+/* ── News page ─────────────────────────────────────────────────── */
+
+.bigscreen-news-toolbar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 1rem;
+  margin-bottom: 1.25rem;
+}
+.bigscreen-news-toolbar h3 {
+  margin: 0;
+}
+.bigscreen-news-content {
+  height: 100%;
+  overflow-y: auto;
+  padding: 1.875rem;
+  box-sizing: border-box;
+}
+.bigscreen-news-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(16rem, 1fr));
+  gap: 1.25rem;
+}
+.bigscreen-news-card {
+  width: 100%;
+  height: 17rem;
+  display: flex;
+  flex-direction: column;
+  background-color: var(--color-bg-card);
+}
+.bigscreen-news-card-cover {
+  height: 8.5rem;
+  flex-shrink: 0;
+  position: relative;
+}
+.bigscreen-news-card-cover img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+.bigscreen-news-accent-dot {
+  position: absolute;
+  top: 0.5rem;
+  right: 0.5rem;
+  width: 0.5rem;
+  height: 0.5rem;
+  border-radius: 50%;
+  background: var(--bigscreen-accent);
+  box-shadow: 0 0 8px var(--bigscreen-accent-glow);
+  z-index: 5;
+}
+.bigscreen-news-card-body {
+  flex: 1;
+  min-height: 0;
+  padding: 0.75rem;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+.bigscreen-news-card-title {
+  font-size: 0.875rem;
+  font-weight: 600;
+  line-height: 1.4;
+  color: var(--bigscreen-text);
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 3;
+  line-clamp: 3;
+  overflow: hidden;
+  margin: 0;
+}
+.bigscreen-news-card-meta {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.6875rem;
+}
+.bigscreen-news-source {
+  color: var(--bigscreen-accent-soft-text);
+  font-weight: 700;
+}
+.bigscreen-news-date {
+  color: color-mix(in srgb, var(--bigscreen-text) 40%, transparent);
+  font-variant-numeric: tabular-nums;
+}
+
+/* ── News reader modal ─────────────────────────────────────────── */
+
+.bigscreen-news-reader-banner {
+  position: relative;
+  width: 100%;
+  height: 13.75rem;
+  background: var(--color-bg-tertiary);
+  flex-shrink: 0;
+}
+.bigscreen-news-reader-banner img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+.bigscreen-news-reader-banner::after {
+  content: "";
+  position: absolute;
+  inset: auto 0 0 0;
+  height: 6.25rem;
+  background: linear-gradient(to top, var(--bigscreen-bg-raised), transparent);
+  pointer-events: none;
+}
+.bigscreen-news-reader-body {
+  flex: 1;
+  padding: 1.5rem 1.875rem;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+.bigscreen-news-reader-meta {
+  display: flex;
+  align-items: center;
+  gap: 0.625rem;
+}
+.bigscreen-news-reader-date {
+  font-size: 0.75rem;
+  color: color-mix(in srgb, var(--bigscreen-text) 45%, transparent);
+}
+.bigscreen-news-reader-title {
+  margin: 0.3125rem 0 0.625rem 0;
+  font-size: 1.375rem;
+  line-height: 1.4;
+  font-weight: 800;
+  color: var(--bigscreen-text);
+}
+.bigscreen-news-reader-copy {
+  font-size: 0.875rem;
+  line-height: 1.6;
+  color: color-mix(in srgb, var(--bigscreen-text) 70%, transparent);
+  margin: 0;
+  white-space: pre-wrap;
+}
+.bigscreen-news-reader-footer {
+  padding: 1.25rem 1.875rem;
+  border-top: 1px solid color-mix(in srgb, var(--bigscreen-text) 8%, transparent);
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.75rem;
+  background: color-mix(in srgb, var(--bigscreen-bg) 50%, transparent);
+  flex-shrink: 0;
+}
+
+/* ── Friends page ──────────────────────────────────────────────── */
+
+.bigscreen-friends-toolbar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 1rem;
+  margin-bottom: 1.25rem;
+}
+.bigscreen-friends-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(16rem, 1fr));
+  gap: 1.25rem;
+}
+.bigscreen-friend-card {
+  width: 100%;
+  height: 12.5rem;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  padding: 1rem;
+  background-color: var(--color-bg-card);
+}
+.bigscreen-friend-card-top {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  min-width: 0;
+}
+.bigscreen-friend-avatar {
+  width: 3rem;
+  height: 3rem;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--bigscreen-accent);
+  color: var(--color-text-inverse);
+  font-size: 1rem;
+  font-weight: 800;
+  flex-shrink: 0;
+}
+.bigscreen-friend-id {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+}
+.bigscreen-friend-name {
+  margin: 0;
+  font-size: 0.9375rem;
+  font-weight: 700;
+  color: var(--bigscreen-text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.bigscreen-friend-status {
+  margin: 0.25rem 0 0 0;
+  font-size: 0.6875rem;
+  color: color-mix(in srgb, var(--bigscreen-text) 45%, transparent);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.bigscreen-friend-pin {
+  display: flex;
+  color: var(--bigscreen-accent-soft-text);
+  flex-shrink: 0;
+}
+.bigscreen-friend-pin svg {
+  width: 0.875rem;
+  height: 0.875rem;
+}
+.bigscreen-friend-stats {
+  font-size: 0.6875rem;
+  color: color-mix(in srgb, var(--bigscreen-text) 45%, transparent);
+  border-top: 1px solid color-mix(in srgb, var(--bigscreen-text) 6%, transparent);
+  padding-top: 0.5rem;
+}
+.bigscreen-sessions-list {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+.bigscreen-session-row {
+  padding: 1.25rem;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 1.5rem;
+  flex-wrap: wrap;
+}
+.bigscreen-session-main {
+  display: flex;
+  flex-direction: column;
+  gap: 0.375rem;
+  min-width: 0;
+}
+.bigscreen-session-title-row {
+  display: flex;
+  align-items: center;
+  gap: 0.625rem;
+}
+.bigscreen-session-title {
+  margin: 0;
+  font-size: 1rem;
+  font-weight: 700;
+  color: var(--bigscreen-text);
+}
+.bigscreen-session-meta {
+  font-size: 0.75rem;
+  color: color-mix(in srgb, var(--bigscreen-text) 50%, transparent);
+}
+.bigscreen-session-desc {
+  font-size: 0.75rem;
+  color: color-mix(in srgb, var(--bigscreen-text) 65%, transparent);
+}
+.bigscreen-session-actions {
+  display: flex;
+  gap: 0.625rem;
+  align-items: center;
+  flex-wrap: wrap;
+}
+.bigscreen-rsvp-group {
+  display: flex;
+  border-radius: 0.375rem;
+  background: color-mix(in srgb, var(--bigscreen-text) 2%, transparent);
+  border: 1px solid color-mix(in srgb, var(--bigscreen-text) 8%, transparent);
+  padding: 0.125rem;
+}
+.bigscreen-rsvp-btn {
+  border: none;
+  background: transparent;
+  color: color-mix(in srgb, var(--bigscreen-text) 65%, transparent);
+  padding: 0.375rem 0.75rem;
+  border-radius: 0.25rem;
+  font-size: 0.75rem;
+  font-weight: 600;
+  cursor: pointer;
+  outline: none;
+  transition: color var(--duration-normal) var(--ease-standard), background var(--duration-normal) var(--ease-standard), box-shadow var(--duration-normal) var(--ease-standard);
+}
+.bigscreen-rsvp-btn.is-selected-going {
+  background: var(--bigscreen-success);
+  color: var(--bigscreen-bg);
+  font-weight: 700;
+}
+.bigscreen-rsvp-btn.is-selected-maybe {
+  background: var(--bigscreen-warning);
+  color: var(--bigscreen-bg);
+  font-weight: 700;
+}
+.bigscreen-rsvp-btn.is-selected-declined {
+  background: var(--bigscreen-danger);
+  color: var(--bigscreen-text);
+  font-weight: 700;
+}
+.bigscreen-rsvp-btn[data-focused="true"] {
+  box-shadow: var(--bigscreen-focus-glow);
+}
+
+/* ── Friends chat modal ────────────────────────────────────────── */
+
+.bigscreen-chat-header {
+  padding: 1.25rem 1.5rem;
+  border-bottom: 1px solid color-mix(in srgb, var(--bigscreen-text) 8%, transparent);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 1rem;
+  flex-shrink: 0;
+}
+.bigscreen-chat-header h3 {
+  margin: 0;
+  font-size: 1.0625rem;
+  font-weight: 800;
+  color: var(--bigscreen-text);
+}
+.bigscreen-chat-close {
+  display: grid;
+  place-items: center;
+  width: 2rem;
+  height: 2rem;
+  border-radius: 0.5rem;
+  border: 1px solid transparent;
+  background: color-mix(in srgb, var(--bigscreen-text) 6%, transparent);
+  color: color-mix(in srgb, var(--bigscreen-text) 65%, transparent);
+  cursor: pointer;
+  outline: none;
+  transition: color var(--duration-normal) var(--ease-standard), background var(--duration-normal) var(--ease-standard), border-color var(--duration-normal) var(--ease-standard), box-shadow var(--duration-normal) var(--ease-standard);
+}
+.bigscreen-chat-close:hover,
+.bigscreen-chat-close[data-focused="true"] {
+  color: var(--bigscreen-text);
+  border-color: var(--bigscreen-text);
+  background: color-mix(in srgb, var(--bigscreen-text) 12%, transparent);
+}
+.bigscreen-chat-close svg {
+  width: 1rem;
+  height: 1rem;
+}
+.bigscreen-chat-body {
+  flex: 1;
+  padding: 1.25rem 1.5rem;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+.bigscreen-chat-empty {
+  text-align: center;
+  color: color-mix(in srgb, var(--bigscreen-text) 45%, transparent);
+  font-size: 0.8125rem;
+  padding: 2.5rem 0;
+}
+.bigscreen-chat-bubble {
+  max-width: 70%;
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+.bigscreen-chat-bubble--me {
+  align-self: flex-end;
+}
+.bigscreen-chat-bubble--them {
+  align-self: flex-start;
+}
+.bigscreen-chat-bubble-author {
+  font-size: 0.625rem;
+  color: color-mix(in srgb, var(--bigscreen-text) 45%, transparent);
+}
+.bigscreen-chat-bubble-author--right {
+  text-align: right;
+}
+.bigscreen-chat-bubble-text {
+  padding: 0.625rem 0.875rem;
+  border-radius: 0.625rem;
+  font-size: 0.8125rem;
+  line-height: 1.45;
+}
+.bigscreen-chat-bubble--me .bigscreen-chat-bubble-text {
+  background: var(--bigscreen-accent);
+  color: var(--color-text-inverse);
+}
+.bigscreen-chat-bubble--them .bigscreen-chat-bubble-text {
+  background: var(--color-bg-tertiary);
+  color: var(--bigscreen-text);
+}
+.bigscreen-chat-input-row {
+  padding: 1rem 1.5rem;
+  border-top: 1px solid color-mix(in srgb, var(--bigscreen-text) 8%, transparent);
+  display: flex;
+  gap: 0.625rem;
+  align-items: center;
+  background: color-mix(in srgb, var(--bigscreen-bg) 45%, transparent);
+  flex-shrink: 0;
+}
+
+/* ── Friends profile tab ───────────────────────────────────────── */
+
+.bigscreen-profile-form {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+.bigscreen-profile-key {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 0.6875rem;
+  word-break: break-all;
+  background: color-mix(in srgb, var(--bigscreen-shadow) 25%, transparent);
+  border: 1px solid color-mix(in srgb, var(--bigscreen-text) 6%, transparent);
+  padding: 0.625rem;
+  border-radius: 0.375rem;
+  color: color-mix(in srgb, var(--bigscreen-text) 75%, transparent);
+}
+.bigscreen-profile-stat-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 0.625rem;
+  margin-top: 0.625rem;
+}
+.bigscreen-profile-stat-box {
+  background: color-mix(in srgb, var(--bigscreen-text) 2%, transparent);
+  border: 1px solid color-mix(in srgb, var(--bigscreen-text) 5%, transparent);
+  padding: 0.625rem;
+  border-radius: 0.375rem;
+  text-align: center;
+}
+.bigscreen-profile-stat-value {
+  display: block;
+  font-size: 1.125rem;
+  font-weight: 700;
+  color: var(--bigscreen-text);
+  font-variant-numeric: tabular-nums;
+}
+.bigscreen-profile-stat-label {
+  font-size: 0.6875rem;
+  color: color-mix(in srgb, var(--bigscreen-text) 45%, transparent);
+}
+
+/* ── Docs page (BigScreenDocsPage) ─────────────────────────────── */
+
+.bigscreen-docs-content {
+  max-width: 62rem;
+  padding-bottom: 2.5rem;
+}
+.bigscreen-docs-content section {
+  margin-bottom: 2rem;
+}
+.bigscreen-docs-content section > h2 {
+  margin: 0 0 0.875rem 0;
+  font-size: 1.375rem;
+  font-weight: 900;
+  letter-spacing: -0.3px;
+  color: var(--bigscreen-text);
+  border-bottom: 1px solid color-mix(in srgb, var(--bigscreen-text) 8%, transparent);
+  padding-bottom: 0.625rem;
+}
+.bigscreen-docs-content p {
+  margin: 0 0 0.875rem 0;
+  font-size: 0.9375rem;
+  line-height: 1.7;
+  color: color-mix(in srgb, var(--bigscreen-text) 78%, transparent);
+}
+.bigscreen-docs-content h3 {
+  margin: 1.375rem 0 0.625rem 0;
+  font-size: 1.0625rem;
+  font-weight: 800;
+  color: var(--bigscreen-text);
+}
+.bigscreen-docs-content ul {
+  list-style: none;
+  margin: 0 0 0.875rem 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+.bigscreen-docs-content ul ul {
+  margin: 0.5rem 0 0 0;
+}
+.bigscreen-docs-li {
+  display: flex;
+  gap: 0.625rem;
+  align-items: flex-start;
+}
+.bigscreen-docs-li-dot {
+  width: 0.375rem;
+  height: 0.375rem;
+  border-radius: 50%;
+  margin-top: 0.5rem;
+  flex-shrink: 0;
+  background: var(--bigscreen-accent);
+  box-shadow: 0 0 6px var(--bigscreen-accent-glow);
+}
+.bigscreen-docs-content a {
+  color: var(--bigscreen-accent-soft-text);
+  font-weight: 600;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  text-decoration-color: color-mix(in srgb, var(--bigscreen-accent) 40%, transparent);
+}
+.bigscreen-docs-content code {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 0.92em;
+  padding: 0.125rem 0.375rem;
+  border-radius: 0.375rem;
+  background: color-mix(in srgb, var(--bigscreen-text) 8%, transparent);
+  border: 1px solid color-mix(in srgb, var(--bigscreen-text) 6%, transparent);
+  color: var(--bigscreen-accent-soft-text);
+}
+.bigscreen-docs-content kbd {
+  font-family: inherit;
+  font-size: 0.85em;
+  font-weight: 800;
+  padding: 0.125rem 0.5rem;
+  border-radius: 0.375rem;
+  border: 1px solid color-mix(in srgb, var(--bigscreen-text) 18%, transparent);
+  background: color-mix(in srgb, var(--bigscreen-text) 6%, transparent);
+  color: var(--bigscreen-text);
+  box-shadow: 0 2px 0 color-mix(in srgb, var(--bigscreen-text) 12%, transparent);
+}
+
+/* ── Community page (BigScreenCommunity) ───────────────────────── */
+
+.bigscreen-community-page {
+  padding: 2.5rem 3.5rem;
+  overflow-y: auto;
+  height: 100%;
+  box-sizing: border-box;
+}
+.bigscreen-community-page > h2 {
+  margin: 0 0 1.5rem 0;
+  font-size: clamp(1.5rem, 3vw, 2.25rem);
+  font-weight: 900;
+  letter-spacing: -0.5px;
+  color: var(--bigscreen-text);
+}
+.bigscreen-kpi-grid {
+  margin-bottom: 1.875rem;
+  gap: 1.25rem;
+}
+.bigscreen-community-main-grid {
+  gap: 1.875rem;
+  align-items: flex-start;
+}
+.bigscreen-gamepage-2col[data-cols="4"] {
+  grid-template-columns: repeat(4, 1fr);
+}
+.bigscreen-kpi-card {
+  background: var(--bigscreen-glass-bg);
+  border: var(--bigscreen-glass-border);
+  border-radius: 1rem;
+  padding: 1.25rem;
+  backdrop-filter: var(--bigscreen-glass-blur);
+  -webkit-backdrop-filter: var(--bigscreen-glass-blur);
+  display: flex;
+  flex-direction: column;
+  gap: 0.375rem;
+}
+.bigscreen-kpi-label {
+  font-size: 0.6875rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: color-mix(in srgb, var(--bigscreen-text) 45%, transparent);
+}
+.bigscreen-kpi-value {
+  font-size: 1.75rem;
+  font-weight: 800;
+  line-height: 1.1;
+  color: var(--bigscreen-text);
+  font-variant-numeric: tabular-nums;
+}
+.bigscreen-kpi-value--accent { color: var(--bigscreen-accent-soft-text); }
+.bigscreen-kpi-value--success { color: var(--bigscreen-success-soft); }
+.bigscreen-kpi-value--warning { color: var(--bigscreen-warning-soft); }
+.bigscreen-kpi-sub {
+  font-size: 0.6875rem;
+  font-weight: 600;
+  color: color-mix(in srgb, var(--bigscreen-text) 40%, transparent);
+}
+.bigscreen-panel-card {
+  background: var(--color-bg-secondary);
+  border: var(--bigscreen-glass-border);
+  border-radius: 1.25rem;
+  padding: 1.5rem;
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+.bigscreen-panel-card h3 {
+  margin: 0;
+  font-size: 1.125rem;
+  font-weight: 800;
+  color: var(--bigscreen-text);
+}
+.bigscreen-topgame-row {
+  display: flex;
+  align-items: center;
+  gap: 0.875rem;
+  padding: 0.625rem 0.875rem;
+  border: 1px solid transparent;
+  border-radius: 0.5rem;
+  background: color-mix(in srgb, var(--bigscreen-text) 2%, transparent);
+  cursor: pointer;
+  outline: none;
+  transition: color var(--duration-normal) var(--ease-standard), background var(--duration-normal) var(--ease-standard), border-color var(--duration-normal) var(--ease-standard), box-shadow var(--duration-normal) var(--ease-standard), transform var(--duration-normal) var(--ease-standard);
+}
+.bigscreen-topgame-row:hover,
+.bigscreen-topgame-row[data-focused="true"] {
+  background: color-mix(in srgb, var(--bigscreen-text) 8%, transparent);
+  border-color: var(--bigscreen-text);
+  transform: translateX(2px);
+}
+.bigscreen-topgame-row[data-focused="true"] {
+  box-shadow: var(--bigscreen-focus-glow);
+}
+.bigscreen-topgame-cover {
+  width: 2.25rem;
+  height: 3rem;
+  border-radius: 0.25rem;
+  overflow: hidden;
+  flex-shrink: 0;
+  background: var(--color-bg-tertiary);
+}
+.bigscreen-topgame-cover img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+.bigscreen-topgame-cover-fallback {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 0.25;
+}
+.bigscreen-topgame-id {
+  flex: 1;
+  min-width: 0;
+}
+.bigscreen-topgame-name {
+  font-size: 0.875rem;
+  font-weight: 700;
+  color: var(--bigscreen-text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.bigscreen-topgame-meta {
+  font-size: 0.75rem;
+  color: color-mix(in srgb, var(--bigscreen-text) 45%, transparent);
+  margin-top: 0.25rem;
+}
+.bigscreen-breakdown-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.625rem;
+}
+.bigscreen-breakdown-row {
+  font-size: 0.8125rem;
+}
+.bigscreen-breakdown-header {
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 0.25rem;
+}
+.bigscreen-breakdown-name {
+  color: color-mix(in srgb, var(--bigscreen-text) 80%, transparent);
+  font-weight: 600;
+}
+.bigscreen-breakdown-value {
+  color: color-mix(in srgb, var(--bigscreen-text) 45%, transparent);
+  font-variant-numeric: tabular-nums;
+}
+.bigscreen-breakdown-track {
+  height: 0.375rem;
+  border-radius: 0.1875rem;
+  background: var(--bigscreen-surface);
+  overflow: hidden;
+}
+.bigscreen-breakdown-fill {
+  height: 100%;
+  border-radius: inherit;
+}
+.bigscreen-breakdown-fill--accent { background: var(--bigscreen-accent); }
+.bigscreen-breakdown-fill--warning { background: var(--bigscreen-warning); }
+
+/* ── Shared polish ─────────────────────────────────────────────── */
+
+/* Readable measure for the drill-down list pages (mods / ROMs). */
+.bigscreen-dashboard-scrollable-content > .system-settings-list {
+  margin-bottom: 1.25rem;
+}
+.bigscreen-dashboard-scrollable-content > .system-settings-list,
+.bigscreen-dashboard-scrollable-content > .bigscreen-overlay-options-list {
+  max-width: 64rem;
+}
+
+/* Tab focus previously had no ring — bring it into the single-accent
+   focus contract (tabs are focusable in Friends / Game Hub). */
+.bigscreen-tab-bar-tab[data-focused="true"] {
+  box-shadow: var(--bigscreen-focus-glow);
+}
+
+/* ── Breakpoints for the polished pages ────────────────────────── */
+
+@media (max-width: 56.25rem) { /* 900px */
+  .bigscreen-community-page { padding: 1.5rem; }
+  .bigscreen-gamepage-2col[data-cols="4"] { grid-template-columns: repeat(2, 1fr); }
+  .bigscreen-news-content { padding: 1.25rem; }
+  .bigscreen-session-row { flex-direction: column; align-items: flex-start; }
+  .bigscreen-news-grid,
+  .bigscreen-friends-grid { grid-template-columns: repeat(auto-fill, minmax(14rem, 1fr)); }
+}
+
+@media (max-width: 47.5rem) { /* 760px */
+  .bigscreen-gamepage-2col[data-cols="4"] { grid-template-columns: 1fr; }
+  .bigscreen-friends-toolbar,
+  .bigscreen-news-toolbar { flex-direction: column; align-items: flex-start; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .bigscreen-overlay-drawer-panel--modal,
+  .bigscreen-news-reader-banner img {
+    animation: none !important;
+  }
+}
+

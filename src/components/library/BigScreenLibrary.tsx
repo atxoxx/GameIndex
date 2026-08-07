@@ -1,48 +1,67 @@
-import { useState, useMemo, useEffect, useRef } from "react";
-import type { Game, LibrarySource } from "../../types/game";
-import type { LibraryFilters, LibraryStatus, LibrarySort } from "../../hooks/useLibraryFilters";
-import { useFocusable } from "../../hooks/useFocusable";
-import BigScreenGameCard from "./BigScreenGameCard";
-import { SORT_LABELS } from "../../hooks/useLibraryFilters";
-import { useLanguage } from "../../context/LanguageContext";
+// BigScreenLibrary — self-contained controller-first library for Big
+// Screen Mode.
+//
+// Consumes `useLibraryFilters()` (context-backed via
+// LibraryFilterProvider) and `useGames()` directly — no props flow
+// from the desktop LibraryPage anymore. The desktop page and this
+// component mount exclusively per mode via ShellSwitch, so desktop
+// mode is untouched.
+//
+// Layout: title + filter chips row on top, then the windowed GameGrid
+// below (which owns the scroll + focus-restore behavior). Empty
+// states are handled here: a truly empty library gets the "switch to
+// desktop to import" message, a filter/search with no matches gets
+// the no-match hint.
+//
+// The filter dropdown drawer carries `data-bigscreen-overlay="true"`
+// so the gamepad engine treats it as an overlay: controller B closes
+// the drawer (via the Escape dispatch) instead of exiting Big Screen.
 
-interface BigScreenLibraryProps {
-  filteredGames: Game[];
-  totalGames: number;
-  onSelectGame: (game: Game) => void;
-  filters: LibraryFilters;
-  availableGenres: string[];
-  availablePlatforms: string[];
-  setSearch: (val: string) => void;
-  setGenres: (val: string[]) => void;
-  setPlatforms: (val: string[]) => void;
-  setStatus: (val: LibraryStatus) => void;
-  setSource: (val: LibrarySource) => void;
-  setSort: (val: LibrarySort) => void;
-  reset: () => void;
-}
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useNavigate } from "react-router-dom";
+import type { Game, LibrarySource } from "../../types/game";
+import type {
+  LibraryFilters,
+  LibraryStatus,
+  LibrarySort,
+} from "../../hooks/useLibraryFilters";
+import { useLibraryFilters, SORT_LABELS } from "../../hooks/useLibraryFilters";
+import { useGames } from "../../context/GameContext";
+import { useFocusable } from "../../hooks/useFocusable";
+import { useLanguage } from "../../context/LanguageContext";
+import GameGrid from "../bigscreen/GameGrid";
 
 type DropdownType = "platform" | "genre" | "status" | "source" | "sort" | null;
 
-export default function BigScreenLibrary({
-  filteredGames,
-  totalGames,
-  onSelectGame,
-  filters,
-  availableGenres,
-  availablePlatforms,
-  setSearch,
-  setGenres,
-  setPlatforms,
-  setStatus,
-  setSource,
-  setSort,
-  reset,
-}: BigScreenLibraryProps) {
+export default function BigScreenLibrary() {
   const { t } = useLanguage();
+  const navigate = useNavigate();
+  const { games, setSelectedGameId } = useGames();
+  const {
+    filters,
+    filteredGames,
+    availableGenres,
+    availablePlatforms,
+    setSearch,
+    setGenres,
+    setPlatforms,
+    setStatus,
+    setSource,
+    setSort,
+    reset,
+  } = useLibraryFilters(games);
+
   const [dropdown, setDropdown] = useState<DropdownType>(null);
   const [searchFocused, setSearchFocused] = useState(false);
   const searchInputRef = useRef<HTMLInputElement | null>(null);
+
+  const handleSelectGame = useCallback(
+    (game: Game) => {
+      setSelectedGameId(game.id);
+      navigate(`/library/${game.id}`);
+    },
+    [navigate, setSelectedGameId],
+  );
 
   // Focusable filters bar
   const searchChip = useFocusable(() => {
@@ -56,7 +75,8 @@ export default function BigScreenLibrary({
   const sortChip = useFocusable(() => setDropdown("sort"));
   const resetChip = useFocusable(() => reset());
 
-  // Close dropdown on Escape
+  // Close dropdown on Escape (controller B / X dispatch an Escape
+  // keydown while the drawer is marked as an overlay).
   useEffect(() => {
     if (!dropdown && !searchFocused) return;
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -91,7 +111,7 @@ export default function BigScreenLibrary({
         <div className="bigscreen-library-title-row">
           <h2 className="bigscreen-library-title">{t("bigscreen.library.myCollection")}</h2>
           <span className="bigscreen-library-count">
-            {t("bigscreen.library.countOf", { count: filteredGames.length, total: totalGames })}
+            {t("bigscreen.library.countOf", { count: filteredGames.length, total: games.length })}
           </span>
         </div>
 
@@ -151,28 +171,33 @@ export default function BigScreenLibrary({
         </div>
       </div>
 
-      {/* Main Grid View */}
-      <div className="bigscreen-library-grid-container">
-        {filteredGames.length === 0 ? (
+      {/* Library empty vs filtered grid */}
+      {games.length === 0 ? (
+        <div className="bigscreen-library-grid-container">
           <div className="bigscreen-library-empty-state">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" width="64" height="64" opacity="0.3">
-              <polygon points="12 2 2 22 22 22" />
+              <rect x="2" y="3" width="20" height="14" rx="2" ry="2" />
+              <line x1="8" y1="21" x2="16" y2="21" />
+              <line x1="12" y1="17" x2="12" y2="21" />
             </svg>
-            <h3>{t("bigscreen.library.noMatch")}</h3>
-            <p>{t("bigscreen.library.noMatchHint")}</p>
+            <h3>{t("bigscreen.library.noGamesDesc")}</h3>
           </div>
-        ) : (
-          <div className="bigscreen-library-grid">
-            {filteredGames.map((game) => (
-              <BigScreenGameCard
-                key={game.id}
-                game={game}
-                onClick={() => onSelectGame(game)}
-              />
-            ))}
-          </div>
-        )}
-      </div>
+        </div>
+      ) : (
+        <GameGrid
+          games={filteredGames}
+          onSelect={handleSelectGame}
+          emptyState={
+            <div className="bigscreen-library-empty-state">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" width="64" height="64" opacity="0.3">
+                <polygon points="12 2 2 22 22 22" />
+              </svg>
+              <h3>{t("bigscreen.library.noMatch")}</h3>
+              <p>{t("bigscreen.library.noMatchHint")}</p>
+            </div>
+          }
+        />
+      )}
 
       {/* Filter Options Dropdown Drawer */}
       {dropdown && (
@@ -231,7 +256,10 @@ function FilterDropdownOverlay({
   }, [type, t]);
 
   return (
-    <div className="bigscreen-overlay-drawer" onClick={onClose}>
+    // data-bigscreen-overlay="true": the gamepad engine treats this
+    // drawer as an overlay, so controller B dispatches Escape (closing
+    // the drawer) instead of invoking the shell exit / page back.
+    <div className="bigscreen-overlay-drawer" data-bigscreen-overlay="true" onClick={onClose}>
       <div className="bigscreen-overlay-drawer-panel" onClick={(e) => e.stopPropagation()}>
         <div className="bigscreen-overlay-drawer-header">
           <h3>{title}</h3>
@@ -271,27 +299,6 @@ function DropdownOptionsList({
   onClose,
 }: Omit<DropdownOverlayProps, "title">) {
   const { t } = useLanguage();
-  const renderOption = (label: string, active: boolean, onClick: () => void) => {
-    const optionProps = useFocusable(() => {
-      onClick();
-      // Keep dropdown open for multi-select, close for single select
-      if (type === "status" || type === "source" || type === "sort") {
-        onClose();
-      }
-    });
-
-    return (
-      <button
-        type="button"
-        key={label}
-        className={`bigscreen-overlay-drawer-option ${active ? "option-active" : ""}`}
-        {...optionProps}
-      >
-        <span className="option-checkbox">{active ? "✓" : ""}</span>
-        <span className="option-label">{label}</span>
-      </button>
-    );
-  };
 
   if (type === "platform") {
     return (
@@ -304,7 +311,16 @@ function DropdownOptionsList({
               : [...filters.platforms, plat];
             setPlatforms(next);
           };
-          return renderOption(plat, isActive, toggle);
+          return (
+            <FilterOption
+              key={plat}
+              label={plat}
+              active={isActive}
+              type={type}
+              onSelect={toggle}
+              onClose={onClose}
+            />
+          );
         })}
       </div>
     );
@@ -321,7 +337,16 @@ function DropdownOptionsList({
               : [...filters.genres, gen];
             setGenres(next);
           };
-          return renderOption(gen, isActive, toggle);
+          return (
+            <FilterOption
+              key={gen}
+              label={gen}
+              active={isActive}
+              type={type}
+              onSelect={toggle}
+              onClose={onClose}
+            />
+          );
         })}
       </div>
     );
@@ -330,9 +355,9 @@ function DropdownOptionsList({
   if (type === "status") {
     return (
       <div className="bigscreen-overlay-options-list">
-        {renderOption(t("common.all"), filters.status === "all", () => setStatus("all"))}
-        {renderOption(t("filter.installed"), filters.status === "installed", () => setStatus("installed"))}
-        {renderOption(t("filter.notInstalled"), filters.status === "not_installed", () => setStatus("not_installed"))}
+        <FilterOption label={t("common.all")} active={filters.status === "all"} type={type} onSelect={() => setStatus("all")} onClose={onClose} />
+        <FilterOption label={t("filter.installed")} active={filters.status === "installed"} type={type} onSelect={() => setStatus("installed")} onClose={onClose} />
+        <FilterOption label={t("filter.notInstalled")} active={filters.status === "not_installed"} type={type} onSelect={() => setStatus("not_installed")} onClose={onClose} />
       </div>
     );
   }
@@ -341,13 +366,16 @@ function DropdownOptionsList({
     const sources: LibrarySource[] = ["all", "steam", "local", "gog"];
     return (
       <div className="bigscreen-overlay-options-list">
-        {sources.map((src) =>
-          renderOption(
-            src === "all" ? t("bigscreen.library.allSources") : src.toUpperCase(),
-            filters.source === src,
-            () => setSource(src)
-          )
-        )}
+        {sources.map((src) => (
+          <FilterOption
+            key={src}
+            label={src === "all" ? t("bigscreen.library.allSources") : src.toUpperCase()}
+            active={filters.source === src}
+            type={type}
+            onSelect={() => setSource(src)}
+            onClose={onClose}
+          />
+        ))}
       </div>
     );
   }
@@ -356,12 +384,58 @@ function DropdownOptionsList({
     const sorts: LibrarySort[] = ["alphabetical", "date_added", "most_played", "recently_played", "rating"];
     return (
       <div className="bigscreen-overlay-options-list">
-        {sorts.map((srt) =>
-          renderOption(SORT_LABELS[srt], filters.sort === srt, () => setSort(srt))
-        )}
+        {sorts.map((srt) => (
+          <FilterOption
+            key={srt}
+            label={SORT_LABELS[srt]}
+            active={filters.sort === srt}
+            type={type}
+            onSelect={() => setSort(srt)}
+            onClose={onClose}
+          />
+        ))}
       </div>
     );
   }
 
   return null;
+}
+
+// ─── Filter Option row ─────────────────────────────────────────────
+// Owns its useFocusable call unconditionally (rules-of-hooks). The
+// old `renderOption` factory called useFocusable inside `.map()`
+// callbacks — a rules-of-hooks violation that crashes the focus
+// registry. Rows are always rendered as their own component.
+
+function FilterOption({
+  label,
+  active,
+  type,
+  onSelect,
+  onClose,
+}: {
+  label: string;
+  active: boolean;
+  type: DropdownType;
+  onSelect: () => void;
+  onClose: () => void;
+}) {
+  const optionProps = useFocusable(() => {
+    onSelect();
+    // Keep dropdown open for multi-select, close for single select
+    if (type === "status" || type === "source" || type === "sort") {
+      onClose();
+    }
+  });
+
+  return (
+    <button
+      type="button"
+      className={`bigscreen-overlay-drawer-option ${active ? "option-active" : ""}`}
+      {...optionProps}
+    >
+      <span className="option-checkbox">{active ? "✓" : ""}</span>
+      <span className="option-label">{label}</span>
+    </button>
+  );
 }

@@ -18,15 +18,8 @@ import { useLanguage } from "../context/LanguageContext";
 
 const ITEMS_PER_PAGE = 20;
 
-import { useBigScreen } from "../context/BigScreenContext";
-import BigScreenNews from "../components/bigscreen/BigScreenNews";
-
 export default function NewsPage() {
-  const { isBigScreen } = useBigScreen();
   const { t } = useLanguage();
-  if (isBigScreen) {
-    return <BigScreenNews />;
-  }
   const {
     articles,
     allArticles,

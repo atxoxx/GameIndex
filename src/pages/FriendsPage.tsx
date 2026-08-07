@@ -5,9 +5,7 @@ import { useGames } from "../context/GameContext";
 import { useAchievements } from "../context/AchievementContext";
 import { useToast } from "../context/ToastContext";
 import { useWishlistContext } from "../context/WishlistContext";
-import { useBigScreen } from "../context/BigScreenContext";
 import { useLanguage } from "../context/LanguageContext";
-import BigScreenFriends from "../components/bigscreen/BigScreenFriends";
 import { consumePendingSuggestion } from "./friendSuggestionSignal";
 import { parsePlayTime } from "../types/game";
 import type { StoreGameSummary } from "../types/game";
@@ -1378,7 +1376,6 @@ interface FriendInvitation {
 // ── Main Page Component ─────────────────────────────────────────────
 
 export default function FriendsPage() {
-  const { isBigScreen } = useBigScreen();
   const { t } = useLanguage();
   const [activeTab, setActiveTab] = useState<"friends" | "activity" | "dms" | "sessions" | "recs" | "suggestions" | "compare" | "leaderboard" | "race" | "profile">("friends");
   const { games, runningGameIds, launchGame } = useGames();
@@ -2933,31 +2930,6 @@ export default function FriendsPage() {
     await pushMyOutbox(profile, selfStats, updated, recommendations, selfSharedGames, suggestions);
   };
 
-  if (isBigScreen) {
-    return (
-      <BigScreenFriends
-        profile={profile}
-        friends={friends}
-        sessions={sessions}
-        generatedFriendCode={generatedFriendCode}
-        selfStats={selfStats}
-        performSync={performSync}
-        handleSetRsvp={handleSetRsvp}
-        handleDeleteSession={handleDeleteSession}
-        handleSendMessage={handleSendMessage}
-        handleSaveProfile={handleSaveProfile}
-        handleAddFriend={handleAddFriend}
-        friendCodeInput={friendCodeInput}
-        setFriendCodeInput={setFriendCodeInput}
-        decodedFriend={decodedFriend}
-        handleTogglePin={handleTogglePin}
-        handleToggleBlock={handleToggleBlock}
-        handleDeleteFriend={handleDeleteFriend}
-        setProfile={setProfile}
-      />
-    );
-  }
-
   // Toggle a message's pinned state (host/cohost only, enforced in UI).
   const handleTogglePinMessage = async (sessionId: string, messageId: string) => {
     const updated = sessions.map((s) => {
@@ -3865,31 +3837,6 @@ export default function FriendsPage() {
 
     return list;
   }, [friends, friendSearch, friendFilter, friendSort, selectedCircleId]);
-
-  if (isBigScreen) {
-    return (
-      <BigScreenFriends
-        profile={profile}
-        friends={friends}
-        sessions={sessions}
-        generatedFriendCode={generatedFriendCode}
-        selfStats={selfStats}
-        performSync={performSync}
-        handleSetRsvp={handleSetRsvp}
-        handleDeleteSession={handleDeleteSession}
-        handleSendMessage={handleSendMessage}
-        handleSaveProfile={handleSaveProfile}
-        handleAddFriend={handleAddFriend}
-        friendCodeInput={friendCodeInput}
-        setFriendCodeInput={setFriendCodeInput}
-        decodedFriend={decodedFriend}
-        handleTogglePin={handleTogglePin}
-        handleToggleBlock={handleToggleBlock}
-        handleDeleteFriend={handleDeleteFriend}
-        setProfile={setProfile}
-      />
-    );
-  }
 
   return (
     <div className="friends-page page">

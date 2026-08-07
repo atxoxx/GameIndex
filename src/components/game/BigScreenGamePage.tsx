@@ -38,12 +38,12 @@
 // cycle resumes on Media/Specs/More where the user is focused on
 // tab content.
 
-import { useEffect, useState, useMemo, useRef } from "react";
+import { useCallback, useEffect, useState, useMemo, useRef } from "react";
 import type { ReactNode } from "react";
+import { useNavigate, useParams } from "react-router-dom";
 import type { Game } from "../../types/game";
 import { useGames } from "../../context/GameContext";
 import { useLanguage } from "../../context/LanguageContext";
-import { isBigScreenOverlayOpen } from "../../context/BigScreenContext";
 import { useFocusable } from "../../hooks/useFocusable";
 import { useGamepad } from "../../hooks/GamepadProvider";
 import { useSteamAppId } from "../../hooks/useSteamAppId";
@@ -77,10 +77,41 @@ import BigScreenTabBar, {
 import BigScreenTabPanel from "../bigscreen/BigScreenTabPanel";
 import { extractYear } from "../bigscreen/bigscreenFormat";
 
-interface BigScreenGamePageProps {
-  /** The currently-viewed game. Page is mounted only when this is defined. */
+// ── Self-contained entry ──────────────────────────────────────────
+// Resolves the game from the route param and wires the page-level
+// back/action stubs, so the route registry can mount this component
+// with zero props (see src/bigscreen/registry.tsx).
+
+export default function BigScreenGamePage() {
+  const { gameId } = useParams<{ gameId: string }>();
+  const navigate = useNavigate();
+  const { getGame } = useGames();
+  const game = gameId ? getGame(gameId) : undefined;
+
+  const handleBack = useCallback(() => navigate("/library"), [navigate]);
+
+  if (!game) {
+    return <BigScreenGameNotFound onBack={handleBack} />;
+  }
+
+  // Big Screen can't open the desktop edit/remove modals inline, so
+  // both actions bounce back to the library grid — the user can
+  // complete the flow on the next desktop visit (keeps the
+  // pre-registry stub behavior).
+  return (
+    <BigScreenGamePageContent
+      game={game}
+      onBack={handleBack}
+      onEdit={handleBack}
+      onRemove={handleBack}
+    />
+  );
+}
+
+interface BigScreenGamePageContentProps {
+  /** The currently-viewed game. */
   game: Game;
-  /** Navigate to /library to "Exit Big Screen Mode" via Back. */
+  /** Navigate to /library when the user goes Back. */
   onBack: () => void;
   /** Open the existing edit modal (preserves desktop parity). */
   onEdit: () => void;
@@ -90,12 +121,12 @@ interface BigScreenGamePageProps {
 
 type GamePageTab = "overview" | "media" | "specs" | "achievements" | "reviews" | "activity" | "more";
 
-export default function BigScreenGamePage({
+function BigScreenGamePageContent({
   game,
   onBack,
   onEdit,
   onRemove,
-}: BigScreenGamePageProps) {
+}: BigScreenGamePageContentProps) {
   const { runningGameIds, launchGame, forceCloseGame, enrichGameMetadata } = useGames();
   const { t } = useLanguage();
   const gamepad = useGamepad();
@@ -174,23 +205,15 @@ export default function BigScreenGamePage({
     }
   }, [isRunning]);
 
-  // Controller B / Escape goes BACK to the library instead of exiting
-  // Big Screen. Registered in the capture phase so it runs before the
-  // BigScreenContext shell handler (which would otherwise quit Big
-  // Screen); preventDefault + stopImmediatePropagation make the shell
-  // back off. When a dialog/overlay is open (lightbox, search, modal)
-  // it owns Back and we defer to it.
+  // Controller B goes BACK to the library grid instead of exiting Big
+  // Screen. Registered through the gamepad back-handler registry (the
+  // engine invokes it on B). While a dialog/overlay is open (lightbox,
+  // download modal) the engine dispatches Escape instead and the
+  // overlay owns Back — we defer to it. The unregister fn runs on
+  // unmount so the shell reclaims B when the user leaves the Game Hub.
   useEffect(() => {
-    function onEscape(e: KeyboardEvent) {
-      if (e.key !== "Escape") return;
-      if (isBigScreenOverlayOpen()) return;
-      e.preventDefault();
-      e.stopImmediatePropagation();
-      onBack();
-    }
-    document.addEventListener("keydown", onEscape, true);
-    return () => document.removeEventListener("keydown", onEscape, true);
-  }, [onBack]);
+    return gamepad.registerBackHandler(onBack, 0);
+  }, [gamepad.registerBackHandler, onBack]);
 
   // Bumper-cycled tab navigation (LB / RB). `registerTabCycler`
   // returns an unregister function that runs on unmount, restoring
@@ -586,6 +609,55 @@ export default function BigScreenGamePage({
   );
 }
 
+// ─── Not found ───────────────────────────────────────────────────
+// Stale /library/:gameId URLs render a lightweight empty state with
+// a focusable "Go Back" action; controller B also routes back to the
+// library grid.
+
+function BigScreenGameNotFound({ onBack }: { onBack: () => void }) {
+  const { t } = useLanguage();
+  const gamepad = useGamepad();
+  const backProps = useFocusable(onBack);
+
+  useEffect(() => {
+    return gamepad.registerBackHandler(onBack, 0);
+  }, [gamepad.registerBackHandler, onBack]);
+
+  return (
+    <div
+      className="bigscreen-gamepage"
+      style={{ alignItems: "center", justifyContent: "center" }}
+    >
+      <div
+        className="bigscreen-library-empty-state"
+        style={{ width: "100%", maxWidth: 480 }}
+      >
+        <svg
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="1.5"
+          width="64"
+          height="64"
+          opacity="0.3"
+        >
+          <rect x="2" y="3" width="20" height="14" rx="2" ry="2" />
+          <line x1="8" y1="21" x2="16" y2="21" />
+          <line x1="12" y1="17" x2="12" y2="21" />
+        </svg>
+        <h3>{t("bigscreen.gameHub.gameNotFound")}</h3>
+        <button
+          type="button"
+          className="bigscreen-gamepage-back-btn"
+          {...backProps}
+        >
+          {t("bigscreen.gameHub.goBack")}
+        </button>
+      </div>
+    </div>
+  );
+}
+
 // ─── Overview tab content ────────────────────────────────────────
 //
 // PR 3a keeps the existing Overview sections (Storyline, About,
@@ -659,8 +731,8 @@ function BigScreenGamePageMedia({
           <line x1="8" y1="21" x2="16" y2="21" />
           <line x1="12" y1="17" x2="12" y2="21" />
         </svg>
-        <h3 style={{ margin: "0 0 8px 0", fontSize: 20, color: "#fff", fontWeight: 800 }}>{t("game.noMediaTitle")}</h3>
-        <p style={{ margin: 0, fontSize: 14, color: "rgba(255, 255, 255, 0.5)", maxWidth: 460, marginLeft: "auto", marginRight: "auto" }}>
+        <h3 style={{ margin: "0 0 8px 0", fontSize: 20, color: "var(--bigscreen-text)", fontWeight: 800 }}>{t("game.noMediaTitle")}</h3>
+        <p style={{ margin: 0, fontSize: 14, color: "color-mix(in srgb, var(--bigscreen-text) 50%, transparent)", maxWidth: 460, marginLeft: "auto", marginRight: "auto" }}>
           {t("game.noMediaSubtitle")}
         </p>
       </div>

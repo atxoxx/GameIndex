@@ -2,9 +2,7 @@ import { useCallback, useEffect, useState, useRef, useMemo } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { useGames, NO_IGDB_MATCH_SOURCE } from "../context/GameContext";
 import { useToast } from "../context/ToastContext";
-import { useBigScreen } from "../context/BigScreenContext";
 import { useLanguage } from "../context/LanguageContext";
-import BigScreenGamePage from "../components/game/BigScreenGamePage";
 import { EditGameModal } from "../components/game/EditGameModal";
 import { useSizeUnit } from "../hooks/useSizeUnit";
 import { useSteamAppId } from "../hooks/useSteamAppId";
@@ -552,8 +550,6 @@ function GameDetail({ game }: { game: Game }) {
 export default function GamePage() {
   const { gameId } = useParams<{ gameId: string }>();
   const { getGame, setSelectedGameId } = useGames();
-  const { isBigScreen } = useBigScreen();
-  const navigate = useNavigate();
 
   useEffect(() => {
     if (gameId) {
@@ -563,42 +559,8 @@ export default function GamePage() {
 
   const game = gameId ? getGame(gameId) : undefined;
 
-  // Big Screen Mode: back navigates to the library grid; edit and
-  // remove navigate back as well since Big Screen doesn't surface
-  // inline modals for those flows — the user can complete the
-  // action on the next desktop visit.
-  const handleBack = useCallback(() => {
-    navigate("/library");
-  }, [navigate]);
-
-  // Stub edit/remove — Big Screen can't open desktop modals inline,
-  // so we just bounce back to the library. A future PR can add
-  // inline Big Screen edit/remove flows.
-  const handleBigScreenEdit = useCallback(() => {
-    navigate("/library");
-  }, [navigate]);
-
-  const handleBigScreenRemove = useCallback(() => {
-    navigate("/library");
-  }, [navigate]);
-
   if (!game) {
     return <GameNotFound />;
-  }
-
-  // When Big Screen Mode is active, render the PS5 tabbed Game Page
-  // with full hero, metadata strip, and 4-tab layout (Overview,
-  // Media, Specs, More). BigScreenGamePage owns its own hero,
-  // metadata strip, tab bar, and per-tab scroll regions.
-  if (isBigScreen) {
-    return (
-      <BigScreenGamePage
-        game={game}
-        onBack={handleBack}
-        onEdit={handleBigScreenEdit}
-        onRemove={handleBigScreenRemove}
-      />
-    );
   }
 
   return <GameDetail key={game.id} game={game} />;

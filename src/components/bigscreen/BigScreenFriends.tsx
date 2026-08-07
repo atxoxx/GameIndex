@@ -1,10 +1,11 @@
-import { useState, useMemo, useCallback } from "react";
+import { useState, useMemo, useCallback, useEffect, useRef } from "react";
 import { useLanguage } from "../../context/LanguageContext";
 import { useFocusable } from "../../hooks/useFocusable";
+import { useFriendsData } from "../../hooks/useFriendsData";
 import BigScreenPill from "./BigScreenPill";
 import BigScreenTabBar, { type TabDef } from "./BigScreenTabBar";
 import BigScreenTabPanel from "./BigScreenTabPanel";
-import type { Friend, UserProfile, GameSession } from "../../pages/friendsStorage";
+import type { Friend, GameSession } from "../../pages/friendsStorage";
 import { displayName } from "../../pages/friendsStorage";
 
 function formatHours(totalMinutes: number): string {
@@ -17,50 +18,36 @@ function formatHours(totalMinutes: number): string {
   return `${h}h ${m}m`;
 }
 
-interface BigScreenFriendsProps {
-  profile: UserProfile;
-  friends: Friend[];
-  sessions: GameSession[];
-  generatedFriendCode: string;
-  selfStats: { gamesCount: number; playtimeMinutes: number; achievementsCount: number };
-  performSync: (manual?: boolean) => Promise<void>;
-  handleSetRsvp: (sessionId: string, status: any) => Promise<void>;
-  handleDeleteSession: (sessionId: string) => Promise<void>;
-  handleSendMessage: (sessionId: string, text: string) => Promise<void>;
-  handleSaveProfile: (e: React.FormEvent) => Promise<void>;
-  handleAddFriend: () => void;
-  friendCodeInput: string;
-  setFriendCodeInput: (val: string) => void;
-  decodedFriend: Friend | null;
-  handleTogglePin: (friendId: string) => void;
-  handleToggleBlock: (friendId: string, friendName: string) => void;
-  handleDeleteFriend: (friendId: string, friendName: string) => void;
-  setProfile: React.Dispatch<React.SetStateAction<UserProfile>>;
-}
-
 type FriendsTab = "list" | "sessions" | "profile";
 
-export default function BigScreenFriends({
-  profile,
-  friends,
-  sessions,
-  generatedFriendCode,
-  selfStats,
-  performSync,
-  handleSetRsvp,
-  handleDeleteSession,
-  handleSendMessage,
-  handleSaveProfile,
-  handleAddFriend,
-  friendCodeInput,
-  setFriendCodeInput,
-  decodedFriend,
-  handleTogglePin,
-  handleToggleBlock,
-  handleDeleteFriend,
-  setProfile,
-}: BigScreenFriendsProps) {
+/**
+ * Self-contained Big Screen Friends hub. Owns its data + handlers via
+ * `useFriendsData` (same storage helpers / sync engine as the desktop
+ * FriendsPage), so it renders standalone under ShellSwitch.
+ */
+export default function BigScreenFriends() {
   const { t } = useLanguage();
+  const {
+    profile,
+    setProfile,
+    friends,
+    sessions,
+    selfStats,
+    generatedFriendCode,
+    friendCodeInput,
+    setFriendCodeInput,
+    decodedFriend,
+    performSync,
+    handleSetRsvp,
+    handleDeleteSession,
+    handleSendMessage,
+    handleSaveProfile,
+    handleAddFriend,
+    handleTogglePin,
+    handleToggleBlock,
+    handleDeleteFriend,
+  } = useFriendsData();
+
   const FRIENDS_TABS: TabDef<FriendsTab>[] = [
     { id: "list", label: t("bigscreen.friends.friendsList") },
     { id: "sessions", label: t("bigscreen.friends.gameLobbies") },
@@ -92,15 +79,86 @@ export default function BigScreenFriends({
     setChatDraft("");
   };
 
+  // Controller B / X (and keyboard Escape) close whichever modal is open.
+  // Capture-phase so it runs before the shell's global Escape handler.
+  const modalOpen = showAddModal || (chattingSessionId !== null && !!chatSession);
+  useEffect(() => {
+    if (!modalOpen) return;
+    function onEscape(e: KeyboardEvent) {
+      if (e.key !== "Escape") return;
+      e.preventDefault();
+      e.stopImmediatePropagation();
+      setShowAddModal(false);
+      setChattingSessionId(null);
+    }
+    document.addEventListener("keydown", onEscape, true);
+    return () => document.removeEventListener("keydown", onEscape, true);
+  }, [modalOpen, chatSession]);
+
+  // Focusables (top header actions)
   const focusAddFriendBtn = useFocusable(() => setShowAddModal(true));
   const focusSyncBtn = useFocusable(() => performSync(true));
+  const closeChatFocusable = useFocusable(() => setChattingSessionId(null));
+
+  // Add-friend modal: the public-key textarea is focusable so controller
+  // A lands on it (typing happens via the virtual cursor / keyboard).
+  const friendCodeRef = useRef<HTMLTextAreaElement | null>(null);
+  const friendCodeFocusable = useFocusable(() => friendCodeRef.current?.focus());
+  const setFriendCodeRef = useCallback(
+    (el: HTMLTextAreaElement | null) => {
+      friendCodeRef.current = el;
+      (friendCodeFocusable.ref as (node: HTMLElement | null) => void)(el);
+    },
+    [friendCodeFocusable],
+  );
+  const cancelAddFocusable = useFocusable(() => setShowAddModal(false));
+  const confirmAddFocusable = useFocusable(() => {
+    if (decodedFriend) {
+      handleAddFriend();
+      setShowAddModal(false);
+    }
+  });
+
+  // Profile tab: make the name / status inputs reachable via controller.
+  const profileNameRef = useRef<HTMLInputElement | null>(null);
+  const profileNameFocusable = useFocusable(() => profileNameRef.current?.focus());
+  const setProfileNameRef = useCallback(
+    (el: HTMLInputElement | null) => {
+      profileNameRef.current = el;
+      (profileNameFocusable.ref as (node: HTMLElement | null) => void)(el);
+    },
+    [profileNameFocusable],
+  );
+  const profileStatusRef = useRef<HTMLInputElement | null>(null);
+  const profileStatusFocusable = useFocusable(() => profileStatusRef.current?.focus());
+  const setProfileStatusRef = useCallback(
+    (el: HTMLInputElement | null) => {
+      profileStatusRef.current = el;
+      (profileStatusFocusable.ref as (node: HTMLElement | null) => void)(el);
+    },
+    [profileStatusFocusable],
+  );
+  const profileFormRef = useRef<HTMLFormElement | null>(null);
+  const saveProfileFocusable = useFocusable(() => profileFormRef.current?.requestSubmit());
+
+  // Lobby chat modal: message input focusable so controller A lands on it.
+  const chatInputRef = useRef<HTMLInputElement | null>(null);
+  const chatInputFocusable = useFocusable(() => chatInputRef.current?.focus());
+  const setChatInputRef = useCallback(
+    (el: HTMLInputElement | null) => {
+      chatInputRef.current = el;
+      (chatInputFocusable.ref as (node: HTMLElement | null) => void)(el);
+    },
+    [chatInputFocusable],
+  );
+  const sendChatFocusable = useFocusable(submitChat);
 
   return (
     <div className="bigscreen-store-dashboard">
-      <div className="bigscreen-dashboard-scrollable-content" style={{ padding: "30px 40px" }}>
+      <div className="bigscreen-dashboard-scrollable-content" style={{ padding: "1.875rem 2.5rem" }}>
         
         {/* Header Tabs */}
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "20px" }}>
+        <div className="bigscreen-friends-toolbar">
           <BigScreenTabBar
             tabs={FRIENDS_TABS}
             activeTab={activeTab}
@@ -109,18 +167,16 @@ export default function BigScreenFriends({
           <div style={{ display: "flex", gap: "12px" }}>
             <button
               type="button"
-              className="bigscreen-details-btn bigscreen-details-btn--secondary"
+              className="bigscreen-details-btn bigscreen-details-btn--secondary bigscreen-details-btn--compact"
               {...focusSyncBtn}
-              style={{ padding: "6px 12px", fontSize: "12px" }}
             >
               {t("bigscreen.friends.syncNetwork")}
             </button>
             {activeTab === "list" && (
               <button
                 type="button"
-                className="bigscreen-details-btn bigscreen-details-btn--primary"
+                className="bigscreen-details-btn bigscreen-details-btn--primary bigscreen-details-btn--compact"
                 {...focusAddFriendBtn}
-                style={{ padding: "6px 12px", fontSize: "12px" }}
               >
                 {t("bigscreen.friends.addFriend")}
               </button>
@@ -138,7 +194,7 @@ export default function BigScreenFriends({
                 <p>{t("bigscreen.friends.noFriendsDesc")}</p>
               </div>
             ) : (
-              <div className="bigscreen-library-grid" style={{ gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))", gap: "20px" }}>
+              <div className="bigscreen-friends-grid">
                 {friends.map((friend) => (
                   <FriendCard
                     key={friend.id}
@@ -159,7 +215,7 @@ export default function BigScreenFriends({
                 <p>{t("bigscreen.friends.noSessions")}</p>
               </div>
             ) : (
-              <div style={{ display: "flex", flexDirection: "column", gap: "16px" }}>
+              <div className="bigscreen-sessions-list">
                 {activeSessions.map((session) => (
                   <SessionRow
                     key={session.id}
@@ -178,71 +234,77 @@ export default function BigScreenFriends({
           <BigScreenTabPanel tabId="profile" activeTab={activeTab}>
             <div className="bigscreen-gamepage-2col" data-cols="2" style={{ gap: "30px", alignItems: "flex-start" }}>
               {/* Profile Card & Key */}
-              <div className="bigscreen-widget-card" style={{ padding: "24px", display: "flex", flexDirection: "column", gap: "16px" }}>
+              <div className="bigscreen-panel-card" style={{ gap: "16px" }}>
                 <div style={{ display: "flex", alignItems: "center", gap: "16px" }}>
-                  <div className="friend-avatar-wrapper" style={{ width: "64px", height: "64px", fontSize: "24px", borderRadius: "50%", background: "var(--color-accent)" }}>
+                  <div className="bigscreen-friend-avatar" style={{ width: "64px", height: "64px", fontSize: "24px" }}>
                     {profile.name.slice(0, 2).toUpperCase()}
                   </div>
                   <div>
                     <h3 style={{ margin: 0 }}>{profile.name}</h3>
-                    <div style={{ fontSize: "12px", color: "var(--color-text-muted)", marginTop: "4px" }}>
+                    <div style={{ fontSize: "12px", color: "color-mix(in srgb, var(--bigscreen-text) 45%, transparent)", marginTop: "4px" }}>
                       "{profile.status || t("bigscreen.friends.noStatus")}"
                     </div>
                   </div>
                 </div>
 
-                <div style={{ borderTop: "1px solid var(--color-border)", paddingTop: "16px" }}>
-                  <div style={{ fontSize: "11px", textTransform: "uppercase", color: "var(--color-text-muted)", marginBottom: "6px" }}>{t("bigscreen.friends.myPublicKey")}</div>
-                  <div style={{ fontFamily: "monospace", fontSize: "11px", wordBreak: "break-all", background: "color-mix(in srgb, var(--bigscreen-shadow) 20%, transparent)", padding: "10px", borderRadius: "6px" }}>
+                <div style={{ borderTop: "1px solid color-mix(in srgb, var(--bigscreen-text) 8%, transparent)", paddingTop: "16px" }}>
+                  <div className="bigscreen-kpi-label" style={{ marginBottom: "6px" }}>{t("bigscreen.friends.myPublicKey")}</div>
+                  <div className="bigscreen-profile-key">
                     {generatedFriendCode}
                   </div>
                 </div>
 
-                <div className="profile-stats-grid" style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: "10px", marginTop: "10px" }}>
-                  <div className="profile-stat-box" style={{ background: "color-mix(in srgb, var(--bigscreen-text) 2%, transparent)", padding: "10px", borderRadius: "6px", textAlign: "center" }}>
-                    <span style={{ display: "block", fontSize: "18px", fontWeight: "700" }}>{selfStats.gamesCount}</span>
-                    <span style={{ fontSize: "11px", color: "var(--color-text-muted)" }}>{t("bigscreen.friends.games")}</span>
+                <div className="bigscreen-profile-stat-grid">
+                  <div className="bigscreen-profile-stat-box">
+                    <span className="bigscreen-profile-stat-value">{selfStats.gamesCount}</span>
+                    <span className="bigscreen-profile-stat-label">{t("bigscreen.friends.games")}</span>
                   </div>
-                  <div className="profile-stat-box" style={{ background: "color-mix(in srgb, var(--bigscreen-text) 2%, transparent)", padding: "10px", borderRadius: "6px", textAlign: "center" }}>
-                    <span style={{ display: "block", fontSize: "18px", fontWeight: "700" }}>{formatHours(selfStats.playtimeMinutes)}</span>
-                    <span style={{ fontSize: "11px", color: "var(--color-text-muted)" }}>{t("bigscreen.friends.playtime")}</span>
+                  <div className="bigscreen-profile-stat-box">
+                    <span className="bigscreen-profile-stat-value">{formatHours(selfStats.playtimeMinutes)}</span>
+                    <span className="bigscreen-profile-stat-label">{t("bigscreen.friends.playtime")}</span>
                   </div>
-                  <div className="profile-stat-box" style={{ background: "color-mix(in srgb, var(--bigscreen-text) 2%, transparent)", padding: "10px", borderRadius: "6px", textAlign: "center" }}>
-                    <span style={{ display: "block", fontSize: "18px", fontWeight: "700" }}>{selfStats.achievementsCount}</span>
-                    <span style={{ fontSize: "11px", color: "var(--color-text-muted)" }}>{t("bigscreen.friends.trophies")}</span>
+                  <div className="bigscreen-profile-stat-box">
+                    <span className="bigscreen-profile-stat-value">{selfStats.achievementsCount}</span>
+                    <span className="bigscreen-profile-stat-label">{t("bigscreen.friends.trophies")}</span>
                   </div>
                 </div>
               </div>
 
               {/* Edit gamer details form */}
-              <div className="bigscreen-widget-card" style={{ padding: "24px" }}>
-                <h3 style={{ marginTop: 0, marginBottom: "20px" }}>{t("bigscreen.friends.editProfile")}</h3>
-                <form onSubmit={handleSaveProfile} style={{ display: "flex", flexDirection: "column", gap: "16px" }}>
-                  <div className="friends-input-group">
-                    <label style={{ fontSize: "12px", color: "var(--color-text-secondary)" }}>{t("bigscreen.friends.gamerTag")}</label>
+              <div className="bigscreen-panel-card">
+                <h3>{t("bigscreen.friends.editProfile")}</h3>
+                <form ref={profileFormRef} onSubmit={handleSaveProfile} className="bigscreen-profile-form">
+                  <div className="bigscreen-input-group">
+                    <label>{t("bigscreen.friends.gamerTag")}</label>
                     <input
+                      ref={setProfileNameRef}
                       type="text"
-                      className="profile-input"
+                      className="bigscreen-input"
                       value={profile.name}
                       onChange={(e) => setProfile({ ...profile, name: e.target.value })}
-                      style={{ background: "color-mix(in srgb, var(--bigscreen-shadow) 20%, transparent)", border: "1px solid var(--color-border)", color: "var(--bigscreen-text)", padding: "8px", borderRadius: "4px" }}
+                      tabIndex={profileNameFocusable.tabIndex}
+                      role={profileNameFocusable.role}
+                      onClick={profileNameFocusable.onClick}
                       required
                     />
                   </div>
-                  <div className="friends-input-group">
-                    <label style={{ fontSize: "12px", color: "var(--color-text-secondary)" }}>{t("bigscreen.friends.currentStatus")}</label>
+                  <div className="bigscreen-input-group">
+                    <label>{t("bigscreen.friends.currentStatus")}</label>
                     <input
+                      ref={setProfileStatusRef}
                       type="text"
-                      className="profile-input"
+                      className="bigscreen-input"
                       value={profile.status}
                       onChange={(e) => setProfile({ ...profile, status: e.target.value })}
-                      style={{ background: "color-mix(in srgb, var(--bigscreen-shadow) 20%, transparent)", border: "1px solid var(--color-border)", color: "var(--bigscreen-text)", padding: "8px", borderRadius: "4px" }}
+                      tabIndex={profileStatusFocusable.tabIndex}
+                      role={profileStatusFocusable.role}
+                      onClick={profileStatusFocusable.onClick}
                     />
                   </div>
                   <button
                     type="submit"
                     className="bigscreen-details-btn bigscreen-details-btn--primary"
-                    {...useFocusable(() => {})}
+                    {...saveProfileFocusable}
                     style={{ alignSelf: "flex-start", marginTop: "10px" }}
                   >
                     {t("bigscreen.friends.saveSync")}
@@ -257,65 +319,58 @@ export default function BigScreenFriends({
 
       {/* Add Friend Modal */}
       {showAddModal && (
-        <div className="bigscreen-overlay-drawer" style={{ display: "flex", justifyContent: "center", alignItems: "center", background: "color-mix(in srgb, var(--bigscreen-bg) 90%, transparent)" }} onClick={() => setShowAddModal(false)}>
+        <div data-bigscreen-overlay="true" className="bigscreen-overlay-drawer bigscreen-overlay-drawer--modal" onClick={() => setShowAddModal(false)}>
           <div
-            className="bigscreen-overlay-drawer-panel"
+            className="bigscreen-overlay-drawer-panel bigscreen-overlay-drawer-panel--modal"
             style={{
               width: "500px",
               padding: "30px",
-              borderRadius: "16px",
-              border: "1px solid var(--color-border)",
-              background: "var(--color-bg-primary)",
-              display: "flex",
-              flexDirection: "column",
               gap: "20px",
             }}
             onClick={(e) => e.stopPropagation()}
           >
             <h3 style={{ margin: 0 }}>{t("bigscreen.friends.addFriendTitle")}</h3>
-            <p style={{ fontSize: "13px", color: "var(--color-text-secondary)", margin: 0 }}>{t("bigscreen.friends.addFriendDesc")}</p>
+            <p className="bigscreen-modal-body-text">{t("bigscreen.friends.addFriendDesc")}</p>
             <textarea
-              className="friends-textarea"
+              ref={setFriendCodeRef}
+              className="bigscreen-input bigscreen-input--textarea"
               value={friendCodeInput}
               onChange={(e) => setFriendCodeInput(e.target.value)}
               placeholder={t("bigscreen.friends.publicKeyPlaceholder")}
-              style={{ background: "color-mix(in srgb, var(--bigscreen-shadow) 20%, transparent)", border: "1px solid var(--color-border)", color: "var(--bigscreen-text)", padding: "10px", borderRadius: "6px", height: "80px", resize: "none" }}
+              tabIndex={friendCodeFocusable.tabIndex}
+              role={friendCodeFocusable.role}
+              onClick={friendCodeFocusable.onClick}
             />
 
             {decodedFriend ? (
               <div style={{ display: "flex", alignItems: "center", gap: "12px", background: "color-mix(in srgb, var(--bigscreen-text) 2%, transparent)", padding: "10px", borderRadius: "8px" }}>
-                <div className="friend-avatar-wrapper" style={{ width: "40px", height: "40px", borderRadius: "50%", background: "var(--color-warning)" }}>
+                <div className="bigscreen-friend-avatar" style={{ width: "40px", height: "40px", background: "var(--color-warning)" }}>
                   {decodedFriend.name.slice(0, 2).toUpperCase()}
                 </div>
                 <div>
                   <div style={{ fontWeight: "600" }}>{decodedFriend.name}</div>
-                  <div style={{ fontSize: "11px", color: "var(--color-text-muted)" }}>{decodedFriend.status}</div>
+                  <div style={{ fontSize: "11px", color: "color-mix(in srgb, var(--bigscreen-text) 45%, transparent)" }}>{decodedFriend.status}</div>
                 </div>
               </div>
             ) : (
               friendCodeInput.trim() && (
-                <div style={{ fontSize: "12px", color: "var(--color-danger)" }}>{t("bigscreen.friends.invalidKey")}</div>
+                <div style={{ fontSize: "12px", color: "var(--bigscreen-danger)" }}>{t("bigscreen.friends.invalidKey")}</div>
               )
             )}
 
-            <div style={{ display: "flex", justifyContent: "flex-end", gap: "12px", marginTop: "10px" }}>
+            <div className="bigscreen-modal-footer" style={{ marginTop: "10px", paddingTop: "0", borderTop: "none" }}>
               <button
                 type="button"
-                className="bigscreen-details-btn bigscreen-details-btn--secondary"
-                {...useFocusable(() => setShowAddModal(false))}
+                className="bigscreen-details-btn bigscreen-details-btn--secondary bigscreen-details-btn--compact"
+                {...cancelAddFocusable}
               >
                 {t("common.cancel")}
               </button>
               <button
                 type="button"
-                className="bigscreen-details-btn bigscreen-details-btn--primary"
+                className="bigscreen-details-btn bigscreen-details-btn--primary bigscreen-details-btn--compact"
                 disabled={!decodedFriend}
-                {...useFocusable(() => {
-                  if (decodedFriend) {
-                    handleAddFriend();
-                    setShowAddModal(false);
-                  }
-                })}
+                {...confirmAddFocusable}
               >
                 {t("bigscreen.friends.addFriendBtn")}
               </button>
@@ -326,39 +381,45 @@ export default function BigScreenFriends({
 
       {/* Lobbies Chat Modal */}
       {chattingSessionId && chatSession && (
-        <div className="bigscreen-overlay-drawer" style={{ display: "flex", justifyContent: "center", alignItems: "center", background: "color-mix(in srgb, var(--bigscreen-bg) 90%, transparent)" }} onClick={() => setChattingSessionId(null)}>
+        <div data-bigscreen-overlay="true" className="bigscreen-overlay-drawer bigscreen-overlay-drawer--modal" onClick={() => setChattingSessionId(null)}>
           <div
-            className="bigscreen-overlay-drawer-panel"
+            className="bigscreen-overlay-drawer-panel bigscreen-overlay-drawer-panel--modal"
             style={{
               width: "600px",
               height: "500px",
-              borderRadius: "16px",
-              border: "1px solid var(--color-border)",
-              background: "var(--color-bg-primary)",
+              padding: "0",
               display: "flex",
               flexDirection: "column",
               overflow: "hidden",
             }}
             onClick={(e) => e.stopPropagation()}
           >
-            <div style={{ padding: "20px 24px", borderBottom: "1px solid var(--color-border)", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-              <h3 style={{ margin: 0 }}>{t("bigscreen.friends.lobbyChat", { gameName: chatSession.gameName })}</h3>
-              <button type="button" style={{ background: "none", border: "none", color: "white", fontSize: "18px", cursor: "pointer" }} onClick={() => setChattingSessionId(null)}>✕</button>
+            <div className="bigscreen-chat-header">
+              <h3>{t("bigscreen.friends.lobbyChat", { gameName: chatSession.gameName })}</h3>
+              <button
+                type="button"
+                className="bigscreen-chat-close"
+                aria-label={t("common.close")}
+                {...closeChatFocusable}
+              >
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                  <line x1="18" y1="6" x2="6" y2="18" />
+                  <line x1="6" y1="6" x2="18" y2="18" />
+                </svg>
+              </button>
             </div>
-            
+
             {/* Messages body */}
-            <div style={{ flex: 1, padding: "20px 24px", overflowY: "auto", display: "flex", flexDirection: "column", gap: "12px" }}>
+            <div className="bigscreen-chat-body">
               {(chatSession.messages || []).length === 0 ? (
-                <div style={{ textAlign: "center", color: "var(--color-text-muted)", fontSize: "13px", padding: "40px 0" }}>{t("bigscreen.friends.noMessages")}</div>
+                <div className="bigscreen-chat-empty">{t("bigscreen.friends.noMessages")}</div>
               ) : (
                 (chatSession.messages || []).map((m) => {
                   const isMe = m.author === profile.name;
                   return (
-                    <div key={m.id} style={{ alignSelf: isMe ? "flex-end" : "flex-start", maxWidth: "70%" }}>
-                      <div style={{ fontSize: "10px", color: "var(--color-text-muted)", marginBottom: "4px", textAlign: isMe ? "right" : "left" }}>{m.author}</div>
-                      <div style={{ background: isMe ? "var(--color-accent)" : "var(--color-bg-tertiary)", padding: "10px 14px", borderRadius: "10px", fontSize: "13px", color: isMe ? "white" : "var(--color-text-primary)" }}>
-                        {m.text}
-                      </div>
+                    <div key={m.id} className={`bigscreen-chat-bubble ${isMe ? "bigscreen-chat-bubble--me" : "bigscreen-chat-bubble--them"}`}>
+                      <div className={`bigscreen-chat-bubble-author ${isMe ? "bigscreen-chat-bubble-author--right" : ""}`}>{m.author}</div>
+                      <div className="bigscreen-chat-bubble-text">{m.text}</div>
                     </div>
                   );
                 })
@@ -366,22 +427,25 @@ export default function BigScreenFriends({
             </div>
 
             {/* Message input */}
-            <div style={{ padding: "16px 24px", borderTop: "1px solid var(--color-border)", display: "flex", gap: "10px", background: "var(--color-bg-secondary)" }}>
+            <div className="bigscreen-chat-input-row">
               <input
+                ref={setChatInputRef}
                 type="text"
+                className="bigscreen-input"
                 value={chatDraft}
                 onChange={(e) => setChatDraft(e.target.value)}
                 placeholder={t("bigscreen.friends.typeMessage")}
-                style={{ flex: 1, background: "color-mix(in srgb, var(--bigscreen-shadow) 20%, transparent)", border: "1px solid var(--color-border)", color: "var(--bigscreen-text)", padding: "8px 12px", borderRadius: "4px", fontSize: "13px" }}
+                tabIndex={chatInputFocusable.tabIndex}
+                role={chatInputFocusable.role}
+                onClick={chatInputFocusable.onClick}
                 onKeyDown={(e) => {
                   if (e.key === "Enter") submitChat();
                 }}
               />
               <button
                 type="button"
-                className="bigscreen-details-btn bigscreen-details-btn--primary"
-                style={{ padding: "6px 16px" }}
-                {...useFocusable(submitChat)}
+                className="bigscreen-details-btn bigscreen-details-btn--primary bigscreen-details-btn--compact"
+                {...sendChatFocusable}
               >
                 {t("bigscreen.friends.send")}
               </button>
@@ -412,28 +476,47 @@ function FriendCard({
 
   const focusCard = useFocusable(() => setShowOptions(true));
 
+  // Controller B / X closes the options popover.
+  useEffect(() => {
+    if (!showOptions) return;
+    function onEscape(e: KeyboardEvent) {
+      if (e.key !== "Escape") return;
+      e.preventDefault();
+      e.stopImmediatePropagation();
+      setShowOptions(false);
+    }
+    document.addEventListener("keydown", onEscape, true);
+    return () => document.removeEventListener("keydown", onEscape, true);
+  }, [showOptions]);
+
   return (
     <div
-      className={`bigscreen-game-card${friend.pinned ? " running" : ""}`}
+      className={`bigscreen-game-card bigscreen-friend-card${friend.pinned ? " running" : ""}`}
       {...focusCard}
-      style={{ display: "flex", flexDirection: "column", height: "200px", padding: "16px", justifyContent: "space-between" }}
     >
-      <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
-        <div className="friend-avatar-wrapper" style={{ width: "48px", height: "48px", borderRadius: "50%", background: "var(--color-accent)", display: "flex", justifyContent: "center", alignItems: "center", fontSize: "18px" }}>
+      <div className="bigscreen-friend-card-top">
+        <div className="bigscreen-friend-avatar">
           {friend.name.slice(0, 2).toUpperCase()}
         </div>
-        <div style={{ flex: 1, overflow: "hidden" }}>
-          <h4 style={{ margin: 0, fontSize: "15px", fontWeight: "600", textOverflow: "ellipsis", overflow: "hidden", whiteSpace: "nowrap" }}>
+        <div className="bigscreen-friend-id">
+          <h4 className="bigscreen-friend-name">
             {displayName(friend)}
           </h4>
-          <p style={{ margin: "4px 0 0 0", fontSize: "11px", color: "var(--color-text-muted)", textOverflow: "ellipsis", overflow: "hidden", whiteSpace: "nowrap" }}>
+          <p className="bigscreen-friend-status">
             {friend.currentlyPlaying ? t("bigscreen.friends.playing", { game: friend.currentlyPlaying }) : friend.status || t("bigscreen.friends.offline")}
           </p>
         </div>
-        {friend.pinned && <span style={{ fontSize: "12px" }}>📌</span>}
+        {friend.pinned && (
+          <span className="bigscreen-friend-pin">
+            <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+              <path d="M16 3v6l2.4 2.4a2 2 0 0 1 .6 1.4V14a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1v-1.2a2 2 0 0 1 .6-1.4L8 9V3a1 1 0 0 1 1-1h6a1 1 0 0 1 1 1Z" />
+              <path d="M12 15v5" />
+            </svg>
+          </span>
+        )}
       </div>
 
-      <div style={{ fontSize: "11px", color: "var(--color-text-muted)", borderTop: "1px solid color-mix(in srgb, var(--bigscreen-text) 3%, transparent)", paddingTop: "8px" }}>
+      <div className="bigscreen-friend-stats">
         {friend.libStats ? (
           <div>{t("bigscreen.friends.friendStats", { games: friend.libStats.gamesCount, trophies: friend.libStats.achievementsCount })}</div>
         ) : (
@@ -443,28 +526,73 @@ function FriendCard({
 
       {/* Quick popup options on click */}
       {showOptions && (
-        <div className="bigscreen-overlay-drawer" style={{ display: "flex", justifyContent: "center", alignItems: "center", background: "color-mix(in srgb, var(--bigscreen-bg) 80%, transparent)" }} onClick={() => setShowOptions(false)}>
-          <div
-            className="bigscreen-overlay-drawer-panel"
-            style={{ width: "260px", padding: "16px", borderRadius: "12px", background: "var(--color-bg-primary)", border: "1px solid var(--color-border)", display: "flex", flexDirection: "column", gap: "10px" }}
-            onClick={(e) => e.stopPropagation()}
-          >
-            <h4 style={{ margin: "0 0 5px 0", textAlign: "center" }}>{displayName(friend)}</h4>
-            <button type="button" className="bigscreen-details-btn bigscreen-details-btn--secondary" {...useFocusable(() => { onPin(); setShowOptions(false); })} style={{ width: "100%", justifyContent: "center" }}>
-              {friend.pinned ? t("bigscreen.friends.unpinFriend") : t("bigscreen.friends.pinFriend")}
-            </button>
-            <button type="button" className="bigscreen-details-btn bigscreen-details-btn--secondary" {...useFocusable(() => { onBlock(); setShowOptions(false); })} style={{ width: "100%", justifyContent: "center" }}>
-              {friend.blocked ? t("bigscreen.friends.unblockFriend") : t("bigscreen.friends.blockFriend")}
-            </button>
-            <button type="button" className="bigscreen-details-btn bigscreen-details-btn--danger" {...useFocusable(() => { onDelete(); setShowOptions(false); })} style={{ width: "100%", justifyContent: "center" }}>
-              {t("bigscreen.friends.deleteFriend")}
-            </button>
-            <button type="button" className="bigscreen-details-btn bigscreen-details-btn--secondary" {...useFocusable(() => setShowOptions(false))} style={{ width: "100%", justifyContent: "center", marginTop: "5px" }}>
-              {t("common.cancel")}
-            </button>
-          </div>
-        </div>
+        <FriendOptionsPopover
+          friend={friend}
+          onPin={onPin}
+          onBlock={onBlock}
+          onDelete={onDelete}
+          onClose={() => setShowOptions(false)}
+        />
       )}
+    </div>
+  );
+}
+
+// ─── Friend Options Popover ────────────────────────────────────────
+// Owns its useFocusable calls unconditionally (rules-of-hooks: the
+// popover mounts as a whole only when `showOptions` flips, so the hook
+// count is stable inside this component — never inside the parent's
+// `.map()` / conditional JSX).
+
+function FriendOptionsPopover({
+  friend,
+  onPin,
+  onBlock,
+  onDelete,
+  onClose,
+}: {
+  friend: Friend;
+  onPin: () => void;
+  onBlock: () => void;
+  onDelete: () => void;
+  onClose: () => void;
+}) {
+  const { t } = useLanguage();
+  const pinProps = useFocusable(() => {
+    onPin();
+    onClose();
+  });
+  const blockProps = useFocusable(() => {
+    onBlock();
+    onClose();
+  });
+  const deleteProps = useFocusable(() => {
+    onDelete();
+    onClose();
+  });
+  const cancelProps = useFocusable(onClose);
+
+  return (
+    <div data-bigscreen-overlay="true" className="bigscreen-overlay-drawer bigscreen-overlay-drawer--modal" onClick={onClose}>
+      <div
+        className="bigscreen-overlay-drawer-panel bigscreen-overlay-drawer-panel--modal"
+        style={{ width: "260px", padding: "16px", gap: "10px", borderRadius: "12px" }}
+        onClick={(e) => e.stopPropagation()}
+      >
+        <h4 style={{ margin: "0 0 5px 0", textAlign: "center" }}>{displayName(friend)}</h4>
+        <button type="button" className="bigscreen-details-btn bigscreen-details-btn--secondary bigscreen-details-btn--compact" {...pinProps} style={{ width: "100%", justifyContent: "center" }}>
+          {friend.pinned ? t("bigscreen.friends.unpinFriend") : t("bigscreen.friends.pinFriend")}
+        </button>
+        <button type="button" className="bigscreen-details-btn bigscreen-details-btn--secondary bigscreen-details-btn--compact" {...blockProps} style={{ width: "100%", justifyContent: "center" }}>
+          {friend.blocked ? t("bigscreen.friends.unblockFriend") : t("bigscreen.friends.blockFriend")}
+        </button>
+        <button type="button" className="bigscreen-details-btn bigscreen-details-btn--danger bigscreen-details-btn--compact" {...deleteProps} style={{ width: "100%", justifyContent: "center" }}>
+          {t("bigscreen.friends.deleteFriend")}
+        </button>
+        <button type="button" className="bigscreen-details-btn bigscreen-details-btn--secondary bigscreen-details-btn--compact" {...cancelProps} style={{ width: "100%", justifyContent: "center", marginTop: "5px" }}>
+          {t("common.cancel")}
+        </button>
+      </div>
     </div>
   );
 }
@@ -506,42 +634,42 @@ function SessionRow({
   const attendeesCount = Object.values(session.rsvps || {}).filter((v) => v === "going").length;
 
   return (
-    <div className="bigscreen-widget-card" style={{ padding: "20px", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-      <div style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
-        <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
-          <h4 style={{ margin: 0, fontSize: "16px", fontWeight: "700" }}>{session.gameName}</h4>
+    <div className="bigscreen-widget-card bigscreen-session-row" style={{ padding: "20px" }}>
+      <div className="bigscreen-session-main">
+        <div className="bigscreen-session-title-row">
+          <h4 className="bigscreen-session-title">{session.gameName}</h4>
           <BigScreenPill tone="accent" size="sm">{t("bigscreen.friends.lobby")}</BigScreenPill>
         </div>
-        <div style={{ fontSize: "12px", color: "var(--color-text-muted)" }}>
+        <div className="bigscreen-session-meta">
           {t("bigscreen.friends.sessionMeta", { date: formattedDate, going: attendeesCount, max: session.maxPlayers })}
         </div>
         {session.description && (
-          <div style={{ fontSize: "12px", color: "var(--color-text-secondary)", marginTop: "4px" }}>
+          <div className="bigscreen-session-desc">
             "{session.description}"
           </div>
         )}
       </div>
 
-      <div style={{ display: "flex", gap: "10px", alignItems: "center" }}>
+      <div className="bigscreen-session-actions">
         {/* RSVP button strip */}
-        <div style={{ display: "flex", borderRadius: "6px", background: "color-mix(in srgb, var(--bigscreen-text) 2%, transparent)", border: "1px solid var(--color-border)", padding: "2px" }}>
-          <button type="button" {...focusRsvpGoing} style={{ border: "none", background: myRsvp === "going" ? "var(--color-success)" : "transparent", color: "white", padding: "6px 12px", borderRadius: "4px", fontSize: "12px", cursor: "pointer", fontWeight: myRsvp === "going" ? "700" : "400" }}>
+        <div className="bigscreen-rsvp-group">
+          <button type="button" className={`bigscreen-rsvp-btn ${myRsvp === "going" ? "is-selected-going" : ""}`} {...focusRsvpGoing}>
             {t("bigscreen.friends.going")}
           </button>
-          <button type="button" {...focusRsvpMaybe} style={{ border: "none", background: myRsvp === "maybe" ? "var(--color-warning)" : "transparent", color: "white", padding: "6px 12px", borderRadius: "4px", fontSize: "12px", cursor: "pointer", fontWeight: myRsvp === "maybe" ? "700" : "400" }}>
+          <button type="button" className={`bigscreen-rsvp-btn ${myRsvp === "maybe" ? "is-selected-maybe" : ""}`} {...focusRsvpMaybe}>
             {t("bigscreen.friends.maybe")}
           </button>
-          <button type="button" {...focusRsvpDeclined} style={{ border: "none", background: myRsvp === "declined" ? "var(--color-danger)" : "transparent", color: "white", padding: "6px 12px", borderRadius: "4px", fontSize: "12px", cursor: "pointer", fontWeight: myRsvp === "declined" ? "700" : "400" }}>
+          <button type="button" className={`bigscreen-rsvp-btn ${myRsvp === "declined" ? "is-selected-declined" : ""}`} {...focusRsvpDeclined}>
             {t("bigscreen.friends.decline")}
           </button>
         </div>
 
-        <button type="button" className="bigscreen-details-btn bigscreen-details-btn--secondary" {...focusChat}>
+        <button type="button" className="bigscreen-details-btn bigscreen-details-btn--secondary bigscreen-details-btn--compact" {...focusChat}>
           {t("bigscreen.friends.chat")}
         </button>
 
         {session.creatorName === profileName && (
-          <button type="button" className="bigscreen-details-btn bigscreen-details-btn--secondary" {...focusDelete} style={{ color: "var(--color-danger)" }}>
+          <button type="button" className="bigscreen-details-btn bigscreen-details-btn--secondary bigscreen-details-btn--compact" {...focusDelete} style={{ color: "var(--color-danger)" }}>
             {t("bigscreen.friends.cancel")}
           </button>
         )}

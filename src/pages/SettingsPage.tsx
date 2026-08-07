@@ -1,8 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { useLanguage } from "../context/LanguageContext";
-import { useBigScreen } from "../context/BigScreenContext";
 import { PageHeader } from "../components/ui";
-import BigScreenSystem from "../components/bigscreen/BigScreenSystem";
 import "../styles/page-settings.css";
 import "../styles/settings-tabs-b.css";
 
@@ -39,9 +37,6 @@ import type { SettingsNavGroup, SettingsTab } from "./settings/types";
  * useIntegrations hook, so this file stays a thin orchestrator.
  */
 export default function SettingsPage() {
-  // All hooks are called unconditionally (before the big-screen early
-  // return) so the hook order stays stable when `isBigScreen` flips.
-  const { isBigScreen } = useBigScreen();
   const { t } = useLanguage();
   const integrations = useIntegrations();
 
@@ -49,10 +44,6 @@ export default function SettingsPage() {
   const [activeAnchor, setActiveAnchor] = useState<string | null>(null);
   const [navQuery, setNavQuery] = useState("");
   const pendingAnchor = useRef<string | null>(null);
-
-  if (isBigScreen) {
-    return <BigScreenSystem />;
-  }
 
   // Sidebar navigation: jump to a top-level tab, optionally scrolling
   // to a sub-section anchor (an integration tile or a downloads card).

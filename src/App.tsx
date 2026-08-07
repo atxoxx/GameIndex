@@ -3,24 +3,7 @@ import TopNav from "./components/TopNav";
 import Sidebar from "./components/Sidebar";
 import MainContent from "./components/MainContent";
 import BigScreenLayout from "./components/BigScreenLayout";
-import LibraryPage from "./pages/LibraryPage";
-import HomePage from "./pages/HomePage";
-import GamePage from "./pages/GamePage";
-import StorePage from "./pages/StorePage";
-import StoreGameDetail from "./pages/StoreGameDetail";
-import CommunityPage from "./pages/CommunityPage";
-import SettingsPage from "./pages/SettingsPage";
-import DocsPage from "./pages/DocsPage";
-import FriendsPage from "./pages/FriendsPage";
-import ActivityPage from "./pages/ActivityPage";
-import StoragePage from "./pages/StoragePage";
-import WishlistPage from "./pages/WishlistPage";
-import NewsPage from "./pages/NewsPage";
-import DealsPage from "./pages/deals/DealsPage";
-import DownloadsPage from "./pages/DownloadsPage";
-import AchievementsPage from "./pages/AchievementsPage";
-import EmulatorsPage from "./pages/EmulatorsPage";
-import ModsPage from "./pages/mods/ModsPage";
+import { BIGSCREEN_ROUTE_PAIRS, ShellSwitch } from "./bigscreen/registry";
 import { GameProvider } from "./context/GameContext";
 import { ToastProvider } from "./context/ToastContext";
 import { ActivityProvider } from "./context/ActivityContext";
@@ -89,24 +72,13 @@ function AppShell() {
       <Routes>
         <Route element={<AppLayout />}>
           <Route index element={<LandingRedirect />} />
-          <Route path="home" element={<HomePage />} />
-          <Route path="library" element={<LibraryPage />} />
-          <Route path="library/:gameId" element={<GamePage />} />
-          <Route path="wishlist" element={<WishlistPage />} />
-          <Route path="news" element={<NewsPage />} />
-          <Route path="deals" element={<DealsPage />} />
-          <Route path="activity" element={<ActivityPage />} />
-          <Route path="achievements" element={<AchievementsPage />} />
-          <Route path="downloads" element={<DownloadsPage />} />
-          <Route path="storage" element={<StoragePage />} />
-          <Route path="store" element={<StorePage />} />
-          <Route path="store/:gameSlug" element={<StoreGameDetail />} />
-          <Route path="community" element={<CommunityPage />} />
-          <Route path="friends" element={<FriendsPage />} />
-          <Route path="emulators" element={<EmulatorsPage />} />
-          <Route path="mods" element={<ModsPage />} />
-          <Route path="settings" element={<SettingsPage />} />
-          <Route path="docs" element={<DocsPage />} />
+          {BIGSCREEN_ROUTE_PAIRS.map(({ path, desktop, bigscreen }) => (
+            <Route
+              key={path}
+              path={path}
+              element={<ShellSwitch desktop={desktop()} bigscreen={bigscreen?.()} />}
+            />
+          ))}
         </Route>
       </Routes>
     </GamepadProvider>

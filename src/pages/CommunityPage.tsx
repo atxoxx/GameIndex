@@ -152,14 +152,7 @@ function formatHours(totalMinutes: number): string {
 
 // ─── Main Component ─────────────────────────────────────────────────────────
 
-import { useBigScreen } from "../context/BigScreenContext";
-import BigScreenCommunity from "../components/bigscreen/BigScreenCommunity";
-
 export default function CommunityPage() {
-  const { isBigScreen } = useBigScreen();
-  if (isBigScreen) {
-    return <BigScreenCommunity />;
-  }
   const [activeTab, setActiveTab] = useState<CommunityTab>("profile");
   const { t } = useLanguage();
 

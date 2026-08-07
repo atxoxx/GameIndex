@@ -1,11 +1,14 @@
-import { useEffect, useState, useRef } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useNavigate, useParams } from "react-router-dom";
+import { invoke } from "@tauri-apps/api/core";
 import { useLanguage } from "../../context/LanguageContext";
 import type { ReactNode } from "react";
-import { useNavigate } from "react-router-dom";
-import type { Game } from "../../types/game";
+import type { Game, GameMetadataResult } from "../../types/game";
+import { useGames } from "../../context/GameContext";
+import { useToast } from "../../context/ToastContext";
+import { useStoreCache } from "../../hooks/useStoreCache";
 import { useFocusable } from "../../hooks/useFocusable";
 import { useGamepad } from "../../hooks/GamepadProvider";
-import { isBigScreenOverlayOpen } from "../../context/BigScreenContext";
 import { useSteamAppId } from "../../hooks/useSteamAppId";
 import PlayerCountBadge from "../PlayerCountBadge";
 import DownloadModal from "../DownloadModal";
@@ -31,15 +34,6 @@ import BigScreenTabBar, { type TabDef } from "../bigscreen/BigScreenTabBar";
 import BigScreenTabPanel from "../bigscreen/BigScreenTabPanel";
 import { extractYear } from "../bigscreen/bigscreenFormat";
 
-interface BigScreenStoreGamePageProps {
-  game: Game;
-  onBack: () => void;
-  onAddToLibrary: () => void;
-  adding: boolean;
-  isInLibrary: boolean;
-  libraryGameId?: string;
-}
-
 type StorePageTab = "overview" | "media" | "specs" | "more";
 
 const STORE_PAGE_TABS: TabDef<StorePageTab>[] = [
@@ -49,22 +43,31 @@ const STORE_PAGE_TABS: TabDef<StorePageTab>[] = [
   { id: "more", label: "game.tab.more", icon: <MoreIcon /> },
 ];
 
-export default function BigScreenStoreGamePage({
-  game,
-  onBack,
-  onAddToLibrary,
-  adding,
-  isInLibrary,
-  libraryGameId,
-}: BigScreenStoreGamePageProps) {
+/**
+ * BigScreenStoreGamePage — controller-first store game detail page.
+ *
+ * Self-contained: resolves the game from the route slug (`/store/:gameSlug`)
+ * via the `get_store_game_detail` backend command, with a fresh
+ * `useStoreCache` detail hit as an instant fallback, then builds the rich
+ * `Game` object the shared game components consume. Registered as a
+ * prop-free bigscreen variant in the route registry.
+ */
+export default function BigScreenStoreGamePage() {
   const gamepad = useGamepad();
   const navigate = useNavigate();
   const { t } = useLanguage();
+  const { gameSlug } = useParams<{ gameSlug: string }>();
+  const { games, addStoreGame } = useGames();
+  const { showToast } = useToast();
+  const { getDetailCache, setDetailCache } = useStoreCache();
 
-  // Steam appid resolution
-  const { appId: steamAppId } = useSteamAppId(game);
-  const resolvedSteamAppId =
-    typeof steamAppId === "number" ? steamAppId : game.steamAppId ?? null;
+  // ── Data resolution ───────────────────────────────────────────
+  // Cache/API fns are read through a ref so their identities changing
+  // on cache writes don't re-fire the fetch effect.
+  const [data, setData] = useState<GameMetadataResult | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [adding, setAdding] = useState(false);
 
   // Tab + Lightbox state
   const [activeTab, setActiveTab] = useState<StorePageTab>("overview");
@@ -73,6 +76,145 @@ export default function BigScreenStoreGamePage({
   const [logoError, setLogoError] = useState(false);
   const pageRef = useRef<HTMLDivElement | null>(null);
 
+  const cacheApiRef = useRef({ getDetailCache, setDetailCache });
+  cacheApiRef.current = { getDetailCache, setDetailCache };
+
+  const [reloadKey, setReloadKey] = useState(0);
+
+  // Abort-safe detail fetch with a fresh-cache fast path.
+  useEffect(() => {
+    if (!gameSlug) {
+      setLoading(false);
+      return;
+    }
+    let cancelled = false;
+    setLoading(true);
+    setError(null);
+    setLogoError(false);
+    const cached = cacheApiRef.current.getDetailCache(gameSlug);
+    if (cached) {
+      setData(cached);
+      setLoading(false);
+      return;
+    }
+    invoke<GameMetadataResult | null>("get_store_game_detail", { slug: gameSlug })
+      .then((result) => {
+        if (cancelled) return;
+        if (result) {
+          setData(result);
+          void cacheApiRef.current.setDetailCache(gameSlug, result);
+        } else {
+          setData(null);
+        }
+      })
+      .catch((err) => {
+        if (cancelled) return;
+        setError(String(err));
+      })
+      .finally(() => {
+        if (cancelled) return;
+        setLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [gameSlug, reloadKey]);
+
+  // Extract Steam app id from websites
+  const steamAppIdFromWebsites = useMemo(() => {
+    if (!data?.websites) return undefined;
+    for (const url of data.websites) {
+      const match = url.match(/store\.steampowered\.com\/app\/(\d+)/i);
+      if (match) return parseInt(match[1], 10);
+    }
+    return undefined;
+  }, [data]);
+
+  // Build a rich Game object from the IGDB metadata so the shared
+  // game components (InfoKpiCard, RatingsKpiCard, etc.) can render
+  // the same cards they render on the desktop StoreGameDetail page.
+  const mockGame = useMemo((): Game | null => {
+    if (!data) return null;
+    return {
+      id: `store-${data.title}`,
+      name: data.title,
+      path: "",
+      platform: data.sourceName === "Steam" ? "Steam" : "IGDB",
+      installed: false,
+      playTime: "0h",
+      addedAt: Date.now(),
+
+      // ── Images ──────────────────────────────────────────────
+      coverArtUrl: data.images.cover ?? undefined,
+      bannerUrl: data.images.hero ?? data.images.banner ?? data.images.cover ?? undefined,
+      logoUrl: data.images.logo ?? undefined,
+      iconUrl: data.images.icon ?? undefined,
+
+      // ── Metadata ────────────────────────────────────────────
+      description: data.description ?? undefined,
+      developer: data.developer ?? undefined,
+      publisher: data.publisher ?? undefined,
+      releaseDate: data.releaseDate ?? undefined,
+      genres: data.genres.length > 0 ? data.genres : undefined,
+      storyline: data.storyline ?? undefined,
+      igdbRating: data.igdbRating ?? undefined,
+      criticRating: data.criticRating ?? undefined,
+      themes: data.themes?.length ? data.themes : undefined,
+      gameModes: data.gameModes?.length ? data.gameModes : undefined,
+      playerPerspectives: data.playerPerspectives?.length ? data.playerPerspectives : undefined,
+      screenshots: data.screenshots?.length ? data.screenshots : undefined,
+      videos: data.videos?.length ? data.videos : undefined,
+      websites: data.websites?.length ? data.websites : undefined,
+      timeToBeat: data.timeToBeat ?? undefined,
+      similarGames: data.similarGames?.length ? data.similarGames : undefined,
+      releases: data.releases?.length ? data.releases : undefined,
+      igdbReviews: data.igdbReviews ?? undefined,
+      alternativeNames: data.alternativeNames?.length ? data.alternativeNames : undefined,
+      collection: data.collection ?? undefined,
+      collectionId: data.collectionId,
+      franchise: data.franchise ?? undefined,
+      gameCategory: data.gameCategory ?? undefined,
+      releaseStatus: data.releaseStatus ?? undefined,
+      languageSupports: data.languageSupports?.length ? data.languageSupports : undefined,
+
+      // ── Source ──────────────────────────────────────────────
+      metadataSource: data.sourceName,
+      metadataUrl: data.sourceUrl,
+      steamAppId: steamAppIdFromWebsites,
+
+      // ── Library defaults ────────────────────────────────────
+      playStatus: "backlog",
+    };
+  }, [data, steamAppIdFromWebsites]);
+
+  // Steam appid resolution
+  const { appId: steamAppId } = useSteamAppId(mockGame);
+  const resolvedSteamAppId =
+    typeof steamAppId === "number" ? steamAppId : mockGame?.steamAppId ?? null;
+
+  // Check if already in library (name match against the library rows)
+  const existingInLibrary = useMemo(() => {
+    if (!data) return null;
+    const norm = data.title.toLowerCase().trim();
+    return games.find((g) => g.name.toLowerCase().trim() === norm) ?? null;
+  }, [data, games]);
+
+  const isInLibrary = !!existingInLibrary;
+  const libraryGameId = existingInLibrary?.id;
+
+  // Controller B / Escape goes BACK to the store grid. Registered
+  // through the gamepad back-handler registry: the engine invokes the
+  // top-priority handler on B (and defers to open overlays
+  // automatically). The unregister fn runs on unmount so the shell
+  // reclaims B when the user leaves the page.
+  const handleBack = useCallback(() => {
+    navigate("/store");
+  }, [navigate]);
+
+  useEffect(() => {
+    return gamepad.registerBackHandler(handleBack, 0);
+  }, [gamepad.registerBackHandler, handleBack]);
+
   // Start on the primary store action so the first controller press
   // has an obvious, useful destination.
   useEffect(() => {
@@ -80,7 +222,7 @@ export default function BigScreenStoreGamePage({
       '.bigscreen-gamepage-hero-actions [tabindex="0"]:not([disabled])',
     );
     firstAction?.focus({ preventScroll: true });
-  }, [game.id]);
+  }, [mockGame?.id]);
 
   // Bumper tab cycling
   useEffect(() => {
@@ -97,38 +239,86 @@ export default function BigScreenStoreGamePage({
     }, 1);
   }, [gamepad.registerTabCycler, lightbox]);
 
-  // Controller B / Escape goes BACK to the store instead of exiting
-  // Big Screen. Capture-phase so it beats the BigScreenContext shell
-  // handler; preventDefault + stopImmediatePropagation make the shell
-  // back off. Dialogs/overlays (lightbox, search, modal) own Back
-  // while mounted and we defer to them.
-  useEffect(() => {
-    function onEscape(e: KeyboardEvent) {
-      if (e.key !== "Escape") return;
-      if (isBigScreenOverlayOpen()) return;
-      e.preventDefault();
-      e.stopImmediatePropagation();
-      onBack();
+  const handleAddToLibrary = useCallback(async () => {
+    if (!data || adding) return;
+    setAdding(true);
+    try {
+      await addStoreGame(data);
+    } catch (err) {
+      showToast(t("storeDetail.addFailed", { error: err }), "error");
+    } finally {
+      setAdding(false);
     }
-    document.addEventListener("keydown", onEscape, true);
-    return () => document.removeEventListener("keydown", onEscape, true);
-  }, [onBack]);
+  }, [data, adding, addStoreGame, showToast, t]);
 
-  const focusableBack = useFocusable(onBack);
+  const retry = useCallback(() => setReloadKey((k) => k + 1), []);
+
+  const focusableBack = useFocusable(handleBack);
+  const focusableRetry = useFocusable(retry);
   const focusableAction = useFocusable(() => {
     if (isInLibrary && libraryGameId) {
       navigate(`/library/${libraryGameId}`);
     } else {
-      onAddToLibrary();
+      void handleAddToLibrary();
     }
   });
 
   const focusableTrailer = useFocusable(() => {
-    if (!game.videos || game.videos.length === 0) return;
-    setLightbox(game.videos[0]);
+    if (!mockGame?.videos || mockGame.videos.length === 0) return;
+    setLightbox(mockGame.videos[0]);
   });
 
   const focusableDownload = useFocusable(() => setDownloadOpen(true));
+
+  // ── Render states ──────────────────────────────────────────────
+  if (loading) {
+    return (
+      <div className="bigscreen-gamepage">
+        <div className="store-tab-loading" role="status" aria-live="polite">
+          <div className="store-spinner" />
+          <span>{t("store.loadingGameDetails")}</span>
+        </div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="bigscreen-gamepage">
+        <div className="store-tab-loading" role="alert">
+          <strong>{t("store.failedToLoad")}</strong>
+          <span>{error}</span>
+          <button
+            type="button"
+            className="bigscreen-details-btn bigscreen-details-btn--secondary"
+            {...focusableRetry}
+          >
+            {t("common.retry")}
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  if (!data || !mockGame) {
+    return (
+      <div className="bigscreen-gamepage">
+        <div className="store-tab-loading" role="status">
+          <strong>{t("game.notFoundTitle")}</strong>
+          <span>{t("store.gameNotFoundIgdb")}</span>
+          <button
+            type="button"
+            className="bigscreen-details-btn bigscreen-details-btn--secondary"
+            {...focusableBack}
+          >
+            {t("store.backToStore")}
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  const game = mockGame;
 
   const releaseYear = extractYear(game.releaseDate);
   const rating = game.igdbRating ?? game.criticRating;

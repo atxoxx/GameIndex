@@ -63,3 +63,26 @@ export function extractYear(date: string | undefined): number | null {
 export function isVideoUrl(url: string): boolean {
   return /\.(mp4|webm|mov|m3u8)(\?|#|$)/i.test(url);
 }
+
+/**
+ * Format a deal price with the user's locale via Intl.NumberFormat.
+ * ITAD prices are EUR (backend contract), so EUR is the default when
+ * no store-specific currency is available — the symbol/grouping/
+ * placement still follow the active UI locale.
+ */
+export function formatPrice(
+  price: number,
+  locale: string,
+  currency?: string,
+): string {
+  if (!Number.isFinite(price)) return "—";
+  const resolvedCurrency = currency ?? "EUR";
+  try {
+    return new Intl.NumberFormat(locale, {
+      style: "currency",
+      currency: resolvedCurrency,
+    }).format(price);
+  } catch {
+    return `${resolvedCurrency} ${price.toFixed(2)}`;
+  }
+}

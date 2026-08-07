@@ -33,9 +33,7 @@ type StorageView = "games" | "emulators";
  *  uninstall with confirmation. Games can be reorganised into collapsible
  *  sections (by Platform / Emulator / Drive) and a dedicated Emulators view
  *  rolls every emulator's install folder + linked ROMs into one footprint. */
-import { useBigScreen } from "../context/BigScreenContext";
 import { useLanguage } from "../context/LanguageContext";
-import BigScreenSystem from "../components/bigscreen/BigScreenSystem";
 
 /** Best-effort parent directory of a file path (used to size an emulator's
  *  install folder from its executable). */
@@ -64,11 +62,7 @@ const SelectIcon = (
 );
 
 export default function StoragePage() {
-  const { isBigScreen } = useBigScreen();
   const { t } = useLanguage();
-  if (isBigScreen) {
-    return <BigScreenSystem />;
-  }
   const { games, updateGame, removeGame } = useGames();
   const { density, setDensity } = useDensityContext();
   const { showToast } = useToast();

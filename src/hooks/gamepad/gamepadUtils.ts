@@ -30,6 +30,40 @@ export function isVisible(el: HTMLElement): boolean {
   return r.width > 0 && r.height > 0;
 }
 
+// ── Directional-repeat timing ────────────────────────────────────
+// Keyboard-style hold-to-repeat used by spatial navigation: after a
+// new direction is engaged it fires once immediately, then waits
+// `REPEAT_DELAY_MS` before the first repeat and repeats every
+// `REPEAT_INTERVAL_MS` thereafter.
+
+/** Initial delay before a held direction starts repeating (ms). */
+export const REPEAT_DELAY_MS = 450;
+/** Interval between repeats while a direction is held (ms). */
+export const REPEAT_INTERVAL_MS = 110;
+
+// ── Cycler / back-handler priorities ─────────────────────────────
+// Higher priority wins; ties break by registration recency (newest
+// wins). The shell-level (header / bottom-bar) tab cycler is
+// deliberately the LOWEST so any page-level cycler mounted later can
+// take over LB/RB. `CYCLER_PRIORITY_PAGE` is the default for
+// `registerTabCycler` and `registerBackHandler`.
+
+/** Priority for the persistent shell-level tab cycler (header). */
+export const CYCLER_PRIORITY_SHELL = -100;
+/** Default priority for page-level cyclers and back handlers. */
+export const CYCLER_PRIORITY_PAGE = 0;
+
+// ── Scroll margins ───────────────────────────────────────────────
+// Used by `scrollElementIntoViewControlled` for the main vertical
+// scroll parent. Top margin clears the 92px Big Screen header plus
+// buffer; bottom margin clears the bottom bar plus buffer. These are
+// exported so the layout lanes can reason about the same values.
+
+/** Vertical scroll-parent inset above the focused element (px). */
+export const SCROLL_MARGIN_TOP = 120;
+/** Vertical scroll-parent inset below the focused element (px). */
+export const SCROLL_MARGIN_BOTTOM = 48;
+
 export interface FocusableCandidate {
   element: HTMLElement;
   onActivate: () => void;
@@ -166,8 +200,8 @@ export function scrollElementIntoViewControlled(el: HTMLElement) {
   if (scrollParent) {
     const elRect = el.getBoundingClientRect();
     const parentRect = scrollParent.getBoundingClientRect();
-    const topMargin = 100; // Account for 80px fixed header + 20px padding
-    const bottomMargin = 40;
+    const topMargin = SCROLL_MARGIN_TOP; // Account for 92px header + buffer
+    const bottomMargin = SCROLL_MARGIN_BOTTOM;
 
     if (elRect.top < parentRect.top + topMargin) {
       const diff = parentRect.top + topMargin - elRect.top;
