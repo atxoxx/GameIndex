@@ -1360,10 +1360,10 @@
 /* Full-bleed hero section (always visible across all tabs). */
 .bigscreen-gamepage-hero {
   position: relative;
-  min-height: 520px;
+  min-height: 440px;
   display: flex;
   flex-direction: column;
-  justify-content: flex-end;
+  justify-content: flex-start;
   overflow: hidden;
 }
 
@@ -1404,7 +1404,7 @@
 .bigscreen-gamepage-hero-content {
   position: relative;
   z-index: 2;
-  padding: 100px 64px 32px 64px;
+  padding: 84px 64px 28px 64px;
   display: flex;
   flex-direction: column;
   gap: 16px;
@@ -2433,11 +2433,11 @@
 }
 
 .bigscreen-gamepage-hero {
-  min-height: 25.625rem;
+  min-height: 21.75rem;
 }
 
 .bigscreen-gamepage-hero-content {
-  padding: 4.75rem 3.5rem 1.5rem;
+  padding: 4.5rem 3.5rem 1.5rem;
   gap: 0.625rem;
 }
 
@@ -2572,7 +2572,7 @@
   }
 
   .bigscreen-gamepage-hero {
-    min-height: 27.5rem;
+    min-height: 22.75rem;
   }
 
   .bigscreen-gamepage-overview,
@@ -2596,7 +2596,7 @@
   }
 
   .bigscreen-gamepage-hero {
-    min-height: 22.5rem;
+    min-height: 20rem;
   }
 
   .bigscreen-gamepage-2col {
@@ -2604,7 +2604,7 @@
   }
 
   .bigscreen-gamepage-hero-content {
-    padding: 4.25rem 1.5rem 1.125rem;
+    padding: 4.5rem 1.5rem 1.125rem;
   }
 
   .bigscreen-gamepage-hero-back {
@@ -3808,6 +3808,521 @@
   .bigscreen-overlay-drawer-panel--modal,
   .bigscreen-news-reader-banner img {
     animation: none !important;
+  }
+}
+
+/* ============================================================
+   Big Screen Game Hub — cinematic detail-page refactor pass
+   Vapour-style layered hero + Overview 2-column layout with a
+   Playnite-style metadata rail. Everything below is scoped to the
+   Game Hub page and sits AFTER the rem-scale passes so the TV
+   sizing wins on equal specificity. All sizes are rem (19px root).
+   ============================================================ */
+
+/* ── Hero: strengthened scrim ───────────────────────────────────
+   Original mask was a single bottom fade. The refactor adds left/
+   right vignette bands (so hero art can't bleed distractingly into
+   the tab scroll region at the edges), a deeper bottom fade so the
+   hero ends cleanly into the tab bar, AND a stronger top scrim —
+   the hero content now sits high (top-aligned), over the brighter
+   part of the art, so the title/meta strip needs more backing. */
+.bigscreen-gamepage-hero-mask {
+  background:
+    linear-gradient(to right, color-mix(in srgb, var(--bigscreen-bg) 76%, transparent) 0%, transparent 26%, transparent 68%, color-mix(in srgb, var(--bigscreen-bg) 76%, transparent) 100%),
+    linear-gradient(to bottom, color-mix(in srgb, var(--bigscreen-bg) 26%, transparent) 0%, color-mix(in srgb, var(--bigscreen-bg) 42%, transparent) 45%, color-mix(in srgb, var(--bigscreen-bg) 88%, transparent) 82%, var(--bigscreen-bg) 100%);
+}
+
+/* Subtle accent + info tint sitting above the mask: a console-brand
+   colour wash over the hero art. `screen` blend keeps it a glow,
+   never a solid block. */
+.bigscreen-gamepage-hero-tint {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  pointer-events: none;
+  background:
+    radial-gradient(ellipse 110% 75% at 16% 92%, color-mix(in srgb, var(--bigscreen-accent) 15%, transparent), transparent 58%),
+    radial-gradient(ellipse 70% 55% at 94% 45%, color-mix(in srgb, var(--color-info) 7%, transparent), transparent 62%);
+  mix-blend-mode: screen;
+}
+
+/* ── Hero: title / subtitle / action hierarchy ───────────────── */
+
+.bigscreen-gamepage-hero-subtitle {
+  font-size: 1rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  color: color-mix(in srgb, var(--bigscreen-text) 72%, transparent);
+}
+
+.bigscreen-gamepage-hero-subtitle-dot {
+  width: 0.25rem;
+  height: 0.25rem;
+}
+
+/* Primary action (Play / Install) — the hero's one big call. */
+.bigscreen-gamepage-hero-actions .bigscreen-details-btn--primary {
+  padding: 0.875rem 2.5rem;
+  font-size: 1.0625rem;
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--bigscreen-bg) 60%, transparent), 0 6px 24px var(--bigscreen-accent-glow);
+}
+
+/* Restore the canonical focus ring on the focused primary action —
+ * the refactor rules above would otherwise shadow it (equal
+ * specificity, later in file). */
+.bigscreen-gamepage-hero-actions .bigscreen-details-btn--primary[data-focused="true"] {
+  box-shadow: var(--bigscreen-focus-glow);
+}
+
+/* Secondary actions step back: smaller, softer label colour so the
+   primary action owns the row. */
+.bigscreen-gamepage-hero-actions .bigscreen-details-btn--secondary {
+  padding: 0.75rem 1.5rem;
+  font-size: 0.875rem;
+  color: color-mix(in srgb, var(--bigscreen-text) 68%, transparent);
+}
+
+/* Focused secondaries snap back to full-brightness text. */
+.bigscreen-gamepage-hero-actions .bigscreen-details-btn--secondary[data-focused="true"] {
+  color: var(--bigscreen-text);
+}
+
+/* Trailer button — glass + accent-tinted so it reads as the
+   "Watch trailer" affordance (Vapour keeps this prominent). */
+.bigscreen-gamepage-hero-actions .bigscreen-gamepage-hero-btn--trailer {
+  background: color-mix(in srgb, var(--bigscreen-accent) 11%, transparent);
+  border-color: color-mix(in srgb, var(--bigscreen-accent) 42%, transparent);
+  color: var(--bigscreen-accent-soft-text);
+}
+.bigscreen-gamepage-hero-actions .bigscreen-gamepage-hero-btn--trailer:hover,
+.bigscreen-gamepage-hero-actions .bigscreen-gamepage-hero-btn--trailer[data-focused="true"] {
+  background: color-mix(in srgb, var(--bigscreen-accent) 22%, transparent);
+  border-color: var(--bigscreen-accent);
+  color: var(--bigscreen-text);
+}
+
+/* ── Overview: prose + metadata rail layout ──────────────────── */
+
+.bigscreen-gamepage-overview-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 58rem) minmax(21rem, 26rem);
+  gap: 1.5rem;
+  align-items: start;
+}
+
+/* Left narrative column (storyline + about). The desktop card look
+   is preserved but spacing is tightened for the tab body. */
+.bigscreen-gamepage-overview-prose {
+  min-width: 0;
+}
+
+.bigscreen-gamepage-overview-prose .game-section {
+  margin-bottom: 1.25rem;
+}
+.bigscreen-gamepage-overview-prose .game-section:last-child {
+  margin-bottom: 0;
+}
+
+/* Right metadata rail. Each block renders only when its data
+   exists; blocks are focusable so D-pad can walk the rail. */
+.bigscreen-gamepage-rail {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  min-width: 0;
+}
+
+/* ── Rail: 2×2 quick stats ───────────────────────────────────── */
+
+.bigscreen-gamepage-rail-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.75rem;
+}
+
+.bigscreen-rail-stat {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3125rem;
+  min-width: 0;
+  padding: 0.875rem 1rem;
+  border-radius: 0.875rem;
+  background: color-mix(in srgb, var(--bigscreen-text) 4%, transparent);
+  border: 1px solid color-mix(in srgb, var(--bigscreen-text) 9%, transparent);
+}
+
+.bigscreen-rail-stat__label {
+  font-size: 0.625rem;
+  font-weight: 800;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+  color: color-mix(in srgb, var(--bigscreen-text) 45%, transparent);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.bigscreen-rail-stat__value {
+  font-size: 1.0625rem;
+  font-weight: 800;
+  color: var(--bigscreen-text);
+  font-variant-numeric: tabular-nums;
+  line-height: 1.2;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.bigscreen-rail-stat__value--row {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.bigscreen-rail-stat__dot {
+  width: 0.5rem;
+  height: 0.5rem;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+/* Odd-count last stat spans the full row so the grid never shows
+ * a dangling half-cell when Last played or Released is absent. */
+.bigscreen-rail-stat:last-child:nth-child(odd) {
+  grid-column: 1 / -1;
+}
+
+/* ── Rail: generic card + card head ──────────────────────────── */
+
+.bigscreen-rail-card {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  padding: 1.125rem;
+  border-radius: 0.875rem;
+  background: color-mix(in srgb, var(--bigscreen-text) 3%, transparent);
+  border: 1px solid color-mix(in srgb, var(--bigscreen-text) 9%, transparent);
+}
+
+.bigscreen-rail-card__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+
+.bigscreen-rail-card__title {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.6875rem;
+  font-weight: 800;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+  color: color-mix(in srgb, var(--bigscreen-text) 55%, transparent);
+}
+
+.bigscreen-rail-card__title svg {
+  width: 0.9375rem;
+  height: 0.9375rem;
+  color: var(--bigscreen-accent);
+}
+
+.bigscreen-rail-card__badge {
+  padding: 0.25rem 0.625rem;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--bigscreen-accent) 14%, transparent);
+  border: 1px solid color-mix(in srgb, var(--bigscreen-accent) 30%, transparent);
+  color: var(--bigscreen-accent-soft-text);
+  font-size: 0.6875rem;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+/* ── Rail: achievement progress ──────────────────────────────── */
+
+.bigscreen-rail-ach__bar {
+  height: 0.5rem;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--bigscreen-text) 8%, transparent);
+  overflow: hidden;
+}
+
+.bigscreen-rail-ach__fill {
+  height: 100%;
+  border-radius: inherit;
+  background: linear-gradient(90deg, var(--bigscreen-accent), color-mix(in srgb, var(--bigscreen-accent) 55%, white 45%));
+  box-shadow: 0 0 10px var(--bigscreen-accent-glow);
+  transition: width 500ms var(--ease-standard);
+}
+
+.bigscreen-rail-ach__meta {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.75rem;
+  font-size: 0.75rem;
+  color: color-mix(in srgb, var(--bigscreen-text) 60%, transparent);
+}
+
+.bigscreen-rail-ach__pct {
+  font-size: 0.875rem;
+  font-weight: 800;
+  color: var(--bigscreen-text);
+  font-variant-numeric: tabular-nums;
+}
+
+.bigscreen-rail-ach__recent {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  margin-top: 0.25rem;
+  padding-top: 0.75rem;
+  border-top: 1px solid color-mix(in srgb, var(--bigscreen-text) 8%, transparent);
+}
+
+.bigscreen-rail-ach__recent-label {
+  font-size: 0.625rem;
+  font-weight: 800;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+  color: color-mix(in srgb, var(--bigscreen-text) 40%, transparent);
+}
+
+.bigscreen-rail-ach__recent-row {
+  display: flex;
+  align-items: center;
+  gap: 0.625rem;
+  min-width: 0;
+}
+
+.bigscreen-rail-ach__icon {
+  width: 1.75rem;
+  height: 1.75rem;
+  border-radius: 0.375rem;
+  object-fit: cover;
+  flex-shrink: 0;
+  background: color-mix(in srgb, var(--bigscreen-text) 6%, transparent);
+}
+
+.bigscreen-rail-ach__icon--fallback {
+  display: block;
+}
+
+.bigscreen-rail-ach__recent-name {
+  flex: 1;
+  min-width: 0;
+  font-size: 0.8125rem;
+  font-weight: 700;
+  color: var(--bigscreen-text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.bigscreen-rail-ach__recent-date {
+  flex-shrink: 0;
+  font-size: 0.6875rem;
+  font-weight: 600;
+  color: color-mix(in srgb, var(--bigscreen-text) 40%, transparent);
+  font-variant-numeric: tabular-nums;
+}
+
+/* ── Rail: genres chips ──────────────────────────────────────── */
+
+.bigscreen-rail-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4375rem;
+}
+
+.bigscreen-rail-chip {
+  padding: 0.3125rem 0.75rem;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--bigscreen-text) 7%, transparent);
+  border: 1px solid color-mix(in srgb, var(--bigscreen-text) 12%, transparent);
+  color: color-mix(in srgb, var(--bigscreen-text) 78%, transparent);
+  font-size: 0.75rem;
+  font-weight: 700;
+}
+
+/* ── Rail: Playnite label/value rows ─────────────────────────── */
+
+.bigscreen-rail-rows {
+  padding-top: 0.25rem;
+  padding-bottom: 0.25rem;
+}
+
+.bigscreen-rail-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0.625rem 0;
+  border-bottom: 1px solid color-mix(in srgb, var(--bigscreen-text) 8%, transparent);
+}
+
+.bigscreen-rail-row:last-child {
+  border-bottom: none;
+}
+
+.bigscreen-rail-row__label {
+  flex-shrink: 0;
+  font-size: 0.625rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: color-mix(in srgb, var(--bigscreen-text) 40%, transparent);
+}
+
+.bigscreen-rail-row__value {
+  min-width: 0;
+  font-size: 0.8125rem;
+  font-weight: 700;
+  color: var(--bigscreen-text);
+  text-align: right;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* ── Rail: compact the shared desktop cards ────────────────────
+   RatingsKpiCard / TimeToBeatCard / LanguagesSection render the
+   desktop `.game-section` surface; rescope them to the rail's
+   dense token language (TV-readable, no desktop card chrome). */
+
+.bigscreen-gamepage-rail .game-section {
+  margin-bottom: 0;
+  padding: 1.125rem;
+  border-radius: 0.875rem;
+  background: color-mix(in srgb, var(--bigscreen-text) 3%, transparent);
+  border: 1px solid color-mix(in srgb, var(--bigscreen-text) 9%, transparent);
+  box-shadow: none;
+}
+
+.bigscreen-gamepage-rail .game-section::before {
+  display: none;
+}
+
+.bigscreen-gamepage-rail .game-section-title {
+  margin: 0 0 0.875rem;
+  padding: 0;
+  border-radius: 0;
+  background: none;
+  font-size: 0.6875rem;
+  font-weight: 800;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+  color: color-mix(in srgb, var(--bigscreen-text) 55%, transparent);
+}
+
+.bigscreen-gamepage-rail .game-section-title svg {
+  width: 0.9375rem;
+  height: 0.9375rem;
+}
+
+/* KPI tiles (ratings + time-to-beat). */
+.bigscreen-gamepage-rail .kpi-tile {
+  padding: 0.625rem 0.75rem;
+  border-radius: 0.625rem;
+}
+
+.bigscreen-gamepage-rail .kpi-tile__label {
+  font-size: 0.625rem;
+}
+
+.bigscreen-gamepage-rail .kpi-tile__subtext {
+  font-size: 0.6875rem;
+}
+
+/* Ratings card. */
+.bigscreen-gamepage-rail .ratings-kpi-grid {
+  gap: 0.5rem;
+  margin-bottom: 0.75rem;
+}
+
+.bigscreen-gamepage-rail .ratings-kpi-tile .kpi-tile__value {
+  font-size: 1.75rem;
+}
+
+.bigscreen-gamepage-rail .ratings-breakdown {
+  gap: 0.375rem;
+  padding-top: 0.75rem;
+}
+
+.bigscreen-gamepage-rail .ratings-breakdown__title {
+  font-size: 0.625rem;
+  margin-bottom: 0.25rem;
+}
+
+.bigscreen-gamepage-rail .ratings-breakdown__row {
+  gap: 0.625rem;
+  font-size: 0.75rem;
+}
+
+.bigscreen-gamepage-rail .ratings-breakdown__label {
+  width: 5.625rem;
+}
+
+.bigscreen-gamepage-rail .ratings-breakdown__track {
+  height: 0.4375rem;
+}
+
+.bigscreen-gamepage-rail .ratings-breakdown__pct {
+  width: 2.25rem;
+}
+
+/* Time-to-beat card. */
+.bigscreen-gamepage-rail .ttb-kpi-grid {
+  gap: 0.5rem;
+  margin-bottom: 0.75rem;
+}
+
+.bigscreen-gamepage-rail .ttb-progress-list {
+  gap: 0.625rem;
+  padding-top: 0.75rem;
+}
+
+.bigscreen-gamepage-rail .ttb-row__head {
+  font-size: 0.75rem;
+}
+
+.bigscreen-gamepage-rail .ttb-row__track {
+  height: 0.4375rem;
+}
+
+/* Languages table. */
+.bigscreen-gamepage-rail .languages-table-wrap {
+  border-radius: 0.625rem;
+}
+
+.bigscreen-gamepage-rail .languages-table {
+  font-size: 0.8125rem;
+}
+
+.bigscreen-gamepage-rail .languages-table th {
+  padding: 0.5rem 0.75rem;
+  font-size: 0.625rem;
+}
+
+.bigscreen-gamepage-rail .languages-table td {
+  padding: 0.5rem 0.75rem;
+}
+
+/* ── Breakpoints ─────────────────────────────────────────────── */
+
+@media (max-width: 56.25rem) { /* 900px — collapse to one column */
+  .bigscreen-gamepage-overview-layout {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .bigscreen-gamepage-hero-actions .bigscreen-details-btn--primary {
+    padding: 0.75rem 1.75rem;
+  }
+
+  .bigscreen-gamepage-hero-actions .bigscreen-details-btn--secondary {
+    padding: 0.625rem 1.125rem;
   }
 }
 

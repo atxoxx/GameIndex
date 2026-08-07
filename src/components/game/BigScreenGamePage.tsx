@@ -75,7 +75,7 @@ import BigScreenTabBar, {
   type TabDef,
 } from "../bigscreen/BigScreenTabBar";
 import BigScreenTabPanel from "../bigscreen/BigScreenTabPanel";
-import { extractYear } from "../bigscreen/bigscreenFormat";
+import { extractYear, formatLastPlayed } from "../bigscreen/bigscreenFormat";
 
 // ── Self-contained entry ──────────────────────────────────────────
 // Resolves the game from the route param and wires the page-level
@@ -286,6 +286,7 @@ function BigScreenGamePageContent({
           paused={activeTab === "overview"}
         />
         <div className="bigscreen-gamepage-hero-mask" aria-hidden />
+        <div className="bigscreen-gamepage-hero-tint" aria-hidden />
         <div className="bigscreen-gamepage-hero-glow" aria-hidden />
 
         <div className="bigscreen-gamepage-hero-content">
@@ -509,7 +510,7 @@ function BigScreenGamePageContent({
             {game.videos && game.videos.length > 0 && (
               <button
                 type="button"
-                className="bigscreen-details-btn bigscreen-details-btn--secondary"
+                className="bigscreen-details-btn bigscreen-details-btn--secondary bigscreen-gamepage-hero-btn--trailer"
                 {...focusableTrailer}
                 aria-label={t("game.watchTrailer")}
               >
@@ -660,11 +661,13 @@ function BigScreenGameNotFound({ onBack }: { onBack: () => void }) {
 
 // ─── Overview tab content ────────────────────────────────────────
 //
-// PR 3a keeps the existing Overview sections (Storyline, About,
-// SystemRequirements, Screenshots, the 2-col Specs + Releases row,
-// Languages, plus the GameRelationsCard that's now wired in) as
-// the canonical Overview landing content. PR 3b will rearrange
-// some of these into Media (screenshots) and Specs (cards).
+// The cinematic landing tab: narrative prose (storyline + about) on
+// the left, a dense Playnite-style metadata rail on the right. The
+// rail surfaces the facts users want at a glance (stats, ratings,
+// genres, time-to-beat, developer/publisher, languages) so the data
+// no longer has to be dug out of the Specs tab. Screenshots live in
+// Media, deep-dive facts (system requirements, releases, crackwatch)
+// stay in Specs.
 
 function BigScreenFocusableCard({ children }: { children: ReactNode }) {
   const focusProps = useFocusable(() => {});
@@ -682,16 +685,296 @@ function BigScreenGamePageOverview({
 }) {
   return (
     <div className="bigscreen-gamepage-overview">
-      {/* Prose-only landing: the narrative story + the description.
-       *  Screenshots and data cards moved to Media / Specs tabs in
-       *  PR 3b; SystemRequirementsCard moved to Specs (where power
-       *  users look first). */}
-      <BigScreenFocusableCard>
-        <StorylineSection game={game} />
-      </BigScreenFocusableCard>
-      <AboutSection game={game} />
+      {/* Vapour-style details body: narrative prose on the left,
+       *  dense Playnite-style metadata rail on the right. The rail
+       *  renders each block only when its data exists (Playnite
+       *  renders-when-data), so sparse games never show empty
+       *  cards. */}
+      <div className="bigscreen-gamepage-overview-layout">
+        <div className="bigscreen-gamepage-overview-prose">
+          <BigScreenFocusableCard>
+            <StorylineSection game={game} />
+          </BigScreenFocusableCard>
+          <AboutSection game={game} />
+        </div>
+        <BigScreenGamePageRail game={game} />
+      </div>
     </div>
   );
+}
+
+// ─── Overview metadata rail ─────────────────────────────────────────
+//
+// The right-hand column of the Overview tab, modeled on Playnite's
+// desktop Details view + Vapour's fullscreen metadata panel. Blocks
+// render only when their data is present:
+//   • 2×2 quick stats  (Playtime / Status / Last played / Released)
+//   • Steam achievement progress  (rounded bar + recent unlocks)
+//   • IGDB + critic ratings
+//   • Genres chips
+//   • Time-to-beat
+//   • Developer / Publisher / Franchise / Collection rows
+//   • Supported languages
+// Every block is wrapped in a BigScreenFocusableCard so D-pad
+// navigation can walk the rail and the spatial-nav engine scrolls
+// off-screen blocks into view.
+
+function BigScreenGamePageRail({ game }: { game: Game }) {
+  const { t } = useLanguage();
+  const status = PLAY_STATUS_DETAILS[game.playStatus || "backlog"];
+
+  // Steam-synced achievement snapshot (the same source the desktop
+  // hero uses for its progress ring).
+  const achievements = game.steamAchievements;
+  const achUnlocked = achievements?.filter((a) => a.achieved).length ?? 0;
+  const achTotal = achievements?.length ?? 0;
+  const achPct = achTotal > 0 ? Math.round((achUnlocked / achTotal) * 100) : null;
+  const recentUnlocks = achievements
+    ? [...achievements]
+        .filter((a) => a.achieved && a.unlocktime > 0)
+        .sort((a, b) => b.unlocktime - a.unlocktime)
+        .slice(0, 3)
+    : [];
+
+  const hasTimeToBeat = (() => {
+    const ttb = game.timeToBeat;
+    return (
+      !!ttb &&
+      ((ttb.normally ?? 0) > 0 ||
+        (ttb.completely ?? 0) > 0 ||
+        (ttb.hastily ?? 0) > 0)
+    );
+  })();
+
+  const hasAnyIdentity =
+    !!game.developer ||
+    !!game.publisher ||
+    !!game.franchise ||
+    !!game.collection;
+
+  return (
+    <aside
+      className="bigscreen-gamepage-rail"
+      aria-label={t("bigscreen.overview.rail")}
+    >
+      {/* ── 2×2 quick stats ─────────────────────────────────── */}
+      <div className="bigscreen-gamepage-rail-grid">
+        <div className="bigscreen-rail-stat">
+          <span className="bigscreen-rail-stat__label">{t("hero.playTime")}</span>
+          <span className="bigscreen-rail-stat__value">
+            {game.playTime || "0h"}
+          </span>
+        </div>
+        <div className="bigscreen-rail-stat">
+          <span className="bigscreen-rail-stat__label">{t("hero.status")}</span>
+          <span className="bigscreen-rail-stat__value bigscreen-rail-stat__value--row">
+            <span
+              className="bigscreen-rail-stat__dot"
+              style={{
+                background: status.color,
+                boxShadow: `0 0 8px ${status.color}`,
+              }}
+            />
+            {t(status.labelKey)}
+          </span>
+        </div>
+        {game.lastPlayed ? (
+          <div className="bigscreen-rail-stat">
+            <span className="bigscreen-rail-stat__label">
+              {t("game.lastPlayed")}
+            </span>
+            <span className="bigscreen-rail-stat__value">
+              {formatLastPlayed(game.lastPlayed)}
+            </span>
+          </div>
+        ) : null}
+        {game.releaseDate ? (
+          <div className="bigscreen-rail-stat">
+            <span className="bigscreen-rail-stat__label">
+              {t("gameInfo.releaseDate")}
+            </span>
+            <span className="bigscreen-rail-stat__value">
+              {formatRailDate(game.releaseDate)}
+            </span>
+          </div>
+        ) : null}
+      </div>
+
+      {/* ── Achievement progress ────────────────────────────── */}
+      {achTotal > 0 && achPct != null && (
+        <BigScreenFocusableCard>
+          <div className="bigscreen-rail-card bigscreen-rail-ach">
+            <div className="bigscreen-rail-card__head">
+              <span className="bigscreen-rail-card__title">
+                <AchievementsIcon />
+                {t("achievementsPage.achievements")}
+              </span>
+              <span className="bigscreen-rail-card__badge">
+                {achUnlocked} / {achTotal}
+              </span>
+            </div>
+            <div
+              className="bigscreen-rail-ach__bar"
+              role="progressbar"
+              aria-valuenow={achPct}
+              aria-valuemin={0}
+              aria-valuemax={100}
+              aria-label={t("bigscreen.gameHub.achievements", {
+                unlocked: achUnlocked,
+                total: achTotal,
+                pct: achPct,
+              })}
+            >
+              <div
+                className="bigscreen-rail-ach__fill"
+                style={{ width: `${achPct}%` }}
+              />
+            </div>
+            <div className="bigscreen-rail-ach__meta">
+              <span className="bigscreen-rail-ach__pct">{achPct}%</span>
+              <span className="bigscreen-rail-ach__count">
+                {achUnlocked} {t("achievements.unlocked").toLowerCase()}
+              </span>
+            </div>
+            {recentUnlocks.length > 0 && (
+              <div className="bigscreen-rail-ach__recent">
+                <span className="bigscreen-rail-ach__recent-label">
+                  {t("achievementsPage.recentUnlocks")}
+                </span>
+                {recentUnlocks.map((a) => (
+                  <div className="bigscreen-rail-ach__recent-row" key={a.apiname}>
+                    {a.icon ? (
+                      <img
+                        src={a.icon}
+                        alt=""
+                        className="bigscreen-rail-ach__icon"
+                        loading="lazy"
+                      />
+                    ) : (
+                      <span className="bigscreen-rail-ach__icon bigscreen-rail-ach__icon--fallback" />
+                    )}
+                    <span className="bigscreen-rail-ach__recent-name">
+                      {a.name}
+                    </span>
+                    <time className="bigscreen-rail-ach__recent-date">
+                      {formatAchDate(a.unlocktime)}
+                    </time>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </BigScreenFocusableCard>
+      )}
+
+      {/* ── Ratings (IGDB + critics) ────────────────────────── */}
+      {(game.igdbRating != null || game.criticRating != null) && (
+        <BigScreenFocusableCard>
+          <RatingsKpiCard game={game} />
+        </BigScreenFocusableCard>
+      )}
+
+      {/* ── Genres ──────────────────────────────────────────── */}
+      {game.genres && game.genres.length > 0 && (
+        <BigScreenFocusableCard>
+          <div className="bigscreen-rail-card">
+            <span className="bigscreen-rail-card__title">
+              {t("bigscreen.overview.genres")}
+            </span>
+            <div className="bigscreen-rail-chips">
+              {game.genres.map((g) => (
+                <span className="bigscreen-rail-chip" key={g}>
+                  {g}
+                </span>
+              ))}
+            </div>
+          </div>
+        </BigScreenFocusableCard>
+      )}
+
+      {/* ── Time to beat ────────────────────────────────────── */}
+      {hasTimeToBeat && (
+        <BigScreenFocusableCard>
+          <TimeToBeatCard game={game} />
+        </BigScreenFocusableCard>
+      )}
+
+      {/* ── Developer / Publisher / Franchise / Collection ──── */}
+      {hasAnyIdentity && (
+        <BigScreenFocusableCard>
+          <div className="bigscreen-rail-card bigscreen-rail-rows">
+            {game.developer && (
+              <BigScreenRailRow
+                label={t("bigscreen.gameHub.developer")}
+                value={game.developer}
+              />
+            )}
+            {game.publisher && (
+              <BigScreenRailRow
+                label={t("bigscreen.gameHub.publisher")}
+                value={game.publisher}
+              />
+            )}
+            {game.franchise && (
+              <BigScreenRailRow
+                label={t("info.franchise")}
+                value={game.franchise}
+              />
+            )}
+            {game.collection && (
+              <BigScreenRailRow
+                label={t("bigscreen.overview.collection")}
+                value={game.collection}
+              />
+            )}
+          </div>
+        </BigScreenFocusableCard>
+      )}
+
+      {/* ── Supported languages ─────────────────────────────── */}
+      {game.languageSupports && game.languageSupports.length > 0 && (
+        <BigScreenFocusableCard>
+          <LanguagesSection game={game} />
+        </BigScreenFocusableCard>
+      )}
+    </aside>
+  );
+}
+
+function BigScreenRailRow({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="bigscreen-rail-row">
+      <span className="bigscreen-rail-row__label">{label}</span>
+      <span className="bigscreen-rail-row__value" title={value}>
+        {value}
+      </span>
+    </div>
+  );
+}
+
+function formatRailDate(date: string | undefined): string {
+  if (!date) return "";
+  // IGDB dates arrive as ISO `YYYY-MM-DD`; Steam-sourced strings
+  // (e.g. "Mar 21, 2024") pass through untouched.
+  if (/^\d{4}-\d{2}-\d{2}/.test(date)) {
+    const d = new Date(date);
+    if (!Number.isNaN(d.getTime())) {
+      return d.toLocaleDateString(undefined, {
+        year: "numeric",
+        month: "short",
+        day: "numeric",
+      });
+    }
+  }
+  return date;
+}
+
+function formatAchDate(ts: number): string {
+  if (!ts) return "";
+  return new Date(ts * 1000).toLocaleDateString(undefined, {
+    year: "numeric",
+    month: "short",
+  });
 }
 
 // ─── Media tab content ────────────────────────────────────────────
@@ -749,11 +1032,11 @@ function BigScreenGamePageMedia({
 
 // ─── Specs tab content ─────────────────────────────────────────────
 //
-// PR 3b fills in the Specs tab. Power-user "data dump": spec cards,
-// releases, languages, system requirements, plus the crackwatch
-// status, time-to-beat, and ratings KPI cards. Layout is a mix of
-// 2-col grids for compact cards and full-width rows for tables /
-// language lists.
+// Power-user "data dump". After the Overview refactor moved the
+// headline metadata (ratings, time-to-beat, languages) into the
+// Overview's right-hand rail, Specs keeps the deep-dive facts:
+// modes/themes/perspectives, releases, system requirements, and the
+// crackwatch status.
 
 function BigScreenGamePageSpecs({ game }: { game: Game }) {
   return (
@@ -767,21 +1050,6 @@ function BigScreenGamePageSpecs({ game }: { game: Game }) {
           <ReleasesCard game={game} />
         </BigScreenFocusableCard>
       </div>
-
-      {/* Two-column: TimeToBeatCard + RatingsKpiCard. */}
-      <div className="bigscreen-gamepage-2col" data-cols="2">
-        <BigScreenFocusableCard>
-          <TimeToBeatCard game={game} />
-        </BigScreenFocusableCard>
-        <BigScreenFocusableCard>
-          <RatingsKpiCard game={game} />
-        </BigScreenFocusableCard>
-      </div>
-
-      {/* Languages (full-width table). */}
-      <BigScreenFocusableCard>
-        <LanguagesSection game={game} />
-      </BigScreenFocusableCard>
 
       {/* System Requirements (Steam pc_requirements). Auto-hides
        *  when Steam has no appid for the title. */}
