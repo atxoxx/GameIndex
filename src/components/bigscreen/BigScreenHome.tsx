@@ -2,8 +2,6 @@ import { useEffect, useMemo, useState, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { useLanguage } from "../../context/LanguageContext";
 import { useGames } from "../../context/GameContext";
-import { useDownloads } from "../../context/DownloadContext";
-import { useDriveUsage } from "../../pages/storage/useDriveUsage";
 import { useFocusable } from "../../hooks/useFocusable";
 import { useGamepad } from "../../hooks/GamepadProvider";
 import { PLAY_STATUS_DETAILS } from "../../types/game";
@@ -11,26 +9,10 @@ import type { Game } from "../../types/game";
 import BigScreenRail from "../library/BigScreenRail";
 import BigScreenPill from "./BigScreenPill";
 import { extractYear } from "./bigscreenFormat";
-import { formatEta } from "../../types/download";
-
-function formatBytes(bytes: number): string {
-  if (bytes === 0) return "0 B";
-  const k = 1024;
-  const sizes = ["B", "KB", "MB", "GB", "TB"];
-  const i = Math.floor(Math.log(bytes) / Math.log(k));
-  return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + " " + sizes[i];
-}
-
-function formatSpeed(bytesPerSecond: number): string {
-  const mb = bytesPerSecond / (1024 * 1024);
-  return `${mb.toFixed(1)} MB/s`;
-}
 
 export default function BigScreenHome() {
   const { t } = useLanguage();
   const { games, launchGame, runningGameIds } = useGames();
-  const { activeDownloads } = useDownloads();
-  const driveUsage = useDriveUsage(games);
   const gamepad = useGamepad();
   const navigate = useNavigate();
 
@@ -131,23 +113,6 @@ export default function BigScreenHome() {
 
   const playProps = useFocusable(handlePlay);
   const detailsProps = useFocusable(handleDetails);
-
-  // Widget actions
-  const downloadWidgetProps = useFocusable(() => navigate("/downloads"));
-  const storageWidgetProps = useFocusable(() => navigate("/storage"));
-
-  // Calculate storage overview
-  const storageOverview = useMemo(() => {
-    if (driveUsage.size === 0) return null;
-    const firstDrive = Array.from(driveUsage.keys())[0];
-    return {
-      label: firstDrive,
-      usage: driveUsage.get(firstDrive)!,
-    };
-  }, [driveUsage]);
-
-  // Active download overview
-  const activeDownload = activeDownloads[0] ?? null;
 
   const renderDetailsPane = (railId: string) => {
     if (activeRailId !== railId) return null;
@@ -250,78 +215,6 @@ export default function BigScreenHome() {
       </div>
 
       <div className="bigscreen-dashboard-scrollable-content">
-        {/* Top Widgets Panel (full width grid layout) */}
-        <div className="bigscreen-home-split-row" style={{ paddingBottom: "24px" }}>
-          <div className="bigscreen-home-widgets-panel" style={{ width: "100%", display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))", gap: "24px" }}>
-            {/* Download Widget */}
-            {activeDownload ? (
-              <div className="bigscreen-widget-card" {...downloadWidgetProps}>
-                <div className="bigscreen-widget-header">
-                  <span className="bigscreen-widget-title">{t("bigscreen.home.activeDownload")}</span>
-                  <span className="bigscreen-widget-badge">{t("bigscreen.home.live")}</span>
-                </div>
-                <div className="bigscreen-widget-body">
-                  <div className="bigscreen-widget-game-name">{activeDownload.name}</div>
-                  <div className="bigscreen-widget-progress-row">
-                    <div className="bigscreen-widget-progress-bar">
-                      <div
-                        className="bigscreen-widget-progress-fill"
-                        style={{ width: `${(activeDownload.progress || 0) * 100}%` }}
-                      />
-                    </div>
-                    <span className="bigscreen-widget-progress-percent">
-                      {Math.round((activeDownload.progress || 0) * 100)}%
-                    </span>
-                  </div>
-                  <div className="bigscreen-widget-download-meta">
-                    <span>{formatSpeed(activeDownload.downloadSpeed || 0)}</span>
-                    <span>{formatEta(activeDownload.downloaded, activeDownload.totalSize, activeDownload.downloadSpeed)}</span>
-                  </div>
-                </div>
-              </div>
-            ) : (
-              <div className="bigscreen-widget-card bigscreen-widget-card--idle">
-                <div className="bigscreen-widget-header">
-                  <span className="bigscreen-widget-title">{t("bigscreen.home.systemStatus")}</span>
-                </div>
-                <div className="bigscreen-widget-body">
-                  <div className="bigscreen-widget-status-msg">{t("bigscreen.home.allReady")}</div>
-                  <div className="bigscreen-widget-status-desc">{t("bigscreen.home.noActiveDownloads")}</div>
-                </div>
-              </div>
-            )}
-
-            {/* Storage Widget */}
-            {storageOverview && (
-              <div className="bigscreen-widget-card" {...storageWidgetProps}>
-                <div className="bigscreen-widget-header">
-                  <span className="bigscreen-widget-title">{t("bigscreen.home.storage", { label: storageOverview.label })}</span>
-                </div>
-                <div className="bigscreen-widget-body">
-                  <div className="bigscreen-widget-progress-row">
-                    <div className="bigscreen-widget-progress-bar">
-                      <div
-                        className="bigscreen-widget-progress-fill storage-fill"
-                        style={{
-                          width: `${((storageOverview.usage.total - storageOverview.usage.free) /
-                            storageOverview.usage.total) *
-                            100}%`,
-                        }}
-                      />
-                    </div>
-                  </div>
-                  <div className="bigscreen-widget-download-meta">
-                    <span>
-                      {t("bigscreen.home.used", { size: formatBytes(storageOverview.usage.total - storageOverview.usage.free) })}
-                    </span>
-                    <span>{t("bigscreen.home.free", { size: formatBytes(storageOverview.usage.free) })}</span>
-                  </div>
-                </div>
-              </div>
-            )}
-          </div>
-        </div>
-
         {/* Shelves / Rails */}
         <div className="bigscreen-dashboard-main-rail">
           {continuePlaying.length > 0 && (

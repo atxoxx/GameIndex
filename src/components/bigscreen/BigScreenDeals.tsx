@@ -3,52 +3,16 @@ import { invoke } from "@tauri-apps/api/core";
 import { openUrl } from "@tauri-apps/plugin-opener";
 import { useLanguage } from "../../context/LanguageContext";
 import { useFocusable } from "../../hooks/useFocusable";
-import { useGamepad } from "../../hooks/GamepadProvider";
-import BigScreenTabBar, { type TabDef } from "./BigScreenTabBar";
-import BigScreenTabPanel from "./BigScreenTabPanel";
 import BigScreenCover from "./BigScreenCover";
 import { formatPrice } from "./bigscreenFormat";
 import type { DealItem, GamePassGame, Giveaway } from "../../types/deals";
 
-type DealsTab = "gamepass" | "deals" | "giveaways";
-
-// Static tab order shared by the tab bar and the LB/RB bumper cycler
-// so the two can never drift apart.
-const DEALS_TAB_ORDER: DealsTab[] = ["gamepass", "deals", "giveaways"];
-
 export default function BigScreenDeals() {
   const { t, language } = useLanguage();
-  const gamepad = useGamepad();
-  const DEALS_TABS: TabDef<DealsTab>[] = [
-    { id: "gamepass", label: t("bigscreen.deals.tabGamepass") },
-    { id: "deals", label: t("deals.isthereanydeal") },
-    { id: "giveaways", label: t("deals.freeGames") },
-  ];
-
-  const [activeTab, setActiveTab] = useState<DealsTab>("gamepass");
   const [gamepassGames, setGamepassGames] = useState<GamePassGame[]>([]);
   const [deals, setDeals] = useState<DealItem[]>([]);
   const [giveaways, setGiveaways] = useState<Giveaway[]>([]);
   const [loading, setLoading] = useState(true);
-
-  // LB/RB bumper tab cycling, consistent with every other tabbed Big
-  // Screen page (store, game hub, store detail). Without this, landing
-  // on /deals left bumpers owned by the header's section cycler, so the
-  // same button press meant "switch tabs" on one page and "switch
-  // section" on the next.
-  useEffect(() => {
-    return gamepad.registerTabCycler((direction: "forward" | "back") => {
-      setActiveTab((prev) => {
-        const currentIndex = DEALS_TAB_ORDER.indexOf(prev);
-        const baseIndex = currentIndex < 0 ? 0 : currentIndex;
-        const nextIndex =
-          direction === "forward"
-            ? (baseIndex + 1) % DEALS_TAB_ORDER.length
-            : (baseIndex - 1 + DEALS_TAB_ORDER.length) % DEALS_TAB_ORDER.length;
-        return DEALS_TAB_ORDER[nextIndex];
-      });
-    }, 1);
-  }, [gamepad.registerTabCycler]);
 
   const [selectedGamepass, setSelectedGamepass] = useState<GamePassGame | null>(null);
   const [selectedDeal, setSelectedDeal] = useState<DealItem | null>(null);
@@ -57,7 +21,6 @@ export default function BigScreenDeals() {
   // Fetch Game Pass Catalog
   const fetchGamePass = useCallback(async () => {
     try {
-      setLoading(true);
       const res = await invoke<GamePassGame[]>("fetch_gamepass_catalog", {
         filters: { region: "US", categories: null, platform: null },
       });
@@ -67,15 +30,12 @@ export default function BigScreenDeals() {
       }
     } catch (e) {
       console.error("Failed to fetch GamePass catalog:", e);
-    } finally {
-      setLoading(false);
     }
   }, []);
 
   // Fetch Deals
   const fetchDeals = useCallback(async () => {
     try {
-      setLoading(true);
       const res = await invoke<DealItem[]>("fetch_isthereanydeal_deals", {
         filters: { platform: null, minDiscount: 25, store: null },
       });
@@ -85,15 +45,12 @@ export default function BigScreenDeals() {
       }
     } catch (e) {
       console.error("Failed to fetch ITAD deals:", e);
-    } finally {
-      setLoading(false);
     }
   }, []);
 
   // Fetch Giveaways
   const fetchGiveaways = useCallback(async () => {
     try {
-      setLoading(true);
       const res = await invoke<Giveaway[]>("fetch_giveaways");
       setGiveaways(res || []);
       if (res && res.length > 0) {
@@ -101,32 +58,39 @@ export default function BigScreenDeals() {
       }
     } catch (e) {
       console.error("Failed to fetch giveaways:", e);
-    } finally {
-      setLoading(false);
     }
   }, []);
 
+  // All three sections live on the page now (no tabs), so fire every
+  // fetch on mount in parallel. The single loading flag only clears
+  // once all of them have settled.
   useEffect(() => {
-    if (activeTab === "gamepass") fetchGamePass();
-    else if (activeTab === "deals") fetchDeals();
-    else if (activeTab === "giveaways") fetchGiveaways();
-  }, [activeTab, fetchGamePass, fetchDeals, fetchGiveaways]);
+    let active = true;
+    Promise.allSettled([fetchGamePass(), fetchDeals(), fetchGiveaways()]).then(() => {
+      if (active) setLoading(false);
+    });
+    return () => {
+      active = false;
+    };
+  }, [fetchGamePass, fetchDeals, fetchGiveaways]);
 
   return (
     <div className="bigscreen-store-dashboard">
       {/* Background Hero Banner */}
       <div className="bigscreen-hero-backdrop">
-        {activeTab === "gamepass" && selectedGamepass?.coverImage ? (
+        {selectedGamepass?.coverImage ? (
           <img src={selectedGamepass.coverImage} alt="" className="bigscreen-hero-bg-img" />
-        ) : activeTab === "giveaways" && selectedGiveaway?.imageUrl ? (
+        ) : selectedGiveaway?.imageUrl ? (
           <img src={selectedGiveaway.imageUrl} alt="" className="bigscreen-hero-bg-img" />
         ) : null}
         <div className="bigscreen-hero-overlay" />
       </div>
 
       <div className="bigscreen-dashboard-scrollable-content" style={{ padding: "30px 40px" }}>
-        {/* Spotlight Hero Section */}
-        {activeTab === "gamepass" && selectedGamepass ? (
+        {/* Spotlight Hero Section — Game Pass is the page's default/first
+            section, so it owns the hero; deals and giveaways only step in
+            if no Game Pass selection has loaded yet. */}
+        {selectedGamepass ? (
           <div className="bigscreen-spotlight-hero" style={{ marginBottom: 30 }}>
             <div className="bigscreen-spotlight-info">
               <span className="bigscreen-badge" style={{ background: "color-mix(in srgb, var(--color-success) 20%, transparent)", color: "var(--color-success)", padding: "4px 12px", borderRadius: 12, fontWeight: 800 }}>
@@ -142,7 +106,7 @@ export default function BigScreenDeals() {
               )}
             </div>
           </div>
-        ) : activeTab === "deals" && selectedDeal ? (
+        ) : selectedDeal ? (
           <div className="bigscreen-spotlight-hero" style={{ marginBottom: 30 }}>
             <div className="bigscreen-spotlight-info">
               <span className="bigscreen-badge" style={{ background: "color-mix(in srgb, var(--color-danger) 20%, transparent)", color: "var(--color-danger)", padding: "4px 12px", borderRadius: 12, fontWeight: 800 }}>
@@ -159,7 +123,7 @@ export default function BigScreenDeals() {
               </div>
             </div>
           </div>
-        ) : activeTab === "giveaways" && selectedGiveaway ? (
+        ) : selectedGiveaway ? (
           <div className="bigscreen-spotlight-hero" style={{ marginBottom: 30 }}>
             <div className="bigscreen-spotlight-info">
               <span className="bigscreen-badge" style={{ background: "color-mix(in srgb, var(--color-info) 20%, transparent)", color: "var(--color-info)", padding: "4px 12px", borderRadius: 12, fontWeight: 800 }}>
@@ -175,81 +139,74 @@ export default function BigScreenDeals() {
           </div>
         ) : null}
 
-        {/* Tab Selector */}
-        <BigScreenTabBar tabs={DEALS_TABS} activeTab={activeTab} onActivate={(id) => setActiveTab(id)} />
-
-        {/* Content Panels */}
-        <BigScreenTabPanel tabId="gamepass" activeTab={activeTab}>
-          {loading ? (
-            <div className="bigscreen-rail-empty">{t("bigscreen.deals.loadingGamepass")}</div>
-          ) : gamepassGames.length === 0 ? (
-            <div className="bigscreen-rail-empty">{t("bigscreen.deals.noGamepass")}</div>
-          ) : (
-            <div className="bigscreen-rail" style={{ marginTop: 24 }}>
-              <div className="bigscreen-rail-header">
-                <h3 className="bigscreen-rail-title">{t("bigscreen.deals.gamepassTitles")}</h3>
-                <span className="bigscreen-rail-count">{gamepassGames.length}</span>
-              </div>
-              <div className="bigscreen-rail-viewport">
-                <div className="bigscreen-rail-track" role="list">
-                  {gamepassGames.map((game) => (
-                    <div key={game.id} className="bigscreen-rail-item" role="listitem">
-                      <GamePassCard game={game} onSelect={() => setSelectedGamepass(game)} />
-                    </div>
-                  ))}
-                </div>
+        {/* Game Pass section */}
+        {loading ? (
+          <div className="bigscreen-rail-empty">{t("bigscreen.deals.loadingGamepass")}</div>
+        ) : gamepassGames.length === 0 ? (
+          <div className="bigscreen-rail-empty">{t("bigscreen.deals.noGamepass")}</div>
+        ) : (
+          <div className="bigscreen-rail" style={{ marginTop: 24 }}>
+            <div className="bigscreen-rail-header">
+              <h3 className="bigscreen-rail-title">{t("bigscreen.deals.gamepassTitles")}</h3>
+              <span className="bigscreen-rail-count">{gamepassGames.length}</span>
+            </div>
+            <div className="bigscreen-rail-viewport">
+              <div className="bigscreen-rail-track" role="list">
+                {gamepassGames.map((game) => (
+                  <div key={game.id} className="bigscreen-rail-item" role="listitem">
+                    <GamePassCard game={game} onSelect={() => setSelectedGamepass(game)} />
+                  </div>
+                ))}
               </div>
             </div>
-          )}
-        </BigScreenTabPanel>
+          </div>
+        )}
 
-        <BigScreenTabPanel tabId="deals" activeTab={activeTab}>
-          {loading ? (
-            <div className="bigscreen-rail-empty">{t("bigscreen.deals.loadingDeals")}</div>
-          ) : deals.length === 0 ? (
-            <div className="bigscreen-rail-empty">{t("bigscreen.deals.noDeals")}</div>
-          ) : (
-            <div className="bigscreen-rail" style={{ marginTop: 24 }}>
-              <div className="bigscreen-rail-header">
-                <h3 className="bigscreen-rail-title">{t("bigscreen.deals.topDiscounts")}</h3>
-                <span className="bigscreen-rail-count">{deals.length}</span>
-              </div>
-              <div className="bigscreen-rail-viewport">
-                <div className="bigscreen-rail-track" role="list">
-                  {deals.map((deal) => (
-                    <div key={deal.id} className="bigscreen-rail-item" role="listitem">
-                      <DealCard item={deal} onSelect={() => setSelectedDeal(deal)} />
-                    </div>
-                  ))}
-                </div>
+        {/* Deals section */}
+        {loading ? (
+          <div className="bigscreen-rail-empty">{t("bigscreen.deals.loadingDeals")}</div>
+        ) : deals.length === 0 ? (
+          <div className="bigscreen-rail-empty">{t("bigscreen.deals.noDeals")}</div>
+        ) : (
+          <div className="bigscreen-rail" style={{ marginTop: 24 }}>
+            <div className="bigscreen-rail-header">
+              <h3 className="bigscreen-rail-title">{t("bigscreen.deals.topDiscounts")}</h3>
+              <span className="bigscreen-rail-count">{deals.length}</span>
+            </div>
+            <div className="bigscreen-rail-viewport">
+              <div className="bigscreen-rail-track" role="list">
+                {deals.map((deal) => (
+                  <div key={deal.id} className="bigscreen-rail-item" role="listitem">
+                    <DealCard item={deal} onSelect={() => setSelectedDeal(deal)} />
+                  </div>
+                ))}
               </div>
             </div>
-          )}
-        </BigScreenTabPanel>
+          </div>
+        )}
 
-        <BigScreenTabPanel tabId="giveaways" activeTab={activeTab}>
-          {loading ? (
-            <div className="bigscreen-rail-empty">{t("bigscreen.deals.loadingGiveaways")}</div>
-          ) : giveaways.length === 0 ? (
-            <div className="bigscreen-rail-empty">{t("bigscreen.deals.noGiveaways")}</div>
-          ) : (
-            <div className="bigscreen-rail" style={{ marginTop: 24 }}>
-              <div className="bigscreen-rail-header">
-                <h3 className="bigscreen-rail-title">{t("bigscreen.deals.freeGamesTitle")}</h3>
-                <span className="bigscreen-rail-count">{giveaways.length}</span>
-              </div>
-              <div className="bigscreen-rail-viewport">
-                <div className="bigscreen-rail-track" role="list">
-                  {giveaways.map((giveaway) => (
-                    <div key={giveaway.id} className="bigscreen-rail-item" role="listitem">
-                      <GiveawayCard item={giveaway} onSelect={() => setSelectedGiveaway(giveaway)} />
-                    </div>
-                  ))}
-                </div>
+        {/* Giveaways section */}
+        {loading ? (
+          <div className="bigscreen-rail-empty">{t("bigscreen.deals.loadingGiveaways")}</div>
+        ) : giveaways.length === 0 ? (
+          <div className="bigscreen-rail-empty">{t("bigscreen.deals.noGiveaways")}</div>
+        ) : (
+          <div className="bigscreen-rail" style={{ marginTop: 24 }}>
+            <div className="bigscreen-rail-header">
+              <h3 className="bigscreen-rail-title">{t("bigscreen.deals.freeGamesTitle")}</h3>
+              <span className="bigscreen-rail-count">{giveaways.length}</span>
+            </div>
+            <div className="bigscreen-rail-viewport">
+              <div className="bigscreen-rail-track" role="list">
+                {giveaways.map((giveaway) => (
+                  <div key={giveaway.id} className="bigscreen-rail-item" role="listitem">
+                    <GiveawayCard item={giveaway} onSelect={() => setSelectedGiveaway(giveaway)} />
+                  </div>
+                ))}
               </div>
             </div>
-          )}
-        </BigScreenTabPanel>
+          </div>
+        )}
       </div>
     </div>
   );

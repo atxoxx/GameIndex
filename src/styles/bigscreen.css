@@ -209,13 +209,6 @@
   padding-bottom: 60px;
 }
 
-.bigscreen-home-split-row {
-  display: flex;
-  padding: 24px 64px 20px 64px;
-  gap: 48px;
-  align-items: flex-start;
-}
-
 .bigscreen-dashboard-details-pane {
   flex: 3;
 }
@@ -350,16 +343,8 @@
   transform: translateY(-2px);
 }
 
-/* Home Page Right Widgets Panel */
-.bigscreen-home-widgets-panel {
-  flex: 2;
-  display: flex;
-  flex-direction: column;
-  gap: 20px;
-  max-width: 420px;
-  width: 100%;
-}
-
+/* Shared widget card — reused by BigScreenFriends session rows. The
+   Home dashboard's widget grid was removed; only the card shell stays. */
 .bigscreen-widget-card {
   background: var(--color-bg-secondary);
   border: var(--bigscreen-glass-border);
@@ -379,44 +364,6 @@
   transform: translateY(-2px);
 }
 
-.bigscreen-widget-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-}
-
-.bigscreen-widget-title {
-  font-size: 13px;
-  font-weight: 800;
-  text-transform: uppercase;
-  letter-spacing: 1px;
-  color: color-mix(in srgb, var(--bigscreen-text) 45%, transparent);
-}
-
-.bigscreen-widget-badge {
-  font-size: 10px;
-  font-weight: 900;
-  background: var(--bigscreen-danger);
-  color: var(--bigscreen-text);
-  padding: 2px 8px;
-  border-radius: 10px;
-  letter-spacing: 0.5px;
-}
-
-.bigscreen-widget-game-name {
-  font-size: 18px;
-  font-weight: 800;
-  color: var(--bigscreen-text);
-}
-
-.bigscreen-widget-progress-row {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  width: 100%;
-}
-
-.bigscreen-widget-progress-bar,
 .dl-progress-bar {
   flex: 1;
   height: 6px;
@@ -425,7 +372,6 @@
   overflow: hidden;
 }
 
-.bigscreen-widget-progress-fill,
 .dl-progress-fill {
   height: 100%;
   background: var(--bigscreen-accent);
@@ -436,37 +382,16 @@
   background: var(--bigscreen-accent) !important;
 }
 
-.bigscreen-widget-progress-percent,
 .dl-percent {
   font-size: 14px;
   font-weight: 800;
   color: var(--bigscreen-text);
 }
 
-.bigscreen-widget-download-meta {
-  display: flex;
-  justify-content: space-between;
-  font-size: 13px;
-  font-weight: 700;
-  color: color-mix(in srgb, var(--bigscreen-text) 55.00000000000001%, transparent);
-}
-
-.bigscreen-widget-status-msg {
-  font-size: 20px;
-  font-weight: 800;
-  color: var(--bigscreen-success);
-}
-
-.bigscreen-widget-status-desc {
-  font-size: 14px;
-  color: color-mix(in srgb, var(--bigscreen-text) 50%, transparent);
-  font-weight: 600;
-}
-
 /* ── RAILS / SLIDES (Continue Playing / Recent Additions) ────────── */
 
 .bigscreen-dashboard-main-rail {
-  padding-top: 16px;
+  padding-top: 28px;
 }
 
 .bigscreen-rail {
@@ -1844,6 +1769,7 @@
 
 .bigscreen-store-panel-content {
   flex: 1;
+  padding-top: 24px;
 }
 
 .store-tab-loading {

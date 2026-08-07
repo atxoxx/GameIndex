@@ -1,25 +1,13 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { invoke } from "@tauri-apps/api/core";
-import { openUrl } from "@tauri-apps/plugin-opener";
 import { useWishlistContext } from "../../context/WishlistContext";
 import { useLanguage } from "../../context/LanguageContext";
 import { useFocusable } from "../../hooks/useFocusable";
 import { useGamepad } from "../../hooks/GamepadProvider";
-import { formatPrice } from "../bigscreen/bigscreenFormat";
 import BigScreenStoreRail from "./BigScreenStoreRail";
 import BigScreenPill from "../bigscreen/BigScreenPill";
-import BigScreenTabBar, { type TabDef } from "../bigscreen/BigScreenTabBar";
 import type { StoreGameSummary } from "../../types/game";
-import type { DealItem } from "../../types/deals";
-
-type StoreTab = "trending" | "deals" | "wishlist";
-
-const STORE_TABS: TabDef<StoreTab>[] = [
-  { id: "trending", label: "store.tab.discover" },
-  { id: "deals", label: "nav.deals" },
-  { id: "wishlist", label: "nav.wishlist" },
-];
 
 export default function BigScreenStore() {
   const { t } = useLanguage();
@@ -28,48 +16,11 @@ export default function BigScreenStore() {
   const location = useLocation();
   const { wishlist } = useWishlistContext();
 
-  const initialTab = useMemo<StoreTab>(() => {
-    const path = location.pathname;
-    if (path.startsWith("/wishlist")) return "wishlist";
-    if (path.startsWith("/deals")) return "deals";
-    return "trending";
-  }, [location.pathname]);
-
-  const [activeTab, setActiveTab] = useState<StoreTab>(initialTab);
-  const activeTabLabel = t(
-    STORE_TABS.find((tab) => tab.id === activeTab)?.label ?? "store.tab.discover",
-  );
-
-  // Sync activeTab when URL pathname changes. BigScreenStore only
-  // mounts at /store and /wishlist (the /deals route renders the
-  // separate BigScreenDeals page), so only those two tabs need syncing.
-  useEffect(() => {
-    const path = location.pathname;
-    if (path.startsWith("/wishlist")) {
-      setActiveTab("wishlist");
-    } else {
-      setActiveTab("trending");
-    }
-  }, [location.pathname]);
-
-  const handleSelectTab = useCallback(
-    (tabId: StoreTab) => {
-      setActiveTab(tabId);
-      if (tabId === "deals") {
-        // Deals is rendered as an inline panel right here in the
-        // store, so deliberately DO NOT navigate. Hopping to /deals
-        // used to unmount BigScreenStore and mount BigScreenDeals
-        // (a different tab set with no bumper cycler) — after which
-        // the next LB/RB press suddenly cycled the header's top-level
-        // sections instead of tabs. Keeping the tab local makes
-        // bumpers behave consistently across Discover / Deals /
-        // Wishlist.
-        return;
-      }
-      navigate(tabId === "wishlist" ? "/wishlist" : "/store");
-    },
-    [navigate]
-  );
+  // BigScreenStore mounts at /store and /wishlist only (the /deals route
+  // renders BigScreenDeals). There are no in-page subtabs — the top-level
+  // header strip owns Store / Wishlist / Deals — so the view is derived
+  // straight from the route instead of tab state.
+  const view = location.pathname.startsWith("/wishlist") ? "wishlist" : "trending";
 
   // Trending state
   const [trending, setTrending] = useState<StoreGameSummary[]>([]);
@@ -77,10 +28,6 @@ export default function BigScreenStore() {
   const [top, setTop] = useState<StoreGameSummary[]>([]);
   const [comingSoon, setComingSoon] = useState<StoreGameSummary[]>([]);
   const [loadingTrending, setLoadingTrending] = useState(true);
-
-  // Deals state
-  const [deals, setDeals] = useState<DealItem[]>([]);
-  const [loadingDeals, setLoadingDeals] = useState(false);
 
   const [selectedGame, setSelectedGame] = useState<StoreGameSummary | null>(null);
   const [activeRailId, setActiveRailId] = useState<string>("trending");
@@ -124,35 +71,6 @@ export default function BigScreenStore() {
     };
   }, []);
 
-  // Fetch Deals
-  useEffect(() => {
-    if (activeTab !== "deals") return;
-    let active = true;
-    const fetchDealsList = async () => {
-      setLoadingDeals(true);
-      try {
-        const data = await invoke<DealItem[]>("fetch_isthereanydeal_deals", {
-          filters: {
-            platform: null,
-            minDiscount: null,
-            store: null,
-          },
-        });
-        if (active) {
-          setDeals(data);
-        }
-      } catch (err) {
-        console.error("Failed to load deals:", err);
-      } finally {
-        if (active) setLoadingDeals(false);
-      }
-    };
-    fetchDealsList();
-    return () => {
-      active = false;
-    };
-  }, [activeTab]);
-
   // Sync selected game on load or when trending list changes
   useEffect(() => {
     if (!selectedGame && trending[0]) {
@@ -160,7 +78,7 @@ export default function BigScreenStore() {
     }
   }, [trending, selectedGame]);
 
-  // Spatial navigation watcher for backdrop sync in trending tab
+  // Spatial navigation watcher for backdrop sync in trending view
   const trendingGamesMap = useMemo(() => {
     const map = new Map<string, StoreGameSummary>();
     for (const list of [trending, popular, top, comingSoon]) {
@@ -176,7 +94,7 @@ export default function BigScreenStore() {
   }, [trendingGamesMap, selectedGame]);
 
   useEffect(() => {
-    if (activeTab !== "trending") return;
+    if (view !== "trending") return;
     const el = gamepad.focusedElement;
     if (!el) return;
     const id = el.getAttribute("data-game-id");
@@ -185,7 +103,7 @@ export default function BigScreenStore() {
       if (game && game.id !== selectedGame?.id) {
         setSelectedGame(game);
       }
-      
+
       const railEl = el.closest("[data-rail-id]");
       if (railEl) {
         const rId = railEl.getAttribute("data-rail-id");
@@ -194,23 +112,7 @@ export default function BigScreenStore() {
         }
       }
     }
-  }, [gamepad.focusedElement, trendingGamesMap, selectedGame, activeTab]);
-
-  // LB/RB tab switcher
-  useEffect(() => {
-    return gamepad.registerTabCycler((direction) => {
-      const currentIndex = STORE_TABS.findIndex((t) => t.id === activeTab);
-      const baseIndex = currentIndex < 0 ? 0 : currentIndex;
-      const nextIndex =
-        direction === "forward"
-          ? (baseIndex + 1) % STORE_TABS.length
-          : (baseIndex - 1 + STORE_TABS.length) % STORE_TABS.length;
-      handleSelectTab(STORE_TABS[nextIndex].id);
-    }, 1);
-    // Dep on the stable `registerTabCycler` only — depending on the
-    // whole `gamepad` object here would re-register the cycler on
-    // every focus change.
-  }, [gamepad.registerTabCycler, activeTab, handleSelectTab]);
+  }, [gamepad.focusedElement, trendingGamesMap, selectedGame, view]);
 
   const handleCardClick = useCallback(
     (game: StoreGameSummary) => {
@@ -301,8 +203,8 @@ export default function BigScreenStore() {
 
   return (
     <div className="bigscreen-store-dashboard">
-      {/* Dynamic full-bleed backdrop (only on trending page for premium vibes) */}
-      {activeTab === "trending" && (
+      {/* Dynamic full-bleed backdrop (only on trending view for premium vibes) */}
+      {view === "trending" && (
         <div className="bigscreen-dashboard-backdrop-container">
           {featuredGame && featuredGame.coverUrl && (
             <img
@@ -319,99 +221,18 @@ export default function BigScreenStore() {
 
       {/* Main scrolling wrapper */}
       <div className="bigscreen-dashboard-scrollable-content">
-        {/* Navigation tabs */}
+        {/* Section context */}
         <div className="bigscreen-store-context" aria-live="polite">
           <div>
             <span className="bigscreen-store-context-eyebrow">{t("nav.store")}</span>
-            <strong>{activeTabLabel}</strong>
+            <strong>{view === "wishlist" ? t("nav.wishlist") : t("nav.store")}</strong>
           </div>
-          <span className="bigscreen-store-context-hint">A {t("gamepad.click")} · D-pad {t("gamepad.move")} · LB/RB {t("bigscreen.tabbar.tabs")}</span>
-        </div>
-        <div className="bigscreen-store-tabs-wrapper">
-          <BigScreenTabBar
-            tabs={STORE_TABS.map((tb) => ({ ...tb, label: t(tb.label) }))}
-            activeTab={activeTab}
-            onActivate={handleSelectTab}
-          />
+          <span className="bigscreen-store-context-hint">A {t("gamepad.click")} · D-pad {t("gamepad.move")}</span>
         </div>
 
-        {/* Categories Panel */}
+        {/* Content */}
         <div className="bigscreen-store-panel-content">
-          {activeTab === "trending" && (
-            <div className="store-trending-panel">
-              {loadingTrending ? (
-                <div className="store-tab-loading">
-                  <div className="store-spinner" />
-                  <span>{t("bigscreen.store.loading")}</span>
-                </div>
-              ) : (
-                <>
-                  {/* Rails */}
-                  <div className="store-rails-group">
-                    <>
-                      {renderDetailsPane("trending")}
-                      <BigScreenStoreRail
-                        railId="trending"
-                        title={t("store.tab.trending")}
-                        games={trending}
-                        onCardClick={handleCardClick}
-                        isActive={activeRailId === "trending"}
-                      />
-                    </>
-                    <>
-                      {renderDetailsPane("popular")}
-                      <BigScreenStoreRail
-                        railId="popular"
-                        title={t("bigscreen.store.popularNow")}
-                        games={popular}
-                        onCardClick={handleCardClick}
-                        isActive={activeRailId === "popular"}
-                      />
-                    </>
-                    <>
-                      {renderDetailsPane("top")}
-                      <BigScreenStoreRail
-                        railId="top"
-                        title={t("bigscreen.store.topCritic")}
-                        games={top}
-                        onCardClick={handleCardClick}
-                        isActive={activeRailId === "top"}
-                      />
-                    </>
-                    <>
-                      {renderDetailsPane("coming-soon")}
-                      <BigScreenStoreRail
-                        railId="coming-soon"
-                        title={t("store.tab.comingSoon")}
-                        games={comingSoon}
-                        onCardClick={handleCardClick}
-                        isActive={activeRailId === "coming-soon"}
-                      />
-                    </>
-                  </div>
-                </>
-              )}
-            </div>
-          )}
-
-          {activeTab === "deals" && (
-            <div className="store-deals-panel">
-              {loadingDeals ? (
-                <div className="store-tab-loading">
-                  <div className="store-spinner" />
-                  <span>{t("bigscreen.store.scanningDeals")}</span>
-                </div>
-              ) : (
-                <div className="store-deals-grid">
-                  {deals.map((deal: DealItem) => (
-                    <BigScreenDealCard key={deal.id} deal={deal} />
-                  ))}
-                </div>
-              )}
-            </div>
-          )}
-
-          {activeTab === "wishlist" && (
+          {view === "wishlist" ? (
             <div className="store-wishlist-panel">
               {wishlist.length === 0 ? (
                 <div className="wishlist-empty-state">
@@ -429,64 +250,60 @@ export default function BigScreenStore() {
                 </div>
               )}
             </div>
+          ) : (
+            <div className="store-trending-panel">
+              {loadingTrending ? (
+                <div className="store-tab-loading">
+                  <div className="store-spinner" />
+                  <span>{t("bigscreen.store.loading")}</span>
+                </div>
+              ) : (
+                <div className="store-rails-group">
+                  <>
+                    {renderDetailsPane("trending")}
+                    <BigScreenStoreRail
+                      railId="trending"
+                      title={t("store.tab.trending")}
+                      games={trending}
+                      onCardClick={handleCardClick}
+                      isActive={activeRailId === "trending"}
+                    />
+                  </>
+                  <>
+                    {renderDetailsPane("popular")}
+                    <BigScreenStoreRail
+                      railId="popular"
+                      title={t("bigscreen.store.popularNow")}
+                      games={popular}
+                      onCardClick={handleCardClick}
+                      isActive={activeRailId === "popular"}
+                    />
+                  </>
+                  <>
+                    {renderDetailsPane("top")}
+                    <BigScreenStoreRail
+                      railId="top"
+                      title={t("bigscreen.store.topCritic")}
+                      games={top}
+                      onCardClick={handleCardClick}
+                      isActive={activeRailId === "top"}
+                    />
+                  </>
+                  <>
+                    {renderDetailsPane("coming-soon")}
+                    <BigScreenStoreRail
+                      railId="coming-soon"
+                      title={t("store.tab.comingSoon")}
+                      games={comingSoon}
+                      onCardClick={handleCardClick}
+                      isActive={activeRailId === "coming-soon"}
+                    />
+                  </>
+                </div>
+              )}
+            </div>
           )}
         </div>
-      </div>
-    </div>
-  );
-}
-
-function BigScreenDealCard({ deal }: { deal: DealItem }) {
-  const { t, language } = useLanguage();
-  const focusProps = useFocusable(async () => {
-    if (deal.storeUrl) {
-      try {
-        await openUrl(deal.storeUrl);
-      } catch (err) {
-        console.error("Failed to open deal URL:", err);
-      }
-    }
-  });
-
-  return (
-    <div
-      className="bigscreen-game-card store-deal-card"
-      {...focusProps}
-      aria-label={t("bigscreen.store.dealCardAria", {
-        game: deal.gameTitle,
-        pct: deal.discountPercent,
-      })}
-    >
-      <div className="bigscreen-game-card-cover">
-        {deal.thumbnail ? (
-          <img src={deal.thumbnail} alt={deal.gameTitle} loading="lazy" />
-        ) : (
-          <div className="bigscreen-game-card-cover-placeholder">
-            <svg
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="1.8"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              width="40"
-              height="40"
-              aria-hidden="true"
-            >
-              <path d="M4 8h16l-1 12H5L4 8Z" />
-              <path d="m7 8 2-5h6l2 5" />
-              <path d="M9 12h6" />
-            </svg>
-          </div>
-        )}
-        <div className="deal-discount-badge">-{deal.discountPercent}%</div>
-      </div>
-      <div className="bigscreen-store-card-details">
-        <h4 className="deal-game-title">{deal.gameTitle}</h4>
-        <div className="deal-price-row">
-          <span className="deal-price-new">{formatPrice(deal.dealPrice, language)}</span>
-        </div>
-        <div className="deal-store-tag">{deal.storeName}</div>
       </div>
     </div>
   );
