@@ -2,8 +2,10 @@
 //!
 //! # Strategy
 //!
-//! Production builds embed secrets at compile time via `option_env!()`. The
-//! developer sets environment variables before running `npm run tauri build`:
+//! Production builds embed secrets at compile time via `env!()`, then
+//! obfuscate the baked-in value with `obfstr!` so it doesn't appear as a
+//! plain string in the binary. The developer sets environment variables
+//! before running `npm run tauri build`:
 //!
 //! ```powershell
 //! $env:TWITCH_CLIENT_ID="your_id"
@@ -11,6 +13,11 @@
 //! $env:OPENCRITIC_RAPIDAPI_KEY="your_key"
 //! npm run tauri build
 //! ```
+//!
+//! `build.rs` probes each variable at build time and emits a matching
+//! `baked_<VAR>` cfg flag when present; each accessor's compile-time branch
+//! is gated on that flag, so `env!()` only ever expands when the variable
+//! actually exists (an unguarded `env!()` would fail the build).
 //!
 //! During development (`npm run tauri dev`), the `.env` file is loaded once
 //! at startup by `load_env_file()` and the runtime `std::env::var()` fallback
@@ -60,46 +67,87 @@ pub fn load_env_file() {
 
 /// Returns the Twitch Client ID for IGDB API calls.
 ///
-/// Priority: compile-time `TWITCH_CLIENT_ID` env var → runtime env var →
-/// empty string.
+/// Priority: compile-time `TWITCH_CLIENT_ID` env var (obfuscated via
+/// `obfstr!`) → runtime env var → empty string.
 pub fn get_twitch_client_id() -> String {
-    option_env!("TWITCH_CLIENT_ID")
-        .map(|s| s.to_string())
-        .or_else(|| std::env::var("TWITCH_CLIENT_ID").ok())
-        .unwrap_or_default()
+    #[cfg(baked_TWITCH_CLIENT_ID)]
+    {
+        obfstr::obfstr!(env!("TWITCH_CLIENT_ID")).to_string()
+    }
+    #[cfg(not(baked_TWITCH_CLIENT_ID))]
+    {
+        std::env::var("TWITCH_CLIENT_ID").unwrap_or_default()
+    }
 }
 
 /// Returns the Twitch Client Secret for IGDB API calls.
 ///
-/// Priority: compile-time `TWITCH_CLIENT_SECRET` env var → runtime env var →
-/// empty string.
+/// Priority: compile-time `TWITCH_CLIENT_SECRET` env var (obfuscated via
+/// `obfstr!`) → runtime env var → empty string.
 pub fn get_twitch_client_secret() -> String {
-    option_env!("TWITCH_CLIENT_SECRET")
-        .map(|s| s.to_string())
-        .or_else(|| std::env::var("TWITCH_CLIENT_SECRET").ok())
-        .unwrap_or_default()
+    #[cfg(baked_TWITCH_CLIENT_SECRET)]
+    {
+        obfstr::obfstr!(env!("TWITCH_CLIENT_SECRET")).to_string()
+    }
+    #[cfg(not(baked_TWITCH_CLIENT_SECRET))]
+    {
+        std::env::var("TWITCH_CLIENT_SECRET").unwrap_or_default()
+    }
 }
 
 /// Returns the OpenCritic RapidAPI key for review scraping.
 ///
-/// Priority: compile-time `OPENCRITIC_RAPIDAPI_KEY` env var → runtime env
-/// var → empty string.
+/// Priority: compile-time `OPENCRITIC_RAPIDAPI_KEY` env var (obfuscated via
+/// `obfstr!`) → runtime env var → empty string.
 pub fn get_opencritic_rapidapi_key() -> String {
-    option_env!("OPENCRITIC_RAPIDAPI_KEY")
-        .map(|s| s.to_string())
-        .or_else(|| std::env::var("OPENCRITIC_RAPIDAPI_KEY").ok())
-        .unwrap_or_default()
+    #[cfg(baked_OPENCRITIC_RAPIDAPI_KEY)]
+    {
+        obfstr::obfstr!(env!("OPENCRITIC_RAPIDAPI_KEY")).to_string()
+    }
+    #[cfg(not(baked_OPENCRITIC_RAPIDAPI_KEY))]
+    {
+        std::env::var("OPENCRITIC_RAPIDAPI_KEY").unwrap_or_default()
+    }
 }
 
 /// Returns the Discord application (client) ID used for Rich Presence.
 ///
-/// Priority: compile-time `DISCORD_CLIENT_ID` env var → runtime env var
-/// (loaded from `.env` by `load_env_file()`) → empty string. The ID is the
-/// only required value for local Rich Presence — no bot token or OAuth flow
-/// is needed.
+/// Priority: compile-time `DISCORD_CLIENT_ID` env var (obfuscated via
+/// `obfstr!`) → runtime env var (loaded from `.env` by `load_env_file()`) →
+/// empty string. The ID is the only required value for local Rich Presence —
+/// no bot token or OAuth flow is needed.
 pub fn get_discord_client_id() -> String {
-    option_env!("DISCORD_CLIENT_ID")
-        .map(|s| s.to_string())
-        .or_else(|| std::env::var("DISCORD_CLIENT_ID").ok())
-        .unwrap_or_default()
+    #[cfg(baked_DISCORD_CLIENT_ID)]
+    {
+        obfstr::obfstr!(env!("DISCORD_CLIENT_ID")).to_string()
+    }
+    #[cfg(not(baked_DISCORD_CLIENT_ID))]
+    {
+        std::env::var("DISCORD_CLIENT_ID").unwrap_or_default()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    // Guards the obfstr round-trip: the accessor must decrypt back to the
+    // original value, otherwise the obfuscation would silently corrupt the
+    // credentials at runtime. Only meaningful when a var is baked (cfg set);
+    // otherwise the runtime fallback is trivially the same value.
+    #[test]
+    fn baked_credentials_round_trip() {
+        if let Some(v) = option_env!("TWITCH_CLIENT_ID") {
+            assert_eq!(get_twitch_client_id(), v);
+        }
+        if let Some(v) = option_env!("TWITCH_CLIENT_SECRET") {
+            assert_eq!(get_twitch_client_secret(), v);
+        }
+        if let Some(v) = option_env!("OPENCRITIC_RAPIDAPI_KEY") {
+            assert_eq!(get_opencritic_rapidapi_key(), v);
+        }
+        if let Some(v) = option_env!("DISCORD_CLIENT_ID") {
+            assert_eq!(get_discord_client_id(), v);
+        }
+    }
 }

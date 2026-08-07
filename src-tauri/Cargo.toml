@@ -129,3 +129,8 @@ ammonia = "4"
 # exact-topic fields without rolling our own URI parser.
 url = "2"
 discord-rich-presence = "1.1.0"
+# Compile-time string obfuscation for embedded API credentials (config.rs
+# accessors). XOR-encrypts the baked-in values so `strings`/hexdump on the
+# binary doesn't reveal them. Extraction-bar only — not real secrecy; the
+# decryption material lives in the binary too.
+obfstr = "0.4"

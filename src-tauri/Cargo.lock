@@ -1784,6 +1784,7 @@ dependencies = [
  "librqbit",
  "md-5",
  "mime_guess",
+ "obfstr",
  "r2d2",
  "r2d2_sqlite",
  "rand 0.8.6",
@@ -3502,6 +3503,12 @@ dependencies = [
  "quote",
  "syn 2.0.118",
 ]
+
+[[package]]
+name = "obfstr"
+version = "0.4.6"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "7cf5f1acbf6ef57cef9d127e72c4afd01d6b08692616fd09afad7f7807d6eb78"
 
 [[package]]
 name = "objc2"
