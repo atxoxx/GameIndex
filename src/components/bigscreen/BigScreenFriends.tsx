@@ -1,91 +1,110 @@
-import { useState, useMemo, useCallback, useEffect, useRef } from "react";
+// BigScreenFriends — the Big Screen Friends hub (v2).
+//
+// Full console translation of the desktop Friends page. Seven primary
+// tabs keep every desktop surface reachable:
+//
+//   List       → friends grid, playing-now rail, filters, circles,
+//                invitations, add friend
+//   Activity   → unified timeline
+//   Messages   → 1:1 DM threads
+//   Lobbies    → session planner (create / upcoming / past / agenda,
+//                RSVP, participants, pinned chat)
+//   Social     → Recommendations | Wishlist Shares (sub-tabs)
+//   Compare    → Library Compare | Leaderboard | Achievement Race
+//                (sub-tabs)
+//   Profile    → profile card + friend code + full editor
+//
+// Data comes from `useFriendsData` (friends core + sync engine) and
+// `useFriendsSocial` (all remaining social surfaces; sessions/friends
+// are authoritative there). LB/RB switches the main header sections
+// (like every other primary section); the hub's own tabs are reached
+// with D-pad left/right on the focusable tab bar + A to activate. B
+// exits to the library; overlays own B while open.
+
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useLanguage } from "../../context/LanguageContext";
 import { useFocusable } from "../../hooks/useFocusable";
 import { useGamepad } from "../../hooks/GamepadProvider";
 import { useFriendsData } from "../../hooks/useFriendsData";
-import BigScreenPill from "./BigScreenPill";
+import { useFriendsSocial } from "../../hooks/useFriendsSocial";
 import BigScreenTabBar, { type TabDef } from "./BigScreenTabBar";
 import BigScreenTabPanel from "./BigScreenTabPanel";
-import type { Friend, GameSession } from "../../pages/friendsStorage";
+import type { Friend } from "../../pages/friendsStorage";
 import { displayName } from "../../pages/friendsStorage";
+import FriendsListTab from "./friends/FriendsListTab";
+import ActivityTab from "./friends/ActivityTab";
+import DmsTab from "./friends/DmsTab";
+import SessionsTab from "./friends/SessionsTab";
+import SocialTab from "./friends/SocialTab";
+import CompareTab from "./friends/CompareTab";
+import ProfileTab from "./friends/ProfileTab";
+import { Icons, useFocusableInput, useOverlayEscape } from "./friends/friendsUtils";
 
-function formatHours(totalMinutes: number): string {
-  if (!totalMinutes || totalMinutes <= 0) return "0m";
-  const h = Math.floor(totalMinutes / 60);
-  const m = totalMinutes % 60;
-  if (h >= 1000) return `${(h / 1000).toFixed(1)}k h`;
-  if (h === 0) return `${m}m`;
-  if (m === 0) return `${h}h`;
-  return `${h}h ${m}m`;
-}
+type FriendsTab = "list" | "activity" | "dms" | "sessions" | "social" | "compare" | "profile";
 
-type FriendsTab = "list" | "sessions" | "profile";
-
-/**
- * Self-contained Big Screen Friends hub. Owns its data + handlers via
- * `useFriendsData` (same storage helpers / sync engine as the desktop
- * FriendsPage), so it renders standalone under ShellSwitch.
- */
 export default function BigScreenFriends() {
   const { t } = useLanguage();
   const navigate = useNavigate();
   const gamepad = useGamepad();
-  const {
-    profile,
-    setProfile,
-    friends,
-    sessions,
-    selfStats,
-    generatedFriendCode,
-    friendCodeInput,
-    setFriendCodeInput,
-    decodedFriend,
-    performSync,
-    handleSetRsvp,
-    handleDeleteSession,
-    handleSendMessage,
-    handleSaveProfile,
-    handleAddFriend,
-    handleTogglePin,
-    handleToggleBlock,
-    handleDeleteFriend,
-  } = useFriendsData();
+  const fd = useFriendsData();
+  const social = useFriendsSocial(fd);
 
-  const FRIENDS_TABS: TabDef<FriendsTab>[] = [
-    { id: "list", label: t("bigscreen.friends.friendsList") },
-    { id: "sessions", label: t("bigscreen.friends.gameLobbies") },
-    { id: "profile", label: t("bigscreen.friends.myProfile") },
-  ];
+  const { profile, setProfile, selfStats, generatedFriendCode, isSyncing } = fd;
+
   const [activeTab, setActiveTab] = useState<FriendsTab>("list");
   const [showAddModal, setShowAddModal] = useState(false);
-  const [chattingSessionId, setChattingSessionId] = useState<string | null>(null);
-  const [chatDraft, setChatDraft] = useState("");
+  // Friend pre-selected for the lobby composer via the friend-card
+  // "Invite" action (cross-tab jump).
+  const [pendingLobbyInvites, setPendingLobbyInvites] = useState<string[]>([]);
+  // Friend whose nickname is being edited (modal with input).
+  const [nicknameFriendId, setNicknameFriendId] = useState<string | null>(null);
+
+  const badgeFor = useCallback(
+    (tab: FriendsTab): number => {
+      if (tab === "activity")
+        return social.unseenCounts.sessions + social.unseenCounts.recs + social.unseenCounts.suggestions + social.unseenCounts.dms;
+      if (tab === "dms") return social.unseenCounts.dms;
+      if (tab === "sessions") return social.unseenCounts.sessions;
+      if (tab === "social") return social.unseenCounts.recs + social.unseenCounts.suggestions;
+      return 0;
+    },
+    [social.unseenCounts],
+  );
+
+  const FRIENDS_TABS: TabDef<FriendsTab>[] = useMemo(
+    () => [
+      // No icon on the tab labels: the friends tab bar is icon-free
+      // (the badge on some tabs below is the unseen-count indicator,
+      // not a decorative icon).
+      { id: "list", label: t("bigscreen.friends.friendsList") },
+      { id: "activity", label: t("friends.tab.activity"), icon: badgeFor("activity") > 0 ? <Badge count={badgeFor("activity")} /> : undefined },
+      { id: "dms", label: t("friends.tab.messages"), icon: badgeFor("dms") > 0 ? <Badge count={badgeFor("dms")} /> : undefined },
+      { id: "sessions", label: t("bigscreen.friends.gameLobbies"), icon: badgeFor("sessions") > 0 ? <Badge count={badgeFor("sessions")} /> : undefined },
+      { id: "social", label: t("bigscreen.friends.tabSocial"), icon: badgeFor("social") > 0 ? <Badge count={badgeFor("social")} /> : undefined },
+      { id: "compare", label: t("friends.tab.compare") },
+      { id: "profile", label: t("bigscreen.friends.myProfile") },
+    ],
+    [t, badgeFor],
+  );
+
+  // Clear the unseen badge when its tab is opened (mirrors desktop).
+  useEffect(() => {
+    if (activeTab === "sessions") social.clearUnseenTab("sessions");
+    else if (activeTab === "social") {
+      social.clearUnseenTab("recs");
+      social.clearUnseenTab("suggestions");
+    } else if (activeTab === "dms") social.clearUnseenTab("dms");
+    else if (activeTab === "activity") social.clearUnseenTab("activity");
+  }, [activeTab, social]);
 
   const handleSelectTab = useCallback((tabId: FriendsTab) => {
     setActiveTab(tabId);
   }, []);
 
-  // Filter out deleted sessions
-  const activeSessions = useMemo(() => {
-    return sessions.filter((s) => !s.deleted).sort((a, b) => new Date(a.scheduledAt).getTime() - new Date(b.scheduledAt).getTime());
-  }, [sessions]);
-
-  // Active chat session
-  const chatSession = useMemo(() => {
-    return sessions.find((s) => s.id === chattingSessionId) || null;
-  }, [sessions, chattingSessionId]);
-
-  const submitChat = () => {
-    const text = chatDraft.trim();
-    if (!text || !chattingSessionId) return;
-    handleSendMessage(chattingSessionId, text);
-    setChatDraft("");
-  };
-
-  // Controller B / X (and keyboard Escape) close whichever modal is open.
+  // Controller B / X (keyboard Escape) closes whichever modal is open.
   // Capture-phase so it runs before the shell's global Escape handler.
-  const modalOpen = showAddModal || (chattingSessionId !== null && !!chatSession);
+  const modalOpen = showAddModal || nicknameFriendId !== null;
   useEffect(() => {
     if (!modalOpen) return;
     function onEscape(e: KeyboardEvent) {
@@ -93,11 +112,11 @@ export default function BigScreenFriends() {
       e.preventDefault();
       e.stopImmediatePropagation();
       setShowAddModal(false);
-      setChattingSessionId(null);
+      setNicknameFriendId(null);
     }
     document.addEventListener("keydown", onEscape, true);
     return () => document.removeEventListener("keydown", onEscape, true);
-  }, [modalOpen, chatSession]);
+  }, [modalOpen]);
 
   // Controller B returns to the library grid. While an overlay is open
   // the engine dispatches Escape instead, and the overlay owns B — so
@@ -106,27 +125,32 @@ export default function BigScreenFriends() {
     return gamepad.registerBackHandler(() => navigate("/library"), 0);
   }, [gamepad.registerBackHandler, navigate]);
 
-  // Bumper-cycled tab navigation (LB / RB across the three tabs). The
-  // unregister fn runs on unmount so the shell's section cycler reclaims
-  // LB/RB when the user leaves the Friends hub.
+  // NOTE: no `registerTabCycler` here. The shell header owns LB/RB
+  // (section switching) and its priority beats any page-level cycler —
+  // registering one here would hijack LB/RB for the entire Friends
+  // section, unlike every other primary section. The hub's seven tabs
+  // are reached via D-pad left/right on the focusable tab bar.
+
+  // Sync spinner debounce: the engine polls in the background (every
+  // 15s + on every remote event), so binding the icon straight to
+  // `isSyncing` would blink constantly. Only surface it once a cycle
+  // has actually run long enough to notice, and never disable the
+  // button (a manual press queues behind an in-flight cycle).
+  const [syncBusy, setSyncBusy] = useState(false);
   useEffect(() => {
-    return gamepad.registerTabCycler((direction) => {
-      if (modalOpen) return;
-      setActiveTab((prev) => {
-        const ids: FriendsTab[] = ["list", "sessions", "profile"];
-        const idx = ids.indexOf(prev);
-        if (idx < 0) return ids[0];
-        return direction === "forward"
-          ? ids[(idx + 1) % ids.length]
-          : ids[(idx - 1 + ids.length) % ids.length];
-      });
-    });
-  }, [gamepad.registerTabCycler, modalOpen]);
+    if (!isSyncing) {
+      setSyncBusy(false);
+      return undefined;
+    }
+    const id = window.setTimeout(() => setSyncBusy(true), 800);
+    return () => window.clearTimeout(id);
+  }, [isSyncing]);
 
   // Focusables (top header actions)
   const focusAddFriendBtn = useFocusable(() => setShowAddModal(true));
-  const focusSyncBtn = useFocusable(() => performSync(true));
-  const closeChatFocusable = useFocusable(() => setChattingSessionId(null));
+  const focusSyncBtn = useFocusable(() => {
+    void fd.performSync(true);
+  });
 
   // Add-friend modal: the public-key textarea is focusable so controller
   // A lands on it (typing happens via the virtual cursor / keyboard).
@@ -141,50 +165,50 @@ export default function BigScreenFriends() {
   );
   const cancelAddFocusable = useFocusable(() => setShowAddModal(false));
   const confirmAddFocusable = useFocusable(() => {
-    if (decodedFriend) {
-      handleAddFriend();
+    if (fd.decodedFriend) {
+      fd.handleAddFriend();
       setShowAddModal(false);
     }
   });
 
-  // Profile tab: make the name / status inputs reachable via controller.
-  const profileNameRef = useRef<HTMLInputElement | null>(null);
-  const profileNameFocusable = useFocusable(() => profileNameRef.current?.focus());
-  const setProfileNameRef = useCallback(
-    (el: HTMLInputElement | null) => {
-      profileNameRef.current = el;
-      (profileNameFocusable.ref as (node: HTMLElement | null) => void)(el);
+  // Cross-tab quick actions from the friend cards.
+  const handleOpenDm = useCallback(
+    (threadId: string, friendName: string) => {
+      social.handleOpenDmThread(threadId, friendName);
+      setActiveTab("dms");
     },
-    [profileNameFocusable],
+    [social],
   );
-  const profileStatusRef = useRef<HTMLInputElement | null>(null);
-  const profileStatusFocusable = useFocusable(() => profileStatusRef.current?.focus());
-  const setProfileStatusRef = useCallback(
-    (el: HTMLInputElement | null) => {
-      profileStatusRef.current = el;
-      (profileStatusFocusable.ref as (node: HTMLElement | null) => void)(el);
-    },
-    [profileStatusFocusable],
-  );
-  const profileFormRef = useRef<HTMLFormElement | null>(null);
-  const saveProfileFocusable = useFocusable(() => profileFormRef.current?.requestSubmit());
 
-  // Lobby chat modal: message input focusable so controller A lands on it.
-  const chatInputRef = useRef<HTMLInputElement | null>(null);
-  const chatInputFocusable = useFocusable(() => chatInputRef.current?.focus());
-  const setChatInputRef = useCallback(
-    (el: HTMLInputElement | null) => {
-      chatInputRef.current = el;
-      (chatInputFocusable.ref as (node: HTMLElement | null) => void)(el);
+  const handleInviteToLobby = useCallback(
+    (friendName: string) => {
+      setPendingLobbyInvites((prev) =>
+        prev.includes(friendName) ? prev : [...prev, friendName],
+      );
+      setActiveTab("sessions");
     },
-    [chatInputFocusable],
+    [],
   );
-  const sendChatFocusable = useFocusable(submitChat);
+
+  const handleCompare = useCallback(
+    (friendId: string) => {
+      social.setSelectedCompareFriendId(friendId);
+      setActiveTab("compare");
+    },
+    [social],
+  );
+
+  const handleSetNickname = useCallback((friendId: string) => {
+    setNicknameFriendId(friendId);
+  }, []);
+
+  const nicknameFriend = nicknameFriendId
+    ? social.friends.find((f) => f.id === nicknameFriendId) || null
+    : null;
 
   return (
     <div className="bigscreen-store-dashboard">
       <div className="bigscreen-dashboard-scrollable-content bigscreen-friends-content">
-        
         {/* Header Tabs */}
         <div className="bigscreen-friends-toolbar">
           <BigScreenTabBar
@@ -195,14 +219,10 @@ export default function BigScreenFriends() {
           <div className="bigscreen-friends-toolbar-actions">
             <button
               type="button"
-              className="bigscreen-details-btn bigscreen-details-btn--secondary bigscreen-details-btn--compact"
+              className={`bigscreen-details-btn bigscreen-details-btn--secondary bigscreen-details-btn--compact${syncBusy ? " is-syncing" : ""}`}
               {...focusSyncBtn}
             >
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-                <polyline points="23 4 23 10 17 10" />
-                <polyline points="1 20 1 14 7 14" />
-                <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15" />
-              </svg>
+              {Icons.refresh()}
               {t("bigscreen.friends.syncNetwork")}
             </button>
             {activeTab === "list" && (
@@ -211,12 +231,7 @@ export default function BigScreenFriends() {
                 className="bigscreen-details-btn bigscreen-details-btn--primary bigscreen-details-btn--compact"
                 {...focusAddFriendBtn}
               >
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-                  <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" />
-                  <circle cx="9" cy="7" r="4" />
-                  <line x1="19" y1="8" x2="19" y2="14" />
-                  <line x1="22" y1="11" x2="16" y2="11" />
-                </svg>
+                {Icons.plus()}
                 {t("bigscreen.friends.addFriend")}
               </button>
             )}
@@ -225,139 +240,64 @@ export default function BigScreenFriends() {
 
         {/* Tab Panels */}
         <div className="bigscreen-gamepage-tab-scroll-region bigscreen-friends-tab-region">
-          
-          {/* 1. Friends List Tab */}
           <BigScreenTabPanel tabId="list" activeTab={activeTab}>
-            {friends.length === 0 ? (
-              <div className="system-view-empty">
-                <p>{t("bigscreen.friends.noFriendsDesc")}</p>
-              </div>
-            ) : (
-              <div className="bigscreen-friends-grid">
-                {friends.map((friend) => (
-                  <FriendCard
-                    key={friend.id}
-                    friend={friend}
-                    onPin={() => handleTogglePin(friend.id)}
-                    onBlock={() => handleToggleBlock(friend.id, friend.name)}
-                    onDelete={() => handleDeleteFriend(friend.id, friend.name)}
-                  />
-                ))}
-              </div>
-            )}
+            <FriendsListTab
+              social={social}
+              profileName={profile.name}
+              onOpenDm={handleOpenDm}
+              onInviteToLobby={handleInviteToLobby}
+              onCompare={handleCompare}
+              onSetNickname={handleSetNickname}
+            />
           </BigScreenTabPanel>
 
-          {/* 2. Game Lobbies (Sessions) Tab */}
+          <BigScreenTabPanel tabId="activity" activeTab={activeTab}>
+            <ActivityTab social={social} />
+          </BigScreenTabPanel>
+
+          <BigScreenTabPanel tabId="dms" activeTab={activeTab}>
+            <DmsTab social={social} profileName={profile.name} />
+          </BigScreenTabPanel>
+
           <BigScreenTabPanel tabId="sessions" activeTab={activeTab}>
-            {activeSessions.length === 0 ? (
-              <div className="system-view-empty">
-                <p>{t("bigscreen.friends.noSessions")}</p>
-              </div>
-            ) : (
-              <div className="bigscreen-sessions-list">
-                {activeSessions.map((session) => (
-                  <SessionRow
-                    key={session.id}
-                    session={session}
-                    profileName={profile.name}
-                    onRsvp={(status) => handleSetRsvp(session.id, status)}
-                    onOpenChat={() => setChattingSessionId(session.id)}
-                    onDelete={() => handleDeleteSession(session.id)}
-                  />
-                ))}
-              </div>
-            )}
+            <SessionsTab
+              social={social}
+              profileName={profile.name}
+              initialInvites={pendingLobbyInvites}
+              onConsumeInitialInvites={() => setPendingLobbyInvites([])}
+            />
           </BigScreenTabPanel>
 
-          {/* 3. My Profile Tab */}
+          <BigScreenTabPanel tabId="social" activeTab={activeTab}>
+            <SocialTab social={social} profileName={profile.name} />
+          </BigScreenTabPanel>
+
+          <BigScreenTabPanel tabId="compare" activeTab={activeTab}>
+            <CompareTab social={social} profile={profile} selfStats={selfStats} />
+          </BigScreenTabPanel>
+
           <BigScreenTabPanel tabId="profile" activeTab={activeTab}>
-            <div className="bigscreen-gamepage-2col bigscreen-profile-layout" data-cols="2">
-              {/* Profile Card & Key */}
-              <div className="bigscreen-panel-card">
-                <div className="bigscreen-profile-card-header">
-                  <div className="bigscreen-friend-avatar bigscreen-friend-avatar--lg">
-                    {profile.name.slice(0, 2).toUpperCase()}
-                  </div>
-                  <div>
-                    <h3 className="bigscreen-profile-card-name">{profile.name}</h3>
-                    <div className="bigscreen-profile-card-status">
-                      "{profile.status || t("bigscreen.friends.noStatus")}"
-                    </div>
-                  </div>
-                </div>
-
-                <div className="bigscreen-profile-key-block">
-                  <div className="bigscreen-kpi-label bigscreen-profile-key-label">{t("bigscreen.friends.myPublicKey")}</div>
-                  <div className="bigscreen-profile-key">
-                    {generatedFriendCode}
-                  </div>
-                </div>
-
-                <div className="bigscreen-profile-stat-grid">
-                  <div className="bigscreen-profile-stat-box">
-                    <span className="bigscreen-profile-stat-value">{selfStats.gamesCount}</span>
-                    <span className="bigscreen-profile-stat-label">{t("bigscreen.friends.games")}</span>
-                  </div>
-                  <div className="bigscreen-profile-stat-box">
-                    <span className="bigscreen-profile-stat-value">{formatHours(selfStats.playtimeMinutes)}</span>
-                    <span className="bigscreen-profile-stat-label">{t("bigscreen.friends.playtime")}</span>
-                  </div>
-                  <div className="bigscreen-profile-stat-box">
-                    <span className="bigscreen-profile-stat-value">{selfStats.achievementsCount}</span>
-                    <span className="bigscreen-profile-stat-label">{t("bigscreen.friends.trophies")}</span>
-                  </div>
-                </div>
-              </div>
-
-              {/* Edit gamer details form */}
-              <div className="bigscreen-panel-card">
-                <h3>{t("bigscreen.friends.editProfile")}</h3>
-                <form ref={profileFormRef} onSubmit={handleSaveProfile} className="bigscreen-profile-form">
-                  <div className="bigscreen-input-group">
-                    <label>{t("bigscreen.friends.gamerTag")}</label>
-                    <input
-                      ref={setProfileNameRef}
-                      type="text"
-                      className="bigscreen-input"
-                      value={profile.name}
-                      onChange={(e) => setProfile({ ...profile, name: e.target.value })}
-                      tabIndex={profileNameFocusable.tabIndex}
-                      role={profileNameFocusable.role}
-                      onClick={profileNameFocusable.onClick}
-                      required
-                    />
-                  </div>
-                  <div className="bigscreen-input-group">
-                    <label>{t("bigscreen.friends.currentStatus")}</label>
-                    <input
-                      ref={setProfileStatusRef}
-                      type="text"
-                      className="bigscreen-input"
-                      value={profile.status}
-                      onChange={(e) => setProfile({ ...profile, status: e.target.value })}
-                      tabIndex={profileStatusFocusable.tabIndex}
-                      role={profileStatusFocusable.role}
-                      onClick={profileStatusFocusable.onClick}
-                    />
-                  </div>
-                  <button
-                    type="submit"
-                    className="bigscreen-details-btn bigscreen-details-btn--primary bigscreen-profile-save-btn"
-                    {...saveProfileFocusable}
-                  >
-                    {t("bigscreen.friends.saveSync")}
-                  </button>
-                </form>
-              </div>
-            </div>
+            <ProfileTab
+              social={social}
+              profile={profile}
+              setProfile={setProfile}
+              selfStats={selfStats}
+              generatedFriendCode={generatedFriendCode}
+              onSave={() => void social.saveProfile()}
+            />
           </BigScreenTabPanel>
-
         </div>
       </div>
 
       {/* Add Friend Modal */}
       {showAddModal && (
-        <div data-bigscreen-overlay="true" className="bigscreen-overlay-drawer bigscreen-overlay-drawer--modal" onClick={() => setShowAddModal(false)}>
+        <div
+          data-bigscreen-overlay="true"
+          role="dialog"
+          aria-modal="true"
+          className="bigscreen-overlay-drawer bigscreen-overlay-drawer--modal"
+          onClick={() => setShowAddModal(false)}
+        >
           <div
             className="bigscreen-overlay-drawer-panel bigscreen-overlay-drawer-panel--modal bigscreen-addfriend-panel"
             onClick={(e) => e.stopPropagation()}
@@ -367,26 +307,26 @@ export default function BigScreenFriends() {
             <textarea
               ref={setFriendCodeRef}
               className="bigscreen-input bigscreen-input--textarea"
-              value={friendCodeInput}
-              onChange={(e) => setFriendCodeInput(e.target.value)}
+              value={fd.friendCodeInput}
+              onChange={(e) => fd.setFriendCodeInput(e.target.value)}
               placeholder={t("bigscreen.friends.publicKeyPlaceholder")}
               tabIndex={friendCodeFocusable.tabIndex}
               role={friendCodeFocusable.role}
               onClick={friendCodeFocusable.onClick}
             />
 
-            {decodedFriend ? (
+            {fd.decodedFriend ? (
               <div className="bigscreen-addfriend-preview">
                 <div className="bigscreen-friend-avatar bigscreen-friend-avatar--sm">
-                  {decodedFriend.name.slice(0, 2).toUpperCase()}
+                  {fd.decodedFriend.name.slice(0, 2).toUpperCase()}
                 </div>
                 <div>
-                  <div className="bigscreen-addfriend-preview-name">{decodedFriend.name}</div>
-                  <div className="bigscreen-addfriend-preview-status">{decodedFriend.status}</div>
+                  <div className="bigscreen-addfriend-preview-name">{fd.decodedFriend.name}</div>
+                  <div className="bigscreen-addfriend-preview-status">{fd.decodedFriend.status}</div>
                 </div>
               </div>
             ) : (
-              friendCodeInput.trim() && (
+              fd.friendCodeInput.trim() && (
                 <div className="bigscreen-addfriend-error">{t("bigscreen.friends.invalidKey")}</div>
               )
             )}
@@ -402,7 +342,7 @@ export default function BigScreenFriends() {
               <button
                 type="button"
                 className="bigscreen-details-btn bigscreen-details-btn--primary bigscreen-details-btn--compact"
-                disabled={!decodedFriend}
+                disabled={!fd.decodedFriend}
                 {...confirmAddFocusable}
               >
                 {t("bigscreen.friends.addFriendBtn")}
@@ -412,296 +352,98 @@ export default function BigScreenFriends() {
         </div>
       )}
 
-      {/* Lobbies Chat Modal */}
-      {chattingSessionId && chatSession && (
-        <div data-bigscreen-overlay="true" className="bigscreen-overlay-drawer bigscreen-overlay-drawer--modal" onClick={() => setChattingSessionId(null)}>
-          <div
-            className="bigscreen-overlay-drawer-panel bigscreen-overlay-drawer-panel--modal bigscreen-chat-panel"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div className="bigscreen-chat-header">
-              <h3>{t("bigscreen.friends.lobbyChat", { gameName: chatSession.gameName })}</h3>
-              <button
-                type="button"
-                className="bigscreen-chat-close"
-                aria-label={t("common.close")}
-                {...closeChatFocusable}
-              >
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-                  <line x1="18" y1="6" x2="6" y2="18" />
-                  <line x1="6" y1="6" x2="18" y2="18" />
-                </svg>
-              </button>
-            </div>
-
-            {/* Messages body */}
-            <div className="bigscreen-chat-body">
-              {(chatSession.messages || []).length === 0 ? (
-                <div className="bigscreen-chat-empty">{t("bigscreen.friends.noMessages")}</div>
-              ) : (
-                (chatSession.messages || []).map((m) => {
-                  const isMe = m.author === profile.name;
-                  return (
-                    <div key={m.id} className={`bigscreen-chat-bubble ${isMe ? "bigscreen-chat-bubble--me" : "bigscreen-chat-bubble--them"}`}>
-                      <div className={`bigscreen-chat-bubble-author ${isMe ? "bigscreen-chat-bubble-author--right" : ""}`}>{m.author}</div>
-                      <div className="bigscreen-chat-bubble-text">{m.text}</div>
-                    </div>
-                  );
-                })
-              )}
-            </div>
-
-            {/* Message input */}
-            <div className="bigscreen-chat-input-row">
-              <input
-                ref={setChatInputRef}
-                type="text"
-                className="bigscreen-input"
-                value={chatDraft}
-                onChange={(e) => setChatDraft(e.target.value)}
-                placeholder={t("bigscreen.friends.typeMessage")}
-                tabIndex={chatInputFocusable.tabIndex}
-                role={chatInputFocusable.role}
-                onClick={chatInputFocusable.onClick}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter") submitChat();
-                }}
-              />
-              <button
-                type="button"
-                className="bigscreen-details-btn bigscreen-details-btn--primary bigscreen-details-btn--compact"
-                {...sendChatFocusable}
-              >
-                {t("bigscreen.friends.send")}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-    </div>
-  );
-}
-
-// ─── Friend Card ─────────────────────────────────────────────────────
-
-function FriendCard({
-  friend,
-  onPin,
-  onBlock,
-  onDelete,
-}: {
-  friend: Friend;
-  onPin: () => void;
-  onBlock: () => void;
-  onDelete: () => void;
-}) {
-  const { t } = useLanguage();
-  const [showOptions, setShowOptions] = useState(false);
-
-  const focusCard = useFocusable(() => setShowOptions(true));
-  const isPlaying = !!friend.currentlyPlaying;
-
-  // Controller B / X closes the options popover.
-  useEffect(() => {
-    if (!showOptions) return;
-    function onEscape(e: KeyboardEvent) {
-      if (e.key !== "Escape") return;
-      e.preventDefault();
-      e.stopImmediatePropagation();
-      setShowOptions(false);
-    }
-    document.addEventListener("keydown", onEscape, true);
-    return () => document.removeEventListener("keydown", onEscape, true);
-  }, [showOptions]);
-
-  return (
-    <div
-      className={`bigscreen-game-card bigscreen-friend-card${friend.pinned ? " running" : ""}${isPlaying ? " bigscreen-friend-card--playing" : ""}`}
-      {...focusCard}
-    >
-      <div className="bigscreen-friend-card-top">
-        <div className="bigscreen-friend-avatar">
-          {friend.name.slice(0, 2).toUpperCase()}
-        </div>
-        <div className="bigscreen-friend-id">
-          <h4 className="bigscreen-friend-name">
-            {displayName(friend)}
-          </h4>
-          <p className={`bigscreen-friend-status${isPlaying ? " bigscreen-friend-status--playing" : ""}`}>
-            {isPlaying && <span className="bigscreen-friend-status-dot" aria-hidden />}
-            {isPlaying ? t("bigscreen.friends.playing", { game: friend.currentlyPlaying }) : friend.status || t("bigscreen.friends.offline")}
-          </p>
-        </div>
-        {friend.pinned && (
-          <span className="bigscreen-friend-pin">
-            <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
-              <path d="M16 3v6l2.4 2.4a2 2 0 0 1 .6 1.4V14a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1v-1.2a2 2 0 0 1 .6-1.4L8 9V3a1 1 0 0 1 1-1h6a1 1 0 0 1 1 1Z" />
-              <path d="M12 15v5" />
-            </svg>
-          </span>
-        )}
-      </div>
-
-      <div className="bigscreen-friend-stats">
-        {friend.libStats ? (
-          <div>{t("bigscreen.friends.friendStats", { games: friend.libStats.gamesCount, trophies: friend.libStats.achievementsCount })}</div>
-        ) : (
-          <div>{t("bigscreen.friends.noSyncStats")}</div>
-        )}
-      </div>
-
-      {/* Quick popup options on click */}
-      {showOptions && (
-        <FriendOptionsPopover
-          friend={friend}
-          onPin={onPin}
-          onBlock={onBlock}
-          onDelete={onDelete}
-          onClose={() => setShowOptions(false)}
+      {/* Nickname Modal */}
+      {nicknameFriend && (
+        <NicknameModal
+          friend={nicknameFriend}
+          onSave={(nickname) => {
+            social.handleSetNickname(nicknameFriend.id, nickname);
+            setNicknameFriendId(null);
+          }}
+          onClose={() => setNicknameFriendId(null)}
         />
       )}
     </div>
   );
 }
 
-// ─── Friend Options Popover ────────────────────────────────────────
-// Owns its useFocusable calls unconditionally (rules-of-hooks: the
-// popover mounts as a whole only when `showOptions` flips, so the hook
-// count is stable inside this component — never inside the parent's
-// `.map()` / conditional JSX).
+// ─── Unseen badge ─────────────────────────────────────────────────
 
-function FriendOptionsPopover({
+function Badge({ count }: { count: number }) {
+  return <span className="bigscreen-friends-tab-badge">{count > 99 ? "99+" : count}</span>;
+}
+
+// ─── Nickname modal ───────────────────────────────────────────────
+
+function NicknameModal({
   friend,
-  onPin,
-  onBlock,
-  onDelete,
+  onSave,
   onClose,
 }: {
   friend: Friend;
-  onPin: () => void;
-  onBlock: () => void;
-  onDelete: () => void;
+  onSave: (nickname: string) => void;
   onClose: () => void;
 }) {
   const { t } = useLanguage();
-  const pinProps = useFocusable(() => {
-    onPin();
-    onClose();
+  const [draft, setDraft] = useState(friend.nickname || friend.name);
+  const { setInputRef, inputProps } = useFocusableInput<HTMLInputElement>();
+  const closeProps = useFocusable(onClose);
+  useOverlayEscape(onClose);
+  const saveProps = useFocusable(() => {
+    onSave(draft);
   });
-  const blockProps = useFocusable(() => {
-    onBlock();
-    onClose();
-  });
-  const deleteProps = useFocusable(() => {
-    onDelete();
-    onClose();
-  });
-  const cancelProps = useFocusable(onClose);
 
   return (
-    <div data-bigscreen-overlay="true" className="bigscreen-overlay-drawer bigscreen-overlay-drawer--modal" onClick={onClose}>
+    <div
+      data-bigscreen-overlay="true"
+      role="dialog"
+      aria-modal="true"
+      className="bigscreen-overlay-drawer bigscreen-overlay-drawer--modal"
+      onMouseDown={onClose}
+    >
       <div
-        className="bigscreen-overlay-drawer-panel bigscreen-overlay-drawer-panel--modal bigscreen-friendoptions-panel"
-        onClick={(e) => e.stopPropagation()}
+        className="bigscreen-overlay-drawer-panel bigscreen-overlay-drawer-panel--modal bigscreen-nickname-panel"
+        onMouseDown={(e) => e.stopPropagation()}
       >
-        <h4 className="bigscreen-friendoptions-title">{displayName(friend)}</h4>
-        <button type="button" className="bigscreen-details-btn bigscreen-details-btn--secondary bigscreen-details-btn--compact bigscreen-popover-btn" {...pinProps}>
-          {friend.pinned ? t("bigscreen.friends.unpinFriend") : t("bigscreen.friends.pinFriend")}
-        </button>
-        <button type="button" className="bigscreen-details-btn bigscreen-details-btn--secondary bigscreen-details-btn--compact bigscreen-popover-btn" {...blockProps}>
-          {friend.blocked ? t("bigscreen.friends.unblockFriend") : t("bigscreen.friends.blockFriend")}
-        </button>
-        <button type="button" className="bigscreen-details-btn bigscreen-details-btn--danger bigscreen-details-btn--compact bigscreen-popover-btn" {...deleteProps}>
-          {t("bigscreen.friends.deleteFriend")}
-        </button>
-        <button type="button" className="bigscreen-details-btn bigscreen-details-btn--secondary bigscreen-details-btn--compact bigscreen-popover-btn bigscreen-popover-btn--cancel" {...cancelProps}>
-          {t("common.cancel")}
-        </button>
-      </div>
-    </div>
-  );
-}
-
-// ─── Session Row ─────────────────────────────────────────────────────
-
-function SessionRow({
-  session,
-  profileName,
-  onRsvp,
-  onOpenChat,
-  onDelete,
-}: {
-  session: GameSession;
-  profileName: string;
-  onRsvp: (status: any) => void;
-  onOpenChat: () => void;
-  onDelete: () => void;
-}) {
-  const { t } = useLanguage();
-  const myRsvp = session.rsvps?.[profileName] || "none";
-
-  const focusRsvpGoing = useFocusable(() => onRsvp("going"));
-  const focusRsvpMaybe = useFocusable(() => onRsvp("maybe"));
-  const focusRsvpDeclined = useFocusable(() => onRsvp("declined"));
-  const focusChat = useFocusable(onOpenChat);
-  const focusDelete = useFocusable(onDelete);
-
-  const formattedDate = useMemo(() => {
-    return new Date(session.scheduledAt).toLocaleDateString(undefined, {
-      weekday: "short",
-      month: "short",
-      day: "numeric",
-      hour: "2-digit",
-      minute: "2-digit",
-    });
-  }, [session.scheduledAt]);
-
-  const attendeesCount = Object.values(session.rsvps || {}).filter((v) => v === "going").length;
-
-  return (
-    <div className="bigscreen-widget-card bigscreen-session-row">
-      <div className="bigscreen-session-main">
-        <div className="bigscreen-session-title-row">
-          <h4 className="bigscreen-session-title">{session.gameName}</h4>
-          <BigScreenPill tone="accent" size="sm">{t("bigscreen.friends.lobby")}</BigScreenPill>
-        </div>
-        <div className="bigscreen-session-meta">
-          {t("bigscreen.friends.sessionMeta", { date: formattedDate, going: attendeesCount, max: session.maxPlayers })}
-        </div>
-        {session.description && (
-          <div className="bigscreen-session-desc">
-            "{session.description}"
-          </div>
-        )}
-      </div>
-
-      <div className="bigscreen-session-actions">
-        {/* RSVP button strip */}
-        <div className="bigscreen-rsvp-group">
-          <button type="button" className={`bigscreen-rsvp-btn ${myRsvp === "going" ? "is-selected-going" : ""}`} {...focusRsvpGoing}>
-            {t("bigscreen.friends.going")}
-          </button>
-          <button type="button" className={`bigscreen-rsvp-btn ${myRsvp === "maybe" ? "is-selected-maybe" : ""}`} {...focusRsvpMaybe}>
-            {t("bigscreen.friends.maybe")}
-          </button>
-          <button type="button" className={`bigscreen-rsvp-btn ${myRsvp === "declined" ? "is-selected-declined" : ""}`} {...focusRsvpDeclined}>
-            {t("bigscreen.friends.decline")}
+        <div className="bigscreen-overlay-drawer-header">
+          <h3>{t("bigscreen.friends.setNickname")}</h3>
+          <button type="button" className="bigscreen-overlay-drawer-close" aria-label={t("common.close")} {...closeProps}>
+            {Icons.x()}
           </button>
         </div>
-
-        <button type="button" className="bigscreen-details-btn bigscreen-details-btn--secondary bigscreen-details-btn--compact" {...focusChat}>
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-            <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
-          </svg>
-          {t("bigscreen.friends.chat")}
-        </button>
-
-        {session.creatorName === profileName && (
-          <button type="button" className="bigscreen-details-btn bigscreen-details-btn--secondary bigscreen-details-btn--compact bigscreen-session-btn--danger" {...focusDelete}>
-            {t("bigscreen.friends.cancel")}
+        <div className="bigscreen-overlay-drawer-content">
+          <div className="bigscreen-nickname-current">{displayName(friend)}</div>
+          <input
+            ref={setInputRef}
+            type="text"
+            className="bigscreen-input"
+            value={draft}
+            onChange={(e) => setDraft(e.target.value)}
+            placeholder={t("bigscreen.friends.circleNamePlaceholder")}
+            tabIndex={inputProps.tabIndex}
+            role={inputProps.role}
+            onClick={inputProps.onClick}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") onSave(draft);
+            }}
+          />
+        </div>
+        <div className="bigscreen-modal-footer">
+          <button
+            type="button"
+            className="bigscreen-details-btn bigscreen-details-btn--secondary bigscreen-details-btn--compact"
+            {...useFocusable(onClose)}
+          >
+            {t("common.cancel")}
           </button>
-        )}
+          <button
+            type="button"
+            className="bigscreen-details-btn bigscreen-details-btn--primary bigscreen-details-btn--compact"
+            {...saveProps}
+          >
+            {t("common.confirm")}
+          </button>
+        </div>
       </div>
     </div>
   );

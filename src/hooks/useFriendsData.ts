@@ -11,10 +11,11 @@
 // Desktop FriendsPage keeps its own (unchanged) implementation — this
 // hook only powers BigScreenFriends.
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
+import { listen } from "@tauri-apps/api/event";
 import { SimplePool } from "nostr-tools/pool";
-import { finalizeEvent } from "nostr-tools/pure";
+import { finalizeEvent, verifyEvent } from "nostr-tools/pure";
 import { useGames } from "../context/GameContext";
 import { useAchievements } from "../context/AchievementContext";
 import { useToast } from "../context/ToastContext";
@@ -55,6 +56,7 @@ import {
   mergeSessions,
   mergeRecommendations,
   mergeSuggestions,
+  mergeDatabases,
   mergeDms,
   addUnseenTabItems,
   addUnseenCommunityItems,
@@ -81,6 +83,7 @@ export interface UseFriendsDataResult {
   friendCodeInput: string;
   setFriendCodeInput: (val: string) => void;
   decodedFriend: Friend | null;
+  dbLoadVersion: number;
   isSyncing: boolean;
   performSync: (manual?: boolean) => Promise<void>;
   handleSetRsvp: (sessionId: string, status: RsvpStatus) => Promise<void>;
@@ -109,6 +112,9 @@ export function useFriendsData(): UseFriendsDataResult {
   const [friendCodeInput, setFriendCodeInput] = useState("");
   const [decodedFriend, setDecodedFriend] = useState<Friend | null>(null);
   const [isSyncing, setIsSyncing] = useState(false);
+  // Bumped whenever the disk DB is loaded into localStorage, so the
+  // companion social hook can re-read storage even without a sync cycle.
+  const [dbLoadVersion, setDbLoadVersion] = useState(0);
 
   // Manual sync requests that arrive while a sync is already running are
   // queued so the user's "Sync" click is never silently dropped.
@@ -236,6 +242,7 @@ export function useFriendsData(): UseFriendsDataResult {
           setRecommendations(loadRecommendations());
           setSuggestions(loadSuggestions());
           setDms(loadDms());
+          setDbLoadVersion((v) => v + 1);
         }
 
         // 2. Resolve device ID
@@ -329,7 +336,7 @@ export function useFriendsData(): UseFriendsDataResult {
       return;
     }
     setIsSyncing(true);
-
+    try {
     // Make sure we always have a stable Nostr public key before publishing.
     if (!profile.syncId) {
       const keys = getNostrKeys();
@@ -340,7 +347,6 @@ export function useFriendsData(): UseFriendsDataResult {
 
     const folder = await getSyncFolder();
     if (!folder) {
-      setIsSyncing(false);
       if (manual) {
         showToast(t("friendsPage.syncFolderMissing"), "error");
       }
@@ -491,24 +497,50 @@ export function useFriendsData(): UseFriendsDataResult {
       updatedFriends.push(friend);
     }
 
+    // ── Anti-race re-merge before the final write ─────────────────────
+    // The engine read storage when the sync started; a local mutation made
+    // while it was running (session message, RSVP, create session,
+    // rec/suggestion, friend edit…) would otherwise be overwritten by that
+    // stale snapshot. Re-read + re-merge current storage against the
+    // engine's result immediately before persisting — in-flight edits carry
+    // a newer updatedAt and win the merge.
+    let finalSessions = mergedSessions;
+    let finalRecs = mergedRecs;
+    let finalSuggestions = mergedSuggestions;
+    let finalDms = mergedDms;
+
     if (changesMade) {
-      saveSessions(mergedSessions);
-      saveRecommendations(mergedRecs);
-      saveSuggestions(mergedSuggestions);
-      saveDmsAndPersist(mergedDms);
-      setSessions(mergedSessions);
-      setRecommendations(mergedRecs);
-      setSuggestions(mergedSuggestions);
-      setDms(mergedDms);
+      finalSessions = mergeSessions(loadSessions(), mergedSessions);
+      finalRecs = mergeRecommendations(loadRecommendations(), mergedRecs);
+      finalSuggestions = mergeSuggestions(loadSuggestions(), mergedSuggestions);
+      finalDms = mergeDms(loadDms(), mergedDms, profile.name);
+      saveSessions(finalSessions);
+      saveRecommendations(finalRecs);
+      saveSuggestions(finalSuggestions);
+      saveDmsAndPersist(finalDms);
+      setSessions(finalSessions);
+      setRecommendations(finalRecs);
+      setSuggestions(finalSuggestions);
+      setDms(finalDms);
     }
 
     if (friendsUpdated) {
-      saveFriends(updatedFriends);
-      setFriends(updatedFriends);
+      // Overlay the engine's remote profile updates over FRESH storage so a
+      // mid-sync add/delete/pin/block/nickname is never clobbered either.
+      const freshFriends = loadFriends();
+      const engineById = new Map(updatedFriends.map((f) => [f.syncId, f]));
+      const finalFriends = freshFriends.map((f) => {
+        const engineF = engineById.get(f.syncId);
+        if (!engineF) return f;
+        // Remote profile data wins; local-only fields stay authoritative.
+        return { ...f, ...engineF, pinned: f.pinned, blocked: f.blocked, nickname: f.nickname, groups: f.groups };
+      });
+      saveFriends(finalFriends);
+      setFriends(finalFriends);
     }
 
     // Always push our own updated outbox so friends can see us
-    const pushed = await pushMyOutbox(profile, selfStats, mergedSessions, mergedRecs, selfSharedGames, suggestions, mergedDms);
+    const pushed = await pushMyOutbox(profile, selfStats, finalSessions, finalRecs, selfSharedGames, finalSuggestions, finalDms);
 
     if (manual) {
       if (!pushed.ok) {
@@ -533,8 +565,12 @@ export function useFriendsData(): UseFriendsDataResult {
     // Community tab (sessions / recommendations / suggestions pulled
     // from friends this sync). Only bumps when items are truly new.
     addUnseenCommunityItems(newCommunityItems);
-
-    setIsSyncing(false);
+    } finally {
+      // Guaranteed reset: a throw anywhere mid-cycle must never leave
+      // the sync flag stuck (the hub's sync indicator would spin
+      // forever). The `!folder` early return above also lands here.
+      setIsSyncing(false);
+    }
 
     // Honor a manual sync that was requested while this one was running.
     if (pendingManualSync.current) {
@@ -548,6 +584,138 @@ export function useFriendsData(): UseFriendsDataResult {
     performSync(false);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [profile.syncId]);
+
+  // Background polling timer (mirrors FriendsPage's 15s cadence) so remote
+  // updates keep landing while the bigscreen hub is open.
+  useEffect(() => {
+    const interval = setInterval(() => {
+      void performSync(false);
+    }, 15000);
+    return () => clearInterval(interval);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [friends, profile.syncId]);
+
+  // Latest sync engine so event listeners never call a stale closure.
+  const performSyncRef = useRef(performSync);
+  useEffect(() => {
+    performSyncRef.current = performSync;
+  }, [performSync]);
+
+  // Merge a remote database received via P2P / Nostr into local storage and
+  // state, then run a sync cycle so the companion hook reloads from storage.
+  const handleReceiveRemoteData = useCallback((remoteDb: FriendsDatabase) => {
+    try {
+      const localProfile = loadUserProfile();
+      const localFriends = loadFriends();
+      const remoteProfile = remoteDb.profile;
+      if (remoteProfile && remoteProfile.syncId) {
+        const isFriend = localFriends.some((f) => f.syncId === remoteProfile.syncId);
+        const isSelf = remoteProfile.syncId === localProfile.syncId;
+        // Only accept payloads from known friends (or ourselves). Unknown
+        // peers — including denied ones — are ignored; invitation discovery
+        // for them is owned by the social hook's folder check.
+        if (!isFriend && !isSelf) return;
+      }
+
+      const merged = mergeDatabases(
+        {
+          profile: localProfile,
+          friends: localFriends,
+          sessions: loadSessions(),
+          recommendations: loadRecommendations(),
+          suggestions: loadSuggestions(),
+          dms: loadDms(),
+        },
+        remoteDb,
+      );
+
+      // Count freshly-arrived DM messages that aren't ours for the badge.
+      let newDmMessages = 0;
+      const localDms = loadDms();
+      (remoteDb.dms || []).forEach((remoteThread) => {
+        const localThread = localDms.find((t) => t.id === remoteThread.id);
+        const known = new Set((localThread?.messages || []).map((m) => m.id));
+        (remoteThread.messages || []).forEach((m) => {
+          if (!known.has(m.id) && m.author !== localProfile.name) newDmMessages++;
+        });
+      });
+
+      saveFriends(merged.friends);
+      saveSessions(merged.sessions);
+      saveRecommendations(merged.recommendations);
+      saveSuggestions(merged.suggestions);
+      saveDmsAndPersist(merged.dms);
+      setFriends(merged.friends);
+      setSessions(merged.sessions);
+      setRecommendations(merged.recommendations);
+      setSuggestions(merged.suggestions);
+      setDms(merged.dms);
+
+      if (newDmMessages > 0) addUnseenTabItems("dms", newDmMessages);
+
+      // A completed sync cycle makes the companion hook re-read storage.
+      void performSyncRef.current(false);
+    } catch (err) {
+      console.error("Failed to parse/merge remote sync data:", err);
+    }
+  }, []);
+
+  // Incoming P2P sync payloads emitted by the backend sync loop.
+  useEffect(() => {
+    let unlisten: (() => void) | undefined;
+    const setup = async () => {
+      unlisten = await listen<string>("internet-sync-received", (event) => {
+        console.log("Received internet sync database payload");
+        try {
+          const remoteDb = JSON.parse(event.payload) as FriendsDatabase;
+          handleReceiveRemoteData(remoteDb);
+        } catch (err) {
+          console.error("Failed to parse/merge remote sync data:", err);
+        }
+      });
+    };
+    void setup();
+    return () => {
+      if (unlisten) unlisten();
+    };
+  }, [handleReceiveRemoteData]);
+
+  // Subscribe to friends' pubkeys via Nostr so relay updates land live
+  // (mirrors FriendsPage; resubscribes when the friend list changes).
+  useEffect(() => {
+    if (friends.length === 0) return;
+
+    const pubkeys = friends.map((f) => f.syncId).filter((id) => /^[0-9a-fA-F]{64}$/.test(id));
+    if (pubkeys.length === 0) return;
+
+    const sub = nostrPool.subscribeMany(
+      NOSTR_RELAYS,
+      {
+        authors: pubkeys,
+        kinds: [30078],
+        "#d": ["gamelib-friends-outbox"],
+      },
+      {
+        onevent(event) {
+          if (!verifyEvent(event)) {
+            console.error("Nostr: invalid signature for event:", event.id);
+            return;
+          }
+          console.log("Nostr: received updated outbox from friend pubkey:", event.pubkey);
+          try {
+            const remoteDb = JSON.parse(event.content) as FriendsDatabase;
+            handleReceiveRemoteData(remoteDb);
+          } catch (err) {
+            console.error("Nostr: failed to parse remote data:", err);
+          }
+        },
+      },
+    );
+
+    return () => {
+      sub.close();
+    };
+  }, [friends, nostrPool, handleReceiveRemoteData]);
 
   // ── Handlers ─────────────────────────────────────────────────────
 
@@ -679,6 +847,7 @@ export function useFriendsData(): UseFriendsDataResult {
     friendCodeInput,
     setFriendCodeInput,
     decodedFriend,
+    dbLoadVersion,
     isSyncing,
     performSync,
     handleSetRsvp,
