@@ -26,6 +26,8 @@ import {
 } from "./context/SidebarCollapseContext";
 import { GamepadProvider } from "./hooks/GamepadProvider";
 import { useDiscordPresence } from "./hooks/useDiscordPresence";
+import { useTrayNavigation } from "./hooks/useTrayNavigation";
+import { useTrayStrings } from "./hooks/useTrayStrings";
 import { LandingRedirect } from "./components/LandingRedirect";
 import Splashscreen from "./components/Splashscreen";
 import "./App.css";
@@ -66,6 +68,8 @@ function AppShellLayout() {
 
 function AppShell() {
   useDiscordPresence();
+  useTrayNavigation();
+  useTrayStrings();
   const { isBigScreen } = useBigScreen();
   return (
     <GamepadProvider enabled={isBigScreen}>

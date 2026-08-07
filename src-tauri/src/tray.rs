@@ -1,8 +1,9 @@
-//! System tray icon + right-click menu with a live "Playing: X" status line.
+//! System tray icon + right-click menu with a live status line,
+//! recent-game shortcuts, download progress, and page navigation.
 //!
-//! Built with Tauri's first-party `tauri::tray` API (available because the
-//! `unstable` feature is enabled in Cargo.toml). No third-party plugin
-//! required — the same surface ships with Tauri 2 itself.
+//! Built with Tauri's first-party `tauri::tray` API (available because
+//! the `unstable` feature is enabled in Cargo.toml). No third-party
+//! plugin required — the same surface ships with Tauri 2 itself.
 //!
 //! ## Menu shape
 //!
@@ -12,6 +13,11 @@
 //!   Show GameIndex
 //!   Hide to tray                (disabled when window is already hidden)
 //!   ─────────────────
+//!   Recent Games ▸             (up to 8 games from the sessions table)
+//!   Downloads ▸                (live rows + "Open Downloads")
+//!   ─────────────────
+//!   Library / Store / Activity / Friends / Mods / Settings
+//!   ─────────────────
 //!   Quit GameIndex
 //! ```
 //!
@@ -20,6 +26,17 @@
 //! click. Right-click opens the context menu (built-in behaviour when
 //! `show_menu_on_left_click(false)` is set).
 //!
+//! ## Rebuild strategy
+//!
+//! The whole menu is rebuilt via [`rebuild_menu`] whenever its inputs
+//! change. `game-started` / `game-exited` rebuild immediately;
+//! `download-progress` (emitted ~1/s) is throttled to at most one
+//! rebuild per 2s and only when the download signature (count +
+//! per-download status/progress) actually changed. One `on_menu_event`
+//! handler stays attached to the tray for the lifetime of the app —
+//! menu events route through the tray regardless of which `Menu`
+//! instance is currently set.
+//!
 //! ## Lifecycle
 //!
 //! `build_tray` is called once from `lib.rs::run` inside `.setup(...)`
@@ -27,72 +44,127 @@
 //! failures surface — but the caller wraps the call with
 //! `unwrap_or_else(|e| eprintln!(...))` because a missing tray
 //! (eg. headless Linux without a system tray) must not abort startup;
-//! the launcher body still works, the user just can't reach Show/Hide
-//! from the tray.
+//! the launcher body still works, the user just can't reach the tray.
 //!
 //! ## State propagation
 //!
-//! The two events `GameWatcher` already emits — `game-started` (any
-//! path that added an active session, including passive WMI
-//! detection) and `game-exited` (any path that ended one, including
-//! `force_close_game` and natural exits) — feed the listener
-//! closures. Both re-read `GameWatcher::current_session_name()` so
-//! the menu text follows the in-memory `active_sessions` HashMap as
-//! the single source of truth. Any future launch path that registers
-//! a session via `register_launched_session` (or `start_passive_`
-//! session`) is auto-reflected without bespoke event-payload
-//! parsing.
+//! `game-started` / `game-exited` payloads are read directly (never
+//! via `GameWatcher` — see the deadlock note in `build_tray`) and
+//! `download-progress` payloads are snapshotted into `TrayHandles`.
+//! Windows-only extras: taskbar progress bar, taskbar overlay badge,
+//! and a green-dot variant of the tray icon while a game is running.
+//!
+//! ## Localization
+//!
+//! Every user-facing string lives in [`TrayStrings`], which the
+//! frontend emits as the `tray-strings` event in the active UI
+//! language. Until the first emission the English `Default` is in
+//! effect (the app starts in English, so the swap is seamless);
+//! `{key}` placeholders are substituted via [`fill`].
 
-use tauri::menu::{Menu, MenuItem, PredefinedMenuItem};
-use tauri::tray::{MouseButton, TrayIconBuilder, TrayIconEvent};
-use tauri::{App, Listener, Manager, Wry};
+use std::collections::HashSet;
+use std::sync::Mutex;
+use std::time::{Duration, Instant};
 
-/// Concrete MenuItem generic for the desktop runtime. The full
-/// `MenuItem<R>` type is parameterised over `R: Runtime`; on desktop
-/// that runtime is always `tauri::Wry`. Pinning the concrete type
-/// here keeps `app.state::<TrayHandles>()` (which is keyed by
-/// `TypeId`, not generics) happy without forcing every consumer to
-/// spell out `Wry`.
+use serde_json::Value;
+use tauri::image::Image;
+use tauri::menu::{IsMenuItem, Menu, MenuEvent, MenuItem, PredefinedMenuItem, Submenu};
+use tauri::tray::{MouseButton, TrayIcon, TrayIconBuilder, TrayIconEvent};
+use tauri::{App, AppHandle, Emitter, Listener, Manager, Wry};
+#[cfg(target_os = "windows")]
+use tauri::window::{ProgressBarState, ProgressBarStatus};
+
+use crate::db;
+use crate::db::games::GameRow;
+
+/// Managed state: the tray handle plus the inputs `rebuild_menu`
+/// renders from. `TrayIcon<Wry>` is a cheap clone (Arc-backed), so
+/// listeners grab it back from `app.state::<TrayHandles>()` (keyed by
+/// `TypeId`, not generics — pinning `Wry` keeps every consumer simple).
 pub struct TrayHandles {
-    /// Disabled label "GameIndex — idle" / "Playing: <name>". Clicking
-    /// it is a no-op (Tauri treats disabled `MenuItem`s as
-    /// non-interactive rows in the menu).
-    pub status_item: MenuItem<Wry>,
-    pub show_item: MenuItem<Wry>,
-    /// Disabled when the window is already hidden — the user has no
-    /// use for a "Hide to tray" entry if the window isn't visible.
-    pub hide_item: MenuItem<Wry>,
-    /// Stored so the `Menu` retains ownership of the click handler
-    /// but kept on `TrayHandles` for symmetry with the other items.
-    /// The tray menu fires the Quit callback directly through the
-    /// `tauri::menu::Menu` event wiring, not through this handle, so
-    /// no consumer ever reads the field — silence the lint.
-    #[allow(dead_code)]
-    pub quit_item: MenuItem<Wry>,
+    pub tray: TrayIcon<Wry>,
+    /// Currently running game name, from `game-started`/`game-exited`.
+    pub playing: Mutex<Option<String>>,
+    /// Raw snapshot of the last `download-progress` payload.
+    pub downloads: Mutex<Vec<Value>>,
+    /// When the menu was last rebuilt (download throttle clock).
+    pub last_rebuild: Mutex<Instant>,
+    /// Signature of the downloads the menu was last rebuilt with.
+    pub dl_signature: Mutex<String>,
+    /// Localized menu/tooltip strings in the active UI language.
+    pub strings: Mutex<TrayStrings>,
 }
 
-impl TrayHandles {
-    /// Stamp the status item with "Playing: <name>" and enable both
-    /// Show (in case the window is hidden) and Hide (the user might
-    /// have alt-tabbed back to lookup something mid-session).
-    pub fn show_playing(&self, game_name: &str) {
-        let _ = self.status_item.set_text(format!("Playing: {}", game_name));
-        let _ = self.show_item.set_enabled(true);
-        let _ = self.hide_item.set_enabled(true);
-    }
+/// Every user-facing tray string, emitted by the frontend as the
+/// `tray-strings` event in the active UI language. `Default` is the
+/// English fallback used until the first emission — the app starts in
+/// English, so the swap is seamless.
+#[derive(Debug, Clone, serde::Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct TrayStrings {
+    pub idle: String,
+    /// "Playing: {game}"
+    pub playing: String,
+    pub show: String,
+    pub hide: String,
+    pub quit: String,
+    pub recent: String,
+    pub no_recent: String,
+    pub downloads: String,
+    /// "Downloads: {count} active"
+    pub downloads_active: String,
+    pub no_downloads: String,
+    /// "{name} — {pct}% ({downloaded} / {total})"
+    pub download_row: String,
+    /// "{name} — starting…"
+    pub download_starting: String,
+    pub open_downloads: String,
+    pub library: String,
+    pub store: String,
+    pub activity: String,
+    pub friends: String,
+    pub mods: String,
+    pub settings: String,
+}
 
-    /// Reset to "GameIndex — idle" and disable Hide (can't hide a
-    /// hidden window). Show stays enabled so the menu still serves
-    /// users whose window sits hidden behind other apps.
-    pub fn show_idle(&self) {
-        let _ = self.status_item.set_text("GameIndex — idle");
-        let _ = self.show_item.set_enabled(true);
-        let _ = self.hide_item.set_enabled(false);
+impl Default for TrayStrings {
+    fn default() -> Self {
+        Self {
+            idle: "GameIndex — idle".into(),
+            playing: "Playing: {game}".into(),
+            show: "Show GameIndex".into(),
+            hide: "Hide to tray".into(),
+            quit: "Quit GameIndex".into(),
+            recent: "Recent Games".into(),
+            no_recent: "No recent games".into(),
+            downloads: "Downloads".into(),
+            downloads_active: "Downloads: {count} active".into(),
+            no_downloads: "No active downloads".into(),
+            download_row: "{name} — {pct}% ({downloaded} / {total})".into(),
+            download_starting: "{name} — starting…".into(),
+            open_downloads: "Open Downloads".into(),
+            library: "Library".into(),
+            store: "Store".into(),
+            activity: "Activity".into(),
+            friends: "Friends".into(),
+            mods: "Mods".into(),
+            settings: "Settings".into(),
+        }
     }
+}
+
+/// Substitute every `{key}` occurrence in a template with its value
+/// (keys: game, count, name, pct, downloaded, total).
+fn fill(template: &str, pairs: &[(&str, &str)]) -> String {
+    let mut out = template.to_string();
+    for (key, value) in pairs {
+        out = out.replace(&format!("{{{key}}}"), value);
+    }
+    out
 }
 
 /// Build the system tray icon, attach the menu, register event
-/// listeners, and manage the menu-item handles as state.
+/// listeners, and manage the state struct.
 ///
 /// Called from `lib.rs::run` inside `.setup(...)` after `GameWatcher`
 /// has been registered and its background poll loop has started.
@@ -101,28 +173,6 @@ impl TrayHandles {
 /// (headless Linux launches won't have one).
 pub fn build_tray(app: &App<Wry>) -> tauri::Result<()> {
     let handle = app.handle();
-
-    // Menu items. `status` is built disabled — Tauri treats disabled
-    // items as inert status rows. The other three are interactive.
-    // `with_id`'s fourth arg is `enabled`; `None` for accelerator on
-    // every row (we don't currently expose a Ctrl+1/Ctrl+W-style
-    // shortcut).
-    let status_item = MenuItem::with_id(handle, "status", "GameIndex — idle", false, None::<&str>)?;
-    let show_item = MenuItem::with_id(handle, "show", "Show GameIndex", true, None::<&str>)?;
-    let hide_item = MenuItem::with_id(handle, "hide", "Hide to tray", false, None::<&str>)?;
-    let quit_item = MenuItem::with_id(handle, "quit", "Quit GameIndex", true, None::<&str>)?;
-
-    let menu = Menu::with_items(
-        handle,
-        &[
-            &status_item,
-            &PredefinedMenuItem::separator(handle)?,
-            &show_item,
-            &hide_item,
-            &PredefinedMenuItem::separator(handle)?,
-            &quit_item,
-        ],
-    )?;
 
     // Use the bundled app icon — already configured as the default
     // window icon by tauri.conf.json so we don't need to load a
@@ -134,71 +184,37 @@ pub fn build_tray(app: &App<Wry>) -> tauri::Result<()> {
         .cloned()
         .ok_or_else(|| tauri::Error::AssetNotFound("default-window-icon".into()))?;
 
-    // Persist the TrayIcon in a binding so the closure handlers below
-    // can keep using it (we don't actually need it after `.build`,
-    // but the builder's `build` returns `Result<TrayIcon>` and we
-    // `let _ =` it so the binding doesn't trigger an unused warning).
-    let _tray = TrayIconBuilder::with_id("main-tray")
+    // Placeholder menu; `rebuild_menu` below installs the real one.
+    // The menu-event handler stays attached to the tray for the app's
+    // lifetime — Tauri routes every menu event through it no matter
+    // which `Menu` instance is currently set.
+    let tray = TrayIconBuilder::with_id("main-tray")
         .icon(icon)
-        .menu(&menu)
+        .menu(&Menu::new(handle)?)
         // Show the menu on right-click only; left-click is "Show
         // GameIndex" via the on_tray_icon_event handler below. This
         // matches Discord / Steam / Spotify behaviour.
         .show_menu_on_left_click(false)
-        .on_menu_event({
-            // Show / Hide restore the window; Quit calls app.exit(0)
-            // which triggers the existing RunEvent::Exit cleanup hook
-            // (torrent_engine::cleanup_extractions + std::process::
-            // exit(0) inside lib.rs::run). So the librqbit cleanup
-            // runs the same way regardless of how the app exits.
-            //
-            // We deliberately don't capture `handle` in the closure:
-            // `app` is passed in by Tauri as the closure's first arg
-            // (the `Receiver` of `Manager`), so cloning the handle
-            // outside the move block just created an unused binding.
-            move |app, event| match event.id().as_ref() {
-                "show" => {
-                    if let Some(win) = app.get_webview_window("main") {
-                        let _ = win.show();
-                        let _ = win.unminimize();
-                        let _ = win.set_focus();
-                    }
-                }
-                "hide" => {
-                    if let Some(win) = app.get_webview_window("main") {
-                        let _ = win.hide();
-                    }
-                }
-                "quit" => {
-                    app.exit(0);
-                }
-                _ => {}
-            }
-        })
-        .on_tray_icon_event({
-            move |tray, event| {
-                if let TrayIconEvent::Click { button: MouseButton::Left, .. } = event {
-                    if let Some(win) = tray.app_handle().get_webview_window("main") {
-                        let _ = win.show();
-                        let _ = win.unminimize();
-                        let _ = win.set_focus();
-                    }
-                }
+        .on_menu_event(|app, event| handle_menu_event(app, event))
+        .on_tray_icon_event(|tray, event| {
+            if let TrayIconEvent::Click { button: MouseButton::Left, .. } = event {
+                show_window(tray.app_handle());
             }
         })
         .build(handle)?;
 
-    // Manage the menu-item handles so the listeners below can grab
-    // them back from `app.state::<TrayHandles>()`. `MenuItem<Wry>` is
-    // a cheap clone (it's internally `Arc`-backed) so we clone into
-    // the state struct without losing the original references held
-    // by the live `Menu` above.
     app.manage(TrayHandles {
-        status_item: status_item.clone(),
-        show_item: show_item.clone(),
-        hide_item: hide_item.clone(),
-        quit_item: quit_item.clone(),
+        tray: tray.clone(),
+        playing: Mutex::new(None),
+        downloads: Mutex::new(Vec::new()),
+        // Backdated so the first `download-progress` tick rebuilds
+        // immediately instead of waiting out the 2s throttle.
+        last_rebuild: Mutex::new(Instant::now() - Duration::from_secs(3)),
+        dl_signature: Mutex::new(String::new()),
+        strings: Mutex::new(TrayStrings::default()),
     });
+
+    rebuild_menu(handle)?;
 
     // Live update subscribers that read the game name DIRECTLY from
     // each event payload — deliberately avoiding any call to
@@ -207,35 +223,529 @@ pub fn build_tray(app: &App<Wry>) -> tauri::Result<()> {
     // emits "game-started"/"game-exited" while holding
     // `watcher.lock()`, re-locking from this listener would deadlock.
     //
-    // On game-started we simply stamp "Playing: <name>". On
-    // game-exited we inspect `remainingGameName` (populated by
-    // `finish_session` while it still held the lock) — if another
-    // session is still active we show that name, otherwise we flip
-    // back to idle.
+    // On game-started we stamp "Playing: <name>". On game-exited we
+    // inspect `remainingGameName` (populated by `finish_session` while
+    // it still held the lock) — if another session is still active we
+    // show that name, otherwise we flip back to idle.
     let app_handle_started = handle.clone();
     handle.listen("game-started", move |event| {
-        let handles = app_handle_started.state::<TrayHandles>();
-        let payload = event.payload();
-        // `payload()` returns &str — parse as JSON to get `gameName`.
-        if let Ok(val) = serde_json::from_str::<serde_json::Value>(payload) {
-            if let Some(name) = val.get("gameName").and_then(|v| v.as_str()) {
-                handles.show_playing(name);
-            }
+        let app = app_handle_started.clone();
+        let Ok(val) = serde_json::from_str::<Value>(event.payload()) else {
+            return;
+        };
+        let Some(name) = val.get("gameName").and_then(|v| v.as_str()) else {
+            return;
+        };
+        let state = app.state::<TrayHandles>();
+        *state.playing.lock().unwrap() = Some(name.to_string());
+        let s = state.strings.lock().unwrap().clone();
+        let _ = state
+            .tray
+            .set_tooltip(Some(fill(&s.playing, &[("game", name)])));
+        if let Some(icon) = playing_icon(&app) {
+            let _ = state.tray.set_icon(Some(icon));
         }
+        #[cfg(target_os = "windows")]
+        update_overlay(&app, &state);
+        let _ = rebuild_menu(&app);
     });
 
     let app_handle_exited = handle.clone();
     handle.listen("game-exited", move |event| {
-        let handles = app_handle_exited.state::<TrayHandles>();
-        let payload = event.payload();
-        if let Ok(val) = serde_json::from_str::<serde_json::Value>(payload) {
-            if let Some(name) = val.get("remainingGameName").and_then(|v| v.as_str()) {
-                handles.show_playing(name);
-            } else {
-                handles.show_idle();
+        let app = app_handle_exited.clone();
+        let Ok(val) = serde_json::from_str::<Value>(event.payload()) else {
+            return;
+        };
+        let state = app.state::<TrayHandles>();
+        let remaining = val
+            .get("remainingGameName")
+            .and_then(|v| v.as_str())
+            .map(str::to_string);
+        *state.playing.lock().unwrap() = remaining.clone();
+        let s = state.strings.lock().unwrap().clone();
+        match remaining {
+            Some(name) => {
+                let _ = state
+                    .tray
+                    .set_tooltip(Some(fill(&s.playing, &[("game", &name)])));
+                if let Some(icon) = playing_icon(&app) {
+                    let _ = state.tray.set_icon(Some(icon));
+                }
             }
+            None => {
+                let _ = state.tray.set_tooltip(Some(s.idle));
+                if let Some(icon) = app.default_window_icon().cloned() {
+                    let _ = state.tray.set_icon(Some(icon));
+                }
+            }
+        }
+        #[cfg(target_os = "windows")]
+        update_overlay(&app, &state);
+        let _ = rebuild_menu(&app);
+    });
+
+    // `download-progress` fires ~1/s with the full download list. We
+    // always refresh the snapshot + Windows taskbar/overlay, but only
+    // rebuild the menu when the throttle window has passed AND the
+    // signature changed — the menu content is derived from the
+    // snapshot, so a rebuild on every tick would be pure churn.
+    let app_handle_downloads = handle.clone();
+    handle.listen("download-progress", move |event| {
+        let app = app_handle_downloads.clone();
+        let Ok(snapshot) = serde_json::from_str::<Vec<Value>>(event.payload()) else {
+            return;
+        };
+        let state = app.state::<TrayHandles>();
+
+        let signature = dl_signature(&snapshot);
+        let mut rebuild = false;
+        {
+            let mut last = state.last_rebuild.lock().unwrap();
+            let mut stored = state.dl_signature.lock().unwrap();
+            if last.elapsed() > Duration::from_secs(2) && *stored != signature {
+                *stored = signature;
+                *last = Instant::now();
+                rebuild = true;
+            }
+        }
+        *state.downloads.lock().unwrap() = snapshot;
+
+        #[cfg(target_os = "windows")]
+        update_taskbar_progress(&app, &state);
+        #[cfg(target_os = "windows")]
+        update_overlay(&app, &state);
+
+        if rebuild {
+            let _ = rebuild_menu(&app);
         }
     });
 
+    // The frontend emits the full string set whenever the UI language
+    // changes. Until the first emission the English `Default` above is
+    // in effect, so a rebuild here is only needed once strings arrive.
+    let app_handle_strings = handle.clone();
+    handle.listen("tray-strings", move |event| {
+        let app = app_handle_strings.clone();
+        let Ok(strings) = serde_json::from_str::<TrayStrings>(event.payload()) else {
+            return;
+        };
+        let state = app.state::<TrayHandles>();
+        *state.strings.lock().unwrap() = strings;
+        let _ = rebuild_menu(&app);
+    });
+
     Ok(())
+}
+
+/// Rebuild the full menu from the current state: playing name,
+/// downloads snapshot, recent sessions joined against the games
+/// table, and window visibility. Installs the result on the tray.
+fn rebuild_menu(app: &AppHandle) -> tauri::Result<()> {
+    let state = app.state::<TrayHandles>();
+    let playing = state.playing.lock().unwrap().clone();
+    let downloads = state.downloads.lock().unwrap().clone();
+    let s = state.strings.lock().unwrap().clone();
+    let visible = app
+        .get_webview_window("main")
+        .and_then(|w| w.is_visible().ok())
+        .unwrap_or(false);
+
+    let status_text = match &playing {
+        Some(name) => fill(&s.playing, &[("game", name)]),
+        None => s.idle.clone(),
+    };
+    let status = MenuItem::with_id(app, "status", status_text, false, None::<&str>)?;
+    let show = MenuItem::with_id(app, "show", &s.show, true, None::<&str>)?;
+    // Hide is pointless when the window is already hidden.
+    let hide = MenuItem::with_id(app, "hide", &s.hide, !visible, None::<&str>)?;
+    let recent = build_recent_submenu(app)?;
+    let downloads_sub = build_downloads_submenu(app, &downloads)?;
+
+    let nav_items: Vec<MenuItem<Wry>> = ["/library", "/store", "/activity", "/friends", "/mods", "/settings"]
+        .iter()
+        .map(|path| {
+            let label = match *path {
+                "/library" => &s.library,
+                "/store" => &s.store,
+                "/activity" => &s.activity,
+                "/friends" => &s.friends,
+                "/mods" => &s.mods,
+                "/settings" => &s.settings,
+                other => other,
+            };
+            MenuItem::with_id(app, format!("nav:{path}"), label, true, None::<&str>)
+        })
+        .collect::<tauri::Result<_>>()?;
+    let quit = MenuItem::with_id(app, "quit", &s.quit, true, None::<&str>)?;
+    let sep1 = PredefinedMenuItem::separator(app)?;
+    let sep2 = PredefinedMenuItem::separator(app)?;
+    let sep3 = PredefinedMenuItem::separator(app)?;
+    let sep4 = PredefinedMenuItem::separator(app)?;
+
+    let mut items: Vec<&dyn IsMenuItem<Wry>> = Vec::new();
+    items.push(&status);
+    items.push(&sep1);
+    items.push(&show);
+    items.push(&hide);
+    items.push(&sep2);
+    items.push(&recent);
+    items.push(&downloads_sub);
+    items.push(&sep3);
+    for item in &nav_items {
+        items.push(item);
+    }
+    items.push(&sep4);
+    items.push(&quit);
+
+    let menu = Menu::with_items(app, &items)?;
+    state.tray.set_menu(Some(menu))?;
+    Ok(())
+}
+
+/// "Recent Games" submenu: up to 8 distinct games from the sessions
+/// table (newest first), joined against the games table so each entry
+/// carries the full launch data. Sessions whose game was deleted are
+/// skipped.
+fn build_recent_submenu(app: &AppHandle) -> tauri::Result<Submenu<Wry>> {
+    let db = app.state::<db::Db>();
+    let games = db::games::list_all(&db).unwrap_or_default();
+    let by_id: std::collections::HashMap<&str, &GameRow> =
+        games.iter().map(|g| (g.id.as_str(), g)).collect();
+    let sessions = db::sessions::list_recent(&db, 8).unwrap_or_default();
+    let s = app.state::<TrayHandles>().strings.lock().unwrap().clone();
+
+    let mut rows: Vec<MenuItem<Wry>> = Vec::new();
+    let mut seen: HashSet<String> = HashSet::new();
+    for session in sessions {
+        if rows.len() >= 8 {
+            break;
+        }
+        if !seen.insert(session.game_id.clone()) {
+            continue;
+        }
+        let Some(row) = by_id.get(session.game_id.as_str()) else {
+            continue;
+        };
+        rows.push(MenuItem::with_id(
+            app,
+            format!("recent:{}", row.id),
+            &row.name,
+            true,
+            None::<&str>,
+        )?);
+    }
+    if rows.is_empty() {
+        rows.push(MenuItem::with_id(
+            app,
+            "recent-none",
+            &s.no_recent,
+            false,
+            None::<&str>,
+        )?);
+    }
+    let refs: Vec<&dyn IsMenuItem<Wry>> = rows.iter().map(|r| r as &dyn IsMenuItem<Wry>).collect();
+    Submenu::with_items(app, &s.recent, true, &refs)
+}
+
+/// "Downloads" submenu: a status header, one disabled row per
+/// in-flight download, and an "Open Downloads" shortcut.
+fn build_downloads_submenu(app: &AppHandle, downloads: &[Value]) -> tauri::Result<Submenu<Wry>> {
+    let active: Vec<&Value> = downloads.iter().filter(|d| !is_finished(d)).collect();
+    let s = app.state::<TrayHandles>().strings.lock().unwrap().clone();
+
+    let mut rows: Vec<MenuItem<Wry>> = Vec::new();
+    let header = if active.is_empty() {
+        s.no_downloads.clone()
+    } else {
+        fill(&s.downloads_active, &[("count", &active.len().to_string())])
+    };
+    rows.push(MenuItem::with_id(app, "dl-header", header, false, None::<&str>)?);
+
+    for d in active {
+        let name = d.get("name").and_then(|v| v.as_str()).unwrap_or("Download");
+        let id = d.get("id").and_then(|v| v.as_str()).unwrap_or("");
+        let text = match (
+            d.get("progress").and_then(|v| v.as_f64()),
+            d.get("totalSize").and_then(|v| v.as_u64()),
+        ) {
+            (Some(p), Some(t)) if t > 0 => {
+                let downloaded = d.get("downloaded").and_then(|v| v.as_u64()).unwrap_or(0);
+                fill(
+                    &s.download_row,
+                    &[
+                        ("name", name),
+                        ("pct", &((p * 100.0).round() as u64).to_string()),
+                        ("downloaded", &human_size(downloaded)),
+                        ("total", &human_size(t)),
+                    ],
+                )
+            }
+            _ => fill(&s.download_starting, &[("name", name)]),
+        };
+        rows.push(MenuItem::with_id(app, format!("dl-row:{id}"), text, false, None::<&str>)?);
+    }
+
+    let sep = PredefinedMenuItem::separator(app)?;
+    let open = MenuItem::with_id(app, "open-downloads", &s.open_downloads, true, None::<&str>)?;
+    let mut refs: Vec<&dyn IsMenuItem<Wry>> = rows.iter().map(|r| r as &dyn IsMenuItem<Wry>).collect();
+    refs.push(&sep);
+    refs.push(&open);
+
+    Submenu::with_items(app, &s.downloads, true, &refs)
+}
+
+/// Single menu-event handler for every menu the tray ever shows.
+/// Menu ids encode their action: `recent:<gameId>` launches a game,
+/// `nav:<path>` navigates the frontend, the rest are fixed actions.
+fn handle_menu_event(app: &AppHandle, event: MenuEvent) {
+    let id = event.id().as_ref();
+    match id {
+        "show" => show_window(app),
+        "hide" => {
+            if let Some(win) = app.get_webview_window("main") {
+                let _ = win.hide();
+            }
+        }
+        "quit" => app.exit(0),
+        "open-downloads" => {
+            show_window(app);
+            navigate(app, "/downloads");
+        }
+        id if id.starts_with("nav:") => {
+            show_window(app);
+            navigate(app, &id[4..]);
+        }
+        id if id.starts_with("recent:") => launch_recent(app, &id[7..]),
+        _ => {}
+    }
+}
+
+/// Show, unminimize, and focus the main window.
+fn show_window(app: &AppHandle) {
+    if let Some(win) = app.get_webview_window("main") {
+        let _ = win.show();
+        let _ = win.unminimize();
+        let _ = win.set_focus();
+    }
+}
+
+/// Tell the frontend to switch pages (the frontend listens for the
+/// `navigate` event; handled in a separate lane).
+fn navigate(app: &AppHandle, path: &str) {
+    let _ = app.emit("navigate", serde_json::json!({ "path": path }));
+}
+
+/// Launch a game from the Recent Games submenu using the full launch
+/// data stored on its `GameRow`.
+fn launch_recent(app: &AppHandle, game_id: &str) {
+    let db = app.state::<db::Db>();
+    let Ok(games) = db::games::list_all(&db) else {
+        return;
+    };
+    let Some(row) = games.into_iter().find(|g| g.id == game_id) else {
+        return;
+    };
+    let companion_apps = row.companion_apps.as_ref().map(|apps| {
+        apps.iter()
+            .filter_map(|v| serde_json::from_value::<crate::CompanionApp>(v.clone()).ok())
+            .collect()
+    });
+    if let Err(e) = crate::launch_game(
+        app.clone(),
+        row.id,
+        row.name,
+        row.path,
+        row.platform,
+        row.steam_app_id,
+        None,
+        None,
+        row.launch_arguments,
+        row.run_as_admin,
+        row.pre_launch_script,
+        row.pre_launch_admin,
+        row.post_exit_script,
+        row.post_exit_admin,
+        companion_apps,
+    ) {
+        eprintln!("[gameindex] tray recent-game launch failed: {e}");
+    }
+}
+
+/// Tray icon with a green dot painted in the bottom-right corner,
+/// signalling an active game session.
+fn playing_icon(app: &AppHandle) -> Option<Image<'static>> {
+    let base = app.default_window_icon()?.clone();
+    let (w, h) = (base.width(), base.height());
+    let mut rgba = base.rgba().to_vec();
+    paint_circle(
+        &mut rgba,
+        w,
+        h,
+        w - w / 8,
+        h - h / 8,
+        (w / 10).max(1),
+        [0x4C, 0xAF, 0x50],
+    );
+    Some(Image::new_owned(rgba, w, h))
+}
+
+/// Fill a solid circle into an RGBA buffer (used for the running dot
+/// and the taskbar overlay badge).
+fn paint_circle(rgba: &mut [u8], w: u32, h: u32, cx: u32, cy: u32, r: u32, color: [u8; 3]) {
+    for y in 0..h {
+        for x in 0..w {
+            let dx = x as i64 - cx as i64;
+            let dy = y as i64 - cy as i64;
+            if dx * dx + dy * dy <= (r as i64) * (r as i64) {
+                let i = ((y * w + x) * 4) as usize;
+                rgba[i..i + 3].copy_from_slice(&color);
+                rgba[i + 3] = 0xFF;
+            }
+        }
+    }
+}
+
+/// True when the download is still in flight (not completed/errored).
+fn is_finished(d: &Value) -> bool {
+    let kind = d
+        .get("status")
+        .and_then(|s| s.get("kind"))
+        .and_then(|k| k.as_str())
+        .unwrap_or("");
+    kind == "completed" || kind == "error"
+}
+
+/// Throttle signature: download count + per-download status kind and
+/// rounded progress, order-independent.
+fn dl_signature(downloads: &[Value]) -> String {
+    let mut parts: Vec<String> = downloads
+        .iter()
+        .map(|d| {
+            let kind = d
+                .get("status")
+                .and_then(|s| s.get("kind"))
+                .and_then(|k| k.as_str())
+                .unwrap_or("");
+            let pct = d
+                .get("progress")
+                .and_then(|v| v.as_f64())
+                .map(|p| (p * 100.0).round() as u64)
+                .unwrap_or(u64::MAX);
+            format!("{kind}:{pct}")
+        })
+        .collect();
+    parts.sort();
+    format!("{}|{}", parts.len(), parts.join(","))
+}
+
+/// Human-readable byte count: B / KB / MB / GB.
+fn human_size(bytes: u64) -> String {
+    const UNITS: [&str; 4] = ["B", "KB", "MB", "GB"];
+    let mut value = bytes as f64;
+    let mut unit = 0;
+    while value >= 1024.0 && unit < UNITS.len() - 1 {
+        value /= 1024.0;
+        unit += 1;
+    }
+    if unit == 0 {
+        format!("{bytes} B")
+    } else {
+        format!("{value:.1} {}", UNITS[unit])
+    }
+}
+
+/// True when any download is in flight (drives the overlay badge).
+#[cfg(target_os = "windows")]
+fn has_active_downloads(state: &TrayHandles) -> bool {
+    state
+        .downloads
+        .lock()
+        .unwrap()
+        .iter()
+        .any(|d| !is_finished(d))
+}
+
+/// Taskbar progress bar: aggregate the active downloads' bytes into a
+/// single 0-100 percentage; Paused when only paused downloads remain;
+/// cleared when nothing is in flight.
+#[cfg(target_os = "windows")]
+fn update_taskbar_progress(app: &AppHandle, state: &TrayHandles) {
+    let downloads = state.downloads.lock().unwrap();
+    let mut sum_downloaded = 0u64;
+    let mut sum_total = 0u64;
+    let mut any_active = false;
+    let mut any_paused = false;
+    for d in downloads.iter() {
+        let kind = d
+            .get("status")
+            .and_then(|s| s.get("kind"))
+            .and_then(|k| k.as_str())
+            .unwrap_or("");
+        match kind {
+            "downloading" | "fetchingMetadata" | "queued" => {
+                if d.get("progress").and_then(|v| v.as_f64()).is_some() {
+                    if let (Some(dl), Some(total)) = (
+                        d.get("downloaded").and_then(|v| v.as_u64()),
+                        d.get("totalSize").and_then(|v| v.as_u64()),
+                    ) {
+                        if total > 0 {
+                            any_active = true;
+                            sum_downloaded += dl;
+                            sum_total += total;
+                        }
+                    }
+                }
+            }
+            "paused" => any_paused = true,
+            _ => {}
+        }
+    }
+    let Some(win) = app.get_webview_window("main") else {
+        return;
+    };
+    if any_active && sum_total > 0 {
+        let pct = ((sum_downloaded as f64 / sum_total as f64) * 100.0).round() as u64;
+        let _ = win.set_progress_bar(ProgressBarState {
+            status: Some(ProgressBarStatus::Normal),
+            progress: Some(pct),
+        });
+    } else if any_paused {
+        let _ = win.set_progress_bar(ProgressBarState {
+            status: Some(ProgressBarStatus::Paused),
+            progress: None,
+        });
+    } else {
+        let _ = win.set_progress_bar(ProgressBarState {
+            status: None,
+            progress: None,
+        });
+    }
+}
+
+/// Taskbar overlay badge: green while a game runs, blue while
+/// downloads are in flight, none otherwise.
+#[cfg(target_os = "windows")]
+fn update_overlay(app: &AppHandle, state: &TrayHandles) {
+    let playing = state.playing.lock().unwrap().is_some();
+    let active = has_active_downloads(state);
+    let Some(win) = app.get_webview_window("main") else {
+        return;
+    };
+    let icon = if playing {
+        Some(badge_image([0x4C, 0xAF, 0x50]))
+    } else if active {
+        Some(badge_image([0x42, 0xA5, 0xF5]))
+    } else {
+        None
+    };
+    let _ = win.set_overlay_icon(icon);
+}
+
+/// 16x16 filled-circle RGBA image for the taskbar overlay badge.
+#[cfg(target_os = "windows")]
+fn badge_image(color: [u8; 3]) -> Image<'static> {
+    const SIZE: u32 = 16;
+    let mut rgba = vec![0u8; (SIZE * SIZE * 4) as usize];
+    paint_circle(&mut rgba, SIZE, SIZE, SIZE / 2, SIZE / 2, SIZE / 2 - 1, color);
+    Image::new_owned(rgba, SIZE, SIZE)
 }
