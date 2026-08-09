@@ -2949,6 +2949,7 @@ export const en: TranslationDict = {
   "settingsPage.steamIdHint": "17-digit number, e.g. 76561197960287930",
   "settingsPage.steamIntegration": "Import your Steam library, sync achievements, and detect installed games automatically.",
   "settingsPage.syncAchievements": "Sync achievements",
+  "settingsPage.syncAchievementsHint": "Your Steam profile and Game Details must be set to public for achievements to sync properly.",
   "settingsPage.syncBehaviour": "Sync behaviour",
   "settingsPage.syncPlaytime": "Sync playtime",
   "settingsPage.syncSettingsDesc": "Settings that apply across Steam, Epic, and GOG library imports.",

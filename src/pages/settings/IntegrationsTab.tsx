@@ -217,26 +217,45 @@ export default function IntegrationsTab({ integrations }: { integrations: Integr
           {steam.steamAuth.isAuthenticated && (
             <div className="settings-toggles-group">
               <p className="settings-toggles-group-title">{t("settingsPage.syncBehaviour")}</p>
-              {(
-                [
-                  ["autoSyncOnLaunch", t("settingsPage.autoSyncLaunch")],
-                  ["syncPlaytime", t("settingsPage.syncPlaytime")],
-                  ["syncAchievements", t("settingsPage.syncAchievements")],
-                ] as const
-              ).map(([key, label]) => (
-                <label className="settings-checkbox-label" key={key}>
-                  <input
-                    type="checkbox"
-                    checked={steam.steamSettings[key]}
-                    onChange={(e) => {
-                      const u = { ...steam.steamSettings, [key]: e.target.checked };
-                      steam.setSteamSettings(u);
-                      localStorage.setItem("gamelib-steam-settings", JSON.stringify(u));
-                    }}
-                  />
-                  <span>{label}</span>
-                </label>
-              ))}
+              <label className="settings-checkbox-label">
+                <input
+                  type="checkbox"
+                  checked={steam.steamSettings.autoSyncOnLaunch}
+                  onChange={(e) => {
+                    const u = { ...steam.steamSettings, autoSyncOnLaunch: e.target.checked };
+                    steam.setSteamSettings(u);
+                    localStorage.setItem("gamelib-steam-settings", JSON.stringify(u));
+                  }}
+                />
+                <span>{t("settingsPage.autoSyncLaunch")}</span>
+              </label>
+              <label className="settings-checkbox-label">
+                <input
+                  type="checkbox"
+                  checked={steam.steamSettings.syncPlaytime}
+                  onChange={(e) => {
+                    const u = { ...steam.steamSettings, syncPlaytime: e.target.checked };
+                    steam.setSteamSettings(u);
+                    localStorage.setItem("gamelib-steam-settings", JSON.stringify(u));
+                  }}
+                />
+                <span>{t("settingsPage.syncPlaytime")}</span>
+              </label>
+              <label className="settings-checkbox-label">
+                <input
+                  type="checkbox"
+                  checked={steam.steamSettings.syncAchievements}
+                  onChange={(e) => {
+                    const u = { ...steam.steamSettings, syncAchievements: e.target.checked };
+                    steam.setSteamSettings(u);
+                    localStorage.setItem("gamelib-steam-settings", JSON.stringify(u));
+                  }}
+                />
+                <div className="settings-checkbox-text">
+                  <span className="settings-checkbox-title">{t("settingsPage.syncAchievements")}</span>
+                  <span className="settings-checkbox-desc">{t("settingsPage.syncAchievementsHint")}</span>
+                </div>
+              </label>
               <label className="settings-checkbox-label settings-checkbox-label--disabled">
                 <input type="checkbox" checked disabled />
                 <span>{t("settingsPage.igdbAutoLoad")}</span>

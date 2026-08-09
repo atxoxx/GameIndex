@@ -2941,6 +2941,7 @@ export const ru: TranslationDict = {
   "settingsPage.steamIdHint": "Число из 17 цифр, напр. 76561197960287930",
   "settingsPage.steamIntegration": "Импортируйте свою библиотеку Steam, синхронизируйте достижения и автоматически обнаруживайте установленные игры.",
   "settingsPage.syncAchievements": "Синхронизировать достижения",
+  "settingsPage.syncAchievementsHint": "Ваш профиль Steam и детали игр должны быть открытыми, иначе достижения не будут синхронизироваться должным образом.",
   "settingsPage.syncBehaviour": "Поведение синхронизации",
   "settingsPage.syncPlaytime": "Синхронизировать время игры",
   "settingsPage.syncSettingsDesc": "Настройки, применяемые к импорту библиотек Steam, Epic и GOG.",

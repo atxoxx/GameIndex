@@ -2941,6 +2941,7 @@ export const es: TranslationDict = {
   "settingsPage.steamIdHint": "Número de 17 dígitos, p. ej. 76561197960287930",
   "settingsPage.steamIntegration": "Importa tu biblioteca de Steam, sincroniza logros y detecta juegos instalados automáticamente.",
   "settingsPage.syncAchievements": "Sincronizar logros",
+  "settingsPage.syncAchievementsHint": "Tu perfil de Steam y los detalles del juego deben ser públicos para que los logros se sincronicen correctamente.",
   "settingsPage.syncBehaviour": "Comportamiento de sincronización",
   "settingsPage.syncPlaytime": "Sincronizar tiempo de juego",
   "settingsPage.syncSettingsDesc": "Ajustes que se aplican a las importaciones de bibliotecas de Steam, Epic y GOG.",
