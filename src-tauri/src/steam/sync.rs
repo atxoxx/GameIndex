@@ -65,6 +65,12 @@ pub async fn steam_sync_games(
     // ── Call the Steam Web API ─────────────────────────────────────
     let client = Client::builder()
         .user_agent(super::auth::USER_AGENT)
+        // Bounds every request made with this client (the owned-games
+        // call AND the fan-out achievement fetches below). Without a
+        // timeout a single stalled connection would hang the whole
+        // sync forever — including the final achievements-cache save,
+        // so nothing synced would ever land on disk.
+        .timeout(std::time::Duration::from_secs(30))
         .build()
         .map_err(|e| format!("Failed to build HTTP client: {e}"))?;
 
@@ -79,8 +85,14 @@ pub async fn steam_sync_games(
     // 429 even after long idle periods.  Playnite retries up to 5 times.
     let mut retries = 3u32;
     let (status, body) = loop {
+        // The owned-games response with `include_appinfo` can be several
+        // MB for large accounts — give it double the default client
+        // timeout, which is tuned for the short per-game achievement
+        // fetches. A timeout here aborts the whole sync, so headroom is
+        // cheap insurance.
         let response = client
             .get(&url)
+            .timeout(std::time::Duration::from_secs(60))
             .send()
             .await
             .map_err(|e| format!("Steam API request failed: {e}"))?;
@@ -214,10 +226,12 @@ pub async fn steam_sync_games(
     if include_achievements {
         if let Ok(mut cache) = crate::achievements::load_cache_internal(&app) {
             // Decide which games actually need a (re)fetch, then run those
-            // fetches concurrently (bounded to ~8 in flight) instead of
+            // fetches concurrently (bounded to ~6 in flight) instead of
             // one-at-a-time with a 150ms sleep between each. Overlapping the
             // network latency gives a large speed-up on big libraries while
-            // staying gentle enough not to trip Steam's rate limits.
+            // staying gentle enough not to trip Steam's rate limits — the
+            // worker retries 429s with backoff, so a throttled burst ends
+            // up synced instead of silently dropped.
             let mut to_fetch: Vec<(String, u32)> = Vec::new();
             for game in &owned_games {
                 let game_key = format!("steam-{}", game.appid);
@@ -246,7 +260,7 @@ pub async fn steam_sync_games(
             }
 
             if !to_fetch.is_empty() {
-                let ach_sem = std::sync::Arc::new(tokio::sync::Semaphore::new(8));
+                let ach_sem = std::sync::Arc::new(tokio::sync::Semaphore::new(6));
                 let mut handles = Vec::with_capacity(to_fetch.len());
                 for (game_key, appid) in to_fetch {
                     let permit = ach_sem

@@ -104,10 +104,46 @@ export function AchievementProvider({ children }: { children: ReactNode }) {
   } | null>(null);
   const [settings, setSettings] = useState<AchievementSettings>(loadSettings);
 
-  // Debounce saves to disk
-  const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // Mirrors the latest cache so persistence can always save a full,
+  // current snapshot from outside React state — writing inside a
+  // `setCache` updater would be unsafe under StrictMode (updaters run
+  // twice in dev). Every mutation site in this provider updates it
+  // synchronously, so it never lags the source of truth.
+  const cacheRef = useRef(cache);
 
-  // Load cache from disk on mount
+  // Serialize DB writes. `save_achievements_cache` rewrites the whole
+  // table inside one transaction; two overlapping snapshots (e.g. a
+  // bulk-loop flush racing a game-exit per-game sync) could otherwise
+  // interleave and the older snapshot wins. Chaining the invokes keeps
+  // last-writer-wins == newest-wins. Each call stringifies at call time
+  // so the chained snapshots are the freshest available then.
+  const saveChainRef = useRef<Promise<void>>(Promise.resolve());
+
+  // Whether a bulk sync owns the in-memory cache. reloadCache defers
+  // while true so the disk snapshot can't clobber games synced since
+  // the last flush.
+  const isSyncingRef = useRef(false);
+  const reloadQueuedRef = useRef(false);
+
+  // Persist the current cache snapshot to disk. Immediate — no debounce:
+  // the old 1s debounce silently dropped a just-synced game when the app
+  // reloaded before the timer fired, which is exactly the "synced data
+  // resets on reload" bug. Per-game syncs are user-initiated and
+  // infrequent; the bulk sync calls this on a batch cadence instead.
+  const persistCache = useCallback(() => {
+    const snapshot = JSON.stringify(cacheRef.current);
+    saveChainRef.current = saveChainRef.current.then(async () => {
+      try {
+        await invoke("save_achievements_cache", { data: snapshot });
+      } catch (err) {
+        console.warn("[AchievementContext] Failed to save cache:", err);
+      }
+    });
+    return saveChainRef.current;
+  }, []);
+
+  // Load cache from disk on mount. Guarded: if a sync already wrote
+  // entries before the (async) load resolved, keep the fresher data.
   useEffect(() => {
     (async () => {
       try {
@@ -115,6 +151,8 @@ export function AchievementProvider({ children }: { children: ReactNode }) {
         if (raw) {
           const parsed = JSON.parse(raw) as AchievementsCache;
           if (parsed && parsed.games) {
+            if (Object.keys(cacheRef.current.games).length > 0) return;
+            cacheRef.current = parsed;
             setCache(parsed);
           }
         }
@@ -124,18 +162,35 @@ export function AchievementProvider({ children }: { children: ReactNode }) {
     })();
   }, []);
 
-  // Persist cache to disk (debounced)
-  const persistCache = useCallback((newCache: AchievementsCache) => {
-    if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
-    saveTimerRef.current = setTimeout(async () => {
-      try {
-        await invoke("save_achievements_cache", {
-          data: JSON.stringify(newCache),
-        });
-      } catch (err) {
-        console.warn("[AchievementContext] Failed to save cache:", err);
+  const clearCache = useCallback(async () => {
+    cacheRef.current = { games: {} };
+    setCache({ games: {} });
+    // The backend turns an empty payload into a table wipe (see
+    // upsert_many_from_payload), so a clear followed by a reload really
+    // is cleared — it must not resurrect the old rows.
+    await persistCache();
+  }, [persistCache]);
+
+  const reloadCache = useCallback(async () => {
+    // A bulk sync owns the in-memory cache: loading the disk snapshot
+    // now would clobber games synced since the last flush. Defer the
+    // reload instead — syncAllAchievements runs it once the loop ends.
+    if (isSyncingRef.current) {
+      reloadQueuedRef.current = true;
+      return;
+    }
+    try {
+      const raw: string = await invoke("load_achievements_cache");
+      if (raw) {
+        const parsed = JSON.parse(raw) as AchievementsCache;
+        if (parsed && parsed.games) {
+          cacheRef.current = parsed;
+          setCache(parsed);
+        }
       }
-    }, 1000);
+    } catch (err) {
+      console.warn("[AchievementContext] Failed to reload cache:", err);
+    }
   }, []);
 
   const getGameAchievements = useCallback(
@@ -188,17 +243,25 @@ export function AchievementProvider({ children }: { children: ReactNode }) {
       // Stamp sync time
       data.lastSynced = Date.now();
 
-      setCache((prev) => {
-        const updated = {
-          ...prev,
-          games: { ...prev.games, [gameId]: data },
-        };
-        persistCache(updated);
-        return updated;
-      });
+      setCache((prev) => ({
+        ...prev,
+        games: { ...prev.games, [gameId]: data },
+      }));
+      // Persist right away so a reload (even seconds later) keeps the
+      // sync — the old debounced save could lose it.
+      cacheRef.current = {
+        ...cacheRef.current,
+        games: { ...cacheRef.current.games, [gameId]: data },
+      };
+      await persistCache();
     },
     [getSteamSession, persistCache]
   );
+
+  // How often the bulk loop flushes a snapshot to disk. Saving after
+  // every game would hammer the DB with full-cache transactions; once
+  // per batch keeps a mid-sync app reload from losing everything.
+  const SAVE_EVERY_N_GAMES = 10;
 
   const syncAllAchievements = useCallback(
     async (games: Game[]) => {
@@ -211,43 +274,70 @@ export function AchievementProvider({ children }: { children: ReactNode }) {
       }
 
       setIsSyncing(true);
+      isSyncingRef.current = true;
       setSyncProgress({ current: 0, total: steamGames.length });
 
-      const updatedGames: Record<string, GameAchievementData> = { ...cache.games };
-      let current = 0;
+      try {
+        let current = 0;
 
-      for (const game of steamGames) {
-        try {
-          const data: GameAchievementData = await invoke("fetch_achievements", {
-            steamAppId: game.steamAppId!,
-            steamId: session.steamId,
-            apiToken: session.apiKey,
-          });
-          data.lastSynced = Date.now();
-          updatedGames[game.id] = data;
-        } catch (err) {
-          console.warn(
-            `[AchievementContext] Failed to sync ${game.name}:`,
-            err
-          );
+        for (const game of steamGames) {
+          try {
+            const data: GameAchievementData = await invoke("fetch_achievements", {
+              steamAppId: game.steamAppId!,
+              steamId: session.steamId,
+              apiToken: session.apiKey,
+            });
+            data.lastSynced = Date.now();
+            // Functional update — merging into the latest state so any
+            // per-game sync that lands mid-run (game-exit auto-sync,
+            // tab syncs) is never clobbered by a stale snapshot.
+            setCache((prev) => ({
+              ...prev,
+              games: { ...prev.games, [game.id]: data },
+            }));
+            cacheRef.current = {
+              ...cacheRef.current,
+              games: { ...cacheRef.current.games, [game.id]: data },
+            };
+          } catch (err) {
+            console.warn(
+              `[AchievementContext] Failed to sync ${game.name}:`,
+              err
+            );
+          }
+          current++;
+          setSyncProgress({ current, total: steamGames.length });
+
+          // Incremental save: an app reload mid-sync keeps every game
+          // synced so far instead of losing the whole run.
+          if (current % SAVE_EVERY_N_GAMES === 0) {
+            await persistCache();
+          }
+
+          // Rate limit: Steam API allows ~100k/day but can 429 on bursts.
+          // 300ms between requests ≈ 3.3 req/s — well within limits.
+          if (current < steamGames.length) {
+            await new Promise((r) => setTimeout(r, 300));
+          }
         }
-        current++;
-        setSyncProgress({ current, total: steamGames.length });
 
-        // Rate limit: Steam API allows ~100k/day but can 429 on bursts.
-        // 300ms between requests ≈ 3.3 req/s — well within limits.
-        if (current < steamGames.length) {
-          await new Promise((r) => setTimeout(r, 300));
+        // Final flush — always persists the tail of the loop.
+        await persistCache();
+      } finally {
+        setIsSyncing(false);
+        isSyncingRef.current = false;
+        setSyncProgress(null);
+        // reloadCache calls that arrived mid-run (e.g. an
+        // `achievements-updated` event) were deferred because the bulk
+        // loop owns the in-memory cache; run them now that it's
+        // quiescent so their fresher disk state lands.
+        if (reloadQueuedRef.current) {
+          reloadQueuedRef.current = false;
+          await reloadCache();
         }
       }
-
-      const newCache: AchievementsCache = { games: updatedGames };
-      setCache(newCache);
-      persistCache(newCache);
-      setIsSyncing(false);
-      setSyncProgress(null);
     },
-    [cache, getSteamSession, persistCache]
+    [getSteamSession, persistCache, reloadCache]
   );
 
   const { showToast } = useToast();
@@ -260,14 +350,15 @@ export function AchievementProvider({ children }: { children: ReactNode }) {
         steamAppId: steamAppId ?? null,
       });
       data.lastSynced = Date.now();
-      setCache((prev) => {
-        const updated = {
-          ...prev,
-          games: { ...prev.games, [gameId]: data },
-        };
-        persistCache(updated);
-        return updated;
-      });
+      setCache((prev) => ({
+        ...prev,
+        games: { ...prev.games, [gameId]: data },
+      }));
+      cacheRef.current = {
+        ...cacheRef.current,
+        games: { ...cacheRef.current.games, [gameId]: data },
+      };
+      await persistCache();
     },
     [persistCache]
   );
@@ -296,32 +387,6 @@ export function AchievementProvider({ children }: { children: ReactNode }) {
     },
     []
   );
-
-  const clearCache = useCallback(async () => {
-    const empty: AchievementsCache = { games: {} };
-    setCache(empty);
-    try {
-      await invoke("save_achievements_cache", {
-        data: JSON.stringify(empty),
-      });
-    } catch (err) {
-      console.warn("[AchievementContext] Failed to clear cache:", err);
-    }
-  }, []);
-
-  const reloadCache = useCallback(async () => {
-    try {
-      const raw: string = await invoke("load_achievements_cache");
-      if (raw) {
-        const parsed = JSON.parse(raw) as AchievementsCache;
-        if (parsed && parsed.games) {
-          setCache(parsed);
-        }
-      }
-    } catch (err) {
-      console.warn("[AchievementContext] Failed to reload cache:", err);
-    }
-  }, []);
 
   // Listen for game-exited events to automatically sync achievements for that game
   const { games } = useGames();

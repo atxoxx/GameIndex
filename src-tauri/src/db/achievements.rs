@@ -106,8 +106,12 @@ pub fn upsert_many_from_payload(
     db: &Db,
     games: &serde_json::Map<String, serde_json::Value>,
 ) -> Result<(), String> {
+    // An empty payload means "nothing cached" — the frontend's
+    // clearCache ships exactly `{"games":{}}`. Empty must WIPE, not
+    // no-op: a no-op clear followed by a reload would resurrect every
+    // deleted game, which reads as "the cache reset itself".
     if games.is_empty() {
-        return Ok(());
+        return clear(db);
     }
     let mut conn = db.achievements().map_err(|e| e.to_string())?;
     let tx = conn.transaction().map_err(|e| e.to_string())?;
@@ -136,6 +140,24 @@ pub fn upsert_many_from_payload(
             let mut payload = payload.clone();
             if let Ok(existing) = read_payload_row(&tx, game_id) {
                 if let Some(existing) = existing {
+                    // A re-sync whose schema came back empty (transient
+                    // Steam hiccup) must not wipe a previously-good
+                    // cached list: the union below can only protect
+                    // already-unlocked flags, it can't restore the rows
+                    // themselves. Skip the write instead.
+                    let incoming_empty = payload
+                        .get("achievements")
+                        .and_then(|v| v.as_array())
+                        .map(|a| a.is_empty())
+                        .unwrap_or(true);
+                    let existing_nonempty = existing
+                        .get("achievements")
+                        .and_then(|v| v.as_array())
+                        .map(|a| !a.is_empty())
+                        .unwrap_or(false);
+                    if incoming_empty && existing_nonempty {
+                        continue;
+                    }
                     union_achieved_into(&mut payload, &existing);
                 }
             }

@@ -169,6 +169,34 @@ fn build_client() -> Result<Client, String> {
         .map_err(|e| format!("Failed to build HTTP client: {e}"))
 }
 
+/// GET a Steam Web API endpoint, retrying on HTTP 429 (rate limit) with
+/// exponential backoff. A bulk sync fans out up to 6 games × 3 endpoints
+/// concurrently with no pacing, and Steam throttles that burst — without
+/// a retry the affected games silently failed and never landed in the
+/// cache, so the tail of a large sync was missing. Transport errors
+/// propagate; a permanently-429ing endpoint returns its final response
+/// so the caller surfaces the HTTP status.
+async fn get_with_429_retry(
+    client: &Client,
+    url: String,
+    label: &str,
+) -> Result<reqwest::Response, String> {
+    let mut attempts = 0u32;
+    loop {
+        let resp = client
+            .get(&url)
+            .send()
+            .await
+            .map_err(|e| format!("{label} request failed: {e}"))?;
+        if resp.status().as_u16() == 429 && attempts < 3 {
+            attempts += 1;
+            tokio::time::sleep(std::time::Duration::from_millis(1000 * 2u64.pow(attempts))).await;
+            continue;
+        }
+        return Ok(resp);
+    }
+}
+
 // ── Tauri commands ──────────────────────────────────────────────────────
 
 /// Fetch achievements for a single game from Steam. The three Steam API
@@ -204,11 +232,7 @@ pub async fn fetch_achievements_with_client(
     // three.
     let (schema_res, player_res, global_percents) = tokio::join!(
         async {
-            let resp = client
-                .get(&schema_url)
-                .send()
-                .await
-                .map_err(|e| format!("Schema request failed: {e}"))?;
+            let resp = get_with_429_retry(client, schema_url, "Schema").await?;
             if !resp.status().is_success() {
                 return Err(format!(
                     "Schema API returned HTTP {}",
@@ -220,11 +244,8 @@ pub async fn fetch_achievements_with_client(
                 .map_err(|e| format!("Failed to parse schema response: {e}"))
         },
         async {
-            let resp = client
-                .get(&player_url)
-                .send()
-                .await
-                .map_err(|e| format!("Player achievements request failed: {e}"))?;
+            let resp =
+                get_with_429_retry(client, player_url, "Player achievements").await?;
             if !resp.status().is_success() {
                 return Err(format!(
                     "Steam player-achievements API returned HTTP {} — your profile or this \
@@ -253,7 +274,8 @@ pub async fn fetch_achievements_with_client(
             }
         },
         async {
-            let Ok(resp) = client.get(&global_url).send().await else {
+            let Ok(resp) = get_with_429_retry(client, global_url, "Global achievement").await
+            else {
                 return Vec::new();
             };
             if !resp.status().is_success() {
