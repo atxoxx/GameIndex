@@ -2784,6 +2784,8 @@ export const en: TranslationDict = {
   "settings.label.sizeUnit": "Storage size unit",
   "settings.label.steamApiKey": "Steam API Key",
   "settings.label.steamId": "Steam ID (SteamID64)",
+  "settings.accent.lockedByAuto": "Accent color is managed automatically by the active game's palette.",
+  "settings.label.autoGameAccent": "Automatically use active game palette as accent color",
   "settings.label.syncSystemTheme": "Sync with system theme (auto-switch dark/light based on OS preference)",
   "settings.label.systemSummary": "System summary",
   "settings.label.tempUnit": "Temperature unit",

@@ -2776,6 +2776,8 @@ export const ru: TranslationDict = {
   "settings.label.sizeUnit": "Единица размера хранилища",
   "settings.label.steamApiKey": "Steam API-ключ",
   "settings.label.steamId": "Steam ID (SteamID64)",
+  "settings.accent.lockedByAuto": "Акцентный цвет автоматически управляется палитрой активной игры.",
+  "settings.label.autoGameAccent": "Автоматически использовать палитру игры как акцентный цвет",
   "settings.label.syncSystemTheme": "Синхронизировать с системной темой (автопереключение тёмной/светлой темы по настройкам ОС)",
   "settings.label.systemSummary": "Сводка системы",
   "settings.label.tempUnit": "Единица температуры",

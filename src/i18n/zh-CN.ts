@@ -2776,6 +2776,8 @@ export const zhCN: TranslationDict = {
   "settings.label.sizeUnit": "存储大小单位",
   "settings.label.steamApiKey": "Steam API 密钥",
   "settings.label.steamId": "Steam ID（SteamID64）",
+  "settings.accent.lockedByAuto": "强调色正由当前游戏的配色方案自动接管。",
+  "settings.label.autoGameAccent": "自动使用当前游戏的配色方案作为强调色",
   "settings.label.syncSystemTheme": "与系统主题同步（根据系统偏好自动切换深色/浅色）",
   "settings.label.systemSummary": "系统摘要",
   "settings.label.tempUnit": "温度单位",

@@ -41,6 +41,7 @@ import { listen } from "@tauri-apps/api/event";
 
 const LS_LANDING_PAGE = "gamelib.landing_page";
 const LS_ACCENT_COLOR = "gamelib.accent_color";
+const LS_AUTO_GAME_ACCENT = "gamelib.auto_game_accent";
 const LS_SYNC_INTERVAL = "gamelib.sync_interval_minutes";
 const LS_STEAM_AUTO_DETECT = "gamelib.steam_auto_detect_enabled";
 const LS_ACHIEVEMENT_PRIVACY = "gamelib.hide_achievement_progress";
@@ -107,6 +108,8 @@ export interface SettingsContextValue {
   setLandingPage: (next: LandingPage) => void;
   accentColor: string | null;
   setAccentColor: (next: string | null) => void;
+  autoGameAccent: boolean;
+  setAutoGameAccent: (next: boolean) => void;
   syncIntervalMinutes: SyncIntervalMinutes;
   setSyncIntervalMinutes: (next: SyncIntervalMinutes) => void;
   steamAutoDetect: boolean;
@@ -353,6 +356,14 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
     }
   }, [accentColor]);
 
+  const [autoGameAccent, setAutoGameAccentState] = useState<boolean>(() =>
+    lsGet(LS_AUTO_GAME_ACCENT) === "true",
+  );
+  const setAutoGameAccent = useCallback((next: boolean) => {
+    setAutoGameAccentState(next);
+    lsSet(LS_AUTO_GAME_ACCENT, String(next));
+  }, []);
+
   const [syncIntervalMinutes, setSyncIntervalState] =
     useState<SyncIntervalMinutes>(() => {
       const raw = parseInt(lsGet(LS_SYNC_INTERVAL) ?? "0", 10);
@@ -519,6 +530,8 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
       setLandingPage,
       accentColor,
       setAccentColor,
+      autoGameAccent,
+      setAutoGameAccent,
       syncIntervalMinutes,
       setSyncIntervalMinutes,
       steamAutoDetect,
@@ -557,6 +570,8 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
       setLandingPage,
       accentColor,
       setAccentColor,
+      autoGameAccent,
+      setAutoGameAccent,
       syncIntervalMinutes,
       setSyncIntervalMinutes,
       steamAutoDetect,

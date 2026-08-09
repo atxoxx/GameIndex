@@ -72,7 +72,7 @@ function getDescriptorLabel(descriptor: ThemeDescriptor, t: (k: string) => strin
 
 export default function AppearanceTab() {
   const { currentTheme, setTheme, themes, systemSync, setSystemSync } = useTheme();
-  const { accentColor, setAccentColor } = useSettings();
+  const { accentColor, setAccentColor, autoGameAccent, setAutoGameAccent } = useSettings();
   const { t } = useLanguage();
   const { showToast } = useToast();
 
@@ -169,6 +169,16 @@ export default function AppearanceTab() {
         <span>{t("settings.label.syncSystemTheme")}</span>
       </label>
 
+      {/* Auto game palette accent override */}
+      <label className="settings-checkbox-label auto-game-accent">
+        <input
+          type="checkbox"
+          checked={autoGameAccent}
+          onChange={(e) => setAutoGameAccent(e.target.checked)}
+        />
+        <span>{t("settings.label.autoGameAccent")}</span>
+      </label>
+
       {/* Per-theme accent color override */}
       <div className="settings-row settings-row--accent">
         <div className="settings-control">
@@ -176,7 +186,21 @@ export default function AppearanceTab() {
           <p className="settings-helper-lead">
             {t("settings.accent.desc")}
           </p>
-          <div className="accent-picker" role="group" aria-label={t("settings.aria.presetAccentColors")}>
+          {autoGameAccent && (
+            <p className="settings-helper-lead accent-locked-notice" style={{ color: "var(--color-text-secondary)", marginTop: 6, display: "flex", alignItems: "center", gap: 6, fontStyle: "italic" }}>
+              <svg viewBox="0 0 24 24" fill="none" stroke="var(--color-accent)" strokeWidth="2" style={{ width: 14, height: 14, flexShrink: 0 }}>
+                <rect x="3" y="11" width="18" height="11" rx="2" ry="2" />
+                <path d="M7 11V7a5 5 0 0 1 10 0v4" />
+              </svg>
+              {t("settings.accent.lockedByAuto")}
+            </p>
+          )}
+          <div
+            className={`accent-picker${autoGameAccent ? " accent-picker--locked" : ""}`}
+            role="group"
+            aria-label={t("settings.aria.presetAccentColors")}
+            style={autoGameAccent ? { opacity: 0.5, pointerEvents: "none" } : undefined}
+          >
             {accentSwatches.map((swatch) => {
               const isActive = accentColor?.toLowerCase() === swatch.value;
               return (
@@ -185,6 +209,7 @@ export default function AppearanceTab() {
                   type="button"
                   className={`accent-swatch${isActive ? " active" : ""}`}
                   style={{ backgroundColor: swatch.value }}
+                  disabled={autoGameAccent}
                   onClick={() => {
                     setAccentColor(isActive ? null : swatch.value);
                   }}
@@ -206,6 +231,7 @@ export default function AppearanceTab() {
               <input
                 type="color"
                 value={accentColor ?? "#7c66ff"}
+                disabled={autoGameAccent}
                 onChange={(e) => setAccentColor(e.target.value)}
                 aria-label={t("settings.aria.customAccent")}
               />
@@ -215,6 +241,7 @@ export default function AppearanceTab() {
                <button
                  type="button"
                  className="accent-clear"
+                 disabled={autoGameAccent}
                  onClick={() => setAccentColor(null)}
                >
                  {t("common.reset")}

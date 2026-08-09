@@ -1,8 +1,9 @@
-import { Fragment, useState, type CSSProperties } from "react";
+import { Fragment, useEffect, useState, type CSSProperties } from "react";
 import { KpiTile } from "../ui";
 import { type Game, PLAY_STATUS_DETAILS } from "../../types/game";
 import { useGames } from "../../context/GameContext";
 import { useGameAccent } from "../../hooks/useGameAccent";
+import { useSettings } from "../../context/SettingsContext";
 import PlayerCountBadge from "../PlayerCountBadge";
 import GameStatusDropdown from "./GameStatusDropdown";
 import GameLaunchActions from "./GameLaunchActions";
@@ -91,7 +92,13 @@ export default function GameHero({
 
   const [coverErrored, setCoverErrored] = useState(false);
   const [logoErrored, setLogoErrored] = useState(false);
+  const { autoGameAccent, setAccentColor } = useSettings();
   const gameAccent = useGameAccent(accentSrc || undefined);
+
+  useEffect(() => {
+    if (!autoGameAccent || !gameAccent) return;
+    setAccentColor(gameAccent);
+  }, [autoGameAccent, gameAccent, setAccentColor]);
 
   const addedDate = game
     ? new Date(game.addedAt).toLocaleDateString(undefined, {
