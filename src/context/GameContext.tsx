@@ -478,6 +478,57 @@ export function GameProvider({ children }: { children: ReactNode }) {
     };
   }, [t]);
 
+  interface SteamInstallChangedEvent {
+    appId: number;
+    installed: boolean;
+    exePath?: string;
+  }
+
+  // Listen for Steam installation state changes (game downloaded / installed / uninstalled)
+  useEffect(() => {
+    const unlisten = listen<SteamInstallChangedEvent>("steam-install-changed", (event) => {
+      const { appId, installed, exePath } = event.payload;
+
+      setGames((prev) => {
+        let updated = false;
+        let updatedGameName = "";
+
+        const next = prev.map((g) => {
+          if (g.steamAppId !== appId) return g;
+          if (g.installed === installed && (!exePath || g.path === exePath)) return g;
+          updated = true;
+          updatedGameName = g.name;
+          return {
+            ...g,
+            installed,
+            ...(exePath ? { path: exePath } : {}),
+          };
+        });
+
+        if (updated) {
+          if (installed && updatedGameName) {
+            showToast(t("game.installedToast", { name: updatedGameName }), "success");
+          }
+          // Refresh watcher process index so process detection works immediately
+          const refs = next.map((g) => ({
+            gameId: g.id,
+            gameName: g.name,
+            platform: g.platform,
+            exePath: g.path || "",
+            steamAppId: g.steamAppId ?? null,
+            emulatorId: g.emulatorId ?? null,
+          }));
+          invoke("rebuild_watcher_index", { games: refs }).catch(() => undefined);
+        }
+        return next;
+      });
+    });
+
+    return () => {
+      unlisten.then((fn) => fn());
+    };
+  }, [showToast, t]);
+
   const updateGame = useCallback((id: string, updates: Partial<Game>) => {
     setGames((prev) =>
       prev.map((g) => (g.id === id ? { ...g, ...updates } : g))

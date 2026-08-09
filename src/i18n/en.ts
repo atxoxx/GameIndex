@@ -2771,6 +2771,7 @@ export const en: TranslationDict = {
   "settings.steamSynced": "Synced {games} games · {playtime} playtime updates{achievements} ({newCount} new)",
   "settings.steamSyncedAll": "Synced {games} games · {playtime} playtime updates{achievements} (all already in library)",
   "settings.steamSyncedNew": "Synced {games} games · {playtime} playtime updates{ach} ({new} new)",
+  "game.installedToast": "{name} is now installed!",
   "settings.storage.sizeNowGB": "Storage sizes now in GB (decimal)",
   "settings.storage.sizeNowGiB": "Storage sizes now in GiB (binary)",
   "settings.sync.achSynced": " · {count} achievements synced",

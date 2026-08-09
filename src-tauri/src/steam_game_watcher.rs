@@ -198,12 +198,14 @@ pub fn find_app_install_dir(app_id: u32) -> Option<AppManifest> {
             Err(_) => continue,
         };
         if let Some(parsed) = parse_appmanifest(&raw, app_id) {
-            return Some(AppManifest {
-                app_id: parsed.app_id,
-                name: parsed.name,
-                install_dir: parsed.install_dir,
-                library_root: lib_root,
-            });
+            if parsed.is_fully_installed() {
+                return Some(AppManifest {
+                    app_id: parsed.app_id,
+                    name: parsed.name,
+                    install_dir: parsed.install_dir,
+                    library_root: lib_root,
+                });
+            }
         }
     }
 
@@ -233,6 +235,7 @@ pub fn parse_appmanifest(raw: &str, fallback_app_id: u32) -> Option<AppManifestF
     let mut app_id: Option<u32> = None;
     let mut name: Option<String> = None;
     let mut installdir: Option<String> = None;
+    let mut state_flags: Option<u32> = None;
 
     // Walk odd indices (1, 3, 5, …) and look two slots ahead for the
     // value. `split('"')` on `"appid" "440"` yields `["", "appid",
@@ -248,6 +251,7 @@ pub fn parse_appmanifest(raw: &str, fallback_app_id: u32) -> Option<AppManifestF
             "appid" => app_id = value.trim().parse::<u32>().ok().or(Some(fallback_app_id)),
             "name" => name = Some(value.to_string()),
             "installdir" => installdir = Some(value.to_string()),
+            "StateFlags" => state_flags = value.trim().parse::<u32>().ok(),
             _ => {}
         }
         i += 2;
@@ -260,6 +264,7 @@ pub fn parse_appmanifest(raw: &str, fallback_app_id: u32) -> Option<AppManifestF
         app_id: app_id.unwrap_or(fallback_app_id),
         name: name.unwrap_or_default(),
         install_dir: installdir?,
+        state_flags,
     })
 }
 
@@ -268,6 +273,18 @@ pub struct AppManifestFields {
     pub app_id: u32,
     pub name: String,
     pub install_dir: String,
+    pub state_flags: Option<u32>,
+}
+
+impl AppManifestFields {
+    /// Bit 2 (`4`) in Steam's `StateFlags` bitmask indicates `StateFullyInstalled`.
+    /// When `StateFlags` is omitted (older manifest), we assume installed.
+    pub fn is_fully_installed(&self) -> bool {
+        match self.state_flags {
+            Some(flags) => (flags & 4) != 0,
+            None => true,
+        }
+    }
 }
 
 #[cfg(test)]
@@ -289,6 +306,32 @@ mod tests {
         assert_eq!(m.app_id, 440);
         assert_eq!(m.name, "Team Fortress 2");
         assert_eq!(m.install_dir, "Team Fortress 2");
+        assert!(m.is_fully_installed());
+    }
+
+    #[test]
+    fn parse_appmanifest_state_flags_downloading_vs_installed() {
+        let downloading = r#""AppState"
+{
+    "appid"  "440"
+    "name"  "Team Fortress 2"
+    "installdir"  "Team Fortress 2"
+    "StateFlags"  "1026"
+}
+"#;
+        let m1 = parse_appmanifest(downloading, 440).unwrap();
+        assert!(!m1.is_fully_installed());
+
+        let installed = r#""AppState"
+{
+    "appid"  "440"
+    "name"  "Team Fortress 2"
+    "installdir"  "Team Fortress 2"
+    "StateFlags"  "4"
+}
+"#;
+        let m2 = parse_appmanifest(installed, 440).unwrap();
+        assert!(m2.is_fully_installed());
     }
 
     #[test]

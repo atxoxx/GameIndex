@@ -316,7 +316,7 @@ pub async fn steam_sync_games(
 
 // ── installed-game detection ────────────────────────────────────────
 
-fn detect_installed_steam_appids() -> Vec<u32> {
+pub fn detect_installed_steam_appids() -> Vec<u32> {
     let library_folders = find_steam_library_folders();
     let mut installed = Vec::new();
 
@@ -329,7 +329,18 @@ fn detect_installed_steam_appids() -> Vec<u32> {
                     let id_str =
                         &name_str["appmanifest_".len()..name_str.len() - ".acf".len()];
                     if let Ok(appid) = id_str.parse::<u32>() {
-                        installed.push(appid);
+                        let manifest_path = entry.path();
+                        if let Ok(raw) = fs::read_to_string(&manifest_path) {
+                            if let Some(parsed) = steam_game_watcher::parse_appmanifest(&raw, appid) {
+                                if parsed.is_fully_installed() {
+                                    installed.push(appid);
+                                }
+                            } else {
+                                installed.push(appid);
+                            }
+                        } else {
+                            installed.push(appid);
+                        }
                     }
                 }
             }

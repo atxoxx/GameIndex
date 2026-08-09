@@ -2763,6 +2763,7 @@ export const zhCN: TranslationDict = {
   "settings.steamSynced": "已同步 {games} 款游戏 · {playtime} 次时长更新{achievements}（{newCount} 款新游戏）",
   "settings.steamSyncedAll": "已同步 {games} 款游戏 · {playtime} 次时长更新{achievements}（均已存在于库中）",
   "settings.steamSyncedNew": "已同步 {games} 个游戏 · {playtime} 游玩时间更新{ach}（{new} 个新增）",
+  "game.installedToast": "{name} 现已安装！",
   "settings.storage.sizeNowGB": "存储大小现在使用 GB（十进制）",
   "settings.storage.sizeNowGiB": "存储大小现在使用 GiB（二进制）",
   "settings.sync.achSynced": " · 已同步 {count} 个成就",

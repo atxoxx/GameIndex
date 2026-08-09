@@ -131,6 +131,16 @@ pub struct ExeCandidate {
     pub depth: u32,
 }
 
+/// Payload for the "steam-install-changed" event emitted when a Steam
+/// AppID installation status changes (game downloaded / installed / uninstalled).
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SteamInstallChangedPayload {
+    pub app_id: u32,
+    pub installed: bool,
+    pub exe_path: Option<String>,
+}
+
 // ─── GameWatcher ──────────────────────────────────────────────────────────────
 
 pub struct GameWatcher {
@@ -154,6 +164,8 @@ pub struct GameWatcher {
     /// latency drops from the steady poll interval to near-zero.
     /// `None` until `start_background_poll` wires it up.
     wake_tx: Option<std::sync::mpsc::Sender<()>>,
+    last_steam_install_poll: Option<Instant>,
+    steam_installed_appids: std::collections::HashSet<u32>,
 }
 
 impl GameWatcher {
@@ -166,6 +178,8 @@ impl GameWatcher {
             metrics_config: metrics_collector::MetricsConfig::default(),
             db,
             wake_tx: None,
+            last_steam_install_poll: None,
+            steam_installed_appids: std::collections::HashSet::new(),
         }
     }
 
@@ -303,10 +317,80 @@ impl GameWatcher {
         self.request_immediate_poll();
     }
 
+    /// Poll Steam library folders for installation state changes.
+    fn poll_steam_install_changes(&mut self, app_handle: &AppHandle) {
+        let now = Instant::now();
+        if let Some(last) = self.last_steam_install_poll {
+            if now.duration_since(last) < std::time::Duration::from_secs(10) {
+                return;
+            }
+        }
+
+        let is_first_run = self.last_steam_install_poll.is_none();
+        self.last_steam_install_poll = Some(now);
+
+        let current_installed: std::collections::HashSet<u32> =
+            crate::steam::sync::detect_installed_steam_appids()
+                .into_iter()
+                .collect();
+
+        if is_first_run {
+            self.steam_installed_appids = current_installed;
+            return;
+        }
+
+        let newly_installed: Vec<u32> = current_installed
+            .difference(&self.steam_installed_appids)
+            .copied()
+            .collect();
+
+        let uninstalled: Vec<u32> = self
+            .steam_installed_appids
+            .difference(&current_installed)
+            .copied()
+            .collect();
+
+        self.steam_installed_appids = current_installed;
+
+        for appid in newly_installed {
+            let name = self
+                .process_index
+                .values()
+                .flatten()
+                .find(|g| g.steam_app_id == Some(appid))
+                .map(|g| g.game_name.clone())
+                .unwrap_or_default();
+
+            let exe_path = resolve_steam_game_exe(appid, &name);
+
+            let _ = app_handle.emit(
+                "steam-install-changed",
+                SteamInstallChangedPayload {
+                    app_id: appid,
+                    installed: true,
+                    exe_path,
+                },
+            );
+        }
+
+        for appid in uninstalled {
+            let _ = app_handle.emit(
+                "steam-install-changed",
+                SteamInstallChangedPayload {
+                    app_id: appid,
+                    installed: false,
+                    exe_path: None,
+                },
+            );
+        }
+    }
+
     /// Run one poll cycle. Resolves pending sessions, re-attaches sessions
     /// whose tracked process died to a still-running process in the install
     /// directory, and detects new passively-launched games.
     pub fn poll(&mut self, app_handle: &AppHandle) {
+        self.poll_steam_install_changes(app_handle);
+
         let processes = query_running_processes();
         if processes.is_empty() {
             return;

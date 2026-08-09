@@ -2763,6 +2763,7 @@ export const fr: TranslationDict = {
   "settings.steamSynced": "{games} jeux · {playtime} mises à jour de temps de jeu{achievements} ({newCount} nouveaux) synchronisés",
   "settings.steamSyncedAll": "{games} jeux · {playtime} mises à jour de temps de jeu{achievements} synchronisés (tous déjà dans la bibliothèque)",
   "settings.steamSyncedNew": "Synchronisé {games} jeux · {playtime} mises à jour du temps{ach} ({new} nouveaux)",
+  "game.installedToast": "{name} est maintenant installé !",
   "settings.storage.sizeNowGB": "Tailles de stockage désormais en Go (décimal)",
   "settings.storage.sizeNowGiB": "Tailles de stockage désormais en Gio (binaire)",
   "settings.sync.achSynced": " · {count} succès synchronisés",
