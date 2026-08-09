@@ -3669,5 +3669,20 @@ export const de: TranslationDict = {
   "docs.shortcuts.title": "Tastatur- & Controller-Kürzel",
   "docs.shortcuts.body": "Meistere die Navigation in GameIndex mit diesen weltweiten Tastatur- und Controller-Tastenkürzeln.\n\n## Tastatur-Tastenkürzel\n- `F11` oder `Ctrl+B`: Umschalten des **Big-Picture-Modus** ein / aus.\n- `Ctrl+F`: Sofortiges Fokussieren des globalen Suchfelds.\n- `Ctrl+,`: Öffnet die **Einstellungen**.\n- `Ctrl+D`: Öffnet das **Downloads**-Panel.\n- `Ctrl+L`: Wechselt zur **Bibliothek**.\n- `Escape`: Schließt Dialoge, bricht Suchen ab oder verlässt den Big-Picture-Modus.\n- `Tab` / `Shift+Tab`: Navigiert zwischen interaktiven Elementen.\n- `ArrowUp` / `ArrowDown` / `ArrowLeft` / `ArrowRight`: Navigiert durch Kacheln und Listen.\n\n## Controller-Kürzel (Big-Picture-Modus)\n- `D-Pad` / `Linker Stick`: Navigiert durch Menüs und Kacheln.\n- `Taste A` (Xbox) / `Kreuz` (PlayStation): Spiel auswählen / starten.\n- `Taste B` (Xbox) / `Kreis` (PlayStation): Zurück / Menü schließen.\n- `Taste X` (Xbox) / `Quadrat` (PlayStation): Favoritenstatus umschalten.\n- `Taste Y` (Xbox) / `Dreieck` (PlayStation): Spieldetails öffnen.\n- `Start` / `Menü`: Schnellauswahl-Menü öffnen.",
   "docs.tips.title": "Tipps & Tastenkürzel",
-  "docs.tips.body": "Ein paar Dinge, die den Alltag erleichtern:\n- Drücke F11 oder Ctrl+B, um den **Big-Picture-Modus** umzuschalten; Escape verlässt ihn.\n- Nutze die **Bibliothek**ssuche, um sofort zu einem Spiel nach Namen zu springen.\n- Rechtsklick (oder langes Drücken) auf eine Spielkachel für weitere Aktionen.\n- Klappe die **Seitenleiste** ein, wenn du mehr Platz für Spielgrafiken willst.\n- Ändere die Sprache jederzeit in den **Einstellungen**, falls etwas nicht passt."
+  "docs.tips.body": "Ein paar Dinge, die den Alltag erleichtern:\n- Drücke F11 oder Ctrl+B, um den **Big-Picture-Modus** umzuschalten; Escape verlässt ihn.\n- Nutze die **Bibliothek**ssuche, um sofort zu einem Spiel nach Namen zu springen.\n- Rechtsklick (oder langes Drücken) auf eine Spielkachel für weitere Aktionen.\n- Klappe die **Seitenleiste** ein, wenn du mehr Platz für Spielgrafiken willst.\n- Ändere die Sprache jederzeit in den **Einstellungen**, falls etwas nicht passt.",
+
+  "updater.autoCheck": "Automatisch nach Updates suchen",
+  "updater.autoCheckDesc": "Sucht beim Start automatisch auf GitHub Releases nach neuen Anwendungs-Updates.",
+  "updater.checkForUpdates": "Nach Updates suchen",
+  "updater.checking": "Suche nach Updates…",
+  "updater.downloading": "Update wird heruntergeladen…",
+  "updater.errorGeneric": "Fehler beim Suchen oder Herunterladen des Updates.",
+  "updater.installUpdate": "Update installieren",
+  "updater.newVersionAvailable": "Neue Version {version} verfügbar!",
+  "updater.newVersionAvailableDesc": "Eine neue Version von GameIndex steht zum Download bereit.",
+  "updater.readyToRestart": "Update heruntergeladen! Starte GameIndex neu, um die Installation abzuschließen.",
+  "updater.relaunchNow": "Neu starten & Anwenden",
+  "updater.retry": "Download wiederholen",
+  "updater.title": "Software-Update",
+  "updater.upToDate": "GameIndex ist auf dem neuesten Stand"
 };

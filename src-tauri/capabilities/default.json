@@ -43,6 +43,8 @@
     "core:window:allow-toggle-maximize",
     "core:event:allow-emit",
     "core:tray:default",
-    "core:menu:default"
+    "core:menu:default",
+    "updater:default",
+    "process:default"
   ]
 }

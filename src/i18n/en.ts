@@ -3692,5 +3692,20 @@ export const en: TranslationDict = {
   "docs.shortcuts.body": "Master GameIndex navigation with these global keyboard hotkeys and gamepad shortcuts.\n\n## Keyboard Shortcuts\n- `F11` or `Ctrl+B`: Toggle **Big Picture Mode** on / off.\n- `Ctrl+F`: Focus the global search box instantly.\n- `Ctrl+,`: Open **Settings**.\n- `Ctrl+D`: Open **Downloads** panel.\n- `Ctrl+L`: Focus **Library** view.\n- `Escape`: Close modals, exit search, or leave Big Picture Mode.\n- `Tab` / `Shift+Tab`: Navigate focus between interactive buttons and inputs.\n- `ArrowUp` / `ArrowDown` / `ArrowLeft` / `ArrowRight`: Navigate grid tiles and lists.\n\n## Controller Shortcuts (Big Picture Mode)\n- `D-Pad` / `Left Stick`: Navigate menus and game grid.\n- `Button A` (Xbox) / `Cross` (PlayStation): Select / Launch game.\n- `Button B` (Xbox) / `Circle` (PlayStation): Back / Close menu.\n- `Button X` (Xbox) / `Square` (PlayStation): Toggle favorite status.\n- `Button Y` (Xbox) / `Triangle` (PlayStation): Open game details.\n- `Start` / `Menu`: Open quick options drawer.",
 
   "docs.tips.title": "Tips & tricks",
-  "docs.tips.body": "Maximize your productivity with these power user tips:\n\n## Expert Tips\n- **Right-Click Context Menus**: Right-click any game tile in the Library or List for quick access to Launch, Edit, Move Storage, or Manage Mods.\n- **Custom Banners & Covers**: Drag and drop any image file onto a game's Details page to set custom artwork immediately.\n- **Performance Screenshots**: Press `Capture` in the Activity tab to export beautiful performance charts to share with friends.\n- **Compact Sidebar**: Collapse the sidebar when browsing large game libraries to see maximum game poster art per row.\n- **Language Switch**: Change language on the fly in **Settings** → Language without restarting the application."
+  "docs.tips.body": "Maximize your productivity with these power user tips:\n\n## Expert Tips\n- **Right-Click Context Menus**: Right-click any game tile in the Library or List for quick access to Launch, Edit, Move Storage, or Manage Mods.\n- **Custom Banners & Covers**: Drag and drop any image file onto a game's Details page to set custom artwork immediately.\n- **Performance Screenshots**: Press `Capture` in the Activity tab to export beautiful performance charts to share with friends.\n- **Compact Sidebar**: Collapse the sidebar when browsing large game libraries to see maximum game poster art per row.\n- **Language Switch**: Change language on the fly in **Settings** → Language without restarting the application.",
+
+  "updater.autoCheck": "Check for updates automatically",
+  "updater.autoCheckDesc": "Automatically check GitHub Releases for new application updates on launch.",
+  "updater.checkForUpdates": "Check for Updates",
+  "updater.checking": "Checking for updates…",
+  "updater.downloading": "Downloading update…",
+  "updater.errorGeneric": "Failed to check or download update.",
+  "updater.installUpdate": "Install Update",
+  "updater.newVersionAvailable": "New version {version} available!",
+  "updater.newVersionAvailableDesc": "A new version of GameIndex is ready to download.",
+  "updater.readyToRestart": "Update downloaded! Relaunch GameIndex to complete installation.",
+  "updater.relaunchNow": "Relaunch & Apply",
+  "updater.retry": "Retry Download",
+  "updater.title": "Software Update",
+  "updater.upToDate": "GameIndex is up to date"
 };

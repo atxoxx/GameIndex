@@ -3691,5 +3691,20 @@ export const zhCN: TranslationDict = {
   "docs.shortcuts.body": "使用全局键盘热键和手柄快捷组合掌握 GameIndex 导航。\n\n## 键盘快捷键\n- `F11` 或 `Ctrl+B`：开启 / 关闭 **大画面模式**。\n- `Ctrl+F`：瞬间聚焦全局搜索框。\n- `Ctrl+,`：打开 **设置**。\n- `Ctrl+D`：打开 **下载** 面板。\n- `Ctrl+L`：跳转至 **游戏库**。\n- `Escape`：关闭弹窗、取消搜索或退出大画面模式。\n- `Tab` / `Shift+Tab`：在按钮与输入框间切换焦点。\n- `ArrowUp` / `ArrowDown` / `ArrowLeft` / `ArrowRight`：在方块与列表中导航。\n\n## 手柄快捷键（大画面模式）\n- `十字键` / `左摇杆`：导航菜单与游戏网格。\n- `按键 A` (Xbox) / `叉号` (PlayStation)：选择 / 启动游戏。\n- `按键 B` (Xbox) / `圆圈` (PlayStation)：返回 / 关闭菜单。\n- `按键 X` (Xbox) / `方块` (PlayStation)：切换收藏状态。\n- `按键 Y` (Xbox) / `三角` (PlayStation)：打开游戏详情。\n- `Start` / `菜单键`：打开快捷选项抽屉。",
 
   "docs.tips.title": "技巧与快捷键",
-  "docs.tips.body": "一些让日常使用更顺畅的小贴士：\n- 按 F11 或 Ctrl+B 切换**大画面模式**；Escape 退出。\n- 用**游戏库**搜索按名称瞬间跳转到任意游戏。\n- 右键（或长按）游戏方块可查看更多操作。\n- 想给游戏封面腾出更多空间时，收起**侧边栏**。\n- 若某些内容读起来不顺，可随时在**设置**中切换语言。"
+  "docs.tips.body": "一些让日常使用更顺畅的小贴士：\n- 按 F11 或 Ctrl+B 切换**大画面模式**；Escape 退出。\n- 用**游戏库**搜索按名称瞬间跳转到任意游戏。\n- 右键（或长按）游戏方块可查看更多操作。\n- 想给游戏封面腾出更多空间时，收起**侧边栏**。\n- 若某些内容读起来不顺，可随时在**设置**中切换语言。",
+
+  "updater.autoCheck": "自动检查更新",
+  "updater.autoCheckDesc": "启动时自动在 GitHub Releases 上检查软件更新。",
+  "updater.checkForUpdates": "检查更新",
+  "updater.checking": "正在检查更新…",
+  "updater.downloading": "正在下载更新…",
+  "updater.errorGeneric": "检查或下载更新失败。",
+  "updater.installUpdate": "安装更新",
+  "updater.newVersionAvailable": "新版本 {version} 已可用！",
+  "updater.newVersionAvailableDesc": "GameIndex 的新版本已准备好下载。",
+  "updater.readyToRestart": "更新已下载！重启 GameIndex 以完成安装。",
+  "updater.relaunchNow": "重启并应用",
+  "updater.retry": "重试下载",
+  "updater.title": "软件更新",
+  "updater.upToDate": "GameIndex 已是最新版本"
 };

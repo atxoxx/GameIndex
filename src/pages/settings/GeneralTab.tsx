@@ -1,16 +1,28 @@
 import { useEffect, useRef, useState } from "react";
 import { useLanguage } from "../../context/LanguageContext";
-import { FlagIcon } from "../../components/ui";
+import { useUpdate } from "../../context/UpdateContext";
+import { FlagIcon, Button } from "../../components/ui";
 import SettingsSection from "./SettingsSection";
-import { GlobeIcon } from "./settingsIcons";
+import SettingsToggleCard from "./SettingsToggleCard";
+import { GlobeIcon, DownloadIcon } from "./settingsIcons";
 
 /**
- * GeneralTab — app-wide preferences. Currently hosts the display
- * language listbox picker (flag pill + native label + code badge),
- * with full keyboard navigation and click-outside dismissal.
+ * GeneralTab — app-wide preferences. Hosts the display
+ * language listbox picker and application update controls.
  */
 export default function GeneralTab() {
   const { language, setLanguage, languages, t } = useLanguage();
+  const {
+    autoCheckUpdates,
+    setAutoCheckUpdates,
+    status,
+    updateInfo,
+    error,
+    progress,
+    checkForUpdates,
+    downloadAndInstall,
+    setShowModal,
+  } = useUpdate();
 
   // Custom-language-picker state. The native <select> was replaced with
   // a richer listbox-style picker, so we need an open/close flag plus a
@@ -69,128 +81,210 @@ export default function GeneralTab() {
   }, [languagePickerOpen, languagePickerHoverIdx, languages, setLanguage]);
 
   return (
-    <SettingsSection
-      icon={<GlobeIcon />}
-      title={t("settings.language")}
-      desc={t("settingsPage.languageDesc")}
-    >
-      <div
-        ref={languagePickerRef}
-        className={`settings-language-picker${languagePickerOpen ? " open" : ""}`}
+    <div style={{ display: "flex", flexDirection: "column", gap: "24px" }}>
+      <SettingsSection
+        icon={<GlobeIcon />}
+        title={t("settings.language")}
+        desc={t("settingsPage.languageDesc")}
       >
-        <button
-          ref={languagePickerTriggerRef}
-          type="button"
-          className="language-trigger"
-          aria-haspopup="listbox"
-          aria-expanded={languagePickerOpen}
-          aria-controls="settings-language-listbox"
-          aria-activedescendant={
-            languagePickerOpen
-              ? `language-option-${languages[languagePickerHoverIdx]?.code ?? ""}`
-              : undefined
-          }
-          aria-label={t("settings.language")}
-          onClick={() => {
-            setLanguagePickerOpen((wasOpen) => {
-              if (!wasOpen) {
-                const idx = languages.findIndex(
-                  (l) => l.code === language,
-                );
-                setLanguagePickerHoverIdx(idx >= 0 ? idx : 0);
-              }
-              return !wasOpen;
-            });
-          }}
+        <div
+          ref={languagePickerRef}
+          className={`settings-language-picker${languagePickerOpen ? " open" : ""}`}
         >
-          <span className="language-trigger-flag" aria-hidden="true">
-            <FlagIcon code={currentLanguage.flag} size={22} />
-          </span>
-          <span className="language-trigger-info">
-            <span className="language-trigger-label">
-              {currentLanguage.label}
-            </span>
-            <span className="language-trigger-code">
-              {currentLanguage.code.toUpperCase()}
-            </span>
-          </span>
-          <svg
-            className="language-trigger-chevron"
-            viewBox="0 0 24 24"
-            width="14"
-            height="14"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="2"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            aria-hidden="true"
-          >
-            <polyline points="6 15 12 9 18 15" />
-          </svg>
-        </button>
-        {languagePickerOpen && (
-          <div
-            id="settings-language-listbox"
-            className="language-panel"
-            role="listbox"
+          <button
+            ref={languagePickerTriggerRef}
+            type="button"
+            className="language-trigger"
+            aria-haspopup="listbox"
+            aria-expanded={languagePickerOpen}
+            aria-controls="settings-language-listbox"
+            aria-activedescendant={
+              languagePickerOpen
+                ? `language-option-${languages[languagePickerHoverIdx]?.code ?? ""}`
+                : undefined
+            }
             aria-label={t("settings.language")}
+            onClick={() => {
+              setLanguagePickerOpen((wasOpen) => {
+                if (!wasOpen) {
+                  const idx = languages.findIndex(
+                    (l) => l.code === language,
+                  );
+                  setLanguagePickerHoverIdx(idx >= 0 ? idx : 0);
+                }
+                return !wasOpen;
+              });
+            }}
           >
-            {languages.map((l, idx) => {
-              const isActive = l.code === language;
-              const isHovered = idx === languagePickerHoverIdx;
-              return (
-                <button
-                  key={l.code}
-                  type="button"
-                  id={`language-option-${l.code}`}
-                  role="option"
-                  aria-selected={isActive}
-                  className={`language-option${isActive ? " active" : ""}${isHovered ? " hovered" : ""}`}
-                  onClick={() => {
-                    void setLanguage(l.code);
-                    setLanguagePickerOpen(false);
-                  }}
-                  onMouseEnter={() =>
-                    setLanguagePickerHoverIdx(idx)
-                  }
-                >
-                  <span
-                    className="language-option-flag"
-                    aria-hidden="true"
+            <span className="language-trigger-flag" aria-hidden="true">
+              <FlagIcon code={currentLanguage.flag} size={22} />
+            </span>
+            <span className="language-trigger-info">
+              <span className="language-trigger-label">
+                {currentLanguage.label}
+              </span>
+              <span className="language-trigger-code">
+                {currentLanguage.code.toUpperCase()}
+              </span>
+            </span>
+            <svg
+              className="language-trigger-chevron"
+              viewBox="0 0 24 24"
+              width="14"
+              height="14"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              aria-hidden="true"
+            >
+              <polyline points="6 15 12 9 18 15" />
+            </svg>
+          </button>
+          {languagePickerOpen && (
+            <div
+              id="settings-language-listbox"
+              className="language-panel"
+              role="listbox"
+              aria-label={t("settings.language")}
+            >
+              {languages.map((l, idx) => {
+                const isActive = l.code === language;
+                const isHovered = idx === languagePickerHoverIdx;
+                return (
+                  <button
+                    key={l.code}
+                    type="button"
+                    id={`language-option-${l.code}`}
+                    role="option"
+                    aria-selected={isActive}
+                    className={`language-option${isActive ? " active" : ""}${isHovered ? " hovered" : ""}`}
+                    onClick={() => {
+                      void setLanguage(l.code);
+                      setLanguagePickerOpen(false);
+                    }}
+                    onMouseEnter={() =>
+                      setLanguagePickerHoverIdx(idx)
+                    }
                   >
-                    <FlagIcon code={l.flag} size={18} />
-                  </span>
-                  <span className="language-option-text">
-                    <span className="language-option-label">
-                      {l.label}
-                    </span>
-                    <span className="language-option-native">
-                      {l.code.toUpperCase()}
-                    </span>
-                  </span>
-                  {isActive && (
-                    <svg
-                      className="language-option-check"
-                      viewBox="0 0 24 24"
-                      width="14"
-                      height="14"
-                      fill="none"
-                      stroke="currentColor"
-                      strokeWidth="2.5"
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
+                    <span
+                      className="language-option-flag"
                       aria-hidden="true"
                     >
-                      <polyline points="20 6 9 17 4 12" />
-                    </svg>
-                  )}
-                </button>
-              );
-            })}
+                      <FlagIcon code={l.flag} size={18} />
+                    </span>
+                    <span className="language-option-text">
+                      <span className="language-option-label">
+                        {l.label}
+                      </span>
+                      <span className="language-option-native">
+                        {l.code.toUpperCase()}
+                      </span>
+                    </span>
+                    {isActive && (
+                      <svg
+                        className="language-option-check"
+                        viewBox="0 0 24 24"
+                        width="14"
+                        height="14"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth="2.5"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        aria-hidden="true"
+                      >
+                        <polyline points="20 6 9 17 4 12" />
+                      </svg>
+                    )}
+                  </button>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      </SettingsSection>
+
+      <SettingsSection
+        icon={<DownloadIcon />}
+        title={t("updater.title")}
+        desc={t("updater.autoCheckDesc")}
+      >
+        <div style={{ display: "flex", flexDirection: "column", gap: "16px" }}>
+          <SettingsToggleCard
+            title={t("updater.autoCheck")}
+            desc={t("updater.autoCheckDesc")}
+            checked={autoCheckUpdates}
+            onChange={(checked) => setAutoCheckUpdates(checked)}
+          />
+
+          <div
+            className="settings-launcher-card"
+            style={{
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "space-between",
+              padding: "16px 20px",
+              gap: "16px",
+              flexWrap: "wrap",
+            }}
+          >
+            <div>
+              <div style={{ fontWeight: 600, fontSize: "14px", marginBottom: "4px" }}>
+                {status === "checking"
+                  ? t("updater.checking")
+                  : status === "available"
+                  ? t("updater.newVersionAvailable", { version: updateInfo?.version ?? "" })
+                  : status === "up-to-date"
+                  ? t("updater.upToDate")
+                  : status === "downloading"
+                  ? `${t("updater.downloading")} (${progress.percent}%)`
+                  : status === "ready"
+                  ? t("updater.readyToRestart")
+                  : status === "error"
+                  ? (error || t("updater.errorGeneric"))
+                  : t("updater.title")}
+              </div>
+              <div style={{ fontSize: "13px", color: "var(--text-muted)" }}>
+                {status === "available"
+                  ? t("updater.newVersionAvailableDesc")
+                  : "GitHub Releases (atxoxx/GameIndex)"}
+              </div>
+            </div>
+
+            <div style={{ display: "flex", gap: "10px", alignItems: "center" }}>
+              {status === "available" ? (
+                <>
+                  <Button variant="primary" onClick={() => void downloadAndInstall()}>
+                    {t("updater.installUpdate")}
+                  </Button>
+                  <Button variant="ghost" onClick={() => setShowModal(true)}>
+                    {t("common.details")}
+                  </Button>
+                </>
+              ) : status === "downloading" ? (
+                <Button variant="primary" disabled isLoading>
+                  {progress.percent}%
+                </Button>
+              ) : status === "ready" ? (
+                <Button variant="primary" onClick={() => void downloadAndInstall()}>
+                  {t("updater.relaunchNow")}
+                </Button>
+              ) : (
+                <Button
+                  variant="secondary"
+                  onClick={() => void checkForUpdates(true)}
+                  isLoading={status === "checking"}
+                >
+                  {t("updater.checkForUpdates")}
+                </Button>
+              )}
+            </div>
           </div>
-        )}
-      </div>
-    </SettingsSection>
+        </div>
+      </SettingsSection>
+    </div>
   );
 }
+

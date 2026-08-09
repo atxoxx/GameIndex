@@ -3691,5 +3691,20 @@ export const fr: TranslationDict = {
   "docs.shortcuts.body": "Maîtrisez la navigation dans GameIndex avec ces raccourcis clavier et manette globaux.\n\n## Raccourcis Clavier\n- `F11` ou `Ctrl+B` : Activer / Désactiver le **mode Big Picture**.\n- `Ctrl+F` : Focaliser la barre de recherche globale instantanément.\n- `Ctrl+,` : Ouvrir les **Paramètres**.\n- `Ctrl+D` : Ouvrir le panneau des **Téléchargements**.\n- `Ctrl+L` : Accéder à la **Bibliothèque**.\n- `Escape` : Fermer les fenêtres modales, quitter la recherche ou le mode Big Picture.\n- `Tab` / `Shift+Tab` : Naviguer entre les boutons et champs interactifs.\n- `ArrowUp` / `ArrowDown` / `ArrowLeft` / `ArrowRight` : Naviguer dans les tuiles et listes.\n\n## Raccourcis Manette (Mode Big Picture)\n- `D-Pad` / `Stick gauche` : Naviguer dans les menus et la grille de jeux.\n- `Bouton A` (Xbox) / `Croix` (PlayStation) : Sélectionner / Lancer le jeu.\n- `Bouton B` (Xbox) / `Cercle` (PlayStation) : Retour / Fermer le menu.\n- `Bouton X` (Xbox) / `Carré` (PlayStation) : Basculer le statut favori.\n- `Bouton Y` (Xbox) / `Triangle` (PlayStation) : Ouvrir les détails du jeu.\n- `Start` / `Menu` : Ouvrir le tiroir d'options rapides.",
 
   "docs.tips.title": "Astuces & raccourcis",
-  "docs.tips.body": "Quelques trucs pour rendre le quotidien plus fluide :\n- Appuyez sur F11 ou Ctrl+B pour basculer le **mode Big Picture** ; Échap le quitte.\n- Utilisez la recherche de la **bibliothèque** pour sauter à un jeu par son nom instantanément.\n- Clic droit (ou appui long) sur une tuile de jeu pour des actions supplémentaires.\n- Repliez la **barre latérale** quand vous voulez plus de place pour les visuels des jeux.\n- Changez la langue à tout moment dans les **Paramètres** si quelque chose ne va pas."
+  "docs.tips.body": "Quelques trucs pour rendre le quotidien plus fluide :\n- Appuyez sur F11 ou Ctrl+B pour basculer le **mode Big Picture** ; Échap le quitte.\n- Utilisez la recherche de la **bibliothèque** pour sauter à un jeu par son nom instantanément.\n- Clic droit (ou appui long) sur une tuile de jeu pour des actions supplémentaires.\n- Repliez la **barre latérale** quand vous voulez plus de place pour les visuels des jeux.\n- Changez la langue à tout moment dans les **Paramètres** si quelque chose ne va pas.",
+
+  "updater.autoCheck": "Vérifier automatiquement les mises à jour",
+  "updater.autoCheckDesc": "Recherche automatiquement de nouvelles mises à jour sur GitHub Releases au démarrage.",
+  "updater.checkForUpdates": "Vérifier les mises à jour",
+  "updater.checking": "Vérification des mises à jour…",
+  "updater.downloading": "Téléchargement de la mise à jour…",
+  "updater.errorGeneric": "Échec de la recherche ou du téléchargement de la mise à jour.",
+  "updater.installUpdate": "Installer la mise à jour",
+  "updater.newVersionAvailable": "Nouvelle version {version} disponible !",
+  "updater.newVersionAvailableDesc": "Une nouvelle version de GameIndex est prête à être téléchargée.",
+  "updater.readyToRestart": "Mise à jour téléchargée ! Relancez GameIndex pour terminer l'installation.",
+  "updater.relaunchNow": "Relancer et appliquer",
+  "updater.retry": "Réessayer le téléchargement",
+  "updater.title": "Mise à jour logicielle",
+  "updater.upToDate": "GameIndex est à jour"
 };

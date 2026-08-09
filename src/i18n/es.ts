@@ -3669,5 +3669,19 @@ export const es: TranslationDict = {
   "docs.shortcuts.title": "Atajos de teclado y mando",
   "docs.shortcuts.body": "Domina la navegación en GameIndex con estos atajos de teclado globales y combinaciones para mando.\n\n## Atajos de Teclado\n- `F11` o `Ctrl+B`: Activar / Desactivar el **modo Big Picture**.\n- `Ctrl+F`: Enfocar la barra de búsqueda global al instante.\n- `Ctrl+,`: Abrir **Ajustes**.\n- `Ctrl+D`: Abrir el panel de **Descargas**.\n- `Ctrl+L`: Ir a la **Biblioteca**.\n- `Escape`: Cerrar cuadros de diálogo, cancelar búsquedas o salir del modo Big Picture.\n- `Tab` / `Shift+Tab`: Navegar entre elementos interactivos.\n- `ArrowUp` / `ArrowDown` / `ArrowLeft` / `ArrowRight`: Navegar por casillas y listas.\n\n## Atajos de Mando (Modo Big Picture)\n- `D-Pad` / `Stick Izquierdo`: Navegar por menús y cuadrícula de juegos.\n- `Botón A` (Xbox) / `Cruz` (PlayStation): Seleccionar / Lanzar juego.\n- `Botón B` (Xbox) / `Círculo` (PlayStation): Volver / Cerrar menú.\n- `Botón X` (Xbox) / `Cuadrado` (PlayStation): Alternar estado de favorito.\n- `Botón Y` (Xbox) / `Triángulo` (PlayStation): Abrir detalles del juego.\n- `Start` / `Menú`: Abrir menú rápido de opciones.",
   "docs.tips.title": "Consejos y atajos",
-  "docs.tips.body": "Unas cosas que hacen el uso diario más fluido:\n- Pulsa F11 o Ctrl+B para alternar el **modo Big Picture**; Escape lo sale.\n- Usa la búsqueda de la **biblioteca** para saltar a cualquier juego por nombre al instante.\n- Clic derecho (o pulsación larga) en una casilla de juego para acciones extra.\n- Contrae la **barra lateral** cuando quieras más sitio para el arte de los juegos.\n- Cambia el idioma en cualquier momento en **Ajustes** si algo no se lee bien."
+  "docs.tips.body": "Unas cosas que hacen el uso diario más fluido:\n- Pulsa F11 o Ctrl+B para alternar el **modo Big Picture**; Escape lo sale.\n- Usa la búsqueda de la **biblioteca** para saltar a cualquier juego por nombre al instante.\n- Clic derecho (o pulsación larga) en una casilla de juego para acciones extra.\n- Contrae la **barra lateral** cuando quieras más sitio para el arte de los juegos.\n- Cambia el idioma en cualquier momento en **Ajustes** si algo no se lee bien.",
+  "updater.autoCheck": "Buscar actualizaciones automáticamente",
+  "updater.autoCheckDesc": "Busca automáticamente en GitHub Releases nuevas actualizaciones al iniciar.",
+  "updater.checkForUpdates": "Buscar actualizaciones",
+  "updater.checking": "Buscando actualizaciones…",
+  "updater.downloading": "Descargando actualización…",
+  "updater.errorGeneric": "Error al buscar o descargar la actualización.",
+  "updater.installUpdate": "Instalar actualización",
+  "updater.newVersionAvailable": "¡Nueva versión {version} disponible!",
+  "updater.newVersionAvailableDesc": "Una nueva versión de GameIndex está lista para descargar.",
+  "updater.readyToRestart": "¡Actualización descargada! Reinicia GameIndex para completar la instalación.",
+  "updater.relaunchNow": "Reiniciar y aplicar",
+  "updater.retry": "Reintentar descarga",
+  "updater.title": "Actualización de software",
+  "updater.upToDate": "GameIndex está actualizado"
 }

@@ -20,6 +20,8 @@ import { SessionNotesProvider } from "./context/SessionNotesContext";
 import { BigScreenProvider, useBigScreen } from "./context/BigScreenContext";
 import { LanguageProvider } from "./context/LanguageContext";
 import { PresenceProvider } from "./context/PresenceContext";
+import { UpdateProvider } from "./context/UpdateContext";
+import { UpdateModal } from "./components/ui/UpdateModal";
 import {
   SidebarCollapseProvider,
   useSidebarCollapse,
@@ -95,34 +97,37 @@ function App() {
       <ThemeProvider>
         <LanguageProvider>
           <ToastProvider>
-            <SplashProvider>
-              <GameProvider>
-                <ActivityProvider>
-                  <AchievementProvider>
-                    <DensityProvider>
-                      <LibraryFilterProvider>
-                        <WishlistProvider>
-                          <SourceProvider>
-                            <DownloadProvider>
-                              <SettingsProvider>
-                                <SessionNotesProvider>
-                                  <BigScreenProvider>
-                                    <PresenceProvider>
-                                      <AppShell />
-                                    </PresenceProvider>
-                                  </BigScreenProvider>
-                                </SessionNotesProvider>
-                              </SettingsProvider>
-                            </DownloadProvider>
-                          </SourceProvider>
-                        </WishlistProvider>
-                      </LibraryFilterProvider>
-                    </DensityProvider>
-                  </AchievementProvider>
-                </ActivityProvider>
-              </GameProvider>
-              <Splashscreen />
-            </SplashProvider>
+            <UpdateProvider>
+              <SplashProvider>
+                <GameProvider>
+                  <ActivityProvider>
+                    <AchievementProvider>
+                      <DensityProvider>
+                        <LibraryFilterProvider>
+                          <WishlistProvider>
+                            <SourceProvider>
+                              <DownloadProvider>
+                                <SettingsProvider>
+                                  <SessionNotesProvider>
+                                    <BigScreenProvider>
+                                      <PresenceProvider>
+                                        <AppShell />
+                                        <UpdateModal />
+                                      </PresenceProvider>
+                                    </BigScreenProvider>
+                                  </SessionNotesProvider>
+                                </SettingsProvider>
+                              </DownloadProvider>
+                            </SourceProvider>
+                          </WishlistProvider>
+                        </LibraryFilterProvider>
+                      </DensityProvider>
+                    </AchievementProvider>
+                  </ActivityProvider>
+                </GameProvider>
+                <Splashscreen />
+              </SplashProvider>
+            </UpdateProvider>
           </ToastProvider>
         </LanguageProvider>
       </ThemeProvider>
