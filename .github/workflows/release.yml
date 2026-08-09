@@ -41,6 +41,7 @@ jobs:
           tagName: v__VERSION__ # tauri-action automatically replaces __VERSION__ with the package version
           releaseName: "GameIndex v__VERSION__"
           releaseBody: "See the assets below to download GameIndex."
+          generateReleaseNotes: true
           releaseDraft: true
           prerelease: false
 
