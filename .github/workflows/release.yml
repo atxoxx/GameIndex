@@ -48,8 +48,12 @@ jobs:
 
       # tauri-action uploads the NSIS installer (+ updater artifacts) only -
       # the MSI is excluded via bundle.targets: ["nsis"] in tauri.conf.json.
-      # Add the portable executable next to it on the same release.
+      # Add the portable executable next to it on the same release, named with
+      # the same version as the installer (GameIndex_<version>_x64-setup.exe).
       - name: upload portable executable
-        run: gh release upload "${{ github.ref_name }}" src-tauri/target/release/GameIndex.exe --clobber
+        run: |
+          $version = node -p "require('./package.json').version"
+          Copy-Item src-tauri/target/release/GameIndex.exe "GameIndex_${version}_x64_portable.exe"
+          gh release upload "${{ github.ref_name }}" "GameIndex_${version}_x64_portable.exe" --clobber
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
