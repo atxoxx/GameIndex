@@ -43,3 +43,11 @@ jobs:
           releaseBody: "See the assets below to download GameIndex."
           releaseDraft: true
           prerelease: false
+
+      # tauri-action uploads the NSIS installer (+ updater artifacts) only -
+      # the MSI is excluded via bundle.targets: ["nsis"] in tauri.conf.json.
+      # Add the portable executable next to it on the same release.
+      - name: upload portable executable
+        run: gh release upload "${{ github.ref_name }}" src-tauri/target/release/GameIndex.exe --clobber
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
