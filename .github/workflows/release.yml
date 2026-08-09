@@ -45,15 +45,32 @@ jobs:
           generateReleaseNotes: true
           releaseDraft: true
           prerelease: false
+          # Do not attach the .sig signature files to the release - they only
+          # clutter the asset list. latest.json still embeds the signatures, so
+          # the updater keeps working (tauri-action reads the .sig files
+          # locally; the updater client never downloads them from the release).
+          uploadUpdaterSignatures: false
 
       # tauri-action uploads the NSIS installer (+ updater artifacts) only -
       # the MSI is excluded via bundle.targets: ["nsis"] in tauri.conf.json.
-      # Add the portable executable next to it on the same release, named with
-      # the same version as the installer (GameIndex_<version>_x64-setup.exe).
+      # "portable" is not a valid Tauri bundle target, so the portable exe is a
+      # plain copy of the release binary. It is updater-signed here with the
+      # same key (the .sig is kept local, never uploaded) and named with the
+      # same version as the installer (GameIndex_<version>_x64-setup.exe).
       - name: upload portable executable
         run: |
           $version = node -p "require('./package.json').version"
           Copy-Item src-tauri/target/release/GameIndex.exe "GameIndex_${version}_x64_portable.exe"
+          npm run tauri signer sign -- "GameIndex_${version}_x64_portable.exe"
           gh release upload "${{ github.ref_name }}" "GameIndex_${version}_x64_portable.exe" --clobber
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+
+      # All assets are uploaded above while the release is still a draft;
+      # publish it only now so the release never goes live half-assembled.
+      - name: publish release
+        run: gh release edit "${{ github.ref_name }}" --draft=false
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
