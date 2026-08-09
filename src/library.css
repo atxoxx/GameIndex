@@ -1441,6 +1441,29 @@
   overflow: hidden;
 }
 
+/* Specular light sheen sweep on hover */
+.lib-card-cover::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  background: linear-gradient(
+    115deg,
+    transparent 20%,
+    rgba(255, 255, 255, 0.15) 45%,
+    rgba(255, 255, 255, 0.28) 50%,
+    rgba(255, 255, 255, 0.15) 55%,
+    transparent 80%
+  );
+  transform: translateX(-130%) translateY(-30%) rotate(10deg);
+  transition: transform 750ms cubic-bezier(0.16, 1, 0.3, 1);
+  pointer-events: none;
+}
+
+.lib-card:hover .lib-card-cover::before {
+  transform: translateX(130%) translateY(30%) rotate(10deg);
+}
+
 .lib-card-cover img {
   width: 100%;
   height: 100%;
@@ -1521,16 +1544,16 @@
   justify-content: center;
   width: 38px;
   height: 38px;
-  border: none;
+  border: 1px solid color-mix(in srgb, var(--color-accent) 40%, rgba(255, 255, 255, 0.4));
   border-radius: 50%;
   background: linear-gradient(135deg, var(--color-accent), var(--brand-2, var(--color-accent-hover)));
   color: #fff;
   cursor: pointer;
-  box-shadow: 0 4px 12px color-mix(in srgb, var(--color-accent) 35%, transparent);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.35), 0 4px 16px color-mix(in srgb, var(--color-accent) 45%, transparent);
   opacity: 0;
   transform: translateY(8px) scale(0.9);
   transition: opacity var(--transition-fast), transform var(--transition-fast),
-    background var(--transition-fast);
+    background var(--transition-fast), box-shadow var(--transition-fast);
 }
 
 .lib-card-fab svg {

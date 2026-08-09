@@ -106,6 +106,7 @@
 }
 
 .kpi-tile__value {
+  font-family: var(--font-display);
   font-size: var(--font-size-xl);
   font-weight: var(--font-weight-bold);
   color: var(--color-text-primary);
