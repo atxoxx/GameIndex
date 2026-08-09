@@ -392,7 +392,7 @@ export default function StoreGameDetail() {
         name={data.title}
         bannerUrl={data.images.hero ?? data.images.banner ?? null}
         coverUrl={data.images.cover ?? null}
-        logoUrl={data.images.logo ?? null}
+        logoUrl={data.images.logo || (steamAppId ? `https://cdn.cloudflare.steamstatic.com/steam/apps/${steamAppId}/logo.png` : null)}
         accentSrc={data.images.cover ?? data.images.hero ?? data.images.banner ?? null}
         steamAppId={steamAppId ?? null}
         metaItems={[data.developer, data.publisher, releaseYear, data.sourceName].filter(

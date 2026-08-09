@@ -351,18 +351,21 @@ export default function BigScreenStoreGamePage() {
           </button>
 
           <div className="bigscreen-gamepage-hero-info">
-            {game.logoUrl && !logoError ? (
-              <img
-                src={game.logoUrl}
-                alt={game.name}
-                className="bigscreen-gamepage-hero-logo"
-                width={480}
-                height={140}
-                onError={() => setLogoError(true)}
-              />
-            ) : (
-              <h1 className="bigscreen-gamepage-hero-title">{game.name}</h1>
-            )}
+            {(() => {
+              const effectiveLogo = game.logoUrl || (resolvedSteamAppId ? `https://cdn.cloudflare.steamstatic.com/steam/apps/${resolvedSteamAppId}/logo.png` : null);
+              return effectiveLogo && !logoError ? (
+                <img
+                  src={effectiveLogo}
+                  alt={game.name}
+                  className="bigscreen-gamepage-hero-logo"
+                  width={480}
+                  height={140}
+                  onError={() => setLogoError(true)}
+                />
+              ) : (
+                <h1 className="bigscreen-gamepage-hero-title">{game.name}</h1>
+              );
+            })()}
             <div className="bigscreen-gamepage-hero-subtitle-row">
               {game.developer && (
                 <span className="bigscreen-gamepage-hero-subtitle">{game.developer}</span>

@@ -174,6 +174,14 @@ function StoreHero({ onCardClick, trailerUrl }: StoreHeroProps) {
   const backdrop = active.coverUrl ?? "";
   const trailerSrc = trailerUrl ? trailerUrl(active) : null;
 
+  const [logoErrored, setLogoErrored] = useState(false);
+
+  useEffect(() => {
+    setLogoErrored(false);
+  }, [active?.id, active?.logoUrl]);
+
+  const activeLogo = active?.logoUrl || (steamAppId ? `https://cdn.cloudflare.steamstatic.com/steam/apps/${steamAppId}/logo.png` : null);
+
   return (
     <div
       className="store-hero"
@@ -236,7 +244,16 @@ function StoreHero({ onCardClick, trailerUrl }: StoreHeroProps) {
           {t("store.hero.featuredToday")}
         </span>
 
-        <h1 className="store-hero-title">{active.name}</h1>
+        {activeLogo && !logoErrored ? (
+          <img
+            src={activeLogo}
+            alt={active.name}
+            className="store-hero-logo"
+            onError={() => setLogoErrored(true)}
+          />
+        ) : (
+          <h1 className="store-hero-title">{active.name}</h1>
+        )}
 
         {active.genres.length > 0 && (
           <div className="store-hero-tags">

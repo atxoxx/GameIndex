@@ -129,21 +129,36 @@ export default function BigScreenStore() {
 
   const detailsFocusable = useFocusable(handleDetails);
 
+  const [logoError, setLogoError] = useState(false);
+
+  useEffect(() => {
+    setLogoError(false);
+  }, [featuredGame?.id, featuredGame?.logoUrl]);
+
   const renderDetailsPane = (railId: string) => {
     if (activeRailId !== railId) return null;
+    const featuredLogo = featuredGame?.logoUrl || (featuredGame?.websites ? (() => {
+      for (const url of featuredGame.websites) {
+        const match = url.match(/store\.steampowered\.com\/app\/(\d+)/i);
+        if (match) return `https://cdn.cloudflare.steamstatic.com/steam/apps/${match[1]}/logo.png`;
+      }
+      return null;
+    })() : null);
+
     return (
       <section className="bigscreen-dashboard-details-pane bigscreen-store-featured-pane animate-fade-in" aria-label={t("bigscreen.store.gameInfo")}>
         <div className="bigscreen-details-pane-content">
           {featuredGame ? (
             <>
               <div className="bigscreen-details-logo-area">
-                {featuredGame.logoUrl ? (
+                {featuredLogo && !logoError ? (
                   <img
-                    src={featuredGame.logoUrl}
+                    src={featuredLogo}
                     alt={featuredGame.name}
                     className="bigscreen-gamepage-hero-logo bigscreen-store-featured-logo"
                     width={360}
                     height={88}
+                    onError={() => setLogoError(true)}
                   />
                 ) : (
                   <h1 className="bigscreen-gamepage-hero-title bigscreen-store-featured-title">{featuredGame.name}</h1>

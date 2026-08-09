@@ -702,6 +702,15 @@ impl SourceManager {
                 }
                 h
             });
+        let logo_url = game.logo_image_url.as_ref().map(|u| {
+            if u.starts_with("//") { format!("https:{}", u) } else { u.clone() }
+        }).or_else(|| {
+            if game.shop == "steam" || (!game.object_id.is_empty() && game.object_id.chars().all(|c| c.is_ascii_digit())) {
+                Some(format!("https://cdn.cloudflare.steamstatic.com/steam/apps/{}/logo.png", game.object_id))
+            } else {
+                None
+            }
+        });
         StoreGameSummary {
             id,
             name: game.title.clone(),
@@ -710,7 +719,7 @@ impl SourceManager {
             rating: None,
             aggregated_rating: None,
             cover_url: cover,
-            logo_url: None,
+            logo_url,
             genres: Vec::new(),
             platforms: Vec::new(),
             first_release_date: None,

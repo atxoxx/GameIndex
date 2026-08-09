@@ -290,6 +290,17 @@
   filter: drop-shadow(0 0 4px color-mix(in srgb, var(--color-accent) 60%, transparent));
 }
 
+.store-hero-logo {
+  max-width: 480px;
+  max-height: 140px;
+  width: auto;
+  height: auto;
+  object-fit: contain;
+  object-position: left center;
+  filter: drop-shadow(0 4px 16px rgba(0, 0, 0, 0.6));
+  display: block;
+}
+
 .store-hero-title {
   margin: 0;
   font-size: clamp(30px, 4.6vw, 60px);

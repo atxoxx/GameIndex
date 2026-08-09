@@ -96,6 +96,11 @@ export default function GameHero({
   const gameAccent = useGameAccent(accentSrc || undefined);
 
   useEffect(() => {
+    setLogoErrored(false);
+    setCoverErrored(false);
+  }, [logoUrl, coverUrl, name]);
+
+  useEffect(() => {
     if (!autoGameAccent || !gameAccent) return;
     setAccentColor(gameAccent);
   }, [autoGameAccent, gameAccent, setAccentColor]);

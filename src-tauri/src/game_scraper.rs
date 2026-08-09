@@ -2966,7 +2966,7 @@ fn map_igdb_game(game: IgdbGame, ttb: Option<&IgdbTimeToBeatRaw>) -> GameMetadat
     }
 
     let mut artwork_urls = Vec::new();
-    if let Some(artworks) = game.artworks {
+    if let Some(ref artworks) = game.artworks {
         for art in artworks {
             if let Some(ref url) = art.url {
                 let clean = if url.starts_with("//") { format!("https:{}", url) } else { url.clone() };
@@ -2983,12 +2983,41 @@ fn map_igdb_game(game: IgdbGame, ttb: Option<&IgdbTimeToBeatRaw>) -> GameMetadat
         .or_else(|| artwork_urls.first())
         .cloned();
 
+    let logo_url = game.artworks.as_ref().and_then(|list| {
+        list.iter()
+            .filter(|a| a.url.as_ref().map(|u| u.contains("/t_logo")).unwrap_or(false))
+            .find_map(|a| a.url.as_ref())
+            .map(|url| {
+                let clean = if url.starts_with("//") {
+                    format!("https:{}", url)
+                } else {
+                    url.clone()
+                };
+                clean.replace("t_thumb", "t_logo_med")
+            })
+    }).or_else(|| {
+        game.websites.as_ref().and_then(|list| {
+            for w in list {
+                if let Some(ref url) = w.url {
+                    if let Some(pos) = url.find("store.steampowered.com/app/") {
+                        let rest = &url[pos + "store.steampowered.com/app/".len()..];
+                        let id_str: String = rest.chars().take_while(|c| c.is_ascii_digit()).collect();
+                        if let Ok(id) = id_str.parse::<u32>() {
+                            return Some(format!("https://cdn.cloudflare.steamstatic.com/steam/apps/{}/logo.png", id));
+                        }
+                    }
+                }
+            }
+            None
+        })
+    });
+
     let images = GameImages {
         icon: None,
         cover: cover_url,
         hero,
         banner,
-        logo: None,
+        logo: logo_url,
     };
 
     let videos = game.videos
@@ -4243,7 +4272,7 @@ pub async fn get_store_game_detail(slug: &str) -> Option<GameMetadataResult> {
     }
 
     let mut artwork_urls = Vec::new();
-    if let Some(artworks) = game.artworks {
+    if let Some(ref artworks) = game.artworks {
         for art in artworks {
             if let Some(ref url) = art.url {
                 let clean = if url.starts_with("//") {
@@ -4266,12 +4295,41 @@ pub async fn get_store_game_detail(slug: &str) -> Option<GameMetadataResult> {
         .or_else(|| artwork_urls.first())
         .cloned();
 
+    let logo_url = game.artworks.as_ref().and_then(|list| {
+        list.iter()
+            .filter(|a| a.url.as_ref().map(|u| u.contains("/t_logo")).unwrap_or(false))
+            .find_map(|a| a.url.as_ref())
+            .map(|url| {
+                let clean = if url.starts_with("//") {
+                    format!("https:{}", url)
+                } else {
+                    url.clone()
+                };
+                clean.replace("t_thumb", "t_logo_med")
+            })
+    }).or_else(|| {
+        game.websites.as_ref().and_then(|list| {
+            for w in list {
+                if let Some(ref url) = w.url {
+                    if let Some(pos) = url.find("store.steampowered.com/app/") {
+                        let rest = &url[pos + "store.steampowered.com/app/".len()..];
+                        let id_str: String = rest.chars().take_while(|c| c.is_ascii_digit()).collect();
+                        if let Ok(id) = id_str.parse::<u32>() {
+                            return Some(format!("https://cdn.cloudflare.steamstatic.com/steam/apps/{}/logo.png", id));
+                        }
+                    }
+                }
+            }
+            None
+        })
+    });
+
     let images = GameImages {
         icon: None,
         cover: cover_url,
         hero,
         banner,
-        logo: None,
+        logo: logo_url,
     };
 
     let videos = game.videos.map(|list| {
