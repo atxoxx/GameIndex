@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useLanguage } from "../../context/LanguageContext";
 import { useAppVersion } from "../../hooks/useAppVersion";
-import { useUpdate } from "../../context/UpdateContext";
+import { useUpdate, formatBytes } from "../../context/UpdateContext";
 import { FlagIcon, Button } from "../../components/ui";
 import SettingsSection from "./SettingsSection";
 import SettingsToggleCard from "./SettingsToggleCard";
@@ -17,12 +17,15 @@ export default function GeneralTab() {
   const {
     autoCheckUpdates,
     setAutoCheckUpdates,
+    installMode,
     status,
     updateInfo,
     error,
     progress,
+    lastCheckedAt,
     checkForUpdates,
-    downloadAndInstall,
+    installUpdate,
+    applyUpdate,
     setShowModal,
   } = useUpdate();
 
@@ -37,6 +40,20 @@ export default function GeneralTab() {
 
   const currentLanguage =
     languages.find((l) => l.code === language) ?? languages[0];
+
+  const modeLabel =
+    installMode === "portable"
+      ? t("updater.modePortable")
+      : installMode === "nsis"
+        ? t("updater.modeInstalled")
+        : t("updater.modeDev");
+
+  const lastCheckedTime = (() => {
+    if (!lastCheckedAt) return null;
+    const date = new Date(lastCheckedAt);
+    if (Number.isNaN(date.getTime())) return null;
+    return t("updater.lastChecked", { time: date.toLocaleTimeString() });
+  })();
 
   // Click-outside + keyboard navigation for the language picker.
   useEffect(() => {
@@ -211,7 +228,33 @@ export default function GeneralTab() {
       <SettingsSection
         icon={<DownloadIcon />}
         title={t("updater.title")}
-        desc={t("updater.autoCheckDesc")}
+        desc={
+          <span
+            style={{
+              display: "inline-flex",
+              alignItems: "center",
+              gap: "8px",
+              flexWrap: "wrap",
+            }}
+          >
+            {t("updater.autoCheckDesc")}
+            <span
+              style={{
+                background: "var(--bg-tertiary, var(--color-bg-tertiary))",
+                border: "1px solid var(--border-subtle, var(--color-border))",
+                color: "var(--text-muted, var(--color-text-muted))",
+                fontSize: "11px",
+                fontWeight: 500,
+                padding: "2px 8px",
+                borderRadius: "12px",
+                lineHeight: 1.4,
+                whiteSpace: "nowrap",
+              }}
+            >
+              {modeLabel}
+            </span>
+          </span>
+        }
       >
         <div style={{ display: "flex", flexDirection: "column", gap: "16px" }}>
           <SettingsToggleCard
@@ -233,7 +276,17 @@ export default function GeneralTab() {
             }}
           >
             <div>
-              <div style={{ fontWeight: 600, fontSize: "14px", marginBottom: "4px" }}>
+              <div
+                style={{
+                  fontWeight: 600,
+                  fontSize: "14px",
+                  marginBottom: "4px",
+                  color:
+                    status === "error"
+                      ? "rgba(248, 113, 113, 0.85)"
+                      : undefined,
+                }}
+              >
                 {status === "checking"
                   ? t("updater.checking")
                   : status === "available"
@@ -244,21 +297,36 @@ export default function GeneralTab() {
                   ? `${t("updater.downloading")} (${progress.percent}%)`
                   : status === "ready"
                   ? t("updater.readyToRestart")
+                  : status === "restarting"
+                  ? t("updater.restarting")
                   : status === "error"
                   ? (error || t("updater.errorGeneric"))
                   : t("updater.title")}
               </div>
-              <div style={{ fontSize: "13px", color: "var(--text-muted)" }}>
+              <div style={{ fontSize: "13px", color: "var(--text-muted, var(--color-text-muted))" }}>
                 {status === "available"
                   ? t("updater.newVersionAvailableDesc")
+                  : status === "downloading" && progress.speedBytesPerSec > 0
+                  ? t("updater.speed", { speed: formatBytes(progress.speedBytesPerSec) })
                   : `GameIndex v${version} · GitHub Releases (atxoxx/GameIndex)`}
               </div>
+              {lastCheckedTime && (
+                <div
+                  style={{
+                    fontSize: "12px",
+                    color: "var(--text-muted, var(--color-text-muted))",
+                    marginTop: "2px",
+                  }}
+                >
+                  {lastCheckedTime}
+                </div>
+              )}
             </div>
 
-            <div style={{ display: "flex", gap: "10px", alignItems: "center" }}>
+            <div style={{ display: "flex", gap: "10px", alignItems: "center", flexWrap: "wrap" }}>
               {status === "available" ? (
                 <>
-                  <Button variant="primary" onClick={() => void downloadAndInstall()}>
+                  <Button variant="primary" onClick={() => void installUpdate()}>
                     {t("updater.installUpdate")}
                   </Button>
                   <Button variant="ghost" onClick={() => setShowModal(true)}>
@@ -270,8 +338,12 @@ export default function GeneralTab() {
                   {progress.percent}%
                 </Button>
               ) : status === "ready" ? (
-                <Button variant="primary" onClick={() => void downloadAndInstall()}>
+                <Button variant="primary" onClick={() => void applyUpdate()}>
                   {t("updater.relaunchNow")}
+                </Button>
+              ) : status === "restarting" ? (
+                <Button variant="secondary" disabled isLoading>
+                  {t("updater.restarting")}
                 </Button>
               ) : (
                 <Button

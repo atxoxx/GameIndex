@@ -34,6 +34,7 @@ mod size;
 mod source_manager;
 mod store_checker;
 mod downloads;
+mod updater;
 mod achievements;
 mod local_achievements;
 mod achievement_watcher;
@@ -3895,7 +3896,11 @@ pub fn run() {
             mods::mods_set_custom_root,
             mods::nexus_set_api_key,
             mods::nexus_get_status,
-            mods::nexus_check_updates])
+            mods::nexus_check_updates,
+            updater::updater_install_mode,
+            updater::portable_update_download,
+            updater::portable_update_cancel,
+            updater::portable_update_apply])
         .on_window_event(|window, event| {
             // L2: intercept the user clicking the OS-level close
             // button (or the in-app WindowControls close button, since

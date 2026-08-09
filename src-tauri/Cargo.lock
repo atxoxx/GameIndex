@@ -1814,6 +1814,7 @@ dependencies = [
  "librqbit",
  "md-5",
  "mime_guess",
+ "minisign-verify",
  "obfstr",
  "r2d2",
  "r2d2_sqlite",

@@ -84,6 +84,9 @@ sha2 = "0.10"
 # the local artifact and asks Nexus which mod it belongs to — the same
 # linking trick Vortex uses for manually-installed mods).
 md-5 = "0.10"
+# minisign verification for the portable-update path (updater.rs).
+# Already in the tree via tauri-plugin-updater — zero new resolution.
+minisign-verify = "0.2"
 wmi = "0.14"
 # Windows registry reader for GOG installed-game detection
 # (HKLM+HKCU Uninstall entries). Linux/macOS builds pull this in

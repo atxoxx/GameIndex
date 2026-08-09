@@ -97,11 +97,113 @@ jobs:
       # tauri-action uploads the NSIS installer (+ updater artifacts) only -
       # the MSI is excluded via bundle.targets: ["nsis"] in tauri.conf.json.
       # "portable" is not a valid Tauri bundle target, so the portable exe is a
-      # plain copy of the release binary.
-      - name: upload portable executable
+      # plain copy of the release binary. It is copied first, then signed, and
+      # finally uploaded together with the corrected latest.json so that the
+      # NSIS setup AND the portable exe both get updater support.
+      - name: prepare portable executable
         run: |
           $version = node -p "require('./package.json').version"
           Copy-Item src-tauri/target/release/GameIndex.exe "GameIndex_${version}_x64_portable.exe"
+
+      # Sign the portable exe with the same key used for the NSIS updater
+      # artifacts (same env var names as the tauri-action step above). The
+      # updater rejects unsigned portable builds. The CLI writes <file>.sig
+      # next to the exe; that signature is embedded into latest.json below.
+      # NOTE: `tauri signer sign` takes the file as a POSITIONAL argument in
+      # the CLI version pinned by package-lock.json (2.x); --file is not valid.
+      - name: sign portable executable
+        shell: pwsh
+        run: |
+          $version = node -p "require('./package.json').version"
+          $portable = "GameIndex_${version}_x64_portable.exe"
+          npx tauri signer sign $portable
+        env:
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+
+      # The updater resolves an installed NSIS build by windows-x86_64-nsis
+      # (fallback windows-x86_64) but a portable build by windows-x86_64 only.
+      # tauri-action's latest.json points windows-x86_64 at the setup exe, so
+      # rewrite it to the signed portable exe and keep windows-x86_64-nsis ->
+      # setup exe (tauri-action's entry is already correct; only create it if
+      # missing).
+      - name: rewrite latest.json for portable updater support
+        shell: pwsh
+        run: |
+          $version = node -p "require('./package.json').version"
+          $tag = "${{ github.ref_name }}"
+          $repo = "${{ github.repository }}"
+          $portable = "GameIndex_${version}_x64_portable.exe"
+
+          # Locate the NSIS setup exe (and its .sig) robustly instead of
+          # hardcoding the filename pattern.
+          $setupExe = Get-ChildItem "src-tauri/target/release/bundle/nsis" -Filter "*.exe" -ErrorAction SilentlyContinue |
+            Where-Object { $_.Name -like "*-setup.exe" } | Select-Object -First 1
+          if (-not $setupExe) {
+            $setupExe = Get-ChildItem "src-tauri/target/release/bundle/nsis" -Filter "*.exe" -ErrorAction SilentlyContinue |
+              Select-Object -First 1
+          }
+          if (-not $setupExe) { throw "NSIS setup exe not found under src-tauri/target/release/bundle/nsis" }
+          $setup = $setupExe.Name
+
+          # Signature files are named <artifact>.sig next to the artifact.
+          $setupSigFile = "$($setupExe.FullName).sig"
+          if (-not (Test-Path -LiteralPath $setupSigFile)) {
+            $candidate = Get-ChildItem "src-tauri/target/release" -Recurse -Filter "$setup.sig" -ErrorAction SilentlyContinue |
+              Select-Object -First 1
+            if (-not $candidate) {
+              $candidate = Get-ChildItem "src-tauri/target/release" -Recurse -Filter "$($setupExe.BaseName).sig" -ErrorAction SilentlyContinue |
+                Select-Object -First 1
+            }
+            if (-not $candidate) { throw "Signature file for $setup not found" }
+            $setupSigFile = $candidate.FullName
+          }
+
+          $portableSigFile = "${portable}.sig"
+          if (-not (Test-Path -LiteralPath $portableSigFile)) {
+            $candidate = Get-ChildItem . -Filter "${portable}*.sig" -ErrorAction SilentlyContinue | Select-Object -First 1
+            if (-not $candidate) { throw "Signature file for $portable not found" }
+            $portableSigFile = $candidate.Name
+          }
+
+          # Pull the tauri-action generated manifest off the draft release.
+          $headers = @{ Authorization = "token $env:GH_TOKEN" }
+          $release = Invoke-RestMethod -Headers $headers "https://api.github.com/repos/$repo/releases/tags/$tag"
+          $asset = $release.assets | Where-Object { $_.name -eq "latest.json" }
+          if (-not $asset) { throw "latest.json asset not found on release $tag" }
+          $json = Invoke-RestMethod -Headers $headers $asset.browser_download_url
+          if (-not $json.platforms) { throw "Unexpected latest.json structure - no platforms map" }
+
+          $base = "https://github.com/$repo/releases/download/$tag"
+
+          # The .sig files written by the tauri CLI contain the base64 signature
+          # string itself (the same string it prints as "Public signature") -
+          # embed it verbatim. Re-encoding it would double-encode and break
+          # the updater's base64-decode -> minisign Signature::decode chain.
+          $portableSig = (Get-Content -Raw $portableSigFile).Trim()
+
+          # windows-x86_64 (what a portable build resolves) -> portable exe.
+          # Add-Member -Force overwrites an existing entry (or creates it).
+          $json.platforms | Add-Member -MemberType NoteProperty -Name 'windows-x86_64' -Value @{ url = "$base/$portable"; signature = $portableSig } -Force
+
+          # windows-x86_64-nsis -> setup exe. tauri-action should already have
+          # written a correct entry; only create it if missing.
+          if (-not $json.platforms.'windows-x86_64-nsis') {
+            $setupSig = (Get-Content -Raw $setupSigFile).Trim()
+            $json.platforms | Add-Member -MemberType NoteProperty -Name 'windows-x86_64-nsis' -Value @{ url = "$base/$setup"; signature = $setupSig } -Force
+          }
+
+          # UTF-8 WITHOUT BOM - a BOM prefix would break the updater's JSON parse.
+          $jsonText = $json | ConvertTo-Json -Depth 10
+          [System.IO.File]::WriteAllText((Join-Path (Get-Location) "latest.json"), $jsonText, [System.Text.UTF8Encoding]::new($false))
+
+          gh release upload $tag latest.json --clobber
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: upload portable executable
+        run: |
+          $version = node -p "require('./package.json').version"
           gh release upload "${{ github.ref_name }}" "GameIndex_${version}_x64_portable.exe" --clobber
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}

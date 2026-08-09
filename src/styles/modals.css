@@ -369,3 +369,43 @@
   text-decoration: underline;
 }
 
+/* ==============================
+   Update Modal — Software Update dialog
+   ============================== */
+
+/* Body spacing for the compact update dialog (states: available /
+   downloading / ready / restarting / error). */
+.update-modal .modal-body {
+  padding: var(--space-lg) var(--space-xl);
+}
+
+/* Restarting state: soft pulsing icon tile (accent-tinted, mirrors the
+   modal header icon treatment). */
+.update-restarting-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  border-radius: var(--radius-lg);
+  background: rgba(99, 102, 241, 0.15);
+  color: var(--accent-primary, #6366f1);
+  animation: update-pulse 1.8s var(--ease-standard) infinite;
+}
+
+.update-restarting-icon svg {
+  width: 22px;
+  height: 22px;
+}
+
+@keyframes update-pulse {
+  0%, 100% { opacity: 0.55; transform: scale(0.96); }
+  50%      { opacity: 1;    transform: scale(1.04); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .update-restarting-icon {
+    animation: none;
+  }
+}
+
