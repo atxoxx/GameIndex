@@ -20,6 +20,8 @@ jobs:
     runs-on: ${{ matrix.platform }}
     steps:
       - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
 
       - name: setup node
         uses: actions/setup-node@v5
@@ -32,6 +34,35 @@ jobs:
       - name: install frontend dependencies
         run: npm ci
 
+      - name: generate release changelog
+        id: changelog
+        shell: pwsh
+        run: |
+          git fetch --tags --force
+          $repo = "${{ github.repository }}"
+          $currentTag = "${{ github.ref_name }}"
+          
+          # Find previous tag (matching v*)
+          $prevTag = (git tag --sort=-v:refname | Where-Object { $_ -ne $currentTag -and $_ -match '^v\d+' } | Select-Object -First 1)
+          
+          $body = "## What's Changed`n`n"
+          if ($prevTag) {
+            Write-Host "Generating commits between $prevTag and HEAD"
+            $logs = git log "$prevTag..HEAD" --no-merges "--format=* %s ([%h](https://github.com/$repo/commit/%H))"
+            if ($logs) {
+              $body += ($logs -join "`n")
+            } else {
+              $body += "No new commits since $prevTag."
+            }
+          } else {
+            Write-Host "No previous tag found, listing recent commits"
+            $logs = git log -n 50 --no-merges "--format=* %s ([%h](https://github.com/$repo/commit/%H))"
+            $body += ($logs -join "`n")
+          }
+          
+          $body += "`n`n---\n*See assets below to download GameIndex.*"
+          $body | Out-File -FilePath release_notes.md -Encoding utf8
+
       - name: build and publish tauri app
         uses: tauri-apps/tauri-action@v0
         env:
@@ -42,35 +73,42 @@ jobs:
           tagName: v__VERSION__ # tauri-action automatically replaces __VERSION__ with the package version
           releaseName: "GameIndex v__VERSION__"
           releaseBody: "See the assets below to download GameIndex."
-          generateReleaseNotes: true
+          generateReleaseNotes: false
           releaseDraft: true
           prerelease: false
           # Do not attach the .sig signature files to the release - they only
           # clutter the asset list. latest.json still embeds the signatures, so
-          # the updater keeps working (tauri-action reads the .sig files
-          # locally; the updater client never downloads them from the release).
+          # the updater keeps working.
           uploadUpdaterSignatures: false
+
+      # Explicitly clean up any .sig signature asset files from the GitHub draft release.
+      # latest.json still embeds the signature inline, so auto-updates work without standalone .sig files.
+      - name: remove .sig files from release assets
+        shell: pwsh
+        run: |
+          $sigAssets = (gh release view "${{ github.ref_name }}" --json assets -q '.assets[].name') | Where-Object { $_ -like "*.sig" }
+          foreach ($asset in $sigAssets) {
+            Write-Host "Deleting .sig asset: $asset"
+            gh release delete-asset "${{ github.ref_name }}" $asset --yes
+          }
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       # tauri-action uploads the NSIS installer (+ updater artifacts) only -
       # the MSI is excluded via bundle.targets: ["nsis"] in tauri.conf.json.
       # "portable" is not a valid Tauri bundle target, so the portable exe is a
-      # plain copy of the release binary. It is updater-signed here with the
-      # same key (the .sig is kept local, never uploaded) and named with the
-      # same version as the installer (GameIndex_<version>_x64-setup.exe).
+      # plain copy of the release binary.
       - name: upload portable executable
         run: |
           $version = node -p "require('./package.json').version"
           Copy-Item src-tauri/target/release/GameIndex.exe "GameIndex_${version}_x64_portable.exe"
-          npm run tauri signer sign -- "GameIndex_${version}_x64_portable.exe"
           gh release upload "${{ github.ref_name }}" "GameIndex_${version}_x64_portable.exe" --clobber
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
-          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
 
       # All assets are uploaded above while the release is still a draft;
-      # publish it only now so the release never goes live half-assembled.
+      # publish it with the generated changelog (including commit links).
       - name: publish release
-        run: gh release edit "${{ github.ref_name }}" --draft=false
+        run: gh release edit "${{ github.ref_name }}" --notes-file release_notes.md --draft=false
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
