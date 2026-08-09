@@ -21,7 +21,7 @@ export function PerformanceTimeline({
   tempUnit: TempUnit;
   totalRamGb: number;
 }) {
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
   const [selectedGameFilter, setSelectedGameFilter] = useState<string>("all");
   const [selectedSessionId, setSelectedSessionId] = useState<string>("all");
 
@@ -110,7 +110,7 @@ export function PerformanceTimeline({
                   <option value="all">{t("activityPerf.allSessionsAvg")}</option>
                   {sessionsForSelectedGame.map((s) => (
                     <option key={s.id} value={s.id}>
-                      {new Date(s.date).toLocaleDateString(undefined, {
+                      {new Date(s.date).toLocaleDateString(language, {
                         month: "short",
                         day: "numeric",
                         hour: "2-digit",

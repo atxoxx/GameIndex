@@ -72,7 +72,7 @@ export function GameActivityTab({ game }: { game: Game }) {
   // a sibling component to GameDetail, so its own useToast() (rather
   // than the one inside GameDetail) is in scope here.
   const { showToast } = useToast();
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
   const sessions = useMemo(() => getGameSessions(game.id), [game.id, getGameSessions]);
 
   const [viewMode, setViewMode] = useState<ViewMode>("playtime");
@@ -274,7 +274,10 @@ export function GameActivityTab({ game }: { game: Game }) {
     }
 
     // Most active day
-    const dayNames = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+    // Short weekday names in the active UI language (2026-01-04 is a Sunday).
+    const dayNames = Array.from({ length: 7 }, (_, i) =>
+      new Date(2026, 0, 4 + i).toLocaleDateString(language, { weekday: "short" }),
+    );
     const dayTotals = [0, 0, 0, 0, 0, 0, 0];
     filteredSessions.forEach((s) => {
       const d = new Date(s.date).getDay();
@@ -321,10 +324,10 @@ export function GameActivityTab({ game }: { game: Game }) {
     // First and last play dates
     const sortedChronological = [...filteredSessions].sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
     const firstPlayed = sortedChronological.length > 0
-      ? new Date(sortedChronological[0].date).toLocaleDateString("en-US", { day: "numeric", month: "short", year: "numeric" })
+      ? new Date(sortedChronological[0].date).toLocaleDateString(language, { day: "numeric", month: "short", year: "numeric" })
       : "—";
     const lastPlayed = sortedChronological.length > 0
-      ? new Date(sortedChronological[sortedChronological.length - 1].date).toLocaleDateString("en-US", { day: "numeric", month: "short", year: "numeric" })
+      ? new Date(sortedChronological[sortedChronological.length - 1].date).toLocaleDateString(language, { day: "numeric", month: "short", year: "numeric" })
       : "—";
 
     return {
@@ -340,7 +343,7 @@ export function GameActivityTab({ game }: { game: Game }) {
       firstPlayed,
       lastPlayed,
     };
-  }, [filteredSessions, timeframe]);
+  }, [filteredSessions, timeframe, language]);
 
   // Grouped playtime data for aggregation tabs (AGG_DAY, AGG_WEEK, AGG_MONTH)
   const playtimeChartData = useMemo(() => {
@@ -367,7 +370,7 @@ export function GameActivityTab({ game }: { game: Game }) {
         data: entries.map((e) => e[1]),
         labels: entries.map((e) => {
           const d = new Date(e[0]);
-          return d.toLocaleDateString("en-US", { month: "numeric", day: "numeric" });
+          return d.toLocaleDateString(language, { month: "numeric", day: "numeric" });
         }),
       };
     } else if (playtimeAgg === "AGG_WEEK") {
@@ -407,7 +410,7 @@ export function GameActivityTab({ game }: { game: Game }) {
         data: entries.map((e) => e[1]),
         labels: entries.map((e) => {
           const d = new Date(e[0]);
-          return "Wk " + d.toLocaleDateString("en-US", { month: "numeric", day: "numeric" });
+          return t("gameActivity.weekShort") + " " + d.toLocaleDateString(language, { month: "numeric", day: "numeric" });
         }),
       };
     } else {
@@ -431,11 +434,11 @@ export function GameActivityTab({ game }: { game: Game }) {
         data: entries.map((e) => e[1]),
         labels: entries.map((e) => {
           const d = new Date(e[0] + "-01");
-          return d.toLocaleDateString("en-US", { month: "short" });
+          return d.toLocaleDateString(language, { month: "short" });
         }),
       };
     }
-  }, [filteredSessions, timeframe, playtimeAgg]);
+  }, [filteredSessions, timeframe, playtimeAgg, language, t]);
 
   // Filter hardware sessions (those containing non-zero telemetry).
   // Note: FPS-sanitized sessions whose avgFps collapsed to 0 are kept here
@@ -817,16 +820,16 @@ export function GameActivityTab({ game }: { game: Game }) {
                 const isSelected = isolatedSessionIndex === hwIndex && hwIndex !== -1;
                 const hasHw = hwIndex !== -1;
 
-                const formattedDate = new Date(session.date).toLocaleDateString("en-US", {
+                const formattedDate = new Date(session.date).toLocaleDateString(language, {
                   weekday: "short",
                   day: "numeric",
                   month: "short",
                 });
-                const startTimeStr = new Date(session.date).toLocaleTimeString("en-US", {
+                const startTimeStr = new Date(session.date).toLocaleTimeString(language, {
                   hour: "2-digit",
                   minute: "2-digit",
                 });
-                const endTimeStr = new Date(new Date(session.date).getTime() + session.durationMin * 60000).toLocaleTimeString("en-US", {
+                const endTimeStr = new Date(new Date(session.date).getTime() + session.durationMin * 60000).toLocaleTimeString(language, {
                   hour: "2-digit",
                   minute: "2-digit",
                 });
@@ -958,7 +961,7 @@ export function GameActivityTab({ game }: { game: Game }) {
 
               {/* Heatmap Panel */}
               <div className="game-activity-panel">
-                <WeeklyHeatmap sessions={filteredSessions} timeframeDays={timeframe === "7d" ? 7 : timeframe === "30d" ? 30 : timeframe === "90d" ? 90 : 365} t={t} />
+                <WeeklyHeatmap sessions={filteredSessions} timeframeDays={timeframe === "7d" ? 7 : timeframe === "30d" ? 30 : timeframe === "90d" ? 90 : 365} t={t} language={language} />
               </div>
             </>
           ) : (
@@ -998,7 +1001,7 @@ export function GameActivityTab({ game }: { game: Game }) {
                             <option value="all">{t("activityPerf.allSessionsAvg")}</option>
                             {sessionsWithHw.map((s, i) => (
                               <option key={s.id} value={String(i)}>
-                                {new Date(s.date).toLocaleDateString("en-US", { day: "numeric", month: "short" })} - {formatPlayTime(s.durationMin)}
+                                {new Date(s.date).toLocaleDateString(language, { day: "numeric", month: "short" })} - {formatPlayTime(s.durationMin)}
                               </option>
                             ))}
                           </select>
@@ -1195,7 +1198,7 @@ function ChartSection({ title, children }: { title: string; children: React.Reac
 }
 
 // ─── Heatmap Subcomponent ─────────────────────────────────────────────────────
-function WeeklyHeatmap({ sessions, timeframeDays = 365, t }: { sessions: GameSession[]; timeframeDays?: number; t: (key: string, vars?: Record<string, unknown>) => string }) {
+function WeeklyHeatmap({ sessions, timeframeDays = 365, t, language }: { sessions: GameSession[]; timeframeDays?: number; t: (key: string, vars?: Record<string, unknown>) => string; language: string }) {
   // Cell geometry must mirror the `.weekly-heatmap-grid` CSS
   // (grid-template-rows: repeat(7, 12px); gap: 3px) so the month
   // label strip lines up with the day columns below it.
@@ -1258,13 +1261,13 @@ function WeeklyHeatmap({ sessions, timeframeDays = 365, t }: { sessions: GameSes
         const col = Math.floor((padCount + i) / 7);
         list.push({
           left: col * (CELL + GAP),
-          label: new Date(c.date + "T00:00:00").toLocaleDateString("en-US", { month: "short" }),
+          label: new Date(c.date + "T00:00:00").toLocaleDateString(language, { month: "short" }),
         });
         prevMonth = monthKey;
       }
     });
     return list;
-  }, [cells, paddedCells]);
+  }, [cells, paddedCells, language]);
 
   const getIntensityClass = (minutes: number) => {
     if (minutes <= 0) return "weekly-heatmap-cell-empty";
@@ -1313,7 +1316,7 @@ function WeeklyHeatmap({ sessions, timeframeDays = 365, t }: { sessions: GameSes
                 <div
                   key={cell.date}
                   className={`weekly-heatmap-cell ${getIntensityClass(cell.duration)}`}
-                  title={`${new Date(cell.date).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })} : ${formatPlayTime(cell.duration)}`}
+                  title={`${new Date(cell.date).toLocaleDateString(language, { month: "short", day: "numeric", year: "numeric" })} : ${formatPlayTime(cell.duration)}`}
                 />
               );
             })}

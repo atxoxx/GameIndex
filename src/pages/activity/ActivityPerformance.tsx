@@ -63,8 +63,8 @@ export function ActivityPerformance({
   }, [sessions, startDate, endDate, games, sourceFilter]);
 
   const gameAverages = useMemo(
-    () => buildGameAverages(filteredSessions, games),
-    [filteredSessions, games]
+    () => buildGameAverages(filteredSessions, games, t("activityDash.unknownGame")),
+    [filteredSessions, games, t]
   );
 
   const overview = useMemo(

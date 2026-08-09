@@ -29,7 +29,7 @@ export function ActivityDashboard({
   chartType,
   sourceFilter,
 }: ActivityDashboardProps) {
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
   const [selectedGameId, setSelectedGameId] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
 
@@ -65,7 +65,7 @@ export function ActivityDashboard({
         const game = games.find((g) => g.id === gameId);
         return {
           id: gameId,
-          title: game?.name || "Unknown Game",
+          title: game?.name || t("activityDash.unknownGame"),
           platform: game?.platform || "Local",
           iconUrl: game?.iconUrl || null,
           coverArtUrl: game?.coverArtUrl || null,
@@ -74,7 +74,7 @@ export function ActivityDashboard({
         };
       })
       .sort((a, b) => b.minutes - a.minutes);
-  }, [filteredSessions, games]);
+  }, [filteredSessions, games, t]);
 
   // Filter sidebar list by search query
   const filteredSidebarGames = useMemo(() => {
@@ -219,7 +219,8 @@ export function ActivityDashboard({
           genreMap.set(genre, (genreMap.get(genre) || 0) + s.durationMin);
         });
       } else {
-        genreMap.set("Unknown", (genreMap.get("Unknown") || 0) + s.durationMin);
+        const unknownLabel = t("splash.unknown");
+        genreMap.set(unknownLabel, (genreMap.get(unknownLabel) || 0) + s.durationMin);
       }
     });
 
@@ -231,7 +232,7 @@ export function ActivityDashboard({
       }))
       .sort((a, b) => b.value - a.value)
       .slice(0, 6);
-  }, [gameIsolatedSessions, games]);
+  }, [gameIsolatedSessions, games, t]);
 
   // 7. Playtime Chart Data (aggregated by day, week, or month)
   const chartPoints = useMemo(() => {
@@ -296,7 +297,7 @@ export function ActivityDashboard({
         const mKey = `${cursorMonth.getFullYear()}-${String(cursorMonth.getMonth() + 1).padStart(2, "0")}`;
         const mins = monthlyMap.get(mKey) ?? 0;
         points.push({
-          label: cursorMonth.toLocaleDateString(undefined, { month: "short", year: "2-digit" }),
+          label: cursorMonth.toLocaleDateString(language, { month: "short", year: "2-digit" }),
           date: mKey,
           value: Math.round((mins / 60) * 10) / 10,
         });
@@ -305,7 +306,7 @@ export function ActivityDashboard({
     }
 
     return points;
-  }, [gameIsolatedSessions, aggregation, startDate, endDate]);
+  }, [gameIsolatedSessions, aggregation, startDate, endDate, language]);
 
   const chartData = useMemo(() => chartPoints.map((p) => p.value), [chartPoints]);
   const chartLabels = useMemo(() => chartPoints.map((p) => p.label), [chartPoints]);

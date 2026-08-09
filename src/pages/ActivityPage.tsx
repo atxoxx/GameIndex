@@ -82,20 +82,20 @@ export default function ActivityPage() {
     }
 
     const headers = [
-      "Session ID",
-      "Game Name",
-      "Game ID",
-      "Date Played",
-      "Duration (Minutes)",
-      "Platform",
-      "Avg FPS",
-      "Min FPS",
-      "Max FPS",
-      "Avg CPU Usage (%)",
-      "Avg GPU Usage (%)",
-      "Avg RAM Usage (%)",
-      "Avg CPU Temp (" + tempUnitLabel(tempUnit) + ")",
-      "Avg GPU Temp (" + tempUnitLabel(tempUnit) + ")",
+      t("activityCsv.sessionId"),
+      t("activityCsv.gameName"),
+      t("activityCsv.gameId"),
+      t("activityCsv.datePlayed"),
+      t("activityCsv.durationMinutes"),
+      t("activityCsv.platform"),
+      t("activityCsv.avgFps"),
+      t("activityCsv.minFps"),
+      t("activityCsv.maxFps"),
+      t("activityCsv.avgCpuUsage"),
+      t("activityCsv.avgGpuUsage"),
+      t("activityCsv.avgRamUsage"),
+      t("activityCsv.avgCpuTemp", { unit: tempUnitLabel(tempUnit) }),
+      t("activityCsv.avgGpuTemp", { unit: tempUnitLabel(tempUnit) }),
     ];
 
     const rows = sessions.map((s) => {
@@ -211,7 +211,7 @@ export default function ActivityPage() {
       const filePath = await save({
         title: t("activity.saveScreenshot"),
         defaultPath: `gamelib_activity_screenshot_${new Date().toISOString().slice(0, 10)}.png`,
-        filters: [{ name: "PNG Image", extensions: ["png"] }],
+        filters: [{ name: t("activity.pngImage"), extensions: ["png"] }],
       });
 
       if (!filePath) return;

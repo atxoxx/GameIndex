@@ -111,7 +111,8 @@ interface GameAgg {
  */
 export function buildGameAverages(
   sessions: GameSession[],
-  games: Game[]
+  games: Game[],
+  unknownTitle = "Unknown Game",
 ): GamePerfAvg[] {
   const gameById = new Map(games.map((g) => [g.id, g]));
   const map = new Map<string, GameAgg>();
@@ -164,7 +165,7 @@ export function buildGameAverages(
     return {
       gameId,
       game,
-      gameTitle: game?.name || "Unknown Game",
+      gameTitle: game?.name || unknownTitle,
       gameIconUrl: game?.iconUrl || null,
       coverArtUrl: game?.coverArtUrl || null,
       steamAppId: game?.steamAppId ?? null,

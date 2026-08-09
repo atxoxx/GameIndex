@@ -99,8 +99,8 @@ function ymd(d: Date): string {
   ).padStart(2, "0")}`;
 }
 
-function formatDateLabel(date: Date): string {
-  return date.toLocaleDateString(undefined, {
+function formatDateLabel(date: Date, language: string): string {
+  return date.toLocaleDateString(language, {
     weekday: "short",
     month: "short",
     day: "numeric",
@@ -166,7 +166,7 @@ export function ActivityGantt({
 }: ActivityGanttProps) {
   const { showToast } = useToast();
   const { getNote, setTags, setNote } = useSessionNotes();
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
   const ganttRef = useRef<HTMLDivElement>(null);
 
   const [highlightGame, setHighlightGame] = useState<string | null>(null);
@@ -258,7 +258,7 @@ export function ActivityGantt({
 
         if (!segmentsByDay.has(key)) {
           segmentsByDay.set(key, []);
-          dayMeta.set(key, { sortKey: dayStartMs, label: formatDateLabel(dayStart) });
+          dayMeta.set(key, { sortKey: dayStartMs, label: formatDateLabel(dayStart, language) });
         }
         segmentsByDay.get(key)!.push(seg);
       }
@@ -281,7 +281,7 @@ export function ActivityGantt({
       const totalMin = segs.reduce((a, s) => a + (s.endMin - s.startMin), 0);
       const meta = dayMeta.get(key);
       const sortKey = meta ? meta.sortKey : new Date(key + "T00:00:00").getTime();
-      const label = meta ? meta.label : formatDateLabel(new Date(sortKey));
+      const label = meta ? meta.label : formatDateLabel(new Date(sortKey), language);
       return {
         key,
         label,
@@ -320,7 +320,7 @@ export function ActivityGantt({
       sampled: true,
       totalDayCount: segmentsByDay.size,
     };
-  }, [filtered, startDate, endDate]);
+  }, [filtered, startDate, endDate, language]);
 
   // ── 3b. Time-of-day play-pattern heatmap data ────────────────────────
   const hourBuckets = useMemo(() => getHourBuckets(filtered), [filtered]);
@@ -393,7 +393,7 @@ export function ActivityGantt({
       const filePath = await save({
         title: t("activityGantt.saveTimeline"),
         defaultPath: `gameindex_timeline_${new Date().toISOString().slice(0, 10)}.png`,
-        filters: [{ name: "PNG Image", extensions: ["png"] }],
+        filters: [{ name: t("activity.pngImage"), extensions: ["png"] }],
       });
       if (!filePath) return;
       await invoke("save_screenshot", { filePath, base64Data: dataUrl });
@@ -651,11 +651,11 @@ export function ActivityGantt({
                   const top = ROW_PAD + seg.lane * LANE_STEP;
                   const isDim = highlightGame !== null && highlightGame !== seg.gameId;
 
-                  const timeStr = seg.absoluteStart.toLocaleTimeString(undefined, {
+                  const timeStr = seg.absoluteStart.toLocaleTimeString(language, {
                     hour: "2-digit",
                     minute: "2-digit",
                   });
-                  const endStr = seg.absoluteEnd.toLocaleTimeString(undefined, {
+                  const endStr = seg.absoluteEnd.toLocaleTimeString(language, {
                     hour: "2-digit",
                     minute: "2-digit",
                   });
@@ -745,12 +745,12 @@ export function ActivityGantt({
             {hover.seg.isContinuation ? ` ${t("activityGantt.contSuffix")}` : ""}
           </span>
           <span className="activity-gantt__tooltip-time">
-            {hover.seg.absoluteStart.toLocaleTimeString(undefined, {
+            {hover.seg.absoluteStart.toLocaleTimeString(language, {
               hour: "2-digit",
               minute: "2-digit",
             })}{" "}
             –{" "}
-            {hover.seg.absoluteEnd.toLocaleTimeString(undefined, {
+            {hover.seg.absoluteEnd.toLocaleTimeString(language, {
               hour: "2-digit",
               minute: "2-digit",
             })}
@@ -828,7 +828,7 @@ export function ActivityGantt({
                   {selected.gameName}
                 </h2>
                 <p className="modal-subtitle">
-                  {selected.absoluteStart.toLocaleDateString(undefined, {
+                  {selected.absoluteStart.toLocaleDateString(language, {
                     weekday: "long",
                     year: "numeric",
                     month: "short",
@@ -851,12 +851,12 @@ export function ActivityGantt({
                 <div>
                   <span className="activity-gantt__detail-k">{t("activityGantt.time")}</span>
                   <span className="activity-gantt__detail-v">
-                    {selected.absoluteStart.toLocaleTimeString(undefined, {
+                    {selected.absoluteStart.toLocaleTimeString(language, {
                       hour: "2-digit",
                       minute: "2-digit",
                     })}{" "}
                     –{" "}
-                    {selected.absoluteEnd.toLocaleTimeString(undefined, {
+                    {selected.absoluteEnd.toLocaleTimeString(language, {
                       hour: "2-digit",
                       minute: "2-digit",
                     })}

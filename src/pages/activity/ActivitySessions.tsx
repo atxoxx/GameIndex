@@ -63,7 +63,7 @@ function ActivitySessionItem({ session, game, onDelete }: SessionItemProps) {
   const [activeChartTab, setActiveChartTab] = useState<"usage" | "temps" | "ram" | "fps">("usage");
   const { tempUnit } = useSettings();
   const { totalRamGb } = useActivity();
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
 
   // Resolve the Steam appid for this session's game. The hook also
   // persists successful lookups back onto the library row via
@@ -79,20 +79,20 @@ function ActivitySessionItem({ session, game, onDelete }: SessionItemProps) {
 
   const formattedDate = useMemo(() => {
     const d = new Date(session.date);
-    return d.toLocaleDateString(undefined, {
+    return d.toLocaleDateString(language, {
       weekday: "short",
       month: "short",
       day: "numeric",
       year: "numeric",
     });
-  }, [session.date]);
+  }, [session.date, language]);
 
   const formattedTime = useMemo(() => {
     const d = new Date(session.date);
     const start = new Date(d.getTime() - durationMs);
-    const fmt = (date: Date) => date.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+    const fmt = (date: Date) => date.toLocaleTimeString(language, { hour: "2-digit", minute: "2-digit" });
     return `${fmt(start)} - ${fmt(d)}`;
-  }, [session.date, durationMs]);
+  }, [session.date, durationMs, language]);
 
   const formattedDuration = useMemo(() => {
     const h = Math.floor(session.durationMin / 60);
@@ -355,7 +355,7 @@ function ActivitySessionItem({ session, game, onDelete }: SessionItemProps) {
                           }`}
                           onClick={() => setActiveChartTab(tab)}
                         >
-                          {tab.toUpperCase()}
+                          {t(`activitySessions.tab${tab.charAt(0).toUpperCase()}${tab.slice(1)}`)}
                         </button>
                       ))}
                     </div>
