@@ -93,8 +93,8 @@ export function ActivityDashboard({
 
   // 4. Compute Overview Stat Cards
   const stats = useMemo(() => {
-    const totalMin = gameIsolatedSessions.reduce((sum, s) => sum + s.durationMin, 0);
-    const totalHoursStr = totalMin >= 60 ? `${Math.floor(totalMin / 60)}h ${totalMin % 60}m` : `${totalMin}m`;
+    const totalMin = Math.round(gameIsolatedSessions.reduce((sum, s) => sum + s.durationMin, 0));
+    const totalHoursStr = formatPlayTime(totalMin);
 
     const gamesPlayedCount = new Set(gameIsolatedSessions.map((s) => s.gameId)).size;
     const totalSessCount = gameIsolatedSessions.length;
@@ -114,7 +114,7 @@ export function ActivityDashboard({
       }
     }
     const avgPerDayMin = Math.round(totalMin / numDays);
-    const avgPerDayStr = avgPerDayMin >= 60 ? `${Math.floor(avgPerDayMin / 60)}h ${avgPerDayMin % 60}m` : `${avgPerDayMin}m`;
+    const avgPerDayStr = formatPlayTime(avgPerDayMin);
 
     // Longest Streak (consecutive days played)
     const dates = new Set(sessions.map((s) => s.date.slice(0, 10)));

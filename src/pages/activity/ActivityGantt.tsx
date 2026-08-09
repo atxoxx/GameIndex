@@ -107,19 +107,30 @@ function formatDateLabel(date: Date, language: string): string {
   });
 }
 
-function getHourBuckets(sessions: GameSession[]): { hour: number; mins: number }[] {
+function getHourBuckets(
+  sessions: GameSession[],
+  startDate?: string,
+  endDate?: string
+): { hour: number; mins: number }[] {
   const counts = new Array(24).fill(0);
+  const rangeStart = startDate ? new Date(startDate + "T00:00:00").getTime() : 0;
+  const rangeEnd = endDate ? new Date(endDate + "T23:59:59.999").getTime() : Infinity;
+
   for (const s of sessions) {
     const end = new Date(s.date).getTime();
     const start = end - s.durationMin * MINUTE;
-    let cursor = start;
-    while (cursor < end) {
+    const effectiveStart = Math.max(start, rangeStart);
+    const effectiveEnd = Math.min(end, rangeEnd);
+    if (effectiveEnd <= effectiveStart) continue;
+
+    let cursor = effectiveStart;
+    while (cursor < effectiveEnd) {
       const d = new Date(cursor);
       const hour = d.getHours();
       const hourStart = new Date(d);
       hourStart.setHours(hour, 0, 0, 0);
       const hourEnd = hourStart.getTime() + 60 * MINUTE;
-      const overlap = Math.max(0, Math.min(end, hourEnd) - Math.max(cursor, hourStart.getTime()));
+      const overlap = Math.max(0, Math.min(effectiveEnd, hourEnd) - Math.max(cursor, hourStart.getTime()));
       if (overlap > 0) {
         counts[hour] += overlap / MINUTE;
       }
@@ -127,7 +138,7 @@ function getHourBuckets(sessions: GameSession[]): { hour: number; mins: number }
       if (cursor <= hourStart.getTime()) break;
     }
   }
-  return counts.map((mins, hour) => ({ hour, mins }));
+  return counts.map((mins, hour) => ({ hour, mins: Math.round(mins) }));
 }
 
 function getHeatmapIntensity(mins: number): string {
@@ -198,8 +209,7 @@ export function ActivityGantt({
     return sessions.filter((s) => {
       const endTime = new Date(s.date).getTime();
       const startTime = endTime - s.durationMin * MINUTE;
-      if (startTime < rangeStart) return false;
-      if (endTime > rangeEnd + DAY_MS) return false;
+      if (endTime < rangeStart || startTime > rangeEnd) return false;
       if (sourceFilter !== "all") {
         const plat = gameById.get(s.gameId)?.platform;
         if (plat !== sourceFilter) return false;
@@ -278,7 +288,7 @@ export function ActivityGantt({
         s.lane = lane;
       }
       const maxLane = Math.max(1, laneEnds.length);
-      const totalMin = segs.reduce((a, s) => a + (s.endMin - s.startMin), 0);
+      const totalMin = Math.round(segs.reduce((a, s) => a + (s.endMin - s.startMin), 0));
       const meta = dayMeta.get(key);
       const sortKey = meta ? meta.sortKey : new Date(key + "T00:00:00").getTime();
       const label = meta ? meta.label : formatDateLabel(new Date(sortKey), language);
@@ -323,7 +333,10 @@ export function ActivityGantt({
   }, [filtered, startDate, endDate, language]);
 
   // ── 3b. Time-of-day play-pattern heatmap data ────────────────────────
-  const hourBuckets = useMemo(() => getHourBuckets(filtered), [filtered]);
+  const hourBuckets = useMemo(
+    () => getHourBuckets(filtered, startDate, endDate),
+    [filtered, startDate, endDate]
+  );
   const maxHourMins = useMemo(
     () => Math.max(1, ...hourBuckets.map((h) => h.mins)),
     [hourBuckets]
@@ -337,7 +350,9 @@ export function ActivityGantt({
         totals.set(s.gameId, (totals.get(s.gameId) || 0) + (s.endMin - s.startMin));
       }
     }
-    const ranked = Array.from(totals.entries()).sort((a, b) => b[1] - a[1]);
+    const ranked = Array.from(totals.entries())
+      .map(([id, mins]) => [id, Math.round(mins)] as [string, number])
+      .sort((a, b) => b[1] - a[1]);
     const map = new Map<string, string>();
     ranked.forEach(([id], i) => {
       map.set(id, PALETTE[i % PALETTE.length]);
@@ -355,7 +370,7 @@ export function ActivityGantt({
   );
 
   const totalPlayedMinutes = useMemo(
-    () => buckets.reduce((sum, b) => sum + b.totalMin, 0),
+    () => Math.round(buckets.reduce((sum, b) => sum + b.totalMin, 0)),
     [buckets],
   );
 

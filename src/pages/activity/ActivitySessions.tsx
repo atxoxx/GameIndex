@@ -9,6 +9,7 @@ import { useActivity } from "../../context/ActivityContext";
 import { buildSingleSessionSeries } from "../../utils/perfSamples";
 import { formatTemp, toDisplayTemp, toDisplayTemps, tempUnitLabel, tempThreshold, tempMinY, tempMaxY } from "../../utils/temp";
 import { useLanguage } from "../../context/LanguageContext";
+import { formatPlayTime } from "../../types/game";
 import * as Icons from "./Icons";
 
 export interface ActivitySessionsProps {
@@ -95,10 +96,7 @@ function ActivitySessionItem({ session, game, onDelete }: SessionItemProps) {
   }, [session.date, durationMs, language]);
 
   const formattedDuration = useMemo(() => {
-    const h = Math.floor(session.durationMin / 60);
-    const m = session.durationMin % 60;
-    if (h > 0) return `${h}h ${m}m`;
-    return `${m}m`;
+    return formatPlayTime(session.durationMin);
   }, [session.durationMin]);
 
   // Build real hardware sample logs for chart overlays. Prefer the

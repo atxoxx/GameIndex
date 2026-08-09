@@ -1354,9 +1354,11 @@ export function parsePlayTime(playTime: string): number {
 
 /** Format total minutes into a display string (e.g., "2h 30m" or "45m"). */
 export function formatPlayTime(totalMinutes: number): string {
-  if (totalMinutes <= 0) return "0h";
-  const hours = Math.floor(totalMinutes / 60);
-  const mins = totalMinutes % 60;
+  if (!totalMinutes || totalMinutes <= 0 || isNaN(totalMinutes)) return "0h";
+  const rounded = Math.round(totalMinutes);
+  if (rounded <= 0) return "0h";
+  const hours = Math.floor(rounded / 60);
+  const mins = rounded % 60;
   if (hours === 0) return `${mins}m`;
   if (mins === 0) return `${hours}h`;
   return `${hours}h ${mins}m`;
