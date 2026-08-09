@@ -3,68 +3,70 @@
    Theme Engine - CSS Custom Properties
    ============================== */
 :root {
-  /* ── Color Palette - Dark Theme (Default) ────────────────────────── */
-  --color-bg-primary: #0a0c10;
-  --color-bg-secondary: #11131a;
-  --color-bg-tertiary: #181b23;
-  --color-bg-hover: #1e222d;
-  --color-bg-active: #242938;
+  /* ── Font Stack System ───────────────────────────────────────────── */
+  --font-sans: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+  --font-display: 'Outfit', 'Plus Jakarta Sans', -apple-system, sans-serif;
+  --font-mono: 'JetBrains Mono', 'Fira Code', Consolas, Monaco, monospace;
+
+  /* ── Color Palette - Obsidian Dark Theme (Default) ───────────────── */
+  --color-bg-primary: #08090c;
+  --color-bg-secondary: #0e1017;
+  --color-bg-tertiary: #141722;
+  --color-bg-hover: #1b1f2e;
+  --color-bg-active: #23283b;
   
-  /* Premium radial background gradient for depth — bolder brand mesh */
-  --color-bg-gradient: radial-gradient(circle at 8% 12%, rgba(124, 102, 255, 0.14) 0%, transparent 45%),
-                        radial-gradient(circle at 92% 82%, rgba(34, 211, 238, 0.10) 0%, transparent 42%),
-                        radial-gradient(circle at 70% 50%, rgba(255, 92, 157, 0.05) 0%, transparent 50%),
+  /* High-precision ambient depth background mesh */
+  --color-bg-gradient: radial-gradient(circle at 14% 10%, rgba(99, 91, 255, 0.12) 0%, transparent 48%),
+                        radial-gradient(circle at 86% 88%, rgba(56, 189, 248, 0.08) 0%, transparent 45%),
+                        radial-gradient(circle at 50% 50%, rgba(244, 63, 94, 0.04) 0%, transparent 55%),
                         var(--color-bg-primary);
 
   /* Surface system with glassmorphism support */
-  --color-surface: rgba(17, 19, 26, 0.75);
-  --color-surface-raised: rgba(24, 27, 35, 0.85);
-  --color-surface-overlay: rgba(7, 8, 12, 0.85);
-  --color-surface-glass: rgba(17, 19, 26, 0.55);
+  --color-surface: rgba(14, 16, 23, 0.78);
+  --color-surface-raised: rgba(20, 23, 34, 0.88);
+  --color-surface-overlay: rgba(6, 7, 10, 0.88);
+  --color-surface-glass: rgba(14, 16, 23, 0.58);
 
-  /* Derived card/elevated surfaces — referenced (with hardcoded fallbacks)
-     by friends.css / store.css. Defined here so they follow every theme
-     instead of baking in dark-only rgba() values. */
+  /* Derived card/elevated surfaces */
   --color-bg-card: var(--color-surface);
   --color-bg-elevated: var(--color-surface-raised);
 
-  /* Border system */
-  --color-border: rgba(255, 255, 255, 0.07);
-  --color-border-light: rgba(255, 255, 255, 0.12);
-  --color-border-glow: color-mix(in srgb, var(--color-accent) 35%, transparent);
+  /* Tactile Border system */
+  --color-border: rgba(255, 255, 255, 0.08);
+  --color-border-light: rgba(255, 255, 255, 0.13);
+  --color-border-highlight: rgba(255, 255, 255, 0.16);
+  --color-border-glow: color-mix(in srgb, var(--color-accent) 40%, transparent);
 
   /* Text hierarchy */
-  --color-text-primary: #f0f2f7;
-  --color-text-secondary: #a8adb9;
-  --color-text-muted: #6b7285;
-  --color-text-inverse: #0a0c10;
+  --color-text-primary: #f3f5fa;
+  --color-text-secondary: #9ea4b5;
+  --color-text-muted: #62687a;
+  --color-text-inverse: #08090c;
 
   /* Accent system with auto-generated states */
-  --color-accent: #7c66ff;
+  --color-accent: #635bff;
   --color-accent-hover: color-mix(in srgb, var(--color-accent) 85%, white 15%);
-  --color-accent-active: color-mix(in srgb, var(--color-accent) 70%, black 30%);
-  --color-accent-glow: color-mix(in srgb, var(--color-accent) 20%, transparent);
-  --color-accent-soft: color-mix(in srgb, var(--color-accent) 10%, var(--color-bg-secondary));
+  --color-accent-active: color-mix(in srgb, var(--color-accent) 75%, black 25%);
+  --color-accent-glow: color-mix(in srgb, var(--color-accent) 30%, transparent);
+  --color-accent-soft: color-mix(in srgb, var(--color-accent) 12%, var(--color-bg-secondary));
 
   /* Semantic colors */
-  --color-success: #00d68f;
-  --color-warning: #ffb84d;
-  --color-danger: #ff5c7a;
-  --color-info: #5ab7ff;
-  --color-stale: #f5b76b;
+  --color-success: #10b981;
+  --color-warning: #f59e0b;
+  --color-danger: #f43f5e;
+  --color-info: #38bdf8;
+  --color-stale: #fbbf24;
 
-  /* Brand identity now derives from the theme accent so the "GameLib"
-      mark, hero washes, and active states all follow the accent color
-      override instead of a fixed violet → cyan → magenta gradient. */
+  /* Brand identity */
   --brand-1: var(--color-accent);
   --brand-2: var(--color-accent-hover);
   --brand-3: var(--color-accent-hover);
-  --brand-gradient: var(--color-accent);
-  --brand-gradient-strong: var(--color-accent);
+  --brand-gradient: linear-gradient(135deg, var(--color-accent), var(--color-accent-hover));
+  --brand-gradient-strong: linear-gradient(135deg, var(--color-accent) 0%, var(--color-accent-hover) 100%);
   --mesh-gradient:
-    radial-gradient(circle at 12% 18%, color-mix(in srgb, var(--color-accent) 18%, transparent) 0%, transparent 42%),
-    radial-gradient(circle at 88% 12%, color-mix(in srgb, var(--color-accent-hover) 14%, transparent) 0%, transparent 40%),
-    radial-gradient(circle at 75% 88%, color-mix(in srgb, var(--color-accent) 12%, transparent) 0%, transparent 44%);
+    radial-gradient(circle at 12% 18%, color-mix(in srgb, var(--color-accent) 20%, transparent) 0%, transparent 42%),
+    radial-gradient(circle at 88% 12%, color-mix(in srgb, #38bdf8 16%, transparent) 0%, transparent 40%),
+    radial-gradient(circle at 75% 88%, color-mix(in srgb, var(--color-accent) 14%, transparent) 0%, transparent 44%);
 
   /* ── Spacing Scale ──────────────────────────────────────────────── */
   --space-3xs: 2px;
@@ -78,7 +80,7 @@
   --space-3xl: 48px;
   --space-4xl: 96px;
 
-  /* ── Typography Scale (updated) ─────────────────────────────────── */
+  /* ── Typography Scale ───────────────────────────────────────────── */
   --font-size-xs: 11px;
   --font-size-sm: 13px;
   --font-size-md: 14px;
@@ -87,7 +89,7 @@
   --font-size-2xl: 24px;
   --font-size-3xl: 32px;
 
-  /* New modular type scale (preferred going forward) */
+  /* Modular type scale */
   --text-xs: 0.75rem;
   --text-sm: 0.875rem;
   --text-md: 1rem;
@@ -98,9 +100,9 @@
   --text-4xl: 2.25rem;
 
   /* Line heights */
-  --line-height-tight: 1.25;
+  --line-height-tight: 1.2;
   --line-height-normal: 1.5;
-  --line-height-relaxed: 1.75;
+  --line-height-relaxed: 1.7;
 
   --font-weight-normal: 400;
   --font-weight-medium: 500;
@@ -109,64 +111,62 @@
 
   /* ── Border Radius System ───────────────────────────────────────── */
   --radius-xs: 4px;
-  --radius-sm: 4px;
-  --radius-md: 8px;
-  --radius-lg: 12px;
-  --radius-xl: 16px;
+  --radius-sm: 6px;
+  --radius-md: 10px;
+  --radius-lg: 14px;
+  --radius-xl: 18px;
   --radius-2xl: 32px;
   --radius-full: 9999px;
 
   /* ── Shadow / Elevation System ──────────────────────────────────── */
-  --shadow-xs: 0 1px 2px rgba(0, 0, 0, 0.25);
-  --shadow-sm: 0 2px 8px rgba(0, 0, 0, 0.35);
-  --shadow-md: 0 4px 16px rgba(0, 0, 0, 0.45);
-  --shadow-lg: 0 8px 32px rgba(0, 0, 0, 0.55);
-  --shadow-xl: 0 16px 64px rgba(0, 0, 0, 0.65);
-  --shadow-glow: 0 0 24px rgba(0, 0, 0, 0.35);
+  --shadow-xs: 0 1px 3px rgba(0, 0, 0, 0.3);
+  --shadow-sm: 0 2px 10px rgba(0, 0, 0, 0.4);
+  --shadow-md: 0 4px 20px rgba(0, 0, 0, 0.5);
+  --shadow-lg: 0 8px 36px rgba(0, 0, 0, 0.6);
+  --shadow-xl: 0 18px 72px rgba(0, 0, 0, 0.75);
+  --shadow-glow: 0 0 24px var(--color-accent-glow);
 
-  /* Layered depth scale — physical 3D lift for the bold, tactile UI.
-     Each step stacks two soft shadows (tight contact + wide ambient) so
-     panels read as stacked glass rather than flat fills. */
-  --depth-1: 0 1px 1px rgba(0, 0, 0, 0.4), 0 2px 6px rgba(0, 0, 0, 0.35);
-  --depth-2: 0 2px 4px rgba(0, 0, 0, 0.4), 0 6px 16px rgba(0, 0, 0, 0.45);
-  --depth-3: 0 4px 8px rgba(0, 0, 0, 0.45), 0 12px 32px rgba(0, 0, 0, 0.5);
-  --depth-float: 0 8px 16px rgba(0, 0, 0, 0.5), 0 24px 64px rgba(0, 0, 0, 0.6);
-  /* Neutral lift for hero/feature surfaces (no colored glow). */
-  --shadow-brand: 0 8px 32px rgba(0, 0, 0, 0.45), 0 2px 8px rgba(0, 0, 0, 0.4);
+  /* Tactile 3D lift scale */
+  --depth-1: inset 0 1px 0 var(--color-border-highlight), 0 2px 8px rgba(0, 0, 0, 0.4);
+  --depth-2: inset 0 1px 0 var(--color-border-highlight), 0 4px 18px rgba(0, 0, 0, 0.5);
+  --depth-3: inset 0 1px 0 var(--color-border-highlight), 0 10px 36px rgba(0, 0, 0, 0.6);
+  --depth-float: inset 0 1px 0 var(--color-border-highlight), 0 20px 64px rgba(0, 0, 0, 0.75);
+  --shadow-brand: 0 8px 32px rgba(0, 0, 0, 0.5), 0 2px 8px rgba(0, 0, 0, 0.4);
 
   /* ── Animation System ───────────────────────────────────────────── */
-  --ease-standard: cubic-bezier(0.4, 0, 0.2, 1);
-  --ease-enter: cubic-bezier(0, 0, 0.2, 1);
-  --ease-exit: cubic-bezier(0.4, 0, 1, 1);
-  --ease-bounce: cubic-bezier(0.68, -0.55, 0.265, 1.55);
+  --ease-standard: cubic-bezier(0.16, 1, 0.3, 1);
+  --ease-enter: cubic-bezier(0.16, 1, 0.3, 1);
+  --ease-exit: cubic-bezier(0.7, 0, 0.84, 0);
+  --ease-bounce: cubic-bezier(0.34, 1.56, 0.64, 1);
 
-  --duration-fast: 150ms;
-  --duration-normal: 250ms;
-  --duration-slow: 400ms;
-  --duration-slower: 600ms;
+  --duration-fast: 140ms;
+  --duration-normal: 220ms;
+  --duration-slow: 380ms;
+  --duration-slower: 550ms;
 
-  /* Legacy transition tokens (still used widely) */
-  --transition-fast: var(--duration-fast) ease;
-  --transition-normal: var(--duration-normal) ease;
-  --transition-slow: var(--duration-slow) ease;
+  --transition-fast: var(--duration-fast) var(--ease-standard);
+  --transition-normal: var(--duration-normal) var(--ease-standard);
+  --transition-slow: var(--duration-slow) var(--ease-standard);
 
   /* ── Layout ─────────────────────────────────────────────────────── */
   --topnav-height: 56px;
   --sidebar-width: 280px;
   --sidebar-collapsed-width: 0px;
-  /* Icon-rail partial collapse: 64px is wide enough for a 36px
-   * cover thumbnails with breathing room, but narrow enough to
-   * reclaim ~215px of horizontal real estate for the main panel.
-   * `--sidebar-icon-rail-width` is consumed by
-   * `.app-layout.sidebar-icon-rail` (grid columns) and by the
-   * Sidebar component's own `width` rule when in rail mode. */
   --sidebar-icon-rail-width: 68px;
-  /* Sidebar hover preview width constant — duplicated in
-   * SidebarHoverPreview.tsx so the JS position manager and the
-   * CSS layout stay in sync. Any width change here must be
-   * mirrored in the TS layout effect's `PREVIEW_WIDTH`. */
   --sidebar-hover-preview-width: 260px;
   --content-max-width: 1440px;
+}
+
+html, body {
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  font-feature-settings: "cv02", "cv03", "cv04", "cv11";
+}
+
+h1, h2, h3, h4, .font-display {
+  font-family: var(--font-display);
+  letter-spacing: -0.02em;
 }
 
 /* ==============================
@@ -245,5 +245,46 @@
 .focus-ring:focus-visible::after {
   border-color: var(--color-accent);
   opacity: 1;
+}
+
+/* ── Theme Accent Override Utilities ────────────────────────────── */
+.accent-text {
+  color: var(--color-accent) !important;
+}
+
+.accent-bg {
+  background: var(--color-accent) !important;
+  color: #ffffff !important;
+}
+
+.accent-border {
+  border-color: var(--color-accent) !important;
+}
+
+.accent-glow {
+  box-shadow: 0 0 24px var(--color-accent-glow) !important;
+}
+
+.accent-gradient-text {
+  background: linear-gradient(135deg, var(--color-accent) 0%, var(--color-accent-hover) 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent !important;
+}
+
+.accent-pill {
+  background: var(--color-accent-soft) !important;
+  color: var(--color-accent) !important;
+  border: 1px solid color-mix(in srgb, var(--color-accent) 35%, transparent) !important;
+}
+
+.accent-card-highlight {
+  border-color: var(--color-accent) !important;
+  box-shadow: inset 0 1px 0 var(--color-border-highlight), 0 0 24px var(--color-accent-glow) !important;
+}
+
+.accent-focus:focus-visible {
+  outline: 2px solid var(--color-accent) !important;
+  outline-offset: 2px !important;
 }
 

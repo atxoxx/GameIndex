@@ -16,6 +16,7 @@
 
   --color-border: #e2e8f0;
   --color-border-light: #f1f5f9;
+  --color-border-highlight: rgba(255, 255, 255, 0.8);
   --color-border-glow: color-mix(in srgb, var(--color-accent) 30%, transparent);
 
   --color-text-primary: #0f172a;

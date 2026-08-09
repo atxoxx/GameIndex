@@ -10,27 +10,24 @@
     "sidebar main";
   height: 100vh;
   width: 100vw;
+  background: var(--color-bg-primary);
+  background-image: var(--color-bg-gradient);
   transition: grid-template-columns var(--transition-normal);
+  overflow: hidden;
+  box-sizing: border-box;
 }
 
 .app-layout.sidebar-collapsed {
   grid-template-columns: var(--sidebar-collapsed-width) 1fr;
 }
 
-/* Icon-rail partial collapse. Activated by SidebarCollapseContext
- * via the `.sidebar-icon-rail` modifier on `.app-sidebar`, and
- * mirrored here for the grid template columns so the main panel
- * widens slightly while the sidebar stays visible (e.g. cover
- * thumbnails + status dots). The grid transition is inherited from
- * `.app-layout` so the column swap animates in 250ms instead of
- * snapping — same duration the cover-grid uses elsewhere so the
- * visual tempo stays consistent. */
 .app-layout.sidebar-icon-rail {
   grid-template-columns: var(--sidebar-icon-rail-width) 1fr;
 }
 
 .app-topnav {
   grid-area: topnav;
+  z-index: 100;
 }
 
 .app-sidebar {
@@ -42,6 +39,13 @@
   grid-area: main;
   overflow-y: auto;
   overflow-x: hidden;
+  margin: 0 var(--space-md) var(--space-md) 0;
+  background: var(--color-bg-secondary);
+  border-radius: var(--radius-xl);
+  border: 1px solid var(--color-border);
+  box-shadow: inset 0 1px 0 var(--color-border-highlight), 0 12px 40px rgba(0, 0, 0, 0.5);
+  position: relative;
+  isolation: isolate;
 }
 
 

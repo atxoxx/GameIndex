@@ -16,8 +16,9 @@
   gap: 4px;
   background: var(--color-bg-tertiary);
   border: 1px solid var(--color-border);
-  border-radius: var(--radius-md);
+  border-radius: var(--radius-lg);
   padding: var(--space-md);
+  box-shadow: var(--depth-1);
   transition: transform var(--duration-fast) var(--ease-standard),
               border-color var(--duration-fast) var(--ease-standard),
               box-shadow var(--duration-fast) var(--ease-standard);
@@ -29,10 +30,10 @@
 
 .kpi-tile--glass {
   background: var(--color-surface-glass);
-  backdrop-filter: blur(14px) saturate(150%);
-  -webkit-backdrop-filter: blur(14px) saturate(150%);
-  border-color: rgba(255, 255, 255, 0.18);
-  box-shadow: var(--shadow-md);
+  backdrop-filter: blur(16px) saturate(160%);
+  -webkit-backdrop-filter: blur(16px) saturate(160%);
+  border-color: var(--color-border-light);
+  box-shadow: var(--depth-2);
 }
 
 .kpi-tile--sm {

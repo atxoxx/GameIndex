@@ -6,16 +6,11 @@
   align-items: center;
   justify-content: space-between;
   height: var(--topnav-height);
-  background: var(--color-surface-glass);
-  backdrop-filter: blur(18px) saturate(140%);
-  -webkit-backdrop-filter: blur(18px) saturate(140%);
-  border-bottom: 1px solid var(--color-border-light);
-  padding: 0 var(--space-lg);
+  background: transparent;
+  padding: 0 var(--space-md);
   user-select: none;
   -webkit-app-region: drag;
   z-index: 100;
-  box-shadow: 0 2px 16px rgba(0, 0, 0, 0.15);
-  /* The Download Popover uses  to anchor under the downloads button; this containing block is required for that to land in the right spot. */
   position: relative;
 }
 
@@ -38,16 +33,14 @@
   display: flex;
   align-items: center;
   gap: var(--space-sm);
-  font-size: var(--font-size-lg);
-  font-weight: var(--font-weight-bold);
+  font-size: 17px;
+  font-weight: 700;
+  font-family: var(--font-display);
   color: var(--color-text-primary);
   margin-right: var(--space-xl);
-  letter-spacing: 0.5px;
+  letter-spacing: -0.02em;
 }
 
-/* The mark uses fixed stroke colors (purple/cyan/orange) so no
-   `color` token is inherited — the hover transform is the only
-   motif this rule still owns. */
 .topnav-logo__mark {
   width: 22px;
   height: 22px;
@@ -55,89 +48,69 @@
 }
 
 .topnav-logo:hover .topnav-logo__mark {
-  transform: rotate(-6deg) scale(1.1);
+  transform: rotate(-6deg) scale(1.08);
 }
 
-/* Wordmark carries the brand gradient so the logo reads as one
-   recognizable, colorful product mark across the whole app. */
 .topnav-logo__word {
-  background: var(--brand-gradient);
-  -webkit-background-clip: text;
-  background-clip: text;
-  color: transparent;
+  color: var(--color-accent);
+  font-weight: 800;
+  letter-spacing: -0.03em;
 }
 
-/* Version tag next to the wordmark — quiet so the gradient mark
-   stays the visual anchor; baseline sits slightly below the word. */
 .topnav-logo__version {
-  font-size: 11px;
-  font-weight: var(--font-weight-regular, 400);
-  color: var(--text-muted);
-  letter-spacing: 0;
+  font-size: 10px;
+  font-weight: 600;
+  color: var(--color-text-muted);
+  letter-spacing: 0.05em;
   margin-top: 2px;
   user-select: none;
+  background: var(--color-bg-tertiary);
+  padding: 1px 6px;
+  border-radius: var(--radius-full);
+  border: 1px solid var(--color-border);
 }
 
 .topnav-logo:hover svg {
-  transform: rotate(-6deg) scale(1.1);
+  transform: rotate(-6deg) scale(1.08);
 }
 
 .topnav-tabs {
   display: flex;
   align-items: center;
-  gap: var(--space-xs);
-  /* Scrollable tab strip — when the window narrows, the tabs
-   * overflow horizontally inside this element rather than
-   * pushing the right cluster off-screen. min-width:0 unlocks
-   * overflow:auto on a flex item (default min-width:auto clamps
-   * this). flex-shrink:1 lets the strip absorb the slack; the
-   * right cluster (downloads / settings / window controls) holds
-   * its width via flex-shrink:0. */
+  gap: 4px;
   overflow-x: auto;
   min-width: 0;
   flex-shrink: 1;
-  scrollbar-width: thin;
-  scrollbar-color: var(--color-border) transparent;
+  scrollbar-width: none;
+  scroll-behavior: smooth;
+  padding: 4px 6px;
+  background: rgba(0, 0, 0, 0.35);
+  border-radius: var(--radius-full);
+  border: 1px solid var(--color-border);
+  box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.4);
 }
 
-/* Themed scrollbar for the tab strip — same look as the existing
- * .game-relations-row rules for visual consistency. Hidden track,
- * dim thumb that brightens on hover so it reads as residual chrome
- * without competing for attention. */
 .topnav-tabs::-webkit-scrollbar {
-  height: 6px;
-}
-.topnav-tabs::-webkit-scrollbar-track {
-  background: transparent;
-}
-.topnav-tabs::-webkit-scrollbar-thumb {
-  background: var(--color-border);
-  border-radius: var(--radius-sm);
-}
-.topnav-tabs::-webkit-scrollbar-thumb:hover {
-  background: var(--color-text-muted);
+  display: none;
 }
 
 .topnav-tab {
   display: flex;
   align-items: center;
   gap: var(--space-sm);
-  padding: var(--space-sm) var(--space-md);
-  border-radius: var(--radius-md);
-  font-size: var(--font-size-sm);
-  font-weight: var(--font-weight-semibold);
+  padding: 6px 14px;
+  border-radius: var(--radius-full);
+  font-size: 13px;
+  font-weight: 500;
   color: var(--color-text-secondary);
   text-decoration: none;
   cursor: pointer;
-  transition: color var(--duration-normal) var(--ease-standard),
-              background var(--duration-normal) var(--ease-standard),
-              transform var(--duration-normal) var(--ease-standard),
-              box-shadow var(--duration-normal) var(--ease-standard);
+  transition: color var(--duration-fast) var(--ease-standard),
+              background var(--duration-fast) var(--ease-standard),
+              transform var(--duration-fast) var(--ease-standard),
+              box-shadow var(--duration-fast) var(--ease-standard);
   position: relative;
   outline: none;
-  /* Keep each tab at its natural width inside the scrollable
-   * strip — without flex-shrink:0 + nowrap, the labels would
-   * compress before a scrollbar appears. */
   flex-shrink: 0;
   white-space: nowrap;
 }
@@ -145,31 +118,18 @@
 .topnav-tab:hover {
   color: var(--color-text-primary);
   background: var(--color-bg-hover);
-  transform: translateY(-1px);
 }
 
 .topnav-tab:focus-visible {
   outline: 2px solid var(--color-accent);
-  outline-offset: -2px;
-  border-radius: var(--radius-md);
+  outline-offset: 2px;
 }
 
 .topnav-tab.active {
-  color: var(--color-accent);
-  background: color-mix(in srgb, var(--color-accent) 8%, transparent);
-}
-
-.topnav-tab.active::after {
-  content: "";
-  position: absolute;
-  bottom: 0;
-  left: 15%;
-  width: 70%;
-  height: 3px;
-  background: linear-gradient(90deg, var(--color-accent), var(--color-accent-hover));
-  border-radius: var(--radius-full);
-  box-shadow: 0 0 8px var(--color-accent-glow);
-  animation: topnavIndicatorIn var(--duration-normal) var(--ease-bounce);
+  color: #ffffff;
+  background: var(--color-accent);
+  font-weight: 600;
+  box-shadow: 0 2px 10px var(--color-accent-glow), inset 0 1px 0 rgba(255, 255, 255, 0.25);
 }
 
 @keyframes topnavIndicatorIn {
@@ -191,7 +151,7 @@
 
 .topnav-tab.active .topnav-tab-icon {
   opacity: 1;
-  color: var(--color-accent);
+  color: #ffffff;
 }
 
 .topnav-tab-badge {
@@ -244,9 +204,15 @@
 }
 
 .topnav-btn:hover {
-  color: var(--color-text-primary);
+  color: var(--color-accent);
   background: var(--color-bg-hover);
   transform: translateY(-1px);
+}
+
+.topnav-btn.active {
+  color: var(--color-accent);
+  background: var(--color-accent-soft);
+  box-shadow: 0 0 12px var(--color-accent-glow);
 }
 
 .topnav-btn:focus-visible {

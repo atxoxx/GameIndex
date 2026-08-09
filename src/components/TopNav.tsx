@@ -395,16 +395,26 @@ export default function TopNav() {
   // a *drag* from starting, but `onDoubleClick` still bubbles, so
   // without this filter a double-click on a tab would both fire
   // navigate and toggle maximize.
+  const tabsRef = useRef<HTMLDivElement>(null);
+
+  const handleTabsWheel = useCallback((e: React.WheelEvent<HTMLDivElement>) => {
+    if (tabsRef.current && e.deltaY !== 0) {
+      tabsRef.current.scrollLeft += e.deltaY * 0.8;
+    }
+  }, []);
+
+  useEffect(() => {
+    if (tabsRef.current) {
+      const activeEl = tabsRef.current.querySelector(".topnav-tab.active");
+      if (activeEl) {
+        activeEl.scrollIntoView({ behavior: "smooth", block: "nearest", inline: "nearest" });
+      }
+    }
+  }, [location.pathname]);
+
   const handleTitleBarDoubleClick = useCallback(
     (e: MouseEvent<HTMLElement>) => {
       if (isInteractiveTarget(e.target)) return;
-      // `.catch(() => {})` swallows the "no Tauri bridge" rejection
-      // during `npm run dev` so an unhandled-rejection warning doesn't
-      // clutter the dev console. The verbs here are OS-level only and
-      // throw identically when the bridge is absent, so swallowing is
-      // the right trade-off. (For app-side actions we surface failures
-      // via ToastContext.) Memoized so the handler reference stays
-      // stable across renders.
       getCurrentWindow().toggleMaximize().catch(() => {});
     },
     [],
@@ -442,21 +452,21 @@ export default function TopNav() {
           >
             <defs>
               <radialGradient id="topnav-logo-glow" cx="50%" cy="50%" r="50%">
-                <stop offset="0%" stopColor="#bfe0ff" stopOpacity="0.75" />
-                <stop offset="55%" stopColor="#5ab7ff" stopOpacity="0.18" />
-                <stop offset="100%" stopColor="#5ab7ff" stopOpacity="0" />
+                <stop offset="0%" stopColor="var(--color-accent)" stopOpacity="0.8" />
+                <stop offset="60%" stopColor="var(--color-accent)" stopOpacity="0.2" />
+                <stop offset="100%" stopColor="var(--color-accent)" stopOpacity="0" />
               </radialGradient>
             </defs>
-            <circle cx="9" cy="9.5" r="5.4" stroke="#7c66ff" strokeWidth="2" />
-            <circle cx="15" cy="9.5" r="5.4" stroke="#22d3ee" strokeWidth="2" />
-            <circle cx="12" cy="15" r="5.4" stroke="#ff8a52" strokeWidth="2" />
+            <circle cx="9" cy="9.5" r="5.4" stroke="var(--color-accent)" strokeWidth="2" />
+            <circle cx="15" cy="9.5" r="5.4" stroke="var(--color-accent)" strokeWidth="2" />
+            <circle cx="12" cy="15" r="5.4" stroke="var(--color-accent)" strokeWidth="2" />
             <circle cx="12" cy="11.5" r="3.4" fill="url(#topnav-logo-glow)" />
             <circle
               cx="12"
               cy="11.5"
               r="1.9"
               fill="#ffffff"
-              stroke="rgba(122,184,255,0.4)"
+              stroke="var(--color-accent)"
               strokeWidth="0.6"
             />
           </svg>
@@ -465,7 +475,7 @@ export default function TopNav() {
             <span className="topnav-logo__version">v{version}</span>
           )}
         </div>
-        <div className="topnav-tabs" role="tablist">
+        <div className="topnav-tabs" ref={tabsRef} onWheel={handleTabsWheel} role="tablist">
           {tabs.map((tab) => {
             const isActive = location.pathname.startsWith(tab.path);
             const showCommunityBadge =

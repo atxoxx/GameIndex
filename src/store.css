@@ -1115,25 +1115,26 @@
   align-items: center;
   gap: var(--space-sm);
   padding: var(--space-md) var(--space-2xl);
-  background: var(--color-success);
+  background: var(--game-accent, var(--color-accent));
   color: #fff;
   border: none;
   border-radius: var(--radius-md);
   font-size: var(--font-size-md);
   font-weight: var(--font-weight-semibold);
   cursor: pointer;
-  transition: filter var(--transition-fast),
+  transition:
     transform var(--transition-fast),
     background var(--transition-fast),
     color var(--transition-fast),
     box-shadow var(--transition-fast);
-  box-shadow: 0 2px 8px color-mix(in srgb, var(--color-success) 35%, transparent);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.25), 0 0 20px color-mix(in srgb, var(--game-accent, var(--color-accent)) 35%, transparent);
   flex-shrink: 0;
 }
 
 .store-add-btn:hover {
-  filter: brightness(1.1);
+  background: color-mix(in srgb, var(--game-accent, var(--color-accent)) 85%, white 15%);
   transform: translateY(-1px);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.35), 0 0 30px color-mix(in srgb, var(--game-accent, var(--color-accent)) 50%, transparent);
 }
 
 .store-add-btn.added {
@@ -1162,17 +1163,20 @@
   cursor: pointer;
   transition: color var(--transition-fast),
     border-color var(--transition-fast),
-    background var(--transition-fast);
+    background var(--transition-fast),
+    box-shadow var(--transition-fast);
   flex-shrink: 0;
 }
 .store-wishlist-btn:hover {
-  border-color: color-mix(in srgb, var(--color-accent) 60%, transparent);
-  color: var(--color-accent);
+  border-color: color-mix(in srgb, var(--game-accent, var(--color-accent)) 60%, transparent);
+  color: var(--game-accent, var(--color-accent));
+  box-shadow: 0 0 16px color-mix(in srgb, var(--game-accent, var(--color-accent)) 25%, transparent);
 }
 .store-wishlist-btn.active {
-  background: color-mix(in srgb, var(--color-accent) 16%, transparent);
-  border-color: color-mix(in srgb, var(--color-accent) 60%, transparent);
-  color: var(--color-accent);
+  background: color-mix(in srgb, var(--game-accent, var(--color-accent)) 16%, transparent);
+  border-color: color-mix(in srgb, var(--game-accent, var(--color-accent)) 60%, transparent);
+  color: var(--game-accent, var(--color-accent));
+  box-shadow: 0 0 20px color-mix(in srgb, var(--game-accent, var(--color-accent)) 30%, transparent);
 }
 .store-wishlist-btn svg {
   width: 18px;
