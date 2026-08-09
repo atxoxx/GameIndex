@@ -136,3 +136,16 @@ discord-rich-presence = "1.1.0"
 # binary doesn't reveal them. Extraction-bar only — not real secrecy; the
 # decryption material lives in the binary too.
 obfstr = "0.4"
+
+# NOTE: the [patch.crates-io] section MUST stay at the very end of this
+# file. A mid-file [patch] section swallows every following
+# [dependencies] entry into the patch set.
+#
+# librqbit-upnp 1.0.0 (from crates.io, used by librqbit 8.x for UPnP
+# port forwarding) pins quick-xml to ^0.37.1, which has RUSTSEC-2026-0194
+# and RUSTSEC-2026-0195 (fixes landed in quick-xml >= 0.41). No published
+# librqbit-upnp uses >= 0.41, so we vendor it and patch the quick-xml
+# requirement. The only quick-xml API surface used is `quick_xml::de`,
+# which is unchanged in 0.41.
+[patch.crates-io]
+librqbit-upnp = { path = "vendor/librqbit-upnp" }

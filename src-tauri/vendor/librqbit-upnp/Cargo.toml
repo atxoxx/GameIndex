@@ -1,0 +1,32 @@
+[package]
+name = "librqbit-upnp"
+version = "1.0.0"
+authors = ["Igor Katson <igor.katson@gmail.com>"]
+edition = "2021"
+description = "Library used by rqbit torrent client to lease port forwards on the router."
+license = "Apache-2.0"
+documentation = "https://docs.rs/librqbit-upnp"
+repository = "https://github.com/ikatson/rqbit"
+readme = "README.md"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+tracing = "0.1"
+anyhow = "1"
+reqwest = { version = "0.12", default-features = false }
+serde = { version = "1", features = ["derive"] }
+tokio = { version = "1", features = ["macros"] }
+futures = "0.3"
+url = { version = "2", default-features = false }
+network-interface = { version = "2" }
+httparse = "1.9.4"
+bstr = "1.10.0"
+# quick-xml pinned to >= 0.41 (RUSTSEC-2026-0194, RUSTSEC-2026-0195).
+# The 0.37 line (^0.37.1) has both advisories; 0.41 fixes them. The
+# `serialize` feature / quick_xml::de API we use is unchanged.
+quick-xml = { version = "0.41", features = ["serialize"] }
+
+[dev-dependencies]
+tokio = { version = "1", features = ["macros", "rt-multi-thread"] }
+tracing-subscriber = "0.3"
