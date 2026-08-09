@@ -18,6 +18,7 @@ import LibraryFilteredEmpty from "../components/library/LibraryFilteredEmpty";
 import LibraryVirtualGrid from "../components/library/LibraryVirtualGrid";
 import LibraryContextMenu from "../components/library/LibraryContextMenu";
 import LibraryGameCard from "../components/library/LibraryGameCard";
+import LibraryExportModal from "../components/library/LibraryExportModal";
 
 export default function LibraryPage() {
   const navigate = useNavigate();
@@ -54,6 +55,7 @@ export default function LibraryPage() {
 
   const [contextMenu, setContextMenu] = useState<{ game: Game; x: number; y: number } | null>(null);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  const [exportOpen, setExportOpen] = useState(false);
 
   useEffect(() => {
     if (!contextMenu) return;
@@ -214,6 +216,7 @@ export default function LibraryPage() {
           onSortChange={setSort}
           density={density}
           onDensityChange={setDensity}
+          onExport={() => setExportOpen(true)}
         />
       )}
 
@@ -267,6 +270,14 @@ export default function LibraryPage() {
           onLaunch={() => handleLaunch(contextMenu.game)}
           onViewDetails={() => handleViewDetails(contextMenu.game)}
           onRemove={() => handleRemove(contextMenu.game)}
+        />
+      )}
+
+      {exportOpen && (
+        <LibraryExportModal
+          games={games}
+          filteredGames={filteredGames}
+          onClose={() => setExportOpen(false)}
         />
       )}
     </div>

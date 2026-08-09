@@ -2195,3 +2195,262 @@
     animation: none;
   }
 }
+
+/* ────────────────────────────────────────────────────────────────────
+   LIBRARY EXPORT
+   ──────────────────────────────────────────────────────────────────── */
+
+/* Toolbar trigger — mirrors the sort dropdown pill so the controls
+   read as one family. */
+.lib-export-trigger {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 38px;
+  padding: 0 var(--space-md);
+  background: var(--color-surface-glass);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-full);
+  color: var(--color-text-primary);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-semibold);
+  font-family: inherit;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: border-color var(--transition-fast),
+    color var(--transition-fast);
+}
+
+.lib-export-trigger:hover {
+  border-color: var(--color-accent);
+  color: var(--color-accent);
+}
+
+.lib-export-trigger:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 2px;
+}
+
+.lib-export-trigger-icon {
+  display: inline-flex;
+  color: var(--color-text-secondary);
+}
+
+.lib-export-trigger-icon svg {
+  width: 15px;
+  height: 15px;
+}
+
+/* Overlay — the shared `.modal-overlay` lives in page-emulators.css
+   (route-scoped), so the export modal brings its own. Same visual
+   language: dimmed surface + centered panel. */
+.lib-export-overlay {
+  position: fixed;
+  inset: 0;
+  background: var(--color-surface-overlay);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 9500;
+  padding: var(--space-xl);
+  overflow-y: auto;
+  animation: libExportOverlayIn 180ms ease;
+}
+
+@keyframes libExportOverlayIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+.lib-export-modal {
+  width: 92%;
+  max-width: 620px;
+  max-height: 88vh;
+  display: flex;
+  flex-direction: column;
+}
+
+/* Close affordance (mirrors `.modal-close` from page-emulators.css,
+   which isn't loaded on the library route). */
+.lib-export-close {
+  width: 32px;
+  height: 32px;
+  margin-left: auto;
+  display: grid;
+  place-items: center;
+  background: transparent;
+  border: none;
+  border-radius: var(--radius-md);
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-lg);
+  line-height: 1;
+  cursor: pointer;
+  transition: color var(--duration-fast) var(--ease-standard),
+    background var(--duration-fast) var(--ease-standard);
+}
+
+.lib-export-close:hover {
+  color: var(--color-text-primary);
+  background: var(--color-bg-hover);
+}
+
+.lib-export-body {
+  overflow-y: auto;
+  min-height: 0;
+  padding: var(--space-lg) var(--space-xl);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-lg);
+}
+
+.lib-export-section {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+}
+
+.lib-export-section-title {
+  margin: 0;
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+/* Segmented control — pill group with an accent active segment. */
+.lib-export-seg {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  padding: 2px;
+  background: var(--color-bg-tertiary);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-full);
+  width: fit-content;
+  max-width: 100%;
+  flex-wrap: wrap;
+}
+
+.lib-export-seg-btn {
+  appearance: none;
+  border: none;
+  background: transparent;
+  font-family: inherit;
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-medium);
+  color: var(--color-text-secondary);
+  padding: 5px 14px;
+  border-radius: var(--radius-full);
+  cursor: pointer;
+  white-space: nowrap;
+  transition: color var(--duration-fast) var(--ease-standard),
+    background var(--duration-fast) var(--ease-standard),
+    box-shadow var(--duration-fast) var(--ease-standard);
+}
+
+.lib-export-seg-btn:hover {
+  color: var(--color-text-primary);
+}
+
+.lib-export-seg-btn.active {
+  background: var(--color-accent-soft);
+  color: var(--color-accent);
+  box-shadow: inset 0 0 0 1px var(--color-accent-glow);
+}
+
+.lib-export-scope-count {
+  margin: 0;
+  font-size: var(--font-size-sm);
+  color: var(--color-text-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+/* Checkbox rows — same visual family as the settings page's custom
+   square checkboxes (16px, hairline border, accent fill on :checked). */
+.lib-export-checks {
+  display: flex;
+  flex-direction: column;
+}
+
+.lib-export-check {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-md);
+  padding: var(--space-sm) 0;
+  cursor: pointer;
+  user-select: none;
+  border-bottom: 1px solid var(--color-border);
+}
+
+.lib-export-check:last-child {
+  border-bottom: none;
+}
+
+.lib-export-check input[type="checkbox"] {
+  appearance: none;
+  -webkit-appearance: none;
+  width: 16px;
+  height: 16px;
+  margin-top: 2px;
+  flex-shrink: 0;
+  border: 1px solid var(--color-border-light);
+  border-radius: var(--radius-xs);
+  background: var(--color-bg-tertiary);
+  cursor: pointer;
+  position: relative;
+  transition: border-color var(--transition-fast), background var(--transition-fast), box-shadow var(--transition-fast);
+}
+
+.lib-export-check input[type="checkbox"]:hover {
+  border-color: var(--color-text-muted);
+}
+
+.lib-export-check input[type="checkbox"]:checked {
+  background: var(--color-accent);
+  border-color: var(--color-accent);
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='white' stroke-width='3.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='20 6 9 17 4 12'/%3E%3C/svg%3E");
+  background-size: 10px 10px;
+  background-position: center;
+  background-repeat: no-repeat;
+}
+
+.lib-export-check input[type="checkbox"]:focus-visible {
+  box-shadow: 0 0 0 3px var(--color-accent-glow);
+}
+
+.lib-export-check-text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.lib-export-check-title {
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text-primary);
+  line-height: 1.35;
+}
+
+.lib-export-check-desc {
+  font-size: var(--font-size-xs);
+  color: var(--color-text-muted);
+  line-height: 1.5;
+}
+
+.lib-export-empty-hint {
+  margin: 0;
+  padding: var(--space-md) var(--space-lg);
+  font-size: var(--font-size-sm);
+  color: var(--color-text-secondary);
+  background: var(--color-bg-tertiary);
+  border: 1px dashed var(--color-border-light);
+  border-radius: var(--radius-md);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .lib-export-overlay {
+    animation: none;
+  }
+}

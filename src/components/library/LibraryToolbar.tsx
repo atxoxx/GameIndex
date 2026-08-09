@@ -16,7 +16,18 @@ interface LibraryToolbarProps {
   onSortChange: (s: LibrarySort) => void;
   density: ViewDensity;
   onDensityChange: (d: ViewDensity) => void;
+  /** Opens the "Export library as HTML" modal. */
+  onExport: () => void;
 }
+
+/** Share/download glyph for the export trigger. */
+const ExportIcon = () => (
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+    <path d="M12 3v12" />
+    <path d="m7 8 5-5 5 5" />
+    <path d="M5 13v6a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-6" />
+  </svg>
+);
 
 /**
  * LibraryToolbar — the sticky pill bar at the top of the grid: title +
@@ -33,6 +44,7 @@ export default function LibraryToolbar({
   onSortChange,
   density,
   onDensityChange,
+  onExport,
 }: LibraryToolbarProps) {
   const { t } = useLanguage();
 
@@ -60,6 +72,16 @@ export default function LibraryToolbar({
           />
         </div>
         <LibrarySortMenu value={sort} onChange={onSortChange} />
+        <button
+          type="button"
+          className="lib-export-trigger"
+          onClick={onExport}
+          title={t("libraryExport.export")}
+          aria-label={t("libraryExport.export")}
+        >
+          <span className="lib-export-trigger-icon" aria-hidden="true"><ExportIcon /></span>
+          <span>{t("libraryExport.export")}</span>
+        </button>
         <div className="lib-toolbar-group" role="radiogroup" aria-label={t("libraryPage.layoutDensity")}>
           <DensityToggle density={density} onChange={onDensityChange} />
         </div>
