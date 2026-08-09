@@ -39,4 +39,4 @@ nul
 .tmp
 .vscode
 build.bat
-src-tauri/tauri.conf.json
+build-upload.bat

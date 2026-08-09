@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { useLanguage } from "../../context/LanguageContext";
+import { useAppVersion } from "../../hooks/useAppVersion";
 import { useUpdate } from "../../context/UpdateContext";
 import { FlagIcon, Button } from "../../components/ui";
 import SettingsSection from "./SettingsSection";
@@ -12,6 +13,7 @@ import { GlobeIcon, DownloadIcon } from "./settingsIcons";
  */
 export default function GeneralTab() {
   const { language, setLanguage, languages, t } = useLanguage();
+  const version = useAppVersion();
   const {
     autoCheckUpdates,
     setAutoCheckUpdates,
@@ -249,7 +251,7 @@ export default function GeneralTab() {
               <div style={{ fontSize: "13px", color: "var(--text-muted)" }}>
                 {status === "available"
                   ? t("updater.newVersionAvailableDesc")
-                  : "GitHub Releases (atxoxx/GameIndex)"}
+                  : `GameIndex v${version} · GitHub Releases (atxoxx/GameIndex)`}
               </div>
             </div>
 

@@ -3,6 +3,7 @@ import type { MouseEvent } from "react";
 import { NavLink, useLocation } from "react-router-dom";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { useActiveDownloadCount } from "../context/DownloadContext";
+import { useAppVersion } from "../hooks/useAppVersion";
 import { useBigScreen } from "../context/BigScreenContext";
 import {
   getUnseenCommunityItems,
@@ -337,6 +338,7 @@ export default function TopNav() {
   const { isBigScreen, setBigScreen } = useBigScreen();
   const location = useLocation();
   const { t } = useLanguage();
+  const version = useAppVersion();
 
   // Map a nav route to its i18n key (the /community tab is labelled
   // "Stats" in the desktop UI but shares the nav.* namespace).
@@ -459,6 +461,9 @@ export default function TopNav() {
             />
           </svg>
           <span className="topnav-logo__word">GameIndex</span>
+          {version !== "" && (
+            <span className="topnav-logo__version">v{version}</span>
+          )}
         </div>
         <div className="topnav-tabs" role="tablist">
           {tabs.map((tab) => {
