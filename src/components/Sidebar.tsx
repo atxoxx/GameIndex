@@ -299,6 +299,12 @@ export default function Sidebar() {
     filterState.search.trim() !== "" || advancedFilterCount > 0;
 
   const [showImportMenu, setShowImportMenu] = useState(false);
+  // Element the import dropdown should anchor to. Set on every
+  // open so the menu appears under whichever control opened it —
+  // the header import button OR the empty-state CTA (anchoring to
+  // the header button alone made the dropdown pop up far from a
+  // click on the empty-state CTA).
+  const [importMenuAnchor, setImportMenuAnchor] = useState<HTMLElement | null>(null);
   const [showFilterPopover, setShowFilterPopover] = useState(false);
   const [contextMenu, setContextMenu] = useState<{ game: Game; x: number; y: number } | null>(null);
   const [showImportModal, setShowImportModal] = useState(false);
@@ -1003,6 +1009,7 @@ export default function Sidebar() {
             title={t("sidebar.importGamesTitle")}
             onClick={(e) => {
               e.stopPropagation();
+              setImportMenuAnchor(e.currentTarget);
               setShowImportMenu((v) => !v);
             }}
             leftIcon={
@@ -1026,7 +1033,7 @@ export default function Sidebar() {
           {showImportMenu &&
             createPortal(
               (() => {
-                const rect = importBtnRef.current?.getBoundingClientRect();
+                const rect = (importMenuAnchor ?? importBtnRef.current)?.getBoundingClientRect();
                 const menuStyle: React.CSSProperties = rect
                   ? {
                       position: "fixed",
@@ -1273,7 +1280,11 @@ export default function Sidebar() {
                 <button
                   type="button"
                   className="sidebar-empty-cta"
-                  onClick={() => setShowImportMenu(true)}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setImportMenuAnchor(e.currentTarget);
+                    setShowImportMenu(true);
+                  }}
                 >
                   {t("sidebar.importGames")}
                 </button>
