@@ -630,7 +630,15 @@ export function GameProvider({ children }: { children: ReactNode }) {
       // placeholder text card forever, since the IGDB-only `meta`
       // selection above drops the Steam/LaunchBox image URLs on the floor.
       // Textual metadata still prizes IGDB above other sources.
+      // For Steam-identified games the Steam CDN hero/banner is preferred
+      // over IGDB artwork.
       const pickImage = (key: "cover" | "hero" | "banner" | "logo"): string | null => {
+        // Steam-identified games get the Steam CDN hero/banner by default;
+        // IGDB artwork remains the default for everything else.
+        if (steamAppId && (key === "hero" || key === "banner")) {
+          const steam = results.find((r) => r.sourceName === "Steam");
+          if (steam?.images[key]) return steam.images[key];
+        }
         if (meta.images[key]) return meta.images[key];
         for (const r of results) {
           if (r.images[key]) return r.images[key];

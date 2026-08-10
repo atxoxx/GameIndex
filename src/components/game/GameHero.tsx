@@ -1,4 +1,4 @@
-import { Fragment, useEffect, useState, type CSSProperties } from "react";
+import { Fragment, useEffect, useMemo, useState, type CSSProperties } from "react";
 import { KpiTile } from "../ui";
 import { type Game, PLAY_STATUS_DETAILS } from "../../types/game";
 import { useGames } from "../../context/GameContext";
@@ -92,6 +92,7 @@ export default function GameHero({
 
   const [coverErrored, setCoverErrored] = useState(false);
   const [logoErrored, setLogoErrored] = useState(false);
+  const [ambientStep, setAmbientStep] = useState(0);
   const { autoGameAccent, setAccentColor } = useSettings();
   const gameAccent = useGameAccent(accentSrc || undefined);
 
@@ -113,7 +114,23 @@ export default function GameHero({
       })
     : null;
 
-  const ambientSrc = bannerUrl || coverUrl || null;
+  // Ambient background ladder: for Steam-identified library games the live
+  // Steam CDN hero is preferred by default, then the persisted banner, then
+  // the cover. A hidden probe <img> in the render advances the step on 404.
+  const steamCdnBanner =
+    isGame && steamAppId != null
+      ? `https://cdn.akamai.steamstatic.com/steam/apps/${steamAppId}/library_hero.jpg`
+      : null;
+  const ambientCandidates = useMemo(
+    () => [steamCdnBanner, bannerUrl, coverUrl].filter((u): u is string => !!u),
+    [steamCdnBanner, bannerUrl, coverUrl]
+  );
+  const ambientSrc =
+    ambientStep < ambientCandidates.length ? ambientCandidates[ambientStep] : null;
+
+  useEffect(() => {
+    setAmbientStep(0);
+  }, [ambientCandidates]);
 
   // Achievement progress (Steam-synced, Library only).
   const achievements = game?.steamAchievements;
@@ -249,11 +266,20 @@ export default function GameHero({
           whole hero with the game's palette, or a gradient fallback. A
           legibility scrim sits on top so the poster + content stay readable. */}
       {ambientSrc ? (
-        <div
-          className="game-hero__bg"
-          style={{ backgroundImage: `url(${ambientSrc})` }}
-          aria-hidden="true"
-        />
+        <>
+          <img
+            src={ambientSrc}
+            alt=""
+            aria-hidden="true"
+            style={{ display: "none" }}
+            onError={() => setAmbientStep((s) => s + 1)}
+          />
+          <div
+            className="game-hero__bg"
+            style={{ backgroundImage: `url(${ambientSrc})` }}
+            aria-hidden="true"
+          />
+        </>
       ) : (
         <div className="game-hero__bg game-hero__bg--fallback" aria-hidden="true" />
       )}
