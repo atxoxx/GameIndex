@@ -164,7 +164,10 @@ impl DownloadManager {
     pub fn emit_progress_force(&mut self) {
         if let Some(app) = &self.app {
             let snapshot = self.list();
-            self.last_emitted_hash = hash_snapshot(&snapshot);
+            // Deliberately do NOT update `last_emitted_hash` here: the
+            // 1 s tick re-emits this snapshot once more, so a single
+            // dropped event (e.g. the `extracted` flip) cannot leave
+            // the frontend stuck on stale state forever.
             let _ = app.emit("download-progress", &snapshot);
         }
     }
