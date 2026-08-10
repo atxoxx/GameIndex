@@ -40,3 +40,4 @@ nul
 .vscode
 build.bat
 build-upload.bat
+upload.bat
