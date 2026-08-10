@@ -1448,6 +1448,416 @@
   box-shadow: 0 0 0 2px var(--color-accent-glow);
 }
 
+/* ── Download emulator modal ────────────────────────────────────── */
+
+.download-emulator-modal {
+  max-height: 85vh;
+}
+
+.download-emulator-modal .modal-close:disabled,
+.download-emulator-modal .modal-close:disabled:hover {
+  opacity: 0.4;
+  cursor: not-allowed;
+  color: var(--color-text-secondary);
+  background: transparent;
+}
+
+.download-emulator-body {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-md);
+  padding: var(--space-xl) var(--space-2xl);
+  min-height: 0;
+}
+
+/* Step header (back button + step label). */
+.download-emulator-step {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+.download-emulator-back {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 8px;
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text-secondary);
+  background: transparent;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  text-transform: none;
+  letter-spacing: normal;
+  transition: color var(--duration-fast) var(--ease-standard),
+    border-color var(--duration-fast) var(--ease-standard);
+}
+
+.download-emulator-back:hover {
+  color: var(--color-text-primary);
+  border-color: var(--color-border-light);
+}
+
+.download-emulator-back svg {
+  width: 12px;
+  height: 12px;
+}
+
+/* Scrollable catalog list. */
+.download-emulator-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-xs);
+  max-height: 300px;
+  min-height: 0;
+  overflow-y: auto;
+  padding: var(--space-2xs);
+  margin: 0 calc(var(--space-2xs) * -1);
+}
+
+.download-emulator-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-md);
+  width: 100%;
+  padding: var(--space-sm) var(--space-md);
+  text-align: left;
+  background: var(--color-bg-primary);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  color: var(--color-text-primary);
+  cursor: pointer;
+  transition: border-color var(--duration-fast) var(--ease-standard),
+    background var(--duration-fast) var(--ease-standard);
+}
+
+.download-emulator-row:hover {
+  background: var(--color-bg-hover);
+  border-color: var(--color-border-light);
+}
+
+.download-emulator-row.is-selected {
+  border-color: var(--color-accent);
+  background: var(--color-accent-soft);
+  box-shadow: inset 0 0 0 1px var(--color-accent-glow);
+}
+
+.download-emulator-row-glyph,
+.download-emulator-row-glyph-img {
+  width: 36px;
+  height: 36px;
+  flex-shrink: 0;
+}
+
+.download-emulator-row-glyph {
+  display: grid;
+  place-items: center;
+  font-size: var(--font-size-lg);
+  background: color-mix(
+    in srgb,
+    var(--emu-accent, var(--color-accent)) 10%,
+    var(--color-bg-secondary)
+  );
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+}
+
+.download-emulator-row-glyph svg {
+  width: 18px;
+  height: 18px;
+}
+
+.download-emulator-row-glyph-img {
+  object-fit: contain;
+  padding: 4px;
+}
+
+.download-emulator-row-main {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.download-emulator-row-name {
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-semibold);
+}
+
+.download-emulator-row-platform {
+  font-size: var(--font-size-xs);
+  color: var(--color-text-secondary);
+}
+
+.download-emulator-notes {
+  font-size: var(--font-size-xs);
+  color: var(--color-text-muted);
+  line-height: 1.4;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.download-emulator-row-meta {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: var(--space-xs);
+  flex-shrink: 0;
+}
+
+.download-emulator-size {
+  font-size: var(--font-size-xs);
+  font-family: var(--font-mono);
+  color: var(--color-text-secondary);
+  padding: 2px 8px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-full);
+  white-space: nowrap;
+}
+
+.download-emulator-installed {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-success);
+  background: color-mix(in srgb, var(--color-success) 10%, transparent);
+  border: 1px solid color-mix(in srgb, var(--color-success) 35%, transparent);
+  border-radius: var(--radius-full);
+  padding: 2px 8px;
+  white-space: nowrap;
+}
+
+.download-emulator-installed svg {
+  width: 12px;
+  height: 12px;
+}
+
+.download-emulator-hint {
+  margin: 0;
+  font-size: var(--font-size-xs);
+  color: var(--color-text-muted);
+}
+
+.download-emulator-empty {
+  padding: var(--space-xl);
+  text-align: center;
+  font-size: var(--font-size-sm);
+  color: var(--color-text-secondary);
+  border: 1px dashed var(--color-border-light);
+  border-radius: var(--radius-md);
+}
+
+/* Selected-emulator summary card. */
+.download-emulator-summary {
+  display: flex;
+  align-items: center;
+  gap: var(--space-md);
+  padding: var(--space-sm) var(--space-md);
+  background: var(--color-bg-primary);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+}
+
+.download-emulator-summary-info {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.download-emulator-summary-name {
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-semibold);
+}
+
+.download-emulator-summary-platform {
+  font-size: var(--font-size-xs);
+  color: var(--color-text-secondary);
+}
+
+/* Folder picker. */
+.download-emulator-folder-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+}
+
+.download-emulator-folder-input {
+  flex: 1;
+  min-width: 0;
+  padding: var(--space-sm) var(--space-md);
+  font-size: var(--font-size-sm);
+  font-family: var(--font-mono);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-bg-primary);
+  color: var(--color-text-primary);
+  outline: none;
+}
+
+.download-emulator-folder-input:focus {
+  border-color: var(--color-accent);
+  box-shadow: 0 0 0 2px var(--color-accent-glow);
+}
+
+/* Planned layout path lines. */
+.download-emulator-layout {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2xs);
+  padding: var(--space-sm) var(--space-md);
+  background: var(--color-bg-primary);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+}
+
+.download-emulator-layout-line {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-md);
+  font-size: var(--font-size-xs);
+  font-family: var(--font-mono);
+  color: var(--color-text-secondary);
+}
+
+.download-emulator-layout-line span {
+  flex-shrink: 0;
+  color: var(--color-text-muted);
+}
+
+.download-emulator-layout-line code {
+  flex: 1;
+  min-width: 0;
+  color: var(--color-text-primary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Progress bar + status row. */
+.download-emulator-progress {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+  padding: var(--space-lg) 0 var(--space-sm);
+}
+
+.download-emulator-progress-bar {
+  height: 8px;
+  border-radius: var(--radius-full);
+  background: var(--color-bg-tertiary);
+  overflow: hidden;
+}
+
+.download-emulator-progress-fill {
+  height: 100%;
+  border-radius: var(--radius-full);
+  background: var(--brand-gradient);
+  transition: width var(--duration-normal) var(--ease-standard);
+}
+
+.download-emulator-progress-fill.is-indeterminate {
+  width: 40%;
+  animation: downloadEmuIndeterminate 1.2s var(--ease-standard) infinite;
+}
+
+@keyframes downloadEmuIndeterminate {
+  0% {
+    transform: translateX(-100%);
+  }
+  100% {
+    transform: translateX(300%);
+  }
+}
+
+.download-emulator-progress-status {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-md);
+  font-size: var(--font-size-sm);
+  color: var(--color-text-secondary);
+}
+
+.download-emulator-progress-status strong {
+  color: var(--color-text-primary);
+  font-weight: var(--font-weight-semibold);
+}
+
+.download-emulator-progress-status span {
+  font-family: var(--font-mono);
+  font-size: var(--font-size-xs);
+  white-space: nowrap;
+}
+
+/* Done / error result block. */
+.download-emulator-result {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-sm);
+  padding: var(--space-xl) 0;
+  text-align: center;
+}
+
+.download-emulator-result-icon {
+  display: grid;
+  place-items: center;
+  width: 48px;
+  height: 48px;
+  border-radius: var(--radius-full);
+  background: color-mix(in srgb, var(--color-success) 12%, transparent);
+  color: var(--color-success);
+}
+
+.download-emulator-result-icon.is-error {
+  background: color-mix(in srgb, var(--color-danger) 12%, transparent);
+  color: var(--color-danger);
+}
+
+.download-emulator-result-icon svg {
+  width: 24px;
+  height: 24px;
+}
+
+.download-emulator-result-name {
+  font-size: var(--font-size-lg);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text-primary);
+}
+
+.download-emulator-result-path {
+  max-width: 100%;
+  font-size: var(--font-size-xs);
+  font-family: var(--font-mono);
+  color: var(--color-text-secondary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Footer action bar for the download modal. */
+.download-emulator-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: var(--space-sm);
+  padding: var(--space-lg) var(--space-xl);
+  border-top: 1px solid var(--color-border);
+  flex-shrink: 0;
+}
+
 /* ── Sidebar console badge ────────────────────────────────────────
  * Styled here because the Emulators page is where the console-context
  * sidebar rows are most visible; keep the rule intact for Sidebar.tsx. */

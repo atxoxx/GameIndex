@@ -11,6 +11,7 @@ import { formatBytesShort } from "../types/download";
 import { Button, ConfirmModal, PageHeader, Tooltip } from "../components/ui";
 import "../styles/page-emulators.css";
 import EmulatorEditorModal from "./EmulatorEditorModal";
+import DownloadEmulatorModal from "../components/emulators/DownloadEmulatorModal";
 
 /* ── Icon primitives ────────────────────────────────────────────────
  * Small stroke icons shared across the page. Sized by context via
@@ -123,6 +124,13 @@ const IconPlus = ({ className }: IconProps) => (
   <svg className={className} {...ICON}>
     <line x1="12" y1="5" x2="12" y2="19" />
     <line x1="5" y1="12" x2="19" y2="12" />
+  </svg>
+);
+const IconDownload = ({ className }: IconProps) => (
+  <svg className={className} {...ICON}>
+    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+    <polyline points="7 10 12 15 17 10" />
+    <line x1="12" y1="15" x2="12" y2="3" />
   </svg>
 );
 const IconChevronUp = ({ className }: IconProps) => (
@@ -282,6 +290,7 @@ export default function EmulatorsPage() {
   const [emulators, setEmulators] = useState<Emulator[]>([]);
   const [loading, setLoading] = useState(true);
   const [showEditor, setShowEditor] = useState(false);
+  const [showDownload, setShowDownload] = useState(false);
   const [editing, setEditing] = useState<Emulator | null>(null);
   const [presetKnown, setPresetKnown] = useState<KnownEmulator | null>(null);
   const [scanningId, setScanningId] = useState<string | null>(null);
@@ -533,6 +542,16 @@ export default function EmulatorsPage() {
       if (scanAfter) await handleScan(emu);
     },
     [load, handleScan]
+  );
+
+  const handleDownloadInstalled = useCallback(
+    async (emu: Emulator) => {
+      setShowDownload(false);
+      await load();
+      setSelectedId(emu.id);
+      showToast(t("emulators.download.done") + " ✓", "success");
+    },
+    [load, showToast, t]
   );
 
   const handleOpenFolder = useCallback(
@@ -821,6 +840,13 @@ export default function EmulatorsPage() {
           <>
             <Button variant="primary" onClick={openAdd} leftIcon={<IconPlus />}>
               {t("emulators.addEmulator")}
+            </Button>
+            <Button
+              variant="secondary"
+              onClick={() => setShowDownload(true)}
+              leftIcon={<IconDownload />}
+            >
+              {t("emulators.download.title")}
             </Button>
             {addedCount > 0 && (
               <Button
@@ -1469,6 +1495,13 @@ export default function EmulatorsPage() {
             setPresetKnown(null);
           }}
           onSaved={handleSaved}
+        />
+      )}
+
+      {showDownload && (
+        <DownloadEmulatorModal
+          onClose={() => setShowDownload(false)}
+          onInstalled={handleDownloadInstalled}
         />
       )}
 

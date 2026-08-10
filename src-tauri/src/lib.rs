@@ -41,6 +41,7 @@ mod achievement_watcher;
 mod mods;
 mod tray;
 mod system_screenshots;
+mod emulator_install;
 use game_scraper::{GameMetadataResult, LaunchBoxImageResult, StoreGameSummary, TimeToBeat, SimilarGame, ReleaseDateInfo, IgdbReview, LanguageSupportInfo, ReviewFetchResult, RichAboutPayload, PcRequirementsPayload};
 use game_watcher::{GameWatcher, GameRefInput};
 use gpu_detector::GpuInfo;
@@ -493,6 +494,51 @@ fn delete_emulator(app: tauri::AppHandle, id: String) -> Result<(), String> {
     let db_state: tauri::State<'_, db::Db> = app.state();
     db::games::delete_by_emulator(db_state.inner(), &id)?;
     db::emulators::delete(db_state.inner(), &id)
+}
+
+/// Complete an emulator install started by `start_emulator_install`:
+/// resolve the install directory, locate the extracted executable,
+/// ensure the ROM folder exists, persist the configuration via the
+/// emulators DB, and return the finished `EmulatorData` with
+/// `executable_path` filled in.
+#[tauri::command]
+async fn finish_emulator_install(
+    app: tauri::AppHandle,
+    download_id: String,
+    emulator: EmulatorData,
+) -> Result<EmulatorData, String> {
+    let install_dir = emulator_install::resolve_install_dir(&download_id)
+        .ok_or_else(|| format!("No install in progress for download '{download_id}'"))?;
+
+    let exe_name = emulator_install::exe_name_for_download(&download_id)
+        .unwrap_or_else(|| "emulator.exe".to_string());
+
+    let exe = emulator_install::find_executable(&install_dir, &exe_name).ok_or_else(|| {
+        "Emulator executable not found after extraction (extraction may have failed — 7-Zip is required for .7z archives)"
+            .to_string()
+    })?;
+
+    std::fs::create_dir_all(&emulator.rom_folder)
+        .map_err(|e| format!("Failed to create ROM folder: {e}"))?;
+
+    let mut emulator = emulator;
+    emulator.executable_path = exe.to_string_lossy().into_owned();
+
+    let db_state: tauri::State<'_, db::Db> = app.state();
+    let row = db::emulators::EmulatorRow {
+        id: emulator.id.clone(),
+        name: emulator.name.clone(),
+        platform: emulator.platform.clone(),
+        executable_path: emulator.executable_path.clone(),
+        arguments_template: emulator.arguments_template.clone(),
+        rom_folder: emulator.rom_folder.clone(),
+        notes: emulator.notes.clone(),
+        icon_url: emulator.icon_url.clone(),
+        created_at: emulator.created_at,
+        updated_at: emulator.updated_at,
+    };
+    db::emulators::upsert_one(db_state.inner(), &row)?;
+    Ok(emulator)
 }
 
 /// Scan an emulator's ROM folder (flat — top-level files only) and
@@ -3878,6 +3924,10 @@ pub fn run() {
             save_emulator,
             delete_emulator,
             scan_emulator_roms,
+            // Downloadable emulator catalog + install pipeline.
+            emulator_install::list_emulator_downloads,
+            emulator_install::start_emulator_install,
+            finish_emulator_install,
             add_rom_file,
             rename_rom_file,
             delete_rom_file,

@@ -99,7 +99,7 @@ export const KNOWN_EMULATORS: KnownEmulator[] = [
     logo: "/emulator-logos/pcsx2.svg",
     name: "PCSX2",
     platform: "PlayStation 2",
-    executableName: "pcsx2.exe",
+    executableName: "pcsx2-qt.exe",
     extensions: ["iso", "bin", "cue", "chd", "img", "gz"],
     argumentsTemplate: '"%ROM%"',
     accent: "#f59e0b",
@@ -112,7 +112,7 @@ export const KNOWN_EMULATORS: KnownEmulator[] = [
     logo: "/emulator-logos/ppsspp.svg",
     name: "PPSSPP",
     platform: "PlayStation Portable",
-    executableName: "PPSSPPWindows.exe",
+    executableName: "PPSSPPWindows64.exe",
     extensions: ["iso", "cso", "pbp"],
     argumentsTemplate: '"%ROM%"',
     accent: "#10b981",
@@ -125,7 +125,7 @@ export const KNOWN_EMULATORS: KnownEmulator[] = [
     logo: "/emulator-logos/duckstation.png",
     name: "DuckStation",
     platform: "PlayStation",
-    executableName: "duckstation.exe",
+    executableName: "duckstation-qt-x64-ReleaseLTCG.exe",
     extensions: ["iso", "bin", "cue", "img", "pbp", "chd"],
     argumentsTemplate: '"%ROM%"',
     accent: "#ef4444",
@@ -177,7 +177,7 @@ export const KNOWN_EMULATORS: KnownEmulator[] = [
     logo: "/emulator-logos/snes9x.svg",
     name: "Snes9x",
     platform: "Super Nintendo",
-    executableName: "snes9x.exe",
+    executableName: "snes9x-x64.exe",
     extensions: ["smc", "sfc", "swc", "fig"],
     argumentsTemplate: '"%ROM%"',
     accent: "#a855f7",
@@ -331,7 +331,7 @@ export const KNOWN_EMULATORS: KnownEmulator[] = [
     logo: "/emulator-logos/lime3ds.svg",
     name: "Lime3DS",
     platform: "Nintendo 3DS",
-    executableName: "lime3ds.exe",
+    executableName: "azahar.exe",
     extensions: ["3ds", "cia", "cxi", "app"],
     argumentsTemplate: '"%ROM%"',
     accent: "#84cc16",
@@ -357,7 +357,7 @@ export const KNOWN_EMULATORS: KnownEmulator[] = [
     logo: "/emulator-logos/mupen64plus.svg",
     name: "Mupen64Plus",
     platform: "Nintendo 64",
-    executableName: "mupen64plus.exe",
+    executableName: "mupen64plus-ui-console.exe",
     extensions: ["n64", "z64", "v64"],
     argumentsTemplate: '"%ROM%"',
     accent: "#d97706",
@@ -383,7 +383,7 @@ export const KNOWN_EMULATORS: KnownEmulator[] = [
     logo: "/emulator-logos/fceux.svg",
     name: "FCEUX",
     platform: "NES",
-    executableName: "fceux.exe",
+    executableName: "fceux64.exe",
     extensions: ["nes", "fds"],
     argumentsTemplate: '"%ROM%"',
     accent: "#ea580c",
@@ -435,7 +435,7 @@ export const KNOWN_EMULATORS: KnownEmulator[] = [
     logo: "/emulator-logos/bizhawk.png",
     name: "BizHawk",
     platform: "Arcade",
-    executableName: "BizHawk.exe",
+    executableName: "EmuHawk.exe",
     extensions: ["zip", "7z"],
     argumentsTemplate: '"%ROM%"',
     accent: "#ec4899",
@@ -461,7 +461,7 @@ export const KNOWN_EMULATORS: KnownEmulator[] = [
     logo: "/emulator-logos/fbneo.svg",
     name: "FinalBurn Neo",
     platform: "Arcade",
-    executableName: "fbneo.exe",
+    executableName: "fbneo64.exe",
     extensions: ["zip", "7z"],
     argumentsTemplate: '"%ROM%"',
     accent: "#e11d48",
@@ -545,6 +545,28 @@ export const KNOWN_EMULATORS: KnownEmulator[] = [
     githubUrl: "https://github.com/stella-emu/stella",
   },
 ];
+
+/**
+ * One entry of the backend's downloadable-emulator catalog (returned by
+ * `list_emulator_downloads`). Carries only the download metadata; merge
+ * with `KNOWN_EMULATORS` by `key` to get display name, platform, glyph,
+ * logo and accent. Wire format is camelCase (`exeName`, `archiveRoot`,
+ * `sizeHint`).
+ */
+export interface EmulatorDownload {
+  /** Matches `KnownEmulator.key`. */
+  key: string;
+  /** Direct archive URL the backend will download. */
+  url: string;
+  /** Expected executable file name inside the archive. */
+  exeName: string;
+  /** Hint: subfolder inside the archive (optional). */
+  archiveRoot?: string;
+  /** Display string like "~18 MiB" (optional). */
+  sizeHint?: string;
+  /** Caveats (optional). */
+  notes?: string;
+}
 
 /** Look up a known emulator by its catalog key. */
 export function knownEmulatorByKey(key: string): KnownEmulator | undefined {
