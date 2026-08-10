@@ -12,6 +12,7 @@ import "./library.css";
 import "./styles/home.css";
 import "./pages/deals/DealsPage.css";
 import "./styles/bigscreen.css";
+import "./styles/store-polish.css";
 
 ReactDOM.createRoot(document.getElementById("root") as HTMLElement).render(
   <React.StrictMode>

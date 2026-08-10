@@ -61,10 +61,30 @@
   padding: var(--space-xl) var(--space-2xl);
   overflow: hidden;
   background: var(--color-bg-tertiary);
-  border: 1px solid var(--color-border);
+  border: 1px solid var(--color-border-light);
   box-shadow: inset 0 1px 0 var(--color-border-highlight), var(--shadow-lg);
   isolation: isolate;
   animation: libHeroIn 480ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+/* Accent hairline across the top — the signature brand stripe. */
+.lib-hero::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: var(--space-2xl);
+  right: var(--space-2xl);
+  height: 2px;
+  z-index: 1;
+  background: linear-gradient(
+    90deg,
+    transparent,
+    color-mix(in srgb, var(--color-accent) 60%, transparent),
+    transparent
+  );
+  border-radius: 0 0 var(--radius-full) var(--radius-full);
+  pointer-events: none;
+  opacity: 0.8;
 }
 
 @keyframes libHeroIn {
@@ -160,6 +180,7 @@
   margin: 0;
   letter-spacing: -0.6px;
   line-height: 1.05;
+  font-family: var(--font-display);
 }
 
 .lib-hero-greeting-dot {
@@ -175,6 +196,25 @@
   margin: 0;
   line-height: 1.45;
   max-width: 560px;
+}
+
+/* Time-of-day icon chip that leads the greeting. */
+.lib-hero-greeting-chip {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+  border-radius: var(--radius-md);
+  color: var(--color-accent);
+  background: color-mix(in srgb, var(--color-accent) 14%, transparent);
+  border: 1px solid color-mix(in srgb, var(--color-accent) 30%, transparent);
+  margin-bottom: var(--space-sm);
+}
+
+.lib-hero-greeting-chip svg {
+  width: 17px;
+  height: 17px;
 }
 
 .lib-hero-actions {
@@ -208,7 +248,7 @@
 
 .lib-hero-btn--primary {
   background: linear-gradient(135deg, var(--color-accent), var(--brand-2, var(--color-accent-hover)));
-  color: #fff;
+  color: var(--color-text-inverse);
   border-color: transparent;
   box-shadow: 0 4px 14px color-mix(in srgb, var(--color-accent) 30%, transparent);
 }
@@ -303,11 +343,16 @@
   color: var(--stat-accent, var(--color-accent));
   background: color-mix(in srgb, var(--stat-accent, var(--color-accent)) 14%, transparent);
   border: 1px solid color-mix(in srgb, var(--stat-accent, var(--color-accent)) 30%, transparent);
+  transition: transform var(--duration-fast) var(--ease-standard);
 }
 
 .lib-stat-icon svg {
   width: 19px;
   height: 19px;
+}
+
+.lib-stat:hover .lib-stat-icon {
+  transform: scale(1.08);
 }
 
 .lib-stat-body {
@@ -408,6 +453,7 @@
   color: var(--color-text-primary);
   margin: 0;
   letter-spacing: -0.2px;
+  font-family: var(--font-display);
 }
 
 .lib-rail-subtitle {
@@ -543,7 +589,7 @@
   background: color-mix(in srgb, var(--color-bg-primary) 78%, transparent);
   backdrop-filter: blur(18px) saturate(140%);
   -webkit-backdrop-filter: blur(18px) saturate(140%);
-  border: 1px solid var(--color-border);
+  border: 1px solid var(--color-border-light);
   border-radius: var(--radius-full);
   box-shadow: var(--shadow-md);
   flex-wrap: wrap;
@@ -610,7 +656,7 @@
   flex-shrink: 0;
 }
 
-.lib-search:focus-within svg {
+.lib-search:focus-within > svg {
   color: var(--color-accent);
 }
 
@@ -627,6 +673,41 @@
 
 .lib-search input::placeholder {
   color: var(--color-text-muted);
+}
+
+/* Clear (×) button inside the search pill. */
+.lib-search-clear {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  flex-shrink: 0;
+  border: none;
+  border-radius: 50%;
+  background: var(--color-bg-hover);
+  color: var(--color-text-secondary);
+  cursor: pointer;
+  transition: background var(--duration-fast) var(--ease-standard),
+    color var(--duration-fast) var(--ease-standard),
+    transform var(--duration-fast) var(--ease-standard);
+}
+
+.lib-search-clear svg {
+  width: 11px;
+  height: 11px;
+  color: inherit;
+}
+
+.lib-search-clear:hover {
+  background: color-mix(in srgb, var(--color-accent) 22%, var(--color-bg-hover));
+  color: var(--color-accent);
+  transform: scale(1.08);
+}
+
+.lib-search-clear:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 1px;
 }
 
 /* Sort + density get a unified glass group */
@@ -653,6 +734,22 @@
   width: 32px;
   height: 32px;
   border-radius: var(--radius-full);
+  color: var(--color-text-secondary);
+}
+
+.lib-toolbar-group .store-density-btn:hover {
+  color: var(--color-text-primary);
+  background: var(--color-bg-hover);
+}
+
+.lib-toolbar-group .store-density-btn.active {
+  color: var(--color-accent);
+  background: color-mix(in srgb, var(--color-accent) 16%, transparent);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--color-accent) 35%, transparent);
+}
+
+.lib-toolbar-group .store-density-btn.active svg {
+  color: var(--color-accent);
 }
 
 /* Sort dropdown */
@@ -682,6 +779,7 @@
 .lib-sort-trigger:hover {
   border-color: var(--color-accent);
   color: var(--color-accent);
+  box-shadow: 0 0 0 3px var(--color-accent-glow);
 }
 
 .lib-sort-trigger:focus-visible {
@@ -692,6 +790,7 @@
 .lib-sort-trigger.open {
   border-color: var(--color-accent);
   color: var(--color-accent);
+  box-shadow: 0 0 0 3px var(--color-accent-glow);
 }
 
 .lib-sort-trigger-icon {
@@ -723,12 +822,12 @@
   margin: 0;
   padding: var(--space-2xs) 0;
   list-style: none;
-  background: var(--color-surface-raised);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-md);
+  background: color-mix(in srgb, var(--color-bg-tertiary) 92%, transparent);
+  border: 1px solid var(--color-border-light);
+  border-radius: var(--radius-lg);
   box-shadow: var(--shadow-lg), 0 0 0 1px var(--color-accent-glow);
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
+  backdrop-filter: blur(20px) saturate(140%);
+  -webkit-backdrop-filter: blur(20px) saturate(140%);
   z-index: 60;
   animation: libSortIn 160ms cubic-bezier(0.16, 1, 0.3, 1);
   overflow: hidden;
@@ -822,6 +921,37 @@
   font-size: var(--font-size-sm);
   line-height: 1.2;
   font-weight: var(--font-weight-medium);
+  animation: libChipIn 220ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@keyframes libChipIn {
+  from {
+    opacity: 0;
+    transform: translateY(4px) scale(0.95);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+/* Small icon that labels what a filter is about. */
+.lib-chip-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  height: 16px;
+  margin-left: 2px;
+  border-radius: 50%;
+  color: var(--color-accent);
+  background: color-mix(in srgb, var(--color-accent) 16%, transparent);
+  flex-shrink: 0;
+}
+
+.lib-chip-icon svg {
+  width: 9px;
+  height: 9px;
 }
 
 .lib-chip button {
@@ -1033,7 +1163,7 @@
   font-size: 9px;
   font-weight: var(--font-weight-bold);
   background: var(--color-accent);
-  color: #fff;
+  color: var(--color-text-inverse);
   border-radius: var(--radius-full);
 }
 
@@ -1105,7 +1235,7 @@
 
 .lib-segment-option.active {
   background: linear-gradient(135deg, var(--color-accent), var(--brand-2, var(--color-accent-hover)));
-  color: #fff;
+  color: var(--color-text-inverse);
   box-shadow: 0 2px 8px color-mix(in srgb, var(--color-accent) 30%, transparent);
 }
 
@@ -1157,7 +1287,7 @@
 }
 
 .lib-pill.active {
-  color: #fff;
+  color: var(--color-text-inverse);
   background: var(--color-accent);
   border-color: var(--color-accent);
   box-shadow: 0 2px 8px color-mix(in srgb, var(--color-accent) 30%, transparent);
@@ -1524,13 +1654,13 @@
 
 .lib-card-badge--running {
   background: color-mix(in srgb, var(--color-success) 90%, transparent);
-  color: #04221a;
+  color: var(--color-text-inverse);
 }
 
 .lib-card-badge--playtime {
-  background: rgba(0, 0, 0, 0.62);
-  color: #fff;
-  border: 1px solid rgba(255, 255, 255, 0.14);
+  background: color-mix(in srgb, var(--color-bg-primary) 62%, transparent);
+  color: var(--color-text-primary);
+  border: 1px solid color-mix(in srgb, var(--color-text-primary) 14%, transparent);
 }
 
 /* Quick play FAB — appears on hover */
@@ -1544,12 +1674,12 @@
   justify-content: center;
   width: 38px;
   height: 38px;
-  border: 1px solid color-mix(in srgb, var(--color-accent) 40%, rgba(255, 255, 255, 0.4));
+  border: 1px solid color-mix(in srgb, var(--color-accent) 40%, var(--color-text-inverse));
   border-radius: 50%;
   background: linear-gradient(135deg, var(--color-accent), var(--brand-2, var(--color-accent-hover)));
-  color: #fff;
+  color: var(--color-text-inverse);
   cursor: pointer;
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.35), 0 4px 16px color-mix(in srgb, var(--color-accent) 45%, transparent);
+  box-shadow: inset 0 1px 0 color-mix(in srgb, var(--color-text-inverse) 35%, transparent), 0 4px 16px color-mix(in srgb, var(--color-accent) 45%, transparent);
   opacity: 0;
   transform: translateY(8px) scale(0.9);
   transition: opacity var(--transition-fast), transform var(--transition-fast),
@@ -1572,7 +1702,7 @@
 }
 
 .lib-card-fab:focus-visible {
-  outline: 2px solid #fff;
+  outline: 2px solid var(--color-text-inverse);
   outline-offset: 2px;
   opacity: 1;
   transform: translateY(0) scale(1);
@@ -1680,8 +1810,13 @@
   left: 0;
   right: 0;
   padding: var(--space-lg);
-  background: linear-gradient(to top, rgba(0, 0, 0, 0.96) 0%, rgba(0, 0, 0, 0.72) 60%, rgba(0, 0, 0, 0) 100%);
-  color: #fff;
+  background: linear-gradient(
+    to top,
+    color-mix(in srgb, var(--color-bg-primary) 96%, transparent) 0%,
+    color-mix(in srgb, var(--color-bg-primary) 72%, transparent) 60%,
+    transparent 100%
+  );
+  color: var(--color-text-primary);
   display: flex;
   flex-direction: column;
   gap: var(--space-2xs);
@@ -1690,14 +1825,14 @@
 }
 
 .lib-card.density-cinematic .lib-card-name {
-  color: #fff;
+  color: var(--color-text-primary);
   font-size: var(--font-size-sm);
   -webkit-line-clamp: 2;
 }
 
 .lib-card.density-cinematic .lib-card-platform {
-  background: rgba(255, 255, 255, 0.16);
-  color: #fff;
+  background: color-mix(in srgb, var(--color-text-primary) 16%, transparent);
+  color: var(--color-text-primary);
 }
 
 .lib-card.density-cinematic .lib-card-developer,
@@ -1763,8 +1898,8 @@
 }
 
 .lib-rail-card:hover {
-  transform: translateY(-2px);
-  box-shadow: var(--shadow-md);
+  transform: translateY(-3px);
+  box-shadow: var(--shadow-lg), 0 0 20px var(--color-accent-glow);
   border-color: var(--color-accent);
 }
 
@@ -1774,6 +1909,26 @@
   flex-shrink: 0;
   background: var(--color-surface);
   overflow: hidden;
+}
+
+/* Legibility scrim so the hover "Play" pill reads over any art. */
+.lib-rail-cover::after {
+  content: "";
+  position: absolute;
+  inset: auto 0 0 0;
+  height: 45%;
+  background: linear-gradient(
+    to top,
+    color-mix(in srgb, var(--color-bg-primary) 82%, transparent),
+    transparent
+  );
+  opacity: 0;
+  transition: opacity var(--duration-fast) var(--ease-standard);
+  pointer-events: none;
+}
+
+.lib-rail-card:hover .lib-rail-cover::after {
+  opacity: 1;
 }
 
 .lib-rail-cover img {
@@ -1786,7 +1941,7 @@
 }
 
 .lib-rail-card:hover .lib-rail-cover img {
-  transform: scale(1.03);
+  transform: scale(1.04);
 }
 
 .lib-rail-cover-placeholder {
@@ -1796,7 +1951,10 @@
   width: 100%;
   height: 100%;
   color: var(--color-text-muted);
-  background: var(--color-bg-tertiary);
+  background:
+    linear-gradient(160deg,
+      color-mix(in srgb, var(--color-accent) 14%, var(--color-bg-tertiary)),
+      var(--color-bg-tertiary) 65%);
 }
 
 .lib-rail-cover-placeholder svg {
@@ -1811,16 +1969,83 @@
   left: var(--space-xs);
   font-size: 9px;
   font-weight: var(--font-weight-bold);
-  color: #fff;
-  background: rgba(0, 0, 0, 0.7);
+  color: var(--color-text-primary);
+  background: color-mix(in srgb, var(--color-bg-primary) 68%, transparent);
   backdrop-filter: blur(8px);
   -webkit-backdrop-filter: blur(8px);
   padding: 2px 6px;
   border-radius: var(--radius-sm);
-  border: 1px solid rgba(255, 255, 255, 0.1);
+  border: 1px solid var(--color-border-light);
   letter-spacing: 0.4px;
   text-transform: uppercase;
   pointer-events: none;
+}
+
+/* "New" badge — top-right on Recently Added covers. */
+.lib-rail-new-badge {
+  position: absolute;
+  top: var(--space-xs);
+  right: var(--space-xs);
+  z-index: 2;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 8px;
+  font-size: 9px;
+  font-weight: var(--font-weight-bold);
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+  color: var(--color-text-primary);
+  background: linear-gradient(135deg, var(--color-accent), var(--brand-2, var(--color-accent-hover)));
+  border: 1px solid color-mix(in srgb, var(--color-accent) 55%, transparent);
+  border-radius: var(--radius-full);
+  box-shadow: 0 2px 10px color-mix(in srgb, var(--color-accent) 40%, transparent);
+  pointer-events: none;
+}
+
+/* Hover "Play" pill on Continue Playing covers. */
+.lib-rail-resume {
+  position: absolute;
+  bottom: var(--space-sm);
+  left: 50%;
+  transform: translate(-50%, 8px);
+  z-index: 2;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 14px;
+  font-size: 11px;
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text-inverse);
+  background: linear-gradient(135deg, var(--color-accent), var(--brand-2, var(--color-accent-hover)));
+  border: 1px solid color-mix(in srgb, var(--color-accent) 45%, var(--color-text-inverse));
+  border-radius: var(--radius-full);
+  cursor: pointer;
+  box-shadow: inset 0 1px 0 color-mix(in srgb, var(--color-text-inverse) 30%, transparent), 0 4px 14px color-mix(in srgb, var(--color-accent) 45%, transparent);
+  opacity: 0;
+  transition: opacity var(--duration-fast) var(--ease-standard),
+    transform var(--duration-fast) var(--ease-standard);
+}
+
+.lib-rail-resume svg {
+  width: 12px;
+  height: 12px;
+}
+
+.lib-rail-card:hover .lib-rail-resume,
+.lib-rail-resume:focus-visible {
+  opacity: 1;
+  transform: translate(-50%, 0);
+}
+
+.lib-rail-resume:hover {
+  transform: translate(-50%, -1px);
+  box-shadow: inset 0 1px 0 color-mix(in srgb, var(--color-text-inverse) 35%, transparent), 0 6px 18px color-mix(in srgb, var(--color-accent) 55%, transparent);
+}
+
+.lib-rail-resume:focus-visible {
+  outline: 2px solid var(--color-text-inverse);
+  outline-offset: 2px;
 }
 
 .lib-rail-player-chip {
@@ -1911,6 +2136,21 @@
   background: radial-gradient(circle, color-mix(in srgb, var(--color-accent) 24%, transparent) 0%, transparent 70%);
   pointer-events: none;
   z-index: -1;
+}
+
+/* Faint blueprint grid that sits behind the empty-state content. */
+.lib-empty-grid {
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  opacity: 0.4;
+  background-image:
+    linear-gradient(color-mix(in srgb, var(--color-text-muted) 10%, transparent) 1px, transparent 1px),
+    linear-gradient(90deg, color-mix(in srgb, var(--color-text-muted) 10%, transparent) 1px, transparent 1px);
+  background-size: 26px 26px;
+  mask-image: radial-gradient(ellipse 90% 70% at 50% 30%, #000 40%, transparent 100%);
+  -webkit-mask-image: radial-gradient(ellipse 90% 70% at 50% 30%, #000 40%, transparent 100%);
 }
 
 .lib-empty-icon {
@@ -2080,7 +2320,7 @@
 .lib-empty-card:hover .lib-empty-card-cta {
   background: var(--color-accent);
   border-color: var(--color-accent);
-  color: #fff;
+  color: var(--color-text-inverse);
   transform: translateX(2px);
 }
 
@@ -2143,8 +2383,102 @@
 
 .lib-filtered-empty-reset:hover {
   background: var(--color-accent);
-  color: #fff;
+  color: var(--color-text-inverse);
   box-shadow: 0 4px 12px color-mix(in srgb, var(--color-accent) 35%, transparent);
+}
+
+/* ────────────────────────────────────────────────────────────────────
+   LIBRARY CONTEXT MENU
+   Scoped refinements layered on top of the base .context-menu in
+   game-page.css — glassier surface, accent play action.
+   ──────────────────────────────────────────────────────────────────── */
+
+.lib-context-menu {
+  background: color-mix(in srgb, var(--color-bg-tertiary) 94%, transparent);
+  backdrop-filter: blur(20px) saturate(140%);
+  -webkit-backdrop-filter: blur(20px) saturate(140%);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-lg), 0 0 0 1px var(--color-accent-glow);
+  padding: var(--space-2xs);
+  animation: libMenuIn 160ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.lib-context-menu .context-menu-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-md);
+  border-bottom: 1px solid var(--color-border);
+}
+
+.lib-context-menu .context-menu-title {
+  font-size: 12px;
+  color: var(--color-text-primary);
+  font-family: var(--font-display);
+  letter-spacing: -0.2px;
+}
+
+.lib-context-menu__platform {
+  flex-shrink: 0;
+  padding: 2px 7px;
+  font-size: 9px;
+  font-weight: var(--font-weight-bold);
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+  color: var(--color-text-secondary);
+  background: var(--color-bg-hover);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-full);
+}
+
+.lib-context-menu .context-menu-item {
+  border-radius: var(--radius-md);
+  margin: 1px 0;
+}
+
+.lib-context-menu .context-menu-item.play-action {
+  color: var(--color-accent);
+  background: color-mix(in srgb, var(--color-accent) 8%, transparent);
+}
+
+.lib-context-menu .context-menu-item.play-action:hover {
+  background: color-mix(in srgb, var(--color-accent) 16%, transparent);
+}
+
+.lib-context-menu .context-menu-item.remove-action:hover {
+  background: color-mix(in srgb, var(--color-danger) 12%, transparent);
+}
+
+.lib-context-menu .context-menu-separator {
+  margin: var(--space-2xs) 0;
+}
+
+/* ────────────────────────────────────────────────────────────────────
+   LIBRARY EXPORT MODAL
+   ──────────────────────────────────────────────────────────────────── */
+
+.lib-export-head {
+  display: flex;
+  align-items: center;
+  gap: var(--space-md);
+}
+
+.lib-export-head-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 42px;
+  height: 42px;
+  flex-shrink: 0;
+  border-radius: var(--radius-md);
+  color: var(--color-accent);
+  background: color-mix(in srgb, var(--color-accent) 14%, transparent);
+  border: 1px solid color-mix(in srgb, var(--color-accent) 30%, transparent);
+}
+
+.lib-export-head-icon svg {
+  width: 20px;
+  height: 20px;
 }
 
 /* ────────────────────────────────────────────────────────────────────

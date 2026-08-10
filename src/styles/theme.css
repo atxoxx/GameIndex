@@ -1,4 +1,3 @@
-
 /* ==============================
    Theme Engine - CSS Custom Properties
    ============================== */
@@ -14,7 +13,7 @@
   --color-bg-tertiary: #141722;
   --color-bg-hover: #1b1f2e;
   --color-bg-active: #23283b;
-  
+
   /* High-precision ambient depth background mesh */
   --color-bg-gradient: radial-gradient(circle at 14% 10%, rgba(99, 91, 255, 0.12) 0%, transparent 48%),
                         radial-gradient(circle at 86% 88%, rgba(56, 189, 248, 0.08) 0%, transparent 45%),
@@ -32,14 +31,16 @@
   --color-bg-elevated: var(--color-surface-raised);
 
   /* Tactile Border system */
-  --color-border: rgba(255, 255, 255, 0.08);
-  --color-border-light: rgba(255, 255, 255, 0.13);
-  --color-border-highlight: rgba(255, 255, 255, 0.16);
+  --color-border: rgba(255, 255, 255, 0.07);
+  --color-border-light: rgba(255, 255, 255, 0.12);
+  --color-border-highlight: rgba(255, 255, 255, 0.14);
+  --color-border-faint: rgba(255, 255, 255, 0.045);
   --color-border-glow: color-mix(in srgb, var(--color-accent) 40%, transparent);
 
   /* Text hierarchy */
   --color-text-primary: #f3f5fa;
   --color-text-secondary: #9ea4b5;
+  --color-text-tertiary: #565d70;
   --color-text-muted: #62687a;
   --color-text-inverse: #08090c;
 
@@ -57,6 +58,10 @@
   --color-info: #38bdf8;
   --color-stale: #fbbf24;
 
+  /* Overlay scrims (modal backdrops, lightbox) */
+  --color-scrim: rgba(4, 5, 9, 0.62);
+  --color-scrim-strong: rgba(4, 5, 9, 0.8);
+
   /* Brand identity */
   --brand-1: var(--color-accent);
   --brand-2: var(--color-accent-hover);
@@ -68,10 +73,12 @@
     radial-gradient(circle at 88% 12%, color-mix(in srgb, #38bdf8 16%, transparent) 0%, transparent 40%),
     radial-gradient(circle at 75% 88%, color-mix(in srgb, var(--color-accent) 14%, transparent) 0%, transparent 44%);
 
-  /* ── Spacing Scale ──────────────────────────────────────────────── */
+  /* ── Spacing Scale ────────────────────────────────────────────────
+     Base-4 modular scale with a 6px mid-step for fine rhythm. */
+  --space-4xs: 1px;
   --space-3xs: 2px;
   --space-2xs: 4px;
-  --space-xs: 4px;
+  --space-xs: 6px;
   --space-sm: 8px;
   --space-md: 12px;
   --space-lg: 16px;
@@ -79,6 +86,7 @@
   --space-2xl: 32px;
   --space-3xl: 48px;
   --space-4xl: 96px;
+  --space-5xl: 128px;
 
   /* ── Typography Scale ───────────────────────────────────────────── */
   --font-size-xs: 11px;
@@ -88,6 +96,7 @@
   --font-size-xl: 20px;
   --font-size-2xl: 24px;
   --font-size-3xl: 32px;
+  --font-size-4xl: 40px;
 
   /* Modular type scale */
   --text-xs: 0.75rem;
@@ -98,6 +107,8 @@
   --text-2xl: 1.5rem;
   --text-3xl: 2rem;
   --text-4xl: 2.25rem;
+  --text-5xl: 2.75rem;
+  --text-6xl: 3.5rem;
 
   /* Line heights */
   --line-height-tight: 1.2;
@@ -108,6 +119,7 @@
   --font-weight-medium: 500;
   --font-weight-semibold: 600;
   --font-weight-bold: 700;
+  --font-weight-extrabold: 800;
 
   /* ── Border Radius System ───────────────────────────────────────── */
   --radius-xs: 4px;
@@ -116,15 +128,19 @@
   --radius-lg: 14px;
   --radius-xl: 18px;
   --radius-2xl: 32px;
+  --radius-3xl: 48px;
   --radius-full: 9999px;
 
-  /* ── Shadow / Elevation System ──────────────────────────────────── */
-  --shadow-xs: 0 1px 3px rgba(0, 0, 0, 0.3);
-  --shadow-sm: 0 2px 10px rgba(0, 0, 0, 0.4);
-  --shadow-md: 0 4px 20px rgba(0, 0, 0, 0.5);
-  --shadow-lg: 0 8px 36px rgba(0, 0, 0, 0.6);
-  --shadow-xl: 0 18px 72px rgba(0, 0, 0, 0.75);
-  --shadow-glow: 0 0 24px var(--color-accent-glow);
+  /* ── Shadow / Elevation System ────────────────────────────────────
+     Layered: a tight contact shadow + a soft ambient falloff. The
+     ambient layer carries a whisper of accent so raised panels read
+     as lit, not just floating. */
+  --shadow-xs: 0 1px 2px rgba(0, 0, 0, 0.35);
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.3), 0 4px 12px rgba(0, 0, 0, 0.35);
+  --shadow-md: 0 2px 4px rgba(0, 0, 0, 0.3), 0 8px 24px rgba(0, 0, 0, 0.4);
+  --shadow-lg: 0 4px 8px rgba(0, 0, 0, 0.32), 0 16px 40px rgba(0, 0, 0, 0.45);
+  --shadow-xl: 0 8px 16px rgba(0, 0, 0, 0.35), 0 32px 80px rgba(0, 0, 0, 0.55);
+  --shadow-glow: 0 0 0 1px var(--color-border-glow), 0 0 24px var(--color-accent-glow);
 
   /* Tactile 3D lift scale */
   --depth-1: inset 0 1px 0 var(--color-border-highlight), 0 2px 8px rgba(0, 0, 0, 0.4);
@@ -133,20 +149,36 @@
   --depth-float: inset 0 1px 0 var(--color-border-highlight), 0 20px 64px rgba(0, 0, 0, 0.75);
   --shadow-brand: 0 8px 32px rgba(0, 0, 0, 0.5), 0 2px 8px rgba(0, 0, 0, 0.4);
 
+  /* ── Focus / Interaction Ring System ──────────────────────────────
+     Double-ring focus: a dark halo separating the accent ring from
+     the surface behind it, so it reads on any background. */
+  --color-focus-ring: color-mix(in srgb, var(--color-accent) 55%, transparent);
+  --ring-accent: 0 0 0 2px var(--color-bg-primary), 0 0 0 4px var(--color-accent);
+  --ring-accent-soft: 0 0 0 3px var(--color-focus-ring);
+
   /* ── Animation System ───────────────────────────────────────────── */
   --ease-standard: cubic-bezier(0.16, 1, 0.3, 1);
   --ease-enter: cubic-bezier(0.16, 1, 0.3, 1);
   --ease-exit: cubic-bezier(0.7, 0, 0.84, 0);
   --ease-bounce: cubic-bezier(0.34, 1.56, 0.64, 1);
+  --ease-out: cubic-bezier(0.22, 1, 0.36, 1);
+  --ease-in-out: cubic-bezier(0.65, 0, 0.35, 1);
 
+  --duration-instant: 80ms;
   --duration-fast: 140ms;
   --duration-normal: 220ms;
   --duration-slow: 380ms;
   --duration-slower: 550ms;
 
+  --transition-instant: var(--duration-instant) var(--ease-standard);
   --transition-fast: var(--duration-fast) var(--ease-standard);
   --transition-normal: var(--duration-normal) var(--ease-standard);
   --transition-slow: var(--duration-slow) var(--ease-standard);
+
+  /* ── Glassmorphism blur scale ───────────────────────────────────── */
+  --blur-sm: 8px;
+  --blur-md: 16px;
+  --blur-lg: 24px;
 
   /* ── Layout ─────────────────────────────────────────────────────── */
   --topnav-height: 56px;
@@ -155,6 +187,22 @@
   --sidebar-icon-rail-width: 68px;
   --sidebar-hover-preview-width: 260px;
   --content-max-width: 1440px;
+
+  /* ── Legacy token aliases ─────────────────────────────────────────
+     Older stylesheets (imports.css, modals.css, activity.css, and a
+     few inline component styles) reference pre-token-system names.
+     They resolve to nothing today; aliasing them here upgrades every
+     consumer to the current palette without touching their files. */
+  --color-background: var(--color-bg-secondary);
+  --color-surface-hover: var(--color-bg-hover);
+  --font-system: var(--font-sans);
+  --accent-primary: var(--color-accent);
+  --bg-secondary: var(--color-bg-secondary);
+  --bg-tertiary: var(--color-bg-tertiary);
+  --text-primary: var(--color-text-primary);
+  --text-secondary: var(--color-text-secondary);
+  --text-muted: var(--color-text-muted);
+  --border-subtle: var(--color-border);
 }
 
 html, body {
@@ -169,6 +217,12 @@ h1, h2, h3, h4, .font-display {
   letter-spacing: -0.02em;
 }
 
+/* Branded text selection — a whisper of accent everywhere. */
+::selection {
+  background: color-mix(in srgb, var(--color-accent) 32%, transparent);
+  color: var(--color-text-primary);
+}
+
 /* ==============================
    Utility Classes
    ============================== */
@@ -176,15 +230,15 @@ h1, h2, h3, h4, .font-display {
 /* Glassmorphism surfaces */
 .glass {
   background: var(--color-surface-glass);
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
+  backdrop-filter: blur(var(--blur-md)) saturate(140%);
+  -webkit-backdrop-filter: blur(var(--blur-md)) saturate(140%);
   border: 1px solid var(--color-border-light);
 }
 
 .glass-raised {
   background: var(--color-surface-raised);
-  backdrop-filter: blur(16px);
-  -webkit-backdrop-filter: blur(16px);
+  backdrop-filter: blur(var(--blur-lg)) saturate(150%);
+  -webkit-backdrop-filter: blur(var(--blur-lg)) saturate(150%);
   border: 1px solid var(--color-border);
   box-shadow: var(--shadow-md);
 }
@@ -194,6 +248,11 @@ h1, h2, h3, h4, .font-display {
 .elevation-2 { box-shadow: var(--shadow-md); }
 .elevation-3 { box-shadow: var(--shadow-lg); }
 .elevation-glow { box-shadow: var(--shadow-glow); }
+
+/* Hairline top highlight — the "lit edge" of a raised panel. */
+.hairline-top {
+  box-shadow: inset 0 1px 0 var(--color-border-highlight);
+}
 
 /* ── Brand utilities (shared across pages) ───────────────────────────
    Gradient-filled text + eyebrow label that carry the signature
@@ -287,4 +346,3 @@ h1, h2, h3, h4, .font-display {
   outline: 2px solid var(--color-accent) !important;
   outline-offset: 2px !important;
 }
-

@@ -1,0 +1,30 @@
+/* ============================================================================
+   Store — Polish overrides for components owned by other style files
+   ----------------------------------------------------------------------------
+   Keeps the Store premium pass self-contained. Everything here refines
+   components styled in files outside the store lane (crackwatch.css,
+   etc.) so the store files themselves stay clean. Tokens only; color-mix
+   is only applied to plain colors.
+   ============================================================================ */
+
+/* ── CrackWatch badge (owner: crackwatch.css) ─────────────────────────────
+   Small refinements on top of the existing glass pill: a slightly stronger
+   glow and a gentle lift when the parent card is hovered. */
+
+.store-game-card:hover .store-card-cw-badge {
+  transform: translateY(-1px);
+}
+
+.store-card-cw-badge.cw-cracked {
+  box-shadow: 0 0 12px color-mix(in srgb, #10b981 55%, transparent);
+}
+
+.store-card-cw-badge.cw-uncracked {
+  box-shadow: 0 0 12px color-mix(in srgb, #ef4444 55%, transparent);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .store-game-card:hover .store-card-cw-badge {
+    transform: none;
+  }
+}

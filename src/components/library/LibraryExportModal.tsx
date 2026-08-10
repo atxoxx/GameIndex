@@ -181,9 +181,14 @@ export default function LibraryExportModal({
         onMouseDown={(e) => e.stopPropagation()}
       >
         <div className="modal-header">
-          <div className="modal-header-text">
-            <h2 className="modal-title">{t("libraryExport.title")}</h2>
-            <p className="modal-subtitle">{t("libraryExport.subtitle")}</p>
+          <div className="lib-export-head">
+            <div className="lib-export-head-icon" aria-hidden>
+              <ExportIcon />
+            </div>
+            <div className="modal-header-text">
+              <h2 className="modal-title">{t("libraryExport.title")}</h2>
+              <p className="modal-subtitle">{t("libraryExport.subtitle")}</p>
+            </div>
           </div>
           <button className="modal-close lib-export-close" aria-label={t("common.close")} onClick={onClose}>
             ×

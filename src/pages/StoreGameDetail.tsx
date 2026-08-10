@@ -376,7 +376,7 @@ export default function StoreGameDetail() {
   );
 
   return (
-    <div className="game-page">
+    <div className="game-page store-detail-page">
       {/* ── Breadcrumb ──────────────────────────────────────────── */}
       <div className="game-top-bar">
         <button className="game-back-link" onClick={() => navigate("/store")}>

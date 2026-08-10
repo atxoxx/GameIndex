@@ -465,7 +465,7 @@ export default function TopNav() {
               cx="12"
               cy="11.5"
               r="1.9"
-              fill="#ffffff"
+              fill="var(--color-text-primary)"
               stroke="var(--color-accent)"
               strokeWidth="0.6"
             />

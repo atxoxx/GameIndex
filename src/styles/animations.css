@@ -43,6 +43,36 @@
   to   { opacity: 1; transform: scale(1); }
 }
 
+/* Rise — the signature page-load gesture: a soft blur clears as the
+   element settles into place. Reads premium without being loud. */
+@keyframes rise {
+  from {
+    opacity: 0;
+    transform: translateY(14px);
+    filter: blur(6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+    filter: blur(0);
+  }
+}
+
+/* Blur-in — for overlays and floating panels (modals, popovers):
+   a gentle focus-pull with a whisper of scale. */
+@keyframes blurIn {
+  from {
+    opacity: 0;
+    transform: scale(0.985);
+    filter: blur(8px);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+    filter: blur(0);
+  }
+}
+
 /* ── Exit Animations ────────────────────────────────────────────────── */
 
 @keyframes fadeOut {
@@ -67,6 +97,12 @@
   100% { background-position:  200% 0; }
 }
 
+/* Soft breathing glow — used for live/active indicators. */
+@keyframes glowPulse {
+  0%, 100% { box-shadow: 0 0 0 1px color-mix(in srgb, var(--color-accent) 35%, transparent), 0 0 8px var(--color-accent-glow); }
+  50%      { box-shadow: 0 0 0 1px color-mix(in srgb, var(--color-accent) 55%, transparent), 0 0 18px var(--color-accent-glow); }
+}
+
 /* ── Utility Classes ────────────────────────────────────────────────── */
 
 .animate-fade-in     { animation: fadeIn   var(--duration-normal) var(--ease-enter) both; }
@@ -76,9 +112,13 @@
 .animate-slide-right { animation: slideRight var(--duration-normal) var(--ease-enter) both; }
 .animate-scale-in    { animation: scaleIn  var(--duration-normal) var(--ease-enter) both; }
 .animate-scale-up    { animation: scaleUp  var(--duration-normal) var(--ease-bounce) both; }
+.animate-rise        { animation: rise     var(--duration-slow) var(--ease-out) both; }
+.animate-blur-in     { animation: blurIn   var(--duration-normal) var(--ease-out) both; }
 
 .animate-fade-out     { animation: fadeOut      var(--duration-normal) var(--ease-exit) both; }
 .animate-slide-out-down { animation: slideOutDown var(--duration-normal) var(--ease-exit) both; }
+
+.animate-glow-pulse   { animation: glowPulse 2.4s var(--ease-in-out) infinite; }
 
 /* ── Staggered Animation Delays (for lists / grids) ─────────────────── */
 
@@ -90,6 +130,10 @@
 .stagger-6  { animation-delay: calc(var(--duration-fast) * 6); }
 .stagger-7  { animation-delay: calc(var(--duration-fast) * 7); }
 .stagger-8  { animation-delay: calc(var(--duration-fast) * 8); }
+.stagger-9  { animation-delay: calc(var(--duration-fast) * 9); }
+.stagger-10 { animation-delay: calc(var(--duration-fast) * 10); }
+.stagger-11 { animation-delay: calc(var(--duration-fast) * 11); }
+.stagger-12 { animation-delay: calc(var(--duration-fast) * 12); }
 
 /* ── Reduced Motion Overrides ───────────────────────────────────────── */
 
@@ -101,15 +145,20 @@
   .animate-slide-right,
   .animate-scale-in,
   .animate-scale-up,
+  .animate-rise,
+  .animate-blur-in,
   .animate-fade-out,
-  .animate-slide-out-down {
+  .animate-slide-out-down,
+  .animate-glow-pulse {
     animation: none !important;
     opacity: 1 !important;
     transform: none !important;
+    filter: none !important;
   }
 
   .stagger-1, .stagger-2, .stagger-3, .stagger-4,
-  .stagger-5, .stagger-6, .stagger-7, .stagger-8 {
+  .stagger-5, .stagger-6, .stagger-7, .stagger-8,
+  .stagger-9, .stagger-10, .stagger-11, .stagger-12 {
     animation-delay: 0s !important;
   }
 }

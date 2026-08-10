@@ -24,6 +24,27 @@
     var(--color-bg-tertiary);
   border-bottom: 1px solid var(--color-border);
   flex-shrink: 0;
+  position: relative;
+}
+
+/* Brand hairline across the top of the preview header so the modal
+ * opens with the same accent-stripe language as the page sections. */
+.edit-modal-preview::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: var(--space-xl);
+  right: var(--space-xl);
+  height: 2px;
+  background: linear-gradient(
+    90deg,
+    transparent,
+    color-mix(in srgb, var(--color-accent) 55%, transparent),
+    transparent
+  );
+  border-radius: 0 0 var(--radius-full) var(--radius-full);
+  pointer-events: none;
+  opacity: 0.7;
 }
 
 .edit-modal-preview-art {
@@ -179,7 +200,20 @@
 
 .edit-modal-tab.active {
   color: var(--color-accent);
-  border-bottom-color: var(--color-accent);
+}
+
+/* Gradient underline + glow on the active tab — mirrors the page-level
+ * game-tabs indicator so the modal reads as part of the same system. */
+.edit-modal-tab.active::after {
+  content: "";
+  position: absolute;
+  left: var(--space-md);
+  right: var(--space-md);
+  bottom: -1px;
+  height: 2px;
+  background: linear-gradient(90deg, var(--color-accent), var(--color-accent-hover));
+  border-radius: var(--radius-full);
+  box-shadow: 0 0 8px var(--color-accent-glow);
 }
 
 .edit-modal-body {

@@ -13,7 +13,7 @@
   width: 100%;
   max-width: var(--content-max-width);
   margin: 0 auto;
-  padding: var(--space-lg) var(--space-2xl) var(--space-3xl);
+  padding: var(--space-xl) var(--space-2xl) var(--space-3xl);
 }
 
 /* ── Header ─────────────────────────────────────────────────────────────── */
@@ -24,6 +24,21 @@
   gap: var(--space-lg);
   padding-bottom: var(--space-lg);
   border-bottom: 1px solid var(--color-border);
+  position: relative;
+}
+
+/* Faint accent wash along the header's bottom edge — a whisper of the
+   brand mesh that grounds the title block without stealing focus. */
+.page-header::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  bottom: -1px;
+  width: 96px;
+  height: 1px;
+  background: linear-gradient(90deg, var(--color-accent), transparent);
+  opacity: 0.55;
+  pointer-events: none;
 }
 
 .page-header__main {
@@ -54,9 +69,11 @@
   height: 44px;
   flex-shrink: 0;
   border-radius: var(--radius-lg);
-  background: color-mix(in srgb, var(--color-accent) 14%, transparent);
+  background:
+    linear-gradient(160deg, color-mix(in srgb, var(--color-accent) 22%, transparent), color-mix(in srgb, var(--color-accent) 8%, transparent));
   border: 1px solid color-mix(in srgb, var(--color-accent) 30%, transparent);
   color: var(--color-accent);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08), 0 4px 14px var(--color-accent-glow);
 }
 
 .page-header__icon svg {
@@ -89,11 +106,12 @@
 }
 
 /* ── Entrance motion ───────────────────────────────────────────────────────
-   Subtle fade + lift. Staggered via the inline `--d` delay custom property.
-   Global prefers-reduced-motion block in index.css neutralizes this. */
+   Subtle fade + lift + blur-clear. Staggered via the inline `--d` delay
+   custom property. Global prefers-reduced-motion block in index.css
+   neutralizes this. */
 .fade-up {
   opacity: 0;
-  animation: fadeUp var(--duration-slow) var(--ease-standard) both;
+  animation: fadeUp var(--duration-slow) var(--ease-out) both;
   animation-delay: var(--d, 0ms);
 }
 
@@ -101,9 +119,11 @@
   from {
     opacity: 0;
     transform: translateY(12px);
+    filter: blur(4px);
   }
-  to {
+to {
     opacity: 1;
     transform: none;
+    filter: none;
   }
 }

@@ -58,7 +58,7 @@ export default function LibraryToolbar({
       </div>
 
       <div className="lib-toolbar-controls">
-        <div className="lib-search">
+        <div className={`lib-search${search ? " has-value" : ""}`}>
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
             <circle cx="11" cy="11" r="8" />
             <line x1="21" y1="21" x2="16.65" y2="16.65" />
@@ -70,6 +70,20 @@ export default function LibraryToolbar({
             placeholder={t("page.library.searchPlaceholder")}
             aria-label={t("page.library.searchLabel")}
           />
+          {search.length > 0 && (
+            <button
+              type="button"
+              className="lib-search-clear"
+              onClick={() => onSearchChange("")}
+              aria-label={t("friends.clearSearch")}
+              title={t("friends.clearSearch")}
+            >
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                <line x1="18" y1="6" x2="6" y2="18" />
+                <line x1="6" y1="6" x2="18" y2="18" />
+              </svg>
+            </button>
+          )}
         </div>
         <LibrarySortMenu value={sort} onChange={onSortChange} />
         <button

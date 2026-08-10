@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { useEffect, type CSSProperties } from "react";
 import { useSources } from "../context/SourceContext";
 import { usePresence } from "../context/PresenceContext";
 import { CrackWatchProvider } from "../context/CrackWatchContext";
@@ -49,41 +49,47 @@ export default function StorePage() {
       <StoreHeader catalogue={c} />
 
       {c.activeFilterCount > 0 && (
-        <StoreFilterChips
-          selectedGenres={c.selectedGenres}
-          selectedPlatforms={c.selectedPlatforms}
-          yearMin={c.yearMin}
-          yearMax={c.yearMax}
-          ratingMin={c.ratingMin}
-          selectedSourceIds={c.selectedSourceIds}
-          sources={sources}
-          sourceChecksPending={c.sourceChecksPending}
-          onRemoveGenre={onRemoveGenre}
-          onRemovePlatform={onRemovePlatform}
-          onRemoveYear={() => c.setYearRange(null, null)}
-          onRemoveRating={() => c.setRatingMin(null)}
-          onRemoveSource={onRemoveSource}
-          sourceMatchMode={c.sourceMatchMode}
-          onToggleSourceMatchMode={() =>
-            c.setSourceMatchMode(c.sourceMatchMode === "any" ? "all" : "any")
-          }
-          resultCount={c.sourceFilterChipCount ?? c.displayedGames.length}
-        />
+        <div className="fade-up" style={{ "--d": "20ms" } as CSSProperties}>
+          <StoreFilterChips
+            selectedGenres={c.selectedGenres}
+            selectedPlatforms={c.selectedPlatforms}
+            yearMin={c.yearMin}
+            yearMax={c.yearMax}
+            ratingMin={c.ratingMin}
+            selectedSourceIds={c.selectedSourceIds}
+            sources={sources}
+            sourceChecksPending={c.sourceChecksPending}
+            onRemoveGenre={onRemoveGenre}
+            onRemovePlatform={onRemovePlatform}
+            onRemoveYear={() => c.setYearRange(null, null)}
+            onRemoveRating={() => c.setRatingMin(null)}
+            onRemoveSource={onRemoveSource}
+            sourceMatchMode={c.sourceMatchMode}
+            onToggleSourceMatchMode={() =>
+              c.setSourceMatchMode(c.sourceMatchMode === "any" ? "all" : "any")
+            }
+            resultCount={c.sourceFilterChipCount ?? c.displayedGames.length}
+          />
+        </div>
       )}
 
       {(c.presets.length > 0 || canSavePreset) && (
-        <StorePresetBar
-          presets={c.presets}
-          canSave={canSavePreset}
-          onApply={c.applyPreset}
-          onRemove={c.removePreset}
-          onSave={c.savePreset}
-        />
+        <div className="fade-up" style={{ "--d": "70ms" } as CSSProperties}>
+          <StorePresetBar
+            presets={c.presets}
+            canSave={canSavePreset}
+            onApply={c.applyPreset}
+            onRemove={c.removePreset}
+            onSave={c.savePreset}
+          />
+        </div>
       )}
 
-      <StoreFeaturedHero onPickGame={c.onCardClick} />
+      <div className="fade-up" style={{ "--d": "120ms" } as CSSProperties}>
+        <StoreFeaturedHero onPickGame={c.onCardClick} />
+      </div>
 
-      <div className="store-layout">
+      <div className="store-layout store-layout-in" style={{ "--d": "200ms" } as CSSProperties}>
         <StoreFilterPanel catalogue={c} />
 
         <div className="store-main">

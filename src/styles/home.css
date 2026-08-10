@@ -1,6 +1,8 @@
 /* ============================================================================
    Home — the app's first-run "wow" surface.
-   Bold brand-gradient hero + personalized library overview.
+   A cinematic spotlight hero (greeting + featured-game card) over the
+   personalized library overview. All values use the design tokens so
+   every theme (dark / light / aurora / …) inherits the refined palette.
    ============================================================================ */
 
 .home-page {
@@ -13,7 +15,8 @@
   width: 100%;
 }
 
-/* ── Brand-gradient hero ─────────────────────────────────────────────── */
+/* ── Cinematic hero ──────────────────────────────────────────────────── */
+
 .home-hero {
   position: relative;
   overflow: hidden;
@@ -21,14 +24,27 @@
   border: 1px solid var(--color-border-light);
   background: var(--color-bg-secondary);
   box-shadow: var(--shadow-brand), var(--depth-2);
-  padding: clamp(32px, 6vw, 72px) clamp(24px, 5vw, 64px);
+  padding: clamp(28px, 4.5vw, 64px) clamp(24px, 5vw, 64px);
   isolation: isolate;
+  animation: homeHeroIn 520ms var(--ease-enter) both;
 }
 
+@keyframes homeHeroIn {
+  from {
+    opacity: 0;
+    transform: translateY(-10px) scale(0.995);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+/* Ambient brand mesh — the signature violet→cyan→magenta wash. */
 .home-hero__mesh {
   position: absolute;
   inset: 0;
-  z-index: -1;
+  z-index: -3;
   background: var(--mesh-gradient);
   opacity: 0.9;
 }
@@ -40,15 +56,64 @@
   inset: 0;
   background: linear-gradient(
     120deg,
-    color-mix(in srgb, var(--brand-1) 22%, transparent) 0%,
+    color-mix(in srgb, var(--brand-1) 20%, transparent) 0%,
     transparent 45%,
-    color-mix(in srgb, var(--brand-2) 18%, transparent) 100%
+    color-mix(in srgb, var(--brand-2) 16%, transparent) 100%
   );
+}
+
+/* Blurred cover-collage wallpaper — the hero reads as *your* library.
+   Pure decoration. */
+.home-hero__collage {
+  position: absolute;
+  inset: 0;
+  z-index: -2;
+  display: grid;
+  grid-template-columns: repeat(8, 1fr);
+  grid-auto-rows: 1fr;
+  opacity: 0.32;
+  filter: blur(34px) saturate(1.35);
+  transform: scale(1.3);
+  mask-image: linear-gradient(100deg, rgba(0, 0, 0, 0.95) 0%, rgba(0, 0, 0, 0.45) 55%, transparent 100%);
+  -webkit-mask-image: linear-gradient(100deg, rgba(0, 0, 0, 0.95) 0%, rgba(0, 0, 0, 0.45) 55%, transparent 100%);
+  pointer-events: none;
+}
+
+.home-hero__collage img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+/* Legibility veil over the collage — keeps the left column readable
+   while the right side lets the spotlight art glow through. */
+.home-hero__veil {
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  background:
+    linear-gradient(115deg,
+      color-mix(in srgb, var(--color-bg-secondary) 88%, transparent) 0%,
+      color-mix(in srgb, var(--color-bg-secondary) 55%, transparent) 52%,
+      color-mix(in srgb, var(--color-bg-secondary) 18%, transparent) 100%),
+    radial-gradient(120% 140% at 0% 0%, color-mix(in srgb, var(--color-accent) 14%, transparent) 0%, transparent 55%);
+  pointer-events: none;
+}
+
+/* Two-column editorial layout: greeting + actions (left), spotlight
+   card (right). The spotlight hangs slightly "off the grid" so the
+   hero has depth instead of a flat split. */
+.home-hero__grid {
+  position: relative;
+  display: grid;
+  grid-template-columns: minmax(0, 1.15fr) minmax(280px, 0.85fr);
+  gap: clamp(24px, 4vw, 56px);
+  align-items: center;
 }
 
 .home-hero__content {
   position: relative;
-  max-width: 640px;
+  min-width: 0;
 }
 
 .home-hero__eyebrow {
@@ -62,9 +127,9 @@
 
 .home-hero__title {
   margin: 0;
-  font-size: clamp(2rem, 5vw, 3.25rem);
+  font-size: clamp(2.1rem, 5vw, 3.5rem);
   font-weight: var(--font-weight-bold);
-  line-height: 1.05;
+  line-height: 1.04;
   letter-spacing: -0.03em;
   color: var(--color-text-primary);
 }
@@ -81,6 +146,7 @@
   font-size: var(--font-size-lg);
   color: var(--color-text-secondary);
   max-width: 52ch;
+  line-height: 1.55;
 }
 
 .home-hero__actions {
@@ -102,12 +168,18 @@
   border: 1px solid transparent;
   transition: transform var(--duration-normal) var(--ease-standard),
     box-shadow var(--duration-normal) var(--ease-standard),
-    background var(--duration-normal) var(--ease-standard);
+    background var(--duration-normal) var(--ease-standard),
+    border-color var(--duration-normal) var(--ease-standard);
 }
 
 .home-hero__btn svg {
   width: 18px;
   height: 18px;
+}
+
+.home-hero__btn:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 2px;
 }
 
 .home-hero__btn--primary {
@@ -118,7 +190,7 @@
 
 .home-hero__btn--primary:hover {
   transform: translateY(-2px);
-  box-shadow: 0 6px 18px color-mix(in srgb, var(--brand-1) 40%, transparent);
+  box-shadow: 0 6px 18px color-mix(in srgb, var(--brand-1) 42%, transparent);
 }
 
 .home-hero__btn--ghost {
@@ -133,4 +205,315 @@
   transform: translateY(-2px);
   border-color: var(--brand-2);
   color: var(--color-text-primary);
+}
+
+/* ── Spotlight card ────────────────────────────────────────────────────
+   A cover-forward featured-game tile: trailer/poster art, a bottom
+   scrim with name + meta, a "Featured" chip and a quick-play FAB. The
+   friends strip sits below the art as a compact glass row. */
+
+.home-spotlight {
+  position: relative;
+  width: 100%;
+  max-width: 340px;
+  justify-self: end;
+  cursor: pointer;
+  border-radius: var(--radius-xl);
+  transition: transform var(--duration-normal) var(--ease-standard);
+}
+
+.home-spotlight:hover {
+  transform: translateY(-4px);
+}
+
+.home-spotlight:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 4px;
+}
+
+.home-spotlight__cover {
+  position: relative;
+  aspect-ratio: 2 / 3;
+  border-radius: var(--radius-xl);
+  overflow: hidden;
+  border: 1px solid color-mix(in srgb, var(--color-accent) 45%, var(--color-border-light));
+  background: var(--color-bg-tertiary);
+  box-shadow:
+    var(--shadow-lg),
+    0 18px 60px rgba(0, 0, 0, 0.5),
+    0 0 44px color-mix(in srgb, var(--color-accent) 30%, transparent);
+  isolation: isolate;
+}
+
+.home-spotlight__cover img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+  transition: transform 0.6s var(--ease-standard);
+}
+
+.home-spotlight:hover .home-spotlight__cover img {
+  transform: scale(1.04);
+}
+
+.home-spotlight__cover .hero-trailer__video {
+  transition: transform 0.6s var(--ease-standard);
+}
+
+.home-spotlight:hover .hero-trailer__video {
+  transform: scale(1.04);
+}
+
+.home-spotlight__placeholder {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--color-text-muted);
+  background:
+    linear-gradient(160deg,
+      color-mix(in srgb, var(--color-accent) 16%, var(--color-bg-tertiary)),
+      var(--color-bg-tertiary) 65%);
+}
+
+.home-spotlight__placeholder svg {
+  width: 52px;
+  height: 52px;
+  opacity: 0.35;
+}
+
+/* Bottom scrim so the overlay body stays legible over any art. */
+.home-spotlight__scrim {
+  position: absolute;
+  inset: auto 0 0 0;
+  height: 68%;
+  z-index: 1;
+  pointer-events: none;
+  background: linear-gradient(
+    to top,
+    color-mix(in srgb, var(--color-bg-primary) 96%, transparent) 0%,
+    color-mix(in srgb, var(--color-bg-primary) 68%, transparent) 52%,
+    transparent 100%
+  );
+}
+
+.home-spotlight__chip {
+  position: absolute;
+  top: var(--space-md);
+  left: var(--space-md);
+  z-index: 3;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 4px 10px;
+  font-size: 10px;
+  font-weight: var(--font-weight-bold);
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+  color: var(--color-text-primary);
+  background: color-mix(in srgb, var(--color-bg-primary) 55%, transparent);
+  border: 1px solid var(--color-border-light);
+  border-radius: var(--radius-full);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  pointer-events: none;
+}
+
+.home-spotlight__chip svg {
+  color: var(--color-accent);
+  filter: drop-shadow(0 0 6px var(--color-accent-glow));
+}
+
+/* Quick-play FAB — appears on hover (always visible on touch). */
+.home-spotlight__play {
+  position: absolute;
+  bottom: var(--space-md);
+  right: var(--space-md);
+  z-index: 3;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  border: 1px solid color-mix(in srgb, var(--color-accent) 45%, rgba(255, 255, 255, 0.35));
+  border-radius: 50%;
+  background: linear-gradient(135deg, var(--color-accent), var(--brand-2, var(--color-accent-hover)));
+  color: #fff;
+  cursor: pointer;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.35), 0 6px 20px color-mix(in srgb, var(--color-accent) 50%, transparent);
+  opacity: 0;
+  transform: translateY(8px) scale(0.9);
+  transition: opacity var(--duration-fast) var(--ease-standard),
+    transform var(--duration-fast) var(--ease-standard),
+    box-shadow var(--duration-fast) var(--ease-standard);
+}
+
+.home-spotlight__play svg {
+  width: 20px;
+  height: 20px;
+  margin-left: 2px;
+}
+
+.home-spotlight:hover .home-spotlight__play,
+.home-spotlight:focus-visible .home-spotlight__play {
+  opacity: 1;
+  transform: translateY(0) scale(1);
+}
+
+.home-spotlight__play:hover {
+  transform: translateY(0) scale(1.07);
+}
+
+.home-spotlight__play:focus-visible {
+  outline: 2px solid #fff;
+  outline-offset: 2px;
+  opacity: 1;
+  transform: translateY(0) scale(1);
+}
+
+.home-spotlight__play.running {
+  background: var(--color-success);
+  border-color: color-mix(in srgb, var(--color-success) 55%, transparent);
+  box-shadow: 0 6px 18px color-mix(in srgb, var(--color-success) 40%, transparent);
+}
+
+/* Overlay body: name, developer, meta chips. */
+.home-spotlight__body {
+  position: absolute;
+  inset: auto 0 0 0;
+  z-index: 2;
+  padding: var(--space-lg);
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  pointer-events: none;
+}
+
+.home-spotlight__name {
+  margin: 0;
+  font-size: var(--font-size-xl);
+  font-weight: var(--font-weight-bold);
+  letter-spacing: -0.02em;
+  color: var(--color-text-primary);
+  line-height: 1.15;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  text-shadow: 0 2px 12px color-mix(in srgb, var(--color-bg-primary) 60%, transparent);
+}
+
+.home-spotlight__dev {
+  margin: 2px 0 0;
+  font-size: var(--font-size-xs);
+  color: var(--color-text-secondary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.home-spotlight__meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-sm);
+  margin-top: var(--space-sm);
+}
+
+.home-spotlight__meta-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 9px;
+  font-size: 10px;
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text-primary);
+  background: color-mix(in srgb, var(--color-bg-primary) 52%, transparent);
+  border: 1px solid var(--color-border-light);
+  border-radius: var(--radius-full);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+  white-space: nowrap;
+}
+
+.home-spotlight__meta-item svg {
+  width: 11px;
+  height: 11px;
+  color: var(--color-text-secondary);
+}
+
+.home-spotlight__meta-item--rating svg {
+  color: var(--color-accent);
+}
+
+/* Friends strip below the art — compact glass row. */
+.home-spotlight__friends {
+  margin-top: var(--space-sm);
+  display: flex;
+  justify-content: flex-end;
+}
+
+.home-spotlight__friends .friends-playing {
+  margin-top: 0;
+  padding: 4px 6px 4px 10px;
+  background: color-mix(in srgb, var(--color-surface-glass) 80%, transparent);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-full);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+}
+
+.home-spotlight__friends .friends-playing__avatar {
+  border-color: var(--color-surface-raised);
+}
+
+/* ── Responsive ──────────────────────────────────────────────────────── */
+
+@media (max-width: 980px) {
+  .home-hero__grid {
+    grid-template-columns: 1fr;
+    gap: var(--space-2xl);
+  }
+
+  .home-spotlight {
+    max-width: 300px;
+    justify-self: start;
+  }
+}
+
+@media (max-width: 600px) {
+  .home-page {
+    padding: var(--space-md) var(--space-lg) var(--space-2xl);
+  }
+
+  .home-hero {
+    padding: var(--space-xl) var(--space-lg);
+  }
+
+  .home-spotlight {
+    width: 100%;
+    max-width: none;
+  }
+
+  .home-spotlight__play {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+/* ── Reduced motion ──────────────────────────────────────────────────── */
+
+@media (prefers-reduced-motion: reduce) {
+  .home-hero,
+  .home-hero__collage {
+    animation: none;
+  }
+
+  .home-spotlight__play {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+    transition: none;
+  }
 }

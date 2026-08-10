@@ -17,10 +17,12 @@
   --color-border: #e2e8f0;
   --color-border-light: #f1f5f9;
   --color-border-highlight: rgba(255, 255, 255, 0.8);
+  --color-border-faint: rgba(15, 23, 42, 0.05);
   --color-border-glow: color-mix(in srgb, var(--color-accent) 30%, transparent);
 
   --color-text-primary: #0f172a;
   --color-text-secondary: #475569;
+  --color-text-tertiary: #93a0b5;
   --color-text-muted: #94a3b8;
   --color-text-inverse: #f8fafc;
 
@@ -31,12 +33,16 @@
   --color-accent-soft: color-mix(in srgb, var(--color-accent) 10%, var(--color-bg-secondary));
   --color-stale: #b8780a;
 
-  --shadow-xs: 0 1px 2px rgba(0, 0, 0, 0.08);
-  --shadow-sm: 0 2px 8px rgba(0, 0, 0, 0.12);
-  --shadow-md: 0 4px 16px rgba(0, 0, 0, 0.18);
-  --shadow-lg: 0 8px 32px rgba(0, 0, 0, 0.25);
-  --shadow-xl: 0 16px 64px rgba(0, 0, 0, 0.35);
-  --shadow-glow: 0 0 24px var(--color-accent-glow);
+  /* Overlay scrims — lighter, cooler than the dark default. */
+  --color-scrim: rgba(15, 23, 42, 0.38);
+  --color-scrim-strong: rgba(15, 23, 42, 0.55);
+
+  --shadow-xs: 0 1px 2px rgba(15, 23, 42, 0.06);
+  --shadow-sm: 0 1px 2px rgba(15, 23, 42, 0.05), 0 4px 12px rgba(15, 23, 42, 0.08);
+  --shadow-md: 0 2px 4px rgba(15, 23, 42, 0.05), 0 8px 24px rgba(15, 23, 42, 0.1);
+  --shadow-lg: 0 4px 8px rgba(15, 23, 42, 0.06), 0 16px 40px rgba(15, 23, 42, 0.12);
+  --shadow-xl: 0 8px 16px rgba(15, 23, 42, 0.08), 0 32px 80px rgba(15, 23, 42, 0.16);
+  --shadow-glow: 0 0 0 1px var(--color-border-glow), 0 0 24px var(--color-accent-glow);
 
   --transition-fast: var(--duration-fast) ease;
   --transition-normal: var(--duration-normal) ease;
@@ -570,11 +576,12 @@
 
   /* ── Depth: brand-tinted glow so every raised panel reads as aurora ── */
   --shadow-xs: 0 1px 2px rgba(0, 0, 0, 0.45);
-  --shadow-sm: 0 2px 10px rgba(6, 4, 20, 0.55);
-  --shadow-md: 0 8px 24px rgba(6, 4, 20, 0.6);
-  --shadow-lg: 0 14px 44px rgba(6, 4, 20, 0.65);
-  --shadow-xl: 0 24px 72px rgba(6, 4, 20, 0.75);
-  --shadow-glow: 0 0 24px rgba(0, 0, 0, 0.4),
+  --shadow-sm: 0 1px 2px rgba(6, 4, 20, 0.5), 0 4px 12px rgba(6, 4, 20, 0.5);
+  --shadow-md: 0 2px 4px rgba(6, 4, 20, 0.5), 0 8px 24px rgba(6, 4, 20, 0.55);
+  --shadow-lg: 0 4px 8px rgba(6, 4, 20, 0.5), 0 14px 44px rgba(6, 4, 20, 0.6);
+  --shadow-xl: 0 8px 16px rgba(6, 4, 20, 0.55), 0 24px 72px rgba(6, 4, 20, 0.7);
+  --shadow-glow: 0 0 0 1px color-mix(in srgb, var(--brand-2) 30%, transparent),
+                 0 0 24px rgba(0, 0, 0, 0.4),
                  0 0 48px rgba(0, 0, 0, 0.25);
   --shadow-brand: 0 10px 40px rgba(0, 0, 0, 0.55), 0 2px 10px rgba(0, 0, 0, 0.45);
 
@@ -582,6 +589,11 @@
   --depth-2: 0 2px 6px rgba(0, 0, 0, 0.45);
   --depth-3: 0 4px 12px rgba(0, 0, 0, 0.5);
   --depth-float: 0 10px 22px rgba(0, 0, 0, 0.55);
+
+  /* ── Scrims tinted to match the aurora void ── */
+  --color-scrim: rgba(3, 2, 10, 0.66);
+  --color-scrim-strong: rgba(3, 2, 10, 0.82);
+  --color-focus-ring: color-mix(in srgb, var(--brand-2) 50%, transparent);
 }
 
 /* Branded text selection unique to Aurora. */

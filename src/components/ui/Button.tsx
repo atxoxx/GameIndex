@@ -54,6 +54,7 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(
           .filter(Boolean)
           .join(" ")}
         disabled={isLoading || disabled}
+        aria-busy={isLoading || undefined}
         {...props}
       >
         {isLoading && <span className="ui-btn__spinner" aria-hidden />}

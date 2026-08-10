@@ -33,7 +33,7 @@
   backdrop-filter: blur(16px) saturate(160%);
   -webkit-backdrop-filter: blur(16px) saturate(160%);
   border-color: var(--color-border-light);
-  box-shadow: var(--depth-2);
+  box-shadow: var(--depth-2), inset 0 1px 0 rgba(255, 255, 255, 0.08);
 }
 
 .kpi-tile--sm {
@@ -532,14 +532,14 @@
   letter-spacing: 0.5px;
   text-transform: uppercase;
   border-bottom: 1px solid var(--color-border);
-  background: rgba(255, 255, 255, 0.02);
+  background: color-mix(in srgb, var(--color-text-primary) 3%, transparent);
 }
 
 .lang-th-center { text-align: center; }
 
 .languages-table td {
   padding: var(--space-sm) var(--space-md);
-  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+  border-bottom: 1px solid var(--color-border);
 }
 
 .languages-table tbody tr:last-child td { border-bottom: none; }
@@ -747,7 +747,10 @@
   --hero-h: 320px;
 }
 
-/* Backdrop art layer (z 0): banner image or gradient. */
+/* Backdrop art layer (z 0): banner image or gradient. A slow Ken Burns
+ * drift gives the art a living, cinematic quality — the fixed hero card
+ * stays put while the backdrop breathes behind the scrim. Disabled for
+ * the gradient fallback (nothing to drift) and the trailer hero. */
 .game-hero__bg {
   position: absolute;
   inset: 0;
@@ -755,6 +758,13 @@
   background-size: cover;
   background-position: center;
   filter: saturate(120%);
+  animation: heroBgDrift 34s ease-in-out infinite alternate;
+  will-change: transform;
+}
+
+@keyframes heroBgDrift {
+  from { transform: scale(1) translateY(0); }
+  to   { transform: scale(1.07) translateY(-1.5%); }
 }
 
 /* Brand mesh wash over the art for the signature identity. */
@@ -775,14 +785,45 @@
 }
 .game-hero__bg--fallback::after { content: none; }
 
+/* The gradient fallback has nothing to drift — freeze it so the
+ * animation never shifts a static gradient. */
+.game-hero__bg--fallback {
+  animation: none;
+}
+
+/* Honor reduced motion: snap the backdrop in place. */
+@media (prefers-reduced-motion: reduce) {
+  .game-hero__bg {
+    animation: none;
+  }
+}
+
+/* Film-grain veil over the whole hero. A fractal-noise SVG at very low
+ * opacity adds the tactile "printed art" texture premium launchers use
+ * to keep flat gradients from looking plastic. Soft-light keeps it
+ * gentle over both art and text. */
+.game-hero::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 3;
+  pointer-events: none;
+  opacity: 0.05;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+  background-size: 160px 160px;
+  mix-blend-mode: soft-light;
+}
+
 /* Legibility scrim: strong on the left (poster + text), lighter on the
- * right so the art still reads. */
+ * right so the art still reads. A soft radial vignette sits on top so
+ * the hero edges melt into the page instead of ending in a hard line. */
 .game-hero__scrim {
   position: absolute;
   inset: 0;
   z-index: 1;
   pointer-events: none;
   background:
+    radial-gradient(120% 100% at 50% 40%, transparent 55%, rgba(0, 0, 0, 0.42) 100%),
     linear-gradient(90deg,
       rgba(0,0,0,0.78) 0%,
       rgba(0,0,0,0.55) 34%,
@@ -811,7 +852,9 @@
   pointer-events: auto;
 }
 
-/* Crisp 2:3 poster card. Height tracks the hero so it always fits. */
+/* Crisp 2:3 poster card. Height tracks the hero so it always fits.
+ * An inset top highlight gives the card a "lit edge" so it reads as a
+ * physical print sitting on the backdrop rather than a flat image. */
 .game-hero__poster {
   flex: 0 0 auto;
   height: calc(var(--hero-h) - var(--space-2xl));
@@ -821,14 +864,16 @@
   border: 1px solid color-mix(in srgb, var(--game-accent) 40%, var(--color-border-light));
   background: var(--color-bg-tertiary);
   box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.14),
     var(--shadow-lg),
     0 10px 30px rgba(0, 0, 0, 0.4),
     0 0 35px color-mix(in srgb, var(--game-accent) 35%, transparent);
   transition: transform var(--transition-base), box-shadow var(--transition-base);
 }
 .game-hero:hover .game-hero__poster {
-  transform: translateY(-4px) scale(1.01);
+  transform: translateY(-4px) scale(1.01) rotate(-0.5deg);
   box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.18),
     var(--shadow-lg),
     0 14px 40px rgba(0, 0, 0, 0.5),
     0 0 50px color-mix(in srgb, var(--game-accent) 55%, transparent);
@@ -871,6 +916,7 @@
   border-radius: var(--radius-full);
   backdrop-filter: blur(6px);
   -webkit-backdrop-filter: blur(6px);
+  box-shadow: 0 2px 12px color-mix(in srgb, var(--game-accent) 22%, transparent);
 }
 
 .game-hero-title {
@@ -882,6 +928,8 @@
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+  /* Legibility shadow so the title stays crisp over bright banner art. */
+  text-shadow: 0 2px 16px rgba(0, 0, 0, 0.55), 0 1px 3px rgba(0, 0, 0, 0.4);
 }
 
 .game-hero-logo {
@@ -1532,7 +1580,7 @@
 
 .game-section {
   position: relative;
-  box-shadow: var(--shadow-sm);
+  box-shadow: var(--shadow-sm), inset 0 1px 0 rgba(255, 255, 255, 0.05);
   border-color: var(--color-border-light);
   transition: border-color var(--duration-fast) var(--ease-standard),
               box-shadow var(--duration-fast) var(--ease-standard);
@@ -1543,7 +1591,8 @@
 }
 
 /* Subtle accent stripe across the top of each section so the cards
-   feel related to the brand without being noisy. */
+   feel related to the brand without being noisy. A soft drop glow
+   beneath the stripe lifts it off the card surface. */
 .game-section::before {
   content: "";
   position: absolute;
@@ -1560,6 +1609,7 @@
   border-radius: 0 0 var(--radius-full) var(--radius-full);
   pointer-events: none;
   opacity: 0.7;
+  box-shadow: 0 1px 10px color-mix(in srgb, var(--color-accent) 28%, transparent);
 }
 
 .game-section-title {

@@ -5,8 +5,10 @@
   display: flex;
   flex-direction: column;
   height: calc(100vh - var(--topnav-height));
-  background: transparent;
-  border-right: none;
+  background: color-mix(in srgb, var(--color-bg-primary) 42%, transparent);
+  backdrop-filter: blur(var(--blur-md)) saturate(130%);
+  -webkit-backdrop-filter: blur(var(--blur-md)) saturate(130%);
+  border-right: 1px solid var(--color-border);
   width: var(--sidebar-width);
   transition: width var(--duration-slow) var(--ease-standard);
 }
@@ -21,10 +23,10 @@
   align-items: center;
   gap: var(--space-sm);
   padding: 8px 12px;
-  background: rgba(0, 0, 0, 0.35);
+  background: color-mix(in srgb, var(--color-bg-secondary) 72%, transparent);
   border: 1px solid var(--color-border);
   border-radius: var(--radius-md);
-  box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.4);
+  box-shadow: inset 0 1px 0 var(--color-border-highlight), inset 0 1px 2px rgba(0, 0, 0, 0.3);
   transition: border-color var(--transition-fast),
     background var(--transition-fast),
     box-shadow var(--transition-fast);
@@ -32,8 +34,8 @@
 
 .sidebar-search:focus-within {
   border-color: var(--color-accent);
-  box-shadow: 0 0 0 3px var(--color-accent-glow), inset 0 1px 2px rgba(0, 0, 0, 0.3);
-  background: rgba(0, 0, 0, 0.5);
+  box-shadow: 0 0 0 3px var(--color-focus-ring), inset 0 1px 2px rgba(0, 0, 0, 0.3);
+  background: color-mix(in srgb, var(--color-bg-secondary) 85%, transparent);
 }
 
 .sidebar-search:focus-within .sidebar-search-icon {
@@ -208,6 +210,7 @@
 
 .sidebar-game-item:hover {
   background: var(--color-bg-hover);
+  box-shadow: inset 0 1px 0 var(--color-border-highlight);
   /* No translateX: the previous 4px slide visually clipped the
    * right edge against the sidebar wall — making the highlight
    * look like it stopped at the title. Hover now just paints the
@@ -230,7 +233,8 @@
    * bleeds outward 12px from the border. Combined with the
    * border-left this reads as a clear "selected" affordance
    * across every theme without any stacked border-like shadow. */
-  box-shadow: inset 4px 0 12px -4px var(--color-accent-glow);
+  box-shadow: inset 4px 0 12px -4px var(--color-accent-glow),
+    inset 0 1px 0 var(--color-border-highlight);
 }
 
 /* Hover after active: bump the tint a touch so the user can tell
@@ -247,8 +251,8 @@
 /* Keyboard focus: an inset accent ring so the outline follows the
  * rounded row without bleeding past the list's edges. */
 .sidebar-game-item:focus-visible {
-  outline: 2px solid var(--color-accent);
-  outline-offset: -2px;
+  outline: none;
+  box-shadow: inset 0 0 0 2px var(--color-accent);
 }
 
 /* Press feedback: a flat darkening that never fights the selected
@@ -422,7 +426,7 @@
 .sidebar-empty-cta {
   margin-top: var(--space-sm);
   padding: var(--space-sm) var(--space-xl);
-  background: var(--color-accent);
+  background: var(--brand-gradient-strong);
   color: #fff;
   border: none;
   border-radius: var(--radius-md);
@@ -430,17 +434,18 @@
   font-weight: var(--font-weight-medium);
   cursor: pointer;
   transition: background var(--transition-fast),
-    box-shadow var(--transition-fast);
+    box-shadow var(--transition-fast),
+    filter var(--transition-fast);
 }
 
 .sidebar-empty-cta:hover {
-  background: var(--color-accent-hover);
+  filter: brightness(1.08);
   box-shadow: 0 4px 14px var(--color-accent-glow);
 }
 
 .sidebar-empty-cta:focus-visible {
-  outline: 2px solid var(--color-accent);
-  outline-offset: 2px;
+  outline: none;
+  box-shadow: var(--ring-accent-soft);
 }
 
 /* Ghost variant for the "clear filters" recovery action in the
@@ -578,14 +583,14 @@
   margin: var(--space-xs) var(--space-xs);
 }
 
-/* Rail rows are 64px tall (4px --space-xs padding top/bottom + a
+/* Rail rows are 68px tall (6px --space-xs padding top/bottom + a
  * 56px cover box) but otherwise inherit the base
  * `contain-intrinsic-size: 52px` from `.sidebar-game-item`, so
- * `content-visibility: auto` reserves ~12px too little per row and
+ * `content-visibility: auto` reserves ~16px too little per row and
  * the rail's scrollbar drifts as rows enter the visible viewport.
  * Match the intrinsic size to the real rail row height. */
 .app-sidebar.sidebar-icon-rail .sidebar-game-item {
-  contain-intrinsic-size: 64px;
+  contain-intrinsic-size: 68px;
 }
 
 /* PinnedGames section header (above the pinned rows). Renders as
@@ -1152,7 +1157,8 @@
   transition: color var(--transition-fast),
     background var(--transition-fast),
     border-color var(--transition-fast),
-    transform var(--transition-fast);
+    transform var(--transition-fast),
+    box-shadow var(--transition-fast);
 }
 
 .sidebar-collapse-toggle:hover {
@@ -1160,11 +1166,12 @@
   border-color: var(--color-accent);
   background: var(--color-bg-hover);
   box-shadow: 0 4px 12px var(--color-accent-glow);
+  transform: translateY(-1px);
 }
 
 .sidebar-collapse-toggle:focus-visible {
-  outline: 2px solid var(--color-accent);
-  outline-offset: 2px;
+  outline: none;
+  box-shadow: var(--ring-accent-soft);
 }
 
 .sidebar-collapse-toggle svg {
@@ -1196,7 +1203,7 @@
   width: 38px;
   flex-shrink: 0;
   padding: 0;
-  background: var(--color-bg-tertiary);
+  background: color-mix(in srgb, var(--color-bg-tertiary) 86%, transparent);
   border: 1px solid var(--color-border);
   border-radius: var(--radius-md);
   color: var(--color-text-secondary);
@@ -1214,8 +1221,8 @@
 }
 
 .sidebar-filter-btn:focus-visible {
-  outline: 2px solid var(--color-accent);
-  outline-offset: 2px;
+  outline: none;
+  box-shadow: var(--ring-accent-soft);
 }
 
 .sidebar-filter-btn svg {
@@ -1477,7 +1484,7 @@
   justify-content: center;
   width: 100%;
   padding: var(--space-sm) var(--space-md);
-  background: var(--color-bg-tertiary);
+  background: color-mix(in srgb, var(--color-bg-tertiary) 86%, transparent);
   border: 1px solid var(--color-border);
   border-radius: var(--radius-md);
   color: var(--color-text-secondary);
@@ -1486,14 +1493,19 @@
     background var(--transition-fast),
     border-color var(--transition-fast),
     box-shadow var(--transition-fast);
-  box-shadow: var(--shadow-sm);
+  box-shadow: inset 0 1px 0 var(--color-border-highlight), var(--shadow-sm);
 }
 
 .sidebar-import-btn:hover {
   border-color: var(--color-accent);
   color: #fff;
-  background: var(--color-accent);
-  box-shadow: 0 4px 15px var(--color-accent-glow);
+  background: var(--brand-gradient-strong);
+  box-shadow: 0 4px 15px var(--color-accent-glow), inset 0 1px 0 rgba(255, 255, 255, 0.2);
+}
+
+.sidebar-import-btn:focus-visible {
+  outline: none;
+  box-shadow: var(--ring-accent-soft);
 }
 
 .sidebar-import-btn svg {

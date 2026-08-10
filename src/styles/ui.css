@@ -24,16 +24,18 @@
               background var(--duration-normal) var(--ease-standard),
               border-color var(--duration-normal) var(--ease-standard),
               box-shadow var(--duration-normal) var(--ease-standard),
-              color var(--duration-normal) var(--ease-standard);
+              color var(--duration-normal) var(--ease-standard),
+              filter var(--duration-normal) var(--ease-standard);
   white-space: nowrap;
   user-select: none;
   outline: none;
   line-height: 1.2;
+  position: relative;
 }
 
 .ui-btn:focus-visible {
-  outline: 2px solid var(--color-accent);
-  outline-offset: 2px;
+  outline: none;
+  box-shadow: var(--ring-accent-soft);
 }
 
 .ui-btn:disabled {
@@ -43,7 +45,7 @@
 }
 
 .ui-btn:active:not(:disabled) {
-  transform: scale(0.97);
+  transform: translateY(0) scale(0.97);
 }
 
 /* Sizes */
@@ -63,23 +65,25 @@
 
 /* Variants */
 .ui-btn--primary {
-  background: var(--color-accent);
+  background: var(--brand-gradient-strong);
   color: #fff;
   border-color: transparent;
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.25), 0 3px 12px var(--color-accent-glow);
 }
 
 .ui-btn--primary:hover:not(:disabled) {
-  background: var(--color-accent-hover);
+  filter: brightness(1.08);
   transform: translateY(-1px);
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.3), 0 5px 16px var(--color-accent-glow);
 }
 
 .ui-btn--secondary {
-  background: var(--color-bg-tertiary);
+  background: color-mix(in srgb, var(--color-bg-tertiary) 86%, transparent);
   color: var(--color-text-primary);
   border-color: var(--color-border);
   box-shadow: inset 0 1px 0 var(--color-border-highlight);
+  backdrop-filter: blur(var(--blur-sm));
+  -webkit-backdrop-filter: blur(var(--blur-sm));
 }
 
 .ui-btn--secondary:hover:not(:disabled) {
@@ -94,7 +98,7 @@
   background: color-mix(in srgb, var(--color-accent) 18%, var(--color-bg-tertiary));
   border-color: color-mix(in srgb, var(--color-accent) 55%, transparent);
   color: var(--color-text-primary);
-  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--color-accent) 40%, transparent);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--color-accent) 40%, transparent), 0 2px 8px var(--color-accent-glow);
 }
 
 .ui-btn--active:hover:not(:disabled) {
@@ -118,13 +122,13 @@
   color: #fff;
   background: var(--color-danger);
   border-color: transparent;
-  box-shadow: 0 2px 8px color-mix(in srgb, var(--color-danger) 30%, transparent);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.18), 0 2px 8px color-mix(in srgb, var(--color-danger) 30%, transparent);
 }
 
 .ui-btn--danger:hover:not(:disabled) {
   background: color-mix(in srgb, var(--color-danger) 88%, white 12%);
   transform: translateY(-1px);
-  box-shadow: 0 4px 12px color-mix(in srgb, var(--color-danger) 40%, transparent);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.22), 0 4px 12px color-mix(in srgb, var(--color-danger) 40%, transparent);
 }
 
 /* Icon slots */
@@ -181,19 +185,21 @@
 
 .ui-card--surface {
   background: var(--color-surface);
+  box-shadow: inset 0 1px 0 var(--color-border-highlight);
 }
 
 .ui-card--glass {
   background: var(--color-surface-glass);
   border-color: var(--color-border-light);
-  backdrop-filter: blur(16px);
-  -webkit-backdrop-filter: blur(16px);
+  backdrop-filter: blur(var(--blur-md)) saturate(140%);
+  -webkit-backdrop-filter: blur(var(--blur-md)) saturate(140%);
+  box-shadow: inset 0 1px 0 var(--color-border-highlight);
 }
 
 .ui-card--raised {
   background: var(--color-surface-raised);
   border-color: var(--color-border);
-  box-shadow: var(--shadow-sm);
+  box-shadow: inset 0 1px 0 var(--color-border-highlight), var(--shadow-sm);
 }
 
 .ui-card:hover {
@@ -202,7 +208,7 @@
 
 .ui-card--raised:hover {
   transform: translateY(-2px);
-  box-shadow: var(--shadow-md);
+  box-shadow: inset 0 1px 0 var(--color-border-highlight), var(--shadow-md);
   border-color: var(--color-border-glow);
 }
 
@@ -233,6 +239,7 @@
   white-space: nowrap;
   border: 1px solid transparent;
   line-height: 1.4;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.06);
 }
 
 .ui-badge--md {
@@ -368,8 +375,8 @@
   color: var(--color-text-primary);
   line-height: 1.4;
   box-shadow: var(--shadow-md);
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
+  backdrop-filter: blur(var(--blur-md)) saturate(140%);
+  -webkit-backdrop-filter: blur(var(--blur-md)) saturate(140%);
 }
 
 /* ── Skeleton ────────────────────────────────────────────────────────── */
@@ -464,10 +471,12 @@
   gap: var(--space-md);
   max-width: 460px;
   padding: var(--space-2xl) var(--space-2xl) var(--space-xl);
-  background: var(--color-surface);
-  border: 1px solid var(--color-border);
+  background: var(--color-surface-raised);
+  border: 1px solid var(--color-border-light);
   border-radius: var(--radius-xl);
-  box-shadow: var(--shadow-sm);
+  box-shadow: inset 0 1px 0 var(--color-border-highlight), var(--shadow-lg);
+  backdrop-filter: blur(var(--blur-md));
+  -webkit-backdrop-filter: blur(var(--blur-md));
   animation: importMenuIn 240ms var(--ease-standard) both;
 }
 
@@ -592,14 +601,21 @@
 }
 
 ::-webkit-scrollbar-thumb {
-  background: rgba(255, 255, 255, 0.12);
+  background: color-mix(in srgb, var(--color-text-muted) 22%, transparent);
   border-radius: var(--radius-full);
   border: 2px solid transparent;
   background-clip: padding-box;
+  transition: background var(--transition-fast);
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: rgba(255, 255, 255, 0.25);
+  background: color-mix(in srgb, var(--color-text-muted) 42%, transparent);
   background-clip: padding-box;
+}
+
+/* Firefox scrollbar — matches the webkit thumb treatment. */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: color-mix(in srgb, var(--color-text-muted) 30%, transparent) transparent;
 }
 

@@ -346,6 +346,9 @@ export default function LibraryFilterSidebar({
           onChange={(e) =>
             onRatingMinChange(Number(e.target.value) > 0 ? Number(e.target.value) : null)
           }
+          style={{
+            background: `linear-gradient(90deg, var(--color-accent) ${ratingMin ?? 0}%, var(--color-border) ${ratingMin ?? 0}%)`,
+          }}
         />
       </div>
 

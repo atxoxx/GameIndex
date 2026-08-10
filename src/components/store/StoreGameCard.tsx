@@ -114,7 +114,7 @@ export default function StoreGameCard({
 
   return (
     <div
-      className={`store-game-card density-${density}${density === "list" ? " store-game-card-list" : ""}${selected ? " selected" : ""}`}
+      className={`store-game-card density-${density}${density === "list" ? " store-game-card-list" : ""}${selectable ? " selectable" : ""}${selected ? " selected" : ""}`}
       onClick={(e) => {
         if (selectable && onToggleSelect) {
           onToggleSelect(game, e);

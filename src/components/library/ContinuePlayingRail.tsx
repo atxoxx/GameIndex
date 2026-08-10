@@ -127,9 +127,15 @@ function ContinuePlayingCard({
   onClick: (game: Game) => void;
 }) {
   const { t } = useLanguage();
+  const { launchGame } = useGames();
   const { appId: resolvedSteamAppId } = useSteamAppId(game);
   const steamAppId =
     typeof resolvedSteamAppId === "number" ? resolvedSteamAppId : game.steamAppId ?? null;
+
+  const handleResume = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    launchGame(game);
+  };
 
   return (
     <Card variant="surface" elevation="1" hoverLift className="lib-rail-card" onClick={() => onClick(game)}>
@@ -149,6 +155,18 @@ function ContinuePlayingCard({
             <PlayerCountBadge appId={steamAppId} className="lib-rail-player-chip-badge" />
           </div>
         )}
+        <button
+          type="button"
+          className="lib-rail-resume"
+          onClick={handleResume}
+          aria-label={t("game.playAria", { name: game.name })}
+          title={t("game.play")}
+        >
+          <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden>
+            <polygon points="5 3 19 12 5 21 5 3" />
+          </svg>
+          <span>{t("game.play")}</span>
+        </button>
       </div>
       <div className="lib-rail-card-body">
         <div className="lib-rail-name" title={game.name}>{game.name}</div>

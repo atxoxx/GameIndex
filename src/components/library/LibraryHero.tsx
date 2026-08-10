@@ -87,6 +87,12 @@ export default function LibraryHero({ games }: LibraryHeroProps) {
 
       <div className="lib-hero-content">
         <div className="lib-hero-text">
+          <div className="lib-hero-greeting-chip" aria-hidden>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <circle cx="12" cy="12" r="10" />
+              <polyline points="12 6 12 12 16 14" />
+            </svg>
+          </div>
           <h1 className="lib-hero-greeting">
             {t(greetingKey)}
             <span className="lib-hero-greeting-dot" aria-hidden>

@@ -34,12 +34,13 @@ export default function LibraryContextMenu({
 
   return (
     <div
-      className="context-menu"
+      className="context-menu lib-context-menu"
       style={{ left: adjustedX, top: adjustedY, zIndex: 9200 }}
       onMouseDown={(e) => e.stopPropagation()}
     >
       <div className="context-menu-header">
         <span className="context-menu-title">{game.name}</span>
+        <span className="lib-context-menu__platform">{game.platform}</span>
       </div>
       <button className="context-menu-item play-action" onClick={onLaunch} disabled={isRunning}>
         <svg viewBox="0 0 24 24" fill="currentColor">

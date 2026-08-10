@@ -1,18 +1,18 @@
 import { useNavigate } from "react-router-dom";
 import { useGames } from "../context/GameContext";
 import { type Game } from "../types/game";
-import LibraryHero from "../components/library/LibraryHero";
+import HomeHero from "../components/hero/HomeHero";
 import ContinuePlayingRail from "../components/library/ContinuePlayingRail";
 import RecentlyAddedRail from "../components/library/RecentlyAddedRail";
 
 /**
  * Home — the app's "wow" first-run surface.
  *
- * Layers a bold brand-gradient hero (the signature violet→cyan→magenta
- * mesh) over the personalized library overview: the greeting + quick
- * actions live in the gradient hero, the aggregate stats reuse
- * `LibraryHero`, and the editorial rails (Continue Playing / Recently
- * Added) carry the everyday browsing into the same screen.
+ * A cinematic spotlight hero (trailer-backed featured game + friends
+ * strip) leads the page; the editorial rails (Continue Playing / Recently
+ * Added) carry everyday browsing into the same screen. The hero renders
+ * its own welcome state when the library is empty, so the page is never
+ * a blank wall.
  */
 export default function HomePage() {
   const navigate = useNavigate();
@@ -24,7 +24,7 @@ export default function HomePage() {
 
   return (
     <div className="home-page">
-      {!isEmpty && <LibraryHero games={games} />}
+      <HomeHero games={games} onOpenGame={openGame} />
       {!isEmpty && <ContinuePlayingRail games={games} onCardClick={openGame} />}
       {!isEmpty && games.length >= 4 && <RecentlyAddedRail games={games} onCardClick={openGame} />}
     </div>

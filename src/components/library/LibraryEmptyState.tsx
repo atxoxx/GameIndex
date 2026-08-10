@@ -55,6 +55,7 @@ export default function LibraryEmptyState({ onImported }: LibraryEmptyStateProps
   return (
     <div className="lib-empty">
       <div className="lib-empty-orb" aria-hidden />
+      <div className="lib-empty-grid" aria-hidden />
       <div className="lib-empty-icon" aria-hidden>
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
           <rect x="2" y="3" width="20" height="14" rx="2" ry="2" />

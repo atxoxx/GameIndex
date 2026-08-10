@@ -39,6 +39,7 @@ function StoreHero({ onCardClick, trailerUrl }: StoreHeroProps) {
   const [activeIdx, setActiveIdx] = useState(0);
   const [paused, setPaused] = useState(false);
   const [progress, setProgress] = useState(0);
+  const [logoErrored, setLogoErrored] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -105,6 +106,11 @@ function StoreHero({ onCardClick, trailerUrl }: StoreHeroProps) {
   const prev = useCallback(() => goTo(activeIdx - 1), [goTo, activeIdx]);
 
   const active = pool[activeIdx];
+
+  // Reset the logo fallback whenever the active slide (or its logo) changes.
+  useEffect(() => {
+    setLogoErrored(false);
+  }, [active?.id, active?.logoUrl]);
 
   const pad2 = useCallback((n: number) => String(n).padStart(2, "0"), []);
 
@@ -173,12 +179,6 @@ function StoreHero({ onCardClick, trailerUrl }: StoreHeroProps) {
 
   const backdrop = active.coverUrl ?? "";
   const trailerSrc = trailerUrl ? trailerUrl(active) : null;
-
-  const [logoErrored, setLogoErrored] = useState(false);
-
-  useEffect(() => {
-    setLogoErrored(false);
-  }, [active?.id, active?.logoUrl]);
 
   const activeLogo = active?.logoUrl || (steamAppId ? `https://cdn.cloudflare.steamstatic.com/steam/apps/${steamAppId}/logo.png` : null);
 
