@@ -3,7 +3,7 @@
 //! download removal / app exit.
 
 use std::collections::HashMap;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex as StdMutex, OnceLock};
 
 use super::types::DownloadFile;
@@ -128,6 +128,20 @@ fn volume_number(name_lower: &str) -> Option<u32> {
     ext.parse::<u32>().ok()
 }
 
+/// Resolve the on-disk path of one of a download's archive files.
+///
+/// The two download kinds store `save_path` differently: Torrents save
+/// the *folder* to download into (each `DownloadFile::name` is relative
+/// to it), while Direct downloads save the *full target file path* of
+/// the single archive. Detect which by inspecting the path itself.
+fn resolve_archive_path(save_path: &Path, name: &str) -> PathBuf {
+    if save_path.is_file() {
+        save_path.to_path_buf()
+    } else {
+        save_path.join(name)
+    }
+}
+
 /// Extract every extractable FIRST-part archive in the download's file
 /// list. Returns the names of the archives that were successfully
 /// extracted (multi-part volumes are keyed by their first part).
@@ -141,7 +155,7 @@ pub fn extract_archives_for_download(
     let mut last_err = None;
 
     for file in files {
-        let file_path = save_path_buf.join(&file.name);
+        let file_path = resolve_archive_path(&save_path_buf, &file.name);
         if !file_path.exists() {
             continue;
         }
@@ -246,7 +260,7 @@ pub fn delete_archives_for_download(
     let save_path_buf = PathBuf::from(save_path);
     for file in files {
         if fams.contains(&archive_family(&file.name)) {
-            let file_path = save_path_buf.join(&file.name);
+            let file_path = resolve_archive_path(&save_path_buf, &file.name);
             if file_path.exists() {
                 println!("[downloads] Deleting archive file {:?}", file_path);
                 let _ = std::fs::remove_file(file_path);
@@ -336,4 +350,29 @@ fn extract_archive(
         "No extractor (7z/tar/PowerShell) found or format not supported for extension .{}",
         ext
     ))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// Torrent semantics: `save_path` is the download folder, and each
+    /// file name is relative to it.
+    #[test]
+    fn resolve_archive_path_joins_relative_names_for_torrent_save_path() {
+        let dir = tempfile::tempdir().unwrap();
+        let resolved = resolve_archive_path(dir.path(), "game.7z");
+        assert_eq!(resolved, dir.path().join("game.7z"));
+    }
+
+    /// Direct semantics: `save_path` IS the full archive file path, so
+    /// the file must be resolved to itself, not joined onto itself.
+    #[test]
+    fn resolve_archive_path_returns_file_itself_for_direct_save_path() {
+        let dir = tempfile::tempdir().unwrap();
+        let archive = dir.path().join("RetroArch.7z");
+        std::fs::write(&archive, b"not a real archive").unwrap();
+        let resolved = resolve_archive_path(&archive, "RetroArch.7z");
+        assert_eq!(resolved, archive);
+    }
 }
