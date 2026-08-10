@@ -5,6 +5,29 @@ import { useUpdate, formatBytes, formatEta } from "../../context/UpdateContext";
 import { useLanguage } from "../../context/LanguageContext";
 
 /**
+ * Renders a GitHub-style release body as plain text with clickable commit
+ * links (`[text](url)`), preserving everything else verbatim via pre-wrap.
+ */
+function renderChangelog(body: string): ReactNode {
+  const linkRe = /\[([^\]]+)\]\(([^)\s]+)\)/g;
+  const parts: ReactNode[] = [];
+  let last = 0;
+  let key = 0;
+  let m: RegExpExecArray | null;
+  while ((m = linkRe.exec(body)) !== null) {
+    if (m.index > last) parts.push(body.slice(last, m.index));
+    parts.push(
+      <a key={key++} href={m[2]} target="_blank" rel="noreferrer">
+        {m[1]}
+      </a>
+    );
+    last = m.index + m[0].length;
+  }
+  if (last < body.length) parts.push(body.slice(last));
+  return parts;
+}
+
+/**
  * UpdateModal — the Software Update dialog.
  *
  * Renders per update-state:
@@ -320,7 +343,7 @@ export function UpdateModal() {
               lineHeight: 1.6,
             }}
           >
-            {updateInfo.body}
+            {updateInfo.body && renderChangelog(updateInfo.body)}
           </div>
         )}
         <p

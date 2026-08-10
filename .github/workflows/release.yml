@@ -189,6 +189,15 @@ jobs:
           $json = Get-Content -Raw "latest.json" | ConvertFrom-Json
           if (-not $json.platforms) { throw "Unexpected latest.json structure - no platforms map" }
 
+          # Embed the generated changelog into latest.json `notes`. The updater
+          # plugin surfaces `notes` as the update body in the app's update modal;
+          # it never reads the GitHub release body. tauri-action only writes the
+          # static `releaseBody` placeholder here, so without this the modal shows
+          # just that placeholder line instead of the real changelog.
+          if (Test-Path "release_notes.md") {
+            $json.notes = (Get-Content -Raw "release_notes.md")
+          }
+
           $base = "https://github.com/$repo/releases/download/$tag"
 
           # The .sig files written by the tauri CLI contain the base64 signature
