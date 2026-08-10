@@ -406,8 +406,15 @@ export function AchievementProvider({ children }: { children: ReactNode }) {
       const game = gamesRef.current.find((g) => g.id === gameId);
       if (!game) return;
 
-      // Owned Steam games → authoritative Steam Web API sync.
-      if (game.steamAppId && game.platform === "Steam") {
+      // Owned Steam games → authoritative Steam Web API sync. Gated by
+      // the auto-sync setting: users who disabled it skip the Steam Web
+      // API call entirely (avoids wasted requests / 429s on short
+      // sessions).
+      if (
+        game.steamAppId &&
+        game.platform === "Steam" &&
+        settingsRef.current.autoSyncOnSteamSync
+      ) {
         try {
           await syncGameAchievements(game.id, game.steamAppId);
           console.log(`[AchievementContext] Auto-synced Steam achievements for ${game.name} on exit`);
