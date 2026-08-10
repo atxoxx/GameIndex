@@ -153,7 +153,7 @@ pub struct GameWatcher {
     /// collection thread is started so live setting changes apply to
     /// the next game launch / detection without a restart.
     metrics_config: metrics_collector::MetricsConfig,
-    /// Phase 3: handle to the SQLite pool so `finish_session` can
+    /// Phase 3: handle to the SQLite pool so `finalize_session` can
     /// record each session row before emitting the `game-exited`
     /// event. Pool ops are sync and ~ms, so the inline write is
     /// cheap and guarantees the row is committed before any
@@ -277,6 +277,17 @@ impl GameWatcher {
             None
         };
 
+        // Re-launch guard: a session for this same `game_id` may already
+        // exist — e.g. process detection passively started one moments
+        // earlier, before the user clicked Launch. The insert below would
+        // silently replace it, leaking the old session's metrics collector
+        // thread (its `stop_tx` is never fired and the result receiver is
+        // dropped). Stop the old collector before taking over the entry;
+        // the new session replaces it wholesale, no metrics merging.
+        if let Some(existing) = self.active_sessions.get(game_id) {
+            let _ = existing.stop_tx.send(());
+        }
+
         self.active_sessions.insert(
             game_id.to_string(),
             ActiveSession {
@@ -321,7 +332,10 @@ impl GameWatcher {
     fn poll_steam_install_changes(&mut self, app_handle: &AppHandle) {
         let now = Instant::now();
         if let Some(last) = self.last_steam_install_poll {
-            if now.duration_since(last) < std::time::Duration::from_secs(10) {
+            // Re-scan throttle (registry + appmanifest_*.acf files). The
+            // `steam_installed_appids` diff below only emits on actual
+            // install-state changes, so a 60 s cadence is plenty.
+            if now.duration_since(last) < std::time::Duration::from_secs(60) {
                 return;
             }
         }
@@ -388,12 +402,18 @@ impl GameWatcher {
     /// Run one poll cycle. Resolves pending sessions, re-attaches sessions
     /// whose tracked process died to a still-running process in the install
     /// directory, and detects new passively-launched games.
-    pub fn poll(&mut self, app_handle: &AppHandle) {
+    ///
+    /// Returns the sessions that ended this cycle, already removed from
+    /// `active_sessions` (via `take_active_session`), each paired with the
+    /// name of any remaining active session at the time of removal. The
+    /// caller runs the slow finalization (post-exit script, metrics drain,
+    /// db writes, `game-exited` emit) AFTER releasing the watcher mutex.
+    pub fn poll(&mut self, app_handle: &AppHandle) -> Vec<(ActiveSession, Option<String>)> {
         self.poll_steam_install_changes(app_handle);
 
         let processes = query_running_processes();
         if processes.is_empty() {
-            return;
+            return Vec::new();
         }
 
         // ── Resolve pending sessions and re-attach dead sessions ───────
@@ -403,15 +423,40 @@ impl GameWatcher {
         // after spawning the real game), we look for any still-running
         // process inside the game's install directory and continue the
         // same session.
-        let running_pids: std::collections::HashSet<u32> =
-            processes.iter().map(|p| p.pid).collect();
+        // PID → exe-path lookup built from the same poll's process
+        // snapshot. Liveness by PID alone is not enough: between 5 s polls
+        // the OS can recycle a PID to an unrelated process, which would
+        // keep a dead session "running" against a foreign exe — inflated
+        // playtime, metrics sampling the wrong process, and `game-exited`
+        // never firing until that foreign process exits. A session is only
+        // currently running when its PID is alive AND still resolves to
+        // the tracked exe.
+        let exe_by_pid: std::collections::HashMap<u32, &str> = processes
+            .iter()
+            .map(|p| (p.pid, p.exe_path.as_str()))
+            .collect();
 
         let mut ended_ids: Vec<String> = Vec::new();
         let mut transitions: Vec<(String, ProcessInfo)> = Vec::new();
 
         for (gid, session) in &mut self.active_sessions {
             let is_pending = session.last_pid == 0;
-            let is_currently_running = !is_pending && running_pids.contains(&session.last_pid);
+            let session_exe_norm = session.matched_exe.to_lowercase().replace('/', "\\");
+            let is_currently_running = !is_pending
+                && exe_by_pid
+                    .get(&session.last_pid)
+                    .map(|proc_exe| {
+                        // Empty `matched_exe` (only possible for pending
+                        // launches, which have last_pid == 0 and never
+                        // reach this check) counts as running. Both the
+                        // PID and its path come from the same `processes`
+                        // snapshot, so a present PID always has a
+                        // queryable path here — no PID-only fallback
+                        // needed.
+                        session_exe_norm.is_empty()
+                            || proc_exe.to_lowercase().replace('/', "\\") == session_exe_norm
+                    })
+                    .unwrap_or(false);
 
             if is_currently_running {
                 session.lost_at = None;
@@ -502,8 +547,17 @@ impl GameWatcher {
             }
         }
 
+        // Extract the ended sessions from the map under this short critical
+        // section and hand them to the caller as owned data. The slow
+        // finalization (post-exit script, up-to-1s metrics drain, SQLite
+        // writes, `game-exited` emit) runs in `start_background_poll` AFTER
+        // the watcher mutex is released — mirroring the force-close path —
+        // so it no longer blocks IPC handlers or the next poll.
+        let mut ended_sessions: Vec<(ActiveSession, Option<String>)> = Vec::new();
         for gid in ended_ids {
-            self.finish_session(app_handle, &gid);
+            if let Some((session, remaining_name)) = self.take_active_session(&gid) {
+                ended_sessions.push((session, remaining_name));
+            }
         }
 
         // ── Collect which new processes match known games ─────────────
@@ -588,6 +642,8 @@ impl GameWatcher {
         for (game, proc) in new_matches {
             self.start_passive_session(app_handle, &game, &proc);
         }
+
+        ended_sessions
     }
 
     fn start_passive_session(
@@ -629,106 +685,6 @@ impl GameWatcher {
                 detected_exe: Some(proc.exe_path.clone()),
             },
         );
-    }
-
-    fn finish_session(&mut self, app_handle: &AppHandle, game_id: &str) {
-        // Snapshot the name of any remaining active session BEFORE
-        // removing the current one — the tray/overlay listener reads
-        // this from the event payload and must NOT re-lock the watcher
-        // (the emit fires synchronously while we still hold &mut self).
-        let remaining_name = self
-            .active_sessions
-            .values()
-            .find(|s| s.game_id != game_id)
-            .map(|s| s.game_name.clone());
-
-        if let Some(mut session) = self.active_sessions.remove(game_id) {
-            // Run the post-exit script (if any) before recording the
-            // session. Blocking is fine — the poll loop is a background
-            // thread and the game has already exited.
-            if let Some((script, admin)) = &session.post_exit_script {
-                let _ = crate::run_script_blocking(script, *admin);
-            }
-            let _ = session.stop_tx.send(());
-            let elapsed = session.started_at.elapsed().as_secs();
-            let metrics = session
-                .metrics_rx
-                .as_mut()
-                .and_then(|rx| rx.recv_timeout(std::time::Duration::from_secs(10)).unwrap_or(None));
-
-            // Capture the wall-clock time at session-end (Unix ms). The
-            // frontend uses this to stamp `Game.lastPlayed`, which drives
-            // the "Continue Playing" rail on the Library page. We use the
-            // same clock the frontend reads via `Date.now()` (i.e. system
-            // time, not monotonic) so the value survives timezone shifts
-            // and clock corrections without a re-derivation step.
-            //
-            // We approximate the session start as `finished_at - elapsed`
-            // since `started_at` on the watcher is a monotonic `Instant`
-            // (no fixed epoch) and we need wall-clock ms for the DB row.
-            let finished_at_ms = std::time::SystemTime::now()
-                .duration_since(std::time::UNIX_EPOCH)
-                .map(|d| d.as_millis() as u64)
-                .unwrap_or(0);
-            let started_at_ms = finished_at_ms.saturating_sub(elapsed * 1000);
-
-            // Phase 3: write the session row before emitting the event
-            // so any frontend listener that reads from the DB sees a
-            // row in place. Synchronous SQLite insert on a WAL pool is
-            // sub-millisecond; the emit follows only after the commit
-            // returns.
-            let metrics_json = metrics
-                .as_ref()
-                .and_then(|m| serde_json::to_string(m).ok());
-            // `SessionMetrics` exposes u32 scalars directly (not
-            // Option<F>), so we always populate the averages. Cast to
-            // f32 for the SQLite REAL columns.
-            let (avg_fps, avg_cpu, avg_gpu, avg_ram) = match metrics.as_ref() {
-                Some(m) => (
-                    Some(m.avg_fps as f32),
-                    Some(m.avg_cpu_usage as f32),
-                    Some(m.avg_gpu_usage as f32),
-                    Some(m.avg_ram_usage as f32),
-                ),
-                None => (None, None, None, None),
-            };
-            if let Err(e) = db::sessions::insert(
-                &self.db,
-                game_id,
-                &session.game_name,
-                started_at_ms,
-                finished_at_ms,
-                elapsed,
-                avg_fps,
-                avg_cpu,
-                avg_gpu,
-                avg_ram,
-                metrics_json.as_deref(),
-            ) {
-                eprintln!("[game_watcher] failed to record session for {game_id}: {e}");
-            }
-
-            // Mirror the timestamp into the games table so the
-            // Library "Continue Playing" rail can sort without a
-            // JOIN. Phase 3 hot-path: replaces the old
-            // full-library-rewrite triggered by save_games.
-            if let Err(e) =
-                db::games::update_last_played(&self.db, game_id, finished_at_ms)
-            {
-                eprintln!("[game_watcher] failed to update last_played for {game_id}: {e}");
-            }
-
-            let _ = app_handle.emit(
-                "game-exited",
-                GameExitPayload {
-                    game_id: session.game_id.clone(),
-                    elapsed_seconds: elapsed,
-                    finished_at: finished_at_ms,
-                    metrics,
-                    remaining_game_name: remaining_name,
-                },
-            );
-        }
     }
 
     /// Returns whether the watcher currently tracks a session for
@@ -786,7 +742,7 @@ impl GameWatcher {
     ///     backend state and `runningGameIds` frontend state drops from
     ///     0–5 s to 0 ms.
     ///   - One cleanup path: by routing back through the existing
-    ///     `finish_session`, the activity dashboard, last-played stamp,
+    ///     `finalize_session`, the activity dashboard, last-played stamp,
     ///     SQLite session row, and `game-exited` event all see the same
     ///     snapshot they would on a natural exit. The frontend's
     ///     ActivityContext listener filters sessions shorter than one
@@ -805,7 +761,7 @@ impl GameWatcher {
     /// lowercase + back-slashes). Only when the exe matches do we open
     /// a terminate handle and call `TerminateProcess`. A mismatched
     /// exe OR a failed query means we report `killed: false` and let
-    /// the session get cleared via `finish_session` anyway — the user
+    /// the session get cleared via `finalize_session` anyway — the user
     /// still gets the running indicator cleared, and the frontend can
     /// show a warning toast.
     ///
@@ -830,7 +786,7 @@ impl GameWatcher {
     /// cross-platform process poll in `query_running_processes()`
     /// returns an empty list on every non-Windows target today, so we
     /// have nothing to `kill` even if we pulled in `libc`. The session
-    /// is still cleaned up via `finish_session`.
+    /// is still cleaned up via `finalize_session`.
     /// Atomically remove the active session for `game_id` from
     /// `active_sessions` and return it alongside the (Option<String>)
     /// name of any *other* currently-active session.
@@ -889,6 +845,112 @@ impl GameWatcher {
     pub fn db_clone(&self) -> db::Db {
         self.db.clone()
     }
+}
+
+/// Finalize an ended game session: run the post-exit script, stop the
+/// metrics collector (waiting up to 1 s for it to drain — metrics are
+/// nice-to-have telemetry, not a UX blocker), record the session row +
+/// `last_played` stamp in SQLite, then emit `game-exited` with the name
+/// of any still-active session.
+///
+/// Designed to run OUTSIDE the global `Arc<Mutex<GameWatcher>>`: the
+/// caller (`start_background_poll`, `force_close_game`) extracts the
+/// owned session via `take_active_session` first and drops the lock
+/// before invoking this, so the blocking script / recv / db work never
+/// freezes IPC handlers or the background poll loop.
+fn finalize_session(
+    db: &db::Db,
+    app_handle: &AppHandle,
+    mut session: ActiveSession,
+    remaining_name: Option<String>,
+) {
+    // Run the post-exit script (if any) before recording the session.
+    // Blocking is fine — the game has already exited and the watcher
+    // mutex is not held here.
+    if let Some((script, admin)) = &session.post_exit_script {
+        let _ = crate::run_script_blocking(script, *admin);
+    }
+    let _ = session.stop_tx.send(());
+    let elapsed = session.started_at.elapsed().as_secs();
+    let metrics = session
+        .metrics_rx
+        .as_mut()
+        .and_then(|rx| rx.recv_timeout(std::time::Duration::from_secs(1)).unwrap_or(None));
+
+    // Capture the wall-clock time at session-end (Unix ms). The frontend
+    // uses this to stamp `Game.lastPlayed`, which drives the "Continue
+    // Playing" rail on the Library page. We use the same clock the
+    // frontend reads via `Date.now()` (i.e. system time, not monotonic)
+    // so the value survives timezone shifts and clock corrections without
+    // a re-derivation step.
+    //
+    // We approximate the session start as `finished_at - elapsed` since
+    // `started_at` on the watcher is a monotonic `Instant` (no fixed
+    // epoch) and we need wall-clock ms for the DB row.
+    let finished_at_ms = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map(|d| d.as_millis() as u64)
+        .unwrap_or(0);
+    let started_at_ms = finished_at_ms.saturating_sub(elapsed * 1000);
+
+    // Phase 3: write the session row before emitting the event so any
+    // frontend listener that reads from the DB sees a row in place.
+    // Synchronous SQLite insert on a WAL pool is sub-millisecond; the
+    // emit follows only after the commit returns.
+    let metrics_json = metrics
+        .as_ref()
+        .and_then(|m| serde_json::to_string(m).ok());
+    // `SessionMetrics` exposes u32 scalars directly (not Option<F>), so
+    // we always populate the averages. Cast to f32 for the SQLite REAL
+    // columns.
+    let (avg_fps, avg_cpu, avg_gpu, avg_ram) = match metrics.as_ref() {
+        Some(m) => (
+            Some(m.avg_fps as f32),
+            Some(m.avg_cpu_usage as f32),
+            Some(m.avg_gpu_usage as f32),
+            Some(m.avg_ram_usage as f32),
+        ),
+        None => (None, None, None, None),
+    };
+    if let Err(e) = db::sessions::insert(
+        db,
+        &session.game_id,
+        &session.game_name,
+        started_at_ms,
+        finished_at_ms,
+        elapsed,
+        avg_fps,
+        avg_cpu,
+        avg_gpu,
+        avg_ram,
+        metrics_json.as_deref(),
+    ) {
+        eprintln!(
+            "[game_watcher] failed to record session for {}: {e}",
+            session.game_id
+        );
+    }
+
+    // Mirror the timestamp into the games table so the Library
+    // "Continue Playing" rail can sort without a JOIN. Phase 3 hot-path:
+    // replaces the old full-library-rewrite triggered by save_games.
+    if let Err(e) = db::games::update_last_played(db, &session.game_id, finished_at_ms) {
+        eprintln!(
+            "[game_watcher] failed to update last_played for {}: {e}",
+            session.game_id
+        );
+    }
+
+    let _ = app_handle.emit(
+        "game-exited",
+        GameExitPayload {
+            game_id: session.game_id.clone(),
+            elapsed_seconds: elapsed,
+            finished_at: finished_at_ms,
+            metrics,
+            remaining_game_name: remaining_name,
+        },
+    );
 }
 
 /// Owned kill-target data produced by
@@ -997,7 +1059,7 @@ pub struct ForceCloseResult {
     /// tree (anti-cheat, crash handler, VR runtime) is killed. `false`
     /// only when no live game process could be found/terminated (PID
     /// recycled, access denied, or nothing matched). The session is
-    /// ALWAYS cleaned up via `finish_session` regardless of this flag —
+    /// ALWAYS cleaned up via `finalize_session` regardless of this flag —
     /// only the toast copy diverges.
     pub killed: bool,
 }
@@ -1564,12 +1626,23 @@ pub fn start_background_poll(
             Ok(w) => w,
             Err(_) => break,
         };
-        w.poll(&app_handle);
+        // `poll` removes ended sessions from the map but defers the slow
+        // finalization to us; grab a cheap `Db` clone and drop the mutex
+        // so the post-exit script / 1 s metrics drain / SQLite writes
+        // below never block IPC handlers or the next poll cycle.
+        let ended_sessions = w.poll(&app_handle);
 
         // Re-evaluate interval after polling: if we just cleared the last
         // pending session, settle back to the steady interval promptly.
         let next_interval = w.current_poll_interval();
+        let db = w.db_clone();
         drop(w);
+
+        // Finalize ended sessions outside the watcher lock — mirrors the
+        // force-close path (take_active_session → finalize).
+        for (session, remaining_name) in ended_sessions {
+            finalize_session(&db, &app_handle, session, remaining_name);
+        }
 
         let wait = if next_interval < interval {
             next_interval
