@@ -16,71 +16,96 @@
 }
 
 .game-launch-btn {
+  position: relative;
   display: flex;
   align-items: center;
   gap: var(--space-sm);
   padding: var(--space-md) var(--space-2xl);
-  background: var(--game-accent, var(--color-accent));
+  background: linear-gradient(135deg, var(--game-accent, var(--color-accent)), color-mix(in srgb, var(--game-accent, var(--color-accent)) 75%, black 25%));
   color: #fff;
-  border: none;
-  border-radius: var(--radius-md);
+  border: 1px solid color-mix(in srgb, var(--game-accent, var(--color-accent)) 60%, white 40%);
+  border-radius: var(--radius-full);
   font-size: var(--font-size-md);
-  font-weight: var(--font-weight-semibold);
+  font-weight: var(--font-weight-bold);
+  letter-spacing: 0.3px;
   cursor: pointer;
+  overflow: hidden;
   transition: color var(--transition-fast), background var(--transition-fast), border-color var(--transition-fast), box-shadow var(--transition-fast), opacity var(--transition-fast), transform var(--transition-fast);
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.25), 0 0 20px color-mix(in srgb, var(--game-accent, var(--color-accent)) 35%, transparent);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.3), 0 4px 20px color-mix(in srgb, var(--game-accent, var(--color-accent)) 40%, transparent);
   flex-shrink: 0;
 }
 
+.game-launch-btn::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: -100%;
+  width: 60%;
+  height: 100%;
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.25), transparent);
+  transform: skewX(-20deg);
+  transition: left 0.6s ease;
+  pointer-events: none;
+}
+
+.game-launch-btn:hover::before {
+  left: 200%;
+}
+
 .game-launch-btn:hover {
-  background: color-mix(in srgb, var(--game-accent, var(--color-accent)) 85%, white 15%);
-  transform: translateY(-1px);
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.35), 0 0 30px color-mix(in srgb, var(--game-accent, var(--color-accent)) 50%, transparent);
+  background: linear-gradient(135deg, color-mix(in srgb, var(--game-accent, var(--color-accent)) 90%, white 10%), var(--game-accent, var(--color-accent)));
+  transform: translateY(-2px) scale(1.02);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.4), 0 8px 30px color-mix(in srgb, var(--game-accent, var(--color-accent)) 55%, transparent);
+}
+
+.game-launch-btn:active {
+  transform: translateY(0) scale(0.98);
 }
 
 .game-launch-btn svg {
   width: 18px;
   height: 18px;
+  filter: drop-shadow(0 1px 2px rgba(0,0,0,0.3));
 }
 
-/* Game Tabs — sticky, glass "segmented pill" bar.
- * A contained, rounded glass pill pinned under the topnav. The
- * active tab is a *soft* accent-tinted pill (accent text + faint
- * accent fill + a small leading accent dot) rather than a heavy
- * solid gradient fill — this reads as a refined control in every
- * theme and never shows a hard sliding edge. The dot is purely
- * decorative (aria-hidden) so SR users still get the text label. */
+/* Game Tabs — sticky, glass "segmented pill" bar with icons */
 .game-tabs {
   display: flex;
-  gap: 2px;
+  gap: 4px;
   align-items: center;
   position: sticky;
   top: calc(var(--topnav-height) + var(--space-md));
   z-index: 50;
   margin: 0 auto var(--space-xl);
-  padding: 4px;
+  padding: 5px;
   width: fit-content;
   max-width: 100%;
   border-radius: var(--radius-full);
   border: 1px solid var(--color-border-light);
-  background: color-mix(in srgb, var(--color-surface-raised) 80%, transparent);
-  backdrop-filter: blur(16px) saturate(150%);
-  -webkit-backdrop-filter: blur(16px) saturate(150%);
-  box-shadow: var(--shadow-md);
+  background: color-mix(in srgb, var(--color-surface-raised) 85%, transparent);
+  backdrop-filter: blur(20px) saturate(180%);
+  -webkit-backdrop-filter: blur(20px) saturate(180%);
+  box-shadow: var(--shadow-lg), 0 4px 20px rgba(0, 0, 0, 0.2);
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+
+.game-tabs::-webkit-scrollbar {
+  display: none;
 }
 
 .game-tab {
   position: relative;
   display: inline-flex;
   align-items: center;
-  gap: 7px;
+  gap: 8px;
   padding: var(--space-sm) var(--space-lg);
   border: 1px solid transparent;
   background: transparent;
   color: var(--color-text-secondary);
   font-size: var(--font-size-sm);
   font-weight: var(--font-weight-semibold);
-  letter-spacing: 0.2px;
+  letter-spacing: 0.3px;
   cursor: pointer;
   border-radius: var(--radius-full);
   transition: color var(--transition-fast), background var(--transition-fast),
@@ -89,33 +114,22 @@
   white-space: nowrap;
 }
 
-/* Decorative leading dot on every tab; only the active tab
- * lights it up with the accent color + glow. */
-.game-tab::before {
-  content: "";
-  width: 6px;
-  height: 6px;
-  border-radius: 50%;
-  background: var(--color-text-muted);
-  opacity: 0.5;
+.game-tab-icon {
   flex-shrink: 0;
-  transition: background var(--transition-fast), box-shadow var(--transition-fast),
-              opacity var(--transition-fast), transform var(--transition-fast);
+  transition: transform var(--transition-fast), color var(--transition-fast);
+}
+
+.game-tab:hover .game-tab-icon {
+  transform: scale(1.15);
+  color: var(--color-accent);
 }
 
 .game-tab:not(.active):hover {
   color: var(--color-text-primary);
   background: var(--color-bg-hover);
-  border-color: color-mix(in srgb, var(--color-accent) 45%, transparent);
+  border-color: color-mix(in srgb, var(--color-accent) 40%, transparent);
   transform: translateY(-1px);
-  box-shadow: 0 2px 10px color-mix(in srgb, var(--color-accent) 25%, transparent);
-}
-
-.game-tab:not(.active):hover::before {
-  opacity: 1;
-  background: var(--color-accent);
-  box-shadow: 0 0 6px var(--color-accent-glow);
-  transform: scale(1.15);
+  box-shadow: 0 2px 10px color-mix(in srgb, var(--color-accent) 20%, transparent);
 }
 
 .game-tab:not(.active):active {
@@ -125,16 +139,15 @@
 .game-tab.active {
   color: var(--color-accent);
   font-weight: var(--font-weight-bold);
-  background: color-mix(in srgb, var(--color-accent) 18%, transparent);
+  background: color-mix(in srgb, var(--color-accent) 16%, transparent);
   border-color: color-mix(in srgb, var(--color-accent) 45%, transparent);
-  box-shadow: 0 0 0 1px color-mix(in srgb, var(--color-accent) 30%, transparent),
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.1),
               0 2px 14px color-mix(in srgb, var(--color-accent) 30%, transparent);
 }
 
-.game-tab.active::before {
-  background: var(--color-accent);
-  opacity: 1;
-  box-shadow: 0 0 8px var(--color-accent-glow);
+.game-tab.active .game-tab-icon {
+  color: var(--color-accent);
+  transform: scale(1.1);
 }
 
 .game-tab:focus-visible {
@@ -252,14 +265,35 @@
 
 /* Game Sections */
 .game-section {
-  background: var(--color-surface);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-lg);
+  background: color-mix(in srgb, var(--color-surface) 88%, transparent);
+  backdrop-filter: blur(16px) saturate(140%);
+  -webkit-backdrop-filter: blur(16px) saturate(140%);
+  border: 1px solid var(--color-border-light);
+  border-radius: var(--radius-xl);
   padding: var(--space-xl);
   margin-bottom: var(--space-xl);
-  /* Clear the sticky topnav + sticky tab bar when a section is
-   * scrolled-to (anchor jumps or keyboard focus). */
+  box-shadow: var(--shadow-md), 0 4px 20px rgba(0, 0, 0, 0.12);
   scroll-margin-top: calc(var(--topnav-height) + 64px);
+  animation: cardFadeIn 360ms var(--ease-enter) both;
+  transition: border-color var(--duration-fast) var(--ease-standard),
+              box-shadow var(--duration-fast) var(--ease-standard),
+              transform var(--duration-fast) var(--ease-standard);
+}
+
+.game-section:hover {
+  border-color: color-mix(in srgb, var(--color-accent) 30%, var(--color-border-light));
+  box-shadow: var(--shadow-lg), 0 6px 24px rgba(0, 0, 0, 0.18);
+}
+
+@keyframes cardFadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
 .game-section-title {
@@ -267,15 +301,17 @@
   align-items: center;
   gap: var(--space-sm);
   font-size: var(--font-size-lg);
-  font-weight: var(--font-weight-semibold);
+  font-weight: var(--font-weight-bold);
   color: var(--color-text-primary);
   margin-bottom: var(--space-lg);
+  letter-spacing: -0.2px;
 }
 
 .game-section-title svg {
   width: 18px;
   height: 18px;
   color: var(--color-accent);
+  filter: drop-shadow(0 0 6px var(--color-accent-glow));
 }
 
 /* IGDB Ratings, Specs, Screenshots, and Web links styles */
@@ -532,28 +568,42 @@
   display: inline-flex;
   align-items: center;
   gap: var(--space-xs);
-  padding: var(--space-sm) var(--space-lg);
-  border: 1px solid var(--color-border);
-  background: var(--color-surface);
-  color: var(--color-text-primary);
-  border-radius: var(--radius-md);
-  font-size: var(--font-size-sm);
-  font-weight: var(--font-weight-medium);
+  padding: 6px 14px;
+  border: 1px solid var(--color-border-light);
+  background: color-mix(in srgb, var(--color-surface-raised) 80%, transparent);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  color: var(--color-text-secondary);
+  border-radius: var(--radius-full);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-semibold);
+  letter-spacing: 0.2px;
   cursor: pointer;
   transition: color var(--transition-fast),
     background var(--transition-fast),
     border-color var(--transition-fast),
-    box-shadow var(--transition-fast);
+    box-shadow var(--transition-fast),
+    transform var(--transition-fast);
 }
 
 .game-edit-btn:hover {
   background: var(--color-bg-hover);
-  border-color: var(--color-border-light);
+  border-color: color-mix(in srgb, var(--color-accent) 50%, transparent);
+  color: var(--color-accent);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px color-mix(in srgb, var(--color-accent) 20%, transparent);
+}
+
+.game-edit-btn.game-edit-btn-danger:hover {
+  background: color-mix(in srgb, var(--color-danger) 15%, transparent);
+  border-color: color-mix(in srgb, var(--color-danger) 60%, transparent);
+  color: var(--color-danger);
+  box-shadow: 0 4px 12px color-mix(in srgb, var(--color-danger) 25%, transparent);
 }
 
 .game-edit-btn svg {
-  width: 15px;
-  height: 15px;
+  width: 14px;
+  height: 14px;
 }
 /* Edit-form button family.
  *
@@ -832,23 +882,38 @@
   display: inline-flex;
   align-items: center;
   gap: var(--space-xs);
-  padding: var(--space-sm) 0;
-  border: none;
-  background: transparent;
+  padding: 6px 14px;
+  border-radius: var(--radius-full);
+  border: 1px solid var(--color-border-light);
+  background: color-mix(in srgb, var(--color-surface-raised) 80%, transparent);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
   color: var(--color-text-secondary);
-  font-size: var(--font-size-sm);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-semibold);
+  letter-spacing: 0.2px;
   cursor: pointer;
-  transition: color var(--transition-fast);
-  margin-bottom: var(--space-lg);
+  transition: color var(--transition-fast), background var(--transition-fast),
+              border-color var(--transition-fast), transform var(--transition-fast),
+              box-shadow var(--transition-fast);
 }
 
 .game-back-link:hover {
-  color: var(--color-accent);
+  color: var(--color-text-primary);
+  background: var(--color-bg-hover);
+  border-color: color-mix(in srgb, var(--color-accent) 50%, transparent);
+  transform: translateX(-3px);
+  box-shadow: 0 4px 12px color-mix(in srgb, var(--color-accent) 20%, transparent);
 }
 
 .game-back-link svg {
-  width: 16px;
-  height: 16px;
+  width: 14px;
+  height: 14px;
+  transition: transform var(--transition-fast);
+}
+
+.game-back-link:hover svg {
+  transform: translateX(-2px);
 }
 /* Game Page Layout */
 .game-main-col {

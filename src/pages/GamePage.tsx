@@ -30,6 +30,23 @@ import {
 } from "../components/game";
 import { GameActivityTab } from "../components/game/GameActivityTab";
 import { Button, ConfirmModal } from "../components/ui";
+import {
+  IconOverview,
+  IconMessageSquare,
+  IconActivity,
+  IconTrophy,
+  IconWrench,
+  IconGlobe,
+} from "../components/game/icons";
+
+const TAB_ICONS = {
+  overview: IconOverview,
+  reviews: IconMessageSquare,
+  activity: IconActivity,
+  achievements: IconTrophy,
+  mods: IconWrench,
+  weblinks: IconGlobe,
+};
 
 
 // Video URL helpers (`getVideoEmbedUrl`, `getVideoThumbnail`) now live in
@@ -309,15 +326,19 @@ function GameDetail({ game }: { game: Game }) {
           set imperatively from the measured active button so it
           slides between tab positions. Hidden until measured. */}
       <div className="game-tabs">
-        {(["overview", "reviews", "activity", "achievements", "mods", "weblinks"] as const).map((tab) => (
-          <button
-            key={tab}
-            className={`game-tab ${activeTab === tab ? "active" : ""}`}
-            onClick={() => setActiveTab(tab)}
-          >
-            {t(`game.tab.${tab}`)}
-          </button>
-        ))}
+        {(["overview", "reviews", "activity", "achievements", "mods", "weblinks"] as const).map((tab) => {
+          const Icon = TAB_ICONS[tab];
+          return (
+            <button
+              key={tab}
+              className={`game-tab ${activeTab === tab ? "active" : ""}`}
+              onClick={() => setActiveTab(tab)}
+            >
+              {Icon && <Icon size={14} className="game-tab-icon" />}
+              <span>{t(`game.tab.${tab}`)}</span>
+            </button>
+          );
+        })}
       </div>
 
       {/* Tab Content */}

@@ -722,17 +722,17 @@
    auto-height stacked layout on narrow viewports. */
 
 .game-hero {
-  --hero-h: 360px;
+  --hero-h: 370px;
   position: relative;
   height: var(--hero-h);
-  border-radius: var(--radius-lg);
+  border-radius: var(--radius-xl);
   overflow: hidden;
   margin-bottom: var(--space-xl);
   background:
-    radial-gradient(120% 120% at 0% 0%, color-mix(in srgb, var(--game-accent) 12%, transparent), transparent 60%),
+    radial-gradient(120% 120% at 0% 0%, color-mix(in srgb, var(--game-accent) 18%, transparent), transparent 60%),
     var(--color-bg-secondary);
   border: 1px solid var(--color-border-light);
-  box-shadow: var(--shadow-md);
+  box-shadow: var(--shadow-lg), 0 8px 32px rgba(0, 0, 0, 0.25);
   /* Fresh stacking context so inner z-indices can't paint above
    * page-level overlays (download modal, popovers). */
   isolation: isolate;
@@ -754,7 +754,7 @@
   z-index: 0;
   background-size: cover;
   background-position: center;
-  filter: saturate(115%);
+  filter: saturate(120%);
 }
 
 /* Brand mesh wash over the art for the signature identity. */
@@ -784,11 +784,11 @@
   pointer-events: none;
   background:
     linear-gradient(90deg,
-      rgba(0,0,0,0.74) 0%,
-      rgba(0,0,0,0.5) 34%,
-      rgba(0,0,0,0.22) 68%,
-      rgba(0,0,0,0.34) 100%),
-    linear-gradient(0deg, rgba(0,0,0,0.45), rgba(0,0,0,0) 55%);
+      rgba(0,0,0,0.78) 0%,
+      rgba(0,0,0,0.55) 34%,
+      rgba(0,0,0,0.25) 68%,
+      rgba(0,0,0,0.36) 100%),
+    linear-gradient(0deg, rgba(0,0,0,0.5), rgba(0,0,0,0) 55%);
 }
 
 /* Inner grid: poster (left) + content (right). The layer is
@@ -816,20 +816,22 @@
   flex: 0 0 auto;
   height: calc(var(--hero-h) - var(--space-2xl));
   aspect-ratio: 2 / 3;
-  border-radius: var(--radius-md);
+  border-radius: var(--radius-lg);
   overflow: hidden;
-  border: 1px solid var(--color-border-light);
+  border: 1px solid color-mix(in srgb, var(--game-accent) 40%, var(--color-border-light));
   background: var(--color-bg-tertiary);
   box-shadow:
     var(--shadow-lg),
-    0 0 30px color-mix(in srgb, var(--game-accent) 30%, transparent);
+    0 10px 30px rgba(0, 0, 0, 0.4),
+    0 0 35px color-mix(in srgb, var(--game-accent) 35%, transparent);
   transition: transform var(--transition-base), box-shadow var(--transition-base);
 }
 .game-hero:hover .game-hero__poster {
-  transform: translateY(-3px);
+  transform: translateY(-4px) scale(1.01);
   box-shadow:
     var(--shadow-lg),
-    0 0 42px color-mix(in srgb, var(--game-accent) 46%, transparent);
+    0 14px 40px rgba(0, 0, 0, 0.5),
+    0 0 50px color-mix(in srgb, var(--game-accent) 55%, transparent);
 }
 .game-hero__poster-img {
   width: 100%;
@@ -1473,13 +1475,14 @@
 }
 
 .screenshot-item {
+  position: relative;
   flex-shrink: 0;
-  width: 220px;
-  height: 124px;
-  border-radius: var(--radius-md);
+  width: 230px;
+  height: 130px;
+  border-radius: var(--radius-lg);
   overflow: hidden;
   cursor: pointer;
-  border: 1px solid var(--color-border);
+  border: 1px solid var(--color-border-light);
   transition: border-color var(--transition-fast) var(--ease-standard),
     box-shadow var(--transition-fast) var(--ease-standard),
     transform var(--transition-fast) var(--ease-standard);
@@ -1487,10 +1490,24 @@
   background: var(--color-bg-tertiary);
 }
 
+.screenshot-item::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(circle, color-mix(in srgb, var(--color-accent) 30%, transparent) 0%, transparent 80%);
+  opacity: 0;
+  transition: opacity var(--transition-fast) var(--ease-standard);
+  pointer-events: none;
+}
+
 .screenshot-item:hover {
   border-color: var(--color-accent);
-  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.4);
-  transform: translateY(-2px);
+  box-shadow: 0 8px 24px color-mix(in srgb, var(--color-accent) 30%, transparent);
+  transform: translateY(-3px) scale(1.02);
+}
+
+.screenshot-item:hover::after {
+  opacity: 1;
 }
 
 .screenshot-img {
@@ -1498,11 +1515,11 @@
   height: 100%;
   object-fit: cover;
   display: block;
-  transition: transform var(--transition-fast) var(--ease-standard);
+  transition: transform var(--duration-normal) var(--ease-standard);
 }
 
 .screenshot-item:hover .screenshot-img {
-  transform: scale(1.03);
+  transform: scale(1.08);
 }
 
 /* ── Game section elevated card surface ─────────────────────────
