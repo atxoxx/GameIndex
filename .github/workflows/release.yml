@@ -69,6 +69,15 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
           TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+          # Runtime credentials baked into the binary at build time (see
+          # src-tauri/build.rs + config.rs). Without these the shipped app
+          # reports "Missing TWITCH_CLIENT_ID". Sync them from your local
+          # .env via upload.bat (Settings > Secrets > Actions), never commit
+          # .env itself.
+          TWITCH_CLIENT_ID: ${{ secrets.TWITCH_CLIENT_ID }}
+          TWITCH_CLIENT_SECRET: ${{ secrets.TWITCH_CLIENT_SECRET }}
+          DISCORD_CLIENT_ID: ${{ secrets.DISCORD_CLIENT_ID }}
+          OPENCRITIC_RAPIDAPI_KEY: ${{ secrets.OPENCRITIC_RAPIDAPI_KEY }}
         with:
           tagName: v__VERSION__ # tauri-action automatically replaces __VERSION__ with the package version
           releaseName: "GameIndex v__VERSION__"
