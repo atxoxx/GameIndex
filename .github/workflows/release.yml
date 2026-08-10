@@ -167,11 +167,17 @@ jobs:
           }
 
           # Pull the tauri-action generated manifest off the draft release.
-          $headers = @{ Authorization = "token $env:GH_TOKEN" }
-          $release = Invoke-RestMethod -Headers $headers "https://api.github.com/repos/$repo/releases/tags/$tag"
-          $asset = $release.assets | Where-Object { $_.name -eq "latest.json" }
-          if (-not $asset) { throw "latest.json asset not found on release $tag" }
-          $json = Invoke-RestMethod -Headers $headers $asset.browser_download_url
+          # gh release download handles draft releases by tag name natively, avoiding
+          # REST API 404 errors on /releases/tags/$tag for draft releases.
+          gh release download $tag -p "latest.json" --clobber
+          if (-not (Test-Path "latest.json")) {
+            $localJson = Get-ChildItem "src-tauri/target/release" -Recurse -Filter "latest.json" -ErrorAction SilentlyContinue | Select-Object -First 1
+            if ($localJson) {
+              Copy-Item $localJson.FullName "latest.json"
+            }
+          }
+          if (-not (Test-Path "latest.json")) { throw "latest.json asset not found on release $tag" }
+          $json = Get-Content -Raw "latest.json" | ConvertFrom-Json
           if (-not $json.platforms) { throw "Unexpected latest.json structure - no platforms map" }
 
           $base = "https://github.com/$repo/releases/download/$tag"
