@@ -309,7 +309,10 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
     ) {
       return raw;
     }
-    return "home";
+    // First-ever launch (no stored preference): land on the Library
+    // tab — the primary surface. The legacy "home" page renders
+    // nothing while the library is empty, so it can't be the default.
+    return "library";
   });
 
   const setLandingPage = useCallback((next: LandingPage) => {
