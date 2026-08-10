@@ -3,6 +3,10 @@ use reqwest::Client;
 use serde_json::Value;
 use tauri::Manager;
 
+use std::collections::HashMap;
+use std::sync::{Mutex, OnceLock};
+use std::time::{Duration, Instant};
+
 use crate::db;
 use crate::local_achievements::{self, UnlockedAchievement};
 
@@ -471,10 +475,79 @@ fn points_to_percent(points: Option<f64>) -> f64 {
     }
 }
 
+// ── Hydra schema cache ─────────────────────────────────────────────────
+//
+// Schemas are effectively static per (appid, language), but the
+// background watcher re-syncs a game on every on-disk change — without a
+// cache every dirty pass issued one HTTP round-trip per game (each with a
+// 20s client timeout, so an offline startup pre-search serialized N full
+// timeouts). Cache fetched schemas in-process with a 1h TTL; the mutex is
+// only ever held for short clone/insert operations, never across an await.
+
+/// TTL for cached Hydra schema entries (~1h).
+const HYDRA_SCHEMA_TTL: Duration = Duration::from_secs(60 * 60);
+
+/// One cached schema: the parsed achievement list plus when it was
+/// fetched, so stale entries can be refreshed on demand.
+struct CachedHydraSchema {
+    schema: Vec<Achievement>,
+    fetched_at: Instant,
+}
+
+/// `(steam_app_id, language)` -> cached schema.
+static HYDRA_SCHEMA_CACHE: OnceLock<Mutex<HashMap<(u32, String), CachedHydraSchema>>> =
+    OnceLock::new();
+
+fn hydra_schema_cache() -> &'static Mutex<HashMap<(u32, String), CachedHydraSchema>> {
+    HYDRA_SCHEMA_CACHE.get_or_init(|| Mutex::new(HashMap::new()))
+}
+
 /// Fetch the achievement schema for a Steam appid from Hydra's public
 /// API. Returns achievements with `achieved=false` / `unlock_time=0`
 /// (unlock state is merged in separately from local files).
+///
+/// Results are cached in-process keyed by `(steam_app_id, language)`
+/// with a ~1h TTL, so repeated syncs of the same game (e.g. every dirty
+/// pass of the background watcher) don't re-download the schema. Only
+/// successes are cached — a failed/offline fetch stays uncached so the
+/// next pass retries, and `merge_into_cache` already falls back to the
+/// persisted cache when no schema is available.
 pub async fn fetch_hydra_schema(
+    client: &Client,
+    steam_app_id: u32,
+    language: &str,
+) -> Result<Vec<Achievement>, String> {
+    let key = (steam_app_id, language.to_string());
+
+    // Fast path: serve a fresh cached schema without any network I/O.
+    // The mutex is only held for this short lookup + clone — the actual
+    // fetch below happens outside the lock.
+    {
+        let cache = hydra_schema_cache().lock().unwrap_or_else(|e| e.into_inner());
+        if let Some(entry) = cache.get(&key) {
+            if entry.fetched_at.elapsed() < HYDRA_SCHEMA_TTL {
+                return Ok(entry.schema.clone());
+            }
+        }
+    }
+
+    let schema = fetch_hydra_schema_uncached(client, steam_app_id, language).await?;
+
+    // Cache successes only.
+    let mut cache = hydra_schema_cache().lock().unwrap_or_else(|e| e.into_inner());
+    cache.insert(
+        key,
+        CachedHydraSchema {
+            schema: schema.clone(),
+            fetched_at: Instant::now(),
+        },
+    );
+
+    Ok(schema)
+}
+
+/// The raw HTTP fetch behind `fetch_hydra_schema` (no caching).
+async fn fetch_hydra_schema_uncached(
     client: &Client,
     steam_app_id: u32,
     language: &str,

@@ -18,6 +18,7 @@ use std::collections::{HashMap, HashSet};
 use std::path::PathBuf;
 use std::time::Duration;
 
+use futures::StreamExt;
 use serde::Serialize;
 use tauri::{AppHandle, Emitter, Manager};
 
@@ -28,6 +29,12 @@ pub const KV_LOCAL_ACHIEVEMENTS: &str = "local_achievements_enabled";
 
 /// Poll cadence — matches the game watcher's steady interval.
 const POLL_INTERVAL: Duration = Duration::from_secs(5);
+
+/// Max dirty games synced concurrently in one pass. Schema fetches carry
+/// a 20s timeout; syncing sequentially would turn an offline startup
+/// pre-search into N serial 20s stalls. 4 keeps the burst small while
+/// still overlapping the per-game round-trips.
+const MAX_CONCURRENT_SYNCS: usize = 4;
 
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -64,6 +71,7 @@ fn resolve_language(app: &AppHandle) -> String {
 }
 
 /// A library game reduced to what the watcher needs.
+#[derive(Clone)]
 struct WatchedGame {
     id: String,
     name: String,
@@ -191,6 +199,11 @@ async fn run_pass(
     let all_files = local_achievements::find_all_achievement_files();
     let language = resolve_language(app);
 
+    // Phase 1 (fast, local-only): detect which games changed and seed the
+    // mtime map. Kept sequential — this is pure disk I/O, and `file_stats`
+    // must be updated for every game (not just dirty ones) so the next
+    // pass can tell a change from a no-op.
+    let mut dirty_games: Vec<WatchedGame> = Vec::new();
     for game in &games {
         let files = files_for_game(game, &all_files);
         if files.is_empty() {
@@ -208,62 +221,78 @@ async fn run_pass(
             file_stats.insert(file.path.clone(), mtime);
         }
 
-        if !dirty {
-            continue;
-        }
-
-        // Snapshot pre-merge unlocks so we can compute the delta.
-        let before = cached_achieved(app, &game.id);
-
-        match achievements::sync_local_for_game(
-            app,
-            client,
-            &game.id,
-            game.steam_app_id,
-            game.exe_path.clone(),
-            &language,
-        )
-        .await
-        {
-            Ok((data, new_count)) => {
-                // Always tell the UI to reload this game's cache.
-                let _ = app.emit(
-                    "achievements-updated",
-                    serde_json::json!({ "gameId": game.id }),
-                );
-
-                if notify && new_count > 0 {
-                    let newly: Vec<UnlockedInfo> = data
-                        .achievements
-                        .iter()
-                        .filter(|a| a.achieved && !before.contains(&a.api_name.to_uppercase()))
-                        .map(|a| UnlockedInfo {
-                            display_name: a.display_name.clone(),
-                            icon: a.icon.clone(),
-                            is_rare: a.percent > 0.0 && a.percent < 10.0,
-                        })
-                        .collect();
-
-                    if !newly.is_empty() {
-                        let _ = app.emit(
-                            "achievement-unlocked",
-                            AchievementUnlockedPayload {
-                                game_id: game.id.clone(),
-                                game_name: game.name.clone(),
-                                achievements: newly,
-                            },
-                        );
-                    }
-                }
-            }
-            Err(e) => {
-                eprintln!(
-                    "[achievement_watcher] sync failed for {} ({}): {e}",
-                    game.name, game.id
-                );
-            }
+        if dirty {
+            dirty_games.push(game.clone());
         }
     }
+
+    // Phase 2: sync dirty games with bounded concurrency so one slow or
+    // offline game can't serialize N 20s timeouts and stall the whole
+    // startup pass. Errors are logged per-game; the rest continue.
+    // `dirty_games` holds owned `WatchedGame`s, so the stream's `map`
+    // closure is a plain `FnMut(WatchedGame)` — no HRTB on the item
+    // lifetime — and each future moves its game in.
+    futures::stream::iter(dirty_games)
+        .map(|game| {
+            // Each future owns its own copy of the language string.
+            let language = language.clone();
+            async move {
+            // Snapshot pre-merge unlocks so we can compute the delta.
+            let before = cached_achieved(app, &game.id);
+
+            match achievements::sync_local_for_game(
+                app,
+                client,
+                &game.id,
+                game.steam_app_id,
+                game.exe_path.clone(),
+                &language,
+            )
+            .await
+            {
+                Ok((data, new_count)) => {
+                    // Always tell the UI to reload this game's cache.
+                    let _ = app.emit(
+                        "achievements-updated",
+                        serde_json::json!({ "gameId": game.id }),
+                    );
+
+                    if notify && new_count > 0 {
+                        let newly: Vec<UnlockedInfo> = data
+                            .achievements
+                            .iter()
+                            .filter(|a| a.achieved && !before.contains(&a.api_name.to_uppercase()))
+                            .map(|a| UnlockedInfo {
+                                display_name: a.display_name.clone(),
+                                icon: a.icon.clone(),
+                                is_rare: a.percent > 0.0 && a.percent < 10.0,
+                            })
+                            .collect();
+
+                        if !newly.is_empty() {
+                            let _ = app.emit(
+                                "achievement-unlocked",
+                                AchievementUnlockedPayload {
+                                    game_id: game.id.clone(),
+                                    game_name: game.name.clone(),
+                                    achievements: newly,
+                                },
+                            );
+                        }
+                    }
+                }
+                Err(e) => {
+                    eprintln!(
+                        "[achievement_watcher] sync failed for {} ({}): {e}",
+                        game.name, game.id
+                    );
+                }
+            }
+            }
+        })
+        .buffer_unordered(MAX_CONCURRENT_SYNCS)
+        .collect::<Vec<()>>()
+        .await;
 }
 
 /// Set the watcher on/off flag (persisted in kv).
