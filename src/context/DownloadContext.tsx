@@ -180,7 +180,9 @@ function areDownloadsEqual(a: TorrentDownload[], b: TorrentDownload[]): boolean 
       da.status.kind !== db.status.kind ||
       da.sourceUri !== db.sourceUri ||
       (da.queuePosition ?? -1) !== (db.queuePosition ?? -1) ||
-      da.kind !== db.kind
+      da.kind !== db.kind ||
+      da.extracted !== db.extracted ||
+      da.autoExtract !== db.autoExtract
     ) {
       return false;
     }
