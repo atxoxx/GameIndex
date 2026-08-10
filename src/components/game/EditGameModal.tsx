@@ -23,6 +23,9 @@ import {
 } from "../../types/game";
 import { Button } from "../../components/ui";
 import { EditImageSlot } from "./EditImageSlot";
+import { LaunchBoxImageBrowser } from "./LaunchBoxImageBrowser";
+import { IgdbMediaBrowser } from "./IgdbMediaBrowser";
+import { UrlListEditor } from "./UrlListEditor";
 import { TagInput } from "../../components/ui/TagInput";
 import { ArrayEditor } from "../../components/ui/ArrayEditor";
 import "./EditGameModal.css";
@@ -33,7 +36,7 @@ const MODE_SUGGESTIONS = ["Singleplayer","Multiplayer","Co-op","Online Co-Op","S
 const PERSPECTIVE_SUGGESTIONS = ["First-Person","Third-Person","Top-Down","Side View","Isometric","Bird's-Eye","Text"];
 const LANGUAGE_SUPPORT_TYPES = ["Audio","Subtitles","Interface"];
 
-type EditTab = "details" | "media" | "advanced" | "launch";
+type EditTab = "details" | "media" | "launch";
 
 interface EditGameModalProps {
   game: Game;
@@ -177,18 +180,43 @@ export function EditGameModal({ game, onClose }: EditGameModalProps) {
     return () => window.removeEventListener("keydown", onKey);
   }, [onClose]);
 
+  // ─── Shared image helpers ────────────────────────────────────────
+  function setImageSlot(key: "icon" | "cover" | "hero" | "banner" | "logo", value: string) {
+    const slot = key === "banner" ? "hero" : key;
+    if (slot === "icon") setEditIcon(value);
+    else if (slot === "cover") setEditCover(value);
+    else if (slot === "hero") setEditHero(value);
+    else setEditLogo(value);
+  }
+
+  async function searchMetadata(): Promise<GameMetadataResult[]> {
+    return invoke("search_game_metadata", {
+      gameName: editName.trim() || game.name,
+      // Only pin by appid when searching the game's own name — a custom
+      // search term must not be pinned to the existing game's appid.
+      steamAppId: editName.trim() ? undefined : game.steamAppId,
+    });
+  }
+
+  async function applyRemoteImage(slot: "icon" | "cover" | "hero" | "banner" | "logo", url: string): Promise<boolean> {
+    setImageSlot(slot, url);
+    const dataUrl: string | null = await invoke("download_image", { url });
+    if (dataUrl) {
+      setImageSlot(slot, dataUrl);
+      showToast(`Applied and saved image as ${slot}`, "success");
+      return true;
+    }
+    showToast("Failed to download image", "error");
+    return false;
+  }
+
   // ─── Metadata handlers ──────────────────────────────────────────
   async function handleFetchMetadata() {
     setFetchingMetadata(true);
     setMetadataResults([]);
     setShowMetadataPanel(true);
     try {
-      const results: GameMetadataResult[] = await invoke("search_game_metadata", {
-        gameName: editName.trim() || game.name,
-        // Only pin by appid when searching the game's own name — a custom
-        // search term must not be pinned to the existing game's appid.
-        steamAppId: editName.trim() ? undefined : game.steamAppId,
-      });
+      const results: GameMetadataResult[] = await searchMetadata();
       setMetadataResults(results);
       if (results.length === 0) showToast("No metadata found for this game", "info");
     } catch (err) {
@@ -203,29 +231,18 @@ export function EditGameModal({ game, onClose }: EditGameModalProps) {
     try {
       let results = metadataResults;
       if (results.length === 0) {
-        const freshResults: GameMetadataResult[] = await invoke("search_game_metadata", {
-          gameName: editName.trim() || game.name,
-          // Only pin by appid when searching the game's own name — a custom
-          // search term must not be pinned to the existing game's appid.
-          steamAppId: editName.trim() ? undefined : game.steamAppId,
-        });
+        const freshResults: GameMetadataResult[] = await searchMetadata();
         results = freshResults;
         setMetadataResults(results);
       }
       if (results.length > 0) {
         const imageUrl = results[0].images[key];
         if (imageUrl) {
-          if (key === "icon") setEditIcon(imageUrl);
-          else if (key === "cover") setEditCover(imageUrl);
-          else if (key === "hero") setEditHero(imageUrl);
-          else if (key === "logo") setEditLogo(imageUrl);
+          setImageSlot(key, imageUrl);
 
           const dataUrl: string | null = await invoke("download_image", { url: imageUrl });
           if (dataUrl) {
-            if (key === "icon") setEditIcon(dataUrl);
-            else if (key === "cover") setEditCover(dataUrl);
-            else if (key === "hero") setEditHero(dataUrl);
-            else if (key === "logo") setEditLogo(dataUrl);
+            setImageSlot(key, dataUrl);
             showToast(`Fetched and saved ${key} image`, "success");
             return;
           }
@@ -321,10 +338,7 @@ export function EditGameModal({ game, onClose }: EditGameModalProps) {
       });
       if (filePath && typeof filePath === "string") {
         const dataUrl: string = await invoke("read_cover_image", { filePath });
-        if (key === "icon") setEditIcon(dataUrl);
-        else if (key === "cover") setEditCover(dataUrl);
-        else if (key === "hero") setEditHero(dataUrl);
-        else if (key === "logo") setEditLogo(dataUrl);
+        setImageSlot(key, dataUrl);
       }
     } catch (err) {
       showToast("Failed to load image", "error");
@@ -332,10 +346,7 @@ export function EditGameModal({ game, onClose }: EditGameModalProps) {
   }
 
   function handleRemoveImage(key: "icon" | "cover" | "hero" | "logo") {
-    if (key === "icon") setEditIcon("");
-    else if (key === "cover") setEditCover("");
-    else if (key === "hero") setEditHero("");
-    else if (key === "logo") setEditLogo("");
+    setImageSlot(key, "");
   }
 
   // ─── LaunchBox browser ──────────────────────────────────────────
@@ -358,21 +369,7 @@ export function EditGameModal({ game, onClose }: EditGameModalProps) {
   async function handleApplyLbImage(imageUrl: string, slot: "icon" | "cover" | "hero" | "banner" | "logo") {
     setLbApplyingUrl(imageUrl);
     try {
-      if (slot === "icon") setEditIcon(imageUrl);
-      else if (slot === "cover") setEditCover(imageUrl);
-      else if (slot === "hero" || slot === "banner") setEditHero(imageUrl);
-      else if (slot === "logo") setEditLogo(imageUrl);
-
-      const dataUrl: string | null = await invoke("download_image", { url: imageUrl });
-      if (dataUrl) {
-        if (slot === "icon") setEditIcon(dataUrl);
-        else if (slot === "cover") setEditCover(dataUrl);
-        else if (slot === "hero" || slot === "banner") setEditHero(dataUrl);
-        else if (slot === "logo") setEditLogo(dataUrl);
-        showToast(`Applied and saved image as ${slot}`, "success");
-      } else {
-        showToast("Failed to download image", "error");
-      }
+      await applyRemoteImage(slot, imageUrl);
     } catch (err) {
       showToast(`Failed to apply image: ${err}`, "error");
     } finally {
@@ -383,34 +380,12 @@ export function EditGameModal({ game, onClose }: EditGameModalProps) {
   async function handleApplyIgdbImage(imageUrl: string, slot: "icon" | "cover" | "hero" | "banner" | "logo") {
     setFetchingImageKey(slot);
     try {
-      if (slot === "icon") setEditIcon(imageUrl);
-      else if (slot === "cover") setEditCover(imageUrl);
-      else if (slot === "hero" || slot === "banner") setEditHero(imageUrl);
-      else if (slot === "logo") setEditLogo(imageUrl);
-
-      const dataUrl: string | null = await invoke("download_image", { url: imageUrl });
-      if (dataUrl) {
-        if (slot === "icon") setEditIcon(dataUrl);
-        else if (slot === "cover") setEditCover(dataUrl);
-        else if (slot === "hero" || slot === "banner") setEditHero(dataUrl);
-        else if (slot === "logo") setEditLogo(dataUrl);
-        showToast(`Applied and saved image as ${slot}`, "success");
-      } else {
-        showToast("Failed to download image", "error");
-      }
+      await applyRemoteImage(slot, imageUrl);
     } catch (err) {
       showToast(`Failed to apply image: ${err}`, "error");
     } finally {
       setFetchingImageKey(null);
     }
-  }
-
-  function getLbCategories(): string[] {
-    return Array.from(new Set(lbImages.map((i) => i.category)));
-  }
-  function getFilteredLbImages(): LaunchBoxImageResult[] {
-    if (lbSelectedCategory === "all") return lbImages;
-    return lbImages.filter((i) => i.category === lbSelectedCategory);
   }
 
   // ─── Size & executable ─────────────────────────────────────────
@@ -645,7 +620,6 @@ export function EditGameModal({ game, onClose }: EditGameModalProps) {
   const tabs: { key: EditTab; label: string; icon: ReactNode }[] = [
     { key: "details", label: t("edit.tab.details"), icon: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" /><polyline points="14 2 14 8 20 8" /><line x1="16" y1="13" x2="8" y2="13" /><line x1="16" y1="17" x2="8" y2="17" /><line x1="10" y1="9" x2="8" y2="9" /></svg> },
     { key: "media", label: t("edit.tab.media"), icon: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2" /><circle cx="8.5" cy="8.5" r="1.5" /><polyline points="21 15 16 10 5 21" /></svg> },
-    { key: "advanced", label: t("edit.tab.advanced"), icon: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="3" /><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z" /></svg> },
     { key: "launch", label: t("edit.tab.launch"), icon: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polygon points="5 3 19 12 5 21 5 3" /></svg> },
   ];
 
@@ -805,18 +779,65 @@ export function EditGameModal({ game, onClose }: EditGameModalProps) {
               </fieldset>
 
               <fieldset className="edit-fieldset">
-                <legend className="edit-fieldset-legend">{t("edit.ratings")}</legend>
-                <div className="edit-form-grid">
-                  <div className="edit-field">
-                    <label className="edit-label" htmlFor="edit-igdb-rating">{t("edit.label.igdbRating")}</label>
-                    <input id="edit-igdb-rating" className="edit-input" type="number" min={0} max={100} value={editIgdbRating || ""} onChange={(e) => setEditIgdbRating(Number(e.target.value))} placeholder="0-100" />
+                <legend className="edit-fieldset-legend">{t("edit.storageAndPlaytime")}</legend>
+                <div className="edit-field full-width" data-storage-row>
+                  <label className="edit-label">{t("edit.label.size")}</label>
+                  <div className="size-edit-row">
+                    <input className="edit-input size-readonly" type="text" readOnly value={editSizeBytes != null ? formatSize(editSizeBytes, sizeUnit) : "Not set"} placeholder="Not set" />
+                    <button type="button" className="edit-btn edit-btn-secondary" onClick={openFolderAndDetectSize} disabled={detectingSize}>{detectingSize ? t("community.detecting") : t("edit.autoDetect")}</button>
+                    <button type="button" className="edit-btn edit-btn-ghost" onClick={clearSize} disabled={editSizeBytes == null}>{t("common.clear")}</button>
                   </div>
-                  <div className="edit-field">
-                    <label className="edit-label" htmlFor="edit-critic-rating">{t("edit.label.criticRating")}</label>
-                    <input id="edit-critic-rating" className="edit-input" type="number" min={0} max={100} value={editCriticRating || ""} onChange={(e) => setEditCriticRating(Number(e.target.value))} placeholder="0-100" />
-                  </div>
+                  {editSizeRootPath && <span className="size-edit-hint" title={editSizeRootPath}>{editSizeRootPath}</span>}
                 </div>
-                <div className="edit-form-grid" style={{ marginTop: "var(--space-md)" }}>
+                <div className="edit-field full-width" data-storage-row style={{ marginTop: "var(--space-md)" }}>
+                  <label className="edit-label">{t("edit.label.playtime")}</label>
+                  <div className="edit-form-grid" style={{ gridTemplateColumns: "1fr 1fr auto", alignItems: "end" }}>
+                    <div className="edit-field">
+                      <label className="edit-label" htmlFor="edit-playtime-hours">{t("edit.playtime.hours")}</label>
+                      <input
+                        id="edit-playtime-hours"
+                        className="edit-input"
+                        type="number"
+                        min={0}
+                        step={1}
+                        value={editPlaytimeHours || ""}
+                        onChange={(e) => setEditPlaytimeHours(Math.max(0, Math.floor(Number(e.target.value) || 0)))}
+                        placeholder="0"
+                      />
+                    </div>
+                    <div className="edit-field">
+                      <label className="edit-label" htmlFor="edit-playtime-minutes">{t("edit.playtime.minutes")}</label>
+                      <input
+                        id="edit-playtime-minutes"
+                        className="edit-input"
+                        type="number"
+                        min={0}
+                        max={59}
+                        step={1}
+                        value={editPlaytimeMinutes || ""}
+                        onChange={(e) => setEditPlaytimeMinutes(Math.max(0, Math.min(59, Math.floor(Number(e.target.value) || 0))))}
+                        placeholder="0"
+                      />
+                    </div>
+                    <div className="edit-field">
+                      <button
+                        type="button"
+                        className="edit-btn edit-btn-ghost"
+                        onClick={resetPlaytimeEdits}
+                        disabled={editPlaytimeHours === 0 && editPlaytimeMinutes === 0}
+                        title={t("edit.playtime.resetTitle")}
+                      >
+                        {t("common.reset")}
+                      </button>
+                    </div>
+                  </div>
+                  <span className="size-edit-hint">{t("edit.playtime.hint")}</span>
+                </div>
+              </fieldset>
+
+              <fieldset className="edit-fieldset">
+                <legend className="edit-fieldset-legend">{t("edit.tagsAndThemes")}</legend>
+                <div className="edit-form-grid">
                   <div className="edit-field">
                     <label className="edit-label" htmlFor="edit-genres">{t("edit.label.genres")}</label>
                     <TagInput id="edit-genres" value={editGenres} onChange={setEditGenres} placeholder="Add a genre, press Enter" suggestions={GENRE_SUGGESTIONS} ariaLabel="Genres" />
@@ -834,51 +855,11 @@ export function EditGameModal({ game, onClose }: EditGameModalProps) {
                     <TagInput id="edit-perspectives" value={editPlayerPerspectives} onChange={setEditPlayerPerspectives} placeholder="Add a perspective, press Enter" suggestions={PERSPECTIVE_SUGGESTIONS} ariaLabel="Player Perspectives" />
                   </div>
                 </div>
-                <div className="edit-form-grid" style={{ marginTop: "var(--space-md)" }}>
-                  <div className="edit-field">
-                    <label className="edit-label" htmlFor="edit-hltb-main">{t("edit.label.hltbMain")}</label>
-                    <input id="edit-hltb-main" className="edit-input" type="number" min={0} value={editTimeToBeatMain || ""} onChange={(e) => setEditTimeToBeatMain(Number(e.target.value))} placeholder="Hours" />
-                  </div>
-                  <div className="edit-field">
-                    <label className="edit-label" htmlFor="edit-hltb-extra">{t("edit.label.hltbExtra")}</label>
-                    <input id="edit-hltb-extra" className="edit-input" type="number" min={0} value={editTimeToBeatExtra || ""} onChange={(e) => setEditTimeToBeatExtra(Number(e.target.value))} placeholder="Hours" />
-                  </div>
-                  <div className="edit-field">
-                    <label className="edit-label" htmlFor="edit-hltb-comple">{t("edit.label.hltbComple")}</label>
-                    <input id="edit-hltb-comple" className="edit-input" type="number" min={0} value={editTimeToBeatComple || ""} onChange={(e) => setEditTimeToBeatComple(Number(e.target.value))} placeholder="Hours" />
-                  </div>
-                </div>
               </fieldset>
 
               <fieldset className="edit-fieldset">
-                <legend className="edit-fieldset-legend">{t("edit.catalog")}</legend>
-                <div className="edit-form-grid">
-                  <div className="edit-field">
-                    <label className="edit-label" htmlFor="edit-collection">{t("edit.label.series")}</label>
-                    <input id="edit-collection" className="edit-input" type="text" value={editCollection} onChange={(e) => setEditCollection(e.target.value)} placeholder="Series or Collection" />
-                  </div>
-                  <div className="edit-field">
-                    <label className="edit-label" htmlFor="edit-franchise">{t("edit.label.franchise")}</label>
-                    <input id="edit-franchise" className="edit-input" type="text" value={editFranchise} onChange={(e) => setEditFranchise(e.target.value)} placeholder="Franchise name" />
-                  </div>
-                  <div className="edit-field">
-                    <label className="edit-label" htmlFor="edit-game-category">{t("edit.label.gameType")}</label>
-                    <input id="edit-game-category" className="edit-input" type="text" value={editGameCategory} onChange={(e) => setEditGameCategory(e.target.value)} placeholder="e.g. Main Game, Expansion" />
-                  </div>
-                  <div className="edit-field">
-                    <label className="edit-label" htmlFor="edit-release-status">{t("edit.label.releaseStatus")}</label>
-                    <input id="edit-release-status" className="edit-input" type="text" value={editReleaseStatus} onChange={(e) => setEditReleaseStatus(e.target.value)} placeholder="e.g. Released, Alpha" />
-                  </div>
-                </div>
-                <div className="edit-field full-width" style={{ marginTop: "var(--space-md)" }}>
-                  <label className="edit-label" htmlFor="edit-similar-games">{t("edit.label.similarGames")}</label>
-                  <TagInput id="edit-similar-games" value={editSimilarGamesNames} onChange={setEditSimilarGamesNames} placeholder="Add a similar game, press Enter" ariaLabel="Similar Games" />
-                </div>
-                <div className="edit-field full-width" style={{ marginTop: "var(--space-md)" }}>
-                  <label className="edit-label" htmlFor="edit-alternative-names">{t("edit.label.alternativeNames")}</label>
-                  <TagInput id="edit-alternative-names" value={editAlternativeNames} onChange={setEditAlternativeNames} placeholder="Add an alias, press Enter" ariaLabel="Alternative Names" />
-                </div>
-                <div className="edit-field full-width" style={{ marginTop: "var(--space-md)" }}>
+                <legend className="edit-fieldset-legend">{t("edit.storyAndNotes")}</legend>
+                <div className="edit-field full-width">
                   <label className="edit-label" htmlFor="edit-storyline">{t("edit.label.storyline")}</label>
                   <textarea id="edit-storyline" className="edit-input edit-textarea" value={editStoryline} onChange={(e) => setEditStoryline(e.target.value)} placeholder="Deep storyline/narrative summary..." rows={3} />
                 </div>
@@ -887,6 +868,132 @@ export function EditGameModal({ game, onClose }: EditGameModalProps) {
                   <textarea id="edit-notes" className="edit-input edit-textarea" value={editNotes} onChange={(e) => setEditNotes(e.target.value)} placeholder="Personal notes about this game..." rows={3} />
                 </div>
               </fieldset>
+
+              <details className="edit-disclosure">
+                <summary className="edit-disclosure-summary">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="9 18 15 12 9 6" /></svg>
+                  <span>{t("edit.moreDetails")}</span>
+                </summary>
+                <div className="edit-disclosure-body">
+                  <div className="edit-subgroup">
+                    <h5 className="edit-subgroup-title">{t("edit.ratings")}</h5>
+                    <div className="edit-form-grid">
+                      <div className="edit-field">
+                        <label className="edit-label" htmlFor="edit-igdb-rating">{t("edit.label.igdbRating")}</label>
+                        <input id="edit-igdb-rating" className="edit-input" type="number" min={0} max={100} value={editIgdbRating || ""} onChange={(e) => setEditIgdbRating(Number(e.target.value))} placeholder="0-100" />
+                      </div>
+                      <div className="edit-field">
+                        <label className="edit-label" htmlFor="edit-critic-rating">{t("edit.label.criticRating")}</label>
+                        <input id="edit-critic-rating" className="edit-input" type="number" min={0} max={100} value={editCriticRating || ""} onChange={(e) => setEditCriticRating(Number(e.target.value))} placeholder="0-100" />
+                      </div>
+                      <div className="edit-field">
+                        <label className="edit-label" htmlFor="edit-hltb-main">{t("edit.label.hltbMain")}</label>
+                        <input id="edit-hltb-main" className="edit-input" type="number" min={0} value={editTimeToBeatMain || ""} onChange={(e) => setEditTimeToBeatMain(Number(e.target.value))} placeholder="Hours" />
+                      </div>
+                      <div className="edit-field">
+                        <label className="edit-label" htmlFor="edit-hltb-extra">{t("edit.label.hltbExtra")}</label>
+                        <input id="edit-hltb-extra" className="edit-input" type="number" min={0} value={editTimeToBeatExtra || ""} onChange={(e) => setEditTimeToBeatExtra(Number(e.target.value))} placeholder="Hours" />
+                      </div>
+                      <div className="edit-field">
+                        <label className="edit-label" htmlFor="edit-hltb-comple">{t("edit.label.hltbComple")}</label>
+                        <input id="edit-hltb-comple" className="edit-input" type="number" min={0} value={editTimeToBeatComple || ""} onChange={(e) => setEditTimeToBeatComple(Number(e.target.value))} placeholder="Hours" />
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="edit-subgroup">
+                    <h5 className="edit-subgroup-title">{t("edit.catalog")}</h5>
+                    <div className="edit-form-grid">
+                      <div className="edit-field">
+                        <label className="edit-label" htmlFor="edit-collection">{t("edit.label.series")}</label>
+                        <input id="edit-collection" className="edit-input" type="text" value={editCollection} onChange={(e) => setEditCollection(e.target.value)} placeholder="Series or Collection" />
+                      </div>
+                      <div className="edit-field">
+                        <label className="edit-label" htmlFor="edit-franchise">{t("edit.label.franchise")}</label>
+                        <input id="edit-franchise" className="edit-input" type="text" value={editFranchise} onChange={(e) => setEditFranchise(e.target.value)} placeholder="Franchise name" />
+                      </div>
+                      <div className="edit-field">
+                        <label className="edit-label" htmlFor="edit-game-category">{t("edit.label.gameType")}</label>
+                        <input id="edit-game-category" className="edit-input" type="text" value={editGameCategory} onChange={(e) => setEditGameCategory(e.target.value)} placeholder="e.g. Main Game, Expansion" />
+                      </div>
+                      <div className="edit-field">
+                        <label className="edit-label" htmlFor="edit-release-status">{t("edit.label.releaseStatus")}</label>
+                        <input id="edit-release-status" className="edit-input" type="text" value={editReleaseStatus} onChange={(e) => setEditReleaseStatus(e.target.value)} placeholder="e.g. Released, Alpha" />
+                      </div>
+                    </div>
+                    <div className="edit-field full-width" style={{ marginTop: "var(--space-md)" }}>
+                      <label className="edit-label" htmlFor="edit-similar-games">{t("edit.label.similarGames")}</label>
+                      <TagInput id="edit-similar-games" value={editSimilarGamesNames} onChange={setEditSimilarGamesNames} placeholder="Add a similar game, press Enter" ariaLabel="Similar Games" />
+                    </div>
+                    <div className="edit-field full-width" style={{ marginTop: "var(--space-md)" }}>
+                      <label className="edit-label" htmlFor="edit-alternative-names">{t("edit.label.alternativeNames")}</label>
+                      <TagInput id="edit-alternative-names" value={editAlternativeNames} onChange={setEditAlternativeNames} placeholder="Add an alias, press Enter" ariaLabel="Alternative Names" />
+                    </div>
+                  </div>
+
+                  <div className="edit-subgroup">
+                    <h5 className="edit-subgroup-title">{t("edit.metadata")}</h5>
+                    <div className="edit-form-grid">
+                      <div className="edit-field">
+                        <label className="edit-label" htmlFor="edit-metadata-source">{t("edit.label.metadataSource")}</label>
+                        <input id="edit-metadata-source" className="edit-input" type="text" value={editMetadataSource} onChange={(e) => setEditMetadataSource(e.target.value)} placeholder="e.g., IGDB, Steam" />
+                      </div>
+                      <div className="edit-field">
+                        <label className="edit-label" htmlFor="edit-metadata-url">{t("edit.label.metadataUrl")}</label>
+                        <input id="edit-metadata-url" className="edit-input" type="text" value={editMetadataUrl} onChange={(e) => setEditMetadataUrl(e.target.value)} placeholder="https://..." />
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="edit-subgroup">
+                    <h5 className="edit-subgroup-title">{t("edit.structuredData")}</h5>
+                    <div className="edit-field full-width">
+                      <label className="edit-label">{t("edit.label.releases")}</label>
+                      <ArrayEditor<ReleaseDateInfo>
+                        value={editReleases}
+                        onChange={setEditReleases}
+                        createEmpty={() => ({ platform: "", dateStr: "", region: "" })}
+                        addLabel="Add release"
+                        emptyText="No release entries yet."
+                        columns={[
+                          { key: "platform", label: "Platform", placeholder: "PC", width: "40%" },
+                          { key: "dateStr", label: "Date", placeholder: "YYYY-MM-DD", width: "30%" },
+                          { key: "region", label: "Region", placeholder: "Worldwide", width: "30%" },
+                        ]}
+                      />
+                    </div>
+                    <div className="edit-field full-width" style={{ marginTop: "var(--space-md)" }}>
+                      <label className="edit-label">{t("edit.label.communityReviews")}</label>
+                      <ArrayEditor<IgdbReview>
+                        value={editIgdbReviews}
+                        onChange={setEditIgdbReviews}
+                        createEmpty={() => ({ username: "", rating: undefined, content: "" })}
+                        addLabel="Add review"
+                        emptyText="No reviews yet."
+                        columns={[
+                          { key: "username", label: "Username", placeholder: "Player1", width: "28%" },
+                          { key: "rating", label: "Rating", type: "number", placeholder: "0-100", width: "18%" },
+                          { key: "content", label: "Content", type: "textarea", placeholder: "Amazing!", width: "54%" },
+                        ]}
+                      />
+                    </div>
+                    <div className="edit-field full-width" style={{ marginTop: "var(--space-md)" }}>
+                      <label className="edit-label">{t("edit.label.supportedLanguages")}</label>
+                      <ArrayEditor<LanguageSupportInfo>
+                        value={editLanguageSupports}
+                        onChange={setEditLanguageSupports}
+                        createEmpty={() => ({ language: "", supportType: "" })}
+                        addLabel="Add language"
+                        emptyText="No languages yet."
+                        columns={[
+                          { key: "language", label: "Language", placeholder: "English", width: "55%" },
+                          { key: "supportType", label: "Support", type: "select", options: LANGUAGE_SUPPORT_TYPES, width: "45%" },
+                        ]}
+                      />
+                    </div>
+                  </div>
+                </div>
+              </details>
             </div>
           )}
 
@@ -945,124 +1052,6 @@ export function EditGameModal({ game, onClose }: EditGameModalProps) {
                 placeholder="Add official website or wiki URL..."
                 emptyText="No websites yet."
               />
-            </div>
-          )}
-
-          {/* ── ADVANCED ── */}
-          {editTab === "advanced" && (
-            <div className="edit-form">
-              <div className="edit-field full-width" data-storage-row>
-                <label className="edit-label">Size</label>
-                <div className="size-edit-row">
-                  <input className="edit-input size-readonly" type="text" readOnly value={editSizeBytes != null ? formatSize(editSizeBytes, sizeUnit) : "Not set"} placeholder="Not set" />
-                  <button type="button" className="edit-btn edit-btn-secondary" onClick={openFolderAndDetectSize} disabled={detectingSize}>{detectingSize ? t("community.detecting") : t("edit.autoDetect")}</button>
-                  <button type="button" className="edit-btn edit-btn-ghost" onClick={clearSize} disabled={editSizeBytes == null}>{t("common.clear")}</button>
-                </div>
-                {editSizeRootPath && <span className="size-edit-hint" title={editSizeRootPath}>{editSizeRootPath}</span>}
-              </div>
-
-              <div className="edit-field full-width" data-storage-row style={{ marginTop: "var(--space-md)" }}>
-                <label className="edit-label">{t("edit.label.playtime")}</label>
-                <div className="edit-form-grid" style={{ gridTemplateColumns: "1fr 1fr auto", alignItems: "end" }}>
-                  <div className="edit-field">
-                    <label className="edit-label" htmlFor="edit-playtime-hours">{t("edit.playtime.hours")}</label>
-                    <input
-                      id="edit-playtime-hours"
-                      className="edit-input"
-                      type="number"
-                      min={0}
-                      step={1}
-                      value={editPlaytimeHours || ""}
-                      onChange={(e) => setEditPlaytimeHours(Math.max(0, Math.floor(Number(e.target.value) || 0)))}
-                      placeholder="0"
-                    />
-                  </div>
-                  <div className="edit-field">
-                    <label className="edit-label" htmlFor="edit-playtime-minutes">{t("edit.playtime.minutes")}</label>
-                    <input
-                      id="edit-playtime-minutes"
-                      className="edit-input"
-                      type="number"
-                      min={0}
-                      max={59}
-                      step={1}
-                      value={editPlaytimeMinutes || ""}
-                      onChange={(e) => setEditPlaytimeMinutes(Math.max(0, Math.min(59, Math.floor(Number(e.target.value) || 0))))}
-                      placeholder="0"
-                    />
-                  </div>
-                  <div className="edit-field">
-                    <button
-                      type="button"
-                      className="edit-btn edit-btn-ghost"
-                      onClick={resetPlaytimeEdits}
-                      disabled={editPlaytimeHours === 0 && editPlaytimeMinutes === 0}
-                      title={t("edit.playtime.resetTitle")}
-                    >
-                      {t("common.reset")}
-                    </button>
-                  </div>
-                </div>
-                <span className="size-edit-hint">{t("edit.playtime.hint")}</span>
-              </div>
-
-              <div className="edit-form-grid">
-                <div className="edit-field">
-                  <label className="edit-label" htmlFor="edit-metadata-source">{t("edit.label.metadataSource")}</label>
-                  <input id="edit-metadata-source" className="edit-input" type="text" value={editMetadataSource} onChange={(e) => setEditMetadataSource(e.target.value)} placeholder="e.g., IGDB, Steam" />
-                </div>
-                <div className="edit-field">
-                  <label className="edit-label" htmlFor="edit-metadata-url">Metadata URL</label>
-                  <input id="edit-metadata-url" className="edit-input" type="text" value={editMetadataUrl} onChange={(e) => setEditMetadataUrl(e.target.value)} placeholder="https://..." />
-                </div>
-              </div>
-
-              <div className="edit-field full-width" style={{ marginTop: "var(--space-lg)" }}>
-                <label className="edit-label">Releases</label>
-                <ArrayEditor<ReleaseDateInfo>
-                  value={editReleases}
-                  onChange={setEditReleases}
-                  createEmpty={() => ({ platform: "", dateStr: "", region: "" })}
-                  addLabel="Add release"
-                  emptyText="No release entries yet."
-                  columns={[
-                    { key: "platform", label: "Platform", placeholder: "PC", width: "40%" },
-                    { key: "dateStr", label: "Date", placeholder: "YYYY-MM-DD", width: "30%" },
-                    { key: "region", label: "Region", placeholder: "Worldwide", width: "30%" },
-                  ]}
-                />
-              </div>
-
-              <div className="edit-field full-width" style={{ marginTop: "var(--space-lg)" }}>
-                <label className="edit-label">Community Reviews</label>
-                <ArrayEditor<IgdbReview>
-                  value={editIgdbReviews}
-                  onChange={setEditIgdbReviews}
-                  createEmpty={() => ({ username: "", rating: undefined, content: "" })}
-                  addLabel="Add review"
-                  emptyText="No reviews yet."
-                  columns={[
-                    { key: "username", label: "Username", placeholder: "Player1", width: "28%" },
-                    { key: "rating", label: "Rating", type: "number", placeholder: "0-100", width: "18%" },
-                    { key: "content", label: "Content", type: "textarea", placeholder: "Amazing!", width: "54%" },
-                  ]}
-                />
-              </div>
-
-              <div className="edit-field full-width" style={{ marginTop: "var(--space-lg)" }}>
-                <label className="edit-label">Supported Languages</label>
-                <ArrayEditor<LanguageSupportInfo>
-                  value={editLanguageSupports}
-                  onChange={setEditLanguageSupports}
-                  createEmpty={() => ({ language: "", supportType: "" })}
-                  addLabel="Add language"
-                  emptyText="No languages yet."
-                  columns={[
-                    { key: "language", label: "Language", placeholder: "English", width: "55%" },
-                    { key: "supportType", label: "Support", type: "select", options: LANGUAGE_SUPPORT_TYPES, width: "45%" },
-                  ]}
-                />
-              </div>
             </div>
           )}
 
@@ -1179,10 +1168,9 @@ export function EditGameModal({ game, onClose }: EditGameModalProps) {
 
         <div className="modal-footer">
           <span className="modal-footer-count">
-            {editTab === "details" && "Core identity, ratings, catalog & tagging"}
-            {editTab === "media" && "Artwork, screenshots, videos & links"}
-            {editTab === "advanced" && "Size, sources & structured data"}
-            {editTab === "launch" && "How this game launches"}
+            {editTab === "details" && t("edit.footerHint.details")}
+            {editTab === "media" && t("edit.footerHint.media")}
+            {editTab === "launch" && t("edit.footerHint.launch")}
           </span>
           <div className="modal-footer-actions">
             <Button variant="secondary" onClick={onClose}>{t("common.cancel")}</Button>
@@ -1192,175 +1180,15 @@ export function EditGameModal({ game, onClose }: EditGameModalProps) {
       </div>
 
       {/* LaunchBox Image Browser */}
-      {showImageBrowser && (
-        <div className="modal-backdrop" onClick={() => setShowImageBrowser(false)}>
-          <div className="modal lb-browser-modal" onClick={(e) => e.stopPropagation()}>
-            <div className="modal-header">
-              <div className="modal-header-icon">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="2" y="2" width="20" height="20" rx="2" /><path d="M7 2v20" /><path d="M2 12h5" /><path d="M2 7h5" /><path d="M2 17h5" /></svg>
-              </div>
-              <div className="modal-header-text">
-                <h3 className="modal-title">LaunchBox Image Browser</h3>
-                <p className="modal-subtitle">Browse and apply images from LaunchBox Games Database for {game.name}</p>
-              </div>
-              <button className="metadata-panel-close" onClick={() => setShowImageBrowser(false)} aria-label="Close">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" /></svg>
-              </button>
-            </div>
-            <div className="lb-category-tabs">
-              <button className={`lb-cat-tab ${lbSelectedCategory === "all" ? "active" : ""}`} onClick={() => setLbSelectedCategory("all")}>All ({lbImages.length})</button>
-              {getLbCategories().map((cat) => (
-                <button key={cat} className={`lb-cat-tab ${lbSelectedCategory === cat ? "active" : ""}`} onClick={() => setLbSelectedCategory(cat)}>{cat} ({lbImages.filter((i) => i.category === cat).length})</button>
-              ))}
-            </div>
-            <div className="lb-browser-body">
-              {lbLoading ? (
-                <div className="metadata-loading"><div className="metadata-spinner" /><p>Searching LaunchBox for "{game.name}"...</p></div>
-              ) : lbImages.length === 0 ? (
-                <div className="metadata-empty">
-                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5"><rect x="3" y="3" width="18" height="18" rx="2" ry="2" /><circle cx="8.5" cy="8.5" r="1.5" /><polyline points="21 15 16 10 5 21" /></svg>
-                  <p>No images found. Try editing the game name and searching again.</p>
-                </div>
-              ) : (
-                <div className="lb-image-grid">
-                  {getFilteredLbImages().map((img, idx) => (
-                    <div key={idx} className="lb-image-card">
-                      <div className="lb-image-thumb"><img src={img.url} alt={`${img.category} ${img.region || ""}`} loading="lazy" /></div>
-                      <div className="lb-image-info">
-                        <span className="lb-image-category">{img.category}</span>
-                        <span className="lb-image-meta">
-                          {img.region && <span className="lb-image-region">{img.region}</span>}
-                          {img.resolution && <span className="lb-image-res">{img.resolution}</span>}
-                        </span>
-                      </div>
-                      <div className="lb-image-actions">
-                        {(["icon", "cover", "hero", "logo"] as const).map((slot) => (
-                          <button key={slot} className="lb-apply-btn" onClick={() => handleApplyLbImage(img.url, slot)} disabled={lbApplyingUrl === img.url}>{lbApplyingUrl === img.url ? "..." : slot[0].toUpperCase() + slot.slice(1)}</button>
-                        ))}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-          </div>
-        </div>
-      )}
+      {showImageBrowser && (<LaunchBoxImageBrowser gameName={game.name} images={lbImages} loading={lbLoading} selectedCategory={lbSelectedCategory} applyingUrl={lbApplyingUrl} onSelectCategory={setLbSelectedCategory} onApply={(slot, url) => handleApplyLbImage(url, slot)} onClose={() => setShowImageBrowser(false)} />)}
 
       {/* IGDB Media Browser */}
-      {showIgdbMediaBrowser && (
-        <div className="modal-backdrop" onClick={() => setShowIgdbMediaBrowser(false)}>
-          <div className="modal lb-browser-modal" style={{ maxWidth: "820px", maxHeight: "85vh" }} onClick={(e) => e.stopPropagation()}>
-            <div className="modal-header">
-              <div className="modal-header-icon">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polygon points="23 7 16 12 23 17 23 7" /><rect x="1" y="5" width="15" height="14" rx="2" ry="2" /></svg>
-              </div>
-              <div className="modal-header-text">
-                <h3 className="modal-title">IGDB Media Browser</h3>
-                <p className="modal-subtitle">Browse screenshots, manage trailers, and download high-resolution game media</p>
-              </div>
-              <button className="metadata-panel-close" onClick={() => setShowIgdbMediaBrowser(false)} aria-label="Close">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" /></svg>
-              </button>
-            </div>
-            <div className="lb-browser-body" style={{ padding: "var(--space-xl)", overflowY: "auto" }}>
-              <div style={{ marginBottom: "var(--space-xl)" }}>
-                <h4 style={{ margin: "0 0 var(--space-sm) 0", color: "var(--color-text-primary)" }}>Screenshots ({editScreenshots.length})</h4>
-                <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(180px, 1fr))", gap: "var(--space-md)" }}>
-                  {editScreenshots.map((url, idx) => (
-                    <div key={idx} style={{ background: "var(--color-bg-secondary)", border: "1px solid var(--color-border)", borderRadius: "var(--radius-md)", overflow: "hidden", display: "flex", flexDirection: "column" }}>
-                      <img src={url} alt={`Screenshot ${idx + 1}`} style={{ width: "100%", height: "110px", objectFit: "cover" }} />
-                      <div style={{ padding: "var(--space-xs)", display: "flex", flexDirection: "column", gap: "var(--space-xs)" }}>
-                        <button className="lb-apply-btn" style={{ padding: "4px 8px", fontSize: "10px" }} onClick={() => handleApplyIgdbImage(url, "cover")} disabled={fetchingImageKey !== null}>{fetchingImageKey === "cover" ? "Downloading..." : "Set as Cover Art"}</button>
-                        <button className="lb-apply-btn" style={{ padding: "4px 8px", fontSize: "10px" }} onClick={() => handleApplyIgdbImage(url, "hero")} disabled={fetchingImageKey !== null}>{fetchingImageKey === "hero" ? "Downloading..." : "Set as Hero Banner"}</button>
-                        <button className="lb-apply-btn" style={{ padding: "4px 8px", fontSize: "10px", background: "var(--color-danger-opacity)", color: "var(--color-danger)" }} onClick={() => setEditScreenshots(editScreenshots.filter((_, i) => i !== idx))}>Remove</button>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-                <UrlAddRow placeholder="Add custom screenshot URL..." onAdd={(v) => setEditScreenshots([...editScreenshots, v])} />
-              </div>
-              <div style={{ borderTop: "1px solid var(--color-border)", paddingTop: "var(--space-lg)" }}>
-                <h4 style={{ margin: "0 0 var(--space-sm) 0", color: "var(--color-text-primary)" }}>Videos & Trailers ({editVideos.length})</h4>
-                <div style={{ display: "flex", flexDirection: "column", gap: "var(--space-sm)" }}>
-                  {editVideos.map((url, idx) => {
-                    const videoId = url.match(/(?:youtube\.com\/watch\?v=|youtu\.be\/)([^&]+)/)?.[1];
-                    return (
-                      <div key={idx} style={{ display: "flex", gap: "var(--space-md)", background: "var(--color-bg-secondary)", border: "1px solid var(--color-border)", borderRadius: "var(--radius-md)", padding: "var(--space-sm)", alignItems: "center" }}>
-                        {videoId ? <img src={`https://img.youtube.com/vi/${videoId}/default.jpg`} alt="Video Thumbnail" style={{ width: "80px", height: "60px", objectFit: "cover", borderRadius: "var(--radius-sm)" }} /> : <div style={{ width: "80px", height: "60px", background: "var(--color-bg-tertiary)", borderRadius: "var(--radius-sm)" }} />}
-                        <div style={{ flex: 1, overflow: "hidden" }}><span style={{ fontSize: "var(--font-size-sm)", color: "var(--color-text-primary)", wordBreak: "break-all", display: "block" }}>{url}</span></div>
-                        <button className="lb-apply-btn" style={{ background: "var(--color-danger-opacity)", color: "var(--color-danger)", whiteSpace: "nowrap" }} onClick={() => setEditVideos(editVideos.filter((_, i) => i !== idx))}>Remove</button>
-                      </div>
-                    );
-                  })}
-                </div>
-                <UrlAddRow placeholder="Add custom YouTube video URL..." onAdd={(v) => setEditVideos([...editVideos, v])} />
-              </div>
-            </div>
-            <div className="modal-footer">
-              <span className="modal-footer-count"></span>
-              <div className="modal-footer-actions"><Button variant="primary" onClick={() => setShowIgdbMediaBrowser(false)}>Done</Button></div>
-            </div>
-          </div>
-        </div>
-      )}
+      {showIgdbMediaBrowser && (<IgdbMediaBrowser screenshots={editScreenshots} videos={editVideos} fetchingKey={fetchingImageKey} onScreenshotsChange={setEditScreenshots} onVideosChange={setEditVideos} onApplyImage={(slot, url) => handleApplyIgdbImage(url, slot)} onClose={() => setShowIgdbMediaBrowser(false)} />)}
     </div>
   );
 }
 
 // ─── Small inline helpers for media lists ──────────────────────────────
-function UrlListEditor({
-  title,
-  items,
-  onChange,
-  placeholder,
-  emptyText,
-  thumbnail,
-  primaryActions,
-}: {
-  title: string;
-  items: string[];
-  onChange: (next: string[]) => void;
-  placeholder: string;
-  emptyText: string;
-  thumbnail?: (url: string) => string | undefined;
-  primaryActions?: (url: string) => ReactNode;
-}) {
-  return (
-    <div className="url-list-editor">
-      <h4 className="edit-modal-section-title">{title} ({items.length})</h4>
-      {items.length === 0 ? (
-        <p className="array-editor-empty">{emptyText}</p>
-      ) : (
-        <div className="url-list">
-          {items.map((url, idx) => {
-            const thumb = thumbnail?.(url);
-            return (
-              <div key={idx} className="url-list-row">
-                {thumb ? <img className="url-list-thumb" src={thumb} alt="" /> : <div className="url-list-thumb url-list-thumb--empty" />}
-                <span className="url-list-url">{url}</span>
-                {primaryActions?.(url)}
-                <button className="lb-apply-btn url-list-remove" onClick={() => onChange(items.filter((_, i) => i !== idx))}>Remove</button>
-              </div>
-            );
-          })}
-        </div>
-      )}
-      <UrlAddRow placeholder={placeholder} onAdd={(v) => onChange([...items, v])} />
-    </div>
-  );
-}
-
-function UrlAddRow({ placeholder, onAdd }: { placeholder: string; onAdd: (url: string) => void }) {
-  const [val, setVal] = useState("");
-  return (
-    <div className="url-add-row">
-      <input className="edit-input" type="text" value={val} placeholder={placeholder} onChange={(e) => setVal(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter" && val.trim()) { onAdd(val.trim()); setVal(""); } }} />
-      <button className="lb-apply-btn" onClick={() => { if (val.trim()) { onAdd(val.trim()); setVal(""); } }}>Add</button>
-    </div>
-  );
-}
-
 function LaunchScriptRow({
   label,
   hint,

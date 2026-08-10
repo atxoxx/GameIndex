@@ -583,3 +583,74 @@
 .companion-app-admin {
   white-space: nowrap;
 }
+
+/* ─── Progressive disclosure ("More details") ────────────────────
+   Native <details>/<summary> so expand/collapse needs no JS and
+   ships keyboard + screen-reader behaviour for free. The summary
+   reads as a quiet secondary row; the body groups rarely-used
+   fields under small accent sub-headings so the expanded panel
+   stays scannable. */
+.edit-disclosure {
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-bg-secondary);
+  overflow: hidden;
+}
+
+.edit-disclosure-summary {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  padding: var(--space-sm) var(--space-md);
+  list-style: none;
+  cursor: pointer;
+  user-select: none;
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-medium);
+  color: var(--color-text-secondary);
+  transition: color var(--transition-fast),
+    background var(--transition-fast);
+}
+
+.edit-disclosure-summary::-webkit-details-marker {
+  display: none;
+}
+
+.edit-disclosure-summary:hover {
+  color: var(--color-text-primary);
+  background: var(--color-bg-hover);
+}
+
+.edit-disclosure-summary:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: -2px;
+}
+
+.edit-disclosure-summary svg {
+  width: 14px;
+  height: 14px;
+  flex-shrink: 0;
+  color: var(--color-text-muted);
+  transition: transform var(--transition-fast);
+}
+
+.edit-disclosure[open] .edit-disclosure-summary svg {
+  transform: rotate(90deg);
+}
+
+.edit-disclosure-body {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-lg);
+  padding: var(--space-md) var(--space-lg) var(--space-lg);
+  border-top: 1px solid var(--color-border);
+}
+
+.edit-subgroup-title {
+  margin: 0 0 var(--space-md);
+  font-size: 10px;
+  font-weight: var(--font-weight-bold);
+  color: var(--color-accent);
+  text-transform: uppercase;
+  letter-spacing: 0.8px;
+}
