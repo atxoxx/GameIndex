@@ -6,12 +6,15 @@
 //! 3. Emit a [`RockstarSyncResult`] the frontend Settings tile
 //!    renders + the library import path consumes.
 
-use tauri::AppHandle;
+use std::sync::{Arc, Mutex};
+use tauri::{AppHandle, Manager};
 
 use super::{
     client_install_path, is_client_installed, scan_installed_rockstar_games,
     RockstarSyncResult, RockstarSyncedGame,
 };
+use crate::game_watcher::GameWatcher;
+use crate::metrics_collector;
 use crate::size;
 
 /// Public Tauri command — scans installed Rockstar games and returns
@@ -82,9 +85,62 @@ pub async fn rockstar_sync_library(_app: AppHandle) -> Result<RockstarSyncResult
 /// Returns the spawned PID (`0` when the launcher handles it without
 /// a directly-tracked child, e.g. when only the Social Club helper
 /// shows up). Mirrors Playnite's `RockstarPlayController.Play`.
+///
+/// Registers a watcher session so the running indicator, playtime
+/// recording, and `game-exited` / force-close all work for
+/// protocol-launched games (mirrors `lib.rs::launch_game`).
 #[tauri::command]
-pub async fn rockstar_launch_game(title_id: String) -> Result<u32, String> {
-    super::launch_title(&title_id)
+pub async fn rockstar_launch_game(
+    app: tauri::AppHandle,
+    game_id: String,
+    game_name: String,
+    game_path: Option<String>,
+    title_id: String,
+) -> Result<u32, String> {
+    let pid = super::launch_title(&title_id)?;
+
+    // Lock the watcher once here (std::sync::Mutex is not reentrant) so
+    // the same guard both supplies the live telemetry config and
+    // registers the launched session below — mirrors lib.rs::launch_game.
+    let watcher: tauri::State<'_, Arc<Mutex<GameWatcher>>> = app.state();
+    let mut w = watcher.lock().map_err(|e| e.to_string())?;
+
+    let (metrics_stop_tx, metrics_rx) = if pid > 0 {
+        // GameWatcher's GPU fields are private with no public accessor
+        // from this module, so real collection starts without GPU
+        // sensor labels here (None, None).
+        let (tx, rx) = metrics_collector::start_metrics_collection(
+            w.metrics_config().clone(),
+            pid,
+            None,
+            None,
+        );
+        (tx, rx)
+    } else {
+        // No PID yet (launcher hand-off) — create dummy channels. Sends
+        // will fail silently in finish_session — acceptable because
+        // metrics were never started for this session; the poll loop
+        // starts real collection when the game process appears.
+        let (dummy_stop_tx, _) = std::sync::mpsc::channel::<()>();
+        let (_, dummy_metrics_rx) =
+            std::sync::mpsc::channel::<Option<metrics_collector::SessionMetrics>>();
+        (dummy_stop_tx, dummy_metrics_rx)
+    };
+
+    w.register_launched_session(
+        &app,
+        &game_id,
+        &game_name,
+        "Rockstar",
+        None,
+        game_path.as_deref(),
+        pid,
+        metrics_stop_tx,
+        metrics_rx,
+        None,
+    );
+
+    Ok(pid)
 }
 
 fn current_unix() -> u64 {

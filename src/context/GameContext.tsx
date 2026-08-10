@@ -196,6 +196,28 @@ const enrichAttemptsThisSession = new Map<string, number>();
 const isFrontendUsableImage = (u: string | undefined): boolean =>
   !!u && u.startsWith("data:");
 
+/**
+ * Build the entries for the Rust GameWatcher's passive-detection index
+ * from a set of games. Shared by the mount-time rebuild, the
+ * steam-install-changed refresh, and the debounced post-mutation
+ * rebuild in `scheduleWatcherIndexRebuild`.
+ */
+function toWatcherRefs(games: Game[]) {
+  return games.map((g) => ({
+    gameId: g.id,
+    gameName: g.name,
+    platform: g.platform,
+    exePath: g.path || "",
+    steamAppId: g.steamAppId ?? null,
+    // Emulator ROMs share the emulator exe as their path; the
+    // backend excludes them from the passive-detection index so
+    // one running emulator process can't record a phantom session
+    // for every imported ROM. App-launched sessions still track
+    // the exact game_id via the launch path.
+    emulatorId: g.emulatorId ?? null,
+  }));
+}
+
 /** Discord's large/small image must be a public https URL; data: URIs are skipped. */
 function discordAsset(url: string | undefined | null): string | undefined {
   if (!url) return undefined;
@@ -233,21 +255,8 @@ export function GameProvider({ children }: { children: ReactNode }) {
           // Populate the watcher's process index for passive detection.
           // Pass game refs so the background poll loop can match
           // running processes to known games.
-          const refs = data.map((g) => ({
-            gameId: g.id,
-            gameName: g.name,
-            platform: g.platform,
-            exePath: g.path || "",
-            steamAppId: g.steamAppId ?? null,
-            // Emulator ROMs share the emulator exe as their path; the
-            // backend excludes them from the passive-detection index so
-            // one running emulator process can't record a phantom session
-            // for every imported ROM. App-launched sessions still track
-            // the exact game_id via the launch path.
-            emulatorId: g.emulatorId ?? null,
-          }));
-          invoke("rebuild_watcher_index", { games: refs }).catch((err) =>
-            console.error("Failed to rebuild watcher index:", err)
+          invoke("rebuild_watcher_index", { games: toWatcherRefs(data) }).catch(
+            (err) => console.error("Failed to rebuild watcher index:", err)
           );
         }
       })
@@ -335,6 +344,30 @@ export function GameProvider({ children }: { children: ReactNode }) {
   // redundant IGDB calls, but the closure churn was wasted CPU).
   const gamesRef = useRef(games);
   gamesRef.current = games;
+
+  // ── Watcher process index ──────────────────────────────────────
+  // The Rust GameWatcher passively detects running games by matching
+  // process exe paths against an index we push via
+  // `rebuild_watcher_index` (see `toWatcherRefs`). Mount builds it
+  // once; every library mutation must refresh it too — otherwise a
+  // game added via Store/import/edit stays invisible to passive
+  // detection until restart, and a removed game's exe keeps matching,
+  // so running it emits `game-started` for a deleted gameId (a phantom
+  // running entry that only clears when the process exits). A short
+  // trailing debounce coalesces burst mutations (Steam sync imports,
+  // batch removals) into a single rebuild; the refs are snapshotted
+  // from `gamesRef` at fire time so they always reflect the
+  // post-mutation library.
+  const watcherRebuildTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const scheduleWatcherIndexRebuild = useCallback(() => {
+    if (watcherRebuildTimerRef.current) return;
+    watcherRebuildTimerRef.current = setTimeout(() => {
+      watcherRebuildTimerRef.current = null;
+      invoke("rebuild_watcher_index", { games: toWatcherRefs(gamesRef.current) }).catch(
+        (err) => console.error("Failed to rebuild watcher index:", err)
+      );
+    }, 500);
+  }, []);
 
   // Tracks which games are currently running (name + start time) so the
   // game-exited handler can hand Rich Presence the next still-running game
@@ -510,15 +543,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
             showToast(t("game.installedToast", { name: updatedGameName }), "success");
           }
           // Refresh watcher process index so process detection works immediately
-          const refs = next.map((g) => ({
-            gameId: g.id,
-            gameName: g.name,
-            platform: g.platform,
-            exePath: g.path || "",
-            steamAppId: g.steamAppId ?? null,
-            emulatorId: g.emulatorId ?? null,
-          }));
-          invoke("rebuild_watcher_index", { games: refs }).catch(() => undefined);
+          invoke("rebuild_watcher_index", { games: toWatcherRefs(next) }).catch(() => undefined);
         }
         return next;
       });
@@ -533,7 +558,10 @@ export function GameProvider({ children }: { children: ReactNode }) {
     setGames((prev) =>
       prev.map((g) => (g.id === id ? { ...g, ...updates } : g))
     );
-  }, []);
+    // Path / Steam-app-id edits can change what the watcher matches, so
+    // refresh the process index.
+    scheduleWatcherIndexRebuild();
+  }, [scheduleWatcherIndexRebuild]);
 
   /** Download a single image to base64, falling back to the remote URL. */
   async function downloadImageSafe(url: string | undefined | null): Promise<string | undefined> {
@@ -779,33 +807,44 @@ export function GameProvider({ children }: { children: ReactNode }) {
   const addGame = useCallback((game: Game) => {
     const id = game.id || generateId();
     setGames((prev) => [...prev, { ...game, id }]);
+    // Refresh the watcher index so the new game is passively detectable.
+    scheduleWatcherIndexRebuild();
     // IGDB metadata is now lazy: GamePage calls enrichGameMetadata on mount
     // for any game that lacks a description. This avoids the wasteful fan-out
     // that used to trigger hundreds of IGDB calls during Steam sync.
-  }, []);
+  }, [scheduleWatcherIndexRebuild]);
 
   const addGames = useCallback((newGames: Game[]) => {
     const withIds = newGames.map((g) => ({ ...g, id: g.id || generateId() }));
     setGames((prev) => [...prev, ...withIds]);
+    // Refresh the watcher index so the imported games are passively
+    // detectable without a restart.
+    scheduleWatcherIndexRebuild();
     // IGDB metadata is now lazy: GamePage calls enrichGameMetadata on mount
     // for any game that lacks a description. This avoids the wasteful fan-out
     // that triggered hundreds of IGDB calls during Steam sync even in
     // sequential mode. For a 500-game Steam library, this saves ~4 minutes
     // of background fetching; users only see IGDB work for games they
     // actually open.
-  }, []);
+  }, [scheduleWatcherIndexRebuild]);
 
   const removeGame = useCallback((id: string) => {
     setGames((prev) => prev.filter((g) => g.id !== id));
     setSelectedGameId((current) => (current === id ? null : current));
-  }, []);
+    // Drop the exe from the watcher index so a stale process match can't
+    // resurrect the deleted game as a phantom running entry.
+    scheduleWatcherIndexRebuild();
+  }, [scheduleWatcherIndexRebuild]);
 
   const removeGames = useCallback((predicate: (game: Game) => boolean) => {
     setGames((prev) => {
       if (!prev.some(predicate)) return prev;
       return prev.filter((g) => !predicate(g));
     });
-  }, []);
+    // Refresh the index so removed exes stop matching (a harmless no-op
+    // rebuild when the predicate matched nothing).
+    scheduleWatcherIndexRebuild();
+  }, [scheduleWatcherIndexRebuild]);
 
   const getGame = useCallback(
     (id: string) => games.find((g) => g.id === id),
@@ -906,6 +945,9 @@ export function GameProvider({ children }: { children: ReactNode }) {
       // runs. We do the same when the game carries a `rockstarTitleId`.
       if (game.rockstarTitleId) {
         await invoke<string>("rockstar_launch_game", {
+          gameId: game.id,
+          gameName: game.name,
+          gamePath: game.path || null,
           titleId: game.rockstarTitleId,
         });
         if (splashOn) splash.updateStatus("started");
@@ -919,6 +961,9 @@ export function GameProvider({ children }: { children: ReactNode }) {
       // carries a `uplayGameId`.
       if (game.uplayGameId) {
         await invoke<string>("uplay_launch_game", {
+          gameId: game.id,
+          gameName: game.name,
+          gamePath: game.path || null,
           uplayId: game.uplayGameId,
         });
         if (splashOn) splash.updateStatus("started");
@@ -1015,6 +1060,9 @@ export function GameProvider({ children }: { children: ReactNode }) {
     };
 
     setGames((prev) => [...prev, newGame]);
+    // Refresh the watcher index so the new store game is passively
+    // detectable once it has a path.
+    scheduleWatcherIndexRebuild();
     showToast(t("gameContext.addedToLibrary", { name: metadata.title }), "success");
 
     // Kick off a background review fetch so reviews are ready when the user
@@ -1025,7 +1073,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
     );
 
     return newGame.id;
-  }, [games, showToast, fetchGameReviews, t]);
+  }, [games, showToast, fetchGameReviews, scheduleWatcherIndexRebuild, t]);
 
   const importLocalGames = useCallback(async (
     items: { path: string; metadata: GameMetadataResult | null }[]
@@ -1097,6 +1145,9 @@ export function GameProvider({ children }: { children: ReactNode }) {
 
     if (imported.length > 0) {
       setGames((prev) => [...prev, ...imported]);
+      // Refresh the watcher index so the imported exes are passively
+      // detectable immediately.
+      scheduleWatcherIndexRebuild();
       showToast(t("gameContext.imported", { count: imported.length }), "success");
 
       // Kick off background review fetches so the Reviews tab is populated
@@ -1143,7 +1194,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
     } else {
       showToast(t("gameContext.noNewImports"), "info");
     }
-  }, [games, showToast, fetchGameReviews, updateGame, t]);
+  }, [games, showToast, fetchGameReviews, updateGame, scheduleWatcherIndexRebuild, t]);
 
   return (
     <GameContext.Provider

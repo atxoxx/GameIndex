@@ -14,11 +14,14 @@
 //! `uplay://launch`, `uplay://install`, `uplay://uninstall`, and
 //! opening the Ubisoft Connect client.
 
-use tauri::AppHandle;
+use std::sync::{Arc, Mutex};
+use tauri::{AppHandle, Manager};
 use tauri_plugin_opener::OpenerExt;
 
 use super::{cache, client_install_path, is_client_installed};
 use super::types::{UplaySettings, UplaySyncResult, UplaySyncedGame};
+use crate::game_watcher::GameWatcher;
+use crate::metrics_collector;
 use crate::size;
 use crate::uplay::settings::load as load_settings;
 
@@ -168,16 +171,54 @@ struct UplayInstalledGameLite {
 /// protocol. Returns the spawned PID (`0` when the protocol handler
 /// (UbisoftConnect.exe) takes over). Mirrors Playnite's
 /// `UplayPlayController.Play` → `Uplay.GetLaunchString`.
+///
+/// Registers a pending watcher session (initial PID 0) so the running
+/// indicator, playtime recording, and `game-exited` / force-close all
+/// work — the poll loop detects the real process via install-dir/exe
+/// matching when the game launches (see game_watcher.rs pending-session
+/// handling).
 #[tauri::command]
 pub async fn uplay_launch_game(
-    app: AppHandle,
+    app: tauri::AppHandle,
+    game_id: String,
+    game_name: String,
+    game_path: Option<String>,
     uplay_id: String,
 ) -> Result<u32, String> {
     let url = format!("uplay://launch/{}", uplay_id);
     app.opener()
         .open_url(url, None::<&str>)
-        .map(|_| 0u32)
-        .map_err(|e| format!("Failed to launch Ubisoft game: {e}"))
+        .map_err(|e| format!("Failed to launch Ubisoft game: {e}"))?;
+
+    let initial_pid = 0u32;
+
+    // Lock the watcher once here (std::sync::Mutex is not reentrant) —
+    // mirrors lib.rs::launch_game.
+    let watcher: tauri::State<'_, Arc<Mutex<GameWatcher>>> = app.state();
+    let mut w = watcher.lock().map_err(|e| e.to_string())?;
+
+    // Pending session (initial_pid == 0) — wire dummy channels. Sends
+    // will fail silently in finish_session — acceptable because metrics
+    // were never started; the poll loop starts real collection when it
+    // finds the process and transitions the session.
+    let (dummy_stop_tx, _) = std::sync::mpsc::channel::<()>();
+    let (_, dummy_metrics_rx) =
+        std::sync::mpsc::channel::<Option<metrics_collector::SessionMetrics>>();
+
+    w.register_launched_session(
+        &app,
+        &game_id,
+        &game_name,
+        "Uplay",
+        None,
+        game_path.as_deref(),
+        initial_pid,
+        dummy_stop_tx,
+        dummy_metrics_rx,
+        None,
+    );
+
+    Ok(initial_pid)
 }
 
 fn current_unix() -> u64 {
