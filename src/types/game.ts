@@ -163,6 +163,12 @@ export interface Game {
    *  Rust GameMetadataResult.collection_id field. Populated by
    *  GameContext.enrichGameMetadata after an IGDB enrichment. */
   collectionId?: number;
+  /** IGDB numeric game id (IGDB's internal `id` for the title). Mirrors
+   *  GameMetadataResult.igdbId and the Rust GameMetadataResult.igdb_id
+   *  field (JSON key `igdbId`). Populated by
+   *  GameContext.enrichGameMetadata after an IGDB enrichment and copied
+   *  by GameContext.addStoreGame. */
+  igdbId?: number;
   launchArguments?: string;
   runAsAdmin?: boolean;
   /** When true, Steam games launch through Steam's own executable/action
@@ -801,6 +807,10 @@ export interface GameMetadataResult {
   /// `get_collection_games` Tauri command. Mirrors the Rust
   /// `GameMetadataResult.collection_id` field.
   collectionId?: number;
+  /** IGDB numeric game id (IGDB's internal `id`). Mirrors the Rust
+   *  `GameMetadataResult.igdb_id` field. Persisted by the backend on the
+   *  game row so the title stays linked to its IGDB entry. */
+  igdbId?: number;
   franchise?: string;
   gameCategory?: string;
   releaseStatus?: string;

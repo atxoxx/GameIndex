@@ -133,6 +133,11 @@ struct GameData {
     igdb_rating: Option<f64>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     critic_rating: Option<f64>,
+    /// Numeric IGDB game id (`IgdbGame.id`) persisted as a stable
+    /// identity key — it survives deletion so the Activity page can
+    /// still identify removed titles. `None` = no IGDB match at import.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    igdb_id: Option<u64>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     themes: Option<Vec<String>>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -667,6 +672,7 @@ fn apply_existing_rom(prev: &GameData, game: &mut GameData) {
     game.videos = prev.videos.clone();
     game.igdb_rating = prev.igdb_rating;
     game.critic_rating = prev.critic_rating;
+    game.igdb_id = prev.igdb_id;
     game.play_status = prev.play_status.clone();
     game.notes = prev.notes.clone();
     game.size_bytes = prev.size_bytes;

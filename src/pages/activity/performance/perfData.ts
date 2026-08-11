@@ -115,6 +115,12 @@ export function buildGameAverages(
   unknownTitle = "Unknown Game",
 ): GamePerfAvg[] {
   const gameById = new Map(games.map((g) => [g.id, g]));
+  // Sessions snapshot the game name at play time, so a deleted library
+  // game still renders its real title in the perf averages.
+  const sessionNameById = new Map<string, string>();
+  for (const s of sessions) {
+    if (s.gameName && !sessionNameById.has(s.gameId)) sessionNameById.set(s.gameId, s.gameName);
+  }
   const map = new Map<string, GameAgg>();
 
   for (const s of sessions) {
@@ -165,7 +171,7 @@ export function buildGameAverages(
     return {
       gameId,
       game,
-      gameTitle: game?.name || unknownTitle,
+      gameTitle: game?.name || sessionNameById.get(gameId) || unknownTitle,
       gameIconUrl: game?.iconUrl || null,
       coverArtUrl: game?.coverArtUrl || null,
       steamAppId: game?.steamAppId ?? null,

@@ -245,6 +245,7 @@ mod title_match_tests {
             alternative_names: None,
             collection: None,
             collection_id: None,
+            igdb_id: None,
             franchise: None,
             game_category: category.map(|s| s.to_string()),
             release_status: status.map(|s| s.to_string()),
@@ -346,6 +347,12 @@ pub struct GameMetadataResult {
     /// `get_collection_games` Tauri command.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub collection_id: Option<u64>,
+    /// Numeric IGDB game id (`IgdbGame.id`). Persisted by the frontend
+    /// as a stable identity key so deleted games can still be
+    /// identified (e.g. in the Activity page). `None` for sources that
+    /// cannot provide an IGDB id (Steam, LaunchBox).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub igdb_id: Option<u64>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub franchise: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -1793,6 +1800,9 @@ async fn search_steam(game_name: &str) -> Option<GameMetadataResult> {
         // members for Steam-sourced metadata. Hardcode `None`
         // because the struct requires the field.
         collection_id: None,
+        // Steam API does not return the IGDB game id either; hardcode
+        // `None` so the field round-trips as absent on non-IGDB rows.
+        igdb_id: None,
         release_date: data
             .release_date
             .as_ref()
@@ -2032,6 +2042,9 @@ async fn search_launchbox(game_name: &str) -> Option<GameMetadataResult> {
         // GameRelationsCard cannot fetch "Other in Collection"
         // members for LaunchBox-sourced metadata. Hardcode `None`.
         collection_id: None,
+        // LaunchBox does not return the IGDB game id either; hardcode
+        // `None` so the field round-trips as absent on non-IGDB rows.
+        igdb_id: None,
         release_date,
         genres,
         images,
@@ -3152,6 +3165,9 @@ fn map_igdb_game(game: IgdbGame, ttb: Option<&IgdbTimeToBeatRaw>) -> GameMetadat
         alternative_names,
         collection,
         collection_id,
+        // Stable identity key: the numeric IGDB game id, persisted by
+        // the frontend so deleted games stay identifiable.
+        igdb_id: Some(game.id),
         franchise,
         game_category,
         release_status,
@@ -4476,6 +4492,9 @@ pub async fn get_store_game_detail(slug: &str) -> Option<GameMetadataResult> {
         alternative_names,
         collection,
         collection_id,
+        // Stable identity key: the numeric IGDB game id, persisted by
+        // the frontend so deleted games stay identifiable.
+        igdb_id: Some(game.id),
         franchise,
         game_category,
         release_status,

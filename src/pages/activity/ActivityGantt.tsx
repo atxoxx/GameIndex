@@ -201,6 +201,15 @@ export function ActivityGantt({
     return m;
   }, [games]);
 
+  // ── 1b. Session snapshot names → fallback for deleted games ──────────
+  const gameNameById = useMemo(() => {
+    const m = new Map<string, string>();
+    for (const s of sessions) {
+      if (!m.has(s.gameId) && s.gameName) m.set(s.gameId, s.gameName);
+    }
+    return m;
+  }, [sessions]);
+
   // ── 2. Filter sessions by range + source/platform ─────────────────────
   const filtered = useMemo(() => {
     const rangeStart = new Date(startDate + "T00:00:00").getTime();
@@ -508,7 +517,7 @@ export function ActivityGantt({
               onClick={() =>
                 setHighlightGame((prev) => (prev === gameId ? null : gameId))
               }
-              title={t("activityGantt.legendTitle", { name: g?.name || t("splash.unknown") })}
+              title={t("activityGantt.legendTitle", { name: g?.name || gameNameById.get(gameId) || t("splash.unknown") })}
             >
               <span
                 className="activity-gantt__legend-dot"
@@ -518,7 +527,7 @@ export function ActivityGantt({
                 <img className="activity-gantt__legend-icon" src={g.iconUrl} alt="" />
               ) : null}
               <span className="activity-gantt__legend-label">
-                {g?.name || t("splash.unknown")} · {formatPlayTime(minutes)}
+                {g?.name || gameNameById.get(gameId) || t("splash.unknown")} · {formatPlayTime(minutes)}
               </span>
             </button>
           );

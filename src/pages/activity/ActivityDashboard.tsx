@@ -56,8 +56,12 @@ export function ActivityDashboard({
   // 3. Compute Top Games Played (Sidebar list)
   const sidebarGamesList = useMemo(() => {
     const gamePlaytimes = new Map<string, number>();
+    const gameNames = new Map<string, string>();
     filteredSessions.forEach((s) => {
       gamePlaytimes.set(s.gameId, (gamePlaytimes.get(s.gameId) || 0) + s.durationMin);
+      // Sessions snapshot the game name at play time, so a deleted
+      // library game still resolves to its real title here.
+      if (!gameNames.has(s.gameId) && s.gameName) gameNames.set(s.gameId, s.gameName);
     });
 
     return Array.from(gamePlaytimes.entries())
@@ -65,7 +69,7 @@ export function ActivityDashboard({
         const game = games.find((g) => g.id === gameId);
         return {
           id: gameId,
-          title: game?.name || t("activityDash.unknownGame"),
+          title: game?.name || gameNames.get(gameId) || t("activityDash.unknownGame"),
           platform: game?.platform || "Local",
           iconUrl: game?.iconUrl || null,
           coverArtUrl: game?.coverArtUrl || null,
@@ -449,7 +453,11 @@ export function ActivityDashboard({
             <div className="activity-main-chart__header">
               <div className="activity-main-chart__header-left">
                 <h3 className="activity-main-chart__title">
-                  {selectedGame ? selectedGame.name : t("game.tab.overview")}
+                  {selectedGame
+                    ? selectedGame.name
+                    : selectedGameId
+                      ? gameIsolatedSessions[0]?.gameName || t("game.tab.overview")
+                      : t("game.tab.overview")}
                 </h3>
               </div>
               <span className="activity-main-chart__subtitle">{stats.playtimeStr}</span>

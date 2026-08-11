@@ -51,6 +51,14 @@ pub const GAMES_V4_DDL: &str = include_str!("schema_games_v4.sql");
 /// it up on next launch; fresh installs apply v1 → … → v5.
 pub const GAMES_V5_DDL: &str = include_str!("schema_games_v5.sql");
 
+/// DDL for the `games` domain, v6 migration: the numeric IGDB game id
+/// (`IgdbGame.id`) persisted per game as a stable identity key, so
+/// deleted games can still be identified (e.g. in the Activity page).
+/// Applied as a separate migration version so existing installs (already
+/// at `games` v5) pick it up on next launch; fresh installs apply
+/// v1 → … → v6.
+pub const GAMES_V6_DDL: &str = include_str!("schema_games_v6.sql");
+
 /// DDL for the `emulators` domain: the `emulators` table.
 pub const EMULATORS_DDL: &str = include_str!("schema_emulators.sql");
 
@@ -114,7 +122,7 @@ pub const DOMAIN_SCHEMAS: &[DomainSchema] = &[
     },
 DomainSchema {
     label: "games",
-    versions: &[("v1", GAMES_DDL), ("v2", GAMES_V2_DDL), ("v3", GAMES_V3_DDL), ("v4", GAMES_V4_DDL), ("v5", GAMES_V5_DDL)],
+    versions: &[("v1", GAMES_DDL), ("v2", GAMES_V2_DDL), ("v3", GAMES_V3_DDL), ("v4", GAMES_V4_DDL), ("v5", GAMES_V5_DDL), ("v6", GAMES_V6_DDL)],
 },
     DomainSchema {
         label: "sessions",
