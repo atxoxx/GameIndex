@@ -213,15 +213,20 @@ export function resolveHtml2CanvasColorMix(
   //    catches it before html2canvas's parser sees it.
   clonedDoc.querySelectorAll("style").forEach((styleEl) => {
     const text = styleEl.textContent;
-    if (!text || !text.includes("color-mix")) return;
-    styleEl.textContent = rewriteColorMixValue(text, sourceDoc);
+    if (!text || !hasCaptureColorFunction(text)) return;
+    styleEl.textContent = rewriteCaptureColorValue(text, sourceDoc);
   });
 
-  // 3) Inline [style] attributes on every element.
+  // 3) Inline [style] attributes on every element. html2canvas's
+  //    DocumentCloner bakes the *original* document's computed styles
+  //    onto cloned SVG / pseudo / custom elements (copyCSSStyles), and
+  //    Chromium serializes computed color-mix() as `color(srgb …)` —
+  //    so these attributes can carry a computed `color(` literal even
+  //    though no stylesheet ever declared one.
   clonedDoc.querySelectorAll<HTMLElement>("[style]").forEach((el) => {
     const inline = el.getAttribute("style");
-    if (!inline || !inline.includes("color-mix")) return;
-    el.setAttribute("style", rewriteColorMixValue(inline, sourceDoc));
+    if (!inline || !hasCaptureColorFunction(inline)) return;
+    el.setAttribute("style", rewriteCaptureColorValue(inline, sourceDoc));
   });
 
   // 4) Force-overriding any `:root` / `html` / `[data-theme]`
@@ -306,8 +311,8 @@ function rewriteDeclaration(
   }
   for (const prop of props) {
     const val = style.getPropertyValue(prop);
-    if (typeof val !== "string" || !val.includes("color-mix")) continue;
-    const next = rewriteColorMixValue(val, sourceDoc);
+    if (typeof val !== "string" || !hasCaptureColorFunction(val)) continue;
+    const next = rewriteCaptureColorValue(val, sourceDoc);
     if (!next || next === val) continue;
     const priority = style.getPropertyPriority(prop);
     try {
@@ -397,8 +402,8 @@ function collectAndOverrideCssVars(
         const prop = styleRule.style.item(p);
         if (!prop.startsWith("--")) continue;
         const val = styleRule.style.getPropertyValue(prop);
-        if (!val || !val.includes("color-mix")) continue;
-        const next = rewriteColorMixValue(val, sourceDoc);
+        if (!val || !hasCaptureColorFunction(val)) continue;
+        const next = rewriteCaptureColorValue(val, sourceDoc);
         if (!next || next === val) continue;
         try {
           clonedDoc.documentElement.style.setProperty(prop, next, "important");
@@ -492,6 +497,101 @@ function rewriteColorMixValue(value: string, sourceDoc: Document): string {
   } finally {
     if (probe.parentNode) sourceDoc.body.removeChild(probe);
   }
+}
+
+/**
+ * Rewrite computed `color(srgb r g b / a)` literals inside a CSS value
+ * into `rgba(...)`.
+ *
+ * Chromium serializes the computed value of a `color-mix()` declaration
+ * as CSS Color 4's `color(srgb …)` function — NOT as the literal
+ * `color-mix(...)` text the stylesheet declares. html2canvas 1.4.1 reads
+ * computed styles while cloning (e.g. `copyCSSStyles` bakes them onto
+ * SVG and pseudo-element clones as inline styles), so a declaration the
+ * `color-mix` scrub already fixed can still surface to html2canvas's
+ * parser as an unresolved `color(` function.
+ *
+ * Runs after `rewriteColorMixValue` so the only remaining `color(`
+ * occurrences are standalone computed literals.
+ */
+function rewriteComputedColorValue(value: string, sourceDoc: Document): string {
+  if (!value.includes("color(")) return value;
+  if (!sourceDoc || !sourceDoc.body) return value;
+
+  const probe = sourceDoc.createElement("div");
+  probe.style.position = "absolute";
+  probe.style.visibility = "hidden";
+  probe.style.top = "-9999px";
+  probe.style.left = "-9999px";
+  sourceDoc.body.appendChild(probe);
+
+  try {
+    let out = "";
+    let cursor = 0;
+    let i = 0;
+    while (i < value.length) {
+      const idx = value.indexOf("color(", i);
+      if (idx === -1) break;
+      // Skip idents that merely end in "color(" (e.g. the tail of
+      // "-webkit-color(...)") — the full function starts at `color(`.
+      if (idx > 0 && /[-\w]/.test(value[idx - 1])) {
+        i = idx + 1;
+        continue;
+      }
+      out += value.slice(cursor, idx);
+      let d = 1;
+      let j = idx + "color(".length;
+      while (j < value.length && d > 0) {
+        const c = value[j];
+        if (c === "(") d++;
+        else if (c === ")") d--;
+        j++;
+      }
+      if (d !== 0) {
+        out += value.slice(idx);
+        cursor = value.length;
+        break;
+      }
+      const raw = value.slice(idx, j);
+      probe.style.color = raw;
+      const parsed = parseColorString(getComputedStyle(probe).color);
+      out += parsed
+        ? `rgba(${parsed[0]}, ${parsed[1]}, ${parsed[2]}, ${parsed[3]})`
+        : FALLBACK_PLACEHOLDER;
+      cursor = j;
+      i = j;
+    }
+    out += value.slice(cursor);
+
+    // Final safety: any `color(...)` that survived (unknown color
+    // space, malformed literal) becomes the neutral placeholder so
+    // html2canvas never parses an unsupported color function.
+    return out.replace(/color\(\s*srgb[^)]*\)/gi, FALLBACK_PLACEHOLDER);
+  } finally {
+    if (probe.parentNode) sourceDoc.body.removeChild(probe);
+  }
+}
+
+/**
+ * Full capture-time rewrite for a single CSS value: first resolve every
+ * declared `color-mix(...)` call, then every computed `color(srgb …)`
+ * literal the browser may have serialized.
+ */
+function rewriteCaptureColorValue(value: string, sourceDoc: Document): string {
+  if (!value) return value;
+  let out = rewriteColorMixValue(value, sourceDoc);
+  out = rewriteComputedColorValue(out, sourceDoc);
+  return out;
+}
+
+/**
+ * True when a CSS value contains anything html2canvas 1.4.1's color
+ * parser can't handle: a declared `color-mix(...)` call or a computed
+ * `color(srgb …)` literal. `rewriteDeclaration` / the inline-attribute
+ * scrub use this to avoid probing values that don't need it.
+ */
+function hasCaptureColorFunction(value: string): boolean {
+  return /color-mix\s*\(|color\(\s*srgb/i.test(value);
 }
 
 /**
@@ -665,6 +765,26 @@ function parseColorString(
 ): [number, number, number, number] | null {
   const v = raw.trim().toLowerCase();
   if (v === "transparent") return [0, 0, 0, 0];
+  // Chromium serializes computed `color-mix()` values as CSS Color 4
+  // `color(srgb r g b)` — html2canvas 1.4.1 can't parse that function,
+  // so recognize it here and convert to the 0-255 channel scale.
+  const srgb = v.match(
+    /^color\(\s*srgb\s+([\d.]+%?)\s+([\d.]+%?)\s+([\d.]+%?)\s*(?:\/\s*([\d.]+%?))?\s*\)$/i
+  );
+  if (srgb) {
+    const to255 = (s: string) =>
+      s.endsWith("%") ? (parseFloat(s) / 100) * 255 : parseFloat(s) * 255;
+    const r = Math.max(0, Math.min(255, Math.round(to255(srgb[1]))));
+    const g = Math.max(0, Math.min(255, Math.round(to255(srgb[2]))));
+    const b = Math.max(0, Math.min(255, Math.round(to255(srgb[3]))));
+    let a = 1;
+    if (srgb[4] != null) {
+      const av = srgb[4];
+      a = av.endsWith("%") ? parseFloat(av) / 100 : parseFloat(av);
+      a = Number.isFinite(a) ? Math.max(0, Math.min(1, a)) : 1;
+    }
+    return [r, g, b, a];
+  }
   // Match `rgb(r, g, b)` and `rgba(r, g, b, a)`.
   const m = v.match(
     /^rgba?\(\s*([\d.]+)\s*[, ]\s*([\d.]+)\s*[, ]\s*([\d.]+)(?:\s*[,/]\s*([\d.]+%?))?\s*\)$/i
@@ -819,9 +939,17 @@ export function resolveColorForCapture(
       !resolved ||
       resolved === "transparent" ||
       resolved === "rgba(0, 0, 0, 0)" ||
-      /var\(|color-mix/i.test(resolved)
+      /var\(/i.test(resolved)
     ) {
       return fallback;
+    }
+    // Chromium computes `color-mix(...)` to CSS Color 4's `color(srgb …)`
+    // which html2canvas 1.4.1 can't parse. Convert it to a literal rgba.
+    if (resolved.startsWith("color(")) {
+      const parsed = parseColorString(resolved);
+      return parsed
+        ? `rgba(${parsed[0]}, ${parsed[1]}, ${parsed[2]}, ${parsed[3]})`
+        : fallback;
     }
     return resolved;
   } finally {
