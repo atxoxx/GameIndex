@@ -93,6 +93,7 @@ export default function AppearanceTab() {
 
   return (
     <SettingsSection
+      id="appearance-themes"
       icon={<PaletteIcon />}
       title={t("settings.section.appearanceThemes")}
       desc={t("settings.appearance.desc")}
@@ -180,7 +181,7 @@ export default function AppearanceTab() {
       </label>
 
       {/* Per-theme accent color override */}
-      <div className="settings-row settings-row--accent">
+      <div id="appearance-accent" className="settings-row settings-row--accent">
         <div className="settings-control">
           <label className="settings-label">{t("settings.label.accent")}</label>
           <p className="settings-helper-lead">

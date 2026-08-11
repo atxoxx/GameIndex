@@ -13,12 +13,10 @@
  * NOTE on .dl-save-path-*: that family is ALSO used by the download modal's
  * SavePathPicker (styles/download.css), so the settings-page rendition is
  * scoped under .settings-shell to avoid restyling the modal picker.
+ *
+ * The --settings-ctl-h token is defined ONCE on .settings-shell in
+ * settings.css (shared primitives) — do not re-declare it here.
  * ========================================================================== */
-
-/* ── Shared token: uniform control height (mirrors --activity-ctl-h) ─────── */
-.settings-shell {
-  --settings-ctl-h: 30px;
-}
 
 /* ============================================================================
  * INTEGRATIONS TAB
@@ -43,6 +41,7 @@
 .integration-tile:nth-of-type(4) { animation-delay: 120ms; }
 .integration-tile:nth-of-type(5) { animation-delay: 160ms; }
 .integration-tile:nth-of-type(6) { animation-delay: 200ms; }
+.integration-tile:nth-of-type(7) { animation-delay: 240ms; }
 
 @keyframes integrationTileIn {
   from { opacity: 0; transform: translateY(8px); }
@@ -82,16 +81,65 @@
 
 .integration-tile-body-wrap {
   padding: var(--space-xl);
+  border-top: 1px solid var(--color-border);
 }
 
-/* Header — icon tile + name/badge/description, hairline-separated from the
- * body so every store reads as a card with a clear "title" region. */
-.integration-tile-header {
+/* Header toggle — the whole title region is the expand/collapse control:
+ * icon tile + name/badge/description on the left, chevron on the right.
+ * Collapsed tiles show only this row, so the six stores scan as a list. */
+.integration-tile-toggle {
   display: flex;
   align-items: flex-start;
   gap: var(--space-lg);
-  padding-bottom: var(--space-lg);
-  border-bottom: 1px solid var(--color-border);
+  width: 100%;
+  padding: var(--space-xl);
+  background: transparent;
+  border: none;
+  font-family: inherit;
+  text-align: left;
+  cursor: pointer;
+  color: inherit;
+  transition: background var(--transition-fast);
+}
+
+.integration-tile-toggle:hover {
+  background: color-mix(in srgb, var(--color-bg-secondary) 45%, transparent);
+}
+
+.integration-tile-toggle:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: -2px;
+}
+
+.integration-tile-chevron {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  flex-shrink: 0;
+  margin-top: 8px;
+  border-radius: var(--radius-full);
+  background: var(--color-bg-tertiary);
+  border: 1px solid var(--color-border);
+  color: var(--color-text-muted);
+  transition: transform var(--transition-fast), color var(--transition-fast), background var(--transition-fast);
+}
+
+.integration-tile-toggle:hover .integration-tile-chevron {
+  color: var(--color-text-secondary);
+}
+
+.integration-tile-chevron.open {
+  transform: rotate(180deg);
+  color: var(--color-accent);
+  background: color-mix(in srgb, var(--color-accent) 14%, transparent);
+  border-color: color-mix(in srgb, var(--color-accent) 32%, transparent);
+}
+
+.integration-tile-chevron svg {
+  width: 13px;
+  height: 13px;
 }
 
 .integration-tile-icon {
@@ -126,6 +174,86 @@
   color: var(--brand-uplay);
   background: color-mix(in srgb, var(--brand-uplay) 14%, var(--color-bg-tertiary));
   border-color: color-mix(in srgb, var(--brand-uplay) 30%, var(--color-border));
+}
+
+/* ── Status overview strip — one chip per store ─────────────────────────── */
+
+.integration-overview {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-sm);
+  margin-bottom: var(--space-md);
+}
+
+.integration-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 34px;
+  padding: 4px 12px 4px 6px;
+  background: var(--color-bg-tertiary);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-full);
+  color: var(--color-text-secondary);
+  font-family: inherit;
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-semibold);
+  cursor: pointer;
+  transition: background var(--transition-fast), color var(--transition-fast), border-color var(--transition-fast);
+}
+
+.integration-chip:hover {
+  background: var(--color-bg-hover);
+  color: var(--color-text-primary);
+  border-color: var(--color-border-light);
+}
+
+.integration-chip:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 2px;
+}
+
+.integration-chip[data-connected="true"] {
+  border-color: color-mix(in srgb, var(--color-success) 35%, var(--color-border));
+}
+
+.integration-chip-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  flex-shrink: 0;
+  border-radius: var(--radius-full);
+  background: var(--color-bg-secondary);
+  border: 1px solid var(--color-border);
+  color: var(--color-text-muted);
+}
+
+.integration-chip-icon svg {
+  width: 13px;
+  height: 13px;
+}
+
+.integration-chip-name {
+  white-space: nowrap;
+}
+
+/* Connected dot — lit only when the account is linked / client detected. */
+.integration-chip-dot {
+  width: 7px;
+  height: 7px;
+  flex-shrink: 0;
+  border-radius: 50%;
+  background: var(--color-text-muted);
+  opacity: 0.4;
+  transition: opacity var(--transition-fast), background var(--transition-fast);
+}
+
+.integration-chip-dot.on {
+  background: var(--color-success);
+  box-shadow: 0 0 8px var(--color-success);
+  opacity: 1;
 }
 
 .integration-tile-info {
@@ -371,6 +499,107 @@
   color: var(--color-text-muted);
   text-align: center;
   line-height: 1.5;
+}
+
+/* ── Data & sync preferences panel ──────────────────────────────────────── */
+
+/* One hairline-separated row per preference: title + desc block on the
+ * left, control (select / checkbox) on the right. */
+.settings-data-panel {
+  display: flex;
+  flex-direction: column;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-xl);
+  overflow: hidden;
+}
+
+.settings-data-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-lg);
+  padding: var(--space-md) var(--space-lg);
+  transition: background var(--transition-fast);
+}
+
+.settings-data-row:hover {
+  background: color-mix(in srgb, var(--color-bg-secondary) 45%, transparent);
+}
+
+.settings-data-row + .settings-data-row {
+  border-top: 1px solid var(--color-border);
+}
+
+.settings-data-row-text {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.settings-data-row-title {
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text-primary);
+  line-height: 1.35;
+}
+
+.settings-data-row-desc {
+  font-size: var(--font-size-xs);
+  color: var(--color-text-muted);
+  line-height: 1.5;
+}
+
+.settings-data-row-select {
+  width: auto;
+  min-width: 180px;
+  flex-shrink: 0;
+}
+
+/* Checkbox rows are <label>s so the whole row toggles. */
+.settings-data-row:has(.settings-data-row-check) {
+  cursor: pointer;
+}
+
+.settings-data-row-check {
+  appearance: none;
+  -webkit-appearance: none;
+  width: 18px;
+  height: 18px;
+  margin: 0;
+  flex-shrink: 0;
+  border: 1px solid var(--color-border-light);
+  border-radius: var(--radius-xs);
+  background: var(--color-bg-tertiary);
+  cursor: pointer;
+  position: relative;
+  transition: border-color var(--transition-fast), background var(--transition-fast), box-shadow var(--transition-fast);
+}
+
+.settings-data-row-check:checked {
+  background: var(--color-accent);
+  border-color: var(--color-accent);
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='white' stroke-width='3.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='20 6 9 17 4 12'/%3E%3C/svg%3E");
+  background-size: 11px 11px;
+  background-position: center;
+  background-repeat: no-repeat;
+}
+
+.settings-data-row-check:focus-visible {
+  box-shadow: 0 0 0 3px var(--color-accent-glow);
+}
+
+@media (max-width: 720px) {
+  .settings-data-row {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .settings-data-row-select {
+    width: 100%;
+  }
 }
 
 /* ============================================================================
@@ -627,6 +856,28 @@
 }
 
 /* ============================================================================
+ * LAUNCHER TAB — labelled sub-groups
+ * ========================================================================== */
+
+/* Group dividers inside the launcher grid span the full grid width. */
+.settings-launcher-grid .settings-launcher-group-title {
+  grid-column: 1 / -1;
+  margin: var(--space-sm) 0 0;
+}
+
+/* The first group needs no top gap — the section header already
+ * separates it. */
+.settings-launcher-grid .settings-launcher-group-title:first-child {
+  margin-top: 0;
+}
+
+/* Footnote that trails a toggle (e.g. Discord not running). */
+.settings-launcher-group-note {
+  grid-column: 1 / -1;
+  margin: 0;
+}
+
+/* ============================================================================
  * PRIVACY TAB — local storage browser
  * ========================================================================== */
 
@@ -786,6 +1037,9 @@
   .humble-toggle,
   .humble-toggle-track,
   .humble-toggle-thumb {
+    transition: none;
+  }
+  .integration-tile-chevron {
     transition: none;
   }
 }

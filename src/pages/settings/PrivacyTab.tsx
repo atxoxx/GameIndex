@@ -71,6 +71,7 @@ export default function PrivacyTab() {
 
   return (
     <SettingsSection
+      id="privacy-storage"
       icon={<TrashIcon />}
       title={t("settings.section.wipeData")}
       desc={t("settings.wipe.desc")}

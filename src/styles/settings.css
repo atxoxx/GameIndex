@@ -162,6 +162,24 @@
   animation-delay: 50ms;
 }
 
+/* Deep-link / search-jump highlight: a short accent ring + glow that
+ * marks the section you were taken to, then fades out. The class stays
+ * on the element (fill-mode end state is neutral) so the entrance
+ * animation never restarts mid-flight. */
+.settings-flash {
+  animation: settingsFlash 1.6s var(--ease-standard) both;
+}
+
+@keyframes settingsFlash {
+  0% {
+    box-shadow: 0 0 0 3px var(--color-accent-glow), 0 0 28px var(--color-accent-glow);
+    border-color: color-mix(in srgb, var(--color-accent) 60%, var(--color-border));
+  }
+  100% {
+    box-shadow: none;
+  }
+}
+
 /* Section header: accent-tinted icon tile + uppercase title + muted desc,
  * hairline-separated from the content below. */
 .settings-section-header {
@@ -189,6 +207,35 @@
 .settings-section-icon svg {
   width: 16px;
   height: 16px;
+}
+
+/* Per-section icon tints — give each Downloads section (and similar
+ * families) a distinct color so identical-shaped sections stop blurring
+ * together. Same soft treatment as the default accent tint, just a
+ * different hue. Scoped via the section class so the icon span is
+ * tinted without touching the component. */
+.settings-section--bell .settings-section-icon {
+  background: color-mix(in srgb, var(--color-info) 14%, transparent);
+  border-color: color-mix(in srgb, var(--color-info) 28%, transparent);
+  color: var(--color-info);
+}
+
+.settings-section--list .settings-section-icon {
+  background: color-mix(in srgb, var(--color-success) 14%, transparent);
+  border-color: color-mix(in srgb, var(--color-success) 28%, transparent);
+  color: var(--color-success);
+}
+
+.settings-section--gauge .settings-section-icon {
+  background: color-mix(in srgb, var(--color-warning) 14%, transparent);
+  border-color: color-mix(in srgb, var(--color-warning) 28%, transparent);
+  color: var(--color-warning);
+}
+
+.settings-section--shield .settings-section-icon {
+  background: color-mix(in srgb, var(--color-danger) 14%, transparent);
+  border-color: color-mix(in srgb, var(--color-danger) 28%, transparent);
+  color: var(--color-danger);
 }
 
 .settings-section-header-text {
@@ -681,16 +728,18 @@ textarea.settings-input {
  * Shared primitives — grids + launcher/toggle cards
  * ========================================================================== */
 
-.settings-data-grid,
 .settings-launcher-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
   gap: var(--space-md);
 }
 
-/* Canonical toggle / behavior card: title + desc + square checkbox, or a plain
- * control container (landing page select). --warn = amber/danger variant. */
-.settings-launcher-card {
+/* Canonical behavior card: title + desc + square checkbox, or a plain
+ * control container (landing page select). --warn = amber/danger variant.
+ * Generic by design — used by the Launcher, General and Integrations
+ * tabs (was `.settings-launcher-card`; renamed to stop implying it is
+ * launcher-specific). */
+.settings-behavior-card {
   display: flex;
   flex-direction: column;
   gap: var(--space-sm);
@@ -701,30 +750,30 @@ textarea.settings-input {
   transition: border-color var(--transition-fast), background var(--transition-fast), box-shadow var(--transition-fast);
 }
 
-.settings-launcher-card:hover {
+.settings-behavior-card:hover {
   border-color: var(--color-border-light);
   background: color-mix(in srgb, var(--color-bg-secondary) 40%, var(--color-surface));
 }
 
-.settings-launcher-card--warn {
+.settings-behavior-card--warn {
   border-color: color-mix(in srgb, var(--color-warning) 40%, var(--color-border));
   background: color-mix(in srgb, var(--color-warning) 5%, var(--color-surface));
 }
 
-.settings-launcher-card--warn:hover {
+.settings-behavior-card--warn:hover {
   border-color: color-mix(in srgb, var(--color-warning) 60%, var(--color-border));
 }
 
 /* Toggle-card checkbox sits on the right edge; text block takes the left.
  * row-reverse swaps the visual order of input (first in DOM) and text so the
  * check reads as the trailing control of a canonical settings row. */
-.settings-launcher-card .settings-checkbox-label {
+.settings-behavior-card .settings-checkbox-label {
   flex-direction: row-reverse;
   justify-content: space-between;
   gap: var(--space-lg);
 }
 
-.settings-launcher-card .settings-checkbox-text {
+.settings-behavior-card .settings-checkbox-text {
   flex: 1;
 }
 
@@ -1764,6 +1813,12 @@ textarea.settings-input {
   .theme-card,
   .language-panel,
   .hw-pane {
+    animation: none;
+  }
+
+  /* The jump flash is a motion effect — under reduced motion it stays
+   * inert (the class remains on the element, animation disabled). */
+  .settings-flash {
     animation: none;
   }
 

@@ -3,10 +3,9 @@
  *
  * The left rail is a contained glass panel (matching the app's raised-surface
  * language) with a brand gradient top edge, a header row, a search box with
- * keyboard shortcut, and grouped nav rows with icon chips. The content column
- * renders the active tab beside it. Scrollspy highlights the sidebar row for
- * whichever sub-section is currently in view, so the page always says where
- * you are.
+ * keyboard shortcut and a command-palette results dropdown, and grouped nav
+ * rows (one per tab route). The content column renders the active tab beside
+ * it with a jump bar ("On this page") listing that tab's sections.
  * ========================================================================== */
 
 .settings-shell {
@@ -29,6 +28,7 @@
   position: sticky;
   top: var(--space-lg);
   align-self: flex-start;
+  z-index: 20;
   max-height: calc(100vh - var(--space-lg) * 2);
   display: flex;
   flex-direction: column;
@@ -36,16 +36,18 @@
   border: 1px solid var(--color-border);
   border-radius: var(--radius-xl);
   box-shadow: var(--shadow-md);
-  overflow: hidden;
 }
 
-/* Brand gradient top edge — carries the accent the old floating bar did. */
+/* Brand gradient top edge — carries the accent the old floating bar did.
+ * Rounded at the panel's corners (overflow is kept visible so the search
+ * results palette can extend below the rail). */
 .settings-sidebar::before {
   content: "";
   position: absolute;
   inset: 0 0 auto 0;
   height: 3px;
   background: var(--brand-gradient);
+  border-radius: var(--radius-xl) var(--radius-xl) 0 0;
 }
 
 .settings-sidebar-head {
@@ -72,30 +74,8 @@
   color: var(--color-accent);
 }
 
-/* Connected-store count pill in the panel header. */
-.settings-sidebar-count {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  padding: 3px 10px;
-  font-size: var(--font-size-xs);
-  font-weight: var(--font-weight-bold);
-  color: var(--color-success);
-  background: color-mix(in srgb, var(--color-success) 12%, transparent);
-  border: 1px solid color-mix(in srgb, var(--color-success) 25%, transparent);
-  border-radius: var(--radius-full);
-  font-variant-numeric: tabular-nums;
-}
+/* ── Search box + command palette ───────────────────────────────────── */
 
-.settings-sidebar-count-dot {
-  width: 6px;
-  height: 6px;
-  border-radius: 50%;
-  background: var(--color-success);
-  box-shadow: 0 0 6px var(--color-success);
-}
-
-/* Search box */
 .settings-search {
   position: relative;
   display: flex;
@@ -178,7 +158,147 @@
   pointer-events: none;
 }
 
-/* Nav groups + items */
+/* Results dropdown — a raised command palette under the search box. */
+.settings-search-results {
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 0;
+  right: 0;
+  z-index: 60;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 6px;
+  max-height: min(360px, 60vh);
+  overflow-y: auto;
+  background: var(--color-surface-raised);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-lg);
+  transform-origin: top center;
+  animation: settingsPaletteIn 160ms var(--ease-standard);
+}
+
+@keyframes settingsPaletteIn {
+  from {
+    opacity: 0;
+    transform: translateY(-4px) scale(0.99);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+.settings-search-result {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  width: 100%;
+  padding: 7px var(--space-sm);
+  background: transparent;
+  border: none;
+  border-radius: var(--radius-md);
+  font-family: inherit;
+  font-size: var(--font-size-sm);
+  color: var(--color-text-secondary);
+  text-align: left;
+  cursor: pointer;
+  transition: background var(--transition-fast), color var(--transition-fast);
+}
+
+.settings-search-result:hover,
+.settings-search-result.active {
+  background: var(--color-bg-hover);
+  color: var(--color-text-primary);
+}
+
+.settings-search-result-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  flex-shrink: 0;
+  border-radius: var(--radius-sm);
+  background: var(--color-bg-tertiary);
+  border: 1px solid var(--color-border);
+  color: var(--color-text-muted);
+}
+
+.settings-search-result.active .settings-search-result-icon {
+  color: var(--color-accent);
+  background: color-mix(in srgb, var(--color-accent) 14%, transparent);
+  border-color: color-mix(in srgb, var(--color-accent) 32%, transparent);
+}
+
+.settings-search-result-icon svg {
+  width: 14px;
+  height: 14px;
+}
+
+/* Fallback marker when a section has no icon. */
+.settings-search-result-dot {
+  width: 6px;
+  height: 6px;
+  margin: 0 10px;
+  border-radius: 50%;
+  background: var(--color-text-muted);
+  flex-shrink: 0;
+}
+
+.settings-search-result-text {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+
+.settings-search-result-label {
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-medium);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.settings-search-result-crumb {
+  font-size: 10px;
+  font-weight: var(--font-weight-bold);
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+  color: var(--color-text-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* "Section" tag on section-level results. */
+.settings-search-result-kind {
+  flex-shrink: 0;
+  padding: 1px 8px;
+  border-radius: var(--radius-full);
+  background: var(--color-bg-tertiary);
+  border: 1px solid var(--color-border);
+  font-size: 10px;
+  font-weight: var(--font-weight-bold);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--color-text-muted);
+}
+
+.settings-search-empty {
+  margin: 0;
+  padding: var(--space-md);
+  font-size: var(--font-size-sm);
+  color: var(--color-text-muted);
+  text-align: center;
+  font-style: italic;
+}
+
+/* ── Nav groups + items ─────────────────────────────────────────────── */
+
 .settings-nav {
   flex: 1 1 auto;
   min-height: 0;
@@ -249,6 +369,7 @@
   font-size: var(--font-size-sm);
   font-weight: var(--font-weight-medium);
   text-align: left;
+  text-decoration: none;
   cursor: pointer;
   transition: background var(--transition-fast), color var(--transition-fast), box-shadow var(--transition-fast);
 }
@@ -295,21 +416,6 @@
   height: 15px;
 }
 
-/* Bare rows (downloads sections) get a bullet instead of a chip. */
-.settings-nav-item-bullet {
-  width: 6px;
-  height: 6px;
-  margin: 0 11px;
-  border-radius: 50%;
-  background: var(--color-text-muted);
-  flex-shrink: 0;
-  transition: background var(--transition-fast);
-}
-
-.settings-nav-item.active .settings-nav-item-bullet {
-  background: var(--color-accent);
-}
-
 .settings-nav-item-label {
   flex: 1;
   min-width: 0;
@@ -318,22 +424,22 @@
   text-overflow: ellipsis;
 }
 
-/* Green "connected" dot on linked stores. */
-.settings-nav-item-dot {
-  width: 7px;
-  height: 7px;
-  border-radius: 50%;
-  background: var(--color-success);
-  box-shadow: 0 0 8px var(--color-success);
+/* Count badge on a nav row (e.g. connected integrations). */
+.settings-nav-item-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 20px;
+  height: 18px;
+  padding: 0 6px;
   flex-shrink: 0;
-}
-
-.settings-nav-empty {
-  padding: var(--space-md);
-  font-size: var(--font-size-sm);
-  color: var(--color-text-muted);
-  text-align: center;
-  font-style: italic;
+  font-size: 10px;
+  font-weight: var(--font-weight-bold);
+  color: var(--color-success);
+  background: color-mix(in srgb, var(--color-success) 12%, transparent);
+  border: 1px solid color-mix(in srgb, var(--color-success) 30%, transparent);
+  border-radius: var(--radius-full);
+  font-variant-numeric: tabular-nums;
 }
 
 /* ── Content column ────────────────────────────────────────────────── */
@@ -385,6 +491,76 @@
  * instead of two (margin + gap) stacked on top of each other. */
 .settings-content .settings-section {
   margin-bottom: 0;
+}
+
+/* ── Jump bar ("On this page") ─────────────────────────────────────── */
+
+.settings-jumpbar {
+  display: flex;
+  align-items: center;
+  gap: var(--space-md);
+  flex-wrap: wrap;
+}
+
+.settings-jumpbar-label {
+  font-size: 10px;
+  font-weight: var(--font-weight-bold);
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  color: var(--color-text-muted);
+  flex-shrink: 0;
+}
+
+.settings-jumpbar-chips {
+  display: flex;
+  align-items: center;
+  gap: var(--space-xs);
+  flex-wrap: wrap;
+}
+
+.settings-jumpbar-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 26px;
+  padding: 3px 12px;
+  background: var(--color-bg-tertiary);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-full);
+  color: var(--color-text-secondary);
+  font-family: inherit;
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-semibold);
+  cursor: pointer;
+  transition: background var(--transition-fast), color var(--transition-fast), border-color var(--transition-fast);
+}
+
+.settings-jumpbar-chip:hover {
+  background: var(--color-bg-hover);
+  color: var(--color-text-primary);
+  border-color: var(--color-border-light);
+}
+
+.settings-jumpbar-chip.active {
+  color: var(--color-text-primary);
+  background: color-mix(in srgb, var(--color-accent) 14%, transparent);
+  border-color: color-mix(in srgb, var(--color-accent) 40%, transparent);
+}
+
+.settings-jumpbar-chip-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--color-text-muted);
+}
+
+.settings-jumpbar-chip.active .settings-jumpbar-chip-icon {
+  color: var(--color-accent);
+}
+
+.settings-jumpbar-chip-icon svg {
+  width: 12px;
+  height: 12px;
 }
 
 /* ── Responsive ───────────────────────────────────────────────────── */
@@ -443,6 +619,10 @@
 
 @media (prefers-reduced-motion: reduce) {
   .settings-shell {
+    animation: none;
+  }
+
+  .settings-search-results {
     animation: none;
   }
 }

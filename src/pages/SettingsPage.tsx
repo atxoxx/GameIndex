@@ -1,11 +1,14 @@
-import { useEffect, useRef, useState } from "react";
+import { Navigate, useParams } from "react-router-dom";
 import { useLanguage } from "../context/LanguageContext";
 import { PageHeader } from "../components/ui";
 import "../styles/page-settings.css";
 import "../styles/settings-tabs-b.css";
 
 import { useIntegrations } from "./settings/useIntegrations";
+import { isSettingsTab, useSettingsCatalog } from "./settings/settingsCatalog";
+import { useSectionScroll } from "./settings/useSectionScroll";
 import SettingsSidebar from "./settings/SettingsSidebar";
+import SettingsJumpBar from "./settings/SettingsJumpBar";
 import GeneralTab from "./settings/GeneralTab";
 import AppearanceTab from "./settings/AppearanceTab";
 import HardwareTab from "./settings/HardwareTab";
@@ -13,185 +16,89 @@ import IntegrationsTab from "./settings/IntegrationsTab";
 import DownloadsTab from "./settings/DownloadsTab";
 import LauncherTab from "./settings/LauncherTab";
 import PrivacyTab from "./settings/PrivacyTab";
-import {
-  GlobeIcon,
-  HardwareIcon,
-  IntegrationsIcon,
-  PaletteIcon,
-  RocketIcon,
-  SettingsGearIcon,
-  TrashIcon,
-  SteamIcon,
-  EpicIcon,
-  GogIcon,
-  HumbleIcon,
-  RockstarIcon,
-  UplayIcon,
-} from "./settings/settingsIcons";
-import type { SettingsNavGroup, SettingsTab } from "./settings/types";
+import { IntegrationsIcon, SettingsGearIcon } from "./settings/settingsIcons";
+import type { SettingsTab } from "./settings/types";
 
 /**
- * SettingsPage — the settings shell. A searchable grouped sidebar lists
- * every destination (tab + in-tab anchor); the content column renders
- * the active tab. All state lives in the tab components or the
- * useIntegrations hook, so this file stays a thin orchestrator.
+ * SettingsPage — the routed settings shell. Each tab lives at its own
+ * URL (`/settings/general`, `/settings/appearance`, …) so tabs survive
+ * refresh/back/forward and every section can be deep-linked via
+ * `?section=<id>`. The sidebar lists the seven tabs; the jump bar
+ * below the header lists the sections of the active tab; search runs
+ * across the whole catalog and navigates through the same URL.
  */
 export default function SettingsPage() {
   const { t } = useLanguage();
+  const { tab } = useParams<{ tab?: string }>();
+
+  // All hooks run unconditionally — the redirect below must not change
+  // the hook order between renders.
   const integrations = useIntegrations();
+  const catalog = useSettingsCatalog(t);
+  const validTab = isSettingsTab(tab);
+  const activeTab: SettingsTab = validTab ? tab : "general";
+  const meta = catalog.meta[activeTab];
 
-  const [activeSettingsTab, setActiveSettingsTab] = useState<SettingsTab>("appearance");
-  const [activeAnchor, setActiveAnchor] = useState<string | null>(null);
-  const [navQuery, setNavQuery] = useState("");
-  const pendingAnchor = useRef<string | null>(null);
+  // Deep links / search / jump-bar: scroll the targeted section into
+  // view with a brief flash on whatever tab is active.
+  useSectionScroll(
+    catalog.tabOrder.flatMap((tabId) =>
+      catalog.meta[tabId].sections.map((s) => s.id),
+    ),
+  );
 
-  // Sidebar navigation: jump to a top-level tab, optionally scrolling
-  // to a sub-section anchor (an integration tile or a downloads card).
-  const navigate = (tab: SettingsTab, anchor?: string) => {
-    setActiveSettingsTab(tab);
-    setActiveAnchor(anchor ?? null);
-    pendingAnchor.current = anchor ?? null;
-  };
-
-  // After a tab switch, scroll the pending sub-section into view.
-  useEffect(() => {
-    if (!pendingAnchor.current) return;
-    const id = pendingAnchor.current;
-    pendingAnchor.current = null;
-    requestAnimationFrame(() => {
-      const el = document.getElementById(id);
-      if (el) el.scrollIntoView({ behavior: "smooth", block: "start" });
-    });
-  }, [activeSettingsTab]);
-
-  // Flat list of every navigable destination, grouped in the sidebar.
-  const NAV_GROUPS: SettingsNavGroup[] = [
-    {
-      id: "personalize",
-      label: t("settings.group.personalize"),
-      items: [
-        { tab: "general", label: t("settings.general"), keywords: "language locale interface display", icon: <GlobeIcon /> },
-        { tab: "appearance", label: t("settings.appearance"), keywords: "theme accent color display", icon: <PaletteIcon /> },
-        { tab: "hardware", label: t("settings.tab.hardware"), keywords: "gpu cpu ram monitor telemetry temperature", icon: <HardwareIcon /> },
-      ],
-    },
-    {
-      id: "connections",
-      label: t("settings.group.connections"),
-      items: [
-        { tab: "integrations", anchor: "integration-steam", label: t("settings.integration.steam"), keywords: "steam connect sync", icon: <SteamIcon /> },
-        { tab: "integrations", anchor: "integration-epic", label: t("settings.integration.epicGames"), keywords: "epic connect sync", icon: <EpicIcon /> },
-        { tab: "integrations", anchor: "integration-gog", label: t("settings.integration.gogGalaxy"), keywords: "gog connect sync", icon: <GogIcon /> },
-        { tab: "integrations", anchor: "integration-humble", label: t("settings.integration.humbleBundle"), keywords: "humble connect sync", icon: <HumbleIcon /> },
-        { tab: "integrations", anchor: "integration-rockstar", label: t("settings.integration.rockstarGamesLauncher"), keywords: "rockstar scan launcher", icon: <RockstarIcon /> },
-        { tab: "integrations", anchor: "integration-uplay", label: t("settings.integration.ubisoftConnect"), keywords: "ubisoft uplay scan", icon: <UplayIcon /> },
-        { tab: "integrations", anchor: "section-datasync", label: t("settings.section.dataSync"), keywords: "sync interval retention discord achievements", icon: <IntegrationsIcon /> },
-      ],
-    },
-    {
-      id: "downloads",
-      label: t("settings.group.downloads"),
-      items: [
-        { tab: "downloads", anchor: "downloads-location", label: t("settings.section.downloadLocation"), keywords: "save path folder default" },
-        { tab: "downloads", anchor: "downloads-notifications", label: t("settings.section.notifications"), keywords: "notify complete toast desktop" },
-        { tab: "downloads", anchor: "downloads-bandwidth", label: t("settings.section.bandwidth"), keywords: "speed limit download upload" },
-        { tab: "downloads", anchor: "downloads-blocked", label: t("settings.section.blockedDomains"), keywords: "block domain filter sources" },
-        { tab: "downloads", anchor: "downloads-sources", label: t("settings.section.downloadSources"), keywords: "sources hydra json mirrors" },
-        { tab: "downloads", anchor: "downloads-debrid", label: t("settings.section.debrid"), keywords: "debrid alldebrid torbox api key" },
-      ],
-    },
-    {
-      id: "system",
-      label: t("settings.group.system"),
-      items: [
-        { tab: "launcher", label: t("settings.tab.launcher"), keywords: "startup launch tray autostart uac", icon: <RocketIcon /> },
-        { tab: "privacy", label: t("settings.tab.privacy"), keywords: "wipe clear local storage cache data reset privacy", icon: <TrashIcon /> },
-      ],
-    },
-  ];
-
-  // Keep the latest nav groups reachable from the scrollspy effect
-  // without re-running it on every render (t() changes identity).
-  const navGroupsRef = useRef<SettingsNavGroup[]>(NAV_GROUPS);
-  navGroupsRef.current = NAV_GROUPS;
-
-  // Scrollspy: inside multi-section tabs (integrations, downloads)
-  // highlight the sidebar row for whichever section is currently in
-  // view, so the page always indicates where you are.
-  useEffect(() => {
-    const groups = navGroupsRef.current;
-    const anchors = groups
-      .flatMap((g) => g.items)
-      .filter((i) => i.tab === activeSettingsTab && i.anchor)
-      .map((i) => i.anchor as string);
-    if (anchors.length < 2) return;
-
-    // Unless the user just deep-linked to a specific section, start with
-    // the first section highlighted before any scroll happens.
-    if (!anchors.includes(activeAnchor ?? "")) {
-      setActiveAnchor(anchors[0]);
-    }
-
-    const els = anchors
-      .map((id) => document.getElementById(id))
-      .filter((el): el is HTMLElement => el !== null);
-    if (els.length === 0) return;
-
-    const observer = new IntersectionObserver(
-      (entries) => {
-        const visible = entries.filter((e) => e.isIntersecting);
-        if (visible.length === 0) return;
-        const topmost = visible.reduce((a, b) =>
-          a.boundingClientRect.top <= b.boundingClientRect.top ? a : b,
-        );
-        setActiveAnchor(topmost.target.id);
-      },
-      { rootMargin: "-15% 0px -55% 0px", threshold: 0 },
-    );
-    els.forEach((el) => observer.observe(el));
-    return () => observer.disconnect();
-  }, [activeSettingsTab]);
+  // Unknown or missing tab → canonical General URL (covers `/settings`).
+  if (!validTab) {
+    return <Navigate to="/settings/general" replace />;
+  }
 
   return (
     <div className="settings-shell">
       <SettingsSidebar
-        groups={NAV_GROUPS}
-        activeTab={activeSettingsTab}
-        activeAnchor={activeAnchor}
-        navQuery={navQuery}
-        onQueryChange={setNavQuery}
-        onNavigate={navigate}
+        groups={catalog.groups}
+        searchIndex={catalog.searchIndex}
         connectedIntegrations={integrations.connectedIntegrations}
-        connectionStatus={integrations.connectionStatus}
         t={t}
       />
 
       <main className="settings-content">
         <PageHeader
           eyebrow={t("settings.title")}
-          title={t("settings.title")}
-          description={t("settings.desc")}
+          title={t(meta.labelKey)}
+          description={t(meta.descKey)}
           icon={<SettingsGearIcon />}
           actions={
-            <span className="settings-header-summary" title={t("settingsPage.connected")}>
+            <span
+              className="settings-header-summary"
+              title={t("settingsPage.connected")}
+            >
               <IntegrationsIcon />
               {integrations.connectedIntegrations > 0 && (
                 <span className="settings-header-summary-dot" aria-hidden />
               )}
-              {t("settings.connectedCount", { count: integrations.connectedIntegrations })}
+              {t("settings.connectedCount", {
+                count: integrations.connectedIntegrations,
+              })}
             </span>
           }
         />
 
-        {activeSettingsTab === "general" && <GeneralTab />}
-        {activeSettingsTab === "appearance" && <AppearanceTab />}
-        {activeSettingsTab === "hardware" && <HardwareTab />}
-        {activeSettingsTab === "integrations" && (
-          <IntegrationsTab integrations={integrations} />
+        {meta.sections.length > 1 && (
+          <SettingsJumpBar sections={meta.sections} t={t} />
         )}
-        {activeSettingsTab === "downloads" && <DownloadsTab />}
-        {activeSettingsTab === "launcher" && <LauncherTab />}
-        {activeSettingsTab === "privacy" && <PrivacyTab />}
+
+        {activeTab === "general" && <GeneralTab />}
+        {activeTab === "appearance" && <AppearanceTab />}
+        {activeTab === "hardware" && <HardwareTab />}
+        {activeTab === "integrations" && (
+          <IntegrationsTab
+            integrations={integrations}
+            sectionIds={meta.sections.map((s) => s.id)}
+          />
+        )}
+        {activeTab === "downloads" && <DownloadsTab />}
+        {activeTab === "launcher" && <LauncherTab />}
+        {activeTab === "privacy" && <PrivacyTab />}
       </main>
     </div>
   );

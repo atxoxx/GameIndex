@@ -6,9 +6,14 @@ import SettingsToggleCard from "./SettingsToggleCard";
 import { RocketIcon } from "./settingsIcons";
 
 /**
- * LauncherTab — startup, window and launch behaviour: default landing
- * page, close-to-tray, minimize-on-launch (+ restore-on-exit),
- * auto-start on boot, and the UAC elevation bypass (warning variant).
+ * LauncherTab — startup, window and launch behaviour, grouped into
+ * labelled sub-sections so the seven options read as a small hierarchy
+ * instead of a flat wall of cards:
+ *
+ *  - Startup: default landing page + auto-start on boot
+ *  - Window behaviour: close-to-tray, minimize-on-launch, restore-on-exit
+ *  - System access: UAC elevation bypass (warning variant)
+ *  - Presence: Discord rich presence (app behaviour lives here)
  */
 export default function LauncherTab() {
   const { t } = useLanguage();
@@ -28,18 +33,25 @@ export default function LauncherTab() {
     setLandingPage,
     discordRichPresence,
     setDiscordRichPresence,
+    discordStatus,
     ready,
   } = useSettings();
 
   return (
     <SettingsSection
+      id="launcher"
       icon={<RocketIcon />}
-      title={t("settings.section.launcherBehaviour")}
+      title={t("settings.tab.launcher")}
       desc={t("settings.launcher.desc")}
     >
       <div className="settings-launcher-grid">
+        {/* ── Startup ─────────────────────────────────────────── */}
+        <p className="settings-toggles-title settings-launcher-group-title" id="launcher-startup">
+          {t("settings.launcher.groupStartup")}
+        </p>
+
         {/* Landing page — where the app routes on open */}
-        <div className="settings-launcher-card">
+        <div className="settings-behavior-card">
           <div className="settings-control">
             <label className="settings-label" htmlFor="settings-landing-page">
               {t("settings.launcher.landingTitle")}
@@ -76,6 +88,30 @@ export default function LauncherTab() {
             </div>
           </div>
         </div>
+
+        {/* Auto-start on boot */}
+        <SettingsToggleCard
+          title={t("settings.launcher.autostartTitle")}
+          desc={t("settings.launcher.autostartDesc")}
+          checked={autoStartEnabled}
+          disabled={!ready}
+          onChange={(v) => {
+            showToast(
+              v
+                ? t("settings.launcher.enablingAutoLaunch")
+                : t("settings.launcher.disablingAutoLaunch"),
+              "info",
+            );
+            setAutoStartEnabled(v).catch((err) => {
+              showToast(t("settings.launcher.autostartFailed", { error: err }), "error");
+            });
+          }}
+        />
+
+        {/* ── Window behaviour ────────────────────────────────── */}
+        <p className="settings-toggles-title settings-launcher-group-title" id="launcher-window">
+          {t("settings.launcher.groupWindow")}
+        </p>
 
         {/* Close-to-tray */}
         <SettingsToggleCard
@@ -128,24 +164,10 @@ export default function LauncherTab() {
           }}
         />
 
-        {/* Auto-start on boot */}
-        <SettingsToggleCard
-          title={t("settings.launcher.autostartTitle")}
-          desc={t("settings.launcher.autostartDesc")}
-          checked={autoStartEnabled}
-          disabled={!ready}
-          onChange={(v) => {
-            showToast(
-              v
-                ? t("settings.launcher.enablingAutoLaunch")
-                : t("settings.launcher.disablingAutoLaunch"),
-              "info",
-            );
-            setAutoStartEnabled(v).catch((err) => {
-              showToast(t("settings.launcher.autostartFailed", { error: err }), "error");
-            });
-          }}
-        />
+        {/* ── System access ───────────────────────────────────── */}
+        <p className="settings-toggles-title settings-launcher-group-title" id="launcher-elevation">
+          {t("settings.launcher.groupSystem")}
+        </p>
 
         {/* Disable UAC elevation prompts */}
         <SettingsToggleCard
@@ -165,6 +187,11 @@ export default function LauncherTab() {
           }}
         />
 
+        {/* ── Presence ────────────────────────────────────────── */}
+        <p className="settings-toggles-title settings-launcher-group-title" id="launcher-presence">
+          {t("settings.launcher.groupPresence")}
+        </p>
+
         {/* Discord Rich Presence */}
         <SettingsToggleCard
           title={t("settings.discord.title")}
@@ -172,6 +199,11 @@ export default function LauncherTab() {
           checked={discordRichPresence}
           onChange={(v) => setDiscordRichPresence(v)}
         />
+        {discordRichPresence && discordStatus === "notRunning" && (
+          <p className="connect-prompt settings-launcher-group-note">
+            {t("settings.discord.notRunning")}
+          </p>
+        )}
       </div>
     </SettingsSection>
   );

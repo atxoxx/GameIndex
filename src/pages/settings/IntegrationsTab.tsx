@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
 import { useSettings, type SyncIntervalMinutes } from "../../context/SettingsContext";
 import { useAchievements } from "../../context/AchievementContext";
@@ -9,6 +9,7 @@ import SettingsSection from "./SettingsSection";
 import IntegrationTile from "./IntegrationTile";
 import type { useIntegrations } from "./useIntegrations";
 import { HumbleToggle, UplayToggle } from "./IntegrationToggles";
+import { useSectionScroll } from "./useSectionScroll";
 import { EpicIcon, GogIcon, HumbleIcon, IntegrationsIcon, RockstarIcon, SteamIcon, UplayIcon } from "./settingsIcons";
 
 type Integrations = ReturnType<typeof useIntegrations>;
@@ -30,10 +31,26 @@ function useConfirm() {
   };
 }
 
-export default function IntegrationsTab({ integrations }: { integrations: Integrations }) {
+/** Tile ids of the six integrations, in display order. */
+const TILE_IDS = [
+  "integration-steam",
+  "integration-epic",
+  "integration-gog",
+  "integration-humble",
+  "integration-rockstar",
+  "integration-uplay",
+];
+
+export default function IntegrationsTab({
+  integrations,
+  sectionIds,
+}: {
+  integrations: Integrations;
+  sectionIds: string[];
+}) {
   const { t } = useLanguage();
   const { showToast } = useToast();
-  const { syncIntervalMinutes, setSyncIntervalMinutes, historyCapDays, setHistoryCapDays, hideAchievementProgress, setHideAchievementProgress, discordRichPresence, setDiscordRichPresence, discordStatus, steamAutoDetect, setSteamAutoDetect } = useSettings();
+  const { syncIntervalMinutes, setSyncIntervalMinutes, historyCapDays, setHistoryCapDays, hideAchievementProgress, setHideAchievementProgress, steamAutoDetect, setSteamAutoDetect } = useSettings();
   const { settings: achievementSettings, updateSettings: updateAchievementSettings } = useAchievements();
 
   const confirm = useConfirm();
@@ -48,6 +65,41 @@ export default function IntegrationsTab({ integrations }: { integrations: Integr
     platformGameCount,
     removeIntegrationGames,
   } = integrations;
+
+  // Accordion state — one flag per tile. Deep links (search / jump bar
+  // / ?section=) auto-expand the targeted tile before scrolling there.
+  const [openTiles, setOpenTiles] = useState<Record<string, boolean>>({});
+  const scrollTarget = useSectionScroll(sectionIds);
+
+  useEffect(() => {
+    if (scrollTarget && TILE_IDS.includes(scrollTarget)) {
+      setOpenTiles((prev) => ({ ...prev, [scrollTarget]: true }));
+    }
+  }, [scrollTarget]);
+
+  const toggleTile = (id: string) =>
+    setOpenTiles((prev) => ({ ...prev, [id]: !prev[id] }));
+
+  /** Overview chip click: expand the tile and bring it into view. */
+  const jumpToTile = (id: string) => {
+    setOpenTiles((prev) => ({ ...prev, [id]: true }));
+    requestAnimationFrame(() => {
+      const el = document.getElementById(id);
+      if (!el) return;
+      const reduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+      el.scrollIntoView({ behavior: reduced ? "auto" : "smooth", block: "start" });
+      if (!reduced) el.classList.add("settings-flash");
+    });
+  };
+
+  const overview = [
+    { id: "integration-steam", icon: <SteamIcon />, name: t("settings.integration.steam"), connected: steam.steamAuth.isAuthenticated },
+    { id: "integration-epic", icon: <EpicIcon />, name: t("settings.integration.epicGames"), connected: epic.epicAuth.isAuthenticated },
+    { id: "integration-gog", icon: <GogIcon />, name: t("settings.integration.gogGalaxy"), connected: gog.gogAuth.isAuthenticated },
+    { id: "integration-humble", icon: <HumbleIcon />, name: t("settings.integration.humbleBundle"), connected: humble.humbleAuth.isAuthenticated },
+    { id: "integration-rockstar", icon: <RockstarIcon />, name: t("settings.integration.rockstarGamesLauncher"), connected: !!rockstar.rockstarSyncResult?.clientInstalled },
+    { id: "integration-uplay", icon: <UplayIcon />, name: t("settings.integration.ubisoftConnect"), connected: !!uplay.uplaySyncResult?.clientInstalled },
+  ];
 
   /** Open the confirm modal for wiping every game imported from a store. */
   const confirmRemoveGames = (platform: string) => {
@@ -76,10 +128,40 @@ export default function IntegrationsTab({ integrations }: { integrations: Integr
   return (
     <>
       <SettingsSection
+        id="section-integrations"
         icon={<IntegrationsIcon />}
         title={t("settings.tab.integrations")}
         desc={t("settings.integrations.desc")}
       >
+        {/* ── Status overview — one chip per store, connected state at a glance ── */}
+        <div className="integration-overview" role="list" aria-label={t("settings.tab.integrations")}>
+          {overview.map((store) => (
+            <button
+              key={store.id}
+              type="button"
+              role="listitem"
+              className="integration-chip"
+              data-connected={store.connected || undefined}
+              onClick={() => jumpToTile(store.id)}
+              title={store.name}
+            >
+              <span className="integration-chip-icon" aria-hidden>
+                {store.icon}
+              </span>
+              <span className="integration-chip-name">{store.name}</span>
+              <span
+                className={`integration-chip-dot${store.connected ? " on" : ""}`}
+                aria-hidden
+              />
+            </button>
+          ))}
+        </div>
+
+        {/* ── Store accounts — the four linked integrations ── */}
+        <p className="settings-toggles-title">
+          {t("settings.integrations.groupAccounts")}
+        </p>
+
         {/* ── Steam ── */}
         <IntegrationTile
           brand="steam"
@@ -117,7 +199,7 @@ export default function IntegrationsTab({ integrations }: { integrations: Integr
                   {t("settings.integrations.connectSteam")}
                 </Button>
               )}
-              <Button variant="danger"                  onClick={() => confirmRemoveGames("Steam")}>
+              <Button variant="danger" onClick={() => confirmRemoveGames("Steam")}>
                 {t("settings.integrations.removeGames")}
               </Button>
             </>
@@ -155,6 +237,10 @@ export default function IntegrationsTab({ integrations }: { integrations: Integr
               </div>
             )
           }
+          open={!!openTiles["integration-steam"]}
+          onToggle={() => toggleTile("integration-steam")}
+          expandLabel={t("settings.aria.expand", { name: t("settings.integration.steam") })}
+          collapseLabel={t("settings.aria.collapse", { name: t("settings.integration.steam") })}
         >
           {/* API-key + SteamID64 paste-in flow (only when disconnected) */}
           {!steam.steamAuth.isAuthenticated && steam.steamAuthReady && (
@@ -305,7 +391,7 @@ export default function IntegrationsTab({ integrations }: { integrations: Integr
                   {t("settings.integrations.connectEpic")}
                 </Button>
               )}
-              <Button variant="danger"                  onClick={() => confirmRemoveGames("Epic")}>
+              <Button variant="danger" onClick={() => confirmRemoveGames("Epic")}>
                 {t("settings.integrations.removeGames")}
               </Button>
             </>
@@ -349,6 +435,10 @@ export default function IntegrationsTab({ integrations }: { integrations: Integr
               </div>
             )
           }
+          open={!!openTiles["integration-epic"]}
+          onToggle={() => toggleTile("integration-epic")}
+          expandLabel={t("settings.aria.expand", { name: t("settings.integration.epicGames") })}
+          collapseLabel={t("settings.aria.collapse", { name: t("settings.integration.epicGames") })}
         >
           {epic.epicStaleSession && (
             <div className="epic-stale-banner">
@@ -392,7 +482,7 @@ export default function IntegrationsTab({ integrations }: { integrations: Integr
                   {t("settings.integrations.connectGog")}
                 </Button>
               )}
-              <Button variant="danger"                  onClick={() => confirmRemoveGames("GOG")}>
+              <Button variant="danger" onClick={() => confirmRemoveGames("GOG")}>
                 {t("settings.integrations.removeGames")}
               </Button>
             </>
@@ -436,6 +526,10 @@ export default function IntegrationsTab({ integrations }: { integrations: Integr
               </div>
             )
           }
+          open={!!openTiles["integration-gog"]}
+          onToggle={() => toggleTile("integration-gog")}
+          expandLabel={t("settings.aria.expand", { name: t("settings.integration.gogGalaxy") })}
+          collapseLabel={t("settings.aria.collapse", { name: t("settings.integration.gogGalaxy") })}
         />
 
         {/* ── Humble Bundle ── */}
@@ -469,7 +563,7 @@ export default function IntegrationsTab({ integrations }: { integrations: Integr
                   {t("settings.integrations.connectHumble")}
                 </Button>
               )}
-              <Button variant="danger"                  onClick={() => confirmRemoveGames("Humble")}>
+              <Button variant="danger" onClick={() => confirmRemoveGames("Humble")}>
                 {t("settings.integrations.removeGames")}
               </Button>
             </>
@@ -513,6 +607,10 @@ export default function IntegrationsTab({ integrations }: { integrations: Integr
               </div>
             )
           }
+          open={!!openTiles["integration-humble"]}
+          onToggle={() => toggleTile("integration-humble")}
+          expandLabel={t("settings.aria.expand", { name: t("settings.integration.humbleBundle") })}
+          collapseLabel={t("settings.aria.collapse", { name: t("settings.integration.humbleBundle") })}
         >
           <div className="humble-settings-grid">
             <HumbleToggle
@@ -560,6 +658,11 @@ export default function IntegrationsTab({ integrations }: { integrations: Integr
           </div>
         </IntegrationTile>
 
+        {/* ── Local launchers — account-less registry scans ── */}
+        <p className="settings-toggles-title">
+          {t("settings.integrations.groupLocal")}
+        </p>
+
         {/* ── Rockstar Games Launcher ── */}
         <IntegrationTile
           brand="rockstar"
@@ -587,7 +690,7 @@ export default function IntegrationsTab({ integrations }: { integrations: Integr
               <Button variant="primary" onClick={rockstar.handleRockstarSync} isLoading={rockstar.isRockstarSyncing}>
                 {t("settings.rockstar.scanBtn")}
               </Button>
-              <Button variant="danger"                  onClick={() => confirmRemoveGames("Rockstar")}>
+              <Button variant="danger" onClick={() => confirmRemoveGames("Rockstar")}>
                 {t("settings.integrations.removeGames")}
               </Button>
             </>
@@ -613,6 +716,10 @@ export default function IntegrationsTab({ integrations }: { integrations: Integr
               </p>
             ) : undefined
           }
+          open={!!openTiles["integration-rockstar"]}
+          onToggle={() => toggleTile("integration-rockstar")}
+          expandLabel={t("settings.aria.expand", { name: t("settings.integration.rockstarGamesLauncher") })}
+          collapseLabel={t("settings.aria.collapse", { name: t("settings.integration.rockstarGamesLauncher") })}
         />
 
         {/* ── Ubisoft Connect (Uplay) ── */}
@@ -642,7 +749,7 @@ export default function IntegrationsTab({ integrations }: { integrations: Integr
               <Button variant="primary" onClick={uplay.handleUplaySync} isLoading={uplay.isUplaySyncing}>
                 {t("settings.ubisoft.syncBtn")}
               </Button>
-              <Button variant="danger"                  onClick={() => confirmRemoveGames("Ubisoft")}>
+              <Button variant="danger" onClick={() => confirmRemoveGames("Ubisoft")}>
                 {t("settings.integrations.removeGames")}
               </Button>
             </>
@@ -668,6 +775,10 @@ export default function IntegrationsTab({ integrations }: { integrations: Integr
               </p>
             ) : undefined
           }
+          open={!!openTiles["integration-uplay"]}
+          onToggle={() => toggleTile("integration-uplay")}
+          expandLabel={t("settings.aria.expand", { name: t("settings.integration.ubisoftConnect") })}
+          collapseLabel={t("settings.aria.collapse", { name: t("settings.integration.ubisoftConnect") })}
         >
           <div className="humble-settings-grid">
             <UplayToggle
@@ -695,117 +806,112 @@ export default function IntegrationsTab({ integrations }: { integrations: Integr
         title={t("settings.section.dataSync")}
         desc={t("settings.dataSync.desc")}
       >
-        <div className="settings-data-grid">
-          <div className="settings-launcher-card">
-            <div className="settings-control">
-              <label className="settings-label">{t("settings.label.autoSync")}</label>
-              <p className="settings-helper-lead">{t("settingsPage.autoSyncInterval")}</p>
-              <div className="settings-input-group">
-                <select
-                  className="settings-select"
-                  value={syncIntervalMinutes}
-                  onChange={(e) => {
-                    const raw = parseInt(e.target.value, 10);
-                    const next = raw as SyncIntervalMinutes;
-                    setSyncIntervalMinutes(next);
-                    showToast(
-                      next === 0
-                        ? t("settings.sync.autoDisabled")
-                        : t("settings.sync.updated", {
-                            interval: t(AUTOSYNC_TOAST_KEY[next]),
-                          }),
-                      "success",
-                    );
-                  }}
-                >
-                  <option value={0}>{t("settings.autosync.off")}</option>
-                  <option value={15}>{t("settings.autosync.15m")}</option>
-                  <option value={30}>{t("settings.autosync.30m")}</option>
-                  <option value={60}>{t("settings.autosync.1h")}</option>
-                  <option value={360}>{t("settings.autosync.6h")}</option>
-                  <option value={720}>{t("settings.autosync.12h")}</option>
-                  <option value={1440}>{t("settings.autosync.24h")}</option>
-                </select>
-              </div>
+        <div className="settings-data-panel">
+          <div className="settings-data-row">
+            <div className="settings-data-row-text">
+              <span className="settings-data-row-title">
+                {t("settings.label.autoSync")}
+              </span>
+              <span className="settings-data-row-desc">
+                {t("settingsPage.autoSyncInterval")}
+              </span>
             </div>
+            <select
+              className="settings-select settings-data-row-select"
+              value={syncIntervalMinutes}
+              onChange={(e) => {
+                const raw = parseInt(e.target.value, 10);
+                const next = raw as SyncIntervalMinutes;
+                setSyncIntervalMinutes(next);
+                showToast(
+                  next === 0
+                    ? t("settings.sync.autoDisabled")
+                    : t("settings.sync.updated", {
+                        interval: t(AUTOSYNC_TOAST_KEY[next]),
+                      }),
+                  "success",
+                );
+              }}
+              aria-label={t("settings.label.autoSync")}
+            >
+              <option value={0}>{t("settings.autosync.off")}</option>
+              <option value={15}>{t("settings.autosync.15m")}</option>
+              <option value={30}>{t("settings.autosync.30m")}</option>
+              <option value={60}>{t("settings.autosync.1h")}</option>
+              <option value={360}>{t("settings.autosync.6h")}</option>
+              <option value={720}>{t("settings.autosync.12h")}</option>
+              <option value={1440}>{t("settings.autosync.24h")}</option>
+            </select>
           </div>
 
-          <div className="settings-launcher-card">
-            <div className="settings-control">
-              <label className="settings-label">{t("settings.label.historyRetention")}</label>
-              <p className="settings-helper-lead">{t("settings.historyRetention.desc")}</p>
-              <div className="settings-input-group">
-                <select
-                  className="settings-select"
-                  value={historyCapDays}
-                  onChange={(e) => {
-                    const raw = parseInt(e.target.value, 10);
-                    const next = (raw === 7 || raw === 30 ? raw : 1) as 1 | 7 | 30;
-                    setHistoryCapDays(next);
-                    showToast(
-                      next === 1
-                        ? t("settings.history.rollsOffOneDay")
-                        : next === 7
-                        ? t("settings.history.rollsOffOneWeek")
-                        : t("settings.history.rollsOffOneMonth"),
-                      "info",
-                    );
-                  }}
-                >
-                  <option value={1}>{t("settingsPage.retention1Day")}</option>
-                  <option value={7}>{t("settingsPage.retention1Week")}</option>
-                  <option value={30}>{t("settingsPage.retention1Month")}</option>
-                </select>
-              </div>
+          <div className="settings-data-row">
+            <div className="settings-data-row-text">
+              <span className="settings-data-row-title">
+                {t("settings.label.historyRetention")}
+              </span>
+              <span className="settings-data-row-desc">
+                {t("settings.historyRetention.desc")}
+              </span>
             </div>
+            <select
+              className="settings-select settings-data-row-select"
+              value={historyCapDays}
+              onChange={(e) => {
+                const raw = parseInt(e.target.value, 10);
+                const next = (raw === 7 || raw === 30 ? raw : 1) as 1 | 7 | 30;
+                setHistoryCapDays(next);
+                showToast(
+                  next === 1
+                    ? t("settings.history.rollsOffOneDay")
+                    : next === 7
+                    ? t("settings.history.rollsOffOneWeek")
+                    : t("settings.history.rollsOffOneMonth"),
+                  "info",
+                );
+              }}
+              aria-label={t("settings.label.historyRetention")}
+            >
+              <option value={1}>{t("settingsPage.retention1Day")}</option>
+              <option value={7}>{t("settingsPage.retention1Week")}</option>
+              <option value={30}>{t("settingsPage.retention1Month")}</option>
+            </select>
           </div>
 
-          <div className="settings-launcher-card">
-            <label className="settings-checkbox-label">
-              <input
-                type="checkbox"
-                checked={hideAchievementProgress}
-                onChange={(e) => setHideAchievementProgress(e.target.checked)}
-              />
-              <div className="settings-checkbox-text">
-                <span className="settings-checkbox-title">{t("settings.achievements.noSpoilersTitle")}</span>
-                <span className="settings-checkbox-desc">{t("settings.achievements.noSpoilersDesc")}</span>
-              </div>
-            </label>
-          </div>
+          <label className="settings-data-row">
+            <input
+              type="checkbox"
+              className="settings-data-row-check"
+              checked={hideAchievementProgress}
+              onChange={(e) => setHideAchievementProgress(e.target.checked)}
+            />
+            <div className="settings-data-row-text">
+              <span className="settings-data-row-title">
+                {t("settings.achievements.noSpoilersTitle")}
+              </span>
+              <span className="settings-data-row-desc">
+                {t("settings.achievements.noSpoilersDesc")}
+              </span>
+            </div>
+          </label>
 
-          <div className="settings-launcher-card">
-            <label className="settings-checkbox-label">
-              <input
-                type="checkbox"
-                checked={achievementSettings.localAchievementsEnabled}
-                onChange={(e) =>
-                  updateAchievementSettings({ localAchievementsEnabled: e.target.checked })
-                }
-              />
-              <div className="settings-checkbox-text">
-                <span className="settings-checkbox-title">{t("settings.achievements.localTitle")}</span>
-                <span className="settings-checkbox-desc">{t("settings.achievements.localDesc")}</span>
-              </div>
-            </label>
-          </div>
-
-          <div className="settings-launcher-card">
-            <label className="settings-checkbox-label">
-              <input
-                type="checkbox"
-                checked={discordRichPresence}
-                onChange={(e) => setDiscordRichPresence(e.target.checked)}
-              />
-              <div className="settings-checkbox-text">
-                <span className="settings-checkbox-title">{t("settings.discord.title")}</span>
-                <span className="settings-checkbox-desc">{t("settings.discord.desc")}</span>
-              </div>
-            </label>
-            {discordRichPresence && discordStatus === "notRunning" && (
-              <p className="connect-prompt">{t("settings.discord.notRunning")}</p>
-            )}
-          </div>
+          <label className="settings-data-row">
+            <input
+              type="checkbox"
+              className="settings-data-row-check"
+              checked={achievementSettings.localAchievementsEnabled}
+              onChange={(e) =>
+                updateAchievementSettings({ localAchievementsEnabled: e.target.checked })
+              }
+            />
+            <div className="settings-data-row-text">
+              <span className="settings-data-row-title">
+                {t("settings.achievements.localTitle")}
+              </span>
+              <span className="settings-data-row-desc">
+                {t("settings.achievements.localDesc")}
+              </span>
+            </div>
+          </label>
         </div>
       </SettingsSection>
 
@@ -834,5 +940,3 @@ const AUTOSYNC_TOAST_KEY: Record<number, string> = {
   720: "settings.autosync.12h",
   1440: "settings.autosync.24h",
 };
-
-

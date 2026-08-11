@@ -202,5 +202,6 @@ export const BIGSCREEN_ROUTE_PAIRS: RoutePair[] = [
   { path: "emulators", desktop: () => <EmulatorsPage />, bigscreen: () => <BigScreenEmulatorsPage /> },
   { path: "mods", desktop: () => <ModsPage />, bigscreen: () => <BigScreenModsPage /> },
   { path: "settings", desktop: () => <SettingsPage />, bigscreen: () => <BigScreenSystem /> },
+  { path: "settings/:tab", desktop: () => <SettingsPage />, bigscreen: () => <BigScreenSystem /> },
   { path: "docs", desktop: () => <DocsPage />, bigscreen: () => <BigScreenDocsPage /> },
 ];

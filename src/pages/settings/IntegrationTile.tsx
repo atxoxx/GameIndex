@@ -1,4 +1,5 @@
 import type { ReactNode } from "react";
+import { ChevronDownIcon } from "./settingsIcons";
 
 interface IntegrationTileProps {
   /** Brand class on the tile (`steam`, `epic`, `gog`, ...) + anchor id. */
@@ -25,12 +26,20 @@ interface IntegrationTileProps {
   children?: ReactNode;
   /** Bottom danger strip (disconnect) — only when connected. */
   dangerZone?: ReactNode;
+  /** Whether the tile body is expanded. */
+  open: boolean;
+  onToggle: () => void;
+  /** Screen-reader labels for the header toggle. */
+  expandLabel?: string;
+  collapseLabel?: string;
 }
 
 /**
- * IntegrationTile — the shared shell every store tile is built from.
- * Renders the brand accent bar, icon, name + badge, status, actions and
- * an optional danger zone so the six integrations render identically.
+ * IntegrationTile — the collapsible shell every store tile is built
+ * from. The header (brand icon, name, badge, description) is a toggle
+ * button: collapsed tiles show only the header so the six integrations
+ * read as a scannable list; expanding reveals status, actions, forms
+ * and the optional danger zone.
  */
 export default function IntegrationTile({
   brand,
@@ -47,37 +56,57 @@ export default function IntegrationTile({
   lastSync,
   children,
   dangerZone,
+  open,
+  onToggle,
+  expandLabel,
+  collapseLabel,
 }: IntegrationTileProps) {
   return (
     <div
-      className={`integration-tile ${brand}`}
+      className={`integration-tile ${brand}${open ? "" : " is-collapsed"}`}
       id={id}
       data-connected={connected || undefined}
     >
-      <div className="integration-tile-body-wrap">
-        <div className="integration-tile-header">
-          <span className="integration-tile-icon">{icon}</span>
-          <div className="integration-tile-info">
-            <div className="integration-tile-name-row">
-              <h3 className="integration-tile-name">{name}</h3>
-              {connected && (
-                <span className="integration-badge active">{badgeLabel}</span>
-              )}
-            </div>
-            <p className="integration-tile-desc">{description}</p>
+      <button
+        type="button"
+        className="integration-tile-toggle"
+        onClick={onToggle}
+        aria-expanded={open}
+        aria-label={open ? collapseLabel : expandLabel}
+      >
+        <span className="integration-tile-icon" aria-hidden>
+          {icon}
+        </span>
+        <span className="integration-tile-info">
+          <span className="integration-tile-name-row">
+            <span className="integration-tile-name">{name}</span>
+            {connected && (
+              <span className="integration-badge active">{badgeLabel}</span>
+            )}
+          </span>
+          <span className="integration-tile-desc">{description}</span>
+        </span>
+        <span
+          className={`integration-tile-chevron${open ? " open" : ""}`}
+          aria-hidden
+        >
+          <ChevronDownIcon />
+        </span>
+      </button>
+
+      {open && (
+        <div className="integration-tile-body-wrap">
+          <div className="integration-tile-body">
+            {status}
+            {note && <p className="auth-note">{note}</p>}
+            <div className="integration-tile-actions">{actions}</div>
+            {result}
+            {lastSync}
+            {children}
           </div>
         </div>
-
-        <div className="integration-tile-body">
-          {status}
-          {note && <p className="auth-note">{note}</p>}
-          <div className="integration-tile-actions">{actions}</div>
-          {result}
-          {lastSync}
-          {children}
-        </div>
-      </div>
-      {dangerZone}
+      )}
+      {open && dangerZone}
     </div>
   );
 }

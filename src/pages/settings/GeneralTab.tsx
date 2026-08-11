@@ -5,7 +5,7 @@ import { useUpdate, formatBytes } from "../../context/UpdateContext";
 import { FlagIcon, Button } from "../../components/ui";
 import SettingsSection from "./SettingsSection";
 import SettingsToggleCard from "./SettingsToggleCard";
-import { GlobeIcon, DownloadIcon } from "./settingsIcons";
+import { GlobeIcon, RefreshIcon } from "./settingsIcons";
 
 /**
  * GeneralTab — app-wide preferences. Hosts the display
@@ -102,6 +102,7 @@ export default function GeneralTab() {
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: "24px" }}>
       <SettingsSection
+        id="general-language"
         icon={<GlobeIcon />}
         title={t("settings.language")}
         desc={t("settingsPage.languageDesc")}
@@ -226,7 +227,8 @@ export default function GeneralTab() {
       </SettingsSection>
 
       <SettingsSection
-        icon={<DownloadIcon />}
+        id="general-updates"
+        icon={<RefreshIcon />}
         title={t("updater.title")}
         desc={
           <span
@@ -265,7 +267,7 @@ export default function GeneralTab() {
           />
 
           <div
-            className="settings-launcher-card"
+            className="settings-behavior-card"
             style={{
               display: "flex",
               alignItems: "center",

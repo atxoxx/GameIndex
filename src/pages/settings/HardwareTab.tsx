@@ -87,30 +87,32 @@ export default function HardwareTab() {
   }, [hardwareMonitoringEnabled, metricCapture, samplingIntervalMs]);
 
   return (
-    <SettingsSection
-      className="hw"
-      icon={<HardwareIcon />}
-      title={t("settings.section.hardwareMonitoring")}
-      desc={t("settings.hardware.sectionDesc")}
-      actions={
-        <button
-          type="button"
-          role="switch"
-          aria-checked={hardwareMonitoringEnabled}
-          aria-label={t("settings.label.enableMonitoring")}
-          className="hw-master"
-          data-on={hardwareMonitoringEnabled}
-          onClick={() => setHardwareMonitoringEnabled(!hardwareMonitoringEnabled)}
-        >
-          <span className="hw-master-state" data-on={hardwareMonitoringEnabled} aria-hidden>
-            {hardwareMonitoringEnabled ? t("settingsPage.active") : t("settings.hardware.inactive")}
-          </span>
-          <span className="hw-switch" aria-hidden>
-            <span className="hw-switch-knob" />
-          </span>
-        </button>
-      }
-    >
+    <>
+      <SettingsSection
+        id="hw-monitor"
+        className="hw"
+        icon={<HardwareIcon />}
+        title={t("settings.section.hardwareMonitoring")}
+        desc={t("settings.hardware.sectionDesc")}
+        actions={
+          <button
+            type="button"
+            role="switch"
+            aria-checked={hardwareMonitoringEnabled}
+            aria-label={t("settings.label.enableMonitoring")}
+            className="hw-master"
+            data-on={hardwareMonitoringEnabled}
+            onClick={() => setHardwareMonitoringEnabled(!hardwareMonitoringEnabled)}
+          >
+            <span className="hw-master-state" data-on={hardwareMonitoringEnabled} aria-hidden>
+              {hardwareMonitoringEnabled ? t("settingsPage.active") : t("settings.hardware.inactive")}
+            </span>
+            <span className="hw-switch" aria-hidden>
+              <span className="hw-switch-knob" />
+            </span>
+          </button>
+        }
+      >
       {/* ── Detected hardware ───────────────────────────────────── */}
       <div id="hw-detected" className="hw-pane">
         <div className="hw-pane-head">
@@ -191,7 +193,7 @@ export default function HardwareTab() {
       </div>
 
       {/* ── Telemetry / monitoring ─────────────────────────────── */}
-      <div id="hw-monitor" className={"hw-pane" + (hardwareMonitoringEnabled ? "" : " is-disabled")}>
+      <div id="hw-telemetry" className={"hw-pane" + (hardwareMonitoringEnabled ? "" : " is-disabled")}>
         <div className="hw-pane-head">
           <h3 className="hw-pane-title">{t("settings.hardware.subsectionTelemetry")}</h3>
           <p className="hw-pane-desc">{t("settings.hardware.metricsDesc")}</p>
@@ -281,12 +283,14 @@ export default function HardwareTab() {
       </div>
 
       {/* ── Display preferences ────────────────────────────────── */}
-      <div id="hw-display" className="hw-pane">
-        <div className="hw-pane-head">
-          <h3 className="hw-pane-title">{t("settings.hardware.subsectionDisplay")}</h3>
-          <p className="hw-pane-desc">{t("settingsPage.sizeUnitHelp")}</p>
-        </div>
+      </SettingsSection>
 
+      <SettingsSection
+        id="hw-display"
+        icon={<ThermometerIcon />}
+        title={t("settings.hardware.subsectionDisplay")}
+        desc={t("settingsPage.sizeUnitHelp")}
+      >
         <div className="hw-duo">
           <div className="hw-card">
             <div className="hw-card-head">
@@ -322,7 +326,7 @@ export default function HardwareTab() {
             </select>
           </div>
         </div>
-      </div>
-    </SettingsSection>
+      </SettingsSection>
+    </>
   );
 }

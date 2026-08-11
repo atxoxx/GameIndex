@@ -8,7 +8,7 @@ import { useToast } from "../../context/ToastContext";
 import { Button } from "../../components/ui";
 import SettingsSection from "./SettingsSection";
 import SourceManager from "../../components/SourceManager";
-import { DownloadIcon } from "./settingsIcons";
+import { BellIcon, CloudIcon, FolderIcon, GaugeIcon, ListIcon, ShieldIcon } from "./settingsIcons";
 
 /**
  * DownloadsTab — every download-related setting: default save location,
@@ -120,7 +120,7 @@ export default function DownloadsTab() {
     <>
       <SettingsSection
         id="downloads-location"
-        icon={<DownloadIcon />}
+        icon={<FolderIcon />}
         title={t("settings.section.downloadLocation")}
         desc={
           <>
@@ -187,7 +187,8 @@ export default function DownloadsTab() {
 
       <SettingsSection
         id="downloads-notifications"
-        icon={<DownloadIcon />}
+        className="settings-section--bell"
+        icon={<BellIcon />}
         title={t("settings.section.notifications")}
         desc={t("settings.downloads.notifyDesc")}
       >
@@ -225,7 +226,8 @@ export default function DownloadsTab() {
 
       <SettingsSection
         id="downloads-bandwidth"
-        icon={<DownloadIcon />}
+        className="settings-section--gauge"
+        icon={<GaugeIcon />}
         title={t("settings.section.bandwidth")}
         desc={t("settings.downloads.bandwidthDesc")}
       >
@@ -325,7 +327,8 @@ export default function DownloadsTab() {
 
       <SettingsSection
         id="downloads-blocked"
-        icon={<DownloadIcon />}
+        className="settings-section--shield"
+        icon={<ShieldIcon />}
         title={t("settings.section.blockedDomains")}
         desc={t("settings.downloads.blockedDesc")}
       >
@@ -355,7 +358,8 @@ export default function DownloadsTab() {
 
       <SettingsSection
         id="downloads-sources"
-        icon={<DownloadIcon />}
+        className="settings-section--list"
+        icon={<ListIcon />}
         title={t("settings.section.downloadSources")}
         desc={
           <>
@@ -371,7 +375,7 @@ export default function DownloadsTab() {
 
       <SettingsSection
         id="downloads-debrid"
-        icon={<DownloadIcon />}
+        icon={<CloudIcon />}
         title={t("settings.section.debrid")}
         desc={t("settings.downloads.debridDesc")}
       >
