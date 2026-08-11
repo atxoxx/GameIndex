@@ -531,197 +531,6 @@
    Game Page Activity Tab
    ============================== */
 
-.game-activity-tab {
-  animation: importMenuIn 200ms ease;
-}
-
-/* Activity sub-tab navigation */
-.game-activity-subtabs {
-  display: flex;
-  gap: var(--space-xs);
-  border-bottom: 1px solid var(--color-border);
-  margin-bottom: var(--space-xl);
-}
-
-.game-activity-subtab {
-  padding: var(--space-sm) var(--space-lg);
-  border: none;
-  background: transparent;
-  color: var(--color-text-secondary);
-  font-size: var(--font-size-sm);
-  font-weight: var(--font-weight-medium);
-  cursor: pointer;
-  position: relative;
-  transition: color var(--transition-fast), background var(--transition-fast), border-color var(--transition-fast), box-shadow var(--transition-fast), opacity var(--transition-fast), transform var(--transition-fast);
-  border-bottom: 2px solid transparent;
-  margin-bottom: -1px;
-  border-radius: var(--radius-md) var(--radius-md) 0 0;
-}
-
-.game-activity-subtab:hover {
-  color: var(--color-text-primary);
-  background: var(--color-bg-hover);
-}
-
-.game-activity-subtab.active {
-  color: var(--color-accent);
-  border-bottom-color: var(--color-accent);
-  background: color-mix(in srgb, var(--color-accent) 5%, transparent);
-}
-
-.game-activity-content {
-  animation: importMenuIn 180ms ease;
-}
-
-.game-activity-overview,
-.game-activity-performance,
-.game-activity-sessions {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-xl);
-}
-
-.game-activity-cards {
-  grid-template-columns: repeat(auto-fill, minmax(170px, 1fr));
-}
-
-/* Performance summary bars - enhanced */
-.game-perf-grid {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-md);
-}
-
-.game-perf-item {
-  display: flex;
-  align-items: center;
-  gap: var(--space-md);
-}
-
-.game-perf-label {
-  font-size: var(--font-size-xs);
-  font-weight: var(--font-weight-medium);
-  color: var(--color-text-muted);
-  width: 80px;
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
-  flex-shrink: 0;
-}
-
-.game-perf-bar {
-  flex: 1;
-  height: 10px;
-  background: var(--color-bg-tertiary);
-  border-radius: var(--radius-full);
-  overflow: hidden;
-  position: relative;
-}
-
-.game-perf-bar::after {
-  content: "";
-  position: absolute;
-  inset: 0;
-  background: linear-gradient(90deg, transparent 0%, rgba(255,255,255,0.08) 50%, transparent 100%);
-  animation: perfBarShimmer 2s infinite;
-}
-
-@keyframes perfBarShimmer {
-  0% { transform: translateX(-100%); }
-  100% { transform: translateX(100%); }
-}
-
-.game-perf-fill {
-  height: 100%;
-  border-radius: var(--radius-full);
-  transition: width 800ms cubic-bezier(0.4, 0, 0.2, 1);
-  min-width: 2px;
-  position: relative;
-  z-index: 1;
-}
-
-.game-perf-val {
-  font-size: var(--font-size-sm);
-  font-weight: var(--font-weight-bold);
-  color: var(--color-text-primary);
-  width: 56px;
-  text-align: right;
-  flex-shrink: 0;
-}
-
-/* Session list */
-.game-session-list {
-  display: flex;
-  flex-direction: column;
-  gap: 0;
-}
-
-.game-session-item {
-  display: flex;
-  align-items: flex-start;
-  gap: var(--space-md);
-  padding: var(--space-md) var(--space-sm);
-  position: relative;
-  border-bottom: 1px solid var(--color-border);
-  border-radius: var(--radius-md);
-  transition: color var(--transition-fast), background var(--transition-fast), border-color var(--transition-fast), box-shadow var(--transition-fast), opacity var(--transition-fast), transform var(--transition-fast);
-}
-
-.game-session-item:hover {
-  background: var(--color-bg-hover);
-}
-
-.game-session-item:last-child {
-  border-bottom: none;
-}
-
-.game-session-dot {
-  width: 10px;
-  height: 10px;
-  border-radius: 50%;
-  background: var(--color-accent);
-  margin-top: 5px;
-  flex-shrink: 0;
-  box-shadow: 0 0 6px var(--color-accent-glow);
-  transition: transform var(--transition-fast);
-}
-
-.game-session-item:hover .game-session-dot {
-  transform: scale(1.3);
-}
-
-.game-session-content {
-  flex: 1;
-  min-width: 0;
-}
-
-.game-session-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  margin-bottom: var(--space-xs);
-}
-
-.game-session-date {
-  font-size: var(--font-size-sm);
-  color: var(--color-text-secondary);
-}
-
-.game-session-duration {
-  font-size: var(--font-size-xs);
-  font-weight: var(--font-weight-bold);
-  color: var(--color-accent);
-  background: color-mix(in srgb, var(--color-accent) 8%, transparent);
-  padding: 2px 10px;
-  border-radius: var(--radius-full);
-}
-
-.game-session-metrics {
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--space-xs);
-  margin-top: var(--space-xs);
-}
-
 /* ==============================
    Chart Interactive Tooltips
    ============================== */
@@ -813,27 +622,9 @@
 }
 
 /* ==============================
-   Performance Charts Grid
+   Game Activity Tab — Redesigned
    ============================== */
 
-.perf-charts-grid {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: var(--space-lg);
-}
-
-@media (max-width: 900px) {
-  .perf-charts-grid {
-    grid-template-columns: 1fr;
-  }
-}
-
-.perf-chart-card {
-  margin-bottom: 0 !important;
-  overflow: hidden;
-}
-
-/* Redesigned Game Activity Styles */
 .game-activity-tab {
   --game-activity-ctl-h: 30px;
   animation: importMenuIn 200ms ease;
@@ -846,74 +637,95 @@
   margin: 0 auto;
 }
 
-/* ── Header ───────────────────────────────────────────────────────────── */
+/* ── Control strip: primary nav + shared tools ──────────────────────── */
 
-.game-activity-header {
+.game-activity-tabbar {
   display: flex;
-  align-items: center;
-  justify-content: space-between;
+  align-items: stretch;
   gap: var(--space-md);
   flex-wrap: wrap;
-  padding-bottom: var(--space-md);
-  border-bottom: 1px solid var(--color-border);
+  padding: var(--space-sm);
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-sm);
 }
 
-.game-activity-title-group {
-  display: flex;
-  align-items: center;
-  gap: var(--space-md);
-  min-width: 0;
+/* Primary sub-view navigation — a persistent tab bar with a sliding
+   accent indicator, so Playtime / Performance always reads as the
+   section's main switch. */
+.game-activity-nav {
+  position: relative;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  flex: 1 1 300px;
+  min-width: 260px;
+  padding: 3px;
+  background: var(--color-bg-tertiary);
+  border: 1px solid var(--color-border);
+  border-radius: calc(var(--radius-lg) - 2px);
 }
 
-.game-activity-title-icon {
+.game-activity-nav-indicator {
+  position: absolute;
+  top: 3px;
+  bottom: 3px;
+  left: 3px;
+  width: calc(50% - 3px);
+  border-radius: calc(var(--radius-lg) - 5px);
+  background: var(--color-accent);
+  box-shadow: 0 2px 12px var(--color-accent-glow);
+  transition: transform var(--duration-normal) var(--ease-standard);
+  will-change: transform;
+}
+
+.game-activity-nav-tab {
+  position: relative;
+  z-index: 1;
+  appearance: none;
+  border: none;
+  background: transparent;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 36px;
-  height: 36px;
-  flex-shrink: 0;
-  border-radius: var(--radius-md);
-  background: color-mix(in srgb, var(--color-accent) 14%, transparent);
-  border: 1px solid color-mix(in srgb, var(--color-accent) 28%, transparent);
-  color: var(--color-accent);
-}
-
-.game-activity-title-icon svg {
-  width: 17px;
-  height: 17px;
-}
-
-.game-activity-title-text {
-  display: flex;
-  flex-direction: column;
-  gap: 1px;
-  min-width: 0;
-}
-
-.game-activity-title-text h2 {
-  font-size: var(--font-size-lg);
-  font-weight: var(--font-weight-bold);
-  color: var(--color-text-primary);
-  letter-spacing: -0.01em;
-  margin: 0;
-  line-height: 1.2;
-}
-
-.game-activity-title-sub {
-  font-size: var(--font-size-xs);
-  color: var(--color-text-muted);
+  gap: var(--space-sm);
+  padding: 9px var(--space-md);
+  border-radius: calc(var(--radius-lg) - 5px);
+  color: var(--color-text-secondary);
+  font-family: inherit;
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-semibold);
+  cursor: pointer;
   white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
+  transition: color var(--transition-fast), background var(--transition-fast);
 }
 
-/* ── Control cluster ──────────────────────────────────────────────────── */
+.game-activity-nav-tab svg {
+  width: 15px;
+  height: 15px;
+  flex-shrink: 0;
+}
 
-.game-activity-controls {
+.game-activity-nav-tab:hover {
+  color: var(--color-text-primary);
+}
+
+.game-activity-nav-tab.active {
+  color: #fff;
+}
+
+.game-activity-nav-tab:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: -2px;
+}
+
+/* Shared tools sit next to the primary nav (timeframe + actions). */
+.game-activity-tools {
   display: flex;
   align-items: center;
   gap: var(--space-sm);
   flex-wrap: wrap;
+  margin-left: auto;
 }
 
 .game-activity-header-actions {
@@ -922,9 +734,163 @@
   gap: var(--space-sm);
 }
 
-/* Segmented family: bg-tertiary tray + 2px gap + accent-fill active.
-   Shared by the view toggle, timeframe selector, aggregation tabs and
-   the bar/line icon toggle so every control reads as one family. */
+/* ── View frame ──────────────────────────────────────────────────────── */
+
+/* Each sub-view is a clearly-labelled frame: a view head (icon + title +
+   description) identifies which tab you are in, then content sections
+   follow. The keyed container re-runs its entrance animation on switch. */
+.game-activity-view {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-xl);
+  min-width: 0;
+  animation: importMenuIn 200ms ease;
+}
+
+.game-activity-view-head {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: var(--space-md);
+  padding: var(--space-md) var(--space-lg);
+  overflow: hidden;
+  background:
+    linear-gradient(90deg, color-mix(in srgb, var(--color-accent) 9%, transparent), transparent 55%),
+    var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+}
+
+.game-activity-view-head::before {
+  content: "";
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: 3px;
+  background: linear-gradient(180deg, var(--color-accent), color-mix(in srgb, var(--color-accent) 35%, transparent));
+}
+
+.game-activity-view-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  flex-shrink: 0;
+  border-radius: var(--radius-md);
+  background: color-mix(in srgb, var(--color-accent) 14%, transparent);
+  border: 1px solid color-mix(in srgb, var(--color-accent) 28%, transparent);
+  color: var(--color-accent);
+}
+
+.game-activity-view-icon svg {
+  width: 19px;
+  height: 19px;
+}
+
+.game-activity-view-titles {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.game-activity-view-title {
+  margin: 0;
+  font-size: var(--font-size-lg);
+  font-weight: var(--font-weight-bold);
+  color: var(--color-text-primary);
+  letter-spacing: -0.01em;
+  line-height: 1.2;
+}
+
+.game-activity-view-sub {
+  margin: 0;
+  font-size: var(--font-size-sm);
+  color: var(--color-text-secondary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* ── Section header pattern ──────────────────────────────────────────── */
+
+/* Every content group uses the same header: icon tile + title + sub on
+   the left, tools on the right, so sections are identifiable at a glance. */
+.game-activity-section {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-md);
+  min-width: 0;
+}
+
+.game-activity-section-head {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  min-width: 0;
+}
+
+.game-activity-section-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  flex-shrink: 0;
+  border-radius: var(--radius-sm);
+  background: color-mix(in srgb, var(--color-accent) 10%, transparent);
+  color: var(--color-accent);
+}
+
+.game-activity-section-icon svg {
+  width: 14px;
+  height: 14px;
+}
+
+.game-activity-section-titles {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  flex: 1;
+  min-width: 0;
+}
+
+.game-activity-section-title {
+  margin: 0;
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-semibold);
+  text-transform: uppercase;
+  letter-spacing: 0.6px;
+  color: var(--color-text-secondary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.game-activity-section-sub {
+  margin: 0;
+  font-size: var(--font-size-xs);
+  color: var(--color-text-muted);
+}
+
+.game-activity-section-value {
+  font-size: var(--font-size-md);
+  font-weight: var(--font-weight-bold);
+  color: var(--color-text-primary);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.game-activity-section-tools {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  flex-wrap: wrap;
+  margin-left: auto;
+}
+
+/* ── Segmented control family ────────────────────────────────────────── */
+
 .game-activity-seg {
   display: inline-flex;
   gap: 2px;
@@ -1070,7 +1036,7 @@
   color: var(--color-text-primary);
 }
 
-/* ── Headline summary band ────────────────────────────────────────────── */
+/* ── Headline summary band ───────────────────────────────────────────── */
 
 .game-activity-summary {
   display: grid;
@@ -1197,9 +1163,6 @@
   background: var(--color-bg-tertiary);
 }
 
-/* Summary band responsive: hero stays full-width, the rest wrap 2×2.
-   The hero's own border-bottom separates row 2, so only rows below
-   that (children 4+) need a top border. */
 @media (max-width: 1180px) {
   .game-activity-summary {
     grid-template-columns: 1fr 1fr;
@@ -1231,7 +1194,7 @@
   }
 }
 
-/* ── Two-column layout ────────────────────────────────────────────────── */
+/* ── Two-column layout ───────────────────────────────────────────────── */
 
 .game-activity-layout {
   display: grid;
@@ -1254,7 +1217,7 @@
   min-width: 0;
 }
 
-/* ── Stat cards ───────────────────────────────────────────────────────── */
+/* ── Stat cards ──────────────────────────────────────────────────────── */
 
 .game-activity-stats-grid {
   display: grid;
@@ -1319,7 +1282,7 @@
   white-space: nowrap;
 }
 
-/* ── Recent sessions ──────────────────────────────────────────────────── */
+/* ── Recent sessions ─────────────────────────────────────────────────── */
 
 .game-activity-sessions-panel {
   background: var(--color-surface);
@@ -1328,22 +1291,10 @@
   overflow: hidden;
 }
 
-.game-activity-sessions-head {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: var(--space-sm);
+/* The flush sessions card keeps its own header padding + separator. */
+.game-activity-sessions-panel .game-activity-section-head {
   padding: var(--space-md) var(--space-lg);
   border-bottom: 1px solid var(--color-border);
-}
-
-.game-activity-sessions-title {
-  font-size: var(--font-size-xs);
-  font-weight: var(--font-weight-semibold);
-  color: var(--color-text-secondary);
-  text-transform: uppercase;
-  letter-spacing: 0.6px;
-  margin: 0;
 }
 
 .game-activity-sessions-count {
@@ -1499,7 +1450,7 @@
   height: 14px;
 }
 
-/* ── Panels (right column) ────────────────────────────────────────────── */
+/* ── Content panels (right column) ───────────────────────────────────── */
 
 .game-activity-panel {
   background: var(--color-surface);
@@ -1510,44 +1461,6 @@
   flex-direction: column;
   gap: var(--space-md);
   min-width: 0;
-}
-
-.game-activity-panel-head {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: var(--space-md);
-  flex-wrap: wrap;
-}
-
-.game-activity-panel-title-group {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-  min-width: 0;
-}
-
-.game-activity-panel-title {
-  font-size: var(--font-size-xs);
-  font-weight: var(--font-weight-semibold);
-  text-transform: uppercase;
-  letter-spacing: 0.6px;
-  color: var(--color-text-secondary);
-  margin: 0;
-}
-
-.game-activity-panel-sub {
-  font-size: var(--font-size-md);
-  font-weight: var(--font-weight-bold);
-  color: var(--color-text-primary);
-  font-variant-numeric: tabular-nums;
-}
-
-.game-activity-panel-tools {
-  display: flex;
-  align-items: center;
-  gap: var(--space-sm);
-  flex-wrap: wrap;
 }
 
 .game-activity-chart-empty {
@@ -1570,28 +1483,12 @@
   opacity: 0.4;
 }
 
-/* ── Weekly heatmap ───────────────────────────────────────────────────── */
+/* ── Weekly heatmap ──────────────────────────────────────────────────── */
 
 .game-activity-heatmap {
   display: flex;
   flex-direction: column;
   gap: var(--space-sm);
-}
-
-.game-activity-heatmap-head {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: var(--space-sm);
-}
-
-.game-activity-heatmap-title {
-  font-size: var(--font-size-xs);
-  font-weight: var(--font-weight-semibold);
-  text-transform: uppercase;
-  letter-spacing: 0.6px;
-  color: var(--color-text-secondary);
-  margin: 0;
 }
 
 .game-activity-heatmap-range {
@@ -1711,7 +1608,7 @@
   pointer-events: none;
 }
 
-/* ── Performance mini cards ───────────────────────────────────────────── */
+/* ── Performance averages ────────────────────────────────────────────── */
 
 .game-activity-perf-cards {
   display: grid;
@@ -1797,34 +1694,23 @@
   box-shadow: 0 0 6px color-mix(in srgb, var(--color-danger) 50%, transparent);
 }
 
-/* Perf toolbar: session telemetry selector + curve source badge */
-.game-activity-perf-toolbar {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: var(--space-md);
-  flex-wrap: wrap;
-  padding: var(--space-sm) var(--space-md);
-  background: var(--color-surface);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-lg);
-}
+/* ── Session telemetry picker ────────────────────────────────────────── */
 
-.game-activity-perf-toolbar-left {
+.game-activity-perf-toolbar {
   display: flex;
   align-items: center;
   gap: var(--space-sm);
   flex-wrap: wrap;
-  min-width: 0;
+  padding: var(--space-sm) var(--space-md);
+  background: var(--color-bg-secondary);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
 }
 
-.game-activity-perf-toolbar-title {
-  font-size: var(--font-size-xs);
-  font-weight: var(--font-weight-semibold);
-  text-transform: uppercase;
-  letter-spacing: 0.6px;
-  color: var(--color-text-muted);
-  white-space: nowrap;
+.game-activity-perf-toolbar-note {
+  font-size: var(--font-size-sm);
+  color: var(--color-text-secondary);
+  font-weight: var(--font-weight-medium);
 }
 
 .game-activity-select {
@@ -1882,7 +1768,7 @@
   background: var(--color-success);
 }
 
-/* ── Stacked charts ───────────────────────────────────────────────────── */
+/* ── Stacked charts ──────────────────────────────────────────────────── */
 
 .game-activity-stacked-charts {
   display: flex;
@@ -1896,29 +1782,6 @@
   gap: var(--space-sm);
 }
 
-.game-activity-chart-section-head {
-  display: flex;
-  align-items: center;
-  gap: var(--space-sm);
-}
-
-.game-activity-chart-title {
-  font-size: var(--font-size-xs);
-  font-weight: var(--font-weight-semibold);
-  color: var(--color-text-secondary);
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-}
-
-.game-activity-chart-title svg {
-  width: 12px;
-  height: 12px;
-  color: var(--color-accent);
-}
-
 .game-activity-chart-box {
   background: var(--color-bg-secondary);
   border: 1px solid var(--color-border);
@@ -1926,7 +1789,7 @@
   padding: var(--space-md);
 }
 
-/* ── Empty states ─────────────────────────────────────────────────────── */
+/* ── Empty states ────────────────────────────────────────────────────── */
 
 .game-activity-empty-state {
   display: flex;
@@ -1977,6 +1840,17 @@
   max-width: 42ch;
   margin: 0;
   line-height: 1.5;
+}
+
+/* ── Motion preferences ──────────────────────────────────────────────── */
+
+@media (prefers-reduced-motion: reduce) {
+  .game-activity-nav-indicator {
+    transition: none;
+  }
+  .game-activity-view {
+    animation: none;
+  }
 }
 
 .related-content-btn {
