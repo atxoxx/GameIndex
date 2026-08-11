@@ -171,8 +171,13 @@ fn is_absolute_path_string(s: &str) -> bool {
 /// Read `<root>\steamapps\appmanifest_<appid>.acf` to find where a
 /// given AppID is installed. Returns the parsed manifest (with the
 /// resolved library root) on success or `None` if the manifest is
-/// missing / unparseable. Callers should fall back to a synthetic
-/// pseudo-session if this returns `None`.
+/// missing / unparseable. A manifest is accepted when Steam reports it
+/// fully installed (`StateFlags` bit 4) OR when the composed
+/// `<lib_root>\steamapps\common\<installdir>` directory actually exists
+/// on disk — the directory is the stronger signal, since Steam can lag
+/// flipping `StateFlags` while a game is mid-launch / mid-update
+/// hand-off. Callers should fall back to a synthetic pseudo-session if
+/// this returns `None`.
 pub fn find_app_install_dir(app_id: u32) -> Option<AppManifest> {
     let primary_root = find_steam_install_dir()?;
 
@@ -198,7 +203,18 @@ pub fn find_app_install_dir(app_id: u32) -> Option<AppManifest> {
             Err(_) => continue,
         };
         if let Some(parsed) = parse_appmanifest(&raw, app_id) {
-            if parsed.is_fully_installed() {
+            // Accept the manifest when it is fully installed OR when the
+            // composed install directory exists on disk. The StateFlags
+            // bit can lag reality (Steam rewrites it on its own schedule),
+            // while a present `<lib_root>\steamapps\common\<installdir>`
+            // directory is the stronger, ground-truth signal that the
+            // game is playable right now.
+            let install_dir_exists = lib_root
+                .join("steamapps")
+                .join("common")
+                .join(&parsed.install_dir)
+                .is_dir();
+            if parsed.is_fully_installed() || install_dir_exists {
                 return Some(AppManifest {
                     app_id: parsed.app_id,
                     name: parsed.name,

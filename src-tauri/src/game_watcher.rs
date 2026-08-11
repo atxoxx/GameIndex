@@ -75,6 +75,13 @@ pub struct ActiveSession {
     pub game_id: String,
     pub game_name: String,
     pub started_at: Instant,
+    /// When the session's process was first actually observed running
+    /// (the attach instant). `None` while the session is still pending
+    /// (last_pid == 0 — no process captured yet). Playtime is measured
+    /// from this instant, NOT `started_at`, so a launch that spends
+    /// minutes in a user-gated Steam dialog / slow UAC prompt before
+    /// the game appears doesn't count that waiting time as playtime.
+    pub attached_at: Option<Instant>,
     pub last_pid: u32,
     pub stop_tx: std::sync::mpsc::Sender<()>,
     pub metrics_rx: Option<std::sync::mpsc::Receiver<Option<metrics_collector::SessionMetrics>>>,
@@ -98,11 +105,28 @@ pub struct ActiveSession {
     pub post_exit_script: Option<(String, bool)>,
 }
 
+impl ActiveSession {
+    /// Playtime in whole seconds, measured from the attach instant —
+    /// when the session's process was first actually observed running.
+    /// A session that never attached (pending launch that timed out)
+    /// reports `0`.
+    pub fn elapsed_seconds(&self) -> u64 {
+        self.attached_at
+            .map(|t| t.elapsed().as_secs())
+            .unwrap_or(0)
+    }
+}
+
 /// How long a pending session (last_pid == 0) may exist before it is
-/// considered failed and ended. Steam updates / slow UAC prompts can
-/// take a while, but 2 minutes is plenty — if no matching process has
-/// appeared by then, the launch did not actually start the game.
-const PENDING_SESSION_TIMEOUT: std::time::Duration = std::time::Duration::from_secs(120);
+/// considered failed and ended. Pending sessions cover every launch
+/// that hasn't produced a process yet: Steam protocol launches
+/// (including the user-gated `steam://launch/<appid>/dialog` picker,
+/// which can sit open indefinitely while the user decides which
+/// action/exe to run), slow UAC elevation prompts, and launcher
+/// hand-offs. 10 minutes keeps the session alive through those
+/// user-gated / slow-start paths while still eventually ending a
+/// launch that never actually started a game.
+const PENDING_SESSION_TIMEOUT: std::time::Duration = std::time::Duration::from_secs(600);
 
 /// Steady-state poll interval when no session is in a "hot" state
 /// (e.g. a pending launch awaiting its process). 5 s is cheap and
@@ -299,6 +323,14 @@ impl GameWatcher {
                 metrics_rx: Some(metrics_rx),
                 launched_by_app: true,
                 matched_exe: exe_path.unwrap_or("").to_string(),
+                // A known-PID launch is attached immediately; a pending
+                // protocol launch (initial_pid == 0) anchors later in the
+                // poll loop when the real process first appears.
+                attached_at: if initial_pid != 0 {
+                    Some(Instant::now())
+                } else {
+                    None
+                },
                 install_dir,
                 lost_at: None,
                 post_exit_script,
@@ -441,22 +473,8 @@ impl GameWatcher {
 
         for (gid, session) in &mut self.active_sessions {
             let is_pending = session.last_pid == 0;
-            let session_exe_norm = session.matched_exe.to_lowercase().replace('/', "\\");
-            let is_currently_running = !is_pending
-                && exe_by_pid
-                    .get(&session.last_pid)
-                    .map(|proc_exe| {
-                        // Empty `matched_exe` (only possible for pending
-                        // launches, which have last_pid == 0 and never
-                        // reach this check) counts as running. Both the
-                        // PID and its path come from the same `processes`
-                        // snapshot, so a present PID always has a
-                        // queryable path here — no PID-only fallback
-                        // needed.
-                        session_exe_norm.is_empty()
-                            || proc_exe.to_lowercase().replace('/', "\\") == session_exe_norm
-                    })
-                    .unwrap_or(false);
+            let is_currently_running =
+                is_currently_running(&exe_by_pid, session.last_pid, &session.matched_exe);
 
             if is_currently_running {
                 session.lost_at = None;
@@ -472,8 +490,14 @@ impl GameWatcher {
             // vs `Rockstar Games\GameName`), and finally falls back to an
             // exe-stem match. Without this broadening, launcher-based games
             // lose their session a few seconds after launch.
-            let found_proc =
-                find_session_process(&processes, session.install_dir.as_ref(), &session.matched_exe);
+            let found_proc = find_session_process(
+                &processes,
+                session.install_dir.as_ref(),
+                &session.matched_exe,
+                // Only app-launched sessions get the Tier-1 skip-keyword
+                // fallback; passive detection never relaxes the filter.
+                session.launched_by_app,
+            );
 
             if let Some(proc) = found_proc {
                 session.lost_at = None;
@@ -481,6 +505,11 @@ impl GameWatcher {
             } else {
                 if is_pending {
                     if session.started_at.elapsed() > PENDING_SESSION_TIMEOUT {
+                        eprintln!(
+                            "[game_watcher] {} pending launch timed out after {}s.",
+                            session.game_name,
+                            PENDING_SESSION_TIMEOUT.as_secs()
+                        );
                         ended_ids.push(gid.clone());
                     }
                 } else {
@@ -505,6 +534,14 @@ impl GameWatcher {
         for (gid, proc) in transitions {
             if let Some(session) = self.active_sessions.get_mut(&gid) {
                 let was_pending = session.last_pid == 0;
+
+                // A pending launch just produced a real process — anchor
+                // playtime at the attach instant so the pending window
+                // (user-gated Steam dialog, slow launch, elevation) is
+                // not counted as playtime.
+                if was_pending {
+                    session.attached_at = Some(Instant::now());
+                }
 
                 // Stop metrics collection bound to the old (or dummy)
                 // PID. A new collector will be started for the real one.
@@ -670,6 +707,7 @@ impl GameWatcher {
                 stop_tx,
                 metrics_rx: Some(metrics_rx),
                 launched_by_app: false,
+                attached_at: Some(Instant::now()),
                 matched_exe: proc.exe_path.clone(),
                 install_dir: game.install_dir.clone(),
                 lost_at: None,
@@ -871,7 +909,7 @@ fn finalize_session(
         let _ = crate::run_script_blocking(script, *admin);
     }
     let _ = session.stop_tx.send(());
-    let elapsed = session.started_at.elapsed().as_secs();
+    let elapsed = session.elapsed_seconds();
     let metrics = session
         .metrics_rx
         .as_mut()
@@ -912,33 +950,40 @@ fn finalize_session(
         ),
         None => (None, None, None, None),
     };
-    if let Err(e) = db::sessions::insert(
-        db,
-        &session.game_id,
-        &session.game_name,
-        started_at_ms,
-        finished_at_ms,
-        elapsed,
-        avg_fps,
-        avg_cpu,
-        avg_gpu,
-        avg_ram,
-        metrics_json.as_deref(),
-    ) {
-        eprintln!(
-            "[game_watcher] failed to record session for {}: {e}",
-            session.game_id
-        );
-    }
+    // A session that never attached (last_pid == 0 — only reachable via
+    // the pending-launch timeout) never ran a process: skip the phantom
+    // session row and the last_played stamp entirely. `game-exited` is
+    // still emitted below (with elapsed 0) so the frontend's running
+    // indicator clears.
+    if session.last_pid != 0 {
+        if let Err(e) = db::sessions::insert(
+            db,
+            &session.game_id,
+            &session.game_name,
+            started_at_ms,
+            finished_at_ms,
+            elapsed,
+            avg_fps,
+            avg_cpu,
+            avg_gpu,
+            avg_ram,
+            metrics_json.as_deref(),
+        ) {
+            eprintln!(
+                "[game_watcher] failed to record session for {}: {e}",
+                session.game_id
+            );
+        }
 
-    // Mirror the timestamp into the games table so the Library
-    // "Continue Playing" rail can sort without a JOIN. Phase 3 hot-path:
-    // replaces the old full-library-rewrite triggered by save_games.
-    if let Err(e) = db::games::update_last_played(db, &session.game_id, finished_at_ms) {
-        eprintln!(
-            "[game_watcher] failed to update last_played for {}: {e}",
-            session.game_id
-        );
+        // Mirror the timestamp into the games table so the Library
+        // "Continue Playing" rail can sort without a JOIN. Phase 3 hot-path:
+        // replaces the old full-library-rewrite triggered by save_games.
+        if let Err(e) = db::games::update_last_played(db, &session.game_id, finished_at_ms) {
+            eprintln!(
+                "[game_watcher] failed to update last_played for {}: {e}",
+                session.game_id
+            );
+        }
     }
 
     let _ = app_handle.emit(
@@ -1405,6 +1450,37 @@ fn get_game_root_dir(exe_path: &Path) -> Option<PathBuf> {
     Some(current.to_path_buf())
 }
 
+/// `true` when the tracked PID is alive AND still resolves to the
+/// tracked exe. Liveness by PID alone is not enough: between 5 s polls
+/// the OS can recycle a PID to an unrelated process, which would keep
+/// a dead session "running" against a foreign exe — inflated playtime,
+/// metrics sampling the wrong process, and `game-exited` never firing
+/// until that foreign process exits. A session is only currently
+/// running when its PID is alive AND still resolves to the tracked exe.
+///
+/// Empty `matched_exe` (only possible for pending launches, which have
+/// last_pid == 0 and never reach this check) counts as running. Both
+/// the PID and its path come from the same `processes` snapshot, so a
+/// present PID always has a queryable path here — no PID-only fallback
+/// needed.
+fn is_currently_running(
+    exe_by_pid: &std::collections::HashMap<u32, &str>,
+    last_pid: u32,
+    matched_exe: &str,
+) -> bool {
+    if last_pid == 0 {
+        return false;
+    }
+    let matched_norm = matched_exe.to_lowercase().replace('/', "\\");
+    exe_by_pid
+        .get(&last_pid)
+        .map(|proc_exe| {
+            matched_norm.is_empty()
+                || proc_exe.to_lowercase().replace('/', "\\") == matched_norm
+        })
+        .unwrap_or(false)
+}
+
 /// Locate a still-running process for an active session when the tracked
 /// PID has gone missing (the launcher / bootstrapper exited and handed off
 /// to the real game — commonly right as the game goes fullscreen).
@@ -1424,15 +1500,19 @@ fn get_game_root_dir(exe_path: &Path) -> Option<PathBuf> {
 ///      similar name is never grabbed.
 ///
 /// Skip-keyword executables (launchers, crash handlers, etc.) are always
-/// excluded from every tier.
+/// excluded from every tier — except that `allow_skip_fallback` lets the
+/// Tier-1 install-dir scan relax that exclusion (see
+/// [`find_best_process_in_dir`]). Only app-launched sessions pass `true`;
+/// passive detection always passes `false`.
 fn find_session_process(
     processes: &[ProcessInfo],
     install_dir: Option<&PathBuf>,
     matched_exe: &str,
+    allow_skip_fallback: bool,
 ) -> Option<ProcessInfo> {
     // Tier 1: the session's own install dir.
     if let Some(dir) = install_dir {
-        if let Some(p) = find_best_process_in_dir(processes, dir) {
+        if let Some(p) = find_best_process_in_dir(processes, dir, allow_skip_fallback) {
             return Some(p);
         }
 
@@ -1442,7 +1522,7 @@ fn find_session_process(
         for _ in 0..3 {
             match cur {
                 Some(p) if !p.as_os_str().is_empty() => {
-                    if let Some(found) = find_best_process_in_dir(processes, p) {
+                    if let Some(found) = find_best_process_in_dir(processes, p, false) {
                         return Some(found);
                     }
                     cur = p.parent();
@@ -1528,7 +1608,17 @@ fn find_session_process(
 /// executables whose stem does not contain known non-game keywords
 /// (launchers, crash handlers, etc.) and, when multiple candidates
 /// remain, picks the one with the largest working set.
-fn find_best_process_in_dir(processes: &[ProcessInfo], install_dir: &Path) -> Option<ProcessInfo> {
+///
+/// `allow_skip_fallback` relaxes the skip-keyword exclusion in ONE
+/// corner case: when every candidate is skip-keyworded AND the caller
+/// is re-attaching a session the user launched through the app, the
+/// largest-working-set candidate from the full list is returned
+/// anyway. Passive detection and parent-dir climbs always pass `false`.
+fn find_best_process_in_dir(
+    processes: &[ProcessInfo],
+    install_dir: &Path,
+    allow_skip_fallback: bool,
+) -> Option<ProcessInfo> {
     let dir_lower = install_dir
         .to_string_lossy()
         .to_lowercase()
@@ -1580,7 +1670,18 @@ fn find_best_process_in_dir(processes: &[ProcessInfo], install_dir: &Path) -> Op
     // picking one — without this guard a lone wallpaper64.exe (or
     // similar background app) in a parent directory like
     // `…\steamapps\common\` would be chosen as the "best process".
+    //
+    // `allow_skip_fallback` relaxes this ONLY for Tier-1 re-attach of a
+    // session the user launched through the app: a Steam-launched game
+    // whose only live process is skip-keyworded (e.g. a `gamingservices`
+    // child inside the install dir) still needs to attach, and the
+    // largest-WS candidate keeps the preference ordering. Passive
+    // detection never passes `true` here.
     if skip_filtered.is_empty() {
+        if allow_skip_fallback {
+            candidates.sort_by(|a, b| b.working_set_size.cmp(&a.working_set_size));
+            return candidates.into_iter().next();
+        }
         return None;
     }
     candidates = skip_filtered;
@@ -2008,5 +2109,210 @@ mod tests {
         let refs = build_game_refs_from_library(&input);
         assert_eq!(refs.len(), 1, "only non-emulator games may enter the index");
         assert_eq!(refs[0].game_id, "steam-1");
+    }
+
+    // ── is_currently_running ─────────────────────────────────────────
+
+    #[test]
+    fn test_is_currently_running_matching_exe() {
+        // Case- and separator-insensitive compare of the tracked exe.
+        let mut map: HashMap<u32, &str> = HashMap::new();
+        map.insert(42, "C:\\Games\\Witcher3\\Witcher3.exe");
+        assert!(is_currently_running(&map, 42, "C:\\Games\\Witcher3\\Witcher3.exe"));
+        assert!(is_currently_running(&map, 42, "c:/games/witcher3/witcher3.exe"));
+        assert!(is_currently_running(&map, 42, "C:\\Games\\Witcher3\\WITCHER3.EXE"));
+    }
+
+    #[test]
+    fn test_is_currently_running_different_exe() {
+        let mut map: HashMap<u32, &str> = HashMap::new();
+        map.insert(42, "C:\\Games\\Witcher3\\Witcher3.exe");
+        assert!(!is_currently_running(&map, 42, "C:\\Games\\Other\\other.exe"));
+    }
+
+    #[test]
+    fn test_is_currently_running_absent_pid() {
+        let map: HashMap<u32, &str> = HashMap::new();
+        assert!(!is_currently_running(&map, 999, "anything.exe"));
+    }
+
+    #[test]
+    fn test_is_currently_running_empty_matched_exe() {
+        // Empty matched_exe (only reachable for pending launches) counts
+        // as running while the PID is alive.
+        let mut map: HashMap<u32, &str> = HashMap::new();
+        map.insert(42, "C:\\Games\\Witcher3\\Witcher3.exe");
+        assert!(is_currently_running(&map, 42, ""));
+    }
+
+    // ── elapsed_seconds ──────────────────────────────────────────────
+
+    #[test]
+    fn test_elapsed_seconds_never_attached_is_zero() {
+        let session = ActiveSession {
+            game_id: "g1".to_string(),
+            game_name: "Test".to_string(),
+            started_at: Instant::now(),
+            attached_at: None,
+            last_pid: 0,
+            stop_tx: std::sync::mpsc::channel::<()>().0,
+            metrics_rx: None,
+            launched_by_app: true,
+            matched_exe: String::new(),
+            install_dir: None,
+            lost_at: None,
+            post_exit_script: None,
+        };
+        assert_eq!(session.elapsed_seconds(), 0);
+    }
+
+    #[test]
+    fn test_elapsed_seconds_anchored_at_attach() {
+        // `started_at` is 600 s in the past but `attached_at` is only 2 s
+        // ago: elapsed must reflect the attach anchor, not the launch time.
+        let session = ActiveSession {
+            game_id: "g1".to_string(),
+            game_name: "Test".to_string(),
+            started_at: Instant::now() - std::time::Duration::from_secs(600),
+            attached_at: Some(Instant::now() - std::time::Duration::from_secs(2)),
+            last_pid: 1234,
+            stop_tx: std::sync::mpsc::channel::<()>().0,
+            metrics_rx: None,
+            launched_by_app: true,
+            matched_exe: String::new(),
+            install_dir: None,
+            lost_at: None,
+            post_exit_script: None,
+        };
+        let elapsed = session.elapsed_seconds();
+        assert!(
+            (1..=3).contains(&elapsed),
+            "elapsed should be ~2 s (attached anchor), got {elapsed}"
+        );
+    }
+
+    // ── find_best_process_in_dir ─────────────────────────────────────
+
+    fn make_proc(pid: u32, exe: &str, ws: u64) -> ProcessInfo {
+        ProcessInfo {
+            pid,
+            exe_path: exe.to_string(),
+            working_set_size: ws,
+        }
+    }
+
+    #[test]
+    fn test_find_best_process_in_dir_picks_largest_working_set() {
+        let procs = vec![
+            make_proc(1, "C:\\Games\\Foo\\game.exe", 100),
+            make_proc(2, "C:\\Games\\Foo\\game2.exe", 500),
+            make_proc(3, "C:\\Games\\Foo\\helper.exe", 200),
+        ];
+        let best = find_best_process_in_dir(&procs, Path::new("C:\\Games\\Foo"), false).unwrap();
+        assert_eq!(best.pid, 2, "largest working set wins among non-skip candidates");
+    }
+
+    #[test]
+    fn test_find_best_process_in_dir_prefers_non_skip_over_larger_skip() {
+        let procs = vec![
+            make_proc(1, "C:\\Games\\Foo\\game.exe", 100),
+            make_proc(2, "C:\\Games\\Foo\\launcher.exe", 999),
+        ];
+        let best = find_best_process_in_dir(&procs, Path::new("C:\\Games\\Foo"), false).unwrap();
+        assert_eq!(best.pid, 1, "skip-keyworded exe never beats a real candidate");
+    }
+
+    #[test]
+    fn test_find_best_process_in_dir_all_skip_no_fallback() {
+        let procs = vec![
+            make_proc(1, "C:\\Games\\Foo\\launcher.exe", 100),
+            make_proc(2, "C:\\Games\\Foo\\crashhandler.exe", 999),
+        ];
+        assert!(
+            find_best_process_in_dir(&procs, Path::new("C:\\Games\\Foo"), false).is_none(),
+            "all-skip candidates must resolve to None without the fallback"
+        );
+    }
+
+    #[test]
+    fn test_find_best_process_in_dir_all_skip_with_fallback() {
+        let procs = vec![
+            make_proc(1, "C:\\Games\\Foo\\launcher.exe", 100),
+            make_proc(2, "C:\\Games\\Foo\\crashhandler.exe", 999),
+        ];
+        let best = find_best_process_in_dir(&procs, Path::new("C:\\Games\\Foo"), true).unwrap();
+        assert_eq!(best.pid, 2, "fallback picks the largest working set from the full list");
+    }
+
+    #[test]
+    fn test_find_best_process_in_dir_empty() {
+        assert!(find_best_process_in_dir(&[], Path::new("C:\\Games\\Foo"), false).is_none());
+        assert!(find_best_process_in_dir(&[], Path::new("C:\\Games\\Foo"), true).is_none());
+    }
+
+    // ── find_session_process ─────────────────────────────────────────
+
+    #[test]
+    fn test_find_session_process_tier1_hit() {
+        let procs = vec![
+            make_proc(1, "C:\\Games\\Foo\\game.exe", 100),
+            make_proc(2, "C:\\Games\\Foo\\other.exe", 50),
+        ];
+        let dir = PathBuf::from("C:\\Games\\Foo");
+        let found =
+            find_session_process(&procs, Some(&dir), "C:\\Games\\Foo\\game.exe", false).unwrap();
+        assert_eq!(found.pid, 1, "Tier 1 should attach inside the install dir");
+    }
+
+    #[test]
+    fn test_find_session_process_tier2_parent_climb() {
+        // The launcher lives in a sibling folder under a shared publisher
+        // root; Tier 2 must climb up to find the real game.
+        let procs = vec![
+            make_proc(1, "C:\\Games\\Publisher\\Launcher\\launcher.exe", 100),
+            make_proc(2, "C:\\Games\\Publisher\\GameName\\game.exe", 50),
+        ];
+        let dir = PathBuf::from("C:\\Games\\Publisher\\Launcher");
+        let found = find_session_process(
+            &procs,
+            Some(&dir),
+            "C:\\Games\\Publisher\\Launcher\\launcher.exe",
+            false,
+        )
+        .unwrap();
+        assert_eq!(found.pid, 2, "Tier 2 should climb to the shared publisher root");
+    }
+
+    #[test]
+    fn test_find_session_process_tier3_empty_matched_exe_returns_none() {
+        // Regression pin for protocol launches: with no known exe, Tier 3
+        // has no stem to match — even a game-named process elsewhere on
+        // disk must not be grabbed.
+        let procs = vec![make_proc(1, "D:\\Games\\GameName\\game.exe", 100)];
+        let dir = PathBuf::from("C:\\Games\\Foo");
+        assert!(find_session_process(&procs, Some(&dir), "", false).is_none());
+        assert!(find_session_process(&procs, Some(&dir), "", true).is_none());
+    }
+
+    #[test]
+    fn test_find_session_process_no_install_dir_empty_matched_exe_returns_none() {
+        let procs = vec![make_proc(1, "C:\\Games\\Foo\\game.exe", 100)];
+        assert!(find_session_process(&procs, None, "", false).is_none());
+        assert!(find_session_process(&procs, None, "", true).is_none());
+    }
+
+    #[test]
+    fn test_find_session_process_allow_flag_reaches_tier1_only() {
+        // Only a skip-keyworded process sits inside the install dir. For
+        // an app-launched session (allow=true) the Tier-1 scan still
+        // attaches; passive detection (allow=false) must not.
+        let procs = vec![make_proc(7, "C:\\Games\\Foo\\launcher.exe", 100)];
+        let dir = PathBuf::from("C:\\Games\\Foo");
+        assert!(
+            find_session_process(&procs, Some(&dir), "", false).is_none(),
+            "allow=false must not relax the skip filter in Tier 1"
+        );
+        let found = find_session_process(&procs, Some(&dir), "", true).unwrap();
+        assert_eq!(found.pid, 7, "allow=true relaxes the skip filter in Tier 1");
     }
 }

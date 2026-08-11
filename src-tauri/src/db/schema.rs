@@ -44,6 +44,13 @@ pub const GAMES_V3_DDL: &str = include_str!("schema_games_v3.sql");
 /// next launch; fresh installs apply v1 → v2 → v3 → v4.
 pub const GAMES_V4_DDL: &str = include_str!("schema_games_v4.sql");
 
+/// DDL for the `games` domain, v5 migration: the per-game
+/// `show_steam_launch_selection` column opting a Steam game into the
+/// `steam://launch/<appid>/dialog` launch picker. Applied as a separate
+/// migration version so existing installs (already at `games` v4) pick
+/// it up on next launch; fresh installs apply v1 → … → v5.
+pub const GAMES_V5_DDL: &str = include_str!("schema_games_v5.sql");
+
 /// DDL for the `emulators` domain: the `emulators` table.
 pub const EMULATORS_DDL: &str = include_str!("schema_emulators.sql");
 
@@ -107,7 +114,7 @@ pub const DOMAIN_SCHEMAS: &[DomainSchema] = &[
     },
 DomainSchema {
     label: "games",
-    versions: &[("v1", GAMES_DDL), ("v2", GAMES_V2_DDL), ("v3", GAMES_V3_DDL), ("v4", GAMES_V4_DDL)],
+    versions: &[("v1", GAMES_DDL), ("v2", GAMES_V2_DDL), ("v3", GAMES_V3_DDL), ("v4", GAMES_V4_DDL), ("v5", GAMES_V5_DDL)],
 },
     DomainSchema {
         label: "sessions",

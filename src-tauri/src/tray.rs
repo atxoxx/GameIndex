@@ -566,6 +566,7 @@ fn launch_recent(app: &AppHandle, game_id: &str) {
         row.post_exit_script,
         row.post_exit_admin,
         companion_apps,
+        row.show_steam_launch_selection,
     ) {
         eprintln!("[gameindex] tray recent-game launch failed: {e}");
     }

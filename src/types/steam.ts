@@ -66,6 +66,17 @@ export interface SyncedGameEntry {
   rtimeLastPlayed?: number;
 }
 
+/** A single launch action/executable Steam offers for a game (from the
+ *  `steam_launch_options` Tauri command, best-effort). */
+export interface SteamLaunchOption {
+  /** Index of the launch action within Steam's config. */
+  index: number;
+  /** Human-readable description of the launch action (may be empty). */
+  description: string;
+  /** Executable path for the launch action. */
+  executable: string;
+}
+
 export interface SteamSettings {
   autoSyncOnLaunch: boolean;
   syncPlaytime: boolean;

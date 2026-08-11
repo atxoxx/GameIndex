@@ -21,6 +21,7 @@ import {
   PLAY_STATUS_DETAILS,
   extractSteamAppIdFromWebsites,
 } from "../../types/game";
+import type { SteamLaunchOption } from "../../types/steam";
 import { Button } from "../../components/ui";
 import { EditImageSlot } from "./EditImageSlot";
 import { LaunchBoxImageBrowser } from "./LaunchBoxImageBrowser";
@@ -147,6 +148,7 @@ export function EditGameModal({ game, onClose }: EditGameModalProps) {
   const [editPath, setEditPath] = useState(game.path || "");
   const [editLaunchArguments, setEditLaunchArguments] = useState(game.launchArguments || "");
   const [editRunAsAdmin, setEditRunAsAdmin] = useState(game.runAsAdmin || false);
+  const [editShowSteamLaunchSelection, setEditShowSteamLaunchSelection] = useState(game.showSteamLaunchSelection || false);
   const [editPreLaunchScript, setEditPreLaunchScript] = useState(game.preLaunchScript || "");
   const [editPreLaunchAdmin, setEditPreLaunchAdmin] = useState(game.preLaunchAdmin || false);
   const [editPostExitScript, setEditPostExitScript] = useState(game.postExitScript || "");
@@ -156,6 +158,37 @@ export function EditGameModal({ game, onClose }: EditGameModalProps) {
       ? game.companionApps.map((c) => ({ ...c }))
       : []
   );
+
+  // ── Steam launch-actions detection ─────────────────────────────
+  // Best-effort: the backend returns the launch actions Steam offers
+  // for this game ([] when Steam is unavailable / no actions). Only
+  // used to surface a hint in the launch tab when 2+ actions exist.
+  const [steamLaunchOptions, setSteamLaunchOptions] = useState<SteamLaunchOption[] | null>(null);
+  useEffect(() => {
+    if (game.platform !== "Steam" || !game.steamAppId) {
+      setSteamLaunchOptions(null);
+      return;
+    }
+    let cancelled = false;
+    invoke<SteamLaunchOption[]>("steam_launch_options", { steamAppId: game.steamAppId })
+      .then((options) => {
+        if (!cancelled) setSteamLaunchOptions(options);
+      })
+      .catch(() => {
+        if (!cancelled) setSteamLaunchOptions(null);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [game.platform, game.steamAppId]);
+
+  // Label listing the detected launch actions (descriptions joined,
+  // falling back to "Option N" when a description is empty).
+  const steamLaunchListLabel = steamLaunchOptions
+    ? steamLaunchOptions
+        .map((o) => o.description.trim() || `Option ${o.index}`)
+        .join(", ")
+    : "";
 
   // ── Metadata search ───────────────────────────────────────────
   const [fetchingMetadata, setFetchingMetadata] = useState(false);
@@ -587,6 +620,7 @@ export function EditGameModal({ game, onClose }: EditGameModalProps) {
       path: editPath.trim() || undefined,
       launchArguments: editLaunchArguments.trim() || undefined,
       runAsAdmin: editRunAsAdmin || undefined,
+      showSteamLaunchSelection: editShowSteamLaunchSelection || undefined,
       preLaunchScript: editPreLaunchScript.trim() || undefined,
       preLaunchAdmin: editPreLaunchAdmin || undefined,
       postExitScript: editPostExitScript.trim() || undefined,
@@ -1077,6 +1111,20 @@ export function EditGameModal({ game, onClose }: EditGameModalProps) {
                 </label>
                 <span className="size-edit-hint" style={{ display: "block", marginTop: "4px", marginLeft: "26px" }}>{t("edit.runAsAdminHint")}</span>
               </div>
+              {game.platform === "Steam" && (
+                <div className="edit-field full-width" style={{ marginTop: "var(--space-md)" }}>
+                  <label className="checkbox-container" style={{ display: "flex", alignItems: "center", gap: "var(--space-sm)", cursor: "pointer", userSelect: "none" }}>
+                    <input type="checkbox" checked={editShowSteamLaunchSelection} onChange={(e) => setEditShowSteamLaunchSelection(e.target.checked)} style={{ width: "18px", height: "18px", accentColor: "var(--color-accent)", cursor: "pointer" }} />
+                    <span style={{ fontSize: "var(--font-size-sm)", fontWeight: 500, color: "var(--color-text-primary)" }}>{t("edit.showSteamLaunchSelection")}</span>
+                  </label>
+                  <span className="size-edit-hint" style={{ display: "block", marginTop: "4px", marginLeft: "26px" }}>{t("edit.showSteamLaunchSelectionHint")}</span>
+                  {steamLaunchOptions && steamLaunchOptions.length >= 2 && (
+                    <span className="size-edit-hint" style={{ display: "block", marginTop: "4px", marginLeft: "26px" }}>
+                      {t("edit.steamLaunchActionsDetected", { count: steamLaunchOptions.length, list: steamLaunchListLabel })}
+                    </span>
+                  )}
+                </div>
+              )}
 
               <fieldset className="edit-fieldset" style={{ marginTop: "var(--space-lg)" }}>
                 <legend className="edit-fieldset-legend">{t("edit.tab.scripts")}</legend>

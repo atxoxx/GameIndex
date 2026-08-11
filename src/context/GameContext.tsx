@@ -987,6 +987,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
         gpuName,
         launchArguments: game.launchArguments || null,
         runAsAdmin: game.runAsAdmin || null,
+        showSteamLaunchSelection: game.showSteamLaunchSelection || null,
         preLaunchScript: game.preLaunchScript || null,
         preLaunchAdmin: game.preLaunchAdmin || null,
         postExitScript: game.postExitScript || null,

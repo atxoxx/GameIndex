@@ -58,6 +58,7 @@ use uplay::{
     uplay_get_settings, uplay_launch_game, uplay_save_settings, uplay_sync_library,
 };
 use steam::auth::{steam_connect, steam_logout, steam_get_session};
+use steam::launch_options::SteamLaunchOption;
 use steam::sync::steam_sync_games;
 use size::{detect_game_size, check_paths_exist, open_folder, disk_usage, move_game_install, uninstall_game, measure_path_size};
 use system_screenshots::detect_system_screenshot_folders;
@@ -215,6 +216,12 @@ struct GameData {
     launch_arguments: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     run_as_admin: Option<bool>,
+    /// When true, launching this Steam game goes through Steam's
+    /// launch-action picker (`steam://launch/<appid>/dialog`) so games
+    /// with multiple launch actions offer a choose-executable window.
+    /// Defaults to the plain `steam://run/<appid>` path.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    show_steam_launch_selection: Option<bool>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pre_launch_script: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -1514,6 +1521,7 @@ fn launch_game(
     post_exit_script: Option<String>,
     post_exit_admin: Option<bool>,
     companion_apps: Option<Vec<CompanionApp>>,
+    show_steam_launch_selection: Option<bool>,
 ) -> Result<String, String> {
     let watcher: tauri::State<'_, Arc<std::sync::Mutex<GameWatcher>>> = app.state();
     let launcher: tauri::State<'_, Arc<std::sync::Mutex<LauncherSettings>>> = app.state();
@@ -1570,16 +1578,37 @@ fn launch_game(
     let exe_path: Option<String>;
 
     // â”€â”€ Determine launch strategy â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-    if platform == "Steam" && (game_path.is_empty() || !Path::new(&game_path).exists()) {
-        // Steam game without local exe â€” use steam:// protocol
+    if platform == "Steam" && show_steam_launch_selection.unwrap_or(false) {
+        // Steam game with the launch-picker option enabled — go through
+        // `steam://launch/<appid>/dialog` so Steam shows its
+        // choose-executable/action window (games with a single launch
+        // action still launch directly).
+        let sid = steam_app_id.ok_or("Steam games require a steamAppId")?;
+        let url = crate::steam::launch_options::steam_launch_url(sid, true);
+        tauri_plugin_opener::open_url(url, None::<&str>)
+            .map_err(|e| format!("Failed to open Steam URL: {}", e))?;
+
+        // No PID â€" the watcher will detect the process when it appears
+        initial_pid = 0;
+        // Carry the sync-resolved exe so the watcher's Tier-3 stem
+        // attach and the exe-based install_dir fallback still work while
+        // Steam owns the process. On attach `matched_exe` is overwritten
+        // with the real process path before any liveness check.
+        exe_path = if game_path.is_empty() { None } else { Some(game_path.clone()) };
+    } else if platform == "Steam" && (game_path.is_empty() || !Path::new(&game_path).exists()) {
+        // Steam game without local exe â€" use steam:// protocol
         let sid = steam_app_id.ok_or("Steam games require a steamAppId")?;
         let url = format!("steam://run/{}", sid);
         tauri_plugin_opener::open_url(url, None::<&str>)
             .map_err(|e| format!("Failed to open Steam URL: {}", e))?;
 
-        // No PID â€” the watcher will detect the process when it appears
+        // No PID â€" the watcher will detect the process when it appears
         initial_pid = 0;
-        exe_path = None;
+        // Carry the sync-resolved exe so the watcher's Tier-3 stem
+        // attach and the exe-based install_dir fallback still work while
+        // Steam owns the process. On attach `matched_exe` is overwritten
+        // with the real process path before any liveness check.
+        exe_path = if game_path.is_empty() { None } else { Some(game_path.clone()) };
     } else if platform == "Ubisoft" && game_path.is_empty() {
         // Ubisoft Connect game without a local exe path -- launch via
         // the `uplay://launch/<id>` protocol. Mirrors Playnite's
@@ -1726,12 +1755,24 @@ fn launch_game(
         }
     }
 
-    let msg = if platform == "Steam" && initial_pid == 0 {
+    let msg = if platform == "Steam" && show_steam_launch_selection.unwrap_or(false) {
+        format!("Launched {} via Steam (launch picker)", game_name)
+    } else if platform == "Steam" && initial_pid == 0 {
         format!("Launched {} via Steam (tracking via process watcher)", game_name)
     } else {
         format!("Launched: {}", game_path)
     };
     Ok(msg)
+}
+
+/// Best-effort list of the launch actions a Steam game exposes, read
+/// from the local install's `appcache/appinfo.vdf`. Returns an empty
+/// vec when Steam / the cache / the app's entry is missing — never an
+/// error. Lets the edit modal hint whether the launch-picker option is
+/// worth enabling.
+#[tauri::command]
+fn steam_launch_options(steam_app_id: u32) -> Vec<SteamLaunchOption> {
+    crate::steam::launch_options::steam_launch_options(steam_app_id)
 }
 
 /// Read an image file from disk and return it as a base64 data URL.
@@ -3822,6 +3863,7 @@ pub fn run() {
         .invoke_handler(tauri::generate_handler![scan_folder_for_exes, launch_game, force_close_game, save_games, save_game, load_games, update_game_last_played, read_cover_image, search_game_metadata, fetch_game_images, download_image, search_launchbox_images, detect_gpus, list_media_files, save_screenshot, save_text_file, load_sessions, get_sessions, delete_session, insert_session, get_system_ram_gb, get_system_info, set_metrics_config, detect_game_size, check_paths_exist, open_folder, disk_usage, move_game_install, uninstall_game, measure_path_size, detect_steam_screenshot_folders, detect_system_screenshot_folders, save_store_cache, load_store_cache, fetch_store_games, search_store_games,            get_store_game_detail, get_collection_games,            fetch_game_reviews, fetch_external_reviews, fetch_hydra_reviews, fetch_hydra_review_replies,             get_hydra_game_stats, get_about_section, get_recommended_config,
             get_language, set_language, get_about_bundle,             save_wishlist, load_wishlist, get_last_session_for_game, save_source_cache, load_source_cache, deals::fetch_gamepass_catalog, deals::fetch_isthereanydeal_deals, deals::fetch_giveaways, deals::open_deal_url,            steam_sync_games,
             steam_connect, steam_logout, steam_get_session,
+            steam_launch_options,
             epic_start_login, epic_finish_login, epic_login_with_refresh_token, epic_sync_library, epic_is_authenticated, epic_logout,
             gog_start_login, gog_sync_library, gog_is_authenticated, gog_logout,
             humble_start_login, humble_sync_library, humble_is_authenticated, humble_logout,

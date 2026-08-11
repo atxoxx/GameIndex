@@ -165,6 +165,9 @@ export interface Game {
   collectionId?: number;
   launchArguments?: string;
   runAsAdmin?: boolean;
+  /** When true, Steam games launch through Steam's own executable/action
+   *  picker window instead of Steam's default launch action. */
+  showSteamLaunchSelection?: boolean;
   /** Path to a script (bat/ps1/cmd/exe) executed synchronously before the game launches. */
   preLaunchScript?: string;
   /** Run the pre-launch script with UAC elevation (Windows). */

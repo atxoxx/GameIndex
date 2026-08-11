@@ -1828,6 +1828,7 @@ dependencies = [
  "serde_yaml",
  "sha2",
  "spider",
+ "steam-vdf-parser",
  "tauri",
  "tauri-build",
  "tauri-plugin-autostart",
@@ -5405,6 +5406,19 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "a2eb9349b6444b326872e140eb1cf5e7c522154d69e7a0ffb0fb81c06b37543f"
 
 [[package]]
+name = "steam-vdf-parser"
+version = "0.1.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "ae729373438271906eb7fe05df9682a83052f6b242e51b30fd7bcdd4d6addc38"
+dependencies = [
+ "foldhash",
+ "hex 0.4.3",
+ "indexmap 2.14.0",
+ "static_assertions",
+ "winnow 0.7.15",
+]
+
+[[package]]
 name = "string_cache"
 version = "0.8.9"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -7595,6 +7609,9 @@ name = "winnow"
 version = "0.7.15"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "df79d97927682d2fd8adb29682d1140b343be4ac0f08fd68b7765d9c059d3945"
+dependencies = [
+ "memchr",
+]
 
 [[package]]
 name = "winnow"

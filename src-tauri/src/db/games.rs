@@ -109,6 +109,11 @@ pub struct GameRow {
     pub launch_arguments: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub run_as_admin: Option<bool>,
+    /// When true, launching this Steam game goes through Steam's
+    /// launch-action picker (`steam://launch/<appid>/dialog`) so games
+    /// with multiple launch actions offer a choose-executable window.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub show_steam_launch_selection: Option<bool>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub pre_launch_script: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -198,7 +203,8 @@ pub fn upsert_all(db: &Db, rows: &[GameRow]) -> Result<(), String> {
                  pre_launch_script, pre_launch_admin, post_exit_script, post_exit_admin,
                  companion_apps_json,
                  mods_folder, mods_size_bytes, mods_detected_at,
-                 cover_source_url
+                 cover_source_url,
+                 show_steam_launch_selection
              ) VALUES (
                  ?1,?2,?3,?4,?5,?6,?7,
                  ?8,?9,?10,?11,?12,
@@ -217,7 +223,8 @@ pub fn upsert_all(db: &Db, rows: &[GameRow]) -> Result<(), String> {
                  ?52,?53,
                  ?54,?55,?56,?57,
                  ?58,
-                 ?59,?60,?61,?62
+                 ?59,?60,?61,?62,
+                 ?63
              )",
         )
         .map_err(|e| format!("games prepare: {e}"))?;
@@ -298,6 +305,7 @@ pub fn upsert_all(db: &Db, rows: &[GameRow]) -> Result<(), String> {
             r.mods_size_bytes.map(|n| n as i64),
             r.mods_detected_at,
             r.cover_source_url,
+            r.show_steam_launch_selection.map(|b| b as i32),
         ])
         .map_err(|e| format!("games insert {i}: {e}"))?;
         persist_emulation_link(&tx, &r.id, &r.emulator_id, &r.rom_path)?;
@@ -340,7 +348,8 @@ pub fn upsert_one(db: &Db, r: &GameRow) -> Result<(), String> {
             pre_launch_script, pre_launch_admin, post_exit_script, post_exit_admin,
             companion_apps_json,
             mods_folder, mods_size_bytes, mods_detected_at,
-            cover_source_url
+            cover_source_url,
+            show_steam_launch_selection
         ) VALUES (
             ?1,?2,?3,?4,?5,?6,?7,
             ?8,?9,?10,?11,?12,
@@ -359,7 +368,8 @@ pub fn upsert_one(db: &Db, r: &GameRow) -> Result<(), String> {
             ?52,?53,
             ?54,?55,?56,?57,
             ?58,
-            ?59,?60,?61,?62
+            ?59,?60,?61,?62,
+            ?63
         )",
         params![
             r.id,
@@ -425,6 +435,7 @@ pub fn upsert_one(db: &Db, r: &GameRow) -> Result<(), String> {
             r.mods_size_bytes.map(|n| n as i64),
             r.mods_detected_at,
             r.cover_source_url,
+            r.show_steam_launch_selection.map(|b| b as i32),
         ],
     )
     .map_err(|e| format!("games upsert_one: {e}"))?;
@@ -516,7 +527,7 @@ pub fn delete_by_emulator(db: &Db, emulator_id: &str) -> Result<(), String> {
     Ok(())
 }
 
-const GAMES_SELECT_SQL: &str = "SELECT id, name, path, platform, installed, play_time, added_at, cover_art_url, notes, size_bytes, size_detected_at, size_root_path, icon_url, banner_url, logo_url, description, developer, publisher, release_date, metadata_source, metadata_url, storyline, igdb_rating, critic_rating, steam_app_id, steam_playtime, store_source, epic_namespace, epic_catalog_item_id, launch_arguments, run_as_admin, last_played, play_status, genres_json, themes_json, game_modes_json, player_perspectives_json, screenshots_json, videos_json, websites_json, time_to_beat_json, similar_games_json, releases_json, igdb_reviews_json, alternative_names_json, steam_achievements_json, language_supports_json, collection, franchise, game_category, release_status, gog_game_id, gog_playtime, pre_launch_script, pre_launch_admin, post_exit_script, post_exit_admin, companion_apps_json, emulator_id, rom_path, mods_folder, mods_size_bytes, mods_detected_at, cover_source_url FROM games";
+const GAMES_SELECT_SQL: &str = "SELECT id, name, path, platform, installed, play_time, added_at, cover_art_url, notes, size_bytes, size_detected_at, size_root_path, icon_url, banner_url, logo_url, description, developer, publisher, release_date, metadata_source, metadata_url, storyline, igdb_rating, critic_rating, steam_app_id, steam_playtime, store_source, epic_namespace, epic_catalog_item_id, launch_arguments, run_as_admin, last_played, play_status, genres_json, themes_json, game_modes_json, player_perspectives_json, screenshots_json, videos_json, websites_json, time_to_beat_json, similar_games_json, releases_json, igdb_reviews_json, alternative_names_json, steam_achievements_json, language_supports_json, collection, franchise, game_category, release_status, gog_game_id, gog_playtime, pre_launch_script, pre_launch_admin, post_exit_script, post_exit_admin, companion_apps_json, emulator_id, rom_path, mods_folder, mods_size_bytes, mods_detected_at, cover_source_url, show_steam_launch_selection FROM games";
 
 fn game_row_from_row(r: &rusqlite::Row<'_>) -> rusqlite::Result<GameRow> {
     Ok(GameRow {
@@ -594,6 +605,9 @@ fn game_row_from_row(r: &rusqlite::Row<'_>) -> rusqlite::Result<GameRow> {
         // v4 migration column — read after the original 63 columns.
         // NULL rows (pre-v4) read back as `None`.
         cover_source_url: r.get(63)?,
+        // v5 migration column — read after the original 64 columns.
+        // NULL rows (pre-v5) read back as `None`.
+        show_steam_launch_selection: r.get::<_, Option<i64>>(64)?.map(|n| n != 0),
     })
 }
 
@@ -630,7 +644,7 @@ fn json_opt_get<T: serde::de::DeserializeOwned>(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::db::schema::{GAMES_DDL, GAMES_V2_DDL, GAMES_V3_DDL, GAMES_V4_DDL, EMULATORS_DDL};
+    use crate::db::schema::{GAMES_DDL, GAMES_V2_DDL, GAMES_V3_DDL, GAMES_V4_DDL, GAMES_V5_DDL, EMULATORS_DDL};
     use serde_json::json;
 
     fn test_db() -> (tempfile::TempDir, Db) {
@@ -642,6 +656,7 @@ mod tests {
             conn.execute_batch(GAMES_V2_DDL).unwrap();
             conn.execute_batch(GAMES_V3_DDL).unwrap();
             conn.execute_batch(GAMES_V4_DDL).unwrap();
+            conn.execute_batch(GAMES_V5_DDL).unwrap();
         }
         (dir, db)
     }
@@ -665,6 +680,7 @@ mod tests {
             "screenshots": ["s1", "s2"],
             "companionApps": [{"name": "overlay"}],
             "preLaunchScript": "echo hi",
+            "showSteamLaunchSelection": true,
         }))
         .unwrap()
     }
@@ -688,6 +704,7 @@ mod tests {
         assert_eq!(got.genres, Some(vec!["Action".into(), "RPG".into()]));
         assert_eq!(got.screenshots, Some(vec!["s1".into(), "s2".into()]));
         assert_eq!(got.pre_launch_script.as_deref(), Some("echo hi"));
+        assert_eq!(got.show_steam_launch_selection, Some(true));
         assert!(got.companion_apps.is_some());
     }
 
@@ -705,5 +722,6 @@ mod tests {
         assert_eq!(got.genres, Some(vec!["Action".into(), "RPG".into()]));
         assert_eq!(got.screenshots, Some(vec!["s1".into(), "s2".into()]));
         assert_eq!(got.pre_launch_script.as_deref(), Some("echo hi"));
+        assert_eq!(got.show_steam_launch_selection, Some(true));
     }
 }
