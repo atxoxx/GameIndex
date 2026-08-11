@@ -7,8 +7,8 @@ interface StoreHeaderProps {
 
 /**
  * Hydra-style sticky top bar for the Store catalogue: branding, live result
- * count, the "Show hidden" toggle, and the Filters trigger. The search, sort,
- * select, and density controls live in `StoreToolbar` between the rail and the
+ * count, and the "Show hidden" toggle. The search, sort, select, filter,
+ * and density controls live in `StoreToolbar` between the rail and the
  * grid. Keeping it as its own component keeps `StorePage` a thin root.
  */
 export default function StoreHeader({ catalogue: c }: StoreHeaderProps) {
@@ -51,24 +51,6 @@ export default function StoreHeader({ catalogue: c }: StoreHeaderProps) {
               {c.showHidden ? t("store.hideDismissed") : t("store.showHidden", { count: c.hiddenCount })}
             </button>
           )}
-
-          <button
-            type="button"
-            className={`store-filter-trigger${c.activeFilterCount > 0 ? " has-active" : ""}`}
-            onClick={() => c.setFiltersOpen(true)}
-            aria-haspopup="dialog"
-            aria-expanded={c.filtersOpen}
-          >
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-              <line x1="4" y1="6" x2="20" y2="6" />
-              <line x1="7" y1="12" x2="17" y2="12" />
-              <line x1="10" y1="18" x2="14" y2="18" />
-            </svg>
-            {t("store.filters")}
-            {c.activeFilterCount > 0 && (
-              <span className="store-filter-trigger-badge">{c.activeFilterCount}</span>
-            )}
-          </button>
         </div>
       </div>
     </header>

@@ -34,6 +34,24 @@ export default function StoreToolbar({ catalogue: c }: StoreToolbarProps) {
 
         <button
           type="button"
+          className={`store-filter-trigger${c.activeFilterCount > 0 ? " has-active" : ""}`}
+          onClick={() => c.setFiltersOpen(!c.filtersOpen)}
+          aria-haspopup="dialog"
+          aria-expanded={c.filtersOpen}
+        >
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+            <line x1="4" y1="6" x2="20" y2="6" />
+            <line x1="7" y1="12" x2="17" y2="12" />
+            <line x1="10" y1="18" x2="14" y2="18" />
+          </svg>
+          {t("store.filters")}
+          {c.activeFilterCount > 0 && (
+            <span className="store-filter-trigger-badge">{c.activeFilterCount}</span>
+          )}
+        </button>
+
+        <button
+          type="button"
           className={`store-toolbar-toggle${c.bulkMode ? " active" : ""}`}
           onClick={() => {
             c.setBulkMode(!c.bulkMode);

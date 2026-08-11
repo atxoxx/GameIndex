@@ -8,8 +8,8 @@ interface StoreFilterPanelProps {
 
 /**
  * Wraps `StoreFilterSidebar` in both the inline (wide-viewport) rail and
- * the slide-over drawer (compact widths), so the filter UI isn't
- * duplicated. The drawer is opened via the header "Filters" trigger.
+ * a left-side overlay (compact widths), so the filter UI isn't duplicated.
+ * The overlay is toggled via the toolbar "Filters" trigger.
  */
 export default function StoreFilterPanel({ catalogue: c }: StoreFilterPanelProps) {
   const { t } = useLanguage();
@@ -59,24 +59,24 @@ export default function StoreFilterPanel({ catalogue: c }: StoreFilterPanelProps
         )}
       </div>
 
-      {/* Slide-over drawer for compact widths. */}
+      {/* Left-side overlay for compact widths; toggled from the toolbar. */}
       <div
-        className={`store-filter-drawer-scrim${c.filtersOpen ? " open" : ""}`}
+        className={`store-filter-overlay-scrim${c.filtersOpen ? " open" : ""}`}
         onClick={() => c.setFiltersOpen(false)}
         aria-hidden={!c.filtersOpen}
       />
       <aside
-        className={`store-filter-drawer${c.filtersOpen ? " open" : ""}`}
+        className={`store-filter-overlay${c.filtersOpen ? " open" : ""}`}
         role="dialog"
         aria-modal="true"
         aria-label={t("store.filters")}
         aria-hidden={!c.filtersOpen}
       >
-        <div className="store-filter-drawer-header">
+        <div className="store-filter-overlay-header">
           <h3>{t("store.filtersTitle")}</h3>
           <button
             type="button"
-            className="store-filter-drawer-close"
+            className="store-filter-overlay-close"
             onClick={() => c.setFiltersOpen(false)}
             aria-label={t("store.closeFilters")}
           >
@@ -86,7 +86,7 @@ export default function StoreFilterPanel({ catalogue: c }: StoreFilterPanelProps
             </svg>
           </button>
         </div>
-        <div className="store-filter-drawer-body">{renderSidebar()}</div>
+        <div className="store-filter-overlay-body">{renderSidebar()}</div>
       </aside>
     </>
   );

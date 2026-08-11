@@ -309,7 +309,7 @@
 
 /* Inline filter rail (wide viewports) with collapse toggle — mirrors the
    library's `lib-rail-wrap` / `lib-rail-toggle-btn`. Hidden on compact
-   widths, where the slide-over drawer is used instead. */
+   widths, where the left-side overlay is used instead. */
 .store-filter-rail {
   display: none;
   position: relative;
@@ -1183,13 +1183,14 @@
   height: 18px;
 }
 
-/* ── Slide-over filter drawer (compact widths) ────────────────────────────
-   Replaces the permanently-mounted sidebar on narrow viewports. The grid
-   keeps its full width; filters are summoned on demand via the toolbar
-   "Filters" button. On wide screens the drawer is hidden and the inline
-   sidebar (`.store-layout-inline-sidebar`) is shown instead. */
+/* ── Filter overlay (compact widths) ──────────────────────────────────────
+   Replaces the permanently-mounted sidebar on narrow viewports: the sidebar
+   slides in from the left, toggled via the toolbar "Filters" button. Its
+   height hugs the filter content (capped at the viewport) instead of the
+   full page. On wide screens the overlay is hidden and the inline sidebar
+   (`.store-layout-inline-sidebar`) is shown instead. */
 
-.store-filter-drawer-scrim {
+.store-filter-overlay-scrim {
   position: fixed;
   inset: 0;
   z-index: 90;
@@ -1200,34 +1201,36 @@
   transition: opacity var(--transition-fast), visibility var(--transition-fast);
 }
 
-.store-filter-drawer-scrim.open {
+.store-filter-overlay-scrim.open {
   opacity: 1;
   visibility: visible;
 }
 
-.store-filter-drawer {
+.store-filter-overlay {
   position: fixed;
   top: 0;
-  right: 0;
-  bottom: 0;
+  left: 0;
   z-index: 91;
   width: min(360px, 88vw);
   display: flex;
   flex-direction: column;
+  max-height: 100vh;
   background: var(--color-surface-glass);
   backdrop-filter: blur(20px);
   -webkit-backdrop-filter: blur(20px);
-  border-left: 1px solid var(--color-border);
-  box-shadow: -24px 0 60px rgba(0, 0, 0, 0.5);
-  transform: translateX(100%);
+  border-right: 1px solid var(--color-border);
+  border-bottom: 1px solid var(--color-border);
+  border-bottom-right-radius: var(--radius-lg);
+  box-shadow: 24px 0 60px rgba(0, 0, 0, 0.5);
+  transform: translateX(-100%);
   transition: transform var(--duration-medium) var(--ease-standard);
 }
 
-.store-filter-drawer.open {
+.store-filter-overlay.open {
   transform: translateX(0);
 }
 
-.store-filter-drawer-header {
+.store-filter-overlay-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -1236,14 +1239,14 @@
   background: transparent;
 }
 
-.store-filter-drawer-header h3 {
+.store-filter-overlay-header h3 {
   margin: 0;
   font-size: var(--font-size-lg);
   font-weight: var(--font-weight-bold);
   color: var(--color-text-primary);
 }
 
-.store-filter-drawer-close {
+.store-filter-overlay-close {
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -1259,26 +1262,27 @@
     background var(--transition-fast);
 }
 
-.store-filter-drawer-close svg {
+.store-filter-overlay-close svg {
   width: 18px;
   height: 18px;
 }
 
-.store-filter-drawer-close:hover {
+.store-filter-overlay-close:hover {
   color: var(--color-text-primary);
   border-color: var(--color-accent);
   background: var(--color-bg-hover);
 }
 
-.store-filter-drawer-body {
-  flex: 1;
+.store-filter-overlay-body {
+  flex: 1 1 auto;
+  min-height: 0;
   overflow-y: auto;
   padding: var(--space-md);
 }
 
-/* Inside the drawer the sidebar loses its own card chrome + sticky
-   positioning so it fills the drawer naturally. */
-.store-filter-drawer .store-filter-sidebar {
+/* Inside the overlay the sidebar loses its own card chrome + sticky
+   positioning so it fills the overlay naturally. */
+.store-filter-overlay .store-filter-sidebar {
   width: 100%;
   position: static;
   top: auto;
@@ -1294,7 +1298,7 @@
 
 /* ── Responsive ────────────────────────────────────────────────────────── */
 
-/* Wide screens: show the inline filter rail, hide the drawer trigger/drawer. */
+/* Wide screens: show the inline filter rail, hide the overlay trigger/overlay. */
 @media (min-width: 1024px) {
   .store-filter-rail {
     display: flex;
@@ -1305,6 +1309,14 @@
   }
 
   .store-filter-trigger {
+    display: none;
+  }
+
+  /* The overlay must never appear next to the inline rail. It can
+     otherwise stay open after the window is widened past this breakpoint,
+     rendering two filter panels side by side. */
+  .store-filter-overlay,
+  .store-filter-overlay-scrim {
     display: none;
   }
 }
@@ -1350,8 +1362,8 @@
     animation: none;
   }
 
-  .store-filter-drawer,
-  .store-filter-drawer-scrim {
+  .store-filter-overlay,
+  .store-filter-overlay-scrim {
     transition: none;
   }
 }
@@ -3006,12 +3018,12 @@
     0 2px 10px var(--color-accent-glow);
 }
 
-/* ── Filter drawer: gradient header + corrected transition token ──────── */
-.store-filter-drawer {
+/* ── Filter overlay: gradient header + corrected transition token ──────── */
+.store-filter-overlay {
   transition: transform var(--duration-normal) var(--ease-standard);
 }
 
-.store-filter-drawer-header {
+.store-filter-overlay-header {
   background: linear-gradient(
     180deg,
     color-mix(in srgb, var(--color-bg-tertiary) 55%, transparent),
@@ -3019,7 +3031,7 @@
   );
 }
 
-.store-filter-drawer-header::after {
+.store-filter-overlay-header::after {
   content: "";
   position: absolute;
   left: 0;
@@ -3031,7 +3043,7 @@
   pointer-events: none;
 }
 
-.store-filter-drawer-header {
+.store-filter-overlay-header {
   position: relative;
 }
 
