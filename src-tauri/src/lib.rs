@@ -1856,6 +1856,16 @@ async fn search_game_metadata(game_name: String, skip_launchbox: Option<bool>, s
     game_scraper::search_game_metadata(&game_name, skip_launchbox.unwrap_or(false), steam_app_id).await
 }
 
+/// Fetch full IGDB metadata for a game by its numeric IGDB id. Returns
+/// `None` when the id doesn't exist (e.g. a stale persisted `igdbId`).
+/// Used by the frontend to re-fetch metadata/images for games that
+/// carry an `igdbId` but no artwork — same result shape as
+/// `search_game_metadata` items.
+#[tauri::command]
+async fn get_igdb_game_by_id(id: u64) -> Result<Option<GameMetadataResult>, String> {
+    Ok(game_scraper::fetch_igdb_game_by_id(id).await)
+}
+
 /// Download images from URLs and return them as base64 data URLs.
 #[tauri::command]
 async fn fetch_game_images(urls: Vec<String>) -> Vec<Option<String>> {
@@ -2572,6 +2582,15 @@ fn get_sessions(app: tauri::AppHandle) -> Result<Vec<db::sessions::SessionRecord
 fn delete_session(app: tauri::AppHandle, id: i64) -> Result<u64, String> {
     let db_state: tauri::State<'_, db::Db> = app.state();
     db::sessions::delete(db_state.inner(), id)
+}
+
+/// Delete every session row for a game (Activity dashboard
+/// "delete entry" — removes the game's entire play history).
+/// Returns the number of rows removed.
+#[tauri::command]
+fn delete_sessions_for_game(app: tauri::AppHandle, game_id: String) -> Result<u64, String> {
+    let db_state: tauri::State<'_, db::Db> = app.state();
+    db::sessions::delete_for_game(db_state.inner(), &game_id)
 }
 
 /// Insert one session row. Used by the one-time migration that imports
@@ -3866,7 +3885,7 @@ pub fn run() {
             tauri_plugin_autostart::MacosLauncher::LaunchAgent,
             Some(vec![]),
         ))
-        .invoke_handler(tauri::generate_handler![scan_folder_for_exes, launch_game, force_close_game, save_games, save_game, load_games, update_game_last_played, read_cover_image, search_game_metadata, fetch_game_images, download_image, search_launchbox_images, detect_gpus, list_media_files, save_screenshot, save_text_file, load_sessions, get_sessions, delete_session, insert_session, get_system_ram_gb, get_system_info, set_metrics_config, detect_game_size, check_paths_exist, open_folder, disk_usage, move_game_install, uninstall_game, measure_path_size, detect_steam_screenshot_folders, detect_system_screenshot_folders, save_store_cache, load_store_cache, fetch_store_games, search_store_games,            get_store_game_detail, get_collection_games,            fetch_game_reviews, fetch_external_reviews, fetch_hydra_reviews, fetch_hydra_review_replies,             get_hydra_game_stats, get_about_section, get_recommended_config,
+        .invoke_handler(tauri::generate_handler![scan_folder_for_exes, launch_game, force_close_game, save_games, save_game, load_games, update_game_last_played, read_cover_image, search_game_metadata, get_igdb_game_by_id, fetch_game_images, download_image, search_launchbox_images, detect_gpus, list_media_files, save_screenshot, save_text_file, load_sessions, get_sessions, delete_session, delete_sessions_for_game, insert_session, get_system_ram_gb, get_system_info, set_metrics_config, detect_game_size, check_paths_exist, open_folder, disk_usage, move_game_install, uninstall_game, measure_path_size, detect_steam_screenshot_folders, detect_system_screenshot_folders, save_store_cache, load_store_cache, fetch_store_games, search_store_games,            get_store_game_detail, get_collection_games,            fetch_game_reviews, fetch_external_reviews, fetch_hydra_reviews, fetch_hydra_review_replies,             get_hydra_game_stats, get_about_section, get_recommended_config,
             get_language, set_language, get_about_bundle,             save_wishlist, load_wishlist, get_last_session_for_game, save_source_cache, load_source_cache, deals::fetch_gamepass_catalog, deals::fetch_isthereanydeal_deals, deals::fetch_giveaways, deals::open_deal_url,            steam_sync_games,
             steam_connect, steam_logout, steam_get_session,
             steam_launch_options,

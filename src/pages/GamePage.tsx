@@ -169,7 +169,7 @@ function GameDetail({ game }: { game: Game }) {
     const enrichmentStartedRef = useRef(false);
   useEffect(() => {
     if (enrichmentStartedRef.current) return;
-    if (game.metadataSource === NO_IGDB_MATCH_SOURCE) return;
+    if (game.metadataSource === NO_IGDB_MATCH_SOURCE && game.igdbId == null) return;
     if (!game.name) return;
     const hasDescription = !!game.description;
     const missingTTB = !game.timeToBeat;

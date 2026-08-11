@@ -6,6 +6,7 @@ import DonutChart from "../../components/charts/DonutChart";
 import { GameThumbnail } from "./GameThumbnail";
 import { useSteamAppId } from "../../hooks/useSteamAppId";
 import { useLanguage } from "../../context/LanguageContext";
+import { ConfirmModal } from "../../components/ui/ConfirmModal";
 import * as Icons from "./Icons";
 
 export interface ActivityDashboardProps {
@@ -17,6 +18,8 @@ export interface ActivityDashboardProps {
   aggregation: "day" | "week" | "month";
   chartType: "bar" | "line";
   sourceFilter: string;
+  /** Remove all sessions for a game (its sidebar entry disappears with them). */
+  onDeleteGameSessions: (gameId: string) => void;
 }
 
 export function ActivityDashboard({
@@ -28,10 +31,13 @@ export function ActivityDashboard({
   aggregation,
   chartType,
   sourceFilter,
+  onDeleteGameSessions,
 }: ActivityDashboardProps) {
   const { t, language } = useLanguage();
   const [selectedGameId, setSelectedGameId] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
+  // Game id awaiting "delete all its sessions" confirmation via ConfirmModal.
+  const [pendingDeleteGameId, setPendingDeleteGameId] = useState<string | null>(null);
 
   // 1. Filter sessions by date range and source filter
   const filteredSessions = useMemo(() => {
@@ -436,6 +442,7 @@ export function ActivityDashboard({
                   selected={selectedGameId === g.id}
                   maxMinutes={maxSidebarMinutes}
                   onSelect={setSelectedGameId}
+                  onRequestDelete={setPendingDeleteGameId}
                 />
               );
             })}
@@ -585,6 +592,26 @@ export function ActivityDashboard({
           )}
         </div>
       </div>
+
+      {/* Confirm removal of a game's whole activity history */}
+      <ConfirmModal
+        open={pendingDeleteGameId !== null}
+        title={t("activityDash.deleteEntryTitle")}
+        message={t("activityDash.deleteEntryBody", {
+          name: sidebarGamesList.find((g) => g.id === pendingDeleteGameId)?.title ?? "",
+        })}
+        confirmLabel={t("activityDash.deleteEntry")}
+        onCancel={() => setPendingDeleteGameId(null)}
+        onConfirm={() => {
+          if (pendingDeleteGameId) {
+            onDeleteGameSessions(pendingDeleteGameId);
+            // The isolated view's sessions are gone with the game — clear
+            // the selection so the chart header doesn't point at nothing.
+            if (selectedGameId === pendingDeleteGameId) setSelectedGameId(null);
+          }
+          setPendingDeleteGameId(null);
+        }}
+      />
     </div>
   );
 }
@@ -605,6 +632,7 @@ function ActivitySidebarGameButton({
   selected,
   maxMinutes,
   onSelect,
+  onRequestDelete,
 }: {
   summary: {
     id: string;
@@ -619,7 +647,10 @@ function ActivitySidebarGameButton({
   selected: boolean;
   maxMinutes: number;
   onSelect: (id: string) => void;
+  /** Opens the delete confirmation for this game's sessions. */
+  onRequestDelete: (gameId: string) => void;
 }) {
+  const { t } = useLanguage();
   const { appId: resolvedSteamAppId } = useSteamAppId(game);
   const steamAppId =
     typeof resolvedSteamAppId === "number"
@@ -629,34 +660,48 @@ function ActivitySidebarGameButton({
   const barWidth = maxMinutes > 0 ? (summary.minutes / maxMinutes) * 100 : 0;
 
   return (
-    <button
-      type="button"
-      className={`activity-game-sidebar__item ${
-        selected ? "activity-game-sidebar__item--selected" : ""
-      }`}
-      onClick={() => onSelect(summary.id)}
-    >
-      <div className="activity-game-sidebar__icon-wrapper">
-        <GameThumbnail
-          iconUrl={summary.iconUrl}
-          coverArtUrl={summary.coverArtUrl}
-          steamAppId={steamAppId}
-          name={summary.title}
-          className="activity-game-sidebar__icon"
-        />
-      </div>
-      <div className="activity-game-sidebar__info">
-        <span className="activity-game-sidebar__name">{summary.title}</span>
-        <div className="activity-game-sidebar__bar">
-          <div
-            className="activity-game-sidebar__bar-fill"
-            style={{ width: `${barWidth}%` }}
+    <div className="activity-game-sidebar__row">
+      <button
+        type="button"
+        className={`activity-game-sidebar__item ${
+          selected ? "activity-game-sidebar__item--selected" : ""
+        }`}
+        onClick={() => onSelect(summary.id)}
+      >
+        <div className="activity-game-sidebar__icon-wrapper">
+          <GameThumbnail
+            iconUrl={summary.iconUrl}
+            coverArtUrl={summary.coverArtUrl}
+            steamAppId={steamAppId}
+            name={summary.title}
+            className="activity-game-sidebar__icon"
           />
         </div>
-      </div>
-      <span className="activity-game-sidebar__time">
-        {formatPlayTime(summary.minutes)}
-      </span>
-    </button>
+        <div className="activity-game-sidebar__info">
+          <span className="activity-game-sidebar__name">{summary.title}</span>
+          <div className="activity-game-sidebar__bar">
+            <div
+              className="activity-game-sidebar__bar-fill"
+              style={{ width: `${barWidth}%` }}
+            />
+          </div>
+        </div>
+        <span className="activity-game-sidebar__time">
+          {formatPlayTime(summary.minutes)}
+        </span>
+      </button>
+      <button
+        type="button"
+        className="activity-game-sidebar__delete-btn"
+        onClick={(e) => {
+          e.stopPropagation();
+          onRequestDelete(summary.id);
+        }}
+        title={t("activityDash.deleteEntry")}
+        aria-label={t("activityDash.deleteEntry")}
+      >
+        <Icons.Trash2 size={13} />
+      </button>
+    </div>
   );
 }

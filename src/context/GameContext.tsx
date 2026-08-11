@@ -614,15 +614,36 @@ export function GameProvider({ children }: { children: ReactNode }) {
     enrichAttemptsThisSession.set(gameId, previousAttempts + 1);
 
     try {
-      const results: GameMetadataResult[] = await invoke("search_game_metadata", {
-        gameName,
-        skipLaunchbox: !!steamAppId,
-        steamAppId,
-      });
       // Find the current game record to merge intelligently (don't
       // overwrite non-empty existing fields with empty IGDB results).
       const current = gamesRef.current.find((g) => g.id === gameId);
       if (!current) return;
+
+      // PRECISE BY-ID REFETCH: a game that carries a persisted IGDB id
+      // (from a previous enrichment, or a sentinel game whose id later
+      // became known) can be fetched exactly by id — this beats a fuzzy
+      // name search and also un-gates games permanently marked
+      // NO_IGDB_MATCH_SOURCE by a failed NAME lookup. Falls back to the
+      // legacy name-based search when the id fetch returns null / errors.
+      const results: GameMetadataResult[] = [];
+      if (current.igdbId != null) {
+        try {
+          const byId = await invoke<GameMetadataResult | null>("get_igdb_game_by_id", {
+            id: current.igdbId,
+          });
+          if (byId) results.push({ ...byId, sourceName: "IGDB" });
+        } catch (e) {
+          console.warn(`IGDB by-id fetch failed for ${gameName}:`, e);
+        }
+      }
+      if (results.length === 0) {
+        const searched = await invoke<GameMetadataResult[]>("search_game_metadata", {
+          gameName,
+          skipLaunchbox: !!steamAppId,
+          steamAppId,
+        });
+        results.push(...searched);
+      }
       if (results.length === 0) {
         // No IGDB match. Mark the game as a Steam-sourced record so a
         // subsequent visit doesn't try to enrich it again — the GamePage

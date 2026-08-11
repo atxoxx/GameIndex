@@ -41,6 +41,9 @@ interface ActivityContextType {
   getGameStats: (gameId: string) => ActivityStats;
   recordSession: () => void;
   deleteSession: (sessionId: string) => void;
+  /** Remove every session recorded for a game (the dashboard sidebar
+   *  entry disappears with them). */
+  deleteSessionsForGame: (gameId: string) => void;
 }
 
 const ActivityContext = createContext<ActivityContextType | null>(null);
@@ -329,6 +332,21 @@ export function ActivityProvider({ children }: { children: ReactNode }) {
     [reloadSessions]
   );
 
+  const deleteSessionsForGame = useCallback(
+    async (gameId: string) => {
+      // Optimistic local removal; reconcile from the DB.
+      setSessions((prev) => prev.filter((s) => s.gameId !== gameId));
+      try {
+        await invoke("delete_sessions_for_game", { gameId });
+      } catch (e) {
+        console.error("Failed to delete sessions for game:", e);
+        // Reconcile so the UI reflects the real DB state.
+        await reloadSessions();
+      }
+    },
+    [reloadSessions]
+  );
+
   const getGameSessions = useCallback(
     (gameId: string) => sessions.filter((s) => s.gameId === gameId),
     [sessions]
@@ -382,6 +400,7 @@ export function ActivityProvider({ children }: { children: ReactNode }) {
         getGameStats,
         recordSession,
         deleteSession,
+        deleteSessionsForGame,
       }}
     >
       {children}

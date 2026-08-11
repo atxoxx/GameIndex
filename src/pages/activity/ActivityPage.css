@@ -825,6 +825,55 @@
   margin-bottom: 2px;
 }
 
+/* Wrapper holding the selectable row + its hover-revealed delete button
+   (sibling buttons — nesting a button inside the row button is invalid). */
+.activity-game-sidebar__row {
+  position: relative;
+}
+
+.activity-game-sidebar__delete-btn {
+  position: absolute;
+  right: 8px;
+  top: 50%;
+  transform: translateY(-50%);
+  z-index: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  border: none;
+  background: transparent;
+  color: var(--color-text-muted);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity var(--transition-fast), color var(--transition-fast),
+    background var(--transition-fast);
+}
+
+.activity-game-sidebar__row:hover .activity-game-sidebar__delete-btn,
+.activity-game-sidebar__row:focus-within .activity-game-sidebar__delete-btn {
+  opacity: 1;
+}
+
+/* Make room for the revealed delete button so it doesn't cover the
+   playtime label on the row's right edge. */
+.activity-game-sidebar__row:hover .activity-game-sidebar__time,
+.activity-game-sidebar__row:focus-within .activity-game-sidebar__time {
+  padding-right: 30px;
+}
+
+.activity-game-sidebar__delete-btn svg {
+  width: 13px;
+  height: 13px;
+}
+
+.activity-game-sidebar__delete-btn:hover {
+  color: var(--color-danger);
+  background: color-mix(in srgb, var(--color-danger) 12%, transparent);
+}
+
 .activity-game-sidebar__all-icon {
   display: flex;
   align-items: center;

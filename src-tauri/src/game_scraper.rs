@@ -1670,11 +1670,17 @@ pub async fn search_game_metadata(
 }
 
 /// Download an image from a URL and return it as a base64 data URL.
-/// Returns `None` if the download fails.
+/// Returns `None` if the download fails OR the server responds with a
+/// non-success status — a 404/error page would otherwise be
+/// base64-encoded as `data:text/html;base64,…`, which the browser
+/// `<img>` can't render and which would poison the game's cover.
 pub async fn download_image_to_base64(url: &str) -> Option<String> {
     let client = http_client();
 
     let response = client.get(url).send().await.ok()?;
+    if !response.status().is_success() {
+        return None;
+    }
     let content_type = response
         .headers()
         .get("content-type")
@@ -3177,7 +3183,10 @@ fn map_igdb_game(game: IgdbGame, ttb: Option<&IgdbTimeToBeatRaw>) -> GameMetadat
 
 /// Fetch a single IGDB game by numeric id (e.g. resolved from a Steam appid
 /// via `resolve_steam_to_igdb`). Returns None when the id doesn't exist.
-async fn fetch_igdb_game_by_id(id: u64) -> Option<GameMetadataResult> {
+/// Exposed as the `get_igdb_game_by_id` Tauri command so the frontend can
+/// re-fetch metadata/images for games that carry a persisted `igdbId`
+/// but no artwork.
+pub async fn fetch_igdb_game_by_id(id: u64) -> Option<GameMetadataResult> {
     let body = format!("fields {}; where id = {}; limit 1;", IGDB_GAME_FIELDS, id);
     let mut games = igdb_query_games(&body).await;
     let game = games.pop()?;

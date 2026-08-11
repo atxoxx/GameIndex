@@ -193,6 +193,17 @@ pub fn delete(db: &Db, id: i64) -> Result<u64, String> {
     Ok(n as u64)
 }
 
+/// Delete every session row for a game (the Activity dashboard
+/// "delete entry" action). Returns the number of rows removed (0 if
+/// the game had no sessions).
+pub fn delete_for_game(db: &Db, game_id: &str) -> Result<u64, String> {
+    let conn = db.sessions().map_err(|e| format!("sessions conn: {e}"))?;
+    let n = conn
+        .execute("DELETE FROM sessions WHERE game_id = ?1", params![game_id])
+        .map_err(|e| format!("sessions delete_for_game: {e}"))?;
+    Ok(n as u64)
+}
+
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 pub struct SessionRecord {
     pub id: i64,
@@ -216,4 +227,30 @@ pub struct SessionRecord {
     pub avg_ram: Option<f32>,
     #[serde(rename = "metricsJson", skip_serializing_if = "Option::is_none")]
     pub metrics_json: Option<String>,
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn delete_for_game_removes_only_that_games_sessions() {
+        let dir = tempfile::tempdir().unwrap();
+        let db = Db::open(dir.path()).unwrap();
+        super::super::migrate::run_migrations(&db).unwrap();
+
+        // Two sessions for game "a", one for game "b".
+        insert(&db, "a", "Game A", 1000, 2000, 10, None, None, None, None, None).unwrap();
+        insert(&db, "a", "Game A", 3000, 4000, 10, None, None, None, None, None).unwrap();
+        insert(&db, "b", "Game B", 5000, 6000, 10, None, None, None, None, None).unwrap();
+
+        let n = delete_for_game(&db, "a").unwrap();
+        assert_eq!(n, 2);
+        assert_eq!(list_for_game(&db, "a").unwrap().len(), 0);
+        assert_eq!(list_for_game(&db, "b").unwrap().len(), 1);
+        assert_eq!(count_all(&db).unwrap(), 1);
+
+        // Idempotent: no rows left for "a".
+        assert_eq!(delete_for_game(&db, "a").unwrap(), 0);
+    }
 }

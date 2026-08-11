@@ -1728,7 +1728,9 @@ function SidebarGameItemBase({
   // don't spam IGDB for games we already know are unmatched.
   const canAutoFetchCover =
     !game.coverArtUrl &&
-    game.metadataSource !== NO_IGDB_MATCH_SOURCE &&
+    // A sentinel-gated game may still auto-retry once it carries a
+    // persisted IGDB id — the by-id refetch bypasses the failed name search.
+    (game.igdbId != null || game.metadataSource !== NO_IGDB_MATCH_SOURCE) &&
     !!game.name;
 
   // Set up the IntersectionObserver. Disconnect on first intersect —

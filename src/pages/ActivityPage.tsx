@@ -24,7 +24,7 @@ type ChartType = "bar" | "line";
 
 export default function ActivityPage() {
   const { t } = useLanguage();
-  const { sessions, deleteSession } = useActivity();
+  const { sessions, deleteSession, deleteSessionsForGame } = useActivity();
   const { games } = useGames();
   const { tempUnit } = useSettings();
   // Toast feedback for screenshot success / error (matches the rest of
@@ -392,6 +392,7 @@ export default function ActivityPage() {
             aggregation={aggregation}
             chartType={chartType}
             sourceFilter={sourceFilter}
+            onDeleteGameSessions={deleteSessionsForGame}
           />
         )}
 
