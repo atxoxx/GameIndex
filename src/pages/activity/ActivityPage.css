@@ -3,7 +3,9 @@
    ==========================================================================
 
    Layout flow:
-     .activity__container      (scroll shell, mirrors the shared `.page`)
+     .activity__container      (full-bleed scroll shell — intentionally NOT
+                                capped at --content-max-width so the four
+                                tabs use the whole available width)
        .page-header             (title + capture/export icon actions)
        .activity__controls      (one panel: primary tabs row + tools row)
        main.activity__main
@@ -48,12 +50,17 @@
   flex-direction: column;
   height: 100%;
   width: 100%;
-  max-width: var(--content-max-width);
-  margin: 0 auto;
   box-sizing: border-box;
   overflow-y: auto;
   padding: var(--space-lg) var(--space-2xl) var(--space-3xl);
   gap: var(--space-lg);
+  /* NOTE: no max-width here on purpose. The shared `.page` shell caps
+     at `--content-max-width` (1440px), which left the four Activity
+     subtabs sitting in a narrow centered column with large gutters on
+     wide windows. This page is a data-dense analytics surface (Gantt
+     timeline, comparison tables, full-width charts), so the shell is
+     deliberately uncapped — every tab uses the full available width and
+     the inner layouts keep their own responsive breakpoints. */
 }
 
 .activity__main {
@@ -137,10 +144,16 @@
   border-top: 1px solid var(--color-border);
 }
 
-/* ── Primary tabs (page navigation) ─────────────────────────────────── */
+/* ── Primary tabs (page navigation) ───────────────────────────────────
+   The tab bar is the page's primary navigation, so it spans the full
+   width of the controls row as a cohesive segmented control. The four
+   buttons divide the row evenly (flex: 1 1 0), which keeps the active
+   pill reading as the top-level section. The tools row below stays a
+   compact left-aligned cluster — only this row is full-width. */
 
 .activity__tabs {
-  display: inline-flex;
+  display: flex;
+  width: 100%;
   gap: 2px;
   padding: 3px;
   background: var(--color-bg-tertiary);
@@ -154,6 +167,9 @@
   background: transparent;
   display: inline-flex;
   align-items: center;
+  justify-content: center;
+  flex: 1 1 0;
+  min-width: 0;
   gap: 7px;
   height: var(--activity-tab-h);
   padding: 0 14px;
@@ -163,7 +179,9 @@
   color: var(--color-text-secondary);
   font-family: inherit;
   cursor: pointer;
-  white-space: nowrap;
+  text-align: center;
+  /* Long translated labels wrap to a second line at very narrow widths
+     instead of clipping — never nowrap for the page tabs. */
   transition: color var(--transition-fast), background var(--transition-fast);
 }
 
@@ -1007,10 +1025,20 @@
 /* ══ Weekly heatmap ──────────────────────────────────────────────────── */
 
 .weekly-heatmap__container {
-  display: flex;
-  gap: var(--space-sm);
   overflow-x: auto;
   padding-bottom: 4px;
+}
+
+/* Centers the heatmap in its panel when the grid is narrower than the
+   available width (the dashboard is full-bleed now), while degrading
+   safely to left-aligned + horizontally scrollable when the range is so
+   long that the grid overflows the panel — `margin-inline: auto`
+   collapses to 0 on overflow, so the start edge is never clipped. */
+.weekly-heatmap__inner {
+  display: flex;
+  gap: var(--space-sm);
+  width: max-content;
+  margin-inline: auto;
 }
 
 .weekly-heatmap__row-labels {
@@ -1072,7 +1100,7 @@
 
 .weekly-heatmap__footer {
   display: flex;
-  justify-content: flex-end;
+  justify-content: center;
   align-items: center;
   gap: 6px;
   margin-top: var(--space-sm);

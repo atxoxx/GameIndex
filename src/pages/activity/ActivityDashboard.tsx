@@ -535,28 +535,30 @@ export function ActivityDashboard({
                 ) : (
                   <>
                     <div className="weekly-heatmap__container">
-                      <div className="weekly-heatmap__row-labels">
-                        <span>{t("activityDash.sun")}</span>
-                        <span>{t("activityDash.mon")}</span>
-                        <span>{t("activityDash.tue")}</span>
-                        <span>{t("activityDash.wed")}</span>
-                        <span>{t("activityDash.thu")}</span>
-                        <span>{t("activityDash.fri")}</span>
-                        <span>{t("activityDash.sat")}</span>
-                      </div>
-                      <div className="weekly-heatmap__grid">
-                        {heatmapPaddedDays.map((day, idx) => {
-                          if (!day) {
-                            return <div key={`pad-${idx}`} className="weekly-heatmap__cell weekly-heatmap__cell--padded" />;
-                          }
-                          return (
-                            <div
-                              key={day.date}
-                              className={`weekly-heatmap__cell ${getHeatmapIntensity(day.hours)}`}
-                              title={t("activityDash.heatmapCellTitle", { date: day.date, hours: Math.round(day.hours * 10) / 10 })}
-                            />
-                          );
-                        })}
+                      <div className="weekly-heatmap__inner">
+                        <div className="weekly-heatmap__row-labels">
+                          <span>{t("activityDash.sun")}</span>
+                          <span>{t("activityDash.mon")}</span>
+                          <span>{t("activityDash.tue")}</span>
+                          <span>{t("activityDash.wed")}</span>
+                          <span>{t("activityDash.thu")}</span>
+                          <span>{t("activityDash.fri")}</span>
+                          <span>{t("activityDash.sat")}</span>
+                        </div>
+                        <div className="weekly-heatmap__grid">
+                          {heatmapPaddedDays.map((day, idx) => {
+                            if (!day) {
+                              return <div key={`pad-${idx}`} className="weekly-heatmap__cell weekly-heatmap__cell--padded" />;
+                            }
+                            return (
+                              <div
+                                key={day.date}
+                                className={`weekly-heatmap__cell ${getHeatmapIntensity(day.hours)}`}
+                                title={t("activityDash.heatmapCellTitle", { date: day.date, hours: Math.round(day.hours * 10) / 10 })}
+                              />
+                            );
+                          })}
+                        </div>
                       </div>
                     </div>
                     <div className="weekly-heatmap__footer">
