@@ -4,7 +4,7 @@ import type { StoreGameSummary } from "../../types/game";
 import StoreGameCard from "./StoreGameCard";
 import { useLanguage } from "../../context/LanguageContext";
 
-type HeroCategory = "hot" | "weekly" | "achievements";
+type HeroCategory = "hot" | "weekly" | "trending";
 
 interface StoreFeaturedHeroProps {
   /** Navigate to a game's detail page. */
@@ -12,11 +12,9 @@ interface StoreFeaturedHeroProps {
 }
 
 /**
- * Subtabs map 1:1 to Hydra Launcher's curated catalogue categories
- * (`CatalogueCategory` = hot / weekly / achievements). Each tab calls
- * Hydra's own `/catalogue/{category}` API — the exact same method
- * Hydra's home page uses — filtered to the user's enabled download
- * sources. "Surprise me" jumps to a random card from the visible rail.
+ * Featured rail tabs map to GameLib's IGDB store feed (`fetch_store_games`):
+ * Hot Now = hypes-ranked, Game of the Week = top-rated rotated by ISO week,
+ * Trending = most-followed. "Surprise me" jumps to a random game.
  */
 const TABS: {
   id: HeroCategory;
@@ -46,12 +44,12 @@ const TABS: {
     ),
   },
   {
-    id: "achievements",
-    label: "Games to Beat",
+    id: "trending",
+    label: "Trending",
     icon: (
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-        <circle cx="12" cy="8" r="6" />
-        <path d="M9.5 13.5 8 22l4-3 4 3-1.5-8.5" />
+        <polyline points="23 6 13.5 15.5 8.5 10.5 1 18" />
+        <polyline points="17 6 23 6 23 12" />
       </svg>
     ),
   },
@@ -59,11 +57,20 @@ const TABS: {
 
 const HERO_LIMIT = 12;
 
+/** ISO-8601 week number of a date (UTC Thursday trick). */
+function isoWeekNumber(date: Date): number {
+  const d = new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()));
+  const dayNum = d.getUTCDay() || 7;
+  d.setUTCDate(d.getUTCDate() + 4 - dayNum);
+  const yearStart = new Date(Date.UTC(d.getUTCFullYear(), 0, 1));
+  return Math.ceil(((d.getTime() - yearStart.getTime()) / 86400000 + 1) / 7);
+}
+
 /**
- * Hydra-style featured rail: a wide banner of up to 12 game cards with
- * pill subtabs (Hot Now / Game of the Week / Games to Beat) that switch
- * only this rail's contents — the catalogue grid below keeps its own
- * sort. "Surprise me" jumps to a random card from the visible rail.
+ * Featured rail: a wide banner of up to 12 game cards with pill subtabs
+ * (Hot Now / Game of the Week / Trending) backed by GameLib's IGDB store
+ * feed — the grid below keeps its own sort. "Surprise me" jumps to a
+ * random card from the visible rail.
  */
 export default function StoreFeaturedHero({ onPickGame }: StoreFeaturedHeroProps) {
   const { t } = useLanguage();
@@ -83,13 +90,25 @@ export default function StoreFeaturedHero({ onPickGame }: StoreFeaturedHeroProps
     }
     const id = ++reqRef.current;
     setLoading(true);
-    // Same method as Hydra Launcher: GET /catalogue/{category} on the
-    // Hydra API, curated to the user's enabled download sources.
-    invoke<StoreGameSummary[]>("fetch_hydra_featured", { category: tab })
+    // Same IGDB-backed feed the main game grid uses (`fetch_store_games`).
+    const args: { category: string; offset: number; limit: number; sort?: string } =
+      tab === "hot"
+        ? { category: "trending", offset: 0, limit: HERO_LIMIT }
+        : tab === "weekly"
+          ? { category: "top", offset: 0, limit: HERO_LIMIT }
+          : { category: "all", offset: 0, limit: HERO_LIMIT, sort: "follows" };
+    invoke<StoreGameSummary[]>("fetch_store_games", args)
       .then((res) => {
         if (id !== reqRef.current) return;
-        cacheRef.current[tab] = res;
-        setGames(res);
+        const games =
+          tab === "weekly" && res.length > 0
+            ? (() => {
+                const offset = isoWeekNumber(new Date()) % res.length;
+                return [...res.slice(offset), ...res.slice(0, offset)];
+              })()
+            : res;
+        cacheRef.current[tab] = games;
+        setGames(games);
         setLoading(false);
       })
       .catch(() => {
