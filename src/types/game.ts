@@ -704,6 +704,85 @@ export interface GameAchievementData {
   locked: number;
   /** Timestamp (ms) when this data was last fetched. Set by the frontend. */
   lastSynced?: number;
+  /** Active achievement source (defaults to "steam" for legacy data). */
+  source?: AchievementSource;
+  /** Provider-side game id for the source (e.g. a Steam appid). */
+  providerId?: string;
+}
+
+/** Supported achievement providers. */
+export type AchievementSource = "steam" | "retro" | "manual" | "gog" | "epic";
+
+/** One `achievement_links` row: per-game source identity + manual unlock state. */
+export interface AchievementLink {
+  gameId: string;
+  source: AchievementSource;
+  providerId?: string | null;
+  displayName?: string | null;
+  sourceUrl?: string | null;
+  /** apiName -> unix-seconds unlock time for manually-unlocked achievements. */
+  manualUnlocks?: Record<string, number> | null;
+  createdAt?: number;
+  updatedAt?: number;
+}
+
+/** One row of the user's platform → RetroAchievements console mapping. */
+export interface RetroConsoleMapEntry {
+  platform: string;
+  consoleId: number;
+}
+
+/** Fields accepted by `retro_save_settings` (all optional; `apiKey` is write-only). */
+export interface RetroSettingsUpdate {
+  username?: string;
+  apiKey?: string;
+  consoleMap?: RetroConsoleMapEntry[];
+  enabled?: boolean;
+}
+
+/** RetroAchievements settings surface. Credentials are masked — the API key never leaves Rust. */
+export interface RetroSettings {
+  /** RA username; `null` when not configured (keychain-backed). */
+  username?: string | null;
+  /** Whether a non-empty API key is stored in the OS keychain. */
+  hasApiKey: boolean;
+  /** platform → RA console mapping. */
+  consoleMap: RetroConsoleMapEntry[];
+  /** Master toggle (kv_store-backed). */
+  enabled: boolean;
+}
+
+/** A RetroAchievements console (`API_GetConsoleIDs` row). */
+export interface RaConsole {
+  id: number;
+  name: string;
+}
+
+/** A search hit from a console's full RA game list. */
+export interface RaSearchResult {
+  id: number;
+  title: string;
+  numAchievements: number;
+}
+
+/** One Steam Store search candidate for manual linking. */
+export interface SteamSearchResult {
+  appid: number;
+  name: string;
+}
+
+/** One manual unlock entry sent to `manual_save_unlocks`. */
+export interface ManualUnlock {
+  apiName: string;
+  /** Unix timestamp (seconds) of the unlock. */
+  unlockTime: number;
+}
+
+/** Per-game outcome of a batch source sync (GOG / Epic). */
+export interface BatchSyncResult {
+  gameId: string;
+  data?: GameAchievementData | null;
+  error?: string | null;
 }
 
 /** Whole-library achievements cache, keyed by game ID. */

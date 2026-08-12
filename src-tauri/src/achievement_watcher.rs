@@ -134,7 +134,7 @@ fn cached_achieved(app: &AppHandle, game_id: &str) -> HashSet<String> {
     db::achievements::get(db_state.inner(), game_id)
         .ok()
         .flatten()
-        .and_then(|(_, payload, _)| {
+        .and_then(|(_, payload, _, _, _)| {
             serde_json::from_str::<achievements::GameAchievementData>(&payload).ok()
         })
         .map(|d| {
@@ -151,7 +151,7 @@ fn cached_achieved(app: &AppHandle, game_id: &str) -> HashSet<String> {
 pub fn start(app: AppHandle) {
     tauri::async_runtime::spawn(async move {
         let client = match reqwest::Client::builder()
-            .user_agent("GameIndex/1.0 (+hydra-api)")
+            .user_agent("GameIndex/1.0 (+steam-api)")
             .timeout(Duration::from_secs(20))
             .build()
         {

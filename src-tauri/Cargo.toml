@@ -95,6 +95,11 @@ sha2 = "0.10"
 # the local artifact and asks Nexus which mod it belongs to — the same
 # linking trick Vortex uses for manually-installed mods).
 md-5 = "0.10"
+# ZIP extraction for RetroAchievements ROM-hash matching (the RA client
+# hashes the first file inside a `.zip` ROM, skipping archives >20 MB).
+# `default-features = false` + `deflate` keeps the direct dependency
+# minimal; the crate is already in the lock graph transitively.
+zip = { version = "4", default-features = false, features = ["deflate"] }
 # Steam `appcache/appinfo.vdf` binary parsing — counts a Steam game's
 # launch actions so the edit modal can hint about the launch-picker
 # option (`steam://launch/<appid>/dialog`). Pure-Rust, no binary deps.

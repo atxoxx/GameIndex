@@ -38,11 +38,13 @@ mod updater;
 mod achievements;
 mod local_achievements;
 mod achievement_watcher;
+mod manual_links;
 mod mods;
 mod tray;
 mod system_screenshots;
 mod emulator_install;
 mod plugins;
+mod retro;
 use game_scraper::{GameMetadataResult, LaunchBoxImageResult, StoreGameSummary, TimeToBeat, SimilarGame, ReleaseDateInfo, IgdbReview, LanguageSupportInfo, ReviewFetchResult, RichAboutPayload, PcRequirementsPayload};
 use game_watcher::{GameWatcher, GameRefInput};
 use gpu_detector::GpuInfo;
@@ -507,6 +509,32 @@ fn delete_emulator(app: tauri::AppHandle, id: String) -> Result<(), String> {
     let db_state: tauri::State<'_, db::Db> = app.state();
     db::games::delete_by_emulator(db_state.inner(), &id)?;
     db::emulators::delete(db_state.inner(), &id)
+}
+
+/// Read every `achievement_links` row for one game. Returns `null` when
+/// the game has no links yet.
+#[tauri::command]
+fn achievement_links_get(
+    app: tauri::AppHandle,
+    game_id: String,
+) -> Result<Option<Vec<db::achievement_links::AchievementLink>>, String> {
+    let db_state: tauri::State<'_, db::Db> = app.state();
+    let links = db::achievement_links::get_links_for_game(db_state.inner(), &game_id)?;
+    Ok(if links.is_empty() { None } else { Some(links) })
+}
+
+/// Read every `achievement_links` row across all games, grouped by
+/// game id (`{ "<gameId>": [<AchievementLink>, ...] }`).
+#[tauri::command]
+fn achievement_links_list(
+    app: tauri::AppHandle,
+) -> Result<HashMap<String, Vec<db::achievement_links::AchievementLink>>, String> {
+    let db_state: tauri::State<'_, db::Db> = app.state();
+    let mut out: HashMap<String, Vec<db::achievement_links::AchievementLink>> = HashMap::new();
+    for link in db::achievement_links::list_all_links(db_state.inner())? {
+        out.entry(link.game_id.clone()).or_default().push(link);
+    }
+    Ok(out)
 }
 
 /// Complete an emulator install started by `start_emulator_install`:
@@ -3891,7 +3919,9 @@ pub fn run() {
             steam_connect, steam_logout, steam_get_session,
             steam_launch_options,
             epic_start_login, epic_finish_login, epic_login_with_refresh_token, epic_sync_library, epic_is_authenticated, epic_logout,
+            epic::achievements::epic_fetch_achievements,
             gog_start_login, gog_sync_library, gog_is_authenticated, gog_logout,
+            gog::achievements::gog_fetch_achievements,
             humble_start_login, humble_sync_library, humble_is_authenticated, humble_logout,
             humble_get_settings, humble_save_settings,
             // Rockstar Games Launcher integration — installed-games scan
@@ -3952,6 +3982,24 @@ pub fn run() {
             achievements::save_achievements_cache,
             achievements::load_achievements_cache,
             achievements::sync_local_achievements,
+            // RetroAchievements provider (L1a) — settings, console/game
+            // lookup, per-game link override, and full achievement sync.
+            retro::retro_get_settings,
+            retro::retro_save_settings,
+            retro::retro_get_consoles,
+            retro::retro_search_games,
+            retro::retro_set_forced_game_id,
+            retro::retro_sync_game,
+            achievement_links_get,
+            achievement_links_list,
+            // Manual achievement provider (L1b): link a game to a public
+            // Steam appid and track its achievements by hand.
+            manual_links::manual_search_steam,
+            manual_links::manual_link_create,
+            manual_links::manual_link_remove,
+            manual_links::manual_fetch_schema,
+            manual_links::manual_save_unlocks,
+            manual_links::manual_sync,
             achievement_watcher::set_local_achievements_enabled,
             downloads::test_debrid_key,
             downloads::direct_download_start,
@@ -4215,11 +4263,11 @@ pub fn run() {
             }
 
             // ── Local (crack / emulator) achievement watcher ──────────
-            // Ports Hydra's achievement watcher: pre-scans on startup to
-            // pick up offline unlocks, then polls crack/emulator files
-            // for changes and merges them into the achievements cache
-            // (schema fetched anonymously from the Hydra API). Emits
-            // `achievements-updated` / `achievement-unlocked` events.
+            // Pre-scans on startup to pick up offline unlocks, then
+            // polls crack/emulator files for changes and merges them
+            // into the achievements cache (schema from Steam's public
+            // Web API). Emits `achievements-updated` /
+            // `achievement-unlocked` events.
             achievement_watcher::start(app.handle().clone());
 
             // â”€â”€ Source manager â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€

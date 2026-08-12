@@ -7,6 +7,15 @@
   margin-bottom: var(--space-lg);
 }
 
+/* Breakdown charts — rarity distribution + achievements-by-source sit
+   side by side on wide viewports (the plugin's dashboard feel). */
+.achievements-page-charts {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+  gap: var(--space-xl);
+  align-items: start;
+}
+
 /* Summary stat cards */
 .achievements-summary-card {
   background: var(--color-surface);

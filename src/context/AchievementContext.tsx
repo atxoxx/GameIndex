@@ -16,6 +16,15 @@ import type {
   Game,
   GameAchievementData,
   AchievementsCache,
+  AchievementLink,
+  Achievement,
+  RetroSettings,
+  RetroSettingsUpdate,
+  RaConsole,
+  RaSearchResult,
+  SteamSearchResult,
+  ManualUnlock,
+  BatchSyncResult,
 } from "../types/game";
 import type { SteamSession } from "../types/steam";
 
@@ -89,6 +98,51 @@ interface AchievementContextType {
   clearCache: () => Promise<void>;
   /** Reload the achievements cache from disk. */
   reloadCache: () => Promise<void>;
+  /** Per-game source identities (`achievement_links` table), keyed by game ID. */
+  links: Record<string, AchievementLink[]>;
+  /** Re-fetch the achievement-links map after any link-mutating call. */
+  refreshLinks: () => Promise<void>;
+  /** Sync a game's achievements from RetroAchievements and update the cache. */
+  syncRetroAchievements: (gameId: string) => Promise<GameAchievementData>;
+  /** Sync a game's manually-tracked achievements (Steam schema + local unlocks). */
+  syncManualAchievements: (gameId: string) => Promise<GameAchievementData>;
+  /** Batch-sync achievements from GOG; applies each success and returns per-game results. */
+  syncGogAchievements: (gameIds: string[]) => Promise<BatchSyncResult[]>;
+  /** Batch-sync achievements from Epic; applies each success and returns per-game results. */
+  syncEpicAchievements: (gameIds: string[]) => Promise<BatchSyncResult[]>;
+  /** Persist manual unlock state for a game and refresh its cached payload. */
+  saveManualUnlocks: (
+    gameId: string,
+    unlocks: ManualUnlock[]
+  ) => Promise<GameAchievementData>;
+  /** Set (or clear) the forced RetroAchievements game id for a game. */
+  setForcedRaGameId: (
+    gameId: string,
+    raGameId: number | null
+  ) => Promise<AchievementLink>;
+  /** Create or update the manual Steam link for a game. */
+  createManualLink: (
+    gameId: string,
+    appid: number,
+    name?: string
+  ) => Promise<AchievementLink>;
+  /** Remove the manual Steam link for a game. */
+  removeManualLink: (gameId: string) => Promise<void>;
+  /** Search the Steam Store for manual-link candidates. */
+  searchManualSteam: (query: string) => Promise<SteamSearchResult[]>;
+  /** Fetch the public Steam achievement schema for an appid (no unlock state). */
+  fetchManualSchema: (appid: number) => Promise<Achievement[]>;
+  /** Read RetroAchievements settings (credentials masked). */
+  getRetroSettings: () => Promise<RetroSettings>;
+  /** Persist RetroAchievements settings (only provided fields are touched). */
+  saveRetroSettings: (partial: RetroSettingsUpdate) => Promise<void>;
+  /** List RetroAchievements consoles for the settings picker. */
+  getRetroConsoles: () => Promise<RaConsole[]>;
+  /** Search a console's RA game list. */
+  searchRetroGames: (
+    consoleId: number,
+    query: string
+  ) => Promise<RaSearchResult[]>;
 }
 
 const AchievementContext = createContext<AchievementContextType | null>(null);
@@ -103,6 +157,10 @@ export function AchievementProvider({ children }: { children: ReactNode }) {
     total: number;
   } | null>(null);
   const [settings, setSettings] = useState<AchievementSettings>(loadSettings);
+  // Per-game source identities (`achievement_links` table). The backend
+  // is the source of truth; the frontend only reads the map back and
+  // refreshes it after link-mutating calls.
+  const [links, setLinks] = useState<Record<string, AchievementLink[]>>({});
 
   // Mirrors the latest cache so persistence can always save a full,
   // current snapshot from outside React state — writing inside a
@@ -363,6 +421,214 @@ export function AchievementProvider({ children }: { children: ReactNode }) {
     [persistCache]
   );
 
+  // ── Multi-source sync helper ──────────────────────────────────────────
+
+  // Generic "apply a freshly synced payload" step shared by every
+  // non-Steam source (retro / manual / gog / epic). Mirrors the Steam
+  // path exactly: stamp the sync time, merge into the latest in-memory
+  // cache via a functional update (so a concurrent sync is never
+  // clobbered by a stale snapshot), update the ref mirror, then kick the
+  // same immediate, serialized persist chain.
+  const applySynced = useCallback(
+    (gameId: string, data: GameAchievementData) => {
+      data.lastSynced = Date.now();
+      setCache((prev) => ({
+        ...prev,
+        games: { ...prev.games, [gameId]: data },
+      }));
+      cacheRef.current = {
+        ...cacheRef.current,
+        games: { ...cacheRef.current.games, [gameId]: data },
+      };
+      return persistCache();
+    },
+    [persistCache]
+  );
+
+  // ── Achievement links ─────────────────────────────────────────────────
+
+  const loadLinks = useCallback(async () => {
+    try {
+      const data: Record<string, AchievementLink[]> = await invoke(
+        "achievement_links_list"
+      );
+      setLinks(data ?? {});
+    } catch (err) {
+      console.warn(
+        "[AchievementContext] Failed to load achievement links:",
+        err
+      );
+    }
+  }, []);
+
+  // Re-fetch the link map after any link-mutating call (create / remove
+  // / force) so consumers always see fresh source identities.
+  const refreshLinks = useCallback(async () => {
+    await loadLinks();
+  }, [loadLinks]);
+
+  // Load the achievement-links map from disk on mount, alongside the
+  // cache, so consumers (e.g. per-game source pickers) can read links
+  // immediately without waiting for the first mutation.
+  useEffect(() => {
+    loadLinks();
+  }, [loadLinks]);
+
+  // ── RetroAchievements ─────────────────────────────────────────────────
+
+  const syncRetroAchievements = useCallback(
+    async (gameId: string): Promise<GameAchievementData> => {
+      const data: GameAchievementData = await invoke("retro_sync_game", {
+        gameId,
+      });
+      await applySynced(gameId, data);
+      return data;
+    },
+    [applySynced]
+  );
+
+  const setForcedRaGameId = useCallback(
+    async (
+      gameId: string,
+      raGameId: number | null
+    ): Promise<AchievementLink> => {
+      const link: AchievementLink = await invoke("retro_set_forced_game_id", {
+        gameId,
+        raGameId,
+      });
+      await refreshLinks();
+      return link;
+    },
+    [refreshLinks]
+  );
+
+  const getRetroSettings = useCallback(async (): Promise<RetroSettings> => {
+    return invoke("retro_get_settings");
+  }, []);
+
+  const saveRetroSettings = useCallback(
+    async (partial: RetroSettingsUpdate) => {
+      // Send only the fields the caller provided (undefined keys would
+      // otherwise be ambiguous on the wire); each maps 1:1 to a Rust arg.
+      const args: Record<string, unknown> = {};
+      if (partial.username !== undefined) args.username = partial.username;
+      if (partial.apiKey !== undefined) args.apiKey = partial.apiKey;
+      if (partial.consoleMap !== undefined) args.consoleMap = partial.consoleMap;
+      if (partial.enabled !== undefined) args.enabled = partial.enabled;
+      await invoke("retro_save_settings", args);
+    },
+    []
+  );
+
+  const getRetroConsoles = useCallback(async (): Promise<RaConsole[]> => {
+    return invoke("retro_get_consoles");
+  }, []);
+
+  const searchRetroGames = useCallback(
+    async (consoleId: number, query: string): Promise<RaSearchResult[]> => {
+      return invoke("retro_search_games", { consoleId, query });
+    },
+    []
+  );
+
+  // ── Manual (Steam-schema-backed) ──────────────────────────────────────
+
+  const syncManualAchievements = useCallback(
+    async (gameId: string): Promise<GameAchievementData> => {
+      const data: GameAchievementData = await invoke("manual_sync", {
+        gameId,
+      });
+      await applySynced(gameId, data);
+      return data;
+    },
+    [applySynced]
+  );
+
+  const saveManualUnlocks = useCallback(
+    async (
+      gameId: string,
+      unlocks: ManualUnlock[]
+    ): Promise<GameAchievementData> => {
+      const data: GameAchievementData = await invoke("manual_save_unlocks", {
+        gameId,
+        unlocks,
+      });
+      await applySynced(gameId, data);
+      return data;
+    },
+    [applySynced]
+  );
+
+  const createManualLink = useCallback(
+    async (
+      gameId: string,
+      appid: number,
+      name?: string
+    ): Promise<AchievementLink> => {
+      const link: AchievementLink = await invoke("manual_link_create", {
+        gameId,
+        appid,
+        name: name ?? null,
+      });
+      await refreshLinks();
+      return link;
+    },
+    [refreshLinks]
+  );
+
+  const removeManualLink = useCallback(async (gameId: string) => {
+    await invoke("manual_link_remove", { gameId });
+    await refreshLinks();
+  }, [refreshLinks]);
+
+  const searchManualSteam = useCallback(
+    async (query: string): Promise<SteamSearchResult[]> => {
+      return invoke("manual_search_steam", { query });
+    },
+    []
+  );
+
+  const fetchManualSchema = useCallback(
+    async (appid: number): Promise<Achievement[]> => {
+      return invoke("manual_fetch_schema", { appid });
+    },
+    []
+  );
+
+  // ── GOG / Epic batch sync ─────────────────────────────────────────────
+
+  const syncGogAchievements = useCallback(
+    async (gameIds: string[]): Promise<BatchSyncResult[]> => {
+      const results: BatchSyncResult[] = await invoke("gog_fetch_achievements", {
+        gameIds,
+      });
+      for (const result of results) {
+        // A success row carries data; a soft note or hard error doesn't.
+        if (result.data) {
+          await applySynced(result.gameId, result.data);
+        }
+      }
+      return results;
+    },
+    [applySynced]
+  );
+
+  const syncEpicAchievements = useCallback(
+    async (gameIds: string[]): Promise<BatchSyncResult[]> => {
+      const results: BatchSyncResult[] = await invoke(
+        "epic_fetch_achievements",
+        { gameIds }
+      );
+      for (const result of results) {
+        if (result.data) {
+          await applySynced(result.gameId, result.data);
+        }
+      }
+      return results;
+    },
+    [applySynced]
+  );
+
   const updateSettings = useCallback(
     (updates: Partial<AchievementSettings>) => {
       setSettings((prev) => {
@@ -499,6 +765,22 @@ export function AchievementProvider({ children }: { children: ReactNode }) {
         updateSettings,
         clearCache,
         reloadCache,
+        links,
+        refreshLinks,
+        syncRetroAchievements,
+        syncManualAchievements,
+        syncGogAchievements,
+        syncEpicAchievements,
+        saveManualUnlocks,
+        setForcedRaGameId,
+        createManualLink,
+        removeManualLink,
+        searchManualSteam,
+        fetchManualSchema,
+        getRetroSettings,
+        saveRetroSettings,
+        getRetroConsoles,
+        searchRetroGames,
       }}
     >
       {children}

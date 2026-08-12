@@ -64,6 +64,7 @@
 //! reference (avoids recompiling SP-style borrowing chains across
 //! `.await`).
 
+pub mod achievement_links;
 pub mod achievements;
 pub mod atomic;
 pub mod emulators;

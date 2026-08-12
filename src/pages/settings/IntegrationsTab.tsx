@@ -51,9 +51,84 @@ export default function IntegrationsTab({
   const { t } = useLanguage();
   const { showToast } = useToast();
   const { syncIntervalMinutes, setSyncIntervalMinutes, historyCapDays, setHistoryCapDays, hideAchievementProgress, setHideAchievementProgress, steamAutoDetect, setSteamAutoDetect } = useSettings();
-  const { settings: achievementSettings, updateSettings: updateAchievementSettings } = useAchievements();
+  const { settings: achievementSettings, updateSettings: updateAchievementSettings, getRetroSettings, saveRetroSettings, getRetroConsoles } = useAchievements();
 
   const confirm = useConfirm();
+
+  // ── RetroAchievements section state ──────────────────────────────
+  const [retro, setRetro] = useState({
+    username: "",
+    apiKey: "",
+    hasApiKey: false,
+    enabled: false,
+    consoleMap: [] as { platform: string; consoleId: number }[],
+    consoles: [] as { id: number; name: string }[],
+    loading: true,
+    saving: false,
+  });
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const [settings, consoles] = await Promise.all([
+          getRetroSettings(),
+          getRetroConsoles(),
+        ]);
+        if (cancelled) return;
+        setRetro({
+          username: settings.username ?? "",
+          apiKey: "",
+          hasApiKey: settings.hasApiKey,
+          enabled: settings.enabled,
+          consoleMap: settings.consoleMap ?? [],
+          consoles,
+          loading: false,
+          saving: false,
+        });
+      } catch (err) {
+        if (!cancelled) {
+          setRetro((prev) => ({ ...prev, loading: false }));
+          showToast(t("settings.retro.loadFailed", { error: String(err) }), "error");
+        }
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [getRetroSettings, getRetroConsoles, showToast, t]);
+
+  async function handleRetroSave() {
+    setRetro((prev) => ({ ...prev, saving: true }));
+    try {
+      const partial: {
+        username?: string;
+        apiKey?: string;
+        enabled?: boolean;
+        consoleMap?: { platform: string; consoleId: number }[];
+      } = {
+        username: retro.username.trim() || undefined,
+        enabled: retro.enabled,
+        consoleMap: retro.consoleMap
+          .filter((r) => r.platform.trim().length > 0)
+          .map((r) => ({ platform: r.platform.trim(), consoleId: r.consoleId })),
+      };
+      if (retro.apiKey.trim()) partial.apiKey = retro.apiKey.trim();
+      await saveRetroSettings(partial);
+      // Re-read so the "saved" indicator reflects the keychain state.
+      const settings = await getRetroSettings();
+      setRetro((prev) => ({
+        ...prev,
+        hasApiKey: settings.hasApiKey,
+        apiKey: "",
+        saving: false,
+      }));
+      showToast(t("settings.retro.saved"), "success");
+    } catch (err) {
+      setRetro((prev) => ({ ...prev, saving: false }));
+      showToast(t("settings.retro.saveFailed", { error: String(err) }), "error");
+    }
+  }
 
   const {
     steam,
@@ -799,6 +874,170 @@ export default function IntegrationsTab({
         <p className="integration-footer">{t("settings.integrations.footerNotice")}</p>
       </SettingsSection>
 
+      {/* ── RetroAchievements — emulated / local game achievements ── */}
+      <SettingsSection
+        id="section-retro"
+        icon={<RetroIcon />}
+        title={t("settings.retro.title")}
+        desc={t("settings.retro.desc")}
+      >
+        <div className="retro-settings">
+          <div className="integration-tile-form">
+            <label className="settings-control">
+              <span className="settings-label">{t("settings.retro.username")}</span>
+              <input
+                type="text"
+                className="settings-input"
+                value={retro.username}
+                onChange={(e) => setRetro((p) => ({ ...p, username: e.target.value }))}
+                autoComplete="off"
+                placeholder={t("settings.retro.usernamePlaceholder")}
+                disabled={retro.saving}
+              />
+            </label>
+            <label className="settings-control">
+              <div className="settings-label-row">
+                <span className="settings-label">{t("settings.retro.apiKey")}</span>
+                <a
+                  href="https://retroachievements.org/settings"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="settings-link"
+                >
+                  {t("settings.retro.getKey")}
+                </a>
+              </div>
+              <div className="settings-input-group">
+                <input
+                  type="password"
+                  className="settings-input"
+                  value={retro.apiKey}
+                  onChange={(e) => setRetro((p) => ({ ...p, apiKey: e.target.value }))}
+                  autoComplete="new-password"
+                  placeholder={t("settings.retro.apiKeyPlaceholder")}
+                  disabled={retro.saving}
+                />
+                {retro.hasApiKey && (
+                  <span className="retro-key-saved">{t("settings.retro.keySaved")}</span>
+                )}
+              </div>
+              <p className="settings-helper-text">{t("settings.retro.apiKeyHint")}</p>
+            </label>
+            <label className="settings-checkbox-label">
+              <input
+                type="checkbox"
+                checked={retro.enabled}
+                onChange={(e) => setRetro((p) => ({ ...p, enabled: e.target.checked }))}
+                disabled={retro.saving}
+              />
+              <div className="settings-checkbox-text">
+                <span className="settings-checkbox-title">{t("settings.retro.enabled")}</span>
+                <span className="settings-checkbox-desc">{t("settings.retro.enabledDesc")}</span>
+              </div>
+            </label>
+          </div>
+
+          <div className="retro-console-map">
+            <span className="settings-label">{t("settings.retro.consoleMap")}</span>
+            <p className="settings-helper-text">{t("settings.retro.consoleMapDesc")}</p>
+            {retro.loading ? (
+              <p className="settings-helper-text">{t("common.loading")}</p>
+            ) : (
+              <>
+                {retro.consoleMap.map((row, i) => (
+                  <div className="retro-map-row" key={i}>
+                    <input
+                      type="text"
+                      className="settings-input retro-map-platform"
+                      value={row.platform}
+                      onChange={(e) =>
+                        setRetro((p) => {
+                          const consoleMap = [...p.consoleMap];
+                          consoleMap[i] = { ...consoleMap[i], platform: e.target.value };
+                          return { ...p, consoleMap };
+                        })
+                      }
+                      placeholder={t("settings.retro.platformPlaceholder")}
+                      disabled={retro.saving}
+                    />
+                    <select
+                      className="settings-select retro-map-console"
+                      value={row.consoleId}
+                      onChange={(e) =>
+                        setRetro((p) => {
+                          const consoleMap = [...p.consoleMap];
+                          consoleMap[i] = { ...consoleMap[i], consoleId: Number(e.target.value) };
+                          return { ...p, consoleMap };
+                        })
+                      }
+                      aria-label={t("settings.retro.console")}
+                      disabled={retro.saving}
+                    >
+                      {retro.consoles.map((c) => (
+                        <option key={c.id} value={c.id}>
+                          {c.name}
+                        </option>
+                      ))}
+                    </select>
+                    <button
+                      type="button"
+                      className="retro-map-remove"
+                      onClick={() =>
+                        setRetro((p) => ({
+                          ...p,
+                          consoleMap: p.consoleMap.filter((_, idx) => idx !== i),
+                        }))
+                      }
+                      aria-label={t("settings.retro.removeMapping")}
+                      disabled={retro.saving}
+                    >
+                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" width="14" height="14">
+                        <line x1="18" y1="6" x2="6" y2="18" />
+                        <line x1="6" y1="6" x2="18" y2="18" />
+                      </svg>
+                    </button>
+                  </div>
+                ))}
+                {retro.consoles.length === 0 && !retro.loading && (
+                  <p className="settings-helper-text">{t("settings.retro.noConsoles")}</p>
+                )}
+                <button
+                  type="button"
+                  className="retro-map-add"
+                  onClick={() =>
+                    setRetro((p) => ({
+                      ...p,
+                      consoleMap: [
+                        ...p.consoleMap,
+                        { platform: "", consoleId: p.consoles[0]?.id ?? 0 },
+                      ],
+                    }))
+                  }
+                  disabled={retro.saving || retro.consoles.length === 0}
+                >
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" width="14" height="14">
+                    <line x1="12" y1="5" x2="12" y2="19" />
+                    <line x1="5" y1="12" x2="19" y2="12" />
+                  </svg>
+                  {t("settings.retro.addMapping")}
+                </button>
+              </>
+            )}
+          </div>
+
+          <div className="retro-settings-actions">
+            <Button
+              variant="primary"
+              onClick={handleRetroSave}
+              isLoading={retro.saving}
+              disabled={retro.loading}
+            >
+              {t("common.save")}
+            </Button>
+          </div>
+        </div>
+      </SettingsSection>
+
       {/* ── Data & sync preferences (across vendors) ── */}
       <SettingsSection
         id="section-datasync"
@@ -940,3 +1179,23 @@ const AUTOSYNC_TOAST_KEY: Record<number, string> = {
   720: "settings.autosync.12h",
   1440: "settings.autosync.24h",
 };
+
+/** Retro gamepad glyph for the RetroAchievements settings section. */
+function RetroIcon() {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.8"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+    >
+      <rect x="2" y="6" width="20" height="12" rx="3" />
+      <path d="M7 10v4M5 12h4" />
+      <circle cx="16" cy="11" r="0.5" fill="currentColor" />
+      <circle cx="18" cy="13" r="0.5" fill="currentColor" />
+    </svg>
+  );
+}

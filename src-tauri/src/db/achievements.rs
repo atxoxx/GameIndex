@@ -27,28 +27,36 @@ pub fn upsert(
     steam_app_id: u32,
     payload_json: &str,
     last_synced: u64,
+    source: &str,
+    provider_id: Option<&str>,
 ) -> Result<(), String> {
     let conn = db.achievements().map_err(|e| e.to_string())?;
     conn.execute(
-        "INSERT INTO achievements_cache(game_id, steam_app_id, payload_json, last_synced)
-         VALUES (?1, ?2, ?3, ?4)
+        "INSERT INTO achievements_cache(game_id, steam_app_id, payload_json, last_synced, source, provider_id)
+         VALUES (?1, ?2, ?3, ?4, ?5, ?6)
          ON CONFLICT(game_id) DO UPDATE SET
              steam_app_id = excluded.steam_app_id,
              payload_json = excluded.payload_json,
-             last_synced  = excluded.last_synced",
-        params![game_id, steam_app_id, payload_json, last_synced],
+             last_synced  = excluded.last_synced,
+             source       = excluded.source,
+             provider_id  = excluded.provider_id",
+        params![game_id, steam_app_id, payload_json, last_synced, source, provider_id],
     )
     .map_err(|e| format!("achievements upsert: {e}"))?;
     Ok(())
 }
 
-/// Read a single cached game as `(steam_app_id, payload_json, last_synced)`.
+/// Read a single cached game as
+/// `(steam_app_id, payload_json, last_synced, source, provider_id)`.
 /// Returns `None` when the game has no cached achievement row yet.
-pub fn get(db: &Db, game_id: &str) -> Result<Option<(u32, String, Option<u64>)>, String> {
+pub fn get(
+    db: &Db,
+    game_id: &str,
+) -> Result<Option<(u32, String, Option<u64>, String, Option<String>)>, String> {
     let conn = db.achievements().map_err(|e| e.to_string())?;
     let mut stmt = conn
         .prepare(
-            "SELECT steam_app_id, payload_json, last_synced
+            "SELECT steam_app_id, payload_json, last_synced, source, provider_id
                FROM achievements_cache WHERE game_id = ?1",
         )
         .map_err(|e| format!("achievements get prepare: {e}"))?;
@@ -60,16 +68,29 @@ pub fn get(db: &Db, game_id: &str) -> Result<Option<(u32, String, Option<u64>)>,
         let payload: String = r.get(1).map_err(|e| format!("achievements get c1: {e}"))?;
         let last_synced: Option<i64> =
             r.get(2).map_err(|e| format!("achievements get c2: {e}"))?;
-        return Ok(Some((steam_app_id, payload, last_synced.map(|n| n as u64))));
+        let source: String = r.get(3).map_err(|e| format!("achievements get c3: {e}"))?;
+        let provider_id: Option<String> =
+            r.get(4).map_err(|e| format!("achievements get c4: {e}"))?;
+        return Ok(Some((
+            steam_app_id,
+            payload,
+            last_synced.map(|n| n as u64),
+            source,
+            provider_id,
+        )));
     }
     Ok(None)
 }
 
-/// Read every cached game as `(game_id, steam_app_id, payload_json)`.
-pub fn list_all(db: &Db) -> Result<Vec<(String, u32, String)>, String> {
+/// Read every cached game as
+/// `(game_id, steam_app_id, payload_json, source, provider_id)`.
+pub fn list_all(db: &Db) -> Result<Vec<(String, u32, String, String, Option<String>)>, String> {
     let conn = db.achievements().map_err(|e| e.to_string())?;
     let mut stmt = conn
-        .prepare("SELECT game_id, steam_app_id, payload_json FROM achievements_cache")
+        .prepare(
+            "SELECT game_id, steam_app_id, payload_json, source, provider_id
+               FROM achievements_cache",
+        )
         .map_err(|e| format!("achievements list prepare: {e}"))?;
     // `query_map` requires the closure to return `rusqlite::Result`,
     // so the inner `?` chains `rusqlite::Error` (and we map each
@@ -80,6 +101,8 @@ pub fn list_all(db: &Db) -> Result<Vec<(String, u32, String)>, String> {
                 r.get::<_, String>(0)?,
                 r.get::<_, u32>(1)?,
                 r.get::<_, String>(2)?,
+                r.get::<_, String>(3)?,
+                r.get::<_, Option<String>>(4)?,
             ))
         })
         .map_err(|e| format!("achievements list query: {e}"))?;
@@ -118,12 +141,14 @@ pub fn upsert_many_from_payload(
     {
         let mut stmt = tx
             .prepare(
-                "INSERT INTO achievements_cache(game_id, steam_app_id, payload_json, last_synced)
-                 VALUES (?1, ?2, ?3, ?4)
+                "INSERT INTO achievements_cache(game_id, steam_app_id, payload_json, last_synced, source, provider_id)
+                 VALUES (?1, ?2, ?3, ?4, ?5, ?6)
                  ON CONFLICT(game_id) DO UPDATE SET
                      steam_app_id = excluded.steam_app_id,
                      payload_json = excluded.payload_json,
-                     last_synced  = excluded.last_synced",
+                     last_synced  = excluded.last_synced,
+                     source       = excluded.source,
+                     provider_id  = excluded.provider_id",
             )
             .map_err(|e| format!("achievements batch prepare: {e}"))?;
         for (game_id, payload) in games {
@@ -132,33 +157,41 @@ pub fn upsert_many_from_payload(
                 .and_then(|v| v.as_u64())
                 .map(|n| n as u32)
                 .unwrap_or(0);
-            // Union incoming `achieved` state with any already-persisted
-            // unlocks so a whole-cache save (e.g. a Steam re-sync) can
-            // never relock an achievement the local crack watcher
-            // unlocked (or vice-versa). Achievements are monotonic —
-            // once unlocked, always unlocked.
+            // Multi-source: the incoming payload carries the source tag
+            // (absent = legacy Steam shape). The never-relock union below
+            // only applies when the existing row's source matches the
+            // incoming one — switching a game's source (e.g. steam→manual)
+            // must replace the cache with fresh fetch state rather than
+            // inherit another source's unlock flags.
+            let source = payload
+                .get("source")
+                .and_then(|v| v.as_str())
+                .unwrap_or("steam");
+            let provider_id = payload.get("providerId").and_then(|v| v.as_str());
             let mut payload = payload.clone();
             if let Ok(existing) = read_payload_row(&tx, game_id) {
-                if let Some(existing) = existing {
-                    // A re-sync whose schema came back empty (transient
-                    // Steam hiccup) must not wipe a previously-good
-                    // cached list: the union below can only protect
-                    // already-unlocked flags, it can't restore the rows
-                    // themselves. Skip the write instead.
-                    let incoming_empty = payload
-                        .get("achievements")
-                        .and_then(|v| v.as_array())
-                        .map(|a| a.is_empty())
-                        .unwrap_or(true);
-                    let existing_nonempty = existing
-                        .get("achievements")
-                        .and_then(|v| v.as_array())
-                        .map(|a| !a.is_empty())
-                        .unwrap_or(false);
-                    if incoming_empty && existing_nonempty {
-                        continue;
+                if let Some((existing_source, existing)) = existing {
+                    if existing_source == source {
+                        // A re-sync whose schema came back empty (transient
+                        // Steam hiccup) must not wipe a previously-good
+                        // cached list: the union below can only protect
+                        // already-unlocked flags, it can't restore the rows
+                        // themselves. Skip the write instead.
+                        let incoming_empty = payload
+                            .get("achievements")
+                            .and_then(|v| v.as_array())
+                            .map(|a| a.is_empty())
+                            .unwrap_or(true);
+                        let existing_nonempty = existing
+                            .get("achievements")
+                            .and_then(|v| v.as_array())
+                            .map(|a| !a.is_empty())
+                            .unwrap_or(false);
+                        if incoming_empty && existing_nonempty {
+                            continue;
+                        }
+                        union_achieved_into(&mut payload, &existing);
                     }
-                    union_achieved_into(&mut payload, &existing);
                 }
             }
             let serialized = serde_json::to_string(&payload)
@@ -171,7 +204,9 @@ pub fn upsert_many_from_payload(
                 game_id,
                 steam_app_id,
                 serialized,
-                last_synced
+                last_synced,
+                source,
+                provider_id
             ])
             .map_err(|e| format!("achievements batch {game_id}: {e}"))?;
         }
@@ -180,13 +215,15 @@ pub fn upsert_many_from_payload(
     Ok(())
 }
 
-/// Read the persisted payload JSON for one game inside a transaction.
+/// Read the persisted payload JSON for one game inside a transaction,
+/// together with the row's `source` tag (needed for the never-relock
+/// union's source guard in [`upsert_many_from_payload`]).
 fn read_payload_row(
     tx: &rusqlite::Transaction,
     game_id: &str,
-) -> Result<Option<serde_json::Value>, String> {
+) -> Result<Option<(String, serde_json::Value)>, String> {
     let mut stmt = tx
-        .prepare("SELECT payload_json FROM achievements_cache WHERE game_id = ?1")
+        .prepare("SELECT source, payload_json FROM achievements_cache WHERE game_id = ?1")
         .map_err(|e| format!("achievements read_payload prepare: {e}"))?;
     let mut rows = stmt
         .query(params![game_id])
@@ -195,12 +232,15 @@ fn read_payload_row(
         .next()
         .map_err(|e| format!("achievements read_payload row: {e}"))?
     {
-        let payload: String = r
+        let source: String = r
             .get(0)
+            .map_err(|e| format!("achievements read_payload source: {e}"))?;
+        let payload: String = r
+            .get(1)
             .map_err(|e| format!("achievements read_payload col: {e}"))?;
         let value = serde_json::from_str(&payload)
             .map_err(|e| format!("achievements read_payload parse: {e}"))?;
-        return Ok(Some(value));
+        return Ok(Some((source, value)));
     }
     Ok(None)
 }
@@ -278,7 +318,7 @@ pub fn read_all_as_payload_json(db: &Db) -> Result<String, String> {
     let conn = db.achievements().map_err(|e| e.to_string())?;
     let mut stmt = conn
         .prepare(
-            "SELECT game_id, steam_app_id, payload_json, last_synced
+            "SELECT game_id, steam_app_id, payload_json, last_synced, source, provider_id
                FROM achievements_cache
               ORDER BY game_id",
         )
@@ -290,12 +330,14 @@ pub fn read_all_as_payload_json(db: &Db) -> Result<String, String> {
                 r.get::<_, u32>(1)?,
                 r.get::<_, String>(2)?,
                 r.get::<_, Option<i64>>(3)?.map(|n| n as u64),
+                r.get::<_, String>(4)?,
+                r.get::<_, Option<String>>(5)?,
             ))
         })
         .map_err(|e| format!("achievements read_all query: {e}"))?;
     let mut games = serde_json::Map::new();
     for row in rows {
-        let (game_id, steam_app_id, payload, last_synced) =
+        let (game_id, steam_app_id, payload, last_synced, source, provider_id) =
             row.map_err(|e| format!("row: {e}"))?;
         let mut value: serde_json::Value =
             serde_json::from_str(&payload).unwrap_or(serde_json::Value::Null);
@@ -304,10 +346,20 @@ pub fn read_all_as_payload_json(db: &Db) -> Result<String, String> {
                 "steamAppId".to_string(),
                 serde_json::Value::Number(steam_app_id.into()),
             );
+            map.insert(
+                "source".to_string(),
+                serde_json::Value::String(source),
+            );
             if let Some(ts) = last_synced {
                 map.insert(
                     "lastSynced".to_string(),
                     serde_json::Value::Number(ts.into()),
+                );
+            }
+            if let Some(pid) = provider_id {
+                map.insert(
+                    "providerId".to_string(),
+                    serde_json::Value::String(pid),
                 );
             }
         }

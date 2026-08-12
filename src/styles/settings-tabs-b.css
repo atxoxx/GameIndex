@@ -1430,3 +1430,127 @@
     transition: none;
   }
 }
+
+/* ============================================================================
+ * RETROACHIEVEMENTS SECTION
+ * ============================================================================
+ * Config card for the RetroAchievements integration (IntegrationsTab):
+ * credentials, master toggle and the platform → console mapping editor.
+ * Consumes the shared .settings-control / .settings-input / .settings-select
+ * primitives; only the section-specific layout is defined here.
+ * ========================================================================== */
+
+.retro-settings {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-xl);
+  max-width: 720px;
+}
+
+.retro-key-saved {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-xs);
+  flex-shrink: 0;
+  padding: 0 var(--space-md);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-success);
+  background: color-mix(in srgb, var(--color-success) 12%, transparent);
+  border: 1px solid color-mix(in srgb, var(--color-success) 30%, transparent);
+  border-radius: var(--radius-md);
+  white-space: nowrap;
+}
+
+.retro-console-map {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+  padding: var(--space-lg);
+  background: var(--color-bg-secondary);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+}
+
+.retro-map-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1.2fr) auto;
+  gap: var(--space-sm);
+  align-items: center;
+}
+
+.retro-map-platform {
+  min-width: 0;
+}
+
+.retro-map-console {
+  min-width: 0;
+}
+
+.retro-map-remove {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: var(--settings-ctl-h);
+  height: var(--settings-ctl-h);
+  border: 1px solid var(--color-border);
+  background: var(--color-bg-tertiary);
+  color: var(--color-text-muted);
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  transition: color var(--transition-fast), background var(--transition-fast), border-color var(--transition-fast), opacity var(--transition-fast);
+}
+
+.retro-map-remove:hover:not(:disabled) {
+  color: var(--color-danger);
+  border-color: color-mix(in srgb, var(--color-danger) 40%, var(--color-border));
+  background: color-mix(in srgb, var(--color-danger) 10%, var(--color-bg-tertiary));
+}
+
+.retro-map-remove:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.retro-map-add {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-xs);
+  align-self: flex-start;
+  padding: var(--space-xs) var(--space-md);
+  background: transparent;
+  border: 1px dashed var(--color-border-light);
+  border-radius: var(--radius-md);
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-semibold);
+  font-family: inherit;
+  cursor: pointer;
+  transition: color var(--transition-fast), background var(--transition-fast), border-color var(--transition-fast), opacity var(--transition-fast);
+}
+
+.retro-map-add:hover:not(:disabled) {
+  color: var(--color-accent);
+  border-color: var(--color-accent);
+  background: var(--color-accent-soft);
+}
+
+.retro-map-add:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.retro-settings-actions {
+  display: flex;
+  justify-content: flex-end;
+}
+
+@media (max-width: 560px) {
+  .retro-map-row {
+    grid-template-columns: 1fr;
+  }
+  .retro-map-remove {
+    justify-self: end;
+  }
+}

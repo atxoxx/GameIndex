@@ -176,6 +176,11 @@ export function buildSettingsCatalog(t: (key: string, vars?: Record<string, unkn
           labelKey: "settings.section.dataSync",
           keywords: "auto sync interval history retention achievements spoilers local tracking",
         },
+        {
+          id: "section-retro",
+          labelKey: "settings.retro.title",
+          keywords: "retro achievements retroachievements emulator rom hash console mapping",
+        },
       ],
     },
     downloads: {

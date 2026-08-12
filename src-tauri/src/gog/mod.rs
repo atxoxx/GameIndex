@@ -8,6 +8,8 @@
 //!   carrying `Authorization: Bearer <token>`.
 //! - `installed` — Windows registry + `goggame-<id>.info` parsing
 //!   + primary-exe resolution.
+//! - `achievements` — gameplay.gog.com achievements fetch, mapped to
+//!   the shared `Achievement` shape and cached per game.
 //! - `sync` — pure-Rust orchestrator. Refreshes tokens, probes
 //!   `account/basic`, fetches owned + metadata + playtime,
 //!   merges with installed scan into `GogSyncResult`.
@@ -17,6 +19,7 @@
 //! `embed.gog.com/user/data/games` requires session cookies
 //! even with OAuth2 Bearer auth on other endpoints.
 
+pub mod achievements;
 pub mod auth;
 pub mod client;
 pub mod cookies;

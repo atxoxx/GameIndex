@@ -8,35 +8,82 @@ import { useLanguage } from "../context/LanguageContext";
 import {
   type Game,
   type Achievement,
+  type AchievementSource,
+  type AchievementRarity,
   getAchievementRarity,
   RARITY_COLORS,
-  type AchievementRarity,
 } from "../types/game";
+import {
+  ACHIEVEMENT_SOURCES,
+  sourceOfPayload,
+} from "../components/achievements/AchievementSourceBadge";
+import AchievementSourceBadge from "../components/achievements/AchievementSourceBadge";
 
 type CompletionFilter = "all" | "perfect" | "in_progress" | "not_started";
 type SortBy = "name" | "completion" | "total" | "recent";
+type SourceFilter = "all" | AchievementSource;
+
+const RARITY_TIERS: readonly AchievementRarity[] = [
+  "common",
+  "uncommon",
+  "rare",
+  "ultra_rare",
+];
 
 import { PageHeader } from "../components/ui";
 
 export default function AchievementsPage() {
   const { games } = useGames();
-  const { cache, syncAllAchievements, isSyncing, syncProgress } = useAchievements();
+  const {
+    cache,
+    syncAllAchievements,
+    syncRetroAchievements,
+    syncManualAchievements,
+    syncGogAchievements,
+    syncEpicAchievements,
+    links,
+    isSyncing,
+    syncProgress,
+  } = useAchievements();
   const { showToast } = useToast();
   const { t } = useLanguage();
   const navigate = useNavigate();
 
   const [completionFilter, setCompletionFilter] = useState<CompletionFilter>("all");
+  const [sourceFilter, setSourceFilter] = useState<SourceFilter>("all");
   const [sortBy, setSortBy] = useState<SortBy>("completion");
   const [searchQuery, setSearchQuery] = useState("");
+  const [bulkSyncing, setBulkSyncing] = useState(false);
 
   // Build enriched game list with achievement data
   const gamesWithAchievements = useMemo(() => {
     return games
       // Include games that have a Steam AppID (Steam or cracked, which
-      // can locate achievements) OR already have cached achievement data.
-      .filter((g) => g.steamAppId || cache.games[g.id])
+      // can locate achievements), OR already have cached achievement
+      // data, OR carry another achievement source identity (retro /
+      // gog / epic fields or a manual link).
+      .filter(
+        (g) =>
+          g.steamAppId ||
+          cache.games[g.id] ||
+          g.gogGameId ||
+          g.epicNamespace ||
+          g.emulatorId ||
+          g.romPath ||
+          (links[g.id]?.length ?? 0) > 0
+      )
       .map((g) => {
         const data = cache.games[g.id];
+        // Unlocked counts per rarity tier, for the row's 4 compact columns.
+        const rarity: Record<AchievementRarity, number> = {
+          common: 0,
+          uncommon: 0,
+          rare: 0,
+          ultra_rare: 0,
+        };
+        for (const a of data?.achievements ?? []) {
+          if (a.achieved) rarity[getAchievementRarity(a.percent)]++;
+        }
         return {
           game: g,
           data,
@@ -44,6 +91,8 @@ export default function AchievementsPage() {
           unlocked: data?.unlocked ?? 0,
           pct: data && data.total > 0 ? Math.round((data.unlocked / data.total) * 100) : 0,
           lastSynced: data?.lastSynced ?? 0,
+          source: sourceOfPayload(data),
+          rarity,
         };
       })
       .filter((item) => {
@@ -55,6 +104,8 @@ export default function AchievementsPage() {
         if (completionFilter === "perfect") return item.pct === 100 && item.total > 0;
         if (completionFilter === "in_progress") return item.unlocked > 0 && item.pct < 100;
         if (completionFilter === "not_started") return item.unlocked === 0 || !item.data;
+        // Source filter
+        if (sourceFilter !== "all" && item.source !== sourceFilter) return false;
         return true;
       })
       .sort((a, b) => {
@@ -64,7 +115,7 @@ export default function AchievementsPage() {
         if (sortBy === "recent") return b.lastSynced - a.lastSynced;
         return 0;
       });
-  }, [games, cache, completionFilter, sortBy, searchQuery]);
+  }, [games, cache, links, completionFilter, sourceFilter, sortBy, searchQuery]);
 
   // Aggregate stats
   const stats = useMemo(() => {
@@ -99,6 +150,26 @@ export default function AchievementsPage() {
     };
   }, [cache]);
 
+  // Unlocked achievement counts per source (the "by source" breakdown).
+  const bySource = useMemo(() => {
+    const counts: Record<AchievementSource, number> = {
+      steam: 0,
+      retro: 0,
+      manual: 0,
+      gog: 0,
+      epic: 0,
+    };
+    for (const data of Object.values(cache.games)) {
+      const src = sourceOfPayload(data);
+      for (const a of data.achievements) {
+        if (a.achieved) counts[src]++;
+      }
+    }
+    return counts;
+  }, [cache]);
+
+  const bySourceTotal = ACHIEVEMENT_SOURCES.reduce((sum, s) => sum + bySource[s], 0);
+
   // Recent achievements (last 20 across all games)
   const recentAchievements = useMemo(() => {
     const all: { achievement: Achievement; gameName: string; gameId: string }[] = [];
@@ -131,14 +202,66 @@ export default function AchievementsPage() {
     return counts;
   }, [cache]);
 
+  /**
+   * Sync All — Steam flow (unchanged) plus the non-Steam sources in
+   * parallel lanes: retro per emulator/ROM game, manual per linked game,
+   * and gog / epic as single batch calls. Each lane reports independently
+   * so one failed source doesn't sink the rest.
+   */
   async function handleSyncAll() {
+    const steamGames = games.filter((g) => g.steamAppId && g.platform === "Steam");
+    const retroGames = games.filter((g) => g.emulatorId || g.romPath);
+    const manualGames = games.filter((g) =>
+      (links[g.id] ?? []).some((l) => l.source === "manual")
+    );
+    const gogIds = games.filter((g) => g.gogGameId).map((g) => g.id);
+    const epicIds = games.filter((g) => g.epicNamespace).map((g) => g.id);
+
+    let total = 0;
+    let failed = 0;
+    const run = async (label: string, fn: () => Promise<unknown>) => {
+      total++;
+      try {
+        await fn();
+      } catch (err) {
+        failed++;
+        console.warn(`[AchievementsPage] ${label} sync failed:`, err);
+      }
+    };
+
+    setBulkSyncing(true);
     try {
-      await syncAllAchievements(games);
+      if (steamGames.length > 0) {
+        await run("Steam", () => syncAllAchievements(games));
+      }
+      for (const g of retroGames) {
+        await run(`Retro (${g.name})`, () => syncRetroAchievements(g.id));
+      }
+      if (manualGames.length > 0) {
+        await run("Manual", () =>
+          Promise.all(manualGames.map((g) => syncManualAchievements(g.id)))
+        );
+      }
+      if (gogIds.length > 0) {
+        await run("GOG", () => syncGogAchievements(gogIds));
+      }
+      if (epicIds.length > 0) {
+        await run("Epic", () => syncEpicAchievements(epicIds));
+      }
+    } finally {
+      setBulkSyncing(false);
+    }
+
+    if (total === 0 || failed === 0) {
       showToast(t("achievements.allSynced"), "success");
-    } catch (err) {
-      showToast(t("achievements.syncFailed", { error: err }), "error");
+    } else if (failed === total) {
+      showToast(t("achievements.syncFailed", { error: "" }), "error");
+    } else {
+      showToast(t("achievementsPage.syncPartial", { failed }), "warning");
     }
   }
+
+  const syncing = isSyncing || bulkSyncing;
 
   return (
     <div className="achievements-page page">
@@ -156,9 +279,9 @@ export default function AchievementsPage() {
           <button
             className="achievements-sync-btn"
             onClick={handleSyncAll}
-            disabled={isSyncing}
+            disabled={syncing}
           >
-            {isSyncing ? (
+            {syncing ? (
               <>
                 <span className="achievements-spinner" />
                 {syncProgress
@@ -203,37 +326,71 @@ export default function AchievementsPage() {
         </div>
       </div>
 
-      {/* Rarity distribution */}
-      {stats.totalAchievements > 0 && (
-        <div className="achievements-page-rarity-section">
-          <h3 className="achievements-section-title">{t("achievementsPage.rarityDistribution")}</h3>
-          <div className="achievements-rarity-bar-wrap">
-            <div className="achievements-rarity-bar achievements-rarity-bar-lg">
-              {(["ultra_rare", "rare", "uncommon", "common"] as const).map((tier) => {
-                const count = rarityStats[tier];
-                if (count === 0) return null;
-                return (
-                  <div
-                    key={tier}
-                    className="achievements-rarity-segment"
-                    style={{
-                      width: `${(count / stats.totalAchievements) * 100}%`,
-                      backgroundColor: RARITY_COLORS[tier],
-                    }}
-                    title={`${t(`achievementsPage.rarity.${tier}`)}: ${count}`}
-                  />
-                );
-              })}
+      {/* Breakdown charts: rarity distribution + achievements by source */}
+      {(stats.totalAchievements > 0 || bySourceTotal > 0) && (
+        <div className="achievements-page-charts">
+          {stats.totalAchievements > 0 && (
+            <div className="achievements-page-rarity-section">
+              <h3 className="achievements-section-title">{t("achievementsPage.rarityDistribution")}</h3>
+              <div className="achievements-rarity-bar-wrap">
+                <div className="achievements-rarity-bar achievements-rarity-bar-lg">
+                  {(["ultra_rare", "rare", "uncommon", "common"] as const).map((tier) => {
+                    const count = rarityStats[tier];
+                    if (count === 0) return null;
+                    return (
+                      <div
+                        key={tier}
+                        className="achievements-rarity-segment"
+                        style={{
+                          width: `${(count / stats.totalAchievements) * 100}%`,
+                          backgroundColor: RARITY_COLORS[tier],
+                        }}
+                        title={`${t(`achievementsPage.rarity.${tier}`)}: ${count}`}
+                      />
+                    );
+                  })}
+                </div>
+                <div className="achievements-rarity-legend">
+                  {(["ultra_rare", "rare", "uncommon", "common"] as const).map((tier) => (
+                    <span key={tier} className="achievements-rarity-legend-item">
+                      <span className="achievements-rarity-dot" style={{ backgroundColor: RARITY_COLORS[tier] }} />
+                      {t(`achievementsPage.rarity.${tier}`)} ({rarityStats[tier]})
+                    </span>
+                  ))}
+                </div>
+              </div>
             </div>
-            <div className="achievements-rarity-legend">
-              {(["ultra_rare", "rare", "uncommon", "common"] as const).map((tier) => (
-                <span key={tier} className="achievements-rarity-legend-item">
-                  <span className="achievements-rarity-dot" style={{ backgroundColor: RARITY_COLORS[tier] }} />
-                  {t(`achievementsPage.rarity.${tier}`)} ({rarityStats[tier]})
-                </span>
-              ))}
+          )}
+
+          {bySourceTotal > 0 && (
+            <div className="achievements-page-bysource-section">
+              <h3 className="achievements-section-title">{t("achievementsPage.achievementsBySource")}</h3>
+              <div className="achievements-bysource-bar-wrap">
+                <div className="achievements-bysource-bar">
+                  {ACHIEVEMENT_SOURCES.map((src) => {
+                    const count = bySource[src];
+                    if (count === 0) return null;
+                    return (
+                      <div
+                        key={src}
+                        className="ach-bysource-segment"
+                        data-source={src}
+                        style={{ width: `${(count / bySourceTotal) * 100}%` }}
+                        title={`${t(`achievements.source.${src}`)}: ${count}`}
+                      />
+                    );
+                  })}
+                </div>
+                <div className="achievements-bysource-legend">
+                  {ACHIEVEMENT_SOURCES.map((src) => (
+                    <span key={src} className="ach-bysource-item" data-source={src}>
+                      {t(`achievements.source.${src}`)} ({bySource[src]})
+                    </span>
+                  ))}
+                </div>
+              </div>
             </div>
-          </div>
+          )}
         </div>
       )}
 
@@ -292,6 +449,20 @@ export default function AchievementsPage() {
               </button>
             ))}
           </div>
+          <div className="achievements-src-filter">
+            {(["all", ...ACHIEVEMENT_SOURCES] as const).map((src) => (
+              <button
+                key={src}
+                className={`achievements-filter-btn ${sourceFilter === src ? "active" : ""}`}
+                onClick={() => setSourceFilter(src as SourceFilter)}
+                data-source={src === "all" ? undefined : src}
+              >
+                {src === "all"
+                  ? t("achievements.source.all")
+                  : t(`achievements.source.${src}`)}
+              </button>
+            ))}
+          </div>
           <div className="achievements-search-wrap">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" width="14" height="14">
               <circle cx="11" cy="11" r="8" />
@@ -329,12 +500,14 @@ export default function AchievementsPage() {
               unlocked={item.unlocked}
               pct={item.pct}
               lastSynced={item.lastSynced}
+              source={item.source}
+              rarity={item.rarity}
               onClick={() => navigate(`/library/${item.game.id}`)}
             />
           ))}
           {gamesWithAchievements.length === 0 && (
             <div className="achievements-no-results">
-              {searchQuery ? t("achievements.noMatchSearch") : t("achievements.noSteamGames")}
+              {searchQuery ? t("achievements.noMatchSearch") : t("achievementsPage.noGames")}
             </div>
           )}
         </div>
@@ -349,6 +522,8 @@ function GameAchievementRow({
   unlocked,
   pct,
   lastSynced,
+  source,
+  rarity,
   onClick,
 }: {
   game: Game;
@@ -356,9 +531,12 @@ function GameAchievementRow({
   unlocked: number;
   pct: number;
   lastSynced: number;
+  source: AchievementSource;
+  rarity: Record<AchievementRarity, number>;
   onClick: () => void;
 }) {
   const { t } = useLanguage();
+
   return (
     <div className="achievements-game-row" onClick={onClick}>
       <div className="achievements-game-cover">
@@ -384,7 +562,7 @@ function GameAchievementRow({
                 style={{
                   width: `${pct}%`,
                   background: pct >= 100
-                    ? "linear-gradient(90deg, #10b981, #059669)"
+                    ? "linear-gradient(90deg, var(--color-success), color-mix(in srgb, var(--color-success) 80%, white))"
                     : "linear-gradient(90deg, var(--color-accent), var(--color-accent-hover))",
                 }}
               />
@@ -397,18 +575,38 @@ function GameAchievementRow({
           <span className="achievements-game-not-synced">{t("achievementsPage.notSynced")}</span>
         )}
       </div>
-      {pct === 100 && total > 0 && (
-        <div className="achievements-perfect-badge" title={t("achievements.perfectComplete")}>
-          <svg viewBox="0 0 24 24" fill="currentColor" width="18" height="18">
-            <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z" />
-          </svg>
-        </div>
-      )}
-      {lastSynced > 0 && (
-        <span className="achievements-game-synced-at">
-          {new Date(lastSynced).toLocaleDateString(undefined, { month: "short", day: "numeric" })}
-        </span>
-      )}
+
+      <AchievementSourceBadge source={source} />
+
+      <div className="ach-rarity-counts">
+        {RARITY_TIERS.map((tier) => (
+          <div
+            key={tier}
+            className="ach-rarity-count"
+            title={`${t(`achievementsPage.rarity.${tier}`)}: ${rarity[tier]}`}
+          >
+            <span className="ach-rarity-count-value" style={{ color: RARITY_COLORS[tier] }}>
+              {rarity[tier]}
+            </span>
+            <span className="ach-rarity-count-label">{t(`achievementsPage.rarity.${tier}`)}</span>
+          </div>
+        ))}
+      </div>
+
+      <div className="achievements-game-row-trail">
+        {pct === 100 && total > 0 && (
+          <div className="achievements-perfect-badge" title={t("achievements.perfectComplete")}>
+            <svg viewBox="0 0 24 24" fill="currentColor" width="18" height="18">
+              <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z" />
+            </svg>
+          </div>
+        )}
+        {lastSynced > 0 && (
+          <span className="achievements-game-synced-at">
+            {new Date(lastSynced).toLocaleDateString(undefined, { month: "short", day: "numeric" })}
+          </span>
+        )}
+      </div>
     </div>
   );
 }

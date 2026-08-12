@@ -1,5 +1,6 @@
 use serde::{Deserialize, Deserializer, Serialize};
 use reqwest::Client;
+use regex::Regex;
 use serde_json::Value;
 use tauri::Manager;
 
@@ -13,10 +14,6 @@ use crate::local_achievements::{self, UnlockedAchievement};
 /// User-agent for Steam API requests.
 const USER_AGENT: &str =
     "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36";
-
-/// Hydra's achievement-schema endpoint (anonymous, no login). Returns
-/// display names / icons / descriptions + a `points` rarity score.
-const HYDRA_API_BASE: &str = "";
 
 // ── Serializable types ──────────────────────────────────────────────────
 
@@ -43,6 +40,21 @@ pub struct GameAchievementData {
     pub locked: u32,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub last_synced: Option<u64>,
+    /// Active source of the cached data — the cache row's `source`
+    /// column is the canonical copy (legacy Steam data defaults to
+    /// "steam").
+    #[serde(default = "default_source")]
+    pub source: String,
+    /// Provider-side id for the source (Steam appid for "steam",
+    /// provider game id for retro/manual/gog/epic).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub provider_id: Option<String>,
+}
+
+/// Serde default for `GameAchievementData::source` — legacy payloads
+/// written before multi-source support are Steam data.
+fn default_source() -> String {
+    "steam".to_string()
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
@@ -321,6 +333,8 @@ pub async fn fetch_achievements_with_client(
             unlocked: 0,
             locked: 0,
             last_synced: None,
+            source: default_source(),
+            provider_id: None,
         });
     }
 
@@ -381,6 +395,8 @@ pub async fn fetch_achievements_with_client(
         unlocked: unlocked_count,
         locked: total - unlocked_count,
         last_synced: None,
+        source: default_source(),
+        provider_id: None,
     })
 }
 
@@ -441,41 +457,29 @@ fn load_achievements_cache_inner(app: &tauri::AppHandle) -> Result<String, Strin
 
 // ── Local (crack / emulator) achievements ───────────────────────────────
 //
-// Ported from Hydra Launcher. The achievement *schema* (display names,
-// icons, descriptions, rarity) comes from Hydra's anonymous API; the
-// *unlock state* comes from crack/emulator files on disk (see
+// The achievement *schema* (display names, icons, descriptions, rarity)
+// comes from Steam's own Web API — keyless `GetSchemaForGame/v2` for
+// public games, with a keyed fallback via the stored Steam API key, plus
+// `GetGlobalAchievementPercentagesForApp/v2` for rarity. The *unlock
+// state* comes from crack/emulator files on disk (see
 // `local_achievements`). The two are merged into the same
 // `GameAchievementData` shape the Steam path produces, keyed by the
 // local library game id.
 
-/// Hydra's achievement-schema row shape.
-#[derive(Debug, Deserialize)]
-struct HydraSchemaAchievement {
-    name: String,
-    #[serde(default)]
-    hidden: bool,
-    #[serde(default)]
-    icon: String,
-    #[serde(default)]
-    icongray: String,
-    #[serde(default, rename = "displayName")]
-    display_name: String,
-    #[serde(default)]
-    description: String,
-    #[serde(default)]
-    points: Option<f64>,
-}
-
-/// Convert Hydra's `points` rarity score into an approximate global
-/// unlock percentage (0–100), mirroring Hydra's own inverse formula.
-fn points_to_percent(points: Option<f64>) -> f64 {
-    match points {
-        Some(p) if p.is_finite() && p >= 0.0 => ((50.0 - p.sqrt()) * 2.0).clamp(0.0, 100.0),
-        _ => 0.0,
+/// The Steam Web API key stored in the OS keychain, if the user has a
+/// `steam_session` entry with one (same entry `steam::auth` reads).
+pub(crate) fn stored_steam_api_key() -> Option<String> {
+    let store = db::secrets::SecretStore::new();
+    let secret = store.get("steam_session").ok().flatten()?;
+    let session: crate::steam::types::SteamSession = serde_json::from_str(&secret).ok()?;
+    if session.api_key.is_empty() {
+        None
+    } else {
+        Some(session.api_key)
     }
 }
 
-// ── Hydra schema cache ─────────────────────────────────────────────────
+// ── Steam schema cache ─────────────────────────────────────────────────
 //
 // Schemas are effectively static per (appid, language), but the
 // background watcher re-syncs a game on every on-disk change — without a
@@ -484,27 +488,31 @@ fn points_to_percent(points: Option<f64>) -> f64 {
 // timeouts). Cache fetched schemas in-process with a 1h TTL; the mutex is
 // only ever held for short clone/insert operations, never across an await.
 
-/// TTL for cached Hydra schema entries (~1h).
-const HYDRA_SCHEMA_TTL: Duration = Duration::from_secs(60 * 60);
+/// TTL for cached Steam schema entries (~1h).
+const STEAM_SCHEMA_TTL: Duration = Duration::from_secs(60 * 60);
 
 /// One cached schema: the parsed achievement list plus when it was
 /// fetched, so stale entries can be refreshed on demand.
-struct CachedHydraSchema {
+struct CachedSteamSchema {
     schema: Vec<Achievement>,
     fetched_at: Instant,
 }
 
 /// `(steam_app_id, language)` -> cached schema.
-static HYDRA_SCHEMA_CACHE: OnceLock<Mutex<HashMap<(u32, String), CachedHydraSchema>>> =
+static STEAM_SCHEMA_CACHE: OnceLock<Mutex<HashMap<(u32, String), CachedSteamSchema>>> =
     OnceLock::new();
 
-fn hydra_schema_cache() -> &'static Mutex<HashMap<(u32, String), CachedHydraSchema>> {
-    HYDRA_SCHEMA_CACHE.get_or_init(|| Mutex::new(HashMap::new()))
+fn steam_schema_cache() -> &'static Mutex<HashMap<(u32, String), CachedSteamSchema>> {
+    STEAM_SCHEMA_CACHE.get_or_init(|| Mutex::new(HashMap::new()))
 }
 
-/// Fetch the achievement schema for a Steam appid from Hydra's public
-/// API. Returns achievements with `achieved=false` / `unlock_time=0`
-/// (unlock state is merged in separately from local files).
+/// Fetch the achievement schema for a Steam appid from Steam's own
+/// services — the keyed `GetSchemaForGame/v2` when a Steam API key is
+/// stored (real api names, gray icons, hidden flags), otherwise the
+/// anonymous Steam Community achievements page (no key required), plus
+/// global unlock percentages for rarity. Returns achievements with
+/// `achieved=false` / `unlock_time=0` (unlock state is merged in
+/// separately from local files).
 ///
 /// Results are cached in-process keyed by `(steam_app_id, language)`
 /// with a ~1h TTL, so repeated syncs of the same game (e.g. every dirty
@@ -512,7 +520,7 @@ fn hydra_schema_cache() -> &'static Mutex<HashMap<(u32, String), CachedHydraSche
 /// successes are cached — a failed/offline fetch stays uncached so the
 /// next pass retries, and `merge_into_cache` already falls back to the
 /// persisted cache when no schema is available.
-pub async fn fetch_hydra_schema(
+pub async fn fetch_steam_schema(
     client: &Client,
     steam_app_id: u32,
     language: &str,
@@ -523,21 +531,21 @@ pub async fn fetch_hydra_schema(
     // The mutex is only held for this short lookup + clone — the actual
     // fetch below happens outside the lock.
     {
-        let cache = hydra_schema_cache().lock().unwrap_or_else(|e| e.into_inner());
+        let cache = steam_schema_cache().lock().unwrap_or_else(|e| e.into_inner());
         if let Some(entry) = cache.get(&key) {
-            if entry.fetched_at.elapsed() < HYDRA_SCHEMA_TTL {
+            if entry.fetched_at.elapsed() < STEAM_SCHEMA_TTL {
                 return Ok(entry.schema.clone());
             }
         }
     }
 
-    let schema = fetch_hydra_schema_uncached(client, steam_app_id, language).await?;
+    let schema = fetch_steam_schema_uncached(client, steam_app_id, language).await?;
 
     // Cache successes only.
-    let mut cache = hydra_schema_cache().lock().unwrap_or_else(|e| e.into_inner());
+    let mut cache = steam_schema_cache().lock().unwrap_or_else(|e| e.into_inner());
     cache.insert(
         key,
-        CachedHydraSchema {
+        CachedSteamSchema {
             schema: schema.clone(),
             fetched_at: Instant::now(),
         },
@@ -546,33 +554,64 @@ pub async fn fetch_hydra_schema(
     Ok(schema)
 }
 
-/// The raw HTTP fetch behind `fetch_hydra_schema` (no caching).
-async fn fetch_hydra_schema_uncached(
+/// The raw HTTP fetch behind `fetch_steam_schema` (no caching).
+async fn fetch_steam_schema_uncached(
     client: &Client,
     steam_app_id: u32,
     language: &str,
 ) -> Result<Vec<Achievement>, String> {
-    let url = format!(
-        "{HYDRA_API_BASE}/games/steam/{steam_app_id}/achievements?language={language}"
-    );
-    let resp = client
-        .get(&url)
-        .send()
-        .await
-        .map_err(|e| format!("Hydra achievements request failed: {e}"))?;
-
-    if !resp.status().is_success() {
-        return Err(format!(
-            "Hydra achievements API returned HTTP {}",
-            resp.status().as_u16()
-        ));
+    // Keyed GetSchemaForGame first — best quality (real api names, gray
+    // icons, hidden flags). The keyless variant of this endpoint returns
+    // HTTP 400, so anonymous access goes through the Steam Community page
+    // below instead.
+    if let Some(api_key) = stored_steam_api_key() {
+        let keyed_url = format!(
+            "https://api.steampowered.com/ISteamUserStats/GetSchemaForGame/v2/\
+             ?key={api_key}&appid={steam_app_id}&l={language}&format=json"
+        );
+        if let Ok(schema) = fetch_schema_from_url(client, &keyed_url).await {
+            if !schema.is_empty() {
+                return Ok(enrich_schema_with_rarity(client, steam_app_id, schema).await);
+            }
+        }
     }
 
-    let body = resp.text().await.unwrap_or_else(|_| "[]".to_string());
-    let schema: Vec<HydraSchemaAchievement> = serde_json::from_str(&body)
-        .map_err(|e| format!("Failed to parse Hydra achievements: {e}"))?;
+    // Anonymous fallback: the Steam Community achievements page — no API
+    // key required (e.g. locally-added games). Rows carry their own
+    // global unlock percentages.
+    fetch_steam_community_schema(client, steam_app_id, language).await
+}
 
-    Ok(schema
+/// Attach global unlock percentages (keyless, public) to a
+/// keyed-schema row list — Steam's own rarity.
+async fn enrich_schema_with_rarity(
+    client: &Client,
+    steam_app_id: u32,
+    schema: Vec<SchemaAchievement>,
+) -> Vec<Achievement> {
+    let global_url = format!(
+        "https://api.steampowered.com/ISteamUserStats/\
+         GetGlobalAchievementPercentagesForApp/v2/\
+         ?gameid={steam_app_id}&format=json"
+    );
+    let percent_map: HashMap<String, f64> = match client.get(&global_url).send().await {
+        Ok(resp) if resp.status().is_success() => {
+            let body = resp.text().await.unwrap_or_else(|_| "{}".to_string());
+            match serde_json::from_str::<GlobalPercentResponse>(&body) {
+                Ok(parsed) => parsed
+                    .achievementpercentages
+                    .map(|ap| ap.achievements)
+                    .unwrap_or_default()
+                    .into_iter()
+                    .map(|a| (a.name.clone(), a.percent))
+                    .collect(),
+                Err(_) => HashMap::new(),
+            }
+        }
+        _ => HashMap::new(),
+    };
+
+    schema
         .into_iter()
         .map(|a| {
             let display_name = if a.display_name.is_empty() {
@@ -580,23 +619,129 @@ async fn fetch_hydra_schema_uncached(
             } else {
                 a.display_name
             };
-            let description = if a.hidden && a.description.is_empty() {
+            let description = if a.hidden == 1 && a.description.is_empty() {
                 "Hidden achievement".to_string()
             } else {
                 a.description
             };
             Achievement {
-                api_name: a.name,
+                api_name: a.name.clone(),
                 display_name,
                 description,
                 icon: a.icon,
                 icon_gray: a.icongray,
                 achieved: false,
                 unlock_time: 0,
-                percent: points_to_percent(a.points),
+                percent: percent_map.get(&a.name).copied().unwrap_or(0.0),
             }
         })
-        .collect())
+        .collect()
+}
+
+/// Fetch the achievement list from the anonymous Steam Community page
+/// (`steamcommunity.com/stats/{appid}/achievements`) — no API key
+/// required. This is the keyless schema source for locally-added games:
+/// Steam's `GetSchemaForGame/v2` needs a key (HTTP 400 without one).
+/// Returns rows with `achieved=false` / `unlock_time=0`; the page's
+/// global unlock percentage becomes `percent`.
+pub(crate) async fn fetch_steam_community_schema(
+    client: &Client,
+    steam_app_id: u32,
+    language: &str,
+) -> Result<Vec<Achievement>, String> {
+    let url = format!(
+        "https://steamcommunity.com/stats/{steam_app_id}/achievements?l={language}"
+    );
+    let resp = get_with_429_retry(client, url, "Steam Community achievements").await?;
+    if !resp.status().is_success() {
+        return Err(format!(
+            "Steam Community achievements page returned HTTP {}",
+            resp.status().as_u16()
+        ));
+    }
+    let body = resp.text().await.unwrap_or_default();
+    Ok(parse_community_achievements(&body))
+}
+
+/// Parse the Steam Community achievements page HTML (`achieveRow`
+/// blocks) into schema rows. The page's structure per row:
+/// an icon `<img>`, a `achievePercent` div, and `h3`/`h5` for the
+/// display name + description. `api_name` is derived from the icon
+/// filename hash (the page carries no API names) so it stays stable
+/// across fetches for manual-unlock matching.
+fn parse_community_achievements(html: &str) -> Vec<Achievement> {
+    let row_re = match Regex::new(
+        r#"(?s)<div class="achieveRow[^"]*">.*?<img src="([^"]+)"[^>]*>.*?<div class="achievePercent">\s*([0-9.]+)\s*%</div>.*?<h3>(.*?)</h3>\s*<h5>(.*?)</h5>"#,
+    ) {
+        Ok(re) => re,
+        Err(_) => return Vec::new(),
+    };
+    let hash_re = match Regex::new(r#"([^/]+)\.(?:jpg|png|gif)$"#) {
+        Ok(re) => re,
+        Err(_) => return Vec::new(),
+    };
+
+    let mut out = Vec::new();
+    for (i, caps) in row_re.captures_iter(html).enumerate() {
+        let icon = strip_html(&caps[1]).trim().to_string();
+        let api_name = hash_re
+            .captures(&icon)
+            .and_then(|c| c.get(1))
+            .map(|m| m.as_str().to_string())
+            .unwrap_or_else(|| format!("ach-{i}"));
+        out.push(Achievement {
+            api_name,
+            display_name: unescape_html(strip_html(&caps[3]).trim().to_string()),
+            description: unescape_html(strip_html(&caps[4]).trim().to_string()),
+            icon: icon.clone(),
+            icon_gray: icon,
+            achieved: false,
+            unlock_time: 0,
+            percent: caps[2].parse::<f64>().unwrap_or(0.0),
+        });
+    }
+    out
+}
+
+/// Strip any inline HTML tags from a captured fragment.
+fn strip_html(s: &str) -> String {
+    let tag_re = match Regex::new(r"(?s)<[^>]+>") {
+        Ok(re) => re,
+        Err(_) => return s.to_string(),
+    };
+    tag_re.replace_all(s, "").into_owned()
+}
+
+/// Decode the common HTML entities Steam's page uses.
+fn unescape_html(s: String) -> String {
+    s.replace("&quot;", "\"")
+        .replace("&#39;", "'")
+        .replace("&lt;", "<")
+        .replace("&gt;", ">")
+        .replace("&nbsp;", " ")
+        .replace("&amp;", "&")
+}
+
+/// GET one `GetSchemaForGame/v2` URL and parse the schema rows.
+async fn fetch_schema_from_url(
+    client: &Client,
+    url: &str,
+) -> Result<Vec<SchemaAchievement>, String> {
+    let resp = get_with_429_retry(client, url.to_string(), "Schema").await?;
+    if !resp.status().is_success() {
+        return Err(format!(
+            "Schema API returned HTTP {}",
+            resp.status().as_u16()
+        ));
+    }
+    let body = resp.text().await.unwrap_or_else(|_| "{}".to_string());
+    let parsed: SchemaResponse = serde_json::from_str(&body)
+        .map_err(|e| format!("Failed to parse schema response: {e}"))?;
+    Ok(parsed
+        .game
+        .and_then(|g| g.available_game_stats)
+        .map(|s| s.achievements)
+        .unwrap_or_default())
 }
 
 /// Sort achievements: unlocked first (newest unlock first), then locked
@@ -640,7 +785,7 @@ pub fn merge_into_cache(
 
     // Existing cached data (from a prior Steam sync or local scan).
     let existing: Option<GameAchievementData> = db::achievements::get(db, game_id)?
-        .and_then(|(_, payload, _)| serde_json::from_str(&payload).ok());
+        .and_then(|(_, payload, _, _, _)| serde_json::from_str(&payload).ok());
 
     // Previously-achieved lookup (uppercased api name -> unlock secs).
     let prev_achieved: std::collections::HashMap<String, u64> = existing
@@ -670,6 +815,8 @@ pub fn merge_into_cache(
                 unlocked: 0,
                 locked: 0,
                 last_synced: Some(now_secs()),
+                source: default_source(),
+                provider_id: None,
             }),
             0,
         ));
@@ -716,10 +863,12 @@ pub fn merge_into_cache(
         unlocked: unlocked_count,
         locked: total - unlocked_count,
         last_synced: Some(now_secs()),
+        source: default_source(),
+        provider_id: None,
     };
 
     let payload = serde_json::to_string(&data).map_err(|e| e.to_string())?;
-    db::achievements::upsert(db, game_id, steam_app_id, &payload, now_secs())?;
+    db::achievements::upsert(db, game_id, steam_app_id, &payload, now_secs(), "steam", None)?;
 
     Ok((data, new_count))
 }
@@ -735,7 +884,7 @@ fn resolve_language(app: &tauri::AppHandle) -> String {
         .unwrap_or_else(|| "en".to_string())
 }
 
-/// Shared worker: fetch the Hydra schema, scan + parse local crack
+/// Shared worker: fetch the Steam schema, scan + parse local crack
 /// files, and merge into the cache. Used by both the manual command and
 /// the background watcher. Returns the merged data and new-unlock count.
 pub async fn sync_local_for_game(
@@ -747,7 +896,7 @@ pub async fn sync_local_for_game(
     language: &str,
 ) -> Result<(GameAchievementData, usize), String> {
     // Fetch the schema (best-effort — merge can fall back to cache).
-    let schema = fetch_hydra_schema(client, steam_app_id, language).await.ok();
+    let schema = fetch_steam_schema(client, steam_app_id, language).await.ok();
 
     // Find + parse all local crack/emulator files for this appid.
     let files = local_achievements::find_achievement_files(steam_app_id, exe_path.as_deref());
@@ -760,7 +909,7 @@ pub async fn sync_local_for_game(
 }
 
 /// Manual per-game local achievement sync (frontend "Sync" button for
-/// non-Steam / cracked games). Fetches schema from Hydra + reads local
+/// non-Steam / cracked games). Fetches schema from Steam + reads local
 /// crack files, merges, and returns the updated data.
 #[tauri::command]
 pub async fn sync_local_achievements(
@@ -785,4 +934,93 @@ pub async fn sync_local_achievements(
     let (data, _new) =
         sync_local_for_game(&app, &client, &game_id, steam_app_id, exe_path, &language).await?;
     Ok(data)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// Fixture mirrors the real Steam Community achievements page
+    /// (`steamcommunity.com/stats/{appid}/achievements`) row structure:
+    /// `.achieveRow` → `.achieveImgHolder img` + `.achievePercent` +
+    /// `.achieveTxt` h3/h5.
+    const SAMPLE_PAGE: &str = r#"
+<div class="achieveRow ">
+    <div class="achieveImgHolder">
+        <img src="https://shared.akamai.steamstatic.com/community_assets/images/apps/782330/2c5d76d44e950aa2eaca0872836de853f6a86da3.jpg" width="64" height="64" border="0" />
+    </div>
+    <div class="achieveTxtHolder">
+        <div class="achieveFill" style="width: 77%"></div>
+        <div class="achievePercent">77.3%</div>
+        <div class="achieveTxt">
+            <h3>Darn It, They Keep BREAKING</h3>
+            <h5>Perform 33 Unique Glory Kills in a single save slot</h5>
+        </div>
+    </div>
+    <div style="clear: both;"></div>
+</div>
+<div class="achieveRow ">
+    <div class="achieveImgHolder">
+        <img src="https://shared.akamai.steamstatic.com/community_assets/images/apps/782330/11e5d362c82ff2b0ec48fcb91c2ca7f3849a454e.jpg" width="64" height="64" border="0" />
+    </div>
+    <div class="achieveTxtHolder">
+        <div class="achieveFill" style="width: 73%"></div>
+        <div class="achievePercent">73.7%</div>
+        <div class="achieveTxt">
+            <h3>Crystal &amp; Craving</h3>
+            <h5>Upgrade Health, Armor, or Ammo</h5>
+        </div>
+    </div>
+    <div style="clear: both;"></div>
+</div>
+"#;
+
+    #[test]
+    fn parses_community_achievements_rows() {
+        let rows = parse_community_achievements(SAMPLE_PAGE);
+        assert_eq!(rows.len(), 2);
+
+        assert_eq!(rows[0].display_name, "Darn It, They Keep BREAKING");
+        assert_eq!(
+            rows[0].description,
+            "Perform 33 Unique Glory Kills in a single save slot"
+        );
+        assert_eq!(rows[0].percent, 77.3);
+        assert!(!rows[0].achieved);
+        assert_eq!(rows[0].unlock_time, 0);
+        assert_eq!(
+            rows[0].icon,
+            "https://shared.akamai.steamstatic.com/community_assets/images/apps/782330/2c5d76d44e950aa2eaca0872836de853f6a86da3.jpg"
+        );
+        assert_eq!(rows[0].icon_gray, rows[0].icon);
+        // api_name is derived from the icon filename hash (page carries no API names).
+        assert_eq!(rows[0].api_name, "2c5d76d44e950aa2eaca0872836de853f6a86da3");
+
+        // HTML entities are decoded.
+        assert_eq!(rows[1].display_name, "Crystal & Craving");
+        assert_eq!(rows[1].percent, 73.7);
+    }
+
+    #[test]
+    fn community_parse_handles_empty_description() {
+        let html = r#"<div class="achieveRow ">
+<div class="achieveImgHolder"><img src="https://shared.akamai.steamstatic.com/community_assets/images/apps/782330/df8994bdc1ff5d8f83e77d8025c2a2a3c113d158.jpg" /></div>
+<div class="achieveTxtHolder">
+<div class="achievePercent">76.3%</div>
+<div class="achieveTxt"><h3>Doomsday</h3><h5></h5></div>
+</div>
+<div style="clear: both;"></div>
+</div>"#;
+        let rows = parse_community_achievements(html);
+        assert_eq!(rows.len(), 1);
+        assert_eq!(rows[0].display_name, "Doomsday");
+        assert_eq!(rows[0].description, "");
+        assert_eq!(rows[0].api_name, "df8994bdc1ff5d8f83e77d8025c2a2a3c113d158");
+    }
+
+    #[test]
+    fn community_parse_ignores_non_row_markup() {
+        assert!(parse_community_achievements("<!DOCTYPE html><html></html>").is_empty());
+        assert!(parse_community_achievements("").is_empty());
+    }
 }

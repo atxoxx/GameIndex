@@ -83,6 +83,17 @@ impl GogClient {
         Ok(Self { http })
     }
 
+    /// Build a bearer-authenticated GET request to `url` (not yet sent).
+    ///
+    /// Returns the raw `reqwest` builder so callers can attach
+    /// per-request headers (e.g. a source-specific User-Agent) before
+    /// `.send()`. The caller owns status / body handling. Exists so
+    /// sibling modules (e.g. `achievements`) can reuse this client
+    /// instead of building a second `reqwest::Client`.
+    pub fn get(&self, url: &str) -> reqwest::RequestBuilder {
+        self.http.get(url)
+    }
+
     /// Probe `menu.gog.com/v1/account/basic` to verify the access
     /// token is still live and return identity.
     pub async fn get_account_basic(&self) -> Result<GogAccountBasic, String> {

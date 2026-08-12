@@ -75,6 +75,14 @@ pub const STORE_CACHE_DDL: &str = include_str!("schema_store_cache.sql");
 /// DDL for the `achievements` domain.
 pub const ACHIEVEMENTS_DDL: &str = include_str!("schema_achievements.sql");
 
+/// DDL for the `achievements` domain, v2 migration: multi-source
+/// support. Adds the `source` / `provider_id` columns to the cache row
+/// plus the `achievement_links` table (per-game source identity + manual
+/// unlock state). Applied as a separate migration version so existing
+/// installs (already at `achievements` v1) pick it up on next launch;
+/// fresh installs apply v1 then v2.
+pub const ACHIEVEMENTS_V2_DDL: &str = include_str!("schema_achievements_v2.sql");
+
 /// DDL for the `kv` domain: the generic `kv_store` table.
 pub const KV_DDL: &str = include_str!("schema_kv.sql");
 
@@ -142,7 +150,7 @@ DomainSchema {
     },
     DomainSchema {
         label: "achievements",
-        versions: &[("v1", ACHIEVEMENTS_DDL)],
+        versions: &[("v1", ACHIEVEMENTS_DDL), ("v2", ACHIEVEMENTS_V2_DDL)],
     },
     DomainSchema {
         label: "kv",

@@ -248,7 +248,7 @@ fn import_achievements(db: &Db, path: &Path) -> Result<(), String> {
             .get("lastSynced")
             .and_then(|v| v.as_u64())
             .unwrap_or(0);
-        achievements::upsert(db, game_id, steam_app_id, &serialized, last_synced)?;
+        achievements::upsert(db, game_id, steam_app_id, &serialized, last_synced, "steam", None)?;
     }
     Ok(())
 }
