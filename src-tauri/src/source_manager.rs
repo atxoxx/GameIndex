@@ -54,7 +54,7 @@ use crate::game_scraper::{self, StoreGameSummary};
 const NEW_SOURCE_WINDOW_SECS: u64 = 7 * 24 * 60 * 60;
 
 /// Production Hydra API base URL.
-const HYDRA_API_BASE: &str = "https://hydra-api-us-east-1.losbroxas.org";
+const HYDRA_API_BASE: &str = "";
 
 // ─── JSON schema (Hydra-compatible) ─────────────────────────────────────────
 

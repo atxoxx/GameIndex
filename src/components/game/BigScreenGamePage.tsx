@@ -383,7 +383,7 @@ function BigScreenGamePageContent({
               </BigScreenPill>
               {resolvedSteamAppId != null && (
                 <BigScreenPill tone="muted" size="sm">
-                  <PlayerCountBadge appId={resolvedSteamAppId} className="bigscreen-steam-players" /> on Steam + Hydra
+                  <PlayerCountBadge appId={resolvedSteamAppId} className="bigscreen-steam-players" /> on Steam
                 </BigScreenPill>
               )}
               {rating != null && rating > 0 && (

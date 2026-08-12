@@ -6280,7 +6280,7 @@ offset 0;"#,
 // them with dangerouslySetInnerHTML, so we sanitize EVERY html field
 // (including translations) with ammonia before returning.
 
-const HYDRA_API_BASE: &str = "https://hydra-api-us-east-1.losbroxas.org";
+const HYDRA_API_BASE: &str = "";
 
 #[derive(Debug, Default, Serialize, Deserialize, Clone)]
 #[serde(rename_all = "camelCase")]

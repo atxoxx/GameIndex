@@ -1578,7 +1578,9 @@
    strip sits between the shared popover header and the tab panel
    (which reuses the .steam-stats-popover-body skeleton untouched).
 
-   - .player-stats-tabs        : the strip (2-up grid, hairline below)
+   - .player-stats-tabs        : the strip (flex row, hairline below; each tab
+                                  grows to fill — one tab spans full width,
+                                  two tabs split evenly)
    - .player-stats-tab         : one tab button; source dot + label
    - .player-stats-tab--steam  : green dot / green active underline
    - .player-stats-tab--hydra  : purple dot / purple active underline
@@ -1587,13 +1589,13 @@
    ============================================================================ */
 
 .player-stats-tabs {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
+  display: flex;
   border-bottom: 1px solid var(--color-border);
 }
 
 .player-stats-tab {
   --tab-accent: var(--color-success);
+  flex: 1 1 0;
   display: inline-flex;
   align-items: center;
   justify-content: center;

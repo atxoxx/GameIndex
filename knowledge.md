@@ -96,7 +96,7 @@ Phase 1–4 of a migration that moved every JSON file under `<app_data_dir>` plu
 ### Storefront Engine & Hydra Ported Features
 - **Storefront Catalog**: Powered by **IGDB** for catalogue browsing, featured rails, search, genre/platform filtering, and game detail metadata.
 - **Ported Hydra Integrations**: GameIndex ports specific Hydra public APIs:
-  - **Public Source Specification** (`hydra-api-source-spec.md`): Parser and format support for Hydra-compatible community download sources / repacks.
+  - **Public Source Specification**: Parser and format support for Hydra-compatible community download sources / repacks.
   - **Community Stats**: Live active players, total download counts, and community star ratings (`useHydraGameStats` + `HydraStatsPopover`).
   - **Community Reviews**: Full user reviews panel (`HydraReviewsPanel`) supporting community reviews, user replies, upvotes/downvotes, and sorting filters.
   - `CrackWatchContext`/`PriceContext` batch per-card lookups into single backend round-trips (`fetch_crackwatch_status_batch`, `fetch_price_batch`).

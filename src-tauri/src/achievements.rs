@@ -16,7 +16,7 @@ const USER_AGENT: &str =
 
 /// Hydra's achievement-schema endpoint (anonymous, no login). Returns
 /// display names / icons / descriptions + a `points` rarity score.
-const HYDRA_API_BASE: &str = "https://hydra-api-us-east-1.losbroxas.org";
+const HYDRA_API_BASE: &str = "";
 
 // ── Serializable types ──────────────────────────────────────────────────
 

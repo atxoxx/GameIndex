@@ -1,6 +1,5 @@
 import { useRef, useState } from "react";
 import useSteamPlayerCount from "../hooks/useSteamPlayerCount";
-import useHydraGameStats from "../hooks/useHydraGameStats";
 import PlayerCountPopover from "./PlayerCountPopover";
 import { formatCompactPlayerCount } from "./SteamPlayerCount";
 import { useLanguage } from "../context/LanguageContext";
@@ -8,29 +7,24 @@ import { useLanguage } from "../context/LanguageContext";
 /**
  * PlayerCountBadge
  * ────────────────
- * Unified "X playing" glass pill that sums the live player counts
- * from Steam (`get_steam_player_count`) and the Hydra launcher
- * community (`get_hydra_game_stats`). Supersedes the side-by-side
+ * "X playing" glass pill showing the live Steam player count
+ * (`get_steam_player_count`). Supersedes the side-by-side
  * `<SteamPlayerCount>` + `<HydraPlayerCount>` pair on every banner.
+ * (Hydra integration is disabled pending approval; re-enable by
+ * restoring the hydra hook + popover props.)
  *
- * Visuals: the familiar pill with up to two pulsing dots — green for
- * Steam, purple for Hydra — one per source currently contributing
- * players, so the badge doubles as a legend for where the number
- * comes from.
+ * Visuals: the familiar pill with one pulsing green dot for Steam.
  *
  * Click-to-expand
  * ───────────────
- * Opens `<PlayerCountPopover>`, a tabbed card with a Steam tab (live
- * count, review breakdown, 24h activity sparkline, store link) and a
- * Hydra tab (active players, community downloads, 1–5 star score).
+ * Opens `<PlayerCountPopover>`, a card with a Steam tab (live count,
+ * review breakdown, 24h activity sparkline, store link).
  *
  * Behavior:
- *  - Both sources poll every 60s + refetch on window focus (owned by
- *    their hooks, in lockstep with the Rust-side cache TTLs).
- *  - Renders nothing silently when appId is missing or both sources
- *    report zero/no players — a "0 playing" badge is noise.
- *  - Each source degrades independently: a Steam hiccup leaves the
- *    Hydra share visible, and vice versa.
+ *  - Polls every 60s + refetches on window focus (owned by the hook,
+ *    in lockstep with the Rust-side cache TTLs).
+ *  - Renders nothing silently when appId is missing or Steam reports
+ *    zero/no players — a "0 playing" badge is noise.
  */
 export interface PlayerCountBadgeProps {
   /** Steam appid (Hydra keys its catalog on Steam appids too). When
@@ -46,7 +40,6 @@ export default function PlayerCountBadge({
   className = "",
 }: PlayerCountBadgeProps) {
   const steamCount = useSteamPlayerCount(appId);
-  const hydraStats = useHydraGameStats(appId);
   const { t } = useLanguage();
 
   // Open on click only (per product decision). The popover closes via
@@ -58,14 +51,12 @@ export default function PlayerCountBadge({
   const badgeRef = useRef<HTMLDivElement>(null);
 
   const steam = steamCount ?? 0;
-  const hydra = hydraStats?.playerCount ?? 0;
-  const total = steam + hydra;
+  const total = steam;
 
   if (!appId || total <= 0) return null;
 
   const breakdown = [
     steam > 0 ? t("steamPlayer.onSteam", { count: steam.toLocaleString() }) : null,
-    hydra > 0 ? t("steamPlayer.onHydra", { count: hydra.toLocaleString() }) : null,
   ]
     .filter(Boolean)
     .join(" · ");
@@ -97,16 +88,9 @@ export default function PlayerCountBadge({
         }}
         data-count={total}
       >
-        {/* One dot per contributing source — green Steam, purple
-            Hydra — so the pill self-documents its composition. */}
+        {/* Green Steam dot — the pill self-documents its source. */}
         {steam > 0 && (
           <span className="steam-player-count-dot" aria-hidden="true" />
-        )}
-        {hydra > 0 && (
-          <span
-            className="steam-player-count-dot hydra-player-count-dot"
-            aria-hidden="true"
-          />
         )}
         <span
           className="steam-player-count-text"
@@ -122,7 +106,6 @@ export default function PlayerCountBadge({
           appId={appId}
           anchorRef={badgeRef}
           steamCount={steam}
-          hydraStats={hydraStats}
           onClose={() => setPopoverOpen(false)}
         />
       )}
