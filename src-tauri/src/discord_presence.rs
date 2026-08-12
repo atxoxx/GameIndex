@@ -47,6 +47,9 @@ pub struct PresenceData {
     /// `"playing"` | `"stopped"`.
     pub state: String,
     #[serde(default)]
+    /// Sent by the frontend as part of the IPC payload contract; not
+    /// consumed by the backend yet.
+    #[allow(dead_code)]
     pub game_id: Option<String>,
     #[serde(default)]
     pub game_name: Option<String>,
@@ -231,9 +234,8 @@ fn build_activity(data: &PresenceData) -> Activity<'static> {
 /// Returns `None` (and does nothing) when `client_id` is empty, so callers
 /// can unconditionally call this and just check the returned handle.
 ///
-/// The thread owns the IPC connection: it caches the last [`PresenceData`]
-/// so a reconnect can re-push the activity, and it reports connection state
-/// to the frontend via `discord-presence-status` events.
+/// The thread owns the IPC connection and reports connection state to the
+/// frontend via `discord-presence-status` events.
 pub fn start(client_id: String, app: tauri::AppHandle) -> Option<Sender<PresenceCommand>> {
     if client_id.is_empty() {
         return None;
@@ -245,7 +247,6 @@ pub fn start(client_id: String, app: tauri::AppHandle) -> Option<Sender<Presence
         if !connected {
             eprintln!("[discord] not connected (is the Discord desktop app running?)");
         }
-        let mut cached: Option<PresenceData> = None;
         let _ = app.emit(
             "discord-presence-status",
             serde_json::json!({ "connected": connected }),
@@ -254,7 +255,6 @@ pub fn start(client_id: String, app: tauri::AppHandle) -> Option<Sender<Presence
         loop {
             match rx.recv() {
                 Ok(PresenceCommand::SetPlaying(data)) => {
-                    cached = Some(data.clone());
                     if !connected {
                         connected = connect_with_retry(&mut client);
                         let _ = app.emit(
@@ -276,7 +276,6 @@ pub fn start(client_id: String, app: tauri::AppHandle) -> Option<Sender<Presence
                     }
                 }
                 Ok(PresenceCommand::Clear) => {
-                    cached = None;
                     if connected && client.0.clear_activity().is_err() {
                         connected = false;
                         let _ = app.emit(

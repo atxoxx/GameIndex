@@ -558,7 +558,7 @@ fn attr_str(e: &BytesStart<'_>, key: &str) -> Option<String> {
             String::from_utf8_lossy(attr.key.local_name().as_ref()).into_owned();
         if k == key {
             return attr
-                .unescape_value()
+                .normalized_value(quick_xml::XmlVersion::Implicit1_0)
                 .ok()
                 .map(|v| v.trim().to_string());
         }

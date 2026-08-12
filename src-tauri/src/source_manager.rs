@@ -201,15 +201,7 @@ struct HydraCatalogueGame {
     #[serde(default)]
     cover_image_url: Option<String>,
     #[serde(default)]
-    icon_url: Option<String>,
-    #[serde(default)]
-    library_image_url: Option<String>,
-    #[serde(default)]
-    library_hero_image_url: Option<String>,
-    #[serde(default)]
     logo_image_url: Option<String>,
-    #[serde(default)]
-    download_sources: Vec<String>,
 }
 
 /// Cached source payload. Persisted to the `sources_cache`

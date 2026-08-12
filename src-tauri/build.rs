@@ -13,6 +13,7 @@ fn main() {
         if std::env::var(var).is_ok() {
             println!("cargo:rustc-cfg=baked_{}", var);
         }
+        println!("cargo:rustc-check-cfg=cfg(baked_{})", var);
         println!("cargo:rerun-if-env-changed={}", var);
     }
     tauri_build::build()
