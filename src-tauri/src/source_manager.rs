@@ -53,9 +53,6 @@ use crate::game_scraper::{self, StoreGameSummary};
 /// first fetched (added) within this many seconds of now (7 days).
 const NEW_SOURCE_WINDOW_SECS: u64 = 7 * 24 * 60 * 60;
 
-/// Production Hydra API base URL.
-const HYDRA_API_BASE: &str = "";
-
 // ─── JSON schema (Hydra-compatible) ─────────────────────────────────────────
 
 /// A single download entry inside a source.
@@ -742,7 +739,7 @@ impl SourceManager {
             .map(|s| s.hydra_source_id)
             .collect();
 
-        let url = format!("{}/catalogue/{}", HYDRA_API_BASE, category);
+        let url = format!("/catalogue/{}", category);
         let mut params: Vec<(String, String)> = vec![
             ("take".to_string(), "12".to_string()),
             ("skip".to_string(), "0".to_string()),
@@ -1000,7 +997,7 @@ impl SourceManager {
     // ── Hydra API helpers ──────────────────────────────────────────────
 
     async fn hydra_add_source(&self, url: &str) -> Result<HydraDownloadSourceResponse, String> {
-        let endpoint = format!("{}/download-sources", HYDRA_API_BASE);
+        let endpoint = "/download-sources".to_string();
         let response = self
             .client
             .post(&endpoint)
@@ -1053,7 +1050,7 @@ impl SourceManager {
         &self,
         ids: &[String],
     ) -> Result<Vec<HydraDownloadSourceResponse>, String> {
-        let endpoint = format!("{}/download-sources/sync", HYDRA_API_BASE);
+        let endpoint = "/download-sources/sync".to_string();
         let response = self
             .client
             .post(&endpoint)
@@ -1084,7 +1081,7 @@ impl SourceManager {
         steam_app_id: u32,
         hydra_source_ids: &[String],
     ) -> Result<Vec<HydraRepack>, String> {
-        let url = format!("{}/games/steam/{}/download-sources", HYDRA_API_BASE, steam_app_id);
+        let url = format!("/games/steam/{}/download-sources", steam_app_id);
         let mut query_params = vec![("take".to_string(), "100".to_string()), ("skip".to_string(), "0".to_string())];
         for id in hydra_source_ids {
             query_params.push(("downloadSourceIds[]".to_string(), id.clone()));
@@ -1116,7 +1113,7 @@ impl SourceManager {
         title: &str,
         hydra_source_ids: &[String],
     ) -> Result<Vec<HydraRepack>, String> {
-        let search_url = format!("{}/catalogue/search", HYDRA_API_BASE);
+        let search_url = "/catalogue/search".to_string();
         let mut search_req = CatalogueSearchRequest {
             title: title.to_string(),
             take: 10,
@@ -1183,8 +1180,8 @@ impl SourceManager {
         }
 
         let repacks_url = format!(
-            "{}/games/{}/{}/download-sources",
-            HYDRA_API_BASE, best_match.shop, best_match.object_id
+            "/games/{}/{}/download-sources",
+            best_match.shop, best_match.object_id
         );
         let mut query_params = vec![("take".to_string(), "100".to_string()), ("skip".to_string(), "0".to_string())];
         for id in hydra_source_ids {

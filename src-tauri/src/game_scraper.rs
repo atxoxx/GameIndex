@@ -6280,8 +6280,6 @@ offset 0;"#,
 // them with dangerouslySetInnerHTML, so we sanitize EVERY html field
 // (including translations) with ammonia before returning.
 
-const HYDRA_API_BASE: &str = "";
-
 #[derive(Debug, Default, Serialize, Deserialize, Clone)]
 #[serde(rename_all = "camelCase")]
 pub struct HydraReviewUser {
@@ -6404,8 +6402,8 @@ pub async fn fetch_hydra_reviews(
     };
 
     let url = format!(
-        "{}/games/steam/{}/reviews?take={}&skip={}&sortBy={}",
-        HYDRA_API_BASE, app_id, take, skip, sort
+        "/games/steam/{}/reviews?take={}&skip={}&sortBy={}",
+        app_id, take, skip, sort
     );
 
     let resp = client
@@ -6446,8 +6444,7 @@ pub async fn fetch_hydra_review_replies(
     let take = take.clamp(1, 50);
 
     let url = format!(
-        "{}/games/steam/{}/reviews/{}/answers?take={}&skip={}",
-        HYDRA_API_BASE,
+        "/games/steam/{}/reviews/{}/answers?take={}&skip={}",
         app_id,
         url_encode(review_id),
         take,
@@ -6513,8 +6510,8 @@ pub async fn fetch_hydra_game_stats(app_id: u64) -> Result<HydraGameStats, Strin
     let client = http_client();
 
     let url = format!(
-        "{}/games/stats?objectId={}&shop=steam",
-        HYDRA_API_BASE, app_id
+        "/games/stats?objectId={}&shop=steam",
+        app_id
     );
 
     let resp = client
