@@ -27,6 +27,9 @@ dist-ssr
 # Windows reserved-name artifacts
 nul
 
+# User-installed plugins (hosted outside the repo, never committed)
+plugins/
+
 # Deepwork state
 .slim/deepwork/
 .agents

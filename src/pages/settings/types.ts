@@ -7,6 +7,7 @@ export type SettingsTab =
   | "hardware"
   | "integrations"
   | "downloads"
+  | "plugins"
   | "launcher"
   | "privacy";
 

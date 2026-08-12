@@ -88,6 +88,10 @@ pub const MODS_DDL: &str = include_str!("schema_mods.sql");
 /// dev-era tables with a different column set) + `custom_root`.
 pub const MODS_V2_DDL: &str = include_str!("schema_mods_v2.sql");
 
+/// DDL for the `plugins` domain: the `plugins` table holding one row
+/// per installed JS search plugin (manifest + sha256 + enabled flag).
+pub const PLUGINS_DDL: &str = include_str!("schema_plugins.sql");
+
 /// Bootstrap the schema-meta table on a fresh domain DB. This table is
 /// itself part of v1, but we need to read `schema_version` *before*
 /// applying v1, so bootstrap is logically a separate step.
@@ -155,5 +159,9 @@ DomainSchema {
     DomainSchema {
         label: "mods",
         versions: &[("v1", MODS_DDL), ("v2", MODS_V2_DDL)],
+    },
+    DomainSchema {
+        label: "plugins",
+        versions: &[("v1", PLUGINS_DDL)],
     },
 ];

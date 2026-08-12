@@ -30,6 +30,7 @@ import { invoke } from "@tauri-apps/api/core";
 import { useToast } from "./ToastContext";
 import { useLanguage } from "./LanguageContext";
 import type { BulkAddResult, MatchedDownload, SourceLink } from "../types/source";
+import type { DownloadSearchResult } from "../types/plugins";
 
 interface SourceContextValue {
   /** Current list of sources, in user-added order. */
@@ -49,6 +50,10 @@ interface SourceContextValue {
   refreshAllSources: () => Promise<void>;
   /** Fuzzy-match `query` against every enabled source's cache, checking Hydra online when possible. */
   searchSources: (query: string, steamAppId?: number) => Promise<MatchedDownload[]>;
+  /** Combined search: source matches (score-sorted, as `searchSources`) followed by
+   *  plugin-provided results pre-sorted newest-first. Plugin order is authoritative —
+   *  callers must not re-sort the plugin block. */
+  searchDownloads: (query: string, steamAppId?: number) => Promise<DownloadSearchResult[]>;
 }
 
 const SourceContext = createContext<SourceContextValue | null>(null);
@@ -213,6 +218,18 @@ export function SourceProvider({ children }: { children: ReactNode }) {
     [],
   );
 
+  const searchDownloads = useCallback(
+    async (query: string, steamAppId?: number): Promise<DownloadSearchResult[]> => {
+      const trimmed = query.trim();
+      if (!trimmed) return [];
+      return await invoke<DownloadSearchResult[]>("search_downloads", {
+        query: trimmed,
+        steamAppId: steamAppId ?? null,
+      });
+    },
+    [],
+  );
+
   const value = useMemo<SourceContextValue>(
     () => ({
       sources,
@@ -224,6 +241,7 @@ export function SourceProvider({ children }: { children: ReactNode }) {
       refreshSource,
       refreshAllSources,
       searchSources,
+      searchDownloads,
     }),
     [
       sources,
@@ -235,6 +253,7 @@ export function SourceProvider({ children }: { children: ReactNode }) {
       refreshSource,
       refreshAllSources,
       searchSources,
+      searchDownloads,
     ],
   );
 

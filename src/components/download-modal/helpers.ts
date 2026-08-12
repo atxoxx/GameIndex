@@ -83,22 +83,32 @@ export function formatUploadDate(
 
 /** Return a re-sorted copy of the matches for display. The canonical
  *  `matches` array stays score-ordered; this only affects presentation
- *  and the selection mapping (which is id-based, so reordering is safe). */
-export function sortMatches<T extends { sourceName: string; matchScore: number; uploadDate?: string | null }>(
+ *  and the selection mapping (which is id-based, so reordering is safe).
+ *
+ *  Plugin results are a distinct block: the backend pre-sorts them
+ *  newest-first, so user sorting applies to the source block only and
+ *  plugin rows always stay grouped at the bottom in their returned
+ *  order — never interleaved with sources, never re-sorted by score. */
+export function sortMatches<T extends { sourceName: string; matchScore: number; uploadDate?: string | null; provider?: string }>(
   list: T[],
   sortBy: "date" | "source" | "relevance",
 ): T[] {
-  const copy = [...list];
+  const sources: T[] = [];
+  const plugins: T[] = [];
+  for (const item of list) {
+    if (item.provider === "plugin") plugins.push(item);
+    else sources.push(item);
+  }
   if (sortBy === "source") {
-    copy.sort(
+    sources.sort(
       (a, b) =>
         a.sourceName.localeCompare(b.sourceName) || b.matchScore - a.matchScore,
     );
   } else if (sortBy === "relevance") {
-    copy.sort((a, b) => b.matchScore - a.matchScore);
+    sources.sort((a, b) => b.matchScore - a.matchScore);
   } else {
     // date — newest first; entries without a parseable date go last.
-    copy.sort((a, b) => dateValue(b.uploadDate) - dateValue(a.uploadDate));
+    sources.sort((a, b) => dateValue(b.uploadDate) - dateValue(a.uploadDate));
   }
-  return copy;
+  return [...sources, ...plugins];
 }

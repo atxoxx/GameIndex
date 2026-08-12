@@ -39,11 +39,18 @@ base64 = "0.22"
 mime_guess = "2.0.5"
 spider = { version = "2", default-features = false, features = ["sync", "ua_generator"] }
 scraper = "0.22"
-reqwest = { version = "0.12", features = ["json", "cookies", "multipart"] }
+reqwest = { version = "0.12", features = ["json", "cookies", "multipart", "blocking"] }
+# Embedded JS engine for the plugin sandbox (quickjs-ng via quickjs-sys).
+# Used to run user-installed `plugins/*.js` search scripts with injected
+# httpGet/httpGetJson/definePlugin globals. Default features are enough:
+# `Function::new`/`Ctx`/`Object` are core in 0.9, and we deliberately
+# leave `rust-alloc`/`allocator` OFF so `Runtime::set_memory_limit` is a
+# real cap (it is a no-op under a custom allocator).
+rquickjs = "0.9"
 aes-gcm = "0.10"
 chrono = { version = "0.4", features = ["clock"] }
 urlencoding = "2"
-tokio = { version = "1", features = ["rt-multi-thread", "macros"] }
+tokio = { version = "1", features = ["rt-multi-thread", "macros", "time"] }
 futures = "0.3"
 # === Phase 0–4 storage layer ===
 # Atomic write helper: writes to a sibling .tmp file then fs::rename for

@@ -1,3 +1,4 @@
+import { Fragment } from "react";
 import type { SortKey, DisplayMatch } from "./types";
 import { ResultRow } from "./ResultRow";
 import { useLanguage } from "../../context/LanguageContext";
@@ -52,10 +53,17 @@ export function ResultsList({
   // Keep the high-confidence matches (>= 0.4) always visible; collapse
   // the weaker ones behind a toggle so a wall of "Possible" results
   // doesn't bury the good hit. `realIndex` maps back into `matches`.
+  // Plugin rows are exempt from the collapse: they are a deliberate,
+  // backend-ordered block and must stay visible as a unit.
   const visible = matches
     .map((match, realIndex) => ({ match, realIndex }))
-    .filter(({ match }) => showWeakMatches || match.matchScore >= 0.4);
-  const weakCount = matches.filter((m) => m.matchScore < 0.4).length;
+    .filter(
+      ({ match }) =>
+        showWeakMatches || match.matchScore >= 0.4 || match.provider === "plugin",
+    );
+  const weakCount = matches.filter(
+    (m) => m.matchScore < 0.4 && m.provider !== "plugin",
+  ).length;
 
   return (
     <div>
@@ -77,15 +85,26 @@ export function ResultsList({
       </div>
 
       <div className="dl-results-list">
-        {visible.map(({ match, realIndex }) => (
-          <ResultRow
-            key={match.id ?? `${match.sourceId}-${realIndex}`}
-            match={match}
-            selected={selectedId === (match.id ?? null)}
-            onSelect={onSelect}
-            isDownloaded={isDownloaded}
-          />
-        ))}
+        {visible.map(({ match, realIndex }, index) => {
+          const prev = index > 0 ? visible[index - 1].match : undefined;
+          const startsPluginBlock =
+            match.provider === "plugin" && (!prev || prev.provider !== "plugin");
+          return (
+            <Fragment key={match.id ?? `${match.sourceId}-${realIndex}`}>
+              {startsPluginBlock && (
+                <div className="dl-results-group-divider">
+                  <span>{t("downloadModal.pluginResults")}</span>
+                </div>
+              )}
+              <ResultRow
+                match={match}
+                selected={selectedId === (match.id ?? null)}
+                onSelect={onSelect}
+                isDownloaded={isDownloaded}
+              />
+            </Fragment>
+          );
+        })}
       </div>
 
       {weakCount > 0 && (

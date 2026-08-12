@@ -1,7 +1,8 @@
 //! SQLite connection pools, one per logical database file.
 //!
-//! [`Db`] owns eight [`r2d2::Pool`]s of [`rusqlite::Connection`]s, each
-//! backed by its own physical file under `<app_data_dir>`:
+//! [`Db`] owns one [`r2d2::Pool`] of [`rusqlite::Connection`]s per
+//! logical database file, each backed by its own physical file under
+//! `<app_data_dir>`:
 //!
 //! | Pool / file        | Tables                                              |
 //! |--------------------|-----------------------------------------------------|
@@ -14,6 +15,8 @@
 //! | `kv.db`            | `kv_store`                                          |
 //! | `news.db`          | `news_cache`                                        |
 //! | `emulators.db`     | `emulators`                                         |
+//! | `mods.db`          | `mods`, `game_mod_settings`                        |
+//! | `plugins.db`       | `plugins`                                           |
 //!
 //! Splitting into separate files means a corrupt or WAL-stuck file can
 //! only take down its own domain — the rest of the app keeps working —
@@ -74,10 +77,11 @@ pub struct Db {
     pub news: SqlitePool,
     pub emulators: SqlitePool,
     pub mods: SqlitePool,
+    pub plugins: SqlitePool,
 }
 
 impl Db {
-    /// Open (creating if missing) the eight `<name>.db` files under
+    /// Open (creating if missing) the `<name>.db` files under
     /// `app_data_dir`, each with its own pool and PRAGMA customizer.
     pub fn open(app_data_dir: &Path) -> Result<Self, String> {
         std::fs::create_dir_all(app_data_dir)
@@ -102,6 +106,7 @@ impl Db {
             news: mk("news")?,
             emulators: mk("emulators")?,
             mods: mk("mods")?,
+            plugins: mk("plugins")?,
         })
     }
 
@@ -151,6 +156,10 @@ impl Db {
     pub fn mods(&self) -> Result<PooledConn, String> {
         self.mods.get().map_err(|e| format!("acquire mods conn: {e}"))
     }
+    /// Borrow a connection from the `plugins` pool.
+    pub fn plugins(&self) -> Result<PooledConn, String> {
+        self.plugins.get().map_err(|e| format!("acquire plugins conn: {e}"))
+    }
 
     /// Return the pool backing a domain `label` (used by the migration
     /// runner). Returns `None` for unknown labels.
@@ -166,6 +175,7 @@ impl Db {
             "news" => Some(&self.news),
             "emulators" => Some(&self.emulators),
             "mods" => Some(&self.mods),
+            "plugins" => Some(&self.plugins),
             _ => None,
         }
     }
@@ -207,6 +217,7 @@ mod tests {
             Db::news,
             Db::emulators,
             Db::mods,
+            Db::plugins,
         ] {
             let conn = acquire(&db).unwrap();
             let mode: String = conn

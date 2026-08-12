@@ -9,8 +9,9 @@ export type DownloadStep =
 /** How the results list is ordered. */
 export type SortKey = "date" | "source" | "relevance";
 
-import type { MatchedDownload } from "../../types/source";
+import type { DownloadSearchResult } from "../../types/plugins";
 
-/** A source match plus a stable id (assigned per search) so selection
- *  survives re-sorting of the list. */
-export type DisplayMatch = MatchedDownload & { id: string };
+/** A search match (source or plugin) plus a stable id (assigned per
+ *  search) so selection survives re-sorting of the list. Plugin items
+ *  extend the shape with `provider: "plugin"` + their extra fields. */
+export type DisplayMatch = DownloadSearchResult & { id: string };

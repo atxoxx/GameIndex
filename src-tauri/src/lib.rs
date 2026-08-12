@@ -42,6 +42,7 @@ mod mods;
 mod tray;
 mod system_screenshots;
 mod emulator_install;
+mod plugins;
 use game_scraper::{GameMetadataResult, LaunchBoxImageResult, StoreGameSummary, TimeToBeat, SimilarGame, ReleaseDateInfo, IgdbReview, LanguageSupportInfo, ReviewFetchResult, RichAboutPayload, PcRequirementsPayload};
 use game_watcher::{GameWatcher, GameRefInput};
 use gpu_detector::GpuInfo;
@@ -3912,6 +3913,12 @@ pub fn run() {
             source_manager::sources_refresh_all,
             source_manager::sources_search_game,
             source_manager::fetch_hydra_featured,
+            plugins::plugins_list,
+            plugins::plugins_import_file,
+            plugins::plugins_install,
+            plugins::plugins_remove,
+            plugins::plugins_toggle,
+            plugins::search_downloads,
             get_random_store_game,
             store_checker::check_ownership,
             store_checker::check_ownership_for_ids,
@@ -4222,6 +4229,16 @@ pub fn run() {
             // commands; concurrency is provided by SQLite WAL.
             let source_manager = Arc::new(source_manager::SourceManager::new(db.clone()));
             app.manage(source_manager);
+
+            // ── Plugin manager (sandboxed JS search plugins) ────────────
+            // Loads every enabled plugin's source into memory at startup
+            // so searches never touch disk. `load_enabled` records
+            // `last_error` for files that fail to read/evaluate instead
+            // of blocking startup.
+            let plugins_manager =
+                Arc::new(plugins::PluginManager::new(db.clone(), app_data_dir.clone()));
+            plugins_manager.load_enabled();
+            app.manage(plugins_manager);
 
             let store_checker = Arc::new(Mutex::new(store_checker::StoreChecker::new()));
             app.manage(store_checker);

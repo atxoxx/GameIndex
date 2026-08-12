@@ -14,6 +14,7 @@ import AppearanceTab from "./settings/AppearanceTab";
 import HardwareTab from "./settings/HardwareTab";
 import IntegrationsTab from "./settings/IntegrationsTab";
 import DownloadsTab from "./settings/DownloadsTab";
+import PluginsTab from "./settings/PluginsTab";
 import LauncherTab from "./settings/LauncherTab";
 import PrivacyTab from "./settings/PrivacyTab";
 import { IntegrationsIcon, SettingsGearIcon } from "./settings/settingsIcons";
@@ -23,7 +24,7 @@ import type { SettingsTab } from "./settings/types";
  * SettingsPage — the routed settings shell. Each tab lives at its own
  * URL (`/settings/general`, `/settings/appearance`, …) so tabs survive
  * refresh/back/forward and every section can be deep-linked via
- * `?section=<id>`. The sidebar lists the seven tabs; the jump bar
+ * `?section=<id>`. The sidebar lists every tab; the jump bar
  * below the header lists the sections of the active tab; search runs
  * across the whole catalog and navigates through the same URL.
  */
@@ -97,6 +98,7 @@ export default function SettingsPage() {
           />
         )}
         {activeTab === "downloads" && <DownloadsTab />}
+        {activeTab === "plugins" && <PluginsTab />}
         {activeTab === "launcher" && <LauncherTab />}
         {activeTab === "privacy" && <PrivacyTab />}
       </main>

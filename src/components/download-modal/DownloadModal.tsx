@@ -76,7 +76,7 @@ export default function DownloadModal({
     completedDownloads,
     startSelectedDownload,
   } = useDownloads();
-  const { searchSources } = useSources();
+  const { searchDownloads } = useSources();
   const { games } = useGames();
   const { showToast } = useToast();
   const { t } = useLanguage();
@@ -280,8 +280,8 @@ export default function DownloadModal({
 
       const [own, searchResults] = await Promise.all([
         ownershipPromise,
-        searchSources(gameName, steamAppId).catch((e) => {
-          console.error("[DownloadModal] searchSources failed:", e);
+        searchDownloads(gameName, steamAppId).catch((e) => {
+          console.error("[DownloadModal] searchDownloads failed:", e);
           return [];
         }),
       ]);
@@ -290,16 +290,27 @@ export default function DownloadModal({
       // Sort the raw results by descending match score so the
       // strongest match is well-understood, then assign a stable id
       // per search so selection survives re-sorting by the user.
-      const scored = [...searchResults].sort(
-        (a, b) => b.matchScore - a.matchScore,
-      );
-      const withIds: DisplayMatch[] = scored.map((m, i) => ({
+      // The backend returns source items first (already score-sorted)
+      // followed by plugin items pre-sorted newest-first; we re-sort
+      // ONLY the source block and keep plugin items appended in the
+      // returned order — the plugin block must never be score-shuffled.
+      const sourceItems = searchResults.filter((r) => r.provider !== "plugin");
+      const pluginItems = searchResults.filter((r) => r.provider === "plugin");
+      const ordered = [
+        ...[...sourceItems].sort((a, b) => b.matchScore - a.matchScore),
+        ...pluginItems,
+      ];
+      const withIds: DisplayMatch[] = ordered.map((m, i) => ({
         ...m,
         id: `${m.sourceId}::${i}`,
       }));
       setMatches(withIds);
-      // Auto-select the top row of the *currently sorted* list (date by
-      // default) so the highlighted result matches what the user sees.
+      // Auto-select the top row of the *currently sorted* list so the
+      // highlighted result matches what the user sees. Because the
+      // sort keeps the source block first (and plugin rows grouped at
+      // the bottom), this always prefers the first source result and
+      // falls back to the first (newest) plugin hit when a search
+      // returned no source matches at all.
       const display = sortMatches(withIds, sortByRef.current);
       setSelectedId(display.length > 0 ? display[0].id : null);
       setStep("results");
@@ -308,7 +319,7 @@ export default function DownloadModal({
       setError(String(err));
       setStep("error");
     }
-  }, [gameName, steamAppId, searchSources, localLibraryNames]);
+  }, [gameName, steamAppId, searchDownloads, localLibraryNames]);
 
   useEffect(() => {
     runSearch();
@@ -545,16 +556,17 @@ export default function DownloadModal({
       if (e.key !== "ArrowDown" && e.key !== "ArrowUp" && e.key !== "Enter") return;
       if (e.key === "Enter") {
         if (step === "results" && selectedId != null) {
-          // Enter starts the download — but only when focus isn't sitting
-          // on one of the detail-pane's interactive controls (mirror chips,
-          // toggles, save-path button). Those should handle Enter natively
-          // (e.g. "Change" opening the folder picker) instead of
-          // double-firing a download. The result rows themselves still
-          // start the download, matching the click-to-start flow.
+          // Enter starts the download — but only when focus is sitting
+          // on the result row itself or its non-interactive content.
+          // The detail pane's interactive controls (mirror chips,
+          // toggles, save-path button) and the plugin rows' copy chips
+          // handle Enter natively, so they must not double-fire a
+          // download. Result rows are divs (role="button") so they can
+          // host those chips without invalid nesting.
           const target = e.target as HTMLElement | null;
-          const isInteractive = !!target?.closest("input, select, textarea, button");
+          const isInteractive = !!target?.closest("input, select, textarea, button, a");
           const isResultRow = !!target?.closest(".dl-result-row");
-          if (!isInteractive || isResultRow) handleStart();
+          if (isResultRow && !isInteractive) handleStart();
         }
         return;
       }

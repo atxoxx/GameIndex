@@ -15,6 +15,7 @@ import {
   HardwareIcon,
   IntegrationsIcon,
   PaletteIcon,
+  PluginIcon,
   RocketIcon,
   ShieldIcon,
   ListIcon,
@@ -52,6 +53,7 @@ const TAB_ORDER: SettingsTab[] = [
   "hardware",
   "integrations",
   "downloads",
+  "plugins",
   "launcher",
   "privacy",
 ];
@@ -221,6 +223,27 @@ export function buildSettingsCatalog(t: (key: string, vars?: Record<string, unkn
         },
       ],
     },
+    plugins: {
+      tab: "plugins",
+      labelKey: "settings.tab.plugins",
+      descKey: "settings.plugins.desc",
+      keywords: "plugin extension script javascript import install enable disable trusted third party search provider",
+      icon: <PluginIcon />,
+      sections: [
+        {
+          id: "plugins-import",
+          labelKey: "settings.section.pluginsImport",
+          keywords: "import install add plugin file js script trust verify hash sha256",
+          icon: <PluginIcon />,
+        },
+        {
+          id: "plugins-installed",
+          labelKey: "settings.section.pluginsInstalled",
+          keywords: "installed plugins list enable disable remove toggle uninstall error",
+          icon: <ListIcon />,
+        },
+      ],
+    },
     launcher: {
       tab: "launcher",
       labelKey: "settings.tab.launcher",
@@ -293,6 +316,7 @@ export function buildSettingsCatalog(t: (key: string, vars?: Record<string, unkn
       label: t("settings.group.downloads"),
       items: [
         { tab: "downloads", label: t("nav.downloads"), icon: <DownloadIcon /> },
+        { tab: "plugins", label: t("settings.tab.plugins"), icon: <PluginIcon /> },
       ],
     },
     {

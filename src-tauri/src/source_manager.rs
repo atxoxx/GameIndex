@@ -1386,7 +1386,11 @@ fn token_set(s: &str) -> Vec<String> {
 /// genuinely-correct repack ("elden ring") scores ~1.0 even against
 /// a noisier catalog title ("elden ring deluxe edition repack"),
 /// while an unrelated game ("elden ring of war") scores low.
-fn title_similarity(raw_query: &str, title: &str) -> f32 {
+///
+/// `pub(crate)`: shared by the plugin search pipeline
+/// (`crate::plugins::search_downloads` applies the same 0.2 match
+/// floor to plugin results that source results get).
+pub(crate) fn title_similarity(raw_query: &str, title: &str) -> f32 {
     let qn = normalize_title(raw_query);
     let tn = normalize_title(title);
     if qn.is_empty() || tn.is_empty() {
