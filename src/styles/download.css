@@ -3364,6 +3364,23 @@
   flex-shrink: 0;
 }
 
+/* Provenance pill — where a meta-search hit was cached from (e.g.
+ * "RuTracker.org"). Neutral info-tint with a globe glyph. */
+.dl-badge-provenance {
+  color: var(--color-text-muted);
+  background: color-mix(in srgb, var(--color-text-muted) 10%, transparent);
+  border: 1px solid color-mix(in srgb, var(--color-text-muted) 26%, transparent);
+  gap: 4px;
+  text-transform: none;
+  font-weight: 600;
+}
+
+.dl-badge-provenance svg {
+  width: 10px;
+  height: 10px;
+  flex-shrink: 0;
+}
+
 /* Verified pill — success-tinted with an inline check. */
 .dl-badge-verified {
   color: var(--color-success);

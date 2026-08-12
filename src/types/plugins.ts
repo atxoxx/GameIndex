@@ -56,4 +56,10 @@ export interface DownloadSearchResult extends MatchedDownload {
   verified?: boolean;
   /** Optional page where the plugin found this result. */
   detailUrl?: string;
+  /**
+   * Upstream site a meta-search hit was cached from (e.g.
+   * "RuTracker.org" for a knaben hit). Set when the plugin reports
+   * where the torrent originally came from; absent otherwise.
+   */
+  provenance?: string;
 }

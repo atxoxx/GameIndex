@@ -47,6 +47,10 @@ reqwest = { version = "0.12", features = ["json", "cookies", "multipart", "block
 # leave `rust-alloc`/`allocator` OFF so `Runtime::set_memory_limit` is a
 # real cap (it is a no-op under a custom allocator).
 rquickjs = "0.9"
+# Torznab/RSS feed parser for `httpGetXml` in the plugin sandbox.
+# Pinned to 0.41 (the version the vendored librqbit-upnp patch below
+# resolves to) so the whole graph uses one quick-xml.
+quick-xml = "0.41"
 aes-gcm = "0.10"
 chrono = { version = "0.4", features = ["clock"] }
 urlencoding = "2"

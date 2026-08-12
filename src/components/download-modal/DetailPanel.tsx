@@ -121,6 +121,12 @@ export function DetailPanel({
           <span className="dl-detail-meta-label">{t("downloadModal.detailSource")}</span>
           <span className="dl-detail-meta-value">{match.sourceName}</span>
         </div>
+        {match.provenance && (
+          <div className="dl-detail-meta-item">
+            <span className="dl-detail-meta-label">{t("downloadModal.detailOrigin")}</span>
+            <span className="dl-detail-meta-value">{match.provenance}</span>
+          </div>
+        )}
         <div className="dl-detail-meta-item">
           <span className="dl-detail-meta-label">{t("downloadModal.detailSize")}</span>
           <span className="dl-detail-meta-value">

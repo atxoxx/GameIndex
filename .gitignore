@@ -27,8 +27,11 @@ dist-ssr
 # Windows reserved-name artifacts
 nul
 
-# User-installed plugins (hosted outside the repo, never committed)
-plugins/
+# User-installed plugin artifacts bundled for offline use — hosted
+# outside the repo, never committed. Anchored to the repo ROOT so the
+# pattern does NOT swallow src-tauri/src/plugins/ (the sandboxed JS
+# plugin runtime, which IS committed source).
+/plugins/
 
 # Deepwork state
 .slim/deepwork/

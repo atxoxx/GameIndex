@@ -1816,6 +1816,7 @@ dependencies = [
  "mime_guess",
  "minisign-verify",
  "obfstr",
+ "quick-xml",
  "r2d2",
  "r2d2_sqlite",
  "rand 0.8.6",

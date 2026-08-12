@@ -32,6 +32,7 @@ Unify your Steam, GOG, Epic, Rockstar, Ubisoft, and DRM-free libraries into a si
 - [🗺️ Roadmap](#️-roadmap)
 - [📌 Status](#-status)
 - [🤝 Contributing](#-contributing)
+- [⚖️ Disclaimer](#-disclaimer)
 - [📄 License](#-license)
 - [🙏 Acknowledgments](#-acknowledgments)
 
@@ -315,6 +316,14 @@ Track progress, ideas, and priorities in [`todo.md`](./todo.md). Highlights:
 4. Run `npx tsc --noEmit` and `cargo check` before submitting.
 
 Please open an issue before starting large changes so we can discuss direction.
+
+---
+
+## ⚖️ Disclaimer
+
+- **If you like a game, support its developers** — buy it from official stores (Steam, GOG, Epic, etc.) where the money actually reaches the people who made it.
+
+We believe in the open-source community, the games we love, and the developers who make them. Please use GameIndex responsibly and in accordance with the laws of your country.
 
 ---
 
