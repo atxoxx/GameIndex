@@ -1,11 +1,9 @@
 import { Fragment, useEffect, useMemo, useState, type CSSProperties } from "react";
 import { KpiTile } from "../ui";
-import { type Game, PLAY_STATUS_DETAILS } from "../../types/game";
-import { useGames } from "../../context/GameContext";
+import { type Game } from "../../types/game";
 import { useGameAccent } from "../../hooks/useGameAccent";
 import { useSettings } from "../../context/SettingsContext";
 import PlayerCountBadge from "../PlayerCountBadge";
-import GameStatusDropdown from "./GameStatusDropdown";
 import GameLaunchActions from "./GameLaunchActions";
 import FriendsPlayingStrip from "../hero/FriendsPlayingStrip";
 import { IconClock, IconPlatform, IconShield, IconUsers } from "./icons";
@@ -79,7 +77,6 @@ export default function GameHero({
   friends: friendsProp,
   variant: variantProp,
 }: GameHeroProps) {
-  const { updateGame } = useGames();
   const { t } = useLanguage();
 
   const isGame = !!game;
@@ -106,14 +103,6 @@ export default function GameHero({
     setAccentColor(gameAccent);
   }, [autoGameAccent, gameAccent, setAccentColor]);
 
-  const addedDate = game
-    ? new Date(game.addedAt).toLocaleDateString(undefined, {
-        year: "numeric",
-        month: "short",
-        day: "numeric",
-      })
-    : null;
-
   // Ambient background ladder: for Steam-identified library games the live
   // Steam CDN hero is preferred by default, then the persisted banner, then
   // the cover. A hidden probe <img> in the render advances the step on 404.
@@ -138,8 +127,6 @@ export default function GameHero({
   const achTotal = achievements?.length ?? 0;
   const achPercent = achTotal > 0 ? Math.round((achUnlocked / achTotal) * 100) : null;
 
-  const statusKey = game?.playStatus || "backlog";
-
   const variant = variantProp ?? (isGame ? "cinematic" : "compact");
   const heroClassName = [
     "game-hero",
@@ -161,12 +148,6 @@ export default function GameHero({
       </span>
       <span className="game-hero-meta-dot" />
       <span>{t("hero.playTime")}: {game!.playTime}</span>
-      {addedDate && (
-        <>
-          <span className="game-hero-meta-dot" />
-          <span>{t("hero.added")} {addedDate}</span>
-        </>
-      )}
     </>
   ) : (
     (metaItems ?? []).map((item, i) => (
@@ -199,48 +180,6 @@ export default function GameHero({
           value={formatHeroPlayTime(game!.playTime)}
           subtext={game!.installed ? t("filter.installed") : t("game.notInstalled")}
           intent={game!.installed ? "success" : "default"}
-        />
-      )}
-      {isGame && (
-        <KpiTile
-          glass
-          size="sm"
-          label={t("hero.status")}
-          icon={
-            <span
-              className="status-dot"
-              style={{
-                display: "inline-block",
-                width: 8,
-                height: 8,
-                borderRadius: "50%",
-                backgroundColor: PLAY_STATUS_DETAILS[statusKey].color,
-                boxShadow: `0 0 6px ${PLAY_STATUS_DETAILS[statusKey].color}`,
-              }}
-            />
-          }
-          value={
-            <span className="game-hero__status-value">
-              {t(PLAY_STATUS_DETAILS[statusKey].labelKey)}
-            </span>
-          }
-          trailing={
-            <GameStatusDropdown
-              game={game!}
-              onChange={(status) => updateGame(game!.id, { playStatus: status })}
-            />
-          }
-          intent={
-            statusKey === "playing"
-              ? "success"
-              : statusKey === "completed"
-                ? "info"
-                : statusKey === "on_hold"
-                  ? "warning"
-                  : statusKey === "abandoned"
-                    ? "danger"
-                    : "default"
-          }
         />
       )}
       {achPercent != null && (

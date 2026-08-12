@@ -31,6 +31,33 @@
   border-color: color-mix(in srgb, var(--color-text-primary) 22%, transparent);
 }
 
+/* ── InfoKpiCard: dropdown embedded as the KPI tile's status text ──
+ * The play-status KPI tile renders GameStatusDropdown directly as
+ * its `value`. Strip the pill chrome (bg / border / uppercase) so
+ * it reads as plain tile text: typography (display face, bold,
+ * size-lg on the sm tile) and the intent tint inherit from
+ * .kpi-tile__value, while the status dot keeps its own glow via its
+ * inline style. A whisper of hover tint (kept inside the layout via
+ * negative margin) preserves the click affordance. */
+.info-kpi-card .kpi-tile__value .game-status-selector-btn {
+  padding: 0;
+  margin: -2px -4px;
+  background: transparent;
+  border: none;
+  color: inherit;
+  font-family: inherit;
+  font-size: inherit;
+  font-weight: inherit;
+  line-height: inherit;
+  letter-spacing: inherit;
+  text-transform: none;
+  border-radius: var(--radius-sm);
+}
+
+.info-kpi-card .kpi-tile__value .game-status-selector-btn:hover {
+  background: color-mix(in srgb, var(--color-text-primary) 8%, transparent);
+}
+
 .game-status-dropdown-menu {
   position: fixed; /* pos + offsets set inline — see GamePage status dropdown portal */
   background: var(--color-surface-raised);

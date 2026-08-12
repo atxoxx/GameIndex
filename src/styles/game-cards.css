@@ -986,14 +986,6 @@
   flex-wrap: wrap;
 }
 
-.game-hero__status-value {
-  display: inline-block;
-  font-size: var(--font-size-md);
-  font-weight: var(--font-weight-bold);
-  color: inherit;
-  line-height: 1;
-}
-
 /* Accent routing for KPI intent + status dot glow. */
 .game-hero .kpi-tile--intent-accent .kpi-tile__icon,
 .game-hero .kpi-tile--intent-accent .kpi-tile__value {

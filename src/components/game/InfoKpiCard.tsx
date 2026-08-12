@@ -3,8 +3,8 @@ import { openPath } from "@tauri-apps/plugin-opener";
 import { KpiTile } from "../ui";
 import {
   formatSize,
-  PLAY_STATUS_DETAILS,
   type Game,
+  type PlayStatus,
   type SizeUnit,
 } from "../../types/game";
 import {
@@ -25,10 +25,11 @@ import {
   IconClock,
   IconX,
 } from "./icons";
-import { StatusDot } from "./shared";
+import GameStatusDropdown from "./GameStatusDropdown";
 import { useSteamGameStats, formatSteamPrice } from "../../hooks/useSteamGameStats";
 import { useToast } from "../../context/ToastContext";
 import { useLanguage } from "../../context/LanguageContext";
+import { useGames } from "../../context/GameContext";
 
 /**
  * InfoKpiCard
@@ -140,6 +141,7 @@ export default function InfoKpiCard({
 }: InfoKpiCardProps) {
   const { showToast } = useToast();
   const { t } = useLanguage();
+  const { updateGame } = useGames();
 
   // Fetch the combined Steam stats payload so the price tile has
   // its data ready without re-firing the IPC call the popover also
@@ -199,6 +201,14 @@ export default function InfoKpiCard({
     }
   }, [parentDir, showToast]);
 
+  // Play-status updates from the attached <GameStatusDropdown>. Wired to
+  // the global GameContext so the hero, sidebar and library list all
+  // re-render with the new status immediately.
+  const handleStatusChange = useCallback(
+    (status: PlayStatus) => updateGame(game.id, { playStatus: status }),
+    [game.id, updateGame]
+  );
+
   // KPI tiles at the top: surface the most-glanced values first.
   // The Price tile only renders when Steam has a price for the
   // title, keeping the row tight for games that don't.
@@ -212,12 +222,7 @@ export default function InfoKpiCard({
         size="sm"
         label={t("hero.status")}
         icon={<IconStar size={12} />}
-        value={
-          <span style={{ display: "flex", alignItems: "center", gap: 6 }}>
-            <StatusDot color={PLAY_STATUS_DETAILS[game.playStatus || "backlog"].color} />
-            {t(PLAY_STATUS_DETAILS[game.playStatus || "backlog"].labelKey)}
-          </span>
-        }
+        value={<GameStatusDropdown game={game} onChange={handleStatusChange} />}
         intent={
           game.playStatus === "playing"
             ? "success"
@@ -228,7 +233,7 @@ export default function InfoKpiCard({
                 : game.playStatus === "abandoned"
                   ? "danger"
                   : "default"
-        }        />
+        } />
       );
     }
 
@@ -294,6 +299,7 @@ export default function InfoKpiCard({
     priceCurrency,
     priceIsFree,
     hideStatus,
+    handleStatusChange,
   ]);
 
   // Definition list rows: every field with a value renders.
