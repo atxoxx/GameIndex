@@ -37,7 +37,14 @@ import { useLanguage } from "../../context/LanguageContext";
 import { Button } from "../ui";
 import { ConfirmModal } from "../ui/ConfirmModal";
 import { type OwnershipResult } from "../../types/download";
-import { classifyUri, resolveSourceUri, sortMatches, webUrlFor } from "./helpers";
+import {
+  classifyUri,
+  extractSourceFilters,
+  filterMatches,
+  resolveSourceUri,
+  sortMatches,
+  webUrlFor,
+} from "./helpers";
 import type { DownloadStep, SortKey, DisplayMatch } from "./types";
 import { OwnershipBanner } from "./OwnershipBanner";
 import { ConfidenceWarning } from "./ConfidenceWarning";
@@ -86,6 +93,8 @@ export default function DownloadModal({
   const [step, setStep] = useState<DownloadStep>("checking");
   const [ownership, setOwnership] = useState<OwnershipResult | null>(null);
   const [matches, setMatches] = useState<DisplayMatch[]>([]);
+  const [sourceFilter, setSourceFilter] = useState<string>("all");
+  const [searchQuery, setSearchQuery] = useState<string>("");
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [sortBy, setSortBy] = useState<SortKey>("date");
   // Reflected copy of `sortBy` so `runSearch` can pick the default
@@ -125,17 +134,52 @@ export default function DownloadModal({
   // Confirm-before-close guard shown while a download is starting.
   const [confirmCancelOpen, setConfirmCancelOpen] = useState(false);
 
-  // Display order (re-sorted copy of `matches`) and the currently
+  // Available source filter options extracted from raw matches
+  const sourceFilterOptions = useMemo(
+    () => extractSourceFilters(matches, t),
+    [matches, t],
+  );
+
+  // Filter raw matches by selected source and search query
+  const filteredMatches = useMemo(
+    () => filterMatches(matches, sourceFilter, searchQuery),
+    [matches, sourceFilter, searchQuery],
+  );
+
+  const isSingleSourceFiltered =
+    sourceFilter !== "all" &&
+    sourceFilter !== "source" &&
+    sourceFilter !== "sources" &&
+    sourceFilter !== "plugin" &&
+    sourceFilter !== "plugins";
+
+  // Display order (re-sorted copy of `filteredMatches`) and the currently
   // selected match object. Selection is id-based so re-sorting never
   // desyncs the highlight from the underlying match.
   const sortedMatches = useMemo(
-    () => sortMatches(matches, sortBy),
-    [matches, sortBy],
+    () => sortMatches(filteredMatches, sortBy, isSingleSourceFiltered),
+    [filteredMatches, sortBy, isSingleSourceFiltered],
   );
   const selectedMatch = useMemo(
     () => matches.find((m) => m.id === selectedId) ?? null,
     [matches, selectedId],
   );
+
+  // Keep selection aligned with the visible sorted matches when filtering
+  useEffect(() => {
+    if (sortedMatches.length > 0) {
+      if (!selectedId || !sortedMatches.some((m) => m.id === selectedId)) {
+        setSelectedId(sortedMatches[0].id);
+      }
+    } else {
+      setSelectedId(null);
+    }
+  }, [sortedMatches, selectedId]);
+
+  const handleClearFilters = useCallback(() => {
+    setSourceFilter("all");
+    setSearchQuery("");
+  }, []);
 
   // Whether an AllDebrid/TorBox key is configured in Settings. Read once
   // per mount — the modal is reopened fresh for each download flow.
@@ -771,6 +815,13 @@ export default function DownloadModal({
                   isDownloaded={isDownloaded}
                   sortBy={sortBy}
                   onSortChange={setSortBy}
+                  sourceFilter={sourceFilter}
+                  onSourceFilterChange={setSourceFilter}
+                  sourceFilterOptions={sourceFilterOptions}
+                  searchQuery={searchQuery}
+                  onSearchQueryChange={setSearchQuery}
+                  totalRawMatchesCount={matches.length}
+                  onClearFilters={handleClearFilters}
                 />
               ) : (
                 <div className="dl-results-layout">
@@ -784,6 +835,13 @@ export default function DownloadModal({
                       isDownloaded={isDownloaded}
                       sortBy={sortBy}
                       onSortChange={setSortBy}
+                      sourceFilter={sourceFilter}
+                      onSourceFilterChange={setSourceFilter}
+                      sourceFilterOptions={sourceFilterOptions}
+                      searchQuery={searchQuery}
+                      onSearchQueryChange={setSearchQuery}
+                      totalRawMatchesCount={matches.length}
+                      onClearFilters={handleClearFilters}
                     />
                   </div>
                   <DetailPanel

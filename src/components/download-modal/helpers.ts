@@ -1,5 +1,6 @@
 import type { MatchedDownload } from "../../types/source";
 import type { DownloadSearchResult } from "../../types/plugins";
+import type { DisplayMatch, SourceFilterOption } from "./types";
 
 /**
  * Single source of truth for "which URI does the user actually want to
@@ -70,8 +71,22 @@ export function webUrlFor(
 
 /** Derive a friendly host label from a mirror URI for the chip picker. */
 export function hostLabelForUri(uri: string, fallbackIndex: number): string {
+  if (!uri) return `Mirror ${fallbackIndex + 1}`;
+  if (uri.startsWith("magnet:")) return "Magnet Link";
   try {
-    return new URL(uri).hostname.replace(/^www\./, "");
+    const urlObj = new URL(uri);
+    const host = urlObj.hostname.replace(/^www\./, "");
+    if (host.includes("arweave.net")) return "Arweave Direct";
+    if (host.includes("vimm.net")) return "Vimm Vault Direct";
+    if (host.includes("buzzheavier.com")) return "Buzzheavier";
+    if (host.includes("gofile.io")) return "Gofile";
+    if (host.includes("1fichier.com")) return "1fichier";
+    if (host.includes("mega.nz")) return "MEGA";
+    if (host.includes("mediafire.com")) return "MediaFire";
+    if (host.includes("pixeldrain.com")) return "Pixeldrain";
+    if (host.includes("qiwi.gg")) return "Qiwi";
+    if (urlObj.pathname.endsWith(".torrent")) return `${host} (.torrent)`;
+    return host || `Mirror ${fallbackIndex + 1}`;
   } catch {
     return `Mirror ${fallbackIndex + 1}`;
   }
@@ -112,6 +127,121 @@ export function formatUploadDate(
   }
 }
 
+/**
+ * Extract unique source filter options from the search matches,
+ * including counts for "all", categories ("sources", "plugins"),
+ * and individual sources.
+ */
+export function extractSourceFilters(
+  matches: DisplayMatch[],
+  t: (key: string, params?: Record<string, unknown>) => string,
+): SourceFilterOption[] {
+  if (matches.length === 0) return [];
+
+  const sourceCountMap = new Map<string, { label: string; count: number; provider: "source" | "plugin" }>();
+  let builtinCount = 0;
+  let pluginCount = 0;
+
+  for (const m of matches) {
+    const isPlugin = m.provider === "plugin";
+    if (isPlugin) pluginCount++;
+    else builtinCount++;
+
+    const key = m.sourceId || m.sourceName;
+    const existing = sourceCountMap.get(key);
+    if (existing) {
+      existing.count += 1;
+    } else {
+      sourceCountMap.set(key, {
+        label: m.sourceName || key,
+        count: 1,
+        provider: isPlugin ? "plugin" : "source",
+      });
+    }
+  }
+
+  const options: SourceFilterOption[] = [
+    {
+      id: "all",
+      label: t("downloadModal.allSources"),
+      count: matches.length,
+      provider: "all",
+    },
+  ];
+
+  // If results contain both built-in sources and plugins, include category filters
+  if (builtinCount > 0 && pluginCount > 0) {
+    options.push({
+      id: "source",
+      label: t("downloadModal.builtInSources"),
+      count: builtinCount,
+      provider: "source",
+    });
+    options.push({
+      id: "plugin",
+      label: t("downloadModal.pluginSources"),
+      count: pluginCount,
+      provider: "plugin",
+    });
+  }
+
+  // Append individual sources sorted by result count descending, then name ascending
+  const sourceEntries = Array.from(sourceCountMap.entries()).sort(
+    ([, a], [, b]) => b.count - a.count || a.label.localeCompare(b.label),
+  );
+
+  for (const [id, info] of sourceEntries) {
+    options.push({
+      id,
+      label: info.label,
+      count: info.count,
+      provider: info.provider,
+    });
+  }
+
+  return options;
+}
+
+/**
+ * Filter a list of matches by active source filter and search text.
+ */
+export function filterMatches(
+  matches: DisplayMatch[],
+  sourceFilter: string,
+  searchQuery?: string,
+): DisplayMatch[] {
+  let list = matches;
+
+  if (sourceFilter && sourceFilter !== "all") {
+    if (sourceFilter === "source" || sourceFilter === "sources") {
+      list = list.filter((m) => m.provider !== "plugin");
+    } else if (sourceFilter === "plugin" || sourceFilter === "plugins") {
+      list = list.filter((m) => m.provider === "plugin");
+    } else {
+      list = list.filter(
+        (m) =>
+          m.sourceId === sourceFilter ||
+          m.pluginId === sourceFilter ||
+          m.sourceName.toLowerCase() === sourceFilter.toLowerCase(),
+      );
+    }
+  }
+
+  if (searchQuery && searchQuery.trim()) {
+    const q = searchQuery.trim().toLowerCase();
+    list = list.filter((m) => {
+      return (
+        m.title.toLowerCase().includes(q) ||
+        (m.platform && m.platform.toLowerCase().includes(q)) ||
+        (m.sourceName && m.sourceName.toLowerCase().includes(q)) ||
+        (m.provenance && m.provenance.toLowerCase().includes(q))
+      );
+    });
+  }
+
+  return list;
+}
+
 /** Return a re-sorted copy of the matches for display. The canonical
  *  `matches` array stays score-ordered; this only affects presentation
  *  and the selection mapping (which is id-based, so reordering is safe).
@@ -119,11 +249,28 @@ export function formatUploadDate(
  *  Plugin results are a distinct block: the backend pre-sorts them
  *  newest-first, so user sorting applies to the source block only and
  *  plugin rows always stay grouped at the bottom in their returned
- *  order — never interleaved with sources, never re-sorted by score. */
+ *  order when viewing all sources. When filtering by a single source/plugin,
+ *  all results in that group sort according to the selected sort key. */
 export function sortMatches<T extends { sourceName: string; matchScore: number; uploadDate?: string | null; provider?: string }>(
   list: T[],
   sortBy: "date" | "source" | "relevance",
+  isFiltered = false,
 ): T[] {
+  if (isFiltered) {
+    const copy = [...list];
+    if (sortBy === "source") {
+      copy.sort(
+        (a, b) =>
+          a.sourceName.localeCompare(b.sourceName) || b.matchScore - a.matchScore,
+      );
+    } else if (sortBy === "relevance") {
+      copy.sort((a, b) => b.matchScore - a.matchScore);
+    } else {
+      copy.sort((a, b) => dateValue(b.uploadDate) - dateValue(a.uploadDate));
+    }
+    return copy;
+  }
+
   const sources: T[] = [];
   const plugins: T[] = [];
   for (const item of list) {

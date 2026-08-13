@@ -650,13 +650,27 @@
   stroke: var(--color-accent);
 }
 
-/* Results header — title + sort dropdown. */
+/* Results header — title + source filter & sort dropdowns. */
+.dl-results-container {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-xs);
+  min-width: 0;
+}
+
 .dl-results-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: var(--space-sm);
   margin-bottom: var(--space-xs);
+  flex-wrap: wrap;
+}
+
+.dl-results-header-left {
+  display: flex;
+  align-items: center;
+  gap: var(--space-xs);
 }
 
 .dl-results-header-title {
@@ -667,17 +681,44 @@
   color: var(--color-text-muted);
 }
 
+.dl-results-total-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 1px 7px;
+  border-radius: var(--radius-full);
+  font-size: 11px;
+  font-weight: 700;
+  background: var(--color-bg-tertiary);
+  border: 1px solid var(--color-border);
+  color: var(--color-text-secondary);
+}
+
+.dl-results-total-sub {
+  color: var(--color-text-muted);
+  font-weight: 500;
+}
+
+.dl-results-header-controls {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  flex-wrap: wrap;
+}
+
+.dl-filter-select-label,
 .dl-sort {
   display: inline-flex;
   align-items: center;
   gap: 6px;
 }
 
+.dl-filter-select-caption,
 .dl-sort-label {
   font-size: var(--font-size-xs);
   color: var(--color-text-muted);
 }
 
+.dl-source-select,
 .dl-sort-select {
   padding: 5px 10px;
   background: var(--color-bg-tertiary);
@@ -689,16 +730,198 @@
   font-weight: var(--font-weight-semibold);
   cursor: pointer;
   outline: none;
-  transition: border-color var(--transition-fast);
+  transition: border-color var(--transition-fast), box-shadow var(--transition-fast);
+  max-width: 170px;
+  text-overflow: ellipsis;
 }
 
+.dl-source-select:hover,
 .dl-sort-select:hover {
   border-color: var(--color-accent);
 }
 
+.dl-source-select:focus-visible,
 .dl-sort-select:focus-visible {
   border-color: var(--color-accent);
   box-shadow: 0 0 0 2px color-mix(in srgb, var(--color-accent) 25%, transparent);
+}
+
+/* ─── Multi-source horizontal pill bar ───────────────────────────── */
+.dl-source-pills-bar {
+  display: flex;
+  align-items: center;
+  gap: var(--space-xs);
+  overflow-x: auto;
+  padding-bottom: 4px;
+  margin-bottom: 2px;
+  scrollbar-width: thin;
+}
+
+.dl-source-pills-bar::-webkit-scrollbar {
+  height: 4px;
+}
+
+.dl-source-pills-bar::-webkit-scrollbar-thumb {
+  background: var(--color-border);
+  border-radius: var(--radius-full);
+}
+
+.dl-source-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  background: var(--color-bg-secondary);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-full);
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-semibold);
+  font-family: inherit;
+  white-space: nowrap;
+  flex-shrink: 0;
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+
+.dl-source-pill:hover {
+  border-color: var(--color-accent);
+  color: var(--color-text-primary);
+  background: var(--color-bg-tertiary);
+}
+
+.dl-source-pill.selected {
+  background: color-mix(in srgb, var(--color-accent) 15%, transparent);
+  border-color: var(--color-accent);
+  color: var(--color-accent);
+  box-shadow: 0 0 0 1px var(--color-accent);
+}
+
+.dl-source-pill--plugin.selected {
+  background: color-mix(in srgb, rgba(108, 92, 231) 18%, transparent);
+  border-color: rgba(108, 92, 231, 0.8);
+  color: color-mix(in srgb, rgba(108, 92, 231) 85%, var(--color-text-primary));
+  box-shadow: 0 0 0 1px rgba(108, 92, 231, 0.6);
+}
+
+.dl-source-pill-label {
+  line-height: 1;
+}
+
+.dl-source-pill-count {
+  font-size: 10px;
+  font-weight: 700;
+  padding: 1px 5px;
+  border-radius: var(--radius-full);
+  background: var(--color-bg-tertiary);
+  color: var(--color-text-muted);
+}
+
+.dl-source-pill.selected .dl-source-pill-count {
+  background: var(--color-accent);
+  color: #fff;
+}
+
+.dl-source-pill--plugin.selected .dl-source-pill-count {
+  background: rgba(108, 92, 231, 0.9);
+  color: #fff;
+}
+
+/* ─── Quick filter search input within results ───────────────────── */
+.dl-quick-filter-wrap {
+  position: relative;
+  display: flex;
+  align-items: center;
+  margin-bottom: 2px;
+}
+
+.dl-quick-filter-icon {
+  position: absolute;
+  left: 10px;
+  width: 14px;
+  height: 14px;
+  color: var(--color-text-muted);
+  pointer-events: none;
+}
+
+.dl-quick-filter-input {
+  width: 100%;
+  padding: 6px 28px 6px 30px;
+  background: var(--color-bg-secondary);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  color: var(--color-text-primary);
+  font-size: var(--font-size-xs);
+  font-family: inherit;
+  outline: none;
+  transition: border-color var(--transition-fast), box-shadow var(--transition-fast);
+}
+
+.dl-quick-filter-input::placeholder {
+  color: var(--color-text-muted);
+}
+
+.dl-quick-filter-input:focus {
+  border-color: var(--color-accent);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--color-accent) 20%, transparent);
+}
+
+.dl-quick-filter-clear {
+  position: absolute;
+  right: 8px;
+  background: none;
+  border: none;
+  color: var(--color-text-muted);
+  font-size: 16px;
+  line-height: 1;
+  cursor: pointer;
+  padding: 2px 4px;
+  border-radius: var(--radius-sm);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.dl-quick-filter-clear:hover {
+  color: var(--color-text-primary);
+}
+
+/* ─── Filter empty state ─────────────────────────────────────────── */
+.dl-filter-empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: var(--space-xl) var(--space-md);
+  text-align: center;
+  background: var(--color-bg-secondary);
+  border: 1px dashed var(--color-border);
+  border-radius: var(--radius-md);
+  gap: var(--space-sm);
+}
+
+.dl-filter-empty-state p {
+  margin: 0;
+  font-size: var(--font-size-sm);
+  color: var(--color-text-secondary);
+}
+
+.dl-clear-filter-btn {
+  padding: 5px 12px;
+  background: var(--color-bg-tertiary);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  color: var(--color-accent);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-semibold);
+  font-family: inherit;
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+
+.dl-clear-filter-btn:hover {
+  background: color-mix(in srgb, var(--color-accent) 12%, transparent);
+  border-color: var(--color-accent);
 }
 
 /* Empty state inside the results list. */
