@@ -499,6 +499,7 @@ pub async fn direct_download_start(
     source_name: String,
     auto_extract: Option<bool>,
     uris: Option<Vec<String>>,
+    referer: Option<String>,
 ) -> Result<Download, String> {
     let mgr = wait_for_manager().await?;
 
@@ -526,6 +527,7 @@ pub async fn direct_download_start(
         selected: true,
     }];
     d.uris = uris.filter(|u| !u.is_empty());
+    d.referer = referer;
 
     {
         let mut guard = mgr.write().await;

@@ -939,6 +939,36 @@
   color: var(--color-text-secondary);
 }
 
+/* "Open page" fallback action — opens the result's source page in the
+ * browser when a downloadable host link fails. Subtle text-button with
+ * an external-link glyph, accent on hover. */
+.dl-detail-open-page {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  align-self: flex-start;
+  padding: 5px 10px;
+  border-radius: var(--radius-md, 6px);
+  background: transparent;
+  border: 1px solid var(--color-border);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text-secondary);
+  cursor: pointer;
+  transition: color 120ms var(--ease-standard), border-color 120ms var(--ease-standard);
+}
+
+.dl-detail-open-page:hover {
+  color: var(--color-accent);
+  border-color: color-mix(in srgb, var(--color-accent) 45%, transparent);
+}
+
+.dl-detail-open-page svg {
+  width: 13px;
+  height: 13px;
+  flex-shrink: 0;
+}
+
 /* Detail pane sections — "Mirrors", "Options", "Save location". */
 .dl-detail-section {
   display: flex;
@@ -3370,6 +3400,16 @@
   width: 8px;
   height: 8px;
   flex-shrink: 0;
+}
+
+/* Platform badge — which system/console a ROM or repack hit targets.
+ * Neutral info-tint so it reads as metadata, not as a provider. */
+.dl-badge-platform {
+  color: color-mix(in srgb, var(--color-info, #3b82f6) 82%, var(--color-text-primary));
+  background: color-mix(in srgb, var(--color-info, #3b82f6) 14%, transparent);
+  border: 1px solid color-mix(in srgb, var(--color-info, #3b82f6) 34%, transparent);
+  text-transform: none;
+  font-weight: 700;
 }
 
 /* Provenance pill — where a meta-search hit was cached from (e.g.

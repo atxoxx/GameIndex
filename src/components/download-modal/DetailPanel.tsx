@@ -35,6 +35,7 @@ export function DetailPanel({
   useDebrid,
   onUseDebrid,
   debridConfigured,
+  onOpenPage,
 }: {
   match: DisplayMatch | null;
   isDownloaded: (title: string) => boolean;
@@ -50,6 +51,9 @@ export function DetailPanel({
   useDebrid: boolean;
   onUseDebrid: (v: boolean) => void;
   debridConfigured: boolean;
+  /** Open the result's source page in the browser (fallback for a
+   *  downloadable result whose host link fails). */
+  onOpenPage: () => void;
 }) {
   const { t, language } = useLanguage();
 
@@ -91,6 +95,10 @@ export function DetailPanel({
   const sourceUri = resolveSourceUri(match, selectedMirrorIdx);
   const { isMagnet, isTorrentFile, isDirect } = classifyUri(sourceUri, match.torrentUrl);
   const webUrl = webUrlFor(match);
+  // "Open page" is a fallback for results that ARE downloadable (the
+  // footer already offers "Open in browser" for web-link-only hits).
+  const detailUrl = match.detailUrl && match.detailUrl.trim();
+  const showOpenPage = !webUrl && !!detailUrl;
   // Debrid can unrestrict a direct link or upload a magnet; `.torrent`
   // file URLs stay on the P2P engine regardless.
   const debridAvailable = debridConfigured && (isDirect || isMagnet);
@@ -133,6 +141,12 @@ export function DetailPanel({
           <span className="dl-detail-meta-label">{t("downloadModal.detailSource")}</span>
           <span className="dl-detail-meta-value">{match.sourceName}</span>
         </div>
+        {match.platform && (
+          <div className="dl-detail-meta-item">
+            <span className="dl-detail-meta-label">{t("downloadModal.detailPlatform")}</span>
+            <span className="dl-detail-meta-value">{match.platform}</span>
+          </div>
+        )}
         {match.provenance && (
           <div className="dl-detail-meta-item">
             <span className="dl-detail-meta-label">{t("downloadModal.detailOrigin")}</span>
@@ -163,6 +177,30 @@ export function DetailPanel({
           </span>
         </div>
       </div>
+
+      {showOpenPage && (
+        <button
+          type="button"
+          className="dl-detail-open-page"
+          onClick={onOpenPage}
+          title={detailUrl ?? undefined}
+        >
+          <svg
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            aria-hidden
+          >
+            <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6" />
+            <polyline points="15 3 21 3 21 9" />
+            <line x1="10" y1="14" x2="21" y2="3" />
+          </svg>
+          {t("downloadModal.openPage")}
+        </button>
+      )}
 
       {match.uris.length > 1 && (
         <div className="dl-detail-section">

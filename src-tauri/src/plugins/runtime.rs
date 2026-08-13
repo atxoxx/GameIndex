@@ -39,6 +39,10 @@
 //!   plain JS object (see [`parse_torznab_xml`]). Deliberate capability:
 //!   JS cannot parse XML, and regex-parsing it inside plugins is
 //!   fragile, so the runtime owns the parser.
+//! - `httpGetAll(urls) -> Array<String>` — parallel GET of many URLs
+//!   (concurrency-capped), returning bodies aligned with the input and
+//!   empty strings for failures. Lets catalog plugins pull dozens of
+//!   small index files inside one search budget.
 //! - `definePlugin(descriptor)` — **must be called exactly once** per
 //!   evaluation. The descriptor carries the manifest fields
 //!   (`id`, `name`, `version`, `author`, `description`, `sourceUrl`)
@@ -141,6 +145,17 @@ pub struct PluginRawResult {
     pub url: Option<String>,
     #[serde(default)]
     pub category: Option<String>,
+    /// The platform / console a game targets (e.g. "Nintendo Switch",
+    /// "PlayStation 2", "NES"). Shown in the download modal so ROM /
+    /// repack hits are distinguishable per system.
+    #[serde(default)]
+    pub platform: Option<String>,
+    /// Direct HTTP download URLs (non-torrent, e.g. a ROM served over
+    /// plain http(s) or a hoster link). Merged into the result's
+    /// `uris` mirror list so the app's direct downloader streams them
+    /// instead of the torrent engine.
+    #[serde(default)]
+    pub direct_urls: Option<Vec<String>>,
     /// The upstream site a meta-search hit was cached from (e.g.
     /// "RuTracker.org" for a knaben hit). Surfaced in the download
     /// modal as result provenance; absent for single-site plugins.
@@ -229,7 +244,62 @@ fn inject_http_globals<'js>(ctx: &Ctx<'js>, http: &reqwest::blocking::Client) ->
     ctx.eval::<(), _>(
         "function httpGetJson(url, referer) { return JSON.parse(httpGet(url, referer)); }",
     )
-    .map_err(|e| format!("inject httpGetJson: {e}"))
+    .map_err(|e| format!("inject httpGetJson: {e}"))?;
+
+    inject_http_get_all(ctx, http)
+}
+
+/// Give a sandbox the `httpGetAll(urls)` global: fetches many URLs in
+/// parallel and returns an array of bodies aligned with the input
+/// (failed fetches become empty strings). Used by catalog-style plugins
+/// (e.g. romheaven) that must pull a couple dozen small index files in
+/// one search — fetching them sequentially would blow the 20 s search
+/// budget. Concurrency is capped so a public gateway is not hammered.
+fn inject_http_get_all<'js>(
+    ctx: &Ctx<'js>,
+    http: &reqwest::blocking::Client,
+) -> Result<(), String> {
+    let http_owned = http.clone();
+    let get_all = Function::new(
+        ctx.clone(),
+        move |ctx: Ctx<'js>, urls: Vec<String>| -> Result<Value<'js>, rquickjs::Error> {
+            // Chunked so at most CONCURRENT_FETCHES requests are in
+            // flight at once; each thread returns its own body and the
+            // chunk joins before the next starts, so there is no shared
+            // mutable state to synchronise.
+            const CONCURRENT_FETCHES: usize = 8;
+            let mut results: Vec<String> = Vec::with_capacity(urls.len());
+            for chunk in urls.chunks(CONCURRENT_FETCHES) {
+                let chunk_results = std::thread::scope(|scope| {
+                    let handles: Vec<_> = chunk
+                        .iter()
+                        .map(|url| {
+                            let client = http_owned.clone();
+                            let url = url.clone();
+                            scope.spawn(move || {
+                                http_get_text(&client, &url, None).unwrap_or_default()
+                            })
+                        })
+                        .collect();
+                    handles
+                        .into_iter()
+                        .map(|h| h.join().unwrap_or_default())
+                        .collect::<Vec<String>>()
+                });
+                results.extend(chunk_results);
+            }
+            let json = serde_json::to_string(&results).map_err(|e| {
+                Exception::throw_message(&ctx, &format!("httpGetAll: serialize results: {e}"))
+            })?;
+            ctx.json_parse(json).map_err(|e| {
+                Exception::throw_message(&ctx, &format!("httpGetAll: materialize array: {e}"))
+            })
+        },
+    )
+    .map_err(|e| format!("create httpGetAll closure: {e}"))?;
+    ctx.globals()
+        .set("httpGetAll", get_all)
+        .map_err(|e| format!("inject httpGetAll: {e}"))
 }
 
 /// Give a sandbox the `definePlugin` global. The closure:

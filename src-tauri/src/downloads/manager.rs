@@ -1158,13 +1158,13 @@ async fn start_direct(manager: &SharedManager, id: &str) -> bool {
 /// write concurrently with a still-running predecessor (C1).
 /// Returns false when the record vanished before the spawn.
 pub async fn spawn_direct_worker(manager: &SharedManager, id: &str) -> bool {
-    let (url, save_path, counter, generation, lock) = {
+    let (url, save_path, referer, counter, generation, lock) = {
         let mut guard = manager.write().await;
-        let (source_uri, save_path) = {
+        let (source_uri, save_path, referer) = {
             let Some(d) = guard.downloads_mut().get_mut(id) else {
                 return false;
             };
-            (d.source_uri.clone(), d.save_path.clone())
+            (d.source_uri.clone(), d.save_path.clone(), d.referer.clone())
         };
         let generation = {
             let e = guard.direct_generations.entry(id.to_string()).or_insert(0u64);
@@ -1180,7 +1180,7 @@ pub async fn spawn_direct_worker(manager: &SharedManager, id: &str) -> bool {
             .entry(id.to_string())
             .or_insert_with(|| Arc::new(tokio::sync::Mutex::new(())))
             .clone();
-        (source_uri, save_path, counter, generation, lock)
+        (source_uri, save_path, referer, counter, generation, lock)
     };
 
     let weak = Arc::downgrade(manager);
@@ -1191,6 +1191,7 @@ pub async fn spawn_direct_worker(manager: &SharedManager, id: &str) -> bool {
                 id_owned,
                 url,
                 save_path,
+                referer,
                 counter,
                 weak,
                 generation,

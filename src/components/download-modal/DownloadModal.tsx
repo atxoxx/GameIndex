@@ -390,6 +390,19 @@ export default function DownloadModal({
     }
   }, [selectSavePath, showToast]);
 
+  // Fallback action: open the selected result's source page in the
+  // browser (e.g. when a direct-host mirror fails or needs a captcha).
+  const handleOpenPage = useCallback(async () => {
+    const url = selectedMatch?.detailUrl;
+    if (!url) return;
+    try {
+      await openUrl(url);
+    } catch (err) {
+      console.error("[DownloadModal] open page failed:", err);
+      showToast(String(err), "error");
+    }
+  }, [selectedMatch, showToast]);
+
   const handleStart = useCallback(async () => {
     // Guard against double-firing (rapid clicks / Enter key) while a
     // download or metadata fetch is already in flight.
@@ -463,7 +476,16 @@ export default function DownloadModal({
 
         // `debridActive` flips direct links onto the debrid-unrestrict
         // path; otherwise they stream straight from the hoster.
-        await addDirectDownload(sourceUri, fullSavePath, gameId ?? null, match.sourceName, autoExtract, match.uris, debridActive);
+        await addDirectDownload(
+          sourceUri,
+          fullSavePath,
+          gameId ?? null,
+          match.sourceName,
+          autoExtract,
+          match.uris,
+          debridActive,
+          match.referer ?? null,
+        );
         showToast(
           t('downloadModal.downloadingDirect', { fileName: targetFileName, source: match.sourceName }),
           "success",
@@ -779,6 +801,7 @@ export default function DownloadModal({
                     useDebrid={useDebrid}
                     onUseDebrid={setUseDebrid}
                     debridConfigured={debridConfigured}
+                    onOpenPage={handleOpenPage}
                   />
                 </div>
               )

@@ -145,6 +145,11 @@ pub struct DownloadSearchResult {
     pub torrent_url: Option<String>,
     pub verified: Option<bool>,
     pub detail_url: Option<String>,
+    /// Platform / console a game targets (e.g. "Nintendo Switch",
+    /// "NES"). Plugins populate it so the download modal can show
+    /// which system a ROM / repack hit belongs to.
+    #[serde(default)]
+    pub platform: Option<String>,
     /// Upstream site a meta-search result was cached from (e.g.
     /// "RuTracker.org" for a knaben hit). Null for source matches and
     /// for plugins that don't report provenance.
@@ -545,15 +550,16 @@ fn source_to_download_search_result(m: MatchedDownload) -> DownloadSearchResult 
         torrent_url: None,
         verified: None,
         detail_url: None,
+        platform: None,
         provenance: None,
         referer: None,
     }
 }
 
 /// Convert a raw plugin result into the merged shape, dropping entries
-/// below the match floor. The `uris` array is built from the magnet +
-/// torrent URL (deduped, non-empty only); `magnet` falls back to the
-/// first `magnet:` URI inside `uris`.
+/// below the match floor. The `uris` array is built from the magnet,
+/// torrent URL and any direct download URLs (deduped, non-empty only);
+/// `magnet` falls back to the first `magnet:` URI inside `uris`.
 fn raw_to_download_search_result(
     row: &db::plugins::PluginRow,
     raw: &PluginRawResult,
@@ -564,10 +570,13 @@ fn raw_to_download_search_result(
         return None;
     }
 
-    let mut uris: Vec<String> = Vec::with_capacity(2);
-    for u in [raw.magnet.clone(), raw.torrent_url.clone()]
+    let mut uris: Vec<String> = Vec::with_capacity(4);
+    for u in raw
+        .magnet
+        .clone()
         .into_iter()
-        .flatten()
+        .chain(raw.torrent_url.clone())
+        .chain(raw.direct_urls.clone().into_iter().flatten())
     {
         if !u.is_empty() && !uris.contains(&u) {
             uris.push(u);
@@ -606,6 +615,7 @@ fn raw_to_download_search_result(
         torrent_url: raw.torrent_url.clone(),
         verified: raw.verified,
         detail_url: raw.url.clone(),
+        platform: raw.platform.clone().filter(|p| !p.is_empty()),
         provenance: raw.provenance.clone(),
         referer: raw.referer.clone(),
     })
@@ -657,12 +667,15 @@ mod tests {
         // The shipped set — a missing file should fail the test loudly
         // rather than silently testing fewer plugins.
         let expected_ids = [
+            "axekin",
             "byxatab",
             "fitgirl",
             "freetp",
             "gamedirect",
             "knaben",
             "onlinefix",
+            "romheaven",
+            "vimm",
             "yourbittorrent",
         ];
 
@@ -724,8 +737,12 @@ mod tests {
                             .torrent_url
                             .as_deref()
                             .is_some_and(|t| !t.is_empty());
+                        let has_direct_url = r
+                            .direct_urls
+                            .as_deref()
+                            .is_some_and(|u| u.iter().any(|d| !d.is_empty()));
                         let has_url = r.url.as_deref().is_some_and(|u| !u.is_empty());
-                        has_magnet || has_torrent_url || has_url
+                        has_magnet || has_torrent_url || has_direct_url || has_url
                     };
                     let has_valid = results.iter().any(|r| is_valid(r));
                     eprintln!(

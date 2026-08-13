@@ -500,6 +500,7 @@ pub async fn start_emulator_install(
         "Emulator".to_string(),
         Some(true),
         None,
+        None,
     )
     .await
 }

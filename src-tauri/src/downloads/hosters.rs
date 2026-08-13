@@ -380,32 +380,19 @@ async fn rootz_get_download_url(uri: &str) -> Result<String, String> {
 }
 
 // ── VikingFile ────────────────────────────────────────────────────────────────
+//
+// VikingFile free downloads sit behind a Cloudflare Turnstile captcha: the
+// landing page (`vikingfile.com/f/<hash>`) only reveals the direct CDN link
+// after a `cf-turnstile-response` POST that a headless HTTP client can't
+// produce, and the public `/api` endpoints are upload / file-management only
+// (there is no captcha-free download API). We surface a clear, actionable
+// error instead of depending on an external "unlock" service, so the user
+// can fall back to the browser (the download modal's "Open page" action).
 async fn vikingfile_get_download_url(uri: &str) -> Result<String, String> {
-    let base = match std::env::var("MAIN_VITE_NIMBUS_API_URL") {
-        Ok(v) if !v.is_empty() => v,
-        _ => {
-            return Err(
-                "VikingFile resolver requires MAIN_VITE_NIMBUS_API_URL".to_string(),
-            )
-        }
-    };
-    let client = http_client();
-    let resp = client
-        .post(format!("{}/hosters/unlock", base.trim_end_matches('/')))
-        .json(&serde_json::json!({ "url": uri }))
-        .send()
-        .await
-        .map_err(|e| e.to_string())?;
-    let json: Value = response_json(resp).await?;
-    let link = json
-        .get("link")
-        .and_then(|v| v.as_str())
-        .ok_or("Failed to unlock VikingFile URL")?;
-    let redirect_url = link.to_string();
-
-    // The downloader already follows redirects, so returning the unlocked
-    // link (which may itself 301/302 to the CDN) is sufficient.
-    Ok(redirect_url)
+    Err(format!(
+        "VikingFile requires solving a captcha in your browser. \
+         Open the page in your browser to download it: {uri}"
+    ))
 }
 
 // ── Buzzheavier ───────────────────────────────────────────────────────────────

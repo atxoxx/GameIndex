@@ -79,6 +79,7 @@ interface DownloadContextValue {
     autoExtract?: boolean,
     uris?: string[],
     useDebrid?: boolean,
+    referer?: string | null,
   ) => Promise<TorrentDownload>;
   /**
    * Upload a magnet to the configured debrid provider, then download
@@ -440,6 +441,7 @@ export function DownloadProvider({ children }: { children: ReactNode }) {
       autoExtract = false,
       uris: string[] = [],
       useDebrid?: boolean,
+      referer?: string | null,
     ): Promise<TorrentDownload> => {
       const id = `dd_${Math.random().toString(36).substring(2, 11)}`;
       
@@ -505,6 +507,7 @@ export function DownloadProvider({ children }: { children: ReactNode }) {
         sourceName,
         autoExtract,
         uris,
+        referer: referer ?? null,
       });
       setDownloads((prev) => {
         const without = prev.filter((d) => d.id !== newDownload.id);

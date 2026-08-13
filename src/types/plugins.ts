@@ -57,6 +57,12 @@ export interface DownloadSearchResult extends MatchedDownload {
   /** Optional page where the plugin found this result. */
   detailUrl?: string;
   /**
+   * Platform / console the game targets (e.g. "Nintendo Switch",
+   * "NES", "PlayStation 2"). Populated by ROM / repack plugins so the
+   * download modal can show which system a hit belongs to.
+   */
+  platform?: string;
+  /**
    * Upstream site a meta-search hit was cached from (e.g.
    * "RuTracker.org" for a knaben hit). Set when the plugin reports
    * where the torrent originally came from; absent otherwise.

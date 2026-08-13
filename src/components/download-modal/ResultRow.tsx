@@ -70,6 +70,14 @@ export function ResultRow({
         <div className="dl-result-title">
           <span className="dl-result-title-text">{match.title}</span>
           <span className="dl-result-badges">
+            {match.platform && (
+              <span
+                className="dl-badge dl-badge-platform"
+                title={t("downloadModal.detailPlatform")}
+              >
+                {match.platform}
+              </span>
+            )}
             {isPlugin && (
               <span
                 className="dl-badge dl-badge-plugin"

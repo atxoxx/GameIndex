@@ -58,6 +58,7 @@ pub async fn run_direct_download(
     id: String,
     url: String,
     save_path: String,
+    referer: Option<String>,
     bytes_counter: Arc<AtomicU64>,
     manager_weak: WeakManager,
     generation: u64,
@@ -149,6 +150,7 @@ pub async fn run_direct_download(
                 true,
                 &manager_weak,
                 &extra_headers,
+                referer.as_deref(),
                 generation,
             )
             .await
@@ -269,6 +271,7 @@ pub async fn run_debrid_files_download(
                 false,
                 &manager_weak,
                 &[],
+                None,
                 generation,
             )
             .await
@@ -519,6 +522,7 @@ async fn attempt_download(
     report_total: bool,
     manager_weak: &WeakManager,
     extra_headers: &[(String, String)],
+    referer: Option<&str>,
     generation: u64,
 ) -> AttemptResult {
     let path = Path::new(save_path);
@@ -547,6 +551,9 @@ async fn attempt_download(
     // Disable compression so byte ranges are exact and resume works.
     let is_resume = current_size > 0;
     let mut req = client.get(url).header("Accept-Encoding", "identity");
+    if let Some(r) = referer {
+        req = req.header(reqwest::header::REFERER, r);
+    }
     for (k, v) in extra_headers {
         req = req.header(k.as_str(), v.as_str());
     }
