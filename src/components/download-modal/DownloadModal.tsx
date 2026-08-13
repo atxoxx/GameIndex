@@ -447,6 +447,57 @@ export default function DownloadModal({
     }
   }, [selectedMatch, showToast]);
 
+  const handleOpenBrowserResolver = useCallback(
+    async (targetUrl?: string) => {
+      const urlToOpen =
+        targetUrl ||
+        selectedWebUrl ||
+        (selectedMatch
+          ? resolveSourceUri(selectedMatch, selectedMirrorIdx)
+          : null) ||
+        selectedMatch?.detailUrl;
+      if (!urlToOpen) return;
+
+      showToast(t("downloadModal.browserResolverOpened"), "info");
+      try {
+        const res = await invoke<{
+          intercepted: boolean;
+          url?: string;
+          filename?: string;
+          downloadId?: string;
+          message?: string;
+        }>("open_download_resolver", {
+          url: urlToOpen,
+          gameName,
+          gameId: gameId ?? null,
+          savePath: savePath ?? null,
+          autoExtract,
+          sourceName: selectedMatch?.sourceName || "Browser Resolver",
+        });
+
+        if (res && res.intercepted) {
+          showToast(t("downloadModal.browserResolverSuccess"), "success");
+          onClose();
+        }
+      } catch (err) {
+        console.error("[DownloadModal] resolver error:", err);
+        showToast(String(err), "error");
+      }
+    },
+    [
+      selectedWebUrl,
+      selectedMatch,
+      selectedMirrorIdx,
+      gameName,
+      gameId,
+      savePath,
+      autoExtract,
+      showToast,
+      t,
+      onClose,
+    ],
+  );
+
   const handleStart = useCallback(async () => {
     // Guard against double-firing (rapid clicks / Enter key) while a
     // download or metadata fetch is already in flight.
@@ -462,17 +513,12 @@ export default function DownloadModal({
     // Single source of truth for which URI the user wants. Respects the
     // mirror dropdown; falls back to magnet then first URI.
     const sourceUri = resolveSourceUri(match, selectedMirrorIdx);
-    // Web-link-only results (no downloadable URI) open the site in the
-    // browser instead of starting a download — no save path needed.
+    // Web-link-only results (no downloadable URI) open in the in-app
+    // resolver browser to solve verifications and capture the link.
     const webUrl = webUrlFor(match);
     if (!sourceUri && webUrl) {
       setError(null);
-      try {
-        await openUrl(webUrl);
-      } catch (err) {
-        console.error("[DownloadModal] openUrl failed:", err);
-        showToast(String(err), "error");
-      }
+      await handleOpenBrowserResolver(webUrl);
       return;
     }
     if (!savePath) {
@@ -860,9 +906,25 @@ export default function DownloadModal({
                     onUseDebrid={setUseDebrid}
                     debridConfigured={debridConfigured}
                     onOpenPage={handleOpenPage}
+                    onOpenBrowserResolver={handleOpenBrowserResolver}
                   />
                 </div>
               )
+            )}
+
+            {error && step === "results" && (
+              <div className="dl-inline-error" role="alert">
+                <p className="dl-inline-error-text">{error}</p>
+                {metadataTimedOut && (
+                  <Button
+                    variant="secondary"
+                    size="sm"
+                    onClick={() => handleStart()}
+                  >
+                    {t('downloadModal.tryAgain')}
+                  </Button>
+                )}
+              </div>
             )}
 
             {step === "fetching_metadata" && (() => {
@@ -884,21 +946,6 @@ export default function DownloadModal({
                 selectedFiles={selectedFiles}
                 onChange={setSelectedFiles}
               />
-            )}
-
-            {error && step === "results" && (
-              <div className="dl-inline-error" role="alert">
-                <p className="dl-inline-error-text">{error}</p>
-                {metadataTimedOut && (
-                  <Button
-                    variant="secondary"
-                    size="sm"
-                    onClick={() => handleStart()}
-                  >
-                    {t('downloadModal.tryAgain')}
-                  </Button>
-                )}
-              </div>
             )}
 
             {step === "starting" && (() => {
@@ -977,9 +1024,9 @@ export default function DownloadModal({
                     step !== "starting" ? (
                       selectedWebUrl ? (
                         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-                          <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6" />
-                          <polyline points="15 3 21 3 21 9" />
-                          <line x1="10" y1="14" x2="21" y2="3" />
+                          <circle cx="12" cy="12" r="10" />
+                          <line x1="2" y1="12" x2="22" y2="12" />
+                          <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z" />
                         </svg>
                       ) : (
                         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
@@ -992,7 +1039,7 @@ export default function DownloadModal({
                   }
                 >
                   {(() => {
-                    if (selectedWebUrl) return t('downloadModal.openInBrowser');
+                    if (selectedWebUrl) return t('downloadModal.openInBrowserResolver');
                     const selMatch = selectedMatch;
                     const { isDirect } = classifyUri(
                       resolveSourceUri(selMatch ?? undefined, selectedMirrorIdx),

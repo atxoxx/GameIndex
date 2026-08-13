@@ -6,7 +6,8 @@
     "main",
     "source-fetcher-*",
     "gog-login",
-    "news-preview-*"
+    "news-preview-*",
+    "download-resolver-*"
   ],
   "permissions": [
     "core:default",

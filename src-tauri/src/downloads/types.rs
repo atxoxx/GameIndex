@@ -115,6 +115,9 @@ pub struct Download {
     /// 0-based position in the waiting queue (only set while `Queued`).
     #[serde(default)]
     pub queue_position: Option<usize>,
+    /// Custom HTTP request headers (e.g. User-Agent, Cookie, Referer) for hosters.
+    #[serde(default)]
+    pub extra_headers: Option<Vec<(String, String)>>,
 }
 
 impl Download {
@@ -156,6 +159,7 @@ impl Download {
             only_files: None,
             should_seed: Some(false),
             queue_position: None,
+            extra_headers: None,
         }
     }
 }

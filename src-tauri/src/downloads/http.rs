@@ -134,6 +134,18 @@ pub async fn run_direct_download(
                 }
             };
 
+        let mut request_headers = extra_headers;
+        if let Some(mgr) = manager_weak.upgrade() {
+            let guard = mgr.read().await;
+            if let Some(d) = guard.downloads_map().get(&id) {
+                if let Some(custom) = &d.extra_headers {
+                    for (k, v) in custom {
+                        request_headers.push((k.clone(), v.clone()));
+                    }
+                }
+            }
+        }
+
         let mut attempt: u32 = 0;
         loop {
             // Stop immediately if a newer worker took over (C1).
@@ -149,7 +161,7 @@ pub async fn run_direct_download(
                 0,
                 true,
                 &manager_weak,
-                &extra_headers,
+                &request_headers,
                 referer.as_deref(),
                 generation,
             )

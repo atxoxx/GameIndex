@@ -36,6 +36,7 @@ export function DetailPanel({
   onUseDebrid,
   debridConfigured,
   onOpenPage,
+  onOpenBrowserResolver,
 }: {
   match: DisplayMatch | null;
   isDownloaded: (title: string) => boolean;
@@ -54,6 +55,8 @@ export function DetailPanel({
   /** Open the result's source page in the browser (fallback for a
    *  downloadable result whose host link fails). */
   onOpenPage: () => void;
+  /** Open the in-app browser resolver to solve CAPTCHAs/timers & intercept download. */
+  onOpenBrowserResolver?: (url?: string) => void;
 }) {
   const { t, language } = useLanguage();
 
@@ -98,19 +101,10 @@ export function DetailPanel({
   // "Open page" is a fallback for results that ARE downloadable (the
   // footer already offers "Open in browser" for web-link-only hits).
   const detailUrl = match.detailUrl && match.detailUrl.trim();
-  const showOpenPage = !webUrl && !!detailUrl;
+  const showOpenPage = !webUrl && Boolean(detailUrl);
   // Debrid can unrestrict a direct link or upload a magnet; `.torrent`
   // file URLs stay on the P2P engine regardless.
-  const debridAvailable = debridConfigured && (isDirect || isMagnet);
-  const typeLabel = webUrl
-    ? t("downloadModal.typeWeb")
-    : isMagnet
-      ? t("downloadModal.typeMagnet")
-      : isTorrentFile
-        ? t("downloadModal.typeTorrent")
-        : isDirect
-          ? t("downloadModal.typeDirect")
-          : t("downloadModal.typeUnknown");
+  const debridAvailable = debridConfigured && (isMagnet || isTorrentFile);
 
   return (
     <aside
@@ -167,7 +161,17 @@ export function DetailPanel({
         </div>
         <div className="dl-detail-meta-item">
           <span className="dl-detail-meta-label">{t("downloadModal.detailType")}</span>
-          <span className="dl-type-chip">{typeLabel}</span>
+          <span className="dl-type-chip">
+            {webUrl
+              ? t("downloadModal.typeWeb")
+              : isMagnet
+                ? t("downloadModal.typeMagnet")
+                : isTorrentFile
+                  ? t("downloadModal.typeTorrent")
+                  : isDirect
+                    ? t("downloadModal.typeDirect")
+                    : t("downloadModal.typeUnknown")}
+          </span>
         </div>
         <div className="dl-detail-meta-item dl-detail-meta-item--full">
           <span className="dl-detail-meta-label">{t("downloadModal.detailConfidence")}</span>
@@ -179,27 +183,44 @@ export function DetailPanel({
       </div>
 
       {showOpenPage && (
-        <button
-          type="button"
-          className="dl-detail-open-page"
-          onClick={onOpenPage}
-          title={detailUrl ?? undefined}
-        >
-          <svg
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="2"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            aria-hidden
+        <div className="dl-detail-fallback-actions">
+          <button
+            type="button"
+            className="dl-detail-open-page"
+            onClick={onOpenPage}
+            title={detailUrl ?? undefined}
           >
-            <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6" />
-            <polyline points="15 3 21 3 21 9" />
-            <line x1="10" y1="14" x2="21" y2="3" />
-          </svg>
-          {t("downloadModal.openPage")}
-        </button>
+            <svg
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              aria-hidden
+            >
+              <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6" />
+              <polyline points="15 3 21 3 21 9" />
+              <line x1="10" y1="14" x2="21" y2="3" />
+            </svg>
+            {t("downloadModal.openPage")}
+          </button>
+          {onOpenBrowserResolver && (
+            <button
+              type="button"
+              className="dl-detail-open-page dl-detail-open-page--resolver"
+              onClick={() => onOpenBrowserResolver(detailUrl ?? undefined)}
+              title={t("downloadModal.browserResolverDesc")}
+            >
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                <circle cx="12" cy="12" r="10" />
+                <line x1="2" y1="12" x2="22" y2="12" />
+                <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z" />
+              </svg>
+              {t("downloadModal.openInBrowserResolver")}
+            </button>
+          )}
+        </div>
       )}
 
       {match.uris.length > 1 && (
@@ -230,7 +251,21 @@ export function DetailPanel({
       {webUrl ? (
         <div className="dl-detail-section">
           <span className="dl-detail-section-title">{t("downloadModal.sectionWeb")}</span>
-          <p className="dl-detail-web-hint">{t("downloadModal.webHint")}</p>
+          <p className="dl-detail-web-hint">{t("downloadModal.browserResolverDesc")}</p>
+          <div className="dl-detail-web-actions">
+            <button
+              type="button"
+              className="dl-btn-browser-solve"
+              onClick={() => onOpenBrowserResolver?.(webUrl)}
+            >
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                <circle cx="12" cy="12" r="10" />
+                <line x1="2" y1="12" x2="22" y2="12" />
+                <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z" />
+              </svg>
+              <span>{t("downloadModal.openInBrowserResolver")}</span>
+            </button>
+          </div>
         </div>
       ) : (
         <div className="dl-detail-section">

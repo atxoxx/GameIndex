@@ -7,6 +7,7 @@
 //! Command names are kept from the previous engine so the frontend
 //! call sites keep working (`torrent_add`, `torrent_pause`, ...).
 
+pub mod browser_resolver;
 pub mod debrid;
 pub mod extract;
 pub mod hosters;
@@ -500,6 +501,7 @@ pub async fn direct_download_start(
     auto_extract: Option<bool>,
     uris: Option<Vec<String>>,
     referer: Option<String>,
+    extra_headers: Option<Vec<(String, String)>>,
 ) -> Result<Download, String> {
     let mgr = wait_for_manager().await?;
 
@@ -528,6 +530,7 @@ pub async fn direct_download_start(
     }];
     d.uris = uris.filter(|u| !u.is_empty());
     d.referer = referer;
+    d.extra_headers = extra_headers;
 
     {
         let mut guard = mgr.write().await;

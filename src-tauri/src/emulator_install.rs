@@ -501,6 +501,7 @@ pub async fn start_emulator_install(
         Some(true),
         None,
         None,
+        None,
     )
     .await
 }

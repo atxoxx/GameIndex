@@ -1209,10 +1209,62 @@
 
 /* Hint shown for web-link-only results (no direct download). */
 .dl-detail-web-hint {
-  margin: 0;
-  font-size: var(--font-size-sm);
+  margin: 0 0 var(--space-xs);
+  font-size: var(--font-size-xs);
   color: var(--color-text-muted);
-  line-height: 1.5;
+  line-height: 1.45;
+}
+
+.dl-detail-web-actions {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-xs);
+}
+
+.dl-btn-browser-solve {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  width: 100%;
+  padding: 8px 14px;
+  background: color-mix(in srgb, var(--color-accent) 15%, var(--color-bg-secondary));
+  border: 1px solid var(--color-accent);
+  border-radius: var(--radius-md);
+  color: var(--color-accent);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-semibold);
+  font-family: inherit;
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+
+.dl-btn-browser-solve:hover {
+  background: var(--color-accent);
+  color: #fff;
+  box-shadow: 0 2px 8px color-mix(in srgb, var(--color-accent) 35%, transparent);
+}
+
+.dl-btn-browser-solve svg {
+  width: 15px;
+  height: 15px;
+}
+
+.dl-detail-fallback-actions {
+  display: flex;
+  align-items: center;
+  gap: var(--space-xs);
+  flex-wrap: wrap;
+}
+
+.dl-detail-open-page--resolver {
+  color: var(--color-accent);
+  border-color: color-mix(in srgb, var(--color-accent) 40%, var(--color-border));
+}
+
+.dl-detail-open-page--resolver:hover {
+  border-color: var(--color-accent);
+  background: color-mix(in srgb, var(--color-accent) 12%, transparent);
 }
 
 /* The options card sits inside the pane now — flatten its box so it

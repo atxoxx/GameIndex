@@ -75,9 +75,14 @@ pub async fn resolve(url: &str) -> ResolveOutcome {
             Err(e) => ResolveOutcome::Error(e),
         }
     } else if host.contains("vikingfile") {
-        match vikingfile_get_download_url(url).await {
-            Ok(u) => ResolveOutcome::Resolved(ResolvedTarget { url: u, headers: vec![] }),
-            Err(e) => ResolveOutcome::Error(e),
+        let path = url::Url::parse(url).ok().map(|u| u.path().to_string()).unwrap_or_default();
+        if path.starts_with("/f/") {
+            match vikingfile_get_download_url(url).await {
+                Ok(u) => ResolveOutcome::Resolved(ResolvedTarget { url: u, headers: vec![] }),
+                Err(e) => ResolveOutcome::Error(e),
+            }
+        } else {
+            ResolveOutcome::Passthrough
         }
     } else if host.contains("buzzheavier") {
         match buzzheavier_get_download_url(url).await {
