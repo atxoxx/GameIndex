@@ -657,13 +657,13 @@ mod tests {
         // The shipped set — a missing file should fail the test loudly
         // rather than silently testing fewer plugins.
         let expected_ids = [
-            "yourbittorrent",
-            "bitsearch",
-            "thepiratebay",
-            "torlock",
-            "torrentfunk",
+            "byxatab",
+            "fitgirl",
+            "freetp",
+            "gamedirect",
             "knaben",
             "onlinefix",
+            "yourbittorrent",
         ];
 
         let (summary, failures) = tokio::time::timeout(
@@ -708,10 +708,12 @@ mod tests {
                             continue;
                         }
                     };
-                    // A result is "downloadable" when it carries a
-                    // magnet pair (infohash + magnet) OR a direct
-                    // `.torrent` URL (anti-hotlink sources like
-                    // online-fix ship `torrentUrl` + `referer`).
+                    // A result is "usable" when it carries a magnet pair
+                    // (infohash + magnet), a direct `.torrent` URL
+                    // (anti-hotlink sources like online-fix ship
+                    // `torrentUrl` + `referer`), or a plain page `url`
+                    // (search-only plugins like gamedirect resolve to an
+                    // open-in-browser link).
                     let is_valid = |r: &PluginRawResult| {
                         let has_magnet = r
                             .infohash
@@ -722,7 +724,8 @@ mod tests {
                             .torrent_url
                             .as_deref()
                             .is_some_and(|t| !t.is_empty());
-                        has_magnet || has_torrent_url
+                        let has_url = r.url.as_deref().is_some_and(|u| !u.is_empty());
+                        has_magnet || has_torrent_url || has_url
                     };
                     let has_valid = results.iter().any(|r| is_valid(r));
                     eprintln!(

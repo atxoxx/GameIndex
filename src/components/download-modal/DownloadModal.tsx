@@ -28,6 +28,7 @@
 import { useState, useEffect, useCallback, useRef, useMemo } from "react";
 import { createPortal } from "react-dom";
 import { invoke } from "@tauri-apps/api/core";
+import { openUrl } from "@tauri-apps/plugin-opener";
 import { useDownloads } from "../../context/DownloadContext";
 import { useSources } from "../../context/SourceContext";
 import { useGames } from "../../context/GameContext";
@@ -36,7 +37,7 @@ import { useLanguage } from "../../context/LanguageContext";
 import { Button } from "../ui";
 import { ConfirmModal } from "../ui/ConfirmModal";
 import { type OwnershipResult } from "../../types/download";
-import { classifyUri, resolveSourceUri, sortMatches } from "./helpers";
+import { classifyUri, resolveSourceUri, sortMatches, webUrlFor } from "./helpers";
 import type { DownloadStep, SortKey, DisplayMatch } from "./types";
 import { OwnershipBanner } from "./OwnershipBanner";
 import { ConfidenceWarning } from "./ConfidenceWarning";
@@ -71,6 +72,7 @@ export default function DownloadModal({
   const {
     addDownload,
     addDirectDownload,
+    addDebridDownload,
     selectSavePath,
     activeDownloads,
     completedDownloads,
@@ -110,6 +112,8 @@ export default function DownloadModal({
 
   const [chooseFiles, setChooseFiles] = useState(false);
   const [autoExtract, setAutoExtract] = useState(false);
+  // Route magnets/direct links through the configured debrid service.
+  const [useDebrid, setUseDebrid] = useState(false);
   const [tempTorrentId, setTempTorrentId] = useState<string | null>(null);
   const [selectedFiles, setSelectedFiles] = useState<Set<number>>(new Set());
   // Collapse low-confidence matches (score < 0.4) behind a toggle so
@@ -131,6 +135,21 @@ export default function DownloadModal({
   const selectedMatch = useMemo(
     () => matches.find((m) => m.id === selectedId) ?? null,
     [matches, selectedId],
+  );
+
+  // Whether an AllDebrid/TorBox key is configured in Settings. Read once
+  // per mount — the modal is reopened fresh for each download flow.
+  const debridConfigured = useMemo(() => {
+    const provider = localStorage.getItem("gamelib-debrid-provider") || "none";
+    const apiKey = localStorage.getItem("gamelib-debrid-apikey") || "";
+    return provider !== "none" && !!apiKey;
+  }, []);
+
+  // Web-link-only results (no magnet/torrent/direct URI) open the site
+  // in the browser rather than starting a download.
+  const selectedWebUrl = useMemo(
+    () => webUrlFor(selectedMatch ?? undefined),
+    [selectedMatch],
   );
 
   // Reset selected mirror when the selected result changes, and keep it
@@ -382,14 +401,27 @@ export default function DownloadModal({
       setError(t('downloadModal.pickResult'));
       return;
     }
-    if (!savePath) {
-      setError(t('downloadModal.chooseSave'));
-      return;
-    }
     const match = selectedMatch;
     // Single source of truth for which URI the user wants. Respects the
     // mirror dropdown; falls back to magnet then first URI.
     const sourceUri = resolveSourceUri(match, selectedMirrorIdx);
+    // Web-link-only results (no downloadable URI) open the site in the
+    // browser instead of starting a download — no save path needed.
+    const webUrl = webUrlFor(match);
+    if (!sourceUri && webUrl) {
+      setError(null);
+      try {
+        await openUrl(webUrl);
+      } catch (err) {
+        console.error("[DownloadModal] openUrl failed:", err);
+        showToast(String(err), "error");
+      }
+      return;
+    }
+    if (!savePath) {
+      setError(t('downloadModal.chooseSave'));
+      return;
+    }
     if (!sourceUri) {
       setError(t('downloadModal.noLink'));
       return;
@@ -402,7 +434,8 @@ export default function DownloadModal({
         ? savePath
         : `${savePath}/${safeGameFolder}`.replace(/\\/g, "/");
 
-      const { isDirect } = classifyUri(sourceUri, match.torrentUrl);
+      const { isDirect, isMagnet } = classifyUri(sourceUri, match.torrentUrl);
+      const debridActive = useDebrid && debridConfigured;
 
       if (isDirect) {
         setStep("starting");
@@ -428,13 +461,9 @@ export default function DownloadModal({
         targetFileName = targetFileName.replace(/[:*?"<>|\\/]/g, "").trim();
         const fullSavePath = `${finalSavePath}/${targetFileName}`.replace(/\\/g, "/");
 
-        // Policy note: only direct-download links flow through the
-        // `addDirectDownload` path (which earns a debrid unrestrict call
-        // when a debrid provider is configured). Torrents — magnet URIs
-        // and .torrent file URLs — never go through debrid so they stay
-        // on the P2P path below. Debrid is intentionally restricted to
-        // direct-link unrestriction here.
-        await addDirectDownload(sourceUri, fullSavePath, gameId ?? null, match.sourceName, autoExtract, match.uris);
+        // `debridActive` flips direct links onto the debrid-unrestrict
+        // path; otherwise they stream straight from the hoster.
+        await addDirectDownload(sourceUri, fullSavePath, gameId ?? null, match.sourceName, autoExtract, match.uris, debridActive);
         showToast(
           t('downloadModal.downloadingDirect', { fileName: targetFileName, source: match.sourceName }),
           "success",
@@ -443,15 +472,21 @@ export default function DownloadModal({
         return;
       }
 
-      // At this point `sourceUri` is either a magnet URI or a `.torrent`
-      // URL — both are handled by the P2P torrent engine via
-      // `torrent_add`. We deliberately do NOT route torrents through
-      // debird (neither cache-check + unrestrict, nor upload-magnet +
-      // status-poll): magnets and `.torrent` URLs are always downloaded
-      // through `librqbit` (DHT / trackers / peer swarm), so the
-      // metadata fetch, file selection, piece downloads, ratio stats,
-      // and persistence all work the way a torrent client is expected
-      // to behave.
+      // Magnet + debrid toggle: upload to the debrid provider and pull
+      // the resolved link over HTTP (no P2P swarm involved).
+      if (debridActive && isMagnet) {
+        setStep("starting");
+        await addDebridDownload(sourceUri, finalSavePath, gameId ?? null, match.sourceName, autoExtract);
+        showToast(
+          t('downloadModal.downloadingDebrid', { title: match.title, source: match.sourceName }),
+          "success",
+        );
+        onClose();
+        return;
+      }
+
+      // Everything else (`magnet` without debrid, or a `.torrent` file
+      // URL) stays on the P2P torrent engine via `torrent_add`.
       if (chooseFiles) {
         setStep("fetching_metadata");
         let newDl;
@@ -492,11 +527,14 @@ export default function DownloadModal({
     matches,
     addDownload,
     addDirectDownload,
+    addDebridDownload,
     gameId,
     showToast,
     onClose,
     chooseFiles,
     autoExtract,
+    useDebrid,
+    debridConfigured,
     gameName,
     step,
     selectedId,
@@ -738,6 +776,9 @@ export default function DownloadModal({
                     onAutoExtract={setAutoExtract}
                     chooseFiles={chooseFiles}
                     onChooseFiles={setChooseFiles}
+                    useDebrid={useDebrid}
+                    onUseDebrid={setUseDebrid}
+                    debridConfigured={debridConfigured}
                   />
                 </div>
               )
@@ -853,15 +894,24 @@ export default function DownloadModal({
                   isLoading={step === "starting"}
                   leftIcon={
                     step !== "starting" ? (
-                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-                        <polyline points="8 17 12 21 16 17" />
-                        <line x1="12" y1="12" x2="12" y2="21" />
-                        <path d="M20.88 18.09A5 5 0 0 0 18 9h-1.26A8 8 0 1 0 3 16.29" />
-                      </svg>
+                      selectedWebUrl ? (
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                          <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6" />
+                          <polyline points="15 3 21 3 21 9" />
+                          <line x1="10" y1="14" x2="21" y2="3" />
+                        </svg>
+                      ) : (
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                          <polyline points="8 17 12 21 16 17" />
+                          <line x1="12" y1="12" x2="12" y2="21" />
+                          <path d="M20.88 18.09A5 5 0 0 0 18 9h-1.26A8 8 0 1 0 3 16.29" />
+                        </svg>
+                      )
                     ) : undefined
                   }
                 >
                   {(() => {
+                    if (selectedWebUrl) return t('downloadModal.openInBrowser');
                     const selMatch = selectedMatch;
                     const { isDirect } = classifyUri(
                       resolveSourceUri(selMatch ?? undefined, selectedMirrorIdx),

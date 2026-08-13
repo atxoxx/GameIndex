@@ -954,6 +954,14 @@
   color: var(--color-text-muted);
 }
 
+/* Hint shown for web-link-only results (no direct download). */
+.dl-detail-web-hint {
+  margin: 0;
+  font-size: var(--font-size-sm);
+  color: var(--color-text-muted);
+  line-height: 1.5;
+}
+
 /* The options card sits inside the pane now — flatten its box so it
  * reads as a section row, not a nested card. */
 .dl-detail-pane .dl-options-card {

@@ -1,4 +1,5 @@
 import type { MatchedDownload } from "../../types/source";
+import type { DownloadSearchResult } from "../../types/plugins";
 
 /**
  * Single source of truth for "which URI does the user actually want to
@@ -49,6 +50,22 @@ export function classifyUri(
     !isTorrentFile &&
     (uri.startsWith("http://") || uri.startsWith("https://"));
   return { isMagnet, isTorrentFile, isDirect };
+}
+
+/**
+ * Return the detail-page URL for a result that has no downloadable
+ * URI (no magnet / .torrent / direct link) — i.e. a "web link only"
+ * plugin hit. The modal offers an "Open in browser" action for these
+ * instead of a download. Returns null when the match is downloadable
+ * or has no detail URL.
+ */
+export function webUrlFor(
+  match: DownloadSearchResult | undefined,
+): string | null {
+  if (!match) return null;
+  if (resolveSourceUri(match, 0) != null) return null;
+  const url = match.detailUrl;
+  return url && url.trim() ? url : null;
 }
 
 /** Derive a friendly host label from a mirror URI for the chip picker. */

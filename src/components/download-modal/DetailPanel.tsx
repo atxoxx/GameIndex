@@ -1,5 +1,5 @@
 import { useLanguage } from "../../context/LanguageContext";
-import { classifyUri, formatUploadDate, resolveSourceUri } from "./helpers";
+import { classifyUri, formatUploadDate, resolveSourceUri, webUrlFor } from "./helpers";
 import type { DisplayMatch } from "./types";
 import { MirrorPicker } from "./MirrorPicker";
 import { OptionsSection } from "./OptionsSection";
@@ -32,6 +32,9 @@ export function DetailPanel({
   onAutoExtract,
   chooseFiles,
   onChooseFiles,
+  useDebrid,
+  onUseDebrid,
+  debridConfigured,
 }: {
   match: DisplayMatch | null;
   isDownloaded: (title: string) => boolean;
@@ -44,6 +47,9 @@ export function DetailPanel({
   onAutoExtract: (v: boolean) => void;
   chooseFiles: boolean;
   onChooseFiles: (v: boolean) => void;
+  useDebrid: boolean;
+  onUseDebrid: (v: boolean) => void;
+  debridConfigured: boolean;
 }) {
   const { t, language } = useLanguage();
 
@@ -84,13 +90,19 @@ export function DetailPanel({
   // mirror vs a direct-host mirror), so it must reflect the live state.
   const sourceUri = resolveSourceUri(match, selectedMirrorIdx);
   const { isMagnet, isTorrentFile, isDirect } = classifyUri(sourceUri, match.torrentUrl);
-  const typeLabel = isMagnet
-    ? t("downloadModal.typeMagnet")
-    : isTorrentFile
-      ? t("downloadModal.typeTorrent")
-      : isDirect
-        ? t("downloadModal.typeDirect")
-        : t("downloadModal.typeUnknown");
+  const webUrl = webUrlFor(match);
+  // Debrid can unrestrict a direct link or upload a magnet; `.torrent`
+  // file URLs stay on the P2P engine regardless.
+  const debridAvailable = debridConfigured && (isDirect || isMagnet);
+  const typeLabel = webUrl
+    ? t("downloadModal.typeWeb")
+    : isMagnet
+      ? t("downloadModal.typeMagnet")
+      : isTorrentFile
+        ? t("downloadModal.typeTorrent")
+        : isDirect
+          ? t("downloadModal.typeDirect")
+          : t("downloadModal.typeUnknown");
 
   return (
     <aside
@@ -171,13 +183,23 @@ export function DetailPanel({
           chooseFiles={chooseFiles}
           onChooseFiles={onChooseFiles}
           isDirect={isDirect}
+          useDebrid={useDebrid}
+          onUseDebrid={onUseDebrid}
+          debridAvailable={debridAvailable}
         />
       </div>
 
-      <div className="dl-detail-section">
-        <span className="dl-detail-section-title">{t("downloadModal.sectionSave")}</span>
-        <SavePathPicker savePath={savePath} gameName={gameName} onPickPath={onPickPath} />
-      </div>
+      {webUrl ? (
+        <div className="dl-detail-section">
+          <span className="dl-detail-section-title">{t("downloadModal.sectionWeb")}</span>
+          <p className="dl-detail-web-hint">{t("downloadModal.webHint")}</p>
+        </div>
+      ) : (
+        <div className="dl-detail-section">
+          <span className="dl-detail-section-title">{t("downloadModal.sectionSave")}</span>
+          <SavePathPicker savePath={savePath} gameName={gameName} onPickPath={onPickPath} />
+        </div>
+      )}
     </aside>
   );
 }

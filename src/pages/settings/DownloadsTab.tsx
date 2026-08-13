@@ -426,10 +426,7 @@ export default function DownloadsTab() {
               </div>
 
               <p className="settings-helper-text settings-helper-text--debrid">
-                {t("settingsPage.debridBefore")}{" "}
-                <strong>{t("settingsPage.debridOnly")}</strong>{" "}
-                {t("settingsPage.debridMiddle")} <code>.torrent</code>{" "}
-                {t("settingsPage.debridAfter")}
+                {t("settingsPage.debridUsage")}
               </p>
             </>
           )}

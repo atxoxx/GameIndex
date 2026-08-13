@@ -1325,6 +1325,7 @@ async fn run_debrid_flow(
 
             println!("[downloads] Debrid ready. Links: {:?}", status.links);
             let first_link = status.links[0].clone();
+            let filename = filename_from_url(&first_link);
             {
                 let mut guard = manager.write().await;
                 let Some(d) = guard.downloads_mut().get_mut(&id) else {
@@ -1334,6 +1335,20 @@ async fn run_debrid_flow(
                 d.uris = Some(status.links.clone());
                 d.status = DownloadStatus::Downloading;
                 d.progress = Some(0.0);
+                // The debrid add command receives a folder; now that the
+                // service has resolved the file we turn that folder into a
+                // concrete target path so the HTTP worker finalises at the
+                // right location instead of treating a directory as a file.
+                let path = std::path::Path::new(&d.save_path);
+                d.save_path = path.join(&filename).to_string_lossy().into_owned();
+                d.name = filename.clone();
+                d.files = vec![super::types::DownloadFile {
+                    name: filename.clone(),
+                    size: 0,
+                    downloaded: 0,
+                    progress: 0.0,
+                    selected: true,
+                }];
                 guard.mark_dirty();
                 guard.emit_progress_force();
             }
@@ -1357,6 +1372,31 @@ async fn run_debrid_flow(
             guard.mark_dirty();
             guard.emit_progress();
         }
+    }
+}
+
+/// Best-effort filename from a debrid-resolved download URL. Falls back
+/// to a generic name when the link carries no meaningful last path
+/// segment (e.g. a bare host or a query-string-only URL).
+fn filename_from_url(url: &str) -> String {
+    const FALLBACK: &str = "debrid_download";
+    let Ok(parsed) = url::Url::parse(url) else {
+        return FALLBACK.to_string();
+    };
+    let Some(name) = parsed
+        .path_segments()
+        .and_then(|mut segs| segs.next_back())
+        .filter(|s| !s.is_empty())
+    else {
+        return FALLBACK.to_string();
+    };
+    let decoded = urlencoding::decode(name)
+        .map(|c| c.into_owned())
+        .unwrap_or_else(|_| name.to_string());
+    if decoded.contains('.') && decoded.len() <= 255 {
+        decoded
+    } else {
+        FALLBACK.to_string()
     }
 }
 

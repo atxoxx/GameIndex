@@ -78,6 +78,19 @@ interface DownloadContextValue {
     sourceName?: string,
     autoExtract?: boolean,
     uris?: string[],
+    useDebrid?: boolean,
+  ) => Promise<TorrentDownload>;
+  /**
+   * Upload a magnet to the configured debrid provider, then download
+   * the resolved link over HTTP. Requires an AllDebrid/TorBox key in
+   * Settings → Downloads; throws when none is configured.
+   */
+  addDebridDownload: (
+    magnet: string,
+    savePath: string,
+    gameId?: string | null,
+    sourceName?: string,
+    autoExtract?: boolean,
   ) => Promise<TorrentDownload>;
   startSelectedDownload: (
     id: string,
@@ -426,6 +439,7 @@ export function DownloadProvider({ children }: { children: ReactNode }) {
       sourceName = "Direct Download",
       autoExtract = false,
       uris: string[] = [],
+      useDebrid?: boolean,
     ): Promise<TorrentDownload> => {
       const id = `dd_${Math.random().toString(36).substring(2, 11)}`;
       
@@ -433,7 +447,20 @@ export function DownloadProvider({ children }: { children: ReactNode }) {
       const debridProvider = localStorage.getItem("gamelib-debrid-provider") || "none";
       const debridApiKey = localStorage.getItem("gamelib-debrid-apikey") || "";
 
-      if (debridProvider !== "none" && debridApiKey) {
+      // `useDebrid` is an explicit opt-in from the download modal's
+      // AllDebrid toggle. When it's omitted entirely, keep the legacy
+      // auto-unrestrict behaviour so existing callers (the manual link
+      // bar) keep working without passing a flag.
+      const shouldUnrestrict =
+        useDebrid === true ||
+        (useDebrid === undefined && debridProvider !== "none" && !!debridApiKey);
+
+      if (shouldUnrestrict) {
+        if (debridProvider === "none" || !debridApiKey) {
+          throw new Error(
+            "No debrid provider configured. Set an API key in Settings → Downloads.",
+          );
+        }
         try {
           downloadUrl = await invoke<string>("debrid_unrestrict_link", {
             provider: debridProvider,
@@ -478,6 +505,41 @@ export function DownloadProvider({ children }: { children: ReactNode }) {
         sourceName,
         autoExtract,
         uris,
+      });
+      setDownloads((prev) => {
+        const without = prev.filter((d) => d.id !== newDownload.id);
+        return [newDownload, ...without];
+      });
+      return newDownload;
+    },
+    [],
+  );
+
+  const addDebridDownload = useCallback(
+    async (
+      magnet: string,
+      savePath: string,
+      gameId: string | null = null,
+      sourceName = "Debrid",
+      autoExtract = false,
+    ): Promise<TorrentDownload> => {
+      const debridProvider = localStorage.getItem("gamelib-debrid-provider") || "none";
+      const debridApiKey = localStorage.getItem("gamelib-debrid-apikey") || "";
+      if (debridProvider === "none" || !debridApiKey) {
+        throw new Error(
+          "No debrid provider configured. Set an API key in Settings → Downloads.",
+        );
+      }
+      const id = `db_${Math.random().toString(36).substring(2, 11)}`;
+      const newDownload = await invoke<TorrentDownload>("debrid_download_start", {
+        id,
+        magnet,
+        savePath,
+        gameId,
+        sourceName,
+        provider: debridProvider,
+        apikey: debridApiKey,
+        autoExtract,
       });
       setDownloads((prev) => {
         const without = prev.filter((d) => d.id !== newDownload.id);
@@ -600,6 +662,7 @@ export function DownloadProvider({ children }: { children: ReactNode }) {
       loading,
       addDownload,
       addDirectDownload,
+      addDebridDownload,
       startSelectedDownload,
       updateDirectDownloadUrl,
       pauseDownload,
@@ -624,6 +687,7 @@ export function DownloadProvider({ children }: { children: ReactNode }) {
       loading,
       addDownload,
       addDirectDownload,
+      addDebridDownload,
       startSelectedDownload,
       updateDirectDownloadUrl,
       pauseDownload,
