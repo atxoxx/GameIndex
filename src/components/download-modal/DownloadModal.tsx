@@ -453,7 +453,7 @@ export default function DownloadModal({
         setStep("fetching_metadata");
         let newDl;
         try {
-          newDl = await addDownload(sourceUri, finalSavePath, gameId ?? null, match.sourceName, autoExtract, true);
+          newDl = await addDownload(sourceUri, finalSavePath, gameId ?? null, match.sourceName, autoExtract, true, match.referer ?? null);
         } catch (addErr) {
           if (cancelledRef.current) return;
           console.error("[DownloadModal] list-only add failed:", addErr);
@@ -470,7 +470,7 @@ export default function DownloadModal({
         setTempTorrentId(newDl.id);
       } else {
         setStep("starting");
-        await addDownload(sourceUri, finalSavePath, gameId ?? null, match.sourceName, autoExtract, false);
+        await addDownload(sourceUri, finalSavePath, gameId ?? null, match.sourceName, autoExtract, false, match.referer ?? null);
         showToast(
           t('downloadModal.downloadingFrom', { title: match.title, source: match.sourceName }),
           "success",

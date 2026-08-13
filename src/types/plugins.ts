@@ -62,4 +62,9 @@ export interface DownloadSearchResult extends MatchedDownload {
    * where the torrent originally came from; absent otherwise.
    */
   provenance?: string;
+  /**
+   * Optional `Referer` header the downloader sends when fetching the
+   * `.torrent` URL (anti-hotlink hosts reject the request without it).
+   */
+  referer?: string;
 }

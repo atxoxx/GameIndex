@@ -96,6 +96,10 @@ pub struct Download {
     pub extracted: Option<bool>,
     /// Mirror URLs (direct downloads fall back to the next one on failure).
     pub uris: Option<Vec<String>>,
+    /// Optional `Referer` header to send when fetching the source
+    /// `.torrent` URL (anti-hotlink hosts 401 without it).
+    #[serde(default)]
+    pub referer: Option<String>,
     /// Completion gate: `true` once real bytes/speed were observed.
     /// Guards against librqbit's transient `progress == total`
     /// right after metadata arrives (see `gate_completion`).
@@ -147,6 +151,7 @@ impl Download {
             auto_extract: Some(auto_extract),
             extracted: Some(false),
             uris: None,
+            referer: None,
             had_real_downloads: Some(false),
             only_files: None,
             should_seed: Some(false),

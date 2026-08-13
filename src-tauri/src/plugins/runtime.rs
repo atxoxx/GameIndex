@@ -24,18 +24,21 @@
 //! Every sandbox pre-declares four globals before the plugin source
 //! runs:
 //!
-//! - `httpGet(url) -> String` — blocking GET, throws a JS error on
-//!   failure. Only `http://` / `https://` schemes are allowed
+//! - `httpGet(url, referer?) -> String` — blocking GET, throws a JS
+//!   error on failure. Only `http://` / `https://` schemes are allowed
 //!   (something like `file://` is rejected up front). Transport errors
 //!   and HTTP 5xx are retried twice (500 ms / 1 s backoff) because
 //!   torrent-index hosts are historically flaky; HTTP 4xx fails fast.
-//! - `httpGetJson(url) -> any` — `JSON.parse(httpGet(url))`. Defined
-//!   in JS so error surfaces are ordinary JS exceptions.
-//! - `httpGetXml(url) -> object` — `httpGet(url)` + a quick-xml pass
-//!   that converts an RSS 2.0 / Torznab feed into a plain JS object
-//!   (see [`parse_torznab_xml`]). Deliberate capability: JS cannot
-//!   parse XML, and regex-parsing it inside plugins is fragile, so the
-//!   runtime owns the parser.
+//!   The optional `referer` string, when present, is sent as the HTTP
+//!   `Referer` header — some torrent hosts 401 requests without it.
+//! - `httpGetJson(url, referer?) -> any` — `JSON.parse(httpGet(url,
+//!   referer))`. Defined in JS so error surfaces are ordinary JS
+//!   exceptions.
+//! - `httpGetXml(url, referer?) -> object` — `httpGet(url, referer)` +
+//!   a quick-xml pass that converts an RSS 2.0 / Torznab feed into a
+//!   plain JS object (see [`parse_torznab_xml`]). Deliberate capability:
+//!   JS cannot parse XML, and regex-parsing it inside plugins is
+//!   fragile, so the runtime owns the parser.
 //! - `definePlugin(descriptor)` — **must be called exactly once** per
 //!   evaluation. The descriptor carries the manifest fields
 //!   (`id`, `name`, `version`, `author`, `description`, `sourceUrl`)
@@ -59,7 +62,7 @@ use std::time::Duration;
 
 use quick_xml::events::{BytesStart, Event};
 use quick_xml::name::QName;
-use rquickjs::prelude::Coerced;
+use rquickjs::prelude::{Coerced, Opt};
 use rquickjs::{Context, Ctx, Exception, Function, Object, Runtime, Value};
 use serde::{Deserialize, Serialize};
 
@@ -143,6 +146,13 @@ pub struct PluginRawResult {
     /// modal as result provenance; absent for single-site plugins.
     #[serde(default)]
     pub provenance: Option<String>,
+    /// Optional `Referer` header value the downloader must send when
+    /// it fetches `torrentUrl`. Anti-hotlink hosts (e.g. nginx
+    /// `valid_referers`) reject the `.torrent` request with 401 unless
+    /// the Referer matches. Generic — any plugin may set it; it flows
+    /// through to `torrent_add` untouched.
+    #[serde(default)]
+    pub referer: Option<String>,
 }
 
 /// `size` accepts `"1.5 GB"` (string) or `12345` (number) — plugins
@@ -185,8 +195,8 @@ fn inject_http_globals<'js>(ctx: &Ctx<'js>, http: &reqwest::blocking::Client) ->
     let http_get_owned = http.clone();
     let http_get = Function::new(
         ctx.clone(),
-        move |ctx: Ctx<'js>, url: String| -> Result<String, rquickjs::Error> {
-            http_get_text(&http_get_owned, &url)
+        move |ctx: Ctx<'js>, url: String, referer: Opt<String>| -> Result<String, rquickjs::Error> {
+            http_get_text(&http_get_owned, &url, referer.as_deref())
                 .map_err(|e| Exception::throw_message(&ctx, &e))
         },
     )
@@ -198,8 +208,8 @@ fn inject_http_globals<'js>(ctx: &Ctx<'js>, http: &reqwest::blocking::Client) ->
     let http_get_xml_owned = http.clone();
     let http_get_xml = Function::new(
         ctx.clone(),
-        move |ctx: Ctx<'js>, url: String| -> Result<Value<'js>, rquickjs::Error> {
-            let text = http_get_text(&http_get_xml_owned, &url)
+        move |ctx: Ctx<'js>, url: String, referer: Opt<String>| -> Result<Value<'js>, rquickjs::Error> {
+            let text = http_get_text(&http_get_xml_owned, &url, referer.as_deref())
                 .map_err(|e| Exception::throw_message(&ctx, &e))?;
             let parsed = parse_torznab_xml(&text)
                 .map_err(|e| Exception::throw_message(&ctx, &e))?;
@@ -216,8 +226,10 @@ fn inject_http_globals<'js>(ctx: &Ctx<'js>, http: &reqwest::blocking::Client) ->
         .set("httpGetXml", http_get_xml)
         .map_err(|e| format!("inject httpGetXml: {e}"))?;
 
-    ctx.eval::<(), _>("function httpGetJson(url) { return JSON.parse(httpGet(url)); }")
-        .map_err(|e| format!("inject httpGetJson: {e}"))
+    ctx.eval::<(), _>(
+        "function httpGetJson(url, referer) { return JSON.parse(httpGet(url, referer)); }",
+    )
+    .map_err(|e| format!("inject httpGetJson: {e}"))
 }
 
 /// Give a sandbox the `definePlugin` global. The closure:
@@ -341,13 +353,15 @@ pub fn run_search(
         let _search: Function = ctx.globals().get("__pluginSearch").map_err(|e| {
             describe_js_error(&ctx, "plugin did not expose a search function", e)
         })?;
-        // `serde_json::to_string` yields a valid JS string literal
-        // (quotes/backslashes escaped), so injecting the query this way
-        // is safe even for arbitrary user input.
-        let query_literal =
-            serde_json::to_string(query).map_err(|e| format!("serialize query: {e}"))?;
+        // Inject the query as a plain JS string *value*. rquickjs copies
+        // the bytes verbatim into a JS string (no source evaluation), so
+        // arbitrary user input is safe. Previously this passed the
+        // `serde_json::to_string` output through `.set`, which stored the
+        // JSON-quoted text (`"everrail"`) as the value — so every plugin
+        // received a query with literal surrounding quote characters and
+        // exact-match search engines (e.g. online-fix) returned nothing.
         ctx.globals()
-            .set("__pluginQuery", query_literal)
+            .set("__pluginQuery", query.to_string())
             .map_err(|e| format!("inject query: {e}"))?;
         let wrapper = r#"(function () {
             var r = __pluginSearch(__pluginQuery);
@@ -372,7 +386,11 @@ pub fn run_search(
 /// attempts (immediate, +500 ms, +1 s) for transport errors and HTTP
 /// 5xx; 4xx fails on the first attempt because retrying a 403/404
 /// never helps and only wastes the search budget.
-fn http_get_text(client: &reqwest::blocking::Client, url: &str) -> Result<String, String> {
+fn http_get_text(
+    client: &reqwest::blocking::Client,
+    url: &str,
+    referer: Option<&str>,
+) -> Result<String, String> {
     if !url.starts_with("http://") && !url.starts_with("https://") {
         return Err(format!("httpGet: blocked non-http(s) URL: {url}"));
     }
@@ -382,7 +400,11 @@ fn http_get_text(client: &reqwest::blocking::Client, url: &str) -> Result<String
             let backoff = HTTP_RETRY_BACKOFF_MS[(attempt - 1).min(HTTP_RETRY_BACKOFF_MS.len() - 1)];
             std::thread::sleep(Duration::from_millis(backoff));
         }
-        match client.get(url).send() {
+        let mut req = client.get(url);
+        if let Some(r) = referer {
+            req = req.header(reqwest::header::REFERER, r);
+        }
+        match req.send() {
             Ok(resp) => {
                 let status = resp.status();
                 if status.is_success() {

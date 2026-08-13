@@ -69,6 +69,7 @@ interface DownloadContextValue {
     sourceName?: string,
     autoExtract?: boolean,
     listOnly?: boolean,
+    referer?: string | null,
   ) => Promise<TorrentDownload>;
   addDirectDownload: (
     url: string,
@@ -392,6 +393,7 @@ export function DownloadProvider({ children }: { children: ReactNode }) {
       sourceName: string = "Unknown",
       autoExtract?: boolean,
       listOnly?: boolean,
+      referer?: string | null,
     ): Promise<TorrentDownload> => {
       const newDownload = await invoke<TorrentDownload>("torrent_add", {
         magnetUri,
@@ -400,6 +402,7 @@ export function DownloadProvider({ children }: { children: ReactNode }) {
         sourceName,
         autoExtract: autoExtract ?? false,
         listOnly: listOnly ?? false,
+        referer: referer ?? null,
       });
       // Optimistic merge: insert (or replace) the new record so the
       // UI updates within milliseconds of `torrent_add` returning,

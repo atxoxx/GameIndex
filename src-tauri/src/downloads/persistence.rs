@@ -134,6 +134,7 @@ pub fn load(state_dir: &Path) -> LoadedState {
             auto_extract: meta.auto_extract,
             extracted: meta.extracted,
             uris: meta.uris,
+            referer: None,
             had_real_downloads: match meta.had_real_downloads {
                 Some(b) => Some(b),
                 None => Some(was_completed),

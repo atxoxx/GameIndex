@@ -93,7 +93,7 @@ pub async fn initialize_engine(app: AppHandle, app_data_dir: PathBuf) -> Result<
 
 /// Re-add persisted Seeding torrents that are missing from the session.
 async fn resume_persisted_seeding(shared: &SharedManager) {
-    let to_seed: Vec<(String, String, String, Option<Vec<usize>>)> = {
+    let to_seed: Vec<(String, String, String, Option<Vec<usize>>, Option<String>)> = {
         let guard = shared.read().await;
         let Some(session) = guard.session().cloned() else {
             return;
@@ -112,12 +112,13 @@ async fn resume_persisted_seeding(shared: &SharedManager) {
                     d.source_uri.clone(),
                     d.save_path.clone(),
                     d.only_files.clone(),
+                    d.referer.clone(),
                 )
             })
             .collect()
     };
 
-    for (id, source_uri, save_path, only_files) in to_seed {
+    for (id, source_uri, save_path, only_files, referer) in to_seed {
         let shared_clone = shared.clone();
         tokio::spawn(async move {
             let session = {
@@ -125,8 +126,14 @@ async fn resume_persisted_seeding(shared: &SharedManager) {
                 guard.session().cloned()
             };
             let Some(session) = session else { return };
-            match torrent::add_and_start(&session, &source_uri, &save_path, only_files.as_deref())
-                .await
+            match torrent::add_and_start(
+                &session,
+                &source_uri,
+                &save_path,
+                only_files.as_deref(),
+                referer.as_deref(),
+            )
+            .await
             {
                 Ok(torrent::AddOutcome::Added { .. }) => {
                     println!("[downloads] Resumed seeding for {}", id);
@@ -184,6 +191,7 @@ async fn handle_duplicate_add(
     game_id: Option<String>,
     source_name: String,
     auto_extract: bool,
+    referer: Option<String>,
 ) -> Result<Download, String> {
     if matches!(
         existing.status,
@@ -210,6 +218,7 @@ async fn handle_duplicate_add(
         d.game_id = game_id;
         d.source_name = source_name;
         d.auto_extract = Some(auto_extract);
+        d.referer = referer;
         d.only_files = None;
         d.downloaded = 0;
         d.total_size = None;
@@ -285,6 +294,7 @@ pub async fn torrent_add(
     source_name: String,
     auto_extract: Option<bool>,
     list_only: Option<bool>,
+    referer: Option<String>,
 ) -> Result<Download, String> {
     let mgr = wait_for_manager().await?;
     let save_path = normalize_path(&save_path);
@@ -321,15 +331,7 @@ pub async fn torrent_add(
                 .ok_or_else(|| "Download engine not initialized".to_string())?
         };
 
-        let add = match torrent::local_torrent_path(&trimmed) {
-            Some(path) => {
-                let bytes = tokio::fs::read(&path)
-                    .await
-                    .map_err(|e| format!("Failed to read .torrent file: {}", e))?;
-                librqbit::AddTorrent::from_bytes(bytes)
-            }
-            None => librqbit::AddTorrent::from_url(trimmed.clone()),
-        };
+        let add = torrent::build_add_torrent(&trimmed, referer.as_deref()).await?;
         let add_opts = librqbit::AddTorrentOptions {
             output_folder: Some(save_path.clone().into()),
             overwrite: true,
@@ -402,6 +404,7 @@ pub async fn torrent_add(
             existing.game_id = game_id;
             existing.source_name = source_name;
             existing.auto_extract = Some(auto_extract.unwrap_or(false));
+            existing.referer = referer.clone();
             if existing.files.is_empty() {
                 existing.files = files;
             }
@@ -423,6 +426,7 @@ pub async fn torrent_add(
         d.status = DownloadStatus::Paused;
         d.total_size = if total_size > 0 { Some(total_size) } else { None };
         d.files = files;
+        d.referer = referer.clone();
         guard.downloads_mut().insert(id_str, d.clone());
         guard.mark_dirty();
         guard.emit_progress_force();
@@ -452,6 +456,7 @@ pub async fn torrent_add(
                 game_id,
                 source_name,
                 auto_extract.unwrap_or(false),
+                referer,
             )
             .await;
         }
@@ -462,7 +467,7 @@ pub async fn torrent_add(
     let ctr = TEMP_ID_CTR.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
     let id = format!("dl_pending_{}_{}", unix_now(), ctr);
 
-    let d = Download::new(
+    let mut d = Download::new(
         id.clone(),
         DownloadKind::Torrent,
         "Fetching metadata\u{2026}".to_string(),
@@ -472,6 +477,7 @@ pub async fn torrent_add(
         source_name,
         auto_extract.unwrap_or(false),
     );
+    d.referer = referer;
     {
         let mut guard = mgr.write().await;
         guard.downloads_mut().insert(id.clone(), d.clone());
@@ -1041,7 +1047,7 @@ pub async fn download_set_seeding(id: String, seed: bool) -> Result<(), String> 
     }
 
     // Start seeding a completed torrent.
-    let (session, source_uri, save_path, only_files) = {
+    let (session, source_uri, save_path, only_files, referer) = {
         let mut guard = mgr.write().await;
         let session = guard
             .session()
@@ -1067,6 +1073,7 @@ pub async fn download_set_seeding(id: String, seed: bool) -> Result<(), String> 
             d.source_uri.clone(),
             d.save_path.clone(),
             d.only_files.clone(),
+            d.referer.clone(),
         );
         guard.mark_dirty();
         guard.emit_progress_force();
@@ -1076,8 +1083,14 @@ pub async fn download_set_seeding(id: String, seed: bool) -> Result<(), String> 
     let mgr_clone = mgr.clone();
     let id_clone = id.clone();
     tokio::spawn(async move {
-        match torrent::add_and_start(&session, &source_uri, &save_path, only_files.as_deref())
-            .await
+        match torrent::add_and_start(
+            &session,
+            &source_uri,
+            &save_path,
+            only_files.as_deref(),
+            referer.as_deref(),
+        )
+        .await
         {
             Ok(torrent::AddOutcome::Added { .. }) => {
                 println!("[downloads] Seeding started for {}", id_clone)

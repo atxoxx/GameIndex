@@ -150,6 +150,10 @@ pub struct DownloadSearchResult {
     /// for plugins that don't report provenance.
     #[serde(default)]
     pub provenance: Option<String>,
+    /// Optional `Referer` header the downloader sends when fetching a
+    /// `.torrent` URL. Plugins set it for anti-hotlink hosts.
+    #[serde(default)]
+    pub referer: Option<String>,
 }
 
 // ─── PluginManager ──────────────────────────────────────────────────────────
@@ -542,6 +546,7 @@ fn source_to_download_search_result(m: MatchedDownload) -> DownloadSearchResult 
         verified: None,
         detail_url: None,
         provenance: None,
+        referer: None,
     }
 }
 
@@ -602,6 +607,7 @@ fn raw_to_download_search_result(
         verified: raw.verified,
         detail_url: raw.url.clone(),
         provenance: raw.provenance.clone(),
+        referer: raw.referer.clone(),
     })
 }
 
@@ -657,6 +663,7 @@ mod tests {
             "torlock",
             "torrentfunk",
             "knaben",
+            "onlinefix",
         ];
 
         let (summary, failures) = tokio::time::timeout(
@@ -701,33 +708,43 @@ mod tests {
                             continue;
                         }
                     };
-                    let has_valid = results.iter().any(|r| {
-                        r.infohash.as_deref().is_some_and(|h| !h.is_empty())
-                            && r.magnet.as_deref().is_some_and(|m| !m.is_empty())
-                    });
+                    // A result is "downloadable" when it carries a
+                    // magnet pair (infohash + magnet) OR a direct
+                    // `.torrent` URL (anti-hotlink sources like
+                    // online-fix ship `torrentUrl` + `referer`).
+                    let is_valid = |r: &PluginRawResult| {
+                        let has_magnet = r
+                            .infohash
+                            .as_deref()
+                            .is_some_and(|h| !h.is_empty())
+                            && r.magnet.as_deref().is_some_and(|m| !m.is_empty());
+                        let has_torrent_url = r
+                            .torrent_url
+                            .as_deref()
+                            .is_some_and(|t| !t.is_empty());
+                        has_magnet || has_torrent_url
+                    };
+                    let has_valid = results.iter().any(|r| is_valid(r));
                     eprintln!(
-                        "[plugins] {}: {} results (infohash+magnet ok: {})",
+                        "[plugins] {}: {} results (downloadable ok: {})",
                         descriptor.manifest.id,
                         results.len(),
                         has_valid
                     );
-                    if let Some(s) = results.iter().find(|r| {
-                        r.infohash.as_deref().is_some_and(|h| !h.is_empty())
-                            && r.magnet.as_deref().is_some_and(|m| !m.is_empty())
-                    }) {
+                    if let Some(s) = results.iter().find(|r| is_valid(r)) {
                         eprintln!(
-                            "[plugins]   sample: title={:?} infohash={:?} seeds={:?}",
-                            s.title, s.infohash, s.seeds
+                            "[plugins]   sample: title={:?} infohash={:?} torrentUrl={:?} seeds={:?}",
+                            s.title, s.infohash, s.torrent_url, s.seeds
                         );
                     } else if let Some(s) = results.first() {
                         eprintln!(
-                            "[plugins]   (no valid sample; first: title={:?} infohash={:?} magnet={:?})",
-                            s.title, s.infohash, s.magnet
+                            "[plugins]   (no valid sample; first: title={:?} infohash={:?} magnet={:?} torrentUrl={:?})",
+                            s.title, s.infohash, s.magnet, s.torrent_url
                         );
                     }
                     if !has_valid {
                         failures.push(format!(
-                            "{}: no result with non-empty infohash AND magnet ({} total)",
+                            "{}: no downloadable result (infohash+magnet or torrentUrl) ({} total)",
                             descriptor.manifest.id,
                             results.len()
                         ));

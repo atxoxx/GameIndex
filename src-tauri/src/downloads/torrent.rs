@@ -343,7 +343,10 @@ pub fn local_torrent_path(uri: &str) -> Option<String> {
     None
 }
 
-async fn build_add_torrent(uri: &str) -> Result<librqbit::AddTorrent<'static>, String> {
+pub async fn build_add_torrent(
+    uri: &str,
+    referer: Option<&str>,
+) -> Result<librqbit::AddTorrent<'static>, String> {
     match local_torrent_path(uri) {
         Some(path) => {
             let bytes = tokio::fs::read(&path)
@@ -351,8 +354,46 @@ async fn build_add_torrent(uri: &str) -> Result<librqbit::AddTorrent<'static>, S
                 .map_err(|e| format!("Failed to read .torrent file: {}", e))?;
             Ok(librqbit::AddTorrent::from_bytes(bytes))
         }
-        None => Ok(librqbit::AddTorrent::from_url(uri.to_string())),
+        None => {
+            // Anti-hotlink .torrent URLs need a Referer header; fetch the
+            // bytes ourselves and hand them to librqbit instead of
+            // `from_url`, which never sends one.
+            if let Some(r) = referer {
+                if uri.starts_with("http://") || uri.starts_with("https://") {
+                    let bytes = fetch_torrent_bytes(uri, r).await?;
+                    return Ok(librqbit::AddTorrent::from_bytes(bytes));
+                }
+            }
+            Ok(librqbit::AddTorrent::from_url(uri.to_string()))
+        }
     }
+}
+
+/// Download a `.torrent` file over HTTP(S) with a `Referer` header and
+/// return its bytes. Used for anti-hotlink hosts that reject requests
+/// without the right Referer (librqbit's `from_url` sends none).
+async fn fetch_torrent_bytes(uri: &str, referer: &str) -> Result<Vec<u8>, String> {
+    const TORRENT_HTTP_UA: &str = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36";
+    let client = reqwest::Client::builder()
+        .user_agent(TORRENT_HTTP_UA)
+        .build()
+        .map_err(|e| format!("Failed to build .torrent fetch client: {e}"))?;
+    let resp = client
+        .get(uri)
+        .header(reqwest::header::REFERER, referer)
+        .send()
+        .await
+        .map_err(|e| format!("Failed to fetch .torrent file: {e}"))?;
+    if !resp.status().is_success() {
+        return Err(format!(
+            "Failed to fetch .torrent file: HTTP {}",
+            resp.status().as_u16()
+        ));
+    }
+    resp.bytes()
+        .await
+        .map(|b| b.to_vec())
+        .map_err(|e| format!("Failed to read .torrent file: {e}"))
 }
 
 /// Result of adding a torrent. `Added` means we own a fresh session
@@ -389,6 +430,7 @@ pub async fn add_and_start(
     source_uri: &str,
     save_path: &str,
     only_files: Option<&[usize]>,
+    referer: Option<&str>,
 ) -> Result<AddOutcome, String> {
     // Note: `list_only` adds do NOT leave a session entry in librqbit
     // 8.x (the response returns before the torrent is created), so a
@@ -402,7 +444,7 @@ pub async fn add_and_start(
 
     loop {
         attempt += 1;
-        let add = build_add_torrent(source_uri).await?;
+        let add = build_add_torrent(source_uri, referer).await?;
         let add_opts = librqbit::AddTorrentOptions {
             output_folder: Some(save_path.into()),
             overwrite: true,

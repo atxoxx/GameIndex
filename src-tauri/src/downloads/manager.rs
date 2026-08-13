@@ -847,7 +847,7 @@ async fn start_torrent(manager: &SharedManager, id: &str) -> bool {
         SlotClaim::AlreadyActive => return true,
         SlotClaim::Busy | SlotClaim::NotFound => return false,
     }
-    let (session, source_uri, save_path, only_files) = {
+    let (session, source_uri, save_path, only_files, referer) = {
         let mut guard = manager.write().await;
         let Some(session) = guard.session().cloned() else {
             drop(guard);
@@ -864,6 +864,7 @@ async fn start_torrent(manager: &SharedManager, id: &str) -> bool {
             d.source_uri.clone(),
             d.save_path.clone(),
             d.only_files.clone(),
+            d.referer.clone(),
         )
     };
 
@@ -948,6 +949,7 @@ async fn start_torrent(manager: &SharedManager, id: &str) -> bool {
             &source_uri,
             &save_path,
             only_files.as_deref(),
+            referer.as_deref(),
         )
         .await
         {
