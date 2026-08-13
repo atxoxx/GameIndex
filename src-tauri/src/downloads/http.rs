@@ -145,6 +145,8 @@ pub async fn run_direct_download(
                 &effective_url,
                 &current_save_path,
                 &bytes_counter,
+                0,
+                true,
                 &manager_weak,
                 &extra_headers,
                 generation,
@@ -217,6 +219,113 @@ pub async fn run_direct_download(
             }
         }
     }
+}
+
+/// Download every file in a debrid-resolved torrent sequentially into
+/// `save_dir`, updating the record's per-file list as each one lands,
+/// then finalise once all files are done. Reuses `attempt_download`'s
+/// retry/backoff, stall-watchdog and resume machinery; the `base_offset`
+/// counter keeps the record's progress reflecting the whole transfer
+/// rather than just the current file.
+pub async fn run_debrid_files_download(
+    id: String,
+    files: Vec<(String, u64, String)>, // (name, size, url)
+    save_dir: String,
+    bytes_counter: Arc<AtomicU64>,
+    manager_weak: WeakManager,
+    generation: u64,
+    worker_lock: Arc<tokio::sync::Mutex<()>>,
+) {
+    let _lock_guard = worker_lock.lock().await;
+    if is_superseded(&manager_weak, &id, generation).await {
+        return;
+    }
+
+    let client = reqwest::Client::builder()
+        .user_agent(DOWNLOAD_USER_AGENT)
+        .cookie_store(true)
+        .build()
+        .unwrap_or_default();
+
+    let mut base_offset: u64 = 0;
+    for (idx, (name, _size, url)) in files.iter().enumerate() {
+        let save_path = Path::new(&save_dir)
+            .join(name)
+            .to_string_lossy()
+            .into_owned();
+
+        let mut attempt: u32 = 0;
+        loop {
+            if is_superseded(&manager_weak, &id, generation).await {
+                return;
+            }
+            match attempt_download(
+                &client,
+                &id,
+                url,
+                &save_path,
+                &bytes_counter,
+                base_offset,
+                false,
+                &manager_weak,
+                &[],
+                generation,
+            )
+            .await
+            {
+                AttemptResult::Completed => break,
+                AttemptResult::Aborted => return,
+                AttemptResult::Fatal(msg) => {
+                    finish_with_error(&manager_weak, &id, msg, generation).await;
+                    return;
+                }
+                AttemptResult::Retryable(msg, retry_after) => {
+                    attempt += 1;
+                    if attempt > MAX_RETRY_ATTEMPTS {
+                        let final_msg =
+                            format!("Exhausted {} retries: {}", MAX_RETRY_ATTEMPTS, msg);
+                        finish_with_error(&manager_weak, &id, final_msg, generation).await;
+                        return;
+                    }
+                    if !still_downloading(&manager_weak, &id, generation).await {
+                        return;
+                    }
+                    let delay = match retry_after {
+                        Some(d) => d.min(Duration::from_millis(MAX_RETRY_DELAY_MS)),
+                        None => {
+                            let exp = INITIAL_RETRY_DELAY_MS
+                                .checked_mul(1u64 << (attempt - 1))
+                                .unwrap_or(MAX_RETRY_DELAY_MS);
+                            Duration::from_millis(exp.min(MAX_RETRY_DELAY_MS))
+                        }
+                    };
+                    tokio::time::sleep(delay).await;
+                }
+            }
+        }
+
+        // File landed: record its real byte count and advance the offset
+        // so the next file's progress stacks on top of this one.
+        let after = bytes_counter.load(Ordering::SeqCst);
+        let file_bytes = after.saturating_sub(base_offset);
+        base_offset = after;
+        if let Some(manager) = manager_weak.upgrade() {
+            let mut guard = manager.write().await;
+            if let Some(item) = guard.downloads_mut().get_mut(&id) {
+                if let Some(f) = item.files.get_mut(idx) {
+                    f.downloaded = file_bytes;
+                    if f.size == 0 {
+                        f.size = file_bytes;
+                    }
+                    f.progress = 1.0;
+                }
+            }
+            guard.mark_dirty();
+            guard.emit_progress_force();
+        }
+    }
+
+    finalize_success(&manager_weak, &id, &save_dir, &bytes_counter, generation).await;
 }
 
 /// Advance the record to its next mirror URL (dropping the stale
@@ -393,12 +502,21 @@ impl Throttle {
 }
 
 /// One HTTP attempt. The caller handles retry / mirror fallback.
+///
+/// `base_offset` is the byte count of files already committed by a
+/// multi-file caller (0 for a plain single-file download) — it is added
+/// to the shared counter so progress reflects the whole download.
+/// `report_total` controls whether the record's `total_size` is set from
+/// this response's `Content-Length` (single-file) or left to the caller
+/// (multi-file, where the total is known up front).
 async fn attempt_download(
     client: &reqwest::Client,
     id: &str,
     url: &str,
     save_path: &str,
     bytes_counter: &Arc<AtomicU64>,
+    base_offset: u64,
+    report_total: bool,
     manager_weak: &WeakManager,
     extra_headers: &[(String, String)],
     generation: u64,
@@ -419,7 +537,7 @@ async fn attempt_download(
             current_size = metadata.len();
         }
     }
-    bytes_counter.store(current_size, Ordering::SeqCst);
+    bytes_counter.store(base_offset + current_size, Ordering::SeqCst);
 
     println!(
         "[downloads] Starting HTTP attempt for {} from byte {}",
@@ -517,19 +635,21 @@ async fn attempt_download(
 
     if restart_from_zero {
         current_size = 0;
-        bytes_counter.store(0, Ordering::SeqCst);
+        bytes_counter.store(base_offset, Ordering::SeqCst);
         if temp_path.exists() {
             let _ = tokio::fs::remove_file(&temp_path).await;
         }
     }
 
-    if let Some(content_length) = resp.content_length() {
-        let total = if status == StatusCode::PARTIAL_CONTENT {
-            current_size + content_length
-        } else {
-            content_length
-        };
-        set_total_size(manager_weak, id, total).await;
+    if report_total {
+        if let Some(content_length) = resp.content_length() {
+            let total = if status == StatusCode::PARTIAL_CONTENT {
+                current_size + content_length
+            } else {
+                content_length
+            };
+            set_total_size(manager_weak, id, total).await;
+        }
     }
 
     if let Some(parent_dir) = temp_path.parent() {
@@ -561,7 +681,7 @@ async fn attempt_download(
     };
 
     let mut skip_remaining: u64 = if range_ignored { current_size } else { 0 };
-    let mut buffer_size = current_size;
+    let mut buffer_size = base_offset + current_size;
     let mut throttle = Throttle::new();
     let mut abort_check = std::time::Instant::now();
 

@@ -648,6 +648,7 @@ pub async fn torrent_remove(id: String, delete_files: Option<bool>) -> Result<()
         let session = guard.session().cloned();
         guard.remove_from_queue(&id);
         guard.debrid_params.remove(&id);
+        guard.debrid_files.remove(&id);
         guard.direct_counters.remove(&id);
         guard.direct_generations.remove(&id);
         guard.direct_locks.remove(&id);

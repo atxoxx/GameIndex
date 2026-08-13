@@ -55,6 +55,11 @@ pub struct DownloadManager {
     pub seed_after_complete: bool,
     /// In-memory debrid credentials per download id (never persisted).
     pub debrid_params: HashMap<String, (String, String)>,
+    /// Resolved multi-file debrid entries (name, size, url) per download
+    /// id. Kept so a pause → resume of an already-resolved debrid
+    /// download re-runs the multi-file worker instead of treating the
+    /// folder as a single file.
+    pub debrid_files: HashMap<String, Vec<(String, u64, String)>>,
     /// Monotonic worker generation per download id; bumped on every
     /// worker spawn. A worker whose captured generation is stale must
     /// stop immediately (superseded by a newer worker).
@@ -81,6 +86,7 @@ impl DownloadManager {
             direct_last_calc: HashMap::new(),
             seed_after_complete: false,
             debrid_params: HashMap::new(),
+            debrid_files: HashMap::new(),
             direct_generations: HashMap::new(),
             direct_locks: HashMap::new(),
             direct_reset_partial: std::collections::HashSet::new(),
@@ -1196,20 +1202,97 @@ pub async fn spawn_direct_worker(manager: &SharedManager, id: &str) -> bool {
     true
 }
 
+/// Spawn the multi-file debrid HTTP worker. Mirrors `spawn_direct_worker`
+/// (counter/generation/lock setup) but hands the worker the full file
+/// list to download sequentially into the record's save folder.
+async fn spawn_debrid_files_worker(
+    manager: &SharedManager,
+    id: &str,
+    files: Vec<(String, u64, String)>,
+) -> bool {
+    let (save_dir, counter, generation, lock) = {
+        let mut guard = manager.write().await;
+        let save_dir = {
+            let Some(d) = guard.downloads_mut().get_mut(id) else {
+                return false;
+            };
+            d.save_path.clone()
+        };
+        let generation = {
+            let e = guard.direct_generations.entry(id.to_string()).or_insert(0u64);
+            *e += 1;
+            *e
+        };
+        let counter = Arc::new(AtomicU64::new(0));
+        guard
+            .direct_counters
+            .insert(id.to_string(), Arc::clone(&counter));
+        let lock = guard
+            .direct_locks
+            .entry(id.to_string())
+            .or_insert_with(|| Arc::new(tokio::sync::Mutex::new(())))
+            .clone();
+        (save_dir, counter, generation, lock)
+    };
+
+    let weak = Arc::downgrade(manager);
+    let id_owned = id.to_string();
+    let spawn_fut: std::pin::Pin<Box<dyn std::future::Future<Output = ()> + Send>> =
+        Box::pin(async move {
+            http::run_debrid_files_download(
+                id_owned,
+                files,
+                save_dir,
+                counter,
+                weak,
+                generation,
+                lock,
+            )
+            .await;
+        });
+    tokio::spawn(spawn_fut);
+    true
+}
+
 /// Start a debrid download: upload the magnet, poll until ready, then
 /// hand the resolved link to the HTTP worker.
 async fn start_debrid(manager: &SharedManager, id: &str) -> bool {
-    // Already resolved to a direct link earlier? Run as direct (it claims
-    // the slot itself).
-    let is_magnet = {
+    // Already resolved to direct links earlier? Resume the multi-file
+    // worker from the stored file list; without one (legacy single-file),
+    // fall back to plain direct (which claims the slot itself).
+    let (is_magnet, resolved) = {
         let guard = manager.read().await;
-        guard
-            .downloads_map()
-            .get(id)
-            .map(|d| d.source_uri.starts_with("magnet:"))
-            .unwrap_or(false)
+        let Some(d) = guard.downloads_map().get(id) else {
+            return false;
+        };
+        let is_magnet = d.source_uri.starts_with("magnet:");
+        let resolved = if is_magnet {
+            None
+        } else {
+            guard.debrid_files.get(id).cloned()
+        };
+        (is_magnet, resolved)
     };
     if !is_magnet {
+        if let Some(files) = resolved {
+            match claim_active_slot(manager, id, DownloadStatus::Downloading).await {
+                SlotClaim::Claimed => {}
+                SlotClaim::AlreadyActive => return true,
+                SlotClaim::Busy | SlotClaim::NotFound => return false,
+            }
+            let mut guard = manager.write().await;
+            if let Some(d) = guard.downloads_mut().get_mut(id) {
+                d.status = DownloadStatus::Downloading;
+                d.progress = Some(0.0);
+                for f in &mut d.files {
+                    f.downloaded = 0;
+                    f.progress = 0.0;
+                }
+                guard.mark_dirty();
+                guard.emit_progress_force();
+            }
+            return spawn_debrid_files_worker(manager, id, files).await;
+        }
         return start_direct(manager, id).await;
     }
     match claim_active_slot(manager, id, DownloadStatus::FetchingMetadata).await {
@@ -1312,7 +1395,7 @@ async fn run_debrid_flow(
         };
 
         if status.status == "ready" {
-            if status.links.is_empty() {
+            if status.files.is_empty() {
                 fail_download(
                     &manager,
                     &id,
@@ -1323,38 +1406,84 @@ async fn run_debrid_flow(
                 return;
             }
 
-            println!("[downloads] Debrid ready. Links: {:?}", status.links);
-            let first_link = status.links[0].clone();
-            let filename = filename_from_url(&first_link);
+            println!(
+                "[downloads] Debrid ready. {} file(s)",
+                status.files.len()
+            );
+            // AllDebrid's `/f/…` links are short download *pages* — fetching
+            // them directly yields HTML. Unlock each into a direct CDN URL
+            // (`.debrid.it`) before handing them to the HTTP worker, falling
+            // back to the raw link if unlocking fails. Build the final
+            // (name, size, url) list, sanitising names and de-duplicating so
+            // same-named files in different folders can't collide on disk.
+            let mut files: Vec<(String, u64, String)> = Vec::with_capacity(status.files.len());
+            let mut used = std::collections::HashSet::new();
+            for f in &status.files {
+                let link = if provider == "alldebrid" {
+                    match AllDebridClient::unrestrict_link(&apikey, &f.link).await {
+                        Ok(direct) if !direct.is_empty() => direct,
+                        _ => f.link.clone(),
+                    }
+                } else {
+                    f.link.clone()
+                };
+                let mut name = if f.name.trim().is_empty() {
+                    filename_from_url(&link)
+                } else {
+                    sanitize_rel_path(f.name.clone())
+                };
+                name = uniquify(name, &mut used);
+                files.push((name, f.size, link));
+            }
+
+            // Single-file downloads keep the file name as the record name;
+            // multi-file downloads fall back to the torrent/archive title.
+            let record_name = if files.len() == 1 {
+                files[0].0.clone()
+            } else {
+                status
+                    .name
+                    .clone()
+                    .map(sanitize_filename)
+                    .filter(|s| !s.is_empty())
+                    .unwrap_or_else(|| "debrid_download".to_string())
+            };
+            let total: u64 = files.iter().map(|(_, s, _)| *s).sum();
+            let total_size = if total > 0 { Some(total) } else { None };
+
             {
                 let mut guard = manager.write().await;
                 let Some(d) = guard.downloads_mut().get_mut(&id) else {
                     return;
                 };
-                d.source_uri = first_link.clone();
-                d.uris = Some(status.links.clone());
+                // `save_path` stays the folder the command was given; the
+                // worker drops every file into it.
+                d.source_uri = files[0].2.clone();
+                d.uris = Some(files.iter().map(|(_, _, l)| l.clone()).collect());
+                d.name = record_name;
+                d.total_size = total_size;
                 d.status = DownloadStatus::Downloading;
                 d.progress = Some(0.0);
-                // The debrid add command receives a folder; now that the
-                // service has resolved the file we turn that folder into a
-                // concrete target path so the HTTP worker finalises at the
-                // right location instead of treating a directory as a file.
-                let path = std::path::Path::new(&d.save_path);
-                d.save_path = path.join(&filename).to_string_lossy().into_owned();
-                d.name = filename.clone();
-                d.files = vec![super::types::DownloadFile {
-                    name: filename.clone(),
-                    size: 0,
-                    downloaded: 0,
-                    progress: 0.0,
-                    selected: true,
-                }];
+                d.files = files
+                    .iter()
+                    .map(|(n, s, _)| super::types::DownloadFile {
+                        name: n.clone(),
+                        size: *s,
+                        downloaded: 0,
+                        progress: 0.0,
+                        selected: true,
+                    })
+                    .collect();
+                // Remember the resolved list so pause → resume re-runs the
+                // multi-file worker instead of misreading the folder as a
+                // single file path.
+                guard.debrid_files.insert(id.clone(), files.clone());
                 guard.mark_dirty();
                 guard.emit_progress_force();
             }
             // Same worker machinery as start_direct (generation + lock),
-            // so a mirror switch during the debrid HTTP phase is safe.
-            spawn_direct_worker(&manager, &id).await;
+            // so a pause/remove during the debrid HTTP phase is safe.
+            spawn_debrid_files_worker(&manager, &id, files).await;
             return;
         } else if status.status == "error" {
             let err_msg = status
@@ -1373,6 +1502,73 @@ async fn run_debrid_flow(
             guard.emit_progress();
         }
     }
+}
+
+/// Strip path separators and characters illegal in a file name on the
+/// common desktop OSes. Debrid file names come from torrent metadata and
+/// are not guaranteed to be filesystem-safe.
+fn sanitize_filename(name: String) -> String {
+    let cleaned: String = name
+        .chars()
+        .map(|c| match c {
+            '/' | '\\' | ':' | '*' | '?' | '"' | '<' | '>' | '|' | '\0' => '_',
+            c if c.is_control() => '_',
+            c => c,
+        })
+        .collect();
+    let trimmed = cleaned.trim();
+    // A bare "." or ".." (or an all-dots name) would resolve to the
+    // parent directory — never allow it as a target file name.
+    if trimmed.is_empty() || trimmed.chars().all(|c| c == '.') {
+        "debrid_download".to_string()
+    } else {
+        trimmed.to_string()
+    }
+}
+
+/// Sanitise a debrid-relative path, preserving `/` folder separators so
+/// nested torrent files recreate their subfolders on disk. Each path
+/// component is cleaned independently (illegal characters → `_`), and
+/// empty / `.` / `..` components are neutralised to prevent traversal.
+fn sanitize_rel_path(path: String) -> String {
+    let mut parts: Vec<String> = Vec::new();
+    for comp in path.replace('\\', "/").split('/') {
+        let cleaned: String = comp
+            .chars()
+            .map(|c| match c {
+                ':' | '*' | '?' | '"' | '<' | '>' | '|' | '\0' => '_',
+                c if c.is_control() => '_',
+                c => c,
+            })
+            .collect();
+        let trimmed = cleaned.trim();
+        if trimmed.is_empty() {
+            continue;
+        }
+        if trimmed == "." || trimmed == ".." || trimmed.chars().all(|c| c == '.') {
+            parts.push("_".to_string());
+        } else {
+            parts.push(trimmed.to_string());
+        }
+    }
+    if parts.is_empty() {
+        "debrid_download".to_string()
+    } else {
+        parts.join("/")
+    }
+}
+
+/// Return `name`, appending a numeric suffix when it collides with a
+/// name already chosen for this download (same-named files that lived in
+/// different folders of the torrent).
+fn uniquify(name: String, used: &mut std::collections::HashSet<String>) -> String {
+    let mut candidate = name.clone();
+    let mut n = 2u32;
+    while !used.insert(candidate.clone()) {
+        candidate = format!("{name}_{n}");
+        n += 1;
+    }
+    candidate
 }
 
 /// Best-effort filename from a debrid-resolved download URL. Falls back

@@ -280,7 +280,9 @@ const DownloadRow = React.memo(({
         </div>
 
         <div className="dl-row-actions">
-          {download.uris && download.uris.length > 1 && (
+          {/* Mirror switching only applies to real direct downloads — a
+              debrid download's `uris` are distinct files, not mirrors. */}
+          {download.kind === "direct" && download.uris && download.uris.length > 1 && (
             <div className="dl-row-mirror-select-wrapper">
               <select
                 className="dl-row-mirror-select"

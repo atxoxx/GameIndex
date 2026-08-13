@@ -8,8 +8,22 @@ pub struct DebridStatusResult {
     pub id: String,
     pub progress: f32,
     pub status: String, // "ready", "downloading", "queued", "error"
-    pub links: Vec<String>,
+    /// Per-file download entries in download order. The names come from
+    /// the debrid service (which knows them even when the download URL
+    /// is an opaque short link); `size` is 0 when unknown.
+    pub files: Vec<DebridFile>,
+    /// Magnet-level name (torrent/archive title) reported by the status
+    /// endpoint. Used as the record display name for multi-file
+    /// downloads. None when the provider doesn't report one.
+    pub name: Option<String>,
     pub error_message: Option<String>,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct DebridFile {
+    pub name: String,
+    pub size: u64,
+    pub link: String,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -76,11 +90,35 @@ struct AllDebridMagnetUpload {
 
 #[derive(Deserialize, Debug)]
 struct AllDebridStatusResponse {
+    #[serde(default, deserialize_with = "deserialize_magnets")]
     magnets: Vec<AllDebridMagnetStatus>,
+}
+
+/// `/v4.1/magnet/status` returns `magnets` as an array when querying all
+/// (or several) ids, but as a single object when exactly one id is
+/// passed. Accept both shapes and normalise to a vec.
+fn deserialize_magnets<'de, D>(deserializer: D) -> Result<Vec<AllDebridMagnetStatus>, D::Error>
+where
+    D: serde::Deserializer<'de>,
+{
+    #[derive(Deserialize)]
+    #[serde(untagged)]
+    enum OneOrMany {
+        One(AllDebridMagnetStatus),
+        Many(Vec<AllDebridMagnetStatus>),
+    }
+    Ok(match OneOrMany::deserialize(deserializer)? {
+        OneOrMany::One(one) => vec![one],
+        OneOrMany::Many(many) => many,
+    })
 }
 
 #[derive(Deserialize, Debug)]
 struct AllDebridMagnetStatus {
+    /// Magnet filename, or "noname" if AllDebrid could not parse one.
+    /// Optional because some states return `null` here.
+    #[serde(default)]
+    filename: Option<String>,
     #[serde(default)]
     size: u64,
     #[serde(default, rename = "statusCode")]
@@ -103,12 +141,51 @@ struct AllDebridFilesResponse {
 #[derive(Deserialize, Debug)]
 struct AllDebridFilesEntry {
     #[serde(default)]
-    links: Vec<AllDebridLink>,
+    files: Vec<AllDebridFileNode>,
+}
+
+/// One node of the `/v4/magnet/files` folder tree. A leaf file carries
+/// `n` (name), `s` (size) and `l` (download link); a folder carries `n`
+/// and `e` (child nodes) instead.
+#[derive(Deserialize, Debug)]
+struct AllDebridFileNode {
+    #[serde(default)]
+    n: String,
+    #[serde(default)]
+    s: u64,
+    #[serde(default)]
+    l: Option<String>,
+    #[serde(default)]
+    e: Vec<AllDebridFileNode>,
 }
 
 #[derive(Deserialize, Debug)]
 struct AllDebridLink {
     link: String,
+}
+
+/// Flatten a `/v4/magnet/files` node tree into per-file entries (DFS
+/// pre-order). Folder nodes carry `n` + `e`; file nodes carry `n` + `s` +
+/// `l`. The name keeps its folder path so same-named files in different
+/// subfolders stay distinct (the manager later flattens `/` to `_`).
+fn collect_files(nodes: &[AllDebridFileNode], parent: &str, out: &mut Vec<DebridFile>) {
+    for node in nodes {
+        let full = if parent.is_empty() {
+            node.n.clone()
+        } else {
+            format!("{}/{}", parent, node.n)
+        };
+        if let Some(link) = node.l.as_deref() {
+            if !link.is_empty() {
+                out.push(DebridFile {
+                    name: full.clone(),
+                    size: node.s,
+                    link: link.to_string(),
+                });
+            }
+        }
+        collect_files(&node.e, &full, out);
+    }
 }
 
 /// Send a request to api.alldebrid.com with the standard Bearer auth header.
@@ -202,7 +279,7 @@ impl AllDebridClient {
             Method::POST,
             "/v4.1/magnet/status",
             apikey,
-            Some(&[("id[]", id_str.as_str())]),
+            Some(&[("id", id_str.as_str())]),
         )
         .await?;
         let status = resp.status();
@@ -234,11 +311,24 @@ impl AllDebridClient {
             0.0
         };
 
-        let mut links: Vec<String> = mag.links.into_iter().map(|l| l.link).collect();
+        // Legacy status `links` (empty under v4.1) kept as a fallback so
+        // older account responses still yield downloadable entries.
+        let mut files: Vec<DebridFile> = mag
+            .links
+            .into_iter()
+            .map(|l| DebridFile {
+                name: String::new(),
+                size: 0,
+                link: l.link,
+            })
+            .collect();
+        let name: Option<String> = mag
+            .filename
+            .filter(|f| !f.is_empty() && f != "noname");
 
         // /v4.1/magnet/status no longer embeds the file list inline; fetch it
         // from the dedicated files endpoint once the transfer is ready.
-        if normalized_status == "ready" && links.is_empty() {
+        if normalized_status == "ready" && files.is_empty() {
             if let Ok(files_resp) = ad_request(
                 &client,
                 Method::POST,
@@ -254,9 +344,7 @@ impl AllDebridClient {
                 {
                     if let Some(payload) = parsed.data {
                         for entry in payload.magnets {
-                            for link in entry.links {
-                                links.push(link.link);
-                            }
+                            collect_files(&entry.files, "", &mut files);
                         }
                     }
                 }
@@ -277,7 +365,8 @@ impl AllDebridClient {
             id: id.to_string(),
             progress,
             status: normalized_status,
-            links,
+            files,
+            name,
             error_message,
         })
     }
@@ -477,11 +566,20 @@ impl TorBoxClient {
             }
         }
 
+        let files = links
+            .into_iter()
+            .map(|link| DebridFile {
+                name: String::new(),
+                size: 0,
+                link,
+            })
+            .collect();
         Ok(DebridStatusResult {
             id: id.to_string(),
             progress: item.progress * 100.0,
             status,
-            links,
+            files,
+            name: None,
             error_message: None,
         })
     }
