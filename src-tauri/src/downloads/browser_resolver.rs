@@ -117,7 +117,13 @@ fn generate_init_script(game_name: &str) -> String {
     }} catch (_) {{}}
     console.log('[GI-Resolver] Capturing download:', cleanUrl);
     updateBannerStatus('Capturing download…', true);
-    window.location.href = 'gi-capture://' + encodeURIComponent(cleanUrl) + (filename ? ('?filename=' + encodeURIComponent(filename)) : '');
+    let cookieStr = '';
+    try {{ cookieStr = document.cookie || ''; }} catch (_) {{}}
+    let payloadStr = 'gi-capture://' + encodeURIComponent(cleanUrl) + 
+      (filename ? ('?filename=' + encodeURIComponent(filename)) : '') +
+      (cookieStr ? ('&cookie=' + encodeURIComponent(cookieStr)) : '') +
+      ('&referer=' + encodeURIComponent(window.location.href));
+    window.location.href = payloadStr;
   }}
 
   function isDownloadUrl(url) {{
@@ -226,7 +232,7 @@ fn generate_init_script(game_name: &str) -> String {
   const _origAnchorClick = HTMLAnchorElement.prototype.click;
   HTMLAnchorElement.prototype.click = function() {{
     const href = this.href;
-    if (href && (isDownloadUrl(href) || this.hasAttribute('download'))) {{
+    if (href && isDownloadUrl(href)) {{
       sendToGameIndex(href, this.getAttribute('download') || this.innerText);
       return;
     }}
@@ -250,13 +256,11 @@ fn generate_init_script(game_name: &str) -> String {
     }}
 
     const href = el.href || el.getAttribute('data-url') || el.getAttribute('data-href') || el.getAttribute('data-download');
-    if (href && typeof href === 'string') {{
-      if (isDownloadUrl(href) || el.hasAttribute('download')) {{
-        e.preventDefault();
-        e.stopPropagation();
-        sendToGameIndex(href, el.getAttribute('download') || el.innerText);
-        return;
-      }}
+    if (href && typeof href === 'string' && isDownloadUrl(href)) {{
+      e.preventDefault();
+      e.stopPropagation();
+      sendToGameIndex(href, el.getAttribute('download') || el.innerText);
+      return;
     }}
   }}, true);
 
@@ -343,28 +347,41 @@ pub async fn open_download_resolver(
 
         // 1. Custom scheme from injected script
         if nav_str.starts_with("gi-capture://") {
-            let encoded_part = &nav_str["gi-capture://".len()..];
-            let (url_part, filename_part) = if let Some(idx) = encoded_part.find("?filename=") {
-                let u = &encoded_part[..idx];
-                let f = &encoded_part[idx + "?filename=".len()..];
-                (u, Some(f))
+            let full_url_str = &nav_str["gi-capture://".len()..];
+            let (url_part, query_part) = if let Some(idx) = full_url_str.find('?') {
+                (&full_url_str[..idx], Some(&full_url_str[idx + 1..]))
             } else {
-                (encoded_part, None)
+                (full_url_str, None)
             };
 
             let decoded_url = urlencoding::decode(url_part)
                 .map(|s| s.into_owned())
                 .unwrap_or_else(|_| url_part.to_string());
 
-            let filename = filename_part
-                .and_then(|f| urlencoding::decode(f).ok().map(|s| s.into_owned()))
+            let mut filename = None;
+            let mut js_referer = None;
+
+            if let Some(q) = query_part {
+                for pair in q.split('&') {
+                    if let Some((k, v)) = pair.split_once('=') {
+                        let decoded_v = urlencoding::decode(v).ok().map(|s| s.into_owned());
+                        match k {
+                            "filename" => filename = decoded_v,
+                            "referer" => js_referer = decoded_v,
+                            _ => {}
+                        }
+                    }
+                }
+            }
+
+            let final_filename = filename
                 .filter(|s| !s.is_empty())
                 .unwrap_or_else(|| extract_filename(&decoded_url, &fallback_game_nav));
 
             let _ = tx_nav.send(InterceptedPayload {
                 url: decoded_url,
-                filename,
-                referer: None,
+                filename: final_filename,
+                referer: js_referer,
             });
             return false;
         }
@@ -443,11 +460,28 @@ pub async fn open_download_resolver(
             
             let mut extra_headers = Vec::new();
             extra_headers.push(("User-Agent".to_string(), RESOLVER_UA.to_string()));
+            extra_headers.push(("Accept".to_string(), "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7".to_string()));
+            extra_headers.push(("Accept-Language".to_string(), "en-US,en;q=0.9".to_string()));
+            extra_headers.push(("Sec-Ch-Ua".to_string(), "\"Google Chrome\";v=\"131\", \"Chromium\";v=\"131\", \"Not_A Brand\";v=\"24\"".to_string()));
+            extra_headers.push(("Sec-Ch-Ua-Mobile".to_string(), "?0".to_string()));
+            extra_headers.push(("Sec-Ch-Ua-Platform".to_string(), "\"Windows\"".to_string()));
+            extra_headers.push(("Sec-Fetch-Dest".to_string(), "document".to_string()));
+            extra_headers.push(("Sec-Fetch-Mode".to_string(), "navigate".to_string()));
+            extra_headers.push(("Sec-Fetch-Site".to_string(), "same-origin".to_string()));
+            extra_headers.push(("Sec-Fetch-User".to_string(), "?1".to_string()));
+            extra_headers.push(("Upgrade-Insecure-Requests".to_string(), "1".to_string()));
+
             if !cookie_header.is_empty() {
                 extra_headers.push(("Cookie".to_string(), cookie_header));
             }
             let referer_val = payload.referer.clone().unwrap_or_else(|| url.clone());
             extra_headers.push(("Referer".to_string(), referer_val.clone()));
+
+            println!(
+                "[browser_resolver] Starting direct download for {} (headers count: {})",
+                payload.url,
+                extra_headers.len()
+            );
 
             match crate::downloads::direct_download_start(
                 id.clone(),

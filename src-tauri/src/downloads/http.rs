@@ -560,17 +560,18 @@ async fn attempt_download(
         filename, current_size
     );
 
-    // Disable compression so byte ranges are exact and resume works.
+    // Disable compression on resume so byte ranges are exact.
     let is_resume = current_size > 0;
-    let mut req = client.get(url).header("Accept-Encoding", "identity");
+    let mut req = client.get(url);
+    if is_resume {
+        req = req.header("Accept-Encoding", "identity");
+        req = req.header(RANGE, format!("bytes={}-", current_size));
+    }
     if let Some(r) = referer {
         req = req.header(reqwest::header::REFERER, r);
     }
     for (k, v) in extra_headers {
         req = req.header(k.as_str(), v.as_str());
-    }
-    if is_resume {
-        req = req.header(RANGE, format!("bytes={}-", current_size));
     }
 
     // Bound the connect/response phase (reqwest default has no timeout):

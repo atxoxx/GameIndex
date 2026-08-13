@@ -675,6 +675,7 @@ mod tests {
             "knaben",
             "onlinefix",
             "romheaven",
+            "romsfun",
             "vimm",
             "yourbittorrent",
         ];
