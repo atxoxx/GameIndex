@@ -83,7 +83,7 @@ export function DetailPanel({
   // selected mirror — switching mirrors can change it (e.g. a magnet
   // mirror vs a direct-host mirror), so it must reflect the live state.
   const sourceUri = resolveSourceUri(match, selectedMirrorIdx);
-  const { isMagnet, isTorrentFile, isDirect } = classifyUri(sourceUri);
+  const { isMagnet, isTorrentFile, isDirect } = classifyUri(sourceUri, match.torrentUrl);
   const typeLabel = isMagnet
     ? t("downloadModal.typeMagnet")
     : isTorrentFile

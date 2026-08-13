@@ -158,7 +158,10 @@ export default function DownloadModal({
             : prevMirror;
       return nextIdx;
     });
-    const { isDirect } = classifyUri(resolveSourceUri(match, selectedMirrorIdx));
+    const { isDirect } = classifyUri(
+      resolveSourceUri(match, selectedMirrorIdx),
+      match.torrentUrl,
+    );
     if (isDirect && chooseFiles) setChooseFiles(false);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedId, matches, chooseFiles]);
@@ -399,7 +402,7 @@ export default function DownloadModal({
         ? savePath
         : `${savePath}/${safeGameFolder}`.replace(/\\/g, "/");
 
-      const { isDirect } = classifyUri(sourceUri);
+      const { isDirect } = classifyUri(sourceUri, match.torrentUrl);
 
       if (isDirect) {
         setStep("starting");
@@ -862,6 +865,7 @@ export default function DownloadModal({
                     const selMatch = selectedMatch;
                     const { isDirect } = classifyUri(
                       resolveSourceUri(selMatch ?? undefined, selectedMirrorIdx),
+                      selMatch?.torrentUrl,
                     );
                     // The "Choose files" prompt only applies to torrents;
                     // direct links can't pre-list files, so they always

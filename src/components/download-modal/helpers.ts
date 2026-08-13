@@ -20,15 +20,29 @@ export function resolveSourceUri(
   return match.magnet ?? match.uris[0] ?? null;
 }
 
-/** Classify a resolved URI into the three engine paths we support. */
-export function classifyUri(uri: string | null): {
+/**
+ * Classify a resolved URI into the three engine paths we support.
+ *
+ * `knownTorrentUrl` lets callers tell us a URI is a `.torrent` link even
+ * when its shape doesn't say so — some sources serve the torrent through
+ * a script endpoint (`index.php?do=download&id=…`) that has no `.torrent`
+ * suffix. Plugin results carry that link in their dedicated `torrentUrl`
+ * field, which is authoritative, so pass `match.torrentUrl` here.
+ */
+export function classifyUri(
+  uri: string | null,
+  knownTorrentUrl?: string | null,
+): {
   isMagnet: boolean;
   isTorrentFile: boolean;
   isDirect: boolean;
 } {
   const isMagnet = !!uri && uri.startsWith("magnet:");
   const isTorrentFile =
-    !!uri && (uri.endsWith(".torrent") || uri.includes(".torrent?"));
+    !!uri &&
+    (uri.endsWith(".torrent") ||
+      uri.includes(".torrent?") ||
+      (!!knownTorrentUrl && uri === knownTorrentUrl));
   const isDirect =
     !!uri &&
     !isMagnet &&
