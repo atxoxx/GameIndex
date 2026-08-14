@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect } from "react";
+import { useState, useCallback, useEffect, useRef } from "react";
 import type { NewsFeed } from "../../hooks/useNewsFeeds";
 import { DEFAULT_FEEDS, discoverFeedUrl } from "../../hooks/useNewsFeeds";
 import { useLanguage } from "../../context/LanguageContext";
@@ -10,6 +10,8 @@ interface NewsFeedSettingsProps {
   onToggleFeed: (url: string) => void;
   onAddFeed: (name: string, url: string) => void;
   onRemoveFeed: (url: string) => void;
+  onExportOpml: () => void;
+  onImportOpml: (file: File) => void;
   onClose: () => void;
 }
 
@@ -20,6 +22,8 @@ export default function NewsFeedSettings({
   onToggleFeed,
   onAddFeed,
   onRemoveFeed,
+  onExportOpml,
+  onImportOpml,
   onClose,
 }: NewsFeedSettingsProps) {
   const { t } = useLanguage();
@@ -27,6 +31,7 @@ export default function NewsFeedSettings({
   const [url, setUrl] = useState("");
   const [addError, setAddError] = useState<string | null>(null);
   const [discovering, setDiscovering] = useState(false);
+  const opmlInputRef = useRef<HTMLInputElement>(null);
 
   // Close on Escape
   const handleKeyDown = useCallback(
@@ -270,6 +275,51 @@ export default function NewsFeedSettings({
                   {discovering ? t("news.discovering") : t("news.discoverFromUrl")}
                 </button>
               </div>
+            </div>
+          </div>
+
+          {/* OPML backup / restore (#10) */}
+          <div className="news-feed-settings-section">
+            <h3 className="news-feed-settings-section-title">{t("news.opmlTitle")}</h3>
+            <p className="news-feed-opml-hint">{t("news.opmlHint")}</p>
+            <div className="news-feed-opml-actions">
+              <button
+                type="button"
+                className="news-feed-opml-btn"
+                onClick={onExportOpml}
+                title={t("newsPage.exportOpml")}
+              >
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" width="14" height="14">
+                  <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                  <polyline points="7 10 12 15 17 10" />
+                  <line x1="12" y1="15" x2="12" y2="3" />
+                </svg>
+                {t("newsPage.exportOpml")}
+              </button>
+              <button
+                type="button"
+                className="news-feed-opml-btn"
+                onClick={() => opmlInputRef.current?.click()}
+                title={t("newsPage.importOpml")}
+              >
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" width="14" height="14">
+                  <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                  <polyline points="17 8 12 3 7 8" />
+                  <line x1="12" y1="3" x2="12" y2="15" />
+                </svg>
+                {t("newsPage.importOpml")}
+              </button>
+              <input
+                ref={opmlInputRef}
+                type="file"
+                accept=".opml,application/xml,text/xml"
+                style={{ display: "none" }}
+                onChange={(e) => {
+                  const file = e.target.files?.[0];
+                  if (file) onImportOpml(file);
+                  e.target.value = "";
+                }}
+              />
             </div>
           </div>
         </div>

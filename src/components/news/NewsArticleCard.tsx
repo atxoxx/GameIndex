@@ -11,13 +11,19 @@ interface NewsArticleCardProps {
   saved?: boolean;
 }
 
-export default function NewsArticleCard({ article, onClick, density = "cozy", read = false, saved = false }: NewsArticleCardProps) {
+export default function NewsArticleCard({
+  article,
+  onClick,
+  density = "cozy",
+  read = false,
+  saved = false,
+}: NewsArticleCardProps) {
   const { t } = useLanguage();
   const isList = density === "list";
   const showBody = density !== "compact";
 
   return (
-    <div
+    <article
       className={`news-article-card density-${density}${isList ? " news-article-card-list" : ""}${read ? " is-read" : ""}`}
       onClick={() => onClick(article)}
       role="button"
@@ -63,6 +69,7 @@ export default function NewsArticleCard({ article, onClick, density = "cozy", re
           </span>
         )}
         <span className="news-card-source-badge">{article.sourceName}</span>
+        {!read && <span className="news-card-unread-dot" title={t("news.statsUnread")} />}
       </div>
 
       {showBody && (
@@ -84,7 +91,7 @@ export default function NewsArticleCard({ article, onClick, density = "cozy", re
           </div>
         </div>
       )}
-    </div>
+    </article>
   );
 }
 

@@ -3,23 +3,28 @@ import { useNewsFeeds, buildOpml, parseOpml } from "../hooks/useNewsFeeds";
 import type { NewsArticle } from "../hooks/useNewsFeeds";
 import { useDensityContext } from "../context/DensityContext";
 import DensityToggle from "../components/DensityToggle";
+import { useToast } from "../context/ToastContext";
+import { PageHeader, Button } from "../components/ui";
+import { useLanguage } from "../context/LanguageContext";
+import NewsStatsHeader from "../components/news/NewsStatsHeader";
+import NewsToolbar, { type NewsFeedView } from "../components/news/NewsToolbar";
 import NewsSourcePills from "../components/news/NewsSourcePills";
-import NewsArticleCard, { NewsArticleCardSkeleton } from "../components/news/NewsArticleCard";
+import NewsArticleGrid from "../components/news/NewsArticleGrid";
 import NewsArticlePreview from "../components/news/NewsArticlePreview";
 import NewsFeedSettings from "../components/news/NewsFeedSettings";
 import {
   loadSavedArticles,
   toggleSavedArticle,
-} from "../pages/communityStorage";
+  type SavedArticle,
+} from "./communityStorage";
 import "./news/NewsPage.css";
-import "../styles/page-news.css";
-import { PageHeader } from "../components/ui";
-import { useLanguage } from "../context/LanguageContext";
 
 const ITEMS_PER_PAGE = 20;
 
 export default function NewsPage() {
   const { t } = useLanguage();
+  const { density, setDensity } = useDensityContext();
+  const { showToast } = useToast();
   const {
     articles,
     allArticles,
@@ -40,32 +45,53 @@ export default function NewsPage() {
     refresh,
   } = useNewsFeeds();
 
-  const { density, setDensity } = useDensityContext();
-
   const [selectedArticle, setSelectedArticle] = useState<NewsArticle | null>(null);
   const [showSettings, setShowSettings] = useState(false);
   const [page, setPage] = useState(1);
-  const [savedArticles, setSavedArticles] = useState(() => loadSavedArticles());
-  const [opmlInput, setOpmlInput] = useState<HTMLInputElement | null>(null);
-  const [opmlMessage, setOpmlMessage] = useState<string | null>(null);
+  const [savedArticles, setSavedArticles] = useState<SavedArticle[]>(() => loadSavedArticles());
+  const [view, setView] = useState<NewsFeedView>("feed");
+  const [searchQuery, setSearchQuery] = useState("");
 
-  // Reset to page 1 when source filter changes
+  // Saved articles share the NewsArticle shape minus `content`; the
+  // preview falls back to the description in that case.
+  const savedAsArticles = useMemo<NewsArticle[]>(
+    () => savedArticles.map((s) => ({ ...s, content: "" })),
+    [savedArticles]
+  );
+
+  // Source filter + saved view + search compose here.
+  const visibleArticles = useMemo(() => {
+    const base =
+      view === "saved"
+        ? activeSource
+          ? savedAsArticles.filter((a) => a.sourceName === activeSource)
+          : savedAsArticles
+        : articles;
+    const q = searchQuery.trim().toLowerCase();
+    if (!q) return base;
+    return base.filter(
+      (a) =>
+        a.title.toLowerCase().includes(q) ||
+        a.description.toLowerCase().includes(q)
+    );
+  }, [view, activeSource, savedAsArticles, articles, searchQuery]);
+
+  const unreadTotal = useMemo(
+    () => allArticles.filter((a) => !readLinks.has(a.link)).length,
+    [allArticles, readLinks]
+  );
+
+  // Reset pagination whenever the visible set changes shape.
   useEffect(() => {
     setPage(1);
-  }, [activeSource]);
+  }, [view, searchQuery, activeSource]);
 
-  // Paginated articles
-  const totalPages = Math.max(1, Math.ceil(articles.length / ITEMS_PER_PAGE));
+  const totalPages = Math.max(1, Math.ceil(visibleArticles.length / ITEMS_PER_PAGE));
   const paginatedArticles = useMemo(
-    () => articles.slice(0, page * ITEMS_PER_PAGE),
-    [articles, page]
+    () => visibleArticles.slice(0, page * ITEMS_PER_PAGE),
+    [visibleArticles, page]
   );
   const hasMore = page < totalPages;
-
-  const unreadCount = useMemo(
-    () => articles.filter((a) => !readLinks.has(a.link)).length,
-    [articles, readLinks]
-  );
 
   const handleCardClick = useCallback((article: NewsArticle) => {
     setSelectedArticle(article);
@@ -88,14 +114,14 @@ export default function NewsPage() {
     URL.revokeObjectURL(url);
   }, [allFeeds]);
 
-  // OPML import (#10)
+  // OPML import (#10) — feedback goes through the app toast.
   const handleImportOpml = useCallback(
     async (file: File) => {
       try {
         const text = await file.text();
         const feeds = parseOpml(text);
         if (feeds.length === 0) {
-          setOpmlMessage(t("newsPage.opmlNoFeeds"));
+          showToast(t("newsPage.opmlNoFeeds"), "warning");
           return;
         }
         let added = 0;
@@ -104,13 +130,16 @@ export default function NewsPage() {
           addCustomFeed(f.name, f.url);
           added++;
         }
-        setOpmlMessage(t("newsPage.opmlImported", { count: added, plural: added === 1 ? "" : "s" }));
+        showToast(
+          t("newsPage.opmlImported", { count: added, plural: added === 1 ? "" : "s" }),
+          "success"
+        );
         refresh();
       } catch {
-        setOpmlMessage(t("newsPage.opmlReadFailed"));
+        showToast(t("newsPage.opmlReadFailed"), "error");
       }
     },
-    [addCustomFeed, refresh]
+    [addCustomFeed, refresh, showToast, t]
   );
 
   const handleClosePreview = useCallback(() => {
@@ -127,12 +156,15 @@ export default function NewsPage() {
     setShowSettings(false);
   }, []);
 
+  const showMarkAllRead = unreadTotal > 0 && view === "feed";
+
   return (
     <div className="news-page page">
       {/* Header */}
       <PageHeader
         eyebrow={t("news.eyebrow")}
         title={t("news.title")}
+        description={t("news.description")}
         icon={
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
             <path d="M4 11a9 9 0 0 1 9 9" />
@@ -142,167 +174,102 @@ export default function NewsPage() {
         }
         actions={
           <>
+            {showMarkAllRead && (
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={markAllRead}
+                title={t("newsPage.markAllRead")}
+                aria-label={t("newsPage.markAllRead")}
+                leftIcon={
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <polyline points="20 6 9 17 4 12" />
+                  </svg>
+                }
+              >
+                {t("news.markRead")}
+              </Button>
+            )}
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={refresh}
+              title={t("common.refresh")}
+              aria-label={t("common.refresh")}
+              leftIcon={
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <polyline points="23 4 23 10 17 10" />
+                  <path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10" />
+                </svg>
+              }
+            />
             <DensityToggle density={density} onChange={setDensity} />
-          {unreadCount < articles.length && articles.length > 0 && (
-            <button
-              type="button"
-              className="news-settings-btn"
-              onClick={markAllRead}
-              title={t("newsPage.markAllRead")}
-              aria-label={t("newsPage.markAllRead")}
-            >
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" width="14" height="14">
-                <polyline points="20 6 9 17 4 12" />
-              </svg>
-              {t("news.markRead")}
-            </button>
-          )}
-          <button
-            type="button"
-            className="news-settings-btn"
-            onClick={handleExportOpml}
-            title={t("newsPage.exportOpml")}
-            aria-label={t("newsPage.exportOpml")}
-          >
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" width="14" height="14">
-              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
-              <polyline points="7 10 12 15 17 10" />
-              <line x1="12" y1="15" x2="12" y2="3" />
-            </svg>
-            {t("news.export")}
-          </button>
-          <button
-            type="button"
-            className="news-settings-btn"
-            onClick={() => opmlInput?.click()}
-            title={t("newsPage.importOpml")}
-            aria-label={t("newsPage.importOpml")}
-          >
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" width="14" height="14">
-              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
-              <polyline points="17 8 12 3 7 8" />
-              <line x1="12" y1="3" x2="12" y2="15" />
-            </svg>
-            {t("news.import")}
-          </button>
-          <input
-            ref={(el) => setOpmlInput(el)}
-            type="file"
-            accept=".opml,application/xml,text/xml"
-            style={{ display: "none" }}
-            onChange={(e) => {
-              const file = e.target.files?.[0];
-              if (file) handleImportOpml(file);
-              e.target.value = "";
-            }}
-          />
-          <button
-            type="button"
-            className="news-settings-btn"
-            onClick={handleOpenSettings}
-            title={t("newsPage.manageFeeds")}
-            aria-label={t("newsPage.manageFeeds")}
-          >
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <circle cx="12" cy="12" r="3" />
-              <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z" />
-            </svg>
-            {t("news.feeds")}
-          </button>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={handleOpenSettings}
+              title={t("newsPage.manageFeeds")}
+              aria-label={t("newsPage.manageFeeds")}
+              leftIcon={
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <circle cx="12" cy="12" r="3" />
+                  <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z" />
+                </svg>
+              }
+            />
           </>
         }
+      />
+
+      {/* KPI strip */}
+      <NewsStatsHeader
+        total={allArticles.length}
+        unread={unreadTotal}
+        saved={savedArticles.length}
+        feeds={enabledFeedUrls.size}
+        loading={loading}
+      />
+
+      {/* View tabs + search */}
+      <NewsToolbar
+        view={view}
+        onViewChange={setView}
+        feedCount={articles.length}
+        savedCount={savedArticles.length}
+        searchQuery={searchQuery}
+        onSearchChange={setSearchQuery}
       />
 
       {/* Source filter pills */}
       <NewsSourcePills
         sourceNames={sourceNames}
         activeSource={activeSource}
-        articleCount={allArticles.length}
+        articles={view === "saved" ? savedAsArticles : allArticles}
+        readLinks={readLinks}
         onSourceChange={setSourceFilter}
       />
 
-      {/* Content area */}
-      {loading ? (
-        <div className={`news-article-grid density-${density}`}>
-          {Array.from({ length: 8 }).map((_, i) => (
-            <NewsArticleCardSkeleton key={i} density={density} />
-          ))}
-        </div>
-      ) : error && articles.length === 0 ? (
-        <div className="news-error">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-            <circle cx="12" cy="12" r="10" />
-            <line x1="12" y1="8" x2="12" y2="12" />
-            <line x1="12" y1="16" x2="12.01" y2="16" />
-          </svg>
-          <h3>{t("news.couldntLoad")}</h3>
-          <p>{error}</p>
-          <button type="button" className="news-retry-btn" onClick={refresh}>
-            {t("common.retry")}
-          </button>
-        </div>
-      ) : articles.length === 0 ? (
-        <div className="news-empty">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-            <path d="M4 11a9 9 0 0 1 9 9" />
-            <path d="M4 4a16 16 0 0 1 16 16" />
-            <circle cx="5" cy="19" r="1" />
-          </svg>
-          <h3>{t("news.noArticles")}</h3>
-          <p>
-            {sourceNames.length === 0
-              ? t("news.noArticlesSources")
-              : activeSource
-                ? t("news.noArticlesFromSource", { source: activeSource })
-                : t("news.noArticlesGeneric")}
-          </p>
-          {sourceNames.length === 0 ? (
-            <button type="button" className="news-retry-btn" onClick={handleOpenSettings}>
-              {t("news.addFeed")}
-            </button>
-          ) : (
-            <button type="button" className="news-retry-btn" onClick={refresh}>
-              {t("common.refresh")}
-            </button>
-          )}
-        </div>
-      ) : (
-        <>
-          <div className={`news-article-grid density-${density}`}>
-            {paginatedArticles.map((article, i) => (
-              <NewsArticleCard
-                key={`${article.link}-${i}`}
-                article={article}
-                density={density}
-                read={readLinks.has(article.link)}
-                saved={savedArticles.some((s) => s.link === article.link)}
-                onClick={handleCardClick}
-              />
-            ))}
-          </div>
-
-          {/* Pagination */}
-          {totalPages > 1 && (
-            <div className="news-pagination">
-              <span className="news-pagination-info">
-                {t("news.ofArticles", { visible: paginatedArticles.length, total: articles.length })}
-              </span>
-              {hasMore && (
-                <button
-                  type="button"
-                  className="news-pagination-btn"
-                  onClick={() => setPage((p) => p + 1)}
-                >
-                  {t("news.loadMore")}
-                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" width="14" height="14">
-                    <polyline points="6 9 12 15 18 9" />
-                  </svg>
-                </button>
-              )}
-            </div>
-          )}
-        </>
-      )}
+      {/* Article panel */}
+      <NewsArticleGrid
+        articles={paginatedArticles}
+        totalCount={visibleArticles.length}
+        hasMore={hasMore}
+        loading={loading}
+        error={error}
+        density={density}
+        readLinks={readLinks}
+        savedLinks={new Set(savedArticles.map((s) => s.link))}
+        sourceNames={sourceNames}
+        activeSource={activeSource}
+        view={view}
+        searchQuery={searchQuery}
+        onCardClick={handleCardClick}
+        onLoadMore={() => setPage((p) => p + 1)}
+        onRetry={refresh}
+        onOpenSettings={handleOpenSettings}
+        onClearSearch={() => setSearchQuery("")}
+        onSwitchToFeed={() => setView("feed")}
+      />
 
       {/* Article preview modal */}
       <NewsArticlePreview
@@ -321,14 +288,10 @@ export default function NewsPage() {
           onToggleFeed={toggleFeed}
           onAddFeed={addCustomFeed}
           onRemoveFeed={removeCustomFeed}
+          onExportOpml={handleExportOpml}
+          onImportOpml={handleImportOpml}
           onClose={handleCloseSettings}
         />
-      )}
-
-      {opmlMessage && (
-        <div className="news-opml-toast" role="status" onClick={() => setOpmlMessage(null)}>
-          {opmlMessage}
-        </div>
       )}
     </div>
   );

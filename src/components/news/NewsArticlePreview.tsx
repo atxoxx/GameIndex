@@ -14,6 +14,8 @@ interface NewsArticlePreviewProps {
   onToggleSave?: (article: NewsArticle) => void;
 }
 
+type PreviewMode = "reader" | "full";
+
 export default function NewsArticlePreview({
   article,
   onClose,
@@ -26,6 +28,12 @@ export default function NewsArticlePreview({
   const [webviewError, setWebviewError] = useState(false);
   const webviewInstRef = useRef<Webview | null>(null);
   const [shareCopied, setShareCopied] = useState(false);
+  const [previewMode, setPreviewMode] = useState<PreviewMode>("reader");
+
+  // The inline reader is the fast path; the native webview is opt-in.
+  const handleModeChange = useCallback((mode: PreviewMode) => {
+    setPreviewMode(mode);
+  }, []);
 
   const handleKeyDown = useCallback(
     (e: KeyboardEvent) => {
@@ -56,9 +64,10 @@ export default function NewsArticlePreview({
 
   // ── Webview lifecycle ──────────────────────────────────────────────
   // The native child webview is a progressive enhancement layered over the
-  // already-rendered sanitized article body. Any failure (missing Tauri, ACL
-  // rejection, unsupported renderer) must degrade gracefully WITHOUT throwing,
-  // since an uncaught rejection here surfaces as a React "failing component".
+  // already-rendered sanitized article body, and only lives while the
+  // "Full page" mode is active. Any failure (missing Tauri, ACL rejection,
+  // unsupported renderer) must degrade gracefully WITHOUT throwing, since
+  // an uncaught rejection here surfaces as a React "failing component".
 
   useEffect(() => {
     if (!article) return;
@@ -72,6 +81,8 @@ export default function NewsArticlePreview({
 
     // Wait for the modal layout to paint, then attempt the webview.
     const raf = requestAnimationFrame(() => {
+      if (previewMode !== "full") return;
+
       void (async () => {
         if (!active || !placeholderRef.current) return;
 
@@ -147,7 +158,7 @@ export default function NewsArticlePreview({
         }).catch(() => {});
       }
     };
-  }, [article, handleKeyDown]);
+  }, [article, handleKeyDown, previewMode]);
 
   // ── Geometry sync (resize + scroll tracking) ────────────────────────
 
@@ -225,34 +236,73 @@ export default function NewsArticlePreview({
           </div>
         </div>
 
-        {/* Body — article content */}
-        <div
-          className="news-preview-body"
-          dangerouslySetInnerHTML={{
-            __html: sanitizeHtml(article.content || article.description),
-          }}
-        />
-
-        {/* Native Webview placeholder — the child webview is layered
-            over this div. Kept as visible fallback if webview fails. */}
-        <div className="news-preview-webview">
-          <div className="news-preview-webview-bar">
-            <span className="news-preview-webview-url" title={article.link}>
-              {article.link}
-            </span>
-          </div>
-          <div
-            ref={placeholderRef}
-            className={
-              "news-preview-webview-placeholder" +
-              (webviewError ? " news-preview-webview-error" : "")
-            }
+        {/* Mode switch: inline reader vs native full-page webview */}
+        <div className="news-preview-switch" role="tablist" aria-label={t("news.previewMode")}>
+          <button
+            type="button"
+            role="tab"
+            aria-selected={previewMode === "reader"}
+            className={`news-preview-switch-btn${previewMode === "reader" ? " active" : ""}`}
+            onClick={() => handleModeChange("reader")}
           >
-            {!webviewReady && !webviewError && (
-              <div className="news-preview-webview-spinner" />
-            )}
-          </div>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+              <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20" />
+              <path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z" />
+            </svg>
+            {t("news.previewReader")}
+          </button>
+          <button
+            type="button"
+            role="tab"
+            aria-selected={previewMode === "full"}
+            className={`news-preview-switch-btn${previewMode === "full" ? " active" : ""}`}
+            onClick={() => handleModeChange("full")}
+          >
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+              <rect x="3" y="3" width="18" height="18" rx="2" />
+              <line x1="3" y1="9" x2="21" y2="9" />
+            </svg>
+            {t("news.previewFullPage")}
+          </button>
         </div>
+
+        {/* Body — either the sanitized article content or the native
+            webview placeholder the child webview is layered over. */}
+        {previewMode === "reader" ? (
+          <div
+            className="news-preview-body"
+            dangerouslySetInnerHTML={{
+              __html: sanitizeHtml(article.content || article.description),
+            }}
+          />
+        ) : (
+          <div className="news-preview-webview">
+            <div className="news-preview-webview-bar">
+              <span className="news-preview-webview-url" title={article.link}>
+                {article.link}
+              </span>
+            </div>
+            <div
+              ref={placeholderRef}
+              className={
+                "news-preview-webview-placeholder" +
+                (webviewError ? " news-preview-webview-error" : "")
+              }
+            >
+              {!webviewReady && !webviewError && (
+                <div className="news-preview-webview-loading">
+                  <div className="news-preview-webview-spinner" />
+                  <span>{t("news.previewLoading")}</span>
+                </div>
+              )}
+              {webviewError && (
+                <span className="news-preview-webview-error-msg">
+                  {t("news.previewWebviewError")}
+                </span>
+              )}
+            </div>
+          </div>
+        )}
 
         {/* Footer */}
         <div className="news-preview-footer">
