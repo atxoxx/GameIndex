@@ -77,7 +77,7 @@ export default function ActivityPage() {
   // Handler to export session history to a CSV file
   const handleExportCSV = () => {
     if (sessions.length === 0) {
-      alert(t("activityPage.noSessionsExport"));
+      showToast(t("activityPage.noSessionsExport"), "info");
       return;
     }
 

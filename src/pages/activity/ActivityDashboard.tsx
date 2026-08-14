@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { formatPlayTime, type Game } from "../../types/game";
+import { formatPlayTime, type Game, type GameSession } from "../../types/game";
 import BarChart from "../../components/charts/BarChart";
 import LineChart from "../../components/charts/LineChart";
 import DonutChart from "../../components/charts/DonutChart";
@@ -10,8 +10,8 @@ import { ConfirmModal } from "../../components/ui/ConfirmModal";
 import * as Icons from "./Icons";
 
 export interface ActivityDashboardProps {
-  sessions: any[];
-  games: any[];
+  sessions: GameSession[];
+  games: Game[];
   dateRange: string;
   startDate: string;
   endDate: string;

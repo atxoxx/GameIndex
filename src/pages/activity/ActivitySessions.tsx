@@ -9,67 +9,31 @@ import { useActivity } from "../../context/ActivityContext";
 import { buildSingleSessionSeries } from "../../utils/perfSamples";
 import { formatTemp, toDisplayTemp, toDisplayTemps, tempUnitLabel, tempThreshold, tempMinY, tempMaxY } from "../../utils/temp";
 import { useLanguage } from "../../context/LanguageContext";
-import { formatPlayTime } from "../../types/game";
+import { formatPlayTime, type Game, type GameSession } from "../../types/game";
+import { ConfirmModal } from "../../components/ui/ConfirmModal";
+import { generateEstimatedTimeline } from "./performance/perfData";
 import * as Icons from "./Icons";
 
 export interface ActivitySessionsProps {
-  sessions: any[];
-  games: any[];
+  sessions: GameSession[];
+  games: Game[];
   onDeleteSession: (id: string) => void;
 }
 
-// Custom sample generator to construct a realistic performance timeline
-// based on real averages, min, and max limits.
-function generateVirtualSamples(avg: number, min: number, max: number, count = 40): number[] {
-  if (avg <= 0) return Array(count).fill(0);
-  const actualMin = min > 0 ? min : Math.round(avg * 0.7);
-  const actualMax = max > 0 ? max : Math.round(avg * 1.3);
-
-  let current = avg;
-  const raw: number[] = [];
-  for (let i = 0; i < count; i++) {
-    const change = (Math.random() - 0.5) * (actualMax - actualMin) * 0.2;
-    current += change;
-    if (current < actualMin) current = actualMin + Math.random() * 2;
-    if (current > actualMax) current = actualMax - Math.random() * 2;
-    raw.push(current);
-  }
-
-  // Smooth using moving average window
-  const smoothed: number[] = [];
-  const win = 4;
-  for (let i = 0; i < count; i++) {
-    let sum = 0;
-    let n = 0;
-    for (let w = -Math.floor(win / 2); w <= Math.floor(win / 2); w++) {
-      const idx = i + w;
-      if (idx >= 0 && idx < count) {
-        sum += raw[idx];
-        n++;
-      }
-    }
-    smoothed.push(Math.round(sum / n));
-  }
-  return smoothed;
-}
-
 interface SessionItemProps {
-  session: any;
-  game: any;
-  onDelete: (id: string) => void;
+  session: GameSession;
+  game: Game | undefined;
+  onRequestDelete: (session: GameSession) => void;
 }
 
-function ActivitySessionItem({ session, game, onDelete }: SessionItemProps) {
+function ActivitySessionItem({ session, game, onRequestDelete }: SessionItemProps) {
   const [isExpanded, setIsExpanded] = useState(false);
   const [activeChartTab, setActiveChartTab] = useState<"usage" | "temps" | "ram" | "fps">("usage");
   const { tempUnit } = useSettings();
   const { totalRamGb } = useActivity();
   const { t, language } = useLanguage();
 
-  // Resolve the Steam appid for this session's game. The hook also
-  // persists successful lookups back onto the library row via
-  // updateGame, so the second session for the same game loads
-  // instantly without a Steam round-trip.
+  // Resolve the Steam appid for this session's game.
   const { appId: resolvedSteamAppId } = useSteamAppId(game ?? null);
   const steamAppId =
     typeof resolvedSteamAppId === "number"
@@ -99,11 +63,7 @@ function ActivitySessionItem({ session, game, onDelete }: SessionItemProps) {
     return formatPlayTime(session.durationMin);
   }, [session.durationMin]);
 
-  // Build real hardware sample logs for chart overlays. Prefer the
-  // per-sample telemetry captured during the session (metrics.samples);
-  // when a session has no real samples (legacy / synthetic recordings) we
-  // fall back to reconstructing a plausible curve from the recorded
-  // averages so the timeline still renders something coherent.
+  // Build real hardware sample logs for chart overlays.
   const chartProps = useMemo(() => {
     if (!session.metrics) return null;
     const m = session.metrics;
@@ -120,19 +80,20 @@ function ActivitySessionItem({ session, game, onDelete }: SessionItemProps) {
       gpuTemp = real.gpuTemp;
       ram = real.ram;
     } else {
-      fps = generateVirtualSamples(m.avgFps, m.minFps, m.maxFps, pts);
-      cpu = generateVirtualSamples(m.avgCpuUsage, Math.round(m.avgCpuUsage * 0.4), Math.round(m.avgCpuUsage * 1.5), pts).map(v => Math.min(100, Math.max(0, v)));
-      gpu = generateVirtualSamples(m.avgGpuUsage, Math.round(m.avgGpuUsage * 0.3), Math.round(m.avgGpuUsage * 1.6), pts).map(v => Math.min(100, Math.max(0, v)));
-      cpuTemp = generateVirtualSamples(m.avgCpuTemp, m.avgCpuTemp - 7, m.avgCpuTemp + 11, pts);
-      gpuTemp = generateVirtualSamples(m.avgGpuTemp, m.avgGpuTemp - 6, m.avgGpuTemp + 9, pts);
-      ram = generateVirtualSamples(m.avgRamUsage, Math.round(m.avgRamUsage * 0.8), Math.round(m.avgRamUsage * 1.15), pts).map(v => Math.min(100, Math.max(0, v)));
+      const seedKey = `session-${session.id}`;
+      fps = generateEstimatedTimeline(m.avgFps, m.minFps, m.maxFps, pts, `fps:${seedKey}`);
+      cpu = generateEstimatedTimeline(m.avgCpuUsage, Math.round(m.avgCpuUsage * 0.4), Math.round(m.avgCpuUsage * 1.5), pts, `cpu:${seedKey}`).map(v => Math.min(100, Math.max(0, v)));
+      gpu = generateEstimatedTimeline(m.avgGpuUsage, Math.round(m.avgGpuUsage * 0.3), Math.round(m.avgGpuUsage * 1.6), pts, `gpu:${seedKey}`).map(v => Math.min(100, Math.max(0, v)));
+      cpuTemp = generateEstimatedTimeline(m.avgCpuTemp, m.avgCpuTemp - 7, m.avgCpuTemp + 11, pts, `cputemp:${seedKey}`);
+      gpuTemp = generateEstimatedTimeline(m.avgGpuTemp, m.avgGpuTemp - 6, m.avgGpuTemp + 9, pts, `gputemp:${seedKey}`);
+      ram = generateEstimatedTimeline(m.avgRamUsage, Math.round(m.avgRamUsage * 0.8), Math.round(m.avgRamUsage * 1.15), pts, `ram:${seedKey}`).map(v => Math.min(100, Math.max(0, v)));
     }
 
     // Labels represent timeline progress
     const labels = Array.from({ length: pts }).map((_, i) => `${Math.round((i / (pts - 1)) * 100)}%`);
 
     return { fps, cpu, gpu, cpuTemp, gpuTemp, ram, labels, real: !!real };
-  }, [session.metrics]);
+  }, [session.metrics, session.id]);
 
   const chartSeries = useMemo(() => {
     if (!chartProps) return [];
@@ -147,14 +108,13 @@ function ActivitySessionItem({ session, game, onDelete }: SessionItemProps) {
         { data: toDisplayTemps(chartProps.gpuTemp, tempUnit), color: "var(--color-warning)", label: t("activityPerf.gpuTemp") },
       ];
     } else if (activeChartTab === "ram") {
-      // Read total system RAM from the activity context (no localStorage).
       const totalRam = totalRamGb || 16;
       const ramGb = chartProps.ram.map((v) => Math.round((totalRam * v) / 10) / 10);
       return [{ data: ramGb, color: "var(--color-success)", label: t("activityPerf.ramUsage") }];
     } else {
       return [{ data: chartProps.fps, color: "var(--color-brand-teal)", label: t("activityPerf.fps") }];
     }
-  }, [chartProps, activeChartTab, tempUnit, t]);
+  }, [chartProps, activeChartTab, tempUnit, totalRamGb, t]);
 
   const yValFormatter = (val: number) => {
     if (activeChartTab === "usage") return `${Math.round(val)}%`;
@@ -163,7 +123,6 @@ function ActivitySessionItem({ session, game, onDelete }: SessionItemProps) {
     return `${Math.round(val)} FPS`;
   };
 
-  // Per-tab chart refinements: smoothing plus reference lines / hot-zone bands.
   const chartExtra = useMemo<Partial<ComponentProps<typeof LineChart>>>(() => {
     if (activeChartTab === "usage") {
       return {
@@ -215,9 +174,21 @@ function ActivitySessionItem({ session, game, onDelete }: SessionItemProps) {
   return (
     <div className={`activity-session-item ${isExpanded ? "activity-session-item--expanded" : ""}`}>
       {/* Header Row */}
-      <div className="activity-session-item__row" onClick={() => setIsExpanded(!isExpanded)}>
+      <div
+        className="activity-session-item__row"
+        role="button"
+        tabIndex={0}
+        aria-expanded={isExpanded}
+        onClick={() => setIsExpanded(!isExpanded)}
+        onKeyDown={(e) => {
+          if (e.key === "Enter" || e.key === " ") {
+            e.preventDefault();
+            setIsExpanded(!isExpanded);
+          }
+        }}
+      >
         <div className="activity-session-item__header-left">
-          <span className="activity-session-item__chevron">
+          <span className="activity-session-item__chevron" aria-hidden="true">
             {isExpanded ? <Icons.ChevronUp size={14} /> : <Icons.ChevronDown size={14} />}
           </span>
           <div className="activity-session-item__game-icon-container">
@@ -255,9 +226,10 @@ function ActivitySessionItem({ session, game, onDelete }: SessionItemProps) {
             className="activity-session-item__delete-btn"
             onClick={(e) => {
               e.stopPropagation();
-              onDelete(session.id);
+              onRequestDelete(session);
             }}
             title={t("activitySessions.delete")}
+            aria-label={t("activitySessions.delete")}
           >
             <Icons.Trash2 size={13} />
           </button>
@@ -392,6 +364,7 @@ export function ActivitySessions({
   const { t } = useLanguage();
   const [searchQuery, setSearchQuery] = useState("");
   const [visibleCount, setVisibleCount] = useState(15);
+  const [pendingDeleteSession, setPendingDeleteSession] = useState<GameSession | null>(null);
 
   const sortedSessions = useMemo(() => {
     return [...sessions].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
@@ -430,6 +403,7 @@ export function ActivitySessions({
             className="global-session-list__refresh-btn"
             onClick={() => setVisibleCount(15)}
             title={t("activitySessions.resetView")}
+            aria-label={t("activitySessions.resetView")}
           >
             <Icons.RotateCcw size={12} />
           </button>
@@ -444,7 +418,7 @@ export function ActivitySessions({
               key={session.id}
               session={session}
               game={game}
-              onDelete={onDeleteSession}
+              onRequestDelete={setPendingDeleteSession}
             />
           );
         })}
@@ -478,6 +452,21 @@ export function ActivitySessions({
           </button>
         )}
       </div>
+
+      {/* Confirmation modal for deleting session */}
+      <ConfirmModal
+        open={pendingDeleteSession !== null}
+        title={t("gameActivity.deleteTitle")}
+        message={t("gameActivity.deleteBody")}
+        confirmLabel={t("gameActivity.deleteSession")}
+        onCancel={() => setPendingDeleteSession(null)}
+        onConfirm={() => {
+          if (pendingDeleteSession) {
+            onDeleteSession(pendingDeleteSession.id);
+          }
+          setPendingDeleteSession(null);
+        }}
+      />
     </div>
   );
 }

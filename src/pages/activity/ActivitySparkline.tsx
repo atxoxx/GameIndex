@@ -1,5 +1,6 @@
 import { useId, useMemo, useRef, useState } from "react";
 import { useLanguage } from "../../context/LanguageContext";
+import type { PerfSample } from "../../types/game";
 
 export interface ActivitySparklineProps {
   data: { x: number; y: number }[];
@@ -230,15 +231,19 @@ export function ActivitySparkline({
 }
 
 export function samplesToSparklineData(
-  samples: any[],
+  samples: PerfSample[] | Record<string, unknown>[],
   metric: string
 ): { x: number; y: number }[] {
   if (!samples || samples.length === 0) return [];
   const step = Math.max(1, Math.floor(samples.length / 30));
   return samples
     .filter((_, i) => i % step === 0)
-    .map((sample, idx) => ({
-      x: idx,
-      y: (sample[metric] || sample[metric.replace("MB", "")]) as number,
-    }));
+    .map((sample, idx) => {
+      const record = sample as Record<string, unknown>;
+      const val = (record[metric] || record[metric.replace("MB", "")]) as number;
+      return {
+        x: idx,
+        y: typeof val === "number" ? val : 0,
+      };
+    });
 }

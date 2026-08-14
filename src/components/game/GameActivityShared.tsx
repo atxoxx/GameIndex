@@ -85,3 +85,58 @@ export function SectionHead({
     </div>
   );
 }
+
+/**
+ * Seeded series generator to create smooth curves mathematically consistent with session metrics.
+ */
+export function generateConsistentSeries(
+  avgVal: number,
+  minVal: number,
+  maxVal: number,
+  N: number,
+  seedStr: string
+): number[] {
+  if (minVal === maxVal) {
+    return Array(N).fill(avgVal);
+  }
+
+  const series: number[] = Array(N).fill(avgVal);
+  series[0] = minVal;
+  series[Math.floor(N / 2)] = maxVal;
+
+  let seed = seedStr.split("").reduce((sum, c) => sum + c.charCodeAt(0), 0);
+  const rnd = () => {
+    seed = (seed * 1664525 + 1013904223) % 4294967296;
+    return seed / 4294967296;
+  };
+
+  const spread = (maxVal - minVal) / 4;
+  for (let i = 1; i < N - 1; i++) {
+    if (i === Math.floor(N / 2)) continue;
+    const noise = rnd() * 2 - 1;
+    series[i] = Math.max(minVal, Math.min(maxVal, Math.round(avgVal + noise * spread)));
+  }
+
+  // Adjust values so the average matches exactly
+  const targetSum = avgVal * N;
+  let currentSum = series.reduce((sum, val) => sum + val, 0);
+  let attempts = 0;
+
+  while (currentSum !== targetSum && attempts < 100) {
+    attempts++;
+    const diff = targetSum - currentSum;
+    const step = diff > 0 ? 1 : -1;
+
+    for (let i = 0; i < N; i++) {
+      const newVal = series[i] + step;
+      if (newVal >= minVal && newVal <= maxVal) {
+        series[i] = newVal;
+        currentSum += step;
+        if (currentSum === targetSum) break;
+      }
+    }
+  }
+
+  return series;
+}
+
