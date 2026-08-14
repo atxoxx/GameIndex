@@ -360,17 +360,40 @@
 
 /* Header summary (cover + progress ring + identity + dates + refresh) */
 
+.ach-tab-hero,
 .ach-tab-header {
   display: flex;
   align-items: center;
   gap: var(--space-xl);
   background: var(--color-surface);
   border: 1px solid var(--color-border);
-  border-radius: var(--radius-lg);
+  border-radius: var(--radius-xl);
   padding: var(--space-xl);
   flex-wrap: wrap;
   position: relative;
   overflow: hidden;
+  box-shadow: var(--shadow-sm);
+  transition: border-color var(--duration-normal) var(--ease-standard),
+    box-shadow var(--duration-normal) var(--ease-standard);
+}
+
+.ach-tab-hero:hover,
+.ach-tab-header:hover {
+  border-color: color-mix(in srgb, var(--color-accent) 35%, var(--color-border));
+}
+
+.ach-tab-hero.is-perfect {
+  border-color: color-mix(in srgb, #f59e0b 45%, var(--color-border));
+}
+
+.ach-tab-hero.is-perfect::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 3px;
+  background: linear-gradient(90deg, #f59e0b, #fbbf24, #f59e0b);
 }
 
 .ach-tab-cover {
@@ -461,7 +484,7 @@
   min-width: 220px;
   display: flex;
   flex-direction: column;
-  gap: var(--space-sm);
+  gap: var(--space-xs);
 }
 
 .ach-tab-title-row {
@@ -480,10 +503,53 @@
   min-width: 0;
 }
 
+.ach-tab-perfect-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 8px;
+  border-radius: var(--radius-full);
+  background: color-mix(in srgb, #f59e0b 14%, transparent);
+  border: 1px solid #f59e0b;
+  color: #f59e0b;
+  font-size: 11px;
+  font-weight: var(--font-weight-bold);
+  box-shadow: 0 0 10px color-mix(in srgb, #f59e0b 30%, transparent);
+}
+
+.ach-tab-points-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-xs);
+  font-size: var(--font-size-sm);
+}
+
+.ach-tab-points-val {
+  font-weight: var(--font-weight-bold);
+  color: var(--color-accent);
+  font-variant-numeric: tabular-nums;
+}
+
+.ach-tab-points-max {
+  color: var(--color-text-muted);
+  font-weight: var(--font-weight-normal);
+}
+
+.ach-tab-points-dot {
+  color: var(--color-text-muted);
+}
+
+.ach-tab-points-level {
+  font-size: var(--font-size-xs);
+  color: var(--color-text-secondary);
+  font-weight: var(--font-weight-medium);
+}
+
 .ach-tab-dates {
   display: flex;
   gap: var(--space-lg);
   flex-wrap: wrap;
+  margin-top: 2px;
 }
 
 .ach-tab-date {
@@ -745,6 +811,12 @@
 
 /* Toolbar (filters + sort + sync) */
 
+.ach-tab-toolbar-wrap {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+}
+
 .achievements-toolbar {
   display: flex;
   align-items: center;
@@ -784,6 +856,49 @@
   background: var(--color-surface);
   color: var(--color-text-primary);
   box-shadow: var(--shadow-sm);
+}
+
+/* Rarity filter pills */
+.ach-rarity-filter-pills {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex-wrap: wrap;
+}
+
+.ach-rarity-filter-pill {
+  padding: 4px 10px;
+  border-radius: var(--radius-full);
+  background: var(--color-bg-tertiary);
+  border: 1px solid var(--color-border);
+  color: var(--color-text-secondary);
+  font-size: 11px;
+  font-weight: var(--font-weight-medium);
+  cursor: pointer;
+  transition: color var(--duration-fast), background var(--duration-fast), border-color var(--duration-fast);
+  white-space: nowrap;
+}
+
+.ach-rarity-filter-pill:hover,
+.ach-rarity-filter-pill.active {
+  background: var(--color-bg-hover);
+  color: var(--color-text-primary);
+  border-color: var(--color-accent);
+}
+
+.ach-reveal-toggle-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: var(--font-size-xs);
+  color: var(--color-text-secondary);
+  cursor: pointer;
+  user-select: none;
+}
+
+.ach-reveal-toggle-label input {
+  accent-color: var(--color-accent);
+  cursor: pointer;
 }
 
 .achievements-search-wrap {
@@ -905,7 +1020,7 @@
   gap: var(--space-md);
   background: var(--color-surface);
   border: 1px solid var(--color-border);
-  border-radius: var(--radius-md);
+  border-radius: var(--radius-xl);
   padding: var(--space-md);
   transition: color var(--transition-fast), background var(--transition-fast), border-color var(--transition-fast), box-shadow var(--transition-fast), opacity var(--transition-fast), transform var(--transition-fast);
   position: relative;
@@ -929,6 +1044,14 @@
   opacity: 1;
 }
 
+.achievement-card.unlocked.rarity-ultra_rare::before {
+  background: #f59e0b;
+}
+
+.achievement-card.unlocked.rarity-rare::before {
+  background: #3b82f6;
+}
+
 .achievement-card:hover {
   border-color: var(--color-border-light);
   transform: translateY(-2px);
@@ -948,14 +1071,23 @@
   opacity: 1;
 }
 
+.achievement-card-icon-wrap {
+  flex-shrink: 0;
+}
+
 .achievement-card-icon {
   width: 56px;
   height: 56px;
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-md);
   overflow: hidden;
   background: var(--color-bg-tertiary);
   flex-shrink: 0;
   border: 1px solid var(--color-border);
+  transition: box-shadow var(--duration-fast), transform var(--duration-fast);
+}
+
+.achievement-card:hover .achievement-card-icon {
+  transform: scale(1.05);
 }
 
 .achievement-card-icon img {
@@ -979,6 +1111,15 @@
   align-items: flex-start;
   justify-content: space-between;
   gap: var(--space-sm);
+  flex-wrap: wrap;
+}
+
+.achievement-card-title-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-xs);
+  flex: 1;
+  min-width: 0;
 }
 
 .achievement-card-name {
@@ -987,26 +1128,71 @@
   color: var(--color-text-primary);
   margin: 0;
   line-height: 1.3;
-  flex: 1;
-  min-width: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.achievement-card-points-tag {
+  font-size: 9px;
+  font-weight: var(--font-weight-bold);
+  padding: 1px 5px;
+  border-radius: var(--radius-full);
+  border: 1px solid currentColor;
+  background: color-mix(in srgb, currentColor 10%, transparent);
+  flex-shrink: 0;
+  font-variant-numeric: tabular-nums;
+}
+
+.achievement-card-desc-wrap {
+  min-height: 28px;
+  display: flex;
+  align-items: center;
+}
+
+.achievement-card-secret-prompt {
+  display: flex;
+  align-items: center;
+  gap: var(--space-xs);
+  font-size: 11px;
+  color: var(--color-text-muted);
+}
+
+.achievement-card-reveal-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  padding: 1px 6px;
+  border-radius: var(--radius-sm);
+  background: var(--color-bg-tertiary);
+  border: 1px solid var(--color-border);
+  color: var(--color-accent);
+  font-size: 10px;
+  font-weight: var(--font-weight-semibold);
+  cursor: pointer;
+}
+
+.achievement-card-reveal-btn:hover {
+  background: var(--color-bg-hover);
+  border-color: var(--color-accent);
 }
 
 .achievement-card.locked .achievement-card-name {
   color: var(--color-text-secondary);
 }
 
-/* Tiny rarity bar under the description — the plugin-style tile footer. */
+/* Tiny rarity bar under the description */
 
 .achievement-card-rarity {
   display: flex;
   align-items: center;
   gap: var(--space-sm);
-  margin-top: var(--space-sm);
+  margin-top: 4px;
 }
 
 .achievement-card-rarity-bar {
   flex: 1;
-  height: 12px;
+  height: 6px;
   border-radius: var(--radius-full);
   overflow: hidden;
   background: var(--color-bg-tertiary);
@@ -1023,14 +1209,13 @@
   font-size: 10px;
   font-weight: var(--font-weight-bold);
   font-variant-numeric: tabular-nums;
-  min-width: 36px;
-  text-align: right;
+  white-space: nowrap;
 }
 
 .achievement-card-desc {
   font-size: 11px;
   color: var(--color-text-secondary);
-  line-height: 1.4;
+  line-height: 1.35;
   margin: 0;
   display: -webkit-box;
   -webkit-line-clamp: 2;
@@ -1057,6 +1242,233 @@
 .achievement-card-date svg {
   width: 11px;
   height: 11px;
+}
+
+/* ── Compact List View Mode ───────────────────────────────────────────── */
+
+.ach-compact-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-xs);
+}
+
+.ach-compact-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-md);
+  padding: var(--space-sm) var(--space-md);
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  transition: background var(--duration-fast), border-color var(--duration-fast);
+}
+
+.ach-compact-row:hover {
+  background: var(--color-bg-hover);
+  border-color: var(--color-border-light);
+}
+
+.ach-compact-row.locked {
+  opacity: 0.75;
+}
+
+.ach-compact-status-col {
+  flex-shrink: 0;
+}
+
+.ach-compact-icon {
+  width: 36px;
+  height: 36px;
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+  background: var(--color-bg-tertiary);
+  border: 1px solid var(--color-border);
+}
+
+.ach-compact-icon img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.ach-compact-info-col {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.ach-compact-title-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-xs);
+}
+
+.ach-compact-name {
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text-primary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.ach-compact-points {
+  font-size: 9px;
+  font-weight: var(--font-weight-bold);
+  font-variant-numeric: tabular-nums;
+}
+
+.ach-compact-desc {
+  font-size: 11px;
+  color: var(--color-text-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.ach-compact-secret-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-xs);
+}
+
+.ach-compact-secret-label {
+  font-size: 10px;
+  color: var(--color-text-muted);
+}
+
+.ach-compact-reveal-btn {
+  padding: 1px 5px;
+  font-size: 9px;
+  border-radius: var(--radius-xs);
+  background: var(--color-bg-tertiary);
+  border: 1px solid var(--color-border);
+  color: var(--color-accent);
+  cursor: pointer;
+}
+
+.ach-compact-rarity-col {
+  flex-shrink: 0;
+}
+
+.ach-compact-rarity-pill {
+  font-size: 10px;
+  font-weight: var(--font-weight-bold);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.ach-compact-date-col {
+  flex-shrink: 0;
+  min-width: 90px;
+  text-align: right;
+}
+
+.ach-compact-date-text {
+  font-size: 10px;
+  color: var(--color-success);
+  font-weight: var(--font-weight-medium);
+}
+
+.ach-compact-locked-label {
+  font-size: 10px;
+  color: var(--color-text-muted);
+}
+
+/* ── Journey / Timeline View Mode ─────────────────────────────────────── */
+
+.ach-journey-timeline-wrap {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2xl);
+  position: relative;
+  padding-left: var(--space-lg);
+}
+
+.ach-journey-timeline-wrap::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 5px;
+  width: 2px;
+  background: var(--color-border);
+}
+
+.ach-journey-group {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-md);
+  position: relative;
+}
+
+.ach-journey-date-marker {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  position: relative;
+}
+
+.ach-journey-dot {
+  position: absolute;
+  left: calc(-1 * var(--space-lg) - 1px);
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: var(--color-accent);
+  border: 2px solid var(--color-surface);
+  box-shadow: 0 0 8px var(--color-accent-glow);
+}
+
+.ach-journey-date-label {
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-bold);
+  color: var(--color-text-primary);
+}
+
+.ach-journey-count-badge {
+  font-size: 10px;
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text-secondary);
+  background: var(--color-bg-tertiary);
+  padding: 1px 6px;
+  border-radius: var(--radius-full);
+}
+
+.ach-journey-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+  gap: var(--space-md);
+}
+
+/* Sidebar remaining box */
+
+.ach-sidebar-remaining-box {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: var(--space-md);
+  border-radius: var(--radius-md);
+  background: var(--color-bg-secondary);
+  border: 1px dashed var(--color-border);
+  margin-top: var(--space-md);
+}
+
+.ach-sidebar-remaining-title {
+  font-size: 10px;
+  font-weight: var(--font-weight-semibold);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--color-text-secondary);
+}
+
+.ach-sidebar-remaining-count {
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-bold);
+  color: var(--color-accent);
 }
 
 /* ── AchievementsPage.tsx (Library Overview Page) ──────────────────────── */

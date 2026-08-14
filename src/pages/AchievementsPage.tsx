@@ -6,31 +6,37 @@ import { useGames } from "../context/GameContext";
 import { useToast } from "../context/ToastContext";
 import { useLanguage } from "../context/LanguageContext";
 import {
-  type Game,
-  type Achievement,
   type AchievementSource,
   type AchievementRarity,
   getAchievementRarity,
-  RARITY_COLORS,
 } from "../types/game";
 import {
   ACHIEVEMENT_SOURCES,
   sourceOfPayload,
 } from "../components/achievements/AchievementSourceBadge";
-import AchievementSourceBadge from "../components/achievements/AchievementSourceBadge";
-
-type CompletionFilter = "all" | "perfect" | "in_progress" | "not_started";
-type SortBy = "name" | "completion" | "total" | "recent";
-type SourceFilter = "all" | AchievementSource;
-
-const RARITY_TIERS: readonly AchievementRarity[] = [
-  "common",
-  "uncommon",
-  "rare",
-  "ultra_rare",
-];
-
 import { PageHeader } from "../components/ui";
+
+import {
+  calculateLibraryGamerscore,
+  calculateGameGamerscore,
+  getMonthlyUnlockActivity,
+} from "../components/achievements/achievementUtils";
+import AchievementsSummaryHero from "../components/achievements/AchievementsSummaryHero";
+import AchievementsRarityChart from "../components/achievements/AchievementsRarityChart";
+import AchievementsActivityChart from "../components/achievements/AchievementsActivityChart";
+import AchievementsAlmostDoneShelf, {
+  type AlmostDoneGameItem,
+} from "../components/achievements/AchievementsAlmostDoneShelf";
+import AchievementsRecentFeed, {
+  type RecentAchievementFeedItem,
+} from "../components/achievements/AchievementsRecentFeed";
+import GameAchievementCard from "../components/achievements/GameAchievementCard";
+import GameAchievementRow from "../components/achievements/GameAchievementRow";
+
+type CompletionFilter = "all" | "perfect" | "in_progress" | "almost_done" | "not_started";
+type SortBy = "completion" | "gamerscore" | "name" | "total" | "recent";
+type SourceFilter = "all" | AchievementSource;
+type ViewMode = "grid" | "list";
 
 export default function AchievementsPage() {
   const { games } = useGames();
@@ -53,15 +59,17 @@ export default function AchievementsPage() {
   const [sourceFilter, setSourceFilter] = useState<SourceFilter>("all");
   const [sortBy, setSortBy] = useState<SortBy>("completion");
   const [searchQuery, setSearchQuery] = useState("");
+  const [viewMode, setViewMode] = useState<ViewMode>("grid");
   const [bulkSyncing, setBulkSyncing] = useState(false);
+
+  // Aggregate gamerscore points across library
+  const gamerscore = useMemo(() => {
+    return calculateLibraryGamerscore(cache.games);
+  }, [cache]);
 
   // Build enriched game list with achievement data
   const gamesWithAchievements = useMemo(() => {
     return games
-      // Include games that have a Steam AppID (Steam or cracked, which
-      // can locate achievements), OR already have cached achievement
-      // data, OR carry another achievement source identity (retro /
-      // gog / epic fields or a manual link).
       .filter(
         (g) =>
           g.steamAppId ||
@@ -74,7 +82,6 @@ export default function AchievementsPage() {
       )
       .map((g) => {
         const data = cache.games[g.id];
-        // Unlocked counts per rarity tier, for the row's 4 compact columns.
         const rarity: Record<AchievementRarity, number> = {
           common: 0,
           uncommon: 0,
@@ -84,12 +91,16 @@ export default function AchievementsPage() {
         for (const a of data?.achievements ?? []) {
           if (a.achieved) rarity[getAchievementRarity(a.percent)]++;
         }
+        const gamePoints = calculateGameGamerscore(data?.achievements ?? []);
+
         return {
           game: g,
           data,
           total: data?.total ?? 0,
           unlocked: data?.unlocked ?? 0,
           pct: data && data.total > 0 ? Math.round((data.unlocked / data.total) * 100) : 0,
+          pointsEarned: gamePoints.earned,
+          pointsTotal: gamePoints.total,
           lastSynced: data?.lastSynced ?? 0,
           source: sourceOfPayload(data),
           rarity,
@@ -102,6 +113,7 @@ export default function AchievementsPage() {
         }
         // Completion filter
         if (completionFilter === "perfect") return item.pct === 100 && item.total > 0;
+        if (completionFilter === "almost_done") return item.pct >= 70 && item.pct < 100 && item.total > 0;
         if (completionFilter === "in_progress") return item.unlocked > 0 && item.pct < 100;
         if (completionFilter === "not_started") return item.unlocked === 0 || !item.data;
         // Source filter
@@ -111,6 +123,7 @@ export default function AchievementsPage() {
       .sort((a, b) => {
         if (sortBy === "name") return a.game.name.localeCompare(b.game.name);
         if (sortBy === "completion") return b.pct - a.pct || b.unlocked - a.unlocked;
+        if (sortBy === "gamerscore") return b.pointsEarned - a.pointsEarned || b.pointsTotal - a.pointsTotal;
         if (sortBy === "total") return b.total - a.total;
         if (sortBy === "recent") return b.lastSynced - a.lastSynced;
         return 0;
@@ -150,7 +163,7 @@ export default function AchievementsPage() {
     };
   }, [cache]);
 
-  // Unlocked achievement counts per source (the "by source" breakdown).
+  // Unlocked achievement counts per source
   const bySource = useMemo(() => {
     const counts: Record<AchievementSource, number> = {
       steam: 0,
@@ -170,43 +183,83 @@ export default function AchievementsPage() {
 
   const bySourceTotal = ACHIEVEMENT_SOURCES.reduce((sum, s) => sum + bySource[s], 0);
 
-  // Recent achievements (last 20 across all games)
-  const recentAchievements = useMemo(() => {
-    const all: { achievement: Achievement; gameName: string; gameId: string }[] = [];
-    for (const [gameId, data] of Object.entries(cache.games)) {
-      const game = games.find((g) => g.id === gameId);
-      for (const a of data.achievements) {
-        if (a.achieved && a.unlockTime > 0) {
-          all.push({ achievement: a, gameName: game?.name ?? t("splash.unknown"), gameId });
-        }
-      }
-    }
-    return all
-      .sort((a, b) => b.achievement.unlockTime - a.achievement.unlockTime)
-      .slice(0, 20);
-  }, [cache, games]);
-
-  // Rarity distribution across all achievements
-  const rarityStats = useMemo(() => {
-    const counts: Record<AchievementRarity, number> = {
+  // Rarity distribution across all achievements (total and unlocked)
+  const { rarityTotal, rarityUnlocked } = useMemo(() => {
+    const totalMap: Record<AchievementRarity, number> = {
       common: 0,
       uncommon: 0,
       rare: 0,
       ultra_rare: 0,
     };
+    const unlockedMap: Record<AchievementRarity, number> = {
+      common: 0,
+      uncommon: 0,
+      rare: 0,
+      ultra_rare: 0,
+    };
+
     for (const data of Object.values(cache.games)) {
-      for (const a of data.achievements) {
-        counts[getAchievementRarity(a.percent)]++;
+      for (const a of data.achievements ?? []) {
+        const tier = getAchievementRarity(a.percent);
+        totalMap[tier]++;
+        if (a.achieved) {
+          unlockedMap[tier]++;
+        }
       }
     }
-    return counts;
+    return { rarityTotal: totalMap, rarityUnlocked: unlockedMap };
   }, [cache]);
 
+  // Monthly unlock activity
+  const monthlyActivity = useMemo(() => {
+    return getMonthlyUnlockActivity(cache.games, 6);
+  }, [cache]);
+
+  // Almost Done games (>= 70% and < 100%)
+  const almostDoneGames = useMemo<AlmostDoneGameItem[]>(() => {
+    const list: AlmostDoneGameItem[] = [];
+    for (const g of games) {
+      const data = cache.games[g.id];
+      if (data && data.total > 0) {
+        const pct = Math.round((data.unlocked / data.total) * 100);
+        if (pct >= 70 && pct < 100) {
+          list.push({
+            game: g,
+            total: data.total,
+            unlocked: data.unlocked,
+            pct,
+            remaining: data.total - data.unlocked,
+            source: sourceOfPayload(data),
+          });
+        }
+      }
+    }
+    return list.sort((a, b) => b.pct - a.pct).slice(0, 8);
+  }, [games, cache]);
+
+  // Recent achievements (last 16 across all games)
+  const recentAchievements = useMemo<RecentAchievementFeedItem[]>(() => {
+    const all: RecentAchievementFeedItem[] = [];
+    for (const [gameId, data] of Object.entries(cache.games)) {
+      const game = games.find((g) => g.id === gameId);
+      for (const a of data.achievements ?? []) {
+        if (a.achieved && a.unlockTime > 0) {
+          all.push({
+            achievement: a,
+            gameName: game?.name ?? t("splash.unknown"),
+            gameId,
+            gameCover: game?.coverArtUrl,
+          });
+        }
+      }
+    }
+    return all
+      .sort((a, b) => b.achievement.unlockTime - a.achievement.unlockTime)
+      .slice(0, 16);
+  }, [cache, games, t]);
+
   /**
-   * Sync All — Steam flow (unchanged) plus the non-Steam sources in
-   * parallel lanes: retro per emulator/ROM game, manual per linked game,
-   * and gog / epic as single batch calls. Each lane reports independently
-   * so one failed source doesn't sink the rest.
+   * Sync All — Steam + non-Steam sources in parallel lanes
    */
   async function handleSyncAll() {
     const steamGames = games.filter((g) => g.steamAppId && g.platform === "Steam");
@@ -302,138 +355,131 @@ export default function AchievementsPage() {
         }
       />
 
-      {/* Summary stat cards */}
-      <div className="achievements-summary-grid">
-        <div className="achievements-summary-card">
-          <span className="achievements-summary-value">{stats.totalUnlocked}</span>
-          <span className="achievements-summary-label">{t("achievementsPage.unlocked")}</span>
-        </div>
-        <div className="achievements-summary-card">
-          <span className="achievements-summary-value">{stats.totalAchievements}</span>
-          <span className="achievements-summary-label">{t("achievementsPage.total")}</span>
-        </div>
-        <div className="achievements-summary-card">
-          <span className="achievements-summary-value">{stats.overallPct}%</span>
-          <span className="achievements-summary-label">{t("achievementsPage.completion")}</span>
-        </div>
-        <div className="achievements-summary-card achievements-summary-perfect">
-          <span className="achievements-summary-value">{stats.perfectGames}</span>
-          <span className="achievements-summary-label">{t("achievementsPage.perfectGames")}</span>
-        </div>
-        <div className="achievements-summary-card">
-          <span className="achievements-summary-value">{stats.avgCompletion}%</span>
-          <span className="achievements-summary-label">{t("achievementsPage.avgCompletion")}</span>
-        </div>
-      </div>
+      {/* Hero Summary & Gamerscore Panel */}
+      <AchievementsSummaryHero gamerscore={gamerscore} stats={stats} />
 
-      {/* Breakdown charts: rarity distribution + achievements by source */}
-      {(stats.totalAchievements > 0 || bySourceTotal > 0) && (
-        <div className="achievements-page-charts">
-          {stats.totalAchievements > 0 && (
-            <div className="achievements-page-rarity-section">
-              <h3 className="achievements-section-title">{t("achievementsPage.rarityDistribution")}</h3>
-              <div className="achievements-rarity-bar-wrap">
-                <div className="achievements-rarity-bar achievements-rarity-bar-lg">
-                  {(["ultra_rare", "rare", "uncommon", "common"] as const).map((tier) => {
-                    const count = rarityStats[tier];
-                    if (count === 0) return null;
-                    return (
-                      <div
-                        key={tier}
-                        className="achievements-rarity-segment"
-                        style={{
-                          width: `${(count / stats.totalAchievements) * 100}%`,
-                          backgroundColor: RARITY_COLORS[tier],
-                        }}
-                        title={`${t(`achievementsPage.rarity.${tier}`)}: ${count}`}
-                      />
-                    );
-                  })}
-                </div>
-                <div className="achievements-rarity-legend">
-                  {(["ultra_rare", "rare", "uncommon", "common"] as const).map((tier) => (
-                    <span key={tier} className="achievements-rarity-legend-item">
-                      <span className="achievements-rarity-dot" style={{ backgroundColor: RARITY_COLORS[tier] }} />
-                      {t(`achievementsPage.rarity.${tier}`)} ({rarityStats[tier]})
-                    </span>
-                  ))}
-                </div>
-              </div>
-            </div>
-          )}
-
-          {bySourceTotal > 0 && (
-            <div className="achievements-page-bysource-section">
-              <h3 className="achievements-section-title">{t("achievementsPage.achievementsBySource")}</h3>
-              <div className="achievements-bysource-bar-wrap">
-                <div className="achievements-bysource-bar">
-                  {ACHIEVEMENT_SOURCES.map((src) => {
-                    const count = bySource[src];
-                    if (count === 0) return null;
-                    return (
-                      <div
-                        key={src}
-                        className="ach-bysource-segment"
-                        data-source={src}
-                        style={{ width: `${(count / bySourceTotal) * 100}%` }}
-                        title={`${t(`achievements.source.${src}`)}: ${count}`}
-                      />
-                    );
-                  })}
-                </div>
-                <div className="achievements-bysource-legend">
-                  {ACHIEVEMENT_SOURCES.map((src) => (
-                    <span key={src} className="ach-bysource-item" data-source={src}>
-                      {t(`achievements.source.${src}`)} ({bySource[src]})
-                    </span>
-                  ))}
-                </div>
-              </div>
-            </div>
-          )}
+      {/* Visual Analytics Grid: Rarity Distribution + Monthly Activity + Source Breakdown */}
+      {stats.totalAchievements > 0 && (
+        <div className="achievements-analytics-grid">
+          <AchievementsRarityChart
+            rarityTotal={rarityTotal}
+            rarityUnlocked={rarityUnlocked}
+            totalAchievements={stats.totalAchievements}
+          />
+          <AchievementsActivityChart activity={monthlyActivity} />
         </div>
       )}
 
-      {/* Recent Achievements Timeline */}
-      {recentAchievements.length > 0 && (
-        <div className="achievements-recent-section">
-          <h3 className="achievements-section-title">{t("achievementsPage.recentUnlocks")}</h3>
-          <div className="achievements-timeline">
-            {recentAchievements.map((item, i) => (
-              <div
-                key={`${item.gameId}-${item.achievement.apiName}-${i}`}
-                className="achievements-timeline-item"
-                onClick={() => navigate(`/library/${item.gameId}`)}
-              >
-                <img
-                  className="achievements-timeline-icon"
-                  src={item.achievement.icon}
-                  alt={item.achievement.displayName}
-                  loading="lazy"
-                  onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }}
-                />
-                <div className="achievements-timeline-body">
-                  <span className="achievements-timeline-name">{item.achievement.displayName}</span>
-                  <span className="achievements-timeline-game">{item.gameName}</span>
-                </div>
-                <span className="achievements-timeline-date">
-                  {new Date(item.achievement.unlockTime * 1000).toLocaleDateString(undefined, {
-                    month: "short",
-                    day: "numeric",
-                  })}
-                </span>
-              </div>
-            ))}
+      {/* Source Platform Breakdown */}
+      {bySourceTotal > 0 && (
+        <div className="ach-card-section ach-source-breakdown-section">
+          <div className="ach-card-section-head">
+            <h3 className="achievements-section-title">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" width="16" height="16">
+                <rect x="2" y="3" width="20" height="14" rx="2" />
+                <line x1="8" y1="21" x2="16" y2="21" />
+                <line x1="12" y1="17" x2="12" y2="21" />
+              </svg>
+              {t("achievementsPage.achievementsBySource")}
+            </h3>
+          </div>
+          <div className="achievements-bysource-bar-wrap">
+            <div className="achievements-bysource-bar">
+              {ACHIEVEMENT_SOURCES.map((src) => {
+                const count = bySource[src];
+                if (count === 0) return null;
+                return (
+                  <div
+                    key={src}
+                    className="ach-bysource-segment"
+                    data-source={src}
+                    style={{ width: `${(count / bySourceTotal) * 100}%` }}
+                    title={`${t(`achievements.source.${src}`)}: ${count} (${Math.round((count / bySourceTotal) * 100)}%)`}
+                  />
+                );
+              })}
+            </div>
+            <div className="achievements-bysource-legend">
+              {ACHIEVEMENT_SOURCES.map((src) => (
+                <button
+                  type="button"
+                  key={src}
+                  className={`ach-bysource-item ${sourceFilter === src ? "active" : ""}`}
+                  data-source={src}
+                  onClick={() => setSourceFilter(sourceFilter === src ? "all" : src)}
+                >
+                  {t(`achievements.source.${src}`)} ({bySource[src]})
+                </button>
+              ))}
+            </div>
           </div>
         </div>
       )}
 
-      {/* Games list with toolbar */}
+      {/* Almost Done / Next Up Shelf */}
+      {almostDoneGames.length > 0 && (
+        <AchievementsAlmostDoneShelf games={almostDoneGames} />
+      )}
+
+      {/* Recent Unlocks Timeline Feed */}
+      {recentAchievements.length > 0 && (
+        <AchievementsRecentFeed recentAchievements={recentAchievements} />
+      )}
+
+      {/* Games List / Leaderboard Section */}
       <div className="achievements-games-section">
-        <h3 className="achievements-section-title">{t("achievementsPage.games")}</h3>
+        <div className="ach-section-header-row">
+          <div className="ach-section-title-group">
+            <h3 className="achievements-section-title">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" width="18" height="18">
+                <rect x="2" y="7" width="20" height="14" rx="2" ry="2" />
+                <path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16" />
+              </svg>
+              {t("achievementsPage.games")}
+            </h3>
+            <span className="ach-section-count">
+              ({gamesWithAchievements.length})
+            </span>
+          </div>
+
+          {/* View Mode Switcher */}
+          <div className="ach-view-mode-toggle" role="group" aria-label="View mode">
+            <button
+              type="button"
+              className={`ach-view-btn ${viewMode === "grid" ? "active" : ""}`}
+              onClick={() => setViewMode("grid")}
+              title={t("achievementsPage.viewGrid")}
+            >
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" width="15" height="15">
+                <rect x="3" y="3" width="7" height="7" />
+                <rect x="14" y="3" width="7" height="7" />
+                <rect x="14" y="14" width="7" height="7" />
+                <rect x="3" y="14" width="7" height="7" />
+              </svg>
+            </button>
+            <button
+              type="button"
+              className={`ach-view-btn ${viewMode === "list" ? "active" : ""}`}
+              onClick={() => setViewMode("list")}
+              title={t("achievementsPage.viewList")}
+            >
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" width="15" height="15">
+                <line x1="8" y1="6" x2="21" y2="6" />
+                <line x1="8" y1="12" x2="21" y2="12" />
+                <line x1="8" y1="18" x2="21" y2="18" />
+                <line x1="3" y1="6" x2="3.01" y2="6" />
+                <line x1="3" y1="12" x2="3.01" y2="12" />
+                <line x1="3" y1="18" x2="3.01" y2="18" />
+              </svg>
+            </button>
+          </div>
+        </div>
+
+        {/* Toolbar: Filters, Search, Sort */}
         <div className="achievements-toolbar">
+          {/* Status Filters */}
           <div className="achievements-filters">
-            {(["all", "perfect", "in_progress", "not_started"] as const).map((f) => (
+            {(["all", "perfect", "in_progress", "almost_done", "not_started"] as const).map((f) => (
               <button
                 key={f}
                 className={`achievements-filter-btn ${completionFilter === f ? "active" : ""}`}
@@ -443,12 +489,16 @@ export default function AchievementsPage() {
                   ? t("common.all")
                   : f === "perfect"
                     ? t("achievementsPage.filterPerfect")
-                    : f === "in_progress"
-                      ? t("achievementsPage.filterInProgress")
-                      : t("achievementsPage.filterNotStarted")}
+                    : f === "almost_done"
+                      ? t("achievementsPage.filterAlmostDone")
+                      : f === "in_progress"
+                        ? t("achievementsPage.filterInProgress")
+                        : t("achievementsPage.filterNotStarted")}
               </button>
             ))}
           </div>
+
+          {/* Source Filter */}
           <div className="achievements-src-filter">
             {(["all", ...ACHIEVEMENT_SOURCES] as const).map((src) => (
               <button
@@ -463,6 +513,8 @@ export default function AchievementsPage() {
               </button>
             ))}
           </div>
+
+          {/* Search bar */}
           <div className="achievements-search-wrap">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" width="14" height="14">
               <circle cx="11" cy="11" r="8" />
@@ -476,6 +528,8 @@ export default function AchievementsPage() {
               onChange={(e) => setSearchQuery(e.target.value)}
             />
           </div>
+
+          {/* Sort dropdown */}
           <div className="achievements-sort">
             <label className="achievements-sort-label">{t("achievementsPage.sort")}</label>
             <select
@@ -484,6 +538,7 @@ export default function AchievementsPage() {
               className="achievements-sort-select"
             >
               <option value="completion">{t("achievementsPage.completionPct")}</option>
+              <option value="gamerscore">{t("achievementsPage.sortGamerscore")}</option>
               <option value="name">{t("achievementsPage.name")}</option>
               <option value="total">{t("achievementsPage.totalAchievements")}</option>
               <option value="recent">{t("achievementsPage.recentlySynced")}</option>
@@ -491,120 +546,64 @@ export default function AchievementsPage() {
           </div>
         </div>
 
-        <div className="achievements-games-list">
-          {gamesWithAchievements.map((item) => (
-            <GameAchievementRow
-              key={item.game.id}
-              game={item.game}
-              total={item.total}
-              unlocked={item.unlocked}
-              pct={item.pct}
-              lastSynced={item.lastSynced}
-              source={item.source}
-              rarity={item.rarity}
-              onClick={() => navigate(`/library/${item.game.id}`)}
-            />
-          ))}
-          {gamesWithAchievements.length === 0 && (
-            <div className="achievements-no-results">
-              {searchQuery ? t("achievements.noMatchSearch") : t("achievementsPage.noGames")}
-            </div>
-          )}
-        </div>
-      </div>
-    </div>
-  );
-}
-
-function GameAchievementRow({
-  game,
-  total,
-  unlocked,
-  pct,
-  lastSynced,
-  source,
-  rarity,
-  onClick,
-}: {
-  game: Game;
-  total: number;
-  unlocked: number;
-  pct: number;
-  lastSynced: number;
-  source: AchievementSource;
-  rarity: Record<AchievementRarity, number>;
-  onClick: () => void;
-}) {
-  const { t } = useLanguage();
-
-  return (
-    <div className="achievements-game-row" onClick={onClick}>
-      <div className="achievements-game-cover">
-        {game.coverArtUrl ? (
-          <img src={game.coverArtUrl} alt={game.name} loading="lazy" />
-        ) : (
-          <div className="achievements-game-cover-placeholder">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" width="20" height="20">
-              <rect x="2" y="3" width="20" height="14" rx="2" />
-              <line x1="8" y1="21" x2="16" y2="21" />
-              <line x1="12" y1="17" x2="12" y2="21" />
-            </svg>
-          </div>
-        )}
-      </div>
-      <div className="achievements-game-info">
-        <span className="achievements-game-name">{game.name}</span>
-        {total > 0 ? (
-          <div className="achievements-game-progress-wrap">
-            <div className="achievements-game-progress-bar">
-              <div
-                className="achievements-game-progress-fill"
-                style={{
-                  width: `${pct}%`,
-                  background: pct >= 100
-                    ? "linear-gradient(90deg, var(--color-success), color-mix(in srgb, var(--color-success) 80%, white))"
-                    : "linear-gradient(90deg, var(--color-accent), var(--color-accent-hover))",
-                }}
+        {/* Games display: Grid or List */}
+        {viewMode === "grid" ? (
+          <div className="ach-games-cards-grid">
+            {gamesWithAchievements.map((item) => (
+              <GameAchievementCard
+                key={item.game.id}
+                game={item.game}
+                total={item.total}
+                unlocked={item.unlocked}
+                pct={item.pct}
+                pointsEarned={item.pointsEarned}
+                pointsTotal={item.pointsTotal}
+                lastSynced={item.lastSynced}
+                source={item.source}
+                rarity={item.rarity}
+                onClick={() => navigate(`/library/${item.game.id}`)}
               />
-            </div>
-            <span className="achievements-game-progress-text">
-              {unlocked}/{total} ({pct}%)
-            </span>
+            ))}
           </div>
         ) : (
-          <span className="achievements-game-not-synced">{t("achievementsPage.notSynced")}</span>
-        )}
-      </div>
-
-      <AchievementSourceBadge source={source} />
-
-      <div className="ach-rarity-counts">
-        {RARITY_TIERS.map((tier) => (
-          <div
-            key={tier}
-            className="ach-rarity-count"
-            title={`${t(`achievementsPage.rarity.${tier}`)}: ${rarity[tier]}`}
-          >
-            <span className="ach-rarity-count-value" style={{ color: RARITY_COLORS[tier] }}>
-              {rarity[tier]}
-            </span>
-            <span className="ach-rarity-count-label">{t(`achievementsPage.rarity.${tier}`)}</span>
-          </div>
-        ))}
-      </div>
-
-      <div className="achievements-game-row-trail">
-        {pct === 100 && total > 0 && (
-          <div className="achievements-perfect-badge" title={t("achievements.perfectComplete")}>
-            <svg viewBox="0 0 24 24" fill="currentColor" width="18" height="18">
-              <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z" />
-            </svg>
+          <div className="achievements-games-list">
+            {gamesWithAchievements.map((item) => (
+              <GameAchievementRow
+                key={item.game.id}
+                game={item.game}
+                total={item.total}
+                unlocked={item.unlocked}
+                pct={item.pct}
+                pointsEarned={item.pointsEarned}
+                pointsTotal={item.pointsTotal}
+                lastSynced={item.lastSynced}
+                source={item.source}
+                rarity={item.rarity}
+                onClick={() => navigate(`/library/${item.game.id}`)}
+              />
+            ))}
           </div>
         )}
-        {lastSynced > 0 && (
-          <span className="achievements-game-synced-at">
-            {new Date(lastSynced).toLocaleDateString(undefined, { month: "short", day: "numeric" })}
-          </span>
+
+        {gamesWithAchievements.length === 0 && (
+          <div className="achievements-no-results">
+            <div className="ach-no-results-icon">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" width="40" height="40">
+                <circle cx="11" cy="11" r="8" />
+                <line x1="21" y1="21" x2="16.65" y2="16.65" />
+              </svg>
+            </div>
+            <h4>{searchQuery ? t("achievements.noMatchSearch") : t("achievementsPage.noGames")}</h4>
+            {searchQuery && (
+              <button
+                type="button"
+                className="achievements-btn achievements-btn--secondary"
+                onClick={() => setSearchQuery("")}
+              >
+                {t("common.clearSearch")}
+              </button>
+            )}
+          </div>
         )}
       </div>
     </div>
