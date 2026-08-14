@@ -8,7 +8,8 @@ import { useLanguage } from "../../context/LanguageContext";
 import { useSizeUnit } from "../../hooks/useSizeUnit";
 import { formatSize, type Game } from "../../types/game";
 import { Button } from "../../components/ui";
-import { relocateExe } from "./utils";
+import { relocateExe, gameTotalBytes } from "./utils";
+import type { DriveUsage } from "./useDriveUsage";
 
 interface MoveProgressPayload {
   gameId: string;
@@ -18,28 +19,20 @@ interface MoveProgressPayload {
 }
 
 interface Props {
-  /** One or many installed games to relocate. The dialog moves them
-   *  sequentially into the same destination folder. */
   games: Game[];
-  /** Called once per successfully-moved game so the page can rewrite the
-   *  record's `path` / `sizeRootPath` and refresh staleness. */
   onMoved: (game: Game, toPath: string, newExe: string) => void;
   onClose: () => void;
 }
 
-/** Move / relocate install folders between drives.
- *
- *  Presents a destination picker, then streams the Rust `game-move-progress`
- *  events into a single progress bar. Moves are sequential so the disk
- *  walker isn't contending with itself, and each game's record is patched as
- *  soon as its move completes (so a mid-batch failure doesn't lose the work
- *  already done). */
 export function MoveGameDialog({ games, onMoved, onClose }: Props) {
   const { showToast } = useToast();
   const { t } = useLanguage();
   const { unit } = useSizeUnit();
 
   const [destDir, setDestDir] = useState("");
+  const [destUsage, setDestUsage] = useState<DriveUsage | null>(null);
+  const [checkingDest, setCheckingDest] = useState(false);
+
   const [running, setRunning] = useState(false);
   const [current, setCurrent] = useState(0);
   const [phase, setPhase] = useState<"idle" | "copying" | "verifying" | "cleaning">("idle");
@@ -49,9 +42,9 @@ export function MoveGameDialog({ games, onMoved, onClose }: Props) {
   const [errors, setErrors] = useState<string[]>([]);
   const unlistenRef = useRef<UnlistenFn | null>(null);
 
-  // Listen for progress ticks for the whole batch. Moves run sequentially,
-  // so at any moment only the current game is emitting — we can map the
-  // latest tick straight onto the visible progress bar.
+  const totalRequiredBytes = games.reduce((sum, g) => sum + gameTotalBytes(g), 0);
+
+  // Listen for progress ticks
   useEffect(() => {
     let cancelled = false;
     listen<MoveProgressPayload>("game-move-progress", (e) => {
@@ -77,6 +70,15 @@ export function MoveGameDialog({ games, onMoved, onClose }: Props) {
     });
     if (typeof picked === "string" && picked.trim() !== "") {
       setDestDir(picked);
+      setCheckingDest(true);
+      try {
+        const usage = await invoke<DriveUsage>("disk_usage", { path: picked });
+        setDestUsage(usage);
+      } catch {
+        setDestUsage(null);
+      } finally {
+        setCheckingDest(false);
+      }
     }
   }
 
@@ -138,6 +140,7 @@ export function MoveGameDialog({ games, onMoved, onClose }: Props) {
         : t("storageMove.copying");
 
   const multiple = games.length > 1;
+  const hasEnoughSpace = !destUsage || destUsage.available >= totalRequiredBytes;
 
   return createPortal(
     <div
@@ -174,6 +177,8 @@ export function MoveGameDialog({ games, onMoved, onClose }: Props) {
               <p className="move-dialog-lead">
                 {t("storageMove.lead")}
               </p>
+
+              {/* Destination picker button */}
               <button
                 type="button"
                 className="move-dialog-dest"
@@ -187,13 +192,45 @@ export function MoveGameDialog({ games, onMoved, onClose }: Props) {
                   {destDir || t("storageMove.selectDestEllipsis")}
                 </span>
               </button>
+
+              {/* Destination Free Space Info */}
+              {destUsage && (
+                <div className="move-dialog-space-card">
+                  <div className="move-dialog-space-row">
+                    <span className="move-dialog-space-label">
+                      {t("storageMove.targetFree", { free: formatSize(destUsage.available, unit) })}
+                    </span>
+                    <span className="move-dialog-space-val">
+                      {t("storageMove.spaceRequired", { required: formatSize(totalRequiredBytes, unit) })}
+                    </span>
+                  </div>
+
+                  {!hasEnoughSpace && (
+                    <div className="move-dialog-space-warning">
+                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                        <path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" />
+                        <line x1="12" y1="9" x2="12" y2="13" />
+                        <line x1="12" y1="17" x2="12.01" y2="17" />
+                      </svg>
+                      <span>
+                        {t("storageMove.notEnoughSpace", {
+                          free: formatSize(destUsage.available, unit),
+                          required: formatSize(totalRequiredBytes, unit),
+                        })}
+                      </span>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* Game list */}
               {multiple && (
                 <ul className="move-dialog-list">
                   {games.map((g) => (
                     <li key={g.id} className="move-dialog-list-item">
                       <span className="move-dialog-list-name">{g.name}</span>
                       <span className="move-dialog-list-size">
-                        {formatSize(g.sizeBytes, unit)}
+                        {formatSize(gameTotalBytes(g), unit)}
                       </span>
                     </li>
                   ))}
@@ -202,6 +239,7 @@ export function MoveGameDialog({ games, onMoved, onClose }: Props) {
             </>
           )}
 
+          {/* Running progress bar */}
           {running && (
             <div className="move-dialog-progress">
               <div className="move-dialog-progress-head">
@@ -229,6 +267,7 @@ export function MoveGameDialog({ games, onMoved, onClose }: Props) {
             </div>
           )}
 
+          {/* Error display */}
           {!running && errors.length > 0 && (
             <div className="move-dialog-errors">
               <p className="move-dialog-errors-title">
@@ -254,10 +293,7 @@ export function MoveGameDialog({ games, onMoved, onClose }: Props) {
           <span className="modal-footer-count">
             {multiple && !running && errors.length === 0
               ? t("storageMove.totalSize", {
-                  size: formatSize(
-                    games.reduce((s, g) => s + (g.sizeBytes ?? 0), 0),
-                    unit
-                  ),
+                  size: formatSize(totalRequiredBytes, unit),
                 })
               : " "}
           </span>
@@ -269,7 +305,7 @@ export function MoveGameDialog({ games, onMoved, onClose }: Props) {
               <Button
                 variant="primary"
                 onClick={run}
-                isLoading={running}
+                isLoading={running || checkingDest}
                 disabled={!destDir || running}
               >
                 {running ? t("storageMove.moving") : t("storageMove.moveHere")}

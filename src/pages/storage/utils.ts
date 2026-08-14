@@ -1,14 +1,17 @@
-import type { Game } from "../../types/game";
+import type { Game, SizeUnit } from "../../types/game";
+import { formatSize } from "../../types/game";
 
 // ─── Sort ──────────────────────────────────────────────────────────────────
 
-/** Active sort key on the Storage page. The locked default is
- *  `size:desc` per spec (no persistence between sessions). */
+/** Active sort key on the Storage page. */
 export type SortKey =
   | "size:desc"
+  | "size:asc"
   | "name:asc"
+  | "name:desc"
   | "platform:asc"
-  | "detectedAt:desc";
+  | "detectedAt:desc"
+  | "mods:desc";
 
 export const DEFAULT_SORT: SortKey = "size:desc";
 
@@ -17,29 +20,43 @@ export function compareGames(sort: SortKey): (a: Game, b: Game) => number {
   switch (sort) {
     case "size:desc":
       return (a, b) => gameTotalBytes(b) - gameTotalBytes(a);
+    case "size:asc":
+      return (a, b) => gameTotalBytes(a) - gameTotalBytes(b);
     case "name:asc":
-      return (a, b) => a.name.localeCompare(b.name);
+      return (a, b) => a.name.localeCompare(b.name, undefined, { sensitivity: "base" });
+    case "name:desc":
+      return (a, b) => b.name.localeCompare(a.name, undefined, { sensitivity: "base" });
     case "platform:asc":
       return (a, b) =>
-        (a.platform || "Unknown").localeCompare(b.platform || "Unknown");
+        (a.platform || "Unknown").localeCompare(b.platform || "Unknown", undefined, { sensitivity: "base" });
     case "detectedAt:desc":
-      // `sizeDetectedAt` is a string ISO-8601 timestamp OR undefined.
-      // For the desc sort, undefined values map to -Infinity so they
-      // sink to the bottom of the list.
       return (a, b) => {
-        const aT = a.sizeDetectedAt
-          ? Date.parse(a.sizeDetectedAt)
-          : Number.NEGATIVE_INFINITY;
-        const bT = b.sizeDetectedAt
-          ? Date.parse(b.sizeDetectedAt)
-          : Number.NEGATIVE_INFINITY;
+        const aT = a.sizeDetectedAt ? Date.parse(a.sizeDetectedAt) : Number.NEGATIVE_INFINITY;
+        const bT = b.sizeDetectedAt ? Date.parse(b.sizeDetectedAt) : Number.NEGATIVE_INFINITY;
         return bT - aT;
       };
+    case "mods:desc":
+      return (a, b) => (b.modsSizeBytes ?? 0) - (a.modsSizeBytes ?? 0);
   }
 }
 
 export function sortGames(games: Game[], sort: SortKey): Game[] {
   return [...games].sort(compareGames(sort));
+}
+
+// ─── Size Tiers ────────────────────────────────────────────────────────────
+
+export type SizeTier = "massive" | "large" | "medium" | "small" | "unmeasured";
+
+const GB = 1024 * 1024 * 1024;
+
+export function getSizeTier(game: Game): SizeTier {
+  const bytes = gameTotalBytes(game);
+  if (bytes <= 0) return "unmeasured";
+  if (bytes >= 50 * GB) return "massive";
+  if (bytes >= 15 * GB) return "large";
+  if (bytes >= 5 * GB) return "medium";
+  return "small";
 }
 
 // ─── Drive extraction ──────────────────────────────────────────────────────
@@ -48,53 +65,35 @@ export function sortGames(games: Game[], sort: SortKey): Game[] {
  *
  *  - Windows: `"C:\Games\Foo\bin.exe"            -> "C:"`
  *  - Unix:    `"/mnt/games/Foo/bin.exe"          -> "/mnt/games"`
- *             (we strip the file basename so the bucket spans the mount)
  *  - Fallback: "Unknown" (no path, weird format) */
 export function driveOf(rootPath: string | undefined | null): string {
   if (!rootPath) return "Unknown";
-  // Normalize separators to forward slash so Windows + Unix share the
-  // same downstream splitter.
   const norm = rootPath.replace(/\\/g, "/");
   const winMatch = norm.match(/^([a-zA-Z]):/);
   if (winMatch) {
     return `${winMatch[1].toUpperCase()}:`;
   }
-  // Unix: take the first two non-empty segments so "/mnt/games" stays
-  // its own bucket even when individual game folders beneath differ.
   const parts = norm.split("/").filter(Boolean);
   if (parts.length >= 2) return `/${parts[0]}/${parts[1]}`;
   if (parts.length === 1) return `/${parts[0]}`;
   return "Unknown";
 }
 
-// ─── Aggregation ────────────────────────────────────────────────────────────
+// ─── Aggregation & Grouping ────────────────────────────────────────────────
 
-/** Active grouping dimension for the Storage game list. The user picks one
- *  from the "Group by" control to reorganise the list into collapsible
- *  sections; `none` keeps the flat sorted list. */
-export type GroupKey = "none" | "platform" | "emulator" | "drive";
+export type GroupKey = "none" | "drive" | "platform" | "sizeTier" | "emulator" | "status";
 
-/** A collapsible section in the grouped Storage view. */
 export interface GameSection {
-  /** Stable key (platform name, emulator id, or drive prefix). */
   key: string;
-  /** Display label shown in the section header. */
   label: string;
-  /** Games belonging to this section (already search/sort filtered). */
   games: Game[];
-  /** Sum of every game's total footprint (game + mods) in this section. */
   bytes: number;
 }
 
-/** A game's full on-disk footprint: the install size plus any linked mods
- *  folder. Used everywhere the Storage tab reports "total" so mods are never
- *  silently dropped from the accounting. */
 export function gameTotalBytes(g: Game): number {
   return (g.sizeBytes ?? 0) + (g.modsSizeBytes ?? 0);
 }
 
-/** Total bytes across every game, counting mods folders. Skips games with no
- *  measured footprint (game + mods == 0). */
 export function totalBytesWithMods(games: Game[]): number {
   let total = 0;
   for (const g of games) {
@@ -104,13 +103,6 @@ export function totalBytesWithMods(games: Game[]): number {
   return total;
 }
 
-/** Group already-filtered games into collapsible sections by the chosen
- *  dimension. `resolveGroup` maps a game to its section label (already
- *  localised) — the page owns emulator-name / "Other" resolution so this
- *  helper stays free of i18n + emulator lookups.
- *
- *  Sections are returned sorted by descending total footprint so the
- *  biggest buckets surface first; `none` yields a single synthetic section. */
 export function buildSections(
   games: Game[],
   groupBy: GroupKey,
@@ -141,19 +133,12 @@ export function buildSections(
   })).sort((a, b) => b.bytes - a.bytes);
 }
 
-/** A single bar in the Storage header breakdown lists. */
 export interface StorageBucket {
-  /** Display label (platform name or drive prefix). */
   label: string;
-  /** Sum of sizeBytes across this bucket's games. */
   bytes: number;
-  /** Number of sized games counted into this bucket. */
   count: number;
 }
 
-/** Group sized games by `game.platform` (or "Unknown" when empty). Mods
- *  folders are folded into each game's footprint so the breakdown reflects
- *  the true game + mods size. */
 export function platformBuckets(games: Game[]): StorageBucket[] {
   const m = new Map<string, { bytes: number; count: number }>();
   for (const g of games) {
@@ -170,8 +155,6 @@ export function platformBuckets(games: Game[]): StorageBucket[] {
   );
 }
 
-/** Group sized games by the drive prefix of `sizeRootPath`. Mods folders are
- *  folded into each game's footprint (see `gameTotalBytes`). */
 export function driveBuckets(games: Game[]): StorageBucket[] {
   const m = new Map<string, { bytes: number; count: number }>();
   for (const g of games) {
@@ -188,8 +171,6 @@ export function driveBuckets(games: Game[]): StorageBucket[] {
   );
 }
 
-/** Total bytes across every sized game (skips games whose sizeBytes is
- *  undefined or <= 0). */
 export function totalBytes(games: Game[]): number {
   let total = 0;
   for (const g of games) {
@@ -198,8 +179,6 @@ export function totalBytes(games: Game[]): number {
   return total;
 }
 
-/** How many sized games vs unsized games exist — used to label the
- *  total/totals card so the user sees the coverage at a glance. */
 export function sizeCoverage(games: Game[]): { sized: number; unsized: number } {
   let sized = 0;
   let unsized = 0;
@@ -210,18 +189,96 @@ export function sizeCoverage(games: Game[]): { sized: number; unsized: number } 
   return { sized, unsized };
 }
 
+export function getLargestGame(games: Game[]): Game | null {
+  let maxGame: Game | null = null;
+  let maxBytes = 0;
+  for (const g of games) {
+    const b = gameTotalBytes(g);
+    if (b > maxBytes) {
+      maxBytes = b;
+      maxGame = g;
+    }
+  }
+  return maxGame;
+}
+
+export function getStorageHealth(
+  games: Game[],
+  staleMap: Map<string, boolean>
+): { score: number; staleCount: number; unsizedCount: number; statusText: "optimal" | "good" | "needsAttention" } {
+  if (games.length === 0) {
+    return { score: 100, staleCount: 0, unsizedCount: 0, statusText: "optimal" };
+  }
+  let staleCount = 0;
+  let unsizedCount = 0;
+  for (const g of games) {
+    if (staleMap.get(g.id) === true) staleCount += 1;
+    if (g.sizeBytes == null || g.sizeBytes <= 0) unsizedCount += 1;
+  }
+  // Penalize unmeasured games and broken paths
+  const penalty = (unsizedCount * 10 + staleCount * 25) / games.length;
+  const score = Math.max(0, Math.min(100, Math.round(100 - penalty)));
+  const statusText = score >= 90 ? "optimal" : score >= 70 ? "good" : "needsAttention";
+  return { score, staleCount, unsizedCount, statusText };
+}
+
+// ─── Export Reports ────────────────────────────────────────────────────────
+
+export function exportStorageReportCsv(games: Game[], unit: SizeUnit): string {
+  const headers = [
+    "Game ID",
+    "Name",
+    "Platform",
+    "Size (Bytes)",
+    "Size (Formatted)",
+    "Mods (Bytes)",
+    "Mods (Formatted)",
+    "Total Footprint (Bytes)",
+    "Drive",
+    "Install Path",
+    "Mods Path",
+    "Last Detected",
+  ];
+  const rows = games.map((g) => {
+    const s = g.sizeBytes ?? 0;
+    const m = g.modsSizeBytes ?? 0;
+    const tot = s + m;
+    return [
+      `"${g.id}"`,
+      `"${(g.name || "").replace(/"/g, '""')}"`,
+      `"${(g.platform || "").replace(/"/g, '""')}"`,
+      s,
+      `"${formatSize(s, unit)}"`,
+      m,
+      `"${formatSize(m, unit)}"`,
+      tot,
+      `"${driveOf(g.sizeRootPath)}"`,
+      `"${(g.sizeRootPath || g.path || "").replace(/"/g, '""')}"`,
+      `"${(g.modsFolder || "").replace(/"/g, '""')}"`,
+      `"${g.sizeDetectedAt || ""}"`,
+    ].join(",");
+  });
+  return [headers.join(","), ...rows].join("\n");
+}
+
+export function exportStorageReportJson(games: Game[]): string {
+  const data = games.map((g) => ({
+    id: g.id,
+    name: g.name,
+    platform: g.platform ?? "Unknown",
+    sizeBytes: g.sizeBytes ?? null,
+    modsSizeBytes: g.modsSizeBytes ?? null,
+    totalBytes: gameTotalBytes(g),
+    drive: driveOf(g.sizeRootPath),
+    installPath: g.sizeRootPath || g.path || null,
+    modsFolder: g.modsFolder || null,
+    sizeDetectedAt: g.sizeDetectedAt || null,
+  }));
+  return JSON.stringify(data, null, 2);
+}
+
 // ─── Path relocation ───────────────────────────────────────────────────────
 
-/** Recompute an executable's path after its install folder has moved.
- *
- *  `oldExe` is the previous `game.path` (e.g. `D:\Games\Foo\Bin\foo.exe`),
- *  `oldRoot` is the previously-measured install folder (`sizeRootPath`,
- *  e.g. `D:\Games\Foo`), and `newRoot` is where that folder was copied to
- *  (e.g. `E:\Library\Foo`). We keep the relative structure under the new
- *  root so the launcher still finds the exe.
- *
- *  Falls back to just the file name when `oldExe` doesn't sit beneath
- *  `oldRoot` (defensive — should not happen for a correctly measured game). */
 export function relocateExe(
   oldExe: string | undefined,
   oldRoot: string,
