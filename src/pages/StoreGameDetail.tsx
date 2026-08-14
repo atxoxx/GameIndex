@@ -11,10 +11,17 @@ import { Button } from "../components/ui";
 import { Skeleton, SkeletonText } from "../components/ui/Skeleton";
 import WebLinksTab from "../components/WebLinksTab";
 import ReviewsTab from "../components/ReviewsTab";
+import AchievementsTab from "../components/AchievementsTab";
 import DownloadButton from "../components/DownloadButton";
 import CrackWatchCard from "../components/CrackWatchCard";
 import ProtonDBCard from "../components/ProtonDBCard";
 import GameRelationsCard from "../components/GameRelationsCard";
+import {
+  IconOverview,
+  IconMessageSquare,
+  IconTrophy,
+  IconGlobe,
+} from "../components/game/icons";
 import {
   GameHero,
   InfoKpiCard,
@@ -99,7 +106,14 @@ function StoreGameNotFound() {
 /*  Main Component                                                     */
 /* ------------------------------------------------------------------ */
 
-type Tab = "overview" | "reviews" | "weblinks";
+type Tab = "overview" | "reviews" | "achievements" | "weblinks";
+
+const TAB_ICONS: Record<Tab, React.ComponentType<{ size?: number; className?: string }>> = {
+  overview: IconOverview,
+  reviews: IconMessageSquare,
+  achievements: IconTrophy,
+  weblinks: IconGlobe,
+};
 
 export default function StoreGameDetail() {
   const { gameSlug } = useParams<{ gameSlug: string }>();
@@ -258,6 +272,19 @@ export default function StoreGameDetail() {
     const norm = data.title.toLowerCase().trim();
     return games.find((g) => g.name.toLowerCase().trim() === norm) ?? null;
   }, [data, games]);
+
+  // Effective game instance for tabs (merges library-specific data like
+  // personal achievements/play status when already owned with rich store metadata)
+  const effectiveGame = useMemo(() => {
+    if (!mockGame) return null;
+    if (!existingInLibrary) return mockGame;
+    return {
+      ...existingInLibrary,
+      steamAppId: existingInLibrary.steamAppId || steamAppId,
+      coverArtUrl: existingInLibrary.coverArtUrl || mockGame.coverArtUrl,
+      bannerUrl: existingInLibrary.bannerUrl || mockGame.bannerUrl,
+    };
+  }, [existingInLibrary, mockGame, steamAppId]);
 
   // Wishlist membership + a StoreGameSummary for the toggle.
   const wishlisted = gameSlug ? isWishlisted(gameSlug) : false;
@@ -435,15 +462,19 @@ export default function StoreGameDetail() {
 
       {/* ── Tabs ─────────────────────────────────────────────────── */}
       <div className="game-tabs">
-        {(["overview", "reviews", "weblinks"] as Tab[]).map((tab) => (
-          <button
-            key={tab}
-            className={`game-tab ${activeTab === tab ? "active" : ""}`}
-            onClick={() => setActiveTab(tab)}
-          >
-            {t(`game.tab.${tab}`)}
-          </button>
-        ))}
+        {(["overview", "reviews", "achievements", "weblinks"] as Tab[]).map((tab) => {
+          const Icon = TAB_ICONS[tab];
+          return (
+            <button
+              key={tab}
+              className={`game-tab ${activeTab === tab ? "active" : ""}`}
+              onClick={() => setActiveTab(tab)}
+            >
+              {Icon && <Icon size={14} className="game-tab-icon" />}
+              <span>{t(`game.tab.${tab}`)}</span>
+            </button>
+          );
+        })}
       </div>
 
       {/* ── Overview ─────────────────────────────────────────────── */}
@@ -491,6 +522,11 @@ export default function StoreGameDetail() {
       {/* ── Reviews ───────────────────────────────────────────────── */}
       {activeTab === "reviews" && (
         <ReviewsTab game={mockGame} onReviewsFetched={handleReviewsFetched} />
+      )}
+
+      {/* ── Achievements ─────────────────────────────────────────── */}
+      {activeTab === "achievements" && effectiveGame && (
+        <AchievementsTab game={effectiveGame} />
       )}
 
       {/* ── Weblinks ──────────────────────────────────────────────── */}

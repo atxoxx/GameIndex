@@ -894,7 +894,7 @@ function AchievementCard({
     >
       <div className="achievement-card-icon">
         <img
-          src={a.achieved ? a.icon : a.iconGray}
+          src={(a.achieved ? a.icon : a.iconGray) || a.icon}
           alt={a.displayName}
           loading="lazy"
           onError={(e) => {
