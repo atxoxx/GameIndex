@@ -1,6 +1,8 @@
 import { useState, useMemo, useEffect, useRef } from "react";
-import { createPortal } from "react-dom";
-import { useNavigate } from "react-router-dom";
+import { invoke } from "@tauri-apps/api/core";
+import { listen } from "@tauri-apps/api/event";
+import { SimplePool } from "nostr-tools/pool";
+import { finalizeEvent, verifyEvent } from "nostr-tools/pure";
 import { useGames } from "../context/GameContext";
 import { useAchievements } from "../context/AchievementContext";
 import { useToast } from "../context/ToastContext";
@@ -8,27 +10,19 @@ import { useWishlistContext } from "../context/WishlistContext";
 import { useLanguage } from "../context/LanguageContext";
 import { consumePendingSuggestion } from "./friendSuggestionSignal";
 import { parsePlayTime } from "../types/game";
-import type { StoreGameSummary } from "../types/game";
-import { invoke } from "@tauri-apps/api/core";
-import { listen } from "@tauri-apps/api/event";
-import QRCode from "qrcode";
-import { SimplePool } from "nostr-tools/pool";
-import { finalizeEvent, verifyEvent } from "nostr-tools/pure";
 import {
   UserProfile,
   Friend,
   GameSession,
   GameRecommendation,
   GameSuggestion,
-  SuggestionComment,
-  SuggestionReactionKind,
-  SessionRole,
-  SessionMessage,
-  displayName,
-  STATUS_PRESETS,
+  FriendCircle,
+  DmThread,
   SharedGameStat,
-  ReactionKind,
+  SessionRole,
   RsvpStatus,
+  ReactionKind,
+  SuggestionReactionKind,
   loadUserProfile,
   saveUserProfile,
   loadFriends,
@@ -39,1400 +33,101 @@ import {
   saveRecommendations,
   loadSuggestions,
   saveSuggestions,
-  mergeSuggestions,
-  encodeFriendCode,
-  decodeFriendCode,
-  getProceduralAvatarStyle,
-  getInitials,
-  mergeSessions,
-  mergeRecommendations,
-  setDeviceId,
-  getSyncFolder,
-  fetchFriendOutbox,
-  pushMyOutbox as pushMyOutboxStorage,
-  loadFriendsDbToLocalStorage,
-  FriendsDatabase,
-  mergeDatabases,
-  listPeerOutboxes,
-  getNostrKeys,
-  addUnseenCommunityItems,
-  isAppBlacklisted,
-  safeCurrentlyPlaying,
-  FriendCircle,
-  DmThread,
   loadCircles,
   saveCircles,
   loadDms,
   saveDmsAndPersist,
   dmThreadId,
+  mergeSessions,
+  mergeRecommendations,
+  mergeSuggestions,
+  mergeDatabases,
   mergeDms,
+  decodeFriendCode,
+  encodeFriendCode,
+  displayName,
+  getNostrKeys,
+  getSyncFolder,
+  fetchFriendOutbox,
+  pushMyOutbox as pushMyOutboxStorage,
+  loadFriendsDbToLocalStorage,
+  setDeviceId,
+  listPeerOutboxes,
+  addUnseenCommunityItems,
   getUnseenTabItems,
   addUnseenTabItems,
   clearUnseenTabItems,
+  FriendsDatabase,
 } from "./friendsStorage";
+
+import type {
+  FriendsTabKey,
+  FriendInvitation,
+  SyncLogEntry,
+  UnseenCounts,
+} from "../components/friends/friendsTypes";
+
+import FriendsToolbar from "../components/friends/FriendsToolbar";
+import FriendsHeroStats from "../components/friends/FriendsHeroStats";
+import FriendsListTab from "../components/friends/FriendsListTab";
+import FriendsActivityTab from "../components/friends/FriendsActivityTab";
+import FriendsDmsTab from "../components/friends/FriendsDmsTab";
+import FriendsSessionsTab from "../components/friends/FriendsSessionsTab";
+import FriendsRecsTab from "../components/friends/FriendsRecsTab";
+import FriendsSuggestionsTab from "../components/friends/FriendsSuggestionsTab";
+import FriendsCompareTab from "../components/friends/FriendsCompareTab";
+import FriendsLeaderboardTab from "../components/friends/FriendsLeaderboardTab";
+import FriendsRaceTab from "../components/friends/FriendsRaceTab";
+import FriendsProfileTab from "../components/friends/FriendsProfileTab";
+
+import AddFriendModal from "../components/friends/AddFriendModal";
+import FriendsCirclesModal from "../components/friends/FriendsCirclesModal";
+import FriendsSyncModal from "../components/friends/FriendsSyncModal";
+import EditNicknameModal from "../components/friends/EditNicknameModal";
+
 import "./friends.css";
 import "../styles/page-friends.css";
-import "../styles/friends-tabs-a.css";
-import "../styles/friends-tabs-b.css";
-import "../styles/friends-tabs-c.css";
-import "../styles/friends-tabs-d.css";
-import "../styles/friends-tabs-e.css";
-import { PageHeader, Button } from "../components/ui";
 
-// SVG Icons
-function UsersIcon() {
-  return (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" width="16" height="16">
-      <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
-      <circle cx="9" cy="7" r="4" />
-      <path d="M23 21v-2a4 4 0 0 0-3-3.87" />
-      <path d="M16 3.13a4 4 0 0 1 0 7.75" />
-    </svg>
-  );
-}
-
-// User Profile Icon
-function UserIcon() {
-  return (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" width="16" height="16">
-      <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
-      <circle cx="12" cy="7" r="4" />
-    </svg>
-  );
-}
-
-// Calendar Icon
-function CalendarIcon() {
-  return (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" width="16" height="16">
-      <rect x="3" y="4" width="18" height="18" rx="2" ry="2" />
-      <line x1="16" y1="2" x2="16" y2="6" />
-      <line x1="8" y1="2" x2="8" y2="6" />
-      <line x1="3" y1="10" x2="21" y2="10" />
-    </svg>
-  );
-}
-
-// Recommend Icon
-function RecommendIcon() {
-  return (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" width="16" height="16">
-      <path d="M14 9V5a3 3 0 0 0-3-3l-4 9v11h11.28a2 2 0 0 0 2-1.7l1.38-9a2 2 0 0 0-2-2.3zM7 22H4a2 2 0 0 1-2-2v-7a2 2 0 0 1 2-2h3" />
-    </svg>
-  );
-}
-
-// Suggestion (share from wishlist) Icon
-function SuggestionIcon() {
-  return (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" width="16" height="16">
-      <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
-      <line x1="12" y1="8" x2="12" y2="12" />
-      <circle cx="12" cy="14.5" r="0.6" fill="currentColor" />
-    </svg>
-  );
-}
-
-// Compare Icon
-function CompareIcon() {
-  return (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" width="16" height="16">
-      <line x1="18" y1="20" x2="18" y2="10" />
-      <line x1="12" y1="20" x2="12" y2="4" />
-      <line x1="6" y1="20" x2="6" y2="14" />
-    </svg>
-  );
-}
-
-// Leaderboard / Trophy Icon
-function LeaderboardIcon() {
-  return (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" width="16" height="16">
-      <path d="M6 9H4.5a2.5 2.5 0 0 1 0-5H6" />
-      <path d="M18 9h1.5a2.5 2.5 0 0 0 0-5H18" />
-      <path d="M4 22h16" />
-      <path d="M10 14.66V17c0 .55-.47.98-.97 1.21C7.85 18.75 7 20.24 7 22" />
-      <path d="M14 14.66V17c0 .55.47.98.97 1.21C16.15 18.75 17 20.24 17 22" />
-      <path d="M18 2H6v7a6 6 0 0 0 12 0V2Z" />
-    </svg>
-  );
-}
-
-// Trash Icon
-function TrashIcon() {
-  return (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" width="14" height="14">
-      <polyline points="3 6 5 6 21 6" />
-      <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
-      <line x1="10" y1="11" x2="10" y2="17" />
-      <line x1="14" y1="11" x2="14" y2="17" />
-    </svg>
-  );
-}
-
-// Refresh Sync Icon
-function RefreshIcon({ className = "" }: { className?: string }) {
-  return (
-    <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" width="14" height="14">
-      <path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38l5.67-5.67" />
-    </svg>
-  );
-}
-
-// P2P Sync Icon
-function P2pSyncIcon() {
-  return (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" width="14" height="14">
-      <path d="M16 3h5v5" />
-      <path d="M8 21H3v-5" />
-      <path d="M12 22v-3a3 3 0 0 0-3-3H6" />
-      <path d="M12 2v3a3 3 0 0 0 3 3h3" />
-      <circle cx="12" cy="12" r="3" />
-    </svg>
-  );
-}
-
-// Vertical ellipsis icon for the friend card action menu trigger
-function ThreeDotsIcon() {
-  return (
-    <svg viewBox="0 0 24 24" fill="currentColor" width="16" height="16">
-      <circle cx="12" cy="5" r="1.8" />
-      <circle cx="12" cy="12" r="1.8" />
-      <circle cx="12" cy="19" r="1.8" />
-    </svg>
-  );
-}
-
-// Message / chat bubble icon
-function MessageIcon() {
-  return (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" width="15" height="15">
-      <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
-    </svg>
-  );
-}
-
-// Map pin icon
-function PinIcon() {
-  return (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" width="15" height="15">
-      <path d="M12 17v5" />
-      <path d="M9 3h6v3l-1.5 2v4l2 2H8.5l2-2V6L9 3Z" />
-    </svg>
-  );
-}
-
-// Pencil icon (set nickname)
-function PencilIcon() {
-  return (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" width="15" height="15">
-      <path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z" />
-    </svg>
-  );
-}
-
-// Block / ignore icon
-function BlockIcon() {
-  return (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" width="15" height="15">
-      <circle cx="12" cy="12" r="10" />
-      <line x1="4.93" y1="4.93" x2="19.07" y2="19.07" />
-    </svg>
-  );
-}
-
-// Star icon (favorite game, want-to-play)
-function StarIcon() {
-  return (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" width="14" height="14">
-      <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" />
-    </svg>
-  );
-}
-
-// Trophy icon (achievements, leaderboard)
-function TrophyIcon() {
-  return (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" width="14" height="14">
-      <path d="M6 9H4.5a2.5 2.5 0 0 1 0-5H6" />
-      <path d="M18 9h1.5a2.5 2.5 0 0 0 0-5H18" />
-      <path d="M4 22h16" />
-      <path d="M10 14.66V17c0 .55-.47.98-.97 1.21C7.85 18.75 7 20.24 7 22" />
-      <path d="M14 14.66V17c0 .55.47.98.97 1.21C16.15 18.75 17 20.24 17 22" />
-      <path d="M18 2H6v7a6 6 0 0 0 12 0V2Z" />
-    </svg>
-  );
-}
-
-// Gamepad icon (now playing, shared games, "play" reactions)
-function GamepadIcon() {
-  return (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" width="14" height="14">
-      <line x1="6" y1="12" x2="10" y2="12" />
-      <line x1="8" y1="10" x2="8" y2="14" />
-      <line x1="15" y1="13" x2="15.01" y2="13" />
-      <line x1="18" y1="11" x2="18.01" y2="11" />
-      <rect x="2" y="6" width="20" height="12" rx="2" />
-    </svg>
-  );
-}
-
-// Map pin icon (region)
-function MapPinIcon() {
-  return (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" width="14" height="14">
-      <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0Z" />
-      <circle cx="12" cy="10" r="3" />
-    </svg>
-  );
-}
-
-// Clock icon (countdown, last seen)
-function ClockIcon() {
-  return (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" width="14" height="14">
-      <circle cx="12" cy="12" r="10" />
-      <polyline points="12 6 12 12 16 14" />
-    </svg>
-  );
-}
-
-// Thumbs up icon (like reaction)
-function ThumbsUpIcon() {
-  return (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" width="14" height="14">
-      <path d="M7 10v12" />
-      <path d="M15 5.88 14 10h5.83a2 2 0 0 1 1.92 2.56l-2.33 8A2 2 0 0 1 17.5 22H4a2 2 0 0 1-2-2v-8a2 2 0 0 1 2-2h2.76a2 2 0 0 0 1.79-1.11L12 2a3.13 3.13 0 0 1 3 3.88Z" />
-    </svg>
-  );
-}
-
-// Heart icon (love reaction)
-function HeartIcon() {
-  return (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" width="14" height="14">
-      <path d="M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.3 1.5 4.05 3 5.5l7 7Z" />
-    </svg>
-  );
-}
-
-// Fire icon (interest reaction)
-function FireIcon() {
-  return (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" width="14" height="14">
-      <path d="M8.5 14.5A2.5 2.5 0 0 0 11 12c0-1.38-.5-2-1-3-1.072-2.143-.224-4.054 2-6 .5 2.5 2 4.9 4 6.5 2 1.6 3 3.5 3 5.5a7 7 0 1 1-14 0c0-1.153.433-2.294 1-3a2.5 2.5 0 0 0 2.5 2.5z" />
-    </svg>
-  );
-}
-
-// Check icon (played reaction, accept, done)
-function CheckIcon() {
-  return (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" width="14" height="14">
-      <polyline points="20 6 9 17 4 12" />
-    </svg>
-  );
-}
-
-// X icon (deny, dismiss)
-function XIcon() {
-  return (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" width="14" height="14">
-      <line x1="18" y1="6" x2="6" y2="18" />
-      <line x1="6" y1="6" x2="18" y2="18" />
-    </svg>
-  );
-}
-
-// Tag icon (genres)
-function TagIcon() {
-  return (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" width="14" height="14">
-      <path d="M12 2H2v10l9.29 9.29a1 1 0 0 0 1.42 0l8.58-8.58a1 1 0 0 0 0-1.42Z" />
-      <line x1="7" y1="7" x2="7.01" y2="7" />
-    </svg>
-  );
-}
-
-// Lightbulb icon (insights)
-function LightbulbIcon() {
-  return (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" width="14" height="14">
-      <path d="M15 14c.2-1 .7-1.7 1.5-2.5 1-.9 1.5-2.2 1.5-3.5A6 6 0 0 0 6 8c0 1 .2 2.2 1.5 3.5.7.7 1.3 1.5 1.5 2.5" />
-      <path d="M9 18h6" />
-      <path d="M10 22h4" />
-    </svg>
-  );
-}
-
-// Bar chart icon (compare overview)
-function BarChartIcon() {
-  return (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" width="14" height="14">
-      <line x1="18" y1="20" x2="18" y2="10" />
-      <line x1="12" y1="20" x2="12" y2="4" />
-      <line x1="6" y1="20" x2="6" y2="14" />
-    </svg>
-  );
-}
-
-// Handshake icon (best together highlight)
-function HandshakeIcon() {
-  return (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" width="15" height="15">
-      <path d="m11 17 2 2a1 1 0 1 0 3-3" />
-      <path d="m14 14 2.5 2.5a1 1 0 1 0 3-3l-3.88-3.88a3 3 0 0 0-4.24 0l-.88.88a1 1 0 1 1-3-3l2.81-2.81a5.79 5.79 0 0 1 7.06-.87l.47.28a2 2 0 0 0 1.42.25L21 4" />
-      <path d="m21 3 1 11h-2" />
-      <path d="M3 3 2 14l6.5 6.5a1 1 0 1 0 3-3" />
-      <path d="M3 4h8" />
-    </svg>
-  );
-}
-
-// Copy icon (copy public key)
-function CopyIcon() {
-  return (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" width="14" height="14">
-      <rect x="9" y="9" width="13" height="13" rx="2" ry="2" />
-      <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
-    </svg>
-  );
-}
-
-// Send icon (post comment)
-function SendIcon() {
-  return (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" width="13" height="13">
-      <line x1="22" y1="2" x2="11" y2="13" />
-      <polygon points="22 2 15 22 11 13 2 9 22 2" />
-    </svg>
-  );
-}
-
-// Plus icon (add)
-function PlusIcon() {
-  return (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" width="14" height="14">
-      <line x1="12" y1="5" x2="12" y2="19" />
-      <line x1="5" y1="12" x2="19" y2="12" />
-    </svg>
-  );
-}
-
-// Activity / pulse icon (feed tab)
-function ActivityIcon() {
-  return (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" width="15" height="15">
-      <polyline points="22 12 18 12 15 21 9 3 6 12 2 12" />
-    </svg>
-  );
-}
-
-// Sticky-note icon (roster "what I'm bringing" notes)
-function NoteIcon() {
-  return (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" width="12" height="12">
-      <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8Z" />
-      <path d="M14 2v6h6" />
-    </svg>
-  );
-}
-
-// Render the friend code as a scannable QR image (data URL).
-function FriendCodeQR({ code }: { code: string }) {
-  const { t } = useLanguage();
-  const [dataUrl, setDataUrl] = useState<string | null>(null);
-
-  useEffect(() => {
-    let cancelled = false;
-    if (!code) {
-      setDataUrl(null);
-      return;
-    }
-    QRCode.toDataURL(code, { margin: 1, width: 160, color: { dark: "#000000", light: "#ffffff" } })
-      .then((url) => {
-        if (!cancelled) setDataUrl(url);
-      })
-      .catch(() => {
-        if (!cancelled) setDataUrl(null);
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [code]);
-
-  if (!dataUrl) return null;
-  return <img src={dataUrl} alt={t("friends.friendQrCode")} className="friend-qr-img" width={160} height={160} />;
-}
-
-// ── Friend Card Action Menu ─────────────────────────────────────────
-// Modern replacement for the legacy button row on friend cards: a single
-// vertical-ellipsis trigger that opens a compact portaled dropdown with
-// every friend action. Portaling escapes the card's `overflow: hidden`
-// clip so the menu is never cut off.
-
-function FriendCardMenu({
-  friend,
-  onCompare,
-  onInvite,
-  onMessage,
-  onTogglePin,
-  onSetNickname,
-  onToggleBlock,
-  onDelete,
-}: {
-  friend: Friend;
-  onCompare: () => void;
-  onInvite: () => void;
-  onMessage: () => void;
-  onTogglePin: () => void;
-  onSetNickname: () => void;
-  onToggleBlock: () => void;
-  onDelete: () => void;
-}) {
-  const { t } = useLanguage();
-  const [open, setOpen] = useState(false);
-  const [pos, setPos] = useState<{ top: number; left: number } | null>(null);
-  const triggerRef = useRef<HTMLButtonElement>(null);
-  const menuRef = useRef<HTMLDivElement>(null);
-
-  const MENU_WIDTH = 208;
-
-  function openMenu() {
-    const btn = triggerRef.current;
-    if (!btn) return;
-    const rect = btn.getBoundingClientRect();
-    const left = Math.min(Math.max(8, rect.right - MENU_WIDTH), window.innerWidth - MENU_WIDTH - 8);
-    setPos({ top: rect.bottom + 6, left });
-    setOpen(true);
-  }
-
-  // Close on outside click / Escape.
-  useEffect(() => {
-    if (!open) return;
-    function handlePointerDown(event: MouseEvent) {
-      const target = event.target as Node;
-      if (menuRef.current && menuRef.current.contains(target)) return;
-      if (triggerRef.current && triggerRef.current.contains(target)) return;
-      setOpen(false);
-    }
-    function handleKeyDown(event: KeyboardEvent) {
-      if (event.key === "Escape") setOpen(false);
-    }
-    document.addEventListener("mousedown", handlePointerDown);
-    window.addEventListener("keydown", handleKeyDown);
-    return () => {
-      document.removeEventListener("mousedown", handlePointerDown);
-      window.removeEventListener("keydown", handleKeyDown);
-    };
-  }, [open]);
-
-  const name = displayName(friend);
-
-  const items: {
-    icon: React.ReactNode;
-    label: string;
-    title: string;
-    onClick: () => void;
-    danger?: boolean;
-    active?: boolean;
-  }[] = [
-    {
-      icon: <CompareIcon />,
-      label: t("friends.compare"),
-      title: t("friendsPage.compareLibrariesWith", { name }),
-      onClick: onCompare,
-    },
-    {
-      icon: <UsersIcon />,
-      label: t("friends.invite"),
-      title: t("friendsPage.inviteToSessionTitle", { name }),
-      onClick: onInvite,
-    },
-    {
-      icon: <MessageIcon />,
-      label: t("friends.message"),
-      title: t("friendsPage.messageFriendTitle", { name }),
-      onClick: onMessage,
-    },
-    {
-      icon: <PinIcon />,
-      label: friend.pinned ? t("friends.unpin") : t("friendsPage.pinToTop"),
-      title: friend.pinned ? t("friends.unpin") : t("friendsPage.pinToTop"),
-      active: friend.pinned,
-      onClick: onTogglePin,
-    },
-    {
-      icon: <PencilIcon />,
-      label: t("friendsPage.setNickname"),
-      title: t("friendsPage.setNickname"),
-      onClick: onSetNickname,
-    },
-    {
-      icon: <BlockIcon />,
-      label: friend.blocked ? t("friendsPage.unblock") : t("friendsPage.blockIgnore"),
-      title: friend.blocked ? t("friendsPage.unblock") : t("friendsPage.blockIgnore"),
-      active: friend.blocked,
-      onClick: onToggleBlock,
-    },
-    {
-      icon: <TrashIcon />,
-      label: t("friendsPage.removeFriendTitle", { name }),
-      title: t("friendsPage.removeFriendTitle", { name }),
-      danger: true,
-      onClick: onDelete,
-    },
-  ];
-
-  return (
-    <>
-      <button
-        type="button"
-        ref={triggerRef}
-        className={`friend-menu-trigger${open ? " open" : ""}`}
-        title={t("friendsPage.actions")}
-        aria-label={t("friendsPage.actions")}
-        aria-haspopup="menu"
-        aria-expanded={open}
-        onClick={(e) => {
-          e.stopPropagation();
-          if (open) setOpen(false);
-          else openMenu();
-        }}
-      >
-        <ThreeDotsIcon />
-      </button>
-      {open && pos &&
-        createPortal(
-          <div
-            className="friend-menu"
-            role="menu"
-            ref={menuRef}
-            style={{ position: "fixed", top: pos.top, left: pos.left, width: MENU_WIDTH, zIndex: 1200 }}
-            onMouseDown={(e) => e.stopPropagation()}
-          >
-            {items.map((item, i) => (
-              <button
-                key={i}
-                type="button"
-                role="menuitem"
-                className={`friend-menu-item${item.danger ? " danger" : ""}${item.active ? " active" : ""}`}
-                title={item.title}
-                onClick={() => {
-                  setOpen(false);
-                  item.onClick();
-                }}
-              >
-                {item.icon}
-                <span>{item.label}</span>
-              </button>
-            ))}
-          </div>,
-          document.body
-        )}
-    </>
-  );
-}
-
-// ── Session Card Component ──────────────────────────────────────────
-// Renders a single session with RSVP controls, attendee roles, timezone
-// aware time, countdown, +1 guests, conflict warning and a chat thread.
-
-const SESSION_ROLE_ORDER: SessionRole[] = ["host", "cohost", "player"];
-
-function SessionCard({
-  session,
-  profile,
-  friends,
-  viewerTimezone,
-  conflicting,
-  onRsvp,
-  onDelete,
-  onSetRole,
-  onAddGuest,
-  onRemoveGuest,
-  onSetRsvpNote,
-  onSendMessage,
-  onTogglePinMessage,
-  gameCover,
-}: {
-  session: GameSession;
-  profile: UserProfile;
-  friends: Friend[];
-  viewerTimezone?: string;
-  conflicting?: GameSession;
-  gameCover?: string;
-  onRsvp: (sessionId: string, status: RsvpStatus) => void;
-  onDelete: (sessionId: string) => void;
-  onSetRole: (sessionId: string, name: string, role: SessionRole) => void;
-  onAddGuest: (sessionId: string, guestName: string) => void;
-  onRemoveGuest: (sessionId: string, guestName: string) => void;
-  onSetRsvpNote: (sessionId: string, note: string) => void;
-  onSendMessage: (sessionId: string, text: string) => void;
-  onTogglePinMessage: (sessionId: string, messageId: string) => void;
-}) {
-  const { t } = useLanguage();
-  const [now, setNow] = useState(Date.now());
-  const [chatOpen, setChatOpen] = useState(false);
-  const [chatDraft, setChatDraft] = useState("");
-  const [guestDraft, setGuestDraft] = useState("");
-  const [noteDraft, setNoteDraft] = useState(session.rsvps?.[profile.name] ? session.participants?.find((p) => p.name === profile.name)?.note || "" : "");
-  const chatEndRef = useRef<HTMLDivElement>(null);
-
-  // Tick the countdown every 30s.
-  useEffect(() => {
-    const t = setInterval(() => setNow(Date.now()), 30_000);
-    return () => clearInterval(t);
-  }, []);
-
-  useEffect(() => {
-    if (chatOpen && chatEndRef.current) {
-      chatEndRef.current.scrollIntoView({ behavior: "smooth" });
-    }
-  }, [chatOpen, session.messages?.length]);
-
-  const isCreator = session.creatorName === profile.name;
-  const myRsvp = session.rsvps?.[profile.name];
-  const canManage = isCreator || session.participants?.some((p) => p.name === profile.name && (p.role === "host" || p.role === "cohost"));
-
-  const going = Object.entries(session.rsvps || {}).filter(([, v]) => v === "going").map(([n]) => n);
-  const maybe = Object.entries(session.rsvps || {}).filter(([, v]) => v === "maybe").map(([n]) => n);
-  const declined = Object.entries(session.rsvps || {}).filter(([, v]) => v === "declined").map(([n]) => n);
-  const attendeeNames = going.length > 0 ? going : session.attendees;
-
-  // Build a sorted participant list (host first) for the roster.
-  const roster = [...(session.participants || [])].sort(
-    (a, b) => SESSION_ROLE_ORDER.indexOf(a.role) - SESSION_ROLE_ORDER.indexOf(b.role)
-  );
-
-  const messages = session.messages || [];
-  const pinned = messages.filter((m) => m.pinned);
-  const thread = messages.filter((m) => !m.pinned);
-
-  const showTimeForViewer = viewerTimezone && session.creatorTimezone && viewerTimezone !== session.creatorTimezone;
-
-  const submitNote = () => {
-    onSetRsvpNote(session.id, noteDraft.trim());
-  };
-
-  const submitGuest = () => {
-    const name = guestDraft.trim();
-    if (!name) return;
-    onAddGuest(session.id, name);
-    setGuestDraft("");
-  };
-
-  const submitChat = () => {
-    const text = chatDraft.trim();
-    if (!text) return;
-    onSendMessage(session.id, text);
-    setChatDraft("");
-  };
-
-  return (
-    <div key={session.id} className={`session-card${conflicting ? " session-conflict" : ""}`}>
-      <div className="session-header">
-        <div className="session-header-main">
-          {gameCover && (
-            <img src={gameCover} alt={session.gameName} className="session-cover" loading="lazy" onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = "none"; }} />
-          )}
-          <div>
-          <div className="session-game-title">
-            {session.gameName}
-            {session.durationMin ? <span className="session-duration"> · {session.durationMin}m</span> : null}
-          </div>
-          <div className="session-date">
-            {formatDateTime(session.scheduledAt, session.creatorTimezone)}
-            {tzAbbrev(session.scheduledAt, session.creatorTimezone)}
-            {showTimeForViewer && (
-              <span className="session-date-local"> · {t("friendsPage.yourTime")} {formatDateTime(session.scheduledAt, viewerTimezone)}{tzAbbrev(session.scheduledAt, viewerTimezone)}</span>
-            )}
-          </div>
-          {session.creatorTimezone && (
-            <div className="session-tz-note">{t("friendsPage.scheduledIn", { tz: session.creatorTimezone.replace(/_/g, " ") })}</div>
-          )}
-          </div>
-        </div>
-        <div className="session-card-actions">
-          <span className={`session-countdown${new Date(session.scheduledAt).getTime() - now <= 0 ? " live" : ""}`} title={t("friendsPage.timeUntilStart")}>
-            <ClockIcon />
-            {countdownLabel(session.scheduledAt, t)}
-          </span>
-          {isCreator && (
-            <button
-              type="button"
-              className="friend-delete-btn friend-delete-btn--inline"
-              onClick={() => onDelete(session.id)}
-              title={t("friends.removeSession")}
-            >
-              <TrashIcon />
-            </button>
-          )}
-        </div>
-      </div>
-
-      <div className="session-body">
-        {session.description && <p className="session-desc">{session.description}</p>}
-
-        {conflicting && (
-          <div className="session-conflict-banner">
-            {t("friendsPage.overlapsWarning", { game: conflicting.gameName, time: formatDateTime(conflicting.scheduledAt, conflicting.creatorTimezone) })}
-          </div>
-        )}
-      </div>
-
-      {/* Roster with roles + guest tags */}
-      <div className="session-roster">
-        {roster.length > 0 ? (
-          roster.map((p) => {
-            const friend = friends.find((f) => f.name === p.name);
-            const online = friend ? isOnline(friend) : false;
-            return (
-              <div key={p.name} className={`roster-row${p.name === profile.name ? " self" : ""}`}>
-                <span className={`roster-dot${online ? " online" : ""}`} title={online ? t("friendsPage.onlineNow") : t("friendsPage.offline")} />
-                <span className="roster-name">{p.name}{p.guest ? t("friendsPage.guestSuffix") : ""}</span>
-                <span className={`roster-role role-${p.role}`}>{t(`friends.${p.role}`)}</span>
-                {p.note && <span className="roster-note" title={p.note}><NoteIcon />{p.note}</span>}
-                {(canManage && p.name !== profile.name) && (
-                  <select
-                    className="roster-role-select"
-                    value={p.role}
-                    onChange={(e) => onSetRole(session.id, p.name, e.target.value as SessionRole)}
-                    title={t("friends.changeRole")}
-                  >
-                    <option value="player">{t("friends.player")}</option>
-                    <option value="cohost">{t("friends.cohost")}</option>
-                    <option value="host">{t("friends.host")}</option>
-                  </select>
-                )}
-                {p.guest && canManage && (
-                  <button type="button" className="roster-remove" onClick={() => onRemoveGuest(session.id, p.name)} title={t("friends.removeGuest")}><XIcon /></button>
-                )}
-              </div>
-            );
-          })
-        ) : (
-          <div className="session-attendees">
-            {attendeeNames.map((name, i) => (
-              <span key={i} className={`attendee-badge${name === profile.name ? " self" : ""}`}>{name}</span>
-            ))}
-            {maybe.map((name, i) => (
-              <span key={`maybe-${i}`} className="attendee-badge maybe" title={t("friendsPage.maybe")}>{name}?</span>
-            ))}
-            {declined.map((name, i) => (
-              <span key={`dec-${i}`} className="attendee-badge declined" title={t("friends.declined")}>{name}✕</span>
-            ))}
-          </div>
-        )}
-      </div>
-
-      {/* +1 guest invite (open to anyone going) */}
-      {myRsvp === "going" && (
-        <div className="session-guest-row">
-          <input
-            className="profile-input session-guest-input"
-            placeholder={t("friends.bringGuest")}
-            value={guestDraft}
-            onChange={(e) => setGuestDraft(e.target.value)}
-            onKeyDown={(e) => e.key === "Enter" && submitGuest()}
-          />
-          <button type="button" className="btn btn-secondary btn--mini" onClick={submitGuest}>+1</button>
-        </div>
-      )}
-
-      <div className="session-footer">
-        <span className="session-players-count">
-          <UsersIcon /> {t("friendsPage.goingCount", { going: going.length, max: session.maxPlayers })}
-        </span>
-        <span className="session-creator">{t("friendsPage.by")}{isCreator ? t("friendsPage.me") : session.creatorName}</span>
-      </div>
-
-      {/* RSVP note editor */}
-      {myRsvp && (
-        <div className="session-note-row">
-          <input
-            className="profile-input session-note-input"
-            placeholder={t("friends.whatBringing")}
-            value={noteDraft}
-            onChange={(e) => setNoteDraft(e.target.value)}
-            onBlur={submitNote}
-          />
-          <button type="button" className="btn btn-secondary btn--mini" onClick={submitNote}>{t("common.save")}</button>
-        </div>
-      )}
-
-      <div className="rsvp-row">
-        {(["going", "maybe", "declined"] as RsvpStatus[]).map((status) => (
-          <button
-            key={status}
-            type="button"
-            className={`rsvp-btn rsvp-${status}${myRsvp === status ? " active" : ""}`}
-            onClick={() => onRsvp(session.id, status)}
-          >
-            {status === "going" ? t("friends.going") : status === "maybe" ? t("friends.maybe") : t("friends.cant")}
-          </button>
-        ))}
-        <button type="button" className={`session-chat-toggle${chatOpen ? " active" : ""}`} onClick={() => setChatOpen((v) => !v)} title={t("friends.sessionChat")}>
-          <MessageIcon />
-          {messages.length > 0 && <span className="session-chat-count">{messages.length}</span>}
-        </button>
-      </div>
-
-      {chatOpen && (
-        <div className="session-chat">
-          {pinned.length > 0 && (
-            <div className="session-chat-pinned">
-              {pinned.map((m) => (
-                <div key={m.id} className="chat-msg pinned">
-                  <span className="chat-author">{m.author}</span>
-                  <span className="chat-text">{m.text}</span>
-                  {canManage && (
-                    <button type="button" className="chat-pin-btn" onClick={() => onTogglePinMessage(session.id, m.id)} title={t("friends.unpin")}><PinIcon /></button>
-                  )}
-                </div>
-              ))}
-            </div>
-          )}
-          <div className="session-chat-thread">
-            {thread.length === 0 && pinned.length === 0 && <div className="chat-empty">{t("friendsPage.noMessages")}</div>}
-            {thread.map((m) => (
-              <div key={m.id} className={`chat-msg${m.author === profile.name ? " mine" : ""}`}>
-                <span className="chat-author">{m.author}</span>
-                <span className="chat-text">{m.text}</span>
-                {canManage && (
-                  <button type="button" className="chat-pin-btn" onClick={() => onTogglePinMessage(session.id, m.id)} title={t("friends.pin")}><PinIcon /></button>
-                )}
-              </div>
-            ))}
-            <div ref={chatEndRef} />
-          </div>
-          <div className="session-chat-input">
-            <input
-              className="profile-input"
-              placeholder={t("friends.messageGroup")}
-              value={chatDraft}
-              onChange={(e) => setChatDraft(e.target.value)}
-              onKeyDown={(e) => e.key === "Enter" && submitChat()}
-            />
-            <button type="button" className="btn btn-primary btn--mini" onClick={submitChat}>{t("common.send")}</button>
-          </div>
-        </div>
-      )}
-    </div>
-  );
-}
-
-// Format minutes to hours beautifully
-function formatHours(totalMinutes: number, t: (key: string, vars?: Record<string, unknown>) => string): string {
-  if (!totalMinutes || totalMinutes <= 0) return t("friendsPage.hoursZero");
-  const h = Math.floor(totalMinutes / 60);
-  if (h >= 1000) return t("friendsPage.hoursK", { h: (h / 1000).toFixed(1) });
-  return t("friendsPage.hoursH", { h });
-}
-
-// Convert date string to user-friendly local date-time string.
-// When `tz` (IANA timezone) is supplied the time is rendered in that zone.
-function formatDateTime(dateTimeStr: string, tz?: string): string {
-  try {
-    const d = new Date(dateTimeStr);
-    const opts: Intl.DateTimeFormatOptions = {
-      month: "short",
-      day: "numeric",
-      hour: "2-digit",
-      minute: "2-digit",
-    };
-    if (tz) {
-      try {
-        opts.timeZone = tz;
-      } catch {
-        /* invalid tz — fall back to local */
-      }
-    }
-    return d.toLocaleString(undefined, opts);
-  } catch {
-    return dateTimeStr;
-  }
-}
-
-/** Short timezone label like "PDT" for a given IANA zone, or "" if unknown. */
-function tzAbbrev(dateTimeStr: string, tz?: string): string {
-  if (!tz) return "";
-  try {
-    const d = new Date(dateTimeStr);
-    const parts = new Intl.DateTimeFormat("en-US", {
-      timeZone: tz,
-      timeZoneName: "short",
-    }).formatToParts(d);
-    const name = parts.find((p) => p.type === "timeZoneName")?.value;
-    return name ? ` (${name})` : "";
-  } catch {
-    return "";
-  }
-}
-
-/** Two sessions conflict when their time windows overlap. */
-function sessionsConflict(
-  a: { id?: string; scheduledAt: string; durationMin?: number },
-  b: { id?: string; scheduledAt: string; durationMin?: number }
-): boolean {
-  if (a.id && b.id && a.id === b.id) return false;
-  const startA = new Date(a.scheduledAt).getTime();
-  const startB = new Date(b.scheduledAt).getTime();
-  if (Number.isNaN(startA) || Number.isNaN(startB)) return false;
-  const endA = startA + (a.durationMin || 120) * 60_000;
-  const endB = startB + (b.durationMin || 120) * 60_000;
-  return startA < endB && startB < endA;
-}
-
-/** Detect the viewer's IANA timezone. */
-function detectTimezone(): string {
-  try {
-    return Intl.DateTimeFormat().resolvedOptions().timeZone || "";
-  } catch {
-    return "";
-  }
-}
-
-/** Compact "in 3h 12m" / "2d 4h" countdown label from now to the target time. */
-function countdownLabel(targetIso: string, t: (key: string, vars?: Record<string, unknown>) => string): string {
-  const diff = new Date(targetIso).getTime() - Date.now();
-  if (Number.isNaN(diff)) return "";
-  if (diff <= 0) return t("friendsPage.nowLive");
-  const mins = Math.floor(diff / 60_000);
-  if (mins < 60) return t("friendsPage.countdownMin", { m: mins });
-  const hours = Math.floor(mins / 60);
-  const remMin = mins % 60;
-  if (hours < 24) {
-    return remMin > 0
-      ? t("friendsPage.countdownHourMin", { h: hours, m: remMin })
-      : t("friendsPage.countdownHour", { h: hours });
-  }
-  const days = Math.floor(hours / 24);
-  const remH = hours % 24;
-  return remH > 0
-    ? t("friendsPage.countdownDayHour", { d: days, h: remH })
-    : t("friendsPage.countdownDay", { d: days });
-}
-
-// Human-friendly "last seen" relative string from epoch seconds
-function formatLastSeen(epochSecs: number | undefined, t: (key: string, vars?: Record<string, unknown>) => string): string {
-  if (!epochSecs) return t("friendsPage.formatNever");
-  const diffSecs = Math.floor(Date.now() / 1000) - epochSecs;
-  if (diffSecs < 60) return t("friendsPage.formatJustNow");
-  const mins = Math.floor(diffSecs / 60);
-  if (mins < 60) return t("friendsPage.minutesAgo", { m: mins });
-  const hours = Math.floor(mins / 60);
-  if (hours < 24) return t("friendsPage.hoursAgo", { h: hours });
-  const days = Math.floor(hours / 24);
-  if (days < 30) return t("friendsPage.daysAgo", { d: days });
-  const months = Math.floor(days / 30);
-  if (months < 12) return t("friendsPage.monthsAgo", { m: months });
-  return t("friendsPage.yearsAgo", { y: Math.floor(months / 12) });
-}
-
-// "Friends for X" relative string from addedAt epoch ms
-function formatFriendsSince(addedAt: number | undefined, t: (key: string, vars?: Record<string, unknown>) => string): string {
-  if (!addedAt) return "";
-  const days = Math.floor((Date.now() - addedAt) / 86_400_000);
-  if (days < 1) return t("friendsPage.formatFriendsSinceToday");
-  if (days < 30) {
-    return t(days === 1 ? "friendsPage.friendsForDay" : "friendsPage.friendsForDays", { count: days });
-  }
-  const months = Math.floor(days / 30);
-  if (months < 12) {
-    return t(months === 1 ? "friendsPage.friendsForMonth" : "friendsPage.friendsForMonths", { count: months });
-  }
-  const years = Math.floor(months / 12);
-  return t(years > 1 || months >= 24 ? "friendsPage.friendsForYears" : "friendsPage.friendsForYear", { count: years });
-}
-
-// True online status derived from live `currentlyPlaying` or status text
-function isOnline(friend: Friend): boolean {
-  return (
-    !!safeCurrentlyPlaying(friend.currentlyPlaying) ||
-    (friend.status || "").toLowerCase().includes("online") ||
-    (friend.status || "").toLowerCase().includes("playing")
-  );
-}
-
-// Rich presence label for display (online / in-game / last seen).
-function presenceLabel(friend: Friend, t: (key: string, vars?: Record<string, unknown>) => string): string {
-  const playing = safeCurrentlyPlaying(friend.currentlyPlaying);
-  if (playing) return t("friendsPage.playingGame", { game: playing });
-  if (isOnline(friend)) return t("friendsPage.formatOnline");
-  return "";
-}
-
-// Number of games the friend and the viewer both own (from shared stats).
-function sharedGamesCount(friend: Friend, myGameIds: Set<string>): number {
-  if (!friend.games || friend.games.length === 0) return 0;
-  let count = 0;
-  for (const g of friend.games) {
-    if (isAppBlacklisted(g.name, g.id)) continue;
-    if (myGameIds.has(g.id)) count++;
-  }
-  return count;
-}
-
-// ── Searchable Autocomplete Selector Component ──────────────────────
-
-function SearchableGameSelector({
-  games,
-  selectedGameId,
-  onSelect,
-  placeholder,
-}: {
-  games: any[];
-  selectedGameId: string;
-  onSelect: (gameId: string) => void;
-  placeholder?: string;
-}) {
-  const { t } = useLanguage();
-  const [searchQuery, setSearchQuery] = useState("");
-  const [isOpen, setIsOpen] = useState(false);
-  const containerRef = useRef<HTMLDivElement>(null);
-
-  // Click outside to close dropdown
-  useEffect(() => {
-    function handleClickOutside(event: MouseEvent) {
-      if (containerRef.current && !containerRef.current.contains(event.target as Node)) {
-        setIsOpen(false);
-      }
-    }
-    document.addEventListener("mousedown", handleClickOutside);
-    return () => document.removeEventListener("mousedown", handleClickOutside);
-  }, []);
-
-  const filteredGames = useMemo(() => {
-    const query = searchQuery.trim().toLowerCase();
-    if (!query) return games.slice(0, 10);
-    return games.filter((g) => g.name.toLowerCase().includes(query));
-  }, [games, searchQuery]);
-
-  const selectedGame = useMemo(() => games.find((g) => g.id === selectedGameId), [games, selectedGameId]);
-
-  if (selectedGame) {
-    return (
-      <div className="selected-game-display-card searchable-game-selector__selected">
-        <div className="selected-game-details">
-          <div className="selected-game-thumb">
-            {selectedGame.name.slice(0, 2).toUpperCase()}
-          </div>
-          <span className="selected-game-title">{selectedGame.name}</span>
-        </div>
-        <button
-          type="button"
-          className="btn btn-secondary btn--mini"
-          onClick={() => onSelect("")}
-        >
-          {t("common.change")}
-        </button>
-      </div>
-    );
-  }
-
-  return (
-    <div className="searchable-game-selector" ref={containerRef}>
-      <div className="game-search-input-wrapper">
-        <input
-          type="text"
-          className="game-search-input"
-          placeholder={placeholder ?? t("friends.typeGameName")}
-          value={searchQuery}
-          onChange={(e) => {
-            setSearchQuery(e.target.value);
-            setIsOpen(true);
-          }}
-          onFocus={() => setIsOpen(true)}
-        />
-        {searchQuery && (
-          <button
-            type="button"
-            className="game-search-clear-btn"
-            onClick={() => setSearchQuery("")}
-            title={t("friends.clearText")}
-          >
-            ×
-          </button>
-        )}
-      </div>
-
-      {isOpen && (
-        <div className="game-search-results">
-          {filteredGames.length === 0 ? (
-            <div className="game-search-no-results">{t("friends.noMatchesLibrary")}</div>
-          ) : (
-            filteredGames.map((game) => (
-              <button
-                key={game.id}
-                type="button"
-                className="game-search-item"
-                onClick={() => {
-                  onSelect(game.id);
-                  setSearchQuery("");
-                  setIsOpen(false);
-                }}
-              >
-                <div className="game-search-item-thumb">
-                  {game.name.slice(0, 2).toUpperCase()}
-                </div>
-                <span className="game-search-item-name">{game.name}</span>
-              </button>
-            ))
-          )}
-        </div>
-      )}
-    </div>
-  );
-}
-
-// ── Unified Game Picker (library / friend library / store search) ──────
-// Lets the planner pick a game from the user's own library, a specific
-// friend's shared library, or by searching the store catalog online.
-
-function GamePicker({
-  libraryGames,
-  friends,
-  selectedGameId,
-  selectedGameName,
-  onSelect,
-}: {
-  libraryGames: any[];
-  friends: Friend[];
-  selectedGameId: string;
-  selectedGameName: string;
-  onSelect: (game: { id: string; name: string }) => void;
-}) {
-  const { t } = useLanguage();
-  const [mode, setMode] = useState<"library" | "friend" | "store">("library");
-  const [friendId, setFriendId] = useState("");
-  const [search, setSearch] = useState("");
-  const [storeResults, setStoreResults] = useState<StoreGameSummary[]>([]);
-  const [storeLoading, setStoreLoading] = useState(false);
-  const [isOpen, setIsOpen] = useState(false);
-  const containerRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    function handleClickOutside(event: MouseEvent) {
-      if (containerRef.current && !containerRef.current.contains(event.target as Node)) setIsOpen(false);
-    }
-    document.addEventListener("mousedown", handleClickOutside);
-    return () => document.removeEventListener("mousedown", handleClickOutside);
-  }, []);
-
-  // Debounced store search.
-  useEffect(() => {
-    if (mode !== "store" || !search.trim()) {
-      setStoreResults([]);
-      return;
-    }
-    const q = search.trim();
-    const t = setTimeout(async () => {
-      setStoreLoading(true);
-      try {
-        const res = await invoke<StoreGameSummary[]>("search_store_games", { query: q, offset: 0, limit: 12 });
-        setStoreResults(res || []);
-      } catch {
-        setStoreResults([]);
-      } finally {
-        setStoreLoading(false);
-      }
-    }, 350);
-    return () => clearTimeout(t);
-  }, [mode, search]);
-
-  const selectedFriend = friends.find((f) => f.id === friendId);
-  const friendLibGames = (selectedFriend?.games || []).filter((g) => !isAppBlacklisted(g.name, g.id));
-
-  const baseList =
-    mode === "friend"
-      ? friendLibGames.map((g) => ({ id: g.id, name: g.name }))
-      : libraryGames.map((g) => ({ id: g.id, name: g.name }));
-
-  const filtered = useMemo(() => {
-    const q = search.trim().toLowerCase();
-    if (mode !== "library" && mode !== "friend") return baseList;
-    if (!q) return baseList.slice(0, 12);
-    return baseList.filter((g) => g.name.toLowerCase().includes(q)).slice(0, 12);
-  }, [baseList, search, mode]);
-
-  // Resolve a cover image per game id: library uses coverArtUrl, store uses coverUrl.
-  const libraryCoverById = useMemo(() => {
-    const m = new Map<string, string>();
-    (libraryGames as any[]).forEach((g) => {
-      if (g && g.coverArtUrl) m.set(String(g.id), g.coverArtUrl);
-    });
-    return m;
-  }, [libraryGames]);
-
-  const storeCoverById = useMemo(() => {
-    const m = new Map<string, string>();
-    storeResults.forEach((g) => {
-      if (g && g.coverUrl) m.set(`store_${g.id}`, g.coverUrl);
-    });
-    return m;
-  }, [storeResults]);
-
-  const coverFor = (id: string): string | undefined => libraryCoverById.get(id) || storeCoverById.get(id);
-
-  // Renders a cover image, falling back to the 2-letter initials badge.
-  const GameCover = ({ id, name, className }: { id: string; name: string; className?: string }) => {
-    const cover = coverFor(id);
-    if (cover) {
-      return <img src={cover} alt={name} className={className} loading="lazy" onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = "none"; }} />;
-    }
-    return <div className={className}>{name.slice(0, 2).toUpperCase()}</div>;
-  };
-
-  if (selectedGameId) {
-    return (
-      <div className="selected-game-display-card">
-        <div className="selected-game-details">
-          <GameCover id={selectedGameId} name={selectedGameName} className="selected-game-thumb" />
-          <span className="selected-game-title">{selectedGameName}</span>
-        </div>
-        <button type="button" className="btn btn-secondary btn--mini" onClick={() => onSelect({ id: "", name: "" })}>
-          {t("common.change")}
-        </button>
-      </div>
-    );
-  }
-
-  return (
-    <div className="game-picker" ref={containerRef}>
-      <div className="game-picker-modes">
-        <button type="button" className={`picker-mode${mode === "library" ? " active" : ""}`} onClick={() => { setMode("library"); setIsOpen(true); }}>{t("friends.myLibrary")}</button>
-        <button type="button" className={`picker-mode${mode === "friend" ? " active" : ""}`} onClick={() => { setMode("friend"); setIsOpen(true); }}>{t("friends.friendsLibrary")}</button>
-        <button type="button" className={`picker-mode${mode === "store" ? " active" : ""}`} onClick={() => { setMode("store"); setIsOpen(true); }}>{t("friends.storeSearch")}</button>
-      </div>
-
-      {mode === "friend" && (
-        <select className="profile-input" value={friendId} onChange={(e) => setFriendId(e.target.value)}>
-          <option value="">{t("friends.selectFriend")}</option>
-          {friends.map((f) => (
-            <option key={f.id} value={f.id}>{displayName(f)}</option>
-          ))}
-        </select>
-      )}
-
-      <div className="game-search-input-wrapper">
-        <input
-          type="text"
-          className="game-search-input"
-          placeholder={mode === "store" ? t("friends.searchStoreCatalog") : t("friends.searchGamesPlaceholder")}
-          value={search}
-          onChange={(e) => { setSearch(e.target.value); setIsOpen(true); }}
-          onFocus={() => setIsOpen(true)}
-        />
-        {search && (
-          <button type="button" className="game-search-clear-btn" onClick={() => setSearch("")} title={t("common.clear")}>×</button>
-        )}
-      </div>
-
-      {isOpen && (
-        <div className="game-search-results">
-          {mode === "store" ? (
-            storeLoading ? (
-              <div className="game-search-no-results">{t("friends.searchingStore")}</div>
-            ) : storeResults.length === 0 ? (
-              <div className="game-search-no-results">{search.trim() ? t("friends.noStoreMatches") : t("friendsPage.noStoreMatches")}</div>
-            ) : (
-              storeResults.map((g) => (
-                <button key={g.id} type="button" className="game-search-item" onClick={() => { onSelect({ id: `store_${g.id}`, name: g.name }); setSearch(""); setIsOpen(false); }}>
-                  <GameCover id={`store_${g.id}`} name={g.name} className="game-search-item-thumb" />
-                  <span className="game-search-item-name">{g.name}</span>
-                </button>
-              ))
-            )
-          ) : filtered.length === 0 ? (
-            <div className="game-search-no-results">{mode === "friend" && !friendId ? t("friends.pickFriendFirst") : t("friendsPage.noMatchesFound")}</div>
-          ) : (
-            filtered.map((g) => (
-              <button key={g.id} type="button" className="game-search-item" onClick={() => { onSelect(g); setSearch(""); setIsOpen(false); }}>
-                <GameCover id={g.id} name={g.name} className="game-search-item-thumb" />
-                <span className="game-search-item-name">{g.name}</span>
-              </button>
-            ))
-          )}
-        </div>
-      )}
-    </div>
-  );
-}
-
-interface FriendInvitation {
-  syncId: string;
-  name: string;
-  avatar: string;
-  status: string;
-  favoriteGame?: string;
-  libStats?: {
-    gamesCount: number;
-    playtimeMinutes: number;
-    achievementsCount: number;
-  };
-}
-
-// ── Main Page Component ─────────────────────────────────────────────
+const NOSTR_RELAYS = [
+  "wss://relay.damus.io",
+  "wss://nos.lol",
+  "wss://relay.snort.social",
+  "wss://relay.primal.net",
+];
 
 export default function FriendsPage() {
   const { t } = useLanguage();
-  const [activeTab, setActiveTab] = useState<"friends" | "activity" | "dms" | "sessions" | "recs" | "suggestions" | "compare" | "leaderboard" | "race" | "profile">("friends");
   const { games, runningGameIds, launchGame } = useGames();
-  const { wishlist, toggle } = useWishlistContext();
+  const { wishlist, toggle: toggleWishlist } = useWishlistContext();
   const { cache } = useAchievements();
   const { showToast } = useToast();
-  const navigate = useNavigate();
 
-  // When arriving from the Wishlist "Share to Friends" button, jump straight
-  // into the Wishlist Shares tab with the chosen game pre-selected.
-  useEffect(() => {
-    const pending = consumePendingSuggestion();
-    if (pending) {
-      setSuggestionGameId(pending.gameId);
-      setActiveTab("suggestions");
-    }
-  }, []);
+  const [activeTab, setActiveTab] = useState<FriendsTabKey>("friends");
 
-  // Single profile support — hardcoded active profile name to "A"
-  const profileName = "A";
-
-  // Load state (scoped by active profile)
+  // Data States
   const [profile, setProfile] = useState<UserProfile>(() => loadUserProfile());
   const [friends, setFriends] = useState<Friend[]>(() => loadFriends());
   const [sessions, setSessions] = useState<GameSession[]>(() => loadSessions());
   const [recommendations, setRecommendations] = useState<GameRecommendation[]>(() => loadRecommendations());
   const [suggestions, setSuggestions] = useState<GameSuggestion[]>(() => loadSuggestions());
-
-  // Friend circles (local-only grouping) + DM threads + unseen badges
   const [circles, setCircles] = useState<FriendCircle[]>(() => loadCircles());
   const [dms, setDms] = useState<DmThread[]>(() => loadDms());
-  const [unseenCounts, setUnseenCounts] = useState<{
-    sessions: number;
-    recs: number;
-    suggestions: number;
-    activity: number;
-    dms: number;
-  }>(() => ({
+
+  const [unseenCounts, setUnseenCounts] = useState<UnseenCounts>(() => ({
     sessions: getUnseenTabItems("sessions"),
     recs: getUnseenTabItems("recs"),
     suggestions: getUnseenTabItems("suggestions"),
     activity: getUnseenTabItems("activity"),
     dms: getUnseenTabItems("dms"),
   }));
-  const [selectedCircleId, setSelectedCircleId] = useState<string>("all");
-  const [showCirclesModal, setShowCirclesModal] = useState(false);
-  const [selectedDmId, setSelectedDmId] = useState<string | null>(null);
-  const [selectedDmFriendName, setSelectedDmFriendName] = useState("");
-  const [dmDraft, setDmDraft] = useState("");
-  // Ref mirror of `dms` so handlers can read the freshest threads even when
-  // several sends land in the same tick (avoids stale-closure message loss).
+
+  // DM active thread ref
   const dmsRef = useRef<DmThread[]>(dms);
   useEffect(() => {
     dmsRef.current = dms;
   }, [dms]);
 
-  // Pending Friend Invitations state
+  // Invitations State
   const [invitations, setInvitations] = useState<FriendInvitation[]>([]);
   const [deniedIds, setDeniedIds] = useState<string[]>(() => {
     try {
@@ -1442,322 +137,32 @@ export default function FriendsPage() {
     }
   });
 
-  // Nostr variables
-  const nostrPool = useMemo(() => new SimplePool(), []);
-  const nostrRelays = useMemo(() => [
-    "wss://relay.damus.io",
-    "wss://nos.lol",
-    "wss://relay.snort.social",
-    "wss://relay.primal.net"
-  ], []);
-
-  // Shared function to handle incoming remote database data (invitation vs merge)
-  const handleReceiveRemoteData = (remoteDb: FriendsDatabase) => {
-    try {
-      const localProfile = loadUserProfile();
-      const localFriends = loadFriends();
-      
-      const remoteProfile = remoteDb.profile;
-      if (remoteProfile && remoteProfile.syncId) {
-        const isFriend = localFriends.some((f) => f.syncId === remoteProfile.syncId);
-        const isSelf = remoteProfile.syncId === localProfile.syncId;
-        const isDenied = deniedIds.includes(remoteProfile.syncId);
-        
-        if (!isFriend && !isSelf && !isDenied) {
-          const theyAddedUs = remoteDb.friends?.some((f) => f.syncId === localProfile.syncId);
-          if (theyAddedUs) {
-            const newInvite: FriendInvitation = {
-              syncId: remoteProfile.syncId,
-              name: remoteProfile.name,
-              avatar: remoteProfile.avatar,
-              status: remoteProfile.status,
-              favoriteGame: remoteProfile.favoriteGameName || undefined,
-              libStats: remoteProfile.libStats ? {
-                gamesCount: (remoteProfile.libStats as any).gamesCount || 0,
-                playtimeMinutes: (remoteProfile.libStats as any).playtimeMinutes || 0,
-                achievementsCount: (remoteProfile.libStats as any).achievementsCount || 0,
-              } : undefined
-            };
-            
-            setInvitations((prev) => {
-              if (prev.some((i) => i.syncId === newInvite.syncId)) return prev;
-              return [...prev, newInvite];
-            });
-            showToast(t("friendsPage.newInvitation", { name: remoteProfile.name }), "info");
-            return; // Do not merge databases for non-friends
-          }
-        }
-        
-        // If they are not a friend and didn't add us, ignore
-        if (!isFriend) {
-          return;
-        }
-      }
-      
-      // Merge local and remote
-      const localSessions = loadSessions();
-      const localRecommendations = loadRecommendations();
-      const localSuggestions = loadSuggestions();
-
-      const localDms = loadDms();
-
-      const localDb: FriendsDatabase = {
-        profile: localProfile,
-        friends: localFriends,
-        sessions: localSessions,
-        recommendations: localRecommendations,
-        suggestions: localSuggestions,
-        dms: localDms,
-      };
-
-      const merged = mergeDatabases(localDb, remoteDb);
-
-      // Count freshly-arrived DM messages that aren't ours for the badge.
-      let newDmMessages = 0;
-      (remoteDb.dms || []).forEach((remoteThread) => {
-        const localThread = localDms.find((t) => t.id === remoteThread.id);
-        const known = new Set((localThread?.messages || []).map((m) => m.id));
-        (remoteThread.messages || []).forEach((m) => {
-          if (!known.has(m.id) && m.author !== localProfile.name) newDmMessages++;
-        });
-      });
-
-      // Save and update state
-      setFriends(merged.friends);
-      setSessions(merged.sessions);
-      setRecommendations(merged.recommendations);
-      setSuggestions(merged.suggestions);
-      setDms(merged.dms);
-      
-      saveFriends(merged.friends);
-      saveSessions(merged.sessions);
-      saveRecommendations(merged.recommendations);
-      saveSuggestions(merged.suggestions);
-      saveDmsAndPersist(merged.dms);
-
-      if (newDmMessages > 0) {
-        addUnseenTabItems("dms", newDmMessages);
-        setUnseenCounts((prev) => ({ ...prev, dms: prev.dms + newDmMessages }));
-      }
-      
-      console.log(`Synced data automatically with ${remoteDb.profile?.name || "friend"}!`);
-    } catch (err) {
-      console.error("Failed to parse/merge remote sync data:", err);
-    }
-  };
-
-  // Publish our local database to configured Nostr relays.
-  // NOTE: `dms` are intentionally excluded — the Nostr event is world-readable,
-  // so 1:1 threads travel only through the private shared-folder outbox.
-  const publishToNostr = async (db: FriendsDatabase, sharedGames?: SharedGameStat[]) => {
-    try {
-      const keys = getNostrKeys();
-      const localFriendsList = loadFriends();
-      const stats = selfStats;
-      
-      const payload = {
-        syncId: keys.publicKey,
-        profile: {
-          name: db.profile?.name || "",
-          avatar: db.profile?.avatar || "",
-          status: db.profile?.status || "",
-          favoriteGame: db.profile?.favoriteGameName || "",
-          currentlyPlaying: db.profile?.currentlyPlaying || "",
-          bio: db.profile?.bio || "",
-          region: db.profile?.region || "",
-          libStats: stats,
-        },
-        friends: localFriendsList.map((f) => f.syncId),
-        games: sharedGames || [],
-        sessions: db.sessions,
-        recommendations: db.recommendations,
-        suggestions: db.suggestions || [],
-        updatedAt: Date.now(),
-      };
-      
-      const eventTemplate = {
-        kind: 30078,
-        created_at: Math.floor(Date.now() / 1000),
-        tags: [["d", "gamelib-friends-outbox"]],
-        content: JSON.stringify(payload),
-      };
-      
-      const signedEvent = finalizeEvent(eventTemplate, keys.privateKey);
-      console.log("Nostr: publishing outbox event:", signedEvent.id);
-      
-      await Promise.all(
-        nostrRelays.map(async (relay) => {
-          try {
-            await nostrPool.publish([relay], signedEvent);
-            console.log(`Nostr: successfully published to ${relay}`);
-          } catch (err) {
-            console.error(`Nostr: failed to publish to ${relay}:`, err);
-          }
-        })
-      );
-    } catch (err) {
-      console.error("Nostr: failed to sign/publish event:", err);
-    }
-  };
-
-  // Local wrapper around pushMyOutbox that handles both local files and Nostr relays
-  const pushMyOutbox = async (
-    currProfile: UserProfile,
-    currStats: { gamesCount: number; playtimeMinutes: number; achievementsCount: number },
-    currSessions: GameSession[],
-    currRecs: GameRecommendation[],
-    currSharedGames?: SharedGameStat[],
-    currSuggestions?: GameSuggestion[],
-    currDms?: DmThread[]
-  ) => {
-    const res = await pushMyOutboxStorage(currProfile, currStats, currSessions, currRecs, currSharedGames, currSuggestions, currDms);
-
-    // Also publish to Nostr
-    const db: FriendsDatabase = {
-      profile: currProfile,
-      friends: friends,
-      sessions: currSessions,
-      recommendations: currRecs,
-      suggestions: currSuggestions || [],
-      dms: currDms || dms,
-    };
-    publishToNostr(db, currSharedGames);
-    return res;
-  };
-
-  // Network Sync States
-  const [isSyncing, setIsSyncing] = useState(false);
-  const [lastSyncedTime, setLastSyncedTime] = useState<string>("");
-  // Recent sync activity log (most recent first) for the conflict/activity panel.
-  const [syncLog, setSyncLog] = useState<{ time: string; message: string; details: string[] }[]>([]);
-
-  // Direct P2P Sync States
-  const [showP2pModal, setShowP2pModal] = useState(false);
-
-  // listen to automatic internet P2P sync events
-  useEffect(() => {
-    let unlisten: (() => void) | undefined;
-    
-    async function setupListener() {
-      unlisten = await listen<string>("internet-sync-received", (event) => {
-        console.log("Received internet sync database payload");
-        try {
-          const remoteDb = JSON.parse(event.payload) as FriendsDatabase;
-          handleReceiveRemoteData(remoteDb);
-        } catch (err) {
-          console.error("Failed to parse/merge remote sync data:", err);
-        }
-      });
-    }
-    
-    setupListener();
-    
-    return () => {
-      if (unlisten) unlisten();
-    };
-  }, [deniedIds]);
-
-  // Subscribe to all friend pubkeys via Nostr WebSockets
-  useEffect(() => {
-    if (friends.length === 0) return;
-    
-    const pubkeys = friends.map((f) => f.syncId).filter((id) => /^[0-9a-fA-F]{64}$/.test(id));
-    if (pubkeys.length === 0) return;
-
-    console.log("Nostr: subscribing to friends' pubkeys:", pubkeys);
-    
-    const sub = nostrPool.subscribeMany(
-      nostrRelays,
-      {
-        authors: pubkeys,
-        kinds: [30078],
-        "#d": ["gamelib-friends-outbox"],
-      },
-      {
-        onevent(event) {
-          if (!verifyEvent(event)) {
-            console.error("Nostr: invalid signature for event:", event.id);
-            return;
-          }
-          console.log("Nostr: received updated outbox from friend pubkey:", event.pubkey);
-          try {
-            const remoteDb = JSON.parse(event.content) as FriendsDatabase;
-            handleReceiveRemoteData(remoteDb);
-          } catch (err) {
-            console.error("Nostr: failed to parse remote data:", err);
-          }
-        },
-      }
-    );
-
-    return () => {
-      sub.close();
-    };
-  }, [friends, nostrPool, nostrRelays]);
-
-  // Modal / Form state
+  // Modals State
   const [showAddModal, setShowAddModal] = useState(false);
+  const [showCirclesModal, setShowCirclesModal] = useState(false);
+  const [showP2pModal, setShowP2pModal] = useState(false);
+  const [nicknameModalFriend, setNicknameModalFriend] = useState<Friend | null>(null);
+
+  // Friend Code input & live decode
   const [friendCodeInput, setFriendCodeInput] = useState("");
   const [decodedFriend, setDecodedFriend] = useState<Friend | null>(null);
 
-  // Friends list controls (search / sort / filter)
-  const [friendSearch, setFriendSearch] = useState("");
-  const [friendSort, setFriendSort] = useState<"default" | "name" | "recent" | "online">("default");
-  const [friendFilter, setFriendFilter] = useState<"all" | "online" | "pinned">("all");
-  const [friendDensity, setFriendDensity] = useState<"grid" | "list">(
-    () => (localStorage.getItem("gamelib.friends.density") as "grid" | "list") || "grid"
-  );
-  const [selectedFriendIds, setSelectedFriendIds] = useState<string[]>([]);
-  const [selectMode, setSelectMode] = useState(false);
+  // DM selection
+  const [selectedDmId, setSelectedDmId] = useState<string | null>(null);
+  const [selectedDmFriendName, setSelectedDmFriendName] = useState("");
 
-  // Compare Tab States
-  const [selectedCompareFriendId, setSelectedCompareFriendId] = useState<string>("");
-  const [compareSubTab, setCompareSubTab] = useState<"overview" | "games" | "genres" | "insights">("overview");
-  const [compareFilter, setCompareFilter] = useState<"all" | "shared" | "me_only" | "friend_only">("all");
-  const [compareSort, setCompareSort] = useState<"name" | "myPlaytime" | "friendPlaytime" | "gap" | "achievement">("name");
-  const [compareGenre, setCompareGenre] = useState<string>("all");
-  const [compareSearch, setCompareSearch] = useState<string>("");
+  // Compare Tab Friend selection
+  const [selectedCompareFriendId, setSelectedCompareFriendId] = useState("");
 
-  // Create Session Form State
-  const [sessionGameId, setSessionGameId] = useState("");
-  const [sessionGameName, setSessionGameName] = useState("");
-  const [sessionDateTime, setSessionDateTime] = useState("");
-  const [sessionMaxPlayers, setSessionMaxPlayers] = useState(4);
-  const [sessionDesc, setSessionDesc] = useState("");
-  const [sessionDuration, setSessionDuration] = useState(120);
-  const [sessionInvited, setSessionInvited] = useState<string[]>([]);
-  const viewerTimezone = useMemo(() => detectTimezone(), [profile]);
-  // Sessions view: upcoming list, past history, or agenda grouping
-  const [sessionView, setSessionView] = useState<"upcoming" | "past" | "agenda">("upcoming");
-  // Agenda sub-mode: month calendar grid vs. chronological list.
-  const [agendaMode, setAgendaMode] = useState<"grid" | "list">("grid");
-  // Expanded day in the calendar grid (date key) to reveal full session cards.
-  const [expandedDay, setExpandedDay] = useState<string | null>(null);
-  // Sessions list filters + search
-  const [sessionFilter, setSessionFilter] = useState<"all" | "mine" | "invited">("all");
-  const [sessionSearch, setSessionSearch] = useState("");
+  // Sync state
+  const [isSyncing, setIsSyncing] = useState(false);
+  const [lastSyncedTime, setLastSyncedTime] = useState("");
+  const [syncLog, setSyncLog] = useState<SyncLogEntry[]>([]);
 
-  // Create Recommendation Form State
-  const [recGameId, setRecGameId] = useState("");
-  const [recToFriend, setRecToFriend] = useState("All Friends");
-  const [recRating, setRecRating] = useState(5);
-  const [recReason, setRecReason] = useState("");
-  // Recommendations feed filter
-  const [recFilter, setRecFilter] = useState<"all" | "to_me" | "by_me" | "want">("all");
+  // Nostr pool
+  const nostrPool = useMemo(() => new SimplePool(), []);
 
-  // Wishlist Suggestions feed state
-  const [suggestionGameId, setSuggestionGameId] = useState("");
-  const [suggestionNote, setSuggestionNote] = useState("");
-  const [suggestionToFriend, setSuggestionToFriend] = useState("All Friends");
-  const [suggestionFilter, setSuggestionFilter] = useState<"all" | "by_me" | "to_me" | "added" | "unadded">("all");
-  const [suggestionSort, setSuggestionSort] = useState<"newest" | "oldest" | "reactions" | "comments">("newest");
-  const [suggestionSearch, setSuggestionSearch] = useState("");
-  const [suggestionCommentInputs, setSuggestionCommentInputs] = useState<Record<string, string>>({});
-
-  // Comments Input states
-  const [commentInputs, setCommentInputs] = useState<Record<string, string>>({});
-
-  // Dynamic self library stats
+  // Compute Self Library Stats
   const selfStats = useMemo(() => {
     const gamesCount = games.length;
     let playtimeMinutes = 0;
@@ -1780,7 +185,7 @@ export default function FriendsPage() {
     return { gamesCount, playtimeMinutes, achievementsCount };
   }, [games, cache]);
 
-  // Lightweight per-game snapshot published to friends for truthful comparison.
+  // Self Shared Games snapshot
   const selfSharedGames = useMemo<SharedGameStat[]>(() => {
     return games.map((game) => {
       const achData = cache?.games?.[game.id];
@@ -1797,20 +202,22 @@ export default function FriendsPage() {
     });
   }, [games, cache]);
 
+  const myGameIds = useMemo(() => new Set(games.map((g) => g.id)), [games]);
+
   // Generate User's Friend Code
   const generatedFriendCode = useMemo(() => {
     return encodeFriendCode(profile, selfStats, profile.favoriteGameName);
   }, [profile, selfStats]);
 
-  // Derive the game we're currently playing from the live watcher state.
+  const nostrKeys = useMemo(() => getNostrKeys(), []);
+
+  // Live Currently Playing status
   const currentlyPlaying = useMemo(() => {
     if (!runningGameIds || runningGameIds.length === 0) return undefined;
     const game = games.find((g) => g.id === runningGameIds[0]);
     return game ? game.name : undefined;
   }, [runningGameIds, games]);
 
-  // Keep the profile's "currentlyPlaying" field in sync with the watcher so
-  // it is included in the outbox and visible to friends.
   useEffect(() => {
     setProfile((prev) => {
       if (prev.currentlyPlaying === currentlyPlaying) return prev;
@@ -1820,7 +227,15 @@ export default function FriendsPage() {
     });
   }, [currentlyPlaying]);
 
-  // Clear the unseen badge when the user opens the corresponding tab.
+  // Handle incoming Wishlist Suggestion jump signal
+  useEffect(() => {
+    const pending = consumePendingSuggestion();
+    if (pending) {
+      setActiveTab("suggestions");
+    }
+  }, []);
+
+  // Clear unseen badge when opening tab
   useEffect(() => {
     if (activeTab === "sessions") {
       clearUnseenTabItems("sessions");
@@ -1832,8 +247,6 @@ export default function FriendsPage() {
       clearUnseenTabItems("suggestions");
       setUnseenCounts((prev) => ({ ...prev, suggestions: 0 }));
     } else if (activeTab === "activity") {
-      // The feed aggregates sessions / recs / suggestions — viewing it
-      // means those are all seen.
       clearUnseenTabItems("sessions");
       clearUnseenTabItems("recs");
       clearUnseenTabItems("suggestions");
@@ -1851,71 +264,7 @@ export default function FriendsPage() {
     }
   }, [activeTab]);
 
-  // OS-level reminders for upcoming sessions (Web Notifications, best-effort).
-  useEffect(() => {
-    let fired = new Set<string>(
-      (() => {
-        try {
-          return JSON.parse(localStorage.getItem("gamelib.friends.remindedSessions") || "[]") as string[];
-        } catch {
-          return [];
-        }
-      })()
-    );
-
-    const checkReminders = () => {
-      const now = Date.now();
-      const upcoming = sessions
-        .filter((s) => !s.deleted && new Date(s.scheduledAt).getTime() - now <= 30 * 60_000 && new Date(s.scheduledAt).getTime() > now)
-        .filter((s) => !fired.has(s.id));
-
-      if (upcoming.length === 0) return;
-
-      const fire = () => {
-        try {
-          if (typeof Notification === "undefined") return;
-          const notify = (title: string, body: string) => {
-            try {
-              new Notification(title, { body });
-            } catch {
-              /* ignore */
-            }
-          };
-          if (Notification.permission === "granted") {
-            upcoming.forEach((s) => {
-              notify(t("friendsPage.sessionReminderTitle"), t("friendsPage.sessionReminderBody", { game: s.gameName, time: formatDateTime(s.scheduledAt, s.creatorTimezone) }));
-            });
-          } else if (Notification.permission !== "denied") {
-            void Notification.requestPermission().then((perm) => {
-              if (perm === "granted") {
-                upcoming.forEach((s) => {
-                  notify(t("friendsPage.sessionReminderTitle"), t("friendsPage.sessionReminderBody", { game: s.gameName, time: formatDateTime(s.scheduledAt, s.creatorTimezone) }));
-                });
-              }
-            });
-          }
-        } catch (err) {
-          console.debug("[FriendsPage] OS notification failed:", err);
-        }
-
-        upcoming.forEach((s) => fired.add(s.id));
-        try {
-          localStorage.setItem("gamelib.friends.remindedSessions", JSON.stringify(Array.from(fired)));
-        } catch {
-          /* ignore */
-        }
-      };
-
-      // Only fire when a session is within the window — check every 60s.
-      fire();
-    };
-
-    checkReminders();
-    const interval = setInterval(checkReminders, 60_000);
-    return () => clearInterval(interval);
-  }, [sessions, t]);
-
-  // Handle friend code paste parsing
+  // Parse Friend Code Input
   useEffect(() => {
     if (!friendCodeInput.trim()) {
       setDecodedFriend(null);
@@ -1925,7 +274,7 @@ export default function FriendsPage() {
     setDecodedFriend(decoded);
   }, [friendCodeInput]);
 
-  // Asynchronously fetch real profile details for the friend code preview
+  // Fetch preview details for friend code
   useEffect(() => {
     if (!decodedFriend || !decodedFriend.syncId) return;
     let cancelled = false;
@@ -1958,12 +307,11 @@ export default function FriendsPage() {
     };
   }, [decodedFriend?.syncId]);
 
-  // Load local JSON database from disk, and resolve stable device ID on mount
+  // Initial load from disk DB and resolve device ID
   useEffect(() => {
     let cancelled = false;
     (async () => {
       try {
-        // 1. Initial load from local JSON file
         const loaded = await loadFriendsDbToLocalStorage();
         if (!cancelled && loaded) {
           setProfile(loadUserProfile());
@@ -1975,7 +323,6 @@ export default function FriendsPage() {
           setCircles(loadCircles());
         }
 
-        // 2. Resolve device ID
         const id = await invoke<string>("get_friends_device_id");
         if (!cancelled && id) {
           setDeviceId(id);
@@ -1989,13 +336,172 @@ export default function FriendsPage() {
     };
   }, []);
 
+  // ── Sync Implementation ─────────────────────────────────────────────
 
+  const publishToNostr = async (db: FriendsDatabase, sharedGames?: SharedGameStat[]) => {
+    try {
+      const keys = getNostrKeys();
+      const localFriendsList = loadFriends();
+      const stats = selfStats;
 
+      const payload = {
+        syncId: keys.publicKey,
+        profile: {
+          name: db.profile?.name || "",
+          avatar: db.profile?.avatar || "",
+          status: db.profile?.status || "",
+          favoriteGame: db.profile?.favoriteGameName || "",
+          currentlyPlaying: db.profile?.currentlyPlaying || "",
+          bio: db.profile?.bio || "",
+          region: db.profile?.region || "",
+          libStats: stats,
+        },
+        friends: localFriendsList.map((f) => f.syncId),
+        games: sharedGames || [],
+        sessions: db.sessions,
+        recommendations: db.recommendations,
+        suggestions: db.suggestions || [],
+        updatedAt: Date.now(),
+      };
 
-  // ── Sync Engine Implementation ──────────────────────────────────
+      const eventTemplate = {
+        kind: 30078,
+        created_at: Math.floor(Date.now() / 1000),
+        tags: [["d", "gamelib-friends-outbox"]],
+        content: JSON.stringify(payload),
+      };
 
-  // Manual sync requests that arrive while a sync is already running are
-  // queued so the user's "Sync" click is never silently dropped.
+      const signedEvent = finalizeEvent(eventTemplate, keys.privateKey);
+
+      await Promise.all(
+        NOSTR_RELAYS.map(async (relay) => {
+          try {
+            await nostrPool.publish([relay], signedEvent);
+          } catch (err) {
+            console.error(`Nostr: failed to publish to ${relay}:`, err);
+          }
+        })
+      );
+    } catch (err) {
+      console.error("Nostr: failed to sign/publish event:", err);
+    }
+  };
+
+  const pushMyOutbox = async (
+    currProfile: UserProfile,
+    currStats: { gamesCount: number; playtimeMinutes: number; achievementsCount: number },
+    currSessions: GameSession[],
+    currRecs: GameRecommendation[],
+    currSharedGames?: SharedGameStat[],
+    currSuggestions?: GameSuggestion[],
+    currDms?: DmThread[]
+  ) => {
+    const res = await pushMyOutboxStorage(
+      currProfile,
+      currStats,
+      currSessions,
+      currRecs,
+      currSharedGames,
+      currSuggestions,
+      currDms
+    );
+
+    const db: FriendsDatabase = {
+      profile: currProfile,
+      friends: friends,
+      sessions: currSessions,
+      recommendations: currRecs,
+      suggestions: currSuggestions || [],
+      dms: currDms || dms,
+    };
+    publishToNostr(db, currSharedGames);
+    return res;
+  };
+
+  const handleReceiveRemoteData = (remoteDb: FriendsDatabase) => {
+    try {
+      const localProfile = loadUserProfile();
+      const localFriends = loadFriends();
+
+      const remoteProfile = remoteDb.profile;
+      if (remoteProfile && remoteProfile.syncId) {
+        const isFriend = localFriends.some((f) => f.syncId === remoteProfile.syncId);
+        const isSelf = remoteProfile.syncId === localProfile.syncId;
+        const isDenied = deniedIds.includes(remoteProfile.syncId);
+
+        if (!isFriend && !isSelf && !isDenied) {
+          const theyAddedUs = remoteDb.friends?.some((f) => f.syncId === localProfile.syncId);
+          if (theyAddedUs) {
+            const newInvite: FriendInvitation = {
+              syncId: remoteProfile.syncId,
+              name: remoteProfile.name,
+              avatar: remoteProfile.avatar,
+              status: remoteProfile.status,
+              favoriteGame: remoteProfile.favoriteGameName || undefined,
+              libStats: remoteProfile.libStats
+                ? {
+                    gamesCount: (remoteProfile.libStats as any).gamesCount || 0,
+                    playtimeMinutes: (remoteProfile.libStats as any).playtimeMinutes || 0,
+                    achievementsCount: (remoteProfile.libStats as any).achievementsCount || 0,
+                  }
+                : undefined,
+            };
+
+            setInvitations((prev) => {
+              if (prev.some((i) => i.syncId === newInvite.syncId)) return prev;
+              return [...prev, newInvite];
+            });
+            showToast(t("friendsPage.newInvitation", { name: remoteProfile.name }), "info");
+            return;
+          }
+        }
+
+        if (!isFriend) return;
+      }
+
+      const merged = mergeDatabases(
+        {
+          profile: localProfile,
+          friends: localFriends,
+          sessions: loadSessions(),
+          recommendations: loadRecommendations(),
+          suggestions: loadSuggestions(),
+          dms: loadDms(),
+        },
+        remoteDb
+      );
+
+      let newDmMessages = 0;
+      const localDms = loadDms();
+      (remoteDb.dms || []).forEach((remoteThread) => {
+        const localThread = localDms.find((t) => t.id === remoteThread.id);
+        const known = new Set((localThread?.messages || []).map((m) => m.id));
+        (remoteThread.messages || []).forEach((m) => {
+          if (!known.has(m.id) && m.author !== localProfile.name) newDmMessages++;
+        });
+      });
+
+      setFriends(merged.friends);
+      setSessions(merged.sessions);
+      setRecommendations(merged.recommendations);
+      setSuggestions(merged.suggestions);
+      setDms(merged.dms);
+
+      saveFriends(merged.friends);
+      saveSessions(merged.sessions);
+      saveRecommendations(merged.recommendations);
+      saveSuggestions(merged.suggestions);
+      saveDmsAndPersist(merged.dms);
+
+      if (newDmMessages > 0) {
+        addUnseenTabItems("dms", newDmMessages);
+        setUnseenCounts((prev) => ({ ...prev, dms: prev.dms + newDmMessages }));
+      }
+    } catch (err) {
+      console.error("Failed to parse/merge remote sync data:", err);
+    }
+  };
+
   const pendingManualSync = useRef(false);
 
   const performSync = async (manual = false) => {
@@ -2005,267 +511,249 @@ export default function FriendsPage() {
     }
     setIsSyncing(true);
 
-    // Make sure we always have a stable Nostr public key before publishing.
-    if (!profile.syncId) {
-      const keys = getNostrKeys();
-      const updated = { ...profile, syncId: keys.publicKey };
-      saveUserProfile(updated);
-      setProfile(updated);
-    }
-
-    const folder = await getSyncFolder();
-    if (!folder) {
-      setIsSyncing(false);
-      if (manual) {
-        showToast(t("friendsPage.syncFolderMissing"), "error");
+    try {
+      if (!profile.syncId) {
+        const keys = getNostrKeys();
+        const updated = { ...profile, syncId: keys.publicKey };
+        saveUserProfile(updated);
+        setProfile(updated);
       }
-      return;
-    }
 
-    const localSessions = loadSessions();
-    const localRecs = loadRecommendations();
-    const localSuggestions = loadSuggestions();
-    const localFriends = loadFriends();
-
-    // NOTE: Friends are added manually via friend codes only. We intentionally
-    // do NOT auto-discover peers in the shared sync folder, because that would
-    // also pull in the player's own outbox (appearing as a "friend").
-
-    let changesMade = false;
-    let friendsUpdated = false;
-    let pulledSessions = 0;
-    let pulledRecs = 0;
-    // Friends are no longer auto-discovered (added via friend codes only).
-    let discoveredNew = false;
-    // Genuinely new social items pulled from friends this sync — drives the
-    // "new items" number badge on the Community tab.
-    let newCommunityItems = 0;
-    const pullErrors: string[] = [];
-    // Detailed per-friend activity for the sync log in the P2P modal.
-    const friendLogs: string[] = [];
-
-    let mergedSessions = [...localSessions];
-    let mergedRecs = [...localRecs];
-    let mergedSuggestions = [...localSuggestions];
-    let mergedDms = [...loadDms()];
-
-    // Read the outbox of each friend from the sync folder
-    const updatedFriends: Friend[] = [];
-    const nowSecs = Math.floor(Date.now() / 1000);
-    for (const friend of localFriends) {
-      const friendName = displayName(friend);
-      // Skipped (blocked) peers: keep them locally but never sync their data.
-      if (friend.blocked) {
-        friendLogs.push(`⛔ ${friendName}: blocked — skipped`);
-        updatedFriends.push(friend);
-        continue;
+      const folder = await getSyncFolder();
+      if (!folder) {
+        if (manual) {
+          showToast(t("friendsPage.syncFolderMissing"), "error");
+        }
+        return;
       }
-      try {
-        const remoteOutbox = await fetchFriendOutbox(friend.syncId);
-        if (remoteOutbox) {
-          let friendSessions = 0;
-          let friendRecs = 0;
-          let profileChanged = false;
 
-          // Merge sessions
-          if (remoteOutbox.sessions && remoteOutbox.sessions.length > 0) {
-            const prevLength = mergedSessions.length;
-            const prevIds = new Set(mergedSessions.map((s) => s.id));
-            mergedSessions = mergeSessions(mergedSessions, remoteOutbox.sessions);
-            const addedSessions = remoteOutbox.sessions.filter((s) => !prevIds.has(s.id)).length;
-            newCommunityItems += addedSessions;
-            if (addedSessions > 0) addUnseenTabItems("sessions", addedSessions);
-            if (mergedSessions.length !== prevLength || JSON.stringify(mergedSessions) !== localStorage.getItem(`gamelib.friends.sessions.${profileName}`)) {
-              changesMade = true;
-              friendSessions = remoteOutbox.sessions.length;
-              pulledSessions += friendSessions;
-            }
-          }
+      const localSessions = loadSessions();
+      const localRecs = loadRecommendations();
+      const localSuggestions = loadSuggestions();
+      const localFriends = loadFriends();
 
-          // Merge recommendations
-          if (remoteOutbox.recommendations && remoteOutbox.recommendations.length > 0) {
-            const prevLength = mergedRecs.length;
-            const prevIds = new Set(mergedRecs.map((r) => r.id));
-            mergedRecs = mergeRecommendations(mergedRecs, remoteOutbox.recommendations);
-            const addedRecs = remoteOutbox.recommendations.filter((r) => !prevIds.has(r.id)).length;
-            newCommunityItems += addedRecs;
-            if (addedRecs > 0) addUnseenTabItems("recs", addedRecs);
-            if (mergedRecs.length !== prevLength || JSON.stringify(mergedRecs) !== localStorage.getItem(`gamelib.friends.recommendations.${profileName}`)) {
-              changesMade = true;
-              friendRecs = remoteOutbox.recommendations.length;
-              pulledRecs += friendRecs;
-            }
-          }
+      let changesMade = false;
+      let friendsUpdated = false;
+      let pulledSessions = 0;
+      let pulledRecs = 0;
+      let newCommunityItems = 0;
+      const pullErrors: string[] = [];
+      const friendLogs: string[] = [];
 
-          // Merge wishlist game suggestions
-          if (remoteOutbox.suggestions && remoteOutbox.suggestions.length > 0) {
-            const prevLength = mergedSuggestions.length;
-            const prevIds = new Set(mergedSuggestions.map((s) => s.id));
-            mergedSuggestions = mergeSuggestions(mergedSuggestions, remoteOutbox.suggestions);
-            const addedSuggestions = remoteOutbox.suggestions.filter((s) => !prevIds.has(s.id)).length;
-            newCommunityItems += addedSuggestions;
-            if (addedSuggestions > 0) addUnseenTabItems("suggestions", addedSuggestions);
-            if (mergedSuggestions.length !== prevLength || JSON.stringify(mergedSuggestions) !== localStorage.getItem(`gamelib.friends.suggestions.${profileName}`)) {
-              changesMade = true;
-            }
-          }
+      let mergedSessions = [...localSessions];
+      let mergedRecs = [...localRecs];
+      let mergedSuggestions = [...localSuggestions];
+      let mergedDms = [...loadDms()];
 
-          // Merge 1:1 DM threads (only threads involving us are adopted).
-          if (remoteOutbox.dms && remoteOutbox.dms.length > 0) {
-            const knownMessages = new Map<string, Set<string>>();
-            mergedDms.forEach((t) => knownMessages.set(t.id, new Set((t.messages || []).map((m) => m.id))));
-            const prevDmCount = mergedDms.length;
-            mergedDms = mergeDms(mergedDms, remoteOutbox.dms, profile.name);
-            // Count messages that are genuinely new AND not authored by us → badge.
-            let newIncoming = 0;
-            remoteOutbox.dms.forEach((rt) => {
-              const known = knownMessages.get(rt.id);
-              if (!known) {
-                newIncoming += (rt.messages || []).filter((m) => m.author !== profile.name).length;
-              } else {
-                newIncoming += (rt.messages || []).filter((m) => !known.has(m.id) && m.author !== profile.name).length;
+      const updatedFriends: Friend[] = [];
+      const nowSecs = Math.floor(Date.now() / 1000);
+
+      for (const friend of localFriends) {
+        const friendName = displayName(friend);
+        if (friend.blocked) {
+          friendLogs.push(`⛔ ${friendName}: blocked — skipped`);
+          updatedFriends.push(friend);
+          continue;
+        }
+
+        try {
+          const remoteOutbox = await fetchFriendOutbox(friend.syncId);
+          if (remoteOutbox) {
+            let friendSessions = 0;
+            let friendRecs = 0;
+            let profileChanged = false;
+
+            if (remoteOutbox.sessions && remoteOutbox.sessions.length > 0) {
+              const prevLength = mergedSessions.length;
+              const prevIds = new Set(mergedSessions.map((s) => s.id));
+              mergedSessions = mergeSessions(mergedSessions, remoteOutbox.sessions);
+              const addedSessions = remoteOutbox.sessions.filter((s) => !prevIds.has(s.id)).length;
+              newCommunityItems += addedSessions;
+              if (addedSessions > 0) addUnseenTabItems("sessions", addedSessions);
+              if (mergedSessions.length !== prevLength) {
+                changesMade = true;
+                friendSessions = remoteOutbox.sessions.length;
+                pulledSessions += friendSessions;
               }
-            });
-            if (newIncoming > 0) addUnseenTabItems("dms", newIncoming);
-            if (mergedDms.length !== prevDmCount || newIncoming > 0) changesMade = true;
-          }
+            }
 
-          // Sync friend profile information and live statistics (playtime, achievements, status)
-          if (remoteOutbox.profile) {
-            const remoteProfile = remoteOutbox.profile;
-            const hasDiff =
-              friend.name !== remoteProfile.name ||
-              friend.avatar !== remoteProfile.avatar ||
-              friend.status !== remoteProfile.status ||
-              friend.favoriteGame !== remoteProfile.favoriteGame ||
-              friend.currentlyPlaying !== remoteOutbox.profile.currentlyPlaying ||
-              (friend as any).bio !== (remoteProfile.bio || "") ||
-              (friend as any).region !== (remoteProfile.region || "") ||
-              JSON.stringify(friend.libStats) !== JSON.stringify(remoteProfile.libStats);
+            if (remoteOutbox.recommendations && remoteOutbox.recommendations.length > 0) {
+              const prevLength = mergedRecs.length;
+              const prevIds = new Set(mergedRecs.map((r) => r.id));
+              mergedRecs = mergeRecommendations(mergedRecs, remoteOutbox.recommendations);
+              const addedRecs = remoteOutbox.recommendations.filter((r) => !prevIds.has(r.id)).length;
+              newCommunityItems += addedRecs;
+              if (addedRecs > 0) addUnseenTabItems("recs", addedRecs);
+              if (mergedRecs.length !== prevLength) {
+                changesMade = true;
+                friendRecs = remoteOutbox.recommendations.length;
+                pulledRecs += friendRecs;
+              }
+            }
 
-            if (hasDiff) profileChanged = true;
+            if (remoteOutbox.suggestions && remoteOutbox.suggestions.length > 0) {
+              const prevLength = mergedSuggestions.length;
+              const prevIds = new Set(mergedSuggestions.map((s) => s.id));
+              mergedSuggestions = mergeSuggestions(mergedSuggestions, remoteOutbox.suggestions);
+              const addedSuggestions = remoteOutbox.suggestions.filter((s) => !prevIds.has(s.id)).length;
+              newCommunityItems += addedSuggestions;
+              if (addedSuggestions > 0) addUnseenTabItems("suggestions", addedSuggestions);
+              if (mergedSuggestions.length !== prevLength) {
+                changesMade = true;
+              }
+            }
 
-            if (hasDiff) {
-              friendsUpdated = true;
-              updatedFriends.push({
-                ...friend,
-                name: remoteProfile.name,
-                avatar: remoteProfile.avatar,
-                status: remoteProfile.status,
-                favoriteGame: remoteProfile.favoriteGame || undefined,
-                currentlyPlaying: remoteProfile.currentlyPlaying || undefined,
-                bio: remoteProfile.bio || undefined,
-                region: remoteProfile.region || undefined,
-                libStats: remoteProfile.libStats,
-                games: remoteOutbox.games || friend.games,
-                lastSeen: nowSecs,
+            if (remoteOutbox.dms && remoteOutbox.dms.length > 0) {
+              const knownMessages = new Map<string, Set<string>>();
+              mergedDms.forEach((t) => knownMessages.set(t.id, new Set((t.messages || []).map((m) => m.id))));
+              const prevDmCount = mergedDms.length;
+              mergedDms = mergeDms(mergedDms, remoteOutbox.dms, profile.name);
+              let newIncoming = 0;
+              remoteOutbox.dms.forEach((rt) => {
+                const known = knownMessages.get(rt.id);
+                if (!known) {
+                  newIncoming += (rt.messages || []).filter((m) => m.author !== profile.name).length;
+                } else {
+                  newIncoming += (rt.messages || []).filter((m) => !known.has(m.id) && m.author !== profile.name).length;
+                }
               });
+              if (newIncoming > 0) addUnseenTabItems("dms", newIncoming);
+              if (mergedDms.length !== prevDmCount || newIncoming > 0) changesMade = true;
+            }
+
+            if (remoteOutbox.profile) {
+              const remoteProfile = remoteOutbox.profile;
+              const hasDiff =
+                friend.name !== remoteProfile.name ||
+                friend.avatar !== remoteProfile.avatar ||
+                friend.status !== remoteProfile.status ||
+                friend.favoriteGame !== remoteProfile.favoriteGame ||
+                friend.currentlyPlaying !== remoteOutbox.profile.currentlyPlaying ||
+                (friend as any).bio !== (remoteProfile.bio || "") ||
+                (friend as any).region !== (remoteProfile.region || "") ||
+                JSON.stringify(friend.libStats) !== JSON.stringify(remoteProfile.libStats);
+
+              if (hasDiff) profileChanged = true;
+
+              if (hasDiff) {
+                friendsUpdated = true;
+                updatedFriends.push({
+                  ...friend,
+                  name: remoteProfile.name,
+                  avatar: remoteProfile.avatar,
+                  status: remoteProfile.status,
+                  favoriteGame: remoteProfile.favoriteGame || undefined,
+                  currentlyPlaying: remoteProfile.currentlyPlaying || undefined,
+                  bio: remoteProfile.bio || undefined,
+                  region: remoteProfile.region || undefined,
+                  libStats: remoteProfile.libStats,
+                  games: remoteOutbox.games || friend.games,
+                  lastSeen: nowSecs,
+                });
+                friendLogs.push(
+                  `🔄 ${friendName}: profile updated` +
+                    (friendSessions ? `, +${friendSessions} session(s)` : "") +
+                    (friendRecs ? `, +${friendRecs} rec(s)` : "")
+                );
+                continue;
+              }
+            }
+
+            if (friend.lastSeen !== nowSecs) {
+              friendsUpdated = true;
+              updatedFriends.push({ ...friend, lastSeen: nowSecs });
               friendLogs.push(
-                `🔄 ${friendName}: profile updated` +
+                `✓ ${friendName}: synced` +
                   (friendSessions ? `, +${friendSessions} session(s)` : "") +
-                  (friendRecs ? `, +${friendRecs} rec(s)` : "")
+                  (friendRecs ? `, +${friendRecs} rec(s)` : "") +
+                  (profileChanged ? ", profile updated" : "")
               );
               continue;
             }
-          }
 
-          // Record a successful contact even when nothing changed.
-          if (friend.lastSeen !== nowSecs) {
-            friendsUpdated = true;
-            updatedFriends.push({ ...friend, lastSeen: nowSecs });
-            friendLogs.push(
-              `✓ ${friendName}: synced` +
-                (friendSessions ? `, +${friendSessions} session(s)` : "") +
-                (friendRecs ? `, +${friendRecs} rec(s)` : "") +
-                (profileChanged ? ", profile updated" : "")
-            );
-            continue;
+            friendLogs.push(`• ${friendName}: up to date`);
+          } else {
+            friendLogs.push(`⚠ ${friendName}: no outbox found`);
           }
-
-          // No change at all — still log a heartbeat contact.
-          friendLogs.push(`• ${friendName}: up to date`);
-        } else {
-          friendLogs.push(`⚠ ${friendName}: no outbox found`);
+        } catch (err) {
+          const reason = err instanceof Error ? err.message : String(err);
+          pullErrors.push(`${friendName}: ${reason}`);
+          friendLogs.push(`✕ ${friendName}: error — ${reason}`);
         }
-      } catch (err) {
-        const reason = err instanceof Error ? err.message : String(err);
-        pullErrors.push(`${friendName}: ${reason}`);
-        friendLogs.push(`✕ ${friendName}: error — ${reason}`);
-        console.error(`Sync error for friend ${friendName}:`, reason);
+        updatedFriends.push(friend);
       }
-      updatedFriends.push(friend);
-    }
 
-    if (changesMade) {
-      saveSessions(mergedSessions);
-      saveRecommendations(mergedRecs);
-      saveSuggestions(mergedSuggestions);
-      saveDmsAndPersist(mergedDms);
-      setSessions(mergedSessions);
-      setRecommendations(mergedRecs);
-      setSuggestions(mergedSuggestions);
-      setDms(mergedDms);
-      setUnseenCounts((prev) => ({ ...prev, dms: getUnseenTabItems("dms") }));
-    }
-
-    if (friendsUpdated) {
-      saveFriends(updatedFriends);
-      setFriends(updatedFriends);
-    }
-
-    // Always push our own updated outbox so friends can see us
-    const pushed = await pushMyOutbox(profile, selfStats, mergedSessions, mergedRecs, selfSharedGames, suggestions, mergedDms);
-
-    const syncedAt = new Date().toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit" });
-    setLastSyncedTime(syncedAt);
-
-    // Build a human-readable activity entry for the conflict/activity log.
-    const changes: string[] = [];
-    if (discoveredNew) changes.push(t("friendsPage.syncNewFriends", { count: localFriends.length - friends.length + 0 }));
-    if (pulledSessions > 0) changes.push(t("friendsPage.sessionsCount", { count: pulledSessions }));
-    if (pulledRecs > 0) changes.push(t("friendsPage.recommendationsCount", { count: pulledRecs }));
-    if (friendsUpdated) changes.push(t("friendsPage.profileUpdates"));
-    if (pullErrors.length > 0) changes.push(t("friendsPage.syncErrors", { count: pullErrors.length }));
-    const logMsg = pushed.ok
-      ? changes.length > 0
-        ? t("friendsPage.syncPulled", { items: changes.join(", ") })
-        : t("friendsPage.upToDatePublished")
-      : t("friendsPage.syncPublishFailed", { reason: pushed.reason || t("friendsPage.unknownReason") });
-    setSyncLog((prev) =>
-      [{ time: syncedAt, message: logMsg, details: friendLogs }, ...prev].slice(0, 12)
-    );
-
-    if (manual) {
-      if (!pushed.ok) {
-        showToast(t("friendsPage.syncFailed", { reason: pushed.reason || t("friendsPage.couldNotWriteOutbox") }), "error");
-      } else if (pullErrors.length > 0) {
-        showToast(
-          t("friendsPage.syncedWithErrors", { count: pullErrors.length, errors: pullErrors.join("; ") }),
-          "warning"
-        );
-      } else if (pulledSessions > 0 || pulledRecs > 0 || discoveredNew || friendsUpdated || changesMade) {
-        const bits: string[] = [];
-        if (discoveredNew) bits.push(t("friendsPage.newFriendsFound"));
-        if (pulledSessions > 0) bits.push(t("friendsPage.sessionsCount", { count: pulledSessions }));
-        if (pulledRecs > 0) bits.push(t("friendsPage.recommendationsCount", { count: pulledRecs }));
-        if (friendsUpdated) bits.push(t("friendsPage.profileUpdates"));
-        showToast(t("friendsPage.syncSuccessDetails", { details: bits.join(", ") }), "success");
-      } else {
-        showToast(t("friendsPage.syncUpToDate"), "success");
+      if (changesMade) {
+        saveSessions(mergedSessions);
+        saveRecommendations(mergedRecs);
+        saveSuggestions(mergedSuggestions);
+        saveDmsAndPersist(mergedDms);
+        setSessions(mergedSessions);
+        setRecommendations(mergedRecs);
+        setSuggestions(mergedSuggestions);
+        setDms(mergedDms);
+        setUnseenCounts((prev) => ({ ...prev, dms: getUnseenTabItems("dms") }));
       }
+
+      if (friendsUpdated) {
+        saveFriends(updatedFriends);
+        setFriends(updatedFriends);
+      }
+
+      const pushed = await pushMyOutbox(
+        profile,
+        selfStats,
+        mergedSessions,
+        mergedRecs,
+        selfSharedGames,
+        mergedSuggestions,
+        mergedDms
+      );
+
+      const syncedAt = new Date().toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit" });
+      setLastSyncedTime(syncedAt);
+
+      const changes: string[] = [];
+      if (pulledSessions > 0) changes.push(t("friendsPage.sessionsCount", { count: pulledSessions }));
+      if (pulledRecs > 0) changes.push(t("friendsPage.recommendationsCount", { count: pulledRecs }));
+      if (friendsUpdated) changes.push(t("friendsPage.profileUpdates"));
+      if (pullErrors.length > 0) changes.push(t("friendsPage.syncErrors", { count: pullErrors.length }));
+
+      const logMsg = pushed.ok
+        ? changes.length > 0
+          ? t("friendsPage.syncPulled", { items: changes.join(", ") })
+          : t("friendsPage.upToDatePublished")
+        : t("friendsPage.syncPublishFailed", { reason: pushed.reason || t("friendsPage.unknownReason") });
+
+      setSyncLog((prev) =>
+        [{ time: syncedAt, message: logMsg, details: friendLogs }, ...prev].slice(0, 12)
+      );
+
+      if (manual) {
+        if (!pushed.ok) {
+          showToast(t("friendsPage.syncFailed", { reason: pushed.reason || t("friendsPage.couldNotWriteOutbox") }), "error");
+        } else if (pullErrors.length > 0) {
+          showToast(
+            t("friendsPage.syncedWithErrors", { count: pullErrors.length, errors: pullErrors.join("; ") }),
+            "warning"
+          );
+        } else if (pulledSessions > 0 || pulledRecs > 0 || friendsUpdated || changesMade) {
+          const bits: string[] = [];
+          if (pulledSessions > 0) bits.push(t("friendsPage.sessionsCount", { count: pulledSessions }));
+          if (pulledRecs > 0) bits.push(t("friendsPage.recommendationsCount", { count: pulledRecs }));
+          if (friendsUpdated) bits.push(t("friendsPage.profileUpdates"));
+          showToast(t("friendsPage.syncSuccessDetails", { details: bits.join(", ") }), "success");
+        } else {
+          showToast(t("friendsPage.syncUpToDate"), "success");
+        }
+      }
+
+      await checkFolderInvitations(profile.syncId, localFriends);
+      addUnseenCommunityItems(newCommunityItems);
+    } finally {
+      setIsSyncing(false);
     }
-    
-    await checkFolderInvitations(profile.syncId, localFriends);
 
-    // Surface genuinely-new social items as a number badge on the
-    // Community tab (sessions / recommendations / suggestions pulled
-    // from friends this sync). Only bumps when items are truly new.
-    addUnseenCommunityItems(newCommunityItems);
-    refreshUnseenCounts();
-
-    setIsSyncing(false);
-
-    // Honor a manual sync that was requested while this one was running.
     if (pendingManualSync.current) {
       pendingManualSync.current = false;
       performSync(true);
@@ -2277,12 +765,12 @@ export default function FriendsPage() {
     try {
       const peers = await listPeerOutboxes();
       const newInvites: FriendInvitation[] = [];
-      
+
       for (const peerId of peers) {
         if (currentFriends.some((f) => f.syncId === peerId)) continue;
         if (peerId === mySyncId) continue;
         if (deniedIds.includes(peerId)) continue;
-        
+
         const remoteOutbox = await fetchFriendOutbox(peerId);
         if (remoteOutbox && remoteOutbox.friends && remoteOutbox.friends.includes(mySyncId)) {
           newInvites.push({
@@ -2295,7 +783,7 @@ export default function FriendsPage() {
           });
         }
       }
-      
+
       setInvitations((prev) => {
         const merged = [...prev];
         newInvites.forEach((invite) => {
@@ -2313,135 +801,70 @@ export default function FriendsPage() {
   // Run initial sync on mount
   useEffect(() => {
     performSync(false);
-  }, [profile.syncId, profileName]);
+  }, [profile.syncId]);
 
-  // Background polling timer. A 15s cadence is enough for P2P folder sync and
-  // avoids re-merging the whole friend graph every 5s on the main thread.
+  // Background polling interval (15s)
   useEffect(() => {
     const interval = setInterval(() => {
       performSync(false);
     }, 15000);
+    return () => clearInterval(interval);
+  }, [friends, profile.syncId]);
 
-    return () => {
-      clearInterval(interval);
-    };
-  }, [friends, profile.syncId, profileName]);
-
-  // Presence heartbeat: republish our outbox immediately whenever our local
-  // data changes (debounced) so friends see updates near-instantly, plus a
-  // shorter recurring interval (20s) so "last seen" stays fresh even when
-  // nothing else changed.
+  // Incoming P2P sync listener
   useEffect(() => {
-    let cancelled = false;
-    const t = setTimeout(async () => {
-      if (cancelled) return;
-      const updated = { ...profile, lastPublished: Math.floor(Date.now() / 1000) };
-      setProfile(updated);
-      saveUserProfile(updated);
-      try {
-        await pushMyOutbox(updated, selfStats, sessions, recommendations, selfSharedGames, suggestions);
-      } catch {
-        /* ignore heartbeat failures */
-      }
-    }, 2000);
-    return () => {
-      cancelled = true;
-      clearTimeout(t);
-    };
-  }, [profile, selfStats, sessions, recommendations, selfSharedGames]);
-
-  // Recurring shorter-interval heartbeat to keep presence fresh.
-  useEffect(() => {
-    const heartbeat = setInterval(async () => {
-      const updated = { ...profile, lastPublished: Math.floor(Date.now() / 1000) };
-      setProfile(updated);
-      saveUserProfile(updated);
-      try {
-        await pushMyOutbox(updated, selfStats, sessions, recommendations, selfSharedGames, suggestions);
-      } catch {
-        /* ignore heartbeat failures */
-      }
-    }, 20000);
-    return () => clearInterval(heartbeat);
-  }, [profile, selfStats, sessions, recommendations, selfSharedGames]);
-
-  // Session start reminders: toast once when an upcoming session is ~15 min away.
-  const remindedSessionIds = useRef<Set<string>>(new Set());
-  useEffect(() => {
-    const now = Date.now();
-    const REMINDER_MS = 15 * 60 * 1000;
-    sessions.forEach((s) => {
-      if (s.deleted) return;
-      const start = new Date(s.scheduledAt).getTime();
-      const diff = start - now;
-      if (diff > 0 && diff <= REMINDER_MS && !remindedSessionIds.current.has(s.id)) {
-        remindedSessionIds.current.add(s.id);
-        showToast(t("friendsPage.sessionStartsSoon", { game: s.gameName, min: Math.round(diff / 60000) }), "info");
-      }
-      // Reset the reminder flag once the session is well in the past.
-      if (diff < -60 * 60 * 1000) {
-        remindedSessionIds.current.delete(s.id);
-      }
-    });
-  }, [sessions]);
-
-  const handleCommentInputChange = (recId: string, value: string) => {
-    setCommentInputs((prev) => ({ ...prev, [recId]: value }));
-  };
-
-  const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-
-    if (file.size > 2 * 1024 * 1024) {
-      showToast(t("friendsPage.fileTooLarge"), "error");
-      return;
-    }
-
-    const reader = new FileReader();
-    reader.onload = (event) => {
-      const img = new Image();
-      img.onload = () => {
-        const canvas = document.createElement("canvas");
-        const ctx = canvas.getContext("2d");
-        const maxDim = 96;
-        canvas.width = maxDim;
-        canvas.height = maxDim;
-
-        if (ctx) {
-          const minSide = Math.min(img.width, img.height);
-          const sx = (img.width - minSide) / 2;
-          const sy = (img.height - minSide) / 2;
-          ctx.drawImage(img, sx, sy, minSide, minSide, 0, 0, maxDim, maxDim);
-          
-          try {
-            const compressedBase64 = canvas.toDataURL("image/jpeg", 0.6);
-            const updated = { ...profile, avatar: compressedBase64 };
-            setProfile(updated);
-            saveUserProfile(updated);
-            pushMyOutbox(updated, selfStats, sessions, recommendations, selfSharedGames, suggestions);
-            showToast(t("friendsPage.avatarUploaded"), "success");
-          } catch {
-            showToast(t("friendsPage.imageProcessingFailed"), "error");
-          }
+    let unlisten: (() => void) | undefined;
+    async function setupListener() {
+      unlisten = await listen<string>("internet-sync-received", (event) => {
+        try {
+          const remoteDb = JSON.parse(event.payload) as FriendsDatabase;
+          handleReceiveRemoteData(remoteDb);
+        } catch (err) {
+          console.error("Failed to parse/merge remote sync data:", err);
         }
-      };
-      img.src = event.target?.result as string;
+      });
+    }
+    setupListener();
+    return () => {
+      if (unlisten) unlisten();
     };
-    reader.readAsDataURL(file);
-  };
+  }, [deniedIds]);
 
-  const handleSaveProfile = async (e: React.FormEvent) => {
-    e.preventDefault();
-    saveUserProfile(profile);
-    await pushMyOutbox(profile, selfStats, sessions, recommendations, selfSharedGames, suggestions);
-    showToast(t("friendsPage.profileUpdated"), "success");
-  };
+  // Nostr subscription
+  useEffect(() => {
+    if (friends.length === 0) return;
+    const pubkeys = friends.map((f) => f.syncId).filter((id) => /^[0-9a-fA-F]{64}$/.test(id));
+    if (pubkeys.length === 0) return;
 
-  // Add a friend
+    const sub = nostrPool.subscribeMany(
+      NOSTR_RELAYS,
+      {
+        authors: pubkeys,
+        kinds: [30078],
+        "#d": ["gamelib-friends-outbox"],
+      },
+      {
+        onevent(event) {
+          if (!verifyEvent(event)) return;
+          try {
+            const remoteDb = JSON.parse(event.content) as FriendsDatabase;
+            handleReceiveRemoteData(remoteDb);
+          } catch (err) {
+            console.error("Nostr: failed to parse remote data:", err);
+          }
+        },
+      }
+    );
+
+    return () => {
+      sub.close();
+    };
+  }, [friends, nostrPool]);
+
+  // ── Friend Actions ──────────────────────────────────────────────────
+
   const handleAddFriend = () => {
     if (!decodedFriend) return;
-
     const exists = friends.some((f) => f.syncId === decodedFriend.syncId);
     if (exists) {
       showToast(t("friendsPage.alreadyInFriends", { name: decodedFriend.name }), "error");
@@ -2455,13 +878,11 @@ export default function FriendsPage() {
     setFriendCodeInput("");
     setShowAddModal(false);
 
-    // Trigger instant synchronization
     setTimeout(() => {
       performSync(false);
     }, 100);
   };
 
-  // Accept a friend invitation
   const handleAcceptInvitation = (invite: FriendInvitation) => {
     const exists = friends.some((f) => f.syncId === invite.syncId);
     if (exists) {
@@ -2486,13 +907,11 @@ export default function FriendsPage() {
     setInvitations((prev) => prev.filter((i) => i.syncId !== invite.syncId));
     showToast(t("friendsPage.acceptedInvitation", { name: invite.name }), "success");
 
-    // Trigger instant synchronization to exchange data
     setTimeout(() => {
       performSync(true);
     }, 100);
   };
 
-  // Deny a friend invitation
   const handleDenyInvitation = (syncId: string) => {
     const nextDenied = [...deniedIds, syncId];
     setDeniedIds(nextDenied);
@@ -2501,27 +920,20 @@ export default function FriendsPage() {
     showToast(t("friendsPage.invitationDenied"), "info");
   };
 
-  // Delete a friend
   const handleDeleteFriend = (friendId: string, friendName: string) => {
     const updated = friends.filter((f) => f.id !== friendId);
     setFriends(updated);
     saveFriends(updated);
-    if (selectedCompareFriendId === friendId) {
-      setSelectedCompareFriendId("");
-    }
+    if (selectedCompareFriendId === friendId) setSelectedCompareFriendId("");
     showToast(t("friendsPage.removedFromFriends", { name: friendName }), "info");
   };
 
-  // Toggle pin (favorite) for a friend
   const handleTogglePin = (friendId: string) => {
-    const updated = friends.map((f) =>
-      f.id === friendId ? { ...f, pinned: !f.pinned } : f
-    );
+    const updated = friends.map((f) => (f.id === friendId ? { ...f, pinned: !f.pinned } : f));
     setFriends(updated);
     saveFriends(updated);
   };
 
-  // Set a local nickname override for a friend
   const handleSetNickname = (friendId: string, nickname: string) => {
     const updated = friends.map((f) =>
       f.id === friendId ? { ...f, nickname: nickname.trim() || undefined } : f
@@ -2530,93 +942,81 @@ export default function FriendsPage() {
     saveFriends(updated);
   };
 
-  // Block / unblock a peer (skips their outbox during sync)
   const handleToggleBlock = (friendId: string, friendName: string) => {
     const friend = friends.find((f) => f.id === friendId);
     if (!friend) return;
-    const updated = friends.map((f) =>
-      f.id === friendId ? { ...f, blocked: !f.blocked } : f
-    );
+    const updated = friends.map((f) => (f.id === friendId ? { ...f, blocked: !f.blocked } : f));
     setFriends(updated);
     saveFriends(updated);
     showToast(
-      friend.blocked ? t("friendsPage.unblockedFriend", { name: friendName }) : t("friendsPage.blockedFriend", { name: friendName }),
+      friend.blocked
+        ? t("friendsPage.unblockedFriend", { name: friendName })
+        : t("friendsPage.blockedFriend", { name: friendName }),
       "info"
     );
   };
 
-  // Bulk actions over selected friends
-  const toggleSelect = (id: string) => {
-    setSelectedFriendIds((prev) =>
-      prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]
-    );
-  };
-
-  const applyBulk = (fn: (f: Friend) => Friend) => {
-    const selected = new Set(selectedFriendIds);
-    const updated = friends.map((f) => (selected.has(f.id) ? fn(f) : f));
+  const handleBulkPin = (ids: string[]) => {
+    const set = new Set(ids);
+    const updated = friends.map((f) => (set.has(f.id) ? { ...f, pinned: true } : f));
     setFriends(updated);
     saveFriends(updated);
-    setSelectedFriendIds([]);
-    setSelectMode(false);
-  };
-
-  const handleBulkPin = () => {
-    applyBulk((f) => ({ ...f, pinned: true }));
     showToast(t("friendsPage.pinnedFriends"), "info");
   };
-  const handleBulkUnpin = () => {
-    applyBulk((f) => ({ ...f, pinned: false }));
-    showToast(t("friendsPage.unpinnedFriends"), "info");
-  };
-  const handleBulkBlock = () => {
-    applyBulk((f) => ({ ...f, blocked: true }));
-    showToast(t("friendsPage.blockedFriends"), "info");
-  };
-  const handleBulkRemove = () => {
-    const selected = new Set(selectedFriendIds);
-    const updated = friends.filter((f) => !selected.has(f.id));
+
+  const handleBulkUnpin = (ids: string[]) => {
+    const set = new Set(ids);
+    const updated = friends.map((f) => (set.has(f.id) ? { ...f, pinned: false } : f));
     setFriends(updated);
     saveFriends(updated);
-    if (selected.has(selectedCompareFriendId)) setSelectedCompareFriendId("");
-    setSelectedFriendIds([]);
-    setSelectMode(false);
+    showToast(t("friendsPage.unpinnedFriends"), "info");
+  };
+
+  const handleBulkBlock = (ids: string[]) => {
+    const set = new Set(ids);
+    const updated = friends.map((f) => (set.has(f.id) ? { ...f, blocked: true } : f));
+    setFriends(updated);
+    saveFriends(updated);
+    showToast(t("friendsPage.blockedFriends"), "info");
+  };
+
+  const handleBulkRemove = (ids: string[]) => {
+    const set = new Set(ids);
+    const updated = friends.filter((f) => !set.has(f.id));
+    setFriends(updated);
+    saveFriends(updated);
+    if (set.has(selectedCompareFriendId)) setSelectedCompareFriendId("");
     showToast(t("friendsPage.removedFriends"), "info");
   };
 
-  // Quick actions that cross into other tabs
-  const handleInviteToSession = (friend: Friend) => {
-    if (!sessionInvited.includes(friend.name)) {
-      setSessionInvited((prev) => [...prev, friend.name]);
-    }
-    setActiveTab("sessions");
-    showToast(t("friendsPage.invitingToSession", { name: displayName(friend) }), "info");
-  };
-
+  // Cross-tab actions from cards
   const handleCompareFromCard = (friend: Friend) => {
     setSelectedCompareFriendId(friend.id);
     setActiveTab("compare");
   };
 
+  const handleInviteToSession = (friend: Friend) => {
+    setActiveTab("sessions");
+    showToast(t("friendsPage.invitingToSession", { name: displayName(friend) }), "info");
+  };
+
   const handleMessageFriend = (friend: Friend) => {
-    // Open the 1:1 DM thread with this friend (created lazily on first send).
     const existing = dmsRef.current.find(
       (th) => th.participants.includes(profile.name) && th.participants.includes(friend.name)
     );
-    setSelectedDmId(existing ? existing.id : dmThreadId(profile.name, friend.name));
+    const tid = existing ? existing.id : dmThreadId(profile.name, friend.name);
+    setSelectedDmId(tid);
     setSelectedDmFriendName(friend.name);
     setActiveTab("dms");
-    clearUnseenTabItems("dms");
-    setUnseenCounts((prev) => ({ ...prev, dms: 0 }));
   };
 
-  // ── Circles (friend groups) ───────────────────────────────────────
-  const handleCreateCircle = (name: string) => {
-    const trimmed = name.trim();
-    if (!trimmed) return;
+  // ── Circles Handlers ────────────────────────────────────────────────
+
+  const handleCreateCircle = (name: string, color?: string) => {
     const circle: FriendCircle = {
       id: `circle_${Date.now()}_${Math.random().toString(36).substr(2, 6)}`,
-      name: trimmed,
+      name: name.trim(),
+      color,
     };
     const updated = [...circles, circle];
     setCircles(updated);
@@ -2624,9 +1024,7 @@ export default function FriendsPage() {
   };
 
   const handleRenameCircle = (circleId: string, name: string) => {
-    const trimmed = name.trim();
-    if (!trimmed) return;
-    const updated = circles.map((c) => (c.id === circleId ? { ...c, name: trimmed } : c));
+    const updated = circles.map((c) => (c.id === circleId ? { ...c, name } : c));
     setCircles(updated);
     saveCircles(updated);
   };
@@ -2635,189 +1033,31 @@ export default function FriendsPage() {
     const updatedCircles = circles.filter((c) => c.id !== circleId);
     setCircles(updatedCircles);
     saveCircles(updatedCircles);
-    // Detach the circle from every friend.
     const updatedFriends = friends.map((f) => ({
       ...f,
       groups: (f.groups || []).filter((g) => g !== circleId),
     }));
     setFriends(updatedFriends);
     saveFriends(updatedFriends);
-    if (selectedCircleId === circleId) setSelectedCircleId("all");
   };
 
   const handleToggleFriendCircle = (friendId: string, circleId: string) => {
     const updated = friends.map((f) => {
       if (f.id !== friendId) return f;
       const groups = f.groups || [];
-      return {
-        ...f,
-        groups: groups.includes(circleId)
-          ? groups.filter((g) => g !== circleId)
-          : [...groups, circleId],
-      };
+      const has = groups.includes(circleId);
+      return { ...f, groups: has ? groups.filter((g) => g !== circleId) : [...groups, circleId] };
     });
     setFriends(updated);
     saveFriends(updated);
   };
 
-  // Quick-select every member of a circle for the session invite list.
-  const handleInviteCircleToSession = (circleId: string) => {
-    const circle = circles.find((c) => c.id === circleId);
-    if (!circle) return;
-    const members = friends
-      .filter((f) => (f.groups || []).includes(circleId))
-      .map((f) => f.name);
-    setSessionInvited((prev) => Array.from(new Set([...prev, ...members])));
-    showToast(t("friendsPage.circleInvited", { name: circle.name, count: members.length }), "info");
-  };
+  // ── Session Handlers ────────────────────────────────────────────────
 
-  // ── 1:1 DM chat ───────────────────────────────────────────────────
-  const handleSendDm = async (friendName: string, text: string) => {
-    const trimmed = text.trim();
-    if (!friendName || !trimmed) return;
-    const threadId = dmThreadId(profile.name, friendName);
-    const msg: SessionMessage = {
-      id: `dm_msg_${Date.now()}_${Math.random().toString(36).substr(2, 6)}`,
-      author: profile.name,
-      text: trimmed,
-      timestamp: Date.now(),
-    };
-    // Build from the ref snapshot so rapid consecutive sends don't drop a message.
-    const current = dmsRef.current;
-    let updated = current.map((t) =>
-      t.id === threadId
-        ? { ...t, messages: [...(t.messages || []), msg], updatedAt: Date.now() }
-        : t
-    );
-    if (!updated.some((t) => t.id === threadId)) {
-      updated = [
-        {
-          id: threadId,
-          participants: [profile.name, friendName].sort(),
-          messages: [msg],
-          updatedAt: Date.now(),
-        },
-        ...updated,
-      ];
-    }
-    dmsRef.current = updated;
-    setDms(updated);
-    saveDmsAndPersist(updated);
-    await pushMyOutbox(profile, selfStats, sessions, recommendations, selfSharedGames, suggestions, updated);
-  };
-
-  // Mark a DM thread as read when the user opens it.
-  const handleOpenDmThread = (threadId: string, friendName: string) => {
-    setSelectedDmId(threadId);
-    setSelectedDmFriendName(friendName);
-    clearUnseenTabItems("dms");
-    setUnseenCounts((prev) => ({ ...prev, dms: 0 }));
-  };
-
-  // Refresh unseen badge state from localStorage (called after sync/merge).
-  const refreshUnseenCounts = () => {
-    setUnseenCounts({
-      sessions: getUnseenTabItems("sessions"),
-      recs: getUnseenTabItems("recs"),
-      suggestions: getUnseenTabItems("suggestions"),
-      activity: getUnseenTabItems("activity"),
-      dms: getUnseenTabItems("dms"),
-    });
-  };
-
-  // Copy public key
-  const handleCopyCode = () => {
-    if (!generatedFriendCode) return;
-    navigator.clipboard.writeText(generatedFriendCode);
-    showToast(t("friendsPage.keyCopied"), "success");
-  };
-
-  // Avatar renderer helper
-  const renderAvatar = (avatarKey: string, name: string, sizeClass = "") => {
-    if (avatarKey === "procedural" || !avatarKey) {
-      const style = getProceduralAvatarStyle(name);
-      return (
-        <div className={`friend-avatar-wrapper ${sizeClass}`} style={style}>
-          {getInitials(name)}
-        </div>
-      );
-    }
-    return (
-      <div className={`friend-avatar-wrapper ${sizeClass}`}>
-        <img src={avatarKey} alt={t("friendsPage.avatarAlt", { name })} onError={(e) => {
-          (e.target as HTMLElement).style.display = "none";
-        }} />
-      </div>
-    );
-  };
-
-  // ── Game Sessions Logic ───────────────────────────────────────────
-
-  const handleCreateSession = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!sessionGameId || !sessionDateTime) {
-      showToast(t("friendsPage.selectGameAndTime"), "error");
-      return;
-    }
-
-    // auto-decline: if the creator already has an overlapping non-declined session, decline it.
-    const conflict = sessions.find(
-      (s) => !s.deleted && s.creatorName === profile.name && sessionsConflict(s, { scheduledAt: sessionDateTime, durationMin: sessionDuration })
-    );
-
-    const newSession: GameSession = {
-      id: `session_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
-      gameId: sessionGameId,
-      gameName: sessionGameName || games.find((g) => g.id === sessionGameId)?.name || t("friendsPage.unknownGame"),
-      scheduledAt: sessionDateTime,
-      maxPlayers: Number(sessionMaxPlayers) || 4,
-      description: sessionDesc,
-      creatorName: profile.name,
-      attendees: [profile.name],
-      rsvps: { [profile.name]: "going" },
-      updatedAt: Date.now(),
-      creatorTimezone: viewerTimezone,
-      invited: sessionInvited,
-      durationMin: Number(sessionDuration) || 120,
-      participants: [{ name: profile.name, role: "host", timezone: viewerTimezone }],
-      messages: [],
-    };
-
-    let updated = [newSession, ...sessions];
-
-    if (conflict) {
-      updated = updated.map((s) =>
-        s.id === conflict.id
-          ? { ...s, rsvps: { ...(s.rsvps || {}), [profile.name]: "declined" }, attendees: s.attendees.filter((n) => n !== profile.name), updatedAt: Date.now() }
-          : s
-      );
-      showToast(t("friendsPage.scheduledAutoDeclined", { game: conflict.gameName }), "warning");
-    } else {
-      showToast(t("friendsPage.sessionScheduled"), "success");
-    }
-
-    setSessions(updated);
-    saveSessions(updated);
-    await pushMyOutbox(profile, selfStats, updated, recommendations, selfSharedGames, suggestions);
-
-    // Reset Form
-    setSessionGameId("");
-    setSessionGameName("");
-    setSessionDateTime("");
-    setSessionMaxPlayers(4);
-    setSessionDesc("");
-    setSessionDuration(120);
-    setSessionInvited([]);
-    // Make sure the freshly created session is visible (it becomes "Upcoming").
-    setSessionView("upcoming");
-  };
-
-  // Set an RSVP status (going / maybe / declined) for the current user.
-  const handleSetRsvp = async (sessionId: string, status: RsvpStatus) => {
+  const handleRsvp = async (sessionId: string, status: RsvpStatus) => {
     const updated = sessions.map((s) => {
       if (s.id !== sessionId) return s;
       const rsvps = { ...(s.rsvps || {}) };
-      // Toggling the same status clears it back to no response.
       if (rsvps[profile.name] === status) {
         delete rsvps[profile.name];
       } else {
@@ -2827,111 +1067,99 @@ export default function FriendsPage() {
       const attendees = isGoing
         ? Array.from(new Set([...s.attendees, profile.name]))
         : s.attendees.filter((n) => n !== profile.name);
-      // Keep the participant record in sync with the RSVP.
+
       const participants = (s.participants || []).filter((p) => p.name !== profile.name);
       if (isGoing) {
-        participants.unshift({ name: profile.name, role: "player", timezone: viewerTimezone });
+        participants.push({ name: profile.name, role: "player" });
       }
-      const label = rsvps[profile.name] ? t(`friendsPage.rsvp_${rsvps[profile.name]}`) : t("friendsPage.noResponse");
-      showToast(t("friendsPage.rsvpSet", { status: label }), "info");
       return { ...s, rsvps, attendees, participants, updatedAt: Date.now() };
     });
 
     setSessions(updated);
     saveSessions(updated);
-    await pushMyOutbox(profile, selfStats, updated, recommendations, selfSharedGames, suggestions);
+    await pushMyOutbox(profile, selfStats, updated, recommendations, selfSharedGames, suggestions, dms);
   };
 
-  // Remove a session entirely (hard delete from local list)
-  const handleDeleteSession = async (sessionId: string) => {
-    const updated = sessions.map((s) =>
-      s.id === sessionId ? { ...s, deleted: true, updatedAt: Date.now() } : s
-    );
+  const handleCreateSession = async (sessionData: Omit<GameSession, "id" | "updatedAt">) => {
+    const newSession: GameSession = {
+      ...sessionData,
+      id: `session_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+      updatedAt: Date.now(),
+    };
+    const updated = [newSession, ...sessions];
     setSessions(updated);
     saveSessions(updated);
-    await pushMyOutbox(profile, selfStats, updated, recommendations, selfSharedGames, suggestions);
-    showToast(t("friendsPage.sessionRemoved"), "info");
+    showToast(t("friends.sessionCreated"), "success");
+    await pushMyOutbox(profile, selfStats, updated, recommendations, selfSharedGames, suggestions, dms);
   };
 
-  // Update a participant's role (host/cohost/player). Only host/cohost may change.
-  const handleSetRole = async (sessionId: string, name: string, role: SessionRole) => {
+  const handleDeleteSession = async (sessionId: string) => {
+    const updated = sessions.map((s) => (s.id === sessionId ? { ...s, deleted: true, updatedAt: Date.now() } : s));
+    setSessions(updated);
+    saveSessions(updated);
+    showToast(t("friendsPage.sessionDeleted"), "info");
+    await pushMyOutbox(profile, selfStats, updated, recommendations, selfSharedGames, suggestions, dms);
+  };
+
+  const handleSetSessionRole = async (sessionId: string, name: string, role: SessionRole) => {
     const updated = sessions.map((s) => {
       if (s.id !== sessionId) return s;
       const participants = (s.participants || []).map((p) => (p.name === name ? { ...p, role } : p));
-      if (!participants.some((p) => p.name === name)) participants.push({ name, role });
       return { ...s, participants, updatedAt: Date.now() };
     });
     setSessions(updated);
     saveSessions(updated);
-    await pushMyOutbox(profile, selfStats, updated, recommendations, selfSharedGames, suggestions);
+    await pushMyOutbox(profile, selfStats, updated, recommendations, selfSharedGames, suggestions, dms);
   };
 
-  // Add a +1 guest (non-friend attendee) to a session.
-  const handleAddGuest = async (sessionId: string, guestName: string) => {
+  const handleAddSessionGuest = async (sessionId: string, guestName: string) => {
     const updated = sessions.map((s) => {
       if (s.id !== sessionId) return s;
-      const participants = [...(s.participants || [])];
-      if (!participants.some((p) => p.name.toLowerCase() === guestName.toLowerCase())) {
-        participants.push({ name: guestName, role: "player", guest: true, timezone: viewerTimezone });
-      }
-      const rsvps = { ...(s.rsvps || {}) };
-      if (rsvps[guestName] === undefined) rsvps[guestName] = "going";
-      const attendees = Array.from(new Set([...s.attendees, guestName]));
-      return { ...s, participants, rsvps, attendees, updatedAt: Date.now() };
-    });
-    setSessions(updated);
-    saveSessions(updated);
-    await pushMyOutbox(profile, selfStats, updated, recommendations, selfSharedGames, suggestions);
-    showToast(t("friendsPage.guestAdded", { name: guestName }), "success");
-  };
-
-  const handleRemoveGuest = async (sessionId: string, guestName: string) => {
-    const updated = sessions.map((s) => {
-      if (s.id !== sessionId) return s;
-      const participants = (s.participants || []).filter((p) => !(p.guest && p.name === guestName));
-      const rsvps = { ...(s.rsvps || {}) };
-      delete rsvps[guestName];
-      const attendees = s.attendees.filter((n) => n !== guestName);
-      return { ...s, participants, rsvps, attendees, updatedAt: Date.now() };
-    });
-    setSessions(updated);
-    saveSessions(updated);
-    await pushMyOutbox(profile, selfStats, updated, recommendations, selfSharedGames, suggestions);
-  };
-
-  // Save the "what I'm bringing" note on the current user's RSVP.
-  const handleSetRsvpNote = async (sessionId: string, note: string) => {
-    const updated = sessions.map((s) => {
-      if (s.id !== sessionId) return s;
-      const participants = [...(s.participants || [])];
-      const idx = participants.findIndex((p) => p.name === profile.name);
-      if (idx >= 0) participants[idx] = { ...participants[idx], note: note || undefined };
-      else participants.push({ name: profile.name, role: "player", note: note || undefined, timezone: viewerTimezone });
+      const participants = [...(s.participants || []), { name: guestName, role: "player" as SessionRole, guest: true }];
       return { ...s, participants, updatedAt: Date.now() };
     });
     setSessions(updated);
     saveSessions(updated);
-    await pushMyOutbox(profile, selfStats, updated, recommendations, selfSharedGames, suggestions);
+    await pushMyOutbox(profile, selfStats, updated, recommendations, selfSharedGames, suggestions, dms);
   };
 
-  // Append a chat message to a session's shared thread.
-  const handleSendMessage = async (sessionId: string, text: string) => {
-    const msg: SessionMessage = {
-      id: `msg_${Date.now()}_${Math.random().toString(36).substr(2, 6)}`,
-      author: profile.name,
-      text,
-      timestamp: Date.now(),
-    };
-    const updated = sessions.map((s) =>
-      s.id === sessionId ? { ...s, messages: [...(s.messages || []), msg], updatedAt: Date.now() } : s
-    );
+  const handleRemoveSessionGuest = async (sessionId: string, guestName: string) => {
+    const updated = sessions.map((s) => {
+      if (s.id !== sessionId) return s;
+      const participants = (s.participants || []).filter((p) => !(p.name === guestName && p.guest));
+      return { ...s, participants, updatedAt: Date.now() };
+    });
     setSessions(updated);
     saveSessions(updated);
-    await pushMyOutbox(profile, selfStats, updated, recommendations, selfSharedGames, suggestions);
+    await pushMyOutbox(profile, selfStats, updated, recommendations, selfSharedGames, suggestions, dms);
   };
 
-  // Toggle a message's pinned state (host/cohost only, enforced in UI).
-  const handleTogglePinMessage = async (sessionId: string, messageId: string) => {
+  const handleSetSessionRsvpNote = async (sessionId: string, note: string) => {
+    const updated = sessions.map((s) => {
+      if (s.id !== sessionId) return s;
+      const participants = (s.participants || []).map((p) => (p.name === profile.name ? { ...p, note } : p));
+      return { ...s, participants, updatedAt: Date.now() };
+    });
+    setSessions(updated);
+    saveSessions(updated);
+    await pushMyOutbox(profile, selfStats, updated, recommendations, selfSharedGames, suggestions, dms);
+  };
+
+  const handleSendSessionMessage = async (sessionId: string, text: string) => {
+    const updated = sessions.map((s) => {
+      if (s.id !== sessionId) return s;
+      const messages = [
+        ...(s.messages || []),
+        { id: `msg_${Date.now()}_${Math.random().toString(36).substr(2, 6)}`, author: profile.name, text, timestamp: Date.now() },
+      ];
+      return { ...s, messages, updatedAt: Date.now() };
+    });
+    setSessions(updated);
+    saveSessions(updated);
+    await pushMyOutbox(profile, selfStats, updated, recommendations, selfSharedGames, suggestions, dms);
+  };
+
+  const handleTogglePinSessionMessage = async (sessionId: string, messageId: string) => {
     const updated = sessions.map((s) => {
       if (s.id !== sessionId) return s;
       const messages = (s.messages || []).map((m) => (m.id === messageId ? { ...m, pinned: !m.pinned } : m));
@@ -2939,136 +1167,24 @@ export default function FriendsPage() {
     });
     setSessions(updated);
     saveSessions(updated);
-    await pushMyOutbox(profile, selfStats, updated, recommendations, selfSharedGames, suggestions);
+    await pushMyOutbox(profile, selfStats, updated, recommendations, selfSharedGames, suggestions, dms);
   };
 
-  // Resolve a cover image URL for a session's game (library coverArtUrl, or
-  // store coverUrl for `store_<id>` entries). Used by the session cards.
-  const gameCoverForSession = useMemo(() => {
-    const libMap = new Map<string, string>();
-    (games as any[]).forEach((g) => {
-      if (g && g.coverArtUrl) libMap.set(String(g.id), g.coverArtUrl);
-    });
-    return (session: GameSession): string | undefined => {
-      const id = session.gameId;
-      if (id.startsWith("store_")) {
-        const slug = id.slice("store_".length);
-        // Best-effort store lookup from the persisted store cache (by numeric id).
-        try {
-          const raw = localStorage.getItem("gamelib.store.cache");
-          if (raw) {
-            const cache = JSON.parse(raw);
-            const all = Object.values(cache?.categories || {}) as any[];
-            for (const entry of all) {
-              const found = (entry?.data || []).find((g: any) => String(g.id) === slug);
-              if (found?.coverUrl) return found.coverUrl;
-            }
-          }
-        } catch {
-          /* ignore */
-        }
-        return undefined;
-      }
-      return libMap.get(id);
-    };
-  }, [games]);
+  // ── Recommendations Handlers ────────────────────────────────────────
 
-  // ── Recommendations Logic ────────────────────────────────────────
-
-  const handleCreateRecommendation = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!recGameId || !recReason.trim()) {
-      showToast(t("friendsPage.selectGameAndNotes"), "error");
-      return;
-    }
-
-    const game = games.find((g) => g.id === recGameId);
-    if (!game) return;
-
-    const newRec: GameRecommendation = {
-      id: `rec_${Date.now()}`,
-      gameId: recGameId,
-      gameName: game.name,
-      recommendedBy: profile.name,
-      recommendedTo: recToFriend,
-      reason: recReason,
-      rating: recRating,
-      comments: [],
-      createdAt: Date.now(),
-      updatedAt: Date.now(),
-    };
-
-    const updated = [newRec, ...recommendations];
-    setRecommendations(updated);
-    saveRecommendations(updated);
-    await pushMyOutbox(profile, selfStats, sessions, updated, selfSharedGames, suggestions);
-    showToast(t("friendsPage.gameRecommended"), "success");
-
-    setRecGameId("");
-    setRecToFriend("All Friends");
-    setRecRating(5);
-    setRecReason("");
-  };
-
-  const handleAddComment = async (e: React.FormEvent, recId: string) => {
-    e.preventDefault();
-    const commentText = commentInputs[recId] || "";
-    if (!commentText.trim()) return;
-
-    const updated = recommendations.map((r) => {
-      if (r.id !== recId) return r;
-
-      const newComment = {
-        id: `comment_${Date.now()}`,
-        authorName: profile.name,
-        text: commentText,
-        timestamp: Date.now(),
-      };
-
-      return {
-        ...r,
-        comments: [...r.comments, newComment],
-        updatedAt: Date.now(),
-      };
-    });
-
-    setRecommendations(updated);
-    saveRecommendations(updated);
-    await pushMyOutbox(profile, selfStats, sessions, updated, selfSharedGames, suggestions);
-    setCommentInputs((prev) => ({ ...prev, [recId]: "" }));
-    showToast(t("friendsPage.commentPosted"), "success");
-  };
-
-  // Remove a recommendation entirely (hard delete from local list replaced with tombstone)
-  const handleDeleteRecommendation = async (recId: string) => {
-    const updated = recommendations.map((r) =>
-      r.id === recId ? { ...r, deleted: true, updatedAt: Date.now() } : r
-    );
-    setRecommendations(updated);
-    saveRecommendations(updated);
-    await pushMyOutbox(profile, selfStats, sessions, updated, selfSharedGames, suggestions);
-    showToast(t("friendsPage.recommendationRemoved"), "info");
-  };
-
-  // Toggle a reaction (like/love/play) on a recommendation. Toggling the same
-  // kind again removes the reaction.
-  const handleToggleReaction = async (recId: string, kind: ReactionKind) => {
+  const handleReactRec = async (recId: string, kind: ReactionKind) => {
     const updated = recommendations.map((r) => {
       if (r.id !== recId) return r;
       const reactions = { ...(r.reactions || {}) };
-      if (reactions[profile.name] === kind) {
-        delete reactions[profile.name];
-      } else {
-        reactions[profile.name] = kind;
-      }
+      if (reactions[profile.name] === kind) delete reactions[profile.name];
+      else reactions[profile.name] = kind;
       return { ...r, reactions, updatedAt: Date.now() };
     });
     setRecommendations(updated);
     saveRecommendations(updated);
-    await pushMyOutbox(profile, selfStats, sessions, updated, selfSharedGames, suggestions);
+    await pushMyOutbox(profile, selfStats, sessions, updated, selfSharedGames, suggestions, dms);
   };
 
-  // Toggle this user's personal "want to play" backlog flag.
   const handleToggleWantToPlay = async (recId: string) => {
     const updated = recommendations.map((r) => {
       if (r.id !== recId) return r;
@@ -3076,3635 +1192,434 @@ export default function FriendsPage() {
     });
     setRecommendations(updated);
     saveRecommendations(updated);
-    await pushMyOutbox(profile, selfStats, sessions, updated, selfSharedGames, suggestions);
-    const rec = updated.find((r) => r.id === recId);
-    showToast(rec?.wantToPlay ? t("friendsPage.addedToWantToPlay") : t("friendsPage.removedFromWantToPlay"), "info");
+    await pushMyOutbox(profile, selfStats, sessions, updated, selfSharedGames, suggestions, dms);
   };
 
-  // Delete a single comment (only allowed for the author's own comments).
-  const handleDeleteComment = async (recId: string, commentId: string, authorName: string) => {
-    if (authorName !== profile.name) {
-      showToast(t("friendsPage.cantDeleteOthers"), "error");
-      return;
-    }
+  const handleAddRecComment = async (recId: string, text: string) => {
     const updated = recommendations.map((r) => {
       if (r.id !== recId) return r;
-      return {
-        ...r,
-        comments: r.comments.filter((c) => c.id !== commentId),
-        updatedAt: Date.now(),
-      };
+      const comments = [
+        ...(r.comments || []),
+        { id: `c_${Date.now()}_${Math.random().toString(36).substr(2, 6)}`, authorName: profile.name, text, timestamp: Date.now() },
+      ];
+      return { ...r, comments, updatedAt: Date.now() };
     });
     setRecommendations(updated);
     saveRecommendations(updated);
-    await pushMyOutbox(profile, selfStats, sessions, updated, selfSharedGames, suggestions);
+    await pushMyOutbox(profile, selfStats, sessions, updated, selfSharedGames, suggestions, dms);
   };
 
-  // ── Wishlist Game Suggestions Logic ──────────────────────────────
-  // Share a game straight from the user's own wishlist tab with friends.
-
-  const handleCreateSuggestion = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!suggestionGameId) {
-      showToast(t("friendsPage.pickWishlistedGame"), "error");
-      return;
-    }
-    const wishItem = wishlist.find((w) => w.slug === suggestionGameId);
-    if (!wishItem) {
-      showToast(t("friendsPage.gameNotInWishlist"), "error");
-      return;
-    }
-
-    const newSug: GameSuggestion = {
-      id: `sug_${Date.now()}_${Math.random().toString(36).substr(2, 7)}`,
-      gameId: wishItem.slug,
-      gameName: wishItem.name,
-      coverUrl: wishItem.coverUrl || undefined,
-      note: suggestionNote.trim(),
-      suggestedBy: profile.name,
-      suggestedTo: suggestionToFriend,
+  const handleCreateRec = async (recData: Omit<GameRecommendation, "id" | "comments" | "createdAt" | "updatedAt">) => {
+    const newRec: GameRecommendation = {
+      ...recData,
+      id: `rec_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
       comments: [],
       createdAt: Date.now(),
       updatedAt: Date.now(),
     };
-
-    const updated = [newSug, ...suggestions];
-    setSuggestions(updated);
-    saveSuggestions(updated);
-    await pushMyOutbox(profile, selfStats, sessions, recommendations, selfSharedGames, updated);
-    showToast(t("friendsPage.sharedFromWishlist", { game: wishItem.name }), "success");
-
-    setSuggestionGameId("");
-    setSuggestionNote("");
-    setSuggestionToFriend("All Friends");
+    const updated = [newRec, ...recommendations];
+    setRecommendations(updated);
+    saveRecommendations(updated);
+    showToast(t("friendsPage.recPostedSuccess"), "success");
+    await pushMyOutbox(profile, selfStats, sessions, updated, selfSharedGames, suggestions, dms);
   };
 
-  const handleDeleteSuggestion = async (sugId: string) => {
-    const updated = suggestions.map((s) =>
-      s.id === sugId ? { ...s, deleted: true, updatedAt: Date.now() } : s
-    );
-    setSuggestions(updated);
-    saveSuggestions(updated);
-    await pushMyOutbox(profile, selfStats, sessions, recommendations, selfSharedGames, updated);
-    showToast(t("friendsPage.suggestionRemoved"), "info");
+  const handleDeleteRec = async (recId: string) => {
+    const updated = recommendations.map((r) => (r.id === recId ? { ...r, deleted: true, updatedAt: Date.now() } : r));
+    setRecommendations(updated);
+    saveRecommendations(updated);
+    showToast(t("friendsPage.recDeleted"), "info");
+    await pushMyOutbox(profile, selfStats, sessions, updated, selfSharedGames, suggestions, dms);
   };
 
-  const handleToggleSuggestionReaction = async (sugId: string, kind: SuggestionReactionKind) => {
+  // ── Suggestions Handlers ────────────────────────────────────────────
+
+  const handleReactSuggestion = async (sugId: string, kind: SuggestionReactionKind) => {
     const updated = suggestions.map((s) => {
       if (s.id !== sugId) return s;
       const reactions = { ...(s.reactions || {}) };
-      if (reactions[profile.name] === kind) {
-        delete reactions[profile.name];
-      } else {
-        reactions[profile.name] = kind;
-      }
+      if (reactions[profile.name] === kind) delete reactions[profile.name];
+      else reactions[profile.name] = kind;
       return { ...s, reactions, updatedAt: Date.now() };
     });
     setSuggestions(updated);
     saveSuggestions(updated);
-    await pushMyOutbox(profile, selfStats, sessions, recommendations, selfSharedGames, updated);
+    await pushMyOutbox(profile, selfStats, sessions, recommendations, selfSharedGames, updated, dms);
   };
 
-  const handleAddSuggestionComment = async (e: React.FormEvent, sugId: string) => {
-    e.preventDefault();
-    const text = suggestionCommentInputs[sugId] || "";
-    if (!text.trim()) return;
+  const handleToggleWishlistSuggestion = (gameId: string, gameName: string) => {
+    toggleWishlist({ id: gameId, name: gameName } as any);
+  };
+
+  const handleAddSuggestionComment = async (sugId: string, text: string) => {
     const updated = suggestions.map((s) => {
       if (s.id !== sugId) return s;
-      const comment: SuggestionComment = {
-        id: `sugc_${Date.now()}_${Math.random().toString(36).substr(2, 6)}`,
-        authorName: profile.name,
-        text,
-        timestamp: Date.now(),
-      };
-      return { ...s, comments: [...s.comments, comment], updatedAt: Date.now() };
+      const comments = [
+        ...(s.comments || []),
+        { id: `c_${Date.now()}_${Math.random().toString(36).substr(2, 6)}`, authorName: profile.name, text, timestamp: Date.now() },
+      ];
+      return { ...s, comments, updatedAt: Date.now() };
     });
     setSuggestions(updated);
     saveSuggestions(updated);
-    await pushMyOutbox(profile, selfStats, sessions, recommendations, selfSharedGames, updated);
-    setSuggestionCommentInputs((prev) => ({ ...prev, [sugId]: "" }));
+    await pushMyOutbox(profile, selfStats, sessions, recommendations, selfSharedGames, updated, dms);
   };
 
-  const handleDeleteSuggestionComment = async (sugId: string, commentId: string, authorName: string) => {
-    if (authorName !== profile.name) {
-      showToast(t("friendsPage.cantDeleteOthers"), "error");
+  const handleCreateSuggestion = async (sugData: Omit<GameSuggestion, "id" | "comments" | "createdAt" | "updatedAt">) => {
+    const newSug: GameSuggestion = {
+      ...sugData,
+      id: `sug_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+      comments: [],
+      createdAt: Date.now(),
+      updatedAt: Date.now(),
+    };
+    const updated = [newSug, ...suggestions];
+    setSuggestions(updated);
+    saveSuggestions(updated);
+    showToast(t("friendsPage.sugPostedSuccess"), "success");
+    await pushMyOutbox(profile, selfStats, sessions, recommendations, selfSharedGames, updated, dms);
+  };
+
+  const handleDeleteSuggestion = async (sugId: string) => {
+    const updated = suggestions.map((s) => (s.id === sugId ? { ...s, deleted: true, updatedAt: Date.now() } : s));
+    setSuggestions(updated);
+    saveSuggestions(updated);
+    showToast(t("friendsPage.suggestionDeleted"), "info");
+    await pushMyOutbox(profile, selfStats, sessions, recommendations, selfSharedGames, updated, dms);
+  };
+
+  // ── DMs Handlers ────────────────────────────────────────────────────
+
+  const handleSelectDmThread = (threadId: string, friendName: string) => {
+    setSelectedDmId(threadId);
+    setSelectedDmFriendName(friendName);
+    clearUnseenTabItems("dms");
+    setUnseenCounts((prev) => ({ ...prev, dms: 0 }));
+  };
+
+  const handleSendDmMessage = async (threadId: string, text: string) => {
+    const otherName = selectedDmFriendName;
+    const now = Date.now();
+    const newMsg = {
+      id: `msg_${now}_${Math.random().toString(36).substr(2, 6)}`,
+      author: profile.name,
+      text,
+      timestamp: now,
+    };
+
+    let updated = dms.map((th) => {
+      if (th.id !== threadId) return th;
+      return { ...th, messages: [...(th.messages || []), newMsg], updatedAt: now };
+    });
+
+    if (!updated.some((th) => th.id === threadId)) {
+      const newThread: DmThread = {
+        id: threadId,
+        participants: [profile.name, otherName].sort(),
+        messages: [newMsg],
+        updatedAt: now,
+      };
+      updated = [newThread, ...updated];
+    }
+
+    setDms(updated);
+    saveDmsAndPersist(updated);
+    await pushMyOutbox(profile, selfStats, sessions, recommendations, selfSharedGames, suggestions, updated);
+  };
+
+  const handleTogglePinDmMessage = async (threadId: string, messageId: string) => {
+    const updated = dms.map((th) => {
+      if (th.id !== threadId) return th;
+      const messages = (th.messages || []).map((m) => (m.id === messageId ? { ...m, pinned: !m.pinned } : m));
+      return { ...th, messages, updatedAt: Date.now() };
+    });
+    setDms(updated);
+    saveDmsAndPersist(updated);
+    await pushMyOutbox(profile, selfStats, sessions, recommendations, selfSharedGames, suggestions, updated);
+  };
+
+  const handleDeleteDmMessage = async (threadId: string, messageId: string) => {
+    const updated = dms.map((th) => {
+      if (th.id !== threadId) return th;
+      const messages = (th.messages || []).filter((m) => m.id !== messageId);
+      return { ...th, messages, updatedAt: Date.now() };
+    });
+    setDms(updated);
+    saveDmsAndPersist(updated);
+    await pushMyOutbox(profile, selfStats, sessions, recommendations, selfSharedGames, suggestions, updated);
+  };
+
+  const handleDeleteDmThread = async (threadId: string) => {
+    const updated = dms.filter((th) => th.id !== threadId);
+    setDms(updated);
+    saveDmsAndPersist(updated);
+    if (selectedDmId === threadId) setSelectedDmId(null);
+    showToast(t("friendsPage.threadDeleted"), "info");
+    await pushMyOutbox(profile, selfStats, sessions, recommendations, selfSharedGames, suggestions, updated);
+  };
+
+  // ── Profile Handlers ────────────────────────────────────────────────
+
+  const handleSaveProfile = async (e: React.FormEvent) => {
+    e.preventDefault();
+    saveUserProfile(profile);
+    await pushMyOutbox(profile, selfStats, sessions, recommendations, selfSharedGames, suggestions, dms);
+    showToast(t("friendsPage.profileUpdated"), "success");
+  };
+
+  const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (file.size > 2 * 1024 * 1024) {
+      showToast(t("friendsPage.fileTooLarge"), "error");
       return;
     }
-    const updated = suggestions.map((s) => {
-      if (s.id !== sugId) return s;
-      return { ...s, comments: s.comments.filter((c) => c.id !== commentId), updatedAt: Date.now() };
-    });
-    setSuggestions(updated);
-    saveSuggestions(updated);
-    await pushMyOutbox(profile, selfStats, sessions, recommendations, selfSharedGames, updated);
-  };
 
-  // Add the shared game to the viewer's own wishlist (and mark the suggestion).
-  const handleAddSuggestionToWishlist = async (sug: GameSuggestion) => {
-    const alreadyThere = wishlist.some((w) => w.slug === sug.gameId);
-    if (alreadyThere) {
-      showToast(t("friendsPage.alreadyInWishlist", { game: sug.gameName }), "info");
-    } else {
-      const asSummary: StoreGameSummary = {
-        id: 0,
-        slug: sug.gameId,
-        name: sug.gameName,
-        summary: null,
-        rating: null,
-        aggregatedRating: null,
-        coverUrl: sug.coverUrl || null,
-        logoUrl: null,
-        genres: [],
-        platforms: [],
-        firstReleaseDate: null,
-        totalRatingCount: 0,
-        hypes: 0,
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      const img = new Image();
+      img.onload = () => {
+        const canvas = document.createElement("canvas");
+        const ctx = canvas.getContext("2d");
+        const maxDim = 96;
+        canvas.width = maxDim;
+        canvas.height = maxDim;
+
+        if (ctx) {
+          const minSide = Math.min(img.width, img.height);
+          const sx = (img.width - minSide) / 2;
+          const sy = (img.height - minSide) / 2;
+          ctx.drawImage(img, sx, sy, minSide, minSide, 0, 0, maxDim, maxDim);
+
+          try {
+            const compressedBase64 = canvas.toDataURL("image/jpeg", 0.6);
+            const updated = { ...profile, avatar: compressedBase64 };
+            setProfile(updated);
+            saveUserProfile(updated);
+            pushMyOutbox(updated, selfStats, sessions, recommendations, selfSharedGames, suggestions, dms);
+            showToast(t("friendsPage.avatarUploaded"), "success");
+          } catch {
+            showToast(t("friendsPage.imageProcessingFailed"), "error");
+          }
+        }
       };
-      toggle(asSummary);
-      showToast(t("friendsPage.addedToWishlistToast", { game: sug.gameName }), "success");
-    }
-    const updated = suggestions.map((s) =>
-      s.id === sug.id ? { ...s, addedToWishlist: true, updatedAt: Date.now() } : s
-    );
-    setSuggestions(updated);
-    saveSuggestions(updated);
-    await pushMyOutbox(profile, selfStats, sessions, recommendations, selfSharedGames, updated);
-  };
-
-  // ── Game Comparison Logic ────────────────────────────────────────
-
-  const compareFriend = useMemo(() => {
-    return friends.find((f) => f.id === selectedCompareFriendId) || null;
-  }, [friends, selectedCompareFriendId]);
-
-  // Builds the comparison list from REAL shared per-game data when the friend
-  // has published it. Falls back to a deterministic (seeded) estimate only for
-  // legacy peers who haven't shared game-level stats yet.
-  const comparisonData = useMemo(() => {
-    if (!compareFriend) return [];
-
-    const friendGames = (compareFriend.games || []).filter((g) => !isAppBlacklisted(g.name, g.id));
-    const friendGameMap = new Map(friendGames.map((g) => [g.id, g]));
-
-    // Deterministic legacy fallback (seeded by friend name) — only used when
-    // no real per-game data is available for this friend.
-    const friendName = compareFriend.name;
-    let hash = 0;
-    for (let i = 0; i < friendName.length; i++) {
-      hash = friendName.charCodeAt(i) + ((hash << 5) - hash);
-    }
-    let seed = Math.abs(hash);
-    const prng = () => {
-      const x = Math.sin(seed++) * 10000;
-      return x - Math.floor(x);
+      img.src = event.target?.result as string;
     };
-
-    const compareList: any[] = [];
-
-    const selfById = new Map(games.map((g) => [g.id, g]));
-
-    // All unique game ids across both libraries (blacklisted apps excluded).
-    const ids = new Set<string>([
-      ...games.filter((g) => !isAppBlacklisted(g.name, g.id)).map((g) => g.id),
-      ...friendGames.map((g) => g.id),
-    ]);
-
-    ids.forEach((id) => {
-      const myGame = selfById.get(id);
-      const friendGame = friendGameMap.get(id);
-
-      const selfAchData = myGame ? cache?.games?.[myGame.id] : undefined;
-      const selfAchTotal = selfAchData?.total || 0;
-      const selfAchUnlocked = selfAchData?.unlocked || 0;
-      const selfAchPercent = selfAchTotal > 0 ? Math.round((selfAchUnlocked / selfAchTotal) * 100) : 0;
-
-      const name = myGame?.name || friendGame?.name || id;
-
-      // Legacy estimate when the friend hasn't shared real data.
-      const legacyOwned = friendGames.length === 0 ? prng() > 0.45 : false;
-      const ownedByFriend = friendGame ? true : legacyOwned;
-      const playTimeFriend = friendGame
-        ? friendGame.playTimeMin
-        : legacyOwned
-        ? Math.floor(prng() * 12000) + 120
-        : 0;
-      const achievementFriend = friendGame
-        ? friendGame.achievementPercent
-        : legacyOwned
-        ? Math.floor(prng() * 100)
-        : 0;
-
-      compareList.push({
-        id,
-        name,
-        ownedByMe: !!myGame,
-        ownedByFriend,
-        playTimeMe: myGame ? parsePlayTime(myGame.playTime) : 0,
-        playTimeFriend,
-        achievementMe: selfAchPercent,
-        achievementFriend,
-        genres: (myGame as any)?.genres || friendGame?.genres || [],
-        estimated: friendGames.length === 0,
-      });
-    });
-
-    return compareList;
-  }, [games, cache, compareFriend]);
-
-  // Jaccard-style similarity: shared games over the union of both libraries.
-  const matchScore = useMemo(() => {
-    if (!compareFriend || comparisonData.length === 0) return 0;
-    const sharedGamesCount = comparisonData.filter((i) => i.ownedByMe && i.ownedByFriend).length;
-    const totalUniqueGamesCount = comparisonData.length;
-    return totalUniqueGamesCount > 0 ? Math.round((sharedGamesCount / totalUniqueGamesCount) * 100) : 0;
-  }, [compareFriend, comparisonData]);
-
-  const filteredCompareData = useMemo(() => {
-    const q = compareSearch.trim().toLowerCase();
-    return comparisonData.filter((item) => {
-      // Ownership filter.
-      if (compareFilter === "shared" && !(item.ownedByMe && item.ownedByFriend)) return false;
-      if (compareFilter === "me_only" && !(item.ownedByMe && !item.ownedByFriend)) return false;
-      if (compareFilter === "friend_only" && !(!item.ownedByMe && item.ownedByFriend)) return false;
-      // Genre filter (applies on top of ownership filter).
-      if (compareGenre !== "all") {
-        const genres: string[] = item.genres || [];
-        if (!genres.some((g) => g.toLowerCase() === compareGenre.toLowerCase())) return false;
-      }
-      // Text search.
-      if (q && !item.name.toLowerCase().includes(q)) return false;
-      return true;
-    });
-  }, [comparisonData, compareFilter, compareGenre, compareSearch]);
-
-  // Unique genres across both libraries for the genre filter dropdown.
-  const compareGenres = useMemo(() => {
-    const set = new Set<string>();
-    comparisonData.forEach((item) => (item.genres || []).forEach((g: string) => set.add(g)));
-    return Array.from(set).sort((a, b) => a.localeCompare(b));
-  }, [comparisonData]);
-
-  const sortedCompareData = useMemo(() => {
-    const list = [...filteredCompareData];
-    if (compareSort === "myPlaytime") {
-      return list.sort((a, b) => b.playTimeMe - a.playTimeMe);
-    }
-    if (compareSort === "friendPlaytime") {
-      return list.sort((a, b) => b.playTimeFriend - a.playTimeFriend);
-    }
-    if (compareSort === "gap") {
-      return list.sort(
-        (a, b) => Math.abs(b.playTimeMe - b.playTimeFriend) - Math.abs(a.playTimeMe - a.playTimeFriend)
-      );
-    }
-    if (compareSort === "achievement") {
-      return list.sort(
-        (a, b) => Math.max(b.achievementMe, b.achievementFriend) - Math.max(a.achievementMe, a.achievementFriend)
-      );
-    }
-    return list.sort((a, b) => a.name.localeCompare(b.name));
-  }, [filteredCompareData, compareSort]);
-
-  const comparisonSummary = useMemo(() => {
-    if (!comparisonData.length) return null;
-
-    let sharedCount = 0;
-    let myPlaytime = 0;
-    let friendPlaytime = 0;
-    let myAchievementsSum = 0;
-    let friendAchievementsSum = 0;
-
-    comparisonData.forEach((item) => {
-      if (item.ownedByMe && item.ownedByFriend) sharedCount++;
-      myPlaytime += item.playTimeMe;
-      friendPlaytime += item.playTimeFriend;
-      myAchievementsSum += item.achievementMe;
-      friendAchievementsSum += item.achievementFriend;
-    });
-
-    const myOwned = comparisonData.filter(i => i.ownedByMe).length;
-    const friendOwned = comparisonData.filter(i => i.ownedByFriend).length;
-
-    const averageMyAchievements = Math.round(myAchievementsSum / myOwned || 0);
-    const averageFriendAchievements = Math.round(friendAchievementsSum / friendOwned || 0);
-
-    return {
-      sharedCount,
-      myOwned,
-      friendOwned,
-      meOnlyCount: comparisonData.filter((i) => i.ownedByMe && !i.ownedByFriend).length,
-      friendOnlyCount: comparisonData.filter((i) => !i.ownedByMe && i.ownedByFriend).length,
-      myPlaytime,
-      friendPlaytime,
-      averageMyAchievements,
-      averageFriendAchievements,
-    };
-  }, [comparisonData]);
-
-  // Per-genre breakdown of who owns / plays more, used by the Genres sub-tab.
-  const genreBreakdown = useMemo(() => {
-    if (!comparisonData.length) return [];
-    const map = new Map<
-      string,
-      { genre: string; meOwned: number; friendOwned: number; shared: number; mePlay: number; friendPlay: number; total: number }
-    >();
-    comparisonData.forEach((item) => {
-      const genres: string[] = (item.genres && item.genres.length ? item.genres : [t("friendsPage.uncategorized")]);
-      genres.forEach((g) => {
-        const key = g || t("friendsPage.uncategorized");
-        const row =
-          map.get(key) ||
-          { genre: key, meOwned: 0, friendOwned: 0, shared: 0, mePlay: 0, friendPlay: 0, total: 0 };
-        row.total++;
-        if (item.ownedByMe) {
-          row.meOwned++;
-          row.mePlay += item.playTimeMe;
-        }
-        if (item.ownedByFriend) {
-          row.friendOwned++;
-          row.friendPlay += item.playTimeFriend;
-        }
-        if (item.ownedByMe && item.ownedByFriend) row.shared++;
-        map.set(key, row);
-      });
-    });
-    return Array.from(map.values()).sort((a, b) => b.total - a.total);
-  }, [comparisonData]);
-
-  // Genre taste affinity: overlap of genres where both own at least one game.
-  const genreAffinity = useMemo(() => {
-    if (!genreBreakdown.length) return 0;
-    const shared = genreBreakdown.filter((g) => g.meOwned > 0 && g.friendOwned > 0).length;
-    return Math.round((shared / genreBreakdown.length) * 100);
-  }, [genreBreakdown]);
-
-  // Overall compatibility blends library overlap with genre-taste affinity.
-  const compatibilityScore = useMemo(() => {
-    return Math.round(matchScore * 0.6 + genreAffinity * 0.4);
-  }, [matchScore, genreAffinity]);
-
-  // Actionable insights: top playtime gaps, recommendations, achievement leaders.
-  const compareInsights = useMemo(() => {
-    if (!comparisonData.length || !compareFriend) return null;
-    const shared = comparisonData.filter((i) => i.ownedByMe && i.ownedByFriend);
-    const meOnly = comparisonData.filter((i) => i.ownedByMe && !i.ownedByFriend);
-    const friendOnly = comparisonData.filter((i) => !i.ownedByMe && i.ownedByFriend);
-
-    // Games where you crush the friend on time / vice versa (shared titles).
-    const iPlayMore = [...shared]
-      .filter((i) => i.playTimeMe > i.playTimeFriend)
-      .sort((a, b) => (b.playTimeMe - b.playTimeFriend) - (a.playTimeMe - a.playTimeFriend))
-      .slice(0, 5);
-    const theyPlayMore = [...shared]
-      .filter((i) => i.playTimeFriend > i.playTimeMe)
-      .sort((a, b) => (b.playTimeFriend - b.playTimeMe) - (a.playTimeFriend - a.playTimeMe))
-      .slice(0, 5);
-
-    // Recommendations = what they love that you don't own, ranked by their playtime.
-    const forYou = [...friendOnly].sort((a, b) => b.playTimeFriend - a.playTimeFriend).slice(0, 6);
-    const forThem = [...meOnly].sort((a, b) => b.playTimeMe - a.playTimeMe).slice(0, 6);
-
-    // Best co-op candidate: shared game with the highest combined playtime.
-    const topShared = [...shared].sort(
-      (a, b) => (b.playTimeMe + b.playTimeFriend) - (a.playTimeMe + a.playTimeFriend)
-    )[0];
-
-    // Achievement leader per shared game.
-    const achLeaderMe = shared.filter((i) => i.achievementMe > i.achievementFriend).length;
-    const achLeaderFriend = shared.filter((i) => i.achievementFriend > i.achievementMe).length;
-
-    return { shared, meOnly, friendOnly, iPlayMore, theyPlayMore, forYou, forThem, topShared, achLeaderMe, achLeaderFriend };
-  }, [comparisonData, compareFriend]);
-
-  // Reset sub-tab-affecting UI when switching friends.
-  useEffect(() => {
-    setCompareSubTab("overview");
-    setCompareFilter("all");
-    setCompareGenre("all");
-    setCompareSearch("");
-  }, [selectedCompareFriendId]);
-
-  // Set of the viewer's own game ids, used for "games in common" on cards.
-  const myGameIds = useMemo(() => new Set(games.map((g) => g.id)), [games]);
-
-  // ── Activity Feed ─────────────────────────────────────────────────
-  // A unified, time-sorted timeline across every social surface: sessions
-  // scheduled, RSVPs, recommendations, wishlist shares, new friends and
-  // recent achievement unlocks.
-  type ActivityItem = {
-    key: string;
-    timestamp: number;
-    kind:
-      | "session"
-      | "rsvp"
-      | "rec"
-      | "suggestion"
-      | "friend"
-      | "achievement"
-      | "suggestion_reaction"
-      | "rec_reaction";
-    actor: string;
-    title: string;
-    detail: string;
-    gameName?: string;
+    reader.readAsDataURL(file);
   };
-
-  const activityFeed = useMemo<ActivityItem[]>(() => {
-    const items: ActivityItem[] = [];
-
-    // Upcoming + past sessions (created by anyone) with RSVP states.
-    sessions
-      .filter((s) => !s.deleted)
-      .forEach((s) => {
-        const mine = s.creatorName === profile.name;
-        const myRsvp = s.rsvps?.[profile.name];
-        if (mine || myRsvp) {
-          items.push({
-            key: `session_${s.id}`,
-            timestamp: s.updatedAt || new Date(s.scheduledAt).getTime(),
-            kind: "session",
-            actor: mine ? profile.name : s.creatorName,
-            title: t("friendsPage.activitySession", {
-              who: mine ? t("friendsPage.me") : s.creatorName,
-              game: s.gameName,
-            }),
-            detail: formatDateTime(s.scheduledAt, s.creatorTimezone),
-            gameName: s.gameName,
-          });
-        } else if (s.invited?.includes(profile.name)) {
-          items.push({
-            key: `session_inv_${s.id}`,
-            timestamp: s.updatedAt || new Date(s.scheduledAt).getTime(),
-            kind: "session",
-            actor: s.creatorName,
-            title: t("friendsPage.activityInvited", { who: s.creatorName, game: s.gameName }),
-            detail: formatDateTime(s.scheduledAt, s.creatorTimezone),
-            gameName: s.gameName,
-          });
-        }
-      });
-
-    // Recommendations.
-    recommendations
-      .filter((r) => !r.deleted && r.recommendedTo === "All Friends")
-      .forEach((r) => {
-        items.push({
-          key: `rec_${r.id}`,
-          timestamp: r.createdAt || r.updatedAt,
-          kind: "rec",
-          actor: r.recommendedBy,
-          title: t("friendsPage.activityRec", { who: r.recommendedBy, game: r.gameName }),
-          detail: r.reason || "",
-          gameName: r.gameName,
-        });
-      });
-
-    // Wishlist shares.
-    suggestions
-      .filter((s) => !s.deleted && s.suggestedTo === "All Friends")
-      .forEach((s) => {
-        items.push({
-          key: `suggestion_${s.id}`,
-          timestamp: s.createdAt || s.updatedAt,
-          kind: "suggestion",
-          actor: s.suggestedBy,
-          title: t("friendsPage.activitySuggestion", { who: s.suggestedBy, game: s.gameName }),
-          detail: s.note || "",
-          gameName: s.gameName,
-        });
-      });
-
-    // New friends.
-    friends.forEach((f) => {
-      items.push({
-        key: `friend_${f.id}`,
-        timestamp: f.addedAt || 0,
-        kind: "friend",
-        actor: displayName(f),
-        title: t("friendsPage.activityFriend", { who: displayName(f) }),
-        detail: formatFriendsSince(f.addedAt, t),
-      });
-    });
-
-    // Recent achievement unlocks from our own library (visible to friends).
-    const unlockWindow = 30 * 24 * 60 * 60 * 1000;
-    Object.entries(cache?.games || {}).forEach(([gameId, data]) => {
-      const game = games.find((g) => g.id === gameId);
-      if (!game || !data || !data.achievements) return;
-      data.achievements
-        .filter((a) => a.achieved && a.unlockTime > 0 && Date.now() - a.unlockTime * 1000 < unlockWindow)
-        .forEach((a) => {
-          items.push({
-            key: `ach_${gameId}_${a.apiName}`,
-            timestamp: a.unlockTime * 1000,
-            kind: "achievement",
-            actor: profile.name,
-            title: t("friendsPage.activityUnlock", { game: game.name, ach: a.displayName }),
-            detail: "",
-            gameName: game.name,
-          });
-        });
-    });
-
-    return items
-      .filter((i) => i.timestamp > 0)
-      .sort((a, b) => b.timestamp - a.timestamp);
-  }, [sessions, recommendations, suggestions, friends, cache, games, profile.name, t]);
-
-  // ── Playing Now (friends currently in a game I own) ───────────────
-  type PlayingNowEntry = {
-    friend: Friend;
-    playing: string;
-    game?: (typeof games)[number];
-  };
-
-  const playingNowFriends = useMemo<PlayingNowEntry[]>(() => {
-    const byName = new Map<string, (typeof games)[number]>();
-    games.forEach((g) => byName.set(g.name.toLowerCase(), g));
-    const entries: PlayingNowEntry[] = [];
-    for (const f of friends) {
-      if (f.blocked) continue;
-      const playing = safeCurrentlyPlaying(f.currentlyPlaying);
-      if (!playing) continue;
-      const game = byName.get(playing.toLowerCase());
-      entries.push({ friend: f, playing, game });
-      if (entries.length >= 12) break;
-    }
-    return entries;
-  }, [friends, games]);
-
-  // ── Achievement Race ──────────────────────────────────────────────
-  // Per-game achievement % race between me and each friend, built from
-  // the truthful per-game stats they publish. Shows shared titles only.
-  const achievementRaces = useMemo(() => {
-    const selfPercent = new Map<string, number>();
-    selfSharedGames.forEach((g) => selfPercent.set(g.id, g.achievementPercent));
-
-    const races: {
-      key: string;
-      gameId: string;
-      gameName: string;
-      friendName: string;
-      me: number;
-      them: number;
-    }[] = [];
-
-    friends
-      .filter((f) => !f.blocked && f.games && f.games.length > 0)
-      .forEach((f) => {
-        f.games!.forEach((g) => {
-          if (isAppBlacklisted(g.name, g.id)) return;
-          const me = selfPercent.get(g.id);
-          if (me === undefined) return; // only shared titles race
-          races.push({
-            key: `${f.id}_${g.id}`,
-            gameId: g.id,
-            gameName: g.name,
-            friendName: displayName(f),
-            me,
-            them: g.achievementPercent || 0,
-          });
-        });
-      });
-
-    return races.sort((a, b) => Math.abs(b.me - b.them) - Math.abs(a.me - a.them));
-  }, [friends, selfSharedGames]);
-
-  // ── Leaderboard Tab ────────────────────────────────────────────────
-  const [leaderboardMetric, setLeaderboardMetric] = useState<"playtime" | "games" | "achievements">("playtime");
-
-  const leaderboardPlayers = useMemo(() => {
-    const players: {
-      key: string;
-      name: string;
-      avatar: string;
-      isYou: boolean;
-      status?: string;
-      currentlyPlaying?: string;
-      gamesCount: number;
-      playtimeMinutes: number;
-      achievementsCount: number;
-    }[] = [
-      {
-        key: `me`,
-        name: profile.name,
-        avatar: profile.avatar,
-        isYou: true,
-        status: profile.status,
-        currentlyPlaying: safeCurrentlyPlaying(profile.currentlyPlaying),
-        gamesCount: selfStats.gamesCount,
-        playtimeMinutes: selfStats.playtimeMinutes,
-        achievementsCount: selfStats.achievementsCount,
-      },
-      ...friends
-        .filter((f) => !f.blocked)
-        .map((f) => ({
-          key: f.id,
-          name: displayName(f),
-          avatar: f.avatar,
-          isYou: false,
-          status: f.status,
-          currentlyPlaying: safeCurrentlyPlaying(f.currentlyPlaying),
-          gamesCount: f.libStats?.gamesCount || 0,
-          playtimeMinutes: f.libStats?.playtimeMinutes || 0,
-          achievementsCount: f.libStats?.achievementsCount || 0,
-        })),
-    ];
-
-    const scoreOf = (p: (typeof players)[number]) =>
-      leaderboardMetric === "playtime"
-        ? p.playtimeMinutes
-        : leaderboardMetric === "games"
-        ? p.gamesCount
-        : p.achievementsCount;
-
-    const ranked = [...players].sort((a, b) => scoreOf(b) - scoreOf(a));
-    const top = scoreOf(ranked[0] || ({} as (typeof players)[number])) || 1;
-    return ranked.map((p, i) => ({ ...p, rank: i + 1, value: scoreOf(p), max: top }));
-  }, [friends, profile, selfStats, leaderboardMetric]);
-
-  const leaderboardTab = (
-    <div className="leaderboard-section">
-      <div className="leaderboard-header">
-        <div className="leaderboard-heading">
-          <h3 className="leaderboard-title"><span className="leaderboard-title-icon" aria-hidden><TrophyIcon /></span>{t("friendsPage.friendsLeaderboard")}</h3>
-          <p className="leaderboard-subtitle">
-            {t("friendsPage.leaderboardSubtitle")}
-          </p>
-        </div>
-        <div className="compare-filter-chips" role="group" aria-label={t("friendsPage.leaderboardMetricAria")}>
-          <button
-            type="button"
-            className={`compare-filter-chip${leaderboardMetric === "playtime" ? " active" : ""}`}
-            onClick={() => setLeaderboardMetric("playtime")}
-          >
-            {t("friendsPage.playtime")}
-          </button>
-          <button
-            type="button"
-            className={`compare-filter-chip${leaderboardMetric === "games" ? " active" : ""}`}
-            onClick={() => setLeaderboardMetric("games")}
-          >
-            {t("friendsPage.gamesOwned")}
-          </button>
-          <button
-            type="button"
-            className={`compare-filter-chip${leaderboardMetric === "achievements" ? " active" : ""}`}
-            onClick={() => setLeaderboardMetric("achievements")}
-          >
-            {t("friendsPage.sortAchievements")}
-          </button>
-        </div>
-      </div>
-
-      {leaderboardPlayers.filter((p) => p.value > 0).length === 0 ? (
-        <div className="friends-empty-state">
-          <div className="friends-empty-icon" aria-hidden><TrophyIcon /></div>
-          <h3 className="friends-empty-title">{t("friendsPage.noStatsYet")}</h3>
-          <p className="friends-empty-desc">
-            {t("friendsPage.noStatsDesc")}
-          </p>
-        </div>
-      ) : (
-        <div className="leaderboard-list">
-          {leaderboardPlayers.map((p) => (
-            <div key={p.key} className={`leaderboard-row${p.isYou ? " is-you" : ""}${p.rank <= 3 ? " top-three" : ""}`}>
-              <div className={`leaderboard-rank rank-${p.rank}`}>{p.rank}</div>
-              {renderAvatar(p.avatar, p.name, "leaderboard-avatar")}
-              <div className="leaderboard-player-info">
-                <div className="leaderboard-player-name">
-                  {p.name}
-                  {p.isYou && <span className="leaderboard-you-badge">{t("friendsPage.you")}</span>}
-                  {p.currentlyPlaying && <span className="leaderboard-now-playing">{p.currentlyPlaying}</span>}
-                </div>
-                <div className="leaderboard-bar-track">
-                  <div className="leaderboard-bar-fill" style={{ width: `${Math.max((p.value / p.max) * 100, 2)}%` }} />
-                </div>
-              </div>
-              <div className="leaderboard-value">
-                {leaderboardMetric === "playtime"
-                  ? formatHours(p.value, t)
-                  : leaderboardMetric === "games"
-                  ? `${p.value}`
-                  : `${p.value}%`}
-              </div>
-            </div>
-          ))}
-        </div>
-      )}
-    </div>
-  );
-
-  // ── Visible Friends (search / sort / filter) ──────────────────────
-
-  const visibleFriends = useMemo(() => {
-    const query = friendSearch.trim().toLowerCase();
-    let list = friends.filter((f) => {
-      const name = displayName(f).toLowerCase();
-      const matchesQuery = !query || name.includes(query) || (f.favoriteGame || "").toLowerCase().includes(query);
-      const matchesFilter =
-        friendFilter === "all"
-          ? true
-          : friendFilter === "online"
-          ? isOnline(f)
-          : friendFilter === "pinned"
-          ? !!f.pinned
-          : true;
-      const matchesCircle =
-        selectedCircleId === "all" || (f.groups || []).includes(selectedCircleId);
-      return matchesQuery && matchesFilter && matchesCircle;
-    });
-
-    list = [...list].sort((a, b) => {
-      if (friendSort === "name") {
-        return displayName(a).localeCompare(displayName(b));
-      }
-      if (friendSort === "recent") {
-        return (b.addedAt || 0) - (a.addedAt || 0);
-      }
-      if (friendSort === "online") {
-        const ao = isOnline(a) ? 1 : 0;
-        const bo = isOnline(b) ? 1 : 0;
-        if (bo !== ao) return bo - ao;
-        return (b.addedAt || 0) - (a.addedAt || 0);
-      }
-      // default: pinned first, then most recently added
-      const ap = a.pinned ? 1 : 0;
-      const bp = b.pinned ? 1 : 0;
-      if (bp !== ap) return bp - ap;
-      return (b.addedAt || 0) - (a.addedAt || 0);
-    });
-
-    return list;
-  }, [friends, friendSearch, friendFilter, friendSort, selectedCircleId]);
 
   return (
     <div className="friends-page page">
-      {/* Tab bar and Sync controller row */}
-      <div className="friends-tab-bar-container">
-        <div className="friends-tab-bar" role="tablist" aria-label={t("friendsPage.sectionsAria")}>
-          <button
-            type="button"
-            role="tab"
-            aria-selected={activeTab === "friends"}
-            className={`friends-tab${activeTab === "friends" ? " active" : ""}`}
-            onClick={() => setActiveTab("friends")}
-          >
-            <UsersIcon />
-            <span>{t("friends.tab.friends")}</span>
-            {friends.length > 0 && <span className="friends-tab-count">{friends.length}</span>}
-          </button>
-          <button
-            type="button"
-            role="tab"
-            aria-selected={activeTab === "activity"}
-            className={`friends-tab${activeTab === "activity" ? " active" : ""}`}
-            onClick={() => setActiveTab("activity")}
-          >
-            <ActivityIcon />
-            <span>{t("friends.tab.activity")}</span>
-            {unseenCounts.sessions + unseenCounts.recs + unseenCounts.suggestions + unseenCounts.dms > 0 && (
-              <span className="friends-tab-count">{unseenCounts.sessions + unseenCounts.recs + unseenCounts.suggestions + unseenCounts.dms}</span>
-            )}
-          </button>
-          <button
-            type="button"
-            role="tab"
-            aria-selected={activeTab === "dms"}
-            className={`friends-tab${activeTab === "dms" ? " active" : ""}`}
-            onClick={() => setActiveTab("dms")}
-          >
-            <MessageIcon />
-            <span>{t("friends.tab.messages")}</span>
-            {unseenCounts.dms > 0 && <span className="friends-tab-count">{unseenCounts.dms}</span>}
-          </button>
-          <button
-            type="button"
-            role="tab"
-            aria-selected={activeTab === "sessions"}
-            className={`friends-tab${activeTab === "sessions" ? " active" : ""}`}
-            onClick={() => setActiveTab("sessions")}
-          >
-            <CalendarIcon />
-            <span>{t("friends.tab.sessions")}</span>
-          </button>
-          <button
-            type="button"
-            role="tab"
-            aria-selected={activeTab === "recs"}
-            className={`friends-tab${activeTab === "recs" ? " active" : ""}`}
-            onClick={() => setActiveTab("recs")}
-          >
-            <RecommendIcon />
-            <span>{t("friends.tab.recs")}</span>
-          </button>
-          <button
-            type="button"
-            role="tab"
-            aria-selected={activeTab === "suggestions"}
-            className={`friends-tab${activeTab === "suggestions" ? " active" : ""}`}
-            onClick={() => setActiveTab("suggestions")}
-          >
-            <SuggestionIcon />
-            <span>{t("friends.tab.suggestions")}</span>
-          </button>
-            <button
-              type="button"
-              role="tab"
-              aria-selected={activeTab === "compare"}
-              className={`friends-tab${activeTab === "compare" ? " active" : ""}`}
-              onClick={() => setActiveTab("compare")}
-            >
-              <CompareIcon />
-              <span>{t("friends.tab.compare")}</span>
-            </button>
-            <button
-              type="button"
-              role="tab"
-              aria-selected={activeTab === "leaderboard"}
-              className={`friends-tab${activeTab === "leaderboard" ? " active" : ""}`}
-              onClick={() => setActiveTab("leaderboard")}
-            >
-              <LeaderboardIcon />
-              <span>{t("friends.tab.leaderboard")}</span>
-            </button>
-            <button
-              type="button"
-              role="tab"
-              aria-selected={activeTab === "race"}
-              className={`friends-tab${activeTab === "race" ? " active" : ""}`}
-              onClick={() => setActiveTab("race")}
-            >
-              <TrophyIcon />
-              <span>{t("friends.tab.race")}</span>
-            </button>
-            <button
-              type="button"
-              role="tab"
-              aria-selected={activeTab === "profile"}
-            className={`friends-tab${activeTab === "profile" ? " active" : ""}`}
-            onClick={() => setActiveTab("profile")}
-          >
-            <UserIcon />
-            <span>{t("friends.tab.profile")}</span>
-          </button>
-        </div>
+      {/* Tab Navigation Toolbar */}
+      <FriendsToolbar
+        activeTab={activeTab}
+        onSelectTab={setActiveTab}
+        friendsCount={friends.filter((f) => !f.blocked).length}
+        unseenCounts={unseenCounts}
+        isSyncing={isSyncing}
+        lastSyncedTime={lastSyncedTime}
+        onSyncNow={() => performSync(true)}
+        onOpenP2pModal={() => setShowP2pModal(true)}
+      />
 
-        <div className="sync-status-container">
-          <span className={`sync-status-dot${isSyncing ? " spinning" : ""}`} aria-hidden />
-          <span className="sync-status-text">
-            {isSyncing ? t("friends.syncing") : lastSyncedTime ? t("friends.synced", { time: lastSyncedTime }) : t("friendsPage.lastSyncedNever")}
-          </span>
-          <span className="sync-status-divider" aria-hidden />
-          <button
-            type="button"
-            className="btn-sync"
-            onClick={() => performSync(true)}
-            disabled={isSyncing}
-            title={t("friends.syncNow")}
-            aria-label={t("friends.syncNow")}
-          >
-            <RefreshIcon className={isSyncing ? "sync-spinner" : ""} />
-          </button>
-          <button
-            type="button"
-            className="btn-sync p2p-sync-btn"
-            onClick={() => {
-              setShowP2pModal(true);
-            }}
-            title={t("friends.p2pSync")}
-            aria-label={t("friends.p2pSync")}
-          >
-            <P2pSyncIcon />
-          </button>
-        </div>
-      </div>
+      {/* Hero Stats Summary */}
+      <FriendsHeroStats friends={friends} sessions={sessions} myGameIds={myGameIds} />
 
-      {/* Panels */}
+      {/* Main Tab Panels */}
       <div className="friends-panel">
-        {/* Tab 1: Friends List */}
         {activeTab === "friends" && (
-          <div className="friends-list-section">
-            {invitations.length > 0 && (
-              <div className="friend-invitations-section">
-                <div className="friend-invitations-head">
-                  <h3 className="friend-invitations-title">
-                    <span className="friend-invitations-icon" aria-hidden><MessageIcon /></span>
-                    {t("friends.pendingInvites", { count: invitations.length })}
-                  </h3>
-                  <p className="friend-invitations-hint">{t("friendsPage.invitesHint")}</p>
-                </div>
-                <div className="friend-invitations-list">
-                  {invitations.map((invite) => (
-                    <div key={invite.syncId} className="friend-invitation-card">
-                      {renderAvatar(invite.avatar, invite.name)}
-                      <div className="friend-invitation-info">
-                        <div className="friend-invitation-name">{invite.name}</div>
-                        <div className="friend-invitation-status">{invite.status || t("friends.wantsToConnect")}</div>
-                        {invite.favoriteGame && (
-                          <div className="friend-favorite-game friend-invitation-fav">
-                            <StarIcon /> {invite.favoriteGame}
-                          </div>
-                        )}
-                        {invite.libStats && (
-                          <div className="friend-stats friend-invitation-stats">
-                            <span>{t("friendsPage.gamesCountLabel", { count: invite.libStats.gamesCount })}</span>
-                            <span className="friend-stats-dot" aria-hidden>•</span>
-                            <span>{formatHours(invite.libStats.playtimeMinutes, t)}</span>
-                            {invite.libStats.achievementsCount > 0 && (
-                              <>
-                                <span className="friend-stats-dot" aria-hidden>•</span>
-                                <span className="friend-stats-trophy"><TrophyIcon />{invite.libStats.achievementsCount}</span>
-                              </>
-                            )}
-                          </div>
-                        )}
-                      </div>
-                      <div className="friend-invitation-actions">
-                        <Button variant="primary" size="sm" leftIcon={<CheckIcon />} onClick={() => handleAcceptInvitation(invite)}>
-                          {t("common.confirm")}
-                        </Button>
-                        <Button variant="secondary" size="sm" leftIcon={<XIcon />} onClick={() => handleDenyInvitation(invite.syncId)}>
-                          {t("friends.deny")}
-                        </Button>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            <PageHeader
-              eyebrow={t("friends.eyebrow")}
-              title={`${t("friends.myFriends")} (${friends.length})`}
-              actions={
-                <>
-                  <Button
-                    variant="secondary"
-                    active={selectMode}
-                    onClick={() => {
-                      setSelectMode((v) => !v);
-                      setSelectedFriendIds([]);
-                    }}
-                    disabled={friends.length === 0}
-                    leftIcon={selectMode ? <XIcon /> : <CheckIcon />}
-                  >
-                    {selectMode ? t("common.cancel") : t("common.select")}
-                  </Button>
-                  <Button variant="primary" leftIcon={<PlusIcon />} onClick={() => setShowAddModal(true)}>
-                    {t("friends.addFriend")}
-                  </Button>
-                </>
-              }
-            />
-
-            {selectMode && (
-              <div className="friends-bulk-bar">
-                <span className="friends-bulk-count">{t("store.bulk.selected", { count: selectedFriendIds.length })}</span>
-                <div className="friends-bulk-actions">
-                  <Button variant="secondary" size="sm" leftIcon={<PinIcon />} onClick={handleBulkPin} disabled={selectedFriendIds.length === 0}>{t("friends.pin")}</Button>
-                  <Button variant="secondary" size="sm" leftIcon={<PinIcon />} onClick={handleBulkUnpin} disabled={selectedFriendIds.length === 0}>{t("friends.unpin")}</Button>
-                  <Button variant="secondary" size="sm" leftIcon={<BlockIcon />} onClick={handleBulkBlock} disabled={selectedFriendIds.length === 0}>{t("friends.block")}</Button>
-                  <Button variant="danger" size="sm" className="friend-bulk-remove" leftIcon={<TrashIcon />} onClick={handleBulkRemove} disabled={selectedFriendIds.length === 0}>{t("common.remove")}</Button>
-                </div>
-              </div>
-            )}
-
-            {/* Playing Now rail — friends currently in a game you own */}
-            {playingNowFriends.length > 0 && (
-              <div className="playing-now-section">
-                <div className="playing-now-head">
-                  <h3 className="playing-now-title">
-                    <span className="playing-now-title-icon" aria-hidden><GamepadIcon /></span>
-                    {t("friendsPage.playingNowTitle")}
-                  </h3>
-                  <span className="playing-now-hint">{t("friendsPage.playingNowHint")}</span>
-                </div>
-                <div className="playing-now-strip">
-                  {playingNowFriends.map(({ friend, playing, game }) => (
-                    <div key={friend.id} className="playing-now-card">
-                      {renderAvatar(friend.avatar, friend.name, "playing-now-avatar")}
-                      <div className="playing-now-info">
-                        <span className="playing-now-name">{displayName(friend)}</span>
-                        <span className="playing-now-game" title={playing}>{playing}</span>
-                      </div>
-                      {game ? (
-                        <Button
-                          variant="secondary"
-                          size="sm"
-                          className="playing-now-join"
-                          leftIcon={<GamepadIcon />}
-                          disabled={runningGameIds.includes(game.id)}
-                          onClick={() => launchGame(game)}
-                        >
-                          {runningGameIds.includes(game.id) ? t("friendsPage.running") : t("friendsPage.joinGame")}
-                        </Button>
-                      ) : (
-                        <span className="playing-now-own-hint" title={t("friendsPage.notOwnedHint")}>{t("friendsPage.notOwned")}</span>
-                      )}
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            {friends.length === 0 ? (
-              <div className="friends-empty-state">
-                <div className="friends-empty-icon" aria-hidden><UsersIcon /></div>
-                <h3 className="friends-empty-title">{t("friends.noFriends")}</h3>
-                <p className="friends-empty-desc">
-                  {t("friends.noFriendsDesc")}
-                </p>
-                <Button
-                  variant="primary"
-                  leftIcon={<PlusIcon />}
-                  onClick={() => setShowAddModal(true)}
-                >
-                  {t("friends.addFriend")}
-                </Button>
-              </div>
-            ) : (
-              <>
-                {/* Search / Filter / Sort / Density controls */}
-                <div className="friends-controls-row">
-                  <div className="friends-controls-filters">
-                    <div className="compare-filter-chips friends-filter-chips" role="group" aria-label={t("friendsPage.friendFiltersAria")}>
-                      <button
-                        type="button"
-                        className={`compare-filter-chip${friendFilter === "all" ? " active" : ""}`}
-                        onClick={() => setFriendFilter("all")}
-                      >
-                        {t("friends.filterAll")}
-                        <span className="compare-filter-chip-count">{friends.length}</span>
-                      </button>
-                      <button
-                        type="button"
-                        className={`compare-filter-chip${friendFilter === "online" ? " active" : ""}`}
-                        onClick={() => setFriendFilter("online")}
-                      >
-                        {t("friends.filterOnline")}
-                        <span className="compare-filter-chip-count">{friends.filter(isOnline).length}</span>
-                      </button>
-                      <button
-                        type="button"
-                        className={`compare-filter-chip${friendFilter === "pinned" ? " active" : ""}`}
-                        onClick={() => setFriendFilter("pinned")}
-                      >
-                        {t("friends.filterPinned")}
-                        <span className="compare-filter-chip-count">{friends.filter((f) => f.pinned).length}</span>
-                      </button>
-                    </div>
-                    {circles.length > 0 && (
-                      <div className="compare-filter-chips friends-circle-chips" role="group" aria-label={t("friendsPage.circleFilterAria")}>
-                        <button
-                          type="button"
-                          className={`compare-filter-chip${selectedCircleId === "all" ? " active" : ""}`}
-                          onClick={() => setSelectedCircleId("all")}
-                        >
-                          {t("friendsPage.allCircles")}
-                          <span className="compare-filter-chip-count">{friends.length}</span>
-                        </button>
-                        {circles.map((c) => (
-                          <button
-                            key={c.id}
-                            type="button"
-                            className={`compare-filter-chip circle-chip${selectedCircleId === c.id ? " active" : ""}`}
-                            onClick={() => setSelectedCircleId(selectedCircleId === c.id ? "all" : c.id)}
-                            title={c.name}
-                          >
-                            <span className="circle-chip-dot" style={c.color ? { background: c.color } : undefined} aria-hidden />
-                            {c.name}
-                            <span className="compare-filter-chip-count">{friends.filter((f) => (f.groups || []).includes(c.id)).length}</span>
-                          </button>
-                        ))}
-                      </div>
-                    )}
-                    <span className="friends-controls-count">
-                      {t("friendsPage.friendsShownCount", { count: visibleFriends.length, total: friends.length })}
-                    </span>
-                  </div>
-
-                  <div className="friends-controls-tools">
-                    <Button
-                      variant="secondary"
-                      size="sm"
-                      className="friends-circles-manage-btn"
-                      leftIcon={<UsersIcon />}
-                      onClick={() => setShowCirclesModal(true)}
-                    >
-                      {t("friendsPage.manageCircles")}
-                    </Button>
-                    <div className="friends-search-wrapper">
-                      <input
-                        type="text"
-                        className="friends-search-input friends-ctl"
-                        placeholder={t("friends.searchPlaceholder")}
-                        value={friendSearch}
-                        onChange={(e) => setFriendSearch(e.target.value)}
-                        aria-label={t("friends.searchAria")}
-                      />
-                      {friendSearch && (
-                        <button
-                          type="button"
-                          className="friends-search-clear"
-                          onClick={() => setFriendSearch("")}
-                          title={t("friends.clearSearch")}
-                        >
-                          ×
-                        </button>
-                      )}
-                    </div>
-
-                    <select
-                      className="profile-input friends-sort-select friends-ctl"
-                      value={friendSort}
-                      onChange={(e) => setFriendSort(e.target.value as any)}
-                      aria-label={t("friendsPage.sortFriendsAria")}
-                    >
-                      <option value="default">{t("friends.sort.pinned")}</option>
-                      <option value="name">{t("friends.sort.name")}</option>
-                      <option value="recent">{t("friends.sort.recent")}</option>
-                      <option value="online">{t("friends.sort.online")}</option>
-                    </select>
-
-                    <div className="friends-density" role="group" aria-label={t("friendsPage.densityGroupAria")}>
-                      <button
-                        type="button"
-                        className={`friends-density-btn${friendDensity === "grid" ? " active" : ""}`}
-                        onClick={() => {
-                          setFriendDensity("grid");
-                          localStorage.setItem("gamelib.friends.density", "grid");
-                        }}
-                        aria-label={t("friendsPage.densityGrid")}
-                        title={t("friendsPage.densityGrid")}
-                      >
-                        <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
-                          <rect x="3" y="3" width="8" height="8" rx="1.4" />
-                          <rect x="13" y="3" width="8" height="8" rx="1.4" />
-                          <rect x="3" y="13" width="8" height="8" rx="1.4" />
-                          <rect x="13" y="13" width="8" height="8" rx="1.4" />
-                        </svg>
-                      </button>
-                      <button
-                        type="button"
-                        className={`friends-density-btn${friendDensity === "list" ? " active" : ""}`}
-                        onClick={() => {
-                          setFriendDensity("list");
-                          localStorage.setItem("gamelib.friends.density", "list");
-                        }}
-                        aria-label={t("friendsPage.densityList")}
-                        title={t("friendsPage.densityList")}
-                      >
-                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
-                          <rect x="3" y="4" width="6" height="6" rx="1" />
-                          <line x1="12" y1="7" x2="21" y2="7" />
-                          <line x1="12" y1="10" x2="21" y2="10" />
-                          <rect x="3" y="14" width="6" height="6" rx="1" />
-                          <line x1="12" y1="17" x2="21" y2="17" />
-                          <line x1="12" y1="20" x2="21" y2="20" />
-                        </svg>
-                      </button>
-                    </div>
-                  </div>
-                </div>
-
-                {visibleFriends.length === 0 ? (
-                  <div className="game-search-no-results game-search-no-results--tall">
-                    <div>{t("friends.noMatch")}</div>
-                    <button
-                      type="button"
-                      className="btn btn-secondary"
-                      onClick={() => {
-                        setFriendSearch("");
-                        setFriendFilter("all");
-                      }}
-                    >
-                      {t("friends.clearFilters")}
-                    </button>
-                  </div>
-                ) : (
-                  <div className={`friends-grid${friendDensity === "list" ? " is-list" : ""}`}>
-                    {visibleFriends.map((friend) => {
-                      const online = isOnline(friend);
-                      const presence = presenceLabel(friend, t);
-                      const shared = sharedGamesCount(friend, myGameIds);
-                      const selected = selectedFriendIds.includes(friend.id);
-                      const playingName = safeCurrentlyPlaying(friend.currentlyPlaying);
-                      return (
-                        <div
-                          key={friend.id}
-                          className={`friend-card hover-lift status-${online ? "online" : "offline"}${
-                            playingName ? " playing" : ""
-                          }${friend.pinned ? " pinned" : ""}${
-                            friend.blocked ? " blocked" : ""
-                          }${friendDensity === "list" ? " list-row" : ""}${
-                            selectMode && selected ? " selected" : ""
-                          }${selectMode ? " selectable" : ""}`}
-                          onClick={selectMode ? () => toggleSelect(friend.id) : undefined}
-                        >
-                          {friend.pinned && <span className="friend-pin-badge" title={t("friendsPage.pinned")}><PinIcon /></span>}
-                          {selectMode && (
-                            <span className={`friend-select-check${selected ? " checked" : ""}`} title={t("friendsPage.select")}>
-                              {selected && <CheckIcon />}
-                            </span>
-                          )}
-                          <div className="friend-card-avatar">
-                            {renderAvatar(friend.avatar, friend.name)}
-                            {online && <span className="friend-card-online-dot" title={t("friendsPage.formatOnline")} />}
-                          </div>
-                          <div className="friend-card-main">
-                            <div className="friend-card-head">
-                              <div className="friend-name">
-                                {displayName(friend)}
-                                {friend.nickname && (
-                                  <span className="friend-real-name">({friend.name})</span>
-                                )}
-                              </div>
-                              {formatFriendsSince(friend.addedAt, t) && (
-                                <span className="friend-since">
-                                  {formatFriendsSince(friend.addedAt, t)}
-                                </span>
-                              )}
-                            </div>
-
-                            {friend.blocked ? (
-                              <div className="friend-status-text friend-status-text--blocked" title={t("friendsPage.blockedUpdatesIgnored")}>
-                                <BlockIcon /> {t("friendsPage.blocked")}
-                              </div>
-                            ) : playingName ? (
-                              <div className="friend-now-playing" title={t("friendsPage.playingGame", { game: playingName })}>
-                                <span className="now-playing-dot" />
-                                {playingName}
-                              </div>
-                            ) : presence ? (
-                              <div className="friend-status-text" title={friend.status}>
-                                {presence}
-                              </div>
-                            ) : (
-                              <div className="friend-status-text" title={friend.status}>
-                                {friend.status}
-                              </div>
-                            )}
-
-                            {friend.libStats && (
-                              <div className="friend-stats">
-                                <span>{t("friendsPage.gamesCountLabel", { count: friend.libStats.gamesCount })}</span>
-                                <span className="friend-stats-dot" aria-hidden>•</span>
-                                <span>{formatHours(friend.libStats.playtimeMinutes, t)}</span>
-                                {friend.libStats.achievementsCount > 0 && (
-                                  <>
-                                    <span className="friend-stats-dot" aria-hidden>•</span>
-                                    <span className="friend-stats-trophy"><TrophyIcon />{friend.libStats.achievementsCount}</span>
-                                  </>
-                                )}
-                              </div>
-                            )}
-                            {friend.favoriteGame && !isAppBlacklisted(friend.favoriteGame) && (
-                              <div className="friend-favorite-game" title={t("friendsPage.favPrefix", { game: friend.favoriteGame })}>
-                                <StarIcon /> {friend.favoriteGame}
-                              </div>
-                            )}
-                            {friend.bio && (
-                              <div className="friend-bio" title={friend.bio}>{friend.bio}</div>
-                            )}
-
-                            <div className="friend-card-foot">
-                              {shared > 0 && (
-                                <button
-                                  type="button"
-                                  className="friend-shared-badge"
-                                  title={t("friendsPage.gamesInCommon")}
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    handleCompareFromCard(friend);
-                                  }}
-                                >
-                                  <GamepadIcon /> {t("friendsPage.inCommon", { count: shared })}
-                                </button>
-                              )}
-                              {friend.region && (
-                                <span className="friend-region" title={t("friendsPage.region")}><MapPinIcon /> {friend.region}</span>
-                              )}
-                              {friend.groups && friend.groups.length > 0 && (
-                                <span className="friend-circle-tags" aria-label={t("friendsPage.circleTags")}>
-                                  {friend.groups.map((gid) => {
-                                    const circle = circles.find((c) => c.id === gid);
-                                    if (!circle) return null;
-                                    return (
-                                      <span
-                                        key={gid}
-                                        className="friend-circle-tag"
-                                        title={`${t("friendsPage.circleTagTitle")}: ${circle.name}`}
-                                        style={circle.color ? { borderColor: circle.color, color: circle.color } : undefined}
-                                      >
-                                        <span className="circle-chip-dot" style={circle.color ? { background: circle.color } : undefined} aria-hidden />
-                                        {circle.name}
-                                      </span>
-                                    );
-                                  })}
-                                </span>
-                              )}
-                              <span className="friend-last-seen" title={t("friendsPage.lastSynced")}>
-                                <ClockIcon /> {t("friendsPage.lastSeenLabel")} {formatLastSeen(friend.lastSeen, t)}
-                              </span>
-                            </div>
-                          </div>
-                          {!selectMode && (
-                            <FriendCardMenu
-                              friend={friend}
-                              onCompare={() => handleCompareFromCard(friend)}
-                              onInvite={() => handleInviteToSession(friend)}
-                              onMessage={() => handleMessageFriend(friend)}
-                              onTogglePin={() => handleTogglePin(friend.id)}
-                              onSetNickname={() => {
-                                const current = friend.nickname || friend.name;
-                                const next = window.prompt(t("friendsPage.nicknamePrompt"), current);
-                                if (next !== null) handleSetNickname(friend.id, next);
-                              }}
-                              onToggleBlock={() => handleToggleBlock(friend.id, displayName(friend))}
-                              onDelete={() => handleDeleteFriend(friend.id, displayName(friend))}
-                            />
-                          )}
-                        </div>
-                      );
-                    })}
-                  </div>
-                )}
-              </>
-            )}
-          </div>
+          <FriendsListTab
+            friends={friends}
+            circles={circles}
+            invitations={invitations}
+            myGameIds={myGameIds}
+            onOpenAddModal={() => setShowAddModal(true)}
+            onOpenCirclesModal={() => setShowCirclesModal(true)}
+            onAcceptInvitation={handleAcceptInvitation}
+            onDenyInvitation={handleDenyInvitation}
+            onCompareFriend={handleCompareFromCard}
+            onInviteFriend={handleInviteToSession}
+            onMessageFriend={handleMessageFriend}
+            onTogglePin={handleTogglePin}
+            onEditNickname={setNicknameModalFriend}
+            onToggleBlock={handleToggleBlock}
+            onDeleteFriend={handleDeleteFriend}
+            onBulkPin={handleBulkPin}
+            onBulkUnpin={handleBulkUnpin}
+            onBulkBlock={handleBulkBlock}
+            onBulkRemove={handleBulkRemove}
+          />
         )}
 
-        {/* Tab: Activity Feed */}
         {activeTab === "activity" && (
-          <div className="activity-feed-section">
-            <div className="activity-feed-head">
-              <h3 className="activity-feed-title">
-                <span className="activity-feed-title-icon" aria-hidden><ActivityIcon /></span>
-                {t("friendsPage.activityFeedTitle")}
-              </h3>
-              <p className="activity-feed-subtitle">{t("friendsPage.activityFeedSubtitle")}</p>
-            </div>
-            {activityFeed.length === 0 ? (
-              <div className="friends-empty-state">
-                <div className="friends-empty-icon" aria-hidden><ActivityIcon /></div>
-                <h3 className="friends-empty-title">{t("friendsPage.activityFeedEmpty")}</h3>
-                <p className="friends-empty-desc">{t("friendsPage.activityFeedEmptyDesc")}</p>
-              </div>
-            ) : (
-              <div className="activity-feed-list">
-                {activityFeed.map((item) => (
-                  <div key={item.key} className={`activity-feed-item kind-${item.kind}`}>
-                    <span className="activity-feed-bullet" aria-hidden>
-                      {item.kind === "session" ? <CalendarIcon /> :
-                       item.kind === "rec" ? <RecommendIcon /> :
-                       item.kind === "suggestion" ? <SuggestionIcon /> :
-                       item.kind === "friend" ? <UsersIcon /> :
-                       item.kind === "achievement" ? <TrophyIcon /> : <ActivityIcon />}
-                    </span>
-                    <div className="activity-feed-body">
-                      <div className="activity-feed-text">{item.title}</div>
-                      {item.detail && <div className="activity-feed-detail">{item.detail}</div>}
-                    </div>
-                    <span className="activity-feed-time" title={new Date(item.timestamp).toLocaleString()}>
-                      {formatLastSeen(Math.floor(item.timestamp / 1000), t)}
-                    </span>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
+          <FriendsActivityTab
+            friends={friends}
+            sessions={sessions}
+            recommendations={recommendations}
+            suggestions={suggestions}
+            profile={profile}
+            onNavigateTab={setActiveTab}
+            onSelectCompareFriend={(fid) => {
+              setSelectedCompareFriendId(fid);
+              setActiveTab("compare");
+            }}
+          />
         )}
 
-        {/* Tab: 1:1 Messages */}
         {activeTab === "dms" && (
-          <div className="dms-section">
-            <div className="dms-layout">
-              <div className="dms-thread-list">
-                <div className="dms-thread-list-head">
-                  <h3 className="dms-thread-list-title">{t("friendsPage.dmThreads")}</h3>
-                  <span className="dms-thread-list-count">{dms.filter((t) => !t.deleted).length}</span>
-                </div>
-                {friends.filter((f) => !f.blocked).length === 0 ? (
-                  <div className="friends-empty-state friends-empty-state--inline">
-                    <div className="friends-empty-icon friends-empty-icon--sm" aria-hidden><MessageIcon /></div>
-                    <h3 className="friends-empty-title">{t("friendsPage.noDmFriends")}</h3>
-                    <p className="friends-empty-desc">{t("friendsPage.noDmFriendsDesc")}</p>
-                  </div>
-                ) : (
-                  <div className="dms-thread-list-items">
-                    {friends.filter((f) => !f.blocked).map((f) => {
-                      const thread = dms.find(
-                        (t) => !t.deleted && t.participants.includes(profile.name) && t.participants.includes(f.name)
-                      );
-                      const lastMsg = thread?.messages?.slice(-1)[0];
-                      return (
-                        <button
-                          key={f.id}
-                          type="button"
-                          className={`dm-thread-row${selectedDmId === (thread?.id || dmThreadId(profile.name, f.name)) ? " active" : ""}`}
-                          onClick={() => handleOpenDmThread(thread?.id || dmThreadId(profile.name, f.name), f.name)}
-                        >
-                          {renderAvatar(f.avatar, f.name, "dm-thread-avatar")}
-                          <span className="dm-thread-meta">
-                            <span className="dm-thread-name">{displayName(f)}</span>
-                            <span className={`dm-thread-preview${lastMsg && lastMsg.author !== profile.name ? " incoming" : ""}`}>
-                              {lastMsg
-                                ? `${lastMsg.author === profile.name ? t("friendsPage.dmYou") : ""}${lastMsg.text}`
-                                : t("friendsPage.dmStart")}
-                            </span>
-                          </span>
-                        </button>
-                      );
-                    })}
-                  </div>
-                )}
-              </div>
-
-              <div className="dm-thread-pane">
-                {selectedDmId ? (
-                  (() => {
-                    const thread = dms.find((t) => t.id === selectedDmId);
-                    // Use the explicitly selected friend (works even before the
-                    // first message creates the thread in state).
-                    const friendName =
-                      selectedDmFriendName ||
-                      thread?.participants.find((p) => p !== profile.name) ||
-                      "";
-                    const friend = friends.find((f) => f.name === friendName);
-                    const msgs = thread?.messages || [];
-                    return (
-                      <div className="dm-thread-pane-inner">
-                        <div className="dm-thread-header">
-                          {friend && renderAvatar(friend.avatar, friend.name, "dm-thread-avatar")}
-                          <div className="dm-thread-header-name">
-                            {friend ? displayName(friend) : friendName}
-                            {friend && isOnline(friend) && <span className="dm-thread-online">{t("friendsPage.formatOnline")}</span>}
-                          </div>
-                        </div>
-                        <div className="dm-thread-messages">
-                          {msgs.length === 0 ? (
-                            <div className="chat-empty">{t("friendsPage.dmNoMessages")}</div>
-                          ) : (
-                            msgs.map((m) => (
-                              <div key={m.id} className={`chat-msg dm-msg${m.author === profile.name ? " mine" : ""}`}>
-                                <span className="chat-author">{m.author === profile.name ? t("friendsPage.dmYou") : m.author}</span>
-                                <span className="chat-text">{m.text}</span>
-                              </div>
-                            ))
-                          )}
-                        </div>
-                        <div className="dm-thread-input">
-                          <input
-                            className="profile-input"
-                            placeholder={t("friendsPage.dmPlaceholder")}
-                            value={dmDraft}
-                            onChange={(e) => setDmDraft(e.target.value)}
-                            onKeyDown={(e) => {
-                              if (e.key === "Enter") {
-                                handleSendDm(friendName, dmDraft);
-                                setDmDraft("");
-                              }
-                            }}
-                          />
-                          <Button
-                            variant="primary"
-                            className="btn--mini"
-                            leftIcon={<SendIcon />}
-                            onClick={() => {
-                              handleSendDm(friendName, dmDraft);
-                              setDmDraft("");
-                            }}
-                          >
-                            {t("common.send")}
-                          </Button>
-                        </div>
-                      </div>
-                    );
-                  })()
-                ) : (
-                  <div className="dm-thread-empty">
-                    <div className="friends-empty-icon" aria-hidden><MessageIcon /></div>
-                    <h3 className="friends-empty-title">{t("friendsPage.dmSelectThread")}</h3>
-                    <p className="friends-empty-desc">{t("friendsPage.dmSelectThreadDesc")}</p>
-                  </div>
-                )}
-              </div>
-            </div>
-          </div>
+          <FriendsDmsTab
+            dms={dms}
+            friends={friends}
+            profile={profile}
+            selectedDmId={selectedDmId}
+            selectedDmFriendName={selectedDmFriendName}
+            onSelectThread={handleSelectDmThread}
+            onSendMessage={handleSendDmMessage}
+            onTogglePinMessage={handleTogglePinDmMessage}
+            onDeleteMessage={handleDeleteDmMessage}
+            onDeleteThread={handleDeleteDmThread}
+            onCompareFriend={handleCompareFromCard}
+          />
         )}
 
-        {/* Tab 2: Sessions Planner */}
         {activeTab === "sessions" && (
-          <div className="sessions-section">
-            <div className="profile-editor-layout">
-              {/* Left Column: Form */}
-              <div className="profile-edit-section">
-                <h3 className="profile-edit-title">{t("friendsPage.scheduleGameSession")}</h3>
-                <form className="profile-form" onSubmit={handleCreateSession}>
-                  <div className="friends-input-group">
-                    <label>{t("friendsPage.selectGame")}</label>
-                    <GamePicker
-                      libraryGames={games}
-                      friends={friends}
-                      selectedGameId={sessionGameId}
-                      selectedGameName={sessionGameName}
-                      onSelect={(g) => { setSessionGameId(g.id); setSessionGameName(g.name); }}
-                    />
-                  </div>
-
-                  <div className="friends-input-group">
-                    <label htmlFor="sessionDateTime">{t("friendsPage.scheduledTime", { tz: viewerTimezone || t("friendsPage.localTz") })}</label>
-                    <input
-                      type="datetime-local"
-                      id="sessionDateTime"
-                      className="profile-input"
-                      value={sessionDateTime}
-                      onChange={(e) => setSessionDateTime(e.target.value)}
-                      required
-                    />
-                  </div>
-
-                  <div className="sessions-form-row">
-                    <div className="friends-input-group">
-                      <label htmlFor="sessionMaxPlayers">{t("friendsPage.maxPlayers")}</label>
-                      <input
-                        type="number"
-                        id="sessionMaxPlayers"
-                        className="profile-input"
-                        min={2}
-                        max={16}
-                        value={sessionMaxPlayers}
-                        onChange={(e) => setSessionMaxPlayers(Number(e.target.value))}
-                        required
-                      />
-                    </div>
-                    <div className="friends-input-group">
-                      <label htmlFor="sessionDuration">{t("friendsPage.durationMin")}</label>
-                      <input
-                        type="number"
-                        id="sessionDuration"
-                        className="profile-input"
-                        min={15}
-                        step={15}
-                        value={sessionDuration}
-                        onChange={(e) => setSessionDuration(Number(e.target.value))}
-                      />
-                    </div>
-                  </div>
-
-                  <div className="friends-input-group">
-                    <label>{t("friendsPage.inviteOptional")}</label>
-                    <div className="session-invite-row">
-                      <select
-                        className="profile-input"
-                        value=""
-                        onChange={(e) => {
-                          const name = e.target.value;
-                          if (name && !sessionInvited.includes(name)) setSessionInvited((prev) => [...prev, name]);
-                        }}
-                      >
-                        <option value="">{t("friendsPage.addFriendOptional")}</option>
-                        {friends.map((f) => (
-                          <option key={f.id} value={f.name} disabled={sessionInvited.includes(f.name)}>
-                            {displayName(f)}
-                          </option>
-                        ))}
-                      </select>
-                      {circles.length > 0 && (
-                        <select
-                          className="profile-input session-circle-invite"
-                          value=""
-                          onChange={(e) => {
-                            if (e.target.value) handleInviteCircleToSession(e.target.value);
-                            e.target.value = "";
-                          }}
-                        >
-                          <option value="">{t("friendsPage.inviteCircle")}</option>
-                          {circles.map((c) => (
-                            <option key={c.id} value={c.id}>{c.name}</option>
-                          ))}
-                        </select>
-                      )}
-                      <div className="session-invite-chips">
-                        {sessionInvited.map((name) => (
-                          <span key={name} className="invite-chip">
-                            {name}
-                            <button type="button" className="invite-chip-x" onClick={() => setSessionInvited((prev) => prev.filter((n) => n !== name))}>×</button>
-                          </span>
-                        ))}
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="friends-input-group">
-                    <label htmlFor="sessionDesc">{t("friendsPage.eventNotes")}</label>
-                    <textarea
-                      id="sessionDesc"
-                      className="profile-input profile-input--textarea"
-                      value={sessionDesc}
-                      onChange={(e) => setSessionDesc(e.target.value)}
-                      placeholder={t("friendsPage.eventNotesPlaceholder")}
-                    />
-                  </div>
-
-                  <Button type="submit" variant="primary" className="btn--start" leftIcon={<CalendarIcon />}>
-                    {t("friendsPage.planEvent")}
-                  </Button>
-                </form>
-              </div>
-
-              {/* Right Column: Sessions Grid */}
-                <div className="profile-summary-section profile-summary-section--sessions">
-                  <div className="sessions-view-header">
-                    <h3 className="friends-list-title">
-                      {sessionView === "past" ? t("friendsPage.pastSessions") : sessionView === "agenda" ? t("friendsPage.agenda") : t("friendsPage.upcomingSessions")}
-                    </h3>
-                    <div className="compare-filter-chips">
-                      <button type="button" className={`compare-filter-chip${sessionView === "upcoming" ? " active" : ""}`} onClick={() => setSessionView("upcoming")}>{t("friendsPage.upcoming")}</button>
-                      <button type="button" className={`compare-filter-chip${sessionView === "agenda" ? " active" : ""}`} onClick={() => setSessionView("agenda")}>{t("friendsPage.agenda")}</button>
-                      <button type="button" className={`compare-filter-chip${sessionView === "past" ? " active" : ""}`} onClick={() => setSessionView("past")}>{t("friendsPage.past")}</button>
-                    </div>
-                  </div>
-
-                  {sessionView === "agenda" && (
-                    <div className="agenda-mode-toggle" role="group" aria-label={t("friendsPage.agendaModeAria")}>
-                      <button type="button" className={`agenda-mode-btn${agendaMode === "grid" ? " active" : ""}`} onClick={() => setAgendaMode("grid")} aria-label={t("friendsPage.agendaModeCalendar")} title={t("friendsPage.agendaModeCalendar")}>
-                        <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
-                          <rect x="3" y="3" width="8" height="8" rx="1.4" />
-                          <rect x="13" y="3" width="8" height="8" rx="1.4" />
-                          <rect x="3" y="13" width="8" height="8" rx="1.4" />
-                          <rect x="13" y="13" width="8" height="8" rx="1.4" />
-                        </svg>
-                        {t("friendsPage.agendaModeCalendar")}
-                      </button>
-                      <button type="button" className={`agenda-mode-btn${agendaMode === "list" ? " active" : ""}`} onClick={() => setAgendaMode("list")} aria-label={t("friendsPage.agendaModeList")} title={t("friendsPage.agendaModeList")}>
-                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
-                          <rect x="3" y="4" width="6" height="6" rx="1" />
-                          <line x1="12" y1="7" x2="21" y2="7" />
-                          <line x1="12" y1="10" x2="21" y2="10" />
-                          <rect x="3" y="14" width="6" height="6" rx="1" />
-                          <line x1="12" y1="17" x2="21" y2="17" />
-                          <line x1="12" y1="20" x2="21" y2="20" />
-                        </svg>
-                        {t("friendsPage.agendaModeList")}
-                      </button>
-                    </div>
-                  )}
-
-                  {/* Filters + search */}
-                  <div className="sessions-toolbar">
-                    <div className="compare-filter-chips">
-                      <button type="button" className={`compare-filter-chip${sessionFilter === "all" ? " active" : ""}`} onClick={() => setSessionFilter("all")}>{t("common.all")}</button>
-                      <button type="button" className={`compare-filter-chip${sessionFilter === "mine" ? " active" : ""}`} onClick={() => setSessionFilter("mine")}>{t("friendsPage.sessionFilterMine")}</button>
-                      <button type="button" className={`compare-filter-chip${sessionFilter === "invited" ? " active" : ""}`} onClick={() => setSessionFilter("invited")}>{t("friendsPage.sessionFilterInvited")}</button>
-                    </div>
-                    <input
-                      className="profile-input session-search-input"
-                      placeholder={t("friendsPage.searchSessionsPlaceholder")}
-                      value={sessionSearch}
-                      onChange={(e) => setSessionSearch(e.target.value)}
-                    />
-                  </div>
-
-                  {(() => {
-                    const now = Date.now();
-                    const bufferMs = 6 * 60 * 60 * 1000; // 6-hour grace period
-                    const active = sessions.filter((s) => !s.deleted);
-                    const mySessions = active.filter((s) => s.creatorName === profile.name);
-                    const invitedTo = active.filter(
-                      (s) => s.creatorName !== profile.name && (s.invited || []).includes(profile.name)
-                    );
-
-                    let pool = active;
-                    if (sessionFilter === "mine") pool = mySessions;
-                    else if (sessionFilter === "invited") pool = invitedTo;
-
-                    const q = sessionSearch.trim().toLowerCase();
-                    if (q) {
-                      pool = pool.filter(
-                        (s) =>
-                          s.gameName.toLowerCase().includes(q) ||
-                          (s.description || "").toLowerCase().includes(q) ||
-                          (s.participants || []).some((p) => p.name.toLowerCase().includes(q))
-                      );
-                    }
-
-                    const upcoming = pool.filter((s) => new Date(s.scheduledAt).getTime() + bufferMs >= now).sort((a, b) => new Date(a.scheduledAt).getTime() - new Date(b.scheduledAt).getTime());
-                    const past = pool.filter((s) => new Date(s.scheduledAt).getTime() + bufferMs < now).sort((a, b) => new Date(b.scheduledAt).getTime() - new Date(a.scheduledAt).getTime());
-
-                    const visible = sessionView === "past" ? past : sessionView === "agenda" ? upcoming : upcoming;
-
-                    if (visible.length === 0) {
-                      return (
-                        <div className="friends-empty-state friends-empty-state--inline">
-                          <div className="friends-empty-icon friends-empty-icon--sm" aria-hidden><CalendarIcon /></div>
-                          <h3 className="friends-empty-title">
-                            {sessionView === "past" ? t("friendsPage.noPastSessions") : t("friendsPage.noEventsScheduled")}
-                          </h3>
-                          <p className="friends-empty-desc">
-                            {sessionView === "past"
-                              ? t("friendsPage.completedSessionsHint")
-                              : t("friendsPage.emptySessionsHint")}
-                          </p>
-                        </div>
-                      );
-                    }
-
-                    // Build a conflict map: for each session, the overlapping session (if any).
-                    const conflicts = new Map<string, GameSession>();
-                    visible.forEach((s) => {
-                      if (new Date(s.scheduledAt).getTime() - now <= 0) return; // only warn about future
-                      const clash = visible.find(
-                        (o) => o.id !== s.id && o.creatorName === profile.name && sessionsConflict(s, o)
-                      );
-                      if (clash) conflicts.set(s.id, clash);
-                    });
-
-                    // Agenda view: group by month (or day for near-term).
-                    if (sessionView === "agenda") {
-                      const groups = new Map<string, GameSession[]>();
-                      visible.forEach((s) => {
-                        const d = new Date(s.scheduledAt);
-                        const key = d.toLocaleDateString(undefined, { month: "long", year: "numeric" });
-                        if (!groups.has(key)) groups.set(key, []);
-                        groups.get(key)!.push(s);
-                      });
-                      // Group sessions by calendar day (local date key).
-                      const dayMap = new Map<string, GameSession[]>();
-                      visible.forEach((s) => {
-                        const d = new Date(s.scheduledAt);
-                        const key = `${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`;
-                        if (!dayMap.has(key)) dayMap.set(key, []);
-                        dayMap.get(key)!.push(s);
-                      });
-
-                      // Determine the month range to render in the calendar.
-                      const months = Array.from(
-                        new Set(visible.map((s) => {
-                          const d = new Date(s.scheduledAt);
-                          return `${d.getFullYear()}-${d.getMonth()}`;
-                        }))
-                      ).sort();
-
-                      const todayKey = (() => {
-                        const t = new Date();
-                        return `${t.getFullYear()}-${t.getMonth()}-${t.getDate()}`;
-                      })();
-
-                      const renderCalendarCard = (session: GameSession) => (
-                        <SessionCard
-                          key={session.id}
-                          session={session}
-                          profile={profile}
-                          friends={friends}
-                          viewerTimezone={viewerTimezone}
-                          conflicting={conflicts.get(session.id)}
-                          onRsvp={handleSetRsvp}
-                          onDelete={handleDeleteSession}
-                          onSetRole={handleSetRole}
-                          onAddGuest={handleAddGuest}
-                          onRemoveGuest={handleRemoveGuest}
-                          onSetRsvpNote={handleSetRsvpNote}
-                          onSendMessage={handleSendMessage}
-                          gameCover={gameCoverForSession(session)}
-                          onTogglePinMessage={handleTogglePinMessage}
-                        />
-                      );
-
-                      if (agendaMode === "list") {
-                        return (
-                          <div className="sessions-agenda">
-                            {months.map((m) => {
-                              const [y, mo] = m.split("-").map(Number);
-                              const monthLabel = new Date(y, mo, 1).toLocaleDateString(undefined, { month: "long", year: "numeric" });
-                              const monthSessions = visible.filter((s) => {
-                                const d = new Date(s.scheduledAt);
-                                return d.getFullYear() === y && d.getMonth() === mo;
-                              });
-                              const dayGroups = new Map<string, GameSession[]>();
-                              monthSessions.forEach((s) => {
-                                const dk = new Date(s.scheduledAt).toLocaleDateString(undefined, { weekday: "short", month: "short", day: "numeric" });
-                                if (!dayGroups.has(dk)) dayGroups.set(dk, []);
-                                dayGroups.get(dk)!.push(s);
-                              });
-                              return (
-                                <div key={m} className="agenda-month-group">
-                                  <div className="agenda-month-label">{monthLabel}</div>
-                                  {Array.from(dayGroups.entries()).map(([day, daySessions]) => (
-                                    <div key={day} className="agenda-day-group">
-                                      <div className="agenda-day-label">{day}</div>
-                                      <div className="sessions-grid">
-                                        {daySessions.map(renderCalendarCard)}
-                                      </div>
-                                    </div>
-                                  ))}
-                                </div>
-                              );
-                            })}
-                          </div>
-                        );
-                      }
-
-                      // Calendar grid mode.
-                      const weekdays = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
-                      return (
-                        <div className="sessions-calendar">
-                          {months.map((m) => {
-                            const [y, mo] = m.split("-").map(Number);
-                            const monthLabel = new Date(y, mo, 1).toLocaleDateString(undefined, { month: "long", year: "numeric" });
-                            const firstDay = new Date(y, mo, 1).getDay();
-                            const daysInMonth = new Date(y, mo + 1, 0).getDate();
-                            const cells: (number | null)[] = [
-                              ...Array(firstDay).fill(null),
-                              ...Array.from({ length: daysInMonth }, (_, i) => i + 1),
-                            ];
-                            // Pad to full weeks.
-                            while (cells.length % 7 !== 0) cells.push(null);
-                            return (
-                              <div key={m} className="calendar-month">
-                                <div className="calendar-month-label">{monthLabel}</div>
-                                <div className="calendar-weekdays">
-                                  {weekdays.map((w) => (
-                                    <div key={w} className="calendar-weekday">{w}</div>
-                                  ))}
-                                </div>
-                                <div className="calendar-grid">
-                                  {cells.map((dayNum, idx) => {
-                                    if (dayNum === null) return <div key={`empty-${idx}`} className="calendar-cell empty" />;
-                                    const key = `${y}-${mo}-${dayNum}`;
-                                    const daySessions = dayMap.get(key) || [];
-                                    const isToday = key === todayKey;
-                                    const isExpanded = expandedDay === key;
-                                    return (
-                                      <div
-                                        key={key}
-                                        className={`calendar-cell${isToday ? " today" : ""}${daySessions.length ? " has-events" : ""}${isExpanded ? " expanded" : ""}`}
-                                        onClick={() => daySessions.length && setExpandedDay(isExpanded ? null : key)}
-                                      >
-                                        <div className="calendar-day-num">{dayNum}</div>
-                                        {daySessions.length > 0 && !isExpanded && (
-                                          <div className="calendar-chips">
-                                            {daySessions.slice(0, 3).map((s) => (
-                                              <div key={s.id} className={`calendar-chip${conflicts.get(s.id) ? " conflict" : ""}${s.creatorName === profile.name ? " mine" : ""}`} title={s.gameName}>
-                                                <span className="calendar-chip-time">{new Date(s.scheduledAt).toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" })}</span>
-                                                <span className="calendar-chip-name">{s.gameName}</span>
-                                              </div>
-                                            ))}
-                                            {daySessions.length > 3 && <div className="calendar-chip-more">{t("friendsPage.calendarMore", { count: daySessions.length - 3 })}</div>}
-                                          </div>
-                                        )}
-                                        {isExpanded && (
-                                          <div className="calendar-day-detail" onClick={(e) => e.stopPropagation()}>
-                                            {daySessions.map(renderCalendarCard)}
-                                          </div>
-                                        )}
-                                      </div>
-                                    );
-                                  })}
-                                </div>
-                              </div>
-                            );
-                          })}
-                        </div>
-                      );
-                    }
-
-                    return (
-                      <div className="sessions-grid">
-                        {visible.map((session) => (
-                          <SessionCard
-                            key={session.id}
-                            session={session}
-                            profile={profile}
-                            friends={friends}
-                            viewerTimezone={viewerTimezone}
-                            conflicting={conflicts.get(session.id)}
-                            onRsvp={handleSetRsvp}
-                            onDelete={handleDeleteSession}
-                            onSetRole={handleSetRole}
-                            onAddGuest={handleAddGuest}
-                            onRemoveGuest={handleRemoveGuest}
-                            onSetRsvpNote={handleSetRsvpNote}
-                            onSendMessage={handleSendMessage}
-                            onTogglePinMessage={handleTogglePinMessage}
-                          />
-                        ))}
-                      </div>
-                    );
-                  })()}
-                </div>
-                </div>
-              </div>
+          <FriendsSessionsTab
+            sessions={sessions}
+            profile={profile}
+            friends={friends}
+            libraryGames={games}
+            onRsvp={handleRsvp}
+            onCreateSession={handleCreateSession}
+            onDeleteSession={handleDeleteSession}
+            onSetRole={handleSetSessionRole}
+            onAddGuest={handleAddSessionGuest}
+            onRemoveGuest={handleRemoveSessionGuest}
+            onSetRsvpNote={handleSetSessionRsvpNote}
+            onSendMessage={handleSendSessionMessage}
+            onTogglePinMessage={handleTogglePinSessionMessage}
+          />
         )}
 
-        {/* Tab 3: Recommendations Feed & Comments */}
         {activeTab === "recs" && (
-          <div className="recs-section">
-            <div className="recs-layout">
-              {/* Left Column: Recommendations Feed */}
-              <div className="recs-feed">
-                {(() => {
-                  const activeRecs = recommendations.filter((r) => !r.deleted);
-                  const visibleRecs = activeRecs.filter((rec) => {
-                    if (recFilter === "to_me")
-                      return rec.recommendedTo === profile.name || rec.recommendedTo === "All Friends";
-                    if (recFilter === "by_me") return rec.recommendedBy === profile.name;
-                    if (recFilter === "want") return !!rec.wantToPlay;
-                    return true;
-                  });
-
-                  return (
-                    <>
-                      <div className="rec-feed-head">
-                        <h3 className="friends-list-title">{t("friendsPage.friendRecommendations", { count: activeRecs.length })}</h3>
-                      </div>
-
-                      {activeRecs.length > 0 && (
-                        <div className="compare-filter-chips rec-filter-chips rec-filter-tray" role="group" aria-label={t("friendsPage.recFiltersAria")}>
-                          <button
-                            type="button"
-                            className={`compare-filter-chip${recFilter === "all" ? " active" : ""}`}
-                            onClick={() => setRecFilter("all")}
-                          >
-                            {t("friendsPage.recFilterAll", { count: activeRecs.length })}
-                          </button>
-                          <button
-                            type="button"
-                            className={`compare-filter-chip${recFilter === "to_me" ? " active" : ""}`}
-                            onClick={() => setRecFilter("to_me")}
-                          >
-                            {t("friendsPage.recFilterToMe", { count: activeRecs.filter((r) => r.recommendedTo === profile.name || r.recommendedTo === "All Friends").length })}
-                          </button>
-                          <button
-                            type="button"
-                            className={`compare-filter-chip${recFilter === "by_me" ? " active" : ""}`}
-                            onClick={() => setRecFilter("by_me")}
-                          >
-                            {t("friendsPage.recFilterByMe", { count: activeRecs.filter((r) => r.recommendedBy === profile.name).length })}
-                          </button>
-                          <button
-                            type="button"
-                            className={`compare-filter-chip${recFilter === "want" ? " active" : ""}`}
-                            onClick={() => setRecFilter("want")}
-                          >
-                            {t("friendsPage.recFilterWant", { count: activeRecs.filter((r) => r.wantToPlay).length })}
-                          </button>
-                        </div>
-                      )}
-
-                      {activeRecs.length === 0 ? (
-                        <div className="friends-empty-state friends-empty-state--inline">
-                          <div className="friends-empty-icon friends-empty-icon--sm" aria-hidden><RecommendIcon /></div>
-                          <h3 className="friends-empty-title">{t("friendsPage.noRecsYet")}</h3>
-                          <p className="friends-empty-desc">
-                            {t("friendsPage.recsEmptyDesc")}
-                          </p>
-                        </div>
-                      ) : (
-                        visibleRecs.map((rec) => {
-                          const myReaction = rec.reactions?.[profile.name];
-                          const reactionCounts: Record<string, number> = {};
-                          if (rec.reactions) {
-                            Object.values(rec.reactions).forEach((k) => {
-                              reactionCounts[k] = (reactionCounts[k] || 0) + 1;
-                            });
-                          }
-                          return (
-                            <div key={rec.id} className="rec-card">
-                              <div className="rec-header">
-                                <div className="rec-meta">
-                                  <span className="rec-game">{rec.gameName}</span>
-                                  <span className="rec-author">
-                                    {t("friendsPage.recommendedByTo", { by: rec.recommendedBy, to: rec.recommendedTo === "All Friends" ? t("friendsPage.allFriends") : rec.recommendedTo })}
-                                  </span>
-                                </div>
-                                <div className="rec-header-actions">
-                                  <div className="rating-stars">
-                                    {Array.from({ length: 5 }).map((_, idx) => (
-                                      <span key={idx} className={idx < rec.rating ? "active" : ""}>
-                                        ★
-                                      </span>
-                                    ))}
-                                  </div>
-                                  {rec.recommendedBy === profile.name && (
-                                    <button
-                                      type="button"
-                                      className="friend-delete-btn friend-delete-btn--inline"
-                                      onClick={() => handleDeleteRecommendation(rec.id)}
-                                      title={t("friendsPage.removeRecommendation")}
-                                    >
-                                      <TrashIcon />
-                                    </button>
-                                  )}
-                                </div>
-                              </div>
-
-                          <p className="rec-reason">"{rec.reason}"</p>
-
-                          {/* Reactions + Want to Play */}
-                          <div className="rec-reactions-row">
-                            {(["like", "love", "play"] as ReactionKind[]).map((kind) => (
-                              <button
-                                key={kind}
-                                type="button"
-                                className={`rec-reaction-btn${myReaction === kind ? " active" : ""}`}
-                                onClick={() => handleToggleReaction(rec.id, kind)}
-                                title={t("friendsPage.reactionLabel", { kind })}
-                                aria-pressed={myReaction === kind}
-                              >
-                                <span className="rec-reaction-icon">{kind === "like" ? <ThumbsUpIcon /> : kind === "love" ? <HeartIcon /> : <GamepadIcon />}</span>
-                                {reactionCounts[kind] ? <span className="rec-reaction-count">{reactionCounts[kind]}</span> : null}
-                              </button>
-                            ))}
-                            <button
-                              type="button"
-                              className={`rec-want-btn${rec.wantToPlay ? " active" : ""}`}
-                              onClick={() => handleToggleWantToPlay(rec.id)}
-                              title={t("friendsPage.addToWantToPlay")}
-                              aria-pressed={rec.wantToPlay}
-                            >
-                              {rec.wantToPlay ? <CheckIcon /> : <StarIcon />}
-                              {rec.wantToPlay ? t("friendsPage.wantToPlayAlready") : t("friendsPage.wantToPlayAdd")}
-                            </button>
-                          </div>
-
-                          {/* Threaded comments */}
-                          <div className="rec-comments-section">
-                            <h4 className="rec-comments-title">{t("friendsPage.commentsCount", { count: rec.comments.length })}</h4>
-                            {rec.comments.length > 0 && (
-                              <div className="rec-comments-list">
-                                {rec.comments.map((comment) => (
-                                  <div key={comment.id} className="comment-item">
-                                    <span className="comment-author">{comment.authorName}</span>
-                                    <span className="comment-text">{comment.text}</span>
-                                    <span className="comment-meta">
-                                      <span className="comment-time">{formatDateTime(new Date(comment.timestamp).toISOString())}</span>
-                                      {comment.authorName === profile.name && (
-                                        <button
-                                          type="button"
-                                          className="comment-delete-btn"
-                                          onClick={() => handleDeleteComment(rec.id, comment.id, comment.authorName)}
-                                          title={t("friendsPage.deleteCommentTitle")}
-                                        >
-                                          <XIcon />
-                                        </button>
-                                      )}
-                                    </span>
-                                  </div>
-                                ))}
-                              </div>
-                            )}
-
-                            <form
-                              className="comment-form"
-                              onSubmit={(e) => handleAddComment(e, rec.id)}
-                            >
-                              <input
-                                type="text"
-                                className="comment-input"
-                                placeholder={t("friendsPage.commentPlaceholder")}
-                                value={commentInputs[rec.id] || ""}
-                                onChange={(e) => handleCommentInputChange(rec.id, e.target.value)}
-                                required
-                              />
-                              <Button type="submit" variant="primary" size="sm" leftIcon={<SendIcon />}>
-                                {t("friendsPage.postComment")}
-                              </Button>
-                            </form>
-                          </div>
-                        </div>
-                      );
-                    })
-                  )}
-                </>
-              );
-            })()}
-              </div>
-
-              {/* Right Column: Write Form */}
-              <div className="profile-edit-section rec-composer">
-                <div className="rec-composer-head">
-                  <div className="rec-composer-icon" aria-hidden><RecommendIcon /></div>
-                  <h3 className="profile-edit-title">{t("friendsPage.recommendGame")}</h3>
-                </div>
-                <form className="profile-form" onSubmit={handleCreateRecommendation}>
-                  <div className="friends-input-group rec-form-field">
-                    <label className="rec-form-label">{t("friendsPage.gameLabel")}</label>
-                    <SearchableGameSelector
-                      games={games}
-                      selectedGameId={recGameId}
-                      onSelect={(id) => setRecGameId(id)}
-                      placeholder={t("friendsPage.searchGameRecommend")}
-                    />
-                  </div>
-
-                  <div className="friends-input-group rec-form-field">
-                    <label className="rec-form-label" htmlFor="recTo">{t("friendsPage.recommendTo")}</label>
-                    <select
-                      id="recTo"
-                      className="profile-input rec-form-select"
-                      value={recToFriend}
-                      onChange={(e) => setRecToFriend(e.target.value)}
-                    >
-                      <option value="All Friends">{t("friendsPage.allFriends")}</option>
-                      {friends.map((f) => (
-                        <option key={f.id} value={f.name}>
-                          {f.name}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-
-                  <div className="friends-input-group rec-form-field">
-                    <label className="rec-form-label">{t("friendsPage.rating")}</label>
-                    <div className="rating-stars rating-stars--lg rec-rating-picker" role="radiogroup" aria-label={t("friendsPage.rating")}>
-                      {[1, 2, 3, 4, 5].map((star) => (
-                        <button
-                          key={star}
-                          type="button"
-                          className={`rating-star-btn rec-rating-star${star <= recRating ? " active" : ""}`}
-                          onClick={() => setRecRating(star)}
-                          aria-label={String(star)}
-                        >
-                          ★
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-
-                  <div className="friends-input-group rec-form-field">
-                    <label className="rec-form-label" htmlFor="recReason">{t("friendsPage.recommendWhy")}</label>
-                    <textarea
-                      id="recReason"
-                      className="profile-input profile-input--textarea rec-form-textarea"
-                      value={recReason}
-                      onChange={(e) => setRecReason(e.target.value)}
-                      placeholder={t("friendsPage.reviewNotesPlaceholder")}
-                      required
-                    />
-                  </div>
-
-                  <Button type="submit" variant="primary" className="btn--start rec-composer-submit" leftIcon={<RecommendIcon />}>
-                    {t("friendsPage.recommendCta")}
-                  </Button>
-                </form>
-              </div>
-            </div>
-          </div>
+          <FriendsRecsTab
+            recommendations={recommendations}
+            profile={profile}
+            friends={friends}
+            libraryGames={games}
+            onReact={handleReactRec}
+            onToggleWantToPlay={handleToggleWantToPlay}
+            onAddComment={handleAddRecComment}
+            onCreateRec={handleCreateRec}
+            onDeleteRec={handleDeleteRec}
+            onOpenGame={(_gid, gname) => {
+              const match = games.find((g) => g.name.toLowerCase() === gname.toLowerCase());
+              if (match) launchGame(match);
+            }}
+          />
         )}
 
-        {/* Tab: Wishlist Shares (Game Suggestions) */}
         {activeTab === "suggestions" && (
-          <div className="suggestions-section">
-            <div className="recs-layout">
-              {/* Left: Suggestions feed */}
-              <div className="recs-feed">
-                {(() => {
-                  const activeSugs = suggestions.filter((s) => !s.deleted);
-                  const visible = activeSugs.filter((s) => {
-                    const q = suggestionSearch.trim().toLowerCase();
-                    if (q && !s.gameName.toLowerCase().includes(q)) return false;
-                    if (suggestionFilter === "by_me")
-                      return s.suggestedBy === profile.name;
-                    if (suggestionFilter === "to_me")
-                      return s.suggestedTo === profile.name || s.suggestedTo === "All Friends";
-                    if (suggestionFilter === "added") return !!s.addedToWishlist;
-                    if (suggestionFilter === "unadded") return !s.addedToWishlist;
-                    return true;
-                  });
-
-                  const sorted = [...visible].sort((a, b) => {
-                    switch (suggestionSort) {
-                      case "oldest":
-                        return a.createdAt - b.createdAt;
-                      case "reactions": {
-                        const ca = Object.keys(a.reactions || {}).length;
-                        const cb = Object.keys(b.reactions || {}).length;
-                        return cb - ca;
-                      }
-                      case "comments":
-                        return b.comments.length - a.comments.length;
-                      case "newest":
-                      default:
-                        return b.createdAt - a.createdAt;
-                    }
-                  });
-
-                  return (
-                    <>
-                      <div className="sug-feed-head">
-                        <h3 className="friends-list-title">{t("friendsPage.sharedFromWishlists", { count: activeSugs.length })}</h3>
-                      </div>
-
-                      {activeSugs.length > 0 && (
-                        <div className="compare-filter-chips rec-filter-chips sug-filter-tray" role="group" aria-label={t("friendsPage.sugFiltersAria")}>
-                          <button
-                            type="button"
-                            className={`compare-filter-chip${suggestionFilter === "all" ? " active" : ""}`}
-                            onClick={() => setSuggestionFilter("all")}
-                          >
-                            {t("friendsPage.sugFilterAll", { count: activeSugs.length })}
-                          </button>
-                          <button
-                            type="button"
-                            className={`compare-filter-chip${suggestionFilter === "by_me" ? " active" : ""}`}
-                            onClick={() => setSuggestionFilter("by_me")}
-                          >
-                            {t("friendsPage.sugFilterByMe", { count: activeSugs.filter((s) => s.suggestedBy === profile.name).length })}
-                          </button>
-                          <button
-                            type="button"
-                            className={`compare-filter-chip${suggestionFilter === "to_me" ? " active" : ""}`}
-                            onClick={() => setSuggestionFilter("to_me")}
-                          >
-                            {t("friendsPage.sugFilterForMe", { count: activeSugs.filter((s) => s.suggestedTo === profile.name || s.suggestedTo === "All Friends").length })}
-                          </button>
-                          <button
-                            type="button"
-                            className={`compare-filter-chip${suggestionFilter === "added" ? " active" : ""}`}
-                            onClick={() => setSuggestionFilter("added")}
-                          >
-                            {t("friendsPage.sugFilterAdded", { count: activeSugs.filter((s) => s.addedToWishlist).length })}
-                          </button>
-                          <button
-                            type="button"
-                            className={`compare-filter-chip${suggestionFilter === "unadded" ? " active" : ""}`}
-                            onClick={() => setSuggestionFilter("unadded")}
-                          >
-                            {t("friendsPage.sugFilterNotAdded", { count: activeSugs.filter((s) => !s.addedToWishlist).length })}
-                          </button>
-                        </div>
-                      )}
-
-                      <div className="suggestions-toolbar">
-                        <input
-                          type="text"
-                          className="comment-input sug-search-input"
-                          placeholder={t("friendsPage.searchSharedGames")}
-                          value={suggestionSearch}
-                          onChange={(e) => setSuggestionSearch(e.target.value)}
-                        />
-                        <select
-                          className="profile-input suggestion-sort"
-                          value={suggestionSort}
-                          onChange={(e) => setSuggestionSort(e.target.value as any)}
-                          aria-label={t("friendsPage.sortSharedGamesAria")}
-                        >
-                          <option value="newest">{t("friendsPage.sortNewest")}</option>
-                          <option value="oldest">{t("friendsPage.sortOldest")}</option>
-                          <option value="reactions">{t("friendsPage.sortMostReactions")}</option>
-                          <option value="comments">{t("friendsPage.sortMostComments")}</option>
-                        </select>
-                      </div>
-
-                      {activeSugs.length === 0 ? (
-                        <div className="friends-empty-state friends-empty-state--inline">
-                          <div className="friends-empty-icon friends-empty-icon--sm" aria-hidden><SuggestionIcon /></div>
-                          <h3 className="friends-empty-title">{t("friendsPage.noSharedGamesYet")}</h3>
-                          <p className="friends-empty-desc">
-                            {t("friendsPage.sugEmptyDesc")}
-                          </p>
-                        </div>
-                      ) : sorted.length === 0 ? (
-                        <div className="friends-empty-state friends-empty-state--inline">
-                          <div className="friends-empty-icon friends-empty-icon--sm" aria-hidden><SuggestionIcon /></div>
-                          <h3 className="friends-empty-title">{t("friendsPage.noSharedGamesMatchTitle")}</h3>
-                          <p className="friends-empty-desc">{t("friendsPage.noSharedGamesMatch")}</p>
-                        </div>
-                      ) : (
-                        sorted.map((sug) => {
-                          const myReaction = sug.reactions?.[profile.name];
-                          const reactionCounts: Record<string, number> = {};
-                          if (sug.reactions) {
-                            Object.values(sug.reactions).forEach((k) => {
-                              reactionCounts[k] = (reactionCounts[k] || 0) + 1;
-                            });
-                          }
-                          const alreadyWishlisted = wishlist.some((w) => w.slug === sug.gameId);
-                          return (
-                            <div key={sug.id} className="sug-card">
-                              <div className="sug-header">
-                                {sug.coverUrl ? (
-                                  <img src={sug.coverUrl} alt={sug.gameName} className="sug-cover" loading="lazy" onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = "none"; }} />
-                                ) : (
-                                  <div className="sug-cover sug-cover-fallback">{sug.gameName.slice(0, 2).toUpperCase()}</div>
-                                )}
-                                <div className="sug-meta">
-                                  <span className="sug-game">{sug.gameName}</span>
-                                  <span className="sug-author">
-                                    {t("friendsPage.sharedBy", { name: sug.suggestedBy }) + " " + (sug.suggestedTo === "All Friends" ? t("friendsPage.sharedWithEveryone") : t("friendsPage.sharedTo", { name: sug.suggestedTo }))}
-                                  </span>
-                                </div>
-                                <div className="sug-header-actions">
-                                  <button
-                                    type="button"
-                                    className="friend-delete-btn friend-delete-btn--inline"
-                                    onClick={() => navigate(`/store/${sug.gameId}`)}
-                                    title={t("friendsPage.viewOnStore")}
-                                  >
-                                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" width="14" height="14">
-                                      <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6" />
-                                      <polyline points="15 3 21 3 21 9" />
-                                      <line x1="10" y1="14" x2="21" y2="3" />
-                                    </svg>
-                                  </button>
-                                  {sug.suggestedBy === profile.name && (
-                                    <button
-                                      type="button"
-                                      className="friend-delete-btn friend-delete-btn--inline"
-                                      onClick={() => handleDeleteSuggestion(sug.id)}
-                                      title={t("friendsPage.removeShare")}
-                                    >
-                                      <TrashIcon />
-                                    </button>
-                                  )}
-                                </div>
-                              </div>
-
-                              {sug.note && <p className="sug-note">"{sug.note}"</p>}
-
-                              <div className="rec-reactions-row">
-                                {(["like", "love", "interest", "played"] as SuggestionReactionKind[]).map((kind) => (
-                                  <button
-                                    key={kind}
-                                    type="button"
-                                    className={`rec-reaction-btn${myReaction === kind ? " active" : ""}`}
-                                    onClick={() => handleToggleSuggestionReaction(sug.id, kind)}
-                                    title={t("friendsPage.reactionLabel", { kind })}
-                                    aria-pressed={myReaction === kind}
-                                  >
-                                    <span className="rec-reaction-icon">
-                                      {kind === "like" ? <ThumbsUpIcon /> : kind === "love" ? <HeartIcon /> : kind === "interest" ? <FireIcon /> : <CheckIcon />}
-                                    </span>
-                                    {reactionCounts[kind] ? <span className="rec-reaction-count">{reactionCounts[kind]}</span> : null}
-                                  </button>
-                                ))}
-                                <button
-                                  type="button"
-                                  className={`rec-want-btn${sug.addedToWishlist || alreadyWishlisted ? " active" : ""}`}
-                                  onClick={() => handleAddSuggestionToWishlist(sug)}
-                                  disabled={alreadyWishlisted}
-                                  title={alreadyWishlisted ? t("friendsPage.alreadyInWishlist") : t("friendsPage.addToMyWishlist")}
-                                >
-                                  {alreadyWishlisted ? <CheckIcon /> : <StarIcon />}
-                                  {alreadyWishlisted ? t("friendsPage.inWishlistShort") : t("friendsPage.addToWishlistShort")}
-                                </button>
-                              </div>
-
-                              <div className="rec-comments-section">
-                                <h4 className="rec-comments-title">{t("friendsPage.commentsCount", { count: sug.comments.length })}</h4>
-                                {sug.comments.length > 0 && (
-                                  <div className="rec-comments-list">
-                                    {sug.comments.map((comment) => (
-                                      <div key={comment.id} className="comment-item">
-                                        <span className="comment-author">{comment.authorName}</span>
-                                        <span className="comment-text">{comment.text}</span>
-                                        <span className="comment-meta">
-                                          <span className="comment-time">{formatDateTime(new Date(comment.timestamp).toISOString())}</span>
-                                          {comment.authorName === profile.name && (
-                                            <button
-                                              type="button"
-                                              className="comment-delete-btn"
-                                              onClick={() => handleDeleteSuggestionComment(sug.id, comment.id, comment.authorName)}
-                                              title={t("friendsPage.deleteCommentTitle")}
-                                            >
-                                              <XIcon />
-                                            </button>
-                                          )}
-                                        </span>
-                                      </div>
-                                    ))}
-                                  </div>
-                                )}
-
-                                <form
-                                  className="comment-form"
-                                  onSubmit={(e) => handleAddSuggestionComment(e, sug.id)}
-                                >
-                                  <input
-                                    type="text"
-                                    className="comment-input"
-                                    placeholder={t("friendsPage.commentPlaceholder")}
-                                    value={suggestionCommentInputs[sug.id] || ""}
-                                    onChange={(e) =>
-                                      setSuggestionCommentInputs((prev) => ({ ...prev, [sug.id]: e.target.value }))
-                                    }
-                                    required
-                                  />
-                                  <Button type="submit" variant="primary" size="sm" leftIcon={<SendIcon />}>
-                                    {t("friendsPage.postComment")}
-                                  </Button>
-                                </form>
-                              </div>
-                            </div>
-                          );
-                        })
-                      )}
-                    </>
-                  );
-                })()}
-              </div>
-
-              {/* Right: Share from wishlist */}
-              <div className="profile-edit-section sug-composer">
-                <div className="sug-composer-head">
-                  <div className="sug-composer-icon" aria-hidden><SuggestionIcon /></div>
-                  <h3 className="profile-edit-title">{t("friendsPage.shareGameWishlist")}</h3>
-                </div>
-                {wishlist.length === 0 ? (
-                  <div className="friends-empty-state friends-empty-state--inline">
-                    <div className="friends-empty-icon friends-empty-icon--sm" aria-hidden><SuggestionIcon /></div>
-                    <h3 className="friends-empty-title">{t("friendsPage.noWishlistYet")}</h3>
-                    <p className="friends-empty-desc">
-                      {t("friendsPage.wishlistEmptyDesc")}
-                    </p>
-                  </div>
-                ) : (
-                  <form className="profile-form" onSubmit={handleCreateSuggestion}>
-                    <div className="friends-input-group sug-form-field">
-                      <label className="sug-form-label">{t("friendsPage.gameFromWishlist")}</label>
-                      <select
-                        className="profile-input sug-form-select"
-                        value={suggestionGameId}
-                        onChange={(e) => setSuggestionGameId(e.target.value)}
-                        required
-                      >
-                        <option value="">{t("friends.selectWishlistedGame")}</option>
-                        {wishlist.map((w) => (
-                          <option key={w.slug} value={w.slug}>
-                            {w.name}
-                          </option>
-                        ))}
-                      </select>
-                    </div>
-
-                    <div className="friends-input-group sug-form-field">
-                      <label className="sug-form-label" htmlFor="sugTo">{t("friendsPage.shareWith")}</label>
-                      <select
-                        id="sugTo"
-                        className="profile-input sug-form-select"
-                        value={suggestionToFriend}
-                        onChange={(e) => setSuggestionToFriend(e.target.value)}
-                      >
-                        <option value="All Friends">{t("friendsPage.allFriends")}</option>
-                        {friends.map((f) => (
-                          <option key={f.id} value={displayName(f)}>
-                            {displayName(f)}
-                          </option>
-                        ))}
-                      </select>
-                    </div>
-
-                    <div className="friends-input-group sug-form-field">
-                      <label className="sug-form-label" htmlFor="sugNote">{t("friendsPage.shareNoteOptional")}</label>
-                      <textarea
-                        id="sugNote"
-                        className="profile-input profile-input--textarea sug-form-textarea"
-                        value={suggestionNote}
-                        onChange={(e) => setSuggestionNote(e.target.value)}
-                        placeholder={t("friendsPage.shareNotePlaceholder")}
-                      />
-                    </div>
-
-                    <Button type="submit" variant="primary" className="btn--start sug-composer-submit" leftIcon={<SuggestionIcon />}>
-                      {t("friendsPage.shareToFriendsCta")}
-                    </Button>
-                  </form>
-                )}
-              </div>
-            </div>
-          </div>
+          <FriendsSuggestionsTab
+            suggestions={suggestions}
+            profile={profile}
+            friends={friends}
+            wishlistGames={wishlist}
+            onReact={handleReactSuggestion}
+            onToggleWishlist={handleToggleWishlistSuggestion}
+            onAddComment={handleAddSuggestionComment}
+            onCreateSuggestion={handleCreateSuggestion}
+            onDeleteSuggestion={handleDeleteSuggestion}
+            onOpenGame={(_gid, gname) => {
+              const match = games.find((g) => g.name.toLowerCase() === gname.toLowerCase());
+              if (match) launchGame(match);
+            }}
+          />
         )}
 
-        {/* Tab 4: Compare Libraries */}
         {activeTab === "compare" && (
-          <div className="compare-section">
-            <div className="compare-selector-bar">
-              <div className="compare-selector-group">
-                <label htmlFor="compareFriendSelect">{t("friendsPage.compareWith")}</label>
-                <select
-                  id="compareFriendSelect"
-                  className="profile-input"
-                  value={selectedCompareFriendId}
-                  onChange={(e) => setSelectedCompareFriendId(e.target.value)}
-                >
-                  <option value="">{t("friendsPage.chooseFriend")}</option>
-                  {friends.map((f) => (
-                    <option key={f.id} value={f.id}>
-                      {f.name}
-                    </option>
-                  ))}
-                </select>
-              </div>
-            </div>
-
-            {!compareFriend ? (
-              <div className="friends-empty-state">
-                <div className="friends-empty-icon" aria-hidden><CompareIcon /></div>
-                <h3 className="friends-empty-title">{t("friendsPage.selectAFriendFirst")}</h3>
-                <p className="friends-empty-desc">
-                  {t("friendsPage.compareEmptyDesc")}
-                </p>
-              </div>
-            ) : (
-              <>
-                {/* Profiles vs Header */}
-                <div className="compare-profiles-header">
-                  <div className="compare-user-profile">
-                    {renderAvatar(profile.avatar, profile.name, "compare-user-avatar")}
-                    <span className="compare-user-name">{profile.name} ({t("friendsPage.you")})</span>
-                    {profile.currentlyPlaying && (
-                      <span className="compare-now-playing">
-                        <span className="now-playing-dot" />
-                        {safeCurrentlyPlaying(profile.currentlyPlaying)}
-                      </span>
-                    )}
-                  </div>
-                  <div className="compare-h2h-score">
-                    <div className="compare-vs-badge">{t("friendsPage.compareVs")}</div>
-                    <div className="compare-selector-badges">
-                      <div className="compare-match-score-badge">
-                        <span className="compare-badge-head">
-                          <span className="compare-badge-icon" aria-hidden><GamepadIcon /></span>
-                          <span>{t("friendsPage.matchScoreBadge")}</span>
-                        </span>
-                        <strong>{matchScore}%</strong>
-                      </div>
-                      <div className="compare-match-score-badge compat">
-                        <span className="compare-badge-head">
-                          <span className="compare-badge-icon" aria-hidden><HeartIcon /></span>
-                          <span>{t("friendsPage.compatibilityBadge")}</span>
-                        </span>
-                        <strong>{compatibilityScore}%</strong>
-                      </div>
-                      {comparisonData.length > 0 && (
-                        <div
-                          className={`compare-data-badge ${comparisonData.some((i) => i.estimated) ? "estimated" : "real"}`}
-                          title={
-                            comparisonData.some((i) => i.estimated)
-                              ? t("friendsPage.friendNoSharedData")
-                              : t("friendsPage.basedOnRealSharedData")}
-                        >
-                          <span className="compare-badge-icon" aria-hidden>
-                            {comparisonData.some((i) => i.estimated) ? <XIcon /> : <CheckIcon />}
-                          </span>
-                          {comparisonData.some((i) => i.estimated) ? t("friendsPage.dataEstimatedBadge") : t("friendsPage.dataRealBadge")}
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                  <div className="compare-user-profile right">
-                    {renderAvatar(compareFriend.avatar, compareFriend.name, "compare-user-avatar friend")}
-                    <span className="compare-user-name">{compareFriend.name}</span>
-                    {compareFriend.currentlyPlaying && (
-                      <span className="compare-now-playing">
-                        <span className="now-playing-dot" />
-                        {safeCurrentlyPlaying(compareFriend.currentlyPlaying)}
-                      </span>
-                    )}
-                  </div>
-                </div>
-
-                {/* Sub-tab navigation */}
-                <div className="compare-subtabs" role="tablist" aria-label={t("friendsPage.compareSubtabsAria")}>
-                  {([
-                    { id: "overview", label: t("friendsPage.compareTab.overview"), icon: <BarChartIcon /> },
-                    { id: "games", label: t("friendsPage.compareTab.games"), icon: <GamepadIcon /> },
-                    { id: "genres", label: t("friendsPage.compareTab.genres"), icon: <TagIcon /> },
-                    { id: "insights", label: t("friendsPage.compareTab.insights"), icon: <LightbulbIcon /> },
-                  ] as const).map((sub) => (
-                    <button
-                      key={sub.id}
-                      type="button"
-                      role="tab"
-                      aria-selected={compareSubTab === sub.id}
-                      className={`compare-subtab${compareSubTab === sub.id ? " active" : ""}`}
-                      onClick={() => setCompareSubTab(sub.id)}
-                    >
-                      <span className="compare-subtab-icon" aria-hidden>{sub.icon}</span>
-                      <span>{sub.label}</span>
-                    </button>
-                  ))}
-                </div>
-
-                {/* ── Overview sub-tab ─────────────────────────────── */}
-                {compareSubTab === "overview" && comparisonSummary && (
-                  <div className="compare-overview">
-                    {/* Head-to-head KPI rows */}
-                    <div className="compare-h2h">
-                      {[
-                        {
-                          label: t("friendsPage.stat.gamesOwned"),
-                          me: selfStats.gamesCount,
-                          friend: compareFriend.libStats?.gamesCount || comparisonSummary.friendOwned,
-                          fmt: (v: number) => `${v}`,
-                        },
-                        {
-                          label: t("friendsPage.stat.totalPlaytime"),
-                          me: selfStats.playtimeMinutes,
-                          friend: compareFriend.libStats?.playtimeMinutes || comparisonSummary.friendPlaytime,
-                          fmt: (v: number) => formatHours(v, t),
-                        },
-                        {
-                          label: t("friendsPage.stat.avgAchievements"),
-                          me: comparisonSummary.averageMyAchievements,
-                          friend: comparisonSummary.averageFriendAchievements,
-                          fmt: (v: number) => `${v}%`,
-                        },
-                        {
-                          label: t("friendsPage.stat.uniqueTitles"),
-                          me: comparisonSummary.meOnlyCount,
-                          friend: comparisonSummary.friendOnlyCount,
-                          fmt: (v: number) => `${v}`,
-                        },
-                      ].map((row) => {
-                        const max = Math.max(row.me, row.friend, 1);
-                        const mePct = (row.me / max) * 100;
-                        const friendPct = (row.friend / max) * 100;
-                        const meWins = row.me > row.friend;
-                        const friendWins = row.friend > row.me;
-                        return (
-                          <div key={row.label} className="compare-h2h-row">
-                            <div className="compare-h2h-side left">
-                              <span className={`compare-h2h-val${meWins ? " win" : ""}`}>{row.fmt(row.me)}</span>
-                              <div className="compare-h2h-bar">
-                                <div className="compare-h2h-fill left" style={{ width: `${mePct}%` }} />
-                              </div>
-                            </div>
-                            <span className="compare-h2h-label">{row.label}</span>
-                            <div className="compare-h2h-side right">
-                              <div className="compare-h2h-bar">
-                                <div className="compare-h2h-fill right" style={{ width: `${friendPct}%` }} />
-                              </div>
-                              <span className={`compare-h2h-val${friendWins ? " win" : ""}`}>{row.fmt(row.friend)}</span>
-                            </div>
-                          </div>
-                        );
-                      })}
-                    </div>
-
-                    {/* Library overlap venn-ish summary */}
-                    <div className="compare-overlap">
-                      <div className="compare-overlap-seg me">
-                        <span className="compare-overlap-num">{comparisonSummary.meOnlyCount}</span>
-                        <span className="compare-overlap-lbl">{t("friendsPage.onlyYou")}</span>
-                      </div>
-                      <div className="compare-overlap-seg shared">
-                        <span className="compare-overlap-num">{comparisonSummary.sharedCount}</span>
-                        <span className="compare-overlap-lbl">{t("friendsPage.shared")}</span>
-                      </div>
-                      <div className="compare-overlap-seg friend">
-                        <span className="compare-overlap-num">{comparisonSummary.friendOnlyCount}</span>
-                        <span className="compare-overlap-lbl">{t("friendsPage.onlyThem", { name: compareFriend.name })}</span>
-                      </div>
-                    </div>
-
-                    {/* Quick highlights */}
-                    {compareInsights && (
-                      <div className="compare-highlights">
-                        {compareInsights.topShared && (
-                          <div className="compare-highlight-card">
-                            <span className="compare-highlight-icon" aria-hidden><HandshakeIcon /></span>
-                            <div className="compare-highlight-body">
-                              <span className="compare-highlight-title">{t("friendsPage.bestPlayTogether")}</span>
-                              <span className="compare-highlight-value">{compareInsights.topShared.name}</span>
-                              <span className="compare-highlight-sub">
-                                {t("friendsPage.highlightPlayTogetherSub", { you: formatHours(compareInsights.topShared.playTimeMe, t), them: formatHours(compareInsights.topShared.playTimeFriend, t) })}
-                              </span>
-                            </div>
-                          </div>
-                        )}
-                        <div className="compare-highlight-card">
-                          <span className="compare-highlight-icon" aria-hidden><TrophyIcon /></span>
-                          <div className="compare-highlight-body">
-                            <span className="compare-highlight-title">{t("friendsPage.achievementLeader")}</span>
-                            <span className="compare-highlight-value">
-                              {compareInsights.achLeaderMe === compareInsights.achLeaderFriend
-                                ? t("friendsPage.compareNeckAndNeck")
-                                : compareInsights.achLeaderMe > compareInsights.achLeaderFriend
-                                ? `${profile.name} (${t("friendsPage.you")})`
-                                : compareFriend.name}
-                            </span>
-                            <span className="compare-highlight-sub">
-                              {t("friendsPage.highlightAchLeaderSub", { me: compareInsights.achLeaderMe, them: compareInsights.achLeaderFriend })}
-                            </span>
-                          </div>
-                        </div>
-                        <div className="compare-highlight-card">
-                          <span className="compare-highlight-icon" aria-hidden><TagIcon /></span>
-                          <div className="compare-highlight-body">
-                            <span className="compare-highlight-title">{t("friendsPage.genreAffinity")}</span>
-                            <span className="compare-highlight-value">{t("friendsPage.genreAffinityValue", { pct: genreAffinity })}</span>
-                            <span className="compare-highlight-sub">
-                              {t("friendsPage.genreAffinitySub", { count: genreBreakdown.filter((g) => g.meOwned > 0 && g.friendOwned > 0).length })}
-                            </span>
-                          </div>
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                )}
-
-                {/* ── Games sub-tab ────────────────────────────────── */}
-                {compareSubTab === "games" && (
-                  <div className="compare-games-view">
-                    <div className="compare-controls-row">
-                      <div className="compare-filter-chips" role="group" aria-label={t("friendsPage.compareFiltersAria")}>
-                        <button
-                          type="button"
-                          className={`compare-filter-chip${compareFilter === "all" ? " active" : ""}`}
-                          onClick={() => setCompareFilter("all")}
-                        >
-                          {t("friendsPage.cmpFilterAll", { count: comparisonData.length })}
-                        </button>
-                        <button
-                          type="button"
-                          className={`compare-filter-chip${compareFilter === "shared" ? " active" : ""}`}
-                          onClick={() => setCompareFilter("shared")}
-                        >
-                          {t("friendsPage.cmpFilterShared", { count: comparisonData.filter(i => i.ownedByMe && i.ownedByFriend).length })}
-                        </button>
-                        <button
-                          type="button"
-                          className={`compare-filter-chip${compareFilter === "me_only" ? " active" : ""}`}
-                          onClick={() => setCompareFilter("me_only")}
-                        >
-                          {t("friendsPage.cmpFilterMeOnly", { count: comparisonData.filter(i => i.ownedByMe && !i.ownedByFriend).length })}
-                        </button>
-                        <button
-                          type="button"
-                          className={`compare-filter-chip${compareFilter === "friend_only" ? " active" : ""}`}
-                          onClick={() => setCompareFilter("friend_only")}
-                        >
-                          {t("friendsPage.cmpFilterFriendOnly", { count: comparisonData.filter(i => !i.ownedByMe && i.ownedByFriend).length })}
-                        </button>
-                      </div>
-
-                      <div className="compare-controls-right">
-                        <input
-                          type="search"
-                          className="profile-input compare-search-input"
-                          placeholder={t("friendsPage.compareSearchGames")}
-                          value={compareSearch}
-                          onChange={(e) => setCompareSearch(e.target.value)}
-                        />
-                        <div className="compare-selector-group compare-sort-group">
-                          <span>{t("friendsPage.sortLabel")}</span>
-                          <select
-                            className="profile-input"
-                            value={compareSort}
-                            onChange={(e) => setCompareSort(e.target.value as any)}
-                          >
-                            <option value="name">{t("friendsPage.compareSortName")}</option>
-                            <option value="myPlaytime">{t("friendsPage.compareSortMyPlaytime")}</option>
-                            <option value="friendPlaytime">{t("friendsPage.compareSortFriendPlaytime")}</option>
-                            <option value="gap">{t("friendsPage.compareSortGap")}</option>
-                            <option value="achievement">{t("friendsPage.compareSortAchievements")}</option>
-                          </select>
-                        </div>
-                        {compareGenres.length > 0 && (
-                          <div className="compare-selector-group compare-sort-group">
-                            <span>{t("friendsPage.genreLabel")}</span>
-                            <select
-                              className="profile-input"
-                              value={compareGenre}
-                              onChange={(e) => setCompareGenre(e.target.value)}
-                            >
-                              <option value="all">{t("friendsPage.allGenres")}</option>
-                              {compareGenres.map((g) => (
-                                <option key={g} value={g}>
-                                  {g}
-                                </option>
-                              ))}
-                            </select>
-                          </div>
-                        )}
-                      </div>
-                    </div>
-
-                    <div className="compare-library-title-row">
-                      <span className="compare-count">{t("friendsPage.gamesShownCount", { count: sortedCompareData.length })}</span>
-                    </div>
-
-                    {sortedCompareData.length === 0 ? (
-                      <div className="friends-empty-state friends-empty-state--inline">
-                        <div className="friends-empty-icon friends-empty-icon--sm" aria-hidden><GamepadIcon /></div>
-                        <h3 className="friends-empty-title">{t("friendsPage.noCompareMatches")}</h3>
-                        <button
-                          type="button"
-                          className="btn btn-secondary"
-                          onClick={() => {
-                            setCompareFilter("all");
-                            setCompareSearch("");
-                            setCompareGenre("all");
-                          }}
-                        >
-                          {t("friends.clearFilters")}
-                        </button>
-                      </div>
-                    ) : (
-                      <div className="compare-games-grid">
-                        {sortedCompareData.map((game) => {
-                          const maxPlayTime = Math.max(game.playTimeMe, game.playTimeFriend, 1);
-                          const myPlayPercent = (game.playTimeMe / maxPlayTime) * 100;
-                          const friendPlayPercent = (game.playTimeFriend / maxPlayTime) * 100;
-
-                          return (
-                            <div key={game.id} className="compare-game-card">
-                              <div className="compare-game-card-head">
-                                <span className="compare-game-name" title={game.name}>{game.name}</span>
-                                <span className={`compare-own-badge ${
-                                  game.ownedByMe && game.ownedByFriend
-                                    ? "both"
-                                    : game.ownedByMe
-                                    ? "me"
-                                    : "friend"
-                                }`}>
-                                  {game.ownedByMe && game.ownedByFriend
-                                    ? t("friendsPage.bothOwn")
-                                    : game.ownedByMe
-                                    ? t("friendsPage.youOwn")
-                                    : t("friendsPage.theyOwn")}
-                                </span>
-                              </div>
-
-                              <div className="compare-game-stats">
-                                <div className="compare-player-stat">
-                                  <div className="compare-player-label">
-                                    <span className="dot left" /> {t("friendsPage.you")}
-                                  </div>
-                                  {game.ownedByMe ? (
-                                    <>
-                                      <div className="compare-bar-row">
-                                        <span className="compare-bar-value">{formatHours(game.playTimeMe, t)}</span>
-                                        <div className="compare-playtime-bar">
-                                          <div className="compare-playtime-fill left" style={{ width: `${myPlayPercent}%` }} />
-                                        </div>
-                                      </div>
-                                      <span className="compare-ach">{t("friendsPage.achPercent", { pct: game.achievementMe })}</span>
-                                    </>
-                                  ) : (
-                                    <span className="compare-not-owned">{t("friendsPage.compareNotInLibrary")}</span>
-                                  )}
-                                </div>
-
-                                <div className="compare-player-stat">
-                                  <div className="compare-player-label">
-                                    <span className="dot right" /> {compareFriend.name}
-                                  </div>
-                                  {game.ownedByFriend ? (
-                                    <>
-                                      <div className="compare-bar-row">
-                                        <span className="compare-bar-value">{formatHours(game.playTimeFriend, t)}</span>
-                                        <div className="compare-playtime-bar">
-                                          <div className="compare-playtime-fill right" style={{ width: `${friendPlayPercent}%` }} />
-                                        </div>
-                                      </div>
-                                      <span className="compare-ach">{t("friendsPage.achPercent", { pct: game.achievementFriend })}</span>
-                                    </>
-                                  ) : (
-                                    <span className="compare-not-owned">{t("friendsPage.compareNotInTheirLibrary")}</span>
-                                  )}
-                                </div>
-                              </div>
-                            </div>
-                          );
-                        })}
-                      </div>
-                    )}
-                  </div>
-                )}
-
-                {/* ── Genres sub-tab ───────────────────────────────── */}
-                {compareSubTab === "genres" && (
-                  <div className="compare-genres-view">
-                    {genreBreakdown.length === 0 ? (
-                      <div className="friends-empty-state friends-empty-state--inline">
-                        <div className="friends-empty-icon friends-empty-icon--sm" aria-hidden><TagIcon /></div>
-                        <h3 className="friends-empty-title">{t("friendsPage.noGenreData")}</h3>
-                      </div>
-                    ) : (
-                      <div className="compare-genre-list">
-                        {genreBreakdown.map((g) => {
-                          const max = Math.max(g.meOwned, g.friendOwned, 1);
-                          return (
-                            <div key={g.genre} className="compare-genre-row">
-                              <div className="compare-genre-head">
-                                <span className="compare-genre-name">{g.genre}</span>
-                                <span className="compare-genre-shared">
-                                  {g.shared > 0 ? t("friendsPage.genreSharedCount", { count: g.shared }) : t("friendsPage.genreNoOverlap")}
-                                </span>
-                              </div>
-                              <div className="compare-genre-bars">
-                                <div className="compare-genre-bar-side">
-                                  <span className="compare-genre-count left">{g.meOwned}</span>
-                                  <div className="compare-genre-bar-track">
-                                    <div
-                                      className="compare-genre-bar-fill left"
-                                      style={{ width: `${(g.meOwned / max) * 100}%` }}
-                                    />
-                                  </div>
-                                </div>
-                                <div className="compare-genre-bar-side">
-                                  <div className="compare-genre-bar-track reverse">
-                                    <div
-                                      className="compare-genre-bar-fill right"
-                                      style={{ width: `${(g.friendOwned / max) * 100}%` }}
-                                    />
-                                  </div>
-                                  <span className="compare-genre-count right">{g.friendOwned}</span>
-                                </div>
-                              </div>
-                            </div>
-                          );
-                        })}
-                      </div>
-                    )}
-                  </div>
-                )}
-
-                {/* ── Insights sub-tab ─────────────────────────────── */}
-                {compareSubTab === "insights" && compareInsights && (
-                  <div className="compare-insights-view">
-                    <div className="compare-insight-columns">
-                      {/* Recommendations for you */}
-                      <div className="compare-insight-panel">
-                        <h4 className="compare-insight-title">
-                          <span className="dot right" /> {t("friendsPage.insightForYouTitle", { name: compareFriend.name })}
-                        </h4>
-                        {compareInsights.forYou.length === 0 ? (
-                          <p className="compare-insight-empty">{t("friendsPage.ownEverything")}</p>
-                        ) : (
-                          <ul className="compare-insight-list">
-                            {compareInsights.forYou.map((g) => (
-                              <li key={g.id} className="compare-insight-item">
-                                <span className="compare-insight-game">{g.name}</span>
-                                <span className="compare-insight-meta">{formatHours(g.playTimeFriend, t)}</span>
-                              </li>
-                            ))}
-                          </ul>
-                        )}
-                      </div>
-
-                      {/* Recommendations for them */}
-                      <div className="compare-insight-panel">
-                        <h4 className="compare-insight-title">
-                          <span className="dot left" /> {t("friendsPage.insightForThemTitle", { name: compareFriend.name })}
-                        </h4>
-                        {compareInsights.forThem.length === 0 ? (
-                          <p className="compare-insight-empty">{t("friendsPage.compareInsightAllFavOwned")}</p>
-                        ) : (
-                          <ul className="compare-insight-list">
-                            {compareInsights.forThem.map((g) => (
-                              <li key={g.id} className="compare-insight-item">
-                                <span className="compare-insight-game">{g.name}</span>
-                                <span className="compare-insight-meta">{formatHours(g.playTimeMe, t)}</span>
-                              </li>
-                            ))}
-                          </ul>
-                        )}
-                      </div>
-
-                      {/* Where you play more */}
-                      <div className="compare-insight-panel">
-                        <h4 className="compare-insight-title">
-                          <span className="dot left" /> {t("friendsPage.insightIPlayMoreTitle")}
-                        </h4>
-                        {compareInsights.iPlayMore.length === 0 ? (
-                          <p className="compare-insight-empty">{t("friendsPage.noAheadGamesMessage")}</p>
-                        ) : (
-                          <ul className="compare-insight-list">
-                            {compareInsights.iPlayMore.map((g) => (
-                              <li key={g.id} className="compare-insight-item">
-                                <span className="compare-insight-game">{g.name}</span>
-                                <span className="compare-insight-meta win">
-                                  +{formatHours(g.playTimeMe - g.playTimeFriend, t)}
-                                </span>
-                              </li>
-                            ))}
-                          </ul>
-                        )}
-                      </div>
-
-                      {/* Where they play more */}
-                      <div className="compare-insight-panel">
-                        <h4 className="compare-insight-title">
-                          <span className="dot right" /> {t("friendsPage.insightTheyPlayMoreTitle", { name: compareFriend.name })}
-                        </h4>
-                        {compareInsights.theyPlayMore.length === 0 ? (
-                          <p className="compare-insight-empty">{t("friendsPage.compareInsightYouLeadAll")}</p>
-                        ) : (
-                          <ul className="compare-insight-list">
-                            {compareInsights.theyPlayMore.map((g) => (
-                              <li key={g.id} className="compare-insight-item">
-                                <span className="compare-insight-game">{g.name}</span>
-                                <span className="compare-insight-meta win friend">
-                                  +{formatHours(g.playTimeFriend - g.playTimeMe, t)}
-                                </span>
-                              </li>
-                            ))}
-                          </ul>
-                        )}
-                      </div>
-                    </div>
-                  </div>
-                )}
-              </>
-            )}
-          </div>
+          <FriendsCompareTab
+            friends={friends}
+            selfSharedGames={selfSharedGames}
+            selectedFriendId={selectedCompareFriendId}
+            onSelectFriendId={setSelectedCompareFriendId}
+            onLaunchGame={(gid) => {
+              const match = games.find((g) => g.id === gid);
+              if (match) launchGame(match);
+            }}
+          />
         )}
 
-        {/* Tab 5: Leaderboard */}
-        {activeTab === "leaderboard" && (leaderboardTab)}
+        {activeTab === "leaderboard" && (
+          <FriendsLeaderboardTab
+            friends={friends}
+            profile={profile}
+            selfStats={selfStats}
+            selfSharedGames={selfSharedGames}
+            onSelectFriend={handleCompareFromCard}
+          />
+        )}
 
-        {/* Tab: Achievement Race */}
         {activeTab === "race" && (
-          <div className="race-section">
-            <div className="race-head">
-              <h3 className="race-title">
-                <span className="race-title-icon" aria-hidden><TrophyIcon /></span>
-                {t("friendsPage.raceTitle")}
-              </h3>
-              <p className="race-subtitle">{t("friendsPage.raceSubtitle")}</p>
-            </div>
-            {achievementRaces.length === 0 ? (
-              <div className="friends-empty-state">
-                <div className="friends-empty-icon" aria-hidden><TrophyIcon /></div>
-                <h3 className="friends-empty-title">{t("friendsPage.raceEmpty")}</h3>
-                <p className="friends-empty-desc">{t("friendsPage.raceEmptyDesc")}</p>
-              </div>
-            ) : (
-              <div className="race-list">
-                {achievementRaces.map((r) => {
-                  const gap = r.me - r.them;
-                  const leader = gap >= 0 ? t("friendsPage.me") : r.friendName;
-                  const myWins = gap > 0;
-                  return (
-                    <div key={r.key} className="race-row">
-                      <div className="race-game">
-                        <span className="race-game-name">{r.gameName}</span>
-                        <span className="race-vs">{t("friendsPage.raceVs", { friend: r.friendName })}</span>
-                      </div>
-                      <div className="race-bars">
-                        <div className="race-bar-group">
-                          <span className="race-bar-label">{t("friendsPage.me")} · {r.me}%</span>
-                          <div className="race-bar-track">
-                            <div className="race-bar-fill race-bar-me" style={{ width: `${Math.min(Math.max(r.me, 0), 100)}%` }} />
-                          </div>
-                        </div>
-                        <div className="race-bar-group">
-                          <span className="race-bar-label">{r.friendName} · {r.them}%</span>
-                          <div className="race-bar-track">
-                            <div className="race-bar-fill race-bar-them" style={{ width: `${Math.min(Math.max(r.them, 0), 100)}%` }} />
-                          </div>
-                        </div>
-                      </div>
-                      <div className={`race-result${myWins ? " leading" : gap === 0 ? " tied" : " trailing"}`}>
-                        {gap === 0 ? t("friendsPage.raceTied") : t("friendsPage.raceLeading", { who: leader, gap: Math.abs(gap) })}
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            )}
-          </div>
+          <FriendsRaceTab
+            friends={friends}
+            profile={profile}
+            selfSharedGames={selfSharedGames}
+            libraryGames={games}
+          />
         )}
 
-        {/* Tab 6: My Profile */}
         {activeTab === "profile" && (
-          <div className="profile-editor-layout">
-            <div className="profile-summary-section">
-              <div className="profile-card-preview">
-                <div className="profile-avatar-big">
-                  {renderAvatar(profile.avatar, profile.name)}
-                </div>
-                <h3 className="profile-name-big">{profile.name}</h3>
-                <p className="profile-status-big">"{profile.status}"</p>
-                <div className="profile-meta-row">
-                  <p className="profile-last-active-big" title={t("friendsPage.lastOutboxTimeTitle")}>
-                    {t("friendsPage.lastActiveWithTime", { time: profile.lastPublished ? formatLastSeen(profile.lastPublished, t) : t("friendsPage.formatJustNow") })}
-                  </p>
-                  {profile.region && (
-                    <p className="profile-region-big"><MapPinIcon /> {profile.region}</p>
-                  )}
-                </div>
-                {profile.bio && (
-                  <p className="profile-bio-big">{profile.bio}</p>
-                )}
-
-                <div className="profile-stats-grid">
-                  <div className="profile-stat-box">
-                    <span className="profile-stat-num">{selfStats.gamesCount}</span>
-                    <span className="profile-stat-label">{t("friendsPage.profileGames")}</span>
-                  </div>
-                  <div className="profile-stat-box">
-                    <span className="profile-stat-num">
-                      {formatHours(selfStats.playtimeMinutes, t)}
-                    </span>
-                    <span className="profile-stat-label">{t("friendsPage.profilePlayed")}</span>
-                  </div>
-                  <div className="profile-stat-box">
-                    <span className="profile-stat-num">{selfStats.achievementsCount}</span>
-                    <span className="profile-stat-label">{t("friendsPage.profileTrophies")}</span>
-                  </div>
-                </div>
-              </div>
-
-              <div className="friend-code-card">
-                <h4 className="friend-code-label">{t("friends.profile.publicKey")}</h4>
-                <p className="friends-modal-desc">
-                  {t("friendsPage.shareKeyDesc")}
-                </p>
-                <div className="friend-code-qr">
-                  <FriendCodeQR code={generatedFriendCode} />
-                </div>
-                <div className="friend-code-box">{generatedFriendCode}</div>
-                <Button
-                  variant="primary"
-                  onClick={handleCopyCode}
-                  leftIcon={<CopyIcon />}
-                >
-                  {t("friends.profile.copyKey")}
-                </Button>
-              </div>
-            </div>
-
-            {/* Right form editor */}
-            <div className="profile-edit-section">
-              <h3 className="profile-edit-title">{t("friends.profile.edit")}</h3>
-              <form className="profile-form" onSubmit={handleSaveProfile}>
-                <div className="friends-input-group">
-                  <label htmlFor="profileNameInput">{t("friends.profile.gamerTag")}</label>
-                  <input
-                    type="text"
-                    id="profileNameInput"
-                    className="profile-input"
-                    value={profile.name}
-                    onChange={(e) => setProfile({ ...profile, name: e.target.value })}
-                    placeholder={t("friendsPage.enterName")}
-                    required
-                  />
-                </div>
-
-                <div className="friends-input-group">
-                  <label htmlFor="profileStatusInput">{t("friends.profile.status")}</label>
-                  <input
-                    type="text"
-                    id="profileStatusInput"
-                    className="profile-input"
-                    value={profile.status}
-                    onChange={(e) => setProfile({ ...profile, status: e.target.value })}                      placeholder={t("friendsPage.statusPlaceholder")}
-                  />
-                  <div className="status-preset-row">
-                    {STATUS_PRESETS.map((preset) => (
-                      <button
-                        key={preset.value}
-                        type="button"
-                        className={`status-preset-chip${profile.status === preset.value ? " active" : ""}`}
-                        onClick={() => setProfile({ ...profile, status: preset.value })}
-                        title={preset.label}
-                      >
-                        {preset.emoji}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-
-                <div className="friends-input-group">                    <label htmlFor="profileRegionInput">{t("friends.profile.region")}</label>
-                  <input
-                    type="text"
-                    id="profileRegionInput"
-                    className="profile-input"
-                    value={profile.region || ""}
-                    onChange={(e) => setProfile({ ...profile, region: e.target.value })}                      placeholder={t("friendsPage.regionPlaceholder")}
-                  />
-                </div>
-
-                <div className="friends-input-group">
-                  <label htmlFor="profileBioInput">{t("friends.profile.bio")}</label>
-                  <textarea
-                    id="profileBioInput"
-                    className="profile-input profile-input--textarea profile-input--textarea--sm"
-                    value={profile.bio || ""}
-                    onChange={(e) => setProfile({ ...profile, bio: e.target.value })}
-                    placeholder={t("friendsPage.bioPlaceholder")}
-                  />
-                </div>
-
-                <div className="friends-input-group">
-                  <label htmlFor="favoriteGameSelectInput">{t("friends.profile.favoriteGame")}</label>
-                  <select
-                    id="favoriteGameSelectInput"
-                    className="profile-input"
-                    value={profile.favoriteGameId || ""}
-                    onChange={(e) => {
-                      const gameId = e.target.value;
-                      const selectedGame = games.find((g) => g.id === gameId);
-                      setProfile({
-                        ...profile,
-                        favoriteGameId: gameId,
-                        favoriteGameName: selectedGame ? selectedGame.name : "",
-                      });
-                    }}
-                  >
-                    <option value="">{t("friends.profile.none")}</option>
-                    {games.map((g) => (
-                      <option key={g.id} value={g.id}>
-                        {g.name}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-
-                <div className="avatar-selection-container">
-                  <label>{t("friends.profile.avatarStyle")}</label>
-                  <div className="avatar-upload-box">
-                    <label htmlFor="avatar-file-upload-input" className="avatar-upload-label">
-                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" width="14" height="14" aria-hidden="true">
-                        <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
-                        <polyline points="17 8 12 3 7 8" />
-                        <line x1="12" y1="3" x2="12" y2="15" />
-                      </svg>
-                      {t("friends.profile.upload")}
-                    </label>
-                    <input
-                      type="file"
-                      id="avatar-file-upload-input"
-                      accept="image/*"
-                      onChange={handleImageUpload}
-                      className="avatar-file-input"
-                    />
-                    
-                    {profile.avatar !== "procedural" && (
-                      <button
-                        type="button"
-                        className="btn btn-secondary btn--mini"
-                        onClick={async () => {
-                          const updated = { ...profile, avatar: "procedural" };
-                          setProfile(updated);
-                          saveUserProfile(updated);
-                          await pushMyOutbox(updated, selfStats, sessions, recommendations, selfSharedGames, suggestions);
-                        }}
-                      >
-                        {t("friends.profile.resetProcedural")}
-                      </button>
-                    )}
-                    <span className="avatar-upload-info">{t("friendsPage.proceduralAvatarInfo")}</span>
-                  </div>
-                </div>
-
-                <Button type="submit" variant="primary" className="btn--start" leftIcon={<CheckIcon />}>
-                  {t("friends.profile.save")}
-                </Button>
-              </form>
-            </div>
-          </div>
+          <FriendsProfileTab
+            profile={profile}
+            setProfile={setProfile}
+            selfStats={selfStats}
+            libraryGames={games}
+            myFriendCode={generatedFriendCode}
+            nostrPublicKey={nostrKeys.publicKey}
+            onSaveProfile={handleSaveProfile}
+            onImageUpload={handleImageUpload}
+          />
         )}
       </div>
 
-      {/* Add Friend Modal Overlay */}
-      {showAddModal && (
-        <div className="friends-modal-overlay" onClick={() => setShowAddModal(false)}>
-            <div
-              className="friends-modal-content"
-              onClick={(e) => e.stopPropagation()}
-            >
-              <button
-                type="button"
-                className="friends-modal-close-btn"
-                onClick={() => setShowAddModal(false)}
-                aria-label={t("common.close")}
-              >
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" width="16" height="16">
-                  <line x1="18" y1="6" x2="6" y2="18" />
-                  <line x1="6" y1="6" x2="18" y2="18" />
-                </svg>
-              </button>
-              <div className="friends-modal-head">
-                <span className="friends-modal-icon" aria-hidden>
-                  <UsersIcon />
-                </span>
-                <div className="friends-modal-head-text">
-                  <h3 className="friends-modal-title">{t("friends.addFriend")}</h3>
-                  <p className="friends-modal-desc">
-                    {t("friends.addFriendDesc")}
-                  </p>
-                </div>
-              </div>
+      {/* Modals */}
+      <AddFriendModal
+        isOpen={showAddModal}
+        onClose={() => setShowAddModal(false)}
+        myFriendCode={generatedFriendCode}
+        nostrPublicKey={nostrKeys.publicKey}
+        friendCodeInput={friendCodeInput}
+        onFriendCodeInputChange={setFriendCodeInput}
+        decodedFriend={decodedFriend}
+        onAddFriend={handleAddFriend}
+      />
 
-              <div className="friends-modal-body">
-                <div className="friends-input-group">                  <label htmlFor="friendCodeInputArea">{t("friendsPage.publicKeyLabel")}</label>
-                <textarea
-                  id="friendCodeInputArea"
-                  className="friends-textarea"
-                  value={friendCodeInput}
-                  onChange={(e) => setFriendCodeInput(e.target.value)}
-                  placeholder={t("friends.publicKeyPlaceholder")}
-                />
-              </div>
+      <FriendsCirclesModal
+        isOpen={showCirclesModal}
+        onClose={() => setShowCirclesModal(false)}
+        circles={circles}
+        friends={friends.filter((f) => !f.blocked)}
+        onCreateCircle={handleCreateCircle}
+        onRenameCircle={handleRenameCircle}
+        onDeleteCircle={handleDeleteCircle}
+        onToggleFriendCircle={handleToggleFriendCircle}
+      />
 
-              {decodedFriend ? (
-                <div className="friend-decode-preview">
-                  {renderAvatar(decodedFriend.avatar, decodedFriend.name)}
-                  <div className="friend-info">
-                    <div className="friend-name">{decodedFriend.name}</div>
-                    <div className="friend-status-text">{decodedFriend.status}</div>
-                    {decodedFriend.libStats && (
-                      <div className="friend-stats">
-                        <span>{t("friendsPage.gamesCountLabel", { count: decodedFriend.libStats.gamesCount })}</span>
-                        <span className="friend-stats-dot" aria-hidden>•</span>
-                        <span>{formatHours(decodedFriend.libStats.playtimeMinutes, t)}</span>
-                        {decodedFriend.libStats.achievementsCount > 0 && (
-                          <>
-                            <span className="friend-stats-dot" aria-hidden>•</span>
-                            <span className="friend-stats-trophy"><TrophyIcon />{decodedFriend.libStats.achievementsCount}</span>
-                          </>
-                        )}
-                      </div>
-                    )}
-                    {decodedFriend.favoriteGame && (
-                      <div className="friend-favorite-game">
-                        <StarIcon /> {decodedFriend.favoriteGame}
-                      </div>
-                    )}
-                  </div>
-                </div>
-              ) : (
-                friendCodeInput.trim() && (
-                  <div className="friend-decode-preview-empty friend-decode-preview-invalid">
-                    {t("friendsPage.invalidPublicKey")}
-                  </div>
-                )
-              )}
-            </div>
+      <FriendsSyncModal
+        isOpen={showP2pModal}
+        onClose={() => setShowP2pModal(false)}
+        isSyncing={isSyncing}
+        lastSyncedTime={lastSyncedTime}
+        syncLog={syncLog}
+        onTriggerSync={() => performSync(true)}
+      />
 
-            <div className="friends-modal-footer">
-              <Button
-                variant="secondary"
-                onClick={() => setShowAddModal(false)}
-              >
-                {t("common.cancel")}
-              </Button>
-              <Button
-                variant="primary"
-                leftIcon={<PlusIcon />}
-                onClick={handleAddFriend}
-                disabled={!decodedFriend}
-              >
-                {t("friends.addFriend")}
-              </Button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* P2P Sync Modal Overlay */}
-      {showP2pModal && (
-        <div className="friends-modal-overlay" onClick={() => setShowP2pModal(false)}>
-          <div
-            className="friends-modal-content p2p-modal-content"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <button
-              type="button"
-              className="friends-modal-close-btn"
-              onClick={() => setShowP2pModal(false)}
-              aria-label={t("common.close")}
-            >
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" width="16" height="16">
-                <line x1="18" y1="6" x2="6" y2="18" />
-                <line x1="6" y1="6" x2="18" y2="18" />
-              </svg>
-            </button>
-            <div className="friends-modal-head">
-              <span className="friends-modal-icon" aria-hidden>
-                <P2pSyncIcon />
-              </span>
-              <div className="friends-modal-head-text">
-                <h3 className="friends-modal-title">{t("friends.p2p.title")}</h3>
-                <p className="friends-modal-desc">
-                  {t("friends.p2p.desc")}
-                </p>
-              </div>
-            </div>
-
-            <div className="friends-modal-body p2p-modal-body p2p-modal-flex">
-              <div className="p2p-status-card">
-                <div className="p2p-status-row">
-                  <span className="p2p-status-label">{t("friends.p2p.connection")}</span>
-                  <span className="p2p-status-badge online">
-                    {t("friends.p2p.connected")}
-                  </span>
-                </div>
-
-                <div className="p2p-status-details">
-                  <div className="p2p-detail-row">
-                    <span className="p2p-detail-key">{t("friends.p2p.myKey")}</span>
-                    <span className="p2p-detail-val p2p-detail-val--key">
-                      {getNostrKeys().publicKey}
-                    </span>
-                  </div>
-                  <div className="p2p-detail-row p2p-detail-row--stack">
-                    <span className="p2p-detail-key">{t("friends.p2p.relays")}</span>
-                    <div className="p2p-detail-val p2p-relay-list">
-                      {nostrRelays.map((r) => (
-                        <span key={r} className="p2p-relay-item">
-                          <span className="p2p-relay-dot" aria-hidden />
-                          {r}
-                        </span>
-                      ))}
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              <div className="p2p-friend-sync-block">
-                <h4 className="p2p-section-title">{t("friends.p2p.subscribed", { count: friends.filter((f) => /^[0-9a-fA-F]{64}$/.test(f.syncId)).length })}</h4>
-                <div className="p2p-friend-list">
-                  {friends.length === 0 ? (
-                    <div className="p2p-empty-note">
-                      {t("friends.p2p.noFriends")}
-                    </div>
-                  ) : (
-                    friends.map((friend) => (
-                      <div key={friend.id} className="p2p-friend-row">
-                        <span className="p2p-friend-name">{friend.name}</span>
-                        <span className="p2p-last-sync-ok p2p-friend-key">
-                          {friend.syncId.slice(0, 8)}...{friend.syncId.slice(-8)}
-                        </span>
-                      </div>
-                    ))
-                  )}
-                </div>
-              </div>
-
-              <div className="p2p-sync-log-block">
-                <h4 className="p2p-section-title">{t("friends.p2p.syncActivity")}</h4>
-                {syncLog.length === 0 ? (
-                  <div className="p2p-empty-note">{t("friends.p2p.noActivity")}</div>
-                ) : (
-                  <div className="p2p-sync-log">
-                    {syncLog.map((entry, i) => (
-                      <div key={i} className="p2p-log-entry">
-                        <div className="p2p-log-row">
-                          <span className="p2p-log-time">{entry.time}</span>
-                          <span className="p2p-log-msg">{entry.message}</span>
-                        </div>
-                        {entry.details.length > 0 && (
-                          <ul className="p2p-log-details">
-                            {entry.details.map((d, j) => (
-                              <li key={j} className="p2p-log-detail">{d}</li>
-                            ))}
-                          </ul>
-                        )}
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
-
-              <Button
-                variant="primary"
-                className="p2p-sync-now-btn"
-                leftIcon={<RefreshIcon />}
-                onClick={() => {
-                  performSync(true);
-                }}
-              >
-                {t("friends.syncNow")}
-              </Button>
-            </div>
-
-            <div className="friends-modal-footer">
-              <button
-                type="button"
-                className="btn btn-secondary"
-                onClick={() => setShowP2pModal(false)}
-              >
-                {t("friends.p2p.close")}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Circles Manager Modal */}
-      {showCirclesModal && (
-        <div className="friends-modal-overlay" onClick={() => setShowCirclesModal(false)}>
-          <div
-            className="friends-modal-content circles-modal-content"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <button
-              type="button"
-              className="friends-modal-close-btn"
-              onClick={() => setShowCirclesModal(false)}
-              aria-label={t("common.close")}
-            >
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" width="16" height="16">
-                <line x1="18" y1="6" x2="6" y2="18" />
-                <line x1="6" y1="6" x2="18" y2="18" />
-              </svg>
-            </button>
-            <div className="friends-modal-head">
-              <span className="friends-modal-icon" aria-hidden><UsersIcon /></span>
-              <div className="friends-modal-head-text">
-                <h3 className="friends-modal-title">{t("friendsPage.circlesTitle")}</h3>
-                <p className="friends-modal-desc">{t("friendsPage.circlesDesc")}</p>
-              </div>
-            </div>
-
-            <div className="friends-modal-body circles-modal-body">
-              <form
-                className="circles-create-row"
-                onSubmit={(e) => {
-                  e.preventDefault();
-                  const input = (e.currentTarget.elements.namedItem("circleName") as HTMLInputElement);
-                  handleCreateCircle(input.value);
-                  input.value = "";
-                }}
-              >
-                <input
-                  name="circleName"
-                  className="profile-input"
-                  placeholder={t("friendsPage.circleNamePlaceholder")}
-                  aria-label={t("friendsPage.circleNamePlaceholder")}
-                />
-                <Button type="submit" variant="primary" size="sm" leftIcon={<PlusIcon />}>{t("friendsPage.circleCreate")}</Button>
-              </form>
-
-              {circles.length === 0 ? (
-                <div className="friends-empty-state friends-empty-state--inline">
-                  <div className="friends-empty-icon friends-empty-icon--sm" aria-hidden><UsersIcon /></div>
-                  <h3 className="friends-empty-title">{t("friendsPage.circlesEmpty")}</h3>
-                  <p className="friends-empty-desc">{t("friendsPage.circlesEmptyDesc")}</p>
-                </div>
-              ) : (
-                <div className="circles-list">
-                  {circles.map((c) => (
-                    <div key={c.id} className="circle-manager-card">
-                      <div className="circle-manager-head">
-                        <span className="circle-chip-dot" style={c.color ? { background: c.color } : undefined} aria-hidden />
-                        <input
-                          className="profile-input circle-name-input"
-                          defaultValue={c.name}
-                          aria-label={t("friendsPage.circleName")}
-                          onBlur={(e) => {
-                            if (e.target.value.trim() && e.target.value.trim() !== c.name) {
-                              handleRenameCircle(c.id, e.target.value);
-                            }
-                          }}
-                        />
-                        <button
-                          type="button"
-                          className="friend-delete-btn"
-                          onClick={() => handleDeleteCircle(c.id)}
-                          title={t("friendsPage.circleDelete")}
-                        >
-                          <TrashIcon />
-                        </button>
-                      </div>
-                      <div className="circle-member-list">
-                        {friends.length === 0 ? (
-                          <span className="circle-member-empty">{t("friendsPage.circleNoFriends")}</span>
-                        ) : (
-                          friends.map((f) => {
-                            const inCircle = (f.groups || []).includes(c.id);
-                            return (
-                              <button
-                                key={f.id}
-                                type="button"
-                                className={`circle-member-chip${inCircle ? " active" : ""}`}
-                                onClick={() => handleToggleFriendCircle(f.id, c.id)}
-                                title={inCircle ? t("friendsPage.circleRemoveMember") : t("friendsPage.circleAddMember")}
-                              >
-                                {renderAvatar(f.avatar, f.name, "circle-member-avatar")}
-                                <span className="circle-member-name">{displayName(f)}</span>
-                                {inCircle && <CheckIcon />}
-                              </button>
-                            );
-                          })
-                        )}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-
-            <div className="friends-modal-footer">
-              <button
-                type="button"
-                className="btn btn-secondary"
-                onClick={() => setShowCirclesModal(false)}
-              >
-                {t("common.close")}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      <EditNicknameModal
+        friend={nicknameModalFriend}
+        isOpen={!!nicknameModalFriend}
+        onClose={() => setNicknameModalFriend(null)}
+        onSave={handleSetNickname}
+      />
     </div>
   );
 }

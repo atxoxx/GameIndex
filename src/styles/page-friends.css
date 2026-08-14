@@ -13,6 +13,7 @@
 
 /* Friend cards + session cards — flat fills, subtle lift on hover */
 .friend-card,
+.friend-card-modern,
 .session-card {
   position: relative;
   transition: transform var(--duration-normal) var(--ease-standard),
@@ -21,6 +22,7 @@
 }
 
 .friend-card:hover,
+.friend-card-modern:hover,
 .session-card:hover {
   transform: translateY(-2px);
   box-shadow: var(--shadow-md);
@@ -30,6 +32,7 @@
 /* Flat surface treatment: the social page reads as stacked panels on the
    app surface, not floating glass. */
 .friend-card,
+.friend-card-modern,
 .session-card,
 .rec-card,
 .sug-card,
@@ -60,7 +63,8 @@
 }
 
 /* Selected / selectable cards keep a crisp accent ring */
-.friend-card.selected {
+.friend-card.selected,
+.friend-card-modern.selected {
   box-shadow: 0 0 0 1.5px var(--color-accent), var(--shadow-md);
 }
 
