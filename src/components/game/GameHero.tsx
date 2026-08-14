@@ -6,7 +6,7 @@ import { useSettings } from "../../context/SettingsContext";
 import PlayerCountBadge from "../PlayerCountBadge";
 import GameLaunchActions from "./GameLaunchActions";
 import FriendsPlayingStrip from "../hero/FriendsPlayingStrip";
-import { IconClock, IconPlatform, IconShield, IconUsers } from "./icons";
+import { IconClock, IconPlatform, IconShield, IconUsers, IconStar } from "./icons";
 import { useLanguage } from "../../context/LanguageContext";
 
 /**
@@ -21,13 +21,6 @@ import { useLanguage } from "../../context/LanguageContext";
  *  with a blurred art backdrop (banner / trailer), a crisp 2:3 poster
  *  anchored on the left, and a content column on the right holding the
  *  eyebrow + title/logo, the meta row, the KPI strip and the action cluster.
- *
- *  Two usage modes:
- *   - Library game page: pass `game` (the full Game) — play time, status
- *     dropdown, achievements and the launch cluster are all derived from it.
- *   - Store detail page: pass explicit `name` / `coverUrl` / `bannerUrl` /
- *     `logoUrl` / `steamAppId` / `eyebrow` / `metaItems` / `actions`. The
- *     library-only KPIs simply don't render.
  */
 
 interface GameHeroProps {
@@ -55,6 +48,8 @@ interface GameHeroProps {
   friends?: { gameName: string; gameId: string } | null;
   /** Banner height profile. Defaults to "cinematic" for Library, "compact" for Store. */
   variant?: "cinematic" | "compact";
+  /** Optional rating score to show in meta row (0-100) */
+  rating?: number | null;
 }
 
 function formatHeroPlayTime(playTime: string): string {
@@ -76,6 +71,7 @@ export default function GameHero({
   actions,
   friends: friendsProp,
   variant: variantProp,
+  rating: ratingProp,
 }: GameHeroProps) {
   const { t } = useLanguage();
 
@@ -85,7 +81,8 @@ export default function GameHero({
   const bannerUrl = game?.bannerUrl ?? bannerProp ?? null;
   const logoUrl = game?.logoUrl ?? logoProp ?? null;
   const accentSrc = accentProp ?? coverUrl ?? bannerUrl ?? null;
-  const steamAppId = steamAppIdProp ?? null;
+  const steamAppId = steamAppIdProp ?? game?.steamAppId ?? null;
+  const rating = ratingProp ?? (game?.igdbRating || game?.criticRating) ?? null;
 
   const [coverErrored, setCoverErrored] = useState(false);
   const [logoErrored, setLogoErrored] = useState(false);
@@ -100,15 +97,10 @@ export default function GameHero({
 
   useEffect(() => {
     if (!autoGameAccent || !gamePalette) return;
-    // The extracted primary drives the GLOBAL accent family exactly as
-    // before — the harmonized partner + deep tints stay local to the
-    // hero via the --game-accent scope below.
     setAccentColor(gamePalette.primary);
   }, [autoGameAccent, gamePalette, setAccentColor]);
 
-  // Ambient background ladder: for Steam-identified library games the live
-  // Steam CDN hero is preferred by default, then the persisted banner, then
-  // the cover. A hidden probe <img> in the render advances the step on 404.
+  // Ambient background ladder
   const steamCdnBanner =
     isGame && steamAppId != null
       ? `https://cdn.akamai.steamstatic.com/steam/apps/${steamAppId}/library_hero.jpg`
@@ -151,14 +143,34 @@ export default function GameHero({
       </span>
       <span className="game-hero-meta-dot" />
       <span>{t("hero.playTime")}: {game!.playTime}</span>
+      {rating && (
+        <>
+          <span className="game-hero-meta-dot" />
+          <span className="game-hero-rating-badge" title={t("ratings.title")}>
+            <IconStar size={11} className="game-hero-rating-star" />
+            <span>{Math.round(rating)}</span>
+          </span>
+        </>
+      )}
     </>
   ) : (
-    (metaItems ?? []).map((item, i) => (
-      <Fragment key={i}>
-        <span className="game-hero-meta-item">{item}</span>
-        {i < (metaItems?.length ?? 0) - 1 && <span className="game-hero-meta-dot" />}
-      </Fragment>
-    ))
+    <>
+      {(metaItems ?? []).map((item, i) => (
+        <Fragment key={i}>
+          <span className="game-hero-meta-item">{item}</span>
+          {i < (metaItems?.length ?? 0) - 1 && <span className="game-hero-meta-dot" />}
+        </Fragment>
+      ))}
+      {rating && (
+        <>
+          {(metaItems?.length ?? 0) > 0 && <span className="game-hero-meta-dot" />}
+          <span className="game-hero-rating-badge" title={t("ratings.title")}>
+            <IconStar size={11} className="game-hero-rating-star" />
+            <span>{Math.round(rating)}</span>
+          </span>
+        </>
+      )}
+    </>
   );
 
   // ── KPI strip ────────────────────────────────────────────────
@@ -212,9 +224,7 @@ export default function GameHero({
           : undefined
       }
     >
-      {/* Background art: a blurred copy of the banner/cover that tints the
-          whole hero with the game's palette, or a gradient fallback. A
-          legibility scrim sits on top so the poster + content stay readable. */}
+      {/* Background art: a blurred copy of the banner/cover with glow */}
       {ambientSrc ? (
         <>
           <img
@@ -236,7 +246,7 @@ export default function GameHero({
       <div className="game-hero__scrim" aria-hidden="true" />
 
       <div className="game-hero__inner">
-        {/* Crisp 2:3 poster on the left — the canonical detail-page look. */}
+        {/* 2:3 poster on the left with badge */}
         {showPoster && (
           <div className="game-hero__poster" aria-hidden="true">
             <img
@@ -245,14 +255,19 @@ export default function GameHero({
               className="game-hero__poster-img"
               onError={() => setCoverErrored(true)}
             />
+            {isGame && game.installed && (
+              <span className="game-hero__poster-badge game-hero__poster-badge--installed">
+                {t("filter.installed")}
+              </span>
+            )}
           </div>
         )}
 
-        {/* Content column: head (eyebrow + title + meta) pinned to the top,
-            footer (KPI strip + actions) pinned to the bottom. */}
+        {/* Content column */}
         <div className="game-hero__content">
           <div className="game-hero__head">
             {eyebrow && <span className="game-hero__eyebrow">{eyebrow}</span>}
+
             {logoUrl && !logoErrored ? (
               <img
                 src={logoUrl}

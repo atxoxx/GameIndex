@@ -870,6 +870,7 @@
  * An inset top highlight gives the card a "lit edge" so it reads as a
  * physical print sitting on the backdrop rather than a flat image. */
 .game-hero__poster {
+  position: relative;
   flex: 0 0 auto;
   height: calc(var(--hero-h) - var(--space-2xl));
   aspect-ratio: 2 / 3;

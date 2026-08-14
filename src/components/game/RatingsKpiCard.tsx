@@ -2,33 +2,14 @@ import { KpiTile } from "../ui";
 import type { Game } from "../../types/game";
 import { IconStar } from "./icons";
 import { useLanguage } from "../../context/LanguageContext";
+import { useSteamGameStats } from "../../hooks/useSteamGameStats";
 
 /**
  * RatingsKpiCard
  *
- *  Right-sidebar "IGDB Ratings" card. Replaces the previous 68px
- *  SVG progress circles with large, intent-tinted numbers rendered
- *  via `KpiTile` so the headline score jumps out at a glance.
- *
- *  Layout:
- *    ┌─ Two big-number KPIs side-by-side ─────────┐
- *    │  85        72                                  │  ← IGDB + Critic
- *    │  COMMUNITY  CRITICS                            │
- *    ├─ Score breakdown ─────────────────────────────┤
- *    │  Exceptional  ▓▓▓▓▓▓▓▓░░  60%                   │
- *    │  Recommended  ▓▓▓░░░░░░░  20%                   │
- *    │  …                                              │
- *    └────────────────────────────────────────────────┘
- *
- *  Score → intent mapping:
- *    ≥ 75  → success (green)
- *    ≥ 50  → warning (amber)
- *    <  50 → danger  (red)
- *
- *  The breakdown percentages default to a derived distribution
- *  when there are no individual review records (typical for
- *  freshly-enriched titles), so the card always has bars to
- *  show rather than an empty box.
+ *  Right-sidebar "Ratings" card. Shows IGDB Community score,
+ *  Critic score, and Steam user reviews with intent-tinted KPI tiles
+ *  and interactive score breakdown bars.
  */
 
 interface RatingsKpiCardProps {
@@ -59,9 +40,7 @@ function computeBreakdown(game: Game) {
     });
   }
   if (total === 0) {
-    // Derive a plausible distribution from the headline score so
-    // the bars are never empty on freshly-enriched titles.
-    const base = game.igdbRating || 75;
+    const base = game.igdbRating || game.criticRating || 75;
     const exp = Math.max(0, Math.round((base - 60) * 1.5));
     const rec = Math.max(0, Math.round((base - 40) * 0.8));
     const m = Math.max(0, Math.round((100 - base) * 0.6));
@@ -78,7 +57,19 @@ function computeBreakdown(game: Game) {
 
 export default function RatingsKpiCard({ game }: RatingsKpiCardProps) {
   const { t } = useLanguage();
-  if (!game.igdbRating && !game.criticRating) return null;
+  const { data: steamStats } = useSteamGameStats(game.steamAppId);
+
+  const steamReviews = steamStats?.reviews;
+  const steamPositivePercent =
+    steamReviews && steamReviews.totalReviews > 0
+      ? Math.round((steamReviews.totalPositive / steamReviews.totalReviews) * 100)
+      : null;
+
+  const hasIgdb = Boolean(game.igdbRating);
+  const hasCritic = Boolean(game.criticRating);
+  const hasSteamReview = steamPositivePercent != null;
+
+  if (!hasIgdb && !hasCritic && !hasSteamReview) return null;
 
   const breakdown = computeBreakdown(game);
   const items = [
@@ -117,6 +108,17 @@ export default function RatingsKpiCard({ game }: RatingsKpiCardProps) {
             value={Math.round(game.criticRating)}
             subtext={`/ 100`}
             intent={scoreIntent(game.criticRating)}
+            className="ratings-kpi-tile"
+          />
+        )}
+        {!game.criticRating && steamPositivePercent != null && (
+          <KpiTile
+            size="md"
+            label="Steam"
+            icon={<IconStar size={12} />}
+            value={`${steamPositivePercent}%`}
+            subtext={steamReviews?.scoreDesc || t("ratings.recommended")}
+            intent={scoreIntent(steamPositivePercent)}
             className="ratings-kpi-tile"
           />
         )}

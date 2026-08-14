@@ -1,5 +1,5 @@
 import { useEffect, useState, useMemo, useCallback, useRef } from "react";
-import { useParams, useNavigate } from "react-router-dom";
+import { useParams, useNavigate, useSearchParams } from "react-router-dom";
 import { invoke } from "@tauri-apps/api/core";
 import { useGames } from "../context/GameContext";
 import { useToast } from "../context/ToastContext";
@@ -8,7 +8,6 @@ import type { GameMetadataResult, IgdbReview, Game, StoreGameSummary } from "../
 import { useWishlistContext } from "../context/WishlistContext";
 import { useSizeUnit } from "../hooks/useSizeUnit";
 import { Button } from "../components/ui";
-import { Skeleton, SkeletonText } from "../components/ui/Skeleton";
 import WebLinksTab from "../components/WebLinksTab";
 import ReviewsTab from "../components/ReviewsTab";
 import AchievementsTab from "../components/AchievementsTab";
@@ -16,6 +15,7 @@ import DownloadButton from "../components/DownloadButton";
 import CrackWatchCard from "../components/CrackWatchCard";
 import ProtonDBCard from "../components/ProtonDBCard";
 import GameRelationsCard from "../components/GameRelationsCard";
+import StoreGameLoadingSkeleton from "../components/store/StoreGameLoadingSkeleton";
 import {
   IconOverview,
   IconMessageSquare,
@@ -24,6 +24,9 @@ import {
 } from "../components/game/icons";
 import {
   GameHero,
+  GameTabs,
+  GameQuickActions,
+  ImageLightbox,
   InfoKpiCard,
   RatingsKpiCard,
   SpecsCard,
@@ -38,35 +41,9 @@ import {
 } from "../components/game";
 import "../styles/page-store.css";
 
-
 /* ------------------------------------------------------------------ */
-/*  States                                                             */
+/*  Error and Not Found States                                         */
 /* ------------------------------------------------------------------ */
-
-function StoreGameLoading() {
-  const { t } = useLanguage();
-  return (
-    <div className="game-page">
-      <Skeleton shape="rect" height="240px" width="100%" style={{ borderRadius: 'var(--radius-lg)', marginBottom: 'var(--space-xl)' }} />
-      <div style={{ display: 'flex', gap: 'var(--space-xl)' }}>
-        <div style={{ flex: 2, display: 'flex', flexDirection: 'column', gap: 'var(--space-xl)' }}>
-          <Skeleton shape="rect" height="160px" width="100%" style={{ borderRadius: 'var(--radius-lg)' }} />
-          <Skeleton shape="rect" height="200px" width="100%" style={{ borderRadius: 'var(--radius-lg)' }} />
-          <SkeletonText lines={4} />
-        </div>
-        <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 'var(--space-xl)' }}>
-          <Skeleton shape="rect" height="120px" width="100%" style={{ borderRadius: 'var(--radius-lg)' }} />
-          <Skeleton shape="rect" height="120px" width="100%" style={{ borderRadius: 'var(--radius-lg)' }} />
-          <Skeleton shape="rect" height="120px" width="100%" style={{ borderRadius: 'var(--radius-lg)' }} />
-        </div>
-      </div>
-      <div style={{ textAlign: 'center', padding: 'var(--space-2xl)', color: 'var(--color-text-muted)' }}>
-        <div className="store-spinner" style={{ margin: '0 auto var(--space-md) auto' }} />
-        {t("store.loadingGameDetails")}
-      </div>
-    </div>
-  );
-}
 
 function StoreGameError({ message, onRetry }: { message: string; onRetry: () => void }) {
   const navigate = useNavigate();
@@ -74,13 +51,19 @@ function StoreGameError({ message, onRetry }: { message: string; onRetry: () => 
   return (
     <div className="main-empty">
       <svg className="main-empty-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
-        <circle cx="12" cy="12" r="10" /><line x1="12" y1="8" x2="12" y2="12" /><line x1="12" y1="16" x2="12.01" y2="16" />
+        <circle cx="12" cy="12" r="10" />
+        <line x1="12" y1="8" x2="12" y2="12" />
+        <line x1="12" y1="16" x2="12.01" y2="16" />
       </svg>
       <h2 className="main-empty-title">{t("store.failedToLoad")}</h2>
       <p className="main-empty-subtitle">{message}</p>
-      <div style={{ display: 'flex', gap: 'var(--space-md)', marginTop: 'var(--space-md)' }}>
-        <Button variant="ghost" size="sm" onClick={onRetry}>{t("common.retry")}</Button>
-        <Button variant="ghost" size="sm" onClick={() => navigate("/store")}>{t("store.backToStore")}</Button>
+      <div style={{ display: "flex", gap: "var(--space-md)", marginTop: "var(--space-md)" }}>
+        <Button variant="ghost" size="sm" onClick={onRetry}>
+          {t("common.retry")}
+        </Button>
+        <Button variant="ghost" size="sm" onClick={() => navigate("/store")}>
+          {t("store.backToStore")}
+        </Button>
       </div>
     </div>
   );
@@ -92,32 +75,31 @@ function StoreGameNotFound() {
   return (
     <div className="main-empty">
       <svg className="main-empty-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
-        <rect x="2" y="3" width="20" height="14" rx="2" ry="2" /><line x1="8" y1="21" x2="16" y2="21" /><line x1="12" y1="17" x2="12" y2="21" />
+        <rect x="2" y="3" width="20" height="14" rx="2" ry="2" />
+        <line x1="8" y1="21" x2="16" y2="21" />
+        <line x1="12" y1="17" x2="12" y2="21" />
       </svg>
       <h2 className="main-empty-title">{t("game.notFoundTitle")}</h2>
       <p className="main-empty-subtitle">{t("store.gameNotFoundIgdb")}</p>
-      <Button variant="ghost" size="sm" onClick={() => navigate("/store")}>{t("store.backToStore")}</Button>
+      <Button variant="ghost" size="sm" onClick={() => navigate("/store")}>
+        {t("store.backToStore")}
+      </Button>
     </div>
   );
 }
 
-
 /* ------------------------------------------------------------------ */
-/*  Main Component                                                     */
+/*  Main Store Game Detail Component                                  */
 /* ------------------------------------------------------------------ */
 
-type Tab = "overview" | "reviews" | "achievements" | "weblinks";
+type StoreTab = "overview" | "reviews" | "achievements" | "weblinks";
 
-const TAB_ICONS: Record<Tab, React.ComponentType<{ size?: number; className?: string }>> = {
-  overview: IconOverview,
-  reviews: IconMessageSquare,
-  achievements: IconTrophy,
-  weblinks: IconGlobe,
-};
+const VALID_STORE_TABS = new Set<StoreTab>(["overview", "reviews", "achievements", "weblinks"]);
 
 export default function StoreGameDetail() {
   const { gameSlug } = useParams<{ gameSlug: string }>();
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
   const { games, addStoreGame } = useGames();
   const { showToast } = useToast();
   const { unit: sizeUnit } = useSizeUnit();
@@ -128,12 +110,30 @@ export default function StoreGameDetail() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [adding, setAdding] = useState(false);
-  const [activeTab, setActiveTab] = useState<Tab>("overview");
-  const [lightboxImage, setLightboxImage] = useState<string | null>(null);
+  const [lightboxOpen, setLightboxOpen] = useState(false);
+  const [lightboxIndex, setLightboxIndex] = useState(0);
+
   const mountedRef = useRef(true);
-  // Tracks which slug we've already run IGDB title-enrichment for so the
-  // follow-up setData (which changes `data`) doesn't re-trigger it.
   const enrichedSlugRef = useRef<string | null>(null);
+
+  // Tab synchronization with URL query param
+  const urlTab = searchParams.get("tab") as StoreTab | null;
+  const activeTab: StoreTab = urlTab && VALID_STORE_TABS.has(urlTab) ? urlTab : "overview";
+
+  const handleTabChange = useCallback(
+    (newTab: StoreTab) => {
+      setSearchParams(
+        (prev) => {
+          const next = new URLSearchParams(prev);
+          if (newTab === "overview") next.delete("tab");
+          else next.set("tab", newTab);
+          return next;
+        },
+        { replace: true }
+      );
+    },
+    [setSearchParams]
+  );
 
   // Extract Steam app id from websites
   const steamAppId = useMemo(() => {
@@ -145,9 +145,7 @@ export default function StoreGameDetail() {
     return undefined;
   }, [data]);
 
-  // Build a rich Game object from the IGDB metadata so the shared
-  // game components (InfoKpiCard, RatingsKpiCard, etc.) can render
-  // the same cards they render on the library GamePage.
+  // Construct mock Game representation for shared components
   const mockGame = useMemo((): Game | null => {
     if (!data) return null;
     return {
@@ -159,13 +157,13 @@ export default function StoreGameDetail() {
       playTime: "0h",
       addedAt: Date.now(),
 
-      // ── Images ──────────────────────────────────────────────
+      // Images
       coverArtUrl: data.images.cover ?? undefined,
       bannerUrl: data.images.hero ?? data.images.banner ?? data.images.cover ?? undefined,
       logoUrl: data.images.logo ?? undefined,
       iconUrl: data.images.icon ?? undefined,
 
-      // ── Metadata ────────────────────────────────────────────
+      // Metadata
       description: data.description ?? undefined,
       developer: data.developer ?? undefined,
       publisher: data.publisher ?? undefined,
@@ -192,17 +190,17 @@ export default function StoreGameDetail() {
       releaseStatus: data.releaseStatus ?? undefined,
       languageSupports: data.languageSupports?.length ? data.languageSupports : undefined,
 
-      // ── Source ──────────────────────────────────────────────
+      // Source
       metadataSource: data.sourceName,
       metadataUrl: data.sourceUrl,
       steamAppId,
 
-      // ── Library defaults ────────────────────────────────────
+      // Library defaults
       playStatus: "backlog",
     };
   }, [data, steamAppId]);
 
-  // Abort-safe fetch
+  // Fetch store game detail from backend
   const fetchData = useCallback(() => {
     if (!gameSlug) return;
     setLoading(true);
@@ -225,14 +223,10 @@ export default function StoreGameDetail() {
 
   useEffect(() => {
     setData(null);
-    setActiveTab("overview");
     fetchData();
   }, [fetchData]);
 
-  // Enrich the displayed title via IGDB (mirrors the library GamePage
-  // auto-enrich). We re-run an IGDB search against the store title and, if
-  // it yields a canonical title, adopt it; otherwise we keep the normal
-  // store title as a fallback. Runs once per slug.
+  // Enrich title via IGDB if needed
   useEffect(() => {
     if (!data || !gameSlug) return;
     if (enrichedSlugRef.current === gameSlug) return;
@@ -247,14 +241,13 @@ export default function StoreGameDetail() {
     })
       .then((results) => {
         if (cancelled || !results || results.length === 0) return;
-        const meta =
-          results.find((r) => r.sourceName === "IGDB") ?? results[0];
+        const meta = results.find((r) => r.sourceName === "IGDB") ?? results[0];
         if (meta?.title && meta.title.trim()) {
           setData((prev) => (prev ? { ...prev, title: meta.title } : prev));
         }
       })
       .catch(() => {
-        /* keep the normal store title on failure */
+        /* fallback to existing title */
       });
     return () => {
       cancelled = true;
@@ -263,18 +256,19 @@ export default function StoreGameDetail() {
 
   useEffect(() => {
     mountedRef.current = true;
-    return () => { mountedRef.current = false; };
+    return () => {
+      mountedRef.current = false;
+    };
   }, []);
 
-  // Check if already in library
+  // Check if game is already in library
   const existingInLibrary = useMemo(() => {
     if (!data) return null;
     const norm = data.title.toLowerCase().trim();
     return games.find((g) => g.name.toLowerCase().trim() === norm) ?? null;
   }, [data, games]);
 
-  // Effective game instance for tabs (merges library-specific data like
-  // personal achievements/play status when already owned with rich store metadata)
+  // Effective game for tabs
   const effectiveGame = useMemo(() => {
     if (!mockGame) return null;
     if (!existingInLibrary) return mockGame;
@@ -286,7 +280,7 @@ export default function StoreGameDetail() {
     };
   }, [existingInLibrary, mockGame, steamAppId]);
 
-  // Wishlist membership + a StoreGameSummary for the toggle.
+  // Wishlist membership & summary
   const wishlisted = gameSlug ? isWishlisted(gameSlug) : false;
   const wishlistSummary = useMemo<StoreGameSummary | null>(() => {
     if (!data) return null;
@@ -316,48 +310,13 @@ export default function StoreGameDetail() {
       wasWishlisted
         ? t("store.removedFromWishlist", { name: data!.title })
         : t("store.addedToWishlist", { name: data!.title }),
-      wasWishlisted ? "info" : "success",
+      wasWishlisted ? "info" : "success"
     );
   }, [wishlistSummary, wishlisted, toggleWishlist, showToast, t, data]);
 
-  const handleReviewsFetched = useCallback(
-    (reviews: IgdbReview[], _source: string) => {
-      setData((prev) => (prev ? { ...prev, igdbReviews: reviews } : prev));
-    },
-    []
-  );
-
-  // ── Lightbox keyboard nav ──────────────────────────────────────
-  // Esc closes; ←/→ step through the game's screenshot gallery while
-  // the lightbox is open. The handlers attach only while an image is
-  // shown (effect dependency on lightboxImage) so they don't swallow
-  // keys on the rest of the page.
-  const lightboxIndex = useMemo(() => {
-    if (!lightboxImage || !mockGame?.screenshots) return -1;
-    return mockGame.screenshots.indexOf(lightboxImage);
-  }, [lightboxImage, mockGame]);
-
-  const stepLightbox = useCallback(
-    (dir: 1 | -1) => {
-      if (!mockGame?.screenshots || mockGame.screenshots.length === 0) return;
-      const list = mockGame.screenshots;
-      const current = lightboxIndex < 0 ? 0 : lightboxIndex;
-      const next = (current + dir + list.length) % list.length;
-      setLightboxImage(list[next]);
-    },
-    [lightboxIndex, mockGame]
-  );
-
-  useEffect(() => {
-    if (!lightboxImage) return;
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") setLightboxImage(null);
-      else if (e.key === "ArrowLeft") stepLightbox(-1);
-      else if (e.key === "ArrowRight") stepLightbox(1);
-    };
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, [lightboxImage, stepLightbox]);
+  const handleReviewsFetched = useCallback((reviews: IgdbReview[]) => {
+    setData((prev) => (prev ? { ...prev, igdbReviews: reviews } : prev));
+  }, []);
 
   const handleAddToLibrary = async () => {
     if (!data || adding) return;
@@ -371,18 +330,19 @@ export default function StoreGameDetail() {
     }
   };
 
-  // ── Render states ──────────────────────────────────────────────
-  if (loading) return <StoreGameLoading />;
+  const handleOpenScreenshot = useCallback((_src: string, index?: number) => {
+    setLightboxIndex(index ?? 0);
+    setLightboxOpen(true);
+  }, []);
+
+  if (loading) return <StoreGameLoadingSkeleton />;
   if (error) return <StoreGameError message={error} onRetry={fetchData} />;
   if (!data || !mockGame) return <StoreGameNotFound />;
 
   const isInLibrary = !!existingInLibrary;
   const libraryGameId = existingInLibrary?.id;
-  const releaseYear = data.releaseDate
-    ? new Date(data.releaseDate).getFullYear()
-    : null;
+  const releaseYear = data.releaseDate ? new Date(data.releaseDate).getFullYear() : null;
 
-  // Wishlist toggle button (heart + label) shared by both action branches.
   const wishlistBtn = (
     <button
       type="button"
@@ -395,16 +355,36 @@ export default function StoreGameDetail() {
           : t("store.gameCard.addWishlistAria", { name: data.title })
       }
     >
-      <svg viewBox="0 0 24 24" fill={wishlisted ? "currentColor" : "none"} stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ width: 18, height: 18 }}>
+      <svg
+        viewBox="0 0 24 24"
+        fill={wishlisted ? "currentColor" : "none"}
+        stroke="currentColor"
+        strokeWidth="2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        style={{ width: 18, height: 18 }}
+      >
         <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z" />
       </svg>
       {wishlisted ? t("store.inWishlist") : t("store.addToWishlist")}
     </button>
   );
 
+  const tabs = [
+    { id: "overview" as const, label: t("game.tab.overview"), icon: IconOverview },
+    { id: "reviews" as const, label: t("game.tab.reviews"), icon: IconMessageSquare },
+    { id: "achievements" as const, label: t("game.tab.achievements"), icon: IconTrophy },
+    {
+      id: "weblinks" as const,
+      label: t("game.tab.weblinks"),
+      icon: IconGlobe,
+      count: data.websites?.length ?? null,
+    },
+  ];
+
   return (
     <div className="game-page store-detail-page">
-      {/* ── Breadcrumb ──────────────────────────────────────────── */}
+      {/* Top Breadcrumb Bar */}
       <div className="game-top-bar">
         <button className="game-back-link" onClick={() => navigate("/store")}>
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -412,72 +392,76 @@ export default function StoreGameDetail() {
           </svg>
           <span className="brand-text">{t("nav.store")}</span>
         </button>
+
+        <div className="game-top-bar__actions">
+          <GameQuickActions
+            gameName={data.title}
+            steamAppId={steamAppId ?? null}
+            isStoreMode={true}
+          />
+        </div>
       </div>
 
-      {/* ── Hero — shared GameHero (unified with the Library game page) ── */}
+      {/* Cinematic Hero */}
       <GameHero
         name={data.title}
         bannerUrl={data.images.hero ?? data.images.banner ?? null}
         coverUrl={data.images.cover ?? null}
-        logoUrl={data.images.logo || (steamAppId ? `https://cdn.cloudflare.steamstatic.com/steam/apps/${steamAppId}/logo.png` : null)}
+        logoUrl={
+          data.images.logo ||
+          (steamAppId ? `https://cdn.cloudflare.steamstatic.com/steam/apps/${steamAppId}/logo.png` : null)
+        }
         accentSrc={data.images.cover ?? data.images.hero ?? data.images.banner ?? null}
         steamAppId={steamAppId ?? null}
+        rating={data.igdbRating || data.criticRating || null}
         metaItems={[data.developer, data.publisher, releaseYear, data.sourceName].filter(
-          (v): v is string => Boolean(v),
+          (v): v is string => Boolean(v)
         )}
         actions={
           isInLibrary ? (
-              <>
-                {wishlistBtn}
-                <button
-                  className="game-launch-btn"
-                  onClick={() => navigate(`/library/${libraryGameId}`)}
-                >
-                   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{ width: 18, height: 18 }}>
-                     <circle cx="12" cy="12" r="10" /><line x1="12" y1="16" x2="12" y2="12" /><line x1="12" y1="8" x2="12.01" y2="8" />
-                   </svg>
-                   {t("store.viewInLibrary")}
-                 </button>
-              </>
-            ) : (
-              <>
-                {wishlistBtn}
-                <button className="store-add-btn" onClick={handleAddToLibrary} disabled={adding}>
-                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                    <line x1="12" y1="5" x2="12" y2="19" />
-                    <line x1="5" y1="12" x2="19" y2="12" />
-                  </svg>
-                   {adding ? t("store.adding") : t("store.addToLibrary")}
-                 </button>
-                <DownloadButton
-                  gameName={data.title}
-                  steamAppId={steamAppId ?? undefined}
-                  variant="prominent"
-                  label={t("game.findDownload")}
-                />
-              </>
-            )
+            <>
+              {wishlistBtn}
+              <button
+                className="game-launch-btn"
+                onClick={() => navigate(`/library/${libraryGameId}`)}
+              >
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{ width: 18, height: 18 }}>
+                  <circle cx="12" cy="12" r="10" />
+                  <line x1="12" y1="16" x2="12" y2="12" />
+                  <line x1="12" y1="8" x2="12.01" y2="8" />
+                </svg>
+                {t("store.viewInLibrary")}
+              </button>
+            </>
+          ) : (
+            <>
+              {wishlistBtn}
+              <button className="store-add-btn" onClick={handleAddToLibrary} disabled={adding}>
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <line x1="12" y1="5" x2="12" y2="19" />
+                  <line x1="5" y1="12" x2="19" y2="12" />
+                </svg>
+                {adding ? t("store.adding") : t("store.addToLibrary")}
+              </button>
+              <DownloadButton
+                gameName={data.title}
+                steamAppId={steamAppId ?? undefined}
+                variant="prominent"
+                label={t("game.findDownload")}
+              />
+            </>
+          )
         }
       />
 
-      {/* ── Tabs ─────────────────────────────────────────────────── */}
-      <div className="game-tabs">
-        {(["overview", "reviews", "achievements", "weblinks"] as Tab[]).map((tab) => {
-          const Icon = TAB_ICONS[tab];
-          return (
-            <button
-              key={tab}
-              className={`game-tab ${activeTab === tab ? "active" : ""}`}
-              onClick={() => setActiveTab(tab)}
-            >
-              {Icon && <Icon size={14} className="game-tab-icon" />}
-              <span>{t(`game.tab.${tab}`)}</span>
-            </button>
-          );
-        })}
-      </div>
+      {/* Animated Sliding Tabs */}
+      <GameTabs
+        tabs={tabs}
+        activeTab={activeTab}
+        onChange={handleTabChange}
+      />
 
-      {/* ── Overview ─────────────────────────────────────────────── */}
+      {/* Tab Panels */}
       {activeTab === "overview" && (
         <div className="game-content-grid">
           <div className="game-main-col">
@@ -486,11 +470,10 @@ export default function StoreGameDetail() {
             <StorylineSection game={mockGame} />
             <ScreenshotsSection
               game={mockGame}
-              onOpen={(src) => setLightboxImage(src)}
+              onOpen={handleOpenScreenshot}
             />
             <VideosSection game={mockGame} />
 
-            {/* Game Relations Card — IGDB + library cross-ref */}
             <GameRelationsCard
               mode="store"
               currentGame={data}
@@ -519,149 +502,27 @@ export default function StoreGameDetail() {
         </div>
       )}
 
-      {/* ── Reviews ───────────────────────────────────────────────── */}
       {activeTab === "reviews" && (
         <ReviewsTab game={mockGame} onReviewsFetched={handleReviewsFetched} />
       )}
 
-      {/* ── Achievements ─────────────────────────────────────────── */}
       {activeTab === "achievements" && effectiveGame && (
         <AchievementsTab game={effectiveGame} />
       )}
 
-      {/* ── Weblinks ──────────────────────────────────────────────── */}
       {activeTab === "weblinks" && (
-        <WebLinksTab game={mockGame} visible={!lightboxImage} />
+        <WebLinksTab game={mockGame} visible={!lightboxOpen} />
       )}
 
-      {/* ── Lightbox ──────────────────────────────────────────────── */}
-      {lightboxImage && (
-        <div
-          className="lightbox-backdrop"
-          onClick={() => setLightboxImage(null)}
-          style={{
-            position: 'fixed',
-            top: 0,
-            left: 0,
-            width: '100vw',
-            height: '100vh',
-            background: 'rgba(0, 0, 0, 0.85)',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            zIndex: 10000,
-            cursor: 'zoom-out',
-            animation: 'fadeIn var(--transition-fast) ease'
-          }}
-        >
-          <button
-            className="lightbox-nav lightbox-nav--prev"
-            aria-label={t("storeDetail.prevScreenshot")}
-            onClick={(e) => { e.stopPropagation(); stepLightbox(-1); }}
-            style={{
-              position: 'fixed',
-              left: 'var(--space-xl)',
-              top: '50%',
-              transform: 'translateY(-50%)',
-              width: 44, height: 44,
-              borderRadius: '50%',
-              border: '1px solid rgba(255,255,255,0.18)',
-              background: 'rgba(0,0,0,0.5)',
-              color: '#fff',
-              cursor: 'pointer',
-              display: 'flex', alignItems: 'center', justifyContent: 'center',
-              transition: 'background var(--transition-fast)',
-            }}
-          >
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" style={{ width: 20, height: 20 }}>
-              <polyline points="15 18 9 12 15 6" />
-            </svg>
-          </button>
-          <div
-            className="lightbox-content"
-            onClick={(e) => e.stopPropagation()}
-            style={{
-              position: 'relative',
-              maxWidth: '90%',
-              maxHeight: '90%',
-              borderRadius: 'var(--radius-lg)',
-              overflow: 'hidden',
-              boxShadow: '0 20px 50px rgba(0,0,0,0.5)',
-              border: '1px solid rgba(255,255,255,0.1)'
-            }}
-          >
-            <img src={lightboxImage}             alt={t("storeDetail.fullscreenScreenshot")} style={{ maxWidth: '100%', maxHeight: '85vh', objectFit: 'contain', display: 'block' }} />
-            {mockGame.screenshots && mockGame.screenshots.length > 1 && (
-              <div
-                className="lightbox-counter"
-                style={{
-                  position: 'absolute',
-                  bottom: 'var(--space-md)',
-                  left: '50%',
-                  transform: 'translateX(-50%)',
-                  background: 'rgba(0,0,0,0.6)',
-                  color: '#fff',
-                  fontSize: 12,
-                  fontWeight: 600,
-                  padding: '4px 12px',
-                  borderRadius: 'var(--radius-full)',
-                  letterSpacing: '0.4px',
-                }}
-              >
-                {(lightboxIndex < 0 ? 1 : lightboxIndex + 1)} / {mockGame.screenshots.length}
-              </div>
-            )}
-            <button
-              className="lightbox-close"
-              onClick={() => setLightboxImage(null)}
-              style={{
-                position: 'absolute',
-                top: 'var(--space-md)',
-                right: 'var(--space-md)',
-                background: 'rgba(0, 0, 0, 0.5)',
-                border: 'none',
-                borderRadius: '50%',
-                width: 36,
-                height: 36,
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                cursor: 'pointer',
-                color: '#fff',
-                transition: 'background var(--transition-fast)'
-              }}
-            >
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" style={{ width: 18, height: 18 }}>
-                <line x1="18" y1="6" x2="6" y2="18" />
-                <line x1="6" y1="6" x2="18" y2="18" />
-              </svg>
-            </button>
-          </div>
-          <button
-            className="lightbox-nav lightbox-nav--next"
-            aria-label={t("storeDetail.nextScreenshot")}
-            onClick={(e) => { e.stopPropagation(); stepLightbox(1); }}
-            style={{
-              position: 'fixed',
-              right: 'var(--space-xl)',
-              top: '50%',
-              transform: 'translateY(-50%)',
-              width: 44, height: 44,
-              borderRadius: '50%',
-              border: '1px solid rgba(255,255,255,0.18)',
-              background: 'rgba(0,0,0,0.5)',
-              color: '#fff',
-              cursor: 'pointer',
-              display: 'flex', alignItems: 'center', justifyContent: 'center',
-              transition: 'background var(--transition-fast)',
-            }}
-          >
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" style={{ width: 20, height: 20 }}>
-              <polyline points="9 18 15 12 9 6" />
-            </svg>
-          </button>
-        </div>
-      )}
+      {/* Unified Image Lightbox */}
+      <ImageLightbox
+        images={mockGame.screenshots || []}
+        currentIndex={lightboxIndex}
+        isOpen={lightboxOpen}
+        onClose={() => setLightboxOpen(false)}
+        onSelectIndex={setLightboxIndex}
+        title={data.title}
+      />
     </div>
   );
 }

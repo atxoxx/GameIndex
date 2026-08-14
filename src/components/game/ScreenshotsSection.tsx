@@ -7,7 +7,7 @@ import { useLanguage } from "../../context/LanguageContext";
 
 interface ScreenshotsSectionProps {
   game: Game;
-  onOpen: (src: string) => void;
+  onOpen: (src: string, index?: number) => void;
 }
 
 function BigScreenScreenshotItem({
@@ -17,12 +17,12 @@ function BigScreenScreenshotItem({
   name,
 }: {
   src: string;
-  onOpen: (src: string) => void;
+  onOpen: (src: string, index: number) => void;
   index: number;
   name: string;
 }) {
   const { t } = useLanguage();
-  const focusProps = useFocusable(() => onOpen(src));
+  const focusProps = useFocusable(() => onOpen(src, index));
   return (
     <div
       className="screenshot-item"
@@ -49,9 +49,6 @@ export default function ScreenshotsSection({
 
   if (!game.screenshots || game.screenshots.length === 0) return null;
 
-  // Scroll the strip by roughly one viewport of thumbnails. Disabled
-  // state is derived from scroll position so the arrows hide when
-  // there's nothing further to scroll.
   const scrollBy = (dir: 1 | -1) => {
     const el = carouselRef.current;
     if (!el) return;
@@ -97,13 +94,13 @@ export default function ScreenshotsSection({
               <div
                 key={index}
                 className="screenshot-item"
-                onClick={() => onOpen(src)}
+                onClick={() => onOpen(src, index)}
                 role="button"
                 tabIndex={0}
                 onKeyDown={(e) => {
                   if (e.key === "Enter" || e.key === " ") {
                     e.preventDefault();
-                    onOpen(src);
+                    onOpen(src, index);
                   }
                 }}
                 aria-label={t("screenshots.openAria", { n: index + 1 })}

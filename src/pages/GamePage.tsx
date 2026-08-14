@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState, useRef, useMemo } from "react";
-import { useParams, useNavigate } from "react-router-dom";
+import { useParams, useNavigate, useSearchParams } from "react-router-dom";
 import { useGames, NO_IGDB_MATCH_SOURCE } from "../context/GameContext";
 import { useToast } from "../context/ToastContext";
 import { useLanguage } from "../context/LanguageContext";
@@ -16,6 +16,9 @@ import ModsTab from "../components/mods/ModsTab";
 import GameRelationsCard from "../components/GameRelationsCard";
 import {
   GameHero,
+  GameTabs,
+  GameQuickActions,
+  ImageLightbox,
   InfoKpiCard,
   RatingsKpiCard,
   SpecsCard,
@@ -39,26 +42,16 @@ import {
   IconGlobe,
 } from "../components/game/icons";
 
-const TAB_ICONS = {
-  overview: IconOverview,
-  reviews: IconMessageSquare,
-  activity: IconActivity,
-  achievements: IconTrophy,
-  mods: IconWrench,
-  weblinks: IconGlobe,
-};
+type GamePageTab = "overview" | "reviews" | "activity" | "achievements" | "mods" | "weblinks";
 
-
-// Video URL helpers (`getVideoEmbedUrl`, `getVideoThumbnail`) now live in
-// `../components/game/video` so the Store GameDetail page can reuse them.
-// The VideosSection component imports them directly; GamePage no longer
-// needs a local alias because the videos JSX has been extracted too.
-
-// The old `RatingCircle` SVG component has been replaced by the
-// `KpiTile` + `RatingsKpiCard` design (see `../components/game/RatingsKpiCard`).
-// The 68px circle ring has been replaced with a 36px bold number that reads
-// at a glance, intent-tinted by the same success/warning/danger threshold.
-void null; // placeholder to keep this section marker stable
+const VALID_TABS = new Set<GamePageTab>([
+  "overview",
+  "reviews",
+  "activity",
+  "achievements",
+  "mods",
+  "weblinks",
+]);
 
 function GameNotFound() {
   const navigate = useNavigate();
@@ -77,9 +70,7 @@ function GameNotFound() {
         <line x1="12" y1="17" x2="12" y2="21" />
       </svg>
       <h2 className="main-empty-title">{t("game.notFoundTitle")}</h2>
-      <p className="main-empty-subtitle">
-        {t("game.notFoundSubtitle")}
-      </p>
+      <p className="main-empty-subtitle">{t("game.notFoundSubtitle")}</p>
       <Button variant="ghost" size="sm" onClick={() => navigate("/library")}>
         {t("page.game.backToLibrary")}
       </Button>
@@ -87,134 +78,68 @@ function GameNotFound() {
   );
 }
 
-// The old `TimeToBeatRow` helper has moved to
-// `../components/game/shared` and is rendered by `TimeToBeatCard`.
-// The new card wraps it in a 3-column KPI grid for an at-a-glance read.
-void null; // placeholder to keep this section marker stable
-
-// Track which game IDs have already been auto-enriched in this GameDetail
-// mount to avoid repeat calls when enrichment-triggered state updates
-// re-fire the useEffect below. Cross-mount dedupe is handled by the
-// session-scoped `enrichedThisSession` Set inside GameContext — no need
-// for a parallel module-scoped Set here anymore.
-
 function GameDetail({ game }: { game: Game }) {
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
   const { showToast } = useToast();
   const { t } = useLanguage();
   const { launchGame, enrichGameMetadata, removeGame, updateGame } = useGames();
   const { unit: sizeUnit } = useSizeUnit();
   const { appId: heroSteamAppId } = useSteamAppId(game);
-  // Confirm-remove flow state. Clicking the Remove button in the
-  // top bar opens the ConfirmModal; only on confirm do we actually
-  // wipe the game (matches the destructive-action discipline used
-  // by the IGDB / downloads tabs, vs. the silent toast path the
-  // sidebar right-click uses).
+
   const [showRemoveConfirm, setShowRemoveConfirm] = useState(false);
-  const [activeTab, setActiveTab] = useState<"overview" | "reviews" | "activity" | "weblinks" | "achievements" | "mods">("overview");
-
-  // Metadata fetching state
   const [editing, setEditing] = useState(false);
+  const [lightboxOpen, setLightboxOpen] = useState(false);
+  const [lightboxIndex, setLightboxIndex] = useState(0);
 
+  // Tab synchronization with URL search query param
+  const urlTab = searchParams.get("tab") as GamePageTab | null;
+  const activeTab: GamePageTab = urlTab && VALID_TABS.has(urlTab) ? urlTab : "overview";
 
-
-  // Lightbox & Video states
-  const [lightboxImage, setLightboxImage] = useState<string | null>(null);
-
-  // Fullscreen screenshot viewer: Esc closes; ←/→ step through the
-  // game's screenshot gallery while open. Handlers attach only while
-  // an image is shown so they don't swallow keys elsewhere.
-  const lightboxIndex = useMemo(() => {
-    if (!lightboxImage || !game.screenshots) return -1;
-    return game.screenshots.indexOf(lightboxImage);
-  }, [lightboxImage, game.screenshots]);
-
-  const stepLightbox = useCallback(
-    (dir: 1 | -1) => {
-      if (!game.screenshots || game.screenshots.length === 0) return;
-      const list = game.screenshots;
-      const current = lightboxIndex < 0 ? 0 : lightboxIndex;
-      const next = (current + dir + list.length) % list.length;
-      setLightboxImage(list[next]);
+  const handleTabChange = useCallback(
+    (newTab: GamePageTab) => {
+      setSearchParams(
+        (prev) => {
+          const next = new URLSearchParams(prev);
+          if (newTab === "overview") next.delete("tab");
+          else next.set("tab", newTab);
+          return next;
+        },
+        { replace: true }
+      );
     },
-    [lightboxIndex, game.screenshots]
+    [setSearchParams]
   );
 
-  useEffect(() => {
-    if (!lightboxImage) return;
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") setLightboxImage(null);
-      else if (e.key === "ArrowLeft") stepLightbox(-1);
-      else if (e.key === "ArrowRight") stepLightbox(1);
-    };
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, [lightboxImage, stepLightbox]);
+  // Screenshot Lightbox opener
+  const handleOpenScreenshot = useCallback((_src: string, index?: number) => {
+    setLightboxIndex(index ?? 0);
+    setLightboxOpen(true);
+  }, []);
 
-
-  
-    // Lazily enrich game metadata on mount. Steam-synced games arrive with only
-  // a Steam CDN cover image (no IGDB data), so we trigger the full IGDB
-  // enrichment the first time the user opens such a game's GamePage. Also
-  // covers legacy games that still depend on the previous enrichment path.
-  //
-  // enrichedGameIds (module-scoped, declared above GameDetail) prevents
-  // repeat fetches across repeated navigations within the same SPA session.
-  // The per-mount  guards within a single lifecycle.
-  // Sentinel  records a previous
-  // failed IGDB lookup so we don't re-attempt on every GamePage visit.
-  // (Play status dropdown state lives inside `GameStatusDropdown`
-  // now, so we don't need to reset it here on game-id change.)
-
-    const enrichmentStartedRef = useRef(false);
+  // Lazy metadata auto-enrichment on mount
+  const enrichmentStartedRef = useRef(false);
   useEffect(() => {
     if (enrichmentStartedRef.current) return;
     if (game.metadataSource === NO_IGDB_MATCH_SOURCE && game.igdbId == null) return;
     if (!game.name) return;
+
     const hasDescription = !!game.description;
     const missingTTB = !game.timeToBeat;
-    // Also re-enrich if any of the 5 relation-relevant fields are
-    // missing. The standalone Similar Games section was removed in
-    // favor of the GameRelationsCard, which needs at least one of
-    // collection / franchise / developer / publisher / genres to
-    // build any group. A partially-enriched game (has description +
-    // timeToBeat but no relation fields) would otherwise skip
-    // enrichment and silently produce an empty Game Relations card.
     const hasCollection = !!game.collection;
     const hasDeveloper = !!game.developer;
     const hasPublisher = !!game.publisher;
     const hasGenres = !!(game.genres && game.genres.length > 0);
-    // `franchise` is intentionally NOT in this list: many legitimate
-    // one-off games (e.g. indie titles) have no IGDB franchise, and
-    // IGDB will never fill it in. Requiring it would cause the
-    // auto-enrichment to re-fire on every GamePage visit for those
-    // games, and the empty field would never become non-empty.
-    const hasAllRelationFields =
-      hasCollection && hasDeveloper && hasPublisher && hasGenres;
-    // Also re-enrich when a game has a collection NAME but no
-    // collection ID. The name is populated by the existing merge
-    // path, but the ID is a separate field that the GameRelationsCard
-    // needs to fetch "other games in this collection" from IGDB.
-    // Without this gate, a game with a collection name but a missing
-    // ID would skip enrichment forever and the "Other in this
-    // collection" group would never appear.
-    const missedCollectionId =
-      !!game.collection && game.collectionId === undefined;
-    if (
-      hasDescription &&
-      !missingTTB &&
-      hasAllRelationFields &&
-      !missedCollectionId
-    )
+    const hasAllRelationFields = hasCollection && hasDeveloper && hasPublisher && hasGenres;
+    const missedCollectionId = !!game.collection && game.collectionId === undefined;
+
+    if (hasDescription && !missingTTB && hasAllRelationFields && !missedCollectionId) {
       return;
+    }
 
     enrichmentStartedRef.current = true;
-    // enrichGameMetadata is wrapped in silent useCallback; the only
-    // user-visible signal it ran is the description/covers/grades
-    // appearing in the JSX. A loading pill is a nice-to-have
-    // follow-up.
-    enrichGameMetadata(game.id, game.name, game.steamAppId).catch(
-      (err) => console.error("Auto-enrichment failed:", err)
+    enrichGameMetadata(game.id, game.name, game.steamAppId).catch((err) =>
+      console.error("Auto-enrichment failed:", err)
     );
   }, [
     game.id,
@@ -223,6 +148,7 @@ function GameDetail({ game }: { game: Game }) {
     game.description,
     game.timeToBeat,
     game.metadataSource,
+    game.igdbId,
     game.collection,
     game.collectionId,
     game.developer,
@@ -231,55 +157,46 @@ function GameDetail({ game }: { game: Game }) {
     enrichGameMetadata,
   ]);
 
-  function handleLaunch() {
+  const handleLaunch = () => {
     launchGame(game);
-  }
+  };
 
-  function handleBack() {
+  const handleBack = () => {
     navigate("/library");
-  }
+  };
 
-  function handleEditRequest() {
-    setEditing(true);
-  }
-
-  function handleRemoveRequest() {
-    setShowRemoveConfirm(true);
-  }
-
-  function handleCancelRemove() {
-    setShowRemoveConfirm(false);
-  }
-
-  function handleConfirmRemove() {
+  const handleConfirmRemove = () => {
     removeGame(game.id);
     showToast(t("game.removed", { name: game.name }), "info");
-    // Navigate immediately so we don't render the "Game Not Found"
-    // empty state for the about-to-be-deleted game for a single tick.
-    // GameDetail is keyed by game.id (see the parent GamePage render),
-    // so navigate() unmounts this component for free — no need to
-    // also call setShowRemoveConfirm(false).
     navigate("/library");
-  }
+  };
 
-
-
-
-
-
-
-
-
-
+  // Tab definitions with icons and live counts
+  const tabs = useMemo(
+    () => [
+      { id: "overview" as const, label: t("game.tab.overview"), icon: IconOverview },
+      { id: "reviews" as const, label: t("game.tab.reviews"), icon: IconMessageSquare },
+      { id: "activity" as const, label: t("game.tab.activity"), icon: IconActivity },
+      {
+        id: "achievements" as const,
+        label: t("game.tab.achievements"),
+        icon: IconTrophy,
+        count: game.steamAchievements?.length ?? null,
+      },
+      { id: "mods" as const, label: t("game.tab.mods"), icon: IconWrench },
+      {
+        id: "weblinks" as const,
+        label: t("game.tab.weblinks"),
+        icon: IconGlobe,
+        count: game.websites?.length ?? null,
+      },
+    ],
+    [t, game.steamAchievements, game.websites]
+  );
 
   return (
     <div className="game-page">
-      {/* Top bar above the hero: "Return to Library" back link on the
-          left (mirrors the same `.game-top-bar` + `.game-back-link`
-          pattern used by StoreGameDetail), and Edit + Remove actions
-          on the right. Edit opens the existing modal; Remove opens a
-          ConfirmModal (matches the destructive-action discipline used
-          elsewhere, vs. the silent toast path the sidebar uses). */}
+      {/* Top Bar with Return Link and Edit / Remove actions */}
       <div className="game-top-bar">
         <button
           className="game-back-link"
@@ -289,59 +206,35 @@ function GameDetail({ game }: { game: Game }) {
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
             <polyline points="15 18 9 12 15 6" />
           </svg>
-            {t("page.game.returnToLibrary")}
-          </button>
-          <div className="game-top-bar__actions">
-            <button
-              type="button"
-              className="game-edit-btn"
-              onClick={handleEditRequest}
-              aria-label={t("gamePage.editGame", { name: game.name })}
-            >
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
-                <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
-              </svg>
-              {t("common.edit")}
-            </button>
-            <button
-              type="button"
-              className="game-edit-btn game-edit-btn-danger"
-              onClick={handleRemoveRequest}
-              aria-label={t("gamePage.removeGame", { name: game.name })}
-            >
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <polyline points="3 6 5 6 21 6" />
-                <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
-              </svg>
-              {t("common.remove")}
-            </button>
+          <span>{t("page.game.returnToLibrary")}</span>
+        </button>
+
+        <div className="game-top-bar__actions">
+          <GameQuickActions
+            gameName={game.name}
+            steamAppId={game.steamAppId}
+            executablePath={game.path}
+            onEdit={() => setEditing(true)}
+            onRemove={() => setShowRemoveConfirm(true)}
+          />
         </div>
       </div>
 
-      <GameHero game={game} steamAppId={heroSteamAppId} onLaunch={handleLaunch} />
+      {/* Hero Banner */}
+      <GameHero
+        game={game}
+        steamAppId={heroSteamAppId}
+        onLaunch={handleLaunch}
+      />
 
-      {/* Tabs — sticky bar with an animated sliding indicator.
-          The indicator span reads --tab-indicator-left / --width
-          set imperatively from the measured active button so it
-          slides between tab positions. Hidden until measured. */}
-      <div className="game-tabs">
-        {(["overview", "reviews", "activity", "achievements", "mods", "weblinks"] as const).map((tab) => {
-          const Icon = TAB_ICONS[tab];
-          return (
-            <button
-              key={tab}
-              className={`game-tab ${activeTab === tab ? "active" : ""}`}
-              onClick={() => setActiveTab(tab)}
-            >
-              {Icon && <Icon size={14} className="game-tab-icon" />}
-              <span>{t(`game.tab.${tab}`)}</span>
-            </button>
-          );
-        })}
-      </div>
+      {/* Sticky Segmented Tabs with Sliding Indicator */}
+      <GameTabs
+        tabs={tabs}
+        activeTab={activeTab}
+        onChange={handleTabChange}
+      />
 
-      {/* Tab Content */}
+      {/* Tab Content Panels */}
       {activeTab === "overview" && (
         <div className="game-content-grid">
           <div className="game-main-col">
@@ -350,16 +243,10 @@ function GameDetail({ game }: { game: Game }) {
             <StorylineSection game={game} />
             <ScreenshotsSection
               game={game}
-              onOpen={(src) => setLightboxImage(src)}
+              onOpen={handleOpenScreenshot}
             />
             <VideosSection game={game} />
 
-            {/* Game Relations Card — library-local + IGDB relations.
-                Renders below the standalone Similar Games section per
-                the design decision (both cards are kept side-by-side:
-                the standalone section is a thin IGDB-similar rail, this
-                is the broader relations surface). The card silently
-                renders nothing when no groups have content. */}
             <GameRelationsCard
               mode="library"
               currentGame={game}
@@ -400,8 +287,12 @@ function GameDetail({ game }: { game: Game }) {
       {activeTab === "weblinks" && (
         <WebLinksTab
           game={game}
-          visible={!editing && !lightboxImage}
-          onWebsitesChange={(websites) => updateGame(game.id, { websites: websites.length > 0 ? websites : undefined })}
+          visible={!editing && !lightboxOpen}
+          onWebsitesChange={(websites) =>
+            updateGame(game.id, {
+              websites: websites.length > 0 ? websites : undefined,
+            })
+          }
         />
       )}
 
@@ -421,140 +312,20 @@ function GameDetail({ game }: { game: Game }) {
         />
       )}
 
-      {/* Edit Modal */}
-       {editing && <EditGameModal game={game} onClose={() => setEditing(false)} />}
-      {lightboxImage && (
-        <div 
-          className="lightbox-backdrop" 
-          onClick={() => setLightboxImage(null)}
-          style={{
-            position: 'fixed',
-            top: 0,
-            left: 0,
-            width: '100vw',
-            height: '100vh',
-            background: 'rgba(0, 0, 0, 0.85)',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            zIndex: 10000,
-            cursor: 'zoom-out',
-            animation: 'fadeIn var(--transition-fast) ease'
-          }}
-        >
-          <button
-            className="lightbox-nav lightbox-nav--prev"
-            aria-label={t("gamePage.prevScreenshot")}
-            onClick={(e) => { e.stopPropagation(); stepLightbox(-1); }}
-            style={{
-              position: 'fixed',
-              left: 'var(--space-xl)',
-              top: '50%',
-              transform: 'translateY(-50%)',
-              width: 44, height: 44,
-              borderRadius: '50%',
-              border: '1px solid rgba(255,255,255,0.18)',
-              background: 'rgba(0,0,0,0.5)',
-              color: '#fff',
-              cursor: 'pointer',
-              display: 'flex', alignItems: 'center', justifyContent: 'center',
-              transition: 'background var(--transition-fast)',
-            }}
-          >
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" style={{ width: 20, height: 20 }}>
-              <polyline points="15 18 9 12 15 6" />
-            </svg>
-          </button>
-          <div 
-            className="lightbox-content" 
-            onClick={(e) => e.stopPropagation()}
-            style={{
-              position: 'relative',
-              maxWidth: '90%',
-              maxHeight: '90%',
-              borderRadius: 'var(--radius-lg)',
-              overflow: 'hidden',
-              boxShadow: '0 20px 50px rgba(0,0,0,0.5)',
-              border: '1px solid rgba(255,255,255,0.1)'
-            }}
-          >
-            <img src={lightboxImage}             alt={t("gamePage.fullscreenScreenshot")} style={{ maxWidth: '100%', maxHeight: '85vh', objectFit: 'contain', display: 'block' }} />
-            {game.screenshots && game.screenshots.length > 1 && (
-              <div
-                className="lightbox-counter"
-                style={{
-                  position: 'absolute',
-                  bottom: 'var(--space-md)',
-                  left: '50%',
-                  transform: 'translateX(-50%)',
-                  background: 'rgba(0,0,0,0.6)',
-                  color: '#fff',
-                  fontSize: 12,
-                  fontWeight: 600,
-                  padding: '4px 12px',
-                  borderRadius: 'var(--radius-full)',
-                  letterSpacing: '0.4px',
-                }}
-              >
-                {(lightboxIndex < 0 ? 1 : lightboxIndex + 1)} / {game.screenshots.length}
-              </div>
-            )}
-            <button 
-              className="lightbox-close" 
-              onClick={() => setLightboxImage(null)}
-              style={{
-                position: 'absolute',
-                top: 'var(--space-md)',
-                right: 'var(--space-md)',
-                background: 'rgba(0, 0, 0, 0.5)',
-                border: 'none',
-                borderRadius: '50%',
-                width: 36,
-                height: 36,
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                cursor: 'pointer',
-                color: '#fff',
-                transition: 'background var(--transition-fast)'
-              }}
-            >
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" style={{ width: 18, height: 18 }}>
-                <line x1="18" y1="6" x2="6" y2="18" />
-                <line x1="6" y1="6" x2="18" y2="18" />
-              </svg>
-            </button>
-          </div>
-          <button
-            className="lightbox-nav lightbox-nav--next"
-            aria-label={t("gamePage.nextScreenshot")}
-            onClick={(e) => { e.stopPropagation(); stepLightbox(1); }}
-            style={{
-              position: 'fixed',
-              right: 'var(--space-xl)',
-              top: '50%',
-              transform: 'translateY(-50%)',
-              width: 44, height: 44,
-              borderRadius: '50%',
-              border: '1px solid rgba(255,255,255,0.18)',
-              background: 'rgba(0,0,0,0.5)',
-              color: '#fff',
-              cursor: 'pointer',
-              display: 'flex', alignItems: 'center', justifyContent: 'center',
-              transition: 'background var(--transition-fast)',
-            }}
-          >
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" style={{ width: 20, height: 20 }}>
-              <polyline points="9 18 15 12 9 6" />
-            </svg>
-          </button>
-        </div>
-      )}
+      {/* Edit Game Modal */}
+      {editing && <EditGameModal game={game} onClose={() => setEditing(false)} />}
 
-      {/* Confirm modal for the destructive Remove top-bar action.
-          Rendered through the same Portal-based ConfirmModal used
-          elsewhere in the app so the Cancel / Delete focus order,
-          Escape handling, and backdrop click are consistent. */}
+      {/* Unified Image Lightbox */}
+      <ImageLightbox
+        images={game.screenshots || []}
+        currentIndex={lightboxIndex}
+        isOpen={lightboxOpen}
+        onClose={() => setLightboxOpen(false)}
+        onSelectIndex={setLightboxIndex}
+        title={game.name}
+      />
+
+      {/* Confirm Remove Modal */}
       <ConfirmModal
         open={showRemoveConfirm}
         title={t("game.removeConfirmTitle", { name: game.name })}
@@ -562,7 +333,7 @@ function GameDetail({ game }: { game: Game }) {
         confirmLabel={t("common.remove")}
         cancelLabel={t("game.keep")}
         onConfirm={handleConfirmRemove}
-        onCancel={handleCancelRemove}
+        onCancel={() => setShowRemoveConfirm(false)}
       />
     </div>
   );
@@ -586,4 +357,3 @@ export default function GamePage() {
 
   return <GameDetail key={game.id} game={game} />;
 }
-
