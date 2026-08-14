@@ -1,8 +1,10 @@
-import { useEffect, useRef, useState, type ReactElement } from "react";
+import { useEffect, useRef, useState, useCallback, useMemo, useContext, type ReactElement } from "react";
 import { invoke } from "@tauri-apps/api/core";
-import type { StoreGameSummary } from "../../types/game";
-import StoreGameCard from "./StoreGameCard";
+import type { GameMetadataResult, StoreGameSummary } from "../../types/game";
 import { useLanguage } from "../../context/LanguageContext";
+import { WishlistContext } from "../../context/WishlistContext";
+import { useProgressiveImage } from "../../hooks/useProgressiveImages";
+import { Button } from "../ui";
 
 type HeroCategory = "hot" | "weekly" | "trending";
 
@@ -11,19 +13,14 @@ interface StoreFeaturedHeroProps {
   onPickGame: (game: StoreGameSummary) => void;
 }
 
-/**
- * Featured rail tabs map to GameLib's IGDB store feed (`fetch_store_games`):
- * Hot Now = hypes-ranked, Game of the Week = top-rated rotated by ISO week,
- * Trending = most-followed. "Surprise me" jumps to a random game.
- */
 const TABS: {
   id: HeroCategory;
-  label: string;
+  labelKey: string;
   icon: ReactElement;
 }[] = [
   {
     id: "hot",
-    label: "Hot Now",
+    labelKey: "store.featured.hot",
     icon: (
       <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
         <path d="M12 2c1 3-1 4-1 6 0 1.5 1 2 2 2 2 0 2-2 2-4 3 2 5 5 5 9 0 4-3 7-7 8-3 .7-5-1-6-3-2-3-1-7 1-9 1-2 4-4 5-7z" />
@@ -32,7 +29,7 @@ const TABS: {
   },
   {
     id: "weekly",
-    label: "Game of the Week",
+    labelKey: "store.featured.weekly",
     icon: (
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
         <rect x="3" y="4" width="18" height="18" rx="2" />
@@ -45,7 +42,7 @@ const TABS: {
   },
   {
     id: "trending",
-    label: "Trending",
+    labelKey: "store.featured.trending",
     icon: (
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
         <polyline points="23 6 13.5 15.5 8.5 10.5 1 18" />
@@ -55,9 +52,9 @@ const TABS: {
   },
 ];
 
-const HERO_LIMIT = 12;
+const HERO_LIMIT = 8;
+const SLIDE_DURATION_MS = 8000;
 
-/** ISO-8601 week number of a date (UTC Thursday trick). */
 function isoWeekNumber(date: Date): number {
   const d = new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()));
   const dayNum = d.getUTCDay() || 7;
@@ -66,67 +63,251 @@ function isoWeekNumber(date: Date): number {
   return Math.ceil(((d.getTime() - yearStart.getTime()) / 86400000 + 1) / 7);
 }
 
-/**
- * Featured rail: a wide banner of up to 12 game cards with pill subtabs
- * (Hot Now / Game of the Week / Trending) backed by GameLib's IGDB store
- * feed — the grid below keeps its own sort. "Surprise me" jumps to a
- * random card from the visible rail.
- */
+function renderPlatformIcon(platform: string): ReactElement | null {
+  const p = platform.toLowerCase();
+  if (p.includes("pc") || p.includes("windows")) {
+    return (
+      <svg viewBox="0 0 24 24" fill="currentColor" width="13" height="13" aria-label="PC">
+        <path d="M0 3.449L9.75 2.1v9.451H0m10.949-9.602L24 0v11.4H10.949M0 12.6h9.75v9.451L0 20.699M10.949 12.6H24V24l-12.9-1.801" />
+      </svg>
+    );
+  }
+  if (p.includes("playstation") || p.includes("ps5") || p.includes("ps4")) {
+    return (
+      <svg viewBox="0 0 24 24" fill="currentColor" width="13" height="13" aria-label="PlayStation">
+        <path d="M8.9 14.5c.3.5.7.9 1.1 1.2.4.3.9.5 1.4.5.6 0 1.1-.2 1.6-.6.5-.4.8-.9.9-1.5.1-.6 0-1.2-.3-1.7l-4.7-7.9h2.9l3.3 5.7c.3.5.4 1 .4 1.5 0 .5-.2 1-.5 1.4-.3.4-.7.7-1.2.8-.5.1-1 .1-1.5-.1-.5-.2-.9-.5-1.2-.9l-2.2-3.8v5.3zm-5.7 3.9c-1.3-.4-2.2-1.3-2.7-2.7-.5-1.4-.3-2.9.5-4.3l7.9-13.4h2.9L3.9 11.4c-.6 1-.7 2.1-.4 3.1.4 1 1 1.7 2 2 .9.3 1.9.2 2.8-.3.9-.5 1.5-1.2 1.9-2.2l1.4 2.4c-.6 1.4-1.5 2.4-2.8 3.1-1.3.7-2.8.8-4.3.4z" />
+      </svg>
+    );
+  }
+  if (p.includes("xbox")) {
+    return (
+      <svg viewBox="0 0 24 24" fill="currentColor" width="13" height="13" aria-label="Xbox">
+        <path d="M12 0C5.373 0 0 5.373 0 12s5.373 12 12 12 12-5.373 12-12S18.627 0 12 0zm-2.07 4.19c1.076.62 1.838 1.503 2.07 2.65.232-1.147.994-2.03 2.07-2.65 1.577.818 2.87 2.062 3.708 3.593-.654.516-1.547.88-2.63 1.055-.494.08-1.026.124-1.58.132-.38-.005-.756-.03-1.127-.076-.14-.017-.28-.038-.418-.063-1.083-.175-1.976-.54-2.63-1.055.838-1.53 2.13-2.775 3.707-3.593zM4.19 12c0-1.89.65-3.633 1.74-5.018.57.733 1.488 1.34 2.66 1.737-.587 1.507-.94 3.228-1.01 5.064-.99-.54-1.85-1.36-2.49-2.383-.58.188-.9.37-.9.6z" />
+      </svg>
+    );
+  }
+  if (p.includes("switch") || p.includes("nintendo")) {
+    return (
+      <svg viewBox="0 0 24 24" fill="currentColor" width="13" height="13" aria-label="Nintendo">
+        <path d="M7.74 0C3.47 0 0 3.47 0 7.74v8.52C0 20.53 3.47 24 7.74 24h1.72V0H7.74zm-2.1 9.4c1.16 0 2.1.94 2.1 2.1 0 1.16-.94 2.1-2.1 2.1-1.16 0-2.1-.94-2.1-2.1 0-1.16.94-2.1 2.1-2.1zM16.26 0h-1.72v24h1.72c4.27 0 7.74-3.47 7.74-7.74V7.74C24 3.47 20.53 0 16.26 0zm2.1 13.6c-1.16 0-2.1-.94-2.1-2.1 0-1.16.94-2.1 2.1-2.1 1.16 0 2.1.94 2.1 2.1 0 1.16-.94 2.1-2.1 2.1z" />
+      </svg>
+    );
+  }
+  return null;
+}
+
 export default function StoreFeaturedHero({ onPickGame }: StoreFeaturedHeroProps) {
   const { t } = useLanguage();
+  const wishlistCtx = useContext(WishlistContext);
   const [tab, setTab] = useState<HeroCategory>("hot");
   const [games, setGames] = useState<StoreGameSummary[]>([]);
+  const [currentIndex, setCurrentIndex] = useState(0);
   const [loading, setLoading] = useState(true);
   const [surprising, setSurprising] = useState(false);
+  const [isPaused, setIsPaused] = useState(false);
+  const [logoFailed, setLogoFailed] = useState(false);
+  const [metadata, setMetadata] = useState<GameMetadataResult | null>(null);
+  const [videoFailed, setVideoFailed] = useState(false);
+
   const cacheRef = useRef<Partial<Record<HeroCategory, StoreGameSummary[]>>>({});
   const reqRef = useRef(0);
+  const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
+  // Fetch games for the current category tab
   useEffect(() => {
     const cached = cacheRef.current[tab];
-    if (cached) {
+    if (cached && cached.length > 0) {
       setGames(cached);
+      setCurrentIndex(0);
       setLoading(false);
       return;
     }
-    const id = ++reqRef.current;
+
+    const currentReq = ++reqRef.current;
     setLoading(true);
-    // Same IGDB-backed feed the main game grid uses (`fetch_store_games`).
-    const args: { category: string; offset: number; limit: number; sort?: string } =
-      tab === "hot"
-        ? { category: "trending", offset: 0, limit: HERO_LIMIT }
-        : tab === "weekly"
-          ? { category: "top", offset: 0, limit: HERO_LIMIT }
-          : { category: "all", offset: 0, limit: HERO_LIMIT, sort: "follows" };
-    invoke<StoreGameSummary[]>("fetch_store_games", args)
+
+    const loadCategoryGames = async () => {
+      try {
+        let results: StoreGameSummary[] = [];
+
+        if (tab === "hot") {
+          results = await invoke<StoreGameSummary[]>("fetch_store_games", {
+            category: "trending",
+            offset: 0,
+            limit: HERO_LIMIT,
+          });
+        } else if (tab === "weekly") {
+          const now = new Date();
+          const seed = now.getFullYear() * 100 + isoWeekNumber(now);
+          const raw = await invoke<StoreGameSummary[]>("fetch_store_games", {
+            category: "top",
+            offset: 0,
+            limit: 24,
+          });
+          const pool = raw.filter((g) => (g.rating ?? 0) >= 80);
+          const source = pool.length >= HERO_LIMIT ? pool : raw;
+          let s = seed;
+          const rng = () => {
+            s = (s * 9301 + 49297) % 233280;
+            return s / 233280;
+          };
+          const shuffled = [...source].sort(() => rng() - 0.5);
+          results = shuffled.slice(0, HERO_LIMIT);
+        } else if (tab === "trending") {
+          results = await invoke<StoreGameSummary[]>("fetch_store_games", {
+            category: "all",
+            sort: "follows",
+            offset: 0,
+            limit: HERO_LIMIT,
+          });
+        }
+
+        // Graceful fallback if category returned empty list
+        if (!results || results.length === 0) {
+          results = await invoke<StoreGameSummary[]>("fetch_store_games", {
+            category: "all",
+            offset: 0,
+            limit: HERO_LIMIT,
+          });
+        }
+
+        if (currentReq === reqRef.current) {
+          cacheRef.current[tab] = results;
+          setGames(results || []);
+          setCurrentIndex(0);
+          setLoading(false);
+        }
+      } catch (err) {
+        console.error("Failed to load featured games for tab:", tab, err);
+        try {
+          const fallback = await invoke<StoreGameSummary[]>("fetch_store_games", {
+            category: "all",
+            offset: 0,
+            limit: HERO_LIMIT,
+          });
+          if (currentReq === reqRef.current) {
+            cacheRef.current[tab] = fallback;
+            setGames(fallback || []);
+            setCurrentIndex(0);
+            setLoading(false);
+            return;
+          }
+        } catch {
+          // Both failed
+        }
+        if (currentReq === reqRef.current) {
+          setLoading(false);
+        }
+      }
+    };
+
+    loadCategoryGames();
+  }, [tab]);
+
+  const handleNext = useCallback(() => {
+    if (games.length === 0) return;
+    setCurrentIndex((prev) => (prev + 1) % games.length);
+  }, [games.length]);
+
+  const handlePrev = useCallback(() => {
+    if (games.length === 0) return;
+    setCurrentIndex((prev) => (prev - 1 + games.length) % games.length);
+  }, [games.length]);
+
+  // Autoplay carousel timer
+  useEffect(() => {
+    if (isPaused || games.length <= 1) {
+      if (timerRef.current) clearInterval(timerRef.current);
+      return;
+    }
+
+    timerRef.current = setInterval(() => {
+      handleNext();
+    }, SLIDE_DURATION_MS);
+
+    return () => {
+      if (timerRef.current) clearInterval(timerRef.current);
+    };
+  }, [isPaused, games.length, handleNext]);
+
+  const activeGame = games[currentIndex];
+
+  // Reset per-game states when activeGame changes and fetch details
+  useEffect(() => {
+    setLogoFailed(false);
+    setVideoFailed(false);
+    setMetadata(null);
+
+    if (!activeGame) return;
+
+    let isMounted = true;
+    invoke<GameMetadataResult | null>("get_store_game_detail", { slug: activeGame.slug })
       .then((res) => {
-        if (id !== reqRef.current) return;
-        const games =
-          tab === "weekly" && res.length > 0
-            ? (() => {
-                const offset = isoWeekNumber(new Date()) % res.length;
-                return [...res.slice(offset), ...res.slice(0, offset)];
-              })()
-            : res;
-        cacheRef.current[tab] = games;
-        setGames(games);
-        setLoading(false);
+        if (isMounted && res) {
+          setMetadata(res);
+        }
       })
       .catch(() => {
-        if (id === reqRef.current) setLoading(false);
+        // Degrade gracefully
       });
-  }, [tab]);
+
+    return () => {
+      isMounted = false;
+    };
+  }, [activeGame?.id, activeGame?.slug]);
+
+  // Extract Steam App ID from websites if present
+  const steamAppId = useMemo(() => {
+    if (!activeGame) return null;
+    const websites = activeGame.websites ?? metadata?.websites ?? [];
+    for (const url of websites) {
+      const match = url.match(/store\.steampowered\.com\/app\/(\d+)/i);
+      if (match) return match[1];
+    }
+    return null;
+  }, [activeGame, metadata]);
+
+  // Determine clear logo candidate
+  const clearLogoSrc = useMemo(() => {
+    if (!activeGame) return null;
+    if (activeGame.logoUrl) return activeGame.logoUrl;
+    if (metadata?.images?.logo) return metadata.images.logo;
+    if (steamAppId) {
+      return `https://cdn.cloudflare.steamstatic.com/steam/apps/${steamAppId}/logo.png`;
+    }
+    return null;
+  }, [activeGame, metadata, steamAppId]);
+
+  // Determine backdrop artwork URL
+  const backdropArtUrl = useMemo(() => {
+    if (!activeGame) return "";
+    if (steamAppId) {
+      return `https://cdn.cloudflare.steamstatic.com/steam/apps/${steamAppId}/library_hero.jpg`;
+    }
+    if (metadata?.images?.hero) return metadata.images.hero;
+    if (metadata?.images?.banner) return metadata.images.banner;
+    if (metadata?.screenshots && metadata.screenshots.length > 0) {
+      return metadata.screenshots[0];
+    }
+    return activeGame.coverUrl ?? "";
+  }, [activeGame, metadata, steamAppId]);
+
+  // Determine silent background video trailer URL
+  const trailerVideoSrc = useMemo(() => {
+    if (videoFailed || !activeGame) return null;
+    if (steamAppId) {
+      return `https://cdn.cloudflare.steamstatic.com/steam/apps/${steamAppId}/movie480_vp9.webm`;
+    }
+    return null;
+  }, [videoFailed, activeGame, steamAppId]);
 
   const handleSurprise = async () => {
     if (surprising) return;
-    // Fetch a genuinely random game from the whole catalogue (the same
-    // "surprise me" behaviour as Hydra Launcher) rather than just
-    // picking from the cards currently on screen.
     setSurprising(true);
     try {
       const game = await invoke<StoreGameSummary>("get_random_store_game");
       onPickGame(game);
     } catch {
-      // Fallback: pick a random card from the visible rail.
       if (games.length > 0) {
         onPickGame(games[Math.floor(Math.random() * games.length)]);
       }
@@ -135,23 +316,39 @@ export default function StoreFeaturedHero({ onPickGame }: StoreFeaturedHeroProps
     }
   };
 
+  const isWishlisted = activeGame && wishlistCtx ? wishlistCtx.isWishlisted(activeGame.slug) : false;
+  const [coverUrl] = useProgressiveImage(activeGame?.coverUrl);
+  const [backdropLoadedUrl] = useProgressiveImage(backdropArtUrl);
+
+  const releaseYear = activeGame?.firstReleaseDate
+    ? new Date(activeGame.firstReleaseDate).getFullYear()
+    : null;
+
+  const summaryText = activeGame?.summary || metadata?.description || metadata?.storyline || "";
+
   return (
-    <section className="store-featured-section" aria-label={t("store.highlightsAria")}>
-      <div className="store-featured-head">
-        <div className="store-featured-tablist" role="tablist" aria-label={t("store.featuredCategoriesAria")}>
+    <section
+      className="store-spotlight"
+      aria-label={t("store.highlightsAria")}
+      onMouseEnter={() => setIsPaused(true)}
+      onMouseLeave={() => setIsPaused(false)}
+    >
+      {/* Category selector & Surprise me header */}
+      <div className="store-spotlight-top">
+        <div className="store-spotlight-tablist" role="tablist" aria-label={t("store.featuredCategoriesAria")}>
           {TABS.map((tabItem) => (
             <button
               key={tabItem.id}
               type="button"
               role="tab"
               aria-selected={tab === tabItem.id}
-              className={`store-featured-tab${tab === tabItem.id ? " active" : ""}`}
+              className={`store-spotlight-tab${tab === tabItem.id ? " active" : ""}`}
               onClick={() => setTab(tabItem.id)}
             >
-              <span className="store-featured-tab-icon" aria-hidden="true">
+              <span className="store-spotlight-tab-icon" aria-hidden="true">
                 {tabItem.icon}
               </span>
-              {t(`store.featured.${tabItem.id}`)}
+              <span>{t(tabItem.labelKey)}</span>
             </button>
           ))}
         </div>
@@ -178,31 +375,261 @@ export default function StoreFeaturedHero({ onPickGame }: StoreFeaturedHeroProps
             <line x1="15" y1="15" x2="21" y2="21" />
             <line x1="4" y1="4" x2="9" y2="9" />
           </svg>
-          {t("store.surpriseMe")}
+          <span>{t("store.surpriseMe")}</span>
         </button>
       </div>
 
-      <div className="store-featured-rail">
-        {loading && games.length === 0
-          ? Array.from({ length: HERO_LIMIT }).map((_, i) => (
-              <div
-                key={i}
-                className="store-game-card store-game-card-skeleton density-cinematic"
-              >
-                <div className="store-card-cover">
-                  <div className="store-card-cover-skeleton" />
-                </div>
-              </div>
-            ))
-          : games.map((g) => (
-              <StoreGameCard
-                key={`${tab}-${g.id}-${g.slug}`}
-                game={g}
-                onClick={onPickGame}
-                density="cinematic"
+      {/* Main Spotlight Showcase */}
+      {loading ? (
+        <div className="store-spotlight-stage store-spotlight-stage--loading">
+          <div className="store-spotlight-skeleton-backdrop" />
+          <div className="store-spotlight-skeleton-info">
+            <div className="skeleton-line skeleton-title" style={{ width: "60%" }} />
+            <div className="skeleton-line skeleton-subtitle" style={{ width: "40%" }} />
+            <div className="skeleton-line skeleton-subtitle" style={{ width: "80%", marginTop: "12px" }} />
+          </div>
+        </div>
+      ) : !activeGame ? (
+        <div className="store-spotlight-stage store-spotlight-stage--empty">
+          <div className="store-spotlight-body">
+            <h2 className="store-spotlight-title">{t("store.noGames")}</h2>
+            <p style={{ color: "var(--color-text-secondary)", margin: "8px 0 16px" }}>{t("store.noGamesHint")}</p>
+            <Button variant="secondary" size="sm" onClick={() => setTab("hot")}>
+              {t("common.reset")}
+            </Button>
+          </div>
+        </div>
+      ) : (
+        <div className="store-spotlight-stage">
+          {/* Animated Background Mesh, Backdrop & Silent Video Trailer */}
+          <div className="store-spotlight-bg" aria-hidden="true">
+            {trailerVideoSrc ? (
+              <video
+                key={trailerVideoSrc}
+                src={trailerVideoSrc}
+                poster={backdropLoadedUrl || coverUrl || undefined}
+                autoPlay
+                muted
+                loop
+                playsInline
+                className="store-spotlight-bg-video"
+                onError={() => setVideoFailed(true)}
               />
-            ))}
-      </div>
+            ) : (backdropLoadedUrl || coverUrl) ? (
+              <img
+                key={`${activeGame.id}-${backdropLoadedUrl || coverUrl}`}
+                src={backdropLoadedUrl || coverUrl || ""}
+                alt=""
+                className="store-spotlight-bg-img"
+              />
+            ) : null}
+            <div className="store-spotlight-scrim" />
+            <div className="store-spotlight-mesh" />
+          </div>
+
+          {/* Left Details Pane */}
+          <div className="store-spotlight-body">
+            <div className="store-spotlight-badge-cluster">
+              <span className="store-spotlight-tag">
+                <svg viewBox="0 0 24 24" fill="currentColor" width="11" height="11" aria-hidden="true">
+                  <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" />
+                </svg>
+                {t("store.spotlight.featuredTag")}
+              </span>
+
+              {trailerVideoSrc && !videoFailed && (
+                <span className="store-spotlight-trailer-pill">
+                  <svg viewBox="0 0 24 24" fill="currentColor" width="10" height="10" aria-hidden="true">
+                    <polygon points="5 3 19 12 5 21 5 3" />
+                  </svg>
+                  <span>Trailer</span>
+                </span>
+              )}
+
+              {activeGame.rating != null && (
+                <span className="store-spotlight-rating" title={t("store.spotlight.rating", { score: Math.round(activeGame.rating) })}>
+                  <svg viewBox="0 0 24 24" fill="currentColor" width="11" height="11" aria-hidden="true">
+                    <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" />
+                  </svg>
+                  {Math.round(activeGame.rating)}%
+                </span>
+              )}
+
+              {releaseYear != null && (
+                <span className="store-spotlight-year">{releaseYear}</span>
+              )}
+            </div>
+
+            {/* Clear Logo or Styled Title Fallback */}
+            {clearLogoSrc && !logoFailed ? (
+              <div className="store-spotlight-logo-wrap" onClick={() => onPickGame(activeGame)}>
+                <img
+                  key={clearLogoSrc}
+                  src={clearLogoSrc}
+                  alt={activeGame.name}
+                  className="store-spotlight-logo"
+                  onError={() => setLogoFailed(true)}
+                />
+              </div>
+            ) : (
+              <h2 className="store-spotlight-title" title={activeGame.name} onClick={() => onPickGame(activeGame)}>
+                {activeGame.name}
+              </h2>
+            )}
+
+            {/* Synopsis / Summary */}
+            {summaryText && (
+              <p className="store-spotlight-summary">
+                {summaryText}
+              </p>
+            )}
+
+            {/* Genres & Platforms Cluster */}
+            <div className="store-spotlight-meta-row">
+              {activeGame.genres && activeGame.genres.length > 0 && (
+                <div className="store-spotlight-genres">
+                  {activeGame.genres.slice(0, 3).map((genre) => (
+                    <span key={genre} className="store-spotlight-genre-pill">
+                      {genre}
+                    </span>
+                  ))}
+                </div>
+              )}
+
+              {activeGame.platforms && activeGame.platforms.length > 0 && (
+                <div className="store-spotlight-platforms">
+                  {activeGame.platforms.slice(0, 3).map((plat) => {
+                    const icon = renderPlatformIcon(plat);
+                    return (
+                      <span key={plat} className="store-spotlight-platform-item" title={plat}>
+                        {icon}
+                        <span>{plat.replace(/\s*\(.*?\)\s*/g, "")}</span>
+                      </span>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+
+            {/* CTAs & Slide Navigation */}
+            <div className="store-spotlight-actions">
+              <Button
+                variant="primary"
+                size="md"
+                className="store-spotlight-cta"
+                onClick={() => onPickGame(activeGame)}
+              >
+                <span>{t("store.spotlight.explore")}</span>
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" width="16" height="16" aria-hidden="true">
+                  <line x1="5" y1="12" x2="19" y2="12" />
+                  <polyline points="12 5 19 12 12 19" />
+                </svg>
+              </Button>
+
+              {wishlistCtx && (
+                <button
+                  type="button"
+                  className={`store-spotlight-wishlist${isWishlisted ? " active" : ""}`}
+                  onClick={() => wishlistCtx.toggle(activeGame)}
+                  title={isWishlisted ? t("store.spotlight.wishlisted") : t("store.spotlight.addToWishlist")}
+                  aria-pressed={isWishlisted}
+                >
+                  <svg
+                    viewBox="0 0 24 24"
+                    fill={isWishlisted ? "currentColor" : "none"}
+                    stroke="currentColor"
+                    strokeWidth="2"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    width="16"
+                    height="16"
+                    aria-hidden="true"
+                  >
+                    <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z" />
+                  </svg>
+                  <span>{isWishlisted ? t("store.spotlight.wishlisted") : t("store.spotlight.addToWishlist")}</span>
+                </button>
+              )}
+
+              {/* Slide Counter & Arrow controls */}
+              {games.length > 1 && (
+                <div className="store-spotlight-quick-nav">
+                  <span className="store-spotlight-counter">
+                    <strong>{String(currentIndex + 1).padStart(2, "0")}</strong>
+                    <small>/{String(games.length).padStart(2, "0")}</small>
+                  </span>
+                  <div className="store-spotlight-nav-arrows">
+                    <button
+                      type="button"
+                      className="store-spotlight-arrow-btn"
+                      onClick={handlePrev}
+                      aria-label={t("store.spotlight.prev")}
+                    >
+                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" width="14" height="14" aria-hidden="true">
+                        <polyline points="15 18 9 12 15 6" />
+                      </svg>
+                    </button>
+                    <button
+                      type="button"
+                      className="store-spotlight-arrow-btn"
+                      onClick={handleNext}
+                      aria-label={t("store.spotlight.next")}
+                    >
+                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" width="14" height="14" aria-hidden="true">
+                        <polyline points="9 18 15 12 9 6" />
+                      </svg>
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Right Showcase 3D Poster / Preview */}
+          <div className="store-spotlight-media" onClick={() => onPickGame(activeGame)}>
+            <div className="store-spotlight-card-wrap">
+              {coverUrl ? (
+                <img src={coverUrl} alt={activeGame.name} className="store-spotlight-poster" />
+              ) : (
+                <div className="store-spotlight-poster-placeholder" />
+              )}
+              <div className="store-spotlight-poster-gloss" />
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Thumbnails reel spanning bottom dock */}
+      {games.length > 1 && (
+        <div className="store-spotlight-dock" role="tablist" aria-label={t("store.spotlight.slideIndicator", { current: currentIndex + 1, total: games.length })}>
+          <div className="store-spotlight-dock-reel">
+            {games.map((game, idx) => {
+              const isActive = idx === currentIndex;
+              return (
+                <button
+                  key={game.id}
+                  type="button"
+                  role="tab"
+                  aria-selected={isActive}
+                  className={`store-spotlight-dock-item${isActive ? " active" : ""}`}
+                  onClick={() => setCurrentIndex(idx)}
+                  title={game.name}
+                >
+                  {game.coverUrl ? (
+                    <img src={game.coverUrl} alt={game.name} loading="lazy" />
+                  ) : (
+                    <div className="store-spotlight-dock-placeholder" />
+                  )}
+                  <span className="store-spotlight-dock-name">{game.name}</span>
+                  {isActive && !isPaused && (
+                    <div className="store-spotlight-dock-progress" />
+                  )}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      )}
     </section>
   );
 }

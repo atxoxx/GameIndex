@@ -13,14 +13,23 @@ interface LibraryGameCardProps {
   onContextMenu: (e: React.MouseEvent) => void;
   onLaunch?: (game: Game) => void;
   className?: string;
+  selectable?: boolean;
+  selected?: boolean;
+  onToggleSelect?: (game: Game) => void;
 }
 
-/**
- * Library game card. The cover carries a top-row badge cluster (running /
- * playtime / install status) and a hover-only quick-play FAB; the body
- * holds the title, platform, developer, genres and notes. Memoized so a
- * parent re-render never re-renders an unchanged card.
- */
+function formatRelativeTime(timestamp: number | undefined, t: (key: string, vars?: Record<string, unknown>) => string): string {
+  if (!timestamp) return t("lib.rail.continue.never");
+  const diffMs = Date.now() - timestamp;
+  if (diffMs < 0) return t("lib.rail.continue.justNow");
+  const hours = Math.floor(diffMs / (1000 * 60 * 60));
+  if (hours < 24) return t("lib.rail.continue.hoursAgo", { n: Math.max(1, hours) });
+  const days = Math.floor(hours / 24);
+  if (days < 7) return t("lib.rail.continue.daysAgo", { n: days });
+  const weeks = Math.floor(days / 7);
+  return t("lib.rail.continue.weeksAgo", { n: weeks });
+}
+
 function LibraryGameCardBase({
   game,
   density,
@@ -29,6 +38,9 @@ function LibraryGameCardBase({
   onContextMenu,
   onLaunch,
   className,
+  selectable = false,
+  selected = false,
+  onToggleSelect,
 }: LibraryGameCardProps) {
   const { updateGame, enrichGameMetadata, launchGame } = useGames();
   const { t } = useLanguage();
@@ -36,8 +48,6 @@ function LibraryGameCardBase({
 
   const canAutoFetchCover =
     !game.coverArtUrl &&
-    // A sentinel-gated game may still auto-retry once it carries a
-    // persisted IGDB id — the by-id refetch bypasses the failed name search.
     (game.igdbId != null || game.metadataSource !== NO_IGDB_MATCH_SOURCE) &&
     !!game.name;
 
@@ -68,26 +78,158 @@ function LibraryGameCardBase({
   const playStatus = game.playStatus || "backlog";
   const statusMeta = PLAY_STATUS_DETAILS[playStatus];
 
+  // List view mode
+  if (density === "list") {
+    return (
+      <div
+        role="button"
+        tabIndex={0}
+        className={`lib-card lib-card--list${isRunning ? " running" : ""}${selectable ? " selectable" : ""}${selected ? " selected" : ""}${className ? ` ${className}` : ""}`}
+        onClick={() => {
+          if (selectable && onToggleSelect) {
+            onToggleSelect(game);
+          } else {
+            onClick();
+          }
+        }}
+        onContextMenu={onContextMenu}
+        onKeyDown={(e) => {
+          if (e.target !== e.currentTarget) return;
+          if (e.key === "Enter" || e.key === " ") {
+            e.preventDefault();
+            if (selectable && onToggleSelect) {
+              onToggleSelect(game);
+            } else {
+              onClick();
+            }
+          }
+        }}
+        aria-label={game.name}
+      >
+        {selectable && (
+          <span className={`lib-card-select${selected ? " checked" : ""}`} aria-hidden="true">
+            {selected && (
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+                <polyline points="20 6 9 17 4 12" />
+              </svg>
+            )}
+          </span>
+        )}
+
+        <div className="lib-card-list-thumb">
+          {game.coverArtUrl ? (
+            <img src={game.coverArtUrl} alt={game.name} loading="lazy" />
+          ) : (
+            <div className="lib-card-placeholder" />
+          )}
+        </div>
+
+        <div className="lib-card-list-info">
+          <h3 className="lib-card-name" title={game.name}>
+            {game.name}
+          </h3>
+          {game.developer && (
+            <span className="lib-card-list-dev" title={game.developer}>
+              {game.developer}
+            </span>
+          )}
+        </div>
+
+        <div className="lib-card-list-platform">
+          <Badge variant="info" size="sm" className="lib-card-platform">
+            {game.platform}
+          </Badge>
+        </div>
+
+        <div className="lib-card-list-status">
+          <Badge variant={statusMeta.variant} size="sm" dot className="lib-card-status-badge">
+            {t(statusMeta.labelKey)}
+          </Badge>
+        </div>
+
+        <div className="lib-card-list-playtime">
+          <Badge variant="default" size="sm" className="lib-card-badge--playtime">
+            <svg className="lib-card-badge-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+              <circle cx="12" cy="12" r="10" />
+              <polyline points="12 6 12 12 16 14" />
+            </svg>
+            <span>{game.playTime}</span>
+          </Badge>
+        </div>
+
+        <div className="lib-card-list-rating">
+          {rating != null && rating > 0 ? (
+            <Badge variant="accent" size="sm" className="lib-card-rating">
+              <svg viewBox="0 0 24 24" fill="currentColor" width="10" height="10" aria-hidden="true">
+                <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" />
+              </svg>
+              <span>{Math.round(rating)}%</span>
+            </Badge>
+          ) : (
+            <span className="lib-card-list-muted">–</span>
+          )}
+        </div>
+
+        <div className="lib-card-list-last-played">
+          <span>{formatRelativeTime(game.lastPlayed, t)}</span>
+        </div>
+
+        <div className="lib-card-list-actions" onClick={(e) => e.stopPropagation()}>
+          <button
+            type="button"
+            className={`lib-card-list-play-btn${isRunning ? " running" : ""}`}
+            onClick={handleLaunch}
+            title={isRunning ? t("game.resume") : t("game.play")}
+            aria-label={isRunning ? t("game.resumeAria", { name: game.name }) : t("game.playAria", { name: game.name })}
+          >
+            <svg viewBox="0 0 24 24" fill="currentColor" width="12" height="12" aria-hidden="true">
+              <polygon points="5 3 19 12 5 21 5 3" />
+            </svg>
+            <span>{isRunning ? t("library.running") : t("game.play")}</span>
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  // Grid, Compact, Cinematic modes
   return (
     <div
       role="button"
       tabIndex={0}
-      className={`lib-card density-${density}${isRunning ? " running" : ""}${className ? ` ${className}` : ""}`}
-      onClick={onClick}
+      className={`lib-card density-${density}${isRunning ? " running" : ""}${selectable ? " selectable" : ""}${selected ? " selected" : ""}${className ? ` ${className}` : ""}`}
+      onClick={() => {
+        if (selectable && onToggleSelect) {
+          onToggleSelect(game);
+        } else {
+          onClick();
+        }
+      }}
       onContextMenu={onContextMenu}
       onKeyDown={(e) => {
-        // Only activate for the card itself — Enter/Space pressed while
-        // focused on the nested play FAB is handled by that button, and
-        // must not ALSO navigate here (double-fire bug).
         if (e.target !== e.currentTarget) return;
         if (e.key === "Enter" || e.key === " ") {
           e.preventDefault();
-          onClick();
+          if (selectable && onToggleSelect) {
+            onToggleSelect(game);
+          } else {
+            onClick();
+          }
         }
       }}
       aria-label={game.name}
     >
       <div className="lib-card-cover" ref={coverRef}>
+        {selectable && (
+          <span className={`lib-card-select${selected ? " checked" : ""}`} aria-hidden="true">
+            {selected && (
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+                <polyline points="20 6 9 17 4 12" />
+              </svg>
+            )}
+          </span>
+        )}
+
         {game.coverArtUrl ? (
           <img
             src={game.coverArtUrl}
@@ -126,11 +268,11 @@ function LibraryGameCardBase({
             </Badge>
           )}
           <Badge variant="default" size="sm" className="lib-card-badge lib-card-badge--playtime">
-            <svg className="lib-card-badge-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+            <svg className="lib-card-badge-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
               <circle cx="12" cy="12" r="10" />
               <polyline points="12 6 12 12 16 14" />
             </svg>
-            {game.playTime}
+            <span>{game.playTime}</span>
           </Badge>
         </div>
 
@@ -141,7 +283,7 @@ function LibraryGameCardBase({
           aria-label={isRunning ? t("game.resumeAria", { name: game.name }) : t("game.playAria", { name: game.name })}
           title={isRunning ? t("game.resume") : t("game.play")}
         >
-          <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden>
+          <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
             <polygon points="5 3 19 12 5 21 5 3" />
           </svg>
         </button>
@@ -165,10 +307,10 @@ function LibraryGameCardBase({
               className="lib-card-rating"
               title={`${t(game.igdbRating != null ? "gameInfo.igdbRating" : "gameInfo.criticRating")}: ${Math.round(rating)}%`}
             >
-              <svg viewBox="0 0 24 24" fill="currentColor" width="10" height="10" style={{ marginRight: 3 }} aria-hidden>
+              <svg viewBox="0 0 24 24" fill="currentColor" width="10" height="10" style={{ marginRight: 3 }} aria-hidden="true">
                 <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" />
               </svg>
-              {Math.round(rating)}%
+              <span>{Math.round(rating)}%</span>
             </Badge>
           )}
         </div>
@@ -203,9 +345,12 @@ const LibraryGameCard = memo(LibraryGameCardBase, (prev, next) => {
     prev.game === next.game &&
     prev.density === next.density &&
     prev.isRunning === next.isRunning &&
+    prev.selectable === next.selectable &&
+    prev.selected === next.selected &&
     prev.onClick === next.onClick &&
     prev.onContextMenu === next.onContextMenu &&
     prev.onLaunch === next.onLaunch &&
+    prev.onToggleSelect === next.onToggleSelect &&
     prev.className === next.className
   );
 });

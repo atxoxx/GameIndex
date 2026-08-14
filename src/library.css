@@ -198,23 +198,28 @@
   max-width: 560px;
 }
 
-/* Time-of-day icon chip that leads the greeting. */
-.lib-hero-greeting-chip {
+/* Category Eyebrow Badge leading the greeting. */
+.lib-hero-eyebrow {
   display: inline-flex;
   align-items: center;
-  justify-content: center;
-  width: 34px;
-  height: 34px;
-  border-radius: var(--radius-md);
+  gap: 6px;
+  width: fit-content;
+  padding: 4px 12px;
+  border-radius: var(--radius-full);
   color: var(--color-accent);
-  background: color-mix(in srgb, var(--color-accent) 14%, transparent);
-  border: 1px solid color-mix(in srgb, var(--color-accent) 30%, transparent);
-  margin-bottom: var(--space-sm);
+  background: color-mix(in srgb, var(--color-accent) 12%, transparent);
+  border: 1px solid color-mix(in srgb, var(--color-accent) 28%, transparent);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-semibold);
+  letter-spacing: 0.4px;
+  text-transform: uppercase;
+  margin-bottom: var(--space-xs);
 }
 
-.lib-hero-greeting-chip svg {
-  width: 17px;
-  height: 17px;
+.lib-hero-eyebrow svg {
+  width: 14px;
+  height: 14px;
+  flex-shrink: 0;
 }
 
 .lib-hero-actions {
@@ -1009,8 +1014,10 @@
 
 .lib-layout {
   display: flex;
-  gap: var(--space-lg);
+  gap: var(--space-xl);
   align-items: flex-start;
+  width: 100%;
+  box-sizing: border-box;
 }
 
 .lib-rail-wrap {
@@ -1019,11 +1026,15 @@
   display: flex;
   gap: var(--space-sm);
   align-items: flex-start;
+  width: 300px;
+  max-width: 300px;
+  box-sizing: border-box;
   transition: width var(--transition-normal);
 }
 
 .lib-rail-wrap.collapsed {
   width: 44px;
+  max-width: 44px;
 }
 
 /* Collapse toggle sits flush-left as a vertical rail. */
@@ -1072,8 +1083,10 @@
 }
 
 .lib-main {
-  flex: 1;
+  flex: 1 1 0;
   min-width: 0;
+  width: 0;
+  box-sizing: border-box;
 }
 
 /* ────────────────────────────────────────────────────────────────────
@@ -1085,6 +1098,8 @@
   flex-direction: column;
   gap: var(--space-md);
   width: 252px;
+  max-width: 252px;
+  box-sizing: border-box;
   flex-shrink: 0;
   padding: var(--space-lg);
   background: var(--color-surface-glass);
@@ -2810,5 +2825,765 @@
 @media (prefers-reduced-motion: reduce) {
   .lib-export-overlay {
     animation: none;
+  }
+}
+
+/* ============================================================================
+   Library Page Refactoring Styles
+   ============================================================================ */
+
+/* ── Hero Top Row & Jump Back In Spotlight ───────────────────────────────── */
+.lib-hero-top-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-xl);
+  margin-bottom: var(--space-lg);
+}
+
+.lib-hero-spotlight {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: var(--space-md);
+  padding: var(--space-md) var(--space-lg);
+  border-radius: var(--radius-lg);
+  border: 1px solid color-mix(in srgb, var(--color-accent) 30%, var(--color-border));
+  background: color-mix(in srgb, var(--color-bg-secondary) 75%, transparent);
+  backdrop-filter: blur(16px);
+  overflow: hidden;
+  cursor: pointer;
+  max-width: 440px;
+  flex: 1;
+  box-shadow: var(--shadow-md);
+  transition: all var(--transition-medium);
+}
+
+.lib-hero-spotlight:hover {
+  transform: translateY(-2px);
+  border-color: var(--color-accent);
+  box-shadow: 0 8px 24px var(--color-accent-glow);
+}
+
+.lib-hero-spotlight-backdrop {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+.lib-hero-spotlight-backdrop img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  filter: blur(28px) brightness(0.3);
+  transform: scale(1.2);
+}
+
+.lib-hero-spotlight-gradient {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(90deg, var(--color-bg-secondary) 10%, color-mix(in srgb, var(--color-bg-secondary) 70%, transparent) 100%);
+}
+
+.lib-hero-spotlight-content {
+  position: relative;
+  z-index: 1;
+  flex: 1;
+  min-width: 0;
+}
+
+.lib-hero-spotlight-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 10px;
+  font-weight: var(--font-weight-bold);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--color-accent);
+  margin-bottom: 4px;
+}
+
+.lib-hero-spotlight-name {
+  margin: 0 0 4px 0;
+  font-size: var(--font-size-md);
+  font-weight: var(--font-weight-bold);
+  color: var(--color-text-primary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.lib-hero-spotlight-meta {
+  display: flex;
+  align-items: center;
+  gap: var(--space-xs);
+  font-size: var(--font-size-xs);
+  color: var(--color-text-tertiary);
+  margin-bottom: var(--space-sm);
+}
+
+.lib-hero-spotlight-actions {
+  display: flex;
+  align-items: center;
+}
+
+.lib-hero-spotlight-play {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 14px;
+  border-radius: var(--radius-full);
+  border: none;
+  background: var(--brand-gradient);
+  color: #fff;
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-semibold);
+  cursor: pointer;
+  transition: all var(--transition-fast);
+  box-shadow: 0 2px 10px var(--color-accent-glow);
+}
+
+.lib-hero-spotlight-play:hover {
+  transform: scale(1.04);
+  box-shadow: 0 4px 16px var(--color-accent-glow);
+}
+
+.lib-hero-spotlight-play.running {
+  background: var(--color-success);
+}
+
+.lib-hero-spotlight-poster {
+  position: relative;
+  z-index: 1;
+  width: 58px;
+  height: 80px;
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+  flex-shrink: 0;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.4);
+  border: 1px solid rgba(255,255,255,0.1);
+}
+
+.lib-hero-spotlight-poster img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+/* ── Hero Quick Filter Pills ─────────────────────────────────────────────── */
+.lib-hero-quick-filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-xs);
+  margin-top: var(--space-md);
+  padding-top: var(--space-md);
+  border-top: 1px solid color-mix(in srgb, var(--color-border) 60%, transparent);
+}
+
+.lib-hero-filter-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-xs);
+  padding: 5px 12px;
+  border-radius: var(--radius-full);
+  border: 1px solid var(--color-border);
+  background: color-mix(in srgb, var(--color-bg-secondary) 60%, transparent);
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-medium);
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+
+.lib-hero-filter-pill:hover {
+  background: var(--color-bg-tertiary);
+  color: var(--color-text-primary);
+  border-color: var(--color-border-hover);
+}
+
+.lib-hero-filter-pill.active {
+  background: var(--color-accent);
+  color: #fff;
+  border-color: transparent;
+  box-shadow: 0 2px 8px var(--color-accent-glow);
+}
+
+.lib-hero-filter-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--color-text-tertiary);
+}
+
+.lib-hero-filter-dot--installed {
+  background: var(--color-success);
+}
+.lib-hero-filter-dot--playing {
+  background: var(--color-accent);
+}
+.lib-hero-filter-dot--completed {
+  background: var(--color-success);
+}
+.lib-hero-filter-dot--backlog {
+  background: var(--color-warning);
+}
+
+.lib-hero-filter-count {
+  font-size: 10px;
+  padding: 1px 5px;
+  border-radius: var(--radius-full);
+  background: color-mix(in srgb, var(--color-text-primary) 10%, transparent);
+  font-weight: var(--font-weight-bold);
+}
+
+.lib-hero-filter-pill.active .lib-hero-filter-count {
+  background: rgba(255,255,255,0.25);
+  color: #fff;
+}
+
+/* ── Group By Dropdown in Toolbar ────────────────────────────────────────── */
+.lib-groupby-wrap {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  height: 36px;
+  padding: 0 8px;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--color-border);
+  background: var(--color-bg-secondary);
+  color: var(--color-text-secondary);
+}
+
+.lib-groupby-wrap:hover {
+  border-color: var(--color-border-hover);
+}
+
+.lib-groupby-label {
+  display: flex;
+  align-items: center;
+}
+
+.lib-groupby-select {
+  border: none;
+  background: transparent;
+  color: var(--color-text-primary);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-medium);
+  outline: none;
+  cursor: pointer;
+}
+
+.lib-groupby-select option {
+  background: var(--color-bg-primary);
+  color: var(--color-text-primary);
+}
+
+/* ── Bulk Selection Toggle Button ────────────────────────────────────────── */
+.lib-bulk-toggle-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-xs);
+  height: 36px;
+  padding: 0 var(--space-sm);
+  border-radius: var(--radius-md);
+  border: 1px solid var(--color-border);
+  background: var(--color-bg-secondary);
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-medium);
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+
+.lib-bulk-toggle-btn:hover {
+  background: var(--color-bg-tertiary);
+  color: var(--color-text-primary);
+  border-color: var(--color-border-hover);
+}
+
+.lib-bulk-toggle-btn.active {
+  background: var(--color-accent);
+  color: #fff;
+  border-color: transparent;
+  box-shadow: 0 0 10px var(--color-accent-glow);
+}
+
+/* ── Bulk Management Floating Dock (LibraryBulkBar) ─────────────────────── */
+.lib-bulk-bar {
+  position: fixed;
+  bottom: 24px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 100;
+  display: flex;
+  align-items: center;
+  gap: var(--space-md);
+  padding: 8px 16px;
+  border-radius: var(--radius-full);
+  border: 1px solid var(--color-border-highlight);
+  background: color-mix(in srgb, var(--color-bg-primary) 85%, transparent);
+  backdrop-filter: blur(20px) saturate(140%);
+  box-shadow: 0 16px 40px rgba(0,0,0,0.45);
+  animation: slideUp 250ms var(--ease-standard);
+}
+
+@keyframes slideUp {
+  from {
+    transform: translate(-50%, 40px);
+    opacity: 0;
+  }
+  to {
+    transform: translate(-50%, 0);
+    opacity: 1;
+  }
+}
+
+.lib-bulk-badge {
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-bold);
+  color: var(--color-text-primary);
+  padding-right: var(--space-xs);
+}
+
+.lib-bulk-bar-center {
+  display: flex;
+  align-items: center;
+  gap: var(--space-xs);
+  border-left: 1px solid var(--color-border);
+  border-right: 1px solid var(--color-border);
+  padding: 0 var(--space-sm);
+}
+
+.lib-bulk-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 30px;
+  padding: 0 10px;
+  border-radius: var(--radius-full);
+  border: 1px solid var(--color-border);
+  background: var(--color-bg-secondary);
+  color: var(--color-text-primary);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-medium);
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+
+.lib-bulk-btn:hover:not(:disabled) {
+  background: var(--color-bg-tertiary);
+  border-color: var(--color-border-hover);
+}
+
+.lib-bulk-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.lib-bulk-btn.ghost {
+  border-color: transparent;
+  background: transparent;
+  color: var(--color-accent);
+}
+
+.lib-bulk-btn.danger {
+  color: var(--color-danger);
+}
+
+.lib-bulk-btn.danger:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--color-danger) 15%, transparent);
+  border-color: var(--color-danger);
+}
+
+.lib-bulk-btn.close {
+  width: 30px;
+  height: 30px;
+  padding: 0;
+  justify-content: center;
+  border-radius: 50%;
+}
+
+.lib-bulk-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+}
+.lib-bulk-dot--playing { background: var(--color-accent); }
+.lib-bulk-dot--completed { background: var(--color-success); }
+.lib-bulk-dot--backlog { background: var(--color-warning); }
+.lib-bulk-dot--on_hold { background: var(--color-info); }
+
+/* ── Collapsible Group Sections (LibraryVirtualGrid) ─────────────────────── */
+.lib-grouped-container {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-xl);
+  width: 100%;
+  min-width: 0;
+}
+
+.lib-group-section {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+}
+
+.lib-group-header {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  padding: 10px 16px;
+  border-radius: var(--radius-lg);
+  background: color-mix(in srgb, var(--color-bg-secondary) 85%, transparent);
+  backdrop-filter: blur(12px);
+  border: 1px solid var(--color-border);
+  cursor: pointer;
+  user-select: none;
+  transition: all var(--transition-fast);
+}
+
+.lib-group-header:hover {
+  background: var(--color-bg-tertiary);
+  border-color: var(--color-border-hover);
+  box-shadow: var(--shadow-sm);
+}
+
+.lib-group-header.is-collapsed {
+  opacity: 0.8;
+}
+
+.lib-group-header-left {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  flex-shrink: 0;
+}
+
+.lib-group-icon-badge {
+  width: 28px;
+  height: 28px;
+  border-radius: var(--radius-sm);
+  background: color-mix(in srgb, var(--color-accent) 15%, transparent);
+  color: var(--color-accent);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.lib-group-icon-badge svg {
+  width: 15px;
+  height: 15px;
+}
+
+.lib-group-letter-badge {
+  font-size: 13px;
+  font-weight: var(--font-weight-bold);
+  color: var(--color-accent);
+}
+
+.lib-group-title {
+  margin: 0;
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-bold);
+  color: var(--color-text-primary);
+  letter-spacing: -0.2px;
+}
+
+.lib-group-count-pill {
+  font-size: 11px;
+  font-weight: var(--font-weight-bold);
+  padding: 2px 8px;
+  border-radius: var(--radius-full);
+  background: color-mix(in srgb, var(--color-text-primary) 8%, transparent);
+  color: var(--color-text-secondary);
+  border: 1px solid var(--color-border);
+  font-variant-numeric: tabular-nums;
+}
+
+.lib-group-divider-line {
+  flex: 1;
+  height: 1px;
+  background: linear-gradient(90deg, var(--color-border) 0%, transparent 100%);
+  margin: 0 var(--space-xs);
+}
+
+.lib-group-header-right {
+  display: flex;
+  align-items: center;
+  gap: var(--space-xs);
+  flex-shrink: 0;
+  color: var(--color-text-tertiary);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-medium);
+}
+
+.lib-group-toggle-text {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.lib-group-toggle-icon {
+  width: 22px;
+  height: 22px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--radius-xs);
+  background: color-mix(in srgb, var(--color-bg-primary) 60%, transparent);
+  color: var(--color-text-secondary);
+  transition: transform var(--transition-fast);
+}
+
+.lib-group-toggle-icon.is-collapsed {
+  transform: rotate(-90deg);
+}
+
+/* ── Table List View in Library ─────────────────────────────────────────── */
+.lib-grid-container {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-xs);
+  width: 100%;
+  min-width: 0;
+}
+
+.lib-list-table-header {
+  display: grid;
+  grid-template-columns: 44px minmax(130px, 2fr) minmax(70px, 0.9fr) minmax(80px, 0.9fr) minmax(65px, 0.7fr) minmax(55px, 0.6fr) minmax(75px, 0.8fr) 75px;
+  align-items: center;
+  gap: var(--space-xs);
+  padding: var(--space-xs) var(--space-sm);
+  border-bottom: 1px solid var(--color-border);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text-tertiary);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin-bottom: var(--space-xs);
+  width: 100%;
+  max-width: 100%;
+  box-sizing: border-box;
+}
+
+.lib-th-title,
+.lib-th-platform,
+.lib-th-status,
+.lib-th-playtime,
+.lib-th-rating,
+.lib-th-last-played,
+.lib-th-actions {
+  min-width: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.lib-card--list {
+  display: grid;
+  grid-template-columns: 44px minmax(130px, 2fr) minmax(70px, 0.9fr) minmax(80px, 0.9fr) minmax(65px, 0.7fr) minmax(55px, 0.6fr) minmax(75px, 0.8fr) 75px;
+  align-items: center;
+  gap: var(--space-xs);
+  padding: var(--space-xs) var(--space-sm);
+  border-radius: var(--radius-md);
+  border: 1px solid var(--color-border);
+  background: var(--color-bg-secondary);
+  cursor: pointer;
+  transition: all var(--transition-fast);
+  margin-bottom: 6px;
+  width: 100%;
+  max-width: 100%;
+  box-sizing: border-box;
+}
+
+.lib-card--list:hover {
+  background: var(--color-bg-tertiary);
+  border-color: var(--color-border-hover);
+  transform: translateY(-1px);
+}
+
+.lib-card-list-thumb {
+  width: 40px;
+  height: 52px;
+  border-radius: var(--radius-xs);
+  overflow: hidden;
+  flex-shrink: 0;
+  background: var(--color-bg-primary);
+}
+
+.lib-card-list-thumb img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.lib-card-list-info {
+  min-width: 0;
+  overflow: hidden;
+}
+
+.lib-card-list-info .lib-card-name {
+  margin: 0 0 2px 0;
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-semibold);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.lib-card-list-dev {
+  font-size: var(--font-size-xs);
+  color: var(--color-text-tertiary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  display: block;
+}
+
+.lib-card-list-platform,
+.lib-card-list-status,
+.lib-card-list-playtime,
+.lib-card-list-rating,
+.lib-card-list-last-played {
+  min-width: 0;
+  overflow: hidden;
+}
+
+.lib-card-list-last-played {
+  font-size: var(--font-size-xs);
+  color: var(--color-text-tertiary);
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.lib-card-list-muted {
+  color: var(--color-text-tertiary);
+}
+
+.lib-card-list-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  flex-shrink: 0;
+}
+
+@media (max-width: 1350px) {
+  .lib-list-table-header,
+  .lib-card--list {
+    grid-template-columns: 44px minmax(120px, 2fr) minmax(70px, 0.9fr) minmax(80px, 0.9fr) minmax(65px, 0.7fr) 75px;
+  }
+  .lib-th-rating,
+  .lib-th-last-played,
+  .lib-card-list-rating,
+  .lib-card-list-last-played {
+    display: none !important;
+  }
+}
+
+@media (max-width: 1100px) {
+  .lib-list-table-header,
+  .lib-card--list {
+    grid-template-columns: 44px minmax(110px, 2fr) minmax(70px, 0.9fr) minmax(80px, 0.9fr) 75px;
+  }
+  .lib-th-playtime,
+  .lib-card-list-playtime {
+    display: none !important;
+  }
+}
+
+.lib-card-list-play-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  height: 28px;
+  padding: 0 12px;
+  border-radius: var(--radius-full);
+  border: none;
+  background: var(--brand-gradient);
+  color: #fff;
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-semibold);
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+
+.lib-card-list-play-btn:hover {
+  transform: scale(1.04);
+  box-shadow: 0 2px 8px var(--color-accent-glow);
+}
+
+.lib-card-list-play-btn.running {
+  background: var(--color-success);
+}
+
+/* ── Context Menu Submenu & Status Dots ─────────────────────────────────── */
+.context-menu-submenu-trigger-wrap {
+  position: relative;
+}
+
+.lib-context-submenu {
+  position: absolute;
+  left: 100%;
+  top: -4px;
+  min-width: 170px;
+  z-index: 9300;
+}
+
+.lib-status-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  margin-right: 6px;
+}
+.lib-status-dot--playing { background: var(--color-accent); }
+.lib-status-dot--completed { background: var(--color-success); }
+.lib-status-dot--backlog { background: var(--color-warning); }
+.lib-status-dot--on_hold { background: var(--color-info); }
+.lib-status-dot--abandoned { background: var(--color-danger); }
+
+/* ── Card Select Checkbox (Bulk mode) ───────────────────────────────────── */
+.lib-card-select {
+  position: absolute;
+  top: 8px;
+  left: 8px;
+  z-index: 10;
+  width: 20px;
+  height: 20px;
+  border-radius: var(--radius-xs);
+  border: 1.5px solid #fff;
+  background: rgba(0,0,0,0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.lib-card-select.checked {
+  background: var(--color-accent);
+  border-color: var(--color-accent);
+  color: #fff;
+}
+
+.lib-card-select.checked svg {
+  width: 12px;
+  height: 12px;
+}
+
+/* ── Running Neon Pulse Glow ────────────────────────────────────────────── */
+.lib-card.running {
+  border-color: var(--color-success) !important;
+  box-shadow: 0 0 16px color-mix(in srgb, var(--color-success) 35%, transparent) !important;
+  animation: libNeonPulse 2500ms ease-in-out infinite;
+}
+
+@keyframes libNeonPulse {
+  0%, 100% {
+    box-shadow: 0 0 12px color-mix(in srgb, var(--color-success) 30%, transparent);
+  }
+  50% {
+    box-shadow: 0 0 22px color-mix(in srgb, var(--color-success) 60%, transparent);
   }
 }

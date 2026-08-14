@@ -5,12 +5,12 @@ import { useDensityContext } from "../context/DensityContext";
 import { useToast } from "../context/ToastContext";
 import { useLanguage } from "../context/LanguageContext";
 import { useLibraryFilters } from "../hooks/useLibraryFilters";
-import type { Game } from "../types/game";
+import type { Game, PlayStatus } from "../types/game";
 import LibraryFilterChips from "../components/library/LibraryFilterChips";
 import LibraryFilterSidebar from "../components/library/LibraryFilterSidebar";
 import LibraryFilterRail from "../components/library/LibraryFilterRail";
 import LibraryHero from "../components/library/LibraryHero";
-import LibraryToolbar from "../components/library/LibraryToolbar";
+import LibraryToolbar, { type LibraryGroupBy } from "../components/library/LibraryToolbar";
 import RecentlyAddedRail from "../components/library/RecentlyAddedRail";
 import ContinuePlayingRail from "../components/library/ContinuePlayingRail";
 import LibraryEmptyState from "../components/library/LibraryEmptyState";
@@ -19,10 +19,11 @@ import LibraryVirtualGrid from "../components/library/LibraryVirtualGrid";
 import LibraryContextMenu from "../components/library/LibraryContextMenu";
 import LibraryGameCard from "../components/library/LibraryGameCard";
 import LibraryExportModal from "../components/library/LibraryExportModal";
+import LibraryBulkBar from "../components/library/LibraryBulkBar";
 
 export default function LibraryPage() {
   const navigate = useNavigate();
-  const { games, setSelectedGameId, runningGameIds, launchGame, removeGame } = useGames();
+  const { games, setSelectedGameId, runningGameIds, launchGame, removeGame, updateGame } = useGames();
   const { showToast } = useToast();
   const { density, setDensity } = useDensityContext();
   const { t } = useLanguage();
@@ -56,6 +57,9 @@ export default function LibraryPage() {
   const [contextMenu, setContextMenu] = useState<{ game: Game; x: number; y: number } | null>(null);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [exportOpen, setExportOpen] = useState(false);
+  const [groupBy, setGroupBy] = useState<LibraryGroupBy>("none");
+  const [bulkMode, setBulkMode] = useState(false);
+  const [selectedGameIds, setSelectedGameIds] = useState<Set<string>>(new Set());
 
   useEffect(() => {
     if (!contextMenu) return;
@@ -110,11 +114,60 @@ export default function LibraryPage() {
     [removeGame, showToast, t]
   );
 
-  // Editorial mode: when the library is small enough to render without
-  // virtualization (and not in a list/compact view), promote the first
-  // card to a wide "feature" tile to create visual rhythm — a curated
-  // feel instead of a uniform wall of equal cards.
-  const editorial = density !== "list" && density !== "compact";
+  const handleUpdatePlayStatus = useCallback(
+    (gameId: string, status: PlayStatus) => {
+      updateGame(gameId, { playStatus: status });
+      setContextMenu(null);
+    },
+    [updateGame]
+  );
+
+  // Bulk actions
+  const toggleSelectGame = useCallback((game: Game) => {
+    setSelectedGameIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(game.id)) {
+        next.delete(game.id);
+      } else {
+        next.add(game.id);
+      }
+      return next;
+    });
+  }, []);
+
+  const selectAllVisible = useCallback(() => {
+    setSelectedGameIds(new Set(filteredGames.map((g) => g.id)));
+  }, [filteredGames]);
+
+  const clearSelection = useCallback(() => {
+    setSelectedGameIds(new Set());
+  }, []);
+
+  const handleBulkSetPlayStatus = useCallback(
+    (status: PlayStatus) => {
+      if (selectedGameIds.size === 0) return;
+      selectedGameIds.forEach((id) => {
+        updateGame(id, { playStatus: status });
+      });
+      showToast(t("library.bulk.updatedStatus", { count: selectedGameIds.size }), "success");
+      clearSelection();
+      setBulkMode(false);
+    },
+    [selectedGameIds, updateGame, showToast, t, clearSelection]
+  );
+
+  const handleBulkRemove = useCallback(() => {
+    if (selectedGameIds.size === 0) return;
+    const count = selectedGameIds.size;
+    selectedGameIds.forEach((id) => {
+      removeGame(id);
+    });
+    showToast(t("library.bulk.removedGames", { count }), "info");
+    clearSelection();
+    setBulkMode(false);
+  }, [selectedGameIds, removeGame, showToast, t, clearSelection]);
+
+  const editorial = density !== "list" && density !== "compact" && groupBy === "none";
 
   const renderCard = useCallback(
     (game: Game, index: number) => {
@@ -128,11 +181,24 @@ export default function LibraryPage() {
           onClick={() => handleCardClick(game)}
           onContextMenu={(e) => handleGameContextMenu(e, game)}
           onLaunch={handleLaunch}
+          selectable={bulkMode}
+          selected={selectedGameIds.has(game.id)}
+          onToggleSelect={toggleSelectGame}
           className={`animate-fade-in stagger-${Math.min(index + 1, 8)}${featured ? " lib-card--featured" : ""}`}
         />
       );
     },
-    [density, editorial, runningGameIds, handleCardClick, handleGameContextMenu, handleLaunch]
+    [
+      density,
+      editorial,
+      runningGameIds,
+      bulkMode,
+      selectedGameIds,
+      handleCardClick,
+      handleGameContextMenu,
+      handleLaunch,
+      toggleSelectGame,
+    ]
   );
 
   const toolbarTitle = isLibraryEmpty
@@ -175,10 +241,6 @@ export default function LibraryPage() {
 
   const runningSet = useMemo(() => new Set(runningGameIds), [runningGameIds]);
 
-  // Stable key that only changes when the filter/sort facets change.
-  // The virtualized grid resets its scroll offset on this — so a
-  // filtered result starts at the top, but cover-enrichment updates
-  // (which also rebuild `filteredGames`) don't yank the scroll.
   const filterResetKey = useMemo(
     () =>
       JSON.stringify([
@@ -192,13 +254,21 @@ export default function LibraryPage() {
         filters.source,
         filters.playStatus,
         filters.sort,
+        groupBy,
       ]),
-    [filters]
+    [filters, groupBy]
   );
 
   return (
     <div className="lib-page">
-      <LibraryHero games={games} />
+      <LibraryHero
+        games={games}
+        activeStatus={filters.status}
+        activePlayStatus={filters.playStatus}
+        onFilterStatus={setStatus}
+        onFilterPlayStatus={setPlayStatus}
+        onCardClick={handleCardClick}
+      />
 
       {!isLibraryEmpty && <ContinuePlayingRail games={games} onCardClick={handleCardClick} />}
 
@@ -214,8 +284,15 @@ export default function LibraryPage() {
           onSearchChange={setSearch}
           sort={filters.sort}
           onSortChange={setSort}
+          groupBy={groupBy}
+          onGroupByChange={setGroupBy}
           density={density}
           onDensityChange={setDensity}
+          bulkMode={bulkMode}
+          onToggleBulkMode={() => {
+            setBulkMode(!bulkMode);
+            clearSelection();
+          }}
           onExport={() => setExportOpen(true)}
         />
       )}
@@ -253,12 +330,29 @@ export default function LibraryPage() {
                 density={density}
                 isBigScreen={false}
                 editorial={editorial}
+                groupBy={groupBy}
                 resetKey={filterResetKey}
                 renderItem={renderCard}
               />
             )}
           </div>
         </div>
+      )}
+
+      {/* Bulk Operations Floating Bar */}
+      {bulkMode && (
+        <LibraryBulkBar
+          selectedCount={selectedGameIds.size}
+          totalCount={filteredGames.length}
+          onSelectAll={selectAllVisible}
+          onClear={clearSelection}
+          onSetPlayStatus={handleBulkSetPlayStatus}
+          onRemoveSelected={handleBulkRemove}
+          onExit={() => {
+            setBulkMode(false);
+            clearSelection();
+          }}
+        />
       )}
 
       {contextMenu && (
@@ -269,6 +363,7 @@ export default function LibraryPage() {
           isRunning={runningSet.has(contextMenu.game.id)}
           onLaunch={() => handleLaunch(contextMenu.game)}
           onViewDetails={() => handleViewDetails(contextMenu.game)}
+          onUpdatePlayStatus={handleUpdatePlayStatus}
           onRemove={() => handleRemove(contextMenu.game)}
         />
       )}
