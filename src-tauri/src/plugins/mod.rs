@@ -47,7 +47,7 @@ use std::time::{Duration, Instant};
 
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
-use tauri::Manager;
+use tauri::{Emitter, Manager};
 
 use crate::db::{self, Db};
 use crate::source_manager::{self, MatchedDownload};
@@ -525,6 +525,150 @@ pub async fn search_downloads(
             out.push(result);
         }
     }
+    Ok(out)
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SearchProgressEvent {
+    pub search_id: String,
+    pub source_name: String,
+    pub completed_sources: usize,
+    pub total_sources: usize,
+    pub new_results: Vec<DownloadSearchResult>,
+    pub is_done: bool,
+}
+
+/// Streaming parallel search: queries built-in sources and every enabled plugin
+/// concurrently, emitting `search-downloads-progress` events in real time as each
+/// source finishes so the UI can render files live and display an incremental progress bar.
+#[tauri::command]
+pub async fn search_downloads_stream(
+    app: tauri::AppHandle,
+    query: String,
+    steam_app_id: Option<u32>,
+    search_id: String,
+) -> Result<Vec<DownloadSearchResult>, String> {
+    let source_manager = app.state::<Arc<source_manager::SourceManager>>();
+    let plugin_manager = app.state::<Arc<PluginManager>>();
+
+    let plugin_rows = db::plugins::list_plugins(&plugin_manager.db)?;
+    let enabled: Vec<(db::plugins::PluginRow, String)> = {
+        let sources = plugin_manager
+            .sources
+            .lock()
+            .map_err(|e| format!("plugin sources lock: {e}"))?;
+        plugin_rows
+            .into_iter()
+            .filter(|r| r.enabled)
+            .filter_map(|r| sources.get(&r.id).cloned().map(|s| (r, s)))
+            .collect()
+    };
+
+    let total_sources = 1 + enabled.len();
+    let completed_counter = Arc::new(std::sync::atomic::AtomicUsize::new(0));
+    let all_results = Arc::new(tokio::sync::Mutex::new(Vec::new()));
+
+    // Task 1: Built-in sources
+    let sm = Arc::clone(&source_manager);
+    let app_handle = app.clone();
+    let query_sm = query.clone();
+    let search_id_sm = search_id.clone();
+    let counter_sm = Arc::clone(&completed_counter);
+    let all_results_sm = Arc::clone(&all_results);
+
+    let builtin_task = tokio::spawn(async move {
+        let source_results: Vec<DownloadSearchResult> = sm
+            .search_online(&query_sm, steam_app_id)
+            .await
+            .unwrap_or_default()
+            .into_iter()
+            .map(source_to_download_search_result)
+            .collect();
+
+        let completed = counter_sm.fetch_add(1, std::sync::atomic::Ordering::SeqCst) + 1;
+        let is_done = completed == total_sources;
+
+        {
+            let mut guard = all_results_sm.lock().await;
+            guard.extend(source_results.clone());
+        }
+
+        let _ = app_handle.emit(
+            "search-downloads-progress",
+            SearchProgressEvent {
+                search_id: search_id_sm,
+                source_name: "Sources".to_string(),
+                completed_sources: completed,
+                total_sources,
+                new_results: source_results,
+                is_done,
+            },
+        );
+    });
+
+    // Task 2..N: Run each enabled plugin in parallel
+    let mut plugin_tasks = Vec::new();
+    for (row, source) in enabled {
+        let pm = Arc::clone(&plugin_manager);
+        let app_handle = app.clone();
+        let query_p = query.clone();
+        let search_id_p = search_id.clone();
+        let counter_p = Arc::clone(&completed_counter);
+        let all_results_p = Arc::clone(&all_results);
+
+        let t = tokio::spawn(async move {
+            let plugin_raw = match pm.search_plugin(&row, &source, &query_p).await {
+                Ok(mut results) => {
+                    results.sort_by(|a, b| {
+                        b.upload_date
+                            .unwrap_or(i64::MIN)
+                            .cmp(&a.upload_date.unwrap_or(i64::MIN))
+                    });
+                    results
+                }
+                Err(e) => {
+                    eprintln!("[plugins] search {} failed: {e}", row.id);
+                    let _ = db::plugins::set_plugin_error(&pm.db, &row.id, Some(&e));
+                    Vec::new()
+                }
+            };
+
+            let plugin_results: Vec<DownloadSearchResult> = plugin_raw
+                .into_iter()
+                .filter_map(|raw| raw_to_download_search_result(&row, &raw, &query_p))
+                .collect();
+
+            let completed = counter_p.fetch_add(1, std::sync::atomic::Ordering::SeqCst) + 1;
+            let is_done = completed == total_sources;
+
+            {
+                let mut guard = all_results_p.lock().await;
+                guard.extend(plugin_results.clone());
+            }
+
+            let _ = app_handle.emit(
+                "search-downloads-progress",
+                SearchProgressEvent {
+                    search_id: search_id_p,
+                    source_name: row.name.clone(),
+                    completed_sources: completed,
+                    total_sources,
+                    new_results: plugin_results,
+                    is_done,
+                },
+            );
+        });
+        plugin_tasks.push(t);
+    }
+
+    // Wait for all tasks to complete
+    let _ = builtin_task.await;
+    for t in plugin_tasks {
+        let _ = t.await;
+    }
+
+    let out = all_results.lock().await.clone();
     Ok(out)
 }
 

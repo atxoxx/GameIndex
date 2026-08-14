@@ -30,7 +30,7 @@ import { createPortal } from "react-dom";
 import { invoke } from "@tauri-apps/api/core";
 import { openUrl } from "@tauri-apps/plugin-opener";
 import { useDownloads } from "../../context/DownloadContext";
-import { useSources } from "../../context/SourceContext";
+import { searchDownloadsStream } from "../../context/SourceContext";
 import { useGames } from "../../context/GameContext";
 import { useToast } from "../../context/ToastContext";
 import { useLanguage } from "../../context/LanguageContext";
@@ -46,6 +46,7 @@ import {
   webUrlFor,
 } from "./helpers";
 import type { DownloadStep, SortKey, DisplayMatch } from "./types";
+import type { DownloadSearchResult, SearchProgressEvent } from "../../types/plugins";
 import { OwnershipBanner } from "./OwnershipBanner";
 import { ConfidenceWarning } from "./ConfidenceWarning";
 import { ResultsList } from "./ResultsList";
@@ -85,7 +86,6 @@ export default function DownloadModal({
     completedDownloads,
     startSelectedDownload,
   } = useDownloads();
-  const { searchDownloads } = useSources();
   const { games } = useGames();
   const { showToast } = useToast();
   const { t } = useLanguage();
@@ -93,6 +93,12 @@ export default function DownloadModal({
   const [step, setStep] = useState<DownloadStep>("checking");
   const [ownership, setOwnership] = useState<OwnershipResult | null>(null);
   const [matches, setMatches] = useState<DisplayMatch[]>([]);
+  const [searchProgress, setSearchProgress] = useState<{
+    completed: number;
+    total: number;
+    activeSource: string;
+    isDone: boolean;
+  } | null>(null);
   const [sourceFilter, setSourceFilter] = useState<string>("all");
   const [searchQuery, setSearchQuery] = useState<string>("");
   const [selectedId, setSelectedId] = useState<string | null>(null);
@@ -320,19 +326,20 @@ export default function DownloadModal({
     [namesKey],
   );
 
-  // ── Step 1: ownership check + source search in parallel ─────────
+  // ── Step 1: ownership check + streaming source search in parallel ──
   // Extracted into a callback so the Retry button can re-run it after
   // an error or a dead-swarm timeout.
   const runSearch = useCallback(async () => {
     setStep("checking");
     setError(null);
     setOwnership(null);
+    setMatches([]);
+    setSelectedId(null);
+    setSearchProgress(null);
+
     try {
-      // `check_ownership_for_ids` is the variant that takes an
-      // explicit Steam AppId; falls back to `check_ownership`
-      // (name-only) if no id is available. Both go through the
-      // same Rust command registry so the frontend can pick the
-      // most-specific one.
+      // 1. Check ownership in background so slow store checks don't block
+      // the search results from displaying immediately.
       const ownershipPromise: Promise<OwnershipResult> = steamAppId != null
         ? invoke<OwnershipResult>("check_ownership_for_ids", {
             gameName,
@@ -344,48 +351,59 @@ export default function DownloadModal({
             localLibraryNames,
           });
 
-      const [own, searchResults] = await Promise.all([
-        ownershipPromise,
-        searchDownloads(gameName, steamAppId).catch((e) => {
-          console.error("[DownloadModal] searchDownloads failed:", e);
-          return [];
-        }),
-      ]);
+      ownershipPromise
+        .then((own) => setOwnership(own))
+        .catch((e) => console.error("[DownloadModal] ownership check failed:", e));
 
-      setOwnership(own);
-      // Sort the raw results by descending match score so the
-      // strongest match is well-understood, then assign a stable id
-      // per search so selection survives re-sorting by the user.
-      // The backend returns source items first (already score-sorted)
-      // followed by plugin items pre-sorted newest-first; we re-sort
-      // ONLY the source block and keep plugin items appended in the
-      // returned order — the plugin block must never be score-shuffled.
-      const sourceItems = searchResults.filter((r) => r.provider !== "plugin");
-      const pluginItems = searchResults.filter((r) => r.provider === "plugin");
-      const ordered = [
-        ...[...sourceItems].sort((a, b) => b.matchScore - a.matchScore),
-        ...pluginItems,
-      ];
-      const withIds: DisplayMatch[] = ordered.map((m, i) => ({
-        ...m,
-        id: `${m.sourceId}::${i}`,
-      }));
-      setMatches(withIds);
-      // Auto-select the top row of the *currently sorted* list so the
-      // highlighted result matches what the user sees. Because the
-      // sort keeps the source block first (and plugin rows grouped at
-      // the bottom), this always prefers the first source result and
-      // falls back to the first (newest) plugin hit when a search
-      // returned no source matches at all.
-      const display = sortMatches(withIds, sortByRef.current);
-      setSelectedId(display.length > 0 ? display[0].id : null);
-      setStep("results");
+      // 2. Stream results live as each source / plugin completes
+      const accumulatedRaw: DownloadSearchResult[] = [];
+
+      await searchDownloadsStream(
+        gameName,
+        steamAppId,
+        (progressEvt: SearchProgressEvent) => {
+          setSearchProgress({
+            completed: progressEvt.completedSources,
+            total: progressEvt.totalSources,
+            activeSource: progressEvt.sourceName,
+            isDone: progressEvt.isDone,
+          });
+
+          if (progressEvt.newResults && progressEvt.newResults.length > 0) {
+            accumulatedRaw.push(...progressEvt.newResults);
+            // Sort source items by match score, keep plugin items newest-first
+            const sourceItems = accumulatedRaw.filter((r) => r.provider !== "plugin");
+            const pluginItems = accumulatedRaw.filter((r) => r.provider === "plugin");
+            const ordered = [
+              ...[...sourceItems].sort((a, b) => b.matchScore - a.matchScore),
+              ...pluginItems,
+            ];
+            const withIds: DisplayMatch[] = ordered.map((m, i) => ({
+              ...m,
+              id: `${m.sourceId}::${m.title}::${i}`,
+            }));
+            setMatches(withIds);
+            // Switch to results view as soon as files start arriving
+            setStep((curr) => (curr === "checking" ? "results" : curr));
+          }
+
+          if (progressEvt.isDone) {
+            setStep((curr) => (curr === "checking" ? "results" : curr));
+          }
+        },
+      ).catch((e: unknown) => {
+        console.error("[DownloadModal] searchDownloadsStream failed:", e);
+        return [];
+      });
+
+      // Ensure we switch to results step once the stream completes
+      setStep((curr) => (curr === "checking" ? "results" : curr));
     } catch (err) {
       console.error("[DownloadModal] initial checks failed:", err);
       setError(String(err));
       setStep("error");
     }
-  }, [gameName, steamAppId, searchDownloads, localLibraryNames]);
+  }, [gameName, steamAppId, searchDownloadsStream, localLibraryNames]);
 
   useEffect(() => {
     runSearch();
@@ -843,7 +861,7 @@ export default function DownloadModal({
               <ConfidenceWarning matches={matches} gameName={gameName} />
             )}
 
-            {step === "checking" && <CheckingState />}
+            {step === "checking" && <CheckingState searchProgress={searchProgress} />}
 
             {step === "error" && (
               <ErrorState error={error} onRetry={() => runSearch()} />
@@ -871,6 +889,7 @@ export default function DownloadModal({
                   onSearchQueryChange={setSearchQuery}
                   totalRawMatchesCount={matches.length}
                   onClearFilters={handleClearFilters}
+                  searchProgress={searchProgress}
                 />
               ) : (
                 <div className="dl-results-layout">
@@ -891,6 +910,7 @@ export default function DownloadModal({
                       onSearchQueryChange={setSearchQuery}
                       totalRawMatchesCount={matches.length}
                       onClearFilters={handleClearFilters}
+                      searchProgress={searchProgress}
                     />
                   </div>
                   <DetailPanel

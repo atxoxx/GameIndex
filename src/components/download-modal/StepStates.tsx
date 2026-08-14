@@ -4,13 +4,42 @@ import { resolveSourceUri } from "./helpers";
 import { Button } from "../ui";
 import { useLanguage } from "../../context/LanguageContext";
 
-export function CheckingState() {
+export function CheckingState({
+  searchProgress,
+}: {
+  searchProgress?: {
+    completed: number;
+    total: number;
+    activeSource: string;
+    isDone: boolean;
+  } | null;
+} = {}) {
   const { t } = useLanguage();
   return (
     <div className="dl-search-loading dl-search-loading--column">
-      <div className="spinner-small" />
-      <span>{t('downloadModal.checkingState')}</span>
-      <p className="dl-fetching-hint">{t('downloadModal.checkingHint')}</p>
+      <div className="dl-spinner" />
+      <span className="dl-loading-title">
+        {searchProgress && searchProgress.total > 1 && searchProgress.activeSource
+          ? t("downloadModal.searchingSourceActive", {
+              source: searchProgress.activeSource,
+              completed: searchProgress.completed,
+              total: searchProgress.total,
+            })
+          : t("downloadModal.checkingState")}
+      </span>
+      {searchProgress && searchProgress.total > 1 && (
+        <div className="dl-search-progress-bar dl-search-progress-bar--standalone">
+          <div className="dl-search-progress-track">
+            <div
+              className="dl-search-progress-fill"
+              style={{
+                width: `${Math.max(6, (searchProgress.completed / searchProgress.total) * 100)}%`,
+              }}
+            />
+          </div>
+        </div>
+      )}
+      <p className="dl-fetching-hint">{t("downloadModal.checkingHint")}</p>
     </div>
   );
 }
@@ -25,23 +54,25 @@ export function ErrorState({
   const { t } = useLanguage();
   return (
     <div className="dl-results-empty dl-results-empty--error">
-      <svg
-        viewBox="0 0 24 24"
-        fill="none"
-        stroke="currentColor"
-        strokeWidth="1.5"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        aria-hidden
-      >
-        <circle cx="12" cy="12" r="10" />
-        <line x1="12" y1="8" x2="12" y2="12" />
-        <line x1="12" y1="16" x2="12.01" y2="16" />
-      </svg>
-      <p>{t('downloadModal.errorTitle')}</p>
-      <p className="dl-results-empty-hint">{error ?? t('downloadModal.unknownError')}</p>
+      <div className="dl-results-empty-icon dl-results-empty-icon--error">
+        <svg
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="1.5"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          aria-hidden
+        >
+          <circle cx="12" cy="12" r="10" />
+          <line x1="12" y1="8" x2="12" y2="12" />
+          <line x1="12" y1="16" x2="12.01" y2="16" />
+        </svg>
+      </div>
+      <h4 className="dl-results-empty-title">{t("downloadModal.errorTitle")}</h4>
+      <p className="dl-results-empty-hint">{error ?? t("downloadModal.unknownError")}</p>
       <Button variant="primary" size="sm" onClick={onRetry}>
-        {t('downloadModal.retry')}
+        {t("downloadModal.retry")}
       </Button>
     </div>
   );
@@ -55,17 +86,14 @@ export function FetchingMetadataState({
   seeds?: number;
 }) {
   const { t } = useLanguage();
-  // The temp (list-only) torrent is live in `activeDownloads` while we
-  // wait for the file list, so its 2s-polled swarm stats are genuine —
-  // show them once any peer has been contacted, as a live status line.
   const hasSwarm = peers > 0;
   return (
     <div className="dl-search-loading dl-search-loading--column">
-      <div className="spinner-small" style={{ width: 24, height: 24 }} />
-      <span>{t('downloadModal.fetchingFileList')}</span>
+      <div className="dl-spinner" />
+      <span className="dl-loading-title">{t("downloadModal.fetchingFileList")}</span>
       {hasSwarm && (
         <p className="dl-fetching-swarm" role="status" aria-live="polite">
-          {t('downloadModal.connectedPeers', {
+          {t("downloadModal.connectedPeers", {
             peers,
             s: peers !== 1 ? "s" : "",
             seeds,
@@ -73,22 +101,11 @@ export function FetchingMetadataState({
           })}
         </p>
       )}
-      <p className="dl-fetching-hint">
-        {t('downloadModal.fetchingPeersHint')}
-      </p>
+      <p className="dl-fetching-hint">{t("downloadModal.fetchingPeersHint")}</p>
     </div>
   );
 }
 
-/**
- * Status line shown while the engine is accepting the new torrent.
- * Distinguishes between a magnet link (resolves essentially instantly
- * in librqbit) and an `http(s)://.torrent` URL (librqbit has to
- * download the torrent file before it can return, which can take
- * several seconds on a slow source server). After 10s we nudge the
- * user with a slightly more concerned label so they know the engine is
- * still waiting on the network — not on us.
- */
 export function StartingStatus({
   match,
   selectedMirrorIdx,
@@ -108,20 +125,20 @@ export function StartingStatus({
   const slow = elapsedSec >= 10;
   const label = isHttpFetch
     ? slow
-      ? t('downloadModal.slowSource')
-      : t('downloadModal.fetchingTorrentFile')
-    : t('downloadModal.startingDownload');
-  // Best-effort live swarm: only rendered when the caller found the
-  // download in `activeDownloads` with peers > 0.
+      ? t("downloadModal.slowSource")
+      : t("downloadModal.fetchingTorrentFile")
+    : t("downloadModal.startingDownload");
   const hasSwarm = peers > 0;
+
   return (
     <p className="dl-starting-status" role="status" aria-live="polite">
-      {label}
-      {elapsedSec > 0 && <> ({elapsedSec}s)</>}
+      <span className="dl-spinner-mini" aria-hidden />
+      <span>{label}</span>
+      {elapsedSec > 0 && <span className="dl-starting-elapsed">({elapsedSec}s)</span>}
       {hasSwarm && (
         <span className="dl-starting-swarm">
           {" · "}
-          {t('downloadModal.connectedPeers', {
+          {t("downloadModal.connectedPeers", {
             peers,
             s: peers !== 1 ? "s" : "",
             seeds,
@@ -134,3 +151,4 @@ export function StartingStatus({
 }
 
 export type { DownloadStep };
+

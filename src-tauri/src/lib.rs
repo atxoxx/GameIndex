@@ -3949,6 +3949,7 @@ pub fn run() {
             plugins::plugins_remove,
             plugins::plugins_toggle,
             plugins::search_downloads,
+            plugins::search_downloads_stream,
             get_random_store_game,
             store_checker::check_ownership,
             store_checker::check_ownership_for_ids,

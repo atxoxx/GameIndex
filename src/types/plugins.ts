@@ -74,3 +74,13 @@ export interface DownloadSearchResult extends MatchedDownload {
    */
   referer?: string;
 }
+
+export interface SearchProgressEvent {
+  searchId: string;
+  sourceName: string;
+  completedSources: number;
+  totalSources: number;
+  newResults: DownloadSearchResult[];
+  isDone: boolean;
+}
+

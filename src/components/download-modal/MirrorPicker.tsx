@@ -2,10 +2,9 @@ import { hostLabelForUri } from "./helpers";
 import { useLanguage } from "../../context/LanguageContext";
 
 /**
- * Mirror / hoster selector. Renders each mirror URI as a compact,
- * scannable hostname chip (e.g. "mega.nz", "1fichier.com") instead
- * of a raw-URI dropdown, so the user can compare sources at a glance.
- * Hidden entirely when there is only one mirror.
+ * Mirror / hoster selector.
+ * Renders each mirror URI as a scannable host chip with active radio indicator
+ * so the user can quickly pick and compare hosters.
  */
 export function MirrorPicker({
   uris,
@@ -20,7 +19,7 @@ export function MirrorPicker({
   if (uris.length <= 1) return null;
 
   return (
-    <div className="dl-mirror-chips" role="radiogroup" aria-label={t('downloadModal.selectMirror')}>
+    <div className="dl-mirror-chips" role="radiogroup" aria-label={t("downloadModal.selectMirror")}>
       {uris.map((uri, idx) => {
         const hoster = hostLabelForUri(uri, idx);
         const selected = idx === selectedMirrorIdx;
@@ -34,10 +33,12 @@ export function MirrorPicker({
             onClick={() => onChange(idx)}
             title={uri}
           >
-            {hoster}
+            <span className="dl-mirror-radio-indicator" aria-hidden />
+            <span className="dl-mirror-label">{hoster}</span>
           </button>
         );
       })}
     </div>
   );
 }
+

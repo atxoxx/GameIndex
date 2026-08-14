@@ -27,10 +27,11 @@ import {
   type ReactNode,
 } from "react";
 import { invoke } from "@tauri-apps/api/core";
+import { listen } from "@tauri-apps/api/event";
 import { useToast } from "./ToastContext";
 import { useLanguage } from "./LanguageContext";
 import type { BulkAddResult, MatchedDownload, SourceLink } from "../types/source";
-import type { DownloadSearchResult } from "../types/plugins";
+import type { DownloadSearchResult, SearchProgressEvent } from "../types/plugins";
 
 interface SourceContextValue {
   /** Current list of sources, in user-added order. */
@@ -54,6 +55,12 @@ interface SourceContextValue {
    *  plugin-provided results pre-sorted newest-first. Plugin order is authoritative —
    *  callers must not re-sort the plugin block. */
   searchDownloads: (query: string, steamAppId?: number) => Promise<DownloadSearchResult[]>;
+  /** Streaming parallel search: streams matches in real time with progress events per source. */
+  searchDownloadsStream: (
+    query: string,
+    steamAppId?: number,
+    onProgress?: (event: SearchProgressEvent) => void,
+  ) => Promise<DownloadSearchResult[]>;
 }
 
 const SourceContext = createContext<SourceContextValue | null>(null);
@@ -218,18 +225,6 @@ export function SourceProvider({ children }: { children: ReactNode }) {
     [],
   );
 
-  const searchDownloads = useCallback(
-    async (query: string, steamAppId?: number): Promise<DownloadSearchResult[]> => {
-      const trimmed = query.trim();
-      if (!trimmed) return [];
-      return await invoke<DownloadSearchResult[]>("search_downloads", {
-        query: trimmed,
-        steamAppId: steamAppId ?? null,
-      });
-    },
-    [],
-  );
-
   const value = useMemo<SourceContextValue>(
     () => ({
       sources,
@@ -242,6 +237,7 @@ export function SourceProvider({ children }: { children: ReactNode }) {
       refreshAllSources,
       searchSources,
       searchDownloads,
+      searchDownloadsStream,
     }),
     [
       sources,
@@ -253,11 +249,51 @@ export function SourceProvider({ children }: { children: ReactNode }) {
       refreshSource,
       refreshAllSources,
       searchSources,
-      searchDownloads,
     ],
   );
 
   return <SourceContext.Provider value={value}>{children}</SourceContext.Provider>;
+}
+
+export async function searchDownloadsStream(
+  query: string,
+  steamAppId?: number,
+  onProgress?: (event: SearchProgressEvent) => void,
+): Promise<DownloadSearchResult[]> {
+  const trimmed = query.trim();
+  if (!trimmed) return [];
+  const searchId = `search-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+
+  let unlisten: (() => void) | null = null;
+  if (onProgress) {
+    unlisten = await listen<SearchProgressEvent>("search-downloads-progress", (evt) => {
+      if (evt.payload.searchId === searchId) {
+        onProgress(evt.payload);
+      }
+    });
+  }
+
+  try {
+    return await invoke<DownloadSearchResult[]>("search_downloads_stream", {
+      query: trimmed,
+      steamAppId: steamAppId ?? null,
+      searchId,
+    });
+  } finally {
+    if (unlisten) unlisten();
+  }
+}
+
+export async function searchDownloads(
+  query: string,
+  steamAppId?: number,
+): Promise<DownloadSearchResult[]> {
+  const trimmed = query.trim();
+  if (!trimmed) return [];
+  return await invoke<DownloadSearchResult[]>("search_downloads", {
+    query: trimmed,
+    steamAppId: steamAppId ?? null,
+  });
 }
 
 export function useSources(): SourceContextValue {
