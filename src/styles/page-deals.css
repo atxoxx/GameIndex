@@ -1,6 +1,6 @@
-/* Page-level styling for deals — flat surfaces, restrained accent. */
+/* Page-level styling for deals — flat surfaces, restrained accent, theme-aware overrides. */
 
-/* Deal cards */
+/* Deal cards — unified transition layer */
 .deals-gamepass-card,
 .deals-deal-card,
 .deals-giveaway-card {
@@ -14,9 +14,30 @@
 .deals-gamepass-card:hover,
 .deals-deal-card:hover,
 .deals-giveaway-card:hover {
-  transform: translateY(-2px);
+  transform: translateY(-3px);
   box-shadow: var(--shadow-md);
   border-color: var(--color-border-light);
+}
+
+/* Stats header glass tiles */
+.deals-stats-header .kpi-tile--glass {
+  background: color-mix(in srgb, var(--color-bg-secondary) 60%, transparent);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+}
+
+/* Active tab subtle glow underline */
+.deals-subtab.active::after {
+  content: "";
+  position: absolute;
+  bottom: -2px;
+  left: 20%;
+  right: 20%;
+  height: 3px;
+  background: var(--color-accent);
+  border-radius: var(--radius-full);
+  filter: blur(4px);
+  opacity: 0.5;
 }
 
 /* Empty state */
@@ -44,4 +65,11 @@
   max-width: 48ch;
   color: var(--color-text-secondary);
   font-size: var(--font-size-md);
+}
+
+/* Section spacing */
+.deals-section {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-lg);
 }

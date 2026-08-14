@@ -2,167 +2,24 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { useDensityContext } from "../../context/DensityContext";
 import { useToast } from "../../context/ToastContext";
-import type {
-  DealItem,
-  DealsFilters,
-  GamePassFilters,
-  GamePassGame,
-  Giveaway,
-} from "../../types/deals";
-import { Button, PageHeader } from "../../components/ui";
+import type { DealItem, GamePassGame, Giveaway } from "../../types/deals";
+import { PageHeader } from "../../components/ui";
 import { useLanguage } from "../../context/LanguageContext";
+import {
+  type SubTab,
+  type GamePassFiltersState,
+  type DealsFiltersState,
+  DEFAULT_GP_FILTERS,
+  DEFAULT_DEAL_FILTERS,
+  buildGamePassPayload,
+  buildDealsPayload,
+} from "./dealsConstants";
+import DealsStatsHeader from "../../components/deals/DealsStatsHeader";
+import GamePassPanel from "../../components/deals/GamePassPanel";
+import DealsPanel from "../../components/deals/DealsPanel";
+import GiveawaysPanel from "../../components/deals/GiveawaysPanel";
 import "./DealsPage.css";
 import "../../styles/page-deals.css";
-
-/**
- * DealsPage — /deals
- *
- * Three stacked sub-tabs:
- *   1. Xbox GamePass — pulls `fetch_gamepass_catalog` (Rust HTTP fetch
- *      of the public Microsoft GamePass catalog).
- *   2. IsThereAnyDeal — pulls `fetch_isthereanydeal_deals` (Rust HTML
- *      scrape of isthereanydeal.com/ homepage, no API key required).
- *   3. Free Games — pulls `fetch_giveaways` (Rust HTML scrape of
- *      isthereanydeal.com/giveaways/ plus each bundle's detail page,
- *      no API key required).
- *
- * Filter state is local to this page (per-tab). The user's chosen
- * `ViewDensity` (compact / cozy / cinematic) is read from
- * `DensityContext` and applied to all grids, matching the Store page
- * pattern. URL opening is delegated to the existing Tauri opener
- * plugin, so clicks open in the system default browser.
- */
-
-type SubTab = "gamepass" | "isthereanydeal" | "giveaways";
-
-interface GamePassFiltersState {
-  region: string;
-  categories: string[];
-  platform: string;
-}
-
-interface DealsFiltersState {
-  platform: string;
-  minDiscount: number;
-  store: string;
-}
-
-// `label` values are either i18n keys (resolved through `t`) or literal
-// brand names — `translate` falls back to the raw string when the key
-// isn't in the dictionary, so brands pass through untranslated.
-const GP_REGIONS: { code: string; label: string }[] = [
-  { code: "US", label: "deals.regionUS" },
-  { code: "UK", label: "deals.regionUK" },
-  { code: "CA", label: "deals.regionCA" },
-  { code: "AU", label: "deals.regionAU" },
-  { code: "DE", label: "deals.regionDE" },
-  { code: "FR", label: "deals.regionFR" },
-  { code: "JP", label: "deals.regionJP" },
-  { code: "BR", label: "deals.regionBR" },
-  { code: "MX", label: "deals.regionMX" },
-];
-
-const GP_CATEGORIES = [
-  "Action & adventure",
-  "RPG",
-  "Shooter",
-  "Strategy",
-  "Sports & racing",
-  "Platformer",
-  "Puzzle & trivia",
-  "Simulation",
-  "Fighting",
-  "Family & kids",
-  "Card & board",
-  "Music",
-];
-
-// Display keys for GP_CATEGORIES. The raw English value stays the
-// filter payload sent to the backend; only the label is translated.
-const GP_CATEGORY_KEYS: Record<string, string> = {
-  "Action & adventure": "deals.catAction",
-  RPG: "deals.catRpg",
-  Shooter: "deals.catShooter",
-  Strategy: "deals.catStrategy",
-  "Sports & racing": "deals.catSports",
-  Platformer: "deals.catPlatformer",
-  "Puzzle & trivia": "deals.catPuzzle",
-  Simulation: "deals.catSimulation",
-  Fighting: "deals.catFighting",
-  "Family & kids": "deals.catFamily",
-  "Card & board": "deals.catCard",
-  Music: "deals.catMusic",
-};
-
-const GP_PLATFORMS = [
-  { value: "all", label: "deals.allPlatforms" },
-  { value: "xbox", label: "deals.xboxConsole" },
-  { value: "pc", label: "PC" },
-  { value: "cloud", label: "deals.cloudGaming" },
-];
-
-const DEAL_PLATFORMS = [
-  { value: "all", label: "deals.allPlatforms" },
-  { value: "steam", label: "Steam" },
-  { value: "epic", label: "Epic Games Store" },
-  { value: "gog", label: "GOG" },
-  { value: "humble", label: "Humble Store" },
-];
-
-const DEAL_DISCOUNTS = [{ value: 0 }, { value: 25 }, { value: 50 }, { value: 75 }, { value: 90 }];
-
-const DEAL_STORES = [
-  { value: "all", label: "deals.allStores" },
-  { value: "steam", label: "Steam" },
-  { value: "gog", label: "GOG" },
-  { value: "epic", label: "Epic Games Store" },
-  { value: "humble", label: "Humble Store" },
-  { value: "fanatical", label: "Fanatical" },
-  { value: "greenmangaming", label: "Green Man Gaming" },
-];
-
-function formatPrice(price: number): string {
-  if (!Number.isFinite(price)) return "—";
-  return `€${price.toFixed(2)}`;
-}
-
-function buildGamePassPayload(
-  filters: GamePassFiltersState,
-): GamePassFilters {
-  return {
-    region: filters.region,
-    categories: filters.categories.length > 0 ? filters.categories : null,
-    platform: filters.platform === "all" ? null : filters.platform,
-  };
-}
-
-function buildDealsPayload(filters: DealsFiltersState): DealsFilters {
-  return {
-    platform: filters.platform === "all" ? null : filters.platform,
-    minDiscount: filters.minDiscount > 0 ? filters.minDiscount : null,
-    store: filters.store === "all" ? null : filters.store,
-  };
-}
-
-/// Pick a stable accent color for a storefront so the fallback
-/// image tile (shown when ITAD doesn't expose a cover) still reads
-/// as a distinct, branded card.
-function storeTint(storeName: string): string {
-  const palette: Record<string, string> = {
-    "Humble Bundle": "#ff3e1b",
-    Fanatical: "#ff9800",
-    IndieGala: "#ffb4e0",
-    GOG: "#b6883a",
-    Steam: "#1b2838",
-    Epic: "#2a2a72",
-  };
-  for (const key of Object.keys(palette)) {
-    if (storeName.toLowerCase().includes(key.toLowerCase())) {
-      return palette[key];
-    }
-  }
-  return "#3a4a63";
-}
 
 export default function DealsPage() {
   const { t } = useLanguage();
@@ -171,21 +28,13 @@ export default function DealsPage() {
 
   const [activeSubTab, setActiveSubTab] = useState<SubTab>("gamepass");
 
-  const [gpFilters, setGpFilters] = useState<GamePassFiltersState>({
-    region: "US",
-    categories: [],
-    platform: "all",
-  });
+  const [gpFilters, setGpFilters] = useState<GamePassFiltersState>(DEFAULT_GP_FILTERS);
   const [gpGames, setGpGames] = useState<GamePassGame[]>([]);
   const [gpLoading, setGpLoading] = useState(false);
   const [gpError, setGpError] = useState<string | null>(null);
   const [gpEmpty, setGpEmpty] = useState(false);
 
-  const [dealFilters, setDealFilters] = useState<DealsFiltersState>({
-    platform: "all",
-    minDiscount: 0,
-    store: "all",
-  });
+  const [dealFilters, setDealFilters] = useState<DealsFiltersState>(DEFAULT_DEAL_FILTERS);
   const [deals, setDeals] = useState<DealItem[]>([]);
   const [dealsLoading, setDealsLoading] = useState(false);
   const [dealsError, setDealsError] = useState<string | null>(null);
@@ -279,27 +128,20 @@ export default function DealsPage() {
       setGiveawaysError(message);
       setGiveaways([]);
     } finally {
-      if (myRequest === giveawaysRequestId.current)
-        setGiveawaysLoading(false);
+      if (myRequest === giveawaysRequestId.current) setGiveawaysLoading(false);
     }
   }, [t]);
 
   useEffect(() => {
-    if (activeSubTab === "gamepass") {
-      void loadGamePass();
-    }
+    if (activeSubTab === "gamepass") void loadGamePass();
   }, [activeSubTab, loadGamePass, gpReloadNonce]);
 
   useEffect(() => {
-    if (activeSubTab === "isthereanydeal") {
-      void loadDeals();
-    }
+    if (activeSubTab === "isthereanydeal") void loadDeals();
   }, [activeSubTab, loadDeals, dealsReloadNonce]);
 
   useEffect(() => {
-    if (activeSubTab === "giveaways") {
-      void loadGiveaways();
-    }
+    if (activeSubTab === "giveaways") void loadGiveaways();
   }, [activeSubTab, loadGiveaways, giveawaysReloadNonce]);
 
   const handleOpenUrl = useCallback(
@@ -321,14 +163,50 @@ export default function DealsPage() {
     [showToast, t],
   );
 
-  const toggleCategory = (category: string) => {
-    setGpFilters((prev) => ({
-      ...prev,
-      categories: prev.categories.includes(category)
-        ? prev.categories.filter((c) => c !== category)
-        : [...prev.categories, category],
-    }));
-  };
+  const subtabs: { id: SubTab; label: string; count: number; loading: boolean; icon: React.ReactNode }[] = [
+    {
+      id: "gamepass",
+      label: t("deals.gamepass"),
+      count: gpGames.length,
+      loading: gpLoading,
+      icon: (
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          <rect x="2" y="6" width="20" height="12" rx="2" />
+          <line x1="7" y1="12" x2="11" y2="12" />
+          <line x1="9" y1="10" x2="9" y2="14" />
+          <line x1="15" y1="10" x2="17" y2="14" />
+          <line x1="17" y1="10" x2="15" y2="14" />
+        </svg>
+      ),
+    },
+    {
+      id: "isthereanydeal",
+      label: t("deals.isthereanydeal"),
+      count: deals.length,
+      loading: dealsLoading,
+      icon: (
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          <line x1="12" y1="1" x2="12" y2="23" />
+          <path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6" />
+        </svg>
+      ),
+    },
+    {
+      id: "giveaways",
+      label: t("deals.freeGames"),
+      count: giveaways.length,
+      loading: giveawaysLoading,
+      icon: (
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          <polyline points="20 12 20 22 4 22 4 12" />
+          <rect x="2" y="7" width="20" height="5" />
+          <line x1="12" y1="22" x2="12" y2="7" />
+          <path d="M12 7H7.5a2.5 2.5 0 0 1 0-5C11 2 12 7 12 7z" />
+          <path d="M12 7h4.5a2.5 2.5 0 0 0 0-5C13 2 12 7 12 7z" />
+        </svg>
+      ),
+    },
+  ];
 
   return (
     <div className="deals-page page">
@@ -354,765 +232,74 @@ export default function DealsPage() {
         }
       />
 
+      <DealsStatsHeader
+        gpGames={gpGames}
+        deals={deals}
+        giveaways={giveaways}
+        gpLoading={gpLoading}
+        dealsLoading={dealsLoading}
+        giveawaysLoading={giveawaysLoading}
+      />
+
       <div className="deals-subtabs" role="tablist">
-        <button
-          type="button"
-          role="tab"
-          aria-selected={activeSubTab === "gamepass"}
-          className={`deals-subtab ${activeSubTab === "gamepass" ? "active" : ""}`}
-          onClick={() => setActiveSubTab("gamepass")}
-        >
-          <span className="deals-subtab-icon" aria-hidden="true">
-            <svg
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            >
-              <rect x="2" y="6" width="20" height="12" rx="2" />
-              <line x1="7" y1="12" x2="11" y2="12" />
-              <line x1="9" y1="10" x2="9" y2="14" />
-              <line x1="15" y1="10" x2="17" y2="14" />
-              <line x1="17" y1="10" x2="15" y2="14" />
-            </svg>
-          </span>
-          {t("deals.gamepass")}
-          {gpGames.length > 0 && !gpLoading && (
-            <span className="deals-subtab-badge">{gpGames.length}</span>
-          )}
-        </button>
-        <button
-          type="button"
-          role="tab"
-          aria-selected={activeSubTab === "isthereanydeal"}
-          className={`deals-subtab ${activeSubTab === "isthereanydeal" ? "active" : ""}`}
-          onClick={() => setActiveSubTab("isthereanydeal")}
-        >
-          <span className="deals-subtab-icon" aria-hidden="true">
-            <svg
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            >
-              <line x1="12" y1="1" x2="12" y2="23" />
-              <path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6" />
-            </svg>
-          </span>
-          {t("deals.isthereanydeal")}
-          {deals.length > 0 && !dealsLoading && (
-            <span className="deals-subtab-badge">{deals.length}</span>
-          )}
-        </button>
-        <button
-          type="button"
-          role="tab"
-          aria-selected={activeSubTab === "giveaways"}
-          className={`deals-subtab ${activeSubTab === "giveaways" ? "active" : ""}`}
-          onClick={() => setActiveSubTab("giveaways")}
-        >
-          <span className="deals-subtab-icon" aria-hidden="true">
-            <svg
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            >
-              <polyline points="20 12 20 22 4 22 4 12" />
-              <rect x="2" y="7" width="20" height="5" />
-              <line x1="12" y1="22" x2="12" y2="7" />
-              <path d="M12 7H7.5a2.5 2.5 0 0 1 0-5C11 2 12 7 12 7z" />
-              <path d="M12 7h4.5a2.5 2.5 0 0 0 0-5C13 2 12 7 12 7z" />
-            </svg>
-          </span>
-          {t("deals.freeGames")}
-          {giveaways.length > 0 && !giveawaysLoading && (
-            <span className="deals-subtab-badge">{giveaways.length}</span>
-          )}
-        </button>
+        {subtabs.map((tab) => (
+          <button
+            key={tab.id}
+            type="button"
+            role="tab"
+            aria-selected={activeSubTab === tab.id}
+            className={`deals-subtab ${activeSubTab === tab.id ? "active" : ""}`}
+            onClick={() => setActiveSubTab(tab.id)}
+          >
+            <span className="deals-subtab-icon" aria-hidden="true">
+              {tab.icon}
+            </span>
+            {tab.label}
+            {tab.count > 0 && !tab.loading && (
+              <span className="deals-subtab-badge">{tab.count}</span>
+            )}
+          </button>
+        ))}
       </div>
 
       {activeSubTab === "gamepass" && (
-        <section className="deals-section" aria-label={t("deals.gamepass")}>
-          <div className="deals-filters">
-            <div className="deals-filter-group">
-              <label htmlFor="gp-region">{t("deals.region")}</label>
-              <select
-                id="gp-region"
-                className="deals-filter-select"
-                value={gpFilters.region}
-                onChange={(e) =>
-                  setGpFilters((prev) => ({ ...prev, region: e.target.value }))
-                }
-              >
-                {GP_REGIONS.map((r) => (
-                  <option key={r.code} value={r.code}>
-                    {t(r.label)} ({r.code})
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            <div className="deals-filter-group">
-              <label htmlFor="gp-platform">{t("deals.platform")}</label>
-              <select
-                id="gp-platform"
-                className="deals-filter-select"
-                value={gpFilters.platform}
-                onChange={(e) =>
-                  setGpFilters((prev) => ({
-                    ...prev,
-                    platform: e.target.value,
-                  }))
-                }
-              >
-                {GP_PLATFORMS.map((p) => (
-                  <option key={p.value} value={p.value}>
-                    {t(p.label)}
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            <div className="deals-filter-group deals-filter-group--chips">
-              <label>{t("deals.categories")}</label>
-              <div className="deals-category-chips">
-                {GP_CATEGORIES.map((cat) => (
-                  <button
-                    key={cat}
-                    type="button"
-                    className={`deals-category-chip ${
-                      gpFilters.categories.includes(cat) ? "active" : ""
-                    }`}
-                    onClick={() => toggleCategory(cat)}
-                    aria-pressed={gpFilters.categories.includes(cat)}
-                  >
-                    {t(GP_CATEGORY_KEYS[cat] ?? cat)}
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            <Button
-              variant="secondary"
-              size="sm"
-              isLoading={gpLoading}
-              onClick={() => setGpReloadNonce((n) => n + 1)}
-              title={t("deals.refreshGamepass")}
-              leftIcon={
-                <svg
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="2"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                >
-                  <polyline points="23 4 23 10 17 10" />
-                  <path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10" />
-                </svg>
-              }
-            >
-              {t("common.refresh")}
-            </Button>
-          </div>
-
-          {gpLoading && (
-            <div className="deals-loading" role="status" aria-live="polite">
-              <div className="deals-loading-spinner" />
-              <span>{t("deals.loadingGamepass")}</span>
-            </div>
-          )}
-
-          {!gpLoading && gpError && (
-            <div className="deals-error" role="alert">
-              <svg
-                className="deals-error-icon"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="2"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                aria-hidden="true"
-              >
-                <circle cx="12" cy="12" r="10" />
-                <line x1="12" y1="8" x2="12" y2="12" />
-                <line x1="12" y1="16" x2="12.01" y2="16" />
-              </svg>
-              <span>{gpError}</span>
-            </div>
-          )}
-
-          {!gpLoading && !gpError && gpEmpty && (
-            <div className="deals-empty" role="status">
-              <svg
-                className="deals-empty-icon"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="1.5"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                aria-hidden="true"
-              >
-                <circle cx="11" cy="11" r="8" />
-                <line x1="21" y1="21" x2="16.65" y2="16.65" />
-              </svg>
-              <span>
-                {t("deals.emptyGamepass")}
-              </span>
-            </div>
-          )}
-
-          {!gpLoading && !gpError && gpGames.length > 0 && (
-            <div className={`deals-grid density-${density}`}>
-              {gpGames.map((game) => (
-                <article key={game.id} className="deals-gamepass-card">
-                  <div className="deals-gamepass-card-image-wrap">
-                    {game.coverImage ? (
-                      <img
-                        className="deals-gamepass-card-image"
-                        src={game.coverImage}
-                        alt={game.title}
-                        loading="lazy"
-                      />
-                    ) : (
-                      <div className="deals-gamepass-card-image-fallback">
-                        <svg
-                          viewBox="0 0 24 24"
-                          fill="none"
-                          stroke="currentColor"
-                          strokeWidth="1.5"
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                        >
-                          <rect x="2" y="3" width="20" height="14" rx="2" />
-                          <line x1="8" y1="21" x2="16" y2="21" />
-                          <line x1="12" y1="17" x2="12" y2="21" />
-                        </svg>
-                      </div>
-                    )}
-                  </div>
-                  <div className="deals-gamepass-card-body">
-                    <h3 className="deals-gamepass-card-title">{game.title}</h3>
-                    {game.developer && (
-                      <div className="deals-gamepass-card-company">
-                        {game.developer}
-                      </div>
-                    )}
-                    {game.description && (
-                      <p className="deals-gamepass-card-desc">
-                        {game.description}
-                      </p>
-                    )}
-                    {game.categories.length > 0 && (
-                      <div className="deals-gamepass-card-meta">
-                        {game.categories.slice(0, 3).map((cat) => (
-                          <span key={cat} className="deals-gamepass-card-tag">
-                            {cat}
-                          </span>
-                        ))}
-                      </div>
-                    )}
-                    {game.publisher && (
-                      <div className="deals-gamepass-card-company deals-gamepass-card-company--muted">
-                        {t("deals.publishedBy", { publisher: game.publisher })}
-                      </div>
-                    )}
-                    {game.deeplink && (
-                      <button
-                        type="button"
-                        className="deals-gamepass-card-link"
-                        onClick={() => handleOpenUrl(game.deeplink)}
-                      >
-                         {t("deals.viewOnXbox")}
-                        <svg
-                          viewBox="0 0 24 24"
-                          fill="none"
-                          stroke="currentColor"
-                          strokeWidth="2"
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                        >
-                          <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6" />
-                          <polyline points="15 3 21 3 21 9" />
-                          <line x1="10" y1="14" x2="21" y2="3" />
-                        </svg>
-                      </button>
-                    )}
-                  </div>
-                </article>
-              ))}
-            </div>
-          )}
-        </section>
+        <GamePassPanel
+          filters={gpFilters}
+          setFilters={setGpFilters}
+          games={gpGames}
+          loading={gpLoading}
+          error={gpError}
+          empty={gpEmpty}
+          density={density}
+          onOpenUrl={handleOpenUrl}
+          onReload={() => setGpReloadNonce((n) => n + 1)}
+        />
       )}
 
       {activeSubTab === "isthereanydeal" && (
-        <section className="deals-section" aria-label="IsThereAnyDeal">
-          <div className="deals-filters">
-            <div className="deals-filter-group">
-              <label htmlFor="deal-platform">{t("deals.platform")}</label>
-              <select
-                id="deal-platform"
-                className="deals-filter-select"
-                value={dealFilters.platform}
-                onChange={(e) =>
-                  setDealFilters((prev) => ({
-                    ...prev,
-                    platform: e.target.value,
-                  }))
-                }
-              >
-                {DEAL_PLATFORMS.map((p) => (
-                  <option key={p.value} value={p.value}>
-                    {t(p.label)}
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            <div className="deals-filter-group">
-              <label htmlFor="deal-store">{t("deals.store")}</label>
-              <select
-                id="deal-store"
-                className="deals-filter-select"
-                value={dealFilters.store}
-                onChange={(e) =>
-                  setDealFilters((prev) => ({ ...prev, store: e.target.value }))
-                }
-              >
-                {DEAL_STORES.map((s) => (
-                  <option key={s.value} value={s.value}>
-                    {t(s.label)}
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            <div className="deals-filter-group">
-              <label htmlFor="deal-discount">{t("deals.minDiscount")}</label>
-              <select
-                id="deal-discount"
-                className="deals-filter-select"
-                value={dealFilters.minDiscount}
-                onChange={(e) =>
-                  setDealFilters((prev) => ({
-                    ...prev,
-                    minDiscount: Number(e.target.value),
-                  }))
-                }
-              >
-                {DEAL_DISCOUNTS.map((d) => (
-                  <option key={d.value} value={d.value}>
-                    {d.value === 0
-                      ? t("deals.anyDiscount")
-                      : t("deals.discountOrMore", { pct: d.value })}
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            <Button
-              variant="secondary"
-              size="sm"
-              isLoading={dealsLoading}
-              onClick={() => setDealsReloadNonce((n) => n + 1)}
-              title={t("deals.refreshDeals")}
-              leftIcon={
-                <svg
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="2"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                >
-                  <polyline points="23 4 23 10 17 10" />
-                  <path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10" />
-                </svg>
-              }
-            >
-              {t("common.refresh")}
-            </Button>
-          </div>
-
-          {dealsLoading && (
-            <div className="deals-loading" role="status" aria-live="polite">
-              <div className="deals-loading-spinner" />
-              <span>{t("deals.loadingDeals")}</span>
-            </div>
-          )}
-
-          {!dealsLoading && dealsError && (
-            <div className="deals-error" role="alert">
-              <svg
-                className="deals-error-icon"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="2"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                aria-hidden="true"
-              >
-                <circle cx="12" cy="12" r="10" />
-                <line x1="12" y1="8" x2="12" y2="12" />
-                <line x1="12" y1="16" x2="12.01" y2="16" />
-              </svg>
-              <span>{dealsError}</span>
-            </div>
-          )}
-
-          {!dealsLoading && !dealsError && dealsEmpty && (
-            <div className="deals-empty" role="status">
-              <svg
-                className="deals-empty-icon"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="1.5"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                aria-hidden="true"
-              >
-                <line x1="12" y1="1" x2="12" y2="23" />
-                <path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6" />
-              </svg>
-              <span>
-                {t("deals.emptyDeals")}
-              </span>
-            </div>
-          )}
-
-          {!dealsLoading && !dealsError && deals.length > 0 && (
-            <div className={`deals-grid density-${density}`}>
-              {deals.map((deal) => {
-                const discountClass =
-                  deal.discountPercent >= 90
-                    ? "mega"
-                    : deal.discountPercent >= 75
-                      ? "large"
-                      : "";
-                const expiry = deal.expiration
-                  ? new Date(deal.expiration).toLocaleDateString(undefined, {
-                      month: "short",
-                      day: "numeric",
-                      year: "numeric",
-                    })
-                  : null;
-                return (
-                  <article
-                    key={deal.id}
-                    className="deals-deal-card"
-                    role="button"
-                    tabIndex={0}
-                    onClick={() => handleOpenUrl(deal.storeUrl)}
-                    onKeyDown={(e) => {
-                      if (e.key === "Enter" || e.key === " ") {
-                        e.preventDefault();
-                        void handleOpenUrl(deal.storeUrl);
-                      }
-                    }}
-                    aria-label={t("deals.openDealLabel", { game: deal.gameTitle, store: deal.storeName })}
-                  >
-                    {deal.thumbnail ? (
-                      <div className="deals-deal-card-image-wrap">
-                        <img
-                          className="deals-deal-card-image"
-                          src={deal.thumbnail}
-                          alt={deal.gameTitle}
-                          loading="lazy"
-                        />
-                      </div>
-                    ) : (
-                      <div className="deals-deal-card-image-wrap">
-                        <div className="deals-deal-card-image-fallback">
-                          <svg
-                            viewBox="0 0 24 24"
-                            fill="none"
-                            stroke="currentColor"
-                            strokeWidth="1.5"
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                          >
-                            <line x1="12" y1="1" x2="12" y2="23" />
-                            <path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6" />
-                          </svg>
-                        </div>
-                      </div>
-                    )}
-
-                    <span
-                      className={`deals-deal-card-discount-corner ${discountClass}`}
-                    >
-                      -{deal.discountPercent}%
-                    </span>
-
-                    <div className="deals-deal-card-body">
-                      <h3 className="deals-deal-card-title">
-                        {deal.gameTitle}
-                      </h3>
-                      <div className="deals-deal-card-price">
-                        <span className="deals-deal-card-current">
-                          {formatPrice(deal.dealPrice)}
-                        </span>
-                      </div>
-                      <div className="deals-deal-card-meta">
-                        <span className="deals-deal-card-meta-item">
-                          <span className="deals-deal-card-store">
-                            {deal.storeName}
-                          </span>
-                        </span>
-                        <span className="deals-deal-card-meta-item">
-                          <svg
-                            viewBox="0 0 24 24"
-                            fill="none"
-                            stroke="currentColor"
-                            strokeWidth="2"
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                            aria-hidden="true"
-                          >
-                            <rect x="2" y="3" width="20" height="14" rx="2" />
-                            <line x1="8" y1="21" x2="16" y2="21" />
-                            <line x1="12" y1="17" x2="12" y2="21" />
-                          </svg>
-                          {deal.platform}
-                        </span>
-                        {expiry && (
-                          <span className="deals-deal-card-expiry deals-deal-card-meta-item">
-                            <svg
-                              viewBox="0 0 24 24"
-                              fill="none"
-                              stroke="currentColor"
-                              strokeWidth="2"
-                              strokeLinecap="round"
-                              strokeLinejoin="round"
-                              aria-hidden="true"
-                            >
-                               <circle cx="12" cy="12" r="10" />
-                               <polyline points="12 6 12 12 16 14" />
-                             </svg>
-                             {t("deals.ends", { date: expiry })}
-                           </span>
-                        )}
-                      </div>
-                    </div>
-
-                    <div className="deals-deal-card-overlay">
-                      <span className="deals-deal-card-cta">
-                         {t("deals.openDeal")}
-                        <svg
-                          viewBox="0 0 24 24"
-                          fill="none"
-                          stroke="currentColor"
-                          strokeWidth="2"
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                        >
-                          <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6" />
-                          <polyline points="15 3 21 3 21 9" />
-                          <line x1="10" y1="14" x2="21" y2="3" />
-                        </svg>
-                      </span>
-                    </div>
-                  </article>
-                );
-              })}
-            </div>
-          )}
-        </section>
+        <DealsPanel
+          filters={dealFilters}
+          setFilters={setDealFilters}
+          deals={deals}
+          loading={dealsLoading}
+          error={dealsError}
+          empty={dealsEmpty}
+          density={density}
+          onOpenUrl={handleOpenUrl}
+          onReload={() => setDealsReloadNonce((n) => n + 1)}
+        />
       )}
 
       {activeSubTab === "giveaways" && (
-        <section className="deals-section" aria-label={t("deals.freeGames")}>
-          <div className="deals-filters">
-            <div className="deals-filters-info">
-              <span>
-                {t("deals.giveawaysInfo")}
-              </span>
-            </div>
-            <Button
-              variant="secondary"
-              size="sm"
-              isLoading={giveawaysLoading}
-              onClick={() => setGiveawaysReloadNonce((n) => n + 1)}
-              title={t("deals.refreshGiveaways")}
-              leftIcon={
-                <svg
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="2"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                >
-                  <polyline points="23 4 23 10 17 10" />
-                  <path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10" />
-                </svg>
-              }
-            >
-              {t("common.refresh")}
-            </Button>
-          </div>
-
-          {giveawaysLoading && (
-            <div className="deals-loading" role="status" aria-live="polite">
-              <div className="deals-loading-spinner" />
-              <span>{t("deals.loadingGiveaways")}</span>
-            </div>
-          )}
-
-          {!giveawaysLoading && giveawaysError && (
-            <div className="deals-error" role="alert">
-              <svg
-                className="deals-error-icon"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="2"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                aria-hidden="true"
-              >
-                <circle cx="12" cy="12" r="10" />
-                <line x1="12" y1="8" x2="12" y2="12" />
-                <line x1="12" y1="16" x2="12.01" y2="16" />
-              </svg>
-              <span>{giveawaysError}</span>
-            </div>
-          )}
-
-          {!giveawaysLoading && !giveawaysError && giveawaysEmpty && (
-            <div className="deals-empty" role="status">
-              <svg
-                className="deals-empty-icon"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="1.5"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                aria-hidden="true"
-              >
-                <polyline points="20 12 20 22 4 22 4 12" />
-                <rect x="2" y="7" width="20" height="5" />
-                <line x1="12" y1="22" x2="12" y2="7" />
-              </svg>
-              <span>
-                {t("deals.emptyGiveaways")}
-              </span>
-            </div>
-          )}
-
-          {!giveawaysLoading && !giveawaysError && giveaways.length > 0 && (
-            <div className={`deals-grid density-${density}`}>
-              {giveaways.map((giveaway) => {
-                const expiry = giveaway.expiry
-                  ? new Date(giveaway.expiry).toLocaleDateString(undefined, {
-                      month: "short",
-                      day: "numeric",
-                      year: "numeric",
-                    })
-                  : null;
-                return (
-                  <article
-                    key={giveaway.id}
-                    className="deals-giveaway-card"
-                  >
-                    <div className="deals-giveaway-card-image-wrap">
-                      {giveaway.imageUrl ? (
-                        <img
-                          className="deals-giveaway-card-image"
-                          src={giveaway.imageUrl}
-                          alt={giveaway.title}
-                          loading="lazy"
-                        />
-                      ) : (
-                        <div
-                          className="deals-giveaway-card-image-fallback"
-                          style={{
-                            background: `color-mix(in srgb, ${storeTint(giveaway.storeName)} 14%, var(--color-bg-tertiary))`,
-                            color: storeTint(giveaway.storeName),
-                          }}
-                        >
-                          <svg
-                            viewBox="0 0 24 24"
-                            fill="none"
-                            stroke="currentColor"
-                            strokeWidth="1.5"
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                          >
-                            <polyline points="20 12 20 22 4 22 4 12" />
-                            <rect x="2" y="7" width="20" height="5" />
-                            <line x1="12" y1="22" x2="12" y2="7" />
-                          </svg>
-                        </div>
-                      )}
-                      <span className="deals-giveaway-card-free-badge">
-                        {t("deals.freeBadge")}
-                      </span>
-                      {giveaway.isMature && (
-                        <span className="deals-giveaway-card-mature-badge">
-                          18+
-                        </span>
-                      )}
-                    </div>
-                    <div className="deals-giveaway-card-body">
-                      <h3 className="deals-giveaway-card-title">
-                        {giveaway.title}
-                      </h3>
-                      {giveaway.bundleTitle &&
-                        giveaway.bundleTitle !== giveaway.title && (
-                          <div className="deals-giveaway-card-bundle">
-                            {giveaway.bundleTitle}
-                          </div>
-                        )}
-                      <div className="deals-giveaway-card-meta">
-                        <span className="deals-giveaway-card-store">
-                          {giveaway.storeName}
-                        </span>
-                        {expiry && (
-                           <span className="deals-giveaway-card-expiry">
-                             {t("deals.ends", { date: expiry })}
-                           </span>
-                        )}
-                      </div>
-                      <button
-                        type="button"
-                        className="deals-giveaway-card-cta"
-                        onClick={() => handleOpenUrl(giveaway.dealUrl)}
-                      >
-                         {t("deals.getItFree")}
-                        <svg
-                          viewBox="0 0 24 24"
-                          fill="none"
-                          stroke="currentColor"
-                          strokeWidth="2"
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                        >
-                          <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6" />
-                          <polyline points="15 3 21 3 21 9" />
-                          <line x1="10" y1="14" x2="21" y2="3" />
-                        </svg>
-                      </button>
-                    </div>
-                  </article>
-                );
-              })}
-            </div>
-          )}
-        </section>
+        <GiveawaysPanel
+          giveaways={giveaways}
+          loading={giveawaysLoading}
+          error={giveawaysError}
+          empty={giveawaysEmpty}
+          density={density}
+          onOpenUrl={handleOpenUrl}
+          onReload={() => setGiveawaysReloadNonce((n) => n + 1)}
+        />
       )}
     </div>
   );
