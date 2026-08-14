@@ -578,29 +578,95 @@ fn playing_icon(app: &AppHandle) -> Option<Image<'static>> {
     let base = app.default_window_icon()?.clone();
     let (w, h) = (base.width(), base.height());
     let mut rgba = base.rgba().to_vec();
-    paint_circle(
+    let fw = w as f32;
+    let fh = h as f32;
+    let r = (fw * 0.12).max(2.5);
+    paint_badge(
         &mut rgba,
         w,
         h,
-        w - w / 8,
-        h - h / 8,
-        (w / 10).max(1),
-        [0x4C, 0xAF, 0x50],
+        fw - r - (fw * 0.04).max(1.0),
+        fh - r - (fh * 0.04).max(1.0),
+        r,
+        (r * 0.25).max(0.75),
+        [74, 222, 128],
+        [22, 163, 74],
     );
     Some(Image::new_owned(rgba, w, h))
 }
 
-/// Fill a solid circle into an RGBA buffer (used for the running dot
-/// and the taskbar overlay badge).
-fn paint_circle(rgba: &mut [u8], w: u32, h: u32, cx: u32, cy: u32, r: u32, color: [u8; 3]) {
-    for y in 0..h {
-        for x in 0..w {
-            let dx = x as i64 - cx as i64;
-            let dy = y as i64 - cy as i64;
-            if dx * dx + dy * dy <= (r as i64) * (r as i64) {
-                let i = ((y * w + x) * 4) as usize;
-                rgba[i..i + 3].copy_from_slice(&color);
-                rgba[i + 3] = 0xFF;
+/// Draw an anti-aliased status badge with a dark contrast border and
+/// vertical gradient shine onto an RGBA buffer.
+fn paint_badge(
+    rgba: &mut [u8],
+    w: u32,
+    h: u32,
+    cx: f32,
+    cy: f32,
+    r_outer: f32,
+    border_width: f32,
+    top_color: [u8; 3],
+    bottom_color: [u8; 3],
+) {
+    let r_inner = (r_outer - border_width).max(0.5);
+    let border_color: [u8; 3] = [11, 18, 30];
+
+    let min_x = ((cx - r_outer - 1.5).floor() as i64).max(0) as u32;
+    let max_x = (((cx + r_outer + 1.5).ceil() as i64).max(0) as u32).min(w);
+    let min_y = ((cy - r_outer - 1.5).floor() as i64).max(0) as u32;
+    let max_y = (((cy + r_outer + 1.5).ceil() as i64).max(0) as u32).min(h);
+
+    for y in min_y..max_y {
+        for x in min_x..max_x {
+            let px = x as f32 + 0.5;
+            let py = y as f32 + 0.5;
+            let dx = px - cx;
+            let dy = py - cy;
+            let dist = (dx * dx + dy * dy).sqrt();
+
+            if dist >= r_outer + 0.75 {
+                continue;
+            }
+
+            let outer_alpha = ((r_outer + 0.5 - dist) / 1.0).clamp(0.0, 1.0);
+            if outer_alpha <= 0.0 {
+                continue;
+            }
+
+            let inner_t = ((r_inner + 0.5 - dist) / 1.0).clamp(0.0, 1.0);
+            let grad_y = ((py - (cy - r_inner)) / (2.0 * r_inner)).clamp(0.0, 1.0);
+
+            let hx = px - (cx - r_inner * 0.3);
+            let hy = py - (cy - r_inner * 0.3);
+            let h_dist = (hx * hx + hy * hy).sqrt();
+            let shine = ((r_inner * 0.6 - h_dist) / (r_inner * 0.6)).clamp(0.0, 1.0) * 0.35;
+
+            let fill_r = (top_color[0] as f32 + grad_y * (bottom_color[0] as f32 - top_color[0] as f32) + shine * 255.0).clamp(0.0, 255.0);
+            let fill_g = (top_color[1] as f32 + grad_y * (bottom_color[1] as f32 - top_color[1] as f32) + shine * 255.0).clamp(0.0, 255.0);
+            let fill_b = (top_color[2] as f32 + grad_y * (bottom_color[2] as f32 - top_color[2] as f32) + shine * 255.0).clamp(0.0, 255.0);
+
+            let r = inner_t * fill_r + (1.0 - inner_t) * (border_color[0] as f32);
+            let g = inner_t * fill_g + (1.0 - inner_t) * (border_color[1] as f32);
+            let b = inner_t * fill_b + (1.0 - inner_t) * (border_color[2] as f32);
+
+            let idx = ((y * w + x) * 4) as usize;
+            let src_a = outer_alpha;
+            let dst_a = (rgba[idx + 3] as f32) / 255.0;
+
+            let out_a = src_a + dst_a * (1.0 - src_a);
+            if out_a > 0.0 {
+                let dst_r = rgba[idx] as f32;
+                let dst_g = rgba[idx + 1] as f32;
+                let dst_b = rgba[idx + 2] as f32;
+
+                let out_r = (r * src_a + dst_r * dst_a * (1.0 - src_a)) / out_a;
+                let out_g = (g * src_a + dst_g * dst_a * (1.0 - src_a)) / out_a;
+                let out_b = (b * src_a + dst_b * dst_a * (1.0 - src_a)) / out_a;
+
+                rgba[idx] = out_r.round() as u8;
+                rgba[idx + 1] = out_g.round() as u8;
+                rgba[idx + 2] = out_b.round() as u8;
+                rgba[idx + 3] = (out_a * 255.0).round() as u8;
             }
         }
     }
@@ -733,20 +799,73 @@ fn update_overlay(app: &AppHandle, state: &TrayHandles) {
         return;
     };
     let icon = if playing {
-        Some(badge_image([0x4C, 0xAF, 0x50]))
+        Some(badge_image([74, 222, 128], [22, 163, 74]))
     } else if active {
-        Some(badge_image([0x42, 0xA5, 0xF5]))
+        Some(badge_image([56, 189, 248], [37, 99, 235]))
     } else {
         None
     };
     let _ = win.set_overlay_icon(icon);
 }
 
-/// 16x16 filled-circle RGBA image for the taskbar overlay badge.
+/// Compact, anti-aliased RGBA badge image for the taskbar overlay badge.
 #[cfg(target_os = "windows")]
-fn badge_image(color: [u8; 3]) -> Image<'static> {
+fn badge_image(top_color: [u8; 3], bottom_color: [u8; 3]) -> Image<'static> {
     const SIZE: u32 = 16;
     let mut rgba = vec![0u8; (SIZE * SIZE * 4) as usize];
-    paint_circle(&mut rgba, SIZE, SIZE, SIZE / 2, SIZE / 2, SIZE / 2 - 1, color);
+    paint_badge(
+        &mut rgba,
+        SIZE,
+        SIZE,
+        (SIZE as f32) / 2.0,
+        (SIZE as f32) / 2.0,
+        3.75,
+        0.85,
+        top_color,
+        bottom_color,
+    );
     Image::new_owned(rgba, SIZE, SIZE)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_paint_badge_renders_smoothly_within_bounds() {
+        let size = 16u32;
+        let mut rgba = vec![0u8; (size * size * 4) as usize];
+        paint_badge(
+            &mut rgba,
+            size,
+            size,
+            8.0,
+            8.0,
+            3.75,
+            0.85,
+            [74, 222, 128],
+            [22, 163, 74],
+        );
+
+        // Corner pixels must be transparent (dot is compact, leaving padding)
+        let corners = [(0, 0), (15, 0), (0, 15), (15, 15), (1, 1), (14, 14)];
+        for (x, y) in corners {
+            let idx = ((y * size + x) * 4) as usize;
+            assert_eq!(rgba[idx + 3], 0, "corner pixel at ({x},{y}) should be transparent");
+        }
+
+        // Center pixel must be fully opaque with green tint
+        let center_idx = ((8 * size + 8) * 4) as usize;
+        assert!(rgba[center_idx + 3] > 200, "center pixel should be opaque");
+        assert!(rgba[center_idx + 1] > rgba[center_idx], "green channel should dominate");
+    }
+
+    #[cfg(target_os = "windows")]
+    #[test]
+    fn test_badge_image_dimensions() {
+        let img = badge_image([74, 222, 128], [22, 163, 74]);
+        assert_eq!(img.width(), 16);
+        assert_eq!(img.height(), 16);
+        assert_eq!(img.rgba().len(), 16 * 16 * 4);
+    }
 }
