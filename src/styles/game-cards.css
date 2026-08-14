@@ -386,14 +386,14 @@
 
 .ttb-row__fill {
   height: 100%;
-  background: linear-gradient(90deg, var(--color-accent), var(--color-accent-hover));
+  background: var(--color-accent);
   border-radius: var(--radius-full);
   transition: width 600ms var(--ease-standard);
   box-shadow: 0 0 6px var(--color-accent-glow);
 }
 
 .ttb-row__fill--done {
-  background: linear-gradient(90deg, var(--color-success), #059669);
+  background: var(--color-success);
   box-shadow: 0 0 6px color-mix(in srgb, var(--color-success) 50%, transparent);
 }
 

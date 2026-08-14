@@ -44,7 +44,7 @@
   left: 0;
   right: 0;
   height: 3px;
-  background: linear-gradient(90deg, var(--color-accent), #f59e0b, var(--color-accent-hover));
+  background: var(--color-accent);
 }
 
 .ach-hero-score-left {
@@ -147,7 +147,7 @@
 .ach-hero-score-bar-fill {
   height: 100%;
   border-radius: var(--radius-full);
-  background: linear-gradient(90deg, var(--color-accent), #f59e0b);
+  background: var(--color-accent);
   transition: width 0.8s var(--ease-standard);
 }
 
@@ -399,7 +399,7 @@
 .ach-activity-bar-fill {
   width: 100%;
   border-radius: var(--radius-sm);
-  background: linear-gradient(180deg, var(--color-accent-hover), var(--color-accent));
+  background: var(--color-accent);
   transition: height 0.6s var(--ease-standard);
 }
 
@@ -602,7 +602,7 @@
 .ach-almost-done-progress-fill {
   height: 100%;
   border-radius: var(--radius-full);
-  background: linear-gradient(90deg, var(--color-accent), #f59e0b);
+  background: var(--color-accent);
 }
 
 .ach-almost-done-meta {

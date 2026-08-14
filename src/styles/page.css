@@ -27,17 +27,17 @@
   position: relative;
 }
 
-/* Faint accent wash along the header's bottom edge — a whisper of the
-   brand mesh that grounds the title block without stealing focus. */
+/* Crisp accent laser indicator along the header's bottom edge */
 .page-header::after {
   content: "";
   position: absolute;
   left: 0;
   bottom: -1px;
-  width: 96px;
-  height: 1px;
-  background: linear-gradient(90deg, var(--color-accent), transparent);
-  opacity: 0.55;
+  width: 48px;
+  height: 2px;
+  border-radius: var(--radius-full);
+  background: var(--color-accent);
+  box-shadow: 0 0 10px var(--color-accent-glow);
   pointer-events: none;
 }
 
@@ -69,8 +69,7 @@
   height: 44px;
   flex-shrink: 0;
   border-radius: var(--radius-lg);
-  background:
-    linear-gradient(160deg, color-mix(in srgb, var(--color-accent) 22%, transparent), color-mix(in srgb, var(--color-accent) 8%, transparent));
+  background: color-mix(in srgb, var(--color-accent) 12%, var(--color-bg-secondary));
   border: 1px solid color-mix(in srgb, var(--color-accent) 30%, transparent);
   color: var(--color-accent);
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08), 0 4px 14px var(--color-accent-glow);

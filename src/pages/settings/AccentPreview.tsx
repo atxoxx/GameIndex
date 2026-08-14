@@ -1,22 +1,15 @@
 import { useEffect, useMemo, useState } from "react";
 import { useLanguage } from "../../context/LanguageContext";
 import { useTheme } from "../../context/ThemeContext";
-import { cssColorStringToHex } from "../../utils/color";
+import { cssColorStringToHex, contrastRatio, textColorFor } from "../../utils/color";
 
 /**
  * AccentPreview
  *
- * A live demo of the injected accent family — the panel is styled
- * entirely from CSS custom properties (`--color-accent`, `-2`,
- * `-contrast`, `-soft`, `-border`, `-glow`, `--brand-gradient-strong`),
- * so it always shows exactly what the rest of the app is running on:
- * the chosen preset, a custom pick, or the active game's palette when
- * auto-game accent is on (no re-sampling, no duplicated color math).
- *
- * The hex readouts are read from the root's inline override (the exact
- * values SettingsContext injected) and fall back to the computed theme
- * default when no override is active, so the panel stays informative
- * even in the "no override" state.
+ * A modern, zero-gradient Precision UI Theme Inspector showcasing the
+ * active accent family and game palette adaptation in real time.
+ * Styled with pure CSS custom properties (`--color-accent`, `-hover`,
+ * `-active`, `-contrast`, `-soft`, `-surface`, `-border`, `-glow`).
  */
 
 interface AccentPreviewProps {
@@ -34,17 +27,13 @@ export default function AccentPreview({
   const { currentTheme } = useTheme();
   const [revision, setRevision] = useState(0);
 
-  // Re-read the live family whenever the accent, the auto toggle, or
-  // the theme changes. The registered accent tokens interpolate for a
-  // moment after a change, so we prefer the inline *specified* values
-  // (the exact target colors) over mid-transition computed ones.
   useEffect(() => {
     setRevision((n) => n + 1);
   }, [accentColor, autoGameAccent, currentTheme]);
 
-  const family = useMemo(() => {
+  const metrics = useMemo(() => {
     if (typeof document === "undefined") {
-      return { base: null, partner: null };
+      return { base: null, contrast: "#ffffff", ratio: 4.5 };
     }
     const root = document.documentElement;
     const read = (name: string): string => {
@@ -52,10 +41,11 @@ export default function AccentPreview({
       if (inline) return inline;
       return getComputedStyle(root).getPropertyValue(name).trim();
     };
-    return {
-      base: cssColorStringToHex(read("--color-accent")),
-      partner: cssColorStringToHex(read("--color-accent-2")),
-    };
+    const base = cssColorStringToHex(read("--color-accent"));
+    const contrast = base ? textColorFor(base) : "#ffffff";
+    const ratio = base ? Math.round(contrastRatio(base, contrast) * 10) / 10 : 4.5;
+
+    return { base, contrast, ratio };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [revision]);
 
@@ -64,60 +54,85 @@ export default function AccentPreview({
   return (
     <div className={`accent-preview${hasOverride ? "" : " accent-preview--idle"}`}>
       <div className="accent-preview__head">
-        <span className="accent-preview__title">
-          {t("settings.accent.previewTitle")}
-        </span>
-        <span className="accent-preview__hex" aria-hidden>
-          {hasOverride && family.base && family.partner
-            ? `${family.base} → ${family.partner}`
-            : family.base ?? ""}
-        </span>
+        <div className="accent-preview__title-group">
+          <span className="accent-preview__pip" aria-hidden="true" />
+          <span className="accent-preview__title">
+            {t("settings.accent.previewTitle")}
+          </span>
+        </div>
+        <div className="accent-preview__badges">
+          <span className="accent-preview__badge-contrast">
+            {metrics.ratio >= 7 ? "WCAG AAA" : "WCAG AA"} · {metrics.ratio}:1
+          </span>
+          <span className="accent-preview__hex" aria-hidden="true">
+            {metrics.base ?? ""}
+          </span>
+        </div>
       </div>
 
       <div className="accent-preview__stage">
-        {/* Signature brand surface — the gradient banner re-tints live. */}
-        <div className="accent-preview__banner">
-          <span className="accent-preview__banner-orb" aria-hidden />
-          <span className="accent-preview__banner-btn">
-            {t("settings.accent.previewBtn")}
-          </span>
-          {autoGameAccent && (
-            <span className="accent-preview__live">
-              <span className="accent-preview__live-dot" aria-hidden />
-              {t("settings.accent.liveFromGame")}
+        {/* Modern Solid Surface Showcase Card */}
+        <div className="accent-preview__card">
+          <div className="accent-preview__card-laser" aria-hidden="true" />
+          <div className="accent-preview__card-header">
+            <div className="accent-preview__card-title">
+              <span className="accent-preview__dot" aria-hidden="true" />
+              <span>Precision Solid System</span>
+            </div>
+            {autoGameAccent && (
+              <span className="accent-preview__live">
+                <span className="accent-preview__live-dot" aria-hidden="true" />
+                {t("settings.accent.liveFromGame")}
+              </span>
+            )}
+          </div>
+
+          <div className="accent-preview__actions">
+            <button
+              type="button"
+              tabIndex={-1}
+              className="accent-preview__btn-primary"
+            >
+              {t("settings.accent.previewBtn")}
+            </button>
+            <span className="accent-preview__chip-soft">
+              {t("settings.accent.softSample")}
             </span>
-          )}
+            <span className="accent-preview__chip-laser">
+              Laser Edge
+            </span>
+          </div>
         </div>
 
-        {/* On-accent samples: solid (base + contrast text) and soft
-            (soft wash + border tint). */}
-        <div className="accent-preview__row">
-          <span className="accent-preview__sample accent-preview__sample--solid">
-            {t("settings.accent.solidSample")}
-          </span>
-          <span className="accent-preview__sample accent-preview__sample--soft">
-            {t("settings.accent.softSample")}
-          </span>
-        </div>
-
-        {/* Family chips — base, gradient partner, soft, glow. */}
-        <div className="accent-preview__chips">
-          <span
-            className="accent-preview__chip accent-preview__chip--base"
-            title={t("settings.accent.baseHexLabel")}
-          />
-          <span
-            className="accent-preview__chip accent-preview__chip--partner"
-            title={t("settings.accent.partnerHexLabel")}
-          />
-          <span
-            className="accent-preview__chip accent-preview__chip--soft"
-            title={t("settings.accent.softSample")}
-          />
-          <span
-            className="accent-preview__chip accent-preview__chip--glow"
-            title={t("settings.accent.glowSample")}
-          />
+        {/* Tonal Precision Ramp */}
+        <div className="accent-preview__ramp-wrap">
+          <span className="accent-preview__ramp-label">Tonal Ramp</span>
+          <div className="accent-preview__ramp">
+            <div
+              className="accent-preview__ramp-step accent-preview__ramp-step--base"
+              title="100% Base Accent"
+            />
+            <div
+              className="accent-preview__ramp-step accent-preview__ramp-step--hover"
+              title="85% Elevated Hover"
+            />
+            <div
+              className="accent-preview__ramp-step accent-preview__ramp-step--active"
+              title="70% Pressed Active"
+            />
+            <div
+              className="accent-preview__ramp-step accent-preview__ramp-step--soft"
+              title="12% Translucent Soft"
+            />
+            <div
+              className="accent-preview__ramp-step accent-preview__ramp-step--surface"
+              title="6% Ambient Surface"
+            />
+            <div
+              className="accent-preview__ramp-step accent-preview__ramp-step--glow"
+              title="28% Luminescent Halo"
+            />
+          </div>
         </div>
       </div>
     </div>

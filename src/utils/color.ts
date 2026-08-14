@@ -207,25 +207,16 @@ export function hslToRgb(h: number, s: number, l: number): RgbColor {
 }
 
 /**
- * Derive a harmonizing gradient partner for an accent color.
+ * Derive a harmonizing companion shade for an accent color.
  *
- * The partner sits ~55° around the hue wheel — a secondary/tertiary
- * relationship rather than a hard complement — so accent→partner
- * gradients read as "one coherent palette" instead of neon clash.
- * Warm hues (reds, oranges, pinks) rotate counter-clockwise to stay
- * inside the warm family; cool hues rotate clockwise. Saturation is
- * kept ≥ 0.3 (so near-neutral bases still produce a visible partner)
- * and lightness is lifted ~13 points so the second gradient stop
- * never disappears on dark themes.
+ * Provides a clean monochromatic / elevated tone rather than a multi-hue
+ * clash, lifting lightness and balancing saturation for sharp modern interfaces.
  */
 export function harmonizeAccent(color: RgbColor): RgbColor {
   const { h, s, l } = rgbToHsl(color);
-  const warm = h >= 300 || h < 45;
-  const delta = warm ? -55 : 55;
-  const nextH = (h + delta + 360) % 360;
-  const nextS = Math.min(1, Math.max(0.3, s * 1.05));
-  const nextL = Math.min(0.9, Math.max(0.16, l + 0.13));
-  return hslToRgb(nextH, nextS, nextL);
+  const nextS = Math.min(1, Math.max(0.35, s * 0.95));
+  const nextL = Math.min(0.88, Math.max(0.18, l + 0.12));
+  return hslToRgb(h, nextS, nextL);
 }
 
 /**
@@ -294,6 +285,10 @@ export const ACCENT_FAMILY_KEYS: readonly string[] = [
   "--color-accent-glow",
   "--color-accent-soft",
   "--color-accent-border",
+  "--color-accent-surface",
+  "--color-accent-subtle",
+  "--color-accent-badge",
+  "--color-accent-laser",
   "--color-accent-gradient",
   "--color-accent-gradient-strong",
   "--brand-1",
@@ -303,22 +298,16 @@ export const ACCENT_FAMILY_KEYS: readonly string[] = [
   "--brand-gradient",
   "--brand-gradient-strong",
   "--mesh-gradient",
+  "--color-bg-gradient",
 ];
 
 /**
  * Build the complete accent token family from a single base color.
  *
- * Split deliberately:
- *  - **JS-derived** members need math the stylesheet can't do: the
- *    harmonized gradient partner (`--color-accent-2`) and the
- *    contrast-safe on-accent text (`--color-accent-contrast`, WCAG AA).
- *  - **CSS color-mix** members reference those so every surface stays
- *    live: hover/active/glow/soft/border states, plus the brand
- *    gradient + mesh re-derived from the harmonized pair.
- *
- * Accepts either a hex or an `rgb(r, g, b)` string (the shape the game
- * palette extraction produces). Returns `null` when the base color
- * can't be parsed.
+ * Delivers a zero-gradient, ultra-modern precision styling system:
+ *  - Solid accent base, hover, active, and contrast tokens.
+ *  - High-precision translucent alpha surfaces (soft, badge, subtle, laser).
+ *  - Eliminates all multi-hue gradients and noisy background radial blobs.
  */
 export function buildAccentFamily(
   baseColor: string
@@ -338,27 +327,28 @@ export function buildAccentFamily(
     "--color-accent-active":
       "color-mix(in srgb, var(--color-accent) 70%, black 30%)",
     "--color-accent-glow":
-      "color-mix(in srgb, var(--color-accent) var(--accent-glow-strength, 30%), transparent)",
+      "color-mix(in srgb, var(--color-accent) var(--accent-glow-strength, 28%), transparent)",
     "--color-accent-soft":
       "color-mix(in srgb, var(--color-accent) var(--accent-soft-strength, 12%), var(--color-bg-secondary))",
     "--color-accent-border":
       "color-mix(in srgb, var(--color-accent) var(--accent-border-strength, 35%), transparent)",
-    "--color-accent-gradient":
-      "linear-gradient(135deg, var(--color-accent), var(--color-accent-2))",
-    "--color-accent-gradient-strong":
-      "linear-gradient(135deg, var(--color-accent) 0%, var(--color-accent-2) 100%)",
+    "--color-accent-surface":
+      "color-mix(in srgb, var(--color-accent) 6%, var(--color-bg-secondary))",
+    "--color-accent-subtle":
+      "color-mix(in srgb, var(--color-accent) 4%, transparent)",
+    "--color-accent-badge":
+      "color-mix(in srgb, var(--color-accent) 14%, var(--color-bg-secondary))",
+    "--color-accent-laser": "var(--color-accent)",
+    "--color-accent-gradient": "var(--color-accent)",
+    "--color-accent-gradient-strong": "var(--color-accent)",
     "--brand-1": "var(--color-accent)",
-    "--brand-2": "var(--color-accent-2)",
+    "--brand-2": "var(--color-accent-hover)",
     "--brand-3": "var(--color-accent-hover)",
     "--brand-4": "var(--color-accent)",
-    "--brand-gradient":
-      "linear-gradient(135deg, var(--color-accent), var(--color-accent-2))",
-    "--brand-gradient-strong":
-      "linear-gradient(135deg, var(--color-accent) 0%, var(--color-accent-2) 100%)",
-    "--mesh-gradient":
-      "radial-gradient(circle at 12% 18%, color-mix(in srgb, var(--color-accent) 20%, transparent) 0%, transparent 42%)," +
-      "radial-gradient(circle at 88% 12%, color-mix(in srgb, var(--color-accent-2) 16%, transparent) 0%, transparent 40%)," +
-      "radial-gradient(circle at 75% 88%, color-mix(in srgb, var(--color-accent) 14%, transparent) 0%, transparent 44%)",
+    "--brand-gradient": "var(--color-accent)",
+    "--brand-gradient-strong": "var(--color-accent)",
+    "--mesh-gradient": "none",
+    "--color-bg-gradient": "var(--color-bg-primary)",
   };
 }
 

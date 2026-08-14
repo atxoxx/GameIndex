@@ -74,8 +74,8 @@ export function useGameAccent(
         let g = 0;
         let b = 0;
         let count = 0;
-        // Weight by luminance-ish center bias so a bright logo
-        // doesn't wash the tint to white; skip near-black/near-white.
+        // Prioritize chromatic vibrancy and center bias so dominant artwork colors
+        // shine while skipping noisy dark letterboxes and blown-out whites.
         for (let y = 0; y < size; y++) {
           for (let x = 0; x < size; x++) {
             const i = (y * size + x) * 4;
@@ -84,36 +84,56 @@ export function useGameAccent(
             const pb = data[i + 2];
             const max = Math.max(pr, pg, pb);
             const min = Math.min(pr, pg, pb);
-            if (max - min < 12) continue; // skip greys / near-black
-            if (max > 248) continue; // skip near-white
-            // center bias
+            const chroma = max - min;
+            if (chroma < 14) continue; // skip dull grays and near-black
+            if (max > 246 && min > 200) continue; // skip near-white
+
+            // Center bias + chromatic weight (vibrant pixels count significantly more)
             const dx = x - size / 2;
             const dy = y - size / 2;
-            const w = 1 + (size - Math.hypot(dx, dy)) / size;
+            const distWeight = 1 + (size - Math.hypot(dx, dy)) / size;
+            const chromaWeight = 1 + (chroma / 255) * 2.5;
+            const w = distWeight * chromaWeight;
+
             r += pr * w;
             g += pg * w;
             b += pb * w;
             count += w;
           }
         }
+        if (count === 0) {
+          // Fallback pass: sample average if artwork is predominantly dark/monochrome
+          for (let i = 0; i < data.length; i += 4) {
+            const pr = data[i];
+            const pg = data[i + 1];
+            const pb = data[i + 2];
+            if (Math.max(pr, pg, pb) < 18 || Math.min(pr, pg, pb) > 240) continue;
+            r += pr;
+            g += pg;
+            b += pb;
+            count++;
+          }
+        }
         if (count === 0) return;
         r = Math.round(r / count);
         g = Math.round(g / count);
         b = Math.round(b / count);
-        // Lift saturation slightly so muted covers still read as a tint.
+
+        // Ensure healthy saturation and balanced luminance for UI usage
         const max = Math.max(r, g, b);
         const min = Math.min(r, g, b);
-        if (max - min < 30) {
-          const mid = (max + min) / 2;
-          r = Math.min(255, Math.round(mid + (r - mid) * 1.4));
-          g = Math.min(255, Math.round(mid + (g - mid) * 1.4));
-          b = Math.min(255, Math.round(mid + (b - mid) * 1.4));
+        const mid = (max + min) / 2;
+        if (max - min < 45) {
+          r = Math.min(255, Math.max(0, Math.round(mid + (r - mid) * 1.55)));
+          g = Math.min(255, Math.max(0, Math.round(mid + (g - mid) * 1.55)));
+          b = Math.min(255, Math.max(0, Math.round(mid + (b - mid) * 1.55)));
         }
+
         const rgb: RgbColor = { r, g, b };
         setPalette({
           primary: `rgb(${r}, ${g}, ${b})`,
           secondary: rgbToHex(harmonizeAccent(rgb)),
-          deep: rgbToHex(darken(rgb, 0.35)),
+          deep: rgbToHex(darken(rgb, 0.4)),
         });
       } catch {
         // tainted canvas / decode failure → keep fallback

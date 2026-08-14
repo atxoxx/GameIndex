@@ -1278,7 +1278,7 @@ textarea.settings-input {
 
 .accent-preview {
   margin-top: var(--space-lg);
-  max-width: 440px;
+  max-width: 480px;
   border: 1px solid var(--color-border);
   border-radius: var(--radius-lg);
   background: var(--color-bg-tertiary);
@@ -1290,7 +1290,7 @@ textarea.settings-input {
 
 /* No override active — show the theme's built-in family, slightly muted. */
 .accent-preview--idle {
-  opacity: 0.72;
+  opacity: 0.76;
 }
 
 .accent-preview__head {
@@ -1298,7 +1298,21 @@ textarea.settings-input {
   align-items: center;
   justify-content: space-between;
   gap: var(--space-sm);
-  margin-bottom: var(--space-sm);
+  margin-bottom: var(--space-md);
+}
+
+.accent-preview__title-group {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.accent-preview__pip {
+  width: 8px;
+  height: 8px;
+  border-radius: var(--radius-full);
+  background: var(--color-accent);
+  box-shadow: 0 0 10px var(--color-accent-glow);
 }
 
 .accent-preview__title {
@@ -1306,7 +1320,24 @@ textarea.settings-input {
   font-weight: var(--font-weight-bold);
   letter-spacing: 0.08em;
   text-transform: uppercase;
-  color: var(--color-text-secondary);
+  color: var(--color-text-primary);
+}
+
+.accent-preview__badges {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.accent-preview__badge-contrast {
+  font-size: 10px;
+  font-weight: var(--font-weight-bold);
+  font-family: var(--font-mono);
+  padding: 2px 7px;
+  border-radius: var(--radius-xs);
+  background: color-mix(in srgb, var(--color-accent) 15%, var(--color-bg-secondary));
+  color: var(--color-accent);
+  border: 1px solid color-mix(in srgb, var(--color-accent) 30%, transparent);
 }
 
 .accent-preview__hex {
@@ -1314,88 +1345,84 @@ textarea.settings-input {
   font-size: var(--font-size-xs);
   color: var(--color-text-tertiary);
   white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
+  font-weight: var(--font-weight-medium);
 }
 
 .accent-preview__stage {
   display: flex;
   flex-direction: column;
+  gap: var(--space-md);
+}
+
+/* Modern Solid Surface Card */
+.accent-preview__card {
+  position: relative;
+  border-radius: var(--radius-md);
+  background: var(--color-accent-surface, color-mix(in srgb, var(--color-accent) 6%, var(--color-bg-secondary)));
+  border: 1px solid color-mix(in srgb, var(--color-accent) 22%, var(--color-border));
+  padding: var(--space-md);
+  overflow: hidden;
+  box-shadow: var(--shadow-sm);
+  display: flex;
+  flex-direction: column;
   gap: var(--space-sm);
 }
 
-/* Signature brand surface — the gradient banner re-tints live. */
-.accent-preview__banner {
-  position: relative;
-  height: 76px;
-  border-radius: var(--radius-md);
-  background: var(--brand-gradient-strong);
-  border: 1px solid var(--color-border-light);
-  overflow: hidden;
+/* Precision laser edge stripe */
+.accent-preview__card-laser {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 2px;
+  background: var(--color-accent);
+  box-shadow: 0 0 10px var(--color-accent-glow);
 }
 
-/* Soft sheen across the gradient so it reads as a lit surface. */
-.accent-preview__banner::after {
-  content: "";
-  position: absolute;
-  inset: 0;
-  background: linear-gradient(120deg, transparent 30%, rgba(255, 255, 255, 0.16) 50%, transparent 70%);
-  pointer-events: none;
+.accent-preview__card-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-sm);
 }
 
-.accent-preview__banner-orb {
-  position: absolute;
-  right: 14px;
-  top: 14px;
-  width: 30px;
-  height: 30px;
-  border-radius: var(--radius-full);
-  background: radial-gradient(circle at 32% 32%, rgba(255, 255, 255, 0.55), transparent 62%);
-  box-shadow: 0 0 22px var(--color-accent-glow), 0 0 44px var(--color-accent-glow);
+.accent-preview__card-title {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text-primary);
 }
 
-/* On-accent button — base + contrast text, the WCAG check in action. */
-.accent-preview__banner-btn {
-  position: absolute;
-  left: 14px;
-  bottom: 12px;
-  padding: 6px 14px;
+.accent-preview__dot {
+  width: 6px;
+  height: 6px;
   border-radius: var(--radius-full);
   background: var(--color-accent);
-  color: var(--color-accent-contrast);
-  font-size: var(--font-size-xs);
-  font-weight: var(--font-weight-bold);
-  letter-spacing: 0.02em;
-  border: 1px solid color-mix(in srgb, var(--color-accent-contrast) 28%, transparent);
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.25),
-              0 4px 16px color-mix(in srgb, var(--color-accent) 45%, transparent);
 }
 
-/* Live badge — the palette is currently driven by the active game. */
+/* Live badge — palette driven by active game */
 .accent-preview__live {
-  position: absolute;
-  right: 12px;
-  bottom: 12px;
   display: inline-flex;
   align-items: center;
-  gap: 6px;
-  padding: 4px 10px;
+  gap: 5px;
+  padding: 2px 8px;
   border-radius: var(--radius-full);
-  background: color-mix(in srgb, var(--color-accent-contrast) 14%, transparent);
-  color: var(--color-accent-contrast);
+  background: color-mix(in srgb, var(--color-accent) 15%, var(--color-bg-secondary));
+  color: var(--color-accent);
+  border: 1px solid color-mix(in srgb, var(--color-accent) 30%, transparent);
   font-size: 10px;
   font-weight: var(--font-weight-semibold);
-  letter-spacing: 0.04em;
+  letter-spacing: 0.03em;
   text-transform: uppercase;
-  backdrop-filter: blur(6px);
-  -webkit-backdrop-filter: blur(6px);
 }
 
 .accent-preview__live-dot {
-  width: 7px;
-  height: 7px;
+  width: 6px;
+  height: 6px;
   border-radius: var(--radius-full);
-  background: var(--color-accent-contrast);
+  background: var(--color-accent);
   animation: accentLivePulse 1.6s var(--ease-in-out) infinite;
 }
 
@@ -1408,67 +1435,118 @@ textarea.settings-input {
   .accent-preview__live-dot { animation: none; }
 }
 
-/* Sample buttons — solid (base + contrast) and soft (soft wash + border). */
-.accent-preview__row {
+/* Action chips & buttons */
+.accent-preview__actions {
   display: flex;
-  gap: var(--space-sm);
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--space-xs);
 }
 
-.accent-preview__sample {
-  flex: 1;
+.accent-preview__btn-primary {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  min-height: 34px;
-  border-radius: var(--radius-full);
+  padding: 6px 14px;
+  border-radius: var(--radius-sm);
+  background: var(--color-accent);
+  color: var(--color-accent-contrast);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-bold);
+  letter-spacing: 0.02em;
+  border: 1px solid color-mix(in srgb, var(--color-accent-contrast) 20%, transparent);
+  box-shadow: 0 2px 10px var(--color-accent-glow);
+  cursor: default;
+  transition: transform var(--duration-fast), filter var(--duration-fast);
+}
+
+.accent-preview__btn-primary:hover {
+  filter: brightness(1.08);
+  transform: translateY(-1px);
+}
+
+.accent-preview__chip-soft {
+  display: inline-flex;
+  align-items: center;
+  padding: 5px 11px;
+  border-radius: var(--radius-sm);
+  background: var(--color-accent-soft);
+  color: var(--color-accent);
+  border: 1px solid var(--color-accent-border);
   font-size: var(--font-size-xs);
   font-weight: var(--font-weight-semibold);
 }
 
-.accent-preview__sample--solid {
-  background: var(--color-accent);
-  color: var(--color-accent-contrast);
-  box-shadow: 0 2px 10px var(--color-accent-glow);
-}
-
-.accent-preview__sample--soft {
-  background: var(--color-accent-soft);
-  color: var(--color-accent);
-  border: 1px solid var(--color-accent-border);
-}
-
-/* Family chips — base, gradient partner, soft, glow. */
-.accent-preview__chips {
-  display: flex;
+.accent-preview__chip-laser {
+  display: inline-flex;
   align-items: center;
-  gap: var(--space-sm);
+  padding: 5px 11px;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--color-text-secondary);
+  border: 1px dashed color-mix(in srgb, var(--color-accent) 45%, transparent);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-medium);
 }
 
-.accent-preview__chip {
-  width: 22px;
+/* Tonal Ramp Spectrum */
+.accent-preview__ramp-wrap {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.accent-preview__ramp-label {
+  font-size: 10px;
+  font-weight: var(--font-weight-bold);
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  color: var(--color-text-tertiary);
+}
+
+.accent-preview__ramp {
+  display: grid;
+  grid-template-columns: repeat(6, 1fr);
+  gap: 6px;
+}
+
+.accent-preview__ramp-step {
   height: 22px;
   border-radius: var(--radius-xs);
-  border: 1px solid var(--color-border-light);
+  border: 1px solid var(--color-border);
+  transition: transform var(--duration-fast);
+  cursor: help;
 }
 
-.accent-preview__chip--base {
+.accent-preview__ramp-step:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-sm);
+}
+
+.accent-preview__ramp-step--base {
   background: var(--color-accent);
-  box-shadow: 0 0 12px var(--color-accent-glow);
+  box-shadow: 0 0 10px var(--color-accent-glow);
 }
 
-.accent-preview__chip--partner {
-  background: var(--color-accent-2);
+.accent-preview__ramp-step--hover {
+  background: var(--color-accent-hover);
 }
 
-.accent-preview__chip--soft {
+.accent-preview__ramp-step--active {
+  background: var(--color-accent-active);
+}
+
+.accent-preview__ramp-step--soft {
   background: var(--color-accent-soft);
   border-color: var(--color-accent-border);
 }
 
-.accent-preview__chip--glow {
-  background: var(--color-accent);
-  opacity: 0.35;
-  box-shadow: 0 0 14px var(--color-accent-glow);
+.accent-preview__ramp-step--surface {
+  background: var(--color-accent-surface, color-mix(in srgb, var(--color-accent) 6%, var(--color-bg-secondary)));
+}
+
+.accent-preview__ramp-step--glow {
+  background: color-mix(in srgb, var(--color-accent) 28%, transparent);
 }
 
 /* =============================================================================

@@ -14,11 +14,8 @@
   --color-bg-hover: #1b1f2e;
   --color-bg-active: #23283b;
 
-  /* High-precision ambient depth background mesh */
-  --color-bg-gradient: radial-gradient(circle at 14% 10%, rgba(99, 91, 255, 0.12) 0%, transparent 48%),
-                        radial-gradient(circle at 86% 88%, rgba(56, 189, 248, 0.08) 0%, transparent 45%),
-                        radial-gradient(circle at 50% 50%, rgba(244, 63, 94, 0.04) 0%, transparent 55%),
-                        var(--color-bg-primary);
+  /* Ambient depth background — clean solid obsidian base */
+  --color-bg-gradient: var(--color-bg-primary);
 
   /* Surface system with glassmorphism support */
   --color-surface: rgba(14, 16, 23, 0.78);
@@ -48,24 +45,22 @@
   --color-accent: #635bff;
   --color-accent-hover: color-mix(in srgb, var(--color-accent) 85%, white 15%);
   --color-accent-active: color-mix(in srgb, var(--color-accent) 75%, black 25%);
-  --color-accent-glow: color-mix(in srgb, var(--color-accent) 30%, transparent);
+  --color-accent-glow: color-mix(in srgb, var(--color-accent) 28%, transparent);
   --color-accent-soft: color-mix(in srgb, var(--color-accent) 12%, var(--color-bg-secondary));
 
-  /* Accent family (richer palette derived from the single accent) */
-  --color-accent-2: var(--color-accent-hover); /* harmonized gradient partner — the inline
-                                                  override replaces this with a true secondary
-                                                  hue; without an override it falls back to the
-                                                  monochromatic lift, matching today's look. */
-  --color-accent-contrast: #ffffff; /* on-accent text (WCAG AA); the inline override swaps
-                                       this to #000000 for light accents */
+  /* Accent precision tokens (zero-gradient solid & luminescent depth) */
+  --color-accent-2: var(--color-accent-hover);
+  --color-accent-contrast: #ffffff;
   --color-accent-border: color-mix(in srgb, var(--color-accent) 35%, transparent);
+  --color-accent-surface: color-mix(in srgb, var(--color-accent) 6%, var(--color-bg-secondary));
+  --color-accent-subtle: color-mix(in srgb, var(--color-accent) 4%, transparent);
+  --color-accent-badge: color-mix(in srgb, var(--color-accent) 14%, var(--color-bg-secondary));
+  --color-accent-laser: var(--color-accent);
+  --color-accent-gradient: var(--color-accent);
+  --color-accent-gradient-strong: var(--color-accent);
 
-  /* Accent strength knobs — let themes tune how loudly the injected
-     family speaks. Dark themes keep the default punch; light themes
-     dial the glow/border back so a user accent never goes neon, and
-     flip the hover direction (light themes darken on hover, dark
-     themes lift toward white). */
-  --accent-glow-strength: 30%;
+  /* Accent strength knobs */
+  --accent-glow-strength: 28%;
   --accent-soft-strength: 12%;
   --accent-border-strength: 35%;
   --accent-hover-mix: white;
@@ -81,16 +76,14 @@
   --color-scrim: rgba(4, 5, 9, 0.62);
   --color-scrim-strong: rgba(4, 5, 9, 0.8);
 
-  /* Brand identity */
+  /* Brand identity — solid precision styling */
   --brand-1: var(--color-accent);
   --brand-2: var(--color-accent-hover);
   --brand-3: var(--color-accent-hover);
-  --brand-gradient: linear-gradient(135deg, var(--color-accent), var(--color-accent-hover));
-  --brand-gradient-strong: linear-gradient(135deg, var(--color-accent) 0%, var(--color-accent-hover) 100%);
-  --mesh-gradient:
-    radial-gradient(circle at 12% 18%, color-mix(in srgb, var(--color-accent) 20%, transparent) 0%, transparent 42%),
-    radial-gradient(circle at 88% 12%, color-mix(in srgb, #38bdf8 16%, transparent) 0%, transparent 40%),
-    radial-gradient(circle at 75% 88%, color-mix(in srgb, var(--color-accent) 14%, transparent) 0%, transparent 44%);
+  --brand-4: var(--color-accent);
+  --brand-gradient: var(--color-accent);
+  --brand-gradient-strong: var(--color-accent);
+  --mesh-gradient: none;
 
   /* ── Spacing Scale ────────────────────────────────────────────────
      Base-4 modular scale with a 6px mid-step for fine rhythm. */
@@ -320,13 +313,10 @@ h1, h2, h3, h4, .font-display {
 }
 
 /* ── Brand utilities (shared across pages) ───────────────────────────
-   Gradient-filled text + eyebrow label that carry the signature
-   violet→cyan→magenta brand identity onto every page heading. */
+   Crisp, solid accent text + eyebrow label for high-contrast, modern page headings. */
 .brand-text {
-  background: var(--brand-gradient-strong);
-  -webkit-background-clip: text;
-  background-clip: text;
-  color: transparent;
+  color: var(--color-accent);
+  font-weight: var(--font-weight-bold);
 }
 
 .brand-eyebrow {
@@ -336,7 +326,7 @@ h1, h2, h3, h4, .font-display {
   font-weight: var(--font-weight-bold);
   letter-spacing: 0.28em;
   text-transform: uppercase;
-  color: color-mix(in srgb, var(--color-text-secondary) 70%, var(--brand-2));
+  color: color-mix(in srgb, var(--color-text-secondary) 70%, var(--color-accent));
 }
 
 /* Hover lift — subtle vertical raise on hover */
@@ -390,10 +380,10 @@ h1, h2, h3, h4, .font-display {
 }
 
 .accent-gradient-text {
-  background: linear-gradient(135deg, var(--color-accent) 0%, var(--color-accent-hover) 100%);
-  -webkit-background-clip: text;
-  background-clip: text;
-  color: transparent !important;
+  color: var(--color-accent) !important;
+  font-weight: var(--font-weight-bold) !important;
+  background: none !important;
+  -webkit-background-clip: unset !important;
 }
 
 .accent-pill {
