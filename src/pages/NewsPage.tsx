@@ -1,13 +1,17 @@
 import { useState, useCallback, useMemo, useEffect } from "react";
-import { useNewsFeeds, buildOpml, parseOpml } from "../hooks/useNewsFeeds";
+import { useNewsFeeds, buildOpml, parseOpml, estimateReadingTime } from "../hooks/useNewsFeeds";
 import type { NewsArticle } from "../hooks/useNewsFeeds";
-import { useDensityContext } from "../context/DensityContext";
-import DensityToggle from "../components/DensityToggle";
 import { useToast } from "../context/ToastContext";
 import { PageHeader, Button } from "../components/ui";
 import { useLanguage } from "../context/LanguageContext";
+import { useGames } from "../context/GameContext";
+import { useWishlist } from "../hooks/useWishlist";
 import NewsStatsHeader from "../components/news/NewsStatsHeader";
-import NewsToolbar, { type NewsFeedView } from "../components/news/NewsToolbar";
+import NewsToolbar, {
+  type NewsFeedView,
+  type NewsTimeFilter,
+  type NewsSortOption,
+} from "../components/news/NewsToolbar";
 import NewsSourcePills from "../components/news/NewsSourcePills";
 import NewsArticleGrid from "../components/news/NewsArticleGrid";
 import NewsArticlePreview from "../components/news/NewsArticlePreview";
@@ -19,17 +23,20 @@ import {
 } from "./communityStorage";
 import "./news/NewsPage.css";
 
-const ITEMS_PER_PAGE = 20;
+const ITEMS_PER_PAGE = 24;
 
 export default function NewsPage() {
   const { t } = useLanguage();
-  const { density, setDensity } = useDensityContext();
   const { showToast } = useToast();
+  const { games } = useGames();
+  const { wishlist } = useWishlist();
+
   const {
     articles,
     allArticles,
     loading,
     error,
+    failedFeedsList,
     activeSource,
     sourceNames,
     customFeeds,
@@ -38,9 +45,11 @@ export default function NewsPage() {
     readLinks,
     markRead,
     markAllRead,
+    toggleReadStatus,
     setSourceFilter,
     toggleFeed,
     addCustomFeed,
+    importFeedPack,
     removeCustomFeed,
     refresh,
   } = useNewsFeeds();
@@ -51,40 +60,128 @@ export default function NewsPage() {
   const [savedArticles, setSavedArticles] = useState<SavedArticle[]>(() => loadSavedArticles());
   const [view, setView] = useState<NewsFeedView>("feed");
   const [searchQuery, setSearchQuery] = useState("");
+  const [timeFilter, setTimeFilter] = useState<NewsTimeFilter>("all");
+  const [sortBy, setSortBy] = useState<NewsSortOption>("newest");
+  const [unreadOnly, setUnreadOnly] = useState(false);
 
-  // Saved articles share the NewsArticle shape minus `content`; the
-  // preview falls back to the description in that case.
+  // Saved articles
   const savedAsArticles = useMemo<NewsArticle[]>(
     () => savedArticles.map((s) => ({ ...s, content: "" })),
     [savedArticles]
   );
 
-  // Source filter + saved view + search compose here.
+  // Match articles with games in library or wishlist
+  const userGameTitles = useMemo(() => {
+    const list: string[] = [];
+    for (const g of games) {
+      if (g.name && g.name.length >= 3) list.push(g.name);
+    }
+    for (const w of wishlist) {
+      if (w.name && w.name.length >= 3 && !list.includes(w.name)) list.push(w.name);
+    }
+    return list;
+  }, [games, wishlist]);
+
+  const relatedGameNames = useMemo(() => {
+    const map = new Map<string, string>();
+    if (userGameTitles.length === 0) return map;
+
+    for (const a of allArticles) {
+      const titleLower = a.title.toLowerCase();
+      for (const name of userGameTitles) {
+        const nameLower = name.toLowerCase();
+        if (titleLower.includes(nameLower)) {
+          map.set(a.link, name);
+          break;
+        }
+      }
+    }
+    return map;
+  }, [allArticles, userGameTitles]);
+
+  // Composition: View + Source + Search + Time filter + Unread only + Sort
   const visibleArticles = useMemo(() => {
-    const base =
+    let base =
       view === "saved"
         ? activeSource
           ? savedAsArticles.filter((a) => a.sourceName === activeSource)
           : savedAsArticles
         : articles;
+
+    // Search
     const q = searchQuery.trim().toLowerCase();
-    if (!q) return base;
-    return base.filter(
-      (a) =>
-        a.title.toLowerCase().includes(q) ||
-        a.description.toLowerCase().includes(q)
-    );
-  }, [view, activeSource, savedAsArticles, articles, searchQuery]);
+    if (q) {
+      base = base.filter(
+        (a) =>
+          a.title.toLowerCase().includes(q) ||
+          a.description.toLowerCase().includes(q) ||
+          a.sourceName.toLowerCase().includes(q)
+      );
+    }
+
+    // Time filter
+    if (timeFilter !== "all") {
+      const now = Date.now();
+      const cutoff =
+        timeFilter === "today"
+          ? now - 24 * 60 * 60 * 1000
+          : timeFilter === "week"
+            ? now - 7 * 24 * 60 * 60 * 1000
+            : now - 30 * 24 * 60 * 60 * 1000;
+
+      base = base.filter((a) => {
+        if (!a.pubDate) return true;
+        const time = new Date(a.pubDate).getTime();
+        return isNaN(time) || time >= cutoff;
+      });
+    }
+
+    // Unread only
+    if (unreadOnly) {
+      base = base.filter((a) => !readLinks.has(a.link));
+    }
+
+    // Sorting
+    const sorted = [...base];
+    sorted.sort((a, b) => {
+      switch (sortBy) {
+        case "newest": {
+          const da = new Date(a.pubDate).getTime();
+          const db = new Date(b.pubDate).getTime();
+          if (isNaN(da) && isNaN(db)) return 0;
+          if (isNaN(da)) return 1;
+          if (isNaN(db)) return -1;
+          return db - da;
+        }
+        case "oldest": {
+          const da = new Date(a.pubDate).getTime();
+          const db = new Date(b.pubDate).getTime();
+          if (isNaN(da) && isNaN(db)) return 0;
+          if (isNaN(da)) return 1;
+          if (isNaN(db)) return -1;
+          return da - db;
+        }
+        case "read_time": {
+          const ta = estimateReadingTime((a.content || a.description || "") + a.title);
+          const tb = estimateReadingTime((b.content || b.description || "") + b.title);
+          return tb - ta;
+        }
+        default:
+          return 0;
+      }
+    });
+
+    return sorted;
+  }, [view, activeSource, savedAsArticles, articles, searchQuery, timeFilter, unreadOnly, sortBy, readLinks]);
 
   const unreadTotal = useMemo(
     () => allArticles.filter((a) => !readLinks.has(a.link)).length,
     [allArticles, readLinks]
   );
 
-  // Reset pagination whenever the visible set changes shape.
   useEffect(() => {
     setPage(1);
-  }, [view, searchQuery, activeSource]);
+  }, [view, searchQuery, activeSource, timeFilter, unreadOnly, sortBy]);
 
   const totalPages = Math.max(1, Math.ceil(visibleArticles.length / ITEMS_PER_PAGE));
   const paginatedArticles = useMemo(
@@ -97,12 +194,24 @@ export default function NewsPage() {
     setSelectedArticle(article);
   }, []);
 
-  // Toggle bookmark for the currently-open article (#5)
   const handleToggleSave = useCallback((article: NewsArticle) => {
     setSavedArticles(toggleSavedArticle(article));
   }, []);
 
-  // OPML export (#10)
+  const handleImportPack = useCallback(
+    (packId: string) => {
+      const count = importFeedPack(packId);
+      if (count > 0) {
+        showToast(
+          t("newsPage.opmlImported", { count, plural: count === 1 ? "" : "s" }),
+          "success"
+        );
+        refresh();
+      }
+    },
+    [importFeedPack, refresh, showToast, t]
+  );
+
   const handleExportOpml = useCallback(() => {
     const feeds = allFeeds.filter((f) => f.enabled);
     const blob = new Blob([buildOpml(feeds)], { type: "text/xml" });
@@ -114,7 +223,6 @@ export default function NewsPage() {
     URL.revokeObjectURL(url);
   }, [allFeeds]);
 
-  // OPML import (#10) — feedback goes through the app toast.
   const handleImportOpml = useCallback(
     async (file: File) => {
       try {
@@ -126,7 +234,6 @@ export default function NewsPage() {
         }
         let added = 0;
         for (const f of feeds) {
-          // Reuse the hook's add logic; duplicates are rejected silently.
           addCustomFeed(f.name, f.url);
           added++;
         }
@@ -143,7 +250,6 @@ export default function NewsPage() {
   );
 
   const handleClosePreview = useCallback(() => {
-    // Mark the article as read when the preview is dismissed.
     if (selectedArticle) markRead(selectedArticle.link);
     setSelectedArticle(null);
   }, [selectedArticle, markRead]);
@@ -203,7 +309,6 @@ export default function NewsPage() {
                 </svg>
               }
             />
-            <DensityToggle density={density} onChange={setDensity} />
             <Button
               variant="ghost"
               size="sm"
@@ -230,7 +335,7 @@ export default function NewsPage() {
         loading={loading}
       />
 
-      {/* View tabs + search */}
+      {/* View tabs + search + time filter + sort + unread */}
       <NewsToolbar
         view={view}
         onViewChange={setView}
@@ -238,6 +343,13 @@ export default function NewsPage() {
         savedCount={savedArticles.length}
         searchQuery={searchQuery}
         onSearchChange={setSearchQuery}
+        timeFilter={timeFilter}
+        onTimeFilterChange={setTimeFilter}
+        sortBy={sortBy}
+        onSortByChange={setSortBy}
+        unreadOnly={unreadOnly}
+        onToggleUnreadOnly={() => setUnreadOnly((prev) => !prev)}
+        unreadTotal={unreadTotal}
       />
 
       {/* Source filter pills */}
@@ -256,14 +368,17 @@ export default function NewsPage() {
         hasMore={hasMore}
         loading={loading}
         error={error}
-        density={density}
+        density="cinematic"
         readLinks={readLinks}
         savedLinks={new Set(savedArticles.map((s) => s.link))}
         sourceNames={sourceNames}
         activeSource={activeSource}
         view={view}
         searchQuery={searchQuery}
+        relatedGameNames={relatedGameNames}
         onCardClick={handleCardClick}
+        onToggleSave={handleToggleSave}
+        onToggleRead={(art) => toggleReadStatus(art.link)}
         onLoadMore={() => setPage((p) => p + 1)}
         onRetry={refresh}
         onOpenSettings={handleOpenSettings}
@@ -285,8 +400,10 @@ export default function NewsPage() {
           allFeeds={allFeeds}
           enabledFeedUrls={enabledFeedUrls}
           customFeeds={customFeeds}
+          failedFeedsList={failedFeedsList}
           onToggleFeed={toggleFeed}
           onAddFeed={addCustomFeed}
+          onImportPack={handleImportPack}
           onRemoveFeed={removeCustomFeed}
           onExportOpml={handleExportOpml}
           onImportOpml={handleImportOpml}

@@ -8,9 +8,7 @@ import type { NewsFeedView } from "./NewsToolbar";
 const SKELETON_COUNT = 8;
 
 interface NewsArticleGridProps {
-  /** Paginated slice of the visible articles. */
   articles: NewsArticle[];
-  /** Total visible articles before pagination. */
   totalCount: number;
   hasMore: boolean;
   loading: boolean;
@@ -22,7 +20,10 @@ interface NewsArticleGridProps {
   activeSource: string | null;
   view: NewsFeedView;
   searchQuery: string;
+  relatedGameNames?: Map<string, string>;
   onCardClick: (article: NewsArticle) => void;
+  onToggleSave?: (article: NewsArticle) => void;
+  onToggleRead?: (article: NewsArticle) => void;
   onLoadMore: () => void;
   onRetry: () => void;
   onOpenSettings: () => void;
@@ -30,11 +31,6 @@ interface NewsArticleGridProps {
   onSwitchToFeed: () => void;
 }
 
-/**
- * NewsArticleGrid — the article panel. Owns the loading / error / empty
- * branches and the grid + load-more pagination so NewsPage stays a thin
- * orchestrator.
- */
 export default function NewsArticleGrid({
   articles,
   totalCount,
@@ -48,7 +44,10 @@ export default function NewsArticleGrid({
   activeSource,
   view,
   searchQuery,
+  relatedGameNames,
   onCardClick,
+  onToggleSave,
+  onToggleRead,
   onLoadMore,
   onRetry,
   onOpenSettings,
@@ -57,7 +56,6 @@ export default function NewsArticleGrid({
 }: NewsArticleGridProps) {
   const { t } = useLanguage();
 
-  // ── Loading skeleton ───────────────────────────────────────────────
   if (loading && totalCount === 0) {
     return (
       <div className={`news-article-grid density-${density}`}>
@@ -68,12 +66,10 @@ export default function NewsArticleGrid({
     );
   }
 
-  // ── Error state (nothing to show, but retryable) ───────────────────
   if (error && totalCount === 0) {
     return <NewsErrorState message={error} onRetry={onRetry} />;
   }
 
-  // ── Empty variants ─────────────────────────────────────────────────
   if (totalCount === 0) {
     if (sourceNames.length === 0) {
       return (
@@ -143,20 +139,25 @@ export default function NewsArticleGrid({
     );
   }
 
-  // ── Grid + pagination ──────────────────────────────────────────────
   return (
     <>
       <div className={`news-article-grid density-${density}`}>
-        {articles.map((article, i) => (
-          <NewsArticleCard
-            key={`${article.link}-${i}`}
-            article={article}
-            density={density}
-            read={readLinks.has(article.link)}
-            saved={savedLinks.has(article.link)}
-            onClick={onCardClick}
-          />
-        ))}
+        {articles.map((article, i) => {
+          const related = relatedGameNames?.get(article.link) ?? null;
+          return (
+            <NewsArticleCard
+              key={`${article.link}-${i}`}
+              article={article}
+              density={density}
+              read={readLinks.has(article.link)}
+              saved={savedLinks.has(article.link)}
+              relatedGameName={related}
+              onClick={onCardClick}
+              onToggleSave={onToggleSave}
+              onToggleRead={onToggleRead}
+            />
+          );
+        })}
       </div>
 
       {totalCount > 20 && (

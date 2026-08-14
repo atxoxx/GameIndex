@@ -8,6 +8,7 @@ export interface NewsFeed {
   url: string;
   isDefault: boolean;
   enabled: boolean;
+  category?: string;
 }
 
 export interface NewsArticle {
@@ -21,6 +22,14 @@ export interface NewsArticle {
   imageUrl: string | null;
 }
 
+export interface CuratedFeedPack {
+  id: string;
+  nameKey: string;
+  descKey: string;
+  icon: string;
+  feeds: { name: string; url: string }[];
+}
+
 // ── Default Gaming News RSS Feeds ──────────────────────────────────────
 
 export const DEFAULT_FEEDS: NewsFeed[] = [
@@ -29,42 +38,82 @@ export const DEFAULT_FEEDS: NewsFeed[] = [
     url: "https://www.pcgamer.com/rss/",
     isDefault: true,
     enabled: true,
+    category: "general",
   },
   {
     name: "Rock Paper Shotgun",
     url: "https://www.rockpapershotgun.com/feed",
     isDefault: true,
     enabled: true,
+    category: "pc",
   },
   {
     name: "Eurogamer",
     url: "https://www.eurogamer.net/feed",
     isDefault: true,
     enabled: true,
+    category: "general",
   },
   {
     name: "Gematsu",
     url: "https://www.gematsu.com/feed",
     isDefault: true,
     enabled: true,
+    category: "console",
   },
   {
     name: "Kotaku",
     url: "https://kotaku.com/rss",
     isDefault: true,
     enabled: true,
+    category: "general",
   },
   {
     name: "IGN",
     url: "https://feeds.feedburner.com/ign/all",
     isDefault: true,
     enabled: true,
+    category: "general",
   },
   {
     name: "VGC",
     url: "https://www.videogameschronicle.com/feed/",
     isDefault: true,
     enabled: true,
+    category: "general",
+  },
+];
+
+export const CURATED_FEED_PACKS: CuratedFeedPack[] = [
+  {
+    id: "deals_pack",
+    nameKey: "news.packDealsTitle",
+    descKey: "news.packDealsDesc",
+    icon: "🏷️",
+    feeds: [
+      { name: "Reddit r/GameDeals", url: "https://www.reddit.com/r/GameDeals/.rss" },
+      { name: "PC Gamer Deals", url: "https://www.pcgamer.com/tag/deals/rss/" },
+    ],
+  },
+  {
+    id: "indie_pack",
+    nameKey: "news.packIndieTitle",
+    descKey: "news.packIndieDesc",
+    icon: "🕹️",
+    feeds: [
+      { name: "Indie Games Plus", url: "https://indiegamesplus.com/feed" },
+      { name: "Alpha Beta Gamer", url: "https://www.alphabetagamer.com/feed/" },
+    ],
+  },
+  {
+    id: "hardware_pack",
+    nameKey: "news.packTechTitle",
+    descKey: "news.packTechDesc",
+    icon: "⚡",
+    feeds: [
+      { name: "Tom's Hardware", url: "https://www.tomshardware.com/feeds/all" },
+      { name: "Ars Technica Gaming", url: "https://feeds.arstechnica.com/arstechnica/gaming" },
+    ],
   },
 ];
 
@@ -74,6 +123,13 @@ const READ_KEY = "gamelib-news-read";
 const CACHE_TTL_MS = 5 * 60 * 1000; // 5 minutes
 
 // ── Helpers ────────────────────────────────────────────────────────────
+
+/** Calculate estimated reading time in minutes. */
+export function estimateReadingTime(text: string): number {
+  if (!text) return 1;
+  const wordCount = text.trim().split(/\s+/).filter(Boolean).length;
+  return Math.max(1, Math.ceil(wordCount / 180));
+}
 
 /** Load custom feeds from localStorage. */
 function loadCustomFeeds(): NewsFeed[] {
@@ -112,7 +168,6 @@ function saveReadLinks(links: Set<string>): void {
 /**
  * Auto-discover a feed URL from a site homepage by looking for
  * <link rel="alternate" type="application/rss+xml|atom+xml"> tags.
- * Returns the first discovered feed href, or null if none found.
  */
 export async function discoverFeedUrl(homepage: string): Promise<string | null> {
   const hasTauri = typeof window !== "undefined" && "__TAURI__" in window;
@@ -277,7 +332,6 @@ function getAtomLink(entry: Element): string | null {
       if (href) return href;
     }
   }
-  // Fallback: first link with an href
   for (const link of links) {
     const href = link.getAttribute("href");
     if (href) return href;
@@ -287,23 +341,19 @@ function getAtomLink(entry: Element): string | null {
 
 /** Extract image from RSS item (enclosure, media:content, media:thumbnail). */
 function extractImageUrl(item: Element): string | null {
-  // Check enclosure
   const enclosure = item.querySelector("enclosure");
   if (enclosure?.getAttribute("type")?.startsWith("image")) {
     return enclosure.getAttribute("url") ?? null;
   }
 
-  // Check media:content
   const mediaContent = item.querySelector(
     "media\\:content, content[medium='image'], content[type^='image']"
   );
   if (mediaContent) return mediaContent.getAttribute("url") ?? null;
 
-  // Check media:thumbnail
   const mediaThumb = item.querySelector("media\\:thumbnail, thumbnail");
   if (mediaThumb) return mediaThumb.getAttribute("url") ?? null;
 
-  // Extract first <img> from description/content
   const contentHtml = item.querySelector("content\\:encoded, encoded, content, description")?.textContent ?? "";
   return extractFirstImage(contentHtml);
 }
@@ -322,16 +372,13 @@ function extractAtomImage(entry: Element): string | null {
   return extractFirstImage(contentHtml);
 }
 
-/** Extract first meaningful <img> src from an HTML string.
- *  Filters out tracking pixels, icons, and other tiny images. */
+/** Extract first meaningful <img> src from an HTML string. */
 function extractFirstImage(html: string): string | null {
   const imgRegex = /<img[^>]+src=["']([^"']+)["']/gi;
   let match: RegExpExecArray | null;
   while ((match = imgRegex.exec(html)) !== null) {
     const src = match[1];
-    // Skip tracking pixels and tiny icons
     if (isTinyImage(src)) continue;
-    // Skip common icon/spacer patterns
     if (/\b(spacer|pixel|tracking|1x1|blank|dot|icon-16|favicon)\b/i.test(src)) continue;
     return src;
   }
@@ -340,23 +387,19 @@ function extractFirstImage(html: string): string | null {
 
 /** Check if a URL likely points to a tiny/tracking image. */
 function isTinyImage(url: string): boolean {
-  // URLs with explicit dimension hints for tiny images
   if (/\b(1x1|1\.gif|1\.png|pixel\.gif|spacer\.gif|blank\.gif|dot_clear\.gif)\b/i.test(url)) return true;
   return false;
 }
 
 /** Strip HTML tags from a string, preserving paragraph-like structure. */
 function stripHtml(html: string): string {
-  // Replace block-level breaks with newlines before stripping tags
   let cleaned = html
     .replace(/<br\s*\/?>/gi, "\n")
     .replace(/<\/p>/gi, "\n")
     .replace(/<\/div>/gi, "\n")
     .replace(/<\/li>/gi, "\n")
     .replace(/<\/h[1-6]>/gi, "\n");
-  // Strip remaining HTML tags
   cleaned = cleaned.replace(/<[^>]+>/g, "");
-  // Decode common HTML entities
   cleaned = cleaned.replace(/&amp;/g, "&")
     .replace(/&lt;/g, "<")
     .replace(/&gt;/g, ">")
@@ -365,7 +408,6 @@ function stripHtml(html: string): string {
     .replace(/&apos;/g, "'")
     .replace(/&#x2F;/g, "/")
     .replace(/&nbsp;/g, " ");
-  // Collapse multiple newlines and trim per-line whitespace
   cleaned = cleaned
     .split("\n")
     .map((line) => line.replace(/\s+/g, " ").trim())
@@ -391,7 +433,7 @@ export function formatArticleDate(dateStr: string): string {
     if (diffHours < 24) return `${diffHours}h ago`;
     if (diffDays < 7) return `${diffDays}d ago`;
 
-    return date.toLocaleDateString("en-US", {
+    return date.toLocaleDateString(undefined, {
       month: "short",
       day: "numeric",
       year: date.getFullYear() !== new Date().getFullYear() ? "numeric" : undefined,
@@ -415,12 +457,14 @@ export function useNewsFeeds() {
   const [articles, setArticles] = useState<NewsArticle[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [failedFeedsList, setFailedFeedsList] = useState<string[]>([]);
   const [activeSource, setActiveSource] = useState<string | null>(null); // null = all
   const [readLinks, setReadLinks] = useState<Set<string>>(loadReadLinks);
+  const [lastRefreshedAt, setLastRefreshedAt] = useState<number | null>(null);
+
   // All feeds (defaults + custom, respecting enabled state)
   const allFeeds = useMemo(() => {
     const defaults = DEFAULT_FEEDS.map((d) => {
-      // Check if there's a custom override
       const override = customFeeds.find((c) => c.url === d.url);
       return override ?? d;
     });
@@ -440,13 +484,9 @@ export function useNewsFeeds() {
     return articles.filter((a) => a.sourceName === activeSource);
   }, [articles, activeSource]);
 
-  // Mounted ref to prevent state updates after unmount
   const mountedRef = useRef(true);
 
-  // Fetch all enabled feeds using the Tauri backend (reqwest, no CORS).
-  // Falls back to browser fetch() in dev-only Vite mode (npm run dev).
   const fetchFeeds = useCallback(async (force = false) => {
-    // Check cache first
     if (!force) {
       try {
         const cached = localStorage.getItem(CACHE_KEY);
@@ -454,6 +494,7 @@ export function useNewsFeeds() {
           const parsed: NewsCache = JSON.parse(cached);
           if (Date.now() - parsed.timestamp < CACHE_TTL_MS) {
             setArticles(parsed.articles);
+            setLastRefreshedAt(parsed.timestamp);
             setLoading(false);
             return;
           }
@@ -461,28 +502,21 @@ export function useNewsFeeds() {
       } catch { /* ignore cache parse errors */ }
     }
 
-    // Check whether we're running inside a Tauri webview.
-    // In dev-only Vite mode (npm run dev), Tauri isn't available
-    // and we fall back to browser fetch() — usable when the dev
-    // server has CORS proxying, otherwise feeds will fail.
     const hasTauri = typeof window !== "undefined" && "__TAURI__" in window;
 
     setLoading(true);
     setError(null);
+    setFailedFeedsList([]);
 
     const enabledFeeds = getEnabledUrls(customFeeds);
 
-    // Fetch all feeds in parallel (#17). Failures are isolated per-feed
-    // so a single broken source doesn't blank the whole page.
     const results = await Promise.all(
       enabledFeeds.map(async (feed) => {
         try {
           let xmlText: string;
           if (hasTauri) {
-            // Use the Rust backend's reqwest client — no CORS restrictions.
             xmlText = await invoke<string>("fetch_url", { url: feed.url });
           } else {
-            // Browser fetch() — only works if CORS is relaxed (e.g. via Vite proxy).
             const response = await fetch(feed.url, {
               headers: { Accept: "application/rss+xml, application/xml, text/xml, */*" },
             });
@@ -501,17 +535,16 @@ export function useNewsFeeds() {
     );
 
     const allArticles: NewsArticle[] = [];
-    const failedFeeds: string[] = [];
+    const failed: string[] = [];
     for (const r of results) {
       if (r.ok) {
         allArticles.push(...r.articles);
       } else {
-        failedFeeds.push(`${r.feed.name} (${r.feed.url})`);
+        failed.push(r.feed.name);
         console.warn(`[News] Error fetching ${r.feed.name}: ${r.error}`);
       }
     }
 
-    // Sort by date, newest first
     allArticles.sort((a, b) => {
       const da = new Date(a.pubDate).getTime();
       const db = new Date(b.pubDate).getTime();
@@ -523,8 +556,9 @@ export function useNewsFeeds() {
 
     if (!mountedRef.current) return;
     setArticles(allArticles);
+    setFailedFeedsList(failed);
+    setLastRefreshedAt(Date.now());
 
-    // Save to cache
     try {
       localStorage.setItem(
         CACHE_KEY,
@@ -534,27 +568,21 @@ export function useNewsFeeds() {
 
     if (allArticles.length === 0 && enabledFeeds.length > 0) {
       setError("No articles found. RSS feeds may be unavailable right now.");
-    } else if (failedFeeds.length > 0) {
-      // Surface which feeds failed without hiding the working ones.
-      console.warn(`[News] ${failedFeeds.length} feed(s) failed: ${failedFeeds.join(", ")}`);
     }
 
     if (mountedRef.current) setLoading(false);
   }, [customFeeds]);
 
-  // Toggle a source filter
   const setSourceFilter = useCallback((sourceName: string | null) => {
     setActiveSource(sourceName);
   }, []);
 
-  // Toggle a feed on/off
   const toggleFeed = useCallback(
     (feedUrl: string) => {
       setCustomFeeds((prev) => {
         const updated = prev.map((f) =>
           f.url === feedUrl ? { ...f, enabled: !f.enabled } : f
         );
-        // Also update default feeds
         saveCustomFeeds(updated);
         return updated;
       });
@@ -562,11 +590,13 @@ export function useNewsFeeds() {
     []
   );
 
-  // Add a custom feed
   const addCustomFeed = useCallback(
-    (name: string, url: string) => {
+    (name: string, url: string, category = "general") => {
       setCustomFeeds((prev) => {
-        const updated = [...prev, { name, url, isDefault: false, enabled: true }];
+        if (prev.some((f) => f.url.toLowerCase() === url.toLowerCase())) {
+          return prev;
+        }
+        const updated = [...prev, { name, url, isDefault: false, enabled: true, category }];
         saveCustomFeeds(updated);
         return updated;
       });
@@ -574,7 +604,30 @@ export function useNewsFeeds() {
     []
   );
 
-  // Remove a custom feed
+  const importFeedPack = useCallback(
+    (packId: string) => {
+      const pack = CURATED_FEED_PACKS.find((p) => p.id === packId);
+      if (!pack) return 0;
+
+      let added = 0;
+      setCustomFeeds((prev) => {
+        const next = [...prev];
+        for (const f of pack.feeds) {
+          const existsInDefaults = DEFAULT_FEEDS.some((d) => d.url.toLowerCase() === f.url.toLowerCase());
+          const existsInCustom = next.some((c) => c.url.toLowerCase() === f.url.toLowerCase());
+          if (!existsInDefaults && !existsInCustom) {
+            next.push({ name: f.name, url: f.url, isDefault: false, enabled: true, category: pack.id });
+            added++;
+          }
+        }
+        saveCustomFeeds(next);
+        return next;
+      });
+      return added;
+    },
+    []
+  );
+
   const removeCustomFeed = useCallback(
     (feedUrl: string) => {
       setCustomFeeds((prev) => {
@@ -586,7 +639,6 @@ export function useNewsFeeds() {
     []
   );
 
-  // Mark an article as read (#4)
   const markRead = useCallback((articleLink: string) => {
     setReadLinks((prev) => {
       if (prev.has(articleLink)) return prev;
@@ -597,7 +649,6 @@ export function useNewsFeeds() {
     });
   }, []);
 
-  // Mark all currently-loaded articles as read (#4)
   const markAllRead = useCallback(() => {
     setReadLinks((prev) => {
       const updated = new Set(prev);
@@ -607,32 +658,48 @@ export function useNewsFeeds() {
     });
   }, [articles]);
 
-  // Initial fetch
+  const toggleReadStatus = useCallback((articleLink: string) => {
+    setReadLinks((prev) => {
+      const updated = new Set(prev);
+      if (updated.has(articleLink)) {
+        updated.delete(articleLink);
+      } else {
+        updated.add(articleLink);
+      }
+      saveReadLinks(updated);
+      return updated;
+    });
+  }, []);
+
   useEffect(() => {
     mountedRef.current = true;
     fetchFeeds();
     return () => {
       mountedRef.current = false;
     };
-  }, [fetchFeeds]);    return {
-      articles: filteredArticles,
-      allArticles: articles,
-      loading,
-      error,
-      activeSource,
-      sourceNames,
-      allFeeds,
-      customFeeds: customFeeds.filter((f) => !f.isDefault),
-      setSourceFilter,
-      toggleFeed,
-      addCustomFeed,
-      removeCustomFeed,
-      refresh: () => fetchFeeds(true),
-      // Read-tracking (#4)
-      readLinks,
-      markRead,
-      markAllRead,
-      // Expose enabled feeds for display in settings
-      enabledFeedUrls: new Set(allFeeds.filter((f) => f.enabled).map((f) => f.url)),
-    };
+  }, [fetchFeeds]);
+
+  return {
+    articles: filteredArticles,
+    allArticles: articles,
+    loading,
+    error,
+    failedFeedsList,
+    lastRefreshedAt,
+    activeSource,
+    sourceNames,
+    allFeeds,
+    customFeeds: customFeeds.filter((f) => !f.isDefault),
+    setSourceFilter,
+    toggleFeed,
+    addCustomFeed,
+    importFeedPack,
+    removeCustomFeed,
+    refresh: () => fetchFeeds(true),
+    readLinks,
+    markRead,
+    markAllRead,
+    toggleReadStatus,
+    enabledFeedUrls: new Set(allFeeds.filter((f) => f.enabled).map((f) => f.url)),
+  };
 }

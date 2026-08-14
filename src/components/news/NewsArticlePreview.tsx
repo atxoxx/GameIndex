@@ -1,10 +1,10 @@
-import { useEffect, useCallback, useRef, useState } from "react";
+import { useEffect, useCallback, useRef, useState, useMemo } from "react";
 import { openUrl } from "@tauri-apps/plugin-opener";
 import { Webview } from "@tauri-apps/api/webview";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { LogicalSize, LogicalPosition } from "@tauri-apps/api/dpi";
 import type { NewsArticle } from "../../hooks/useNewsFeeds";
-import { formatArticleDate } from "../../hooks/useNewsFeeds";
+import { formatArticleDate, estimateReadingTime } from "../../hooks/useNewsFeeds";
 import { useLanguage } from "../../context/LanguageContext";
 
 interface NewsArticlePreviewProps {
@@ -15,6 +15,7 @@ interface NewsArticlePreviewProps {
 }
 
 type PreviewMode = "reader" | "full";
+type FontSize = "sm" | "md" | "lg";
 
 export default function NewsArticlePreview({
   article,
@@ -24,13 +25,27 @@ export default function NewsArticlePreview({
 }: NewsArticlePreviewProps) {
   const { t } = useLanguage();
   const placeholderRef = useRef<HTMLDivElement>(null);
+  const bodyRef = useRef<HTMLDivElement>(null);
   const [webviewReady, setWebviewReady] = useState(false);
   const [webviewError, setWebviewError] = useState(false);
   const webviewInstRef = useRef<Webview | null>(null);
   const [shareCopied, setShareCopied] = useState(false);
   const [previewMode, setPreviewMode] = useState<PreviewMode>("reader");
+  const [fontSize, setFontSize] = useState<FontSize>("md");
+  const [readProgress, setReadProgress] = useState(0);
 
-  // The inline reader is the fast path; the native webview is opt-in.
+  const readTimeMinutes = useMemo(() => {
+    if (!article) return 1;
+    const text = (article.content || article.description || "") + " " + article.title;
+    return estimateReadingTime(text);
+  }, [article]);
+
+  const wordCount = useMemo(() => {
+    if (!article) return 0;
+    const text = (article.content || article.description || "");
+    return text.trim().split(/\s+/).filter(Boolean).length;
+  }, [article]);
+
   const handleModeChange = useCallback((mode: PreviewMode) => {
     setPreviewMode(mode);
   }, []);
@@ -42,7 +57,6 @@ export default function NewsArticlePreview({
     [onClose]
   );
 
-  // Share via the OS share sheet when available, otherwise copy the link (#28)
   const handleShare = useCallback(async () => {
     if (!article) return;
     const shareData = { title: article.title, text: article.title, url: article.link };
@@ -53,22 +67,28 @@ export default function NewsArticlePreview({
       }
       if (navigator.clipboard) {
         await navigator.clipboard.writeText(article.link);
-        setWebviewError(false);
         setShareCopied(true);
         setTimeout(() => setShareCopied(false), 2000);
       }
     } catch {
-      /* user cancelled share — ignore */
+      /* ignore */
     }
   }, [article]);
 
-  // ── Webview lifecycle ──────────────────────────────────────────────
-  // The native child webview is a progressive enhancement layered over the
-  // already-rendered sanitized article body, and only lives while the
-  // "Full page" mode is active. Any failure (missing Tauri, ACL rejection,
-  // unsupported renderer) must degrade gracefully WITHOUT throwing, since
-  // an uncaught rejection here surfaces as a React "failing component".
+  // Track scroll progress for reader mode
+  const handleScroll = () => {
+    if (!bodyRef.current) return;
+    const el = bodyRef.current;
+    const total = el.scrollHeight - el.clientHeight;
+    if (total <= 0) {
+      setReadProgress(100);
+      return;
+    }
+    const current = Math.min(100, Math.max(0, (el.scrollTop / total) * 100));
+    setReadProgress(current);
+  };
 
+  // Webview lifecycle
   useEffect(() => {
     if (!article) return;
 
@@ -79,14 +99,12 @@ export default function NewsArticlePreview({
     document.addEventListener("keydown", handleKeyDown);
     document.body.style.overflow = "hidden";
 
-    // Wait for the modal layout to paint, then attempt the webview.
     const raf = requestAnimationFrame(() => {
       if (previewMode !== "full") return;
 
       void (async () => {
         if (!active || !placeholderRef.current) return;
 
-        // Close any existing preview webviews first
         try {
           const allWebviews = await Webview.getAll();
           for (const wv of allWebviews) {
@@ -126,12 +144,10 @@ export default function NewsArticlePreview({
             if (active) setWebviewError(true);
           });
         } catch (err) {
-          // Non-fatal: the sanitized article body is already shown above.
           console.warn("[News] Native webview unavailable, using inline reader:", err);
           if (active) setWebviewError(true);
         }
       })().catch((err) => {
-        // Failsafe: never let the async lifecycle crash the component.
         console.warn("[News] Webview lifecycle failed gracefully:", err);
         if (active) setWebviewError(true);
       });
@@ -148,7 +164,6 @@ export default function NewsArticlePreview({
       if (wv) {
         wv.close().catch(() => {});
       } else {
-        // Cleanup any orphaned webviews
         Webview.getAll().then((all) => {
           for (const w of all) {
             if (w.label.startsWith("news-preview-")) {
@@ -160,8 +175,7 @@ export default function NewsArticlePreview({
     };
   }, [article, handleKeyDown, previewMode]);
 
-  // ── Geometry sync (resize + scroll tracking) ────────────────────────
-
+  // Geometry sync
   useEffect(() => {
     if (!placeholderRef.current || !webviewInstRef.current) return;
 
@@ -173,10 +187,8 @@ export default function NewsArticlePreview({
       const rect = el.getBoundingClientRect();
       if (rect.width <= 0 || rect.height <= 0) return;
 
-      wv.setPosition(new LogicalPosition(rect.left, rect.top))
-        .catch(() => {});
-      wv.setSize(new LogicalSize(rect.width, rect.height))
-        .catch(() => {});
+      wv.setPosition(new LogicalPosition(rect.left, rect.top)).catch(() => {});
+      wv.setSize(new LogicalSize(rect.width, rect.height)).catch(() => {});
     };
 
     syncGeometry();
@@ -192,8 +204,6 @@ export default function NewsArticlePreview({
       window.removeEventListener("scroll", syncGeometry, true);
     };
   }, [webviewReady]);
-
-  // ── Render ─────────────────────────────────────────────────────────
 
   if (!article) return null;
 
@@ -214,6 +224,16 @@ export default function NewsArticlePreview({
       aria-label={t("news.articleLabel", { title: article.title })}
     >
       <div className="modal news-preview-modal">
+        {/* Reading progress bar */}
+        {previewMode === "reader" && (
+          <div className="news-preview-progress-track">
+            <div
+              className="news-preview-progress-bar"
+              style={{ width: `${readProgress}%` }}
+            />
+          </div>
+        )}
+
         {/* Header */}
         <div className="news-preview-header">
           <div className="news-preview-header-icon">
@@ -232,45 +252,79 @@ export default function NewsArticlePreview({
                   <span>{formatArticleDate(article.pubDate)}</span>
                 </>
               )}
+              <span className="news-preview-meta-dot" aria-hidden="true" />
+              <span>⏱ {readTimeMinutes} min read ({wordCount} words)</span>
             </div>
           </div>
         </div>
 
-        {/* Mode switch: inline reader vs native full-page webview */}
-        <div className="news-preview-switch" role="tablist" aria-label={t("news.previewMode")}>
-          <button
-            type="button"
-            role="tab"
-            aria-selected={previewMode === "reader"}
-            className={`news-preview-switch-btn${previewMode === "reader" ? " active" : ""}`}
-            onClick={() => handleModeChange("reader")}
-          >
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-              <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20" />
-              <path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z" />
-            </svg>
-            {t("news.previewReader")}
-          </button>
-          <button
-            type="button"
-            role="tab"
-            aria-selected={previewMode === "full"}
-            className={`news-preview-switch-btn${previewMode === "full" ? " active" : ""}`}
-            onClick={() => handleModeChange("full")}
-          >
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-              <rect x="3" y="3" width="18" height="18" rx="2" />
-              <line x1="3" y1="9" x2="21" y2="9" />
-            </svg>
-            {t("news.previewFullPage")}
-          </button>
+        {/* Mode switch + Font Size Adjuster */}
+        <div className="news-preview-controls-bar">
+          <div className="news-preview-switch" role="tablist" aria-label={t("news.previewMode")}>
+            <button
+              type="button"
+              role="tab"
+              aria-selected={previewMode === "reader"}
+              className={`news-preview-switch-btn${previewMode === "reader" ? " active" : ""}`}
+              onClick={() => handleModeChange("reader")}
+            >
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20" />
+                <path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z" />
+              </svg>
+              {t("news.previewReader")}
+            </button>
+            <button
+              type="button"
+              role="tab"
+              aria-selected={previewMode === "full"}
+              className={`news-preview-switch-btn${previewMode === "full" ? " active" : ""}`}
+              onClick={() => handleModeChange("full")}
+            >
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                <rect x="3" y="3" width="18" height="18" rx="2" />
+                <line x1="3" y1="9" x2="21" y2="9" />
+              </svg>
+              {t("news.previewFullPage")}
+            </button>
+          </div>
+
+          {previewMode === "reader" && (
+            <div className="news-preview-font-controls" aria-label="Font size">
+              <button
+                type="button"
+                className={`news-preview-font-btn ${fontSize === "sm" ? "active" : ""}`}
+                onClick={() => setFontSize("sm")}
+                title="Small text"
+              >
+                A-
+              </button>
+              <button
+                type="button"
+                className={`news-preview-font-btn ${fontSize === "md" ? "active" : ""}`}
+                onClick={() => setFontSize("md")}
+                title="Standard text"
+              >
+                A
+              </button>
+              <button
+                type="button"
+                className={`news-preview-font-btn ${fontSize === "lg" ? "active" : ""}`}
+                onClick={() => setFontSize("lg")}
+                title="Large text"
+              >
+                A+
+              </button>
+            </div>
+          )}
         </div>
 
-        {/* Body — either the sanitized article content or the native
-            webview placeholder the child webview is layered over. */}
+        {/* Body */}
         {previewMode === "reader" ? (
           <div
-            className="news-preview-body"
+            ref={bodyRef}
+            onScroll={handleScroll}
+            className={`news-preview-body font-size-${fontSize}`}
             dangerouslySetInnerHTML={{
               __html: sanitizeHtml(article.content || article.description),
             }}
@@ -349,13 +403,13 @@ export default function NewsArticlePreview({
               className="news-preview-open-btn"
               onClick={handleOpenInBrowser}
             >
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6" />
-              <polyline points="15 3 21 3 21 9" />
-              <line x1="10" y1="14" x2="21" y2="3" />
-            </svg>
-            {t("newsArticle.openInBrowser")}
-          </button>
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6" />
+                <polyline points="15 3 21 3 21 9" />
+                <line x1="10" y1="14" x2="21" y2="3" />
+              </svg>
+              {t("newsArticle.openInBrowser")}
+            </button>
           </div>
         </div>
       </div>

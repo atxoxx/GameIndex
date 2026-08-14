@@ -2,16 +2,49 @@ import type { GamePassFilters, DealsFilters } from "../../types/deals";
 
 export type SubTab = "gamepass" | "isthereanydeal" | "giveaways";
 
+export type DealsSortOption =
+  | "discount_desc"
+  | "price_asc"
+  | "price_desc"
+  | "title_asc"
+  | "title_desc";
+
+export type GamePassSortOption =
+  | "title_asc"
+  | "title_desc"
+  | "release_desc"
+  | "release_asc";
+
+export type GiveawaysSortOption =
+  | "expiry_asc"
+  | "title_asc"
+  | "title_desc";
+
 export interface GamePassFiltersState {
   region: string;
   categories: string[];
   platform: string;
+  searchQuery: string;
+  sortBy: GamePassSortOption;
+  wishlistOnly: boolean;
+  hideOwned: boolean;
 }
 
 export interface DealsFiltersState {
   platform: string;
   minDiscount: number;
   store: string;
+  searchQuery: string;
+  sortBy: DealsSortOption;
+  wishlistOnly: boolean;
+  hideOwned: boolean;
+}
+
+export interface GiveawaysFiltersState {
+  searchQuery: string;
+  store: string;
+  sortBy: GiveawaysSortOption;
+  activeOnly: boolean;
 }
 
 export const GP_REGIONS: { code: string; label: string }[] = [
@@ -89,9 +122,26 @@ export const DEAL_STORES = [
   { value: "greenmangaming", label: "Green Man Gaming" },
 ];
 
-export function formatPrice(price: number): string {
+export function formatPrice(price: number, currency = "EUR"): string {
   if (!Number.isFinite(price)) return "—";
-  return `€${price.toFixed(2)}`;
+  if (price === 0) return "Free";
+  const symbol = currency === "USD" ? "$" : currency === "GBP" ? "£" : "€";
+  return `${symbol}${price.toFixed(2)}`;
+}
+
+/**
+ * Calculates original price and estimated savings based on deal price and discount %.
+ */
+export function calculateSavings(
+  dealPrice: number,
+  discountPercent: number,
+): { originalPrice: number; savings: number } {
+  if (discountPercent <= 0 || discountPercent >= 100 || dealPrice <= 0) {
+    return { originalPrice: dealPrice, savings: 0 };
+  }
+  const originalPrice = dealPrice / (1 - discountPercent / 100);
+  const savings = Math.max(0, originalPrice - dealPrice);
+  return { originalPrice, savings };
 }
 
 export function buildGamePassPayload(
@@ -115,11 +165,14 @@ export function buildDealsPayload(filters: DealsFiltersState): DealsFilters {
 export function storeTint(storeName: string): string {
   const palette: Record<string, string> = {
     "Humble Bundle": "#ff3e1b",
+    Humble: "#ff3e1b",
     Fanatical: "#ff9800",
     IndieGala: "#ffb4e0",
     GOG: "#b6883a",
     Steam: "#1b2838",
     Epic: "#2a2a72",
+    "Xbox / Microsoft": "#107c10",
+    "Green Man Gaming": "#5c9e31",
   };
   for (const key of Object.keys(palette)) {
     if (storeName.toLowerCase().includes(key.toLowerCase())) {
@@ -146,14 +199,85 @@ export function formatExpiry(
   });
 }
 
+/**
+ * Returns dynamic countdown information for giveaways.
+ */
+export function formatCountdown(isoDate: string | null | undefined): {
+  label: string;
+  isUrgent: boolean;
+  isExpired: boolean;
+} | null {
+  if (!isoDate) return null;
+  try {
+    const end = new Date(isoDate).getTime();
+    if (isNaN(end)) return null;
+    const now = Date.now();
+    const diff = end - now;
+
+    if (diff <= 0) {
+      return { label: "Expired", isUrgent: false, isExpired: true };
+    }
+
+    const totalMinutes = Math.floor(diff / (1000 * 60));
+    const totalHours = Math.floor(diff / (1000 * 60 * 60));
+    const days = Math.floor(totalHours / 24);
+    const hours = totalHours % 24;
+    const minutes = totalMinutes % 60;
+
+    if (days > 1) {
+      return { label: `${days}d left`, isUrgent: false, isExpired: false };
+    }
+    if (days === 1) {
+      return { label: `1d ${hours}h left`, isUrgent: false, isExpired: false };
+    }
+    if (hours > 0) {
+      return {
+        label: `${hours}h ${minutes}m left`,
+        isUrgent: hours <= 6,
+        isExpired: false,
+      };
+    }
+    return { label: `${minutes}m left`, isUrgent: true, isExpired: false };
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Converts a game title to a normalized lowercase slug for comparison / wishlist lookup.
+ */
+export function titleToSlug(title: string): string {
+  return title
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "");
+}
+
 export const DEFAULT_GP_FILTERS: GamePassFiltersState = {
   region: "US",
   categories: [],
   platform: "all",
+  searchQuery: "",
+  sortBy: "title_asc",
+  wishlistOnly: false,
+  hideOwned: false,
 };
 
 export const DEFAULT_DEAL_FILTERS: DealsFiltersState = {
   platform: "all",
   minDiscount: 0,
   store: "all",
+  searchQuery: "",
+  sortBy: "discount_desc",
+  wishlistOnly: false,
+  hideOwned: false,
+};
+
+export const DEFAULT_GIVEAWAY_FILTERS: GiveawaysFiltersState = {
+  searchQuery: "",
+  store: "all",
+  sortBy: "expiry_asc",
+  activeOnly: true,
 };

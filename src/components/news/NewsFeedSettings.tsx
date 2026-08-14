@@ -1,14 +1,16 @@
 import { useState, useCallback, useEffect, useRef } from "react";
 import type { NewsFeed } from "../../hooks/useNewsFeeds";
-import { DEFAULT_FEEDS, discoverFeedUrl } from "../../hooks/useNewsFeeds";
+import { DEFAULT_FEEDS, CURATED_FEED_PACKS, discoverFeedUrl } from "../../hooks/useNewsFeeds";
 import { useLanguage } from "../../context/LanguageContext";
 
 interface NewsFeedSettingsProps {
   allFeeds: NewsFeed[];
   enabledFeedUrls: Set<string>;
   customFeeds: NewsFeed[];
+  failedFeedsList?: string[];
   onToggleFeed: (url: string) => void;
-  onAddFeed: (name: string, url: string) => void;
+  onAddFeed: (name: string, url: string, category?: string) => void;
+  onImportPack?: (packId: string) => void;
   onRemoveFeed: (url: string) => void;
   onExportOpml: () => void;
   onImportOpml: (file: File) => void;
@@ -19,8 +21,10 @@ export default function NewsFeedSettings({
   allFeeds,
   enabledFeedUrls,
   customFeeds,
+  failedFeedsList = [],
   onToggleFeed,
   onAddFeed,
+  onImportPack,
   onRemoveFeed,
   onExportOpml,
   onImportOpml,
@@ -33,7 +37,6 @@ export default function NewsFeedSettings({
   const [discovering, setDiscovering] = useState(false);
   const opmlInputRef = useRef<HTMLInputElement>(null);
 
-  // Close on Escape
   const handleKeyDown = useCallback(
     (e: KeyboardEvent) => {
       if (e.key === "Escape") onClose();
@@ -61,12 +64,10 @@ export default function NewsFeedSettings({
       return;
     }
 
-    // Ensure URL has a protocol
     if (!/^https?:\/\//i.test(trimmedUrl)) {
       trimmedUrl = "https://" + trimmedUrl;
     }
 
-    // Validate URL format
     try {
       new URL(trimmedUrl);
     } catch {
@@ -74,7 +75,6 @@ export default function NewsFeedSettings({
       return;
     }
 
-    // Check for duplicates
     const allUrls = [
       ...DEFAULT_FEEDS.map((f) => f.url),
       ...customFeeds.map((f) => f.url),
@@ -89,7 +89,6 @@ export default function NewsFeedSettings({
     setUrl("");
   };
 
-  // Auto-discover a feed URL from a homepage (#9)
   const handleDiscover = async () => {
     let homepage = url.trim();
     if (!homepage) {
@@ -156,6 +155,53 @@ export default function NewsFeedSettings({
 
         {/* Body */}
         <div className="news-feed-settings-body">
+          {/* Failed Feeds Diagnostic Banner */}
+          {failedFeedsList.length > 0 && (
+            <div className="news-feed-warning-banner">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <circle cx="12" cy="12" r="10" />
+                <line x1="12" y1="8" x2="12" y2="12" />
+                <line x1="12" y1="16" x2="12.01" y2="16" />
+              </svg>
+              <span>
+                {t("news.failedFeedsWarning", { count: failedFeedsList.length, names: failedFeedsList.join(", ") })}
+              </span>
+            </div>
+          )}
+
+          {/* Curated Preset Packs */}
+          <div className="news-feed-settings-section">
+            <h3 className="news-feed-settings-section-title">
+              {t("news.curatedPacksTitle")}
+            </h3>
+            <div className="news-feed-packs-grid">
+              {CURATED_FEED_PACKS.map((pack) => {
+                const alreadyAdded = pack.feeds.every((f) =>
+                  allFeeds.some((af) => af.url.toLowerCase() === f.url.toLowerCase())
+                );
+                return (
+                  <div key={pack.id} className="news-feed-pack-card">
+                    <div className="news-feed-pack-header">
+                      <span className="news-feed-pack-icon">{pack.icon}</span>
+                      <div className="news-feed-pack-info">
+                        <div className="news-feed-pack-name">{t(pack.nameKey)}</div>
+                        <div className="news-feed-pack-desc">{t(pack.descKey)}</div>
+                      </div>
+                    </div>
+                    <button
+                      type="button"
+                      className={`news-feed-pack-btn ${alreadyAdded ? "added" : ""}`}
+                      onClick={() => onImportPack?.(pack.id)}
+                      disabled={alreadyAdded}
+                    >
+                      {alreadyAdded ? t("news.packAdded") : t("news.packAdd")}
+                    </button>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+
           {/* Default feeds */}
           <div className="news-feed-settings-section">
             <h3 className="news-feed-settings-section-title">
@@ -197,9 +243,7 @@ export default function NewsFeedSettings({
               {customFeeds.length > 0 && ` (${customFeeds.length})`}
             </h3>
             {customFeeds.length === 0 ? (
-              <p
-                className="news-feed-error news-feed-empty-hint"
-              >
+              <p className="news-feed-error news-feed-empty-hint">
                 {t("news.noCustomFeeds")}
               </p>
             ) : (
@@ -278,7 +322,7 @@ export default function NewsFeedSettings({
             </div>
           </div>
 
-          {/* OPML backup / restore (#10) */}
+          {/* OPML backup / restore */}
           <div className="news-feed-settings-section">
             <h3 className="news-feed-settings-section-title">{t("news.opmlTitle")}</h3>
             <p className="news-feed-opml-hint">{t("news.opmlHint")}</p>

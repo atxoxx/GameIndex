@@ -1,6 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
-import { useDensityContext } from "../../context/DensityContext";
 import { useToast } from "../../context/ToastContext";
 import type { DealItem, GamePassGame, Giveaway } from "../../types/deals";
 import { PageHeader } from "../../components/ui";
@@ -15,15 +14,18 @@ import {
   buildDealsPayload,
 } from "./dealsConstants";
 import DealsStatsHeader from "../../components/deals/DealsStatsHeader";
+import DealsHeroSpotlight from "../../components/deals/DealsHeroSpotlight";
 import GamePassPanel from "../../components/deals/GamePassPanel";
 import DealsPanel from "../../components/deals/DealsPanel";
 import GiveawaysPanel from "../../components/deals/GiveawaysPanel";
+import DealDetailModal, {
+  type ModalDealTarget,
+} from "../../components/deals/DealDetailModal";
 import "./DealsPage.css";
 import "../../styles/page-deals.css";
 
 export default function DealsPage() {
   const { t } = useLanguage();
-  const { density } = useDensityContext();
   const { showToast } = useToast();
 
   const [activeSubTab, setActiveSubTab] = useState<SubTab>("gamepass");
@@ -44,6 +46,8 @@ export default function DealsPage() {
   const [giveawaysLoading, setGiveawaysLoading] = useState(false);
   const [giveawaysError, setGiveawaysError] = useState<string | null>(null);
   const [giveawaysEmpty, setGiveawaysEmpty] = useState(false);
+
+  const [selectedTarget, setSelectedTarget] = useState<ModalDealTarget | null>(null);
 
   const gpRequestId = useRef(0);
   const dealsRequestId = useRef(0);
@@ -163,7 +167,25 @@ export default function DealsPage() {
     [showToast, t],
   );
 
-  const subtabs: { id: SubTab; label: string; count: number; loading: boolean; icon: React.ReactNode }[] = [
+  const handleInspectDeal = useCallback((deal: DealItem) => {
+    setSelectedTarget({ type: "deal", data: deal });
+  }, []);
+
+  const handleInspectGamePass = useCallback((game: GamePassGame) => {
+    setSelectedTarget({ type: "gamepass", data: game });
+  }, []);
+
+  const handleInspectGiveaway = useCallback((giveaway: Giveaway) => {
+    setSelectedTarget({ type: "giveaway", data: giveaway });
+  }, []);
+
+  const subtabs: {
+    id: SubTab;
+    label: string;
+    count: number;
+    loading: boolean;
+    icon: React.ReactNode;
+  }[] = [
     {
       id: "gamepass",
       label: t("deals.gamepass"),
@@ -232,6 +254,16 @@ export default function DealsPage() {
         }
       />
 
+      {/* Hero Spotlight */}
+      <DealsHeroSpotlight
+        deals={deals}
+        giveaways={giveaways}
+        gpGames={gpGames}
+        onOpenUrl={handleOpenUrl}
+        onInspect={setSelectedTarget}
+      />
+
+      {/* Stats header */}
       <DealsStatsHeader
         gpGames={gpGames}
         deals={deals}
@@ -239,8 +271,14 @@ export default function DealsPage() {
         gpLoading={gpLoading}
         dealsLoading={dealsLoading}
         giveawaysLoading={giveawaysLoading}
+        onSelectSubTab={setActiveSubTab}
+        onFilterWishlist={() => {
+          setActiveSubTab("isthereanydeal");
+          setDealFilters((prev) => ({ ...prev, wishlistOnly: true }));
+        }}
       />
 
+      {/* Subtabs */}
       <div className="deals-subtabs" role="tablist">
         {subtabs.map((tab) => (
           <button
@@ -262,6 +300,7 @@ export default function DealsPage() {
         ))}
       </div>
 
+      {/* Panels */}
       {activeSubTab === "gamepass" && (
         <GamePassPanel
           filters={gpFilters}
@@ -270,8 +309,9 @@ export default function DealsPage() {
           loading={gpLoading}
           error={gpError}
           empty={gpEmpty}
-          density={density}
+          density="cinematic"
           onOpenUrl={handleOpenUrl}
+          onInspect={handleInspectGamePass}
           onReload={() => setGpReloadNonce((n) => n + 1)}
         />
       )}
@@ -284,8 +324,9 @@ export default function DealsPage() {
           loading={dealsLoading}
           error={dealsError}
           empty={dealsEmpty}
-          density={density}
+          density="cinematic"
           onOpenUrl={handleOpenUrl}
+          onInspect={handleInspectDeal}
           onReload={() => setDealsReloadNonce((n) => n + 1)}
         />
       )}
@@ -296,11 +337,19 @@ export default function DealsPage() {
           loading={giveawaysLoading}
           error={giveawaysError}
           empty={giveawaysEmpty}
-          density={density}
+          density="cinematic"
           onOpenUrl={handleOpenUrl}
+          onInspect={handleInspectGiveaway}
           onReload={() => setGiveawaysReloadNonce((n) => n + 1)}
         />
       )}
+
+      {/* Deal Detail Modal */}
+      <DealDetailModal
+        target={selectedTarget}
+        onClose={() => setSelectedTarget(null)}
+        onOpenUrl={handleOpenUrl}
+      />
     </div>
   );
 }
