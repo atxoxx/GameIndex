@@ -1,317 +1,237 @@
-// Bandwidth sparkline — last 60 s of aggregate download / upload
-// speeds, rendered as a tiny inline SVG line chart (no chart
-// library).
-//
-// Design:
-//
-//   * Sample at a fixed 2 s tick (matches the Rust torrent engine's
-//     `download-progress` poll cadence). 30 samples per window.
-//
-//   * Sample buffer lives in a `useRef` array — we mutate the array
-//     in place and use a tiny `tick` counter to force a re-render.
-//     This keeps the per-tick work to O(1) (one push, one shift)
-//     instead of O(N) state updates.
-//
-//   * The active download list is mirrored into a ref via a
-//     `useEffect` (not a render-phase assignment, which would be
-//     flagged by StrictMode) so the sampling effect can run with
-//     `[]` deps — the effect itself would otherwise tear down and
-//     re-create the interval every time a single byte flows
-//     through, which would defeat the purpose of having a
-//     time-based window.
-//
-//   * Y-axis auto-scales to the peak observed in the window
-//     (clamped to a small floor so the chart isn't visually
-//     explosive when one torrent briefly hits 1 GB/s).
-//
-//   * X-axis is fixed at a 60 s window — we draw samples at their
-//     actual age (`now - t`), so the line "scrolls" naturally as
-//     time advances.
-
-import { useEffect, useRef, useState } from "react";
+import { useMemo, useState } from "react";
+import { useBandwidthHistory, type BandwidthPoint } from "../../hooks/useBandwidthHistory";
 import { useDownloads } from "../../context/DownloadContext";
+import { useSizeUnit } from "../../hooks/useSizeUnit";
 import { useLanguage } from "../../context/LanguageContext";
-import {
-  formatBytesPerSecond,
-  type TorrentDownload,
-} from "../../types/download";
+import { formatBytesPerSecond } from "../../types/download";
+import { ActivityIcon, ChevronIcon } from "./DownloadIcons";
 
-const WINDOW_MS = 60_000;
-const TICK_MS = 2_000;
-// 60s / 2s + a small headroom buffer in case the interval drifts.
-// Used as a hard cap so a JS GC pause can't blow the array up.
-const MAX_SAMPLES = Math.ceil(WINDOW_MS / TICK_MS) + 2;
+const VIEW_WIDTH = 600;
+const VIEW_HEIGHT = 64;
+const PADDING = 6;
 
-// SVG viewBox dimensions. preserveAspectRatio="none" lets the chart
-// stretch to whatever width its container has.
-const VIEW_W = 600;
-const VIEW_H = 56;
-// Inner padding so the stroke doesn't get clipped at the top / bottom.
-const PAD_Y = 3;
-
-// Floor the Y axis so a torrent that briefly hits 1 GB/s doesn't
-// make every other sample read as "near zero" for the rest of the
-// window. 32 KB/s is a sensible "this connection is doing nothing"
-// threshold — below that we still draw the line but it doesn't
-// dominate the scale.
-const MIN_PEAK_BYTES_PER_SEC = 32 * 1024;
-
-interface Sample {
-  /** Wall-clock time the sample was taken (ms). */
-  t: number;
-  /** Aggregate download speed at sample time, in bytes/sec. */
-  dl: number;
-  /** Aggregate upload speed at sample time, in bytes/sec. */
-  ul: number;
-}
+type TimeWindow = 60 | 180 | 300;
 
 export default function BandwidthSparkline() {
+  const history = useBandwidthHistory();
   const { activeDownloads } = useDownloads();
+  const { unit } = useSizeUnit();
   const { t } = useLanguage();
 
-  // Mirror the live list into a ref so the sampling effect can
-  // run with an empty dep array. Setting the ref in a `useEffect`
-  // (rather than during render) keeps us StrictMode-clean: a
-  // double-render in dev would otherwise run the side effect
-  // twice with the same value.
-  const dataRef = useRef<TorrentDownload[]>(activeDownloads);
-  useEffect(() => {
-    dataRef.current = activeDownloads;
-  }, [activeDownloads]);
+  const totalDownloadSpeed = activeDownloads.reduce((acc, d) => acc + (d.downloadSpeed || 0), 0);
+  const totalUploadSpeed = activeDownloads.reduce((acc, d) => acc + (d.uploadSpeed || 0), 0);
 
-  const samplesRef = useRef<Sample[]>([]);
-  // We only need the setter (the value is never read). The
-  // underscore prefix signals "intentionally unused" to
-  // TypeScript and linters, and the setter call is what triggers
-  // a re-render of the SVG.
-  const [, setTick] = useState(0);
+  const [timeWindow, setTimeWindow] = useState<TimeWindow>(60);
+  const [collapsed, setCollapsed] = useState(false);
+  const [hoverIndex, setHoverIndex] = useState<number | null>(null);
 
-  // Prime the buffer on mount with the current speeds so the
-  // chart isn't empty for the first 2 s.
-  useEffect(() => {
-    samplesRef.current.push({
-      t: Date.now(),
-      dl: sumSpeed(dataRef.current, "downloadSpeed"),
-      ul: sumSpeed(dataRef.current, "uploadSpeed"),
-    });
-    setTick((n) => n + 1);
-  }, []);
+  // Slice history points based on selected time window
+  const visibleHistory = useMemo(() => {
+    return history.slice(-timeWindow);
+  }, [history, timeWindow]);
 
-  // The sampler effect. Runs once on mount, ticks every 2 s.
-  useEffect(() => {
-    const id = window.setInterval(() => {
-      const now = Date.now();
-      const arr = samplesRef.current;
-      const cutoff = now - WINDOW_MS;
-      // Drop expired samples from the front. The buffer is
-      // bounded at MAX_SAMPLES so a JS GC pause can't blow it
-      // up, but the window cutoff is the real reason we're
-      // trimming.
-      while (arr.length > 0 && arr[0].t < cutoff) {
-        arr.shift();
-      }
-      // Defense-in-depth: even if the interval is throttled to
-      // once every few seconds, never let the buffer exceed
-      // MAX_SAMPLES. shift() here keeps the array chronological.
-      while (arr.length >= MAX_SAMPLES) {
-        arr.shift();
-      }
-      arr.push({
-        t: now,
-        dl: sumSpeed(dataRef.current, "downloadSpeed"),
-        ul: sumSpeed(dataRef.current, "uploadSpeed"),
-      });
-      setTick((n) => n + 1);
-    }, TICK_MS);
-    return () => window.clearInterval(id);
-  }, []);
+  const peakDown = useMemo(() => {
+    return Math.max(...visibleHistory.map((pt: BandwidthPoint) => pt.down), totalDownloadSpeed, 1024);
+  }, [visibleHistory, totalDownloadSpeed]);
 
-  // ── Derive the paths from the buffer ─────────────────────────────────
-  const samples = samplesRef.current;
-  const lastSample = samples[samples.length - 1];
-  const refTime = lastSample ? lastSample.t : Date.now();
-  const peak = Math.max(
-    MIN_PEAK_BYTES_PER_SEC,
-    ...samples.map((s) => Math.max(s.dl, s.ul)),
-  );
+  const peakUp = useMemo(() => {
+    return Math.max(...visibleHistory.map((pt: BandwidthPoint) => pt.up), totalUploadSpeed, 1024);
+  }, [visibleHistory, totalUploadSpeed]);
 
-  // xFor / yFor translate (timestamp, bytesPerSec) → SVG coords.
-  // We map the reference time (last sample's timestamp) against the right
-  // edge so the line remains completely stable between sample updates.
-  const xFor = (t: number) => {
-    const age = refTime - t;
-    return VIEW_W - (age / WINDOW_MS) * VIEW_W;
-  };
-  const yFor = (v: number) => {
-    return VIEW_H - PAD_Y - (v / peak) * (VIEW_H - PAD_Y * 2);
-  };
+  const maxSpeed = Math.max(peakDown, peakUp, 10 * 1024);
 
-  // Build the download polyline + a closed area path for the
-  // gradient fill below it. `samples` is in chronological order;
-  // we iterate oldest → newest.
-  let dlLine = "";
-  let dlArea = "";
-  let ulLine = "";
-  if (samples.length === 1) {
-    // Single point: render a tiny dot at the right edge so the
-    // user gets immediate visual feedback (vs. an empty chart for
-    // the first 2 s).
-    const s = samples[0];
-    const x = xFor(s.t);
-    const yDl = yFor(s.dl);
-    const yUl = yFor(s.ul);
-    dlLine = `${x.toFixed(1)},${yDl.toFixed(1)}`;
-    ulLine = `${x.toFixed(1)},${yUl.toFixed(1)}`;
-  } else if (samples.length > 1) {
-    const first = samples[0];
-    dlLine = `M ${xFor(first.t).toFixed(1)},${yFor(first.dl).toFixed(1)}`;
-    ulLine = `M ${xFor(first.t).toFixed(1)},${yFor(first.ul).toFixed(1)}`;
-    for (let i = 1; i < samples.length; i++) {
-      const s = samples[i];
-      dlLine += ` L ${xFor(s.t).toFixed(1)},${yFor(s.dl).toFixed(1)}`;
-      ulLine += ` L ${xFor(s.t).toFixed(1)},${yFor(s.ul).toFixed(1)}`;
+  const { dlPath, ulPath, dlPoints, ulPoints } = useMemo(() => {
+    const n = visibleHistory.length;
+    if (n === 0) {
+      return { dlPath: "", ulPath: "", dlPoints: [], ulPoints: [] };
     }
-    // Closed area for the gradient fill — go from the last point
-    // down to the bottom-right, then along the bottom to the
-    // bottom-left of the line, then up to the first point.
-    const last = samples[samples.length - 1];
-    dlArea =
-      dlLine +
-      ` L ${xFor(last.t).toFixed(1)},${(VIEW_H - PAD_Y).toFixed(1)}` +
-      ` L ${xFor(first.t).toFixed(1)},${(VIEW_H - PAD_Y).toFixed(1)} Z`;
-  }
 
-  // Current "now" value for the right-edge label. Falls back to 0
-  // when the buffer is empty (shouldn't happen post-mount, but
-  // keeps the label deterministic).
-  const current = samples[samples.length - 1] ?? { dl: 0, ul: 0 };
+    const usableH = VIEW_HEIGHT - PADDING * 2;
+    const xStep = n > 1 ? (VIEW_WIDTH - PADDING * 2) / (n - 1) : 0;
 
-  // Stable aria-label so screen readers describe the chart
-  // without having to read the SVG path. Includes the live peak
-  // and the most recent sample so the user knows roughly what
-  // they're looking at.
-  const ariaLabel = t('bandwidth.sparklineAria', {
-    dl: formatBytesPerSecond(current.dl),
-    ul: formatBytesPerSecond(current.ul),
-    peak: formatBytesPerSecond(peak),
-  });
+    const dlPts: { x: number; y: number; speed: number; time: string }[] = [];
+    const ulPts: { x: number; y: number; speed: number; time: string }[] = [];
+
+    const dlSegments: string[] = [];
+    const ulSegments: string[] = [];
+
+    for (let i = 0; i < n; i++) {
+      const pt = visibleHistory[i];
+      const x = PADDING + i * xStep;
+
+      const normDl = Math.min(pt.down / maxSpeed, 1);
+      const yDl = VIEW_HEIGHT - PADDING - normDl * usableH;
+
+      const normUl = Math.min(pt.up / maxSpeed, 1);
+      const yUl = VIEW_HEIGHT - PADDING - normUl * usableH;
+
+      dlPts.push({ x, y: yDl, speed: pt.down, time: pt.time });
+      ulPts.push({ x, y: yUl, speed: pt.up, time: pt.time });
+
+      const command = i === 0 ? "M" : "L";
+      dlSegments.push(`${command} ${x.toFixed(1)} ${yDl.toFixed(1)}`);
+      ulSegments.push(`${command} ${x.toFixed(1)} ${yUl.toFixed(1)}`);
+    }
+
+    return {
+      dlPath: dlSegments.join(" "),
+      ulPath: ulSegments.join(" "),
+      dlPoints: dlPts,
+      ulPoints: ulPts,
+    };
+  }, [visibleHistory, maxSpeed]);
+
+  const handleMouseMove = (e: React.MouseEvent<SVGSVGElement>) => {
+    const rect = e.currentTarget.getBoundingClientRect();
+    const relX = (e.clientX - rect.left) / rect.width;
+    const idx = Math.round(relX * (visibleHistory.length - 1));
+    if (idx >= 0 && idx < visibleHistory.length) {
+      setHoverIndex(idx);
+    }
+  };
+
+  const handleMouseLeave = () => {
+    setHoverIndex(null);
+  };
+
+  const hoveredDl = hoverIndex !== null ? dlPoints[hoverIndex] : null;
+  const hoveredUl = hoverIndex !== null ? ulPoints[hoverIndex] : null;
 
   return (
-    <div className="dl-sparkline" aria-label={ariaLabel}>
-      <div className="dl-sparkline-header">
-        <span className="dl-sparkline-title">
-          <svg
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="2"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            aria-hidden
-            className="dl-sparkline-icon"
+    <div className="dl-sparkline-box" role="region" aria-label="Network Activity Graph">
+      <div className="dl-sparkline-bar-header">
+        <div className="dl-sparkline-title-group">
+          <span className="dl-sparkline-title">
+            <ActivityIcon className="dl-sparkline-icon" />
+            {t("downloads.networkTelemetry")}
+          </span>
+
+          <div className="dl-sparkline-time-toggles" role="group" aria-label="Time window">
+            <button
+              type="button"
+              className={`dl-sparkline-time-btn${timeWindow === 60 ? " active" : ""}`}
+              onClick={() => setTimeWindow(60)}
+            >
+              {t("downloads.time60s")}
+            </button>
+            <button
+              type="button"
+              className={`dl-sparkline-time-btn${timeWindow === 180 ? " active" : ""}`}
+              onClick={() => setTimeWindow(180)}
+            >
+              {t("downloads.time3m")}
+            </button>
+            <button
+              type="button"
+              className={`dl-sparkline-time-btn${timeWindow === 300 ? " active" : ""}`}
+              onClick={() => setTimeWindow(300)}
+            >
+              {t("downloads.time5m")}
+            </button>
+          </div>
+        </div>
+
+        <div className="dl-sparkline-stats-group">
+          <div className="dl-sparkline-legend-item dl-sparkline-legend-dl">
+            <span className="dl-sparkline-legend-swatch" />
+            <span>
+              ↓ {formatBytesPerSecond(hoveredDl ? hoveredDl.speed : totalDownloadSpeed, unit)}
+            </span>
+          </div>
+
+          <div className="dl-sparkline-legend-item dl-sparkline-legend-ul">
+            <span className="dl-sparkline-legend-swatch" />
+            <span>
+              ↑ {formatBytesPerSecond(hoveredUl ? hoveredUl.speed : totalUploadSpeed, unit)}
+            </span>
+          </div>
+
+          <span className="dl-sparkline-stat-pill" title="Peak in window">
+            Max: {formatBytesPerSecond(maxSpeed, unit)}
+          </span>
+
+          <button
+            type="button"
+            className="dl-sparkline-collapse-btn"
+            onClick={() => setCollapsed(!collapsed)}
+            aria-label={collapsed ? "Expand graph" : "Collapse graph"}
+            title={collapsed ? "Expand graph" : "Collapse graph"}
           >
-            <polyline points="22 12 18 12 15 21 9 3 6 12 2 12" />
-          </svg>
-          {t('bandwidth.last60s')}
-        </span>
-        <span className="dl-sparkline-legend">
-          <span className="dl-sparkline-legend-item dl-sparkline-legend-dl">
-            <span className="dl-sparkline-legend-swatch" aria-hidden />
-            {formatBytesPerSecond(current.dl)}
-          </span>
-          <span className="dl-sparkline-legend-item dl-sparkline-legend-ul">
-            <span className="dl-sparkline-legend-swatch" aria-hidden />
-            {formatBytesPerSecond(current.ul)}
-          </span>
-        </span>
+            <ChevronIcon
+              style={{
+                transform: collapsed ? "rotate(180deg)" : "rotate(0deg)",
+                transition: "transform 0.2s ease",
+                width: 13,
+                height: 13,
+              }}
+            />
+          </button>
+        </div>
       </div>
 
-      <svg
-        className="dl-sparkline-svg"
-        viewBox={`0 0 ${VIEW_W} ${VIEW_H}`}
-        preserveAspectRatio="none"
-        aria-hidden
-      >
-        <defs>
-          {/*
-            SVG presentation attributes don't resolve CSS custom
-            properties — `stopColor="var(--color-accent)"` would
-            silently fall back to the default fill. Use inline
-            `style` so the variable resolves in a real CSS context.
-          */}
-          <linearGradient id="dl-sparkline-grad" x1="0" y1="0" x2="0" y2="1">
-            <stop
-              offset="0%"
-              style={{ stopColor: "var(--color-accent)" }}
-              stopOpacity="0.35"
+      {!collapsed && (
+        <div className="dl-sparkline-canvas-wrapper">
+          <svg
+            className="dl-sparkline-svg"
+            viewBox={`0 0 ${VIEW_WIDTH} ${VIEW_HEIGHT}`}
+            preserveAspectRatio="none"
+            aria-hidden="true"
+            onMouseMove={handleMouseMove}
+            onMouseLeave={handleMouseLeave}
+          >
+            <line
+              x1={0}
+              y1={VIEW_HEIGHT - PADDING}
+              x2={VIEW_WIDTH}
+              y2={VIEW_HEIGHT - PADDING}
+              className="dl-sparkline-baseline"
             />
-            <stop
-              offset="100%"
-              style={{ stopColor: "var(--color-accent)" }}
-              stopOpacity="0"
+            <line
+              x1={0}
+              y1={PADDING}
+              x2={VIEW_WIDTH}
+              y2={PADDING}
+              className="dl-sparkline-baseline"
+              strokeOpacity="0.3"
             />
-          </linearGradient>
-        </defs>
 
-        {/* Subtle baseline so the user can see "zero" when speeds
-            drop to nothing. Drawn before the lines so it sits
-            behind them. */}
-        <line
-          x1="0"
-          y1={VIEW_H - PAD_Y}
-          x2={VIEW_W}
-          y2={VIEW_H - PAD_Y}
-          className="dl-sparkline-baseline"
-        />
+            {ulPath && <path d={ulPath} className="dl-sparkline-line-ul" />}
+            {dlPath && <path d={dlPath} className="dl-sparkline-line-dl" />}
 
-        {dlArea && (
-          <path d={dlArea} fill="url(#dl-sparkline-grad)" />
-        )}
+            {/* Hover crosshair & dots */}
+            {hoverIndex !== null && hoveredDl && (
+              <g className="dl-sparkline-hover-group">
+                <line
+                  x1={hoveredDl.x}
+                  y1={0}
+                  x2={hoveredDl.x}
+                  y2={VIEW_HEIGHT}
+                  stroke="var(--color-text-muted)"
+                  strokeWidth="1"
+                  strokeDasharray="2 2"
+                />
+                <circle cx={hoveredDl.x} cy={hoveredDl.y} r="3.5" fill="var(--color-accent)" />
+                {hoveredUl && (
+                  <circle cx={hoveredUl.x} cy={hoveredUl.y} r="3" fill="var(--color-success)" />
+                )}
+              </g>
+            )}
+          </svg>
 
-        {dlLine &&
-          (samples.length === 1 ? (
-            <circle
-              cx={xFor(samples[0].t)}
-              cy={yFor(samples[0].dl)}
-              r="2"
-              className="dl-sparkline-dot-dl"
-            />
-          ) : (
-            <path
-              d={dlLine}
-              fill="none"
-              className="dl-sparkline-line-dl"
-            />
-          ))}
-
-        {ulLine &&
-          (samples.length === 1 ? (
-            <circle
-              cx={xFor(samples[0].t)}
-              cy={yFor(samples[0].ul)}
-              r="2"
-              className="dl-sparkline-dot-ul"
-            />
-          ) : (
-            <path
-              d={ulLine}
-              fill="none"
-              className="dl-sparkline-line-ul"
-            />
-          ))}
-      </svg>
+          {hoverIndex !== null && hoveredDl && (
+            <div
+              className="dl-sparkline-hover-tooltip"
+              style={{ left: `${(hoveredDl.x / VIEW_WIDTH) * 100}%` }}
+            >
+              <span className="dl-tooltip-time">{hoveredDl.time}</span>
+              <span className="dl-tooltip-dl">↓ {formatBytesPerSecond(hoveredDl.speed, unit)}</span>
+              {hoveredUl && (
+                <span className="dl-tooltip-ul">↑ {formatBytesPerSecond(hoveredUl.speed, unit)}</span>
+              )}
+            </div>
+          )}
+        </div>
+      )}
     </div>
   );
-}
-
-/** Sum the chosen speed field across every active torrent. */
-function sumSpeed(
-  downloads: TorrentDownload[],
-  field: "downloadSpeed" | "uploadSpeed",
-): number {
-  let total = 0;
-  for (const d of downloads) {
-    total += d[field];
-  }
-  return total;
 }

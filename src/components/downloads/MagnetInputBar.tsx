@@ -1,116 +1,118 @@
-// Inline magnet-link / .torrent URL input.
-//
-// Sits at the top of the Downloads page so a power user can paste a
-// URI and start a download without going through the GamePage →
-// DownloadModal flow. Mirrors the same validation as `torrent_add`
-// (the Rust command only accepts `magnet:`, `http://`, `https://`).
-//
-// Why include this on the dedicated page (and not just the modal)?
-//
-//   * Quick-add is the #1 use case once a user is "in the
-//     downloads mindset" and just wants to drop in the next
-//     magnet from their clipboard.
-//   * It doesn't conflict with the modal — the modal is the
-//     "browse, pick a source, save path" flow; this is the
-//     "I already have a URI" flow.
-//
-// Two conveniences layered on top of the basic paste-and-add flow:
-//
-//   1. Default save path — when the user has set a default download
-//      folder in Settings (and hasn't enabled "always ask"), we skip
-//      the folder picker and drop the download straight in.
-//   2. Drag-and-drop — dropping a magnet link (as text) or a
-//      `.torrent` file URL onto the bar fills the input, so the user
-//      can drag from a browser without copying to the clipboard.
-
-import { useState } from "react";
+import React, { useState } from "react";
 import { useDownloads } from "../../context/DownloadContext";
 import { useToast } from "../../context/ToastContext";
 import { useLanguage } from "../../context/LanguageContext";
 import { Button } from "../ui";
+import { PasteIcon, FolderIcon, ChevronIcon } from "./DownloadIcons";
 
 const URI_PATTERN = /^(magnet:|https?:\/\/)/i;
-
-/** Resolve the save folder: honour the configured default unless the
- *  user asked to always be prompted (or no default is set). Returns
- *  null when the user cancels the picker. */
-async function resolveSavePath(
-  selectSavePath: () => Promise<string | null>,
-): Promise<string | null> {
-  const defaultPath = localStorage.getItem("gamelib-default-download-path") || "";
-  const alwaysAsk = localStorage.getItem("gamelib-download-always-ask-path") !== "false";
-  if (defaultPath && !alwaysAsk) {
-    return defaultPath;
-  }
-  return selectSavePath();
-}
 
 export default function MagnetInputBar() {
   const { addDownload, addDirectDownload, selectSavePath } = useDownloads();
   const { showToast } = useToast();
   const { t } = useLanguage();
+
   const [value, setValue] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [dragOver, setDragOver] = useState(false);
+  const [optionsOpen, setOptionsOpen] = useState(false);
+
+  // Options state
+  const [customPath, setCustomPath] = useState<string>(
+    () => localStorage.getItem("gamelib-default-download-path") || "",
+  );
+  const [autoExtract, setAutoExtract] = useState<boolean>(true);
+  const [listOnly, setListOnly] = useState<boolean>(false);
+
+  // Detect URI protocol kind
+  const trimmed = value.trim();
+  const isMagnet = trimmed.startsWith("magnet:");
+  const isTorrent = trimmed.endsWith(".torrent") || trimmed.includes(".torrent?");
+  const isDirect = !isMagnet && !isTorrent && (trimmed.startsWith("http://") || trimmed.startsWith("https://"));
+
+  async function handlePasteClipboard() {
+    try {
+      if (typeof navigator !== "undefined" && navigator.clipboard) {
+        const text = await navigator.clipboard.readText();
+        if (text && URI_PATTERN.test(text.trim())) {
+          setValue(text.trim());
+          showToast(t("downloads.magnetCopied") || "Pasted from clipboard", "info");
+        } else if (text) {
+          setValue(text.trim());
+        }
+      }
+    } catch {
+      showToast("Unable to read clipboard", "error");
+    }
+  }
+
+  async function handleChooseCustomPath() {
+    try {
+      const chosen = await selectSavePath();
+      if (chosen) {
+        setCustomPath(chosen);
+      }
+    } catch (err) {
+      showToast(String(err), "error");
+    }
+  }
 
   async function startFromUri(rawUri: string) {
-    const trimmed = rawUri.trim();
-    if (!trimmed) return;
-    if (!URI_PATTERN.test(trimmed)) {
-      showToast(t('magnetInput.mustBeMagnet'), "error");
+    const clean = rawUri.trim();
+    if (!clean) return;
+    if (!URI_PATTERN.test(clean)) {
+      showToast(t("magnetInput.mustBeMagnet"), "error");
       return;
     }
     setSubmitting(true);
     try {
-      const path = await resolveSavePath(selectSavePath);
-      if (!path) {
-        return;
+      let finalPath = customPath;
+      if (!finalPath) {
+        const defaultPath = localStorage.getItem("gamelib-default-download-path") || "";
+        const alwaysAsk = localStorage.getItem("gamelib-download-always-ask-path") !== "false";
+        if (defaultPath && !alwaysAsk) {
+          finalPath = defaultPath;
+        } else {
+          const chosen = await selectSavePath();
+          if (!chosen) {
+            setSubmitting(false);
+            return;
+          }
+          finalPath = chosen;
+        }
       }
-
-      const isMagnet = trimmed.startsWith("magnet:");
-      const isTorrentFile = trimmed.endsWith(".torrent") || trimmed.includes(".torrent?");
-      const isDirect = !isMagnet && !isTorrentFile;
 
       if (isDirect) {
         let filename = "download.zip";
         try {
-          const urlObj = new URL(trimmed);
-          const lastSeg = urlObj.pathname.substring(urlObj.pathname.lastIndexOf('/') + 1);
-          if (lastSeg && lastSeg.includes('.')) {
+          const urlObj = new URL(clean);
+          const lastSeg = urlObj.pathname.substring(urlObj.pathname.lastIndexOf("/") + 1);
+          if (lastSeg && lastSeg.includes(".")) {
             filename = lastSeg;
           }
         } catch {}
 
-        const fullPath = `${path}/${filename}`.replace(/\\/g, "/");
-        await addDirectDownload(trimmed, fullPath, null, "Manual Direct Link");
+        const fullPath = `${finalPath}/${filename}`.replace(/\\/g, "/");
+        await addDirectDownload(clean, fullPath, null, "Manual Direct Link", autoExtract);
       } else {
-        await addDownload(trimmed, path, null, "Direct link");
+        await addDownload(clean, finalPath, null, "Direct link", autoExtract, listOnly);
       }
 
-      showToast(t('magnetInput.downloadAdded'), "success");
+      showToast(t("magnetInput.downloadAdded"), "success");
       setValue("");
+      setOptionsOpen(false);
     } catch (err) {
-      showToast(t('magnetInput.addFailed', { error: String(err) }), "error");
+      showToast(t("magnetInput.addFailed", { error: String(err) }), "error");
     } finally {
       setSubmitting(false);
     }
   }
 
-  async function handleAdd() {
-    await startFromUri(value);
-  }
-
-  // Drag-and-drop: accept plain text (a magnet link dragged from a
-  // browser) or a URI list. We only *fill* the input on drop — we
-  // don't auto-start, so the user gets a chance to eyeball the URI
-  // before committing. If the dropped text is a valid URI we could
-  // start it directly, but filling is the safer default.
   function extractUriFromDrop(e: React.DragEvent): string | null {
     const uriList = e.dataTransfer.getData("text/uri-list");
     const plain = e.dataTransfer.getData("text/plain");
     const candidate = (uriList || plain || "").trim();
     if (candidate && URI_PATTERN.test(candidate)) {
-      // A uri-list may contain multiple lines; take the first URI-ish one.
       const first = candidate.split(/\r?\n/).find((l) => URI_PATTERN.test(l.trim()));
       return (first ?? candidate).trim();
     }
@@ -118,61 +120,150 @@ export default function MagnetInputBar() {
   }
 
   return (
-    <div
-      className={`dl-magnet-bar${dragOver ? " drag-over" : ""}`}
-      onDragOver={(e) => {
-        e.preventDefault();
-        if (!submitting) setDragOver(true);
-      }}
-      onDragLeave={() => setDragOver(false)}
-      onDrop={(e) => {
-        e.preventDefault();
-        setDragOver(false);
-        if (submitting) return;
-        const uri = extractUriFromDrop(e);
-        if (uri) {
-          setValue(uri);
-        } else {
-          showToast(t('magnetInput.invalidDrop'), "error");
-        }
-      }}
-    >
-      <svg
-        className="dl-magnet-bar-icon"
-        viewBox="0 0 24 24"
-        fill="none"
-        stroke="currentColor"
-        strokeWidth="2"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        aria-hidden
-      >
-        <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71" />
-        <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71" />
-      </svg>
-      <input
-        className="dl-magnet-bar-input"
-        type="text"
-        placeholder={t('magnetInput.placeholder')}
-        value={value}
-        onChange={(e) => setValue(e.target.value)}
-        onKeyDown={(e) => {
-          if (e.key === "Enter" && !submitting) handleAdd();
+    <div className="dl-quick-add-container">
+      <div
+        className={`dl-magnet-bar${dragOver ? " drag-over" : ""}`}
+        onDragOver={(e) => {
+          e.preventDefault();
+          if (!submitting) setDragOver(true);
         }}
-        disabled={submitting}
-        spellCheck={false}
-        autoComplete="off"
-        aria-label={t('magnetInput.inputAria')}
-      />
-      <Button
-        variant="primary"
-        onClick={handleAdd}
-        disabled={!value.trim() || submitting}
-        isLoading={submitting}
-        size="sm"
+        onDragLeave={() => setDragOver(false)}
+        onDrop={(e) => {
+          e.preventDefault();
+          setDragOver(false);
+          if (submitting) return;
+          const uri = extractUriFromDrop(e);
+          if (uri) {
+            setValue(uri);
+          } else {
+            showToast(t("magnetInput.invalidDrop"), "error");
+          }
+        }}
       >
-        {t('common.add')}
-      </Button>
+        <div className="dl-magnet-input-group">
+          <svg
+            className="dl-magnet-bar-icon"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            aria-hidden
+          >
+            <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71" />
+            <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71" />
+          </svg>
+
+          {isMagnet && <span className="dl-magnet-badge dl-magnet-badge--magnet">MAGNET</span>}
+          {isTorrent && <span className="dl-magnet-badge dl-magnet-badge--torrent">TORRENT</span>}
+          {isDirect && <span className="dl-magnet-badge dl-magnet-badge--direct">DIRECT HTTP</span>}
+
+          <input
+            className="dl-magnet-bar-input"
+            type="text"
+            placeholder={t("magnetInput.placeholder")}
+            value={value}
+            onChange={(e) => setValue(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter" && !submitting) startFromUri(value);
+            }}
+            disabled={submitting}
+            spellCheck={false}
+            autoComplete="off"
+            aria-label={t("magnetInput.inputAria")}
+          />
+
+          {!value && (
+            <button
+              type="button"
+              className="dl-magnet-paste-btn"
+              onClick={handlePasteClipboard}
+              title={t("downloads.pasteClipboard") || "Paste link"}
+            >
+              <PasteIcon style={{ width: 13, height: 13 }} />
+              <span>{t("downloads.pasteClipboard") || "Paste"}</span>
+            </button>
+          )}
+
+          {value && (
+            <button
+              type="button"
+              className="dl-magnet-clear-btn"
+              onClick={() => setValue("")}
+              title={t("common.clear")}
+            >
+              ×
+            </button>
+          )}
+        </div>
+
+        <button
+          type="button"
+          className={`dl-magnet-options-toggle${optionsOpen ? " active" : ""}`}
+          onClick={() => setOptionsOpen(!optionsOpen)}
+          title={t("downloadModal.options")}
+        >
+          <ChevronIcon
+            style={{
+              width: 12,
+              height: 12,
+              transform: optionsOpen ? "rotate(180deg)" : "rotate(0deg)",
+              transition: "transform 0.2s ease",
+            }}
+          />
+        </button>
+
+        <Button
+          variant="primary"
+          onClick={() => startFromUri(value)}
+          disabled={!value.trim() || submitting}
+          isLoading={submitting}
+          size="sm"
+        >
+          {t("common.add")}
+        </Button>
+      </div>
+
+      {/* Expandable Options Drawer */}
+      {optionsOpen && (
+        <div className="dl-magnet-options-drawer">
+          <div className="dl-magnet-option-row">
+            <label className="dl-magnet-path-label">
+              <FolderIcon style={{ width: 14, height: 14 }} />
+              <span>{t("downloadModal.sectionSave")}:</span>
+              <span className="dl-magnet-path-val">
+                {customPath || localStorage.getItem("gamelib-default-download-path") || t("downloadModal.chooseFolder")}
+              </span>
+            </label>
+            <Button size="sm" variant="secondary" onClick={handleChooseCustomPath}>
+              {t("downloadModal.changeFolder")}
+            </Button>
+          </div>
+
+          <div className="dl-magnet-toggles-row">
+            <label className="dl-magnet-checkbox-label">
+              <input
+                type="checkbox"
+                checked={autoExtract}
+                onChange={(e) => setAutoExtract(e.target.checked)}
+              />
+              <span>{t("downloadModal.autoExtract")}</span>
+            </label>
+
+            {!isDirect && (
+              <label className="dl-magnet-checkbox-label">
+                <input
+                  type="checkbox"
+                  checked={listOnly}
+                  onChange={(e) => setListOnly(e.target.checked)}
+                />
+                <span>{t("downloadModal.chooseFiles")}</span>
+              </label>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   );
 }

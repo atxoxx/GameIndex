@@ -1,103 +1,118 @@
-// Aggregate bandwidth summary for the Downloads page.
-//
-// Reads the full download list from `useDownloads` and surfaces
-// the four numbers the user actually cares about at a glance:
-//
-//   * Total active downloads (queued + fetching metadata + downloading)
-//   * Paused count
-//   * Aggregate download speed (sum of every active torrent's
-//     `downloadSpeed`)
-//   * Aggregate upload speed (same, for `uploadSpeed`)
-//
-// Stats are computed via `useMemo` so the hero re-renders only when
-// the underlying numbers change, not on every progress tick that
-// doesn't actually move a counter. The bar uses the same gradient
-// as the per-card progress bar so the visual language is
-// consistent with the rest of the downloads UI.
-
-import { useMemo } from "react";
+import { useState, useEffect } from "react";
 import { useDownloads } from "../../context/DownloadContext";
-import { formatBytesPerSecond, isActiveStatus } from "../../types/download";
 import { useSizeUnit } from "../../hooks/useSizeUnit";
 import { useLanguage } from "../../context/LanguageContext";
+import { formatBytesPerSecond, formatBytesShort } from "../../types/download";
+import { SlidersIcon } from "./DownloadIcons";
+import DriveSpaceWidget from "./DriveSpaceWidget";
+import SpeedLimiterModal from "./SpeedLimiterModal";
 
 export default function BandwidthHero() {
   const { activeDownloads } = useDownloads();
   const { unit } = useSizeUnit();
   const { t } = useLanguage();
 
-  const stats = useMemo(() => {
-    let totalDown = 0;
-    let totalUp = 0;
-    let downloading = 0;
-    let paused = 0;
-    for (const d of activeDownloads) {
-      if (d.status.kind === "paused") {
-        paused += 1;
-        continue;
-      }
-      if (isActiveStatus(d.status)) {
-        downloading += 1;
-      }
-      totalDown += d.downloadSpeed;
-      totalUp += d.uploadSpeed;
-    }
-    return { totalDown, totalUp, downloading, paused };
-  }, [activeDownloads]);
+  const totalDownloadSpeed = activeDownloads.reduce((acc, d) => acc + (d.downloadSpeed || 0), 0);
+  const totalUploadSpeed = activeDownloads.reduce((acc, d) => acc + (d.uploadSpeed || 0), 0);
 
-  // A small visual "live" pulse on the down/up counters whenever
-  // there's any active download — uses CSS animation, no JS.
-  const isLive = stats.downloading > 0;
+  const [peakDown, setPeakDown] = useState(0);
+  const [peakUp, setPeakUp] = useState(0);
+  const [sessionDown, setSessionDown] = useState(0);
+  const [speedModalOpen, setSpeedModalOpen] = useState(false);
+
+  // Update session accumulators & peaks
+  useEffect(() => {
+    if (totalDownloadSpeed > peakDown) {
+      setPeakDown(totalDownloadSpeed);
+    }
+    if (totalUploadSpeed > peakUp) {
+      setPeakUp(totalUploadSpeed);
+    }
+
+    if (totalDownloadSpeed > 0) {
+      setSessionDown((prev) => prev + totalDownloadSpeed);
+    }
+  }, [totalDownloadSpeed, totalUploadSpeed, peakDown, peakUp]);
+
+  const isDownloading = totalDownloadSpeed > 0;
+  const isUploading = totalUploadSpeed > 0;
+
+  const isThrottled = Boolean(
+    localStorage.getItem("gamelib-speed-limit-down") ||
+    localStorage.getItem("gamelib-speed-limit-up") ||
+    localStorage.getItem("gamelib-disable-upload") === "true"
+  );
 
   return (
-    <div className="dl-hero" aria-label={t('bandwidth.summary')}>
-      <div className="dl-hero-stat">
-        <div className="dl-hero-label">{t('bandwidth.active')}</div>
-        <div className="dl-hero-value">{stats.downloading}</div>
-        <div className="dl-hero-sub">
-          {stats.paused > 0
-            ? t('bandwidth.pausedCount', { count: stats.paused })
-            : stats.downloading === 0
-              ? t('bandwidth.noDownloads')
-              : t('bandwidth.inProgress')}
+    <div className="dl-dashboard-card" role="region" aria-label="Bandwidth Dashboard">
+      <div className="dl-hero-grid">
+        {/* Download Rate Metric */}
+        <div className="dl-hero-metric dl-hero-metric--down">
+          <div className="dl-hero-metric-header">
+            <span className="dl-hero-label">
+              <span className={`dl-hero-dot dl-hero-dot--down${isDownloading ? " pulse" : ""}`} />
+              {t("downloads.downloadSpeed")}
+            </span>
+            {peakDown > 0 && (
+              <span className="dl-hero-peak" title={t("downloads.peakSpeed")}>
+                ▲ {formatBytesPerSecond(peakDown, unit)}
+              </span>
+            )}
+          </div>
+          <div className="dl-hero-value dl-hero-value-down">
+            {formatBytesPerSecond(totalDownloadSpeed, unit)}
+          </div>
+          {sessionDown > 0 && (
+            <span className="dl-hero-sub">
+              {t("downloads.sessionDownloaded")}: {formatBytesShort(sessionDown, unit)}
+            </span>
+          )}
+        </div>
+
+        <div className="dl-hero-divider" aria-hidden />
+
+        {/* Upload Rate Metric */}
+        <div className="dl-hero-metric dl-hero-metric--up">
+          <div className="dl-hero-metric-header">
+            <span className="dl-hero-label">
+              <span className={`dl-hero-dot dl-hero-dot--up${isUploading ? " pulse" : ""}`} />
+              {t("downloads.uploadSpeed")}
+            </span>
+            {peakUp > 0 && (
+              <span className="dl-hero-peak" title={t("downloads.peakSpeed")}>
+                ▲ {formatBytesPerSecond(peakUp, unit)}
+              </span>
+            )}
+          </div>
+          <div className="dl-hero-value dl-hero-value-up">
+            {formatBytesPerSecond(totalUploadSpeed, unit)}
+          </div>
+          <span className="dl-hero-sub">
+            {isUploading ? "Live swarm distribution" : t("downloads.unlimited")}
+          </span>
+        </div>
+
+        <div className="dl-hero-divider" aria-hidden />
+
+        {/* Drive Storage Monitor & Speed Limiter Action */}
+        <div className="dl-hero-extra">
+          <DriveSpaceWidget />
+          <div className="dl-hero-quick-actions">
+            <button
+              type="button"
+              className={`dl-hero-speed-btn${isThrottled ? " limited" : ""}`}
+              onClick={() => setSpeedModalOpen(true)}
+              title={t("downloads.speedLimiterTitle")}
+            >
+              <SlidersIcon style={{ width: 14, height: 14 }} />
+              <span>{t("downloads.speedLimiterTitle")}</span>
+              {isThrottled && <span className="dl-hero-speed-badge">Limits On</span>}
+            </button>
+          </div>
         </div>
       </div>
 
-      <div className="dl-hero-divider" aria-hidden />
-
-      <div className="dl-hero-stat">
-        <div className="dl-hero-label">
-          <span
-            className={`dl-hero-dot${isLive ? " pulse" : ""}`}
-            aria-hidden
-          />
-          {t('downloadButton.download')}
-        </div>
-        <div className="dl-hero-value dl-hero-value-down">
-          {formatBytesPerSecond(stats.totalDown, unit)}
-        </div>
-        <div className="dl-hero-sub">{t('bandwidth.acrossTorrents')}</div>
-      </div>
-
-      <div className="dl-hero-divider" aria-hidden />
-
-      <div className="dl-hero-stat">
-        <div className="dl-hero-label">
-          <span
-            className={`dl-hero-dot${isLive ? " pulse" : ""}`}
-            aria-hidden
-          />
-          {t('bandwidth.upload')}
-        </div>
-        <div className="dl-hero-value dl-hero-value-up">
-          {formatBytesPerSecond(stats.totalUp, unit)}
-        </div>
-        <div className="dl-hero-sub">
-          {stats.totalUp > 0
-            ? t('bandwidth.seeding')
-            : t('bandwidth.nothingUploading')}
-        </div>
-      </div>
+      <SpeedLimiterModal open={speedModalOpen} onClose={() => setSpeedModalOpen(false)} />
     </div>
   );
 }

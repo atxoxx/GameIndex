@@ -1,27 +1,3 @@
-// Downloads page — the dedicated home for the download subsystem.
-//
-// Layout (top to bottom, single scrollable column):
-//
-//   ┌────────────────────────────────────────┐
-//   │  Page title + magnet input bar         │
-//   ├────────────────────────────────────────┤
-//   │  Bandwidth hero (active / dl / ul)     │
-//   ├────────────────────────────────────────┤
-//   │  Toolbar (pause all / resume all /     │
-//   │           clear history)               │
-//   ├────────────────────────────────────────┤
-//   │  Active downloads list                 │
-//   │  (DownloadRow per torrent)             │
-//   ├────────────────────────────────────────┤
-//   │  History list (collapsible)            │
-//   └────────────────────────────────────────┘
-//
-// We deliberately do NOT use in-page tabs — the user wants to
-// scroll through everything in one column. The history section is
-// collapsed by default when it gets too long (so a 6-month-old
-// library doesn't dominate the viewport) and exposes a "Show
-// more" affordance when the user does want to browse it.
-
 import { useMemo, useState } from "react";
 import { useDownloads } from "../context/DownloadContext";
 import { useToast } from "../context/ToastContext";
@@ -40,14 +16,12 @@ import BandwidthHero from "../components/downloads/BandwidthHero";
 import BandwidthSparkline from "../components/downloads/BandwidthSparkline";
 import MagnetInputBar from "../components/downloads/MagnetInputBar";
 import DownloadsToolbar from "../components/downloads/DownloadsToolbar";
-import DownloadsFilterBar from "../components/downloads/DownloadsFilterBar";
+import DownloadsFilterBar, { type DownloadViewMode } from "../components/downloads/DownloadsFilterBar";
 import DownloadRow from "../components/downloads/DownloadRow";
+import { DownloadGridCard } from "../components/downloads/DownloadGridCard";
 import { ConfirmModal, PageHeader } from "../components/ui";
-import "../styles/page-downloads.css";
-
-const HISTORY_PREVIEW = 5;
-
 import { useLanguage } from "../context/LanguageContext";
+import "../styles/page-downloads.css";
 
 export default function DownloadsPage() {
   const { t } = useLanguage();
@@ -62,26 +36,31 @@ export default function DownloadsPage() {
   } = useDownloads();
   const { showToast } = useToast();
   const { unit } = useSizeUnit();
-  const [historyExpanded, setHistoryExpanded] = useState(false);
 
-  // ── Search / filter / sort state ─────────────────────────────────
+  // ── Search / filter / sort / view mode state ─────────────────────
   const [query, setQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState<DownloadStatusFilter>("all");
   const [sort, setSort] = useState<DownloadSort>("added-desc");
+  const [viewMode, setViewMode] = useState<DownloadViewMode>("detailed");
 
-  // Per-bucket counts for the filter pill badges (computed over the
-  // full list, unaffected by the current search query so the badges
-  // stay stable as the user types).
+  // ── Multi-select state ───────────────────────────────────────────
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+
+  // Per-bucket counts for the filter pill badges
   const counts = useMemo<Record<DownloadStatusFilter, number>>(() => {
     const c: Record<DownloadStatusFilter, number> = {
       all: downloads.length,
       downloading: 0,
+      seeding: 0,
+      queued: 0,
       paused: 0,
       completed: 0,
       error: 0,
     };
     for (const d of downloads) {
       if (matchesStatusFilter(d, "downloading")) c.downloading += 1;
+      else if (matchesStatusFilter(d, "seeding")) c.seeding += 1;
+      else if (matchesStatusFilter(d, "queued")) c.queued += 1;
       else if (matchesStatusFilter(d, "paused")) c.paused += 1;
       else if (matchesStatusFilter(d, "completed")) c.completed += 1;
       else if (matchesStatusFilter(d, "error")) c.error += 1;
@@ -89,73 +68,60 @@ export default function DownloadsPage() {
     return c;
   }, [downloads]);
 
-  // Apply search + status filter + sort to each section. The status
-  // pills act as a cross-section filter: picking "Completed" empties
-  // the Active section and vice-versa, which is the expected mental
-  // model when the user narrows to a single state.
   const comparator = useMemo(() => compareDownloads(sort), [sort]);
 
-  const filteredActive = useMemo(
-    () =>
-      activeDownloads
-        .filter(
-          (d) =>
-            matchesSearchQuery(d, query) && matchesStatusFilter(d, statusFilter),
-        )
-        .sort(comparator),
-    [activeDownloads, query, statusFilter, comparator],
-  );
+  // Unified filtered downloads list
+  const filteredDownloads = useMemo(() => {
+    return downloads
+      .filter((d) => matchesSearchQuery(d, query) && matchesStatusFilter(d, statusFilter))
+      .sort(comparator);
+  }, [downloads, query, statusFilter, comparator]);
 
-  const filteredHistory = useMemo(
-    () =>
-      completedDownloads
-        .filter(
-          (d) =>
-            matchesSearchQuery(d, query) && matchesStatusFilter(d, statusFilter),
-        )
-        .sort(comparator),
-    [completedDownloads, query, statusFilter, comparator],
-  );
-
-  const isFiltering = query.trim() !== "" || statusFilter !== "all";
-
-  // ── "Delete from disk" confirmation state ────────────────────────
-  // At most one modal at a time. `deletingContext` carries the full
-  // record so the dialog can render name / size / save path context;
-  // null means no modal open. `deletingBusy` keeps the buttons
-  // disabled while the Rust call is in flight so a double-click
-  // can't fire the destructive command twice.
+  // ── Confirmation modals state ────────────────────────────────────
   const [deletingContext, setDeletingContext] = useState<TorrentDownload | null>(null);
   const [deletingBusy, setDeletingBusy] = useState(false);
 
-  // ── "Remove active download" confirmation state ──────────────────
-  // Removing an in-progress download discards its partial progress,
-  // so we guard it behind a confirm dialog (completed/history rows
-  // remove silently since there's nothing to lose).
   const [removingContext, setRemovingContext] = useState<TorrentDownload | null>(null);
   const [removingBusy, setRemovingBusy] = useState(false);
 
-  // Pause / resume / remove handlers. Errors are surfaced via the
-  // shared toast so the failure mode is consistent with the
-  // popover's behaviour.
+  const [batchDeleteOpen, setBatchDeleteOpen] = useState(false);
+  const [batchBusy, setBatchBusy] = useState(false);
+
+  // ── Handlers ─────────────────────────────────────────────────────
+  const toggleSelect = (id: string) => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
+
+  const handleSelectAll = () => {
+    setSelectedIds(new Set(filteredDownloads.map((d) => d.id)));
+  };
+
+  const handleDeselectAll = () => {
+    setSelectedIds(new Set());
+  };
+
   async function handlePause(id: string) {
     try {
       await pauseDownload(id);
     } catch (err) {
-      showToast(t("downloads.pauseFailed", { error: err }), "error");
+      showToast(t("downloads.pauseFailed", { error: String(err) }), "error");
     }
   }
+
   async function handleResume(id: string) {
     try {
       await resumeDownload(id);
     } catch (err) {
-      showToast(t("downloads.resumeFailed", { error: err }), "error");
+      showToast(t("downloads.resumeFailed", { error: String(err) }), "error");
     }
   }
+
   async function handleRemove(id: string) {
-    // For active (still-in-flight) downloads, open a confirmation
-    // dialog first — removing them throws away partial progress.
-    // Completed / history rows remove immediately.
     const target = downloads.find((d) => d.id === id);
     if (target && isActiveStatus(target.status)) {
       setRemovingContext(target);
@@ -164,8 +130,13 @@ export default function DownloadsPage() {
     try {
       await removeDownload(id, false);
       showToast(t("downloads.removed"), "info");
+      setSelectedIds((prev) => {
+        const next = new Set(prev);
+        next.delete(id);
+        return next;
+      });
     } catch (err) {
-      showToast(t("downloads.removeFailed", { error: err }), "error");
+      showToast(t("downloads.removeFailed", { error: String(err) }), "error");
     }
   }
 
@@ -177,17 +148,18 @@ export default function DownloadsPage() {
       await removeDownload(target.id, false);
       showToast(t("downloads.removedNamed", { name: target.name }), "info");
       setRemovingContext(null);
+      setSelectedIds((prev) => {
+        const next = new Set(prev);
+        next.delete(target.id);
+        return next;
+      });
     } catch (err) {
-      showToast(t("downloads.removeFailed", { error: err }), "error");
+      showToast(t("downloads.removeFailed", { error: String(err) }), "error");
     } finally {
       setRemovingBusy(false);
     }
   }
 
-
-  // "Delete from disk" — opens the confirmation dialog with full
-  // download context. The actual Rust call (`removeDownload` with
-  // `deleteFiles=true`) only fires from `confirmDelete`.
   function handleDeleteFiles(download: TorrentDownload) {
     setDeletingContext(download);
   }
@@ -205,12 +177,68 @@ export default function DownloadsPage() {
         "info",
       );
       setDeletingContext(null);
+      setSelectedIds((prev) => {
+        const next = new Set(prev);
+        next.delete(target.id);
+        return next;
+      });
     } catch (err) {
-      showToast(t("downloads.deleteFailed", { error: err }), "error");
+      showToast(t("downloads.deleteFailed", { error: String(err) }), "error");
     } finally {
       setDeletingBusy(false);
     }
   }
+
+  // Batch actions on selected IDs
+  async function handleBatchPause() {
+    for (const id of selectedIds) {
+      try {
+        await pauseDownload(id);
+      } catch {}
+    }
+  }
+
+  async function handleBatchResume() {
+    for (const id of selectedIds) {
+      try {
+        await resumeDownload(id);
+      } catch {}
+    }
+  }
+
+  async function handleBatchRemove() {
+    for (const id of selectedIds) {
+      try {
+        await removeDownload(id, false);
+      } catch {}
+    }
+    setSelectedIds(new Set());
+    showToast(t("downloads.removed"), "info");
+  }
+
+  async function handleBatchConfirmDelete() {
+    setBatchBusy(true);
+    try {
+      for (const id of selectedIds) {
+        try {
+          await removeDownload(id, true);
+        } catch {}
+      }
+      setSelectedIds(new Set());
+      setBatchDeleteOpen(false);
+      showToast(t("downloads.deletedFromDisk", { name: `${selectedIds.size} downloads` }), "info");
+    } finally {
+      setBatchBusy(false);
+    }
+  }
+
+  // Calculate sum of bytes for selected items to be deleted
+  const selectedBytes = useMemo(() => {
+    return Array.from(selectedIds).reduce((acc, id) => {
+      const d = downloads.find((item) => item.id === id);
+      return acc + (d ? d.downloaded : 0);
+    }, 0);
+  }, [selectedIds, downloads]);
 
   return (
     <div className="dl-page page">
@@ -221,9 +249,11 @@ export default function DownloadsPage() {
         actions={<MagnetInputBar />}
       />
 
+      {/* Hero Control Center & Network Sparkline */}
       <BandwidthHero />
       <BandwidthSparkline />
 
+      {/* Filter and View Mode Switcher */}
       <DownloadsFilterBar
         query={query}
         onQueryChange={setQuery}
@@ -231,38 +261,56 @@ export default function DownloadsPage() {
         onStatusFilterChange={setStatusFilter}
         sort={sort}
         onSortChange={setSort}
+        viewMode={viewMode}
+        onViewModeChange={setViewMode}
         counts={counts}
       />
 
-      <section
-        className="dl-section"
-        aria-labelledby="dl-section-active"
-      >
+      {/* Main Downloads List / Grid / Table Section */}
+      <section className="dl-section" aria-label="Downloads List">
         <div className="dl-section-header">
-            <h3 id="dl-section-active" className="dl-section-title">
-              {t("downloads.active")}
-              {filteredActive.length > 0 && (
-                <span className="dl-section-count">{filteredActive.length}</span>
-              )}
-            </h3>
+          <h3 className="dl-section-title">
+            {statusFilter === "all"
+              ? t("downloads.title")
+              : counts[statusFilter] !== undefined
+              ? `${counts[statusFilter]} ${statusFilter}`
+              : t("downloads.title")}
+            {filteredDownloads.length > 0 && (
+              <span className="dl-section-count">{filteredDownloads.length}</span>
+            )}
+          </h3>
+
           <DownloadsToolbar
             activeCount={activeDownloads.length}
             historyCount={completedDownloads.length}
+            selectedCount={selectedIds.size}
+            totalVisibleCount={filteredDownloads.length}
+            onSelectAll={handleSelectAll}
+            onDeselectAll={handleDeselectAll}
+            onPauseSelected={handleBatchPause}
+            onResumeSelected={handleBatchResume}
+            onRemoveSelected={handleBatchRemove}
+            onDeleteSelected={() => setBatchDeleteOpen(true)}
           />
         </div>
 
-        <div className="dl-list">
-          {loading && activeDownloads.length === 0 && completedDownloads.length === 0 ? (
-            <div className="dl-list-empty">
-              <div className="spinner-small" />
-              <span>{t("downloads.loading")}</span>
-            </div>
-          ) : filteredActive.length === 0 && activeDownloads.length > 0 ? (
-            <div className="dl-list-no-match">
-              {t("downloads.noActiveMatch")}
-            </div>
-          ) : activeDownloads.length === 0 ? (
-            <div className="dl-list-empty">
+        {/* Empty States & Content Presentation */}
+        {loading && downloads.length === 0 ? (
+          <div className="dl-list-empty">
+            <div className="spinner-small" />
+            <span>{t("downloads.loading")}</span>
+          </div>
+        ) : filteredDownloads.length === 0 && downloads.length > 0 ? (
+          <div className="dl-list-no-match">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" style={{ width: 32, height: 32, opacity: 0.4 }}>
+              <circle cx="11" cy="11" r="8" />
+              <line x1="21" y1="21" x2="16.65" y2="16.65" />
+            </svg>
+            <p>{t("downloads.noActiveMatch")}</p>
+          </div>
+        ) : downloads.length === 0 ? (
+          <div className="dl-list-empty">
+            <div className="dl-list-empty-icon-wrap">
               <svg
                 className="dl-list-empty-icon"
                 viewBox="0 0 24 24"
@@ -277,120 +325,45 @@ export default function DownloadsPage() {
                 <polyline points="7 10 12 15 17 10" />
                 <line x1="12" y1="15" x2="12" y2="3" />
               </svg>
-              <p className="dl-list-empty-title">{t("downloads.noActive")}</p>
-              <p className="dl-list-empty-hint">
-                {t("downloads.noActiveHint")}
-              </p>
             </div>
-          ) : (
-            filteredActive.map((d) => (
-              <DownloadRow
+            <h4 className="dl-list-empty-title">{t("downloads.noActive")}</h4>
+            <p className="dl-list-empty-hint">{t("downloads.noActiveHint")}</p>
+          </div>
+        ) : viewMode === "grid" ? (
+          <div className="dl-grid-view">
+            {filteredDownloads.map((d) => (
+              <DownloadGridCard
                 key={d.id}
                 download={d}
+                selected={selectedIds.has(d.id)}
+                onToggleSelect={toggleSelect}
                 onPause={handlePause}
                 onResume={handleResume}
                 onRemove={handleRemove}
                 onDeleteFiles={handleDeleteFiles}
               />
-            ))
-          )}
-        </div>
+            ))}
+          </div>
+        ) : (
+          <div className={`dl-list${viewMode === "compact" ? " dl-list--compact" : ""}`}>
+            {filteredDownloads.map((d) => (
+              <DownloadRow
+                key={d.id}
+                download={d}
+                compact={viewMode === "compact"}
+                selected={selectedIds.has(d.id)}
+                onToggleSelect={toggleSelect}
+                onPause={handlePause}
+                onResume={handleResume}
+                onRemove={handleRemove}
+                onDeleteFiles={handleDeleteFiles}
+              />
+            ))}
+          </div>
+        )}
       </section>
 
-      <section
-        className="dl-section"
-        aria-labelledby="dl-section-history"
-      >
-        <div className="dl-section-header">
-            <h3 id="dl-section-history" className="dl-section-title">
-              {t("downloads.history")}
-              {filteredHistory.length > 0 && (
-                <span className="dl-section-count">{filteredHistory.length}</span>
-              )}
-            </h3>
-        </div>
-
-        <div className="dl-list">
-          {filteredHistory.length === 0 && completedDownloads.length > 0 ? (
-            <div className="dl-list-no-match">
-              {t("downloads.noCompletedMatch")}
-            </div>
-          ) : completedDownloads.length === 0 ? (
-            <div className="dl-list-empty">
-              <svg
-                className="dl-list-empty-icon"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="1.6"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                aria-hidden
-              >
-                <circle cx="12" cy="12" r="10" />
-                <polyline points="12 6 12 12 16 14" />
-              </svg>
-              <p className="dl-list-empty-title">{t("downloads.noCompleted")}</p>
-              <p className="dl-list-empty-hint">
-                {t("downloads.noCompletedHint")}
-              </p>
-            </div>
-          ) : (
-            <>
-              {(historyExpanded || isFiltering
-                ? filteredHistory
-                : filteredHistory.slice(0, HISTORY_PREVIEW)
-              ).map((d) => (
-                <DownloadRow
-                  key={d.id}
-                  download={d}
-                  onPause={handlePause}
-                  onResume={handleResume}
-                  onRemove={handleRemove}
-                  onDeleteFiles={handleDeleteFiles}
-                />
-              ))}
-              {!isFiltering && filteredHistory.length > HISTORY_PREVIEW && (
-                <button
-                  className="dl-list-show-more"
-                  onClick={() => setHistoryExpanded((v) => !v)}
-                >
-                  {historyExpanded
-                    ? t("downloads.showLess")
-                    : t("downloads.showMore", { count: filteredHistory.length - HISTORY_PREVIEW })}
-                  <svg
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="2"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    aria-hidden
-                    style={{
-                      width: 12,
-                      height: 12,
-                      transform: historyExpanded
-                        ? "rotate(180deg)"
-                        : "none",
-                      transition: "transform 200ms ease",
-                    }}
-                  >
-                    <polyline points="6 9 12 15 18 9" />
-                  </svg>
-                </button>
-              )}
-            </>
-          )}
-        </div>
-      </section>
-
-      {/* ── "Delete from disk" confirmation ──────────────────────
-       * Single modal per page. Renders into `document.body` via
-       * the ConfirmModal portal so the modal is not clipped by
-       * ancestor overflow rules. The dialog is rich: it surfaces
-       * the bytes that will be wiped, the save path, and — when
-       * the torrent auto-extracted on completion — an extra note
-       * that the installed game files are NOT being removed. */}
+      {/* Delete Single from disk confirmation */}
       <ConfirmModal
         open={deletingContext !== null}
         title={
@@ -426,10 +399,20 @@ export default function DownloadsPage() {
         }}
       />
 
-      {/* ── "Remove active download" confirmation ────────────────
-       * Guards the plain Remove (X) action for still-in-flight
-       * downloads. Files are kept on disk — this only discards the
-       * queue entry and its partial progress. */}
+      {/* Batch delete confirmation */}
+      <ConfirmModal
+        open={batchDeleteOpen}
+        title={`${t("downloads.deleteDiskTitle")} (${selectedIds.size} downloads)`}
+        message={`This will delete files for ${selectedIds.size} selected downloads (${formatBytesShort(selectedBytes, unit)}) from disk. This action cannot be undone.`}
+        confirmLabel={t("downloads.deleteDiskLabel")}
+        busy={batchBusy}
+        onConfirm={handleBatchConfirmDelete}
+        onCancel={() => {
+          if (!batchBusy) setBatchDeleteOpen(false);
+        }}
+      />
+
+      {/* Remove active download confirmation */}
       <ConfirmModal
         open={removingContext !== null}
         title={
@@ -442,9 +425,7 @@ export default function DownloadsPage() {
             t("downloads.removeTitle")
           )
         }
-        message={
-          removingContext && t("downloads.removeBody")
-        }
+        message={removingContext && t("downloads.removeBody")}
         confirmLabel={t("downloads.removeLabel")}
         busy={removingBusy}
         onConfirm={confirmRemoveActive}

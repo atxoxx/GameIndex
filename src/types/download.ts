@@ -381,6 +381,8 @@ export function getActivityMessage(download: TorrentDownload): string | null {
 export type DownloadStatusFilter =
   | "all"
   | "downloading"
+  | "seeding"
+  | "queued"
   | "paused"
   | "completed"
   | "error";
@@ -403,8 +405,12 @@ export function matchesStatusFilter(
   const kind = download.status.kind;
   switch (filter) {
     case "downloading":
-      // Anything still working toward completion (excluding paused/error).
-      return kind === "downloading" || kind === "queued" || kind === "fetchingMetadata";
+      // Anything actively downloading or working
+      return kind === "downloading" || kind === "fetchingMetadata";
+    case "seeding":
+      return kind === "seeding";
+    case "queued":
+      return kind === "queued";
     case "paused":
       return kind === "paused";
     case "completed":

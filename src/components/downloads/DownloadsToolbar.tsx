@@ -1,18 +1,3 @@
-// Bulk-action toolbar for the Downloads page.
-//
-// Renders a single row above the active list with the actions that
-// affect every torrent at once: pause all, resume all, clear
-// history. Each action is disabled with an explanatory title when
-// it would have no effect (e.g. "Pause all" with zero active
-// downloads) so the buttons never feel "broken".
-//
-// The "clear history" button mirrors the popover's footer button —
-// but because the page has more room, we also let the user
-// optionally delete the downloaded files alongside the metadata
-// removal. The first click confirms via a tooltip + the button
-// label change; the actual destructive `removeDownload` calls fire
-// sequentially (same pattern as the popover).
-
 import { useState } from "react";
 import { useDownloads } from "../../context/DownloadContext";
 import { useToast } from "../../context/ToastContext";
@@ -20,20 +5,31 @@ import { useLanguage } from "../../context/LanguageContext";
 import { Button } from "../ui";
 
 interface DownloadsToolbarProps {
-  /** How many active (non-completed) torrents exist. Drives the
-   *  pause/resume button labels and the "are these enabled?"
-   *  logic. */
   activeCount: number;
-  /** How many completed torrents are in history. */
   historyCount: number;
+  selectedCount?: number;
+  totalVisibleCount?: number;
+  onSelectAll?: () => void;
+  onDeselectAll?: () => void;
+  onPauseSelected?: () => void;
+  onResumeSelected?: () => void;
+  onRemoveSelected?: () => void;
+  onDeleteSelected?: () => void;
 }
 
 export default function DownloadsToolbar({
   activeCount,
   historyCount,
+  selectedCount = 0,
+  totalVisibleCount = 0,
+  onSelectAll,
+  onDeselectAll,
+  onPauseSelected,
+  onResumeSelected,
+  onRemoveSelected,
+  onDeleteSelected,
 }: DownloadsToolbarProps) {
-  const { pauseAll, resumeAll, removeDownload, completedDownloads } =
-    useDownloads();
+  const { pauseAll, resumeAll, removeDownload, completedDownloads } = useDownloads();
   const { showToast } = useToast();
   const { t } = useLanguage();
   const [busy, setBusy] = useState<"pause" | "resume" | "clear" | null>(null);
@@ -43,9 +39,9 @@ export default function DownloadsToolbar({
     setBusy("pause");
     try {
       const n = await pauseAll();
-      showToast(n > 0 ? t('downloadsToolbar.paused', { count: n, s: n !== 1 ? "s" : "" }) : t('downloadsToolbar.nothingToPause'), "info");
+      showToast(n > 0 ? t("downloadsToolbar.paused", { count: n, s: n !== 1 ? "s" : "" }) : t("downloadsToolbar.nothingToPause"), "info");
     } catch (err) {
-      showToast(t('downloadsToolbar.pauseAllFailed', { error: String(err) }), "error");
+      showToast(t("downloadsToolbar.pauseAllFailed", { error: String(err) }), "error");
     } finally {
       setBusy(null);
     }
@@ -56,9 +52,9 @@ export default function DownloadsToolbar({
     setBusy("resume");
     try {
       const n = await resumeAll();
-      showToast(n > 0 ? t('downloadsToolbar.resumed', { count: n, s: n !== 1 ? "s" : "" }) : t('downloadsToolbar.nothingToResume'), "info");
+      showToast(n > 0 ? t("downloadsToolbar.resumed", { count: n, s: n !== 1 ? "s" : "" }) : t("downloadsToolbar.nothingToResume"), "info");
     } catch (err) {
-      showToast(t('downloadsToolbar.resumeAllFailed', { error: String(err) }), "error");
+      showToast(t("downloadsToolbar.resumeAllFailed", { error: String(err) }), "error");
     } finally {
       setBusy(null);
     }
@@ -67,8 +63,6 @@ export default function DownloadsToolbar({
   async function handleClearHistory() {
     if (busy) return;
     setBusy("clear");
-    // Snapshot the list before we start firing `remove`s so we
-    // don't iterate a mutating array.
     const ids = completedDownloads.map((d) => d.id);
     if (ids.length === 0) {
       setBusy(null);
@@ -85,48 +79,95 @@ export default function DownloadsToolbar({
       }
     }
     if (failed === 0) {
-      showToast(t('downloadsToolbar.clearedFromHistory', { count: success }), "info");
+      showToast(t("downloadsToolbar.clearedFromHistory", { count: success }), "info");
     } else {
-      showToast(t('downloadsToolbar.clearedFailed', { success, failed }), "error");
+      showToast(t("downloadsToolbar.clearedFailed", { success, failed }), "error");
     }
     setBusy(null);
   }
 
+  const isSelectionActive = selectedCount > 0;
+
   return (
-    <div className="dl-toolbar" role="toolbar" aria-label={t('downloadsToolbar.bulkActions')}>
-      <div className="dl-toolbar-group">
-        <Button
-          variant="secondary"
-          size="sm"
-          onClick={handlePauseAll}
-          disabled={busy !== null || activeCount === 0}
-          isLoading={busy === "pause"}
-          leftIcon={
-            <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden style={{ width: 12, height: 12 }}>
-              <rect x="6" y="4" width="4" height="16" />
-              <rect x="14" y="4" width="4" height="16" />
-            </svg>
-          }
-          title={t('downloadsToolbar.pauseAll')}
-        >
-          {t('downloadsToolbar.pauseAllBtn')}
-        </Button>
-        <Button
-          variant="secondary"
-          size="sm"
-          onClick={handleResumeAll}
-          disabled={busy !== null || activeCount === 0}
-          isLoading={busy === "resume"}
-          leftIcon={
-            <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden style={{ width: 12, height: 12 }}>
-              <polygon points="5 3 19 12 5 21 5 3" />
-            </svg>
-          }
-          title={t('downloadsToolbar.resumeAll')}
-        >
-          {t('downloadsToolbar.resumeAllBtn')}
-        </Button>
-      </div>
+    <div className={`dl-toolbar${isSelectionActive ? " dl-toolbar--selected" : ""}`} role="toolbar" aria-label={t("downloadsToolbar.bulkActions")}>
+      {isSelectionActive ? (
+        <div className="dl-toolbar-selection-group">
+          <span className="dl-toolbar-selection-label">
+            {t("downloads.itemsSelected", { count: selectedCount }) || `${selectedCount} selected`}
+          </span>
+
+          {onDeselectAll && (
+            <Button variant="ghost" size="sm" onClick={onDeselectAll}>
+              {t("common.clear") || "Clear"}
+            </Button>
+          )}
+
+          {onPauseSelected && (
+            <Button variant="secondary" size="sm" onClick={onPauseSelected}>
+              {t("downloadRow.pause")}
+            </Button>
+          )}
+
+          {onResumeSelected && (
+            <Button variant="secondary" size="sm" onClick={onResumeSelected}>
+              {t("downloadRow.resume")}
+            </Button>
+          )}
+
+          {onRemoveSelected && (
+            <Button variant="secondary" size="sm" onClick={onRemoveSelected}>
+              {t("common.remove")}
+            </Button>
+          )}
+
+          {onDeleteSelected && (
+            <Button variant="danger" size="sm" onClick={onDeleteSelected}>
+              {t("downloadRow.deleteFromDisk")}
+            </Button>
+          )}
+        </div>
+      ) : (
+        <div className="dl-toolbar-group">
+          <Button
+            variant="secondary"
+            size="sm"
+            onClick={handlePauseAll}
+            disabled={busy !== null || activeCount === 0}
+            isLoading={busy === "pause"}
+            leftIcon={
+              <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden style={{ width: 12, height: 12 }}>
+                <rect x="6" y="4" width="4" height="16" />
+                <rect x="14" y="4" width="4" height="16" />
+              </svg>
+            }
+            title={t("downloadsToolbar.pauseAll")}
+          >
+            {t("downloadsToolbar.pauseAllBtn")}
+          </Button>
+
+          <Button
+            variant="secondary"
+            size="sm"
+            onClick={handleResumeAll}
+            disabled={busy !== null || activeCount === 0}
+            isLoading={busy === "resume"}
+            leftIcon={
+              <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden style={{ width: 12, height: 12 }}>
+                <polygon points="5 3 19 12 5 21 5 3" />
+              </svg>
+            }
+            title={t("downloadsToolbar.resumeAll")}
+          >
+            {t("downloadsToolbar.resumeAllBtn")}
+          </Button>
+
+          {onSelectAll && totalVisibleCount > 0 && (
+            <Button variant="ghost" size="sm" onClick={onSelectAll}>
+              {t("downloadFiles.selectAll") || "Select All"}
+            </Button>
+          )}
+        </div>
+      )}
 
       <div className="dl-toolbar-spacer" />
 
@@ -144,9 +185,9 @@ export default function DownloadsToolbar({
             <path d="M14 11v6" />
           </svg>
         }
-        title={t('downloadsToolbar.clearHint')}
+        title={t("downloadsToolbar.clearHint")}
       >
-        {t('downloadsToolbar.clearHistory')}
+        {t("downloadsToolbar.clearHistory")}
         {historyCount > 0 && (
           <span className="dl-toolbar-count">{historyCount}</span>
         )}

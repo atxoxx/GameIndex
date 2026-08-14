@@ -1,54 +1,49 @@
 /* ==============================
-   Import Modal
+   Modals Base Stylesheet
    ============================== */
-.modal-backdrop {
 
+.modal-backdrop {
   position: fixed;
   inset: 0;
-  background: var(--color-scrim);
-  backdrop-filter: blur(6px);
-  -webkit-backdrop-filter: blur(6px);
+  background: rgba(0, 0, 0, 0.65);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
   display: flex;
   align-items: center;
   justify-content: center;
-  z-index: 9998;
-  animation: modalBackdropIn 200ms ease;
-  padding: var(--space-xl);
-  overflow-y: auto;
+  z-index: 1000;
+  animation: modal-backdrop-in 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  padding: var(--space-md);
 }
 
-@keyframes modalBackdropIn {
-  from {
-    opacity: 0;
-  }
-  to {
-    opacity: 1;
-  }
+.modal-backdrop[data-busy="true"] {
+  cursor: progress;
+}
+
+@keyframes modal-backdrop-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
 }
 
 .modal {
-  background: var(--color-surface-raised);
-  border: 1px solid var(--color-border-light);
+  background: var(--color-bg-secondary);
+  border: 1px solid var(--color-border);
   border-radius: var(--radius-xl);
-  box-shadow: inset 0 1px 0 var(--color-border-highlight), var(--shadow-xl);
-  backdrop-filter: blur(var(--blur-lg)) saturate(150%);
-  -webkit-backdrop-filter: blur(var(--blur-lg)) saturate(150%);
-  animation: modalIn 250ms var(--ease-out);
-  overflow: hidden;
+  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.45);
   display: flex;
   flex-direction: column;
+  overflow: hidden;
+  animation: modal-in 0.25s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
-@keyframes modalIn {
+@keyframes modal-in {
   from {
     opacity: 0;
-    transform: scale(0.96) translateY(10px);
-    filter: blur(6px);
+    transform: scale(0.96) translateY(8px);
   }
   to {
     opacity: 1;
     transform: scale(1) translateY(0);
-    filter: blur(0);
   }
 }
 
@@ -66,11 +61,10 @@
 }
 
 .modal-header {
-
   display: flex;
-  align-items: flex-start;
-  gap: var(--space-lg);
-  padding: var(--space-xl) var(--space-xl) var(--space-lg);
+  align-items: center;
+  gap: var(--space-md);
+  padding: var(--space-lg) var(--space-xl);
   border-bottom: 1px solid var(--color-border);
   flex-shrink: 0;
 }
@@ -98,24 +92,37 @@
   color: var(--color-accent);
 }
 
+/* Danger header icon variant */
+.modal-header-icon--danger {
+  background: linear-gradient(
+    160deg,
+    color-mix(in srgb, var(--color-danger) 25%, transparent),
+    color-mix(in srgb, var(--color-danger) 10%, transparent)
+  ) !important;
+  border: 1px solid color-mix(in srgb, var(--color-danger) 45%, transparent) !important;
+  box-shadow: 0 0 16px color-mix(in srgb, var(--color-danger) 25%, transparent), inset 0 1px 0 rgba(255, 255, 255, 0.1) !important;
+}
+
+.modal-header-icon--danger svg {
+  color: var(--color-danger) !important;
+}
+
 .modal-header-text {
   flex: 1;
   min-width: 0;
 }
 
 .modal-title {
-
-  font-size: var(--font-size-lg);
-  font-weight: var(--font-weight-semibold);
+  font-size: var(--font-size-md);
+  font-weight: var(--font-weight-bold);
   color: var(--color-text-primary);
-  margin: 0 0 var(--space-xs) 0;
-  line-height: 1.3;
+  margin: 0;
+  line-height: 1.35;
   overflow-wrap: anywhere;
   word-break: break-word;
 }
 
 .modal-subtitle {
-
   font-size: var(--font-size-sm);
   color: var(--color-text-secondary);
   margin: 0;
@@ -129,270 +136,138 @@
   background: var(--color-bg-tertiary);
 }
 
-.modal-select-all {
-  display: inline-flex;
-  align-items: center;
-  gap: var(--space-sm);
-  font-size: var(--font-size-sm);
-  color: var(--color-text-secondary);
-  cursor: pointer;
-  user-select: none;
-  transition: color var(--transition-fast);
-}
-
-.modal-select-all:hover {
-  color: var(--color-text-primary);
-}
-
-.modal-select-all input[type="checkbox"] {
-  width: 16px;
-  height: 16px;
-  accent-color: var(--color-accent);
-  cursor: pointer;
-}
-
-.modal-body-container {
-  display: flex;
-  flex: 1;
-  min-height: 0;
-  background: var(--color-background);
-}
-
-.import-sidebar {
-  width: 280px;
-  border-right: 1px solid var(--color-border);
-  display: flex;
-  flex-direction: column;
-  flex-shrink: 0;
-  background: var(--color-surface);
-}
-
-.import-sidebar-header {
-  padding: var(--space-md) var(--space-xl);
-  border-bottom: 1px solid var(--color-border);
-  background: var(--color-surface-hover);
-}
-
-.import-sidebar-list {
+.modal-body {
   flex: 1;
   overflow-y: auto;
-  padding: var(--space-sm) 0;
+  min-height: 0;
 }
 
-.import-sidebar-item {
+.modal-footer {
   display: flex;
-  align-items: flex-start;
-  gap: var(--space-md);
+  align-items: center;
+  justify-content: space-between;
   padding: var(--space-md) var(--space-xl);
-  cursor: pointer;
-  border-bottom: 1px solid var(--color-border-light);
-  transition: background 0.2s ease,
-    color 0.2s ease,
-    transform 0.2s ease,
-    border-color 0.2s ease;
+  border-top: 1px solid var(--color-border);
+  flex-shrink: 0;
 }
 
-.import-sidebar-item:hover {
-  background: var(--color-surface-hover);
+.modal-footer-actions {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  margin-left: auto;
 }
 
-.import-sidebar-item.active {
-  background: rgba(108, 92, 231, 0.08);
-  border-left: 3px solid var(--color-accent);
-  padding-left: calc(var(--space-xl) - 3px);
+/* ===========================================================================
+ * ConfirmModal (Destructive Confirmation Dialogs)
+ * ========================================================================== */
+
+.confirm-modal {
+  max-width: 520px;
+  width: min(520px, calc(100vw - 32px));
+  border: 1px solid color-mix(in srgb, var(--color-danger) 25%, var(--color-border));
+  box-shadow: 0 20px 48px rgba(0, 0, 0, 0.5), 0 0 28px color-mix(in srgb, var(--color-danger) 15%, transparent);
+  border-radius: var(--radius-xl);
 }
 
-.import-sidebar-item-info {
+.confirm-modal .modal-header {
+  padding: var(--space-md) var(--space-xl);
+  background: color-mix(in srgb, var(--color-bg-primary) 30%, transparent);
+  border-bottom: 1px solid color-mix(in srgb, var(--color-border) 60%, transparent);
+}
+
+.confirm-modal .modal-title {
+  font-size: var(--font-size-md);
+  font-weight: var(--font-weight-bold);
+  color: var(--color-text-primary);
+  letter-spacing: -0.01em;
+}
+
+.confirm-modal .modal-title strong {
+  color: var(--color-text-primary);
+  font-weight: 800;
+}
+
+.confirm-modal-body {
+  padding: var(--space-lg) var(--space-xl);
   display: flex;
   flex-direction: column;
-  min-width: 0;
-}
-
-.import-sidebar-item-filename {
+  gap: var(--space-sm);
   font-size: var(--font-size-sm);
-  font-weight: var(--font-weight-medium);
+  line-height: 1.6;
+  color: var(--color-text-secondary);
+}
+
+.confirm-modal-body strong {
   color: var(--color-text-primary);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
+  font-weight: var(--font-weight-bold);
 }
 
-.import-sidebar-item-match {
-  font-size: var(--font-size-xs);
-  margin-top: 2px;
+.confirm-modal-body code {
+  font-family: var(--font-mono, monospace);
+  font-size: 12px;
+  background: var(--color-bg-tertiary);
+  padding: 2px 7px;
+  border-radius: var(--radius-sm);
+  color: var(--color-text-primary);
+  border: 1px solid var(--color-border);
+  word-break: break-all;
 }
 
-.import-sidebar-item-match.matched {
-  color: #2ecc71;
-  font-weight: var(--font-weight-medium);
-}
-
-.import-sidebar-item-match.skipped {
-  color: var(--color-text-muted);
-}
-
-.import-banner {
+.confirm-modal-warning {
   display: flex;
   align-items: flex-start;
-  gap: var(--space-md);
-  margin: var(--space-md) var(--space-xl) 0;
-  padding: var(--space-md) var(--space-lg);
-  background: rgba(108, 92, 231, 0.08);
-  border: 1px solid rgba(108, 92, 231, 0.25);
-  border-radius: var(--radius-sm);
+  gap: var(--space-sm);
+  padding: 10px 14px;
+  background: color-mix(in srgb, var(--color-warning) 12%, transparent);
+  border: 1px solid color-mix(in srgb, var(--color-warning) 35%, transparent);
+  border-radius: var(--radius-md);
   font-size: var(--font-size-xs);
-  color: var(--color-text-secondary);
+  color: var(--color-warning);
   line-height: 1.5;
 }
 
-.import-banner svg {
+.confirm-modal-warning::before {
+  content: "⚠";
+  font-size: 14px;
   flex-shrink: 0;
-  width: 18px;
-  height: 18px;
-  margin-top: 1px;
-  color: var(--color-accent);
+  line-height: 1.2;
 }
 
-.import-group {
-  border-bottom: 1px solid var(--color-border);
+.confirm-modal .modal-footer {
+  justify-content: flex-end;
+  padding: var(--space-md) var(--space-xl);
+  background: color-mix(in srgb, var(--color-bg-primary) 30%, transparent);
+  border-top: 1px solid color-mix(in srgb, var(--color-border) 60%, transparent);
 }
 
-.import-group.selected {
-  background: rgba(108, 92, 231, 0.04);
+.confirm-modal .modal-footer-count {
+  display: none;
 }
 
-.import-group-header {
+.confirm-modal .modal-footer-actions {
   display: flex;
   align-items: center;
   gap: var(--space-sm);
-  padding: var(--space-sm) var(--space-xl);
-  background: var(--color-surface-hover);
 }
 
-.import-group-toggle {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 20px;
-  height: 20px;
-  padding: 0;
-  border: none;
-  background: transparent;
-  color: var(--color-text-muted);
-  cursor: pointer;
-  transition: transform 0.15s ease;
+.confirm-modal .ui-btn--danger {
+  box-shadow: 0 0 14px color-mix(in srgb, var(--color-danger) 35%, transparent);
 }
 
-.import-group-toggle svg {
-  width: 14px;
-  height: 14px;
-}
-
-.import-group-toggle.expanded {
-  transform: rotate(90deg);
-}
-
-.import-group-info {
-  display: flex;
-  flex-direction: column;
-  min-width: 0;
-  flex: 1;
-  cursor: pointer;
-}
-
-.import-group-name {
-  font-size: var(--font-size-sm);
-  font-weight: var(--font-weight-semibold);
-  color: var(--color-text-primary);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.import-group-body {
-  padding: var(--space-xs) 0;
-}
-
-.import-sidebar-item.primary {
-  border-left: 3px solid var(--color-accent);
-  padding-left: calc(var(--space-xl) + 13px);
-  background: rgba(108, 92, 231, 0.06);
-}
-
-.import-sidebar-item.extra {
-  padding-left: calc(var(--space-xl) + 16px);
-}
-
-.suggested-badge {
-  display: inline-block;
-  font-size: 9px;
-  font-weight: var(--font-weight-bold);
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
-  color: #fff;
-  background: var(--color-accent);
-  border-radius: 999px;
-  padding: 1px 7px;
-  margin-bottom: 2px;
-  width: fit-content;
-}
-
-.import-sidebar-item-sub {
-  font-size: var(--font-size-xs);
-  color: var(--color-text-muted);
-}
-
-.make-main-btn {
-  margin-left: auto;
-  flex-shrink: 0;
-  font-size: var(--font-size-xs);
-  font-weight: var(--font-weight-medium);
-  color: var(--color-accent);
-  background: transparent;
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-sm);
-  padding: 3px 8px;
-  cursor: pointer;
-  transition: color 0.15s ease,
-    background 0.15s ease,
-    border-color 0.15s ease,
-    transform 0.15s ease;
-}
-
-.make-main-btn:hover {
-  background: var(--color-accent);
-  color: #fff;
-  border-color: var(--color-accent);
-}
-
-.import-group-more {
-  display: block;
-  width: 100%;
-  text-align: left;
-  padding: var(--space-xs) calc(var(--space-xl) + 16px);
-  font-size: var(--font-size-xs);
-  color: var(--color-accent);
-  background: transparent;
-  border: none;
-  cursor: pointer;
-}
-
-.import-group-more:hover {
-  text-decoration: underline;
+.confirm-modal .ui-btn--danger:hover {
+  box-shadow: 0 0 20px color-mix(in srgb, var(--color-danger) 50%, transparent);
+  transform: translateY(-1px);
 }
 
 /* ==============================
    Update Modal — Software Update dialog
    ============================== */
 
-/* Body spacing for the compact update dialog (states: available /
-   downloading / ready / restarting / error). */
 .update-modal .modal-body {
   padding: var(--space-lg) var(--space-xl);
 }
 
-/* Restarting state: soft pulsing icon tile (accent-tinted, mirrors the
-   modal header icon treatment). */
 .update-restarting-icon {
   display: flex;
   align-items: center;
@@ -421,4 +296,3 @@
     animation: none;
   }
 }
-

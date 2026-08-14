@@ -1,35 +1,48 @@
-/* Page-level styling for downloads — flat surfaces, restrained accent. */
+/* ============================================================================
+ * Downloads Page Layout & Component Overrides
+ *
+ * Modern gaming dashboard styling with glassmorphism, responsive grids,
+ * dynamic metrics, and smooth transitions.
+ * ========================================================================== */
 
-/* ── Page title ──────────────────────────────────────────────────── */
-.dl-page-title.brand-text {
-  letter-spacing: -0.01em;
+.dl-page {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-lg);
+  padding-bottom: var(--space-3xl);
+  max-width: 1400px;
+  margin: 0 auto;
+  width: 100%;
 }
-
-/* ── Download list + rows ────────────────────────────────────────── */
-/* Scoped to .dl-page so these win regardless of stylesheet order. */
-.dl-page .dl-list {
-  background: var(--color-bg-secondary);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-lg);
-}
-
-.dl-page .dl-row {
-  border-left: 3px solid var(--color-border-light);
-  transition: background var(--duration-normal) var(--ease-standard),
-    border-color var(--duration-normal) var(--ease-standard);
-}
-
-.dl-page .dl-row:hover {
-  background: var(--color-bg-hover);
-  border-color: var(--color-border-light);
-}
-
-/* Semantic status accents stay on the left border (download.css). */
 
 /* ── Section headers ─────────────────────────────────────────────── */
+.dl-section {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+}
+
+.dl-section-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-md);
+  flex-wrap: wrap;
+  padding-bottom: var(--space-xs);
+  border-bottom: 1px solid color-mix(in srgb, var(--color-border) 40%, transparent);
+}
+
 .dl-page .dl-section-title {
   position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-sm);
   padding-left: 12px;
+  font-size: var(--font-size-md);
+  font-weight: var(--font-weight-bold);
+  color: var(--color-text-primary);
+  letter-spacing: -0.01em;
+  margin: 0;
 }
 
 .dl-page .dl-section-title::before {
@@ -44,14 +57,678 @@
   background: var(--color-accent);
 }
 
-/* ── Empty state ─────────────────────────────────────────────────── */
+.dl-section-count {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 22px;
+  height: 22px;
+  padding: 0 8px;
+  font-size: 11px;
+  font-weight: var(--font-weight-bold);
+  background: var(--color-bg-tertiary);
+  color: var(--color-accent);
+  border: 1px solid color-mix(in srgb, var(--color-accent) 20%, transparent);
+  border-radius: var(--radius-full);
+  font-variant-numeric: tabular-nums;
+}
+
+/* ── Grid View ───────────────────────────────────────────────────── */
+.dl-grid-view {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+  gap: var(--space-md);
+  width: 100%;
+}
+
+/* ── List View Container ─────────────────────────────────────────── */
+.dl-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-xs);
+  width: 100%;
+}
+
+.dl-list--compact {
+  gap: 3px;
+}
+
+.dl-row-container {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  transition: all var(--transition-fast);
+}
+
+.dl-row-container:has(.dl-row-details) .dl-row {
+  border-bottom-left-radius: 0;
+  border-bottom-right-radius: 0;
+  border-bottom-color: transparent;
+}
+
+/* ── Download Row Card ───────────────────────────────────────────── */
+.dl-page .dl-row {
+  display: grid;
+  grid-template-columns: auto minmax(95px, 120px) auto minmax(0, 1fr) minmax(115px, 140px) minmax(80px, 100px) auto;
+  align-items: center;
+  gap: var(--space-md);
+  padding: 12px var(--space-md);
+  background: var(--color-bg-secondary);
+  border: 1px solid var(--color-border);
+  border-left: 4px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-xs);
+  transition: all var(--transition-fast);
+}
+
+.dl-row--compact {
+  padding: 6px var(--space-sm) !important;
+  gap: var(--space-sm) !important;
+}
+
+.dl-page .dl-row:hover {
+  background: color-mix(in srgb, var(--color-accent) 4%, var(--color-bg-secondary));
+  border-color: var(--color-border-light);
+  transform: translateY(-1px);
+  box-shadow: var(--shadow-sm);
+}
+
+.dl-page .dl-row--selected {
+  background: color-mix(in srgb, var(--color-accent) 10%, var(--color-bg-secondary)) !important;
+  border-color: var(--color-accent) !important;
+  border-left-color: var(--color-accent) !important;
+}
+
+.dl-page .dl-row.error {
+  border-left-color: var(--color-danger);
+}
+
+.dl-page .dl-row.completed {
+  border-left-color: var(--color-success);
+}
+
+.dl-page .dl-row.paused {
+  border-left-color: var(--color-warning);
+}
+
+/* ── Custom Styled Checkboxes ────────────────────────────────────── */
+input[type="checkbox"].dl-row-checkbox,
+input[type="checkbox"].dl-card-checkbox,
+input[type="checkbox"].dl-file-checkbox {
+  appearance: none;
+  -webkit-appearance: none;
+  width: 18px;
+  height: 18px;
+  margin: 0;
+  flex-shrink: 0;
+  border: 1.5px solid var(--color-border-light);
+  border-radius: var(--radius-sm);
+  background: var(--color-bg-primary);
+  cursor: pointer;
+  position: relative;
+  transition: border-color var(--transition-fast), background var(--transition-fast), box-shadow var(--transition-fast);
+  display: inline-block;
+  vertical-align: middle;
+}
+
+input[type="checkbox"].dl-row-checkbox:hover,
+input[type="checkbox"].dl-card-checkbox:hover,
+input[type="checkbox"].dl-file-checkbox:hover:not(:disabled) {
+  border-color: var(--color-accent);
+  background: var(--color-bg-hover);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--color-accent) 25%, transparent);
+}
+
+input[type="checkbox"].dl-row-checkbox:checked,
+input[type="checkbox"].dl-card-checkbox:checked,
+input[type="checkbox"].dl-file-checkbox:checked {
+  background-color: var(--color-accent);
+  border-color: var(--color-accent);
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='white' stroke-width='3.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='20 6 9 17 4 12'/%3E%3C/svg%3E");
+  background-size: 11px 11px;
+  background-position: center;
+  background-repeat: no-repeat;
+  box-shadow: 0 0 8px color-mix(in srgb, var(--color-accent) 40%, transparent);
+}
+
+input[type="checkbox"].dl-file-checkbox:disabled:checked {
+  background-color: color-mix(in srgb, var(--color-success) 85%, var(--color-bg-primary));
+  border-color: var(--color-success);
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='white' stroke-width='3.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='20 6 9 17 4 12'/%3E%3C/svg%3E");
+  background-size: 11px 11px;
+  background-position: center;
+  background-repeat: no-repeat;
+  opacity: 0.95;
+  cursor: default;
+  box-shadow: 0 0 6px color-mix(in srgb, var(--color-success) 30%, transparent);
+}
+
+input[type="checkbox"].dl-row-checkbox:focus-visible,
+input[type="checkbox"].dl-card-checkbox:focus-visible,
+input[type="checkbox"].dl-file-checkbox:focus-visible {
+  outline: none;
+  border-color: var(--color-accent);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--color-accent) 30%, transparent);
+}
+
+/* ── Status Pills ────────────────────────────────────────────────── */
+.dl-row-status {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 10px;
+  font-weight: 800;
+  padding: 4px 9px;
+  border-radius: var(--radius-sm);
+  letter-spacing: 0.6px;
+  text-transform: uppercase;
+  font-family: inherit;
+  white-space: nowrap;
+  width: max-content;
+  justify-self: start;
+}
+
+.dl-row-status--downloading {
+  background: color-mix(in srgb, var(--color-accent) 20%, transparent);
+  color: var(--color-accent);
+  border: 1px solid color-mix(in srgb, var(--color-accent) 45%, transparent);
+  box-shadow: 0 0 10px color-mix(in srgb, var(--color-accent) 15%, transparent);
+}
+
+.dl-row-status--seeding {
+  background: color-mix(in srgb, var(--color-success) 20%, transparent);
+  color: var(--color-success);
+  border: 1px solid color-mix(in srgb, var(--color-success) 45%, transparent);
+  box-shadow: 0 0 10px color-mix(in srgb, var(--color-success) 15%, transparent);
+}
+
+.dl-row-status--paused {
+  background: color-mix(in srgb, var(--color-warning) 20%, transparent);
+  color: var(--color-warning);
+  border: 1px solid color-mix(in srgb, var(--color-warning) 45%, transparent);
+}
+
+.dl-row-status--completed {
+  background: color-mix(in srgb, var(--color-success) 20%, transparent);
+  color: var(--color-success);
+  border: 1px solid color-mix(in srgb, var(--color-success) 45%, transparent);
+}
+
+.dl-row-status--error {
+  background: color-mix(in srgb, var(--color-danger) 20%, transparent);
+  color: var(--color-danger);
+  border: 1px solid color-mix(in srgb, var(--color-danger) 45%, transparent);
+}
+
+.dl-row-status--queued {
+  background: var(--color-bg-tertiary);
+  color: var(--color-text-muted);
+  border: 1px solid var(--color-border);
+}
+
+.dl-row-status--fetchingMetadata {
+  background: color-mix(in srgb, var(--color-info, #3b82f6) 20%, transparent);
+  color: var(--color-info, #3b82f6);
+  border: 1px solid color-mix(in srgb, var(--color-info, #3b82f6) 45%, transparent);
+}
+
+/* ── Thumbnail ───────────────────────────────────────────────────── */
+.dl-row-thumb {
+  width: 44px;
+  height: 44px;
+  border-radius: var(--radius-md);
+  overflow: hidden;
+  background: var(--color-bg-tertiary);
+  border: 1px solid var(--color-border);
+  flex-shrink: 0;
+  box-shadow: var(--shadow-xs);
+}
+
+.dl-row-thumb-img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+/* ── Main Info & Progress Row ────────────────────────────────────── */
+.dl-row-main {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.dl-row-name-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-sm);
+  min-width: 0;
+}
+
+.dl-row-name {
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-bold);
+  color: var(--color-text-primary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  min-width: 0;
+  letter-spacing: -0.01em;
+}
+
+.dl-row-source {
+  font-size: 10px;
+  font-weight: var(--font-weight-bold);
+  color: var(--color-text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  padding: 2px 7px;
+  border-radius: var(--radius-sm);
+  background: var(--color-bg-tertiary);
+  border: 1px solid color-mix(in srgb, var(--color-border) 60%, transparent);
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.dl-row-progress-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  min-width: 0;
+}
+
+.dl-row-bar {
+  flex: 1;
+  min-width: 0;
+  height: 6px;
+  background: var(--color-bg-tertiary);
+  border-radius: var(--radius-full);
+  overflow: hidden;
+}
+
+.dl-row-bar-fill {
+  height: 100%;
+  background: linear-gradient(90deg, var(--color-accent) 0%, color-mix(in srgb, var(--color-accent) 80%, white) 100%);
+  border-radius: var(--radius-full);
+  transition: width 0.4s ease;
+}
+
+.dl-row-progress {
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text-muted);
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.dl-row-eta {
+  color: var(--color-accent);
+  font-weight: var(--font-weight-bold);
+  background: color-mix(in srgb, var(--color-accent) 12%, transparent);
+  padding: 1px 6px;
+  border-radius: var(--radius-sm);
+  margin-left: 4px;
+}
+
+.dl-row-activity {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+  line-height: 1.4;
+  color: var(--color-text-muted);
+  min-width: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.dl-row-activity-dot {
+  display: inline-block;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  flex-shrink: 0;
+  background: var(--color-accent);
+  animation: dl-row-activity-pulse 1.6s ease-in-out infinite;
+}
+
+.dl-row-activity--stalled {
+  color: var(--color-warning);
+}
+
+.dl-row-activity--stalled .dl-row-activity-dot {
+  background: var(--color-warning);
+}
+
+.dl-row-activity--completed .dl-row-activity-dot {
+  background: var(--color-success);
+  animation: none;
+}
+
+/* ── Speed & Swarm Columns ───────────────────────────────────────── */
+.dl-row-speed {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  align-items: flex-end;
+  font-variant-numeric: tabular-nums;
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-semibold);
+}
+
+.dl-row-speed-dl {
+  color: var(--color-accent);
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.dl-row-speed-ul {
+  color: var(--color-success);
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.dl-row-speed-muted {
+  color: var(--color-text-muted);
+  font-weight: var(--font-weight-normal);
+}
+
+.dl-row-swarm {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  align-items: flex-end;
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+  color: var(--color-text-muted);
+}
+
+.dl-row-swarm-counts {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.dl-row-swarm-counts span {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+}
+
+.dl-row-swarm-seeds {
+  color: var(--color-success);
+}
+
+.dl-swarm-health {
+  display: flex;
+  align-items: flex-end;
+  gap: 2px;
+  height: 10px;
+}
+
+.dl-swarm-bar {
+  width: 3px;
+  height: 100%;
+  border-radius: 1px;
+  background: var(--color-bg-tertiary);
+}
+
+.dl-swarm-health--1 .dl-swarm-bar:nth-child(1) { height: 4px; background: var(--color-danger); }
+.dl-swarm-health--2 .dl-swarm-bar:nth-child(1) { height: 4px; background: var(--color-warning); }
+.dl-swarm-health--2 .dl-swarm-bar:nth-child(2) { height: 6px; background: var(--color-warning); }
+.dl-swarm-health--3 .dl-swarm-bar:nth-child(1) { height: 4px; background: var(--color-accent); }
+.dl-swarm-health--3 .dl-swarm-bar:nth-child(2) { height: 6px; background: var(--color-accent); }
+.dl-swarm-health--3 .dl-swarm-bar:nth-child(3) { height: 8px; background: var(--color-accent); }
+.dl-swarm-health--4 .dl-swarm-bar:nth-child(1) { height: 4px; background: var(--color-success); }
+.dl-swarm-health--4 .dl-swarm-bar:nth-child(2) { height: 6px; background: var(--color-success); }
+.dl-swarm-health--4 .dl-swarm-bar:nth-child(3) { height: 8px; background: var(--color-success); }
+.dl-swarm-health--4 .dl-swarm-bar:nth-child(4) { height: 10px; background: var(--color-success); }
+
+/* ── Actions Column Buttons ──────────────────────────────────────── */
+.dl-row-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
+}
+
+.dl-row-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  background: var(--color-bg-tertiary);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  color: var(--color-text-secondary);
+  cursor: pointer;
+  transition: all var(--transition-fast);
+  padding: 0;
+}
+
+.dl-row-btn svg {
+  width: 14px;
+  height: 14px;
+}
+
+.dl-row-btn:hover:not(:disabled) {
+  background: var(--color-bg-hover);
+  color: var(--color-text-primary);
+  border-color: var(--color-accent);
+  transform: translateY(-1px);
+}
+
+.dl-row-btn.active {
+  background: color-mix(in srgb, var(--color-accent) 15%, var(--color-bg-tertiary));
+  border-color: var(--color-accent);
+  color: var(--color-accent);
+}
+
+.dl-row-btn.play-btn {
+  background: var(--color-accent);
+  color: #fff;
+  border-color: var(--color-accent);
+}
+
+.dl-row-btn.play-btn:hover {
+  background: var(--color-accent-hover);
+  box-shadow: 0 0 10px color-mix(in srgb, var(--color-accent) 40%, transparent);
+}
+
+.dl-row-btn.danger:hover:not(:disabled) {
+  border-color: var(--color-danger);
+  color: var(--color-danger);
+  background: color-mix(in srgb, var(--color-danger) 10%, transparent);
+}
+
+.dl-row-btn.danger-fill {
+  border-color: color-mix(in srgb, var(--color-danger) 35%, transparent);
+  color: var(--color-danger);
+  background: color-mix(in srgb, var(--color-danger) 8%, transparent);
+}
+
+.dl-row-btn.danger-fill:hover:not(:disabled) {
+  background: var(--color-danger);
+  border-color: var(--color-danger);
+  color: #fff;
+  box-shadow: 0 0 12px color-mix(in srgb, var(--color-danger) 40%, transparent);
+}
+
+/* ── Collapsible Torrent Files Details Drawer ────────────────────── */
+.dl-row-details {
+  background: color-mix(in srgb, var(--color-bg-secondary) 85%, var(--color-bg-primary));
+  border: 1px solid var(--color-border);
+  border-top: 1px dashed color-mix(in srgb, var(--color-border) 60%, transparent);
+  border-bottom-left-radius: var(--radius-lg);
+  border-bottom-right-radius: var(--radius-lg);
+  padding: var(--space-md);
+  box-shadow: inset 0 2px 8px rgba(0, 0, 0, 0.2);
+  animation: dl-slide-down 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  z-index: 1;
+}
+
+.dl-files-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  max-height: 320px;
+  overflow-y: auto;
+  padding-right: 6px;
+}
+
+.dl-files-list::-webkit-scrollbar {
+  width: 6px;
+}
+.dl-files-list::-webkit-scrollbar-track {
+  background: transparent;
+}
+.dl-files-list::-webkit-scrollbar-thumb {
+  background: var(--color-border);
+  border-radius: var(--radius-full);
+}
+.dl-files-list::-webkit-scrollbar-thumb:hover {
+  background: var(--color-accent);
+}
+
+.dl-file-item {
+  display: grid;
+  grid-template-columns: 24px minmax(180px, 1fr) 90px 140px 50px;
+  align-items: center;
+  gap: var(--space-md);
+  padding: 8px 12px;
+  border-radius: var(--radius-md);
+  background: var(--color-bg-primary);
+  border: 1px solid color-mix(in srgb, var(--color-border) 50%, transparent);
+  transition: all var(--transition-fast);
+}
+
+.dl-file-item:hover {
+  background: var(--color-bg-hover);
+  border-color: var(--color-border-light);
+  transform: translateX(2px);
+}
+
+.dl-file-item--skipped {
+  opacity: 0.45;
+  background: transparent;
+}
+
+.dl-file-name {
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-medium);
+  font-family: var(--font-mono, monospace);
+  color: var(--color-text-primary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  text-align: left;
+}
+
+.dl-file-name--skipped {
+  text-decoration: line-through;
+  color: var(--color-text-muted);
+}
+
+.dl-file-size {
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+  color: var(--color-text-muted);
+  text-align: right;
+  font-family: var(--font-mono, monospace);
+}
+
+.dl-file-progress-bar {
+  height: 6px;
+  background: var(--color-bg-tertiary);
+  border-radius: var(--radius-full);
+  overflow: hidden;
+  position: relative;
+}
+
+.dl-file-progress-fill {
+  height: 100%;
+  background: linear-gradient(90deg, var(--color-accent) 0%, color-mix(in srgb, var(--color-accent) 80%, white) 100%);
+  border-radius: var(--radius-full);
+  transition: width 0.3s ease;
+}
+
+.dl-file-percentage {
+  font-size: 11px;
+  font-weight: var(--font-weight-bold);
+  font-variant-numeric: tabular-nums;
+  color: var(--color-text-secondary);
+  text-align: right;
+  font-family: var(--font-mono, monospace);
+}
+
+/* ── Empty & No-Match States ─────────────────────────────────────── */
 .dl-page .dl-list-empty {
   position: relative;
   overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  gap: var(--space-sm);
+  padding: var(--space-3xl) var(--space-xl);
   border-radius: var(--radius-lg);
   background: var(--color-bg-secondary);
+  border: 1px dashed var(--color-border);
+}
+
+.dl-list-empty-icon-wrap {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 68px;
+  height: 68px;
+  border-radius: 50%;
+  background: color-mix(in srgb, var(--color-accent) 10%, transparent);
+  border: 1px solid color-mix(in srgb, var(--color-accent) 25%, transparent);
+  margin-bottom: var(--space-xs);
+  box-shadow: 0 0 24px color-mix(in srgb, var(--color-accent) 15%, transparent);
 }
 
 .dl-page .dl-list-empty-icon {
+  width: 32px;
+  height: 32px;
   color: var(--color-accent);
+}
+
+.dl-list-empty-title {
+  margin: 0;
+  font-size: var(--font-size-md);
+  font-weight: var(--font-weight-bold);
+  color: var(--color-text-primary);
+  letter-spacing: -0.01em;
+}
+
+.dl-list-empty-hint {
+  margin: 0;
+  font-size: var(--font-size-xs);
+  color: var(--color-text-muted);
+  max-width: 440px;
+  line-height: 1.6;
+}
+
+.dl-list-no-match {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-sm);
+  padding: var(--space-2xl) var(--space-lg);
+  text-align: center;
+  color: var(--color-text-muted);
+  font-size: var(--font-size-sm);
+  background: var(--color-bg-secondary);
+  border-radius: var(--radius-lg);
+  border: 1px dashed var(--color-border);
 }
