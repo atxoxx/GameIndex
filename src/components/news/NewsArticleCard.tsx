@@ -1,6 +1,6 @@
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import type { NewsArticle } from "../../hooks/useNewsFeeds";
-import { formatArticleDate, estimateReadingTime } from "../../hooks/useNewsFeeds";
+import { formatArticleDate, estimateReadingTime, extractArticleTags } from "../../hooks/useNewsFeeds";
 import type { ViewDensity } from "../../types/game";
 import { useLanguage } from "../../context/LanguageContext";
 
@@ -13,6 +13,7 @@ interface NewsArticleCardProps {
   read?: boolean;
   saved?: boolean;
   relatedGameName?: string | null;
+  onSelectTag?: (tag: string) => void;
 }
 
 export default function NewsArticleCard({
@@ -20,19 +21,26 @@ export default function NewsArticleCard({
   onClick,
   onToggleSave,
   onToggleRead,
-  density = "cozy",
+  density = "cinematic",
   read = false,
   saved = false,
   relatedGameName = null,
+  onSelectTag,
 }: NewsArticleCardProps) {
   const { t } = useLanguage();
+  const [copied, setCopied] = useState(false);
   const isList = density === "list";
-  const showBody = density !== "compact";
+  const isCompact = density === "compact";
+  const showBody = !isCompact || isList;
 
   const readTimeMinutes = useMemo(() => {
     const text = (article.content || article.description || "") + " " + article.title;
     return estimateReadingTime(text);
   }, [article.content, article.description, article.title]);
+
+  const tags = useMemo(() => {
+    return extractArticleTags(article).slice(0, 3);
+  }, [article]);
 
   const handleSaveClick = (e: React.MouseEvent) => {
     e.stopPropagation();
@@ -42,6 +50,19 @@ export default function NewsArticleCard({
   const handleReadClick = (e: React.MouseEvent) => {
     e.stopPropagation();
     onToggleRead?.(article);
+  };
+
+  const handleCopyLink = async (e: React.MouseEvent) => {
+    e.stopPropagation();
+    try {
+      if (navigator.clipboard) {
+        await navigator.clipboard.writeText(article.link);
+        setCopied(true);
+        setTimeout(() => setCopied(false), 1500);
+      }
+    } catch {
+      /* ignore */
+    }
   };
 
   return (
@@ -71,7 +92,7 @@ export default function NewsArticleCard({
               const target = e.currentTarget;
               target.style.display = "none";
               const placeholder = target.parentElement?.querySelector(
-                ".news-card-cover-placeholder",
+                ".news-card-cover-placeholder"
               ) as HTMLElement | null;
               if (placeholder) placeholder.style.display = "flex";
             }}
@@ -85,6 +106,9 @@ export default function NewsArticleCard({
             <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2" />
           </svg>
         </div>
+
+        {/* Gradient backdrop overlay for readability in cinematic mode */}
+        <div className="news-card-cover-overlay" />
 
         {/* Source badge */}
         <span className="news-card-source-badge">{article.sourceName}</span>
@@ -126,22 +150,56 @@ export default function NewsArticleCard({
               </svg>
             </button>
           )}
+
+          <button
+            type="button"
+            className="news-card-action-btn"
+            onClick={handleCopyLink}
+            title={copied ? t("gameInfo.copied") : t("news.copyLink")}
+            aria-label={t("news.copyLink")}
+          >
+            {copied ? (
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <polyline points="20 6 9 17 4 12" />
+              </svg>
+            ) : (
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71" />
+                <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71" />
+              </svg>
+            )}
+          </button>
         </div>
       </div>
 
       {showBody && (
         <div className="news-card-body">
-          {relatedGameName && (
-            <span className="news-card-related-badge" title={t("news.relatedToGame", { game: relatedGameName })}>
-              🎮 {relatedGameName}
-            </span>
-          )}
+          {/* Related game / tags header */}
+          <div className="news-card-badges-row">
+            {relatedGameName && (
+              <span className="news-card-related-badge" title={t("news.relatedToGame", { game: relatedGameName })}>
+                🎮 {relatedGameName}
+              </span>
+            )}
+            {tags.map((tag) => (
+              <span
+                key={tag}
+                className="news-card-tag-pill"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onSelectTag?.(tag);
+                }}
+              >
+                #{tag}
+              </span>
+            ))}
+          </div>
 
           <h3 className="news-card-title" title={article.title}>
             {article.title}
           </h3>
 
-          {article.description && (
+          {!isCompact && article.description && (
             <p className="news-card-snippet">{article.description}</p>
           )}
 
@@ -161,9 +219,9 @@ export default function NewsArticleCard({
 }
 
 /** Skeleton loader for news article cards shown during loading. */
-export function NewsArticleCardSkeleton({ density = "cozy" }: { density?: ViewDensity }) {
-  const showBody = density !== "compact";
+export function NewsArticleCardSkeleton({ density = "cinematic" }: { density?: ViewDensity }) {
   const isList = density === "list";
+  const showBody = density !== "compact" || isList;
   return (
     <div
       className={`news-article-card news-article-card-skeleton density-${density}${

@@ -3,6 +3,18 @@ import { invoke } from "@tauri-apps/api/core";
 
 // ── Types ──────────────────────────────────────────────────────────────
 
+export type NewsCategory =
+  | "all"
+  | "for_you"
+  | "pc"
+  | "console"
+  | "tech"
+  | "indie"
+  | "deals"
+  | "esports"
+  | "saved"
+  | "history";
+
 export interface NewsFeed {
   name: string;
   url: string;
@@ -27,7 +39,25 @@ export interface CuratedFeedPack {
   nameKey: string;
   descKey: string;
   icon: string;
+  category: string;
   feeds: { name: string; url: string }[];
+}
+
+export interface FeedHealthStatus {
+  url: string;
+  name: string;
+  status: "ok" | "slow" | "error";
+  latencyMs: number;
+  error?: string;
+}
+
+export interface HistoryEntry {
+  link: string;
+  title: string;
+  sourceName: string;
+  pubDate: string;
+  imageUrl: string | null;
+  readAt: number;
 }
 
 // ── Default Gaming News RSS Feeds ──────────────────────────────────────
@@ -38,7 +68,7 @@ export const DEFAULT_FEEDS: NewsFeed[] = [
     url: "https://www.pcgamer.com/rss/",
     isDefault: true,
     enabled: true,
-    category: "general",
+    category: "pc",
   },
   {
     name: "Rock Paper Shotgun",
@@ -90,6 +120,7 @@ export const CURATED_FEED_PACKS: CuratedFeedPack[] = [
     nameKey: "news.packDealsTitle",
     descKey: "news.packDealsDesc",
     icon: "🏷️",
+    category: "deals",
     feeds: [
       { name: "Reddit r/GameDeals", url: "https://www.reddit.com/r/GameDeals/.rss" },
       { name: "PC Gamer Deals", url: "https://www.pcgamer.com/tag/deals/rss/" },
@@ -100,6 +131,7 @@ export const CURATED_FEED_PACKS: CuratedFeedPack[] = [
     nameKey: "news.packIndieTitle",
     descKey: "news.packIndieDesc",
     icon: "🕹️",
+    category: "indie",
     feeds: [
       { name: "Indie Games Plus", url: "https://indiegamesplus.com/feed" },
       { name: "Alpha Beta Gamer", url: "https://www.alphabetagamer.com/feed/" },
@@ -110,9 +142,55 @@ export const CURATED_FEED_PACKS: CuratedFeedPack[] = [
     nameKey: "news.packTechTitle",
     descKey: "news.packTechDesc",
     icon: "⚡",
+    category: "tech",
     feeds: [
       { name: "Tom's Hardware", url: "https://www.tomshardware.com/feeds/all" },
       { name: "Ars Technica Gaming", url: "https://feeds.arstechnica.com/arstechnica/gaming" },
+    ],
+  },
+  {
+    id: "pc_pack",
+    nameKey: "news.packPcTitle",
+    descKey: "news.packPcDesc",
+    icon: "💻",
+    category: "pc",
+    feeds: [
+      { name: "PCGamesN", url: "https://www.pcgamesn.com/feed" },
+      { name: "Rock Paper Shotgun", url: "https://www.rockpapershotgun.com/feed" },
+    ],
+  },
+  {
+    id: "console_pack",
+    nameKey: "news.packConsoleTitle",
+    descKey: "news.packConsoleDesc",
+    icon: "🎮",
+    category: "console",
+    feeds: [
+      { name: "Push Square", url: "https://www.pushsquare.com/feeds/latest" },
+      { name: "Pure Xbox", url: "https://www.purexbox.com/feeds/latest" },
+      { name: "Nintendo Life", url: "https://www.nintendolife.com/feeds/latest" },
+    ],
+  },
+  {
+    id: "rpg_japan_pack",
+    nameKey: "news.packRpgJapanTitle",
+    descKey: "news.packRpgJapanDesc",
+    icon: "🌸",
+    category: "console",
+    feeds: [
+      { name: "Gematsu", url: "https://www.gematsu.com/feed" },
+      { name: "Siliconera", url: "https://www.siliconera.com/feed/" },
+    ],
+  },
+  {
+    id: "esports_pack",
+    nameKey: "news.packEsportsTitle",
+    descKey: "news.packEsportsDesc",
+    icon: "🏆",
+    category: "esports",
+    feeds: [
+      { name: "Dexerto Gaming", url: "https://www.dexerto.com/feed/" },
+      { name: "Dot Esports", url: "https://dotesports.com/feed" },
     ],
   },
 ];
@@ -120,7 +198,9 @@ export const CURATED_FEED_PACKS: CuratedFeedPack[] = [
 const STORAGE_KEY = "gamelib-news-feeds";
 const CACHE_KEY = "gamelib-news-cache";
 const READ_KEY = "gamelib-news-read";
+const HISTORY_KEY = "gamelib-news-history";
 const CACHE_TTL_MS = 5 * 60 * 1000; // 5 minutes
+const MAX_HISTORY = 100;
 
 // ── Helpers ────────────────────────────────────────────────────────────
 
@@ -162,6 +242,24 @@ function loadReadLinks(): Set<string> {
 function saveReadLinks(links: Set<string>): void {
   try {
     localStorage.setItem(READ_KEY, JSON.stringify(Array.from(links)));
+  } catch { /* ignore */ }
+}
+
+/** Load reading history from localStorage. */
+function loadHistory(): HistoryEntry[] {
+  try {
+    const raw = localStorage.getItem(HISTORY_KEY);
+    if (!raw) return [];
+    return JSON.parse(raw) as HistoryEntry[];
+  } catch {
+    return [];
+  }
+}
+
+/** Persist reading history to localStorage. */
+function saveHistory(history: HistoryEntry[]): void {
+  try {
+    localStorage.setItem(HISTORY_KEY, JSON.stringify(history.slice(0, MAX_HISTORY)));
   } catch { /* ignore */ }
 }
 
@@ -260,6 +358,54 @@ export function buildOpml(feeds: NewsFeed[]): string {
 ${body}
   </body>
 </opml>`;
+}
+
+/** Export saved articles as formatted Markdown document. */
+export function exportSavedArticlesMarkdown(articles: NewsArticle[]): string {
+  const dateStr = new Date().toLocaleDateString(undefined, {
+    year: "numeric",
+    month: "long",
+    day: "numeric",
+  });
+  let md = `# GameIndex Saved News Digest\n\n*Exported on ${dateStr} — ${articles.length} bookmarked article(s)*\n\n---\n\n`;
+
+  for (const a of articles) {
+    const time = a.pubDate ? new Date(a.pubDate).toLocaleDateString() : "";
+    md += `### [${a.title}](${a.link})\n`;
+    md += `**Source:** ${a.sourceName}${time ? ` | **Date:** ${time}` : ""}\n\n`;
+    if (a.description) {
+      md += `> ${a.description}\n\n`;
+    }
+    md += `---\n\n`;
+  }
+  return md;
+}
+
+/** Extract trending keywords / tags from an article. */
+export function extractArticleTags(article: NewsArticle): string[] {
+  const fullText = (article.title + " " + (article.description || "")).toLowerCase();
+  const tagPatterns: { tag: string; re: RegExp }[] = [
+    { tag: "Steam", re: /\bsteam\b/i },
+    { tag: "PlayStation", re: /\b(playstation|ps5|ps4|sony)\b/i },
+    { tag: "Xbox", re: /\b(xbox|game pass|microsoft)\b/i },
+    { tag: "Nintendo", re: /\b(nintendo|switch|mario|zelda|pokemon)\b/i },
+    { tag: "PC", re: /\b(pc gaming|steam deck|rtx|geforce|radeon)\b/i },
+    { tag: "Hardware", re: /\b(hardware|gpu|cpu|nvidia|amd|intel|monitor)\b/i },
+    { tag: "Indie", re: /\bindie\b/i },
+    { tag: "Deals", re: /\b(deal|discount|free|giveaway|sale)\b/i },
+    { tag: "Patch", re: /\b(patch|update|hotfix|notes)\b/i },
+    { tag: "Review", re: /\b(review|score|verdict)\b/i },
+    { tag: "RPG", re: /\b(rpg|jrpg|role-playing)\b/i },
+    { tag: "Esports", re: /\b(esports|tournament|championship|major)\b/i },
+  ];
+
+  const matched: string[] = [];
+  for (const { tag, re } of tagPatterns) {
+    if (re.test(fullText)) {
+      matched.push(tag);
+    }
+  }
+  return matched;
 }
 
 /** Get all enabled feed URLs. */
@@ -458,9 +604,12 @@ export function useNewsFeeds() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [failedFeedsList, setFailedFeedsList] = useState<string[]>([]);
-  const [activeSource, setActiveSource] = useState<string | null>(null); // null = all
+  const [activeSource, setActiveSource] = useState<string | null>(null);
   const [readLinks, setReadLinks] = useState<Set<string>>(loadReadLinks);
+  const [historyEntries, setHistoryEntries] = useState<HistoryEntry[]>(loadHistory);
   const [lastRefreshedAt, setLastRefreshedAt] = useState<number | null>(null);
+  const [feedHealthMap, setFeedHealthMap] = useState<Map<string, FeedHealthStatus>>(new Map());
+  const [testingHealth, setTestingHealth] = useState(false);
 
   // All feeds (defaults + custom, respecting enabled state)
   const allFeeds = useMemo(() => {
@@ -478,7 +627,7 @@ export function useNewsFeeds() {
     return [...new Set(names)];
   }, [allFeeds]);
 
-  // Filtered articles
+  // Filtered articles by active source
   const filteredArticles = useMemo(() => {
     if (!activeSource) return articles;
     return articles.filter((a) => a.sourceName === activeSource);
@@ -573,22 +722,64 @@ export function useNewsFeeds() {
     if (mountedRef.current) setLoading(false);
   }, [customFeeds]);
 
+  // Feed health and latency diagnostics
+  const testFeedHealth = useCallback(async (): Promise<FeedHealthStatus[]> => {
+    const hasTauri = typeof window !== "undefined" && "__TAURI__" in window;
+    setTestingHealth(true);
+    const enabled = allFeeds.filter((f) => f.enabled);
+
+    const results: FeedHealthStatus[] = await Promise.all(
+      enabled.map(async (feed) => {
+        const start = performance.now();
+        try {
+          if (hasTauri) {
+            await invoke<string>("fetch_url", { url: feed.url });
+          } else {
+            const res = await fetch(feed.url, { method: "HEAD" });
+            if (!res.ok) throw new Error(`HTTP ${res.status}`);
+          }
+          const latency = Math.round(performance.now() - start);
+          return {
+            url: feed.url,
+            name: feed.name,
+            status: latency > 1500 ? ("slow" as const) : ("ok" as const),
+            latencyMs: latency,
+          };
+        } catch (err) {
+          const latency = Math.round(performance.now() - start);
+          return {
+            url: feed.url,
+            name: feed.name,
+            status: "error" as const,
+            latencyMs: latency,
+            error: err instanceof Error ? err.message : String(err),
+          };
+        }
+      })
+    );
+
+    const map = new Map<string, FeedHealthStatus>();
+    for (const r of results) {
+      map.set(r.url, r);
+    }
+    setFeedHealthMap(map);
+    setTestingHealth(false);
+    return results;
+  }, [allFeeds]);
+
   const setSourceFilter = useCallback((sourceName: string | null) => {
     setActiveSource(sourceName);
   }, []);
 
-  const toggleFeed = useCallback(
-    (feedUrl: string) => {
-      setCustomFeeds((prev) => {
-        const updated = prev.map((f) =>
-          f.url === feedUrl ? { ...f, enabled: !f.enabled } : f
-        );
-        saveCustomFeeds(updated);
-        return updated;
-      });
-    },
-    []
-  );
+  const toggleFeed = useCallback((feedUrl: string) => {
+    setCustomFeeds((prev) => {
+      const updated = prev.map((f) =>
+        f.url === feedUrl ? { ...f, enabled: !f.enabled } : f
+      );
+      saveCustomFeeds(updated);
+      return updated;
+    });
+  }, []);
 
   const addCustomFeed = useCallback(
     (name: string, url: string, category = "general") => {
@@ -604,40 +795,34 @@ export function useNewsFeeds() {
     []
   );
 
-  const importFeedPack = useCallback(
-    (packId: string) => {
-      const pack = CURATED_FEED_PACKS.find((p) => p.id === packId);
-      if (!pack) return 0;
+  const importFeedPack = useCallback((packId: string) => {
+    const pack = CURATED_FEED_PACKS.find((p) => p.id === packId);
+    if (!pack) return 0;
 
-      let added = 0;
-      setCustomFeeds((prev) => {
-        const next = [...prev];
-        for (const f of pack.feeds) {
-          const existsInDefaults = DEFAULT_FEEDS.some((d) => d.url.toLowerCase() === f.url.toLowerCase());
-          const existsInCustom = next.some((c) => c.url.toLowerCase() === f.url.toLowerCase());
-          if (!existsInDefaults && !existsInCustom) {
-            next.push({ name: f.name, url: f.url, isDefault: false, enabled: true, category: pack.id });
-            added++;
-          }
+    let added = 0;
+    setCustomFeeds((prev) => {
+      const next = [...prev];
+      for (const f of pack.feeds) {
+        const existsInDefaults = DEFAULT_FEEDS.some((d) => d.url.toLowerCase() === f.url.toLowerCase());
+        const existsInCustom = next.some((c) => c.url.toLowerCase() === f.url.toLowerCase());
+        if (!existsInDefaults && !existsInCustom) {
+          next.push({ name: f.name, url: f.url, isDefault: false, enabled: true, category: pack.category });
+          added++;
         }
-        saveCustomFeeds(next);
-        return next;
-      });
-      return added;
-    },
-    []
-  );
+      }
+      saveCustomFeeds(next);
+      return next;
+    });
+    return added;
+  }, []);
 
-  const removeCustomFeed = useCallback(
-    (feedUrl: string) => {
-      setCustomFeeds((prev) => {
-        const updated = prev.filter((f) => f.url !== feedUrl);
-        saveCustomFeeds(updated);
-        return updated;
-      });
-    },
-    []
-  );
+  const removeCustomFeed = useCallback((feedUrl: string) => {
+    setCustomFeeds((prev) => {
+      const updated = prev.filter((f) => f.url !== feedUrl);
+      saveCustomFeeds(updated);
+      return updated;
+    });
+  }, []);
 
   const markRead = useCallback((articleLink: string) => {
     setReadLinks((prev) => {
@@ -671,6 +856,38 @@ export function useNewsFeeds() {
     });
   }, []);
 
+  const addToHistory = useCallback((article: NewsArticle) => {
+    setHistoryEntries((prev) => {
+      const filtered = prev.filter((h) => h.link !== article.link);
+      const updated: HistoryEntry[] = [
+        {
+          link: article.link,
+          title: article.title,
+          sourceName: article.sourceName,
+          pubDate: article.pubDate,
+          imageUrl: article.imageUrl,
+          readAt: Date.now(),
+        },
+        ...filtered,
+      ].slice(0, MAX_HISTORY);
+      saveHistory(updated);
+      return updated;
+    });
+  }, []);
+
+  const clearHistory = useCallback(() => {
+    setHistoryEntries([]);
+    saveHistory([]);
+  }, []);
+
+  const removeHistoryItem = useCallback((link: string) => {
+    setHistoryEntries((prev) => {
+      const next = prev.filter((h) => h.link !== link);
+      saveHistory(next);
+      return next;
+    });
+  }, []);
+
   useEffect(() => {
     mountedRef.current = true;
     fetchFeeds();
@@ -701,5 +918,12 @@ export function useNewsFeeds() {
     markAllRead,
     toggleReadStatus,
     enabledFeedUrls: new Set(allFeeds.filter((f) => f.enabled).map((f) => f.url)),
+    historyEntries,
+    addToHistory,
+    clearHistory,
+    removeHistoryItem,
+    testFeedHealth,
+    feedHealthMap,
+    testingHealth,
   };
 }

@@ -1,9 +1,8 @@
-import type { NewsArticle } from "../../hooks/useNewsFeeds";
+import type { NewsArticle, NewsCategory } from "../../hooks/useNewsFeeds";
 import type { ViewDensity } from "../../types/game";
 import { useLanguage } from "../../context/LanguageContext";
 import NewsArticleCard, { NewsArticleCardSkeleton } from "./NewsArticleCard";
 import NewsEmptyState, { NewsErrorState } from "./NewsEmptyState";
-import type { NewsFeedView } from "./NewsToolbar";
 
 const SKELETON_COUNT = 8;
 
@@ -18,8 +17,9 @@ interface NewsArticleGridProps {
   savedLinks: Set<string>;
   sourceNames: string[];
   activeSource: string | null;
-  view: NewsFeedView;
+  activeCategory: NewsCategory;
   searchQuery: string;
+  activeTag: string | null;
   relatedGameNames?: Map<string, string>;
   onCardClick: (article: NewsArticle) => void;
   onToggleSave?: (article: NewsArticle) => void;
@@ -28,7 +28,9 @@ interface NewsArticleGridProps {
   onRetry: () => void;
   onOpenSettings: () => void;
   onClearSearch: () => void;
-  onSwitchToFeed: () => void;
+  onClearTag?: () => void;
+  onSwitchToAll: () => void;
+  onSelectTag?: (tag: string) => void;
 }
 
 export default function NewsArticleGrid({
@@ -42,8 +44,9 @@ export default function NewsArticleGrid({
   savedLinks,
   sourceNames,
   activeSource,
-  view,
+  activeCategory,
   searchQuery,
+  activeTag,
   relatedGameNames,
   onCardClick,
   onToggleSave,
@@ -52,7 +55,9 @@ export default function NewsArticleGrid({
   onRetry,
   onOpenSettings,
   onClearSearch,
-  onSwitchToFeed,
+  onClearTag,
+  onSwitchToAll,
+  onSelectTag,
 }: NewsArticleGridProps) {
   const { t } = useLanguage();
 
@@ -88,6 +93,7 @@ export default function NewsArticleGrid({
         />
       );
     }
+
     if (searchQuery.trim()) {
       return (
         <NewsEmptyState
@@ -103,7 +109,24 @@ export default function NewsArticleGrid({
         />
       );
     }
-    if (view === "saved") {
+
+    if (activeTag) {
+      return (
+        <NewsEmptyState
+          icon={
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+              <polyline points="23 6 13.5 15.5 8.5 10.5 1 18" />
+              <polyline points="17 6 23 6 23 12" />
+            </svg>
+          }
+          title={t("news.noTagResults", { tag: activeTag })}
+          actionLabel={t("common.clear")}
+          onAction={onClearTag}
+        />
+      );
+    }
+
+    if (activeCategory === "saved") {
       return (
         <NewsEmptyState
           icon={
@@ -114,10 +137,48 @@ export default function NewsArticleGrid({
           title={t("news.noSavedArticles")}
           message={t("news.noSavedArticlesHint")}
           actionLabel={t("news.openFeed")}
-          onAction={onSwitchToFeed}
+          onAction={onSwitchToAll}
         />
       );
     }
+
+    if (activeCategory === "history") {
+      return (
+        <NewsEmptyState
+          icon={
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+              <circle cx="12" cy="12" r="10" />
+              <polyline points="12 6 12 12 16 14" />
+            </svg>
+          }
+          title={t("news.noHistoryYet")}
+          message={t("news.noHistoryHint")}
+          actionLabel={t("news.openFeed")}
+          onAction={onSwitchToAll}
+        />
+      );
+    }
+
+    if (activeCategory === "for_you") {
+      return (
+        <NewsEmptyState
+          icon={
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+              <rect x="2" y="6" width="20" height="12" rx="2" />
+              <line x1="6" y1="12" x2="10" y2="12" />
+              <line x1="8" y1="10" x2="8" y2="14" />
+              <line x1="15" y1="11" x2="15.01" y2="11" />
+              <line x1="18" y1="13" x2="18.01" y2="13" />
+            </svg>
+          }
+          title={t("news.noForYouMatches")}
+          message={t("news.noForYouHint")}
+          actionLabel={t("news.openFeed")}
+          onAction={onSwitchToAll}
+        />
+      );
+    }
+
     return (
       <NewsEmptyState
         icon={
@@ -141,6 +202,27 @@ export default function NewsArticleGrid({
 
   return (
     <>
+      {/* Category banner info for 'for_you' stream */}
+      {activeCategory === "for_you" && (
+        <div className="news-for-you-banner">
+          <div className="news-for-you-icon">🎮</div>
+          <div className="news-for-you-text">
+            <strong>{t("news.forYouTitle")}</strong>
+            <span>{t("news.forYouSubtitle")}</span>
+          </div>
+        </div>
+      )}
+
+      {/* Tag filter active chip banner */}
+      {activeTag && (
+        <div className="news-tag-filter-banner">
+          <span>{t("news.filteringByTag", { tag: activeTag })}</span>
+          <button type="button" className="news-tag-banner-clear" onClick={onClearTag}>
+            ✕ {t("common.clear")}
+          </button>
+        </div>
+      )}
+
       <div className={`news-article-grid density-${density}`}>
         {articles.map((article, i) => {
           const related = relatedGameNames?.get(article.link) ?? null;
@@ -155,6 +237,7 @@ export default function NewsArticleGrid({
               onClick={onCardClick}
               onToggleSave={onToggleSave}
               onToggleRead={onToggleRead}
+              onSelectTag={onSelectTag}
             />
           );
         })}

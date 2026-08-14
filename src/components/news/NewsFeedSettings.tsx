@@ -1,5 +1,5 @@
-import { useState, useCallback, useEffect, useRef } from "react";
-import type { NewsFeed } from "../../hooks/useNewsFeeds";
+import { useState, useCallback, useEffect, useRef, useMemo } from "react";
+import type { NewsFeed, FeedHealthStatus } from "../../hooks/useNewsFeeds";
 import { DEFAULT_FEEDS, CURATED_FEED_PACKS, discoverFeedUrl } from "../../hooks/useNewsFeeds";
 import { useLanguage } from "../../context/LanguageContext";
 
@@ -8,12 +8,16 @@ interface NewsFeedSettingsProps {
   enabledFeedUrls: Set<string>;
   customFeeds: NewsFeed[];
   failedFeedsList?: string[];
+  feedHealthMap?: Map<string, FeedHealthStatus>;
+  testingHealth?: boolean;
   onToggleFeed: (url: string) => void;
   onAddFeed: (name: string, url: string, category?: string) => void;
   onImportPack?: (packId: string) => void;
   onRemoveFeed: (url: string) => void;
   onExportOpml: () => void;
   onImportOpml: (file: File) => void;
+  onExportSavedMarkdown?: () => void;
+  onTestFeedHealth?: () => void;
   onClose: () => void;
 }
 
@@ -22,19 +26,25 @@ export default function NewsFeedSettings({
   enabledFeedUrls,
   customFeeds,
   failedFeedsList = [],
+  feedHealthMap = new Map(),
+  testingHealth = false,
   onToggleFeed,
   onAddFeed,
   onImportPack,
   onRemoveFeed,
   onExportOpml,
   onImportOpml,
+  onExportSavedMarkdown,
+  onTestFeedHealth,
   onClose,
 }: NewsFeedSettingsProps) {
   const { t } = useLanguage();
   const [name, setName] = useState("");
   const [url, setUrl] = useState("");
+  const [feedCategory, setFeedCategory] = useState("general");
   const [addError, setAddError] = useState<string | null>(null);
   const [discovering, setDiscovering] = useState(false);
+  const [searchFilter, setSearchFilter] = useState("");
   const opmlInputRef = useRef<HTMLInputElement>(null);
 
   const handleKeyDown = useCallback(
@@ -84,7 +94,7 @@ export default function NewsFeedSettings({
       return;
     }
 
-    onAddFeed(trimmedName, trimmedUrl);
+    onAddFeed(trimmedName, trimmedUrl, feedCategory);
     setName("");
     setUrl("");
   };
@@ -125,6 +135,18 @@ export default function NewsFeedSettings({
       handleAdd();
     }
   };
+
+  const filteredDefaults = useMemo(() => {
+    const q = searchFilter.trim().toLowerCase();
+    if (!q) return DEFAULT_FEEDS;
+    return DEFAULT_FEEDS.filter((f) => f.name.toLowerCase().includes(q) || f.url.toLowerCase().includes(q));
+  }, [searchFilter]);
+
+  const filteredCustoms = useMemo(() => {
+    const q = searchFilter.trim().toLowerCase();
+    if (!q) return customFeeds;
+    return customFeeds.filter((f) => f.name.toLowerCase().includes(q) || f.url.toLowerCase().includes(q));
+  }, [customFeeds, searchFilter]);
 
   return (
     <div
@@ -169,6 +191,31 @@ export default function NewsFeedSettings({
             </div>
           )}
 
+          {/* Diagnostics Bar */}
+          <div className="news-feed-diagnostics-bar">
+            <button
+              type="button"
+              className="news-feed-diagnostics-btn"
+              onClick={onTestFeedHealth}
+              disabled={testingHealth}
+            >
+              {testingHealth ? (
+                <>
+                  <span className="news-feed-test-spinner" />
+                  {t("news.testingFeeds")}
+                </>
+              ) : (
+                <>
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" width="14" height="14">
+                    <polyline points="22 12 18 12 15 21 9 3 6 12 2 12" />
+                  </svg>
+                  {t("news.testFeeds")}
+                </>
+              )}
+            </button>
+            <span className="news-feed-diagnostics-hint">{t("news.diagnosticsHint")}</span>
+          </div>
+
           {/* Curated Preset Packs */}
           <div className="news-feed-settings-section">
             <h3 className="news-feed-settings-section-title">
@@ -202,6 +249,17 @@ export default function NewsFeedSettings({
             </div>
           </div>
 
+          {/* Feed Search Filter */}
+          <div className="news-feed-search-row">
+            <input
+              type="search"
+              className="news-feed-input"
+              placeholder={t("news.searchFeedsPlaceholder")}
+              value={searchFilter}
+              onChange={(e) => setSearchFilter(e.target.value)}
+            />
+          </div>
+
           {/* Default feeds */}
           <div className="news-feed-settings-section">
             <h3 className="news-feed-settings-section-title">
@@ -210,15 +268,23 @@ export default function NewsFeedSettings({
                 {t("news.feedsEnabled", { enabled: allFeeds.filter((f) => f.isDefault && enabledFeedUrls.has(f.url)).length, total: DEFAULT_FEEDS.length })}
               </span>
             </h3>
-            {DEFAULT_FEEDS.map((feed) => {
+            {filteredDefaults.map((feed) => {
               const isEnabled = enabledFeedUrls.has(feed.url);
+              const health = feedHealthMap.get(feed.url);
               return (
                 <div key={feed.url} className="news-feed-default-item">
                   <div className="news-feed-default-icon">
                     {feed.name.charAt(0)}
                   </div>
                   <div className="news-feed-default-info">
-                    <div className="news-feed-default-name">{feed.name}</div>
+                    <div className="news-feed-name-row">
+                      <span className="news-feed-default-name">{feed.name}</span>
+                      {health && (
+                        <span className={`news-feed-health-chip ${health.status}`}>
+                          {health.status === "ok" ? "🟢" : health.status === "slow" ? "🟡" : "🔴"} {health.latencyMs}ms
+                        </span>
+                      )}
+                    </div>
                     <div className="news-feed-default-url" title={feed.url}>
                       {feed.url}
                     </div>
@@ -242,33 +308,53 @@ export default function NewsFeedSettings({
               {t("news.customFeeds")}
               {customFeeds.length > 0 && ` (${customFeeds.length})`}
             </h3>
-            {customFeeds.length === 0 ? (
+            {filteredCustoms.length === 0 ? (
               <p className="news-feed-error news-feed-empty-hint">
                 {t("news.noCustomFeeds")}
               </p>
             ) : (
-              customFeeds.map((feed) => (
-                <div key={feed.url} className="news-feed-custom-item">
-                  <div className="news-feed-custom-info">
-                    <div className="news-feed-custom-name">{feed.name}</div>
-                    <div className="news-feed-custom-url" title={feed.url}>
-                      {feed.url}
+              filteredCustoms.map((feed) => {
+                const isEnabled = enabledFeedUrls.has(feed.url);
+                const health = feedHealthMap.get(feed.url);
+                return (
+                  <div key={feed.url} className="news-feed-custom-item">
+                    <div className="news-feed-custom-info">
+                      <div className="news-feed-name-row">
+                        <span className="news-feed-custom-name">{feed.name}</span>
+                        {health && (
+                          <span className={`news-feed-health-chip ${health.status}`}>
+                            {health.status === "ok" ? "🟢" : health.status === "slow" ? "🟡" : "🔴"} {health.latencyMs}ms
+                          </span>
+                        )}
+                      </div>
+                      <div className="news-feed-custom-url" title={feed.url}>
+                        {feed.url}
+                      </div>
+                    </div>
+                    <div className="news-feed-custom-actions">
+                      <button
+                        type="button"
+                        className={`news-source-pill news-feed-item-toggle${isEnabled ? " active" : ""}`}
+                        onClick={() => onToggleFeed(feed.url)}
+                      >
+                        {isEnabled ? t("news.on") : t("news.off")}
+                      </button>
+                      <button
+                        type="button"
+                        className="news-feed-remove-btn"
+                        title={t("sourceManager.removeSourceLabel", { source: feed.name })}
+                        aria-label={t("sourceManager.removeSourceLabel", { source: feed.name })}
+                        onClick={() => onRemoveFeed(feed.url)}
+                      >
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                          <polyline points="3 6 5 6 21 6" />
+                          <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
+                        </svg>
+                      </button>
                     </div>
                   </div>
-                  <button
-                    type="button"
-                    className="news-feed-remove-btn"
-                    title={t("sourceManager.removeSourceLabel", { source: feed.name })}
-                    aria-label={t("sourceManager.removeSourceLabel", { source: feed.name })}
-                    onClick={() => onRemoveFeed(feed.url)}
-                  >
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                      <polyline points="3 6 5 6 21 6" />
-                      <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
-                    </svg>
-                  </button>
-                </div>
-              ))
+                );
+              })
             )}
           </div>
 
@@ -294,6 +380,19 @@ export default function NewsFeedSettings({
                   onChange={(e) => setUrl(e.target.value)}
                   onKeyDown={handleInputKeyDown}
                 />
+                <select
+                  className="news-feed-select"
+                  value={feedCategory}
+                  onChange={(e) => setFeedCategory(e.target.value)}
+                >
+                  <option value="general">{t("news.catGeneral")}</option>
+                  <option value="pc">{t("news.tabPc")}</option>
+                  <option value="console">{t("news.tabConsole")}</option>
+                  <option value="tech">{t("news.tabTech")}</option>
+                  <option value="indie">{t("news.tabIndie")}</option>
+                  <option value="deals">{t("news.tabDeals")}</option>
+                  <option value="esports">{t("news.tabEsports")}</option>
+                </select>
               </div>
               {addError && <p className="news-feed-error">{addError}</p>}
               <div className="news-feed-add-actions">
@@ -322,7 +421,7 @@ export default function NewsFeedSettings({
             </div>
           </div>
 
-          {/* OPML backup / restore */}
+          {/* OPML backup / restore & Markdown export */}
           <div className="news-feed-settings-section">
             <h3 className="news-feed-settings-section-title">{t("news.opmlTitle")}</h3>
             <p className="news-feed-opml-hint">{t("news.opmlHint")}</p>
@@ -353,6 +452,23 @@ export default function NewsFeedSettings({
                 </svg>
                 {t("newsPage.importOpml")}
               </button>
+
+              {onExportSavedMarkdown && (
+                <button
+                  type="button"
+                  className="news-feed-opml-btn"
+                  onClick={onExportSavedMarkdown}
+                  title={t("news.exportBookmarksMd")}
+                >
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" width="14" height="14">
+                    <polyline points="4 7 4 4 20 4 20 7" />
+                    <line x1="9" y1="20" x2="15" y2="20" />
+                    <line x1="12" y1="4" x2="12" y2="20" />
+                  </svg>
+                  {t("news.exportBookmarksMd")}
+                </button>
+              )}
+
               <input
                 ref={opmlInputRef}
                 type="file"

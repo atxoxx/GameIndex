@@ -9,19 +9,29 @@ import { useLanguage } from "../../context/LanguageContext";
 
 interface NewsArticlePreviewProps {
   article: NewsArticle | null;
-  onClose: () => void;
   saved?: boolean;
+  onClose: () => void;
   onToggleSave?: (article: NewsArticle) => void;
+  onPrevArticle?: () => void;
+  onNextArticle?: () => void;
+  hasPrev?: boolean;
+  hasNext?: boolean;
 }
 
 type PreviewMode = "reader" | "full";
-type FontSize = "sm" | "md" | "lg";
+type FontSize = "sm" | "md" | "lg" | "xl";
+type ReaderTheme = "dark" | "oled" | "sepia" | "slate";
+type FontFamily = "sans" | "serif" | "mono";
 
 export default function NewsArticlePreview({
   article,
-  onClose,
   saved = false,
+  onClose,
   onToggleSave,
+  onPrevArticle,
+  onNextArticle,
+  hasPrev = false,
+  hasNext = false,
 }: NewsArticlePreviewProps) {
   const { t } = useLanguage();
   const placeholderRef = useRef<HTMLDivElement>(null);
@@ -29,10 +39,19 @@ export default function NewsArticlePreview({
   const [webviewReady, setWebviewReady] = useState(false);
   const [webviewError, setWebviewError] = useState(false);
   const webviewInstRef = useRef<Webview | null>(null);
+
   const [shareCopied, setShareCopied] = useState(false);
+  const [markdownCopied, setMarkdownCopied] = useState(false);
   const [previewMode, setPreviewMode] = useState<PreviewMode>("reader");
   const [fontSize, setFontSize] = useState<FontSize>("md");
+  const [readerTheme, setReaderTheme] = useState<ReaderTheme>("dark");
+  const [fontFamily, setFontFamily] = useState<FontFamily>("sans");
   const [readProgress, setReadProgress] = useState(0);
+
+  // Text-To-Speech (TTS) states
+  const [ttsState, setTtsState] = useState<"idle" | "playing" | "paused">("idle");
+  const [ttsSpeed, setTtsSpeed] = useState<number>(1.0);
+  const utteranceRef = useRef<SpeechSynthesisUtterance | null>(null);
 
   const readTimeMinutes = useMemo(() => {
     if (!article) return 1;
@@ -42,19 +61,83 @@ export default function NewsArticlePreview({
 
   const wordCount = useMemo(() => {
     if (!article) return 0;
-    const text = (article.content || article.description || "");
+    const text = article.content || article.description || "";
     return text.trim().split(/\s+/).filter(Boolean).length;
   }, [article]);
 
-  const handleModeChange = useCallback((mode: PreviewMode) => {
-    setPreviewMode(mode);
+  // Clean plain text for TTS and Markdown copy
+  const plainTextContent = useMemo(() => {
+    if (!article) return "";
+    const raw = article.content || article.description || "";
+    return raw.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim();
+  }, [article]);
+
+  // Stop speech when closing or changing article
+  const stopTts = useCallback(() => {
+    if (typeof window !== "undefined" && "speechSynthesis" in window) {
+      window.speechSynthesis.cancel();
+    }
+    setTtsState("idle");
   }, []);
+
+  useEffect(() => {
+    return () => {
+      stopTts();
+    };
+  }, [article, stopTts]);
+
+  const handleToggleTts = useCallback(() => {
+    if (typeof window === "undefined" || !("speechSynthesis" in window) || !article) {
+      return;
+    }
+
+    if (ttsState === "playing") {
+      window.speechSynthesis.pause();
+      setTtsState("paused");
+      return;
+    }
+
+    if (ttsState === "paused") {
+      window.speechSynthesis.resume();
+      setTtsState("playing");
+      return;
+    }
+
+    // Start new speech
+    window.speechSynthesis.cancel();
+    const textToRead = `${article.title}. Published by ${article.sourceName}. ${plainTextContent}`;
+    const utterance = new SpeechSynthesisUtterance(textToRead);
+    utterance.rate = ttsSpeed;
+
+    utterance.onend = () => setTtsState("idle");
+    utterance.onerror = () => setTtsState("idle");
+
+    utteranceRef.current = utterance;
+    window.speechSynthesis.speak(utterance);
+    setTtsState("playing");
+  }, [article, plainTextContent, ttsSpeed, ttsState]);
+
+  const handleSpeedChange = (speed: number) => {
+    setTtsSpeed(speed);
+    if (ttsState === "playing") {
+      stopTts();
+      setTimeout(() => handleToggleTts(), 50);
+    }
+  };
 
   const handleKeyDown = useCallback(
     (e: KeyboardEvent) => {
-      if (e.key === "Escape") onClose();
+      if (e.key === "Escape") {
+        onClose();
+      } else if (e.key === "ArrowLeft" && hasPrev && onPrevArticle) {
+        stopTts();
+        onPrevArticle();
+      } else if (e.key === "ArrowRight" && hasNext && onNextArticle) {
+        stopTts();
+        onNextArticle();
+      }
     },
-    [onClose]
+    [hasNext, hasPrev, onClose, onNextArticle, onPrevArticle, stopTts]
   );
 
   const handleShare = useCallback(async () => {
@@ -74,6 +157,21 @@ export default function NewsArticlePreview({
       /* ignore */
     }
   }, [article]);
+
+  const handleCopyMarkdown = useCallback(async () => {
+    if (!article) return;
+    const dateStr = article.pubDate ? new Date(article.pubDate).toLocaleDateString() : "";
+    const md = `### [${article.title}](${article.link})\n**Source:** ${article.sourceName}${dateStr ? ` (${dateStr})` : ""}\n\n> ${article.description || plainTextContent}\n`;
+    try {
+      if (navigator.clipboard) {
+        await navigator.clipboard.writeText(md);
+        setMarkdownCopied(true);
+        setTimeout(() => setMarkdownCopied(false), 2000);
+      }
+    } catch {
+      /* ignore */
+    }
+  }, [article, plainTextContent]);
 
   // Track scroll progress for reader mode
   const handleScroll = () => {
@@ -217,13 +315,16 @@ export default function NewsArticlePreview({
     <div
       className="modal-backdrop"
       onClick={(e) => {
-        if (e.target === e.currentTarget) onClose();
+        if (e.target === e.currentTarget) {
+          stopTts();
+          onClose();
+        }
       }}
       role="dialog"
       aria-modal="true"
       aria-label={t("news.articleLabel", { title: article.title })}
     >
-      <div className="modal news-preview-modal">
+      <div className={`modal news-preview-modal theme-${readerTheme}`}>
         {/* Reading progress bar */}
         {previewMode === "reader" && (
           <div className="news-preview-progress-track">
@@ -234,87 +335,255 @@ export default function NewsArticlePreview({
           </div>
         )}
 
-        {/* Header */}
+        {/* Header with Navigation Controls */}
         <div className="news-preview-header">
-          <div className="news-preview-header-icon">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20" />
-              <path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z" />
-            </svg>
-          </div>
-          <div className="news-preview-header-text">
-            <h2 className="news-preview-title">{article.title}</h2>
-            <div className="news-preview-meta">
-              <span className="news-preview-source">{article.sourceName}</span>
-              {article.pubDate && (
-                <>
-                  <span className="news-preview-meta-dot" aria-hidden="true" />
-                  <span>{formatArticleDate(article.pubDate)}</span>
-                </>
-              )}
-              <span className="news-preview-meta-dot" aria-hidden="true" />
-              <span>⏱ {readTimeMinutes} min read ({wordCount} words)</span>
-            </div>
-          </div>
-        </div>
-
-        {/* Mode switch + Font Size Adjuster */}
-        <div className="news-preview-controls-bar">
-          <div className="news-preview-switch" role="tablist" aria-label={t("news.previewMode")}>
-            <button
-              type="button"
-              role="tab"
-              aria-selected={previewMode === "reader"}
-              className={`news-preview-switch-btn${previewMode === "reader" ? " active" : ""}`}
-              onClick={() => handleModeChange("reader")}
-            >
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+          <div className="news-preview-header-main">
+            <div className="news-preview-header-icon">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                 <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20" />
                 <path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z" />
               </svg>
-              {t("news.previewReader")}
+            </div>
+            <div className="news-preview-header-text">
+              <h2 className="news-preview-title">{article.title}</h2>
+              <div className="news-preview-meta">
+                <span className="news-preview-source">{article.sourceName}</span>
+                {article.pubDate && (
+                  <>
+                    <span className="news-preview-meta-dot" aria-hidden="true" />
+                    <span>{formatArticleDate(article.pubDate)}</span>
+                  </>
+                )}
+                <span className="news-preview-meta-dot" aria-hidden="true" />
+                <span>⏱ {readTimeMinutes} min read ({wordCount} words)</span>
+              </div>
+            </div>
+          </div>
+
+          {/* Previous / Next Article Navigation */}
+          <div className="news-preview-cycle-nav">
+            <button
+              type="button"
+              className="news-preview-cycle-btn"
+              onClick={() => {
+                stopTts();
+                onPrevArticle?.();
+              }}
+              disabled={!hasPrev}
+              title={t("news.prevArticle")}
+              aria-label={t("news.prevArticle")}
+            >
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                <polyline points="15 18 9 12 15 6" />
+              </svg>
             </button>
             <button
               type="button"
-              role="tab"
-              aria-selected={previewMode === "full"}
-              className={`news-preview-switch-btn${previewMode === "full" ? " active" : ""}`}
-              onClick={() => handleModeChange("full")}
+              className="news-preview-cycle-btn"
+              onClick={() => {
+                stopTts();
+                onNextArticle?.();
+              }}
+              disabled={!hasNext}
+              title={t("news.nextArticle")}
+              aria-label={t("news.nextArticle")}
             >
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-                <rect x="3" y="3" width="18" height="18" rx="2" />
-                <line x1="3" y1="9" x2="21" y2="9" />
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                <polyline points="9 18 15 12 9 6" />
               </svg>
-              {t("news.previewFullPage")}
             </button>
           </div>
+        </div>
 
+        {/* Controls Bar: Mode switch + TTS narration + Themes + Font size */}
+        <div className="news-preview-controls-bar">
+          <div className="news-preview-controls-left">
+            <div className="news-preview-switch" role="tablist" aria-label={t("news.previewMode")}>
+              <button
+                type="button"
+                role="tab"
+                aria-selected={previewMode === "reader"}
+                className={`news-preview-switch-btn${previewMode === "reader" ? " active" : ""}`}
+                onClick={() => setPreviewMode("reader")}
+              >
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20" />
+                  <path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z" />
+                </svg>
+                {t("news.previewReader")}
+              </button>
+              <button
+                type="button"
+                role="tab"
+                aria-selected={previewMode === "full"}
+                className={`news-preview-switch-btn${previewMode === "full" ? " active" : ""}`}
+                onClick={() => {
+                  stopTts();
+                  setPreviewMode("full");
+                }}
+              >
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <rect x="3" y="3" width="18" height="18" rx="2" />
+                  <line x1="3" y1="9" x2="21" y2="9" />
+                </svg>
+                {t("news.previewFullPage")}
+              </button>
+            </div>
+
+            {/* Text-to-Speech (TTS) Narration Control */}
+            {previewMode === "reader" && (
+              <div className="news-preview-tts-group">
+                <button
+                  type="button"
+                  className={`news-preview-tts-btn ${ttsState !== "idle" ? "speaking" : ""}`}
+                  onClick={handleToggleTts}
+                  title={
+                    ttsState === "playing"
+                      ? t("news.pauseAudio")
+                      : ttsState === "paused"
+                        ? t("news.resumeAudio")
+                        : t("news.listenArticle")
+                  }
+                  aria-label={t("news.listenArticle")}
+                >
+                  {ttsState === "playing" ? (
+                    <>
+                      <div className="news-audio-waves" aria-hidden="true">
+                        <span /><span /><span />
+                      </div>
+                      <span>{t("news.pauseAudio")}</span>
+                    </>
+                  ) : (
+                    <>
+                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" width="14" height="14">
+                        <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5" />
+                        <path d="M19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07" />
+                      </svg>
+                      <span>{t("news.listenArticle")}</span>
+                    </>
+                  )}
+                </button>
+
+                {ttsState !== "idle" && (
+                  <div className="news-preview-tts-speed-picker">
+                    {[1.0, 1.25, 1.5].map((speed) => (
+                      <button
+                        key={speed}
+                        type="button"
+                        className={`news-preview-speed-btn ${ttsSpeed === speed ? "active" : ""}`}
+                        onClick={() => handleSpeedChange(speed)}
+                      >
+                        {speed}x
+                      </button>
+                    ))}
+                    <button
+                      type="button"
+                      className="news-preview-speed-btn stop"
+                      onClick={stopTts}
+                      title="Stop audio"
+                    >
+                      ⏹
+                    </button>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+
+          {/* Reader Appearance Controls */}
           {previewMode === "reader" && (
-            <div className="news-preview-font-controls" aria-label="Font size">
-              <button
-                type="button"
-                className={`news-preview-font-btn ${fontSize === "sm" ? "active" : ""}`}
-                onClick={() => setFontSize("sm")}
-                title="Small text"
-              >
-                A-
-              </button>
-              <button
-                type="button"
-                className={`news-preview-font-btn ${fontSize === "md" ? "active" : ""}`}
-                onClick={() => setFontSize("md")}
-                title="Standard text"
-              >
-                A
-              </button>
-              <button
-                type="button"
-                className={`news-preview-font-btn ${fontSize === "lg" ? "active" : ""}`}
-                onClick={() => setFontSize("lg")}
-                title="Large text"
-              >
-                A+
-              </button>
+            <div className="news-preview-controls-right">
+              {/* Reader Theme Picker */}
+              <div className="news-preview-theme-picker" aria-label="Reader theme">
+                <button
+                  type="button"
+                  className={`news-preview-theme-btn dark ${readerTheme === "dark" ? "active" : ""}`}
+                  onClick={() => setReaderTheme("dark")}
+                  title="Dark theme"
+                />
+                <button
+                  type="button"
+                  className={`news-preview-theme-btn oled ${readerTheme === "oled" ? "active" : ""}`}
+                  onClick={() => setReaderTheme("oled")}
+                  title="Midnight OLED theme"
+                />
+                <button
+                  type="button"
+                  className={`news-preview-theme-btn sepia ${readerTheme === "sepia" ? "active" : ""}`}
+                  onClick={() => setReaderTheme("sepia")}
+                  title="Warm Sepia theme"
+                />
+                <button
+                  type="button"
+                  className={`news-preview-theme-btn slate ${readerTheme === "slate" ? "active" : ""}`}
+                  onClick={() => setReaderTheme("slate")}
+                  title="Slate Blue theme"
+                />
+              </div>
+
+              {/* Font Family Switcher */}
+              <div className="news-preview-font-family-picker" aria-label="Font family">
+                <button
+                  type="button"
+                  className={`news-preview-ff-btn ${fontFamily === "sans" ? "active" : ""}`}
+                  onClick={() => setFontFamily("sans")}
+                  title="Sans-serif"
+                >
+                  Sans
+                </button>
+                <button
+                  type="button"
+                  className={`news-preview-ff-btn serif ${fontFamily === "serif" ? "active" : ""}`}
+                  onClick={() => setFontFamily("serif")}
+                  title="Serif Editorial"
+                >
+                  Serif
+                </button>
+                <button
+                  type="button"
+                  className={`news-preview-ff-btn mono ${fontFamily === "mono" ? "active" : ""}`}
+                  onClick={() => setFontFamily("mono")}
+                  title="Monospace"
+                >
+                  Mono
+                </button>
+              </div>
+
+              {/* Font Size Adjuster */}
+              <div className="news-preview-font-controls" aria-label="Font size">
+                <button
+                  type="button"
+                  className={`news-preview-font-btn ${fontSize === "sm" ? "active" : ""}`}
+                  onClick={() => setFontSize("sm")}
+                  title="Small text"
+                >
+                  A-
+                </button>
+                <button
+                  type="button"
+                  className={`news-preview-font-btn ${fontSize === "md" ? "active" : ""}`}
+                  onClick={() => setFontSize("md")}
+                  title="Standard text"
+                >
+                  A
+                </button>
+                <button
+                  type="button"
+                  className={`news-preview-font-btn ${fontSize === "lg" ? "active" : ""}`}
+                  onClick={() => setFontSize("lg")}
+                  title="Large text"
+                >
+                  A+
+                </button>
+                <button
+                  type="button"
+                  className={`news-preview-font-btn ${fontSize === "xl" ? "active" : ""}`}
+                  onClick={() => setFontSize("xl")}
+                  title="Extra large text"
+                >
+                  A++
+                </button>
+              </div>
             </div>
           )}
         </div>
@@ -324,7 +593,7 @@ export default function NewsArticlePreview({
           <div
             ref={bodyRef}
             onScroll={handleScroll}
-            className={`news-preview-body font-size-${fontSize}`}
+            className={`news-preview-body font-size-${fontSize} font-family-${fontFamily}`}
             dangerouslySetInnerHTML={{
               __html: sanitizeHtml(article.content || article.description),
             }}
@@ -363,10 +632,14 @@ export default function NewsArticlePreview({
           <button
             type="button"
             className="edit-btn edit-btn-ghost"
-            onClick={onClose}
+            onClick={() => {
+              stopTts();
+              onClose();
+            }}
           >
             {t("newsArticle.close")}
           </button>
+
           <div className="news-preview-footer-actions">
             {onToggleSave && (
               <button
@@ -382,6 +655,22 @@ export default function NewsArticlePreview({
                 {saved ? t("news.saved") : t("common.save")}
               </button>
             )}
+
+            <button
+              type="button"
+              className="news-preview-action-btn"
+              onClick={handleCopyMarkdown}
+              title={t("news.copyMarkdown")}
+              aria-label={t("news.copyMarkdown")}
+            >
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" width="14" height="14">
+                <polyline points="4 7 4 4 20 4 20 7" />
+                <line x1="9" y1="20" x2="15" y2="20" />
+                <line x1="12" y1="4" x2="12" y2="20" />
+              </svg>
+              {markdownCopied ? t("gameInfo.copied") : t("news.copyQuote")}
+            </button>
+
             <button
               type="button"
               className="news-preview-action-btn"
@@ -398,12 +687,13 @@ export default function NewsArticlePreview({
               </svg>
               {shareCopied ? t("gameInfo.copied") : t("news.share")}
             </button>
+
             <button
               type="button"
               className="news-preview-open-btn"
               onClick={handleOpenInBrowser}
             >
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" width="14" height="14">
                 <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6" />
                 <polyline points="15 3 21 3 21 9" />
                 <line x1="10" y1="14" x2="21" y2="3" />
