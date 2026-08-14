@@ -30,19 +30,12 @@ const ICON = {
   "aria-hidden": true,
 } as const;
 
-/** Folder icon for the two browse buttons. */
-const IconFolder = () => (
-  <svg {...ICON}>
-    <path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" />
-  </svg>
-);
-
-/**
- * Add / edit emulator modal. Pick a known emulator from the curated
- * catalog to auto-fill the executable name, platform and supported file
- * extensions, or choose "Custom" to enter a free-form platform.
- */
-export default function EmulatorEditorModal({ emulator, presetKnown, onClose, onSaved }: Props) {
+export default function EmulatorEditorModal({
+  emulator,
+  presetKnown,
+  onClose,
+  onSaved,
+}: Props) {
   const { t } = useLanguage();
   const { showToast } = useToast();
   const isEdit = !!emulator;
@@ -67,9 +60,6 @@ export default function EmulatorEditorModal({ emulator, presetKnown, onClose, on
   const [scanAfter, setScanAfter] = useState(false);
   const [saving, setSaving] = useState(false);
 
-  // When the user picks a known emulator, prefill the editable fields.
-  // Edits afterward are free-form (we stop auto-syncing once the user
-  // touches a field, to avoid clobbering intentional customisations).
   function applyKnown(k: KnownEmulator) {
     setKnownKey(k.key);
     setName(k.name);
@@ -100,8 +90,6 @@ export default function EmulatorEditorModal({ emulator, presetKnown, onClose, on
       });
       if (typeof p !== "string") return;
       setExecutablePath(p);
-      // Auto-suggest a known emulator when the picked file matches one by
-      // executable name (e.g. picking "dolphin.exe" fills name/platform).
       if (!name.trim()) {
         const base = p.split(/[\\/]/).pop()?.toLowerCase() ?? "";
         const hit = KNOWN_EMULATORS.find((k) => k.executableName.toLowerCase() === base);
@@ -133,6 +121,7 @@ export default function EmulatorEditorModal({ emulator, presetKnown, onClose, on
     }
     try {
       await openPath(executablePath.trim());
+      showToast(t("emulators.launchExeSuccess", { name }), "success");
     } catch (err) {
       showToast(String(err), "error");
     }
@@ -161,7 +150,7 @@ export default function EmulatorEditorModal({ emulator, presetKnown, onClose, on
       argumentsTemplate: argumentsTemplate.trim() || '"%ROM%"',
       romFolder: romFolder.trim(),
       notes: notes.trim() || undefined,
-      iconUrl: emulator?.iconUrl,
+      iconUrl: emulator?.iconUrl ?? selectedKnown?.logo,
       createdAt: emulator?.createdAt ?? now,
       updatedAt: now,
     };
@@ -179,6 +168,8 @@ export default function EmulatorEditorModal({ emulator, presetKnown, onClose, on
     }
   }
 
+  const argPresets = ['"%ROM%"', '-f "%ROM%"', '-g "%ROM%"', '--fullscreen "%ROM%"', '-L "%ROM%"'];
+
   return (
     <div className="modal-overlay emulators-modal-overlay" onMouseDown={onClose}>
       <div
@@ -189,9 +180,14 @@ export default function EmulatorEditorModal({ emulator, presetKnown, onClose, on
         onMouseDown={(e) => e.stopPropagation()}
       >
         <div className="modal-header">
-          <h2>
-            {isEdit ? t("emulators.editor.title.edit") : t("emulators.editor.title.add")}
-          </h2>
+          <div className="modal-header-text">
+            <h2>
+              {isEdit ? t("emulators.editor.title.edit") : t("emulators.editor.title.add")}
+            </h2>
+            <p className="modal-subtitle">
+              {isEdit ? selectedKnown?.name || name : t("emulators.knownHint")}
+            </p>
+          </div>
           <button className="modal-close" aria-label={t("common.close")} onClick={onClose}>
             ×
           </button>
@@ -212,7 +208,7 @@ export default function EmulatorEditorModal({ emulator, presetKnown, onClose, on
                 if (hit) applyKnown(hit);
               }}
             >
-              <option value="">{t("emulators.custom")}</option>
+              <option value="custom">{t("emulators.custom")}</option>
               {KNOWN_EMULATORS.map((k) => (
                 <option key={k.key} value={k.key}>
                   {k.glyph} {k.name} — {k.platform}
@@ -231,14 +227,21 @@ export default function EmulatorEditorModal({ emulator, presetKnown, onClose, on
               style={{ ["--emu-accent" as string]: selectedKnown.accent }}
             >
               <img src={selectedKnown.logo} alt="" />
-              <span>{selectedKnown.name}</span>
+              <div className="emulators-known-logo-info">
+                <span className="emulators-known-logo-name">{selectedKnown.name}</span>
+                <span className="emulators-known-logo-platform">{selectedKnown.platform}</span>
+              </div>
             </div>
           )}
 
           <div className="emulators-field-row">
             <label className="emulators-field">
               <span>{t("emulators.name")}</span>
-              <input value={name} onChange={(e) => setName(e.target.value)} placeholder="Dolphin" />
+              <input
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                placeholder="Dolphin"
+              />
             </label>
             <label className="emulators-field">
               <span>{t("emulators.platform")}</span>
@@ -253,12 +256,20 @@ export default function EmulatorEditorModal({ emulator, presetKnown, onClose, on
           <label className="emulators-field">
             <span>{t("emulators.executable")}</span>
             <div className="emulators-path-row">
-              <input value={executablePath} onChange={(e) => setExecutablePath(e.target.value)} placeholder="C:\\emu\\dolphin.exe" />
+              <input
+                value={executablePath}
+                onChange={(e) => setExecutablePath(e.target.value)}
+                placeholder="C:\emu\dolphin.exe"
+              />
               <Button
                 type="button"
                 variant="secondary"
                 size="sm"
-                leftIcon={<IconFolder />}
+                leftIcon={
+                  <svg {...ICON}>
+                    <path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" />
+                  </svg>
+                }
                 onClick={pickExecutable}
               >
                 {t("emulators.browseExe")}
@@ -269,12 +280,20 @@ export default function EmulatorEditorModal({ emulator, presetKnown, onClose, on
           <label className="emulators-field">
             <span>{t("emulators.romFolder")}</span>
             <div className="emulators-path-row">
-              <input value={romFolder} onChange={(e) => setRomFolder(e.target.value)} placeholder="C:\\roms\\gamecube" />
+              <input
+                value={romFolder}
+                onChange={(e) => setRomFolder(e.target.value)}
+                placeholder="C:\roms\gamecube"
+              />
               <Button
                 type="button"
                 variant="secondary"
                 size="sm"
-                leftIcon={<IconFolder />}
+                leftIcon={
+                  <svg {...ICON}>
+                    <path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" />
+                  </svg>
+                }
                 onClick={pickFolder}
               >
                 {t("emulators.browseFolder")}
@@ -283,7 +302,21 @@ export default function EmulatorEditorModal({ emulator, presetKnown, onClose, on
           </label>
 
           <label className="emulators-field">
-            <span>{t("emulators.argumentsTemplate")}</span>
+            <div className="emulators-field-header">
+              <span>{t("emulators.argumentsTemplate")}</span>
+              <div className="emulators-presets-row">
+                {argPresets.map((p) => (
+                  <button
+                    key={p}
+                    type="button"
+                    className="emu-preset-pill"
+                    onClick={() => setArgumentsTemplate(p)}
+                  >
+                    {p}
+                  </button>
+                ))}
+              </div>
+            </div>
             <input
               value={argumentsTemplate}
               onChange={(e) => setArgumentsTemplate(e.target.value)}
@@ -294,36 +327,53 @@ export default function EmulatorEditorModal({ emulator, presetKnown, onClose, on
 
           {selectedKnown && (
             <p className="emulators-extensions">
-              {t("emulators.extensions")}: {selectedKnown.extensions.map((e) => `.${e}`).join(" ")}
+              {t("emulators.extensions")}:{" "}
+              {selectedKnown.extensions.map((e) => `.${e}`).join(" ")}
             </p>
           )}
 
           <label className="emulators-field">
             <span>{t("emulators.notes")}</span>
-            <textarea value={notes} onChange={(e) => setNotes(e.target.value)} rows={2} />
+            <textarea
+              value={notes}
+              onChange={(e) => setNotes(e.target.value)}
+              rows={2}
+              placeholder="Optional notes or configuration tweaks..."
+            />
           </label>
 
           {!isEdit && (
             <label className="emulators-checkbox">
-              <input type="checkbox" checked={scanAfter} onChange={(e) => setScanAfter(e.target.checked)} />
+              <input
+                type="checkbox"
+                checked={scanAfter}
+                onChange={(e) => setScanAfter(e.target.checked)}
+              />
               <span>{t("emulators.editor.scanAfter")}</span>
             </label>
           )}
         </div>
 
         <div className="modal-footer">
-          <span className="modal-footer-count">&nbsp;</span>
-          <div className="modal-footer-actions">
-            <Button variant="ghost" onClick={onClose}>
-              {t("common.cancel")}
-            </Button>
+          <div className="modal-footer-left">
             <Button
               variant="secondary"
+              size="sm"
               onClick={testLaunch}
               disabled={!executablePath.trim()}
               title={t("emulators.editor.testLaunch")}
+              leftIcon={
+                <svg {...ICON}>
+                  <polygon points="5 3 19 12 5 21 5 3" />
+                </svg>
+              }
             >
               {t("emulators.editor.testLaunch")}
+            </Button>
+          </div>
+          <div className="modal-footer-actions">
+            <Button variant="ghost" onClick={onClose}>
+              {t("common.cancel")}
             </Button>
             <Button variant="primary" onClick={handleSave} isLoading={saving}>
               {t("emulators.editor.save")}

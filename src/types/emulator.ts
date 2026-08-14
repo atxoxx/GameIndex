@@ -568,6 +568,67 @@ export interface EmulatorDownload {
   notes?: string;
 }
 
+/** Platform brand / manufacturer category for easy filtering. */
+export type PlatformCategory =
+  | "all"
+  | "nintendo"
+  | "playstation"
+  | "sega"
+  | "xbox"
+  | "arcade"
+  | "other";
+
+/** Categorise a platform string into a major console family. */
+export function getPlatformCategory(platform: string): PlatformCategory {
+  const p = platform.toLowerCase();
+  if (
+    p.includes("nintendo") ||
+    p.includes("nes") ||
+    p.includes("snes") ||
+    p.includes("gamecube") ||
+    p.includes("wii") ||
+    p.includes("switch") ||
+    p.includes("game boy") ||
+    p.includes("ds") ||
+    p.includes("3ds") ||
+    p.includes("n64")
+  ) {
+    return "nintendo";
+  }
+  if (p.includes("playstation") || p.includes("ps1") || p.includes("ps2") || p.includes("ps3") || p.includes("ps4") || p.includes("psp") || p.includes("vita")) {
+    return "playstation";
+  }
+  if (p.includes("sega") || p.includes("genesis") || p.includes("saturn") || p.includes("dreamcast") || p.includes("mega drive")) {
+    return "sega";
+  }
+  if (p.includes("xbox")) {
+    return "xbox";
+  }
+  if (p.includes("arcade") || p.includes("mame") || p.includes("neo")) {
+    return "arcade";
+  }
+  return "other";
+}
+
+/** Unified row model for list and search views. */
+export interface EmuRow {
+  id: string;
+  known?: KnownEmulator;
+  emulator?: Emulator;
+  name: string;
+  platform: string;
+  accent: string;
+  glyph: string;
+  logo?: string;
+  added: boolean;
+  /** True once an executable path has been configured. */
+  configured: boolean;
+  gameCount: number;
+  totalSizeBytes?: number;
+  createdAt?: number;
+  scannedAt?: number;
+}
+
 /** Look up a known emulator by its catalog key. */
 export function knownEmulatorByKey(key: string): KnownEmulator | undefined {
   return KNOWN_EMULATORS.find((e) => e.key === key);
@@ -580,4 +641,3 @@ export function accentForPlatform(platform: string): string {
   );
   return hit?.accent ?? "#7c66ff";
 }
-
