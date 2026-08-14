@@ -18,7 +18,7 @@ import { SavePathPicker } from "./SavePathPicker";
  *      match-confidence tier as a colored indicator + percentage
  *   3. Mirrors — host chips (only when the match has >1 mirror)
  *   4. Options — auto-extract + choose-files toggles
- *   5. Save location — folder picker + nested-game-folder hint
+ *   5. Save location or Protected Web Source explanation card
  */
 export function DetailPanel({
   match,
@@ -52,9 +52,8 @@ export function DetailPanel({
   useDebrid: boolean;
   onUseDebrid: (v: boolean) => void;
   debridConfigured: boolean;
-  /** Open the result's source page in the browser (fallback for a
-   *  downloadable result whose host link fails). */
-  onOpenPage: () => void;
+  /** Open the result's source page in the default OS browser. */
+  onOpenPage: (url?: string) => void;
   /** Open the in-app browser resolver to solve CAPTCHAs/timers & intercept download. */
   onOpenBrowserResolver?: (url?: string) => void;
 }) {
@@ -187,7 +186,7 @@ export function DetailPanel({
           <button
             type="button"
             className="dl-detail-open-page"
-            onClick={onOpenPage}
+            onClick={() => onOpenPage(detailUrl ?? undefined)}
             title={detailUrl ?? undefined}
           >
             <svg
@@ -249,22 +248,30 @@ export function DetailPanel({
       </div>
 
       {webUrl ? (
-        <div className="dl-detail-section">
+        <div className="dl-detail-section dl-detail-protected-section">
           <span className="dl-detail-section-title">{t("downloadModal.sectionWeb")}</span>
-          <p className="dl-detail-web-hint">{t("downloadModal.browserResolverDesc")}</p>
-          <div className="dl-detail-web-actions">
-            <button
-              type="button"
-              className="dl-btn-browser-solve"
-              onClick={() => onOpenBrowserResolver?.(webUrl)}
-            >
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-                <circle cx="12" cy="12" r="10" />
-                <line x1="2" y1="12" x2="22" y2="12" />
-                <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z" />
+          <div className="dl-protected-card">
+            <div className="dl-protected-header">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden className="dl-protected-icon">
+                <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
               </svg>
-              <span>{t("downloadModal.openInBrowserResolver")}</span>
-            </button>
+              <span className="dl-protected-title">{t("downloadModal.protectedSourceTitle")}</span>
+            </div>
+            <p className="dl-detail-web-hint">{t("downloadModal.protectedSourceDesc")}</p>
+            <div className="dl-detail-web-actions">
+              <button
+                type="button"
+                className="dl-btn-browser-solve"
+                onClick={() => onOpenPage(webUrl)}
+              >
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                  <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6" />
+                  <polyline points="15 3 21 3 21 9" />
+                  <line x1="10" y1="14" x2="21" y2="3" />
+                </svg>
+                <span>{t("downloadModal.openInBrowser")}</span>
+              </button>
+            </div>
           </div>
         </div>
       ) : (

@@ -434,18 +434,21 @@ export default function DownloadModal({
     }
   }, [selectSavePath, showToast]);
 
-  // Fallback action: open the selected result's source page in the
-  // browser (e.g. when a direct-host mirror fails or needs a captcha).
-  const handleOpenPage = useCallback(async () => {
-    const url = selectedMatch?.detailUrl;
-    if (!url) return;
-    try {
-      await openUrl(url);
-    } catch (err) {
-      console.error("[DownloadModal] open page failed:", err);
-      showToast(String(err), "error");
-    }
-  }, [selectedMatch, showToast]);
+  // Open the selected result's source page in the default OS browser
+  const handleOpenPage = useCallback(
+    async (targetUrl?: string) => {
+      const url = targetUrl || selectedWebUrl || selectedMatch?.detailUrl;
+      if (!url) return;
+      try {
+        await openUrl(url);
+        showToast(t("downloadModal.openedInDefaultBrowser"), "info");
+      } catch (err) {
+        console.error("[DownloadModal] open page failed:", err);
+        showToast(String(err), "error");
+      }
+    },
+    [selectedWebUrl, selectedMatch, showToast, t],
+  );
 
   const handleOpenBrowserResolver = useCallback(
     async (targetUrl?: string) => {
@@ -513,12 +516,12 @@ export default function DownloadModal({
     // Single source of truth for which URI the user wants. Respects the
     // mirror dropdown; falls back to magnet then first URI.
     const sourceUri = resolveSourceUri(match, selectedMirrorIdx);
-    // Web-link-only results (no downloadable URI) open in the in-app
-    // resolver browser to solve verifications and capture the link.
+    // Web-link-only / protected results open in the default OS browser
+    // so the user can complete the anti-bot challenge and download.
     const webUrl = webUrlFor(match);
     if (!sourceUri && webUrl) {
       setError(null);
-      await handleOpenBrowserResolver(webUrl);
+      await handleOpenPage(webUrl);
       return;
     }
     if (!savePath) {
@@ -1024,9 +1027,9 @@ export default function DownloadModal({
                     step !== "starting" ? (
                       selectedWebUrl ? (
                         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-                          <circle cx="12" cy="12" r="10" />
-                          <line x1="2" y1="12" x2="22" y2="12" />
-                          <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z" />
+                          <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6" />
+                          <polyline points="15 3 21 3 21 9" />
+                          <line x1="10" y1="14" x2="21" y2="3" />
                         </svg>
                       ) : (
                         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
@@ -1039,7 +1042,7 @@ export default function DownloadModal({
                   }
                 >
                   {(() => {
-                    if (selectedWebUrl) return t('downloadModal.openInBrowserResolver');
+                    if (selectedWebUrl) return t('downloadModal.openInBrowser');
                     const selMatch = selectedMatch;
                     const { isDirect } = classifyUri(
                       resolveSourceUri(selMatch ?? undefined, selectedMirrorIdx),
