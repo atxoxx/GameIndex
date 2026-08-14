@@ -51,6 +51,25 @@
   --color-accent-glow: color-mix(in srgb, var(--color-accent) 30%, transparent);
   --color-accent-soft: color-mix(in srgb, var(--color-accent) 12%, var(--color-bg-secondary));
 
+  /* Accent family (richer palette derived from the single accent) */
+  --color-accent-2: var(--color-accent-hover); /* harmonized gradient partner — the inline
+                                                  override replaces this with a true secondary
+                                                  hue; without an override it falls back to the
+                                                  monochromatic lift, matching today's look. */
+  --color-accent-contrast: #ffffff; /* on-accent text (WCAG AA); the inline override swaps
+                                       this to #000000 for light accents */
+  --color-accent-border: color-mix(in srgb, var(--color-accent) 35%, transparent);
+
+  /* Accent strength knobs — let themes tune how loudly the injected
+     family speaks. Dark themes keep the default punch; light themes
+     dial the glow/border back so a user accent never goes neon, and
+     flip the hover direction (light themes darken on hover, dark
+     themes lift toward white). */
+  --accent-glow-strength: 30%;
+  --accent-soft-strength: 12%;
+  --accent-border-strength: 35%;
+  --accent-hover-mix: white;
+
   /* Semantic colors */
   --color-success: #10b981;
   --color-warning: #f59e0b;
@@ -205,6 +224,52 @@
   --border-subtle: var(--color-border);
 }
 
+/* ==============================
+   Accent palette interpolation
+   ==============================
+
+   The accent tokens are registered as typed custom properties so the
+   whole app can ease between palette states (accent pick, game-page
+   switch, theme switch) without per-selector transition rules. When
+   the inline override on <html> changes, these properties interpolate
+   on the root and every consumer — buttons, cards, gradients, focus
+   rings — repaints smoothly. Layout-affecting properties are never
+   involved, so nothing reflows during the crossfade.
+
+   Registration also makes the computed values concrete colors
+   (color-mix eagerly resolved), which the html2canvas capture
+   pipeline benefits from. Browsers without @property support simply
+   snap to the new palette — a graceful degradation. */
+@property --color-accent { syntax: "<color>"; inherits: true; initial-value: #635bff; }
+@property --color-accent-2 { syntax: "<color>"; inherits: true; initial-value: #857eff; }
+@property --color-accent-contrast { syntax: "<color>"; inherits: true; initial-value: #ffffff; }
+@property --color-accent-hover { syntax: "<color>"; inherits: true; initial-value: #857eff; }
+@property --color-accent-active { syntax: "<color>"; inherits: true; initial-value: #4a42d6; }
+@property --color-accent-glow { syntax: "<color>"; inherits: true; initial-value: rgba(99, 91, 255, 0.3); }
+@property --color-accent-soft { syntax: "<color>"; inherits: true; initial-value: rgba(99, 91, 255, 0.12); }
+@property --color-accent-border { syntax: "<color>"; inherits: true; initial-value: rgba(99, 91, 255, 0.35); }
+
+/* Palette crossfade: only the accent family interpolates. Everything
+   else (layout, surface colors, shadows) stays instant so the app
+   never feels mushy. */
+:root {
+  transition:
+    --color-accent var(--duration-slow) var(--ease-standard),
+    --color-accent-2 var(--duration-slow) var(--ease-standard),
+    --color-accent-contrast var(--duration-slow) var(--ease-standard),
+    --color-accent-hover var(--duration-slow) var(--ease-standard),
+    --color-accent-active var(--duration-slow) var(--ease-standard),
+    --color-accent-glow var(--duration-slow) var(--ease-standard),
+    --color-accent-soft var(--duration-slow) var(--ease-standard),
+    --color-accent-border var(--duration-slow) var(--ease-standard);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :root {
+    transition: none;
+  }
+}
+
 html, body {
   font-family: var(--font-sans);
   -webkit-font-smoothing: antialiased;
@@ -313,7 +378,7 @@ h1, h2, h3, h4, .font-display {
 
 .accent-bg {
   background: var(--color-accent) !important;
-  color: #ffffff !important;
+  color: var(--color-accent-contrast, #ffffff) !important;
 }
 
 .accent-border {

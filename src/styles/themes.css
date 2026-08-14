@@ -33,6 +33,15 @@
   --color-accent-soft: color-mix(in srgb, var(--color-accent) 10%, var(--color-bg-secondary));
   --color-stale: #b8780a;
 
+  /* Light surfaces are bright — a user accent must whisper, not shout.
+     Dial the injected family's glow/border/soft strengths back and flip
+     the hover mix (light themes darken on hover) so the override stays
+     legible instead of going neon. */
+  --accent-glow-strength: 16%;
+  --accent-soft-strength: 9%;
+  --accent-border-strength: 28%;
+  --accent-hover-mix: black;
+
   /* Overlay scrims — lighter, cooler than the dark default. */
   --color-scrim: rgba(15, 23, 42, 0.38);
   --color-scrim-strong: rgba(15, 23, 42, 0.55);

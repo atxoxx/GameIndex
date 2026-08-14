@@ -4,6 +4,7 @@ import { useSettings } from "../../context/SettingsContext";
 import { useLanguage } from "../../context/LanguageContext";
 import { useToast } from "../../context/ToastContext";
 import SettingsSection from "./SettingsSection";
+import AccentPreview from "./AccentPreview";
 import { PaletteIcon } from "./settingsIcons";
 
 /** Maps theme ids to preview colors — kept in sync with App.css overrides. */
@@ -231,7 +232,11 @@ export default function AppearanceTab() {
             >
               <input
                 type="color"
-                value={accentColor ?? "#7c66ff"}
+                value={
+                  accentColor && /^#[0-9a-fA-F]{6}$/.test(accentColor)
+                    ? accentColor
+                    : "#7c66ff"
+                }
                 disabled={autoGameAccent}
                 onChange={(e) => setAccentColor(e.target.value)}
                 aria-label={t("settings.aria.customAccent")}
@@ -249,6 +254,10 @@ export default function AppearanceTab() {
                </button>
             )}
           </div>
+
+          {/* Live preview of the accent family — shows the chosen preset,
+              custom pick, or the active game's palette under auto mode. */}
+          <AccentPreview accentColor={accentColor} autoGameAccent={autoGameAccent} />
         </div>
       </div>
     </SettingsSection>

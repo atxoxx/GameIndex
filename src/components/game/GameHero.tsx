@@ -91,7 +91,7 @@ export default function GameHero({
   const [logoErrored, setLogoErrored] = useState(false);
   const [ambientStep, setAmbientStep] = useState(0);
   const { autoGameAccent, setAccentColor } = useSettings();
-  const gameAccent = useGameAccent(accentSrc || undefined);
+  const gamePalette = useGameAccent(accentSrc || undefined);
 
   useEffect(() => {
     setLogoErrored(false);
@@ -99,9 +99,12 @@ export default function GameHero({
   }, [logoUrl, coverUrl, name]);
 
   useEffect(() => {
-    if (!autoGameAccent || !gameAccent) return;
-    setAccentColor(gameAccent);
-  }, [autoGameAccent, gameAccent, setAccentColor]);
+    if (!autoGameAccent || !gamePalette) return;
+    // The extracted primary drives the GLOBAL accent family exactly as
+    // before — the harmonized partner + deep tints stay local to the
+    // hero via the --game-accent scope below.
+    setAccentColor(gamePalette.primary);
+  }, [autoGameAccent, gamePalette, setAccentColor]);
 
   // Ambient background ladder: for Steam-identified library games the live
   // Steam CDN hero is preferred by default, then the persisted banner, then
@@ -199,7 +202,15 @@ export default function GameHero({
   return (
     <div
       className={heroClassName}
-      style={gameAccent ? ({ "--game-accent": gameAccent } as CSSProperties) : undefined}
+      style={
+        gamePalette
+          ? ({
+              "--game-accent": gamePalette.primary,
+              "--game-accent-2": gamePalette.secondary,
+              "--game-accent-deep": gamePalette.deep,
+            } as CSSProperties)
+          : undefined
+      }
     >
       {/* Background art: a blurred copy of the banner/cover that tints the
           whole hero with the game's palette, or a gradient fallback. A

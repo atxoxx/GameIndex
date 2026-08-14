@@ -1270,6 +1270,208 @@ textarea.settings-input {
 }
 
 /* =============================================================================
+ * Accent preview — a live demo of the injected palette family. Every color
+ * below is a CSS variable from the family (base, partner, contrast, soft,
+ * border, glow, brand gradient), so the panel always shows exactly what the
+ * rest of the app is running on — preset, custom pick, or active game.
+ * ========================================================================== */
+
+.accent-preview {
+  margin-top: var(--space-lg);
+  max-width: 440px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  background: var(--color-bg-tertiary);
+  padding: var(--space-md);
+  transition: border-color var(--transition-normal),
+              background var(--transition-normal),
+              opacity var(--transition-normal);
+}
+
+/* No override active — show the theme's built-in family, slightly muted. */
+.accent-preview--idle {
+  opacity: 0.72;
+}
+
+.accent-preview__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-sm);
+  margin-bottom: var(--space-sm);
+}
+
+.accent-preview__title {
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-bold);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--color-text-secondary);
+}
+
+.accent-preview__hex {
+  font-family: var(--font-mono);
+  font-size: var(--font-size-xs);
+  color: var(--color-text-tertiary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.accent-preview__stage {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+}
+
+/* Signature brand surface — the gradient banner re-tints live. */
+.accent-preview__banner {
+  position: relative;
+  height: 76px;
+  border-radius: var(--radius-md);
+  background: var(--brand-gradient-strong);
+  border: 1px solid var(--color-border-light);
+  overflow: hidden;
+}
+
+/* Soft sheen across the gradient so it reads as a lit surface. */
+.accent-preview__banner::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(120deg, transparent 30%, rgba(255, 255, 255, 0.16) 50%, transparent 70%);
+  pointer-events: none;
+}
+
+.accent-preview__banner-orb {
+  position: absolute;
+  right: 14px;
+  top: 14px;
+  width: 30px;
+  height: 30px;
+  border-radius: var(--radius-full);
+  background: radial-gradient(circle at 32% 32%, rgba(255, 255, 255, 0.55), transparent 62%);
+  box-shadow: 0 0 22px var(--color-accent-glow), 0 0 44px var(--color-accent-glow);
+}
+
+/* On-accent button — base + contrast text, the WCAG check in action. */
+.accent-preview__banner-btn {
+  position: absolute;
+  left: 14px;
+  bottom: 12px;
+  padding: 6px 14px;
+  border-radius: var(--radius-full);
+  background: var(--color-accent);
+  color: var(--color-accent-contrast);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-bold);
+  letter-spacing: 0.02em;
+  border: 1px solid color-mix(in srgb, var(--color-accent-contrast) 28%, transparent);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.25),
+              0 4px 16px color-mix(in srgb, var(--color-accent) 45%, transparent);
+}
+
+/* Live badge — the palette is currently driven by the active game. */
+.accent-preview__live {
+  position: absolute;
+  right: 12px;
+  bottom: 12px;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  border-radius: var(--radius-full);
+  background: color-mix(in srgb, var(--color-accent-contrast) 14%, transparent);
+  color: var(--color-accent-contrast);
+  font-size: 10px;
+  font-weight: var(--font-weight-semibold);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+}
+
+.accent-preview__live-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: var(--radius-full);
+  background: var(--color-accent-contrast);
+  animation: accentLivePulse 1.6s var(--ease-in-out) infinite;
+}
+
+@keyframes accentLivePulse {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50%      { opacity: 0.45; transform: scale(0.78); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .accent-preview__live-dot { animation: none; }
+}
+
+/* Sample buttons — solid (base + contrast) and soft (soft wash + border). */
+.accent-preview__row {
+  display: flex;
+  gap: var(--space-sm);
+}
+
+.accent-preview__sample {
+  flex: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 34px;
+  border-radius: var(--radius-full);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-semibold);
+}
+
+.accent-preview__sample--solid {
+  background: var(--color-accent);
+  color: var(--color-accent-contrast);
+  box-shadow: 0 2px 10px var(--color-accent-glow);
+}
+
+.accent-preview__sample--soft {
+  background: var(--color-accent-soft);
+  color: var(--color-accent);
+  border: 1px solid var(--color-accent-border);
+}
+
+/* Family chips — base, gradient partner, soft, glow. */
+.accent-preview__chips {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+}
+
+.accent-preview__chip {
+  width: 22px;
+  height: 22px;
+  border-radius: var(--radius-xs);
+  border: 1px solid var(--color-border-light);
+}
+
+.accent-preview__chip--base {
+  background: var(--color-accent);
+  box-shadow: 0 0 12px var(--color-accent-glow);
+}
+
+.accent-preview__chip--partner {
+  background: var(--color-accent-2);
+}
+
+.accent-preview__chip--soft {
+  background: var(--color-accent-soft);
+  border-color: var(--color-accent-border);
+}
+
+.accent-preview__chip--glow {
+  background: var(--color-accent);
+  opacity: 0.35;
+  box-shadow: 0 0 14px var(--color-accent-glow);
+}
+
+/* =============================================================================
  * Hardware tab — monitoring master switch, detected specs, telemetry, display
  * ========================================================================== */
 

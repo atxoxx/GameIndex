@@ -1,30 +1,56 @@
 import { useEffect, useState } from "react";
+import { darken, harmonizeAccent, rgbToHex, type RgbColor } from "../utils/color";
+
+/**
+ * A small coherent palette extracted from a game's cover/hero art.
+ *
+ * `primary` drives the GLOBAL accent exactly as the old single-color
+ * extraction did (same flow through `setAccentColor`). `secondary` and
+ * `deep` are harmonized derivations — cheap, robust, and guaranteed to
+ * agree with the primary — used for richer LOCAL hero tinting via the
+ * `--game-accent` scope (gradient partner + deepened wash).
+ */
+export interface GameAccentPalette {
+  /** Dominant art color, `rgb(r, g, b)` — drives the global accent. */
+  primary: string;
+  /** Harmonized gradient partner hue, hex — hero gradients/borders. */
+  secondary: string;
+  /** Deepened primary, hex — hero fallback washes and depth. */
+  deep: string;
+}
 
 /**
  * useGameAccent
  *
  * Samples the dominant color from a game's cover/hero art using a
- * tiny off-DOM <canvas>, then returns a CSS color string suitable
- * for tinting the hero (accent stripe, status dot, KPI tiles) with
- * the game's own palette. Falls back to `null` so callers can keep
- * using the global `--color-accent`.
+ * tiny off-DOM <canvas>, then derives a small palette from it for
+ * tinting the hero (accent stripe, status dot, KPI tiles) with the
+ * game's own colors. Falls back to `null` so callers can keep using
+ * the global `--color-accent`.
  *
  * Design notes:
  *  - We draw the image scaled down to 16×16 (cheap) and read the
  *    center-weighted average — good enough for a pleasant tint and
  *    avoids the cost of a full dominant-color algorithm.
+ *  - The secondary + deep members are derived in JS from the primary
+ *    (hue-harmonized partner + darkened wash) rather than sampled
+ *    independently: a real second-cluster sample would double the
+ *    failure surface for marginal gain, while the harmonic partner is
+ *    always coherent with the primary and never jars against it.
  *  - CORS: Tauri `asset://` / `http(s)://` images with
  *    crossOrigin="anonymous" decode fine locally; if sampling throws
  *    (tainted canvas / broken URL) we simply keep the fallback.
  *  - The effect is debounced off the main paint: it runs after the
  *    image loads, not on every render.
  */
-export function useGameAccent(imageUrl: string | null | undefined): string | null {
-  const [accent, setAccent] = useState<string | null>(null);
+export function useGameAccent(
+  imageUrl: string | null | undefined
+): GameAccentPalette | null {
+  const [palette, setPalette] = useState<GameAccentPalette | null>(null);
 
   useEffect(() => {
     if (!imageUrl) {
-      setAccent(null);
+      setPalette(null);
       return;
     }
 
@@ -78,20 +104,24 @@ export function useGameAccent(imageUrl: string | null | undefined): string | nul
         const max = Math.max(r, g, b);
         const min = Math.min(r, g, b);
         if (max - min < 30) {
-          const boost = 40;
           const mid = (max + min) / 2;
-          r = Math.min(255, Math.round(mid + (r - mid) * 1.4 + boost * 0.0));
+          r = Math.min(255, Math.round(mid + (r - mid) * 1.4));
           g = Math.min(255, Math.round(mid + (g - mid) * 1.4));
           b = Math.min(255, Math.round(mid + (b - mid) * 1.4));
         }
-        setAccent(`rgb(${r}, ${g}, ${b})`);
+        const rgb: RgbColor = { r, g, b };
+        setPalette({
+          primary: `rgb(${r}, ${g}, ${b})`,
+          secondary: rgbToHex(harmonizeAccent(rgb)),
+          deep: rgbToHex(darken(rgb, 0.35)),
+        });
       } catch {
         // tainted canvas / decode failure → keep fallback
       }
     };
 
     img.onerror = () => {
-      if (!cancelled) setAccent(null);
+      if (!cancelled) setPalette(null);
     };
 
     img.src = imageUrl;
@@ -101,5 +131,5 @@ export function useGameAccent(imageUrl: string | null | undefined): string | nul
     };
   }, [imageUrl]);
 
-  return accent;
+  return palette;
 }

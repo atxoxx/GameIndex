@@ -728,17 +728,28 @@
   border-radius: var(--radius-xl);
   overflow: hidden;
   margin-bottom: var(--space-xl);
+  /* The hero breathes the game's palette: a primary wash from the top
+     corner, a fainter wash from the harmonized partner (game accent 2)
+     opposite it, and a deepened primary rising from the bottom edge so
+     the tint reads as a living gradient, not a flat dye. */
   background:
     radial-gradient(120% 120% at 0% 0%, color-mix(in srgb, var(--game-accent) 18%, transparent), transparent 60%),
+    radial-gradient(90% 100% at 100% 0%, color-mix(in srgb, var(--game-accent-2) 12%, transparent), transparent 55%),
+    radial-gradient(100% 60% at 50% 100%, color-mix(in srgb, var(--game-accent-deep) 20%, transparent), transparent 72%),
     var(--color-bg-secondary);
   border: 1px solid var(--color-border-light);
   box-shadow: var(--shadow-lg), 0 8px 32px rgba(0, 0, 0, 0.25);
   /* Fresh stacking context so inner z-indices can't paint above
    * page-level overlays (download modal, popovers). */
   isolation: isolate;
+  /* Game-palette scope: GameHero injects --game-accent / -2 / -deep
+     inline when extraction succeeds; these defaults keep the scope
+     populated (falling back to the global accent family) otherwise. */
   --game-accent: var(--color-accent);
   --game-accent-hover: var(--color-accent-hover);
   --game-accent-glow: var(--color-accent-glow);
+  --game-accent-2: var(--color-accent-2, var(--color-accent-hover));
+  --game-accent-deep: color-mix(in srgb, var(--game-accent) 62%, black 38%);
 }
 
 /* Store detail hero is a touch shorter — it sits above its own
@@ -778,10 +789,13 @@
 }
 
 .game-hero__bg--fallback {
+  /* Primary → harmonized partner diagonal so the no-art fallback still
+     carries the game's full palette, with the deepened primary as the
+     base stop for contrast against the page. */
   background:
     linear-gradient(135deg,
       color-mix(in srgb, var(--game-accent) 26%, var(--color-bg-secondary)),
-      var(--color-bg-tertiary));
+      color-mix(in srgb, var(--game-accent-2) 16%, var(--color-bg-tertiary)));
 }
 .game-hero__bg--fallback::after { content: none; }
 
@@ -867,7 +881,8 @@
     inset 0 1px 0 rgba(255, 255, 255, 0.14),
     var(--shadow-lg),
     0 10px 30px rgba(0, 0, 0, 0.4),
-    0 0 35px color-mix(in srgb, var(--game-accent) 35%, transparent);
+    0 0 35px color-mix(in srgb, var(--game-accent) 35%, transparent),
+    0 0 60px color-mix(in srgb, var(--game-accent-2) 16%, transparent);
   transition: transform var(--transition-base), box-shadow var(--transition-base);
 }
 .game-hero:hover .game-hero__poster {
@@ -876,7 +891,8 @@
     inset 0 1px 0 rgba(255, 255, 255, 0.18),
     var(--shadow-lg),
     0 14px 40px rgba(0, 0, 0, 0.5),
-    0 0 50px color-mix(in srgb, var(--game-accent) 55%, transparent);
+    0 0 50px color-mix(in srgb, var(--game-accent) 55%, transparent),
+    0 0 80px color-mix(in srgb, var(--game-accent-2) 24%, transparent);
 }
 .game-hero__poster-img {
   width: 100%;

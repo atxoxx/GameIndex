@@ -138,6 +138,255 @@ export function textColorFor(backgroundHex: string): "#ffffff" | "#000000" {
 }
 
 /* ============================================================================
+ * HSL helpers + harmonized palette derivation
+ * ========================================================================== */
+
+export interface HslColor {
+  h: number;
+  s: number;
+  l: number;
+}
+
+/** RGB → HSL (h in degrees 0–360, s/l 0–1). */
+export function rgbToHsl({ r, g, b }: RgbColor): HslColor {
+  const rn = r / 255;
+  const gn = g / 255;
+  const bn = b / 255;
+  const max = Math.max(rn, gn, bn);
+  const min = Math.min(rn, gn, bn);
+  const l = (max + min) / 2;
+  const d = max - min;
+  let h = 0;
+  let s = 0;
+  if (d !== 0) {
+    s = l > 0.5 ? d / (2 - max - min) : d / (max + min);
+    switch (max) {
+      case rn:
+        h = (gn - bn) / d + (gn < bn ? 6 : 0);
+        break;
+      case gn:
+        h = (bn - rn) / d + 2;
+        break;
+      default:
+        h = (rn - gn) / d + 4;
+    }
+    h *= 60;
+  }
+  return { h, s, l };
+}
+
+/** HSL → RGB (h in degrees, s/l 0–1). */
+export function hslToRgb(h: number, s: number, l: number): RgbColor {
+  const hh = (((h % 360) + 360) % 360) / 360;
+  const c = (1 - Math.abs(2 * l - 1)) * s;
+  const x = c * (1 - Math.abs(((hh * 6) % 2) - 1));
+  const m = l - c / 2;
+  let r = 0;
+  let g = 0;
+  let b = 0;
+  if (hh < 1 / 6) {
+    r = c;
+    g = x;
+  } else if (hh < 2 / 6) {
+    r = x;
+    g = c;
+  } else if (hh < 3 / 6) {
+    g = c;
+    b = x;
+  } else if (hh < 4 / 6) {
+    g = x;
+    b = c;
+  } else if (hh < 5 / 6) {
+    r = x;
+    b = c;
+  } else {
+    r = c;
+    b = x;
+  }
+  return { r: (r + m) * 255, g: (g + m) * 255, b: (b + m) * 255 };
+}
+
+/**
+ * Derive a harmonizing gradient partner for an accent color.
+ *
+ * The partner sits ~55° around the hue wheel — a secondary/tertiary
+ * relationship rather than a hard complement — so accent→partner
+ * gradients read as "one coherent palette" instead of neon clash.
+ * Warm hues (reds, oranges, pinks) rotate counter-clockwise to stay
+ * inside the warm family; cool hues rotate clockwise. Saturation is
+ * kept ≥ 0.3 (so near-neutral bases still produce a visible partner)
+ * and lightness is lifted ~13 points so the second gradient stop
+ * never disappears on dark themes.
+ */
+export function harmonizeAccent(color: RgbColor): RgbColor {
+  const { h, s, l } = rgbToHsl(color);
+  const warm = h >= 300 || h < 45;
+  const delta = warm ? -55 : 55;
+  const nextH = (h + delta + 360) % 360;
+  const nextS = Math.min(1, Math.max(0.3, s * 1.05));
+  const nextL = Math.min(0.9, Math.max(0.16, l + 0.13));
+  return hslToRgb(nextH, nextS, nextL);
+}
+
+/**
+ * Parse a CSS color literal — `#hex` (3/6 digit) or `rgb()` / `rgba()` —
+ * into an RGB object. Alpha is ignored. Returns `null` for anything
+ * unrecognized (var() chains, keywords, color-mix, color(srgb …)).
+ */
+export function parseCssColor(value: string): RgbColor | null {
+  const v = value.trim();
+  if (/^#([0-9a-fA-F]{3}|[0-9a-fA-F]{6})$/.test(v)) {
+    return hexToRgb(v);
+  }
+  const m = v.match(
+    /^rgba?\(\s*([\d.]+)\s*[, ]\s*([\d.]+)\s*[, ]\s*([\d.]+)/i
+  );
+  if (m) {
+    return { r: Number(m[1]), g: Number(m[2]), b: Number(m[3]) };
+  }
+  return null;
+}
+
+/**
+ * Normalize any CSS color string we can resolve — `#hex`, `rgb()`,
+ * `rgba()`, or Chromium's computed `color(srgb r g b / a)` form — into
+ * `#rrggbb` hex. Returns `null` for token streams (`var(--…)`,
+ * `color-mix(…)`) or anything unparseable.
+ */
+export function cssColorStringToHex(value: string): string | null {
+  const v = value.trim();
+  if (!v) return null;
+  if (/^#([0-9a-fA-F]{3}|[0-9a-fA-F]{6})$/.test(v)) {
+    return rgbToHex(hexToRgb(v));
+  }
+  const rgb = parseCssColor(v);
+  if (rgb) return rgbToHex(rgb);
+  const srgb = v.match(
+    /^color\(\s*srgb\s+([\d.]+%?)\s+([\d.]+%?)\s+([\d.]+%?)/i
+  );
+  if (srgb) {
+    const to255 = (s: string) =>
+      s.endsWith("%") ? (parseFloat(s) / 100) * 255 : parseFloat(s) * 255;
+    return rgbToHex({
+      r: to255(srgb[1]),
+      g: to255(srgb[2]),
+      b: to255(srgb[3]),
+    });
+  }
+  return null;
+}
+
+/* ============================================================================
+ * Full accent family — injected on <html> when an accent override is active
+ * ========================================================================== */
+
+/**
+ * Every CSS custom property the accent override manages on the root.
+ * `applyAccentFamily` sets all of them (override active) or removes all
+ * of them (cleared), so no stale member of the family survives a reset.
+ */
+export const ACCENT_FAMILY_KEYS: readonly string[] = [
+  "--color-accent",
+  "--color-accent-2",
+  "--color-accent-contrast",
+  "--color-accent-hover",
+  "--color-accent-active",
+  "--color-accent-glow",
+  "--color-accent-soft",
+  "--color-accent-border",
+  "--color-accent-gradient",
+  "--color-accent-gradient-strong",
+  "--brand-1",
+  "--brand-2",
+  "--brand-3",
+  "--brand-4",
+  "--brand-gradient",
+  "--brand-gradient-strong",
+  "--mesh-gradient",
+];
+
+/**
+ * Build the complete accent token family from a single base color.
+ *
+ * Split deliberately:
+ *  - **JS-derived** members need math the stylesheet can't do: the
+ *    harmonized gradient partner (`--color-accent-2`) and the
+ *    contrast-safe on-accent text (`--color-accent-contrast`, WCAG AA).
+ *  - **CSS color-mix** members reference those so every surface stays
+ *    live: hover/active/glow/soft/border states, plus the brand
+ *    gradient + mesh re-derived from the harmonized pair.
+ *
+ * Accepts either a hex or an `rgb(r, g, b)` string (the shape the game
+ * palette extraction produces). Returns `null` when the base color
+ * can't be parsed.
+ */
+export function buildAccentFamily(
+  baseColor: string
+): Record<string, string> | null {
+  const rgb = parseCssColor(baseColor);
+  if (!rgb) return null;
+  const base = rgbToHex(rgb);
+  const partner = rgbToHex(harmonizeAccent(rgb));
+  const contrast = textColorFor(base);
+
+  return {
+    "--color-accent": base,
+    "--color-accent-2": partner,
+    "--color-accent-contrast": contrast,
+    "--color-accent-hover":
+      "color-mix(in srgb, var(--color-accent) 85%, var(--accent-hover-mix, white) 15%)",
+    "--color-accent-active":
+      "color-mix(in srgb, var(--color-accent) 70%, black 30%)",
+    "--color-accent-glow":
+      "color-mix(in srgb, var(--color-accent) var(--accent-glow-strength, 30%), transparent)",
+    "--color-accent-soft":
+      "color-mix(in srgb, var(--color-accent) var(--accent-soft-strength, 12%), var(--color-bg-secondary))",
+    "--color-accent-border":
+      "color-mix(in srgb, var(--color-accent) var(--accent-border-strength, 35%), transparent)",
+    "--color-accent-gradient":
+      "linear-gradient(135deg, var(--color-accent), var(--color-accent-2))",
+    "--color-accent-gradient-strong":
+      "linear-gradient(135deg, var(--color-accent) 0%, var(--color-accent-2) 100%)",
+    "--brand-1": "var(--color-accent)",
+    "--brand-2": "var(--color-accent-2)",
+    "--brand-3": "var(--color-accent-hover)",
+    "--brand-4": "var(--color-accent)",
+    "--brand-gradient":
+      "linear-gradient(135deg, var(--color-accent), var(--color-accent-2))",
+    "--brand-gradient-strong":
+      "linear-gradient(135deg, var(--color-accent) 0%, var(--color-accent-2) 100%)",
+    "--mesh-gradient":
+      "radial-gradient(circle at 12% 18%, color-mix(in srgb, var(--color-accent) 20%, transparent) 0%, transparent 42%)," +
+      "radial-gradient(circle at 88% 12%, color-mix(in srgb, var(--color-accent-2) 16%, transparent) 0%, transparent 40%)," +
+      "radial-gradient(circle at 75% 88%, color-mix(in srgb, var(--color-accent) 14%, transparent) 0%, transparent 44%)",
+  };
+}
+
+/**
+ * Apply (or clear) the full accent family on a root element.
+ *
+ * `baseColor === null` removes every managed property so the theme's
+ * own defaults take over. Used by SettingsContext both on change and
+ * on hydration, so the palette family is in place before first paint.
+ */
+export function applyAccentFamily(
+  root: HTMLElement,
+  baseColor: string | null
+): void {
+  if (!baseColor) {
+    for (const key of ACCENT_FAMILY_KEYS) {
+      root.style.removeProperty(key);
+    }
+    return;
+  }
+  const family = buildAccentFamily(baseColor);
+  if (!family) return;
+  for (const [key, value] of Object.entries(family)) {
+    root.style.setProperty(key, value);
+  }
+}
+
+/* ============================================================================
  * html2canvas compat: color-mix() removal
  * ========================================================================== */
 

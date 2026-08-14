@@ -31,6 +31,7 @@ import {
 } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
+import { applyAccentFamily } from "../utils/color";
 
 // ── LocalStorage keys (one per localStorage-backed setting) ─────────────────
 //
@@ -335,27 +336,22 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
     } else {
       lsSet(LS_ACCENT_COLOR, next);
     }
-    // Apply to :root so every theme re-tints itself with the override.
-    // `null` reverts to the per-theme default computed by App.css.
+    // Apply the full accent family to :root so every theme re-tints
+    // itself with the override (base, harmonized partner, contrast
+    // text, hover/active/glow/soft/border states, brand gradient +
+    // mesh all derive from the single injected color). Inline styles
+    // on <html> win over the theme stylesheets — `null` removes the
+    // whole family and reverts to the per-theme defaults.
     if (typeof document !== "undefined") {
-      const root = document.documentElement;
-      if (next) {
-        root.style.setProperty("--color-accent", next);
-        root.style.setProperty("--color-accent-glow", `${next}55`);
-      } else {
-        root.style.removeProperty("--color-accent");
-        root.style.removeProperty("--color-accent-glow");
-      }
+      applyAccentFamily(document.documentElement, next);
     }
   }, []);
 
-  // Hydrate the accent CSS variable on first mount so a saved override
+  // Hydrate the accent family on first mount so a saved override
   // applies before the first paint of the Settings page or any route.
   useEffect(() => {
-    if (accentColor && typeof document !== "undefined") {
-      const root = document.documentElement;
-      root.style.setProperty("--color-accent", accentColor);
-      root.style.setProperty("--color-accent-glow", `${accentColor}55`);
+    if (typeof document !== "undefined") {
+      applyAccentFamily(document.documentElement, accentColor);
     }
   }, [accentColor]);
 
