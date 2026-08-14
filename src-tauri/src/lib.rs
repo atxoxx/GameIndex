@@ -3896,6 +3896,73 @@ fn webview_current_url(app: tauri::AppHandle, label: String) -> Result<String, S
     webview.url().map(|u| u.to_string()).map_err(|e| e.to_string())
 }
 
+/// Popup-prevention script injected into the WebLinks preview webview on
+/// every page load. Sites like Steam and Reddit use `target="_blank"` /
+/// `window.open()` for links; without a handler wry cancels them or spawns
+/// blank native windows — the "about:blank" symptom.
+const WEBLINKS_PREVIEW_INIT_SCRIPT: &str = r#"(function () {
+  var _origOpen = window.open;
+  window.open = function (url, target, features) {
+    if (url && typeof url === 'string' && /^https?:\/\//i.test(url)) {
+      window.location.assign(url);
+      return null;
+    }
+    return _origOpen ? _origOpen.apply(this, arguments) : null;
+  };
+  document.addEventListener('click', function (e) {
+    var el = e.target && e.target.closest ? e.target.closest('a[target="_blank"]') : null;
+    if (el && el.href && /^https?:\/\//i.test(el.href)) {
+      el.target = '_self';
+    }
+  }, true);
+})();"#;
+
+/// Create the WebLinks preview child webview from Rust so we can attach an
+/// initialization script (popup handling) and a new-window handler —
+/// neither exists on the JS `new Webview()` API. The frontend then grabs a
+/// handle via `Webview.getByLabel` for sizing/visibility. Must be `async`
+/// so it runs off the main thread: `Window::add_child` internally marshals
+/// to the main thread and blocks, which would deadlock a sync command.
+#[tauri::command]
+async fn create_preview_webview(
+    app: tauri::AppHandle,
+    label: String,
+    url: String,
+    x: f64,
+    y: f64,
+    width: f64,
+    height: f64,
+) -> Result<(), String> {
+    use tauri::webview::{NewWindowResponse, WebviewBuilder};
+    use tauri::{LogicalPosition, LogicalSize, Position, Size, WebviewUrl};
+
+    let parsed: tauri::Url = url.parse().map_err(|e| format!("invalid webview url '{url}': {e}"))?;
+    let main = app
+        .get_window("main")
+        .ok_or_else(|| "main window not found".to_string())?;
+
+    let builder = WebviewBuilder::new(label, WebviewUrl::External(parsed))
+        .initialization_script(WEBLINKS_PREVIEW_INIT_SCRIPT)
+        .on_new_window(|_url, _features| NewWindowResponse::Deny);
+
+    main.add_child(
+        builder,
+        Position::Logical(LogicalPosition::new(x, y)),
+        Size::Logical(LogicalSize::new(width, height)),
+    )
+    .map_err(|e| e.to_string())?;
+    Ok(())
+}
+
+/// Execute a JS snippet inside a child webview (e.g. for dynamic zoom level scaling).
+#[tauri::command]
+fn webview_eval(app: tauri::AppHandle, label: String, js: String) -> Result<(), String> {
+    let webview = app
+        .get_webview(&label)
+        .ok_or_else(|| format!("webview not found: {label}"))?;
+    webview.eval(&js).map_err(|e| e.to_string())
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
@@ -3978,6 +4045,8 @@ pub fn run() {
             fetch_url,
             webview_history_navigate,
             webview_current_url,
+            create_preview_webview,
+            webview_eval,
             rebuild_watcher_index,
             achievements::fetch_achievements,
             achievements::save_achievements_cache,

@@ -1,14 +1,95 @@
-/* ==============================
-   Game Page — Web Links Tab
-   ============================== */
+/* ==========================================================================
+   Game Page — Web Links Tab Stylesheet
+   ========================================================================== */
+
 .wl-tab {
   display: flex;
   flex-direction: column;
   gap: var(--space-md);
-  animation: importMenuIn 200ms ease;
+  animation: wlFadeIn 220ms cubic-bezier(0.16, 1, 0.3, 1);
+  width: 100%;
 }
 
-/* Outer source tabs (Steam / ProtonDB / etc.) */
+@keyframes wlFadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* ─── 1. Category Switcher Bar ────────────────────────────────────────────── */
+.wl-categories-bar {
+  display: flex;
+  align-items: center;
+  gap: var(--space-xs);
+  overflow-x: auto;
+  padding-bottom: var(--space-2xs);
+  scrollbar-width: thin;
+  scrollbar-color: var(--color-border-light) transparent;
+}
+
+.wl-category-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-xs);
+  padding: 6px 14px;
+  background: var(--color-bg-secondary);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-full);
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-medium);
+  cursor: pointer;
+  white-space: nowrap;
+  transition: all var(--transition-fast);
+  user-select: none;
+}
+
+.wl-category-pill:hover {
+  color: var(--color-text-primary);
+  background: var(--color-bg-hover);
+  border-color: var(--color-border-light);
+  transform: translateY(-1px);
+}
+
+.wl-category-pill:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 2px;
+}
+
+.wl-category-pill.active {
+  background: var(--color-accent);
+  color: #fff;
+  border-color: var(--color-accent);
+  box-shadow: 0 2px 10px var(--color-accent-glow);
+}
+
+.wl-category-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 5px;
+  border-radius: var(--radius-full);
+  background: var(--color-bg-tertiary);
+  color: var(--color-text-muted);
+  font-size: 10px;
+  font-weight: var(--font-weight-bold);
+  font-variant-numeric: tabular-nums;
+  line-height: 1;
+}
+
+.wl-category-pill.active .wl-category-badge {
+  background: rgba(255, 255, 255, 0.25);
+  color: #fff;
+}
+
+/* ─── 2. Horizontal Source Tabs Strip ─────────────────────────────────────── */
 .wl-source-tabs {
   display: flex;
   gap: var(--space-xs);
@@ -19,50 +100,24 @@
   scrollbar-color: var(--color-border-light) transparent;
 }
 
-/* Themed scrollbar for the horizontal website source-tab strip.
-   Floating-pill thumb that picks up the accent color on hover. */
 .wl-source-tabs::-webkit-scrollbar {
-  height: 8px;
+  height: 6px;
 }
 
 .wl-source-tabs::-webkit-scrollbar-track {
   background: transparent;
-  margin: 0 var(--space-xs);
 }
 
 .wl-source-tabs::-webkit-scrollbar-thumb {
-  background: linear-gradient(
-    180deg,
-    var(--color-border-light),
-    var(--color-border)
-  );
+  background: var(--color-border-light);
   border-radius: var(--radius-full);
-  border: 1px solid transparent;
-  background-clip: padding-box;
-  transition: background var(--transition-fast),
-    box-shadow var(--transition-fast);
-}
-
-.wl-source-tabs::-webkit-scrollbar-thumb:hover {
-  background: linear-gradient(
-    180deg,
-    var(--color-accent),
-    var(--color-accent-hover)
-  );
-  background-clip: padding-box;
-  box-shadow: 0 0 8px var(--color-accent-glow);
-}
-
-.wl-source-tabs::-webkit-scrollbar-thumb:active {
-  background: var(--color-accent);
-  background-clip: padding-box;
 }
 
 .wl-source-tab {
   display: flex;
   align-items: center;
   gap: var(--space-sm);
-  padding: var(--space-sm) var(--space-lg);
+  padding: var(--space-sm) var(--space-md);
   border: none;
   background: transparent;
   color: var(--color-text-secondary);
@@ -70,8 +125,8 @@
   font-weight: var(--font-weight-medium);
   cursor: pointer;
   position: relative;
-  height: 40px;
-  transition: color var(--transition-fast), background var(--transition-fast), border-color var(--transition-fast), box-shadow var(--transition-fast), opacity var(--transition-fast), transform var(--transition-fast);
+  height: 42px;
+  transition: all var(--transition-fast);
   border-bottom: 2px solid transparent;
   margin-bottom: -1px;
   border-radius: var(--radius-md) var(--radius-md) 0 0;
@@ -91,42 +146,18 @@
 
 .wl-source-tab.active {
   border-bottom-width: 2px;
-}
-
-/* Count badge on the My Links tab (number of user-added links) */
-.wl-source-tab-count {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  min-width: 17px;
-  height: 17px;
-  padding: 0 5px;
-  border-radius: var(--radius-full);
-  background: var(--color-bg-tertiary);
-  border: 1px solid var(--color-border);
-  color: var(--color-text-secondary);
-  font-size: 10px;
-  font-weight: var(--font-weight-bold);
-  line-height: 1;
-  font-variant-numeric: tabular-nums;
-  flex-shrink: 0;
-}
-
-.wl-source-tab.active .wl-source-tab-count {
-  background: var(--color-accent-soft);
-  border-color: color-mix(in srgb, var(--color-accent) 35%, transparent);
-  color: var(--color-accent);
+  font-weight: var(--font-weight-semibold);
 }
 
 .wl-source-tab-icon {
-  width: 22px;
-  height: 22px;
+  width: 24px;
+  height: 24px;
   border-radius: var(--radius-sm);
   display: flex;
   align-items: center;
   justify-content: center;
   flex-shrink: 0;
-  transition: color var(--transition-fast), background var(--transition-fast), border-color var(--transition-fast), box-shadow var(--transition-fast), opacity var(--transition-fast), transform var(--transition-fast);
+  transition: all var(--transition-fast);
 }
 
 .wl-source-tab-icon svg {
@@ -134,313 +165,42 @@
   height: 14px;
 }
 
-/* ── My Links panel (user-added URLs as favicon cards) ─────────── */
-.wl-mylinks {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-sm);
-}
-
-/* Add-link form row: input + accent submit button. */
-.wl-mylinks-add {
-  display: flex;
-  align-items: center;
-  gap: var(--space-sm);
-  margin-bottom: var(--space-sm);
-}
-
-.wl-mylinks-add-input {
-  flex: 1;
-  min-width: 0;
-  height: 30px;
-  padding: 0 10px;
-  background: var(--color-bg-tertiary);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-md);
-  color: var(--color-text-primary);
+.wl-source-tab-label {
   font-size: var(--font-size-sm);
-  font-family: inherit;
-  outline: none;
-  transition: border-color var(--transition-fast), box-shadow var(--transition-fast), background var(--transition-fast);
 }
 
-.wl-mylinks-add-input:focus-visible {
-  border-color: var(--color-accent);
-  box-shadow: 0 0 0 3px var(--color-accent-glow);
-  background: var(--color-bg-secondary);
-}
-
-.wl-mylinks-add-input::placeholder {
-  color: var(--color-text-muted);
-}
-
-.wl-mylinks-add-btn {
-  height: 30px;
-  padding: 0 16px;
-  background: var(--color-accent);
-  color: #fff;
-  border: none;
-  border-radius: var(--radius-md);
-  font-size: var(--font-size-sm);
-  font-weight: var(--font-weight-semibold);
-  font-family: inherit;
-  cursor: pointer;
-  flex-shrink: 0;
-  transition: background var(--transition-fast), box-shadow var(--transition-fast), opacity var(--transition-fast);
-}
-
-.wl-mylinks-add-btn:hover:not(:disabled) {
-  background: var(--color-accent-hover);
-}
-
-.wl-mylinks-add-btn:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-}
-
-.wl-mylinks-add-btn:focus-visible {
-  outline: 2px solid var(--color-accent);
-  outline-offset: 2px;
-}
-
-.wl-mylinks-add-hint {
-  flex-basis: 100%;
-  font-size: var(--font-size-xs);
-  color: var(--color-text-muted);
-  margin-top: 4px;
-}
-
-.wl-mylinks-add-error {
-  flex-basis: 100%;
-  font-size: var(--font-size-xs);
-  color: var(--color-danger);
-  margin-top: 4px;
-}
-
-.wl-mylinks-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(230px, 1fr));
-  gap: var(--space-sm);
-}
-
-.wl-mylink-card {
-  position: relative;
-  display: flex;
-  align-items: center;
-  gap: var(--space-sm);
-  /* Right padding reserves the top-right corner for the absolute remove
-     button (24px + gap) so it never overlaps the open-in-browser button. */
-  padding: var(--space-sm) 34px var(--space-sm) var(--space-md);
-  background: var(--color-bg-secondary);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-md);
-  transition: background var(--transition-fast), border-color var(--transition-fast), box-shadow var(--transition-fast), transform var(--transition-fast);
-}
-
-.wl-mylink-card:hover {
-  background: var(--color-bg-hover);
-  border-color: var(--color-border-light);
-  transform: translateY(-1px);
-}
-
-.wl-mylink-card.active {
-  border-color: color-mix(in srgb, var(--color-accent) 45%, transparent);
-  box-shadow: 0 0 0 1px color-mix(in srgb, var(--color-accent) 25%, transparent), 0 0 14px var(--color-accent-glow);
-}
-
-.wl-mylink-card-main {
-  display: flex;
-  align-items: center;
-  gap: var(--space-sm);
-  flex: 1;
-  min-width: 0;
-  padding: 0;
-  background: transparent;
-  border: none;
-  color: inherit;
-  font-family: inherit;
-  cursor: pointer;
-  text-align: left;
-}
-
-.wl-mylink-card-main:focus-visible {
-  outline: 2px solid var(--color-accent);
-  outline-offset: 2px;
-}
-
-.wl-mylink-favicon {
-  width: 30px;
-  height: 30px;
-  border-radius: var(--radius-sm);
-  background: var(--color-bg-tertiary);
-  border: 1px solid var(--color-border);
-  display: flex;
+.wl-source-tab-count {
+  display: inline-flex;
   align-items: center;
   justify-content: center;
-  flex-shrink: 0;
-  overflow: hidden;
-}
-
-.wl-mylink-favicon-img {
-  width: 18px;
+  min-width: 18px;
   height: 18px;
-  object-fit: contain;
+  padding: 0 5px;
+  border-radius: var(--radius-full);
+  background: var(--color-bg-tertiary);
+  border: 1px solid var(--color-border);
+  color: var(--color-text-secondary);
+  font-size: 10px;
+  font-weight: var(--font-weight-bold);
 }
 
-.wl-mylink-favicon-fallback {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  color: var(--color-text-muted);
+.wl-source-tab.active .wl-source-tab-count {
+  background: var(--color-accent-soft);
+  border-color: var(--color-accent);
+  color: var(--color-accent);
 }
 
-.wl-mylink-favicon-fallback svg {
-  width: 16px;
-  height: 16px;
-}
-
-.wl-mylink-card-text {
+/* ─── 3. Steam Sub-Sections & AppID Bar ───────────────────────────────────── */
+.wl-steam-container {
   display: flex;
   flex-direction: column;
-  gap: 1px;
-  min-width: 0;
+  gap: var(--space-xs);
 }
 
-.wl-mylink-card-label {
-  font-size: var(--font-size-sm);
-  font-weight: var(--font-weight-semibold);
-  color: var(--color-text-primary);
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.wl-mylink-card-host {
-  font-size: 10px;
-  color: var(--color-text-muted);
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.wl-mylink-card-open {
-  flex-shrink: 0;
-  width: 28px;
-  height: 28px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: var(--color-bg-tertiary);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-sm);
-  color: var(--color-text-secondary);
-  cursor: pointer;
-  transition: color var(--transition-fast), background var(--transition-fast), border-color var(--transition-fast), transform var(--transition-fast);
-}
-
-.wl-mylink-card-open:hover {
-  color: var(--color-accent);
-  background: var(--color-accent-soft);
-  border-color: color-mix(in srgb, var(--color-accent) 35%, transparent);
-  transform: translateY(-1px);
-}
-
-.wl-mylink-card-open:focus-visible {
-  outline: 2px solid var(--color-accent);
-  outline-offset: 2px;
-}
-
-.wl-mylink-card-open svg {
-  width: 13px;
-  height: 13px;
-}
-
-/* Remove-link button — floats in the card's top-right corner. The card's
-   right padding keeps it clear of the open-in-browser button. */
-.wl-mylink-card-remove {
-  position: absolute;
-  top: 6px;
-  right: 6px;
-  width: 24px;
-  height: 24px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 0;
-  background: var(--color-bg-tertiary);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-sm);
-  color: var(--color-text-muted);
-  cursor: pointer;
-  transition: color var(--transition-fast), background var(--transition-fast), border-color var(--transition-fast);
-}
-
-.wl-mylink-card-remove:hover {
-  color: var(--color-danger);
-  background: color-mix(in srgb, var(--color-danger) 12%, transparent);
-  border-color: color-mix(in srgb, var(--color-danger) 35%, transparent);
-}
-
-.wl-mylink-card-remove:focus-visible {
-  outline: 2px solid var(--color-accent);
-  outline-offset: 2px;
-}
-
-.wl-mylink-card-remove svg {
-  width: 12px;
-  height: 12px;
-}
-
-/* Empty state when the game has no user-added links yet */
-.wl-mylinks-empty {
-  display: flex;
-  align-items: center;
-  gap: var(--space-lg);
-  padding: var(--space-xl);
-  background: var(--color-bg-secondary);
-  border: 1px dashed var(--color-border-light);
-  border-radius: var(--radius-md);
-}
-
-.wl-mylinks-empty-icon {
-  width: 40px;
-  height: 40px;
-  border-radius: var(--radius-md);
-  background: var(--color-bg-tertiary);
-  border: 1px solid var(--color-border);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  color: var(--color-accent);
-  flex-shrink: 0;
-}
-
-.wl-mylinks-empty-icon svg {
-  width: 20px;
-  height: 20px;
-}
-
-.wl-mylinks-empty-text h4 {
-  margin: 0 0 4px 0;
-  font-size: var(--font-size-md);
-  font-weight: var(--font-weight-semibold);
-  color: var(--color-text-primary);
-}
-
-.wl-mylinks-empty-text p {
-  margin: 0;
-  font-size: var(--font-size-sm);
-  line-height: 1.6;
-  color: var(--color-text-secondary);
-  max-width: 520px;
-}
-
-/* Steam sub-tabs (Store / Discussions / News / Workshop) */
 .wl-steam-subtabs {
   display: flex;
   gap: var(--space-xs);
-  padding: var(--space-xs) 0;
-  border-bottom: 1px solid var(--color-border);
+  padding: var(--space-2xs) 0;
   overflow-x: auto;
   scrollbar-width: thin;
 }
@@ -448,8 +208,8 @@
 .wl-steam-subtab {
   display: flex;
   align-items: center;
-  gap: var(--space-xs);
-  padding: var(--space-xs) var(--space-md);
+  gap: 6px;
+  padding: 5px 12px;
   border: 1px solid var(--color-border);
   background: var(--color-bg-secondary);
   color: var(--color-text-secondary);
@@ -457,7 +217,7 @@
   font-weight: var(--font-weight-medium);
   cursor: pointer;
   border-radius: var(--radius-full);
-  transition: color var(--transition-fast), background var(--transition-fast), border-color var(--transition-fast), box-shadow var(--transition-fast), opacity var(--transition-fast), transform var(--transition-fast);
+  transition: all var(--transition-fast);
   white-space: nowrap;
 }
 
@@ -474,9 +234,9 @@
 
 .wl-steam-subtab.active:not(.disabled) {
   color: #fff;
-  background: var(--color-accent);
-  border-color: var(--color-accent);
-  box-shadow: 0 0 10px var(--color-accent-glow);
+  background: #66c0f4;
+  border-color: #66c0f4;
+  box-shadow: 0 0 10px rgba(102, 192, 244, 0.4);
 }
 
 .wl-steam-subtab.disabled {
@@ -508,73 +268,193 @@
   opacity: 0.7;
 }
 
-/* URL bar above the iframe */
+.wl-appid-quick-bar {
+  display: flex;
+  align-items: center;
+  padding: var(--space-xs) 0;
+}
+
+.wl-appid-quick-btn {
+  font-size: var(--font-size-xs);
+  color: var(--color-accent);
+  background: var(--color-accent-soft);
+  border: 1px dashed var(--color-accent);
+  padding: 4px 10px;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+
+.wl-appid-quick-btn:hover {
+  background: var(--color-accent);
+  color: #fff;
+}
+
+.wl-appid-quick-form {
+  display: flex;
+  align-items: center;
+  gap: var(--space-xs);
+}
+
+.wl-appid-quick-input {
+  height: 28px;
+  padding: 0 8px;
+  font-size: var(--font-size-xs);
+  background: var(--color-bg-secondary);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  color: var(--color-text-primary);
+}
+
+.wl-appid-quick-submit {
+  height: 28px;
+  padding: 0 10px;
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-semibold);
+  background: var(--color-accent);
+  color: #fff;
+  border: none;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+}
+
+.wl-appid-quick-cancel {
+  height: 28px;
+  padding: 0 8px;
+  font-size: var(--font-size-xs);
+  background: var(--color-bg-tertiary);
+  color: var(--color-text-muted);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+}
+
+/* ─── 4. Address Bar & Controls Toolbar ───────────────────────────────────── */
 .wl-urlbar {
   display: flex;
   align-items: center;
-  gap: var(--space-md);
-  padding: var(--space-sm) var(--space-md);
+  gap: var(--space-sm);
+  padding: 6px var(--space-md);
   background: var(--color-bg-secondary);
   border: 1px solid var(--color-border);
-  border-left: 3px solid var(--color-accent);
+  border-left-width: 3px;
   border-radius: var(--radius-md);
-  font-family: "JetBrains Mono", "Consolas", monospace;
+  font-family: inherit;
   font-size: var(--font-size-xs);
+  position: relative;
+  backdrop-filter: blur(8px);
 }
 
-/* Browser-style back / forward navigation buttons */
 .wl-urlbar-nav {
   display: flex;
   align-items: center;
-  gap: var(--space-2xs);
+  gap: 2px;
   flex-shrink: 0;
-}
-
-.wl-urlbar-nav .wl-urlbar-btn {
-  padding: 6px 8px;
-}
-
-.wl-urlbar-btn.disabled {
-  opacity: 0.4;
-  cursor: not-allowed;
-  pointer-events: none;
-  filter: grayscale(0.5);
 }
 
 .wl-urlbar-source-chip {
   display: inline-flex;
   align-items: center;
-  padding: 2px 10px;
+  padding: 2px 8px;
   border-radius: var(--radius-full);
   font-size: 10px;
   font-weight: var(--font-weight-bold);
   text-transform: uppercase;
   letter-spacing: 0.5px;
-  border: 1px solid currentColor;
+  border: 1px solid;
   flex-shrink: 0;
 }
 
-.wl-urlbar-url {
+.wl-urlbar-form {
   flex: 1;
-  color: var(--color-text-secondary);
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  display: flex;
+  align-items: center;
+  position: relative;
+  background: var(--color-bg-primary);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  padding: 0 8px;
   min-width: 0;
+  transition: all var(--transition-fast);
+}
+
+.wl-urlbar-form:focus-within {
+  border-color: var(--color-accent);
+  box-shadow: 0 0 0 2px var(--color-accent-glow);
+}
+
+.wl-urlbar-search-icon {
+  display: flex;
+  align-items: center;
+  color: var(--color-text-muted);
+  margin-right: 6px;
+  flex-shrink: 0;
+}
+
+.wl-urlbar-search-icon svg {
+  width: 12px;
+  height: 12px;
+}
+
+.wl-urlbar-input {
+  flex: 1;
+  height: 26px;
+  background: transparent;
+  border: none;
+  outline: none;
+  font-size: var(--font-size-xs);
+  color: var(--color-text-primary);
+  font-family: "JetBrains Mono", "Consolas", monospace;
+  min-width: 0;
+}
+
+.wl-urlbar-go-btn {
+  height: 20px;
+  padding: 0 8px;
+  font-size: 10px;
+  font-weight: var(--font-weight-bold);
+  background: var(--color-accent);
+  color: #fff;
+  border: none;
+  border-radius: var(--radius-xs);
+  cursor: pointer;
+  margin-left: 4px;
 }
 
 .wl-urlbar-actions {
   display: flex;
   align-items: center;
-  gap: var(--space-xs);
+  gap: 4px;
   flex-shrink: 0;
+}
+
+.wl-urlbar-zoom-group {
+  display: flex;
+  align-items: center;
+  background: var(--color-bg-tertiary);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  padding: 1px;
+}
+
+.wl-urlbar-zoom-group .wl-urlbar-btn {
+  border: none;
+  background: transparent;
+  padding: 4px 6px;
+}
+
+.wl-urlbar-zoom-group .zoom-indicator {
+  font-size: 10px;
+  font-variant-numeric: tabular-nums;
+  padding: 4px 5px;
+  font-weight: var(--font-weight-semibold);
 }
 
 .wl-urlbar-btn {
   display: inline-flex;
   align-items: center;
-  gap: var(--space-xs);
-  padding: 6px 10px;
+  gap: 4px;
+  padding: 5px 8px;
   background: var(--color-bg-tertiary);
   border: 1px solid var(--color-border);
   color: var(--color-text-secondary);
@@ -582,11 +462,10 @@
   font-size: var(--font-size-xs);
   font-weight: var(--font-weight-medium);
   cursor: pointer;
-  transition: color var(--transition-fast), background var(--transition-fast), border-color var(--transition-fast), box-shadow var(--transition-fast), opacity var(--transition-fast), transform var(--transition-fast);
-  font-family: inherit;
+  transition: all var(--transition-fast);
 }
 
-.wl-urlbar-btn:hover {
+.wl-urlbar-btn:hover:not(:disabled) {
   color: var(--color-text-primary);
   background: var(--color-bg-hover);
   border-color: var(--color-border-light);
@@ -595,6 +474,29 @@
 .wl-urlbar-btn:focus-visible {
   outline: 2px solid var(--color-accent);
   outline-offset: 2px;
+}
+
+.wl-urlbar-btn.disabled,
+.wl-urlbar-btn:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+  filter: grayscale(0.5);
+}
+
+.wl-urlbar-btn.icon-only {
+  padding: 5px 7px;
+}
+
+.wl-urlbar-btn.active-pin {
+  color: #f5c518;
+  background: rgba(245, 197, 24, 0.12);
+  border-color: rgba(245, 197, 24, 0.4);
+}
+
+.wl-urlbar-btn.copied {
+  background: color-mix(in srgb, var(--color-success) 16%, var(--color-bg-tertiary));
+  border-color: var(--color-success);
+  color: var(--color-success);
 }
 
 .wl-urlbar-btn.primary {
@@ -608,43 +510,84 @@
   border-color: var(--color-accent-hover);
 }
 
-/* Copy button success state */
-.wl-urlbar-btn.copied {
-  background: color-mix(in srgb, var(--color-success) 14%, var(--color-bg-tertiary));
-  border-color: color-mix(in srgb, var(--color-success) 45%, var(--color-border));
-  color: var(--color-success);
-}
-
-.wl-urlbar-btn.copied:hover {
-  color: var(--color-success);
-  border-color: var(--color-success);
-}
-
 .wl-urlbar-btn svg {
   width: 13px;
   height: 13px;
   flex-shrink: 0;
 }
 
-/* Preview iframe container */
+/* ─── 5. Webview Frame & Preview Container ────────────────────────────────── */
 .wl-preview {
   position: relative;
   width: 100%;
-  height: 560px;
-  min-height: 420px;
   background: var(--color-bg-tertiary);
   border: 1px solid var(--color-border);
   border-radius: var(--radius-md);
   overflow: hidden;
   display: flex;
   flex-direction: column;
+  transition: height 250ms ease, min-height 250ms ease;
 }
 
-/* Placeholder for a Tauri native child Webview. The actual content is a
- * native webview positioned/sized over this element via useEffect in
- * WebLinksTab.tsx — X-Frame-Options does NOT apply to native webviews. */
+.wl-preview-standard {
+  height: 580px;
+  min-height: 440px;
+}
 
+.wl-preview-tall {
+  height: 780px;
+  min-height: 600px;
+}
 
+.wl-preview-max {
+  height: calc(100vh - 260px);
+  min-height: 700px;
+}
+
+.wl-webview-frame {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  background: var(--color-bg-secondary);
+  border-radius: var(--radius-md);
+  position: relative;
+}
+
+.wl-webview-loader {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-md);
+  color: var(--color-text-muted);
+  font-size: var(--font-size-sm);
+  background: var(--color-bg-secondary);
+  pointer-events: none;
+  z-index: 1;
+  animation: wlLoaderFadeIn 220ms ease;
+}
+
+@keyframes wlLoaderFadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+.wl-webview-spinner {
+  width: 32px;
+  height: 32px;
+  border: 3px solid var(--color-border);
+  border-top-color: var(--color-accent);
+  border-radius: 50%;
+  animation: wlSpin 900ms linear infinite;
+}
+
+@keyframes wlSpin {
+  to { transform: rotate(360deg); }
+}
+
+/* ─── 6. Empty States ─────────────────────────────────────────────────────── */
 .wl-empty {
   flex: 1;
   display: flex;
@@ -695,17 +638,8 @@
 .wl-empty p {
   font-size: var(--font-size-sm);
   line-height: 1.6;
-  max-width: 540px;
+  max-width: 560px;
   margin: 0;
-}
-
-.wl-empty code {
-  background: var(--color-bg-tertiary);
-  border: 1px solid var(--color-border);
-  padding: 1px 5px;
-  border-radius: var(--radius-sm);
-  font-family: "JetBrains Mono", "Consolas", monospace;
-  font-size: 11px;
 }
 
 .wl-empty-btn {
@@ -713,51 +647,393 @@
   align-items: center;
   gap: var(--space-sm);
   padding: var(--space-sm) var(--space-xl);
-  background: var(--color-bg-tertiary);
-  border: 1px solid var(--color-border);
-  color: var(--color-text-primary);
+  background: var(--color-accent);
+  color: #fff;
+  border: 1px solid var(--color-accent);
   border-radius: var(--radius-md);
   font-size: var(--font-size-sm);
-  font-weight: var(--font-weight-medium);
+  font-weight: var(--font-weight-semibold);
   cursor: pointer;
-  transition: color var(--transition-fast), background var(--transition-fast), border-color var(--transition-fast), box-shadow var(--transition-fast), opacity var(--transition-fast), transform var(--transition-fast);
-  font-family: inherit;
+  transition: all var(--transition-fast);
 }
 
 .wl-empty-btn:hover {
+  background: var(--color-accent-hover);
+  transform: translateY(-1px);
+}
+
+/* ─── 7. My Links Custom Manager ──────────────────────────────────────────── */
+.wl-mylinks {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-md);
+}
+
+.wl-mylinks-editor-card {
+  padding: var(--space-md);
+  background: var(--color-bg-secondary);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+}
+
+.wl-mylinks-form {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-xs);
+}
+
+.wl-mylinks-form-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-xs);
+  flex-wrap: wrap;
+}
+
+.wl-mylinks-add-input {
+  height: 32px;
+  padding: 0 10px;
+  background: var(--color-bg-tertiary);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  color: var(--color-text-primary);
+  font-size: var(--font-size-sm);
+  outline: none;
+  transition: all var(--transition-fast);
+}
+
+.wl-mylinks-add-input:focus {
+  border-color: var(--color-accent);
+  box-shadow: 0 0 0 2px var(--color-accent-glow);
+}
+
+.wl-mylinks-add-input.url-field {
+  flex: 3;
+  min-width: 200px;
+}
+
+.wl-mylinks-add-input.label-field {
+  flex: 2;
+  min-width: 140px;
+}
+
+.wl-mylinks-add-input.tag-field {
+  flex: 1.5;
+  min-width: 120px;
+}
+
+.wl-mylinks-add-btn {
+  height: 32px;
+  padding: 0 16px;
+  border-radius: var(--radius-sm);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-semibold);
+  cursor: pointer;
+  transition: all var(--transition-fast);
+  border: 1px solid transparent;
+}
+
+.wl-mylinks-add-btn.primary {
+  background: var(--color-accent);
+  color: #fff;
+}
+
+.wl-mylinks-add-btn.primary:hover:not(:disabled) {
+  background: var(--color-accent-hover);
+}
+
+.wl-mylinks-add-btn.secondary {
+  background: var(--color-bg-tertiary);
+  color: var(--color-text-secondary);
+  border-color: var(--color-border);
+}
+
+.wl-mylinks-add-error {
+  font-size: var(--font-size-xs);
+  color: var(--color-danger);
+}
+
+.wl-mylinks-presets-bar {
+  display: flex;
+  align-items: center;
+  gap: var(--space-xs);
+  flex-wrap: wrap;
+  padding-top: var(--space-xs);
+  border-top: 1px solid var(--color-border);
+  font-size: var(--font-size-xs);
+}
+
+.wl-mylinks-presets-label {
+  color: var(--color-text-muted);
+  font-weight: var(--font-weight-medium);
+}
+
+.wl-preset-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 8px;
+  background: var(--color-bg-tertiary);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  color: var(--color-text-secondary);
+  font-size: 11px;
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+
+.wl-preset-chip:hover {
+  color: var(--color-text-primary);
+  background: var(--color-bg-hover);
+  border-color: var(--color-border-light);
+}
+
+.wl-preset-chip svg {
+  width: 12px;
+  height: 12px;
+}
+
+.wl-mylinks-search-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-md);
+}
+
+.wl-mylinks-search-wrapper {
+  display: flex;
+  align-items: center;
+  gap: var(--space-xs);
+  background: var(--color-bg-secondary);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  padding: 0 8px;
+  height: 30px;
+  width: 260px;
+}
+
+.wl-mylinks-search-wrapper svg {
+  width: 13px;
+  height: 13px;
+  color: var(--color-text-muted);
+}
+
+.wl-mylinks-search-input {
+  background: transparent;
+  border: none;
+  outline: none;
+  font-size: var(--font-size-xs);
+  color: var(--color-text-primary);
+  width: 100%;
+}
+
+.wl-mylinks-count {
+  font-size: var(--font-size-xs);
+  color: var(--color-text-muted);
+}
+
+.wl-mylinks-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: var(--space-sm);
+}
+
+.wl-mylink-card {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--space-sm) var(--space-md);
+  background: var(--color-bg-secondary);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  transition: all var(--transition-fast);
+}
+
+.wl-mylink-card:hover {
   background: var(--color-bg-hover);
   border-color: var(--color-border-light);
   transform: translateY(-1px);
 }
 
-.wl-empty-btn:focus-visible {
-  outline: 2px solid var(--color-accent);
-  outline-offset: 2px;
-}
-
-.wl-empty-btn.primary {
-  background: var(--color-accent);
+.wl-mylink-card.active {
   border-color: var(--color-accent);
-  color: #fff;
+  box-shadow: 0 0 0 1px var(--color-accent), 0 2px 12px var(--color-accent-glow);
 }
 
-.wl-empty-btn.primary:hover {
-  background: var(--color-accent-hover);
-  border-color: var(--color-accent-hover);
+.wl-mylink-card-main {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  flex: 1;
+  min-width: 0;
+  background: transparent;
+  border: none;
+  color: inherit;
+  font-family: inherit;
+  cursor: pointer;
+  text-align: left;
+  padding: 0;
 }
 
-.wl-empty-btn svg {
-  width: 14px;
-  height: 14px;
+.wl-mylink-favicon {
+  width: 32px;
+  height: 32px;
+  border-radius: var(--radius-sm);
+  background: var(--color-bg-tertiary);
+  border: 1px solid var(--color-border);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  overflow: hidden;
+}
+
+.wl-mylink-favicon-img {
+  width: 18px;
+  height: 18px;
+  object-fit: contain;
+}
+
+.wl-mylink-favicon-fallback {
+  color: var(--color-text-muted);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.wl-mylink-card-text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.wl-mylink-card-label-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+}
+
+.wl-mylink-card-label {
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text-primary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.wl-mylink-tag-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  font-size: 10px;
+  font-weight: var(--font-weight-medium);
+  padding: 1px 5px;
+  border-radius: var(--radius-xs);
+  background: var(--color-bg-tertiary);
+  color: var(--color-text-muted);
+}
+
+.wl-mylink-tag-badge svg {
+  width: 9px;
+  height: 9px;
+}
+
+.wl-mylink-card-host {
+  font-size: 11px;
+  color: var(--color-text-muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.wl-mylink-card-buttons {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin-left: var(--space-xs);
   flex-shrink: 0;
 }
 
-/* Footnote embed warning */
+.wl-mylink-btn-icon {
+  width: 26px;
+  height: 26px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--color-bg-tertiary);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  color: var(--color-text-secondary);
+  cursor: pointer;
+  transition: all var(--transition-fast);
+  padding: 0;
+}
+
+.wl-mylink-btn-icon:hover {
+  color: var(--color-accent);
+  background: var(--color-accent-soft);
+  border-color: var(--color-accent);
+}
+
+.wl-mylink-btn-icon.danger:hover {
+  color: var(--color-danger);
+  background: rgba(248, 81, 73, 0.12);
+  border-color: var(--color-danger);
+}
+
+.wl-mylink-btn-icon svg {
+  width: 12px;
+  height: 12px;
+}
+
+.wl-mylinks-empty {
+  display: flex;
+  align-items: center;
+  gap: var(--space-lg);
+  padding: var(--space-xl);
+  background: var(--color-bg-secondary);
+  border: 1px dashed var(--color-border-light);
+  border-radius: var(--radius-md);
+}
+
+.wl-mylinks-empty-icon {
+  width: 44px;
+  height: 44px;
+  border-radius: var(--radius-md);
+  background: var(--color-bg-tertiary);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--color-accent);
+  flex-shrink: 0;
+}
+
+.wl-mylinks-empty-icon svg {
+  width: 22px;
+  height: 22px;
+}
+
+.wl-mylinks-empty-text h4 {
+  margin: 0 0 4px 0;
+  font-size: var(--font-size-md);
+  color: var(--color-text-primary);
+}
+
+.wl-mylinks-empty-text p {
+  margin: 0;
+  font-size: var(--font-size-sm);
+  color: var(--color-text-secondary);
+}
+
+/* ─── 8. Footnote ─────────────────────────────────────────────────────────── */
 .wl-footnote {
   display: flex;
   align-items: center;
   gap: var(--space-sm);
-  padding: var(--space-sm) var(--space-md);
+  padding: var(--space-xs) var(--space-md);
   font-size: var(--font-size-xs);
   color: var(--color-text-muted);
   background: var(--color-bg-secondary);
@@ -773,74 +1049,113 @@
   color: var(--color-warning);
 }
 
-.wl-footnote code {
-  background: var(--color-bg-tertiary);
-  padding: 1px 5px;
-  border-radius: var(--radius-sm);
-  font-family: "JetBrains Mono", "Consolas", monospace;
-  font-size: 10px;
-}
-/* ==============================
-   Web Links — Native webview preview
-   ============================== */
-.wl-webview-frame {
-  flex: 1;
+/* ─── 9. BigScreen Mode Layout ────────────────────────────────────────────── */
+.wl-bigscreen-container {
   display: flex;
   flex-direction: column;
-  background: var(--color-bg-secondary);
-  border-radius: var(--radius-md);
+  gap: var(--space-lg);
+  padding: 10px 0;
 }
 
-.wl-webview-loader {
-  position: absolute;
-  inset: 0;
+.wl-bigscreen-header {
   display: flex;
   flex-direction: column;
+  gap: var(--space-md);
+}
+
+.wl-bigscreen-title {
+  margin: 0;
+  font-size: var(--font-size-2xl);
+  font-weight: var(--font-weight-bold);
+  color: var(--color-text-primary);
+}
+
+.wl-bigscreen-categories {
+  display: flex;
+  gap: var(--space-sm);
+  overflow-x: auto;
+  padding-bottom: 4px;
+}
+
+.wl-bigscreen-cat-btn {
+  padding: 8px 18px;
+  font-size: var(--font-size-md);
+  border-radius: var(--radius-full);
+}
+
+.wl-bigscreen-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: var(--space-md);
+}
+
+.wl-bigscreen-card {
+  display: flex;
+  align-items: center;
+  gap: var(--space-md);
+  padding: 16px 20px;
+  border-radius: var(--radius-md);
+  background: rgba(255, 255, 255, 0.02);
+  border-left-width: 4px;
+  border-left-style: solid;
+  text-align: left;
+  width: 100%;
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+
+.wl-bigscreen-card.disabled {
+  opacity: 0.35;
+  cursor: default;
+}
+
+.wl-bigscreen-icon {
+  width: 36px;
+  height: 36px;
+  border-radius: var(--radius-sm);
+  display: flex;
   align-items: center;
   justify-content: center;
-  gap: var(--space-md);
+  flex-shrink: 0;
+}
+
+.wl-bigscreen-icon svg {
+  width: 18px;
+  height: 18px;
+}
+
+.wl-bigscreen-card-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.wl-bigscreen-card-label {
+  font-size: var(--font-size-md);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text-primary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.wl-bigscreen-card-host {
+  font-size: var(--font-size-xs);
   color: var(--color-text-muted);
-  font-size: var(--font-size-sm);
-  background: var(--color-bg-secondary);
-  pointer-events: none;
-  z-index: 1;
-  transition: opacity 220ms ease;
-  animation: wlLoaderFadeIn 220ms ease;
+  margin-top: 2px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
-@keyframes wlLoaderFadeIn {
-  from { opacity: 0; }
-  to { opacity: 1; }
-}
-
-.wl-webview-spinner {
-  width: 28px;
-  height: 28px;
-  border: 2px solid var(--color-border);
-  border-top-color: var(--color-accent);
-  border-radius: 50%;
-  animation: wlWebviewSpin 1s linear infinite;
-}
-
-@keyframes wlWebviewSpin {
-  to { transform: rotate(360deg); }
-}
-
-/* ==============================
-   Reduced motion
-   ============================== */
+/* ─── 10. Reduced Motion ──────────────────────────────────────────────────── */
 @media (prefers-reduced-motion: reduce) {
   .wl-tab,
   .wl-webview-loader {
     animation: none;
   }
-
-  /* Keep color/background/border transitions; drop decorative lifts. */
+  .wl-category-pill:hover,
   .wl-mylink-card:hover,
-  .wl-mylink-card-open:hover,
   .wl-empty-btn:hover {
     transform: none;
   }
 }
-
-
