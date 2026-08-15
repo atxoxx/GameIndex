@@ -22,6 +22,7 @@ import { LanguageProvider } from "./context/LanguageContext";
 import { PresenceProvider } from "./context/PresenceContext";
 import { UpdateProvider } from "./context/UpdateContext";
 import { UpdateModal } from "./components/ui/UpdateModal";
+import { UpdateNotification } from "./components/ui/UpdateNotification";
 import {
   SidebarCollapseProvider,
   useSidebarCollapse,
@@ -113,6 +114,7 @@ function App() {
                                       <PresenceProvider>
                                         <AppShell />
                                         <UpdateModal />
+                                        <UpdateNotification />
                                       </PresenceProvider>
                                     </BigScreenProvider>
                                   </SessionNotesProvider>

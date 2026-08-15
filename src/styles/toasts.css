@@ -112,6 +112,103 @@
   height: 14px;
 }
 
+/* ==============================
+   Update notification banner
+   ============================== */
+.update-notification {
+  position: fixed;
+  bottom: var(--space-xl);
+  right: var(--space-xl);
+  z-index: 10000;
+  display: flex;
+  align-items: center;
+  gap: var(--space-md);
+  padding: var(--space-md) var(--space-lg);
+  border-radius: var(--radius-md);
+  background: var(--color-surface-raised);
+  border: 1px solid var(--color-border-light);
+  box-shadow: var(--shadow-lg);
+  max-width: 460px;
+  animation: toastIn var(--transition-normal) ease;
+}
+
+.update-notification-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  color: var(--color-accent);
+}
+
+.update-notification-text {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.update-notification-title {
+  font-size: var(--font-size-sm);
+  font-weight: 600;
+  color: var(--color-text-primary);
+  line-height: 1.4;
+}
+
+.update-notification-desc {
+  font-size: var(--font-size-sm);
+  color: var(--color-text-muted);
+  line-height: 1.4;
+}
+
+.update-notification-action {
+  flex-shrink: 0;
+  border: none;
+  background: var(--color-accent);
+  color: var(--color-accent-contrast, #fff);
+  font-size: var(--font-size-sm);
+  font-weight: 600;
+  padding: 6px 12px;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  transition: background var(--transition-fast);
+}
+
+.update-notification-action:hover {
+  background: var(--color-accent-hover, var(--color-accent));
+}
+
+.update-notification-close {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  border: none;
+  background: transparent;
+  color: var(--color-text-muted);
+  cursor: pointer;
+  padding: 2px;
+  border-radius: var(--radius-sm);
+  transition: color var(--transition-fast);
+}
+
+.update-notification-close:hover {
+  color: var(--color-text-primary);
+}
+
+.update-notification-close svg {
+  width: 14px;
+  height: 14px;
+}
+
+@media (max-width: 600px) {
+  .update-notification {
+    right: var(--space-md);
+    left: var(--space-md);
+    max-width: none;
+  }
+}
+
 /* Fullscreen screenshot viewer nav arrows (shared by the library
  * GamePage and StoreGameDetail lightboxes). The buttons are
  * positioned fixed at the viewport edges via inline styles; here we

@@ -56,6 +56,9 @@ export interface UpdateContextValue {
   snoozeUpdate: (hours?: number) => void;
   showModal: boolean;
   setShowModal: (show: boolean) => void;
+  showUpdateNotification: boolean;
+  dismissUpdateNotification: () => void;
+  openUpdateModal: () => void;
 }
 
 // Tagged events the Rust `portable_update_download` command emits over a Channel.
@@ -114,6 +117,9 @@ export function UpdateProvider({ children }: { children: ReactNode }) {
   });
   const [lastCheckedAt, setLastCheckedAt] = useState<number | null>(null);
   const [showModal, setShowModal] = useState<boolean>(false);
+  // Non-intrusive banner shown when an auto-check finds an update; the
+  // modal is reserved for manual checks and user-invoked views.
+  const [showUpdateNotification, setShowUpdateNotification] = useState(false);
 
   // Raw plugin-updater Update object; kept `any` (the plugin's TS surface is unstable).
   const [updateObj, setUpdateObj] = useState<any>(null);
@@ -125,6 +131,13 @@ export function UpdateProvider({ children }: { children: ReactNode }) {
 
   // Last progress event (ts/bytes) + smoothed speed (EMA, alpha 0.3).
   const speedRef = useRef({ lastTime: 0, lastBytes: 0, ema: 0 });
+
+  // Mirrors `status` for the hourly auto-check guard, without making the
+  // callback's identity depend on the state (which would re-arm the timer).
+  const statusRef = useRef<UpdateStatus>("idle");
+  useEffect(() => {
+    statusRef.current = status;
+  }, [status]);
 
   const setAutoCheckUpdates = useCallback((enabled: boolean) => {
     setAutoCheckUpdatesState(enabled);
@@ -154,10 +167,27 @@ export function UpdateProvider({ children }: { children: ReactNode }) {
     setPortableUrl(null);
     setPortableSignature(null);
     setStagedPath(null);
+    setShowUpdateNotification(false);
   }, []);
 
   const checkForUpdates = useCallback(
     async (manual = false) => {
+      // Background (auto) checks skip out when a result is already known
+      // or a check/install is in flight, so the hourly timer doesn't
+      // re-notify or flicker the banner while an update is on screen.
+      if (!manual) {
+        const inFlight: UpdateStatus[] = [
+          "checking",
+          "available",
+          "downloading",
+          "ready",
+          "restarting",
+        ];
+        if (inFlight.includes(statusRef.current)) {
+          return;
+        }
+      }
+
       setStatus("checking");
       setError(null);
       setLastCheckedAt(Date.now());
@@ -220,7 +250,12 @@ export function UpdateProvider({ children }: { children: ReactNode }) {
           }
 
           setStatus("available");
-          if (manual) setShowModal(true);
+          if (manual) {
+            setShowModal(true);
+            setShowUpdateNotification(false);
+          } else {
+            setShowUpdateNotification(true);
+          }
         } else {
           clearUpdate();
           setStatus("up-to-date");
@@ -414,6 +449,15 @@ export function UpdateProvider({ children }: { children: ReactNode }) {
     // nsis: no-op (the download is in-memory inside downloadAndInstall).
   }, [installMode]);
 
+  const dismissUpdateNotification = useCallback(() => {
+    setShowUpdateNotification(false);
+  }, []);
+
+  const openUpdateModal = useCallback(() => {
+    setShowUpdateNotification(false);
+    setShowModal(true);
+  }, []);
+
   const skipVersion = useCallback(() => {
     if (!updateInfo?.version) return;
     try {
@@ -422,6 +466,7 @@ export function UpdateProvider({ children }: { children: ReactNode }) {
       // Ignore storage errors
     }
     setShowModal(false);
+    setShowUpdateNotification(false);
     setStatus("up-to-date");
   }, [updateInfo]);
 
@@ -435,16 +480,27 @@ export function UpdateProvider({ children }: { children: ReactNode }) {
       // Ignore storage errors
     }
     setShowModal(false);
+    setShowUpdateNotification(false);
     setStatus("up-to-date");
   }, []);
 
   useEffect(() => {
-    if (autoCheckUpdates) {
-      const timer = setTimeout(() => {
+    if (!autoCheckUpdates) return;
+
+    // First check fires shortly after launch (so `installMode` has
+    // resolved), then re-check hourly in the background for new releases.
+    let interval: number | undefined;
+    const initial = window.setTimeout(() => {
+      void checkForUpdates(false);
+      interval = window.setInterval(() => {
         void checkForUpdates(false);
-      }, 3000);
-      return () => clearTimeout(timer);
-    }
+      }, 60 * 60 * 1000);
+    }, 3000);
+
+    return () => {
+      window.clearTimeout(initial);
+      if (interval !== undefined) window.clearInterval(interval);
+    };
   }, [autoCheckUpdates, checkForUpdates]);
 
   return (
@@ -467,6 +523,9 @@ export function UpdateProvider({ children }: { children: ReactNode }) {
         snoozeUpdate,
         showModal,
         setShowModal,
+        showUpdateNotification,
+        dismissUpdateNotification,
+        openUpdateModal,
       }}
     >
       {children}
