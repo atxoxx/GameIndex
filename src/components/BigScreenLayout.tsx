@@ -19,13 +19,15 @@
 //     back semantics, and B/Escape is owned by the engine +
 //     BigScreenContext.
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Outlet, useLocation } from "react-router-dom";
 import BigScreenHeader from "./BigScreenHeader";
 import VirtualCursor from "./ui/VirtualCursor";
 import BigScreenSearchOverlay from "./bigscreen/BigScreenSearchOverlay";
 import { useGamepad } from "../hooks/GamepadProvider";
 import { useLanguage } from "../context/LanguageContext";
+import { isBigScreenOverlayOpen } from "../context/BigScreenContext";
+import { isNavigable } from "../hooks/gamepad/gamepadUtils";
 
 /** Live clock + brand for the bottom bar. */
 function BottomBar() {
@@ -72,6 +74,7 @@ export default function BigScreenLayout() {
   const gamepad = useGamepad();
   const location = useLocation();
   const [searchOpen, setSearchOpen] = useState(false);
+  const mainRef = useRef<HTMLElement | null>(null);
 
   // "/" opens the search overlay (unless typing or already open).
   useEffect(() => {
@@ -92,11 +95,35 @@ export default function BigScreenLayout() {
     setSearchOpen(false);
   }, [location.pathname]);
 
+  // Move focus into the content area after every route change (and on
+  // initial mount) so the controller never snaps back to the header
+  // strip when a page unmounts. A page may place its own focus first
+  // in a child effect (the game hub focuses its primary action); we
+  // respect that by skipping when the active element is already inside
+  // the content frame. Overlays (search, modals, lightbox) keep focus.
+  useEffect(() => {
+    const raf = requestAnimationFrame(() => {
+      if (isBigScreenOverlayOpen()) return;
+      const main = mainRef.current;
+      if (!main) return;
+      if (main.contains(document.activeElement)) return;
+      const target = Array.from(
+        main.querySelectorAll<HTMLElement>('[tabindex="0"]'),
+      ).find(isNavigable);
+      target?.focus({ preventScroll: true });
+    });
+    return () => cancelAnimationFrame(raf);
+  }, [location.pathname]);
+
   return (
     <div className="bigscreen-v2 bigscreen-v3" data-bigscreen="true">
       <BigScreenHeader onOpenSearch={() => setSearchOpen(true)} />
 
-      <main className="bigscreen-v3-main" aria-label="Big Screen content">
+      <main
+        ref={mainRef}
+        className="bigscreen-v3-main"
+        aria-label="Big Screen content"
+      >
         <div className="bigscreen-v3-content-frame">
           <Outlet />
         </div>

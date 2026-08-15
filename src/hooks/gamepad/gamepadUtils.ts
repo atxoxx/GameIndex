@@ -30,6 +30,21 @@ export function isVisible(el: HTMLElement): boolean {
   return r.width > 0 && r.height > 0;
 }
 
+/**
+ * Whether an element can take spatial-navigation focus. Superset of
+ * `isVisible`: also rejects hidden/disconnected elements and disabled
+ * or aria-disabled controls, so the focus ring never rests on a
+ * non-actionable target and the A button can't activate a disabled
+ * one. Shared by the spatial-nav picker and the focus registry.
+ */
+export function isNavigable(el: HTMLElement): boolean {
+  if (!isVisible(el)) return false;
+  if (el.hidden || !el.isConnected) return false;
+  if (el.hasAttribute("disabled")) return false;
+  if (el.getAttribute("aria-disabled") === "true") return false;
+  return !(el as HTMLButtonElement).disabled;
+}
+
 // ── Directional-repeat timing ────────────────────────────────────
 // Keyboard-style hold-to-repeat used by spatial navigation: after a
 // new direction is engaged it fires once immediately, then waits
@@ -122,7 +137,7 @@ function findCandidate(
 
   for (const entry of candidates) {
     if (entry.element === current) continue;
-    if (!isVisible(entry.element)) continue;
+    if (!isNavigable(entry.element)) continue;
 
     const c = center(entry.element);
 

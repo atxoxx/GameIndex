@@ -41,6 +41,7 @@ import {
   REPEAT_DELAY_MS,
   REPEAT_INTERVAL_MS,
   CYCLER_PRIORITY_PAGE,
+  isNavigable,
 } from "./gamepad/gamepadUtils";
 import { isBigScreenOverlayOpen } from "../context/BigScreenContext";
 
@@ -191,13 +192,8 @@ export function useGamepadInternal(enabled: boolean): GamepadState {
       const entry: FocusableEntry = { element, onActivate };
       entriesRef.current.push(entry);
 
-      const isNavigable = () => {
-        const rect = element.getBoundingClientRect();
-        return rect.width > 0 && rect.height > 0 && !element.hidden && element.isConnected;
-      };
-
       const setFocusedInRegistry = () => {
-        if (!isNavigable()) return;
+        if (!isNavigable(element)) return;
         if (focusedRef.current === element) return;
         if (focusedRef.current) {
           focusedRef.current.removeAttribute("data-focused");
@@ -212,7 +208,7 @@ export function useGamepadInternal(enabled: boolean): GamepadState {
       element.addEventListener("mousedown", setFocusedInRegistry);
       element.addEventListener("mouseenter", setFocusedInRegistry);
 
-      if (!focusedRef.current && isNavigable()) {
+      if (!focusedRef.current && isNavigable(element)) {
         focusedRef.current = element;
         element.setAttribute("data-focused", "true");
         setFocusedElement(element);
@@ -228,10 +224,9 @@ export function useGamepadInternal(enabled: boolean): GamepadState {
         );
         element.removeAttribute("data-focused");
         if (focusedRef.current === element) {
-          const next = entriesRef.current.find((candidate) => {
-            const rect = candidate.element.getBoundingClientRect();
-            return rect.width > 0 && rect.height > 0 && !candidate.element.hidden && candidate.element.isConnected;
-          });
+          const next = entriesRef.current.find((candidate) =>
+            isNavigable(candidate.element),
+          );
           focusedRef.current = next?.element ?? null;
           if (focusedRef.current) focusedRef.current.setAttribute("data-focused", "true");
           setFocusedElement(focusedRef.current);
@@ -570,7 +565,7 @@ export function useGamepadInternal(enabled: boolean): GamepadState {
           const entry = entriesRef.current.find(
             (e) => e.element === focusedRef.current,
           );
-          if (entry) entry.onActivate();
+          if (entry && isNavigable(entry.element)) entry.onActivate();
         }
       }
       prevButtonsRef.current.a = aPressed;
