@@ -1,3 +1,5 @@
+import { useEffect } from "react";
+import { invoke } from "@tauri-apps/api/core";
 import { HashRouter, Routes, Route } from "react-router-dom";
 import TopNav from "./components/TopNav";
 import Sidebar from "./components/Sidebar";
@@ -93,6 +95,13 @@ function AppShell() {
 }
 
 function App() {
+  // Reveal the main window once the app has mounted its first frame.
+  // The main window starts hidden behind the native splashscreen window
+  // (tauri.conf.json), so this is the hand-off that swaps splash -> app.
+  useEffect(() => {
+    invoke("close_splashscreen").catch(() => {});
+  }, []);
+
   return (
     <HashRouter>
       <ThemeProvider>

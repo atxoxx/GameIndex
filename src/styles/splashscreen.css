@@ -8,7 +8,11 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  background: rgba(0, 0, 0, 0.55);
+  /* Sampled from the hero art at runtime (inline style); black = no tint. */
+  --splash-accent: 0, 0, 0;
+  background:
+    radial-gradient(circle at 50% 28%, rgba(var(--splash-accent), 0.32), transparent 70%),
+    rgba(0, 0, 0, 0.55);
   backdrop-filter: blur(10px);
   -webkit-backdrop-filter: blur(10px);
   padding: var(--space-xl);
@@ -38,9 +42,35 @@
   background: var(--color-surface);
   border: 1px solid var(--color-accent);
   border-radius: var(--radius-xl);
-  box-shadow: 0 32px 80px rgba(0, 0, 0, 0.55), 0 0 40px var(--color-accent-glow);
+  box-shadow: 0 32px 80px rgba(0, 0, 0, 0.55), 0 0 40px var(--color-accent-glow),
+    0 0 60px rgba(var(--splash-accent), 0.25);
   overflow: hidden;
+  outline: none;
   animation: splashCardIn 250ms ease-out;
+}
+
+.splashscreen-card:focus-visible {
+  box-shadow: 0 32px 80px rgba(0, 0, 0, 0.55), 0 0 0 2px var(--color-accent),
+    0 0 60px rgba(var(--splash-accent), 0.25);
+}
+
+/* Determinate progress bar driven by the current launch step. */
+.splashscreen-progress {
+  height: 3px;
+  background: var(--color-bg-tertiary);
+  flex-shrink: 0;
+}
+
+.splashscreen-progress-fill {
+  height: 100%;
+  background: linear-gradient(90deg, var(--color-accent), var(--color-accent-hover));
+  box-shadow: 0 0 8px var(--color-accent-glow);
+  transition: width 400ms ease;
+}
+
+.splashscreen-progress-fill--error {
+  background: var(--color-danger);
+  box-shadow: 0 0 8px color-mix(in srgb, var(--color-danger) 45%, transparent);
 }
 
 @keyframes splashCardIn {
@@ -71,6 +101,12 @@
   height: 100%;
   object-fit: cover;
   display: block;
+  animation: splashHeroKenBurns 8s ease-out forwards;
+}
+
+@keyframes splashHeroKenBurns {
+  from { transform: scale(1); }
+  to { transform: scale(1.06); }
 }
 
 .splashscreen-hero-gradient {
@@ -111,6 +147,24 @@
   line-height: 1.1;
 }
 
+/* Source platform badge overlaid on the hero. */
+.splashscreen-platform {
+  position: absolute;
+  top: var(--space-md);
+  right: var(--space-md);
+  padding: 4px 10px;
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-bold);
+  letter-spacing: 0.4px;
+  text-transform: uppercase;
+  color: var(--color-text-primary);
+  background: rgba(0, 0, 0, 0.55);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  border-radius: 999px;
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+}
+
 .splashscreen-title-block {
   padding: var(--space-lg) var(--space-2xl) var(--space-md);
   display: flex;
@@ -133,9 +187,28 @@
 
 .splashscreen-info-row {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
   gap: var(--space-md);
   padding: 0 var(--space-2xl) var(--space-lg);
+}
+
+/* Rotating loading tip shown while the launch is in flight. */
+.splashscreen-tip {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-sm);
+  padding: 0 var(--space-2xl) var(--space-md);
+  font-size: var(--font-size-xs);
+  color: var(--color-text-muted);
+  text-align: center;
+}
+
+.splashscreen-tip svg {
+  width: 14px;
+  height: 14px;
+  color: var(--color-accent);
+  flex-shrink: 0;
 }
 
 .splashscreen-info-card {
@@ -203,6 +276,7 @@
 }
 
 .splashscreen-status {
+  position: relative;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -215,6 +289,35 @@
   font-weight: var(--font-weight-medium);
 }
 
+.splashscreen-cancel-btn {
+  position: absolute;
+  right: var(--space-md);
+  top: 50%;
+  transform: translateY(-50%);
+}
+
+/* Error state: message + retry/cancel actions, stays open until dismissed. */
+.splashscreen-error {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+  padding: 0 var(--space-2xl) var(--space-lg);
+  text-align: center;
+}
+
+.splashscreen-error-message {
+  margin: 0;
+  font-size: var(--font-size-xs);
+  color: var(--color-danger);
+  word-break: break-word;
+}
+
+.splashscreen-error-actions {
+  display: flex;
+  justify-content: center;
+  gap: var(--space-sm);
+}
+
 .splashscreen-status-dot {
   width: 8px;
   height: 8px;
@@ -223,6 +326,12 @@
   box-shadow: 0 0 10px var(--color-accent-glow);
   animation: splashDotPulse 1.5s ease-in-out infinite;
   flex-shrink: 0;
+}
+
+.splashscreen-status-dot--error {
+  background: var(--color-danger);
+  box-shadow: 0 0 10px color-mix(in srgb, var(--color-danger) 45%, transparent);
+  animation: none;
 }
 
 @keyframes splashDotPulse {
@@ -267,18 +376,27 @@
     padding-left: var(--space-lg);
     padding-right: var(--space-lg);
   }
+  .splashscreen-tip,
+  .splashscreen-error {
+    padding-left: var(--space-lg);
+    padding-right: var(--space-lg);
+  }
 }
 
 /* Reduced-motion users: snap in/out, no scale/fades. */
 @media (prefers-reduced-motion: reduce) {
   .splashscreen-root,
   .splashscreen-card,
-  .splashscreen-root.splashscreen-fading .splashscreen-card {
+  .splashscreen-root.splashscreen-fading .splashscreen-card,
+  .splashscreen-hero-img {
     animation: none;
   }
   .splashscreen-status-dot,
   .splashscreen-status-dots span {
     animation: none;
+  }
+  .splashscreen-progress-fill {
+    transition: none;
   }
 }
 

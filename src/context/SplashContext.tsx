@@ -40,13 +40,23 @@ export interface SplashRecord extends SplashPayload {
   status: SplashStatus;
   startedAt: number;
   launchStep: LaunchStep;
+  /** Failure reason shown in the error state. Null unless a launch failed. */
+  errorMessage: string | null;
+  /** Re-runs the failed launch. Set by GameContext when opening the splash. */
+  retry?: () => void;
 }
 
 function buildSplashRecord(
   payload: SplashPayload,
   status: SplashStatus
 ): SplashRecord {
-  return { ...payload, status, startedAt: Date.now(), launchStep: 0 };
+  return {
+    ...payload,
+    status,
+    startedAt: Date.now(),
+    launchStep: 0,
+    errorMessage: null,
+  };
 }
 
 interface SplashContextType {
@@ -55,11 +65,13 @@ interface SplashContextType {
   /** Current splash record. Null when no launch is in flight. */
   record: SplashRecord | null;
   /** Draw the splash with status "launching". Idempotent — re-calling
-   *  with a different game wipes the previous record. */
-  open: (payload: SplashPayload) => void;
+   *  with a different game wipes the previous record. `actions.retry`
+   *  re-launches the same game from the splash's error state. */
+  open: (payload: SplashPayload, actions?: { retry?: () => void }) => void;
   /** Flip just the status field, preserving `startedAt` so the splash's
-   *  min-visibility timer is consistent across status flips. */
-  updateStatus: (status: SplashStatus) => void;
+   *  min-visibility timer is consistent across status flips. `errorMessage`
+   *  is surfaced (and stored) only when status is "error". */
+  updateStatus: (status: SplashStatus, errorMessage?: string) => void;
   /** Advance the animated launch-step counter. Safe to call even when
    *  the splash has already closed (no-op in that case). */
   updateLaunchStep: (step: LaunchStep) => void;
@@ -90,13 +102,21 @@ export function isSplashEnabled(): boolean {
 export function SplashProvider({ children }: { children: ReactNode }) {
   const [record, setRecord] = useState<SplashRecord | null>(null);
 
-  const open = useCallback((payload: SplashPayload) => {
-    setRecord(buildSplashRecord(payload, "launching"));
-  }, []);
+  const open = useCallback(
+    (payload: SplashPayload, actions?: { retry?: () => void }) => {
+      setRecord({ ...buildSplashRecord(payload, "launching"), retry: actions?.retry });
+    },
+    []
+  );
 
-  const updateStatus = useCallback((status: SplashStatus) => {
-    setRecord((prev) => (prev ? { ...prev, status } : prev));
-  }, []);
+  const updateStatus = useCallback(
+    (status: SplashStatus, errorMessage?: string) => {
+      setRecord((prev) =>
+        prev ? { ...prev, status, errorMessage: errorMessage ?? null } : prev
+      );
+    },
+    []
+  );
 
   const updateLaunchStep = useCallback((step: LaunchStep) => {
     setRecord((prev) => (prev ? { ...prev, launchStep: step } : prev));

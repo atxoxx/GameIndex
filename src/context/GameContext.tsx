@@ -249,6 +249,9 @@ export function GameProvider({ children }: { children: ReactNode }) {
   // splash dispatcher straight from context. No cross-window IPC,
   // no async round-trip — the splash is an in-process React overlay.
   const splash = useSplash();
+  // Stable self-reference so the splash's Retry action can re-invoke the
+  // latest `launchGame` (defined below) for the same game after a failure.
+  const launchGameRef = useRef<(game: Game) => void>(() => {});
   const [games, setGames] = useState<Game[]>([]);
   const [selectedGameId, setSelectedGameId] = useState<string | null>(null);
   const [runningGameIds, setRunningGameIds] = useState<string[]>([]);
@@ -1036,7 +1039,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
         // "First time playing".
       }
       const payload: SplashPayload = { game, lastSession };
-      splash.open(payload);
+      splash.open(payload, { retry: () => launchGameRef.current(game) });
     }
 
     setRunningGameIds((prev) => [...prev, game.id]);
@@ -1112,10 +1115,11 @@ export function GameProvider({ children }: { children: ReactNode }) {
       showToast(t("gameContext.launched", { name: game.name }), "success");
     } catch (err: any) {
       setRunningGameIds((prev) => prev.filter((id) => id !== game.id));
-      if (splashOn) splash.updateStatus("error");
+      if (splashOn) splash.updateStatus("error", String(err));
       showToast(t("gameContext.launchFailed", { error: String(err) }), "error");
     }
   }, [runningGameIds, showToast, splash, t]);
+  launchGameRef.current = launchGame;
 
   const addStoreGame = useCallback(async (metadata: GameMetadataResult): Promise<string> => {
     // Duplicate check — normalized name comparison

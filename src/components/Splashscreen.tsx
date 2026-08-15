@@ -1,10 +1,17 @@
-import { useEffect, useRef } from "react";
 import {
-  useSplash,
-} from "../context/SplashContext";
-import type { Game } from "../types/game";
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+  type CSSProperties,
+  type ReactNode,
+} from "react";
+import { listen } from "@tauri-apps/api/event";
+import { useSplash } from "../context/SplashContext";
 import type { LaunchStep } from "../context/SplashContext";
+import type { Game } from "../types/game";
 import { useLanguage } from "../context/LanguageContext";
+import { Button } from "./ui/Button";
 
 /**
  * Minimum visibility before fade-out begins. Holds the splash long
@@ -13,8 +20,14 @@ import { useLanguage } from "../context/LanguageContext";
  */
 const MIN_VISIBILITY_MS = 1400;
 const FADE_OUT_MS = 250;
-const ERROR_HOLD_REDUCTION_MS = 600;
-const LAUNCH_STEP_INTERVAL_MS = 900;
+/** Time between visible launch-step advances, so a burst of fast
+ *  backend checkpoints still eases in one readable step at a time. */
+const STEP_INTERVAL_MS = 600;
+/** Fallback advance if the backend stops emitting progress (e.g. a hung
+ *  pre-launch script) — keeps the splash from freezing on an early step. */
+const STEP_STALL_MS = 4000;
+/** How long each loading tip stays on screen before rotating. */
+const TIP_INTERVAL_MS = 4000;
 const MAX_LAUNCH_STEP: LaunchStep = 3;
 
 const LAUNCH_STEP_KEYS: Record<LaunchStep, string> = {
@@ -23,6 +36,26 @@ const LAUNCH_STEP_KEYS: Record<LaunchStep, string> = {
   2: "splash.loadingAssets",
   3: "splash.launching",
 };
+
+/** Maps Rust `launch-progress` step names to the splash's step index. */
+const STEP_INDEX: Record<string, LaunchStep> = {
+  resolvingPaths: 0,
+  startingGame: 1,
+  loadingAssets: 2,
+  launching: 3,
+};
+
+/** Progress-bar fill percentage per launch step. Never 0 so the bar
+ *  reads as "working" the instant the splash opens. */
+const STEP_PCT: Record<LaunchStep, number> = {
+  0: 20,
+  1: 45,
+  2: 70,
+  3: 100,
+};
+
+/** Rotating tips shown during longer launches. i18n keys. */
+const TIPS = ["splash.tip1", "splash.tip2", "splash.tip3"];
 
 /**
  * Helper: convert IGDB's time-to-beat (seconds) into whole hours.
@@ -61,10 +94,47 @@ function relativeFromMs(
   return new Date(thenMs).toLocaleDateString();
 }
 
+/** Sample an image's average color as an "r, g, b" string, or null when
+ *  the image can't be read. Used to tint the splash backdrop to match
+ *  the game's hero art. */
+function sampleAverageColor(src: string): Promise<string | null> {
+  return new Promise((resolve) => {
+    const img = new Image();
+    img.onload = () => {
+      try {
+        const size = 24;
+        const canvas = document.createElement("canvas");
+        canvas.width = size;
+        canvas.height = size;
+        const ctx = canvas.getContext("2d");
+        if (!ctx) return resolve(null);
+        ctx.drawImage(img, 0, 0, size, size);
+        const { data } = ctx.getImageData(0, 0, size, size);
+        let r = 0;
+        let g = 0;
+        let b = 0;
+        let n = 0;
+        for (let i = 0; i < data.length; i += 4) {
+          r += data[i];
+          g += data[i + 1];
+          b += data[i + 2];
+          n += 1;
+        }
+        if (n === 0) return resolve(null);
+        resolve(`${Math.round(r / n)}, ${Math.round(g / n)}, ${Math.round(b / n)}`);
+      } catch {
+        resolve(null);
+      }
+    };
+    img.onerror = () => resolve(null);
+    img.src = src;
+  });
+}
+
 interface InfoCardProps {
-  icon: React.ReactNode;
+  icon: ReactNode;
   label: string;
-  children: React.ReactNode;
+  children: ReactNode;
 }
 
 function InfoCard({ icon, label, children }: InfoCardProps) {
@@ -84,83 +154,191 @@ function InfoCard({ icon, label, children }: InfoCardProps) {
  * the Tauri main window. It reads its data from the SplashContext
  * (a single shared React state), renders nothing when no record is
  * set, and self-closes its CSS fade + React unmount when status
- * flips to "started" or "error" via the useSplash().close() callback.
+ * flips to "started" via the useSplash().close() callback. Failures
+ * stay open so the user can read the error and retry.
  */
 export default function Splashscreen() {
   const { record, close, updateLaunchStep } = useSplash();
   const { t } = useLanguage();
+
+  const cardRef = useRef<HTMLDivElement | null>(null);
+  const recordRef = useRef(record);
+  recordRef.current = record;
+
+  const targetStepRef = useRef<LaunchStep>(0);
+  const stepTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const stallTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const fadeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const lastScheduledStartedAtRef = useRef<number | null>(null);
-  const stepTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const lastResetRef = useRef<number | null>(null);
+  const prevFocusRef = useRef<HTMLElement | null>(null);
+  const wasOpenRef = useRef(false);
 
-  // Lifecycle: when status flips to "started" or "error", enforce the
-  // min-visibility hold then schedule a fade-out. Discriminated by
-  // `record.startedAt` so a same-status re-poll never double-schedules.
+  const [accent, setAccent] = useState<string | null>(null);
+  const [tipIndex, setTipIndex] = useState(0);
+
+  // ── Event-driven launch steps ──────────────────────────────────────
+  // Rust emits "launch-progress" checkpoints as the launch advances.
+  // The visible step eases toward the highest checkpoint seen, one step
+  // per STEP_INTERVAL_MS, so fast checkpoints still read in sequence.
+  const startAnimator = useCallback(() => {
+    if (stepTimerRef.current) clearTimeout(stepTimerRef.current);
+    const tick = () => {
+      const rec = recordRef.current;
+      if (!rec || rec.status !== "launching") return;
+      if (rec.launchStep < targetStepRef.current) {
+        updateLaunchStep(Math.min(rec.launchStep + 1, MAX_LAUNCH_STEP) as LaunchStep);
+      }
+      stepTimerRef.current = setTimeout(tick, STEP_INTERVAL_MS);
+    };
+    stepTimerRef.current = setTimeout(tick, STEP_INTERVAL_MS);
+  }, [updateLaunchStep]);
+
+  const resetStall = useCallback(() => {
+    if (stallTimerRef.current) clearTimeout(stallTimerRef.current);
+    stallTimerRef.current = setTimeout(() => {
+      const rec = recordRef.current;
+      if (!rec || rec.status !== "launching") return;
+      if (targetStepRef.current < MAX_LAUNCH_STEP) {
+        targetStepRef.current = (targetStepRef.current + 1) as LaunchStep;
+      }
+      resetStall();
+    }, STEP_STALL_MS);
+  }, []);
+
+  useEffect(() => {
+    let disposed = false;
+    let unlistenFn: (() => void) | undefined;
+    const setup = listen<{ gameId: string; step: string }>(
+      "launch-progress",
+      (event) => {
+        const rec = recordRef.current;
+        if (!rec || rec.game.id !== event.payload.gameId) return;
+        const idx = STEP_INDEX[event.payload.step];
+        if (idx === undefined || idx <= targetStepRef.current) return;
+        targetStepRef.current = idx;
+        resetStall();
+      }
+    );
+    setup.then((fn) => {
+      if (disposed) fn();
+      else unlistenFn = fn;
+    });
+    return () => {
+      disposed = true;
+      unlistenFn?.();
+    };
+  }, [resetStall]);
+
+  // Reset step state on a fresh launch (new `startedAt`).
   useEffect(() => {
     if (!record) return;
-    if (record.status !== "started" && record.status !== "error") return;
-    if (lastScheduledStartedAtRef.current === record.startedAt) return;
-    lastScheduledStartedAtRef.current = record.startedAt;
-
-    const elapsed = Date.now() - record.startedAt;
-    const reduction = record.status === "error" ? ERROR_HOLD_REDUCTION_MS : 0;
-    const holdMs = Math.max(0, MIN_VISIBILITY_MS - elapsed - reduction);
-
-    const id = setTimeout(() => beginClose(), holdMs);
-    return () => {
-      clearTimeout(id);
-      if (fadeTimerRef.current) {
-        clearTimeout(fadeTimerRef.current);
-        fadeTimerRef.current = null;
-      }
-    };
-    // close / beginClose deliberately omitted — they're stable refs.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [record]);
-
-  // Animated launch steps: advance through a sequence of messages while
-  // the game is still in the "launching" state. Caps at the final step
-  // so the message never repeats. Resets to 0 on a fresh launch.
-  useEffect(() => {
-    if (!record || record.status !== "launching") {
-      if (stepTimerRef.current) {
-        clearTimeout(stepTimerRef.current);
-        stepTimerRef.current = null;
-      }
-      return;
+    if (lastResetRef.current !== record.startedAt) {
+      lastResetRef.current = record.startedAt;
+      targetStepRef.current = 0;
+      startAnimator();
+      resetStall();
     }
+  }, [record, startAnimator, resetStall]);
 
-    const advance = () => {
-      if (!record || record.status !== "launching") return;
-      const next = (record.launchStep + 1) as LaunchStep;
-      if (next > MAX_LAUNCH_STEP) return;
-      updateLaunchStep(next);
-    };
-
-    stepTimerRef.current = setTimeout(advance, LAUNCH_STEP_INTERVAL_MS);
-
-    return () => {
-      if (stepTimerRef.current) {
-        clearTimeout(stepTimerRef.current);
-        stepTimerRef.current = null;
-      }
-    };
-    // Advance only on record object change (fresh launch) or status flip.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [record, updateLaunchStep]);
-
-  // Clear any pending fade timer on unmount (e.g. context provider
-  // teardown, route change).
   useEffect(() => {
     return () => {
+      if (stepTimerRef.current) clearTimeout(stepTimerRef.current);
+      if (stallTimerRef.current) clearTimeout(stallTimerRef.current);
       if (fadeTimerRef.current) clearTimeout(fadeTimerRef.current);
     };
   }, []);
 
+  // Lifecycle: on "started", enforce the min-visibility hold then fade
+  // out. "error" stays open so the user can read the message and retry.
+  useEffect(() => {
+    if (!record) return;
+    if (record.status !== "started") return;
+    if (lastScheduledStartedAtRef.current === record.startedAt) return;
+    lastScheduledStartedAtRef.current = record.startedAt;
+
+    const elapsed = Date.now() - record.startedAt;
+    const holdMs = Math.max(0, MIN_VISIBILITY_MS - elapsed);
+    const id = setTimeout(() => beginClose(), holdMs);
+    return () => clearTimeout(id);
+    // close / beginClose deliberately omitted — they're stable refs.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [record]);
+
+  // ── Focus management: trap focus in the card, Esc to dismiss ───────
+  useEffect(() => {
+    const isOpen = record !== null;
+    if (isOpen && !wasOpenRef.current) {
+      prevFocusRef.current = document.activeElement as HTMLElement | null;
+      cardRef.current?.focus();
+    } else if (!isOpen && wasOpenRef.current) {
+      prevFocusRef.current?.focus?.();
+      prevFocusRef.current = null;
+    }
+    wasOpenRef.current = isOpen;
+  }, [record]);
+
+  useEffect(() => {
+    if (!record) return;
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        e.preventDefault();
+        close();
+        return;
+      }
+      if (e.key !== "Tab") return;
+      const card = cardRef.current;
+      if (!card) return;
+      const focusables = card.querySelectorAll<HTMLElement>(
+        'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])'
+      );
+      if (focusables.length === 0) return;
+      const first = focusables[0];
+      const last = focusables[focusables.length - 1];
+      const active = document.activeElement;
+      if (e.shiftKey) {
+        if (active === first || !card.contains(active)) {
+          e.preventDefault();
+          last.focus();
+        }
+      } else if (active === last || !card.contains(active)) {
+        e.preventDefault();
+        first.focus();
+      }
+    };
+    document.addEventListener("keydown", onKeyDown);
+    return () => document.removeEventListener("keydown", onKeyDown);
+  }, [record, close]);
+
+  // ── Dominant-color backdrop ────────────────────────────────────────
+  const heroSrc = record?.game.bannerUrl || record?.game.coverArtUrl || null;
+  useEffect(() => {
+    if (!heroSrc) {
+      setAccent(null);
+      return;
+    }
+    let cancelled = false;
+    sampleAverageColor(heroSrc).then((color) => {
+      if (!cancelled) setAccent(color);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [heroSrc]);
+
+  // ── Rotating loading tips ──────────────────────────────────────────
+  const startedAt = record?.startedAt ?? null;
+  useEffect(() => {
+    if (startedAt === null) return;
+    setTipIndex(0);
+    const id = setInterval(
+      () => setTipIndex((i) => (i + 1) % TIPS.length),
+      TIP_INTERVAL_MS
+    );
+    return () => clearInterval(id);
+  }, [startedAt]);
+
   // Begin fade-out CSS class flip, then teardown the React subtree.
-  // Removing-then-adding the class guarantees the CSS animation re-fires
-  // even when a previous launch left .splashscreen-fading on the same
-  // root node (e.g. user clicked Play on a different game mid-fade).
   const beginClose = () => {
     const root = document.querySelector(".splashscreen-root");
     if (root) {
@@ -173,17 +351,13 @@ export default function Splashscreen() {
   // Render nothing when there's no active launch in flight.
   if (!record) return null;
 
-  // ── Derive displayed info from record (no ActivityContext here) ──
   const game: Game = record.game;
   const lastSession = record.lastSession;
 
   // "Last Played" should reflect the game's canonical last-played time,
   // which lives on `game.lastPlayed` (stamped on launch and synced from
   // Steam/GOG/Epic). Fall back to the session history (whose `date` is an
-  // ISO string) only when the game has no stamp — e.g. an in-app session
-  // was recorded but the sync field is missing. Without this fallback,
-  // any game with a last-played stamp but no session row wrongly showed
-  // "First time playing".
+  // ISO string) only when the game has no stamp.
   const lastPlayedMs =
     typeof game.lastPlayed === "number" && Number.isFinite(game.lastPlayed)
       ? game.lastPlayed
@@ -204,14 +378,52 @@ export default function Splashscreen() {
   const totalPlayTime = game.playTime || "0h";
   const hasPlayed = totalPlayTime !== "0h" && totalPlayTime !== "0m";
 
+  // Extra stats: achievement completion + community/critic rating.
+  const achievements = game.steamAchievements;
+  const achTotal = achievements?.length ?? 0;
+  const achUnlocked = achievements?.filter((a) => a.achieved).length ?? 0;
+  const hasAchievements = achTotal > 0;
+  const rating =
+    typeof game.igdbRating === "number"
+      ? game.igdbRating
+      : typeof game.criticRating === "number"
+        ? game.criticRating
+        : null;
+  const hasRating = rating !== null;
+
+  const progressPct =
+    record.status === "started" ? 100 : STEP_PCT[record.launchStep];
+
   return (
     <div
       className="splashscreen-root"
+      style={
+        accent
+          ? ({ "--splash-accent": accent } as CSSProperties)
+          : undefined
+      }
       role="dialog"
       aria-modal="true"
       aria-label={t("splash.launchingName", { name: game.name })}
     >
-      <div className="splashscreen-card animate-scale-up">
+      <div
+        className="splashscreen-card animate-scale-up"
+        ref={cardRef}
+        tabIndex={-1}
+      >
+        {/* Determinate progress bar tied to the current launch step */}
+        <div className="splashscreen-progress" aria-hidden="true">
+          <div
+            className={[
+              "splashscreen-progress-fill",
+              record.status === "error" ? "splashscreen-progress-fill--error" : "",
+            ]
+              .filter(Boolean)
+              .join(" ")}
+            style={{ width: `${progressPct}%` }}
+          />
+        </div>
+
         {/* Hero artwork + gradient fallback */}
         <div className="splashscreen-hero">
           {game.bannerUrl || game.coverArtUrl ? (
@@ -234,6 +446,10 @@ export default function Splashscreen() {
           ) : (
             <h2 className="splashscreen-title-only">{game.name}</h2>
           )}
+
+          {game.platform && (
+            <span className="splashscreen-platform">{game.platform}</span>
+          )}
         </div>
 
         {/* Title block under the hero */}
@@ -248,7 +464,7 @@ export default function Splashscreen() {
           )}
         </div>
 
-        {/* Info card row: time-to-beat / last played / total play time */}
+        {/* Info card row: time-to-beat / achievements / rating / last played / total play time */}
         <div className="splashscreen-info-row">
           {hasTtb && (
             <InfoCard
@@ -266,6 +482,42 @@ export default function Splashscreen() {
                   {t("splash.ttbComplete", { hours: ttbComplete })}
                 </span>
               )}
+            </InfoCard>
+          )}
+
+          {hasAchievements && (
+            <InfoCard
+              icon={
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                  <path d="M6 9H4.5a2.5 2.5 0 0 1 0-5H6" />
+                  <path d="M18 9h1.5a2.5 2.5 0 0 0 0-5H18" />
+                  <path d="M4 22h16" />
+                  <path d="M10 14.66V17c0 .55-.47.98-.97 1.21C7.85 18.75 7 20.24 7 22" />
+                  <path d="M14 14.66V17c0 .55.47.98.97 1.21C16.15 18.75 17 20.24 17 22" />
+                  <path d="M18 2H6v7a6 6 0 0 0 12 0V2Z" />
+                </svg>
+              }
+              label={t("splash.achievements")}
+            >
+              <span>
+                {achUnlocked}/{achTotal}
+              </span>
+              <span className="splashscreen-info-divider">
+                {Math.round((achUnlocked / achTotal) * 100)}%
+              </span>
+            </InfoCard>
+          )}
+
+          {hasRating && (
+            <InfoCard
+              icon={
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                  <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" />
+                </svg>
+              }
+              label={t("splash.rating")}
+            >
+              <span>{Math.round(rating!)}/100</span>
             </InfoCard>
           )}
 
@@ -307,15 +559,34 @@ export default function Splashscreen() {
           </InfoCard>
         </div>
 
+        {/* Rotating loading tip — only while the launch is in flight */}
+        {record.status === "launching" && (
+          <div className="splashscreen-tip">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+              <path d="M9 18h6" />
+              <path d="M10 22h4" />
+              <path d="M15.09 14c.18-.98.65-1.74 1.41-2.5A4.65 4.65 0 0 0 18 8 6 6 0 0 0 6 8c0 1 .23 2.23 1.5 3.5A4.61 4.61 0 0 1 8.91 14" />
+            </svg>
+            <span>{t(TIPS[tipIndex])}</span>
+          </div>
+        )}
+
         {/* Status pill — drives the user's focus while the splash is up */}
         <div className="splashscreen-status" aria-live="polite">
-          <span className="splashscreen-status-dot" />
+          <span
+            className={[
+              "splashscreen-status-dot",
+              record.status === "error" ? "splashscreen-status-dot--error" : "",
+            ]
+              .filter(Boolean)
+              .join(" ")}
+          />
           <span className="splashscreen-status-text">
             {record.status === "started"
               ? t("splash.launching")
               : record.status === "error"
-              ? t("splash.launchFailed")
-              : t(LAUNCH_STEP_KEYS[record.launchStep])}
+                ? t("splash.launchFailed")
+                : t(LAUNCH_STEP_KEYS[record.launchStep])}
             {record.status === "launching" && (
               <span className="splashscreen-status-dots" aria-hidden="true">
                 <span>.</span>
@@ -324,7 +595,36 @@ export default function Splashscreen() {
               </span>
             )}
           </span>
+          {record.status === "launching" && (
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={close}
+              className="splashscreen-cancel-btn"
+            >
+              {t("splash.cancel")}
+            </Button>
+          )}
         </div>
+
+        {/* Error state: message + retry/cancel. Stays open until dismissed. */}
+        {record.status === "error" && (
+          <div className="splashscreen-error">
+            {record.errorMessage && (
+              <p className="splashscreen-error-message">{record.errorMessage}</p>
+            )}
+            <div className="splashscreen-error-actions">
+              {record.retry && (
+                <Button size="sm" onClick={record.retry}>
+                  {t("splash.retry")}
+                </Button>
+              )}
+              <Button variant="ghost" size="sm" onClick={close}>
+                {t("splash.cancel")}
+              </Button>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );

@@ -19,7 +19,20 @@
         "height": 800,
         "minWidth": 900,
         "minHeight": 600,
-        "decorations": false
+        "decorations": false,
+        "visible": false
+      },
+      {
+        "label": "splashscreen",
+        "title": "GameIndex",
+        "url": "/splashscreen.html",
+        "width": 520,
+        "height": 360,
+        "center": true,
+        "resizable": false,
+        "decorations": false,
+        "alwaysOnTop": true,
+        "skipTaskbar": true
       }
     ],
     "security": {

@@ -1,0 +1,210 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>GameIndex</title>
+    <style>
+      /* Dark defaults — overridden by the inline script below when a
+         persisted theme (or accent override) is found in localStorage. */
+      :root {
+        --bg: #08090c;
+        --text: #f3f5fa;
+        --sub: #9ea4b5;
+        --accent: #635bff;
+      }
+
+      * {
+        box-sizing: border-box;
+        margin: 0;
+        padding: 0;
+      }
+
+      html,
+      body {
+        height: 100%;
+      }
+
+      body {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        background:
+          radial-gradient(circle at 50% 30%, color-mix(in srgb, var(--accent) 16%, transparent), transparent 62%),
+          radial-gradient(circle at 82% 88%, color-mix(in srgb, var(--accent) 10%, transparent), transparent 55%),
+          var(--bg);
+        color: var(--text);
+        font-family: "Outfit", "Inter", -apple-system, BlinkMacSystemFont,
+          "Segoe UI", Roboto, sans-serif;
+        overflow: hidden;
+        user-select: none;
+        -webkit-user-select: none;
+      }
+
+      .splash {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 16px;
+        text-align: center;
+        animation: splash-in 320ms ease-out;
+      }
+
+      .mark {
+        width: 64px;
+        height: 64px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        border-radius: 18px;
+        background: linear-gradient(
+          135deg,
+          var(--accent),
+          color-mix(in srgb, var(--accent) 70%, #000 30%)
+        );
+        box-shadow: 0 8px 32px color-mix(in srgb, var(--accent) 45%, transparent);
+      }
+
+      .mark svg {
+        width: 34px;
+        height: 34px;
+        color: #fff;
+      }
+
+      h1 {
+        font-size: 28px;
+        font-weight: 700;
+        letter-spacing: -0.02em;
+      }
+
+      p {
+        font-size: 13px;
+        color: var(--sub);
+        font-weight: 500;
+      }
+
+      .loader {
+        display: flex;
+        gap: 6px;
+        margin-top: 6px;
+      }
+
+      .loader span {
+        width: 7px;
+        height: 7px;
+        border-radius: 50%;
+        background: var(--accent);
+        animation: pulse 1.2s ease-in-out infinite;
+      }
+
+      .loader span:nth-child(2) {
+        animation-delay: 0.15s;
+      }
+
+      .loader span:nth-child(3) {
+        animation-delay: 0.3s;
+      }
+
+      @keyframes splash-in {
+        from {
+          opacity: 0;
+          transform: scale(0.96);
+        }
+        to {
+          opacity: 1;
+          transform: scale(1);
+        }
+      }
+
+      @keyframes pulse {
+        0%,
+        60%,
+        100% {
+          opacity: 0.25;
+          transform: scale(0.85);
+        }
+        30% {
+          opacity: 1;
+          transform: scale(1);
+        }
+      }
+
+      @media (prefers-reduced-motion: reduce) {
+        .splash,
+        .loader span {
+          animation: none;
+        }
+      }
+    </style>
+    <script>
+      (function () {
+        // Mirrors ThemeContext's localStorage keys. The splash window shares
+        // the app's origin, so the persisted theme id + accent override are
+        // readable here before first paint.
+        var PALETTES = {
+          dark:       ["#08090c", "#f3f5fa", "#9ea4b5", "#635bff"],
+          light:      ["#f8fafc", "#0f172a", "#475569", "#7c3aed"],
+          nord:       ["#2e3440", "#eceff4", "#d8dee9", "#88c0d0"],
+          cyberpunk:  ["#050508", "#f0f2f5", "#00f0ff", "#00f0ff"],
+          emerald:    ["#08110c", "#ecf3ee", "#a6c4b2", "#10b981"],
+          dracula:    ["#1e1f29", "#f8f8f2", "#ff79c6", "#bd93f9"],
+          solarized:  ["#002b36", "#fdf6e3", "#eee8d5", "#268bd2"],
+          tokyonight: ["#1a1b26", "#c0caf5", "#a9b1d6", "#7aa2f7"],
+          gruvbox:    ["#282828", "#ebdbb2", "#d5c4a1", "#fe8019"],
+          catppuccin: ["#1e1e2e", "#cad3f5", "#b8c0e0", "#cba6f7"],
+          sunset:     ["#1f0f1a", "#fdeef2", "#f3c5d4", "#ff7a59"],
+          oceanic:    ["#071a2b", "#e6f6fb", "#b3dcec", "#22d3ee"],
+          rosepine:   ["#191724", "#e0def4", "#c5c3e0", "#eb6f92"],
+          synthwave:  ["#170d2b", "#f9f2ff", "#05d9e8", "#ff71ce"],
+          forest:     ["#0c1510", "#eef5ea", "#b9d4ab", "#84cc16"],
+          desert:     ["#1c160f", "#f5ead7", "#e0c9a3", "#e0ab55"],
+          aurora:     ["#050410", "#f3f1ff", "#b7b2dc", "#9a6bff"]
+        };
+
+        var root = document.documentElement;
+        var themeId = "dark";
+        try {
+          themeId = localStorage.getItem("gamelib-theme") || "dark";
+        } catch (e) {
+          /* localStorage unavailable — keep dark defaults */
+        }
+
+        var palette = PALETTES[themeId] || PALETTES.dark;
+        root.style.setProperty("--bg", palette[0]);
+        root.style.setProperty("--text", palette[1]);
+        root.style.setProperty("--sub", palette[2]);
+        root.style.setProperty("--accent", palette[3]);
+
+        // Optional user accent override (Settings → Appearance).
+        try {
+          var accent = localStorage.getItem("gamelib.accent_color");
+          if (accent && /^#[0-9a-fA-F]{6}$/.test(accent)) {
+            root.style.setProperty("--accent", accent);
+          }
+        } catch (e) {
+          /* ignore */
+        }
+      })();
+    </script>
+  </head>
+  <body>
+    <div class="splash">
+      <div class="mark" aria-hidden="true">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M6 9h4" />
+          <path d="M8 7v4" />
+          <path d="M15.5 10.5h.01" />
+          <path d="M18 13h.01" />
+          <path d="M17.32 5H6.68a4 4 0 0 0-3.978 3.59c-.006.052-.01.101-.017.152C2.604 9.416 2 14.456 2 16a3 3 0 0 0 3 3c1 0 1.5-.5 2-1l1.414-1.414A2 2 0 0 1 9.828 16h4.344a2 2 0 0 1 1.414.586L17 18c.5.5 1 1 2 1a3 3 0 0 0 3-3c0-1.545-.604-6.584-.685-7.258-.007-.05-.011-.1-.017-.151A4 4 0 0 0 17.32 5z" />
+        </svg>
+      </div>
+      <h1>GameIndex</h1>
+      <p>Your unified game library</p>
+      <div class="loader" aria-hidden="true">
+        <span></span>
+        <span></span>
+        <span></span>
+      </div>
+    </div>
+  </body>
+</html>

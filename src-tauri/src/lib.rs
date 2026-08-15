@@ -902,6 +902,21 @@ fn detect_gpus() -> Vec<GpuInfo> {
     gpu_detector::detect_gpus()
 }
 
+/// Close the startup splash window and reveal the main window once the
+/// frontend has finished its first render. Idempotent - safe to call
+/// multiple times (React StrictMode double-mount) or when the splash has
+/// already been dismissed.
+#[tauri::command]
+fn close_splashscreen(app: tauri::AppHandle) {
+    if let Some(main) = app.get_webview_window("main") {
+        let _ = main.show();
+        let _ = main.set_focus();
+    }
+    if let Some(splash) = app.get_webview_window("splashscreen") {
+        let _ = splash.close();
+    }
+}
+
 /// Static summary of the host hardware, returned by `get_system_info`.
 #[derive(Debug, Clone, serde::Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -1539,6 +1554,27 @@ fn spawn_companion(app: CompanionApp) {
 ///
 /// The watcher's background poll loop handles all session lifecycle:
 /// process detection â†’ metrics collection â†’ exit detection â†’ game-exited event.
+/// Progress checkpoints emitted while a game is launching so the
+/// frontend splash can show honest step-by-step feedback instead of a
+/// fixed animation timer. `step` is one of resolvingPaths / startingGame /
+/// loadingAssets / launching.
+#[derive(Debug, Clone, serde::Serialize)]
+#[serde(rename_all = "camelCase")]
+struct LaunchProgressPayload {
+    game_id: String,
+    step: String,
+}
+
+fn emit_launch_progress(app: &tauri::AppHandle, game_id: &str, step: &str) {
+    let _ = app.emit(
+        "launch-progress",
+        LaunchProgressPayload {
+            game_id: game_id.to_string(),
+            step: step.to_string(),
+        },
+    );
+}
+
 #[tauri::command]
 fn launch_game(
     app: tauri::AppHandle,
@@ -1565,6 +1601,8 @@ fn launch_game(
         .lock()
         .map(|s| s.clone())
         .unwrap_or_default();
+
+    emit_launch_progress(&app, &game_id, "resolvingPaths");
 
     if launcher_settings.disable_elevation_prompts
         && run_as_admin.unwrap_or(false)
@@ -1742,6 +1780,8 @@ fn launch_game(
     // Lock the watcher once here (std::sync::Mutex is not reentrant) so the
     // same guard can both supply the live telemetry config and register the
     // launched session below without a double-lock deadlock.
+    emit_launch_progress(&app, &game_id, "startingGame");
+
     let mut w = watcher.lock().map_err(|e| e.to_string())?;
 
     // Start metrics collection immediately if we have a valid PID.
@@ -1779,6 +1819,8 @@ fn launch_game(
         );
     }
 
+    emit_launch_progress(&app, &game_id, "loadingAssets");
+
     // ── Companion apps (delayed, fire-and-forget) ──
     // Launched after the main game so a server/overlay can start in the
     // background on its own timer. Not tracked by the watcher.
@@ -1789,6 +1831,8 @@ fn launch_game(
             }
         }
     }
+
+    emit_launch_progress(&app, &game_id, "launching");
 
     let msg = if platform == "Steam" && show_steam_launch_selection.unwrap_or(false) {
         format!("Launched {} via Steam (launch picker)", game_name)
@@ -3981,7 +4025,7 @@ pub fn run() {
             tauri_plugin_autostart::MacosLauncher::LaunchAgent,
             Some(vec![]),
         ))
-        .invoke_handler(tauri::generate_handler![scan_folder_for_exes, launch_game, force_close_game, save_games, save_game, load_games, update_game_last_played, read_cover_image, search_game_metadata, get_igdb_game_by_id, fetch_game_images, download_image, search_launchbox_images, detect_gpus, list_media_files, save_screenshot, save_text_file, load_sessions, get_sessions, delete_session, delete_sessions_for_game, insert_session, get_system_ram_gb, get_system_info, set_metrics_config, detect_game_size, check_paths_exist, open_folder, disk_usage, move_game_install, uninstall_game, measure_path_size, detect_steam_screenshot_folders, detect_system_screenshot_folders, save_store_cache, load_store_cache, fetch_store_games, search_store_games,            get_store_game_detail, get_collection_games,            fetch_game_reviews, fetch_external_reviews, fetch_hydra_reviews, fetch_hydra_review_replies,             get_hydra_game_stats, get_about_section, get_recommended_config,
+        .invoke_handler(tauri::generate_handler![scan_folder_for_exes, launch_game, force_close_game, save_games, save_game, load_games, close_splashscreen, update_game_last_played, read_cover_image, search_game_metadata, get_igdb_game_by_id, fetch_game_images, download_image, search_launchbox_images, detect_gpus, list_media_files, save_screenshot, save_text_file, load_sessions, get_sessions, delete_session, delete_sessions_for_game, insert_session, get_system_ram_gb, get_system_info, set_metrics_config, detect_game_size, check_paths_exist, open_folder, disk_usage, move_game_install, uninstall_game, measure_path_size, detect_steam_screenshot_folders, detect_system_screenshot_folders, save_store_cache, load_store_cache, fetch_store_games, search_store_games,            get_store_game_detail, get_collection_games,            fetch_game_reviews, fetch_external_reviews, fetch_hydra_reviews, fetch_hydra_review_replies,             get_hydra_game_stats, get_about_section, get_recommended_config,
             get_language, set_language, get_about_bundle,             save_wishlist, load_wishlist, get_last_session_for_game, save_source_cache, load_source_cache, deals::fetch_gamepass_catalog, deals::fetch_isthereanydeal_deals, deals::fetch_giveaways, deals::open_deal_url, deals::fetch_playtester_games, deals::fetch_playtester_game_detail,            steam_sync_games,
             steam_connect, steam_logout, steam_get_session,
             steam_launch_options,
