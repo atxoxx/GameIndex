@@ -47,3 +47,4 @@ nul
 build.bat
 build-upload.bat
 upload.bat
+scripts/test-plugins.mjs
