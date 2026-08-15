@@ -873,7 +873,7 @@
 
 /* Density variants (shared with grid) */
 .store-game-card.density-compact .store-card-body { display: none; }
-.store-game-card.density-compact { width: 100%; max-width: 130px; }
+.store-game-card.density-compact { width: 100%; max-width: 150px; }
 .store-game-card.density-compact .store-card-cover { aspect-ratio: 2 / 3; }
 .store-game-card.density-compact .store-card-rating { padding: 3px 7px; font-size: var(--font-size-xs); }
 

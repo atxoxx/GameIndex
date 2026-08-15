@@ -93,6 +93,7 @@ export default function StoreGameGrid({
   const wishlistCtx = useContext(WishlistContext);
   const searchQuery = useStoreSearchQuery();
   const isList = density === "list";
+  const isCompact = density === "compact";
 
   const handleGridKeyDown = useCallback(
     (e: React.KeyboardEvent<HTMLDivElement>) => {
@@ -243,7 +244,7 @@ export default function StoreGameGrid({
   // Initial loading
   if (loading && games.length === 0) {
     return (
-      <div className={`store-game-grid${isList ? " density-list" : ""}`}>
+      <div className={`store-game-grid${isList ? " density-list" : isCompact ? " density-compact" : ""}`}>
         {Array.from({ length: 12 }).map((_, i) => (
           <CardSkeleton key={i} list={isList} />
         ))}
@@ -267,7 +268,7 @@ export default function StoreGameGrid({
       )}
 
       <div
-        className={`store-game-grid${isList ? " density-list" : ""}`}
+        className={`store-game-grid${isList ? " density-list" : isCompact ? " density-compact" : ""}`}
         ref={gridRef}
         onKeyDown={handleGridKeyDown}
       >
