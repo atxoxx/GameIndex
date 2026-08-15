@@ -2065,6 +2065,7 @@ export const de: TranslationDict = {
   "friendsPage.shareWith": "Teilen mit",
   "friendsPage.shared": "Geteilt",
   "friendsPage.sharedBy": "Geteilt von {name}",
+  "friendsPage.sharedByLabel": "Geteilt von ",
   "friendsPage.sharedByMeCount": "Von mir geteilt ({count})",
   "friendsPage.sharedFromWishlist": "{game} aus der Wunschliste geteilt",
   "friendsPage.sharedFromWishlists": "Geteilt aus Wunschlisten ({count})",

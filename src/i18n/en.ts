@@ -2073,6 +2073,7 @@ export const en: TranslationDict = {
   "friendsPage.shareWith": "Share With",
   "friendsPage.shared": "Shared",
   "friendsPage.sharedBy": "Shared by {name}",
+  "friendsPage.sharedByLabel": "Shared by ",
   "friendsPage.sharedByMeCount": "Shared by me ({count})",
   "friendsPage.sharedFromWishlist": "Shared {game} from wishlist",
   "friendsPage.sharedFromWishlists": "Shared From Wishlists ({count})",

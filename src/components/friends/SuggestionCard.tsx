@@ -82,7 +82,7 @@ export default function SuggestionCard({
               {suggestion.gameName}
             </div>
             <div className="sug-by-line">
-              {t("friendsPage.sharedBy")}{" "}
+              {t("friendsPage.sharedByLabel")}
               <span className="sug-author">{isAuthor ? t("friendsPage.me") : suggestion.suggestedBy}</span>
               {suggestion.suggestedTo && suggestion.suggestedTo !== "All Friends" && (
                 <span className="sug-target">

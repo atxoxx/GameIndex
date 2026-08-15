@@ -2065,6 +2065,7 @@ export const ru: TranslationDict = {
   "friendsPage.shareWith": "Поделиться с",
   "friendsPage.shared": "Общие",
   "friendsPage.sharedBy": "Поделился: {name}",
+  "friendsPage.sharedByLabel": "Поделился: ",
   "friendsPage.sharedByMeCount": "Поделился я ({count})",
   "friendsPage.sharedFromWishlist": "{game} поделились из списка желаемого",
   "friendsPage.sharedFromWishlists": "Общие из списков желаний ({count})",

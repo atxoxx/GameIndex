@@ -2065,6 +2065,7 @@ export const zhCN: TranslationDict = {
   "friendsPage.shareWith": "分享给",
   "friendsPage.shared": "共享",
   "friendsPage.sharedBy": "由 {name} 分享",
+  "friendsPage.sharedByLabel": "由 ",
   "friendsPage.sharedByMeCount": "我分享的 ({count})",
   "friendsPage.sharedFromWishlist": "已从心愿单分享 {game}",
   "friendsPage.sharedFromWishlists": "来自愿望单的分享（{count}）",
