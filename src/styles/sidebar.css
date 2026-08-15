@@ -76,6 +76,35 @@
   color: var(--color-text-muted);
 }
 
+.sidebar-search-clear {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  padding: 0;
+  border: none;
+  background: transparent;
+  color: var(--color-text-muted);
+  border-radius: var(--radius-full);
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: background var(--transition-fast),
+    color var(--transition-fast),
+    transform var(--transition-fast);
+}
+
+.sidebar-search-clear:hover {
+  background: var(--color-bg-hover);
+  color: var(--color-text-primary);
+  transform: scale(1.1);
+}
+
+.sidebar-search-clear svg {
+  width: 11px;
+  height: 11px;
+}
+
 .sidebar-filters {
   display: flex;
   gap: var(--space-xs);
@@ -87,6 +116,11 @@
   margin: var(--space-sm) var(--space-lg);
   border: none;
   border-top: 1px solid var(--color-border);
+}
+
+.sidebar-divider--thin {
+  margin: var(--space-xs) var(--space-sm);
+  border-top-color: color-mix(in srgb, var(--color-border) 60%, transparent);
 }
 
 .sidebar-list {
@@ -117,7 +151,8 @@
   background-clip: padding-box;
 }
 
-.sidebar-list-header {
+.sidebar-list-header,
+.sidebar-section-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -128,6 +163,70 @@
   color: var(--color-text-muted);
   text-transform: uppercase;
   letter-spacing: 0.1em;
+  user-select: none;
+}
+
+.sidebar-section-header .sidebar-section-title-group {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.sidebar-section-header .sidebar-section-title-text {
+  letter-spacing: 0.1em;
+}
+
+.sidebar-section-header--collapsible {
+  padding-left: 2px;
+}
+
+.sidebar-section-toggle {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  background: transparent;
+  border: none;
+  padding: 2px 6px;
+  margin: -2px 0;
+  border-radius: var(--radius-xs);
+  font-size: 10px;
+  font-weight: 700;
+  color: var(--color-text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  cursor: pointer;
+  transition: color var(--transition-fast), background var(--transition-fast);
+}
+
+.sidebar-section-toggle:hover {
+  color: var(--color-text-primary);
+  background: color-mix(in srgb, var(--color-text-muted) 12%, transparent);
+}
+
+.sidebar-section-toggle:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 2px var(--color-accent);
+}
+
+.sidebar-section-toggle__chevron {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 14px;
+  height: 14px;
+  flex-shrink: 0;
+}
+
+.sidebar-section-toggle__chevron svg {
+  width: 12px;
+  height: 12px;
+}
+
+.sidebar-pinned-list,
+.sidebar-recent-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
 }
 
 /* Count pill in section headers — accent-tinted, tabular, matching the
@@ -368,6 +467,13 @@
   align-self: center;
   transition: box-shadow var(--duration-normal) var(--ease-standard),
     background var(--duration-normal) var(--ease-standard);
+}
+
+.sidebar-game-status.running {
+  background: var(--color-success);
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--color-success) 35%, transparent),
+    0 0 8px var(--color-success);
+  animation: runningStatusPulse 1.4s infinite alternate ease-in-out;
 }
 
 .sidebar-game-status.installed {
