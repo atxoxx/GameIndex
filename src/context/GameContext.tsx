@@ -5,6 +5,7 @@ import {
   useCallback,
   useEffect,
   useRef,
+  useMemo,
   type ReactNode,
 } from "react";
 import { invoke } from "@tauri-apps/api/core";
@@ -14,6 +15,7 @@ import {
   gameNameFromPath,
   extractSteamAppId,
   extractSteamAppIdFromWebsites,
+  LS_UNTRACKED_GAMES,
   type Game,
   type GameMetadataResult,
   type IgdbReview,
@@ -144,6 +146,10 @@ interface GameContextType {
    * games IGDB doesn't recognise.
    */
   enrichGameMetadata: (gameId: string, gameName: string, steamAppId?: number) => Promise<void>;
+  /** Check whether a game is excluded from playtime/session tracking. */
+  isGameUntracked: (gameId: string) => boolean;
+  /** Toggle or set tracking exclusion for a game. */
+  toggleGameTracking: (gameId: string, forceUntracked?: boolean) => void;
 }
 
 const GameContext = createContext<GameContextType | null>(null);
@@ -202,20 +208,22 @@ const isFrontendUsableImage = (u: string | undefined): boolean =>
  * steam-install-changed refresh, and the debounced post-mutation
  * rebuild in `scheduleWatcherIndexRebuild`.
  */
-function toWatcherRefs(games: Game[]) {
-  return games.map((g) => ({
-    gameId: g.id,
-    gameName: g.name,
-    platform: g.platform,
-    exePath: g.path || "",
-    steamAppId: g.steamAppId ?? null,
-    // Emulator ROMs share the emulator exe as their path; the
-    // backend excludes them from the passive-detection index so
-    // one running emulator process can't record a phantom session
-    // for every imported ROM. App-launched sessions still track
-    // the exact game_id via the launch path.
-    emulatorId: g.emulatorId ?? null,
-  }));
+function toWatcherRefs(games: Game[], untrackedIds?: Set<string>) {
+  return games
+    .filter((g) => !untrackedIds?.has(g.id))
+    .map((g) => ({
+      gameId: g.id,
+      gameName: g.name,
+      platform: g.platform,
+      exePath: g.path || "",
+      steamAppId: g.steamAppId ?? null,
+      // Emulator ROMs share the emulator exe as their path; the
+      // backend excludes them from the passive-detection index so
+      // one running emulator process can't record a phantom session
+      // for every imported ROM. App-launched sessions still track
+      // the exact game_id via the launch path.
+      emulatorId: g.emulatorId ?? null,
+    }));
 }
 
 /** Discord's large/small image must be a public https URL; data: URIs are skipped. */
@@ -244,6 +252,20 @@ export function GameProvider({ children }: { children: ReactNode }) {
   const [games, setGames] = useState<Game[]>([]);
   const [selectedGameId, setSelectedGameId] = useState<string | null>(null);
   const [runningGameIds, setRunningGameIds] = useState<string[]>([]);
+  const [untrackedGameIds, setUntrackedGameIds] = useState<Set<string>>(() => {
+    try {
+      const saved = localStorage.getItem(LS_UNTRACKED_GAMES);
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed)) return new Set(parsed);
+      }
+    } catch (e) {
+      console.error("Failed to load untracked games from localStorage:", e);
+    }
+    return new Set();
+  });
+  const untrackedGameIdsRef = useRef(untrackedGameIds);
+  untrackedGameIdsRef.current = untrackedGameIds;
   const loadedRef = useRef(false);
 
   // Load persisted games on mount
@@ -254,10 +276,10 @@ export function GameProvider({ children }: { children: ReactNode }) {
           setGames(data);
           // Populate the watcher's process index for passive detection.
           // Pass game refs so the background poll loop can match
-          // running processes to known games.
-          invoke("rebuild_watcher_index", { games: toWatcherRefs(data) }).catch(
-            (err) => console.error("Failed to rebuild watcher index:", err)
-          );
+          // running processes to known games (excluding untracked ones).
+          invoke("rebuild_watcher_index", {
+            games: toWatcherRefs(data, untrackedGameIdsRef.current),
+          }).catch((err) => console.error("Failed to rebuild watcher index:", err));
         }
       })
       .catch((err) => console.error("Failed to load games:", err))
@@ -363,11 +385,39 @@ export function GameProvider({ children }: { children: ReactNode }) {
     if (watcherRebuildTimerRef.current) return;
     watcherRebuildTimerRef.current = setTimeout(() => {
       watcherRebuildTimerRef.current = null;
-      invoke("rebuild_watcher_index", { games: toWatcherRefs(gamesRef.current) }).catch(
-        (err) => console.error("Failed to rebuild watcher index:", err)
-      );
+      invoke("rebuild_watcher_index", {
+        games: toWatcherRefs(gamesRef.current, untrackedGameIdsRef.current),
+      }).catch((err) => console.error("Failed to rebuild watcher index:", err));
     }, 500);
   }, []);
+
+  const isGameUntracked = useCallback(
+    (gameId: string) => untrackedGameIds.has(gameId),
+    [untrackedGameIds]
+  );
+
+  const toggleGameTracking = useCallback(
+    (gameId: string, forceUntracked?: boolean) => {
+      setUntrackedGameIds((prev) => {
+        const next = new Set(prev);
+        const shouldUntrack =
+          forceUntracked !== undefined ? forceUntracked : !next.has(gameId);
+        if (shouldUntrack) {
+          next.add(gameId);
+        } else {
+          next.delete(gameId);
+        }
+        try {
+          localStorage.setItem(LS_UNTRACKED_GAMES, JSON.stringify([...next]));
+        } catch (e) {
+          console.error("Failed to save untracked games to localStorage:", e);
+        }
+        return next;
+      });
+      scheduleWatcherIndexRebuild();
+    },
+    [scheduleWatcherIndexRebuild]
+  );
 
   // Tracks which games are currently running (name + start time) so the
   // game-exited handler can hand Rich Presence the next still-running game
@@ -381,6 +431,12 @@ export function GameProvider({ children }: { children: ReactNode }) {
 
       // Remove from running games list
       setRunningGameIds((prev) => prev.filter((id) => id !== gameId));
+
+      // If this game is marked as untracked, do not record playtime or update lastPlayed
+      if (untrackedGameIdsRef.current.has(gameId)) {
+        runningSessionsRef.current.delete(gameId);
+        return;
+      }
 
       // Update session playtime + lastPlayed (drives the "Continue
       // Playing" rail). Only stamp `lastPlayed` when the Rust payload
@@ -850,27 +906,62 @@ export function GameProvider({ children }: { children: ReactNode }) {
     // actually open.
   }, [scheduleWatcherIndexRebuild]);
 
-  const removeGame = useCallback((id: string) => {
-    setGames((prev) => prev.filter((g) => g.id !== id));
-    setSelectedGameId((current) => (current === id ? null : current));
-    // Drop the exe from the watcher index so a stale process match can't
-    // resurrect the deleted game as a phantom running entry.
-    scheduleWatcherIndexRebuild();
-  }, [scheduleWatcherIndexRebuild]);
+  const removeGame = useCallback(
+    (id: string) => {
+      setGames((prev) => prev.filter((g) => g.id !== id));
+      setSelectedGameId((current) => (current === id ? null : current));
+      setUntrackedGameIds((prev) => {
+        if (!prev.has(id)) return prev;
+        const next = new Set(prev);
+        next.delete(id);
+        try {
+          localStorage.setItem(LS_UNTRACKED_GAMES, JSON.stringify([...next]));
+        } catch (e) {
+          console.error("Failed to save untracked games to localStorage:", e);
+        }
+        return next;
+      });
+      // Drop the exe from the watcher index so a stale process match can't
+      // resurrect the deleted game as a phantom running entry.
+      scheduleWatcherIndexRebuild();
+    },
+    [scheduleWatcherIndexRebuild]
+  );
 
-  const removeGames = useCallback((predicate: (game: Game) => boolean) => {
-    setGames((prev) => {
-      if (!prev.some(predicate)) return prev;
-      return prev.filter((g) => !predicate(g));
-    });
-    // Refresh the index so removed exes stop matching (a harmless no-op
-    // rebuild when the predicate matched nothing).
-    scheduleWatcherIndexRebuild();
-  }, [scheduleWatcherIndexRebuild]);
+  const removeGames = useCallback(
+    (predicate: (game: Game) => boolean) => {
+      setGames((prev) => {
+        if (!prev.some(predicate)) return prev;
+        const removed = prev.filter(predicate);
+        if (removed.length > 0) {
+          setUntrackedGameIds((oldUntracked) => {
+            const next = new Set(oldUntracked);
+            for (const g of removed) {
+              next.delete(g.id);
+            }
+            try {
+              localStorage.setItem(LS_UNTRACKED_GAMES, JSON.stringify([...next]));
+            } catch (e) {}
+            return next;
+          });
+        }
+        return prev.filter((g) => !predicate(g));
+      });
+      // Refresh the index so removed exes stop matching (a harmless no-op
+      // rebuild when the predicate matched nothing).
+      scheduleWatcherIndexRebuild();
+    },
+    [scheduleWatcherIndexRebuild]
+  );
+
+  const gamesWithTracking = useMemo(
+    () => games.map((g) => ({ ...g, untracked: untrackedGameIds.has(g.id) })),
+    [games, untrackedGameIds]
+  );
 
   const getGame = useCallback(
-    (id: string) => games.find((g) => g.id === id),
-    [games]
+    (id: string) => gamesWithTracking.find((g) => g.id === id),
+    [gamesWithTracking]
   );
 
   const forceCloseGame = useCallback(async (game: Game) => {
@@ -1223,7 +1314,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
   return (
     <GameContext.Provider
       value={{
-        games,
+        games: gamesWithTracking,
         selectedGameId,
         setSelectedGameId,
         addGame,
@@ -1239,6 +1330,8 @@ export function GameProvider({ children }: { children: ReactNode }) {
         importLocalGames,
         fetchGameReviews,
         enrichGameMetadata,
+        isGameUntracked,
+        toggleGameTracking,
       }}
     >
       {children}

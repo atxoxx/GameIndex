@@ -65,7 +65,7 @@ interface EditGameModalProps {
 
 export function EditGameModal({ game, onClose }: EditGameModalProps) {
   const { showToast } = useToast();
-  const { updateGame } = useGames();
+  const { updateGame, isGameUntracked, toggleGameTracking } = useGames();
   const { unit: sizeUnit } = useSizeUnit();
   const { t } = useLanguage();
 
@@ -74,6 +74,7 @@ export function EditGameModal({ game, onClose }: EditGameModalProps) {
   const [editName, setEditName] = useState(game.name);
   const [editPlatform, setEditPlatform] = useState(game.platform);
   const [editPlayStatus, setEditPlayStatus] = useState<PlayStatus>(game.playStatus || "backlog");
+  const [editUntracked, setEditUntracked] = useState(game.untracked ?? isGameUntracked(game.id));
   const [editDeveloper, setEditDeveloper] = useState(game.developer || "");
   const [editPublisher, setEditPublisher] = useState(game.publisher || "");
   const [editReleaseDate, setEditReleaseDate] = useState(game.releaseDate || "");
@@ -617,6 +618,9 @@ export function EditGameModal({ game, onClose }: EditGameModalProps) {
         Math.max(0, Math.min(59, Math.floor(editPlaytimeMinutes)))
       ),
     });
+    if (editUntracked !== (game.untracked ?? isGameUntracked(game.id))) {
+      toggleGameTracking(game.id, editUntracked);
+    }
     onClose();
     showToast("Game updated", "success");
   }
@@ -1372,6 +1376,37 @@ export function EditGameModal({ game, onClose }: EditGameModalProps) {
                     </div>
                   </div>
                   <div className={`edit-toggle-switch ${editRunAsAdmin ? "active" : ""}`} aria-hidden="true">
+                    <div className="edit-toggle-knob" />
+                  </div>
+                </div>
+
+                {/* Do Not Track Game Card */}
+                <div
+                  className={`edit-launch-card edit-launch-toggle-card ${editUntracked ? "is-enabled" : ""}`}
+                  onClick={() => setEditUntracked(!editUntracked)}
+                  role="button"
+                  tabIndex={0}
+                  onKeyDown={(e) => { if (e.key === " " || e.key === "Enter") { e.preventDefault(); setEditUntracked(!editUntracked); } }}
+                >
+                  <div className="edit-launch-toggle-main">
+                    <div className="edit-launch-card-icon edit-launch-icon-track">
+                      <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                        <circle cx="12" cy="12" r="10" />
+                        <polyline points="12 6 12 12 16 14" />
+                        {editUntracked && <line x1="2" y1="2" x2="22" y2="22" />}
+                      </svg>
+                    </div>
+                    <div className="edit-launch-toggle-text">
+                      <div className="edit-launch-toggle-title-row">
+                        <h4 className="edit-launch-card-title">{t("edit.doNotTrack")}</h4>
+                        <span className={`edit-launch-badge ${editUntracked ? "active" : "muted"}`}>
+                          {editUntracked ? t("edit.badgeUntracked") : t("edit.badgeTracked")}
+                        </span>
+                      </div>
+                      <p className="edit-launch-card-desc">{t("edit.doNotTrackHint")}</p>
+                    </div>
+                  </div>
+                  <div className={`edit-toggle-switch ${editUntracked ? "active" : ""}`} aria-hidden="true">
                     <div className="edit-toggle-knob" />
                   </div>
                 </div>

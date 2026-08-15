@@ -211,6 +211,7 @@ function GameDetail({ game }: { game: Game }) {
 
         <div className="game-top-bar__actions">
           <GameQuickActions
+            game={game}
             gameName={game.name}
             steamAppId={game.steamAppId}
             executablePath={game.path}

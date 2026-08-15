@@ -185,6 +185,8 @@ export interface Game {
   /** Extra executables launched alongside the game (e.g. a server or overlay). */
   companionApps?: CompanionApp[];
   playStatus?: PlayStatus;
+  /** When true, the game is excluded from playtime tracking and passive process detection. */
+  untracked?: boolean;
 }
 
 /** An additional executable launched alongside the main game. */
@@ -1235,6 +1237,9 @@ export const STORE_SORTS: readonly StoreSort[] = [
   "name",
   "name_desc",
 ] as const;
+
+/** localStorage key for the set of untracked game IDs (excluded from playtime & process watching). */
+export const LS_UNTRACKED_GAMES = "gamelib.untracked_games";
 
 // ─── Store: Recently Viewed / Hidden / Presets (localStorage) ────────────────
 

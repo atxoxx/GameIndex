@@ -2,6 +2,7 @@ import { useState, useRef, useEffect } from "react";
 import { openPath, openUrl } from "@tauri-apps/plugin-opener";
 import { useToast } from "../../context/ToastContext";
 import { useLanguage } from "../../context/LanguageContext";
+import { useGames } from "../../context/GameContext";
 import type { Game } from "../../types/game";
 
 export interface GameQuickActionsProps {
@@ -11,21 +12,44 @@ export interface GameQuickActionsProps {
   executablePath?: string | null;
   onEdit?: () => void;
   onRemove?: () => void;
+  onToggleTrack?: () => void;
   isStoreMode?: boolean;
 }
 
 export default function GameQuickActions({
+  game,
   gameName,
   steamAppId,
   executablePath,
   onEdit,
   onRemove,
+  onToggleTrack,
   isStoreMode,
 }: GameQuickActionsProps) {
   const [open, setOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement | null>(null);
   const { showToast } = useToast();
   const { t } = useLanguage();
+  const { isGameUntracked, toggleGameTracking } = useGames();
+
+  const isUntracked = game ? (game.untracked ?? isGameUntracked(game.id)) : false;
+
+  const handleToggleTracking = () => {
+    if (!game) return;
+    if (onToggleTrack) {
+      onToggleTrack();
+    } else {
+      const nextUntracked = !isUntracked;
+      toggleGameTracking(game.id, nextUntracked);
+      showToast(
+        nextUntracked
+          ? t("gamePage.trackingDisabledToast", { name: game.name || gameName })
+          : t("gamePage.trackingEnabledToast", { name: game.name || gameName }),
+        "info"
+      );
+    }
+    setOpen(false);
+  };
 
   // Close on outside click
   useEffect(() => {
@@ -230,10 +254,37 @@ export default function GameQuickActions({
             </button>
           )}
 
-          {/* Edit / Remove actions in Library Mode */}
-          {!isStoreMode && (onEdit || onRemove) && (
+          {/* Edit / Untrack / Remove actions in Library Mode */}
+          {!isStoreMode && (onEdit || onRemove || game) && (
             <>
               <div className="game-quick-actions__divider" />
+              {game && (
+                <button
+                  type="button"
+                  className="game-quick-actions__item"
+                  role="menuitem"
+                  onClick={handleToggleTracking}
+                >
+                  {isUntracked ? (
+                    <>
+                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                        <circle cx="12" cy="12" r="10" />
+                        <polyline points="12 6 12 12 16 14" />
+                      </svg>
+                      <span>{t("gamePage.enableTracking")}</span>
+                    </>
+                  ) : (
+                    <>
+                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                        <path d="M12 2a10 10 0 1 0 10 10" />
+                        <path d="M12 6v6l4 2" />
+                        <line x1="2" y1="2" x2="22" y2="22" />
+                      </svg>
+                      <span>{t("gamePage.disableTracking")}</span>
+                    </>
+                  )}
+                </button>
+              )}
               {onEdit && (
                 <button
                   type="button"

@@ -987,6 +987,12 @@
   border-color: color-mix(in srgb, #f43f5e 30%, transparent);
 }
 
+.edit-launch-icon-track {
+  background: color-mix(in srgb, #6366f1 15%, transparent);
+  color: #818cf8;
+  border-color: color-mix(in srgb, #6366f1 30%, transparent);
+}
+
 .edit-launch-card-header-text {
   flex: 1;
   min-width: 0;
