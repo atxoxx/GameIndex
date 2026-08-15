@@ -21,6 +21,9 @@ interface PlaytesterPanelProps {
   error: string | null;
   empty: boolean;
   density: string;
+  hasMore: boolean;
+  loadingMore: boolean;
+  onLoadMore: () => void;
   onInspect: (game: PlaytesterGame) => void;
   onReload: () => void;
 }
@@ -33,6 +36,9 @@ export default function PlaytesterPanel({
   error,
   empty,
   density,
+  hasMore,
+  loadingMore,
+  onLoadMore,
   onInspect,
   onReload,
 }: PlaytesterPanelProps) {
@@ -449,6 +455,20 @@ export default function PlaytesterPanel({
               density={density}
             />
           ))}
+        </div>
+      )}
+
+      {!loading && !error && processedGames.length > 0 && hasMore && (
+        <div className="deals-load-more">
+          <Button
+            variant="secondary"
+            size="md"
+            isLoading={loadingMore}
+            disabled={loadingMore}
+            onClick={onLoadMore}
+          >
+            {t("deals.loadMore")}
+          </Button>
         </div>
       )}
     </section>

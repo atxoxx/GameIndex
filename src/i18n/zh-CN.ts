@@ -1005,6 +1005,7 @@ export const zhCN: TranslationDict = {
   "deals.genre": "类型",
   "deals.install": "安装",
   "deals.languages": "语言",
+  "deals.loadMore": "加载更多",
   "deals.openPlaytesterLabel": "打开 {game} 的详情",
   "deals.platforms": "平台",
   "deals.playtester": "Playtester",

@@ -313,3 +313,8 @@ export const DEFAULT_PLAYTESTER_FILTERS: PlaytesterFiltersState = {
   hideOwned: false,
   wishlistOnly: false,
 };
+
+/** Number of Playtester listing pages (homepage + category pages) scraped
+ * per `fetch_playtester_games` call. The frontend walks the feed with this
+ * as its "load more" chunk size. */
+export const PLAYTESTER_PAGE_SIZE = 20;

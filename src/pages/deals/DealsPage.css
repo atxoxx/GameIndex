@@ -570,6 +570,12 @@
   gap: var(--space-xs);
 }
 
+.deals-load-more {
+  display: flex;
+  justify-content: center;
+  padding: var(--space-lg) 0 var(--space-xs);
+}
+
 /* ─── Deal Card ─── */
 .deals-deal-card {
   position: relative;

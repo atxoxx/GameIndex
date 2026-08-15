@@ -1005,6 +1005,7 @@ export const de: TranslationDict = {
   "deals.genre": "Genre",
   "deals.install": "Installieren",
   "deals.languages": "Sprachen",
+  "deals.loadMore": "Mehr laden",
   "deals.openPlaytesterLabel": "Details für {game} öffnen",
   "deals.platforms": "Plattformen",
   "deals.playtester": "Playtester",

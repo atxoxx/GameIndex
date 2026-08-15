@@ -1322,9 +1322,15 @@ fn ts_to_iso(ts: Option<i64>) -> Option<String> {
 /// pages, dedupe by slug, and sort by most-recently-added so the
 /// subtab has a meaningful catalog to filter/sort against.
 
-/// Homepage ("latest") plus a curated set of popular category slugs.
-/// Kept small so a single refresh stays polite to the origin.
+/// Homepage ("latest") — always the first page of the feed.
 const PLAYTESTER_HOMEPAGE: &str = "https://playtester.io/";
+
+/// The categories sitemap lists every category slug — our source for the
+/// full paginated catalog (fetched once per request; it's small).
+const PLAYTESTER_CATEGORIES_SITEMAP: &str =
+    "https://playtester.io/categories-sitemap.xml";
+
+/// Fallback category set when the sitemap can't be reached.
 const PLAYTESTER_CATEGORIES: &[&str] = &[
     "cozy",
     "horror",
@@ -1364,6 +1370,17 @@ pub struct PlaytesterGame {
     pub date_added: Option<String>,
     /// Absolute URL of the game page on Playtester.
     pub url: String,
+}
+
+/// A page of the Playtester feed, plus cursor info for "load more".
+#[derive(Debug, Serialize, Deserialize, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct PlaytesterFeed {
+    pub games: Vec<PlaytesterGame>,
+    pub has_more: bool,
+    pub next_offset: u32,
+    /// Total number of listing pages (homepage + category pages).
+    pub total: u32,
 }
 
 /// One platform link (name + store URL) on a game detail page.
@@ -1455,6 +1472,43 @@ async fn fetch_playtester_page(
     resp.text()
         .await
         .map_err(|e| format!("Playtester body read failed: {}", e))
+}
+
+/// Extract `/categories/{slug}` entries from the categories sitemap.
+fn parse_category_slugs(xml: &str) -> Vec<String> {
+    let mut slugs: Vec<String> = Vec::new();
+    let mut rest = xml;
+    while let Some(start) = rest.find("/categories/") {
+        let after = &rest[start + "/categories/".len()..];
+        let end = after.find('<').unwrap_or(after.len());
+        let slug = after[..end].trim();
+        if !slug.is_empty() && !slugs.iter().any(|s| s == slug) {
+            slugs.push(slug.to_string());
+        }
+        rest = &after[end..];
+    }
+    slugs
+}
+
+/// Fetch the full category list from the sitemap, falling back to the
+/// curated set when the request fails.
+async fn fetch_playtester_categories(
+    client: &reqwest::Client,
+) -> Vec<String> {
+    match fetch_playtester_page(client, PLAYTESTER_CATEGORIES_SITEMAP).await {
+        Ok(xml) => {
+            let slugs = parse_category_slugs(&xml);
+            if slugs.is_empty() {
+                PLAYTESTER_CATEGORIES.iter().map(|s| s.to_string()).collect()
+            } else {
+                slugs
+            }
+        }
+        Err(e) => {
+            eprintln!("[deals] Playtester categories sitemap failed: {}", e);
+            PLAYTESTER_CATEGORIES.iter().map(|s| s.to_string()).collect()
+        }
+    }
 }
 
 /// Derive the thumbnail URL from a slug. Playtester serves card art at
@@ -1789,29 +1843,46 @@ fn parse_playtester_cards(html: &str) -> Vec<PlaytesterGame> {
     games
 }
 
-/// Fetch the current Playtester catalog: the homepage plus a handful of
-/// popular category pages, deduped by slug and sorted newest-first.
+/// Fetch a page of the Playtester catalog.
 ///
-/// Pages are fetched concurrently (same pattern as the GamePass batch
-/// fetch) so a refresh is a single round-trip's worth of latency.
-/// Individual page failures are logged and skipped — one bad page
-/// shouldn't fail the whole refresh.
+/// The feed is the homepage ("latest") plus one page per category slug
+/// (from the categories sitemap). `offset`/`limit` select which listing
+/// pages to scrape this call, so the frontend can implement a
+/// "load more" that progressively walks the full catalog — mirroring
+/// the site's infinite scroll without relying on its (build-specific)
+/// Next.js server actions.
+///
+/// Pages in the batch are fetched with bounded concurrency (8 at a
+/// time) to stay polite to the origin. Individual page failures are
+/// logged and skipped. Results are deduped by slug within the batch
+/// and sorted newest-first; the frontend dedupes across batches.
 #[tauri::command]
-pub async fn fetch_playtester_games() -> Result<Vec<PlaytesterGame>, String> {
+pub async fn fetch_playtester_games(
+    offset: u32,
+    limit: u32,
+) -> Result<PlaytesterFeed, String> {
     let client = http_client()?;
+    let categories = fetch_playtester_categories(&client).await;
 
     let mut urls: Vec<String> = vec![PLAYTESTER_HOMEPAGE.to_string()];
     urls.extend(
-        PLAYTESTER_CATEGORIES
+        categories
             .iter()
             .map(|c| format!("https://playtester.io/categories/{}", c)),
     );
 
-    let page_futures = urls
-        .iter()
-        .map(|url| fetch_playtester_page(&client, url))
-        .collect::<Vec<_>>();
-    let results = futures::future::join_all(page_futures).await;
+    let limit = limit.clamp(1, 50) as usize;
+    let offset = (offset as usize).min(urls.len());
+    let end = (offset + limit).min(urls.len());
+    let batch = &urls[offset..end];
+
+    let client_ref = &client;
+    let tasks: Vec<String> = batch.iter().cloned().collect();
+    let results: Vec<Result<String, String>> = stream::iter(tasks)
+        .map(|url| async move { fetch_playtester_page(client_ref, &url).await })
+        .buffer_unordered(8)
+        .collect()
+        .await;
 
     let mut games: Vec<PlaytesterGame> = Vec::new();
     for (idx, result) in results.into_iter().enumerate() {
@@ -1823,7 +1894,7 @@ pub async fn fetch_playtester_games() -> Result<Vec<PlaytesterGame>, String> {
                 let parsed = match parse_playtester_flight(&html) {
                     Some(g) if !g.is_empty() => g,
                     _ => {
-                        if idx == 0 {
+                        if idx == 0 && offset == 0 {
                             eprintln!(
                                 "[deals] Playtester homepage flight parse failed — falling back to HTML cards."
                             );
@@ -1849,7 +1920,12 @@ pub async fn fetch_playtester_games() -> Result<Vec<PlaytesterGame>, String> {
         tb.cmp(ta)
     });
 
-    Ok(games)
+    Ok(PlaytesterFeed {
+        games,
+        has_more: end < urls.len(),
+        next_offset: end as u32,
+        total: urls.len() as u32,
+    })
 }
 
 /// Sanitize a user-supplied slug so we only ever request a bare

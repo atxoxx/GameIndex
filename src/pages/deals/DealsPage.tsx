@@ -6,6 +6,7 @@ import type {
   GamePassGame,
   Giveaway,
   PlaytesterGame,
+  PlaytesterFeed,
 } from "../../types/deals";
 import { PageHeader } from "../../components/ui";
 import { useLanguage } from "../../context/LanguageContext";
@@ -17,6 +18,7 @@ import {
   DEFAULT_GP_FILTERS,
   DEFAULT_DEAL_FILTERS,
   DEFAULT_PLAYTESTER_FILTERS,
+  PLAYTESTER_PAGE_SIZE,
   buildGamePassPayload,
   buildDealsPayload,
 } from "./dealsConstants";
@@ -61,6 +63,9 @@ export default function DealsPage() {
   );
   const [ptGames, setPtGames] = useState<PlaytesterGame[]>([]);
   const [ptLoading, setPtLoading] = useState(false);
+  const [ptLoadingMore, setPtLoadingMore] = useState(false);
+  const [ptHasMore, setPtHasMore] = useState(false);
+  const [ptNextOffset, setPtNextOffset] = useState(0);
   const [ptError, setPtError] = useState<string | null>(null);
   const [ptEmpty, setPtEmpty] = useState(false);
 
@@ -168,13 +173,19 @@ export default function DealsPage() {
   const loadPlaytester = useCallback(async () => {
     const myRequest = ++ptRequestId.current;
     setPtLoading(true);
+    setPtLoadingMore(false);
     setPtError(null);
     setPtEmpty(false);
     try {
-      const result = await invoke<PlaytesterGame[]>("fetch_playtester_games");
+      const result = await invoke<PlaytesterFeed>("fetch_playtester_games", {
+        offset: 0,
+        limit: PLAYTESTER_PAGE_SIZE,
+      });
       if (myRequest !== ptRequestId.current) return;
-      setPtGames(result);
-      setPtEmpty(result.length === 0);
+      setPtGames(result.games);
+      setPtHasMore(result.hasMore);
+      setPtNextOffset(result.nextOffset);
+      setPtEmpty(result.games.length === 0);
     } catch (err) {
       if (myRequest !== ptRequestId.current) return;
       const message =
@@ -185,10 +196,42 @@ export default function DealsPage() {
             : t("deals.errorPlaytester");
       setPtError(message);
       setPtGames([]);
+      setPtHasMore(false);
     } finally {
       if (myRequest === ptRequestId.current) setPtLoading(false);
     }
   }, [t]);
+
+  const loadMorePlaytester = useCallback(async () => {
+    if (ptLoadingMore || !ptHasMore) return;
+    const myRequest = ptRequestId.current;
+    setPtLoadingMore(true);
+    try {
+      const result = await invoke<PlaytesterFeed>("fetch_playtester_games", {
+        offset: ptNextOffset,
+        limit: PLAYTESTER_PAGE_SIZE,
+      });
+      if (myRequest !== ptRequestId.current) return;
+      setPtGames((prev) => {
+        const seen = new Set(prev.map((g) => g.id));
+        const fresh = result.games.filter((g) => !seen.has(g.id));
+        return fresh.length > 0 ? [...prev, ...fresh] : prev;
+      });
+      setPtHasMore(result.hasMore);
+      setPtNextOffset(result.nextOffset);
+    } catch (err) {
+      if (myRequest !== ptRequestId.current) return;
+      const message =
+        err instanceof Error
+          ? err.message
+          : typeof err === "string"
+            ? err
+            : t("deals.errorPlaytester");
+      showToast(message, "error");
+    } finally {
+      if (myRequest === ptRequestId.current) setPtLoadingMore(false);
+    }
+  }, [ptLoadingMore, ptHasMore, ptNextOffset, showToast, t]);
 
   useEffect(() => {
     if (activeSubTab === "gamepass") void loadGamePass();
@@ -428,6 +471,9 @@ export default function DealsPage() {
           error={ptError}
           empty={ptEmpty}
           density="cinematic"
+          hasMore={ptHasMore}
+          loadingMore={ptLoadingMore}
+          onLoadMore={loadMorePlaytester}
           onInspect={handleInspectPlaytester}
           onReload={() => setPtReloadNonce((n) => n + 1)}
         />

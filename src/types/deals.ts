@@ -131,6 +131,16 @@ export interface PlaytesterGame {
   url: string;
 }
 
+/** A page of the Playtester feed, plus cursor info for "load more".
+ * Returned by `fetch_playtester_games`. */
+export interface PlaytesterFeed {
+  games: PlaytesterGame[];
+  hasMore: boolean;
+  nextOffset: number;
+  /** Total number of listing pages (homepage + category pages). */
+  total: number;
+}
+
 /** One platform link (name + store URL) on a Playtester detail page. */
 export interface PlaytesterPlatformLink {
   name: string;

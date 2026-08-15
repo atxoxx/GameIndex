@@ -1005,6 +1005,7 @@ export const ru: TranslationDict = {
   "deals.genre": "Жанр",
   "deals.install": "Установить",
   "deals.languages": "Языки",
+  "deals.loadMore": "Загрузить ещё",
   "deals.openPlaytesterLabel": "Открыть сведения о {game}",
   "deals.platforms": "Платформы",
   "deals.playtester": "Playtester",
