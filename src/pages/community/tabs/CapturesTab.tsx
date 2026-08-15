@@ -1,4 +1,5 @@
 import { useState, useMemo, useCallback, useEffect, useRef } from "react";
+import { createPortal } from "react-dom";
 import { open as tauriOpen } from "@tauri-apps/plugin-dialog";
 import { invoke, convertFileSrc } from "@tauri-apps/api/core";
 import { useLanguage } from "../../../context/LanguageContext";
@@ -11,9 +12,11 @@ import {
   saveScreenshotCache,
   loadManualFolder,
   saveManualFolder,
+  loadCustomFolders,
+  saveCustomFolders,
 } from "../statsStorage";
 import type { Game } from "../../../types/game";
-import type { ScreenshotGroup } from "../statsTypes";
+import type { ScreenshotGroup, CustomFolder } from "../statsTypes";
 
 const VIDEO_EXTS = ["mp4", "webm", "mov", "mkv"];
 function isVideoPath(p: string): boolean {
@@ -21,7 +24,7 @@ function isVideoPath(p: string): boolean {
   return VIDEO_EXTS.includes(ext);
 }
 
-const SOURCE_PILLS = ["steam", "nvidia", "amd", "obs", "windows"] as const;
+const SOURCE_PILLS = ["steam", "nvidia", "amd", "obs", "windows", "custom"] as const;
 function sourceLabel(src: string): string {
   switch (src) {
     case "steam": return "Steam";
@@ -29,9 +32,16 @@ function sourceLabel(src: string): string {
     case "amd": return "AMD";
     case "obs": return "OBS";
     case "windows": return "Xbox";
+    case "custom": return "Custom";
     default: return src;
   }
 }
+
+const folderIcon = (
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" width="15" height="15">
+    <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z" />
+  </svg>
+);
 
 // Global in-memory cache for resolved base64 data URLs
 const mediaDataUrlCache = new Map<string, string>();
@@ -198,6 +208,141 @@ function LightboxMedia({ path }: LightboxMediaProps) {
   );
 }
 
+interface CarouselThumbProps {
+  path: string;
+  active: boolean;
+  onClick: () => void;
+}
+
+function CarouselThumb({ path, active, onClick }: CarouselThumbProps) {
+  const [failed, setFailed] = useState(false);
+  const [src, setSrc] = useState<string>(() => mediaDataUrlCache.get(path) || convertFileSrc(path));
+  const isVid = isVideoPath(path);
+  const fileName = path.split(/[\\/]/).pop() || path;
+
+  useEffect(() => {
+    setFailed(false);
+    setSrc(mediaDataUrlCache.get(path) || convertFileSrc(path));
+  }, [path]);
+
+  const handleError = useCallback(() => {
+    invoke<string>("read_cover_image", { filePath: path })
+      .then((dataUrl) => {
+        mediaDataUrlCache.set(path, dataUrl);
+        setSrc(dataUrl);
+      })
+      .catch(() => {
+        setFailed(true);
+      });
+  }, [path]);
+
+  return (
+    <button
+      type="button"
+      className={`stats-carousel-thumb${active ? " active" : ""}`}
+      onClick={onClick}
+      title={fileName}
+      aria-label={fileName}
+    >
+      {!failed ? (
+        isVid ? (
+          <video src={src} muted preload="metadata" onError={handleError} />
+        ) : (
+          <img src={src} alt="" loading="lazy" onError={handleError} />
+        )
+      ) : (
+        <span className="stats-carousel-thumb-fallback">📷</span>
+      )}
+      {isVid && !failed && <span className="stats-carousel-vid-badge">▶</span>}
+    </button>
+  );
+}
+
+interface AddFolderModalProps {
+  isAdding: boolean;
+  onCancel: () => void;
+  onConfirm: (name: string, folderPath: string) => void;
+}
+
+function AddFolderModal({ isAdding, onCancel, onConfirm }: AddFolderModalProps) {
+  const { t } = useLanguage();
+  const { showToast } = useToast();
+  const [name, setName] = useState("");
+  const [folderPath, setFolderPath] = useState("");
+  const [picking, setPicking] = useState(false);
+
+  const canConfirm = name.trim().length > 0 && folderPath.length > 0 && !isAdding;
+
+  const handlePick = useCallback(async () => {
+    try {
+      setPicking(true);
+      const chosen = await tauriOpen({
+        directory: true,
+        multiple: false,
+        title: t("communityExtras.selectFolder"),
+      });
+      if (typeof chosen === "string" && chosen.length > 0) {
+        setFolderPath(chosen);
+      }
+    } catch (err) {
+      console.error("[Captures] Folder pick failed:", err);
+      showToast(t("community.scanFailed"), "error");
+    } finally {
+      setPicking(false);
+    }
+  }, [showToast, t]);
+
+  return (
+    <div className="stats-add-folder-overlay" onClick={onCancel}>
+      <div className="stats-add-folder-modal" onClick={(e) => e.stopPropagation()}>
+        <h3 className="stats-add-folder-title">{t("community.addCustomFolder")}</h3>
+
+        <label className="stats-add-folder-label">
+          <span>{t("community.customFolderName")}</span>
+          <input
+            type="text"
+            className="stats-add-folder-input"
+            value={name}
+            placeholder={t("community.customFolderName")}
+            autoFocus
+            onChange={(e) => setName(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter" && canConfirm) onConfirm(name, folderPath);
+            }}
+          />
+        </label>
+
+        <div className="stats-add-folder-path-row">
+          <span className="stats-add-folder-path" title={folderPath}>
+            {folderPath ? folderPath.split(/[\\/]/).pop() || folderPath : t("community.noFolderSelected")}
+          </span>
+          <Button
+            variant="secondary"
+            onClick={handlePick}
+            disabled={picking}
+            leftIcon={folderIcon}
+          >
+            {t("community.pickCustomFolder")}
+          </Button>
+        </div>
+
+        <div className="stats-add-folder-actions">
+          <Button variant="secondary" onClick={onCancel}>
+            {t("common.cancel")}
+          </Button>
+          <Button
+            variant="primary"
+            onClick={() => onConfirm(name, folderPath)}
+            disabled={!canConfirm}
+          >
+            {isAdding ? t("community.scanning") : t("common.add")}
+          </Button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 interface CapturesTabProps {
   games: Game[];
 }
@@ -225,11 +370,11 @@ export function CapturesTab({ games }: CapturesTabProps) {
 
   // State
   const [groups, setGroups] = useState<ScreenshotGroup[]>([]);
+  const [customFolders, setCustomFolders] = useState<CustomFolder[]>([]);
   const [expandedKeys, setExpandedKeys] = useState<Set<string>>(new Set());
   const [isDetecting, setIsDetecting] = useState(false);
-  const [manualImages, setManualImages] = useState<string[]>([]);
-  const [selectedFolder, setSelectedFolder] = useState<string | null>(null);
   const [isScanning, setIsScanning] = useState(false);
+  const [isAddFolderOpen, setIsAddFolderOpen] = useState(false);
 
   // Filters & View Mode
   const [search, setSearch] = useState("");
@@ -242,6 +387,7 @@ export function CapturesTab({ games }: CapturesTabProps) {
   // Lightbox & Slideshow
   const [lightboxIndex, setLightboxIndex] = useState<number | null>(null);
   const [slideshow, setSlideshow] = useState(false);
+  const carouselTrackRef = useRef<HTMLDivElement | null>(null);
 
   // Initial re-hydrate on mount
   useEffect(() => {
@@ -256,14 +402,30 @@ export function CapturesTab({ games }: CapturesTabProps) {
       setExpandedKeys(initialExpanded);
     }
 
-    const savedFolder = loadManualFolder();
-    if (savedFolder) {
-      setSelectedFolder(savedFolder);
-      setIsScanning(true);
-      invoke<string[]>("list_media_files", { folderPath: savedFolder })
-        .then((paths) => setManualImages(paths))
-        .catch(() => setManualImages([]))
-        .finally(() => setIsScanning(false));
+    const savedCustom = loadCustomFolders();
+    const legacyFolder = loadManualFolder();
+    if (savedCustom.length === 0 && legacyFolder) {
+      // Migrate the old single manual folder into a named custom folder.
+      const migrated: CustomFolder = {
+        id: `custom-${Date.now().toString(36)}`,
+        name: legacyFolder.split(/[\\/]/).pop() || "Custom Folder",
+        folderPath: legacyFolder,
+        media: [],
+      };
+      setCustomFolders([migrated]);
+      saveCustomFolders([migrated]);
+      saveManualFolder(null);
+      invoke<string[]>("list_media_files", { folderPath: legacyFolder })
+        .then((paths) => {
+          setCustomFolders((prev) => {
+            const next = prev.map((f) => (f.id === migrated.id ? { ...f, media: paths } : f));
+            saveCustomFolders(next);
+            return next;
+          });
+        })
+        .catch(() => {});
+    } else if (savedCustom.length > 0) {
+      setCustomFolders(savedCustom);
     }
 
     handleAutoDetect(true);
@@ -275,8 +437,6 @@ export function CapturesTab({ games }: CapturesTabProps) {
     setIsDetecting(true);
     if (!silent) {
       setGroups([]);
-      setManualImages([]);
-      setSelectedFolder(null);
       setExpandedKeys(new Set());
     }
 
@@ -359,38 +519,71 @@ export function CapturesTab({ games }: CapturesTabProps) {
     }
   }, [showToast, t]);
 
-  // Pick folder
-  const handlePickFolder = useCallback(async () => {
+  // Add a named custom folder
+  const handleAddFolder = useCallback(async (name: string, folderPath: string) => {
+    const trimmed = name.trim();
+    if (customFolders.some((f) => f.name.toLowerCase() === trimmed.toLowerCase())) {
+      showToast(t("community.folderExists"), "error");
+      return;
+    }
+
+    setIsScanning(true);
     try {
-      const folderPath = await tauriOpen({
-        directory: true,
-        multiple: false,
-        title: t("communityExtras.selectFolder"),
-      });
-      if (!folderPath || typeof folderPath !== "string") return;
-
-      setGroups([]);
-      setSelectedFolder(folderPath);
-      setIsScanning(true);
-
       const paths: string[] = await invoke("list_media_files", { folderPath });
-      setManualImages(paths);
-      saveManualFolder(folderPath);
-      if (paths.length === 0) {
-        showToast(t("community.noImagesInFolder"), "info");
-      }
+      const folder: CustomFolder = {
+        id: `custom-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 7)}`,
+        name: trimmed,
+        folderPath,
+        media: paths,
+      };
+      setCustomFolders((prev) => {
+        const next = [...prev, folder];
+        saveCustomFolders(next);
+        return next;
+      });
+      setIsAddFolderOpen(false);
+      showToast(t("community.folderAdded"), "success");
     } catch (err) {
       console.error("[Captures] Failed to scan folder:", err);
       showToast(t("community.scanFailed"), "error");
     } finally {
       setIsScanning(false);
     }
+  }, [customFolders, showToast, t]);
+
+  const removeCustomFolder = useCallback((id: string) => {
+    setCustomFolders((prev) => {
+      const next = prev.filter((f) => f.id !== id);
+      saveCustomFolders(next);
+      return next;
+    });
+    showToast(t("community.folderRemoved"), "info");
   }, [showToast, t]);
+
+  // Custom folders rendered as groups alongside auto-detected ones
+  const customGroups = useMemo<ScreenshotGroup[]>(
+    () =>
+      customFolders.map((f) => ({
+        key: `custom-${f.id}`,
+        gameName: f.name,
+        folderPath: f.folderPath,
+        screenshots: f.media,
+        source: "custom",
+        customFolderId: f.id,
+      })),
+    [customFolders]
+  );
+
+  const allGroups = useMemo(() => {
+    const merged = [...groups, ...customGroups];
+    merged.sort((a, b) => a.gameName.localeCompare(b.gameName));
+    return merged;
+  }, [groups, customGroups]);
 
   // Filtered groups
   const filteredGroups = useMemo(() => {
     const q = search.trim().toLowerCase();
-    return groups
+    return allGroups
       .filter((g) => {
         if (sourceFilter && g.source !== sourceFilter) return false;
         if (q && !g.gameName.toLowerCase().includes(q)) return false;
@@ -405,21 +598,7 @@ export function CapturesTab({ games }: CapturesTabProps) {
         return { ...g, screenshots: shots };
       })
       .filter((g) => g.screenshots.length > 0);
-  }, [groups, search, sourceFilter, showFavOnly, mediaTypeFilter, favorites]);
-
-  // Filtered manual images
-  const filteredManual = useMemo(() => {
-    const q = search.trim().toLowerCase();
-    return manualImages
-      .filter((p) => (showFavOnly ? favorites.has(p) : true))
-      .filter((p) => (sourceFilter ? p.toLowerCase().includes(sourceFilter) : true))
-      .filter((p) => (q ? p.toLowerCase().includes(q) : true))
-      .filter((p) => {
-        if (mediaTypeFilter === "images") return !isVideoPath(p);
-        if (mediaTypeFilter === "videos") return isVideoPath(p);
-        return true;
-      });
-  }, [manualImages, showFavOnly, sourceFilter, search, mediaTypeFilter, favorites]);
+  }, [allGroups, search, sourceFilter, showFavOnly, mediaTypeFilter, favorites]);
 
   // Flat array of visible captures for lightbox
   const allCaptures = useMemo(() => {
@@ -429,12 +608,16 @@ export function CapturesTab({ games }: CapturesTabProps) {
         list.push({ path: s, gameName: g.gameName, groupKey: g.key });
       }
     }
-    const manualName = selectedFolder ? selectedFolder.split(/[\\/]/).pop() || "Capture" : "Capture";
-    for (const p of filteredManual) {
-      list.push({ path: p, gameName: manualName, groupKey: "manual" });
-    }
     return list;
-  }, [filteredGroups, filteredManual, selectedFolder]);
+  }, [filteredGroups]);
+
+  // Captures belonging to the currently open image's group (for the carousel)
+  const currentGroupCaptures = useMemo(() => {
+    if (lightboxIndex === null) return [];
+    const current = allCaptures[lightboxIndex];
+    if (!current) return [];
+    return allCaptures.filter((c) => c.groupKey === current.groupKey);
+  }, [lightboxIndex, allCaptures]);
 
   // Accordion toggling
   const toggleGroup = useCallback((key: string) => {
@@ -486,6 +669,17 @@ export function CapturesTab({ games }: CapturesTabProps) {
     return () => clearInterval(timer);
   }, [slideshow, lightboxIndex, goNext]);
 
+  // Keep the active carousel thumbnail in view
+  useEffect(() => {
+    if (lightboxIndex === null) return;
+    const track = carouselTrackRef.current;
+    if (!track) return;
+    const active = track.querySelector(".stats-carousel-thumb.active");
+    if (active) {
+      active.scrollIntoView({ behavior: "smooth", inline: "center", block: "nearest" });
+    }
+  }, [lightboxIndex, currentGroupCaptures]);
+
   // Keyboard navigation
   useEffect(() => {
     if (lightboxIndex === null) return;
@@ -502,7 +696,7 @@ export function CapturesTab({ games }: CapturesTabProps) {
     return () => window.removeEventListener("keydown", onKeyDown);
   }, [lightboxIndex, closeLightbox, goNext, goPrev]);
 
-  const hasContent = groups.length > 0 || manualImages.length > 0 || isScanning || isDetecting;
+  const hasContent = groups.length > 0 || customFolders.length > 0 || isScanning || isDetecting;
 
   return (
     <div className="stats-tab-captures">
@@ -525,20 +719,16 @@ export function CapturesTab({ games }: CapturesTabProps) {
 
           <Button
             variant="secondary"
-            onClick={handlePickFolder}
-            disabled={isScanning || isDetecting}
-            leftIcon={
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" width="15" height="15">
-                <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z" />
-              </svg>
-            }
+            onClick={() => setIsAddFolderOpen(true)}
+            disabled={isDetecting}
+            leftIcon={folderIcon}
           >
-            {selectedFolder ? t("community.changeFolder") : t("community.pickFolder")}
+            {t("community.addCustomFolder")}
           </Button>
 
-          {selectedFolder && (
-            <span className="stats-captures-folder-badge" title={selectedFolder}>
-              📁 {selectedFolder.split(/[\\/]/).pop() || selectedFolder} ({manualImages.length})
+          {customFolders.length > 0 && (
+            <span className="stats-captures-folder-badge">
+              📁 {customFolders.length}
             </span>
           )}
         </div>
@@ -672,19 +862,27 @@ export function CapturesTab({ games }: CapturesTabProps) {
         <div className="stats-captures-groups-list">
           {filteredGroups.map((group) => {
             const isExpanded = expandedKeys.has(group.key);
+            const isCustom = group.source === "custom" && group.customFolderId;
             return (
               <div key={group.key} className="stats-capture-group-item">
-                <button
-                  type="button"
+                <div
                   className="stats-capture-group-header"
+                  role="button"
+                  tabIndex={0}
                   onClick={() => toggleGroup(group.key)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" || e.key === " ") {
+                      e.preventDefault();
+                      toggleGroup(group.key);
+                    }
+                  }}
                   aria-expanded={isExpanded}
                 >
                   <div className="stats-capture-group-cover">
                     {group.coverArtUrl ? (
                       <img src={group.coverArtUrl} alt="" loading="lazy" />
                     ) : (
-                      <div className="stats-capture-group-fallback">🎮</div>
+                      <div className="stats-capture-group-fallback">{isCustom ? "📁" : "🎮"}</div>
                     )}
                   </div>
                   <div className="stats-capture-group-info">
@@ -699,6 +897,20 @@ export function CapturesTab({ games }: CapturesTabProps) {
                     </div>
                   </div>
                   <div className="stats-capture-group-right">
+                    {isCustom && (
+                      <button
+                        type="button"
+                        className="stats-capture-group-remove"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          removeCustomFolder(group.customFolderId!);
+                        }}
+                        title={t("community.removeFolder")}
+                        aria-label={t("community.removeFolder")}
+                      >
+                        ✕
+                      </button>
+                    )}
                     <span className="stats-capture-count">
                       {t("community.screenshotCount", {
                         count: group.screenshots.length,
@@ -717,7 +929,7 @@ export function CapturesTab({ games }: CapturesTabProps) {
                       <polyline points="6 9 12 15 18 9" />
                     </svg>
                   </div>
-                </button>
+                </div>
 
                 {isExpanded && (
                   <div className="stats-captures-thumb-grid">
@@ -765,9 +977,32 @@ export function CapturesTab({ games }: CapturesTabProps) {
         </div>
       )}
 
+      {/* ── Add Custom Folder Modal ─────────────────────────────── */}
+      {isAddFolderOpen && createPortal(
+        <AddFolderModal
+          isAdding={isScanning}
+          onCancel={() => setIsAddFolderOpen(false)}
+          onConfirm={handleAddFolder}
+        />,
+        document.body
+      )}
+
       {/* ── Fullscreen Lightbox & Slideshow ──────────────────────── */}
-      {lightboxIndex !== null && allCaptures[lightboxIndex] && (
+      {lightboxIndex !== null && allCaptures[lightboxIndex] && createPortal(
         <div className="stats-lightbox-overlay" onClick={closeLightbox}>
+          <button
+            type="button"
+            className="stats-lightbox-tool-btn stats-lightbox-close-btn stats-lightbox-close-corner"
+            onClick={(e) => {
+              e.stopPropagation();
+              closeLightbox();
+            }}
+            title={t("community.quit")}
+            aria-label={t("community.quit")}
+          >
+            ✕
+          </button>
+
           <div className="stats-lightbox-header" onClick={(e) => e.stopPropagation()}>
             <div className="stats-lightbox-title-wrap">
               <span className="stats-lightbox-counter">
@@ -809,15 +1044,6 @@ export function CapturesTab({ games }: CapturesTabProps) {
               >
                 📁
               </button>
-
-              <button
-                type="button"
-                className="stats-lightbox-tool-btn stats-lightbox-close-btn"
-                onClick={closeLightbox}
-                title={t("community.closeLightbox")}
-              >
-                ✕
-              </button>
             </div>
           </div>
 
@@ -837,7 +1063,29 @@ export function CapturesTab({ games }: CapturesTabProps) {
               ›
             </button>
           </div>
-        </div>
+
+          {/* ── Bottom Carousel ─────────────────────────────────── */}
+          {currentGroupCaptures.length > 1 && (
+            <div className="stats-lightbox-carousel" onClick={(e) => e.stopPropagation()}>
+              <div className="stats-lightbox-carousel-track" ref={carouselTrackRef}>
+                {currentGroupCaptures.map((capture) => {
+                  const globalIdx = allCaptures.findIndex((c) => c.path === capture.path);
+                  return (
+                    <CarouselThumb
+                      key={capture.path}
+                      path={capture.path}
+                      active={lightboxIndex === globalIdx}
+                      onClick={() => {
+                        if (globalIdx >= 0) setLightboxIndex(globalIdx);
+                      }}
+                    />
+                  );
+                })}
+              </div>
+            </div>
+          )}
+        </div>,
+        document.body
       )}
     </div>
   );

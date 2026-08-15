@@ -1,11 +1,12 @@
 // Persistence helpers for Statistics (Community) page — backed by localStorage.
 
-import type { ScreenshotGroup, StatsSubtab, TimeframePreset } from "./statsTypes";
+import type { CustomFolder, ScreenshotGroup, StatsSubtab, TimeframePreset } from "./statsTypes";
 
 const LS_FAVORITES = "gamelib.community.favorites";
 const LS_GOAL_MIN = "gamelib.community.monthly_goal_min";
 const LS_SCREENSHOT_CACHE = "gamelib.community.screenshot_cache";
 const LS_MANUAL_FOLDER = "gamelib.community.manual_folder";
+const LS_CUSTOM_FOLDERS = "gamelib.community.custom_folders";
 const LS_ACTIVE_TAB = "gamelib.stats.active_tab";
 const LS_TIMEFRAME = "gamelib.stats.timeframe";
 const LS_SAVED_ARTICLES = "gamelib.community.saved_articles";
@@ -48,7 +49,16 @@ export function saveScreenshotCache(groups: ScreenshotGroup[]): void {
   writeJson(LS_SCREENSHOT_CACHE, groups);
 }
 
-// ── Manual Folder ─────────────────────────────────────────────────
+// ── Custom Folders ────────────────────────────────────────────────
+export function loadCustomFolders(): CustomFolder[] {
+  return readJson<CustomFolder[]>(LS_CUSTOM_FOLDERS, []);
+}
+
+export function saveCustomFolders(folders: CustomFolder[]): void {
+  writeJson(LS_CUSTOM_FOLDERS, folders);
+}
+
+// ── Manual Folder (legacy, migrated to custom folders) ─────────────
 export function loadManualFolder(): string | null {
   const v = readJson<string | null>(LS_MANUAL_FOLDER, null);
   return typeof v === "string" && v.length > 0 ? v : null;

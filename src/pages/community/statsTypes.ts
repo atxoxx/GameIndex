@@ -173,6 +173,14 @@ export interface ScreenshotGroup {
   folderPath: string;
   screenshots: string[];
   source?: string;
+  customFolderId?: string;
+}
+
+export interface CustomFolder {
+  id: string;
+  name: string;
+  folderPath: string;
+  media: string[];
 }
 
 export interface UnlockedAchievementItem {
