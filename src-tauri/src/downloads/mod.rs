@@ -693,7 +693,7 @@ pub async fn torrent_remove(id: String, delete_files: Option<bool>) -> Result<()
 fn delete_download_files(download: &Download) {
     let save_path_buf = std::path::PathBuf::from(&download.save_path);
 
-    if download.kind != DownloadKind::Torrent {
+    if download.kind == DownloadKind::Direct {
         // Direct downloads: save_path is the target FILE; also drop
         // the in-progress temp file.
         if save_path_buf.is_file() {
@@ -711,10 +711,11 @@ fn delete_download_files(download: &Download) {
         return;
     }
 
-    // Torrents: librqbit writes files under `save_path/<torrent-root>/`
-    // when the torrent carries a root folder, and directly under
-    // `save_path/` when it doesn't. Delete each file at either
-    // location, then prune empty directories beneath both roots.
+    // Torrents and debrid downloads: `save_path` is the folder and each
+    // `DownloadFile::name` is relative to it (librqbit writes directly
+    // under `save_path` because we pass `output_folder` explicitly).
+    // Delete every file at both the flat location and the legacy
+    // `save_path/<name>` root-folder location, then prune empty dirs.
     let root_folder = save_path_buf.join(&download.name);
     for file in &download.files {
         let rel = std::path::Path::new(&file.name);
@@ -757,10 +758,16 @@ fn delete_download_files(download: &Download) {
         }
     }
 
-    if root_folder.exists() && root_folder.is_dir() {
-        if let Ok(entries) = std::fs::read_dir(&root_folder) {
-            if entries.count() == 0 {
-                let _ = std::fs::remove_dir(&root_folder);
+    // Remove the now-empty folders themselves, deepest first: the legacy
+    // `save_path/<name>` root, then the download folder `save_path`.
+    // Guarded by `is_dir()` + emptiness so a shared download folder is
+    // never removed while it still holds other downloads.
+    for folder in [&root_folder, &save_path_buf] {
+        if folder.is_dir() {
+            if let Ok(entries) = std::fs::read_dir(folder) {
+                if entries.count() == 0 {
+                    let _ = std::fs::remove_dir(folder);
+                }
             }
         }
     }
