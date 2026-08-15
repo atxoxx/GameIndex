@@ -26,6 +26,7 @@ export default function PrivacyTab() {
   const { t } = useLanguage();
   const { showToast } = useToast();
   const [items, setItems] = useState<{ key: string; value: string; size: number }[]>([]);
+  const [searchFilter, setSearchFilter] = useState("");
   const [wipeAllOpen, setWipeAllOpen] = useState(false);
   const [wipeKeyOpen, setWipeKeyOpen] = useState<string | null>(null);
 
@@ -49,6 +50,14 @@ export default function PrivacyTab() {
       setWipeKeyOpen(null);
     };
   }, [refresh]);
+
+  const totalSize = items.reduce((acc, curr) => acc + curr.size, 0);
+
+  const filteredItems = items.filter(
+    (item) =>
+      item.key.toLowerCase().includes(searchFilter.toLowerCase()) ||
+      item.value.toLowerCase().includes(searchFilter.toLowerCase()),
+  );
 
   const wipeKey = (key: string) => {
     localStorage.removeItem(key);
@@ -77,9 +86,21 @@ export default function PrivacyTab() {
       desc={t("settings.wipe.desc")}
     >
       <div className="settings-wipe-toolbar">
-        <span className="settings-wipe-count">
-          {t("settings.wipe.itemCount", { count: items.length })}
-        </span>
+        <div style={{ display: "flex", alignItems: "center", gap: "12px", flexWrap: "wrap" }}>
+          <span className="settings-wipe-count">
+            {t("settings.wipe.itemCount", { count: items.length })} ({formatStorageBytes(totalSize)})
+          </span>
+          {items.length > 0 && (
+            <input
+              type="text"
+              className="settings-input"
+              style={{ width: "200px", padding: "4px 10px", fontSize: "12px", height: "28px" }}
+              placeholder="Filter keys..."
+              value={searchFilter}
+              onChange={(e) => setSearchFilter(e.target.value)}
+            />
+          )}
+        </div>
         <div className="settings-wipe-actions">
           <Button variant="ghost" size="sm" onClick={refresh}>
             {t("settings.wipe.refresh")}
@@ -102,9 +123,13 @@ export default function PrivacyTab() {
           </span>
           <p>{t("settings.wipe.empty")}</p>
         </div>
+      ) : filteredItems.length === 0 ? (
+        <div className="settings-wipe-empty">
+          <p>No keys matching &ldquo;{searchFilter}&rdquo;</p>
+        </div>
       ) : (
         <ul className="settings-wipe-list">
-          {items.map((item) => {
+          {filteredItems.map((item) => {
             const preview = item.value.length > 160
               ? `${item.value.slice(0, 160)}…`
               : item.value || t("settings.wipe.noValue");

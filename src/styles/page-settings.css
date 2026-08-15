@@ -288,13 +288,42 @@
   color: var(--color-text-muted);
 }
 
-.settings-search-empty {
-  margin: 0;
-  padding: var(--space-md);
-  font-size: var(--font-size-sm);
-  color: var(--color-text-muted);
+.settings-search-empty-wrap {
+  padding: var(--space-lg) var(--space-md);
   text-align: center;
-  font-style: italic;
+}
+
+.settings-search-empty {
+  margin: 0 0 6px 0;
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-medium);
+  color: var(--color-text-primary);
+}
+
+.settings-search-tip {
+  margin: 0;
+  font-size: var(--font-size-xs);
+  color: var(--color-text-muted);
+  line-height: 1.4;
+}
+
+.settings-search-tip em {
+  font-style: normal;
+  color: var(--color-accent);
+  background: color-mix(in srgb, var(--color-accent) 10%, transparent);
+  padding: 1px 4px;
+  border-radius: var(--radius-xs);
+}
+
+.settings-search-result-kind--tab {
+  color: var(--color-accent);
+  background: color-mix(in srgb, var(--color-accent) 10%, transparent);
+  border-color: color-mix(in srgb, var(--color-accent) 24%, transparent);
+}
+
+.settings-search-result-kind--section {
+  color: var(--color-text-muted);
+  background: var(--color-bg-secondary);
 }
 
 /* ── Nav groups + items ─────────────────────────────────────────────── */
@@ -442,6 +471,36 @@
   font-variant-numeric: tabular-nums;
 }
 
+.settings-nav-item-badge--highlight {
+  color: var(--color-accent);
+  background: color-mix(in srgb, var(--color-accent) 14%, transparent);
+  border-color: color-mix(in srgb, var(--color-accent) 36%, transparent);
+  animation: updatePulse 2s ease-in-out infinite;
+}
+
+@keyframes updatePulse {
+  0%, 100% { transform: scale(1); opacity: 1; }
+  50% { transform: scale(1.05); opacity: 0.85; }
+}
+
+/* ── Sidebar Footer ────────────────────────────────────────────────── */
+
+.settings-sidebar-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--space-sm) var(--space-lg) var(--space-md);
+  margin-top: auto;
+  border-top: 1px solid var(--color-border);
+}
+
+.settings-sidebar-version {
+  font-size: 11px;
+  font-weight: var(--font-weight-medium);
+  color: var(--color-text-muted);
+  letter-spacing: 0.2px;
+}
+
 /* ── Content column ────────────────────────────────────────────────── */
 
 .settings-content {
@@ -482,8 +541,9 @@
 }
 
 /* Smooth-scroll anchors land with breathing room under the sticky bar. */
-.settings-content [id] {
-  scroll-margin-top: var(--space-xl);
+.settings-content [id],
+.settings-section[id] {
+  scroll-margin-top: 80px;
 }
 
 /* The content column already spaces children via `gap`; neutralise the

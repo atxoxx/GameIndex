@@ -1,5 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { NavLink, useLocation, useNavigate } from "react-router-dom";
+import { useAppVersion } from "../../hooks/useAppVersion";
+import { useUpdate } from "../../context/UpdateContext";
 import { SettingsGearIcon } from "./settingsIcons";
 import type { SettingsNavGroup, SettingsSearchEntry } from "./types";
 
@@ -24,12 +26,10 @@ function matchScore(entry: SettingsSearchEntry, q: string): number {
 }
 
 /**
- * SettingsSidebar — the left rail for the settings page. Navigation is
- * a plain, predictable list of the seven tabs (each row is a route
- * link), and the search box is a command palette: it matches across
- * every tab AND every section in the catalog, shows the top results
- * with a breadcrumb, and jumps through the same `?section=` URL the
- * jump bar uses. `/` or Ctrl/Cmd+K focuses the search box.
+ * SettingsSidebar — the left navigation rail for the settings page.
+ * Provides intuitive grouped navigation across settings domains,
+ * a keyboard-accessible command palette search across all tabs and sections,
+ * dynamic status badges, and quick version reference.
  */
 export default function SettingsSidebar({
   groups,
@@ -39,6 +39,10 @@ export default function SettingsSidebar({
 }: SettingsSidebarProps) {
   const navigate = useNavigate();
   const location = useLocation();
+  const appVersion = useAppVersion();
+  const { status: updateStatus } = useUpdate();
+  const isUpdateAvailable = updateStatus === "available" || updateStatus === "ready";
+
   const searchRef = useRef<HTMLInputElement>(null);
   const [query, setQuery] = useState("");
   const [open, setOpen] = useState(false);
@@ -55,8 +59,7 @@ export default function SettingsSidebar({
       .map((r) => r.entry);
   }, [searchIndex, normalizedQuery]);
 
-  // `/` or Ctrl/Cmd+K focuses search (unless the user is typing in a
-  // field, a modal is open, or the page is in big-screen mode).
+  // `/` or Ctrl/Cmd+K focuses search
   useEffect(() => {
     const onKeyDown = (e: KeyboardEvent) => {
       const target = e.target as HTMLElement | null;
@@ -80,8 +83,7 @@ export default function SettingsSidebar({
     return () => window.removeEventListener("keydown", onKeyDown);
   }, []);
 
-  // Close the palette when the route changes (a result was picked or
-  // the user navigated away) and on outside clicks.
+  // Close the palette when the route changes and on outside clicks.
   useEffect(() => {
     setOpen(false);
     setActiveIdx(0);
@@ -130,10 +132,10 @@ export default function SettingsSidebar({
   return (
     <aside className="settings-sidebar" aria-label={t("settings.sectionsAria")}>
       <div className="settings-sidebar-head">
-        <span className="settings-sidebar-title">
+        <div className="settings-sidebar-title">
           <SettingsGearIcon />
-          {t("settings.title")}
-        </span>
+          <span>{t("settings.title")}</span>
+        </div>
       </div>
 
       <div className="settings-search" onKeyDown={onKeyDown}>
@@ -181,8 +183,8 @@ export default function SettingsSidebar({
             ×
           </button>
         ) : (
-          <kbd className="settings-search-kbd" aria-hidden>
-            /
+          <kbd className="settings-search-kbd" aria-hidden title="Press Ctrl+K or / to search">
+            Ctrl+K
           </kbd>
         )}
 
@@ -194,7 +196,12 @@ export default function SettingsSidebar({
             aria-label={t("settings.navSearch")}
           >
             {results.length === 0 ? (
-              <p className="settings-search-empty">{t("settings.navEmpty")}</p>
+              <div className="settings-search-empty-wrap">
+                <p className="settings-search-empty">{t("settings.navEmpty")}</p>
+                <p className="settings-search-tip">
+                  Try searching for <em>theme</em>, <em>steam</em>, <em>language</em>, <em>bandwidth</em>, or <em>plugins</em>.
+                </p>
+              </div>
             ) : (
               results.map((entry, idx) => {
                 const isActive = idx === activeIdx;
@@ -223,11 +230,11 @@ export default function SettingsSidebar({
                         {entry.crumb}
                       </span>
                     </span>
-                    {entry.kind === "section" && (
-                      <span className="settings-search-result-kind">
-                        {t("settings.onThisPage")}
-                      </span>
-                    )}
+                    <span
+                      className={`settings-search-result-kind settings-search-result-kind--${entry.kind}`}
+                    >
+                      {entry.kind === "tab" ? "Tab" : t("settings.onThisPage")}
+                    </span>
                   </button>
                 );
               })
@@ -252,6 +259,8 @@ export default function SettingsSidebar({
                   {item.icon}
                 </span>
                 <span className="settings-nav-item-label">{item.label}</span>
+
+                {/* Badges */}
                 {item.tab === "integrations" && connectedIntegrations > 0 && (
                   <span
                     className="settings-nav-item-badge"
@@ -262,11 +271,26 @@ export default function SettingsSidebar({
                     {connectedIntegrations}
                   </span>
                 )}
+                {item.tab === "general" && isUpdateAvailable && (
+                  <span
+                    className="settings-nav-item-badge settings-nav-item-badge--highlight"
+                    title={t("updater.newVersionAvailable", { version: "" })}
+                  >
+                    Update
+                  </span>
+                )}
               </NavLink>
             ))}
           </div>
         ))}
       </nav>
+
+      {/* Sidebar Footer */}
+      <div className="settings-sidebar-footer">
+        <span className="settings-sidebar-version">
+          GameIndex {appVersion ? `v${appVersion}` : ""}
+        </span>
+      </div>
     </aside>
   );
 }

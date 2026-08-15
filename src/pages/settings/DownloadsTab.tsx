@@ -7,13 +7,12 @@ import { useLanguage } from "../../context/LanguageContext";
 import { useToast } from "../../context/ToastContext";
 import { Button } from "../../components/ui";
 import SettingsSection from "./SettingsSection";
-import SourceManager from "../../components/SourceManager";
-import { BellIcon, CloudIcon, FolderIcon, GaugeIcon, ListIcon, ShieldIcon } from "./settingsIcons";
+import { BellIcon, CloudIcon, FolderIcon, GaugeIcon, ShieldIcon } from "./settingsIcons";
 
 /**
- * DownloadsTab — every download-related setting: default save location,
- * completion notifications, bandwidth limits + seeding, blocked source
- * domains, the Hydra download-source manager, and debrid integration.
+ * DownloadsTab — download preferences: default save location,
+ * completion notifications, bandwidth limits + seeding, blocked
+ * domains, and debrid integration.
  */
 export default function DownloadsTab() {
   const { showToast } = useToast();
@@ -356,22 +355,6 @@ export default function DownloadsTab() {
         </div>
       </SettingsSection>
 
-      <SettingsSection
-        id="downloads-sources"
-        className="settings-section--list"
-        icon={<ListIcon />}
-        title={t("settings.section.downloadSources")}
-        desc={
-          <>
-            {t("settings.downloads.sourcesDescStart")} <code>name</code> {t("common.and")}{" "}
-            <code>downloads</code> {t("settings.downloads.sourcesDescEnd")}
-          </>
-        }
-      >
-        <div className="settings-card">
-          <SourceManager />
-        </div>
-      </SettingsSection>
 
       <SettingsSection
         id="downloads-debrid"

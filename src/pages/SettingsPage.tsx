@@ -67,7 +67,7 @@ export default function SettingsPage() {
           eyebrow={t("settings.title")}
           title={t(meta.labelKey)}
           description={t(meta.descKey)}
-          icon={<SettingsGearIcon />}
+          icon={meta.icon || <SettingsGearIcon />}
           actions={
             <span
               className="settings-header-summary"
