@@ -4808,10 +4808,12 @@ async fn fetch_steam_reviews(
 
     // Steam cursors contain characters like '+' and '/' which must be URL-encoded
     // so they are not corrupted or misparsed as space/slashes by the Steam server.
+    // First decode in case cursor is already percent-encoded, then encode cleanly.
     let encoded_cursor = if cursor_param == "*" {
         "*".to_string()
     } else {
-        url_encode(cursor_param)
+        let decoded = urlencoding::decode(cursor_param).unwrap_or(std::borrow::Cow::Borrowed(cursor_param));
+        urlencoding::encode(&decoded).into_owned()
     };
 
     let lang_param = opts.language.as_deref().unwrap_or("all");
@@ -5317,6 +5319,14 @@ async fn fetch_metacritic_reviews(game_name: &str) -> Result<Vec<IgdbReview>, St
     )
     .map_err(|e| e.to_string())?;
 
+    let spoiler_content_sel = scraper::Selector::parse(
+        ".bl_spoiler, [data-testid='review-spoiler-text'], .c-siteReview_spoilerText, .inline_expand",
+    ).ok();
+
+    let spoiler_warning_sel = scraper::Selector::parse(
+        ".spoiler_warning, .c-siteReview_spoiler, .inline_collapsed",
+    ).ok();
+
     let mut reviews = Vec::new();
 
     for card in doc.select(&review_sel) {
@@ -5339,13 +5349,50 @@ async fn fetch_metacritic_reviews(game_name: &str) -> Result<Vec<IgdbReview>, St
             })
             .map(|v| v * 10.0); // Metacritic scores are 0-10, normalize to 0-100
 
-        let body = card
-            .select(&body_sel)
-            .map(|el| el.text().collect::<Vec<_>>().join(" "))
-            .collect::<Vec<_>>()
-            .join(" ")
-            .trim()
-            .to_string();
+        let spoiler_text = spoiler_content_sel.as_ref().and_then(|sel| {
+            let t = card
+                .select(sel)
+                .map(|el| el.text().collect::<Vec<_>>().join(" "))
+                .collect::<Vec<_>>()
+                .join(" ")
+                .trim()
+                .to_string();
+            if t.is_empty() {
+                None
+            } else {
+                Some(t)
+            }
+        });
+
+        let mut body = if let Some(st) = spoiler_text {
+            format!("[spoiler]{}[/spoiler]", st)
+        } else {
+            card.select(&body_sel)
+                .map(|el| el.text().collect::<Vec<_>>().join(" "))
+                .collect::<Vec<_>>()
+                .join(" ")
+                .trim()
+                .to_string()
+        };
+
+        if let Some(w_sel) = &spoiler_warning_sel {
+            for w in card.select(w_sel) {
+                let w_text = w.text().collect::<Vec<_>>().join(" ").trim().to_string();
+                if !w_text.is_empty() && body.contains(&w_text) {
+                    body = body.replace(&w_text, "").trim().to_string();
+                }
+            }
+        }
+
+        if body.contains("This review contains spoilers, click expand to view.") {
+            body = body
+                .replace("This review contains spoilers, click expand to view.", "")
+                .trim()
+                .to_string();
+            if !body.is_empty() && !body.starts_with("[spoiler]") {
+                body = format!("[spoiler]{}[/spoiler]", body);
+            }
+        }
 
         let date_str = card
             .select(&date_sel)
