@@ -1,15 +1,22 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { useToast } from "../../context/ToastContext";
-import type { DealItem, GamePassGame, Giveaway } from "../../types/deals";
+import type {
+  DealItem,
+  GamePassGame,
+  Giveaway,
+  PlaytesterGame,
+} from "../../types/deals";
 import { PageHeader } from "../../components/ui";
 import { useLanguage } from "../../context/LanguageContext";
 import {
   type SubTab,
   type GamePassFiltersState,
   type DealsFiltersState,
+  type PlaytesterFiltersState,
   DEFAULT_GP_FILTERS,
   DEFAULT_DEAL_FILTERS,
+  DEFAULT_PLAYTESTER_FILTERS,
   buildGamePassPayload,
   buildDealsPayload,
 } from "./dealsConstants";
@@ -18,9 +25,11 @@ import DealsHeroSpotlight from "../../components/deals/DealsHeroSpotlight";
 import GamePassPanel from "../../components/deals/GamePassPanel";
 import DealsPanel from "../../components/deals/DealsPanel";
 import GiveawaysPanel from "../../components/deals/GiveawaysPanel";
+import PlaytesterPanel from "../../components/deals/PlaytesterPanel";
 import DealDetailModal, {
   type ModalDealTarget,
 } from "../../components/deals/DealDetailModal";
+import PlaytesterDetailModal from "../../components/deals/PlaytesterDetailModal";
 import "./DealsPage.css";
 import "../../styles/page-deals.css";
 
@@ -47,15 +56,27 @@ export default function DealsPage() {
   const [giveawaysError, setGiveawaysError] = useState<string | null>(null);
   const [giveawaysEmpty, setGiveawaysEmpty] = useState(false);
 
+  const [ptFilters, setPtFilters] = useState<PlaytesterFiltersState>(
+    DEFAULT_PLAYTESTER_FILTERS,
+  );
+  const [ptGames, setPtGames] = useState<PlaytesterGame[]>([]);
+  const [ptLoading, setPtLoading] = useState(false);
+  const [ptError, setPtError] = useState<string | null>(null);
+  const [ptEmpty, setPtEmpty] = useState(false);
+
   const [selectedTarget, setSelectedTarget] = useState<ModalDealTarget | null>(null);
+  const [selectedPlaytester, setSelectedPlaytester] =
+    useState<PlaytesterGame | null>(null);
 
   const gpRequestId = useRef(0);
   const dealsRequestId = useRef(0);
   const giveawaysRequestId = useRef(0);
+  const ptRequestId = useRef(0);
 
   const [gpReloadNonce, setGpReloadNonce] = useState(0);
   const [dealsReloadNonce, setDealsReloadNonce] = useState(0);
   const [giveawaysReloadNonce, setGiveawaysReloadNonce] = useState(0);
+  const [ptReloadNonce, setPtReloadNonce] = useState(0);
 
   const loadGamePass = useCallback(async () => {
     const myRequest = ++gpRequestId.current;
@@ -144,9 +165,46 @@ export default function DealsPage() {
     if (activeSubTab === "isthereanydeal") void loadDeals();
   }, [activeSubTab, loadDeals, dealsReloadNonce]);
 
+  const loadPlaytester = useCallback(async () => {
+    const myRequest = ++ptRequestId.current;
+    setPtLoading(true);
+    setPtError(null);
+    setPtEmpty(false);
+    try {
+      const result = await invoke<PlaytesterGame[]>("fetch_playtester_games");
+      if (myRequest !== ptRequestId.current) return;
+      setPtGames(result);
+      setPtEmpty(result.length === 0);
+    } catch (err) {
+      if (myRequest !== ptRequestId.current) return;
+      const message =
+        err instanceof Error
+          ? err.message
+          : typeof err === "string"
+            ? err
+            : t("deals.errorPlaytester");
+      setPtError(message);
+      setPtGames([]);
+    } finally {
+      if (myRequest === ptRequestId.current) setPtLoading(false);
+    }
+  }, [t]);
+
+  useEffect(() => {
+    if (activeSubTab === "gamepass") void loadGamePass();
+  }, [activeSubTab, loadGamePass, gpReloadNonce]);
+
+  useEffect(() => {
+    if (activeSubTab === "isthereanydeal") void loadDeals();
+  }, [activeSubTab, loadDeals, dealsReloadNonce]);
+
   useEffect(() => {
     if (activeSubTab === "giveaways") void loadGiveaways();
   }, [activeSubTab, loadGiveaways, giveawaysReloadNonce]);
+
+  useEffect(() => {
+    if (activeSubTab === "playtester") void loadPlaytester();
+  }, [activeSubTab, loadPlaytester, ptReloadNonce]);
 
   const handleOpenUrl = useCallback(
     async (url: string | null | undefined) => {
@@ -177,6 +235,10 @@ export default function DealsPage() {
 
   const handleInspectGiveaway = useCallback((giveaway: Giveaway) => {
     setSelectedTarget({ type: "giveaway", data: giveaway });
+  }, []);
+
+  const handleInspectPlaytester = useCallback((game: PlaytesterGame) => {
+    setSelectedPlaytester(game);
   }, []);
 
   const subtabs: {
@@ -225,6 +287,19 @@ export default function DealsPage() {
           <line x1="12" y1="22" x2="12" y2="7" />
           <path d="M12 7H7.5a2.5 2.5 0 0 1 0-5C11 2 12 7 12 7z" />
           <path d="M12 7h4.5a2.5 2.5 0 0 0 0-5C13 2 12 7 12 7z" />
+        </svg>
+      ),
+    },
+    {
+      id: "playtester",
+      label: t("deals.playtester"),
+      count: ptGames.length,
+      loading: ptLoading,
+      icon: (
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          <rect x="2" y="3" width="20" height="14" rx="2" />
+          <line x1="8" y1="21" x2="16" y2="21" />
+          <line x1="12" y1="17" x2="12" y2="21" />
         </svg>
       ),
     },
@@ -344,10 +419,31 @@ export default function DealsPage() {
         />
       )}
 
+      {activeSubTab === "playtester" && (
+        <PlaytesterPanel
+          filters={ptFilters}
+          setFilters={setPtFilters}
+          games={ptGames}
+          loading={ptLoading}
+          error={ptError}
+          empty={ptEmpty}
+          density="cinematic"
+          onInspect={handleInspectPlaytester}
+          onReload={() => setPtReloadNonce((n) => n + 1)}
+        />
+      )}
+
       {/* Deal Detail Modal */}
       <DealDetailModal
         target={selectedTarget}
         onClose={() => setSelectedTarget(null)}
+        onOpenUrl={handleOpenUrl}
+      />
+
+      {/* Playtester Detail Modal (fetches on open) */}
+      <PlaytesterDetailModal
+        game={selectedPlaytester}
+        onClose={() => setSelectedPlaytester(null)}
         onOpenUrl={handleOpenUrl}
       />
     </div>

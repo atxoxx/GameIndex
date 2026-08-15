@@ -1307,3 +1307,857 @@ fn ts_to_iso(ts: Option<i64>) -> Option<String> {
     }
     chrono::DateTime::from_timestamp(ts, 0).map(|dt| dt.to_rfc3339())
 }
+
+// ─── Playtester (playtests / demos / betas) ─────────────────────────────────
+
+/// Playtester.io is a Next.js server-rendered catalog of upcoming
+/// game alphas, betas, playtests, and demos. There is no public JSON
+/// API (`/api/` is disallowed and reserved for authenticated routes),
+/// so we scrape the rendered HTML with the `scraper` crate — the same
+/// approach used for IsThereAnyDeal.
+///
+/// The homepage lists the ~12 latest entries; each category page
+/// (`/categories/{slug}`) lists the ~12 latest entries in that
+/// category. We scrape the homepage plus a handful of popular category
+/// pages, dedupe by slug, and sort by most-recently-added so the
+/// subtab has a meaningful catalog to filter/sort against.
+
+/// Homepage ("latest") plus a curated set of popular category slugs.
+/// Kept small so a single refresh stays polite to the origin.
+const PLAYTESTER_HOMEPAGE: &str = "https://playtester.io/";
+const PLAYTESTER_CATEGORIES: &[&str] = &[
+    "cozy",
+    "horror",
+    "multiplayer",
+    "roguelike",
+    "rpg",
+    "survival",
+];
+
+/// A single playtest / demo / beta entry shown on a card.
+#[derive(Debug, Serialize, Deserialize, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct PlaytesterGame {
+    /// Stable slug from the card URL (unique per game).
+    pub id: String,
+    /// URL slug — used to build the detail URL and thumbnail.
+    pub slug: String,
+    /// Human-readable title.
+    pub title: String,
+    /// Short marketing blurb shown on the card (may be missing).
+    pub description: Option<String>,
+    /// Cover thumbnail. Playtester serves these at a predictable
+    /// `cdn.playtester.io/thumbnails/{slug}.webp` path (verified against
+    /// the sitemaps), so we derive it from the slug.
+    pub thumbnail: Option<String>,
+    /// Primary platform badge on the card ("Steam", "itch.io", …).
+    pub platform: String,
+    /// Every platform the game is available on ("Steam", "itch.io", …).
+    pub platforms: Vec<String>,
+    /// Displayed genres (the card shows the two featured categories).
+    pub genres: Vec<String>,
+    /// Offer type ("Demo", "Open Beta", "Closed Beta", …).
+    pub kind: String,
+    /// Availability status ("Active" / "Inactive").
+    pub status: String,
+    /// ISO 8601 timestamp when the entry was added.
+    pub date_added: Option<String>,
+    /// Absolute URL of the game page on Playtester.
+    pub url: String,
+}
+
+/// One platform link (name + store URL) on a game detail page.
+#[derive(Debug, Serialize, Deserialize, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct PlaytesterPlatformLink {
+    pub name: String,
+    pub url: String,
+}
+
+/// One system-requirement row (label + value).
+#[derive(Debug, Serialize, Deserialize, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct PlaytesterRequirement {
+    pub label: String,
+    pub value: String,
+}
+
+/// A screenshot / gallery image on a game detail page.
+#[derive(Debug, Serialize, Deserialize, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct PlaytesterPhoto {
+    pub url: String,
+    pub caption: Option<String>,
+}
+
+/// A trailer / gameplay video on a game detail page.
+#[derive(Debug, Serialize, Deserialize, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct PlaytesterVideo {
+    pub name: Option<String>,
+    pub thumbnail_url: Option<String>,
+    /// Playable media URL (HLS manifest or direct file).
+    pub content_url: Option<String>,
+    /// Embeddable player URL (Cloudflare Stream iframe).
+    pub embed_url: Option<String>,
+    pub duration: Option<String>,
+}
+
+/// Full metadata for a single game, scraped on demand from its detail page.
+#[derive(Debug, Serialize, Deserialize, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct PlaytesterGameDetail {
+    pub slug: String,
+    pub title: String,
+    /// Availability status text (e.g. "Active Now").
+    pub status: Option<String>,
+    pub studio: Option<String>,
+    pub studio_url: Option<String>,
+    /// ISO timestamp when the entry was added.
+    pub added: Option<String>,
+    /// Short description.
+    pub description: Option<String>,
+    /// Offer type ("Demo", "Beta", …).
+    pub kind: Option<String>,
+    pub release_date: Option<String>,
+    pub languages: Option<String>,
+    pub controller: Option<String>,
+    pub platforms: Vec<PlaytesterPlatformLink>,
+    pub system_requirements: Vec<PlaytesterRequirement>,
+    /// Screenshots (from the page's VideoGame JSON-LD).
+    pub photos: Vec<PlaytesterPhoto>,
+    /// Trailers / gameplay videos (from the page's VideoGame JSON-LD).
+    pub videos: Vec<PlaytesterVideo>,
+    /// Primary CTA target (e.g. the Steam store page).
+    pub demo_url: Option<String>,
+    /// `steam://install/…` deep link, when available.
+    pub install_url: Option<String>,
+    pub steamdb_url: Option<String>,
+    pub thumbnail: Option<String>,
+    /// Absolute URL of the game page on Playtester.
+    pub url: String,
+}
+
+/// Fetch the raw text body of a Playtester page, returning a string
+/// error on non-2xx responses so the frontend can surface it.
+async fn fetch_playtester_page(
+    client: &reqwest::Client,
+    url: &str,
+) -> Result<String, String> {
+    let resp = client
+        .get(url)
+        .send()
+        .await
+        .map_err(|e| format!("Playtester request failed: {}", e))?;
+    if !resp.status().is_success() {
+        return Err(format!("Playtester returned status {}", resp.status()));
+    }
+    resp.text()
+        .await
+        .map_err(|e| format!("Playtester body read failed: {}", e))
+}
+
+/// Derive the thumbnail URL from a slug. Playtester serves card art at
+/// `https://cdn.playtester.io/thumbnails/{slug}.webp` (confirmed by the
+/// playtests sitemaps and the Next.js image `srcSet`).
+fn playtester_thumbnail(slug: &str) -> String {
+    format!("https://cdn.playtester.io/thumbnails/{}.webp", slug)
+}
+
+/// Order platform names deterministically so the "primary" badge is a
+/// known storefront (Steam first, then itch.io, …) rather than whatever
+/// order the JSON object's keys happen to deserialize in.
+fn order_platforms(mut platforms: Vec<String>) -> Vec<String> {
+    const PREFERRED: &[&str] = &[
+        "Steam",
+        "itch.io",
+        "Epic Games",
+        "GOG",
+        "PlayStation",
+        "Xbox",
+        "Nintendo Switch",
+    ];
+    platforms.sort_by(|a, b| {
+        let pa = PREFERRED.iter().position(|p| p == a).unwrap_or(usize::MAX);
+        let pb = PREFERRED.iter().position(|p| p == b).unwrap_or(usize::MAX);
+        pa.cmp(&pb).then_with(|| a.cmp(b))
+    });
+    platforms
+}
+
+/// Map a raw `type` + `open_playtest` pair to the label the site
+/// renders on the card. Mirrors Playtester's `formatPlaytestType`:
+/// only "Alpha" and "Beta" gain an Open/Closed prefix.
+fn format_playtest_type(kind: &str, open_playtest: Option<bool>) -> String {
+    if kind == "Alpha" || kind == "Beta" {
+        match open_playtest {
+            Some(true) => format!("Open {}", kind),
+            Some(false) => format!("Closed {}", kind),
+            _ => kind.to_string(),
+        }
+    } else {
+        kind.to_string()
+    }
+}
+
+/// Decode a JS string literal's escape sequences (`\"`, `\\`, `\/`,
+/// `\n`, `\t`, `\r`; `\uXXXX` is copied through for serde_json).
+fn unescape_js_string(s: &str) -> String {
+    let mut out = String::with_capacity(s.len());
+    let mut chars = s.chars();
+    while let Some(c) = chars.next() {
+        if c == '\\' {
+            match chars.next() {
+                Some('"') => out.push('"'),
+                Some('\\') => out.push('\\'),
+                Some('/') => out.push('/'),
+                Some('n') => out.push('\n'),
+                Some('t') => out.push('\t'),
+                Some('r') => out.push('\r'),
+                Some('u') => {
+                    out.push_str("\\u");
+                    for _ in 0..4 {
+                        if let Some(h) = chars.next() {
+                            out.push(h);
+                        }
+                    }
+                }
+                Some(other) => out.push(other),
+                None => break,
+            }
+        } else {
+            out.push(c);
+        }
+    }
+    out
+}
+
+/// The shape of one game inside the Next.js flight payload's
+/// `initialData.games` array. Field names match the server data (not
+/// our camelCase DTO).
+#[derive(Debug, Deserialize)]
+struct FlightGame {
+    #[serde(rename = "type", default)]
+    kind: String,
+    title: String,
+    #[serde(rename = "short_description", default)]
+    short_description: Option<String>,
+    slug: String,
+    #[serde(default)]
+    categories: Vec<String>,
+    #[serde(rename = "categories_featured", default)]
+    categories_featured: Vec<String>,
+    #[serde(default)]
+    status: Option<String>,
+    #[serde(default)]
+    platforms: std::collections::HashMap<String, String>,
+    #[serde(rename = "open_playtest", default)]
+    open_playtest: Option<bool>,
+    #[serde(rename = "date_added", default)]
+    date_added: Option<String>,
+}
+
+/// Parse the embedded `initialData.games` array out of a Playtester
+/// listing page's Next.js flight payload.
+///
+/// This is the authoritative data source: unlike the rendered card
+/// markup it carries the *full* platform map (a game can be on Steam
+/// and itch.io at once) and the raw `type` + `open_playtest` fields
+/// needed to reproduce the Open/Closed label. Returns `None` when the
+/// payload can't be located or parsed, so callers fall back to the
+/// HTML card parser.
+fn parse_playtester_flight(html: &str) -> Option<Vec<PlaytesterGame>> {
+    // The games array is embedded as `\"games\":[{...}]` inside a JS
+    // string literal.
+    let marker = "games\\\":[";
+    let start = html.find(marker)? + marker.len();
+
+    // Scan for the matching `]`, decoding `\"` as a JSON string
+    // delimiter and other escapes as string content.
+    let bytes = html.as_bytes();
+    let mut depth = 1i32;
+    let mut i = start;
+    let mut in_string = false;
+    while i < bytes.len() {
+        let c = bytes[i] as char;
+        if c == '\\' {
+            if i + 1 < bytes.len() {
+                let next = bytes[i + 1] as char;
+                if next == '"' {
+                    in_string = !in_string;
+                }
+                i += 2;
+            } else {
+                i += 1;
+            }
+            continue;
+        }
+        if in_string {
+            i += 1;
+            continue;
+        }
+        match c {
+            '[' => {
+                depth += 1;
+                i += 1;
+            }
+            ']' => {
+                depth -= 1;
+                if depth == 0 {
+                    break;
+                }
+                i += 1;
+            }
+            _ => i += 1,
+        }
+    }
+    if depth != 0 {
+        return None;
+    }
+
+    let decoded = unescape_js_string(&html[start..i]);
+    let games: Vec<FlightGame> = serde_json::from_str(&decoded).ok()?;
+
+    Some(
+        games
+            .into_iter()
+            .filter(|g| !g.slug.is_empty() && !g.title.is_empty())
+            .map(|g| {
+                let platforms = order_platforms(g.platforms.keys().cloned().collect());
+                let primary = platforms.first().cloned().unwrap_or_default();
+                let kind = format_playtest_type(&g.kind, g.open_playtest);
+                let genres = if g.categories_featured.is_empty() {
+                    g.categories.iter().take(2).cloned().collect()
+                } else {
+                    g.categories_featured.clone()
+                };
+                PlaytesterGame {
+                    id: g.slug.clone(),
+                    thumbnail: Some(playtester_thumbnail(&g.slug)),
+                    slug: g.slug.clone(),
+                    title: g.title,
+                    description: g.short_description.filter(|s| !s.is_empty()),
+                    platform: primary,
+                    platforms,
+                    genres,
+                    kind,
+                    status: g.status.unwrap_or_else(|| "Active".to_string()),
+                    date_added: g.date_added,
+                    url: format!("https://playtester.io/{}", g.slug),
+                }
+            })
+            .collect(),
+    )
+}
+
+/// Parse the rendered game cards out of a Playtester listing page.
+///
+/// The card is an `<a class="focus-ring-lg" href="/{slug}">` block that
+/// contains the title (`<h3>`), a status dot, a thumbnail `<img>`, a
+/// platform badge `<img alt="Steam" src="/icons/steam.svg">`, the
+/// description (`.line-clamp-2`), and a footer with genres, type, and
+/// a `<time datetime>` stamp. Non-game links that share the
+/// `focus-ring-lg` class (e.g. `/categories`, `/studios`, `/about`) are
+/// filtered out by prefix.
+fn parse_playtester_cards(html: &str) -> Vec<PlaytesterGame> {
+    let document = Html::parse_document(html);
+    let Ok(card_sel) = Selector::parse("a.focus-ring-lg") else {
+        return Vec::new();
+    };
+    let Ok(h3_sel) = Selector::parse("h3") else {
+        return Vec::new();
+    };
+    let Ok(status_sel) = Selector::parse("[role=\"status\"][aria-label]") else {
+        return Vec::new();
+    };
+    let Ok(icon_sel) = Selector::parse("img[src^=\"/icons/\"]") else {
+        return Vec::new();
+    };
+    let Ok(genre_sel) = Selector::parse("span.min-w-0") else {
+        return Vec::new();
+    };
+    let Ok(kind_sel) = Selector::parse("span.shrink-0") else {
+        return Vec::new();
+    };
+    let Ok(time_sel) = Selector::parse("time[datetime]") else {
+        return Vec::new();
+    };
+    let Ok(desc_sel) = Selector::parse(".line-clamp-2") else {
+        return Vec::new();
+    };
+
+    const NON_GAME_PREFIXES: &[&str] = &[
+        "/studios", "/categories", "/search", "/about", "/blog", "/contact",
+        "/faqs", "/privacy", "/terms", "/@", "/select", "/redirect",
+    ];
+
+    let mut games = Vec::new();
+    for card in document.select(&card_sel) {
+        let Some(href) = card.value().attr("href") else {
+            continue;
+        };
+        let href = href.trim();
+        if !href.starts_with('/')
+            || NON_GAME_PREFIXES
+                .iter()
+                .any(|p| href.starts_with(p))
+        {
+            continue;
+        }
+        let slug = href.trim_start_matches('/').to_string();
+        if slug.is_empty() || slug.contains('/') {
+            continue;
+        }
+
+        let title = card
+            .select(&h3_sel)
+            .next()
+            .map(|e| e.text().collect::<String>())
+            .map(|s| s.trim().to_string())
+            .filter(|s| !s.is_empty());
+        let Some(title) = title else {
+            continue;
+        };
+
+        let status = card
+            .select(&status_sel)
+            .next()
+            .and_then(|e| e.value().attr("aria-label"))
+            .map(|s| s.trim().to_string())
+            .map(|s| s.strip_prefix("Status: ").unwrap_or(&s).to_string())
+            .unwrap_or_else(|| "Active".to_string());
+
+        let platform = card
+            .select(&icon_sel)
+            .next()
+            .and_then(|e| e.value().attr("alt"))
+            .map(|s| s.trim().to_string())
+            .unwrap_or_default();
+
+        let genres: Vec<String> = card
+            .select(&genre_sel)
+            .next()
+            .map(|e| e.text().collect::<String>())
+            .map(|s| {
+                s.split(',')
+                    .map(|g| g.trim().to_string())
+                    .filter(|g| !g.is_empty())
+                    .collect()
+            })
+            .unwrap_or_default();
+
+        // The type ("Demo", "Open Beta", …) is the first `span.shrink-0`
+        // that isn't a bullet (`aria-hidden`) — the bullets between the
+        // genre / type / date segments are marked aria-hidden.
+        let kind = card
+            .select(&kind_sel)
+            .find(|e| e.value().attr("aria-hidden").is_none())
+            .map(|e| e.text().collect::<String>())
+            .map(|s| s.trim().to_string())
+            .filter(|s| !s.is_empty())
+            .unwrap_or_default();
+
+        let date_added = card
+            .select(&time_sel)
+            .next()
+            .and_then(|e| e.value().attr("datetime"))
+            .map(|s| s.trim().to_string());
+
+        let description = card
+            .select(&desc_sel)
+            .next()
+            .map(|e| e.text().collect::<String>())
+            .map(|s| s.trim().to_string())
+            .filter(|s| !s.is_empty());
+
+        games.push(PlaytesterGame {
+            id: slug.clone(),
+            thumbnail: Some(playtester_thumbnail(&slug)),
+            slug: slug.clone(),
+            title,
+            description,
+            platform: platform.clone(),
+            platforms: vec![platform],
+            genres,
+            kind,
+            status,
+            date_added,
+            url: format!("https://playtester.io/{}", slug),
+        });
+    }
+
+    games
+}
+
+/// Fetch the current Playtester catalog: the homepage plus a handful of
+/// popular category pages, deduped by slug and sorted newest-first.
+///
+/// Pages are fetched concurrently (same pattern as the GamePass batch
+/// fetch) so a refresh is a single round-trip's worth of latency.
+/// Individual page failures are logged and skipped — one bad page
+/// shouldn't fail the whole refresh.
+#[tauri::command]
+pub async fn fetch_playtester_games() -> Result<Vec<PlaytesterGame>, String> {
+    let client = http_client()?;
+
+    let mut urls: Vec<String> = vec![PLAYTESTER_HOMEPAGE.to_string()];
+    urls.extend(
+        PLAYTESTER_CATEGORIES
+            .iter()
+            .map(|c| format!("https://playtester.io/categories/{}", c)),
+    );
+
+    let page_futures = urls
+        .iter()
+        .map(|url| fetch_playtester_page(&client, url))
+        .collect::<Vec<_>>();
+    let results = futures::future::join_all(page_futures).await;
+
+    let mut games: Vec<PlaytesterGame> = Vec::new();
+    for (idx, result) in results.into_iter().enumerate() {
+        match result {
+            Ok(html) => {
+                // Prefer the embedded flight data (full platform map +
+                // raw type/open_playtest). Fall back to the rendered card
+                // markup when the payload is missing or unparseable.
+                let parsed = match parse_playtester_flight(&html) {
+                    Some(g) if !g.is_empty() => g,
+                    _ => {
+                        if idx == 0 {
+                            eprintln!(
+                                "[deals] Playtester homepage flight parse failed — falling back to HTML cards."
+                            );
+                        }
+                        parse_playtester_cards(&html)
+                    }
+                };
+                games.extend(parsed);
+            }
+            Err(e) => eprintln!("[deals] Playtester page failed: {}", e),
+        }
+    }
+
+    // Dedupe by slug (a game appears on the homepage and in several
+    // category pages). Keep the first occurrence.
+    let mut seen = std::collections::HashSet::new();
+    games.retain(|g| seen.insert(g.slug.clone()));
+
+    // Newest first; entries without a date sink to the bottom.
+    games.sort_by(|a, b| {
+        let ta = a.date_added.as_deref().unwrap_or("");
+        let tb = b.date_added.as_deref().unwrap_or("");
+        tb.cmp(ta)
+    });
+
+    Ok(games)
+}
+
+/// Sanitize a user-supplied slug so we only ever request a bare
+/// `/{slug}` path on playtester.io.
+fn sanitize_playtester_slug(slug: &str) -> String {
+    slug.trim()
+        .trim_start_matches('/')
+        .chars()
+        .filter(|c| c.is_ascii_alphanumeric() || *c == '-')
+        .collect()
+}
+
+/// Parse the first `application/ld+json` script on a detail page into a
+/// JSON value. The detail page ships a `VideoGame` schema block that
+/// carries the screenshots (`image`) and trailers (`subjectOf`) — richer
+/// than the rendered gallery markup, which is hydrated client-side.
+fn parse_playtester_ld_json(html: &str) -> Option<serde_json::Value> {
+    let anchor = "application/ld+json";
+    let start = html.find(anchor)?;
+    let open = html[start..].find('>')? + start + 1;
+    let close = html[open..].find("</script>")? + open;
+    serde_json::from_str(&html[open..close]).ok()
+}
+
+/// Read an optional string field off a JSON-LD object.
+fn ld_string(v: &serde_json::Value, key: &str) -> Option<String> {
+    v.get(key)
+        .and_then(|x| x.as_str())
+        .map(|s| s.trim().to_string())
+        .filter(|s| !s.is_empty())
+}
+
+/// Scrape a single game's detail page and return its full metadata.
+///
+/// The detail page is server-rendered, so a single GET yields
+/// everything: the title + status, the studio link, the short
+/// description, the details list (Type / Release date / Languages /
+/// Controller / Platforms), system requirements, and the external
+/// links (store CTA, `steam://install`, SteamDB, studio).
+#[tauri::command]
+pub async fn fetch_playtester_game_detail(
+    slug: String,
+) -> Result<PlaytesterGameDetail, String> {
+    let slug = sanitize_playtester_slug(&slug);
+    if slug.is_empty() {
+        return Err("Invalid game slug".to_string());
+    }
+
+    let client = http_client()?;
+    let url = format!("https://playtester.io/{}", slug);
+    let html = fetch_playtester_page(&client, &url).await?;
+
+    let document = Html::parse_document(&html);
+    // The title is the first `<span>` inside `<h1>` (the status badge is
+    // a sibling span and would otherwise leak into the title text).
+    let title_sel = Selector::parse("h1 span")
+        .map_err(|e| format!("bad selector h1 span: {:?}", e))?;
+    let status_sel = Selector::parse("[role=\"status\"][aria-label^=\"Status:\"]")
+        .map_err(|e| format!("bad selector status: {:?}", e))?;
+    let studio_sel = Selector::parse("a[href^=\"/studios/\"]")
+        .map_err(|e| format!("bad selector studios: {:?}", e))?;
+    let studio_name_sel = Selector::parse("[role=\"img\"][aria-label]")
+        .map_err(|e| format!("bad selector studio name: {:?}", e))?;
+    let time_sel = Selector::parse("time[datetime]")
+        .map_err(|e| format!("bad selector time: {:?}", e))?;
+    let desc_sel = Selector::parse("#game-short-description")
+        .map_err(|e| format!("bad selector desc: {:?}", e))?;
+    let detail_li_sel = Selector::parse("aside[aria-label=\"Game details\"] li")
+        .map_err(|e| format!("bad selector detail li: {:?}", e))?;
+    let label_sel = Selector::parse("span.text-neutral-400")
+        .map_err(|e| format!("bad selector label: {:?}", e))?;
+    let value_sel = Selector::parse("span.text-right")
+        .map_err(|e| format!("bad selector value: {:?}", e))?;
+    let platform_link_sel = Selector::parse("a[href]")
+        .map_err(|e| format!("bad selector platform link: {:?}", e))?;
+    let platform_img_sel = Selector::parse("img[alt]")
+        .map_err(|e| format!("bad selector platform img: {:?}", e))?;
+    let cta_sel = Selector::parse("a.bg-primary[href]")
+        .map_err(|e| format!("bad selector cta: {:?}", e))?;
+    let install_sel = Selector::parse("a[href^=\"steam://\"]")
+        .map_err(|e| format!("bad selector install: {:?}", e))?;
+    let steamdb_sel = Selector::parse("a[href^=\"https://steamdb.info\"]")
+        .map_err(|e| format!("bad selector steamdb: {:?}", e))?;
+    let dl_sel = Selector::parse("dl")
+        .map_err(|e| format!("bad selector dl: {:?}", e))?;
+    let dt_sel = Selector::parse("dt").map_err(|e| format!("bad selector dt: {:?}", e))?;
+    let dd_sel = Selector::parse("dd").map_err(|e| format!("bad selector dd: {:?}", e))?;
+
+    let title = document
+        .select(&title_sel)
+        .next()
+        .map(|e| e.text().collect::<String>())
+        .map(|s| s.trim().to_string())
+        .filter(|s| !s.is_empty())
+        .unwrap_or_else(|| slug.clone());
+
+    let status = document
+        .select(&status_sel)
+        .next()
+        .and_then(|e| e.value().attr("aria-label"))
+        .map(|s| s.trim().to_string())
+        .map(|s| s.strip_prefix("Status: ").unwrap_or(&s).to_string());
+
+    let studio_link = document.select(&studio_sel).next();
+    let studio = studio_link
+        .as_ref()
+        .and_then(|a| a.select(&studio_name_sel).next())
+        .and_then(|e| e.value().attr("aria-label"))
+        .map(|s| s.trim().to_string());
+    let studio_url = studio_link
+        .as_ref()
+        .and_then(|a| a.value().attr("href"))
+        .map(|h| format!("https://playtester.io{}", h.trim_start_matches('/')));
+    // Fall back to the studio slug (title-cased) when the avatar `aria-label`
+    // is absent (some studio pages use a logo image instead).
+    let studio = studio.or_else(|| {
+        studio_url.as_ref().map(|u| {
+            u.rsplit('/')
+                .next()
+                .unwrap_or("")
+                .split('-')
+                .filter(|w| !w.is_empty())
+                .map(|w| {
+                    let mut c = w.chars();
+                    match c.next() {
+                        Some(first) => {
+                            first.to_uppercase().collect::<String>() + c.as_str()
+                        }
+                        None => String::new(),
+                    }
+                })
+                .collect::<Vec<_>>()
+                .join(" ")
+        })
+    })
+    .filter(|s| !s.is_empty());
+
+    let added = document
+        .select(&time_sel)
+        .next()
+        .and_then(|e| e.value().attr("datetime"))
+        .map(|s| s.trim().to_string());
+
+    let description = document
+        .select(&desc_sel)
+        .next()
+        .map(|e| e.text().collect::<String>())
+        .map(|s| s.trim().to_string())
+        .filter(|s| !s.is_empty());
+
+    let mut kind = None;
+    let mut release_date = None;
+    let mut languages = None;
+    let mut controller = None;
+    let mut platforms: Vec<PlaytesterPlatformLink> = Vec::new();
+
+    for li in document.select(&detail_li_sel) {
+        let label = li
+            .select(&label_sel)
+            .next()
+            .map(|e| e.text().collect::<String>())
+            .map(|s| s.trim().to_ascii_lowercase())
+            .unwrap_or_default();
+
+        if label == "platforms" {
+            for a in li.select(&platform_link_sel) {
+                let Some(url) = a.value().attr("href") else {
+                    continue;
+                };
+                let name = a
+                    .select(&platform_img_sel)
+                    .next()
+                    .and_then(|img| img.value().attr("alt"))
+                    .map(|s| s.trim().to_string())
+                    .unwrap_or_else(|| "Platform".to_string());
+                platforms.push(PlaytesterPlatformLink {
+                    name,
+                    url: url.trim().to_string(),
+                });
+            }
+            continue;
+        }
+
+        let value = li
+            .select(&value_sel)
+            .next()
+            .map(|e| e.text().collect::<String>())
+            .map(|s| s.trim().to_string())
+            .filter(|s| !s.is_empty());
+
+        match label.as_str() {
+            "type" => kind = value,
+            "release date" => release_date = value,
+            "languages" => languages = value,
+            "controller" => controller = value,
+            _ => {}
+        }
+    }
+
+    // System requirements live in a `<dl>`; pick the one with the most
+    // dt/dd pairs (the requirements block has ~6 rows).
+    let mut system_requirements: Vec<PlaytesterRequirement> = Vec::new();
+    let mut best_count = 0usize;
+    for dl in document.select(&dl_sel) {
+        let dts: Vec<String> = dl
+            .select(&dt_sel)
+            .map(|e| e.text().collect::<String>())
+            .collect();
+        let dds: Vec<String> = dl
+            .select(&dd_sel)
+            .map(|e| e.text().collect::<String>())
+            .collect();
+        let count = dts.len().min(dds.len());
+        if count > best_count {
+            best_count = count;
+            system_requirements = dts
+                .into_iter()
+                .zip(dds.into_iter())
+                .map(|(label, value)| PlaytesterRequirement {
+                    label: label.trim().to_string(),
+                    value: value.trim().to_string(),
+                })
+                .collect();
+        }
+    }
+
+    let demo_url = document
+        .select(&cta_sel)
+        .next()
+        .and_then(|e| e.value().attr("href"))
+        .map(|s| s.trim().to_string())
+        .filter(|s| s.starts_with("http"));
+
+    let install_url = document
+        .select(&install_sel)
+        .next()
+        .and_then(|e| e.value().attr("href"))
+        .map(|s| s.trim().to_string());
+
+    let steamdb_url = document
+        .select(&steamdb_sel)
+        .next()
+        .and_then(|e| e.value().attr("href"))
+        .map(|s| s.trim().to_string());
+
+    // JSON-LD carries the screenshots + trailers (the rendered gallery
+    // is hydrated client-side and absent from the SSR HTML).
+    let ld = parse_playtester_ld_json(&html);
+    let mut photos: Vec<PlaytesterPhoto> = Vec::new();
+    let mut videos: Vec<PlaytesterVideo> = Vec::new();
+    if let Some(ld) = ld.as_ref() {
+        if let Some(image) = ld.get("image") {
+            let items: Vec<&serde_json::Value> = match image {
+                serde_json::Value::Array(a) => a.iter().collect(),
+                other => vec![other],
+            };
+            for img in items {
+                if let Some(url) = img.get("url").and_then(|u| u.as_str()) {
+                    photos.push(PlaytesterPhoto {
+                        url: url.to_string(),
+                        caption: img
+                            .get("caption")
+                            .and_then(|c| c.as_str())
+                            .map(String::from),
+                    });
+                }
+            }
+        }
+        if let Some(subject_of) = ld.get("subjectOf").and_then(|s| s.as_array()) {
+            for v in subject_of {
+                videos.push(PlaytesterVideo {
+                    name: ld_string(v, "name"),
+                    thumbnail_url: ld_string(v, "thumbnailUrl"),
+                    content_url: ld_string(v, "contentUrl"),
+                    embed_url: ld_string(v, "embedUrl"),
+                    duration: ld_string(v, "duration"),
+                });
+            }
+        }
+    }
+
+    // Fall back to the JSON-LD description when the short-description
+    // paragraph is absent from the DOM.
+    let description = description.or_else(|| {
+        ld.as_ref()
+            .and_then(|v| ld_string(v, "description"))
+    });
+
+    Ok(PlaytesterGameDetail {
+        thumbnail: Some(playtester_thumbnail(&slug)),
+        slug: slug.clone(),
+        title,
+        status,
+        studio,
+        studio_url,
+        added,
+        description,
+        kind,
+        release_date,
+        languages,
+        controller,
+        platforms,
+        system_requirements,
+        photos,
+        videos,
+        demo_url,
+        install_url,
+        steamdb_url,
+        url,
+    })
+}

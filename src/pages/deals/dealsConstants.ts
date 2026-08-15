@@ -1,6 +1,10 @@
 import type { GamePassFilters, DealsFilters } from "../../types/deals";
 
-export type SubTab = "gamepass" | "isthereanydeal" | "giveaways";
+export type SubTab =
+  | "gamepass"
+  | "isthereanydeal"
+  | "giveaways"
+  | "playtester";
 
 export type DealsSortOption =
   | "discount_desc"
@@ -17,6 +21,12 @@ export type GamePassSortOption =
 
 export type GiveawaysSortOption =
   | "expiry_asc"
+  | "title_asc"
+  | "title_desc";
+
+export type PlaytesterSortOption =
+  | "newest_desc"
+  | "newest_asc"
   | "title_asc"
   | "title_desc";
 
@@ -45,6 +55,17 @@ export interface GiveawaysFiltersState {
   store: string;
   sortBy: GiveawaysSortOption;
   activeOnly: boolean;
+}
+
+export interface PlaytesterFiltersState {
+  searchQuery: string;
+  platform: string;
+  genre: string;
+  status: string;
+  kind: string;
+  sortBy: PlaytesterSortOption;
+  hideOwned: boolean;
+  wishlistOnly: boolean;
 }
 
 export const GP_REGIONS: { code: string; label: string }[] = [
@@ -280,4 +301,15 @@ export const DEFAULT_GIVEAWAY_FILTERS: GiveawaysFiltersState = {
   store: "all",
   sortBy: "expiry_asc",
   activeOnly: true,
+};
+
+export const DEFAULT_PLAYTESTER_FILTERS: PlaytesterFiltersState = {
+  searchQuery: "",
+  platform: "all",
+  genre: "all",
+  status: "all",
+  kind: "all",
+  sortBy: "newest_desc",
+  hideOwned: false,
+  wishlistOnly: false,
 };
