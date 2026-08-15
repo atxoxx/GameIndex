@@ -506,7 +506,8 @@
   flex-wrap: wrap;
 }
 
-.mods-toolbar-row + .mods-toolbar-row {
+.mods-toolbar-row + .mods-toolbar-row,
+.mods-engines-filter-row + .mods-toolbar-row {
   border-top: 1px solid var(--color-border);
   padding-top: var(--space-md);
 }
@@ -522,8 +523,13 @@
   display: flex;
   align-items: center;
   gap: var(--space-sm);
-  flex-wrap: wrap;
-  justify-content: flex-end;
+  flex-wrap: nowrap;
+  margin-left: auto;
+  max-width: 100%;
+  overflow-x: auto;
+  padding: 4px 0;
+  margin-top: -4px;
+  margin-bottom: -4px;
 }
 
 /* Wrapper around the Scan button when it's disabled for a game without
