@@ -64,10 +64,6 @@ function baseOf(p: string): string {
  * Determine which "game folder" an executable belongs to by grouping on the
  * immediate subfolder of the scanned root. e.g. choosing `games` groups
  * `games/GameA/...`, `games/GameB/...` into "GameA" / "GameB".
- *
- * If the exe sits directly in the scanned folder (single-game-folder scan), or
- * only inside a helper/binary subfolder (bin, redist, ...), it belongs to the
- * scanned folder itself and is grouped under that folder's name.
  */
 function groupKeyForExe(exePath: string, rootPath: string): string {
   const normalizedRoot = rootPath.replace(/[\\/]$/, "");
@@ -75,19 +71,38 @@ function groupKeyForExe(exePath: string, rootPath: string): string {
   const rel = splitPath(exePath).slice(rootParts.length);
 
   if (rel.length <= 1) {
-    // exe sits directly in the scanned folder (or is the folder itself)
     return baseOf(normalizedRoot);
   }
 
   const first = rel[0];
   if (!HELPER_DIRS.has(first.toLowerCase())) {
-    // immediate subfolder of the scanned folder = a distinct game
     return first;
   }
 
-  // The immediate child is a helper/binary folder; the exe belongs to the
-  // scanned folder itself (a single-game-folder scan).
   return baseOf(normalizedRoot);
+}
+
+/** Absolute path of the game folder an executable belongs to. */
+function gameFolderForExe(exePath: string, rootPath: string): string {
+  const normalizedRoot = rootPath.replace(/[\\/]$/, "");
+  const rootParts = splitPath(normalizedRoot);
+  const rel = splitPath(exePath).slice(rootParts.length);
+
+  if (rel.length <= 1) return normalizedRoot;
+  const first = rel[0];
+  if (!HELPER_DIRS.has(first.toLowerCase())) {
+    return [...rootParts, first].join("\\");
+  }
+  return normalizedRoot;
+}
+
+/** Directory of an exe relative to its game folder (empty when at the root). */
+function relDirOf(exePath: string, groupRoot: string): string {
+  if (!groupRoot) return "";
+  const rootParts = splitPath(groupRoot.replace(/[\\/]$/, ""));
+  const parts = splitPath(exePath);
+  parts.pop();
+  return parts.slice(rootParts.length).join("\\");
 }
 
 /** Score an executable as the most likely "main" game exe of a folder. */
@@ -130,6 +145,8 @@ function pickPrimary(exes: ExeInfo[], folderName: string): ExeInfo {
 export interface ExeGroup {
   id: string;
   folderName: string;
+  /** Absolute path of the game folder this group was detected under. */
+  rootDir: string;
   exes: ExeInfo[];
   suggestedPrimary: ExeInfo;
   primaryPath: string;
@@ -150,6 +167,7 @@ function groupExes(infos: ExeInfo[], rootPath: string): ExeGroup[] {
     groups.push({
       id: `${idx++}-${folderName}`,
       folderName,
+      rootDir: gameFolderForExe(suggested.path, rootPath),
       exes,
       suggestedPrimary: suggested,
       primaryPath: suggested.path,
@@ -171,6 +189,698 @@ interface ImportModalProps {
   onCancel: () => void;
 }
 
+type Step = "review" | "link" | "confirm";
+
+/** One entry the user will import — either a game folder's main exe or an extra. */
+interface LinkItem {
+  path: string;
+  name: string;
+  kind: "game" | "extra";
+}
+
+const STEP_LABEL_KEYS: Record<Step, string> = {
+  review: "import.step.review",
+  link: "import.step.link",
+  confirm: "import.step.confirm",
+};
+
+// ── Review step ──────────────────────────────────────────────────────────────
+
+interface ReviewStepProps {
+  groups: ExeGroup[];
+  selectedGroupIds: Set<string>;
+  primaryByGroup: Record<string, string>;
+  selectedExtraPaths: Set<string>;
+  existingSet: Set<string>;
+  onToggleGroup: (id: string) => void;
+  onSelectAll: (ids?: string[]) => void;
+  onDeselectAll: (ids?: string[]) => void;
+  onSetPrimary: (id: string, path: string) => void;
+  onToggleExtra: (path: string) => void;
+}
+
+function ReviewStep({
+  groups,
+  selectedGroupIds,
+  primaryByGroup,
+  selectedExtraPaths,
+  existingSet,
+  onToggleGroup,
+  onSelectAll,
+  onDeselectAll,
+  onSetPrimary,
+  onToggleExtra,
+}: ReviewStepProps) {
+  const { t } = useLanguage();
+  const [filterQuery, setFilterQuery] = useState("");
+
+  const filteredGroups = useMemo(() => {
+    const q = filterQuery.trim().toLowerCase();
+    if (!q) return groups;
+    return groups.filter((g) => {
+      if (g.folderName.toLowerCase().includes(q)) return true;
+      return g.exes.some((e) => gameNameFromPath(e.path).toLowerCase().includes(q));
+    });
+  }, [groups, filterQuery]);
+
+  const visibleIds = useMemo(() => filteredGroups.map((g) => g.id), [filteredGroups]);
+  const visibleSelectedCount = useMemo(
+    () => filteredGroups.filter((g) => selectedGroupIds.has(g.id)).length,
+    [filteredGroups, selectedGroupIds]
+  );
+  const totalSelectedCount = selectedGroupIds.size;
+  const isAllVisibleSelected =
+    filteredGroups.length > 0 && visibleSelectedCount === filteredGroups.length;
+  const isSomeVisibleSelected = visibleSelectedCount > 0 && !isAllVisibleSelected;
+
+  const masterCheckboxRef = useRef<HTMLInputElement>(null);
+  useEffect(() => {
+    if (masterCheckboxRef.current) {
+      masterCheckboxRef.current.indeterminate = isSomeVisibleSelected;
+    }
+  }, [isSomeVisibleSelected]);
+
+  const handleMasterToggle = () => {
+    if (isAllVisibleSelected) {
+      onDeselectAll(visibleIds);
+    } else {
+      onSelectAll(visibleIds);
+    }
+  };
+
+  return (
+    <div className="import-review-container">
+      <div className="import-review-toolbar">
+        <div className="import-review-toolbar-left">
+          <label
+            className="import-review-master-toggle"
+            title={isAllVisibleSelected ? t("import.review.deselectAll") : t("import.review.selectAll")}
+          >
+            <input
+              ref={masterCheckboxRef}
+              type="checkbox"
+              checked={isAllVisibleSelected}
+              onChange={handleMasterToggle}
+            />
+            <span className="import-review-master-label">
+              {isAllVisibleSelected
+                ? t("import.review.deselectAll")
+                : t("import.review.selectAll")}
+            </span>
+          </label>
+          <div className="import-review-actions-btn-group">
+            <button
+              type="button"
+              className="import-mini-btn"
+              onClick={() => onSelectAll(visibleIds)}
+              disabled={isAllVisibleSelected}
+            >
+              {t("import.review.selectAll")}
+            </button>
+            <button
+              type="button"
+              className="import-mini-btn"
+              onClick={() => onDeselectAll(visibleIds)}
+              disabled={visibleSelectedCount === 0}
+            >
+              {t("import.review.deselectAll")}
+            </button>
+          </div>
+        </div>
+
+        <div className="import-review-toolbar-right">
+          {groups.length > 3 && (
+            <div className="import-review-filter-wrapper">
+              <svg
+                className="import-filter-icon"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              >
+                <circle cx="11" cy="11" r="8" />
+                <line x1="21" y1="21" x2="16.65" y2="16.65" />
+              </svg>
+              <input
+                type="text"
+                className="import-review-filter-input"
+                placeholder={t("import.review.filterPlaceholder")}
+                value={filterQuery}
+                onChange={(e) => setFilterQuery(e.target.value)}
+              />
+              {filterQuery && (
+                <button
+                  type="button"
+                  className="clear-btn"
+                  onClick={() => setFilterQuery("")}
+                >
+                  ✖
+                </button>
+              )}
+            </div>
+          )}
+          <span className="import-review-selected-badge">
+            {t("import.review.selectedRatio", {
+              selected: totalSelectedCount,
+              total: groups.length,
+            })}
+          </span>
+        </div>
+      </div>
+
+      <div className="import-review">
+        {filteredGroups.length === 0 ? (
+          <div className="import-review-empty">
+            <p>{t("import.review.noFilterResults", { query: filterQuery })}</p>
+          </div>
+        ) : (
+          filteredGroups.map((g) => {
+            const selected = selectedGroupIds.has(g.id);
+            const primaryPath = primaryByGroup[g.id] ?? g.suggestedPrimary.path;
+            const others = g.exes.filter((e) => e.path !== primaryPath);
+            const inLibrary = existingSet.has(primaryPath.toLowerCase());
+
+            return (
+              <div className={`import-review-card${selected ? "" : " excluded"}`} key={g.id}>
+                <div className="import-review-card-head">
+                  <label className="import-review-toggle">
+                    <input
+                      type="checkbox"
+                      checked={selected}
+                      onChange={() => onToggleGroup(g.id)}
+                    />
+                    <span className="import-review-name">{g.folderName}</span>
+                  </label>
+                  {inLibrary ? (
+                    <span className="import-review-badge library">
+                      ♻ {t("import.alreadyInLibrary")}
+                    </span>
+                  ) : (
+                    <span className="import-review-count">
+                      {g.exes.length === 1
+                        ? t("import.review.oneExe")
+                        : t("import.review.exeCount", { count: g.exes.length })}
+                    </span>
+                  )}
+                </div>
+
+                {selected && (
+                  <div className="import-review-card-body">
+                    {g.exes.length > 1 ? (
+                      <label className="import-review-field">
+                        <span className="import-review-field-label">
+                          {t("import.mainExecutable")}
+                          {g.suggestedPrimary.path === primaryPath && (
+                            <span className="suggested-badge">{t("import.suggested")}</span>
+                          )}
+                        </span>
+                        <select
+                          className="import-review-select"
+                          value={primaryPath}
+                          onChange={(e) => onSetPrimary(g.id, e.target.value)}
+                        >
+                          {g.exes.map((e) => {
+                            const rel = relDirOf(e.path, g.rootDir);
+                            return (
+                              <option key={e.path} value={e.path}>
+                                {gameNameFromPath(e.path)}
+                                {rel ? ` — ${rel}` : ""}
+                              </option>
+                            );
+                          })}
+                        </select>
+                      </label>
+                    ) : (
+                      <div className="import-review-field">
+                        <span className="import-review-field-label">{t("import.mainExecutable")}</span>
+                        <span className="import-review-single-exe">
+                          {gameNameFromPath(primaryPath)}
+                        </span>
+                      </div>
+                    )}
+
+                    {others.length > 0 && (
+                      <div className="import-review-extras">
+                        <span className="import-review-field-label">
+                          {t("import.review.otherExes")}
+                        </span>
+                        {others.map((e) => {
+                          const checked = selectedExtraPaths.has(e.path);
+                          const rel = relDirOf(e.path, g.rootDir);
+                          return (
+                            <label className="import-review-extra" key={e.path} title={e.path}>
+                              <input
+                                type="checkbox"
+                                checked={checked}
+                                onChange={() => onToggleExtra(e.path)}
+                              />
+                              <span className="import-review-extra-detail">
+                                <span className="import-review-extra-name">
+                                  {gameNameFromPath(e.path)}
+                                </span>
+                                {rel && <span className="import-review-extra-path">{rel}</span>}
+                              </span>
+                              <span className="import-review-extra-hint">
+                                {t("import.review.importAsExtra")}
+                              </span>
+                            </label>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+            );
+          })
+        )}
+      </div>
+    </div>
+  );
+}
+
+// ── Link step ────────────────────────────────────────────────────────────────
+
+interface LinkStepProps {
+  items: LinkItem[];
+  activePath: string;
+  existingSet: Set<string>;
+  matches: Record<string, StoreGameSummary | null>;
+  previews: Record<string, GameMetadataResult>;
+  suggestions: Record<string, StoreGameSummary[]>;
+  searchQueries: Record<string, string>;
+  loadingSuggestions: boolean;
+  loadingPreview: boolean;
+  searchError: boolean;
+  detailError: boolean;
+  onSelect: (path: string) => void;
+  onQueryChange: (val: string) => void;
+  onLinkGame: (game: StoreGameSummary) => void;
+  onUnlink: () => void;
+  onRetrySearch: () => void;
+  onRetryDetail: () => void;
+  onSkipAll: () => void;
+}
+
+function LinkStep({
+  items,
+  activePath,
+  existingSet,
+  matches,
+  previews,
+  suggestions,
+  searchQueries,
+  loadingSuggestions,
+  loadingPreview,
+  searchError,
+  detailError,
+  onSelect,
+  onQueryChange,
+  onLinkGame,
+  onUnlink,
+  onRetrySearch,
+  onRetryDetail,
+  onSkipAll,
+}: LinkStepProps) {
+  const { t } = useLanguage();
+
+  const activeMatch = matches[activePath] ?? null;
+  const activeDetail = activeMatch ? previews[activeMatch.slug] : null;
+  const activeQuery = searchQueries[activePath] || "";
+  const activeSuggestions = suggestions[activeQuery] || [];
+  const matchedCount = items.filter((i) => matches[i.path]).length;
+
+  return (
+    <div className="import-link-layout">
+      {items.length > 1 && (
+        <div className="import-link-list">
+          <div className="import-link-list-header">
+            <span className="import-link-list-count">
+              {t("import.link.items", { matched: matchedCount, total: items.length })}
+            </span>
+            <button
+              type="button"
+              className="import-mini-btn"
+              onClick={onSkipAll}
+              disabled={matchedCount === 0}
+            >
+              {t("import.link.skipAll")}
+            </button>
+          </div>
+          <div className="import-link-items">
+            {items.map((item) => {
+              const m = matches[item.path];
+              const isActive = item.path === activePath;
+              const inLibrary = existingSet.has(item.path.toLowerCase());
+              return (
+                <button
+                  type="button"
+                  className={`import-link-item${isActive ? " active" : ""}`}
+                  key={item.path}
+                  onClick={() => onSelect(item.path)}
+                >
+                  <span className="import-link-item-name">{item.name}</span>
+                  {item.kind === "extra" && (
+                    <span className="import-link-item-kind">{t("import.extra")}</span>
+                  )}
+                  {inLibrary ? (
+                    <span className="import-link-item-status library">
+                      ♻ {t("import.alreadyInLibrary")}
+                    </span>
+                  ) : m ? (
+                    <span className="import-link-item-status matched">✓ {m.name}</span>
+                  ) : (
+                    <span className="import-link-item-status unmatched">
+                      ⚠ {t("import.link.unmatched")}
+                    </span>
+                  )}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
+      <div className="import-workspace">
+        {activePath ? (
+          <div className="import-matching-area">
+            <div className="import-active-file-info">
+              <div className="file-icon">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <polygon points="12 2 2 7 12 12 22 7 12 2" />
+                  <polyline points="2 17 12 22 22 17" />
+                  <polyline points="2 12 12 17 22 12" />
+                </svg>
+              </div>
+              <div className="file-details">
+                <span className="file-label">{t("import.executableFile")}</span>
+                <span className="file-name">{gameNameFromPath(activePath)}</span>
+                <span className="file-path" title={activePath}>
+                  {getDirectory(activePath)}
+                </span>
+              </div>
+            </div>
+
+            <div className="import-search-row">
+              <div className="search-input-wrapper">
+                <svg
+                  className="search-icon"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                >
+                  <circle cx="11" cy="11" r="8" />
+                  <line x1="21" y1="21" x2="16.65" y2="16.65" />
+                </svg>
+                <input
+                  type="text"
+                  className="import-search-input"
+                  placeholder={t("import.searchIgdb")}
+                  value={activeQuery}
+                  onChange={(e) => onQueryChange(e.target.value)}
+                />
+                {activeQuery && (
+                  <button className="clear-btn" onClick={() => onQueryChange("")}>
+                    ✖
+                  </button>
+                )}
+              </div>
+            </div>
+
+            <div className="import-matching-columns">
+              <div className="import-suggestions-panel">
+                <h4 className="section-title">{t("import.igdbSuggestions")}</h4>
+                {loadingSuggestions ? (
+                  <div className="suggestions-loader">
+                    <div className="spinner-small" />
+                    <span>{t("import.searchingIgdb")}</span>
+                  </div>
+                ) : activeSuggestions.length > 0 ? (
+                  <div className="suggestions-list">
+                    {activeSuggestions.map((game) => {
+                      const isLinked = activeMatch?.id === game.id;
+                      const releaseYear = game.firstReleaseDate
+                        ? new Date(game.firstReleaseDate).getFullYear()
+                        : null;
+
+                      return (
+                        <button
+                          key={game.id}
+                          className={`suggestion-item${isLinked ? " linked" : ""}`}
+                          onClick={() => onLinkGame(game)}
+                        >
+                          <div className="suggestion-cover">
+                            {game.coverUrl ? (
+                              <img src={game.coverUrl} alt={game.name} />
+                            ) : (
+                              <div className="suggestion-cover-placeholder">?</div>
+                            )}
+                          </div>
+                          <div className="suggestion-info">
+                            <span className="suggestion-name">{game.name}</span>
+                            <span className="suggestion-meta">
+                              {releaseYear ? `${releaseYear}` : t("import.unknownYear")}
+                              {game.platforms.length > 0 && ` · ${game.platforms[0]}`}
+                            </span>
+                          </div>
+                          {isLinked && <span className="linked-badge">{t("import.linked")}</span>}
+                        </button>
+                      );
+                    })}
+                  </div>
+                ) : searchError ? (
+                  <div className="suggestions-empty error">
+                    <p>{t("import.searchFailed")}</p>
+                    <button type="button" className="import-retry-btn" onClick={onRetrySearch}>
+                      {t("import.retry")}
+                    </button>
+                  </div>
+                ) : (
+                  <div className="suggestions-empty">
+                    <p>{t("import.noSuggestions")}</p>
+                    <p className="subtext">{t("import.noSuggestionsHint")}</p>
+                  </div>
+                )}
+              </div>
+
+              <div className="import-preview-panel">
+                <h4 className="section-title">{t("import.matchPreview")}</h4>
+                {detailError && (
+                  <div className="import-detail-error">
+                    <span>{t("import.detailLoadFailed")}</span>
+                    <button
+                      type="button"
+                      className="import-retry-btn"
+                      onClick={onRetryDetail}
+                    >
+                      {t("import.retry")}
+                    </button>
+                  </div>
+                )}
+                {loadingPreview ? (
+                  <div className="preview-skeleton-loader">
+                    <div className="skeleton-hero" />
+                    <div className="skeleton-content">
+                      <div className="skeleton-line title" />
+                      <div className="skeleton-line text" />
+                      <div className="skeleton-line text" />
+                      <div className="skeleton-line text" />
+                    </div>
+                  </div>
+                ) : activeMatch ? (
+                  <div className="game-preview-card">
+                    {activeDetail ? (
+                      <>
+                        {activeDetail.images.hero && (
+                          <div
+                            className="preview-hero-banner"
+                            style={{ backgroundImage: `url(${activeDetail.images.hero})` }}
+                          />
+                        )}
+                        <div className="preview-main-info">
+                          <div className="preview-cover">
+                            {activeDetail.images.cover ? (
+                              <img src={activeDetail.images.cover} alt={activeDetail.title} />
+                            ) : (
+                              <div className="preview-cover-placeholder">?</div>
+                            )}
+                          </div>
+                          <div className="preview-metadata">
+                            <h3 className="preview-title">{activeDetail.title}</h3>
+                            <div className="preview-meta-row">
+                              {activeDetail.releaseDate && (
+                                <span className="meta-badge">
+                                  {new Date(activeDetail.releaseDate).getFullYear()}
+                                </span>
+                              )}
+                              {activeDetail.igdbRating && (
+                                <span className="meta-badge rating">
+                                  ★ {Math.round(activeDetail.igdbRating)}%
+                                </span>
+                              )}
+                            </div>
+                            <p className="preview-meta-label">
+                              <strong>{t("edit.label.developer")}:</strong>{" "}
+                              {activeDetail.developer || t("splash.unknown")}
+                            </p>
+                            <p className="preview-meta-label">
+                              <strong>{t("edit.label.publisher")}:</strong>{" "}
+                              {activeDetail.publisher || t("splash.unknown")}
+                            </p>
+                            <div className="preview-genres">
+                              {activeDetail.genres.slice(0, 3).map((g) => (
+                                <span key={g} className="genre-tag">
+                                  {g}
+                                </span>
+                              ))}
+                            </div>
+                          </div>
+                        </div>
+                        <div className="preview-summary-scroll">
+                          {activeDetail.description && (
+                            <div className="preview-summary">
+                              <p>{activeDetail.description}</p>
+                            </div>
+                          )}
+                          {activeDetail.storyline && (
+                            <div className="preview-storyline">
+                              <h5>{t("edit.label.storyline")}</h5>
+                              <p>{activeDetail.storyline}</p>
+                            </div>
+                          )}
+                        </div>
+                        <button className="preview-unlink-btn" onClick={onUnlink}>
+                          {t("import.skipMetadata")}
+                        </button>
+                      </>
+                    ) : (
+                      <>
+                        <div className="preview-main-info">
+                          <div className="preview-cover">
+                            {activeMatch.coverUrl ? (
+                              <img src={activeMatch.coverUrl} alt={activeMatch.name} />
+                            ) : (
+                              <div className="preview-cover-placeholder">?</div>
+                            )}
+                          </div>
+                          <div className="preview-metadata">
+                            <h3 className="preview-title">{activeMatch.name}</h3>
+                            <div className="preview-meta-row">
+                              {activeMatch.firstReleaseDate && (
+                                <span className="meta-badge">
+                                  {new Date(activeMatch.firstReleaseDate).getFullYear()}
+                                </span>
+                              )}
+                              {activeMatch.rating && (
+                                <span className="meta-badge rating">
+                                  ★ {Math.round(activeMatch.rating)}%
+                                </span>
+                              )}
+                            </div>
+                            <div className="preview-genres">
+                              {activeMatch.genres.slice(0, 3).map((g) => (
+                                <span key={g} className="genre-tag">
+                                  {g}
+                                </span>
+                              ))}
+                            </div>
+                          </div>
+                        </div>
+                        {activeMatch.summary && (
+                          <div className="preview-summary-scroll">
+                            <div className="preview-summary">
+                              <p>{activeMatch.summary}</p>
+                            </div>
+                          </div>
+                        )}
+                        <button className="preview-unlink-btn" onClick={onUnlink}>
+                          {t("import.skipMetadataShort")}
+                        </button>
+                      </>
+                    )}
+                  </div>
+                ) : (
+                  <div className="preview-empty">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1">
+                      <rect x="2" y="2" width="20" height="20" rx="2.5" />
+                      <circle cx="12" cy="12" r="4" />
+                      <line x1="12" y1="8" x2="12" y2="16" />
+                      <line x1="8" y1="12" x2="16" y2="12" />
+                    </svg>
+                    <p>{t("import.noGameLinked")}</p>
+                    <p className="subtext">
+                      {t("import.noGameLinkedDesc", { name: gameNameFromPath(activePath) })}
+                    </p>
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        ) : (
+          <div className="import-workspace-empty">
+            <p>{t("import.link.nothingToLink")}</p>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// ── Confirm step ─────────────────────────────────────────────────────────────
+
+interface ConfirmStepProps {
+  items: LinkItem[];
+  matches: Record<string, StoreGameSummary | null>;
+}
+
+function ConfirmStep({ items, matches }: ConfirmStepProps) {
+  const { t } = useLanguage();
+  const withMeta = items.filter((i) => matches[i.path]).length;
+  const without = items.length - withMeta;
+
+  return (
+    <div className="import-confirm">
+      <div className="import-confirm-summary">
+        <div className="import-confirm-total">
+          {t("import.confirm.total", { count: items.length })}
+        </div>
+        <div className="import-confirm-breakdown">
+          <span className="import-confirm-chip meta">
+            ✓ {t("import.confirm.withMeta", { count: withMeta })}
+          </span>
+          <span className="import-confirm-chip plain">
+            {t("import.confirm.withoutMeta", { count: without })}
+          </span>
+        </div>
+      </div>
+
+      <div className="import-confirm-list">
+        {items.map((item) => {
+          const m = matches[item.path];
+          return (
+            <div className="import-confirm-item" key={item.path}>
+              <div className="import-confirm-item-info">
+                <span className="import-confirm-item-name">{m ? m.name : gameNameFromPath(item.path)}</span>
+                <span className="import-confirm-item-path" title={item.path}>
+                  {item.path}
+                </span>
+              </div>
+              <span className={`import-confirm-item-status${m ? " matched" : ""}`}>
+                {m ? t("import.confirm.metadata") : t("import.confirm.nameOnly")}
+              </span>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+// ── Main modal ───────────────────────────────────────────────────────────────
+
 export default function ImportModal({
   exeInfos,
   rootPath,
@@ -180,68 +890,55 @@ export default function ImportModal({
 }: ImportModalProps) {
   const { t } = useLanguage();
 
-  // Normalize once for fast lookup.
   const existingSet = useMemo(
     () => new Set((existingPaths ?? []).map((p) => p.toLowerCase())),
     [existingPaths]
   );
 
-  // Group executables by their detected game folder. Falls back to one group
-  // per executable when no root folder is available so the modal is always
-  // usable rather than rendering a broken empty state.
   const groups = useMemo(() => {
     if (rootPath) return groupExes(exeInfos, rootPath);
     return exeInfos.map((info, idx) => ({
       id: `${idx}-${baseOf(info.path)}`,
       folderName: baseOf(info.path),
+      rootDir: dirOf(info.path),
       exes: [info],
       suggestedPrimary: info,
       primaryPath: info.path,
     }));
   }, [exeInfos, rootPath]);
 
-  // Which game groups to import (keyed by group id).
+  // The review step is only useful when there's something to disambiguate:
+  // multiple game folders, or multiple executables inside a single folder.
+  const steps: Step[] = useMemo(() => {
+    const needsReview = groups.length > 1 || groups.some((g) => g.exes.length > 1);
+    return needsReview ? ["review", "link", "confirm"] : ["link", "confirm"];
+  }, [groups]);
+
+  const [step, setStep] = useState<Step>(() =>
+    groups.length > 1 || groups.some((g) => g.exes.length > 1) ? "review" : "link"
+  );
+
   const [selectedGroupIds, setSelectedGroupIds] = useState<Set<string>>(new Set());
-
-  // Which executable is the "main" exe for each group.
   const [primaryByGroup, setPrimaryByGroup] = useState<Record<string, string>>({});
-
-  // Extra executables explicitly chosen for individual import.
   const [selectedExtraPaths, setSelectedExtraPaths] = useState<Set<string>>(new Set());
 
-  // Expanded group sections (to reveal extra executables).
-  const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set());
-
-  // Active executable path for the detail/matching panel.
   const [activePath, setActivePath] = useState<string>("");
-
-  // Search query strings per executable path.
   const [searchQueries, setSearchQueries] = useState<Record<string, string>>({});
-
-  // Matched IGDB game summaries per executable path.
   const [matches, setMatches] = useState<Record<string, StoreGameSummary | null>>({});
-
-  // Cached IGDB full metadata details per game slug (for previews & import).
   const [previews, setPreviews] = useState<Record<string, GameMetadataResult>>({});
-
-  // Cached IGDB suggestions lists per query string.
   const [suggestions, setSuggestions] = useState<Record<string, StoreGameSummary[]>>({});
-
-  // Loading states.
   const [loadingSuggestions, setLoadingSuggestions] = useState<boolean>(false);
   const [loadingPreview, setLoadingPreview] = useState<boolean>(false);
+  const [searchError, setSearchError] = useState<boolean>(false);
+  const [detailError, setDetailError] = useState<boolean>(false);
+  const searchToken = useRef(0);
+
   const [importing, setImporting] = useState<boolean>(false);
   const [importProgress, setImportProgress] = useState<string>("");
 
-  // Search / detail error states (surfaced to the user, not just console).
-  const [searchError, setSearchError] = useState<boolean>(false);
-  const [detailError, setDetailError] = useState<boolean>(false);
-  // Monotonic token guarding async IGDB searches against stale responses.
-  const searchToken = useRef(0);
-
   const activeQuery = searchQueries[activePath] || "";
 
-  // Initialize groups, primary selections and queries once the scan resolves.
+  // Initialize groups, selections and queries once the scan resolves.
   useEffect(() => {
     if (exeInfos.length > 0 && groups.length > 0) {
       const initialQueries: Record<string, string> = {};
@@ -251,7 +948,6 @@ export default function ImportModal({
       groups.forEach((g) => {
         groupIds.add(g.id);
         primaries[g.id] = g.suggestedPrimary.path;
-        // Seed the main exe search with the folder name for better IGDB matches.
         initialQueries[g.suggestedPrimary.path] = g.folderName;
         g.exes.forEach((e) => {
           if (e.path !== g.suggestedPrimary.path) {
@@ -264,30 +960,17 @@ export default function ImportModal({
       setSelectedGroupIds(groupIds);
       setPrimaryByGroup(primaries);
       setSelectedExtraPaths(new Set());
-      setExpandedGroups(new Set());
       setActivePath(groups[0].primaryPath);
+      setStep(groups.length > 1 || groups.some((g) => g.exes.length > 1) ? "review" : "link");
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [exeInfos, rootPath]);
 
-  // Always fall back to a usable active selection if grouping produced nothing
-  // usable (defensive: keeps the workspace from rendering an empty dead-end).
-  useEffect(() => {
-    if (exeInfos.length > 0 && !activePath && groups.length > 0) {
-      setActivePath(groups[0].primaryPath);
-    }
-  }, [exeInfos, groups, activePath]);
-
-  // Unified, guarded IGDB suggestion search. Re-runs when the active
-  // executable or its query changes; a monotonic token discards stale
-  // responses so switching executables quickly can't leak old results.
+  // Guarded, debounced IGDB suggestion search for the active executable.
   useEffect(() => {
     const q = searchQueries[activePath] || "";
     setSearchError(false);
-    if (!q.trim()) {
-      return;
-    }
-    if (suggestions[q]) {
+    if (!q.trim() || suggestions[q]) {
       return;
     }
 
@@ -312,62 +995,37 @@ export default function ImportModal({
     }, 350);
 
     return () => clearTimeout(timer);
-  }, [activePath, activeQuery, suggestions, searchQueries]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activePath, activeQuery]);
 
-  // Handle query input change.
-  function handleQueryChange(val: string) {
-    setSearchQueries((prev) => ({ ...prev, [activePath]: val }));
-  }
-
-  // Get suggestions for the active item.
-  const activeSuggestions = suggestions[activeQuery] || [];
-
-  function retrySearch() {
-    if (!activeQuery.trim()) return;
-    // Force a re-fetch by clearing the cached entry for the current query.
-    setSuggestions((prev) => {
-      const next = { ...prev };
-      delete next[activeQuery];
-      return next;
-    });
-    setSearchError(false);
-  }
-
-  // Link a suggestion to the active executable and fetch details.
-  async function handleLinkGame(game: StoreGameSummary) {
-    setMatches((prev) => ({ ...prev, [activePath]: game }));
-    setDetailError(false);
-
-    if (previews[game.slug]) {
-      return;
+  // The flat list of items that will be imported (selected games + extras).
+  const importItems: LinkItem[] = useMemo(() => {
+    const items: LinkItem[] = [];
+    for (const g of groups) {
+      if (!selectedGroupIds.has(g.id)) continue;
+      const path = primaryByGroup[g.id] ?? g.suggestedPrimary.path;
+      items.push({ path, name: g.folderName, kind: "game" });
     }
 
-    setLoadingPreview(true);
-    try {
-      const detail = await invoke<GameMetadataResult | null>("get_store_game_detail", {
-        slug: game.slug,
-      });
-      if (detail) {
-        setPreviews((prev) => ({ ...prev, [game.slug]: detail }));
-      } else {
-        // Endpoint succeeded but returned nothing; treat as a soft failure so
-        // the user knows the rich preview may be incomplete.
-        setDetailError(true);
-      }
-    } catch (err) {
-      console.error("Failed to fetch game details:", err);
-      setDetailError(true);
-    } finally {
-      setLoadingPreview(false);
+    const groupIdByPath = new Map<string, string>();
+    for (const g of groups) {
+      for (const e of g.exes) groupIdByPath.set(e.path, g.id);
     }
-  }
 
-  // Remove the IGDB link for the active executable.
-  function handleUnlinkGame() {
-    setMatches((prev) => ({ ...prev, [activePath]: null }));
-  }
+    for (const p of selectedExtraPaths) {
+      const gid = groupIdByPath.get(p);
+      if (!gid || !selectedGroupIds.has(gid)) continue;
+      const primary = primaryByGroup[gid];
+      if (p === primary) continue;
+      items.push({ path: p, name: gameNameFromPath(p), kind: "extra" });
+    }
+    return items;
+  }, [groups, selectedGroupIds, primaryByGroup, selectedExtraPaths]);
 
-  // ── Group selection helpers ──────────────────────────────────────────────
+  const gamesCount = selectedGroupIds.size;
+  const extrasCount = importItems.filter((i) => i.kind === "extra").length;
+  const selectionCount = importItems.length;
+
   function toggleGroup(id: string) {
     const group = groups.find((g) => g.id === id);
     const willSelect = !selectedGroupIds.has(id);
@@ -378,34 +1036,59 @@ export default function ImportModal({
       return next;
     });
 
-    // Clearing a group also clears its individually-checked extra executables
-    // so the sidebar can't show a contradictory "unchecked group, checked extra".
+    // Clearing a group also clears its individually-checked extras.
     if (!willSelect && group) {
-      const primary = primaryByGroup[id] ?? group.suggestedPrimary.path;
       setSelectedExtraPaths((prev) => {
         const next = new Set(prev);
-        group.exes.forEach((e) => {
-          if (e.path !== primary) next.delete(e.path);
-        });
+        group.exes.forEach((e) => next.delete(e.path));
         return next;
       });
     }
   }
 
+  function handleSelectAll(ids?: string[]) {
+    if (ids && ids.length > 0) {
+      setSelectedGroupIds((prev) => {
+        const next = new Set(prev);
+        ids.forEach((id) => next.add(id));
+        return next;
+      });
+    } else {
+      setSelectedGroupIds(new Set(groups.map((g) => g.id)));
+    }
+  }
+
+  function handleDeselectAll(ids?: string[]) {
+    if (ids && ids.length > 0) {
+      const idsSet = new Set(ids);
+      setSelectedGroupIds((prev) => {
+        const next = new Set(prev);
+        ids.forEach((id) => next.delete(id));
+        return next;
+      });
+      setSelectedExtraPaths((prev) => {
+        const next = new Set(prev);
+        for (const g of groups) {
+          if (idsSet.has(g.id)) {
+            g.exes.forEach((e) => next.delete(e.path));
+          }
+        }
+        return next;
+      });
+    } else {
+      setSelectedGroupIds(new Set());
+      setSelectedExtraPaths(new Set());
+    }
+  }
+
   function setPrimaryForGroup(id: string, path: string) {
-    const group = groups.find((g) => g.id === id);
-    const oldPrimary = primaryByGroup[id] ?? group?.suggestedPrimary.path;
     setPrimaryByGroup((prev) => ({ ...prev, [id]: path }));
+    // The new main is no longer an "extra" of this group.
     setSelectedExtraPaths((prev) => {
       const next = new Set(prev);
-      // The new main is no longer an "extra" of this group.
       next.delete(path);
-      // Demote the previous main so it isn't silently dropped — it stays
-      // available as an extra (separate) executable to import.
-      if (oldPrimary && oldPrimary !== path) next.add(oldPrimary);
       return next;
     });
-    setActivePath(path);
   }
 
   function toggleExtra(path: string) {
@@ -417,54 +1100,74 @@ export default function ImportModal({
     });
   }
 
-  function toggleExpand(id: string) {
-    setExpandedGroups((prev) => {
-      const next = new Set(prev);
-      if (next.has(id)) next.delete(id);
-      else next.add(id);
+  function handleQueryChange(val: string) {
+    setSearchQueries((prev) => ({ ...prev, [activePath]: val }));
+  }
+
+  function retrySearch() {
+    if (!activeQuery.trim()) return;
+    setSuggestions((prev) => {
+      const next = { ...prev };
+      delete next[activeQuery];
       return next;
     });
+    setSearchError(false);
   }
 
-  function expandAll() {
-    setExpandedGroups(new Set(groups.map((g) => g.id)));
-  }
+  async function handleLinkGame(game: StoreGameSummary) {
+    setMatches((prev) => ({ ...prev, [activePath]: game }));
+    setDetailError(false);
 
-  function collapseAll() {
-    setExpandedGroups(new Set());
-  }
+    if (previews[game.slug]) return;
 
-  function clearSelection() {
-    setSelectedGroupIds(new Set());
-    setSelectedExtraPaths(new Set());
-  }
-
-  const allGroupsSelected = groups.length > 0 && selectedGroupIds.size === groups.length;
-  const someGroupsSelected = selectedGroupIds.size > 0 && selectedGroupIds.size < groups.length;
-
-  const selectAllRef = useRef<HTMLInputElement>(null);
-  useEffect(() => {
-    if (selectAllRef.current) {
-      selectAllRef.current.indeterminate = someGroupsSelected;
-    }
-  }, [someGroupsSelected]);
-
-  function toggleSelectAllGroups() {
-    if (allGroupsSelected) {
-      setSelectedGroupIds(new Set());
-    } else {
-      setSelectedGroupIds(new Set(groups.map((g) => g.id)));
+    setLoadingPreview(true);
+    try {
+      const detail = await invoke<GameMetadataResult | null>("get_store_game_detail", {
+        slug: game.slug,
+      });
+      if (detail) {
+        setPreviews((prev) => ({ ...prev, [game.slug]: detail }));
+      } else {
+        setDetailError(true);
+      }
+    } catch (err) {
+      console.error("Failed to fetch game details:", err);
+      setDetailError(true);
+    } finally {
+      setLoadingPreview(false);
     }
   }
 
-  const selectionCount = selectedGroupIds.size + selectedExtraPaths.size;
+  function handleUnlinkGame() {
+    setMatches((prev) => ({ ...prev, [activePath]: null }));
+  }
 
-  // Of the selected games, how many already have an IGDB match linked.
-  const matchedSelectedCount = groups.filter(
-    (g) => selectedGroupIds.has(g.id) && matches[primaryByGroup[g.id] ?? g.suggestedPrimary.path]
-  ).length;
+  function retryDetail() {
+    const match = matches[activePath];
+    if (match) void handleLinkGame(match);
+  }
 
-  // Build a single import entry for a path, fetching full metadata if needed.
+  function skipAllMatches() {
+    setMatches({});
+    setDetailError(false);
+  }
+
+  function goNext() {
+    const idx = steps.indexOf(step);
+    if (idx < 0 || idx >= steps.length - 1) return;
+    const nextStep = steps[idx + 1];
+    if (nextStep === "link" && importItems.length > 0) {
+      const stillListed = importItems.some((i) => i.path === activePath);
+      if (!stillListed) setActivePath(importItems[0].path);
+    }
+    setStep(nextStep);
+  }
+
+  function goBack() {
+    const idx = steps.indexOf(step);
+    if (idx > 0) setStep(steps[idx - 1]);
+  }
+
   async function buildImportForPath(
     path: string
   ): Promise<{ path: string; metadata: GameMetadataResult | null }> {
@@ -489,7 +1192,6 @@ export default function ImportModal({
     return { path, metadata: null };
   }
 
-  // Confirm import and download metadata/images.
   async function handleConfirm() {
     if (selectionCount === 0) return;
     setImporting(true);
@@ -497,43 +1199,39 @@ export default function ImportModal({
 
     const importResults: { path: string; metadata: GameMetadataResult | null }[] = [];
     const importErrors: { name: string; message: string }[] = [];
-    const seen = new Set<string>();
 
     try {
-      const selectedGroups = groups.filter((g) => selectedGroupIds.has(g.id));
-      let i = 0;
-      for (const g of selectedGroups) {
-        const path = primaryByGroup[g.id];
-        i++;
-        const fileName = g.folderName;
+      const games = importItems.filter((i) => i.kind === "game");
+      const extras = importItems.filter((i) => i.kind === "extra");
+
+      for (let i = 0; i < games.length; i++) {
+        const item = games[i];
         setImportProgress(
           t("import.processing", {
-            name: fileName,
-            i,
-            total: selectedGroups.length,
-            extra: selectedExtraPaths.size ? t("import.extraSuffix", { count: selectedExtraPaths.size }) : "",
+            name: item.name,
+            i: i + 1,
+            total: games.length,
+            extra: extras.length ? t("import.extraSuffix", { count: extras.length }) : "",
           })
         );
         try {
-          seen.add(path);
-          importResults.push(await buildImportForPath(path));
+          importResults.push(await buildImportForPath(item.path));
         } catch (err) {
-          console.error(`Import failed for ${path}:`, err);
-          importErrors.push({ name: fileName, message: String(err) });
+          console.error(`Import failed for ${item.path}:`, err);
+          importErrors.push({ name: item.name, message: String(err) });
         }
       }
 
-      const extras = Array.from(selectedExtraPaths).filter((p) => !seen.has(p));
       for (let j = 0; j < extras.length; j++) {
-        const path = extras[j];
+        const item = extras[j];
         setImportProgress(
-          t("import.processingExtra", { name: gameNameFromPath(path), i: j + 1, total: extras.length })
+          t("import.processingExtra", { name: item.name, i: j + 1, total: extras.length })
         );
         try {
-          importResults.push(await buildImportForPath(path));
+          importResults.push(await buildImportForPath(item.path));
         } catch (err) {
-          console.error(`Import failed for ${path}:`, err);
-          importErrors.push({ name: gameNameFromPath(path), message: String(err) });
+          console.error(`Import failed for ${item.path}:`, err);
+          importErrors.push({ name: item.name, message: String(err) });
         }
       }
     } finally {
@@ -543,21 +1241,32 @@ export default function ImportModal({
     onConfirm(importResults, importErrors);
   }
 
-  // Format utility functions.
-  function getDirectory(fullPath: string): string {
-    const parts = fullPath.split(/[\\/]/);
-    parts.pop();
-    return parts.join("\\");
-  }
+  const headerTitle =
+    step === "review"
+      ? t("import.review.title")
+      : step === "link"
+      ? t("import.link.title")
+      : t("import.confirm.title");
+  const headerSubtitle =
+    step === "review"
+      ? t("import.review.subtitle", { count: groups.length })
+      : step === "link"
+      ? t("import.link.subtitle")
+      : t("import.confirm.subtitle");
 
-  const activeMatch = matches[activePath] || null;
-  const activeDetail = activeMatch ? previews[activeMatch.slug] : null;
-  const showGroups = exeInfos.length > 1 && groups.length > 0;
+  const footerCount =
+    selectionCount === 1
+      ? t("import.selectedCountOne")
+      : extrasCount === 0
+      ? t("import.selectedCount", { count: gamesCount })
+      : t("import.selectionSummary", { games: gamesCount, extras: extrasCount });
+
+  const stepIndex = steps.indexOf(step);
 
   return createPortal(
     <div className="modal-backdrop" onMouseDown={onCancel}>
       <div
-        className={`modal import-modal${showGroups ? " batch-import-layout" : ""}`}
+        className={`modal import-modal import-wizard${steps.length > 2 ? " batch-import-layout" : ""}`}
         onMouseDown={(e) => e.stopPropagation()}
       >
         {importing && (
@@ -585,561 +1294,115 @@ export default function ImportModal({
             </svg>
           </div>
           <div className="modal-header-text">
-            <h2 className="modal-title">
-              {showGroups
-                ? t("import.title.multi", { count: groups.length })
-                : exeInfos.length > 1
-                ? t("import.title.scan")
-                : t("import.title.single")}
-            </h2>
-            <p className="modal-subtitle">
-              {showGroups
-                ? t("import.subtitle.multi")
-                : exeInfos.length > 1
-                ? t("import.subtitle.scan", { count: exeInfos.length })
-                : t("import.subtitle.single")}
-            </p>
+            <h2 className="modal-title">{headerTitle}</h2>
+            <p className="modal-subtitle">{headerSubtitle}</p>
           </div>
         </div>
 
-        {showGroups && (
-          <div className="import-banner">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-              <circle cx="12" cy="12" r="10" />
-              <line x1="12" y1="16" x2="12" y2="12" />
-              <line x1="12" y1="8" x2="12.01" y2="8" />
-            </svg>
-            <span>{t("import.banner")}</span>
-          </div>
-        )}
-
-        {showGroups && selectedGroupIds.size > 0 && (
-          <div className="import-coverage">
-            {t("import.matchedCount", {
-              matched: matchedSelectedCount,
-              total: selectedGroupIds.size,
-            })}
-          </div>
-        )}
-
-        <div className="modal-body-container">
-          {/* Side panel with executables grouped by game folder */}
-          {showGroups && (
-            <div className="import-sidebar">
-              <div className="import-sidebar-header">
-                <label className="modal-select-all">
-                  <input
-                    type="checkbox"
-                    checked={allGroupsSelected}
-                    ref={selectAllRef}
-                    onChange={toggleSelectAllGroups}
-                  />
-                  <span>
-                    {t("import.selectAll", { selected: selectedGroupIds.size, total: groups.length })}
-                  </span>
-                </label>
-                <div className="import-sidebar-actions">
-                  <button
-                    type="button"
-                    className="import-mini-btn"
-                    onClick={expandAll}
-                    title={t("import.expandAll")}
-                  >
-                    {t("import.expandAll")}
-                  </button>
-                  <button
-                    type="button"
-                    className="import-mini-btn"
-                    onClick={collapseAll}
-                    title={t("import.collapseAll")}
-                  >
-                    {t("import.collapseAll")}
-                  </button>
-                  <button
-                    type="button"
-                    className="import-mini-btn"
-                    onClick={clearSelection}
-                    disabled={selectionCount === 0}
-                    title={t("import.clearSelection")}
-                  >
-                    {t("import.clearSelection")}
-                  </button>
-                </div>
+        <div className="import-stepper">
+          {steps.map((s, i) => {
+            const isActive = step === s;
+            const isDone = stepIndex > i;
+            return (
+              <div
+                key={s}
+                aria-current={isActive ? "step" : undefined}
+                className={`import-step${isActive ? " active" : ""}${isDone ? " done" : ""}`}
+              >
+                <span className="import-step-dot">{isDone ? "✓" : i + 1}</span>
+                <span className="import-step-label">{t(STEP_LABEL_KEYS[s])}</span>
               </div>
-              <div className="import-sidebar-list">
-                {groups.map((g) => {
-                  const groupSelected = selectedGroupIds.has(g.id);
-                  const primaryPath = primaryByGroup[g.id] ?? g.suggestedPrimary.path;
-                  const isExpanded = expandedGroups.has(g.id);
-                  const extras = g.exes.filter((e) => e.path !== primaryPath);
-                  const primMatch = matches[primaryPath];
+            );
+          })}
+        </div>
 
-                  return (
-                    <div
-                      className={`import-group${groupSelected ? " selected" : ""}`}
-                      key={g.id}
-                    >
-                      <div className="import-group-header">
-                        <input
-                          type="checkbox"
-                          checked={groupSelected}
-                          onChange={() => toggleGroup(g.id)}
-                          onClick={(e) => e.stopPropagation()}
-                        />
-                        <button
-                          className={`import-group-toggle${isExpanded ? " expanded" : ""}`}
-                          onClick={() => toggleExpand(g.id)}
-                          aria-label={isExpanded ? t("ui.collapse") : t("ui.expand")}
-                        >
-                          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                            <polyline points="9 18 15 12 9 6" />
-                          </svg>
-                        </button>
-                        <div
-                          className="import-group-info"
-                          onClick={() => setActivePath(primaryPath)}
-                        >
-                          <span className="import-group-name">{g.folderName}</span>
-                          {existingSet.has(primaryPath.toLowerCase()) ? (
-                            <span className="import-sidebar-item-match library">
-                              ♻ {t("import.alreadyInLibrary")}
-                            </span>
-                          ) : primMatch ? (
-                            <span className="import-sidebar-item-match matched">
-                              ✓ {primMatch.name}
-                            </span>
-                          ) : (
-                            <span className="import-sidebar-item-match skipped">
-                              ⚠ {t("import.noMetadataMatch")}
-                            </span>
-                          )}
-                        </div>
-                      </div>
-
-                      <div className="import-group-body">
-                        <div
-                          className={`import-sidebar-item primary${
-                            activePath === primaryPath ? " active" : ""
-                          }`}
-                          onClick={() => setActivePath(primaryPath)}
-                        >
-                          <span className="suggested-badge">{t("import.suggested")}</span>
-                          <div className="import-sidebar-item-info">
-                            <span className="import-sidebar-item-filename">
-                              {gameNameFromPath(primaryPath)}
-                            </span>
-                            <span className="import-sidebar-item-sub">
-                              {t("import.mainExecutable")}
-                            </span>
-                          </div>
-                        </div>
-
-                        {isExpanded &&
-                          extras.map((e) => {
-                            const extraSelected = selectedExtraPaths.has(e.path);
-                            const em = matches[e.path];
-                            return (
-                              <div
-                                className={`import-sidebar-item extra${
-                                  activePath === e.path ? " active" : ""
-                                }`}
-                                key={e.path}
-                                onClick={() => setActivePath(e.path)}
-                              >
-                                <input
-                                  type="checkbox"
-                                  checked={extraSelected}
-                                  onChange={(ev) => {
-                                    ev.stopPropagation();
-                                    toggleExtra(e.path);
-                                  }}
-                                  onClick={(ev) => ev.stopPropagation()}
-                                />
-                                <div className="import-sidebar-item-info">
-                                  <span className="import-sidebar-item-filename">
-                                    {gameNameFromPath(e.path)}
-                                  </span>
-                                  {existingSet.has(e.path.toLowerCase()) ? (
-                                    <span className="import-sidebar-item-match library">
-                                      ♻ {t("import.alreadyInLibrary")}
-                                    </span>
-                                  ) : em ? (
-                                    <span className="import-sidebar-item-match matched">
-                                      ✓ {em.name}
-                                    </span>
-                                  ) : null}
-                                </div>
-                                <button
-                                  className="make-main-btn"
-                                  title={t("import.makeMainTitle")}
-                                  onClick={(ev) => {
-                                    ev.stopPropagation();
-                                    setPrimaryForGroup(g.id, e.path);
-                                  }}
-                                >
-                                  {t("import.makeMain")}
-                                </button>
-                              </div>
-                            );
-                          })}
-
-                        {!isExpanded && extras.length > 0 && (
-                          <button
-                            className="import-group-more"
-                            onClick={() => toggleExpand(g.id)}
-                          >
-                            {t("import.showMore", { count: extras.length })}
-                          </button>
-                        )}
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
+        <div className="modal-body-container import-wizard-body">
+          {step === "review" && (
+            <ReviewStep
+              groups={groups}
+              selectedGroupIds={selectedGroupIds}
+              primaryByGroup={primaryByGroup}
+              selectedExtraPaths={selectedExtraPaths}
+              existingSet={existingSet}
+              onToggleGroup={toggleGroup}
+              onSelectAll={handleSelectAll}
+              onDeselectAll={handleDeselectAll}
+              onSetPrimary={setPrimaryForGroup}
+              onToggleExtra={toggleExtra}
+            />
           )}
-
-          {/* Main workspace: matching interface */}
-          <div className="import-workspace">
-            {activePath ? (
-              <div className="import-matching-area">
-                {/* Path info header */}
-                <div className="import-active-file-info">
-                  <div className="file-icon">
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                      <polygon points="12 2 2 7 12 12 22 7 12 2" />
-                      <polyline points="2 17 12 22 22 17" />
-                      <polyline points="2 12 12 17 22 12" />
-                    </svg>
-                  </div>
-                  <div className="file-details">
-                    <span className="file-label">{t("import.executableFile")}</span>
-                    <span className="file-name">{gameNameFromPath(activePath)}</span>
-                    <span className="file-path" title={activePath}>
-                      {getDirectory(activePath)}
-                    </span>
-                  </div>
-                </div>
-
-                {/* IGDB search and recommendations */}
-                <div className="import-search-row">
-                  <div className="search-input-wrapper">
-                    <svg
-                      className="search-icon"
-                      viewBox="0 0 24 24"
-                      fill="none"
-                      stroke="currentColor"
-                      strokeWidth="2"
-                    >
-                      <circle cx="11" cy="11" r="8" />
-                      <line x1="21" y1="21" x2="16.65" y2="16.65" />
-                    </svg>
-                    <input
-                      type="text"
-                      className="import-search-input"
-                      placeholder={t("import.searchIgdb")}
-                      value={activeQuery}
-                      onChange={(e) => handleQueryChange(e.target.value)}
-                    />
-                    {activeQuery && (
-                      <button className="clear-btn" onClick={() => handleQueryChange("")}>
-                        ✖
-                      </button>
-                    )}
-                  </div>
-                </div>
-
-                {/* Suggestions and Preview split */}
-                <div className="import-matching-columns">
-                  {/* Left: Suggestions list */}
-                  <div className="import-suggestions-panel">
-                    <h4 className="section-title">{t("import.igdbSuggestions")}</h4>
-                    {loadingSuggestions ? (
-                      <div className="suggestions-loader">
-                        <div className="spinner-small" />
-                        <span>{t("import.searchingIgdb")}</span>
-                      </div>
-                    ) : activeSuggestions.length > 0 ? (
-                      <div className="suggestions-list">
-                        {activeSuggestions.map((game) => {
-                          const isLinked = activeMatch?.id === game.id;
-                          const releaseYear = game.firstReleaseDate
-                            ? new Date(game.firstReleaseDate).getFullYear()
-                            : null;
-
-                          return (
-                            <button
-                              key={game.id}
-                              className={`suggestion-item${isLinked ? " linked" : ""}`}
-                              onClick={() => handleLinkGame(game)}
-                            >
-                              <div className="suggestion-cover">
-                                {game.coverUrl ? (
-                                  <img src={game.coverUrl} alt={game.name} />
-                                ) : (
-                                  <div className="suggestion-cover-placeholder">?</div>
-                                )}
-                              </div>
-                              <div className="suggestion-info">
-                                <span className="suggestion-name">{game.name}</span>
-                                <span className="suggestion-meta">
-                                  {releaseYear ? `${releaseYear}` : t("import.unknownYear")}
-                                  {game.platforms.length > 0 && ` · ${game.platforms[0]}`}
-                                </span>
-                              </div>
-                              {isLinked && <span className="linked-badge">{t("import.linked")}</span>}
-                            </button>
-                          );
-                        })}
-                      </div>
-                    ) : searchError ? (
-                      <div className="suggestions-empty error">
-                        <p>{t("import.searchFailed")}</p>
-                        <button type="button" className="import-retry-btn" onClick={retrySearch}>
-                          {t("import.retry")}
-                        </button>
-                      </div>
-                    ) : (
-                      <div className="suggestions-empty">
-                        <p>{t("import.noSuggestions")}</p>
-                        <p className="subtext">{t("import.noSuggestionsHint")}</p>
-                      </div>
-                    )}
-                  </div>
-
-                  {/* Right: Detailed Preview */}
-                  <div className="import-preview-panel">
-                    <h4 className="section-title">{t("import.matchPreview")}</h4>
-                    {detailError && (
-                      <div className="import-detail-error">
-                        <span>{t("import.detailLoadFailed")}</span>
-                        <button
-                          type="button"
-                          className="import-retry-btn"
-                          onClick={() => activeMatch && handleLinkGame(activeMatch)}
-                        >
-                          {t("import.retry")}
-                        </button>
-                      </div>
-                    )}
-                    {loadingPreview ? (
-                      <div className="preview-skeleton-loader">
-                        <div className="skeleton-hero" />
-                        <div className="skeleton-content">
-                          <div className="skeleton-line title" />
-                          <div className="skeleton-line text" />
-                          <div className="skeleton-line text" />
-                          <div className="skeleton-line text" />
-                        </div>
-                      </div>
-                    ) : activeMatch ? (
-                      <div className="game-preview-card">
-                        {activeDetail ? (
-                          <>
-                            {activeDetail.images.hero && (
-                              <div
-                                className="preview-hero-banner"
-                                style={{ backgroundImage: `url(${activeDetail.images.hero})` }}
-                              />
-                            )}
-                            <div className="preview-main-info">
-                              <div className="preview-cover">
-                                {activeDetail.images.cover ? (
-                                  <img
-                                    src={activeDetail.images.cover}
-                                    alt={activeDetail.title}
-                                  />
-                                ) : (
-                                  <div className="preview-cover-placeholder">?</div>
-                                )}
-                              </div>
-                              <div className="preview-metadata">
-                                <h3 className="preview-title">{activeDetail.title}</h3>
-                                <div className="preview-meta-row">
-                                  {activeDetail.releaseDate && (
-                                    <span className="meta-badge">
-                                      {new Date(activeDetail.releaseDate).getFullYear()}
-                                    </span>
-                                  )}
-                                  {activeDetail.igdbRating && (
-                                    <span className="meta-badge rating">
-                                      ★ {Math.round(activeDetail.igdbRating)}%
-                                    </span>
-                                  )}
-                                </div>
-                                <p className="preview-meta-label">
-                                  <strong>{t("edit.label.developer")}:</strong> {activeDetail.developer || t("splash.unknown")}
-                                </p>
-                                <p className="preview-meta-label">
-                                  <strong>{t("edit.label.publisher")}:</strong> {activeDetail.publisher || t("splash.unknown")}
-                                </p>
-                                <div className="preview-genres">
-                                  {activeDetail.genres.slice(0, 3).map((g) => (
-                                    <span key={g} className="genre-tag">
-                                      {g}
-                                    </span>
-                                  ))}
-                                </div>
-                              </div>
-                            </div>
-                            <div className="preview-summary-scroll">
-                              {activeDetail.description && (
-                                <div className="preview-summary">
-                                  <p>{activeDetail.description}</p>
-                                </div>
-                              )}
-                              {activeDetail.storyline && (
-                                <div className="preview-storyline">
-                                  <h5>{t("edit.label.storyline")}</h5>
-                                  <p>{activeDetail.storyline}</p>
-                                </div>
-                              )}
-                              {activeDetail.timeToBeat && (activeDetail.timeToBeat.normally || activeDetail.timeToBeat.completely || activeDetail.timeToBeat.hastily) && (
-                                <div className="preview-hltb" style={{ marginTop: 'var(--space-md)', padding: 'var(--space-sm)', background: 'var(--color-bg-secondary)', borderRadius: 'var(--radius-sm)', border: '1px solid var(--color-border)' }}>
-                                  <h5 style={{ margin: '0 0 var(--space-xs) 0', fontSize: 'var(--font-size-sm)', fontWeight: '600' }}>{t("splash.timeToBeat")}</h5>
-                                  <div style={{ display: 'flex', gap: 'var(--space-md)', fontSize: 'var(--font-size-xs)' }}>
-                                    {activeDetail.timeToBeat.normally && <div>{t("gameInfo.mainStory")}: <strong>{Math.round(activeDetail.timeToBeat.normally / 3600)}h</strong></div>}
-                                  {activeDetail.timeToBeat.hastily && <div>{t("import.rushed")}: <strong>{Math.round(activeDetail.timeToBeat.hastily / 3600)}h</strong></div>}
-                                    {activeDetail.timeToBeat.completely && <div>{t("gameInfo.completionist")}: <strong>{Math.round(activeDetail.timeToBeat.completely / 3600)}h</strong></div>}
-                                  </div>
-                                </div>
-                              )}
-                              {activeDetail.igdbReviews && activeDetail.igdbReviews.length > 0 && (
-                                <div className="preview-reviews-section" style={{ marginTop: 'var(--space-md)' }}>
-                                  <h5 style={{ margin: '0 0 var(--space-xs) 0', fontSize: 'var(--font-size-sm)', fontWeight: '600' }}>{t("editExtras.communityReviews")} ({activeDetail.igdbReviews.length})</h5>
-                                  <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-xs)', maxHeight: '180px', overflowY: 'auto' }}>
-                                    {activeDetail.igdbReviews.slice(0, 3).map((rev, idx) => (
-                                      <div key={idx} style={{ padding: 'var(--space-sm)', background: 'var(--color-bg-secondary)', borderRadius: 'var(--radius-sm)', border: '1px solid var(--color-border)' }}>
-                                        <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '10px', color: 'var(--color-text-muted)', marginBottom: '4px' }}>
-                                          <strong>{rev.username || t("import.anonymous")}</strong>
-                                          {rev.rating && <span style={{ color: 'var(--color-accent)' }}>{rev.rating}/100</span>}
-                                        </div>
-                                        {rev.title && <div style={{ fontSize: 'var(--font-size-xs)', fontWeight: '600', marginBottom: '2px' }}>{rev.title}</div>}
-                                        <div style={{ fontSize: 'var(--font-size-xs)', color: 'var(--color-text-muted)', display: '-webkit-box', WebkitLineClamp: 3, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>{rev.content}</div>
-                                      </div>
-                                    ))}
-                                  </div>
-                                </div>
-                              )}
-                            </div>
-                            <button
-                              className="preview-unlink-btn"
-                              onClick={handleUnlinkGame}
-                            >
-                              {t("import.skipMetadata")}
-                            </button>
-                          </>
-                        ) : (
-                          // Fallback to summary fields if full details haven't finished loading yet
-                          <>
-                            <div className="preview-main-info">
-                              <div className="preview-cover">
-                                {activeMatch.coverUrl ? (
-                                  <img src={activeMatch.coverUrl} alt={activeMatch.name} />
-                                ) : (
-                                  <div className="preview-cover-placeholder">?</div>
-                                )}
-                              </div>
-                              <div className="preview-metadata">
-                                <h3 className="preview-title">{activeMatch.name}</h3>
-                                <div className="preview-meta-row">
-                                  {activeMatch.firstReleaseDate && (
-                                    <span className="meta-badge">
-                                      {new Date(activeMatch.firstReleaseDate).getFullYear()}
-                                    </span>
-                                  )}
-                                  {activeMatch.rating && (
-                                    <span className="meta-badge rating">
-                                      ★ {Math.round(activeMatch.rating)}%
-                                    </span>
-                                  )}
-                                </div>
-                                <div className="preview-genres">
-                                  {activeMatch.genres.slice(0, 3).map((g) => (
-                                    <span key={g} className="genre-tag">
-                                      {g}
-                                    </span>
-                                  ))}
-                                </div>
-                              </div>
-                            </div>
-                            {activeMatch.summary && (
-                              <div className="preview-summary-scroll">
-                                <div className="preview-summary">
-                                  <p>{activeMatch.summary}</p>
-                                </div>
-                              </div>
-                            )}
-                            <button
-                              className="preview-unlink-btn"
-                              onClick={handleUnlinkGame}
-                            >
-                              {t("import.skipMetadataShort")}
-                            </button>
-                          </>
-                        )}
-                      </div>
-                    ) : (
-                      <div className="preview-empty">
-                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1">
-                          <rect x="2" y="2" width="20" height="20" rx="2.5" />
-                          <circle cx="12" cy="12" r="4" />
-                          <line x1="12" y1="8" x2="12" y2="16" />
-                          <line x1="8" y1="12" x2="16" y2="12" />
-                        </svg>
-                        <p>{t("import.noGameLinked")}</p>
-                        <p className="subtext">
-                          {t("import.noGameLinkedDesc", { name: gameNameFromPath(activePath) })}
-                        </p>
-                      </div>
-                    )}
-                  </div>
-                </div>
-              </div>
-            ) : (
-              <div className="import-workspace-empty">
-                <p>{t("import.selectExecutable")}</p>
-              </div>
-            )}
-          </div>
+          {step === "link" && (
+            <LinkStep
+              items={importItems}
+              activePath={activePath}
+              existingSet={existingSet}
+              matches={matches}
+              previews={previews}
+              suggestions={suggestions}
+              searchQueries={searchQueries}
+              loadingSuggestions={loadingSuggestions}
+              loadingPreview={loadingPreview}
+              searchError={searchError}
+              detailError={detailError}
+              onSelect={setActivePath}
+              onQueryChange={handleQueryChange}
+              onLinkGame={handleLinkGame}
+              onUnlink={handleUnlinkGame}
+              onRetrySearch={retrySearch}
+              onRetryDetail={retryDetail}
+              onSkipAll={skipAllMatches}
+            />
+          )}
+          {step === "confirm" && <ConfirmStep items={importItems} matches={matches} />}
         </div>
 
         <div className="modal-footer">
-          <span className="modal-footer-count">
-            {selectionCount === 1
-              ? t("import.selectedCountOne")
-              : t("import.selectionSummary", {
-                  games: selectedGroupIds.size,
-                  extras: selectedExtraPaths.size,
-                })}
-          </span>
+          <span className="modal-footer-count">{footerCount}</span>
           <div className="modal-footer-actions">
-            <Button variant="ghost" onClick={onCancel}>
-              {t("common.cancel")}
-            </Button>
-            <Button
-              variant="primary"
-              disabled={selectionCount === 0}
-              onClick={handleConfirm}
-              leftIcon={
-                <svg
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="2"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                >
-                  <polyline points="20 6 9 17 4 12" />
-                </svg>
-              }
-            >
-              {t("import.importSelected")}
-            </Button>
+            {stepIndex > 0 && (
+              <Button variant="ghost" onClick={goBack}>
+                {t("common.back")}
+              </Button>
+            )}
+            {step !== "confirm" ? (
+              <Button
+                variant="primary"
+                disabled={step === "review" && selectionCount === 0}
+                onClick={goNext}
+              >
+                {t("common.next")}
+              </Button>
+            ) : (
+              <Button
+                variant="primary"
+                disabled={selectionCount === 0}
+                onClick={handleConfirm}
+                leftIcon={
+                  <svg
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  >
+                    <polyline points="20 6 9 17 4 12" />
+                  </svg>
+                }
+              >
+                {t("import.confirm.importButton", { count: selectionCount })}
+              </Button>
+            )}
           </div>
         </div>
       </div>
     </div>,
     document.body
   );
+}
+
+function getDirectory(fullPath: string): string {
+  const parts = fullPath.split(/[\\/]/);
+  parts.pop();
+  return parts.join("\\");
 }
