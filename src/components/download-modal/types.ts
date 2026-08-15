@@ -6,6 +6,14 @@ export type DownloadStep =
   | "fetching_metadata"
   | "file_selection";
 
+/** Result of a debrid cache probe for the selected magnet. */
+export type CacheCheckStatus =
+  | "idle"
+  | "checking"
+  | "cached"
+  | "uncached"
+  | "error";
+
 /** How the results list is ordered. */
 export type SortKey = "date" | "source" | "relevance";
 

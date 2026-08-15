@@ -1,4 +1,5 @@
 import { useLanguage } from "../../context/LanguageContext";
+import type { CacheCheckStatus } from "./types";
 
 /**
  * Modern Download Options section.
@@ -14,6 +15,7 @@ export function OptionsSection({
   useDebrid,
   onUseDebrid,
   debridAvailable,
+  cacheStatus,
 }: {
   autoExtract: boolean;
   onAutoExtract: (v: boolean) => void;
@@ -23,6 +25,7 @@ export function OptionsSection({
   useDebrid: boolean;
   onUseDebrid: (v: boolean) => void;
   debridAvailable: boolean;
+  cacheStatus: CacheCheckStatus;
 }) {
   const { t } = useLanguage();
   // Debrid downloads the whole file, so per-file selection only makes sense on plain P2P
@@ -66,6 +69,17 @@ export function OptionsSection({
           <div className="dl-option-content">
             <span className="dl-option-title">{t("downloadModal.useDebrid")}</span>
             <span className="dl-option-desc">{t("downloadModal.useDebridDesc")}</span>
+            {useDebrid && cacheStatus !== "idle" && (
+              <span className={`dl-cache-chip dl-cache-chip--${cacheStatus}`}>
+                {cacheStatus === "checking"
+                  ? t("downloadModal.cacheChecking")
+                  : cacheStatus === "cached"
+                    ? t("downloadModal.cacheCached")
+                    : cacheStatus === "uncached"
+                      ? t("downloadModal.cacheUncached")
+                      : t("downloadModal.cacheError")}
+              </span>
+            )}
           </div>
           <span className="dl-switch">
             <input

@@ -212,6 +212,9 @@ const DownloadRow = React.memo(({
               {download.kind === "debrid" && (
                 <span className="dl-row-badge dl-row-badge--debrid">{t("downloadRow.badgeDebrid")}</span>
               )}
+              {download.kind === "debrid" && download.debridCached && (
+                <span className="dl-row-badge dl-row-badge--cached">{t("downloadRow.badgeCached")}</span>
+              )}
               {isSeeding && (
                 <span className="dl-row-badge dl-row-badge--seeding">{t("downloadRow.badgeSeeding")}</span>
               )}
@@ -554,7 +557,8 @@ const DownloadRow = React.memo(({
     a.peers !== b.peers ||
     a.seeds !== b.seeds ||
     a.status.kind !== b.status.kind ||
-    a.sourceUri !== b.sourceUri
+    a.sourceUri !== b.sourceUri ||
+    a.debridCached !== b.debridCached
   ) {
     return false;
   }

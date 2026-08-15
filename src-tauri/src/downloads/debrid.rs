@@ -32,13 +32,29 @@ pub struct DebridUserInfo {
     pub premium_until: Option<u64>,
 }
 
+/// Result of handing a magnet to a debrid provider.
+#[derive(Debug, Clone)]
+pub struct DebridUploadResult {
+    /// Provider-side transfer id used to poll status.
+    pub id: String,
+    /// True when the provider already had the content cached on its
+    /// servers (instant download — no server-side re-fetch).
+    pub cached: bool,
+}
+
+/// Answer to "is this magnet already cached on the provider?".
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct DebridCacheResult {
+    pub cached: bool,
+}
+
 // ─── AllDebrid Client ────────────────────────────────────────────────────────
 //
 // AllDebrid migrated to `Authorization: Bearer <apikey>` headers and POST-form
 // requests in late 2024 / early 2025 (the old `?agent=gamelib&apikey=…` query
 // approach now returns `404 Endpoint doesn't exist`). Endpoints used here:
 // - GET  /v4/user                 → user info
-// - POST /v4/magnet/upload        → upload a magnet (returns the magnet id)
+// - POST /v4/magnet/upload        → upload a magnet (id + whether already cached)
 // - POST /v4.1/magnet/status      → progress / ready status
 // - POST /v4/magnet/files         → per-file download links (moved out of status)
 //
@@ -86,6 +102,11 @@ struct AllDebridUploadResponse {
 #[derive(Deserialize, Debug)]
 struct AllDebridMagnetUpload {
     id: u64,
+    /// Whether the torrent is already cached on AllDebrid's servers.
+    /// `true` means the files are served instantly and nothing is
+    /// re-downloaded.
+    #[serde(default)]
+    ready: bool,
 }
 
 #[derive(Deserialize, Debug)]
@@ -243,7 +264,7 @@ impl AllDebridClient {
         })
     }
 
-    pub async fn upload_magnet(apikey: &str, magnet: &str) -> Result<String, String> {
+    pub async fn upload_magnet(apikey: &str, magnet: &str) -> Result<DebridUploadResult, String> {
         let client = reqwest::Client::new();
         let resp = ad_request(
             &client,
@@ -268,7 +289,46 @@ impl AllDebridClient {
             .magnets
             .first()
             .ok_or_else(|| "No magnet entry returned by AllDebrid".to_string())?;
-        Ok(mag.id.to_string())
+        Ok(DebridUploadResult {
+            id: mag.id.to_string(),
+            cached: mag.ready,
+        })
+    }
+
+    /// Check whether a magnet is already cached, without leaving it in
+    /// the account. Uploading is the only remaining availability signal;
+    /// a not-cached magnet is removed again so the probe doesn't start a
+    /// server-side download.
+    pub async fn check_cache(apikey: &str, magnet: &str) -> Result<DebridCacheResult, String> {
+        let upload = Self::upload_magnet(apikey, magnet).await?;
+        if !upload.cached {
+            let _ = Self::delete_magnet(apikey, &upload.id).await;
+        }
+        Ok(DebridCacheResult {
+            cached: upload.cached,
+        })
+    }
+
+    pub async fn delete_magnet(apikey: &str, id: &str) -> Result<(), String> {
+        let client = reqwest::Client::new();
+        let id_str = id.to_string();
+        let resp = ad_request(
+            &client,
+            Method::POST,
+            "/v4/magnet/delete",
+            apikey,
+            Some(&[("id", id_str.as_str())]),
+        )
+        .await?;
+        let status = resp.status();
+        let body: AllDebridResponse<serde_json::Value> = resp
+            .json()
+            .await
+            .map_err(|e| format!("Failed to parse delete response: {}", e))?;
+        if !status.is_success() || body.status != "success" {
+            return Err(ad_err(body));
+        }
+        Ok(())
     }
 
     pub async fn get_status(apikey: &str, id: &str) -> Result<DebridStatusResult, String> {
@@ -483,7 +543,7 @@ impl TorBoxClient {
         })
     }
 
-    pub async fn upload_magnet(apikey: &str, magnet: &str) -> Result<String, String> {
+    pub async fn upload_magnet(apikey: &str, magnet: &str) -> Result<DebridUploadResult, String> {
         let client = reqwest::Client::new();
         let payload = serde_json::json!({
             "magnet": magnet,
@@ -514,7 +574,8 @@ impl TorBoxClient {
             .map(|i| i.to_string())
             .ok_or("No torrent ID returned")?;
 
-        Ok(id)
+        // TorBox does not report cache state at creation time.
+        Ok(DebridUploadResult { id, cached: false })
     }
 
     pub async fn get_status(apikey: &str, id: &str) -> Result<DebridStatusResult, String> {

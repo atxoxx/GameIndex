@@ -105,6 +105,11 @@ pub struct Download {
     /// right after metadata arrives (see `gate_completion`).
     #[serde(default)]
     pub had_real_downloads: Option<bool>,
+    /// True when the debrid service already had this content cached on
+    /// its servers (instant download, no server-side re-fetch). `None`
+    /// for non-debrid downloads or before the upload resolves.
+    #[serde(default)]
+    pub debrid_cached: Option<bool>,
     /// Torrent file selection (indices into the metadata file list).
     /// `None` = all files.
     #[serde(default)]
@@ -156,6 +161,7 @@ impl Download {
             uris: None,
             referer: None,
             had_real_downloads: Some(false),
+            debrid_cached: None,
             only_files: None,
             should_seed: Some(false),
             queue_position: None,

@@ -4072,6 +4072,7 @@ pub fn run() {
             manual_links::manual_sync,
             achievement_watcher::set_local_achievements_enabled,
             downloads::test_debrid_key,
+            downloads::debrid_check_cache,
             downloads::direct_download_start,
             downloads::debrid_download_start,
             downloads::direct_download_update_url,

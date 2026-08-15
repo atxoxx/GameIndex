@@ -127,6 +127,11 @@ export const DownloadGridCard = React.memo(({
 
         {/* Source Badge */}
         <span className="dl-card-source-tag">{download.sourceName}</span>
+
+        {/* Debrid cache badge */}
+        {download.kind === "debrid" && download.debridCached && (
+          <span className="dl-card-cached-tag">{t("downloadRow.badgeCached")}</span>
+        )}
       </div>
 
       {/* Card Body */}

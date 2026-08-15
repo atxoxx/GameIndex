@@ -1,6 +1,6 @@
 import { useLanguage } from "../../context/LanguageContext";
 import { classifyUri, resolveSourceUri, webUrlFor } from "./helpers";
-import type { DisplayMatch } from "./types";
+import type { DisplayMatch, CacheCheckStatus } from "./types";
 import { MirrorPicker } from "./MirrorPicker";
 import { OptionsSection } from "./OptionsSection";
 import { SavePathPicker } from "./SavePathPicker";
@@ -24,6 +24,7 @@ export function DetailPanel({
   useDebrid,
   onUseDebrid,
   debridConfigured,
+  cacheStatus,
   onOpenPage,
   onOpenBrowserResolver,
 }: {
@@ -41,6 +42,8 @@ export function DetailPanel({
   useDebrid: boolean;
   onUseDebrid: (v: boolean) => void;
   debridConfigured: boolean;
+  /** Cache probe result for the selected magnet (driven by the modal). */
+  cacheStatus: CacheCheckStatus;
   /** Open the result's source page in the default OS browser. */
   onOpenPage: (url?: string) => void;
   /** Open the in-app browser resolver to solve CAPTCHAs/timers & intercept download. */
@@ -143,6 +146,7 @@ export function DetailPanel({
           useDebrid={useDebrid}
           onUseDebrid={onUseDebrid}
           debridAvailable={debridAvailable}
+          cacheStatus={cacheStatus}
         />
       </div>
 

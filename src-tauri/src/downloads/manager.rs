@@ -1350,14 +1350,25 @@ async fn run_debrid_flow(
         Err("Unsupported provider".to_string())
     };
 
-    let transfer_id = match upload_res {
-        Ok(tid) => tid,
+    let (transfer_id, cached) = match upload_res {
+        Ok(upload) => (upload.id, upload.cached),
         Err(e) => {
             fail_download(&manager, &id, format!("Debrid upload failed: {}", e)).await;
             advance_queue(&manager).await;
             return;
         }
     };
+
+    // Stamp the cache result immediately so the UI can surface "Cached"
+    // while the file list is still being resolved.
+    {
+        let mut guard = manager.write().await;
+        if let Some(d) = guard.downloads_mut().get_mut(&id) {
+            d.debrid_cached = Some(cached);
+        }
+        guard.mark_dirty();
+        guard.emit_progress_force();
+    }
 
     let mut interval = tokio::time::interval(Duration::from_secs(3));
     loop {

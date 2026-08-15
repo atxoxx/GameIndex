@@ -45,7 +45,7 @@ import {
   sortMatches,
   webUrlFor,
 } from "./helpers";
-import type { DownloadStep, SortKey, DisplayMatch } from "./types";
+import type { DownloadStep, SortKey, DisplayMatch, CacheCheckStatus } from "./types";
 import type { DownloadSearchResult, SearchProgressEvent } from "../../types/plugins";
 import { OwnershipBanner } from "./OwnershipBanner";
 import { ConfidenceWarning } from "./ConfidenceWarning";
@@ -129,6 +129,10 @@ export default function DownloadModal({
   const [autoExtract, setAutoExtract] = useState(false);
   // Route magnets/direct links through the configured debrid service.
   const [useDebrid, setUseDebrid] = useState(false);
+  // Cache probe for the selected magnet (only while the debrid toggle
+  // is on and a magnet is selected).
+  const [cacheStatus, setCacheStatus] = useState<CacheCheckStatus>("idle");
+  const cacheCheckSeq = useRef(0);
   const [tempTorrentId, setTempTorrentId] = useState<string | null>(null);
   const [selectedFiles, setSelectedFiles] = useState<Set<number>>(new Set());
   // Collapse low-confidence matches (score < 0.4) behind a toggle so
@@ -171,6 +175,18 @@ export default function DownloadModal({
     [matches, selectedId],
   );
 
+  // Resolved URI of the selected result, memoised so the cache-check
+  // effect doesn't re-fire on every search-progress emission (which
+  // rebuilds the `matches` array even when the URI is unchanged).
+  const selectedSourceUri = useMemo(
+    () => (selectedMatch ? resolveSourceUri(selectedMatch, selectedMirrorIdx) : null),
+    [selectedMatch, selectedMirrorIdx],
+  );
+  const selectedIsMagnet = useMemo(() => {
+    if (!selectedMatch || !selectedSourceUri) return false;
+    return classifyUri(selectedSourceUri, selectedMatch.torrentUrl).isMagnet;
+  }, [selectedMatch, selectedSourceUri]);
+
   // Keep selection aligned with the visible sorted matches when filtering
   useEffect(() => {
     if (sortedMatches.length > 0) {
@@ -194,6 +210,45 @@ export default function DownloadModal({
     const apiKey = localStorage.getItem("gamelib-debrid-apikey") || "";
     return provider !== "none" && !!apiKey;
   }, []);
+
+  // Probe the debrid provider for cache status whenever the selected
+  // magnet changes (debounced, and only while the debrid toggle is on).
+  useEffect(() => {
+    const provider = localStorage.getItem("gamelib-debrid-provider") || "none";
+    const apiKey = localStorage.getItem("gamelib-debrid-apikey") || "";
+    if (
+      !useDebrid ||
+      !debridConfigured ||
+      !selectedIsMagnet ||
+      !selectedSourceUri ||
+      provider === "none" ||
+      !apiKey
+    ) {
+      setCacheStatus("idle");
+      return;
+    }
+
+    const seq = ++cacheCheckSeq.current;
+    setCacheStatus("checking");
+    const timer = window.setTimeout(async () => {
+      try {
+        const res = await invoke<{ cached: boolean }>("debrid_check_cache", {
+          provider,
+          apikey: apiKey,
+          magnet: selectedSourceUri,
+        });
+        if (seq === cacheCheckSeq.current) {
+          setCacheStatus(res.cached ? "cached" : "uncached");
+        }
+      } catch (err) {
+        console.debug("[DownloadModal] cache check failed:", err);
+        if (seq === cacheCheckSeq.current) {
+          setCacheStatus("error");
+        }
+      }
+    }, 400);
+    return () => window.clearTimeout(timer);
+  }, [useDebrid, debridConfigured, selectedIsMagnet, selectedSourceUri]);
 
   // Web-link-only results (no magnet/torrent/direct URI) open the site
   // in the browser rather than starting a download.
@@ -928,6 +983,7 @@ export default function DownloadModal({
                     useDebrid={useDebrid}
                     onUseDebrid={setUseDebrid}
                     debridConfigured={debridConfigured}
+                    cacheStatus={cacheStatus}
                     onOpenPage={handleOpenPage}
                     onOpenBrowserResolver={handleOpenBrowserResolver}
                   />

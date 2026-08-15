@@ -106,6 +106,12 @@ export interface TorrentDownload {
   autoExtract?: boolean;
   extracted?: boolean;
   uris?: string[];
+  /**
+   * True when the debrid service already had this content cached on its
+   * servers (instant download, no server-side re-fetch). Undefined for
+   * non-debrid downloads or before the upload resolves.
+   */
+  debridCached?: boolean;
   /** True when this torrent should seed after it finishes. */
   shouldSeed?: boolean;
   /** 0-based position in the waiting queue (only set while `queued`). */

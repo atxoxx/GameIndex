@@ -139,6 +139,7 @@ pub fn load(state_dir: &Path) -> LoadedState {
                 Some(b) => Some(b),
                 None => Some(was_completed),
             },
+            debrid_cached: None,
             only_files: None,
             should_seed: Some(false),
             queue_position: None,
