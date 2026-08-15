@@ -3,7 +3,6 @@ import type { TranslationDict } from "./index";
 export const de: TranslationDict = {
   "gameInfo.openContainingFolder": "Speicherort öffnen",
   "gameInfo.openFolderFailed": "Ordner konnte nicht geöffnet werden: {error}",
-
   "about.empty": "Keine Beschreibung verfügbar.",
   "about.from": "von {source}",
   "about.hideAbout": "Über ausblenden",
@@ -25,7 +24,8 @@ export const de: TranslationDict = {
   "gamePage.gameTitle": "Spieltitel",
   "gamePage.copyTitle": "Titel kopieren",
   "gamePage.copyAppId": "AppID kopieren",
-  "gamePage.copyPath": "Pfad kopieren",  "common.copiedToClipboard": "{label} in die Zwischenablage kopiert",
+  "gamePage.copyPath": "Pfad kopieren",
+  "common.copiedToClipboard": "{label} in die Zwischenablage kopiert",
   "common.copyFailed": "Kopieren in die Zwischenablage fehlgeschlagen",
   "common.resetZoom": "Zoom zurücksetzen",
   "common.zoomIn": "Vergrößern",
@@ -4262,7 +4262,6 @@ export const de: TranslationDict = {
   "settings.descriptor.calm": "🧘 Ruhig",
   "settings.descriptor.highContrast": "♿ Hoher Kontrast",
   "settings.descriptor.minimal": "✨ Minimal",
-
   "settings.tab.privacy": "Privacy & Data",
   "settings.section.wipeData": "Local storage",
   "settings.wipe.desc": "Everything GameIndex remembers on this device is kept in your browser's local storage. Review what's stored and wipe individual items, or clear everything at once.",
@@ -4279,7 +4278,6 @@ export const de: TranslationDict = {
   "settings.wipe.allRemoved": "Cleared all local storage",
   "settings.wipe.size": "Size: {size}",
   "settings.wipe.noValue": "(empty)",
-
   "nav.docs": "Dokumentation",
   "docs.title": "Dokumentation",
   "docs.subtitle": "Ein freundlicher, nicht-technischer Leitfaden für jeden Bildschirm und jede Schaltfläche in GameIndex — geschrieben für neue Spieler, ohne Fachbegriffe.",
@@ -4328,7 +4326,6 @@ export const de: TranslationDict = {
   "docs.shortcuts.body": "Meistere die Navigation in GameIndex mit diesen weltweiten Tastatur- und Controller-Tastenkürzeln.\n\n## Tastatur-Tastenkürzel\n- `F11` oder `Ctrl+B`: Umschalten des **Big-Picture-Modus** ein / aus.\n- `Ctrl+F`: Sofortiges Fokussieren des globalen Suchfelds.\n- `Ctrl+,`: Öffnet die **Einstellungen**.\n- `Ctrl+D`: Öffnet das **Downloads**-Panel.\n- `Ctrl+L`: Wechselt zur **Bibliothek**.\n- `Escape`: Schließt Dialoge, bricht Suchen ab oder verlässt den Big-Picture-Modus.\n- `Tab` / `Shift+Tab`: Navigiert zwischen interaktiven Elementen.\n- `ArrowUp` / `ArrowDown` / `ArrowLeft` / `ArrowRight`: Navigiert durch Kacheln und Listen.\n\n## Controller-Kürzel (Big-Picture-Modus)\n- `D-Pad` / `Linker Stick`: Navigiert durch Menüs und Kacheln.\n- `Taste A` (Xbox) / `Kreuz` (PlayStation): Spiel auswählen / starten.\n- `Taste B` (Xbox) / `Kreis` (PlayStation): Zurück / Menü schließen.\n- `Taste X` (Xbox) / `Quadrat` (PlayStation): Favoritenstatus umschalten.\n- `Taste Y` (Xbox) / `Dreieck` (PlayStation): Spieldetails öffnen.\n- `Start` / `Menü`: Schnellauswahl-Menü öffnen.",
   "docs.tips.title": "Tipps & Tastenkürzel",
   "docs.tips.body": "Ein paar Dinge, die den Alltag erleichtern:\n- Drücke F11 oder Ctrl+B, um den **Big-Picture-Modus** umzuschalten; Escape verlässt ihn.\n- Nutze die **Bibliothek**ssuche, um sofort zu einem Spiel nach Namen zu springen.\n- Rechtsklick (oder langes Drücken) auf eine Spielkachel für weitere Aktionen.\n- Klappe die **Seitenleiste** ein, wenn du mehr Platz für Spielgrafiken willst.\n- Ändere die Sprache jederzeit in den **Einstellungen**, falls etwas nicht passt.",
-
   "updater.autoCheck": "Automatisch nach Updates suchen",
   "updater.autoCheckDesc": "Sucht beim Start automatisch auf GitHub Releases nach neuen Anwendungs-Updates.",
   "updater.cancel": "Abbrechen",
@@ -4360,7 +4357,6 @@ export const de: TranslationDict = {
   "updater.speed": "{speed}/s",
   "updater.title": "Software-Update",
   "updater.upToDate": "GameIndex ist auf dem neuesten Stand",
-
   "library.groupBy.none": "Keine Gruppierung",
   "library.groupBy.platform": "Plattform",
   "library.groupBy.playStatus": "Spielstatus",
@@ -4409,7 +4405,6 @@ export const de: TranslationDict = {
   "library.table.rating": "Bewertung",
   "library.table.lastPlayed": "Zuletzt gespielt",
   "library.table.actions": "Aktionen",
-
   "store.spotlight.explore": "Spiel ansehen",
   "store.spotlight.wishlisted": "Auf Wunschliste",
   "store.spotlight.addToWishlist": "Zur Wunschliste hinzufügen",
@@ -4739,4 +4734,8 @@ export const de: TranslationDict = {
   "stats.milestone.ach25.desc": "Schalte 25 Erfolge in deinen Spielen frei.",
   "stats.milestone.ach100.title": "Erfolgslegende (100 Erfolge)",
   "stats.milestone.ach100.desc": "Schalte 100 Erfolge in deiner Bibliothek frei.",
+  "common.noResults": "Keine Ergebnisse gefunden",
+  "common.showLess": "Weniger anzeigen",
+  "steamPlayer.communityHub": "Community-Hub",
+  "steamPlayer.steamDb": "SteamDB",
 };

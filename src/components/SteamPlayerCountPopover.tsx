@@ -109,9 +109,7 @@ export function SteamStatsPopoverBody({
 
   const reviewsLoading = statsLoading;
 
-  // Memoize the positive-percent so the bar fill doesn't recompute on
-  // every render (it's just a division, but the bar transition is
-  // smoother when the value's identity is stable).
+  // Memoize positive-percent
   const reviewPositivePct = useMemo(() => {
     if (!stats?.reviews) return null;
     const total = stats.reviews.totalReviews;
@@ -119,9 +117,7 @@ export function SteamStatsPopoverBody({
     return Math.round((stats.reviews.totalPositive / total) * 100);
   }, [stats?.reviews]);
 
-  // Review score is Steam's 1-9 bucket; map to a color tier so the
-  // bar reads as a quick visual signal. 7+ = green, 5-6 = amber, ≤4
-  // = red. Bucket 0 means Steam hasn't assigned one yet.
+  // Review score tone tier: 7+ = good (green), 5-6 = mid (amber), <=4 = bad (red)
   const reviewTone = useMemo<"good" | "mid" | "bad" | "none">(() => {
     const s = stats?.reviews?.score;
     if (s == null || s === 0) return "none";
@@ -131,6 +127,7 @@ export function SteamStatsPopoverBody({
   }, [stats?.reviews?.score]);
 
   const reviewSummary: SteamGameReviews | null = stats?.reviews ?? null;
+  const details = stats?.details ?? null;
 
   return (
     <>
@@ -196,13 +193,28 @@ export function SteamStatsPopoverBody({
               {stats?.reviewsError ?? t("steamPlayer.noReviewData")}
             </div>
           )}
+
+          {/* Optional meta row if genres / pricing are available */}
+          {details && (details.genres.length > 0 || details.releaseDate) && (
+            <div className="steam-stats-hero-meta">
+              {details.genres.slice(0, 3).map((g) => (
+                <span key={g} className="steam-stats-hero-tag">
+                  {g}
+                </span>
+              ))}
+              {details.releaseDate && (
+                <span className="steam-stats-hero-date">
+                  {details.releaseDate}
+                </span>
+              )}
+            </div>
+          )}
         </div>
 
         {/* Player activity — historical line chart */}
         <SteamPlayerHistoryChart appId={appId} />
 
-        {/* If the whole fetch failed (e.g. offline), surface a single
-            inline message instead of three "—" placeholders. */}
+        {/* If the whole fetch failed (e.g. offline), surface a single inline message */}
         {fetchError && !stats && (
           <div className="steam-stats-popover-fetch-error" role="alert">
             {t("steamPlayer.reachError")}
@@ -211,42 +223,88 @@ export function SteamStatsPopoverBody({
       </div>
 
       <footer className="steam-stats-popover-footer">
-        <a
-          href={`https://store.steampowered.com/app/${appId}`}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="steam-stats-popover-footer-link"
-        >
-          <svg
-            viewBox="0 0 24 24"
-            width="13"
-            height="13"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="2"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            aria-hidden="true"
+        <div className="steam-stats-popover-footer-actions">
+          <a
+            href={`https://store.steampowered.com/app/${appId}`}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="steam-stats-popover-footer-link"
+            title="Open Steam Store Page"
           >
-            <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6" />
-            <polyline points="15 3 21 3 21 9" />
-            <line x1="10" y1="14" x2="21" y2="3" />
-          </svg>
-          {t("steamPlayer.viewOnSteam")}
-        </a>
+            <svg
+              viewBox="0 0 24 24"
+              width="13"
+              height="13"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              aria-hidden="true"
+            >
+              <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6" />
+              <polyline points="15 3 21 3 21 9" />
+              <line x1="10" y1="14" x2="21" y2="3" />
+            </svg>
+            {t("steamPlayer.viewOnSteam")}
+          </a>
+          <a
+            href={`https://steamcommunity.com/app/${appId}`}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="steam-stats-popover-footer-link secondary"
+            title="Open Steam Community Hub"
+          >
+            <svg
+              viewBox="0 0 24 24"
+              width="13"
+              height="13"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              aria-hidden="true"
+            >
+              <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
+              <circle cx="9" cy="7" r="4" />
+              <path d="M23 21v-2a4 4 0 0 0-3-3.87" />
+              <path d="M16 3.13a4 4 0 0 1 0 7.75" />
+            </svg>
+            {t("steamPlayer.communityHub") || "Community Hub"}
+          </a>
+          <a
+            href={`https://steamdb.info/app/${appId}/charts/`}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="steam-stats-popover-footer-link secondary"
+            title="Open SteamDB Charts"
+          >
+            <svg
+              viewBox="0 0 24 24"
+              width="13"
+              height="13"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              aria-hidden="true"
+            >
+              <line x1="18" y1="20" x2="18" y2="10" />
+              <line x1="12" y1="20" x2="12" y2="4" />
+              <line x1="6" y1="20" x2="6" y2="14" />
+            </svg>
+            {t("steamPlayer.steamDb") || "SteamDB"}
+          </a>
+        </div>
       </footer>
     </>
   );
 }
 
 const VIEWPORT_MARGIN = 12;
-/** Fallback width for the layout-effect position recalc on first
- *  paint, used only when the browser has not yet measured the
- *  rendered popover. The canonical width lives in the CSS custom
- *  property `--steam-stats-popover-width` (set in `store.css` on
- *  `.steam-stats-popover`); this constant exists solely so the
- *  position math doesn't read `0` on the first layout pass. */
-const FALLBACK_WIDTH_PX = 420;
+const FALLBACK_WIDTH_PX = 440;
 
 export default function SteamPlayerCountPopover({
   appId,
@@ -257,16 +315,11 @@ export default function SteamPlayerCountPopover({
   const { t } = useLanguage();
   const popoverRef = useRef<HTMLDivElement>(null);
   const onCloseRef = useRef(onClose);
-  // Keep the latest onClose in a ref so the global keydown / mousedown
-  // handlers (registered once on mount) always call the freshest version
-  // without re-binding on every parent render.
   useEffect(() => {
     onCloseRef.current = onClose;
   }, [onClose]);
 
   // ── Position state ─────────────────────────────────────────────────
-  // Stored in state (not derived in render) so the JSX stays pure and
-  // the position-flip animation has a stable, memoized class.
   const [position, setPosition] = useState<{
     top: number;
     left: number;
@@ -285,9 +338,6 @@ export default function SteamPlayerCountPopover({
       const vw = window.innerWidth;
       const vh = window.innerHeight;
 
-      // Horizontal: prefer the right of the anchor; flip to the left
-      // when there isn't room. When neither side fits, pick whichever
-      // has more room and clamp against the viewport edge.
       const spaceRight = vw - rect.right - VIEWPORT_MARGIN;
       const spaceLeft = rect.left - VIEWPORT_MARGIN;
       let left: number;
@@ -310,11 +360,6 @@ export default function SteamPlayerCountPopover({
         Math.min(left, vw - popWidth - VIEWPORT_MARGIN)
       );
 
-      // Vertical: open below the anchor (top-aligned) when there's
-      // room; otherwise flip above (bottom-aligned to the anchor's
-      // top) so the popover never gets clipped by the viewport
-      // bottom. Matters now that the historical chart can make the
-      // card tall.
       const spaceBelow = vh - rect.bottom - VIEWPORT_MARGIN;
       const spaceAbove = rect.top - VIEWPORT_MARGIN;
       let top: number;
@@ -323,7 +368,6 @@ export default function SteamPlayerCountPopover({
       } else if (popHeight <= spaceAbove) {
         top = rect.top - popHeight;
       } else {
-        // Doesn't fit either side — pin to the bottom edge, best effort.
         top = Math.max(VIEWPORT_MARGIN, vh - popHeight - VIEWPORT_MARGIN);
       }
 
@@ -333,9 +377,6 @@ export default function SteamPlayerCountPopover({
     recompute();
     window.addEventListener("resize", recompute);
     window.addEventListener("scroll", recompute, true);
-    // The chart fetches asynchronously and grows the popover after
-    // mount; re-clamp whenever its measured height changes so it never
-    // ends up clipped at the bottom.
     const ro = new ResizeObserver(recompute);
     if (popoverRef.current) ro.observe(popoverRef.current);
     return () => {
@@ -343,7 +384,6 @@ export default function SteamPlayerCountPopover({
       window.removeEventListener("scroll", recompute, true);
       ro.disconnect();
     };
-    // anchorRef is a stable ref object — intentionally excluded.
   }, [anchorRef]);
 
   // ── Focus capture + global dismissal ────────────────────────────────
@@ -351,10 +391,6 @@ export default function SteamPlayerCountPopover({
     const previouslyFocused = document.activeElement as HTMLElement | null;
 
     requestAnimationFrame(() => {
-      // Default focus target is the close button so Tab moves into
-      // the body of the popover on the next press. If the close
-      // button doesn't exist yet (e.g. SSR or a future refactor),
-      // fall back to the popover root.
       const target =
         popoverRef.current?.querySelector<HTMLElement>(
           ".steam-stats-popover-close"
@@ -382,7 +418,6 @@ export default function SteamPlayerCountPopover({
       document.removeEventListener("mousedown", handlePointerDown);
       previouslyFocused?.focus();
     };
-    // anchorRef intentionally excluded (stable ref).
   }, [anchorRef]);
 
   return createPortal(
@@ -397,12 +432,22 @@ export default function SteamPlayerCountPopover({
       {/* ── Header ────────────────────────────────────────────────── */}
       <header className="steam-stats-popover-header">
         <div className="steam-stats-popover-header-icon" aria-hidden="true">
-          <span className="steam-stats-popover-header-dot" />
+          <svg
+            viewBox="0 0 24 24"
+            width="16"
+            height="16"
+            fill="currentColor"
+            className="steam-brand-icon"
+          >
+            <path d="M12 2a10 10 0 0 0-10 10c0 4.7 3.25 8.65 7.66 9.7l2.84-4.14a2.98 2.98 0 0 1-.5-.06l-3.23-1.32a3.02 3.02 0 0 1-1.77-2.78c0-1.66 1.34-3 3-3 .76 0 1.45.28 1.99.75l3.24-1.32c.1-.8.5-1.5 1.12-2.02A4.5 4.5 0 0 1 21 12.5a4.5 4.5 0 0 1-4.5 4.5c-.75 0-1.46-.19-2.08-.52l-2.42 3.52c4.4-.38 7.84-4.08 7.84-8.6A10 10 0 0 0 12 2zm4.5 8a2.5 2.5 0 1 0 0 5 2.5 2.5 0 0 0 0-5z" />
+          </svg>
         </div>
         <div className="steam-stats-popover-header-body">
-          <div className="steam-stats-popover-header-title">{t("steamPlayer.steam")}</div>
+          <div className="steam-stats-popover-header-title">
+            {t("steamPlayer.steam")} · {t("steamPlayer.livePlayerStats")}
+          </div>
           <div className="steam-stats-popover-header-subtitle">
-            {t("steamPlayer.livePlayerStats")}
+            App ID: {appId}
           </div>
         </div>
         <button
@@ -428,8 +473,7 @@ export default function SteamPlayerCountPopover({
         </button>
       </header>
 
-      {/* ── Body + footer — shared with the combined popover's Steam
-          tab (see PlayerCountPopover.tsx). */}
+      {/* ── Body + footer ─────────────────────────────────────────── */}
       <SteamStatsPopoverBody appId={appId} currentCount={currentCount} />
     </div>,
     document.body

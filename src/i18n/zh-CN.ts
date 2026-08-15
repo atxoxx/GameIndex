@@ -3,7 +3,6 @@ import type { TranslationDict } from "./index";
 export const zhCN: TranslationDict = {
   "gameInfo.openContainingFolder": "打开游戏目录",
   "gameInfo.openFolderFailed": "无法打开文件夹：{error}",
-
   "about.empty": "暂无描述。",
   "about.from": "来源：{source}",
   "about.hideAbout": "隐藏简介",
@@ -25,7 +24,8 @@ export const zhCN: TranslationDict = {
   "gamePage.gameTitle": "游戏名称",
   "gamePage.copyTitle": "复制游戏名称",
   "gamePage.copyAppId": "复制 AppID",
-  "gamePage.copyPath": "复制路径",  "common.copiedToClipboard": "已将 {label} 复制到剪贴板",
+  "gamePage.copyPath": "复制路径",
+  "common.copiedToClipboard": "已将 {label} 复制到剪贴板",
   "common.copyFailed": "复制到剪贴板失败",
   "common.resetZoom": "重置缩放",
   "common.zoomIn": "放大",
@@ -4262,7 +4262,6 @@ export const zhCN: TranslationDict = {
   "settings.descriptor.calm": "🎮 宁静",
   "settings.descriptor.highContrast": "♿ 高对比度",
   "settings.descriptor.minimal": "✨ 极简",
-
   "settings.tab.privacy": "Privacy & Data",
   "settings.section.wipeData": "Local storage",
   "settings.wipe.desc": "Everything GameIndex remembers on this device is kept in your browser's local storage. Review what's stored and wipe individual items, or clear everything at once.",
@@ -4279,78 +4278,54 @@ export const zhCN: TranslationDict = {
   "settings.wipe.allRemoved": "Cleared all local storage",
   "settings.wipe.size": "Size: {size}",
   "settings.wipe.noValue": "(empty)",
-
   "nav.docs": "文档",
   "docs.title": "文档",
   "docs.subtitle": "一份友好、非技术性的 GameIndex 使用指南，介绍每一个界面与按钮——专为新手编写，无需术语。",
   "docs.toc": "目录",
-
   "docs.welcome.title": "欢迎使用 GameIndex",
   "docs.welcome.body": "GameIndex 是你所有 PC 游戏的统一之家。不必再逐个打开 Steam、GOG、Epic 等平台，你可以从一个窗口查看并启动所有游戏。\n\n本指南介绍你日常会用到的界面和按钮。它不需要任何技术知识——随手翻一翻，几分钟内你就能上手。\n- 在统一的一个**游戏库**中浏览并搜索你拥有的每一款游戏。\n- 在**商店**中发现新游戏，并追踪最划算的**优惠**。\n- 把你的存档、**MOD** 和**模拟器**管理得井井有条。\n- 用**大画面模式**在沙发上轻松游玩。",
-
   "docs.firststeps.title": "快速上手",
   "docs.firststeps.body": "首次启动时，你的**游戏库**是空的。按以下方式填充它：\n- 在 **设置** → 来源 中连接一个**商店**账号（Steam、GOG、Epic、Rockstar、Ubisoft 或 Humble）。GameIndex 会导入你已经拥有的游戏。\n- 或者在**侧边栏**选择“添加游戏”，把 GameIndex 指向安装在你电脑上任意位置的游戏。\n- 想从干净的状态开始？使用**游戏库**的搜索和筛选，专注于你现在想玩的内容。\n游戏导入后，只需双击其中一款即可启动。",
-
   "docs.layout.title": "主界面",
   "docs.layout.body": "应用由三个区域组成：\n- 顶部栏包含搜索、快捷操作，以及**下载**、**设置**和**大画面模式**的按钮。\n- 左**侧边栏**列出你的游戏与筛选条件，还有“添加游戏”按钮。\n- 中央大区域显示你当前查看的页面（**游戏库**、**商店**等）。\n顶部一排标签页（**游戏库**、**商店**、**模拟器**、**MOD** 等）会在应用的不同板块之间切换中央区域。",
-
   "docs.library.title": "你的游戏库",
   "docs.library.body": "**游戏库**是你的根据地——每款添加的游戏都会以方块形式出现在这里。\n- 点击方块打开该游戏的页面：简介、截图、**成就**、通关时长和醒目的“游玩”按钮。\n- 将鼠标悬停在方块上，可快速进行游玩、收藏或隐藏等操作。\n- 使用搜索框和筛选标签（类型、**商店**、已玩/未玩）来缩小列表。\n- 通过**侧边栏**的布局开关在网格视图和列表视图之间切换。",
-
   "docs.gamedetails.title": "游戏详情与自定义",
   "docs.gamedetails.body": "点击任意游戏方块均可打开其专属的详情页面，提供针对该游戏的全方位管理选项。\n\n## 功能与设置\n- **大号游玩按钮**：直接启动游戏，并自动开启游玩时长与硬件性能监控。\n- **自定义封面**：将默认封面、背景横幅和 Logo 替换为自定义图片。\n- **启动参数**：传递自定义命令行参数（例如 `-fullscreen` 或 `-dx11`）。\n- **程序与目录路径**：如果手动移动了游戏文件，可在此修改可执行文件路径或工作目录。\n- **IGDB 自动获取**：从 IGDB 一键获取游戏简介、发售日期、开发商、类型与截图画廊。\n- **个人笔记与评分**：添加自定义笔记、星级评分与游玩状态标签。",
-
   "docs.sidebar.title": "侧边栏",
   "docs.sidebar.body": "左**侧边栏**帮助你浏览与管理：\n- “添加游戏”从你的电脑或已连接的**商店**导入一款游戏。\n- 收藏和最近常用让你快速访问最常玩的游戏。\n- 筛选分组（**商店**、类型、状态）可折叠展开，整理冗长的**游戏库**。\n- 点击**侧边栏**顶部的箭头将其整体收起，为游戏腾出更多空间。",
-
   "docs.topnav.title": "顶部栏按钮",
   "docs.topnav.body": "在顶部栏右侧你会看到：\n- **下载**：打开一个面板，显示正在**下载**的游戏和文件，以及带有进行中数量的徽标。\n- **设置**（齿轮）：打开偏好**设置**——账号、外观、语言和隐私。\n- **大画面模式**（显示器）：将应用展开为适合电视和沙发、便于手柄操作的全屏界面。\n栏中间通常有一个搜索框和板块标签页。",
-
   "docs.store.title": "发现游戏（商店）",
   "docs.store.body": "**商店**是你浏览可玩游戏（而不仅仅是已拥有游戏）的地方。\n- 滚动“热门”和“高分好评”等精选栏目，或直接搜索某个游戏。\n- 打开一款游戏可查看价格、简介、评分以及哪些**商店**在售卖。\n- 按类型、价格和平台筛选，找到合你心意的作品。\n注意：**商店**用于发现和了解信息；购买请在**商店**自己的网站完成。",
-
   "docs.wishlist.title": "愿望单",
   "docs.wishlist.body": "看中一款游戏但还没准备好玩？把它加入**愿望单**。\n- 在任意游戏或**商店**页面点击爱心即可保存。\n- 打开**愿望单**标签页，在一个地方查看你保存的所有内容。\n- **愿望单**中的游戏也会出现在**优惠**中，让你及时注意到降价。",
-
   "docs.deals.title": "优惠与价格",
   "docs.deals.body": "**优惠**板块帮你聪明地花钱。\n- 查看各**商店**当前的折扣，包含省下的百分比和最新价格。\n- 按**商店**、类型或折扣力度筛选。\n- **愿望单**中的游戏会高亮显示，方便你捕捉降价。\n- 历史价格信息帮你分辨真正的划算与虚假的促销。",
-
   "docs.news.title": "资讯",
   "docs.news.body": "无需离开应用即可保持关注。\n- **资讯**页面展示来自游戏**资讯**流的文章与公告。\n- 在资讯**设置**中添加你自己的 RSS 订阅源，关注喜爱的网站。\n- 点击任意标题，即可在清爽的阅读视图中阅读全文。",
-
   "docs.activity.title": "活动与性能",
   "docs.activity.body": "GameIndex 能展示你的游戏实际运行得如何。\n- 当追踪开启时，每场游戏会话都会记录帧率（FPS）和帧时间。\n- **活动**页面通过交互式图表呈现你一段时间内的性能表现。\n- 用它来发现卡顿或比较**设置**——无需看懂数字，只要看平滑还是起伏即可。",
-
   "docs.achievements.title": "成就",
   "docs.achievements.body": "追踪你已经解锁的挑战。\n- 连接 Steam 以导入你的**成就**列表，或同步本地/**模拟器**存档。\n- 按游戏查看已锁定和已解锁的**成就**，进度一目了然。\n- 筛选为“已锁定”，当你想找接下来挑战的目标时会很有用。",
-
   "docs.downloads.title": "下载",
   "docs.downloads.body": "**下载**区管理 GameIndex 获取的一切。\n- 从顶部栏打开它，查看正在进行的**下载**和已完成的文件。\n- 默认一次只进行一个**下载**，其余排队，以保持连接稳定。\n- 在支持的情况下可使用直链以及种子/Debrid 来源。\n点击已完成的项，即可在文件管理器中打开它或安装。",
-
   "docs.storage.title": "存储管理",
   "docs.storage.body": "磁盘空间不足？存储页面会显示你的游戏所在位置。\n- 查看每款游戏、每个**模拟器**和 **MOD** 集合占用空间的明细。\n- 将游戏从一块硬盘移动到另一块，而不会破坏它的启动。\n- 随时重新计算大小，保持数字准确。",
-
   "docs.emulators.title": "模拟器与 ROM",
   "docs.emulators.body": "GameIndex 把复古游戏也带入同一个**游戏库**。\n- 添加一个**模拟器**（如 SNES 或 PlayStation **模拟器**），GameIndex 就知道如何启动它。\n- 按系统整理你的 ROM，并和现代游戏一起浏览。\n- 批量操作让你快速整理庞大的 ROM 收藏。\n**模拟器**需另行安装；GameIndex 负责为你启动它们。",
-
   "docs.mods.title": "MOD",
   "docs.mods.body": "用 **MOD** 管理器改变游戏的外观与玩法。\n- 为选中的游戏浏览来自 Steam 创意工坊和 Nexus Mods 的 **MOD**。\n- 通过多选批量操作启用、禁用或删除 **MOD**。\n- 统计卡片显示当前启用的 **MOD** 数量及其占用的空间。\n**MOD** 通过游戏自身的 **MOD** 系统应用；GameIndex 只负责整理它们。",
-
   "docs.community.title": "社区与好友",
   "docs.community.body": "一起玩更有乐趣。\n- **社区**标签页展示**活动**与推荐的信息流。\n- 添加好友，查看他们在玩什么，并分享你自己的**游戏库**。\n- 本地优先：你的数据保留在设备上，分享为可选项。\n个人资料与好友同步帮你发现好友喜爱的游戏。",
-
   "docs.settings.title": "设置",
   "docs.settings.body": "打开**设置**（齿轮图标），把 GameIndex 变成你的专属。\n- 来源：连接或断开**商店**账号。\n- 外观：选择主题与强调色，并切换浅色/深色。\n- 语言：在支持的语言之间切换界面。\n- 隐私与数据：查看本地存储的内容，需要时可清除。\n大多数更改会立即生效。",
-
   "docs.bigscreen.title": "大画面模式",
   "docs.bigscreen.body": "**大画面模式**把 GameIndex 变成适合沙发、十英尺距离操作的界面。\n- 点击顶部栏的显示器图标（或按 F11 / Ctrl+B）进入。\n- 完全用手柄或方向键导航——大号方块、简洁菜单。\n- 它以适合电视的布局包含你的**游戏库**、**商店**、**优惠**、好友和**社区**。\n- 按 Escape 退出**大画面模式**，返回桌面视图。",
-
   "docs.shortcuts.title": "键盘与手柄快捷键",
   "docs.shortcuts.body": "使用全局键盘热键和手柄快捷组合掌握 GameIndex 导航。\n\n## 键盘快捷键\n- `F11` 或 `Ctrl+B`：开启 / 关闭 **大画面模式**。\n- `Ctrl+F`：瞬间聚焦全局搜索框。\n- `Ctrl+,`：打开 **设置**。\n- `Ctrl+D`：打开 **下载** 面板。\n- `Ctrl+L`：跳转至 **游戏库**。\n- `Escape`：关闭弹窗、取消搜索或退出大画面模式。\n- `Tab` / `Shift+Tab`：在按钮与输入框间切换焦点。\n- `ArrowUp` / `ArrowDown` / `ArrowLeft` / `ArrowRight`：在方块与列表中导航。\n\n## 手柄快捷键（大画面模式）\n- `十字键` / `左摇杆`：导航菜单与游戏网格。\n- `按键 A` (Xbox) / `叉号` (PlayStation)：选择 / 启动游戏。\n- `按键 B` (Xbox) / `圆圈` (PlayStation)：返回 / 关闭菜单。\n- `按键 X` (Xbox) / `方块` (PlayStation)：切换收藏状态。\n- `按键 Y` (Xbox) / `三角` (PlayStation)：打开游戏详情。\n- `Start` / `菜单键`：打开快捷选项抽屉。",
-
   "docs.tips.title": "技巧与快捷键",
   "docs.tips.body": "一些让日常使用更顺畅的小贴士：\n- 按 F11 或 Ctrl+B 切换**大画面模式**；Escape 退出。\n- 用**游戏库**搜索按名称瞬间跳转到任意游戏。\n- 右键（或长按）游戏方块可查看更多操作。\n- 想给游戏封面腾出更多空间时，收起**侧边栏**。\n- 若某些内容读起来不顺，可随时在**设置**中切换语言。",
-
   "updater.autoCheck": "自动检查更新",
   "updater.autoCheckDesc": "启动时自动在 GitHub Releases 上检查软件更新。",
   "updater.cancel": "取消",
@@ -4382,7 +4357,6 @@ export const zhCN: TranslationDict = {
   "updater.speed": "{speed}/s",
   "updater.title": "软件更新",
   "updater.upToDate": "GameIndex 已是最新版本",
-
   "library.groupBy.none": "不分组",
   "library.groupBy.platform": "平台",
   "library.groupBy.playStatus": "游玩状态",
@@ -4431,7 +4405,6 @@ export const zhCN: TranslationDict = {
   "library.table.rating": "评分",
   "library.table.lastPlayed": "上次游玩",
   "library.table.actions": "操作",
-
   "store.spotlight.explore": "查看详情",
   "store.spotlight.wishlisted": "已在愿望单",
   "store.spotlight.addToWishlist": "加入愿望单",
@@ -4761,4 +4734,8 @@ export const zhCN: TranslationDict = {
   "stats.milestone.ach25.desc": "在所有游戏中累计解锁 25 个成就。",
   "stats.milestone.ach100.title": "成就传奇 (100个成就)",
   "stats.milestone.ach100.desc": "在游戏库中累计解锁 100 个成就。",
+  "common.noResults": "未找到结果",
+  "common.showLess": "显示更少",
+  "steamPlayer.communityHub": "社区中心",
+  "steamPlayer.steamDb": "SteamDB",
 };

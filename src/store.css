@@ -2178,6 +2178,15 @@
   background: color-mix(in srgb, var(--color-bg-primary) 50%, transparent);
 }
 
+.steam-stats-popover-footer-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+  width: 100%;
+  justify-content: space-between;
+}
+
 .steam-stats-popover-footer-link {
   display: inline-flex;
   align-items: center;
@@ -2186,20 +2195,43 @@
   font-weight: var(--font-weight-semibold);
   color: var(--color-accent);
   text-decoration: none;
-  padding: 5px 10px;
+  padding: 6px 10px;
   border-radius: var(--radius-md);
+  background: color-mix(in srgb, var(--color-accent) 10%, transparent);
+  border: 1px solid color-mix(in srgb, var(--color-accent) 25%, transparent);
   transition: color var(--transition-fast),
-    background var(--transition-fast);
+    background var(--transition-fast),
+    border-color var(--transition-fast),
+    transform var(--transition-fast);
 }
 
 .steam-stats-popover-footer-link:hover {
-  background: color-mix(in srgb, var(--color-accent) 12%, transparent);
+  background: color-mix(in srgb, var(--color-accent) 20%, transparent);
+  border-color: var(--color-accent);
   color: var(--color-accent-hover);
+  transform: translateY(-1px);
+}
+
+.steam-stats-popover-footer-link.secondary {
+  color: var(--color-text-secondary);
+  background: color-mix(in srgb, var(--color-bg-tertiary) 60%, transparent);
+  border-color: var(--color-border);
+}
+
+.steam-stats-popover-footer-link.secondary:hover {
+  background: var(--color-bg-hover);
+  border-color: var(--color-border-hover, var(--color-border));
+  color: var(--color-text-primary);
+  transform: translateY(-1px);
 }
 
 .steam-stats-popover-footer-link:focus-visible {
   outline: 2px solid var(--color-accent);
   outline-offset: 1px;
+}
+
+.steam-brand-icon {
+  color: var(--color-accent);
 }
 
 /* ── Player Activity (historical line chart) ───────────────────────────────
@@ -2280,6 +2312,32 @@
   display: flex;
   flex-direction: column;
   gap: 5px;
+}
+
+.steam-stats-hero-meta {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+  margin-top: 2px;
+  padding-top: 8px;
+  border-top: 1px solid color-mix(in srgb, var(--color-border) 60%, transparent);
+}
+
+.steam-stats-hero-tag {
+  font-size: 9px;
+  font-weight: var(--font-weight-semibold);
+  padding: 1px 6px;
+  border-radius: var(--radius-sm);
+  background: color-mix(in srgb, var(--color-accent) 12%, transparent);
+  color: var(--color-accent);
+  border: 1px solid color-mix(in srgb, var(--color-accent) 25%, transparent);
+}
+
+.steam-stats-hero-date {
+  font-size: 9px;
+  color: var(--color-text-muted);
+  margin-left: auto;
 }
 
 .steam-history-chart-header {
@@ -2391,18 +2449,42 @@
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 2px;
-  padding: 7px 4px;
+  gap: 3px;
+  padding: 8px 6px;
   background: color-mix(in srgb, var(--color-bg-tertiary) 45%, transparent);
   border: 1px solid var(--color-border);
   border-radius: var(--radius-sm);
   transition: background var(--transition-fast),
-    border-color var(--transition-fast);
+    border-color var(--transition-fast),
+    transform var(--transition-fast);
 }
 
 .steam-history-chart-stat:hover {
   background: color-mix(in srgb, var(--color-bg-tertiary) 70%, transparent);
-  border-color: color-mix(in srgb, var(--color-accent) 25%, var(--color-border));
+  border-color: color-mix(in srgb, var(--color-accent) 35%, var(--color-border));
+  transform: translateY(-1px);
+}
+
+.steam-history-chart-stat-header {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.steam-history-stat-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--color-text-muted);
+}
+
+.steam-stat-live-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--color-success);
+  box-shadow: 0 0 6px var(--color-success);
+  animation: steam-live-pulse 2s ease-in-out infinite;
 }
 
 .steam-history-chart-stat--current .steam-history-chart-stat-value {
@@ -2410,11 +2492,11 @@
 }
 
 .steam-history-chart-stat--alltime .steam-history-chart-stat-value {
-  color: var(--color-warning);
+  color: var(--color-warning, #f59e0b);
 }
 
 .steam-history-chart-stat-value {
-  font-size: 13px;
+  font-size: 14px;
   font-weight: var(--font-weight-bold);
   color: var(--color-text-primary);
   font-variant-numeric: tabular-nums;

@@ -12,7 +12,6 @@ import {
   type CompanionApp,
   type SimilarGame,
   type ReleaseDateInfo,
-  type IgdbReview,
   type LanguageSupportInfo,
   formatSize,
   formatPlayTime,
@@ -31,11 +30,31 @@ import { TagInput } from "../../components/ui/TagInput";
 import { ArrayEditor } from "../../components/ui/ArrayEditor";
 import "./EditGameModal.css";
 
-const GENRE_SUGGESTIONS = ["Action","Adventure","RPG","Shooter","Strategy","Puzzle","Platformer","Simulation","Sports","Racing","Fighting","Horror","Indie","Casual","MMO"];
-const THEME_SUGGESTIONS = ["Sci-Fi","Fantasy","Horror","Open World","Sandbox","Survival","Story Rich","Atmospheric","Pixel Graphics","Post-Apocalyptic","Cyberpunk","Comedy"];
-const MODE_SUGGESTIONS = ["Singleplayer","Multiplayer","Co-op","Online Co-Op","Split Screen","PvP","PvE","Massively Multiplayer"];
-const PERSPECTIVE_SUGGESTIONS = ["First-Person","Third-Person","Top-Down","Side View","Isometric","Bird's-Eye","Text"];
-const LANGUAGE_SUPPORT_TYPES = ["Audio","Subtitles","Interface"];
+const GENRE_SUGGESTIONS = [
+  "Action", "Adventure", "RPG", "Shooter", "Strategy", "Puzzle", "Platformer",
+  "Simulation", "Sports", "Racing", "Fighting", "Horror", "Indie", "Casual", "MMO"
+];
+const THEME_SUGGESTIONS = [
+  "Sci-Fi", "Fantasy", "Horror", "Open World", "Sandbox", "Survival",
+  "Story Rich", "Atmospheric", "Pixel Graphics", "Post-Apocalyptic", "Cyberpunk", "Comedy"
+];
+const MODE_SUGGESTIONS = [
+  "Singleplayer", "Multiplayer", "Co-op", "Online Co-Op", "Split Screen", "PvP", "PvE", "Massively Multiplayer"
+];
+const PERSPECTIVE_SUGGESTIONS = [
+  "First-Person", "Third-Person", "Top-Down", "Side View", "Isometric", "Bird's-Eye", "Text"
+];
+const LANGUAGE_SUPPORT_TYPES = ["Audio", "Subtitles", "Interface"];
+
+const COMMON_LAUNCH_ARGS = [
+  { label: "-windowed", desc: "Windowed mode" },
+  { label: "-fullscreen", desc: "Fullscreen" },
+  { label: "-novid", desc: "Skip intro video" },
+  { label: "-dx11", desc: "Force DirectX 11" },
+  { label: "-vulkan", desc: "Force Vulkan" },
+  { label: "-dev", desc: "Developer console" },
+  { label: "-high", desc: "High CPU priority" },
+];
 
 type EditTab = "details" | "media" | "launch";
 
@@ -52,7 +71,6 @@ export function EditGameModal({ game, onClose }: EditGameModalProps) {
 
   const [editTab, setEditTab] = useState<EditTab>("details");
 
-  // ── Core identity ─────────────────────────────────────────────
   const [editName, setEditName] = useState(game.name);
   const [editPlatform, setEditPlatform] = useState(game.platform);
   const [editPlayStatus, setEditPlayStatus] = useState<PlayStatus>(game.playStatus || "backlog");
@@ -63,7 +81,6 @@ export function EditGameModal({ game, onClose }: EditGameModalProps) {
   const [editStoryline, setEditStoryline] = useState(game.storyline || "");
   const [editNotes, setEditNotes] = useState(game.notes || "");
 
-  // ── Ratings & catalog (chip/array fields) ─────────────────────
   const [editIgdbRating, setEditIgdbRating] = useState(game.igdbRating || 0);
   const [editCriticRating, setEditCriticRating] = useState(game.criticRating || 0);
   const [editGenres, setEditGenres] = useState<string[]>(game.genres || []);
@@ -82,7 +99,6 @@ export function EditGameModal({ game, onClose }: EditGameModalProps) {
   const [editReleaseStatus, setEditReleaseStatus] = useState(game.releaseStatus || "");
   const [editAlternativeNames, setEditAlternativeNames] = useState<string[]>(game.alternativeNames || []);
 
-  // ── Images ────────────────────────────────────────────────────
   const [editIcon, setEditIcon] = useState(game.iconUrl || "");
   const [editCover, setEditCover] = useState(game.coverArtUrl || "");
   const [editHero, setEditHero] = useState(game.bannerUrl || "");
@@ -91,28 +107,14 @@ export function EditGameModal({ game, onClose }: EditGameModalProps) {
   const [editVideos, setEditVideos] = useState<string[]>(game.videos || []);
   const [editWebsites, setEditWebsites] = useState<string[]>(game.websites || []);
 
-  // ── Advanced data ─────────────────────────────────────────────
   const [editSizeBytes, setEditSizeBytes] = useState<number | undefined>(game.sizeBytes);
   const [editSizeRootPath, setEditSizeRootPath] = useState<string | undefined>(game.sizeRootPath);
   const [detectingSize, setDetectingSize] = useState(false);
   const [editMetadataSource, setEditMetadataSource] = useState(game.metadataSource || "");
   const [editMetadataUrl, setEditMetadataUrl] = useState(game.metadataUrl || "");
   const [editReleases, setEditReleases] = useState<ReleaseDateInfo[]>(game.releases || []);
-  const [editIgdbReviews, setEditIgdbReviews] = useState<IgdbReview[]>(game.igdbReviews || []);
   const [editLanguageSupports, setEditLanguageSupports] = useState<LanguageSupportInfo[]>(game.languageSupports || []);
 
-  // ── Playtime editing ──────────────────────────────────────────
-  // Manual override for the `Game.playTime` string. The save flow
-  // round-trips through `parsePlayTime` / `formatPlayTime` so a
-  // tampered "5h30m" still gets normalised to "5h 30m" on disk.
-  // Seeded from `game.playTime` so opening the modal immediately
-  // reflects the current tracked total — users see the running
-  // value, edit it, and click Save to commit. Note that every
-  // Steam/GOG/Epic library sync re-writes `playTime` from the
-  // upstream API (see SettingsPage + src-tauri steam/gog/epic
-  // sync paths), so a manual edit is best-effort and may be
-  // clobbered by the next sync. Hint copy below makes that
-  // transparent.
   const [editPlaytimeHours, setEditPlaytimeHours] = useState<number>(
     Math.floor(parsePlayTime(game.playTime) / 60)
   );
@@ -125,16 +127,6 @@ export function EditGameModal({ game, onClose }: EditGameModalProps) {
     setEditPlaytimeMinutes(0);
   }
 
-  // Re-seed the inputs when `game.playTime` changes from OUTSIDE the
-  // modal — e.g. a session-end event fires from the Rust `game-exited`
-  // listener while the modal is open (`updateGame(... { playTime:
-  // addSessionTime(...) })` in GameContext). Without this effect the
-  // modal's local state would go stale, and a Save click would silently
-  // overwrite the freshly-appended session minutes with the older
-  // value the modal first mounted with. The ref tracks the last value
-  // we observed via this effect so we ignore the initial mount (whose
-  // seed already happens in the `useState` initialiser) and avoid
-  // unnecessary re-renders.
   const lastSeenPlaytimeRef = useRef(game.playTime);
   useEffect(() => {
     if (game.playTime === lastSeenPlaytimeRef.current) return;
@@ -144,7 +136,6 @@ export function EditGameModal({ game, onClose }: EditGameModalProps) {
     setEditPlaytimeMinutes(total % 60);
   }, [game.playTime]);
 
-  // ── Launch options ────────────────────────────────────────────
   const [editPath, setEditPath] = useState(game.path || "");
   const [editLaunchArguments, setEditLaunchArguments] = useState(game.launchArguments || "");
   const [editRunAsAdmin, setEditRunAsAdmin] = useState(game.runAsAdmin || false);
@@ -159,10 +150,6 @@ export function EditGameModal({ game, onClose }: EditGameModalProps) {
       : []
   );
 
-  // ── Steam launch-actions detection ─────────────────────────────
-  // Best-effort: the backend returns the launch actions Steam offers
-  // for this game ([] when Steam is unavailable / no actions). Only
-  // used to surface a hint in the launch tab when 2+ actions exist.
   const [steamLaunchOptions, setSteamLaunchOptions] = useState<SteamLaunchOption[] | null>(null);
   useEffect(() => {
     if (game.platform !== "Steam" || !game.steamAppId) {
@@ -182,21 +169,17 @@ export function EditGameModal({ game, onClose }: EditGameModalProps) {
     };
   }, [game.platform, game.steamAppId]);
 
-  // Label listing the detected launch actions (descriptions joined,
-  // falling back to "Option N" when a description is empty).
   const steamLaunchListLabel = steamLaunchOptions
     ? steamLaunchOptions
         .map((o) => o.description.trim() || `Option ${o.index}`)
         .join(", ")
     : "";
 
-  // ── Metadata search ───────────────────────────────────────────
   const [fetchingMetadata, setFetchingMetadata] = useState(false);
   const [metadataResults, setMetadataResults] = useState<GameMetadataResult[]>([]);
   const [showMetadataPanel, setShowMetadataPanel] = useState(false);
   const [applyingMetadata, setApplyingMetadata] = useState(false);
 
-  // ── Image browsers ────────────────────────────────────────────
   const [showImageBrowser, setShowImageBrowser] = useState(false);
   const [lbImages, setLbImages] = useState<LaunchBoxImageResult[]>([]);
   const [lbLoading, setLbLoading] = useState(false);
@@ -213,7 +196,6 @@ export function EditGameModal({ game, onClose }: EditGameModalProps) {
     return () => window.removeEventListener("keydown", onKey);
   }, [onClose]);
 
-  // ─── Shared image helpers ────────────────────────────────────────
   function setImageSlot(key: "icon" | "cover" | "hero" | "banner" | "logo", value: string) {
     const slot = key === "banner" ? "hero" : key;
     if (slot === "icon") setEditIcon(value);
@@ -225,8 +207,6 @@ export function EditGameModal({ game, onClose }: EditGameModalProps) {
   async function searchMetadata(): Promise<GameMetadataResult[]> {
     return invoke("search_game_metadata", {
       gameName: editName.trim() || game.name,
-      // Only pin by appid when searching the game's own name — a custom
-      // search term must not be pinned to the existing game's appid.
       steamAppId: editName.trim() ? undefined : game.steamAppId,
     });
   }
@@ -243,7 +223,6 @@ export function EditGameModal({ game, onClose }: EditGameModalProps) {
     return false;
   }
 
-  // ─── Metadata handlers ──────────────────────────────────────────
   async function handleFetchMetadata() {
     setFetchingMetadata(true);
     setMetadataResults([]);
@@ -340,7 +319,6 @@ export function EditGameModal({ game, onClose }: EditGameModalProps) {
       setEditTimeToBeatComple(result.timeToBeat?.completely ? Math.round(result.timeToBeat.completely / 3600) : 0);
       setEditSimilarGamesNames(result.similarGames ? result.similarGames.map((g) => g.name) : []);
       setEditReleases(result.releases || []);
-      setEditIgdbReviews(result.igdbReviews || []);
       setEditLanguageSupports(result.languageSupports || []);
 
       setEditCollection(result.collection || "");
@@ -382,7 +360,6 @@ export function EditGameModal({ game, onClose }: EditGameModalProps) {
     setImageSlot(key, "");
   }
 
-  // ─── LaunchBox browser ──────────────────────────────────────────
   async function handleOpenImageBrowser() {
     setShowImageBrowser(true);
     setLbSelectedCategory("all");
@@ -421,7 +398,6 @@ export function EditGameModal({ game, onClose }: EditGameModalProps) {
     }
   }
 
-  // ─── Size & executable ─────────────────────────────────────────
   async function openFolderAndDetectSize() {
     if (detectingSize) return;
     setDetectingSize(true);
@@ -467,10 +443,7 @@ export function EditGameModal({ game, onClose }: EditGameModalProps) {
     }
   }
 
-  async function handlePickScript(
-    setter: (path: string) => void,
-    title: string
-  ) {
+  async function handlePickScript(setter: (path: string) => void, title: string) {
     try {
       const filePath = await open({
         multiple: false,
@@ -525,7 +498,15 @@ export function EditGameModal({ game, onClose }: EditGameModalProps) {
     setEditCompanionApps((prev) => prev.filter((_, i) => i !== index));
   }
 
-  // ─── Save ───────────────────────────────────────────────────────
+  function appendLaunchArg(arg: string) {
+    const trimmed = editLaunchArguments.trim();
+    if (!trimmed) {
+      setEditLaunchArguments(arg);
+    } else if (!trimmed.includes(arg)) {
+      setEditLaunchArguments(`${trimmed} ${arg}`);
+    }
+  }
+
   function saveEdits() {
     const newName = editName.trim() || game.name;
     const newPlatform = editPlatform.trim() || game.platform;
@@ -562,15 +543,9 @@ export function EditGameModal({ game, onClose }: EditGameModalProps) {
       });
 
     const newReleases = editReleases.filter((r) => r.platform);
-    const newIgdbReviews = editIgdbReviews.length > 0 ? editIgdbReviews : undefined;
     const newLanguageSupports = editLanguageSupports.length > 0 ? editLanguageSupports : undefined;
     const newAlternativeNames = editAlternativeNames.filter(Boolean);
 
-    // Steam identity: derive the appid from the (possibly freshly
-    // applied) IGDB websites list when the game doesn't already have
-    // one, so manually added exe/batch games get a STORED Steam id
-    // the moment metadata is applied — reviews, Hydra user reviews,
-    // ProtonDB and Steam deep links then read it off the row.
     const newSteamAppId =
       game.steamAppId ?? extractSteamAppIdFromWebsites(editWebsites) ?? undefined;
 
@@ -608,7 +583,7 @@ export function EditGameModal({ game, onClose }: EditGameModalProps) {
       },
       similarGames: newSimilarGames.length > 0 ? newSimilarGames : undefined,
       releases: newReleases.length > 0 ? newReleases : undefined,
-      igdbReviews: newIgdbReviews,
+      igdbReviews: game.igdbReviews,
       alternativeNames: newAlternativeNames.length > 0 ? newAlternativeNames : undefined,
       collection: editCollection.trim() || undefined,
       franchise: editFranchise.trim() || undefined,
@@ -637,11 +612,6 @@ export function EditGameModal({ game, onClose }: EditGameModalProps) {
               }))
           : undefined,
       playStatus: editPlayStatus,
-      // Round-trip the manual override through parsePlayTime + formatPlayTime so
-      // any oddity in the user's input ("5h30m", "12h 0m", etc.) is normalised
-      // to the canonical `"Xh Ym"` form before it hits the SQLite row. We cap
-      // the per-field values to a reasonable range so a stray keystroke can't
-      // push absurd numbers into the persisted string.
       playTime: formatPlayTime(
         Math.max(0, Math.floor(editPlaytimeHours)) * 60 +
         Math.max(0, Math.min(59, Math.floor(editPlaytimeMinutes)))
@@ -652,15 +622,44 @@ export function EditGameModal({ game, onClose }: EditGameModalProps) {
   }
 
   const tabs: { key: EditTab; label: string; icon: ReactNode }[] = [
-    { key: "details", label: t("edit.tab.details"), icon: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" /><polyline points="14 2 14 8 20 8" /><line x1="16" y1="13" x2="8" y2="13" /><line x1="16" y1="17" x2="8" y2="17" /><line x1="10" y1="9" x2="8" y2="9" /></svg> },
-    { key: "media", label: t("edit.tab.media"), icon: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2" /><circle cx="8.5" cy="8.5" r="1.5" /><polyline points="21 15 16 10 5 21" /></svg> },
-    { key: "launch", label: t("edit.tab.launch"), icon: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polygon points="5 3 19 12 5 21 5 3" /></svg> },
+    {
+      key: "details",
+      label: t("edit.tab.details"),
+      icon: (
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+          <polyline points="14 2 14 8 20 8" />
+          <line x1="16" y1="13" x2="8" y2="13" />
+          <line x1="16" y1="17" x2="8" y2="17" />
+          <line x1="10" y1="9" x2="8" y2="9" />
+        </svg>
+      ),
+    },
+    {
+      key: "media",
+      label: t("edit.tab.media"),
+      icon: (
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          <rect x="3" y="3" width="18" height="18" rx="2" ry="2" />
+          <circle cx="8.5" cy="8.5" r="1.5" />
+          <polyline points="21 15 16 10 5 21" />
+        </svg>
+      ),
+    },
+    {
+      key: "launch",
+      label: t("edit.tab.launch"),
+      icon: (
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          <polygon points="5 3 19 12 5 21 5 3" />
+        </svg>
+      ),
+    },
   ];
 
   return (
     <div className="modal-backdrop" onClick={onClose}>
       <div className="modal edit-modal" onClick={(e) => e.stopPropagation()}>
-        {/* Live preview header */}
         <div className="edit-modal-preview">
           <div className="edit-modal-preview-art">
             <div className="edit-preview-hero" style={editHero ? { backgroundImage: `url(${editHero})` } : undefined}>
@@ -672,7 +671,12 @@ export function EditGameModal({ game, onClose }: EditGameModalProps) {
             {editIcon && <img className="edit-preview-icon" src={editIcon} alt="icon" />}
           </div>
           <div className="edit-modal-preview-meta">
-            <span className="edit-preview-eyebrow">{editPlatform || "Platform"} · {t(PLAY_STATUS_DETAILS[editPlayStatus].labelKey)}</span>
+            <div className="edit-preview-eyebrow-row">
+              <span className="edit-preview-platform">{editPlatform || "Platform"}</span>
+              <span className={`edit-preview-status-pill status-${editPlayStatus}`}>
+                {t(PLAY_STATUS_DETAILS[editPlayStatus].labelKey)}
+              </span>
+            </div>
             <h3 className="edit-preview-title">{editName || game.name}</h3>
             {(editDeveloper || editPublisher) && (
               <p className="edit-preview-sub">
@@ -689,19 +693,24 @@ export function EditGameModal({ game, onClose }: EditGameModalProps) {
               isLoading={fetchingMetadata}
               leftIcon={
                 !fetchingMetadata ? (
-                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="11" cy="11" r="8" /><line x1="21" y1="21" x2="16.65" y2="16.65" /></svg>
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <circle cx="11" cy="11" r="8" />
+                    <line x1="21" y1="21" x2="16.65" y2="16.65" />
+                  </svg>
                 ) : undefined
               }
             >
               {fetchingMetadata ? t("edit.searching") : t("edit.fetchMetadata")}
             </Button>
             <button className="metadata-panel-close" onClick={onClose} aria-label={t("common.close")}>
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" /></svg>
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <line x1="18" y1="6" x2="6" y2="18" />
+                <line x1="6" y1="6" x2="18" y2="18" />
+              </svg>
             </button>
           </div>
         </div>
 
-        {/* Tabs */}
         <div className="edit-modal-tabs" role="tablist">
           {tabs.map((tab) => (
             <button
@@ -719,26 +728,37 @@ export function EditGameModal({ game, onClose }: EditGameModalProps) {
         </div>
 
         <div className="edit-modal-body">
-          {/* ── DETAILS ── */}
           {editTab === "details" && (
             <div className="edit-form">
               {showMetadataPanel && (
                 <div className="metadata-panel">
                   <div className="metadata-panel-header">
                     <h3>
-                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="11" cy="11" r="8" /><line x1="21" y1="21" x2="16.65" y2="16.65" /></svg>
+                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                        <circle cx="11" cy="11" r="8" />
+                        <line x1="21" y1="21" x2="16.65" y2="16.65" />
+                      </svg>
                       {t("edit.metadataSearchResults")}
                     </h3>
                     <button className="metadata-panel-close" onClick={() => setShowMetadataPanel(false)} aria-label="Close results">
-                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" /></svg>
+                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                        <line x1="18" y1="6" x2="6" y2="18" />
+                        <line x1="6" y1="6" x2="18" y2="18" />
+                      </svg>
                     </button>
                   </div>
                   <div className="metadata-panel-body">
                     {fetchingMetadata ? (
-                      <div className="metadata-loading"><div className="metadata-spinner" /><p>Searching for "{game.name}"...</p></div>
+                      <div className="metadata-loading">
+                        <div className="metadata-spinner" />
+                        <p>Searching for "{game.name}"...</p>
+                      </div>
                     ) : metadataResults.length === 0 ? (
                       <div className="metadata-empty">
-                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5"><circle cx="11" cy="11" r="8" /><line x1="21" y1="21" x2="16.65" y2="16.65" /></svg>
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
+                          <circle cx="11" cy="11" r="8" />
+                          <line x1="21" y1="21" x2="16.65" y2="16.65" />
+                        </svg>
                         <p>{t("edit.noResults")}</p>
                       </div>
                     ) : (
@@ -748,7 +768,11 @@ export function EditGameModal({ game, onClose }: EditGameModalProps) {
                             <div className="metadata-result-header">
                               <span className="metadata-result-source">{result.sourceName}</span>
                               <a href={result.sourceUrl} target="_blank" rel="noopener noreferrer" className="metadata-result-link" title="Open source page">
-                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6" /><polyline points="15 3 21 3 21 9" /><line x1="10" y1="14" x2="21" y2="3" /></svg>
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                  <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6" />
+                                  <polyline points="15 3 21 3 21 9" />
+                                  <line x1="10" y1="14" x2="21" y2="3" />
+                                </svg>
                               </a>
                             </div>
                             <div className="metadata-result-title">{result.title}</div>
@@ -759,10 +783,25 @@ export function EditGameModal({ game, onClose }: EditGameModalProps) {
                               {result.releaseDate && <span><strong>Released:</strong> {result.releaseDate}</span>}
                             </div>
                             {result.genres.length > 0 && (
-                              <div className="metadata-result-genres">{result.genres.map((g) => <span key={g} className="metadata-genre-tag">{g}</span>)}</div>
+                              <div className="metadata-result-genres">
+                                {result.genres.map((g) => (
+                                  <span key={g} className="metadata-genre-tag">{g}</span>
+                                ))}
+                              </div>
                             )}
-                            <Button variant="primary" size="sm" disabled={applyingMetadata} isLoading={applyingMetadata} onClick={() => handleApplyMetadata(result)}
-                              leftIcon={!applyingMetadata ? (<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12" /></svg>) : undefined}
+                            <Button
+                              variant="primary"
+                              size="sm"
+                              disabled={applyingMetadata}
+                              isLoading={applyingMetadata}
+                              onClick={() => handleApplyMetadata(result)}
+                              leftIcon={
+                                !applyingMetadata ? (
+                                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                    <polyline points="20 6 9 17 4 12" />
+                                  </svg>
+                                ) : undefined
+                              }
                             >
                               {t("edit.applyMetadata")}
                             </Button>
@@ -775,7 +814,14 @@ export function EditGameModal({ game, onClose }: EditGameModalProps) {
               )}
 
               <fieldset className="edit-fieldset">
-                <legend className="edit-fieldset-legend">{t("edit.coreIdentity")}</legend>
+                <legend className="edit-fieldset-legend">
+                  <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <circle cx="12" cy="12" r="10" />
+                    <line x1="12" y1="16" x2="12" y2="12" />
+                    <line x1="12" y1="8" x2="12.01" y2="8" />
+                  </svg>
+                  {t("edit.coreIdentity")}
+                </legend>
                 <div className="edit-form-grid">
                   <div className="edit-field">
                     <label className="edit-label" htmlFor="edit-name">{t("edit.label.name")}</label>
@@ -783,7 +829,7 @@ export function EditGameModal({ game, onClose }: EditGameModalProps) {
                   </div>
                   <div className="edit-field">
                     <label className="edit-label" htmlFor="edit-play-status">{t("edit.label.playStatus")}</label>
-                    <select id="edit-play-status" className="edit-input" value={editPlayStatus} onChange={(e) => setEditPlayStatus(e.target.value as PlayStatus)}>
+                    <select id="edit-play-status" className="edit-input edit-select" value={editPlayStatus} onChange={(e) => setEditPlayStatus(e.target.value as PlayStatus)}>
                       {Object.entries(PLAY_STATUS_DETAILS).map(([key, details]) => (
                         <option key={key} value={key}>{t(details.labelKey)}</option>
                       ))}
@@ -791,38 +837,57 @@ export function EditGameModal({ game, onClose }: EditGameModalProps) {
                   </div>
                   <div className="edit-field">
                     <label className="edit-label" htmlFor="edit-platform">{t("edit.label.platform")}</label>
-                    <input id="edit-platform" className="edit-input" type="text" value={editPlatform} onChange={(e) => setEditPlatform(e.target.value)} placeholder="e.g., Steam, GOG, Local" />
-                  </div>
-                  <div className="edit-field">
-                    <label className="edit-label" htmlFor="edit-developer">{t("edit.label.developer")}</label>
-                    <input id="edit-developer" className="edit-input" type="text" value={editDeveloper} onChange={(e) => setEditDeveloper(e.target.value)} placeholder="Developer name" />
-                  </div>
-                  <div className="edit-field">
-                    <label className="edit-label" htmlFor="edit-publisher">{t("edit.label.publisher")}</label>
-                    <input id="edit-publisher" className="edit-input" type="text" value={editPublisher} onChange={(e) => setEditPublisher(e.target.value)} placeholder="Publisher name" />
+                    <input id="edit-platform" className="edit-input" type="text" value={editPlatform} onChange={(e) => setEditPlatform(e.target.value)} placeholder="e.g., Steam, GOG, Epic, Local" />
                   </div>
                   <div className="edit-field">
                     <label className="edit-label" htmlFor="edit-release-date">{t("edit.label.releaseDate")}</label>
                     <input id="edit-release-date" className="edit-input" type="text" value={editReleaseDate} onChange={(e) => setEditReleaseDate(e.target.value)} placeholder="e.g., YYYY-MM-DD" />
                   </div>
+                  <div className="edit-field">
+                    <label className="edit-label" htmlFor="edit-developer">{t("edit.label.developer")}</label>
+                    <input id="edit-developer" className="edit-input" type="text" value={editDeveloper} onChange={(e) => setEditDeveloper(e.target.value)} placeholder="Developer studio" />
+                  </div>
+                  <div className="edit-field">
+                    <label className="edit-label" htmlFor="edit-publisher">{t("edit.label.publisher")}</label>
+                    <input id="edit-publisher" className="edit-input" type="text" value={editPublisher} onChange={(e) => setEditPublisher(e.target.value)} placeholder="Publisher company" />
+                  </div>
                 </div>
                 <div className="edit-field full-width" style={{ marginTop: "var(--space-md)" }}>
                   <label className="edit-label" htmlFor="edit-description">{t("edit.label.description")}</label>
-                  <textarea id="edit-description" className="edit-input edit-textarea" value={editDescription} onChange={(e) => setEditDescription(e.target.value)} placeholder="Short description or summary..." rows={3} />
+                  <textarea id="edit-description" className="edit-input edit-textarea" value={editDescription} onChange={(e) => setEditDescription(e.target.value)} placeholder="Short overview and gameplay summary..." rows={3} />
                 </div>
               </fieldset>
 
               <fieldset className="edit-fieldset">
-                <legend className="edit-fieldset-legend">{t("edit.storageAndPlaytime")}</legend>
+                <legend className="edit-fieldset-legend">
+                  <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <ellipse cx="12" cy="5" rx="9" ry="3" />
+                    <path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3" />
+                    <path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5" />
+                  </svg>
+                  {t("edit.storageAndPlaytime")}
+                </legend>
                 <div className="edit-field full-width" data-storage-row>
                   <label className="edit-label">{t("edit.label.size")}</label>
                   <div className="size-edit-row">
                     <input className="edit-input size-readonly" type="text" readOnly value={editSizeBytes != null ? formatSize(editSizeBytes, sizeUnit) : "Not set"} placeholder="Not set" />
-                    <button type="button" className="edit-btn edit-btn-secondary" onClick={openFolderAndDetectSize} disabled={detectingSize}>{detectingSize ? t("community.detecting") : t("edit.autoDetect")}</button>
-                    <button type="button" className="edit-btn edit-btn-ghost" onClick={clearSize} disabled={editSizeBytes == null}>{t("common.clear")}</button>
+                    <button type="button" className="edit-btn edit-btn-secondary" onClick={openFolderAndDetectSize} disabled={detectingSize}>
+                      {detectingSize ? (
+                        <>
+                          <div className="edit-slot-spinner" style={{ width: 12, height: 12 }} />
+                          {t("community.detecting") || "Detecting..."}
+                        </>
+                      ) : (
+                        t("edit.autoDetect") || "Auto-detect"
+                      )}
+                    </button>
+                    <button type="button" className="edit-btn edit-btn-ghost" onClick={clearSize} disabled={editSizeBytes == null}>
+                      {t("common.clear")}
+                    </button>
                   </div>
-                  {editSizeRootPath && <span className="size-edit-hint" title={editSizeRootPath}>{editSizeRootPath}</span>}
+                  {editSizeRootPath && <span className="size-edit-hint" title={editSizeRootPath}>Folder: {editSizeRootPath}</span>}
                 </div>
+
                 <div className="edit-field full-width" data-storage-row style={{ marginTop: "var(--space-md)" }}>
                   <label className="edit-label">{t("edit.label.playtime")}</label>
                   <div className="edit-form-grid" style={{ gridTemplateColumns: "1fr 1fr auto", alignItems: "end" }}>
@@ -870,7 +935,13 @@ export function EditGameModal({ game, onClose }: EditGameModalProps) {
               </fieldset>
 
               <fieldset className="edit-fieldset">
-                <legend className="edit-fieldset-legend">{t("edit.tagsAndThemes")}</legend>
+                <legend className="edit-fieldset-legend">
+                  <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z" />
+                    <line x1="7" y1="7" x2="7.01" y2="7" />
+                  </svg>
+                  {t("edit.tagsAndThemes")}
+                </legend>
                 <div className="edit-form-grid">
                   <div className="edit-field">
                     <label className="edit-label" htmlFor="edit-genres">{t("edit.label.genres")}</label>
@@ -892,20 +963,28 @@ export function EditGameModal({ game, onClose }: EditGameModalProps) {
               </fieldset>
 
               <fieldset className="edit-fieldset">
-                <legend className="edit-fieldset-legend">{t("edit.storyAndNotes")}</legend>
+                <legend className="edit-fieldset-legend">
+                  <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20" />
+                    <path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z" />
+                  </svg>
+                  {t("edit.storyAndNotes")}
+                </legend>
                 <div className="edit-field full-width">
                   <label className="edit-label" htmlFor="edit-storyline">{t("edit.label.storyline")}</label>
-                  <textarea id="edit-storyline" className="edit-input edit-textarea" value={editStoryline} onChange={(e) => setEditStoryline(e.target.value)} placeholder="Deep storyline/narrative summary..." rows={3} />
+                  <textarea id="edit-storyline" className="edit-input edit-textarea" value={editStoryline} onChange={(e) => setEditStoryline(e.target.value)} placeholder="Deep storyline and narrative context..." rows={3} />
                 </div>
                 <div className="edit-field full-width" style={{ marginTop: "var(--space-md)" }}>
                   <label className="edit-label" htmlFor="edit-notes">{t("edit.label.notes")}</label>
-                  <textarea id="edit-notes" className="edit-input edit-textarea" value={editNotes} onChange={(e) => setEditNotes(e.target.value)} placeholder="Personal notes about this game..." rows={3} />
+                  <textarea id="edit-notes" className="edit-input edit-textarea" value={editNotes} onChange={(e) => setEditNotes(e.target.value)} placeholder="Personal notes, walkthrough reminders, cheats..." rows={3} />
                 </div>
               </fieldset>
 
               <details className="edit-disclosure">
                 <summary className="edit-disclosure-summary">
-                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="9 18 15 12 9 6" /></svg>
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <polyline points="9 18 15 12 9 6" />
+                  </svg>
                   <span>{t("edit.moreDetails")}</span>
                 </summary>
                 <div className="edit-disclosure-body">
@@ -948,11 +1027,11 @@ export function EditGameModal({ game, onClose }: EditGameModalProps) {
                       </div>
                       <div className="edit-field">
                         <label className="edit-label" htmlFor="edit-game-category">{t("edit.label.gameType")}</label>
-                        <input id="edit-game-category" className="edit-input" type="text" value={editGameCategory} onChange={(e) => setEditGameCategory(e.target.value)} placeholder="e.g. Main Game, Expansion" />
+                        <input id="edit-game-category" className="edit-input" type="text" value={editGameCategory} onChange={(e) => setEditGameCategory(e.target.value)} placeholder="e.g. Main Game, Expansion, DLC" />
                       </div>
                       <div className="edit-field">
                         <label className="edit-label" htmlFor="edit-release-status">{t("edit.label.releaseStatus")}</label>
-                        <input id="edit-release-status" className="edit-input" type="text" value={editReleaseStatus} onChange={(e) => setEditReleaseStatus(e.target.value)} placeholder="e.g. Released, Alpha" />
+                        <input id="edit-release-status" className="edit-input" type="text" value={editReleaseStatus} onChange={(e) => setEditReleaseStatus(e.target.value)} placeholder="e.g. Released, Early Access" />
                       </div>
                     </div>
                     <div className="edit-field full-width" style={{ marginTop: "var(--space-md)" }}>
@@ -961,7 +1040,7 @@ export function EditGameModal({ game, onClose }: EditGameModalProps) {
                     </div>
                     <div className="edit-field full-width" style={{ marginTop: "var(--space-md)" }}>
                       <label className="edit-label" htmlFor="edit-alternative-names">{t("edit.label.alternativeNames")}</label>
-                      <TagInput id="edit-alternative-names" value={editAlternativeNames} onChange={setEditAlternativeNames} placeholder="Add an alias, press Enter" ariaLabel="Alternative Names" />
+                      <TagInput id="edit-alternative-names" value={editAlternativeNames} onChange={setEditAlternativeNames} placeholder="Add an alias or alternative title, press Enter" ariaLabel="Alternative Names" />
                     </div>
                   </div>
 
@@ -970,7 +1049,7 @@ export function EditGameModal({ game, onClose }: EditGameModalProps) {
                     <div className="edit-form-grid">
                       <div className="edit-field">
                         <label className="edit-label" htmlFor="edit-metadata-source">{t("edit.label.metadataSource")}</label>
-                        <input id="edit-metadata-source" className="edit-input" type="text" value={editMetadataSource} onChange={(e) => setEditMetadataSource(e.target.value)} placeholder="e.g., IGDB, Steam" />
+                        <input id="edit-metadata-source" className="edit-input" type="text" value={editMetadataSource} onChange={(e) => setEditMetadataSource(e.target.value)} placeholder="e.g., IGDB, Steam, LaunchBox" />
                       </div>
                       <div className="edit-field">
                         <label className="edit-label" htmlFor="edit-metadata-url">{t("edit.label.metadataUrl")}</label>
@@ -997,21 +1076,6 @@ export function EditGameModal({ game, onClose }: EditGameModalProps) {
                       />
                     </div>
                     <div className="edit-field full-width" style={{ marginTop: "var(--space-md)" }}>
-                      <label className="edit-label">{t("edit.label.communityReviews")}</label>
-                      <ArrayEditor<IgdbReview>
-                        value={editIgdbReviews}
-                        onChange={setEditIgdbReviews}
-                        createEmpty={() => ({ username: "", rating: undefined, content: "" })}
-                        addLabel="Add review"
-                        emptyText="No reviews yet."
-                        columns={[
-                          { key: "username", label: "Username", placeholder: "Player1", width: "28%" },
-                          { key: "rating", label: "Rating", type: "number", placeholder: "0-100", width: "18%" },
-                          { key: "content", label: "Content", type: "textarea", placeholder: "Amazing!", width: "54%" },
-                        ]}
-                      />
-                    </div>
-                    <div className="edit-field full-width" style={{ marginTop: "var(--space-md)" }}>
                       <label className="edit-label">{t("edit.label.supportedLanguages")}</label>
                       <ArrayEditor<LanguageSupportInfo>
                         value={editLanguageSupports}
@@ -1031,26 +1095,89 @@ export function EditGameModal({ game, onClose }: EditGameModalProps) {
             </div>
           )}
 
-          {/* ── MEDIA ── */}
           {editTab === "media" && (
             <div className="edit-form">
-              <h4 className="edit-modal-section-title">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2" /><circle cx="8.5" cy="8.5" r="1.5" /><polyline points="21 15 16 10 5 21" /></svg>
-                {t("edit.images")}
-              </h4>
-              <div className="edit-images-grid">
-                <EditImageSlot label={t("edit.label.icon")} subtitle={t("edit.label.sidebar")} imageUrl={editIcon} previewSize={{ w: 64, h: 64 }} isFetching={fetchingImageKey === "icon"} onChooseFile={() => handlePickImage("icon")} onFetchWeb={() => handleFetchImage("icon")} onRemove={() => handleRemoveImage("icon")} />
-                <EditImageSlot label={t("edit.label.cover")} subtitle={t("edit.label.libraryCards")} imageUrl={editCover} previewSize={{ w: 120, h: 160 }} isFetching={fetchingImageKey === "cover"} onChooseFile={() => handlePickImage("cover")} onFetchWeb={() => handleFetchImage("cover")} onRemove={() => handleRemoveImage("cover")} />
-                <EditImageSlot label={t("edit.label.hero")} subtitle={t("edit.label.gamePageTop")} imageUrl={editHero} previewSize={{ w: 240, h: 100 }} isFetching={fetchingImageKey === "hero"} onChooseFile={() => handlePickImage("hero")} onFetchWeb={() => handleFetchImage("hero")} onRemove={() => handleRemoveImage("hero")} />
-                <EditImageSlot label={t("edit.label.logo")} subtitle={t("edit.label.titleImage")} imageUrl={editLogo} previewSize={{ w: 200, h: 60 }} isFetching={fetchingImageKey === "logo"} onChooseFile={() => handlePickImage("logo")} onFetchWeb={() => handleFetchImage("logo")} onRemove={() => handleRemoveImage("logo")} />
+              <div className="edit-media-header-block">
+                <h4 className="edit-modal-section-title">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <rect x="3" y="3" width="18" height="18" rx="2" ry="2" />
+                    <circle cx="8.5" cy="8.5" r="1.5" />
+                    <polyline points="21 15 16 10 5 21" />
+                  </svg>
+                  {t("edit.images")}
+                </h4>
+                <div className="edit-media-browser-row">
+                  <Button
+                    variant="secondary"
+                    size="sm"
+                    onClick={handleOpenImageBrowser}
+                    leftIcon={
+                      <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                        <rect x="2" y="2" width="20" height="20" rx="2" />
+                        <path d="M7 2v20" />
+                        <path d="M2 12h5" />
+                      </svg>
+                    }
+                  >
+                    {t("edit.browseLaunchBox")}
+                  </Button>
+                  <Button
+                    variant="secondary"
+                    size="sm"
+                    onClick={() => setShowIgdbMediaBrowser(true)}
+                    leftIcon={
+                      <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ color: "var(--color-accent)" }}>
+                        <polygon points="23 7 16 12 23 17 23 7" />
+                        <rect x="1" y="5" width="15" height="14" rx="2" ry="2" />
+                      </svg>
+                    }
+                  >
+                    {t("edit.browseIgdb")}
+                  </Button>
+                </div>
               </div>
-              <div className="edit-media-browser-row">
-                <Button variant="secondary" size="sm" onClick={handleOpenImageBrowser} leftIcon={<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="2" y="2" width="20" height="20" rx="2" /><path d="M7 2v20" /><path d="M2 12h5" /></svg>}>
-                  {t("edit.browseLaunchBox")}
-                </Button>
-                <Button variant="secondary" size="sm" onClick={() => setShowIgdbMediaBrowser(true)} leftIcon={<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ color: "var(--color-accent)" }}><polygon points="23 7 16 12 23 17 23 7" /><rect x="1" y="5" width="15" height="14" rx="2" ry="2" /></svg>}>
-                  {t("edit.browseIgdb")}
-                </Button>
+
+              <div className="edit-images-grid">
+                <EditImageSlot
+                  label={t("edit.label.icon")}
+                  subtitle={t("edit.label.sidebar")}
+                  imageUrl={editIcon}
+                  previewSize={{ w: 64, h: 64 }}
+                  isFetching={fetchingImageKey === "icon"}
+                  onChooseFile={() => handlePickImage("icon")}
+                  onFetchWeb={() => handleFetchImage("icon")}
+                  onRemove={() => handleRemoveImage("icon")}
+                />
+                <EditImageSlot
+                  label={t("edit.label.cover")}
+                  subtitle={t("edit.label.libraryCards")}
+                  imageUrl={editCover}
+                  previewSize={{ w: 120, h: 160 }}
+                  isFetching={fetchingImageKey === "cover"}
+                  onChooseFile={() => handlePickImage("cover")}
+                  onFetchWeb={() => handleFetchImage("cover")}
+                  onRemove={() => handleRemoveImage("cover")}
+                />
+                <EditImageSlot
+                  label={t("edit.label.hero")}
+                  subtitle={t("edit.label.gamePageTop")}
+                  imageUrl={editHero}
+                  previewSize={{ w: 240, h: 100 }}
+                  isFetching={fetchingImageKey === "hero"}
+                  onChooseFile={() => handlePickImage("hero")}
+                  onFetchWeb={() => handleFetchImage("hero")}
+                  onRemove={() => handleRemoveImage("hero")}
+                />
+                <EditImageSlot
+                  label={t("edit.label.logo")}
+                  subtitle={t("edit.label.titleImage")}
+                  imageUrl={editLogo}
+                  previewSize={{ w: 200, h: 60 }}
+                  isFetching={fetchingImageKey === "logo"}
+                  onChooseFile={() => handlePickImage("logo")}
+                  onFetchWeb={() => handleFetchImage("logo")}
+                  onRemove={() => handleRemoveImage("logo")}
+                />
               </div>
 
               <UrlListEditor
@@ -1058,11 +1185,25 @@ export function EditGameModal({ game, onClose }: EditGameModalProps) {
                 items={editScreenshots}
                 onChange={setEditScreenshots}
                 placeholder="Add custom screenshot URL..."
-                emptyText="No screenshots yet."
+                emptyText="No screenshots added yet."
                 primaryActions={(url) => (
                   <>
-                    <button className="lb-apply-btn" onClick={() => handleApplyIgdbImage(url, "cover")} disabled={fetchingImageKey !== null}>{t("edit.setAsCover")}</button>
-                    <button className="lb-apply-btn" onClick={() => handleApplyIgdbImage(url, "hero")} disabled={fetchingImageKey !== null}>{t("edit.setAsHero")}</button>
+                    <button
+                      type="button"
+                      className="lb-apply-btn"
+                      onClick={() => handleApplyIgdbImage(url, "cover")}
+                      disabled={fetchingImageKey !== null}
+                    >
+                      {t("edit.setAsCover")}
+                    </button>
+                    <button
+                      type="button"
+                      className="lb-apply-btn"
+                      onClick={() => handleApplyIgdbImage(url, "hero")}
+                      disabled={fetchingImageKey !== null}
+                    >
+                      {t("edit.setAsHero")}
+                    </button>
                   </>
                 )}
               />
@@ -1072,7 +1213,7 @@ export function EditGameModal({ game, onClose }: EditGameModalProps) {
                 items={editVideos}
                 onChange={setEditVideos}
                 placeholder="Add custom YouTube video URL..."
-                emptyText="No videos yet."
+                emptyText="No trailers or videos added yet."
                 thumbnail={(url) => {
                   const videoId = url.match(/(?:youtube\.com\/watch\?v=|youtu\.be\/)([^&]+)/)?.[1];
                   return videoId ? `https://img.youtube.com/vi/${videoId}/default.jpg` : undefined;
@@ -1080,145 +1221,370 @@ export function EditGameModal({ game, onClose }: EditGameModalProps) {
               />
 
               <UrlListEditor
-                title="Websites"
+                title="Websites & Links"
                 items={editWebsites}
                 onChange={setEditWebsites}
-                placeholder="Add official website or wiki URL..."
-                emptyText="No websites yet."
+                placeholder="Add official website, wiki, or community URL..."
+                emptyText="No official links added yet."
               />
             </div>
-          )}
-
-          {/* ── LAUNCH ── */}
+          )}          {/* ── LAUNCH SUBTAB ── */}
           {editTab === "launch" && (
-            <div className="edit-form">
-              <div className="edit-field full-width">
-                <label className="edit-label" htmlFor="edit-path">{t("edit.label.executablePath")}</label>
-                <div style={{ display: "flex", gap: "var(--space-sm)" }}>
-                  <input id="edit-path" className="edit-input" type="text" value={editPath} onChange={(e) => setEditPath(e.target.value)} placeholder="Path to game executable" style={{ flex: 1 }} />
-                  <button type="button" className="edit-btn edit-btn-secondary" onClick={handlePickExecutable} style={{ whiteSpace: "nowrap" }}>{t("edit.browse")}</button>
+            <div className="edit-form edit-launch-form">
+              {/* Primary Executable Card */}
+              <div className="edit-launch-card">
+                <div className="edit-launch-card-header">
+                  <div className="edit-launch-card-icon edit-launch-icon-primary">
+                    <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <polygon points="5 3 19 12 5 21 5 3" />
+                    </svg>
+                  </div>
+                  <div className="edit-launch-card-header-text">
+                    <h4 className="edit-launch-card-title">{t("edit.label.executablePath")}</h4>
+                    <p className="edit-launch-card-desc">The primary binary or launcher script executed when starting the game.</p>
+                  </div>
+                </div>
+                <div className="edit-launch-input-row">
+                  <div className="edit-launch-input-wrapper">
+                    <input
+                      id="edit-path"
+                      className="edit-input edit-launch-path-input"
+                      type="text"
+                      value={editPath}
+                      onChange={(e) => setEditPath(e.target.value)}
+                      placeholder="e.g. C:\Games\Title\game.exe or relative executable path"
+                    />
+                    {editPath && (
+                      <button
+                        type="button"
+                        className="edit-launch-input-clear"
+                        onClick={() => setEditPath("")}
+                        title="Clear executable path"
+                      >
+                        <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                          <line x1="18" y1="6" x2="6" y2="18" />
+                          <line x1="6" y1="6" x2="18" y2="18" />
+                        </svg>
+                      </button>
+                    )}
+                  </div>
+                  <Button
+                    variant="secondary"
+                    onClick={handlePickExecutable}
+                    leftIcon={
+                      <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                        <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z" />
+                      </svg>
+                    }
+                  >
+                    {t("edit.browse")}
+                  </Button>
                 </div>
               </div>
-              <div className="edit-field full-width" style={{ marginTop: "var(--space-md)" }}>
-                <label className="edit-label" htmlFor="edit-launch-arguments">{t("edit.label.launchArguments")}</label>
-                <input id="edit-launch-arguments" className="edit-input" type="text" value={editLaunchArguments} onChange={(e) => setEditLaunchArguments(e.target.value)} placeholder="e.g. -windowed -novid -dev" />
-                <span className="size-edit-hint">{t("edit.launchArgsHint")}</span>
-              </div>
-              <div className="edit-field full-width" style={{ marginTop: "var(--space-lg)" }}>
-                <label className="checkbox-container" style={{ display: "flex", alignItems: "center", gap: "var(--space-sm)", cursor: "pointer", userSelect: "none" }}>
-                  <input type="checkbox" checked={editRunAsAdmin} onChange={(e) => setEditRunAsAdmin(e.target.checked)} style={{ width: "18px", height: "18px", accentColor: "var(--color-accent)", cursor: "pointer" }} />
-                  <span style={{ fontSize: "var(--font-size-sm)", fontWeight: 500, color: "var(--color-text-primary)" }}>{t("edit.runAsAdmin")}</span>
-                </label>
-                <span className="size-edit-hint" style={{ display: "block", marginTop: "4px", marginLeft: "26px" }}>{t("edit.runAsAdminHint")}</span>
-              </div>
-              {game.platform === "Steam" && (
-                <div className="edit-field full-width" style={{ marginTop: "var(--space-md)" }}>
-                  <label className="checkbox-container" style={{ display: "flex", alignItems: "center", gap: "var(--space-sm)", cursor: "pointer", userSelect: "none" }}>
-                    <input type="checkbox" checked={editShowSteamLaunchSelection} onChange={(e) => setEditShowSteamLaunchSelection(e.target.checked)} style={{ width: "18px", height: "18px", accentColor: "var(--color-accent)", cursor: "pointer" }} />
-                    <span style={{ fontSize: "var(--font-size-sm)", fontWeight: 500, color: "var(--color-text-primary)" }}>{t("edit.showSteamLaunchSelection")}</span>
-                  </label>
-                  <span className="size-edit-hint" style={{ display: "block", marginTop: "4px", marginLeft: "26px" }}>{t("edit.showSteamLaunchSelectionHint")}</span>
-                  {steamLaunchOptions && steamLaunchOptions.length >= 2 && (
-                    <span className="size-edit-hint" style={{ display: "block", marginTop: "4px", marginLeft: "26px" }}>
-                      {t("edit.steamLaunchActionsDetected", { count: steamLaunchOptions.length, list: steamLaunchListLabel })}
-                    </span>
+
+              {/* Launch Arguments & Flags Card */}
+              <div className="edit-launch-card">
+                <div className="edit-launch-card-header">
+                  <div className="edit-launch-card-icon edit-launch-icon-args">
+                    <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <polyline points="4 17 10 11 4 5" />
+                      <line x1="12" y1="19" x2="20" y2="19" />
+                    </svg>
+                  </div>
+                  <div className="edit-launch-card-header-text">
+                    <h4 className="edit-launch-card-title">{t("edit.label.launchArguments")}</h4>
+                    <p className="edit-launch-card-desc">{t("edit.launchArgsHint")}</p>
+                  </div>
+                </div>
+                <div className="edit-launch-args-wrapper">
+                  <span className="edit-launch-args-prefix">&gt;</span>
+                  <input
+                    id="edit-launch-arguments"
+                    className="edit-input edit-launch-args-input"
+                    type="text"
+                    value={editLaunchArguments}
+                    onChange={(e) => setEditLaunchArguments(e.target.value)}
+                    placeholder="-windowed -novid -dx11"
+                  />
+                  {editLaunchArguments && (
+                    <button
+                      type="button"
+                      className="edit-launch-input-clear"
+                      onClick={() => setEditLaunchArguments("")}
+                      title="Clear arguments"
+                    >
+                      <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                        <line x1="18" y1="6" x2="6" y2="18" />
+                        <line x1="6" y1="6" x2="18" y2="18" />
+                      </svg>
+                    </button>
                   )}
                 </div>
-              )}
 
-              <fieldset className="edit-fieldset" style={{ marginTop: "var(--space-lg)" }}>
-                <legend className="edit-fieldset-legend">{t("edit.tab.scripts")}</legend>
-                <LaunchScriptRow
-                  label="Pre-launch Script"
-                  hint="Runs synchronously before the game starts. The launch is aborted if this script fails."
-                  value={editPreLaunchScript}
-                  admin={editPreLaunchAdmin}
-                  onPick={() => handlePickScript(setEditPreLaunchScript, "Select Pre-launch Script")}
-                  onChange={setEditPreLaunchScript}
-                  onAdminChange={setEditPreLaunchAdmin}
-                />
-                <LaunchScriptRow
-                  label="Post-exit Script"
-                  hint="Runs after the game process exits (success or crash)."
-                  value={editPostExitScript}
-                  admin={editPostExitAdmin}
-                  onPick={() => handlePickScript(setEditPostExitScript, "Select Post-exit Script")}
-                  onChange={setEditPostExitScript}
-                  onAdminChange={setEditPostExitAdmin}
-                />
-              </fieldset>
+                {/* Quick Argument Chips */}
+                <div className="edit-launch-chips-section">
+                  <span className="edit-launch-chips-title">Quick Presets:</span>
+                  <div className="edit-launch-arg-chips">
+                    {COMMON_LAUNCH_ARGS.map((arg) => {
+                      const isActive = editLaunchArguments.includes(arg.label);
+                      return (
+                        <button
+                          key={arg.label}
+                          type="button"
+                          className={`edit-launch-arg-chip ${isActive ? "active" : ""}`}
+                          onClick={() => appendLaunchArg(arg.label)}
+                          title={arg.desc}
+                        >
+                          <span className="edit-chip-dot" />
+                          <span className="edit-chip-code">{arg.label}</span>
+                          <span className="edit-chip-desc">{arg.desc}</span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              </div>
 
-              <fieldset className="edit-fieldset" style={{ marginTop: "var(--space-lg)" }}>
-                <legend className="edit-fieldset-legend">{t("edit.tab.companionApps")}</legend>
-                <span className="size-edit-hint" style={{ display: "block", marginBottom: "var(--space-md)" }}>
-                  Launch additional executables alongside the game — e.g. a dedicated server or overlay. Each starts after a delay timer you set.
-                </span>
+              {/* Execution Privileges & Steam Integration Grid */}
+              <div className="edit-launch-grid-cards">
+                {/* Run as Admin Card */}
+                <div
+                  className={`edit-launch-card edit-launch-toggle-card ${editRunAsAdmin ? "is-enabled" : ""}`}
+                  onClick={() => setEditRunAsAdmin(!editRunAsAdmin)}
+                  role="button"
+                  tabIndex={0}
+                  onKeyDown={(e) => { if (e.key === " " || e.key === "Enter") { e.preventDefault(); setEditRunAsAdmin(!editRunAsAdmin); } }}
+                >
+                  <div className="edit-launch-toggle-main">
+                    <div className="edit-launch-card-icon edit-launch-icon-admin">
+                      <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                        <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
+                      </svg>
+                    </div>
+                    <div className="edit-launch-toggle-text">
+                      <div className="edit-launch-toggle-title-row">
+                        <h4 className="edit-launch-card-title">{t("edit.runAsAdmin")}</h4>
+                        <span className={`edit-launch-badge ${editRunAsAdmin ? "active" : "muted"}`}>
+                          {editRunAsAdmin ? "Elevated" : "Normal"}
+                        </span>
+                      </div>
+                      <p className="edit-launch-card-desc">{t("edit.runAsAdminHint")}</p>
+                    </div>
+                  </div>
+                  <div className={`edit-toggle-switch ${editRunAsAdmin ? "active" : ""}`} aria-hidden="true">
+                    <div className="edit-toggle-knob" />
+                  </div>
+                </div>
+
+                {/* Steam Launch Options (if Steam game) */}
+                {game.platform === "Steam" && (
+                  <div
+                    className={`edit-launch-card edit-launch-toggle-card ${editShowSteamLaunchSelection ? "is-enabled" : ""}`}
+                    onClick={() => setEditShowSteamLaunchSelection(!editShowSteamLaunchSelection)}
+                    role="button"
+                    tabIndex={0}
+                    onKeyDown={(e) => { if (e.key === " " || e.key === "Enter") { e.preventDefault(); setEditShowSteamLaunchSelection(!editShowSteamLaunchSelection); } }}
+                  >
+                    <div className="edit-launch-toggle-main">
+                      <div className="edit-launch-card-icon edit-launch-icon-steam">
+                        <svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor">
+                          <path d="M12 2a10 10 0 0 0-10 9.68l5.48 2.26a3.17 3.17 0 0 1 1.78-.54c.2 0 .4.02.58.06l2.67-3.87A3.48 3.48 0 0 1 12 8.5a3.5 3.5 0 1 1 0 7 3.49 3.49 0 0 1-2.9-1.54l-3.92 1.62A4.2 4.2 0 0 0 9.25 18a4.25 4.25 0 1 0 2.75-7.46V10.5a3.5 3.5 0 0 1 0-7z" />
+                        </svg>
+                      </div>
+                      <div className="edit-launch-toggle-text">
+                        <div className="edit-launch-toggle-title-row">
+                          <h4 className="edit-launch-card-title">{t("edit.showSteamLaunchSelection")}</h4>
+                          <span className={`edit-launch-badge ${editShowSteamLaunchSelection ? "active" : "muted"}`}>
+                            {editShowSteamLaunchSelection ? "Enabled" : "Auto"}
+                          </span>
+                        </div>
+                        <p className="edit-launch-card-desc">{t("edit.showSteamLaunchSelectionHint")}</p>
+                        {steamLaunchOptions && steamLaunchOptions.length >= 2 && (
+                          <div className="edit-steam-options-badge">
+                            <span className="edit-steam-options-count">{steamLaunchOptions.length} detected:</span>
+                            <span className="edit-steam-options-list">{steamLaunchListLabel}</span>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                    <div className={`edit-toggle-switch ${editShowSteamLaunchSelection ? "active" : ""}`} aria-hidden="true">
+                      <div className="edit-toggle-knob" />
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* Automation Scripts Card */}
+              <div className="edit-launch-card">
+                <div className="edit-launch-card-header">
+                  <div className="edit-launch-card-icon edit-launch-icon-scripts">
+                    <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <polyline points="16 18 22 12 16 6" />
+                      <polyline points="8 6 2 12 8 18" />
+                    </svg>
+                  </div>
+                  <div className="edit-launch-card-header-text">
+                    <h4 className="edit-launch-card-title">{t("edit.tab.scripts")}</h4>
+                    <p className="edit-launch-card-desc">Execute custom commands before launching or after exiting the game.</p>
+                  </div>
+                </div>
+
+                <div className="edit-launch-scripts-grid">
+                  <LaunchScriptCard
+                    type="pre"
+                    label="Pre-Launch Script"
+                    tag="Blocking"
+                    hint="Runs synchronously before the game starts. Launch is aborted if this script exits with an error code."
+                    value={editPreLaunchScript}
+                    admin={editPreLaunchAdmin}
+                    onPick={() => handlePickScript(setEditPreLaunchScript, "Select Pre-launch Script")}
+                    onChange={setEditPreLaunchScript}
+                    onAdminChange={setEditPreLaunchAdmin}
+                  />
+                  <LaunchScriptCard
+                    type="post"
+                    label="Post-Exit Script"
+                    tag="Cleanup"
+                    hint="Runs automatically after the game process terminates (success or crash) to handle cleanup or cloud syncing."
+                    value={editPostExitScript}
+                    admin={editPostExitAdmin}
+                    onPick={() => handlePickScript(setEditPostExitScript, "Select Post-exit Script")}
+                    onChange={setEditPostExitScript}
+                    onAdminChange={setEditPostExitAdmin}
+                  />
+                </div>
+              </div>
+
+              {/* Companion Applications Card */}
+              <div className="edit-launch-card">
+                <div className="edit-launch-card-header">
+                  <div className="edit-launch-card-icon edit-launch-icon-companion">
+                    <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <rect x="2" y="3" width="20" height="14" rx="2" ry="2" />
+                      <line x1="8" y1="21" x2="16" y2="21" />
+                      <line x1="12" y1="17" x2="12" y2="21" />
+                    </svg>
+                  </div>
+                  <div className="edit-launch-card-header-text">
+                    <div className="edit-launch-card-title-row">
+                      <h4 className="edit-launch-card-title">{t("edit.tab.companionApps")}</h4>
+                      <span className="edit-launch-card-counter">{editCompanionApps.length}</span>
+                    </div>
+                    <p className="edit-launch-card-desc">
+                      Launch auxiliary software alongside the game (e.g. Dedicated Server, Discord RPC, RTSS, Overlay, Mod Organizer) with a configurable delay.
+                    </p>
+                  </div>
+                </div>
+
                 {editCompanionApps.length === 0 ? (
-                  <p className="array-editor-empty">{t("edit.noCompanionApps")}</p>
+                  <div className="edit-companion-empty-state">
+                    <div className="edit-companion-empty-icon">
+                      <svg viewBox="0 0 24 24" width="32" height="32" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                        <rect x="2" y="3" width="20" height="14" rx="2" ry="2" />
+                        <line x1="8" y1="21" x2="16" y2="21" />
+                        <line x1="12" y1="17" x2="12" y2="21" />
+                      </svg>
+                    </div>
+                    <p className="edit-companion-empty-text">{t("edit.noCompanionApps")}</p>
+                    <button type="button" className="edit-companion-add-btn primary" onClick={addCompanionApp}>
+                      <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                        <line x1="12" y1="5" x2="12" y2="19" />
+                        <line x1="5" y1="12" x2="19" y2="12" />
+                      </svg>
+                      Add Companion App
+                    </button>
+                  </div>
                 ) : (
                   <div className="companion-app-list">
                     {editCompanionApps.map((app, idx) => (
-                      <div key={idx} className="companion-app-row">
-                        <div className="companion-app-path">
+                      <div key={idx} className="companion-app-card">
+                        <div className="companion-app-card-header">
+                          <span className="companion-app-index-badge">App #{idx + 1}</span>
+                          <button
+                            type="button"
+                            className="companion-app-delete-btn"
+                            onClick={() => removeCompanionApp(idx)}
+                            title="Remove companion app"
+                          >
+                            <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                              <polyline points="3 6 5 6 21 6" />
+                              <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
+                            </svg>
+                          </button>
+                        </div>
+                        <div className="companion-app-path-row">
                           <input
-                            className="edit-input"
+                            className="edit-input edit-launch-path-input"
                             type="text"
                             value={app.path}
                             onChange={(e) => updateCompanionApp(idx, { path: e.target.value })}
-                            placeholder="Path to companion executable"
-                            style={{ flex: 1 }}
+                            placeholder="Path to executable (.exe, .bat, .lnk)"
                           />
-                          <button type="button" className="edit-btn edit-btn-secondary" onClick={() => handlePickCompanion(idx)} style={{ whiteSpace: "nowrap" }}>Browse...</button>
+                          <Button variant="secondary" size="sm" onClick={() => handlePickCompanion(idx)}>
+                            {t("edit.browse")}
+                          </Button>
                         </div>
-                        <div className="companion-app-meta">
-                          <input
-                            className="edit-input"
-                            type="text"
-                            value={app.arguments || ""}
-                            onChange={(e) => updateCompanionApp(idx, { arguments: e.target.value })}
-                            placeholder="Arguments (optional)"
-                            style={{ flex: 1 }}
-                          />
-                          <div className="companion-app-delay">
+                        <div className="companion-app-meta-row">
+                          <div className="companion-app-arg-field">
+                            <span className="companion-app-field-label">Arguments:</span>
                             <input
-                              className="edit-input"
-                              type="number"
-                              min={0}
-                              step={500}
-                              value={app.delayMs || 0}
-                              onChange={(e) => updateCompanionApp(idx, { delayMs: Math.max(0, Number(e.target.value)) })}
-                              aria-label="Delay before launch (ms)"
+                              className="edit-input companion-app-args-input"
+                              type="text"
+                              value={app.arguments || ""}
+                              onChange={(e) => updateCompanionApp(idx, { arguments: e.target.value })}
+                              placeholder="e.g. -server -port 7777"
                             />
-                            <span className="companion-app-delay-unit">ms delay</span>
                           </div>
-                          <label className="checkbox-container companion-app-admin" style={{ display: "flex", alignItems: "center", gap: "var(--space-xs)", cursor: "pointer", userSelect: "none" }}>
+                          <div className="companion-app-delay-field">
+                            <span className="companion-app-field-label">Delay:</span>
+                            <div className="companion-app-delay-input-wrap">
+                              <input
+                                className="edit-input companion-app-delay-input"
+                                type="number"
+                                min={0}
+                                step={500}
+                                value={app.delayMs || 0}
+                                onChange={(e) => updateCompanionApp(idx, { delayMs: Math.max(0, Number(e.target.value)) })}
+                                aria-label="Delay before launch (ms)"
+                              />
+                              <span className="companion-app-delay-tag">ms</span>
+                            </div>
+                          </div>
+                          <label className="companion-app-admin-toggle">
                             <input
                               type="checkbox"
                               checked={app.runAsAdmin || false}
                               onChange={(e) => updateCompanionApp(idx, { runAsAdmin: e.target.checked })}
-                              style={{ width: "16px", height: "16px", accentColor: "var(--color-accent)", cursor: "pointer" }}
                             />
-                            <span style={{ fontSize: "var(--font-size-xs)", color: "var(--color-text-primary)" }}>Admin</span>
+                            <span className="companion-app-admin-label">
+                              <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
+                              </svg>
+                              Admin
+                            </span>
                           </label>
-                          <button type="button" className="lb-apply-btn url-list-remove" onClick={() => removeCompanionApp(idx)}>Remove</button>
                         </div>
                       </div>
                     ))}
+                    <button type="button" className="edit-companion-add-btn" onClick={addCompanionApp}>
+                      <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                        <line x1="12" y1="5" x2="12" y2="19" />
+                        <line x1="5" y1="12" x2="19" y2="12" />
+                      </svg>
+                      Add Another Companion App
+                    </button>
                   </div>
                 )}
-                <button type="button" className="edit-btn edit-btn-secondary" style={{ marginTop: "var(--space-md)" }} onClick={addCompanionApp}>
-                  + Add companion app
-                </button>
-              </fieldset>
+              </div>
             </div>
           )}
         </div>
 
         <div className="modal-footer">
           <span className="modal-footer-count">
-            {editTab === "details" && t("edit.footerHint.details")}
-            {editTab === "media" && t("edit.footerHint.media")}
-            {editTab === "launch" && t("edit.footerHint.launch")}
+            {editTab === "details" && (t("edit.footerHint.details") || "Configure metadata, tags, and playtime")}
+            {editTab === "media" && (t("edit.footerHint.media") || "Manage artworks, screenshots, and videos")}
+            {editTab === "launch" && (t("edit.footerHint.launch") || "Setup execution paths, arguments, and scripts")}
           </span>
           <div className="modal-footer-actions">
             <Button variant="secondary" onClick={onClose}>{t("common.cancel")}</Button>
@@ -1227,18 +1593,38 @@ export function EditGameModal({ game, onClose }: EditGameModalProps) {
         </div>
       </div>
 
-      {/* LaunchBox Image Browser */}
-      {showImageBrowser && (<LaunchBoxImageBrowser gameName={game.name} images={lbImages} loading={lbLoading} selectedCategory={lbSelectedCategory} applyingUrl={lbApplyingUrl} onSelectCategory={setLbSelectedCategory} onApply={(slot, url) => handleApplyLbImage(url, slot)} onClose={() => setShowImageBrowser(false)} />)}
+      {showImageBrowser && (
+        <LaunchBoxImageBrowser
+          gameName={game.name}
+          images={lbImages}
+          loading={lbLoading}
+          selectedCategory={lbSelectedCategory}
+          applyingUrl={lbApplyingUrl}
+          onSelectCategory={setLbSelectedCategory}
+          onApply={(slot, url) => handleApplyLbImage(url, slot)}
+          onClose={() => setShowImageBrowser(false)}
+        />
+      )}
 
-      {/* IGDB Media Browser */}
-      {showIgdbMediaBrowser && (<IgdbMediaBrowser screenshots={editScreenshots} videos={editVideos} fetchingKey={fetchingImageKey} onScreenshotsChange={setEditScreenshots} onVideosChange={setEditVideos} onApplyImage={(slot, url) => handleApplyIgdbImage(url, slot)} onClose={() => setShowIgdbMediaBrowser(false)} />)}
+      {showIgdbMediaBrowser && (
+        <IgdbMediaBrowser
+          screenshots={editScreenshots}
+          videos={editVideos}
+          fetchingKey={fetchingImageKey}
+          onScreenshotsChange={setEditScreenshots}
+          onVideosChange={setEditVideos}
+          onApplyImage={(slot, url) => handleApplyIgdbImage(url, slot)}
+          onClose={() => setShowIgdbMediaBrowser(false)}
+        />
+      )}
     </div>
   );
 }
 
-// ─── Small inline helpers for media lists ──────────────────────────────
-function LaunchScriptRow({
+function LaunchScriptCard({
+  type,
   label,
+  tag,
   hint,
   value,
   admin,
@@ -1246,7 +1632,9 @@ function LaunchScriptRow({
   onAdminChange,
   onPick,
 }: {
+  type: "pre" | "post";
   label: string;
+  tag: string;
   hint: string;
   value: string;
   admin: boolean;
@@ -1255,31 +1643,65 @@ function LaunchScriptRow({
   onPick: () => void;
 }) {
   return (
-    <div className="edit-field full-width" style={{ marginTop: "var(--space-md)" }}>
-      <label className="edit-label">{label}</label>
-      <div style={{ display: "flex", gap: "var(--space-sm)" }}>
-        <input
-          className="edit-input"
-          type="text"
-          value={value}
-          onChange={(e) => onChange(e.target.value)}
-          placeholder="Path to script (bat, cmd, ps1, exe)"
-          style={{ flex: 1 }}
-        />
-        <button type="button" className="edit-btn edit-btn-secondary" onClick={onPick} style={{ whiteSpace: "nowrap" }}>
-          Browse...
-        </button>
+    <div className={`edit-launch-script-box ${type === "pre" ? "is-pre" : "is-post"}`}>
+      <div className="edit-launch-script-header">
+        <div className="edit-launch-script-title-row">
+          <span className="edit-launch-script-label">{label}</span>
+          <span className={`edit-launch-script-tag ${type === "pre" ? "tag-warning" : "tag-info"}`}>
+            {tag}
+          </span>
+        </div>
+        <p className="edit-launch-script-hint">{hint}</p>
       </div>
-      <label className="checkbox-container" style={{ display: "flex", alignItems: "center", gap: "var(--space-sm)", cursor: "pointer", userSelect: "none", marginTop: "var(--space-xs)" }}>
-        <input
-          type="checkbox"
-          checked={admin}
-          onChange={(e) => onAdminChange(e.target.checked)}
-          style={{ width: "16px", height: "16px", accentColor: "var(--color-accent)", cursor: "pointer" }}
-        />
-        <span style={{ fontSize: "var(--font-size-xs)", fontWeight: 500, color: "var(--color-text-primary)" }}>Run as Administrator</span>
-      </label>
-      <span className="size-edit-hint">{hint}</span>
+
+      <div className="edit-launch-input-row">
+        <div className="edit-launch-input-wrapper">
+          <input
+            className="edit-input edit-launch-path-input"
+            type="text"
+            value={value}
+            onChange={(e) => onChange(e.target.value)}
+            placeholder="Path to script (.bat, .cmd, .ps1, .exe)"
+          />
+          {value && (
+            <button
+              type="button"
+              className="edit-launch-input-clear"
+              onClick={() => onChange("")}
+              title="Clear script path"
+            >
+              <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <line x1="18" y1="6" x2="6" y2="18" />
+                <line x1="6" y1="6" x2="18" y2="18" />
+              </svg>
+            </button>
+          )}
+        </div>
+        <Button variant="secondary" size="sm" onClick={onPick}>
+          Browse...
+        </Button>
+      </div>
+
+      <div className="edit-launch-script-footer">
+        <label className="edit-launch-script-admin">
+          <input
+            type="checkbox"
+            checked={admin}
+            onChange={(e) => onAdminChange(e.target.checked)}
+          />
+          <span className="edit-launch-script-admin-text">
+            <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
+            </svg>
+            Run with Administrator Privileges
+          </span>
+        </label>
+        {value && (
+          <span className="edit-launch-script-status">
+            Configured
+          </span>
+        )}
+      </div>
     </div>
   );
 }

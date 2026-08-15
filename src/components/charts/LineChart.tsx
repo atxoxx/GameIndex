@@ -153,16 +153,22 @@ export default function LineChart({
     return { padding, chartW, chartH, maxVal, minVal, range };
   }, [series, effectiveWidth, height, minY, maxY, niceMax]);
 
-  // Label stepping: when there are more than ~12 x-axis labels we sample
-  // them down so they don't overlap. Every Nth label + always render the
-  // first and last so the viewer can orient themselves. Empty strings in
-  // between preserve the original index→position mapping for hover coords.
-  const labelStep = useMemo(() => {
-    const maxLabels = 12;
-    return Math.max(1, Math.ceil(labels.length / maxLabels));
-  }, [labels.length]);
-
   const { padding, chartW, chartH, minVal, maxVal, range } = chart;
+
+  // Label stepping: compute exact evenly-spaced indices based on available chart width (chartW)
+  // so dates never collide, even on narrow popover charts or dense date series.
+  const visibleLabelIndices = useMemo(() => {
+    if (labels.length === 0) return new Set<number>();
+    if (labels.length === 1) return new Set<number>([0]);
+    // Allocate at least 70px per date label to guarantee zero overlap
+    const targetCount = Math.max(2, Math.min(labels.length, Math.floor(chartW / 70)));
+    const indices = new Set<number>();
+    for (let k = 0; k < targetCount; k++) {
+      const idx = Math.round((k * (labels.length - 1)) / (targetCount - 1));
+      indices.add(idx);
+    }
+    return indices;
+  }, [labels.length, chartW]);
 
   const gridLines = 5;
   const gridValues = Array.from({ length: gridLines + 1 }, (_, i) =>
@@ -458,24 +464,21 @@ export default function LineChart({
 
         {/* X-axis labels */}
         {labels.map((label, i) => {
+          if (!visibleLabelIndices.has(i)) return null;
           const x = padding.left + (i / Math.max(labels.length - 1, 1)) * chartW;
           const isActive = hoverIndex === i;
-          // Show every Nth label so dense series don't overlap. The first
-          // and last labels are always rendered for orientation.
-          const showLabel =
-            i === 0 ||
-            i === labels.length - 1 ||
-            i % labelStep === 0;
-          if (!showLabel) return null;
+          const isFirst = i === 0;
+          const isLast = i === labels.length - 1;
+          const anchor = isFirst ? "start" : isLast ? "end" : "middle";
           return (
             <text
               key={`label-${i}`}
               x={x}
               y={padding.top + chartH + 20}
-              textAnchor="middle"
+              textAnchor={anchor}
               fill={isActive ? "var(--color-text-primary)" : "var(--color-text-muted)"}
-              fontSize={isActive ? "11" : "10"}
-              fontWeight={isActive ? "600" : "400"}
+              fontSize={isActive ? "10" : "9"}
+              fontWeight={isActive ? "600" : "500"}
               style={{ transition: "all 150ms" }}
             >
               {label}

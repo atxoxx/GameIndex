@@ -3,7 +3,6 @@ import type { TranslationDict } from "./index";
 export const es: TranslationDict = {
   "gameInfo.openContainingFolder": "Abrir ubicación del juego",
   "gameInfo.openFolderFailed": "No se pudo abrir la carpeta: {error}",
-
   "about.empty": "No hay descripción disponible.",
   "about.from": "de {source}",
   "about.hideAbout": "Ocultar acerca de",
@@ -25,7 +24,8 @@ export const es: TranslationDict = {
   "gamePage.gameTitle": "Título del juego",
   "gamePage.copyTitle": "Copiar título",
   "gamePage.copyAppId": "Copiar AppID",
-  "gamePage.copyPath": "Copiar ruta",  "common.copiedToClipboard": "{label} copiado al portapapeles",
+  "gamePage.copyPath": "Copiar ruta",
+  "common.copiedToClipboard": "{label} copiado al portapapeles",
   "common.copyFailed": "Error al copiar al portapapeles",
   "common.resetZoom": "Restablecer zoom",
   "common.zoomIn": "Acercar",
@@ -4262,7 +4262,6 @@ export const es: TranslationDict = {
   "settings.descriptor.calm": "🧘 Calmo",
   "settings.descriptor.highContrast": "♿ Alto contraste",
   "settings.descriptor.minimal": "✨ Mínimo",
-
   "settings.tab.privacy": "Privacy & Data",
   "settings.section.wipeData": "Local storage",
   "settings.wipe.desc": "Everything GameIndex remembers on this device is kept in your browser's local storage. Review what's stored and wipe individual items, or clear everything at once.",
@@ -4279,7 +4278,6 @@ export const es: TranslationDict = {
   "settings.wipe.allRemoved": "Cleared all local storage",
   "settings.wipe.size": "Size: {size}",
   "settings.wipe.noValue": "(empty)",
-
   "nav.docs": "Documentación",
   "docs.title": "Documentación",
   "docs.subtitle": "Una guía amigable y sin tecnicismos de cada pantalla y botón de GameIndex — escrita para jugadores nuevos, sin jerga.",
@@ -4359,7 +4357,6 @@ export const es: TranslationDict = {
   "updater.speed": "{speed}/s",
   "updater.title": "Actualización de software",
   "updater.upToDate": "GameIndex está actualizado",
-
   "library.groupBy.none": "Sin agrupar",
   "library.groupBy.platform": "Plataforma",
   "library.groupBy.playStatus": "Estado de juego",
@@ -4408,7 +4405,6 @@ export const es: TranslationDict = {
   "library.table.rating": "Puntuación",
   "library.table.lastPlayed": "Última partida",
   "library.table.actions": "Acciones",
-
   "store.spotlight.explore": "Ver juego",
   "store.spotlight.wishlisted": "En lista de deseos",
   "store.spotlight.addToWishlist": "Añadir a lista de deseos",
@@ -4738,4 +4734,8 @@ export const es: TranslationDict = {
   "stats.milestone.ach25.desc": "Desbloquea 25 logros en tus juegos.",
   "stats.milestone.ach100.title": "Leyenda de los Logros (100 Logros)",
   "stats.milestone.ach100.desc": "Desbloquea 100 logros en tu biblioteca.",
+  "common.noResults": "No se encontraron resultados",
+  "common.showLess": "Mostrar menos",
+  "steamPlayer.communityHub": "Centro de la comunidad",
+  "steamPlayer.steamDb": "SteamDB",
 };

@@ -12,20 +12,10 @@ import { useLanguage } from "../context/LanguageContext";
 /**
  * PlayerCountPopover
  *
- *  Click-to-expand companion to the `<PlayerCountBadge>`.
- *  One anchored card with a Steam tab: live count, aggregate review
- *  breakdown, 24h player activity sparkline, "View on Steam" link
- *  (`SteamStatsPopoverBody`, shared with the legacy Steam-only
- *  popover).
- *
- *  The header shows the combined total so the badge and popover agree
- *  at click time.
- *
- *  Positioning, dismissal, and accessibility mirror
- *  `SteamPlayerCountPopover` exactly (portal into body, anchor-flip +
- *  viewport clamp, Escape / click-outside / X to close, dialog
- *  semantics, focus restore). Reuses the `steam-stats-popover` CSS
- *  skeleton; the tab strip is the only new block.
+ * Click-to-expand companion to `<PlayerCountBadge>`.
+ * Shows live Steam player count, aggregate review breakdown,
+ * 24h-180d historical CCU activity sparkline/chart, and quick
+ * links to Steam Store, Steam Community Hub, and SteamDB.
  */
 
 interface PlayerCountPopoverProps {
@@ -37,13 +27,8 @@ interface PlayerCountPopoverProps {
   onClose: () => void;
 }
 
-type StatsTab = "steam" | "hydra";
-
 const VIEWPORT_MARGIN = 12;
-/** Fallback width for the first-paint position pass, before the
- *  browser has measured the rendered popover (canonical width lives
- *  in `store.css` on `.steam-stats-popover`). */
-const FALLBACK_WIDTH_PX = 420;
+const FALLBACK_WIDTH_PX = 440;
 
 export default function PlayerCountPopover({
   appId,
@@ -53,19 +38,13 @@ export default function PlayerCountPopover({
 }: PlayerCountPopoverProps) {
   const popoverRef = useRef<HTMLDivElement>(null);
   const onCloseRef = useRef(onClose);
-  // Keep the latest onClose in a ref so the global keydown / mousedown
-  // handlers (registered once on mount) always call the freshest
-  // version without re-binding on every parent render.
+  const { t } = useLanguage();
+
   useEffect(() => {
     onCloseRef.current = onClose;
   }, [onClose]);
 
-  const total = steamCount;
-
-  const [tab, setTab] = useState<StatsTab>("steam");
-
   // ── Position state ──────────────────────────────────────────────
-  // Same anchor-flip + viewport-clamp math as SteamPlayerCountPopover.
   const [position, setPosition] = useState<{
     top: number;
     left: number;
@@ -106,11 +85,6 @@ export default function PlayerCountPopover({
         Math.min(left, vw - popWidth - VIEWPORT_MARGIN)
       );
 
-      // Vertical: open below the anchor (top-aligned) when there's
-      // room; otherwise flip above (bottom-aligned to the anchor's
-      // top) so the popover never gets clipped by the viewport
-      // bottom. Matters now that the historical chart can make the
-      // card tall.
       const spaceBelow = vh - rect.bottom - VIEWPORT_MARGIN;
       const spaceAbove = rect.top - VIEWPORT_MARGIN;
       let top: number;
@@ -119,7 +93,6 @@ export default function PlayerCountPopover({
       } else if (popHeight <= spaceAbove) {
         top = rect.top - popHeight;
       } else {
-        // Doesn't fit either side — pin to the bottom edge, best effort.
         top = Math.max(VIEWPORT_MARGIN, vh - popHeight - VIEWPORT_MARGIN);
       }
 
@@ -129,9 +102,6 @@ export default function PlayerCountPopover({
     recompute();
     window.addEventListener("resize", recompute);
     window.addEventListener("scroll", recompute, true);
-    // The chart fetches asynchronously and grows the popover after
-    // mount; re-clamp whenever its measured height changes so it never
-    // ends up clipped at the bottom.
     const ro = new ResizeObserver(recompute);
     if (popoverRef.current) ro.observe(popoverRef.current);
     return () => {
@@ -139,10 +109,7 @@ export default function PlayerCountPopover({
       window.removeEventListener("scroll", recompute, true);
       ro.disconnect();
     };
-    // anchorRef is a stable ref object — intentionally excluded.
-    // `tab` included so switching tabs (content height changes)
-    // re-clamps against the bottom of the viewport.
-  }, [anchorRef, tab]);
+  }, [anchorRef]);
 
   // ── Focus capture + global dismissal ────────────────────────────
   useEffect(() => {
@@ -176,10 +143,7 @@ export default function PlayerCountPopover({
       document.removeEventListener("mousedown", handlePointerDown);
       previouslyFocused?.focus();
     };
-    // anchorRef intentionally excluded (stable ref).
   }, [anchorRef]);
-
-  const { t } = useLanguage();
 
   return createPortal(
     <div
@@ -190,17 +154,25 @@ export default function PlayerCountPopover({
       aria-modal="true"
       aria-label={t("playerStats.aria")}
     >
-      {/* ── Header — combined total, agrees with the badge. ──────── */}
+      {/* ── Header ────────────────────────────────────────────────── */}
       <header className="steam-stats-popover-header">
         <div className="steam-stats-popover-header-icon" aria-hidden="true">
-          <span className="steam-stats-popover-header-dot" />
+          <svg
+            viewBox="0 0 24 24"
+            width="16"
+            height="16"
+            fill="currentColor"
+            className="steam-brand-icon"
+          >
+            <path d="M12 2a10 10 0 0 0-10 10c0 4.7 3.25 8.65 7.66 9.7l2.84-4.14a2.98 2.98 0 0 1-.5-.06l-3.23-1.32a3.02 3.02 0 0 1-1.77-2.78c0-1.66 1.34-3 3-3 .76 0 1.45.28 1.99.75l3.24-1.32c.1-.8.5-1.5 1.12-2.02A4.5 4.5 0 0 1 21 12.5a4.5 4.5 0 0 1-4.5 4.5c-.75 0-1.46-.19-2.08-.52l-2.42 3.52c4.4-.38 7.84-4.08 7.84-8.6A10 10 0 0 0 12 2zm4.5 8a2.5 2.5 0 1 0 0 5 2.5 2.5 0 0 0 0-5z" />
+          </svg>
         </div>
         <div className="steam-stats-popover-header-body">
           <div className="steam-stats-popover-header-title">
-            {total.toLocaleString()} playing now
+            {t("steamPlayer.steam")} · {t("steamPlayer.livePlayerStats")}
           </div>
           <div className="steam-stats-popover-header-subtitle">
-            {steamCount.toLocaleString()} Steam
+            App ID: {appId}
           </div>
         </div>
         <button
@@ -226,33 +198,8 @@ export default function PlayerCountPopover({
         </button>
       </header>
 
-      {/* ── Source tabs ───────────────────────────────────────────── */}
-      <div className="player-stats-tabs" role="tablist" aria-label={t("playerStats.sourceAria")}>
-        <button
-          type="button"
-          role="tab"
-          id="player-stats-tab-steam"
-          aria-selected={tab === "steam"}
-          aria-controls="player-stats-panel-steam"
-          className={`player-stats-tab player-stats-tab--steam ${tab === "steam" ? "is-active" : ""}`.trim()}
-          onClick={() => setTab("steam")}
-        >
-          <span className="player-stats-tab-dot" aria-hidden="true" />
-          Steam
-        </button>
-      </div>
-
-      {/* ── Tab panel — body shared with the single-source popover,
-          so content and styling stay in lockstep. ─────────────────── */}
-      {tab === "steam" ? (
-        <div
-          role="tabpanel"
-          id="player-stats-panel-steam"
-          aria-labelledby="player-stats-tab-steam"
-        >
-          <SteamStatsPopoverBody appId={appId} currentCount={steamCount} />
-        </div>
-      ) : null}
+      {/* ── Popover Body ─────────────────────────────────────────── */}
+      <SteamStatsPopoverBody appId={appId} currentCount={steamCount} />
     </div>,
     document.body
   );

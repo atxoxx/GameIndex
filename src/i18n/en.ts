@@ -3,7 +3,6 @@ import type { TranslationDict } from "./index";
 export const en: TranslationDict = {
   "gameInfo.openContainingFolder": "Open containing folder",
   "gameInfo.openFolderFailed": "Failed to open folder: {error}",
-
   "about.empty": "No description available.",
   "about.from": "from {source}",
   "about.hideAbout": "Hide about",
@@ -25,7 +24,8 @@ export const en: TranslationDict = {
   "gamePage.gameTitle": "Game Title",
   "gamePage.copyTitle": "Copy Game Title",
   "gamePage.copyAppId": "Copy AppID",
-  "gamePage.copyPath": "Copy Path",  "common.copiedToClipboard": "Copied {label} to clipboard",
+  "gamePage.copyPath": "Copy Path",
+  "common.copiedToClipboard": "Copied {label} to clipboard",
   "common.copyFailed": "Failed to copy to clipboard",
   "common.resetZoom": "Reset Zoom",
   "common.zoomIn": "Zoom In",
@@ -4262,7 +4262,6 @@ export const en: TranslationDict = {
   "settings.descriptor.calm": "🧘 Calm",
   "settings.descriptor.highContrast": "♿ High Contrast",
   "settings.descriptor.minimal": "✨ Minimal",
-
   "settings.tab.privacy": "Privacy & Data",
   "settings.section.wipeData": "Local storage",
   "settings.wipe.desc": "Everything GameIndex remembers on this device is kept in your browser's local storage. Review what's stored and wipe individual items, or clear everything at once.",
@@ -4279,79 +4278,54 @@ export const en: TranslationDict = {
   "settings.wipe.allRemoved": "Cleared all local storage",
   "settings.wipe.size": "Size: {size}",
   "settings.wipe.noValue": "(empty)",
-
   "nav.docs": "Documentation",
-
   "docs.title": "Documentation",
   "docs.subtitle": "A friendly, comprehensive guide to every screen, feature, and button in GameIndex — written for new players and power users alike.",
   "docs.toc": "Contents",
-
   "docs.welcome.title": "Welcome to GameIndex",
   "docs.welcome.body": "GameIndex is your unified, all-in-one game launcher and library management hub. Instead of constantly switching between Steam, GOG Galaxy, Epic Games Launcher, Ubisoft Connect, and EA app, GameIndex lets you catalog, organize, track, and launch every single PC game and retro ROM from a single modern interface.\n\n## Core Features\n- **Unified Library**: Import games automatically from connected stores or add local executables and ROMs.\n- **Performance & Telemetry**: Track hardware load (CPU, GPU, RAM), temperatures, and real-time FPS curves during gameplay.\n- **Mod Manager**: Discover, enable, disable, and clean up mods from Steam Workshop and Nexus Mods.\n- **Emulator Support**: Integrate standalone emulators with custom launch flags and automatic ROM directory scanning.\n- **Deals & Store**: Compare game prices across multiple stores, track historical lows, and manage your wishlist.\n- **Big Picture Mode**: Controller-friendly full-screen UI optimized for TV and couch gaming.\n- **Local-First Privacy**: Your game data, achievements, and play history remain stored safely on your PC.",
-
   "docs.firststeps.title": "Getting started",
   "docs.firststeps.body": "Setting up GameIndex takes less than two minutes. Follow these initial steps to build your library:\n\n## 1. Connect Your Store Accounts\n- Go to **Settings** → Sources in the left sidebar or top gear icon.\n- Toggle on the stores you use (Steam, GOG, Epic Games, Rockstar, Ubisoft, Humble Bundle).\n- GameIndex will sync your library and fetch official cover art and metadata automatically.\n\n## 2. Add Local Games & Executables\n- Click **Add Game** at the top of the sidebar.\n- Choose **Scan Directory** to discover installed games automatically, or **Add Custom Game** to manually select any `.exe` file.\n- Enter a title, assign a launch directory, and customize the cover image.\n\n## 3. Launching & Organizing\n- Double-click any tile in your **Library** to start playing.\n- Hover over a tile and click the heart icon to add it to your Favorites for quick access.",
-
   "docs.layout.title": "The main screen",
   "docs.layout.body": "GameIndex features a clean, responsive three-pane interface designed for fast navigation:\n\n## Layout Structure\n- **Top Navigation Bar**: Contains quick search, active download count badge, **Settings** (gear icon), **Documentation** (book icon), and **Big Picture Mode** (monitor icon).\n- **Left Sidebar**: Gives immediate access to your primary navigation items, game filters, favorites, recent sessions, and the **Add Game** button.\n- **Main View Canvas**: Displays the selected page view (**Library**, **Store**, **Deals**, **Activity**, **Emulators**, **Mods**, etc.).\n- **Section Tabs Bar**: Located at the top of the main canvas to instantly switch between primary application modules.",
-
   "docs.library.title": "Your Library",
   "docs.library.body": "Your **Library** is the primary view for browsing, filtering, and launching your game collection.\n\n## View Modes & Customization\n- **Grid View**: Displays rich poster artwork with custom aspect ratio scaling and hover overlays.\n- **List View**: A compact table layout showing detailed metadata like store source, play time, last played date, and install size.\n- **Sidebar Layout Toggle**: Toggle between Grid and List views using the layout buttons at the top of the sidebar.\n\n## Searching & Filtering\n- **Search Bar**: Type any part of a title in the search box or press `Ctrl+F` to filter instantly.\n- **Filter Chips**: Filter by platform (Steam, GOG, Epic, Custom), genre, installed state, or play status (Played, Unplayed, In Progress, Completed).\n- **Tile Quick Actions**: Hover over any game tile to quickly Play, Favorite, Hide, or open its contextual settings menu.",
-
   "docs.gamedetails.title": "Game details & customization",
   "docs.gamedetails.body": "Clicking any game tile opens its dedicated Details Page, providing complete management options for that title.\n\n## Features & Settings\n- **Big Play Button**: Launches the game directly, starting automatic play time and hardware telemetry tracking.\n- **Custom Artwork**: Replace default cover posters, background hero banners, and logos with custom images.\n- **Launch Parameters**: Pass custom command-line flags (e.g. `-fullscreen`, `-dx11`, or custom launcher scripts).\n- **Executable & Directory Path**: Change the target executable path or working directory if you move game files manually.\n- **Metadata & IGDB Fetching**: Fetch game summaries, release dates, developer info, genres, and screenshot galleries from IGDB.\n- **Personal Notes & Rating**: Add custom notes, rating stars, and personal play status tags.",
-
   "docs.sidebar.title": "The sidebar",
   "docs.sidebar.body": "The left sidebar is your main navigation anchor for filtering and organizing your collection.\n\n## Sidebar Elements\n- **Add Game Button**: Import games from your computer or connected store launchers.\n- **Favorites & Recents**: Pins your favorited games at the top and keeps your most recently launched titles handy.\n- **Collapsible Groups**: Expand or collapse categories like Stores, Genres, Emulators, and Play Status.\n- **Sidebar Collapse Toggle**: Click the collapse arrow at the top-left to hide the sidebar and give your game grid maximum screen space.",
-
   "docs.topnav.title": "The top bar",
   "docs.topnav.body": "The top bar stays accessible across all views for global actions and app status:\n\n## Quick Controls\n- **Global Search**: Instantly find games, store items, or settings from anywhere in the app.\n- **Downloads Panel**: View active downloads, magnet link progress, download speed, and queue state.\n- **Settings (Gear Icon)**: Access app preferences, accounts, themes, language, and privacy settings.\n- **Big Picture Mode (Monitor Icon)**: Switch to full-screen controller view (`F11` or `Ctrl+B`).\n- **Language & System Status**: Displays current connectivity status and notifications.",
-
   "docs.store.title": "Discovering games (Store)",
   "docs.store.body": "The **Store** page lets you discover upcoming releases, top-rated titles, and trending games across PC gaming.\n\n## Browsing & Comparison\n- **Curated Rails**: Browse sections like Trending Now, Top Rated, New Releases, and Games to Beat.\n- **Game Previews**: View trailers, screenshot carousels, genre tags, critic scores, and system requirements.\n- **Store Links**: View availability and direct links to official store fronts (Steam, Epic, GOG).\n- **Compare Games**: Select up to 3 games in the Store to compare ratings, release dates, genres, and system requirements side by side.",
-
   "docs.wishlist.title": "Wishlist",
   "docs.wishlist.body": "Keep track of games you want to play or purchase in your personal **Wishlist**.\n\n## Wishlist Features\n- **Heart Quick-Add**: Click the heart icon on any store card or game page to add it to your Wishlist.\n- **Price Alerts**: Wishlisted games automatically cross-reference with the **Deals** module to highlight discounts.\n- **Sorting & Searching**: Sort your wishlist by release date, price, discount percentage, or title.\n- **One-Click Library Move**: Easily move games from your Wishlist into your Library once acquired.",
-
   "docs.deals.title": "Deals & prices",
   "docs.deals.body": "Find the best discounts across major PC digital retailers powered by real-time price tracking.\n\n## Smart Price Features\n- **Live Discounts**: Filter live sales by discount threshold (e.g. 50%+ OFF, 75%+ OFF).\n- **Historical Lows**: Spot genuine historical lowest prices to verify if a sale is a real deal.\n- **Store Filtering**: Compare deals across Steam, GOG, Epic, Humble, GreenManGaming, and Fanatical.\n- **Wishlist Integration**: Games in your Wishlist are highlighted with special badges when on sale.",
-
   "docs.news.title": "News & RSS feeds",
   "docs.news.body": "Stay informed with gaming news, patch notes, and devlogs directly inside GameIndex.\n\n## News Reader Features\n- **Gaming News Feed**: Automatically aggregates headlines from major gaming outlets and store announcements.\n- **Custom RSS Feeds**: Add your favorite gaming blog or website RSS feed URLs in settings.\n- **Clean Reader View**: Click any article headline to read the full formatted content without browser distraction.\n- **Search & Filter**: Search news articles by game title or topic keywords.",
-
   "docs.activity.title": "Activity & performance",
   "docs.activity.body": "Track your play history and analyze PC hardware performance with built-in telemetry tools.\n\n## Telemetry & Logging\n- **Real-Time Monitoring**: Automatically records CPU load, CPU temperature, GPU load, GPU temperature, RAM usage, and FPS graphs while playing.\n- **Session Logs**: View exact start/end times, play duration, average FPS, and peak hardware temperatures per session.\n- **Heatmap Calendar**: Visualize your gaming consistency across days, weeks, and months with activity heatmaps.\n- **Export Data**: Export session performance data to `CSV`, `JSON`, or generate a high-resolution `PNG` chart screenshot.",
-
   "docs.achievements.title": "Achievements",
   "docs.achievements.body": "Track, display, and celebrate your gaming achievements across platforms and local titles.\n\n## Sync & Challenge Tracking\n- **Steam Sync**: Fetch official Steam achievements automatically via your connected account or Steam Web API.\n- **Local & Emulator Sync**: Scan local crack / emulator save files to extract unlocked achievement data automatically.\n- **Rarity & Distribution**: See global achievement rarity percentages, 100% completion badges, and recent unlocks.\n- **Filter & Search**: Group achievements by Status (Unlocked vs Locked) to target your next challenge.",
-
   "docs.downloads.title": "Downloads manager",
   "docs.downloads.body": "Manage all game installations, update packages, and file downloads in one centralized queue.\n\n## Download Features\n- **Queue Management**: Pause, resume, reorder, or cancel downloads with active progress bars.\n- **Direct & Torrent Support**: Supports direct HTTP download links as well as magnet/torrent URLs.\n- **Real-Debrid / AllDebrid**: Connect Debrid provider API keys in settings for high-speed premium downloads.\n- **Bandwidth Throttling**: Set maximum download speeds to avoid saturating your home network connection.\n- **File Explorer Action**: Click finished downloads to open their target folder in Windows File Explorer.",
-
   "docs.storage.title": "Storage manager",
   "docs.storage.body": "Keep your hard drives and SSDs organized with comprehensive game storage controls.\n\n## Storage Operations\n- **Drive Capacity Breakdown**: See visual storage usage bars grouped by hard drive partitions and directories.\n- **Move Game Installations**: Relocate installed game folders from one drive to another with automatic shortcut re-linking.\n- **Re-link Broken Directories**: Easily point relocated games to their new path if files were moved externally.\n- **Cache & Mod Cleanup**: Measure and clear unused mod files, shader caches, or temporary installation files.",
-
   "docs.emulators.title": "Emulators & ROMs",
   "docs.emulators.body": "Integrate your retro gaming setup seamlessly into your modern PC game library.\n\n## Emulator Setup & ROM Management\n- **Standalone Emulators**: Configure popular emulators (RetroArch, PCSX2, RPCS3, Dolphin, PPSSPP, DuckStation, etc.).\n- **Custom Launch Flags**: Set executable paths, BIOS directories, and custom command-line flags per console system.\n- **Automatic ROM Scanning**: Point GameIndex at a ROM directory to automatically discover, group, and fetch artwork for your retro games.\n- **Multi-Disc Handling**: Manage multi-disc games and save file directories cleanly.",
-
   "docs.mods.title": "Mod manager",
   "docs.mods.body": "Discover, install, and toggle game modifications without manual file editing.\n\n## Mod Management Features\n- **Workshop & Nexus Integration**: Search and browse mods from Steam Workshop and Nexus Mods.\n- **Mod Directory Binding**: Bind game mod directories for automatic scanning and management.\n- **Batch Operations**: Bulk select mods to enable, disable, update, or remove them with one click.\n- **Mod Storage Breakdown**: Monitor exact disk space consumed by installed game mods.",
-
   "docs.community.title": "Community & friends",
   "docs.community.body": "Connect with friends, compare gaming profiles, and share your gaming highlights.\n\n## Social Features\n- **Friend List & Status**: Add friends to see their online status, current game, and recent achievements.\n- **Profile & Library Compare**: Compare your game library, total playtime, and perfect games against your friends.\n- **Activity Feed**: View friend achievement unlocks, screenshots, and game recommendations.\n- **Privacy First**: All social features use local-first opt-in sharing — no forced account telemetry.",
-
   "docs.settings.title": "Settings",
   "docs.settings.body": "Customize every aspect of GameIndex to fit your setup and preferences.\n\n## Settings Categories\n- **Sources**: Connect Steam, GOG, Epic, Ubisoft, EA, Rockstar, and Humble accounts.\n- **Appearance**: Select themes (Dark, Light, Midnight, Cyberpunk), accent colors, poster layout densities, and custom fonts.\n- **Language**: Switch application language between English, French, German, Spanish, Russian, and Simplified Chinese.\n- **Privacy & Storage**: Inspect local storage keys, export settings backups, or wipe cached data.",
-
   "docs.bigscreen.title": "Big Picture Mode",
   "docs.bigscreen.body": "Experience GameIndex from the comfort of your couch with full controller support on large TV screens.\n\n## Navigation & Controls\n- **Entering & Exiting**: Click the monitor icon in the top navigation bar or press `F11` / `Ctrl+B`. Press `Escape` to return to desktop mode.\n- **Full Gamepad Support**: Navigate seamlessly using Xbox, PlayStation, Switch Pro, or generic D-Input/X-Input controllers.\n- **TV-Optimized UI**: Extra-large artwork tiles, high-contrast menus, quick drawer navigation, and virtual keyboard input.\n- **Quick Switcher**: Access your recent games, volume controls, and system options without leaving your controller.",
-
   "docs.shortcuts.title": "Keyboard & controller shortcuts",
   "docs.shortcuts.body": "Master GameIndex navigation with these global keyboard hotkeys and gamepad shortcuts.\n\n## Keyboard Shortcuts\n- `F11` or `Ctrl+B`: Toggle **Big Picture Mode** on / off.\n- `Ctrl+F`: Focus the global search box instantly.\n- `Ctrl+,`: Open **Settings**.\n- `Ctrl+D`: Open **Downloads** panel.\n- `Ctrl+L`: Focus **Library** view.\n- `Escape`: Close modals, exit search, or leave Big Picture Mode.\n- `Tab` / `Shift+Tab`: Navigate focus between interactive buttons and inputs.\n- `ArrowUp` / `ArrowDown` / `ArrowLeft` / `ArrowRight`: Navigate grid tiles and lists.\n\n## Controller Shortcuts (Big Picture Mode)\n- `D-Pad` / `Left Stick`: Navigate menus and game grid.\n- `Button A` (Xbox) / `Cross` (PlayStation): Select / Launch game.\n- `Button B` (Xbox) / `Circle` (PlayStation): Back / Close menu.\n- `Button X` (Xbox) / `Square` (PlayStation): Toggle favorite status.\n- `Button Y` (Xbox) / `Triangle` (PlayStation): Open game details.\n- `Start` / `Menu`: Open quick options drawer.",
-
   "docs.tips.title": "Tips & tricks",
   "docs.tips.body": "Maximize your productivity with these power user tips:\n\n## Expert Tips\n- **Right-Click Context Menus**: Right-click any game tile in the Library or List for quick access to Launch, Edit, Move Storage, or Manage Mods.\n- **Custom Banners & Covers**: Drag and drop any image file onto a game's Details page to set custom artwork immediately.\n- **Performance Screenshots**: Press `Capture` in the Activity tab to export beautiful performance charts to share with friends.\n- **Compact Sidebar**: Collapse the sidebar when browsing large game libraries to see maximum game poster art per row.\n- **Language Switch**: Change language on the fly in **Settings** → Language without restarting the application.",
-
   "updater.autoCheck": "Check for updates automatically",
   "updater.autoCheckDesc": "Automatically check GitHub Releases for new application updates on launch.",
   "updater.cancel": "Cancel",
@@ -4383,7 +4357,6 @@ export const en: TranslationDict = {
   "updater.speed": "{speed}/s",
   "updater.title": "Software Update",
   "updater.upToDate": "GameIndex is up to date",
-
   "library.groupBy.none": "No Grouping",
   "library.groupBy.platform": "Platform",
   "library.groupBy.playStatus": "Play Status",
@@ -4432,7 +4405,6 @@ export const en: TranslationDict = {
   "library.table.rating": "Rating",
   "library.table.lastPlayed": "Last Played",
   "library.table.actions": "Actions",
-
   "store.spotlight.explore": "Explore Title",
   "store.spotlight.wishlisted": "In Wishlist",
   "store.spotlight.addToWishlist": "Add to Wishlist",
@@ -4762,4 +4734,8 @@ export const en: TranslationDict = {
   "stats.milestone.ach25.desc": "Unlock 25 achievements across your games.",
   "stats.milestone.ach100.title": "Achievement Legend (100 Achievements)",
   "stats.milestone.ach100.desc": "Unlock 100 achievements across your library.",
+  "common.noResults": "No results found",
+  "common.showLess": "Show less",
+  "steamPlayer.communityHub": "Community Hub",
+  "steamPlayer.steamDb": "SteamDB",
 };

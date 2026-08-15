@@ -3,7 +3,6 @@ import type { TranslationDict } from "./index";
 export const fr: TranslationDict = {
   "gameInfo.openContainingFolder": "Ouvrir le dossier du jeu",
   "gameInfo.openFolderFailed": "Impossible d’ouvrir le dossier : {error}",
-
   "about.empty": "Aucune description disponible.",
   "about.from": "de {source}",
   "about.hideAbout": "Masquer la description",
@@ -2292,7 +2291,11 @@ export const fr: TranslationDict = {
   "gameInfo.reviews": "Critiques",
   "gameInfo.rushed": "À la hâte",
   "gameInfo.themes": "Thèmes",
-  "gamePage.commentPosted": "Commentaire publié.",  "gamePage.nextScreenshot": "Capture suivante",  "gamePage.removeConfirmBody": "Cela supprime les métadonnées du jeu, la jaquette et le temps de jeu suivi de GameLib. Vos fichiers installés sur le disque ne sont pas touchés ; vous pouvez réimporter le jeu plus tard si vous changez d'avis.",  "gamePage.removed": "{name} retiré",  "gamePage.sessionRemoved": "Session supprimée.",
+  "gamePage.commentPosted": "Commentaire publié.",
+  "gamePage.nextScreenshot": "Capture suivante",
+  "gamePage.removeConfirmBody": "Cela supprime les métadonnées du jeu, la jaquette et le temps de jeu suivi de GameLib. Vos fichiers installés sur le disque ne sont pas touchés ; vous pouvez réimporter le jeu plus tard si vous changez d'avis.",
+  "gamePage.removed": "{name} retiré",
+  "gamePage.sessionRemoved": "Session supprimée.",
   "gamePage.sessionScheduled": "Session de jeu planifiée !",
   "gamePage.store": "Boutique GameLib",
   "gameRelations.aria": "Relations du jeu",
@@ -4254,7 +4257,6 @@ export const fr: TranslationDict = {
   "settings.descriptor.calm": "🧘 Calme",
   "settings.descriptor.highContrast": "♿ Contraste élevé",
   "settings.descriptor.minimal": "✨ Minimal",
-
   "settings.tab.privacy": "Privacy & Data",
   "settings.section.wipeData": "Local storage",
   "settings.wipe.desc": "Everything GameIndex remembers on this device is kept in your browser's local storage. Review what's stored and wipe individual items, or clear everything at once.",
@@ -4271,78 +4273,54 @@ export const fr: TranslationDict = {
   "settings.wipe.allRemoved": "Cleared all local storage",
   "settings.wipe.size": "Size: {size}",
   "settings.wipe.noValue": "(empty)",
-
   "nav.docs": "Documentation",
   "docs.title": "Documentation",
   "docs.subtitle": "Un guide convivial et non technique de chaque écran et bouton de GameIndex — écrit pour les nouveaux joueurs, sans jargon.",
   "docs.toc": "Sommaire",
-
   "docs.welcome.title": "Bienvenue dans GameIndex",
   "docs.welcome.body": "GameIndex est un seul endroit pour retrouver tous vos jeux PC. Au lieu d'ouvrir Steam, GOG, Epic et les autres un par un, vous voyez et lancez tous vos jeux depuis une seule fenêtre.\n\nCe guide explique les écrans et boutons que vous utilisez au quotidien. Aucune connaissance technique n'est requise — parcourez-le et vous serez à l'aise en quelques minutes.\n- Parcourez et recherchez tous les jeux que vous possédez dans une seule **bibliothèque**.\n- Découvrez de nouveaux jeux dans le **Store** et suivez les meilleures **offres**.\n- Gardez vos sauvegardes, **mods** et **émulateurs** organisés.\n- Détendez-vous sur le canapé avec le **mode Big Picture**.",
-
   "docs.firststeps.title": "Premiers pas",
   "docs.firststeps.body": "Au premier lancement, votre **bibliothèque** est vide. Voici comment la remplir :\n- Connectez un compte de boutique (Steam, GOG, Epic, Rockstar, Ubisoft ou Humble) dans **Paramètres** → Sources. GameIndex récupère les jeux que vous possédez déjà.\n- Ou choisissez 'Ajouter un jeu' dans la **barre latérale** pour pointer GameIndex vers un jeu installé n'importe où sur votre PC.\n- Vous préférez partir léger ? Utilisez la recherche et les filtres de la **bibliothèque** pour vous concentrer sur ce que vous avez envie de jouer maintenant.\nUne fois les jeux importés, double-cliquez simplement sur l'un d'eux pour le lancer.",
-
   "docs.layout.title": "L'écran principal",
   "docs.layout.body": "L'application est construite autour de trois zones :\n- La barre supérieure contient la recherche, les actions rapides et les boutons **Téléchargements**, **Paramètres** et **mode Big Picture**.\n- La **barre latérale** gauche liste vos jeux et filtres, plus le bouton 'Ajouter un jeu'.\n- La grande zone centrale affiche la page que vous consultez (**Bibliothèque**, **Store**, etc.).\nLa rangée d'onglets en haut (**Bibliothèque**, **Store**, **Émulateurs**, **Mods**…) fait basculer la zone centrale entre les différentes sections de l'application.",
-
   "docs.library.title": "Votre bibliothèque",
   "docs.library.body": "Votre **Bibliothèque** est la base — chaque jeu ajouté y apparaît sous forme de tuile.\n- Cliquez sur une tuile pour ouvrir la page du jeu : description, captures d'écran, **succès**, temps pour terminer et un grand bouton 'Jouer'.\n- Survolez une tuile pour des actions rapides comme Jouer, Favori ou Masquer.\n- Utilisez la barre de recherche et les filtres (genre, **store**, joué/non joué) pour restreindre la liste.\n- Basculez la vue entre grille et liste avec l'interrupteur dans la **barre latérale**.",
-
   "docs.gamedetails.title": "Détails du jeu & personnalisation",
   "docs.gamedetails.body": "Cliquer sur une tuile de jeu ouvre sa page de détails dédiée, offrant des options de gestion complètes pour ce titre.\n\n## Fonctionnalités & Réglages\n- **Grand bouton Jouer** : Lance le jeu directement et démarre le suivi du temps de jeu et de la télémétrie matérielle.\n- **Visuels personnalisés** : Remplacez les affiches de couverture par défaut, les bannières de fond et les logos par des images personnalisées.\n- **Paramètres de lancement** : Transmettez des arguments de commande personnalisés (ex: `-fullscreen`, `-dx11`).\n- **Exécutable & Dossier** : Modifiez le chemin de l'exécutable ou le dossier de travail si vous déplacez les fichiers manuellement.\n- **Métadonnées IGDB** : Récupérez des résumés, dates de sortie, développeurs, genres et galeries d'images depuis IGDB.\n- **Notes & Notes personnelles** : Ajoutez des notes personnalisées, des étoiles d'évaluation et des marqueurs de statut.",
-
   "docs.sidebar.title": "La barre latérale",
   "docs.sidebar.body": "La **barre latérale** à gauche vous aide à naviguer et organiser :\n- 'Ajouter un jeu' importe un jeu depuis votre ordinateur ou une **boutique** connectée.\n- Favoris et Récents donnent un accès rapide aux jeux auxquels vous jouez le plus.\n- Les groupes de filtres (**boutique**, genre, statut) se réduisent et s'étendent pour ranger les grandes **bibliothèques**.\n- Repliez toute la **barre latérale** avec la flèche en haut pour avoir plus de place pour vos jeux.",
-
   "docs.topnav.title": "Les boutons de la barre supérieure",
   "docs.topnav.body": "Sur le côté droit de la barre supérieure se trouvent :\n- **Téléchargements** : ouvre un panneau montrant les jeux et fichiers en cours de **téléchargement**, ainsi qu'un badge indiquant le nombre actif.\n- **Paramètres** (roue) : ouvre les préférences — comptes, apparence, langue et confidentialité.\n- **Mode Big Picture** (moniteur) : agrandit l'application dans une vue plein écran adaptée aux manettes pour jouer sur TV.\nLe centre de la barre contient généralement un champ de recherche et des onglets de section.",
-
   "docs.store.title": "Découvrir des jeux (Store)",
   "docs.store.body": "Le **Store** est l'endroit où vous parcourez ce qui est disponible à jouer, pas seulement ce que vous possédez.\n- Faites défiler des sélections comme 'Tendances' et 'Les mieux notés', ou recherchez directement un titre.\n- Ouvrez un jeu pour voir son prix, sa description, ses notes et quelles **boutiques** le vendent.\n- Filtrez par genre, prix et plateforme pour trouver quelque chose qui correspond à vos envies.\nNote : le **Store** sert à la découverte ; l'achat se fait sur le site web propre de la **boutique**.",
-
   "docs.wishlist.title": "Liste de souhaits",
   "docs.wishlist.body": "Vous voyez un jeu qui vous plaît mais que vous n'êtes pas prêt à jouer ? Ajoutez-le à votre **liste de souhaits**.\n- Cliquez sur le cœur sur n'importe quelle page de jeu ou du **store** pour le sauvegarder.\n- Ouvrez l'onglet **Liste de souhaits** pour voir tout ce que vous avez sauvegardé au même endroit.\n- Les jeux de la **liste de souhaits** apparaissent également dans les **offres** pour repérer les baisses de prix.",
-
   "docs.deals.title": "Offres & prix",
   "docs.deals.body": "La section **Offres** vous aide à dépenser judicieusement.\n- Consultez les réductions actuelles sur les **boutiques** avec le pourcentage économisé et le nouveau prix.\n- Filtrez par **boutique**, genre ou taille de la réduction.\n- Les jeux de votre **liste de souhaits** sont mis en évidence pour ne manquer aucune baisse de prix.\n- Les historiques de prix vous aident à distinguer les vraies bonnes affaires.",
-
   "docs.news.title": "Actualités",
   "docs.news.body": "Restez informé sans quitter l'application.\n- La page **Actualités** affiche des articles et annonces issus de flux gaming.\n- Ajoutez vos propres flux RSS dans les **paramètres** d'**Actualités** pour suivre vos sites préférés.\n- Cliquez sur un titre pour lire l'article complet dans une vue lecteur épurée.",
-
   "docs.activity.title": "Activité & performances",
   "docs.activity.body": "GameIndex peut montrer comment vos jeux tournent réellement.\n- Quand le suivi est actif, chaque session enregistre le nombre d'images par seconde (FPS) et le temps de frame.\n- La page **Activité** trace vos performances dans le temps avec des graphiques interactifs.\n- Servez-vous-en pour repérer les saccades ou comparer des réglages — pas besoin de comprendre les chiffres, regardez simplement fluide contre saccadé.",
-
   "docs.achievements.title": "Succès",
   "docs.achievements.body": "Suivez les défis que vous avez débloqués.\n- Connectez Steam pour récupérer vos listes de **succès**, ou synchronisez les sauvegardes locales/émulateur.\n- Voyez les **succès** verrouillés et débloqués par jeu, avec la progression d'un coup d'œil.\n- Filtrez sur 'verrouillé' quand vous voulez des idées de ce à faire ensuite.",
-
   "docs.downloads.title": "Téléchargements",
   "docs.downloads.body": "La zone **Téléchargements** gère tout ce que GameIndex récupère.\n- Ouvrez-la depuis la barre supérieure pour suivre les **téléchargements** actifs et les fichiers terminés.\n- Un téléchargement à la fois par défaut, les autres en file, pour garder la connexion stable.\n- Prend en charge les liens directs et les sources torrent/Débrid quand disponible.\nCliquez un élément terminé pour l'ouvrir dans votre gestionnaire de fichiers ou l'installer.",
-
   "docs.storage.title": "Gestion du stockage",
   "docs.storage.body": "Vous manquez d'espace disque ? La page **Stockage** montre où vivent vos jeux.\n- Voyez le détail de l'espace utilisé par chaque jeu, émulateur et collection de **mods**.\n- Déplacez un jeu d'un disque à un autre sans casser son lancement.\n- Recalculer les tailles à tout moment pour garder les chiffres exacts.",
-
   "docs.emulators.title": "Émulateurs & ROMs",
   "docs.emulators.body": "GameIndex intègre les jeux rétro dans la même **bibliothèque**.\n- Ajoutez un émulateur (comme un émulateur SNES ou PlayStation) pour que GameIndex sache comment le lancer.\n- Cataloguez vos ROMs par système et parcourez-les à côté de vos jeux modernes.\n- Les actions groupées vous aident à organiser rapidement de grandes collections de ROMs.\nLes **émulateurs** doivent être installés séparément ; GameIndex les lance pour vous.",
-
   "docs.mods.title": "Mods",
   "docs.mods.body": "Changez l'apparence et le gameplay de vos jeux avec le gestionnaire de **mods**.\n- Parcourez les **mods** du Steam Workshop et de Nexus **Mods** pour un jeu choisi.\n- Activez, désactivez ou supprimez des **mods** avec des actions multi-sélection.\n- Des cartes de stats montrent combien de **mods** sont actifs et l'espace qu'ils occupent.\nLes **mods** s'appliquent via le propre système de **mods** du jeu ; GameIndex se contente de les organiser.",
-
   "docs.community.title": "Communauté & amis",
   "docs.community.body": "Jouer ensemble est meilleur.\n- L'onglet **Communauté** affiche un fil d'**activité** et de recommandations.\n- Ajoutez des amis pour voir ce qu me jouent et partager votre propre **bibliothèque**.\n- Local-first : vos données restent sur votre appareil, et le partage est optionnel.\nLes profils et la synchro d'amis vous aident à découvrir les jeux que vos amis adorent.",
-
   "docs.settings.title": "Paramètres",
   "docs.settings.body": "Ouvrez les **Paramètres** (l'icône en forme de roue) pour faire de GameIndex le vôtre.\n- Sources : connecter ou déconnecter des comptes de boutique.\n- Apparence : choisissez un thème et une couleur d'accent, ou clair/sombre.\n- Langue : changez l'interface entre les langues prises en charge.\n- Confidentialité et données : consultez ce qui est stocké localement et effacez-le si vous voulez repartir à zéro.\nLa plupart des changements s'appliquent instantanément.",
-
   "docs.bigscreen.title": "Mode Big Picture",
   "docs.bigscreen.body": "Le **mode Big Picture** transforme GameIndex en une interface adaptée au canapé à 3 mètres.\n- Cliquez l'icône moniteur dans la barre supérieure (ou appuyez sur F11 / Ctrl+B) pour y entrer.\n- Naviguez entièrement au gamepad ou aux flèches — grandes tuiles, menus simples.\n- Il inclut votre **Bibliothèque**, le **Store**, les **Offres**, les Amis et la **Communauté** dans une disposition adaptée à la TV.\n- Appuyez sur Échap pour quitter le **mode Big Picture** et revenir à la vue bureau.",
-
   "docs.shortcuts.title": "Raccourcis clavier & manette",
   "docs.shortcuts.body": "Maîtrisez la navigation dans GameIndex avec ces raccourcis clavier et manette globaux.\n\n## Raccourcis Clavier\n- `F11` ou `Ctrl+B` : Activer / Désactiver le **mode Big Picture**.\n- `Ctrl+F` : Focaliser la barre de recherche globale instantanément.\n- `Ctrl+,` : Ouvrir les **Paramètres**.\n- `Ctrl+D` : Ouvrir le panneau des **Téléchargements**.\n- `Ctrl+L` : Accéder à la **Bibliothèque**.\n- `Escape` : Fermer les fenêtres modales, quitter la recherche ou le mode Big Picture.\n- `Tab` / `Shift+Tab` : Naviguer entre les boutons et champs interactifs.\n- `ArrowUp` / `ArrowDown` / `ArrowLeft` / `ArrowRight` : Naviguer dans les tuiles et listes.\n\n## Raccourcis Manette (Mode Big Picture)\n- `D-Pad` / `Stick gauche` : Naviguer dans les menus et la grille de jeux.\n- `Bouton A` (Xbox) / `Croix` (PlayStation) : Sélectionner / Lancer le jeu.\n- `Bouton B` (Xbox) / `Cercle` (PlayStation) : Retour / Fermer le menu.\n- `Bouton X` (Xbox) / `Carré` (PlayStation) : Basculer le statut favori.\n- `Bouton Y` (Xbox) / `Triangle` (PlayStation) : Ouvrir les détails du jeu.\n- `Start` / `Menu` : Ouvrir le tiroir d'options rapides.",
-
   "docs.tips.title": "Astuces & raccourcis",
   "docs.tips.body": "Quelques trucs pour rendre le quotidien plus fluide :\n- Appuyez sur F11 ou Ctrl+B pour basculer le **mode Big Picture** ; Échap le quitte.\n- Utilisez la recherche de la **bibliothèque** pour sauter à un jeu par son nom instantanément.\n- Clic droit (ou appui long) sur une tuile de jeu pour des actions supplémentaires.\n- Repliez la **barre latérale** quand vous voulez plus de place pour les visuels des jeux.\n- Changez la langue à tout moment dans les **Paramètres** si quelque chose ne va pas.",
-
   "updater.autoCheck": "Vérifier automatiquement les mises à jour",
   "updater.autoCheckDesc": "Recherche automatiquement de nouvelles mises à jour sur GitHub Releases au démarrage.",
   "updater.cancel": "Annuler",
@@ -4374,7 +4352,6 @@ export const fr: TranslationDict = {
   "updater.speed": "{speed}/s",
   "updater.title": "Mise à jour logicielle",
   "updater.upToDate": "GameIndex est à jour",
-
   "library.groupBy.none": "Aucun regroupement",
   "library.groupBy.platform": "Plateforme",
   "library.groupBy.playStatus": "Statut de jeu",
@@ -4423,7 +4400,6 @@ export const fr: TranslationDict = {
   "library.table.rating": "Note",
   "library.table.lastPlayed": "Dernière partie",
   "library.table.actions": "Actions",
-
   "store.spotlight.explore": "Découvrir le titre",
   "store.spotlight.wishlisted": "Dans les souhaits",
   "store.spotlight.addToWishlist": "Ajouter aux souhaits",
@@ -4753,4 +4729,13 @@ export const fr: TranslationDict = {
   "stats.milestone.ach25.desc": "Débloquez 25 succès à travers vos jeux.",
   "stats.milestone.ach100.title": "Légende des Succès (100 Succès)",
   "stats.milestone.ach100.desc": "Débloquez 100 succès dans votre bibliothèque.",
+  "gamePage.editGame": "Modifier {name}",
+  "gamePage.fullscreenScreenshot": "Capture plein écran",
+  "gamePage.prevScreenshot": "Capture précédente",
+  "gamePage.removeGame": "Supprimer {name} de la bibliothèque",
+  "gamePage.returnToLibrary": "Retour à la bibliothèque",
+  "common.noResults": "Aucun résultat trouvé",
+  "common.showLess": "Afficher moins",
+  "steamPlayer.communityHub": "Hub de la communauté",
+  "steamPlayer.steamDb": "SteamDB",
 };
