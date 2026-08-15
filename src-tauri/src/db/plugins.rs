@@ -36,10 +36,15 @@ pub struct PluginRow {
     /// Unix seconds of install.
     pub imported_at: u64,
     pub last_error: Option<String>,
+    /// Broad platform class ("pc" | "console" | "hybrid") declared by
+    /// the plugin manifest, normalised on write. Empty for legacy rows
+    /// created before this column existed.
+    pub platform_category: String,
 }
 
 const SELECT_SQL: &str = "SELECT id, name, version, author, description, source_url,
-                                 file_hash, file_path, enabled, imported_at, last_error
+                                 file_hash, file_path, enabled, imported_at, last_error,
+                                 platform_category
                             FROM plugins";
 
 fn row_from_row(r: &rusqlite::Row<'_>) -> rusqlite::Result<PluginRow> {
@@ -55,6 +60,7 @@ fn row_from_row(r: &rusqlite::Row<'_>) -> rusqlite::Result<PluginRow> {
         enabled: r.get::<_, i64>(8)? != 0,
         imported_at: r.get::<_, i64>(9)? as u64,
         last_error: r.get(10)?,
+        platform_category: r.get(11)?,
     })
 }
 
@@ -88,8 +94,9 @@ pub fn upsert_plugin(db: &Db, plugin: &PluginRow) -> Result<(), String> {
     conn.execute(
         "INSERT INTO plugins(
             id, name, version, author, description, source_url,
-            file_hash, file_path, enabled, imported_at, last_error
-         ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11)
+            file_hash, file_path, enabled, imported_at, last_error,
+            platform_category
+         ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12)
          ON CONFLICT(id) DO UPDATE SET
             name        = excluded.name,
             version     = excluded.version,
@@ -100,7 +107,8 @@ pub fn upsert_plugin(db: &Db, plugin: &PluginRow) -> Result<(), String> {
             file_path   = excluded.file_path,
             enabled     = excluded.enabled,
             imported_at = excluded.imported_at,
-            last_error  = excluded.last_error",
+            last_error  = excluded.last_error,
+            platform_category = excluded.platform_category",
         params![
             plugin.id,
             plugin.name,
@@ -113,6 +121,7 @@ pub fn upsert_plugin(db: &Db, plugin: &PluginRow) -> Result<(), String> {
             plugin.enabled as i64,
             plugin.imported_at as i64,
             plugin.last_error,
+            plugin.platform_category,
         ],
     )
     .map_err(|e| format!("plugins upsert: {e}"))?;
@@ -148,5 +157,18 @@ pub fn set_plugin_error(db: &Db, id: &str, error: Option<&str>) -> Result<(), St
         params![error, id],
     )
     .map_err(|e| format!("plugins error {id}: {e}"))?;
+    Ok(())
+}
+
+/// Update a plugin's stored platform category. Used to backfill legacy
+/// rows whose `platform_category` is still empty after the v2 migration
+/// (e.g. an already-installed plugin whose manifest now declares one).
+pub fn set_plugin_category(db: &Db, id: &str, category: &str) -> Result<(), String> {
+    let conn = db.plugins().map_err(|e| format!("plugins conn: {e}"))?;
+    conn.execute(
+        "UPDATE plugins SET platform_category = ?1 WHERE id = ?2",
+        params![category, id],
+    )
+    .map_err(|e| format!("plugins category {id}: {e}"))?;
     Ok(())
 }

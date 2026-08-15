@@ -1,6 +1,11 @@
 import type { MatchedDownload } from "../../types/source";
 import type { DownloadSearchResult } from "../../types/plugins";
-import type { DisplayMatch, SourceFilterOption } from "./types";
+import type {
+  DisplayMatch,
+  SourceFilterOption,
+  PlatformFilter,
+  DownloadTypeFilter,
+} from "./types";
 
 /**
  * Single source of truth for "which URI does the user actually want to
@@ -203,12 +208,55 @@ export function extractSourceFilters(
 }
 
 /**
- * Filter a list of matches by active source filter and search text.
+ * Broad platform class of a match. Built-in sources are PC repacks;
+ * plugin hits inherit the category their plugin manifest declared
+ * (unknown values fall back to "pc").
+ */
+export function platformCategoryOf(
+  match: DownloadSearchResult,
+): "pc" | "console" | "hybrid" {
+  if (match.provider === "plugin") {
+    const c = (match.platformCategory ?? "").toLowerCase();
+    if (c === "console" || c === "hybrid") return c;
+    return "pc";
+  }
+  return "pc";
+}
+
+/**
+ * Which download methods a match actually offers, derived from its
+ * magnet, torrent URL and mirror URIs. A result offering several
+ * methods appears under each of them.
+ */
+export function matchDownloadTypes(
+  match: DownloadSearchResult,
+): Set<"torrent" | "magnet" | "direct"> {
+  const types = new Set<"torrent" | "magnet" | "direct">();
+  if (match.magnet && match.magnet.trim()) types.add("magnet");
+  if (match.torrentUrl && match.torrentUrl.trim()) types.add("torrent");
+  for (const uri of match.uris ?? []) {
+    if (!uri) continue;
+    const { isMagnet, isTorrentFile, isDirect } = classifyUri(
+      uri,
+      match.torrentUrl ?? null,
+    );
+    if (isMagnet) types.add("magnet");
+    else if (isTorrentFile) types.add("torrent");
+    else if (isDirect) types.add("direct");
+  }
+  return types;
+}
+
+/**
+ * Filter a list of matches by active source filter, platform class,
+ * download type and search text.
  */
 export function filterMatches(
   matches: DisplayMatch[],
   sourceFilter: string,
   searchQuery?: string,
+  platformFilter: PlatformFilter = "all",
+  typeFilter: DownloadTypeFilter = "all",
 ): DisplayMatch[] {
   let list = matches;
 
@@ -225,6 +273,18 @@ export function filterMatches(
           m.sourceName.toLowerCase() === sourceFilter.toLowerCase(),
       );
     }
+  }
+
+  if (platformFilter && platformFilter !== "all") {
+    list = list.filter((m) => {
+      const cat = platformCategoryOf(m);
+      if (platformFilter === "pc") return cat !== "console";
+      return cat !== "pc"; // console: keep console + hybrid hits
+    });
+  }
+
+  if (typeFilter && typeFilter !== "all") {
+    list = list.filter((m) => matchDownloadTypes(m).has(typeFilter));
   }
 
   if (searchQuery && searchQuery.trim()) {

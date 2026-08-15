@@ -33,6 +33,12 @@ export interface PluginInfo extends PluginCandidate {
   importedAt: number;
   /** Non-null when the plugin failed at runtime (load/search error). */
   lastError: string | null;
+  /**
+   * Broad platform class the plugin searches: "pc", "console", or
+   * "hybrid" (both). Declared by the plugin manifest and used by the
+   * download modal's platform filter.
+   */
+  platformCategory?: string;
 }
 
 /**
@@ -73,6 +79,12 @@ export interface DownloadSearchResult extends MatchedDownload {
    * `.torrent` URL (anti-hotlink hosts reject the request without it).
    */
   referer?: string;
+  /**
+   * Broad platform class of the hit: "pc" | "console" | "hybrid".
+   * Built-in sources are "pc"; plugin hits inherit their plugin's
+   * declared category.
+   */
+  platformCategory?: string;
 }
 
 export interface SearchProgressEvent {

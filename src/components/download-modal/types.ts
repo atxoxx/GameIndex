@@ -17,6 +17,12 @@ export type CacheCheckStatus =
 /** How the results list is ordered. */
 export type SortKey = "date" | "source" | "relevance";
 
+/** Broad platform class filter for the results list. */
+export type PlatformFilter = "all" | "pc" | "console";
+
+/** Download method filter for the results list. */
+export type DownloadTypeFilter = "all" | "torrent" | "magnet" | "direct";
+
 import type { DownloadSearchResult } from "../../types/plugins";
 
 /** A search match (source or plugin) plus a stable id (assigned per

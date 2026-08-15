@@ -153,6 +153,18 @@ export default function PluginsTab() {
     }
   };
 
+  const categoryBadge = (cat?: string) => {
+    switch ((cat ?? "").toLowerCase()) {
+      case "console":
+        return { label: t("settings.plugins.categoryConsole"), cls: "console" };
+      case "hybrid":
+      case "both":
+        return { label: t("settings.plugins.categoryHybrid"), cls: "hybrid" };
+      default:
+        return { label: t("settings.plugins.categoryPc"), cls: "pc" };
+    }
+  };
+
   return (
     <>
       {/* ── Import + trust gate ─────────────────────────────────────────── */}
@@ -349,6 +361,13 @@ export default function PluginsTab() {
                         v{plugin.version}
                       </span>
                     )}
+                    <span
+                      className={`settings-plugins-item-badge settings-plugins-item-badge--${
+                        categoryBadge(plugin.platformCategory).cls
+                      }`}
+                    >
+                      {categoryBadge(plugin.platformCategory).label}
+                    </span>
                   </div>
                   <div className="settings-plugins-item-sub">
                     {plugin.author

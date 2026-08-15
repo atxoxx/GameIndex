@@ -45,7 +45,14 @@ import {
   sortMatches,
   webUrlFor,
 } from "./helpers";
-import type { DownloadStep, SortKey, DisplayMatch, CacheCheckStatus } from "./types";
+import type {
+  DownloadStep,
+  SortKey,
+  DisplayMatch,
+  CacheCheckStatus,
+  PlatformFilter,
+  DownloadTypeFilter,
+} from "./types";
 import type { DownloadSearchResult, SearchProgressEvent } from "../../types/plugins";
 import { OwnershipBanner } from "./OwnershipBanner";
 import { ConfidenceWarning } from "./ConfidenceWarning";
@@ -101,6 +108,9 @@ export default function DownloadModal({
   } | null>(null);
   const [sourceFilter, setSourceFilter] = useState<string>("all");
   const [searchQuery, setSearchQuery] = useState<string>("");
+  // Broad PC/console switch + download-method filter for the results.
+  const [platformFilter, setPlatformFilter] = useState<PlatformFilter>("all");
+  const [typeFilter, setTypeFilter] = useState<DownloadTypeFilter>("all");
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [sortBy, setSortBy] = useState<SortKey>("date");
   // Reflected copy of `sortBy` so `runSearch` can pick the default
@@ -150,10 +160,10 @@ export default function DownloadModal({
     [matches, t],
   );
 
-  // Filter raw matches by selected source and search query
+  // Filter raw matches by selected source, platform, type and search query
   const filteredMatches = useMemo(
-    () => filterMatches(matches, sourceFilter, searchQuery),
-    [matches, sourceFilter, searchQuery],
+    () => filterMatches(matches, sourceFilter, searchQuery, platformFilter, typeFilter),
+    [matches, sourceFilter, searchQuery, platformFilter, typeFilter],
   );
 
   const isSingleSourceFiltered =
@@ -201,6 +211,8 @@ export default function DownloadModal({
   const handleClearFilters = useCallback(() => {
     setSourceFilter("all");
     setSearchQuery("");
+    setPlatformFilter("all");
+    setTypeFilter("all");
   }, []);
 
   // Whether an AllDebrid/TorBox key is configured in Settings. Read once
@@ -945,6 +957,10 @@ export default function DownloadModal({
                   totalRawMatchesCount={matches.length}
                   onClearFilters={handleClearFilters}
                   searchProgress={searchProgress}
+                  platformFilter={platformFilter}
+                  onPlatformFilterChange={setPlatformFilter}
+                  typeFilter={typeFilter}
+                  onTypeFilterChange={setTypeFilter}
                 />
               ) : (
                 <div className="dl-results-layout">
@@ -966,6 +982,10 @@ export default function DownloadModal({
                       totalRawMatchesCount={matches.length}
                       onClearFilters={handleClearFilters}
                       searchProgress={searchProgress}
+                      platformFilter={platformFilter}
+                      onPlatformFilterChange={setPlatformFilter}
+                      typeFilter={typeFilter}
+                      onTypeFilterChange={setTypeFilter}
                     />
                   </div>
                   <DetailPanel

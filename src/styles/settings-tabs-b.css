@@ -1300,6 +1300,37 @@
   font-variant-numeric: tabular-nums;
 }
 
+/* Platform class badge — PC / Console / hybrid. */
+.settings-plugins-item-badge {
+  flex-shrink: 0;
+  padding: 1px 7px;
+  border-radius: var(--radius-full);
+  font-size: 10px;
+  font-weight: var(--font-weight-semibold);
+  letter-spacing: 0.3px;
+  border: 1px solid var(--color-border);
+  color: var(--color-text-secondary);
+  background: var(--color-bg-secondary);
+}
+
+.settings-plugins-item-badge--pc {
+  color: var(--color-accent);
+  border-color: color-mix(in srgb, var(--color-accent) 45%, var(--color-border));
+  background: color-mix(in srgb, var(--color-accent) 10%, transparent);
+}
+
+.settings-plugins-item-badge--console {
+  color: var(--color-success);
+  border-color: color-mix(in srgb, var(--color-success) 45%, var(--color-border));
+  background: color-mix(in srgb, var(--color-success) 10%, transparent);
+}
+
+.settings-plugins-item-badge--hybrid {
+  color: var(--color-warning);
+  border-color: color-mix(in srgb, var(--color-warning) 45%, var(--color-border));
+  background: color-mix(in srgb, var(--color-warning) 10%, transparent);
+}
+
 .settings-plugins-item-sub {
   font-size: var(--font-size-xs);
   color: var(--color-text-muted);

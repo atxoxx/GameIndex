@@ -549,6 +549,61 @@
   color: #fff;
 }
 
+/* Platform + download-type segmented filters */
+.dl-filter-chips-row {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--space-sm) var(--space-md);
+  padding-bottom: 4px;
+}
+
+.dl-filter-group {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.dl-filter-group-label {
+  font-size: 10px;
+  font-weight: var(--font-weight-bold);
+  text-transform: uppercase;
+  letter-spacing: 0.6px;
+  color: var(--color-text-muted);
+  white-space: nowrap;
+}
+
+.dl-filter-chips {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.dl-filter-chip {
+  padding: 4px 10px;
+  background: var(--color-bg-secondary);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-full);
+  color: var(--color-text-secondary);
+  font-size: 11px;
+  font-weight: var(--font-weight-semibold);
+  font-family: inherit;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+
+.dl-filter-chip:hover {
+  border-color: var(--color-accent);
+  color: var(--color-text-primary);
+}
+
+.dl-filter-chip.selected {
+  background: color-mix(in srgb, var(--color-accent) 14%, transparent);
+  border-color: var(--color-accent);
+  color: var(--color-accent);
+}
+
 /* ─── Results List & Cards ───────────────────────────────────────── */
 .dl-results-list {
   display: flex;

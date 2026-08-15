@@ -97,6 +97,11 @@ pub struct PluginManifest {
     pub author: String,
     pub description: String,
     pub source_url: String,
+    /// Broad platform class the plugin searches: "pc", "console", or
+    /// "hybrid" (both). Absent/unknown values are normalised to "pc"
+    /// by [`crate::plugins::normalize_platform_category`] at the
+    /// command boundary; the sandbox stores the raw declared string.
+    pub platform_category: String,
 }
 
 /// A validated plugin: its manifest plus the raw source text.
@@ -334,6 +339,7 @@ fn inject_define_plugin<'js>(
             let author: String = descriptor.get("author")?;
             let description: String = descriptor.get("description").unwrap_or_default();
             let source_url: String = descriptor.get("sourceUrl").unwrap_or_default();
+            let platform_category: String = descriptor.get("platformCategory").unwrap_or_default();
             let search: Function = descriptor.get("search")?;
             ctx.globals().set("__pluginSearch", search)?;
             let manifest = PluginManifest {
@@ -343,6 +349,7 @@ fn inject_define_plugin<'js>(
                 author,
                 description,
                 source_url,
+                platform_category,
             };
             if let Ok(mut slot) = slot_f.lock() {
                 *slot = Some(manifest);

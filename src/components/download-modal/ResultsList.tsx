@@ -1,5 +1,11 @@
 import { Fragment } from "react";
-import type { SortKey, DisplayMatch, SourceFilterOption } from "./types";
+import type {
+  SortKey,
+  DisplayMatch,
+  SourceFilterOption,
+  PlatformFilter,
+  DownloadTypeFilter,
+} from "./types";
 import { ResultRow } from "./ResultRow";
 import { useLanguage } from "../../context/LanguageContext";
 
@@ -17,6 +23,10 @@ export function ResultsList({
   sourceFilterOptions,
   searchQuery,
   onSearchQueryChange,
+  platformFilter,
+  onPlatformFilterChange,
+  typeFilter,
+  onTypeFilterChange,
   totalRawMatchesCount,
   onClearFilters,
   searchProgress,
@@ -34,6 +44,10 @@ export function ResultsList({
   sourceFilterOptions: SourceFilterOption[];
   searchQuery: string;
   onSearchQueryChange: (query: string) => void;
+  platformFilter: PlatformFilter;
+  onPlatformFilterChange: (filter: PlatformFilter) => void;
+  typeFilter: DownloadTypeFilter;
+  onTypeFilterChange: (filter: DownloadTypeFilter) => void;
   totalRawMatchesCount: number;
   onClearFilters: () => void;
   searchProgress?: {
@@ -44,6 +58,18 @@ export function ResultsList({
   } | null;
 }) {
   const { t } = useLanguage();
+
+  const platformOptions: { id: PlatformFilter; label: string }[] = [
+    { id: "all", label: t("downloadModal.filterAll") },
+    { id: "pc", label: t("downloadModal.platformPc") },
+    { id: "console", label: t("downloadModal.platformConsole") },
+  ];
+  const typeOptions: { id: DownloadTypeFilter; label: string }[] = [
+    { id: "all", label: t("downloadModal.filterAll") },
+    { id: "torrent", label: t("downloadModal.filterTorrent") },
+    { id: "magnet", label: t("downloadModal.filterMagnet") },
+    { id: "direct", label: t("downloadModal.filterDirect") },
+  ];
 
   if (totalRawMatchesCount === 0) {
     if (searchProgress && searchProgress.total > 1 && !searchProgress.isDone) {
@@ -123,7 +149,11 @@ export function ResultsList({
     (m) => m.matchScore < 0.4 && m.provider !== "plugin" && sourceFilter === "all",
   ).length;
 
-  const hasActiveFilters = sourceFilter !== "all" || Boolean(searchQuery.trim());
+  const hasActiveFilters =
+    sourceFilter !== "all" ||
+    platformFilter !== "all" ||
+    typeFilter !== "all" ||
+    Boolean(searchQuery.trim());
   const showControls = totalRawMatchesCount > 1;
   const showPills = sourceFilterOptions.length > 2;
   const showSearch = totalRawMatchesCount > 3 || Boolean(searchQuery.trim());
@@ -197,6 +227,44 @@ export function ResultsList({
           </div>
         )}
       </div>
+
+      {/* Platform + download-type segmented filters */}
+      {showControls && (
+        <div className="dl-filter-chips-row">
+          <div className="dl-filter-group" role="group" aria-label={t("downloadModal.filterPlatform")}>
+            <span className="dl-filter-group-label">{t("downloadModal.filterPlatform")}</span>
+            <div className="dl-filter-chips">
+              {platformOptions.map((opt) => (
+                <button
+                  key={opt.id}
+                  type="button"
+                  className={`dl-filter-chip${platformFilter === opt.id ? " selected" : ""}`}
+                  aria-pressed={platformFilter === opt.id}
+                  onClick={() => onPlatformFilterChange(opt.id)}
+                >
+                  {opt.label}
+                </button>
+              ))}
+            </div>
+          </div>
+          <div className="dl-filter-group" role="group" aria-label={t("downloadModal.filterType")}>
+            <span className="dl-filter-group-label">{t("downloadModal.filterType")}</span>
+            <div className="dl-filter-chips">
+              {typeOptions.map((opt) => (
+                <button
+                  key={opt.id}
+                  type="button"
+                  className={`dl-filter-chip${typeFilter === opt.id ? " selected" : ""}`}
+                  aria-pressed={typeFilter === opt.id}
+                  onClick={() => onTypeFilterChange(opt.id)}
+                >
+                  {opt.label}
+                </button>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Live Search Progress Bar (when searching multiple sources) */}
       {searchProgress && searchProgress.total > 1 && !searchProgress.isDone && (

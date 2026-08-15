@@ -87,6 +87,8 @@ pub struct PluginInfo {
     pub enabled: bool,
     pub imported_at: u64,
     pub last_error: Option<String>,
+    /// Broad platform class: "pc" | "console" | "hybrid".
+    pub platform_category: String,
 }
 
 impl From<db::plugins::PluginRow> for PluginInfo {
@@ -102,6 +104,7 @@ impl From<db::plugins::PluginRow> for PluginInfo {
             enabled: r.enabled,
             imported_at: r.imported_at,
             last_error: r.last_error,
+            platform_category: normalize_platform_category(&r.platform_category),
         }
     }
 }
@@ -159,6 +162,11 @@ pub struct DownloadSearchResult {
     /// `.torrent` URL. Plugins set it for anti-hotlink hosts.
     #[serde(default)]
     pub referer: Option<String>,
+    /// Broad platform class of the hit: "pc" | "console" | "hybrid".
+    /// Built-in sources are "pc"; plugin hits inherit their plugin's
+    /// declared category (normalised to "pc" when absent).
+    #[serde(default)]
+    pub platform_category: String,
 }
 
 // ─── PluginManager ──────────────────────────────────────────────────────────
@@ -217,9 +225,21 @@ impl PluginManager {
         for row in rows.into_iter().filter(|r| r.enabled) {
             match std::fs::read_to_string(&row.file_path) {
                 Ok(source) => match runtime::evaluate_plugin(&source, &self.http) {
-                    Ok(_) => {
+                    Ok(descriptor) => {
                         if let Ok(mut map) = self.sources.lock() {
                             map.insert(row.id.clone(), source);
+                        }
+                        // Backfill the platform category for rows that
+                        // predate the v2 column.
+                        let category = normalize_platform_category(
+                            &descriptor.manifest.platform_category,
+                        );
+                        if category != row.platform_category {
+                            let _ = db::plugins::set_plugin_category(
+                                &self.db,
+                                &row.id,
+                                &category,
+                            );
                         }
                     }
                     Err(e) => {
@@ -400,6 +420,7 @@ pub async fn plugins_install(
         enabled: true,
         imported_at: unix_now_secs(),
         last_error: None,
+        platform_category: normalize_platform_category(&m.platform_category),
     };
     db::plugins::upsert_plugin(&state.db, &row)?;
     if let Ok(mut map) = state.sources.lock() {
@@ -442,11 +463,16 @@ pub async fn plugins_toggle(
     if new_enabled {
         match std::fs::read_to_string(&row.file_path) {
             Ok(source) => match runtime::evaluate_plugin(&source, &state.http) {
-                Ok(_) => {
+                Ok(descriptor) => {
                     if let Ok(mut map) = state.sources.lock() {
                         map.insert(id.clone(), source);
                     }
                     let _ = db::plugins::set_plugin_error(&state.db, &id, None);
+                    let category =
+                        normalize_platform_category(&descriptor.manifest.platform_category);
+                    if category != row.platform_category {
+                        let _ = db::plugins::set_plugin_category(&state.db, &id, &category);
+                    }
                 }
                 Err(e) => {
                     let _ = db::plugins::set_plugin_error(&state.db, &id, Some(&e));
@@ -697,6 +723,7 @@ fn source_to_download_search_result(m: MatchedDownload) -> DownloadSearchResult 
         platform: None,
         provenance: None,
         referer: None,
+        platform_category: "pc".to_string(),
     }
 }
 
@@ -762,6 +789,7 @@ fn raw_to_download_search_result(
         platform: raw.platform.clone().filter(|p| !p.is_empty()),
         provenance: raw.provenance.clone(),
         referer: raw.referer.clone(),
+        platform_category: normalize_platform_category(&row.platform_category),
     })
 }
 
@@ -783,6 +811,18 @@ fn unix_now_secs() -> u64 {
         .duration_since(std::time::UNIX_EPOCH)
         .map(|d| d.as_secs())
         .unwrap_or(0)
+}
+
+/// Normalise a plugin's declared platform class to one of the three
+/// canonical values. Anything that isn't "console" or "hybrid" —
+/// including an empty/absent manifest field from legacy plugins — is
+/// treated as "pc" (the default assumption for a game-download plugin).
+fn normalize_platform_category(raw: &str) -> String {
+    match raw.trim().to_ascii_lowercase().as_str() {
+        "console" => "console".to_string(),
+        "hybrid" | "both" => "hybrid".to_string(),
+        _ => "pc".to_string(),
+    }
 }
 
 // ─── Tests ──────────────────────────────────────────────────────────────────
