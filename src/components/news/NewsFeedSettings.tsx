@@ -1,6 +1,6 @@
 import { useState, useCallback, useEffect, useRef, useMemo } from "react";
 import type { NewsFeed, FeedHealthStatus } from "../../hooks/useNewsFeeds";
-import { DEFAULT_FEEDS, CURATED_FEED_PACKS, discoverFeedUrl } from "../../hooks/useNewsFeeds";
+import { DEFAULT_FEEDS, CURATED_FEED_PACKS, getRegionalFeeds, discoverFeedUrl } from "../../hooks/useNewsFeeds";
 import { useLanguage } from "../../context/LanguageContext";
 
 interface NewsFeedSettingsProps {
@@ -38,7 +38,7 @@ export default function NewsFeedSettings({
   onTestFeedHealth,
   onClose,
 }: NewsFeedSettingsProps) {
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
   const [name, setName] = useState("");
   const [url, setUrl] = useState("");
   const [feedCategory, setFeedCategory] = useState("general");
@@ -46,6 +46,7 @@ export default function NewsFeedSettings({
   const [discovering, setDiscovering] = useState(false);
   const [searchFilter, setSearchFilter] = useState("");
   const opmlInputRef = useRef<HTMLInputElement>(null);
+  const regionalFeeds = getRegionalFeeds(language);
 
   const handleKeyDown = useCallback(
     (e: KeyboardEvent) => {
@@ -87,6 +88,7 @@ export default function NewsFeedSettings({
 
     const allUrls = [
       ...DEFAULT_FEEDS.map((f) => f.url),
+      ...regionalFeeds.map((f) => f.url),
       ...customFeeds.map((f) => f.url),
     ];
     if (allUrls.some((u) => u.toLowerCase() === trimmedUrl.toLowerCase())) {
@@ -263,9 +265,9 @@ export default function NewsFeedSettings({
           {/* Default feeds */}
           <div className="news-feed-settings-section">
             <h3 className="news-feed-settings-section-title">
-              {t("news.defaultFeeds")}
+              {t("news.internationalFeeds")}
               <span className="news-feed-settings-count">
-                {t("news.feedsEnabled", { enabled: allFeeds.filter((f) => f.isDefault && enabledFeedUrls.has(f.url)).length, total: DEFAULT_FEEDS.length })}
+                {t("news.feedsEnabled", { enabled: DEFAULT_FEEDS.filter((f) => enabledFeedUrls.has(f.url)).length, total: DEFAULT_FEEDS.length })}
               </span>
             </h3>
             {filteredDefaults.map((feed) => {
@@ -301,6 +303,51 @@ export default function NewsFeedSettings({
               );
             })}
           </div>
+
+          {/* Regional feeds (per active UI language) */}
+          {regionalFeeds.length > 0 && (
+            <div className="news-feed-settings-section">
+              <h3 className="news-feed-settings-section-title">
+                {t("news.regionalFeeds")}
+                <span className="news-feed-settings-count">
+                  {t("news.feedsEnabled", { enabled: regionalFeeds.filter((f) => enabledFeedUrls.has(f.url)).length, total: regionalFeeds.length })}
+                </span>
+              </h3>
+              <p className="news-feed-opml-hint">{t("news.regionalFeedsHint")}</p>
+              {regionalFeeds.map((feed) => {
+                const isEnabled = enabledFeedUrls.has(feed.url);
+                const health = feedHealthMap.get(feed.url);
+                return (
+                  <div key={feed.url} className="news-feed-default-item">
+                    <div className="news-feed-default-icon">
+                      {feed.name.charAt(0)}
+                    </div>
+                    <div className="news-feed-default-info">
+                      <div className="news-feed-name-row">
+                        <span className="news-feed-default-name">{feed.name}</span>
+                        {health && (
+                          <span className={`news-feed-health-chip ${health.status}`}>
+                            {health.status === "ok" ? "🟢" : health.status === "slow" ? "🟡" : "🔴"} {health.latencyMs}ms
+                          </span>
+                        )}
+                      </div>
+                      <div className="news-feed-default-url" title={feed.url}>
+                        {feed.url}
+                      </div>
+                    </div>
+                    <button
+                      type="button"
+                      className={`news-source-pill news-feed-item-toggle${isEnabled ? " active" : ""}`}
+                      onClick={() => onToggleFeed(feed.url)}
+                      title={isEnabled ? t("news.disableFeed", { name: feed.name }) : t("news.enableFeed", { name: feed.name })}
+                    >
+                      {isEnabled ? t("news.on") : t("news.off")}
+                    </button>
+                  </div>
+                );
+              })}
+            </div>
+          )}
 
           {/* Custom feeds */}
           <div className="news-feed-settings-section">
@@ -487,7 +534,7 @@ export default function NewsFeedSettings({
         {/* Footer */}
         <div className="modal-footer">
           <span className="modal-footer-count">
-            {t("news.feedCounts", { default: DEFAULT_FEEDS.length, custom: customFeeds.length })}
+            {t("news.feedCounts", { international: DEFAULT_FEEDS.length, regional: regionalFeeds.length, custom: customFeeds.length })}
           </span>
           <div className="modal-footer-actions">
             <button

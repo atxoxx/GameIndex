@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback, useRef, useMemo } from "react";
 import { invoke } from "@tauri-apps/api/core";
+import { useLanguage } from "../context/LanguageContext";
 
 // ── Types ──────────────────────────────────────────────────────────────
 
@@ -21,6 +22,8 @@ export interface NewsFeed {
   isDefault: boolean;
   enabled: boolean;
   category?: string;
+  /** UI language code for regional feeds (e.g. "de"); omitted for international/custom feeds. */
+  region?: string;
 }
 
 export interface NewsArticle {
@@ -113,6 +116,49 @@ export const DEFAULT_FEEDS: NewsFeed[] = [
     category: "general",
   },
 ];
+
+// Regional gaming feeds per non-English UI language. These are appended to the
+// international DEFAULT_FEEDS whenever the matching app language is active and
+// swapped out automatically when the language changes.
+export const REGIONAL_FEEDS: Record<string, NewsFeed[]> = {
+  de: [
+    { name: "Eurogamer.de", url: "https://www.eurogamer.de/feed", isDefault: true, enabled: true, category: "general", region: "de" },
+    { name: "Mein-MMO", url: "https://mein-mmo.de/feed/", isDefault: true, enabled: true, category: "pc", region: "de" },
+    { name: "GamesWirtschaft", url: "https://www.gameswirtschaft.de/feed/", isDefault: true, enabled: true, category: "general", region: "de" },
+    { name: "PC Games Hardware", url: "https://www.pcgameshardware.de/feed/", isDefault: true, enabled: true, category: "tech", region: "de" },
+  ],
+  fr: [
+    { name: "Jeuxvideo.com", url: "https://www.jeuxvideo.com/rss/rss-news.xml", isDefault: true, enabled: true, category: "general", region: "fr" },
+    { name: "Gamekult", url: "https://www.gamekult.com/feed.xml", isDefault: true, enabled: true, category: "general", region: "fr" },
+    { name: "ActuGaming", url: "https://www.actugaming.net/feed/", isDefault: true, enabled: true, category: "general", region: "fr" },
+  ],
+  es: [
+    { name: "Vandal", url: "https://vandal.elespanol.com/rss/", isDefault: true, enabled: true, category: "general", region: "es" },
+    { name: "Hobby Consolas", url: "https://www.hobbyconsolas.com/rss/", isDefault: true, enabled: true, category: "console", region: "es" },
+    { name: "Nintenderos", url: "https://www.nintenderos.com/feed/", isDefault: true, enabled: true, category: "console", region: "es" },
+  ],
+  ru: [
+    { name: "StopGame", url: "https://rss.stopgame.ru/rss_news.xml", isDefault: true, enabled: true, category: "general", region: "ru" },
+    { name: "GoHa.Ru", url: "https://www.goha.ru/rss/news", isDefault: true, enabled: true, category: "general", region: "ru" },
+    { name: "DTF", url: "https://dtf.ru/rss", isDefault: true, enabled: true, category: "general", region: "ru" },
+  ],
+  "zh-CN": [
+    { name: "机核 Gcores", url: "https://www.gcores.com/rss", isDefault: true, enabled: true, category: "general", region: "zh-CN" },
+    { name: "Steam 新闻", url: "https://store.steampowered.com/feeds/news/?l=schinese", isDefault: true, enabled: true, category: "general", region: "zh-CN" },
+  ],
+};
+
+/** Every managed (international + regional) feed across all languages, used for
+ *  duplicate detection when adding custom feeds. */
+export const ALL_MANAGED_FEEDS: NewsFeed[] = [
+  ...DEFAULT_FEEDS,
+  ...Object.values(REGIONAL_FEEDS).flat(),
+];
+
+/** Regional feeds for a given UI language code (empty for English). */
+export function getRegionalFeeds(language: string): NewsFeed[] {
+  return REGIONAL_FEEDS[language] ?? [];
+}
 
 export const CURATED_FEED_PACKS: CuratedFeedPack[] = [
   {
@@ -408,12 +454,6 @@ export function extractArticleTags(article: NewsArticle): string[] {
   return matched;
 }
 
-/** Get all enabled feed URLs. */
-function getEnabledUrls(customFeeds: NewsFeed[]): NewsFeed[] {
-  const all = [...DEFAULT_FEEDS, ...customFeeds.filter((f) => !f.isDefault)];
-  return all.filter((f) => f.enabled);
-}
-
 /** Parse RSS XML into NewsArticle array. */
 function parseRSS(xmlText: string, sourceName: string, sourceUrl: string): NewsArticle[] {
   const parser = new DOMParser();
@@ -599,6 +639,10 @@ interface NewsCache {
 // ── Hook ───────────────────────────────────────────────────────────────
 
 export function useNewsFeeds() {
+  const { language } = useLanguage();
+  const regionalFeeds = useMemo(() => getRegionalFeeds(language), [language]);
+  const baseFeeds = useMemo(() => [...DEFAULT_FEEDS, ...regionalFeeds], [regionalFeeds]);
+
   const [customFeeds, setCustomFeeds] = useState<NewsFeed[]>(loadCustomFeeds);
   const [articles, setArticles] = useState<NewsArticle[]>([]);
   const [loading, setLoading] = useState(true);
@@ -611,15 +655,15 @@ export function useNewsFeeds() {
   const [feedHealthMap, setFeedHealthMap] = useState<Map<string, FeedHealthStatus>>(new Map());
   const [testingHealth, setTestingHealth] = useState(false);
 
-  // All feeds (defaults + custom, respecting enabled state)
+  // All feeds (international + regional defaults + custom, respecting enabled state)
   const allFeeds = useMemo(() => {
-    const defaults = DEFAULT_FEEDS.map((d) => {
+    const defaults = baseFeeds.map((d) => {
       const override = customFeeds.find((c) => c.url === d.url);
       return override ?? d;
     });
-    const customs = customFeeds.filter((c) => !DEFAULT_FEEDS.some((d) => d.url === c.url));
+    const customs = customFeeds.filter((c) => !c.isDefault);
     return [...defaults, ...customs];
-  }, [customFeeds]);
+  }, [baseFeeds, customFeeds]);
 
   // All unique source names
   const sourceNames = useMemo(() => {
@@ -657,7 +701,7 @@ export function useNewsFeeds() {
     setError(null);
     setFailedFeedsList([]);
 
-    const enabledFeeds = getEnabledUrls(customFeeds);
+    const enabledFeeds = allFeeds.filter((f) => f.enabled);
 
     const results = await Promise.all(
       enabledFeeds.map(async (feed) => {
@@ -720,7 +764,7 @@ export function useNewsFeeds() {
     }
 
     if (mountedRef.current) setLoading(false);
-  }, [customFeeds]);
+  }, [allFeeds]);
 
   // Feed health and latency diagnostics
   const testFeedHealth = useCallback(async (): Promise<FeedHealthStatus[]> => {
@@ -773,18 +817,29 @@ export function useNewsFeeds() {
 
   const toggleFeed = useCallback((feedUrl: string) => {
     setCustomFeeds((prev) => {
-      const updated = prev.map((f) =>
-        f.url === feedUrl ? { ...f, enabled: !f.enabled } : f
-      );
+      const existing = prev.find((f) => f.url === feedUrl);
+      let updated: NewsFeed[];
+      if (existing) {
+        updated = prev.map((f) =>
+          f.url === feedUrl ? { ...f, enabled: !f.enabled } : f
+        );
+      } else {
+        const base = baseFeeds.find((f) => f.url === feedUrl);
+        if (!base) return prev;
+        updated = [...prev, { ...base, enabled: !base.enabled }];
+      }
       saveCustomFeeds(updated);
       return updated;
     });
-  }, []);
+  }, [baseFeeds]);
 
   const addCustomFeed = useCallback(
     (name: string, url: string, category = "general") => {
       setCustomFeeds((prev) => {
         if (prev.some((f) => f.url.toLowerCase() === url.toLowerCase())) {
+          return prev;
+        }
+        if (ALL_MANAGED_FEEDS.some((f) => f.url.toLowerCase() === url.toLowerCase())) {
           return prev;
         }
         const updated = [...prev, { name, url, isDefault: false, enabled: true, category }];
@@ -803,7 +858,7 @@ export function useNewsFeeds() {
     setCustomFeeds((prev) => {
       const next = [...prev];
       for (const f of pack.feeds) {
-        const existsInDefaults = DEFAULT_FEEDS.some((d) => d.url.toLowerCase() === f.url.toLowerCase());
+        const existsInDefaults = ALL_MANAGED_FEEDS.some((d) => d.url.toLowerCase() === f.url.toLowerCase());
         const existsInCustom = next.some((c) => c.url.toLowerCase() === f.url.toLowerCase());
         if (!existsInDefaults && !existsInCustom) {
           next.push({ name: f.name, url: f.url, isDefault: false, enabled: true, category: pack.category });
@@ -888,13 +943,28 @@ export function useNewsFeeds() {
     });
   }, []);
 
+  const feedsKey = useMemo(
+    () =>
+      allFeeds
+        .filter((f) => f.enabled)
+        .map((f) => f.url)
+        .sort()
+        .join("|"),
+    [allFeeds]
+  );
+  const prevFeedsKeyRef = useRef<string | null>(null);
+
   useEffect(() => {
     mountedRef.current = true;
-    fetchFeeds();
+    // Force a refetch when the enabled feed set changes (language switch or
+    // toggling feeds) so the cached articles always match the active feeds.
+    const force = prevFeedsKeyRef.current !== null && prevFeedsKeyRef.current !== feedsKey;
+    prevFeedsKeyRef.current = feedsKey;
+    fetchFeeds(force);
     return () => {
       mountedRef.current = false;
     };
-  }, [fetchFeeds]);
+  }, [fetchFeeds, feedsKey]);
 
   return {
     articles: filteredArticles,
