@@ -634,6 +634,48 @@ export function knownEmulatorByKey(key: string): KnownEmulator | undefined {
   return KNOWN_EMULATORS.find((e) => e.key === key);
 }
 
+/**
+ * Best-effort match of a configured emulator back to a catalog entry.
+ * Resolution order:
+ *   1. Exact (case-insensitive) display-name match.
+ *   2. Executable file-name match (basename of `executablePath`).
+ *   3. Platform match — only when exactly one catalog entry uses that
+ *      platform string. Consoles served by several emulators (e.g.
+ *      Nintendo Switch → Yuzu & Ryujinx, Sega Dreamcast → Demul /
+ *      Flycast / Redream) therefore never resolve ambiguously.
+ */
+export function matchKnownEmulator(
+  emulator: Emulator
+): KnownEmulator | undefined {
+  const name = emulator.name.trim().toLowerCase();
+  if (name) {
+    const byName = KNOWN_EMULATORS.find((k) => k.name.toLowerCase() === name);
+    if (byName) return byName;
+  }
+
+  const base = emulator.executablePath
+    .split(/[\\/]/)
+    .pop()
+    ?.trim()
+    .toLowerCase();
+  if (base) {
+    const byExe = KNOWN_EMULATORS.find(
+      (k) => k.executableName.toLowerCase() === base
+    );
+    if (byExe) return byExe;
+  }
+
+  const platform = emulator.platform.trim().toLowerCase();
+  if (platform) {
+    const byPlatform = KNOWN_EMULATORS.filter(
+      (k) => k.platform.toLowerCase() === platform
+    );
+    if (byPlatform.length === 1) return byPlatform[0];
+  }
+
+  return undefined;
+}
+
 /** Accent colour for a given platform (falls back to a neutral purple). */
 export function accentForPlatform(platform: string): string {
   const hit = KNOWN_EMULATORS.find(

@@ -9,6 +9,7 @@ import type { Game } from "../types/game";
 import {
   accentForPlatform,
   KNOWN_EMULATORS,
+  matchKnownEmulator,
   type Emulator,
   type KnownEmulator,
   type EmuRow,
@@ -97,9 +98,9 @@ export default function EmulatorsPage() {
     const used = new Set<string>();
 
     for (const k of KNOWN_EMULATORS) {
-      const emu =
-        emulators.find((e) => e.name === k.name) ??
-        emulators.find((e) => e.platform === k.platform);
+      const emu = emulators.find(
+        (e) => !used.has(e.id) && matchKnownEmulator(e)?.key === k.key
+      );
       if (emu) used.add(emu.id);
       result.push({
         id: emu ? emu.id : `known:${k.key}`,

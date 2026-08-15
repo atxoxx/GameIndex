@@ -11,7 +11,7 @@
 //
 // Data mirrors the desktop EmulatorsPage:
 //   • `invoke("list_emulators")` for configured emulators
-//   • `KNOWN_EMULATORS` catalog merged in (name-first, platform fallback)
+//   • `KNOWN_EMULATORS` catalog merged in via `matchKnownEmulator`
 //   • `useGames()` for per-emulator ROM counts and the ROM list
 // The desktop page is untouched.
 
@@ -25,6 +25,7 @@ import { useGamepad } from "../../hooks/GamepadProvider";
 import {
   KNOWN_EMULATORS,
   accentForPlatform,
+  matchKnownEmulator,
   type Emulator,
 } from "../../types/emulator";
 import { formatBytesShort } from "../../types/download";
@@ -83,14 +84,14 @@ export default function BigScreenEmulatorsPage() {
   }, [games]);
 
   // Merge the curated catalog with the configured emulators — same
-  // name-first, platform-fallback matching the desktop page uses.
+  // `matchKnownEmulator` matching the desktop page uses.
   const rows = useMemo<EmuRow[]>(() => {
     const result: EmuRow[] = [];
     const used = new Set<string>();
     for (const k of KNOWN_EMULATORS) {
-      const emu =
-        emulators.find((e) => e.name === k.name) ??
-        emulators.find((e) => e.platform === k.platform);
+      const emu = emulators.find(
+        (e) => !used.has(e.id) && matchKnownEmulator(e)?.key === k.key
+      );
       if (emu) used.add(emu.id);
       result.push({
         id: emu ? emu.id : `known:${k.key}`,
