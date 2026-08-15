@@ -6,6 +6,9 @@ import { useLanguage } from "../../context/LanguageContext";
 import { useToast } from "../../context/ToastContext";
 import { Button } from "../../components/ui";
 import SettingsSection from "./SettingsSection";
+import PluginsBulkImportModal, {
+  type BulkSkippedFile,
+} from "./PluginsBulkImportModal";
 import { ListIcon, PluginIcon } from "./settingsIcons";
 import type { PluginCandidate, PluginInfo } from "../../types/plugins";
 
@@ -33,6 +36,12 @@ export default function PluginsTab() {
   const [importError, setImportError] = useState<string | null>(null);
   const [installing, setInstalling] = useState(false);
   const [copiedHash, setCopiedHash] = useState(false);
+
+  // Bulk import flow
+  const [bulkScanning, setBulkScanning] = useState(false);
+  const [bulkCandidates, setBulkCandidates] = useState<PluginCandidate[]>([]);
+  const [bulkSkipped, setBulkSkipped] = useState<BulkSkippedFile[]>([]);
+  const [bulkModalOpen, setBulkModalOpen] = useState(false);
 
   // Per-row busy states so toggles/remove don't double-fire.
   const [busyId, setBusyId] = useState<string | null>(null);
@@ -74,6 +83,60 @@ export default function PluginsTab() {
       setCandidate(null);
     } finally {
       setScanning(false);
+    }
+  };
+
+  const handleBulkImport = async () => {
+    let picked: string | string[] | null;
+    try {
+      picked = await open({
+        multiple: true,
+        directory: false,
+        title: t("settings.plugins.bulkDialogTitle"),
+        filters: [{ name: t("settings.plugins.jsFilterName"), extensions: ["js"] }],
+      });
+    } catch (e) {
+      console.error("[PluginsTab] bulk file picker failed:", e);
+      showToast(t("settings.plugins.importError", { error: String(e) }), "error");
+      return;
+    }
+    if (!picked) return;
+    const paths = Array.isArray(picked) ? picked : [picked];
+    if (paths.length === 0) return;
+
+    setBulkScanning(true);
+    const candidates: PluginCandidate[] = [];
+    const skipped: BulkSkippedFile[] = [];
+    for (const path of paths) {
+      try {
+        const c = await invoke<PluginCandidate>("plugins_import_file", { path });
+        candidates.push(c);
+      } catch (e) {
+        console.error(`[PluginsTab] bulk import ${path} failed:`, e);
+        skipped.push({ path, error: String(e) });
+      }
+    }
+    setBulkScanning(false);
+
+    if (candidates.length === 0) {
+      showToast(t("settings.plugins.bulkAllFailed"), "error");
+      return;
+    }
+    setBulkCandidates(candidates);
+    setBulkSkipped(skipped);
+    setBulkModalOpen(true);
+  };
+
+  const handleBulkInstalled = (installed: number, failed: number) => {
+    setBulkModalOpen(false);
+    if (installed > 0) {
+      showToast(
+        failed > 0
+          ? t("settings.plugins.bulkPartialToast", { installed, failed })
+          : t("settings.plugins.bulkDoneToast", { count: installed }),
+        failed > 0 ? "warning" : "success",
+      );
+      void loadPlugins();
     }
   };
 
@@ -179,30 +242,57 @@ export default function PluginsTab() {
           {!candidate ? (
             <>
               <div className="settings-plugins-import-row">
-                <Button
-                  variant="secondary"
-                  onClick={handleImport}
-                  isLoading={scanning}
-                  leftIcon={
-                    !scanning ? (
-                      <svg
-                        viewBox="0 0 24 24"
-                        fill="none"
-                        stroke="currentColor"
-                        strokeWidth="2"
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        aria-hidden
-                      >
-                        <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
-                        <polyline points="17 8 12 3 7 8" />
-                        <line x1="12" y1="3" x2="12" y2="15" />
-                      </svg>
-                    ) : undefined
-                  }
-                >
-                  {t("settings.plugins.import")}
-                </Button>
+                <div className="settings-plugins-import-buttons">
+                  <Button
+                    variant="secondary"
+                    onClick={handleImport}
+                    isLoading={scanning}
+                    leftIcon={
+                      !scanning ? (
+                        <svg
+                          viewBox="0 0 24 24"
+                          fill="none"
+                          stroke="currentColor"
+                          strokeWidth="2"
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          aria-hidden
+                        >
+                          <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                          <polyline points="17 8 12 3 7 8" />
+                          <line x1="12" y1="3" x2="12" y2="15" />
+                        </svg>
+                      ) : undefined
+                    }
+                  >
+                    {t("settings.plugins.import")}
+                  </Button>
+                  <Button
+                    variant="secondary"
+                    onClick={handleBulkImport}
+                    isLoading={bulkScanning}
+                    leftIcon={
+                      !bulkScanning ? (
+                        <svg
+                          viewBox="0 0 24 24"
+                          fill="none"
+                          stroke="currentColor"
+                          strokeWidth="2"
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          aria-hidden
+                        >
+                          <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" />
+                          <circle cx="9" cy="7" r="4" />
+                          <line x1="19" y1="8" x2="19" y2="14" />
+                          <line x1="22" y1="11" x2="16" y2="11" />
+                        </svg>
+                      ) : undefined
+                    }
+                  >
+                    {t("settings.plugins.bulkImport")}
+                  </Button>
+                </div>
                 <p className="settings-helper-text">{t("settings.plugins.importHint")}</p>
               </div>
               {importError && (
@@ -437,6 +527,15 @@ export default function PluginsTab() {
           </div>
         )}
       </SettingsSection>
+
+      {/* ── Bulk import review modal ──────────────────────────────────── */}
+      <PluginsBulkImportModal
+        open={bulkModalOpen}
+        candidates={bulkCandidates}
+        skipped={bulkSkipped}
+        onClose={() => setBulkModalOpen(false)}
+        onInstalled={handleBulkInstalled}
+      />
     </>
   );
 }
