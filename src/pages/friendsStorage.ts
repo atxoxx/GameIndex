@@ -977,7 +977,7 @@ export interface SyncResult {
  * Publishes local social items and current player statistics to our outbox
  * subfolder in the fixed sync directory. Returns success + a human reason.
  */
-export async function pushMyOutbox(
+export function buildOutboxPayload(
   profile: UserProfile,
   stats: { gamesCount: number; playtimeMinutes: number; achievementsCount: number },
   sessions: GameSession[],
@@ -985,9 +985,9 @@ export async function pushMyOutbox(
   sharedGames?: SharedGameStat[],
   suggestions?: GameSuggestion[],
   dms?: DmThread[]
-): Promise<SyncResult> {
+) {
   const localFriends = loadFriends();
-  const payload = {
+  return {
     syncId: profile.syncId,
     profile: {
       name: profile.name,
@@ -1005,6 +1005,20 @@ export async function pushMyOutbox(
     recommendations: recs,
     suggestions: suggestions || [],
     dms: dms || [],
+  };
+}
+
+export async function pushMyOutbox(
+  profile: UserProfile,
+  stats: { gamesCount: number; playtimeMinutes: number; achievementsCount: number },
+  sessions: GameSession[],
+  recs: GameRecommendation[],
+  sharedGames?: SharedGameStat[],
+  suggestions?: GameSuggestion[],
+  dms?: DmThread[]
+): Promise<SyncResult> {
+  const payload = {
+    ...buildOutboxPayload(profile, stats, sessions, recs, sharedGames, suggestions, dms),
     updatedAt: Date.now(),
   };
 

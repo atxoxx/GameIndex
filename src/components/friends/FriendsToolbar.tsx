@@ -39,7 +39,7 @@ export default function FriendsToolbar({
   const { t } = useLanguage();
 
   const activityBadge =
-    unseenCounts.sessions + unseenCounts.recs + unseenCounts.suggestions + unseenCounts.dms;
+    unseenCounts.sessions + unseenCounts.recs + unseenCounts.suggestions;
 
   return (
     <div className="friends-tab-bar-container">

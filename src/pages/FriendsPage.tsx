@@ -23,6 +23,7 @@ import {
   RsvpStatus,
   ReactionKind,
   SuggestionReactionKind,
+  SyncResult,
   loadUserProfile,
   saveUserProfile,
   loadFriends,
@@ -50,6 +51,7 @@ import {
   getSyncFolder,
   fetchFriendOutbox,
   pushMyOutbox as pushMyOutboxStorage,
+  buildOutboxPayload,
   loadFriendsDbToLocalStorage,
   setDeviceId,
   listPeerOutboxes,
@@ -227,6 +229,25 @@ export default function FriendsPage() {
     });
   }, [currentlyPlaying]);
 
+  // Refs keep the latest profile/stats for the background sync loop so it never
+  // publishes a stale closure after the user launches/quits a game or gains stats.
+  const profileRef = useRef(profile);
+  const selfStatsRef = useRef(selfStats);
+  const selfSharedGamesRef = useRef(selfSharedGames);
+  useEffect(() => {
+    profileRef.current = profile;
+  }, [profile]);
+  useEffect(() => {
+    selfStatsRef.current = selfStats;
+  }, [selfStats]);
+  useEffect(() => {
+    selfSharedGamesRef.current = selfSharedGames;
+  }, [selfSharedGames]);
+
+  // Signature of the last outbox we published, used to skip redundant
+  // file writes + Nostr publishes when an idle poll finds nothing changed.
+  const lastPushedSignatureRef = useRef("");
+
   // Handle incoming Wishlist Suggestion jump signal
   useEffect(() => {
     const pending = consumePendingSuggestion();
@@ -338,11 +359,14 @@ export default function FriendsPage() {
 
   // ── Sync Implementation ─────────────────────────────────────────────
 
-  const publishToNostr = async (db: FriendsDatabase, sharedGames?: SharedGameStat[]) => {
+  const publishToNostr = async (
+    db: FriendsDatabase,
+    sharedGames?: SharedGameStat[],
+    stats: { gamesCount: number; playtimeMinutes: number; achievementsCount: number } = selfStats
+  ) => {
     try {
       const keys = getNostrKeys();
       const localFriendsList = loadFriends();
-      const stats = selfStats;
 
       const payload = {
         syncId: keys.publicKey,
@@ -394,8 +418,19 @@ export default function FriendsPage() {
     currRecs: GameRecommendation[],
     currSharedGames?: SharedGameStat[],
     currSuggestions?: GameSuggestion[],
-    currDms?: DmThread[]
-  ) => {
+    currDms?: DmThread[],
+    force = true
+  ): Promise<SyncResult> => {
+    const signature = JSON.stringify(
+      buildOutboxPayload(currProfile, currStats, currSessions, currRecs, currSharedGames, currSuggestions, currDms)
+    );
+
+    // Background polls skip the write + Nostr publish when the outbox payload
+    // is byte-identical to the last one we pushed — the common idle case.
+    if (!force && signature === lastPushedSignatureRef.current) {
+      return { ok: true };
+    }
+
     const res = await pushMyOutboxStorage(
       currProfile,
       currStats,
@@ -414,7 +449,8 @@ export default function FriendsPage() {
       suggestions: currSuggestions || [],
       dms: currDms || dms,
     };
-    publishToNostr(db, currSharedGames);
+    publishToNostr(db, currSharedGames, currStats);
+    lastPushedSignatureRef.current = signature;
     return res;
   };
 
@@ -459,20 +495,39 @@ export default function FriendsPage() {
         if (!isFriend) return;
       }
 
+      const localSessions = loadSessions();
+      const localRecs = loadRecommendations();
+      const localSuggestions = loadSuggestions();
+      const localDms = loadDms();
+
       const merged = mergeDatabases(
         {
           profile: localProfile,
           friends: localFriends,
-          sessions: loadSessions(),
-          recommendations: loadRecommendations(),
-          suggestions: loadSuggestions(),
-          dms: loadDms(),
+          sessions: localSessions,
+          recommendations: localRecs,
+          suggestions: localSuggestions,
+          dms: localDms,
         },
         remoteDb
       );
 
+      // Count genuinely new items (from friends, not ourselves) for badges.
+      const localSessionIds = new Set(localSessions.map((s) => s.id));
+      const localRecIds = new Set(localRecs.map((r) => r.id));
+      const localSuggestionIds = new Set(localSuggestions.map((s) => s.id));
+
+      const addedSessions = merged.sessions.filter(
+        (s) => !localSessionIds.has(s.id) && !s.deleted && s.creatorName !== localProfile.name
+      ).length;
+      const addedRecs = merged.recommendations.filter(
+        (r) => !localRecIds.has(r.id) && !r.deleted && r.recommendedBy !== localProfile.name
+      ).length;
+      const addedSuggestions = merged.suggestions.filter(
+        (s) => !localSuggestionIds.has(s.id) && !s.deleted && s.suggestedBy !== localProfile.name
+      ).length;
+
       let newDmMessages = 0;
-      const localDms = loadDms();
       (remoteDb.dms || []).forEach((remoteThread) => {
         const localThread = localDms.find((t) => t.id === remoteThread.id);
         const known = new Set((localThread?.messages || []).map((m) => m.id));
@@ -493,9 +548,19 @@ export default function FriendsPage() {
       saveSuggestions(merged.suggestions);
       saveDmsAndPersist(merged.dms);
 
-      if (newDmMessages > 0) {
-        addUnseenTabItems("dms", newDmMessages);
-        setUnseenCounts((prev) => ({ ...prev, dms: prev.dms + newDmMessages }));
+      if (addedSessions > 0) addUnseenTabItems("sessions", addedSessions);
+      if (addedRecs > 0) addUnseenTabItems("recs", addedRecs);
+      if (addedSuggestions > 0) addUnseenTabItems("suggestions", addedSuggestions);
+      if (newDmMessages > 0) addUnseenTabItems("dms", newDmMessages);
+
+      if (addedSessions > 0 || addedRecs > 0 || addedSuggestions > 0 || newDmMessages > 0) {
+        setUnseenCounts({
+          sessions: getUnseenTabItems("sessions"),
+          recs: getUnseenTabItems("recs"),
+          suggestions: getUnseenTabItems("suggestions"),
+          activity: getUnseenTabItems("activity"),
+          dms: getUnseenTabItems("dms"),
+        });
       }
     } catch (err) {
       console.error("Failed to parse/merge remote sync data:", err);
@@ -503,20 +568,24 @@ export default function FriendsPage() {
   };
 
   const pendingManualSync = useRef(false);
+  const isSyncingRef = useRef(false);
 
   const performSync = async (manual = false) => {
-    if (isSyncing) {
+    if (isSyncingRef.current) {
       if (manual) pendingManualSync.current = true;
       return;
     }
+    isSyncingRef.current = true;
     setIsSyncing(true);
 
     try {
-      if (!profile.syncId) {
+      const currProfile = profileRef.current;
+      if (!currProfile.syncId) {
         const keys = getNostrKeys();
-        const updated = { ...profile, syncId: keys.publicKey };
+        const updated = { ...currProfile, syncId: keys.publicKey };
         saveUserProfile(updated);
         setProfile(updated);
+        profileRef.current = updated;
       }
 
       const folder = await getSyncFolder();
@@ -531,6 +600,7 @@ export default function FriendsPage() {
       const localRecs = loadRecommendations();
       const localSuggestions = loadSuggestions();
       const localFriends = loadFriends();
+      const localDms = loadDms();
 
       let changesMade = false;
       let friendsUpdated = false;
@@ -543,10 +613,32 @@ export default function FriendsPage() {
       let mergedSessions = [...localSessions];
       let mergedRecs = [...localRecs];
       let mergedSuggestions = [...localSuggestions];
-      let mergedDms = [...loadDms()];
+      let mergedDms = [...localDms];
 
       const updatedFriends: Friend[] = [];
       const nowSecs = Math.floor(Date.now() / 1000);
+
+      // Fetch every non-blocked friend's outbox concurrently instead of awaiting
+      // each one in series — the main sync speedup when there are many friends.
+      const outboxBySyncId = new Map<
+        string,
+        { remoteOutbox: Awaited<ReturnType<typeof fetchFriendOutbox>>; error: string | null }
+      >();
+      await Promise.all(
+        localFriends
+          .filter((f) => !f.blocked)
+          .map(async (friend) => {
+            try {
+              const remoteOutbox = await fetchFriendOutbox(friend.syncId);
+              outboxBySyncId.set(friend.syncId, { remoteOutbox, error: null });
+            } catch (err) {
+              outboxBySyncId.set(friend.syncId, {
+                remoteOutbox: null,
+                error: err instanceof Error ? err.message : String(err),
+              });
+            }
+          })
+      );
 
       for (const friend of localFriends) {
         const friendName = displayName(friend);
@@ -557,7 +649,9 @@ export default function FriendsPage() {
         }
 
         try {
-          const remoteOutbox = await fetchFriendOutbox(friend.syncId);
+          const result = outboxBySyncId.get(friend.syncId);
+          if (result?.error) throw result.error;
+          const remoteOutbox = result?.remoteOutbox;
           if (remoteOutbox) {
             let friendSessions = 0;
             let friendRecs = 0;
@@ -607,14 +701,14 @@ export default function FriendsPage() {
               const knownMessages = new Map<string, Set<string>>();
               mergedDms.forEach((t) => knownMessages.set(t.id, new Set((t.messages || []).map((m) => m.id))));
               const prevDmCount = mergedDms.length;
-              mergedDms = mergeDms(mergedDms, remoteOutbox.dms, profile.name);
+              mergedDms = mergeDms(mergedDms, remoteOutbox.dms, currProfile.name);
               let newIncoming = 0;
               remoteOutbox.dms.forEach((rt) => {
                 const known = knownMessages.get(rt.id);
                 if (!known) {
-                  newIncoming += (rt.messages || []).filter((m) => m.author !== profile.name).length;
+                  newIncoming += (rt.messages || []).filter((m) => m.author !== currProfile.name).length;
                 } else {
-                  newIncoming += (rt.messages || []).filter((m) => !known.has(m.id) && m.author !== profile.name).length;
+                  newIncoming += (rt.messages || []).filter((m) => !known.has(m.id) && m.author !== currProfile.name).length;
                 }
               });
               if (newIncoming > 0) addUnseenTabItems("dms", newIncoming);
@@ -692,7 +786,13 @@ export default function FriendsPage() {
         setRecommendations(mergedRecs);
         setSuggestions(mergedSuggestions);
         setDms(mergedDms);
-        setUnseenCounts((prev) => ({ ...prev, dms: getUnseenTabItems("dms") }));
+        setUnseenCounts({
+          sessions: getUnseenTabItems("sessions"),
+          recs: getUnseenTabItems("recs"),
+          suggestions: getUnseenTabItems("suggestions"),
+          activity: getUnseenTabItems("activity"),
+          dms: getUnseenTabItems("dms"),
+        });
       }
 
       if (friendsUpdated) {
@@ -701,13 +801,14 @@ export default function FriendsPage() {
       }
 
       const pushed = await pushMyOutbox(
-        profile,
-        selfStats,
+        currProfile,
+        selfStatsRef.current,
         mergedSessions,
         mergedRecs,
-        selfSharedGames,
+        selfSharedGamesRef.current,
         mergedSuggestions,
-        mergedDms
+        mergedDms,
+        manual
       );
 
       const syncedAt = new Date().toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit" });
@@ -748,9 +849,10 @@ export default function FriendsPage() {
         }
       }
 
-      await checkFolderInvitations(profile.syncId, localFriends);
+      await checkFolderInvitations(currProfile.syncId, localFriends);
       addUnseenCommunityItems(newCommunityItems);
     } finally {
+      isSyncingRef.current = false;
       setIsSyncing(false);
     }
 
@@ -830,10 +932,16 @@ export default function FriendsPage() {
     };
   }, [deniedIds]);
 
+  // Stable key of the friends' valid Nostr pubkeys, so the subscription is only
+  // torn down when the set of friends actually changes (not on pin/nickname/block).
+  const nostrFriendKeys = useMemo(
+    () => friends.map((f) => f.syncId).filter((id) => /^[0-9a-fA-F]{64}$/.test(id)).sort().join(","),
+    [friends]
+  );
+
   // Nostr subscription
   useEffect(() => {
-    if (friends.length === 0) return;
-    const pubkeys = friends.map((f) => f.syncId).filter((id) => /^[0-9a-fA-F]{64}$/.test(id));
+    const pubkeys = nostrFriendKeys ? nostrFriendKeys.split(",") : [];
     if (pubkeys.length === 0) return;
 
     const sub = nostrPool.subscribeMany(
@@ -859,7 +967,7 @@ export default function FriendsPage() {
     return () => {
       sub.close();
     };
-  }, [friends, nostrPool]);
+  }, [nostrFriendKeys, nostrPool]);
 
   // ── Friend Actions ──────────────────────────────────────────────────
 
