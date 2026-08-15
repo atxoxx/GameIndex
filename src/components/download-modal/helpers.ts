@@ -74,6 +74,27 @@ export function webUrlFor(
   return url && url.trim() ? url : null;
 }
 
+/**
+ * Whether a direct-link hoster can only be unlocked in a real browser
+ * (gofile, filecrypt, and the captcha-gated vikingfile / datanodes pages).
+ * Mirrors `hosters::hoster_strategy` on the Rust side so the modal can
+ * emphasise the resolver CTA without a backend round-trip.
+ */
+export function hosterNeedsBrowser(uri: string | null | undefined): boolean {
+  if (!uri) return false;
+  try {
+    const urlObj = new URL(uri);
+    const host = urlObj.hostname.toLowerCase();
+    if (host.includes("gofile.io") || host.includes("gofilecdn")) return true;
+    if (host.includes("filecrypt.cc") || host.includes("filecrypt.co")) return true;
+    if (host.includes("datanodes.to")) return true;
+    if (host.includes("vikingfile")) return urlObj.pathname.startsWith("/f/");
+    return false;
+  } catch {
+    return false;
+  }
+}
+
 /** Derive a friendly host label from a mirror URI for the chip picker. */
 export function hostLabelForUri(uri: string, fallbackIndex: number): string {
   if (!uri) return `Mirror ${fallbackIndex + 1}`;

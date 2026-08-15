@@ -4,30 +4,62 @@
 //! countdown timers, Cloudflare checks, or login on file hosters / locker sites.
 //! Intercepts navigation to file downloads and magnet links, captures session
 //! headers/cookies, and automatically starts the download inside GameIndex.
+//!
+//! The resolver is **non-blocking**: `open_download_resolver` returns a session
+//! id immediately, then streams each captured file back to the frontend over
+//! the `download-intercepted` event. The window stays open so multi-part
+//! releases queue one download per part, and the session ends only when the
+//! window is closed (or `close_download_resolver` is called).
 
 use serde::{Deserialize, Serialize};
-use std::sync::mpsc;
-use std::time::Duration;
-use tauri::{AppHandle, Emitter, Manager, WebviewUrl, WebviewWindowBuilder};
+use std::collections::{HashMap, HashSet};
+use std::sync::{Mutex, OnceLock};
+use tauri::webview::{DownloadEvent, NewWindowResponse};
+use tauri::{AppHandle, Emitter, Manager, WebviewUrl, WebviewWindowBuilder, WindowEvent};
+use tokio::sync::mpsc;
 
 const RESOLVER_UA: &str =
     "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36";
 
+/// Result returned immediately by `open_download_resolver`. The session runs
+/// in the background; progress streams back over events.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
-pub struct DownloadResolverResult {
-    pub intercepted: bool,
-    pub url: Option<String>,
-    pub filename: Option<String>,
-    pub download_id: Option<String>,
+pub struct ResolverSessionStarted {
+    pub session_id: String,
+    pub ok: bool,
     pub message: Option<String>,
 }
 
+/// A single intercepted download (or magnet/torrent) captured in the webview.
 #[derive(Debug, Clone)]
 struct InterceptedPayload {
     url: String,
     filename: String,
     referer: Option<String>,
+    cookies: Option<String>,
+}
+
+/// Per-session bookkeeping held in the global registry.
+struct SessionState {
+    /// Sender kept alive for the lifetime of the session so the worker's
+    /// receiver only sees `None` once the session is torn down. Never read —
+    /// its Drop side effect is what ends the worker's `recv` loop.
+    _tx: mpsc::Sender<InterceptedPayload>,
+    part_count: usize,
+    /// Dedup set so a JS hook + `on_download` firing for the same URL queues
+    /// the file exactly once.
+    dedup: HashSet<String>,
+    /// True when `close_download_resolver` (the "Done" action) ended the
+    /// session rather than the user closing the window with the X.
+    closed_by_user: bool,
+}
+
+/// Global session registry, keyed by the resolver window label.
+static SESSIONS: OnceLock<Mutex<HashMap<String, SessionState>>> = OnceLock::new();
+
+fn sessions() -> &'static Mutex<HashMap<String, SessionState>> {
+    SESSIONS.get_or_init(|| Mutex::new(HashMap::new()))
 }
 
 /// Determine if a URL targets a downloadable archive, disk image, binary,
@@ -98,6 +130,42 @@ pub fn extract_filename(url_str: &str, fallback_game_name: &str) -> String {
     }
 
     format!("{}.zip", fallback_game_name)
+}
+
+/// Sanitize a filename for Windows: strip the characters that are illegal in
+/// a path component, trim leading/trailing dots and whitespace, and cap the
+/// length while preserving the final extension (multi-part suffixes like
+/// `.part1.rar`, `.r00` and `.001` depend on it).
+pub fn sanitize_filename(raw: &str) -> String {
+    const MAX_LEN: usize = 160;
+
+    let cleaned: String = raw
+        .chars()
+        .filter(|c| !matches!(c, '<' | '>' | ':' | '"' | '/' | '\\' | '|' | '?' | '*'))
+        .collect();
+    let mut trimmed = cleaned
+        .trim_matches(|c: char| c == '.' || c == ' ' || c == '\t')
+        .to_string();
+    if trimmed.is_empty() {
+        trimmed = "download".to_string();
+    }
+    if trimmed.chars().count() <= MAX_LEN {
+        return trimmed;
+    }
+
+    // Preserve the final extension (`.rar`, `.r00`, `.001`, …) when capping.
+    let ext = trimmed
+        .rsplit_once('.')
+        .map(|(_, e)| format!(".{e}"))
+        .unwrap_or_default();
+    let stem = trimmed
+        .strip_suffix(&ext)
+        .unwrap_or(&trimmed)
+        .to_string();
+    let stem_cap = MAX_LEN.saturating_sub(ext.chars().count());
+    let truncated: String = stem.chars().take(stem_cap).collect();
+    let truncated = truncated.trim_end_matches(|c: char| c == '.' || c == ' ');
+    format!("{truncated}{ext}")
 }
 
 fn generate_init_script(game_name: &str) -> String {
@@ -295,23 +363,53 @@ pub async fn open_download_resolver(
     save_path: Option<String>,
     auto_extract: Option<bool>,
     source_name: Option<String>,
-) -> Result<DownloadResolverResult, String> {
+) -> Result<ResolverSessionStarted, String> {
     let parsed_url: url::Url = url
         .parse()
         .map_err(|e| format!("Invalid initial URL '{url}': {e}"))?;
 
+    // FR-7: single active session. A second open focuses the existing window.
+    let existing = {
+        let sessions = sessions().lock().unwrap();
+        sessions.keys().next().cloned()
+    };
+    if let Some(existing_id) = existing {
+        if let Some(window) = app.get_webview_window(&existing_id) {
+            let _ = window.set_focus();
+        }
+        return Ok(ResolverSessionStarted {
+            session_id: existing_id,
+            ok: false,
+            message: Some("A browser window is already open".to_string()),
+        });
+    }
+
     let window_id = format!("download-resolver-{}", rand::random::<u32>());
     let window_title = format!("GameIndex Browser — {}", game_name);
+    let auto_extract = auto_extract.unwrap_or(false);
+    let source_name = source_name.unwrap_or_else(|| "Web Resolver".to_string());
+    let save_dir = save_path.unwrap_or_else(|| {
+        app.path()
+            .download_dir()
+            .map(|p| p.to_string_lossy().to_string())
+            .unwrap_or_else(|_| std::env::temp_dir().to_string_lossy().to_string())
+    });
 
-    let (tx, rx) = mpsc::channel::<InterceptedPayload>();
+    let (tx, mut rx) = mpsc::channel::<InterceptedPayload>(64);
     let init_script = generate_init_script(&game_name);
 
-    let fallback_game = game_name.clone();
-
+    // Clones for each webview closure + the session registry.
     let tx_dl = tx.clone();
-    let fallback_game_dl = fallback_game.clone();
     let tx_nav = tx.clone();
+    let tx_nw = tx.clone();
+
+    let fallback_game = game_name.clone();
+    let fallback_game_dl = fallback_game.clone();
     let fallback_game_nav = fallback_game.clone();
+    let fallback_game_nw = fallback_game.clone();
+
+    let save_dir_dl = save_dir.clone();
+    let session_id_dl = window_id.clone();
 
     let webview = WebviewWindowBuilder::new(
         &app,
@@ -324,19 +422,50 @@ pub async fn open_download_resolver(
     .resizable(true)
     .user_agent(RESOLVER_UA)
     .initialization_script(&init_script)
-    .on_download(move |_webview, event| {
+    .on_download(move |webview, event| {
         match event {
-            tauri::webview::DownloadEvent::Requested { url, destination } => {
+            DownloadEvent::Requested { url, destination } => {
                 let url_str = url.as_str().to_string();
+                let scheme = url.scheme().to_string();
+
+                // FR-6: blob/data: URLs can't be replayed by our HTTP engine.
+                // Fall back to a native webview save into the game folder.
+                if scheme == "blob" || scheme == "data" {
+                    let filename = destination
+                        .file_name()
+                        .map(|n| n.to_string_lossy().to_string())
+                        .unwrap_or_else(|| sanitize_filename(&extract_filename(&url_str, &fallback_game_dl)));
+                    let target = std::path::Path::new(&save_dir_dl).join(sanitize_filename(&filename));
+                    eprintln!(
+                        "[browser_resolver] blob/data fallback for {} -> {}",
+                        session_id_dl,
+                        target.to_string_lossy()
+                    );
+                    *destination = target;
+                    return true;
+                }
+
+                // Capture the session NOW (G4): referer from the current page
+                // and cookies from the live webview, not after a wait.
+                let referer = webview.url().ok().map(|u| u.as_str().to_string());
+                let cookies = webview
+                    .cookies()
+                    .unwrap_or_default()
+                    .iter()
+                    .map(|c| format!("{}={}", c.name(), c.value()))
+                    .collect::<Vec<_>>()
+                    .join("; ");
                 let filename = destination
                     .file_name()
                     .map(|n| n.to_string_lossy().to_string())
                     .unwrap_or_else(|| extract_filename(&url_str, &fallback_game_dl));
-                let _ = tx_dl.send(InterceptedPayload {
+                let _ = tx_dl.try_send(InterceptedPayload {
                     url: url_str,
                     filename,
-                    referer: None,
+                    referer,
+                    cookies: if cookies.is_empty() { None } else { Some(cookies) },
                 });
+                // Cancel the native webview download — GameIndex takes over.
                 false
             }
             _ => true,
@@ -360,6 +489,7 @@ pub async fn open_download_resolver(
 
             let mut filename = None;
             let mut js_referer = None;
+            let mut js_cookie = None;
 
             if let Some(q) = query_part {
                 for pair in q.split('&') {
@@ -368,6 +498,7 @@ pub async fn open_download_resolver(
                         match k {
                             "filename" => filename = decoded_v,
                             "referer" => js_referer = decoded_v,
+                            "cookie" => js_cookie = decoded_v,
                             _ => {}
                         }
                     }
@@ -378,10 +509,11 @@ pub async fn open_download_resolver(
                 .filter(|s| !s.is_empty())
                 .unwrap_or_else(|| extract_filename(&decoded_url, &fallback_game_nav));
 
-            let _ = tx_nav.send(InterceptedPayload {
+            let _ = tx_nav.try_send(InterceptedPayload {
                 url: decoded_url,
                 filename: final_filename,
                 referer: js_referer,
+                cookies: js_cookie,
             });
             return false;
         }
@@ -389,146 +521,329 @@ pub async fn open_download_resolver(
         // 2. Direct downloadable URL
         if is_downloadable_url(nav_str) {
             let filename = extract_filename(nav_str, &fallback_game_nav);
-            let _ = tx_nav.send(InterceptedPayload {
+            let _ = tx_nav.try_send(InterceptedPayload {
                 url: nav_str.to_string(),
                 filename,
                 referer: None,
+                cookies: None,
             });
             // Stop webview from downloading file into OS temp folder
             return false;
         }
         true
     })
+    .on_new_window(move |url, _features| {
+        let url_str = url.as_str().to_string();
+        // G5: magnets/.torrent opened via target="_blank" / window.open never
+        // reach on_navigation — capture them here and deny the popup.
+        if url_str.starts_with("magnet:") || url_str.to_lowercase().ends_with(".torrent") {
+            let filename = extract_filename(&url_str, &fallback_game_nw);
+            let _ = tx_nw.try_send(InterceptedPayload {
+                url: url_str,
+                filename,
+                referer: None,
+                cookies: None,
+            });
+        }
+        NewWindowResponse::Deny
+    })
     .build()
     .map_err(|e| format!("Failed to open browser resolver window: {e}"))?;
 
-    // Await either download interception or user closing the window
-    let timeout = Duration::from_secs(600); // 10 minute user resolution window
-    let wait_res = tokio::task::spawn_blocking(move || rx.recv_timeout(timeout)).await;
+    // Register the session (holding a tx clone so the channel only closes
+    // when the session is explicitly torn down).
+    {
+        let mut sessions = sessions().lock().unwrap();
+        sessions.insert(
+            window_id.clone(),
+            SessionState {
+                _tx: tx,
+                part_count: 0,
+                dedup: HashSet::new(),
+                closed_by_user: false,
+            },
+        );
+    }
 
-    // Snapshot cookies and session tokens BEFORE closing the webview window
-    let cookies_list = webview.cookies().unwrap_or_default();
-    let cookie_header = cookies_list
-        .iter()
-        .map(|c| format!("{}={}", c.name(), c.value()))
-        .collect::<Vec<_>>()
-        .join("; ");
-
-    let intercepted_item = match wait_res {
-        Ok(Ok(payload)) => Some(payload),
-        _ => None,
-    };
-
-    // Close the resolver webview window if still open
-    let _ = webview.close();
-
-    if let Some(payload) = intercepted_item {
-        let is_magnet_or_torrent =
-            payload.url.starts_with("magnet:") || payload.url.to_lowercase().ends_with(".torrent");
-
-        let resolved_save_path = save_path.unwrap_or_else(|| {
-            app.path()
-                .download_dir()
-                .map(|p| p.to_string_lossy().to_string())
-                .unwrap_or_else(|_| std::env::temp_dir().to_string_lossy().to_string())
-        });
-
-        let source = source_name.unwrap_or_else(|| "Web Resolver".to_string());
-
-        let download_id = if is_magnet_or_torrent {
-            // Queue via torrent engine
-            match crate::downloads::torrent_add(
-                payload.url.clone(),
-                resolved_save_path,
-                game_id.clone(),
-                source.clone(),
-                auto_extract,
-                None,
-                payload.referer.clone(),
-            )
-            .await
-            {
-                Ok(dl) => Some(dl.id),
-                Err(err) => {
-                    eprintln!("[browser_resolver] failed to queue torrent download: {err}");
-                    None
+    // Spawn the session worker: process payloads until the channel closes
+    // (i.e. every sender dropped once the window is destroyed + session removed).
+    let worker_app = app.clone();
+    let worker_session_id = window_id.clone();
+    let worker_game_name = game_name.clone();
+    let worker_game_id = game_id.clone();
+    let worker_save_dir = save_dir.clone();
+    let worker_source_name = source_name.clone();
+    let worker_auto_extract = auto_extract;
+    tokio::spawn(async move {
+        while let Some(payload) = rx.recv().await {
+            let part = {
+                let mut sessions = sessions().lock().unwrap();
+                let Some(session) = sessions.get_mut(&worker_session_id) else {
+                    break;
+                };
+                if !session.dedup.insert(payload.url.clone()) {
+                    continue; // duplicate capture (JS hook + on_download)
                 }
-            }
-        } else {
-            // Queue via direct HTTP download engine with captured browser session headers
-            let id = format!("dl_{}_{}", std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).map(|d| d.as_secs()).unwrap_or(0), rand::random::<u16>());
-            
-            let mut extra_headers = Vec::new();
-            extra_headers.push(("User-Agent".to_string(), RESOLVER_UA.to_string()));
-            extra_headers.push(("Accept".to_string(), "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7".to_string()));
-            extra_headers.push(("Accept-Language".to_string(), "en-US,en;q=0.9".to_string()));
-            extra_headers.push(("Sec-Ch-Ua".to_string(), "\"Google Chrome\";v=\"131\", \"Chromium\";v=\"131\", \"Not_A Brand\";v=\"24\"".to_string()));
-            extra_headers.push(("Sec-Ch-Ua-Mobile".to_string(), "?0".to_string()));
-            extra_headers.push(("Sec-Ch-Ua-Platform".to_string(), "\"Windows\"".to_string()));
-            extra_headers.push(("Sec-Fetch-Dest".to_string(), "document".to_string()));
-            extra_headers.push(("Sec-Fetch-Mode".to_string(), "navigate".to_string()));
-            extra_headers.push(("Sec-Fetch-Site".to_string(), "same-origin".to_string()));
-            extra_headers.push(("Sec-Fetch-User".to_string(), "?1".to_string()));
-            extra_headers.push(("Upgrade-Insecure-Requests".to_string(), "1".to_string()));
+                session.part_count += 1;
+                session.part_count
+            };
 
-            if !cookie_header.is_empty() {
-                extra_headers.push(("Cookie".to_string(), cookie_header));
-            }
-            let referer_val = payload.referer.clone().unwrap_or_else(|| url.clone());
-            extra_headers.push(("Referer".to_string(), referer_val.clone()));
-
-            println!(
-                "[browser_resolver] Starting direct download for {} (headers count: {})",
-                payload.url,
-                extra_headers.len()
-            );
-
-            match crate::downloads::direct_download_start(
-                id.clone(),
-                payload.url.clone(),
-                resolved_save_path,
-                game_id.clone(),
-                source.clone(),
-                auto_extract,
-                None,
-                Some(referer_val),
-                Some(extra_headers),
+            dispatch_intercepted(
+                &worker_app,
+                &worker_session_id,
+                &worker_game_name,
+                &worker_game_id,
+                &worker_save_dir,
+                worker_source_name.clone(),
+                worker_auto_extract,
+                part,
+                &payload,
             )
-            .await
-            {
-                Ok(dl) => Some(dl.id),
-                Err(err) => {
-                    eprintln!("[browser_resolver] failed to queue direct download: {err}");
-                    None
-                }
+            .await;
+        }
+    });
+
+    // Clean up + notify the frontend when the window is closed, whichever way
+    // it happened (X button, or `close_download_resolver`).
+    let close_app = app.clone();
+    let close_session_id = window_id.clone();
+    webview.on_window_event(move |event| {
+        if !matches!(event, WindowEvent::CloseRequested { .. } | WindowEvent::Destroyed) {
+            return;
+        }
+        let (parts, cancelled) = {
+            let mut sessions = sessions().lock().unwrap();
+            match sessions.remove(&close_session_id) {
+                Some(s) => (s.part_count, !s.closed_by_user),
+                None => return, // already cleaned up (idempotent)
             }
         };
-
-        // Notify frontend main window
-        let _ = app.emit(
-            "download-intercepted",
+        let _ = close_app.emit(
+            "resolver-session-ended",
             serde_json::json!({
-                "gameName": game_name,
-                "url": payload.url,
-                "filename": payload.filename,
-                "downloadId": download_id,
+                "sessionId": close_session_id,
+                "partsCaptured": parts,
+                "cancelled": cancelled,
             }),
         );
+    });
 
-        Ok(DownloadResolverResult {
-            intercepted: true,
-            url: Some(payload.url),
-            filename: Some(payload.filename),
-            download_id,
-            message: Some("Download captured successfully".to_string()),
-        })
+    Ok(ResolverSessionStarted {
+        session_id: window_id,
+        ok: true,
+        message: None,
+    })
+}
+
+/// Idempotent close (FR-5): mark the session user-initiated and close the
+/// window. The window's close handler tears down the session and emits
+/// `resolver-session-ended` with `cancelled: false`.
+#[tauri::command]
+pub fn close_download_resolver(app: AppHandle, session_id: String) -> Result<(), String> {
+    if let Ok(mut sessions) = sessions().lock() {
+        if let Some(s) = sessions.get_mut(&session_id) {
+            s.closed_by_user = true;
+        }
+    }
+
+    if let Some(window) = app.get_webview_window(&session_id) {
+        return window.close().map_err(|e| e.to_string());
+    }
+
+    // Window already gone — clean up any lingering session so the frontend
+    // still transitions out of the "open" state (idempotent).
+    let (parts, _) = {
+        let mut sessions = sessions().lock().unwrap();
+        match sessions.remove(&session_id) {
+            Some(s) => (s.part_count, s.closed_by_user),
+            None => return Ok(()),
+        }
+    };
+    let _ = app.emit(
+        "resolver-session-ended",
+        serde_json::json!({
+            "sessionId": session_id,
+            "partsCaptured": parts,
+            "cancelled": false,
+        }),
+    );
+    Ok(())
+}
+
+/// Queue one intercepted payload through the download engine and notify the
+/// frontend. Returns the resulting download id, if one was created.
+async fn dispatch_intercepted(
+    app: &AppHandle,
+    session_id: &str,
+    game_name: &str,
+    game_id: &Option<String>,
+    save_dir: &str,
+    source_name: String,
+    auto_extract: bool,
+    part: usize,
+    payload: &InterceptedPayload,
+) -> Option<String> {
+    let is_magnet_or_torrent =
+        payload.url.starts_with("magnet:") || payload.url.to_lowercase().ends_with(".torrent");
+
+    let download_id = if is_magnet_or_torrent {
+        match crate::downloads::torrent_add(
+            payload.url.clone(),
+            save_dir.to_string(),
+            game_id.clone(),
+            source_name.clone(),
+            Some(auto_extract),
+            None,
+            payload.referer.clone(),
+        )
+        .await
+        {
+            Ok(dl) => Some(dl.id),
+            Err(err) => {
+                eprintln!("[browser_resolver] failed to queue torrent download: {err}");
+                None
+            }
+        }
     } else {
-        Ok(DownloadResolverResult {
-            intercepted: false,
-            url: None,
-            filename: None,
-            download_id: None,
-            message: Some("Resolver window was closed without capturing a download".to_string()),
-        })
+        // Queue via direct HTTP download engine with captured browser session.
+        let file_name = sanitize_filename(&payload.filename);
+        let file_path = std::path::Path::new(save_dir)
+            .join(&file_name)
+            .to_string_lossy()
+            .into_owned();
+        let id = format!(
+            "dl_{}_{}",
+            std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .map(|d| d.as_secs())
+                .unwrap_or(0),
+            rand::random::<u16>()
+        );
+
+        let mut extra_headers: Vec<(String, String)> = Vec::new();
+        extra_headers.push(("User-Agent".to_string(), RESOLVER_UA.to_string()));
+        extra_headers.push((
+            "Accept".to_string(),
+            "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7".to_string(),
+        ));
+        extra_headers.push(("Accept-Language".to_string(), "en-US,en;q=0.9".to_string()));
+        extra_headers.push((
+            "Sec-Ch-Ua".to_string(),
+            "\"Google Chrome\";v=\"131\", \"Chromium\";v=\"131\", \"Not_A Brand\";v=\"24\"".to_string(),
+        ));
+        extra_headers.push(("Sec-Ch-Ua-Mobile".to_string(), "?0".to_string()));
+        extra_headers.push(("Sec-Ch-Ua-Platform".to_string(), "\"Windows\"".to_string()));
+        extra_headers.push(("Sec-Fetch-Dest".to_string(), "document".to_string()));
+        extra_headers.push(("Sec-Fetch-Mode".to_string(), "navigate".to_string()));
+        extra_headers.push(("Sec-Fetch-Site".to_string(), "same-origin".to_string()));
+        extra_headers.push(("Sec-Fetch-User".to_string(), "?1".to_string()));
+        extra_headers.push(("Upgrade-Insecure-Requests".to_string(), "1".to_string()));
+
+        if let Some(cookies) = &payload.cookies {
+            if !cookies.is_empty() {
+                extra_headers.push(("Cookie".to_string(), cookies.clone()));
+            }
+        }
+        let referer = payload.referer.clone().unwrap_or_else(|| payload.url.clone());
+        extra_headers.push(("Referer".to_string(), referer.clone()));
+
+        match crate::downloads::direct_download_start(
+            id,
+            payload.url.clone(),
+            file_path,
+            game_id.clone(),
+            source_name.clone(),
+            Some(auto_extract),
+            None,
+            Some(referer),
+            Some(extra_headers),
+        )
+        .await
+        {
+            Ok(dl) => Some(dl.id),
+            Err(err) => {
+                eprintln!("[browser_resolver] failed to queue direct download: {err}");
+                None
+            }
+        }
+    };
+
+    let _ = app.emit(
+        "download-intercepted",
+        serde_json::json!({
+            "sessionId": session_id,
+            "gameName": game_name,
+            "url": payload.url,
+            "filename": payload.filename,
+            "downloadId": download_id,
+            "partIndex": part,
+            "partsCaptured": part,
+        }),
+    );
+
+    // Update the in-webview banner with the part count (best-effort).
+    if let Some(webview) = app.get_webview(session_id) {
+        let _ = webview.eval(&format!(
+            "(function(){{var el=document.getElementById('__gi_resolver_status');if(el){{el.textContent='Part {part} captured';el.style.background='#22c55e';el.style.color='#ffffff';el.style.borderColor='#16a34a';}}}})())"
+        ));
+    }
+
+    download_id
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn sanitize_filename_strips_invalid_chars() {
+        assert_eq!(sanitize_filename("Game: Part 1?.rar"), "Game Part 1.rar");
+        assert_eq!(sanitize_filename("a|b\\c<d>e\"f*g.7z"), "abcdefg.7z");
+    }
+
+    #[test]
+    fn sanitize_filename_preserves_multipart_suffixes() {
+        assert_eq!(sanitize_filename("game.part1.rar"), "game.part1.rar");
+        assert_eq!(sanitize_filename("game.r00"), "game.r00");
+        assert_eq!(sanitize_filename("game.001"), "game.001");
+    }
+
+    #[test]
+    fn sanitize_filename_trims_dots_and_spaces() {
+        assert_eq!(sanitize_filename("  game.zip. "), "game.zip");
+        assert_eq!(sanitize_filename("..."), "download");
+    }
+
+    #[test]
+    fn is_downloadable_url_classifies_hosters() {
+        assert!(is_downloadable_url(
+            "https://s1.datanodes.to/d/xuf4jz/game.part1.rar"
+        ));
+        assert!(is_downloadable_url(
+            "https://srv.gofile.io/download/abc123/game.zip"
+        ));
+        assert!(!is_downloadable_url(
+            "https://filecrypt.cc/Container/ABC123.html"
+        ));
+        assert!(!is_downloadable_url("https://api.example.com/v1/files/123"));
+        assert!(!is_downloadable_url(
+            "https://api.example.com/v1/files.json"
+        ));
+    }
+
+    #[test]
+    fn extract_filename_handles_gofile_magnet_and_fallback() {
+        assert_eq!(
+            extract_filename("https://srv.gofile.io/download/abc123/My%20Game.zip", "Game"),
+            "My Game.zip"
+        );
+        assert_eq!(
+            extract_filename("magnet:?xt=urn:btih:abc&dn=My+Game", "Game"),
+            "My Game"
+        );
+        assert_eq!(
+            extract_filename("https://example.com/download", "MyGame"),
+            "MyGame.zip"
+        );
     }
 }

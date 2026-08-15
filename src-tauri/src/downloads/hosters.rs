@@ -521,3 +521,89 @@ async fn buzzheavier_get_download_url(url: &str) -> Result<ResolvedTarget, Strin
         ],
     })
 }
+
+// ── Hoster strategy routing ─────────────────────────────────────────────────
+
+/// How the download modal should treat a direct link for a given hoster.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum HosterStrategy {
+    /// `resolve()` can fully handle this hoster headlessly — no browser needed.
+    FastPath,
+    /// The hoster can only be unlocked in a real browser (gofile, filecrypt).
+    WebviewRequired,
+    /// `resolve()` may work, but a captcha can force the user into the webview.
+    Fallback,
+    /// No known hoster — the webview resolver is the universal fallback.
+    Unknown,
+}
+
+/// Classify a direct-link URI so the frontend can decide whether to surface
+/// (and emphasise) the in-app browser resolver.
+pub fn hoster_strategy(uri: &str) -> HosterStrategy {
+    let parsed = match url::Url::parse(uri) {
+        Ok(u) => u,
+        Err(_) => return HosterStrategy::Unknown,
+    };
+    let host = match parsed.host_str() {
+        Some(h) => h.to_lowercase(),
+        None => return HosterStrategy::Unknown,
+    };
+
+    if host.contains("gofile.io") || host.contains("gofilecdn") {
+        return HosterStrategy::WebviewRequired;
+    }
+    if host.contains("filecrypt.cc") || host.contains("filecrypt.co") {
+        return HosterStrategy::WebviewRequired;
+    }
+    if host.contains("datanodes.to") {
+        return HosterStrategy::Fallback;
+    }
+    if host.contains("vikingfile") {
+        if parsed.path().starts_with("/f/") {
+            return HosterStrategy::Fallback;
+        }
+        return HosterStrategy::Unknown;
+    }
+    if host.contains("fuckingfast.co")
+        || host.contains("mediafire.com")
+        || host.contains("pixeldrain.com")
+        || host.contains("rootz.so")
+        || host.contains("buzzheavier")
+    {
+        return HosterStrategy::FastPath;
+    }
+    HosterStrategy::Unknown
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn hoster_strategy_classifies_hosters() {
+        assert_eq!(
+            hoster_strategy("https://gofile.io/d/abc123"),
+            HosterStrategy::WebviewRequired
+        );
+        assert_eq!(
+            hoster_strategy("https://srv.gofile.io/download/abc123/file.zip"),
+            HosterStrategy::WebviewRequired
+        );
+        assert_eq!(
+            hoster_strategy("https://datanodes.to/abc123"),
+            HosterStrategy::Fallback
+        );
+        assert_eq!(
+            hoster_strategy("https://vikingfile.com/f/abc123"),
+            HosterStrategy::Fallback
+        );
+        assert_eq!(
+            hoster_strategy("https://www.mediafire.com/file/abc/file.zip"),
+            HosterStrategy::FastPath
+        );
+        assert_eq!(
+            hoster_strategy("https://example.com/file.zip"),
+            HosterStrategy::Unknown
+        );
+    }
+}

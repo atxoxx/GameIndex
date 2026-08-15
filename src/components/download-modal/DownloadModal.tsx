@@ -28,6 +28,7 @@
 import { useState, useEffect, useCallback, useRef, useMemo } from "react";
 import { createPortal } from "react-dom";
 import { invoke } from "@tauri-apps/api/core";
+import { listen, type UnlistenFn } from "@tauri-apps/api/event";
 import { openUrl } from "@tauri-apps/plugin-opener";
 import { useDownloads } from "../../context/DownloadContext";
 import { searchDownloadsStream } from "../../context/SourceContext";
@@ -41,6 +42,7 @@ import {
   classifyUri,
   extractSourceFilters,
   filterMatches,
+  hosterNeedsBrowser,
   resolveSourceUri,
   sortMatches,
   webUrlFor,
@@ -153,6 +155,18 @@ export default function DownloadModal({
   const [metadataTimedOut, setMetadataTimedOut] = useState(false);
   // Confirm-before-close guard shown while a download is starting.
   const [confirmCancelOpen, setConfirmCancelOpen] = useState(false);
+  // In-app browser resolver session. Non-blocking (FR-5): the invoke
+  // returns a session id immediately and captured files stream back over
+  // the `download-intercepted` event while the window stays open for
+  // multi-part releases (FR-4). Null while no session is active.
+  const [resolverSession, setResolverSession] = useState<{
+    sessionId: string;
+    status: "opening" | "capturing" | "done" | "error";
+    partsCaptured: number;
+  } | null>(null);
+  // Set when a direct Start hard-fails on a hoster that needs a browser
+  // (G9) so the inline error shows a guided next step to the resolver.
+  const [needsBrowserHint, setNeedsBrowserHint] = useState(false);
 
   // Available source filter options extracted from raw matches
   const sourceFilterOptions = useMemo(
@@ -535,6 +549,10 @@ export default function DownloadModal({
     [selectedWebUrl, selectedMatch, showToast, t],
   );
 
+  // Fire-and-forget resolver open (FR-5): returns a session id immediately
+  // and the modal stays open so the user keeps context while the webview
+  // solves the hoster flow. Results stream back via events (see the
+  // subscription effect below).
   const handleOpenBrowserResolver = useCallback(
     async (targetUrl?: string) => {
       const urlToOpen =
@@ -546,13 +564,10 @@ export default function DownloadModal({
         selectedMatch?.detailUrl;
       if (!urlToOpen) return;
 
-      showToast(t("downloadModal.browserResolverOpened"), "info");
       try {
         const res = await invoke<{
-          intercepted: boolean;
-          url?: string;
-          filename?: string;
-          downloadId?: string;
+          sessionId: string;
+          ok: boolean;
           message?: string;
         }>("open_download_resolver", {
           url: urlToOpen,
@@ -563,13 +578,25 @@ export default function DownloadModal({
           sourceName: selectedMatch?.sourceName || "Browser Resolver",
         });
 
-        if (res && res.intercepted) {
-          showToast(t("downloadModal.browserResolverSuccess"), "success");
-          onClose();
+        if (!res.ok) {
+          // FR-7: a resolver window is already open — surface that instead
+          // of silently replacing it.
+          showToast(t("downloadModal.resolverAlreadyOpen"), "info");
+          return;
         }
+        setResolverSession({
+          sessionId: res.sessionId,
+          status: "opening",
+          partsCaptured: 0,
+        });
+        showToast(t("downloadModal.resolverOpened"), "info");
       } catch (err) {
-        console.error("[DownloadModal] resolver error:", err);
-        showToast(String(err), "error");
+        console.error("[DownloadModal] resolver open failed:", err);
+        setResolverSession(null);
+        showToast(
+          t("downloadModal.resolverError", { error: String(err) }),
+          "error",
+        );
       }
     },
     [
@@ -582,9 +609,78 @@ export default function DownloadModal({
       autoExtract,
       showToast,
       t,
-      onClose,
     ],
   );
+
+  // Subscribe to resolver events so captured parts stream into the session
+  // state (and toast) without blocking the modal (FR-4, G3). The session
+  // ends cleanly when the window closes, either from the user's X or the
+  // "Done" action below.
+  useEffect(() => {
+    let unlistenIntercepted: UnlistenFn | undefined;
+    let unlistenEnded: UnlistenFn | undefined;
+
+    const subscribe = async () => {
+      unlistenIntercepted = await listen<{
+        sessionId: string;
+        filename?: string;
+        partIndex?: number;
+        partsCaptured?: number;
+      }>("download-intercepted", (event) => {
+        const p = event.payload;
+        setResolverSession((prev) => {
+          if (!prev || prev.sessionId !== p.sessionId) return prev;
+          return {
+            ...prev,
+            status: "capturing",
+            partsCaptured:
+              p.partsCaptured ?? p.partIndex ?? prev.partsCaptured + 1,
+          };
+        });
+        if (p.filename) {
+          showToast(
+            t("downloadModal.resolverCaptured", { filename: p.filename }),
+            "success",
+          );
+        }
+      });
+
+      unlistenEnded = await listen<{
+        sessionId: string;
+        partsCaptured?: number;
+        cancelled?: boolean;
+      }>("resolver-session-ended", (event) => {
+        const p = event.payload;
+        setResolverSession((prev) => {
+          if (!prev || prev.sessionId !== p.sessionId) return prev;
+          return null;
+        });
+        if (p.cancelled && (p.partsCaptured ?? 0) === 0) {
+          showToast(t("downloadModal.resolverNoCapture"), "info");
+        }
+      });
+    };
+
+    subscribe().catch((err) => {
+      console.error("[DownloadModal] resolver event subscription failed:", err);
+    });
+
+    return () => {
+      unlistenIntercepted?.();
+      unlistenEnded?.();
+    };
+  }, [t, showToast]);
+
+  // Close the active resolver window ("Done") and end the session cleanly.
+  const handleCloseResolver = useCallback(async () => {
+    if (!resolverSession) return;
+    const { sessionId } = resolverSession;
+    try {
+      await invoke("close_download_resolver", { sessionId });
+    } catch (err) {
+      console.error("[DownloadModal] close resolver failed:", err);
+    }
+  }, [resolverSession]);
 
   const handleStart = useCallback(async () => {
     // Guard against double-firing (rapid clicks / Enter key) while a
@@ -593,6 +689,7 @@ export default function DownloadModal({
     cancelledRef.current = false;
     startAttemptedRef.current = true;
     setMetadataTimedOut(false);
+    setNeedsBrowserHint(false);
     if (!selectedMatch) {
       setError(t('downloadModal.pickResult'));
       return;
@@ -654,16 +751,29 @@ export default function DownloadModal({
 
         // `debridActive` flips direct links onto the debrid-unrestrict
         // path; otherwise they stream straight from the hoster.
-        await addDirectDownload(
-          sourceUri,
-          fullSavePath,
-          gameId ?? null,
-          match.sourceName,
-          autoExtract,
-          match.uris,
-          debridActive,
-          match.referer ?? null,
-        );
+        try {
+          await addDirectDownload(
+            sourceUri,
+            fullSavePath,
+            gameId ?? null,
+            match.sourceName,
+            autoExtract,
+            match.uris,
+            debridActive,
+            match.referer ?? null,
+          );
+        } catch (directErr) {
+          // G9: hosters that gate the file behind a browser challenge
+          // (gofile, datanodes, vikingfile, filecrypt) hard-fail the
+          // fast path — surface a guided next step instead of a raw error.
+          if (hosterNeedsBrowser(sourceUri)) {
+            setNeedsBrowserHint(true);
+            setError(t('downloadModal.resolverNeedsBrowser'));
+            setStep("results");
+            return;
+          }
+          throw directErr;
+        }
         showToast(
           t('downloadModal.downloadingDirect', { fileName: targetFileName, source: match.sourceName }),
           "success",
@@ -749,6 +859,7 @@ export default function DownloadModal({
   useEffect(() => {
     if (startAttemptedRef.current) {
       setError(null);
+      setNeedsBrowserHint(false);
     }
   }, [selectedId, savePath]);
 
@@ -1006,6 +1117,8 @@ export default function DownloadModal({
                     cacheStatus={cacheStatus}
                     onOpenPage={handleOpenPage}
                     onOpenBrowserResolver={handleOpenBrowserResolver}
+                    resolverActive={!!resolverSession}
+                    resolverPartsCaptured={resolverSession?.partsCaptured ?? 0}
                   />
                 </div>
               )
@@ -1014,6 +1127,15 @@ export default function DownloadModal({
             {error && step === "results" && (
               <div className="dl-inline-error" role="alert">
                 <p className="dl-inline-error-text">{error}</p>
+                {needsBrowserHint && (
+                  <Button
+                    variant="primary"
+                    size="sm"
+                    onClick={() => handleOpenBrowserResolver()}
+                  >
+                    {t('downloadModal.resolverOpen')}
+                  </Button>
+                )}
                 {metadataTimedOut && (
                   <Button
                     variant="secondary"
@@ -1080,6 +1202,23 @@ export default function DownloadModal({
                   : " " /* non-breaking space so the row doesn't collapse */}
             </span>
             <div className="modal-footer-actions">
+              {resolverSession && (
+                <Button
+                  variant="secondary"
+                  onClick={() => handleCloseResolver()}
+                  leftIcon={
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                      <circle cx="12" cy="12" r="10" />
+                      <line x1="2" y1="12" x2="22" y2="12" />
+                      <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z" />
+                    </svg>
+                  }
+                >
+                  {resolverSession.partsCaptured > 0
+                    ? t('downloadModal.resolverDone')
+                    : t('downloadModal.resolverClose')}
+                </Button>
+              )}
               <Button
                 variant="ghost"
                 onClick={() => handleCloseAttempt()}

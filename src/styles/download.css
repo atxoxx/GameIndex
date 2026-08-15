@@ -1364,6 +1364,67 @@
   background: color-mix(in srgb, var(--color-accent) 15%, transparent);
 }
 
+/* Resolver card (direct/hoster links, FR-1) */
+.dl-resolver-card {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-xs);
+  padding: 10px 12px;
+  background: color-mix(in srgb, var(--color-accent) 6%, var(--color-bg-tertiary));
+  border: 1px solid color-mix(in srgb, var(--color-accent) 30%, transparent);
+  border-radius: var(--radius-lg);
+}
+
+.dl-resolver-host {
+  margin-left: auto;
+  font-size: 10px;
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text-secondary);
+  background: color-mix(in srgb, var(--color-text-primary) 8%, transparent);
+  padding: 2px 7px;
+  border-radius: var(--radius-full);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 140px;
+}
+
+.dl-resolver-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.dl-resolver-status {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+  font-weight: var(--font-weight-semibold);
+  line-height: 1.4;
+}
+
+.dl-resolver-status--ok {
+  color: var(--color-success);
+}
+
+.dl-resolver-status--error {
+  color: var(--color-danger);
+}
+
+.dl-resolver-progress {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 10px;
+  font-weight: 700;
+  padding: 2px 7px;
+  border-radius: var(--radius-full);
+  color: var(--color-success);
+  background: color-mix(in srgb, var(--color-success) 14%, transparent);
+  border: 1px solid color-mix(in srgb, var(--color-success) 28%, transparent);
+}
+
 /* Empty detail pane */
 .dl-detail-empty {
   display: flex;

@@ -1,5 +1,11 @@
 import { useLanguage } from "../../context/LanguageContext";
-import { classifyUri, resolveSourceUri, webUrlFor } from "./helpers";
+import {
+  classifyUri,
+  hostLabelForUri,
+  hosterNeedsBrowser,
+  resolveSourceUri,
+  webUrlFor,
+} from "./helpers";
 import type { DisplayMatch, CacheCheckStatus } from "./types";
 import { MirrorPicker } from "./MirrorPicker";
 import { OptionsSection } from "./OptionsSection";
@@ -27,6 +33,8 @@ export function DetailPanel({
   cacheStatus,
   onOpenPage,
   onOpenBrowserResolver,
+  resolverActive,
+  resolverPartsCaptured,
 }: {
   match: DisplayMatch | null;
   isDownloaded: (title: string) => boolean;
@@ -48,6 +56,10 @@ export function DetailPanel({
   onOpenPage: (url?: string) => void;
   /** Open the in-app browser resolver to solve CAPTCHAs/timers & intercept download. */
   onOpenBrowserResolver?: (url?: string) => void;
+  /** True while a resolver session is open for the selected result. */
+  resolverActive: boolean;
+  /** Number of parts captured by the active resolver session. */
+  resolverPartsCaptured: number;
 }) {
   const { t } = useLanguage();
 
@@ -80,6 +92,8 @@ export function DetailPanel({
   const detailUrl = match.detailUrl && match.detailUrl.trim();
   const showOpenPage = !webUrl && Boolean(detailUrl);
   const debridAvailable = debridConfigured && (isMagnet || isTorrentFile);
+  const hostLabel = sourceUri ? hostLabelForUri(sourceUri, 0) : null;
+  const needsBrowser = hosterNeedsBrowser(sourceUri);
 
   const typeLabel = webUrl
     ? t("downloadModal.typeWeb")
@@ -150,6 +164,69 @@ export function DetailPanel({
         />
       </div>
 
+      {/* Resolver card for direct hoster links (FR-1) */}
+      {isDirect && (
+        <div className="dl-detail-section">
+          <div className="dl-resolver-card">
+            <div className="dl-protected-header">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden className="dl-protected-icon">
+                <circle cx="12" cy="12" r="10" />
+                <line x1="2" y1="12" x2="22" y2="12" />
+                <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z" />
+              </svg>
+              <span className="dl-protected-title">{t("downloadModal.resolverTitle")}</span>
+              {hostLabel && <span className="dl-resolver-host">{hostLabel}</span>}
+            </div>
+            <p className="dl-detail-web-hint">
+              {needsBrowser
+                ? t("downloadModal.resolverNeedsBrowser")
+                : t("downloadModal.resolverDesc")}
+            </p>
+            <div className="dl-resolver-actions">
+              <button
+                type="button"
+                className="dl-btn-browser-solve"
+                onClick={() => onOpenBrowserResolver?.(sourceUri ?? undefined)}
+                disabled={resolverActive}
+              >
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                  <circle cx="12" cy="12" r="10" />
+                  <line x1="2" y1="12" x2="22" y2="12" />
+                  <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z" />
+                </svg>
+                <span>{t("downloadModal.resolverOpen")}</span>
+              </button>
+              <button
+                type="button"
+                className="dl-detail-open-page"
+                onClick={() => onOpenPage(sourceUri ?? undefined)}
+              >
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                  <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6" />
+                  <polyline points="15 3 21 3 21 9" />
+                  <line x1="10" y1="14" x2="21" y2="3" />
+                </svg>
+                <span>{t("downloadModal.openInBrowser")}</span>
+              </button>
+            </div>
+            {resolverActive && (
+              <div className="dl-resolver-status dl-resolver-status--ok">
+                {resolverPartsCaptured > 0 ? (
+                  <span className="dl-resolver-progress">
+                    {t("downloadModal.resolverPartCaptured", {
+                      part: resolverPartsCaptured,
+                      count: resolverPartsCaptured,
+                    })}
+                  </span>
+                ) : (
+                  t("downloadModal.resolverOpened")
+                )}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
       {/* Web & Browser Solver Cards */}
       {webUrl ? (
         <div className="dl-detail-section dl-detail-protected-section">
@@ -174,6 +251,21 @@ export function DetailPanel({
                 </svg>
                 <span>{t("downloadModal.openInBrowser")}</span>
               </button>
+              {onOpenBrowserResolver && (
+                <button
+                  type="button"
+                  className="dl-btn-browser-solve dl-btn-browser-solve--resolver"
+                  onClick={() => onOpenBrowserResolver(webUrl)}
+                  disabled={resolverActive}
+                >
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                    <circle cx="12" cy="12" r="10" />
+                    <line x1="2" y1="12" x2="22" y2="12" />
+                    <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z" />
+                  </svg>
+                  <span>{t("downloadModal.openInBrowserResolver")}</span>
+                </button>
+              )}
             </div>
           </div>
         </div>

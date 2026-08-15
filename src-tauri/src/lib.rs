@@ -4078,6 +4078,7 @@ pub fn run() {
             downloads::direct_download_update_url,
             downloads::debrid_unrestrict_link,
             downloads::browser_resolver::open_download_resolver,
+            downloads::browser_resolver::close_download_resolver,
             // Live Steam concurrent-player count. Powers the player
             // badges on the store hero, store detail, and game detail
             // banners â€” see PlayerCountCache above for caching policy.
