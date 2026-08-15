@@ -1061,12 +1061,17 @@ fn force_close_game(
         let _ = crate::run_script_blocking(script, *admin);
     }
     let _ = session.stop_tx.send(());
-    let elapsed = session.started_at.elapsed().as_secs();
+    let elapsed = session.elapsed_seconds();
     let metrics = session
         .metrics_rx
         .as_mut()
         .and_then(|rx| rx.recv_timeout(std::time::Duration::from_secs(1)).unwrap_or(None));
-    let started_at_ms = finished_at_ms.saturating_sub(elapsed * 1000);
+    // Attach-anchored wall-clock stamp when available; back-dated otherwise.
+    let started_at_ms = if session.attached_at_ms > 0 {
+        session.attached_at_ms
+    } else {
+        finished_at_ms.saturating_sub(elapsed * 1000)
+    };
 
     let metrics_json = metrics
         .as_ref()
@@ -1080,20 +1085,24 @@ fn force_close_game(
         ),
         None => (None, None, None, None),
     };
-    if let Err(e) = db::sessions::insert(
-        &db,
-        &game_id,
-        &session.game_name,
-        started_at_ms,
-        finished_at_ms,
-        elapsed,
-        avg_fps,
-        avg_cpu,
-        avg_gpu,
-        avg_ram,
-        metrics_json.as_deref(),
-    ) {
-        eprintln!("[force_close_game] failed to record session for {game_id}: {e}");
+    // Skip the DB row for a pending session that never attached a real
+    // process (matches the natural-exit path's guard).
+    if session.last_pid != 0 {
+        if let Err(e) = db::sessions::finalize(
+            &db,
+            &game_id,
+            &session.game_name,
+            started_at_ms,
+            finished_at_ms,
+            elapsed,
+            avg_fps,
+            avg_cpu,
+            avg_gpu,
+            avg_ram,
+            metrics_json.as_deref(),
+        ) {
+            eprintln!("[force_close_game] failed to record session for {game_id}: {e}");
+        }
     }
     if let Err(e) = db::games::update_last_played(&db, &game_id, finished_at_ms) {
         eprintln!("[force_close_game] failed to update last_played for {game_id}: {e}");
@@ -4293,6 +4302,14 @@ pub fn run() {
                 }
             };
             app.manage(db.clone());
+
+            // Reconcile any in-progress `sessions` rows orphaned by a crash
+            // on a previous run: back-date their `ended_at` from the last
+            // heartbeat's elapsed so the partial playtime is credited rather
+            // than left dangling (zero-elapsed rows are deleted).
+            if let Err(e) = db::sessions::finalize_orphaned_running(&db) {
+                eprintln!("[gameindex] failed to reconcile orphaned sessions: {e}");
+            }
 
             // â”€â”€ Initialize the launcher settings (L2/L3/L5) â”€â”€â”€â”€â”€â”€â”€â”€
             // Read the persisted close-to-tray/minimize/disable-UAC

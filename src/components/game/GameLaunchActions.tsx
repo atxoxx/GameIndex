@@ -4,7 +4,7 @@ import { useToast } from "../../context/ToastContext";
 import { useGames } from "../../context/GameContext";
 import { IconDownload, IconPlay } from "./icons";
 import DownloadButton from "../DownloadButton";
-import type { Game } from "../../types/game";
+import { formatPlayTime, type Game } from "../../types/game";
 import { useLanguage } from "../../context/LanguageContext";
 
 /**
@@ -33,10 +33,13 @@ export default function GameLaunchActions({
   onLaunch,
   size = "md",
 }: GameLaunchActionsProps) {
-  const { runningGameIds, forceCloseGame } = useGames();
+  const { runningGameIds, closingGameIds, liveElapsed, forceCloseGame } = useGames();
   const { showToast } = useToast();
   const { t } = useLanguage();
   const isRunning = runningGameIds.includes(game.id);
+  // Watcher-reported grace period (process gone, but may be a launcher
+  // hand-off) — show "Closing…" instead of "Running" during the window.
+  const watcherClosing = closingGameIds.includes(game.id);
   // In-flight flag for the destructive action. Set when the user
   // clicks "Force Close" and held until the running indicator
   // clears (which happens via the `game-exited` event arriving on
@@ -65,6 +68,13 @@ export default function GameLaunchActions({
       forceCloseGame(game);
     }
   }
+
+  const liveMinutes = liveElapsed[game.id] ? Math.floor(liveElapsed[game.id] / 60) : 0;
+  const runningLabel = watcherClosing
+    ? t("game.closing")
+    : liveMinutes > 0
+      ? t("game.runningTime", { time: formatPlayTime(liveMinutes) })
+      : t("game.running");
 
   const showInstall =
     !game.installed && game.platform === "Steam" && game.steamAppId;
@@ -97,7 +107,7 @@ export default function GameLaunchActions({
         <>
           <button className="game-launch-btn running" disabled>
             <span className="running-dot-pulse" />
-            {t("game.running")}
+            {runningLabel}
           </button>
           <button
             className="game-launch-btn game-launch-btn--force-close"

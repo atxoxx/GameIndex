@@ -2267,6 +2267,7 @@ export const en: TranslationDict = {
   "game.resume": "Resume",
   "game.resumeAria": "Resume {name}",
   "game.running": "Running",
+  "game.runningTime": "Running · {time}",
   "game.specsTitle": "Game Specs",
   "game.status.abandoned": "Abandoned",
   "game.status.backlog": "Backlog",

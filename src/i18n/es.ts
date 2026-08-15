@@ -2259,6 +2259,7 @@ export const es: TranslationDict = {
   "game.resume": "Reanudar",
   "game.resumeAria": "Reanudar {name}",
   "game.running": "En ejecución",
+  "game.runningTime": "En ejecución · {time}",
   "game.specsTitle": "Especificaciones del juego",
   "game.status.abandoned": "Abandonado",
   "game.status.backlog": "Pendiente",

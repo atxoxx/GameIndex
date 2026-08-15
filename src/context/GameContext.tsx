@@ -111,6 +111,20 @@ interface GameStartedEvent {
   detectedExe?: string;
 }
 
+/** Payload for the "game-session-lost" / "game-session-restored" events
+ *  emitted by the watcher when a session enters / leaves its grace period. */
+interface GameSessionLostEvent {
+  gameId: string;
+  gameName: string;
+}
+
+/** Payload for the periodic "game-progress" playtime heartbeat. */
+interface GameProgressEvent {
+  gameId: string;
+  gameName: string;
+  elapsedSeconds: number;
+}
+
 interface GameContextType {
   games: Game[];
   selectedGameId: string | null;
@@ -125,6 +139,13 @@ interface GameContextType {
   updateGame: (id: string, updates: Partial<Game>) => void;
   getGame: (id: string) => Game | undefined;
   runningGameIds: string[];
+  /** Game ids whose tracked process just went missing and are in the
+   *  watcher's grace period (e.g. a launcher handing off to the real game).
+   *  The UI shows these as "closing" instead of flipping straight to stopped. */
+  closingGameIds: string[];
+  /** Live elapsed-seconds heartbeat per running game, fed by the watcher's
+   *  periodic `game-progress` events. Keyed by game id. */
+  liveElapsed: Record<string, number>;
   launchGame: (game: Game) => void;
   /**
    * Force-terminate the running game process and record the session.
@@ -255,6 +276,8 @@ export function GameProvider({ children }: { children: ReactNode }) {
   const [games, setGames] = useState<Game[]>([]);
   const [selectedGameId, setSelectedGameId] = useState<string | null>(null);
   const [runningGameIds, setRunningGameIds] = useState<string[]>([]);
+  const [closingGameIds, setClosingGameIds] = useState<string[]>([]);
+  const [liveElapsed, setLiveElapsed] = useState<Record<string, number>>({});
   const [untrackedGameIds, setUntrackedGameIds] = useState<Set<string>>(() => {
     try {
       const saved = localStorage.getItem(LS_UNTRACKED_GAMES);
@@ -435,6 +458,16 @@ export function GameProvider({ children }: { children: ReactNode }) {
       // Remove from running games list
       setRunningGameIds((prev) => prev.filter((id) => id !== gameId));
 
+      // Clear any grace-period "closing" state and the live timer for this
+      // game — it has fully exited now.
+      setClosingGameIds((prev) => prev.filter((id) => id !== gameId));
+      setLiveElapsed((prev) => {
+        if (!(gameId in prev)) return prev;
+        const next = { ...prev };
+        delete next[gameId];
+        return next;
+      });
+
       // If this game is marked as untracked, do not record playtime or update lastPlayed
       if (untrackedGameIdsRef.current.has(gameId)) {
         runningSessionsRef.current.delete(gameId);
@@ -569,6 +602,39 @@ export function GameProvider({ children }: { children: ReactNode }) {
       unlisten.then((fn) => fn());
     };
   }, [t]);
+
+  // Listen for the watcher's grace-period transitions so the UI can show a
+  // "closing" state during launcher hand-offs instead of flipping straight
+  // from running to stopped.
+  useEffect(() => {
+    const unlistenLost = listen<GameSessionLostEvent>("game-session-lost", (event) => {
+      const { gameId } = event.payload;
+      setClosingGameIds((prev) => (prev.includes(gameId) ? prev : [...prev, gameId]));
+    });
+    const unlistenRestored = listen<GameSessionLostEvent>(
+      "game-session-restored",
+      (event) => {
+        const { gameId } = event.payload;
+        setClosingGameIds((prev) => prev.filter((id) => id !== gameId));
+      }
+    );
+    return () => {
+      unlistenLost.then((fn) => fn());
+      unlistenRestored.then((fn) => fn());
+    };
+  }, []);
+
+  // Listen for the watcher's periodic playtime heartbeat so the UI can show
+  // a live session timer and Discord presence elapsed stays fresh.
+  useEffect(() => {
+    const unlisten = listen<GameProgressEvent>("game-progress", (event) => {
+      const { gameId, elapsedSeconds } = event.payload;
+      setLiveElapsed((prev) => ({ ...prev, [gameId]: elapsedSeconds }));
+    });
+    return () => {
+      unlisten.then((fn) => fn());
+    };
+  }, []);
 
   interface SteamInstallChangedEvent {
     appId: number;
@@ -1328,6 +1394,8 @@ export function GameProvider({ children }: { children: ReactNode }) {
         updateGame,
         getGame,
         runningGameIds,
+        closingGameIds,
+        liveElapsed,
         launchGame,
         forceCloseGame,
         addStoreGame,

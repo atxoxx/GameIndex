@@ -2259,6 +2259,7 @@ export const ru: TranslationDict = {
   "game.resume": "Возобновить",
   "game.resumeAria": "Продолжить {name}",
   "game.running": "Выполняется",
+  "game.runningTime": "Выполняется · {time}",
   "game.specsTitle": "Характеристики игры",
   "game.status.abandoned": "Брошено",
   "game.status.backlog": "В планах",

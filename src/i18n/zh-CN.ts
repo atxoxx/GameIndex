@@ -2259,6 +2259,7 @@ export const zhCN: TranslationDict = {
   "game.resume": "恢复",
   "game.resumeAria": "继续 {name}",
   "game.running": "运行中",
+  "game.runningTime": "运行中 · {time}",
   "game.specsTitle": "游戏规格",
   "game.status.abandoned": "已放弃",
   "game.status.backlog": "待玩",

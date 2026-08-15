@@ -2259,6 +2259,7 @@ export const de: TranslationDict = {
   "game.resume": "Fortsetzen",
   "game.resumeAria": "{name} fortsetzen",
   "game.running": "Wird ausgeführt",
+  "game.runningTime": "Läuft · {time}",
   "game.specsTitle": "Spielspezifikationen",
   "game.status.abandoned": "Abgebrochen",
   "game.status.backlog": "Rückstand",

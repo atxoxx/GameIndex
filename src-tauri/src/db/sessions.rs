@@ -63,6 +63,128 @@ pub fn insert(
     Ok(conn.last_insert_rowid())
 }
 
+/// Insert or refresh the durable in-progress row (`ended_at IS NULL`) for
+/// a running session. Created on the first heartbeat and refreshed with
+/// the latest elapsed seconds on each subsequent one, so a crash (of the
+/// game or of GameIndex itself) loses at most one heartbeat's worth of
+/// playtime instead of the whole session.
+///
+/// One in-progress row per game — the watcher already guarantees a single
+/// active session per `game_id`, so the `ended_at IS NULL` row is
+/// unambiguous.
+pub fn upsert_running(
+    db: &Db,
+    game_id: &str,
+    game_name: &str,
+    started_at_ms: u64,
+    elapsed_seconds: u64,
+) -> Result<(), String> {
+    let conn = db.sessions().map_err(|e| format!("sessions conn: {e}"))?;
+    let updated = conn
+        .execute(
+            "UPDATE sessions
+                SET started_at = ?1, game_name = ?2, elapsed_seconds = ?3
+              WHERE game_id = ?4 AND ended_at IS NULL",
+            params![
+                started_at_ms as i64,
+                game_name,
+                elapsed_seconds as i64,
+                game_id,
+            ],
+        )
+        .map_err(|e| format!("sessions upsert_running: {e}"))?;
+    if updated == 0 {
+        conn.execute(
+            "INSERT INTO sessions(game_id, game_name, started_at, ended_at, elapsed_seconds)
+             VALUES (?1, ?2, ?3, NULL, ?4)",
+            params![game_id, game_name, started_at_ms as i64, elapsed_seconds as i64],
+        )
+        .map_err(|e| format!("sessions upsert_running insert: {e}"))?;
+    }
+    Ok(())
+}
+
+/// Finalize a session: turn the durable in-progress row (if the heartbeat
+/// ever created one) into the finished row, otherwise insert a fresh
+/// finished row. Keeps exactly one row per session whether or not the
+/// heartbeat ran (short sessions end before the first 30 s heartbeat).
+#[allow(clippy::too_many_arguments)]
+pub fn finalize(
+    db: &Db,
+    game_id: &str,
+    game_name: &str,
+    started_at_ms: u64,
+    ended_at_ms: u64,
+    elapsed_seconds: u64,
+    avg_fps: Option<f32>,
+    avg_cpu: Option<f32>,
+    avg_gpu: Option<f32>,
+    avg_ram: Option<f32>,
+    metrics_json: Option<&str>,
+) -> Result<(), String> {
+    let conn = db.sessions().map_err(|e| format!("sessions conn: {e}"))?;
+    let updated = conn
+        .execute(
+            "UPDATE sessions
+                SET started_at = ?1, game_name = ?2, ended_at = ?3, elapsed_seconds = ?4,
+                    avg_fps = ?5, avg_cpu = ?6, avg_gpu = ?7, avg_ram = ?8, metrics_json = ?9
+              WHERE game_id = ?10 AND ended_at IS NULL",
+            params![
+                started_at_ms as i64,
+                game_name,
+                ended_at_ms as i64,
+                elapsed_seconds as i64,
+                avg_fps.map(|n| n as f64),
+                avg_cpu.map(|n| n as f64),
+                avg_gpu.map(|n| n as f64),
+                avg_ram.map(|n| n as f64),
+                metrics_json,
+                game_id,
+            ],
+        )
+        .map_err(|e| format!("sessions finalize: {e}"))?;
+    if updated == 0 {
+        insert(
+            db,
+            game_id,
+            game_name,
+            started_at_ms,
+            ended_at_ms,
+            elapsed_seconds,
+            avg_fps,
+            avg_cpu,
+            avg_gpu,
+            avg_ram,
+            metrics_json,
+        )?;
+    }
+    Ok(())
+}
+
+/// Close orphaned in-progress rows left behind by a crash on a previous
+/// run. Their `elapsed_seconds` holds the last heartbeat value, so credit
+/// that partial playtime by back-dating `ended_at` from `started_at`.
+/// Zero-elapsed rows (crashed before the first heartbeat) are deleted
+/// instead of becoming phantom zero-second sessions. Returns the number
+/// of rows finalized.
+pub fn finalize_orphaned_running(db: &Db) -> Result<u64, String> {
+    let conn = db.sessions().map_err(|e| format!("sessions conn: {e}"))?;
+    conn.execute(
+        "DELETE FROM sessions
+          WHERE ended_at IS NULL AND (elapsed_seconds IS NULL OR elapsed_seconds <= 0)",
+        [],
+    )
+    .map_err(|e| format!("sessions orphan delete: {e}"))?;
+    conn.execute(
+        "UPDATE sessions
+            SET ended_at = started_at + elapsed_seconds * 1000
+          WHERE ended_at IS NULL",
+        [],
+    )
+    .map(|n| n as u64)
+    .map_err(|e| format!("sessions orphan finalize: {e}"))
+}
+
 /// Return the most-recent N sessions across all games (newest
 /// first).
 pub fn list_recent(db: &Db, limit: u32) -> Result<Vec<SessionRecord>, String> {
@@ -72,6 +194,7 @@ pub fn list_recent(db: &Db, limit: u32) -> Result<Vec<SessionRecord>, String> {
             "SELECT id, game_id, started_at, ended_at, elapsed_seconds,
                     avg_fps, avg_cpu, avg_gpu, avg_ram, metrics_json, game_name
                 FROM sessions
+               WHERE ended_at IS NOT NULL
                ORDER BY started_at DESC
                LIMIT ?1",
         )
@@ -108,7 +231,7 @@ pub fn list_for_game(db: &Db, game_id: &str) -> Result<Vec<SessionRecord>, Strin
             "SELECT id, game_id, started_at, ended_at, elapsed_seconds,
                     avg_fps, avg_cpu, avg_gpu, avg_ram, metrics_json, game_name
                 FROM sessions
-               WHERE game_id = ?1
+               WHERE game_id = ?1 AND ended_at IS NOT NULL
                ORDER BY started_at DESC",
         )
         .map_err(|e| format!("sessions list_for_game prepare: {e}"))?;
@@ -140,7 +263,11 @@ pub fn list_for_game(db: &Db, game_id: &str) -> Result<Vec<SessionRecord>, Strin
 pub fn count_all(db: &Db) -> Result<u64, String> {
     let conn = db.sessions().map_err(|e| format!("sessions conn: {e}"))?;
     let n: i64 = conn
-        .query_row("SELECT COUNT(*) FROM sessions", [], |r| r.get(0))
+        .query_row(
+            "SELECT COUNT(*) FROM sessions WHERE ended_at IS NOT NULL",
+            [],
+            |r| r.get(0),
+        )
         .map_err(|e| format!("sessions count: {e}"))?;
     Ok(n.max(0) as u64)
 }
@@ -156,6 +283,7 @@ pub fn list_all(db: &Db) -> Result<Vec<SessionRecord>, String> {
             "SELECT id, game_id, started_at, ended_at, elapsed_seconds,
                     avg_fps, avg_cpu, avg_gpu, avg_ram, metrics_json, game_name
                 FROM sessions
+               WHERE ended_at IS NOT NULL
                ORDER BY started_at DESC",
         )
         .map_err(|e| format!("sessions list_all prepare: {e}"))?;
@@ -252,5 +380,60 @@ mod tests {
 
         // Idempotent: no rows left for "a".
         assert_eq!(delete_for_game(&db, "a").unwrap(), 0);
+    }
+
+    #[test]
+    fn upsert_running_then_finalize_produces_one_row() {
+        let dir = tempfile::tempdir().unwrap();
+        let db = Db::open(dir.path()).unwrap();
+        super::super::migrate::run_migrations(&db).unwrap();
+
+        // First heartbeat creates the in-progress row.
+        upsert_running(&db, "g", "Game", 1000, 30).unwrap();
+        // Second heartbeat updates it in place — still one row.
+        upsert_running(&db, "g", "Game", 1000, 60).unwrap();
+
+        // In-progress rows must not surface in the finished-session lists.
+        assert_eq!(list_for_game(&db, "g").unwrap().len(), 0);
+
+        // Finalize converts the running row into the finished row.
+        finalize(&db, "g", "Game", 1000, 106_000, 60, None, None, None, None, None).unwrap();
+
+        let rows = list_for_game(&db, "g").unwrap();
+        assert_eq!(rows.len(), 1);
+        assert_eq!(rows[0].elapsed_seconds, Some(60));
+        assert_eq!(rows[0].ended_at_ms, Some(106_000));
+        assert_eq!(count_all(&db).unwrap(), 1);
+    }
+
+    #[test]
+    fn finalize_without_running_row_inserts() {
+        let dir = tempfile::tempdir().unwrap();
+        let db = Db::open(dir.path()).unwrap();
+        super::super::migrate::run_migrations(&db).unwrap();
+
+        // Short session that ended before the first heartbeat — no running row.
+        finalize(&db, "g", "Game", 1000, 3000, 2, None, None, None, None, None).unwrap();
+        assert_eq!(list_for_game(&db, "g").unwrap().len(), 1);
+    }
+
+    #[test]
+    fn finalize_orphaned_running_credits_partial_playtime() {
+        let dir = tempfile::tempdir().unwrap();
+        let db = Db::open(dir.path()).unwrap();
+        super::super::migrate::run_migrations(&db).unwrap();
+
+        // Two orphans: one with real elapsed, one zero-elapsed
+        // (crashed before the first heartbeat).
+        upsert_running(&db, "a", "Game A", 1000, 90).unwrap();
+        upsert_running(&db, "b", "Game B", 2000, 0).unwrap();
+
+        let finalized = finalize_orphaned_running(&db).unwrap();
+        assert_eq!(finalized, 1, "only the non-zero orphan is back-dated");
+
+        let rows = list_all(&db).unwrap();
+        assert_eq!(rows.len(), 1);
+        assert_eq!(rows[0].game_id, "a");
+        assert_eq!(rows[0].ended_at_ms, Some(1000 + 90 * 1000));
     }
 }

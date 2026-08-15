@@ -82,6 +82,11 @@ pub struct ActiveSession {
     /// minutes in a user-gated Steam dialog / slow UAC prompt before
     /// the game appears doesn't count that waiting time as playtime.
     pub attached_at: Option<Instant>,
+    /// Wall-clock Unix-ms timestamp of the attach instant. Anchored
+    /// alongside `attached_at` so the durable running-session row and the
+    /// `game-progress` heartbeat can report a stable `started_at` without
+    /// re-deriving it from a monotonic `Instant`.
+    pub attached_at_ms: u64,
     pub last_pid: u32,
     pub stop_tx: std::sync::mpsc::Sender<()>,
     pub metrics_rx: Option<std::sync::mpsc::Receiver<Option<metrics_collector::SessionMetrics>>>,
@@ -144,6 +149,21 @@ const POLL_INTERVAL_PENDING: std::time::Duration = std::time::Duration::from_sec
 /// last-played stamp update promptly; the re-attach window (looking
 /// for another live process in the install dir) still runs first.
 const SESSION_LOST_GRACE: std::time::Duration = std::time::Duration::from_secs(8);
+
+/// How often the poll loop emits `game-progress` heartbeats and persists
+/// the durable in-progress `sessions` row. 30 s bounds crash-loss to half
+/// a minute while keeping DB writes negligible (a few rows per tick).
+const HEARTBEAT_INTERVAL: std::time::Duration = std::time::Duration::from_secs(30);
+
+/// Current wall-clock time in Unix milliseconds. Used to stamp session
+/// start/end times for the DB (the watcher's own clocks are monotonic
+/// `Instant`s with no fixed epoch).
+fn now_unix_ms() -> u64 {
+    std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map(|d| d.as_millis() as u64)
+        .unwrap_or(0)
+}
 
 /// Serializable info about a candidate exe found during resolution.
 #[derive(Debug, Clone, Serialize)]
@@ -331,6 +351,7 @@ impl GameWatcher {
                 } else {
                     None
                 },
+                attached_at_ms: if initial_pid != 0 { now_unix_ms() } else { 0 },
                 install_dir,
                 lost_at: None,
                 post_exit_script,
@@ -477,6 +498,18 @@ impl GameWatcher {
                 is_currently_running(&exe_by_pid, session.last_pid, &session.matched_exe);
 
             if is_currently_running {
+                // The same PID reappeared in the snapshot after a gap —
+                // clear the grace period and tell the frontend the session
+                // is healthy again.
+                if session.lost_at.is_some() {
+                    let _ = app_handle.emit(
+                        "game-session-restored",
+                        GameSessionLostPayload {
+                            game_id: gid.clone(),
+                            game_name: session.game_name.clone(),
+                        },
+                    );
+                }
                 session.lost_at = None;
                 continue;
             }
@@ -500,6 +533,18 @@ impl GameWatcher {
             );
 
             if let Some(proc) = found_proc {
+                // Re-attached to a new process (launcher hand-off or a
+                // respawn). If this session had entered the grace period,
+                // restore it to "running" for the frontend.
+                if session.lost_at.is_some() {
+                    let _ = app_handle.emit(
+                        "game-session-restored",
+                        GameSessionLostPayload {
+                            game_id: gid.clone(),
+                            game_name: session.game_name.clone(),
+                        },
+                    );
+                }
                 session.lost_at = None;
                 transitions.push((gid.clone(), proc));
             } else {
@@ -524,6 +569,17 @@ impl GameWatcher {
                             session.game_name, session.last_pid,
                             SESSION_LOST_GRACE.as_secs()
                         );
+                        // Emit once at grace entry so the frontend can show a
+                        // "closing" state instead of flipping straight to
+                        // stopped (launcher hand-offs otherwise read as a
+                        // hard exit for up to SESSION_LOST_GRACE).
+                        let _ = app_handle.emit(
+                            "game-session-lost",
+                            GameSessionLostPayload {
+                                game_id: gid.clone(),
+                                game_name: session.game_name.clone(),
+                            },
+                        );
                     }
                 }
             }
@@ -541,6 +597,7 @@ impl GameWatcher {
                 // not counted as playtime.
                 if was_pending {
                     session.attached_at = Some(Instant::now());
+                    session.attached_at_ms = now_unix_ms();
                 }
 
                 // Stop metrics collection bound to the old (or dummy)
@@ -708,6 +765,7 @@ impl GameWatcher {
                 metrics_rx: Some(metrics_rx),
                 launched_by_app: false,
                 attached_at: Some(Instant::now()),
+                attached_at_ms: now_unix_ms(),
                 matched_exe: proc.exe_path.clone(),
                 install_dir: game.install_dir.clone(),
                 lost_at: None,
@@ -723,6 +781,35 @@ impl GameWatcher {
                 detected_exe: Some(proc.exe_path.clone()),
             },
         );
+    }
+
+    /// Emit a `game-progress` heartbeat for every attached session and
+    /// return the durable running-row snapshots for the caller to persist
+    /// (outside the watcher mutex). Pending sessions (no process captured
+    /// yet) and never-attached sessions are skipped.
+    fn snapshot_running_rows(&self, app_handle: &AppHandle) -> Vec<RunningSessionSnapshot> {
+        let mut rows = Vec::new();
+        for session in self.active_sessions.values() {
+            if session.last_pid == 0 || session.attached_at.is_none() {
+                continue;
+            }
+            let elapsed = session.elapsed_seconds();
+            let _ = app_handle.emit(
+                "game-progress",
+                GameProgressPayload {
+                    game_id: session.game_id.clone(),
+                    game_name: session.game_name.clone(),
+                    elapsed_seconds: elapsed,
+                },
+            );
+            rows.push(RunningSessionSnapshot {
+                game_id: session.game_id.clone(),
+                game_name: session.game_name.clone(),
+                started_at_ms: session.attached_at_ms,
+                elapsed_seconds: elapsed,
+            });
+        }
+        rows
     }
 
     /// Returns whether the watcher currently tracks a session for
@@ -921,15 +1008,15 @@ fn finalize_session(
     // frontend reads via `Date.now()` (i.e. system time, not monotonic)
     // so the value survives timezone shifts and clock corrections without
     // a re-derivation step.
-    //
-    // We approximate the session start as `finished_at - elapsed` since
-    // `started_at` on the watcher is a monotonic `Instant` (no fixed
-    // epoch) and we need wall-clock ms for the DB row.
-    let finished_at_ms = std::time::SystemTime::now()
-        .duration_since(std::time::UNIX_EPOCH)
-        .map(|d| d.as_millis() as u64)
-        .unwrap_or(0);
-    let started_at_ms = finished_at_ms.saturating_sub(elapsed * 1000);
+    let finished_at_ms = now_unix_ms();
+    // Prefer the attach-anchored wall-clock stamp captured when the
+    // process first appeared; fall back to back-dating from the finish
+    // time for sessions that predate that field.
+    let started_at_ms = if session.attached_at_ms > 0 {
+        session.attached_at_ms
+    } else {
+        finished_at_ms.saturating_sub(elapsed * 1000)
+    };
 
     // Phase 3: write the session row before emitting the event so any
     // frontend listener that reads from the DB sees a row in place.
@@ -956,7 +1043,7 @@ fn finalize_session(
     // still emitted below (with elapsed 0) so the frontend's running
     // indicator clears.
     if session.last_pid != 0 {
-        if let Err(e) = db::sessions::insert(
+        if let Err(e) = db::sessions::finalize(
             db,
             &session.game_id,
             &session.game_name,
@@ -1340,6 +1427,33 @@ pub struct GameStartedPayload {
     pub detected_exe: Option<String>,
 }
 
+/// Payload for the periodic "game-progress" heartbeat emitted by the poll
+/// loop. Carries the attach-anchored elapsed playtime so the frontend can
+/// show a live session timer (and so the durable running row stays fresh).
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct GameProgressPayload {
+    #[serde(rename = "gameId")]
+    pub game_id: String,
+    #[serde(rename = "gameName")]
+    pub game_name: String,
+    #[serde(rename = "elapsedSeconds")]
+    pub elapsed_seconds: u64,
+}
+
+/// Payload for the "game-session-lost" / "game-session-restored" events.
+/// "Lost" fires once when a tracked process goes missing and the session
+/// enters its grace period (could be a launcher hand-off); "restored"
+/// fires when it re-attaches to a live process before the grace expires.
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct GameSessionLostPayload {
+    #[serde(rename = "gameId")]
+    pub game_id: String,
+    #[serde(rename = "gameName")]
+    pub game_name: String,
+}
+
 #[derive(Debug, Clone)]
 struct ProcessInfo {
     pid: u32,
@@ -1347,6 +1461,17 @@ struct ProcessInfo {
     /// Working set size in bytes; used to pick the dominant process
     /// when multiple candidates live inside the same install directory.
     working_set_size: u64,
+}
+
+/// Snapshot of an in-progress session produced by
+/// [`GameWatcher::snapshot_running_rows`]. Owned so the background poll
+/// loop can persist it via `db::sessions::upsert_running` after releasing
+/// the watcher mutex.
+struct RunningSessionSnapshot {
+    game_id: String,
+    game_name: String,
+    started_at_ms: u64,
+    elapsed_seconds: u64,
 }
 
 /// Query running processes natively using Toolhelp32 snapshot.
@@ -1709,7 +1834,11 @@ pub fn start_background_poll(
         w.set_wake_sender(wake_tx);
     }
 
-    std::thread::spawn(move || loop {
+    std::thread::spawn(move || {
+        // Anchor for the periodic heartbeat (game-progress + durable
+        // running-row persistence), scoped to this thread.
+        let mut last_heartbeat = Instant::now();
+        loop {
         // Fast poll while a launch is still pending; steady otherwise.
         // Drains any pending wake signals first so a recent launch is
         // picked up on the very next cycle.
@@ -1736,6 +1865,17 @@ pub fn start_background_poll(
         // Re-evaluate interval after polling: if we just cleared the last
         // pending session, settle back to the steady interval promptly.
         let next_interval = w.current_poll_interval();
+
+        // Periodic heartbeat: emit `game-progress` for every attached
+        // session and snapshot the durable running rows to persist below
+        // (DB writes stay outside the watcher mutex).
+        let heartbeat_rows = if last_heartbeat.elapsed() >= HEARTBEAT_INTERVAL {
+            last_heartbeat = Instant::now();
+            w.snapshot_running_rows(&app_handle)
+        } else {
+            Vec::new()
+        };
+
         let db = w.db_clone();
         drop(w);
 
@@ -1743,6 +1883,26 @@ pub fn start_background_poll(
         // force-close path (take_active_session → finalize).
         for (session, remaining_name) in ended_sessions {
             finalize_session(&db, &app_handle, session, remaining_name);
+        }
+
+        // Persist the running-row snapshots captured above. Benign race:
+        // a concurrent force-close could finalize a session between the
+        // snapshot and this write, re-orphaning a running row — it is
+        // reconciled (back-dated) by finalize_orphaned_running on next
+        // startup, and only loses sub-heartbeat playtime.
+        for row in heartbeat_rows {
+            if let Err(e) = db::sessions::upsert_running(
+                &db,
+                &row.game_id,
+                &row.game_name,
+                row.started_at_ms,
+                row.elapsed_seconds,
+            ) {
+                eprintln!(
+                    "[game_watcher] failed to persist running session for {}: {e}",
+                    row.game_id
+                );
+            }
         }
 
         let wait = if next_interval < interval {
@@ -1755,6 +1915,7 @@ pub fn start_background_poll(
         match wake_rx.recv_timeout(wait) {
             Ok(()) | Err(std::sync::mpsc::RecvTimeoutError::Timeout) => {}
             Err(std::sync::mpsc::RecvTimeoutError::Disconnected) => break,
+        }
         }
     });
 }
@@ -2154,6 +2315,7 @@ mod tests {
             game_name: "Test".to_string(),
             started_at: Instant::now(),
             attached_at: None,
+            attached_at_ms: 0,
             last_pid: 0,
             stop_tx: std::sync::mpsc::channel::<()>().0,
             metrics_rx: None,
@@ -2175,6 +2337,7 @@ mod tests {
             game_name: "Test".to_string(),
             started_at: Instant::now() - std::time::Duration::from_secs(600),
             attached_at: Some(Instant::now() - std::time::Duration::from_secs(2)),
+            attached_at_ms: 0,
             last_pid: 1234,
             stop_tx: std::sync::mpsc::channel::<()>().0,
             metrics_rx: None,
