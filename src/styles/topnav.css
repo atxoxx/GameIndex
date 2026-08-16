@@ -6,9 +6,7 @@
   align-items: center;
   justify-content: space-between;
   height: var(--topnav-height);
-  background: color-mix(in srgb, var(--color-bg-primary) 55%, transparent);
-  backdrop-filter: blur(var(--blur-lg)) saturate(140%);
-  -webkit-backdrop-filter: blur(var(--blur-lg)) saturate(140%);
+  background: var(--color-bg-primary);
   border-bottom: 1px solid var(--color-border);
   padding: 0 var(--space-md);
   user-select: none;

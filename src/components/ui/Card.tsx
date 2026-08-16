@@ -16,8 +16,8 @@ export interface CardProps extends HTMLAttributes<HTMLDivElement> {
 
 const variantClasses: Record<CardVariant, string> = {
   surface: "ui-card--surface",
-  glass: "ui-card--glass glass",
-  raised: "ui-card--raised glass-raised",
+  glass: "ui-card--glass",
+  raised: "ui-card--raised",
 };
 
 const elevationClasses: Record<CardElevation, string> = {

@@ -568,3 +568,15 @@
   color: #fff;
 }
 
+/* ── Surface Level System (solid) ───────────────────────────────────
+   Overrides the translucent `--color-surface*` values each theme block
+   declares above with their solid `--color-bg-*` equivalents. Only
+   Surface 3 (`.glass` overlays) keeps a hint of translucency so the
+   backdrop blur reads. `[data-theme]` has equal specificity to the
+   named blocks; because this block comes last it wins by source order. */
+[data-theme] {
+  --color-surface: var(--color-bg-secondary);
+  --color-surface-raised: var(--color-bg-tertiary);
+  --color-surface-glass: color-mix(in srgb, var(--color-bg-secondary) 72%, transparent);
+}
+

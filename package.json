@@ -17,6 +17,7 @@
     "@tauri-apps/plugin-process": "^2.0.0",
     "@tauri-apps/plugin-updater": "^2.0.0",
     "html2canvas": "^1.4.1",
+    "lucide-react": "^1.31.0",
     "nostr-tools": "^2.23.12",
     "qrcode": "^1.5.4",
     "react": "^19.1.0",

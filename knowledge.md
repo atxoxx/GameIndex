@@ -110,7 +110,7 @@ Phase 1–4 of a migration that moved every JSON file under `<app_data_dir>` plu
 ## Style & UI conventions
 
 - **Dark-first** — `:root` declares the dark palette; `[data-theme="light"]` overrides. `ThemeProvider` toggles `data-theme` on `<html>`.
-- **Iconography** — inline SVG only. Components live next to their consumers in `src/components/<area>/`.
+- **Iconography** — `lucide-react` (tree-shakable) for app chrome/navigation icons; inline SVG is still fine for brand marks and one-off glyphs. Components live next to their consumers in `src/components/<area>/`.
 - **Modals & overlays** — `<Splashscreen />` overlays at z-index 9500; modal components use fixed positioning. Render nothing when idle (don't mount empty shells).
 - **Cards / KPIs** — reuse `src/components/ui/Card.tsx`, `KpiTile.tsx`, `Badge.tsx`, `Skeleton.tsx`, `Tooltip.tsx`, `ConfirmModal.tsx` for consistency.
 
@@ -119,12 +119,12 @@ Phase 1–4 of a migration that moved every JSON file under `<app_data_dir>` plu
 - **Routing:** Always `HashRouter`. Never `BrowserRouter` — Tauri ships `file://` in production.
 - **Theming:** Use CSS variable tokens (`var(--…)`) defined in `styles/theme.css` (base `:root`) with alternate palettes in `styles/themes.css`. Never hardcode colors. Every dark-mode style sees its light counterpart in `[data-theme="light"]`.
 - **Components:** One component per file under `src/components/<area>/`. Co-locate styles in the matching feature stylesheet under `src/styles/` (or `App.css`'s barrel order). Prefer CSS classes over CSS-modules so theme tokens apply.
-- **Icons:** Inline SVGs, no icon library dependency.
+- **Icons:** Use `lucide-react` for UI chrome icons (tree-shaken at build, so only imported icons ship). Prefer it over hand-rolled inline SVGs for consistency; keep brand marks (e.g. the TopNav logo) inline.
 - **Tauri commands:** Round-trip JSON at the boundary (`serde_json::to_value` / `from_value`) — saves hand-rolling field-by-field converters. Use `#[serde(rename_all = "camelCase")]` on Rust structs and `#[serde(default)]` for new optional fields so deserialization of older payloads still works.
 - **State registration:** Register pooled/shared state inside `.setup` and read it via `app.state::<T>()`. Do **not** wrap the existing `Db` in `Arc` (the pool is already shared); other shared state (GameWatcher, SourceManager, StoreChecker) uses `Arc<Mutex<…>>`.
 - **Async + locks:** Hold `Mutex` guards across `.await` only when absolutely necessary — the codebase generally clones into local variables and drops the guard before awaiting.
 - **Schema migrations:** Edit existing `CREATE TABLE` clauses? **No.** Add a new `schema_vN.sql` file + append to `SCHEMA_VERSIONS` + use `ALTER TABLE … ADD COLUMN` for new columns.
-- **Bundle size:** Tauri's <10 MB target is intentional. **Do not** add heavyweight N-API/icon dependencies. `html2canvas` is the only deliberate exception (used to capture screenshots of the Game page). Prefer browser-native APIs where possible.
+- **Bundle size:** Tauri's <10 MB target is intentional. **Do not** add heavyweight N-API/icon dependencies. `html2canvas` is the only deliberate heavy exception (used to capture screenshots of the Game page); `lucide-react` is tree-shakable and bundles only the icons you import. Prefer browser-native APIs where possible.
 
 ## Common dev gotchas
 

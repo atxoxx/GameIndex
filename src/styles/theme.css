@@ -17,11 +17,12 @@
   /* Ambient depth background — clean solid obsidian base */
   --color-bg-gradient: var(--color-bg-primary);
 
-  /* Surface system with glassmorphism support */
-  --color-surface: rgba(14, 16, 23, 0.78);
-  --color-surface-raised: rgba(20, 23, 34, 0.88);
-  --color-surface-overlay: rgba(6, 7, 10, 0.88);
-  --color-surface-glass: rgba(14, 16, 23, 0.58);
+  /* Surface Level System (0–3), solid by default — glassmorphism is
+     reserved for Surface 3 overlays (`.glass`). */
+  --color-surface: var(--color-bg-secondary);        /* Surface 1 */
+  --color-surface-raised: var(--color-bg-tertiary);  /* Surface 2 */
+  --color-surface-overlay: rgba(6, 7, 10, 0.92);     /* Surface 3 backdrop */
+  --color-surface-glass: rgba(14, 16, 23, 0.72);     /* Surface 3 glass tint */
 
   /* Derived card/elevated surfaces */
   --color-bg-card: var(--color-surface);
@@ -143,23 +144,32 @@
   --radius-3xl: 48px;
   --radius-full: 9999px;
 
-  /* ── Shadow / Elevation System ────────────────────────────────────
-     Layered: a tight contact shadow + a soft ambient falloff. The
-     ambient layer carries a whisper of accent so raised panels read
-     as lit, not just floating. */
-  --shadow-xs: 0 1px 2px rgba(0, 0, 0, 0.35);
-  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.3), 0 4px 12px rgba(0, 0, 0, 0.35);
-  --shadow-md: 0 2px 4px rgba(0, 0, 0, 0.3), 0 8px 24px rgba(0, 0, 0, 0.4);
-  --shadow-lg: 0 4px 8px rgba(0, 0, 0, 0.32), 0 16px 40px rgba(0, 0, 0, 0.45);
-  --shadow-xl: 0 8px 16px rgba(0, 0, 0, 0.35), 0 32px 80px rgba(0, 0, 0, 0.55);
+  /* ── Elevation System ──────────────────────────────────────────────
+     One canonical ladder, level 1 (flush) → level 5 (overlay). Each
+     step is a tight contact shadow + a soft ambient falloff. The
+     legacy `shadow-*` / `depth-*` names resolve to this ladder so
+     every consumer stays on the same predictable scale. */
+  --elevation-1: 0 1px 2px rgba(0, 0, 0, 0.35);
+  --elevation-2: 0 1px 2px rgba(0, 0, 0, 0.3), 0 4px 12px rgba(0, 0, 0, 0.35);
+  --elevation-3: 0 2px 4px rgba(0, 0, 0, 0.3), 0 8px 24px rgba(0, 0, 0, 0.4);
+  --elevation-4: 0 4px 8px rgba(0, 0, 0, 0.32), 0 16px 40px rgba(0, 0, 0, 0.45);
+  --elevation-5: 0 8px 16px rgba(0, 0, 0, 0.35), 0 32px 80px rgba(0, 0, 0, 0.55);
+
+  /* Accent glow ring (not elevation — a highlight, kept separate). */
   --shadow-glow: 0 0 0 1px var(--color-border-glow), 0 0 24px var(--color-accent-glow);
 
-  /* Tactile 3D lift scale */
-  --depth-1: inset 0 1px 0 var(--color-border-highlight), 0 2px 8px rgba(0, 0, 0, 0.4);
-  --depth-2: inset 0 1px 0 var(--color-border-highlight), 0 4px 18px rgba(0, 0, 0, 0.5);
-  --depth-3: inset 0 1px 0 var(--color-border-highlight), 0 10px 36px rgba(0, 0, 0, 0.6);
-  --depth-float: inset 0 1px 0 var(--color-border-highlight), 0 20px 64px rgba(0, 0, 0, 0.75);
-  --shadow-brand: 0 8px 32px rgba(0, 0, 0, 0.5), 0 2px 8px rgba(0, 0, 0, 0.4);
+  /* Legacy aliases → canonical scale (drop the old inset "lit edge"
+     highlights so resting surfaces read quieter). */
+  --shadow-xs: var(--elevation-1);
+  --shadow-sm: var(--elevation-2);
+  --shadow-md: var(--elevation-3);
+  --shadow-lg: var(--elevation-4);
+  --shadow-xl: var(--elevation-5);
+  --depth-1: var(--elevation-2);
+  --depth-2: var(--elevation-3);
+  --depth-3: var(--elevation-4);
+  --depth-float: var(--elevation-5);
+  --shadow-brand: var(--elevation-4);
 
   /* ── Focus / Interaction Ring System ──────────────────────────────
      Double-ring focus: a dark halo separating the accent ring from
@@ -285,18 +295,17 @@ h1, h2, h3, h4, .font-display {
    Utility Classes
    ============================== */
 
-/* Glassmorphism surfaces */
+/* Surface 3 — the ONLY glass layer (overlays, modals, popovers). */
 .glass {
   background: var(--color-surface-glass);
-  backdrop-filter: blur(var(--blur-md)) saturate(140%);
-  -webkit-backdrop-filter: blur(var(--blur-md)) saturate(140%);
+  backdrop-filter: blur(var(--blur-lg));
+  -webkit-backdrop-filter: blur(var(--blur-lg));
   border: 1px solid var(--color-border-light);
 }
 
+/* Surface 2 — solid raised panel (no backdrop blur). */
 .glass-raised {
   background: var(--color-surface-raised);
-  backdrop-filter: blur(var(--blur-lg)) saturate(150%);
-  -webkit-backdrop-filter: blur(var(--blur-lg)) saturate(150%);
   border: 1px solid var(--color-border);
   box-shadow: var(--shadow-md);
 }
@@ -361,43 +370,45 @@ h1, h2, h3, h4, .font-display {
   opacity: 1;
 }
 
-/* ── Theme Accent Override Utilities ────────────────────────────── */
+/* ── Theme Accent Override Utilities ──────────────────────────────
+   Plain utilities (no !important): they win by being applied directly
+   to the element, keeping specificity predictable. */
 .accent-text {
-  color: var(--color-accent) !important;
+  color: var(--color-accent);
 }
 
 .accent-bg {
-  background: var(--color-accent) !important;
-  color: var(--color-accent-contrast, #ffffff) !important;
+  background: var(--color-accent);
+  color: var(--color-accent-contrast, #ffffff);
 }
 
 .accent-border {
-  border-color: var(--color-accent) !important;
+  border-color: var(--color-accent);
 }
 
 .accent-glow {
-  box-shadow: 0 0 24px var(--color-accent-glow) !important;
+  box-shadow: 0 0 24px var(--color-accent-glow);
 }
 
 .accent-gradient-text {
-  color: var(--color-accent) !important;
-  font-weight: var(--font-weight-bold) !important;
-  background: none !important;
-  -webkit-background-clip: unset !important;
+  color: var(--color-accent);
+  font-weight: var(--font-weight-bold);
+  background: none;
+  -webkit-background-clip: unset;
 }
 
 .accent-pill {
-  background: var(--color-accent-soft) !important;
-  color: var(--color-accent) !important;
-  border: 1px solid color-mix(in srgb, var(--color-accent) 35%, transparent) !important;
+  background: var(--color-accent-soft);
+  color: var(--color-accent);
+  border: 1px solid color-mix(in srgb, var(--color-accent) 35%, transparent);
 }
 
 .accent-card-highlight {
-  border-color: var(--color-accent) !important;
-  box-shadow: inset 0 1px 0 var(--color-border-highlight), 0 0 24px var(--color-accent-glow) !important;
+  border-color: var(--color-accent);
+  box-shadow: inset 0 1px 0 var(--color-border-highlight), 0 0 24px var(--color-accent-glow);
 }
 
 .accent-focus:focus-visible {
-  outline: 2px solid var(--color-accent) !important;
-  outline-offset: 2px !important;
+  outline: 2px solid var(--color-accent);
+  outline-offset: 2px;
 }

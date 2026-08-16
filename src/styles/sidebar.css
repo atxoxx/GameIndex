@@ -5,9 +5,7 @@
   display: flex;
   flex-direction: column;
   height: calc(100vh - var(--topnav-height));
-  background: color-mix(in srgb, var(--color-bg-primary) 42%, transparent);
-  backdrop-filter: blur(var(--blur-md)) saturate(130%);
-  -webkit-backdrop-filter: blur(var(--blur-md)) saturate(130%);
+  background: var(--color-bg-secondary);
   border-right: 1px solid var(--color-border);
   width: var(--sidebar-width);
   transition: width var(--duration-slow) var(--ease-standard);
@@ -23,7 +21,7 @@
   align-items: center;
   gap: var(--space-sm);
   padding: 8px 12px;
-  background: color-mix(in srgb, var(--color-bg-secondary) 72%, transparent);
+  background: var(--color-bg-tertiary);
   border: 1px solid var(--color-border);
   border-radius: var(--radius-md);
   box-shadow: inset 0 1px 0 var(--color-border-highlight), inset 0 1px 2px rgba(0, 0, 0, 0.3);
@@ -35,7 +33,7 @@
 .sidebar-search:focus-within {
   border-color: var(--color-accent);
   box-shadow: 0 0 0 3px var(--color-focus-ring), inset 0 1px 2px rgba(0, 0, 0, 0.3);
-  background: color-mix(in srgb, var(--color-bg-secondary) 85%, transparent);
+  background: var(--color-bg-tertiary);
 }
 
 .sidebar-search:focus-within .sidebar-search-icon {
@@ -283,10 +281,9 @@
  *     highlight as title-width only).
  *   - On active (selected) the row paints a uniform accent tint
  *     across the full width with a soft glow on the left edge,
- *     paired with a `border-left` accent indicator. Only ONE
- *     border treatment is applied — stacking the border-left
- *     with an inset 1px ring produces a fuzzy seam on light
- *     themes, so the inset ring was dropped.
+ *     paired with an absolutely-positioned left accent bar (the
+ *     `::after` rule below), so selection never shifts the row's
+ *     box model and the icon column can't jitter.
  */
 .sidebar-game-item {
   display: flex;
@@ -296,10 +293,8 @@
   border-radius: var(--radius-md);
   cursor: pointer;
   transition: background var(--duration-normal) var(--ease-standard),
-              border-color var(--duration-normal) var(--ease-standard),
               box-shadow var(--duration-normal) var(--ease-standard);
   margin-bottom: 4px;
-  border-left: 3px solid transparent;
   position: relative;
   /* Full-width guarantee: combined with `box-sizing: border-box`
    * ensures the row paints edge-to-edge of its container. */
@@ -317,21 +312,34 @@
    * width. */
 }
 
+/* Selection indicator: an absolutely-positioned left bar so the
+ * accent highlight never changes the row's box model — no border-left
+ * + padding math, so selecting a row can't jitter the icon column. */
+.sidebar-game-item::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 3px;
+  height: 24px;
+  border-radius: var(--radius-full);
+  background: transparent;
+  pointer-events: none;
+  transition: background var(--duration-normal) var(--ease-standard);
+}
+
+.sidebar-game-item.active::after,
+.sidebar-game-item.bulk-selected::after {
+  background: var(--color-accent);
+}
+
 .sidebar-game-item.active {
   background: color-mix(
     in srgb,
     var(--color-accent) 14%,
     var(--color-bg-tertiary)
   );
-  border-left-color: var(--color-accent);
-  /* Re-derive the padding so the border-left does NOT shift the
-   * icon/text off their resting X coordinate (otherwise the icon
-   * column visibly jitters by 3px on selection). */
-  padding-left: calc(var(--space-md) - 3px);
-  /* Single accent treatment on the left edge: a soft glow that
-   * bleeds outward 12px from the border. Combined with the
-   * border-left this reads as a clear "selected" affordance
-   * across every theme without any stacked border-like shadow. */
   box-shadow: inset 4px 0 12px -4px var(--color-accent-glow),
     inset 0 1px 0 var(--color-border-highlight);
 }
@@ -951,7 +959,6 @@
  * contracts. */
 .sidebar-game-item.bulk-selected {
   background: color-mix(in srgb, var(--color-accent) 16%, var(--color-bg-tertiary));
-  border-left-color: var(--color-accent);
 }
 
 .sidebar-game-item__check {
