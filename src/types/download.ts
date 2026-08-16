@@ -261,6 +261,9 @@ export function formatEta(downloaded: number, totalSize: number | null, speed: n
   }
   const days = Math.floor(hours / 24);
   const remainingHours = hours % 24;
+  if (days > 30) {
+    return "> 30d remaining";
+  }
   return `${days}d ${remainingHours}h remaining`;
 }
 

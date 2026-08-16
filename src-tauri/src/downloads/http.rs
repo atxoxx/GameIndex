@@ -512,17 +512,17 @@ async fn finalize_success(
     manager::on_download_finished(&manager, id).await;
 }
 
-/// Simple token-bucket style throttle for the global speed limit.
+/// Token-bucket throttle for the global speed limit. Each byte "costs"
+/// 1/limit seconds, so the next chunk is only released once its quota has
+/// been earned — no window resets, no burst-then-stall sawtooth.
 struct Throttle {
-    window_start: std::time::Instant,
-    window_bytes: u64,
+    next_allowed: std::time::Instant,
 }
 
 impl Throttle {
     fn new() -> Self {
         Self {
-            window_start: std::time::Instant::now(),
-            window_bytes: 0,
+            next_allowed: std::time::Instant::now(),
         }
     }
 
@@ -531,20 +531,18 @@ impl Throttle {
         if limit == 0 {
             return;
         }
-        self.window_bytes += bytes;
-        let elapsed = self.window_start.elapsed().as_secs_f64();
-        let allowed = (limit as f64 * elapsed) as u64;
-        if self.window_bytes > allowed {
-            let excess = self.window_bytes - allowed;
-            let sleep_secs = excess as f64 / limit as f64;
-            tokio::time::sleep(Duration::from_secs_f64(sleep_secs.min(2.0))).await;
+
+        let time_needed = std::time::Duration::from_secs_f64(bytes as f64 / limit as f64);
+
+        let now = std::time::Instant::now();
+        if now < self.next_allowed {
+            let sleep_time = self.next_allowed - now;
+            // Cap each sleep so the abort check (every 500 ms) stays responsive.
+            tokio::time::sleep(sleep_time.min(std::time::Duration::from_secs(2))).await;
         }
-        // Reset the window periodically so old history doesn't allow
-        // long bursts after an idle period.
-        if elapsed > 5.0 {
-            self.window_start = std::time::Instant::now();
-            self.window_bytes = 0;
-        }
+
+        let after_sleep = std::time::Instant::now();
+        self.next_allowed = std::cmp::max(self.next_allowed, after_sleep) + time_needed;
     }
 }
 
@@ -678,12 +676,20 @@ async fn attempt_download(
         .to_ascii_lowercase();
     let server_compressed = !content_encoding.is_empty() && content_encoding != "identity";
 
-    // Server ignored our Range → 200 with the whole file. Compressed:
-    // restart from zero. Uncompressed: keep the partial, skip prefix.
-    let restart_from_zero =
-        is_resume && status != StatusCode::PARTIAL_CONTENT && server_compressed;
-    let range_ignored =
-        is_resume && status != StatusCode::PARTIAL_CONTENT && !server_compressed;
+    // Compressed bodies can never be appended to our uncompressed temp file
+    // (byte offsets don't line up), so restart from zero whenever the server
+    // compressed the response — whether it returned 200 or 206.
+    let mut restart_from_zero = is_resume && server_compressed;
+    // A 200 when we asked to resume means the Range header was ignored. Only
+    // keep the existing partial when the new body is at least as large as what
+    // we already have, otherwise we'd skip past its end and corrupt the file.
+    let mut range_ignored = false;
+    if is_resume && status != StatusCode::PARTIAL_CONTENT && !server_compressed {
+        match resp.content_length() {
+            Some(len) if len < current_size => restart_from_zero = true,
+            _ => range_ignored = true,
+        }
+    }
 
     if restart_from_zero {
         current_size = 0;
@@ -827,8 +833,24 @@ async fn attempt_download(
     let _ = file.flush().await;
     drop(file);
 
-    if let Err(e) = tokio::fs::rename(&temp_path, path).await {
-        return AttemptResult::Retryable(format!("Failed to finalize file: {}", e), None);
+    // Renaming can transiently fail while antivirus or another process briefly
+    // locks the freshly written file. Retry the rename instead of discarding a
+    // fully downloaded file and starting over from scratch.
+    let mut rename_attempts = 0;
+    loop {
+        match tokio::fs::rename(&temp_path, path).await {
+            Ok(_) => break,
+            Err(e) => {
+                rename_attempts += 1;
+                if rename_attempts >= 5 {
+                    return AttemptResult::Fatal(format!(
+                        "Failed to finalize file after {} attempts: {}",
+                        rename_attempts, e
+                    ));
+                }
+                tokio::time::sleep(Duration::from_millis(500)).await;
+            }
+        }
     }
 
     AttemptResult::Completed

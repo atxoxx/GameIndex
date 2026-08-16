@@ -872,7 +872,6 @@ pub async fn claim_active_slot(
         return SlotClaim::NotFound;
     };
     d.status = in_flight_status;
-    d.added_at = unix_now();
     guard.active_id = Some(id.to_string());
     guard.remove_from_queue(id);
     guard.mark_dirty();
