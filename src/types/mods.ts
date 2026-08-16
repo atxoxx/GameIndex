@@ -66,6 +66,9 @@ export interface ModsOverviewEntry {
   updates: number;
   engines: string[];
   modsRoot?: string;
+  /** Sum of on-disk mod sizes (bytes) from mods_overview — lets the
+   *  global storage KPI stay accurate without visiting each game. */
+  totalSizeBytes?: number;
 }
 
 export interface NexusStatus {

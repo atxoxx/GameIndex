@@ -283,16 +283,12 @@ export default function ModManager({
     const ids = Array.from(selectedIds);
     if (ids.length === 0) return;
     setBulkProcessing(true);
-    let success = 0;
-    let firstError: unknown = null;
-    for (const id of ids) {
-      try {
-        await setEnabled(id, targetEnabled);
-        success++;
-      } catch (e) {
-        if (firstError === null) firstError = e;
-      }
-    }
+    const results = await Promise.allSettled(ids.map((id) => setEnabled(id, targetEnabled)));
+    const success = results.filter((r) => r.status === "fulfilled").length;
+    const firstError =
+      (results.find(
+        (r): r is PromiseRejectedResult => r.status === "rejected"
+      )?.reason as unknown) ?? null;
     setBulkProcessing(false);
     const suffix = firstError !== null ? ` — ${String(firstError)}` : "";
     if (success === 0) {

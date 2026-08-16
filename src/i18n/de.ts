@@ -2770,6 +2770,7 @@ export const de: TranslationDict = {
   "mods.toggleMod": "{name} umschalten ({state})",
   "mods.totalSize": "Gesamt: {size}",
   "mods.updateAvailable": "Update verfügbar",
+  "mods.viewGamePage": "Spielseite öffnen",
   "mods.updatesAvailable": "{count} Updates",
   "mods.updatesFound": "{count} Updates verfügbar",
   "mods.version": "Version",

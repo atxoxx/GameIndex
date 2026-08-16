@@ -2770,6 +2770,7 @@ export const ru: TranslationDict = {
   "mods.toggleMod": "Переключить {name} ({state})",
   "mods.totalSize": "Всего: {size}",
   "mods.updateAvailable": "Доступно обновление",
+  "mods.viewGamePage": "Открыть страницу игры",
   "mods.updatesAvailable": "Обновлений: {count}",
   "mods.updatesFound": "Доступно обновлений: {count}",
   "mods.version": "Версия",

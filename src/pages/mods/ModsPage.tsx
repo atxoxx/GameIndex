@@ -3,17 +3,18 @@
 // collapsible rail toggle, and the modular ModManager on the right.
 
 import { useEffect, useMemo, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { invoke } from "@tauri-apps/api/core";
 import { useGames } from "../../context/GameContext";
 import { useLanguage } from "../../context/LanguageContext";
 import { usePresence } from "../../context/PresenceContext";
-import { PageHeader } from "../../components/ui";
+import { Button, PageHeader } from "../../components/ui";
 import ModManager from "../../components/mods/ModManager";
 import { ENGINE_LABELS, type ModEngine, type ModsOverviewEntry } from "../../types/mods";
 import type { Game } from "../../types/game";
 import "../../styles/page-mods.css";
 
-type RailFilter = "all" | "modded" | "updates" | "conflicts";
+type RailFilter = "all" | "modded" | "updates";
 
 function formatStorage(bytes: number): string {
   if (bytes <= 0) return "0 MB";
@@ -25,7 +26,9 @@ function formatStorage(bytes: number): string {
 export default function ModsPage() {
   const { games, updateGame } = useGames();
   const { t } = useLanguage();
+  const navigate = useNavigate();
   const [overview, setOverview] = useState<Map<string, ModsOverviewEntry>>(new Map());
+  const [refreshing, setRefreshing] = useState(false);
   const [selectedGameId, setSelectedGameId] = useState<string | null>(null);
   const [search, setSearch] = useState("");
   const [railFilter, setRailFilter] = useState<RailFilter>("all");
@@ -42,9 +45,11 @@ export default function ModsPage() {
   );
 
   const refreshOverview = () => {
+    setRefreshing(true);
     invoke<ModsOverviewEntry[]>("mods_overview")
       .then((rows) => setOverview(new Map(rows.map((r) => [r.gameId, r]))))
-      .catch(() => setOverview(new Map()));
+      .catch(() => setOverview(new Map()))
+      .finally(() => setRefreshing(false));
   };
 
   useEffect(refreshOverview, []);
@@ -65,9 +70,9 @@ export default function ModsPage() {
         enabledMods += entry.enabled;
         totalUpdates += entry.updates;
       }
-      if (g.modsSizeBytes) {
-        totalStorageBytes += g.modsSizeBytes;
-      }
+      // Prefer the aggregate from mods_overview (accurate without visiting
+      // each game); fall back to the game's cached on-disk footprint.
+      totalStorageBytes += entry?.totalSizeBytes ?? g.modsSizeBytes ?? 0;
     }
 
     const activeRatio = totalMods > 0 ? Math.round((enabledMods / totalMods) * 100) : 0;
@@ -93,10 +98,15 @@ export default function ModsPage() {
       list = list.filter((g) => (overview.get(g.id)?.updates ?? 0) > 0);
     }
 
-    // Filter by search query
+    // Filter by search query (name, platform, or detected engine)
     const q = search.trim().toLowerCase();
     if (q) {
-      list = list.filter((g) => g.name.toLowerCase().includes(q));
+      list = list.filter((g) => {
+        if (g.name.toLowerCase().includes(q)) return true;
+        if (g.platform.toLowerCase().includes(q)) return true;
+        const engines = overview.get(g.id)?.engines ?? [];
+        return engines.some((e) => e.toLowerCase().includes(q));
+      });
     }
 
     // Games with known mods float to top, then alphabetical
@@ -250,6 +260,18 @@ export default function ModsPage() {
                 {!isRailCollapsed && (
                   <span className="mods-games-pane-count">{candidates.length}</span>
                 )}
+                <button
+                  type="button"
+                  className={`mods-rail-toggle-btn${refreshing ? " spinning" : ""}`}
+                  onClick={refreshOverview}
+                  title={t("common.refresh")}
+                  aria-label={t("common.refresh")}
+                >
+                  <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <polyline points="23 4 23 10 17 10" />
+                    <path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10" />
+                  </svg>
+                </button>
                 <button
                   type="button"
                   className="mods-rail-toggle-btn"
@@ -436,19 +458,41 @@ export default function ModsPage() {
           {/* ── Right Pane: Manager Workspace ─────────────────────── */}
           <div className="mods-page-manager">
             {selectedGame ? (
-              <ModManager
-                key={selectedGame.id}
-                game={selectedGame}
-                onChanged={refreshOverview}
-                onModsSized={(info) =>
-                  updateGame(selectedGame.id, {
-                    modsSizeBytes: info.totalBytes > 0 ? info.totalBytes : undefined,
-                    modsFolder: info.folder,
-                    modsDetectedAt:
-                      info.totalBytes > 0 ? new Date().toISOString() : undefined,
-                  })
-                }
-              />
+              <>
+                <div className="mods-manager-game-bar">
+                  <div className="mods-manager-game-bar-info">
+                    <span className="mods-manager-game-bar-name">{selectedGame.name}</span>
+                    <span className="mods-manager-game-bar-platform">{selectedGame.platform}</span>
+                  </div>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => navigate(`/library/${selectedGame.id}`)}
+                    leftIcon={
+                      <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                        <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6" />
+                        <polyline points="15 3 21 3 21 9" />
+                        <line x1="10" y1="14" x2="21" y2="3" />
+                      </svg>
+                    }
+                  >
+                    {t("mods.viewGamePage")}
+                  </Button>
+                </div>
+                <ModManager
+                  key={selectedGame.id}
+                  game={selectedGame}
+                  onChanged={refreshOverview}
+                  onModsSized={(info) =>
+                    updateGame(selectedGame.id, {
+                      modsSizeBytes: info.totalBytes > 0 ? info.totalBytes : undefined,
+                      modsFolder: info.folder,
+                      modsDetectedAt:
+                        info.totalBytes > 0 ? new Date().toISOString() : undefined,
+                    })
+                  }
+                />
+              </>
             ) : (
               <div className="mods-detail-empty">{t("mods.selectGame")}</div>
             )}

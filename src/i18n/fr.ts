@@ -2765,6 +2765,7 @@ export const fr: TranslationDict = {
   "mods.toggleMod": "Basculer {name} ({state})",
   "mods.totalSize": "Total : {size}",
   "mods.updateAvailable": "Mise à jour disponible",
+  "mods.viewGamePage": "Voir la page du jeu",
   "mods.updatesAvailable": "{count} mises à jour",
   "mods.updatesFound": "{count} mises à jour disponibles",
   "mods.version": "Version",

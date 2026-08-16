@@ -207,6 +207,8 @@ pub struct ModsOverviewRow {
     pub engines: Vec<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub mods_root: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub total_size_bytes: Option<i64>,
 }
 
 /// One overview row per game that has at least one mod row.
@@ -219,7 +221,8 @@ pub fn overview(db: &Db) -> Result<Vec<ModsOverviewRow>, String> {
                     SUM(m.enabled),
                     SUM(m.update_available),
                     GROUP_CONCAT(DISTINCT m.engine),
-                    (SELECT s.mods_root FROM game_mod_settings s WHERE s.game_id = m.game_id)
+                    (SELECT s.mods_root FROM game_mod_settings s WHERE s.game_id = m.game_id),
+                    SUM(m.size_bytes)
              FROM mods m GROUP BY m.game_id",
         )
         .map_err(|e| format!("mods overview prepare: {e}"))?;
@@ -238,6 +241,7 @@ pub fn overview(db: &Db) -> Result<Vec<ModsOverviewRow>, String> {
                     .map(|s| s.to_string())
                     .collect(),
                 mods_root: r.get(5)?,
+                total_size_bytes: r.get(6)?,
             })
         })
         .map_err(|e| format!("mods overview query: {e}"))?;
@@ -358,5 +362,6 @@ mod tests {
         assert_eq!(rows.len(), 1);
         assert_eq!(rows[0].total, 2);
         assert_eq!(rows[0].enabled, 1);
+        assert_eq!(rows[0].total_size_bytes, Some(2048));
     }
 }

@@ -2770,6 +2770,7 @@ export const zhCN: TranslationDict = {
   "mods.toggleMod": "切换 {name}（{state}）",
   "mods.totalSize": "总计：{size}",
   "mods.updateAvailable": "有可用更新",
+  "mods.viewGamePage": "查看游戏页面",
   "mods.updatesAvailable": "{count} 个更新",
   "mods.updatesFound": "有 {count} 个更新可用",
   "mods.version": "版本",
