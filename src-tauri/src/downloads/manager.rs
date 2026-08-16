@@ -384,6 +384,31 @@ impl DownloadManager {
             self.queue.push(id);
         }
 
+        // Rebuild resolved debrid file lists from the persisted record so a
+        // paused (or interrupted) debrid download resumes from where it left
+        // off across restarts: the per-file download URLs survive in `uris`
+        // and the names/sizes in `files`.
+        for d in self.downloads.values() {
+            if d.kind != DownloadKind::Debrid || self.debrid_files.contains_key(&d.id) {
+                continue;
+            }
+            let Some(uris) = d.uris.as_ref() else {
+                continue;
+            };
+            if d.files.len() != uris.len() || d.files.is_empty() {
+                continue;
+            }
+            let rebuilt: Vec<(String, u64, String)> = d
+                .files
+                .iter()
+                .enumerate()
+                .filter_map(|(i, f)| uris.get(i).map(|u| (f.name.clone(), f.size, u.clone())))
+                .collect();
+            if !rebuilt.is_empty() {
+                self.debrid_files.insert(d.id.clone(), rebuilt);
+            }
+        }
+
         self.mark_dirty();
         Ok(())
     }
@@ -713,6 +738,36 @@ impl DownloadManager {
                                 d.progress = prog;
                                 direct_save_needed = true;
                             }
+                        }
+                    }
+
+                    // Live per-file percentage for the in-flight file. The
+                    // byte counter accumulates across the whole transfer, so
+                    // subtract the bytes of files already fully downloaded to
+                    // isolate the current file's progress.
+                    let committed: u64 = d
+                        .files
+                        .iter()
+                        .filter(|f| f.selected && f.progress >= 1.0)
+                        .map(|f| f.downloaded)
+                        .sum();
+                    let in_flight_bytes = current_bytes.saturating_sub(committed);
+                    if let Some(f) = d
+                        .files
+                        .iter_mut()
+                        .find(|f| f.selected && f.progress < 1.0)
+                    {
+                        if f.size > 0 {
+                            let fp = (in_flight_bytes as f32 / f.size as f32).min(1.0);
+                            let capped = in_flight_bytes.min(f.size);
+                            if (f.progress - fp).abs() > 0.0005 || f.downloaded != capped {
+                                f.downloaded = capped;
+                                f.progress = fp;
+                                direct_save_needed = true;
+                            }
+                        } else if f.downloaded != in_flight_bytes {
+                            f.downloaded = in_flight_bytes;
+                            direct_save_needed = true;
                         }
                     }
                 } else if d.download_speed != 0 {
@@ -1210,6 +1265,8 @@ async fn spawn_debrid_files_worker(
     manager: &SharedManager,
     id: &str,
     files: Vec<(String, u64, String)>,
+    only_files: Option<Vec<usize>>,
+    seed_bytes: u64,
 ) -> bool {
     let (save_dir, counter, generation, lock) = {
         let mut guard = manager.write().await;
@@ -1224,7 +1281,7 @@ async fn spawn_debrid_files_worker(
             *e += 1;
             *e
         };
-        let counter = Arc::new(AtomicU64::new(0));
+        let counter = Arc::new(AtomicU64::new(seed_bytes));
         guard
             .direct_counters
             .insert(id.to_string(), Arc::clone(&counter));
@@ -1243,6 +1300,7 @@ async fn spawn_debrid_files_worker(
             http::run_debrid_files_download(
                 id_owned,
                 files,
+                only_files,
                 save_dir,
                 counter,
                 weak,
@@ -1276,23 +1334,32 @@ async fn start_debrid(manager: &SharedManager, id: &str) -> bool {
     };
     if !is_magnet {
         if let Some(files) = resolved {
+            if files.is_empty() {
+                fail_download(
+                    manager,
+                    id,
+                    "No files resolved for this debrid download.".to_string(),
+                )
+                .await;
+                return false;
+            }
             match claim_active_slot(manager, id, DownloadStatus::Downloading).await {
                 SlotClaim::Claimed => {}
                 SlotClaim::AlreadyActive => return true,
                 SlotClaim::Busy | SlotClaim::NotFound => return false,
             }
-            let mut guard = manager.write().await;
-            if let Some(d) = guard.downloads_mut().get_mut(id) {
-                d.status = DownloadStatus::Downloading;
-                d.progress = Some(0.0);
-                for f in &mut d.files {
-                    f.downloaded = 0;
-                    f.progress = 0.0;
-                }
-                guard.mark_dirty();
-                guard.emit_progress_force();
-            }
-            return spawn_debrid_files_worker(manager, id, files).await;
+            // Don't reset progress/per-file bytes here: a pause→resume must
+            // continue from where it left off, so the persisted `downloaded`
+            // seeds the worker counter and the worker re-checks every file on
+            // disk (skip completed / resume partial).
+            let (only_files, seed) = {
+                let guard = manager.read().await;
+                let Some(d) = guard.downloads_map().get(id) else {
+                    return false;
+                };
+                (d.only_files.clone(), d.downloaded)
+            };
+            return spawn_debrid_files_worker(manager, id, files, only_files, seed).await;
         }
         return start_direct(manager, id).await;
     }
@@ -1495,7 +1562,7 @@ async fn run_debrid_flow(
             }
             // Same worker machinery as start_direct (generation + lock),
             // so a pause/remove during the debrid HTTP phase is safe.
-            spawn_debrid_files_worker(&manager, &id, files).await;
+            spawn_debrid_files_worker(&manager, &id, files, None, 0).await;
             return;
         } else if status.status == "error" {
             let err_msg = status

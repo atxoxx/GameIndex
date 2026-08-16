@@ -1242,6 +1242,7 @@ export const zhCN: TranslationDict = {
   "downloadRow.deleteFromDisk": "从磁盘删除",
   "downloadRow.deleteLabel": "从磁盘删除下载",
   "downloadRow.deselectFile": "取消选择文件",
+  "downloadRow.debridSelectHint": "暂停下载以选择要获取的文件",
   "downloadRow.done": "完成",
   "downloadRow.downloadSpeed": "下载速度",
   "downloadRow.fileSelected": "已选",

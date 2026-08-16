@@ -1242,6 +1242,7 @@ export const ru: TranslationDict = {
   "downloadRow.deleteFromDisk": "Удалить с диска",
   "downloadRow.deleteLabel": "Удалить загрузку с диска",
   "downloadRow.deselectFile": "Снять выбор файла",
+  "downloadRow.debridSelectHint": "Приостановите загрузку, чтобы выбрать файлы для скачивания",
   "downloadRow.done": "Готово",
   "downloadRow.downloadSpeed": "Скорость загрузки",
   "downloadRow.fileSelected": "Выбрано",

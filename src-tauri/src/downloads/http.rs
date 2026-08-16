@@ -244,6 +244,7 @@ pub async fn run_direct_download(
 pub async fn run_debrid_files_download(
     id: String,
     files: Vec<(String, u64, String)>, // (name, size, url)
+    only_files: Option<Vec<usize>>,
     save_dir: String,
     bytes_counter: Arc<AtomicU64>,
     manager_weak: WeakManager,
@@ -261,12 +262,37 @@ pub async fn run_debrid_files_download(
         .build()
         .unwrap_or_default();
 
+    let selected: Option<std::collections::HashSet<usize>> =
+        only_files.map(|v| v.into_iter().collect());
+
     let mut base_offset: u64 = 0;
-    for (idx, (name, _size, url)) in files.iter().enumerate() {
+    for (idx, (name, size, url)) in files.iter().enumerate() {
+        // Honour the user's per-file selection (debrid downloads support it
+        // the same way torrents do). Deselected files are never fetched.
+        if let Some(sel) = &selected {
+            if !sel.contains(&idx) {
+                continue;
+            }
+        }
+
         let save_path = Path::new(&save_dir)
             .join(name)
             .to_string_lossy()
             .into_owned();
+        let path = Path::new(&save_path);
+
+        // Skip files that already landed on disk (pause→resume / app restart
+        // must not re-download a completed file). The final file existing at
+        // the expected size is our completion signal; a partial file only
+        // exists as `<name>.gamelib_tmp` and is resumed by attempt_download.
+        let on_disk_size = std::fs::metadata(path)
+            .map(|m| if m.is_file() { m.len() } else { 0 })
+            .unwrap_or(0);
+        if on_disk_size > 0 && (*size == 0 || on_disk_size == *size) {
+            base_offset += on_disk_size;
+            mark_file_complete(&manager_weak, &id, idx, on_disk_size).await;
+            continue;
+        }
 
         let mut attempt: u32 = 0;
         loop {
@@ -324,23 +350,30 @@ pub async fn run_debrid_files_download(
         let after = bytes_counter.load(Ordering::SeqCst);
         let file_bytes = after.saturating_sub(base_offset);
         base_offset = after;
-        if let Some(manager) = manager_weak.upgrade() {
-            let mut guard = manager.write().await;
-            if let Some(item) = guard.downloads_mut().get_mut(&id) {
-                if let Some(f) = item.files.get_mut(idx) {
-                    f.downloaded = file_bytes;
-                    if f.size == 0 {
-                        f.size = file_bytes;
-                    }
-                    f.progress = 1.0;
-                }
-            }
-            guard.mark_dirty();
-            guard.emit_progress_force();
-        }
+        mark_file_complete(&manager_weak, &id, idx, file_bytes).await;
     }
 
     finalize_success(&manager_weak, &id, &save_dir, &bytes_counter, generation).await;
+}
+
+/// Mark one debrid file as fully downloaded in the record (used both when a
+/// file was just streamed and when it was already present on disk).
+async fn mark_file_complete(manager_weak: &WeakManager, id: &str, idx: usize, bytes: u64) {
+    let Some(manager) = manager_weak.upgrade() else {
+        return;
+    };
+    let mut guard = manager.write().await;
+    if let Some(item) = guard.downloads_mut().get_mut(id) {
+        if let Some(f) = item.files.get_mut(idx) {
+            f.downloaded = bytes;
+            if f.size == 0 && bytes > 0 {
+                f.size = bytes;
+            }
+            f.progress = 1.0;
+        }
+    }
+    guard.mark_dirty();
+    guard.emit_progress_force();
 }
 
 /// Advance the record to its next mirror URL (dropping the stale
@@ -815,6 +848,12 @@ async fn set_total_size(manager_weak: &WeakManager, id: &str, size: u64) {
         let mut guard = manager.write().await;
         if let Some(item) = guard.downloads_mut().get_mut(id) {
             item.total_size = Some(size);
+            // A single-file (direct) download's file entry has an unknown
+            // size until the first response reports Content-Length — mirror it
+            // so the per-file progress bar also advances live.
+            if item.files.len() == 1 && item.files[0].size == 0 {
+                item.files[0].size = size;
+            }
         }
         guard.mark_dirty();
         guard.emit_progress_force();

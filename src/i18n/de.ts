@@ -1242,6 +1242,7 @@ export const de: TranslationDict = {
   "downloadRow.deleteFromDisk": "Von der Festplatte löschen",
   "downloadRow.deleteLabel": "Download von der Festplatte löschen",
   "downloadRow.deselectFile": "Datei abwählen",
+  "downloadRow.debridSelectHint": "Download pausieren, um auszuwählen, welche Dateien geladen werden",
   "downloadRow.done": "Fertig",
   "downloadRow.downloadSpeed": "Download-Geschwindigkeit",
   "downloadRow.fileSelected": "Ausgewählt",

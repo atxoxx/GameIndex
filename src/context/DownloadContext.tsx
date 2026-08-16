@@ -570,30 +570,6 @@ export function DownloadProvider({ children }: { children: ReactNode }) {
     [],
   );
 
-  const pauseDownload = useCallback(async (id: string) => {
-    await invoke("torrent_pause", { id });
-  }, []);
-
-  const resumeDownload = useCallback(async (id: string) => {
-    await invoke("torrent_resume", { id });
-  }, []);
-
-  const pauseAll = useCallback(async (): Promise<number> => {
-    return await invoke<number>("torrent_pause_all");
-  }, []);
-
-  const resumeAll = useCallback(async (): Promise<number> => {
-    return await invoke<number>("torrent_resume_all");
-  }, []);
-
-  const removeDownload = useCallback(async (id: string, deleteFiles = false) => {
-    await invoke("torrent_remove", { id, deleteFiles });
-  }, []);
-
-  const selectSavePath = useCallback(async (): Promise<string | null> => {
-    return await invoke<string | null>("torrent_select_save_path");
-  }, []);
-
   const refresh = useCallback(async () => {
     try {
       const list = await invoke<TorrentDownload[]>("torrent_get_all");
@@ -603,6 +579,71 @@ export function DownloadProvider({ children }: { children: ReactNode }) {
       // will populate state.
       console.debug("[DownloadContext] refresh skipped:", err);
     }
+  }, []);
+
+  const pauseDownload = useCallback(
+    async (id: string) => {
+      // Optimistic flip so the pause button becomes a resume button
+      // instantly instead of waiting for the next 1 s progress tick.
+      setDownloads((prev) =>
+        prev.map((d) =>
+          d.id === id
+            ? { ...d, status: { kind: "paused" }, downloadSpeed: 0, uploadSpeed: 0 }
+            : d,
+        ),
+      );
+      try {
+        await invoke("torrent_pause", { id });
+      } catch (err) {
+        void refresh();
+        throw err;
+      }
+    },
+    [refresh],
+  );
+
+  const resumeDownload = useCallback(
+    async (id: string) => {
+      setDownloads((prev) =>
+        prev.map((d) =>
+          d.id === id ? { ...d, status: { kind: "queued" }, downloadSpeed: 0 } : d,
+        ),
+      );
+      try {
+        await invoke("torrent_resume", { id });
+      } catch (err) {
+        void refresh();
+        throw err;
+      }
+    },
+    [refresh],
+  );
+
+  const pauseAll = useCallback(async (): Promise<number> => {
+    return await invoke<number>("torrent_pause_all");
+  }, []);
+
+  const resumeAll = useCallback(async (): Promise<number> => {
+    return await invoke<number>("torrent_resume_all");
+  }, []);
+
+  const removeDownload = useCallback(
+    async (id: string, deleteFiles = false) => {
+      // Optimistic removal so the row disappears immediately; the
+      // backend reconciles on the next tick.
+      setDownloads((prev) => prev.filter((d) => d.id !== id));
+      try {
+        await invoke("torrent_remove", { id, deleteFiles });
+      } catch (err) {
+        void refresh();
+        throw err;
+      }
+    },
+    [refresh],
+  );
+
+  const selectSavePath = useCallback(async (): Promise<string | null> => {
+    return await invoke<string | null>("torrent_select_save_path");
   }, []);
 
   const updateSpeedLimits = useCallback(
@@ -622,7 +663,26 @@ export function DownloadProvider({ children }: { children: ReactNode }) {
 
   const updateSelectedFiles = useCallback(
     async (id: string, onlyFiles: number[]): Promise<void> => {
-      await invoke("torrent_update_only_files", { id, onlyFiles });
+      // Optimistic flip so the per-file checkboxes respond immediately;
+      // the backend recomputes totalSize on the next progress tick.
+      setDownloads((prev) =>
+        prev.map((d) =>
+          d.id === id
+            ? {
+                ...d,
+                files: d.files.map((f, i) => ({ ...f, selected: onlyFiles.includes(i) })),
+              }
+            : d,
+        ),
+      );
+      // Debrid downloads filter their resolved file list on the backend;
+      // torrents update librqbit's live selection directly.
+      const kind = downloadsRef.current.find((d) => d.id === id)?.kind;
+      if (kind === "debrid") {
+        await invoke("debrid_update_only_files", { id, onlyFiles });
+      } else {
+        await invoke("torrent_update_only_files", { id, onlyFiles });
+      }
     },
     [],
   );

@@ -936,6 +936,56 @@ pub async fn torrent_update_only_files(
     Ok(())
 }
 
+/// Update per-file selection for a debrid download. Unlike torrents, the
+/// selection filters the resolved debrid file list on the next start/resume.
+/// If the download is actively transferring it is paused first so the new
+/// selection applies cleanly (the worker is restarted on the next resume).
+#[tauri::command]
+pub async fn debrid_update_only_files(
+    id: String,
+    only_files: Vec<usize>,
+) -> Result<(), String> {
+    let mgr = wait_for_manager().await?;
+    let was_active = {
+        let mut guard = mgr.write().await;
+        let Some(d) = guard.downloads_mut().get_mut(&id) else {
+            return Err(format!("Download not found: {id}"));
+        };
+        if d.kind != DownloadKind::Debrid {
+            return Err(
+                "Only debrid downloads support this file-selection command".to_string(),
+            );
+        }
+        for &i in &only_files {
+            if i >= d.files.len() {
+                return Err(format!("Invalid file index {i}"));
+            }
+        }
+        let was_active = d.status.is_active();
+        d.only_files = Some(only_files.clone());
+        for (i, f) in d.files.iter_mut().enumerate() {
+            f.selected = only_files.contains(&i);
+        }
+        let selected_sum: u64 = d.files.iter().filter(|f| f.selected).map(|f| f.size).sum();
+        if selected_sum > 0 {
+            d.total_size = Some(selected_sum);
+        }
+        if was_active {
+            d.status = DownloadStatus::Paused;
+            d.download_speed = 0;
+            guard.remove_from_queue(&id);
+            guard.release_active(&id);
+        }
+        guard.mark_dirty();
+        guard.emit_progress_force();
+        was_active
+    };
+    if was_active {
+        manager::advance_queue(&mgr).await;
+    }
+    Ok(())
+}
+
 #[tauri::command]
 pub async fn torrent_start_selected(
     id: String,

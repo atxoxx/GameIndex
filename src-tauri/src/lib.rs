@@ -4084,6 +4084,7 @@ pub fn run() {
             downloads::torrent_pause_all,
             downloads::torrent_resume_all,
             downloads::torrent_update_only_files,
+            downloads::debrid_update_only_files,
             downloads::torrent_start_selected,
             downloads::torrent_set_speed_limits,
             downloads::torrent_open_folder,

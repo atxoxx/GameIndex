@@ -121,6 +121,10 @@ const DownloadRow = React.memo(({
   const isPaused = status.kind === "paused";
   const isCompleted = status.kind === "completed";
   const isError = status.kind === "error";
+  // Debrid downloads support per-file selection too, but it only takes
+  // effect on the next start/resume — lock it while actively transferring.
+  const fileSelectionLocked =
+    isCompleted || (download.kind === "debrid" && isActiveStatus(status));
   const errorMessage = getStatusError(status);
   const isDirect = download.kind === "direct" || download.kind === "debrid";
   const activity = getActivityMessage(download);
@@ -506,14 +510,20 @@ const DownloadRow = React.memo(({
                   type="checkbox"
                   className="dl-file-checkbox"
                   checked={file.selected}
-                  disabled={isCompleted}
+                  disabled={fileSelectionLocked}
                   onChange={() => handleToggleFile(idx)}
                   aria-label={
                     file.selected
                       ? t("downloadRow.deselectFile", { name: file.name })
                       : t("downloadRow.selectFile", { name: file.name })
                   }
-                  title={file.selected ? t("downloadRow.fileSelected") : t("downloadRow.fileSkipped")}
+                  title={
+                    fileSelectionLocked && download.kind === "debrid"
+                      ? t("downloadRow.debridSelectHint")
+                      : file.selected
+                        ? t("downloadRow.fileSelected")
+                        : t("downloadRow.fileSkipped")
+                  }
                 />
                 <span
                   className={`dl-file-name${file.selected ? "" : " dl-file-name--skipped"}`}
