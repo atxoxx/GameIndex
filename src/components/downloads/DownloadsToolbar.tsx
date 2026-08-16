@@ -15,6 +15,7 @@ interface DownloadsToolbarProps {
   onResumeSelected?: () => void;
   onRemoveSelected?: () => void;
   onDeleteSelected?: () => void;
+  onOpenStats?: () => void;
 }
 
 export default function DownloadsToolbar({
@@ -28,7 +29,9 @@ export default function DownloadsToolbar({
   onResumeSelected,
   onRemoveSelected,
   onDeleteSelected,
+  onOpenStats,
 }: DownloadsToolbarProps) {
+
   const { pauseAll, resumeAll, removeDownload, completedDownloads } = useDownloads();
   const { showToast } = useToast();
   const { t } = useLanguage();
@@ -171,6 +174,24 @@ export default function DownloadsToolbar({
 
       <div className="dl-toolbar-spacer" />
 
+      {onOpenStats && (
+        <Button
+          variant="secondary"
+          size="sm"
+          onClick={onOpenStats}
+          leftIcon={
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden style={{ width: 13, height: 13 }}>
+              <line x1="18" y1="20" x2="18" y2="10" />
+              <line x1="12" y1="20" x2="12" y2="4" />
+              <line x1="6" y1="20" x2="6" y2="14" />
+            </svg>
+          }
+          title={t("downloadStats.title")}
+        >
+          {t("downloadStats.buttonLabel")}
+        </Button>
+      )}
+
       <Button
         variant="ghost"
         size="sm"
@@ -195,3 +216,4 @@ export default function DownloadsToolbar({
     </div>
   );
 }
+

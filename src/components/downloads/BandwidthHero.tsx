@@ -3,11 +3,15 @@ import { useDownloads } from "../../context/DownloadContext";
 import { useSizeUnit } from "../../hooks/useSizeUnit";
 import { useLanguage } from "../../context/LanguageContext";
 import { formatBytesPerSecond, formatBytesShort } from "../../types/download";
-import { SlidersIcon } from "./DownloadIcons";
+import { SlidersIcon, StatsBarIcon } from "./DownloadIcons";
 import DriveSpaceWidget from "./DriveSpaceWidget";
 import SpeedLimiterModal from "./SpeedLimiterModal";
 
-export default function BandwidthHero() {
+interface BandwidthHeroProps {
+  onOpenStats?: () => void;
+}
+
+export default function BandwidthHero({ onOpenStats }: BandwidthHeroProps) {
   const { activeDownloads } = useDownloads();
   const { unit } = useSizeUnit();
   const { t } = useLanguage();
@@ -94,10 +98,22 @@ export default function BandwidthHero() {
 
         <div className="dl-hero-divider" aria-hidden />
 
-        {/* Drive Storage Monitor & Speed Limiter Action */}
+        {/* Drive Storage Monitor & Quick Actions */}
         <div className="dl-hero-extra">
           <DriveSpaceWidget />
           <div className="dl-hero-quick-actions">
+            {onOpenStats && (
+              <button
+                type="button"
+                className="dl-hero-stats-btn"
+                onClick={onOpenStats}
+                title={t("downloadStats.title")}
+              >
+                <StatsBarIcon style={{ width: 14, height: 14 }} />
+                <span>{t("downloadStats.buttonLabel")}</span>
+              </button>
+            )}
+
             <button
               type="button"
               className={`dl-hero-speed-btn${isThrottled ? " limited" : ""}`}
@@ -116,3 +132,4 @@ export default function BandwidthHero() {
     </div>
   );
 }
+

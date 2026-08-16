@@ -19,9 +19,11 @@ import DownloadsToolbar from "../components/downloads/DownloadsToolbar";
 import DownloadsFilterBar, { type DownloadViewMode } from "../components/downloads/DownloadsFilterBar";
 import DownloadRow from "../components/downloads/DownloadRow";
 import { DownloadGridCard } from "../components/downloads/DownloadGridCard";
+import DownloadStatsModal from "../components/downloads/DownloadStatsModal";
 import { ConfirmModal, PageHeader } from "../components/ui";
 import { useLanguage } from "../context/LanguageContext";
 import "../styles/page-downloads.css";
+
 
 export default function DownloadsPage() {
   const { t } = useLanguage();
@@ -45,6 +47,10 @@ export default function DownloadsPage() {
 
   // ── Multi-select state ───────────────────────────────────────────
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+
+  // ── Statistics modal state ───────────────────────────────────────
+  const [statsModalOpen, setStatsModalOpen] = useState(false);
+
 
   // Per-bucket counts for the filter pill badges
   const counts = useMemo<Record<DownloadStatusFilter, number>>(() => {
@@ -250,7 +256,7 @@ export default function DownloadsPage() {
       />
 
       {/* Hero Control Center & Network Sparkline */}
-      <BandwidthHero />
+      <BandwidthHero onOpenStats={() => setStatsModalOpen(true)} />
       <BandwidthSparkline />
 
       {/* Filter and View Mode Switcher */}
@@ -291,8 +297,10 @@ export default function DownloadsPage() {
             onResumeSelected={handleBatchResume}
             onRemoveSelected={handleBatchRemove}
             onDeleteSelected={() => setBatchDeleteOpen(true)}
+            onOpenStats={() => setStatsModalOpen(true)}
           />
         </div>
+
 
         {/* Empty States & Content Presentation */}
         {loading && downloads.length === 0 ? (
@@ -433,6 +441,14 @@ export default function DownloadsPage() {
           if (!removingBusy) setRemovingContext(null);
         }}
       />
+
+      {/* Download Statistics & Diagnostics Modal */}
+      <DownloadStatsModal
+        open={statsModalOpen}
+        onClose={() => setStatsModalOpen(false)}
+        downloads={downloads}
+      />
     </div>
   );
 }
+
