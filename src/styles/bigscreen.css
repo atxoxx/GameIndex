@@ -30,9 +30,12 @@
   --bigscreen-glass-bg: color-mix(in srgb, var(--bigscreen-bg) 65%, transparent);
   --bigscreen-glass-border: 1px solid var(--bigscreen-border);
   --bigscreen-glass-blur: blur(20px);
-  /* Single accent ring + one soft glow — the only glow this surface uses
-   * (focus states), per the design contract. */
+  /* Accent ring + soft glow for focus states, plus a dedicated ring color
+   * and bloom halo. The ring is drawn with `outline` (not only color) so it
+   * stays visible in grayscale — a colorblind-safe cue. */
   --bigscreen-focus-glow: 0 0 0 2px var(--bigscreen-bg), 0 0 0 3px var(--bigscreen-accent), 0 4px 16px var(--bigscreen-accent-glow);
+  --bigscreen-focus-ring: var(--bigscreen-accent);
+  --bigscreen-focus-soft: color-mix(in srgb, var(--bigscreen-accent) 45%, transparent);
 }
 
 [data-bigscreen="true"] {
@@ -92,7 +95,27 @@
    element without one still gets the canonical ring. */
 [data-bigscreen="true"] [data-focused="true"],
 [data-bigscreen="true"] :focus-visible {
+  /* Thicker outline (independent of the accent *hue*) plus the glow, so the
+     ring is visible in grayscale and against busy artwork — a
+     colorblind-safe cue that isn't just a color change. */
+  outline: 2px solid var(--bigscreen-focus-ring);
+  outline-offset: 3px;
   box-shadow: var(--bigscreen-focus-glow);
+  /* One-shot "bloom": a soft halo expands and settles when focus lands,
+     re-running each time focus moves to a new element. */
+  animation: bigscreen-focus-bloom 220ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@keyframes bigscreen-focus-bloom {
+  from {
+    box-shadow: var(--bigscreen-focus-glow);
+  }
+  45% {
+    box-shadow: var(--bigscreen-focus-glow), 0 0 0 9px var(--bigscreen-focus-soft);
+  }
+  to {
+    box-shadow: var(--bigscreen-focus-glow);
+  }
 }
 
 /* ── BACKDROP SYSTEM ────────────────────────────────────────────────── */

@@ -2,10 +2,11 @@ import { useEffect, useRef, useState } from "react";
 import { useLanguage } from "../../context/LanguageContext";
 import { useAppVersion } from "../../hooks/useAppVersion";
 import { useUpdate, formatBytes } from "../../context/UpdateContext";
+import { useSettings } from "../../context/SettingsContext";
 import { FlagIcon, Button } from "../../components/ui";
 import SettingsSection from "./SettingsSection";
 import SettingsToggleCard from "./SettingsToggleCard";
-import { GlobeIcon, RefreshIcon } from "./settingsIcons";
+import { GamepadIcon, GlobeIcon, RefreshIcon } from "./settingsIcons";
 
 /**
  * GeneralTab — app-wide preferences. Hosts the display
@@ -28,6 +29,12 @@ export default function GeneralTab() {
     applyUpdate,
     setShowModal,
   } = useUpdate();
+  const {
+    gamepadLeftDeadzone,
+    setGamepadLeftDeadzone,
+    gamepadRightDeadzone,
+    setGamepadRightDeadzone,
+  } = useSettings();
 
   // Custom-language-picker state. The native <select> was replaced with
   // a richer listbox-style picker, so we need an open/close flag plus a
@@ -357,6 +364,75 @@ export default function GeneralTab() {
                 </Button>
               )}
             </div>
+          </div>
+        </div>
+      </SettingsSection>
+
+      <SettingsSection
+        id="general-gamepad"
+        icon={<GamepadIcon />}
+        title={t("settings.section.gamepad")}
+        desc={t("settings.gamepad.desc")}
+      >
+        <div className="hw-duo">
+          <div className="hw-card">
+            <div className="hw-card-head">
+              <label className="hw-card-label">{t("settings.gamepad.leftDeadzone")}</label>
+              <span className="hw-card-value">
+                {gamepadLeftDeadzone === null
+                  ? t("settings.gamepad.auto")
+                  : `${Math.round(gamepadLeftDeadzone * 100)}%`}
+              </span>
+            </div>
+            <p className="hw-card-help">{t("settings.gamepad.deadzoneDesc")}</p>
+            <input
+              type="range"
+              className="hw-range"
+              min={0.1}
+              max={0.5}
+              step={0.01}
+              value={gamepadLeftDeadzone ?? 0.2}
+              onChange={(e) => setGamepadLeftDeadzone(Number(e.target.value))}
+              aria-label={t("settings.gamepad.leftDeadzone")}
+            />
+            <Button
+              variant="ghost"
+              size="sm"
+              disabled={gamepadLeftDeadzone === null}
+              onClick={() => setGamepadLeftDeadzone(null)}
+            >
+              {t("settings.gamepad.auto")}
+            </Button>
+          </div>
+
+          <div className="hw-card">
+            <div className="hw-card-head">
+              <label className="hw-card-label">{t("settings.gamepad.rightDeadzone")}</label>
+              <span className="hw-card-value">
+                {gamepadRightDeadzone === null
+                  ? t("settings.gamepad.auto")
+                  : `${Math.round(gamepadRightDeadzone * 100)}%`}
+              </span>
+            </div>
+            <p className="hw-card-help">{t("settings.gamepad.deadzoneDesc")}</p>
+            <input
+              type="range"
+              className="hw-range"
+              min={0.1}
+              max={0.5}
+              step={0.01}
+              value={gamepadRightDeadzone ?? 0.2}
+              onChange={(e) => setGamepadRightDeadzone(Number(e.target.value))}
+              aria-label={t("settings.gamepad.rightDeadzone")}
+            />
+            <Button
+              variant="ghost"
+              size="sm"
+              disabled={gamepadRightDeadzone === null}
+              onClick={() => setGamepadRightDeadzone(null)}
+            >
+              {t("settings.gamepad.auto")}
+            </Button>
           </div>
         </div>
       </SettingsSection>

@@ -79,6 +79,21 @@ export const SCROLL_MARGIN_TOP = 120;
 /** Vertical scroll-parent inset below the focused element (px). */
 export const SCROLL_MARGIN_BOTTOM = 48;
 
+// ── Spatial-index tuning ────────────────────────────────────────
+// The picker reads each candidate's rect exactly once per
+// `nearestInDirection` call, then buckets centers into a coarse grid
+// and scans only the sectors ahead of the press. `GRID_INDEX_THRESHOLD`
+// is the candidate count above which the grid fast path engages (dense
+// library/store grids); below it, a linear scan is cheaper than
+// building the index.
+
+/** Number of columns/rows in the coarse spatial grid. */
+export const SPATIAL_GRID_SIZE = 10;
+/** Candidate count above which the grid fast path engages. */
+export const GRID_INDEX_THRESHOLD = 200;
+/** Culling buffer as a multiple of viewport width/height. */
+export const VIEWPORT_CULL_BUFFER = 1.25;
+
 export interface FocusableCandidate {
   element: HTMLElement;
   onActivate: () => void;
@@ -95,14 +110,80 @@ function viewportRect(): { top: number; bottom: number; left: number; right: num
 }
 
 /**
- * Nearest-in-direction picker.
+ * Internal candidate form used by the spatial-nav picker. Each entry
+ * carries a single `getBoundingClientRect()` snapshot taken once per
+ * `nearestInDirection` call — this is the perf-critical change: the old
+ * code called `isNavigable()` + `center()` + a third bare rect read
+ * (three forced synchronous layouts per candidate per input), which made
+ * dense grids drop frames. One snapshot now feeds visibility, center,
+ * and off-screen tests.
+ */
+interface IndexedCandidate {
+  element: HTMLElement;
+  onActivate: () => void;
+  rect: { left: number; right: number; top: number; bottom: number };
+  cx: number;
+  cy: number;
+}
+
+/**
+ * Spatial pre-pass: read every registered focusable's rect exactly once,
+ * drop non-navigable / zero-area entries, and partition the survivors
+ * into `near` (inside the viewport plus a generous buffer) and `far`
+ * (beyond it). `near` is what the picker scans in the common case; `far`
+ * is kept only as a last resort so focus can never get permanently stuck
+ * on an empty screen. The buffer is wide enough that scroll-to-reveal
+ * still works — the next screen of a grid is always within it.
+ */
+function indexCandidates(
+  candidates: FocusableCandidate[],
+  current: HTMLElement,
+  viewport: { top: number; bottom: number; left: number; right: number },
+): { near: IndexedCandidate[]; far: IndexedCandidate[] } {
+  const bufX = (viewport.right - viewport.left) * VIEWPORT_CULL_BUFFER;
+  const bufY = (viewport.bottom - viewport.top) * VIEWPORT_CULL_BUFFER;
+  const top = viewport.top - bufY;
+  const bottom = viewport.bottom + bufY;
+  const left = viewport.left - bufX;
+  const right = viewport.right + bufX;
+
+  const near: IndexedCandidate[] = [];
+  const far: IndexedCandidate[] = [];
+
+  for (const entry of candidates) {
+    const el = entry.element;
+    if (el === current) continue;
+    // Inlined `isNavigable` so the single rect read below also covers it.
+    if (el.hidden || !el.isConnected) continue;
+    if (el.hasAttribute("disabled")) continue;
+    if (el.getAttribute("aria-disabled") === "true") continue;
+    if ((el as HTMLButtonElement).disabled) continue;
+
+    const r = el.getBoundingClientRect();
+    if (r.width === 0 || r.height === 0) continue;
+
+    const indexed: IndexedCandidate = {
+      element: el,
+      onActivate: entry.onActivate,
+      rect: { left: r.left, right: r.right, top: r.top, bottom: r.bottom },
+      cx: r.left + r.width / 2,
+      cy: r.top + r.height / 2,
+    };
+
+    const withinBuffer =
+      r.bottom >= top && r.top <= bottom && r.right >= left && r.left <= right;
+    (withinBuffer ? near : far).push(indexed);
+  }
+
+  return { near, far };
+}
+
+/**
+ * Nearest-in-direction picker over already-indexed candidates.
  *
- *   • Iterates all registered focusables.
- *   • Skips the current element and any zero-area element
- *     (collapsed menus, hidden modals).
+ *   • Skips the current element (already excluded by the index).
  *   • Picks the one whose center-to-center angle from `current`
- *     falls within ±45° of `dirAngle` (45° tolerance means an
- *     8-way directional scan).
+ *     falls within `toleranceRad` of `dirAngle`.
  *   • Among the in-cone candidates, picks the nearest by a weighted
  *     distance that penalizes angular deviation AND cross-axis
  *     offset, so an element that is mostly "above" is clearly
@@ -110,9 +191,7 @@ function viewportRect(): { top: number; bottom: number; left: number; right: num
  *     when pressing UP — this is what keeps navigation from
  *     drifting sideways in dense grids.
  *   • Off-screen candidates are scored with a large penalty but
- *     still reachable as a last resort, so the focus never gets
- *     permanently stuck when every on-screen candidate has been
- *     exhausted.
+ *     still reachable as a last resort.
  *
  * Returned element is the closest "in the direction the user
  * pressed" — same heuristic the Xbox system UI uses for spatial
@@ -121,7 +200,7 @@ function viewportRect(): { top: number; bottom: number; left: number; right: num
 function findCandidate(
   cur: Point,
   current: HTMLElement,
-  candidates: FocusableCandidate[],
+  candidates: IndexedCandidate[],
   dirAngle: number,
   toleranceRad: number,
   viewport: { top: number; bottom: number; left: number; right: number },
@@ -137,13 +216,10 @@ function findCandidate(
 
   for (const entry of candidates) {
     if (entry.element === current) continue;
-    if (!isNavigable(entry.element)) continue;
-
-    const c = center(entry.element);
 
     // Vector from current center to candidate center.
-    const dx = c.x - cur.x;
-    const dy = c.y - cur.y;
+    const dx = entry.cx - cur.x;
+    const dy = entry.cy - cur.y;
 
     // Skip candidates that are actually *behind* the press direction
     // (dot product <= 0 means no forward progress). This prevents
@@ -176,7 +252,7 @@ function findCandidate(
 
     // Large penalty for candidates fully outside the viewport so
     // on-screen items win, but off-screen targets remain reachable.
-    const r = entry.element.getBoundingClientRect();
+    const r = entry.rect;
     const offscreen =
       r.bottom < viewport.top ||
       r.top > viewport.bottom ||
@@ -193,7 +269,75 @@ function findCandidate(
   return best;
 }
 
-export function scrollElementIntoViewControlled(el: HTMLElement) {
+/**
+ * Coarse spatial index used as a fast path for dense screens. When the
+ * candidate set is large, bucketing centers into a fixed grid and only
+ * scanning the sectors ahead of the current element skips the float math
+ * for candidates that are clearly behind or far off-axis. Returns `null`
+ * when the reduction is empty, so `nearestInDirection` falls back to the
+ * exact full scan — this is an optimization, never a behavior change.
+ */
+function reduceByGrid(
+  cur: Point,
+  near: IndexedCandidate[],
+  dirAngle: number,
+  viewport: { top: number; bottom: number; left: number; right: number },
+): IndexedCandidate[] | null {
+  const width = viewport.right - viewport.left;
+  const height = viewport.bottom - viewport.top;
+  if (width <= 0 || height <= 0) return null;
+
+  const cols = SPATIAL_GRID_SIZE;
+  const rows = SPATIAL_GRID_SIZE;
+  const cellW = width / cols;
+  const cellH = height / rows;
+
+  const grid = new Map<number, IndexedCandidate[]>();
+  for (const c of near) {
+    const col = Math.min(cols - 1, Math.max(0, Math.floor((c.cx - viewport.left) / cellW)));
+    const row = Math.min(rows - 1, Math.max(0, Math.floor((c.cy - viewport.top) / cellH)));
+    const key = row * cols + col;
+    const bucket = grid.get(key);
+    if (bucket) bucket.push(c);
+    else grid.set(key, [c]);
+  }
+
+  const dirX = Math.cos(dirAngle);
+  const dirY = Math.sin(dirAngle);
+  // One full cell of backward margin, so a candidate whose center is
+  // technically forward but whose *cell* center sits just behind the
+  // half-plane is never dropped (cell granularity safety).
+  const margin = Math.hypot(cellW, cellH);
+
+  const reduced: IndexedCandidate[] = [];
+  for (const [key, bucket] of grid) {
+    const col = key % cols;
+    const row = Math.floor(key / cols);
+    const cellCx = viewport.left + (col + 0.5) * cellW;
+    const cellCy = viewport.top + (row + 0.5) * cellH;
+    const forward = (cellCx - cur.x) * dirX + (cellCy - cur.y) * dirY;
+    if (forward > -margin) {
+      for (const c of bucket) reduced.push(c);
+    }
+  }
+
+  return reduced.length > 0 ? reduced : null;
+}
+
+export interface ScrollIntoViewOptions {
+  /**
+   * Use instant (`auto`) scrolling — passed during hold-to-repeat so
+   * smooth scrolls don't queue up and lag behind rapid focus moves.
+   */
+  immediate?: boolean;
+}
+
+export function scrollElementIntoViewControlled(
+  el: HTMLElement,
+  opts: ScrollIntoViewOptions = {},
+) {
+  const behavior: ScrollBehavior = opts.immediate ? "auto" : "smooth";
+
   // 1. Find if `el` is inside a horizontal rail container
   const track = el.closest(".bigscreen-rail-track, .bigscreen-cards, .bigscreen-header-tabs, [data-rail-id]") as HTMLElement | null;
   if (track) {
@@ -205,7 +349,7 @@ export function scrollElementIntoViewControlled(el: HTMLElement) {
     if (Math.abs(delta) > 8) {
       track.scrollTo({
         left: Math.max(0, track.scrollLeft + delta),
-        behavior: "smooth",
+        behavior,
       });
     }
   }
@@ -222,13 +366,13 @@ export function scrollElementIntoViewControlled(el: HTMLElement) {
       const diff = parentRect.top + topMargin - elRect.top;
       scrollParent.scrollTo({
         top: Math.max(0, scrollParent.scrollTop - diff),
-        behavior: "smooth",
+        behavior,
       });
     } else if (elRect.bottom > parentRect.bottom - bottomMargin) {
       const diff = elRect.bottom - (parentRect.bottom - bottomMargin);
       scrollParent.scrollTo({
         top: scrollParent.scrollTop + diff,
-        behavior: "smooth",
+        behavior,
       });
     }
   }
@@ -250,16 +394,19 @@ function getVerticalScrollParent(el: HTMLElement): HTMLElement | null {
 /**
  * Nearest-in-direction picker.
  *
- *   • Iterates all registered focusables.
- *   • Skips the current element and any zero-area element
- *     (collapsed menus, hidden modals).
+ *   • Reads every registered focusable's rect once and discards
+ *     non-navigable / zero-area entries (collapsed menus, hidden
+ *     modals) up front.
+ *   • Prioritizes same-rail candidates during horizontal navigation so
+ *     left/right stays within the active rail.
  *   • Performs a two-pass scan (first tight ±45° tolerance, then falling
  *     back to a wider ±85° tolerance if no candidates match) to avoid
  *     navigation getting stuck in complex grids.
- *   • Prioritizes same-rail candidates during horizontal navigation so
- *     left/right stays within the active rail.
- *   • Computes a weighted distance that penalizes both angular
- *     deviation and cross-axis offset.
+ *   • Engages a coarse grid index for dense candidate sets so the scan
+ *     skips sectors behind the press; the result is identical to the
+ *     linear scan, which remains the fallback.
+ *   • Keeps far-off-screen candidates as a final fallback so focus never
+ *     gets permanently stuck.
  *
  * Returned element is the closest "in the direction the user
  * pressed".
@@ -272,15 +419,15 @@ export function nearestInDirection(
   const cur = center(current);
   const viewport = viewportRect();
 
+  const { near, far } = indexCandidates(candidates, current, viewport);
+
   // If current element is inside a horizontal rail, and user is pressing left/right,
   // prioritize candidates that are inside the same rail container.
   const currentTrack = current.closest(".bigscreen-rail-track, .bigscreen-cards, .bigscreen-header-tabs, [data-rail-id]");
   const isHorizontalMove = Math.abs(Math.cos(dirAngle)) > Math.abs(Math.sin(dirAngle));
 
   if (currentTrack && isHorizontalMove) {
-    const sameTrackCandidates = candidates.filter(
-      (c) => c.element !== current && currentTrack.contains(c.element)
-    );
+    const sameTrackCandidates = near.filter((c) => currentTrack.contains(c.element));
     if (sameTrackCandidates.length > 0) {
       const sameTrackMatch = findCandidate(
         cur,
@@ -294,11 +441,18 @@ export function nearestInDirection(
     }
   }
 
+  // Fast path for dense screens: reduce to the forward sectors via the
+  // grid index, then run the exact heuristic over the reduced set.
+  const scanSet =
+    near.length >= GRID_INDEX_THRESHOLD
+      ? (reduceByGrid(cur, near, dirAngle, viewport) ?? near)
+      : near;
+
   // First pass: tight tolerance, on-screen + off-screen allowed.
   const tightMatch = findCandidate(
     cur,
     current,
-    candidates,
+    scanSet,
     dirAngle,
     (Math.PI / 180) * 45,
     viewport,
@@ -307,14 +461,31 @@ export function nearestInDirection(
 
   // Second pass fallback: wide tolerance (helps in sparse layouts
   // where nothing lands in the tight cone).
-  return findCandidate(
+  const wideMatch = findCandidate(
     cur,
     current,
-    candidates,
+    scanSet,
     dirAngle,
     (Math.PI / 180) * 85,
     viewport,
   );
+  if (wideMatch) return wideMatch;
+
+  // Final fallback: candidates beyond the culling buffer (previously the
+  // off-screen-with-penalty branch). Reachable only when nothing nearer
+  // matches, so focus can never get stuck.
+  if (far.length > 0) {
+    return findCandidate(
+      cur,
+      current,
+      far,
+      dirAngle,
+      (Math.PI / 180) * 85,
+      viewport,
+    );
+  }
+
+  return null;
 }
 
 // ── Virtual-mouse physics ───────────────────────────────────────
@@ -323,6 +494,40 @@ export function nearestInDirection(
 export const RIGHT_STICK_DEADZONE = 0.18;
 /** Stick deflection below this is treated as zero for left stick too. */
 export const STICK_DEADZONE = 0.2;
+
+/** Fractional cursor-speed multiplier while the pointer is over a
+ *  focusable element (magnetic "aim-assist" — see `isPointOverFocusable`). */
+export const MAGNETIC_SLOWDOWN = 0.5;
+
+// ── Deadzone auto-calibration ──────────────────────────────────
+// On connect the engine samples the sticks' resting deflection for
+// `DEADZONE_CALIBRATION_MS` and locks the deadzone just above the
+// measured drift, so worn controllers don't phantom-navigate. A user
+// override (Settings slider) takes precedence over the calibration.
+
+/** How long to sample stick rest before locking the deadzone (ms). */
+export const DEADZONE_CALIBRATION_MS = 500;
+/** Floor for a calibrated/override deadzone — never below this. */
+export const DEADZONE_MIN = 0.1;
+/** Ceiling for a calibrated/override deadzone — never above this. */
+export const DEADZONE_MAX = 0.5;
+/** Extra headroom added above measured drift so noise never crosses. */
+export const DEADZONE_DRIFT_MARGIN = 0.04;
+
+export function clampDeadzone(value: number): number {
+  if (!Number.isFinite(value)) return DEADZONE_MIN;
+  return Math.min(DEADZONE_MAX, Math.max(DEADZONE_MIN, value));
+}
+
+/** Resolve the effective deadzone: a user override wins, otherwise the
+ *  observed resting drift (plus margin) is calibrated and clamped. */
+export function calibrateDeadzone(
+  observedMaxAbs: number,
+  userOverride: number | null,
+): number {
+  if (userOverride !== null) return clampDeadzone(userOverride);
+  return clampDeadzone(observedMaxAbs * 1.3 + DEADZONE_DRIFT_MARGIN);
+}
 
 /** Cursor speed at the deadzone threshold (px/s). Slow & precise. */
 export const VIRTUAL_MOUSE_MIN_SPEED = 250;
@@ -344,6 +549,29 @@ export function virtualMouseSpeed(m: number): number {
     (VIRTUAL_MOUSE_MAX_SPEED - VIRTUAL_MOUSE_MIN_SPEED) *
       Math.pow(Math.max(0, Math.min(1, m)), 1.4)
   );
+}
+
+/**
+ * Magnetic "aim-assist" test: true when the cursor position lands inside
+ * the bounding box of any registered focusable. The polling loop halves
+ * the cursor speed while this is true, giving small targets a sticky,
+ * console-like feel. Single rect read per candidate, early-out on hit.
+ */
+export function isPointOverFocusable(
+  x: number,
+  y: number,
+  candidates: FocusableCandidate[],
+): boolean {
+  for (const { element } of candidates) {
+    if (element.hidden || !element.isConnected) continue;
+    if (element.hasAttribute("disabled")) continue;
+    if (element.getAttribute("aria-disabled") === "true") continue;
+    if ((element as HTMLButtonElement).disabled) continue;
+    const r = element.getBoundingClientRect();
+    if (r.width === 0 || r.height === 0) continue;
+    if (x >= r.left && x <= r.right && y >= r.top && y <= r.bottom) return true;
+  }
+  return false;
 }
 
 /** Cap delta-time at 100 ms so a debugger pause can't teleport the cursor. */

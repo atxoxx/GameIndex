@@ -33,8 +33,12 @@ import {
   dispatchMouse,
   dispatchKey,
   virtualMouseSpeed,
+  isPointOverFocusable,
+  calibrateDeadzone,
+  MAGNETIC_SLOWDOWN,
   RIGHT_STICK_DEADZONE,
   STICK_DEADZONE,
+  DEADZONE_CALIBRATION_MS,
   TRIGGER_THRESHOLD,
   MAX_FRAME_DT_SEC,
   FIRST_FRAME_DT_MS,
@@ -44,6 +48,7 @@ import {
   isNavigable,
 } from "./gamepad/gamepadUtils";
 import { isBigScreenOverlayOpen } from "../context/BigScreenContext";
+import { useSettings } from "../context/SettingsContext";
 
 // ── Types ───────────────────────────────────────────────────────
 
@@ -138,6 +143,30 @@ export function useGamepadInternal(enabled: boolean): GamepadState {
     () => ({ ...virtualMouseRef.current }),
   );
   const gamepadStateRef = useRef<GamepadState | null>(null);
+
+  // ── Deadzone calibration / override ────────────────────────
+  // `calibratedDeadzonesRef` holds the auto-calibrated values (sampled
+  // from the sticks' resting drift on connect); `deadzoneOverrideRef`
+  // mirrors the user's Settings sliders (null = auto). The override wins.
+  const calibratedDeadzonesRef = useRef<{ left: number; right: number }>({
+    left: STICK_DEADZONE,
+    right: RIGHT_STICK_DEADZONE,
+  });
+  const calibrationRef = useRef<{
+    startedAt: number;
+    leftMax: number;
+    rightMax: number;
+    done: boolean;
+  }>({ startedAt: 0, leftMax: 0, rightMax: 0, done: false });
+  const deadzoneOverrideRef = useRef<{
+    left: number | null;
+    right: number | null;
+  }>({ left: null, right: null });
+  const { gamepadLeftDeadzone, gamepadRightDeadzone } = useSettings();
+  deadzoneOverrideRef.current = {
+    left: gamepadLeftDeadzone,
+    right: gamepadRightDeadzone,
+  };
 
   // Tab cycler subscription (BigScreenNav uses this for LB/RB).
   // Each entry carries a monotonic `seq` so that among equal
@@ -396,6 +425,9 @@ export function useGamepadInternal(enabled: boolean): GamepadState {
           cur.moving = false;
           publishVirtualMouse();
         }
+        // Reset deadzone calibration so the next connect re-samples the
+        // stick's (possibly different) resting position.
+        calibrationRef.current = { startedAt: 0, leftMax: 0, rightMax: 0, done: false };
         lastFrameTimeRef.current = timestamp;
         rafId = requestAnimationFrame(poll);
         return;
@@ -416,6 +448,26 @@ export function useGamepadInternal(enabled: boolean): GamepadState {
       const dtSec = Math.min(dtMs / 1000, MAX_FRAME_DT_SEC);
       const now = performance.now();
 
+      // ── Deadzone resolution (auto-calibrated, user-overridable) ─
+      // Sample stick rest for the first DEADZONE_CALIBRATION_MS after
+      // connect, then lock the deadzone just above the measured drift.
+      const override = deadzoneOverrideRef.current;
+      const cal = calibrationRef.current;
+      if (!cal.done) {
+        if (cal.startedAt === 0) cal.startedAt = now;
+        cal.leftMax = Math.max(cal.leftMax, Math.abs(gp.axes[0] ?? 0), Math.abs(gp.axes[1] ?? 0));
+        cal.rightMax = Math.max(cal.rightMax, Math.abs(gp.axes[2] ?? 0), Math.abs(gp.axes[3] ?? 0));
+        if (now - cal.startedAt >= DEADZONE_CALIBRATION_MS) {
+          calibratedDeadzonesRef.current = {
+            left: calibrateDeadzone(cal.leftMax, null),
+            right: calibrateDeadzone(cal.rightMax, null),
+          };
+          cal.done = true;
+        }
+      }
+      const leftDz = override.left ?? calibratedDeadzonesRef.current.left;
+      const rightDz = override.right ?? calibratedDeadzonesRef.current.right;
+
       // ── LEFT STICK / D-PAD → spatial navigation ────────────
       let leftH = 0;
       let leftV = 0;
@@ -423,20 +475,21 @@ export function useGamepadInternal(enabled: boolean): GamepadState {
       if (gp.buttons[13]?.pressed) leftV = 1;
       if (gp.buttons[14]?.pressed) leftH = -1;
       if (gp.buttons[15]?.pressed) leftH = 1;
-      if (Math.abs(gp.axes[0]) > STICK_DEADZONE) leftH = gp.axes[0];
-      if (Math.abs(gp.axes[1]) > STICK_DEADZONE) leftV = gp.axes[1];
+      if (Math.abs(gp.axes[0]) > leftDz) leftH = gp.axes[0];
+      if (Math.abs(gp.axes[1]) > leftDz) leftV = gp.axes[1];
 
       // Discrete direction based on thresholds
       let dirH = 0;
       let dirV = 0;
-      if (gp.buttons[14]?.pressed || leftH < -STICK_DEADZONE) dirH = -1;
-      else if (gp.buttons[15]?.pressed || leftH > STICK_DEADZONE) dirH = 1;
+      if (gp.buttons[14]?.pressed || leftH < -leftDz) dirH = -1;
+      else if (gp.buttons[15]?.pressed || leftH > leftDz) dirH = 1;
 
-      if (gp.buttons[12]?.pressed || leftV < -STICK_DEADZONE) dirV = -1;
-      else if (gp.buttons[13]?.pressed || leftV > STICK_DEADZONE) dirV = 1;
+      if (gp.buttons[12]?.pressed || leftV < -leftDz) dirV = -1;
+      else if (gp.buttons[13]?.pressed || leftV > leftDz) dirV = 1;
 
       const hasInput = dirH !== 0 || dirV !== 0;
       let shouldNavigate = false;
+      let navigateIsRepeat = false;
 
       if (!hasInput) {
         // Neutral state: reset hold tracking
@@ -460,6 +513,7 @@ export function useGamepadInternal(enabled: boolean): GamepadState {
             const timeSinceLastRepeat = now - lastRepeatRef.current;
             if (timeSinceLastRepeat >= REPEAT_INTERVAL_MS) {
               shouldNavigate = true;
+              navigateIsRepeat = true;
               lastRepeatRef.current = now;
             }
           }
@@ -492,7 +546,7 @@ export function useGamepadInternal(enabled: boolean): GamepadState {
             focusedRef.current.removeAttribute("data-focused");
             focusedRef.current = next;
             next.setAttribute("data-focused", "true");
-            scrollElementIntoViewControlled(next);
+            scrollElementIntoViewControlled(next, { immediate: navigateIsRepeat });
             setFocusedElement(next);
             next.focus({ preventScroll: true });
           }
@@ -511,9 +565,16 @@ export function useGamepadInternal(enabled: boolean): GamepadState {
       let vx = 0;
       let vy = 0;
 
-      if (len > RIGHT_STICK_DEADZONE) {
-        const m = Math.min(1, (len - RIGHT_STICK_DEADZONE) / (1 - RIGHT_STICK_DEADZONE));
-        const speed = virtualMouseSpeed(m);
+      if (len > rightDz) {
+        const m = Math.min(1, (len - rightDz) / (1 - rightDz));
+        let speed = virtualMouseSpeed(m);
+
+        // Magnetic aim-assist: halve the cursor speed while the pointer
+        // is over a registered focusable so small targets feel sticky.
+        if (isPointOverFocusable(vm.x, vm.y, entriesRef.current)) {
+          speed *= MAGNETIC_SLOWDOWN;
+        }
+
         vx = (rightH / len) * speed;
         vy = (rightV / len) * speed;
       }

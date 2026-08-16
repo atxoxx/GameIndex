@@ -32,6 +32,7 @@ import {
 import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
 import { applyAccentFamily } from "../utils/color";
+import { clampDeadzone } from "../hooks/gamepad/gamepadUtils";
 
 // ── LocalStorage keys (one per localStorage-backed setting) ─────────────────
 //
@@ -55,6 +56,10 @@ const LS_HW_MONITORING = "gamelib.hardware_monitoring_enabled";
 const LS_METRIC_CAPTURE = "gamelib.metric_capture";
 const LS_SAMPLING_SEC = "gamelib.metrics_sampling_interval_sec";
 const LS_TEMP_UNIT = "gamelib.temp_unit";
+
+// Big Screen controller (gamepad stick deadzones; null = auto-calibrate)
+const LS_GAMEPAD_LEFT_DEADZONE = "gamelib.gamepad_left_deadzone";
+const LS_GAMEPAD_RIGHT_DEADZONE = "gamelib.gamepad_right_deadzone";
 
 // ── Public shape ─────────────────────────────────────────────────────────────
 
@@ -135,6 +140,12 @@ export interface SettingsContextValue {
   tempUnit: TempUnit;
   setTempUnit: (next: TempUnit) => void;
 
+  // ── Big Screen controller ───────────────────────────────────
+  gamepadLeftDeadzone: number | null;
+  setGamepadLeftDeadzone: (next: number | null) => void;
+  gamepadRightDeadzone: number | null;
+  setGamepadRightDeadzone: (next: number | null) => void;
+
   // True until the very first Rust-side fetch has resolved. Mirrors
   // SettingsPage's existing `steamAuthReady` gating pattern so a
   // remount doesn't show form-state with hydrated values before the
@@ -175,6 +186,13 @@ function lsSetJSON(key: string, value: unknown): void {
   } catch {
     /* ignore */
   }
+}
+
+/** Parse a persisted deadzone value; `null`/empty/invalid → auto (null). */
+function parseDeadzoneSetting(raw: string | null): number | null {
+  if (raw === null || raw === "") return null;
+  const value = parseFloat(raw);
+  return Number.isFinite(value) ? clampDeadzone(value) : null;
 }
 
 // ── Provider ────────────────────────────────────────────────────────────────
@@ -513,6 +531,40 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
     lsSet(LS_TEMP_UNIT, next);
   }, []);
 
+  // ── Big Screen controller ───────────────────────────────────────────────
+  // `null` = auto-calibrate on connect; a number is a manual override.
+  const [gamepadLeftDeadzone, setGamepadLeftDeadzoneState] = useState<
+    number | null
+  >(() => parseDeadzoneSetting(lsGet(LS_GAMEPAD_LEFT_DEADZONE)));
+  const setGamepadLeftDeadzone = useCallback((next: number | null) => {
+    setGamepadLeftDeadzoneState(next);
+    if (next === null) {
+      try {
+        localStorage.removeItem(LS_GAMEPAD_LEFT_DEADZONE);
+      } catch {
+        /* ignore */
+      }
+    } else {
+      lsSet(LS_GAMEPAD_LEFT_DEADZONE, String(next));
+    }
+  }, []);
+
+  const [gamepadRightDeadzone, setGamepadRightDeadzoneState] = useState<
+    number | null
+  >(() => parseDeadzoneSetting(lsGet(LS_GAMEPAD_RIGHT_DEADZONE)));
+  const setGamepadRightDeadzone = useCallback((next: number | null) => {
+    setGamepadRightDeadzoneState(next);
+    if (next === null) {
+      try {
+        localStorage.removeItem(LS_GAMEPAD_RIGHT_DEADZONE);
+      } catch {
+        /* ignore */
+      }
+    } else {
+      lsSet(LS_GAMEPAD_RIGHT_DEADZONE, String(next));
+    }
+  }, []);
+
   const value = useMemo<SettingsContextValue>(
     () => ({
       closeToTray,
@@ -552,6 +604,10 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
       setSamplingIntervalSec,
       tempUnit,
       setTempUnit,
+      gamepadLeftDeadzone,
+      setGamepadLeftDeadzone,
+      gamepadRightDeadzone,
+      setGamepadRightDeadzone,
       ready,
     }),
     [
@@ -592,6 +648,10 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
       setSamplingIntervalSec,
       tempUnit,
       setTempUnit,
+      gamepadLeftDeadzone,
+      setGamepadLeftDeadzone,
+      gamepadRightDeadzone,
+      setGamepadRightDeadzone,
       ready,
     ],
   );

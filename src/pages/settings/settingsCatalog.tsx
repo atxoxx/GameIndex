@@ -76,7 +76,7 @@ export function buildSettingsCatalog(t: (key: string, vars?: Record<string, unkn
       tab: "general",
       labelKey: "settings.general",
       descKey: "settings.general.desc",
-      keywords: "language locale interface display update",
+      keywords: "language locale interface display update controller gamepad",
       icon: <GlobeIcon />,
       sections: [
         {
@@ -88,6 +88,11 @@ export function buildSettingsCatalog(t: (key: string, vars?: Record<string, unkn
           id: "general-updates",
           labelKey: "updater.title",
           keywords: "update updater version auto check github install release",
+        },
+        {
+          id: "general-gamepad",
+          labelKey: "settings.section.gamepad",
+          keywords: "gamepad controller deadzone stick sensitivity big screen couch",
         },
       ],
     },
