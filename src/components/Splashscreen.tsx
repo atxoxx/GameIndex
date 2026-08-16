@@ -28,30 +28,39 @@ const STEP_INTERVAL_MS = 600;
 const STEP_STALL_MS = 4000;
 /** How long each loading tip stays on screen before rotating. */
 const TIP_INTERVAL_MS = 4000;
-const MAX_LAUNCH_STEP: LaunchStep = 3;
+const MAX_LAUNCH_STEP: LaunchStep = 6;
 
 const LAUNCH_STEP_KEYS: Record<LaunchStep, string> = {
   0: "splash.resolvingPaths",
-  1: "splash.startingGame",
-  2: "splash.loadingAssets",
-  3: "splash.launching",
+  1: "splash.preLaunchScript",
+  2: "splash.elevating",
+  3: "splash.startingGame",
+  4: "splash.loadingAssets",
+  5: "splash.companionApps",
+  6: "splash.launching",
 };
 
 /** Maps Rust `launch-progress` step names to the splash's step index. */
 const STEP_INDEX: Record<string, LaunchStep> = {
   resolvingPaths: 0,
-  startingGame: 1,
-  loadingAssets: 2,
-  launching: 3,
+  preLaunchScript: 1,
+  elevating: 2,
+  startingGame: 3,
+  loadingAssets: 4,
+  companionApps: 5,
+  launching: 6,
 };
 
 /** Progress-bar fill percentage per launch step. Never 0 so the bar
  *  reads as "working" the instant the splash opens. */
 const STEP_PCT: Record<LaunchStep, number> = {
-  0: 20,
-  1: 45,
-  2: 70,
-  3: 100,
+  0: 14,
+  1: 28,
+  2: 43,
+  3: 57,
+  4: 71,
+  5: 86,
+  6: 100,
 };
 
 /** Rotating tips shown during longer launches. i18n keys. */
@@ -100,6 +109,10 @@ function relativeFromMs(
 function sampleAverageColor(src: string): Promise<string | null> {
   return new Promise((resolve) => {
     const img = new Image();
+    // Remote hero art needs a CORS request before getImageData() can read
+    // its pixels; data:/same-origin URLs don't. A CORS-blocked image
+    // degrades gracefully to no accent tint (null).
+    if (/^https?:\/\//i.test(src)) img.crossOrigin = "anonymous";
     img.onload = () => {
       try {
         const size = 24;
@@ -412,7 +425,14 @@ export default function Splashscreen() {
         tabIndex={-1}
       >
         {/* Determinate progress bar tied to the current launch step */}
-        <div className="splashscreen-progress" aria-hidden="true">
+        <div
+          className="splashscreen-progress"
+          role="progressbar"
+          aria-valuemin={0}
+          aria-valuemax={100}
+          aria-valuenow={progressPct}
+          aria-label={t("splash.progressAria")}
+        >
           <div
             className={[
               "splashscreen-progress-fill",

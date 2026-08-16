@@ -132,13 +132,14 @@
 
 .btn-primary {
   background: var(--color-accent);
-  color: #fff;
+  color: var(--color-accent-contrast, #ffffff);
   border-color: var(--color-accent);
   box-shadow: 0 2px 8px color-mix(in srgb, var(--color-accent) 30%, transparent);
 }
 
 .btn-primary:hover {
   background: var(--color-accent-hover);
+  color: var(--color-accent-contrast, #ffffff);
   border-color: var(--color-accent-hover);
   transform: translateY(-1px);
   box-shadow: 0 4px 12px color-mix(in srgb, var(--color-accent) 35%, transparent);
@@ -473,12 +474,12 @@ textarea.settings-input {
 
 .settings-segmented button.active {
   background: var(--color-accent);
-  color: #fff;
+  color: var(--color-accent-contrast, #ffffff);
 }
 
 .settings-segmented button.active:hover {
   background: var(--color-accent);
-  color: #fff;
+  color: var(--color-accent-contrast, #ffffff);
 }
 
 /* =============================================================================
@@ -987,7 +988,7 @@ textarea.settings-input {
 
 .theme-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(210px, 1fr));
   gap: var(--space-md);
 }
 
@@ -1004,16 +1005,16 @@ textarea.settings-input {
   animation: importMenuIn 220ms var(--ease-standard) both;
 }
 
-.theme-card:nth-child(2) { animation-delay: 30ms; }
-.theme-card:nth-child(3) { animation-delay: 60ms; }
-.theme-card:nth-child(4) { animation-delay: 90ms; }
-.theme-card:nth-child(5) { animation-delay: 120ms; }
-.theme-card:nth-child(n + 6) { animation-delay: 150ms; }
+.theme-card:nth-child(2) { animation-delay: 20ms; }
+.theme-card:nth-child(3) { animation-delay: 40ms; }
+.theme-card:nth-child(4) { animation-delay: 60ms; }
+.theme-card:nth-child(5) { animation-delay: 80ms; }
+.theme-card:nth-child(n + 6) { animation-delay: 100ms; }
 
 .theme-card:hover {
   border-color: var(--color-border-light);
   transform: translateY(-2px);
-  box-shadow: var(--shadow-sm);
+  box-shadow: var(--shadow-md);
 }
 
 .theme-card:focus-visible {
@@ -1022,9 +1023,10 @@ textarea.settings-input {
 }
 
 .theme-card.active {
-  border-color: color-mix(in srgb, var(--color-accent) 55%, var(--color-border));
+  border-color: var(--color-accent);
   box-shadow:
-    0 0 0 1px color-mix(in srgb, var(--color-accent) 35%, transparent),
+    0 0 0 1px var(--color-accent),
+    0 4px 16px var(--color-accent-glow),
     var(--shadow-sm);
 }
 
@@ -1037,18 +1039,20 @@ textarea.settings-input {
   --themePreviewAccent: var(--miniAccent);
   display: flex;
   flex-direction: column;
-  height: 92px;
+  height: 98px;
   overflow: hidden;
   background: var(--themePreviewBg);
+  border-bottom: 1px solid color-mix(in srgb, var(--themePreviewText) 12%, transparent);
+  position: relative;
 }
 
 .theme-preview-bar {
   display: flex;
   align-items: center;
   gap: 5px;
-  padding: 7px 9px;
-  background: color-mix(in srgb, var(--themePreviewText) 8%, transparent);
-  border-bottom: 1px solid color-mix(in srgb, var(--themePreviewText) 14%, transparent);
+  padding: 6px 9px;
+  background: color-mix(in srgb, var(--themePreviewText) 7%, transparent);
+  border-bottom: 1px solid color-mix(in srgb, var(--themePreviewText) 10%, transparent);
 }
 
 .theme-preview-color {
@@ -1056,20 +1060,21 @@ textarea.settings-input {
   height: 6px;
   border-radius: 50%;
   flex-shrink: 0;
-  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--themePreviewText) 35%, transparent);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--themePreviewText) 25%, transparent);
 }
 
 .theme-preview-mini {
   flex: 1;
   display: grid;
-  grid-template-columns: 30px 1fr;
-  gap: 5px;
+  grid-template-columns: 36px 1fr;
+  gap: 6px;
   padding: 8px 9px;
 }
 
 .theme-preview-mini-sidebar {
-  background: color-mix(in srgb, var(--themePreviewText) 12%, transparent);
+  background: color-mix(in srgb, var(--themePreviewText) 10%, transparent);
   border-radius: var(--radius-xs);
+  border: 1px solid color-mix(in srgb, var(--themePreviewText) 6%, transparent);
 }
 
 .theme-preview-mini-main {
@@ -1082,9 +1087,9 @@ textarea.settings-input {
   display: flex;
   align-items: center;
   gap: 5px;
-  padding: 4px;
-  height: 12px;
-  background: color-mix(in srgb, var(--themePreviewText) 10%, transparent);
+  padding: 4px 6px;
+  height: 14px;
+  background: color-mix(in srgb, var(--themePreviewText) 8%, transparent);
   border-radius: var(--radius-xs);
 }
 
@@ -1094,7 +1099,7 @@ textarea.settings-input {
   border-radius: 50%;
   background: var(--themePreviewAccent);
   flex-shrink: 0;
-  box-shadow: 0 0 5px var(--themePreviewAccent);
+  box-shadow: 0 0 6px var(--themePreviewAccent);
 }
 
 .theme-preview-mini-bar {
@@ -1102,23 +1107,26 @@ textarea.settings-input {
   height: 4px;
   border-radius: 2px;
   background: var(--themePreviewText);
-  opacity: 0.45;
+  opacity: 0.55;
 }
 
 .theme-preview-mini-card {
   flex: 1;
   display: flex;
   align-items: flex-end;
-  padding: 4px;
-  background: color-mix(in srgb, var(--themePreviewText) 14%, transparent);
+  justify-content: space-between;
+  padding: 5px 6px;
+  background: color-mix(in srgb, var(--themePreviewText) 12%, transparent);
   border-radius: var(--radius-xs);
+  border: 1px solid color-mix(in srgb, var(--themePreviewText) 8%, transparent);
 }
 
 .theme-preview-mini-accent {
-  height: 7px;
-  width: 55%;
-  border-radius: 2px;
+  height: 8px;
+  width: 50%;
+  border-radius: 3px;
   background: var(--themePreviewAccent);
+  box-shadow: 0 0 8px color-mix(in srgb, var(--themePreviewAccent) 40%, transparent);
 }
 
 /* Card footer: name + descriptor chip + active dot. */
@@ -1128,13 +1136,13 @@ textarea.settings-input {
   justify-content: space-between;
   gap: var(--space-sm);
   padding: var(--space-sm) var(--space-md);
-  border-top: 1px solid var(--color-border);
+  background: var(--color-surface);
 }
 
 .theme-card-text {
   display: flex;
   align-items: center;
-  gap: var(--space-sm);
+  gap: 6px;
   min-width: 0;
 }
 
@@ -1148,10 +1156,10 @@ textarea.settings-input {
 }
 
 .theme-card-descriptor {
-  padding: 1px 8px;
+  padding: 1px 7px;
   border-radius: var(--radius-full);
-  background: color-mix(in srgb, var(--color-accent) 13%, transparent);
-  border: 1px solid color-mix(in srgb, var(--color-accent) 26%, transparent);
+  background: color-mix(in srgb, var(--color-accent) 12%, transparent);
+  border: 1px solid color-mix(in srgb, var(--color-accent) 24%, transparent);
   font-size: 10px;
   font-weight: var(--font-weight-semibold);
   color: var(--color-accent);
@@ -1163,7 +1171,7 @@ textarea.settings-input {
   height: 8px;
   border-radius: 50%;
   background: var(--color-accent);
-  box-shadow: 0 0 10px var(--color-accent-glow);
+  box-shadow: 0 0 10px var(--color-accent);
   flex-shrink: 0;
 }
 

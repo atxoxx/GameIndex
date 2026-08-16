@@ -263,6 +263,12 @@ function discordButtonUrl(game: Game | undefined): string | undefined {
   return candidates.find((u) => /^https:\/\//i.test(u));
 }
 
+/** How long the launch splash waits for the watcher's `game-started` event
+ *  before closing anyway. Covers protocol launches (Steam/Uplay/UAC) that
+ *  resolve the launch command before the real process appears — or never
+ *  appear at all (e.g. the user cancelled a launcher dialog). */
+const SPLASH_STARTED_FALLBACK_MS = 20000;
+
 export function GameProvider({ children }: { children: ReactNode }) {
   const { showToast } = useToast();
   const { t } = useLanguage();
@@ -270,9 +276,41 @@ export function GameProvider({ children }: { children: ReactNode }) {
   // splash dispatcher straight from context. No cross-window IPC,
   // no async round-trip — the splash is an in-process React overlay.
   const splash = useSplash();
+  // Latest splash state for the fallback timer, so the delayed "started"
+  // flip always reads the current record instead of a stale closure.
+  const splashRef = useRef(splash);
+  splashRef.current = splash;
+  const splashFallbackTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   // Stable self-reference so the splash's Retry action can re-invoke the
   // latest `launchGame` (defined below) for the same game after a failure.
   const launchGameRef = useRef<(game: Game) => void>(() => {});
+
+  /** Flip a still-"launching" splash to "started" once the watcher confirms
+   *  the game process is up. Ignored for passively-detected games whose
+   *  splash isn't showing. */
+  const markSplashStarted = useCallback((gameId: string) => {
+    const rec = splashRef.current.record;
+    if (!rec || rec.game.id !== gameId || rec.status !== "launching") return;
+    if (splashFallbackTimerRef.current) {
+      clearTimeout(splashFallbackTimerRef.current);
+      splashFallbackTimerRef.current = null;
+    }
+    splashRef.current.updateStatus("started");
+  }, []);
+
+  /** Safety net: if the watcher never fires game-started (e.g. a Steam
+   *  protocol launch the user cancelled), close the splash after a beat
+   *  instead of leaving it stuck on "launching". */
+  const armSplashFallback = useCallback((gameId: string) => {
+    if (splashFallbackTimerRef.current) clearTimeout(splashFallbackTimerRef.current);
+    splashFallbackTimerRef.current = setTimeout(() => {
+      splashFallbackTimerRef.current = null;
+      const rec = splashRef.current.record;
+      if (rec && rec.game.id === gameId && rec.status === "launching") {
+        splashRef.current.updateStatus("started");
+      }
+    }, SPLASH_STARTED_FALLBACK_MS);
+  }, []);
   const [games, setGames] = useState<Game[]>([]);
   const [selectedGameId, setSelectedGameId] = useState<string | null>(null);
   const [runningGameIds, setRunningGameIds] = useState<string[]>([]);
@@ -552,6 +590,10 @@ export function GameProvider({ children }: { children: ReactNode }) {
     const unlisten = listen<GameStartedEvent>("game-started", (event) => {
       const { gameId, detectedExe } = event.payload;
 
+      // Splash lifecycle: the process is confirmed up, so flip a matching
+      // "launching" splash to "started" (clearing its fallback timer).
+      markSplashStarted(gameId);
+
       // Add to running games list so the UI shows "now playing"
       setRunningGameIds((prev) => {
         if (prev.includes(gameId)) return prev;
@@ -601,7 +643,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
     return () => {
       unlisten.then((fn) => fn());
     };
-  }, [t]);
+  }, [t, markSplashStarted]);
 
   // Listen for the watcher's grace-period transitions so the UI can show a
   // "closing" state during launcher hand-offs instead of flipping straight
@@ -1132,7 +1174,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
           gamePath: game.path || null,
           titleId: game.rockstarTitleId,
         });
-        if (splashOn) splash.updateStatus("started");
+        if (splashOn) armSplashFallback(game.id);
         showToast(t("gameContext.launched", { name: game.name }), "success");
         return;
       }
@@ -1148,7 +1190,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
           gamePath: game.path || null,
           uplayId: game.uplayGameId,
         });
-        if (splashOn) splash.updateStatus("started");
+        if (splashOn) armSplashFallback(game.id);
         showToast(t("gameContext.launched", { name: game.name }), "success");
         return;
       }
@@ -1177,7 +1219,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
         companionApps: game.companionApps || null,
       });
 
-      if (splashOn) splash.updateStatus("started");
+      if (splashOn) armSplashFallback(game.id);
       showToast(t("gameContext.launched", { name: game.name }), "success");
     } catch (err: any) {
       setRunningGameIds((prev) => prev.filter((id) => id !== game.id));

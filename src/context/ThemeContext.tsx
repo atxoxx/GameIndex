@@ -97,6 +97,14 @@ const BUILTIN_THEMES: ThemeConfig[] = [
     id: "aurora",
     meta: { name: "Aurora", descriptor: "vibrant" },
   },
+  {
+    id: "oled",
+    meta: { name: "Midnight OLED", descriptor: "minimal" },
+  },
+  {
+    id: "highcontrast",
+    meta: { name: "High Contrast", descriptor: "high-contrast" },
+  },
 ];
 
 const STORAGE_KEY = "gamelib-theme";

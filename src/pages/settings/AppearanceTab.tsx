@@ -7,25 +7,27 @@ import SettingsSection from "./SettingsSection";
 import AccentPreview from "./AccentPreview";
 import { PaletteIcon } from "./settingsIcons";
 
-/** Maps theme ids to preview colors — kept in sync with App.css overrides. */
+/** Maps theme ids to preview colors — kept in sync with theme stylesheets. */
 const THEME_PREVIEW_COLORS: Record<string, { bg: string; text: string; accent: string }> = {
-  dark:      { bg: "#0a0c10", text: "#f0f2f7", accent: "#7c66ff" },
-  light:     { bg: "#f8fafc", text: "#0f172a", accent: "#7c3aed" },
-  nord:      { bg: "#2e3440", text: "#eceff4", accent: "#88c0d0" },
-  cyberpunk: { bg: "#050508", text: "#f0f2f5", accent: "#00f0ff" },
-  emerald:   { bg: "#08110c", text: "#ecf3ee", accent: "#10b981" },
-  dracula:   { bg: "#1e1f29", text: "#f8f8f2", accent: "#bd93f9" },
-  solarized: { bg: "#002b36", text: "#fdf6e3", accent: "#268bd2" },
-  tokyonight:{ bg: "#1a1b26", text: "#c0caf5", accent: "#7aa2f7" },
-  gruvbox:   { bg: "#282828", text: "#ebdbb2", accent: "#fe8019" },
-  catppuccin:{ bg: "#1e1e2e", text: "#cad3f5", accent: "#cba6f7" },
-  sunset:    { bg: "#1f0f1a", text: "#fdeef2", accent: "#ff7a59" },
-  oceanic:   { bg: "#071a2b", text: "#e6f6fb", accent: "#22d3ee" },
-  rosepine:  { bg: "#191724", text: "#e0def4", accent: "#eb6f92" },
-  synthwave: { bg: "#170d2b", text: "#f9f2ff", accent: "#ff71ce" },
-  forest:    { bg: "#0c1510", text: "#eef5ea", accent: "#84cc16" },
-  desert:    { bg: "#1c160f", text: "#f5ead7", accent: "#e0ab55" },
-  aurora:    { bg: "#07060f", text: "#f4f2ff", accent: "#8b5cff" },
+  dark:        { bg: "#08090c", text: "#f3f5fa", accent: "#635bff" },
+  light:       { bg: "#f8fafc", text: "#0f172a", accent: "#6d28d9" },
+  nord:        { bg: "#242933", text: "#eceff4", accent: "#88c0d0" },
+  cyberpunk:   { bg: "#050508", text: "#f8fafd", accent: "#00f0ff" },
+  emerald:     { bg: "#040a06", text: "#f0fdf4", accent: "#10b981" },
+  dracula:     { bg: "#181920", text: "#f8f8f2", accent: "#bd93f9" },
+  solarized:   { bg: "#001e26", text: "#fdf6e3", accent: "#268bd2" },
+  tokyonight:  { bg: "#13141c", text: "#c0caf5", accent: "#7aa2f7" },
+  gruvbox:     { bg: "#1d2021", text: "#fbf1c7", accent: "#fe8019" },
+  catppuccin:  { bg: "#181825", text: "#cdd6f4", accent: "#cba6f7" },
+  sunset:      { bg: "#140710", text: "#fff1f3", accent: "#ff6b6b" },
+  oceanic:     { bg: "#030d17", text: "#f0fdfa", accent: "#00e5ff" },
+  rosepine:    { bg: "#12101b", text: "#e0def4", accent: "#eb6f92" },
+  synthwave:   { bg: "#0f071a", text: "#fbf5ff", accent: "#ff2a85" },
+  forest:      { bg: "#060d08", text: "#f2fbf4", accent: "#84cc16" },
+  desert:      { bg: "#120c06", text: "#fffbeb", accent: "#e0ab55" },
+  aurora:      { bg: "#04030d", text: "#faf5ff", accent: "#9a6bff" },
+  oled:        { bg: "#000000", text: "#ffffff", accent: "#3b82f6" },
+  highcontrast:{ bg: "#000000", text: "#ffffff", accent: "#ffff00" },
 };
 
 /** Curated preset accent colors exposed on the Appearance tab. `key` is a

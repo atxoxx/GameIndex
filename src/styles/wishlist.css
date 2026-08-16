@@ -173,7 +173,7 @@
 
 .wishlist-group-tabs button.active {
   background: var(--color-accent);
-  color: #fff;
+  color: var(--color-accent-contrast, #ffffff);
 }
 
 .wishlist-sort {
@@ -512,7 +512,7 @@
 .wishlist-note-save {
   background: var(--color-accent);
   border-color: var(--color-accent);
-  color: #fff;
+  color: var(--color-accent-contrast, #ffffff);
 }
 
 .wishlist-note-save:hover {
@@ -672,7 +672,7 @@
   margin-top: var(--space-sm);
   padding: 10px 20px;
   background: var(--color-accent);
-  color: #fff;
+  color: var(--color-accent-contrast, #ffffff);
   border: none;
   border-radius: var(--radius-md);
   font-size: var(--font-size-md);

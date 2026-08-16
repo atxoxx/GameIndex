@@ -37,10 +37,10 @@
 
   /* Text hierarchy */
   --color-text-primary: #f3f5fa;
-  --color-text-secondary: #9ea4b5;
-  --color-text-tertiary: #565d70;
-  --color-text-muted: #62687a;
-  --color-text-inverse: #08090c;
+  --color-text-secondary: #a3abc0;
+  --color-text-tertiary: #6b758e;
+  --color-text-muted: #747e98;
+  --color-text-inverse: #050508;
 
   /* Accent system with auto-generated states */
   --color-accent: #635bff;

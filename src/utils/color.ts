@@ -128,13 +128,13 @@ export function contrastRatio(hex1: string, hex2: string): number {
 }
 
 /**
- * Returns `#ffffff` or `#000000` depending on which has better
+ * Returns `#ffffff` or `#050508` depending on which has better
  * contrast against the given background hex.
  */
-export function textColorFor(backgroundHex: string): "#ffffff" | "#000000" {
+export function textColorFor(backgroundHex: string): "#ffffff" | "#050508" {
   return contrastRatio(backgroundHex, "#ffffff") >= 4.5
     ? "#ffffff"
-    : "#000000";
+    : "#050508";
 }
 
 /* ============================================================================
@@ -299,6 +299,8 @@ export const ACCENT_FAMILY_KEYS: readonly string[] = [
   "--brand-gradient-strong",
   "--mesh-gradient",
   "--color-bg-gradient",
+  "--color-border-glow",
+  "--color-focus-ring",
 ];
 
 /**
@@ -349,6 +351,10 @@ export function buildAccentFamily(
     "--brand-gradient-strong": "var(--color-accent)",
     "--mesh-gradient": "none",
     "--color-bg-gradient": "var(--color-bg-primary)",
+    "--color-border-glow":
+      "color-mix(in srgb, var(--color-accent) 38%, transparent)",
+    "--color-focus-ring":
+      "color-mix(in srgb, var(--color-accent) 55%, transparent)",
   };
 }
 

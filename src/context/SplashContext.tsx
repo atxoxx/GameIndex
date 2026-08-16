@@ -19,7 +19,7 @@ export type SplashStatus = "launching" | "started" | "error";
  * "launching" so the user sees progressive feedback instead of a
  * static "Launching..." message.
  */
-export type LaunchStep = 0 | 1 | 2 | 3;
+export type LaunchStep = 0 | 1 | 2 | 3 | 4 | 5 | 6;
 
 /**
  * Pre-rendered payload displayed in the splash overlay. Includes the

@@ -1633,6 +1633,7 @@ fn launch_game(
                         .to_string(),
                 );
             }
+            emit_launch_progress(&app, &game_id, "preLaunchScript");
             run_script_blocking(script, pre_launch_admin.unwrap_or(false))?;
         }
     }
@@ -1716,6 +1717,7 @@ fn launch_game(
         let child = if run_as_admin.unwrap_or(false) {
             #[cfg(windows)]
             {
+                emit_launch_progress(&app, &game_id, "elevating");
                 initial_pid = launch_elevated(path, cwd, launch_arguments.as_deref())?.unwrap_or(0);
                 None
             }
@@ -1762,6 +1764,7 @@ fn launch_game(
                                         .to_string(),
                                 );
                             }
+                            emit_launch_progress(&app, &game_id, "elevating");
                             initial_pid = launch_elevated(path, cwd, launch_arguments.as_deref())?.unwrap_or(0);
                             None
                         } else {
@@ -1833,6 +1836,12 @@ fn launch_game(
     // ── Companion apps (delayed, fire-and-forget) ──
     // Launched after the main game so a server/overlay can start in the
     // background on its own timer. Not tracked by the watcher.
+    let has_companion_apps = companion_apps
+        .as_ref()
+        .is_some_and(|apps| apps.iter().any(|a| !a.path.trim().is_empty()));
+    if has_companion_apps {
+        emit_launch_progress(&app, &game_id, "companionApps");
+    }
     if let Some(apps) = companion_apps.as_ref() {
         for app in apps.iter() {
             if !app.path.trim().is_empty() {

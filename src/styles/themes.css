@@ -1,582 +1,1003 @@
-/* Light Theme Override */
+/* =============================================================================
+   GameIndex Theme Engine — Overrides & Palettes
+   ─────────────────────────────────────────────────────────────────────────────
+   Every theme provides a complete, self-contained design token system:
+     - 4-Tier Surface Architecture (Base, Surface 1, Surface 2, Glass Overlay)
+     - Verified WCAG AA / AAA Text Contrast Hierarchy
+     - Dynamic Accent Family (Solid Base, Hover/Active, Soft, Border, Badge, Laser)
+     - Dynamic Contrast Text (--color-accent-contrast: #ffffff or #050508)
+     - Atmosphere & Ambient Lighting (--color-bg-gradient, --shadow-glow)
+   ============================================================================= */
+
+/* ── 1. Light Mode (Pure Glass & Daylight) ────────────────────────────────── */
 [data-theme="light"] {
   --color-bg-primary: #f8fafc;
   --color-bg-secondary: #ffffff;
   --color-bg-tertiary: #f1f5f9;
   --color-bg-hover: #e2e8f0;
   --color-bg-active: #cbd5e1;
-  --color-bg-gradient: var(--color-bg-primary);
+  --color-bg-gradient: radial-gradient(circle at 50% 0%, #f1f5f9 0%, #f8fafc 100%);
 
-  --color-surface: rgba(255, 255, 255, 0.92);
-  --color-surface-raised: rgba(255, 255, 255, 0.98);
-  --color-surface-overlay: rgba(15, 23, 42, 0.1);
-  --color-surface-glass: rgba(255, 255, 255, 0.65);
+  --color-surface: #ffffff;
+  --color-surface-raised: #ffffff;
+  --color-surface-overlay: rgba(15, 23, 42, 0.45);
+  --color-surface-glass: rgba(255, 255, 255, 0.82);
 
   --color-border: #e2e8f0;
-  --color-border-light: #f1f5f9;
-  --color-border-highlight: rgba(255, 255, 255, 0.8);
-  --color-border-faint: rgba(15, 23, 42, 0.05);
-  --color-border-glow: color-mix(in srgb, var(--color-accent) 30%, transparent);
+  --color-border-light: #cbd5e1;
+  --color-border-highlight: rgba(255, 255, 255, 0.95);
+  --color-border-faint: rgba(15, 23, 42, 0.04);
+  --color-border-glow: color-mix(in srgb, var(--color-accent) 28%, transparent);
 
   --color-text-primary: #0f172a;
-  --color-text-secondary: #475569;
-  --color-text-tertiary: #93a0b5;
-  --color-text-muted: #94a3b8;
+  --color-text-secondary: #334155;
+  --color-text-tertiary: #64748b;
+  --color-text-muted: #64748b;
   --color-text-inverse: #f8fafc;
 
-  --color-accent: #7c3aed;
+  --color-accent: #6d28d9;
+  --color-accent-2: #8b5cf6;
+  --color-accent-contrast: #ffffff;
   --color-accent-hover: color-mix(in srgb, var(--color-accent) 85%, black 15%);
   --color-accent-active: color-mix(in srgb, var(--color-accent) 70%, black 30%);
-  --color-accent-glow: rgba(124, 58, 237, 0.15);
+  --color-accent-glow: rgba(109, 40, 217, 0.18);
   --color-accent-soft: color-mix(in srgb, var(--color-accent) 10%, var(--color-bg-secondary));
-  --color-stale: #b8780a;
+  --color-accent-border: color-mix(in srgb, var(--color-accent) 28%, transparent);
+  --color-accent-surface: color-mix(in srgb, var(--color-accent) 5%, var(--color-bg-secondary));
+  --color-accent-subtle: color-mix(in srgb, var(--color-accent) 4%, transparent);
+  --color-accent-badge: color-mix(in srgb, var(--color-accent) 12%, var(--color-bg-secondary));
+  --color-accent-laser: var(--color-accent);
+  --color-accent-gradient: var(--color-accent);
+  --color-accent-gradient-strong: var(--color-accent);
 
-  /* Light surfaces are bright — a user accent must whisper, not shout.
-     Dial the injected family's glow/border/soft strengths back and flip
-     the hover mix (light themes darken on hover) so the override stays
-     legible instead of going neon. */
+  --brand-1: var(--color-accent);
+  --brand-2: var(--color-accent-2);
+  --brand-3: var(--color-accent-hover);
+  --brand-4: var(--color-accent);
+  --brand-gradient: var(--color-accent);
+  --brand-gradient-strong: var(--color-accent);
+
   --accent-glow-strength: 16%;
   --accent-soft-strength: 9%;
   --accent-border-strength: 28%;
   --accent-hover-mix: black;
 
-  /* Overlay scrims — lighter, cooler than the dark default. */
   --color-scrim: rgba(15, 23, 42, 0.38);
-  --color-scrim-strong: rgba(15, 23, 42, 0.55);
+  --color-scrim-strong: rgba(15, 23, 42, 0.58);
+  --color-focus-ring: color-mix(in srgb, var(--color-accent) 45%, transparent);
 
-  --shadow-xs: 0 1px 2px rgba(15, 23, 42, 0.06);
-  --shadow-sm: 0 1px 2px rgba(15, 23, 42, 0.05), 0 4px 12px rgba(15, 23, 42, 0.08);
-  --shadow-md: 0 2px 4px rgba(15, 23, 42, 0.05), 0 8px 24px rgba(15, 23, 42, 0.1);
-  --shadow-lg: 0 4px 8px rgba(15, 23, 42, 0.06), 0 16px 40px rgba(15, 23, 42, 0.12);
-  --shadow-xl: 0 8px 16px rgba(15, 23, 42, 0.08), 0 32px 80px rgba(15, 23, 42, 0.16);
-  --shadow-glow: 0 0 0 1px var(--color-border-glow), 0 0 24px var(--color-accent-glow);
+  --shadow-xs: 0 1px 2px rgba(15, 23, 42, 0.05);
+  --shadow-sm: 0 1px 3px rgba(15, 23, 42, 0.06), 0 4px 12px rgba(15, 23, 42, 0.05);
+  --shadow-md: 0 2px 6px rgba(15, 23, 42, 0.06), 0 8px 24px rgba(15, 23, 42, 0.08);
+  --shadow-lg: 0 4px 10px rgba(15, 23, 42, 0.08), 0 16px 40px rgba(15, 23, 42, 0.1);
+  --shadow-xl: 0 8px 20px rgba(15, 23, 42, 0.1), 0 32px 80px rgba(15, 23, 42, 0.14);
+  --shadow-glow: 0 0 0 1px var(--color-border-glow), 0 0 20px var(--color-accent-glow);
 
-  --transition-fast: var(--duration-fast) ease;
-  --transition-normal: var(--duration-normal) ease;
-  --transition-slow: var(--duration-slow) ease;
+  --color-success: #059669;
+  --color-warning: #d97706;
+  --color-danger: #e11d48;
+  --color-info: #0284c7;
+  --color-stale: #b45309;
 }
 
-/* Nord Theme Override */
+/* ── 2. Nord Ice (Arctic Polar Night) ─────────────────────────────────────── */
 [data-theme="nord"] {
-  --color-bg-primary: #2e3440;
-  --color-bg-secondary: #3b4252;
-  --color-bg-tertiary: #434c5e;
-  --color-bg-hover: #4c566a;
-  --color-bg-active: #5e81ac;
-  --color-bg-gradient: var(--color-bg-primary);
+  --color-bg-primary: #242933;
+  --color-bg-secondary: #2e3440;
+  --color-bg-tertiary: #3b4252;
+  --color-bg-hover: #434c5e;
+  --color-bg-active: #4c566a;
+  --color-bg-gradient: radial-gradient(circle at 50% 0%, #2e3440 0%, #242933 100%);
 
-  --color-surface: rgba(59, 66, 82, 0.85);
-  --color-surface-raised: rgba(67, 76, 94, 0.92);
-  --color-surface-overlay: rgba(0, 0, 0, 0.5);
-  --color-surface-glass: rgba(59, 66, 82, 0.6);
+  --color-surface: var(--color-bg-secondary);
+  --color-surface-raised: var(--color-bg-tertiary);
+  --color-surface-overlay: rgba(20, 24, 32, 0.85);
+  --color-surface-glass: rgba(46, 52, 64, 0.75);
 
-  --color-border: #434c5e;
+  --color-border: #3b4252;
   --color-border-light: #4c566a;
-  --color-border-glow: color-mix(in srgb, var(--color-accent) 30%, transparent);
+  --color-border-highlight: rgba(236, 239, 244, 0.14);
+  --color-border-faint: rgba(255, 255, 255, 0.04);
+  --color-border-glow: color-mix(in srgb, var(--color-accent) 35%, transparent);
 
   --color-text-primary: #eceff4;
   --color-text-secondary: #d8dee9;
-  --color-text-muted: #7b889b;
-  --color-text-inverse: #2e3440;
+  --color-text-tertiary: #a5b3c7;
+  --color-text-muted: #8897ad;
+  --color-text-inverse: #242933;
 
   --color-accent: #88c0d0;
+  --color-accent-2: #81a1c1;
+  --color-accent-contrast: #0f172a;
   --color-accent-hover: #8fbcbb;
   --color-accent-active: #5e81ac;
-  --color-accent-glow: rgba(136, 192, 208, 0.3);
-  --color-accent-soft: color-mix(in srgb, var(--color-accent) 12%, var(--color-bg-secondary));
-
-  --shadow-glow: 0 0 24px var(--color-accent-glow);
-}
-
-/* Cyberpunk Theme Override */
-[data-theme="cyberpunk"] {
-  --color-bg-primary: #050508;
-  --color-bg-secondary: #0c0817;
-  --color-bg-tertiary: #140e28;
-  --color-bg-hover: #1c1438;
-  --color-bg-active: #291d52;
-  --color-bg-gradient: var(--color-bg-primary);
-
-  --color-surface: rgba(12, 8, 23, 0.88);
-  --color-surface-raised: rgba(20, 14, 40, 0.94);
-  --color-surface-overlay: rgba(0, 0, 0, 0.85);
-  --color-surface-glass: rgba(12, 8, 23, 0.6);
-
-  --color-border: #ff007f;
-  --color-border-light: #00f0ff;
-  --color-border-glow: color-mix(in srgb, var(--color-accent) 35%, transparent);
-
-  --color-text-primary: #f0f2f5;
-  --color-text-secondary: #00f0ff;
-  --color-text-muted: #8c82ab;
-  --color-text-inverse: #050508;
-
-  --color-accent: #00f0ff;
-  --color-accent-hover: #33f5ff;
-  --color-accent-active: #00ccdd;
-  --color-accent-glow: rgba(0, 240, 255, 0.35);
-  --color-accent-soft: color-mix(in srgb, var(--color-accent) 12%, var(--color-bg-secondary));
-
-  --shadow-glow: 0 0 24px var(--color-accent-glow), 0 0 48px color-mix(in srgb, var(--color-accent) 50%, transparent);
-}
-
-/* Emerald Theme Override */
-[data-theme="emerald"] {
-  --color-bg-primary: #08110c;
-  --color-bg-secondary: #0e1e15;
-  --color-bg-tertiary: #152c1f;
-  --color-bg-hover: #1f422e;
-  --color-bg-active: #29573d;
-  --color-bg-gradient: var(--color-bg-primary);
-
-  --color-surface: rgba(14, 30, 21, 0.85);
-  --color-surface-raised: rgba(21, 44, 31, 0.92);
-  --color-surface-overlay: rgba(0, 0, 0, 0.7);
-  --color-surface-glass: rgba(14, 30, 21, 0.6);
-
-  --color-border: #1a3627;
-  --color-border-light: #254d37;
-  --color-border-glow: color-mix(in srgb, var(--color-accent) 30%, transparent);
-
-  --color-text-primary: #ecf3ee;
-  --color-text-secondary: #a6c4b2;
-  --color-text-muted: #698a76;
-  --color-text-inverse: #08110c;
-
-  --color-accent: #10b981;
-  --color-accent-hover: #34d399;
-  --color-accent-active: #059669;
-  --color-accent-glow: rgba(16, 185, 129, 0.3);
-  --color-accent-soft: color-mix(in srgb, var(--color-accent) 12%, var(--color-bg-secondary));
-
-  --shadow-glow: 0 0 24px var(--color-accent-glow);
-}
-
-/* Dracula Theme Override */
-[data-theme="dracula"] {
-  --color-bg-primary: #1e1f29;
-  --color-bg-secondary: #282a36;
-  --color-bg-tertiary: #343746;
-  --color-bg-hover: #44475a;
-  --color-bg-active: #6272a4;
-  --color-bg-gradient: var(--color-bg-primary);
-
-  --color-surface: rgba(40, 42, 54, 0.85);
-  --color-surface-raised: rgba(52, 55, 70, 0.92);
-  --color-surface-overlay: rgba(0, 0, 0, 0.7);
-  --color-surface-glass: rgba(40, 42, 54, 0.6);
-
-  --color-border: #44475a;
-  --color-border-light: #6272a4;
-  --color-border-glow: color-mix(in srgb, var(--color-accent) 30%, transparent);
-
-  --color-text-primary: #f8f8f2;
-  --color-text-secondary: #ff79c6;
-  --color-text-muted: #6272a4;
-  --color-text-inverse: #1e1f29;
-
-  --color-accent: #bd93f9;
-  --color-accent-hover: #caa9fa;
-  --color-accent-active: #a56ff7;
-  --color-accent-glow: rgba(189, 147, 249, 0.3);
-  --color-accent-soft: color-mix(in srgb, var(--color-accent) 12%, var(--color-bg-secondary));
-
-  --shadow-glow: 0 0 24px var(--color-accent-glow);
-}
-
-/* Solarized Theme Override */
-[data-theme="solarized"] {
-  --color-bg-primary: #002b36;
-  --color-bg-secondary: #073642;
-  --color-bg-tertiary: #0a4654;
-  --color-bg-hover: #114e5c;
-  --color-bg-active: #1a6072;
-  --color-bg-gradient: var(--color-bg-primary);
-
-  --color-surface: rgba(7, 54, 66, 0.85);
-  --color-surface-raised: rgba(10, 70, 84, 0.92);
-  --color-surface-overlay: rgba(0, 0, 0, 0.7);
-  --color-surface-glass: rgba(7, 54, 66, 0.6);
-
-  --color-border: #0a4654;
-  --color-border-light: #114e5c;
-  --color-border-glow: color-mix(in srgb, var(--color-accent) 30%, transparent);
-
-  --color-text-primary: #fdf6e3;
-  --color-text-secondary: #eee8d5;
-  --color-text-muted: #93a1a1;
-  --color-text-inverse: #002b36;
-
-  --color-accent: #268bd2;
-  --color-accent-hover: #4aa3e0;
-  --color-accent-active: #1f6fa8;
-  --color-accent-glow: rgba(38, 139, 210, 0.3);
-  --color-accent-soft: color-mix(in srgb, var(--color-accent) 12%, var(--color-bg-secondary));
-
-  --shadow-glow: 0 0 24px var(--color-accent-glow);
-}
-
-/* Tokyo Night Theme Override */
-[data-theme="tokyonight"] {
-  --color-bg-primary: #1a1b26;
-  --color-bg-secondary: #24283b;
-  --color-bg-tertiary: #2f3449;
-  --color-bg-hover: #3a3f58;
-  --color-bg-active: #414868;
-  --color-bg-gradient: var(--color-bg-primary);
-
-  --color-surface: rgba(36, 40, 59, 0.85);
-  --color-surface-raised: rgba(47, 52, 73, 0.92);
-  --color-surface-overlay: rgba(0, 0, 0, 0.7);
-  --color-surface-glass: rgba(36, 40, 59, 0.6);
-
-  --color-border: #2f3449;
-  --color-border-light: #414868;
-  --color-border-glow: color-mix(in srgb, var(--color-accent) 30%, transparent);
-
-  --color-text-primary: #c0caf5;
-  --color-text-secondary: #a9b1d6;
-  --color-text-muted: #565f89;
-  --color-text-inverse: #1a1b26;
-
-  --color-accent: #7aa2f7;
-  --color-accent-hover: #94b4f9;
-  --color-accent-active: #5e87e8;
-  --color-accent-glow: rgba(122, 162, 247, 0.3);
-  --color-accent-soft: color-mix(in srgb, var(--color-accent) 12%, var(--color-bg-secondary));
-
-  --shadow-glow: 0 0 24px var(--color-accent-glow);
-}
-
-/* Gruvbox Theme Override */
-[data-theme="gruvbox"] {
-  --color-bg-primary: #282828;
-  --color-bg-secondary: #3c3836;
-  --color-bg-tertiary: #504945;
-  --color-bg-hover: #665c54;
-  --color-bg-active: #7c6f64;
-  --color-bg-gradient: var(--color-bg-primary);
-
-  --color-surface: rgba(60, 56, 54, 0.85);
-  --color-surface-raised: rgba(80, 73, 69, 0.92);
-  --color-surface-overlay: rgba(0, 0, 0, 0.7);
-  --color-surface-glass: rgba(60, 56, 54, 0.6);
-
-  --color-border: #504945;
-  --color-border-light: #665c54;
-  --color-border-glow: color-mix(in srgb, var(--color-accent) 30%, transparent);
-
-  --color-text-primary: #ebdbb2;
-  --color-text-secondary: #d5c4a1;
-  --color-text-muted: #a89984;
-  --color-text-inverse: #282828;
-
-  --color-accent: #fe8019;
-  --color-accent-hover: #febd5a;
-  --color-accent-active: #d4660a;
-  --color-accent-glow: rgba(254, 128, 25, 0.3);
-  --color-accent-soft: color-mix(in srgb, var(--color-accent) 12%, var(--color-bg-secondary));
-
-  --shadow-glow: 0 0 24px var(--color-accent-glow);
-}
-
-/* Catppuccin Theme Override */
-[data-theme="catppuccin"] {
-  --color-bg-primary: #1e1e2e;
-  --color-bg-secondary: #24273a;
-  --color-bg-tertiary: #2a2e42;
-  --color-bg-hover: #363a4f;
-  --color-bg-active: #494d64;
-  --color-bg-gradient: var(--color-bg-primary);
-
-  --color-surface: rgba(36, 39, 58, 0.85);
-  --color-surface-raised: rgba(42, 46, 66, 0.92);
-  --color-surface-overlay: rgba(0, 0, 0, 0.7);
-  --color-surface-glass: rgba(36, 39, 58, 0.6);
-
-  --color-border: #2a2e42;
-  --color-border-light: #494d64;
-  --color-border-glow: color-mix(in srgb, var(--color-accent) 30%, transparent);
-
-  --color-text-primary: #cad3f5;
-  --color-text-secondary: #b8c0e0;
-  --color-text-muted: #6e738d;
-  --color-text-inverse: #1e1e2e;
-
-  --color-accent: #cba6f7;
-  --color-accent-hover: #d8bdf9;
-  --color-accent-active: #b48ef0;
-  --color-accent-glow: rgba(203, 166, 247, 0.3);
-  --color-accent-soft: color-mix(in srgb, var(--color-accent) 12%, var(--color-bg-secondary));
-
-  --shadow-glow: 0 0 24px var(--color-accent-glow);
-}
-
-/* Sunset Theme Override */
-[data-theme="sunset"] {
-  --color-bg-primary: #1f0f1a;
-  --color-bg-secondary: #2a1626;
-  --color-bg-tertiary: #3a1f33;
-  --color-bg-hover: #4d2942;
-  --color-bg-active: #612f54;
-  --color-bg-gradient: var(--color-bg-primary);
-
-  --color-surface: rgba(42, 22, 38, 0.85);
-  --color-surface-raised: rgba(58, 31, 51, 0.92);
-  --color-surface-overlay: rgba(0, 0, 0, 0.75);
-  --color-surface-glass: rgba(42, 22, 38, 0.6);
-
-  --color-border: #3a1f33;
-  --color-border-light: #4d2942;
-  --color-border-glow: color-mix(in srgb, var(--color-accent) 30%, transparent);
-
-  --color-text-primary: #fdeef2;
-  --color-text-secondary: #f3c5d4;
-  --color-text-muted: #b07d92;
-  --color-text-inverse: #1f0f1a;
-
-  --color-accent: #ff7a59;
-  --color-accent-hover: #ff9b80;
-  --color-accent-active: #e85f3a;
-  --color-accent-glow: rgba(255, 122, 89, 0.32);
-  --color-accent-soft: color-mix(in srgb, var(--color-accent) 12%, var(--color-bg-secondary));
-
-  --shadow-glow: 0 0 24px var(--color-accent-glow);
-}
-
-/* Oceanic Theme Override */
-[data-theme="oceanic"] {
-  --color-bg-primary: #071a2b;
-  --color-bg-secondary: #0c2740;
-  --color-bg-tertiary: #12344f;
-  --color-bg-hover: #184162;
-  --color-bg-active: #1f5278;
-  --color-bg-gradient: var(--color-bg-primary);
-
-  --color-surface: rgba(12, 39, 64, 0.85);
-  --color-surface-raised: rgba(18, 52, 79, 0.92);
-  --color-surface-overlay: rgba(0, 0, 0, 0.7);
-  --color-surface-glass: rgba(12, 39, 64, 0.6);
-
-  --color-border: #12344f;
-  --color-border-light: #184162;
-  --color-border-glow: color-mix(in srgb, var(--color-accent) 30%, transparent);
-
-  --color-text-primary: #e6f6fb;
-  --color-text-secondary: #b3dcec;
-  --color-text-muted: #6f9cb3;
-  --color-text-inverse: #071a2b;
-
-  --color-accent: #22d3ee;
-  --color-accent-hover: #4fddf2;
-  --color-accent-active: #15b3cc;
-  --color-accent-glow: rgba(34, 211, 238, 0.3);
-  --color-accent-soft: color-mix(in srgb, var(--color-accent) 12%, var(--color-bg-secondary));
-
-  --shadow-glow: 0 0 24px var(--color-accent-glow);
-}
-
-/* Rose Pine Theme Override */
-[data-theme="rosepine"] {
-  --color-bg-primary: #191724;
-  --color-bg-secondary: #1f1d2e;
-  --color-bg-tertiary: #26233a;
-  --color-bg-hover: #2f2b43;
-  --color-bg-active: #40394f;
-  --color-bg-gradient: var(--color-bg-primary);
-
-  --color-surface: rgba(31, 29, 46, 0.85);
-  --color-surface-raised: rgba(38, 35, 58, 0.92);
-  --color-surface-overlay: rgba(0, 0, 0, 0.7);
-  --color-surface-glass: rgba(31, 29, 46, 0.6);
-
-  --color-border: #26233a;
-  --color-border-light: #40394f;
-  --color-border-glow: color-mix(in srgb, var(--color-accent) 30%, transparent);
-
-  --color-text-primary: #e0def4;
-  --color-text-secondary: #c5c3e0;
-  --color-text-muted: #6e6a86;
-  --color-text-inverse: #191724;
-
-  --color-accent: #eb6f92;
-  --color-accent-hover: #f08ba6;
-  --color-accent-active: #d6557f;
-  --color-accent-glow: rgba(235, 111, 146, 0.3);
-  --color-accent-soft: color-mix(in srgb, var(--color-accent) 12%, var(--color-bg-secondary));
-
-  --shadow-glow: 0 0 24px var(--color-accent-glow);
-}
-
-/* Synthwave Theme Override */
-[data-theme="synthwave"] {
-  --color-bg-primary: #170d2b;
-  --color-bg-secondary: #241544;
-  --color-bg-tertiary: #311c5b;
-  --color-bg-hover: #3f2576;
-  --color-bg-active: #502e93;
-  --color-bg-gradient: var(--color-bg-primary);
-
-  --color-surface: rgba(36, 21, 68, 0.85);
-  --color-surface-raised: rgba(49, 28, 91, 0.92);
-  --color-surface-overlay: rgba(0, 0, 0, 0.78);
-  --color-surface-glass: rgba(36, 21, 68, 0.6);
-
-  --color-border: #311c5b;
-  --color-border-light: #502e93;
-  --color-border-glow: color-mix(in srgb, var(--color-accent) 35%, transparent);
-
-  --color-text-primary: #f9f2ff;
-  --color-text-secondary: #05d9e8;
-  --color-text-muted: #b08bd7;
-  --color-text-inverse: #170d2b;
-
-  --color-accent: #ff71ce;
-  --color-accent-hover: #ff8fda;
-  --color-accent-active: #e84eb6;
-  --color-accent-glow: rgba(255, 113, 206, 0.35);
-  --color-accent-soft: color-mix(in srgb, var(--color-accent) 12%, var(--color-bg-secondary));
-
-  --shadow-glow: 0 0 24px var(--color-accent-glow), 0 0 48px color-mix(in srgb, var(--color-accent) 50%, transparent);
-}
-
-/* Forest Theme Override */
-[data-theme="forest"] {
-  --color-bg-primary: #0c1510;
-  --color-bg-secondary: #13241a;
-  --color-bg-tertiary: #1c3325;
-  --color-bg-hover: #274433;
-  --color-bg-active: #315540;
-  --color-bg-gradient: var(--color-bg-primary);
-
-  --color-surface: rgba(19, 36, 26, 0.85);
-  --color-surface-raised: rgba(28, 51, 37, 0.92);
-  --color-surface-overlay: rgba(0, 0, 0, 0.7);
-  --color-surface-glass: rgba(19, 36, 26, 0.6);
-
-  --color-border: #1c3325;
-  --color-border-light: #274433;
-  --color-border-glow: color-mix(in srgb, var(--color-accent) 30%, transparent);
-
-  --color-text-primary: #eef5ea;
-  --color-text-secondary: #b9d4ab;
-  --color-text-muted: #6f9270;
-  --color-text-inverse: #0c1510;
-
-  --color-accent: #84cc16;
-  --color-accent-hover: #9ee02f;
-  --color-accent-active: #6ca60f;
-  --color-accent-glow: rgba(132, 204, 22, 0.3);
-  --color-accent-soft: color-mix(in srgb, var(--color-accent) 12%, var(--color-bg-secondary));
-
-  --shadow-glow: 0 0 24px var(--color-accent-glow);
-}
-
-/* Desert Mirage Theme Override */
-[data-theme="desert"] {
-  --color-bg-primary: #1c160f;
-  --color-bg-secondary: #2a2118;
-  --color-bg-tertiary: #3a2f20;
-  --color-bg-hover: #4a3c28;
-  --color-bg-active: #5c4a30;
-  --color-bg-gradient: var(--color-bg-primary);
-
-  --color-surface: rgba(42, 33, 24, 0.85);
-  --color-surface-raised: rgba(58, 47, 32, 0.92);
-  --color-surface-overlay: rgba(0, 0, 0, 0.7);
-  --color-surface-glass: rgba(42, 33, 24, 0.6);
-
-  --color-border: #3a2f20;
-  --color-border-light: #4a3c28;
-  --color-border-glow: color-mix(in srgb, var(--color-accent) 30%, transparent);
-
-  --color-text-primary: #f5ead7;
-  --color-text-secondary: #e0c9a3;
-  --color-text-muted: #a78a5e;
-  --color-text-inverse: #1c160f;
-
-  --color-accent: #e0ab55;
-  --color-accent-hover: #e8bc77;
-  --color-accent-active: #c9923c;
-  --color-accent-glow: rgba(224, 171, 85, 0.3);
-  --color-accent-soft: color-mix(in srgb, var(--color-accent) 12%, var(--color-bg-secondary));
-
-  --shadow-glow: 0 0 24px var(--color-accent-glow);
-}
-
-/* Aurora — signature deep indigo obsidian theme with luminescent borders */
-[data-theme="aurora"] {
-  --color-bg-primary: #050410;
-  --color-bg-secondary: #0c0a1c;
-  --color-bg-tertiary: #14112e;
-  --color-bg-hover: #1b1740;
-  --color-bg-active: #261f55;
-  --color-bg-gradient: var(--color-bg-primary);
-
-  --color-surface: rgba(24, 18, 48, 0.85);
-  --color-surface-raised: rgba(32, 24, 60, 0.92);
-  --color-surface-overlay: rgba(5, 4, 14, 0.9);
-  --color-surface-glass: rgba(24, 18, 48, 0.6);
-
-  --color-border: rgba(154, 107, 255, 0.18);
-  --color-border-light: rgba(154, 107, 255, 0.32);
-  --color-border-glow: color-mix(in srgb, var(--color-accent) 50%, transparent);
-
-  --color-text-primary: #f3f1ff;
-  --color-text-secondary: #b7b2dc;
-  --color-text-muted: #6f6a96;
-  --color-text-inverse: #050410;
-
-  --color-accent: #9a6bff;
-  --color-accent-hover: #b18bff;
-  --color-accent-active: #7a4cf0;
-  --color-accent-glow: rgba(154, 107, 255, 0.45);
-  --color-accent-soft: color-mix(in srgb, var(--color-accent) 16%, var(--color-bg-secondary));
-  --accent-gradient: var(--color-accent);
+  --color-accent-glow: rgba(136, 192, 208, 0.35);
+  --color-accent-soft: color-mix(in srgb, var(--color-accent) 14%, var(--color-bg-secondary));
+  --color-accent-border: color-mix(in srgb, var(--color-accent) 35%, transparent);
+  --color-accent-surface: color-mix(in srgb, var(--color-accent) 7%, var(--color-bg-secondary));
+  --color-accent-subtle: color-mix(in srgb, var(--color-accent) 4%, transparent);
+  --color-accent-badge: color-mix(in srgb, var(--color-accent) 15%, var(--color-bg-secondary));
+  --color-accent-laser: var(--color-accent);
+  --color-accent-gradient: var(--color-accent);
+  --color-accent-gradient-strong: var(--color-accent);
 
   --brand-1: var(--color-accent);
-  --brand-2: var(--color-accent-hover);
-  --brand-3: var(--color-accent-hover);
+  --brand-2: var(--color-accent-2);
+  --brand-3: #8fbcbb;
   --brand-4: var(--color-accent);
   --brand-gradient: var(--color-accent);
   --brand-gradient-strong: var(--color-accent);
-  --mesh-gradient: none;
 
-  --shadow-xs: 0 1px 2px rgba(0, 0, 0, 0.45);
-  --shadow-sm: 0 1px 2px rgba(6, 4, 20, 0.5), 0 4px 12px rgba(6, 4, 20, 0.5);
-  --shadow-md: 0 2px 4px rgba(6, 4, 20, 0.5), 0 8px 24px rgba(6, 4, 20, 0.55);
-  --shadow-lg: 0 4px 8px rgba(6, 4, 20, 0.5), 0 14px 44px rgba(6, 4, 20, 0.6);
-  --shadow-xl: 0 8px 16px rgba(6, 4, 20, 0.55), 0 24px 72px rgba(6, 4, 20, 0.7);
-  --shadow-glow: 0 0 0 1px color-mix(in srgb, var(--color-accent) 30%, transparent),
-                 0 0 24px rgba(0, 0, 0, 0.4),
-                 0 0 48px rgba(0, 0, 0, 0.25);
-  --shadow-brand: 0 10px 40px rgba(0, 0, 0, 0.55), 0 2px 10px rgba(0, 0, 0, 0.45);
+  --color-success: #a3be8c;
+  --color-warning: #ebcb8b;
+  --color-danger: #bf616a;
+  --color-info: #88c0d0;
+  --color-stale: #d08770;
 
-  --depth-1: 0 1px 1px rgba(0, 0, 0, 0.45), 0 2px 8px rgba(0, 0, 0, 0.4);
-  --depth-2: 0 2px 6px rgba(0, 0, 0, 0.45);
-  --depth-3: 0 4px 12px rgba(0, 0, 0, 0.5);
-  --depth-float: 0 10px 22px rgba(0, 0, 0, 0.55);
-
-  --color-scrim: rgba(3, 2, 10, 0.66);
-  --color-scrim-strong: rgba(3, 2, 10, 0.82);
-  --color-focus-ring: color-mix(in srgb, var(--color-accent) 50%, transparent);
+  --shadow-glow: 0 0 24px var(--color-accent-glow);
 }
 
-/* Branded text selection unique to Aurora. */
-[data-theme="aurora"] ::selection {
-  background: color-mix(in srgb, var(--brand-1) 45%, transparent);
-  color: #fff;
+/* ── 3. Cyberpunk (Neo-Tokyo High Voltage) ────────────────────────────────── */
+[data-theme="cyberpunk"] {
+  --color-bg-primary: #050508;
+  --color-bg-secondary: #0b0914;
+  --color-bg-tertiary: #130f24;
+  --color-bg-hover: #1d1736;
+  --color-bg-active: #28204b;
+  --color-bg-gradient: radial-gradient(circle at 80% 0%, #160f2e 0%, #050508 70%);
+
+  --color-surface: var(--color-bg-secondary);
+  --color-surface-raised: var(--color-bg-tertiary);
+  --color-surface-overlay: rgba(3, 3, 6, 0.94);
+  --color-surface-glass: rgba(11, 9, 20, 0.78);
+
+  --color-border: rgba(0, 240, 255, 0.2);
+  --color-border-light: rgba(255, 0, 127, 0.38);
+  --color-border-highlight: rgba(0, 240, 255, 0.45);
+  --color-border-faint: rgba(0, 240, 255, 0.06);
+  --color-border-glow: color-mix(in srgb, var(--color-accent) 45%, transparent);
+
+  --color-text-primary: #f8fafd;
+  --color-text-secondary: #38bdf8;
+  --color-text-tertiary: #a78bfa;
+  --color-text-muted: #8070a8;
+  --color-text-inverse: #050508;
+
+  --color-accent: #00f0ff;
+  --color-accent-2: #ff007f;
+  --color-accent-contrast: #050508;
+  --color-accent-hover: #33f5ff;
+  --color-accent-active: #00ccdd;
+  --color-accent-glow: rgba(0, 240, 255, 0.4);
+  --color-accent-soft: color-mix(in srgb, var(--color-accent) 14%, var(--color-bg-secondary));
+  --color-accent-border: color-mix(in srgb, var(--color-accent) 42%, transparent);
+  --color-accent-surface: color-mix(in srgb, var(--color-accent) 8%, var(--color-bg-secondary));
+  --color-accent-subtle: color-mix(in srgb, var(--color-accent) 5%, transparent);
+  --color-accent-badge: color-mix(in srgb, var(--color-accent) 16%, var(--color-bg-secondary));
+  --color-accent-laser: var(--color-accent);
+  --color-accent-gradient: var(--color-accent);
+  --color-accent-gradient-strong: var(--color-accent);
+
+  --brand-1: var(--color-accent);
+  --brand-2: #ff007f;
+  --brand-3: #ffe600;
+  --brand-4: var(--color-accent);
+  --brand-gradient: var(--color-accent);
+  --brand-gradient-strong: var(--color-accent);
+
+  --color-success: #00ff66;
+  --color-warning: #ffe600;
+  --color-danger: #ff0055;
+  --color-info: #00f0ff;
+  --color-stale: #ffaa00;
+
+  --shadow-glow: 0 0 24px var(--color-accent-glow), 0 0 48px color-mix(in srgb, var(--color-accent-2) 30%, transparent);
 }
 
-/* ── Surface Level System (solid) ───────────────────────────────────
-   Overrides the translucent `--color-surface*` values each theme block
-   declares above with their solid `--color-bg-*` equivalents. Only
-   Surface 3 (`.glass` overlays) keeps a hint of translucency so the
-   backdrop blur reads. `[data-theme]` has equal specificity to the
-   named blocks; because this block comes last it wins by source order. */
+/* ── 4. Emerald (Bioluminescent Jade) ─────────────────────────────────────── */
+[data-theme="emerald"] {
+  --color-bg-primary: #040a06;
+  --color-bg-secondary: #09160e;
+  --color-bg-tertiary: #0f2217;
+  --color-bg-hover: #163323;
+  --color-bg-active: #1f4530;
+  --color-bg-gradient: radial-gradient(circle at 50% 0%, #0d2015 0%, #040a06 100%);
+
+  --color-surface: var(--color-bg-secondary);
+  --color-surface-raised: var(--color-bg-tertiary);
+  --color-surface-overlay: rgba(2, 6, 4, 0.9);
+  --color-surface-glass: rgba(9, 22, 14, 0.76);
+
+  --color-border: #142e20;
+  --color-border-light: #1f4731;
+  --color-border-highlight: rgba(52, 211, 153, 0.2);
+  --color-border-faint: rgba(16, 185, 129, 0.05);
+  --color-border-glow: color-mix(in srgb, var(--color-accent) 35%, transparent);
+
+  --color-text-primary: #f0fdf4;
+  --color-text-secondary: #bbf7d0;
+  --color-text-tertiary: #6ee7b7;
+  --color-text-muted: #4d8e6c;
+  --color-text-inverse: #040a06;
+
+  --color-accent: #10b981;
+  --color-accent-2: #34d399;
+  --color-accent-contrast: #040a06;
+  --color-accent-hover: #34d399;
+  --color-accent-active: #059669;
+  --color-accent-glow: rgba(16, 185, 129, 0.35);
+  --color-accent-soft: color-mix(in srgb, var(--color-accent) 14%, var(--color-bg-secondary));
+  --color-accent-border: color-mix(in srgb, var(--color-accent) 35%, transparent);
+  --color-accent-surface: color-mix(in srgb, var(--color-accent) 7%, var(--color-bg-secondary));
+  --color-accent-subtle: color-mix(in srgb, var(--color-accent) 4%, transparent);
+  --color-accent-badge: color-mix(in srgb, var(--color-accent) 15%, var(--color-bg-secondary));
+  --color-accent-laser: var(--color-accent);
+  --color-accent-gradient: var(--color-accent);
+  --color-accent-gradient-strong: var(--color-accent);
+
+  --brand-1: var(--color-accent);
+  --brand-2: var(--color-accent-2);
+  --brand-3: #6ee7b7;
+  --brand-4: var(--color-accent);
+  --brand-gradient: var(--color-accent);
+  --brand-gradient-strong: var(--color-accent);
+
+  --shadow-glow: 0 0 24px var(--color-accent-glow);
+}
+
+/* ── 5. Dracula (Vampire Twilight) ────────────────────────────────────────── */
+[data-theme="dracula"] {
+  --color-bg-primary: #181920;
+  --color-bg-secondary: #21222c;
+  --color-bg-tertiary: #282a36;
+  --color-bg-hover: #383a4c;
+  --color-bg-active: #44475a;
+  --color-bg-gradient: radial-gradient(circle at 50% 0%, #282a36 0%, #181920 100%);
+
+  --color-surface: var(--color-bg-secondary);
+  --color-surface-raised: var(--color-bg-tertiary);
+  --color-surface-overlay: rgba(18, 19, 26, 0.9);
+  --color-surface-glass: rgba(33, 34, 44, 0.75);
+
+  --color-border: #383a4c;
+  --color-border-light: #44475a;
+  --color-border-highlight: rgba(189, 147, 249, 0.25);
+  --color-border-faint: rgba(255, 255, 255, 0.04);
+  --color-border-glow: color-mix(in srgb, var(--color-accent) 35%, transparent);
+
+  --color-text-primary: #f8f8f2;
+  --color-text-secondary: #f1fa8c;
+  --color-text-tertiary: #caa9fa;
+  --color-text-muted: #6272a4;
+  --color-text-inverse: #181920;
+
+  --color-accent: #bd93f9;
+  --color-accent-2: #ff79c6;
+  --color-accent-contrast: #181920;
+  --color-accent-hover: #caa9fa;
+  --color-accent-active: #a56ff7;
+  --color-accent-glow: rgba(189, 147, 249, 0.35);
+  --color-accent-soft: color-mix(in srgb, var(--color-accent) 14%, var(--color-bg-secondary));
+  --color-accent-border: color-mix(in srgb, var(--color-accent) 35%, transparent);
+  --color-accent-surface: color-mix(in srgb, var(--color-accent) 7%, var(--color-bg-secondary));
+  --color-accent-subtle: color-mix(in srgb, var(--color-accent) 4%, transparent);
+  --color-accent-badge: color-mix(in srgb, var(--color-accent) 15%, var(--color-bg-secondary));
+  --color-accent-laser: var(--color-accent);
+  --color-accent-gradient: var(--color-accent);
+  --color-accent-gradient-strong: var(--color-accent);
+
+  --brand-1: var(--color-accent);
+  --brand-2: #ff79c6;
+  --brand-3: #8be9fd;
+  --brand-4: var(--color-accent);
+  --brand-gradient: var(--color-accent);
+  --brand-gradient-strong: var(--color-accent);
+
+  --color-success: #50fa7b;
+  --color-warning: #f1fa8c;
+  --color-danger: #ff5555;
+  --color-info: #8be9fd;
+  --color-stale: #ffb86c;
+
+  --shadow-glow: 0 0 24px var(--color-accent-glow);
+}
+
+/* ── 6. Solarized (Cobalt Papyrus) ────────────────────────────────────────── */
+[data-theme="solarized"] {
+  --color-bg-primary: #001e26;
+  --color-bg-secondary: #002b36;
+  --color-bg-tertiary: #073642;
+  --color-bg-hover: #0d4352;
+  --color-bg-active: #135163;
+  --color-bg-gradient: radial-gradient(circle at 50% 0%, #073642 0%, #001e26 100%);
+
+  --color-surface: var(--color-bg-secondary);
+  --color-surface-raised: var(--color-bg-tertiary);
+  --color-surface-overlay: rgba(0, 20, 26, 0.9);
+  --color-surface-glass: rgba(0, 43, 54, 0.75);
+
+  --color-border: #0a4654;
+  --color-border-light: #125869;
+  --color-border-highlight: rgba(147, 161, 161, 0.16);
+  --color-border-faint: rgba(38, 139, 210, 0.05);
+  --color-border-glow: color-mix(in srgb, var(--color-accent) 35%, transparent);
+
+  --color-text-primary: #fdf6e3;
+  --color-text-secondary: #eee8d5;
+  --color-text-tertiary: #93a1a1;
+  --color-text-muted: #839496;
+  --color-text-inverse: #001e26;
+
+  --color-accent: #268bd2;
+  --color-accent-2: #2aa198;
+  --color-accent-contrast: #ffffff;
+  --color-accent-hover: #4aa3e0;
+  --color-accent-active: #1f6fa8;
+  --color-accent-glow: rgba(38, 139, 210, 0.35);
+  --color-accent-soft: color-mix(in srgb, var(--color-accent) 14%, var(--color-bg-secondary));
+  --color-accent-border: color-mix(in srgb, var(--color-accent) 35%, transparent);
+  --color-accent-surface: color-mix(in srgb, var(--color-accent) 7%, var(--color-bg-secondary));
+  --color-accent-subtle: color-mix(in srgb, var(--color-accent) 4%, transparent);
+  --color-accent-badge: color-mix(in srgb, var(--color-accent) 15%, var(--color-bg-secondary));
+  --color-accent-laser: var(--color-accent);
+  --color-accent-gradient: var(--color-accent);
+  --color-accent-gradient-strong: var(--color-accent);
+
+  --brand-1: var(--color-accent);
+  --brand-2: #2aa198;
+  --brand-3: #b58900;
+  --brand-4: var(--color-accent);
+  --brand-gradient: var(--color-accent);
+  --brand-gradient-strong: var(--color-accent);
+
+  --color-success: #859900;
+  --color-warning: #b58900;
+  --color-danger: #dc322f;
+  --color-info: #268bd2;
+  --color-stale: #cb4b16;
+
+  --shadow-glow: 0 0 24px var(--color-accent-glow);
+}
+
+/* ── 7. Tokyo Night (Shibuya Storm) ───────────────────────────────────────── */
+[data-theme="tokyonight"] {
+  --color-bg-primary: #13141c;
+  --color-bg-secondary: #1a1b26;
+  --color-bg-tertiary: #24283b;
+  --color-bg-hover: #2f3449;
+  --color-bg-active: #3b425d;
+  --color-bg-gradient: radial-gradient(circle at 60% 0%, #222538 0%, #13141c 100%);
+
+  --color-surface: var(--color-bg-secondary);
+  --color-surface-raised: var(--color-bg-tertiary);
+  --color-surface-overlay: rgba(14, 15, 22, 0.9);
+  --color-surface-glass: rgba(26, 27, 38, 0.75);
+
+  --color-border: #292e42;
+  --color-border-light: #3b425d;
+  --color-border-highlight: rgba(122, 162, 247, 0.22);
+  --color-border-faint: rgba(255, 255, 255, 0.04);
+  --color-border-glow: color-mix(in srgb, var(--color-accent) 35%, transparent);
+
+  --color-text-primary: #c0caf5;
+  --color-text-secondary: #a9b1d6;
+  --color-text-tertiary: #7aa2f7;
+  --color-text-muted: #565f89;
+  --color-text-inverse: #13141c;
+
+  --color-accent: #7aa2f7;
+  --color-accent-2: #bb9af7;
+  --color-accent-contrast: #0f111a;
+  --color-accent-hover: #94b4f9;
+  --color-accent-active: #5e87e8;
+  --color-accent-glow: rgba(122, 162, 247, 0.35);
+  --color-accent-soft: color-mix(in srgb, var(--color-accent) 14%, var(--color-bg-secondary));
+  --color-accent-border: color-mix(in srgb, var(--color-accent) 35%, transparent);
+  --color-accent-surface: color-mix(in srgb, var(--color-accent) 7%, var(--color-bg-secondary));
+  --color-accent-subtle: color-mix(in srgb, var(--color-accent) 4%, transparent);
+  --color-accent-badge: color-mix(in srgb, var(--color-accent) 15%, var(--color-bg-secondary));
+  --color-accent-laser: var(--color-accent);
+  --color-accent-gradient: var(--color-accent);
+  --color-accent-gradient-strong: var(--color-accent);
+
+  --brand-1: var(--color-accent);
+  --brand-2: #bb9af7;
+  --brand-3: #f7768e;
+  --brand-4: var(--color-accent);
+  --brand-gradient: var(--color-accent);
+  --brand-gradient-strong: var(--color-accent);
+
+  --color-success: #9ece6a;
+  --color-warning: #e0af68;
+  --color-danger: #f7768e;
+  --color-info: #7dcfff;
+  --color-stale: #ff9e64;
+
+  --shadow-glow: 0 0 24px var(--color-accent-glow);
+}
+
+/* ── 8. Gruvbox (Retro Amber Chocolate) ───────────────────────────────────── */
+[data-theme="gruvbox"] {
+  --color-bg-primary: #1d2021;
+  --color-bg-secondary: #282828;
+  --color-bg-tertiary: #32302f;
+  --color-bg-hover: #3c3836;
+  --color-bg-active: #504945;
+  --color-bg-gradient: radial-gradient(circle at 50% 0%, #32302f 0%, #1d2021 100%);
+
+  --color-surface: var(--color-bg-secondary);
+  --color-surface-raised: var(--color-bg-tertiary);
+  --color-surface-overlay: rgba(20, 22, 23, 0.9);
+  --color-surface-glass: rgba(40, 40, 40, 0.75);
+
+  --color-border: #3c3836;
+  --color-border-light: #504945;
+  --color-border-highlight: rgba(235, 219, 178, 0.14);
+  --color-border-faint: rgba(254, 128, 25, 0.05);
+  --color-border-glow: color-mix(in srgb, var(--color-accent) 35%, transparent);
+
+  --color-text-primary: #fbf1c7;
+  --color-text-secondary: #ebdbb2;
+  --color-text-tertiary: #d5c4a1;
+  --color-text-muted: #928374;
+  --color-text-inverse: #1d2021;
+
+  --color-accent: #fe8019;
+  --color-accent-2: #fabd2f;
+  --color-accent-contrast: #1d2021;
+  --color-accent-hover: #febd5a;
+  --color-accent-active: #d4660a;
+  --color-accent-glow: rgba(254, 128, 25, 0.35);
+  --color-accent-soft: color-mix(in srgb, var(--color-accent) 14%, var(--color-bg-secondary));
+  --color-accent-border: color-mix(in srgb, var(--color-accent) 35%, transparent);
+  --color-accent-surface: color-mix(in srgb, var(--color-accent) 7%, var(--color-bg-secondary));
+  --color-accent-subtle: color-mix(in srgb, var(--color-accent) 4%, transparent);
+  --color-accent-badge: color-mix(in srgb, var(--color-accent) 15%, var(--color-bg-secondary));
+  --color-accent-laser: var(--color-accent);
+  --color-accent-gradient: var(--color-accent);
+  --color-accent-gradient-strong: var(--color-accent);
+
+  --brand-1: var(--color-accent);
+  --brand-2: #fabd2f;
+  --brand-3: #b8bb26;
+  --brand-4: var(--color-accent);
+  --brand-gradient: var(--color-accent);
+  --brand-gradient-strong: var(--color-accent);
+
+  --color-success: #b8bb26;
+  --color-warning: #fabd2f;
+  --color-danger: #fb4934;
+  --color-info: #83a598;
+  --color-stale: #d3869b;
+
+  --shadow-glow: 0 0 24px var(--color-accent-glow);
+}
+
+/* ── 9. Catppuccin (Mocha Velvet) ─────────────────────────────────────────── */
+[data-theme="catppuccin"] {
+  --color-bg-primary: #181825;
+  --color-bg-secondary: #1e1e2e;
+  --color-bg-tertiary: #24273a;
+  --color-bg-hover: #313244;
+  --color-bg-active: #45475a;
+  --color-bg-gradient: radial-gradient(circle at 50% 0%, #25283d 0%, #181825 100%);
+
+  --color-surface: var(--color-bg-secondary);
+  --color-surface-raised: var(--color-bg-tertiary);
+  --color-surface-overlay: rgba(17, 17, 27, 0.9);
+  --color-surface-glass: rgba(30, 30, 46, 0.75);
+
+  --color-border: #313244;
+  --color-border-light: #45475a;
+  --color-border-highlight: rgba(203, 166, 247, 0.2);
+  --color-border-faint: rgba(255, 255, 255, 0.04);
+  --color-border-glow: color-mix(in srgb, var(--color-accent) 35%, transparent);
+
+  --color-text-primary: #cdd6f4;
+  --color-text-secondary: #bac2de;
+  --color-text-tertiary: #a6adc8;
+  --color-text-muted: #7f849c;
+  --color-text-inverse: #181825;
+
+  --color-accent: #cba6f7;
+  --color-accent-2: #89b4fa;
+  --color-accent-contrast: #181825;
+  --color-accent-hover: #d8bdf9;
+  --color-accent-active: #b48ef0;
+  --color-accent-glow: rgba(203, 166, 247, 0.35);
+  --color-accent-soft: color-mix(in srgb, var(--color-accent) 14%, var(--color-bg-secondary));
+  --color-accent-border: color-mix(in srgb, var(--color-accent) 35%, transparent);
+  --color-accent-surface: color-mix(in srgb, var(--color-accent) 7%, var(--color-bg-secondary));
+  --color-accent-subtle: color-mix(in srgb, var(--color-accent) 4%, transparent);
+  --color-accent-badge: color-mix(in srgb, var(--color-accent) 15%, var(--color-bg-secondary));
+  --color-accent-laser: var(--color-accent);
+  --color-accent-gradient: var(--color-accent);
+  --color-accent-gradient-strong: var(--color-accent);
+
+  --brand-1: var(--color-accent);
+  --brand-2: #89b4fa;
+  --brand-3: #f5c2e7;
+  --brand-4: var(--color-accent);
+  --brand-gradient: var(--color-accent);
+  --brand-gradient-strong: var(--color-accent);
+
+  --color-success: #a6e3a1;
+  --color-warning: #f9e2af;
+  --color-danger: #f38ba8;
+  --color-info: #89dceb;
+  --color-stale: #fab387;
+
+  --shadow-glow: 0 0 24px var(--color-accent-glow);
+}
+
+/* ── 10. Sunset (Dusk Plum Radiance) ──────────────────────────────────────── */
+[data-theme="sunset"] {
+  --color-bg-primary: #140710;
+  --color-bg-secondary: #200d1c;
+  --color-bg-tertiary: #2d1327;
+  --color-bg-hover: #3d1a35;
+  --color-bg-active: #502346;
+  --color-bg-gradient: radial-gradient(circle at 60% 0%, #35142e 0%, #140710 100%);
+
+  --color-surface: var(--color-bg-secondary);
+  --color-surface-raised: var(--color-bg-tertiary);
+  --color-surface-overlay: rgba(14, 5, 12, 0.92);
+  --color-surface-glass: rgba(32, 13, 28, 0.75);
+
+  --color-border: #3a1a32;
+  --color-border-light: #522547;
+  --color-border-highlight: rgba(255, 122, 89, 0.26);
+  --color-border-faint: rgba(255, 107, 107, 0.05);
+  --color-border-glow: color-mix(in srgb, var(--color-accent) 35%, transparent);
+
+  --color-text-primary: #fff1f3;
+  --color-text-secondary: #fed7aa;
+  --color-text-tertiary: #f472b6;
+  --color-text-muted: #9d6380;
+  --color-text-inverse: #140710;
+
+  --color-accent: #ff6b6b;
+  --color-accent-2: #fbbf24;
+  --color-accent-contrast: #140710;
+  --color-accent-hover: #ff8c8c;
+  --color-accent-active: #e65050;
+  --color-accent-glow: rgba(255, 107, 107, 0.35);
+  --color-accent-soft: color-mix(in srgb, var(--color-accent) 14%, var(--color-bg-secondary));
+  --color-accent-border: color-mix(in srgb, var(--color-accent) 35%, transparent);
+  --color-accent-surface: color-mix(in srgb, var(--color-accent) 7%, var(--color-bg-secondary));
+  --color-accent-subtle: color-mix(in srgb, var(--color-accent) 4%, transparent);
+  --color-accent-badge: color-mix(in srgb, var(--color-accent) 15%, var(--color-bg-secondary));
+  --color-accent-laser: var(--color-accent);
+  --color-accent-gradient: var(--color-accent);
+  --color-accent-gradient-strong: var(--color-accent);
+
+  --brand-1: var(--color-accent);
+  --brand-2: #fbbf24;
+  --brand-3: #f472b6;
+  --brand-4: var(--color-accent);
+  --brand-gradient: var(--color-accent);
+  --brand-gradient-strong: var(--color-accent);
+
+  --shadow-glow: 0 0 24px var(--color-accent-glow);
+}
+
+/* ── 11. Oceanic (Abyssal Bioluminescence) ────────────────────────────────── */
+[data-theme="oceanic"] {
+  --color-bg-primary: #030d17;
+  --color-bg-secondary: #081a2e;
+  --color-bg-tertiary: #0e2642;
+  --color-bg-hover: #143559;
+  --color-bg-active: #1c4673;
+  --color-bg-gradient: radial-gradient(circle at 50% 0%, #0d2847 0%, #030d17 100%);
+
+  --color-surface: var(--color-bg-secondary);
+  --color-surface-raised: var(--color-bg-tertiary);
+  --color-surface-overlay: rgba(2, 8, 14, 0.92);
+  --color-surface-glass: rgba(8, 26, 46, 0.75);
+
+  --color-border: #113052;
+  --color-border-light: #1b4573;
+  --color-border-highlight: rgba(34, 211, 238, 0.25);
+  --color-border-faint: rgba(0, 229, 255, 0.05);
+  --color-border-glow: color-mix(in srgb, var(--color-accent) 35%, transparent);
+
+  --color-text-primary: #f0fdfa;
+  --color-text-secondary: #99f6e4;
+  --color-text-tertiary: #38bdf8;
+  --color-text-muted: #5281a1;
+  --color-text-inverse: #030d17;
+
+  --color-accent: #00e5ff;
+  --color-accent-2: #38bdf8;
+  --color-accent-contrast: #030d17;
+  --color-accent-hover: #4deeff;
+  --color-accent-active: #00b8cc;
+  --color-accent-glow: rgba(0, 229, 255, 0.35);
+  --color-accent-soft: color-mix(in srgb, var(--color-accent) 14%, var(--color-bg-secondary));
+  --color-accent-border: color-mix(in srgb, var(--color-accent) 35%, transparent);
+  --color-accent-surface: color-mix(in srgb, var(--color-accent) 7%, var(--color-bg-secondary));
+  --color-accent-subtle: color-mix(in srgb, var(--color-accent) 4%, transparent);
+  --color-accent-badge: color-mix(in srgb, var(--color-accent) 15%, var(--color-bg-secondary));
+  --color-accent-laser: var(--color-accent);
+  --color-accent-gradient: var(--color-accent);
+  --color-accent-gradient-strong: var(--color-accent);
+
+  --brand-1: var(--color-accent);
+  --brand-2: #38bdf8;
+  --brand-3: #818cf8;
+  --brand-4: var(--color-accent);
+  --brand-gradient: var(--color-accent);
+  --brand-gradient-strong: var(--color-accent);
+
+  --shadow-glow: 0 0 24px var(--color-accent-glow);
+}
+
+/* ── 12. Rose Pine (Moody Velvet Bloom) ───────────────────────────────────── */
+[data-theme="rosepine"] {
+  --color-bg-primary: #12101b;
+  --color-bg-secondary: #191724;
+  --color-bg-tertiary: #211f30;
+  --color-bg-hover: #2c2940;
+  --color-bg-active: #393552;
+  --color-bg-gradient: radial-gradient(circle at 50% 0%, #252238 0%, #12101b 100%);
+
+  --color-surface: var(--color-bg-secondary);
+  --color-surface-raised: var(--color-bg-tertiary);
+  --color-surface-overlay: rgba(12, 10, 18, 0.92);
+  --color-surface-glass: rgba(25, 23, 36, 0.75);
+
+  --color-border: #26233a;
+  --color-border-light: #393552;
+  --color-border-highlight: rgba(235, 111, 146, 0.25);
+  --color-border-faint: rgba(255, 255, 255, 0.04);
+  --color-border-glow: color-mix(in srgb, var(--color-accent) 35%, transparent);
+
+  --color-text-primary: #e0def4;
+  --color-text-secondary: #c4a7e7;
+  --color-text-tertiary: #9ccfd8;
+  --color-text-muted: #6e6a86;
+  --color-text-inverse: #12101b;
+
+  --color-accent: #eb6f92;
+  --color-accent-2: #f6c177;
+  --color-accent-contrast: #12101b;
+  --color-accent-hover: #f08ba6;
+  --color-accent-active: #d6557f;
+  --color-accent-glow: rgba(235, 111, 146, 0.35);
+  --color-accent-soft: color-mix(in srgb, var(--color-accent) 14%, var(--color-bg-secondary));
+  --color-accent-border: color-mix(in srgb, var(--color-accent) 35%, transparent);
+  --color-accent-surface: color-mix(in srgb, var(--color-accent) 7%, var(--color-bg-secondary));
+  --color-accent-subtle: color-mix(in srgb, var(--color-accent) 4%, transparent);
+  --color-accent-badge: color-mix(in srgb, var(--color-accent) 15%, var(--color-bg-secondary));
+  --color-accent-laser: var(--color-accent);
+  --color-accent-gradient: var(--color-accent);
+  --color-accent-gradient-strong: var(--color-accent);
+
+  --brand-1: var(--color-accent);
+  --brand-2: #f6c177;
+  --brand-3: #9ccfd8;
+  --brand-4: var(--color-accent);
+  --brand-gradient: var(--color-accent);
+  --brand-gradient-strong: var(--color-accent);
+
+  --shadow-glow: 0 0 24px var(--color-accent-glow);
+}
+
+/* ── 13. Synthwave (Outrun 84 Grid) ───────────────────────────────────────── */
+[data-theme="synthwave"] {
+  --color-bg-primary: #0f071a;
+  --color-bg-secondary: #180d2b;
+  --color-bg-tertiary: #23133d;
+  --color-bg-hover: #301a52;
+  --color-bg-active: #3f226b;
+  --color-bg-gradient: radial-gradient(circle at 50% 0%, #2b114d 0%, #0f071a 100%);
+
+  --color-surface: var(--color-bg-secondary);
+  --color-surface-raised: var(--color-bg-tertiary);
+  --color-surface-overlay: rgba(10, 4, 18, 0.94);
+  --color-surface-glass: rgba(24, 13, 43, 0.75);
+
+  --color-border: #311b54;
+  --color-border-light: #48277a;
+  --color-border-highlight: rgba(255, 113, 206, 0.35);
+  --color-border-faint: rgba(255, 42, 133, 0.06);
+  --color-border-glow: color-mix(in srgb, var(--color-accent) 45%, transparent);
+
+  --color-text-primary: #fbf5ff;
+  --color-text-secondary: #05d9e8;
+  --color-text-tertiary: #ff71ce;
+  --color-text-muted: #8b6ba8;
+  --color-text-inverse: #0f071a;
+
+  --color-accent: #ff2a85;
+  --color-accent-2: #05d9e8;
+  --color-accent-contrast: #ffffff;
+  --color-accent-hover: #ff57a0;
+  --color-accent-active: #d61868;
+  --color-accent-glow: rgba(255, 42, 133, 0.4);
+  --color-accent-soft: color-mix(in srgb, var(--color-accent) 14%, var(--color-bg-secondary));
+  --color-accent-border: color-mix(in srgb, var(--color-accent) 40%, transparent);
+  --color-accent-surface: color-mix(in srgb, var(--color-accent) 8%, var(--color-bg-secondary));
+  --color-accent-subtle: color-mix(in srgb, var(--color-accent) 5%, transparent);
+  --color-accent-badge: color-mix(in srgb, var(--color-accent) 16%, var(--color-bg-secondary));
+  --color-accent-laser: var(--color-accent);
+  --color-accent-gradient: var(--color-accent);
+  --color-accent-gradient-strong: var(--color-accent);
+
+  --brand-1: var(--color-accent);
+  --brand-2: #05d9e8;
+  --brand-3: #ffb800;
+  --brand-4: var(--color-accent);
+  --brand-gradient: var(--color-accent);
+  --brand-gradient-strong: var(--color-accent);
+
+  --shadow-glow: 0 0 24px var(--color-accent-glow), 0 0 48px color-mix(in srgb, var(--color-accent-2) 30%, transparent);
+}
+
+/* ── 14. Forest (Deep Canopy Moss) ────────────────────────────────────────── */
+[data-theme="forest"] {
+  --color-bg-primary: #060d08;
+  --color-bg-secondary: #0c1810;
+  --color-bg-tertiary: #132619;
+  --color-bg-hover: #1a3423;
+  --color-bg-active: #234630;
+  --color-bg-gradient: radial-gradient(circle at 50% 0%, #152b1d 0%, #060d08 100%);
+
+  --color-surface: var(--color-bg-secondary);
+  --color-surface-raised: var(--color-bg-tertiary);
+  --color-surface-overlay: rgba(4, 8, 5, 0.92);
+  --color-surface-glass: rgba(12, 24, 16, 0.75);
+
+  --color-border: #183321;
+  --color-border-light: #244b31;
+  --color-border-highlight: rgba(163, 230, 53, 0.22);
+  --color-border-faint: rgba(132, 204, 22, 0.05);
+  --color-border-glow: color-mix(in srgb, var(--color-accent) 35%, transparent);
+
+  --color-text-primary: #f2fbf4;
+  --color-text-secondary: #bbf7d0;
+  --color-text-tertiary: #86efac;
+  --color-text-muted: #4f7959;
+  --color-text-inverse: #060d08;
+
+  --color-accent: #84cc16;
+  --color-accent-2: #22c55e;
+  --color-accent-contrast: #060d08;
+  --color-accent-hover: #9ee02f;
+  --color-accent-active: #6ca60f;
+  --color-accent-glow: rgba(132, 204, 22, 0.35);
+  --color-accent-soft: color-mix(in srgb, var(--color-accent) 14%, var(--color-bg-secondary));
+  --color-accent-border: color-mix(in srgb, var(--color-accent) 35%, transparent);
+  --color-accent-surface: color-mix(in srgb, var(--color-accent) 7%, var(--color-bg-secondary));
+  --color-accent-subtle: color-mix(in srgb, var(--color-accent) 4%, transparent);
+  --color-accent-badge: color-mix(in srgb, var(--color-accent) 15%, var(--color-bg-secondary));
+  --color-accent-laser: var(--color-accent);
+  --color-accent-gradient: var(--color-accent);
+  --color-accent-gradient-strong: var(--color-accent);
+
+  --brand-1: var(--color-accent);
+  --brand-2: #22c55e;
+  --brand-3: #a3e635;
+  --brand-4: var(--color-accent);
+  --brand-gradient: var(--color-accent);
+  --brand-gradient-strong: var(--color-accent);
+
+  --shadow-glow: 0 0 24px var(--color-accent-glow);
+}
+
+/* ── 15. Desert Mirage (Warm Topaz Dunes) ─────────────────────────────────── */
+[data-theme="desert"] {
+  --color-bg-primary: #120c06;
+  --color-bg-secondary: #1c140c;
+  --color-bg-tertiary: #291e13;
+  --color-bg-hover: #38291b;
+  --color-bg-active: #4a3725;
+  --color-bg-gradient: radial-gradient(circle at 50% 0%, #2f2215 0%, #120c06 100%);
+
+  --color-surface: var(--color-bg-secondary);
+  --color-surface-raised: var(--color-bg-tertiary);
+  --color-surface-overlay: rgba(12, 8, 4, 0.92);
+  --color-surface-glass: rgba(28, 20, 12, 0.75);
+
+  --color-border: #332417;
+  --color-border-light: #4a3523;
+  --color-border-highlight: rgba(245, 158, 11, 0.22);
+  --color-border-faint: rgba(224, 171, 85, 0.05);
+  --color-border-glow: color-mix(in srgb, var(--color-accent) 35%, transparent);
+
+  --color-text-primary: #fffbeb;
+  --color-text-secondary: #fde68a;
+  --color-text-tertiary: #f59e0b;
+  --color-text-muted: #926b48;
+  --color-text-inverse: #120c06;
+
+  --color-accent: #e0ab55;
+  --color-accent-2: #fbbf24;
+  --color-accent-contrast: #120c06;
+  --color-accent-hover: #e8bc77;
+  --color-accent-active: #c9923c;
+  --color-accent-glow: rgba(224, 171, 85, 0.35);
+  --color-accent-soft: color-mix(in srgb, var(--color-accent) 14%, var(--color-bg-secondary));
+  --color-accent-border: color-mix(in srgb, var(--color-accent) 35%, transparent);
+  --color-accent-surface: color-mix(in srgb, var(--color-accent) 7%, var(--color-bg-secondary));
+  --color-accent-subtle: color-mix(in srgb, var(--color-accent) 4%, transparent);
+  --color-accent-badge: color-mix(in srgb, var(--color-accent) 15%, var(--color-bg-secondary));
+  --color-accent-laser: var(--color-accent);
+  --color-accent-gradient: var(--color-accent);
+  --color-accent-gradient-strong: var(--color-accent);
+
+  --brand-1: var(--color-accent);
+  --brand-2: #fbbf24;
+  --brand-3: #f97316;
+  --brand-4: var(--color-accent);
+  --brand-gradient: var(--color-accent);
+  --brand-gradient-strong: var(--color-accent);
+
+  --shadow-glow: 0 0 24px var(--color-accent-glow);
+}
+
+/* ── 16. Aurora (Cosmic Boreal Luminescence) ──────────────────────────────── */
+[data-theme="aurora"] {
+  --color-bg-primary: #04030d;
+  --color-bg-secondary: #0b091e;
+  --color-bg-tertiary: #131030;
+  --color-bg-hover: #1b1742;
+  --color-bg-active: #262059;
+  --color-bg-gradient: radial-gradient(circle at 60% 0%, #1f184d 0%, #04030d 100%);
+
+  --color-surface: var(--color-bg-secondary);
+  --color-surface-raised: var(--color-bg-tertiary);
+  --color-surface-overlay: rgba(3, 2, 10, 0.94);
+  --color-surface-glass: rgba(11, 9, 30, 0.75);
+
+  --color-border: rgba(168, 85, 247, 0.2);
+  --color-border-light: rgba(168, 85, 247, 0.38);
+  --color-border-highlight: rgba(168, 85, 247, 0.5);
+  --color-border-faint: rgba(154, 107, 255, 0.05);
+  --color-border-glow: color-mix(in srgb, var(--color-accent) 45%, transparent);
+
+  --color-text-primary: #faf5ff;
+  --color-text-secondary: #d8b4fe;
+  --color-text-tertiary: #a855f7;
+  --color-text-muted: #746899;
+  --color-text-inverse: #04030d;
+
+  --color-accent: #9a6bff;
+  --color-accent-2: #38bdf8;
+  --color-accent-contrast: #ffffff;
+  --color-accent-hover: #b18bff;
+  --color-accent-active: #7a4cf0;
+  --color-accent-glow: rgba(154, 107, 255, 0.45);
+  --color-accent-soft: color-mix(in srgb, var(--color-accent) 14%, var(--color-bg-secondary));
+  --color-accent-border: color-mix(in srgb, var(--color-accent) 38%, transparent);
+  --color-accent-surface: color-mix(in srgb, var(--color-accent) 7%, var(--color-bg-secondary));
+  --color-accent-subtle: color-mix(in srgb, var(--color-accent) 4%, transparent);
+  --color-accent-badge: color-mix(in srgb, var(--color-accent) 16%, var(--color-bg-secondary));
+  --color-accent-laser: var(--color-accent);
+  --color-accent-gradient: var(--color-accent);
+  --color-accent-gradient-strong: var(--color-accent);
+
+  --brand-1: var(--color-accent);
+  --brand-2: #38bdf8;
+  --brand-3: #c084fc;
+  --brand-4: var(--color-accent);
+  --brand-gradient: var(--color-accent);
+  --brand-gradient-strong: var(--color-accent);
+
+  --shadow-glow: 0 0 24px var(--color-accent-glow), 0 0 48px color-mix(in srgb, var(--color-accent-2) 25%, transparent);
+}
+
+/* ── 17. Midnight OLED (True Zero Pitch Black) ────────────────────────────── */
+[data-theme="oled"] {
+  --color-bg-primary: #000000;
+  --color-bg-secondary: #08080a;
+  --color-bg-tertiary: #101014;
+  --color-bg-hover: #18181f;
+  --color-bg-active: #22222a;
+  --color-bg-gradient: #000000;
+
+  --color-surface: var(--color-bg-secondary);
+  --color-surface-raised: var(--color-bg-tertiary);
+  --color-surface-overlay: rgba(0, 0, 0, 0.96);
+  --color-surface-glass: rgba(8, 8, 10, 0.85);
+
+  --color-border: rgba(255, 255, 255, 0.08);
+  --color-border-light: rgba(255, 255, 255, 0.16);
+  --color-border-highlight: rgba(255, 255, 255, 0.28);
+  --color-border-faint: rgba(255, 255, 255, 0.04);
+  --color-border-glow: color-mix(in srgb, var(--color-accent) 38%, transparent);
+
+  --color-text-primary: #ffffff;
+  --color-text-secondary: #b0b4c0;
+  --color-text-tertiary: #757a8a;
+  --color-text-muted: #757a8a;
+  --color-text-inverse: #000000;
+
+  --color-accent: #3b82f6;
+  --color-accent-2: #60a5fa;
+  --color-accent-contrast: #ffffff;
+  --color-accent-hover: #60a5fa;
+  --color-accent-active: #2563eb;
+  --color-accent-glow: rgba(59, 130, 246, 0.35);
+  --color-accent-soft: color-mix(in srgb, var(--color-accent) 14%, var(--color-bg-secondary));
+  --color-accent-border: color-mix(in srgb, var(--color-accent) 35%, transparent);
+  --color-accent-surface: color-mix(in srgb, var(--color-accent) 7%, var(--color-bg-secondary));
+  --color-accent-subtle: color-mix(in srgb, var(--color-accent) 4%, transparent);
+  --color-accent-badge: color-mix(in srgb, var(--color-accent) 15%, var(--color-bg-secondary));
+  --color-accent-laser: var(--color-accent);
+  --color-accent-gradient: var(--color-accent);
+  --color-accent-gradient-strong: var(--color-accent);
+
+  --brand-1: var(--color-accent);
+  --brand-2: #60a5fa;
+  --brand-3: #93c5fd;
+  --brand-4: var(--color-accent);
+  --brand-gradient: var(--color-accent);
+  --brand-gradient-strong: var(--color-accent);
+
+  --shadow-glow: 0 0 24px var(--color-accent-glow);
+}
+
+/* ── 18. High Contrast (Pure Accessibility 21:1) ──────────────────────────── */
+[data-theme="highcontrast"] {
+  --color-bg-primary: #000000;
+  --color-bg-secondary: #000000;
+  --color-bg-tertiary: #0c0c0c;
+  --color-bg-hover: #1c1c1c;
+  --color-bg-active: #2e2e2e;
+  --color-bg-gradient: #000000;
+
+  --color-surface: #000000;
+  --color-surface-raised: #0c0c0c;
+  --color-surface-overlay: rgba(0, 0, 0, 0.98);
+  --color-surface-glass: #000000;
+
+  --color-border: #ffffff;
+  --color-border-light: #ffff00;
+  --color-border-highlight: #ffffff;
+  --color-border-faint: rgba(255, 255, 255, 0.5);
+  --color-border-glow: #ffff00;
+
+  --color-text-primary: #ffffff;
+  --color-text-secondary: #ffff00;
+  --color-text-tertiary: #00ffff;
+  --color-text-muted: #e6e6e6;
+  --color-text-inverse: #000000;
+
+  --color-accent: #ffff00;
+  --color-accent-2: #00ffff;
+  --color-accent-contrast: #000000;
+  --color-accent-hover: #ffffff;
+  --color-accent-active: #ffd700;
+  --color-accent-glow: rgba(255, 255, 0, 0.6);
+  --color-accent-soft: rgba(255, 255, 0, 0.18);
+  --color-accent-border: #ffff00;
+  --color-accent-surface: rgba(255, 255, 0, 0.1);
+  --color-accent-subtle: rgba(255, 255, 0, 0.08);
+  --color-accent-badge: rgba(255, 255, 0, 0.2);
+  --color-accent-laser: #ffff00;
+  --color-accent-gradient: #ffff00;
+  --color-accent-gradient-strong: #ffff00;
+
+  --brand-1: #ffff00;
+  --brand-2: #00ffff;
+  --brand-3: #ffffff;
+  --brand-4: #ffff00;
+  --brand-gradient: #ffff00;
+  --brand-gradient-strong: #ffff00;
+
+  --color-success: #00ff00;
+  --color-warning: #ffff00;
+  --color-danger: #ff0000;
+  --color-info: #00ffff;
+  --color-stale: #ffaa00;
+
+  --shadow-glow: 0 0 0 2px #ffff00, 0 0 28px rgba(255, 255, 0, 0.5);
+}
+
+/* ── Surface Level System (solid fallback safeguard) ─────────────────────── */
 [data-theme] {
   --color-surface: var(--color-bg-secondary);
   --color-surface-raised: var(--color-bg-tertiary);
-  --color-surface-glass: color-mix(in srgb, var(--color-bg-secondary) 72%, transparent);
+  --color-surface-glass: color-mix(in srgb, var(--color-bg-secondary) 75%, transparent);
 }
-
