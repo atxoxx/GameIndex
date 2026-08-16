@@ -32,7 +32,7 @@
   box-shadow: 0 2px 12px color-mix(in srgb, currentColor 35%, transparent);
 }
 
-/* CRACKED / UNCRACKED badges, mirroring Hydra's green/red treatment. */
+/* CRACKED / UNCRACKED badges. */
 .cw-status-pill.cw-cracked {
   background: color-mix(in srgb, #2ea043 18%, transparent);
   color: #3fb950;

@@ -10,7 +10,6 @@
 
 CREATE TABLE IF NOT EXISTS sources (
     id              TEXT PRIMARY KEY,        -- "src_<nanos>_<counter>"
-    hydra_source_id TEXT NOT NULL DEFAULT '',
     url             TEXT NOT NULL,
     name            TEXT NOT NULL,
     enabled         INTEGER NOT NULL,        -- 0/1, compact SQL instead of bool
@@ -22,7 +21,6 @@ CREATE UNIQUE INDEX IF NOT EXISTS ux_sources_url ON sources(url);
 
 CREATE TABLE IF NOT EXISTS sources_cache (
     source_id       TEXT PRIMARY KEY REFERENCES sources(id) ON DELETE CASCADE,
-    hydra_source_id TEXT NOT NULL DEFAULT '',
     fetched_at      INTEGER NOT NULL,
     payload_json    TEXT NOT NULL            -- compact JSON of GameSource
 );

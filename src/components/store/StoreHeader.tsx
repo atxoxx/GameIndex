@@ -6,7 +6,7 @@ interface StoreHeaderProps {
 }
 
 /**
- * Hydra-style sticky top bar for the Store catalogue: branding, live result
+ * Sticky top bar for the Store catalogue: branding, live result
  * count, and the "Show hidden" toggle. The search, sort, select, filter,
  * and density controls live in `StoreToolbar` between the rail and the
  * grid. Keeping it as its own component keeps `StorePage` a thin root.

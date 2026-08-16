@@ -8,7 +8,7 @@ use serde::{Deserialize, Serialize};
 
 /// Lifecycle status of a download.
 ///
-/// Hydra-style semantics: only ONE download is ever `Downloading` /
+/// Semantics: only ONE download is ever `Downloading` /
 /// `FetchingMetadata` at a time (the "active" download). Everything
 /// else waits in `Queued`. Completed torrents may transition to
 /// `Seeding` when the user enabled seed-after-complete.

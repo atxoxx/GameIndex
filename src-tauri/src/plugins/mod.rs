@@ -503,7 +503,7 @@ pub async fn search_downloads(
     let source_manager = app.state::<Arc<source_manager::SourceManager>>();
     let plugin_manager = app.state::<Arc<PluginManager>>();
 
-    // 1. Built-in sources (Hydra-backed online search, FTS5 fallback).
+    // 1. Built-in sources (local FTS5 search).
     let mut out: Vec<DownloadSearchResult> = source_manager
         .search_online(&query, steam_app_id)
         .await

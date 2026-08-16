@@ -2,7 +2,7 @@
 //!
 //! "Sources" are JSON files hosted on a third-party URL that list
 //! available downloads for various games. The most common shape is
-//! the **Hydra** format — a single object with a `name` and a
+//! a single object with a `name` and a
 //! `downloads` array, where each entry has `title`, `fileSize`,
 //! magnet / .torrent URIs, and `uploadDate`.
 //!
@@ -33,27 +33,19 @@
 //!
 //! All public signatures (`SourceLink`, `CachedSource`,
 //! `GameSource`, `SourceDownload`, `MatchedDownload`,
-//! `HydraRepack`/`HydraSearchResponse`, etc.) are unchanged so
+//! etc.) are unchanged so
 //! the frontend can keep its existing types in
 //! `src/types/source.ts` and the Tauri command names are
 //! unchanged in `lib.rs`.
 
 use serde::{Deserialize, Serialize};
-use std::collections::{HashMap, HashSet};
 use std::sync::Arc;
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::time::{SystemTime, UNIX_EPOCH};
 
 use crate::db::{self, Db};
-use crate::game_scraper::{self, StoreGameSummary};
 
-// ─── Constants ──────────────────────────────────────────────────────────────
-
-/// A source counts as "new" for the frontend's NEW badge when it was
-/// first fetched (added) within this many seconds of now (7 days).
-const NEW_SOURCE_WINDOW_SECS: u64 = 7 * 24 * 60 * 60;
-
-// ─── JSON schema (Hydra-compatible) ─────────────────────────────────────────
+// ─── JSON schema ────────────────────────────────────────────────────────────
 
 /// A single download entry inside a source.
 #[derive(Debug, Serialize, Deserialize, Clone)]
@@ -69,7 +61,7 @@ pub struct SourceDownload {
     pub uris: Vec<String>,
     #[serde(default, alias = "uploaddate", alias = "upload_date")]
     pub upload_date: Option<String>,
-    /// Optional pre-parsed magnet — some sources (Hydra) populate
+    /// Optional pre-parsed magnet — some sources populate
     /// this as a convenience for clients that can't parse a magnet
     /// URI themselves. We use it as a fallback when the `uris`
     /// array is missing or empty.
@@ -84,84 +76,6 @@ pub struct GameSource {
     pub downloads: Vec<SourceDownload>,
 }
 
-// ─── Hydra API types ────────────────────────────────────────────────────────
-
-#[derive(Debug, Serialize)]
-struct AddDownloadSourceRequest {
-    url: String,
-}
-
-#[derive(Debug, Serialize)]
-struct SyncDownloadSourcesRequest {
-    ids: Vec<String>,
-}
-
-/// Response from `POST /download-sources` and entries in the
-/// `POST /download-sources/sync` response array.
-///
-/// The Hydra API returns catalog metadata only (id, name,
-/// fingerprint, download_count, status) — the full download
-/// list is served by separate repack/search endpoints
-/// (`/games/steam/:appid/download-sources`,
-/// `/catalogue/search`). We use `download_count` for the
-/// source's `game_count` when the raw source URL is
-/// unreachable (HTTP 403, Cloudflare, etc.).
-#[derive(Debug, Deserialize)]
-#[serde(rename_all = "camelCase")]
-#[allow(dead_code)]
-struct HydraDownloadSourceResponse {
-    id: String,
-    url: String,
-    name: String,
-    fingerprint: String,
-    download_count: usize,
-    status: String,
-}
-
-#[derive(Debug, Serialize)]
-#[serde(rename_all = "camelCase")]
-struct CatalogueSearchRequest {
-    title: String,
-    take: usize,
-    skip: usize,
-    download_source_fingerprints: Vec<String>,
-}
-
-#[derive(Debug, Deserialize)]
-#[serde(rename_all = "camelCase")]
-struct HydraSearchEdge {
-    object_id: String,
-    title: String,
-    shop: String,
-}
-
-#[derive(Debug, Deserialize)]
-struct HydraSearchResponse {
-    edges: Vec<HydraSearchEdge>,
-}
-
-#[derive(Debug, Deserialize)]
-#[serde(rename_all = "camelCase")]
-#[allow(dead_code)]
-struct HydraRepack {
-    id: String,
-    title: String,
-    file_size: Option<String>,
-    /// `#[serde(default)]` is critical here: some Hydra API responses
-    /// omit the `uris` array when the repack only has a `magnet` field
-    /// (or vice-versa). Without `default`, a single missing `uris` key
-    /// causes the **entire** `Vec<HydraRepack>` deserialization to fail,
-    /// which means *every* repack in the response is lost — not just
-    /// the one with the missing field.
-    #[serde(default)]
-    uris: Vec<String>,
-    #[serde(default)]
-    magnet: Option<String>,
-    upload_date: Option<String>,
-    download_source_id: String,
-    download_source_name: String,
-}
-
 // ─── User-facing records ────────────────────────────────────────────────────
 
 /// Metadata for a single source the user has added. Persisted to
@@ -170,11 +84,6 @@ struct HydraRepack {
 #[serde(rename_all = "camelCase")]
 pub struct SourceLink {
     pub id: String,
-    /// ID assigned by the Hydra API — used as the key for
-    /// subsequent sync / refresh calls. Empty string for legacy
-    /// sources added before the Hydra API migration.
-    #[serde(default)]
-    pub hydra_source_id: String,
     pub url: String,
     pub name: String,
     pub enabled: bool,
@@ -184,24 +93,6 @@ pub struct SourceLink {
     /// Number of download entries in the most recent successful
     /// fetch.
     pub game_count: usize,
-}
-
-/// A single game returned by Hydra's `/catalogue/{category}` endpoint
-/// (the same endpoint Hydra Launcher's own home page calls). Only the
-/// fields GameIndex needs are deserialized; everything else is ignored.
-#[derive(Debug, Deserialize, Clone)]
-#[serde(rename_all = "camelCase")]
-struct HydraCatalogueGame {
-    #[serde(default)]
-    object_id: String,
-    #[serde(default)]
-    shop: String,
-    #[serde(default)]
-    title: String,
-    #[serde(default)]
-    cover_image_url: Option<String>,
-    #[serde(default)]
-    logo_image_url: Option<String>,
 }
 
 /// Cached source payload. Persisted to the `sources_cache`
@@ -217,9 +108,6 @@ struct HydraCatalogueGame {
 #[allow(dead_code)]
 pub struct CachedSource {
     pub source_id: String,
-    /// ID assigned by the Hydra API. Empty string if not yet
-    /// registered.
-    pub hydra_source_id: String,
     pub data: GameSource,
     /// Unix seconds of when this was fetched.
     pub fetched_at: u64,
@@ -285,7 +173,7 @@ impl SourceManager {
         Self {
             db,
             client: reqwest::Client::builder()
-                .user_agent("GameIndex/1.0 (+hydra-api)")
+                .user_agent("GameIndex/1.0")
                 .timeout(std::time::Duration::from_secs(15))
                 .build()
                 .expect("HTTP client build is infallible with these settings"),
@@ -294,9 +182,8 @@ impl SourceManager {
 
     // ── Public API ─────────────────────────────────────────────────────
 
-    /// Add a new source via the Hydra API. POSTs the URL to
-    /// `/download-sources`, persists the returned data, and returns
-    /// the new `SourceLink`.
+    /// Add a new source. Fetches and parses the source JSON locally,
+    /// persists the metadata, and returns the new `SourceLink`.
     pub async fn add_source(
         &self,
         url: String,
@@ -313,34 +200,10 @@ impl SourceManager {
             return Err("This source URL has already been added".to_string());
         }
 
-        // 1. Register with Hydra.
-        let hydra_resp = self.hydra_add_source(&trimmed).await?;
-
-        // 2. Try to fetch the raw source JSON for local caching.
-        //    This may fail (HTTP 403, Cloudflare, etc.) — in that
-        //    case we fall back to Hydra's `download_count` for the
-        //    game tally. The actual download links are served by
-        //    Hydra's repack/search endpoints, not the raw JSON.
-        let (game_source, effective_count) =
-            match self.fetch_source_json(&hydra_resp.url).await {
-                Ok(src) => {
-                    let count = src.downloads.len();
-                    (src, count)
-                }
-                Err(e) => {
-                    eprintln!(
-                        "[source_manager] fetch_source_json failed for {}: {}; using Hydra download_count ({})",
-                        hydra_resp.url, e, hydra_resp.download_count
-                    );
-                    (
-                        GameSource {
-                            name: hydra_resp.name.clone(),
-                            downloads: Vec::new(),
-                        },
-                        hydra_resp.download_count,
-                    )
-                }
-            };
+        // Fetch and parse the raw source JSON. A failure here (HTTP 403,
+        // Cloudflare challenge, malformed JSON) surfaces to the caller so
+        // the UI can explain why the source couldn't be added.
+        let game_source = self.fetch_source_json(&trimmed).await?;
 
         let now_secs = unix_now();
         let local_id = format!("src_{}_{}", unix_now_nanos(), SOURCE_ID_COUNTER.fetch_add(1, Ordering::Relaxed));
@@ -350,20 +213,13 @@ impl SourceManager {
             name.trim().to_string()
         };
 
-        // When the raw source JSON was unreachable we still have
-        // Hydra's download_count — use it so the UI shows the real
-        // number of titles rather than "0 games". commit_cached_source
-        // will overwrite with the actual parsed count when downloads
-        // are available; when they aren't it falls through to our
-        // effective_count.
         let source = SourceLink {
             id: local_id.clone(),
-            hydra_source_id: hydra_resp.id.clone(),
             url: trimmed.clone(),
             name: display_name.clone(),
             enabled: true,
             last_fetched: Some(now_secs),
-            game_count: effective_count,
+            game_count: game_source.downloads.len(),
         };
         db::sources::upsert_source(&self.db, &source)?;
 
@@ -371,36 +227,21 @@ impl SourceManager {
         let game_count = db::sources::commit_cached_source(
             &self.db,
             &local_id,
-            &hydra_resp.id,
             &game_source,
             now_secs,
         )?;
-        // Prefer the parsed count when downloads were available;
-        // otherwise the Hydra-supplied effective_count is correct.
-        let final_count = if game_count > 0 { game_count } else { effective_count };
-        // `commit_cached_source` persisted `game_count = game_count`,
-        // which is 0 whenever the raw source JSON was unreachable and
-        // we fell back to Hydra's tally. In that case the persisted row
-        // would disagree with the value we return (and with what the UI
-        // shows), so the count would look wrong after a restart or a
-        // later `sources_list` re-hydration. Write the authoritative
-        // tally back to the DB so the persisted record matches.
-        if game_count == 0 && effective_count > 0 {
-            db::sources::update_game_count(&self.db, &local_id, final_count)?;
-        }
 
         Ok(SourceLink {
             id: local_id,
-            hydra_source_id: hydra_resp.id,
             url: trimmed,
             name: display_name,
             enabled: true,
             last_fetched: Some(now_secs),
-            game_count: final_count,
+            game_count,
         })
     }
 
-    /// Add multiple sources at once via the Hydra API. Each URL is
+    /// Add multiple sources at once. Each URL is
     /// processed independently; failures are reported per-URL so a
     /// single bad link doesn't abort the whole batch. Already-added
     /// URLs (duplicate) are reported as skipped rather than errored.
@@ -535,293 +376,16 @@ impl SourceManager {
         }
     }
 
-    /// Online-only search via the Hydra API for sources the user
-    /// has added. Falls back to offline FTS5 if Hydra is
-    /// unreachable.
+    /// Search every enabled source's cached downloads via the local FTS5
+    /// index. `steam_app_id` is accepted for command-signature
+    /// compatibility but unused — the local index is the single source
+    /// of truth for matching.
     pub async fn search_online(
         &self,
         query: &str,
-        steam_app_id: Option<u32>,
+        _steam_app_id: Option<u32>,
     ) -> Result<Vec<MatchedDownload>, String> {
-        let q = query.trim();
-        if q.is_empty() {
-            return Ok(Vec::new());
-        }
-
-        let sources = db::sources::list_sources(&self.db)?;
-        let mut enabled_hydra_ids = Vec::new();
-        let mut hydra_to_local = HashMap::new();
-        let mut local_last_fetched: HashMap<String, Option<u64>> = HashMap::new();
-        for source in &sources {
-            if source.enabled && !source.hydra_source_id.is_empty() {
-                enabled_hydra_ids.push(source.hydra_source_id.clone());
-                hydra_to_local.insert(source.hydra_source_id.clone(), source.id.clone());
-                local_last_fetched.insert(source.id.clone(), source.last_fetched);
-            }
-        }
-
-        if enabled_hydra_ids.is_empty() {
-            return Ok(self.search(q));
-        }
-
-        let mut repacks = Vec::new();
-
-        if let Some(appid) = steam_app_id {
-            if let Ok(list) = self.fetch_repacks_by_appid(appid, &enabled_hydra_ids).await {
-                repacks = list;
-            }
-        }
-
-        if repacks.is_empty() {
-            if let Ok(list) = self.search_catalogue_by_title(q, &enabled_hydra_ids).await {
-                repacks = list;
-            }
-        }
-
-        if !repacks.is_empty() {
-            let mut results = Vec::new();
-            for repack in repacks {
-                let score = title_similarity(q, &repack.title);
-                // Surface genuinely-relevant repacks. A low 0.2 floor
-                // lets variable edition/subtitle/link-stem names
-                // ("Game.Name.Repack", "Doom Eternal Deluxe") through,
-                // while still dropping unrelated noise ("Doomlord").
-                if score < 0.2 {
-                    continue;
-                }
-                let local_id = hydra_to_local
-                    .get(&repack.download_source_id)
-                    .cloned()
-                    .unwrap_or_default();
-                // Merge: if `magnet` is present but `uris` is empty
-                // (or vice-versa), combine them so the frontend always
-                // has a non-empty `uris` array to pick from. Without
-                // this merge, a repack that only has a `magnet` field
-                // arrives at the frontend with `uris: []`, and the
-                // DownloadModal's `match.uris[selectedMirrorIdx] ||
-                // match.magnet || match.uris[0]` chain still works —
-                // but the mirror selector shows nothing and direct
-                // links in the same array are lost.
-                let mut uris = repack.uris.clone();
-                // Combined merge + best-URI promotion. Single source
-                // of truth shared with `db::sources::search` — both
-                // paths go through `merge_and_pick_best`.
-                merge_and_pick_best(&mut uris, repack.magnet.as_ref());
-                // Recompute `match.magnet` AFTER the promotion:
-                // tracks the new uris[0] (which may be a `.torrent`
-                // URL after a swap, with the bare magnet demoted to
-                // position 1+). Any caller using `match.magnet` as
-                // the primary URI after this point stays consistent
-                // with what the modal will see.
-                let magnet = uris.iter().find(|u| u.starts_with("magnet:")).cloned();
-                let is_new = local_last_fetched
-                    .get(&local_id)
-                    .and_then(|lf| *lf)
-                    .map(|ts| {
-                        let now = chrono::Utc::now().timestamp();
-                        (now - ts as i64).clamp(0, i64::MAX) as u64 <= NEW_SOURCE_WINDOW_SECS
-                    })
-                    .unwrap_or(false);
-                results.push(MatchedDownload {
-                    source_name: repack.download_source_name.clone(),
-                    source_id: local_id,
-                    title: repack.title.clone(),
-                    file_size: repack.file_size.clone().unwrap_or_default(),
-                    uris,
-                    magnet,
-                    upload_date: repack.upload_date.clone(),
-                    match_score: score,
-                    is_new,
-                });
-            }
-            results.sort_by(|a, b| {
-                b.match_score
-                    .partial_cmp(&a.match_score)
-                    .unwrap_or(std::cmp::Ordering::Equal)
-            });
-            return Ok(results);
-        }
-
-        Ok(self.search(q))
-    }
-
-    // ── Hydra-curated featured rails (same method as Hydra Launcher) ──
-    //
-    // Hydra's home/store page calls `GET /catalogue/{category}` on its
-    // own API, passing the user's enabled download-source ids so the
-    // listing is curated to what they can actually download. This is
-    // the exact method we mirror here for GameLib's featured rail.
-    //
-    // Hydra identifies each game by its Steam `objectId` + `shop`. To
-    // keep GameLib's IGDB-backed store (detail pages, covers, ratings)
-    // working unchanged, we resolve Steam appids to IGDB ids via
-    // `external_games` and fetch full `StoreGameSummary`s, preserving
-    // Hydra's curated order. Games that can't be resolved (non-Steam or
-    // not on IGDB) fall back to a synthesized summary using Hydra's own
-    // cover art so they still render. If the user has no sources (or the
-    // call returns nothing), we degrade gracefully to IGDB-curated
-    // categories so the rail is never empty.
-
-    /// Map a Hydra catalogue category slug to the IGDB category used as
-    /// a fallback when the Hydra call yields no games (e.g. no download
-    /// sources configured yet).
-    fn hydra_category_fallback(category: &str) -> &'static str {
-        match category {
-            "weekly" => "popular",
-            "achievements" => "top",
-            _ => "trending",
-        }
-    }
-
-    fn synthesize_from_hydra(game: &HydraCatalogueGame) -> StoreGameSummary {
-        let cover = game.cover_image_url.as_ref().map(|u| {
-            if u.starts_with("//") {
-                format!("https:{}", u)
-            } else {
-                u.clone()
-            }
-        });
-        let id = game
-            .object_id
-            .parse::<u64>()
-            .unwrap_or_else(|_| {
-                let mut h = 0u64;
-                for b in game.object_id.bytes() {
-                    h = h.wrapping_mul(31).wrapping_add(b as u64);
-                }
-                h
-            });
-        let logo_url = game.logo_image_url.as_ref().map(|u| {
-            if u.starts_with("//") { format!("https:{}", u) } else { u.clone() }
-        }).or_else(|| {
-            if game.shop == "steam" || (!game.object_id.is_empty() && game.object_id.chars().all(|c| c.is_ascii_digit())) {
-                Some(format!("https://cdn.cloudflare.steamstatic.com/steam/apps/{}/logo.png", game.object_id))
-            } else {
-                None
-            }
-        });
-        StoreGameSummary {
-            id,
-            name: game.title.clone(),
-            slug: game.object_id.clone(),
-            summary: None,
-            rating: None,
-            aggregated_rating: None,
-            cover_url: cover,
-            logo_url,
-            genres: Vec::new(),
-            platforms: Vec::new(),
-            first_release_date: None,
-            total_rating_count: 0,
-            hypes: 0,
-            websites: None,
-        }
-    }
-
-    pub async fn fetch_hydra_featured(
-        &self,
-        category: &str,
-    ) -> Result<Vec<StoreGameSummary>, String> {
-        // Gather the user's enabled Hydra source ids — exactly what
-        // Hydra's home page sends as `downloadSourceIds`.
-        let sources = db::sources::list_sources(&self.db).map_err(|e| e.to_string())?;
-        let hydra_ids: Vec<String> = sources
-            .into_iter()
-            .filter(|s| s.enabled && !s.hydra_source_id.is_empty())
-            .map(|s| s.hydra_source_id)
-            .collect();
-
-        let url = format!("/catalogue/{}", category);
-        let mut params: Vec<(String, String)> = vec![
-            ("take".to_string(), "12".to_string()),
-            ("skip".to_string(), "0".to_string()),
-        ];
-        for id in &hydra_ids {
-            params.push(("downloadSourceIds[]".to_string(), id.clone()));
-        }
-
-        let resp = self
-            .client
-            .get(&url)
-            .query(&params)
-            .send()
-            .await
-            .map_err(|e| format!("Hydra catalogue request failed: {}", e))?;
-
-        if !resp.status().is_success() {
-            let status = resp.status();
-            let body = resp.text().await.unwrap_or_default();
-            return Err(format!(
-                "Hydra catalogue returned HTTP {}: {}",
-                status.as_u16(),
-                body
-            ));
-        }
-
-        let assets: Vec<HydraCatalogueGame> = resp
-            .json()
-            .await
-            .map_err(|e| format!("Failed to parse Hydra catalogue: {}", e))?;
-
-        if assets.is_empty() {
-            // No curated games (most likely: no download sources yet).
-            // Gracefully fall back to IGDB-curated categories so the
-            // featured rail still shows something relevant.
-            return game_scraper::fetch_store_games(
-                Self::hydra_category_fallback(category),
-                0,
-                12,
-                None,
-                None,
-                None,
-                None,
-                None,
-                None,
-            )
-            .await;
-        }
-
-        // Resolve Steam appids -> IGDB ids, then fetch full summaries.
-        let steam_appids: Vec<u32> = assets
-            .iter()
-            .filter(|a| a.shop == "steam")
-            .filter_map(|a| a.object_id.parse::<u32>().ok())
-            .collect();
-
-        let igdb_by_appid =
-            game_scraper::resolve_steam_to_igdb(&steam_appids).await.unwrap_or_default();
-        let igdb_ids: Vec<u64> = igdb_by_appid.values().copied().collect();
-        let summaries_by_id: HashMap<u64, StoreGameSummary> = game_scraper::fetch_store_summaries_by_ids(
-            &igdb_ids,
-        )
-        .await
-        .unwrap_or_default()
-        .into_iter()
-        .map(|s| (s.id, s))
-        .collect();
-
-        // Re-associate preserving Hydra's curated order; synthesize for
-        // any game we couldn't resolve to IGDB.
-        let mut out: Vec<StoreGameSummary> = Vec::with_capacity(assets.len());
-        for a in &assets {
-            let resolved = if a.shop == "steam" {
-                a.object_id
-                    .parse::<u32>()
-                    .ok()
-                    .and_then(|appid| {
-                        igdb_by_appid
-                            .get(&appid)
-                            .and_then(|igdb_id| summaries_by_id.get(igdb_id).cloned())
-                    })
-            } else {
-                None
-            };
-            match resolved {
-                Some(s) => out.push(s),
-                None => out.push(Self::synthesize_from_hydra(a)),
-            }
-        }
-        Ok(out)
+        Ok(self.search(query))
     }
 
     // ── Refresh helpers (private) ─────────────────────────────────────
@@ -836,30 +400,13 @@ impl SourceManager {
             return Err(format!("Source not found: {id}"));
         };
         let now = unix_now();
-        let hydra_id = if source.hydra_source_id.is_empty() {
-            self.ensure_hydra_id(&source).await?
-        } else {
-            source.hydra_source_id.clone()
-        };
 
-        // When we have a valid Hydra id, try the bulk-sync endpoint first.
-        if !hydra_id.is_empty() {
-            let results = self.hydra_sync_sources(&[hydra_id.clone()]).await?;
-            if !results.is_empty() {
-                let hydra_resp = &results[0];
-                let game_source_opt = self.fetch_source_json(&hydra_resp.url).await.ok();
-                cache_hydra_response(&self.db, source.id.clone(), hydra_resp, game_source_opt, now)?;
-                return Ok(());
-            }
-        }
-
-        // Fallback: direct fetch from the source URL.
+        // Direct fetch from the source URL.
         match self.fetch_source_json(&source.url).await {
             Ok(game_source) => {
                 db::sources::commit_cached_source(
                     &self.db,
                     &source.id,
-                    &hydra_id,
                     &game_source,
                     now,
                 )?;
@@ -886,61 +433,15 @@ impl SourceManager {
         if enabled.is_empty() {
             return Ok(());
         }
-        let now = unix_now();
 
-        // 1. Ensure all enabled sources have a Hydra ID.
-        let mut hydra_ids: Vec<String> = Vec::with_capacity(enabled.len());
-        let mut local_to_hydra: HashMap<String, String> = HashMap::new();
-        for source in &enabled {
-            match self.ensure_hydra_id(source).await {
-                Ok(hid) => {
-                    local_to_hydra.insert(source.id.clone(), hid.clone());
-                    if !hid.is_empty() {
-                        hydra_ids.push(hid);
-                    }
-                }
-                Err(e) => eprintln!(
-                    "[source_manager] failed to get Hydra ID for {}: {e}",
-                    source.id
-                ),
-            }
-        }
-
-        // 2. Bulk sync.
         let mut refreshed = 0usize;
-        let mut hydrated: HashSet<String> = HashSet::new();
-        if !hydra_ids.is_empty() {
-            if let Ok(results) = self.hydra_sync_sources(&hydra_ids).await {
-                let hydra_to_local: HashMap<String, String> = local_to_hydra
-                    .iter()
-                    .map(|(k, v)| (v.clone(), k.clone()))
-                    .collect();
-                for hydra_resp in &results {
-                    if let Some(local_id) = hydra_to_local.get(&hydra_resp.id) {
-                        let game_source_opt =
-                            self.fetch_source_json(&hydra_resp.url).await.ok();
-                        cache_hydra_response(&self.db, local_id.clone(), hydra_resp, game_source_opt, now)?;
-                        hydrated.insert(local_id.clone());
-                        refreshed += 1;
-                    }
-                }
-            } else {
-                eprintln!(
-                    "[source_manager] Hydra bulk sync failed; falling back to individual refreshes"
-                );
-            }
-        }
-
-        // 3. Refresh any sources not covered by Hydra sync.
         for source in &enabled {
-            if hydrated.contains(&source.id) {
-                continue;
+            if self.refresh_source_inner(&source.id, true).await.is_ok() {
+                refreshed += 1;
             }
-            let _ = self.refresh_source_inner(&source.id, true).await;
-            refreshed += 1;
         }
 
-        if refreshed == 0 && !enabled.is_empty() {
+        if refreshed == 0 {
             Err(format!(
                 "Failed to refresh any of {} enabled source(s)",
                 enabled.len()
@@ -950,62 +451,9 @@ impl SourceManager {
         }
     }
 
-    /// POSTs the local source URL to Hydra if not already
-    /// registered; returns the existing or newly-assigned Hydra id.
-    ///
-    /// If the Hydra registration fails (e.g. the URL was already
-    /// registered by a previous run whose `hydra_source_id` was
-    /// lost), we return the empty string rather than aborting the
-    /// refresh. Callers fall through to the direct-fetch path which
-    /// doesn't need a Hydra id.
-    async fn ensure_hydra_id(&self, source: &SourceLink) -> Result<String, String> {
-        if !source.hydra_source_id.is_empty() {
-            return Ok(source.hydra_source_id.clone());
-        }
-        match self.hydra_add_source(&source.url).await {
-            Ok(hydra_resp) => {
-                let mut updated = source.clone();
-                updated.hydra_source_id = hydra_resp.id.clone();
-                db::sources::upsert_source(&self.db, &updated)?;
-                Ok(hydra_resp.id)
-            }
-            Err(e) => {
-                eprintln!(
-                    "[source_manager] ensure_hydra_id: Hydra registration failed for {}: {e}",
-                    source.id
-                );
-                // Return the (possibly-empty) fallback so
-                // callers can proceed with a direct fetch.
-                Ok(source.hydra_source_id.clone())
-            }
-        }
-    }
-
     fn url_exists(&self, url: &str) -> Result<bool, String> {
         let all = db::sources::list_sources(&self.db)?;
         Ok(all.iter().any(|s| s.url == url))
-    }
-
-    // ── Hydra API helpers ──────────────────────────────────────────────
-
-    async fn hydra_add_source(&self, url: &str) -> Result<HydraDownloadSourceResponse, String> {
-        let endpoint = "/download-sources".to_string();
-        let response = self
-            .client
-            .post(&endpoint)
-            .json(&AddDownloadSourceRequest { url: url.to_string() })
-            .send()
-            .await
-            .map_err(|e| format!("Hydra API unreachable: {e}"))?;
-        let status = response.status();
-        if !status.is_success() {
-            let body = response.text().await.unwrap_or_default();
-            return Err(format!("Hydra API returned HTTP {}: {}", status.as_u16(), body));
-        }
-        response
-            .json::<HydraDownloadSourceResponse>()
-            .await
-            .map_err(|e| format!("Failed to parse Hydra API response: {e}"))
     }
 
     async fn fetch_source_json(&self, url: &str) -> Result<GameSource, String> {
@@ -1038,212 +486,9 @@ impl SourceManager {
             .map_err(|e| format!("Source JSON parse failed: {e}"))
     }
 
-    async fn hydra_sync_sources(
-        &self,
-        ids: &[String],
-    ) -> Result<Vec<HydraDownloadSourceResponse>, String> {
-        let endpoint = "/download-sources/sync".to_string();
-        let response = self
-            .client
-            .post(&endpoint)
-            .json(&SyncDownloadSourcesRequest { ids: ids.to_vec() })
-            .send()
-            .await
-            .map_err(|e| format!("Hydra API unreachable: {e}"))?;
-        let status = response.status();
-        if status.as_u16() == 404 {
-            return Ok(Vec::new());
-        }
-        if !status.is_success() {
-            let body = response.text().await.unwrap_or_default();
-            return Err(format!(
-                "Hydra API returned HTTP {}: {}",
-                status.as_u16(),
-                body
-            ));
-        }
-        response
-            .json::<Vec<HydraDownloadSourceResponse>>()
-            .await
-            .map_err(|e| format!("Failed to parse Hydra sync response: {e}"))
-    }
-
-    async fn fetch_repacks_by_appid(
-        &self,
-        steam_app_id: u32,
-        hydra_source_ids: &[String],
-    ) -> Result<Vec<HydraRepack>, String> {
-        let url = format!("/games/steam/{}/download-sources", steam_app_id);
-        let mut query_params = vec![("take".to_string(), "100".to_string()), ("skip".to_string(), "0".to_string())];
-        for id in hydra_source_ids {
-            query_params.push(("downloadSourceIds[]".to_string(), id.clone()));
-        }
-        let response = self
-            .client
-            .get(&url)
-            .query(&query_params)
-            .send()
-            .await
-            .map_err(|e| format!("Failed to send query to Hydra API: {e}"))?;
-        let status = response.status();
-        if !status.is_success() {
-            let body = response.text().await.unwrap_or_default();
-            return Err(format!(
-                "Hydra API returned HTTP {}: {}",
-                status.as_u16(),
-                body
-            ));
-        }
-        response
-            .json::<Vec<HydraRepack>>()
-            .await
-            .map_err(|e| format!("Failed to parse Hydra repacks response: {e}"))
-    }
-
-    async fn search_catalogue_by_title(
-        &self,
-        title: &str,
-        hydra_source_ids: &[String],
-    ) -> Result<Vec<HydraRepack>, String> {
-        let search_url = "/catalogue/search".to_string();
-        let mut search_req = CatalogueSearchRequest {
-            title: title.to_string(),
-            take: 10,
-            skip: 0,
-            download_source_fingerprints: Vec::new(),
-        };
-        let search_resp = self
-            .client
-            .post(&search_url)
-            .json(&search_req)
-            .send()
-            .await
-            .map_err(|e| format!("Catalogue search request failed: {e}"))?;
-
-        let status = search_resp.status();
-        let mut search_result = if status.is_success() {
-            search_resp
-                .json::<HydraSearchResponse>()
-                .await
-                .map_err(|e| format!("Failed to parse search response: {e}"))?
-        } else {
-            HydraSearchResponse { edges: Vec::new() }
-        };
-
-        if search_result.edges.is_empty() {
-            let cleaned = clean_search_title(title);
-            if cleaned != title {
-                search_req.title = cleaned;
-                if let Ok(resp) = self.client.post(&search_url).json(&search_req).send().await {
-                    if resp.status().is_success() {
-                        if let Ok(res) = resp.json::<HydraSearchResponse>().await {
-                            search_result = res;
-                        }
-                    }
-                }
-            }
-        }
-        if search_result.edges.is_empty() {
-            return Ok(Vec::new());
-        }
-
-        let trimmed_title = title.trim();
-        let best_match = search_result.edges.iter().max_by(|a, b| {
-            let a_exact = a.title.eq_ignore_ascii_case(trimmed_title);
-            let b_exact = b.title.eq_ignore_ascii_case(trimmed_title);
-            if a_exact != b_exact {
-                return if a_exact {
-                    std::cmp::Ordering::Greater
-                } else {
-                    std::cmp::Ordering::Less
-                };
-            }
-            let score_a = title_similarity(trimmed_title, &a.title);
-            let score_b = title_similarity(trimmed_title, &b.title);
-            score_a
-                .partial_cmp(&score_b)
-                .unwrap_or(std::cmp::Ordering::Equal)
-        });
-        let Some(best_match) = best_match else {
-            return Ok(Vec::new());
-        };
-        if title_similarity(trimmed_title, &best_match.title) < 0.5 {
-            return Ok(Vec::new());
-        }
-
-        let repacks_url = format!(
-            "/games/{}/{}/download-sources",
-            best_match.shop, best_match.object_id
-        );
-        let mut query_params = vec![("take".to_string(), "100".to_string()), ("skip".to_string(), "0".to_string())];
-        for id in hydra_source_ids {
-            query_params.push(("downloadSourceIds[]".to_string(), id.clone()));
-        }
-        let repacks_resp = self
-            .client
-            .get(&repacks_url)
-            .query(&query_params)
-            .send()
-            .await
-            .map_err(|e| format!("Failed to get repacks from Hydra API: {e}"))?;
-        let repacks_status = repacks_resp.status();
-        if !repacks_status.is_success() {
-            let body = repacks_resp.text().await.unwrap_or_default();
-            return Err(format!(
-                "Hydra API returned HTTP {} on repacks: {}",
-                repacks_status.as_u16(),
-                body
-            ));
-        }
-        repacks_resp
-            .json::<Vec<HydraRepack>>()
-            .await
-            .map_err(|e| format!("Failed to parse repacks response: {e}"))
-    }
 }
 
 // ─── Helpers ────────────────────────────────────────────────────────────────
-
-fn cache_hydra_response(
-    db: &Db,
-    local_source_id: String,
-    hydra_resp: &HydraDownloadSourceResponse,
-    game_source_opt: Option<GameSource>,
-    fetched_at: u64,
-) -> Result<(), String> {
-    let game_source = game_source_opt.unwrap_or_else(|| GameSource {
-        name: hydra_resp.name.clone(),
-        downloads: Vec::new(),
-    });
-    db::sources::commit_cached_source(db, &local_source_id, &hydra_resp.id, &game_source, fetched_at)?;
-    // When the raw JSON was unreachable the cached downloads are
-    // empty (game_count was set to 0 by commit_cached_source), but
-    // Hydra's download_count is still authoritative. Patch the
-    // source's game_count so the UI shows the real tally.
-    if game_source.downloads.is_empty() && hydra_resp.download_count > 0 {
-        db::sources::update_game_count(db, &local_source_id, hydra_resp.download_count)?;
-    }
-    Ok(())
-}
-
-fn clean_search_title(title: &str) -> String {
-    let mut cleaned = title
-        .replace('®', "")
-        .replace('™', "")
-        .replace('©', "");
-    if let Some(pos) = cleaned.find(':') {
-        let first_part = cleaned[..pos].trim();
-        if first_part.len() >= 3 {
-            cleaned = first_part.to_string();
-        }
-    } else if let Some(pos) = cleaned.find('-') {
-        let first_part = cleaned[..pos].trim();
-        if first_part.len() >= 3 {
-            cleaned = first_part.to_string();
-        }
-    }
-    cleaned.trim().to_string()
-}
 
 static SOURCE_ID_COUNTER: AtomicU64 = AtomicU64::new(0);
 
@@ -1425,7 +670,7 @@ pub(crate) fn title_similarity(raw_query: &str, title: &str) -> f32 {
 /// Count `tr=` parameter occurrences in a magnet URI.
 /// Case-insensitive on the parameter name — magnet URI parameter
 /// names are nominally case-sensitive per RFC 6230, but real-world
-/// sources (older Hydra caches, drive-stak dumps) occasionally
+/// sources (older caches, drive-stak dumps) occasionally
 /// emit `TR=` or `Tr=`. Both `is_bare_magnet` and
 /// `is_tracker_bearing_magnet` route through this so a lowered
 /// comparison matches the same source bytes.
@@ -1482,7 +727,7 @@ pub(crate) fn merge_magnet_into_uris(uris: &mut Vec<String>, magnet: Option<&Str
 ///
 /// The DownloadModal's default mirror pick is
 /// `match.uris[selectedMirrorIdx]` where `selectedMirrorIdx = 0`.
-/// Many sources (Hydra repacks especially) return a bare
+/// Many sources return a bare
 /// `magnet:?xt=…&dn=…` URI alongside a sibling `.torrent` URL that
 /// already carries an embedded announce-list. Without promotion,
 /// the modal's default picks the bare magnet and
@@ -1542,12 +787,10 @@ pub(crate) fn promote_best_uri_to_front(uris: &mut Vec<String>) {
 }
 
 /// Compound helper for callers that don't need to keep the merge
-/// and promotion steps separate. Both `source_manager::search_online`
-/// (online / Hydra) and `db::sources::search` (offline / FTS5) call
-/// this so the rule set stays in one place — apply a fix once and
-/// both paths pick it up. Callers SHOULD re-derive their `match.magnet`
-/// from the new `uris` after this returns to avoid pointing at a
-/// magnet that just got demoted from position 0.
+/// and promotion steps separate. `db::sources::search` (FTS5) calls
+/// this so the rule set stays in one place. Callers SHOULD re-derive
+/// their `match.magnet` from the new `uris` after this returns to
+/// avoid pointing at a magnet that just got demoted from position 0.
 pub(crate) fn merge_and_pick_best(uris: &mut Vec<String>, magnet: Option<&String>) {
     merge_magnet_into_uris(uris, magnet);
     promote_best_uri_to_front(uris);
@@ -1625,10 +868,3 @@ pub async fn sources_search_game(
     state.search_online(&query, None).await
 }
 
-#[tauri::command]
-pub async fn fetch_hydra_featured(
-    state: tauri::State<'_, Arc<SourceManager>>,
-    category: String,
-) -> Result<Vec<StoreGameSummary>, String> {
-    state.fetch_hydra_featured(&category).await
-}

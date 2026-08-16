@@ -1,7 +1,6 @@
 //! Local (crack / emulator) achievement discovery + parsing.
 //!
-//! A Windows-only Rust port of Hydra Launcher's
-//! `find-achievement-files.ts` + `parse-achievement-file.ts`. Cracked /
+//! Discovers and parses local achievement files. Cracked /
 //! repacked games ship achievement emulators (Goldberg, CODEX, RUNE,
 //! OnlineFix, RLD!, Skidrow, CreamAPI, SmartSteamEmu, EMPRESS,
 //! Razor1911, 3DM, …) that write local achievement state files under
@@ -11,7 +10,7 @@
 //!
 //! This module locates those files for a given appid and parses them
 //! into `UnlockedAchievement { name, unlock_time }`. `unlock_time` is
-//! kept in **milliseconds** here (matching Hydra's parsers verbatim);
+//! kept in **milliseconds** here;
 //! callers convert to seconds when merging into the Steam-shaped
 //! `Achievement` model.
 
@@ -369,7 +368,7 @@ pub fn parse_achievement_file(file: &AchievementFile) -> Vec<UnlockedAchievement
 
 type IniObject = HashMap<String, Vec<(String, String)>>;
 
-/// INI parser matching Hydra's behaviour: strips a leading BOM, skips
+/// INI parser: strips a leading BOM, skips
 /// blank / `###` lines, tracks `[section]` headers, and splits each
 /// `k=v` on the first `=`. Section entries preserve order so index-based
 /// lookups (Skidrow) stay stable.
@@ -408,8 +407,7 @@ fn section<'a>(obj: &'a IniObject, name: &str) -> Option<&'a Vec<(String, String
     obj.get(name)
 }
 
-/// Parse a hex string as a little-endian u32 (matches Hydra's
-/// `DataView(...).getUint32(0, true)` over `Buffer.from(hex, "hex")`).
+/// Parse a hex string as a little-endian u32.
 fn hex_le_u32(s: &str) -> u32 {
     let bytes: Vec<u8> = (0..s.len())
         .step_by(2)

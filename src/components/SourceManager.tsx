@@ -51,7 +51,7 @@ export default function SourceManager() {
   const [newUrl, setNewUrl] = useState("");
   const [newName, setNewName] = useState("");
   const [bulkText, setBulkText] = useState("");
-  // `adding` is true while the Hydra API call is in flight.
+  // `adding` is true while the add call is in flight.
   const [adding, setAdding] = useState(false);
   const [refreshingAll, setRefreshingAll] = useState(false);
   // Track which row is currently refreshing so we can show the
@@ -79,10 +79,9 @@ export default function SourceManager() {
       showToast(t("sourceManager.urlMustStartHttp"), "error");
       return;
     }
-    // The Rust command POSTs the URL to the Hydra API
-    // `/download-sources` endpoint, which fetches + parses the
-    // source JSON and returns the full download data. We disable
-    // the form while the API call is in flight.
+    // The Rust command fetches + parses the source JSON and returns
+    // the full download data. We disable the form while the call is in
+    // flight.
     setAdding(true);
     try {
       await addSource(url, newName);

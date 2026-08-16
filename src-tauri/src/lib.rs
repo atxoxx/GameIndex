@@ -2274,101 +2274,6 @@ async fn fetch_external_reviews(
     game_scraper::fetch_external_reviews(&game_name, &source).await
 }
 
-/// Fetch a page of community reviews from the Hydra launcher's public API
-/// for a Steam appid. Read-only: listing reviews/replies is public, but
-/// voting/posting requires a Hydra account, which GameLib does not have.
-/// `sort_by` — "newest" (default) | "oldest" | "score_high" | "score_low" | "most_voted".
-#[tauri::command]
-async fn fetch_hydra_reviews(
-    steam_app_id: u64,
-    take: Option<u32>,
-    skip: Option<u32>,
-    sort_by: Option<String>,
-) -> Result<game_scraper::HydraReviewsResult, String> {
-    game_scraper::fetch_hydra_reviews(
-        steam_app_id,
-        take.unwrap_or(20),
-        skip.unwrap_or(0),
-        sort_by.as_deref().unwrap_or("newest"),
-    )
-    .await
-}
-
-/// Fetch a page of replies ("answers") for one Hydra community review.
-#[tauri::command]
-async fn fetch_hydra_review_replies(
-    steam_app_id: u64,
-    review_id: String,
-    take: Option<u32>,
-    skip: Option<u32>,
-) -> Result<game_scraper::HydraAnswersResult, String> {
-    game_scraper::fetch_hydra_review_replies(
-        steam_app_id,
-        &review_id,
-        take.unwrap_or(10),
-        skip.unwrap_or(0),
-    )
-    .await
-}
-
-/// In-memory TTL cache for Hydra community game stats, mirroring
-/// `PlayerCountCache`: one entry per Steam appid, refreshed at most
-/// once per `HYDRA_STATS_CACHE_TTL`. Failures are cached as `None`
-/// so a 404-ing appid doesn't hammer the Hydra API on every 60s poll.
-struct HydraStatsCache {
-    cache: std::sync::Mutex<HashMap<u64, (Option<game_scraper::HydraGameStats>, Instant)>>,
-}
-
-impl Default for HydraStatsCache {
-    fn default() -> Self {
-        Self {
-            cache: std::sync::Mutex::new(HashMap::new()),
-        }
-    }
-}
-
-/// Keep in lockstep with the frontend polling interval in
-/// `src/hooks/useHydraGameStats.ts` (60s) so the UI never re-fetches
-/// before the backend cache has expired anyway.
-const HYDRA_STATS_CACHE_TTL: Duration = Duration::from_secs(60);
-
-/// Fetch Hydra community stats (active players, community downloads,
-/// average review score) for a Steam appid, with a 60s per-appid cache.
-///
-/// Returns `Ok(None)` when Hydra has no data for the appid (or the API
-/// errored) so the frontend badge hides silently.
-#[tauri::command]
-async fn get_hydra_game_stats(
-    app: tauri::AppHandle,
-    app_id: u64,
-) -> Result<Option<game_scraper::HydraGameStats>, String> {
-    let state: tauri::State<'_, HydraStatsCache> = app.state();
-
-    {
-        let cache = state.cache.lock().map_err(|e| e.to_string())?;
-        if let Some((stats, fetched_at)) = cache.get(&app_id) {
-            if fetched_at.elapsed() < HYDRA_STATS_CACHE_TTL {
-                return Ok(stats.clone());
-            }
-        }
-    }
-
-    let stats = match game_scraper::fetch_hydra_game_stats(app_id).await {
-        Ok(stats) => Some(stats),
-        Err(err) => {
-            eprintln!("[hydra-stats] appid {}: {}", app_id, err);
-            None
-        }
-    };
-
-    {
-        let mut cache = state.cache.lock().map_err(|e| e.to_string())?;
-        cache.insert(app_id, (stats.clone(), Instant::now()));
-    }
-
-    Ok(stats)
-}
-
 /// Fetch the rich "About" payload for a game. Prefers Steam's
 /// `about_the_game` (HTML with embedded GIFs/images) + `movies[]`
 /// (Steam CDN .webm/.mp4 trailers); falls back to IGDB's
@@ -2389,7 +2294,7 @@ async fn get_about_section(
 
 /// Read the user's chosen UI display language. Returns `None` when unset
 /// (the frontend treats that as the `en` default). The same `language`
-/// kv key is read by the achievements / Hydra sync paths via
+/// kv key is read by the achievements sync paths via
 /// `resolve_language`, so this is the single source of truth.
 #[tauri::command]
 fn get_language(app: tauri::AppHandle) -> Option<String> {
@@ -2398,7 +2303,7 @@ fn get_language(app: tauri::AppHandle) -> Option<String> {
 }
 
 /// Persist the user's chosen UI display language (e.g. "en", "fr",
-/// "zh-CN"). Shared with the achievements / Hydra sync paths.
+/// "zh-CN"). Shared with the achievements sync paths.
 #[tauri::command]
 fn set_language(app: tauri::AppHandle, language: String) -> Result<(), String> {
     let db_state: tauri::State<'_, db::Db> = app.state();
@@ -4034,7 +3939,7 @@ pub fn run() {
             tauri_plugin_autostart::MacosLauncher::LaunchAgent,
             Some(vec![]),
         ))
-        .invoke_handler(tauri::generate_handler![scan_folder_for_exes, launch_game, force_close_game, save_games, save_game, load_games, close_splashscreen, update_game_last_played, read_cover_image, search_game_metadata, get_igdb_game_by_id, fetch_game_images, download_image, search_launchbox_images, detect_gpus, list_media_files, save_screenshot, save_text_file, load_sessions, get_sessions, delete_session, delete_sessions_for_game, insert_session, get_system_ram_gb, get_system_info, set_metrics_config, detect_game_size, check_paths_exist, open_folder, disk_usage, move_game_install, uninstall_game, measure_path_size, detect_steam_screenshot_folders, detect_system_screenshot_folders, save_store_cache, load_store_cache, fetch_store_games, search_store_games,            get_store_game_detail, get_collection_games,            fetch_game_reviews, fetch_external_reviews, fetch_hydra_reviews, fetch_hydra_review_replies,             get_hydra_game_stats, get_about_section, get_recommended_config,
+        .invoke_handler(tauri::generate_handler![scan_folder_for_exes, launch_game, force_close_game, save_games, save_game, load_games, close_splashscreen, update_game_last_played, read_cover_image, search_game_metadata, get_igdb_game_by_id, fetch_game_images, download_image, search_launchbox_images, detect_gpus, list_media_files, save_screenshot, save_text_file, load_sessions, get_sessions, delete_session, delete_sessions_for_game, insert_session, get_system_ram_gb, get_system_info, set_metrics_config, detect_game_size, check_paths_exist, open_folder, disk_usage, move_game_install, uninstall_game, measure_path_size, detect_steam_screenshot_folders, detect_system_screenshot_folders, save_store_cache, load_store_cache, fetch_store_games, search_store_games,            get_store_game_detail, get_collection_games,            fetch_game_reviews, fetch_external_reviews, get_about_section, get_recommended_config,
             get_language, set_language, get_about_bundle,             save_wishlist, load_wishlist, get_last_session_for_game, save_source_cache, load_source_cache, deals::fetch_gamepass_catalog, deals::fetch_isthereanydeal_deals, deals::fetch_giveaways, deals::open_deal_url, deals::fetch_playtester_games, deals::fetch_playtester_game_detail,            steam_sync_games,
             steam_connect, steam_logout, steam_get_session,
             steam_launch_options,
@@ -4062,7 +3967,6 @@ pub fn run() {
             source_manager::sources_refresh,
             source_manager::sources_refresh_all,
             source_manager::sources_search_game,
-            source_manager::fetch_hydra_featured,
             plugins::plugins_list,
             plugins::plugins_import_file,
             plugins::plugins_install,
@@ -4435,7 +4339,6 @@ pub fn run() {
             // few hundred, and skipping the cleanup avoids dropping
             // a user's just-fetched count behind their back.
             app.manage(PlayerCountCache::default());
-            app.manage(HydraStatsCache::default());
 
             // Steam game-stats cache (appdetails + appreviews, used by
             // the player-count popover). Same growth model as

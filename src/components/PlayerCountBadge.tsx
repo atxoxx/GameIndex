@@ -8,10 +8,7 @@ import { useLanguage } from "../context/LanguageContext";
  * PlayerCountBadge
  * ────────────────
  * "X playing" glass pill showing the live Steam player count
- * (`get_steam_player_count`). Supersedes the side-by-side
- * `<SteamPlayerCount>` + `<HydraPlayerCount>` pair on every banner.
- * (Hydra integration is disabled pending approval; re-enable by
- * restoring the hydra hook + popover props.)
+ * (`get_steam_player_count`).
  *
  * Visuals: the familiar pill with one pulsing green dot for Steam.
  *
@@ -27,8 +24,7 @@ import { useLanguage } from "../context/LanguageContext";
  *    zero/no players — a "0 playing" badge is noise.
  */
 export interface PlayerCountBadgeProps {
-  /** Steam appid (Hydra keys its catalog on Steam appids too). When
-   *  undefined the badge is hidden. */
+  /** Steam appid. When undefined the badge is hidden. */
   appId?: number;
   /** Extra className merged onto the root pill element for per-banner
    *  positioning (e.g. "hero-player-count" for absolute top-right). */

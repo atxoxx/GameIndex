@@ -7,7 +7,7 @@ const DEBOUNCE_MS = 250;
 /**
  * Debounced live search suggestions for the store search bar. Returns up
  * to `limit` IGDB matches (cover + name + release year) so the bar can
- * show a Hydra-style dropdown as the user types. Only fires when
+ * show a live dropdown as the user types. Only fires when
  * `enabled` (the search field is focused / active) and the query is at
  * least 2 characters, minimizing IGDB traffic.
  */

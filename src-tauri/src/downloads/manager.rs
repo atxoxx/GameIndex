@@ -1,4 +1,4 @@
-//! Hydra-style download manager: a single ACTIVE download at a time,
+//! Download manager: a single ACTIVE download at a time,
 //! everything else waits in a persistent queue. When the active
 //! download completes (or errors, or is paused/removed), the next
 //! queued item starts automatically.

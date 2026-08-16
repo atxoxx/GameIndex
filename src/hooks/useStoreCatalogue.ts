@@ -151,7 +151,7 @@ export interface StoreCatalogue {
  *
  * Previously this logic lived inline in `StorePage.tsx` (800+ lines).
  * Extracting it keeps the page component a thin view and makes the
- * (now Hydra-style, tab-less) browse state easy to reason about and
+ * (tab-less) browse state easy to reason about and
  * test. The hook reuses `useStoreGames` for data fetching/pagination and
  * the deferred `useSourceAvailabilityCache` for the source filter.
  */

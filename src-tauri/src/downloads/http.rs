@@ -1,5 +1,4 @@
-//! Resumable direct-HTTP downloader (Hydra `JsHttpDownloader`
-//! equivalent).
+//! Resumable direct-HTTP downloader.
 //!
 //! Behaviour:
 //!  * hoster resolution before streaming (`hosters::resolve`),
@@ -626,7 +625,7 @@ async fn attempt_download(
     };
 
     let status = resp.status();
-    // ── Response validation (Hydra-style preflight, applied to the
+    // ── Response validation (preflight, applied to the
     // real transfer response so no extra round-trip is needed) ──
     if status != StatusCode::OK && status != StatusCode::PARTIAL_CONTENT {
         let code = status.as_u16();

@@ -47,7 +47,6 @@ Unify your Steam, GOG, Epic, Rockstar, Ubisoft, and DRM-free libraries into a si
 | **Emulators & ROMs** | Integrated emulator manager: launch emulator executables, catalog multi-system platforms, and manage ROMs with bulk actions. |
 | **Mod Manager** | Dual-pane mod manager for Steam Workshop & Nexus Mods with bulk multi-select (enable/disable/delete), stat cards, and mod size tracking. |
 | **IGDB Storefront** | IGDB-powered catalog browsing (search, filters, rails, price badges, comparisons). |
-| **Hydra Features (pending)** | Hydra-powered community reviews, community stats, and download-source format — currently disabled pending the Hydra team's approval; added back if the usage is approved. |
 | **Activity Tracking** | FPS, frametime, and per-session metrics via MSI Afterburner / RTSS, with interactive timeline, Gantt, performance, and sparkline views. |
 | **Downloads** | Unified download engine with single-active queueing, seeding, HTTP direct, debrid (Real-Debrid / AllDebrid), and torrents via `librqbit`. |
 | **Storage Manager** | Visualize disk usage, move installs between drives, track emulator & mod footprints, and bulk-recalculate sizes. |
@@ -173,7 +172,7 @@ Unify your Steam, GOG, Epic, Rockstar, Ubisoft, and DRM-free libraries into a si
 
 GameIndex is built *with* — not just inspired by — excellent projects in the launcher space:
 
-- **[Hydra Launcher](https://hydralauncher.gg)** — the clean, modern approach to game distribution. GameIndex borrows from Hydra's download-source format and storefront design (storefront search & catalog powered by IGDB). Hydra API-powered features (community reviews, community stats, download-source registration) are currently disabled pending the Hydra team's approval; they will be added back if the usage is approved.
+- **[Hydra Launcher](https://hydralauncher.gg)** — the clean, modern approach to game distribution.
 - **[Playnite](https://playnite.com)** — the extensible, library-aggregation philosophy and customization depth.
 - **[LaunchBox](https://www.launchbox-app.com)** — rich metadata, media, and emulation-focused cataloging.
 - **[Steam](https://store.steampowered.com)** + **[GOG Galaxy](https://www.gog.com/galaxy)** — unified-library UX patterns.
@@ -284,7 +283,7 @@ Track progress, ideas, and priorities in [`todo.md`](./todo.md). Highlights:
 - ✅ Downloads engine rewrite (single-active queue, seeding, direct & debrid torrents)
 - ✅ Storage manager + emulator & mod footprint breakdown
 - ✅ News page with RSS feeds
-- ✅ Hydra-backed storefront, community reviews & stats (currently disabled, pending Hydra team approval)
+- ✅ IGDB-powered storefront (search, filters, rails, price badges, comparisons)
 - ✅ Community & Friends social layer
 - ✅ Big Picture Mode (controller-first 10-foot UI with rail navigation)
 - ✅ Emulators manager & ROM library tools
@@ -339,8 +338,7 @@ See the full text in the [`LICENSE`](./LICENSE) file.
 
 - The Tauri, React, and Rust communities for the excellent tooling.
 - IGDB, HowLongToBeat, Steam, GOG, Epic, and IsThereAnyDeal for the data.
-- [Hydra Launcher](https://hydralauncher.gg) for design inspiration and the download-source format.
-- Playnite and LaunchBox for the inspiration.
+- [Hydra Launcher](https://hydralauncher.gg), Playnite, and LaunchBox for the inspiration.
 
 <div align="center">
 <sub>Built with ☕ and a lot of music.</sub>

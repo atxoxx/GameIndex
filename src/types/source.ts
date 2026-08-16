@@ -4,7 +4,7 @@
 //
 // A "source" is a JSON file hosted on a third-party URL that lists
 // available downloads for various games. The most common shape is
-// the Hydra format — `{ name, downloads: [{ title, fileSize, uris }] }`.
+// `{ name, downloads: [{ title, fileSize, uris }] }`.
 // The frontend doesn't validate the JSON shape directly; that's
 // done by the Rust deserializer. We just consume the parsed result.
 
@@ -46,8 +46,6 @@ export interface GameSource {
  */
 export interface SourceLink {
   id: string;
-  /** ID assigned by the Hydra API — used as the key for sync/refresh calls. */
-  hydraSourceId: string;
   url: string;
   name: string;
   enabled: boolean;

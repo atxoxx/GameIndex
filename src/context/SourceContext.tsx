@@ -38,9 +38,8 @@ interface SourceContextValue {
   sources: SourceLink[];
   /** True until the initial `sources_list` resolves. */
   loading: boolean;
-  /** Add a new source via the Hydra API. POSTs the URL to Hydra's
-   *  `/download-sources` endpoint, which fetches + parses the source
-   *  JSON and returns the full download data. */
+  /** Add a new source. Fetches + parses the source JSON and returns
+   *  the new `SourceLink`. */
   addSource: (url: string, name: string) => Promise<SourceLink>;
   /** Add many sources at once (one URL per line). Returns a summary
    *  of which links were added, skipped (duplicates), or failed. */
@@ -49,7 +48,7 @@ interface SourceContextValue {
   toggleSource: (id: string) => Promise<void>;
   refreshSource: (id: string) => Promise<void>;
   refreshAllSources: () => Promise<void>;
-  /** Fuzzy-match `query` against every enabled source's cache, checking Hydra online when possible. */
+  /** Fuzzy-match `query` against every enabled source's cache. */
   searchSources: (query: string, steamAppId?: number) => Promise<MatchedDownload[]>;
   /** Combined search: source matches (score-sorted, as `searchSources`) followed by
    *  plugin-provided results pre-sorted newest-first. Plugin order is authoritative —
@@ -110,10 +109,9 @@ export function SourceProvider({ children }: { children: ReactNode }) {
     async (url: string, name: string): Promise<SourceLink> => {
       const created = await invoke<SourceLink>("sources_add", { url, name });
       // Re-pull the full list so the freshly-added row reflects the
-      // authoritative persisted state (name, last_fetched, and the
-      // correct game_count — which may come from Hydra's tally when the
-      // raw source JSON was unreachable). Appending `created` alone can
-      // leave the UI displaying a stale or mismatched count.
+      // authoritative persisted state (name, last_fetched, game_count).
+      // Appending `created` alone can leave the UI displaying a stale or
+      // mismatched count.
       try {
         const list = await invoke<SourceLink[]>("sources_list");
         if (Array.isArray(list)) setSources(list);

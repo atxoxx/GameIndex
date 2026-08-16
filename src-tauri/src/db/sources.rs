@@ -63,11 +63,10 @@ pub fn upsert_source(db: &Db, source: &SourceLink) -> Result<(), String> {
     .map_err(|e| format!("sources dedupe: {e}"))?;
     // 2. Normal insert-or-update on the primary key.
     tx.execute(
-        "INSERT INTO sources(id, hydra_source_id, url, name, enabled,
+        "INSERT INTO sources(id, url, name, enabled,
                               last_fetched, game_count, added_at)
-         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)
+         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)
          ON CONFLICT(id) DO UPDATE SET
-            hydra_source_id = excluded.hydra_source_id,
             url             = excluded.url,
             name            = excluded.name,
             enabled         = excluded.enabled,
@@ -75,7 +74,6 @@ pub fn upsert_source(db: &Db, source: &SourceLink) -> Result<(), String> {
             game_count      = excluded.game_count",
         params![
             source.id,
-            source.hydra_source_id,
             source.url,
             source.name,
             source.enabled as i32,
@@ -109,26 +107,12 @@ pub fn remove_source(db: &Db, id: &str) -> Result<(), String> {
     Ok(())
 }
 
-/// Override a source's `game_count` without touching the rest of the
-/// row. Used when Hydra returns a `download_count` but the raw source
-/// JSON was unreachable (HTTP 403, Cloudflare, etc.) — the UI should
-/// still show the correct tally from Hydra rather than "0 games".
-pub fn update_game_count(db: &Db, id: &str, count: usize) -> Result<(), String> {
-    let conn = db.sources().map_err(|e| format!("sources conn: {e}"))?;
-    conn.execute(
-        "UPDATE sources SET game_count = ?1 WHERE id = ?2",
-        params![count as i64, id],
-    )
-    .map_err(|e| format!("sources game_count update: {e}"))?;
-    Ok(())
-}
-
 /// Return every source (metadata only).
 pub fn list_sources(db: &Db) -> Result<Vec<SourceLink>, String> {
     let conn = db.sources().map_err(|e| format!("sources conn: {e}"))?;
     let mut stmt = conn
         .prepare(
-            "SELECT id, hydra_source_id, url, name, enabled,
+            "SELECT id, url, name, enabled,
                     last_fetched, game_count
                FROM sources
               ORDER BY name COLLATE NOCASE",
@@ -138,12 +122,11 @@ pub fn list_sources(db: &Db) -> Result<Vec<SourceLink>, String> {
         .query_map([], |r| {
             Ok(SourceLink {
                 id: r.get(0)?,
-                hydra_source_id: r.get(1)?,
-                url: r.get(2)?,
-                name: r.get(3)?,
-                enabled: r.get::<_, i64>(4)? != 0,
-                last_fetched: r.get::<_, Option<u64>>(5)?,
-                game_count: r.get::<_, i64>(6)? as usize,
+                url: r.get(1)?,
+                name: r.get(2)?,
+                enabled: r.get::<_, i64>(3)? != 0,
+                last_fetched: r.get::<_, Option<u64>>(4)?,
+                game_count: r.get::<_, i64>(5)? as usize,
             })
         })
         .map_err(|e| format!("sources list query: {e}"))?;
@@ -164,7 +147,6 @@ pub fn list_sources(db: &Db) -> Result<Vec<SourceLink>, String> {
 pub fn commit_cached_source(
     db: &Db,
     source_id: &str,
-    hydra_source_id: &str,
     game_source: &GameSource,
     fetched_at: u64,
 ) -> Result<usize, String> {
@@ -175,13 +157,12 @@ pub fn commit_cached_source(
     let tx = conn.transaction().map_err(|e| format!("sources cache tx: {e}"))?;
 
     tx.execute(
-        "INSERT INTO sources_cache(source_id, hydra_source_id, fetched_at, payload_json)
-         VALUES (?1, ?2, ?3, ?4)
+        "INSERT INTO sources_cache(source_id, fetched_at, payload_json)
+         VALUES (?1, ?2, ?3)
          ON CONFLICT(source_id) DO UPDATE SET
-            hydra_source_id = excluded.hydra_source_id,
             fetched_at      = excluded.fetched_at,
             payload_json    = excluded.payload_json",
-        params![source_id, hydra_source_id, fetched_at, payload_json],
+        params![source_id, fetched_at, payload_json],
     )
     .map_err(|e| format!("sources_cache upsert: {e}"))?;
 
@@ -234,7 +215,7 @@ pub fn read_cached_source(db: &Db, source_id: &str) -> Result<Option<CachedSourc
     let conn = db.sources().map_err(|e| format!("sources conn: {e}"))?;
     let mut stmt = conn
         .prepare(
-            "SELECT source_id, hydra_source_id, fetched_at, payload_json
+            "SELECT source_id, fetched_at, payload_json
                FROM sources_cache WHERE source_id = ?1",
         )
         .map_err(|e| format!("sources_cache read prepare: {e}"))?;
@@ -245,14 +226,12 @@ pub fn read_cached_source(db: &Db, source_id: &str) -> Result<Option<CachedSourc
         return Ok(None);
     };
     let source_id: String = row.get(0).map_err(|e| format!("col 0: {e}"))?;
-    let hydra_source_id: String = row.get(1).map_err(|e| format!("col 1: {e}"))?;
-    let fetched_at: u64 = row.get(2).map_err(|e| format!("col 2: {e}"))?;
-    let payload: String = row.get(3).map_err(|e| format!("col 3: {e}"))?;
+    let fetched_at: u64 = row.get(1).map_err(|e| format!("col 1: {e}"))?;
+    let payload: String = row.get(2).map_err(|e| format!("col 2: {e}"))?;
     let data: GameSource =
         serde_json::from_str(&payload).map_err(|e| format!("parse GameSource: {e}"))?;
     Ok(Some(CachedSource {
         source_id,
-        hydra_source_id,
         data,
         fetched_at,
     }))
@@ -363,9 +342,7 @@ pub fn search(db: &Db, query: &str, limit: usize) -> Result<Vec<MatchedDownload>
                 })
                 .unwrap_or(false);
             let mut uris: Vec<String> = serde_json::from_str(&uris_json).unwrap_or_default();
-            // Combined merge + best-URI promotion. Same code path as
-            // the online (`source_manager::search_online`) search;
-            // `merge_and_pick_best` keeps both routes in sync.
+            // Combined merge + best-URI promotion via `merge_and_pick_best`.
             merge_and_pick_best(&mut uris, magnet.as_ref());
             // Recompute the resolved magnet AFTER the promotion so
             // it tracks the new uris[0] (a `.torrent` URL after a

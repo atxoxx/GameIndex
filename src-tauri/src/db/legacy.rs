@@ -276,7 +276,6 @@ fn import_sources(
     let mut meta_errors: usize = 0;
     for s in &sources {
         let id = s.get("id").and_then(|v| v.as_str()).unwrap_or("").to_string();
-        let hydra = s.get("hydraSourceId").and_then(|v| v.as_str()).unwrap_or("").to_string();
         let url = s.get("url").and_then(|v| v.as_str()).unwrap_or("").to_string();
         let name = s.get("name").and_then(|v| v.as_str()).unwrap_or("").to_string();
         let enabled = s.get("enabled").and_then(|v| v.as_bool()).unwrap_or(true);
@@ -290,7 +289,6 @@ fn import_sources(
         }
         let link = crate::source_manager::SourceLink {
             id: id.clone(),
-            hydra_source_id: hydra,
             url,
             name,
             enabled,
@@ -364,11 +362,6 @@ fn import_sources(
                 continue;
             }
         };
-        let hydra = parsed
-            .get("hydraSourceId")
-            .and_then(|v| v.as_str())
-            .unwrap_or("")
-            .to_string();
         let fetched_at = parsed
             .get("fetchedAt")
             .and_then(|v| v.as_u64())
@@ -382,7 +375,7 @@ fn import_sources(
                 name: String::new(),
                 downloads: Vec::new(),
             });
-        match sources::commit_cached_source(db, id, &hydra, &game_source, fetched_at) {
+        match sources::commit_cached_source(db, id, &game_source, fetched_at) {
             Ok(_) => imported_count += 1,
             Err(e) => {
                 if first_err.is_none() {

@@ -13,7 +13,7 @@ function Skeleton({ height = 16, width = "100%" }: { height?: number; width?: nu
   );
 }
 
-/** Pure presentational card, mirroring Hydra's `CrackWatchSection`.
+/** Pure presentational card.
  *
  *  Receives the already-fetched `data` and an `isLoading` flag. While
  *  `isLoading` (and no data yet) it renders a skeleton; when `data` is

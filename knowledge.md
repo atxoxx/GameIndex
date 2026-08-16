@@ -22,7 +22,7 @@ This file gives Codebuff context about your project: goals, commands, convention
   - `HomePage` (`/home`) — dashboard landing view.
   - `LibraryPage` (`/library`, `/library/:gameId` → `GamePage`) — main library grid + game detail.
   - `GamePage` — rich detail view with hero, metadata, reviews, achievements, screenshots, web links, player count, force-close.
-  - `StorePage` (`/store`) + `StoreGameDetail` (`/store/:gameSlug`) — IGDB & Hydra-backed catalog with rails.
+  - `StorePage` (`/store`) + `StoreGameDetail` (`/store/:gameSlug`) — IGDB-backed catalog with rails.
   - `WishlistPage` (`/wishlist`), `NewsPage` (`/news`), `DealsPage` (`/deals`) — discovery surfaces.
   - `ActivityPage` (`/activity`) — dashboard / Gantt / performance / sessions / sparkline sub-tabs in `src/pages/activity/`.
   - `AchievementsPage` (`/achievements`), `DownloadsPage` (`/downloads`), `StoragePage` (`/storage`).
@@ -78,7 +78,7 @@ Phase 1–4 of a migration that moved every JSON file under `<app_data_dir>` plu
 - **Achievements** — `achievements.rs` pulls Steam achievement lists via the Web API (string-typed `percent` from the API is parsed defensively). Cached in the `achievements` table.
 - **News** — RSS reader. `fetch_url` IPC lets the frontend bypass browser CORS; `news.rs` DAO persists the most recent read per feed.
 - **Deals** — `deals.rs` exposes `fetch_gamepass_catalog`, `fetch_isthereanydeal_deals`, `fetch_giveaways`, `open_deal_url` (opens external via opener plugin).
-- **Crackwatch** — `crackwatch::fetch_crackwatch_status(game_name, app_id?)` scrapes gamestatus.info for crack status (Hydra-style: `CrackWatchService` + 24h KV cache keyed by slug+appid, returns `CrackWatchStatus { isCracked, crackDate, crackGroup, protection }` or `null`). Rendered by `CrackWatchCard` (`CrackWatchSection` presentational + skeleton).
+- **Crackwatch** — `crackwatch::fetch_crackwatch_status(game_name, app_id?)` scrapes gamestatus.info for crack status (24h KV cache keyed by slug+appid, returns `CrackWatchStatus { isCracked, crackDate, crackGroup, protection }` or `null`). Rendered by `CrackWatchCard` (`CrackWatchSection` presentational + skeleton).
 - **Torrents** — `torrent_engine.rs` wraps `librqbit` (see Cargo.toml — `librqbit 8`, `default-tls`, **no** `http-api`). Upload disabled via runtime `SessionOptions`. Cleanup hook (`cleanup_extractions`) registered on the Tauri `RunEvent::Exit`.
 
 ### Emulators & ROMs Management
@@ -93,13 +93,9 @@ Phase 1–4 of a migration that moved every JSON file under `<app_data_dir>` plu
 ### Big Screen Mode
 - **`BigScreenContext`** (`src/context/BigScreenContext.tsx`) toggles a 10-foot TV UI (`BigScreenLayout`) with rail-aware gamepad navigation (`GamepadProvider` + `useFocusable`). Features dedicated Big Screen Deals view (`BigScreenDealsPage`) and system pages (`BigScreenGamePage`, `BigScreenLibrary`, `BigScreenSystem`, `BigScreenStoreGamePage`, `BigScreenGameHub`). Persisted under `gamelib-bigscreen`.
 
-### Storefront Engine & Hydra Ported Features
+### Storefront Engine
 - **Storefront Catalog**: Powered by **IGDB** for catalogue browsing, featured rails, search, genre/platform filtering, and game detail metadata.
-- **Ported Hydra Integrations**: GameIndex ports specific Hydra public APIs:
-  - **Public Source Specification**: Parser and format support for Hydra-compatible community download sources / repacks.
-  - **Community Stats**: Live active players, total download counts, and community star ratings (`useHydraGameStats` + `HydraStatsPopover`).
-  - **Community Reviews**: Full user reviews panel (`HydraReviewsPanel`) supporting community reviews, user replies, upvotes/downvotes, and sorting filters.
-  - `CrackWatchContext`/`PriceContext` batch per-card lookups into single backend round-trips (`fetch_crackwatch_status_batch`, `fetch_price_batch`).
+- `CrackWatchContext`/`PriceContext` batch per-card lookups into single backend round-trips (`fetch_crackwatch_status_batch`, `fetch_price_batch`).
 
 ### Friends & Community
 - `FriendsPage` (`/friends`) + `CommunityPage` (`/community`) are social surfaces backed by local storage (`friendsStorage.ts`, `communityStorage.ts`). Not in the original roadmap — treat as experimental/self-contained.

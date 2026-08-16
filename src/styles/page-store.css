@@ -61,7 +61,7 @@
   background: var(--brand-gradient-strong);
 }
 
-/* ── Hydra-style Store header (prominent search + sort + actions) ── */
+/* ── Store header (prominent search + sort + actions) ── */
 .store-header {
   position: sticky;
   top: 0;

@@ -7,7 +7,7 @@ import type { MatchedDownload } from "../types/source";
 
 /**
  * Cap concurrent `sources_search_game` calls so enabling the source
- * filter doesn't fire 20 parallel Hydra API requests on the first paint.
+ * filter doesn't fire 20 parallel requests on the first paint.
  */
 const MAX_CONCURRENT = 3;
 
@@ -104,9 +104,9 @@ export interface UseSourceAvailabilityCacheResult {
  * enabled* source (`enabled && gameCount > 0`), not just the selected
  * ones, so the sidebar pills can show real per-source match counts.
  *
- * This removes the previous ~20 Hydra-API calls / page bottleneck:
- * source checks now happen only on explicit user action and are served
- * from cache afterwards.
+ * This removes the previous ~20 calls / page bottleneck: source checks
+ * now happen only on explicit user action and are served from cache
+ * afterwards.
  */
 export function useSourceAvailabilityCache(
   games: StoreGameSummary[],

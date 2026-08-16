@@ -1,9 +1,8 @@
 //! Per-hoster URL resolvers for direct HTTP downloads.
 //!
-//! Many "direct" links in Hydra-format sources are actually portal / redirect
+//! Many "direct" links in community sources are actually portal / redirect
 //! pages (or API stubs) that must be resolved into a real file URL before the
-//! bytes can be streamed. This mirrors Hydra's `getXxxDownloadOptions`
-//! resolvers (`src/main/services/hosters/*`): each hoster has a small routine
+//! bytes can be streamed. Each hoster has a small routine
 //! that turns the raw `uri` into a downloadable URL (and, where required, the
 //! `Referer`/`Cookie` headers the hoster expects).
 //!
@@ -91,7 +90,7 @@ pub async fn resolve(url: &str) -> ResolveOutcome {
         }
     } else if host.contains("gofile.io") || host.contains("gofilecdn") {
         // Gofile requires executing its obfuscated `wt.obf.js` to derive a
-        // "website token" (Hydra uses Node's `vm`). Not implemented here
+        // "website token". Not implemented here
         // without a JS runtime — falls through to a direct attempt.
         ResolveOutcome::Passthrough
     } else {

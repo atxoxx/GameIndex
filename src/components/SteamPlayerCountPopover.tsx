@@ -87,7 +87,7 @@ interface SteamPlayerCountPopoverProps {
  * ─────────────────────
  * The Steam sections of the popover (live count, review breakdown,
  * 24h activity sparkline, "View on Steam" footer link), extracted so
- * the combined Steam + Hydra `PlayerCountPopover` can render them as
+ * the `PlayerCountPopover` can render them as
  * its Steam tab without duplicating the fetch/derive logic. Owns its
  * own `useSteamGameStats` call — the hook + Rust cache dedupe repeat
  * fetches, so embedding is free.

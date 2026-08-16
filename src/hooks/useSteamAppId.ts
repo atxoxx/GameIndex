@@ -278,8 +278,8 @@ export function useSteamAppId(game: Game | null | undefined): UseSteamAppIdResul
     }
     // IGDB-enriched games carry the Steam store URL in `websites` —
     // zero-cost resolution, no Steam search round-trip. PERSIST the
-    // finding on the row so every consumer (reviews, Hydra user
-    // reviews, ProtonDB, deep links) reads it straight off
+    // finding on the row so every consumer (reviews, ProtonDB, deep
+    // links) reads it straight off
     // `game.steamAppId` on the next load.
     const fromWebsites = extractSteamAppIdFromWebsites(game.websites);
     if (fromWebsites != null) {

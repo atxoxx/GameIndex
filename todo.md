@@ -344,4 +344,4 @@
 | ⚪ Later | 27 | Theming system v2 | ⚠️ Partial (multiple themes enabled + accent override; no theme editor/import-export yet) |
 | ⚪ Later | 28 | Plugin system v2 | ❌ Not done |
 
-> Note: All major ad-hoc surfaces (**Big Screen Mode**, **Hydra** catalog + community stats/reviews, **Emulators**, **Mods**, **Friends**, **Community**, **i18n**) are now tracked above.
+> Note: All major ad-hoc surfaces (**Big Screen Mode**, **Emulators**, **Mods**, **Friends**, **Community**, **i18n**) are now tracked above.

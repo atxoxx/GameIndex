@@ -78,8 +78,8 @@ interface AchievementContextType {
   /** Fetch achievements for a single game from Steam and update cache. */
   syncGameAchievements: (gameId: string, steamAppId: number) => Promise<void>;
   /**
-   * Sync achievements for a single game from local crack/emulator files
-   * (schema from the Hydra API). Works for non-Steam / cracked games.
+   * Sync achievements for a single game from local crack/emulator files.
+   * Works for non-Steam / cracked games.
    * An optional `steamAppId` override is used when the game row doesn't
    * yet have one persisted.
    */

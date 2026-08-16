@@ -1,6 +1,5 @@
 //! Background watcher for local (crack / emulator) achievements.
 //!
-//! A Rust port of Hydra Launcher's `achievement-watcher-manager.ts`.
 //! On startup it runs a silent **pre-search** to pick up achievements
 //! unlocked while the app was closed, then polls crack/emulator
 //! achievement files for modification-time changes and re-syncs the

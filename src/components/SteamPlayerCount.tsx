@@ -54,8 +54,7 @@ export default function SteamPlayerCount({
   className = "",
 }: SteamPlayerCountProps) {
   // Polling (60s + focus refresh) lives in the shared hook so the
-  // combined Steam + Hydra badge (`PlayerCountBadge`) reuses the
-  // exact same behavior. `null` covers "no data / errored / zero
+  // `PlayerCountBadge` reuses the exact same behavior. `null` covers "no data / errored / zero
   // players" — the badge hides for all of them.
   const count = useSteamPlayerCount(appId);
   const { t } = useLanguage();

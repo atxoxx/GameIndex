@@ -124,7 +124,7 @@ function StoreRail({
             {t("store.rail.failedToLoad", { error: error.length > 200 ? error.slice(0, 200) + "…" : error })}
           </p>
           <button type="button" className="store-rail-retry" onClick={refresh}>
-            {t("hydra.retry")}
+            {t("common.retry")}
           </button>
         </div>
       </section>

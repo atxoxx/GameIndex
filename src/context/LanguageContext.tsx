@@ -1,6 +1,6 @@
 // LanguageContext — owns the active UI display language and exposes the
 // `t()` translator. The chosen language is persisted to the backend kv
-// store under the `language` key (the same key the achievements/Hydra
+// store under the `language` key (the same key the achievements
 // sync paths already read via `resolve_language`), so the preference
 // survives restarts and is shared across features.
 

@@ -1,4 +1,4 @@
-//! Download subsystem (Hydra-style rewrite).
+//! Download subsystem.
 //!
 //! One active download at a time + a persistent queue; torrents on
 //! librqbit with optional seeding after completion; direct/debrid

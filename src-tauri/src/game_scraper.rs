@@ -3605,7 +3605,7 @@ pub async fn fetch_store_games(
 /// `StoreGameSummary`, applying the same cover-size upgrade and website
 /// de-dup used by `fetch_store_games` / `get_collection_games`.
 ///
-/// Kept as a standalone helper so the Hydra-catalogue enrichment path
+/// Kept as a standalone helper so the store enrichment path
 /// (which fetches games by IGDB id) produces bit-for-bit identical
 /// summaries without re-pasting the mapping.
 fn map_igdb_summary(g: IgdbGameSummary) -> StoreGameSummary {
@@ -3681,12 +3681,11 @@ fn map_igdb_summary(g: IgdbGameSummary) -> StoreGameSummary {
 /// Resolve a batch of Steam appids to IGDB game ids via IGDB's
 /// `external_games` endpoint (category 1 = Steam).
 ///
-/// Hydra's `/catalogue/{category}` identifies every game by its Steam
-/// `objectId`. GameIndex's store, however, is IGDB-backed (detail pages,
-/// covers, ratings all key off the IGDB id/slug). This helper is the
-/// bridge: given Steam appids it returns `appid -> igdb_id` so the
-/// catalogue listing can be enriched into `StoreGameSummary`s without
-/// losing any of the existing store behaviour.
+/// The store is IGDB-backed (detail pages, covers, ratings all key off
+/// the IGDB id/slug). This helper is the bridge: given Steam appids it
+/// returns `appid -> igdb_id` so a listing keyed on Steam appids can be
+/// enriched into `StoreGameSummary`s without losing any of the existing
+/// store behaviour.
 pub async fn resolve_steam_to_igdb(
     appids: &[u32],
 ) -> Result<HashMap<u32, u64>, String> {
@@ -3748,58 +3747,6 @@ pub async fn resolve_steam_to_igdb(
         }
     }
     Ok(map)
-}
-
-/// Fetch full `StoreGameSummary` records for a set of IGDB game ids.
-/// Order is NOT preserved — callers re-associate by `id`. Reuses the
-/// exact field set + cover/logo mapping of `fetch_store_games`.
-pub async fn fetch_store_summaries_by_ids(
-    ids: &[u64],
-) -> Result<Vec<StoreGameSummary>, String> {
-    if ids.is_empty() {
-        return Ok(Vec::new());
-    }
-    let token = get_twitch_token().await?;
-    let client = http_client();
-    let client_id = crate::config::get_twitch_client_id();
-
-    let body = format!(
-        "fields name,slug,summary,first_release_date,rating,aggregated_rating,cover.url,artworks.url,genres.name,platforms.name,total_rating_count,hypes,websites.url; where id = ({}); limit 500; offset 0;",
-        ids.iter()
-            .map(|i| i.to_string())
-            .collect::<Vec<_>>()
-            .join(",")
-    );
-
-    let _guard = igdb_acquire().await;
-    let resp = client
-        .post("https://api.igdb.com/v4/games")
-        .header("Client-ID", &client_id)
-        .header("Authorization", format!("Bearer {}", token))
-        .header("Content-Type", "text/plain")
-        .body(body)
-        .send()
-        .await
-        .map_err(|e| format!("IGDB ids request failed: {}", e))?;
-
-    if !resp.status().is_success() {
-        let status = resp.status();
-        let err = resp.text().await.unwrap_or_default();
-        return Err(format!(
-            "IGDB ids request failed with status {}: {}",
-            status.as_u16(),
-            err
-        ));
-    }
-    let text = resp
-        .text()
-        .await
-        .map_err(|e| format!("Failed to read IGDB ids response: {}", e))?;
-
-    let games: Vec<IgdbGameSummary> =
-        serde_json::from_str(&text).map_err(|e| format!("IGDB ids parse error: {}", e))?;
-
-    Ok(games.into_iter().map(map_igdb_summary).collect())
 }
 
 /// Search IGDB games by name (live search with debounce expected from
@@ -4017,7 +3964,7 @@ pub async fn search_store_games(
 ///
 /// Unlike the category rails, this does NOT pick from whatever is
 /// already on screen. It queries IGDB at a random offset so every click
-/// is a fresh surprise, mirroring Hydra Launcher's `getRandomGame()`.
+/// is a fresh surprise.
 pub async fn get_random_store_game() -> Result<StoreGameSummary, String> {
     let token = get_twitch_token().await?;
     let client = http_client();
@@ -4084,10 +4031,10 @@ pub async fn get_store_game_detail(slug: &str) -> Option<GameMetadataResult> {
     let client = http_client();
     let client_id = crate::config::get_twitch_client_id();
 
-    // Hydra-catalogue games that couldn't be pre-enriched land in the
-    // store with their Steam `objectId` used as the slug. If the slug
-    // is a numeric Steam appid, resolve it to an IGDB id via
-    // `external_games` so the detail page still loads.
+    // Games that couldn't be pre-enriched land in the store with their
+    // Steam appid used as the slug. If the slug is a numeric Steam
+    // appid, resolve it to an IGDB id via `external_games` so the detail
+    // page still loads.
     let mut detail_id: Option<u64> = None;
     if let Ok(appid) = slug.parse::<u32>() {
         let eg_body = format!(
@@ -6314,269 +6261,3 @@ offset 0;"#,
 }
 
 
-// ─── Hydra Community Reviews (public read-only API) ───────────────────────────
-//
-// Hydra Launcher (https://github.com/hydralauncher/hydra) runs its own
-// user-review backend. Listing reviews and replies ("answers") is public
-// (no auth); posting/voting requires a Hydra account, so GameLib only
-// implements the read side. Endpoints:
-//   GET /games/steam/{appid}/reviews?take=N&skip=N&sortBy=...
-//   GET /games/steam/{appid}/reviews/{reviewId}/answers?take=N&skip=N
-//
-// Review/answer bodies are TipTap-generated HTML. The frontend renders
-// them with dangerouslySetInnerHTML, so we sanitize EVERY html field
-// (including translations) with ammonia before returning.
-
-#[derive(Debug, Default, Serialize, Deserialize, Clone)]
-#[serde(rename_all = "camelCase")]
-pub struct HydraReviewUser {
-    #[serde(default)]
-    pub id: String,
-    #[serde(default)]
-    pub display_name: String,
-    #[serde(default)]
-    pub profile_image_url: Option<String>,
-}
-
-#[derive(Debug, Serialize, Deserialize, Clone)]
-#[serde(rename_all = "camelCase")]
-pub struct HydraReviewAnswer {
-    pub id: String,
-    #[serde(default)]
-    pub answer_html: String,
-    #[serde(default)]
-    pub created_at: Option<String>,
-    #[serde(default)]
-    pub updated_at: Option<String>,
-    #[serde(default)]
-    pub upvotes: i64,
-    #[serde(default)]
-    pub downvotes: i64,
-    #[serde(default)]
-    pub user: HydraReviewUser,
-    #[serde(default)]
-    pub translations: HashMap<String, String>,
-    #[serde(default)]
-    pub detected_language: Option<String>,
-}
-
-#[derive(Debug, Serialize, Deserialize, Clone)]
-#[serde(rename_all = "camelCase")]
-pub struct HydraReview {
-    pub id: String,
-    #[serde(default)]
-    pub review_html: String,
-    /// 1..=5 star score.
-    #[serde(default)]
-    pub score: u32,
-    #[serde(default)]
-    pub play_time_in_seconds: Option<u64>,
-    #[serde(default)]
-    pub upvotes: i64,
-    #[serde(default)]
-    pub downvotes: i64,
-    /// Total reply count on the server (may exceed `answers.len()`).
-    #[serde(default)]
-    pub answer_count: u64,
-    #[serde(default)]
-    pub created_at: Option<String>,
-    #[serde(default)]
-    pub updated_at: Option<String>,
-    #[serde(default)]
-    pub user: HydraReviewUser,
-    /// First page of replies, eagerly embedded by the server.
-    #[serde(default)]
-    pub answers: Vec<HydraReviewAnswer>,
-    #[serde(default)]
-    pub translations: HashMap<String, String>,
-    #[serde(default)]
-    pub detected_language: Option<String>,
-}
-
-#[derive(Debug, Serialize, Deserialize, Clone)]
-#[serde(rename_all = "camelCase")]
-pub struct HydraReviewsResult {
-    #[serde(default)]
-    pub reviews: Vec<HydraReview>,
-    #[serde(default)]
-    pub total_count: u64,
-}
-
-#[derive(Debug, Serialize, Deserialize, Clone)]
-#[serde(rename_all = "camelCase")]
-pub struct HydraAnswersResult {
-    #[serde(default)]
-    pub answers: Vec<HydraReviewAnswer>,
-    #[serde(default)]
-    pub total_count: u64,
-}
-
-fn sanitize_hydra_html(html: &str) -> String {
-    ammonia::clean(html)
-}
-
-fn sanitize_hydra_answer(answer: &mut HydraReviewAnswer) {
-    answer.answer_html = sanitize_hydra_html(&answer.answer_html);
-    for value in answer.translations.values_mut() {
-        *value = sanitize_hydra_html(value);
-    }
-}
-
-fn sanitize_hydra_review(review: &mut HydraReview) {
-    review.review_html = sanitize_hydra_html(&review.review_html);
-    for value in review.translations.values_mut() {
-        *value = sanitize_hydra_html(value);
-    }
-    for answer in review.answers.iter_mut() {
-        sanitize_hydra_answer(answer);
-    }
-}
-
-/// Fetch a page of Hydra community reviews for a Steam appid.
-/// `sort_by` mirrors Hydra: newest | oldest | score_high | score_low | most_voted.
-/// The API rejects `take < 5`, so we clamp to 5..=50.
-pub async fn fetch_hydra_reviews(
-    app_id: u64,
-    take: u32,
-    skip: u32,
-    sort_by: &str,
-) -> Result<HydraReviewsResult, String> {
-    let client = http_client();
-    let take = take.clamp(5, 50);
-    let sort = match sort_by {
-        "newest" | "oldest" | "score_high" | "score_low" | "most_voted" => sort_by,
-        _ => "newest",
-    };
-
-    let url = format!(
-        "/games/steam/{}/reviews?take={}&skip={}&sortBy={}",
-        app_id, take, skip, sort
-    );
-
-    let resp = client
-        .get(&url)
-        .send()
-        .await
-        .map_err(|e| format!("Hydra reviews request failed: {}", e))?;
-
-    if !resp.status().is_success() {
-        let status = resp.status();
-        let err_text = resp.text().await.unwrap_or_default();
-        return Err(format!(
-            "Hydra reviews failed with status {}: {}",
-            status, err_text
-        ));
-    }
-
-    let mut result: HydraReviewsResult = resp
-        .json()
-        .await
-        .map_err(|e| format!("Hydra reviews parse error: {}", e))?;
-
-    for review in result.reviews.iter_mut() {
-        sanitize_hydra_review(review);
-    }
-
-    Ok(result)
-}
-
-/// Fetch a page of replies ("answers") for a single Hydra review.
-pub async fn fetch_hydra_review_replies(
-    app_id: u64,
-    review_id: &str,
-    take: u32,
-    skip: u32,
-) -> Result<HydraAnswersResult, String> {
-    let client = http_client();
-    let take = take.clamp(1, 50);
-
-    let url = format!(
-        "/games/steam/{}/reviews/{}/answers?take={}&skip={}",
-        app_id,
-        url_encode(review_id),
-        take,
-        skip
-    );
-
-    let resp = client
-        .get(&url)
-        .send()
-        .await
-        .map_err(|e| format!("Hydra replies request failed: {}", e))?;
-
-    if !resp.status().is_success() {
-        let status = resp.status();
-        let err_text = resp.text().await.unwrap_or_default();
-        return Err(format!(
-            "Hydra replies failed with status {}: {}",
-            status, err_text
-        ));
-    }
-
-    let mut result: HydraAnswersResult = resp
-        .json()
-        .await
-        .map_err(|e| format!("Hydra replies parse error: {}", e))?;
-
-    for answer in result.answers.iter_mut() {
-        sanitize_hydra_answer(answer);
-    }
-
-    Ok(result)
-}
-
-// ─── Hydra Community Game Stats (public read-only API) ────────────────────────
-//
-// Aggregate community stats for a game, as tracked by the Hydra launcher
-// backend: currently active Hydra players, total download count across
-// community sources, and the average 1-5 star score from Hydra user
-// reviews. Endpoint (anonymous, no auth):
-//   GET /games/stats?objectId={steamAppId}&shop=steam
-
-/// Aggregate Hydra community stats for a single game.
-#[derive(Debug, Default, Serialize, Deserialize, Clone)]
-#[serde(rename_all = "camelCase")]
-pub struct HydraGameStats {
-    /// Players currently in-game according to Hydra launcher telemetry.
-    #[serde(default)]
-    pub player_count: u64,
-    /// Total community downloads recorded by Hydra.
-    #[serde(default)]
-    pub download_count: u64,
-    /// Average Hydra user-review score, 1..=5 stars (0 when unreviewed).
-    #[serde(default)]
-    pub average_score: f64,
-    /// Number of Hydra user reviews backing `average_score`.
-    #[serde(default)]
-    pub review_count: u64,
-}
-
-/// Fetch Hydra community stats (active players, downloads, review score)
-/// for a Steam appid from Hydra's public API.
-pub async fn fetch_hydra_game_stats(app_id: u64) -> Result<HydraGameStats, String> {
-    let client = http_client();
-
-    let url = format!(
-        "/games/stats?objectId={}&shop=steam",
-        app_id
-    );
-
-    let resp = client
-        .get(&url)
-        .send()
-        .await
-        .map_err(|e| format!("Hydra stats request failed: {}", e))?;
-
-    if !resp.status().is_success() {
-        let status = resp.status();
-        let err_text = resp.text().await.unwrap_or_default();
-        return Err(format!(
-            "Hydra stats failed with status {}: {}",
-            status, err_text
-        ));
-    }
-
-    resp.json()
-        .await
-        .map_err(|e| format!("Hydra stats parse error: {}", e))
-}

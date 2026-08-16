@@ -837,7 +837,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
       // Steam identity for manually added games (local exe / batch):
       // IGDB's `websites` list usually contains the Steam store URL.
       // Extract the appid and PERSIST it on the game row so reviews,
-      // Hydra user reviews, ProtonDB, achievements and deep links all
+      // ProtonDB, achievements and deep links all
       // work without a name-based Steam search. Scan every source's
       // websites (not just the preferred `meta`) — LaunchBox results
       // carry no websites but a sibling IGDB result might.

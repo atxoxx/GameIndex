@@ -5,8 +5,8 @@ import { invoke } from "@tauri-apps/api/core";
  * useSteamPlayerCount
  * ───────────────────
  * Live Steam concurrent-player count for an appid, extracted from the
- * original `<SteamPlayerCount>` badge so the combined Steam + Hydra
- * badge (`PlayerCountBadge`) can share the exact same polling
+ * original `<SteamPlayerCount>` badge so `PlayerCountBadge` can share
+ * the exact same polling
  * behavior:
  *
  *  - Immediate fetch on mount / appId change.

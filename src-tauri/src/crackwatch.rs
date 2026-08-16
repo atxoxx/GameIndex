@@ -5,7 +5,7 @@
 //! Nuxt.js SPA with SSR, so game data is embedded in a
 //! `<script id="__NUXT_DATA__" type="application/json">` payload.
 //!
-//! The service mirrors Hydra's `CrackWatchService` (commit 0954a5b):
+//! The service:
 //! - A dedicated `CrackWatchService` struct owns the HTTP client.
 //! - `get_status_by_title_and_app_id(title, app_id)` is the entry point.
 //! - Results are cached in the SQLite KV store with a 24h TTL, keyed by
@@ -26,8 +26,7 @@ use tauri::Manager;
 
 /// Parsed CrackWatch status from gamestatus.info.
 ///
-/// Mirrors Hydra's `CrackWatchStatus` type (commit 0954a5b): an
-/// `is_cracked` boolean plus the supporting detail fields. `null` detail
+/// An `is_cracked` boolean plus the supporting detail fields. `null` detail
 /// fields mean "unknown" (the field simply isn't shown on the card).
 #[derive(Debug, Serialize, Deserialize, Clone)]
 #[serde(rename_all = "camelCase")]
@@ -51,7 +50,7 @@ struct CachedCrackWatchStatus {
     updated_at: u64,
 }
 
-/// 24-hour cache TTL, mirroring Hydra's `LOCAL_CACHE_EXPIRATION`.
+/// 24-hour cache TTL.
 const CACHE_TTL_MS: u64 = 1000 * 60 * 60 * 24;
 
 /// KV key prefix for cached CrackWatch status.
@@ -224,7 +223,7 @@ fn translate_status(ru: Option<String>) -> Option<String> {
     Some(s)
 }
 
-/// Dedicated CrackWatch service, mirroring Hydra's `CrackWatchServiceClass`.
+/// Dedicated CrackWatch service.
 struct CrackWatchServiceClass {
     client: reqwest::Client,
 }
@@ -401,7 +400,7 @@ fn solve_pow(random_data: &str, difficulty: usize) -> Option<(u64, String)> {
     None
 }
 
-/// Process-wide singleton, mirroring Hydra's `export const CrackWatchService`.
+/// Process-wide singleton.
 static CRACKWATCH_SERVICE: std::sync::OnceLock<CrackWatchServiceClass> = std::sync::OnceLock::new();
 
 fn service() -> &'static CrackWatchServiceClass {
@@ -410,7 +409,7 @@ fn service() -> &'static CrackWatchServiceClass {
 
 /// Fetch CrackWatch status for a game from gamestatus.info.
 ///
-/// Mirrors Hydra's `getCrackWatchStatus` event (commit 0954a5b): the
+/// The
 /// status is cached in the KV store keyed by slug (and app id when
 /// available) with a 24h TTL, so the same game isn't re-scraped on every
 /// page render. A fresh cache hit returns immediately; a miss (or expired
