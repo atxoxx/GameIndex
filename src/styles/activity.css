@@ -119,7 +119,7 @@
   position: absolute;
   bottom: var(--space-sm);
   left: var(--space-sm);
-  background: rgba(0, 200, 83, 0.85);
+  background: color-mix(in srgb, var(--color-success) 85%, transparent);
   backdrop-filter: blur(8px);
   color: #fff;
   font-size: 10px;

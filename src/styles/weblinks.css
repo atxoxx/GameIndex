@@ -233,10 +233,10 @@
 }
 
 .wl-steam-subtab.active:not(.disabled) {
-  color: #fff;
-  background: #66c0f4;
-  border-color: #66c0f4;
-  box-shadow: 0 0 10px rgba(102, 192, 244, 0.4);
+  color: var(--color-accent-contrast);
+  background: var(--brand-steam);
+  border-color: var(--brand-steam);
+  box-shadow: 0 0 10px color-mix(in srgb, var(--brand-steam) 40%, transparent);
 }
 
 .wl-steam-subtab.disabled {

@@ -479,7 +479,7 @@
 
 .dl-search-progress-fill {
   height: 100%;
-  background: linear-gradient(90deg, var(--color-accent), color-mix(in srgb, var(--color-accent) 70%, #60a5fa));
+  background: linear-gradient(90deg, var(--color-accent), color-mix(in srgb, var(--color-accent) 70%, var(--color-accent-2)));
   border-radius: var(--radius-full);
   transition: width 280ms cubic-bezier(0.4, 0, 0.2, 1);
   box-shadow: 0 0 8px color-mix(in srgb, var(--color-accent) 40%, transparent);
@@ -714,9 +714,9 @@
 }
 
 .dl-source-tag--plugin {
-  color: #a29bfe;
-  background: rgba(108, 92, 231, 0.14);
-  border-color: rgba(108, 92, 231, 0.35);
+  color: var(--color-accent-2);
+  background: color-mix(in srgb, var(--color-accent-2) 14%, transparent);
+  border-color: color-mix(in srgb, var(--color-accent-2) 35%, transparent);
 }
 
 .dl-badge {
@@ -1217,7 +1217,7 @@
 }
 
 .dl-switch input:checked + .dl-switch-track .dl-switch-thumb {
-  background: #fff;
+  background: var(--color-accent-contrast);
   transform: translateX(16px);
 }
 
@@ -2575,7 +2575,7 @@
 
 .dl-popover-tab.active .dl-popover-tab-count {
   background: var(--color-accent-hover);
-  color: #fff;
+  color: var(--color-accent-contrast);
 }
 
 .dl-popover-tab-count.pulse {
@@ -2740,7 +2740,7 @@
 }
 
 .dl-popover-footer-link:hover {
-  color: #fff;
+  color: var(--color-text-primary);
 }
 
 .dl-popover-footer-link svg {
@@ -3157,7 +3157,7 @@
   font-weight: var(--font-weight-bold);
   border-radius: var(--radius-full);
   background: var(--color-warning);
-  color: #000;
+  color: var(--color-text-inverse);
 }
 
 .dl-hero-session-tag {
@@ -3640,7 +3640,7 @@
 
 .dl-filters-pill.active .dl-filters-pill-count {
   background: var(--color-accent-hover);
-  color: #fff;
+  color: var(--color-accent-contrast);
 }
 
 .dl-filters-controls-row {

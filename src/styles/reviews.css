@@ -214,7 +214,7 @@
 }
 
 .rv-summary-source-stars {
-  color: #ffb000;
+  color: var(--color-warning);
   display: flex;
 }
 
@@ -922,7 +922,7 @@
   display: inline-flex;
   align-items: center;
   gap: 2px;
-  color: #ffb000;
+  color: var(--color-warning);
 }
 
 .rv-stars svg {

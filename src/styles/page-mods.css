@@ -936,7 +936,7 @@
 
 .mods-toggle-switch input:checked + .mods-toggle-slider:before {
   transform: translateX(16px);
-  background-color: #fff;
+  background-color: var(--color-accent-contrast);
 }
 
 .mods-toggle-switch input:focus-visible + .mods-toggle-slider {
@@ -1694,8 +1694,8 @@
   content: "";
   width: 9px;
   height: 5px;
-  border-left: 2px solid #fff;
-  border-bottom: 2px solid #fff;
+  border-left: 2px solid var(--color-accent-contrast);
+  border-bottom: 2px solid var(--color-accent-contrast);
   transform: rotate(-45deg) translate(1px, -1px);
 }
 

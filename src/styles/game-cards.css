@@ -1286,7 +1286,7 @@
 
 .game-edit-btn-danger:hover {
   background: color-mix(in srgb, var(--color-danger) 12%, transparent);
-  color: #fff;
+  color: var(--color-danger);
   border-color: var(--color-danger);
 }
 

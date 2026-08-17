@@ -273,9 +273,9 @@ export function UpdateModal() {
         style={{
           padding: "12px 14px",
           borderRadius: "8px",
-          background: "rgba(239, 68, 68, 0.12)",
-          border: "1px solid rgba(239, 68, 68, 0.25)",
-          color: "#f87171",
+          background: "color-mix(in srgb, var(--color-danger) 12%, transparent)",
+          border: "1px solid color-mix(in srgb, var(--color-danger) 25%, transparent)",
+          color: "var(--color-danger)",
           fontSize: "14px",
           lineHeight: 1.5,
         }}

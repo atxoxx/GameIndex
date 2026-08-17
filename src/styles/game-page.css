@@ -52,49 +52,8 @@
 }
 
 /* Game Tabs — sticky, glass "segmented pill" bar with icons */
-.game-tabs {
-  display: flex;
-  gap: 4px;
-  align-items: center;
-  position: sticky;
-  top: calc(var(--topnav-height) + var(--space-md));
-  z-index: 50;
-  margin: 0 auto var(--space-xl);
-  padding: 5px;
-  width: fit-content;
-  max-width: 100%;
-  border-radius: var(--radius-full);
-  border: 1px solid var(--color-border-light);
-  background: color-mix(in srgb, var(--color-surface-raised) 85%, transparent);
-  backdrop-filter: blur(20px) saturate(180%);
-  -webkit-backdrop-filter: blur(20px) saturate(180%);
-  box-shadow: var(--shadow-lg), 0 4px 20px rgba(0, 0, 0, 0.2);
-  overflow-x: auto;
-  scrollbar-width: none;
-}
-
 .game-tabs::-webkit-scrollbar {
   display: none;
-}
-
-.game-tab {
-  position: relative;
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  padding: var(--space-sm) var(--space-lg);
-  border: 1px solid transparent;
-  background: transparent;
-  color: var(--color-text-secondary);
-  font-size: var(--font-size-sm);
-  font-weight: var(--font-weight-semibold);
-  letter-spacing: 0.3px;
-  cursor: pointer;
-  border-radius: var(--radius-full);
-  transition: color var(--transition-fast), background var(--transition-fast),
-              border-color var(--transition-fast), transform var(--transition-fast),
-              box-shadow var(--transition-fast);
-  white-space: nowrap;
 }
 
 .game-tab-icon {
@@ -107,25 +66,8 @@
   color: var(--color-accent);
 }
 
-.game-tab:not(.active):hover {
-  color: var(--color-text-primary);
-  background: var(--color-bg-hover);
-  border-color: color-mix(in srgb, var(--color-accent) 40%, transparent);
-  transform: translateY(-1px);
-  box-shadow: 0 2px 10px color-mix(in srgb, var(--color-accent) 20%, transparent);
-}
-
 .game-tab:not(.active):active {
   transform: translateY(0);
-}
-
-.game-tab.active {
-  color: var(--color-accent);
-  font-weight: var(--font-weight-bold);
-  background: color-mix(in srgb, var(--color-accent) 16%, transparent);
-  border-color: color-mix(in srgb, var(--color-accent) 45%, transparent);
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.1),
-              0 2px 14px color-mix(in srgb, var(--color-accent) 30%, transparent);
 }
 
 .game-tab.active .game-tab-icon {
@@ -158,63 +100,11 @@
   }
 }
 
-/* Sliding active-indicator: a single pill that animates between
- * tab positions. The active tab sets --tab-indicator-left /
- * --tab-indicator-width inline; the underline below reads them and
- * transitions. Falls back gracefully (no inline vars => hidden). */
-.game-tabs__indicator {
-  position: absolute;
-  bottom: -1px;
-  left: var(--tab-indicator-left, 0);
-  width: var(--tab-indicator-width, 0);
-  height: 2px;
-  background: var(--color-accent);
-  border-radius: var(--radius-full);
-  box-shadow: 0 0 10px var(--color-accent-glow), 0 0 20px var(--color-accent-glow);
-  transition: left var(--duration-normal) var(--ease-standard),
-              width var(--duration-normal) var(--ease-standard);
-  pointer-events: none;
-}
-
-.game-tab {
-  padding: var(--space-md) var(--space-lg);
-  border: 1px solid transparent;
-  background: transparent;
-  color: var(--color-text-secondary);
-  font-size: var(--font-size-sm);
-  font-weight: var(--font-weight-semibold);
-  letter-spacing: 0.2px;
-  cursor: pointer;
-  position: relative;
-  border-radius: var(--radius-full);
-  transition: color var(--transition-fast), background var(--transition-fast),
-              border-color var(--transition-fast),
-              box-shadow var(--transition-fast);
-}
-
 .game-tab:not(.active):hover {
   color: var(--color-text-primary);
   background: var(--color-bg-hover);
   border-color: color-mix(in srgb, var(--color-accent) 40%, transparent);
   box-shadow: 0 2px 10px color-mix(in srgb, var(--color-accent) 22%, transparent);
-}
-
-.game-tab.active {
-  color: var(--color-accent);
-  border-color: color-mix(in srgb, var(--color-accent) 45%, transparent);
-  background: color-mix(in srgb, var(--color-accent) 12%, transparent);
-  font-weight: var(--font-weight-bold);
-  box-shadow: 0 2px 14px color-mix(in srgb, var(--color-accent) 28%, transparent);
-}
-
-.game-tab-placeholder {
-  text-align: center;
-}
-
-.game-tab-placeholder-text {
-  font-size: var(--font-size-md);
-  color: var(--color-text-muted);
-  padding: var(--space-2xl) 0;
 }
 
 /* Game Content Grid */
@@ -451,7 +341,7 @@
 .game-media-play-btn svg {
   width: 24px;
   height: 24px;
-  color: #fff;
+  color: var(--color-accent-contrast);
   margin-left: 3px;
 }
 
@@ -765,7 +655,7 @@
 }
 
 .context-menu-item.remove-action:hover {
-  background: rgba(255, 82, 82, 0.08);
+  background: color-mix(in srgb, var(--color-danger) 8%, transparent);
 }
 
 .context-menu-item svg {
@@ -1589,12 +1479,12 @@
 }
 
 .image-lightbox__close-btn {
-  background: rgba(255, 60, 60, 0.25);
-  color: #ff8888;
+  background: color-mix(in srgb, var(--color-danger) 25%, transparent);
+  color: var(--color-danger);
 }
 
 .image-lightbox__close-btn:hover {
-  background: rgba(255, 60, 60, 0.45);
+  background: color-mix(in srgb, var(--color-danger) 45%, transparent);
   color: #fff;
 }
 

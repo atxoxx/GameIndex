@@ -337,7 +337,7 @@
 }
 
 .edit-img-remove:hover {
-  background: rgba(255, 82, 82, 0.1) !important;
+  background: color-mix(in srgb, var(--color-danger) 10%, transparent) !important;
   border-color: var(--color-danger) !important;
 }
 
