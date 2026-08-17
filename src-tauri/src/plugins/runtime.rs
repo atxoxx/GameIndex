@@ -215,8 +215,9 @@ fn inject_http_globals<'js>(ctx: &Ctx<'js>, http: &reqwest::blocking::Client) ->
     let http_get_owned = http.clone();
     let http_get = Function::new(
         ctx.clone(),
-        move |ctx: Ctx<'js>, url: String, referer: Opt<String>| -> Result<String, rquickjs::Error> {
-            http_get_text(&http_get_owned, &url, referer.as_deref())
+        move |ctx: Ctx<'js>, url: String, referer: Opt<Option<String>>| -> Result<String, rquickjs::Error> {
+            let ref_str = referer.0.flatten();
+            http_get_text(&http_get_owned, &url, ref_str.as_deref())
                 .map_err(|e| Exception::throw_message(&ctx, &e))
         },
     )
@@ -228,8 +229,9 @@ fn inject_http_globals<'js>(ctx: &Ctx<'js>, http: &reqwest::blocking::Client) ->
     let http_get_xml_owned = http.clone();
     let http_get_xml = Function::new(
         ctx.clone(),
-        move |ctx: Ctx<'js>, url: String, referer: Opt<String>| -> Result<Value<'js>, rquickjs::Error> {
-            let text = http_get_text(&http_get_xml_owned, &url, referer.as_deref())
+        move |ctx: Ctx<'js>, url: String, referer: Opt<Option<String>>| -> Result<Value<'js>, rquickjs::Error> {
+            let ref_str = referer.0.flatten();
+            let text = http_get_text(&http_get_xml_owned, &url, ref_str.as_deref())
                 .map_err(|e| Exception::throw_message(&ctx, &e))?;
             let parsed = parse_torznab_xml(&text)
                 .map_err(|e| Exception::throw_message(&ctx, &e))?;
