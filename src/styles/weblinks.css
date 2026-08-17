@@ -648,7 +648,7 @@
   gap: var(--space-sm);
   padding: var(--space-sm) var(--space-xl);
   background: var(--color-accent);
-  color: #fff;
+  color: var(--color-accent-contrast);
   border: 1px solid var(--color-accent);
   border-radius: var(--radius-md);
   font-size: var(--font-size-sm);
@@ -734,7 +734,7 @@
 
 .wl-mylinks-add-btn.primary {
   background: var(--color-accent);
-  color: #fff;
+  color: var(--color-accent-contrast);
 }
 
 .wl-mylinks-add-btn.primary:hover:not(:disabled) {

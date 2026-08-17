@@ -191,10 +191,10 @@
 }
 
 .ach-kpi-gold {
-  color: #f59e0b;
-  background: color-mix(in srgb, #f59e0b 14%, transparent);
-  border-color: color-mix(in srgb, #f59e0b 35%, transparent);
-  box-shadow: 0 0 12px color-mix(in srgb, #f59e0b 25%, transparent);
+  color: var(--color-warning);
+  background: color-mix(in srgb, var(--color-warning) 14%, transparent);
+  border-color: color-mix(in srgb, var(--color-warning) 35%, transparent);
+  box-shadow: 0 0 12px color-mix(in srgb, var(--color-warning) 25%, transparent);
 }
 
 .ach-kpi-data {
@@ -213,7 +213,7 @@
 }
 
 .ach-val-gold {
-  color: #f59e0b;
+  color: var(--color-warning);
 }
 
 .achievements-summary-label {
@@ -224,7 +224,7 @@
 }
 
 .achievements-summary-perfect {
-  border-color: color-mix(in srgb, #f59e0b 35%, var(--color-border));
+  border-color: color-mix(in srgb, var(--color-warning) 35%, var(--color-border));
 }
 
 /* Analytics Grid (Rarity + Activity) */
@@ -831,12 +831,12 @@
 }
 
 .ach-game-card.is-perfect {
-  border-color: color-mix(in srgb, #f59e0b 45%, var(--color-border));
+  border-color: color-mix(in srgb, var(--color-warning) 45%, var(--color-border));
 }
 
 .ach-game-card.is-perfect:hover {
-  border-color: #f59e0b;
-  box-shadow: 0 8px 24px color-mix(in srgb, #f59e0b 20%, transparent);
+  border-color: var(--color-warning);
+  box-shadow: 0 8px 24px color-mix(in srgb, var(--color-warning) 20%, transparent);
 }
 
 .ach-game-card-cover-wrap {
@@ -885,12 +885,12 @@
   border-radius: var(--radius-full);
   background: color-mix(in srgb, #000 70%, transparent);
   backdrop-filter: blur(8px);
-  border: 1px solid #f59e0b;
-  color: #f59e0b;
+  border: 1px solid var(--color-warning);
+  color: var(--color-warning);
   font-size: 10px;
   font-weight: var(--font-weight-bold);
   z-index: 2;
-  box-shadow: 0 0 12px color-mix(in srgb, #f59e0b 40%, transparent);
+  box-shadow: 0 0 12px color-mix(in srgb, var(--color-warning) 40%, transparent);
 }
 
 .ach-game-card-body {
@@ -1022,11 +1022,11 @@
 }
 
 .achievements-game-row.is-perfect {
-  border-color: color-mix(in srgb, #f59e0b 35%, var(--color-border));
+  border-color: color-mix(in srgb, var(--color-warning) 35%, var(--color-border));
 }
 
 .achievements-game-row.is-perfect:hover {
-  border-color: #f59e0b;
+  border-color: var(--color-warning);
 }
 
 /* Empty search state */

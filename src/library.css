@@ -253,7 +253,7 @@
 
 .lib-hero-btn--primary {
   background: linear-gradient(135deg, var(--color-accent), var(--brand-2, var(--color-accent-hover)));
-  color: var(--color-text-inverse);
+  color: var(--color-accent-contrast);
   border-color: transparent;
   box-shadow: 0 4px 14px color-mix(in srgb, var(--color-accent) 30%, transparent);
 }
@@ -1178,7 +1178,7 @@
   font-size: 9px;
   font-weight: var(--font-weight-bold);
   background: var(--color-accent);
-  color: var(--color-text-inverse);
+  color: var(--color-accent-contrast);
   border-radius: var(--radius-full);
 }
 
@@ -1250,7 +1250,7 @@
 
 .lib-segment-option.active {
   background: linear-gradient(135deg, var(--color-accent), var(--brand-2, var(--color-accent-hover)));
-  color: var(--color-text-inverse);
+  color: var(--color-accent-contrast);
   box-shadow: 0 2px 8px color-mix(in srgb, var(--color-accent) 30%, transparent);
 }
 
@@ -1302,7 +1302,7 @@
 }
 
 .lib-pill.active {
-  color: var(--color-text-inverse);
+  color: var(--color-accent-contrast);
   background: var(--color-accent);
   border-color: var(--color-accent);
   box-shadow: 0 2px 8px color-mix(in srgb, var(--color-accent) 30%, transparent);
@@ -1669,7 +1669,7 @@
 
 .lib-card-badge--running {
   background: color-mix(in srgb, var(--color-success) 90%, transparent);
-  color: var(--color-text-inverse);
+  color: var(--color-accent-contrast);
 }
 
 .lib-card-badge--playtime {
@@ -1692,7 +1692,7 @@
   border: 1px solid color-mix(in srgb, var(--color-accent) 40%, var(--color-text-inverse));
   border-radius: 50%;
   background: linear-gradient(135deg, var(--color-accent), var(--brand-2, var(--color-accent-hover)));
-  color: var(--color-text-inverse);
+  color: var(--color-accent-contrast);
   cursor: pointer;
   box-shadow: inset 0 1px 0 color-mix(in srgb, var(--color-text-inverse) 35%, transparent), 0 4px 16px color-mix(in srgb, var(--color-accent) 45%, transparent);
   opacity: 0;
@@ -2031,7 +2031,7 @@
   padding: 6px 14px;
   font-size: 11px;
   font-weight: var(--font-weight-semibold);
-  color: var(--color-text-inverse);
+  color: var(--color-accent-contrast);
   background: linear-gradient(135deg, var(--color-accent), var(--brand-2, var(--color-accent-hover)));
   border: 1px solid color-mix(in srgb, var(--color-accent) 45%, var(--color-text-inverse));
   border-radius: var(--radius-full);
@@ -2335,7 +2335,7 @@
 .lib-empty-card:hover .lib-empty-card-cta {
   background: var(--color-accent);
   border-color: var(--color-accent);
-  color: var(--color-text-inverse);
+  color: var(--color-accent-contrast);
   transform: translateX(2px);
 }
 
@@ -2398,7 +2398,7 @@
 
 .lib-filtered-empty-reset:hover {
   background: var(--color-accent);
-  color: var(--color-text-inverse);
+  color: var(--color-accent-contrast);
   box-shadow: 0 4px 12px color-mix(in srgb, var(--color-accent) 35%, transparent);
 }
 
@@ -2938,7 +2938,7 @@
   border-radius: var(--radius-full);
   border: none;
   background: var(--brand-gradient);
-  color: #fff;
+  color: var(--color-accent-contrast);
   font-size: var(--font-size-xs);
   font-weight: var(--font-weight-semibold);
   cursor: pointer;
@@ -3001,12 +3001,12 @@
 .lib-hero-filter-pill:hover {
   background: var(--color-bg-tertiary);
   color: var(--color-text-primary);
-  border-color: var(--color-border-hover);
+  border-color: var(--color-border-light);
 }
 
 .lib-hero-filter-pill.active {
   background: var(--color-accent);
-  color: #fff;
+  color: var(--color-accent-contrast);
   border-color: transparent;
   box-shadow: 0 2px 8px var(--color-accent-glow);
 }
@@ -3058,7 +3058,7 @@
 }
 
 .lib-groupby-wrap:hover {
-  border-color: var(--color-border-hover);
+  border-color: var(--color-border-light);
 }
 
 .lib-groupby-label {
@@ -3101,12 +3101,12 @@
 .lib-bulk-toggle-btn:hover {
   background: var(--color-bg-tertiary);
   color: var(--color-text-primary);
-  border-color: var(--color-border-hover);
+  border-color: var(--color-border-light);
 }
 
 .lib-bulk-toggle-btn.active {
   background: var(--color-accent);
-  color: #fff;
+  color: var(--color-accent-contrast);
   border-color: transparent;
   box-shadow: 0 0 10px var(--color-accent-glow);
 }
@@ -3175,7 +3175,7 @@
 
 .lib-bulk-btn:hover:not(:disabled) {
   background: var(--color-bg-tertiary);
-  border-color: var(--color-border-hover);
+  border-color: var(--color-border-light);
 }
 
 .lib-bulk-btn:disabled {
@@ -3247,7 +3247,7 @@
 
 .lib-group-header:hover {
   background: var(--color-bg-tertiary);
-  border-color: var(--color-border-hover);
+  border-color: var(--color-border-light);
   box-shadow: var(--shadow-sm);
 }
 
@@ -3402,7 +3402,7 @@
 
 .lib-card--list:hover {
   background: var(--color-bg-tertiary);
-  border-color: var(--color-border-hover);
+  border-color: var(--color-border-light);
   transform: translateY(-1px);
 }
 
@@ -3504,7 +3504,7 @@
   border-radius: var(--radius-full);
   border: none;
   background: var(--brand-gradient);
-  color: #fff;
+  color: var(--color-accent-contrast);
   font-size: var(--font-size-xs);
   font-weight: var(--font-weight-semibold);
   cursor: pointer;
@@ -3564,7 +3564,7 @@
 .lib-card-select.checked {
   background: var(--color-accent);
   border-color: var(--color-accent);
-  color: #fff;
+  color: var(--color-accent-contrast);
 }
 
 .lib-card-select.checked svg {

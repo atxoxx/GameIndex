@@ -582,7 +582,7 @@ export default function AchievementsTab({ game }: { game: Game }) {
               cy="60"
               r="52"
               strokeWidth="9"
-              stroke={isPerfect ? "#f59e0b" : "var(--color-accent)"}
+              stroke={isPerfect ? "var(--color-warning)" : "var(--color-accent)"}
               strokeDasharray={2 * Math.PI * 52}
               strokeDashoffset={2 * Math.PI * 52 * (1 - pct / 100)}
               strokeLinecap="round"

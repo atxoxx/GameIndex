@@ -539,7 +539,7 @@
   margin-top: var(--space-sm);
   padding: var(--space-sm) var(--space-xl);
   background: var(--brand-gradient-strong);
-  color: #fff;
+  color: var(--color-accent-contrast);
   border: none;
   border-radius: var(--radius-md);
   font-size: var(--font-size-sm);
@@ -1531,7 +1531,7 @@
   flex: 1;
   padding: 6px var(--space-sm);
   background: var(--color-accent);
-  color: #fff;
+  color: var(--color-accent-contrast);
   border: 1px solid var(--color-accent);
   border-radius: var(--radius-sm);
   font-size: var(--font-size-xs);
@@ -1609,7 +1609,7 @@
 
 .sidebar-import-btn:hover {
   border-color: var(--color-accent);
-  color: #fff;
+  color: var(--color-accent-contrast);
   background: var(--brand-gradient-strong);
   box-shadow: 0 4px 15px var(--color-accent-glow), inset 0 1px 0 rgba(255, 255, 255, 0.2);
 }
@@ -1865,7 +1865,7 @@
   padding: 0 5px;
   font-size: 10px;
   font-weight: var(--font-weight-bold);
-  color: #fff;
+  color: var(--color-accent-contrast);
   background: var(--color-accent);
   border-radius: var(--radius-full);
 }
@@ -1915,7 +1915,7 @@
 }
 
 .sidebar-filter-popover-segment.active {
-  color: #fff;
+  color: var(--color-accent-contrast);
   background: var(--color-accent);
   box-shadow: 0 2px 8px var(--color-accent-glow);
 }
@@ -1983,7 +1983,7 @@
 }
 
 .sidebar-filter-popover-chip.active {
-  color: #fff;
+  color: var(--color-accent-contrast);
   background: var(--color-accent);
   border-color: var(--color-accent);
   box-shadow: 0 2px 8px var(--color-accent-glow);

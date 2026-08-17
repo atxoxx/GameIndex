@@ -721,12 +721,13 @@ export function getAchievementRarity(percent: number): AchievementRarity {
   return "ultra_rare";
 }
 
-/** Color codes for rarity tiers. */
+/** Color codes for rarity tiers. Mapped to theme tokens so they adapt
+ *  to light mode and alternate palettes; only neutral grays stay literal. */
 export const RARITY_COLORS: Record<AchievementRarity, string> = {
-  common: "#9ca3af",     // gray
-  uncommon: "#10b981",   // emerald
-  rare: "#3b82f6",       // blue
-  ultra_rare: "#f59e0b", // gold
+  common: "var(--color-text-muted)",
+  uncommon: "var(--color-success)",
+  rare: "var(--color-info)",
+  ultra_rare: "var(--color-warning)",
 };
 
 /** Supported store sources for metadata enrichment. */
@@ -767,11 +768,11 @@ export const PLAY_STATUS_DETAILS: Record<
     color: string;
   }
 > = {
-  backlog: { labelKey: "game.status.backlog", variant: "default", color: "#64748b" },
-  playing: { labelKey: "game.status.playing", variant: "success", color: "#10b981" },
-  completed: { labelKey: "game.status.completed", variant: "info", color: "#3b82f6" },
-  on_hold: { labelKey: "game.status.onHold", variant: "warning", color: "#f59e0b" },
-  abandoned: { labelKey: "game.status.abandoned", variant: "danger", color: "#ef4444" },
+  backlog: { labelKey: "game.status.backlog", variant: "default", color: "var(--color-text-muted)" },
+  playing: { labelKey: "game.status.playing", variant: "success", color: "var(--color-success)" },
+  completed: { labelKey: "game.status.completed", variant: "info", color: "var(--color-info)" },
+  on_hold: { labelKey: "game.status.onHold", variant: "warning", color: "var(--color-warning)" },
+  abandoned: { labelKey: "game.status.abandoned", variant: "danger", color: "var(--color-danger)" },
 };
 
 /** Metadata returned from the backend scraper. */

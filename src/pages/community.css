@@ -922,7 +922,7 @@
 .community-news-pill.active {
   background: var(--color-accent);
   border-color: var(--color-accent);
-  color: #fff;
+  color: var(--color-accent-contrast);
   box-shadow: 0 2px 8px color-mix(in srgb, var(--color-accent) 30%, transparent);
 }
 
@@ -1049,7 +1049,7 @@
   margin-top: var(--space-sm);
   padding: var(--space-xs) var(--space-lg);
   background: var(--color-accent);
-  color: #fff;
+  color: var(--color-accent-contrast);
   border: none;
   border-radius: var(--radius-md);
   font-size: var(--font-size-sm);
@@ -1543,7 +1543,7 @@
   border: none;
   border-radius: var(--radius-sm);
   background: var(--color-accent);
-  color: #fff;
+  color: var(--color-accent-contrast);
   cursor: pointer;
   font-family: inherit;
   font-size: var(--font-size-xs);
@@ -1775,7 +1775,7 @@
 .community-filter-pill.active {
   background: var(--color-accent);
   border-color: var(--color-accent);
-  color: #fff;
+  color: var(--color-accent-contrast);
 }
 
 /* ── Screenshot thumbnail (favorites + video) ────────────────────── */

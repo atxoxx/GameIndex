@@ -97,7 +97,7 @@ export default function GameAchievementCard({
                 style={{
                   width: `${pct}%`,
                   background: isPerfect
-                    ? "linear-gradient(90deg, #f59e0b, #fbbf24)"
+                    ? "linear-gradient(90deg, var(--color-warning), var(--color-stale))"
                     : "linear-gradient(90deg, var(--color-accent), var(--color-accent-hover))",
                 }}
               />

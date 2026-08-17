@@ -43,7 +43,7 @@
   display: grid;
   place-items: center;
   border-radius: var(--radius-lg);
-  color: #fff;
+  color: var(--color-accent-contrast);
   background: var(--color-accent);
   box-shadow: 0 2px 8px color-mix(in srgb, var(--color-accent) 30%, transparent);
 }
@@ -214,7 +214,7 @@
 }
 
 .docs-toc__link--active .docs-toc__num {
-  color: #fff;
+  color: var(--color-accent-contrast);
   background: var(--color-accent);
   border-color: transparent;
   box-shadow: 0 2px 8px color-mix(in srgb, var(--color-accent) 30%, transparent);

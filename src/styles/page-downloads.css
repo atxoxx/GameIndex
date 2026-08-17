@@ -267,9 +267,9 @@ input[type="checkbox"].dl-file-checkbox:focus-visible {
 }
 
 .dl-row-status--fetchingMetadata {
-  background: color-mix(in srgb, var(--color-info, #3b82f6) 20%, transparent);
-  color: var(--color-info, #3b82f6);
-  border: 1px solid color-mix(in srgb, var(--color-info, #3b82f6) 45%, transparent);
+  background: color-mix(in srgb, var(--color-info) 20%, transparent);
+  color: var(--color-info);
+  border: 1px solid color-mix(in srgb, var(--color-info) 45%, transparent);
 }
 
 /* ── Thumbnail ───────────────────────────────────────────────────── */
@@ -532,7 +532,7 @@ input[type="checkbox"].dl-file-checkbox:focus-visible {
 
 .dl-row-btn.play-btn {
   background: var(--color-accent);
-  color: #fff;
+  color: var(--color-accent-contrast);
   border-color: var(--color-accent);
 }
 
@@ -1093,9 +1093,9 @@ input[type="checkbox"].dl-file-checkbox:focus-visible {
 }
 
 .dl-stats-protocol-icon--debrid {
-  background: color-mix(in srgb, var(--color-success) 15%, transparent);
-  color: var(--color-success);
-  border: 1px solid color-mix(in srgb, var(--color-success) 30%, transparent);
+  background: color-mix(in srgb, var(--brand-debrid) 15%, transparent);
+  color: var(--brand-debrid);
+  border: 1px solid color-mix(in srgb, var(--brand-debrid) 30%, transparent);
 }
 
 .dl-stats-protocol-info {
@@ -1473,7 +1473,7 @@ input[type="checkbox"].dl-file-checkbox:focus-visible {
 
 .dl-stats-chip--torrent { background: color-mix(in srgb, var(--color-accent) 15%, transparent); color: var(--color-accent); }
 .dl-stats-chip--direct { background: color-mix(in srgb, var(--color-info) 15%, transparent); color: var(--color-info); }
-.dl-stats-chip--debrid { background: color-mix(in srgb, var(--color-success) 15%, transparent); color: var(--color-success); }
+.dl-stats-chip--debrid { background: color-mix(in srgb, var(--brand-debrid) 15%, transparent); color: var(--brand-debrid); }
 
 .dl-stats-status-pill {
   display: inline-block;
@@ -1551,6 +1551,6 @@ input[type="checkbox"].dl-file-checkbox:focus-visible {
 
 .dl-stats-format-btn.active {
   background: var(--color-accent);
-  color: #fff;
+  color: var(--color-accent-contrast);
   font-weight: var(--font-weight-semibold);
 }

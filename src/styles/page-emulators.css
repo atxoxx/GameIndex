@@ -301,7 +301,7 @@
 }
 
 .emu-cat-pill.is-active {
-  color: #fff;
+  color: var(--color-accent-contrast);
   background: var(--color-accent);
   border-color: var(--color-accent);
 }
@@ -338,7 +338,7 @@
 
 .emu-filter-chip.is-active {
   background: var(--color-accent);
-  color: #fff;
+  color: var(--color-accent-contrast);
 }
 
 /* Sort row */
@@ -1335,7 +1335,7 @@
   height: 44px;
   border-radius: var(--radius-full);
   background: var(--color-accent);
-  color: #fff;
+  color: var(--color-accent-contrast);
   border: none;
   display: grid;
   place-items: center;

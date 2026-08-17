@@ -85,6 +85,7 @@
   --brand-gradient: var(--color-accent);
   --brand-gradient-strong: var(--color-accent);
   --mesh-gradient: none;
+  --brand-debrid: #00f0ff;
 
   /* ── Spacing Scale ────────────────────────────────────────────────
      Base-4 modular scale with a 6px mid-step for fine rhythm. */

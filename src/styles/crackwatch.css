@@ -34,15 +34,15 @@
 
 /* CRACKED / UNCRACKED badges. */
 .cw-status-pill.cw-cracked {
-  background: color-mix(in srgb, #2ea043 18%, transparent);
-  color: #3fb950;
-  border: 1px solid color-mix(in srgb, #2ea043 45%, transparent);
+  background: color-mix(in srgb, var(--color-success) 18%, transparent);
+  color: var(--color-success);
+  border: 1px solid color-mix(in srgb, var(--color-success) 45%, transparent);
 }
 
 .cw-status-pill.cw-uncracked {
-  background: color-mix(in srgb, #f85149 18%, transparent);
-  color: #f85149;
-  border: 1px solid color-mix(in srgb, #f85149 45%, transparent);
+  background: color-mix(in srgb, var(--color-danger) 18%, transparent);
+  color: var(--color-danger);
+  border: 1px solid color-mix(in srgb, var(--color-danger) 45%, transparent);
 }
 
 .cw-card-body {
@@ -116,10 +116,10 @@
 .pdb-card {
   background: linear-gradient(
     135deg,
-    color-mix(in srgb, #4a9eff 4%, var(--color-surface)),
+    color-mix(in srgb, var(--color-info) 4%, var(--color-surface)),
     var(--color-surface)
   );
-  border-color: color-mix(in srgb, #4a9eff 16%, var(--color-border));
+  border-color: color-mix(in srgb, var(--color-info) 16%, var(--color-border));
 }
 
 .pdb-card-body {
@@ -271,15 +271,15 @@
 }
 
 .store-card-cw-badge.cw-cracked {
-  background: color-mix(in srgb, #10b981 85%, #000 15%);
+  background: color-mix(in srgb, var(--color-success) 85%, #000 15%);
   color: #fff;
-  box-shadow: 0 0 8px color-mix(in srgb, #10b981 40%, transparent);
+  box-shadow: 0 0 8px color-mix(in srgb, var(--color-success) 40%, transparent);
 }
 
 .store-card-cw-badge.cw-uncracked {
-  background: color-mix(in srgb, #ef4444 85%, #000 15%);
+  background: color-mix(in srgb, var(--color-danger) 85%, #000 15%);
   color: #fff;
-  box-shadow: 0 0 8px color-mix(in srgb, #ef4444 40%, transparent);
+  box-shadow: 0 0 8px color-mix(in srgb, var(--color-danger) 40%, transparent);
 }
 
 .store-card-cw-badge svg {

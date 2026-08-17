@@ -1447,7 +1447,7 @@
 
 .news-preview-speed-btn.active {
   background: var(--color-accent);
-  color: #fff;
+  color: var(--color-accent-contrast);
   border-color: var(--color-accent);
 }
 

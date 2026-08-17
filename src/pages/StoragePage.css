@@ -81,10 +81,10 @@
 }
 
 .storage-kpi-card--alert {
-  border-color: color-mix(in srgb, var(--color-danger, #ef4444) 40%, var(--color-border));
+  border-color: color-mix(in srgb, var(--color-danger) 40%, var(--color-border));
   background: linear-gradient(
     135deg,
-    color-mix(in srgb, var(--color-danger, #ef4444) 10%, var(--color-surface)) 0%,
+    color-mix(in srgb, var(--color-danger) 10%, var(--color-surface)) 0%,
     var(--color-surface) 100%
   );
 }
@@ -113,8 +113,8 @@
 }
 
 .storage-kpi-icon--drive {
-  background: color-mix(in srgb, var(--color-info, #3b82f6) 15%, transparent);
-  color: var(--color-info, #3b82f6);
+  background: color-mix(in srgb, var(--color-info) 15%, transparent);
+  color: var(--color-info);
 }
 
 .storage-kpi-icon--game {
@@ -123,13 +123,13 @@
 }
 
 .storage-kpi-icon--health {
-  background: color-mix(in srgb, var(--color-success, #10b981) 15%, transparent);
-  color: var(--color-success, #10b981);
+  background: color-mix(in srgb, var(--color-success) 15%, transparent);
+  color: var(--color-success);
 }
 
 .storage-kpi-icon--stale {
-  background: color-mix(in srgb, var(--color-danger, #ef4444) 15%, transparent);
-  color: var(--color-danger, #ef4444);
+  background: color-mix(in srgb, var(--color-danger) 15%, transparent);
+  color: var(--color-danger);
 }
 
 .storage-kpi-label {
@@ -170,18 +170,18 @@
 }
 
 .storage-kpi-badge--warning {
-  background: color-mix(in srgb, var(--color-warning, #f59e0b) 15%, transparent);
-  color: var(--color-warning, #f59e0b);
+  background: color-mix(in srgb, var(--color-warning) 15%, transparent);
+  color: var(--color-warning);
 }
 
 .storage-kpi-badge--danger {
-  background: color-mix(in srgb, var(--color-danger, #ef4444) 15%, transparent);
-  color: var(--color-danger, #ef4444);
+  background: color-mix(in srgb, var(--color-danger) 15%, transparent);
+  color: var(--color-danger);
 }
 
 .storage-kpi-badge--success {
-  background: color-mix(in srgb, var(--color-success, #10b981) 15%, transparent);
-  color: var(--color-success, #10b981);
+  background: color-mix(in srgb, var(--color-success) 15%, transparent);
+  color: var(--color-success);
 }
 
 /* Coverage Mini Bar inside KPI */
@@ -208,11 +208,11 @@
 }
 
 .storage-coverage-fill--info {
-  background: var(--color-info, #3b82f6);
+  background: var(--color-info);
 }
 
 .storage-coverage-fill--danger {
-  background: var(--color-danger, #ef4444);
+  background: var(--color-danger);
 }
 
 .storage-coverage-label {
@@ -343,7 +343,7 @@
 }
 
 .storage-drive-card--low-space {
-  border-color: color-mix(in srgb, var(--color-danger, #ef4444) 40%, var(--color-border));
+  border-color: color-mix(in srgb, var(--color-danger) 40%, var(--color-border));
 }
 
 .storage-drive-top {
@@ -454,7 +454,7 @@
   display: inline-flex;
   align-items: center;
   gap: 4px;
-  color: var(--color-danger, #ef4444);
+  color: var(--color-danger);
   font-weight: var(--font-weight-medium);
 }
 
@@ -611,7 +611,7 @@
 }
 
 .storage-view-badge--danger {
-  background: var(--color-danger, #ef4444);
+  background: var(--color-danger);
   color: #ffffff;
 }
 
@@ -912,7 +912,7 @@
 }
 
 .storage__row--stale {
-  border-left: 3px solid var(--color-danger, #ef4444);
+  border-left: 3px solid var(--color-danger);
 }
 
 .storage__row--selected {
@@ -1006,8 +1006,8 @@
   border-radius: var(--radius-sm);
   font-size: 10px;
   font-weight: var(--font-weight-semibold);
-  background: color-mix(in srgb, var(--color-danger, #ef4444) 15%, transparent);
-  color: var(--color-danger, #ef4444);
+  background: color-mix(in srgb, var(--color-danger) 15%, transparent);
+  color: var(--color-danger);
 }
 
 .storage__row-footprint-bar {
@@ -1076,7 +1076,7 @@
 }
 
 .storage__row-detected--stale {
-  color: var(--color-danger, #ef4444);
+  color: var(--color-danger);
 }
 
 .storage__row-chevron {
@@ -1167,7 +1167,7 @@
   display: flex;
   align-items: center;
   gap: 6px;
-  color: var(--color-danger, #ef4444);
+  color: var(--color-danger);
   font-size: var(--font-size-xs);
 }
 
@@ -1297,7 +1297,7 @@
 }
 
 .storage-grid-card--stale {
-  border-color: color-mix(in srgb, var(--color-danger, #ef4444) 60%, var(--color-border));
+  border-color: color-mix(in srgb, var(--color-danger) 60%, var(--color-border));
 }
 
 .storage-grid-card--selected {
@@ -1379,7 +1379,7 @@
 }
 
 .storage-grid-badge--stale {
-  background: var(--color-danger, #ef4444);
+  background: var(--color-danger);
   color: #ffffff;
 }
 
@@ -1441,9 +1441,9 @@
 }
 
 .storage-grid-action-btn--danger:hover {
-  background: var(--color-danger, #ef4444);
+  background: var(--color-danger);
   color: #ffffff;
-  border-color: var(--color-danger, #ef4444);
+  border-color: var(--color-danger);
 }
 
 /* Relative gauge bar across bottom of cover */
@@ -1747,13 +1747,13 @@
 }
 
 .storage-cleanup-card-icon--danger {
-  background: color-mix(in srgb, var(--color-danger, #ef4444) 15%, transparent);
-  color: var(--color-danger, #ef4444);
+  background: color-mix(in srgb, var(--color-danger) 15%, transparent);
+  color: var(--color-danger);
 }
 
 .storage-cleanup-card-icon--warning {
-  background: color-mix(in srgb, var(--color-warning, #f59e0b) 15%, transparent);
-  color: var(--color-warning, #f59e0b);
+  background: color-mix(in srgb, var(--color-warning) 15%, transparent);
+  color: var(--color-warning);
 }
 
 .storage-cleanup-card-icon--primary {
@@ -1762,8 +1762,8 @@
 }
 
 .storage-cleanup-card-icon--info {
-  background: color-mix(in srgb, var(--color-info, #3b82f6) 15%, transparent);
-  color: var(--color-info, #3b82f6);
+  background: color-mix(in srgb, var(--color-info) 15%, transparent);
+  color: var(--color-info);
 }
 
 .storage-cleanup-card-title {
@@ -1785,7 +1785,7 @@
   align-items: center;
   justify-content: center;
   padding: var(--space-lg);
-  color: var(--color-success, #10b981);
+  color: var(--color-success);
   gap: var(--space-xs);
   font-size: var(--font-size-xs);
 }
@@ -2447,7 +2447,7 @@
   display: flex;
   align-items: center;
   gap: 6px;
-  color: var(--color-danger, #ef4444);
+  color: var(--color-danger);
   font-size: var(--font-size-xs);
   font-weight: var(--font-weight-medium);
 }

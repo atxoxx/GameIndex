@@ -711,7 +711,7 @@
 }
 
 .game-activity-nav-tab.active {
-  color: #fff;
+  color: var(--color-accent-contrast);
 }
 
 .game-activity-nav-tab:focus-visible {
@@ -932,7 +932,7 @@
 
 .game-activity-seg-btn.active {
   background: var(--color-accent);
-  color: #fff;
+  color: var(--color-accent-contrast);
 }
 
 .game-activity-seg-btn.active:hover {
@@ -1378,7 +1378,7 @@
 
 .game-activity-session-card.active .game-activity-session-badge {
   background: var(--color-accent);
-  color: #fff;
+  color: var(--color-accent-contrast);
   border-color: var(--color-accent);
 }
 

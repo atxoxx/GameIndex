@@ -36,6 +36,6 @@
 .wishlist-empty--brand .wishlist-empty-cta {
   background: var(--color-accent);
   border: none;
-  color: #fff;
+  color: var(--color-accent-contrast);
   box-shadow: 0 2px 8px color-mix(in srgb, var(--color-accent) 30%, transparent);
 }

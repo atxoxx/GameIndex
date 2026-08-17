@@ -82,7 +82,7 @@ export default function SteamPlayerHistoryChart({
     const counts = data.points.map((p) => p.count);
     const lbls = data.points.map((p) => formatLabel(p.timestamp, allTime));
     return {
-      series: [{ data: counts, color: "var(--color-accent, #38bdf8)", label: "Players" }],
+      series: [{ data: counts, color: "var(--color-accent)", label: "Players" }],
       labels: lbls,
     };
   }, [data, allTime]);

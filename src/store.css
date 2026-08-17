@@ -62,7 +62,7 @@
 }
 
 .store-tab.active {
-  color: #fff;
+  color: var(--color-accent-contrast);
   background: var(--color-accent);
   box-shadow: 0 2px 12px color-mix(in srgb, var(--color-accent) 45%, transparent);
 }
@@ -278,7 +278,7 @@
 }
 
 .store-filter-trigger.has-active {
-  color: #fff;
+  color: var(--color-accent-contrast);
   background: var(--color-accent);
   border-color: var(--color-accent);
   box-shadow: 0 2px 12px color-mix(in srgb, var(--color-accent) 45%, transparent);
@@ -365,7 +365,7 @@
 }
 
 .store-filter-rail-toggle.active {
-  color: #fff;
+  color: var(--color-accent-contrast);
   background: var(--color-accent);
   border-color: var(--color-accent);
 }
@@ -529,7 +529,7 @@
   font-size: 9px;
   font-weight: var(--font-weight-bold);
   background: var(--color-accent);
-  color: #fff;
+  color: var(--color-accent-contrast);
   border-radius: var(--radius-full);
 }
 
@@ -575,7 +575,7 @@
 }
 
 .store-filter-pill.active {
-  color: #fff;
+  color: var(--color-accent-contrast);
   background: var(--color-accent);
   border-color: var(--color-accent);
   box-shadow: 0 2px 8px color-mix(in srgb, var(--color-accent) 30%, transparent);
@@ -742,7 +742,7 @@
 
 .store-filter-btn.apply {
   background: var(--color-accent);
-  color: #fff;
+  color: var(--color-accent-contrast);
   border-color: var(--color-accent);
 }
 
@@ -1160,7 +1160,7 @@
   margin-top: var(--space-md);
   padding: var(--space-sm) var(--space-xl);
   background: var(--color-accent);
-  color: #fff;
+  color: var(--color-accent-contrast);
   border: none;
   border-radius: var(--radius-md);
   font-size: var(--font-size-sm);
@@ -1181,7 +1181,7 @@
   gap: var(--space-sm);
   padding: var(--space-md) var(--space-2xl);
   background: var(--game-accent, var(--color-accent));
-  color: #fff;
+  color: var(--color-accent-contrast);
   border: none;
   border-radius: var(--radius-md);
   font-size: var(--font-size-md);
@@ -1789,15 +1789,15 @@
 }
 
 .steam-stats-popover-tone-mid {
-  background: color-mix(in srgb, #f59e0b 18%, transparent);
-  color: #f59e0b;
-  border: 1px solid color-mix(in srgb, #f59e0b 35%, transparent);
+  background: color-mix(in srgb, var(--color-warning) 18%, transparent);
+  color: var(--color-warning);
+  border: 1px solid color-mix(in srgb, var(--color-warning) 35%, transparent);
 }
 
 .steam-stats-popover-tone-bad {
-  background: color-mix(in srgb, #ef4444 18%, transparent);
-  color: #ef4444;
-  border: 1px solid color-mix(in srgb, #ef4444 35%, transparent);
+  background: color-mix(in srgb, var(--color-danger) 18%, transparent);
+  color: var(--color-danger);
+  border: 1px solid color-mix(in srgb, var(--color-danger) 35%, transparent);
 }
 
 .steam-stats-popover-tone-none {
@@ -1844,13 +1844,13 @@
 }
 
 .steam-stats-popover-tone-mid .steam-stats-popover-reviews-bar-fill {
-  background: linear-gradient(90deg, #fbbf24 0%, #f59e0b 100%);
-  box-shadow: 0 0 8px color-mix(in srgb, #f59e0b 50%, transparent);
+  background: linear-gradient(90deg, var(--color-stale) 0%, var(--color-warning) 100%);
+  box-shadow: 0 0 8px color-mix(in srgb, var(--color-warning) 50%, transparent);
 }
 
 .steam-stats-popover-tone-bad .steam-stats-popover-reviews-bar-fill {
-  background: linear-gradient(90deg, #f87171 0%, #ef4444 100%);
-  box-shadow: 0 0 8px color-mix(in srgb, #ef4444 50%, transparent);
+  background: linear-gradient(90deg, color-mix(in srgb, var(--color-danger) 70%, var(--color-accent)) 0%, var(--color-danger) 100%);
+  box-shadow: 0 0 8px color-mix(in srgb, var(--color-danger) 50%, transparent);
 }
 
 .steam-stats-popover-tone-none .steam-stats-popover-reviews-bar-fill {
@@ -2028,10 +2028,10 @@
 
 .steam-stats-popover-fetch-error {
   font-size: 11px;
-  color: color-mix(in srgb, #ef4444 85%, var(--color-text-primary));
+  color: color-mix(in srgb, var(--color-danger) 85%, var(--color-text-primary));
   text-align: center;
   padding: 8px 0 0;
-  border-top: 1px solid color-mix(in srgb, #ef4444 25%, transparent);
+  border-top: 1px solid color-mix(in srgb, var(--color-danger) 25%, transparent);
   margin-top: 4px;
 }
 
@@ -2299,7 +2299,7 @@
 
 .player-history-range-btn.is-active {
   background: var(--color-accent);
-  color: #fff;
+  color: var(--color-accent-contrast);
   box-shadow: 0 2px 8px color-mix(in srgb, var(--color-accent) 40%, transparent);
 }
 
@@ -2405,7 +2405,7 @@
 }
 
 .steam-history-chart-stat--alltime .steam-history-chart-stat-value {
-  color: var(--color-warning, #f59e0b);
+  color: var(--color-warning);
 }
 
 .steam-history-chart-stat-value {
@@ -2485,7 +2485,7 @@
 
 .store-filter-match-mode-btn.active {
   background: var(--color-accent);
-  color: #fff;
+  color: var(--color-accent-contrast);
   box-shadow: 0 1px 8px color-mix(in srgb, var(--color-accent) 40%, transparent);
 }
 

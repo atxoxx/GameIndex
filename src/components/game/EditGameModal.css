@@ -731,9 +731,9 @@
 }
 
 .edit-preview-status-pill.status-backlog {
-  background: color-mix(in srgb, #3b82f6 16%, transparent);
-  border-color: color-mix(in srgb, #3b82f6 40%, transparent);
-  color: #60a5fa;
+  background: color-mix(in srgb, var(--color-info) 16%, transparent);
+  border-color: color-mix(in srgb, var(--color-info) 40%, transparent);
+  color: color-mix(in srgb, var(--color-info) 65%, #fff);
 }
 
 .edit-preview-status-pill.status-abandoned {
@@ -952,9 +952,9 @@
 }
 
 .edit-launch-icon-primary {
-  background: color-mix(in srgb, #38bdf8 15%, transparent);
-  color: #38bdf8;
-  border-color: color-mix(in srgb, #38bdf8 30%, transparent);
+  background: color-mix(in srgb, var(--color-info) 15%, transparent);
+  color: var(--color-info);
+  border-color: color-mix(in srgb, var(--color-info) 30%, transparent);
 }
 
 .edit-launch-icon-args {
@@ -964,27 +964,27 @@
 }
 
 .edit-launch-icon-admin {
-  background: color-mix(in srgb, #f59e0b 15%, transparent);
-  color: #fbbf24;
-  border-color: color-mix(in srgb, #f59e0b 30%, transparent);
+  background: color-mix(in srgb, var(--color-warning) 15%, transparent);
+  color: var(--color-stale);
+  border-color: color-mix(in srgb, var(--color-warning) 30%, transparent);
 }
 
 .edit-launch-icon-steam {
   background: color-mix(in srgb, #0284c7 18%, transparent);
-  color: #38bdf8;
+  color: var(--color-info);
   border-color: color-mix(in srgb, #0284c7 35%, transparent);
 }
 
 .edit-launch-icon-scripts {
-  background: color-mix(in srgb, #10b981 15%, transparent);
-  color: #34d399;
-  border-color: color-mix(in srgb, #10b981 30%, transparent);
+  background: color-mix(in srgb, var(--color-success) 15%, transparent);
+  color: color-mix(in srgb, var(--color-success) 55%, #fff);
+  border-color: color-mix(in srgb, var(--color-success) 30%, transparent);
 }
 
 .edit-launch-icon-companion {
-  background: color-mix(in srgb, #f43f5e 15%, transparent);
-  color: #fb7185;
-  border-color: color-mix(in srgb, #f43f5e 30%, transparent);
+  background: color-mix(in srgb, var(--color-danger) 15%, transparent);
+  color: color-mix(in srgb, var(--color-danger) 55%, #fff);
+  border-color: color-mix(in srgb, var(--color-danger) 30%, transparent);
 }
 
 .edit-launch-icon-track {
@@ -1367,15 +1367,15 @@
 }
 
 .edit-launch-script-tag.tag-warning {
-  background: color-mix(in srgb, #f59e0b 20%, transparent);
-  color: #fbbf24;
-  border: 1px solid color-mix(in srgb, #f59e0b 35%, transparent);
+  background: color-mix(in srgb, var(--color-warning) 20%, transparent);
+  color: var(--color-stale);
+  border: 1px solid color-mix(in srgb, var(--color-warning) 35%, transparent);
 }
 
 .edit-launch-script-tag.tag-info {
-  background: color-mix(in srgb, #38bdf8 20%, transparent);
-  color: #38bdf8;
-  border: 1px solid color-mix(in srgb, #38bdf8 35%, transparent);
+  background: color-mix(in srgb, var(--color-info) 20%, transparent);
+  color: var(--color-info);
+  border: 1px solid color-mix(in srgb, var(--color-info) 35%, transparent);
 }
 
 .edit-launch-script-hint {
@@ -1421,7 +1421,7 @@
 .edit-launch-script-status {
   font-size: 10px;
   font-weight: var(--font-weight-semibold);
-  color: var(--color-success, #10b981);
+  color: var(--color-success);
   text-transform: uppercase;
   letter-spacing: 0.3px;
 }
@@ -1630,7 +1630,7 @@
 
 .edit-companion-add-btn.primary:hover {
   background: var(--color-accent);
-  color: #ffffff;
+  color: var(--color-accent-contrast);
   border-color: var(--color-accent);
 }
 

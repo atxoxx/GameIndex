@@ -184,7 +184,7 @@
 
 .home-hero__btn--primary {
   background: var(--brand-gradient);
-  color: #fff;
+  color: var(--color-accent-contrast);
   box-shadow: 0 4px 14px color-mix(in srgb, var(--brand-1) 35%, transparent);
 }
 

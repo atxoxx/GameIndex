@@ -196,7 +196,7 @@ export function GameActivityPerformanceView({
               >
                 <LineChart
                   series={[
-                    { data: perfTimelineData.ram, color: "#2ecc71", label: t("activityPerf.ramUsage") }
+                    { data: perfTimelineData.ram, color: "var(--color-success)", label: t("activityPerf.ramUsage") }
                   ]}
                   labels={perfTimelineData.labels}
                   height={180}

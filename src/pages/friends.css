@@ -75,7 +75,7 @@
 
 .friends-tab.active {
   background: var(--color-accent);
-  color: #fff;
+  color: var(--color-accent-contrast);
   box-shadow: 0 2px 10px color-mix(in srgb, var(--color-accent) 35%, transparent);
 }
 
@@ -114,14 +114,14 @@
   height: 18px;
   padding: 0 5px;
   border-radius: var(--radius-full);
-  background: var(--color-error);
+  background: var(--color-danger);
   color: #fff;
   font-size: 10px;
   font-weight: var(--font-weight-bold);
   font-variant-numeric: tabular-nums;
   line-height: 18px;
   text-align: center;
-  box-shadow: 0 0 8px color-mix(in srgb, var(--color-error) 45%, transparent);
+  box-shadow: 0 0 8px color-mix(in srgb, var(--color-danger) 45%, transparent);
 }
 
 .friends-sync-cluster,
@@ -164,7 +164,7 @@
 .btn-sync:hover {
   background: var(--color-bg-hover);
   color: var(--color-text-primary);
-  border-color: var(--color-border-hover);
+  border-color: var(--color-border-light);
 }
 
 .sync-dot,
@@ -242,7 +242,7 @@
 .hero-stat-card:hover,
 .friends-hero-stat-card:hover {
   transform: translateY(-2px);
-  border-color: var(--color-border-hover);
+  border-color: var(--color-border-light);
   box-shadow: var(--shadow-md);
 }
 
@@ -286,13 +286,13 @@
 .hero-stat-card.sessions .hero-stat-icon,
 .friends-hero-stat-icon--sessions {
   background: color-mix(in srgb, #0ea5e9 12%, transparent);
-  color: #38bdf8;
+  color: var(--color-info);
 }
 
 .hero-stat-card.shared .hero-stat-icon,
 .friends-hero-stat-icon--shared {
-  background: color-mix(in srgb, #f59e0b 12%, transparent);
-  color: #fbbf24;
+  background: color-mix(in srgb, var(--color-warning) 12%, transparent);
+  color: var(--color-stale);
 }
 
 .friends-hero-stat-icon--friends {
@@ -424,7 +424,7 @@
 .leaderboard-pill:hover {
   background: var(--color-bg-hover);
   color: var(--color-text-primary);
-  border-color: var(--color-border-hover);
+  border-color: var(--color-border-light);
 }
 
 .filter-pill.active,
@@ -434,7 +434,7 @@
 .activity-chip.active,
 .leaderboard-pill.active {
   background: var(--color-accent);
-  color: #fff;
+  color: var(--color-accent-contrast);
   border-color: var(--color-accent);
   box-shadow: 0 1px 6px color-mix(in srgb, var(--color-accent) 30%, transparent);
 }
@@ -523,7 +523,7 @@
 
 .batch-toggle-btn.active {
   background: var(--color-accent);
-  color: #fff;
+  color: var(--color-accent-contrast);
   border-color: var(--color-accent);
 }
 
@@ -555,7 +555,7 @@
 
 .density-btn.active {
   background: var(--color-accent);
-  color: #fff;
+  color: var(--color-accent-contrast);
 }
 
 /* Playing Now Rail */
@@ -659,7 +659,7 @@
   padding: 4px 8px;
   border-radius: var(--radius-sm);
   background: var(--color-accent);
-  color: #fff;
+  color: var(--color-accent-contrast);
   border: none;
   font-size: 10px;
   font-weight: 700;
@@ -827,14 +827,14 @@
 .friend-card:hover,
 .friend-card-modern:hover {
   transform: translateY(-2px);
-  border-color: var(--color-border-hover);
+  border-color: var(--color-border-light);
   box-shadow: var(--shadow-md);
 }
 
 .friend-card.pinned,
 .friend-card-modern.pinned {
-  border-color: color-mix(in srgb, #f59e0b 50%, var(--color-border));
-  background: color-mix(in srgb, #f59e0b 3%, var(--color-surface));
+  border-color: color-mix(in srgb, var(--color-warning) 50%, var(--color-border));
+  background: color-mix(in srgb, var(--color-warning) 3%, var(--color-surface));
 }
 
 .friend-card-pinned-badge,
@@ -842,12 +842,12 @@
   position: absolute;
   top: 10px;
   right: 40px;
-  color: #f59e0b;
+  color: var(--color-warning);
   font-size: 11px;
 }
 
 .friend-blocked-badge {
-  color: var(--color-error);
+  color: var(--color-danger);
   font-size: 11px;
 }
 
@@ -1171,12 +1171,12 @@
 
 .dropdown-item.danger,
 .friend-menu-item.danger {
-  color: var(--color-error);
+  color: var(--color-danger);
 }
 
 .dropdown-item.danger:hover,
 .friend-menu-item.danger:hover {
-  background: color-mix(in srgb, var(--color-error) 15%, transparent);
+  background: color-mix(in srgb, var(--color-danger) 15%, transparent);
 }
 
 .dropdown-divider {
@@ -1220,7 +1220,7 @@
 }
 
 .activity-timeline-card:hover {
-  border-color: var(--color-border-hover);
+  border-color: var(--color-border-light);
   transform: translateX(2px);
 }
 
@@ -1239,13 +1239,13 @@
 
 .activity-timeline-card.type-playing,
 .type-playing {
-  border-left: 3px solid #10b981;
+  border-left: 3px solid var(--color-success);
 }
 
 .activity-timeline-card.type-playing .activity-card-icon-wrapper,
 .activity-timeline-card.type-playing .activity-type-icon {
-  background: color-mix(in srgb, #10b981 15%, transparent);
-  color: #10b981;
+  background: color-mix(in srgb, var(--color-success) 15%, transparent);
+  color: var(--color-success);
 }
 
 .activity-timeline-card.type-session,
@@ -1261,13 +1261,13 @@
 
 .activity-timeline-card.type-recommendation,
 .type-recommendation {
-  border-left: 3px solid #f59e0b;
+  border-left: 3px solid var(--color-warning);
 }
 
 .activity-timeline-card.type-recommendation .activity-card-icon-wrapper,
 .activity-timeline-card.type-recommendation .activity-type-icon {
-  background: color-mix(in srgb, #f59e0b 15%, transparent);
-  color: #f59e0b;
+  background: color-mix(in srgb, var(--color-warning) 15%, transparent);
+  color: var(--color-warning);
 }
 
 .activity-timeline-card.type-suggestion,
@@ -1543,7 +1543,7 @@
 }
 
 .dm-thread-delete-btn:hover {
-  color: var(--color-error);
+  color: var(--color-danger);
 }
 
 /* Conversation Pane */
@@ -1607,8 +1607,8 @@
 }
 
 .dm-pinned-messages-tray {
-  background: color-mix(in srgb, #f59e0b 10%, var(--color-surface));
-  border-bottom: 1px solid color-mix(in srgb, #f59e0b 30%, transparent);
+  background: color-mix(in srgb, var(--color-warning) 10%, var(--color-surface));
+  border-bottom: 1px solid color-mix(in srgb, var(--color-warning) 30%, transparent);
   padding: 6px 14px;
   display: flex;
   align-items: center;
@@ -1621,7 +1621,7 @@
   align-items: center;
   gap: 4px;
   font-weight: 700;
-  color: #f59e0b;
+  color: var(--color-warning);
 }
 
 .dm-pinned-message-item {
@@ -1712,7 +1712,7 @@
 
 .dm-message-bubble-row.mine .dm-message-bubble {
   background: var(--color-accent);
-  color: #fff;
+  color: var(--color-accent-contrast);
   border-bottom-right-radius: 2px;
 }
 
@@ -1778,7 +1778,7 @@
 }
 
 .dm-msg-action-btn.danger:hover {
-  color: var(--color-error);
+  color: var(--color-danger);
 }
 
 .dm-composer-bar {
@@ -1849,12 +1849,12 @@
 
 .session-card:hover {
   transform: translateY(-2px);
-  border-color: var(--color-border-hover);
+  border-color: var(--color-border-light);
   box-shadow: var(--shadow-md);
 }
 
 .session-card.session-conflict {
-  border-color: #f59e0b;
+  border-color: var(--color-warning);
 }
 
 /* Session Card Header */
@@ -2006,8 +2006,8 @@
 }
 
 .session-delete-btn:hover {
-  color: var(--color-error);
-  background: color-mix(in srgb, var(--color-error) 12%, transparent);
+  color: var(--color-danger);
+  background: color-mix(in srgb, var(--color-danger) 12%, transparent);
 }
 
 /* Session Body */
@@ -2034,9 +2034,9 @@
 .session-conflict-banner {
   padding: 6px 10px;
   border-radius: var(--radius-sm);
-  background: color-mix(in srgb, #f59e0b 15%, transparent);
-  border: 1px solid #f59e0b;
-  color: #f59e0b;
+  background: color-mix(in srgb, var(--color-warning) 15%, transparent);
+  border: 1px solid var(--color-warning);
+  color: var(--color-warning);
   font-size: 11px;
   font-weight: 600;
 }
@@ -2105,15 +2105,15 @@
 }
 
 .rsvp-mini-chip.maybe {
-  background: color-mix(in srgb, #f59e0b 16%, transparent);
-  color: #f59e0b;
-  border: 1px solid color-mix(in srgb, #f59e0b 40%, transparent);
+  background: color-mix(in srgb, var(--color-warning) 16%, transparent);
+  color: var(--color-warning);
+  border: 1px solid color-mix(in srgb, var(--color-warning) 40%, transparent);
 }
 
 .rsvp-mini-chip.declined {
-  background: color-mix(in srgb, var(--color-error) 16%, transparent);
-  color: var(--color-error);
-  border: 1px solid color-mix(in srgb, var(--color-error) 40%, transparent);
+  background: color-mix(in srgb, var(--color-danger) 16%, transparent);
+  color: var(--color-danger);
+  border: 1px solid color-mix(in srgb, var(--color-danger) 40%, transparent);
 }
 
 .session-creator-tag {
@@ -2185,9 +2185,9 @@
 
 .roster-role.role-host,
 .role-host {
-  color: #f59e0b;
-  background: color-mix(in srgb, #f59e0b 15%, transparent);
-  border: 1px solid color-mix(in srgb, #f59e0b 40%, transparent);
+  color: var(--color-warning);
+  background: color-mix(in srgb, var(--color-warning) 15%, transparent);
+  border: 1px solid color-mix(in srgb, var(--color-warning) 40%, transparent);
 }
 
 .roster-role.role-cohost,
@@ -2219,9 +2219,9 @@
 }
 
 .roster-role-select.role-host {
-  color: #f59e0b;
-  border-color: #f59e0b;
-  background: color-mix(in srgb, #f59e0b 10%, var(--color-surface));
+  color: var(--color-warning);
+  border-color: var(--color-warning);
+  background: color-mix(in srgb, var(--color-warning) 10%, var(--color-surface));
 }
 
 .roster-role-select.role-cohost {
@@ -2250,15 +2250,15 @@
 }
 
 .roster-rsvp-badge.rsvp-maybe {
-  background: color-mix(in srgb, #f59e0b 16%, transparent);
-  color: #f59e0b;
-  border: 1px solid color-mix(in srgb, #f59e0b 40%, transparent);
+  background: color-mix(in srgb, var(--color-warning) 16%, transparent);
+  color: var(--color-warning);
+  border: 1px solid color-mix(in srgb, var(--color-warning) 40%, transparent);
 }
 
 .roster-rsvp-badge.rsvp-declined {
-  background: color-mix(in srgb, var(--color-error) 16%, transparent);
-  color: var(--color-error);
-  border: 1px solid color-mix(in srgb, var(--color-error) 40%, transparent);
+  background: color-mix(in srgb, var(--color-danger) 16%, transparent);
+  color: var(--color-danger);
+  border: 1px solid color-mix(in srgb, var(--color-danger) 40%, transparent);
 }
 
 .roster-rsvp-badge.rsvp-invited {
@@ -2294,8 +2294,8 @@
 }
 
 .roster-remove:hover {
-  color: var(--color-error);
-  background: color-mix(in srgb, var(--color-error) 15%, transparent);
+  color: var(--color-danger);
+  background: color-mix(in srgb, var(--color-danger) 15%, transparent);
 }
 
 .session-attendees-chips {
@@ -2324,13 +2324,13 @@
 }
 
 .attendee-badge.maybe {
-  border-color: #f59e0b;
-  color: #f59e0b;
+  border-color: var(--color-warning);
+  color: var(--color-warning);
 }
 
 .attendee-badge.declined {
-  border-color: var(--color-error);
-  color: var(--color-error);
+  border-color: var(--color-danger);
+  color: var(--color-danger);
 }
 
 .session-guest-row,
@@ -2395,17 +2395,17 @@
 }
 
 .rsvp-btn.active.rsvp-maybe {
-  background: #f59e0b;
-  border-color: #f59e0b;
+  background: var(--color-warning);
+  border-color: var(--color-warning);
   color: #fff;
-  box-shadow: 0 1px 6px color-mix(in srgb, #f59e0b 40%, transparent);
+  box-shadow: 0 1px 6px color-mix(in srgb, var(--color-warning) 40%, transparent);
 }
 
 .rsvp-btn.active.rsvp-declined {
-  background: var(--color-error);
-  border-color: var(--color-error);
+  background: var(--color-danger);
+  border-color: var(--color-danger);
   color: #fff;
-  box-shadow: 0 1px 6px color-mix(in srgb, var(--color-error) 40%, transparent);
+  box-shadow: 0 1px 6px color-mix(in srgb, var(--color-danger) 40%, transparent);
 }
 
 .session-chat-toggle {
@@ -2431,7 +2431,7 @@
 .session-chat-toggle.active {
   background: var(--color-accent);
   border-color: var(--color-accent);
-  color: #fff;
+  color: var(--color-accent-contrast);
 }
 
 .session-chat-count {
@@ -2451,8 +2451,8 @@
 }
 
 .session-chat-pinned {
-  background: color-mix(in srgb, #f59e0b 12%, var(--color-surface));
-  border: 1px solid color-mix(in srgb, #f59e0b 35%, transparent);
+  background: color-mix(in srgb, var(--color-warning) 12%, var(--color-surface));
+  border: 1px solid color-mix(in srgb, var(--color-warning) 35%, transparent);
   border-radius: var(--radius-sm);
   padding: 6px 10px;
   display: flex;
@@ -2540,7 +2540,7 @@
 
 .invitee-check-pill.active {
   background: var(--color-accent);
-  color: #fff;
+  color: var(--color-accent-contrast);
   border-color: var(--color-accent);
 }
 
@@ -2706,7 +2706,7 @@
 .rec-card:hover,
 .sug-card:hover {
   transform: translateY(-2px);
-  border-color: var(--color-border-hover);
+  border-color: var(--color-border-light);
   box-shadow: var(--shadow-md);
 }
 
@@ -2808,7 +2808,7 @@
 }
 
 .star-item.filled {
-  color: #f59e0b;
+  color: var(--color-warning);
 }
 
 .rec-card-head-actions,
@@ -2842,9 +2842,9 @@
 
 .rec-want-btn.active,
 .sug-wishlist-btn.active {
-  background: color-mix(in srgb, #f59e0b 15%, transparent);
-  border-color: #f59e0b;
-  color: #f59e0b;
+  background: color-mix(in srgb, var(--color-warning) 15%, transparent);
+  border-color: var(--color-warning);
+  color: var(--color-warning);
 }
 
 .friend-delete-btn,
@@ -2858,7 +2858,7 @@
 
 .friend-delete-btn:hover,
 .friend-delete-btn--inline:hover {
-  color: var(--color-error);
+  color: var(--color-danger);
 }
 
 .rec-reason-box,
@@ -3034,7 +3034,7 @@
 }
 
 .star-select-btn.active {
-  color: #f59e0b;
+  color: var(--color-warning);
 }
 
 /* ── 9. Subtab 7: Library Compare ──────────────────────────────────────────── */
@@ -3104,7 +3104,7 @@
 
 .compare-subtab-btn.active {
   background: var(--color-accent);
-  color: #fff;
+  color: var(--color-accent-contrast);
   border-color: var(--color-accent);
 }
 
@@ -3446,8 +3446,8 @@
 }
 
 .podium-card.rank-gold {
-  border-color: #f59e0b;
-  background: color-mix(in srgb, #f59e0b 6%, var(--color-surface));
+  border-color: var(--color-warning);
+  background: color-mix(in srgb, var(--color-warning) 6%, var(--color-surface));
   min-height: 220px;
 }
 
@@ -3616,7 +3616,7 @@
 
 .rank-badge.rank-1,
 .rank-1 {
-  background: #f59e0b;
+  background: var(--color-warning);
   color: #fff;
 }
 
@@ -3781,9 +3781,9 @@
 }
 
 .race-lead-badge.tied {
-  background: color-mix(in srgb, #f59e0b 15%, transparent);
-  border: 1px solid #f59e0b;
-  color: #f59e0b;
+  background: color-mix(in srgb, var(--color-warning) 15%, transparent);
+  border: 1px solid var(--color-warning);
+  color: var(--color-warning);
 }
 
 .race-tracks-container {
@@ -3871,7 +3871,7 @@
 }
 
 .race-progress-bar-fill.my-fill {
-  background: linear-gradient(90deg, #3b82f6, var(--color-accent));
+  background: linear-gradient(90deg, var(--color-info), var(--color-accent));
 }
 
 .race-progress-bar-fill.friend-fill {
@@ -4007,9 +4007,9 @@
   gap: 6px;
   font-size: 11px;
   font-weight: 600;
-  color: #f59e0b;
+  color: var(--color-warning);
   padding: 4px 12px;
-  background: color-mix(in srgb, #f59e0b 10%, transparent);
+  background: color-mix(in srgb, var(--color-warning) 10%, transparent);
   margin: 0 16px 12px;
   border-radius: var(--radius-full);
 }
@@ -4209,7 +4209,7 @@
 
 .status-preset-btn.active {
   background: var(--color-accent);
-  color: #fff;
+  color: var(--color-accent-contrast);
   border-color: var(--color-accent);
 }
 
@@ -4416,7 +4416,7 @@ textarea.profile-input {
 .friends-modal-subtab.active,
 .add-tab-pill.active {
   background: var(--color-accent);
-  color: #fff;
+  color: var(--color-accent-contrast);
   border-color: var(--color-accent);
 }
 
@@ -4494,7 +4494,7 @@ textarea.profile-input {
   align-items: center;
   gap: 4px;
   font-size: 11px;
-  color: #f59e0b;
+  color: var(--color-warning);
 }
 
 .friend-preview-stats,
@@ -4661,7 +4661,7 @@ textarea.profile-input {
 }
 
 .circle-del-btn:hover {
-  color: var(--color-error);
+  color: var(--color-danger);
 }
 
 .circles-members-panel {
@@ -4767,7 +4767,7 @@ textarea.profile-input {
   height: 38px;
   border-radius: var(--radius-sm);
   background: var(--color-accent);
-  color: #fff;
+  color: var(--color-accent-contrast);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -4812,7 +4812,7 @@ textarea.profile-input {
 .game-picker-pill.active,
 .picker-mode.active {
   background: var(--color-accent);
-  color: #fff;
+  color: var(--color-accent-contrast);
   border-color: var(--color-accent);
 }
 

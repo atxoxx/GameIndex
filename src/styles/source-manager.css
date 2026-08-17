@@ -179,7 +179,7 @@
 
 .src-mode-btn.active {
   background: var(--color-accent);
-  color: #fff;
+  color: var(--color-accent-contrast);
   font-weight: var(--font-weight-semibold);
 }
 

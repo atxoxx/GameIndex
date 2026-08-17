@@ -134,7 +134,7 @@ const DownloadCard = React.memo(({
             <span style={{ marginLeft: "6px", fontSize: "9px", padding: "2px 4px", background: "color-mix(in srgb, var(--color-accent) 15%, transparent)", color: "var(--color-accent)", borderRadius: "3px", fontWeight: "bold" }}>DIRECT</span>
           )}
           {download.kind === "debrid" && (
-            <span style={{ marginLeft: "6px", fontSize: "9px", padding: "2px 4px", background: "rgba(0, 240, 255, 0.15)", color: "#00f0ff", borderRadius: "3px", fontWeight: "bold" }}>DEBRID</span>
+            <span style={{ marginLeft: "6px", fontSize: "9px", padding: "2px 4px", background: "color-mix(in srgb, var(--brand-debrid) 15%, transparent)", color: "var(--brand-debrid)", borderRadius: "3px", fontWeight: "bold" }}>DEBRID</span>
           )}
         </span>
         <span className="dl-progress-card-status">

@@ -1033,7 +1033,7 @@
 
 .calendar-cell.today .calendar-day-num {
   background: var(--color-accent);
-  color: #fff;
+  color: var(--color-accent-contrast);
 }
 
 .calendar-chips {
@@ -1161,7 +1161,7 @@
 
 .game-picker .picker-mode.active {
   background: var(--color-accent);
-  color: #fff;
+  color: var(--color-accent-contrast);
   box-shadow: none;
 }
 

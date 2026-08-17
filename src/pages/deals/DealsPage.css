@@ -477,7 +477,7 @@
 
 .deals-toggle-chip:hover {
   color: var(--color-text-primary);
-  border-color: var(--color-border-hover);
+  border-color: var(--color-border-light);
 }
 
 .deals-toggle-chip.active {

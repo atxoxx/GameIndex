@@ -303,7 +303,7 @@
   font-size: 9px;
   font-weight: var(--font-weight-bold);
   letter-spacing: 0.3px;
-  color: #fff;
+  color: var(--color-accent-contrast);
   background: color-mix(in srgb, var(--color-accent) 88%, #000 12%);
   box-shadow: 0 0 8px color-mix(in srgb, var(--color-accent) 45%, transparent);
   backdrop-filter: blur(6px);
@@ -352,7 +352,7 @@
 }
 
 .store-card-hide:hover {
-  background: color-mix(in srgb, #ef4444 80%, #000);
+  background: color-mix(in srgb, var(--color-danger) 80%, #000);
 }
 
 .store-card-compare:hover {
@@ -384,7 +384,7 @@
 .store-card-select.checked {
   background: var(--color-accent);
   border-color: var(--color-accent);
-  color: #fff;
+  color: var(--color-accent-contrast);
 }
 
 .store-card-select svg {
@@ -410,15 +410,6 @@
   gap: 6px;
   margin-top: 4px;
   font-size: var(--font-size-sm);
-}
-
-.store-card-price-discount {
-  padding: 1px 6px;
-  border-radius: var(--radius-sm);
-  font-size: 10px;
-  font-weight: var(--font-weight-bold);
-  color: #fff;
-  background: #10b981;
 }
 
 .store-card-price-now {
@@ -479,7 +470,7 @@
 }
 
 .store-preset-chip-remove:hover {
-  color: #ef4444;
+  color: var(--color-danger);
 }
 
 .store-preset-chip-remove svg {
@@ -523,7 +514,7 @@
 .store-preset-save-confirm {
   padding: 3px 10px;
   font-size: var(--font-size-sm);
-  color: #fff;
+  color: var(--color-accent-contrast);
   background: var(--color-accent);
   border: none;
   border-radius: var(--radius-sm);
@@ -609,7 +600,7 @@
 }
 
 .store-bulk-action.primary {
-  color: #fff;
+  color: var(--color-accent-contrast);
   background: var(--color-accent);
   border-color: var(--color-accent);
 }
@@ -691,7 +682,7 @@
 .store-compare-open {
   padding: var(--space-xs) var(--space-md);
   font-size: var(--font-size-sm);
-  color: #fff;
+  color: var(--color-accent-contrast);
   background: var(--color-accent);
   border: none;
   border-radius: var(--radius-md);

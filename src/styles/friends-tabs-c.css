@@ -245,7 +245,7 @@
   font-size: 11px;
   font-weight: var(--font-weight-bold);
   letter-spacing: 0.5px;
-  color: #fff;
+  color: var(--color-accent-contrast);
   background: color-mix(in srgb, var(--color-accent) 82%, var(--color-bg-tertiary));
   border-color: color-mix(in srgb, var(--color-accent) 40%, transparent);
 }
@@ -903,7 +903,7 @@
   border-radius: var(--radius-sm);
   background: var(--color-accent);
   border: 1px solid color-mix(in srgb, var(--color-accent) 40%, transparent);
-  color: #fff;
+  color: var(--color-accent-contrast);
   font-size: 10px;
   font-weight: var(--font-weight-bold);
   display: flex;

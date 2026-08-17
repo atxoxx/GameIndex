@@ -204,7 +204,7 @@
 .activity__tab-btn--active,
 .activity__tab-btn--active:hover {
   background: var(--color-accent);
-  color: #fff;
+  color: var(--color-accent-contrast);
 }
 
 /* ── Tools row (timeframe / source / dashboard extras) ──────────────── */
@@ -257,12 +257,12 @@
 
 .activity-toolbar__pill--active {
   background: var(--color-accent);
-  color: #fff;
+  color: var(--color-accent-contrast);
 }
 
 .activity-toolbar__pill--active:hover {
   background: var(--color-accent);
-  color: #fff;
+  color: var(--color-accent-contrast);
 }
 
 .activity-toolbar__divider {
@@ -359,7 +359,7 @@
 
 .activity-toolbar__segmented-btn--active {
   background: var(--color-accent);
-  color: #fff;
+  color: var(--color-accent-contrast);
 }
 
 .activity-toolbar__icon-btn {
@@ -395,7 +395,7 @@
 .activity-toolbar__icon-btn--active,
 .activity-toolbar__icon-btn--active:hover {
   background: var(--color-accent);
-  color: #fff;
+  color: var(--color-accent-contrast);
 }
 
 /* ══ Panel system ────────────────────────────────────────────────────── */
@@ -1767,7 +1767,7 @@
 
 .activity-gantt__notes-save:hover {
   background: var(--color-accent);
-  color: #fff;
+  color: var(--color-accent-contrast);
   border-color: var(--color-accent);
 }
 
@@ -2372,7 +2372,7 @@
 .activity-session-item__chart-tab-btn--active,
 .activity-session-item__chart-tab-btn--active:hover {
   background: var(--color-accent);
-  color: #fff;
+  color: var(--color-accent-contrast);
 }
 
 .activity-session-item__chart-container {
@@ -2447,7 +2447,7 @@
 .performance-insights__tab-btn--active,
 .performance-insights__tab-btn--active:hover {
   background: var(--color-accent);
-  color: #fff;
+  color: var(--color-accent-contrast);
 }
 
 /* ── Game comparison bars ────────────────────────────────────────────── */

@@ -2011,7 +2011,7 @@
   height: 22px;
   border-radius: var(--radius-full);
   background: var(--color-accent);
-  color: #fff;
+  color: var(--color-accent-contrast);
   flex-shrink: 0;
 }
 
@@ -2151,12 +2151,12 @@
 
 .system-requirements-card__toggle-option--active {
   background: var(--color-accent);
-  color: #fff;
+  color: var(--color-accent-contrast);
   box-shadow: 0 1px 6px var(--color-accent-glow);
 }
 
 .system-requirements-card__toggle-option--active:hover {
-  color: #fff;
+  color: var(--color-accent-contrast);
 }
 
 .system-requirements-card__toggle-option:focus-visible {

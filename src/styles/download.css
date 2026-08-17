@@ -546,7 +546,7 @@
 
 .dl-source-pill.selected .dl-source-pill-count {
   background: var(--color-accent);
-  color: #fff;
+  color: var(--color-accent-contrast);
 }
 
 /* Platform + download-type segmented filters */
@@ -738,7 +738,7 @@
 }
 
 .dl-badge-new {
-  color: #fff;
+  color: var(--color-accent-contrast);
   background: var(--color-accent);
 }
 
@@ -891,7 +891,7 @@
 
 .dl-result-check.active {
   background: var(--color-accent);
-  color: #fff;
+  color: var(--color-accent-contrast);
   box-shadow: 0 0 8px color-mix(in srgb, var(--color-accent) 50%, transparent);
 }
 
@@ -1111,12 +1111,12 @@
 }
 
 .dl-option-icon-wrap--debrid {
-  color: #fdcb6e;
+  color: var(--brand-debrid);
 }
 
 .dl-option-tile.active .dl-option-icon-wrap--debrid {
-  background: rgba(253, 203, 110, 0.18);
-  color: #e17055;
+  background: color-mix(in srgb, var(--brand-debrid) 18%, transparent);
+  color: var(--brand-debrid);
 }
 
 .dl-option-icon-wrap svg {
@@ -1317,7 +1317,7 @@
   background: var(--color-accent);
   border: 1px solid var(--color-accent);
   border-radius: var(--radius-md);
-  color: #fff;
+  color: var(--color-accent-contrast);
   font-size: var(--font-size-xs);
   font-weight: var(--font-weight-bold);
   font-family: inherit;
@@ -1872,7 +1872,7 @@
   font-size: 10px;
   font-weight: 700;
   background: var(--color-accent);
-  color: white;
+  color: var(--color-accent-contrast);
   border-radius: 9px;
   margin-left: 4px;
 }
@@ -2360,7 +2360,7 @@
 .game-download-btn--prominent {
   background: var(--game-accent, var(--color-accent));
   border-color: transparent;
-  color: #ffffff;
+  color: var(--color-accent-contrast);
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.25), 0 0 20px color-mix(in srgb, var(--game-accent, var(--color-accent)) 35%, transparent);
 }
 
@@ -2413,7 +2413,7 @@
   height: 16px;
   padding: 0 5px;
   background: var(--color-accent);
-  color: white;
+  color: var(--color-accent-contrast);
   font-size: 10px;
   font-weight: 700;
   border-radius: 8px;
@@ -2459,7 +2459,7 @@
   align-items: center;
   justify-content: center;
   background: var(--color-accent);
-  color: #fff;
+  color: var(--color-accent-contrast);
   font-size: 10px;
   font-weight: var(--font-weight-bold);
   border-radius: var(--radius-full);
@@ -2554,7 +2554,7 @@
 
 .dl-popover-tab.active {
   background: var(--color-accent);
-  color: #fff;
+  color: var(--color-accent-contrast);
   box-shadow: 0 1px 4px color-mix(in srgb, var(--color-accent) 35%, transparent);
 }
 
@@ -2838,9 +2838,9 @@
 }
 
 .dl-magnet-badge--direct {
-  background: color-mix(in srgb, var(--color-info, #3b82f6) 18%, transparent);
-  color: var(--color-info, #3b82f6);
-  border: 1px solid color-mix(in srgb, var(--color-info, #3b82f6) 30%, transparent);
+  background: color-mix(in srgb, var(--color-info) 18%, transparent);
+  color: var(--color-info);
+  border: 1px solid color-mix(in srgb, var(--color-info) 30%, transparent);
 }
 
 .dl-magnet-bar-input {
@@ -3342,7 +3342,7 @@
 
 .dl-speed-preset-btn.active {
   background: var(--color-accent);
-  color: #fff;
+  color: var(--color-accent-contrast);
   border-color: var(--color-accent);
   box-shadow: 0 1px 4px color-mix(in srgb, var(--color-accent) 35%, transparent);
 }
@@ -3619,7 +3619,7 @@
 
 .dl-filters-pill.active {
   background: var(--color-accent);
-  color: #fff;
+  color: var(--color-accent-contrast);
   box-shadow: 0 1px 6px color-mix(in srgb, var(--color-accent) 40%, transparent);
 }
 
@@ -3880,7 +3880,6 @@
 
 /* ─── Download Row (Enhanced Table / List View) ────────────────── */
 .dl-row {
-  --brand-debrid: #00f0ff;
   display: grid;
   grid-template-columns: auto minmax(75px, 105px) auto minmax(0, 1fr) minmax(110px, 130px) minmax(75px, 95px) auto;
   align-items: center;
@@ -4015,8 +4014,8 @@ input[type="checkbox"].dl-file-checkbox:focus-visible {
 }
 
 .dl-row-status--fetchingMetadata {
-  background: color-mix(in srgb, var(--color-info, #3b82f6) 15%, transparent);
-  color: var(--color-info, #3b82f6);
+  background: color-mix(in srgb, var(--color-info) 15%, transparent);
+  color: var(--color-info);
 }
 
 .dl-row-status--queued {
@@ -4082,6 +4081,32 @@ input[type="checkbox"].dl-file-checkbox:focus-visible {
   font-size: 10px;
   color: var(--color-warning);
   font-weight: var(--font-weight-semibold);
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.dl-row-badge--direct {
+  background: color-mix(in srgb, var(--color-info) 18%, transparent);
+  color: var(--color-info);
+  border: 1px solid color-mix(in srgb, var(--color-info) 30%, transparent);
+  padding: 1px 6px;
+  border-radius: var(--radius-sm);
+  font-size: 10px;
+  font-weight: var(--font-weight-bold);
+  letter-spacing: 0.5px;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.dl-row-badge--debrid {
+  background: color-mix(in srgb, var(--brand-debrid) 15%, transparent);
+  color: var(--brand-debrid);
+  border: 1px solid color-mix(in srgb, var(--brand-debrid) 30%, transparent);
+  padding: 1px 6px;
+  border-radius: var(--radius-sm);
+  font-size: 10px;
+  font-weight: var(--font-weight-bold);
+  letter-spacing: 0.5px;
   white-space: nowrap;
   flex-shrink: 0;
 }
@@ -4286,7 +4311,7 @@ input[type="checkbox"].dl-file-checkbox:focus-visible {
 
 .dl-row-btn.play-btn {
   background: var(--color-accent);
-  color: #fff;
+  color: var(--color-accent-contrast);
   border-color: var(--color-accent);
 }
 
@@ -4690,7 +4715,7 @@ input[type="checkbox"].dl-file-checkbox:focus-visible {
 
 .dl-card-action-btn.primary {
   background: var(--color-accent);
-  color: #fff;
+  color: var(--color-accent-contrast);
 }
 
 .dl-card-action-btn.primary:hover {
@@ -4819,9 +4844,9 @@ input[type="checkbox"].dl-file-checkbox:focus-visible {
 /* Platform badge — which system/console a ROM or repack hit targets.
  * Neutral info-tint so it reads as metadata, not as a provider. */
 .dl-badge-platform {
-  color: color-mix(in srgb, var(--color-info, #3b82f6) 82%, var(--color-text-primary));
-  background: color-mix(in srgb, var(--color-info, #3b82f6) 14%, transparent);
-  border: 1px solid color-mix(in srgb, var(--color-info, #3b82f6) 34%, transparent);
+  color: color-mix(in srgb, var(--color-info) 82%, var(--color-text-primary));
+  background: color-mix(in srgb, var(--color-info) 14%, transparent);
+  border: 1px solid color-mix(in srgb, var(--color-info) 34%, transparent);
   text-transform: none;
   font-weight: 700;
 }

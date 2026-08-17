@@ -576,7 +576,7 @@
 
 .mods-filter-btn.active {
   background: var(--color-accent);
-  color: #fff;
+  color: var(--color-accent-contrast);
 }
 
 .mods-filter-badge {
@@ -584,7 +584,7 @@
   font-weight: var(--font-weight-bold);
   padding: 1px 6px;
   border-radius: var(--radius-full);
-  background: color-mix(in srgb, #fff 25%, transparent);
+  background: color-mix(in srgb, var(--color-accent-contrast) 25%, transparent);
   color: inherit;
 }
 
@@ -1910,7 +1910,7 @@
 
 .mods-rail-filter-pill.active {
   background: var(--color-accent);
-  color: #fff;
+  color: var(--color-accent-contrast);
   border-color: var(--color-accent);
 }
 
@@ -1966,7 +1966,7 @@
 
 .mods-engine-filter-chip.active {
   background: var(--color-accent);
-  color: #fff;
+  color: var(--color-accent-contrast);
   border-color: var(--color-accent);
 }
 
@@ -2152,7 +2152,7 @@
 
 .mods-notes-edit-btn.active {
   background: var(--color-accent);
-  color: #fff;
+  color: var(--color-accent-contrast);
 }
 
 .mods-notes-editor {
@@ -2426,7 +2426,7 @@
   height: 28px;
   border-radius: 50%;
   background: var(--color-accent);
-  color: #fff;
+  color: var(--color-accent-contrast);
   font-weight: var(--font-weight-bold);
   font-size: var(--font-size-sm);
   display: grid;
@@ -2504,7 +2504,7 @@
 
 .mods-nexus-domain-chip.active {
   background: var(--color-accent);
-  color: #fff;
+  color: var(--color-accent-contrast);
   border-color: var(--color-accent);
 }
 

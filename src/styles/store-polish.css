@@ -16,11 +16,11 @@
 }
 
 .store-card-cw-badge.cw-cracked {
-  box-shadow: 0 0 12px color-mix(in srgb, #10b981 55%, transparent);
+  box-shadow: 0 0 12px color-mix(in srgb, var(--color-success) 55%, transparent);
 }
 
 .store-card-cw-badge.cw-uncracked {
-  box-shadow: 0 0 12px color-mix(in srgb, #ef4444 55%, transparent);
+  box-shadow: 0 0 12px color-mix(in srgb, var(--color-danger) 55%, transparent);
 }
 
 @media (prefers-reduced-motion: reduce) {
