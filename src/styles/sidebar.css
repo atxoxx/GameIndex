@@ -12,32 +12,32 @@
 }
 
 .sidebar-header {
-  padding: var(--space-lg);
-  padding-bottom: var(--space-sm);
+  padding: var(--space-md) var(--space-md) var(--space-xs);
 }
 
 .sidebar-search {
   display: flex;
   align-items: center;
   gap: var(--space-sm);
-  padding: 8px 12px;
-  background: var(--color-bg-tertiary);
+  padding: 7px 12px;
+  background: color-mix(in srgb, var(--color-bg-tertiary) 75%, transparent);
   border: 1px solid var(--color-border);
   border-radius: var(--radius-md);
-  box-shadow: inset 0 1px 0 var(--color-border-highlight), inset 0 1px 2px rgba(0, 0, 0, 0.3);
-  transition: border-color var(--transition-fast),
-    background var(--transition-fast),
-    box-shadow var(--transition-fast);
+  box-shadow: inset 0 1px 0 var(--color-border-highlight), inset 0 1px 2px rgba(0, 0, 0, 0.2);
+  transition: border-color var(--duration-fast) var(--ease-standard),
+    background var(--duration-fast) var(--ease-standard),
+    box-shadow var(--duration-fast) var(--ease-standard);
 }
 
 .sidebar-search:focus-within {
   border-color: var(--color-accent);
-  box-shadow: 0 0 0 3px var(--color-focus-ring), inset 0 1px 2px rgba(0, 0, 0, 0.3);
+  box-shadow: var(--ring-accent-soft), inset 0 1px 2px rgba(0, 0, 0, 0.2);
   background: var(--color-bg-tertiary);
 }
 
 .sidebar-search:focus-within .sidebar-search-icon {
-  transform: scale(1.05);
+  transform: scale(1.08);
+  color: var(--color-accent);
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -51,11 +51,8 @@
   height: 15px;
   color: var(--color-text-muted);
   flex-shrink: 0;
-  transition: color var(--transition-fast);
-}
-
-.sidebar-search:focus-within .sidebar-search-icon {
-  color: var(--color-accent);
+  transition: color var(--duration-fast) var(--ease-standard),
+              transform var(--duration-fast) var(--ease-standard);
 }
 
 .sidebar-search input {
@@ -72,6 +69,7 @@
 
 .sidebar-search input::placeholder {
   color: var(--color-text-muted);
+  font-weight: 400;
 }
 
 .sidebar-search-clear {
@@ -87,9 +85,9 @@
   border-radius: var(--radius-full);
   cursor: pointer;
   flex-shrink: 0;
-  transition: background var(--transition-fast),
-    color var(--transition-fast),
-    transform var(--transition-fast);
+  transition: background var(--duration-fast) var(--ease-standard),
+    color var(--duration-fast) var(--ease-standard),
+    transform var(--duration-fast) var(--ease-standard);
 }
 
 .sidebar-search-clear:hover {
@@ -106,12 +104,12 @@
 .sidebar-filters {
   display: flex;
   gap: var(--space-xs);
-  padding: var(--space-sm) var(--space-lg);
+  padding: var(--space-xs) var(--space-md);
   flex-wrap: wrap;
 }
 
 .sidebar-divider {
-  margin: var(--space-sm) var(--space-lg);
+  margin: var(--space-xs) var(--space-md);
   border: none;
   border-top: 1px solid var(--color-border);
 }

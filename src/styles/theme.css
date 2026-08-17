@@ -310,10 +310,30 @@ h1, h2, h3, h4, .font-display {
   box-shadow: var(--shadow-md);
 }
 
+/* Surface 3 Frosted Card */
+.glass-card {
+  background: var(--color-surface-glass);
+  backdrop-filter: blur(var(--blur-md));
+  -webkit-backdrop-filter: blur(var(--blur-md));
+  border: 1px solid var(--color-border-light);
+  border-radius: var(--radius-xl);
+  box-shadow: inset 0 1px 0 var(--color-border-highlight), var(--shadow-md);
+  transition: transform var(--duration-normal) var(--ease-standard),
+              border-color var(--duration-normal) var(--ease-standard),
+              box-shadow var(--duration-normal) var(--ease-standard);
+}
+
+.glass-card:hover {
+  border-color: var(--color-accent-border);
+  box-shadow: inset 0 1px 0 var(--color-border-highlight), var(--shadow-lg), 0 0 20px var(--color-accent-glow);
+  transform: translateY(-2px);
+}
+
 /* Elevation shadow helpers */
 .elevation-1 { box-shadow: var(--shadow-sm); }
 .elevation-2 { box-shadow: var(--shadow-md); }
 .elevation-3 { box-shadow: var(--shadow-lg); }
+.elevation-4 { box-shadow: var(--shadow-xl); }
 .elevation-glow { box-shadow: var(--shadow-glow); }
 
 /* Hairline top highlight — the "lit edge" of a raised panel. */
@@ -333,7 +353,7 @@ h1, h2, h3, h4, .font-display {
   margin: 0 0 var(--space-sm);
   font-size: var(--font-size-xs);
   font-weight: var(--font-weight-bold);
-  letter-spacing: 0.28em;
+  letter-spacing: 0.24em;
   text-transform: uppercase;
   color: color-mix(in srgb, var(--color-text-secondary) 70%, var(--color-accent));
 }
@@ -341,12 +361,22 @@ h1, h2, h3, h4, .font-display {
 /* Hover lift — subtle vertical raise on hover */
 .hover-lift {
   transition: transform var(--duration-normal) var(--ease-standard),
-              box-shadow var(--duration-normal) var(--ease-standard);
+              box-shadow var(--duration-normal) var(--ease-standard),
+              border-color var(--duration-normal) var(--ease-standard);
 }
 
 .hover-lift:hover {
   transform: translateY(-2px);
   box-shadow: var(--shadow-md);
+}
+
+/* Tactile press response */
+.interactive-scale {
+  transition: transform var(--duration-fast) var(--ease-standard);
+}
+
+.interactive-scale:active {
+  transform: scale(0.97);
 }
 
 /* Animated focus ring using ::after pseudo-element */
@@ -393,14 +423,20 @@ h1, h2, h3, h4, .font-display {
 .accent-gradient-text {
   color: var(--color-accent);
   font-weight: var(--font-weight-bold);
-  background: none;
-  -webkit-background-clip: unset;
+  background: linear-gradient(135deg, var(--color-accent) 0%, var(--color-accent-2, var(--color-accent-hover)) 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
 }
 
 .accent-pill {
   background: var(--color-accent-soft);
   color: var(--color-accent);
   border: 1px solid color-mix(in srgb, var(--color-accent) 35%, transparent);
+  border-radius: var(--radius-full);
+  padding: 2px 10px;
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-semibold);
+  letter-spacing: 0.02em;
 }
 
 .accent-card-highlight {

@@ -218,7 +218,7 @@ export default function TopNav() {
           <button
             ref={downloadBtnRef}
             type="button"
-            className={`topnav-btn topnav-btn-downloads${downloadsOpen ? " active" : ""}`}
+            className={`topnav-btn topnav-btn-downloads${downloadsOpen ? " active" : ""}${activeDownloads > 0 ? " is-downloading" : ""}`}
             onClick={() => setDownloadsOpen((o) => !o)}
             aria-label={activeDownloads > 0 ? t("topnav.downloadsActive", { count: activeDownloads }) : t("nav.downloads")}
             aria-expanded={downloadsOpen}

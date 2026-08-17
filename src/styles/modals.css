@@ -5,14 +5,14 @@
 .modal-backdrop {
   position: fixed;
   inset: 0;
-  background: rgba(0, 0, 0, 0.65);
-  backdrop-filter: blur(8px);
-  -webkit-backdrop-filter: blur(8px);
+  background: rgba(0, 0, 0, 0.72);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
   display: flex;
   align-items: center;
   justify-content: center;
   z-index: 1000;
-  animation: modal-backdrop-in 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  animation: modal-backdrop-in var(--duration-fast) var(--ease-enter);
   padding: var(--space-md);
 }
 
@@ -27,19 +27,19 @@
 
 .modal {
   background: var(--color-bg-secondary);
-  border: 1px solid var(--color-border);
+  border: 1px solid var(--color-border-light);
   border-radius: var(--radius-xl);
-  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.45);
+  box-shadow: inset 0 1px 0 var(--color-border-highlight), 0 24px 60px rgba(0, 0, 0, 0.6);
   display: flex;
   flex-direction: column;
   overflow: hidden;
-  animation: modal-in 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+  animation: modal-in var(--duration-normal) var(--ease-bounce);
 }
 
 @keyframes modal-in {
   from {
     opacity: 0;
-    transform: scale(0.96) translateY(8px);
+    transform: scale(0.95) translateY(10px);
   }
   to {
     opacity: 1;

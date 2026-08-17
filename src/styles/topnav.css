@@ -6,27 +6,23 @@
   align-items: center;
   justify-content: space-between;
   height: var(--topnav-height);
-  background: var(--color-bg-primary);
+  background: color-mix(in srgb, var(--color-bg-primary) 85%, transparent);
+  backdrop-filter: blur(var(--blur-md));
+  -webkit-backdrop-filter: blur(var(--blur-md));
   border-bottom: 1px solid var(--color-border);
   padding: 0 var(--space-md);
   user-select: none;
   -webkit-app-region: drag;
   z-index: 100;
   position: relative;
+  box-shadow: 0 1px 0 var(--color-border-faint);
 }
 
 .topnav-left {
   display: flex;
   align-items: center;
-  gap: var(--space-xs);
+  gap: var(--space-sm);
   -webkit-app-region: no-drag;
-  /* Allow this flex child to shrink below its content's
-   * intrinsic min-width so .topnav-tabs (which carries
-   * overflow-x: auto) can scroll instead of pushing
-   * the right cluster off-screen. Without this, default
-   * min-width: auto clamps .topnav-left at the sum of
-   * all 11 tab widths (~1100px) and the whole .topnav
-   * overflows the viewport horizontally on narrow windows. */
   min-width: 0;
 }
 
@@ -34,63 +30,66 @@
   display: flex;
   align-items: center;
   gap: var(--space-sm);
-  font-size: 17px;
+  font-size: 16px;
   font-weight: 700;
   font-family: var(--font-display);
   color: var(--color-text-primary);
-  margin-right: var(--space-xl);
+  margin-right: var(--space-lg);
   letter-spacing: -0.02em;
+  cursor: pointer;
+  transition: transform var(--duration-fast) var(--ease-standard);
 }
 
 .topnav-logo__mark {
   width: 22px;
   height: 22px;
-  transition: transform var(--duration-normal) var(--ease-standard);
-  filter: drop-shadow(0 0 6px var(--color-accent-glow));
+  transition: transform var(--duration-normal) var(--ease-bounce), filter var(--duration-normal);
+  filter: drop-shadow(0 0 8px var(--color-accent-glow));
 }
 
 .topnav-logo:hover .topnav-logo__mark {
-  transform: rotate(-6deg) scale(1.08);
+  transform: rotate(-8deg) scale(1.12);
+  filter: drop-shadow(0 0 14px var(--color-accent-glow));
 }
 
 .topnav-logo__word {
-  color: var(--color-accent);
+  color: var(--color-text-primary);
   font-weight: 800;
   letter-spacing: -0.03em;
+  background: linear-gradient(135deg, var(--color-text-primary) 30%, var(--color-accent) 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
 }
 
 .topnav-logo__version {
   font-size: 10px;
   font-weight: 600;
   color: var(--color-text-secondary);
-  letter-spacing: 0.05em;
-  margin-top: 2px;
+  letter-spacing: 0.04em;
   user-select: none;
-  background: var(--color-bg-tertiary);
-  padding: 1px 6px;
+  background: color-mix(in srgb, var(--color-bg-tertiary) 80%, transparent);
+  padding: 1px 7px;
   border-radius: var(--radius-full);
   border: 1px solid var(--color-border);
   font-variant-numeric: tabular-nums;
 }
 
-.topnav-logo:hover svg {
-  transform: rotate(-6deg) scale(1.08);
-}
-
 .topnav-tabs {
   display: flex;
   align-items: center;
-  gap: 4px;
+  gap: 3px;
   overflow-x: auto;
   min-width: 0;
   flex-shrink: 1;
   scrollbar-width: none;
   scroll-behavior: smooth;
-  padding: 4px 6px;
-  background: color-mix(in srgb, var(--color-bg-secondary) 72%, transparent);
+  padding: 3px 5px;
+  background: color-mix(in srgb, var(--color-bg-secondary) 65%, transparent);
+  backdrop-filter: blur(var(--blur-sm));
+  -webkit-backdrop-filter: blur(var(--blur-sm));
   border-radius: var(--radius-full);
   border: 1px solid var(--color-border);
-  box-shadow: inset 0 1px 0 var(--color-border-highlight), inset 0 1px 2px rgba(0, 0, 0, 0.3);
+  box-shadow: inset 0 1px 0 var(--color-border-highlight), inset 0 1px 3px rgba(0, 0, 0, 0.25);
 }
 
 .topnav-tabs::-webkit-scrollbar {
@@ -100,10 +99,10 @@
 .topnav-tab {
   display: flex;
   align-items: center;
-  gap: var(--space-sm);
-  padding: 6px 14px;
+  gap: 6px;
+  padding: 5px 12px;
   border-radius: var(--radius-full);
-  font-size: 13px;
+  font-size: 12.5px;
   font-weight: 500;
   color: var(--color-text-secondary);
   text-decoration: none;
@@ -120,7 +119,8 @@
 
 .topnav-tab:hover {
   color: var(--color-text-primary);
-  background: var(--color-bg-hover);
+  background: color-mix(in srgb, var(--color-bg-hover) 80%, transparent);
+  transform: translateY(-0.5px);
 }
 
 .topnav-tab:focus-visible {
@@ -129,60 +129,62 @@
 }
 
 .topnav-tab.active {
-  color: #ffffff;
+  color: var(--color-accent-contrast, #ffffff);
   background: var(--brand-gradient-strong);
   font-weight: 600;
-  box-shadow: 0 2px 10px var(--color-accent-glow), inset 0 1px 0 rgba(255, 255, 255, 0.25);
+  box-shadow: 0 2px 12px var(--color-accent-glow), inset 0 1px 0 rgba(255, 255, 255, 0.28);
   animation: topnavIndicatorIn var(--duration-normal) var(--ease-enter) both;
 }
 
 @keyframes topnavIndicatorIn {
   from {
-    transform: scaleX(0.85);
-    opacity: 0;
+    transform: scale(0.92);
+    opacity: 0.7;
   }
   to {
-    transform: scaleX(1);
+    transform: scale(1);
     opacity: 1;
   }
 }
 
 .topnav-tab-icon {
-  width: 16px;
-  height: 16px;
-  opacity: 0.8;
+  width: 15px;
+  height: 15px;
+  opacity: 0.75;
   transition: opacity var(--duration-fast) var(--ease-standard),
               transform var(--duration-fast) var(--ease-standard);
 }
 
 .topnav-tab:hover .topnav-tab-icon {
   opacity: 1;
+  transform: scale(1.06);
 }
 
 .topnav-tab.active .topnav-tab-icon {
   opacity: 1;
-  color: #ffffff;
-  transform: scale(1.05);
+  color: var(--color-accent-contrast, #ffffff);
+  transform: scale(1.08);
 }
 
 .topnav-tab-badge {
   position: absolute;
-  top: -4px;
-  right: -4px;
-  min-width: 18px;
-  height: 18px;
-  padding: 0 5px;
+  top: -3px;
+  right: -3px;
+  min-width: 17px;
+  height: 17px;
+  padding: 0 4px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  font-size: 11px;
+  font-size: 10px;
   font-weight: var(--font-weight-bold);
   line-height: 1;
   color: #fff;
   background: var(--color-danger);
   border-radius: var(--radius-full);
-  box-shadow: 0 0 0 2px var(--color-bg-primary);
+  box-shadow: 0 0 0 2px var(--color-bg-primary), 0 2px 6px color-mix(in srgb, var(--color-danger) 45%, transparent);
   pointer-events: none;
+  animation: badgePopIn var(--duration-fast) var(--ease-bounce) both;
 }
 
 .topnav-right {
@@ -190,11 +192,6 @@
   align-items: center;
   gap: var(--space-xs);
   -webkit-app-region: no-drag;
-  /* Pin the page-actions cluster to the window's right edge. When
-   * the tab strip overflows, .topnav-tabs shrinks (scrollbar
-   * appears there); this row never does. The tighter 4px gap
-   * keeps the download + settings pair visually compact next
-   * to the window-chrome divider. */
   flex-shrink: 0;
 }
 
@@ -204,29 +201,36 @@
   justify-content: center;
   width: 32px;
   height: 32px;
-  border: none;
+  border: 1px solid transparent;
   background: transparent;
   color: var(--color-text-secondary);
   border-radius: var(--radius-md);
   cursor: pointer;
-  transition: color var(--transition-fast),
-    background var(--transition-fast),
-    transform var(--transition-fast),
-    box-shadow var(--transition-fast);
+  transition: color var(--duration-fast) var(--ease-standard),
+              background var(--duration-fast) var(--ease-standard),
+              transform var(--duration-fast) var(--ease-standard),
+              border-color var(--duration-fast) var(--ease-standard),
+              box-shadow var(--duration-fast) var(--ease-standard);
   position: relative;
 }
 
 .topnav-btn:hover {
   color: var(--color-accent);
   background: var(--color-bg-hover);
+  border-color: var(--color-border);
   transform: translateY(-1px);
-  box-shadow: inset 0 1px 0 var(--color-border-highlight);
+  box-shadow: inset 0 1px 0 var(--color-border-highlight), var(--shadow-xs);
+}
+
+.topnav-btn:active {
+  transform: translateY(0) scale(0.96);
 }
 
 .topnav-btn.active {
   color: var(--color-accent);
   background: var(--color-accent-soft);
-  box-shadow: 0 0 12px var(--color-accent-glow), inset 0 1px 0 var(--color-border-highlight);
+  border-color: var(--color-accent-border);
+  box-shadow: 0 0 14px var(--color-accent-glow), inset 0 1px 0 var(--color-border-highlight);
 }
 
 .topnav-btn:focus-visible {
@@ -235,17 +239,17 @@
 }
 
 .topnav-btn svg {
-  width: 18px;
-  height: 18px;
+  width: 16px;
+  height: 16px;
 }
 
 .topnav-btn-badge {
   position: absolute;
-  top: 5px;
-  right: 5px;
+  top: 4px;
+  right: 4px;
   min-width: 14px;
   height: 14px;
-  padding: 0 4px;
+  padding: 0 3px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -254,15 +258,32 @@
   color: var(--color-accent-contrast, #ffffff);
   background: var(--color-accent);
   border-radius: var(--radius-full);
-  letter-spacing: 0.3px;
+  letter-spacing: 0.2px;
   line-height: 1;
   font-variant-numeric: tabular-nums;
-  box-shadow: 0 0 6px var(--color-accent-glow);
+  box-shadow: 0 0 8px var(--color-accent-glow);
   pointer-events: none;
+  animation: badgePopIn var(--duration-fast) var(--ease-bounce) both;
 }
 
 .topnav-btn-downloads {
   position: relative;
+}
+
+.topnav-btn-downloads.is-downloading svg {
+  color: var(--color-accent);
+  animation: downloadPulse 2s var(--ease-in-out) infinite;
+}
+
+@keyframes downloadPulse {
+  0%, 100% {
+    transform: translateY(0);
+    filter: drop-shadow(0 0 2px var(--color-accent-glow));
+  }
+  50% {
+    transform: translateY(1.5px);
+    filter: drop-shadow(0 0 6px var(--color-accent-glow));
+  }
 }
 
 

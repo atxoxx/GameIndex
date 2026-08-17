@@ -58,6 +58,29 @@
   }
 }
 
+/* Import / dropdown / popup entrance animation */
+@keyframes importMenuIn {
+  from {
+    opacity: 0;
+    transform: scale(0.96) translateY(-4px);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+}
+
+@keyframes activityFadeUp {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
 /* Blur-in — for overlays and floating panels (modals, popovers):
    a gentle focus-pull with a whisper of scale. */
 @keyframes blurIn {
@@ -103,6 +126,27 @@
   50%      { box-shadow: 0 0 0 1px color-mix(in srgb, var(--color-accent) 55%, transparent), 0 0 18px var(--color-accent-glow); }
 }
 
+@keyframes runningStatusPulse {
+  0% {
+    transform: scale(1);
+    box-shadow: 0 0 0 1px color-mix(in srgb, var(--color-success) 35%, transparent), 0 0 6px var(--color-success);
+  }
+  50% {
+    transform: scale(1.18);
+    box-shadow: 0 0 0 2px color-mix(in srgb, var(--color-success) 60%, transparent), 0 0 12px var(--color-success);
+  }
+  100% {
+    transform: scale(1);
+    box-shadow: 0 0 0 1px color-mix(in srgb, var(--color-success) 35%, transparent), 0 0 6px var(--color-success);
+  }
+}
+
+@keyframes badgePopIn {
+  0% { transform: scale(0.6); opacity: 0; }
+  70% { transform: scale(1.1); opacity: 1; }
+  100% { transform: scale(1); opacity: 1; }
+}
+
 /* ── Utility Classes ────────────────────────────────────────────────── */
 
 .animate-fade-in     { animation: fadeIn   var(--duration-normal) var(--ease-enter) both; }
@@ -114,11 +158,13 @@
 .animate-scale-up    { animation: scaleUp  var(--duration-normal) var(--ease-bounce) both; }
 .animate-rise        { animation: rise     var(--duration-slow) var(--ease-out) both; }
 .animate-blur-in     { animation: blurIn   var(--duration-normal) var(--ease-out) both; }
+.animate-badge-pop   { animation: badgePopIn var(--duration-normal) var(--ease-bounce) both; }
 
 .animate-fade-out     { animation: fadeOut      var(--duration-normal) var(--ease-exit) both; }
 .animate-slide-out-down { animation: slideOutDown var(--duration-normal) var(--ease-exit) both; }
 
 .animate-glow-pulse   { animation: glowPulse 2.4s var(--ease-in-out) infinite; }
+.animate-running-pulse { animation: runningStatusPulse 1.8s var(--ease-in-out) infinite; }
 
 /* ── Staggered Animation Delays (for lists / grids) ─────────────────── */
 
@@ -147,9 +193,11 @@
   .animate-scale-up,
   .animate-rise,
   .animate-blur-in,
+  .animate-badge-pop,
   .animate-fade-out,
   .animate-slide-out-down,
-  .animate-glow-pulse {
+  .animate-glow-pulse,
+  .animate-running-pulse {
     animation: none !important;
     opacity: 1 !important;
     transform: none !important;
