@@ -196,9 +196,15 @@ impl PluginManager {
                 plugins_dir.display()
             );
         }
+        // rustls (not the default native-tls/Schannel): Cloudflare-fronted
+        // hosts such as ankergames.net fingerprint Schannel's ClientHello and
+        // answer every request with a 403 "managed challenge", while curl and
+        // rustls pass. rustls over HTTP/2 is the combination those sites
+        // accept, so the plugin client opts into rustls explicitly.
         let http = reqwest::blocking::Client::builder()
             .user_agent(PLUGIN_HTTP_UA)
             .timeout(Duration::from_secs(15))
+            .use_rustls_tls()
             .build()
             .expect("blocking client build is infallible with these settings");
         Self {
@@ -851,6 +857,7 @@ mod tests {
         // The shipped set — a missing file should fail the test loudly
         // rather than silently testing fewer plugins.
         let expected_ids = [
+            "ankergames",
             "axekin",
             "byxatab",
             "dodirepacks",
@@ -864,6 +871,7 @@ mod tests {
             "onlinefix",
             "vimm",
             "yourbittorrent",
+            "zeigames",
         ];
 
         let (summary, _failures) = tokio::time::timeout(
@@ -872,6 +880,7 @@ mod tests {
                 let http = reqwest::blocking::Client::builder()
                     .user_agent(PLUGIN_HTTP_UA)
                     .timeout(Duration::from_secs(20))
+                    .use_rustls_tls()
                     .build()
                     .expect("client");
 

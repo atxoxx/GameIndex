@@ -39,7 +39,7 @@ base64 = "0.22"
 mime_guess = "2.0.5"
 spider = { version = "2", default-features = false, features = ["sync", "ua_generator"] }
 scraper = "0.22"
-reqwest = { version = "0.12", features = ["json", "cookies", "multipart", "blocking"] }
+reqwest = { version = "0.12", features = ["json", "cookies", "multipart", "blocking", "rustls-tls"] }
 # Embedded JS engine for the plugin sandbox (quickjs-ng via quickjs-sys).
 # Used to run user-installed `plugins/*.js` search scripts with injected
 # httpGet/httpGetJson/definePlugin globals. Default features are enough:
