@@ -3386,6 +3386,8 @@ export const es: TranslationDict = {
   "settings.plugins.disableAll": "Deshabilitar todos",
   "settings.plugins.disabledAllToast": "Todos los plugins deshabilitados",
   "settings.plugins.disabled": "Deshabilitado",
+  "settings.plugins.downloadRiskBody": "Los resultados de los plugins enlazan a sitios de terceros. GameIndex no puede comprobar que una descarga sea segura, legal o esté libre de malware: descarga solo archivos a los que tengas derecho y analízalos antes de abrirlos.",
+  "settings.plugins.downloadRiskTitle": "Descargar siempre es bajo tu propia responsabilidad",
   "settings.plugins.duplicate": "Ya hay un plugin instalado con este id.",
   "settings.plugins.empty": "Aún no hay plugins instalados. Importa un archivo de plugin arriba para añadir uno.",
   "settings.plugins.enableAll": "Habilitar todos",

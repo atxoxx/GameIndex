@@ -1038,6 +1038,57 @@
   color: color-mix(in srgb, rgba(108, 92, 231) 75%, var(--color-text-primary));
 }
 
+/* Standing download-risk disclaimer — a persistent warning shown at the top
+ * of the tab once at least one plugin is installed. Same warning language as
+ * the import trust gate, but no dismiss button. */
+.settings-plugins-risk {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-md);
+  margin-bottom: var(--space-xl);
+  padding: var(--space-md) var(--space-lg);
+  background: color-mix(in srgb, var(--color-warning) 10%, transparent);
+  border: 1px solid color-mix(in srgb, var(--color-warning) 32%, transparent);
+  border-left: 3px solid var(--color-warning);
+  border-radius: var(--radius-md);
+}
+
+.settings-plugins-risk-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  flex-shrink: 0;
+  border-radius: var(--radius-sm);
+  background: color-mix(in srgb, var(--color-warning) 18%, transparent);
+  color: var(--color-warning);
+}
+
+.settings-plugins-risk-icon svg {
+  width: 15px;
+  height: 15px;
+}
+
+.settings-plugins-risk-text {
+  flex: 1;
+  min-width: 0;
+}
+
+.settings-plugins-risk-title {
+  margin: 0;
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text-primary);
+}
+
+.settings-plugins-risk-body {
+  margin: 3px 0 0;
+  font-size: var(--font-size-xs);
+  line-height: 1.5;
+  color: var(--color-text-secondary);
+}
+
 /* Import row — button with the helper line under it. */
 .settings-plugins-import-row {
   display: flex;

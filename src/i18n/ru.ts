@@ -3386,6 +3386,8 @@ export const ru: TranslationDict = {
   "settings.plugins.disableAll": "Отключить все",
   "settings.plugins.disabledAllToast": "Все плагины отключены",
   "settings.plugins.disabled": "Отключено",
+  "settings.plugins.downloadRiskBody": "Результаты плагинов ведут на сторонние сайты. GameIndex не может проверить, что загрузка безопасна, законна или свободна от вредоносного ПО — загружайте только файлы, на которые у вас есть права, и проверяйте их перед открытием.",
+  "settings.plugins.downloadRiskTitle": "Загрузка всегда выполняется на ваш страх и риск",
   "settings.plugins.duplicate": "Плагин с таким идентификатором уже установлен.",
   "settings.plugins.empty": "Плагины ещё не установлены. Импортируйте файл плагина выше, чтобы добавить его.",
   "settings.plugins.enableAll": "Включить все",

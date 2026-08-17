@@ -3386,6 +3386,8 @@ export const zhCN: TranslationDict = {
   "settings.plugins.disableAll": "全部禁用",
   "settings.plugins.disabledAllToast": "已禁用所有插件",
   "settings.plugins.disabled": "已禁用",
+  "settings.plugins.downloadRiskBody": "插件搜索结果会链接到第三方网站。GameIndex 无法确认下载内容是否安全、合法或没有恶意软件——请只下载您有权获取的文件，并在打开前进行扫描。",
+  "settings.plugins.downloadRiskTitle": "下载始终由您自行承担风险",
   "settings.plugins.duplicate": "已安装具有此 ID 的插件。",
   "settings.plugins.empty": "尚未安装插件。请在上方导入插件文件以添加。",
   "settings.plugins.enableAll": "全部启用",
