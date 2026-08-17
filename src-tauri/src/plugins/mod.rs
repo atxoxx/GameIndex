@@ -853,9 +853,11 @@ mod tests {
         let expected_ids = [
             "axekin",
             "byxatab",
+            "dodirepacks",
             "fitgirl",
             "freegogpcgames",
             "freetp",
+            "gamerepack",
             "gogarchive",
             "internetarchive",
             "knaben",
