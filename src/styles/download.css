@@ -533,6 +533,11 @@
   border-style: dashed;
 }
 
+.dl-source-pill-text {
+  font-size: 11px;
+  font-weight: var(--font-weight-medium);
+}
+
 .dl-source-pill-num {
   font-size: 10px;
   font-weight: 700;
@@ -763,6 +768,16 @@
 
 .dl-meta-chip-sep {
   opacity: 0.5;
+}
+
+.dl-meta-chip--date {
+  color: var(--color-text-muted);
+}
+
+.dl-meta-chip--provenance {
+  color: var(--color-accent-2, #a78bfa);
+  background: color-mix(in srgb, var(--color-accent-2, #a78bfa) 10%, transparent);
+  border-color: color-mix(in srgb, var(--color-accent-2, #a78bfa) 25%, transparent);
 }
 
 .dl-meta-chip--score.high {
@@ -1304,6 +1319,11 @@
   border-color: color-mix(in srgb, var(--color-accent) 35%, var(--color-border));
 }
 
+.dl-option-card--debrid.is-active {
+  background: color-mix(in srgb, var(--brand-debrid, #f59e0b) 8%, var(--color-bg-tertiary));
+  border-color: color-mix(in srgb, var(--brand-debrid, #f59e0b) 35%, var(--color-border));
+}
+
 .dl-option-icon {
   width: 28px;
   height: 28px;
@@ -1320,6 +1340,11 @@
 .dl-option-card.is-active .dl-option-icon {
   background: color-mix(in srgb, var(--color-accent) 18%, transparent);
   color: var(--color-accent);
+}
+
+.dl-option-card--debrid.is-active .dl-option-icon {
+  background: color-mix(in srgb, var(--brand-debrid, #f59e0b) 18%, transparent);
+  color: var(--brand-debrid, #f59e0b);
 }
 
 .dl-option-icon--debrid {
@@ -1781,6 +1806,11 @@
   flex: 1;
 }
 
+.dl-confidence-text {
+  font-size: var(--font-size-xs);
+  color: var(--color-warning);
+}
+
 /* ─── State Screens (Checking, Metadata, Error) ──────────────────── */
 
 .dl-state-screen {
@@ -1921,6 +1951,11 @@
   animation: dl-pulse-dot 1s ease-in-out infinite;
 }
 
+.dl-state-screen--checking,
+.dl-state-screen--metadata {
+  border-color: color-mix(in srgb, var(--color-accent) 25%, var(--color-border));
+}
+
 .dl-state-screen--error {
   border-color: color-mix(in srgb, var(--color-danger) 35%, transparent);
   background: color-mix(in srgb, var(--color-danger) 4%, var(--color-bg-secondary));
@@ -1957,6 +1992,11 @@
   border-radius: var(--radius-lg);
   font-size: var(--font-size-xs);
   color: var(--color-text-secondary);
+}
+
+.dl-starting-label {
+  font-weight: var(--font-weight-medium);
+  color: var(--color-text-primary);
 }
 
 .dl-starting-spinner {
@@ -2007,6 +2047,118 @@
   display: flex;
   gap: 6px;
 }
+
+/* ─── Global Results Empty State (0 results found) ───────────────── */
+
+.dl-results-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  padding: var(--space-3xl) var(--space-xl);
+  min-height: 340px;
+  background: var(--color-bg-secondary);
+  border: 1px dashed var(--color-border);
+  border-radius: var(--radius-xl);
+  gap: var(--space-xs);
+  margin: var(--space-xs) 0;
+  box-sizing: border-box;
+}
+
+.dl-results-empty-icon {
+  width: 64px;
+  height: 64px;
+  border-radius: 50%;
+  background: color-mix(in srgb, var(--color-accent) 10%, var(--color-bg-tertiary));
+  border: 1px solid color-mix(in srgb, var(--color-accent) 22%, transparent);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: var(--space-sm);
+  color: var(--color-accent);
+  box-shadow: 0 0 24px color-mix(in srgb, var(--color-accent) 12%, transparent);
+}
+
+.dl-results-empty-icon svg {
+  width: 28px;
+  height: 28px;
+  stroke-width: 1.75;
+}
+
+.dl-results-empty-title {
+  margin: 0;
+  font-size: var(--font-size-base);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text-primary);
+  letter-spacing: -0.01em;
+}
+
+.dl-results-empty-hint {
+  margin: 0;
+  font-size: var(--font-size-xs);
+  color: var(--color-text-muted);
+  max-width: 480px;
+  line-height: 1.5;
+  text-align: center;
+}
+
+/* Standalone Search Progress Bar in Empty State */
+.dl-search-progress-bar--standalone {
+  width: min(380px, 90%);
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-bottom: var(--space-sm);
+}
+
+.dl-search-progress-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: var(--font-size-xs);
+  color: var(--color-text-secondary);
+}
+
+.dl-search-progress-label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-weight: var(--font-weight-medium);
+}
+
+.dl-spinner-mini {
+  width: 13px;
+  height: 13px;
+  border: 2px solid color-mix(in srgb, var(--color-accent) 25%, transparent);
+  border-top-color: var(--color-accent);
+  border-radius: 50%;
+  animation: dl-spin 0.8s linear infinite;
+  display: inline-block;
+  flex-shrink: 0;
+}
+
+.dl-search-progress-percent {
+  font-variant-numeric: tabular-nums;
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-accent);
+}
+
+.dl-search-progress-track {
+  height: 6px;
+  background: var(--color-bg-tertiary);
+  border-radius: var(--radius-full);
+  overflow: hidden;
+}
+
+.dl-search-progress-fill {
+  height: 100%;
+  background: linear-gradient(90deg, var(--color-accent), var(--color-accent-2, var(--color-accent)));
+  border-radius: var(--radius-full);
+  transition: width 240ms ease-out;
+}
+
+/* ─── Filter Empty State ─────────────────────────────────────────── */
 
 .dl-filter-empty-state {
   display: flex;
@@ -2103,6 +2255,11 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
+  font-size: 11px;
+  color: var(--color-text-secondary);
+}
+
+.dl-file-weight-label {
   font-size: 11px;
   color: var(--color-text-secondary);
 }

@@ -115,6 +115,8 @@ export function ResultsList({
       <div className="dl-results-empty">
         <div className="dl-results-empty-icon">
           <svg
+            width="28"
+            height="28"
             viewBox="0 0 24 24"
             fill="none"
             stroke="currentColor"
