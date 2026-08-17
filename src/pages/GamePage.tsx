@@ -32,6 +32,7 @@ import {
   SystemRequirementsCard,
 } from "../components/game";
 import { GameActivityTab } from "../components/game/GameActivityTab";
+import GameNewsTab from "../components/game/GameNewsTab";
 import { Button, ConfirmModal } from "../components/ui";
 import {
   IconOverview,
@@ -40,9 +41,17 @@ import {
   IconTrophy,
   IconWrench,
   IconGlobe,
+  IconNewspaper,
 } from "../components/game/icons";
 
-type GamePageTab = "overview" | "reviews" | "activity" | "achievements" | "mods" | "weblinks";
+type GamePageTab =
+  | "overview"
+  | "reviews"
+  | "activity"
+  | "achievements"
+  | "mods"
+  | "weblinks"
+  | "news";
 
 const VALID_TABS = new Set<GamePageTab>([
   "overview",
@@ -51,6 +60,7 @@ const VALID_TABS = new Set<GamePageTab>([
   "achievements",
   "mods",
   "weblinks",
+  "news",
 ]);
 
 function GameNotFound() {
@@ -190,6 +200,7 @@ function GameDetail({ game }: { game: Game }) {
         icon: IconGlobe,
         count: game.websites?.length ?? null,
       },
+      { id: "news" as const, label: t("game.tab.news"), icon: IconNewspaper },
     ],
     [t, game.steamAchievements, game.websites]
   );
@@ -312,6 +323,8 @@ function GameDetail({ game }: { game: Game }) {
           }
         />
       )}
+
+      {activeTab === "news" && <GameNewsTab game={game} />}
 
       {/* Edit Game Modal */}
       {editing && <EditGameModal game={game} onClose={() => setEditing(false)} />}

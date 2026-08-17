@@ -455,7 +455,7 @@ export function extractArticleTags(article: NewsArticle): string[] {
 }
 
 /** Parse RSS XML into NewsArticle array. */
-function parseRSS(xmlText: string, sourceName: string, sourceUrl: string): NewsArticle[] {
+export function parseRSS(xmlText: string, sourceName: string, sourceUrl: string): NewsArticle[] {
   const parser = new DOMParser();
   const doc = parser.parseFromString(xmlText, "text/xml");
 

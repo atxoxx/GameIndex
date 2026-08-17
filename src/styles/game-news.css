@@ -1,0 +1,130 @@
+/* Game page — News tab
+   Reuses the global news card styles (NewsPage.css) for the article
+   cards; this file only shapes the tab layout around them. */
+
+.game-news-tab {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-lg);
+}
+
+/* ── Header ────────────────────────────────────────────────────────── */
+
+.game-news-header {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: var(--space-md);
+  flex-wrap: wrap;
+  padding-bottom: var(--space-sm);
+  border-bottom: 1px solid color-mix(in srgb, var(--color-border) 40%, transparent);
+}
+
+.game-news-header-text h2 {
+  margin: 0;
+  font-size: var(--font-size-xl);
+  font-weight: var(--font-weight-bold);
+  color: var(--color-text-primary);
+  letter-spacing: -0.01em;
+}
+
+.game-news-header-text p {
+  margin: var(--space-xs) 0 0;
+  font-size: var(--font-size-sm);
+  color: var(--color-text-secondary);
+}
+
+.game-news-header-actions {
+  display: flex;
+  gap: var(--space-sm);
+}
+
+/* ── Grid ──────────────────────────────────────────────────────────── */
+
+.game-news-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: var(--space-md);
+}
+
+/* The newest article becomes a full-width featured card. */
+.game-news-grid .news-article-card:first-child {
+  grid-column: 1 / -1;
+}
+
+/* ── Footer ────────────────────────────────────────────────────────── */
+
+.game-news-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-md);
+  flex-wrap: wrap;
+  padding-top: var(--space-sm);
+  border-top: 1px solid color-mix(in srgb, var(--color-border) 40%, transparent);
+}
+
+.game-news-footer span {
+  font-size: var(--font-size-sm);
+  color: var(--color-text-secondary);
+}
+
+/* ── Empty state ───────────────────────────────────────────────────── */
+
+.game-news-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  gap: var(--space-sm);
+  padding: var(--space-3xl) var(--space-xl);
+  border: 1px dashed var(--color-border);
+  border-radius: var(--radius-xl);
+  background: var(--color-bg-secondary);
+}
+
+.game-news-empty-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 56px;
+  height: 56px;
+  border-radius: var(--radius-full);
+  background: color-mix(in srgb, var(--color-accent) 12%, transparent);
+  color: var(--color-accent);
+}
+
+.game-news-empty-icon svg {
+  width: 26px;
+  height: 26px;
+}
+
+.game-news-empty h3 {
+  margin: 0;
+  font-size: var(--font-size-lg);
+  font-weight: var(--font-weight-bold);
+  color: var(--color-text-primary);
+}
+
+.game-news-empty p {
+  margin: 0;
+  max-width: 420px;
+  font-size: var(--font-size-sm);
+  color: var(--color-text-secondary);
+  line-height: var(--line-height-relaxed);
+}
+
+.game-news-empty-actions {
+  display: flex;
+  gap: var(--space-sm);
+  margin-top: var(--space-xs);
+}
+
+/* ── Responsive ────────────────────────────────────────────────────── */
+
+@media (max-width: 860px) {
+  .game-news-grid {
+    grid-template-columns: 1fr;
+  }
+}
