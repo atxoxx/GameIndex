@@ -13,7 +13,6 @@ import { useLibraryIndex } from "./useLibraryIndex";
 import { useHiddenGames } from "./useHiddenGames";
 import { useRecentlyViewed } from "./useRecentlyViewed";
 import { useRecentSearches } from "./useRecentSearches";
-import { useStorePresets } from "./useStorePresets";
 import { STORE_SOURCE_FILTER_KEY } from "../types/game";
 import type {
   GameMetadataResult,
@@ -23,6 +22,107 @@ import type {
 } from "../types/game";
 
 const MAX_AUTO_EMPTY_FETCHES = 3;
+
+/**
+ * Local relevance search over an in-memory game list. Matches the query
+ * against the title, genres, platforms, and summary so typing a genre
+ * ("action") or platform ("switch") surfaces already-loaded games even
+ * when their titles don't contain the words. Returns matches sorted by
+ * relevance (exact title → prefix → substring → genre → platform → summary).
+ */
+function localSearchGames(
+  games: StoreGameSummary[],
+  query: string
+): StoreGameSummary[] {
+  const q = query.trim().toLowerCase();
+  if (!q) return [];
+  const scored: { game: StoreGameSummary; score: number }[] = [];
+  for (const g of games) {
+    const name = (g.name || "").toLowerCase();
+    let score: number | null = null;
+    if (name === q) score = 0;
+    else if (name.startsWith(q)) score = 1;
+    else if (name.includes(q)) score = 2;
+    else if ((g.genres || []).some((x) => x.toLowerCase().includes(q))) score = 3;
+    else if ((g.platforms || []).some((x) => x.toLowerCase().includes(q))) score = 4;
+    else if (g.summary && g.summary.toLowerCase().includes(q)) score = 5;
+    if (score !== null) scored.push({ game: g, score });
+  }
+  scored.sort(
+    (a, b) => a.score - b.score || (a.game.name || "").localeCompare(b.game.name || "")
+  );
+  return scored.map((s) => s.game);
+}
+
+/**
+ * Combine server-side IGDB name matches with local genre/platform matches,
+ * de-duplicating by game id. Server results come first (they're the
+ * canonical name matches); local-only matches are appended in relevance
+ * order.
+ */
+function mergeSearchResults(
+  server: StoreGameSummary[],
+  local: StoreGameSummary[]
+): StoreGameSummary[] {
+  if (local.length === 0) return server;
+  const seen = new Set(server.map((g) => g.id));
+  const localOnly = local.filter((g) => !seen.has(g.id));
+  return localOnly.length === 0 ? server : [...server, ...localOnly];
+}
+
+function releaseDateMs(d: string | null): number | null {
+  return d ? new Date(d).getTime() : null;
+}
+
+/**
+ * Client-side sort applied to search results. The IGDB search endpoint has
+ * its own ranking and ignores sort clauses, so a sort change during a live
+ * search re-orders the loaded results locally instead of re-fetching.
+ * Nulls sort last for both date directions.
+ */
+function sortSearchResults(
+  games: StoreGameSummary[],
+  sort: StoreSort
+): StoreGameSummary[] {
+  const arr = [...games];
+  switch (sort) {
+    case "rating":
+      return arr.sort((a, b) => (b.rating ?? -1) - (a.rating ?? -1));
+    case "popularity":
+      return arr.sort(
+        (a, b) =>
+          (b.totalRatingCount ?? 0) - (a.totalRatingCount ?? 0) ||
+          (b.hypes ?? 0) - (a.hypes ?? 0)
+      );
+    case "trending":
+    case "follows":
+      return arr.sort((a, b) => (b.hypes ?? 0) - (a.hypes ?? 0));
+    case "release_new":
+      return arr.sort((a, b) => {
+        const av = releaseDateMs(a.firstReleaseDate);
+        const bv = releaseDateMs(b.firstReleaseDate);
+        if (av === null && bv === null) return 0;
+        if (av === null) return 1;
+        if (bv === null) return -1;
+        return bv - av;
+      });
+    case "release_old":
+      return arr.sort((a, b) => {
+        const av = releaseDateMs(a.firstReleaseDate);
+        const bv = releaseDateMs(b.firstReleaseDate);
+        if (av === null && bv === null) return 0;
+        if (av === null) return 1;
+        if (bv === null) return -1;
+        return av - bv;
+      });
+    case "name":
+      return arr.sort((a, b) => (a.name || "").localeCompare(b.name || ""));
+    case "name_desc":
+      return arr.sort((a, b) => (b.name || "").localeCompare(a.name || ""));
+    default:
+      return arr;
+  }
+}
 
 /**
  * Read the persisted download-source filter selection
@@ -107,16 +207,11 @@ export interface StoreCatalogue {
   recentlyViewed: StoreGameSummary[];
   recentSearches: string[];
   removeRecentSearch: (q: string) => void;
+  clearRecentSearches: () => void;
 
   // ── Density ────────────────────────────────────────────────────────
   density: ViewDensity;
   setDensity: (d: ViewDensity) => void;
-
-  // ── Presets ────────────────────────────────────────────────────────
-  presets: ReturnType<typeof useStorePresets>["presets"];
-  savePreset: (name: string) => void;
-  removePreset: (id: string) => void;
-  applyPreset: (id: string) => void;
 
   // ── Bulk / compare ─────────────────────────────────────────────────
   bulkMode: boolean;
@@ -184,7 +279,25 @@ export function useStoreCatalogue(): StoreCatalogue {
   const hiddenGames = useHiddenGames();
   const recentlyViewed = useRecentlyViewed();
   const recentSearches = useRecentSearches();
-  const presets = useStorePresets();
+
+  // Snapshot of the last category-browsing list so a live search can match
+  // against already-loaded games (by title, genre, or platform) and merge
+  // those hits with the fresh IGDB name matches. Updated only while NOT
+  // searching so it always holds the pre-search catalogue.
+  const lastBrowseGamesRef = useRef<StoreGameSummary[]>([]);
+  useEffect(() => {
+    if (!isSearching) lastBrowseGamesRef.current = games;
+  }, [isSearching, games]);
+
+  const searchMergedGames = useMemo(() => {
+    if (!isSearching) return games;
+    const q = searchQuery.trim();
+    if (!q) return games;
+    return mergeSearchResults(
+      games,
+      localSearchGames(lastBrowseGamesRef.current, q)
+    );
+  }, [isSearching, games, searchQuery]);
 
   const [showHidden, setShowHidden] = useState(false);
   const [bulkMode, setBulkMode] = useState(false);
@@ -246,12 +359,29 @@ export function useStoreCatalogue(): StoreCatalogue {
     pending: sourceChecksPending,
     isFilterActive: isSourceFilterActive,
     sourceCounts,
-  } = useSourceAvailabilityCache(games, selectedSourceIds, sourceMatchMode);
+  } = useSourceAvailabilityCache(
+    searchMergedGames,
+    selectedSourceIds,
+    sourceMatchMode
+  );
 
   const displayedGames = useMemo(() => {
-    if (showHidden || hiddenGames.count === 0) return visibleGames;
-    return visibleGames.filter((g) => !hiddenGames.hiddenSet.has(g.slug));
-  }, [visibleGames, showHidden, hiddenGames.hiddenSet, hiddenGames.count]);
+    // During a live search the IGDB endpoint ignores sort clauses, so a
+    // non-default sort re-orders the merged results locally.
+    const base =
+      isSearching && sort !== "default"
+        ? sortSearchResults(visibleGames, sort)
+        : visibleGames;
+    if (showHidden || hiddenGames.count === 0) return base;
+    return base.filter((g) => !hiddenGames.hiddenSet.has(g.slug));
+  }, [
+    visibleGames,
+    isSearching,
+    sort,
+    showHidden,
+    hiddenGames.hiddenSet,
+    hiddenGames.count,
+  ]);
 
   const activeFilterCount = useMemo(
     () =>
@@ -458,54 +588,22 @@ export function useStoreCatalogue(): StoreCatalogue {
     }
   }, [addingAll, selectedGames, libraryIndex, addStoreGame, showToast, clearSelection]);
 
-  const savePreset = useCallback((name: string) => {
-    presets.save({
-      name,
-      genres: selectedGenres,
-      platforms: selectedPlatforms,
-      yearMin,
-      yearMax,
-      ratingMin,
-      sourceIds: selectedSourceIds,
-      matchMode: sourceMatchMode,
-      sort,
-    });
-  }, [presets, selectedGenres, selectedPlatforms, yearMin, yearMax, ratingMin, selectedSourceIds, sourceMatchMode, sort]);
-
-  const applyPreset = useCallback((id: string) => {
-    const preset = presets.presets.find((p) => p.id === id);
-    if (!preset) return;
-    clearSearch();
-    setSelectedGenres(preset.genres);
-    setSelectedPlatforms(preset.platforms);
-    setYearMin(preset.yearMin);
-    setYearMax(preset.yearMax);
-    setRatingMin(preset.ratingMin);
-    setSelectedSourceIds(preset.sourceIds.filter((sid) => enabledSourceIds.has(sid)));
-    // Old presets predate the field — fall back to "all" (AND) semantics.
-    setSourceMatchMode(preset.matchMode ?? "all");
-    setFiltersOpen(false);
-    setSort(preset.sort);
-    applyFiltersRaw({
-      genres: preset.genres,
-      platforms: preset.platforms,
-      yearMin: preset.yearMin,
-      yearMax: preset.yearMax,
-      ratingMin: preset.ratingMin,
-    });
-  }, [clearSearch, presets.presets, enabledSourceIds, setSort, applyFiltersRaw]);
-
   const sourceFilterChipCount = isSourceFilterActive ? visibleGames.length : undefined;
 
   const resultsTitle = useMemo(() => {
-    if (isSearching) return t("store.resultsTitle.search");
+    if (isSearching) {
+      const q = searchQuery.trim();
+      return q
+        ? t("store.search.resultsFor", { query: q })
+        : t("store.resultsTitle.search");
+    }
     if (sort === "trending") return t("store.resultsTitle.trending");
     if (sort === "popularity") return t("store.resultsTitle.popular");
     if (sort === "rating") return t("store.resultsTitle.topRated");
     if (sort === "release_new") return t("store.resultsTitle.newReleases");
     if (sort === "follows") return t("store.resultsTitle.mostFollowed");
     return t("store.resultsTitle.allGames");
-  }, [isSearching, sort, t]);
+  }, [isSearching, searchQuery, sort, t]);
 
   const isInLibrary = useCallback(
     (g: StoreGameSummary) => libraryIndex.isInLibrary(g),
@@ -558,12 +656,9 @@ export function useStoreCatalogue(): StoreCatalogue {
     recentlyViewed: recentlyViewed.items,
     recentSearches: recentSearches.searches,
     removeRecentSearch: recentSearches.remove,
+    clearRecentSearches: recentSearches.clear,
     density,
     setDensity,
-    presets: presets.presets,
-    savePreset,
-    removePreset: presets.remove,
-    applyPreset,
     bulkMode,
     setBulkMode,
     selectedSlugs,

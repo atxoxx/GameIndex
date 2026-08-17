@@ -1,5 +1,6 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { useLanguage } from "../../context/LanguageContext";
+import type { StoreGameSummary } from "../../types/game";
 
 export const GENRES = [
   "Action",
@@ -44,6 +45,53 @@ const YEAR_PRESETS = [
   { label: "Retro (< 2000)", min: 1970, max: 1999 },
 ];
 
+/**
+ * Whether `g` passes every facet filter EXCEPT the one being counted. Used
+ * for the live per-option match counts: each option's number reflects "how
+ * many games would remain if I added just this filter", i.e. the impact of
+ * toggling it against the current selection.
+ */
+function matchesFacetFilters(
+  g: StoreGameSummary,
+  genres: string[],
+  platforms: string[],
+  yearMin: number | null,
+  yearMax: number | null,
+  ratingMin: number | null,
+  exclude: "genre" | "platform" | "year" | "rating"
+): boolean {
+  if (
+    exclude !== "genre" &&
+    genres.length > 0 &&
+    !genres.some((x) => g.genres.includes(x))
+  ) {
+    return false;
+  }
+  if (
+    exclude !== "platform" &&
+    platforms.length > 0 &&
+    !platforms.some((x) => g.platforms.includes(x))
+  ) {
+    return false;
+  }
+  if (exclude !== "year" && (yearMin != null || yearMax != null)) {
+    const y = g.firstReleaseDate
+      ? new Date(g.firstReleaseDate).getFullYear()
+      : null;
+    if (y == null) return false;
+    if (yearMin != null && y < yearMin) return false;
+    if (yearMax != null && y > yearMax) return false;
+  }
+  if (
+    exclude !== "rating" &&
+    ratingMin != null &&
+    (g.rating == null || g.rating < ratingMin)
+  ) {
+    return false;
+  }
+  return true;
+}
+
 interface StoreFilterSidebarProps {
   selectedGenres: string[];
   selectedPlatforms: string[];
@@ -61,6 +109,11 @@ interface StoreFilterSidebarProps {
   sourceCounts?: Record<string, { checked: number; available: number }>;
   sourceMatchMode?: "all" | "any";
   onSourceMatchModeChange?: (m: "all" | "any") => void;
+  /**
+   * The game list the live per-option match counts are computed against
+   * (e.g. the currently displayed results). When omitted, no counts render.
+   */
+  countSource?: StoreGameSummary[];
 }
 
 export default function StoreFilterSidebar({
@@ -75,11 +128,103 @@ export default function StoreFilterSidebar({
   onRatingMinChange,
   onApply,
   onReset,
+  countSource = [],
 }: StoreFilterSidebarProps) {
   const { t } = useLanguage();
 
   const [genreSearch, setGenreSearch] = useState("");
   const [platformSearch, setPlatformSearch] = useState("");
+
+  // Live per-option match counts over `countSource`. Each facet's numbers
+  // are computed against all OTHER active filters, so a pill's badge shows
+  // how many games would remain if that option were toggled on.
+  const counts = useMemo(() => {
+    const genres: Record<string, number> = {};
+    const platforms: Record<string, number> = {};
+    const years = YEAR_PRESETS.map(() => 0);
+    const presets = { highRated: 0, newReleases: 0 };
+    const ratingTicks = [0, 0, 0]; // 50 / 75 / 90
+
+    for (const g of countSource) {
+      if (
+        matchesFacetFilters(
+          g,
+          selectedGenres,
+          selectedPlatforms,
+          yearMin,
+          yearMax,
+          ratingMin,
+          "genre"
+        )
+      ) {
+        for (const genre of g.genres) {
+          genres[genre] = (genres[genre] ?? 0) + 1;
+        }
+      }
+      if (
+        matchesFacetFilters(
+          g,
+          selectedGenres,
+          selectedPlatforms,
+          yearMin,
+          yearMax,
+          ratingMin,
+          "platform"
+        )
+      ) {
+        for (const p of g.platforms) platforms[p] = (platforms[p] ?? 0) + 1;
+      }
+      if (
+        matchesFacetFilters(
+          g,
+          selectedGenres,
+          selectedPlatforms,
+          yearMin,
+          yearMax,
+          ratingMin,
+          "year"
+        )
+      ) {
+        const y = g.firstReleaseDate
+          ? new Date(g.firstReleaseDate).getFullYear()
+          : null;
+        if (y != null) {
+          YEAR_PRESETS.forEach((preset, i) => {
+            if (preset.min != null && y < preset.min) return;
+            if (preset.max != null && y > preset.max) return;
+            years[i] += 1;
+          });
+          if (y >= 2024 && y <= 2026) presets.newReleases += 1;
+        }
+      }
+      if (
+        matchesFacetFilters(
+          g,
+          selectedGenres,
+          selectedPlatforms,
+          yearMin,
+          yearMax,
+          ratingMin,
+          "rating"
+        )
+      ) {
+        if (g.rating != null) {
+          if (g.rating >= 80) presets.highRated += 1;
+          if (g.rating >= 50) ratingTicks[0] += 1;
+          if (g.rating >= 75) ratingTicks[1] += 1;
+          if (g.rating >= 90) ratingTicks[2] += 1;
+        }
+      }
+    }
+    return { genres, platforms, years, presets, ratingTicks };
+  }, [
+    countSource,
+    selectedGenres,
+    selectedPlatforms,
+    yearMin,
+    yearMax,
+    ratingMin,
+  ]);
 
   const handleGenreToggle = (genre: string) => {
     if (selectedGenres.includes(genre)) {
@@ -122,6 +267,9 @@ export default function StoreFilterSidebar({
             onClick={() => onRatingMinChange(ratingMin === 80 ? null : 80)}
           >
             {t("store.filters.presetHighRated")}
+            {counts.presets.highRated > 0 && (
+              <span className="store-filter-match-count">{counts.presets.highRated}</span>
+            )}
           </button>
           <button
             type="button"
@@ -135,6 +283,9 @@ export default function StoreFilterSidebar({
             }}
           >
             {t("store.filters.presetNew")}
+            {counts.presets.newReleases > 0 && (
+              <span className="store-filter-match-count">{counts.presets.newReleases}</span>
+            )}
           </button>
         </div>
       </div>
@@ -181,16 +332,22 @@ export default function StoreFilterSidebar({
         </div>
 
         <div className="store-filter-pills">
-          {filteredGenres.map((genre) => (
-            <button
-              key={genre}
-              type="button"
-              className={`store-filter-pill${selectedGenres.includes(genre) ? " active" : ""}`}
-              onClick={() => handleGenreToggle(genre)}
-            >
-              {genre}
-            </button>
-          ))}
+          {filteredGenres.map((genre) => {
+            const count = counts.genres[genre] ?? 0;
+            return (
+              <button
+                key={genre}
+                type="button"
+                className={`store-filter-pill${selectedGenres.includes(genre) ? " active" : ""}`}
+                onClick={() => handleGenreToggle(genre)}
+              >
+                {genre}
+                {count > 0 && (
+                  <span className="store-filter-match-count">{count}</span>
+                )}
+              </button>
+            );
+          })}
         </div>
       </div>
 
@@ -236,16 +393,22 @@ export default function StoreFilterSidebar({
         </div>
 
         <div className="store-filter-pills">
-          {filteredPlatforms.map((platform) => (
-            <button
-              key={platform}
-              type="button"
-              className={`store-filter-pill${selectedPlatforms.includes(platform) ? " active" : ""}`}
-              onClick={() => handlePlatformToggle(platform)}
-            >
-              {platform}
-            </button>
-          ))}
+          {filteredPlatforms.map((platform) => {
+            const count = counts.platforms[platform] ?? 0;
+            return (
+              <button
+                key={platform}
+                type="button"
+                className={`store-filter-pill${selectedPlatforms.includes(platform) ? " active" : ""}`}
+                onClick={() => handlePlatformToggle(platform)}
+              >
+                {platform}
+                {count > 0 && (
+                  <span className="store-filter-match-count">{count}</span>
+                )}
+              </button>
+            );
+          })}
         </div>
       </div>
 
@@ -265,8 +428,9 @@ export default function StoreFilterSidebar({
         </div>
 
         <div className="store-filter-year-presets">
-          {YEAR_PRESETS.map((preset) => {
+          {YEAR_PRESETS.map((preset, idx) => {
             const isMatch = yearMin === preset.min && yearMax === preset.max;
+            const count = counts.years[idx];
             return (
               <button
                 key={preset.label}
@@ -275,6 +439,9 @@ export default function StoreFilterSidebar({
                 onClick={() => onYearRangeChange(preset.min, preset.max)}
               >
                 {preset.label}
+                {count > 0 && (
+                  <span className="store-filter-match-count">{count}</span>
+                )}
               </button>
             );
           })}
@@ -336,11 +503,18 @@ export default function StoreFilterSidebar({
         />
         <div className="store-filter-slider-ticks">
           <span>0%</span>
-          <span>50%</span>
-          <span>75%</span>
-          <span>90%+</span>
+          <span>50%{counts.ratingTicks[0] > 0 ? ` · ${counts.ratingTicks[0]}` : ""}</span>
+          <span>75%{counts.ratingTicks[1] > 0 ? ` · ${counts.ratingTicks[1]}` : ""}</span>
+          <span>90%+{counts.ratingTicks[2] > 0 ? ` · ${counts.ratingTicks[2]}` : ""}</span>
         </div>
       </div>
+
+      {/* Live-count footnote: counts are over loaded results, not the
+          whole IGDB catalog, so a zero badge only means "no match among
+          games loaded so far". */}
+      {countSource.length > 0 && (
+        <p className="store-filter-counts-note">{t("store.filters.countsNote")}</p>
+      )}
 
       {/* Actions */}
       <div className="store-filter-actions">

@@ -23,6 +23,8 @@ interface StoreGameGridProps {
   selectedSlugs?: Set<string>;
   onToggleSelect?: (game: StoreGameSummary) => void;
   onClearFilters?: () => void;
+  /** Clear just the active search query (leaves facet filters intact). */
+  onClearSearch?: () => void;
 }
 
 function CardSkeleton({ list = false }: { list?: boolean }) {
@@ -85,6 +87,7 @@ export default function StoreGameGrid({
   selectedSlugs,
   onToggleSelect,
   onClearFilters,
+  onClearSearch,
 }: StoreGameGridProps) {
   const { t } = useLanguage();
   const sentinelRef = useRef<HTMLDivElement>(null);
@@ -191,6 +194,31 @@ export default function StoreGameGrid({
 
   // Empty state
   if (!loading && games.length === 0) {
+    // Search-specific empty state: no matches for the active query.
+    const activeQuery = searchQuery.trim();
+    if (activeQuery) {
+      return (
+        <div className="store-empty">
+          <div className="store-empty-icon" aria-hidden="true">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
+              <circle cx="11" cy="11" r="8" />
+              <line x1="21" y1="21" x2="16.65" y2="16.65" />
+            </svg>
+          </div>
+          <h3>{t("store.search.noResults", { query: activeQuery })}</h3>
+          <p>{t("store.search.noResultsHint")}</p>
+          {onClearSearch && (
+            <button type="button" className="store-empty-action" onClick={onClearSearch}>
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                <line x1="18" y1="6" x2="6" y2="18" />
+                <line x1="6" y1="6" x2="18" y2="18" />
+              </svg>
+              <span>{t("store.search.clearSearch")}</span>
+            </button>
+          )}
+        </div>
+      );
+    }
     if (isSourceFilterActive) {
       return (
         <div className="store-empty">

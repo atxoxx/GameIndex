@@ -1186,40 +1186,11 @@ export const STORE_POPULAR_SEARCHES: readonly string[] = [
 /** localStorage key for the set of "not interested" (hidden) game slugs. */
 export const STORE_HIDDEN_KEY = "gamelib_store_hidden_v1";
 
-/** localStorage key for saved filter presets. */
-export const STORE_PRESETS_KEY = "gamelib_store_presets_v1";
-
 /**
  * localStorage key for the persisted download-source filter selection
  * (`{ sourceIds: string[], matchMode: "all" | "any" }`).
  */
 export const STORE_SOURCE_FILTER_KEY = "gamelib_store_source_filter_v1";
-
-/**
- * A saved filter preset — a named snapshot of the sidebar facets plus
- * the download-source selection so power users can restore a full
- * browse configuration in one click.
- */
-export interface StoreFilterPreset {
-  /** Stable id (timestamp-based) used as the React key + removal handle. */
-  id: string;
-  /** User-supplied display name (e.g. "Co-op RPGs, PC, 2018+"). */
-  name: string;
-  genres: string[];
-  platforms: string[];
-  yearMin: number | null;
-  yearMax: number | null;
-  ratingMin: number | null;
-  /** Download-source ids (may reference deleted sources; pruned on apply). */
-  sourceIds: string[];
-  /**
-   * Match semantics for the source filter: "all" (AND — game must exist in
-   * every selected source) or "any" (OR — game exists in at least one).
-   */
-  matchMode: "all" | "any";
-  /** Sort order captured with the preset. */
-  sort: StoreSort;
-}
 
 // ─── Store: Price (CheapShark) ───────────────────────────────────────────────
 

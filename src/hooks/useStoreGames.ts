@@ -252,21 +252,18 @@ export function useStoreGames() {
     (next: StoreSort) => {
       sortRef.current = next;
       setSortState(next);
-      // Re-fetch: search keeps its own server-side ranking, so a sort
-      // change there is a no-op; category browsing re-queries with the
-      // new IGDB sort clause.
+      // During a live search the IGDB endpoint ignores sort clauses — the
+      // catalogue re-orders the loaded results client-side, so a sort
+      // change is a pure state update with no re-fetch. Category browsing
+      // re-queries with the new IGDB sort clause.
+      if (isSearching && searchQuery) return;
       requestIdRef.current += 1;
       const reqId = requestIdRef.current;
       offsetRef.current = 0;
       setHasMore(true);
       setError(null);
-      if (isSearching && searchQuery) {
-        // Keep old results visible while the search re-fetch is in flight.
-        performFetch(reqId, null, searchQuery, 0, false);
-      } else {
-        setGames([]);
-        performFetch(reqId, activeCategoryRef.current, "", 0, false);
-      }
+      setGames([]);
+      performFetch(reqId, activeCategoryRef.current, "", 0, false);
     },
     [performFetch, isSearching, searchQuery]
   );
@@ -310,9 +307,13 @@ export function useStoreGames() {
         requestIdRef.current += 1;
         // With facet filters active the category cache is unfiltered and
         // stale — bypass it so clearing search re-fetches the filtered list.
-        const cached = recomputeHasFilters(filtersRef.current)
-          ? null
-          : getCategoryCache(activeCategoryRef.current);
+        // A non-default sort also bypasses the cache: sorted slices are
+        // never persisted, so the cached list would show default order.
+        const cached =
+          recomputeHasFilters(filtersRef.current) ||
+          sortRef.current !== "default"
+            ? null
+            : getCategoryCache(activeCategoryRef.current);
         if (cached) {
           setGames(cached);
           offsetRef.current = cached.length;

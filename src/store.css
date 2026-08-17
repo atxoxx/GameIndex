@@ -496,6 +496,29 @@
   margin: 0;
 }
 
+/* "Clear" action in a filter section header (genres / platforms / year). */
+.store-filter-section-clear {
+  padding: 2px 8px;
+  font-size: 10px;
+  font-weight: var(--font-weight-semibold);
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+  color: var(--color-text-tertiary);
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: var(--radius-full);
+  cursor: pointer;
+  transition: color var(--transition-fast),
+    border-color var(--transition-fast),
+    background var(--transition-fast);
+}
+
+.store-filter-section-clear:hover {
+  color: var(--color-danger);
+  border-color: color-mix(in srgb, var(--color-danger) 30%, transparent);
+  background: color-mix(in srgb, var(--color-danger) 8%, transparent);
+}
+
 .store-filter-count-badge {
   display: inline-flex;
   align-items: center;
@@ -576,6 +599,41 @@
 .store-filter-pill.active .store-filter-source-count {
   color: #fff;
   background: rgba(0, 0, 0, 0.22);
+}
+
+/* Live per-option match-count badge shown inside genre/platform pills and
+   the quick/year preset buttons. Mirrors .store-filter-source-count so all
+   count readouts share one shape. */
+.store-filter-match-count {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 16px;
+  height: 14px;
+  padding: 0 4px;
+  font-size: 9px;
+  font-weight: var(--font-weight-bold);
+  font-variant-numeric: tabular-nums;
+  color: var(--color-text-muted);
+  background: var(--color-bg-secondary);
+  border-radius: var(--radius-full);
+  flex: 0 0 auto;
+}
+
+.store-filter-pill.active .store-filter-match-count,
+.store-filter-preset-btn.active .store-filter-match-count,
+.store-filter-preset-pill.active .store-filter-match-count {
+  color: #fff;
+  background: rgba(0, 0, 0, 0.22);
+}
+
+/* Footnote under the sidebar clarifying counts are over loaded results. */
+.store-filter-counts-note {
+  margin: 0 0 var(--space-sm);
+  padding: 0 var(--space-xs);
+  font-size: 10px;
+  line-height: 1.4;
+  color: var(--color-text-muted);
 }
 
 .store-filter-year-row {
@@ -756,6 +814,37 @@
 }
 
 .store-filter-chip button svg {
+  width: 10px;
+  height: 10px;
+}
+
+/* One-click "Clear all" action appended to the active-filter chips row. */
+.store-filter-chip-clear-all {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  margin-left: var(--space-xs);
+  padding: 3px 10px;
+  background: transparent;
+  border: 1px solid color-mix(in srgb, var(--color-text-secondary) 35%, transparent);
+  border-radius: var(--radius-full);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-semibold);
+  font-family: inherit;
+  color: var(--color-text-secondary);
+  cursor: pointer;
+  transition: color var(--transition-fast),
+    border-color var(--transition-fast),
+    background var(--transition-fast);
+}
+
+.store-filter-chip-clear-all:hover {
+  color: var(--color-danger);
+  border-color: var(--color-danger);
+  background: color-mix(in srgb, var(--color-danger) 10%, transparent);
+}
+
+.store-filter-chip-clear-all svg {
   width: 10px;
   height: 10px;
 }

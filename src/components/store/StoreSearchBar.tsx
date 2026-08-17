@@ -13,6 +13,8 @@ interface StoreSearchBarProps {
   recentSearches?: string[];
   /** Remove a single recent search entry. */
   onRemoveRecent?: (query: string) => void;
+  /** Clear the whole recent-searches list at once. */
+  onClearRecentSearches?: () => void;
   /** Navigate directly to a suggested game (bypasses full search). */
   onPickSuggestion?: (game: StoreGameSummary) => void;
 }
@@ -23,6 +25,7 @@ export default function StoreSearchBar({
   visible,
   recentSearches = [],
   onRemoveRecent,
+  onClearRecentSearches,
   onPickSuggestion,
 }: StoreSearchBarProps) {
   const inputRef = useRef<HTMLInputElement>(null);
@@ -158,9 +161,6 @@ export default function StoreSearchBar({
         <div className="store-search-dropdown" role="listbox">
           <div className="store-search-dropdown-header">
             <span>{t("store.search.suggestions")}</span>
-            <span className="store-search-hint">
-              {t("store.search.pressEnter", { query: trimmed })}
-            </span>
           </div>
 
           {loading && suggestions.length === 0 ? (
@@ -229,8 +229,17 @@ export default function StoreSearchBar({
         <div className="store-search-dropdown">
           {recentSearches.length > 0 && (
             <div className="store-search-section">
-              <div className="store-search-section-title">
+              <div className="store-search-section-title store-search-section-title-row">
                 <span>{t("store.search.recentSearches")}</span>
+                {onClearRecentSearches && (
+                  <button
+                    type="button"
+                    className="store-search-clear-all"
+                    onClick={onClearRecentSearches}
+                  >
+                    {t("store.search.clearRecent")}
+                  </button>
+                )}
               </div>
               {recentSearches.map((q) => (
                 <div key={q} className="store-search-recent-row">

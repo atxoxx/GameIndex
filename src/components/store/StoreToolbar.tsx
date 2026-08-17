@@ -25,6 +25,7 @@ export default function StoreToolbar({ catalogue: c }: StoreToolbarProps) {
           visible
           recentSearches={c.recentSearches}
           onRemoveRecent={c.removeRecentSearch}
+          onClearRecentSearches={c.clearRecentSearches}
           onPickSuggestion={c.onCardClick}
         />
       </div>
