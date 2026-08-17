@@ -560,6 +560,61 @@ input[type="checkbox"].dl-file-checkbox:focus-visible {
   box-shadow: 0 0 12px color-mix(in srgb, var(--color-danger) 40%, transparent);
 }
 
+/* ── Direct-download mirror selector ────────────────────────────── */
+.dl-row-mirror-select-wrapper {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  flex-shrink: 0;
+}
+
+.dl-row-mirror-select {
+  appearance: none;
+  -webkit-appearance: none;
+  max-width: 150px;
+  height: 32px;
+  padding: 0 26px 0 10px;
+  background: var(--color-bg-tertiary);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  color: var(--color-text-secondary);
+  font-size: 11px;
+  font-weight: var(--font-weight-semibold);
+  font-family: inherit;
+  cursor: pointer;
+  outline: none;
+  transition: all var(--transition-fast);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.dl-row-mirror-select:hover,
+.dl-row-mirror-select:focus {
+  border-color: var(--color-accent);
+  color: var(--color-text-primary);
+}
+
+.dl-row-mirror-select-caret {
+  position: absolute;
+  right: 8px;
+  pointer-events: none;
+  font-size: 9px;
+  color: var(--color-text-muted);
+}
+
+/* ── Inline error line (failed downloads) ───────────────────────── */
+.dl-row-error {
+  font-size: var(--font-size-xs);
+  line-height: 1.45;
+  color: var(--color-danger);
+  background: color-mix(in srgb, var(--color-danger) 10%, transparent);
+  border: 1px solid color-mix(in srgb, var(--color-danger) 30%, transparent);
+  border-radius: var(--radius-md);
+  padding: 6px 10px;
+  margin-top: 2px;
+  word-break: break-word;
+}
+
 /* ── Collapsible Torrent Files Details Drawer ────────────────────── */
 .dl-row-details {
   background: color-mix(in srgb, var(--color-bg-secondary) 85%, var(--color-bg-primary));

@@ -1636,6 +1636,28 @@
   background: var(--color-bg-tertiary);
 }
 
+/* Inline start-error banner (shown under the results pane) */
+.dl-inline-error {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-sm);
+  flex-wrap: wrap;
+  padding: 8px 12px;
+  background: color-mix(in srgb, var(--color-danger) 8%, var(--color-bg-secondary));
+  border: 1px solid color-mix(in srgb, var(--color-danger) 30%, transparent);
+  border-radius: var(--radius-lg);
+  color: var(--color-danger);
+  font-size: var(--font-size-xs);
+  line-height: 1.4;
+}
+
+.dl-inline-error-text {
+  margin: 0;
+  flex: 1;
+  min-width: 0;
+}
+
 /* ─── File Selection Step ────────────────────────────────────────── */
 .dl-file-selection {
   display: flex;

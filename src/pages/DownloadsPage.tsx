@@ -297,7 +297,6 @@ export default function DownloadsPage() {
             onResumeSelected={handleBatchResume}
             onRemoveSelected={handleBatchRemove}
             onDeleteSelected={() => setBatchDeleteOpen(true)}
-            onOpenStats={() => setStatsModalOpen(true)}
           />
         </div>
 

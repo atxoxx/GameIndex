@@ -90,7 +90,9 @@ export function DetailPanel({
   const { isMagnet, isTorrentFile, isDirect } = classifyUri(sourceUri, match.torrentUrl);
   const webUrl = webUrlFor(match);
   const detailUrl = match.detailUrl && match.detailUrl.trim();
-  const showOpenPage = !webUrl && Boolean(detailUrl);
+  // Direct results already surface both "open in browser" actions inside
+  // the resolver card above, so the fallback row would only duplicate them.
+  const showOpenPage = !webUrl && !isDirect && Boolean(detailUrl);
   const debridAvailable = debridConfigured && (isMagnet || isTorrentFile || isDirect);
   const hostLabel = sourceUri ? hostLabelForUri(sourceUri, 0) : null;
   const needsBrowser = hosterNeedsBrowser(sourceUri);
