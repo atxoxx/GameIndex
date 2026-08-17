@@ -27,6 +27,7 @@ export { default as StorylineSection } from "./StorylineSection";
 export { default as ScreenshotsSection } from "./ScreenshotsSection";
 export { default as VideosSection } from "./VideosSection";
 export { default as SystemRequirementsCard } from "./SystemRequirementsCard";
+export { default as GameNewsTab } from "./GameNewsTab";
 
 export { SectionTitle, TimeToBeatRow, StatusDot, formatPlayTimeCompact } from "./shared";
 export { getVideoEmbedUrl, getVideoThumbnail } from "./video";

@@ -1,55 +1,791 @@
-/* Game page — News tab
-   Reuses the global news card styles (NewsPage.css) for the article
-   cards; this file only shapes the tab layout around them. */
+/* ==========================================================================
+   Game Page — News & Updates Subtab
+   ========================================================================== */
 
 .game-news-tab {
   display: flex;
   flex-direction: column;
   gap: var(--space-lg);
+  width: 100%;
 }
 
-/* ── Header ────────────────────────────────────────────────────────── */
+/* ── Toolbar & Sub-filters ─────────────────────────────────────────── */
 
-.game-news-header {
+.game-news-toolbar-container {
   display: flex;
-  align-items: flex-end;
+  flex-direction: column;
+  gap: var(--space-md);
+  padding-bottom: var(--space-md);
+  border-bottom: 1px solid var(--color-border);
+}
+
+.game-news-categories-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-xs);
+  overflow-x: auto;
+  padding-bottom: var(--space-2xs);
+  scrollbar-width: none;
+}
+
+.game-news-categories-row::-webkit-scrollbar {
+  display: none;
+}
+
+.game-news-category-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-xs);
+  padding: var(--space-xs) var(--space-md);
+  border-radius: var(--radius-full);
+  font-size: var(--font-size-xs);
+  font-weight: 600;
+  color: var(--color-text-secondary);
+  background: var(--color-bg-secondary);
+  border: 1px solid var(--color-border);
+  cursor: pointer;
+  white-space: nowrap;
+  transition: all var(--transition-fast) cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.game-news-category-pill:hover {
+  color: var(--color-text-primary);
+  background: var(--color-bg-hover);
+  border-color: var(--color-border-light);
+  transform: translateY(-1px);
+}
+
+.game-news-category-pill.is-active {
+  color: var(--color-accent-contrast);
+  background: var(--color-accent);
+  border-color: var(--color-accent-border);
+  box-shadow: 0 0 16px color-mix(in srgb, var(--color-accent) 30%, transparent);
+}
+
+.game-news-category-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.game-news-category-icon svg {
+  width: 14px;
+  height: 14px;
+}
+
+.game-news-category-count {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1px 6px;
+  border-radius: var(--radius-full);
+  font-size: 11px;
+  font-weight: 700;
+  background: color-mix(in srgb, var(--color-text-primary) 12%, transparent);
+  color: inherit;
+}
+
+.game-news-category-pill.is-active .game-news-category-count {
+  background: rgba(255, 255, 255, 0.25);
+  color: #ffffff;
+}
+
+/* ── Controls Row (Search, View Mode, Actions) ─────────────────────── */
+
+.game-news-controls-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-sm);
+  flex-wrap: wrap;
+}
+
+.game-news-search-box {
+  position: relative;
+  display: flex;
+  align-items: center;
+  flex: 1;
+  min-width: 200px;
+  max-width: 380px;
+}
+
+.game-news-search-icon {
+  position: absolute;
+  left: var(--space-sm);
+  width: 15px;
+  height: 15px;
+  color: var(--color-text-tertiary);
+  pointer-events: none;
+}
+
+.game-news-search-input {
+  width: 100%;
+  height: 34px;
+  padding: 0 var(--space-xl) 0 30px;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--color-border);
+  background: var(--color-bg-secondary);
+  color: var(--color-text-primary);
+  font-size: var(--font-size-xs);
+  transition: all var(--transition-fast);
+}
+
+.game-news-search-input:focus {
+  outline: none;
+  border-color: var(--color-accent);
+  background: var(--color-bg-primary);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--color-accent) 20%, transparent);
+}
+
+.game-news-search-clear {
+  position: absolute;
+  right: var(--space-xs);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  padding: 0;
+  border: none;
+  background: transparent;
+  color: var(--color-text-tertiary);
+  cursor: pointer;
+  border-radius: var(--radius-full);
+}
+
+.game-news-search-clear:hover {
+  color: var(--color-text-primary);
+  background: color-mix(in srgb, var(--color-text-primary) 10%, transparent);
+}
+
+.game-news-search-clear svg {
+  width: 12px;
+  height: 12px;
+}
+
+/* View Mode Toggles */
+
+.game-news-view-toggles {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px;
+  background: var(--color-bg-secondary);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+}
+
+.game-news-view-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  border: none;
+  background: transparent;
+  color: var(--color-text-tertiary);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+
+.game-news-view-btn svg {
+  width: 15px;
+  height: 15px;
+}
+
+.game-news-view-btn:hover {
+  color: var(--color-text-primary);
+  background: var(--color-bg-hover);
+}
+
+.game-news-view-btn.is-active {
+  color: var(--color-accent-contrast);
+  background: var(--color-accent);
+}
+
+/* Sort dropdown */
+
+.game-news-sort-select {
+  height: 34px;
+  padding: 0 var(--space-md);
+  border-radius: var(--radius-md);
+  border: 1px solid var(--color-border);
+  background: var(--color-bg-secondary);
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-xs);
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+
+.game-news-sort-select:focus {
+  outline: none;
+  border-color: var(--color-accent);
+  color: var(--color-text-primary);
+}
+
+.game-news-action-buttons {
+  display: flex;
+  align-items: center;
+  gap: var(--space-xs);
+}
+
+/* ── Hero Spotlight Card ───────────────────────────────────────────── */
+
+.game-news-hero {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  border-radius: var(--radius-xl);
+  border: 1px solid var(--color-border-light);
+  background: var(--color-surface);
+  cursor: pointer;
+  transition: transform var(--transition-fast) cubic-bezier(0.16, 1, 0.3, 1),
+    border-color var(--transition-fast),
+    box-shadow var(--transition-fast);
+  margin-bottom: var(--space-md);
+}
+
+.game-news-hero:hover {
+  transform: translateY(-2px);
+  border-color: var(--color-border-glow);
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.35),
+    0 0 20px color-mix(in srgb, var(--color-accent) 15%, transparent);
+}
+
+.game-news-hero-cover {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  overflow: hidden;
+  background: var(--color-bg-tertiary);
+}
+
+.game-news-hero-cover img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  opacity: 0.28;
+  filter: blur(1px);
+  transition: transform 0.6s ease;
+}
+
+.game-news-hero:hover .game-news-hero-cover img {
+  transform: scale(1.03);
+}
+
+.game-news-hero-overlay {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    135deg,
+    color-mix(in srgb, var(--color-bg-primary) 92%, transparent) 0%,
+    color-mix(in srgb, var(--color-surface) 84%, transparent) 60%,
+    color-mix(in srgb, var(--color-accent-surface) 60%, transparent) 100%
+  );
+}
+
+.game-news-hero-content {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  flex-direction: column;
+  padding: var(--space-xl);
+  gap: var(--space-md);
+}
+
+.game-news-hero-top-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-sm);
+  flex-wrap: wrap;
+}
+
+.game-news-hero-badges {
+  display: flex;
+  align-items: center;
+  gap: var(--space-xs);
+  flex-wrap: wrap;
+}
+
+.game-news-hero-actions {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2xs);
+}
+
+.game-news-hero-title {
+  margin: 0;
+  font-size: var(--font-size-xl);
+  font-weight: 800;
+  color: var(--color-text-primary);
+  line-height: 1.25;
+  letter-spacing: -0.015em;
+}
+
+.game-news-hero-snippet {
+  margin: 0;
+  font-size: var(--font-size-sm);
+  color: var(--color-text-secondary);
+  line-height: var(--line-height-relaxed);
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  max-width: 900px;
+}
+
+.game-news-hero-footer {
+  display: flex;
+  align-items: center;
   justify-content: space-between;
   gap: var(--space-md);
   flex-wrap: wrap;
-  padding-bottom: var(--space-sm);
-  border-bottom: 1px solid color-mix(in srgb, var(--color-border) 40%, transparent);
+  padding-top: var(--space-xs);
 }
 
-.game-news-header-text h2 {
-  margin: 0;
-  font-size: var(--font-size-xl);
-  font-weight: var(--font-weight-bold);
-  color: var(--color-text-primary);
-  letter-spacing: -0.01em;
-}
-
-.game-news-header-text p {
-  margin: var(--space-xs) 0 0;
-  font-size: var(--font-size-sm);
-  color: var(--color-text-secondary);
-}
-
-.game-news-header-actions {
+.game-news-hero-meta {
   display: flex;
-  gap: var(--space-sm);
-}
-
-/* ── Grid ──────────────────────────────────────────────────────────── */
-
-.game-news-grid {
-  display: grid;
-  grid-template-columns: repeat(2, 1fr);
+  align-items: center;
   gap: var(--space-md);
 }
 
-/* The newest article becomes a full-width featured card. */
-.game-news-grid .news-article-card:first-child {
-  grid-column: 1 / -1;
+/* ── Badges & Common Tags ──────────────────────────────────────────── */
+
+.game-news-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 9px;
+  border-radius: var(--radius-full);
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  background: var(--color-bg-hover);
+  color: var(--color-text-secondary);
+  border: 1px solid var(--color-border);
+}
+
+.game-news-badge svg {
+  width: 12px;
+  height: 12px;
+}
+
+.game-news-badge.category-patch {
+  background: color-mix(in srgb, #10b981 16%, var(--color-bg-secondary));
+  color: #10b981;
+  border-color: color-mix(in srgb, #10b981 40%, transparent);
+}
+
+.game-news-badge.category-major {
+  background: color-mix(in srgb, #8b5cf6 18%, var(--color-bg-secondary));
+  color: #a78bfa;
+  border-color: color-mix(in srgb, #8b5cf6 45%, transparent);
+}
+
+.game-news-badge.category-hotfix {
+  background: color-mix(in srgb, #f59e0b 16%, var(--color-bg-secondary));
+  color: #f59e0b;
+  border-color: color-mix(in srgb, #f59e0b 40%, transparent);
+}
+
+.game-news-badge.category-announcement {
+  background: color-mix(in srgb, var(--color-accent) 18%, var(--color-bg-secondary));
+  color: var(--color-accent);
+  border-color: var(--color-accent-border);
+}
+
+.game-news-badge.category-press {
+  background: color-mix(in srgb, #38bdf8 16%, var(--color-bg-secondary));
+  color: #38bdf8;
+  border-color: color-mix(in srgb, #38bdf8 40%, transparent);
+}
+
+.game-news-version-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 3px 8px;
+  border-radius: var(--radius-sm);
+  font-family: var(--font-mono, monospace);
+  font-size: 11px;
+  font-weight: 700;
+  background: color-mix(in srgb, var(--color-text-primary) 8%, var(--color-bg-secondary));
+  color: var(--color-text-primary);
+  border: 1px solid var(--color-border);
+}
+
+.game-news-source-pill {
+  display: inline-flex;
+  align-items: center;
+  padding: 3px 8px;
+  border-radius: var(--radius-full);
+  font-size: 11px;
+  font-weight: 600;
+  background: var(--color-bg-secondary);
+  color: var(--color-text-tertiary);
+  border: 1px solid var(--color-border);
+}
+
+.game-news-unread-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: var(--radius-full);
+  background: var(--color-accent);
+  box-shadow: 0 0 8px var(--color-accent);
+}
+
+.game-news-meta-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: var(--font-size-xs);
+  color: var(--color-text-secondary);
+}
+
+.game-news-meta-item svg {
+  width: 13px;
+  height: 13px;
+  color: var(--color-text-tertiary);
+}
+
+.game-news-action-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  padding: 0;
+  border: 1px solid var(--color-border);
+  background: color-mix(in srgb, var(--color-bg-primary) 60%, transparent);
+  color: var(--color-text-secondary);
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+
+.game-news-action-btn:hover {
+  color: var(--color-text-primary);
+  background: var(--color-bg-hover);
+  border-color: var(--color-border-light);
+  transform: scale(1.05);
+}
+
+.game-news-action-btn.is-active {
+  color: var(--color-accent);
+  background: color-mix(in srgb, var(--color-accent) 15%, transparent);
+  border-color: var(--color-accent-border);
+}
+
+.game-news-action-btn svg {
+  width: 14px;
+  height: 14px;
+}
+
+/* ── Timeline Mode ─────────────────────────────────────────────────── */
+
+.game-news-timeline {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-lg);
+  padding: var(--space-md) 0 var(--space-md) var(--space-xl);
+}
+
+.game-news-timeline-track {
+  position: absolute;
+  left: 17px;
+  top: 0;
+  bottom: 0;
+  width: 2px;
+  background: linear-gradient(
+    to bottom,
+    var(--color-accent),
+    var(--color-border),
+    transparent
+  );
+  z-index: 0;
+}
+
+.game-news-timeline-item {
+  position: relative;
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-md);
+  z-index: 1;
+  cursor: pointer;
+}
+
+.game-news-timeline-node {
+  position: absolute;
+  left: -27px;
+  top: 14px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  border-radius: var(--radius-full);
+  background: var(--color-bg-secondary);
+  border: 2px solid var(--color-border);
+  color: var(--color-text-tertiary);
+  transition: all var(--transition-fast);
+}
+
+.game-news-timeline-item:hover .game-news-timeline-node {
+  border-color: var(--color-accent);
+  color: var(--color-accent);
+  transform: scale(1.15);
+  box-shadow: 0 0 12px color-mix(in srgb, var(--color-accent) 50%, transparent);
+}
+
+.game-news-timeline-node svg {
+  width: 12px;
+  height: 12px;
+}
+
+.game-news-timeline-node.category-patch {
+  border-color: #10b981;
+  color: #10b981;
+}
+
+.game-news-timeline-node.category-major {
+  border-color: #8b5cf6;
+  color: #8b5cf6;
+}
+
+.game-news-timeline-node.category-hotfix {
+  border-color: #f59e0b;
+  color: #f59e0b;
+}
+
+.game-news-timeline-node.category-announcement {
+  border-color: var(--color-accent);
+  color: var(--color-accent);
+}
+
+.game-news-timeline-card {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+  padding: var(--space-md) var(--space-lg);
+  border-radius: var(--radius-lg);
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  transition: all var(--transition-fast) cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.game-news-timeline-item:hover .game-news-timeline-card {
+  transform: translateX(4px);
+  border-color: var(--color-border-glow);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.25);
+}
+
+.game-news-timeline-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-sm);
+  flex-wrap: wrap;
+}
+
+.game-news-timeline-badges {
+  display: flex;
+  align-items: center;
+  gap: var(--space-xs);
+  flex-wrap: wrap;
+}
+
+.game-news-timeline-actions {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2xs);
+}
+
+.game-news-timeline-body {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-md);
+  justify-content: space-between;
+}
+
+.game-news-timeline-text {
+  flex: 1;
+}
+
+.game-news-timeline-title {
+  margin: 0 0 var(--space-xs);
+  font-size: var(--font-size-md);
+  font-weight: 700;
+  color: var(--color-text-primary);
+  line-height: 1.35;
+}
+
+.game-news-timeline-snippet {
+  margin: 0;
+  font-size: var(--font-size-xs);
+  color: var(--color-text-secondary);
+  line-height: var(--line-height-relaxed);
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.game-news-timeline-thumb {
+  width: 90px;
+  height: 60px;
+  flex-shrink: 0;
+  border-radius: var(--radius-md);
+  overflow: hidden;
+  background: var(--color-bg-secondary);
+}
+
+.game-news-timeline-thumb img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.game-news-timeline-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-md);
+  padding-top: var(--space-xs);
+  border-top: 1px solid color-mix(in srgb, var(--color-border) 40%, transparent);
+}
+
+.game-news-timeline-meta {
+  display: flex;
+  align-items: center;
+  gap: var(--space-md);
+}
+
+/* ── List Mode ─────────────────────────────────────────────────────── */
+
+.game-news-list-view {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-xs);
+}
+
+.game-news-list-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-md);
+  padding: var(--space-sm) var(--space-md);
+  border-radius: var(--radius-lg);
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  cursor: pointer;
+  transition: all var(--transition-fast) cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.game-news-list-row:hover {
+  transform: translateX(3px);
+  background: var(--color-bg-hover);
+  border-color: var(--color-border-glow);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.2);
+}
+
+.game-news-list-thumb {
+  width: 72px;
+  height: 48px;
+  flex-shrink: 0;
+  border-radius: var(--radius-md);
+  overflow: hidden;
+  background: var(--color-bg-tertiary);
+}
+
+.game-news-list-thumb img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.game-news-list-thumb-placeholder {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: 100%;
+  color: var(--color-text-tertiary);
+}
+
+.game-news-list-thumb-placeholder svg {
+  width: 18px;
+  height: 18px;
+}
+
+.game-news-list-main {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.game-news-list-badges {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2xs);
+  margin-bottom: 2px;
+}
+
+.game-news-list-title {
+  margin: 0;
+  font-size: var(--font-size-sm);
+  font-weight: 600;
+  color: var(--color-text-primary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.game-news-list-snippet {
+  margin: 0;
+  font-size: 11px;
+  color: var(--color-text-secondary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.game-news-list-meta-actions {
+  display: flex;
+  align-items: center;
+  gap: var(--space-md);
+  flex-shrink: 0;
+}
+
+.game-news-list-date-info {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  font-size: 11px;
+  color: var(--color-text-secondary);
+}
+
+.game-news-list-readtime {
+  color: var(--color-text-tertiary);
+}
+
+.game-news-list-actions {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2xs);
+}
+
+/* ── Grid Mode ─────────────────────────────────────────────────────── */
+
+.game-news-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+  gap: var(--space-md);
 }
 
 /* ── Footer ────────────────────────────────────────────────────────── */
@@ -60,16 +796,17 @@
   justify-content: space-between;
   gap: var(--space-md);
   flex-wrap: wrap;
-  padding-top: var(--space-sm);
-  border-top: 1px solid color-mix(in srgb, var(--color-border) 40%, transparent);
+  padding-top: var(--space-md);
+  border-top: 1px solid var(--color-border);
+  margin-top: var(--space-md);
 }
 
 .game-news-footer span {
-  font-size: var(--font-size-sm);
+  font-size: var(--font-size-xs);
   color: var(--color-text-secondary);
 }
 
-/* ── Empty state ───────────────────────────────────────────────────── */
+/* ── Empty State ───────────────────────────────────────────────────── */
 
 .game-news-empty {
   display: flex;
@@ -109,7 +846,7 @@
 
 .game-news-empty p {
   margin: 0;
-  max-width: 420px;
+  max-width: 440px;
   font-size: var(--font-size-sm);
   color: var(--color-text-secondary);
   line-height: var(--line-height-relaxed);
@@ -119,12 +856,364 @@
   display: flex;
   gap: var(--space-sm);
   margin-top: var(--space-xs);
+  flex-wrap: wrap;
+  justify-content: center;
 }
 
-/* ── Responsive ────────────────────────────────────────────────────── */
+/* ── Custom Feeds Modal ────────────────────────────────────────────── */
+
+.game-news-modal-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--color-scrim-strong);
+  backdrop-filter: blur(8px);
+  padding: var(--space-md);
+}
+
+.game-news-modal-container {
+  width: 100%;
+  max-width: 600px;
+  max-height: 85vh;
+  display: flex;
+  flex-direction: column;
+  border-radius: var(--radius-xl);
+  background: var(--color-surface);
+  border: 1px solid var(--color-border-light);
+  box-shadow: 0 24px 48px rgba(0, 0, 0, 0.5),
+    0 0 32px color-mix(in srgb, var(--color-accent) 15%, transparent);
+  overflow: hidden;
+  animation: modalFadeIn 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@keyframes modalFadeIn {
+  from {
+    opacity: 0;
+    transform: scale(0.96) translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+}
+
+.game-news-modal-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  padding: var(--space-lg);
+  border-bottom: 1px solid var(--color-border);
+}
+
+.game-news-modal-header-text h3 {
+  margin: 0;
+  font-size: var(--font-size-lg);
+  font-weight: 700;
+  color: var(--color-text-primary);
+}
+
+.game-news-modal-header-text p {
+  margin: var(--space-2xs) 0 0;
+  font-size: var(--font-size-xs);
+  color: var(--color-text-secondary);
+}
+
+.game-news-modal-close {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border: none;
+  background: transparent;
+  color: var(--color-text-tertiary);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+}
+
+.game-news-modal-close:hover {
+  color: var(--color-text-primary);
+  background: var(--color-bg-hover);
+}
+
+.game-news-modal-close svg {
+  width: 16px;
+  height: 16px;
+}
+
+.game-news-modal-body {
+  padding: var(--space-lg);
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-lg);
+}
+
+.game-news-quick-subreddit {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  padding: var(--space-sm) var(--space-md);
+  border-radius: var(--radius-md);
+  background: color-mix(in srgb, var(--color-accent) 8%, var(--color-bg-secondary));
+  border: 1px dashed var(--color-accent-border);
+  font-size: var(--font-size-xs);
+  color: var(--color-text-secondary);
+}
+
+.game-news-add-feed-form {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-xs);
+}
+
+.game-news-form-row {
+  display: flex;
+  align-items: flex-end;
+  gap: var(--space-xs);
+  flex-wrap: wrap;
+}
+
+.game-news-form-field {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2xs);
+  flex: 1;
+  min-width: 140px;
+}
+
+.game-news-form-field.flex-2 {
+  flex: 2;
+  min-width: 200px;
+}
+
+.game-news-form-field label {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--color-text-secondary);
+}
+
+.game-news-form-field input {
+  height: 34px;
+  padding: 0 var(--space-sm);
+  border-radius: var(--radius-md);
+  border: 1px solid var(--color-border);
+  background: var(--color-bg-secondary);
+  color: var(--color-text-primary);
+  font-size: var(--font-size-xs);
+}
+
+.game-news-form-field input:focus {
+  outline: none;
+  border-color: var(--color-accent);
+}
+
+.game-news-form-action {
+  height: 34px;
+  display: flex;
+  align-items: center;
+}
+
+.game-news-form-error {
+  margin: var(--space-2xs) 0 0;
+  font-size: 11px;
+  color: var(--color-danger);
+}
+
+.game-news-custom-feeds-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-xs);
+}
+
+.game-news-no-custom-feeds {
+  padding: var(--space-lg);
+  text-align: center;
+  border-radius: var(--radius-md);
+  background: var(--color-bg-secondary);
+  border: 1px dashed var(--color-border);
+}
+
+.game-news-no-custom-feeds p {
+  margin: 0;
+  font-size: var(--font-size-xs);
+  color: var(--color-text-secondary);
+}
+
+.game-news-custom-feed-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-md);
+  padding: var(--space-sm) var(--space-md);
+  border-radius: var(--radius-md);
+  background: var(--color-bg-secondary);
+  border: 1px solid var(--color-border);
+}
+
+.game-news-custom-feed-info {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.game-news-custom-feed-info strong {
+  font-size: var(--font-size-xs);
+  color: var(--color-text-primary);
+}
+
+.game-news-custom-feed-info span {
+  font-size: 11px;
+  color: var(--color-text-tertiary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 320px;
+}
+
+.game-news-custom-feed-controls {
+  display: flex;
+  align-items: center;
+  gap: var(--space-xs);
+}
+
+.game-news-toggle-btn {
+  padding: 3px 8px;
+  border-radius: var(--radius-sm);
+  font-size: 11px;
+  font-weight: 600;
+  border: 1px solid var(--color-border);
+  background: var(--color-bg-tertiary);
+  color: var(--color-text-tertiary);
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+
+.game-news-toggle-btn.is-enabled {
+  background: color-mix(in srgb, var(--color-success) 15%, transparent);
+  color: var(--color-success);
+  border-color: color-mix(in srgb, var(--color-success) 40%, transparent);
+}
+
+.game-news-delete-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  border: none;
+  background: transparent;
+  color: var(--color-text-tertiary);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+}
+
+.game-news-delete-btn:hover {
+  color: var(--color-danger);
+  background: color-mix(in srgb, var(--color-danger) 15%, transparent);
+}
+
+.game-news-delete-btn svg {
+  width: 14px;
+  height: 14px;
+}
+
+.game-news-modal-footer {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  padding: var(--space-md) var(--space-lg);
+  border-top: 1px solid var(--color-border);
+}
+
+/* ── Animation helper ──────────────────────────────────────────────── */
+
+@keyframes spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.spin-animation {
+  animation: spin 1s linear infinite;
+}
+
+/* ── Skeletons ─────────────────────────────────────────────────────── */
+
+.skeleton-card {
+  pointer-events: none;
+}
+
+.skeleton-pulse {
+  background: color-mix(in srgb, var(--color-text-primary) 8%, var(--color-bg-secondary)) !important;
+  animation: skeletonPulse 1.5s ease-in-out infinite;
+}
+
+@keyframes skeletonPulse {
+  0%, 100% {
+    opacity: 0.6;
+  }
+  50% {
+    opacity: 0.3;
+  }
+}
+
+/* ── Responsive Adaptations ────────────────────────────────────────── */
 
 @media (max-width: 860px) {
   .game-news-grid {
     grid-template-columns: 1fr;
+  }
+
+  .game-news-controls-row {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .game-news-search-box {
+    max-width: 100%;
+  }
+
+  .game-news-action-buttons {
+    flex-wrap: wrap;
+  }
+
+  .game-news-timeline {
+    padding-left: var(--space-lg);
+  }
+
+  .game-news-timeline-track {
+    left: 11px;
+  }
+
+  .game-news-timeline-node {
+    left: -21px;
+    width: 20px;
+    height: 20px;
+  }
+
+  .game-news-timeline-body {
+    flex-direction: column;
+  }
+
+  .game-news-timeline-thumb {
+    width: 100%;
+    height: 120px;
+  }
+
+  .game-news-list-row {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .game-news-list-meta-actions {
+    width: 100%;
+    justify-content: space-between;
   }
 }
