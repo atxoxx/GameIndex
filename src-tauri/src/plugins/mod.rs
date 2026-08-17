@@ -851,6 +851,7 @@ mod tests {
         // The shipped set — a missing file should fail the test loudly
         // rather than silently testing fewer plugins.
         let expected_ids = [
+            "axekin",
             "byxatab",
             "fitgirl",
             "freegogpcgames",
