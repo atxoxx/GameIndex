@@ -1030,9 +1030,17 @@ export default function DownloadModal({
             <span className={`dl-status-chip dl-status-chip--${statusChip.tone}`}>
               {statusChip.label}
             </span>
+            <button
+              type="button"
+              className="modal-close"
+              onClick={handleCloseAttempt}
+              aria-label={t("common.close")}
+            >
+              ×
+            </button>
           </div>
 
-          <div className="modal-body" style={{ padding: "var(--space-md)" }}>
+          <div className="modal-body">
             <OwnershipBanner ownership={ownership} step={step} />
 
             {showResultsUI && (

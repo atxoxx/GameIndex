@@ -82,7 +82,7 @@
 .dl-modal .modal-body {
   overflow-y: auto;
   min-height: 0;
-  padding: var(--space-md) var(--space-lg) !important;
+  padding: var(--space-md) var(--space-lg);
   display: flex;
   flex-direction: column;
   gap: var(--space-sm);
@@ -289,10 +289,10 @@
 /* ─── Two-Pane Layout ────────────────────────────────────────────── */
 .dl-results-layout {
   display: grid;
-  grid-template-columns: minmax(0, 1.35fr) minmax(310px, 370px);
+  grid-template-columns: minmax(0, 1.5fr) minmax(300px, 350px);
   gap: var(--space-md);
   align-items: stretch;
-  min-height: 380px;
+  min-height: 420px;
 }
 
 .dl-results-pane {
@@ -673,6 +673,11 @@
   transform: translateY(-1px);
 }
 
+.dl-result-row:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: -2px;
+}
+
 .dl-result-row.selected {
   border-color: var(--color-accent);
   background: color-mix(in srgb, var(--color-accent) 7%, var(--color-bg-secondary));
@@ -766,7 +771,7 @@
 .dl-result-meta-pills {
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: 6px 8px;
   flex-wrap: wrap;
 }
 
@@ -906,6 +911,14 @@
   border: 1px solid var(--color-border);
   border-radius: var(--radius-xl);
   height: 100%;
+}
+
+/* Separate the config sections (save path / mirrors / options /
+   resolver) with a hairline instead of relying on bare whitespace,
+   so the panel reads as a structured list of decisions. */
+.dl-detail-section + .dl-detail-section {
+  padding-top: var(--space-sm);
+  border-top: 1px solid color-mix(in srgb, var(--color-border) 70%, transparent);
 }
 
 .dl-detail-header {
@@ -1465,6 +1478,10 @@
   flex-direction: column;
   text-align: center;
   gap: var(--space-xs);
+  background: var(--color-bg-secondary);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  padding: var(--space-xl) var(--space-md);
 }
 
 .dl-loading-title {
@@ -1499,10 +1516,19 @@
 }
 
 .dl-starting-status {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 6px;
   font-size: var(--font-size-xs);
   color: var(--color-text-secondary);
   text-align: center;
   margin: var(--space-xs) 0 0;
+  padding: var(--space-md);
+  background: var(--color-bg-secondary);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
 }
 
 .dl-starting-elapsed {
@@ -1544,6 +1570,13 @@
   border: 1px dashed var(--color-border);
   border-radius: var(--radius-lg);
   gap: var(--space-xs);
+  min-height: 240px;
+}
+
+.dl-results-empty--error {
+  border-style: solid;
+  border-color: color-mix(in srgb, var(--color-danger) 35%, transparent);
+  background: color-mix(in srgb, var(--color-danger) 4%, var(--color-bg-secondary));
 }
 
 .dl-results-empty-icon {
