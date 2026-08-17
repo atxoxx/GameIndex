@@ -740,16 +740,6 @@
     box-shadow var(--transition-fast);
 }
 
-.store-filter-btn.apply {
-  background: var(--color-accent);
-  color: var(--color-accent-contrast);
-  border-color: var(--color-accent);
-}
-
-.store-filter-btn.apply:hover {
-  background: var(--color-accent-hover);
-}
-
 .store-filter-btn.reset {
   background: transparent;
   color: var(--color-text-secondary);

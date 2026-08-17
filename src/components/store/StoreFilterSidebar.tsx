@@ -108,7 +108,6 @@ interface StoreFilterSidebarProps {
   onYearRangeChange: (min: number | null, max: number | null) => void;
   onRatingMinChange: (rating: number | null) => void;
   onSourcesChange?: (sourceIds: string[]) => void;
-  onApply: () => void;
   onReset: () => void;
   sourceCounts?: Record<string, { checked: number; available: number }>;
   sourceMatchMode?: "all" | "any";
@@ -131,7 +130,6 @@ export default function StoreFilterSidebar({
   onPlatformsChange,
   onYearRangeChange,
   onRatingMinChange,
-  onApply,
   onReset,
   countSource = [],
 }: StoreFilterSidebarProps) {
@@ -523,9 +521,6 @@ export default function StoreFilterSidebar({
 
       {/* Actions */}
       <div className="store-filter-actions">
-        <button type="button" className="store-filter-btn apply" onClick={onApply}>
-          {t("store.filter.applyFilters")}
-        </button>
         <button type="button" className="store-filter-btn reset" onClick={onReset}>
           {t("common.reset")}
         </button>

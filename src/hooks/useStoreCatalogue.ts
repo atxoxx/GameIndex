@@ -192,7 +192,6 @@ export interface StoreCatalogue {
   setSourceMatchMode: (m: "all" | "any") => void;
   /** Real per-source match counts from `useSourceAvailabilityCache`. */
   sourceCounts: Record<string, { checked: number; available: number }>;
-  applyFilters: () => void;
   resetFilters: () => void;
   activeFilterCount: number;
   filtersOpen: boolean;
@@ -488,32 +487,96 @@ export function useStoreCatalogue(): StoreCatalogue {
     return () => window.removeEventListener("keydown", onKey);
   }, [focusSearch, searchQuery, setSearchQuery]);
 
-  const applyFilters = useCallback(() => {
-    clearSearch();
-    applyFiltersRaw({
-      genres: selectedGenres,
-      // The backend filters by IGDB platform ID, so resolve the selected
-      // names against the live platform list. Names that aren't on the
-      // list yet (or failed to load) are dropped rather than crashing.
-      platforms: selectedPlatforms
-        .map((name) => platformIdByName.get(name))
-        .filter((id): id is number => id != null),
-      yearMin,
-      yearMax,
-      ratingMin,
-    });
+  // ── Live filter application ────────────────────────────────────────────
+  // Backend facets (genre / platform / year / rating) re-fetch the catalogue
+  // as soon as they change — there's no Apply button, so each change is
+  // debounced briefly to coalesce slider drags and year-input keystrokes.
+  // Refs mirror the latest facet state so the debounced callback reads fresh
+  // values instead of a stale closure captured when the timer was scheduled.
+  const selectedGenresRef = useRef(selectedGenres);
+  const selectedPlatformsRef = useRef(selectedPlatforms);
+  const yearMinRef = useRef(yearMin);
+  const yearMaxRef = useRef(yearMax);
+  const ratingMinRef = useRef(ratingMin);
+  const platformIdByNameRef = useRef(platformIdByName);
+  useEffect(() => {
+    selectedGenresRef.current = selectedGenres;
+    selectedPlatformsRef.current = selectedPlatforms;
+    yearMinRef.current = yearMin;
+    yearMaxRef.current = yearMax;
+    ratingMinRef.current = ratingMin;
+    platformIdByNameRef.current = platformIdByName;
   }, [
-    clearSearch,
-    applyFiltersRaw,
     selectedGenres,
     selectedPlatforms,
-    platformIdByName,
     yearMin,
     yearMax,
     ratingMin,
+    platformIdByName,
   ]);
 
+  const applyFiltersNow = useCallback(() => {
+    clearSearch();
+    applyFiltersRaw({
+      genres: selectedGenresRef.current,
+      // The backend filters by IGDB platform ID, so resolve the selected
+      // names against the live platform list. Names that aren't on the
+      // list yet (or failed to load) are dropped rather than crashing.
+      platforms: selectedPlatformsRef.current
+        .map((name) => platformIdByNameRef.current.get(name))
+        .filter((id): id is number => id != null),
+      yearMin: yearMinRef.current,
+      yearMax: yearMaxRef.current,
+      ratingMin: ratingMinRef.current,
+    });
+  }, [clearSearch, applyFiltersRaw]);
+
+  const applyTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const scheduleApply = useCallback(() => {
+    if (applyTimerRef.current) clearTimeout(applyTimerRef.current);
+    applyTimerRef.current = setTimeout(() => {
+      applyTimerRef.current = null;
+      applyFiltersNow();
+    }, 300);
+  }, [applyFiltersNow]);
+  useEffect(() => {
+    return () => {
+      if (applyTimerRef.current) clearTimeout(applyTimerRef.current);
+    };
+  }, []);
+
+  const setSelectedGenresLive = useCallback(
+    (g: string[]) => {
+      setSelectedGenres(g);
+      scheduleApply();
+    },
+    [scheduleApply]
+  );
+  const setSelectedPlatformsLive = useCallback(
+    (p: string[]) => {
+      setSelectedPlatforms(p);
+      scheduleApply();
+    },
+    [scheduleApply]
+  );
+  const setYearRangeLive = useCallback(
+    (min: number | null, max: number | null) => {
+      setYearMin(min);
+      setYearMax(max);
+      scheduleApply();
+    },
+    [scheduleApply]
+  );
+  const setRatingMinLive = useCallback(
+    (r: number | null) => {
+      setRatingMin(r);
+      scheduleApply();
+    },
+    [scheduleApply]
+  );
+
   const resetFilters = useCallback(() => {
+    if (applyTimerRef.current) clearTimeout(applyTimerRef.current);
     clearSearch();
     setSelectedGenres([]);
     setSelectedPlatforms([]);
@@ -655,24 +718,20 @@ export function useStoreCatalogue(): StoreCatalogue {
     setSort,
     resultsTitle,
     selectedGenres,
-    setSelectedGenres,
+    setSelectedGenres: setSelectedGenresLive,
     selectedPlatforms,
-    setSelectedPlatforms,
+    setSelectedPlatforms: setSelectedPlatformsLive,
     platformNames,
     yearMin,
     yearMax,
-    setYearRange: (min, max) => {
-      setYearMin(min);
-      setYearMax(max);
-    },
+    setYearRange: setYearRangeLive,
     ratingMin,
-    setRatingMin,
+    setRatingMin: setRatingMinLive,
     selectedSourceIds,
     setSelectedSourceIds,
     sourceMatchMode,
     setSourceMatchMode,
     sourceCounts,
-    applyFilters,
     resetFilters,
     activeFilterCount,
     filtersOpen,

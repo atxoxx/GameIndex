@@ -31,10 +31,6 @@ export default function StoreFilterPanel({ catalogue: c }: StoreFilterPanelProps
       sourceMatchMode={c.sourceMatchMode}
       onSourceMatchModeChange={c.setSourceMatchMode}
       countSource={c.displayedGames}
-      onApply={() => {
-        c.applyFilters();
-        c.setFiltersOpen(false);
-      }}
       onReset={c.resetFilters}
     />
   );
