@@ -274,8 +274,8 @@ fn generate_init_script(game_name: &str) -> String {
     updateBannerStatus('Capturing download…', true);
     let cookieStr = '';
     try {{ cookieStr = document.cookie || ''; }} catch (_) {{}}
-    let payloadStr = 'gi-capture://' + encodeURIComponent(cleanUrl) + 
-      (filename ? ('?filename=' + encodeURIComponent(filename)) : '') +
+    let payloadStr = 'https://gi-capture.invalid/capture?url=' + encodeURIComponent(cleanUrl) +
+      (filename ? ('&filename=' + encodeURIComponent(filename)) : '') +
       (cookieStr ? ('&cookie=' + encodeURIComponent(cookieStr)) : '') +
       ('&referer=' + encodeURIComponent(window.location.href));
     window.location.href = payloadStr;
@@ -678,36 +678,33 @@ pub async fn open_download_resolver(
     .on_navigation(move |nav_url| {
         let nav_str = nav_url.as_str();
 
-        // 1. Custom scheme from injected script
-        if nav_str.starts_with("gi-capture://") {
-            let full_url_str = &nav_str["gi-capture://".len()..];
-            let (url_part, query_part) = if let Some(idx) = full_url_str.find('?') {
-                (&full_url_str[..idx], Some(&full_url_str[idx + 1..]))
-            } else {
-                (full_url_str, None)
-            };
-
-            let decoded_url = urlencoding::decode(url_part)
-                .map(|s| s.into_owned())
-                .unwrap_or_else(|_| url_part.to_string());
-
+        // 1. Capture marker from the injected script. A plain https URL is
+        //    used instead of a custom scheme so `on_navigation` fires reliably
+        //    on WebView2, which only emits navigation events for http(s) URLs.
+        if nav_url.scheme() == "https"
+            && nav_url.host_str() == Some("gi-capture.invalid")
+            && nav_url.path() == "/capture"
+        {
+            let mut decoded_url = None;
             let mut filename = None;
             let mut js_referer = None;
             let mut js_cookie = None;
 
-            if let Some(q) = query_part {
-                for pair in q.split('&') {
-                    if let Some((k, v)) = pair.split_once('=') {
-                        let decoded_v = urlencoding::decode(v).ok().map(|s| s.into_owned());
-                        match k {
-                            "filename" => filename = decoded_v,
-                            "referer" => js_referer = decoded_v,
-                            "cookie" => js_cookie = decoded_v,
-                            _ => {}
-                        }
-                    }
+            for (k, v) in nav_url.query_pairs() {
+                match k.as_ref() {
+                    "url" => decoded_url = Some(v.into_owned()),
+                    "filename" => filename = Some(v.into_owned()),
+                    "referer" => js_referer = Some(v.into_owned()),
+                    "cookie" => js_cookie = Some(v.into_owned()),
+                    _ => {}
                 }
             }
+
+            let Some(decoded_url) = decoded_url else {
+                return false;
+            };
+
+            eprintln!("[browser_resolver] capture marker intercepted: {decoded_url}");
 
             let final_filename = filename
                 .filter(|s| !s.is_empty())
