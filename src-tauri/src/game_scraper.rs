@@ -3275,48 +3275,113 @@ pub async fn search_igdb(game_name: &str) -> Vec<GameMetadataResult> {
 /// - "popular"   → sorted by total_rating_count descending (most rated)
 /// - "top"       → sorted by rating descending (highest rated)
 /// - "all"        → sorted by total_rating_count (browse everything)
-// ─── Genre / platform name → IGDB ID lookup tables ─────────────────────
+// ─── IGDB facet → where-clause mapping ─────────────────────────────────
 //
-// IGDB genre and platform identifiers are stable integers. Frontend
-// filters send names (matching `StoreFilterSidebar.GENRES` / `.PLATFORMS`
-// exactly) so we don't have to mirror IGDB's IDs across the network.
-// Unknown names silently drop out — that way a typo'd facet on the
-// frontend doesn't crash the catalog browse.
+// Genres are filtered by name: the frontend sends `StoreFilterSidebar.GENRES`
+// strings and we resolve them to stable IGDB IDs here. Platforms are filtered
+// by ID: the frontend fetches the live `/platforms` list (see
+// `fetch_igdb_platforms`) and sends the ids back directly, so there's no
+// static platform table to keep in sync. Unknown names silently drop out —
+// that way a typo'd facet on the frontend doesn't crash the catalog browse.
 
 /// IGDB genre IDs (https://api.igdb.com/v4/genres). Names match
 /// the frontend filter sidebar verbatim.
 fn genre_name_to_id(name: &str) -> Option<u32> {
     Some(match name {
         "Action" => 4,
-        "Adventure" => 31,
-        "RPG" => 12,
-        "Strategy" => 15,
-        "Shooter" => 5,
-        "Simulation" => 8,
-        "Puzzle" => 9,
-        "Racing" => 10,
-        "Sports" => 14,
+        "Adventure" => 30,
+        "Arcade" => 32,
+        "Audio" => 38,
+        "Card & Board Game" => 33,
+        "Education" => 36,
         "Fighting" => 6,
-        "Platform" => 8, // IGDB's "Platformer" genre
-        "Indie" => 32,
+        "Hobby" => 18,
         "Horror" => 19,
-        "Visual Novel" => 34,
+        "Indie" => 31,
+        "Metroidvania" => 39,
+        "MOBA" => 34,
+        "Music" => 7,
+        "Music-based" => 40,
+        "Pinball" => 26,
+        "Platform" => 8, // IGDB's "Platformer" genre
+        "Point-and-click" => 35,
+        "Puzzle" => 9,
+        "Quiz/Trivia" => 20,
+        "Racing" => 10,
+        "Real Time Strategy (RTS)" => 11,
+        "Real Time Tactics (RTT)" => 37,
+        "Role-playing (RPG)" => 12,
+        "Shooter" => 5,
+        "Simulator" => 13,
+        "Sport" => 14,
+        "Strategy" => 15,
+        "Tactical" => 17,
+        "Turn-based strategy (TBS)" => 16,
+        "Visual Novel" => 21,
         _ => return None,
     })
 }
 
-/// IGDB platform IDs (https://api.igdb.com/v4/platforms). Names match
-/// the frontend filter sidebar verbatim.
-fn platform_name_to_id(name: &str) -> Option<u32> {
-    Some(match name {
-        "PC (Microsoft Windows)" => 6,
-        "PlayStation 5" => 167,
-        "PlayStation 4" => 48,
-        "Xbox Series X|S" => 169,
-        "Xbox One" => 12,
-        "Nintendo Switch" => 130,
-        _ => return None,
-    })
+/// A single IGDB platform (id + name) for the Store filter sidebar.
+#[derive(Debug, Serialize, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct IgdbPlatformInfo {
+    pub id: u32,
+    pub name: String,
+}
+
+/// Internal deserialization type for the IGDB `/platforms` endpoint.
+#[derive(Debug, Deserialize)]
+struct IgdbPlatform {
+    id: u64,
+    name: String,
+}
+
+/// Fetch the full IGDB platform list (`/platforms` endpoint) so the
+/// Store filter sidebar always reflects every platform IGDB knows
+/// about — no hardcoded mirror that can drift out of date. Sorted by
+/// name. The returned ids are what the frontend sends back to
+/// `fetch_store_games` / `search_store_games` for platform filtering.
+pub async fn fetch_igdb_platforms() -> Result<Vec<IgdbPlatformInfo>, String> {
+    let token = get_twitch_token().await?;
+    let client = http_client();
+    let client_id = crate::config::get_twitch_client_id();
+
+    let _guard = igdb_acquire().await;
+    let resp = client
+        .post("https://api.igdb.com/v4/platforms")
+        .header("Client-ID", &client_id)
+        .header("Authorization", format!("Bearer {}", token))
+        .header("Content-Type", "text/plain")
+        .body("fields name; sort name asc; limit 500;")
+        .send()
+        .await
+        .map_err(|e| format!("IGDB platforms request failed: {}", e))?;
+
+    let status = resp.status();
+    if !status.is_success() {
+        let err_text = resp.text().await.unwrap_or_default();
+        return Err(format!(
+            "IGDB platforms request failed with status {}: {}",
+            status, err_text
+        ));
+    }
+
+    let text = resp
+        .text()
+        .await
+        .map_err(|e| format!("Failed to read IGDB platforms response: {}", e))?;
+
+    let rows: Vec<IgdbPlatform> =
+        serde_json::from_str(&text).map_err(|e| format!("IGDB platforms parse error: {}", e))?;
+
+    Ok(rows
+        .into_iter()
+        .map(|p| IgdbPlatformInfo {
+            id: p.id as u32,
+            name: p.name,
+        })
+        .collect())
 }
 
 /// Map a `(year_min, year_max)` pair to IGDB `first_release_date`
@@ -3390,7 +3455,7 @@ pub async fn fetch_store_games(
     offset: u32,
     limit: u32,
     genres: Option<Vec<String>>,
-    platforms: Option<Vec<String>>,
+    platforms: Option<Vec<u32>>,
     year_min: Option<i32>,
     year_max: Option<i32>,
     rating_min: Option<f64>,
@@ -3445,15 +3510,12 @@ pub async fn fetch_store_games(
         }
     }
 
-    if let Some(p_names) = platforms {
-        let ids: Vec<u32> = p_names
-            .iter()
-            .filter_map(|n| platform_name_to_id(n))
-            .collect();
-        if !ids.is_empty() {
+    if let Some(p_ids) = platforms {
+        if !p_ids.is_empty() {
             clauses.push(format!(
                 "platforms = ({})",
-                ids.iter()
+                p_ids
+                    .iter()
                     .map(|i| i.to_string())
                     .collect::<Vec<_>>()
                     .join(",")
@@ -3761,7 +3823,7 @@ pub async fn search_store_games(
     offset: u32,
     limit: u32,
     genres: Option<Vec<String>>,
-    platforms: Option<Vec<String>>,
+    platforms: Option<Vec<u32>>,
     year_min: Option<i32>,
     year_max: Option<i32>,
     rating_min: Option<f64>,
@@ -3795,15 +3857,12 @@ pub async fn search_store_games(
         }
     }
 
-    if let Some(p_names) = platforms {
-        let ids: Vec<u32> = p_names
-            .iter()
-            .filter_map(|n| platform_name_to_id(n))
-            .collect();
-        if !ids.is_empty() {
+    if let Some(p_ids) = platforms {
+        if !p_ids.is_empty() {
             clauses.push(format!(
                 "platforms = ({})",
-                ids.iter()
+                p_ids
+                    .iter()
                     .map(|i| i.to_string())
                     .collect::<Vec<_>>()
                     .join(",")

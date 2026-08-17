@@ -17,6 +17,7 @@ export default function StoreFilterPanel({ catalogue: c }: StoreFilterPanelProps
     <StoreFilterSidebar
       selectedGenres={c.selectedGenres}
       selectedPlatforms={c.selectedPlatforms}
+      platformNames={c.platformNames}
       yearMin={c.yearMin}
       yearMax={c.yearMax}
       ratingMin={c.ratingMin}

@@ -45,7 +45,7 @@ mod system_screenshots;
 mod emulator_install;
 mod plugins;
 mod retro;
-use game_scraper::{GameMetadataResult, LaunchBoxImageResult, StoreGameSummary, TimeToBeat, SimilarGame, ReleaseDateInfo, IgdbReview, LanguageSupportInfo, ReviewFetchResult, RichAboutPayload, PcRequirementsPayload};
+use game_scraper::{GameMetadataResult, LaunchBoxImageResult, StoreGameSummary, TimeToBeat, SimilarGame, ReleaseDateInfo, IgdbReview, LanguageSupportInfo, ReviewFetchResult, RichAboutPayload, PcRequirementsPayload, IgdbPlatformInfo};
 use game_watcher::{GameWatcher, GameRefInput};
 use gpu_detector::GpuInfo;
 use epic::auth::{epic_start_login, epic_finish_login, epic_login_with_refresh_token, epic_is_authenticated, epic_logout};
@@ -2157,7 +2157,7 @@ async fn fetch_store_games(
     offset: u32,
     limit: u32,
     genres: Option<Vec<String>>,
-    platforms: Option<Vec<String>>,
+    platforms: Option<Vec<u32>>,
     year_min: Option<i32>,
     year_max: Option<i32>,
     rating_min: Option<f64>,
@@ -2187,7 +2187,7 @@ async fn search_store_games(
     offset: u32,
     limit: u32,
     genres: Option<Vec<String>>,
-    platforms: Option<Vec<String>>,
+    platforms: Option<Vec<u32>>,
     year_min: Option<i32>,
     year_max: Option<i32>,
     rating_min: Option<f64>,
@@ -2205,6 +2205,12 @@ async fn search_store_games(
         sort,
     )
     .await
+}
+
+/// Fetch the full IGDB platform list for the Store filter sidebar.
+#[tauri::command]
+async fn get_igdb_platforms() -> Result<Vec<IgdbPlatformInfo>, String> {
+    game_scraper::fetch_igdb_platforms().await
 }
 
 /// Fetch full metadata for a single IGDB game by its slug.
@@ -3948,7 +3954,7 @@ pub fn run() {
             tauri_plugin_autostart::MacosLauncher::LaunchAgent,
             Some(vec![]),
         ))
-        .invoke_handler(tauri::generate_handler![scan_folder_for_exes, launch_game, force_close_game, save_games, save_game, load_games, close_splashscreen, update_game_last_played, read_cover_image, search_game_metadata, get_igdb_game_by_id, fetch_game_images, download_image, search_launchbox_images, detect_gpus, list_media_files, save_screenshot, save_text_file, load_sessions, get_sessions, delete_session, delete_sessions_for_game, insert_session, get_system_ram_gb, get_system_info, set_metrics_config, detect_game_size, check_paths_exist, open_folder, disk_usage, move_game_install, uninstall_game, measure_path_size, detect_steam_screenshot_folders, detect_system_screenshot_folders, save_store_cache, load_store_cache, fetch_store_games, search_store_games,            get_store_game_detail, get_collection_games,            fetch_game_reviews, fetch_external_reviews, get_about_section, get_recommended_config,
+        .invoke_handler(tauri::generate_handler![scan_folder_for_exes, launch_game, force_close_game, save_games, save_game, load_games, close_splashscreen, update_game_last_played, read_cover_image, search_game_metadata, get_igdb_game_by_id, fetch_game_images, download_image, search_launchbox_images, detect_gpus, list_media_files, save_screenshot, save_text_file, load_sessions, get_sessions, delete_session, delete_sessions_for_game, insert_session, get_system_ram_gb, get_system_info, set_metrics_config, detect_game_size, check_paths_exist, open_folder, disk_usage, move_game_install, uninstall_game, measure_path_size, detect_steam_screenshot_folders, detect_system_screenshot_folders, save_store_cache, load_store_cache, fetch_store_games, search_store_games, get_igdb_platforms,            get_store_game_detail, get_collection_games,            fetch_game_reviews, fetch_external_reviews, get_about_section, get_recommended_config,
             get_language, set_language, get_about_bundle,             save_wishlist, load_wishlist, get_last_session_for_game, save_source_cache, load_source_cache, deals::fetch_gamepass_catalog, deals::fetch_isthereanydeal_deals, deals::fetch_giveaways, deals::open_deal_url, deals::fetch_playtester_games, deals::fetch_playtester_game_detail,            steam_sync_games,
             steam_connect, steam_logout, steam_get_session,
             steam_launch_options,

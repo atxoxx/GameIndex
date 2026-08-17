@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { invoke } from "@tauri-apps/api/core";
 import { useLanguage } from "../context/LanguageContext";
 import { useStoreGames } from "./useStoreGames";
+import { useIgdbPlatforms } from "./useIgdbPlatforms";
 import { useSourceAvailabilityCache } from "./useSourceAvailabilityCache";
 import { useDensityContext } from "../context/DensityContext";
 import { useSources } from "../context/SourceContext";
@@ -177,6 +178,8 @@ export interface StoreCatalogue {
   setSelectedGenres: (g: string[]) => void;
   selectedPlatforms: string[];
   setSelectedPlatforms: (p: string[]) => void;
+  /** All IGDB platforms (names) for the filter sidebar, fetched live. */
+  platformNames: string[];
   yearMin: number | null;
   yearMax: number | null;
   setYearRange: (min: number | null, max: number | null) => void;
@@ -279,6 +282,20 @@ export function useStoreCatalogue(): StoreCatalogue {
   const hiddenGames = useHiddenGames();
   const recentlyViewed = useRecentlyViewed();
   const recentSearches = useRecentSearches();
+
+  // Full IGDB platform list for the filter sidebar. The sidebar toggles
+  // by name (so match counts line up with `games[].platforms`), and we
+  // resolve names → IGDB IDs when applying the filter.
+  const igdbPlatforms = useIgdbPlatforms();
+  const platformNames = useMemo(
+    () => igdbPlatforms.map((p) => p.name),
+    [igdbPlatforms]
+  );
+  const platformIdByName = useMemo(() => {
+    const map = new Map<string, number>();
+    for (const p of igdbPlatforms) map.set(p.name, p.id);
+    return map;
+  }, [igdbPlatforms]);
 
   // Snapshot of the last category-browsing list so a live search can match
   // against already-loaded games (by title, genre, or platform) and merge
@@ -475,12 +492,26 @@ export function useStoreCatalogue(): StoreCatalogue {
     clearSearch();
     applyFiltersRaw({
       genres: selectedGenres,
-      platforms: selectedPlatforms,
+      // The backend filters by IGDB platform ID, so resolve the selected
+      // names against the live platform list. Names that aren't on the
+      // list yet (or failed to load) are dropped rather than crashing.
+      platforms: selectedPlatforms
+        .map((name) => platformIdByName.get(name))
+        .filter((id): id is number => id != null),
       yearMin,
       yearMax,
       ratingMin,
     });
-  }, [clearSearch, applyFiltersRaw, selectedGenres, selectedPlatforms, yearMin, yearMax, ratingMin]);
+  }, [
+    clearSearch,
+    applyFiltersRaw,
+    selectedGenres,
+    selectedPlatforms,
+    platformIdByName,
+    yearMin,
+    yearMax,
+    ratingMin,
+  ]);
 
   const resetFilters = useCallback(() => {
     clearSearch();
@@ -627,6 +658,7 @@ export function useStoreCatalogue(): StoreCatalogue {
     setSelectedGenres,
     selectedPlatforms,
     setSelectedPlatforms,
+    platformNames,
     yearMin,
     yearMax,
     setYearRange: (min, max) => {

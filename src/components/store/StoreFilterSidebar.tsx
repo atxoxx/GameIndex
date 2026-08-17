@@ -2,38 +2,40 @@ import { useMemo, useState } from "react";
 import { useLanguage } from "../../context/LanguageContext";
 import type { StoreGameSummary } from "../../types/game";
 
+// Complete IGDB genre list (https://api.igdb.com/v4/genres), using IGDB's
+// canonical names so the labels match the `genres.name` values the scraper
+// returns — that's what the per-genre match counts compare against.
 export const GENRES = [
   "Action",
   "Adventure",
-  "RPG",
-  "Strategy",
-  "Shooter",
-  "Simulation",
-  "Puzzle",
-  "Racing",
-  "Sports",
-  "Fighting",
-  "Platform",
-  "Indie",
-  "Horror",
-  "Visual Novel",
+  "Arcade",
+  "Audio",
   "Card & Board Game",
-  "Point-and-click",
+  "Education",
+  "Fighting",
+  "Hobby",
+  "Horror",
+  "Indie",
+  "Metroidvania",
+  "MOBA",
   "Music",
+  "Music-based",
+  "Pinball",
+  "Platform",
+  "Point-and-click",
+  "Puzzle",
+  "Quiz/Trivia",
+  "Racing",
+  "Real Time Strategy (RTS)",
+  "Real Time Tactics (RTT)",
+  "Role-playing (RPG)",
+  "Shooter",
+  "Simulator",
+  "Sport",
+  "Strategy",
   "Tactical",
   "Turn-based strategy (TBS)",
-  "Real-time strategy (RTS)",
-];
-
-const PLATFORMS = [
-  "PC (Microsoft Windows)",
-  "PlayStation 5",
-  "PlayStation 4",
-  "Xbox Series X|S",
-  "Xbox One",
-  "Nintendo Switch",
-  "Linux",
-  "Mac",
+  "Visual Novel",
 ];
 
 const YEAR_PRESETS = [
@@ -95,6 +97,8 @@ function matchesFacetFilters(
 interface StoreFilterSidebarProps {
   selectedGenres: string[];
   selectedPlatforms: string[];
+  /** All IGDB platform names (fetched live) to offer as filter pills. */
+  platformNames?: string[];
   yearMin: number | null;
   yearMax: number | null;
   ratingMin: number | null;
@@ -119,6 +123,7 @@ interface StoreFilterSidebarProps {
 export default function StoreFilterSidebar({
   selectedGenres,
   selectedPlatforms,
+  platformNames = [],
   yearMin,
   yearMax,
   ratingMin,
@@ -246,7 +251,7 @@ export default function StoreFilterSidebar({
     g.toLowerCase().includes(genreSearch.toLowerCase())
   );
 
-  const filteredPlatforms = PLATFORMS.filter((p) =>
+  const filteredPlatforms = platformNames.filter((p) =>
     p.toLowerCase().includes(platformSearch.toLowerCase())
   );
 

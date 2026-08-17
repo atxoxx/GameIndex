@@ -18,8 +18,8 @@ const SEARCH_DEBOUNCE_MS = 300;
 export interface StoreGamesFilters {
   /** Genre names exactly as they appear in `StoreFilterSidebar.GENRES`. */
   genres: string[];
-  /** Platform names exactly as in `StoreFilterSidebar.PLATFORMS`. */
-  platforms: string[];
+  /** IGDB platform IDs, resolved on the frontend from the live `/platforms` fetch. */
+  platforms: number[];
   /** Lower bound on `first_release_date` year (e.g. 2020 → 2020-01-01 UTC). */
   yearMin: number | null;
   /** Upper bound on `first_release_date` year (e.g. 2024 → 2024-12-31 UTC). */
