@@ -4,10 +4,8 @@ import type { DownloadStep } from "./types";
 import { useLanguage } from "../../context/LanguageContext";
 
 /**
- * Compact ownership banner. The check can land in three states:
- *   1. Still in flight → muted compact indicator
- *   2. Game is owned on one or more stores → sleek amber warning pill
- *   3. Game is not owned anywhere or dismissed → no banner (return null)
+ * Modern store ownership banner.
+ * Alerts user if they own the game on Steam, Epic, GOG, etc.
  */
 export function OwnershipBanner({
   ownership,
@@ -23,21 +21,22 @@ export function OwnershipBanner({
 
   if (step === "checking" || !ownership) {
     return (
-      <div className="dl-ownership checking">
-        <svg
-          className="dl-ownership-icon"
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="currentColor"
-          strokeWidth="2"
-          aria-hidden
-        >
-          <circle cx="12" cy="12" r="10" />
-          <polyline points="12 6 12 12 16 14" />
-        </svg>
-        <div className="dl-ownership-body">
-          <span className="dl-ownership-title">{t("downloadModal.checkingOwnership")}</span>
-          <span className="dl-ownership-text">{t("downloadModal.checkingOwnershipDesc")}</span>
+      <div className="dl-ownership-card dl-ownership-card--checking">
+        <div className="dl-ownership-icon-box dl-ownership-icon-box--checking">
+          <svg
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+            aria-hidden
+          >
+            <circle cx="12" cy="12" r="10" />
+            <polyline points="12 6 12 12 16 14" />
+          </svg>
+        </div>
+        <div className="dl-ownership-content">
+          <span className="dl-ownership-header">{t("downloadModal.checkingOwnership")}</span>
+          <span className="dl-ownership-subtitle">{t("downloadModal.checkingOwnershipDesc")}</span>
         </div>
       </div>
     );
@@ -55,10 +54,9 @@ export function OwnershipBanner({
   const detailsText = primary?.details ? ` (${primary.details})` : "";
 
   return (
-    <div className="dl-ownership owned">
-      <div className="dl-ownership-icon-wrap">
+    <div className="dl-ownership-card dl-ownership-card--owned">
+      <div className="dl-ownership-icon-box dl-ownership-icon-box--owned">
         <svg
-          className="dl-ownership-icon"
           viewBox="0 0 24 24"
           fill="none"
           stroke="currentColor"
@@ -72,20 +70,21 @@ export function OwnershipBanner({
           <line x1="12" y1="17" x2="12.01" y2="17" />
         </svg>
       </div>
-      <div className="dl-ownership-body">
-        <div className="dl-ownership-main">
-          <span className="dl-ownership-title">
+      <div className="dl-ownership-content">
+        <div className="dl-ownership-text-row">
+          <span className="dl-ownership-header">
             {t("downloadModal.youOwnThis", { store: primary?.store || "Store" })}
             {detailsText}
           </span>
-          <span className="dl-ownership-text">
+          <span className="dl-ownership-sep" aria-hidden>—</span>
+          <span className="dl-ownership-subtitle">
             {t("downloadModal.ownedText")}
             {othersText}
           </span>
         </div>
-        <div className="dl-ownership-tags">
+        <div className="dl-ownership-store-pills">
           {ownedStores.map((s) => (
-            <span key={s.store} className="dl-ownership-badge">
+            <span key={s.store} className="dl-store-badge">
               {s.store}
             </span>
           ))}
@@ -93,7 +92,7 @@ export function OwnershipBanner({
       </div>
       <button
         type="button"
-        className="dl-ownership-dismiss"
+        className="dl-ownership-close-btn"
         onClick={() => setDismissed(true)}
         aria-label={t("common.close")}
       >
@@ -105,4 +104,3 @@ export function OwnershipBanner({
     </div>
   );
 }
-

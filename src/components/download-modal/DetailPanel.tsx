@@ -12,9 +12,8 @@ import { OptionsSection } from "./OptionsSection";
 import { SavePathPicker } from "./SavePathPicker";
 
 /**
- * Focused "Download Configuration" panel on the right side of the modal.
- * Eliminates redundant repetition of metadata and focuses on actionable
- * controls: Save Location, Options, Mirrors, and Resolver actions.
+ * Focused "Download Configuration & Inspector" panel on the right side of the modal.
+ * Highlights the selected release, destination path, mirrors, and options.
  */
 export function DetailPanel({
   match,
@@ -50,37 +49,34 @@ export function DetailPanel({
   useDebrid: boolean;
   onUseDebrid: (v: boolean) => void;
   debridConfigured: boolean;
-  /** Cache probe result for the selected magnet (driven by the modal). */
   cacheStatus: CacheCheckStatus;
-  /** Open the result's source page in the default OS browser. */
   onOpenPage: (url?: string) => void;
-  /** Open the in-app browser resolver to solve CAPTCHAs/timers & intercept download. */
   onOpenBrowserResolver?: (url?: string) => void;
-  /** True while a resolver session is open for the selected result. */
   resolverActive: boolean;
-  /** Number of parts captured by the active resolver session. */
   resolverPartsCaptured: number;
 }) {
   const { t } = useLanguage();
 
   if (!match) {
     return (
-      <aside className="dl-detail-pane" aria-label={t("downloadModal.configHeader")}>
-        <div className="dl-detail-empty">
-          <svg
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="1.5"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            aria-hidden
-          >
-            <rect x="3" y="3" width="18" height="18" rx="2" ry="2" />
-            <line x1="3" y1="9" x2="21" y2="9" />
-            <line x1="9" y1="21" x2="9" y2="9" />
-          </svg>
-          <p>{t("downloadModal.detailEmpty")}</p>
+      <aside className="dl-detail-inspector" aria-label={t("downloadModal.configHeader")}>
+        <div className="dl-detail-empty-state">
+          <div className="dl-detail-empty-icon">
+            <svg
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="1.5"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              aria-hidden
+            >
+              <rect x="3" y="3" width="18" height="18" rx="2" ry="2" />
+              <line x1="3" y1="9" x2="21" y2="9" />
+              <line x1="9" y1="21" x2="9" y2="9" />
+            </svg>
+          </div>
+          <p className="dl-detail-empty-text">{t("downloadModal.detailEmpty")}</p>
         </div>
       </aside>
     );
@@ -90,11 +86,9 @@ export function DetailPanel({
   const { isMagnet, isTorrentFile, isDirect } = classifyUri(sourceUri, match.torrentUrl);
   const webUrl = webUrlFor(match);
   const detailUrl = match.detailUrl && match.detailUrl.trim();
-  // Direct results already surface both "open in browser" actions inside
-  // the resolver card above, so the fallback row would only duplicate them.
   const showOpenPage = !webUrl && !isDirect && Boolean(detailUrl);
   const debridAvailable = debridConfigured && (isMagnet || isTorrentFile || isDirect);
-  const hostLabel = sourceUri ? hostLabelForUri(sourceUri, 0) : null;
+  const hostLabel = sourceUri ? hostLabelForUri(sourceUri, selectedMirrorIdx) : null;
   const needsBrowser = hosterNeedsBrowser(sourceUri);
 
   const typeLabel = webUrl
@@ -107,27 +101,60 @@ export function DetailPanel({
           ? t("downloadModal.typeDirect")
           : t("downloadModal.typeUnknown");
 
+  const score = match.matchScore;
+  const tier = score >= 0.8 ? "high" : score >= 0.4 ? "partial" : "low";
+
   return (
-    <aside className="dl-detail-pane" aria-label={t("downloadModal.configHeader")}>
+    <aside className="dl-detail-inspector" aria-label={t("downloadModal.configHeader")}>
       {/* Panel Header */}
-      <div className="dl-detail-header">
-        <div className="dl-detail-header-left">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="dl-detail-header-icon" aria-hidden>
+      <div className="dl-detail-top-bar">
+        <div className="dl-detail-bar-title">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="dl-detail-gear-icon" aria-hidden>
             <circle cx="12" cy="12" r="3" />
             <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z" />
           </svg>
-          <span className="dl-detail-header-title">{t("downloadModal.configHeader")}</span>
+          <span>{t("downloadModal.configHeader")}</span>
         </div>
-        <div className="dl-detail-header-tags">
-          <span className="dl-type-chip">{typeLabel}</span>
+        <span className="dl-format-tag">{typeLabel}</span>
+      </div>
+
+      {/* Selected Release Spotlight Card */}
+      <div className="dl-spotlight-card">
+        <div className="dl-spotlight-header">
+          <span className="dl-spotlight-source">{match.sourceName}</span>
+          <span className={`dl-spotlight-match ${tier}`}>
+            {(score * 100).toFixed(0)}% match
+          </span>
+        </div>
+        <h5 className="dl-spotlight-title" title={match.title}>
+          {match.title}
+        </h5>
+        <div className="dl-spotlight-metrics">
+          <span className="dl-spotlight-metric">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+              <polyline points="7 10 12 15 17 10" />
+              <line x1="12" y1="15" x2="12" y2="3" />
+            </svg>
+            {match.fileSize || t("downloadModal.unknownSize")}
+          </span>
+          {match.seeds != null && match.peers != null && (
+            <span className="dl-spotlight-metric">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
+                <circle cx="9" cy="7" r="4" />
+              </svg>
+              {match.seeds} seeds
+            </span>
+          )}
         </div>
       </div>
 
       {/* Save Location Section */}
       {!webUrl && (
-        <div className="dl-detail-section">
-          <div className="dl-section-label-row">
-            <span className="dl-detail-section-title">{t("downloadModal.destinationFolder")}</span>
+        <div className="dl-panel-section">
+          <div className="dl-panel-section-header">
+            <span className="dl-panel-section-title">{t("downloadModal.destinationFolder")}</span>
           </div>
           <SavePathPicker savePath={savePath} gameName={gameName} onPickPath={onPickPath} />
         </div>
@@ -135,10 +162,10 @@ export function DetailPanel({
 
       {/* Mirrors Section (if multiple mirrors exist) */}
       {match.uris.length > 1 && (
-        <div className="dl-detail-section">
-          <div className="dl-section-label-row">
-            <span className="dl-detail-section-title">{t("downloadModal.sectionMirrors")}</span>
-            <span className="dl-section-count-badge">{match.uris.length}</span>
+        <div className="dl-panel-section">
+          <div className="dl-panel-section-header">
+            <span className="dl-panel-section-title">{t("downloadModal.sectionMirrors")}</span>
+            <span className="dl-panel-count-tag">{match.uris.length}</span>
           </div>
           <MirrorPicker
             uris={match.uris}
@@ -149,9 +176,9 @@ export function DetailPanel({
       )}
 
       {/* Options Section */}
-      <div className="dl-detail-section">
-        <div className="dl-section-label-row">
-          <span className="dl-detail-section-title">{t("downloadModal.options")}</span>
+      <div className="dl-panel-section">
+        <div className="dl-panel-section-header">
+          <span className="dl-panel-section-title">{t("downloadModal.options")}</span>
         </div>
         <OptionsSection
           autoExtract={autoExtract}
@@ -166,28 +193,34 @@ export function DetailPanel({
         />
       </div>
 
-      {/* Resolver card for direct hoster links (FR-1) */}
+      {/* Resolver card for direct hoster links */}
       {isDirect && (
-        <div className="dl-detail-section">
-          <div className="dl-resolver-card">
-            <div className="dl-protected-header">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden className="dl-protected-icon">
-                <circle cx="12" cy="12" r="10" />
-                <line x1="2" y1="12" x2="22" y2="12" />
-                <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z" />
-              </svg>
-              <span className="dl-protected-title">{t("downloadModal.resolverTitle")}</span>
-              {hostLabel && <span className="dl-resolver-host">{hostLabel}</span>}
+        <div className="dl-panel-section">
+          <div className="dl-resolver-banner">
+            <div className="dl-resolver-banner-top">
+              <div className="dl-resolver-icon-box">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                  <circle cx="12" cy="12" r="10" />
+                  <line x1="2" y1="12" x2="22" y2="12" />
+                  <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z" />
+                </svg>
+              </div>
+              <div className="dl-resolver-banner-info">
+                <span className="dl-resolver-banner-title">{t("downloadModal.resolverTitle")}</span>
+                {hostLabel && <span className="dl-resolver-banner-host">{hostLabel}</span>}
+              </div>
             </div>
-            <p className="dl-detail-web-hint">
+
+            <p className="dl-resolver-banner-desc">
               {needsBrowser
                 ? t("downloadModal.resolverNeedsBrowser")
                 : t("downloadModal.resolverDesc")}
             </p>
-            <div className="dl-resolver-actions">
+
+            <div className="dl-resolver-btn-row">
               <button
                 type="button"
-                className="dl-btn-browser-solve"
+                className="dl-resolver-action-btn primary"
                 onClick={() => onOpenBrowserResolver?.(sourceUri ?? undefined)}
                 disabled={resolverActive}
               >
@@ -200,7 +233,7 @@ export function DetailPanel({
               </button>
               <button
                 type="button"
-                className="dl-detail-open-page"
+                className="dl-resolver-action-btn secondary"
                 onClick={() => onOpenPage(sourceUri ?? undefined)}
               >
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
@@ -211,17 +244,19 @@ export function DetailPanel({
                 <span>{t("downloadModal.openInBrowser")}</span>
               </button>
             </div>
+
             {resolverActive && (
-              <div className="dl-resolver-status dl-resolver-status--ok">
+              <div className="dl-resolver-live-state">
+                <span className="dl-resolver-live-pulse" aria-hidden />
                 {resolverPartsCaptured > 0 ? (
-                  <span className="dl-resolver-progress">
+                  <span>
                     {t("downloadModal.resolverPartCaptured", {
                       part: resolverPartsCaptured,
                       count: resolverPartsCaptured,
                     })}
                   </span>
                 ) : (
-                  t("downloadModal.resolverOpened")
+                  <span>{t("downloadModal.resolverOpened")}</span>
                 )}
               </div>
             )}
@@ -231,19 +266,19 @@ export function DetailPanel({
 
       {/* Web & Browser Solver Cards */}
       {webUrl ? (
-        <div className="dl-detail-section dl-detail-protected-section">
-          <div className="dl-protected-card">
-            <div className="dl-protected-header">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden className="dl-protected-icon">
+        <div className="dl-panel-section">
+          <div className="dl-protected-banner">
+            <div className="dl-protected-top">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden className="dl-protected-badge-icon">
                 <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
               </svg>
-              <span className="dl-protected-title">{t("downloadModal.protectedSourceTitle")}</span>
+              <span className="dl-protected-heading">{t("downloadModal.protectedSourceTitle")}</span>
             </div>
-            <p className="dl-detail-web-hint">{t("downloadModal.protectedSourceDesc")}</p>
-            <div className="dl-detail-web-actions">
+            <p className="dl-protected-desc">{t("downloadModal.protectedSourceDesc")}</p>
+            <div className="dl-protected-buttons">
               <button
                 type="button"
-                className="dl-btn-browser-solve"
+                className="dl-resolver-action-btn primary"
                 onClick={() => onOpenPage(webUrl)}
               >
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
@@ -256,7 +291,7 @@ export function DetailPanel({
               {onOpenBrowserResolver && (
                 <button
                   type="button"
-                  className="dl-btn-browser-solve dl-btn-browser-solve--resolver"
+                  className="dl-resolver-action-btn secondary"
                   onClick={() => onOpenBrowserResolver(webUrl)}
                   disabled={resolverActive}
                 >
@@ -273,39 +308,40 @@ export function DetailPanel({
         </div>
       ) : (
         showOpenPage && (
-          <div className="dl-detail-fallback-actions">
-            <button
-              type="button"
-              className="dl-detail-open-page"
-              onClick={() => onOpenPage(detailUrl ?? undefined)}
-              title={detailUrl ?? undefined}
-            >
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-                <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6" />
-                <polyline points="15 3 21 3 21 9" />
-                <line x1="10" y1="14" x2="21" y2="3" />
-              </svg>
-              <span>{t("downloadModal.openPage")}</span>
-            </button>
-            {onOpenBrowserResolver && (
+          <div className="dl-panel-section">
+            <div className="dl-fallback-actions-card">
               <button
                 type="button"
-                className="dl-detail-open-page dl-detail-open-page--resolver"
-                onClick={() => onOpenBrowserResolver(detailUrl ?? undefined)}
-                title={t("downloadModal.browserResolverDesc")}
+                className="dl-resolver-action-btn secondary"
+                onClick={() => onOpenPage(detailUrl ?? undefined)}
+                title={detailUrl ?? undefined}
               >
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-                  <circle cx="12" cy="12" r="10" />
-                  <line x1="2" y1="12" x2="22" y2="12" />
-                  <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z" />
+                  <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6" />
+                  <polyline points="15 3 21 3 21 9" />
+                  <line x1="10" y1="14" x2="21" y2="3" />
                 </svg>
-                <span>{t("downloadModal.openInBrowserResolver")}</span>
+                <span>{t("downloadModal.openPage")}</span>
               </button>
-            )}
+              {onOpenBrowserResolver && (
+                <button
+                  type="button"
+                  className="dl-resolver-action-btn secondary"
+                  onClick={() => onOpenBrowserResolver(detailUrl ?? undefined)}
+                  title={t("downloadModal.browserResolverDesc")}
+                >
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                    <circle cx="12" cy="12" r="10" />
+                    <line x1="2" y1="12" x2="22" y2="12" />
+                    <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z" />
+                  </svg>
+                  <span>{t("downloadModal.openInBrowserResolver")}</span>
+                </button>
+              )}
+            </div>
           </div>
         )
       )}
     </aside>
   );
 }
-

@@ -678,8 +678,41 @@ export function matchKnownEmulator(
 
 /** Accent colour for a given platform (falls back to a neutral purple). */
 export function accentForPlatform(platform: string): string {
+  if (!platform) return "#7c66ff";
+  const p = platform.trim().toLowerCase();
+
+  // 1. Direct match in KNOWN_EMULATORS
   const hit = KNOWN_EMULATORS.find(
-    (e) => e.platform.toLowerCase() === platform.toLowerCase()
+    (e) => e.platform.toLowerCase() === p || e.name.toLowerCase() === p
   );
-  return hit?.accent ?? "#7c66ff";
+  if (hit) return hit.accent;
+
+  // 2. Canonical / fuzzy matches across gaming families
+  if (p.includes("xbox 360") || p.includes("x360") || p.includes("360")) return "#22c55e"; // Xenia green
+  if (p.includes("xbox") || p.includes("og xbox") || p.includes("original xbox")) return "#16a34a"; // xemu green
+  if (p.includes("ps3") || p.includes("playstation 3")) return "#0ea5e9"; // RPCS3 cyan/blue
+  if (p.includes("ps4") || p.includes("playstation 4")) return "#3b82f6"; // shadPS4 blue
+  if (p.includes("ps5") || p.includes("playstation 5")) return "#6366f1"; // PS5 indigo
+  if (p.includes("ps2") || p.includes("playstation 2")) return "#f59e0b"; // PCSX2 amber
+  if (p.includes("ps1") || p.includes("psx") || p.includes("playstation")) return "#ef4444"; // DuckStation red
+  if (p.includes("psp") || p.includes("portable")) return "#10b981"; // PPSSPP emerald
+  if (p.includes("vita") || p.includes("psv")) return "#0284c7"; // Vita3K blue
+  if (p.includes("switch") || p.includes("nsw")) return "#6366f1"; // Yuzu / Switch
+  if (p.includes("wii u") || p.includes("wiiu")) return "#14b8a6"; // Cemu teal
+  if (p.includes("wii")) return "#06b6d4"; // Dolphin Wii
+  if (p.includes("gamecube") || p.includes("gcn") || p.includes("ngc")) return "#22d3ee"; // Dolphin Gamecube
+  if (p.includes("n64") || p.includes("nintendo 64")) return "#f97316"; // Project64 orange
+  if (p.includes("snes") || p.includes("super nintendo") || p.includes("sfc")) return "#a855f7"; // Snes9x purple
+  if (p.includes("nes") || p.includes("famicom")) return "#eab308"; // Mesen yellow
+  if (p.includes("gba") || p.includes("advance")) return "#84cc16"; // mGBA lime
+  if (p.includes("gbc") || p.includes("color")) return "#facc15"; // SameBoy yellow
+  if (p.includes("game boy") || p.includes("gameboy") || p.includes("gb")) return "#a3e635";
+  if (p.includes("3ds")) return "#3b82f6"; // Citra blue
+  if (p.includes("nds") || p.includes("ds")) return "#0ea5e9"; // DeSmuME / melonDS
+  if (p.includes("dreamcast") || p.includes("dc")) return "#f97316"; // Flycast
+  if (p.includes("saturn")) return "#ec4899"; // Kronos
+  if (p.includes("genesis") || p.includes("mega drive") || p.includes("megadrive")) return "#9333ea"; // BlastEm
+  if (p.includes("arcade") || p.includes("mame") || p.includes("neo geo") || p.includes("neogeo")) return "#d97706"; // MAME
+
+  return "#7c66ff";
 }

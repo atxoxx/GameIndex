@@ -2,7 +2,7 @@ import { Button } from "../ui";
 import { useLanguage } from "../../context/LanguageContext";
 
 /**
- * Save-path selector card.
+ * Modern Save-path selector card.
  * Clearly displays the target download directory, the automatically created
  * game subfolder, and provides a prominent folder change action.
  */
@@ -26,45 +26,46 @@ export function SavePathPicker({
     : null;
 
   return (
-    <div className="dl-save-path-card">
-      <div className="dl-save-path-icon-col">
-        <div className="dl-save-path-badge">
-          <svg
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="2"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            aria-hidden
-          >
-            <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z" />
-          </svg>
-        </div>
+    <div className="dl-destination-card">
+      <div className="dl-destination-icon-box">
+        <svg
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="2"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          aria-hidden
+        >
+          <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z" />
+        </svg>
       </div>
 
-      <div className="dl-save-path-info">
-        <div className="dl-save-path-main">
+      <div className="dl-destination-content">
+        <div className="dl-destination-path-wrap">
           <span
-            className={`dl-save-path-text${savePath ? "" : " placeholder"}`}
+            className={`dl-destination-path${savePath ? "" : " is-placeholder"}`}
             title={finalDisplayPath ?? ""}
           >
             {finalDisplayPath ?? t("downloadModal.noFolderSelected")}
           </span>
         </div>
         {savePath && (
-          <div className="dl-save-path-hint-row">
-            <span className="dl-save-path-subfolder-pill">
-              📁 {safeGameFolder}
+          <div className="dl-destination-subfolder-row">
+            <span className="dl-subfolder-tag">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z" />
+              </svg>
+              {safeGameFolder}
             </span>
-            <span className="dl-save-path-hint-text">
+            <span className="dl-destination-hint">
               {t("downloadModal.saveLocationHint")}
             </span>
           </div>
         )}
       </div>
 
-      <div className="dl-save-path-action">
+      <div className="dl-destination-actions">
         <Button variant="secondary" size="sm" onClick={onPickPath}>
           {savePath ? t("downloadModal.changeFolder") : t("downloadModal.chooseFolder")}
         </Button>
@@ -72,4 +73,3 @@ export function SavePathPicker({
     </div>
   );
 }
-

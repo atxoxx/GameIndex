@@ -1,7 +1,8 @@
 import { useState } from "react";
 import type { DisplayMatch } from "./types";
 import { useLanguage } from "../../context/LanguageContext";
-import { formatUploadDate } from "./helpers";
+import { formatUploadDate, classifyUri, resolveSourceUri, webUrlFor } from "./helpers";
+import { accentForPlatform } from "../../types/emulator";
 
 export function ResultRow({
   match,
@@ -16,7 +17,7 @@ export function ResultRow({
 }) {
   const { t, language } = useLanguage();
   const isPlugin = match.provider === "plugin";
-  const [copiedChip, setCopiedChip] = useState<string | null>(null);
+  const [copiedKey, setCopiedKey] = useState<string | null>(null);
 
   const score = match.matchScore;
   const tier = score >= 0.8 ? "high" : score >= 0.4 ? "partial" : "low";
@@ -27,24 +28,44 @@ export function ResultRow({
         ? t("downloadModal.matchPartial")
         : t("downloadModal.matchPossible");
 
-  const copyText = async (text: string, label: string) => {
+  const uri = resolveSourceUri(match, 0);
+  const { isMagnet, isTorrentFile, isDirect } = classifyUri(uri, match.torrentUrl);
+  const isWeb = Boolean(webUrlFor(match));
+
+  const formatBadge = isWeb
+    ? t("downloadModal.typeWeb")
+    : isMagnet
+      ? t("downloadModal.typeMagnet")
+      : isTorrentFile
+        ? t("downloadModal.typeTorrent")
+        : isDirect
+          ? t("downloadModal.typeDirect")
+          : null;
+
+  const copyText = async (e: React.MouseEvent, text: string, label: string) => {
+    e.stopPropagation();
     if (!text) return;
     try {
       await navigator.clipboard.writeText(text);
-      setCopiedChip(label);
+      setCopiedKey(label);
       window.setTimeout(() => {
-        setCopiedChip((curr) => (curr === label ? null : curr));
+        setCopiedKey((curr) => (curr === label ? null : curr));
       }, 1400);
     } catch {
-      // Ignore clipboard fallback
+      // Ignore clipboard failure
     }
   };
+
+  const seeds = match.seeds ?? 0;
+  const peers = match.peers ?? 0;
+  const hasSwarm = match.seeds != null && match.peers != null;
+  const swarmHealthy = seeds >= 5;
 
   return (
     <div
       role="button"
       tabIndex={0}
-      className={`dl-result-row${selected ? " selected" : ""}`}
+      className={`dl-result-card${selected ? " selected" : ""}`}
       onClick={() => onSelect(match.id)}
       onKeyDown={(e) => {
         if (e.key === "Enter" || e.key === " ") {
@@ -54,47 +75,149 @@ export function ResultRow({
       }}
       aria-pressed={selected}
     >
-      <div className="dl-result-selection-bar" aria-hidden />
+      <div className="dl-result-accent-bar" aria-hidden />
 
-      <div className="dl-result-info">
-        {/* Source Badge & Title */}
-        <div className="dl-result-header-line">
-          <span className={`dl-source-tag${isPlugin ? " dl-source-tag--plugin" : ""}`}>
-            {match.sourceName}
-          </span>
-          {match.platform && (
-            <span className="dl-badge dl-badge-platform">{match.platform}</span>
-          )}
-          {match.isNew && (
-            <span className="dl-badge dl-badge-new">{t("downloads.newlyAddedSource")}</span>
-          )}
-          {isDownloaded(match.title) && (
-            <span className="dl-badge dl-badge-downloaded">{t("downloads.alreadyDownloaded")}</span>
-          )}
-          {match.verified && (
-            <span className="dl-badge dl-badge-verified" title={t("downloadModal.verified")}>
-              ✓ {t("downloadModal.verified")}
+      {/* Main card body */}
+      <div className="dl-result-body">
+        {/* Header Badges */}
+        <div className="dl-result-header">
+          <div className="dl-result-tags">
+            <span className={`dl-source-pill-badge${isPlugin ? " dl-source-pill-badge--plugin" : ""}`}>
+              {match.sourceName}
             </span>
-          )}
+
+            {formatBadge && (
+              <span className="dl-badge dl-badge--format">
+                {formatBadge}
+              </span>
+            )}
+
+            {match.platform && (() => {
+              const platformColor = accentForPlatform(match.platform);
+              return (
+                <span
+                  className="dl-badge dl-badge--platform"
+                  style={{
+                    color: platformColor,
+                    backgroundColor: `color-mix(in srgb, ${platformColor} 16%, transparent)`,
+                    borderColor: `color-mix(in srgb, ${platformColor} 40%, transparent)`,
+                  }}
+                  title={match.platform}
+                >
+                  {match.platform}
+                </span>
+              );
+            })()}
+
+            {match.isNew && (
+              <span className="dl-badge dl-badge--new">
+                {t("downloads.newlyAddedSource")}
+              </span>
+            )}
+
+            {isDownloaded(match.title) && (
+              <span className="dl-badge dl-badge--downloaded">
+                ✓ {t("downloads.alreadyDownloaded")}
+              </span>
+            )}
+
+            {match.verified && (
+              <span className="dl-badge dl-badge--verified" title={t("downloadModal.verified")}>
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                  <polyline points="20 6 9 17 4 12" />
+                </svg>
+                {t("downloadModal.verified")}
+              </span>
+            )}
+          </div>
+
+          {/* Quick Actions (Right side of header) */}
+          <div className="dl-result-actions" onClick={(e) => e.stopPropagation()}>
+            {match.infohash && (
+              <button
+                type="button"
+                className={`dl-action-chip${copiedKey === "hash" ? " copied" : ""}`}
+                title={`Hash: ${match.infohash}`}
+                onClick={(e) => void copyText(e, match.infohash!, "hash")}
+                aria-label={t("downloadModal.copyHash")}
+              >
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                  <rect x="9" y="9" width="13" height="13" rx="2" ry="2" />
+                  <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
+                </svg>
+                {copiedKey === "hash" && <span>{t("downloadModal.copied")}</span>}
+              </button>
+            )}
+
+            {match.magnet && (
+              <button
+                type="button"
+                className={`dl-action-chip${copiedKey === "magnet" ? " copied" : ""}`}
+                title={t("downloadModal.copyMagnet")}
+                onClick={(e) => void copyText(e, match.magnet!, "magnet")}
+                aria-label={t("downloadModal.copyMagnet")}
+              >
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                  <path d="M6 15a6 6 0 1 0 12 0c0-4.97-4-9-6-12-2 3-6 7.03-6 12z" />
+                  <path d="M9.5 15.5c0 1.38 1.12 2.5 2.5 2.5" />
+                </svg>
+                {copiedKey === "magnet" && <span>{t("downloadModal.copied")}</span>}
+              </button>
+            )}
+
+            {match.torrentUrl && (
+              <button
+                type="button"
+                className={`dl-action-chip${copiedKey === "torrent" ? " copied" : ""}`}
+                title={t("downloadModal.copyTorrent")}
+                onClick={(e) => void copyText(e, match.torrentUrl!, "torrent")}
+                aria-label={t("downloadModal.copyTorrent")}
+              >
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                  <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+                  <polyline points="14 2 14 8 20 8" />
+                </svg>
+                {copiedKey === "torrent" && <span>{t("downloadModal.copied")}</span>}
+              </button>
+            )}
+          </div>
         </div>
 
+        {/* Release Title */}
         <h4 className="dl-result-title" title={match.title}>
           {match.title}
         </h4>
 
-        {/* Clean Metadata Pills */}
-        <div className="dl-result-meta-pills">
-          <span className="dl-meta-pill dl-meta-pill--size">
+        {/* Metric Badges */}
+        <div className="dl-result-meta-row">
+          {/* File Size */}
+          <span className="dl-meta-chip dl-meta-chip--size">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
               <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
               <polyline points="7 10 12 15 17 10" />
               <line x1="12" y1="15" x2="12" y2="3" />
             </svg>
-            {match.fileSize || t("downloadModal.unknownSize")}
+            <strong>{match.fileSize || t("downloadModal.unknownSize")}</strong>
           </span>
 
+          {/* Swarm Health (Seeds & Peers) */}
+          {hasSwarm && (
+            <span className={`dl-meta-chip dl-meta-chip--swarm ${swarmHealthy ? "healthy" : "low"}`}>
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
+                <circle cx="9" cy="7" r="4" />
+                <path d="M23 21v-2a4 4 0 0 0-3-3.87" />
+                <path d="M16 3.13a4 4 0 0 1 0 7.75" />
+              </svg>
+              <span>{t("downloadModal.seeds", { count: seeds })}</span>
+              <span className="dl-meta-chip-sep">·</span>
+              <span>{t("downloadModal.peers", { count: peers })}</span>
+            </span>
+          )}
+
+          {/* Upload Date */}
           {match.uploadDate && (
-            <span className="dl-meta-pill dl-meta-pill--date">
+            <span className="dl-meta-chip dl-meta-chip--date">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
                 <circle cx="12" cy="12" r="10" />
                 <polyline points="12 6 12 12 16 14" />
@@ -103,94 +226,34 @@ export function ResultRow({
             </span>
           )}
 
-          <span className={`dl-meta-pill dl-meta-pill--score ${tier}`} title={t("downloadModal.detailConfidence")}>
+          {/* Match Confidence Score */}
+          <span className={`dl-meta-chip dl-meta-chip--score ${tier}`} title={t("downloadModal.detailConfidence")}>
             <span className="dl-tier-dot" aria-hidden />
-            {tierLabel} · {(score * 100).toFixed(0)}%
+            <span>{tierLabel}</span>
+            <span className="dl-tier-percent">{(score * 100).toFixed(0)}%</span>
           </span>
 
-          {match.seeds != null && match.peers != null && (
-            <span className="dl-meta-pill dl-meta-pill--swarm">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-                <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
-                <circle cx="9" cy="7" r="4" />
-                <path d="M23 21v-2a4 4 0 0 0-3-3.87" />
-                <path d="M16 3.13a4 4 0 0 1 0 7.75" />
-              </svg>
-              {t("downloadModal.seeds", { count: match.seeds })} · {t("downloadModal.peers", { count: match.peers })}
-            </span>
-          )}
-
+          {/* Provenance if available */}
           {match.provenance && (
-            <span className="dl-meta-pill dl-meta-pill--provenance" title={t("downloadModal.provenanceTitle")}>
+            <span className="dl-meta-chip dl-meta-chip--provenance" title={t("downloadModal.provenanceTitle")}>
               {match.provenance}
             </span>
           )}
         </div>
-
-        {/* Technical actions (Magnet, Torrent, Hash copy) */}
-        {(match.infohash || match.magnet || match.torrentUrl) && (
-          <div className="dl-result-quick-actions" onClick={(e) => e.stopPropagation()}>
-            {match.infohash && (
-              <button
-                type="button"
-                className={`dl-quick-action-btn${copiedChip === "hash" ? " copied" : ""}`}
-                title={match.infohash}
-                onClick={() => void copyText(match.infohash!, "hash")}
-              >
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-                  <rect x="9" y="9" width="13" height="13" rx="2" ry="2" />
-                  <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
-                </svg>
-                <span>{copiedChip === "hash" ? t("downloadModal.copied") : t("downloadModal.copyHash")}</span>
-              </button>
-            )}
-
-            {match.magnet && (
-              <button
-                type="button"
-                className={`dl-quick-action-btn${copiedChip === "magnet" ? " copied" : ""}`}
-                title={match.magnet}
-                onClick={() => void copyText(match.magnet!, "magnet")}
-              >
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-                  <path d="M6 15a6 6 0 1 0 12 0c0-4.97-4-9-6-12-2 3-6 7.03-6 12z" />
-                  <path d="M9.5 15.5c0 1.38 1.12 2.5 2.5 2.5" />
-                </svg>
-                <span>{copiedChip === "magnet" ? t("downloadModal.copied") : t("downloadModal.copyMagnet")}</span>
-              </button>
-            )}
-
-            {match.torrentUrl && (
-              <button
-                type="button"
-                className={`dl-quick-action-btn${copiedChip === "torrent" ? " copied" : ""}`}
-                title={match.torrentUrl}
-                onClick={() => void copyText(match.torrentUrl!, "torrent")}
-              >
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-                  <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
-                  <polyline points="14 2 14 8 20 8" />
-                </svg>
-                <span>{copiedChip === "torrent" ? t("downloadModal.copied") : t("downloadModal.copyTorrent")}</span>
-              </button>
-            )}
-          </div>
-        )}
       </div>
 
-      {/* Selected Indicator */}
-      <div className="dl-result-indicator-col" aria-hidden>
-        <div className={`dl-result-check${selected ? " active" : ""}`}>
+      {/* Radio Selection Indicator */}
+      <div className="dl-result-indicator" aria-hidden>
+        <div className={`dl-selection-indicator${selected ? " active" : ""}`}>
           {selected ? (
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
               <polyline points="20 6 9 17 4 12" />
             </svg>
           ) : (
-            <div className="dl-result-radio-ring" />
+            <div className="dl-selection-ring" />
           )}
         </div>
       </div>
     </div>
   );
 }
-

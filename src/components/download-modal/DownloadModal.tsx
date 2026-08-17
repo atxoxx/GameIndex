@@ -897,10 +897,7 @@ export default function DownloadModal({
     return () => document.removeEventListener("keydown", onKey);
   }, [step, handleCloseAttempt]);
 
-  // Arrow-key navigation through the results list (big-screen / remote
-  // friendly). Up/Down move the selection, Enter starts the download.
-  // Only active while we're showing the results list and nothing is
-  // in flight.
+  // Arrow-key navigation through the results list
   useEffect(() => {
     if (step !== "results" && step !== "starting") return;
     if (sortedMatches.length === 0) return;
@@ -908,17 +905,10 @@ export default function DownloadModal({
       if (e.key !== "ArrowDown" && e.key !== "ArrowUp" && e.key !== "Enter") return;
       if (e.key === "Enter") {
         if (step === "results" && selectedId != null) {
-          // Enter starts the download — but only when focus is sitting
-          // on the result row itself or its non-interactive content.
-          // The detail pane's interactive controls (mirror chips,
-          // toggles, save-path button) and the plugin rows' copy chips
-          // handle Enter natively, so they must not double-fire a
-          // download. Result rows are divs (role="button") so they can
-          // host those chips without invalid nesting.
           const target = e.target as HTMLElement | null;
           const isInteractive = !!target?.closest("input, select, textarea, button, a");
-          const isResultRow = !!target?.closest(".dl-result-row");
-          if (isResultRow && !isInteractive) handleStart();
+          const isResultCard = !!target?.closest(".dl-result-card, .dl-result-row");
+          if (isResultCard && !isInteractive) handleStart();
         }
         return;
       }
@@ -928,7 +918,7 @@ export default function DownloadModal({
         const base = baseIdx < 0 ? -1 : baseIdx;
         const delta = e.key === "ArrowDown" ? 1 : -1;
         const next = Math.min(sortedMatches.length - 1, Math.max(0, base + delta));
-        const el = resultsListRef.current?.querySelectorAll(".dl-result-row")[next] as
+        const el = resultsListRef.current?.querySelectorAll(".dl-result-card, .dl-result-row")[next] as
           | HTMLElement
           | undefined;
         el?.scrollIntoView({ block: "nearest" });
@@ -939,11 +929,7 @@ export default function DownloadModal({
     return () => document.removeEventListener("keydown", onKey);
   }, [step, sortedMatches, selectedId, handleStart]);
 
-  // Tick the elapsed-seconds counter while the engine is
-  // accepting the new torrent. Stops and resets the moment we
-  // leave the "starting" state (either the modal closes on
-  // success, or we fall back to "results" on failure). The
-  // interval is created lazily so the timer doesn't leak.
+  // Elapsed-seconds counter during download initiation
   useEffect(() => {
     if (step !== "starting") {
       setElapsedSec(0);
@@ -955,11 +941,13 @@ export default function DownloadModal({
     return () => window.clearInterval(id);
   }, [step]);
 
-  // ── Render ──────────────────────────────────────────────────────
+  // Target Game lookup for rich header poster and metadata
+  const targetGame = useMemo(() => {
+    if (gameId) return games.find((g) => g.id === gameId);
+    return games.find((g) => g.name.toLowerCase() === gameName.toLowerCase());
+  }, [games, gameId, gameName]);
 
-  // Titles of downloads that have already completed, so the results
-  // list can flag which entries the user has downloaded before. We
-  // normalise to lowercase for a case-insensitive match.
+  // Titles of completed downloads for badge indicators
   const downloadedTitles = useMemo(() => {
     const set = new Set<string>();
     for (const d of completedDownloads) {
@@ -991,18 +979,12 @@ export default function DownloadModal({
   }, [step, t]);
 
   const showResultsUI = step === "results" || step === "starting";
+  const gameCover = targetGame?.coverArtUrl || targetGame?.iconUrl;
 
-  // Render the modal into `document.body` via a React Portal so it
-  // escapes any stacking context created by ancestor elements
-  // (e.g. the Game page's hero cards). Without this, the modal's
-  // z-index is confined to the closest stacking context, which
-  // can cause it to be painted behind page-level surfaces even
-  // though its z-index (9998) is technically very high. This
-  // matches the pattern used by ImportModal, ConfirmModal, etc.
   return createPortal(
     <>
       <div
-        className="modal-backdrop"
+        className="modal-backdrop dl-modal-backdrop"
         onMouseDown={() => {
           if (step !== "starting") {
             handleCloseAttempt();
@@ -1015,32 +997,85 @@ export default function DownloadModal({
           role="dialog"
           aria-label={t('downloadButton.download')}
         >
-          <div className="modal-header">
-            <div className="modal-header-icon">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
-                <polyline points="7 10 12 15 17 10" />
-                <line x1="12" y1="15" x2="12" y2="3" />
-              </svg>
+          {/* Ambient Backdrop Artwork */}
+          {gameCover && (
+            <div
+              className="dl-modal-backdrop-glow"
+              style={{ backgroundImage: `url(${gameCover})` }}
+              aria-hidden
+            />
+          )}
+
+          {/* Modal Header */}
+          <div className="dl-modal-header">
+            <div className="dl-modal-header-game">
+              {gameCover ? (
+                <img
+                  src={gameCover}
+                  alt={gameName}
+                  className="dl-modal-game-thumb"
+                />
+              ) : (
+                <div className="dl-modal-header-icon-box">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                    <polyline points="7 10 12 15 17 10" />
+                    <line x1="12" y1="15" x2="12" y2="3" />
+                  </svg>
+                </div>
+              )}
+              <div className="dl-modal-header-titles">
+                <h2 className="dl-modal-game-name" title={gameName}>
+                  {gameName}
+                </h2>
+                <p className="dl-modal-flow-tag">
+                  {t('downloadButton.download')}
+                  {matches.length > 0 && ` · ${t('downloadModal.sourceResults', { count: matches.length, s: matches.length !== 1 ? "s" : "" })}`}
+                </p>
+              </div>
             </div>
-            <div className="modal-header-text">
-              <h2 className="modal-title">{t('downloadButton.download')}</h2>
-              <p className="modal-subtitle">{gameName}</p>
+
+            <div className="dl-modal-header-right">
+              <span className={`dl-modal-status-badge dl-modal-status-badge--${statusChip.tone}`}>
+                <span className="dl-modal-status-dot" aria-hidden />
+                <span>{statusChip.label}</span>
+              </span>
+
+              <button
+                type="button"
+                className="dl-modal-close-button"
+                onClick={handleCloseAttempt}
+                aria-label={t("common.close")}
+                title={`${t("common.close")} (Esc)`}
+              >
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                  <line x1="18" y1="6" x2="6" y2="18" />
+                  <line x1="6" y1="6" x2="18" y2="18" />
+                </svg>
+              </button>
             </div>
-            <span className={`dl-status-chip dl-status-chip--${statusChip.tone}`}>
-              {statusChip.label}
-            </span>
-            <button
-              type="button"
-              className="modal-close"
-              onClick={handleCloseAttempt}
-              aria-label={t("common.close")}
-            >
-              ×
-            </button>
+
+            {/* Live Search Progress Ribbon (Integrated Header Progress) */}
+            {searchProgress && searchProgress.total > 1 && !searchProgress.isDone && (
+              <div
+                className="dl-header-progress-line"
+                role="progressbar"
+                aria-valuenow={searchProgress.completed}
+                aria-valuemin={0}
+                aria-valuemax={searchProgress.total}
+              >
+                <div
+                  className="dl-header-progress-fill"
+                  style={{
+                    width: `${Math.max(4, (searchProgress.completed / searchProgress.total) * 100)}%`,
+                  }}
+                />
+              </div>
+            )}
           </div>
 
-          <div className="modal-body">
+          {/* Modal Body */}
+          <div className="dl-modal-body">
             <OwnershipBanner ownership={ownership} step={step} />
 
             {showResultsUI && (
@@ -1055,10 +1090,6 @@ export default function DownloadModal({
 
             {showResultsUI && (
               matches.length === 0 ? (
-                // No candidates at all — a full-width empty state beats a
-                // pointless split pane. The save-path/options controls live
-                // in the detail pane now, so there is nothing to attach
-                // them to when nothing matched.
                 <ResultsList
                   matches={sortedMatches}
                   selectedId={selectedId}
@@ -1082,7 +1113,7 @@ export default function DownloadModal({
                   onTypeFilterChange={setTypeFilter}
                 />
               ) : (
-                <div className="dl-results-layout">
+                <div className="dl-results-split-layout">
                   <div className="dl-results-pane" ref={resultsListRef}>
                     <ResultsList
                       matches={sortedMatches}
@@ -1133,33 +1164,41 @@ export default function DownloadModal({
             )}
 
             {error && step === "results" && (
-              <div className="dl-inline-error" role="alert">
-                <p className="dl-inline-error-text">{error}</p>
-                {needsBrowserHint && (
-                  <Button
-                    variant="primary"
-                    size="sm"
-                    onClick={() => handleOpenBrowserResolver()}
-                  >
-                    {t('downloadModal.resolverOpen')}
-                  </Button>
-                )}
-                {metadataTimedOut && (
-                  <Button
-                    variant="secondary"
-                    size="sm"
-                    onClick={() => handleStart()}
-                  >
-                    {t('downloadModal.tryAgain')}
-                  </Button>
-                )}
+              <div className="dl-inline-error-banner" role="alert">
+                <div className="dl-inline-error-icon">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                    <circle cx="12" cy="12" r="10" />
+                    <line x1="12" y1="8" x2="12" y2="12" />
+                    <line x1="12" y1="16" x2="12.01" y2="16" />
+                  </svg>
+                </div>
+                <div className="dl-inline-error-body">
+                  <p className="dl-inline-error-msg">{error}</p>
+                </div>
+                <div className="dl-inline-error-actions">
+                  {needsBrowserHint && (
+                    <Button
+                      variant="primary"
+                      size="sm"
+                      onClick={() => handleOpenBrowserResolver()}
+                    >
+                      {t('downloadModal.resolverOpen')}
+                    </Button>
+                  )}
+                  {metadataTimedOut && (
+                    <Button
+                      variant="secondary"
+                      size="sm"
+                      onClick={() => handleStart()}
+                    >
+                      {t('downloadModal.tryAgain')}
+                    </Button>
+                  )}
+                </div>
               </div>
             )}
 
             {step === "fetching_metadata" && (() => {
-              // The temp (list-only) torrent is live in `activeDownloads`
-              // while we wait for the file list — surface its 2s-polled
-              // swarm stats so the wait reads as active, not stalled.
               const live = activeDownloads.find((d) => d.id === tempTorrentId);
               return (
                 <FetchingMetadataState
@@ -1178,11 +1217,6 @@ export default function DownloadModal({
             )}
 
             {step === "starting" && (() => {
-              // Best-effort live swarm for the status line: once
-              // `torrent_add` resolves the new download appears in
-              // `activeDownloads` (same `sourceUri`). Matching by URI
-              // avoids touching the state machine — no id is kept for
-              // the non-file-selection start path.
               const liveUri = resolveSourceUri(selectedMatch ?? undefined, selectedMirrorIdx);
               const live = liveUri
                 ? activeDownloads.find((d) => d.sourceUri === liveUri)
@@ -1199,17 +1233,25 @@ export default function DownloadModal({
             })()}
           </div>
 
-          <div className="modal-footer">
-            <span className="modal-footer-count">
-              {step === "results" && matches.length > 0
-                ? t('downloadModal.sourceResults', { count: matches.length, s: matches.length !== 1 ? "s" : "" })
-                : step === "file_selection"
-                  ? t('downloadModal.totalFiles', {
-                      count: activeDownloads.find((d) => d.id === tempTorrentId)?.files.length ?? 0,
-                    })
-                  : " " /* non-breaking space so the row doesn't collapse */}
-            </span>
-            <div className="modal-footer-actions">
+          {/* Modal Footer */}
+          <div className="dl-modal-footer">
+            <div className="dl-modal-footer-info">
+              {step === "results" && matches.length > 0 ? (
+                <span className="dl-footer-count-text">
+                  {t('downloadModal.sourceResults', { count: matches.length, s: matches.length !== 1 ? "s" : "" })}
+                </span>
+              ) : step === "file_selection" ? (
+                <span className="dl-footer-count-text">
+                  {t('downloadModal.totalFiles', {
+                    count: activeDownloads.find((d) => d.id === tempTorrentId)?.files.length ?? 0,
+                  })}
+                </span>
+              ) : (
+                <span className="dl-footer-count-text">&nbsp;</span>
+              )}
+            </div>
+
+            <div className="dl-modal-footer-actions">
               {resolverSession && (
                 <Button
                   variant="secondary"
@@ -1291,9 +1333,6 @@ export default function DownloadModal({
                       resolveSourceUri(selMatch ?? undefined, selectedMirrorIdx),
                       selMatch?.torrentUrl,
                     );
-                    // The "Choose files" prompt only applies to torrents;
-                    // direct links can't pre-list files, so they always
-                    // start immediately.
                     if (chooseFiles && !isDirect) return t('downloadModal.fetchFiles');
                     return t('downloadModal.startDownload');
                   })()}
@@ -1317,3 +1356,4 @@ export default function DownloadModal({
     document.body,
   );
 }
+

@@ -429,3 +429,15 @@ export function sortMatches<T extends { sourceName: string; matchScore: number; 
   }
   return [...sources, ...plugins];
 }
+
+/** Categorize a file by its extension for selective download file browser icons. */
+export function getFileCategory(filename: string): "executable" | "archive" | "disc" | "media" | "data" | "document" {
+  const ext = filename.split(".").pop()?.toLowerCase() ?? "";
+  if (["exe", "bat", "cmd", "msi", "dll"].includes(ext)) return "executable";
+  if (["zip", "rar", "7z", "tar", "gz", "bz2", "xz"].includes(ext)) return "archive";
+  if (["iso", "bin", "cue", "img", "nrg", "mdf", "vhd"].includes(ext)) return "disc";
+  if (["mp4", "mkv", "avi", "webm", "mp3", "flac", "wav", "ogg"].includes(ext)) return "media";
+  if (["pak", "dat", "vpk", "bundle", "rpf", "asset", "assets", "arc", "cpk"].includes(ext)) return "data";
+  return "document";
+}
+

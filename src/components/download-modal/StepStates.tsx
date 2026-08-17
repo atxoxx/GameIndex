@@ -1,5 +1,4 @@
 import type { MatchedDownload } from "../../types/source";
-import type { DownloadStep } from "./types";
 import { resolveSourceUri } from "./helpers";
 import { Button } from "../ui";
 import { useLanguage } from "../../context/LanguageContext";
@@ -15,31 +14,52 @@ export function CheckingState({
   } | null;
 } = {}) {
   const { t } = useLanguage();
+  const percent =
+    searchProgress && searchProgress.total > 0
+      ? Math.round((searchProgress.completed / searchProgress.total) * 100)
+      : 0;
+
   return (
-    <div className="dl-search-loading dl-search-loading--column">
-      <div className="dl-spinner" />
-      <span className="dl-loading-title">
-        {searchProgress && searchProgress.total > 1 && searchProgress.activeSource
-          ? t("downloadModal.searchingSourceActive", {
-              source: searchProgress.activeSource,
-              completed: searchProgress.completed,
-              total: searchProgress.total,
-            })
-          : t("downloadModal.checkingState")}
-      </span>
-      {searchProgress && searchProgress.total > 1 && (
-        <div className="dl-search-progress-bar dl-search-progress-bar--standalone">
-          <div className="dl-search-progress-track">
-            <div
-              className="dl-search-progress-fill"
-              style={{
-                width: `${Math.max(6, (searchProgress.completed / searchProgress.total) * 100)}%`,
-              }}
-            />
-          </div>
+    <div className="dl-state-screen dl-state-screen--checking">
+      <div className="dl-scanner-graphic">
+        <div className="dl-scanner-orbit" />
+        <div className="dl-scanner-pulse" />
+        <div className="dl-scanner-center">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+            <circle cx="11" cy="11" r="8" />
+            <line x1="21" y1="21" x2="16.65" y2="16.65" />
+          </svg>
         </div>
-      )}
-      <p className="dl-fetching-hint">{t("downloadModal.checkingHint")}</p>
+      </div>
+
+      <div className="dl-state-screen-body">
+        <h3 className="dl-state-title">
+          {searchProgress && searchProgress.total > 1 && searchProgress.activeSource
+            ? t("downloadModal.searchingSourceActive", {
+                source: searchProgress.activeSource,
+                completed: searchProgress.completed,
+                total: searchProgress.total,
+              })
+            : t("downloadModal.checkingState")}
+        </h3>
+
+        {searchProgress && searchProgress.total > 1 && (
+          <div className="dl-state-progress-bar">
+            <div className="dl-state-progress-track">
+              <div
+                className="dl-state-progress-fill"
+                style={{ width: `${Math.max(6, percent)}%` }}
+              />
+            </div>
+            <div className="dl-state-progress-meta">
+              <span>{searchProgress.completed} / {searchProgress.total} sources</span>
+              <span>{percent}%</span>
+            </div>
+          </div>
+        )}
+
+        <p className="dl-state-desc">{t("downloadModal.checkingHint")}</p>
+      </div>
     </div>
   );
 }
@@ -53,8 +73,8 @@ export function ErrorState({
 }) {
   const { t } = useLanguage();
   return (
-    <div className="dl-results-empty dl-results-empty--error">
-      <div className="dl-results-empty-icon dl-results-empty-icon--error">
+    <div className="dl-state-screen dl-state-screen--error">
+      <div className="dl-state-error-icon">
         <svg
           viewBox="0 0 24 24"
           fill="none"
@@ -69,8 +89,8 @@ export function ErrorState({
           <line x1="12" y1="16" x2="12.01" y2="16" />
         </svg>
       </div>
-      <h4 className="dl-results-empty-title">{t("downloadModal.errorTitle")}</h4>
-      <p className="dl-results-empty-hint">{error ?? t("downloadModal.unknownError")}</p>
+      <h3 className="dl-state-title">{t("downloadModal.errorTitle")}</h3>
+      <p className="dl-state-desc dl-state-desc--error">{error ?? t("downloadModal.unknownError")}</p>
       <Button variant="primary" size="sm" onClick={onRetry}>
         {t("downloadModal.retry")}
       </Button>
@@ -87,21 +107,36 @@ export function FetchingMetadataState({
 }) {
   const { t } = useLanguage();
   const hasSwarm = peers > 0;
+
   return (
-    <div className="dl-search-loading dl-search-loading--column">
-      <div className="dl-spinner" />
-      <span className="dl-loading-title">{t("downloadModal.fetchingFileList")}</span>
-      {hasSwarm && (
-        <p className="dl-fetching-swarm" role="status" aria-live="polite">
-          {t("downloadModal.connectedPeers", {
-            peers,
-            s: peers !== 1 ? "s" : "",
-            seeds,
-            seedPlural: seeds !== 1 ? "s" : "",
-          })}
-        </p>
-      )}
-      <p className="dl-fetching-hint">{t("downloadModal.fetchingPeersHint")}</p>
+    <div className="dl-state-screen dl-state-screen--metadata">
+      <div className="dl-swarm-radar">
+        <div className="dl-swarm-ripple" />
+        <div className="dl-swarm-center">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+            <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
+            <circle cx="9" cy="7" r="4" />
+            <path d="M23 21v-2a4 4 0 0 0-3-3.87" />
+            <path d="M16 3.13a4 4 0 0 1 0 7.75" />
+          </svg>
+        </div>
+      </div>
+
+      <div className="dl-state-screen-body">
+        <h3 className="dl-state-title">{t("downloadModal.fetchingFileList")}</h3>
+        {hasSwarm && (
+          <div className="dl-swarm-badge" role="status" aria-live="polite">
+            <span className="dl-swarm-pulse-dot" aria-hidden />
+            {t("downloadModal.connectedPeers", {
+              peers,
+              s: peers !== 1 ? "s" : "",
+              seeds,
+              seedPlural: seeds !== 1 ? "s" : "",
+            })}
+          </div>
+        )}
+        <p className="dl-state-desc">{t("downloadModal.fetchingPeersHint")}</p>
+      </div>
     </div>
   );
 }
@@ -131,12 +166,12 @@ export function StartingStatus({
   const hasSwarm = peers > 0;
 
   return (
-    <p className="dl-starting-status" role="status" aria-live="polite">
-      <span className="dl-spinner-mini" aria-hidden />
-      <span>{label}</span>
-      {elapsedSec > 0 && <span className="dl-starting-elapsed">({elapsedSec}s)</span>}
+    <div className="dl-starting-bar" role="status" aria-live="polite">
+      <span className="dl-starting-spinner" aria-hidden />
+      <span className="dl-starting-label">{label}</span>
+      {elapsedSec > 0 && <span className="dl-starting-timer">({elapsedSec}s)</span>}
       {hasSwarm && (
-        <span className="dl-starting-swarm">
+        <span className="dl-starting-swarm-info">
           {" · "}
           {t("downloadModal.connectedPeers", {
             peers,
@@ -146,9 +181,6 @@ export function StartingStatus({
           })}
         </span>
       )}
-    </p>
+    </div>
   );
 }
-
-export type { DownloadStep };
-
