@@ -458,31 +458,23 @@ export function DownloadProvider({ children }: { children: ReactNode }) {
         (useDebrid === undefined && debridProvider !== "none" && !!debridApiKey);
 
       if (shouldUnrestrict) {
-        if (debridProvider === "none" || !debridApiKey) {
-          throw new Error(
-            "No debrid provider configured. Set an API key in Settings → Downloads.",
-          );
-        }
-        try {
-          downloadUrl = await invoke<string>("debrid_unrestrict_link", {
-            provider: debridProvider,
-            apikey: debridApiKey,
-            url,
-          });
-          console.log("[DownloadContext] Unrestricted link successfully:", downloadUrl);
-        } catch (e) {
-          // Surface the debrid error to the user instead of silently
-          // falling through to the original URL. The original URL is
-          // typically a hoster link that requires a premium account —
-          // downloading it directly will fail with HTTP 403/402 and
-          // the user sees a generic "Connection failed" error with no
-          // indication that their debrid service is the problem.
-          throw new Error(
-            `Debrid unrestrict failed (${debridProvider}): ${e}. ` +
-            `Check your API key or try disabling debrid in Settings.`,
-          );
+        if (debridProvider !== "none" && debridApiKey) {
+          try {
+            downloadUrl = await invoke<string>("debrid_unrestrict_link", {
+              provider: debridProvider,
+              apikey: debridApiKey,
+              url,
+            });
+            console.log("[DownloadContext] Unrestricted link successfully:", downloadUrl);
+          } catch (e) {
+            console.warn(
+              `[DownloadContext] Debrid unrestrict failed (${debridProvider}), falling back to native hoster resolver:`,
+              e,
+            );
+          }
         }
       }
+
 
       let finalSavePath = savePath;
       if (downloadUrl !== url) {

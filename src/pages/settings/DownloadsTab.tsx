@@ -377,6 +377,7 @@ export default function DownloadsTab() {
             >
               <option value="none">{t("settings.debrid.disabled")}</option>
               <option value="alldebrid">{t("settings.debrid.allDebrid")}</option>
+              <option value="realdebrid">{t("settings.debrid.realDebrid")}</option>
               <option value="torbox">{t("settings.debrid.torBox")}</option>
             </select>
           </div>

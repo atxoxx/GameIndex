@@ -91,7 +91,7 @@ export function DetailPanel({
   const webUrl = webUrlFor(match);
   const detailUrl = match.detailUrl && match.detailUrl.trim();
   const showOpenPage = !webUrl && Boolean(detailUrl);
-  const debridAvailable = debridConfigured && (isMagnet || isTorrentFile);
+  const debridAvailable = debridConfigured && (isMagnet || isTorrentFile || isDirect);
   const hostLabel = sourceUri ? hostLabelForUri(sourceUri, 0) : null;
   const needsBrowser = hosterNeedsBrowser(sourceUri);
 

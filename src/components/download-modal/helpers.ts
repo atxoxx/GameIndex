@@ -85,10 +85,7 @@ export function hosterNeedsBrowser(uri: string | null | undefined): boolean {
   try {
     const urlObj = new URL(uri);
     const host = urlObj.hostname.toLowerCase();
-    if (host.includes("gofile.io") || host.includes("gofilecdn")) return true;
     if (host.includes("filecrypt.cc") || host.includes("filecrypt.co")) return true;
-    if (host.includes("datanodes.to")) return true;
-    if (host.includes("vikingfile")) return urlObj.pathname.startsWith("/f/");
     return false;
   } catch {
     return false;
@@ -106,17 +103,24 @@ export function hostLabelForUri(uri: string, fallbackIndex: number): string {
     if (host.includes("vimm.net")) return "Vimm Vault Direct";
     if (host.includes("buzzheavier.com")) return "Buzzheavier";
     if (host.includes("gofile.io")) return "Gofile";
+    if (host.includes("datanodes.to")) return "Datanodes";
     if (host.includes("1fichier.com")) return "1fichier";
+    if (host.includes("krakenfiles.com")) return "KrakenFiles";
+    if (host.includes("qiwi.gg")) return "Qiwi";
+    if (host.includes("megaup.net")) return "MegaUp";
+    if (host.includes("fuckingfast.co")) return "FuckingFast";
+    if (host.includes("rootz.so")) return "Rootz";
+    if (host.includes("vikingfile.com")) return "VikingFile";
     if (host.includes("mega.nz")) return "MEGA";
     if (host.includes("mediafire.com")) return "MediaFire";
     if (host.includes("pixeldrain.com")) return "Pixeldrain";
-    if (host.includes("qiwi.gg")) return "Qiwi";
     if (urlObj.pathname.endsWith(".torrent")) return `${host} (.torrent)`;
     return host || `Mirror ${fallbackIndex + 1}`;
   } catch {
     return `Mirror ${fallbackIndex + 1}`;
   }
 }
+
 
 /** Numeric value used to order results by upload date (newest first).
  *  Missing / unparseable dates sink to the bottom. */

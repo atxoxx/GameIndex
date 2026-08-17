@@ -3198,6 +3198,7 @@ export const es: TranslationDict = {
   "settings.debrid.apiKeyToken": "Clave API / Token",
   "settings.debrid.disabled": "Desactivado",
   "settings.debrid.provider": "Proveedor Debrid",
+  "settings.debrid.realDebrid": "Real-Debrid",
   "settings.debrid.testConnection": "Probar conexión",
   "settings.debrid.testing": "Probando...",
   "settings.debrid.torBox": "TorBox",

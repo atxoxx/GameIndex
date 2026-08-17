@@ -1229,6 +1229,8 @@ pub async fn test_debrid_key(
 ) -> Result<debrid::DebridUserInfo, String> {
     if provider == "alldebrid" {
         debrid::AllDebridClient::test_key(&apikey).await
+    } else if provider == "realdebrid" {
+        debrid::RealDebridClient::test_key(&apikey).await
     } else if provider == "torbox" {
         debrid::TorBoxClient::test_key(&apikey).await
     } else {
@@ -1257,9 +1259,12 @@ pub async fn debrid_unrestrict_link(
 ) -> Result<String, String> {
     if provider == "alldebrid" {
         debrid::AllDebridClient::unrestrict_link(&apikey, &url).await
+    } else if provider == "realdebrid" {
+        debrid::RealDebridClient::unrestrict_link(&apikey, &url).await
     } else if provider == "torbox" {
         debrid::TorBoxClient::unrestrict_link(&apikey, &url).await
     } else {
         Err("Unsupported provider".to_string())
     }
 }
+

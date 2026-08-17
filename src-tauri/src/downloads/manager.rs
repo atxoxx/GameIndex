@@ -1405,11 +1405,13 @@ async fn run_debrid_flow(
     provider: String,
     apikey: String,
 ) {
-    use super::debrid::{AllDebridClient, TorBoxClient};
+    use super::debrid::{AllDebridClient, RealDebridClient, TorBoxClient};
 
     println!("[downloads] Uploading magnet to debrid ({})", provider);
     let upload_res = if provider == "alldebrid" {
         AllDebridClient::upload_magnet(&apikey, &magnet).await
+    } else if provider == "realdebrid" {
+        RealDebridClient::upload_magnet(&apikey, &magnet).await
     } else if provider == "torbox" {
         TorBoxClient::upload_magnet(&apikey, &magnet).await
     } else {
@@ -1458,6 +1460,8 @@ async fn run_debrid_flow(
 
         let status_res = if provider == "alldebrid" {
             AllDebridClient::get_status(&apikey, &transfer_id).await
+        } else if provider == "realdebrid" {
+            RealDebridClient::get_status(&apikey, &transfer_id).await
         } else {
             TorBoxClient::get_status(&apikey, &transfer_id).await
         };

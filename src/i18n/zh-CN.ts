@@ -3198,6 +3198,7 @@ export const zhCN: TranslationDict = {
   "settings.debrid.apiKeyToken": "API 密钥 / Token",
   "settings.debrid.disabled": "已禁用",
   "settings.debrid.provider": "Debrid 提供商",
+  "settings.debrid.realDebrid": "Real-Debrid",
   "settings.debrid.testConnection": "测试连接",
   "settings.debrid.testing": "测试中...",
   "settings.debrid.torBox": "TorBox",

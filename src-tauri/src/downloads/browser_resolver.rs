@@ -82,8 +82,11 @@ pub fn is_downloadable_url(url_str: &str) -> bool {
     let exts = [
         ".torrent", ".zip", ".rar", ".7z", ".iso", ".exe", ".bin", ".pkg",
         ".tar", ".gz", ".xz", ".zst", ".tar.gz", ".tar.xz", ".tar.zst",
-        ".dmg", ".apk", ".nsp", ".xci", ".cia", ".wua", ".rvz", ".chd",
-        ".cso", ".gdi", ".cdi", ".vpk", ".msi", ".appimage", ".rpm", ".deb",
+        ".dmg", ".apk", ".nsp", ".nsz", ".xci", ".xcz", ".cia", ".wua",
+        ".rvz", ".chd", ".cso", ".gdi", ".cdi", ".vpk", ".wbfs", ".wad",
+        ".3ds", ".nds", ".gba", ".gbc", ".gb", ".sfc", ".smc", ".nes",
+        ".z64", ".n64", ".v64", ".pbp", ".001", ".002", ".r00", ".r01",
+        ".msi", ".appimage", ".rpm", ".deb",
     ];
 
     let path = parsed.path().to_lowercase();
@@ -93,14 +96,40 @@ pub fn is_downloadable_url(url_str: &str) -> bool {
         }
     }
 
-    // Check if query parameter explicitly ends with or specifies a file extension
+    // Check if query parameter explicitly ends with or specifies a file extension or download action
     if let Some(query) = parsed.query() {
         let q_lower = query.to_lowercase();
+        if q_lower == "download" || q_lower.starts_with("download&") || q_lower.ends_with("&download") || q_lower.contains("&download&") {
+            return true;
+        }
         for ext in &exts {
             if q_lower.ends_with(ext) || q_lower.contains(&format!("{ext}&")) {
                 return true;
             }
         }
+    }
+
+    let host = parsed.host_str().unwrap_or_default().to_lowercase();
+    if (host.contains("gofile.io") || host.contains("gofilecdn")) && path.contains("/download/") {
+        return true;
+    }
+    if host.contains("pixeldrain.com") && path.starts_with("/api/file/") {
+        return true;
+    }
+    if host.contains("buzzheavier.com") && (path.starts_with("/d/") || host.starts_with("ts.")) {
+        return true;
+    }
+    if host.contains("datanodes.to") && path.starts_with("/dl/") {
+        return true;
+    }
+    if host.contains("krakenfiles.com") && path.starts_with("/dl/") {
+        return true;
+    }
+    if host.contains("mediafire.com") && host.starts_with("download") {
+        return true;
+    }
+    if host.contains("1fichier.com") && !path.is_empty() && path != "/" && !host.starts_with("www.") && host != "1fichier.com" {
+        return true;
     }
 
     false
@@ -198,11 +227,25 @@ fn generate_init_script(game_name: &str) -> String {
     if (!url || typeof url !== 'string') return false;
     const clean = url.trim().toLowerCase();
     if (clean.startsWith('magnet:')) return true;
-    const exts = ['.torrent', '.zip', '.rar', '.7z', '.iso', '.exe', '.bin', '.pkg', '.tar', '.gz', '.xz', '.zst', '.dmg', '.apk', '.nsp', '.xci', '.cia', '.rvz', '.chd', '.wua', '.cso'];
+    const exts = [
+      '.torrent', '.zip', '.rar', '.7z', '.iso', '.exe', '.bin', '.pkg',
+      '.tar', '.gz', '.xz', '.zst', '.tar.gz', '.tar.xz', '.tar.zst',
+      '.dmg', '.apk', '.nsp', '.nsz', '.xci', '.xcz', '.cia', '.wua',
+      '.rvz', '.chd', '.cso', '.gdi', '.cdi', '.vpk', '.wbfs', '.wad',
+      '.3ds', '.nds', '.gba', '.gbc', '.gb', '.sfc', '.smc', '.nes',
+      '.z64', '.n64', '.v64', '.pbp', '.001', '.002', '.r00', '.r01',
+      '.msi', '.appimage', '.rpm', '.deb'
+    ];
     for (const ext of exts) {{
       if (clean.endsWith(ext) || clean.includes(ext + '?') || clean.includes(ext + '&')) {{
         return true;
       }}
+    }}
+    if (clean.includes('?download') || clean.includes('&download') || clean.includes('/api/file/')) {{
+      return true;
+    }}
+    if (/(?:download\d*\.mediafire\.com|srv-[^/]+\.gofile\.io\/download|pixeldrain\.com\/api\/file\/|ts\.buzzheavier\.com\/d\/|datanodes\.to\/dl\/|krakenfiles\.com\/dl\/)/i.test(clean)) {{
+      return true;
     }}
     return false;
   }}
@@ -534,9 +577,8 @@ pub async fn open_download_resolver(
     })
     .on_new_window(move |url, _features| {
         let url_str = url.as_str().to_string();
-        // G5: magnets/.torrent opened via target="_blank" / window.open never
-        // reach on_navigation — capture them here and deny the popup.
-        if url_str.starts_with("magnet:") || url_str.to_lowercase().ends_with(".torrent") {
+        // Magnets / torrents / direct downloadable URLs opened via target="_blank" / window.open
+        if url_str.starts_with("magnet:") || is_downloadable_url(&url_str) {
             let filename = extract_filename(&url_str, &fallback_game_nw);
             let _ = tx_nw.try_send(InterceptedPayload {
                 url: url_str,

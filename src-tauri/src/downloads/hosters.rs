@@ -48,9 +48,34 @@ pub async fn resolve(url: &str) -> ResolveOutcome {
         None => return ResolveOutcome::Passthrough,
     };
 
-    if host.contains("datanodes.to") {
+    if host.contains("gofile.io") || host.contains("gofilecdn") {
+        match gofile_get_download_url(url).await {
+            Ok(t) => ResolveOutcome::Resolved(t),
+            Err(e) => ResolveOutcome::Error(e),
+        }
+    } else if host.contains("datanodes.to") {
         match datanodes_get_download_url(url).await {
-            Ok(u) => ResolveOutcome::Resolved(ResolvedTarget { url: u, headers: vec![] }),
+            Ok(t) => ResolveOutcome::Resolved(t),
+            Err(e) => ResolveOutcome::Error(e),
+        }
+    } else if host.contains("1fichier.com") {
+        match fichier_get_download_url(url).await {
+            Ok(t) => ResolveOutcome::Resolved(t),
+            Err(e) => ResolveOutcome::Error(e),
+        }
+    } else if host.contains("krakenfiles.com") {
+        match krakenfiles_get_download_url(url).await {
+            Ok(t) => ResolveOutcome::Resolved(t),
+            Err(e) => ResolveOutcome::Error(e),
+        }
+    } else if host.contains("qiwi.gg") {
+        match qiwi_get_download_url(url).await {
+            Ok(t) => ResolveOutcome::Resolved(t),
+            Err(e) => ResolveOutcome::Error(e),
+        }
+    } else if host.contains("megaup.net") {
+        match megaup_get_download_url(url).await {
+            Ok(t) => ResolveOutcome::Resolved(t),
             Err(e) => ResolveOutcome::Error(e),
         }
     } else if host.contains("fuckingfast.co") {
@@ -88,11 +113,6 @@ pub async fn resolve(url: &str) -> ResolveOutcome {
             Ok(t) => ResolveOutcome::Resolved(t),
             Err(e) => ResolveOutcome::Error(e),
         }
-    } else if host.contains("gofile.io") || host.contains("gofilecdn") {
-        // Gofile requires executing its obfuscated `wt.obf.js` to derive a
-        // "website token". Not implemented here
-        // without a JS runtime — falls through to a direct attempt.
-        ResolveOutcome::Passthrough
     } else {
         ResolveOutcome::Passthrough
     }
@@ -116,8 +136,98 @@ async fn response_json(resp: reqwest::Response) -> Result<Value, String> {
     }
 }
 
+// ── Gofile ───────────────────────────────────────────────────────────────────
+async fn gofile_get_download_url(url: &str) -> Result<ResolvedTarget, String> {
+    let client = http_client();
+    let parsed = url::Url::parse(url).map_err(|e| e.to_string())?;
+    let content_id = parsed
+        .path_segments()
+        .and_then(|mut s| {
+            if s.next() == Some("d") {
+                s.next()
+            } else {
+                None
+            }
+        })
+        .or_else(|| parsed.path_segments().and_then(|s| s.last()))
+        .ok_or("Invalid Gofile URL format")?;
+
+    // Create guest account/token for Gofile API
+    let account_resp = client
+        .post("https://api.gofile.io/accounts")
+        .header(USER_AGENT, HOSTER_UA)
+        .header(ACCEPT, "application/json")
+        .send()
+        .await;
+
+    let token = if let Ok(resp) = account_resp {
+        if let Ok(json) = resp.json::<Value>().await {
+            json.pointer("/data/token")
+                .and_then(|v| v.as_str())
+                .map(|s| s.to_string())
+        } else {
+            None
+        }
+    } else {
+        None
+    };
+
+    let mut req = client
+        .get(format!("https://api.gofile.io/contents/{}", content_id))
+        .header(USER_AGENT, HOSTER_UA)
+        .header(ACCEPT, "application/json");
+
+    if let Some(tok) = &token {
+        req = req.header("Authorization", format!("Bearer {}", tok));
+    }
+
+    let resp = req
+        .send()
+        .await
+        .map_err(|e| format!("Gofile API request failed: {e}"))?;
+    let json: Value = response_json(resp).await?;
+
+    if json.get("status").and_then(|v| v.as_str()) != Some("ok") {
+        let err_msg = json
+            .get("status")
+            .and_then(|v| v.as_str())
+            .unwrap_or("unknown");
+        return Err(format!("Gofile error: {}", err_msg));
+    }
+
+    let data = json.get("data").ok_or("Empty Gofile data")?;
+    let direct_link = if let Some(link) = data.get("link").and_then(|v| v.as_str()) {
+        link.to_string()
+    } else if let Some(children) = data.get("children").and_then(|v| v.as_object()) {
+        let first_child = children
+            .values()
+            .next()
+            .ok_or("No files found in Gofile folder")?;
+        first_child
+            .get("link")
+            .and_then(|v| v.as_str())
+            .ok_or("No download link in Gofile file object")?
+            .to_string()
+    } else {
+        return Err("Could not extract download link from Gofile API".to_string());
+    };
+
+    let mut headers = vec![
+        (USER_AGENT.to_string(), HOSTER_UA.to_string()),
+        ("Referer".to_string(), "https://gofile.io/".to_string()),
+    ];
+    if let Some(tok) = token {
+        headers.push(("Cookie".to_string(), format!("accountToken={}", tok)));
+    }
+
+    Ok(ResolvedTarget {
+        url: direct_link,
+        headers,
+    })
+}
+
 // ── Datanodes ────────────────────────────────────────────────────────────────
-async fn datanodes_get_download_url(download_url: &str) -> Result<String, String> {
+async fn datanodes_get_download_url(download_url: &str) -> Result<ResolvedTarget, String> {
     let client = http_client();
     let parsed = url::Url::parse(download_url).map_err(|e| e.to_string())?;
     let file_code = parsed
@@ -126,18 +236,38 @@ async fn datanodes_get_download_url(download_url: &str) -> Result<String, String
         .ok_or("Invalid datanodes URL")?
         .to_string();
 
-    // Establish a session (sets the PHP session cookie) by first visiting the
-    // file page. Without it the `download2` POST is treated as a plain page
-    // request and returns the HTML page instead of the JSON download link.
-    let _ = client
+    // Establish a session (sets PHP session cookie) by first visiting the file page.
+    let page_resp = client
         .get(download_url)
         .header(USER_AGENT, HOSTER_UA)
         .header("Cookie", "lang=english")
         .send()
         .await;
 
-    // Datanodes' `op=download2` handler only parses `application/x-www-form-urlencoded`
-    // (not multipart), so send the form urlencoded.
+    let page_html = if let Ok(resp) = page_resp {
+        resp.text().await.unwrap_or_default()
+    } else {
+        String::new()
+    };
+
+    // Check if a countdown timer is indicated on the page
+    let wait_secs = if let Some(caps) = Regex::new(r#"(?:countdown|timer|seconds|wait)\s*[:=]\s*(\d+)"#)
+        .ok()
+        .and_then(|re| re.captures(&page_html))
+    {
+        caps.get(1)
+            .and_then(|m| m.as_str().parse::<u64>().ok())
+            .unwrap_or(0)
+            .min(15)
+    } else {
+        0
+    };
+
+    if wait_secs > 0 {
+        tokio::time::sleep(Duration::from_secs(wait_secs)).await;
+    }
+
+    // Datanodes `op=download2` form urlencoded
     let params = [
         ("op", "download2"),
         ("id", file_code.as_str()),
@@ -164,10 +294,203 @@ async fn datanodes_get_download_url(download_url: &str) -> Result<String, String
     let url = json
         .get("url")
         .and_then(|v| v.as_str())
-        .ok_or("Failed to get the download link")?;
+        .ok_or("Failed to get the download link from Datanodes")?;
     let decoded = urlencoding::decode(url).map_err(|e| e.to_string())?;
-    Ok(decoded.into_owned())
+
+    Ok(ResolvedTarget {
+        url: decoded.into_owned(),
+        headers: vec![
+            (USER_AGENT.to_string(), HOSTER_UA.to_string()),
+            ("Referer".to_string(), "https://datanodes.to/".to_string()),
+        ],
+    })
 }
+
+// ── 1fichier ─────────────────────────────────────────────────────────────────
+async fn fichier_get_download_url(url: &str) -> Result<ResolvedTarget, String> {
+    let client = http_client();
+    let page = client
+        .get(url)
+        .header(USER_AGENT, HOSTER_UA)
+        .header(ACCEPT, "text/html")
+        .send()
+        .await
+        .map_err(|e| e.to_string())?;
+    let html = page.text().await.map_err(|e| e.to_string())?;
+
+    if html.contains("File not found") || html.contains("The requested file has been deleted") {
+        return Err("1fichier: File not found or deleted".to_string());
+    }
+
+    let adz_re = Regex::new(r#"name="adz"\s+value="([^"]+)""#).unwrap();
+    let adz = adz_re
+        .captures(&html)
+        .and_then(|c| c.get(1))
+        .map(|m| m.as_str().to_string());
+
+    let mut params = vec![("submit", "Download")];
+    let adz_val;
+    if let Some(ref a) = adz {
+        adz_val = a.clone();
+        params.push(("adz", adz_val.as_str()));
+    }
+
+    let post_resp = client
+        .post(url)
+        .form(&params)
+        .header(USER_AGENT, HOSTER_UA)
+        .header(REFERER, url)
+        .send()
+        .await
+        .map_err(|e| e.to_string())?;
+    let post_html = post_resp.text().await.map_err(|e| e.to_string())?;
+
+    let dl_re =
+        Regex::new(r#"href="(https?://[a-zA-Z0-9\-_.]+\.1fichier\.com/[^"]+)""#).unwrap();
+    if let Some(cap) = dl_re.captures(&post_html) {
+        let direct_url = cap.get(1).unwrap().as_str().to_string();
+        return Ok(ResolvedTarget {
+            url: direct_url,
+            headers: vec![
+                (USER_AGENT.to_string(), HOSTER_UA.to_string()),
+                (REFERER.to_string(), url.to_string()),
+            ],
+        });
+    }
+
+    if let Some(cap) = dl_re.captures(&html) {
+        let direct_url = cap.get(1).unwrap().as_str().to_string();
+        return Ok(ResolvedTarget {
+            url: direct_url,
+            headers: vec![
+                (USER_AGENT.to_string(), HOSTER_UA.to_string()),
+                (REFERER.to_string(), url.to_string()),
+            ],
+        });
+    }
+
+    Err("1fichier: Could not extract download link. Free tier limit or captcha may be active."
+        .to_string())
+}
+
+// ── KrakenFiles ──────────────────────────────────────────────────────────────
+async fn krakenfiles_get_download_url(url: &str) -> Result<ResolvedTarget, String> {
+    let client = http_client();
+    let resp = client
+        .get(url)
+        .header(USER_AGENT, HOSTER_UA)
+        .send()
+        .await
+        .map_err(|e| e.to_string())?;
+    let html = resp.text().await.map_err(|e| e.to_string())?;
+
+    let token_re = Regex::new(r#"name="token"\s+value="([^"]+)""#).unwrap();
+    let token = token_re
+        .captures(&html)
+        .and_then(|c| c.get(1))
+        .map(|m| m.as_str().to_string())
+        .ok_or("KrakenFiles token not found")?;
+
+    let hash_re = Regex::new(r#"/download/([a-zA-Z0-9]+)"#).unwrap();
+    let hash = hash_re
+        .captures(&html)
+        .and_then(|c| c.get(1))
+        .map(|m| m.as_str().to_string())
+        .ok_or("KrakenFiles download hash not found")?;
+
+    let post_url = format!("https://krakenfiles.com/download/{}", hash);
+    let dl_resp = client
+        .post(&post_url)
+        .form(&[("token", token.as_str())])
+        .header(USER_AGENT, HOSTER_UA)
+        .header(REFERER, url)
+        .send()
+        .await
+        .map_err(|e| e.to_string())?;
+
+    let json: Value = response_json(dl_resp).await?;
+    let direct_url = json
+        .get("url")
+        .and_then(|v| v.as_str())
+        .ok_or("No direct URL in KrakenFiles response")?;
+
+    Ok(ResolvedTarget {
+        url: direct_url.to_string(),
+        headers: vec![
+            (USER_AGENT.to_string(), HOSTER_UA.to_string()),
+            (REFERER.to_string(), url.to_string()),
+        ],
+    })
+}
+
+// ── Qiwi ─────────────────────────────────────────────────────────────────────
+async fn qiwi_get_download_url(url: &str) -> Result<ResolvedTarget, String> {
+    let client = http_client();
+    let resp = client
+        .get(url)
+        .header(USER_AGENT, HOSTER_UA)
+        .send()
+        .await
+        .map_err(|e| e.to_string())?;
+    let html = resp.text().await.map_err(|e| e.to_string())?;
+
+    let dl_re =
+        Regex::new(r#"href="(https?://[^"]*qiwi\.gg/(?:extract|download|dl)/[^"]+)""#).unwrap();
+    if let Some(cap) = dl_re.captures(&html) {
+        return Ok(ResolvedTarget {
+            url: cap.get(1).unwrap().as_str().to_string(),
+            headers: vec![
+                (USER_AGENT.to_string(), HOSTER_UA.to_string()),
+                (REFERER.to_string(), url.to_string()),
+            ],
+        });
+    }
+
+    Err("Qiwi: Direct download link not found on page".to_string())
+}
+
+// ── MegaUp ───────────────────────────────────────────────────────────────────
+async fn megaup_get_download_url(url: &str) -> Result<ResolvedTarget, String> {
+    let client = http_client();
+    let resp = client
+        .get(url)
+        .header(USER_AGENT, HOSTER_UA)
+        .send()
+        .await
+        .map_err(|e| e.to_string())?;
+    let html = resp.text().await.map_err(|e| e.to_string())?;
+
+    let dl_re =
+        Regex::new(r#"href="([^"]+)"[^>]*class="[^"]*btn-download[^"]*""#).unwrap();
+    if let Some(cap) = dl_re.captures(&html) {
+        let dl_url = cap.get(1).unwrap().as_str();
+        if dl_url.starts_with("http") {
+            return Ok(ResolvedTarget {
+                url: dl_url.to_string(),
+                headers: vec![
+                    (USER_AGENT.to_string(), HOSTER_UA.to_string()),
+                    (REFERER.to_string(), url.to_string()),
+                ],
+            });
+        }
+    }
+
+    let any_dl =
+        Regex::new(r#"(https?://download\d*\.megaup\.net/[^'"\s]+)""#).unwrap();
+    if let Some(cap) = any_dl.captures(&html) {
+        return Ok(ResolvedTarget {
+            url: cap.get(1).unwrap().as_str().to_string(),
+            headers: vec![
+                (USER_AGENT.to_string(), HOSTER_UA.to_string()),
+                (REFERER.to_string(), url.to_string()),
+            ],
+        });
+    }
+
+    tokio::time::sleep(Duration::from_secs(5)).await;
+    Err("MegaUp: Direct link not ready or captcha required".to_string())
+}
+
 
 // ── FuckingFast ──────────────────────────────────────────────────────────────
 fn fuckingfast_re() -> &'static Regex {
@@ -525,6 +848,7 @@ async fn buzzheavier_get_download_url(url: &str) -> Result<ResolvedTarget, Strin
 
 /// How the download modal should treat a direct link for a given hoster.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[allow(dead_code)]
 pub enum HosterStrategy {
     /// `resolve()` can fully handle this hoster headlessly — no browser needed.
     FastPath,
@@ -538,6 +862,7 @@ pub enum HosterStrategy {
 
 /// Classify a direct-link URI so the frontend can decide whether to surface
 /// (and emphasise) the in-app browser resolver.
+#[allow(dead_code)]
 pub fn hoster_strategy(uri: &str) -> HosterStrategy {
     let parsed = match url::Url::parse(uri) {
         Ok(u) => u,
@@ -548,14 +873,8 @@ pub fn hoster_strategy(uri: &str) -> HosterStrategy {
         None => return HosterStrategy::Unknown,
     };
 
-    if host.contains("gofile.io") || host.contains("gofilecdn") {
-        return HosterStrategy::WebviewRequired;
-    }
     if host.contains("filecrypt.cc") || host.contains("filecrypt.co") {
         return HosterStrategy::WebviewRequired;
-    }
-    if host.contains("datanodes.to") {
-        return HosterStrategy::Fallback;
     }
     if host.contains("vikingfile") {
         if parsed.path().starts_with("/f/") {
@@ -563,7 +882,14 @@ pub fn hoster_strategy(uri: &str) -> HosterStrategy {
         }
         return HosterStrategy::Unknown;
     }
-    if host.contains("fuckingfast.co")
+    if host.contains("gofile.io")
+        || host.contains("gofilecdn")
+        || host.contains("datanodes.to")
+        || host.contains("1fichier.com")
+        || host.contains("krakenfiles.com")
+        || host.contains("qiwi.gg")
+        || host.contains("megaup.net")
+        || host.contains("fuckingfast.co")
         || host.contains("mediafire.com")
         || host.contains("pixeldrain.com")
         || host.contains("rootz.so")
@@ -582,15 +908,19 @@ mod tests {
     fn hoster_strategy_classifies_hosters() {
         assert_eq!(
             hoster_strategy("https://gofile.io/d/abc123"),
-            HosterStrategy::WebviewRequired
-        );
-        assert_eq!(
-            hoster_strategy("https://srv.gofile.io/download/abc123/file.zip"),
-            HosterStrategy::WebviewRequired
+            HosterStrategy::FastPath
         );
         assert_eq!(
             hoster_strategy("https://datanodes.to/abc123"),
-            HosterStrategy::Fallback
+            HosterStrategy::FastPath
+        );
+        assert_eq!(
+            hoster_strategy("https://1fichier.com/?abc123"),
+            HosterStrategy::FastPath
+        );
+        assert_eq!(
+            hoster_strategy("https://filecrypt.cc/Container/abc123"),
+            HosterStrategy::WebviewRequired
         );
         assert_eq!(
             hoster_strategy("https://vikingfile.com/f/abc123"),
@@ -606,3 +936,4 @@ mod tests {
         );
     }
 }
+

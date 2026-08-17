@@ -794,3 +794,195 @@ struct TorBoxWebDlLinkData {
     #[serde(default, alias = "link")]
     download_link: Option<String>,
 }
+
+// ─── Real-Debrid Client ──────────────────────────────────────────────────────
+
+pub struct RealDebridClient;
+
+#[derive(Deserialize, Debug)]
+struct RealDebridUser {
+    username: String,
+    #[serde(default)]
+    premium: u64,
+    #[serde(default)]
+    expiration: Option<String>,
+}
+
+#[derive(Deserialize, Debug)]
+struct RealDebridUnrestrictResponse {
+    download: Option<String>,
+    link: Option<String>,
+}
+
+#[derive(Deserialize, Debug)]
+struct RealDebridAddMagnetResponse {
+    id: String,
+}
+
+#[derive(Deserialize, Debug)]
+#[allow(dead_code)]
+struct RealDebridTorrentInfo {
+    id: String,
+    filename: String,
+    status: String,
+    progress: f32,
+    #[serde(default)]
+    links: Vec<String>,
+}
+
+impl RealDebridClient {
+    pub async fn test_key(apikey: &str) -> Result<DebridUserInfo, String> {
+        let client = reqwest::Client::new();
+        let resp = client
+            .get("https://api.real-debrid.com/rest/1.0/user")
+            .header("Authorization", format!("Bearer {}", apikey))
+            .send()
+            .await
+            .map_err(|e| format!("Request failed: {e}"))?;
+
+        if !resp.status().is_success() {
+            return Err("Invalid Real-Debrid API token or unauthorized".to_string());
+        }
+
+        let user: RealDebridUser = resp
+            .json()
+            .await
+            .map_err(|e| format!("Failed to parse Real-Debrid user response: {e}"))?;
+
+        let is_premium = user.premium > 0 || user.expiration.is_some();
+        let premium_until = if is_premium {
+            Some(u64::MAX)
+        } else {
+            None
+        };
+
+        Ok(DebridUserInfo {
+            username: user.username,
+            premium_until,
+        })
+    }
+
+    pub async fn unrestrict_link(apikey: &str, url: &str) -> Result<String, String> {
+        let client = reqwest::Client::new();
+        let resp = client
+            .post("https://api.real-debrid.com/rest/1.0/unrestrict/link")
+            .header("Authorization", format!("Bearer {}", apikey))
+            .form(&[("link", url)])
+            .send()
+            .await
+            .map_err(|e| format!("Request failed: {e}"))?;
+
+        let status = resp.status();
+        if !status.is_success() {
+            let err_text = resp.text().await.unwrap_or_default();
+            return Err(format!(
+                "Real-Debrid unrestrict failed (HTTP {}): {}",
+                status.as_u16(),
+                err_text
+            ));
+        }
+
+        let body: RealDebridUnrestrictResponse = resp
+            .json()
+            .await
+            .map_err(|e| format!("Failed to parse Real-Debrid unrestrict response: {e}"))?;
+
+        body.download
+            .or(body.link)
+            .ok_or_else(|| "No direct download link returned by Real-Debrid".to_string())
+    }
+
+    pub async fn upload_magnet(apikey: &str, magnet: &str) -> Result<DebridUploadResult, String> {
+        let client = reqwest::Client::new();
+        let resp = client
+            .post("https://api.real-debrid.com/rest/1.0/torrents/addMagnet")
+            .header("Authorization", format!("Bearer {}", apikey))
+            .form(&[("magnet", magnet)])
+            .send()
+            .await
+            .map_err(|e| format!("Request failed: {e}"))?;
+
+        if !resp.status().is_success() {
+            let err_text = resp.text().await.unwrap_or_default();
+            return Err(format!("Failed to upload magnet to Real-Debrid: {err_text}"));
+        }
+
+        let body: RealDebridAddMagnetResponse = resp
+            .json()
+            .await
+            .map_err(|e| format!("Failed to parse Real-Debrid addMagnet response: {e}"))?;
+
+        let _ = client
+            .post(format!(
+                "https://api.real-debrid.com/rest/1.0/torrents/selectFiles/{}",
+                body.id
+            ))
+            .header("Authorization", format!("Bearer {}", apikey))
+            .form(&[("files", "all")])
+            .send()
+            .await;
+
+        Ok(DebridUploadResult {
+            id: body.id,
+            cached: false,
+        })
+    }
+
+    pub async fn get_status(apikey: &str, id: &str) -> Result<DebridStatusResult, String> {
+        let client = reqwest::Client::new();
+        let resp = client
+            .get(format!(
+                "https://api.real-debrid.com/rest/1.0/torrents/info/{}",
+                id
+            ))
+            .header("Authorization", format!("Bearer {}", apikey))
+            .send()
+            .await
+            .map_err(|e| format!("Request failed: {e}"))?;
+
+        if !resp.status().is_success() {
+            return Err("Failed to fetch torrent status from Real-Debrid".to_string());
+        }
+
+        let info: RealDebridTorrentInfo = resp
+            .json()
+            .await
+            .map_err(|e| format!("Failed to parse Real-Debrid torrent info: {e}"))?;
+
+        let status = match info.status.as_str() {
+            "downloaded" => "ready".to_string(),
+            "downloading" | "compressing" | "uploading" => "downloading".to_string(),
+            "queued" | "waiting_files_selection" => "queued".to_string(),
+            _ => "error".to_string(),
+        };
+
+        let mut files = Vec::new();
+        if status == "ready" {
+            for link in info.links {
+                if let Ok(unrestricted) = Self::unrestrict_link(apikey, &link).await {
+                    files.push(DebridFile {
+                        name: String::new(),
+                        size: 0,
+                        link: unrestricted,
+                    });
+                } else {
+                    files.push(DebridFile {
+                        name: String::new(),
+                        size: 0,
+                        link,
+                    });
+                }
+            }
+        }
+
+        Ok(DebridStatusResult {
+            id: id.to_string(),
+            progress: info.progress,
+            status,
+            files,
+            name: Some(info.filename),
+            error_message: None,
+        })
+    }
+}
+
