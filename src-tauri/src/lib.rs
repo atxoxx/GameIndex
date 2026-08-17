@@ -3987,6 +3987,7 @@ pub fn run() {
             plugins::plugins_install,
             plugins::plugins_remove,
             plugins::plugins_toggle,
+            plugins::plugins_set_all_enabled,
             plugins::search_downloads,
             plugins::search_downloads_stream,
             get_random_store_games,

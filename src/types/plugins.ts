@@ -41,6 +41,13 @@ export interface PluginInfo extends PluginCandidate {
   platformCategory?: string;
 }
 
+/** Result of `plugins_set_all_enabled`: how many plugins changed state
+ *  plus the ids (with reasons) that failed to load when enabling. */
+export interface PluginBulkToggleResult {
+  changed: number;
+  failed: string[];
+}
+
 /**
  * One combined search hit from `search_downloads`: either a classic
  * source match (as today) or a plugin-provided result. The backend

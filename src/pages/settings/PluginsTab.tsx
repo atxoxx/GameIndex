@@ -10,7 +10,11 @@ import PluginsBulkImportModal, {
   type BulkSkippedFile,
 } from "./PluginsBulkImportModal";
 import { ListIcon, PluginIcon } from "./settingsIcons";
-import type { PluginCandidate, PluginInfo } from "../../types/plugins";
+import type {
+  PluginBulkToggleResult,
+  PluginCandidate,
+  PluginInfo,
+} from "../../types/plugins";
 
 /**
  * PluginsTab — manage download-search plugins.
@@ -45,6 +49,8 @@ export default function PluginsTab() {
 
   // Per-row busy states so toggles/remove don't double-fire.
   const [busyId, setBusyId] = useState<string | null>(null);
+  // Busy state for the bulk enable/disable-all header controls.
+  const [bulkBusy, setBulkBusy] = useState(false);
 
   const loadPlugins = useCallback(async () => {
     setLoadingList(true);
@@ -175,6 +181,37 @@ export default function PluginsTab() {
       showToast(t("settings.plugins.toggleError", { error: String(e) }), "error");
     } finally {
       setBusyId(null);
+    }
+  };
+
+  const handleBulkToggle = async (enabled: boolean) => {
+    setBulkBusy(true);
+    try {
+      const res = await invoke<PluginBulkToggleResult>("plugins_set_all_enabled", {
+        enabled,
+      });
+      if (res.failed.length > 0) {
+        showToast(
+          t("settings.plugins.bulkFailedToast", {
+            count: res.failed.length,
+            error: res.failed.join(", "),
+          }),
+          "warning",
+        );
+      } else {
+        showToast(
+          enabled
+            ? t("settings.plugins.enabledAllToast")
+            : t("settings.plugins.disabledAllToast"),
+          "success",
+        );
+      }
+      await loadPlugins();
+    } catch (e) {
+      console.error("[PluginsTab] plugins_set_all_enabled failed:", e);
+      showToast(t("settings.plugins.bulkToggleError", { error: String(e) }), "error");
+    } finally {
+      setBulkBusy(false);
     }
   };
 
@@ -418,6 +455,28 @@ export default function PluginsTab() {
         icon={<ListIcon />}
         title={t("settings.section.pluginsInstalled")}
         desc={t("settings.plugins.installedDesc")}
+        actions={
+          plugins.length > 0 ? (
+            <>
+              <Button
+                variant="secondary"
+                size="sm"
+                onClick={() => void handleBulkToggle(true)}
+                disabled={bulkBusy || plugins.every((p) => p.enabled)}
+              >
+                {t("settings.plugins.enableAll")}
+              </Button>
+              <Button
+                variant="secondary"
+                size="sm"
+                onClick={() => void handleBulkToggle(false)}
+                disabled={bulkBusy || plugins.every((p) => !p.enabled)}
+              >
+                {t("settings.plugins.disableAll")}
+              </Button>
+            </>
+          ) : undefined
+        }
       >
         {loadingList ? (
           <div className="settings-plugins-empty">

@@ -123,6 +123,16 @@ pub struct PluginCandidate {
     pub file_path: String,
 }
 
+/// Result of a bulk enable/disable-all operation: how many plugins
+/// changed state, plus the ids (with reasons) that failed to load when
+/// enabling so the UI can show a precise warning.
+#[derive(Debug, Serialize, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct PluginBulkToggleResult {
+    pub changed: usize,
+    pub failed: Vec<String>,
+}
+
 /// One row of the merged download search returned to the frontend.
 /// Built-in source results have `provider = "source"` and null plugin
 /// fields; plugin results have `provider = "plugin"` plus `pluginId`
@@ -495,6 +505,69 @@ pub async fn plugins_toggle(
         map.remove(&id);
     }
     Ok(())
+}
+
+/// Set every plugin's enabled bit in one go. Enabling validates each
+/// plugin's source on disk and loads it into memory — failures are
+/// recorded as `last_error` and reported back in the result while the
+/// rest still enable; disabling just evicts every plugin from memory.
+#[tauri::command]
+pub async fn plugins_set_all_enabled(
+    state: tauri::State<'_, Arc<PluginManager>>,
+    enabled: bool,
+) -> Result<PluginBulkToggleResult, String> {
+    let rows = db::plugins::list_plugins(&state.db)?;
+    let mut changed = 0usize;
+    let mut failed: Vec<String> = Vec::new();
+
+    if enabled {
+        for row in rows {
+            if row.enabled {
+                continue;
+            }
+            db::plugins::set_plugin_enabled(&state.db, &row.id, true)?;
+            changed += 1;
+            match std::fs::read_to_string(&row.file_path) {
+                Ok(source) => match runtime::evaluate_plugin(&source, &state.http) {
+                    Ok(descriptor) => {
+                        if let Ok(mut map) = state.sources.lock() {
+                            map.insert(row.id.clone(), source);
+                        }
+                        let _ = db::plugins::set_plugin_error(&state.db, &row.id, None);
+                        let category = normalize_platform_category(
+                            &descriptor.manifest.platform_category,
+                        );
+                        if category != row.platform_category {
+                            let _ =
+                                db::plugins::set_plugin_category(&state.db, &row.id, &category);
+                        }
+                    }
+                    Err(e) => {
+                        let _ = db::plugins::set_plugin_error(&state.db, &row.id, Some(&e));
+                        failed.push(format!("{}: {e}", row.id));
+                    }
+                },
+                Err(e) => {
+                    let msg = format!("read plugin file {}: {e}", row.file_path);
+                    let _ = db::plugins::set_plugin_error(&state.db, &row.id, Some(&msg));
+                    failed.push(format!("{}: {msg}", row.id));
+                }
+            }
+        }
+    } else {
+        for row in rows {
+            if !row.enabled {
+                continue;
+            }
+            db::plugins::set_plugin_enabled(&state.db, &row.id, false)?;
+            changed += 1;
+        }
+        if let Ok(mut map) = state.sources.lock() {
+            map.clear();
+        }
+    }
+
+    Ok(PluginBulkToggleResult { changed, failed })
 }
 
 /// Merged download search: built-in sources first, then every enabled
