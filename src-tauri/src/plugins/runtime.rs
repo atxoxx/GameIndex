@@ -526,7 +526,6 @@ fn http_get_text(
 ///   sections are decoded and appended to the surrounding text.
 fn parse_torznab_xml(xml: &str) -> Result<serde_json::Value, String> {
     let mut reader = quick_xml::Reader::from_reader(xml.as_bytes());
-    reader.config_mut().trim_text(true);
 
     let mut top: serde_json::Map<String, serde_json::Value> = serde_json::Map::new();
     let mut items: Vec<serde_json::Map<String, serde_json::Value>> = Vec::new();
@@ -585,18 +584,40 @@ fn parse_torznab_xml(xml: &str) -> Result<serde_json::Value, String> {
             }
             Ok(Event::Text(t)) => {
                 if let Ok(text) = t.xml_content(quick_xml::XmlVersion::Implicit1_0) {
-                    pending_text.push_str(text.trim());
+                    let unescaped = quick_xml::escape::unescape(&text)
+                        .unwrap_or_else(|_| std::borrow::Cow::Borrowed(&text));
+                    pending_text.push_str(&unescaped);
                 }
             }
             Ok(Event::CData(t)) => {
                 if let Ok(text) = t.decode() {
-                    pending_text.push_str(text.trim());
+                    pending_text.push_str(&text);
+                }
+            }
+            Ok(Event::GeneralRef(r)) => {
+                if let Ok(entity) = r.decode() {
+                    match entity.as_ref() {
+                        "amp" => pending_text.push('&'),
+                        "lt" => pending_text.push('<'),
+                        "gt" => pending_text.push('>'),
+                        "quot" => pending_text.push('"'),
+                        "apos" => pending_text.push('\''),
+                        _ => {}
+                    }
                 }
             }
             Ok(Event::End(e)) => {
                 let name = local_name_str(e.name());
                 let text = pending_text.trim().to_string();
                 if name == "item" {
+                    if let Some(idx) = current_item {
+                        items[idx]
+                            .entry("enclosure".to_string())
+                            .or_insert(serde_json::Value::Null);
+                        items[idx]
+                            .entry("attrs".to_string())
+                            .or_insert(serde_json::Value::Null);
+                    }
                     current_item = None;
                 } else if !text.is_empty() {
                     if let Some(idx) = current_item {
