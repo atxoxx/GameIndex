@@ -82,11 +82,13 @@ pub fn is_downloadable_url(url_str: &str) -> bool {
     let exts = [
         ".torrent", ".zip", ".rar", ".7z", ".iso", ".exe", ".bin", ".pkg",
         ".tar", ".gz", ".xz", ".zst", ".tar.gz", ".tar.xz", ".tar.zst",
+        ".tar.bz2", ".tbz2", ".bz2", ".lzma", ".sz", ".lz4", ".tgz",
         ".dmg", ".apk", ".nsp", ".nsz", ".xci", ".xcz", ".cia", ".wua",
         ".rvz", ".chd", ".cso", ".gdi", ".cdi", ".vpk", ".wbfs", ".wad",
+        ".wux", ".elf", ".dol", ".qcow2", ".vmdk", ".vhd", ".vhdx",
+        ".img", ".wim", ".swm", ".esd", ".xiso", ".gcm", ".ciso",
         ".3ds", ".nds", ".gba", ".gbc", ".gb", ".sfc", ".smc", ".nes",
-        ".z64", ".n64", ".v64", ".pbp", ".001", ".002", ".r00", ".r01",
-        ".msi", ".appimage", ".rpm", ".deb",
+        ".z64", ".n64", ".v64", ".pbp", ".msi", ".appimage", ".rpm", ".deb",
     ];
 
     let path = parsed.path().to_lowercase();
@@ -96,10 +98,23 @@ pub fn is_downloadable_url(url_str: &str) -> bool {
         }
     }
 
+    // Check multi-part archive patterns (.001..999, .r00..r99, .z01..z99, .partX.rar)
+    if is_multipart_ext_path(&path) {
+        return true;
+    }
+
     // Check if query parameter explicitly ends with or specifies a file extension or download action
     if let Some(query) = parsed.query() {
         let q_lower = query.to_lowercase();
-        if q_lower == "download" || q_lower.starts_with("download&") || q_lower.ends_with("&download") || q_lower.contains("&download&") {
+        if q_lower == "download"
+            || q_lower.starts_with("download&")
+            || q_lower.ends_with("&download")
+            || q_lower.contains("&download&")
+            || q_lower.contains("dl=1")
+            || q_lower.contains("export=download")
+            || q_lower.contains("action=download")
+            || q_lower.contains("response-content-disposition")
+        {
             return true;
         }
         for ext in &exts {
@@ -107,31 +122,74 @@ pub fn is_downloadable_url(url_str: &str) -> bool {
                 return true;
             }
         }
+        if is_multipart_ext_path(&q_lower) {
+            return true;
+        }
     }
 
     let host = parsed.host_str().unwrap_or_default().to_lowercase();
-    if (host.contains("gofile.io") || host.contains("gofilecdn")) && path.contains("/download/") {
+    if (host.contains("gofile.io") || host.contains("gofilecdn"))
+        && (path.contains("/download") || host.starts_with("srv-") || host.starts_with("storage"))
+    {
         return true;
     }
-    if host.contains("pixeldrain.com") && path.starts_with("/api/file/") {
+    if host.contains("pixeldrain.com") && (path.starts_with("/api/file/") || path.contains("download")) {
         return true;
     }
     if host.contains("buzzheavier.com") && (path.starts_with("/d/") || host.starts_with("ts.")) {
         return true;
     }
-    if host.contains("datanodes.to") && path.starts_with("/dl/") {
+    if host.contains("datanodes.to") && (path.starts_with("/d/") || path.starts_with("/dl") || host.starts_with('s')) {
         return true;
     }
-    if host.contains("krakenfiles.com") && path.starts_with("/dl/") {
+    if host.contains("krakenfiles.com") && (path.starts_with("/dl") || path.starts_with("/view-file/")) {
         return true;
     }
-    if host.contains("mediafire.com") && host.starts_with("download") {
+    if host.contains("mediafire.com") && (host.starts_with("download") || path.contains("download")) {
         return true;
     }
     if host.contains("1fichier.com") && !path.is_empty() && path != "/" && !host.starts_with("www.") && host != "1fichier.com" {
         return true;
     }
+    if (host.contains("qiwi.gg") || host.contains("qiwi.to")) && (path.starts_with("/dl") || path.contains("/download") || path.starts_with("/file/")) {
+        return true;
+    }
+    if host.contains("megaup.net") && (host.starts_with("download") || path.contains("/download")) {
+        return true;
+    }
+    if host.contains("fuckingfast") && (path.starts_with("/dl") || path.starts_with("/d/") || host.starts_with("cdn")) {
+        return true;
+    }
+    if host.contains("rootz.so") && (path.starts_with("/dl") || path.starts_with("/d/")) {
+        return true;
+    }
+    if host.contains("vikingfile") && (path.starts_with("/d/") || path.starts_with("/dl") || (!host.contains("vikingfile.com") && !host.contains("vik1ngfile.site"))) {
+        return true;
+    }
+    if host.contains("archive.org") && path.starts_with("/download") {
+        return true;
+    }
 
+    false
+}
+
+/// Helper function to detect multi-part archive file extension formats
+fn is_multipart_ext_path(path: &str) -> bool {
+    // Check .partX.rar, .partXX.rar, .partX.exe
+    if path.contains(".part") && (path.ends_with(".rar") || path.ends_with(".exe") || path.ends_with(".zip") || path.ends_with(".7z")) {
+        return true;
+    }
+    // Check numeric extensions e.g. .001, .002, .999
+    if let Some(pos) = path.rfind('.') {
+        let suffix = &path[pos + 1..];
+        if suffix.len() == 3 && suffix.chars().all(|c| c.is_ascii_digit()) {
+            return true;
+        }
+        // e.g. .r00, .r99, .z01, .z99
+        if suffix.len() == 3 && (suffix.starts_with('r') || suffix.starts_with('z')) && suffix[1..].chars().all(|c| c.is_ascii_digit()) {
+            return true;
+        }
+    }
     false
 }
 
@@ -230,24 +288,61 @@ fn generate_init_script(game_name: &str) -> String {
     const exts = [
       '.torrent', '.zip', '.rar', '.7z', '.iso', '.exe', '.bin', '.pkg',
       '.tar', '.gz', '.xz', '.zst', '.tar.gz', '.tar.xz', '.tar.zst',
+      '.tar.bz2', '.tbz2', '.bz2', '.lzma', '.sz', '.lz4', '.tgz',
       '.dmg', '.apk', '.nsp', '.nsz', '.xci', '.xcz', '.cia', '.wua',
       '.rvz', '.chd', '.cso', '.gdi', '.cdi', '.vpk', '.wbfs', '.wad',
+      '.wux', '.elf', '.dol', '.qcow2', '.vmdk', '.vhd', '.vhdx',
+      '.img', '.wim', '.swm', '.esd', '.xiso', '.gcm', '.ciso',
       '.3ds', '.nds', '.gba', '.gbc', '.gb', '.sfc', '.smc', '.nes',
-      '.z64', '.n64', '.v64', '.pbp', '.001', '.002', '.r00', '.r01',
-      '.msi', '.appimage', '.rpm', '.deb'
+      '.z64', '.n64', '.v64', '.pbp', '.msi', '.appimage', '.rpm', '.deb'
     ];
     for (const ext of exts) {{
-      if (clean.endsWith(ext) || clean.includes(ext + '?') || clean.includes(ext + '&')) {{
+      if (clean.endsWith(ext) || clean.includes(ext + '?') || clean.includes(ext + '&') || clean.includes(ext + '#')) {{
         return true;
       }}
     }}
-    if (clean.includes('?download') || clean.includes('&download') || clean.includes('/api/file/')) {{
+    // Check multi-part patterns (.001-.999, .r00-.r99, .z01-.z99, .partX.rar)
+    if (/\.(?:0\d\d|[1-9]\d\d|r\d\d|z\d\d)(?:[?&#]|$)/i.test(clean)) {{
       return true;
     }}
-    if (/(?:download\d*\.mediafire\.com|srv-[^/]+\.gofile\.io\/download|pixeldrain\.com\/api\/file\/|ts\.buzzheavier\.com\/d\/|datanodes\.to\/dl\/|krakenfiles\.com\/dl\/)/i.test(clean)) {{
+    if (/\.part\d+\.(?:rar|exe|zip|7z)(?:[?&#]|$)/i.test(clean)) {{
+      return true;
+    }}
+    if (/\b(?:download|dl=1|export=download|action=download|response-content-disposition)/i.test(clean)) {{
+      return true;
+    }}
+    if (/(?:download\d*\.mediafire\.com|srv-[^/]+\.gofile\.io\/download|gofilecdn\.com|pixeldrain\.com\/api\/file\/|ts\.buzzheavier\.com\/d\/|buzzheavier\.com\/d\/|s\d*\.datanodes\.to\/d\/|datanodes\.to\/dl\/|krakenfiles\.com\/dl\/|krakenfiles\.com\/view-file\/|fs\d*\.1fichier\.com|a-\d*\.1fichier\.com|qiwi\.gg\/file\/|qiwi\.gg\/download|qiwi\.to|download\d*\.megaup\.net|fuckingfast\.co\/dl\/|fuckingfast\.co\/d\/|rootz\.so\/dl\/|rootz\.so\/d\/|vikingfile\.com\/d\/|vik1ngfile\.site\/d\/|archive\.org\/download\/)/i.test(clean)) {{
       return true;
     }}
     return false;
+  }}
+
+  function findDownloadUrlInObject(obj, depth) {{
+    depth = depth || 0;
+    if (!obj || typeof obj !== 'object' || depth > 4) return null;
+    if (Array.isArray(obj)) {{
+      for (let i = 0; i < obj.length; i++) {{
+        const found = findDownloadUrlInObject(obj[i], depth + 1);
+        if (found) return found;
+      }}
+      return null;
+    }}
+    const keys = ['url', 'downloadUrl', 'download_url', 'directUrl', 'direct_url', 'link', 'download', 'file_url', 'fileUrl', 'file', 'download_link', 'direct_link'];
+    for (let i = 0; i < keys.length; i++) {{
+      const k = keys[i];
+      if (typeof obj[k] === 'string' && isDownloadUrl(obj[k])) {{
+        return {{ url: obj[k], name: obj.filename || obj.name || obj.file_name || obj.title }};
+      }}
+    }}
+    const allKeys = Object.keys(obj);
+    for (let i = 0; i < allKeys.length; i++) {{
+      const k = allKeys[i];
+      if (typeof obj[k] === 'object' && obj[k] !== null) {{
+        const found = findDownloadUrlInObject(obj[k], depth + 1);
+        if (found) return found;
+      }}
+    }}
+    return null;
   }}
 
   function updateBannerStatus(msg, isHighlight) {{
@@ -280,6 +375,8 @@ fn generate_init_script(game_name: &str) -> String {
   }}
 
   function injectBanner() {{
+    // Only inject banner in top-level window so iframes (like captchas) are not distorted
+    if (window.self !== window.top) return;
     if (document.getElementById('__gi_resolver_banner')) return;
     const banner = document.createElement('div');
     banner.id = '__gi_resolver_banner';
@@ -375,22 +472,62 @@ fn generate_init_script(game_name: &str) -> String {
     }}
   }}, true);
 
-  // 4. Hook fetch to detect direct file URLs from background API responses
+  // 4. Hook form submit
+  document.addEventListener('submit', function(e) {{
+    const form = e.target;
+    if (!form) return;
+    if (form.target === '_blank') {{
+      form.target = '_self';
+    }}
+    const action = form.action || '';
+    if (action && isDownloadUrl(action) && (form.method || 'GET').toUpperCase() === 'GET') {{
+      e.preventDefault();
+      e.stopPropagation();
+      sendToGameIndex(action);
+    }}
+  }}, true);
+
+  // 5. Hook fetch to detect direct file URLs from background API responses
   const _origFetch = window.fetch;
   window.fetch = async function() {{
     const res = await _origFetch.apply(this, arguments);
     try {{
       const clone = res.clone();
       clone.json().then(data => {{
-        if (data && typeof data === 'object') {{
-          const possible = data.url || data.downloadUrl || data.download_url || data.directUrl || data.direct_url || data.link || data.download || data.file_url || data.fileUrl;
-          if (possible && typeof possible === 'string' && isDownloadUrl(possible)) {{
-            showDetectedButton(possible, data.filename || data.name || data.file_name);
-          }}
+        const detected = findDownloadUrlInObject(data);
+        if (detected && detected.url) {{
+          showDetectedButton(detected.url, detected.name);
         }}
       }}).catch(() => {{}});
     }} catch (_) {{}}
     return res;
+  }};
+
+  // 6. Hook XMLHttpRequest (XHR)
+  const _origXhrOpen = XMLHttpRequest.prototype.open;
+  const _origXhrSend = XMLHttpRequest.prototype.send;
+  XMLHttpRequest.prototype.open = function(method, url) {{
+    this._gi_url = url;
+    return _origXhrOpen.apply(this, arguments);
+  }};
+  XMLHttpRequest.prototype.send = function() {{
+    this.addEventListener('load', function() {{
+      try {{
+        if (this.responseType === '' || this.responseType === 'text' || this.responseType === 'json') {{
+          let data = this.response;
+          if (typeof data === 'string' && (data.startsWith('{{') || data.startsWith('['))) {{
+            try {{ data = JSON.parse(data); }} catch (_) {{}}
+          }}
+          if (data && typeof data === 'object') {{
+            const detected = findDownloadUrlInObject(data);
+            if (detected && detected.url) {{
+              showDetectedButton(detected.url, detected.name);
+            }}
+          }}
+        }}
+      }} catch (_) {{}}
+    }});
+    return _origXhrSend.apply(this, arguments);
   }};
 }})();
 "#
@@ -453,6 +590,7 @@ pub async fn open_download_resolver(
 
     let save_dir_dl = save_dir.clone();
     let session_id_dl = window_id.clone();
+    let app_dl = app.clone();
 
     let webview = WebviewWindowBuilder::new(
         &app,
@@ -510,6 +648,29 @@ pub async fn open_download_resolver(
                 });
                 // Cancel the native webview download — GameIndex takes over.
                 false
+            }
+            DownloadEvent::Finished { url, path, success } => {
+                if success {
+                    let url_str = url.as_str().to_string();
+                    let filename = path
+                        .as_ref()
+                        .and_then(|p| p.file_name())
+                        .map(|n| n.to_string_lossy().to_string())
+                        .unwrap_or_else(|| extract_filename(&url_str, &fallback_game_dl));
+                    let _ = app_dl.emit(
+                        "download-intercepted",
+                        serde_json::json!({
+                            "sessionId": session_id_dl,
+                            "gameName": fallback_game_dl,
+                            "url": url_str,
+                            "filename": filename,
+                            "downloadId": Option::<String>::None,
+                            "partIndex": 1,
+                            "partsCaptured": 1,
+                        }),
+                    );
+                }
+                true
             }
             _ => true,
         }
@@ -864,6 +1025,42 @@ mod tests {
         assert!(is_downloadable_url(
             "https://srv.gofile.io/download/abc123/game.zip"
         ));
+        assert!(is_downloadable_url(
+            "https://download123.mediafire.com/game.7z"
+        ));
+        assert!(is_downloadable_url(
+            "https://qiwi.gg/file/abc1234/download"
+        ));
+        assert!(is_downloadable_url(
+            "https://fuckingfast.co/dl/abc1234"
+        ));
+        assert!(is_downloadable_url(
+            "https://download2.megaup.net/abc1234"
+        ));
+        assert!(is_downloadable_url(
+            "https://example.com/game.part03.rar"
+        ));
+        assert!(is_downloadable_url(
+            "https://example.com/archive.005"
+        ));
+        assert!(is_downloadable_url(
+            "https://example.com/archive.r05"
+        ));
+        assert!(is_downloadable_url(
+            "https://example.com/archive.z02"
+        ));
+        assert!(is_downloadable_url(
+            "https://example.com/game.rvz"
+        ));
+        assert!(is_downloadable_url(
+            "https://example.com/game.nsp"
+        ));
+        assert!(is_downloadable_url(
+            "https://example.com/file?dl=1"
+        ));
+        assert!(is_downloadable_url(
+            "https://example.com/file?export=download"
+        ));
         assert!(!is_downloadable_url(
             "https://filecrypt.cc/Container/ABC123.html"
         ));
@@ -889,3 +1086,4 @@ mod tests {
         );
     }
 }
+

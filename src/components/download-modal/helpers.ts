@@ -75,17 +75,56 @@ export function webUrlFor(
 }
 
 /**
- * Whether a direct-link hoster can only be unlocked in a real browser
- * (gofile, filecrypt, and the captcha-gated vikingfile / datanodes pages).
+ * Whether a direct-link hoster / protector can or should be unlocked in a real browser
+ * (filecrypt, ouo, gofile, paste containers, and captcha/interstitial lockers).
  * Mirrors `hosters::hoster_strategy` on the Rust side so the modal can
- * emphasise the resolver CTA without a backend round-trip.
+ * emphasise the resolver CTA without a backend round-trip, and guide
+ * the user if a headless fast-path fails.
  */
 export function hosterNeedsBrowser(uri: string | null | undefined): boolean {
   if (!uri) return false;
   try {
     const urlObj = new URL(uri);
     const host = urlObj.hostname.toLowerCase();
+    const path = urlObj.pathname.toLowerCase();
+
+    // Link crypt / interstitial / paste containers (always require user interaction)
     if (host.includes("filecrypt.cc") || host.includes("filecrypt.co")) return true;
+    if (host.includes("ouo.io") || host.includes("ouo.press")) return true;
+    if (
+      host.includes("pastebin.com") ||
+      host.includes("rentry.co") ||
+      host.includes("rentry.org") ||
+      host.includes("controlc.com") ||
+      host.includes("justpaste.it")
+    ) {
+      return true;
+    }
+
+    // Gofile folders (require webview solver or token derivation)
+    if ((host.includes("gofile.io") || host.includes("gofilecdn")) && !path.includes("/download/")) return true;
+
+    // Known captcha-gated or browser-challenge hosters
+    if (
+      host.includes("rapidgator.net") ||
+      host.includes("ddownload.com") ||
+      host.includes("katfile.com") ||
+      host.includes("nitroflare.com") ||
+      host.includes("turbobit.net") ||
+      host.includes("send.cm") ||
+      host.includes("uploadhaven.com") ||
+      host.includes("hexupload.net") ||
+      host.includes("rosefile.net") ||
+      host.includes("mexashare.com") ||
+      host.includes("bowfile.com") ||
+      host.includes("modsfire.com") ||
+      host.includes("qiwi.gg") ||
+      (host.includes("vikingfile") && path.startsWith("/f/")) ||
+      (host.includes("datanodes.to") && !path.startsWith("/d/"))
+    ) {
+      return true;
+    }
+
     return false;
   } catch {
     return false;
@@ -98,7 +137,11 @@ export function hostLabelForUri(uri: string, fallbackIndex: number): string {
   if (uri.startsWith("magnet:")) return "Magnet Link";
   try {
     const urlObj = new URL(uri);
-    const host = urlObj.hostname.replace(/^www\./, "");
+    const host = urlObj.hostname.replace(/^www\./, "").toLowerCase();
+    if (host.includes("filecrypt.cc") || host.includes("filecrypt.co")) return "Filecrypt Container";
+    if (host.includes("ouo.io") || host.includes("ouo.press")) return "OuO Link";
+    if (host.includes("rentry.co") || host.includes("rentry.org")) return "Rentry Mirror";
+    if (host.includes("pastebin.com")) return "Pastebin Mirror";
     if (host.includes("arweave.net")) return "Arweave Direct";
     if (host.includes("vimm.net")) return "Vimm Vault Direct";
     if (host.includes("buzzheavier.com")) return "Buzzheavier";
@@ -106,16 +149,27 @@ export function hostLabelForUri(uri: string, fallbackIndex: number): string {
     if (host.includes("datanodes.to")) return "Datanodes";
     if (host.includes("1fichier.com")) return "1fichier";
     if (host.includes("krakenfiles.com")) return "KrakenFiles";
-    if (host.includes("qiwi.gg")) return "Qiwi";
+    if (host.includes("qiwi.gg") || host.includes("qiwi.to")) return "Qiwi";
     if (host.includes("megaup.net")) return "MegaUp";
     if (host.includes("fuckingfast.co")) return "FuckingFast";
     if (host.includes("rootz.so")) return "Rootz";
-    if (host.includes("vikingfile.com")) return "VikingFile";
+    if (host.includes("vikingfile.com") || host.includes("vik1ngfile.site")) return "VikingFile";
     if (host.includes("mega.nz")) return "MEGA";
     if (host.includes("mediafire.com")) return "MediaFire";
     if (host.includes("pixeldrain.com")) return "Pixeldrain";
+    if (host.includes("rapidgator.net")) return "Rapidgator";
+    if (host.includes("ddownload.com")) return "DDownload";
+    if (host.includes("katfile.com")) return "Katfile";
+    if (host.includes("nitroflare.com")) return "Nitroflare";
+    if (host.includes("turbobit.net")) return "Turbobit";
+    if (host.includes("send.cm")) return "Send.cm";
+    if (host.includes("uploadhaven.com")) return "UploadHaven";
+    if (host.includes("hexupload.net")) return "HexUpload";
+    if (host.includes("bowfile.com")) return "Bowfile";
+    if (host.includes("modsfire.com")) return "ModsFire";
+    if (host.includes("archive.org")) return "Internet Archive";
     if (urlObj.pathname.endsWith(".torrent")) return `${host} (.torrent)`;
-    return host || `Mirror ${fallbackIndex + 1}`;
+    return urlObj.hostname.replace(/^www\./, "") || `Mirror ${fallbackIndex + 1}`;
   } catch {
     return `Mirror ${fallbackIndex + 1}`;
   }

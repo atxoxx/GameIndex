@@ -43,6 +43,13 @@ fn http_client() -> Client {
 }
 
 pub async fn resolve(url: &str) -> ResolveOutcome {
+    // If the URL is already an unlocked storage node or direct CDN URL (e.g. captured
+    // by the in-app browser resolver or pre-resolved by an API), pass it straight
+    // through to the download engine without re-running scraping/portal logic.
+    if is_direct_storage_url(url) {
+        return ResolveOutcome::Passthrough;
+    }
+
     let host = match url::Url::parse(url).ok().and_then(|u| u.host_str().map(|s| s.to_lowercase())) {
         Some(h) => h,
         None => return ResolveOutcome::Passthrough,
@@ -116,6 +123,81 @@ pub async fn resolve(url: &str) -> ResolveOutcome {
     } else {
         ResolveOutcome::Passthrough
     }
+}
+
+/// Check if a URL targeting a file hoster is already a direct/unlocked CDN or storage link
+/// (e.g. captured by the in-app browser resolver or pre-resolved by an API) so `resolve()`
+/// can pass it straight to the download engine without re-running scraping logic.
+pub fn is_direct_storage_url(url: &str) -> bool {
+    let Ok(parsed) = url::Url::parse(url) else {
+        return false;
+    };
+    let host = parsed.host_str().unwrap_or_default().to_lowercase();
+    let path = parsed.path().to_lowercase();
+
+    // Gofile CDN/storage endpoints
+    if (host.contains("gofile.io") || host.contains("gofilecdn"))
+        && (path.contains("/download/") || host.starts_with("srv-") || host.starts_with("cdn") || host.starts_with("storage"))
+    {
+        return true;
+    }
+
+    // Datanodes storage nodes: s1.datanodes.to/d/..., datanodes.to/dl/...
+    if host.contains("datanodes.to") && (path.starts_with("/d/") || path.starts_with("/dl/") || host.starts_with('s')) {
+        return true;
+    }
+
+    // 1fichier direct storage nodes: fsX.1fichier.com, a-X.1fichier.com, etc.
+    if host.contains("1fichier.com") && host != "1fichier.com" && host != "www.1fichier.com" && !path.is_empty() && path != "/" {
+        return true;
+    }
+
+    // Mediafire direct CDN: downloadX.mediafire.com
+    if host.contains("mediafire.com") && host.starts_with("download") {
+        return true;
+    }
+
+    // Pixeldrain direct API file: pixeldrain.com/api/file/...
+    if host.contains("pixeldrain.com") && path.starts_with("/api/file/") {
+        return true;
+    }
+
+    // Buzzheavier direct storage: ts.buzzheavier.com/d/..., buzzheavier.com/d/...
+    if host.contains("buzzheavier") && (path.starts_with("/d/") || host.starts_with("ts.")) {
+        return true;
+    }
+
+    // Krakenfiles direct: krakenfiles.com/dl/...
+    if host.contains("krakenfiles.com") && (path.starts_with("/dl/") || path.starts_with("/view-file/")) {
+        return true;
+    }
+
+    // Qiwi direct: qiwi.gg/file/..., qiwi.gg/dl/...
+    if (host.contains("qiwi.gg") || host.contains("qiwi.to")) && (path.starts_with("/dl") || path.contains("/download") || path.starts_with("/file/")) {
+        return true;
+    }
+
+    // MegaUp direct CDN: downloadX.megaup.net
+    if host.contains("megaup.net") && host.starts_with("download") {
+        return true;
+    }
+
+    // FuckingFast direct CDN: fuckingfast.co/dl/..., cdn*.fuckingfast...
+    if host.contains("fuckingfast") && (path.starts_with("/dl/") || path.starts_with("/d/") || host.starts_with("cdn")) {
+        return true;
+    }
+
+    // Rootz direct: rootz.so/dl/...
+    if host.contains("rootz.so") && (path.starts_with("/dl/") || path.starts_with("/d/")) {
+        return true;
+    }
+
+    // VikingFile direct storage: vikingfile.com/d/..., vik1ngfile.site/d/...
+    if host.contains("vikingfile") && (path.starts_with("/d/") || path.starts_with("/dl/") || (!host.contains("vikingfile.com") && !host.contains("vik1ngfile.site"))) {
+        return true;
+    }
+
+    false
 }
 
 /// Read a response body as text and parse it as JSON, logging a snippet of
@@ -935,5 +1017,29 @@ mod tests {
             HosterStrategy::Unknown
         );
     }
+
+    #[test]
+    fn is_direct_storage_url_identifies_unlocked_endpoints() {
+        assert!(is_direct_storage_url("https://srv-file8.gofile.io/download/web/abc123/game.zip"));
+        assert!(is_direct_storage_url("https://s1.datanodes.to/d/xuf4jz/game.part1.rar"));
+        assert!(is_direct_storage_url("https://fs12.1fichier.com/c123456"));
+        assert!(is_direct_storage_url("https://download1234.mediafire.com/file.zip"));
+        assert!(is_direct_storage_url("https://pixeldrain.com/api/file/abc1234?download"));
+        assert!(is_direct_storage_url("https://ts.buzzheavier.com/d/abc1234"));
+        assert!(is_direct_storage_url("https://krakenfiles.com/dl/abc1234"));
+        assert!(is_direct_storage_url("https://qiwi.gg/file/abc1234/download"));
+        assert!(is_direct_storage_url("https://download2.megaup.net/abc1234"));
+        assert!(is_direct_storage_url("https://fuckingfast.co/dl/abc1234"));
+        assert!(is_direct_storage_url("https://rootz.so/dl/abc1234"));
+        assert!(is_direct_storage_url("https://vikingfile.com/d/abc1234"));
+
+        // Portal pages should NOT be identified as direct storage
+        assert!(!is_direct_storage_url("https://gofile.io/d/abc123"));
+        assert!(!is_direct_storage_url("https://datanodes.to/abc123"));
+        assert!(!is_direct_storage_url("https://1fichier.com/?abc123"));
+        assert!(!is_direct_storage_url("https://www.mediafire.com/file/abc123/game.zip"));
+        assert!(!is_direct_storage_url("https://filecrypt.cc/Container/abc123"));
+    }
 }
+
 
