@@ -5,6 +5,7 @@ import { useLanguage } from "../../context/LanguageContext";
 import { WishlistContext } from "../../context/WishlistContext";
 import { useProgressiveImage } from "../../hooks/useProgressiveImages";
 import { Button } from "../ui";
+import StoreSurpriseModal from "./StoreSurpriseModal";
 
 type HeroCategory = "hot" | "weekly" | "trending";
 
@@ -103,7 +104,7 @@ export default function StoreFeaturedHero({ onPickGame }: StoreFeaturedHeroProps
   const [games, setGames] = useState<StoreGameSummary[]>([]);
   const [currentIndex, setCurrentIndex] = useState(0);
   const [loading, setLoading] = useState(true);
-  const [surprising, setSurprising] = useState(false);
+  const [surpriseOpen, setSurpriseOpen] = useState(false);
   const [isPaused, setIsPaused] = useState(false);
   const [logoFailed, setLogoFailed] = useState(false);
   const [metadata, setMetadata] = useState<GameMetadataResult | null>(null);
@@ -301,20 +302,7 @@ export default function StoreFeaturedHero({ onPickGame }: StoreFeaturedHeroProps
     return null;
   }, [videoFailed, activeGame, steamAppId]);
 
-  const handleSurprise = async () => {
-    if (surprising) return;
-    setSurprising(true);
-    try {
-      const game = await invoke<StoreGameSummary>("get_random_store_game");
-      onPickGame(game);
-    } catch {
-      if (games.length > 0) {
-        onPickGame(games[Math.floor(Math.random() * games.length)]);
-      }
-    } finally {
-      setSurprising(false);
-    }
-  };
+  const openSurprise = () => setSurpriseOpen(true);
 
   const isWishlisted = activeGame && wishlistCtx ? wishlistCtx.isWishlisted(activeGame.slug) : false;
   const [coverUrl] = useProgressiveImage(activeGame?.coverUrl);
@@ -355,10 +343,9 @@ export default function StoreFeaturedHero({ onPickGame }: StoreFeaturedHeroProps
 
         <button
           type="button"
-          className={`store-featured-surprise${surprising ? " is-spinning" : ""}`}
-          onClick={handleSurprise}
+          className="store-featured-surprise"
+          onClick={openSurprise}
           title={t("store.surpriseTitle")}
-          disabled={surprising}
         >
           <svg
             viewBox="0 0 24 24"
@@ -629,6 +616,13 @@ export default function StoreFeaturedHero({ onPickGame }: StoreFeaturedHeroProps
             })}
           </div>
         </div>
+      )}
+
+      {surpriseOpen && (
+        <StoreSurpriseModal
+          onClose={() => setSurpriseOpen(false)}
+          onOpenGame={onPickGame}
+        />
       )}
     </section>
   );

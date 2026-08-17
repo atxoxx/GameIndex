@@ -4018,13 +4018,14 @@ pub async fn search_store_games(
     Ok(summaries)
 }
 
-/// Return a single genuinely-random IGDB store game — used by the
-/// store's "Surprise me" button.
+/// Return a batch of genuinely-random IGDB store games for the
+/// "Surprise me" modal.
 ///
 /// Unlike the category rails, this does NOT pick from whatever is
-/// already on screen. It queries IGDB at a random offset so every click
-/// is a fresh surprise.
-pub async fn get_random_store_game() -> Result<StoreGameSummary, String> {
+/// already on screen. It queries IGDB at a random offset, shuffles the
+/// returned pool, and hands back `limit` games — so every refresh is a
+/// fresh surprise.
+pub async fn get_random_store_games(limit: u32) -> Result<Vec<StoreGameSummary>, String> {
     let token = get_twitch_token().await?;
     let client = http_client();
     let client_id = crate::config::get_twitch_client_id();
@@ -4065,15 +4066,34 @@ pub async fn get_random_store_game() -> Result<StoreGameSummary, String> {
         .text()
         .await
         .map_err(|e| format!("Failed to read IGDB random game response: {}", e))?;
-    let games: Vec<IgdbGameSummary> =
+    let mut games: Vec<IgdbGameSummary> =
         serde_json::from_str(&text).map_err(|e| format!("IGDB random game parse error: {}", e))?;
 
     if games.is_empty() {
-        return Err("No random game found at this offset".to_string());
+        return Err("No random games found at this offset".to_string());
     }
 
-    let idx = ((seed / 7) % games.len() as u128) as usize % games.len();
-    Ok(map_igdb_summary(games.into_iter().nth(idx).unwrap()))
+    // Fisher–Yates shuffle driven by an xorshift PRNG seeded from the wall
+    // clock, so consecutive refreshes surface different games from the pool
+    // rather than always the same leading slice.
+    let mut rng = seed;
+    let mut next = move || {
+        rng ^= rng << 13;
+        rng ^= rng >> 7;
+        rng ^= rng << 17;
+        rng
+    };
+    for i in (1..games.len()).rev() {
+        let j = (next() % (i as u128 + 1)) as usize;
+        games.swap(i, j);
+    }
+
+    let want = (limit as usize).min(games.len());
+    Ok(games
+        .into_iter()
+        .take(want)
+        .map(map_igdb_summary)
+        .collect())
 }
 
 /// Fetch full metadata for a single IGDB game by its slug.

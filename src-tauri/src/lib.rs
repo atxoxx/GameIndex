@@ -2219,10 +2219,10 @@ async fn get_store_game_detail(slug: String) -> Option<GameMetadataResult> {
     game_scraper::get_store_game_detail(&slug).await
 }
 
-/// Return a single genuinely-random store game for the "Surprise me" button.
+/// Return a batch of genuinely-random store games for the "Surprise me" modal.
 #[tauri::command]
-async fn get_random_store_game() -> Result<StoreGameSummary, String> {
-    game_scraper::get_random_store_game().await
+async fn get_random_store_games(limit: u32) -> Result<Vec<StoreGameSummary>, String> {
+    game_scraper::get_random_store_games(limit).await
 }
 
 /// Fetch every game that belongs to a given IGDB collection, sorted
@@ -3989,7 +3989,7 @@ pub fn run() {
             plugins::plugins_toggle,
             plugins::search_downloads,
             plugins::search_downloads_stream,
-            get_random_store_game,
+            get_random_store_games,
             store_checker::check_ownership,
             store_checker::check_ownership_for_ids,
             store_checker::set_steam_owned,
