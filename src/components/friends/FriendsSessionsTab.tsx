@@ -12,6 +12,7 @@ import {
   formatDateTime,
   sessionsConflict,
   detectTimezone,
+  nextOccurrence,
   GamePicker,
   CalendarIcon,
   PlusIcon,
@@ -31,7 +32,11 @@ interface FriendsSessionsTabProps {
   onPrefillConsumed?: () => void;
   onRsvp: (sessionId: string, status: RsvpStatus) => void;
   onCreateSession: (session: Omit<GameSession, "id" | "updatedAt">) => void;
+  onEditSession: (sessionId: string, session: Omit<GameSession, "id" | "updatedAt">) => void;
   onDeleteSession: (sessionId: string) => void;
+  onVotePoll: (sessionId: string, optionId: string) => void;
+  onFinalizePoll: (sessionId: string, optionId: string) => void;
+  onLaunchGame?: (gameId: string) => void;
   onSetRole: (sessionId: string, name: string, role: SessionRole) => void;
   onAddGuest: (sessionId: string, guestName: string) => void;
   onRemoveGuest: (sessionId: string, guestName: string) => void;
@@ -49,7 +54,11 @@ export default function FriendsSessionsTab({
   onPrefillConsumed,
   onRsvp,
   onCreateSession,
+  onEditSession,
   onDeleteSession,
+  onVotePoll,
+  onFinalizePoll,
+  onLaunchGame,
   onSetRole,
   onAddGuest,
   onRemoveGuest,
@@ -64,6 +73,7 @@ export default function FriendsSessionsTab({
   const [filterMode, setFilterMode] = useState<"all" | "mine" | "going">("all");
   const [searchQuery, setSearchQuery] = useState("");
   const [showCreateModal, setShowCreateModal] = useState(false);
+  const [editingSession, setEditingSession] = useState<GameSession | null>(null);
 
   // Form State for creating session
   const [gameId, setGameId] = useState("");
@@ -73,27 +83,47 @@ export default function FriendsSessionsTab({
   const [maxPlayers, setMaxPlayers] = useState(4);
   const [description, setDescription] = useState("");
   const [invitedFriends, setInvitedFriends] = useState<string[]>([]);
+  const [recurrenceFreq, setRecurrenceFreq] = useState<"none" | "daily" | "weekly" | "monthly">("none");
+  const [recurrenceUntil, setRecurrenceUntil] = useState("");
+  const [pollMode, setPollMode] = useState(false);
+  const [pollOptions, setPollOptions] = useState<string[]>([]);
 
   const viewerTimezone = useMemo(() => detectTimezone(), []);
 
-  const now = Date.now();
+  // Ticks every minute so recurring sessions roll forward to their next
+  // occurrence and the upcoming/past split stays honest over time.
+  const [nowTick, setNowTick] = useState(Date.now());
+  useEffect(() => {
+    const iv = setInterval(() => setNowTick(Date.now()), 60_000);
+    return () => clearInterval(iv);
+  }, []);
 
   // Active non-deleted sessions
   const activeSessions = useMemo(() => {
     return sessions.filter((s) => !s.deleted);
   }, [sessions]);
 
+  // Recurring sessions render as their next occurrence; exhausted rules fall
+  // back to the stored (past) time so they land in history.
+  const effectiveSessions = useMemo(() => {
+    return activeSessions.map((s) => {
+      if (!s.recurrence) return s;
+      const next = nextOccurrence(s.scheduledAt, s.recurrence, nowTick);
+      return next ? { ...s, scheduledAt: next } : s;
+    });
+  }, [activeSessions, nowTick]);
+
   // Conflict warning calculation for new session form
   const potentialConflict = useMemo(() => {
-    if (!dateTime) return undefined;
+    if (!dateTime || pollMode) return undefined;
     return activeSessions.find((s) =>
       sessionsConflict({ scheduledAt: dateTime, durationMin }, s)
     );
-  }, [dateTime, durationMin, activeSessions]);
+  }, [dateTime, durationMin, activeSessions, pollMode]);
 
   // Filtered upcoming vs past sessions
   const { upcomingSessions, pastSessions } = useMemo(() => {
-    let list = [...activeSessions];
+    let list = [...effectiveSessions];
 
     if (searchQuery.trim()) {
       const q = searchQuery.toLowerCase().trim();
@@ -112,15 +142,26 @@ export default function FriendsSessionsTab({
     }
 
     const upcoming = list
-      .filter((s) => new Date(s.scheduledAt).getTime() > now)
-      .sort((a, b) => new Date(a.scheduledAt).getTime() - new Date(b.scheduledAt).getTime());
+      .filter((s) => {
+        const t = new Date(s.scheduledAt).getTime();
+        // Poll sessions have no fixed time yet — they belong in "upcoming".
+        return Number.isNaN(t) ? !!s.poll : t > nowTick;
+      })
+      .sort((a, b) => {
+        const ta = new Date(a.scheduledAt).getTime() || Infinity;
+        const tb = new Date(b.scheduledAt).getTime() || Infinity;
+        return ta - tb;
+      });
 
     const past = list
-      .filter((s) => new Date(s.scheduledAt).getTime() <= now)
+      .filter((s) => {
+        const t = new Date(s.scheduledAt).getTime();
+        return !Number.isNaN(t) && t <= nowTick;
+      })
       .sort((a, b) => new Date(b.scheduledAt).getTime() - new Date(a.scheduledAt).getTime());
 
     return { upcomingSessions: upcoming, pastSessions: past };
-  }, [activeSessions, searchQuery, filterMode, profile.name, now]);
+  }, [effectiveSessions, searchQuery, filterMode, profile.name, nowTick]);
 
   // Agenda Day grouping
   const agendaDays = useMemo(() => {
@@ -148,14 +189,68 @@ export default function FriendsSessionsTab({
     return libraryCoverMap.get(s.gameId);
   };
 
+  const resetForm = () => {
+    setGameId("");
+    setGameName("");
+    setDateTime("");
+    setDurationMin(120);
+    setMaxPlayers(4);
+    setDescription("");
+    setInvitedFriends([]);
+    setRecurrenceFreq("none");
+    setRecurrenceUntil("");
+    setPollMode(false);
+    setPollOptions([]);
+  };
+
+  const openEdit = (session: GameSession) => {
+    setEditingSession(session);
+    setGameId(session.gameId.startsWith("custom_") ? "" : session.gameId);
+    setGameName(session.gameName);
+    setDateTime(session.scheduledAt || "");
+    setDurationMin(session.durationMin || 120);
+    setMaxPlayers(session.maxPlayers || 4);
+    setDescription(session.description || "");
+    setInvitedFriends(session.invited || []);
+    setRecurrenceFreq(session.recurrence?.frequency || "none");
+    setRecurrenceUntil(session.recurrence?.until || "");
+    setPollMode(false);
+    setPollOptions([]);
+    setShowCreateModal(true);
+  };
+
+  const addPollOption = () => {
+    if (pollOptions.length >= 4) return;
+    setPollOptions((prev) => [...prev, ""]);
+  };
+
+  const updatePollOption = (i: number, value: string) => {
+    setPollOptions((prev) => prev.map((o, idx) => (idx === i ? value : o)));
+  };
+
+  const removePollOption = (i: number) => {
+    setPollOptions((prev) => prev.filter((_, idx) => idx !== i));
+  };
+
+  const recurrenceRule = () =>
+    recurrenceFreq !== "none"
+      ? { frequency: recurrenceFreq, ...(recurrenceUntil ? { until: recurrenceUntil } : {}) }
+      : undefined;
+
   const handleCreateSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!gameName.trim() || !dateTime) return;
+    if (editingSession) {
+      handleEditSubmit(e);
+      return;
+    }
+    if (!gameName.trim()) return;
+    if (!pollMode && !dateTime) return;
 
+    const slots = pollOptions.filter(Boolean);
     onCreateSession({
       gameId: gameId || `custom_${Date.now()}`,
       gameName: gameName.trim(),
-      scheduledAt: dateTime,
+      scheduledAt: pollMode ? "" : dateTime,
       durationMin,
       maxPlayers,
       description: description.trim(),
@@ -166,14 +261,49 @@ export default function FriendsSessionsTab({
       rsvps: { [profile.name]: "going" },
       participants: [{ name: profile.name, role: "host", timezone: viewerTimezone }],
       messages: [],
+      poll:
+        pollMode && slots.length > 0
+          ? {
+              options: slots.map((label) => ({
+                id: `opt_${Date.now()}_${Math.random().toString(36).substr(2, 5)}`,
+                label,
+              })),
+              votes: {},
+            }
+          : undefined,
+      recurrence: recurrenceRule(),
     });
 
     setShowCreateModal(false);
-    setGameId("");
-    setGameName("");
-    setDateTime("");
-    setDescription("");
-    setInvitedFriends([]);
+    resetForm();
+  };
+
+  const handleEditSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingSession || !gameName.trim() || !dateTime) return;
+
+    onEditSession(editingSession.id, {
+      gameId: gameId || `custom_${Date.now()}`,
+      gameName: gameName.trim(),
+      scheduledAt: dateTime,
+      durationMin,
+      maxPlayers,
+      description: description.trim(),
+      creatorName: editingSession.creatorName,
+      creatorTimezone: viewerTimezone,
+      invited: invitedFriends,
+      // Attendee state is preserved — editing only touches the scheduled fields.
+      attendees: editingSession.attendees || [profile.name],
+      rsvps: editingSession.rsvps || { [profile.name]: "going" },
+      participants: editingSession.participants || [],
+      messages: editingSession.messages || [],
+      poll: undefined,
+      recurrence: recurrenceRule(),
+    });
+
+    setShowCreateModal(false);
+    setEditingSession(null);
+    resetForm();
   };
 
   const toggleInviteFriend = (friendName: string) => {
@@ -291,7 +421,11 @@ export default function FriendsSessionsTab({
                   viewerTimezone={viewerTimezone}
                   gameCover={getCoverForSession(session)}
                   onRsvp={onRsvp}
+                  onEdit={openEdit}
                   onDelete={onDeleteSession}
+                  onLaunch={onLaunchGame ? (s) => onLaunchGame(s.gameId) : undefined}
+                  onVotePoll={onVotePoll}
+                  onFinalizePoll={onFinalizePoll}
                   onSetRole={onSetRole}
                   onAddGuest={onAddGuest}
                   onRemoveGuest={onRemoveGuest}
@@ -396,7 +530,11 @@ export default function FriendsSessionsTab({
                   viewerTimezone={viewerTimezone}
                   gameCover={getCoverForSession(session)}
                   onRsvp={onRsvp}
+                  onEdit={openEdit}
                   onDelete={onDeleteSession}
+                  onLaunch={onLaunchGame ? (s) => onLaunchGame(s.gameId) : undefined}
+                  onVotePoll={onVotePoll}
+                  onFinalizePoll={onFinalizePoll}
                   onSetRole={onSetRole}
                   onAddGuest={onAddGuest}
                   onRemoveGuest={onRemoveGuest}
@@ -410,13 +548,13 @@ export default function FriendsSessionsTab({
         </div>
       )}
 
-      {/* Create Session Modal */}
+      {/* Create/Edit Session Modal */}
       {showCreateModal && (
         <div className="friends-modal-backdrop" onClick={() => setShowCreateModal(false)}>
           <div className="friends-modal-box friends-modal-lg" onClick={(e) => e.stopPropagation()}>
             <div className="friends-modal-header">
               <h2 className="friends-modal-title">
-                <CalendarIcon /> {t("friends.scheduleSession")}
+                <CalendarIcon /> {editingSession ? t("friendsPage.editSession") : t("friends.scheduleSession")}
               </h2>
               <button
                 type="button"
@@ -446,18 +584,65 @@ export default function FriendsSessionsTab({
 
                 <div className="form-row-grid">
                   <div className="form-group">
-                    <label className="form-label">{t("friendsPage.dateAndTime")}</label>
-                    <input
-                      type="datetime-local"
-                      className="profile-input"
-                      value={dateTime}
-                      onChange={(e) => setDateTime(e.target.value)}
-                      required
-                    />
-                    {viewerTimezone && (
-                      <span className="form-helper-text">
-                        {t("friendsPage.yourTimezone")}: {viewerTimezone.replace(/_/g, " ")}
-                      </span>
+                    {!editingSession && (
+                      <label className="invitee-check-pill session-poll-toggle">
+                        <input
+                          type="checkbox"
+                          checked={pollMode}
+                          onChange={(e) => setPollMode(e.target.checked)}
+                        />
+                        <span>{t("friendsPage.pollPropose")}</span>
+                      </label>
+                    )}
+                    {!pollMode ? (
+                      <>
+                        <label className="form-label">{t("friendsPage.dateAndTime")}</label>
+                        <input
+                          type="datetime-local"
+                          className="profile-input"
+                          value={dateTime}
+                          onChange={(e) => setDateTime(e.target.value)}
+                          required
+                        />
+                        {viewerTimezone && (
+                          <span className="form-helper-text">
+                            {t("friendsPage.yourTimezone")}: {viewerTimezone.replace(/_/g, " ")}
+                          </span>
+                        )}
+                      </>
+                    ) : (
+                      <>
+                        <label className="form-label">{t("friendsPage.pollOptions")}</label>
+                        <div className="session-poll-form-options">
+                          {pollOptions.map((opt, i) => (
+                            <div key={i} className="session-poll-form-option">
+                              <input
+                                type="datetime-local"
+                                className="profile-input"
+                                value={opt}
+                                onChange={(e) => updatePollOption(i, e.target.value)}
+                              />
+                              <button
+                                type="button"
+                                className="btn btn-secondary btn--mini"
+                                onClick={() => removePollOption(i)}
+                                title={t("friendsPage.removeOption")}
+                              >
+                                <XIcon />
+                              </button>
+                            </div>
+                          ))}
+                          {pollOptions.length < 4 && (
+                            <button
+                              type="button"
+                              className="btn btn-secondary btn--mini"
+                              onClick={addPollOption}
+                            >
+                              <PlusIcon /> {t("friendsPage.addOption")}
+                            </button>
+                          )}
+                        </div>
+                      </>
                     )}
                   </div>
 
@@ -495,6 +680,31 @@ export default function FriendsSessionsTab({
                     })}
                   </div>
                 )}
+
+                <div className="form-group">
+                  <label className="form-label">{t("friendsPage.repeatLabel")}</label>
+                  <div className="session-recurrence-row">
+                    <select
+                      className="profile-input"
+                      value={recurrenceFreq}
+                      onChange={(e) => setRecurrenceFreq(e.target.value as any)}
+                    >
+                      <option value="none">{t("friendsPage.repeatNone")}</option>
+                      <option value="daily">{t("friendsPage.recurrence.daily")}</option>
+                      <option value="weekly">{t("friendsPage.recurrence.weekly")}</option>
+                      <option value="monthly">{t("friendsPage.recurrence.monthly")}</option>
+                    </select>
+                    {recurrenceFreq !== "none" && (
+                      <input
+                        type="date"
+                        className="profile-input"
+                        value={recurrenceUntil}
+                        onChange={(e) => setRecurrenceUntil(e.target.value)}
+                        title={t("friendsPage.repeatUntilTitle")}
+                      />
+                    )}
+                  </div>
+                </div>
 
                 <div className="form-group">
                   <label className="form-label">{t("friends.description")}</label>
@@ -535,9 +745,13 @@ export default function FriendsSessionsTab({
                 <button
                   type="submit"
                   className="btn btn-primary"
-                  disabled={!gameName.trim() || !dateTime}
+                  disabled={
+                    !gameName.trim() ||
+                    (!pollMode && !dateTime) ||
+                    (pollMode && pollOptions.filter(Boolean).length === 0)
+                  }
                 >
-                  <PlusIcon /> {t("friends.createSession")}
+                  <PlusIcon /> {editingSession ? t("common.save") : t("friends.createSession")}
                 </button>
               </div>
             </form>

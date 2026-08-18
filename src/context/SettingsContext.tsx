@@ -51,6 +51,10 @@ const LS_DISCORD_PRESENCE = "gamelib.discord_rich_presence_enabled";
 const LS_HISTORY_CAP_DAYS = "gamelib.player_count_history_cap_days";
 const LS_BLOCKED_DOMAINS = "gamelib.blocked_source_domains";
 
+// Friends (Settings → Privacy → Friends)
+const LS_FRIENDS_NOTIFICATIONS = "gamelib.friends.notifications_enabled";
+const LS_DM_READ_RECEIPTS = "gamelib.friends.read_receipts_enabled";
+
 // Hardware monitoring (Settings → Hardware tab)
 const LS_HW_MONITORING = "gamelib.hardware_monitoring_enabled";
 const LS_METRIC_CAPTURE = "gamelib.metric_capture";
@@ -129,6 +133,12 @@ export interface SettingsContextValue {
   setHistoryCapDays: (next: 1 | 7 | 30) => void;
   blockedSourceDomains: string[];
   setBlockedSourceDomains: (next: string[]) => void;
+
+  // ── Friends (Settings → Privacy → Friends) ─────────────────────
+  friendsNotifications: boolean;
+  setFriendsNotifications: (next: boolean) => void;
+  dmReadReceipts: boolean;
+  setDmReadReceipts: (next: boolean) => void;
 
   // ── Hardware monitoring (Settings → Hardware tab) ───────────────
   hardwareMonitoringEnabled: boolean;
@@ -467,6 +477,22 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
     lsSet(LS_HISTORY_CAP_DAYS, String(next));
   }, []);
 
+  const [friendsNotifications, setFriendsNotificationsState] = useState<boolean>(
+    () => lsGet(LS_FRIENDS_NOTIFICATIONS) === "true",
+  );
+  const setFriendsNotifications = useCallback((next: boolean) => {
+    setFriendsNotificationsState(next);
+    lsSet(LS_FRIENDS_NOTIFICATIONS, String(next));
+  }, []);
+
+  const [dmReadReceipts, setDmReadReceiptsState] = useState<boolean>(() =>
+    lsGet(LS_DM_READ_RECEIPTS) === "true",
+  );
+  const setDmReadReceipts = useCallback((next: boolean) => {
+    setDmReadReceiptsState(next);
+    lsSet(LS_DM_READ_RECEIPTS, String(next));
+  }, []);
+
   const [blockedSourceDomains, setBlockedSourceDomainsState] = useState<
     string[]
   >(() => lsGetJSON<string[]>(LS_BLOCKED_DOMAINS, []));
@@ -596,6 +622,10 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
       setHistoryCapDays,
       blockedSourceDomains,
       setBlockedSourceDomains,
+      friendsNotifications,
+      setFriendsNotifications,
+      dmReadReceipts,
+      setDmReadReceipts,
       hardwareMonitoringEnabled,
       setHardwareMonitoringEnabled,
       metricCapture,
@@ -640,6 +670,10 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
       setHistoryCapDays,
       blockedSourceDomains,
       setBlockedSourceDomains,
+      friendsNotifications,
+      setFriendsNotifications,
+      dmReadReceipts,
+      setDmReadReceipts,
       hardwareMonitoringEnabled,
       setHardwareMonitoringEnabled,
       metricCapture,

@@ -281,9 +281,15 @@ export function buildSettingsCatalog(t: (key: string, vars?: Record<string, unkn
       tab: "privacy",
       labelKey: "settings.tab.privacy",
       descKey: "settings.wipe.desc",
-      keywords: "wipe clear local storage cache data reset privacy",
+      keywords: "wipe clear local storage cache data reset privacy friends notifications read receipts",
       icon: <TrashIcon />,
       sections: [
+        {
+          id: "privacy-friends",
+          labelKey: "settings.section.friends",
+          keywords: "friends notifications desktop alerts read receipts dm messages presence privacy",
+          icon: <BellIcon />,
+        },
         {
           id: "privacy-storage",
           labelKey: "settings.section.wipeData",

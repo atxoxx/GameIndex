@@ -5111,3 +5111,521 @@ textarea.profile-input {
   margin: 0;
   max-width: 360px;
 }
+
+/* ── DM: per-thread unread badge ───────────────────────────────────── */
+.dm-thread-unread-badge {
+  min-width: 18px;
+  height: 18px;
+  padding: 0 5px;
+  border-radius: var(--radius-full);
+  background: var(--color-accent);
+  color: var(--color-accent-contrast, #fff);
+  font-size: 10px;
+  font-weight: 700;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+/* ── DM: reactions ─────────────────────────────────────────────────── */
+.dm-message-reactions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin-top: 6px;
+}
+
+.dm-reaction-chip {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 24px;
+  height: 20px;
+  padding: 0 6px;
+  border-radius: var(--radius-full);
+  background: color-mix(in srgb, var(--color-bg-tertiary) 70%, transparent);
+  border: 1px solid var(--color-border);
+  font-size: 12px;
+  cursor: default;
+}
+
+.dm-reaction-chip.mine {
+  border-color: var(--color-accent);
+  background: color-mix(in srgb, var(--color-accent) 14%, transparent);
+}
+
+.dm-emoji-picker {
+  position: absolute;
+  bottom: calc(100% + 6px);
+  left: 6px;
+  display: flex;
+  gap: 2px;
+  padding: 4px;
+  border-radius: var(--radius-md);
+  background: var(--color-surface-raised, var(--color-surface));
+  border: 1px solid var(--color-border);
+  box-shadow: var(--shadow-pop, 0 8px 24px rgba(0, 0, 0, 0.35));
+  z-index: 30;
+}
+
+.dm-emoji-btn {
+  width: 28px;
+  height: 28px;
+  border: none;
+  background: transparent;
+  border-radius: var(--radius-sm);
+  font-size: 16px;
+  cursor: pointer;
+}
+
+.dm-emoji-btn:hover {
+  background: var(--color-bg-tertiary);
+}
+
+.dm-emoji-btn.active {
+  background: color-mix(in srgb, var(--color-accent) 20%, transparent);
+}
+
+/* ── DM: read receipts ─────────────────────────────────────────────── */
+.dm-message-seen {
+  display: block;
+  margin-top: 4px;
+  font-size: 10px;
+  color: var(--color-text-tertiary, var(--color-text-secondary));
+  text-align: right;
+}
+
+/* ── DM: attachments ───────────────────────────────────────────────── */
+.dm-attachment-thumb {
+  display: block;
+  max-width: 280px;
+  margin: 4px 0;
+  padding: 0;
+  border: none;
+  background: transparent;
+  cursor: zoom-in;
+}
+
+.dm-attachment-thumb img {
+  display: block;
+  max-width: 100%;
+  max-height: 220px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--color-border);
+}
+
+.dm-attach-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--color-border);
+  background: var(--color-bg-tertiary);
+  color: var(--color-text-secondary);
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+.dm-attach-btn:hover {
+  color: var(--color-accent);
+  border-color: var(--color-accent);
+}
+
+.dm-attachment-preview {
+  position: relative;
+  flex-shrink: 0;
+}
+
+.dm-attachment-preview img {
+  width: 44px;
+  height: 44px;
+  object-fit: cover;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--color-border);
+}
+
+.dm-attachment-preview-remove {
+  position: absolute;
+  top: -6px;
+  right: -6px;
+  width: 18px;
+  height: 18px;
+  border: none;
+  border-radius: 50%;
+  background: var(--color-danger);
+  color: #fff;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  padding: 0;
+}
+
+/* ── DM: lightbox ──────────────────────────────────────────────────── */
+.dm-lightbox {
+  position: fixed;
+  inset: 0;
+  z-index: 1500;
+  background: rgba(0, 0, 0, 0.8);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: zoom-out;
+  padding: 32px;
+}
+
+.dm-lightbox img {
+  max-width: 100%;
+  max-height: 100%;
+  border-radius: var(--radius-md);
+  box-shadow: 0 12px 48px rgba(0, 0, 0, 0.6);
+}
+
+/* ── Sessions: recurrence + launch/edit buttons ────────────────────── */
+.session-recurrence-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 8px;
+  border-radius: var(--radius-full);
+  font-size: 10px;
+  color: var(--color-accent);
+  background: color-mix(in srgb, var(--color-accent) 12%, transparent);
+  border: 1px solid color-mix(in srgb, var(--color-accent) 35%, transparent);
+}
+
+.session-recurrence-tag svg {
+  width: 11px;
+  height: 11px;
+}
+
+.session-countdown-pill.poll {
+  background: color-mix(in srgb, var(--color-accent) 14%, transparent);
+  border-color: var(--color-accent);
+  color: var(--color-accent);
+}
+
+.session-launch-btn,
+.session-edit-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--color-border);
+  background: var(--color-bg-tertiary);
+  color: var(--color-text-secondary);
+  cursor: pointer;
+}
+
+.session-launch-btn:hover {
+  color: var(--color-success);
+  border-color: var(--color-success);
+  background: color-mix(in srgb, var(--color-success) 12%, transparent);
+}
+
+.session-edit-btn:hover {
+  color: var(--color-accent);
+  border-color: var(--color-accent);
+  background: color-mix(in srgb, var(--color-accent) 12%, transparent);
+}
+
+/* ── Sessions: scheduling poll (on card) ───────────────────────────── */
+.session-poll-section {
+  border-top: 1px solid var(--color-border);
+  padding: 10px 14px;
+}
+
+.session-poll-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.session-poll-title {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: var(--font-size-xs);
+  font-weight: 700;
+  color: var(--color-text-primary);
+}
+
+.session-poll-hint {
+  font-size: 10px;
+  color: var(--color-text-secondary);
+}
+
+.session-poll-options {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.session-poll-option {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 7px 10px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--color-border);
+  background: var(--color-bg-tertiary);
+}
+
+.session-poll-option.voted {
+  border-color: var(--color-accent);
+  background: color-mix(in srgb, var(--color-accent) 8%, transparent);
+}
+
+.session-poll-option-main {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+}
+
+.session-poll-time {
+  font-size: var(--font-size-xs);
+  color: var(--color-text-primary);
+  white-space: nowrap;
+}
+
+.session-poll-votes {
+  font-size: 10px;
+  color: var(--color-accent);
+  font-weight: 700;
+}
+
+.session-poll-option-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
+}
+
+.session-poll-option-actions .btn.active {
+  border-color: var(--color-accent);
+  color: var(--color-accent);
+}
+
+/* ── Sessions: create/edit form poll + recurrence ──────────────────── */
+.session-poll-toggle {
+  margin-bottom: 8px;
+}
+
+.session-poll-form-options {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.session-poll-form-option {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.session-poll-form-option .profile-input {
+  flex: 1;
+}
+
+.session-recurrence-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.session-recurrence-row .profile-input {
+  flex: 1;
+}
+
+/* ── Recs: view toggle + top picks ─────────────────────────────────── */
+.recs-view-toggle {
+  display: inline-flex;
+  gap: 4px;
+  background: var(--color-bg-tertiary);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-full);
+  padding: 2px;
+}
+
+.recs-view-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 12px;
+  border: none;
+  background: transparent;
+  border-radius: var(--radius-full);
+  font-size: var(--font-size-xs);
+  color: var(--color-text-secondary);
+  cursor: pointer;
+}
+
+.recs-view-pill.active {
+  background: var(--color-accent);
+  color: var(--color-accent-contrast, #fff);
+}
+
+.recs-view-pill-count {
+  font-size: 10px;
+  font-weight: 700;
+  background: color-mix(in srgb, currentColor 18%, transparent);
+  border-radius: var(--radius-full);
+  padding: 0 6px;
+}
+
+.recs-filter-banner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 8px 14px;
+  margin-bottom: 12px;
+  border-radius: var(--radius-sm);
+  border: 1px solid color-mix(in srgb, var(--color-accent) 35%, transparent);
+  background: color-mix(in srgb, var(--color-accent) 8%, transparent);
+  font-size: var(--font-size-xs);
+  color: var(--color-text-primary);
+}
+
+.rec-top-card {
+  display: flex;
+  gap: 14px;
+  padding: 14px;
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--color-border);
+  background: var(--color-surface);
+  transition: border-color 0.15s ease, transform 0.15s ease;
+}
+
+.rec-top-card:hover {
+  border-color: color-mix(in srgb, var(--color-accent) 45%, var(--color-border));
+  transform: translateY(-1px);
+}
+
+.rec-top-cover {
+  width: 96px;
+  height: 128px;
+  flex-shrink: 0;
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+  background: var(--color-bg-tertiary);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 800;
+  color: var(--color-accent);
+}
+
+.rec-top-cover img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.rec-top-body {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.rec-top-title {
+  margin: 0;
+  font-size: var(--font-size-md);
+  font-weight: 700;
+  color: var(--color-text-primary);
+}
+
+.rec-top-friends {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  flex-wrap: wrap;
+}
+
+.rec-top-friend-chip {
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, var(--color-accent), color-mix(in srgb, var(--color-accent) 60%, #000));
+  color: #fff;
+  font-size: 9px;
+  font-weight: 700;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.rec-top-count {
+  font-size: 11px;
+  color: var(--color-text-secondary);
+}
+
+.rec-top-rating {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  font-size: 12px;
+}
+
+.rec-top-star {
+  color: var(--color-text-tertiary, var(--color-text-secondary));
+}
+
+.rec-top-star.filled {
+  color: #f5b942;
+}
+
+.rec-top-avg {
+  margin-left: 6px;
+  font-size: 11px;
+  color: var(--color-text-secondary);
+}
+
+.rec-top-reactions {
+  margin-left: auto;
+  font-size: 11px;
+  color: var(--color-text-secondary);
+}
+
+.rec-top-reason {
+  margin: 0;
+  font-size: var(--font-size-xs);
+  color: var(--color-text-secondary);
+  font-style: italic;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+}
+
+.rec-top-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: auto;
+}
+
+.rec-top-actions .btn.active {
+  border-color: var(--color-accent);
+  color: var(--color-accent);
+}
+
+/* ── Settings: friends toggles ─────────────────────────────────────── */
+.settings-friends-toggles {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+

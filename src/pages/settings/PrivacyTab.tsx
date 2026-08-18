@@ -2,8 +2,10 @@ import { useCallback, useEffect, useState } from "react";
 import { Button, ConfirmModal } from "../../components/ui";
 import { useLanguage } from "../../context/LanguageContext";
 import { useToast } from "../../context/ToastContext";
+import { useSettings } from "../../context/SettingsContext";
 import SettingsSection from "./SettingsSection";
-import { TrashIcon } from "./settingsIcons";
+import SettingsToggleCard from "./SettingsToggleCard";
+import { BellIcon, TrashIcon } from "./settingsIcons";
 
 function formatStorageBytes(bytes: number): string {
   if (bytes < 1024) return `${bytes} B`;
@@ -25,6 +27,7 @@ function formatStorageBytes(bytes: number): string {
 export default function PrivacyTab() {
   const { t } = useLanguage();
   const { showToast } = useToast();
+  const { friendsNotifications, setFriendsNotifications, dmReadReceipts, setDmReadReceipts } = useSettings();
   const [items, setItems] = useState<{ key: string; value: string; size: number }[]>([]);
   const [searchFilter, setSearchFilter] = useState("");
   const [wipeAllOpen, setWipeAllOpen] = useState(false);
@@ -79,6 +82,34 @@ export default function PrivacyTab() {
   };
 
   return (
+    <>
+    <SettingsSection
+      id="privacy-friends"
+      icon={<BellIcon />}
+      title={t("settings.section.friends")}
+      desc={t("settings.friends.desc")}
+    >
+      <div className="settings-friends-toggles">
+        <SettingsToggleCard
+          title={t("settings.friends.notifications")}
+          desc={t("settings.friends.notifications.desc")}
+          checked={friendsNotifications}
+          onChange={(on) => {
+            setFriendsNotifications(on);
+            if (on && typeof Notification !== "undefined" && Notification.permission === "default") {
+              void Notification.requestPermission();
+            }
+          }}
+        />
+        <SettingsToggleCard
+          title={t("settings.friends.readReceipts")}
+          desc={t("settings.friends.readReceipts.desc")}
+          checked={dmReadReceipts}
+          onChange={setDmReadReceipts}
+        />
+      </div>
+    </SettingsSection>
+
     <SettingsSection
       id="privacy-storage"
       icon={<TrashIcon />}
@@ -177,5 +208,6 @@ export default function PrivacyTab() {
         onCancel={() => setWipeKeyOpen(null)}
       />
     </SettingsSection>
+    </>
   );
 }

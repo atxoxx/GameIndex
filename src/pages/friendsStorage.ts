@@ -143,6 +143,8 @@ export interface UserProfile {
   region?: string;
   /** Unix seconds of the last time we published our outbox. */
   lastPublished?: number;
+  /** Unix seconds of the last moment the user was active (presence heartbeat). */
+  lastActive?: number;
   libStats?: {
     gamesCount: number;
     playtimeMinutes: number;
@@ -180,6 +182,8 @@ export interface Friend {
   pinned?: boolean;
   /** Epoch seconds of the last successful sync with this friend. */
   lastSeen?: number;
+  /** Unix seconds of the friend's last activity (presence heartbeat, from their outbox). */
+  lastActive?: number;
   /** Locally ignored peers — their outbox is skipped during sync. */
   blocked?: boolean;
   /** Friend's free-text bio (synced from their outbox). */
@@ -216,6 +220,30 @@ export function safeCurrentlyPlaying(value?: string): string | undefined {
 
 export type RsvpStatus = "going" | "maybe" | "declined";
 
+/** How often a session repeats. */
+export type SessionRecurrenceFrequency = "daily" | "weekly" | "monthly";
+
+/** Recurrence rule on a session template. `until` is an optional YYYY-MM-DD end date (inclusive). */
+export interface SessionRecurrence {
+  frequency: SessionRecurrenceFrequency;
+  until?: string;
+}
+
+/** One proposed time slot in a scheduling poll. `label` is a datetime-local string. */
+export interface SessionPollOption {
+  id: string;
+  label: string;
+}
+
+/**
+ * A scheduling poll on a session that has no fixed time yet: the host
+ * proposes slots and attendees vote. `votes` maps option id -> voter names.
+ */
+export interface SessionPoll {
+  options: SessionPollOption[];
+  votes: Record<string, string[]>;
+}
+
 /** Roles a participant can hold in a session. */
 export type SessionRole = "host" | "cohost" | "player";
 
@@ -233,6 +261,14 @@ export interface SessionParticipant {
   guest?: boolean;
 }
 
+/** An image (or future file type) attached to a DM message, stored as a compressed data URL so it travels inside the outbox payload. */
+export interface DmAttachment {
+  id: string;
+  name: string;
+  mimeType: string;
+  dataUrl: string;
+}
+
 export interface SessionMessage {
   id: string;
   author: string;
@@ -240,6 +276,10 @@ export interface SessionMessage {
   timestamp: number;
   /** Pinned messages show at the top of the chat thread. */
   pinned?: boolean;
+  /** Per-author emoji reactions (author name -> emoji). */
+  reactions?: Record<string, string>;
+  /** Images attached to this message. */
+  attachments?: DmAttachment[];
 }
 
 export interface GameSession {
@@ -266,6 +306,10 @@ export interface GameSession {
   messages?: SessionMessage[];
   /** Duration in minutes, for countdown + agenda display. */
   durationMin?: number;
+  /** Recurrence rule — the stored `scheduledAt` is the first occurrence. */
+  recurrence?: SessionRecurrence;
+  /** Open scheduling poll (no fixed time until the host finalizes one). */
+  poll?: SessionPoll;
 }
 
 export interface RecommendationComment {
@@ -390,11 +434,27 @@ export interface DmThread {
   messages: SessionMessage[];
   updatedAt: number;
   deleted?: boolean;
+  /** Per-participant timestamp of the last message they read — doubles as the read-receipt signal. */
+  lastReadAt?: Record<string, number>;
 }
 
 /** Deterministic thread id for a pair of names (order-independent). */
 export function dmThreadId(a: string, b: string): string {
   return `dm_${[a.trim(), b.trim()].sort().join("_")}`;
+}
+
+/**
+ * Strips the reader's own read-state out of DM threads before the outbox is
+ * pushed, used when the user disabled read receipts — the badge logic stays
+ * local, but the friend never sees when we read their messages.
+ */
+export function sanitizeDmsForPush(threads: DmThread[], myName: string, receiptsEnabled: boolean): DmThread[] {
+  if (receiptsEnabled) return threads;
+  return threads.map((t) => {
+    const lastReadAt = { ...(t.lastReadAt || {}) };
+    delete lastReadAt[myName];
+    return Object.keys(lastReadAt).length > 0 ? { ...t, lastReadAt } : { ...t, lastReadAt: undefined };
+  });
 }
 
 export function loadDms(): DmThread[] {
@@ -432,17 +492,33 @@ export function mergeDms(local: DmThread[], remote: DmThread[], myName: string):
       continue;
     }
 
-    // Merge messages id-by-id, newer timestamp wins.
+    // Messages merge id-by-id with the newer timestamp winning, but reactions
+    // union per-author so a react on an older copy of a message isn't lost.
     const msgMap = new Map<string, SessionMessage>();
     [...(localThread.messages || []), ...(remoteThread.messages || [])].forEach((m) => {
       const existing = msgMap.get(m.id);
-      if (!existing || m.timestamp >= existing.timestamp) msgMap.set(m.id, m);
+      if (!existing) {
+        msgMap.set(m.id, m);
+      } else if (m.timestamp >= existing.timestamp) {
+        msgMap.set(m.id, { ...m, reactions: { ...(existing.reactions || {}), ...(m.reactions || {}) } });
+      } else {
+        msgMap.set(m.id, { ...existing, reactions: { ...(m.reactions || {}), ...(existing.reactions || {}) } });
+      }
     });
+
+    // Read state merges per-name with the freshest timestamp winning.
+    const lastReadAt: Record<string, number> = { ...(localThread.lastReadAt || {}) };
+    if (remoteThread.lastReadAt) {
+      for (const [name, ts] of Object.entries(remoteThread.lastReadAt)) {
+        if (!lastReadAt[name] || ts > lastReadAt[name]) lastReadAt[name] = ts;
+      }
+    }
 
     mergedMap.set(remoteThread.id, {
       ...localThread,
       participants: localThread.participants,
       messages: Array.from(msgMap.values()).sort((a, b) => a.timestamp - b.timestamp),
+      lastReadAt: Object.keys(lastReadAt).length > 0 ? lastReadAt : undefined,
       updatedAt: Math.max(localThread.updatedAt, remoteThread.updatedAt),
     });
   }
@@ -877,6 +953,21 @@ export function mergeSessions(local: GameSession[], remote: GameSession[]): Game
         ? remoteSession.invited || localSession.invited || []
         : Array.from(new Set([...(localSession.invited || []), ...(remoteSession.invited || [])]));
 
+      // Poll votes union per option; the fresher side owns the option list.
+      let poll = remoteSession.poll || localSession.poll;
+      if (remoteSession.poll && localSession.poll) {
+        const base = keepRemote ? remoteSession.poll : localSession.poll;
+        const other = keepRemote ? localSession.poll : remoteSession.poll;
+        const votes: Record<string, string[]> = {};
+        base.options.forEach((o) => (votes[o.id] = [...(base.votes[o.id] || [])]));
+        other.options.forEach((o) => {
+          const voters = new Set(votes[o.id] || []);
+          (other.votes[o.id] || []).forEach((v) => voters.add(v));
+          votes[o.id] = Array.from(voters);
+        });
+        poll = { options: base.options, votes };
+      }
+
       mergedMap.set(remoteSession.id, {
         id: localSession.id,
         gameId,
@@ -894,6 +985,8 @@ export function mergeSessions(local: GameSession[], remote: GameSession[]): Game
         participants: Array.from(participantsMap.values()),
         messages,
         durationMin: remoteSession.durationMin ?? localSession.durationMin,
+        poll: poll && poll.options.length > 0 ? poll : undefined,
+        recurrence: keepRemote ? remoteSession.recurrence ?? localSession.recurrence : localSession.recurrence ?? remoteSession.recurrence,
       });
     }
   });
@@ -1066,6 +1159,7 @@ export interface NostrOutboxPayload {
     currentlyPlaying: string;
     bio: string;
     region: string;
+    lastActive: number;
     libStats: { gamesCount: number; playtimeMinutes: number; achievementsCount: number };
   };
   friends: string[];
@@ -1113,6 +1207,7 @@ export function buildNostrOutboxPayload(
       currentlyPlaying: profile.currentlyPlaying || "",
       bio: profile.bio || "",
       region: profile.region || "",
+      lastActive: profile.lastActive || 0,
       libStats: stats,
     },
     friends: localFriends.map((f) => f.syncId),
@@ -1175,6 +1270,7 @@ export function buildOutboxPayload(
       currentlyPlaying: profile.currentlyPlaying || "",
       bio: profile.bio || "",
       region: profile.region || "",
+      lastActive: profile.lastActive || 0,
       libStats: stats,
     },
     friends: localFriends.map((f) => f.syncId),
@@ -1226,6 +1322,7 @@ export async function fetchFriendOutbox(friendSyncId: string): Promise<{
     currentlyPlaying?: string;
     bio?: string;
     region?: string;
+    lastActive?: number;
     libStats: {
       gamesCount: number;
       playtimeMinutes: number;
@@ -1375,6 +1472,7 @@ export function mergeDatabases(local: FriendsDatabase, remote: FriendsDatabase):
           region: remoteFriend.region || localFriend.region,
           libStats: remoteFriend.libStats || localFriend.libStats,
           games: remoteFriend.games || localFriend.games,
+          lastActive: remoteFriend.lastActive ?? localFriend.lastActive,
         });
       }
     });

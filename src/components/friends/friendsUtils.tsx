@@ -87,6 +87,82 @@ export function detectTimezone(): string {
   }
 }
 
+function pad2(n: number): string {
+  return String(n).padStart(2, "0");
+}
+
+/**
+ * Next occurrence of a recurring session on/after `afterMs`, formatted as a
+ * datetime-local string (matching GameSession.scheduledAt). Returns null when
+ * the rule is exhausted (past `until`) or the base date is invalid.
+ */
+export function nextOccurrence(
+  baseIso: string,
+  recurrence: { frequency: "daily" | "weekly" | "monthly"; until?: string },
+  afterMs: number
+): string | null {
+  const base = new Date(baseIso);
+  if (Number.isNaN(base.getTime())) return null;
+  const until = recurrence.until ? new Date(recurrence.until).getTime() : Infinity;
+  if (!Number.isFinite(until)) return null;
+
+  const d = new Date(base);
+  let guard = 0;
+  while (d.getTime() < afterMs && guard < 1200) {
+    if (recurrence.frequency === "daily") d.setDate(d.getDate() + 1);
+    else if (recurrence.frequency === "weekly") d.setDate(d.getDate() + 7);
+    else d.setMonth(d.getMonth() + 1);
+    guard++;
+  }
+  if (d.getTime() < afterMs || d.getTime() > until) return null;
+  return `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}T${pad2(d.getHours())}:${pad2(d.getMinutes())}`;
+}
+
+/**
+ * Reads an image file, downsizes it to a bounded data URL so it can travel in
+ * the outbox, and returns a DmAttachment. Rejects files over 8MB and anything
+ * that fails to decode as an image.
+ */
+export function fileToImageAttachment(file: File): Promise<{ id: string; name: string; mimeType: string; dataUrl: string } | null> {
+  return new Promise((resolve) => {
+    if (!file.type.startsWith("image/") || file.size > 8 * 1024 * 1024) {
+      resolve(null);
+      return;
+    }
+    const reader = new FileReader();
+    reader.onload = (ev) => {
+      const img = new Image();
+      img.onload = () => {
+        const maxDim = 1280;
+        const scale = Math.min(1, maxDim / Math.max(img.width, img.height));
+        const canvas = document.createElement("canvas");
+        canvas.width = Math.max(1, Math.round(img.width * scale));
+        canvas.height = Math.max(1, Math.round(img.height * scale));
+        const ctx = canvas.getContext("2d");
+        if (!ctx) {
+          resolve(null);
+          return;
+        }
+        ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+        try {
+          resolve({
+            id: `att_${Date.now()}_${Math.random().toString(36).substr(2, 6)}`,
+            name: file.name || "image.png",
+            mimeType: "image/jpeg",
+            dataUrl: canvas.toDataURL("image/jpeg", 0.75),
+          });
+        } catch {
+          resolve(null);
+        }
+      };
+      img.onerror = () => resolve(null);
+      img.src = ev.target?.result as string;
+    };
+    reader.onerror = () => resolve(null);
+    reader.readAsDataURL(file);
+  });
+}
+
 export function countdownLabel(targetIso: string, t: (key: string, vars?: Record<string, unknown>) => string): string {
   const diff = new Date(targetIso).getTime() - Date.now();
   if (Number.isNaN(diff)) return "";
@@ -137,12 +213,18 @@ export function formatFriendsSince(addedAt: number | undefined, t: (key: string,
   return t(years > 1 || months >= 24 ? "friendsPage.friendsForYears" : "friendsPage.friendsForYear", { count: years });
 }
 
+/**
+ * A friend counts as online when they're in a game, their status says so, or
+ * their presence heartbeat (`lastActive`) is under ~3 minutes old. An explicit
+ * "Offline" status wins over a stale heartbeat.
+ */
 export function isOnline(friend: Friend): boolean {
-  return (
-    !!safeCurrentlyPlaying(friend.currentlyPlaying) ||
-    (friend.status || "").toLowerCase().includes("online") ||
-    (friend.status || "").toLowerCase().includes("playing")
-  );
+  const status = (friend.status || "").toLowerCase();
+  if (safeCurrentlyPlaying(friend.currentlyPlaying)) return true;
+  if (status.includes("offline")) return false;
+  if (status.includes("online") || status.includes("playing")) return true;
+  if (friend.lastActive && Math.floor(Date.now() / 1000) - friend.lastActive < 180) return true;
+  return false;
 }
 
 export function presenceLabel(friend: Friend, t: (key: string, vars?: Record<string, unknown>) => string): string {
@@ -767,6 +849,62 @@ export function SendIcon({ className = "" }: { className?: string }) {
     <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" width="13" height="13">
       <line x1="22" y1="2" x2="11" y2="13" />
       <polygon points="22 2 15 22 11 13 2 9 22 2" />
+    </svg>
+  );
+}
+
+export function PaperclipIcon({ className = "" }: { className?: string }) {
+  return (
+    <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" width="14" height="14">
+      <path d="m21.44 11.05-9.19 9.19a6 6 0 0 1-8.49-8.49l8.57-8.57A4 4 0 1 1 18 8.84l-8.59 8.57a2 2 0 0 1-2.83-2.83l8.49-8.48" />
+    </svg>
+  );
+}
+
+export function SmileIcon({ className = "" }: { className?: string }) {
+  return (
+    <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" width="14" height="14">
+      <circle cx="12" cy="12" r="10" />
+      <path d="M8 14s1.5 2 4 2 4-2 4-2" />
+      <line x1="9" y1="9" x2="9.01" y2="9" />
+      <line x1="15" y1="9" x2="15.01" y2="9" />
+    </svg>
+  );
+}
+
+export function PlayIcon({ className = "" }: { className?: string }) {
+  return (
+    <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" width="14" height="14">
+      <polygon points="6 3 20 12 6 21 6 3" />
+    </svg>
+  );
+}
+
+export function EditIcon({ className = "" }: { className?: string }) {
+  return (
+    <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" width="14" height="14">
+      <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
+      <path d="M18.5 2.5a2.12 2.12 0 0 1 3 3L12 15l-4 1 1-4Z" />
+    </svg>
+  );
+}
+
+export function RepeatIcon({ className = "" }: { className?: string }) {
+  return (
+    <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" width="14" height="14">
+      <polyline points="17 1 21 5 17 9" />
+      <path d="M3 11V9a4 4 0 0 1 4-4h14" />
+      <polyline points="7 23 3 19 7 15" />
+      <path d="M21 13v2a4 4 0 0 1-4 4H3" />
+    </svg>
+  );
+}
+
+export function VoteIcon({ className = "" }: { className?: string }) {
+  return (
+    <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" width="14" height="14">
+      <rect x="3" y="3" width="18" height="18" rx="2" />
+      <path d="m9 12 2 2 4-4" />
     </svg>
   );
 }

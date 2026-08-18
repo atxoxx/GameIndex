@@ -1,18 +1,25 @@
 import { useState, useMemo, useRef, useEffect } from "react";
 import { useLanguage } from "../../context/LanguageContext";
-import type { DmThread, Friend, UserProfile } from "./friendsTypes";
+import { useToast } from "../../context/ToastContext";
+import type { DmThread, Friend, UserProfile, DmAttachment } from "./friendsTypes";
 import {
   displayName,
   getInitials,
   getProceduralAvatarStyle,
   isOnline,
   formatLastSeen,
+  fileToImageAttachment,
   MessageIcon,
   SendIcon,
   PinIcon,
   TrashIcon,
   CompareIcon,
+  PaperclipIcon,
+  SmileIcon,
+  XIcon,
 } from "./friendsUtils";
+
+const DM_EMOJI = ["👍", "❤️", "😂", "😮", "😢", "🔥"];
 
 interface FriendsDmsTabProps {
   dms: DmThread[];
@@ -20,8 +27,10 @@ interface FriendsDmsTabProps {
   profile: UserProfile;
   selectedDmId: string | null;
   selectedDmFriendName: string;
+  readReceiptsEnabled: boolean;
   onSelectThread: (threadId: string, friendName: string) => void;
-  onSendMessage: (threadId: string, text: string) => void;
+  onSendMessage: (threadId: string, text: string, attachments?: DmAttachment[]) => void;
+  onReactMessage: (threadId: string, messageId: string, emoji: string) => void;
   onTogglePinMessage: (threadId: string, messageId: string) => void;
   onDeleteMessage: (threadId: string, messageId: string) => void;
   onDeleteThread: (threadId: string) => void;
@@ -34,18 +43,25 @@ export default function FriendsDmsTab({
   profile,
   selectedDmId,
   selectedDmFriendName,
+  readReceiptsEnabled,
   onSelectThread,
   onSendMessage,
+  onReactMessage,
   onTogglePinMessage,
   onDeleteMessage,
   onDeleteThread,
   onCompareFriend,
 }: FriendsDmsTabProps) {
   const { t } = useLanguage();
+  const { showToast } = useToast();
   const [threadSearch, setThreadSearch] = useState("");
   const [messageDraft, setMessageDraft] = useState("");
   const [newChatFriendId, setNewChatFriendId] = useState("");
+  const [reactingToMsg, setReactingToMsg] = useState<string | null>(null);
+  const [lightboxUrl, setLightboxUrl] = useState<string | null>(null);
+  const [pendingAttachment, setPendingAttachment] = useState<DmAttachment | null>(null);
   const chatScrollRef = useRef<HTMLDivElement>(null);
+  const attachInputRef = useRef<HTMLInputElement>(null);
 
   // Active thread calculation
   const activeThread = useMemo(() => {
@@ -83,11 +99,17 @@ export default function FriendsDmsTab({
     return list;
   }, [dms, threadSearch, profile.name, friends]);
 
+  const unreadCount = (thread: DmThread): number => {
+    const lastRead = thread.lastReadAt?.[profile.name] || 0;
+    return (thread.messages || []).filter((m) => m.author !== profile.name && m.timestamp > lastRead).length;
+  };
+
   const handleSend = () => {
     const text = messageDraft.trim();
-    if (!text || !selectedDmId) return;
-    onSendMessage(selectedDmId, text);
+    if ((!text && !pendingAttachment) || !selectedDmId) return;
+    onSendMessage(selectedDmId, text, pendingAttachment ? [pendingAttachment] : undefined);
     setMessageDraft("");
+    setPendingAttachment(null);
   };
 
   const handleStartNewChat = (friendId: string) => {
@@ -101,9 +123,21 @@ export default function FriendsDmsTab({
     setNewChatFriendId("");
   };
 
+  const handlePickAttachment = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    e.target.value = "";
+    if (!file) return;
+    void fileToImageAttachment(file).then((att) => {
+      if (att) setPendingAttachment(att);
+      else showToast(t("friendsPage.attachFailed"), "error");
+    });
+  };
+
   const messages = activeThread?.messages || [];
   const pinnedMessages = messages.filter((m) => m.pinned);
   const regularMessages = messages.filter((m) => !m.pinned);
+  const otherName = activeThread?.participants.find((p) => p !== profile.name) || "";
+  const friendReadAt = activeThread?.lastReadAt?.[otherName] || 0;
 
   return (
     <div className="friends-dms-section">
@@ -160,6 +194,7 @@ export default function FriendsDmsTab({
               const isCurr = thread.id === selectedDmId;
               const lastMsg = (thread.messages || []).slice(-1)[0];
               const online = friend ? isOnline(friend) : false;
+              const unread = unreadCount(thread);
 
               return (
                 <div
@@ -192,10 +227,12 @@ export default function FriendsDmsTab({
                     </div>
                     <div className="dm-thread-preview">
                       {lastMsg
-                        ? `${lastMsg.author === profile.name ? `${t("friendsPage.you")}: ` : ""}${lastMsg.text}`
+                        ? `${lastMsg.author === profile.name ? `${t("friendsPage.you")}: ` : ""}${lastMsg.text || "📷"}`
                         : t("friendsPage.startedNewChat")}
                     </div>
                   </div>
+
+                  {unread > 0 && <span className="dm-thread-unread-badge">{unread}</span>}
 
                   <button
                     type="button"
@@ -292,6 +329,8 @@ export default function FriendsDmsTab({
               ) : (
                 regularMessages.map((msg) => {
                   const isMine = msg.author === profile.name;
+                  const reactionEntries = Object.entries(msg.reactions || {});
+                  const seen = isMine && readReceiptsEnabled && friendReadAt >= msg.timestamp;
                   return (
                     <div key={msg.id} className={`dm-message-bubble-row${isMine ? " mine" : " friend"}`}>
                       <div className="dm-message-bubble">
@@ -304,9 +343,46 @@ export default function FriendsDmsTab({
                             })}
                           </span>
                         </div>
-                        <div className="dm-message-body">{msg.text}</div>
+
+                        {(msg.attachments || []).map((att) => (
+                          <button
+                            key={att.id}
+                            type="button"
+                            className="dm-attachment-thumb"
+                            onClick={() => setLightboxUrl(att.dataUrl)}
+                            title={att.name}
+                          >
+                            <img src={att.dataUrl} alt={att.name} loading="lazy" />
+                          </button>
+                        ))}
+
+                        {msg.text && <div className="dm-message-body">{msg.text}</div>}
+
+                        {reactionEntries.length > 0 && (
+                          <div className="dm-message-reactions">
+                            {reactionEntries.map(([author, emoji]) => (
+                              <span
+                                key={author}
+                                className={`dm-reaction-chip${author === profile.name ? " mine" : ""}`}
+                                title={author}
+                              >
+                                {emoji}
+                              </span>
+                            ))}
+                          </div>
+                        )}
+
+                        {seen && <span className="dm-message-seen">{t("friendsPage.seen")}</span>}
 
                         <div className="dm-message-actions-hover">
+                          <button
+                            type="button"
+                            className="dm-msg-action-btn"
+                            onClick={() => setReactingToMsg(reactingToMsg === msg.id ? null : msg.id)}
+                            title={t("friendsPage.reactToMessage")}
+                          >
+                            <SmileIcon />
+                          </button>
                           <button
                             type="button"
                             className="dm-msg-action-btn"
@@ -326,6 +402,24 @@ export default function FriendsDmsTab({
                             </button>
                           )}
                         </div>
+
+                        {reactingToMsg === msg.id && (
+                          <div className="dm-emoji-picker">
+                            {DM_EMOJI.map((emoji) => (
+                              <button
+                                key={emoji}
+                                type="button"
+                                className={`dm-emoji-btn${(msg.reactions?.[profile.name] || "") === emoji ? " active" : ""}`}
+                                onClick={() => {
+                                  onReactMessage(selectedDmId, msg.id, emoji);
+                                  setReactingToMsg(null);
+                                }}
+                              >
+                                {emoji}
+                              </button>
+                            ))}
+                          </div>
+                        )}
                       </div>
                     </div>
                   );
@@ -335,6 +429,34 @@ export default function FriendsDmsTab({
 
             {/* Composer */}
             <div className="dm-composer-bar">
+              {pendingAttachment && (
+                <div className="dm-attachment-preview">
+                  <img src={pendingAttachment.dataUrl} alt={pendingAttachment.name} />
+                  <button
+                    type="button"
+                    className="dm-attachment-preview-remove"
+                    onClick={() => setPendingAttachment(null)}
+                    title={t("common.clear")}
+                  >
+                    <XIcon />
+                  </button>
+                </div>
+              )}
+              <input
+                ref={attachInputRef}
+                type="file"
+                accept="image/*"
+                className="hidden-file-input"
+                onChange={handlePickAttachment}
+              />
+              <button
+                type="button"
+                className="dm-attach-btn"
+                onClick={() => attachInputRef.current?.click()}
+                title={t("friendsPage.sendAttachment")}
+              >
+                <PaperclipIcon />
+              </button>
               <input
                 type="text"
                 className="profile-input dm-composer-input"
@@ -348,7 +470,7 @@ export default function FriendsDmsTab({
                 type="button"
                 className="btn btn-primary dm-send-btn"
                 onClick={handleSend}
-                disabled={!messageDraft.trim()}
+                disabled={!messageDraft.trim() && !pendingAttachment}
                 title={t("common.send")}
               >
                 <SendIcon />
@@ -365,6 +487,13 @@ export default function FriendsDmsTab({
           </div>
         )}
       </div>
+
+      {/* Image Lightbox */}
+      {lightboxUrl && (
+        <div className="dm-lightbox" onClick={() => setLightboxUrl(null)}>
+          <img src={lightboxUrl} alt="" />
+        </div>
+      )}
     </div>
   );
 }

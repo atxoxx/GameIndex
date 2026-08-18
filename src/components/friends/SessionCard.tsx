@@ -13,6 +13,11 @@ import {
   UsersIcon,
   MessageIcon,
   PinIcon,
+  EditIcon,
+  PlayIcon,
+  RepeatIcon,
+  VoteIcon,
+  CheckIcon,
 } from "./friendsUtils";
 
 const SESSION_ROLE_ORDER: SessionRole[] = ["host", "cohost", "player"];
@@ -25,7 +30,11 @@ interface SessionCardProps {
   conflicting?: GameSession;
   gameCover?: string;
   onRsvp: (sessionId: string, status: RsvpStatus) => void;
+  onEdit?: (session: GameSession) => void;
   onDelete: (sessionId: string) => void;
+  onLaunch?: (session: GameSession) => void;
+  onVotePoll?: (sessionId: string, optionId: string) => void;
+  onFinalizePoll?: (sessionId: string, optionId: string) => void;
   onSetRole: (sessionId: string, name: string, role: SessionRole) => void;
   onAddGuest: (sessionId: string, guestName: string) => void;
   onRemoveGuest: (sessionId: string, guestName: string) => void;
@@ -42,7 +51,11 @@ export default function SessionCard({
   conflicting,
   gameCover,
   onRsvp,
+  onEdit,
   onDelete,
+  onLaunch,
+  onVotePoll,
+  onFinalizePoll,
   onSetRole,
   onAddGuest,
   onRemoveGuest,
@@ -179,20 +192,27 @@ export default function SessionCard({
             {session.durationMin ? (
               <span className="session-duration-tag">{session.durationMin}m</span>
             ) : null}
+            {session.recurrence && (
+              <span className="session-recurrence-tag" title={session.recurrence.until ? t("friendsPage.repeatsUntil", { freq: t(`friendsPage.recurrence.${session.recurrence.frequency}`), until: session.recurrence.until }) : ""}>
+                <RepeatIcon /> {t(`friendsPage.recurrence.${session.recurrence.frequency}`)}
+              </span>
+            )}
           </div>
 
-          <div className="session-date-row">
-            <ClockIcon />
-            <span>{formatDateTime(session.scheduledAt, session.creatorTimezone)} {tzAbbrev(session.scheduledAt, session.creatorTimezone)}</span>
-          </div>
+          {session.scheduledAt && (
+            <div className="session-date-row">
+              <ClockIcon />
+              <span>{formatDateTime(session.scheduledAt, session.creatorTimezone)} {tzAbbrev(session.scheduledAt, session.creatorTimezone)}</span>
+            </div>
+          )}
 
-          {showTimeForViewer && (
+          {session.scheduledAt && showTimeForViewer && (
             <div className="session-date-local">
               {t("friendsPage.yourTime")} {formatDateTime(session.scheduledAt, viewerTimezone)} {tzAbbrev(session.scheduledAt, viewerTimezone)}
             </div>
           )}
 
-          {session.creatorTimezone && (
+          {session.creatorTimezone && session.scheduledAt && (
             <div className="session-tz-note">
               {t("friendsPage.scheduledIn", { tz: session.creatorTimezone.replace(/_/g, " ") })}
             </div>
@@ -200,13 +220,40 @@ export default function SessionCard({
         </div>
 
         <div className="session-card-top-actions">
-          <span
-            className={`session-countdown-pill${new Date(session.scheduledAt).getTime() - now <= 0 ? " live" : ""}`}
-            title={t("friendsPage.timeUntilStart")}
-          >
-            <ClockIcon />
-            {countdownLabel(session.scheduledAt, t)}
-          </span>
+          {session.scheduledAt ? (
+            <span
+              className={`session-countdown-pill${new Date(session.scheduledAt).getTime() - now <= 0 ? " live" : ""}`}
+              title={t("friendsPage.timeUntilStart")}
+            >
+              <ClockIcon />
+              {countdownLabel(session.scheduledAt, t)}
+            </span>
+          ) : (
+            <span className="session-countdown-pill poll">
+              <VoteIcon />
+              {t("friendsPage.pollOpenShort")}
+            </span>
+          )}
+          {onLaunch && (
+            <button
+              type="button"
+              className="session-launch-btn"
+              onClick={() => onLaunch(session)}
+              title={t("friendsPage.launchGame")}
+            >
+              <PlayIcon />
+            </button>
+          )}
+          {isCreator && onEdit && (
+            <button
+              type="button"
+              className="session-edit-btn"
+              onClick={() => onEdit(session)}
+              title={t("friendsPage.editSession")}
+            >
+              <EditIcon />
+            </button>
+          )}
           {isCreator && (
             <button
               type="button"
@@ -219,6 +266,54 @@ export default function SessionCard({
           )}
         </div>
       </div>
+
+      {/* Poll Section (no fixed time yet) */}
+      {session.poll && session.poll.options.length > 0 && (
+        <div className="session-poll-section">
+          <div className="session-poll-header">
+            <span className="session-poll-title">
+              <VoteIcon /> {t("friendsPage.pollOpen")}
+            </span>
+            {session.poll.options.length > 1 && (
+              <span className="session-poll-hint">{t("friendsPage.pollHint")}</span>
+            )}
+          </div>
+          <div className="session-poll-options">
+            {session.poll.options.map((opt) => {
+              const voters = session.poll?.votes[opt.id] || [];
+              const voted = voters.includes(profile.name);
+              return (
+                <div key={opt.id} className={`session-poll-option${voted ? " voted" : ""}`}>
+                  <div className="session-poll-option-main">
+                    <span className="session-poll-time">{formatDateTime(opt.label)}</span>
+                    <span className="session-poll-votes">
+                      {voters.length > 0 ? `${voters.length} ✓` : ""}
+                    </span>
+                  </div>
+                  <div className="session-poll-option-actions">
+                    <button
+                      type="button"
+                      className={`btn btn-secondary btn--mini${voted ? " active" : ""}`}
+                      onClick={() => onVotePoll?.(session.id, opt.id)}
+                    >
+                      {voted ? t("friendsPage.voted") : t("friendsPage.vote")}
+                    </button>
+                    {canManage && (
+                      <button
+                        type="button"
+                        className="btn btn-primary btn--mini"
+                        onClick={() => onFinalizePoll?.(session.id, opt.id)}
+                      >
+                        <CheckIcon /> {t("friendsPage.finalizeTime")}
+                      </button>
+                    )}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
 
       {/* 2. Card Content (Description & Conflict Alert) */}
       {(session.description || conflicting) && (
