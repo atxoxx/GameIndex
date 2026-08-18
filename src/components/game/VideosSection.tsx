@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
+import Hls from "hls.js";
 import { invoke } from "@tauri-apps/api/core";
 import { useLanguage } from "../../context/LanguageContext";
 import type { AboutBundle, Game, MovieEntry } from "../../types/game";
@@ -59,9 +60,57 @@ function BigScreenVideoSelectorBtn({
   );
 }
 
+/**
+ * Player for newer Steam trailers that ship only an HLS playlist
+ * (`.m3u8`, H.264). Native HLS where the platform supports it,
+ * hls.js (MSE) everywhere else — Steam's CDN sends CORS headers.
+ */
+function HlsMoviePlayer({ movie }: { movie: MovieEntry }) {
+  const { t } = useLanguage();
+  const videoRef = useRef<HTMLVideoElement | null>(null);
+  const label = movie.name || t("game.trailer");
+
+  useEffect(() => {
+    const video = videoRef.current;
+    const src = movie.hlsH264;
+    if (!video || !src) return;
+
+    if (video.canPlayType("application/vnd.apple.mpegurl")) {
+      video.src = src;
+      return;
+    }
+
+    if (Hls.isSupported()) {
+      const hls = new Hls();
+      hls.loadSource(src);
+      hls.attachMedia(video);
+      return () => {
+        hls.destroy();
+      };
+    }
+  }, [movie.hlsH264]);
+
+  return (
+    <div className="videos-main-video-wrap">
+      <video
+        ref={videoRef}
+        controls
+        poster={movie.thumbnail || undefined}
+        playsInline
+        preload="metadata"
+        aria-label={label}
+        className="videos-main-video"
+      />
+    </div>
+  );
+}
+
 /** Native player for a Steam trailer (webm preferred, mp4 fallback). */
 function SteamMoviePlayer({ movie }: { movie: MovieEntry }) {
   const { t } = useLanguage();
+  if (movie.hlsH264 && !movie.webm && !movie.mp4) {
+    return <HlsMoviePlayer movie={movie} />;
+  }
   const sources: { src: string; type: string }[] = [];
   if (movie.webm) sources.push({ src: movie.webm, type: "video/webm" });
   if (movie.mp4) sources.push({ src: movie.mp4, type: "video/mp4" });

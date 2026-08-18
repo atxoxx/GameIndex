@@ -477,6 +477,9 @@ export interface MovieEntry {
   webm?: string;
   /** Best-res mp4 URL (max -> 480p -> full fallback chain). */
   mp4?: string;
+  /** Steam HLS master playlist (.m3u8, H.264). Present on newer trailers
+   *  that drop the legacy webm/mp4 slots; played via hls.js. */
+  hlsH264?: string;
   /** Steam's "main trailer" flag. Highlighted in the UI when true. */
   highlight: boolean;
 }

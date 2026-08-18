@@ -16,6 +16,7 @@
     "@tauri-apps/plugin-opener": "^2",
     "@tauri-apps/plugin-process": "^2.0.0",
     "@tauri-apps/plugin-updater": "^2.0.0",
+    "hls.js": "^1.7.0",
     "html2canvas": "^1.4.1",
     "lucide-react": "^1.31.0",
     "nostr-tools": "^2.23.12",

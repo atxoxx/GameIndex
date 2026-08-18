@@ -732,6 +732,8 @@ struct SteamMovie {
     webm: Option<SteamMovieVariant>,
     #[serde(default)]
     mp4: Option<SteamMovieVariant>,
+    #[serde(default, rename = "hls_h264")]
+    hls_h264: Option<String>,
 }
 
 #[derive(Debug, Deserialize, Clone)]
@@ -769,6 +771,10 @@ pub struct MovieEntry {
     /// full). Webm is preferred on capable browsers; mp4 is the
     /// universal fallback (Safari, mobile, embedded WebView).
     pub mp4: Option<String>,
+    /// Steam HLS master playlist (.m3u8, H.264). Newer trailers drop the
+    /// legacy webm/mp4 slots in favour of DASH/HLS manifests; the frontend
+    /// plays this via hls.js when no direct file is available.
+    pub hls_h264: Option<String>,
     pub highlight: bool,
 }
 
@@ -1498,6 +1504,7 @@ async fn fetch_steam_about_for_lang_cached(app_id: u32, lang: &str) -> Option<Ri
                 thumbnail: m.thumbnail.clone(),
                 webm,
                 mp4,
+                hls_h264: m.hls_h264.clone(),
                 highlight: m.highlight,
             }
         })
