@@ -6,6 +6,7 @@ import { useLanguage } from "../../../context/LanguageContext";
 import type { TempUnit } from "../../../context/SettingsContext";
 import { formatTemp, toDisplayTemp, toDisplayTemps, tempMinY, tempMaxY, tempUnitLabel, tempThreshold } from "../../../utils/temp";
 import * as Icons from "../Icons";
+import { SectionPanel, EmptyState } from "../../../components/activity";
 import type { GameSession } from "../../../types/game";
 
 const PTS = 45;
@@ -61,25 +62,25 @@ export function PerformanceTimeline({
   );
 
   return (
-    <div className="section-panel">
-      <div className="performance-timeline">
-        <div className="performance-timeline__header">
-          <h3 className="performance-timeline__title">
-            <Icons.History size={14} />
-            {t("activityPerf.sessionTimeline")}
-            {bundle && (
-              <span
-                className={`performance-timeline__badge ${
-                  bundle.estimated ? "performance-timeline__badge--estimated" : "performance-timeline__badge--live"
-                }`}
-                title={bundle.estimated ? t("activityPerf.telemetryCurve") : undefined}
-              >
-                {bundle.estimated ? t("activityPerf.estimated") : t("activityPerf.liveTelemetry")}
-              </span>
-            )}
-          </h3>
-
-          <div className="performance-timeline__controls">
+    <SectionPanel
+      icon={<Icons.History size={14} />}
+      title={
+        <>
+          {t("activityPerf.sessionTimeline")}
+          {bundle && (
+            <span
+              className={`performance-timeline__badge ${
+                bundle.estimated ? "performance-timeline__badge--estimated" : "performance-timeline__badge--live"
+              }`}
+              title={bundle.estimated ? t("activityPerf.telemetryCurve") : undefined}
+            >
+              {bundle.estimated ? t("activityPerf.estimated") : t("activityPerf.liveTelemetry")}
+            </span>
+          )}
+        </>
+      }
+      tools={
+        <div className="performance-timeline__controls">
             <div className="performance-timeline__game-selector">
               <span className="performance-timeline__game-selector-label">{t("activityPerf.gameLabel")}</span>
               <select
@@ -122,15 +123,12 @@ export function PerformanceTimeline({
               </div>
             )}
           </div>
-        </div>
+      }
+    >
+      <div className="performance-timeline">
 
         {!bundle ? (
-          <div className="activity-empty activity-empty--compact">
-            <div className="activity-empty__icon">
-              <Icons.Cpu size={18} />
-            </div>
-            <div className="activity-empty__title">{t("activityPerf.noTimelineData")}</div>
-          </div>
+          <EmptyState compact icon={<Icons.Cpu size={18} />} title={t("activityPerf.noTimelineData")} />
         ) : (
           <>
             {/* Stat cards: avg value + real curve min/max readouts */}
@@ -307,7 +305,7 @@ export function PerformanceTimeline({
           </>
         )}
       </div>
-    </div>
+    </SectionPanel>
   );
 }
 

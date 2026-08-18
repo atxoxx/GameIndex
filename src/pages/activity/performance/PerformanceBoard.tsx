@@ -1,6 +1,7 @@
 import { useMemo, useState } from "react";
 import * as Icons from "../Icons";
 import { GameThumbnail } from "../GameThumbnail";
+import { SectionPanel } from "../../../components/activity";
 import type { GamePerfAvg } from "./perfData";
 import { useLanguage } from "../../../context/LanguageContext";
 import type { TempUnit } from "../../../context/SettingsContext";
@@ -87,16 +88,11 @@ export function PerformanceBoard({
   };
 
   return (
-    <div className="section-panel performance-insights__table-panel">
-      <div className="performance-insights__chart-header">
-        <h3 className="section-panel__title">
-          <Icons.BarChart3 size={14} />
-          {t("activityPerf.detailedBoard")}
-        </h3>
-        <span className="performance-timeline__game-selector-label">
-          {t("activityPerf.boardCount", { count: games.length })}
-        </span>
-      </div>
+    <SectionPanel
+      icon={<Icons.BarChart3 size={14} />}
+      title={t("activityPerf.detailedBoard")}
+      tools={<span className="act-panel__sub">{t("activityPerf.boardCount", { count: games.length })}</span>}
+    >
       <div className="performance-insights__table-wrapper">
         <table className="performance-insights__table">
           <thead>
@@ -203,6 +199,6 @@ export function PerformanceBoard({
           </button>
         </div>
       )}
-    </div>
+    </SectionPanel>
   );
 }

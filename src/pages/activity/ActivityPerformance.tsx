@@ -4,6 +4,7 @@ import { useActivity } from "../../context/ActivityContext";
 import { useSettings } from "../../context/SettingsContext";
 import { useLanguage } from "../../context/LanguageContext";
 import * as Icons from "./Icons";
+import { SectionPanel, EmptyState } from "../../components/activity";
 import {
   buildGameAverages,
   buildOverview,
@@ -79,25 +80,27 @@ export function ActivityPerformance({
 
   if (!hasTelemetry || gameAverages.length === 0) {
     return (
-      <div className="section-panel">
-        <h3 className="section-panel__title">{t("activityPerf.performanceInsights")}</h3>
-        <div className="activity-empty">
-          <div className="activity-empty__icon">
-            <Icons.Cpu size={24} />
-          </div>
-          <div className="activity-empty__title">{t("activityPerf.noTelemetry")}</div>
-          <div className="activity-empty__hint">
-            {t("activityPerf.enableMonitoringHint")}
-            {sessions.length > 0 && filteredSessions.length === 0 && (
-              <>
-                {" "}
-                <br />
-                {t("activityPerf.noTelemetryInRange")}
-              </>
-            )}
-          </div>
-        </div>
-      </div>
+      <SectionPanel
+        icon={<Icons.Cpu size={14} />}
+        title={t("activityPerf.performanceInsights")}
+      >
+        <EmptyState
+          icon={<Icons.Cpu size={24} />}
+          title={t("activityPerf.noTelemetry")}
+          hint={
+            <>
+              {t("activityPerf.enableMonitoringHint")}
+              {sessions.length > 0 && filteredSessions.length === 0 && (
+                <>
+                  {" "}
+                  <br />
+                  {t("activityPerf.noTelemetryInRange")}
+                </>
+              )}
+            </>
+          }
+        />
+      </SectionPanel>
     );
   }
 

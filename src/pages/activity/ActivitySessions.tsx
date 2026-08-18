@@ -13,6 +13,9 @@ import { formatPlayTime, type Game, type GameSession } from "../../types/game";
 import { ConfirmModal } from "../../components/ui/ConfirmModal";
 import { generateEstimatedTimeline } from "./performance/perfData";
 import * as Icons from "./Icons";
+import { useNavigate } from "react-router-dom";
+import { EmptyState } from "../../components/activity";
+import { Button } from "../../components/ui";
 
 export interface ActivitySessionsProps {
   sessions: GameSession[];
@@ -362,6 +365,7 @@ export function ActivitySessions({
   onDeleteSession,
 }: ActivitySessionsProps) {
   const { t } = useLanguage();
+  const navigate = useNavigate();
   const [searchQuery, setSearchQuery] = useState("");
   const [visibleCount, setVisibleCount] = useState(15);
   const [pendingDeleteSession, setPendingDeleteSession] = useState<GameSession | null>(null);
@@ -423,24 +427,25 @@ export function ActivitySessions({
           );
         })}
 
-        {filteredSessions.length === 0 && (
-          sessions.length === 0 ? (
-            <div className="activity-empty">
-              <div className="activity-empty__icon">
-                <Icons.History size={24} />
-              </div>
-              <div className="activity-empty__title">{t("activitySessions.noSessions")}</div>
-              <div className="activity-empty__hint">{t("activitySessions.noSessionsHint")}</div>
-            </div>
+        {filteredSessions.length === 0 &&
+          (sessions.length === 0 ? (
+            <EmptyState
+              icon={<Icons.History size={24} />}
+              title={t("activityInsights.emptyTitle")}
+              hint={t("activityInsights.emptyHint")}
+              action={
+                <Button variant="secondary" size="sm" onClick={() => navigate("/library")}>
+                  {t("activityInsights.emptyAction")}
+                </Button>
+              }
+            />
           ) : (
-            <div className="activity-empty activity-empty--compact">
-              <div className="activity-empty__icon">
-                <Icons.Search size={18} />
-              </div>
-              <div className="activity-empty__title">{t("activitySessions.noMatchQuery")}</div>
-            </div>
-          )
-        )}
+            <EmptyState
+              compact
+              icon={<Icons.Search size={18} />}
+              title={t("activitySessions.noMatchQuery")}
+            />
+          ))}
 
         {filteredSessions.length > visibleCount && (
           <button

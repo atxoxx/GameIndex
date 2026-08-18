@@ -1,14 +1,3 @@
-import type { ReactNode } from "react";
-
-/**
- * Shared types + the consistent section-header pattern used by the
- * Playtime and Performance sub-views of the game Activity tab.
- *
- * Data memos (stats, chart data, hardware averages, timelines) are
- * computed once in GameActivityTab and passed down through these types —
- * sub-views never recompute them.
- */
-
 export type Timeframe = "7d" | "30d" | "90d" | "all";
 export type ViewMode = "playtime" | "performance";
 export type PlaytimeChartStyle = "bar" | "line";
@@ -54,41 +43,8 @@ export interface PerfTimelineData {
   real: boolean;
 }
 
-/**
- * The section header every content group shares: icon tile + title + sub
- * on the left, optional tools on the right. Reading one section header
- * teaches you where everything lives in both sub-views.
- */
-export function SectionHead({
-  icon,
-  title,
-  sub,
-  tools,
-}: {
-  icon?: ReactNode;
-  title: string;
-  sub?: ReactNode;
-  tools?: ReactNode;
-}) {
-  return (
-    <div className="game-activity-section-head">
-      {icon && (
-        <span className="game-activity-section-icon" aria-hidden="true">
-          {icon}
-        </span>
-      )}
-      <div className="game-activity-section-titles">
-        <h3 className="game-activity-section-title">{title}</h3>
-        {sub && <div className="game-activity-section-sub">{sub}</div>}
-      </div>
-      {tools && <div className="game-activity-section-tools">{tools}</div>}
-    </div>
-  );
-}
-
-/**
- * Seeded series generator to create smooth curves mathematically consistent with session metrics.
- */
+/** Seeded series generator — deterministic smooth curves consistent with
+ *  session metrics, used when no real per-sample telemetry exists. */
 export function generateConsistentSeries(
   avgVal: number,
   minVal: number,
@@ -117,7 +73,6 @@ export function generateConsistentSeries(
     series[i] = Math.max(minVal, Math.min(maxVal, Math.round(avgVal + noise * spread)));
   }
 
-  // Adjust values so the average matches exactly
   const targetSum = avgVal * N;
   let currentSum = series.reduce((sum, val) => sum + val, 0);
   let attempts = 0;
@@ -139,4 +94,3 @@ export function generateConsistentSeries(
 
   return series;
 }
-

@@ -1,6 +1,7 @@
 import { useMemo } from "react";
 import * as Icons from "../Icons";
 import { GameThumbnail } from "../GameThumbnail";
+import { SectionPanel, Segmented } from "../../../components/activity";
 import type { GamePerfAvg } from "./perfData";
 import { useLanguage } from "../../../context/LanguageContext";
 import type { TempUnit } from "../../../context/SettingsContext";
@@ -94,37 +95,26 @@ export function PerformanceComparison({
   const barColor = barColorFor(metricTab);
 
   return (
-    <div className="section-panel performance-insights__chart-panel">
-      <div className="performance-insights__chart-header">
-        <h3 className="section-panel__title">
-          <Icons.BarChart3 size={14} />
-          {t("activityPerf.gameComparisons")}
-        </h3>
-        <div className="performance-insights__tabs" role="tablist" aria-label={t("activityPerf.gameComparisons")}>
-          {(["fps", "temps", "ram"] as const).map((m) => (
-            <button
-              key={m}
-              type="button"
-              role="tab"
-              aria-selected={metricTab === m}
-              className={`performance-insights__tab-btn ${
-                metricTab === m ? "performance-insights__tab-btn--active" : ""
-              }`}
-              onClick={() => onMetricTabChange(m)}
-            >
-              {m === "fps" && <Icons.BarChart3 size={12} />}
-              {m === "temps" && <Icons.Flame size={12} />}
-              {m === "ram" && <Icons.Cpu size={12} />}
-              {m === "fps"
-                ? t("activityPerf.avgFps")
-                : m === "temps"
-                  ? t("activityPerf.tempsUnit", { unit: tempUnitLabel(tempUnit).replace("°", "") })
-                  : t("activityPerf.ramGb")}
-            </button>
-          ))}
-        </div>
-      </div>
-
+    <SectionPanel
+      icon={<Icons.BarChart3 size={14} />}
+      title={t("activityPerf.gameComparisons")}
+      tools={
+        <Segmented<ComparisonMetric>
+          size="sm"
+          ariaLabel={t("activityPerf.gameComparisons")}
+          value={metricTab}
+          onChange={onMetricTabChange}
+          options={[
+            { value: "fps", label: <><Icons.BarChart3 size={12} /> {t("activityPerf.avgFps")}</> },
+            {
+              value: "temps",
+              label: <><Icons.Flame size={12} /> {t("activityPerf.tempsUnit", { unit: tempUnitLabel(tempUnit).replace("°", "") })}</>,
+            },
+            { value: "ram", label: <><Icons.Cpu size={12} /> {t("activityPerf.ramGb")}</> },
+          ]}
+        />
+      }
+    >
       <div className="performance-compare-bar">
         {rows.map((row, index) => {
           const pct = Math.max(5, Math.min(100, (row.value / maxVal) * 100));
@@ -170,6 +160,6 @@ export function PerformanceComparison({
           </div>
         )}
       </div>
-    </div>
+    </SectionPanel>
   );
 }
