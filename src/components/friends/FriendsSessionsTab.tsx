@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { useLanguage } from "../../context/LanguageContext";
 import type {
   GameSession,
@@ -24,6 +24,11 @@ interface FriendsSessionsTabProps {
   profile: UserProfile;
   friends: Friend[];
   libraryGames: any[];
+  /** Friend name to pre-invite when the create-session form opens (from a
+   *  friend card's "Invite to session" action). */
+  prefillInvite?: string | null;
+  /** Called after the prefill has been applied so it isn't re-applied. */
+  onPrefillConsumed?: () => void;
   onRsvp: (sessionId: string, status: RsvpStatus) => void;
   onCreateSession: (session: Omit<GameSession, "id" | "updatedAt">) => void;
   onDeleteSession: (sessionId: string) => void;
@@ -40,6 +45,8 @@ export default function FriendsSessionsTab({
   profile,
   friends,
   libraryGames,
+  prefillInvite,
+  onPrefillConsumed,
   onRsvp,
   onCreateSession,
   onDeleteSession,
@@ -174,6 +181,15 @@ export default function FriendsSessionsTab({
       prev.includes(friendName) ? prev.filter((n) => n !== friendName) : [...prev, friendName]
     );
   };
+
+  // Apply a friend-card "Invite to session" request: open the create form
+  // with that friend pre-selected in the invitee list.
+  useEffect(() => {
+    if (!prefillInvite) return;
+    setInvitedFriends((prev) => (prev.includes(prefillInvite) ? prev : [...prev, prefillInvite]));
+    setShowCreateModal(true);
+    onPrefillConsumed?.();
+  }, [prefillInvite, onPrefillConsumed]);
 
   return (
     <div className="friends-sessions-section">

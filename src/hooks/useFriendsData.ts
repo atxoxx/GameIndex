@@ -15,7 +15,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
 import { SimplePool } from "nostr-tools/pool";
-import { finalizeEvent, verifyEvent } from "nostr-tools/pure";
+import { verifyEvent } from "nostr-tools/pure";
 import { useGames } from "../context/GameContext";
 import { useAchievements } from "../context/AchievementContext";
 import { useToast } from "../context/ToastContext";
@@ -60,6 +60,9 @@ import {
   mergeDms,
   addUnseenTabItems,
   addUnseenCommunityItems,
+  buildNostrOutboxPayload,
+  publishNostrOutbox,
+  stripDms,
 } from "../pages/friendsStorage";
 
 const NOSTR_RELAYS = [
@@ -108,7 +111,6 @@ export function useFriendsData(): UseFriendsDataResult {
   const [sessions, setSessions] = useState<GameSession[]>(() => loadSessions());
   const [recommendations, setRecommendations] = useState<GameRecommendation[]>(() => loadRecommendations());
   const [suggestions, setSuggestions] = useState<GameSuggestion[]>(() => loadSuggestions());
-  const [dms, setDms] = useState<DmThread[]>(() => loadDms());
   const [friendCodeInput, setFriendCodeInput] = useState("");
   const [decodedFriend, setDecodedFriend] = useState<Friend | null>(null);
   const [isSyncing, setIsSyncing] = useState(false);
@@ -241,7 +243,6 @@ export function useFriendsData(): UseFriendsDataResult {
           setSessions(loadSessions());
           setRecommendations(loadRecommendations());
           setSuggestions(loadSuggestions());
-          setDms(loadDms());
           setDbLoadVersion((v) => v + 1);
         }
 
@@ -271,60 +272,17 @@ export function useFriendsData(): UseFriendsDataResult {
   ) => {
     const res = await pushMyOutboxStorage(currProfile, currStats, currSessions, currRecs, currSharedGames, currSuggestions, currDms);
 
-    // Also publish to Nostr
-    const db: FriendsDatabase = {
-      profile: currProfile,
-      friends: friends,
-      sessions: currSessions,
-      recommendations: currRecs,
-      suggestions: currSuggestions || [],
-      dms: currDms || dms,
-    };
-    try {
-      const keys = getNostrKeys();
-      const localFriendsList = loadFriends();
-
-      const payload = {
-        syncId: keys.publicKey,
-        profile: {
-          name: db.profile?.name || "",
-          avatar: db.profile?.avatar || "",
-          status: db.profile?.status || "",
-          favoriteGame: db.profile?.favoriteGameName || "",
-          currentlyPlaying: db.profile?.currentlyPlaying || "",
-          bio: db.profile?.bio || "",
-          region: db.profile?.region || "",
-          libStats: currStats,
-        },
-        friends: localFriendsList.map((f) => f.syncId),
-        games: currSharedGames || [],
-        sessions: db.sessions,
-        recommendations: db.recommendations,
-        suggestions: db.suggestions || [],
-        updatedAt: Date.now(),
-      };
-
-      const eventTemplate = {
-        kind: 30078,
-        created_at: Math.floor(Date.now() / 1000),
-        tags: [["d", "gamelib-friends-outbox"]],
-        content: JSON.stringify(payload),
-      };
-
-      const signedEvent = finalizeEvent(eventTemplate, keys.privateKey);
-
-      await Promise.all(
-        NOSTR_RELAYS.map(async (relay) => {
-          try {
-            await nostrPool.publish([relay], signedEvent);
-          } catch (err) {
-            console.error(`Nostr: failed to publish to ${relay}:`, err);
-          }
-        })
-      );
-    } catch (err) {
-      console.error("Nostr: failed to sign/publish event:", err);
-    }
+    // Also publish to Nostr (the public-relay payload deliberately excludes
+    // DM threads — those only travel through the private folder / P2P sync).
+    const payload = buildNostrOutboxPayload(
+      currProfile,
+      currStats,
+      currSessions,
+      currRecs,
+      currSharedGames,
+      currSuggestions
+    );
+    await publishNostrOutbox(payload);
     return res;
   };
 
@@ -482,8 +440,11 @@ export function useFriendsData(): UseFriendsDataResult {
             }
           }
 
-          // Record a successful contact even when nothing changed.
-          if (friend.lastSeen !== nowSecs) {
+          // Only bump `lastSeen` (and thus mark the friend as updated) when
+          // the value meaningfully changes — otherwise every 15s poll would
+          // flag every friend as "updated", rewriting storage + re-rendering.
+          const lastSeenStale = !friend.lastSeen || nowSecs - friend.lastSeen > 300;
+          if (lastSeenStale) {
             friendsUpdated = true;
             updatedFriends.push({ ...friend, lastSeen: nowSecs });
             continue;
@@ -521,7 +482,6 @@ export function useFriendsData(): UseFriendsDataResult {
       setSessions(finalSessions);
       setRecommendations(finalRecs);
       setSuggestions(finalSuggestions);
-      setDms(finalDms);
     }
 
     if (friendsUpdated) {
@@ -649,7 +609,6 @@ export function useFriendsData(): UseFriendsDataResult {
       setSessions(merged.sessions);
       setRecommendations(merged.recommendations);
       setSuggestions(merged.suggestions);
-      setDms(merged.dms);
 
       if (newDmMessages > 0) addUnseenTabItems("dms", newDmMessages);
 
@@ -665,7 +624,6 @@ export function useFriendsData(): UseFriendsDataResult {
     let unlisten: (() => void) | undefined;
     const setup = async () => {
       unlisten = await listen<string>("internet-sync-received", (event) => {
-        console.log("Received internet sync database payload");
         try {
           const remoteDb = JSON.parse(event.payload) as FriendsDatabase;
           handleReceiveRemoteData(remoteDb);
@@ -701,9 +659,9 @@ export function useFriendsData(): UseFriendsDataResult {
             console.error("Nostr: invalid signature for event:", event.id);
             return;
           }
-          console.log("Nostr: received updated outbox from friend pubkey:", event.pubkey);
           try {
-            const remoteDb = JSON.parse(event.content) as FriendsDatabase;
+            // Public relay — never adopt DM threads from this channel.
+            const remoteDb = stripDms(JSON.parse(event.content) as FriendsDatabase);
             handleReceiveRemoteData(remoteDb);
           } catch (err) {
             console.error("Nostr: failed to parse remote data:", err);

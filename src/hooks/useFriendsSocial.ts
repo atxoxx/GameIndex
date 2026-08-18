@@ -27,8 +27,6 @@
 //   duplicates that engine.
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { SimplePool } from "nostr-tools/pool";
-import { finalizeEvent } from "nostr-tools/pure";
 import { useGames } from "../context/GameContext";
 import { useAchievements } from "../context/AchievementContext";
 import { useWishlistContext } from "../context/WishlistContext";
@@ -73,17 +71,10 @@ import {
   safeCurrentlyPlaying,
   listPeerOutboxes,
   fetchFriendOutbox,
-  getNostrKeys,
   pushMyOutbox as pushMyOutboxStorage,
-} from "../pages/friendsStorage";
-import { detectTimezone, sessionsConflict } from "../components/bigscreen/friends/friendsUtils";
-
-const NOSTR_RELAYS = [
-  "wss://relay.damus.io",
-  "wss://nos.lol",
-  "wss://relay.snort.social",
-  "wss://relay.primal.net",
-];
+  buildNostrOutboxPayload,
+  publishNostrOutbox,
+} from "../pages/friendsStorage";import { detectTimezone, sessionsConflict } from "../components/bigscreen/friends/friendsUtils";
 
 // ── Shared result types ──────────────────────────────────────────
 
@@ -372,11 +363,8 @@ export function useFriendsSocial(fd: UseFriendsDataResult): UseFriendsSocialResu
     recommendationsRef.current = recommendations;
   }, [recommendations]);
   const suggestionsRef = useRef(suggestions);
-  useEffect(() => {
-    suggestionsRef.current = suggestions;
+  useEffect(() => {    suggestionsRef.current = suggestions;
   }, [suggestions]);
-
-  const nostrPool = useMemo(() => new SimplePool(), []);
 
   // ── Reload from storage after each sync cycle ───────────────────
 
@@ -513,48 +501,10 @@ export function useFriendsSocial(fd: UseFriendsDataResult): UseFriendsSocialResu
 
   const publishToNostr = useCallback(
     async (p: UserProfile, s: GameSession[], recs: GameRecommendation[], sugs: GameSuggestion[]) => {
-      try {
-        const keys = getNostrKeys();
-        const payload = {
-          syncId: keys.publicKey,
-          profile: {
-            name: p.name || "",
-            avatar: p.avatar || "",
-            status: p.status || "",
-            favoriteGame: p.favoriteGameName || "",
-            currentlyPlaying: p.currentlyPlaying || "",
-            bio: p.bio || "",
-            region: p.region || "",
-            libStats: fd.selfStats,
-          },
-          friends: friendsRef.current.map((f) => f.syncId),
-          games: selfSharedGames,
-          sessions: s,
-          recommendations: recs,
-          suggestions: sugs,
-          updatedAt: Date.now(),
-        };
-        const eventTemplate = {
-          kind: 30078,
-          created_at: Math.floor(Date.now() / 1000),
-          tags: [["d", "gamelib-friends-outbox"]],
-          content: JSON.stringify(payload),
-        };
-        const signedEvent = finalizeEvent(eventTemplate, keys.privateKey);
-        await Promise.all(
-          NOSTR_RELAYS.map(async (relay) => {
-            try {
-              await nostrPool.publish([relay], signedEvent);
-            } catch (err) {
-              console.error(`Nostr: failed to publish to ${relay}:`, err);
-            }
-          }),
-        );
-      } catch (err) {
-        console.error("Nostr: failed to sign/publish event:", err);
-      }
+      const payload = buildNostrOutboxPayload(p, fd.selfStats, s, recs, selfSharedGames, sugs);
+      await publishNostrOutbox(payload);
     },
-    [fd.selfStats, selfSharedGames, nostrPool],
+    [fd.selfStats, selfSharedGames],
   );
 
   /** Push the authoritative outbox (folder write + Nostr). DM threads

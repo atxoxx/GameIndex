@@ -2,7 +2,7 @@ import { useState, useMemo, useEffect, useRef } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
 import { SimplePool } from "nostr-tools/pool";
-import { finalizeEvent, verifyEvent } from "nostr-tools/pure";
+import { verifyEvent } from "nostr-tools/pure";
 import { useGames } from "../context/GameContext";
 import { useAchievements } from "../context/AchievementContext";
 import { useToast } from "../context/ToastContext";
@@ -52,6 +52,9 @@ import {
   fetchFriendOutbox,
   pushMyOutbox as pushMyOutboxStorage,
   buildOutboxPayload,
+  buildNostrOutboxPayload,
+  publishNostrOutbox,
+  stripDms,
   loadFriendsDbToLocalStorage,
   setDeviceId,
   listPeerOutboxes,
@@ -144,6 +147,10 @@ export default function FriendsPage() {
   const [showCirclesModal, setShowCirclesModal] = useState(false);
   const [showP2pModal, setShowP2pModal] = useState(false);
   const [nicknameModalFriend, setNicknameModalFriend] = useState<Friend | null>(null);
+
+  // Friend invited from a card's "Invite to session" action — pre-fills the
+  // create-session form when the Sessions tab opens.
+  const [pendingSessionInvite, setPendingSessionInvite] = useState<string | null>(null);
 
   // Friend Code input & live decode
   const [friendCodeInput, setFriendCodeInput] = useState("");
@@ -364,51 +371,15 @@ export default function FriendsPage() {
     sharedGames?: SharedGameStat[],
     stats: { gamesCount: number; playtimeMinutes: number; achievementsCount: number } = selfStats
   ) => {
-    try {
-      const keys = getNostrKeys();
-      const localFriendsList = loadFriends();
-
-      const payload = {
-        syncId: keys.publicKey,
-        profile: {
-          name: db.profile?.name || "",
-          avatar: db.profile?.avatar || "",
-          status: db.profile?.status || "",
-          favoriteGame: db.profile?.favoriteGameName || "",
-          currentlyPlaying: db.profile?.currentlyPlaying || "",
-          bio: db.profile?.bio || "",
-          region: db.profile?.region || "",
-          libStats: stats,
-        },
-        friends: localFriendsList.map((f) => f.syncId),
-        games: sharedGames || [],
-        sessions: db.sessions,
-        recommendations: db.recommendations,
-        suggestions: db.suggestions || [],
-        updatedAt: Date.now(),
-      };
-
-      const eventTemplate = {
-        kind: 30078,
-        created_at: Math.floor(Date.now() / 1000),
-        tags: [["d", "gamelib-friends-outbox"]],
-        content: JSON.stringify(payload),
-      };
-
-      const signedEvent = finalizeEvent(eventTemplate, keys.privateKey);
-
-      await Promise.all(
-        NOSTR_RELAYS.map(async (relay) => {
-          try {
-            await nostrPool.publish([relay], signedEvent);
-          } catch (err) {
-            console.error(`Nostr: failed to publish to ${relay}:`, err);
-          }
-        })
-      );
-    } catch (err) {
-      console.error("Nostr: failed to sign/publish event:", err);
-    }
+    const payload = buildNostrOutboxPayload(
+      db.profile || profile,
+      stats,
+      db.sessions,
+      db.recommendations,
+      sharedGames,
+      db.suggestions
+    );
+    await publishNostrOutbox(payload);
   };
 
   const pushMyOutbox = async (
@@ -753,7 +724,13 @@ export default function FriendsPage() {
               }
             }
 
-            if (friend.lastSeen !== nowSecs) {
+            // Only bump `lastSeen` (and thus mark the friend as updated) when
+            // the value meaningfully changes — otherwise every 15s poll would
+            // flag every friend as "updated", rewriting storage + re-rendering
+            // the whole page. 5-minute granularity is plenty for a "last seen"
+            // label and keeps idle polls a true no-op.
+            const lastSeenStale = !friend.lastSeen || nowSecs - friend.lastSeen > 300;
+            if (lastSeenStale) {
               friendsUpdated = true;
               updatedFriends.push({ ...friend, lastSeen: nowSecs });
               friendLogs.push(
@@ -777,15 +754,31 @@ export default function FriendsPage() {
         updatedFriends.push(friend);
       }
 
+      // ── Anti-race re-merge before the final write ─────────────────────
+      // The engine read storage when the sync started; a local mutation made
+      // while it was running (session message, RSVP, create session,
+      // rec/suggestion, friend edit…) would otherwise be overwritten by that
+      // stale snapshot. Re-read + re-merge current storage against the
+      // engine's result immediately before persisting — in-flight edits carry
+      // a newer updatedAt and win the merge.
+      let finalSessions = mergedSessions;
+      let finalRecs = mergedRecs;
+      let finalSuggestions = mergedSuggestions;
+      let finalDms = mergedDms;
+
       if (changesMade) {
-        saveSessions(mergedSessions);
-        saveRecommendations(mergedRecs);
-        saveSuggestions(mergedSuggestions);
-        saveDmsAndPersist(mergedDms);
-        setSessions(mergedSessions);
-        setRecommendations(mergedRecs);
-        setSuggestions(mergedSuggestions);
-        setDms(mergedDms);
+        finalSessions = mergeSessions(loadSessions(), mergedSessions);
+        finalRecs = mergeRecommendations(loadRecommendations(), mergedRecs);
+        finalSuggestions = mergeSuggestions(loadSuggestions(), mergedSuggestions);
+        finalDms = mergeDms(loadDms(), mergedDms, currProfile.name);
+        saveSessions(finalSessions);
+        saveRecommendations(finalRecs);
+        saveSuggestions(finalSuggestions);
+        saveDmsAndPersist(finalDms);
+        setSessions(finalSessions);
+        setRecommendations(finalRecs);
+        setSuggestions(finalSuggestions);
+        setDms(finalDms);
         setUnseenCounts({
           sessions: getUnseenTabItems("sessions"),
           recs: getUnseenTabItems("recs"),
@@ -796,18 +789,28 @@ export default function FriendsPage() {
       }
 
       if (friendsUpdated) {
-        saveFriends(updatedFriends);
-        setFriends(updatedFriends);
+        // Overlay the engine's remote profile updates over FRESH storage so a
+        // mid-sync add/delete/pin/block/nickname is never clobbered either.
+        const freshFriends = loadFriends();
+        const engineById = new Map(updatedFriends.map((f) => [f.syncId, f]));
+        const finalFriends = freshFriends.map((f) => {
+          const engineF = engineById.get(f.syncId);
+          if (!engineF) return f;
+          // Remote profile data wins; local-only fields stay authoritative.
+          return { ...f, ...engineF, pinned: f.pinned, blocked: f.blocked, nickname: f.nickname, groups: f.groups };
+        });
+        saveFriends(finalFriends);
+        setFriends(finalFriends);
       }
 
       const pushed = await pushMyOutbox(
         currProfile,
         selfStatsRef.current,
-        mergedSessions,
-        mergedRecs,
+        finalSessions,
+        finalRecs,
         selfSharedGamesRef.current,
-        mergedSuggestions,
-        mergedDms,
+        finalSuggestions,
+        finalDms,
         manual
       );
 
@@ -955,7 +958,8 @@ export default function FriendsPage() {
         onevent(event) {
           if (!verifyEvent(event)) return;
           try {
-            const remoteDb = JSON.parse(event.content) as FriendsDatabase;
+            // Public relay — never adopt DM threads from this channel.
+            const remoteDb = stripDms(JSON.parse(event.content) as FriendsDatabase);
             handleReceiveRemoteData(remoteDb);
           } catch (err) {
             console.error("Nostr: failed to parse remote data:", err);
@@ -1104,6 +1108,7 @@ export default function FriendsPage() {
   };
 
   const handleInviteToSession = (friend: Friend) => {
+    setPendingSessionInvite(displayName(friend));
     setActiveTab("sessions");
     showToast(t("friendsPage.invitingToSession", { name: displayName(friend) }), "info");
   };
@@ -1356,7 +1361,21 @@ export default function FriendsPage() {
   };
 
   const handleToggleWishlistSuggestion = (gameId: string, gameName: string) => {
-    toggleWishlist({ id: gameId, name: gameName } as any);
+    toggleWishlist({
+      id: Number(gameId) || 0,
+      name: gameName,
+      slug: gameId,
+      summary: null,
+      rating: null,
+      aggregatedRating: null,
+      coverUrl: null,
+      logoUrl: null,
+      genres: [],
+      platforms: [],
+      firstReleaseDate: null,
+      totalRatingCount: 0,
+      hypes: 0,
+    });
   };
 
   const handleAddSuggestionComment = async (sugId: string, text: string) => {
@@ -1596,6 +1615,8 @@ export default function FriendsPage() {
             profile={profile}
             friends={friends}
             libraryGames={games}
+            prefillInvite={pendingSessionInvite}
+            onPrefillConsumed={() => setPendingSessionInvite(null)}
             onRsvp={handleRsvp}
             onCreateSession={handleCreateSession}
             onDeleteSession={handleDeleteSession}

@@ -1,5 +1,5 @@
 import { invoke } from "@tauri-apps/api/core";
-import { generateSecretKey, getPublicKey } from "nostr-tools/pure";
+import { generateSecretKey, getPublicKey, finalizeEvent } from "nostr-tools/pure";
 import { SimplePool } from "nostr-tools/pool";
 
 const nostrPoolForPreview = new SimplePool();
@@ -32,35 +32,99 @@ export interface NostrKeys {
 
 let cachedNostrKeys: NostrKeys | null = null;
 
-export function getNostrKeys(): NostrKeys {
-  if (cachedNostrKeys) return cachedNostrKeys;
-  
+const LS_NOSTR_PRIVKEY = "gamelib.friends.nostr_privkey";
+
+/**
+ * Loads (or creates) the Nostr signing key used for the friends outbox.
+ *
+ * The key lives in the backend `kv_store` (SQLite) — the repo's standard
+ * secret location, since the OS keychain's Windows backend silently fails.
+ * `initNostrKeys` must run before the friends page renders (see main.tsx)
+ * so `getNostrKeys` can resolve synchronously from the in-memory cache.
+ * The legacy localStorage copy is migrated on first run and never written
+ * again outside of dev mode, where the backend is unavailable.
+ */
+export async function initNostrKeys(): Promise<void> {
+  if (cachedNostrKeys) return;
+
+  // 1. Primary: backend kv_store.
+  try {
+    const stored = await invoke<string | null>("get_friends_nostr_privkey");
+    if (stored && /^[0-9a-fA-F]{64}$/.test(stored)) {
+      const sk = hexToBytes(stored);
+      cachedNostrKeys = { privateKey: sk, privateKeyHex: stored, publicKey: getPublicKey(sk) };
+      // Drop any legacy plaintext copy from localStorage now that the key
+      // lives in the backend.
+      try {
+        localStorage.removeItem(LS_NOSTR_PRIVKEY);
+      } catch {
+        /* ignore */
+      }
+      return;
+    }
+  } catch {
+    // Backend unavailable (frontend-only dev) — fall through.
+  }
+
+  // 2. Legacy localStorage (dev mode, or a key generated before the
+  //    kv_store migration). Migrate it to the backend when possible.
   let skHex: string | null = null;
   try {
-    skHex = localStorage.getItem("gamelib.friends.nostr_privkey");
+    skHex = localStorage.getItem(LS_NOSTR_PRIVKEY);
   } catch {
     /* ignore */
   }
-  
+
   let sk: Uint8Array;
-  if (!skHex) {
+  if (skHex && /^[0-9a-fA-F]{64}$/.test(skHex)) {
+    sk = hexToBytes(skHex);
+  } else {
     sk = generateSecretKey();
     skHex = bytesToHex(sk);
     try {
-      localStorage.setItem("gamelib.friends.nostr_privkey", skHex);
+      localStorage.setItem(LS_NOSTR_PRIVKEY, skHex);
     } catch {
       /* ignore */
     }
-  } else {
-    sk = hexToBytes(skHex);
   }
-  
-  const pk = getPublicKey(sk);
-  cachedNostrKeys = {
-    privateKey: sk,
-    privateKeyHex: skHex,
-    publicKey: pk,
-  };
+
+  cachedNostrKeys = { privateKey: sk, privateKeyHex: skHex, publicKey: getPublicKey(sk) };
+
+  // Best-effort migration to the backend; only clears localStorage once the
+  // backend actually accepted the key.
+  try {
+    await invoke("set_friends_nostr_privkey", { hex: skHex });
+    try {
+      localStorage.removeItem(LS_NOSTR_PRIVKEY);
+    } catch {
+      /* ignore */
+    }
+  } catch {
+    /* backend unavailable — keep the dev-only localStorage copy */
+  }
+}
+
+export function getNostrKeys(): NostrKeys {
+  if (cachedNostrKeys) return cachedNostrKeys;
+
+  // Defensive fallback when `initNostrKeys` hasn't run (main.tsx awaits it
+  // before first render). Never writes to localStorage from here so the
+  // plaintext copy can't be recreated in production.
+  let skHex: string | null = null;
+  try {
+    skHex = localStorage.getItem(LS_NOSTR_PRIVKEY);
+  } catch {
+    /* ignore */
+  }
+  if (skHex && /^[0-9a-fA-F]{64}$/.test(skHex)) {
+    const sk = hexToBytes(skHex);
+    cachedNostrKeys = { privateKey: sk, privateKeyHex: skHex, publicKey: getPublicKey(sk) };
+    return cachedNostrKeys;
+  }
+
+  const sk = generateSecretKey();
+  const freshHex = bytesToHex(sk);
+  cachedNostrKeys = { privateKey: sk, privateKeyHex: freshHex, publicKey: getPublicKey(sk) };
   return cachedNostrKeys;
 }
 
@@ -977,6 +1041,120 @@ export interface SyncResult {
  * Publishes local social items and current player statistics to our outbox
  * subfolder in the fixed sync directory. Returns success + a human reason.
  */
+/** Maximum number of per-game stats shared in an outbox payload. */
+const MAX_SHARED_GAMES = 1000;
+
+/**
+ * Keeps the outbox bounded: most-played games first, capped so a large
+ * library doesn't bloat every sync write + relay publish.
+ */
+export function capSharedGames(games: SharedGameStat[] | undefined): SharedGameStat[] {
+  if (!games || games.length === 0) return [];
+  return games
+    .slice()
+    .sort((a, b) => b.playTimeMin - a.playTimeMin)
+    .slice(0, MAX_SHARED_GAMES);
+}
+
+export interface NostrOutboxPayload {
+  syncId: string;
+  profile: {
+    name: string;
+    avatar: string;
+    status: string;
+    favoriteGame: string;
+    currentlyPlaying: string;
+    bio: string;
+    region: string;
+    libStats: { gamesCount: number; playtimeMinutes: number; achievementsCount: number };
+  };
+  friends: string[];
+  games: SharedGameStat[];
+  sessions: GameSession[];
+  recommendations: GameRecommendation[];
+  suggestions: GameSuggestion[];
+  updatedAt: number;
+}
+
+const NOSTR_RELAYS = [
+  "wss://relay.damus.io",
+  "wss://nos.lol",
+  "wss://relay.snort.social",
+  "wss://relay.primal.net",
+];
+
+let nostrPublishPool: SimplePool | null = null;
+function getNostrPublishPool(): SimplePool {
+  if (!nostrPublishPool) nostrPublishPool = new SimplePool();
+  return nostrPublishPool;
+}
+
+/**
+ * Builds the kind-30078 outbox payload broadcast to public relays.
+ * Deliberately EXCLUDES DM threads — those travel only through the private
+ * folder / P2P channels, never through public relays.
+ */
+export function buildNostrOutboxPayload(
+  profile: UserProfile,
+  stats: { gamesCount: number; playtimeMinutes: number; achievementsCount: number },
+  sessions: GameSession[],
+  recs: GameRecommendation[],
+  sharedGames?: SharedGameStat[],
+  suggestions?: GameSuggestion[]
+): NostrOutboxPayload {
+  const localFriends = loadFriends();
+  return {
+    syncId: profile.syncId,
+    profile: {
+      name: profile.name || "",
+      avatar: profile.avatar || "",
+      status: profile.status || "",
+      favoriteGame: profile.favoriteGameName || "",
+      currentlyPlaying: profile.currentlyPlaying || "",
+      bio: profile.bio || "",
+      region: profile.region || "",
+      libStats: stats,
+    },
+    friends: localFriends.map((f) => f.syncId),
+    games: capSharedGames(sharedGames),
+    sessions,
+    recommendations: recs,
+    suggestions: suggestions || [],
+    updatedAt: Date.now(),
+  };
+}
+
+/** Signs and publishes an outbox payload to the public relays. */
+export async function publishNostrOutbox(payload: NostrOutboxPayload): Promise<void> {
+  try {
+    const keys = getNostrKeys();
+    const eventTemplate = {
+      kind: 30078,
+      created_at: Math.floor(Date.now() / 1000),
+      tags: [["d", "gamelib-friends-outbox"]],
+      content: JSON.stringify(payload),
+    };
+    const signedEvent = finalizeEvent(eventTemplate, keys.privateKey);
+    await Promise.all(
+      NOSTR_RELAYS.map(async (relay) => {
+        try {
+          await getNostrPublishPool().publish([relay], signedEvent);
+        } catch (err) {
+          console.error(`Nostr: failed to publish to ${relay}:`, err);
+        }
+      })
+    );
+  } catch (err) {
+    console.error("Nostr: failed to sign/publish event:", err);
+  }
+}
+
+/** Strips DM threads from a remote payload (used for public-relay sources). */
+export function stripDms<T extends { dms?: unknown }>(db: T): T {
+  if (db && db.dms) delete db.dms;
+  return db;
+}
+
 export function buildOutboxPayload(
   profile: UserProfile,
   stats: { gamesCount: number; playtimeMinutes: number; achievementsCount: number },
@@ -1000,7 +1178,7 @@ export function buildOutboxPayload(
       libStats: stats,
     },
     friends: localFriends.map((f) => f.syncId),
-    games: sharedGames || [],
+    games: capSharedGames(sharedGames),
     sessions,
     recommendations: recs,
     suggestions: suggestions || [],
@@ -1073,18 +1251,17 @@ export async function fetchFriendOutbox(friendSyncId: string): Promise<{
     // Ignore local folder read failure, fallback to Nostr
   }
 
-  // 2. Try Nostr relays
+  // 2. Try Nostr relays (public — DM threads are stripped from anything
+  //    read here so private messages never get pulled over a public relay).
   if (/^[0-9a-fA-F]{64}$/.test(friendSyncId)) {
     try {
-      console.log(`Nostr: fetching outbox preview for ${friendSyncId} from relays...`);
       const event = await nostrPoolForPreview.get(nostrRelaysForPreview, {
         authors: [friendSyncId],
         kinds: [30078],
         "#d": ["gamelib-friends-outbox"],
       });
       if (event) {
-        console.log(`Nostr: successfully fetched outbox preview for ${friendSyncId}`);
-        return JSON.parse(event.content);
+        return stripDms(JSON.parse(event.content));
       }
     } catch (err) {
       console.error(`Nostr: failed to fetch preview event for ${friendSyncId}:`, err);

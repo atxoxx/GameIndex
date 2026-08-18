@@ -4084,6 +4084,8 @@ pub fn run() {
             read_sync_file,
             get_friends_sync_dir,
             get_friends_device_id,
+            get_friends_nostr_privkey,
+            set_friends_nostr_privkey,
             list_friend_outboxes,
             load_friends_db,
             save_friends_db,
@@ -4452,6 +4454,29 @@ fn ensure_device_id(app: &tauri::AppHandle) -> Result<String, String> {
 #[tauri::command]
 fn get_friends_device_id(app: tauri::AppHandle) -> Result<String, String> {
     ensure_device_id(&app)
+}
+
+/// Reads the Nostr signing key from the SQLite kv_store (the repo's
+/// standard secret location — the OS keychain's Windows backend silently
+/// fails). Returns `None` when no key has been generated yet.
+#[tauri::command]
+fn get_friends_nostr_privkey(app: tauri::AppHandle) -> Result<Option<String>, String> {
+    let db = app.state::<db::Db>();
+    db::kv::get(&db, "friends_nostr_privkey")
+}
+
+/// Persists the Nostr signing key to the SQLite kv_store, verifying the
+/// write with a readback so a silent persistence failure is never mistaken
+/// for success (mirrors the epic/gog token pattern).
+#[tauri::command]
+fn set_friends_nostr_privkey(app: tauri::AppHandle, hex: String) -> Result<(), String> {
+    let db = app.state::<db::Db>();
+    db::kv::set(&db, "friends_nostr_privkey", &hex)?;
+    let stored = db::kv::get(&db, "friends_nostr_privkey")?;
+    if stored.as_deref() != Some(hex.as_str()) {
+        return Err("friends nostr key write failed verification".to_string());
+    }
+    Ok(())
 }
 
 /// The sync root is always `<app_data_dir>/sync`, right beside the DB.
