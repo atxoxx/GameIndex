@@ -3,6 +3,7 @@ import { KpiTile } from "../ui";
 import { type Game } from "../../types/game";
 import { useGameAccent } from "../../hooks/useGameAccent";
 import { useSettings } from "../../context/SettingsContext";
+import { useAchievements } from "../../context/AchievementContext";
 import PlayerCountBadge from "../PlayerCountBadge";
 import GameLaunchActions from "./GameLaunchActions";
 import FriendsPlayingStrip from "../hero/FriendsPlayingStrip";
@@ -116,10 +117,15 @@ export default function GameHero({
     setAmbientStep(0);
   }, [ambientCandidates]);
 
-  // Achievement progress (Steam-synced, Library only).
+  // Achievement progress — prefer the multi-source cache (Steam / GOG /
+  // Epic / Retro / manual) so non-Steam games surface real progress, then
+  // fall back to the legacy Steam-synced array. Library only.
+  const { getGameAchievements } = useAchievements();
+  const achData = isGame && game ? getGameAchievements(game.id) : null;
   const achievements = game?.steamAchievements;
-  const achUnlocked = achievements?.filter((a) => a.achieved).length ?? 0;
-  const achTotal = achievements?.length ?? 0;
+  const achUnlocked =
+    achData?.unlocked ?? achievements?.filter((a) => a.achieved).length ?? 0;
+  const achTotal = achData?.total ?? achievements?.length ?? 0;
   const achPercent = achTotal > 0 ? Math.round((achUnlocked / achTotal) * 100) : null;
 
   const variant = variantProp ?? (isGame ? "cinematic" : "compact");

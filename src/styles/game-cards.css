@@ -239,6 +239,40 @@
   overflow-wrap: anywhere;
 }
 
+/* Inline-editable notes card (Game page overview). */
+.notes-section__hint {
+  margin-left: auto;
+  font-size: 11px;
+  font-weight: var(--font-weight-regular);
+  color: var(--color-text-muted);
+  letter-spacing: normal;
+  text-transform: none;
+}
+
+.notes-section__textarea {
+  width: 100%;
+  min-height: 96px;
+  resize: vertical;
+  padding: var(--space-md);
+  border-radius: var(--radius-md);
+  border: 1px solid var(--color-border);
+  background: var(--color-bg-tertiary);
+  color: var(--color-text-primary);
+  font-size: var(--font-size-sm);
+  line-height: 1.5;
+  font-family: inherit;
+  transition: border-color var(--transition-fast);
+}
+
+.notes-section__textarea:focus {
+  outline: none;
+  border-color: var(--color-accent);
+}
+
+.notes-section__textarea::placeholder {
+  color: var(--color-text-muted);
+}
+
 .info-dl-value-tag {
   display: inline-block;
   padding: 1px 8px;
@@ -1389,6 +1423,30 @@
   display: block;
 }
 
+/* 16:9 wrapper for a native Steam trailer player (same visual
+ * treatment as the YouTube/Twitch iframe wrapper so the two media
+ * kinds read as one player). */
+.videos-main-video-wrap {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  border-radius: var(--radius-md);
+  overflow: hidden;
+  background: #000;
+  border: 1px solid var(--color-border);
+  box-shadow: var(--shadow-sm);
+}
+
+.videos-main-video {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  border: none;
+  display: block;
+  object-fit: contain;
+}
+
 .videos-empty {
   color: var(--color-text-muted);
   font-size: var(--font-size-sm);
@@ -1844,7 +1902,6 @@
 .about-section__body-clip--collapsed .about-html h1,
 .about-section__body-clip--collapsed .about-html h2,
 .about-section__body-clip--collapsed .about-html h3,
-.about-section__body-clip--collapsed .about-movies,
 .about-section__body-clip--collapsed .metadata-source-link {
   display: none;
 }
@@ -1928,101 +1985,6 @@
 }
 
 .about-html a:hover { text-decoration-color: var(--color-accent); }
-
-/* Trailers grid. Auto-fit columns collapsing down on narrow
- * viewports. `gap` matches the screenshots carousel so the two
- * strips feel like siblings in the page. Each tile reserves a
- * fixed 16:9 height before the video decodes, preventing layout
- * shift on expand. The strip's pre-existing VideosSection lives
- * below the about-section; spacing here is a `margin-top` so the
- * user reads the prose first, then sees the trailers below. */
-.about-movies {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-  gap: var(--space-md);
-  margin-top: var(--space-lg);
-  padding-top: var(--space-md);
-  border-top: 1px solid var(--color-border);
-}
-
-.about-movie-tile {
-  position: relative;
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-  border-radius: var(--radius-md);
-  overflow: hidden;
-  background: var(--color-bg-tertiary);
-  border: 1px solid var(--color-border);
-  transition: border-color var(--duration-fast) var(--ease-standard),
-              transform var(--duration-fast) var(--ease-standard),
-              box-shadow var(--duration-fast) var(--ease-standard);
-}
-
-.about-movie-tile:hover {
-  border-color: var(--color-accent);
-  transform: translateY(-2px);
-  box-shadow: 0 4px 18px rgba(0, 0, 0, 0.35);
-}
-
-/* Highlighted (Steam's "main trailer" bit) tiles get a soft
- * accent glow so the eye lands on the canonical trailer first. */
-.about-movie-tile--highlight {
-  border-color: color-mix(in srgb, var(--color-accent) 50%, var(--color-border));
-  box-shadow: 0 0 14px var(--color-accent-glow);
-}
-
-/* The `<video>` element inside the tile. We pin width 100% with
- * `aspect-ratio: 16/9` so the browser reserves the right height
- * before the first frame decodes -- prevents layout shift when
- * the user expands the section. `object-fit: cover` keeps the
- * poster image cropped sensibly across resolutions. */
-.about-movie-tile__video {
-  display: block;
-  width: 100%;
-  aspect-ratio: 16 / 9;
-  background: #000;
-  object-fit: cover;
-  border: none;
-}
-
-.about-movie-tile__poster-only {
-  width: 100%;
-  aspect-ratio: 16 / 9;
-  background-color: var(--color-bg-secondary);
-  background-size: cover;
-  background-position: center;
-}
-
-.about-movie-tile__meta {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  padding: 6px 10px 10px;
-  font-size: 11px;
-  color: var(--color-text-secondary);
-}
-
-.about-movie-tile__play-icon {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 22px;
-  height: 22px;
-  border-radius: var(--radius-full);
-  background: var(--color-accent);
-  color: var(--color-accent-contrast);
-  flex-shrink: 0;
-}
-
-.about-movie-tile__name {
-  flex: 1;
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  font-weight: var(--font-weight-medium);
-}
 
 /* Light theme overrides -- Steam Blue stays readable on white,
  * but needs darker text colour so the pill doesn't wash out. */
@@ -2173,6 +2135,87 @@
   gap: 2px;
   margin: 0;
   padding: 0;
+}
+
+/* Detected host hardware strip ("Your system"). Compact rows echoing
+ * the spec rows below, but on a distinct tinted panel so the user can
+ * tell "what you have" from "what the game asks for". */
+.system-requirements-card__sys {
+  margin: 0 0 var(--space-md);
+  padding: var(--space-md);
+  border-radius: var(--radius-md);
+  background: color-mix(in srgb, var(--color-accent) 6%, var(--color-bg-tertiary));
+  border: 1px solid color-mix(in srgb, var(--color-accent) 20%, var(--color-border));
+}
+
+.system-requirements-card__sys-rows {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+}
+
+.system-requirements-card__sys-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  font-size: var(--font-size-sm);
+}
+
+.system-requirements-card__sys-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--color-accent);
+  flex-shrink: 0;
+}
+
+.system-requirements-card__sys-label {
+  color: var(--color-text-muted);
+  font-size: 11px;
+  font-weight: var(--font-weight-semibold);
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+  min-width: 96px;
+  flex-shrink: 0;
+}
+
+.system-requirements-card__sys-value {
+  color: var(--color-text-primary);
+  font-weight: var(--font-weight-medium);
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-sm);
+  flex-wrap: wrap;
+  min-width: 0;
+}
+
+.system-requirements-card__sys-meta {
+  color: var(--color-text-muted);
+  font-weight: var(--font-weight-regular);
+}
+
+.system-requirements-card__sys-verdict {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 8px;
+  border-radius: var(--radius-full);
+  font-size: 10px;
+  font-weight: var(--font-weight-semibold);
+  letter-spacing: 0.4px;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.system-requirements-card__sys-verdict--meets {
+  background: color-mix(in srgb, var(--color-success) 12%, var(--color-bg-tertiary));
+  border: 1px solid color-mix(in srgb, var(--color-success) 30%, var(--color-border));
+  color: var(--color-success);
+}
+
+.system-requirements-card__sys-verdict--below {
+  background: color-mix(in srgb, var(--color-danger) 12%, var(--color-bg-tertiary));
+  border: 1px solid color-mix(in srgb, var(--color-danger) 30%, var(--color-border));
+  color: var(--color-danger);
 }
 
 .system-requirements-card__row {

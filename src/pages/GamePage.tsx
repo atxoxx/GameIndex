@@ -27,12 +27,14 @@ import {
   LanguagesSection,
   AboutSection,
   StorylineSection,
+  NotesSection,
   ScreenshotsSection,
   VideosSection,
   SystemRequirementsCard,
 } from "../components/game";
 import { GameActivityTab } from "../components/game/GameActivityTab";
 import GameNewsTab from "../components/game/GameNewsTab";
+import { useAchievements } from "../context/AchievementContext";
 import { Button, ConfirmModal } from "../components/ui";
 import {
   IconOverview,
@@ -96,6 +98,13 @@ function GameDetail({ game }: { game: Game }) {
   const { launchGame, enrichGameMetadata, removeGame, updateGame } = useGames();
   const { unit: sizeUnit } = useSizeUnit();
   const { appId: heroSteamAppId } = useSteamAppId(game);
+  const { getGameAchievements } = useAchievements();
+
+  // Achievement total from the active source (Steam / GOG / Epic / Retro /
+  // manual), falling back to the legacy Steam-synced array for games that
+  // predate the multi-source cache.
+  const achievementTotal =
+    getGameAchievements(game.id)?.total ?? game.steamAchievements?.length ?? null;
 
   const [showRemoveConfirm, setShowRemoveConfirm] = useState(false);
   const [editing, setEditing] = useState(false);
@@ -191,7 +200,7 @@ function GameDetail({ game }: { game: Game }) {
         id: "achievements" as const,
         label: t("game.tab.achievements"),
         icon: IconTrophy,
-        count: game.steamAchievements?.length ?? null,
+        count: achievementTotal,
       },
       { id: "mods" as const, label: t("game.tab.mods"), icon: IconWrench },
       {
@@ -202,7 +211,7 @@ function GameDetail({ game }: { game: Game }) {
       },
       { id: "news" as const, label: t("game.tab.news"), icon: IconNewspaper },
     ],
-    [t, game.steamAchievements, game.websites]
+    [t, achievementTotal, game.websites]
   );
 
   return (
@@ -251,6 +260,7 @@ function GameDetail({ game }: { game: Game }) {
         <div className="game-content-grid">
           <div className="game-main-col">
             <AboutSection game={game} />
+            <NotesSection game={game} />
             <SystemRequirementsCard steamAppId={game.steamAppId ?? null} />
             <StorylineSection game={game} />
             <ScreenshotsSection

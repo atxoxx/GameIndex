@@ -851,7 +851,7 @@ function RelationRowCard({
           onClick();
         }
       }}
-      aria-label={`${game.name}${game.inLibrary ? " (in your library)" : ""}`}
+      aria-label={game.inLibrary ? `${game.name} (${t("relations.group.inLibrary")})` : game.name}
     >
       <div className="game-relation-card-cover">
         {coverUrl ? (

@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback, useRef, type MouseEvent } from "react";
+import { createPortal } from "react-dom";
 import { useLanguage } from "../../context/LanguageContext";
 
 export interface ImageLightboxProps {
@@ -22,6 +23,7 @@ export default function ImageLightbox({
   const [zoom, setZoom] = useState(1);
   const [isPanning, setIsPanning] = useState(false);
   const [panOffset, setPanOffset] = useState({ x: 0, y: 0 });
+  const [slideshow, setSlideshow] = useState(false);
   const panStartRef = useRef({ x: 0, y: 0, startPanX: 0, startPanY: 0 });
   const thumbStripRef = useRef<HTMLDivElement | null>(null);
 
@@ -74,6 +76,19 @@ export default function ImageLightbox({
     setPanOffset({ x: 0, y: 0 });
   }, []);
 
+  // Stop the slideshow when the lightbox closes so a future open starts
+  // paused rather than auto-advancing.
+  useEffect(() => {
+    if (!isOpen) setSlideshow(false);
+  }, [isOpen]);
+
+  // Auto-advance while the slideshow is running.
+  useEffect(() => {
+    if (!isOpen || !slideshow || total <= 1) return;
+    const timer = window.setInterval(() => handleNext(), 3500);
+    return () => window.clearInterval(timer);
+  }, [isOpen, slideshow, handleNext, total]);
+
   // Keyboard navigation
   useEffect(() => {
     if (!isOpen) return;
@@ -93,6 +108,9 @@ export default function ImageLightbox({
       } else if (e.key === "End") {
         e.preventDefault();
         onSelectIndex(total - 1);
+      } else if (e.key === " ") {
+        e.preventDefault();
+        setSlideshow((s) => !s);
       } else if (e.key === "+" || e.key === "=") {
         setZoom((z) => Math.min(z + 0.5, 3));
       } else if (e.key === "-") {
@@ -138,7 +156,7 @@ export default function ImageLightbox({
 
   if (!isOpen || total === 0) return null;
 
-  return (
+  return createPortal(
     <div
       className="image-lightbox"
       role="dialog"
@@ -163,6 +181,26 @@ export default function ImageLightbox({
         </div>
 
         <div className="image-lightbox__tools">
+          <button
+            type="button"
+            className={`image-lightbox__tool-btn${slideshow ? " image-lightbox__tool-btn--active" : ""}`}
+            onClick={() => setSlideshow((s) => !s)}
+            title={slideshow ? t("community.stopSlideshow") : t("community.startSlideshow")}
+            aria-label={slideshow ? t("community.stopSlideshow") : t("community.startSlideshow")}
+            aria-pressed={slideshow}
+          >
+            {slideshow ? (
+              <svg viewBox="0 0 24 24" fill="currentColor" width="16" height="16">
+                <rect x="6" y="5" width="4" height="14" />
+                <rect x="14" y="5" width="4" height="14" />
+              </svg>
+            ) : (
+              <svg viewBox="0 0 24 24" fill="currentColor" width="16" height="16">
+                <polygon points="6 4 20 12 6 20 6 4" />
+              </svg>
+            )}
+          </button>
+
           <button
             type="button"
             className="image-lightbox__tool-btn"
@@ -296,6 +334,7 @@ export default function ImageLightbox({
           </div>
         </div>
       )}
-    </div>
+    </div>,
+    document.body
   );
 }

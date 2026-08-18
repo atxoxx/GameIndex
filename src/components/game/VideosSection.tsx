@@ -1,59 +1,199 @@
-import { useState, useRef } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { invoke } from "@tauri-apps/api/core";
 import { useLanguage } from "../../context/LanguageContext";
-import type { Game } from "../../types/game";
+import type { AboutBundle, Game, MovieEntry } from "../../types/game";
+import { steamCodeForUi } from "../../i18n/languages";
 import { IconVideo } from "./icons";
 import { getVideoEmbedUrl, getVideoThumbnail } from "./video";
 import { useBigScreen } from "../../context/BigScreenContext";
 import { useFocusable } from "../../hooks/useFocusable";
 
+/**
+ * VideosSection
+ *
+ *  Unified "Media" surface for the Game page. Merges Steam gameplay
+ *  trailers (from the about-bundle) with external YouTube/Twitch links
+ *  into a single player + thumbnail selector — one big player on top,
+ *  a snap-aligned strip of thumbnails below. Selecting a trailer plays
+ *  a native `<video>`; selecting an external link swaps in the embed.
+ */
+
 interface VideosSectionProps {
   game: Game;
 }
 
+type MediaItem =
+  | { key: string; kind: "movie"; movie: MovieEntry }
+  | { key: string; kind: "video"; url: string };
+
+const PlayGlyph = (
+  <svg viewBox="0 0 24 24" fill="currentColor" width="16" height="16">
+    <polygon points="5 3 19 12 5 21 5 3" />
+  </svg>
+);
+
 function BigScreenVideoSelectorBtn({
-  url,
-  idx,
-  isSelected,
-  setActiveUrl,
+  itemKey,
+  active,
+  label,
+  onSelect,
   children,
 }: {
-  url: string;
-  idx: number;
-  isSelected: boolean;
-  setActiveUrl: (url: string) => void;
+  itemKey: string;
+  active: boolean;
+  label: string;
+  onSelect: (key: string) => void;
   children: React.ReactNode;
 }) {
-  const { t } = useLanguage();
-  const focusProps = useFocusable(() => setActiveUrl(url));
+  const focusProps = useFocusable(() => onSelect(itemKey));
   return (
     <button
       type="button"
       {...focusProps}
-      className={`video-selector-btn ${isSelected ? "active" : ""}`}
-      aria-label={t("videos.playTrailerAria", { n: idx + 1 })}
-      aria-pressed={isSelected}
+      className={`video-selector-btn ${active ? "active" : ""}`}
+      aria-label={label}
+      aria-pressed={active}
     >
       {children}
     </button>
   );
 }
 
-export default function VideosSection({ game }: VideosSectionProps) {
+/** Native player for a Steam trailer (webm preferred, mp4 fallback). */
+function SteamMoviePlayer({ movie }: { movie: MovieEntry }) {
   const { t } = useLanguage();
-  const [activeUrl, setActiveUrl] = useState<string | null>(null);
+  const sources: { src: string; type: string }[] = [];
+  if (movie.webm) sources.push({ src: movie.webm, type: "video/webm" });
+  if (movie.mp4) sources.push({ src: movie.mp4, type: "video/mp4" });
+  const label = movie.name || t("game.trailer");
+  return (
+    <div className="videos-main-video-wrap">
+      <video
+        controls
+        poster={movie.thumbnail || undefined}
+        playsInline
+        preload="metadata"
+        aria-label={label}
+        className="videos-main-video"
+      >
+        {sources.map((s) => (
+          <source key={s.src} src={s.src} type={s.type} />
+        ))}
+      </video>
+    </div>
+  );
+}
+
+/** Thumbnail inner content for one media item (trailer / video). */
+function MediaThumb({ item }: { item: MediaItem }) {
+  if (item.kind === "movie") {
+    if (item.movie.thumbnail) {
+      return (
+        <>
+          <img
+            src={item.movie.thumbnail}
+            alt=""
+            loading="lazy"
+            className="video-selector-img"
+          />
+          <span className="video-selector-play-overlay">{PlayGlyph}</span>
+        </>
+      );
+    }
+    return <span className="video-selector-fallback">{PlayGlyph}</span>;
+  }
+
+  const thumb = getVideoThumbnail(item.url);
+  if (thumb?.kind === "youtube") {
+    return (
+      <>
+        <img
+          src={thumb.src}
+          alt=""
+          loading="lazy"
+          className="video-selector-img"
+        />
+        <span className="video-selector-play-overlay">{PlayGlyph}</span>
+      </>
+    );
+  }
+  if (thumb?.kind === "twitch") {
+    return (
+      <span className="video-selector-twitch">
+        <svg
+          viewBox="0 0 24 24"
+          fill="currentColor"
+          width="18"
+          height="18"
+          aria-hidden="true"
+        >
+          <path d="M11.571 4.714h1.715v5.143H11.57zm4.715 0H18v5.143h-1.714zM6 0L1.714 4.286v15.428h5.143V24l4.286-4.286h3.428L22.714 12V0zm14.571 11.143l-3.428 3.428h-3.429l-3 3v-3H6.857V1.714h13.714Z" />
+        </svg>
+      </span>
+    );
+  }
+  return <span className="video-selector-fallback">{PlayGlyph}</span>;
+}
+
+export default function VideosSection({ game }: VideosSectionProps) {
+  const { t, language } = useLanguage();
   const { isBigScreen } = useBigScreen();
+  const [activeKey, setActiveKey] = useState<string | null>(null);
+  const [movies, setMovies] = useState<MovieEntry[]>([]);
+  const movieFetchCounter = useRef(0);
   const selectorRef = useRef<HTMLDivElement | null>(null);
 
-  if (!game.videos || game.videos.length === 0) return null;
+  useEffect(() => {
+    if (!game.steamAppId && !game.name) return;
+    let cancelled = false;
+    const myCounter = ++movieFetchCounter.current;
+    invoke<AboutBundle>("get_about_bundle", {
+      steamAppId: game.steamAppId ?? undefined,
+      gameName: game.name ?? undefined,
+    })
+      .then((bundle) => {
+        if (cancelled || myCounter !== movieFetchCounter.current) return;
+        const payload =
+          bundle.byLanguage[steamCodeForUi(language)] ??
+          bundle.byLanguage[bundle.defaultLanguage] ??
+          Object.values(bundle.byLanguage)[0] ??
+          null;
+        setMovies(payload?.movies ?? []);
+      })
+      .catch(() => {
+        if (!cancelled) setMovies([]);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [game.steamAppId, game.name, language]);
+
+  const items = useMemo<MediaItem[]>(() => {
+    const list: MediaItem[] = [
+      ...movies.map<MediaItem>((m) => ({
+        key: `movie-${m.id}`,
+        kind: "movie",
+        movie: m,
+      })),
+      ...(game.videos ?? []).map<MediaItem>((url, i) => ({
+        key: `video-${i}-${url}`,
+        kind: "video",
+        url,
+      })),
+    ];
+    return list;
+  }, [movies, game.videos]);
+
+  if (items.length === 0) return null;
+
+  const active = items.find((it) => it.key === activeKey) ?? items[0];
+  const embedUrl = active.kind === "video" ? getVideoEmbedUrl(active.url) : null;
 
   const scrollSelector = (dir: 1 | -1) => {
     const el = selectorRef.current;
     if (!el) return;
     el.scrollBy({ left: dir * el.clientWidth * 0.8, behavior: "smooth" });
   };
-
-  const current = activeUrl || game.videos[0];
-  const embedUrl = getVideoEmbedUrl(current);
 
   return (
     <section className="game-section videos-section">
@@ -62,11 +202,13 @@ export default function VideosSection({ game }: VideosSectionProps) {
           <IconVideo size={16} />
         </span>
         {t("videos.title")}
-        <span className="game-section-title__count">{game.videos.length}</span>
+        <span className="game-section-title__count">{items.length}</span>
       </h2>
 
       <div className="videos-container">
-        {embedUrl ? (
+        {active.kind === "movie" ? (
+          <SteamMoviePlayer movie={active.movie} />
+        ) : embedUrl ? (
           <div className="video-iframe-wrapper">
             <iframe
               src={embedUrl}
@@ -79,7 +221,7 @@ export default function VideosSection({ game }: VideosSectionProps) {
           <p className="videos-empty">{t("videos.invalidLink")}</p>
         )}
 
-        {game.videos.length > 1 && (
+        {items.length > 1 && (
           <div className="carousel-wrap">
             <button
               type="button"
@@ -92,72 +234,35 @@ export default function VideosSection({ game }: VideosSectionProps) {
               </svg>
             </button>
             <div className="video-selector-list" ref={selectorRef}>
-              {game.videos.map((url, idx) => {
-                const isSelected = current === url;
-                const thumb = getVideoThumbnail(url);
-                const innerContent = (
-                  <>
-                    {thumb?.kind === "youtube" ? (
-                      <>
-                        <img
-                          src={thumb.src}
-                          alt={t("videos.thumbAlt", { n: idx + 1 })}
-                          className="video-selector-img"
-                        />
-                        <span className="video-selector-play-overlay">
-                          <svg
-                            viewBox="0 0 24 24"
-                            fill="currentColor"
-                            width="16"
-                            height="16"
-                          >
-                            <polygon points="5 3 19 12 5 21 5 3" />
-                          </svg>
-                        </span>
-                      </>
-                    ) : thumb?.kind === "twitch" ? (
-                      <span className="video-selector-twitch">
-                        <svg
-                          viewBox="0 0 24 24"
-                          fill="currentColor"
-                          width="18"
-                          height="18"
-                        >
-                          <path d="M11.571 4.714h1.715v5.143H11.57zm4.715 0H18v5.143h-1.714zM6 0L1.714 4.286v15.428h5.143V24l4.286-4.286h3.428L22.714 12V0zm14.571 11.143l-3.428 3.428h-3.429l-3 3v-3H6.857V1.714h13.714Z" />
-                        </svg>
-                      </span>
-                    ) : (
-                      <span className="video-selector-fallback">
-                        {t("videos.fallback", { n: idx + 1 })}
-                      </span>
-                    )}
-                  </>
-                );
+              {items.map((item, idx) => {
+                const isSelected = active.key === item.key;
+                const label = t("videos.playTrailerAria", { n: idx + 1 });
+                const inner = <MediaThumb item={item} />;
 
                 if (isBigScreen) {
                   return (
                     <BigScreenVideoSelectorBtn
-                      key={idx}
-                      url={url}
-                      idx={idx}
-                      isSelected={isSelected}
-                      setActiveUrl={setActiveUrl}
+                      key={item.key}
+                      itemKey={item.key}
+                      active={isSelected}
+                      label={label}
+                      onSelect={setActiveKey}
                     >
-                      {innerContent}
+                      {inner}
                     </BigScreenVideoSelectorBtn>
                   );
                 }
 
                 return (
                   <button
-                    key={idx}
+                    key={item.key}
                     type="button"
                     className={`video-selector-btn ${isSelected ? "active" : ""}`}
-                    onClick={() => setActiveUrl(url)}
-                    aria-label={t("videos.playTrailerAria", { n: idx + 1 })}
+                    onClick={() => setActiveKey(item.key)}
+                    aria-label={label}
                     aria-pressed={isSelected}
                   >
-                    {innerContent}
+                    {inner}
                   </button>
                 );
               })}

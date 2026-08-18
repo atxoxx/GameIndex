@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import type { Game, RichAboutPayload, AboutBundle } from "../../types/game";
-import { IconFileText, IconLink, IconChevronDown, IconPlay } from "./icons";
+import { IconFileText, IconLink, IconChevronDown } from "./icons";
 import { useBigScreen } from "../../context/BigScreenContext";
 import { useFocusable } from "../../hooks/useFocusable";
 import { useLanguage } from "../../context/LanguageContext";
@@ -112,21 +112,19 @@ function sanitizeSteamHtml(html: string): string {
 }
 
 /**
- * Compute the human-readable "X articles, Y videos hidden" string
+ * Compute the human-readable "X paragraphs, Y images hidden" string
  * we render inside the collapsed-state toggle button. Counts
- * `<p>`/`<img>`/`<li>` from the HTML (rough) plus the trailers
- * count so the user knows what they'll reveal on click.
+ * `<p>`/`<img>`/`<li>` from the HTML (rough) so the user knows what
+ * they'll reveal on click.
  */
 function summarisePayload(payload: RichAboutPayload | null): string | null {
   if (!payload) return null;
   const html = payload.aboutHtml || "";
   const pCount = (html.match(/<p\b/gi) ?? []).length;
   const imgCount = (html.match(/<img\b/gi) ?? []).length;
-  const movieCount = payload.movies.length;
   const bits: string[] = [];
   if (pCount > 0) bits.push(`${pCount} paragraphs`);
   if (imgCount > 0) bits.push(`${imgCount} images`);
-  if (movieCount > 0) bits.push(`${movieCount} video${movieCount === 1 ? "" : "s"}`);
   if (bits.length === 0) return null;
   return bits.join(" \u00b7 ");
 }
@@ -161,7 +159,7 @@ export default function AboutSection({
   const availableLangs = useMemo(() => {
     if (!bundle) return [];
     return Object.keys(bundle.byLanguage).filter(
-      (c) => bundle.byLanguage[c]?.aboutHtml || bundle.byLanguage[c]?.movies?.length,
+      (c) => bundle.byLanguage[c]?.aboutHtml || bundle.byLanguage[c]?.aboutText,
     );
   }, [bundle]);
   const toggleFocus = useFocusable(() => setCollapsed((c) => !c));
@@ -244,8 +242,7 @@ export default function AboutSection({
   // Plain fallback path: no rich payload, only legacy description.
   // Auto-expand in that case so the user sees the text without
   // having to click a non-existent "more content" toggle.
-  const plainTextOnly =
-    loaded && !payload?.aboutHtml && (payload?.movies?.length ?? 0) === 0;
+  const plainTextOnly = loaded && !payload?.aboutHtml;
   const effectiveCollapsed = plainTextOnly ? false : collapsed;
 
   const sourceLabel =
@@ -314,14 +311,6 @@ export default function AboutSection({
           </p>
         ) : null}
 
-        {payload && payload.movies.length > 0 && (
-          <div className="about-movies" aria-label={t("about.moviesAria")}>
-            {payload.movies.map((m) => (
-              <AboutMovieTile key={m.id} movie={m} />
-            ))}
-          </div>
-        )}
-
         {(payload?.sourceUrl || game.metadataUrl) && (
           <a
             className="metadata-source-link"
@@ -362,58 +351,3 @@ export default function AboutSection({
   );
 }
 
-/**
- * Lightweight `<video>` tile rendering one Steam movie entry.
- * Plays inline on hover / click; respects native controls so the
- * user can scrub, fullscreen, or adjust volume. Uses webm when
- * available, mp4 as the universal fallback — declared via
- * `<source>` so the browser picks the best supported codec.
- */
-function AboutMovieTile({ movie }: { movie: RichAboutPayload["movies"][number] }) {
-  const { t } = useLanguage();
-  const sources: { src: string; type: string }[] = [];
-  if (movie.webm) sources.push({ src: movie.webm, type: "video/webm" });
-  if (movie.mp4) sources.push({ src: movie.mp4, type: "video/mp4" });
-  const hasAny = sources.length > 0;
-  const accessibleName = movie.name || (movie.highlight ? t("about.highlightReel") : t("game.trailer"));
-
-  return (
-    <div
-      className={`about-movie-tile${movie.highlight ? " about-movie-tile--highlight" : ""}`}
-    >
-      {hasAny ? (
-        <video
-          controls
-          preload="none"
-          poster={movie.thumbnail || undefined}
-          playsInline
-          aria-label={accessibleName}
-          className="about-movie-tile__video"
-        >
-          {sources.map((s) => (
-            <source key={s.src} src={s.src} type={s.type} />
-          ))}
-        </video>
-      ) : (
-        <div
-          className="about-movie-tile__poster-only"
-          style={
-            movie.thumbnail
-              ? { backgroundImage: `url(${movie.thumbnail})` }
-              : undefined
-          }
-          aria-label={accessibleName}
-          role="img"
-        />
-      )}
-      <div className="about-movie-tile__meta">
-        {!hasAny && (
-          <span className="about-movie-tile__play-icon" aria-hidden>
-            <IconPlay size={16} />
-          </span>
-        )}
-        <span className="about-movie-tile__name">{accessibleName}</span>
-      </div>
-    </div>
-  );
-}

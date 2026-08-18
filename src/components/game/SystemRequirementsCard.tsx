@@ -14,6 +14,7 @@ import {
   IconInfo,
 } from "./icons";
 import type {
+  GpuInfo,
   PcRequirementsPayload,
   RequirementsSpec,
 } from "../../types/game";
@@ -127,6 +128,31 @@ function readSpecField(
   return spec[key];
 }
 
+/** Host hardware summary returned by `get_system_info`. Mirrors the
+ *  Rust `SystemInfo` struct shape (camelCase on the wire). */
+interface HostSystemInfo {
+  cpuName: string;
+  ramGb: number;
+  gpus: GpuInfo[];
+}
+
+/** Extract the required RAM in GB from a Steam `memory` spec string
+ *  (e.g. "8 GB RAM", "16 GB"). Returns null when no numeric GB value
+ *  is present so the card falls back to a bare side-by-side readout. */
+function parseRamGb(memorySpec: string | undefined | null): number | null {
+  if (!memorySpec) return null;
+  const m = memorySpec.match(/(\d+(?:\.\d+)?)\s*GB/i);
+  if (!m) return null;
+  const n = parseFloat(m[1]);
+  return Number.isFinite(n) && n > 0 ? n : null;
+}
+
+/** Format a VRAM value in MB as a compact human string (GB when ≥ 1 GB). */
+function formatVram(mb: number): string {
+  if (mb >= 1024) return `${(mb / 1024).toFixed(0)} GB`;
+  return `${mb} MB`;
+}
+
 /** Same conservative HTML denylist the AboutSection uses for
  *  Steam `about_the_game`. We don't ship DOMPurify (heavyweight
  *  added bundle), so a regex deny-list of script/handler vectors
@@ -172,6 +198,24 @@ export default function SystemRequirementsCard({
   // redundant refetches when React re-renders with the same id;
   // mirrors the AboutSection's lastFetchedKey discipline.
   const lastFetchedId = useRef<number | null | undefined>(undefined);
+
+  // Detected host hardware for the "Your system" comparison strip.
+  // Failure (non-Windows, backend unavailable) just hides the strip —
+  // the Steam requirements remain fully usable on their own.
+  const [sysInfo, setSysInfo] = useState<HostSystemInfo | null>(null);
+  useEffect(() => {
+    let cancelled = false;
+    invoke<HostSystemInfo>("get_system_info")
+      .then((info) => {
+        if (!cancelled && info && (info.cpuName || info.gpus.length > 0)) {
+          setSysInfo(info);
+        }
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   useEffect(() => {
     // Same identity as last paint — skip the round-trip.
@@ -277,6 +321,18 @@ export default function SystemRequirementsCard({
   const showToggle = hasRecommended && hasAnyMinimum;
   const totalRowCount = visibleRows.length;
 
+  // RAM verdict against the active tier (reliable numeric comparison).
+  // GPU/CPU are shown side-by-side without a verdict — ranking them
+  // textually would require a hardware tier database we don't ship.
+  const requiredRamGb = parseRamGb(activeSpec?.memory);
+  const ramVerdict =
+    sysInfo && requiredRamGb != null
+      ? sysInfo.ramGb >= requiredRamGb
+        ? "meets"
+        : "below"
+      : null;
+  const primaryGpu = sysInfo?.gpus?.[0] ?? null;
+
   return (
     <section className="game-section system-requirements-card">
       <header className="system-requirements-card__header">
@@ -327,6 +383,64 @@ export default function SystemRequirementsCard({
           </div>
         )}
       </header>
+
+      {/* Detected hardware strip — lets the user eyeball their rig
+       *  against the published specs without leaving the page. */}
+      {sysInfo && (
+        <div className="system-requirements-card__sys">
+          <div className="system-requirements-card__sys-rows">
+            {sysInfo.cpuName && (
+              <div className="system-requirements-card__sys-row">
+                <span className="system-requirements-card__sys-icon" aria-hidden>
+                  <IconCpu size={13} />
+                </span>
+                <span className="system-requirements-card__sys-label">
+                  {t("sysreq.spec.processor")}
+                </span>
+                <span className="system-requirements-card__sys-value">
+                  {sysInfo.cpuName}
+                </span>
+              </div>
+            )}
+            <div className="system-requirements-card__sys-row">
+              <span className="system-requirements-card__sys-icon" aria-hidden>
+                <IconMemory size={13} />
+              </span>
+              <span className="system-requirements-card__sys-label">
+                {t("sysreq.spec.memory")}
+              </span>
+              <span className="system-requirements-card__sys-value">
+                {sysInfo.ramGb} GB
+                {ramVerdict && (
+                  <span
+                    className={`system-requirements-card__sys-verdict system-requirements-card__sys-verdict--${ramVerdict}`}
+                  >
+                    {t(ramVerdict === "meets" ? "sysreq.meets" : "sysreq.below")}
+                  </span>
+                )}
+              </span>
+            </div>
+            {primaryGpu && (
+              <div className="system-requirements-card__sys-row">
+                <span className="system-requirements-card__sys-icon" aria-hidden>
+                  <IconGpu size={13} />
+                </span>
+                <span className="system-requirements-card__sys-label">
+                  {t("sysreq.spec.graphics")}
+                </span>
+                <span className="system-requirements-card__sys-value">
+                  {primaryGpu.name}
+                  {primaryGpu.vramMb > 0 && (
+                    <span className="system-requirements-card__sys-meta">
+                      · {formatVram(primaryGpu.vramMb)} {t("sysreq.vram")}
+                    </span>
+                  )}
+                </span>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
 
       {/* Structured-spec renderer. We fall through to the raw-HTML
        *  renderer when the parser returned nothing usable but

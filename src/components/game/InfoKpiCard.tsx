@@ -11,7 +11,6 @@ import {
   IconBuilding,
   IconCalendar,
   IconCheck,
-  IconCollection,
   IconExternalLink,
   IconFolder,
   IconHardDrive,
@@ -279,20 +278,7 @@ export default function InfoKpiCard({
         icon: <IconCalendar size={12} />,
       });
     }
-    if (game.collection) {
-      out.push({
-        label: t("info.series"),
-        value: game.collection,
-        icon: <IconCollection size={12} />,
-      });
-    }
-    if (game.franchise) {
-      out.push({
-        label: t("info.franchise"),
-        value: game.franchise,
-        icon: <IconCollection size={12} />,
-      });
-    }
+
     if (game.gameCategory) {
       out.push({
         label: t("info.gameType"),

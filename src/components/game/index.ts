@@ -24,6 +24,7 @@ export { default as LanguagesSection } from "./LanguagesSection";
 
 export { default as AboutSection } from "./AboutSection";
 export { default as StorylineSection } from "./StorylineSection";
+export { default as NotesSection } from "./NotesSection";
 export { default as ScreenshotsSection } from "./ScreenshotsSection";
 export { default as VideosSection } from "./VideosSection";
 export { default as SystemRequirementsCard } from "./SystemRequirementsCard";

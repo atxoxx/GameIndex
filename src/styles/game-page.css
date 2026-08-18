@@ -1478,6 +1478,11 @@
   transform: scale(1.08);
 }
 
+.image-lightbox__tool-btn--active {
+  background: var(--color-accent);
+  color: #fff;
+}
+
 .image-lightbox__close-btn {
   background: color-mix(in srgb, var(--color-danger) 25%, transparent);
   color: var(--color-danger);
