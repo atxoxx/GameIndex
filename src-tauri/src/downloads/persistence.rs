@@ -144,6 +144,8 @@ pub fn load(state_dir: &Path) -> LoadedState {
             should_seed: Some(false),
             queue_position: None,
             extra_headers: None,
+            peak_speed: None,
+            completed_at: None,
         };
         normalise_on_load(&mut d);
         if matches!(d.status, DownloadStatus::Queued) {

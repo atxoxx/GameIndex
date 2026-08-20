@@ -4039,6 +4039,8 @@ pub fn run() {
             downloads::download_queue_reorder,
             downloads::download_set_seed_config,
             downloads::download_set_seeding,
+            downloads::download_history_get,
+            downloads::download_history_clear,
             crackwatch::fetch_crackwatch_status,
             crackwatch::fetch_crackwatch_status_batch,
             price::fetch_game_price,
@@ -4417,10 +4419,12 @@ pub fn run() {
             // retry by restarting.
             let app_handle = app.handle().clone();
             let app_data_dir_for_engine = app_data_dir.clone();
+            let db_for_engine = db.clone();
             let _ = tauri::async_runtime::spawn(async move {
                 if let Err(e) = downloads::initialize_engine(
                     app_handle,
                     app_data_dir_for_engine,
+                    db_for_engine,
                 )
                 .await
                 {

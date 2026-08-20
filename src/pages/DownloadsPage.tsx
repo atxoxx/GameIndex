@@ -31,6 +31,8 @@ export default function DownloadsPage() {
     downloads,
     activeDownloads,
     completedDownloads,
+    history,
+    refreshHistory,
     pauseDownload,
     resumeDownload,
     removeDownload,
@@ -446,6 +448,8 @@ export default function DownloadsPage() {
         open={statsModalOpen}
         onClose={() => setStatsModalOpen(false)}
         downloads={downloads}
+        history={history}
+        onResetStats={refreshHistory}
       />
     </div>
   );

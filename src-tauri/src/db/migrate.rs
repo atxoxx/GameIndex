@@ -150,8 +150,8 @@ mod tests {
         run_migrations(&db).unwrap();
         // Every domain DB physically exists next to the others.
         for name in [
-            "sources", "games", "sessions", "wishlist", "store_cache",
-            "achievements", "kv", "news",
+            "sources", "games", "sessions", "download_history", "wishlist",
+            "store_cache", "achievements", "kv", "news",
         ] {
             let p = dir.path().join(format!("{name}.db"));
             assert!(p.exists(), "{name}.db not created");

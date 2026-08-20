@@ -21,7 +21,7 @@ use tokio::fs::OpenOptions;
 use tokio::io::AsyncWriteExt;
 
 use super::manager::{self, WeakManager};
-use super::types::DownloadStatus;
+use super::types::{unix_now, Download, DownloadStatus};
 
 const MAX_RETRY_ATTEMPTS: u32 = 10;
 const INITIAL_RETRY_DELAY_MS: u64 = 1000;
@@ -480,6 +480,7 @@ async fn finalize_success(
     let mut auto_extract = false;
     let mut files_clone = Vec::new();
     let mut name = String::new();
+    let mut history_item: Option<Download> = None;
     {
         let mut guard = manager.write().await;
         if let Some(item) = guard.downloads_mut().get_mut(id) {
@@ -491,13 +492,22 @@ async fn finalize_success(
             item.download_speed = 0;
             item.upload_speed = 0;
             item.had_real_downloads = Some(true);
+            item.completed_at = Some(unix_now());
             auto_extract = item.auto_extract.unwrap_or(false);
             item.extracted = Some(!auto_extract);
             files_clone = item.files.clone();
             name = item.name.clone();
+            history_item = Some(item.clone());
         }
         guard.mark_dirty();
         guard.emit_progress_force();
+    }
+
+    // Record the completion in the download-history ledger. The mutable
+    // borrow is dropped above, so the clone is written via a fresh guard.
+    if let Some(item) = history_item {
+        let guard = manager.write().await;
+        guard.record_history(&item);
     }
 
     if auto_extract {

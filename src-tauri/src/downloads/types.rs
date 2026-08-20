@@ -28,6 +28,9 @@ pub enum DownloadStatus {
     Seeding,
     Completed,
     Error(String),
+    /// Terminal state recorded in download history when a non-completed
+    /// download is removed.
+    Removed,
 }
 
 impl DownloadStatus {
@@ -123,6 +126,12 @@ pub struct Download {
     /// Custom HTTP request headers (e.g. User-Agent, Cookie, Referer) for hosters.
     #[serde(default)]
     pub extra_headers: Option<Vec<(String, String)>>,
+    /// Highest observed `download_speed` in bytes/sec.
+    #[serde(default)]
+    pub peak_speed: Option<u64>,
+    /// Unix seconds when the download reached Completed/Seeding.
+    #[serde(default)]
+    pub completed_at: Option<u64>,
 }
 
 impl Download {
@@ -166,6 +175,8 @@ impl Download {
             should_seed: Some(false),
             queue_position: None,
             extra_headers: None,
+            peak_speed: None,
+            completed_at: None,
         }
     }
 }

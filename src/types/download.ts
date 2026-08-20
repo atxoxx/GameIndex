@@ -45,6 +45,7 @@ export type DownloadStatus =
   | { kind: "paused" }
   | { kind: "seeding" }
   | { kind: "completed" }
+  | { kind: "removed" }
   | { kind: "error"; message: string };
 
 /** Which pipeline a download runs on (mirrors the Rust `DownloadKind`). */
@@ -102,6 +103,10 @@ export interface TorrentDownload {
   sourceName: string;
   /** Unix seconds when the user added the download. */
   addedAt: number;
+  /** Unix seconds when the download finished (only set once completed). */
+  completedAt?: number;
+  /** Highest observed download speed in bytes/sec (only set once completed). */
+  peakSpeed?: number;
   files: TorrentFile[];
   autoExtract?: boolean;
   extracted?: boolean;
@@ -116,6 +121,40 @@ export interface TorrentDownload {
   shouldSeed?: boolean;
   /** 0-based position in the waiting queue (only set while `queued`). */
   queuePosition?: number;
+}
+
+/**
+ * One row of the persistent download-history table. The Rust side records
+ * every completed or removed download (including partials) here, so the
+ * stats modal keeps counting them even after the user deletes the file
+ * from the active list. Returned by the `download_history_get` Tauri
+ * command, newest first.
+ */
+export interface DownloadHistory {
+  /** Row id in the SQLite `download_history` table. */
+  id: number;
+  /** The original download id (matches `TorrentDownload.id`). */
+  downloadId: string;
+  /** Pipeline the download ran on. */
+  kind: DownloadKind;
+  name: string;
+  /** Display name of the source the URI came from. */
+  sourceName: string;
+  /** Folder the engine was downloading into. */
+  savePath: string;
+  downloaded: number;
+  totalSize: number | null;
+  /** Final status. `"removed"` marks a partial download deleted before completion. */
+  status: DownloadStatus;
+  debridCached: boolean | null;
+  autoExtract: boolean | null;
+  extracted: boolean | null;
+  /** Unix seconds when the download was added. */
+  addedAt: number;
+  /** Unix seconds when the download finished, or null if it never completed. */
+  completedAt: number | null;
+  /** Highest observed download speed in bytes/sec. */
+  peakSpeed: number;
 }
 
 /**
@@ -228,6 +267,8 @@ export function getStatusLabel(status: DownloadStatus): string {
       return "Seeding";
     case "completed":
       return "Completed";
+    case "removed":
+      return "Removed";
     case "error":
       return "Error";
   }
@@ -372,6 +413,11 @@ export function getActivityMessage(download: TorrentDownload): string | null {
 
     case "seeding":
       return "Seeding to peers…";
+
+    case "removed":
+      // Removed downloads are gone from the active list; there is nothing
+      // in-flight to describe.
+      return null;
 
     case "error":
       // Errors have their own dedicated `dl-row-error` line.

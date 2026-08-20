@@ -18,6 +18,8 @@ use std::time::Duration;
 use tauri::{AppHandle, Emitter};
 use tokio::sync::RwLock;
 
+use crate::db::pool::Db;
+
 use super::extract;
 use super::http;
 use super::persistence;
@@ -69,6 +71,10 @@ pub struct DownloadManager {
     /// Download ids whose URL changed while a partial existed; the next
     /// worker drops the stale `.gamelib_tmp` before streaming.
     pub direct_reset_partial: std::collections::HashSet<String>,
+    /// Optional `download_history` ledger DB. When set, completions and
+    /// removals are recorded so download-page statistics survive
+    /// deletion of the live record.
+    history_db: Option<Db>,
 }
 
 impl DownloadManager {
@@ -90,11 +96,32 @@ impl DownloadManager {
             direct_generations: HashMap::new(),
             direct_locks: HashMap::new(),
             direct_reset_partial: std::collections::HashSet::new(),
+            history_db: None,
         }
     }
 
     pub fn set_app(&mut self, app: AppHandle) {
         self.app = Some(app);
+    }
+
+    /// Attach the `download_history` ledger DB. Completions and removals
+    /// are recorded from then on (best-effort, never fatal).
+    pub fn set_history_db(&mut self, db: Db) {
+        self.history_db = Some(db);
+    }
+
+    /// Best-effort write of `d` into the download-history ledger.
+    /// Failures are logged but never panic and never fail the tick.
+    pub fn record_history(&self, d: &Download) {
+        let Some(db) = &self.history_db else {
+            return;
+        };
+        if let Err(e) = crate::db::download_history::upsert(db, d) {
+            eprintln!(
+                "[downloads] Failed to record download history for {}: {}",
+                d.id, e
+            );
+        }
     }
 
     pub fn session(&self) -> Option<&Arc<librqbit::Session>> {
@@ -475,6 +502,7 @@ impl DownloadManager {
             let mut to_extract: Vec<(String, String, String, Vec<super::types::DownloadFile>)> =
                 Vec::new();
             let mut to_delete: Vec<Arc<librqbit::ManagedTorrent>> = Vec::new();
+            let mut to_record: Vec<Download> = Vec::new();
             let mut save_needed = false;
             let mut pause_sweep: Vec<Arc<librqbit::ManagedTorrent>> = Vec::new();
 
@@ -491,6 +519,7 @@ impl DownloadManager {
                 d.total_size = entry.total.or(d.total_size);
                 d.progress = entry.progress.or(d.progress);
                 d.download_speed = entry.download_speed;
+                d.peak_speed = Some(d.peak_speed.unwrap_or(0).max(entry.download_speed));
                 d.upload_speed = entry.upload_speed;
                 d.seeds = entry.seeds;
                 d.peers = entry.peers;
@@ -583,6 +612,7 @@ impl DownloadManager {
                 let actually_downloaded = d.downloaded > 0;
                 if !was_done && now_completed && actually_downloaded {
                     save_needed = true;
+                    d.completed_at = Some(unix_now());
                     let auto_extract = d.auto_extract.unwrap_or(false);
                     let wants_seed = self.seed_after_complete && !auto_extract;
                     if wants_seed {
@@ -603,6 +633,9 @@ impl DownloadManager {
                             ));
                         }
                     }
+                    // Record AFTER the wants_seed branch so the ledger
+                    // status is the final one (Completed or Seeding).
+                    to_record.push(d.clone());
                 }
 
                 // Free the active slot when its download stopped being
@@ -642,6 +675,9 @@ impl DownloadManager {
                     );
                     torrent::delete_torrent_keep_files(&session_clone, &handle).await;
                 });
+            }
+            for d in &to_record {
+                self.record_history(d);
             }
 
             // Orphan sweep: a timed-out `add_torrent` can still resolve
@@ -728,6 +764,7 @@ impl DownloadManager {
                     }
                     if d.download_speed != speed {
                         d.download_speed = speed;
+                        d.peak_speed = Some(d.peak_speed.unwrap_or(0).max(speed));
                         direct_save_needed = true;
                     }
                     if let Some(total) = d.total_size {
@@ -1781,6 +1818,7 @@ fn hash_snapshot(downloads: &[Download]) -> u64 {
                 6u8.hash(&mut hasher);
                 msg.hash(&mut hasher);
             }
+            DownloadStatus::Removed => 7u8.hash(&mut hasher),
         }
     }
     hasher.finish()

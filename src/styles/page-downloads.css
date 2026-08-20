@@ -1138,6 +1138,7 @@ input[type="checkbox"].dl-file-checkbox:focus-visible {
 .dl-stats-status-seg--seeding { background: var(--color-info); }
 .dl-stats-status-seg--paused { background: var(--color-warning); }
 .dl-stats-status-seg--queued { background: var(--color-text-muted); }
+.dl-stats-status-seg--removed { background: var(--color-text-muted); }
 .dl-stats-status-seg--error { background: var(--color-danger); }
 
 .dl-stats-legend-wrap {
@@ -1167,6 +1168,7 @@ input[type="checkbox"].dl-file-checkbox:focus-visible {
 .dl-stats-dot--seeding { background: var(--color-info); }
 .dl-stats-dot--paused { background: var(--color-warning); }
 .dl-stats-dot--queued { background: var(--color-text-muted); }
+.dl-stats-dot--removed { background: var(--color-text-muted); }
 .dl-stats-dot--error { background: var(--color-danger); }
 
 /* Two Col Layout */
@@ -1457,6 +1459,29 @@ input[type="checkbox"].dl-file-checkbox:focus-visible {
   text-overflow: ellipsis;
 }
 
+.dl-stats-tbl-name-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+}
+
+.dl-stats-tbl-history-tag {
+  flex-shrink: 0;
+  padding: 1px 5px;
+  border-radius: var(--radius-xs);
+  font-size: 9px;
+  font-weight: var(--font-weight-semibold);
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+  color: var(--color-text-muted);
+  background: color-mix(in srgb, var(--color-text-muted) 12%, transparent);
+}
+
+.dl-stats-table-row--history td {
+  opacity: 0.75;
+}
+
 .dl-stats-tbl-source {
   font-size: 10px;
   color: var(--color-text-muted);
@@ -1489,6 +1514,7 @@ input[type="checkbox"].dl-file-checkbox:focus-visible {
 .dl-stats-status-pill--seeding { color: var(--color-info); }
 .dl-stats-status-pill--paused { color: var(--color-warning); }
 .dl-stats-status-pill--queued { color: var(--color-text-muted); }
+.dl-stats-status-pill--removed { color: var(--color-text-muted); }
 .dl-stats-status-pill--error { color: var(--color-danger); }
 
 .dl-stats-table-empty {
@@ -1503,6 +1529,12 @@ input[type="checkbox"].dl-file-checkbox:focus-visible {
   color: var(--color-text-muted);
   text-align: center;
   padding: var(--space-md);
+}
+
+.dl-stats-history-note {
+  margin: 0 0 var(--space-sm);
+  font-size: 11px;
+  color: var(--color-text-muted);
 }
 
 /* Footer & Export Controls */

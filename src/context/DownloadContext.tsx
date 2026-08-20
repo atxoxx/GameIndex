@@ -40,6 +40,7 @@ import {
   isCompletedStatus,
   type TorrentDownload,
   type DownloadStatus,
+  type DownloadHistory,
 } from "../types/download";
 
 interface DownloadContextValue {
@@ -49,6 +50,12 @@ interface DownloadContextValue {
   activeDownloads: TorrentDownload[];
   /** Convenience: only completed downloads. */
   completedDownloads: TorrentDownload[];
+  /**
+   * Persistent download history (every completed or removed download,
+   * including partials), newest first. Kept in sync with the backend's
+   * `download_history` table via `refreshHistory`.
+   */
+  history: DownloadHistory[];
   /** Number of downloads in `activeDownloads`. */
   activeCount: number;
   /** True until the initial `torrent_get_all` resolves. */
@@ -116,6 +123,8 @@ interface DownloadContextValue {
   /** Force a one-shot refresh from the engine. Rarely needed — the
    *  `download-progress` event keeps state in sync. */
   refresh: () => Promise<void>;
+  /** Reload the persistent download history from the backend. */
+  refreshHistory: () => Promise<void>;
   updateSpeedLimits: (
     downloadKbps: number | null,
     uploadKbps: number | null,
@@ -231,6 +240,7 @@ function areDownloadsEqual(a: TorrentDownload[], b: TorrentDownload[]): boolean 
 
 export function DownloadProvider({ children }: { children: ReactNode }) {
   const [downloads, setDownloads] = useState<TorrentDownload[]>(EMPTY_DOWNLOADS);
+  const [history, setHistory] = useState<DownloadHistory[]>([]);
   const [loading, setLoading] = useState(true);
   const [seedAfterComplete, setSeedAfterComplete] = useState(false);
   const { showToast } = useToast();
@@ -384,6 +394,12 @@ export function DownloadProvider({ children }: { children: ReactNode }) {
         } finally {
           if (!cancelled) setLoading(false);
         }
+
+        // 3. Load the persistent download history so the stats modal
+        //    counts completed/removed downloads even after they leave
+        //    the active list. Best-effort — the backend creates the
+        //    table lazily, so this can no-op on very first boot.
+        await refreshHistory();
       } catch (err) {
         // The `listen` call itself failed (shouldn't happen). Log
         // and continue so the rest of the app still works.
@@ -573,6 +589,18 @@ export function DownloadProvider({ children }: { children: ReactNode }) {
     }
   }, []);
 
+  const refreshHistory = useCallback(async () => {
+    try {
+      const rows = await invoke<DownloadHistory[]>("download_history_get");
+      if (Array.isArray(rows)) setHistory(rows);
+    } catch (err) {
+      // The history table may not exist yet on very first boot (the
+      // backend creates it lazily). Non-fatal — the modal just shows
+      // live downloads until the next refresh.
+      console.error("[DownloadContext] download_history_get failed:", err);
+    }
+  }, []);
+
   const pauseDownload = useCallback(
     async (id: string) => {
       // Optimistic flip so the pause button becomes a resume button
@@ -626,12 +654,15 @@ export function DownloadProvider({ children }: { children: ReactNode }) {
       setDownloads((prev) => prev.filter((d) => d.id !== id));
       try {
         await invoke("torrent_remove", { id, deleteFiles });
+        // The backend now records the removal in `download_history`;
+        // reload so the stats modal reflects it right away.
+        await refreshHistory();
       } catch (err) {
         void refresh();
         throw err;
       }
     },
-    [refresh],
+    [refresh, refreshHistory],
   );
 
   const selectSavePath = useCallback(async (): Promise<string | null> => {
@@ -713,6 +744,7 @@ export function DownloadProvider({ children }: { children: ReactNode }) {
       downloads: sorted,
       activeDownloads,
       completedDownloads,
+      history,
       activeCount: activeDownloads.length,
       loading,
       addDownload,
@@ -727,6 +759,7 @@ export function DownloadProvider({ children }: { children: ReactNode }) {
       removeDownload,
       selectSavePath,
       refresh,
+      refreshHistory,
       updateSpeedLimits,
       updateSelectedFiles,
       openDownloadFolder,
@@ -739,6 +772,7 @@ export function DownloadProvider({ children }: { children: ReactNode }) {
       sorted,
       activeDownloads,
       completedDownloads,
+      history,
       loading,
       addDownload,
       addDirectDownload,
@@ -752,6 +786,7 @@ export function DownloadProvider({ children }: { children: ReactNode }) {
       removeDownload,
       selectSavePath,
       refresh,
+      refreshHistory,
       updateSpeedLimits,
       updateSelectedFiles,
       openDownloadFolder,

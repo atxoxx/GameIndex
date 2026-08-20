@@ -4,18 +4,64 @@ import { save } from "@tauri-apps/plugin-dialog";
 import { useLanguage } from "../../context/LanguageContext";
 import { useToast } from "../../context/ToastContext";
 import { useSizeUnit } from "../../hooks/useSizeUnit";
-import type { TorrentDownload } from "../../types/download";
+import type { TorrentDownload, DownloadHistory } from "../../types/download";
 import { formatBytesShort, formatBytesPerSecond, formatProgress } from "../../types/download";
-import { Button } from "../ui";
+import { Button, ConfirmModal } from "../ui";
 
 interface DownloadStatsModalProps {
   open: boolean;
   onClose: () => void;
   downloads: TorrentDownload[];
+  /** Persistent history of completed/removed downloads (newest first). */
+  history: DownloadHistory[];
+  /** Called after the persistent history ledger has been cleared. */
+  onResetStats: () => void;
 }
 
 type StatsTab = "overview" | "sources" | "records" | "diagnostics";
 type ExportFormat = "json" | "csv" | "markdown";
+
+/**
+ * A download as shown inside this modal. Live rows come straight from
+ * `TorrentDownload`; history rows are mapped via `historyToDownload` and
+ * flagged with `isHistory: true` so the diagnostics table can render them
+ * display-only (no per-row actions).
+ */
+type MergedDownload = TorrentDownload & { isHistory?: boolean };
+
+/**
+ * Map one persistent-history row onto a `TorrentDownload`-shaped object
+ * so the stats pipeline can iterate a single merged list. Live-only fields
+ * (speeds, peers, files, ...) get empty defaults — the backend no longer
+ * has them for finished/removed downloads.
+ */
+function historyToDownload(h: DownloadHistory): MergedDownload {
+  return {
+    id: h.downloadId,
+    kind: h.kind,
+    name: h.name,
+    sourceName: h.sourceName,
+    savePath: h.savePath,
+    downloaded: h.downloaded,
+    totalSize: h.totalSize,
+    status: h.status,
+    debridCached: h.debridCached ?? undefined,
+    autoExtract: h.autoExtract ?? undefined,
+    extracted: h.extracted ?? undefined,
+    addedAt: h.addedAt,
+    completedAt: h.completedAt ?? undefined,
+    peakSpeed: h.peakSpeed,
+    downloadSpeed: 0,
+    uploadSpeed: 0,
+    peers: 0,
+    seeds: 0,
+    files: [],
+    sourceUri: "",
+    progress: null,
+    gameId: null,
+    isHistory: true,
+  };
+}
 
 // ── Icons ──────────────────────────────────────────────────────────────────
 const StatsIcon = ({ className = "" }: { className?: string }) => (
@@ -67,7 +113,7 @@ const DebridIcon = () => (
   </svg>
 );
 
-export default function DownloadStatsModal({ open, onClose, downloads }: DownloadStatsModalProps) {
+export default function DownloadStatsModal({ open, onClose, downloads, history, onResetStats }: DownloadStatsModalProps) {
   const { t } = useLanguage();
   const { showToast } = useToast();
   const { unit } = useSizeUnit();
@@ -77,25 +123,60 @@ export default function DownloadStatsModal({ open, onClose, downloads }: Downloa
   const [exporting, setExporting] = useState(false);
   const [copied, setCopied] = useState(false);
   const [diagSearch, setDiagSearch] = useState("");
+  const [resetConfirmOpen, setResetConfirmOpen] = useState(false);
+  const [resetting, setResetting] = useState(false);
 
   // Close on Escape
   useEffect(() => {
     if (!open) return;
     function onKeyDown(e: KeyboardEvent) {
-      if (e.key === "Escape") onClose();
+      // Don't close the stats modal while the reset confirmation is up —
+      // the ConfirmModal handles Escape itself.
+      if (e.key === "Escape" && !resetConfirmOpen) onClose();
     }
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
-  }, [open, onClose]);
+  }, [open, onClose, resetConfirmOpen]);
+
+  /**
+   * Wipe the persistent download-history ledger. Runs after the user
+   * confirms the destructive reset; the backend returns the number of
+   * rows removed (unused here — the caller refreshes via `onResetStats`).
+   */
+  const handleResetStats = async () => {
+    setResetting(true);
+    try {
+      await invoke<number>("download_history_clear");
+      showToast(t("downloadStats.resetStatsDone"), "success");
+      onResetStats();
+    } catch (err) {
+      showToast(t("downloadStats.resetStatsFailed", { error: String(err) }), "error");
+    } finally {
+      setResetting(false);
+      setResetConfirmOpen(false);
+    }
+  };
+
+  // ── Merged dataset (live downloads + persistent history) ─────────────────
+  // History rows are mapped to `TorrentDownload`-shaped objects and take
+  // precedence over any live row with the same id, so a download that was
+  // deleted keeps its recorded stats instead of silently dropping out.
+  const mergedDownloads = useMemo<MergedDownload[]>(() => {
+    const historyIds = new Set(history.map((h) => h.downloadId));
+    const historyRows = history.map(historyToDownload);
+    const liveRows = downloads.filter((d) => !historyIds.has(d.id));
+    return [...historyRows, ...liveRows];
+  }, [downloads, history]);
 
   // ── Metrics Calculation ──────────────────────────────────────────────────
   const stats = useMemo(() => {
-    const total = downloads.length;
+    const total = mergedDownloads.length;
     let completedCount = 0;
     let downloadingCount = 0;
     let seedingCount = 0;
     let queuedCount = 0;
     let pausedCount = 0;
+    let removedCount = 0;
     let errorCount = 0;
 
     let torrentCount = 0;
@@ -132,13 +213,14 @@ export default function DownloadStatsModal({ open, onClose, downloads }: Downloa
     let largestItem: TorrentDownload | null = null;
     let fastestItem: TorrentDownload | null = null;
 
-    for (const d of downloads) {
+    for (const d of mergedDownloads) {
       const kind = d.status.kind;
       if (kind === "completed") completedCount++;
       else if (kind === "downloading" || kind === "fetchingMetadata") downloadingCount++;
       else if (kind === "seeding") seedingCount++;
       else if (kind === "queued") queuedCount++;
       else if (kind === "paused") pausedCount++;
+      else if (kind === "removed") removedCount++;
       else if (kind === "error") errorCount++;
 
       if (d.kind === "torrent") torrentCount++;
@@ -194,14 +276,16 @@ export default function DownloadStatsModal({ open, onClose, downloads }: Downloa
       if (!largestItem || effectiveSize > (largestItem.totalSize ?? largestItem.downloaded ?? 0)) {
         largestItem = d;
       }
-      if (!fastestItem || d.downloadSpeed > (fastestItem.downloadSpeed || 0)) {
+      const dSpeed = d.peakSpeed ?? d.downloadSpeed;
+      const fastestSpeed = (fastestItem?.peakSpeed ?? fastestItem?.downloadSpeed) || 0;
+      if (!fastestItem || dSpeed > fastestSpeed) {
         fastestItem = d;
       }
     }
 
     const completionRate = total > 0 ? (completedCount / total) * 100 : 0;
     const avgSize = total > 0 ? totalPayloadBytes / total : 0;
-    const activeTorrents = downloads.filter((d) => d.kind === "torrent" && (d.status.kind === "downloading" || d.status.kind === "seeding"));
+    const activeTorrents = mergedDownloads.filter((d) => d.kind === "torrent" && (d.status.kind === "downloading" || d.status.kind === "seeding"));
     const avgPeers = activeTorrents.length > 0 ? totalConnectedPeers / activeTorrents.length : 0;
     const debridCacheRate = debridCount > 0 ? (debridCachedCount / debridCount) * 100 : 0;
 
@@ -214,13 +298,13 @@ export default function DownloadStatsModal({ open, onClose, downloads }: Downloa
       .sort((a, b) => b.bytes - a.bytes);
 
     // Recent completions
-    const recentCompleted = downloads
+    const recentCompleted = mergedDownloads
       .filter((d) => d.status.kind === "completed")
-      .sort((a, b) => (b.addedAt || 0) - (a.addedAt || 0))
+      .sort((a, b) => (b.completedAt ?? (b.addedAt || 0)) - (a.completedAt ?? (a.addedAt || 0)))
       .slice(0, 5);
 
     // Largest downloads
-    const largestList = [...downloads]
+    const largestList = [...mergedDownloads]
       .sort((a, b) => (b.totalSize ?? b.downloaded ?? 0) - (a.totalSize ?? a.downloaded ?? 0))
       .slice(0, 5);
 
@@ -231,6 +315,7 @@ export default function DownloadStatsModal({ open, onClose, downloads }: Downloa
       seedingCount,
       queuedCount,
       pausedCount,
+      removedCount,
       errorCount,
       torrentCount,
       directCount,
@@ -267,20 +352,20 @@ export default function DownloadStatsModal({ open, onClose, downloads }: Downloa
       recentCompleted,
       largestList,
     };
-  }, [downloads]);
+  }, [mergedDownloads]);
 
   // ── Search in Diagnostics ────────────────────────────────────────────────
   const filteredDiagnostics = useMemo(() => {
-    if (!diagSearch.trim()) return downloads;
+    if (!diagSearch.trim()) return mergedDownloads;
     const q = diagSearch.toLowerCase().trim();
-    return downloads.filter(
+    return mergedDownloads.filter(
       (d) =>
         d.name.toLowerCase().includes(q) ||
         d.sourceName.toLowerCase().includes(q) ||
         d.kind.toLowerCase().includes(q) ||
         d.status.kind.toLowerCase().includes(q),
     );
-  }, [downloads, diagSearch]);
+  }, [mergedDownloads, diagSearch]);
 
   // ── Build Export Payloads ────────────────────────────────────────────────
   const generateExportContent = (format: ExportFormat): { content: string; filename: string; mime: string } => {
@@ -312,7 +397,7 @@ export default function DownloadStatsModal({ open, onClose, downloads }: Downloa
           sources: stats.sourcesList,
           drives: stats.drivesList,
         },
-        downloads: downloads.map((d) => ({
+        downloads: mergedDownloads.map((d) => ({
           id: d.id,
           name: d.name,
           kind: d.kind,
@@ -331,6 +416,7 @@ export default function DownloadStatsModal({ open, onClose, downloads }: Downloa
           autoExtract: d.autoExtract ?? false,
           extracted: d.extracted ?? false,
           debridCached: d.debridCached ?? null,
+          fromHistory: d.isHistory ?? false,
           addedAt: d.addedAt ? new Date(d.addedAt * 1000).toISOString() : null,
         })),
       };
@@ -358,8 +444,9 @@ export default function DownloadStatsModal({ open, onClose, downloads }: Downloa
         "AutoExtract",
         "Save Path",
         "Date Added",
+        "From History",
       ];
-      const rows = downloads.map((d) => {
+      const rows = mergedDownloads.map((d) => {
         const escapeCsv = (str: string | number | null | undefined) => {
           if (str === null || str === undefined) return '""';
           const s = String(str).replace(/"/g, '""');
@@ -381,6 +468,7 @@ export default function DownloadStatsModal({ open, onClose, downloads }: Downloa
           escapeCsv(d.autoExtract ? "Yes" : "No"),
           escapeCsv(d.savePath),
           escapeCsv(d.addedAt ? new Date(d.addedAt * 1000).toISOString() : ""),
+          escapeCsv(d.isHistory ? "Yes" : "No"),
         ].join(",");
       });
       return {
@@ -412,10 +500,10 @@ export default function DownloadStatsModal({ open, onClose, downloads }: Downloa
       `## 💾 Top Sources by Volume`,
       ...stats.sourcesList.slice(0, 8).map((s, idx) => `${idx + 1}. **${s.name}**: ${s.count} items (${formatBytesShort(s.bytes, unit)})`),
       "",
-      `## 📦 Download Items (${downloads.length})`,
+      `## 📦 Download Items (${mergedDownloads.length})`,
       "| Name | Protocol | Status | Size | Downloaded | Progress |",
       "| :--- | :--- | :--- | :--- | :--- | :--- |",
-      ...downloads.map(
+      ...mergedDownloads.map(
         (d) =>
           `| ${d.name.replace(/\|/g, "/")} | ${d.kind} | ${d.status.kind} | ${formatBytesShort(d.totalSize ?? 0, unit)} | ${formatBytesShort(d.downloaded, unit)} | ${formatProgress(d.progress)} |`,
       ),
@@ -496,6 +584,15 @@ export default function DownloadStatsModal({ open, onClose, downloads }: Downloa
           </div>
 
           <div className="dl-stats-header-actions">
+            <Button
+              variant="secondary"
+              size="sm"
+              disabled={history.length === 0 || resetting}
+              onClick={() => setResetConfirmOpen(true)}
+              title={t("downloadStats.resetStats")}
+            >
+              {t("downloadStats.resetStats")}
+            </Button>
             <button
               type="button"
               className="modal-close"
@@ -560,6 +657,9 @@ export default function DownloadStatsModal({ open, onClose, downloads }: Downloa
           {/* TAB 1: OVERVIEW */}
           {activeTab === "overview" && (
             <div className="dl-stats-tab-content fade-in">
+              {history.length > 0 && (
+                <p className="dl-stats-history-note">{t("downloadStats.includesDeleted")}</p>
+              )}
               {/* 4 Core KPI Tiles */}
               <div className="dl-stats-kpi-grid">
                 <div className="dl-stats-kpi-card">
@@ -691,6 +791,13 @@ export default function DownloadStatsModal({ open, onClose, downloads }: Downloa
                       title={`${t("download.status.queued")}: ${stats.queuedCount}`}
                     />
                   )}
+                  {stats.removedCount > 0 && (
+                    <div
+                      className="dl-stats-status-seg dl-stats-status-seg--removed"
+                      style={{ flex: stats.removedCount }}
+                      title={`${t("downloadStats.removedPartial")}: ${stats.removedCount}`}
+                    />
+                  )}
                   {stats.errorCount > 0 && (
                     <div
                       className="dl-stats-status-seg dl-stats-status-seg--error"
@@ -721,6 +828,12 @@ export default function DownloadStatsModal({ open, onClose, downloads }: Downloa
                     <span className="dl-stats-dot dl-stats-dot--queued" />
                     <span>{t("download.status.queued")}: {stats.queuedCount}</span>
                   </div>
+                  {stats.removedCount > 0 && (
+                    <div className="dl-stats-legend-chip">
+                      <span className="dl-stats-dot dl-stats-dot--removed" />
+                      <span>{t("downloadStats.removedPartial")}: {stats.removedCount}</span>
+                    </div>
+                  )}
                   {stats.errorCount > 0 && (
                     <div className="dl-stats-legend-chip">
                       <span className="dl-stats-dot dl-stats-dot--error" />
@@ -971,9 +1084,14 @@ export default function DownloadStatsModal({ open, onClose, downloads }: Downloa
                       </tr>
                     ) : (
                       filteredDiagnostics.map((d) => (
-                        <tr key={d.id}>
+                        <tr key={d.id} className={d.isHistory ? "dl-stats-table-row--history" : undefined}>
                           <td className="dl-stats-cell-name" title={d.name}>
-                            <span className="dl-stats-tbl-name">{d.name}</span>
+                            <span className="dl-stats-tbl-name-row">
+                              <span className="dl-stats-tbl-name">{d.name}</span>
+                              {d.isHistory && (
+                                <span className="dl-stats-tbl-history-tag">{t("downloadStats.historyTag")}</span>
+                              )}
+                            </span>
                             <span className="dl-stats-tbl-source">{d.sourceName}</span>
                           </td>
                           <td>
@@ -1053,6 +1171,21 @@ export default function DownloadStatsModal({ open, onClose, downloads }: Downloa
           </Button>
         </div>
       </div>
+
+      {/* Reset stats confirmation (destructive) */}
+      <ConfirmModal
+        open={resetConfirmOpen}
+        title={t("downloadStats.resetStatsConfirmTitle")}
+        message={t("downloadStats.resetStatsConfirmBody")}
+        confirmLabel="common.reset"
+        busy={resetting}
+        onConfirm={handleResetStats}
+        onCancel={() => {
+          if (!resetting) {
+            setResetConfirmOpen(false);
+          }
+        }}
+      />
     </div>
   );
 }

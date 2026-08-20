@@ -9,6 +9,7 @@
 //! | `sources.db`       | `sources`, `sources_cache`, `downloads`, `downloads_fts` |
 //! | `games.db`         | `games`                                             |
 //! | `sessions.db`      | `sessions`                                          |
+//! | `download_history.db` | `download_history`                                |
 //! | `wishlist.db`      | `wishlist`                                          |
 //! | `store_cache.db`   | `store_cache`, `store_detail`                       |
 //! | `achievements.db`  | `achievements_cache`                                |
@@ -70,6 +71,7 @@ pub struct Db {
     pub sources: SqlitePool,
     pub games: SqlitePool,
     pub sessions: SqlitePool,
+    pub download_history: SqlitePool,
     pub wishlist: SqlitePool,
     pub store_cache: SqlitePool,
     pub achievements: SqlitePool,
@@ -99,6 +101,7 @@ impl Db {
             sources: mk("sources")?,
             games: mk("games")?,
             sessions: mk("sessions")?,
+            download_history: mk("download_history")?,
             wishlist: mk("wishlist")?,
             store_cache: mk("store_cache")?,
             achievements: mk("achievements")?,
@@ -121,6 +124,12 @@ impl Db {
     /// Borrow a connection from the `sessions` pool.
     pub fn sessions(&self) -> Result<PooledConn, String> {
         self.sessions.get().map_err(|e| format!("acquire sessions conn: {e}"))
+    }
+    /// Borrow a connection from the `download_history` pool.
+    pub fn download_history(&self) -> Result<PooledConn, String> {
+        self.download_history
+            .get()
+            .map_err(|e| format!("acquire download_history conn: {e}"))
     }
     /// Borrow a connection from the `wishlist` pool.
     pub fn wishlist(&self) -> Result<PooledConn, String> {
@@ -168,6 +177,7 @@ impl Db {
             "sources" => Some(&self.sources),
             "games" => Some(&self.games),
             "sessions" => Some(&self.sessions),
+            "download_history" => Some(&self.download_history),
             "wishlist" => Some(&self.wishlist),
             "store_cache" => Some(&self.store_cache),
             "achievements" => Some(&self.achievements),
@@ -210,6 +220,7 @@ mod tests {
             Db::sources,
             Db::games,
             Db::sessions,
+            Db::download_history,
             Db::wishlist,
             Db::store_cache,
             Db::achievements,

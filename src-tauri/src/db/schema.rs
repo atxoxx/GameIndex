@@ -66,6 +66,11 @@ pub const EMULATORS_DDL: &str = include_str!("schema_emulators.sql");
 /// denormalization.
 pub const SESSIONS_DDL: &str = include_str!("schema_sessions.sql");
 
+/// DDL for the `download_history` domain: append-only ledger of every
+/// download that ever completed or was removed, so download-page
+/// statistics survive deletion of the live record.
+pub const DOWNLOAD_HISTORY_DDL: &str = include_str!("schema_download_history.sql");
+
 /// DDL for the `wishlist` domain.
 pub const WISHLIST_DDL: &str = include_str!("schema_wishlist.sql");
 
@@ -142,6 +147,10 @@ DomainSchema {
     DomainSchema {
         label: "sessions",
         versions: &[("v1", SESSIONS_DDL)],
+    },
+    DomainSchema {
+        label: "download_history",
+        versions: &[("v1", DOWNLOAD_HISTORY_DDL)],
     },
     DomainSchema {
         label: "wishlist",

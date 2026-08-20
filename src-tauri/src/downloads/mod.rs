@@ -22,8 +22,12 @@ use std::sync::Arc;
 use std::time::Duration;
 
 use tauri::AppHandle;
+use tauri::Manager;
 use tokio::sync::OnceCell;
 use tokio::time::interval;
+
+use crate::db::download_history::DownloadHistoryRecord;
+use crate::db::pool::Db;
 
 use manager::{DownloadManager, SharedManager};
 use types::{unix_now, Download, DownloadKind, DownloadStatus, DownloadFile};
@@ -53,12 +57,17 @@ async fn wait_for_manager() -> Result<SharedManager, String> {
 }
 
 /// Initialize the download manager and spawn the 1 s status loop.
-pub async fn initialize_engine(app: AppHandle, app_data_dir: PathBuf) -> Result<(), String> {
+pub async fn initialize_engine(
+    app: AppHandle,
+    app_data_dir: PathBuf,
+    db: Db,
+) -> Result<(), String> {
     // Same directory as the previous engine so librqbit fast-resume
     // and the persisted downloads survive the rewrite.
     let state_dir = app_data_dir.join("torrent-engine");
     let mut mgr = DownloadManager::new(state_dir);
     mgr.set_app(app);
+    mgr.set_history_db(db);
     mgr.initialize().await?;
     let shared = Arc::new(tokio::sync::RwLock::new(mgr));
     MANAGER
@@ -658,10 +667,22 @@ pub async fn torrent_remove(id: String, delete_files: Option<bool>) -> Result<()
         guard.direct_generations.remove(&id);
         guard.direct_locks.remove(&id);
         guard.direct_reset_partial.remove(&id);
+        // Snapshot the record BEFORE the remove so a non-completed
+        // removal lands in the download-history ledger as `Removed`.
+        let history_clone = guard.downloads_mut().get(&id).cloned();
         let download_opt = guard.downloads_mut().remove(&id);
         guard.release_active(&id);
         guard.mark_dirty();
         guard.emit_progress_force();
+        if let Some(mut history_clone) = history_clone {
+            if !matches!(
+                history_clone.status,
+                DownloadStatus::Completed | DownloadStatus::Seeding
+            ) {
+                history_clone.status = DownloadStatus::Removed;
+            }
+            guard.record_history(&history_clone);
+        }
         (session, download_opt)
     };
 
@@ -778,6 +799,25 @@ pub async fn torrent_get_all() -> Result<Vec<Download>, String> {
     let mgr = wait_for_manager().await?;
     let guard = mgr.read().await;
     Ok(guard.list())
+}
+
+/// Return the append-only download-history ledger (newest first). The
+/// frontend reads this for download-page statistics that must survive
+/// deletion of the live download record.
+#[tauri::command]
+pub async fn download_history_get(
+    app: tauri::AppHandle,
+) -> Result<Vec<DownloadHistoryRecord>, String> {
+    let db = app.state::<crate::db::pool::Db>().inner().clone();
+    crate::db::download_history::list_all(&db)
+}
+
+/// Wipe the download-history ledger (the frontend "reset stats"
+/// control). Returns the number of rows removed.
+#[tauri::command]
+pub async fn download_history_clear(app: tauri::AppHandle) -> Result<u64, String> {
+    let db = app.state::<crate::db::pool::Db>().inner().clone();
+    crate::db::download_history::clear(&db)
 }
 
 #[tauri::command]
