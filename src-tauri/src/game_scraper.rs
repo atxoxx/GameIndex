@@ -1288,41 +1288,6 @@ async fn fetch_steam_requirements_cached(app_id: u32) -> Option<PcRequirementsPa
     Some(payload)
 }
 
-/// Fetch the rich-about payload with a small cache. Returns
-/// `None` when *both* Steam and IGDB come back empty (frontend hides
-/// the section in that case, or falls back to the legacy
-/// `game.description` field).
-pub async fn fetch_rich_about(
-    steam_app_id: Option<u32>,
-    game_name: Option<&str>,
-) -> Option<RichAboutPayload> {
-    // 1. Steam ─ the user's preferred source.
-    if let Some(app_id) = steam_app_id {
-        if let Some(payload) = fetch_steam_about_cached(app_id).await {
-            if payload.about_html.is_some() || !payload.movies.is_empty() {
-                return Some(payload);
-            }
-            // Steam responded but produced nothing useful — fall
-            // through to IGDB.
-        }
-        // No payload OR empty payload — fall through.
-    }
-
-    // 2. IGDB fallback by game name. We don't accept a slug here
-    // because the Steam-priority path already covers any title
-    // we have an appid for. Without an appid we're guessing by
-    // name anyway, and IGDB's `summary`/`storyline` + YouTube
-    // `videos[]` (handled by the existing VideosSection) is good
-    // enough.
-    if let Some(name) = game_name {
-        if let Some(payload) = fetch_igdb_about(name).await {
-            return Some(payload);
-        }
-    }
-
-    None
-}
-
 /// Fetch the rich "About" payload for every configured language and
 /// return them as a single [`AboutBundle`].
 ///
@@ -1542,13 +1507,6 @@ async fn fetch_steam_about_for_lang_cached(app_id: u32, lang: &str) -> Option<Ri
     }
 
     Some(payload)
-}
-
-/// English convenience wrapper around `fetch_steam_about_for_lang_cached`,
-/// preserving the previous `fetch_rich_about` behaviour (Steam-first with
-/// `l=en`).
-async fn fetch_steam_about_cached(app_id: u32) -> Option<RichAboutPayload> {
-    fetch_steam_about_for_lang_cached(app_id, "english").await
 }
 
 /// IGDB fallback: search by name and return the first hit's

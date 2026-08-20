@@ -1,6 +1,6 @@
 use std::path::Path;
 use std::sync::Arc;
-use std::collections::{HashMap, VecDeque};
+use std::collections::HashMap;
 use std::time::{Duration, Instant, SystemTime};
 use std::sync::OnceLock;
 use serde::{Deserialize, Deserializer, Serialize};
@@ -45,7 +45,7 @@ mod system_screenshots;
 mod emulator_install;
 mod plugins;
 mod retro;
-use game_scraper::{GameMetadataResult, LaunchBoxImageResult, StoreGameSummary, TimeToBeat, SimilarGame, ReleaseDateInfo, IgdbReview, LanguageSupportInfo, ReviewFetchResult, RichAboutPayload, PcRequirementsPayload, IgdbPlatformInfo};
+use game_scraper::{GameMetadataResult, LaunchBoxImageResult, StoreGameSummary, TimeToBeat, SimilarGame, ReleaseDateInfo, IgdbReview, LanguageSupportInfo, ReviewFetchResult, PcRequirementsPayload, IgdbPlatformInfo};
 use game_watcher::{GameWatcher, GameRefInput};
 use gpu_detector::GpuInfo;
 use epic::auth::{epic_start_login, epic_finish_login, epic_login_with_refresh_token, epic_is_authenticated, epic_logout};
@@ -509,18 +509,6 @@ fn delete_emulator(app: tauri::AppHandle, id: String) -> Result<(), String> {
     let db_state: tauri::State<'_, db::Db> = app.state();
     db::games::delete_by_emulator(db_state.inner(), &id)?;
     db::emulators::delete(db_state.inner(), &id)
-}
-
-/// Read every `achievement_links` row for one game. Returns `null` when
-/// the game has no links yet.
-#[tauri::command]
-fn achievement_links_get(
-    app: tauri::AppHandle,
-    game_id: String,
-) -> Result<Option<Vec<db::achievement_links::AchievementLink>>, String> {
-    let db_state: tauri::State<'_, db::Db> = app.state();
-    let links = db::achievement_links::get_links_for_game(db_state.inner(), &game_id)?;
-    Ok(if links.is_empty() { None } else { Some(links) })
 }
 
 /// Read every `achievement_links` row across all games, grouped by
@@ -2311,24 +2299,6 @@ async fn fetch_external_reviews(
     game_scraper::fetch_external_reviews(&game_name, &source).await
 }
 
-/// Fetch the rich "About" payload for a game. Prefers Steam's
-/// `about_the_game` (HTML with embedded GIFs/images) + `movies[]`
-/// (Steam CDN .webm/.mp4 trailers); falls back to IGDB's
-/// `summary` / `storyline` when Steam is unavailable (no appid,
-/// transient Steam failure, or empty Steam response).
-///
-/// Returns `None` when both sources come back empty, so the
-/// frontend can hide the section entirely. The payload is
-/// cached in-process for 6h per Steam appid — a Steam store page
-/// edit cycle is well under that window.
-#[tauri::command]
-async fn get_about_section(
-    steam_app_id: Option<u32>,
-    game_name: Option<String>,
-) -> Option<RichAboutPayload> {
-    game_scraper::fetch_rich_about(steam_app_id, game_name.as_deref()).await
-}
-
 /// Read the user's chosen UI display language. Returns `None` when unset
 /// (the frontend treats that as the `en` default). The same `language`
 /// kv key is read by the achievements sync paths via
@@ -2853,29 +2823,6 @@ async fn get_steam_player_count(
         }
     }
 
-    // Record the fresh fetch to the history ring buffer. Only valid
-    // (`result == 1`, `count > 0`) readings are recorded: a
-    // "no players right now" response (count = 0) would just clutter
-    // the chart with a flat zero line on every poll, and a "Steam
-    // doesn't track this appid" response is a permanent state we
-    // don't want to re-record forever.
-    //
-    // The history cache is a separate `tauri::State` from the live
-    // count cache (split to avoid lock contention: the activity-tab
-    // sparkline polls every 60s even when the badge isn't visible,
-    // so the history read path is hotter than the live cache). Two
-    // independent `app.state()` calls return independent references
-    // â€” both shared (immutable) borrows of the AppHandle, so the
-    // borrow checker is happy.
-    if result_ok {
-        if let Some(count) = player_count {
-            if count > 0 {
-                let history: tauri::State<'_, PlayerCountHistoryCache> = app.state();
-                record_player_count_sample(&history, app_id, count);
-            }
-        }
-    }
-
     if result_ok {
         Ok(player_count)
     } else {
@@ -2930,245 +2877,6 @@ async fn lookup_steam_app_id_for_game(game_name: String) -> Result<Option<u32>, 
             .await
             .map(|v| v as u32),
     )
-}
-
-// === Player Count History (ring buffer for activity-tab sparkline) =========
-//
-// Per-appid ring buffer of successful player-count fetches. Powers the
-// activity-tab sparkline showing the last 24h of concurrent players.
-//
-// Each successful `get_steam_player_count` (post-cache-miss fetch) records
-// a sample. Dedupe is by 5s: if the latest entry is within 5s of now, we
-// OVERWRITE its count rather than appending. This handles the multi-banner
-// case where the Store hero, Store detail, and Library detail all fire
-// `get_steam_player_count` within milliseconds of each other â€” without
-// dedupe, three identical samples would land in the buffer per poll.
-//
-// Cap: 1440 entries/appid (24h Ãâ€” 60s polling). Eviction is FIFO via
-// VecDeque::push_back + pop_front when the cap is hit. We deliberately
-// trust the cap and don't run a separate age-based eviction pass: if the
-// user has been away long enough that 1440 entries have rotated through,
-// the oldest are stale and dropping them silently is the right behavior.
-//
-// All in-memory. No disk persistence â€” the history is ephemeral by
-// design (a fresh install starts a new history; the OS restart is the
-// cleanest reset point for a UI like this).
-//
-// Storage: `VecDeque<(SystemTime, u32)>`. `SystemTime` gives us the
-// wall-clock timestamp directly, which the frontend renders against
-// the user's clock. We don't use `Instant` here because the response
-// to the frontend wants wall-clock time (ms-since-epoch) and `Instant`
-// has no defined epoch.
-
-#[derive(Serialize, Deserialize, Clone, Debug)]
-#[serde(rename_all = "camelCase")]
-struct PlayerCountPoint {
-    /// Unix-millisecond timestamp of the sample. Sourced from
-    /// `SystemTime::UNIX_EPOCH + duration` so the value is directly
-    /// renderable in the frontend without conversion.
-    timestamp: u64,
-    count: u32,
-}
-
-#[derive(Serialize, Deserialize, Clone, Debug)]
-#[serde(rename_all = "camelCase")]
-struct PlayerCountHistory {
-    app_id: u32,
-    /// Time-series points within the requested window, oldest first.
-    /// Backend filters to `max_age_ms` before returning so the
-    /// frontend never has to do its own age check.
-    points: Vec<PlayerCountPoint>,
-    /// Most recent reading, or `None` if the buffer is empty.
-    current: Option<u32>,
-    /// Maximum count observed within the window, or `None` if empty.
-    peak: Option<u32>,
-    /// Arithmetic mean of the window, or `None` if empty.
-    average: Option<f64>,
-    /// Number of points in the returned window. Lets the frontend
-    /// distinguish "no data ever" from "very few samples" without
-    /// re-counting the array.
-    sample_count: u32,
-    /// Wall-clock start of the returned window (ms). 0 when empty.
-    window_start_ms: u64,
-    /// Wall-clock end of the returned window (ms). 0 when empty.
-    window_end_ms: u64,
-}
-
-struct PlayerCountHistoryCache {
-    /// appid -> ring buffer of (timestamp, count) samples.
-    /// Bounded at `PLAYER_COUNT_HISTORY_CAP` per appid via FIFO eviction
-    /// inside `record_player_count_sample`. The map itself is
-    /// unbounded in `len()` but bounded by how many distinct Steam
-    /// appids the user actually opens (single-digit hundreds at worst).
-    buffers: std::sync::Mutex<HashMap<u32, VecDeque<(SystemTime, u32)>>>,
-}
-
-impl Default for PlayerCountHistoryCache {
-    fn default() -> Self {
-        Self {
-            buffers: std::sync::Mutex::new(HashMap::new()),
-        }
-    }
-}
-
-const PLAYER_COUNT_HISTORY_CAP: usize = 1_440; // 24h Ãâ€” 60s polling
-const PLAYER_COUNT_HISTORY_DEDUPE_MS: u64 = 5_000;
-
-/// Append (or overwrite) one sample to a per-appid ring buffer.
-///
-/// Fire-and-forget: the caller never sees the result. We swallow
-/// mutex-poisoning errors so a poisoned lock can't crash the badge
-/// fetch path â€” a missed sample is harmless (the next 60s tick will
-/// record a fresh one).
-///
-/// Dedupe rule: if the latest existing entry is within
-/// `PLAYER_COUNT_HISTORY_DEDUPE_MS` of `now`, we OVERWRITE that entry's
-/// count in place (pop_back + push_back) rather than appending. This
-/// collapses the multi-banner case (3 banners firing within
-/// milliseconds) to a single sample, keeping the chart's x-axis
-/// resolution at ~1 sample per polling tick rather than 3Ãâ€” that.
-fn record_player_count_sample(
-    cache: &PlayerCountHistoryCache,
-    app_id: u32,
-    count: u32,
-) {
-    let now = SystemTime::now();
-    let mut buffers = match cache.buffers.lock() {
-        Ok(b) => b,
-        Err(_) => return, // poisoned; the next tick will recover
-    };
-    let buffer = buffers
-        .entry(app_id)
-        .or_insert_with(|| VecDeque::with_capacity(PLAYER_COUNT_HISTORY_CAP));
-
-    // Dedupe check: if the last sample landed within the dedupe window,
-    // replace it rather than appending. Crucial for the multi-banner
-    // case where the Store hero, Store detail, and Library detail all
-    // share a single 60s polling tick.
-    if let Some((last_t, _last_count)) = buffer.back() {
-        if let Ok(elapsed) = now.duration_since(*last_t) {
-            if (elapsed.as_millis() as u64) <= PLAYER_COUNT_HISTORY_DEDUPE_MS {
-                buffer.pop_back();
-                buffer.push_back((now, count));
-                return;
-            }
-        }
-    }
-
-    // Cap-based eviction: when the buffer is at its limit, drop the
-    // oldest entry to make room. Trusting the cap means we don't need
-    // a separate age-based eviction pass â€” a steady 60s polling rate
-    // keeps the buffer at exactly 1440 entries, and any gap in polling
-    // (user away, network down) just means the oldest entry is older
-    // than 24h, which the frontend can't render anyway.
-    if buffer.len() >= PLAYER_COUNT_HISTORY_CAP {
-        buffer.pop_front();
-    }
-    buffer.push_back((now, count));
-}
-
-/// Read the per-appid history ring buffer and return a windowed slice
-/// plus server-computed aggregates.
-///
-/// `max_age_ms` defaults to 24h. The backend filters points to the
-/// window and computes `current` / `peak` / `average` so the frontend
-/// can render a complete summary card in one IPC round-trip. The
-/// points array is always oldest-first so the sparkline renders in
-/// chronological order without re-sorting.
-#[tauri::command]
-async fn get_player_count_history(
-    app: tauri::AppHandle,
-    app_id: u32,
-    max_age_ms: Option<u64>,
-) -> Result<PlayerCountHistory, String> {
-    // Default 24h. We accept any positive value; the cap is the
-    // ring buffer itself (1440 entries â‰ˆ 24h at 60s polling), so
-    // asking for more than that is harmless â€” we'll just return
-    // everything we have.
-    let max_age = Duration::from_millis(max_age_ms.unwrap_or(24 * 60 * 60 * 1_000));
-    let cache: tauri::State<'_, PlayerCountHistoryCache> = app.state();
-
-    let buffers = cache.buffers.lock().map_err(|e| e.to_string())?;
-    let buffer = match buffers.get(&app_id) {
-        Some(b) if !b.is_empty() => b,
-        _ => {
-            return Ok(PlayerCountHistory {
-                app_id,
-                points: Vec::new(),
-                current: None,
-                peak: None,
-                average: None,
-                sample_count: 0,
-                window_start_ms: 0,
-                window_end_ms: 0,
-            });
-        }
-    };
-
-    let now = SystemTime::now();
-    // `checked_sub` returns `None` if `max_age` would push us before
-    // the UNIX_EPOCH (i.e. the caller asked for an absurdly large
-    // window). Fall back to EPOCH so we return everything rather than
-    // failing the command.
-    let cutoff = now
-        .checked_sub(max_age)
-        .unwrap_or(SystemTime::UNIX_EPOCH);
-
-    // Single pass over the (already-evicted) buffer: filter to the
-    // window, convert SystemTime -> unix-ms, and accumulate peak/total
-    // for the average. Done in one loop so we don't pay three O(N)
-    // passes.
-    let mut points: Vec<PlayerCountPoint> = Vec::new();
-    let mut peak: u32 = 0;
-    let mut total: u64 = 0;
-    for (t, count) in buffer.iter() {
-        if *t < cutoff {
-            continue;
-        }
-        // `duration_since(UNIX_EPOCH)` is non-negative by definition
-        // for `SystemTime` values that came from our own `now()` calls,
-        // so this `unwrap_or(0)` only fires on the (impossible) case
-        // where a sample was timestamped before 1970.
-        let ms = t
-            .duration_since(SystemTime::UNIX_EPOCH)
-            .map(|d| d.as_millis() as u64)
-            .unwrap_or(0);
-        points.push(PlayerCountPoint {
-            timestamp: ms,
-            count: *count,
-        });
-        if *count > peak {
-            peak = *count;
-        }
-        total += *count as u64;
-    }
-
-    let sample_count = points.len() as u32;
-    if sample_count == 0 {
-        return Ok(PlayerCountHistory {
-            app_id,
-            points: Vec::new(),
-            current: None,
-            peak: None,
-            average: None,
-            sample_count: 0,
-            window_start_ms: 0,
-            window_end_ms: 0,
-        });
-    }
-
-    let first = points.first().unwrap();
-    let last = points.last().unwrap();
-    Ok(PlayerCountHistory {
-        app_id,
-        sample_count,
-        peak: Some(peak),
-        average: Some(total as f64 / sample_count as f64),
-        current: Some(last.count),
-        window_start_ms: first.timestamp,
-        window_end_ms: last.timestamp,
-        points,
-    })
 }
 
 // === Steam Historical Player Count (steamcharts.com) ========================
@@ -3982,7 +3690,7 @@ pub fn run() {
             tauri_plugin_autostart::MacosLauncher::LaunchAgent,
             Some(vec![]),
         ))
-        .invoke_handler(tauri::generate_handler![scan_folder_for_exes, launch_game, force_close_game, save_games, save_game, load_games, close_splashscreen, update_game_last_played, read_cover_image, search_game_metadata, get_igdb_game_by_id, fetch_game_images, download_image, search_launchbox_images, detect_gpus, list_media_files, save_screenshot, save_text_file, load_sessions, get_sessions, delete_session, delete_sessions_for_game, insert_session, get_system_ram_gb, get_system_info, refresh_hardware, set_metrics_config, detect_game_size, check_paths_exist, open_folder, disk_usage, move_game_install, uninstall_game, measure_path_size, detect_steam_screenshot_folders, detect_system_screenshot_folders, save_store_cache, load_store_cache, fetch_store_games, search_store_games, get_igdb_platforms,            get_store_game_detail, get_collection_games,            fetch_game_reviews, fetch_external_reviews, get_about_section, get_recommended_config,
+        .invoke_handler(tauri::generate_handler![scan_folder_for_exes, launch_game, force_close_game, save_games, save_game, load_games, close_splashscreen, update_game_last_played, read_cover_image, search_game_metadata, get_igdb_game_by_id, fetch_game_images, download_image, search_launchbox_images, detect_gpus, list_media_files, save_screenshot, save_text_file, load_sessions, get_sessions, delete_session, delete_sessions_for_game, insert_session, get_system_ram_gb, get_system_info, refresh_hardware, set_metrics_config, detect_game_size, check_paths_exist, open_folder, disk_usage, move_game_install, uninstall_game, measure_path_size, detect_steam_screenshot_folders, detect_system_screenshot_folders, save_store_cache, load_store_cache, fetch_store_games, search_store_games, get_igdb_platforms,            get_store_game_detail, get_collection_games,            fetch_game_reviews, fetch_external_reviews, get_recommended_config,
             get_language, set_language, get_about_bundle,             save_wishlist, load_wishlist, get_last_session_for_game, save_source_cache, load_source_cache, deals::fetch_gamepass_catalog, deals::fetch_isthereanydeal_deals, deals::fetch_giveaways, deals::open_deal_url, deals::fetch_playtester_games, deals::fetch_playtester_game_detail,            steam_sync_games,
             steam_connect, steam_logout, steam_get_session,
             steam_launch_options,
@@ -4043,7 +3751,6 @@ pub fn run() {
             downloads::download_history_clear,
             crackwatch::fetch_crackwatch_status,
             crackwatch::fetch_crackwatch_status_batch,
-            price::fetch_game_price,
             price::fetch_game_prices_batch,
             protondb::fetch_protondb_status,
             fetch_url,
@@ -4064,7 +3771,6 @@ pub fn run() {
             retro::retro_search_games,
             retro::retro_set_forced_game_id,
             retro::retro_sync_game,
-            achievement_links_get,
             achievement_links_list,
             // Manual achievement provider (L1b): link a game to a public
             // Steam appid and track its achievements by hand.
@@ -4091,11 +3797,6 @@ pub fn run() {
             // Popover payload: developer/publisher/release/price + reviews.
             // See SteamGameStatsCache above for per-section caching policy.
             get_steam_game_stats,
-            // Per-appid history ring buffer of concurrent-player
-            // counts, with server-computed peak/average. Powers the
-            // activity-tab sparkline — see PlayerCountHistoryCache
-            // above for the 24h cap + 5s dedupe policy.
-            get_player_count_history,
             // Long-range concurrent-player history from steamcharts.com
             // (free CCU feed, same data SteamDB charts show). Powers the
             // hover popover's historical line chart.
@@ -4393,13 +4094,6 @@ pub fn run() {
             // PlayerCountCache: 0 entries on startup, bounded by the
             // number of distinct Steam appids the user actually opens.
             app.manage(SteamGameStatsCache::default());
-
-            // Player-count history ring buffer (per-appid, 1440
-            // samples cap = 24h at 60s polling). Powers the
-            // activity-tab sparkline. Same growth model as the
-            // sibling caches: 0 entries on startup, grows on first
-            // successful fetch per appid.
-            app.manage(PlayerCountHistoryCache::default());
 
             // Long-range concurrent-player history cache
             // (steamcharts.com feed, 6h TTL). Grows on first fetch per

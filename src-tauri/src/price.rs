@@ -75,45 +75,6 @@ struct CheapSharkGame {
     cheapest_deal_id: Option<String>,
 }
 
-/// Fetch the cheapest current price for a game by title.
-///
-/// Returns `None` when CheapShark has no match. Uses a 6h KV cache so the
-/// same title isn't re-queried on every render.
-#[tauri::command]
-pub async fn fetch_game_price(app: tauri::AppHandle, game_name: String) -> Option<GamePrice> {
-    let norm = normalize(&game_name);
-    if norm.is_empty() {
-        return None;
-    }
-    let key = format!("{}{}", CACHE_KEY_PREFIX, norm);
-    let db_state: tauri::State<'_, Db> = app.state();
-
-    // Cache lookup.
-    if let Some(raw) = crate::db::kv::get(db_state.inner(), &key).ok().flatten() {
-        if let Ok(cached) = serde_json::from_str::<CachedPrice>(&raw) {
-            if cached.updated_at + CACHE_TTL_MS > now_ms() {
-                return Some(cached.price);
-            }
-        }
-    }
-
-    let price = lookup(&game_name).await;
-
-    if let Some(ref p) = price {
-        let envelope = CachedPrice {
-            price: p.clone(),
-            updated_at: now_ms(),
-        };
-        if let Ok(json) = serde_json::to_string(&envelope) {
-            if let Err(e) = crate::db::kv::set(db_state.inner(), &key, &json) {
-                eprintln!("[price] cache write failed for {key}: {e}");
-            }
-        }
-    }
-
-    price
-}
-
 /// Batch price lookup. Returns a `{ name -> GamePrice }` map (only matched
 /// entries). Used by the store grid so a page of cards makes far fewer
 /// requests, and by the wishlist deals view.

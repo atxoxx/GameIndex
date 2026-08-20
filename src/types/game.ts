@@ -909,51 +909,6 @@ export interface SteamGameStats {
   reviewsError: string | null;
 }
 
-// ─── Player Count History (activity-tab sparkline) ──────────────────────────
-
-/**
- * One sample in the per-appid player-count history ring buffer.
- * Sourced from the Rust `PlayerCountPoint` struct, which itself
- * records every successful `get_steam_player_count` fetch.
- */
-export interface PlayerCountPoint {
-  /** Unix-millisecond timestamp of the sample. Sourced from
-   *  `SystemTime::now()` on the Rust side so the value is
-   *  renderable in the user's local time without conversion. */
-  timestamp: number;
-  /** Concurrent-player count at sample time. Always > 0 — zero
-   *  readings are filtered at the source (a flat zero line on
-   *  every poll would be visual noise). */
-  count: number;
-}
-
-/**
- * Per-appid history slice returned by `get_player_count_history`.
- * Backend filters the ring buffer to the requested `max_age_ms`
- * window (default 24h) and computes the aggregates so the
- * frontend renders a complete summary card in one IPC round-trip.
- */
-export interface PlayerCountHistory {
-  appId: number;
-  /** Time-series points within the requested window, oldest first.
-   *  Empty when the appid has no recorded samples yet. */
-  points: PlayerCountPoint[];
-  /** Most recent reading, or `null` when `points` is empty. */
-  current: number | null;
-  /** Maximum count observed in the window, or `null` when empty. */
-  peak: number | null;
-  /** Arithmetic mean of the window, or `null` when empty. */
-  average: number | null;
-  /** Number of points in the returned window. Lets the renderer
-   *  distinguish "no data ever" from "very few samples" without
-   *  re-counting the array. */
-  sampleCount: number;
-  /** Wall-clock start of the returned window (unix-ms). 0 when empty. */
-  windowStartMs: number;
-  /** Wall-clock end of the returned window (unix-ms). 0 when empty. */
-  windowEndMs: number;
-}
-
 // ─── Steam Player History (hover popover line chart) ──────────────────────────
 
 /**
