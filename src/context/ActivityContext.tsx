@@ -366,6 +366,9 @@ export function ActivityProvider({ children }: { children: ReactNode }) {
 
   const refreshGpus = useCallback(async () => {
     try {
+      // Invalidate the backend's cached hardware summary first so this is a
+      // true re-detection rather than a cached read (e.g. after an eGPU).
+      await invoke("refresh_hardware");
       const detected: GpuInfo[] = await invoke("detect_gpus");
       setAvailableGpus(detected);
       localStorage.setItem("gamelib-gpus", JSON.stringify(detected));
@@ -484,18 +487,24 @@ function computeStats(sessions: GameSession[], games: Game[]): ActivityStats {
   const dailyLabels: string[] = [];
   const dayNames = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
   const now = new Date();
+  // Parse each session date once — the old per-day / per-week `filter`
+  // re-parsed `s.date` (an ISO string) for every bucket, i.e. 11× per session.
+  const sessionTimes = sessions.map((s) => ({
+    t: new Date(s.date).getTime(),
+    min: s.durationMin,
+  }));
   for (let i = 6; i >= 0; i--) {
     const d = new Date(now);
     d.setDate(d.getDate() - i);
     d.setHours(0, 0, 0, 0);
     const dEnd = new Date(d);
     dEnd.setHours(23, 59, 59, 999);
-    const mins = sessions
-      .filter((s) => {
-        const sd = new Date(s.date);
-        return sd >= d && sd <= dEnd;
-      })
-      .reduce((sum, s) => sum + s.durationMin, 0);
+    const startT = d.getTime();
+    const endT = dEnd.getTime();
+    const mins = sessionTimes.reduce(
+      (sum, st) => (st.t >= startT && st.t <= endT ? sum + st.min : sum),
+      0,
+    );
     dailyAvg.push(mins);
     dailyLabels.push(dayNames[d.getDay()]);
   }
@@ -510,12 +519,12 @@ function computeStats(sessions: GameSession[], games: Game[]): ActivityStats {
     const weekEnd = new Date(weekStart);
     weekEnd.setDate(weekEnd.getDate() + 6);
     weekEnd.setHours(23, 59, 59, 999);
-    const mins = sessions
-      .filter((s) => {
-        const sd = new Date(s.date);
-        return sd >= weekStart && sd <= weekEnd;
-      })
-      .reduce((sum, s) => sum + s.durationMin, 0);
+    const startT = weekStart.getTime();
+    const endT = weekEnd.getTime();
+    const mins = sessionTimes.reduce(
+      (sum, st) => (st.t >= startT && st.t <= endT ? sum + st.min : sum),
+      0,
+    );
     weeklyAvg.push(mins);
     const monthDay = weekStart.getDate();
     const monthName = weekStart.toLocaleDateString(undefined, { month: "short" });

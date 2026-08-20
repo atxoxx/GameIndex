@@ -95,6 +95,16 @@ unsafe fn try_open_mahm() -> Option<isize> {
     }
 }
 
+/// Drop the cached mapping handle so the next read re-opens the section.
+/// Used when `MapViewOfFile` fails against a stale handle (Afterburner
+/// restarted and recreated the shared-memory section); without this the
+/// reader would keep returning `None` until the app restarts.
+fn clear_mahm_handle() {
+    if let Ok(mut cache) = CACHED_MAHM_HANDLE.lock() {
+        *cache = None;
+    }
+}
+
 /// Extract a null-terminated ASCII string from raw memory at `ptr` with max `len` bytes.
 unsafe fn read_str_at(ptr: *const u8, len: usize) -> String {
     let slice = std::slice::from_raw_parts(ptr, len);
@@ -196,6 +206,9 @@ pub fn read_mahm_metrics(gpu_idx: u32, gpu_name: Option<&str>) -> Option<MahmMet
         let base = view.Value;
         if base.is_null() {
             let _ = UnmapViewOfFile(view);
+            // The cached handle is stale (Afterburner restarted). Clear it so
+            // the next poll re-opens the section instead of failing forever.
+            clear_mahm_handle();
             return None;
         }
 
@@ -207,8 +220,15 @@ pub fn read_mahm_metrics(gpu_idx: u32, gpu_name: Option<&str>) -> Option<MahmMet
             return None;
         }
 
-        // Sanity checks
-        if header.entry_count > 1000 || header.entry_size < 32 {
+        // Sanity checks. `entry_size` / `header_size` / `gpu_count` must be
+        // bounded — a corrupted header with a huge entry size would otherwise
+        // make the entry loop below read far past the mapped view and crash.
+        if header.entry_count > 1000
+            || header.entry_size < 32
+            || header.entry_size > 0x2000
+            || header.header_size > 0x1000
+            || header.gpu_count > 64
+        {
             let _ = UnmapViewOfFile(view);
             return None;
         }
@@ -255,6 +275,12 @@ pub fn read_mahm_metrics(gpu_idx: u32, gpu_name: Option<&str>) -> Option<MahmMet
         let entries_base = (base as *const u8).add(header.header_size as usize);
 
         for i in 0..header.entry_count {
+            // Bound each entry against a generous fixed cap so a corrupt
+            // entry_count / entry_size combination can't read past the view.
+            let entry_offset = header.header_size as usize + (i * header.entry_size) as usize;
+            if entry_offset + data_offset + 4 > 0x200000 {
+                break;
+            }
             let entry = entries_base.add((i * header.entry_size) as usize);
             let name = read_str_at(entry.add(ENTRY_NAME_OFFSET), ENTRY_NAME_SIZE);
             if name.is_empty() {

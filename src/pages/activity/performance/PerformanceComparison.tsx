@@ -61,7 +61,11 @@ export function PerformanceComparison({
         // label and always honour the user's temperature unit.
         const cpu = toDisplayTemp(g.avgCpuTemp, tempUnit);
         const gpu = toDisplayTemp(g.avgGpuTemp, tempUnit);
-        const value = Math.max(g.avgCpuTemp, g.avgGpuTemp);
+        // Scale the bar by the *displayed* temperature so the relative bar
+        // lengths match what the user sees; keep the no-data case (both 0) as
+        // 0 so it still filters out of the list (0°C → 32°F would otherwise
+        // sneak a phantom 32-value row in Fahrenheit mode).
+        const value = g.avgCpuTemp > 0 || g.avgGpuTemp > 0 ? Math.max(cpu, gpu) : 0;
         const unit = tempUnitLabel(tempUnit);
         const cpuLabel = g.avgCpuTemp > 0 ? `${Math.round(cpu)}${unit}` : "—";
         const gpuLabel = g.avgGpuTemp > 0 ? `${Math.round(gpu)}${unit}` : "—";

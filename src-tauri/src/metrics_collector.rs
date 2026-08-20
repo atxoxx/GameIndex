@@ -225,6 +225,21 @@ fn collect_metrics_loop(
     // convert inside `get_total_ram_mb` so callers never see unit suffixes).
     let total_ram_mb = get_total_ram_mb(&wmi_con);
 
+    // Open the LibreHardwareMonitor / OpenHardwareMonitor sensor namespaces
+    // ONCE per session and reuse the connection across samples. The previous
+    // per-sample open (COMLibrary + WMIConnection on every poll) was the
+    // dominant collection cost whenever Afterburner wasn't supplying
+    // temperatures / loads. LHM is preferred; OHM is only opened when LHM
+    // isn't present (mirroring the old fallback order).
+    let mut lhm_con = None;
+    let mut ohm_con = None;
+    if config.capture_cpu_temp || config.capture_gpu_temp {
+        lhm_con = open_hwmon("ROOT\\LibreHardwareMonitor");
+        if lhm_con.is_none() {
+            ohm_con = open_hwmon("ROOT\\OpenHardwareMonitor");
+        }
+    }
+
     // Log which data source is available on first sample
     let mut logged_source = false;
 
@@ -235,8 +250,20 @@ fn collect_metrics_loop(
         }
 
         let mut sample = collect_single_sample(
-            &wmi_con, game_pid, gpu_idx, gpu_name.as_deref(), total_ram_mb,
-            config.capture_cpu_temp, config.capture_gpu_temp,
+            &wmi_con,
+            lhm_con.as_ref(),
+            ohm_con.as_ref(),
+            game_pid,
+            gpu_idx,
+            gpu_name.as_deref(),
+            total_ram_mb,
+            config.capture_fps,
+            config.capture_cpu,
+            config.capture_gpu,
+            config.capture_ram,
+            config.capture_cpu_temp,
+            config.capture_gpu_temp,
+            loop_start,
         );
 
         if !logged_source {
@@ -266,12 +293,19 @@ fn collect_metrics_loop(
 
 fn collect_single_sample(
     wmi_con: &WMIConnection,
+    lhm_con: Option<&WMIConnection>,
+    ohm_con: Option<&WMIConnection>,
     game_pid: u32,
     gpu_idx: u32,
     gpu_name: Option<&str>,
     total_ram_mb: u64,
+    capture_fps: bool,
+    capture_cpu: bool,
+    capture_gpu: bool,
+    capture_ram: bool,
     capture_cpu_temp: bool,
     capture_gpu_temp: bool,
+    start: Instant,
 ) -> MetricsSample {
     // 1. Try to read from MSI Afterburner Shared Memory first (highly reliable)
     let mahm = mahm_reader::read_mahm_metrics(gpu_idx, gpu_name);
@@ -285,6 +319,16 @@ fn collect_single_sample(
 
     let mut used_mahm = false;
     let mut mahm_gave_ram = false;
+
+    // Resolve the system RAM usage % from WMI once per sample. Both the
+    // MAHM cross-check and the later fallback used to query this separately
+    // (two WMI round-trips per poll); computing it once also lets us honour
+    // `capture_ram` by skipping the query entirely when RAM capture is off.
+    let wmi_ram_pct = if capture_ram {
+        get_ram_usage_pct(wmi_con)
+    } else {
+        0
+    };
 
     if let Some(ref m) = mahm {
         if m.cpu_usage.is_some() || m.gpu_usage.is_some() || m.cpu_temp.is_some() {
@@ -309,7 +353,7 @@ fn collect_single_sample(
             //       fallback stays in sync.
             if let Some(raw_ram) = m.ram_usage {
                 let resolved = resolve_mahm_ram_pct(raw_ram, &m.ram_units, total_ram_mb);
-                let wmi_pct = get_ram_usage_pct(wmi_con);
+                let wmi_pct = wmi_ram_pct;
                 match resolved {
                     Some(mahm_pct) => {
                         if (mahm_pct - wmi_pct as f32).abs() >= 20.0 {
@@ -353,49 +397,52 @@ fn collect_single_sample(
     // Bypasses the buggy WMI GPUEngine physical index mismatch by using reliable LHM/OHM sensors.
     // Skipped entirely when neither temperature is being captured — this is the expensive
     // ROOT\LibreHardwareMonitor / ROOT\OpenHardwareMonitor WMI namespace query, so gating it
-    // is the main CPU/IO saving of the "capture temperatures" toggle.
+    // is the main CPU/IO saving of the "capture temperatures" toggle. The connections
+    // themselves are opened once per session (see collect_metrics_loop) and reused here.
     if (capture_cpu_temp || capture_gpu_temp)
         && (cpu_temp_val == 0.0 || gpu_temp_val == 0.0 || cpu_usage_val == 0.0 || gpu_usage_val == 0.0)
     {
-        if let Some((lh_cpu_temp, lh_gpu_temp, lh_cpu_load, lh_gpu_load)) = get_lhm_metrics() {
-            if capture_cpu_temp && cpu_temp_val == 0.0 { cpu_temp_val = lh_cpu_temp; }
-            if capture_gpu_temp && gpu_temp_val == 0.0 { gpu_temp_val = lh_gpu_temp; }
-            if cpu_usage_val == 0.0 { cpu_usage_val = lh_cpu_load; }
-            if gpu_usage_val == 0.0 { gpu_usage_val = lh_gpu_load; }
-        } else if let Some((oh_cpu_temp, oh_gpu_temp, oh_cpu_load, oh_gpu_load)) = get_ohm_metrics() {
-            if capture_cpu_temp && cpu_temp_val == 0.0 { cpu_temp_val = oh_cpu_temp; }
-            if capture_gpu_temp && gpu_temp_val == 0.0 { gpu_temp_val = oh_gpu_temp; }
-            if cpu_usage_val == 0.0 { cpu_usage_val = oh_cpu_load; }
-            if gpu_usage_val == 0.0 { gpu_usage_val = oh_gpu_load; }
+        let hwmon = lhm_con
+            .and_then(query_hwmon)
+            .or_else(|| ohm_con.and_then(query_hwmon));
+        if let Some((hw_cpu_temp, hw_gpu_temp, hw_cpu_load, hw_gpu_load)) = hwmon {
+            if capture_cpu_temp && cpu_temp_val == 0.0 { cpu_temp_val = hw_cpu_temp; }
+            if capture_gpu_temp && gpu_temp_val == 0.0 { gpu_temp_val = hw_gpu_temp; }
+            if cpu_usage_val == 0.0 { cpu_usage_val = hw_cpu_load; }
+            if gpu_usage_val == 0.0 { gpu_usage_val = hw_gpu_load; }
         }
     }
 
-    // 3. Fallback to standard system WMI for any metrics that are still missing.
+    // 3. Fallback to standard system WMI for any metrics that are still
+    // missing. Each query is gated by its capture flag so disabling a
+    // metric in Settings actually skips the WMI round-trip (previously the
+    // flags only zeroed the aggregate — they never saved the collection cost).
     if !used_mahm {
-        cpu_usage_val = get_cpu_usage(wmi_con) as f32;
-        gpu_usage_val = get_gpu_usage_wmi(wmi_con, gpu_idx) as f32;
-        ram_usage_pct = get_ram_usage_pct(wmi_con) as f32;
+        if capture_cpu { cpu_usage_val = get_cpu_usage(wmi_con) as f32; }
+        if capture_gpu { gpu_usage_val = get_gpu_usage_wmi(wmi_con, gpu_idx) as f32; }
+        ram_usage_pct = wmi_ram_pct as f32;
     } else {
         // MAHM was used for SOME metrics; backfill missing ones from WMI.
         // RAM specifically falls back when MAHM either did not produce a
         // usable reading (implausible raw value) or failed the % cross-check
         // against WMI — see `mahm_gave_ram` and the MAHM block above.
-        if cpu_usage_val == 0.0 { cpu_usage_val = get_cpu_usage(wmi_con) as f32; }
-        if gpu_usage_val == 0.0 { gpu_usage_val = get_gpu_usage_wmi(wmi_con, gpu_idx) as f32; }
-        if !mahm_gave_ram { ram_usage_pct = get_ram_usage_pct(wmi_con) as f32; }
+        if capture_cpu && cpu_usage_val == 0.0 { cpu_usage_val = get_cpu_usage(wmi_con) as f32; }
+        if capture_gpu && gpu_usage_val == 0.0 { gpu_usage_val = get_gpu_usage_wmi(wmi_con, gpu_idx) as f32; }
+        if !mahm_gave_ram { ram_usage_pct = wmi_ram_pct as f32; }
     }
 
     // 4. Fallback to smart temperature estimator if still 0 (ensures data is always present)
     if capture_cpu_temp && cpu_temp_val == 0.0 {
-        let time_factor = (Instant::now().elapsed().as_secs_f64().sin() as f32) * 1.2;
+        let time_factor = (start.elapsed().as_secs_f64().sin() as f32) * 1.2;
         cpu_temp_val = 42.0 + (cpu_usage_val * 0.28) + time_factor;
     }
     if capture_gpu_temp && gpu_temp_val == 0.0 {
-        let time_factor = ((Instant::now().elapsed().as_secs_f64() + 2.0).sin() as f32) * 1.5;
+        let time_factor = ((start.elapsed().as_secs_f64() + 2.0).sin() as f32) * 1.5;
         gpu_temp_val = 38.0 + (gpu_usage_val * 0.32) + time_factor;
     }
-    // 5. Try to read RTSS FPS if Afterburner did not supply it
-    if fps_val.is_none() {
+    // 5. Try to read RTSS FPS if Afterburner did not supply it. Skipped
+    // entirely when FPS capture is disabled (a separate shared-memory map).
+    if capture_fps && fps_val.is_none() {
         let rtss = rtss_reader::read_rtss_metrics(game_pid);
         fps_val = rtss.as_ref().map(|r| r.fps);
     }
@@ -587,13 +634,18 @@ fn get_ram_usage_pct(wmi_con: &WMIConnection) -> u32 {
     }
 }
 
-fn get_lhm_metrics() -> Option<(f32, f32, f32, f32)> {
+fn open_hwmon(namespace: &str) -> Option<WMIConnection> {
     // See collect_metrics_loop for why we try without_security as a
     // fallback — once security is set, COMLibrary::new() can fail.
     let com_lib = COMLibrary::new()
         .or_else(|_| COMLibrary::without_security())
         .ok()?;
-    let wmi_con = WMIConnection::with_namespace_path("ROOT\\LibreHardwareMonitor", com_lib).ok()?;
+    WMIConnection::with_namespace_path(namespace, com_lib).ok()
+}
+
+/// Read the Temperature + Load sensors from an already-open LHM/OHM
+/// connection. Returns (cpu_temp, gpu_temp, cpu_load, gpu_load).
+fn query_hwmon(wmi_con: &WMIConnection) -> Option<(f32, f32, f32, f32)> {
     // Fetch both Temperature and Load sensors in a single query
     let query = "SELECT Name, Value, SensorType FROM Sensor WHERE SensorType = 'Temperature' OR SensorType = 'Load'";
     let results: Vec<WmiSensor> = wmi_con.raw_query(query).ok()?;
@@ -623,40 +675,60 @@ fn get_lhm_metrics() -> Option<(f32, f32, f32, f32)> {
     Some((cpu_temp, gpu_temp, cpu_load, gpu_load))
 }
 
-fn get_ohm_metrics() -> Option<(f32, f32, f32, f32)> {
-    // See collect_metrics_loop for why we try without_security as a
-    // fallback — once security is set, COMLibrary::new() can fail.
-    let com_lib = COMLibrary::new()
-        .or_else(|_| COMLibrary::without_security())
-        .ok()?;
-    let wmi_con = WMIConnection::with_namespace_path("ROOT\\OpenHardwareMonitor", com_lib).ok()?;
-    // Fetch both Temperature and Load sensors in a single query
-    let query = "SELECT Name, Value, SensorType FROM Sensor WHERE SensorType = 'Temperature' OR SensorType = 'Load'";
-    let results: Vec<WmiSensor> = wmi_con.raw_query(query).ok()?;
+/// Ceiling on the number of per-sample telemetry points persisted per session.
+/// The frontend resamples whatever it receives to ~45 points for the timeline
+/// charts, so anything past a few hundred points is pure storage / IPC
+/// overhead with no rendering benefit.
+const MAX_PERSISTED_SAMPLES: usize = 240;
 
-    let mut cpu_temp = 0.0;
-    let mut gpu_temp = 0.0;
-    let mut cpu_load = 0.0;
-    let mut gpu_load = 0.0;
-
-    for sensor in results {
-        let name_lower = sensor.name.to_lowercase();
-        if sensor.sensor_type == "Temperature" {
-            if name_lower.contains("cpu package") || (cpu_temp == 0.0 && name_lower.contains("cpu core")) {
-                cpu_temp = sensor.value;
-            } else if name_lower.contains("gpu core") {
-                gpu_temp = sensor.value;
-            }
-        } else if sensor.sensor_type == "Load" {
-            if name_lower.contains("cpu total") || (cpu_load == 0.0 && name_lower.contains("cpu load")) {
-                cpu_load = sensor.value;
-            } else if name_lower.contains("gpu core") || name_lower.contains("gpu load") {
-                gpu_load = sensor.value;
-            }
-        }
+/// Reduce a session's sample list to at most `MAX_PERSISTED_SAMPLES` points by
+/// bucket-averaging. Averaging (rather than stride-decimating) preserves the
+/// overall curve shape and smooths single-poll spikes that would otherwise
+/// dominate a downsampled chart.
+fn downsample_samples(samples: &[MetricsSample], capture_fps: bool) -> Vec<MetricsSamplePoint> {
+    if samples.len() <= MAX_PERSISTED_SAMPLES {
+        return samples
+            .iter()
+            .map(|s| MetricsSamplePoint {
+                t: s.t,
+                cpu: s.cpu_usage as f32,
+                gpu: s.gpu_usage as f32,
+                ram: s.ram_usage as f32,
+                cpu_temp: s.cpu_temp as f32,
+                gpu_temp: s.gpu_temp as f32,
+                fps: if capture_fps { s.rtss_fps } else { None },
+            })
+            .collect();
     }
 
-    Some((cpu_temp, gpu_temp, cpu_load, gpu_load))
+    let n = samples.len();
+    let mut out = Vec::with_capacity(MAX_PERSISTED_SAMPLES);
+    for i in 0..MAX_PERSISTED_SAMPLES {
+        let start = (i * n) / MAX_PERSISTED_SAMPLES;
+        let end = ((i + 1) * n) / MAX_PERSISTED_SAMPLES;
+        let bucket = &samples[start..end];
+        let count = bucket.len() as f64;
+        if count == 0.0 {
+            continue;
+        }
+        let avg = |pick: fn(&MetricsSample) -> f64| bucket.iter().map(pick).sum::<f64>() / count;
+        let fps_values: Vec<f64> = bucket.iter().filter_map(|s| s.rtss_fps).collect();
+        let fps = if capture_fps && !fps_values.is_empty() {
+            Some(fps_values.iter().sum::<f64>() / fps_values.len() as f64)
+        } else {
+            None
+        };
+        out.push(MetricsSamplePoint {
+            t: bucket[0].t,
+            cpu: avg(|s| s.cpu_usage as f64) as f32,
+            gpu: avg(|s| s.gpu_usage as f64) as f32,
+            ram: avg(|s| s.ram_usage as f64) as f32,
+            cpu_temp: avg(|s| s.cpu_temp as f64) as f32,
+            gpu_temp: avg(|s| s.gpu_temp as f64) as f32,
+            fps,
+        });
+    }
+    out
 }
 
 /// Aggregate collected samples into the final SessionMetrics.
@@ -693,18 +765,10 @@ fn aggregate_metrics(samples: &[MetricsSample], config: &MetricsConfig) -> Optio
 
     // Carry the real per-sample telemetry through so the frontend can plot
     // measured curves instead of re-synthesising them from the averages.
-    let samples_out: Vec<MetricsSamplePoint> = samples
-        .iter()
-        .map(|s| MetricsSamplePoint {
-            t: s.t,
-            cpu: s.cpu_usage as f32,
-            gpu: s.gpu_usage as f32,
-            ram: s.ram_usage as f32,
-            cpu_temp: s.cpu_temp as f32,
-            gpu_temp: s.gpu_temp as f32,
-            fps: if config.capture_fps { s.rtss_fps } else { None },
-        })
-        .collect();
+    // Capped to MAX_PERSISTED_SAMPLES (bucket-averaged) so a long session at
+    // a short interval can't bloat the session row with tens of thousands of
+    // points the frontend only ever resamples to ~45.
+    let samples_out: Vec<MetricsSamplePoint> = downsample_samples(samples, config.capture_fps);
 
     // Prefer real RTSS/Afterburner FPS over estimated FPS
     let rtss_samples: Vec<_> = samples.iter().filter_map(|s| s.rtss_fps).collect();
@@ -745,9 +809,9 @@ fn aggregate_metrics(samples: &[MetricsSample], config: &MetricsConfig) -> Optio
         avg_ram_usage: if config.capture_ram { avg_ram.round() as u32 } else { 0 },
         avg_cpu_temp: if config.capture_cpu_temp { avg_cpu_t.round() as u32 } else { 0 },
         avg_gpu_temp: if config.capture_gpu_temp { avg_gpu_t.round() as u32 } else { 0 },
-        min_fps: if config.capture_fps { min_fps.max(1) } else { 0 },
+        min_fps: if config.capture_fps && rtss_samples.len() >= 2 { min_fps.max(1) } else { 0 },
         max_fps: if config.capture_fps { max_fps } else { 0 },
-        resolution: "1920x1080".to_string(),
+        resolution: "unknown".to_string(),
         samples: samples_out,
     })
 }
@@ -997,5 +1061,47 @@ mod tests {
         let total: u64 = 0;
         let free: u64 = 0;
         assert!(!(total > 0 && total >= free));
+    }
+
+    // ─────────── tests for downsample_samples ───────────
+
+    fn sample(i: usize) -> MetricsSample {
+        MetricsSample {
+            cpu_usage: (i % 101) as u32,
+            gpu_usage: (i % 101) as u32,
+            ram_usage: (i % 101) as u32,
+            cpu_temp: (40 + i % 40) as u32,
+            gpu_temp: (40 + i % 40) as u32,
+            rtss_fps: Some(60.0 + (i % 30) as f64),
+            t: i as f64,
+        }
+    }
+
+    #[test]
+    fn downsample_caps_large_series_to_max() {
+        let samples: Vec<MetricsSample> = (0..1000).map(sample).collect();
+        let out = downsample_samples(&samples, true);
+        assert_eq!(out.len(), MAX_PERSISTED_SAMPLES);
+        // Every source sample has a real FPS, so every bucket does too.
+        assert!(out.iter().all(|p| p.fps.is_some()));
+        // `t` stays within the source range.
+        assert!(out.first().unwrap().t >= 0.0);
+        assert!(out.last().unwrap().t <= 999.0);
+    }
+
+    #[test]
+    fn downsample_passes_small_and_empty_series_through() {
+        let small: Vec<MetricsSample> = (0..10).map(sample).collect();
+        assert_eq!(downsample_samples(&small, true).len(), 10);
+
+        let empty: Vec<MetricsSample> = Vec::new();
+        assert!(downsample_samples(&empty, true).is_empty());
+    }
+
+    #[test]
+    fn downsample_honours_capture_fps_flag() {
+        let samples: Vec<MetricsSample> = (0..50).map(sample).collect();
+        assert!(downsample_samples(&samples, true).iter().all(|p| p.fps.is_some()));
+        assert!(downsample_samples(&samples, false).iter().all(|p| p.fps.is_none()));
     }
 }

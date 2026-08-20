@@ -1456,12 +1456,12 @@ export const SANE_MAX_FPS = 1000;
  *  1. Each FPS field (avg / min / max) is clamped to `[0, SANE_MAX_FPS]`.
  *     Out-of-range / non-finite values are dropped to 0 (treated as
  *     "this reading is untrustworthy").
- *  2. If avg is sane but min/max collapsed to 0, synthesise a plausible
- *     `min = round(avg * 0.8)`, `max = round(avg * 1.3)` so the chart
- *     isn't a flat 0 line. Both ends are clamped to [1, SANE_MAX_FPS].
- *  3. Restore the ordering invariant `min ≤ avg ≤ max` so downstream chart
- *     generators (e.g. generateConsistentSeries) don't enter their
- *     degenerate n > l fall-back path that produces a flat line.
+ *  2. If avg is sane but min/max are 0 or missing, leave them 0 — the UI
+ *     renders "—" for the range. We no longer synthesise a min/max from avg,
+ *     matching the backend's no-fabrication FPS policy.
+ *  3. Restore the ordering invariant `min ≤ avg ≤ max` for real (non-zero)
+ *     min/max pairs that survived the clamp in an inverted order, so
+ *     downstream chart generators don't hit their degenerate n > l path.
  *  4. Each run logs a single `console.warn` summarising which fields had
  *     to be repaired, so a real RTSS / MAHM misread isn't silently lost.
  */
@@ -1486,15 +1486,14 @@ export function sanitizeSessionMetrics(m: SessionMetrics): SessionMetrics {
   let min = fix(originalMin);
   let max = fix(originalMax);
 
-  if (avg > 0 && (min === 0 || max === 0 || min > max)) {
-    min = Math.max(1, Math.min(SANE_MAX_FPS, Math.round(avg * 0.8)));
-    max = Math.max(1, Math.min(SANE_MAX_FPS, Math.round(avg * 1.3)));
-  }
-  // Restore min ≤ avg ≤ max in case any survive-clamp values are inverted
-  // (e.g. a legitimate session whose persisted min > max due to enum drift).
+  // Restore min ≤ avg ≤ max only for real (non-zero) min/max pairs that
+  // survived the clamp in an inverted order (e.g. a legitimate session whose
+  // persisted min > max due to enum drift). A session that never recorded a
+  // real min/max keeps 0 → the range UI renders "—" rather than a fabricated
+  // 0.8×/1.3× spread.
   const lo = Math.min(min, avg, max);
   const hi = Math.max(min, avg, max);
-  if (avg > 0 && (min !== lo || max !== hi)) {
+  if (avg > 0 && min > 0 && max > 0 && (min !== lo || max !== hi)) {
     min = lo;
     max = hi;
     avg = Math.min(Math.max(avg, min), max);
@@ -1513,7 +1512,7 @@ export function sanitizeSessionMetrics(m: SessionMetrics): SessionMetrics {
     if (!warnedSignatures.has(sig)) {
       warnedSignatures.add(sig);
       // eslint-disable-next-line no-console
-      console.warn(`[sanitizeSessionMetrics] dropped poisoned FPS field(s) [${sig}] from session(s); reconstructed min/max from avg (sane cap ${SANE_MAX_FPS}). Once-per-signature dedupe; further occurrences are silent.`);
+      console.warn(`[sanitizeSessionMetrics] dropped poisoned FPS field(s) [${sig}] from session(s); zeroed min/max (sane cap ${SANE_MAX_FPS}). Once-per-signature dedupe; further occurrences are silent.`);
     }
   }
   // Preserve real per-sample telemetry (clamping any poisoned FPS). Legacy

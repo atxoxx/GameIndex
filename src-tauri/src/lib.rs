@@ -899,7 +899,7 @@ fn update_game_last_played(
 /// Detect GPUs on the system using WMI.
 #[tauri::command]
 fn detect_gpus() -> Vec<GpuInfo> {
-    gpu_detector::detect_gpus()
+    cached_system_info().gpus
 }
 
 /// Close the startup splash window and reveal the main window once the
@@ -924,6 +924,28 @@ pub struct SystemInfo {
     pub cpu_name: String,
     pub ram_gb: u32,
     pub gpus: Vec<GpuInfo>,
+}
+
+/// Cached host-hardware summary. Detection (COM init + WMI enumeration on a
+/// spawned thread) is non-trivial, and the values (CPU name, RAM, GPUs) don't
+/// change during a run — so compute once and reuse across the multiple
+/// surfaces that call `get_system_info` / `detect_gpus`. Cleared by the
+/// `refresh_hardware` command when the user asks to re-detect GPUs.
+static HARDWARE_CACHE: std::sync::Mutex<Option<SystemInfo>> = std::sync::Mutex::new(None);
+
+/// Return the host hardware summary, detecting it once and caching the result.
+fn cached_system_info() -> SystemInfo {
+    let mut cache = HARDWARE_CACHE.lock().expect("hardware cache poisoned");
+    if let Some(info) = cache.as_ref() {
+        return info.clone();
+    }
+    let info = SystemInfo {
+        cpu_name: metrics_collector::get_cpu_name(),
+        ram_gb: metrics_collector::get_system_ram_gb(),
+        gpus: gpu_detector::detect_gpus(),
+    };
+    *cache = Some(info.clone());
+    info
 }
 
 /// Force-terminate the tracked process for `game_id` and finalize the
@@ -2676,10 +2698,16 @@ fn get_system_ram_gb() -> u32 {
 /// and the full list of detected GPUs (not just the one chosen for monitoring).
 #[tauri::command]
 fn get_system_info() -> SystemInfo {
-    SystemInfo {
-        cpu_name: metrics_collector::get_cpu_name(),
-        ram_gb: metrics_collector::get_system_ram_gb(),
-        gpus: gpu_detector::detect_gpus(),
+    cached_system_info()
+}
+
+/// Invalidate the cached hardware summary so the next `detect_gpus` /
+/// `get_system_info` call re-detects (e.g. after the user plugs in an eGPU or
+/// installs a driver).
+#[tauri::command]
+fn refresh_hardware() {
+    if let Ok(mut cache) = HARDWARE_CACHE.lock() {
+        *cache = None;
     }
 }
 
@@ -3954,7 +3982,7 @@ pub fn run() {
             tauri_plugin_autostart::MacosLauncher::LaunchAgent,
             Some(vec![]),
         ))
-        .invoke_handler(tauri::generate_handler![scan_folder_for_exes, launch_game, force_close_game, save_games, save_game, load_games, close_splashscreen, update_game_last_played, read_cover_image, search_game_metadata, get_igdb_game_by_id, fetch_game_images, download_image, search_launchbox_images, detect_gpus, list_media_files, save_screenshot, save_text_file, load_sessions, get_sessions, delete_session, delete_sessions_for_game, insert_session, get_system_ram_gb, get_system_info, set_metrics_config, detect_game_size, check_paths_exist, open_folder, disk_usage, move_game_install, uninstall_game, measure_path_size, detect_steam_screenshot_folders, detect_system_screenshot_folders, save_store_cache, load_store_cache, fetch_store_games, search_store_games, get_igdb_platforms,            get_store_game_detail, get_collection_games,            fetch_game_reviews, fetch_external_reviews, get_about_section, get_recommended_config,
+        .invoke_handler(tauri::generate_handler![scan_folder_for_exes, launch_game, force_close_game, save_games, save_game, load_games, close_splashscreen, update_game_last_played, read_cover_image, search_game_metadata, get_igdb_game_by_id, fetch_game_images, download_image, search_launchbox_images, detect_gpus, list_media_files, save_screenshot, save_text_file, load_sessions, get_sessions, delete_session, delete_sessions_for_game, insert_session, get_system_ram_gb, get_system_info, refresh_hardware, set_metrics_config, detect_game_size, check_paths_exist, open_folder, disk_usage, move_game_install, uninstall_game, measure_path_size, detect_steam_screenshot_folders, detect_system_screenshot_folders, save_store_cache, load_store_cache, fetch_store_games, search_store_games, get_igdb_platforms,            get_store_game_detail, get_collection_games,            fetch_game_reviews, fetch_external_reviews, get_about_section, get_recommended_config,
             get_language, set_language, get_about_bundle,             save_wishlist, load_wishlist, get_last_session_for_game, save_source_cache, load_source_cache, deals::fetch_gamepass_catalog, deals::fetch_isthereanydeal_deals, deals::fetch_giveaways, deals::open_deal_url, deals::fetch_playtester_games, deals::fetch_playtester_game_detail,            steam_sync_games,
             steam_connect, steam_logout, steam_get_session,
             steam_launch_options,

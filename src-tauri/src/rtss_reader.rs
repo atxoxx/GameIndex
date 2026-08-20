@@ -49,6 +49,16 @@ unsafe fn try_open() -> Option<isize> {
     }
 }
 
+/// Drop the cached mapping handle so the next read re-opens the section.
+/// Used when `MapViewOfFile` fails against a stale handle (RTSS restarted
+/// and recreated the shared-memory section); without this the reader would
+/// keep returning `None` until the app restarts.
+fn clear_rtss_handle() {
+    if let Ok(mut cache) = CACHED_HANDLE.lock() {
+        *cache = None;
+    }
+}
+
 /// Try to read RTSS performance metrics for a given process ID.
 ///
 /// Returns `None` if:
@@ -65,6 +75,9 @@ pub fn read_rtss_metrics(pid: u32) -> Option<RtssMetrics> {
         let base = view.Value;
         if base.is_null() {
             let _ = UnmapViewOfFile(view);
+            // The cached handle is stale (RTSS restarted). Clear it so the
+            // next poll re-opens the section instead of failing forever.
+            clear_rtss_handle();
             return None;
         }
 

@@ -154,8 +154,8 @@ export function buildGameAverages(
     if (m.avgFps > 0) {
       agg.fpsCount++;
       agg.fpsSum += m.avgFps;
-      agg.minFpsMin = Math.min(agg.minFpsMin, m.minFps || m.avgFps * 0.6);
-      agg.maxFpsMax = Math.max(agg.maxFpsMax, m.maxFps || m.avgFps * 1.4);
+      if (m.minFps > 0) agg.minFpsMin = Math.min(agg.minFpsMin, m.minFps);
+      if (m.maxFps > 0) agg.maxFpsMax = Math.max(agg.maxFpsMax, m.maxFps);
     }
     if (m.avgCpuTemp > 0) { agg.cpuTempSum += m.avgCpuTemp; agg.cpuTempCount++; }
     if (m.avgGpuTemp > 0) { agg.gpuTempSum += m.avgGpuTemp; agg.gpuTempCount++; }
@@ -178,7 +178,7 @@ export function buildGameAverages(
       sessionsCount: d.hwCount,
       fpsCount: d.fpsCount,
       avgFps: d.fpsCount > 0 ? Math.round(d.fpsSum / d.fpsCount) : 0,
-      minFps: d.fpsCount > 0 ? (Number.isFinite(d.minFpsMin) ? Math.round(d.minFpsMin) : 30) : 0,
+      minFps: d.fpsCount > 0 && Number.isFinite(d.minFpsMin) ? Math.round(d.minFpsMin) : 0,
       maxFps: d.maxFpsMax > 0 ? Math.round(d.maxFpsMax) : 0,
       avgCpuTemp: mean(d.cpuTempSum, d.cpuTempCount),
       avgGpuTemp: mean(d.gpuTempSum, d.gpuTempCount),
@@ -404,8 +404,8 @@ function aggregateSessions(sessions: GameSession[]): TimelineRaw {
   let maxFps = 0;
   for (const s of fpsSessions) {
     const m = s.metrics!;
-    minFps = Math.min(minFps, m.minFps || m.avgFps * 0.6);
-    maxFps = Math.max(maxFps, m.maxFps || m.avgFps * 1.4);
+    if (m.minFps > 0) minFps = Math.min(minFps, m.minFps);
+    if (m.maxFps > 0) maxFps = Math.max(maxFps, m.maxFps);
   }
 
   return {
