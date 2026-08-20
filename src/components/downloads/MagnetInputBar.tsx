@@ -8,7 +8,7 @@ import { PasteIcon, FolderIcon, ChevronIcon } from "./DownloadIcons";
 const URI_PATTERN = /^(magnet:|https?:\/\/)/i;
 
 export default function MagnetInputBar() {
-  const { addDownload, addDirectDownload, selectSavePath } = useDownloads();
+  const { addDownload, addDirectDownload, selectSavePath, defaultDownloadPath, alwaysAskPath } = useDownloads();
   const { showToast } = useToast();
   const { t } = useLanguage();
 
@@ -18,9 +18,7 @@ export default function MagnetInputBar() {
   const [optionsOpen, setOptionsOpen] = useState(false);
 
   // Options state
-  const [customPath, setCustomPath] = useState<string>(
-    () => localStorage.getItem("gamelib-default-download-path") || "",
-  );
+  const [customPath, setCustomPath] = useState<string>(defaultDownloadPath);
   const [autoExtract, setAutoExtract] = useState<boolean>(true);
   const [listOnly, setListOnly] = useState<boolean>(false);
 
@@ -68,10 +66,8 @@ export default function MagnetInputBar() {
     try {
       let finalPath = customPath;
       if (!finalPath) {
-        const defaultPath = localStorage.getItem("gamelib-default-download-path") || "";
-        const alwaysAsk = localStorage.getItem("gamelib-download-always-ask-path") !== "false";
-        if (defaultPath && !alwaysAsk) {
-          finalPath = defaultPath;
+        if (defaultDownloadPath && !alwaysAskPath) {
+          finalPath = defaultDownloadPath;
         } else {
           const chosen = await selectSavePath();
           if (!chosen) {
@@ -233,7 +229,7 @@ export default function MagnetInputBar() {
               <FolderIcon style={{ width: 14, height: 14 }} />
               <span>{t("downloadModal.sectionSave")}:</span>
               <span className="dl-magnet-path-val">
-                {customPath || localStorage.getItem("gamelib-default-download-path") || t("downloadModal.chooseFolder")}
+                {customPath || defaultDownloadPath || t("downloadModal.chooseFolder")}
               </span>
             </label>
             <Button size="sm" variant="secondary" onClick={handleChooseCustomPath}>

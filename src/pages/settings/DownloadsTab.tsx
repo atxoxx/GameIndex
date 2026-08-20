@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
 
 import { useDownloads } from "../../context/DownloadContext";
@@ -16,59 +16,36 @@ import { BellIcon, CloudIcon, FolderIcon, GaugeIcon, ShieldIcon } from "./settin
  */
 export default function DownloadsTab() {
   const { showToast } = useToast();
-  const { updateSpeedLimits, selectSavePath, setSeedConfig, seedAfterComplete } = useDownloads();
+  const {
+    selectSavePath,
+    setSeedConfig,
+    seedAfterComplete,
+    speedLimits,
+    setSpeedLimits,
+    defaultDownloadPath,
+    setDefaultDownloadPath,
+    alwaysAskPath,
+    setAlwaysAskPath,
+    notifyComplete,
+    setNotifyComplete,
+    notifyOs,
+    setNotifyOs,
+    debridProvider,
+    setDebridProvider,
+    debridApiKey,
+    setDebridApiKey,
+  } = useDownloads();
   const { blockedSourceDomains, setBlockedSourceDomains } = useSettings();
   const { t } = useLanguage();
 
-  // Speed-limit settings state
-  const [dlLimitEnabled, setDlLimitEnabled] = useState(false);
-  const [dlLimitValue, setDlLimitValue] = useState(0);
-  const [ulLimitEnabled, setUlLimitEnabled] = useState(false);
-  const [ulLimitValue, setUlLimitValue] = useState(0);
-  const [disableUpload, setDisableUpload] = useState(false);
-
-  // Default download path + "always ask" toggle
-  const [defaultDownloadPath, setDefaultDownloadPath] = useState("");
-  const [alwaysAskPath, setAlwaysAskPath] = useState(true);
-
-  // Completion notification toggles
-  const [notifyComplete, setNotifyComplete] = useState(true);
-  const [notifyOs, setNotifyOs] = useState(false);
-
-  // Debrid settings state
-  const [debridProvider, setDebridProvider] = useState("none");
-  const [debridApiKey, setDebridApiKey] = useState("");
   const [testingDebrid, setTestingDebrid] = useState(false);
-
-  useEffect(() => {
-    try {
-      setDlLimitEnabled(localStorage.getItem("gamelib-dl-limit-download-enabled") === "true");
-      setDlLimitValue(parseInt(localStorage.getItem("gamelib-dl-limit-download-value") || "0", 10));
-      setUlLimitEnabled(localStorage.getItem("gamelib-dl-limit-upload-enabled") === "true");
-      setUlLimitValue(parseInt(localStorage.getItem("gamelib-dl-limit-upload-value") || "0", 10));
-      setDisableUpload(localStorage.getItem("gamelib-dl-limit-disable-upload") === "true");
-      setDefaultDownloadPath(localStorage.getItem("gamelib-default-download-path") || "");
-      setAlwaysAskPath(localStorage.getItem("gamelib-download-always-ask-path") !== "false");
-      setNotifyComplete(localStorage.getItem("gamelib-download-notify-complete") !== "false");
-      setNotifyOs(localStorage.getItem("gamelib-download-notify-os") === "true");
-    } catch (e) {
-      console.error("Failed to load speed limit settings:", e);
-    }
-  }, []);
-
-  useEffect(() => {
-    setDebridProvider(localStorage.getItem("gamelib-debrid-provider") || "none");
-    setDebridApiKey(localStorage.getItem("gamelib-debrid-apikey") || "");
-  }, []);
 
   const handlePickDefaultPath = async () => {
     try {
       const path = await selectSavePath();
       if (path) {
         setDefaultDownloadPath(path);
-        localStorage.setItem("gamelib-default-download-path", path);
         setAlwaysAskPath(false);
-        localStorage.setItem("gamelib-download-always-ask-path", "false");
       }
     } catch (e) {
       showToast(t("settings.couldNotOpenFolder", { error: e }), "error");
@@ -88,30 +65,6 @@ export default function DownloadsTab() {
       showToast(t("settings.connectionFailed", { error: e }), "error");
     } finally {
       setTestingDebrid(false);
-    }
-  };
-
-  const saveAndApplyLimits = async (
-    dlEnabled: boolean,
-    dlVal: number,
-    ulEnabled: boolean,
-    ulVal: number,
-    noUpload: boolean
-  ) => {
-    try {
-      localStorage.setItem("gamelib-dl-limit-download-enabled", String(dlEnabled));
-      localStorage.setItem("gamelib-dl-limit-download-value", String(dlVal));
-      localStorage.setItem("gamelib-dl-limit-upload-enabled", String(ulEnabled));
-      localStorage.setItem("gamelib-dl-limit-upload-value", String(ulVal));
-      localStorage.setItem("gamelib-dl-limit-disable-upload", String(noUpload));
-
-      await updateSpeedLimits(
-        dlEnabled && dlVal > 0 ? dlVal : null,
-        ulEnabled && ulVal > 0 ? ulVal : null,
-        noUpload
-      );
-    } catch (e) {
-      console.error("Failed to update speed limits:", e);
     }
   };
 
@@ -158,9 +111,7 @@ export default function DownloadsTab() {
                   size="sm"
                   onClick={() => {
                     setDefaultDownloadPath("");
-                    localStorage.removeItem("gamelib-default-download-path");
                     setAlwaysAskPath(true);
-                    localStorage.setItem("gamelib-download-always-ask-path", "true");
                   }}
                 >
                   {t("common.clear")}
@@ -176,7 +127,6 @@ export default function DownloadsTab() {
               disabled={!defaultDownloadPath}
               onChange={(e) => {
                 setAlwaysAskPath(e.target.checked);
-                localStorage.setItem("gamelib-download-always-ask-path", String(e.target.checked));
               }}
             />
             <span>{t("settings.downloads.askSaveLocation")}</span>
@@ -198,7 +148,6 @@ export default function DownloadsTab() {
               checked={notifyComplete}
               onChange={(e) => {
                 setNotifyComplete(e.target.checked);
-                localStorage.setItem("gamelib-download-notify-complete", String(e.target.checked));
               }}
             />
             <span>{t("settings.downloads.showToast")}</span>
@@ -212,7 +161,6 @@ export default function DownloadsTab() {
               onChange={(e) => {
                 const on = e.target.checked;
                 setNotifyOs(on);
-                localStorage.setItem("gamelib-download-notify-os", String(on));
                 if (on && typeof Notification !== "undefined" && Notification.permission === "default") {
                   void Notification.requestPermission();
                 }
@@ -235,25 +183,35 @@ export default function DownloadsTab() {
             <label className="settings-checkbox-label settings-checkbox-label--fixed">
               <input
                 type="checkbox"
-                checked={dlLimitEnabled}
+                checked={speedLimits.downloadEnabled}
                 onChange={(e) => {
-                  setDlLimitEnabled(e.target.checked);
-                  void saveAndApplyLimits(e.target.checked, dlLimitValue, ulLimitEnabled, ulLimitValue, disableUpload);
+                  void setSpeedLimits({
+                    downloadEnabled: e.target.checked,
+                    downloadValue: speedLimits.downloadValue,
+                    uploadEnabled: speedLimits.uploadEnabled,
+                    uploadValue: speedLimits.uploadValue,
+                    disableUpload: speedLimits.disableUpload,
+                  });
                 }}
               />
               <span>{t("settings.downloads.limitDownload")}</span>
             </label>
-            {dlLimitEnabled && (
+            {speedLimits.downloadEnabled && (
               <div className="settings-limit-value">
                 <input
                   type="number"
                   className="settings-limit-input"
                   min="1"
-                  value={dlLimitValue || ""}
+                  value={speedLimits.downloadValue || ""}
                   onChange={(e) => {
                     const val = parseInt(e.target.value, 10) || 0;
-                    setDlLimitValue(val);
-                    void saveAndApplyLimits(dlLimitEnabled, val, ulLimitEnabled, ulLimitValue, disableUpload);
+                    void setSpeedLimits({
+                      downloadEnabled: speedLimits.downloadEnabled,
+                      downloadValue: val,
+                      uploadEnabled: speedLimits.uploadEnabled,
+                      uploadValue: speedLimits.uploadValue,
+                      disableUpload: speedLimits.disableUpload,
+                    });
                   }}
                   placeholder={t("settings.downloads.speedPlaceholder")}
                 />
@@ -266,26 +224,36 @@ export default function DownloadsTab() {
             <label className="settings-checkbox-label settings-checkbox-label--fixed">
               <input
                 type="checkbox"
-                checked={ulLimitEnabled}
-                disabled={disableUpload}
+                checked={speedLimits.uploadEnabled}
+                disabled={speedLimits.disableUpload}
                 onChange={(e) => {
-                  setUlLimitEnabled(e.target.checked);
-                  void saveAndApplyLimits(dlLimitEnabled, dlLimitValue, e.target.checked, ulLimitValue, disableUpload);
+                  void setSpeedLimits({
+                    downloadEnabled: speedLimits.downloadEnabled,
+                    downloadValue: speedLimits.downloadValue,
+                    uploadEnabled: e.target.checked,
+                    uploadValue: speedLimits.uploadValue,
+                    disableUpload: speedLimits.disableUpload,
+                  });
                 }}
               />
               <span>{t("settings.downloads.limitUpload")}</span>
             </label>
-            {ulLimitEnabled && !disableUpload && (
+            {speedLimits.uploadEnabled && !speedLimits.disableUpload && (
               <div className="settings-limit-value">
                 <input
                   type="number"
                   className="settings-limit-input"
                   min="1"
-                  value={ulLimitValue || ""}
+                  value={speedLimits.uploadValue || ""}
                   onChange={(e) => {
                     const val = parseInt(e.target.value, 10) || 0;
-                    setUlLimitValue(val);
-                    void saveAndApplyLimits(dlLimitEnabled, dlLimitValue, ulLimitEnabled, val, disableUpload);
+                    void setSpeedLimits({
+                      downloadEnabled: speedLimits.downloadEnabled,
+                      downloadValue: speedLimits.downloadValue,
+                      uploadEnabled: speedLimits.uploadEnabled,
+                      uploadValue: val,
+                      disableUpload: speedLimits.disableUpload,
+                    });
                   }}
                   placeholder={t("settings.downloads.speedPlaceholder")}
                 />
@@ -298,10 +266,15 @@ export default function DownloadsTab() {
             <label className="settings-checkbox-label settings-checkbox-label--inline">
               <input
                 type="checkbox"
-                checked={disableUpload}
+                checked={speedLimits.disableUpload}
                 onChange={(e) => {
-                  setDisableUpload(e.target.checked);
-                  void saveAndApplyLimits(dlLimitEnabled, dlLimitValue, ulLimitEnabled, ulLimitValue, e.target.checked);
+                  void setSpeedLimits({
+                    downloadEnabled: speedLimits.downloadEnabled,
+                    downloadValue: speedLimits.downloadValue,
+                    uploadEnabled: speedLimits.uploadEnabled,
+                    uploadValue: speedLimits.uploadValue,
+                    disableUpload: e.target.checked,
+                  });
                 }}
               />
               <span>{t("settings.downloads.disableUpload")}</span>
@@ -371,7 +344,6 @@ export default function DownloadsTab() {
               value={debridProvider}
               onChange={(e) => {
                 setDebridProvider(e.target.value);
-                localStorage.setItem("gamelib-debrid-provider", e.target.value);
               }}
               className="settings-select settings-select--debrid"
             >
@@ -394,7 +366,6 @@ export default function DownloadsTab() {
                     value={debridApiKey}
                     onChange={(e) => {
                       setDebridApiKey(e.target.value);
-                      localStorage.setItem("gamelib-debrid-apikey", e.target.value);
                     }}
                     placeholder={t("settings.debrid.apiKeyPlaceholder")}
                     className="settings-input"

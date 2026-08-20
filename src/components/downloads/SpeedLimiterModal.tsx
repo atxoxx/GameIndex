@@ -29,7 +29,7 @@ const UL_PRESETS = [
 ];
 
 export default function SpeedLimiterModal({ open, onClose }: SpeedLimiterModalProps) {
-  const { updateSpeedLimits, setSeedConfig, seedAfterComplete } = useDownloads();
+  const { speedLimits, setSpeedLimits, setSeedConfig, seedAfterComplete } = useDownloads();
   const { showToast } = useToast();
   const { t } = useLanguage();
 
@@ -41,17 +41,11 @@ export default function SpeedLimiterModal({ open, onClose }: SpeedLimiterModalPr
 
   useEffect(() => {
     if (!open) return;
-    const dlEnabled = localStorage.getItem("gamelib-dl-limit-download-enabled") === "true";
-    const dlVal = parseInt(localStorage.getItem("gamelib-dl-limit-download-value") || "0", 10);
-    const ulEnabled = localStorage.getItem("gamelib-dl-limit-upload-enabled") === "true";
-    const ulVal = parseInt(localStorage.getItem("gamelib-dl-limit-upload-value") || "0", 10);
-    const noUpload = localStorage.getItem("gamelib-dl-limit-disable-upload") === "true";
-
-    setDlLimit(dlEnabled && dlVal > 0 ? dlVal : 0);
-    setDisableUpload(noUpload);
-    setUlLimit(noUpload ? -1 : ulEnabled && ulVal > 0 ? ulVal : 0);
+    setDlLimit(speedLimits.downloadEnabled && speedLimits.downloadValue > 0 ? speedLimits.downloadValue : 0);
+    setDisableUpload(speedLimits.disableUpload);
+    setUlLimit(speedLimits.disableUpload ? -1 : speedLimits.uploadEnabled && speedLimits.uploadValue > 0 ? speedLimits.uploadValue : 0);
     setSeedingEnabled(seedAfterComplete);
-  }, [open, seedAfterComplete]);
+  }, [open, speedLimits, seedAfterComplete]);
 
   if (!open) return null;
 
@@ -62,18 +56,13 @@ export default function SpeedLimiterModal({ open, onClose }: SpeedLimiterModalPr
       const isUlDisabled = disableUpload || ulLimit === -1;
       const isUlLimited = !isUlDisabled && ulLimit > 0;
 
-      localStorage.setItem("gamelib-dl-limit-download-enabled", isDlLimited ? "true" : "false");
-      localStorage.setItem("gamelib-dl-limit-download-value", dlLimit.toString());
-      localStorage.setItem("gamelib-dl-limit-upload-enabled", isUlLimited ? "true" : "false");
-      localStorage.setItem("gamelib-dl-limit-upload-value", isUlLimited ? ulLimit.toString() : "0");
-      localStorage.setItem("gamelib-dl-limit-disable-upload", isUlDisabled ? "true" : "false");
-      localStorage.setItem("gamelib-seed-after-complete", seedingEnabled ? "true" : "false");
-
-      await updateSpeedLimits(
-        isDlLimited ? dlLimit : null,
-        isUlLimited ? ulLimit : null,
-        isUlDisabled,
-      );
+      await setSpeedLimits({
+        downloadEnabled: isDlLimited,
+        downloadValue: dlLimit,
+        uploadEnabled: isUlLimited,
+        uploadValue: ulLimit,
+        disableUpload: isUlDisabled,
+      });
       await setSeedConfig(seedingEnabled);
 
       showToast(t("downloads.limitsApplied"), "success");

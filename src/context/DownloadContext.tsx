@@ -43,6 +43,15 @@ import {
   type DownloadHistory,
 } from "../types/download";
 
+/** Bandwidth-limit configuration. Values in kbps; 0 = unlimited. */
+export interface DownloadSpeedLimits {
+  downloadEnabled: boolean;
+  downloadValue: number; // kbps
+  uploadEnabled: boolean;
+  uploadValue: number; // kbps
+  disableUpload: boolean;
+}
+
 interface DownloadContextValue {
   /** All downloads, sorted (active first, completed at the bottom). */
   downloads: TorrentDownload[];
@@ -125,11 +134,6 @@ interface DownloadContextValue {
   refresh: () => Promise<void>;
   /** Reload the persistent download history from the backend. */
   refreshHistory: () => Promise<void>;
-  updateSpeedLimits: (
-    downloadKbps: number | null,
-    uploadKbps: number | null,
-    disableUpload: boolean,
-  ) => Promise<void>;
   updateSelectedFiles: (id: string, onlyFiles: number[]) => Promise<void>;
   openDownloadFolder: (id: string) => Promise<void>;
   /** Reorder the waiting queue by supplying the full ordered id list. */
@@ -140,6 +144,26 @@ interface DownloadContextValue {
   setSeeding: (id: string, seed: boolean) => Promise<void>;
   /** Whether new torrents seed after completion (mirrors the backend pref). */
   seedAfterComplete: boolean;
+  /** Current bandwidth-limit configuration (single source of truth). */
+  speedLimits: DownloadSpeedLimits;
+  /** Persist a bandwidth-limit configuration (state + localStorage + backend). */
+  setSpeedLimits: (next: DownloadSpeedLimits) => Promise<void>;
+  /** Default download folder ("" = not configured). */
+  defaultDownloadPath: string;
+  setDefaultDownloadPath: (next: string) => void;
+  /** Whether to ask for a save path even when a default is configured. */
+  alwaysAskPath: boolean;
+  setAlwaysAskPath: (next: boolean) => void;
+  /** Whether completed downloads show an in-app toast. */
+  notifyComplete: boolean;
+  setNotifyComplete: (next: boolean) => void;
+  /** Whether completed downloads also fire an OS notification. */
+  notifyOs: boolean;
+  setNotifyOs: (next: boolean) => void;
+  debridProvider: string;
+  setDebridProvider: (next: string) => void;
+  debridApiKey: string;
+  setDebridApiKey: (next: string) => void;
 }
 
 const DownloadContext = createContext<DownloadContextValue | null>(null);
@@ -242,7 +266,34 @@ export function DownloadProvider({ children }: { children: ReactNode }) {
   const [downloads, setDownloads] = useState<TorrentDownload[]>(EMPTY_DOWNLOADS);
   const [history, setHistory] = useState<DownloadHistory[]>([]);
   const [loading, setLoading] = useState(true);
-  const [seedAfterComplete, setSeedAfterComplete] = useState(false);
+  const [seedAfterComplete, setSeedAfterComplete] = useState(
+    () => localStorage.getItem("gamelib-seed-after-complete") === "true",
+  );
+  const [speedLimits, setSpeedLimitsState] = useState<DownloadSpeedLimits>(() => ({
+    downloadEnabled: localStorage.getItem("gamelib-dl-limit-download-enabled") === "true",
+    downloadValue: parseInt(localStorage.getItem("gamelib-dl-limit-download-value") || "0", 10),
+    uploadEnabled: localStorage.getItem("gamelib-dl-limit-upload-enabled") === "true",
+    uploadValue: parseInt(localStorage.getItem("gamelib-dl-limit-upload-value") || "0", 10),
+    disableUpload: localStorage.getItem("gamelib-dl-limit-disable-upload") === "true",
+  }));
+  const [defaultDownloadPath, setDefaultDownloadPathState] = useState<string>(
+    () => localStorage.getItem("gamelib-default-download-path") || "",
+  );
+  const [alwaysAskPath, setAlwaysAskPathState] = useState<boolean>(
+    () => localStorage.getItem("gamelib-download-always-ask-path") !== "false",
+  );
+  const [notifyComplete, setNotifyCompleteState] = useState<boolean>(
+    () => localStorage.getItem("gamelib-download-notify-complete") !== "false",
+  );
+  const [notifyOs, setNotifyOsState] = useState<boolean>(
+    () => localStorage.getItem("gamelib-download-notify-os") === "true",
+  );
+  const [debridProvider, setDebridProviderState] = useState<string>(
+    () => localStorage.getItem("gamelib-debrid-provider") || "none",
+  );
+  const [debridApiKey, setDebridApiKeyState] = useState<string>(
+    () => localStorage.getItem("gamelib-debrid-apikey") || "",
+  );
   const { showToast } = useToast();
   const { t } = useLanguage();
   // Keep a stable ref to the latest list so the `download-progress`
@@ -250,6 +301,19 @@ export function DownloadProvider({ children }: { children: ReactNode }) {
   // a stale snapshot.
   const downloadsRef = useRef(downloads);
   downloadsRef.current = downloads;
+
+  // Stable refs so callbacks registered once (the `download-progress`
+  // listener, the startup effect, and the command wrappers) always read
+  // the latest preference values without taking them as dependencies
+  // and re-subscribing.
+  const speedLimitsRef = useRef(speedLimits);
+  speedLimitsRef.current = speedLimits;
+  const notifyPrefsRef = useRef({ notifyComplete, notifyOs });
+  notifyPrefsRef.current = { notifyComplete, notifyOs };
+  const debridRef = useRef({ provider: debridProvider, apiKey: debridApiKey });
+  debridRef.current = { provider: debridProvider, apiKey: debridApiKey };
+  const defaultPathRef = useRef({ defaultDownloadPath, alwaysAskPath });
+  defaultPathRef.current = { defaultDownloadPath, alwaysAskPath };
 
   // Track the last-seen status kind per download id so we can detect
   // the "not-completed → completed" transition and surface a
@@ -277,10 +341,8 @@ export function DownloadProvider({ children }: { children: ReactNode }) {
         return;
       }
 
-      const notifyEnabled =
-        localStorage.getItem("gamelib-download-notify-complete") !== "false";
-      const osNotifyEnabled =
-        localStorage.getItem("gamelib-download-notify-os") === "true";
+      const { notifyComplete: notifyEnabled, notifyOs: osNotifyEnabled } =
+        notifyPrefsRef.current;
 
       for (const d of incoming) {
         const before = prev.get(d.id);
@@ -321,21 +383,23 @@ export function DownloadProvider({ children }: { children: ReactNode }) {
 
     (async () => {
       try {
-        // Apply speed limits on startup
+        // Apply speed limits on startup. The state was hydrated from
+        // localStorage when the provider mounted, so we can apply it
+        // directly without re-reading the keys.
         try {
-          const dlLimitEnabled = localStorage.getItem("gamelib-dl-limit-download-enabled") === "true";
-          const dlLimitVal = parseInt(localStorage.getItem("gamelib-dl-limit-download-value") || "0", 10);
-          const ulLimitEnabled = localStorage.getItem("gamelib-dl-limit-upload-enabled") === "true";
-          const ulLimitVal = parseInt(localStorage.getItem("gamelib-dl-limit-upload-value") || "0", 10);
-          const disableUpload = localStorage.getItem("gamelib-dl-limit-disable-upload") === "true";
-
-          const downloadKbps = dlLimitEnabled && dlLimitVal > 0 ? dlLimitVal : null;
-          const uploadKbps = ulLimitEnabled && ulLimitVal > 0 ? ulLimitVal : null;
+          const downloadKbps =
+            speedLimits.downloadEnabled && speedLimits.downloadValue > 0
+              ? speedLimits.downloadValue
+              : null;
+          const uploadKbps =
+            speedLimits.uploadEnabled && speedLimits.uploadValue > 0
+              ? speedLimits.uploadValue
+              : null;
 
           await invoke("torrent_set_speed_limits", {
             downloadLimitKbps: downloadKbps,
             uploadLimitKbps: uploadKbps,
-            disableUpload,
+            disableUpload: speedLimits.disableUpload,
           });
         } catch (e) {
           console.error("Failed to apply initial speed limits:", e);
@@ -343,11 +407,8 @@ export function DownloadProvider({ children }: { children: ReactNode }) {
 
         // Apply the seed-after-complete preference on startup.
         try {
-          const seedEnabled =
-            localStorage.getItem("gamelib-seed-after-complete") === "true";
-          setSeedAfterComplete(seedEnabled);
           await invoke("download_set_seed_config", {
-            seedAfterComplete: seedEnabled,
+            seedAfterComplete,
           });
         } catch (e) {
           console.error("Failed to apply initial seed config:", e);
@@ -462,8 +523,8 @@ export function DownloadProvider({ children }: { children: ReactNode }) {
       const id = `dd_${Math.random().toString(36).substring(2, 11)}`;
       
       let downloadUrl = url;
-      const debridProvider = localStorage.getItem("gamelib-debrid-provider") || "none";
-      const debridApiKey = localStorage.getItem("gamelib-debrid-apikey") || "";
+      const debridProvider = debridRef.current.provider;
+      const debridApiKey = debridRef.current.apiKey;
 
       // `useDebrid` is an explicit opt-in from the download modal's
       // AllDebrid toggle. When it's omitted entirely, keep the legacy
@@ -534,8 +595,8 @@ export function DownloadProvider({ children }: { children: ReactNode }) {
       sourceName = "Debrid",
       autoExtract = false,
     ): Promise<TorrentDownload> => {
-      const debridProvider = localStorage.getItem("gamelib-debrid-provider") || "none";
-      const debridApiKey = localStorage.getItem("gamelib-debrid-apikey") || "";
+      const debridProvider = debridRef.current.provider;
+      const debridApiKey = debridRef.current.apiKey;
       if (debridProvider === "none" || !debridApiKey) {
         throw new Error(
           "No debrid provider configured. Set an API key in Settings → Downloads.",
@@ -669,20 +730,59 @@ export function DownloadProvider({ children }: { children: ReactNode }) {
     return await invoke<string | null>("torrent_select_save_path");
   }, []);
 
-  const updateSpeedLimits = useCallback(
-    async (
-      downloadKbps: number | null,
-      uploadKbps: number | null,
-      disableUpload: boolean,
-    ): Promise<void> => {
+  const setSpeedLimits = useCallback(async (next: DownloadSpeedLimits) => {
+    setSpeedLimitsState(next);
+    localStorage.setItem("gamelib-dl-limit-download-enabled", String(next.downloadEnabled));
+    localStorage.setItem("gamelib-dl-limit-download-value", String(next.downloadValue));
+    localStorage.setItem("gamelib-dl-limit-upload-enabled", String(next.uploadEnabled));
+    localStorage.setItem("gamelib-dl-limit-upload-value", String(next.uploadValue));
+    localStorage.setItem("gamelib-dl-limit-disable-upload", String(next.disableUpload));
+    try {
       await invoke("torrent_set_speed_limits", {
-        downloadLimitKbps: downloadKbps,
-        uploadLimitKbps: uploadKbps,
-        disableUpload,
+        downloadLimitKbps:
+          next.downloadEnabled && next.downloadValue > 0 ? next.downloadValue : null,
+        uploadLimitKbps:
+          next.uploadEnabled && next.uploadValue > 0 ? next.uploadValue : null,
+        disableUpload: next.disableUpload,
       });
-    },
-    [],
-  );
+    } catch (e) {
+      console.warn("[DownloadContext] Failed to apply speed limits:", e);
+    }
+  }, []);
+
+  const setDefaultDownloadPath = useCallback((next: string) => {
+    setDefaultDownloadPathState(next);
+    if (!next) {
+      localStorage.removeItem("gamelib-default-download-path");
+    } else {
+      localStorage.setItem("gamelib-default-download-path", next);
+    }
+  }, []);
+
+  const setAlwaysAskPath = useCallback((next: boolean) => {
+    setAlwaysAskPathState(next);
+    localStorage.setItem("gamelib-download-always-ask-path", String(next));
+  }, []);
+
+  const setNotifyComplete = useCallback((next: boolean) => {
+    setNotifyCompleteState(next);
+    localStorage.setItem("gamelib-download-notify-complete", String(next));
+  }, []);
+
+  const setNotifyOs = useCallback((next: boolean) => {
+    setNotifyOsState(next);
+    localStorage.setItem("gamelib-download-notify-os", String(next));
+  }, []);
+
+  const setDebridProvider = useCallback((next: string) => {
+    setDebridProviderState(next);
+    localStorage.setItem("gamelib-debrid-provider", next);
+  }, []);
+
+  const setDebridApiKey = useCallback((next: string) => {
+    setDebridApiKeyState(next);
+    localStorage.setItem("gamelib-debrid-apikey", next);
+  }, []);
 
   const updateSelectedFiles = useCallback(
     async (id: string, onlyFiles: number[]): Promise<void> => {
@@ -760,13 +860,26 @@ export function DownloadProvider({ children }: { children: ReactNode }) {
       selectSavePath,
       refresh,
       refreshHistory,
-      updateSpeedLimits,
       updateSelectedFiles,
       openDownloadFolder,
       reorderQueue,
       setSeedConfig,
       setSeeding,
       seedAfterComplete,
+      speedLimits,
+      setSpeedLimits,
+      defaultDownloadPath,
+      setDefaultDownloadPath,
+      alwaysAskPath,
+      setAlwaysAskPath,
+      notifyComplete,
+      setNotifyComplete,
+      notifyOs,
+      setNotifyOs,
+      debridProvider,
+      setDebridProvider,
+      debridApiKey,
+      setDebridApiKey,
     }),
     [
       sorted,
@@ -787,13 +900,26 @@ export function DownloadProvider({ children }: { children: ReactNode }) {
       selectSavePath,
       refresh,
       refreshHistory,
-      updateSpeedLimits,
       updateSelectedFiles,
       openDownloadFolder,
       reorderQueue,
       setSeedConfig,
       setSeeding,
       seedAfterComplete,
+      speedLimits,
+      setSpeedLimits,
+      defaultDownloadPath,
+      setDefaultDownloadPath,
+      alwaysAskPath,
+      setAlwaysAskPath,
+      notifyComplete,
+      setNotifyComplete,
+      notifyOs,
+      setNotifyOs,
+      debridProvider,
+      setDebridProvider,
+      debridApiKey,
+      setDebridApiKey,
     ],
   );
 

@@ -12,7 +12,7 @@ interface DiskUsageResult {
 }
 
 export default function DriveSpaceWidget() {
-  const { downloads } = useDownloads();
+  const { downloads, defaultDownloadPath } = useDownloads();
   const { unit } = useSizeUnit();
   const { t } = useLanguage();
   const [diskStats, setDiskStats] = useState<DiskUsageResult | null>(null);
@@ -20,7 +20,7 @@ export default function DriveSpaceWidget() {
 
   useEffect(() => {
     // Resolve current default download folder or first active download save path
-    const configured = localStorage.getItem("gamelib-default-download-path") || "";
+    const configured = defaultDownloadPath;
     const activeWithSave = downloads.find((d) => d.savePath)?.savePath;
     const path = configured || activeWithSave || "C:/";
     setTargetPath(path);
@@ -46,7 +46,7 @@ export default function DriveSpaceWidget() {
     return () => {
       cancelled = true;
     };
-  }, [downloads]);
+  }, [downloads, defaultDownloadPath]);
 
   // Compute total size required by active/queued downloads that are not finished
   const queueRequiredBytes = downloads.reduce((acc, d) => {

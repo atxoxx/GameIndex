@@ -12,7 +12,7 @@ interface BandwidthHeroProps {
 }
 
 export default function BandwidthHero({ onOpenStats }: BandwidthHeroProps) {
-  const { activeDownloads } = useDownloads();
+  const { activeDownloads, speedLimits } = useDownloads();
   const { unit } = useSizeUnit();
   const { t } = useLanguage();
 
@@ -41,11 +41,8 @@ export default function BandwidthHero({ onOpenStats }: BandwidthHeroProps) {
   const isDownloading = totalDownloadSpeed > 0;
   const isUploading = totalUploadSpeed > 0;
 
-  const isThrottled = Boolean(
-    localStorage.getItem("gamelib-speed-limit-down") ||
-    localStorage.getItem("gamelib-speed-limit-up") ||
-    localStorage.getItem("gamelib-disable-upload") === "true"
-  );
+  const isThrottled =
+    speedLimits.downloadEnabled || speedLimits.uploadEnabled || speedLimits.disableUpload;
 
   return (
     <div className="dl-dashboard-card" role="region" aria-label="Bandwidth Dashboard">

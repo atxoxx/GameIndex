@@ -94,6 +94,9 @@ export default function DownloadModal({
     activeDownloads,
     completedDownloads,
     startSelectedDownload,
+    defaultDownloadPath,
+    debridProvider,
+    debridApiKey,
   } = useDownloads();
   const { games } = useGames();
   const { showToast } = useToast();
@@ -131,7 +134,7 @@ export default function DownloadModal({
     // folder from Settings, then to "no path picked yet".
     return (
       localStorage.getItem("gamelib-last-download-path") ||
-      localStorage.getItem("gamelib-default-download-path") ||
+      defaultDownloadPath ||
       null
     );
   });
@@ -232,23 +235,19 @@ export default function DownloadModal({
   // Whether an AllDebrid/TorBox key is configured in Settings. Read once
   // per mount — the modal is reopened fresh for each download flow.
   const debridConfigured = useMemo(() => {
-    const provider = localStorage.getItem("gamelib-debrid-provider") || "none";
-    const apiKey = localStorage.getItem("gamelib-debrid-apikey") || "";
-    return provider !== "none" && !!apiKey;
-  }, []);
+    return debridProvider !== "none" && !!debridApiKey;
+  }, [debridProvider, debridApiKey]);
 
   // Probe the debrid provider for cache status whenever the selected
   // magnet changes (debounced, and only while the debrid toggle is on).
   useEffect(() => {
-    const provider = localStorage.getItem("gamelib-debrid-provider") || "none";
-    const apiKey = localStorage.getItem("gamelib-debrid-apikey") || "";
     if (
       !useDebrid ||
       !debridConfigured ||
       !selectedIsMagnet ||
       !selectedSourceUri ||
-      provider === "none" ||
-      !apiKey
+      debridProvider === "none" ||
+      !debridApiKey
     ) {
       setCacheStatus("idle");
       return;
@@ -259,8 +258,8 @@ export default function DownloadModal({
     const timer = window.setTimeout(async () => {
       try {
         const res = await invoke<{ cached: boolean }>("debrid_check_cache", {
-          provider,
-          apikey: apiKey,
+          provider: debridProvider,
+          apikey: debridApiKey,
           magnet: selectedSourceUri,
         });
         if (seq === cacheCheckSeq.current) {
@@ -274,7 +273,7 @@ export default function DownloadModal({
       }
     }, 400);
     return () => window.clearTimeout(timer);
-  }, [useDebrid, debridConfigured, selectedIsMagnet, selectedSourceUri]);
+  }, [useDebrid, debridConfigured, selectedIsMagnet, selectedSourceUri, debridProvider, debridApiKey]);
 
   // Web-link-only results (no magnet/torrent/direct URI) open the site
   // in the browser rather than starting a download.
