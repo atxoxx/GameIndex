@@ -260,7 +260,7 @@ export default function LibraryPage() {
   );
 
   return (
-    <div className="lib-page page-shell">
+    <div className="lib-page">
       <LibraryHero
         games={games}
         activeStatus={filters.status}

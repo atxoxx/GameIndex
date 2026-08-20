@@ -80,16 +80,6 @@
   min-height: 100%;
 }
 
-/* Shared page container: one consistent max-width so every routed
-   page reads at the same column width on wide monitors instead of
-   stretching edge-to-edge. Pages opt in via `.page-shell` on their
-   root element (or the equivalent max-width in their own sheet). */
-.page-shell {
-  width: 100%;
-  max-width: var(--content-max-width, 1440px);
-  margin-inline: auto;
-}
-
 /* Narrow windows: the sidebar auto-collapses to the icon rail (see
    SidebarCollapseContext) and the main panel's margin tightens so
    every pixel of horizontal space goes to content. */
