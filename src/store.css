@@ -385,6 +385,15 @@
 /* ── Store toolbar (sits between the filter rail and the game grid) ─────── */
 
 .store-toolbar {
+  /* Explicitly sticky below the store header so search/sort/density stay
+     reachable while browsing long grids. The offset matches the filter
+     sidebar's own sticky top (header height + margin), keeping the two
+     rails in lockstep. The `.store-toolbar` rule in the detail section
+     also sets `position: sticky; top: 0` — this later declaration wins
+     for the grid toolbar via the cascade. */
+  position: sticky;
+  top: calc(var(--space-md) + 64px);
+  z-index: 20;
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -1380,6 +1389,15 @@
   .store-filter-trigger {
     display: inline-flex;
   }
+}
+
+/* ── Floating-bar safe area ──────────────────────────────────────────────
+   The bulk-action bar and compare tray dock at the bottom edge of the
+   window (`position: fixed`). While either is open, pad the page bottom
+   so the last grid row never sits hidden behind them. */
+.store-page:has(.store-bulk-bar),
+.store-page:has(.store-compare-tray) {
+  padding-bottom: calc(var(--space-3xl) + 64px);
 }
 
 @media (max-width: 768px) {

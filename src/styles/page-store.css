@@ -365,6 +365,10 @@
 .store-spotlight-stage {
   position: relative;
   min-height: 440px;
+  /* Cap the hero so it never eats the whole fold on short windows.
+     `62vh` keeps it proportional to the viewport; the min-height wins
+     whenever the window is tall enough that 440px is the natural size. */
+  max-height: min(560px, 62vh);
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -875,6 +879,29 @@
   }
   .store-spotlight-title {
     font-size: 2.2rem;
+  }
+}
+
+/* Short windows: shrink the hero (stage, poster, and title) so the
+   catalogue grid surfaces above the fold. Without this the fixed 440px
+   stage + dock occupies most of a 768px-tall window. */
+@media (max-height: 800px) {
+  .store-spotlight-stage {
+    min-height: 340px;
+    padding: 24px 32px;
+  }
+  .store-spotlight-card-wrap {
+    width: 180px;
+  }
+  .store-spotlight-title {
+    font-size: 2rem;
+  }
+  .store-spotlight-dock {
+    padding: 8px 16px;
+  }
+  .store-spotlight-dock-item {
+    width: 108px;
+    height: 44px;
   }
 }
 

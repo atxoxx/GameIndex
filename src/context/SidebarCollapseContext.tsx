@@ -35,7 +35,13 @@ import {
  *  toggle in real time. The `:v1` suffix on the key lets us bump
  *  the schema later without colliding with the legacy boolean.
  *
- * Default: full sidebar (`isIconRail = false`). We default to the
+ * Narrow-window behavior:
+ *  Below the breakpoint the icon rail is forced on (matchMedia) so
+ *  content keeps breathing room on small windows. This is a visual
+ *  override only — the persisted user preference is untouched and
+ *  takes back over once the window widens again.
+ *
+ * Default: full sidebar (`userPref = false`). We default to the
  * roomy mode because:
  *  • the icon rail hides the search box + import controls. A first-
  *    visit user landing on an empty icon rail with no hint how to
@@ -57,6 +63,9 @@ const SidebarCollapseContext = createContext<SidebarCollapseContextValue | null>
 
 const LS_SIDEBAR_ICON_RAIL_KEY = "gamelib.sidebar.icon_rail:v1";
 
+/** Window width below which the icon rail is forced on. */
+const NARROW_BREAKPOINT_PX = 1100;
+
 function readPersisted(): boolean {
   try {
     if (typeof localStorage === "undefined") return false;
@@ -75,19 +84,34 @@ function writePersisted(next: boolean) {
   }
 }
 
-export function SidebarCollapseProvider({ children }: { children: ReactNode }) {
-  // Initialize from localStorage so a returning user lands on their
-  // last-chosen state without a flash of full-sidebar-then-icon-rail
-  // on mount. Initial read returns `false` on any error path.
-  const [isIconRail, setIsIconRail] = useState<boolean>(() => readPersisted());
+function readIsNarrow(): boolean {
+  if (typeof window === "undefined") return false;
+  return window.matchMedia(`(max-width: ${NARROW_BREAKPOINT_PX}px)`).matches;
+}
 
-  // Persist on change. Effect is keyed only on `isIconRail` so the
-  // writer runs once on mount (no-op write) and once per actual
-  // toggle — no stale-closure issues because the writer only reads
-  // the live state value.
+export function SidebarCollapseProvider({ children }: { children: ReactNode }) {
+  // The user's explicit choice, persisted to localStorage so a
+  // returning user lands on their last-chosen state without a flash
+  // of full-sidebar-then-icon-rail on mount.
+  const [userPref, setUserPref] = useState<boolean>(() => readPersisted());
+
+  // Live window-width flag; forces the rail while the window is
+  // narrow without overwriting `userPref`.
+  const [isNarrow, setIsNarrow] = useState<boolean>(readIsNarrow);
+
+  // Persist only the user preference, never the narrow-window override.
   useEffect(() => {
-    writePersisted(isIconRail);
-  }, [isIconRail]);
+    writePersisted(userPref);
+  }, [userPref]);
+
+  // Track the width breakpoint so the rail engages/disengages as the
+  // window crosses the threshold.
+  useEffect(() => {
+    const mq = window.matchMedia(`(max-width: ${NARROW_BREAKPOINT_PX}px)`);
+    const onChange = (e: MediaQueryListEvent) => setIsNarrow(e.matches);
+    mq.addEventListener("change", onChange);
+    return () => mq.removeEventListener("change", onChange);
+  }, []);
 
   // Cross-window sync: when another instance (e.g. a future second
   // Tauri window) flips the value, the `storage` event propagates
@@ -97,14 +121,18 @@ export function SidebarCollapseProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     function onStorage(e: StorageEvent) {
       if (e.key !== LS_SIDEBAR_ICON_RAIL_KEY) return;
-      setIsIconRail(e.newValue === "true");
+      setUserPref(e.newValue === "true");
     }
     window.addEventListener("storage", onStorage);
     return () => window.removeEventListener("storage", onStorage);
   }, []);
 
-  const toggle = useCallback(() => setIsIconRail((c) => !c), []);
-  const setIconRail = useCallback((next: boolean) => setIsIconRail(next), []);
+  const toggle = useCallback(() => setUserPref((c) => !c), []);
+  const setIconRail = useCallback((next: boolean) => setUserPref(next), []);
+
+  // Narrow windows always show the rail; otherwise the user's choice
+  // (or the full-sidebar default) governs.
+  const isIconRail = isNarrow || userPref;
 
   const value = useMemo<SidebarCollapseContextValue>(
     () => ({ isIconRail, toggle, setIconRail }),

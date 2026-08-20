@@ -80,6 +80,33 @@
   min-height: 100%;
 }
 
+/* Shared page container: one consistent max-width so every routed
+   page reads at the same column width on wide monitors instead of
+   stretching edge-to-edge. Pages opt in via `.page-shell` on their
+   root element (or the equivalent max-width in their own sheet). */
+.page-shell {
+  width: 100%;
+  max-width: var(--content-max-width, 1440px);
+  margin-inline: auto;
+}
+
+/* Narrow windows: the sidebar auto-collapses to the icon rail (see
+   SidebarCollapseContext) and the main panel's margin tightens so
+   every pixel of horizontal space goes to content. */
+@media (max-width: 1100px) {
+  .app-main {
+    margin: 0 var(--space-xs) var(--space-xs) 0;
+    border-radius: var(--radius-lg);
+  }
+}
+
+@media (max-width: 720px) {
+  .app-main {
+    margin: 0 0 var(--space-2xs) 0;
+    border-radius: var(--radius-md);
+  }
+}
+
 
 /* Empty State */
 .main-empty {
@@ -126,41 +153,5 @@
 }
 
 
-/* ==============================
-   Page Placeholders
-   ============================== */
-.page-placeholder {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  height: 100%;
-  min-height: 360px;
-  color: var(--color-text-muted);
-  text-align: center;
-  gap: var(--space-md);
-  padding: var(--space-3xl) var(--space-2xl);
-  animation: fadeIn var(--duration-slow) var(--ease-enter) both;
-}
 
-.page-placeholder-icon {
-  width: 64px;
-  height: 64px;
-  color: var(--color-accent);
-  opacity: 0.3;
-  filter: drop-shadow(0 0 10px var(--color-accent-glow));
-}
-
-.page-placeholder-title {
-  font-size: var(--font-size-xl);
-  font-weight: var(--font-weight-bold);
-  color: var(--color-text-primary);
-  letter-spacing: -0.02em;
-}
-
-.page-placeholder-subtitle {
-  font-size: var(--font-size-md);
-  color: var(--color-text-secondary);
-  line-height: var(--line-height-relaxed);
-}
 

@@ -11,8 +11,6 @@
   flex-direction: column;
   gap: var(--space-xl);
   width: 100%;
-  max-width: var(--content-max-width);
-  margin: 0 auto;
   padding: var(--space-xl) var(--space-2xl) var(--space-3xl);
 }
 

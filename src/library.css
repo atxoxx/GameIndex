@@ -40,6 +40,12 @@
   animation: none;
 }
 
+/* Floating-bar safe area: while the bulk bar is docked at the bottom
+   edge, pad the page bottom so the last grid row clears it. */
+.lib-page:has(.lib-bulk-bar) {
+  padding-bottom: calc(var(--space-3xl) + 64px);
+}
+
 @keyframes libPageIn {
   from {
     opacity: 0;
