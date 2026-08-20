@@ -4,7 +4,6 @@ import {
   useRef,
   useState,
   type CSSProperties,
-  type ReactNode,
 } from "react";
 import { listen } from "@tauri-apps/api/event";
 import { useSplash } from "../context/SplashContext";
@@ -51,57 +50,21 @@ const STEP_INDEX: Record<string, LaunchStep> = {
   launching: 6,
 };
 
-/** Progress-bar fill percentage per launch step. Never 0 so the bar
- *  reads as "working" the instant the splash opens. */
+/** Progress-bar target percentage per launch step. The bar eases toward
+ *  these continuously (never jumping) and only reaches 100% once the
+ *  watcher confirms the game actually started. */
 const STEP_PCT: Record<LaunchStep, number> = {
-  0: 14,
-  1: 28,
-  2: 43,
-  3: 57,
-  4: 71,
-  5: 86,
-  6: 100,
+  0: 12,
+  1: 26,
+  2: 40,
+  3: 55,
+  4: 70,
+  5: 84,
+  6: 96,
 };
 
 /** Rotating tips shown during longer launches. i18n keys. */
 const TIPS = ["splash.tip1", "splash.tip2", "splash.tip3"];
-
-/**
- * Helper: convert IGDB's time-to-beat (seconds) into whole hours.
- * Returns `null` when the value is missing/zero so callers can render
- * `null` gracefully instead of "0h".
- */
-function ttbSecondsToHours(s: number | undefined | null): number | null {
-  if (!s || s <= 0) return null;
-  return Math.round(s / 3600);
-}
-
-/** Format a large minute count as "Xh Ym" / "Xh" / "Ym". */
-function formatMinutes(min: number): string {
-  if (!min || min <= 0) return "0m";
-  const h = Math.floor(min / 60);
-  const m = min % 60;
-  if (h === 0) return `${m}m`;
-  if (m === 0) return `${h}h`;
-  return `${h}h ${m}m`;
-}
-
-/** Relative date string ("3 days ago", "Yesterday", etc.) from a
- *  millisecond timestamp. Falls back to the localized absolute date for
- *  anything older than ~30 days. */
-function relativeFromMs(
-  thenMs: number,
-  t: (key: string, vars?: Record<string, string | number>) => string
-): string {
-  if (!Number.isFinite(thenMs)) return t("splash.unknown");
-  const deltaMs = Date.now() - thenMs;
-  const day = 24 * 60 * 60 * 1000;
-  if (deltaMs < day) return t("splash.today");
-  if (deltaMs < 2 * day) return t("splash.yesterday");
-  if (deltaMs < 7 * day) return t("splash.daysAgo", { count: Math.floor(deltaMs / day) });
-  if (deltaMs < 30 * day) return t("splash.weeksAgo", { count: Math.floor(deltaMs / (7 * day)) });
-  return new Date(thenMs).toLocaleDateString();
-}
 
 /** Sample an image's average color as an "r, g, b" string, or null when
  *  the image can't be read. Used to tint the splash backdrop to match
@@ -144,24 +107,6 @@ function sampleAverageColor(src: string): Promise<string | null> {
   });
 }
 
-interface InfoCardProps {
-  icon: ReactNode;
-  label: string;
-  children: ReactNode;
-}
-
-function InfoCard({ icon, label, children }: InfoCardProps) {
-  return (
-    <div className="splashscreen-info-card">
-      <span className="splashscreen-info-icon">{icon}</span>
-      <div className="splashscreen-info-body">
-        <span className="splashscreen-info-label">{label}</span>
-        <span className="splashscreen-info-value">{children}</span>
-      </div>
-    </div>
-  );
-}
-
 /**
  * Splashscreen — pure in-process overlay rendered at the top level of
  * the Tauri main window. It reads its data from the SplashContext
@@ -175,6 +120,10 @@ export default function Splashscreen() {
   const { t } = useLanguage();
 
   const cardRef = useRef<HTMLDivElement | null>(null);
+  const barRef = useRef<HTMLDivElement | null>(null);
+  const fillRef = useRef<HTMLDivElement | null>(null);
+  const displayPctRef = useRef(0);
+  const rafRef = useRef<number | null>(null);
   const recordRef = useRef(record);
   recordRef.current = record;
 
@@ -249,16 +198,52 @@ export default function Splashscreen() {
     if (lastResetRef.current !== record.startedAt) {
       lastResetRef.current = record.startedAt;
       targetStepRef.current = 0;
+      displayPctRef.current = 0;
+      if (fillRef.current) fillRef.current.style.width = "0%";
       startAnimator();
       resetStall();
     }
   }, [record, startAnimator, resetStall]);
+
+  // ── Real loading progression ───────────────────────────────────────
+  // The bar eases toward the current step's target percentage with a
+  // decelerating rAF tween instead of snapping between fixed values, so
+  // it reads as a genuine loader. It freezes on failure and only reaches
+  // 100% once the watcher confirms the game actually started.
+  useEffect(() => {
+    if (!record) return;
+    if (record.status === "error") return;
+    const target =
+      record.status === "started" ? 100 : STEP_PCT[record.launchStep];
+    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
+      displayPctRef.current = target;
+      if (fillRef.current) fillRef.current.style.width = `${target}%`;
+      barRef.current?.setAttribute("aria-valuenow", String(Math.round(target)));
+      return;
+    }
+    const animate = () => {
+      const cur = displayPctRef.current;
+      const diff = target - cur;
+      const next = Math.abs(diff) < 0.05 ? target : cur + diff * 0.085;
+      displayPctRef.current = next;
+      if (fillRef.current) fillRef.current.style.width = `${next}%`;
+      barRef.current?.setAttribute("aria-valuenow", String(Math.round(next)));
+      if (next !== target) {
+        rafRef.current = requestAnimationFrame(animate);
+      }
+    };
+    rafRef.current = requestAnimationFrame(animate);
+    return () => {
+      if (rafRef.current) cancelAnimationFrame(rafRef.current);
+    };
+  }, [record]);
 
   useEffect(() => {
     return () => {
       if (stepTimerRef.current) clearTimeout(stepTimerRef.current);
       if (stallTimerRef.current) clearTimeout(stallTimerRef.current);
       if (fadeTimerRef.current) clearTimeout(fadeTimerRef.current);
+      if (rafRef.current) cancelAnimationFrame(rafRef.current);
     };
   }, []);
 
@@ -365,47 +350,6 @@ export default function Splashscreen() {
   if (!record) return null;
 
   const game: Game = record.game;
-  const lastSession = record.lastSession;
-
-  // "Last Played" should reflect the game's canonical last-played time,
-  // which lives on `game.lastPlayed` (stamped on launch and synced from
-  // Steam/GOG/Epic). Fall back to the session history (whose `date` is an
-  // ISO string) only when the game has no stamp.
-  const lastPlayedMs =
-    typeof game.lastPlayed === "number" && Number.isFinite(game.lastPlayed)
-      ? game.lastPlayed
-      : lastSession
-        ? Date.parse(lastSession.date)
-        : undefined;
-  const lastSessionDate =
-    typeof lastPlayedMs === "number" && Number.isFinite(lastPlayedMs)
-      ? relativeFromMs(lastPlayedMs, t)
-      : null;
-  const lastSessionDuration = lastSession ? formatMinutes(lastSession.durationMin) : null;
-  const lastSessionFps = lastSession?.metrics?.avgFps;
-
-  const ttbMain = ttbSecondsToHours(game.timeToBeat?.normally);
-  const ttbComplete = ttbSecondsToHours(game.timeToBeat?.completely);
-  const hasTtb = ttbMain !== null || ttbComplete !== null;
-
-  const totalPlayTime = game.playTime || "0h";
-  const hasPlayed = totalPlayTime !== "0h" && totalPlayTime !== "0m";
-
-  // Extra stats: achievement completion + community/critic rating.
-  const achievements = game.steamAchievements;
-  const achTotal = achievements?.length ?? 0;
-  const achUnlocked = achievements?.filter((a) => a.achieved).length ?? 0;
-  const hasAchievements = achTotal > 0;
-  const rating =
-    typeof game.igdbRating === "number"
-      ? game.igdbRating
-      : typeof game.criticRating === "number"
-        ? game.criticRating
-        : null;
-  const hasRating = rating !== null;
-
-  const progressPct =
-    record.status === "started" ? 100 : STEP_PCT[record.launchStep];
 
   return (
     <div
@@ -424,23 +368,25 @@ export default function Splashscreen() {
         ref={cardRef}
         tabIndex={-1}
       >
-        {/* Determinate progress bar tied to the current launch step */}
+        {/* Progress bar eased toward the current launch step */}
         <div
           className="splashscreen-progress"
+          ref={barRef}
           role="progressbar"
           aria-valuemin={0}
           aria-valuemax={100}
-          aria-valuenow={progressPct}
+          aria-valuenow={0}
           aria-label={t("splash.progressAria")}
         >
           <div
+            ref={fillRef}
             className={[
               "splashscreen-progress-fill",
               record.status === "error" ? "splashscreen-progress-fill--error" : "",
             ]
               .filter(Boolean)
               .join(" ")}
-            style={{ width: `${progressPct}%` }}
+            style={{ width: "0%" }}
           />
         </div>
 
@@ -482,101 +428,6 @@ export default function Splashscreen() {
               {[game.developer, game.publisher].filter(Boolean).join(" • ")}
             </span>
           )}
-        </div>
-
-        {/* Info card row: time-to-beat / achievements / rating / last played / total play time */}
-        <div className="splashscreen-info-row">
-          {hasTtb && (
-            <InfoCard
-              icon={
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-                  <circle cx="12" cy="12" r="10" />
-                  <polyline points="12 6 12 12 16 14" />
-                </svg>
-              }
-              label={t("splash.timeToBeat")}
-            >
-              {ttbMain !== null && <span>{t("splash.ttbMain", { hours: ttbMain })}</span>}
-              {ttbComplete !== null && (
-                <span className="splashscreen-info-divider">
-                  {t("splash.ttbComplete", { hours: ttbComplete })}
-                </span>
-              )}
-            </InfoCard>
-          )}
-
-          {hasAchievements && (
-            <InfoCard
-              icon={
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-                  <path d="M6 9H4.5a2.5 2.5 0 0 1 0-5H6" />
-                  <path d="M18 9h1.5a2.5 2.5 0 0 0 0-5H18" />
-                  <path d="M4 22h16" />
-                  <path d="M10 14.66V17c0 .55-.47.98-.97 1.21C7.85 18.75 7 20.24 7 22" />
-                  <path d="M14 14.66V17c0 .55.47.98.97 1.21C16.15 18.75 17 20.24 17 22" />
-                  <path d="M18 2H6v7a6 6 0 0 0 12 0V2Z" />
-                </svg>
-              }
-              label={t("splash.achievements")}
-            >
-              <span>
-                {achUnlocked}/{achTotal}
-              </span>
-              <span className="splashscreen-info-divider">
-                {Math.round((achUnlocked / achTotal) * 100)}%
-              </span>
-            </InfoCard>
-          )}
-
-          {hasRating && (
-            <InfoCard
-              icon={
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-                  <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" />
-                </svg>
-              }
-              label={t("splash.rating")}
-            >
-              <span>{Math.round(rating!)}/100</span>
-            </InfoCard>
-          )}
-
-          <InfoCard
-            icon={
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-                <rect x="3" y="4" width="18" height="18" rx="2" />
-                <line x1="16" y1="2" x2="16" y2="6" />
-                <line x1="8" y1="2" x2="8" y2="6" />
-                <line x1="3" y1="10" x2="21" y2="10" />
-              </svg>
-            }
-            label={t("splash.lastPlayed")}
-          >
-            {lastSessionDate ? (
-              <>
-                <span>{lastSessionDate}</span>
-                {lastSessionDuration && (
-                  <span className="splashscreen-info-divider">
-                    {lastSessionDuration}
-                    {typeof lastSessionFps === "number" && lastSessionFps > 0 && ` · ${Math.round(lastSessionFps)} FPS`}
-                  </span>
-                )}
-              </>
-            ) : (
-              <span className="splashscreen-info-muted">{t("splash.firstTimePlaying")}</span>
-            )}
-          </InfoCard>
-
-          <InfoCard
-            icon={
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-                <polygon points="5 3 19 12 5 21 5 3" />
-              </svg>
-            }
-            label={t("splash.totalPlayTime")}
-          >
-            <span>{hasPlayed ? totalPlayTime : "0h"}</span>
-          </InfoCard>
         </div>
 
         {/* Rotating loading tip — only while the launch is in flight */}

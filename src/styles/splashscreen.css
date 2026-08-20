@@ -62,10 +62,35 @@
 }
 
 .splashscreen-progress-fill {
+  position: relative;
   height: 100%;
+  overflow: hidden;
   background: linear-gradient(90deg, var(--color-accent), var(--color-accent-hover));
   box-shadow: 0 0 8px var(--color-accent-glow);
-  transition: width 400ms ease;
+}
+
+/* Animated sheen so the bar reads as live work between checkpoints. */
+.splashscreen-progress-fill::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    90deg,
+    transparent,
+    rgba(255, 255, 255, 0.35),
+    transparent
+  );
+  transform: translateX(-100%);
+  animation: splashShimmer 1.8s ease-in-out infinite;
+}
+
+.splashscreen-progress-fill--error::after {
+  display: none;
+}
+
+@keyframes splashShimmer {
+  0% { transform: translateX(-100%); }
+  60%, 100% { transform: translateX(100%); }
 }
 
 .splashscreen-progress-fill--error {
@@ -185,13 +210,6 @@
   color: var(--color-text-secondary);
 }
 
-.splashscreen-info-row {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
-  gap: var(--space-md);
-  padding: 0 var(--space-2xl) var(--space-lg);
-}
-
 /* Rotating loading tip shown while the launch is in flight. */
 .splashscreen-tip {
   display: flex;
@@ -209,70 +227,6 @@
   height: 14px;
   color: var(--color-accent);
   flex-shrink: 0;
-}
-
-.splashscreen-info-card {
-  display: flex;
-  align-items: flex-start;
-  gap: var(--space-md);
-  padding: var(--space-md) var(--space-lg);
-  background: var(--color-bg-tertiary);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-md);
-  min-width: 0;
-}
-
-.splashscreen-info-icon {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 28px;
-  height: 28px;
-  border-radius: var(--radius-sm);
-  background: color-mix(in srgb, var(--color-accent) 14%, transparent);
-  color: var(--color-accent);
-  flex-shrink: 0;
-}
-
-.splashscreen-info-icon svg {
-  width: 15px;
-  height: 15px;
-}
-
-.splashscreen-info-body {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-  min-width: 0;
-  flex: 1;
-}
-
-.splashscreen-info-label {
-  font-size: 10px;
-  font-weight: var(--font-weight-bold);
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
-  color: var(--color-text-muted);
-}
-
-.splashscreen-info-value {
-  font-size: var(--font-size-sm);
-  font-weight: var(--font-weight-semibold);
-  color: var(--color-text-primary);
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--space-xs);
-}
-
-.splashscreen-info-divider {
-  color: var(--color-text-secondary);
-  font-weight: var(--font-weight-medium);
-}
-
-.splashscreen-info-muted {
-  color: var(--color-text-muted);
-  font-weight: var(--font-weight-normal);
-  font-style: italic;
 }
 
 .splashscreen-status {
@@ -368,9 +322,6 @@
 
 /* Compact responsive layout for narrower viewports */
 @media (max-width: 640px) {
-  .splashscreen-info-row {
-    grid-template-columns: 1fr;
-  }
   .splashscreen-title-block,
   .splashscreen-status {
     padding-left: var(--space-lg);
@@ -395,8 +346,8 @@
   .splashscreen-status-dots span {
     animation: none;
   }
-  .splashscreen-progress-fill {
-    transition: none;
+  .splashscreen-progress-fill::after {
+    animation: none;
   }
 }
 

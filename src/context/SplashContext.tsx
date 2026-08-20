@@ -6,7 +6,7 @@ import {
   useState,
   type ReactNode,
 } from "react";
-import type { Game, GameSession } from "../types/game";
+import type { Game } from "../types/game";
 
 /**
  * Status visible in the splash card. Drives the status pill copy and
@@ -28,7 +28,6 @@ export type LaunchStep = 0 | 1 | 2 | 3 | 4 | 5 | 6;
  */
 export interface SplashPayload {
   game: Game;
-  lastSession: GameSession | null;
 }
 
 /**

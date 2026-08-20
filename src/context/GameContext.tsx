@@ -19,75 +19,13 @@ import {
   type Game,
   type GameMetadataResult,
   type IgdbReview,
-  sanitizeSessionMetrics,
-  type SessionMetrics,
 } from "../types/game";
 import { useToast } from "./ToastContext";
 import { useLanguage } from "./LanguageContext";
 import {
   isSplashEnabled,
   useSplash,
-  type SplashPayload,
 } from "./SplashContext";
-import type { GameSession } from "../types/game";
-
-/**
- * Shape of a `sessions` table row as returned by the Rust backend.
- * Mirrors the serde mapping on `db::sessions::SessionRecord`.
- */
-interface DbSessionRecord {
-  id: number;
-  gameId: string;
-  gameName?: string | null;
-  startedAt: number;
-  endedAt?: number | null;
-  elapsedSeconds?: number | null;
-  avgFps?: number | null;
-  avgCpu?: number | null;
-  avgGpu?: number | null;
-  avgRam?: number | null;
-  metricsJson?: string | null;
-}
-
-/** Map a SQLite session row to the frontend GameSession shape. */
-function mapDbSession(r: DbSessionRecord): GameSession | null {
-  const elapsed = r.elapsedSeconds ?? 0;
-  if (elapsed < 60) return null;
-  const date = r.endedAt
-    ? new Date(r.endedAt).toISOString()
-    : new Date(r.startedAt).toISOString();
-  const durationMin = Math.round(elapsed / 60);
-  let metrics: SessionMetrics | undefined;
-  if (r.metricsJson) {
-    try {
-      metrics = sanitizeSessionMetrics(JSON.parse(r.metricsJson) as SessionMetrics);
-    } catch {
-      // Fall through to reconstructing from the average columns.
-    }
-  }
-  if (!metrics && r.avgFps != null) {
-    metrics = {
-      avgFps: r.avgFps,
-      avgCpuUsage: r.avgCpu ?? 0,
-      avgGpuUsage: r.avgGpu ?? 0,
-      avgRamUsage: r.avgRam ?? 0,
-      avgCpuTemp: 0,
-      avgGpuTemp: 0,
-      minFps: 0,
-      maxFps: 0,
-      resolution: "",
-      samples: [],
-    };
-  }
-  return {
-    id: String(r.id),
-    gameId: r.gameId,
-    gameName: r.gameName ?? "",
-    date,
-    durationMin,
-    metrics,
-  };
-}
 
 interface GameExitEvent {
   gameId: string;
@@ -1133,21 +1071,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
     // Show the launch splash if the user has it enabled
     const splashOn = isSplashEnabled();
     if (splashOn) {
-      let lastSession: GameSession | null = null;
-      try {
-        const records: DbSessionRecord[] = await invoke("get_last_session_for_game", {
-          gameId: game.id,
-        });
-        if (records.length > 0) {
-          const mapped = mapDbSession(records[0]);
-          if (mapped) lastSession = mapped;
-        }
-      } catch {
-        // Backend unavailable or DB empty — splash falls back to
-        // "First time playing".
-      }
-      const payload: SplashPayload = { game, lastSession };
-      splash.open(payload, { retry: () => launchGameRef.current(game) });
+      splash.open({ game }, { retry: () => launchGameRef.current(game) });
     }
 
     setRunningGameIds((prev) => [...prev, game.id]);
