@@ -15,10 +15,10 @@ use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::Arc;
 use std::time::Duration;
 
-use reqwest::header::{CONTENT_ENCODING, CONTENT_TYPE, RANGE};
+use reqwest::header::{CONTENT_ENCODING, CONTENT_RANGE, CONTENT_TYPE, RANGE};
 use reqwest::StatusCode;
 use tokio::fs::OpenOptions;
-use tokio::io::AsyncWriteExt;
+use tokio::io::{AsyncReadExt, AsyncWriteExt};
 
 use super::manager::{self, WeakManager};
 use super::types::{unix_now, Download, DownloadStatus};
@@ -29,6 +29,24 @@ const MAX_RETRY_DELAY_MS: u64 = 15000;
 const STALL_TIMEOUT_SECS: u64 = 30;
 const REQUEST_TIMEOUT_SECS: u64 = 60;
 const RETRYABLE_STATUSES: &[u16] = &[429, 500, 502, 503, 504];
+
+/// Number of parallel Range streams per AllDebrid file — the service's
+/// documented IDM/FDM recommendation ("8 connections per file").
+pub const SEGMENT_COUNT: u32 = 8;
+/// Files smaller than this per-segment floor stay single-connection;
+/// segmentation only pays off once files are large enough to split.
+const SEGMENT_MIN_BYTES: u64 = 1024 * 1024;
+/// Internal reconnects per segment before the whole file attempt gives up
+/// and bubbles a retryable error (one flaky connection must not restart
+/// the other segments' streams).
+const SEGMENT_RECONNECTS: u32 = 3;
+
+/// Refreshes an expiring direct link (AllDebrid unlock URLs die after
+/// hours). Returns the fresh URL, or None when unavailable/failed.
+pub type UrlRefresher =
+    dyn Fn(String) -> std::pin::Pin<Box<dyn std::future::Future<Output = Option<String>> + Send>>
+        + Send
+        + Sync;
 
 /// Firefox UA: several game hosters throttle/block Chrome-based UAs.
 const DOWNLOAD_USER_AGENT: &str =
@@ -234,12 +252,14 @@ pub async fn run_direct_download(
     }
 }
 
-/// Download every file in a debrid-resolved torrent sequentially into
-/// `save_dir`, updating the record's per-file list as each one lands,
-/// then finalise once all files are done. Reuses `attempt_download`'s
-/// retry/backoff, stall-watchdog and resume machinery; the `base_offset`
-/// counter keeps the record's progress reflecting the whole transfer
-/// rather than just the current file.
+/// Download every file in a debrid-resolved torrent into `save_dir`,
+/// updating the record's per-file list as each one lands, then finalise
+/// once all files are done. Files are streamed sequentially; when
+/// `segments > 1` each file is fetched over that many parallel Range
+/// streams (AllDebrid), otherwise via a single connection. Reuses
+/// `attempt_download`'s retry/backoff, stall-watchdog and resume
+/// machinery; the `base_offset` counter keeps the record's progress
+/// reflecting the whole transfer rather than just the current file.
 pub async fn run_debrid_files_download(
     id: String,
     files: Vec<(String, u64, String)>, // (name, size, url)
@@ -249,6 +269,8 @@ pub async fn run_debrid_files_download(
     manager_weak: WeakManager,
     generation: u64,
     worker_lock: Arc<tokio::sync::Mutex<()>>,
+    segments: u32,
+    url_refresher: Option<Arc<UrlRefresher>>,
 ) {
     let _lock_guard = worker_lock.lock().await;
     if is_superseded(&manager_weak, &id, generation).await {
@@ -293,26 +315,44 @@ pub async fn run_debrid_files_download(
             continue;
         }
 
+        let mut file_url = url.clone();
         let mut attempt: u32 = 0;
         loop {
             if is_superseded(&manager_weak, &id, generation).await {
                 return;
             }
-            match attempt_download(
-                &client,
-                &id,
-                url,
-                &save_path,
-                &bytes_counter,
-                base_offset,
-                false,
-                &manager_weak,
-                &[],
-                None,
-                generation,
-            )
-            .await
-            {
+            let outcome = if segments > 1 {
+                attempt_segmented_download(
+                    &client,
+                    &id,
+                    &file_url,
+                    &save_path,
+                    &bytes_counter,
+                    base_offset,
+                    &manager_weak,
+                    &[],
+                    None,
+                    generation,
+                    segments,
+                )
+                .await
+            } else {
+                attempt_download(
+                    &client,
+                    &id,
+                    &file_url,
+                    &save_path,
+                    &bytes_counter,
+                    base_offset,
+                    false,
+                    &manager_weak,
+                    &[],
+                    None,
+                    generation,
+                )
+                .await
+            };
+            match outcome {
                 AttemptResult::Completed => break,
                 AttemptResult::Aborted => return,
                 AttemptResult::Fatal(msg) => {
@@ -329,6 +369,19 @@ pub async fn run_debrid_files_download(
                     }
                     if !still_downloading(&manager_weak, &id, generation).await {
                         return;
+                    }
+                    // Unlock URLs expire after hours — refresh before the retry
+                    // sleeps so a long-stalled download resumes with a live link.
+                    if let Some(refresh) = &url_refresher {
+                        if let Some(fresh) = refresh(file_url.clone()).await {
+                            if !fresh.is_empty() && fresh != file_url {
+                                println!(
+                                    "[downloads] Refreshed expired debrid link for {}",
+                                    save_path
+                                );
+                                file_url = fresh;
+                            }
+                        }
                     }
                     let delay = match retry_after {
                         Some(d) => d.min(Duration::from_millis(MAX_RETRY_DELAY_MS)),
@@ -846,6 +899,539 @@ async fn attempt_download(
     // Renaming can transiently fail while antivirus or another process briefly
     // locks the freshly written file. Retry the rename instead of discarding a
     // fully downloaded file and starting over from scratch.
+    let mut rename_attempts = 0;
+    loop {
+        match tokio::fs::rename(&temp_path, path).await {
+            Ok(_) => break,
+            Err(e) => {
+                rename_attempts += 1;
+                if rename_attempts >= 5 {
+                    return AttemptResult::Fatal(format!(
+                        "Failed to finalize file after {} attempts: {}",
+                        rename_attempts, e
+                    ));
+                }
+                tokio::time::sleep(Duration::from_millis(500)).await;
+            }
+        }
+    }
+
+    AttemptResult::Completed
+}
+
+enum SegmentResult {
+    /// Streamed to completion.
+    Done,
+    /// Server answered 200 to a byte-range request — no range support,
+    /// the whole file must fall back to a single connection.
+    RangeUnsupported,
+    /// User paused/removed or the worker was superseded.
+    Aborted,
+    /// Permanent failure for this URL (dead link, HTML page, ...).
+    Fatal(String),
+    /// Temporary failure (connection drop, stall, transient HTTP).
+    Transient(String),
+}
+
+/// Download one byte-range segment of `url` into `part_path`.
+///
+/// `seg_start`/`seg_end` bound the segment (end exclusive). Resumes from
+/// the part file's current size; `bytes_counter` accumulates across all
+/// segments (plus `base_offset` from earlier files) so the shared record
+/// progress advances exactly like the single-connection path. The shared
+/// `throttle` keeps the global speed limit correct across N streams.
+async fn stream_segment(
+    client: &reqwest::Client,
+    id: &str,
+    url: &str,
+    part_path: &std::path::Path,
+    seg_start: u64,
+    seg_end: u64,
+    bytes_counter: &Arc<AtomicU64>,
+    throttle: &Arc<tokio::sync::Mutex<Throttle>>,
+    manager_weak: &WeakManager,
+    extra_headers: &[(String, String)],
+    referer: Option<&str>,
+    generation: u64,
+) -> SegmentResult {
+    let seg_len = seg_end - seg_start;
+    let existing = std::fs::metadata(part_path)
+        .map(|m| if m.is_file() { m.len() } else { 0 })
+        .unwrap_or(0)
+        .min(seg_len);
+    if existing == seg_len {
+        return SegmentResult::Done;
+    }
+    let resume_from = seg_start + existing;
+
+    let mut req = client.get(url);
+    // A segment is fully re-fetchable, so identity encoding keeps the
+    // byte offsets exact.
+    req = req.header("Accept-Encoding", "identity");
+    req = req.header(RANGE, format!("bytes={}-{}", resume_from, seg_end - 1));
+    if let Some(r) = referer {
+        req = req.header(reqwest::header::REFERER, r);
+    }
+    for (k, v) in extra_headers {
+        req = req.header(k.as_str(), v.as_str());
+    }
+
+    let send_res = tokio::time::timeout(Duration::from_secs(REQUEST_TIMEOUT_SECS), req.send())
+        .await;
+    let mut resp = match send_res {
+        Ok(Ok(r)) => r,
+        Ok(Err(e)) => return SegmentResult::Transient(format!("Connection failed: {}", e)),
+        Err(_) => {
+            return SegmentResult::Transient(format!(
+                "No response from server within {}s",
+                REQUEST_TIMEOUT_SECS
+            ))
+        }
+    };
+
+    let status = resp.status();
+    if status == StatusCode::OK {
+        // Server ignored the Range header. The body is the whole file —
+        // writing it into one part would corrupt the assembly.
+        return SegmentResult::RangeUnsupported;
+    }
+    if status != StatusCode::PARTIAL_CONTENT {
+        let code = status.as_u16();
+        if RETRYABLE_STATUSES.contains(&code) {
+            return SegmentResult::Transient(format!("HTTP {} (transient)", code));
+        }
+        if let Some(content_type) = resp.headers().get(CONTENT_TYPE) {
+            if let Ok(ct) = content_type.to_str() {
+                let ct_lower = ct.to_ascii_lowercase();
+                if ct_lower.starts_with("text/html")
+                    || ct_lower.starts_with("application/xhtml")
+                {
+                    return SegmentResult::Fatal(
+                        "The download link returned a web page instead of a file. \
+                         It may have expired or be invalid."
+                            .to_string(),
+                    );
+                }
+            }
+        }
+        return SegmentResult::Fatal(format!(
+            "The download link is not available (HTTP {}).",
+            status
+        ));
+    }
+
+    let file_res = OpenOptions::new()
+        .create(true)
+        .write(true)
+        .append(true)
+        .open(part_path)
+        .await;
+    let mut file = match file_res {
+        Ok(f) => f,
+        Err(e) => return SegmentResult::Transient(format!("Failed to open part file: {}", e)),
+    };
+
+    let mut abort_check = std::time::Instant::now();
+    loop {
+        if abort_check.elapsed() >= Duration::from_millis(500) {
+            abort_check = std::time::Instant::now();
+            if let Some(manager) = manager_weak.upgrade() {
+                let guard = manager.read().await;
+                match guard.downloads_map().get(id) {
+                    Some(item) => {
+                        let superseded =
+                            guard.direct_generations.get(id).copied() != Some(generation);
+                        if superseded || !matches!(item.status, DownloadStatus::Downloading) {
+                            drop(file);
+                            return SegmentResult::Aborted;
+                        }
+                    }
+                    None => {
+                        drop(file);
+                        return SegmentResult::Aborted;
+                    }
+                }
+            } else {
+                drop(file);
+                return SegmentResult::Aborted;
+            }
+        }
+
+        let chunk_res =
+            tokio::time::timeout(Duration::from_secs(STALL_TIMEOUT_SECS), resp.chunk())
+                .await;
+        let chunk = match chunk_res {
+            Ok(inner) => match inner {
+                Ok(Some(c)) => c,
+                Ok(None) => break, // Segment complete.
+                Err(e) => {
+                    drop(file);
+                    return SegmentResult::Transient(format!("Download interrupted: {}", e));
+                }
+            },
+            Err(_) => {
+                drop(file);
+                return SegmentResult::Transient(
+                    "Download stalled (no data received for 30s)".to_string(),
+                );
+            }
+        };
+
+        if let Err(e) = file.write_all(&chunk).await {
+            drop(file);
+            return SegmentResult::Transient(format!("Disk write failed: {}", e));
+        }
+        bytes_counter.fetch_add(chunk.len() as u64, Ordering::SeqCst);
+        throttle.lock().await.account(chunk.len() as u64).await;
+    }
+
+    let _ = file.flush().await;
+    drop(file);
+    SegmentResult::Done
+}
+
+/// Multi-connection download of one file via N parallel byte ranges.
+///
+/// Probes range support with a `bytes=0-0` GET (HEAD causes server-side
+/// issues on AllDebrid), splits the file into up to `max_segments`
+/// streams writing to `<name>.gamelib_tmp.partNNN`, then assembles the
+/// parts into the final file. Falls back to the single-connection path
+/// whenever the server does not honor ranges.
+async fn attempt_segmented_download(
+    client: &reqwest::Client,
+    id: &str,
+    url: &str,
+    save_path: &str,
+    bytes_counter: &Arc<AtomicU64>,
+    base_offset: u64,
+    manager_weak: &WeakManager,
+    extra_headers: &[(String, String)],
+    referer: Option<&str>,
+    generation: u64,
+    max_segments: u32,
+) -> AttemptResult {
+    // `reqwest::Client` is cheap to clone (an Arc inside) — the probe
+    // below and the per-segment spawned tasks all need an owned handle
+    // (JoinSet requires `'static` futures).
+    let client = client.clone();
+    let path = std::path::Path::new(save_path);
+    let filename = path
+        .file_name()
+        .and_then(|s| s.to_str())
+        .unwrap_or("direct_download")
+        .to_string();
+    let parent = path.parent().unwrap_or_else(|| std::path::Path::new("."));
+    let temp_path = parent.join(format!("{}.gamelib_tmp", filename));
+
+    // ── Probe: does the server honor byte ranges, and how big is the file?
+    let mut probe = client.get(url);
+    probe = probe.header(RANGE, "bytes=0-0");
+    probe = probe.header("Accept-Encoding", "identity");
+    if let Some(r) = referer {
+        probe = probe.header(reqwest::header::REFERER, r);
+    }
+    for (k, v) in extra_headers {
+        probe = probe.header(k.as_str(), v.as_str());
+    }
+    let send_res = tokio::time::timeout(Duration::from_secs(REQUEST_TIMEOUT_SECS), probe.send())
+        .await;
+    let resp = match send_res {
+        Ok(Ok(r)) => r,
+        Ok(Err(e)) => return AttemptResult::Retryable(format!("Connection failed: {}", e), None),
+        Err(_) => {
+            return AttemptResult::Retryable(
+                format!("No response from server within {}s", REQUEST_TIMEOUT_SECS),
+                None,
+            )
+        }
+    };
+    let status = resp.status();
+    let total: u64 = if status == StatusCode::PARTIAL_CONTENT {
+        // Content-Range: bytes 0-0/<TOTAL>
+        resp.headers()
+            .get(CONTENT_RANGE)
+            .and_then(|v| v.to_str().ok())
+            .and_then(|v| v.rsplit('/').next())
+            .and_then(|v| v.trim().parse::<u64>().ok())
+            .unwrap_or(0)
+    } else {
+        0
+    };
+    // No usable total: ranges ignored (200) or a 206 without a parseable
+    // Content-Range. Classify real errors exactly like the single-connection
+    // path, then fall back to it.
+    if total == 0 {
+        if status != StatusCode::OK && status != StatusCode::PARTIAL_CONTENT {
+            let code = status.as_u16();
+            if RETRYABLE_STATUSES.contains(&code) {
+                return AttemptResult::Retryable(
+                    format!("HTTP {} (transient)", code),
+                    parse_retry_after(&resp),
+                );
+            }
+            if let Some(content_type) = resp.headers().get(CONTENT_TYPE) {
+                if let Ok(ct) = content_type.to_str() {
+                    let ct_lower = ct.to_ascii_lowercase();
+                    if ct_lower.starts_with("text/html")
+                        || ct_lower.starts_with("application/xhtml")
+                    {
+                        return AttemptResult::Fatal(
+                            "The download link returned a web page instead of a file. \
+                             It may have expired or be invalid."
+                                .to_string(),
+                        );
+                    }
+                }
+            }
+            return AttemptResult::Fatal(format!(
+                "The download link is not available (HTTP {}).",
+                status
+            ));
+        }
+        return attempt_download(
+            &client,
+            id,
+            url,
+            save_path,
+            bytes_counter,
+            base_offset,
+            false,
+            manager_weak,
+            extra_headers,
+            referer,
+            generation,
+        )
+        .await;
+    }
+
+    // ── Split the file into segments (small files stay single-stream).
+    let seg_count = if total >= SEGMENT_MIN_BYTES * max_segments as u64 {
+        max_segments
+    } else {
+        (total / SEGMENT_MIN_BYTES).max(1) as u32
+    };
+    let seg_size = total / seg_count as u64;
+    let seg_len = |i: u32| -> u64 {
+        if (i as u64 + 1) == seg_count as u64 {
+            total - i as u64 * seg_size
+        } else {
+            seg_size
+        }
+    };
+
+    // ── Part files: resume sizes, prune parts orphaned by a smaller
+    // segment split from a previous run.
+    let mut part_sizes: Vec<u64> = Vec::with_capacity(seg_count as usize);
+    for i in 0..seg_count {
+        let part_path = parent.join(format!("{}.gamelib_tmp.part{:03}", filename, i));
+        part_sizes.push(
+            std::fs::metadata(&part_path)
+                .map(|m| if m.is_file() { m.len() } else { 0 })
+                .unwrap_or(0)
+                .min(seg_len(i)),
+        );
+    }
+    if let Ok(entries) = std::fs::read_dir(parent) {
+        let prefix = format!("{}.gamelib_tmp.part", filename);
+        for entry in entries.flatten() {
+            let Some(name) = entry.file_name().to_str().map(|s| s.to_string()) else {
+                continue;
+            };
+            if let Some(idx) = name.strip_prefix(&prefix) {
+                if let Ok(i) = idx.parse::<u32>() {
+                    if i >= seg_count {
+                        let _ = std::fs::remove_file(entry.path());
+                    }
+                }
+            }
+        }
+    }
+    let on_disk: u64 = part_sizes.iter().sum();
+    bytes_counter.store(base_offset + on_disk, Ordering::SeqCst);
+
+    if let Some(parent_dir) = temp_path.parent() {
+        if !parent_dir.exists() {
+            if let Err(e) = tokio::fs::create_dir_all(parent_dir).await {
+                return AttemptResult::Fatal(format!(
+                    "Failed to create parent directories: {}",
+                    e
+                ));
+            }
+        }
+    }
+
+    let throttle = Arc::new(tokio::sync::Mutex::new(Throttle::new()));
+    let mut set = tokio::task::JoinSet::new();
+    for i in 0..seg_count {
+        let seg_start = i as u64 * seg_size;
+        let seg_end = if (i as u64 + 1) == seg_count as u64 {
+            total
+        } else {
+            (i as u64 + 1) * seg_size
+        };
+        let client_ref = client.clone();
+        let id_owned = id.to_string();
+        let url_owned = url.to_string();
+        let part_path = parent.join(format!("{}.gamelib_tmp.part{:03}", filename, i));
+        let counter = Arc::clone(bytes_counter);
+        let throttle = Arc::clone(&throttle);
+        let weak = manager_weak.clone();
+        let headers = extra_headers.to_vec();
+        let referer = referer.map(|s| s.to_string());
+        set.spawn(async move {
+            let mut attempt: u32 = 0;
+            loop {
+                let res = stream_segment(
+                    &client_ref,
+                    &id_owned,
+                    &url_owned,
+                    &part_path,
+                    seg_start,
+                    seg_end,
+                    &counter,
+                    &throttle,
+                    &weak,
+                    &headers,
+                    referer.as_deref(),
+                    generation,
+                )
+                .await;
+                match res {
+                    SegmentResult::Transient(e) => {
+                        attempt += 1;
+                        if attempt >= SEGMENT_RECONNECTS {
+                            return SegmentResult::Transient(e);
+                        }
+                        if !still_downloading(&weak, &id_owned, generation).await {
+                            return SegmentResult::Aborted;
+                        }
+                        tokio::time::sleep(Duration::from_millis(1500)).await;
+                    }
+                    other => return other,
+                }
+            }
+        });
+    }
+
+    // ── Gather results. One failing segment makes the whole attempt
+    // retryable; parts resume from disk, so the retry only re-streams
+    // the missing bytes.
+    let mut aborted = false;
+    let mut fatal: Option<String> = None;
+    let mut transient: Option<String> = None;
+    let mut range_unsupported = false;
+    while let Some(joined) = set.join_next().await {
+        match joined {
+            Ok(SegmentResult::Done) => {}
+            Ok(SegmentResult::Aborted) => aborted = true,
+            Ok(SegmentResult::Fatal(e)) => {
+                fatal.get_or_insert(e);
+            }
+            Ok(SegmentResult::Transient(e)) => {
+                transient.get_or_insert(e);
+            }
+            Ok(SegmentResult::RangeUnsupported) => range_unsupported = true,
+            Err(e) => {
+                transient.get_or_insert(format!("Segment task panicked: {}", e));
+            }
+        }
+    }
+    if aborted {
+        return AttemptResult::Aborted;
+    }
+    if let Some(e) = fatal {
+        return AttemptResult::Fatal(e);
+    }
+    if let Some(e) = transient {
+        return AttemptResult::Retryable(e, None);
+    }
+    if range_unsupported {
+        // Server served full bodies to some segment — the parts are
+        // garbage, drop them and re-download single-connection.
+        for i in 0..seg_count {
+            let _ = tokio::fs::remove_file(
+                parent.join(format!("{}.gamelib_tmp.part{:03}", filename, i)),
+            )
+            .await;
+        }
+        return attempt_download(
+            &client,
+            id,
+            url,
+            save_path,
+            bytes_counter,
+            base_offset,
+            false,
+            manager_weak,
+            extra_headers,
+            referer,
+            generation,
+        )
+        .await;
+    }
+
+    // Authoritative check: sum what's actually on disk across the parts
+    // (segments may have reconnected internally after partial writes).
+    let on_disk_actual: u64 = (0..seg_count)
+        .map(|i| {
+            std::fs::metadata(parent.join(format!("{}.gamelib_tmp.part{:03}", filename, i)))
+                .map(|m| if m.is_file() { m.len() } else { 0 })
+                .unwrap_or(0)
+                .min(seg_len(i))
+        })
+        .sum();
+    if on_disk_actual != total {
+        return AttemptResult::Retryable(
+            format!("Size mismatch: got {} bytes, expected {}", on_disk_actual, total),
+            None,
+        );
+    }
+
+    // ── Assemble: concatenate the parts into the temp file, then the
+    // usual rename into place. A superseded worker must not touch the
+    // final path (C1).
+    if is_superseded(manager_weak, id, generation).await {
+        return AttemptResult::Aborted;
+    }
+    let mut out_res = OpenOptions::new()
+        .create(true)
+        .write(true)
+        .truncate(true)
+        .open(&temp_path)
+        .await;
+    match &mut out_res {
+        Ok(out) => {
+            for i in 0..seg_count {
+                let part_path = parent.join(format!("{}.gamelib_tmp.part{:03}", filename, i));
+                if let Ok(part) = tokio::fs::File::open(&part_path).await {
+                    // Cap the copy at the segment length: a part larger than
+                    // its current split (resized file between runs) must not
+                    // bloat the assembled output past `total`.
+                    let mut limited = part.take(seg_len(i));
+                    if tokio::io::copy(&mut limited, out).await.is_err() {
+                        drop(out_res);
+                        let _ = tokio::fs::remove_file(&temp_path).await;
+                        return AttemptResult::Retryable(
+                            "Failed to assemble downloaded parts".to_string(),
+                            None,
+                        );
+                    }
+                }
+            }
+            let _ = out.flush().await;
+        }
+        Err(e) => {
+            return AttemptResult::Fatal(format!("Failed to assemble file: {}", e));
+        }
+    }
+    drop(out_res);
+    for i in 0..seg_count {
+        let _ = tokio::fs::remove_file(parent.join(format!("{}.gamelib_tmp.part{:03}", filename, i)))
+            .await;
+    }
+
+    // Rename can transiently fail (antivirus / lock) — retry like the
+    // single-connection path instead of discarding the file.
     let mut rename_attempts = 0;
     loop {
         match tokio::fs::rename(&temp_path, path).await {

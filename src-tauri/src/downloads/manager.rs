@@ -35,6 +35,11 @@ use super::types::{
 /// the add task itself gave up (or died) without failing the record.
 const METADATA_FETCH_TIMEOUT_SECS: u64 = 360;
 
+/// Consecutive poll failures tolerated before failing a debrid download.
+/// AllDebrid's API rate-limits at 12 req/s (429/503) and servers blip —
+/// a permanent failure is only declared after sustained errors (~5 min).
+const MAX_DEBRID_POLL_FAILURES: u32 = 8;
+
 pub type SharedManager = Arc<RwLock<DownloadManager>>;
 pub type WeakManager = std::sync::Weak<RwLock<DownloadManager>>;
 
@@ -1303,6 +1308,8 @@ async fn spawn_debrid_files_worker(
     files: Vec<(String, u64, String)>,
     only_files: Option<Vec<usize>>,
     seed_bytes: u64,
+    segments: u32,
+    url_refresher: Option<Arc<super::http::UrlRefresher>>,
 ) -> bool {
     let (save_dir, counter, generation, lock) = {
         let mut guard = manager.write().await;
@@ -1342,6 +1349,8 @@ async fn spawn_debrid_files_worker(
                 weak,
                 generation,
                 lock,
+                segments,
+                url_refresher,
             )
             .await;
         });
@@ -1388,14 +1397,28 @@ async fn start_debrid(manager: &SharedManager, id: &str) -> bool {
             // continue from where it left off, so the persisted `downloaded`
             // seeds the worker counter and the worker re-checks every file on
             // disk (skip completed / resume partial).
-            let (only_files, seed) = {
+            let (only_files, seed, segments, url_refresher) = {
                 let guard = manager.read().await;
                 let Some(d) = guard.downloads_map().get(id) else {
                     return false;
                 };
-                (d.only_files.clone(), d.downloaded)
+                let (segments, url_refresher) = guard
+                    .debrid_params
+                    .get(id)
+                    .map(|(provider, apikey)| debrid_worker_options(provider, apikey))
+                    .unwrap_or((0, None));
+                (d.only_files.clone(), d.downloaded, segments, url_refresher)
             };
-            return spawn_debrid_files_worker(manager, id, files, only_files, seed).await;
+            return spawn_debrid_files_worker(
+                manager,
+                id,
+                files,
+                only_files,
+                seed,
+                segments,
+                url_refresher,
+            )
+            .await;
         }
         return start_direct(manager, id).await;
     }
@@ -1475,6 +1498,7 @@ async fn run_debrid_flow(
         guard.emit_progress_force();
     }
 
+    let mut poll_failures: u32 = 0;
     let mut interval = tokio::time::interval(Duration::from_secs(3));
     loop {
         interval.tick().await;
@@ -1504,12 +1528,42 @@ async fn run_debrid_flow(
         };
 
         let status = match status_res {
-            Ok(s) => s,
+            Ok(s) => {
+                poll_failures = 0;
+                s
+            }
             Err(e) => {
-                fail_download(&manager, &id, format!("Failed to poll debrid: {}", e))
+                let lower = e.to_lowercase();
+                // Terminal provider errors must not waste retry time.
+                if lower.contains("not_found")
+                    || lower.contains("auth_bad")
+                    || lower.contains("invalid_apikey")
+                {
+                    fail_download(&manager, &id, format!("Failed to poll debrid: {}", e)).await;
+                    advance_queue(&manager).await;
+                    return;
+                }
+                poll_failures += 1;
+                if poll_failures >= MAX_DEBRID_POLL_FAILURES {
+                    fail_download(
+                        &manager,
+                        &id,
+                        format!(
+                            "Failed to poll debrid after {} consecutive errors: {}",
+                            poll_failures, e
+                        ),
+                    )
                     .await;
-                advance_queue(&manager).await;
-                return;
+                    advance_queue(&manager).await;
+                    return;
+                }
+                println!(
+                    "[downloads] Transient debrid poll error ({}/{}): {}",
+                    poll_failures, MAX_DEBRID_POLL_FAILURES, e
+                );
+                // Back off before the next poll (10s..60s, escalating).
+                tokio::time::sleep(Duration::from_secs((10 * poll_failures).min(60) as u64)).await;
+                continue;
             }
         };
 
@@ -1532,20 +1586,49 @@ async fn run_debrid_flow(
             // AllDebrid's `/f/…` links are short download *pages* — fetching
             // them directly yields HTML. Unlock each into a direct CDN URL
             // (`.debrid.it`) before handing them to the HTTP worker, falling
-            // back to the raw link if unlocking fails. Build the final
-            // (name, size, url) list, sanitising names and de-duplicating so
-            // same-named files in different folders can't collide on disk.
+            // back to the raw link if unlocking fails.
+            //
+            // AllDebrid unlock calls are independent and take one RTT each —
+            // unlock in parallel (2 in flight, staying well under the 12 req/s
+            // API limit) instead of serially. The result order is preserved so
+            // the per-file naming below stays deterministic.
+            let links: Vec<String> = if provider == "alldebrid" {
+                let sem = Arc::new(tokio::sync::Semaphore::new(2));
+                let mut set = tokio::task::JoinSet::new();
+                for (i, f) in status.files.iter().enumerate() {
+                    let sem = Arc::clone(&sem);
+                    let apikey = apikey.clone();
+                    let link = f.link.clone();
+                    set.spawn(async move {
+                        let _permit = sem.acquire_owned().await;
+                        (i, AllDebridClient::unrestrict_link(&apikey, &link).await)
+                    });
+                }
+                let mut results = vec![None; status.files.len()];
+                while let Some(joined) = set.join_next().await {
+                    if let Ok((i, res)) = joined {
+                        results[i] = Some(res);
+                    }
+                }
+                status
+                    .files
+                    .iter()
+                    .zip(results)
+                    .map(|(f, res)| match res {
+                        Some(Ok(direct)) if !direct.is_empty() => direct,
+                        _ => f.link.clone(),
+                    })
+                    .collect()
+            } else {
+                status.files.iter().map(|f| f.link.clone()).collect()
+            };
+
+            // Build the final (name, size, url) list, sanitising names and
+            // de-duplicating so same-named files in different folders can't
+            // collide on disk.
             let mut files: Vec<(String, u64, String)> = Vec::with_capacity(status.files.len());
             let mut used = std::collections::HashSet::new();
-            for f in &status.files {
-                let link = if provider == "alldebrid" {
-                    match AllDebridClient::unrestrict_link(&apikey, &f.link).await {
-                        Ok(direct) if !direct.is_empty() => direct,
-                        _ => f.link.clone(),
-                    }
-                } else {
-                    f.link.clone()
-                };
+            for (f, link) in status.files.iter().zip(links) {
                 let mut name = if f.name.trim().is_empty() {
                     filename_from_url(&link)
                 } else {
@@ -1602,7 +1685,15 @@ async fn run_debrid_flow(
             }
             // Same worker machinery as start_direct (generation + lock),
             // so a pause/remove during the debrid HTTP phase is safe.
-            spawn_debrid_files_worker(&manager, &id, files, None, 0).await;
+            //
+            // AllDebrid unlock links expire after hours. The refresher lets the
+            // HTTP worker re-unlock a file's URL before retrying, so a long or
+            // stalled download resumes against a live link instead of a dead one.
+            // Segmented (8-stream) downloads match AllDebrid's documented IDM/FDM
+            // recommendation (8 connections/file); other providers stay single-connection.
+            let (segments, url_refresher) = debrid_worker_options(&provider, &apikey);
+            spawn_debrid_files_worker(&manager, &id, files, None, 0, segments, url_refresher)
+                .await;
             return;
         } else if status.status == "error" {
             let err_msg = status
@@ -1713,6 +1804,39 @@ fn filename_from_url(url: &str) -> String {
     } else {
         FALLBACK.to_string()
     }
+}
+
+/// Download-segment count for a debrid provider (0 = single connection).
+/// AllDebrid officially recommends 8 connections per file.
+fn segments_for(provider: &str) -> u32 {
+    if provider == "alldebrid" {
+        super::http::SEGMENT_COUNT
+    } else {
+        0
+    }
+}
+
+/// Build the optional URL-refresher for a provider. AllDebrid unlock
+/// links expire after hours; the refresher re-unlocks a file URL via
+/// `/v4/link/unlock` so retries hit a live link. None for providers
+/// whose links don't expire.
+fn debrid_worker_options(
+    provider: &str,
+    apikey: &str,
+) -> (u32, Option<Arc<super::http::UrlRefresher>>) {
+    if provider != "alldebrid" {
+        return (0, None);
+    }
+    let apikey = apikey.to_string();
+    let refresher: Arc<super::http::UrlRefresher> = Arc::new(move |url: String| {
+        let apikey = apikey.clone();
+        Box::pin(async move {
+            super::debrid::AllDebridClient::unrestrict_link(&apikey, &url)
+                .await
+                .ok()
+        })
+    });
+    (segments_for(provider), Some(refresher))
 }
 
 /// Mark a download as errored and free the active slot.
