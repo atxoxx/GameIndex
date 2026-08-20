@@ -781,7 +781,7 @@
   --game-accent-hover: var(--color-accent-hover);
   --game-accent-glow: var(--color-accent-glow);
   --game-accent-2: var(--color-accent-2, var(--color-accent-hover));
-  --game-accent-deep: color-mix(in srgb, var(--game-accent) 62%, black 38%);
+  --game-accent-deep: var(--color-accent-deep, color-mix(in srgb, var(--game-accent) 62%, black 38%));
 }
 
 /* Store detail hero is a touch shorter — it sits above its own

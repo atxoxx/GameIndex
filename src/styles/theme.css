@@ -246,6 +246,7 @@
    snap to the new palette — a graceful degradation. */
 @property --color-accent { syntax: "<color>"; inherits: true; initial-value: #635bff; }
 @property --color-accent-2 { syntax: "<color>"; inherits: true; initial-value: #857eff; }
+@property --color-accent-deep { syntax: "<color>"; inherits: true; initial-value: #3b3799; }
 @property --color-accent-contrast { syntax: "<color>"; inherits: true; initial-value: #ffffff; }
 @property --color-accent-hover { syntax: "<color>"; inherits: true; initial-value: #857eff; }
 @property --color-accent-active { syntax: "<color>"; inherits: true; initial-value: #4a42d6; }
@@ -260,6 +261,7 @@
   transition:
     --color-accent var(--duration-slow) var(--ease-standard),
     --color-accent-2 var(--duration-slow) var(--ease-standard),
+    --color-accent-deep var(--duration-slow) var(--ease-standard),
     --color-accent-contrast var(--duration-slow) var(--ease-standard),
     --color-accent-hover var(--duration-slow) var(--ease-standard),
     --color-accent-active var(--duration-slow) var(--ease-standard),

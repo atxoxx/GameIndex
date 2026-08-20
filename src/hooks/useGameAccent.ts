@@ -4,18 +4,20 @@ import { darken, harmonizeAccent, rgbToHex, type RgbColor } from "../utils/color
 /**
  * A small coherent palette extracted from a game's cover/hero art.
  *
- * `primary` drives the GLOBAL accent exactly as the old single-color
- * extraction did (same flow through `setAccentColor`). `secondary` and
- * `deep` are harmonized derivations — cheap, robust, and guaranteed to
- * agree with the primary — used for richer LOCAL hero tinting via the
- * `--game-accent` scope (gradient partner + deepened wash).
+ * `primary` drives the global accent, `secondary` the global gradient
+ * partner (`--color-accent-2`), and `deep` the global deepened wash
+ * (`--color-accent-deep`) — all applied together via
+ * `applyGameAccentFamily`. The same values also tint the hero locally
+ * through the `--game-accent` scope.
  */
 export interface GameAccentPalette {
   /** Dominant art color, `rgb(r, g, b)` — drives the global accent. */
   primary: string;
-  /** Harmonized gradient partner hue, hex — hero gradients/borders. */
+  /** Harmonized gradient partner hue, hex — global `--color-accent-2`
+   *  plus hero gradients/borders. */
   secondary: string;
-  /** Deepened primary, hex — hero fallback washes and depth. */
+  /** Deepened primary, hex — global `--color-accent-deep` plus hero
+   *  washes and depth. */
   deep: string;
 }
 

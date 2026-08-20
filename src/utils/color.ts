@@ -279,6 +279,7 @@ export function cssColorStringToHex(value: string): string | null {
 export const ACCENT_FAMILY_KEYS: readonly string[] = [
   "--color-accent",
   "--color-accent-2",
+  "--color-accent-deep",
   "--color-accent-contrast",
   "--color-accent-hover",
   "--color-accent-active",
@@ -304,7 +305,12 @@ export const ACCENT_FAMILY_KEYS: readonly string[] = [
 ];
 
 /**
- * Build the complete accent token family from a single base color.
+ * Build the complete accent token family from a base color.
+ *
+ * `secondary` (gradient partner → `--color-accent-2`) and `deep`
+ * (deepened wash → `--color-accent-deep`) may be supplied when the
+ * palette comes from a game's artwork; otherwise both are derived
+ * from `baseColor`.
  *
  * Delivers a zero-gradient, ultra-modern precision styling system:
  *  - Solid accent base, hover, active, and contrast tokens.
@@ -312,17 +318,21 @@ export const ACCENT_FAMILY_KEYS: readonly string[] = [
  *  - Eliminates all multi-hue gradients and noisy background radial blobs.
  */
 export function buildAccentFamily(
-  baseColor: string
+  baseColor: string,
+  secondary?: string | null,
+  deep?: string | null
 ): Record<string, string> | null {
   const rgb = parseCssColor(baseColor);
   if (!rgb) return null;
   const base = rgbToHex(rgb);
-  const partner = rgbToHex(harmonizeAccent(rgb));
+  const partner = secondary ?? rgbToHex(harmonizeAccent(rgb));
+  const deepened = deep ?? rgbToHex(darken(rgb, 0.4));
   const contrast = textColorFor(base);
 
   return {
     "--color-accent": base,
     "--color-accent-2": partner,
+    "--color-accent-deep": deepened,
     "--color-accent-contrast": contrast,
     "--color-accent-hover":
       "color-mix(in srgb, var(--color-accent) 85%, var(--accent-hover-mix, white) 15%)",
@@ -376,6 +386,41 @@ export function applyAccentFamily(
     return;
   }
   const family = buildAccentFamily(baseColor);
+  if (!family) return;
+  for (const [key, value] of Object.entries(family)) {
+    root.style.setProperty(key, value);
+  }
+}
+
+/** A game-extracted accent palette (`useGameAccent`) forwarded to the
+ *  global accent family so the full palette — not just the dominant
+ *  color — follows the game. */
+export interface AccentPalette {
+  primary: string;
+  secondary: string;
+  deep: string;
+}
+
+/**
+ * Apply a game-extracted palette as the global accent family.
+ *
+ * Unlike `applyAccentFamily`, this feeds `secondary` and `deep`
+ * through verbatim (gradient partner → `--color-accent-2`, deepened
+ * wash → `--color-accent-deep`) instead of re-deriving them from the
+ * primary, so every surface that reads the accent family gets the
+ * game's full palette. `null` is a no-op so a game with no extractable
+ * art keeps whatever accent is currently applied.
+ */
+export function applyGameAccentFamily(
+  root: HTMLElement,
+  palette: AccentPalette | null
+): void {
+  if (!palette) return;
+  const family = buildAccentFamily(
+    palette.primary,
+    palette.secondary,
+    palette.deep
+  );
   if (!family) return;
   for (const [key, value] of Object.entries(family)) {
     root.style.setProperty(key, value);

@@ -3,6 +3,7 @@ import { KpiTile } from "../ui";
 import { type Game } from "../../types/game";
 import { useGameAccent } from "../../hooks/useGameAccent";
 import { useSettings } from "../../context/SettingsContext";
+import { applyGameAccentFamily } from "../../utils/color";
 import { useAchievements } from "../../context/AchievementContext";
 import PlayerCountBadge from "../PlayerCountBadge";
 import GameLaunchActions from "./GameLaunchActions";
@@ -88,7 +89,7 @@ export default function GameHero({
   const [coverErrored, setCoverErrored] = useState(false);
   const [logoErrored, setLogoErrored] = useState(false);
   const [ambientStep, setAmbientStep] = useState(0);
-  const { autoGameAccent, setAccentColor } = useSettings();
+  const { autoGameAccent } = useSettings();
   const gamePalette = useGameAccent(accentSrc || undefined);
 
   useEffect(() => {
@@ -98,8 +99,8 @@ export default function GameHero({
 
   useEffect(() => {
     if (!autoGameAccent || !gamePalette) return;
-    setAccentColor(gamePalette.primary);
-  }, [autoGameAccent, gamePalette, setAccentColor]);
+    applyGameAccentFamily(document.documentElement, gamePalette);
+  }, [autoGameAccent, gamePalette]);
 
   // Ambient background ladder
   const steamCdnBanner =
