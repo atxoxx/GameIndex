@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useMemo, useState, useEffect, useCallback } from "react";
 import { useDownloads } from "../context/DownloadContext";
 import { useToast } from "../context/ToastContext";
 import { useSizeUnit } from "../hooks/useSizeUnit";
@@ -23,7 +23,6 @@ import DownloadStatsModal from "../components/downloads/DownloadStatsModal";
 import { ConfirmModal, PageHeader } from "../components/ui";
 import { useLanguage } from "../context/LanguageContext";
 import "../styles/page-downloads.css";
-
 
 export default function DownloadsPage() {
   const { t } = useLanguage();
@@ -52,7 +51,6 @@ export default function DownloadsPage() {
 
   // ── Statistics modal state ───────────────────────────────────────
   const [statsModalOpen, setStatsModalOpen] = useState(false);
-
 
   // Per-bucket counts for the filter pill badges
   const counts = useMemo<Record<DownloadStatusFilter, number>>(() => {
@@ -95,41 +93,62 @@ export default function DownloadsPage() {
   const [batchDeleteOpen, setBatchDeleteOpen] = useState(false);
   const [batchBusy, setBatchBusy] = useState(false);
 
+  // ── Keyboard Shortcuts (Ctrl+A to select all, Esc to clear selection) ──
+  useEffect(() => {
+    function handleKeyDown(e: KeyboardEvent) {
+      const activeTag = (document.activeElement?.tagName || "").toLowerCase();
+      if (activeTag === "input" || activeTag === "textarea" || activeTag === "select") {
+        return;
+      }
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "a") {
+        if (filteredDownloads.length > 0) {
+          e.preventDefault();
+          setSelectedIds(new Set(filteredDownloads.map((d) => d.id)));
+        }
+      } else if (e.key === "Escape" && selectedIds.size > 0) {
+        e.preventDefault();
+        setSelectedIds(new Set());
+      }
+    }
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [filteredDownloads, selectedIds]);
+
   // ── Handlers ─────────────────────────────────────────────────────
-  const toggleSelect = (id: string) => {
+  const toggleSelect = useCallback((id: string) => {
     setSelectedIds((prev) => {
       const next = new Set(prev);
       if (next.has(id)) next.delete(id);
       else next.add(id);
       return next;
     });
-  };
+  }, []);
 
-  const handleSelectAll = () => {
+  const handleSelectAll = useCallback(() => {
     setSelectedIds(new Set(filteredDownloads.map((d) => d.id)));
-  };
+  }, [filteredDownloads]);
 
-  const handleDeselectAll = () => {
+  const handleDeselectAll = useCallback(() => {
     setSelectedIds(new Set());
-  };
+  }, []);
 
-  async function handlePause(id: string) {
+  const handlePause = useCallback(async (id: string) => {
     try {
       await pauseDownload(id);
     } catch (err) {
       showToast(t("downloads.pauseFailed", { error: String(err) }), "error");
     }
-  }
+  }, [pauseDownload, showToast, t]);
 
-  async function handleResume(id: string) {
+  const handleResume = useCallback(async (id: string) => {
     try {
       await resumeDownload(id);
     } catch (err) {
       showToast(t("downloads.resumeFailed", { error: String(err) }), "error");
     }
-  }
+  }, [resumeDownload, showToast, t]);
 
-  async function handleRemove(id: string) {
+  const handleRemove = useCallback(async (id: string) => {
     const target = downloads.find((d) => d.id === id);
     if (target && isActiveStatus(target.status)) {
       setRemovingContext(target);
@@ -146,9 +165,9 @@ export default function DownloadsPage() {
     } catch (err) {
       showToast(t("downloads.removeFailed", { error: String(err) }), "error");
     }
-  }
+  }, [downloads, removeDownload, showToast, t]);
 
-  async function confirmRemoveActive() {
+  const confirmRemoveActive = async () => {
     if (!removingContext) return;
     const target = removingContext;
     setRemovingBusy(true);
@@ -166,13 +185,13 @@ export default function DownloadsPage() {
     } finally {
       setRemovingBusy(false);
     }
-  }
+  };
 
-  function handleDeleteFiles(download: TorrentDownload) {
+  const handleDeleteFiles = useCallback((download: TorrentDownload) => {
     setDeletingContext(download);
-  }
+  }, []);
 
-  async function confirmDelete() {
+  const confirmDelete = async () => {
     if (!deletingContext) return;
     const target = deletingContext;
     setDeletingBusy(true);
@@ -195,26 +214,26 @@ export default function DownloadsPage() {
     } finally {
       setDeletingBusy(false);
     }
-  }
+  };
 
   // Batch actions on selected IDs
-  async function handleBatchPause() {
+  const handleBatchPause = async () => {
     for (const id of selectedIds) {
       try {
         await pauseDownload(id);
       } catch {}
     }
-  }
+  };
 
-  async function handleBatchResume() {
+  const handleBatchResume = async () => {
     for (const id of selectedIds) {
       try {
         await resumeDownload(id);
       } catch {}
     }
-  }
+  };
 
-  async function handleBatchRemove() {
+  const handleBatchRemove = async () => {
     for (const id of selectedIds) {
       try {
         await removeDownload(id, false);
@@ -222,9 +241,9 @@ export default function DownloadsPage() {
     }
     setSelectedIds(new Set());
     showToast(t("downloads.removed"), "info");
-  }
+  };
 
-  async function handleBatchConfirmDelete() {
+  const handleBatchConfirmDelete = async () => {
     setBatchBusy(true);
     try {
       for (const id of selectedIds) {
@@ -238,9 +257,9 @@ export default function DownloadsPage() {
     } finally {
       setBatchBusy(false);
     }
-  }
+  };
 
-  // Calculate sum of bytes for selected items to be deleted
+  // Calculate sum of bytes for selected items
   const selectedBytes = useMemo(() => {
     return Array.from(selectedIds).reduce((acc, id) => {
       const d = downloads.find((item) => item.id === id);
@@ -275,7 +294,7 @@ export default function DownloadsPage() {
       />
 
       {/* Main Downloads List / Grid / Table Section */}
-      <section className="dl-section" aria-label="Downloads List">
+      <section className="dl-section" aria-label={t("downloads.title")}>
         <div className="dl-section-header">
           <h3 className="dl-section-title">
             {statusFilter === "all"
@@ -302,7 +321,6 @@ export default function DownloadsPage() {
           />
         </div>
 
-
         {/* Empty States & Content Presentation */}
         {loading && downloads.length === 0 ? (
           <div className="dl-list-empty">
@@ -311,7 +329,14 @@ export default function DownloadsPage() {
           </div>
         ) : filteredDownloads.length === 0 && downloads.length > 0 ? (
           <div className="dl-list-no-match">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" style={{ width: 32, height: 32, opacity: 0.4 }}>
+            <svg
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="1.5"
+              style={{ width: 32, height: 32, opacity: 0.4 }}
+              aria-hidden="true"
+            >
               <circle cx="11" cy="11" r="8" />
               <line x1="21" y1="21" x2="16.65" y2="16.65" />
             </svg>
@@ -328,7 +353,7 @@ export default function DownloadsPage() {
                 strokeWidth="1.6"
                 strokeLinecap="round"
                 strokeLinejoin="round"
-                aria-hidden
+                aria-hidden="true"
               >
                 <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
                 <polyline points="7 10 12 15 17 10" />
@@ -454,4 +479,3 @@ export default function DownloadsPage() {
     </div>
   );
 }
-

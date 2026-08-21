@@ -47,7 +47,7 @@ export default function BandwidthHero({ onOpenStats }: BandwidthHeroProps) {
   return (
     <div className="dl-dashboard-card" role="region" aria-label="Bandwidth Dashboard">
       <div className="dl-hero-grid">
-        {/* Download Rate Metric */}
+        {/* Download Rate Metric Card */}
         <div className="dl-hero-metric dl-hero-metric--down">
           <div className="dl-hero-metric-header">
             <span className="dl-hero-label">
@@ -70,9 +70,9 @@ export default function BandwidthHero({ onOpenStats }: BandwidthHeroProps) {
           )}
         </div>
 
-        <div className="dl-hero-divider" aria-hidden />
+        <div className="dl-hero-divider" aria-hidden="true" />
 
-        {/* Upload Rate Metric */}
+        {/* Upload Rate Metric Card */}
         <div className="dl-hero-metric dl-hero-metric--up">
           <div className="dl-hero-metric-header">
             <span className="dl-hero-label">
@@ -93,9 +93,9 @@ export default function BandwidthHero({ onOpenStats }: BandwidthHeroProps) {
           </span>
         </div>
 
-        <div className="dl-hero-divider" aria-hidden />
+        <div className="dl-hero-divider" aria-hidden="true" />
 
-        {/* Drive Storage Monitor & Quick Actions */}
+        {/* Drive Storage Monitor & Quick Control Actions */}
         <div className="dl-hero-extra">
           <DriveSpaceWidget />
           <div className="dl-hero-quick-actions">
@@ -129,4 +129,3 @@ export default function BandwidthHero({ onOpenStats }: BandwidthHeroProps) {
     </div>
   );
 }
-

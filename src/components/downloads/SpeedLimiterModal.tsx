@@ -3,6 +3,7 @@ import { useDownloads } from "../../context/DownloadContext";
 import { useToast } from "../../context/ToastContext";
 import { useLanguage } from "../../context/LanguageContext";
 import { Button } from "../ui";
+import { SlidersIcon } from "./DownloadIcons";
 
 interface SpeedLimiterModalProps {
   open: boolean;
@@ -43,9 +44,25 @@ export default function SpeedLimiterModal({ open, onClose }: SpeedLimiterModalPr
     if (!open) return;
     setDlLimit(speedLimits.downloadEnabled && speedLimits.downloadValue > 0 ? speedLimits.downloadValue : 0);
     setDisableUpload(speedLimits.disableUpload);
-    setUlLimit(speedLimits.disableUpload ? -1 : speedLimits.uploadEnabled && speedLimits.uploadValue > 0 ? speedLimits.uploadValue : 0);
+    setUlLimit(
+      speedLimits.disableUpload
+        ? -1
+        : speedLimits.uploadEnabled && speedLimits.uploadValue > 0
+        ? speedLimits.uploadValue
+        : 0,
+    );
     setSeedingEnabled(seedAfterComplete);
   }, [open, speedLimits, seedAfterComplete]);
+
+  // Escape key handler
+  useEffect(() => {
+    if (!open) return;
+    function handleKeyDown(e: KeyboardEvent) {
+      if (e.key === "Escape" && !saving) onClose();
+    }
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [open, saving, onClose]);
 
   if (!open) return null;
 
@@ -75,16 +92,14 @@ export default function SpeedLimiterModal({ open, onClose }: SpeedLimiterModalPr
   };
 
   return (
-    <div className="modal-backdrop" onClick={onClose}>
+    <div className="modal-backdrop" onClick={onClose} role="dialog" aria-modal="true" aria-labelledby="dl-speed-modal-title">
       <div className="modal dl-speed-modal" onClick={(e) => e.stopPropagation()}>
         <div className="modal-header">
           <div className="modal-header-icon">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ width: 18, height: 18 }}>
-              <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2" />
-            </svg>
+            <SlidersIcon style={{ width: 18, height: 18 }} />
           </div>
           <div className="modal-header-text">
-            <h2 className="modal-title">{t("downloads.speedLimiterTitle")}</h2>
+            <h2 id="dl-speed-modal-title" className="modal-title">{t("downloads.speedLimiterTitle")}</h2>
             <p className="modal-subtitle">{t("downloads.speedLimiterDesc")}</p>
           </div>
           <button className="modal-close" onClick={onClose} aria-label={t("common.close")}>
@@ -129,7 +144,8 @@ export default function SpeedLimiterModal({ open, onClose }: SpeedLimiterModalPr
             </div>
             <div className="dl-speed-presets">
               {UL_PRESETS.map((p) => {
-                const isSelected = p.value === -1 ? (disableUpload || ulLimit === -1) : (!disableUpload && ulLimit === p.value);
+                const isSelected =
+                  p.value === -1 ? disableUpload || ulLimit === -1 : !disableUpload && ulLimit === p.value;
                 return (
                   <button
                     key={p.value}

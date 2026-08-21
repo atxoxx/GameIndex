@@ -3,6 +3,7 @@ import { useDownloads } from "../../context/DownloadContext";
 import { useToast } from "../../context/ToastContext";
 import { useLanguage } from "../../context/LanguageContext";
 import { Button } from "../ui";
+import { PauseIcon, PlayIcon, TrashIcon } from "./DownloadIcons";
 
 interface DownloadsToolbarProps {
   activeCount: number;
@@ -29,7 +30,6 @@ export default function DownloadsToolbar({
   onRemoveSelected,
   onDeleteSelected,
 }: DownloadsToolbarProps) {
-
   const { pauseAll, resumeAll, removeDownload, completedDownloads } = useDownloads();
   const { showToast } = useToast();
   const { t } = useLanguage();
@@ -40,7 +40,12 @@ export default function DownloadsToolbar({
     setBusy("pause");
     try {
       const n = await pauseAll();
-      showToast(n > 0 ? t("downloadsToolbar.paused", { count: n, s: n !== 1 ? "s" : "" }) : t("downloadsToolbar.nothingToPause"), "info");
+      showToast(
+        n > 0
+          ? t("downloadsToolbar.paused", { count: n, s: n !== 1 ? "s" : "" })
+          : t("downloadsToolbar.nothingToPause"),
+        "info",
+      );
     } catch (err) {
       showToast(t("downloadsToolbar.pauseAllFailed", { error: String(err) }), "error");
     } finally {
@@ -53,7 +58,12 @@ export default function DownloadsToolbar({
     setBusy("resume");
     try {
       const n = await resumeAll();
-      showToast(n > 0 ? t("downloadsToolbar.resumed", { count: n, s: n !== 1 ? "s" : "" }) : t("downloadsToolbar.nothingToResume"), "info");
+      showToast(
+        n > 0
+          ? t("downloadsToolbar.resumed", { count: n, s: n !== 1 ? "s" : "" })
+          : t("downloadsToolbar.nothingToResume"),
+        "info",
+      );
     } catch (err) {
       showToast(t("downloadsToolbar.resumeAllFailed", { error: String(err) }), "error");
     } finally {
@@ -90,7 +100,11 @@ export default function DownloadsToolbar({
   const isSelectionActive = selectedCount > 0;
 
   return (
-    <div className={`dl-toolbar${isSelectionActive ? " dl-toolbar--selected" : ""}`} role="toolbar" aria-label={t("downloadsToolbar.bulkActions")}>
+    <div
+      className={`dl-toolbar${isSelectionActive ? " dl-toolbar--selected" : ""}`}
+      role="toolbar"
+      aria-label={t("downloadsToolbar.bulkActions")}
+    >
       {isSelectionActive ? (
         <div className="dl-toolbar-selection-group">
           <span className="dl-toolbar-selection-label">
@@ -135,12 +149,7 @@ export default function DownloadsToolbar({
             onClick={handlePauseAll}
             disabled={busy !== null || activeCount === 0}
             isLoading={busy === "pause"}
-            leftIcon={
-              <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden style={{ width: 12, height: 12 }}>
-                <rect x="6" y="4" width="4" height="16" />
-                <rect x="14" y="4" width="4" height="16" />
-              </svg>
-            }
+            leftIcon={<PauseIcon style={{ width: 12, height: 12 }} />}
             title={t("downloadsToolbar.pauseAll")}
           >
             {t("downloadsToolbar.pauseAllBtn")}
@@ -152,11 +161,7 @@ export default function DownloadsToolbar({
             onClick={handleResumeAll}
             disabled={busy !== null || activeCount === 0}
             isLoading={busy === "resume"}
-            leftIcon={
-              <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden style={{ width: 12, height: 12 }}>
-                <polygon points="5 3 19 12 5 21 5 3" />
-              </svg>
-            }
+            leftIcon={<PlayIcon style={{ width: 12, height: 12 }} />}
             title={t("downloadsToolbar.resumeAll")}
           >
             {t("downloadsToolbar.resumeAllBtn")}
@@ -178,14 +183,7 @@ export default function DownloadsToolbar({
         onClick={handleClearHistory}
         disabled={busy !== null || historyCount === 0}
         isLoading={busy === "clear"}
-        leftIcon={
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden style={{ width: 13, height: 13 }}>
-            <polyline points="3 6 5 6 21 6" />
-            <path d="M19 6l-2 14a2 2 0 0 1-2 2H9a2 2 0 0 1-2-2L5 6" />
-            <path d="M10 11v6" />
-            <path d="M14 11v6" />
-          </svg>
-        }
+        leftIcon={<TrashIcon style={{ width: 13, height: 13 }} />}
         title={t("downloadsToolbar.clearHint")}
       >
         {t("downloadsToolbar.clearHistory")}
@@ -196,4 +194,3 @@ export default function DownloadsToolbar({
     </div>
   );
 }
-

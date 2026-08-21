@@ -1,3 +1,4 @@
+import React from "react";
 import type {
   DownloadSort,
   DownloadStatusFilter,
@@ -34,7 +35,7 @@ const SORT_OPTIONS: { value: DownloadSort; labelKey: string }[] = [
   { value: "speed-desc", labelKey: "downloadsFilter.sortFastest" },
 ];
 
-export default function DownloadsFilterBar({
+export const DownloadsFilterBar = React.memo(function DownloadsFilterBar({
   query,
   onQueryChange,
   statusFilter,
@@ -59,7 +60,7 @@ export default function DownloadsFilterBar({
 
   return (
     <div className="dl-filter-bar-container">
-      {/* Category Pills Navigation */}
+      {/* Category Pills / Segmented Status Tab Strip */}
       <div
         className="dl-filters-pills"
         role="tablist"
@@ -67,17 +68,24 @@ export default function DownloadsFilterBar({
       >
         {pills.map((pill) => {
           // Hide 0-count pills for error/queued/seeding when not active
-          if (pill.count === 0 && pill.value !== "all" && pill.value !== "downloading" && pill.value !== "completed" && statusFilter !== pill.value) {
+          if (
+            pill.count === 0 &&
+            pill.value !== "all" &&
+            pill.value !== "downloading" &&
+            pill.value !== "completed" &&
+            statusFilter !== pill.value
+          ) {
             return null;
           }
+          const isActive = statusFilter === pill.value;
           return (
             <button
               key={pill.value}
               type="button"
               role="tab"
-              className={`dl-filters-pill${statusFilter === pill.value ? " active" : ""}`}
+              className={`dl-filters-pill${isActive ? " active" : ""}`}
               onClick={() => onStatusFilterChange(pill.value)}
-              aria-selected={statusFilter === pill.value}
+              aria-selected={isActive}
             >
               <span>{pill.label}</span>
               {pill.count > 0 && (
@@ -88,8 +96,9 @@ export default function DownloadsFilterBar({
         })}
       </div>
 
-      {/* Search, Sort, and View Controls */}
+      {/* Right Controls: Search, Sort, and View Mode (never wraps internally) */}
       <div className="dl-filters-controls-row">
+        {/* Search Input */}
         <div className="dl-filters-search">
           <svg
             className="dl-filters-search-icon"
@@ -99,7 +108,7 @@ export default function DownloadsFilterBar({
             strokeWidth="2"
             strokeLinecap="round"
             strokeLinejoin="round"
-            aria-hidden
+            aria-hidden="true"
           >
             <circle cx="11" cy="11" r="8" />
             <line x1="21" y1="21" x2="16.65" y2="16.65" />
@@ -127,15 +136,26 @@ export default function DownloadsFilterBar({
           )}
         </div>
 
-        <div className="dl-filters-sort">
-          <label className="dl-filters-sort-label" htmlFor="dl-sort-select">
-            {t("downloadsFilter.sort")}
-          </label>
+        {/* Sort Select with Sort Icon */}
+        <div className="dl-filters-sort-wrapper">
+          <svg
+            className="dl-filters-sort-icon"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            aria-hidden="true"
+          >
+            <path d="M3 6h18M6 12h12m-9 6h6" />
+          </svg>
           <select
             id="dl-sort-select"
             className="dl-filters-sort-select"
             value={sort}
             onChange={(e) => onSortChange(e.target.value as DownloadSort)}
+            aria-label={t("downloadsFilter.sort")}
           >
             {SORT_OPTIONS.map((opt) => (
               <option key={opt.value} value={opt.value}>
@@ -145,7 +165,7 @@ export default function DownloadsFilterBar({
           </select>
         </div>
 
-        {/* View Mode Toggle */}
+        {/* View Mode Segmented Switcher */}
         <div className="dl-view-toggle-group" role="group" aria-label="View mode">
           <button
             type="button"
@@ -178,4 +198,6 @@ export default function DownloadsFilterBar({
       </div>
     </div>
   );
-}
+});
+
+export default DownloadsFilterBar;

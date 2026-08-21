@@ -3,7 +3,7 @@ import { useDownloads } from "../../context/DownloadContext";
 import { useToast } from "../../context/ToastContext";
 import { useLanguage } from "../../context/LanguageContext";
 import { Button } from "../ui";
-import { PasteIcon, FolderIcon, ChevronIcon } from "./DownloadIcons";
+import { PasteIcon, FolderIcon, ChevronIcon, MagnetLinkIcon } from "./DownloadIcons";
 
 const URI_PATTERN = /^(magnet:|https?:\/\/)/i;
 
@@ -137,19 +137,7 @@ export default function MagnetInputBar() {
         }}
       >
         <div className="dl-magnet-input-group">
-          <svg
-            className="dl-magnet-bar-icon"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="2"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            aria-hidden
-          >
-            <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71" />
-            <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71" />
-          </svg>
+          <MagnetLinkIcon className="dl-magnet-bar-icon" />
 
           {isMagnet && <span className="dl-magnet-badge dl-magnet-badge--magnet">MAGNET</span>}
           {isTorrent && <span className="dl-magnet-badge dl-magnet-badge--torrent">TORRENT</span>}
@@ -199,6 +187,8 @@ export default function MagnetInputBar() {
           className={`dl-magnet-options-toggle${optionsOpen ? " active" : ""}`}
           onClick={() => setOptionsOpen(!optionsOpen)}
           title={t("downloadModal.options")}
+          aria-expanded={optionsOpen}
+          aria-label={t("downloadModal.options")}
         >
           <ChevronIcon
             style={{

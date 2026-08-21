@@ -1,15 +1,14 @@
 /* ============================================================================
- * Downloads Page Layout & Component Overrides
+ * Downloads Page Layout & Component Styles
  *
  * Modern gaming dashboard styling with glassmorphism, responsive grids,
- * dynamic metrics, and smooth transitions.
+ * dynamic metrics, theme-aware tokens, 2:3 poster art, and smooth transitions.
  * ========================================================================== */
 
 .dl-page {
   display: flex;
   flex-direction: column;
   gap: var(--space-lg);
-  padding: 0;
   width: 100%;
   min-height: 100%;
 }
@@ -28,7 +27,7 @@
   gap: var(--space-md);
   flex-wrap: wrap;
   padding-bottom: var(--space-xs);
-  border-bottom: 1px solid color-mix(in srgb, var(--color-border) 40%, transparent);
+  border-bottom: 1px solid color-mix(in srgb, var(--color-border) 50%, transparent);
 }
 
 .dl-page .dl-section-title {
@@ -67,20 +66,1100 @@
   font-weight: var(--font-weight-bold);
   background: var(--color-bg-tertiary);
   color: var(--color-accent);
-  border: 1px solid color-mix(in srgb, var(--color-accent) 20%, transparent);
+  border: 1px solid color-mix(in srgb, var(--color-accent) 25%, transparent);
   border-radius: var(--radius-full);
   font-variant-numeric: tabular-nums;
 }
 
-/* ── Grid View ───────────────────────────────────────────────────── */
-.dl-grid-view {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
-  gap: var(--space-md);
+/* ── Quick Add / Magnet Input Bar ────────────────────────────────── */
+.dl-quick-add-container {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-xs);
   width: 100%;
+  max-width: 580px;
 }
 
-/* ── List View Container ─────────────────────────────────────────── */
+.dl-magnet-bar {
+  display: flex;
+  align-items: center;
+  gap: var(--space-xs);
+  padding: 4px 6px 4px 12px;
+  background: var(--color-bg-secondary);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-xs);
+  transition: border-color var(--transition-fast),
+              box-shadow var(--transition-fast),
+              background var(--transition-fast);
+}
+
+.dl-magnet-bar:focus-within {
+  border-color: var(--color-accent);
+  box-shadow: 0 0 0 2px var(--color-accent-glow);
+}
+
+.dl-magnet-bar.drag-over {
+  border-color: var(--color-accent);
+  background: color-mix(in srgb, var(--color-accent) 10%, var(--color-bg-secondary));
+  box-shadow: 0 0 16px var(--color-accent-glow);
+}
+
+.dl-magnet-input-group {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: 1;
+  min-width: 0;
+}
+
+.dl-magnet-bar-icon {
+  width: 16px;
+  height: 16px;
+  color: var(--color-text-muted);
+  flex-shrink: 0;
+}
+
+.dl-magnet-badge {
+  font-size: 9px;
+  font-weight: 800;
+  letter-spacing: 0.5px;
+  padding: 2px 6px;
+  border-radius: var(--radius-xs);
+  flex-shrink: 0;
+  text-transform: uppercase;
+}
+
+.dl-magnet-badge--magnet {
+  background: color-mix(in srgb, var(--color-accent) 20%, transparent);
+  color: var(--color-accent);
+  border: 1px solid color-mix(in srgb, var(--color-accent) 40%, transparent);
+}
+
+.dl-magnet-badge--torrent {
+  background: color-mix(in srgb, var(--color-info) 20%, transparent);
+  color: var(--color-info);
+  border: 1px solid color-mix(in srgb, var(--color-info) 40%, transparent);
+}
+
+.dl-magnet-badge--direct {
+  background: color-mix(in srgb, var(--color-success) 20%, transparent);
+  color: var(--color-success);
+  border: 1px solid color-mix(in srgb, var(--color-success) 40%, transparent);
+}
+
+.dl-magnet-bar-input {
+  flex: 1;
+  min-width: 0;
+  border: none;
+  background: transparent;
+  outline: none;
+  font-size: var(--font-size-xs);
+  color: var(--color-text-primary);
+  font-family: inherit;
+}
+
+.dl-magnet-bar-input::placeholder {
+  color: var(--color-text-muted);
+}
+
+.dl-magnet-paste-btn,
+.dl-magnet-clear-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 8px;
+  background: var(--color-bg-tertiary);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-2xs);
+  font-weight: var(--font-weight-medium);
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: all var(--transition-fast);
+}
+
+.dl-magnet-paste-btn:hover,
+.dl-magnet-clear-btn:hover {
+  color: var(--color-text-primary);
+  border-color: var(--color-accent);
+  background: var(--color-bg-hover);
+}
+
+.dl-magnet-options-toggle {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  background: var(--color-bg-tertiary);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  color: var(--color-text-muted);
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: all var(--transition-fast);
+}
+
+.dl-magnet-options-toggle:hover,
+.dl-magnet-options-toggle.active {
+  color: var(--color-accent);
+  border-color: var(--color-accent);
+  background: var(--color-bg-hover);
+}
+
+.dl-magnet-options-drawer {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-xs);
+  padding: var(--space-sm) var(--space-md);
+  background: var(--color-bg-secondary);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-sm);
+  animation: dl-slide-down 0.18s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.dl-magnet-option-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-sm);
+}
+
+.dl-magnet-path-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: var(--font-size-xs);
+  color: var(--color-text-muted);
+  min-width: 0;
+}
+
+.dl-magnet-path-val {
+  color: var(--color-text-primary);
+  font-weight: var(--font-weight-medium);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 260px;
+}
+
+.dl-magnet-toggles-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-lg);
+  flex-wrap: wrap;
+  padding-top: 4px;
+  border-top: 1px dashed color-mix(in srgb, var(--color-border) 60%, transparent);
+}
+
+.dl-magnet-checkbox-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: var(--font-size-2xs);
+  color: var(--color-text-secondary);
+  cursor: pointer;
+}
+
+.dl-magnet-checkbox-label input[type="checkbox"] {
+  cursor: pointer;
+}
+
+/* ── Hero Bandwidth Dashboard ────────────────────────────────────── */
+.dl-dashboard-card {
+  background: var(--color-bg-secondary);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-xl);
+  padding: var(--space-lg) var(--space-xl);
+  box-shadow: var(--shadow-xs);
+  position: relative;
+  overflow: hidden;
+}
+
+.dl-hero-grid {
+  display: grid;
+  grid-template-columns: 1fr auto 1fr auto 1.3fr;
+  align-items: center;
+  gap: var(--space-xl);
+}
+
+@media (max-width: 1024px) {
+  .dl-hero-grid {
+    grid-template-columns: 1fr auto 1fr;
+    grid-template-rows: auto auto;
+    row-gap: var(--space-md);
+  }
+
+  .dl-hero-grid > .dl-hero-divider:last-of-type {
+    display: none;
+  }
+
+  .dl-hero-extra {
+    grid-column: 1 / -1;
+  }
+}
+
+@media (max-width: 640px) {
+  .dl-hero-grid {
+    grid-template-columns: 1fr;
+    grid-template-rows: auto;
+  }
+
+  .dl-hero-divider {
+    display: none;
+  }
+}
+
+.dl-hero-metric {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.dl-hero-metric-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-xs);
+}
+
+.dl-hero-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.dl-hero-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--color-text-muted);
+  flex-shrink: 0;
+}
+
+.dl-hero-dot--down.pulse {
+  background: var(--color-accent);
+  box-shadow: 0 0 8px var(--color-accent);
+  animation: dl-pulse 1.4s ease-in-out infinite;
+}
+
+.dl-hero-dot--up.pulse {
+  background: var(--color-success);
+  box-shadow: 0 0 8px var(--color-success);
+  animation: dl-pulse 1.4s ease-in-out infinite;
+}
+
+.dl-hero-peak {
+  font-size: var(--font-size-2xs);
+  color: var(--color-text-muted);
+  font-variant-numeric: tabular-nums;
+  background: var(--color-bg-tertiary);
+  padding: 1px 6px;
+  border-radius: var(--radius-sm);
+  border: 1px solid color-mix(in srgb, var(--color-border) 60%, transparent);
+}
+
+.dl-hero-value {
+  font-size: var(--font-size-2xl);
+  font-weight: var(--font-weight-bold);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.02em;
+  line-height: 1.1;
+}
+
+.dl-hero-value-down {
+  color: var(--color-accent);
+}
+
+.dl-hero-value-up {
+  color: var(--color-success);
+}
+
+.dl-hero-sub {
+  font-size: var(--font-size-2xs);
+  color: var(--color-text-secondary);
+  font-variant-numeric: tabular-nums;
+}
+
+.dl-hero-divider {
+  width: 1px;
+  height: 48px;
+  background: color-mix(in srgb, var(--color-border) 70%, transparent);
+}
+
+.dl-hero-extra {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+}
+
+.dl-hero-quick-actions {
+  display: flex;
+  align-items: center;
+  gap: var(--space-xs);
+  flex-wrap: wrap;
+}
+
+.dl-hero-stats-btn,
+.dl-hero-speed-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  background: var(--color-bg-tertiary);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-2xs);
+  font-weight: var(--font-weight-semibold);
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+
+.dl-hero-stats-btn:hover,
+.dl-hero-speed-btn:hover {
+  background: var(--color-bg-hover);
+  color: var(--color-text-primary);
+  border-color: var(--color-accent);
+  box-shadow: 0 0 10px var(--color-accent-glow);
+}
+
+.dl-hero-speed-btn.limited {
+  border-color: var(--color-warning);
+  color: var(--color-warning);
+}
+
+.dl-hero-speed-badge {
+  font-size: 9px;
+  font-weight: 800;
+  padding: 1px 5px;
+  background: color-mix(in srgb, var(--color-warning) 20%, transparent);
+  border-radius: var(--radius-xs);
+  color: var(--color-warning);
+  text-transform: uppercase;
+}
+
+/* ── Drive Space Widget ──────────────────────────────────── */
+.dl-drive-widget {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 8px 12px;
+  background: var(--color-bg-tertiary);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+}
+
+.dl-drive-widget--warning {
+  border-color: color-mix(in srgb, var(--color-warning) 40%, transparent);
+  background: color-mix(in srgb, var(--color-warning) 5%, var(--color-bg-tertiary));
+}
+
+.dl-drive-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-xs);
+  font-size: var(--font-size-2xs);
+}
+
+.dl-drive-info {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.dl-drive-icon {
+  color: var(--color-text-muted);
+  display: inline-flex;
+}
+
+.dl-drive-name {
+  font-weight: var(--font-weight-bold);
+  color: var(--color-text-primary);
+}
+
+.dl-drive-free {
+  color: var(--color-text-secondary);
+}
+
+.dl-drive-meta {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.dl-drive-queue-tag {
+  font-size: 9px;
+  font-weight: var(--font-weight-bold);
+  padding: 1px 5px;
+  border-radius: var(--radius-xs);
+  background: color-mix(in srgb, var(--color-accent) 15%, transparent);
+  color: var(--color-accent);
+}
+
+.dl-drive-queue-tag.exceed {
+  background: color-mix(in srgb, var(--color-danger) 20%, transparent);
+  color: var(--color-danger);
+}
+
+.dl-drive-total {
+  color: var(--color-text-muted);
+}
+
+.dl-drive-bar {
+  position: relative;
+  width: 100%;
+  height: 5px;
+  border-radius: var(--radius-full);
+  background: var(--color-bg-secondary);
+  overflow: hidden;
+}
+
+.dl-drive-bar-fill {
+  height: 100%;
+  border-radius: var(--radius-full);
+  background: var(--color-accent);
+  transition: width 0.3s ease;
+}
+
+.dl-drive-bar-fill.warning {
+  background: var(--color-warning);
+}
+
+.dl-drive-bar-fill.danger {
+  background: var(--color-danger);
+}
+
+.dl-drive-bar-queue {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  background: color-mix(in srgb, var(--color-accent) 45%, white);
+  opacity: 0.7;
+}
+
+.dl-drive-alert {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: var(--font-size-2xs);
+  color: var(--color-warning);
+  margin-top: 2px;
+}
+
+/* ── Sparkline Telemetry Graph ───────────────────────────────────── */
+.dl-sparkline-box {
+  background: var(--color-bg-secondary);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  padding: var(--space-md) var(--space-lg);
+  box-shadow: var(--shadow-xs);
+}
+
+.dl-sparkline-bar-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-md);
+  flex-wrap: wrap;
+}
+
+.dl-sparkline-title-group {
+  display: flex;
+  align-items: center;
+  gap: var(--space-md);
+}
+
+.dl-sparkline-title {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-bold);
+  color: var(--color-text-primary);
+}
+
+.dl-sparkline-icon {
+  width: 14px;
+  height: 14px;
+  color: var(--color-accent);
+}
+
+.dl-sparkline-time-toggles {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  background: var(--color-bg-tertiary);
+  padding: 2px;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--color-border);
+}
+
+.dl-sparkline-time-btn {
+  padding: 2px 8px;
+  font-size: var(--font-size-2xs);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text-muted);
+  background: transparent;
+  border: none;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+
+.dl-sparkline-time-btn:hover {
+  color: var(--color-text-primary);
+}
+
+.dl-sparkline-time-btn.active {
+  background: var(--color-bg-secondary);
+  color: var(--color-accent);
+  box-shadow: var(--shadow-xs);
+}
+
+.dl-sparkline-stats-group {
+  display: flex;
+  align-items: center;
+  gap: var(--space-md);
+}
+
+.dl-sparkline-legend-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-semibold);
+  font-variant-numeric: tabular-nums;
+}
+
+.dl-sparkline-legend-swatch {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+}
+
+.dl-sparkline-legend-dl {
+  color: var(--color-accent);
+}
+.dl-sparkline-legend-dl .dl-sparkline-legend-swatch {
+  background: var(--color-accent);
+}
+
+.dl-sparkline-legend-ul {
+  color: var(--color-success);
+}
+.dl-sparkline-legend-ul .dl-sparkline-legend-swatch {
+  background: var(--color-success);
+}
+
+.dl-sparkline-stat-pill {
+  font-size: var(--font-size-2xs);
+  color: var(--color-text-muted);
+  font-variant-numeric: tabular-nums;
+  background: var(--color-bg-tertiary);
+  padding: 2px 8px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--color-border);
+}
+
+.dl-sparkline-collapse-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  background: transparent;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  color: var(--color-text-muted);
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+
+.dl-sparkline-collapse-btn:hover {
+  background: var(--color-bg-hover);
+  color: var(--color-text-primary);
+  border-color: var(--color-border-light);
+}
+
+.dl-sparkline-canvas-wrapper {
+  position: relative;
+  width: 100%;
+  height: 64px;
+  margin-top: var(--space-xs);
+}
+
+.dl-sparkline-svg {
+  width: 100%;
+  height: 100%;
+  display: block;
+  cursor: crosshair;
+}
+
+.dl-sparkline-baseline {
+  stroke: color-mix(in srgb, var(--color-border) 60%, transparent);
+  stroke-width: 1;
+}
+
+.dl-sparkline-midline {
+  stroke: color-mix(in srgb, var(--color-border) 35%, transparent);
+  stroke-width: 1;
+}
+
+.dl-sparkline-line-dl {
+  fill: none;
+  stroke: var(--color-accent);
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.dl-sparkline-line-ul {
+  fill: none;
+  stroke: var(--color-success);
+  stroke-width: 1.5;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.dl-sparkline-hover-tooltip {
+  position: absolute;
+  top: -8px;
+  transform: translateX(-50%);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 3px 8px;
+  background: var(--color-bg-tertiary);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  box-shadow: var(--shadow-md);
+  font-size: var(--font-size-2xs);
+  font-variant-numeric: tabular-nums;
+  pointer-events: none;
+  z-index: 2;
+  white-space: nowrap;
+}
+
+.dl-tooltip-time {
+  color: var(--color-text-muted);
+}
+.dl-tooltip-dl {
+  color: var(--color-accent);
+  font-weight: var(--font-weight-bold);
+}
+.dl-tooltip-ul {
+  color: var(--color-success);
+  font-weight: var(--font-weight-bold);
+}
+
+/* ── Filter Bar & Search Controls ────────────────────────────────── */
+.dl-filter-bar-container {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-md);
+  background: var(--color-bg-secondary);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-xl);
+  padding: 8px 12px;
+  box-shadow: var(--shadow-xs);
+}
+
+@media (max-width: 900px) {
+  .dl-filter-bar-container {
+    flex-direction: column;
+    align-items: stretch;
+    gap: var(--space-sm);
+  }
+}
+
+.dl-filters-pills {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  background: var(--color-bg-tertiary);
+  padding: 3px;
+  border-radius: var(--radius-lg);
+  border: 1px solid color-mix(in srgb, var(--color-border) 60%, transparent);
+  max-width: 100%;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+
+.dl-filters-pills::-webkit-scrollbar {
+  display: none;
+}
+
+.dl-filters-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 12px;
+  background: transparent;
+  border: none;
+  border-radius: var(--radius-md);
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-medium);
+  cursor: pointer;
+  transition: all var(--transition-fast);
+  white-space: nowrap;
+}
+
+.dl-filters-pill:hover {
+  color: var(--color-text-primary);
+  background: color-mix(in srgb, var(--color-text-primary) 6%, transparent);
+}
+
+.dl-filters-pill.active {
+  background: var(--color-bg-secondary);
+  color: var(--color-text-primary);
+  font-weight: var(--font-weight-bold);
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.25);
+  border: 1px solid color-mix(in srgb, var(--color-border) 60%, transparent);
+}
+
+.dl-filters-pill-count {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 16px;
+  height: 16px;
+  padding: 0 5px;
+  font-size: 10px;
+  font-weight: var(--font-weight-bold);
+  border-radius: var(--radius-full);
+  background: var(--color-bg-primary);
+  color: var(--color-text-muted);
+  font-variant-numeric: tabular-nums;
+  transition: all var(--transition-fast);
+}
+
+.dl-filters-pill.active .dl-filters-pill-count {
+  background: color-mix(in srgb, var(--color-accent) 20%, transparent);
+  color: var(--color-accent);
+}
+
+.dl-filters-controls-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: nowrap;
+  flex-shrink: 0;
+}
+
+@media (max-width: 900px) {
+  .dl-filters-controls-row {
+    width: 100%;
+  }
+
+  .dl-filters-search {
+    flex: 1;
+    min-width: 0;
+  }
+}
+
+.dl-filters-search {
+  position: relative;
+  display: flex;
+  align-items: center;
+  width: 220px;
+  transition: width var(--transition-fast);
+}
+
+.dl-filters-search:focus-within {
+  width: 260px;
+}
+
+.dl-filters-search-icon {
+  position: absolute;
+  left: 10px;
+  width: 14px;
+  height: 14px;
+  color: var(--color-text-muted);
+  pointer-events: none;
+}
+
+.dl-filters-search-input {
+  width: 100%;
+  padding: 6px 26px 6px 28px;
+  font-size: var(--font-size-xs);
+  background: var(--color-bg-tertiary);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  color: var(--color-text-primary);
+  outline: none;
+  transition: all var(--transition-fast);
+}
+
+.dl-filters-search-input:focus {
+  border-color: var(--color-accent);
+  box-shadow: 0 0 0 2px var(--color-accent-glow);
+  background: var(--color-bg-primary);
+}
+
+.dl-filters-search-clear {
+  position: absolute;
+  right: 8px;
+  background: transparent;
+  border: none;
+  color: var(--color-text-muted);
+  cursor: pointer;
+  font-size: 14px;
+}
+
+.dl-filters-sort-wrapper {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  flex-shrink: 0;
+}
+
+.dl-filters-sort-icon {
+  position: absolute;
+  left: 8px;
+  width: 13px;
+  height: 13px;
+  color: var(--color-text-muted);
+  pointer-events: none;
+}
+
+.dl-filters-sort-select {
+  appearance: none;
+  -webkit-appearance: none;
+  padding: 6px 24px 6px 26px;
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-medium);
+  background: var(--color-bg-tertiary);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  color: var(--color-text-primary);
+  cursor: pointer;
+  outline: none;
+  transition: all var(--transition-fast);
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='rgba(255,255,255,0.4)' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 8px center;
+  background-size: 11px;
+}
+
+.dl-filters-sort-select:hover {
+  border-color: var(--color-border-light);
+  background-color: var(--color-bg-hover);
+}
+
+.dl-filters-sort-select:focus {
+  border-color: var(--color-accent);
+}
+
+.dl-view-toggle-group {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  background: var(--color-bg-tertiary);
+  padding: 2px;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--color-border);
+  flex-shrink: 0;
+}
+
+.dl-view-toggle-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  background: transparent;
+  border: none;
+  border-radius: var(--radius-sm);
+  color: var(--color-text-muted);
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+
+.dl-view-toggle-btn:hover {
+  color: var(--color-text-primary);
+}
+
+.dl-view-toggle-btn.active {
+  background: var(--color-bg-secondary);
+  color: var(--color-accent);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.25);
+  border: 1px solid color-mix(in srgb, var(--color-border) 60%, transparent);
+}
+
+/* ── Toolbar & Multi-Select Bar ──────────────────────────────────── */
+.dl-toolbar {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  flex-wrap: wrap;
+}
+
+.dl-toolbar-group {
+  display: flex;
+  align-items: center;
+  gap: var(--space-xs);
+}
+
+.dl-toolbar--selected {
+  background: color-mix(in srgb, var(--color-accent) 8%, var(--color-bg-secondary));
+  border: 1px solid color-mix(in srgb, var(--color-accent) 30%, transparent);
+  padding: 6px 12px;
+  border-radius: var(--radius-md);
+}
+
+.dl-toolbar-selection-group {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  flex-wrap: wrap;
+}
+
+.dl-toolbar-selection-label {
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-bold);
+  color: var(--color-accent);
+}
+
+.dl-toolbar-spacer {
+  flex: 1;
+}
+
+.dl-toolbar-count {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 5px;
+  font-size: 10px;
+  font-weight: var(--font-weight-bold);
+  border-radius: var(--radius-full);
+  background: var(--color-bg-tertiary);
+  color: var(--color-text-muted);
+  margin-left: 4px;
+}
+
+/* ── Custom Styled Checkboxes ────────────────────────────────────── */
+input[type="checkbox"].dl-row-checkbox,
+input[type="checkbox"].dl-card-checkbox,
+input[type="checkbox"].dl-file-checkbox {
+  appearance: none;
+  -webkit-appearance: none;
+  width: 18px;
+  height: 18px;
+  margin: 0;
+  flex-shrink: 0;
+  border: 1.5px solid var(--color-border-light);
+  border-radius: var(--radius-sm);
+  background: var(--color-bg-primary);
+  cursor: pointer;
+  position: relative;
+  transition: all var(--transition-fast);
+  display: inline-block;
+  vertical-align: middle;
+}
+
+input[type="checkbox"].dl-row-checkbox:hover,
+input[type="checkbox"].dl-card-checkbox:hover,
+input[type="checkbox"].dl-file-checkbox:hover:not(:disabled) {
+  border-color: var(--color-accent);
+  background: var(--color-bg-hover);
+  box-shadow: 0 0 0 2px var(--color-accent-glow);
+}
+
+input[type="checkbox"].dl-row-checkbox:checked,
+input[type="checkbox"].dl-card-checkbox:checked,
+input[type="checkbox"].dl-file-checkbox:checked {
+  background-color: var(--color-accent);
+  border-color: var(--color-accent);
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='white' stroke-width='3.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='20 6 9 17 4 12'/%3E%3C/svg%3E");
+  background-size: 11px 11px;
+  background-position: center;
+  background-repeat: no-repeat;
+  box-shadow: 0 0 8px var(--color-accent-glow);
+}
+
+input[type="checkbox"].dl-file-checkbox:disabled:checked {
+  background-color: color-mix(in srgb, var(--color-success) 85%, var(--color-bg-primary));
+  border-color: var(--color-success);
+  opacity: 0.9;
+  cursor: default;
+}
+
+/* ── Status Pills ────────────────────────────────────────────────── */
+.dl-row-status,
+.dl-card-status {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 10px;
+  font-weight: 800;
+  padding: 2px 7px;
+  border-radius: var(--radius-xs);
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+  font-family: inherit;
+  white-space: nowrap;
+  width: max-content;
+  flex-shrink: 0;
+}
+
+.dl-row-status--downloading {
+  background: color-mix(in srgb, var(--color-accent) 18%, transparent);
+  color: var(--color-accent);
+  border: 1px solid color-mix(in srgb, var(--color-accent) 45%, transparent);
+  box-shadow: 0 0 10px color-mix(in srgb, var(--color-accent) 15%, transparent);
+}
+
+.dl-row-status--seeding {
+  background: color-mix(in srgb, var(--color-info) 18%, transparent);
+  color: var(--color-info);
+  border: 1px solid color-mix(in srgb, var(--color-info) 45%, transparent);
+}
+
+.dl-row-status--paused {
+  background: color-mix(in srgb, var(--color-warning) 18%, transparent);
+  color: var(--color-warning);
+  border: 1px solid color-mix(in srgb, var(--color-warning) 45%, transparent);
+}
+
+.dl-row-status--completed {
+  background: color-mix(in srgb, var(--color-success) 18%, transparent);
+  color: var(--color-success);
+  border: 1px solid color-mix(in srgb, var(--color-success) 45%, transparent);
+}
+
+.dl-row-status--error {
+  background: color-mix(in srgb, var(--color-danger) 18%, transparent);
+  color: var(--color-danger);
+  border: 1px solid color-mix(in srgb, var(--color-danger) 45%, transparent);
+}
+
+.dl-row-status--queued {
+  background: var(--color-bg-tertiary);
+  color: var(--color-text-muted);
+  border: 1px solid var(--color-border);
+}
+
+.dl-row-status--fetchingMetadata {
+  background: color-mix(in srgb, var(--color-info) 18%, transparent);
+  color: var(--color-info);
+  border: 1px solid color-mix(in srgb, var(--color-info) 45%, transparent);
+}
+
+/* ── Download Row List View ──────────────────────────────────────── */
 .dl-list {
   display: flex;
   flex-direction: column;
@@ -96,39 +1175,24 @@
   display: flex;
   flex-direction: column;
   width: 100%;
-  transition: background var(--transition-fast),
-              border-color var(--transition-fast),
-              box-shadow var(--transition-fast);
 }
 
-.dl-row-container:has(.dl-row-details) .dl-row {
-  border-bottom-left-radius: 0;
-  border-bottom-right-radius: 0;
-  border-bottom-color: transparent;
-}
-
-/* ── Download Row Card ───────────────────────────────────────────── */
 .dl-page .dl-row {
   display: grid;
-  grid-template-columns: auto minmax(95px, 120px) auto minmax(0, 1fr) minmax(115px, 140px) minmax(80px, 100px) auto;
+  grid-template-columns: auto 46px minmax(0, 1fr) minmax(110px, 140px) minmax(80px, 100px) auto;
   align-items: center;
   gap: var(--space-md);
-  padding: 12px var(--space-md);
+  padding: 10px var(--space-md);
   background: var(--color-bg-secondary);
   border: 1px solid var(--color-border);
   border-left: 4px solid var(--color-border);
   border-radius: var(--radius-lg);
   box-shadow: var(--shadow-xs);
-  transition: background var(--transition-fast),
-              border-color var(--transition-fast),
-              box-shadow var(--transition-fast),
-              transform var(--transition-fast);
+  transition: all var(--transition-fast);
 }
 
-/* Compact density. Same specificity as `.dl-page .dl-row` and declared
- * later, so it wins the cascade without !important (the old !important
- * patches existed only because this selector was a single class). */
 .dl-page .dl-row--compact {
+  grid-template-columns: auto minmax(0, 1fr) minmax(110px, 140px) minmax(80px, 100px) auto;
   padding: 6px var(--space-sm);
   gap: var(--space-sm);
 }
@@ -158,34 +1222,20 @@
   border-left-color: var(--color-warning);
 }
 
-/* ── Responsive row collapse (pure CSS — no TSX changes) ───────────
- * The desktop row is a 7-lane grid whose fixed floors (~480px) leave
- * the name column nothing on narrow windows. Two stages:
- *
- * ≤1100px — 4 lanes: [checkbox] [status] [main] [actions].
- *   Thumbnail + swarm columns hide; the SPEED column folds onto its
- *   own lane BELOW the main info so live throughput stays visible.
- *   (Note: source/date were never separate lanes — the source pill
- *   already lives inline in `.dl-row-name-row` — so the lanes that
- *   actually collapse are thumb/swarm.)
- * ≤760px — full stack: status / name+progress / speed rows with
- *   actions pinned to the right edge; progress sits under the title.
- * Explicit grid-column/row assignments keep lanes stable whether or
- * not the bulk-select checkbox and thumbnail are rendered. */
+/* Responsive Row Collapse */
 @media (max-width: 1100px) {
   .dl-page .dl-row {
-    grid-template-columns: auto minmax(86px, 110px) minmax(0, 1fr) auto;
+    grid-template-columns: auto 46px minmax(0, 1fr) auto;
     grid-template-rows: auto auto;
     row-gap: var(--space-xs);
   }
 
-  .dl-row-thumb,
   .dl-row-swarm {
     display: none;
   }
 
-  .dl-row-checkbox-cell { grid-column: 1; grid-row: 1; }
-  .dl-row-status        { grid-column: 2; grid-row: 1; }
+  .dl-row-checkbox-cell { grid-column: 1; grid-row: 1 / span 2; align-self: center; }
+  .dl-row-thumb         { grid-column: 2; grid-row: 1 / span 2; align-self: center; }
   .dl-row-main          { grid-column: 3; grid-row: 1; }
 
   .dl-row-speed {
@@ -213,9 +1263,12 @@
     grid-template-rows: auto auto auto;
   }
 
+  .dl-row-thumb {
+    display: none;
+  }
+
   .dl-row-checkbox-cell { grid-column: 1; grid-row: 1 / span 3; align-self: start; }
-  .dl-row-status        { grid-column: 2; grid-row: 1; }
-  .dl-row-main          { grid-column: 2; grid-row: 2; }
+  .dl-row-main          { grid-column: 2; grid-row: 1 / span 2; }
   .dl-row-speed         { grid-column: 2; grid-row: 3; }
 
   .dl-row-actions {
@@ -226,146 +1279,38 @@
   }
 }
 
-/* ── Custom Styled Checkboxes ────────────────────────────────────── */
-input[type="checkbox"].dl-row-checkbox,
-input[type="checkbox"].dl-card-checkbox,
-input[type="checkbox"].dl-file-checkbox {
-  appearance: none;
-  -webkit-appearance: none;
-  width: 18px;
-  height: 18px;
-  margin: 0;
-  flex-shrink: 0;
-  border: 1.5px solid var(--color-border-light);
-  border-radius: var(--radius-sm);
-  background: var(--color-bg-primary);
-  cursor: pointer;
-  position: relative;
-  transition: border-color var(--transition-fast), background var(--transition-fast), box-shadow var(--transition-fast);
-  display: inline-block;
-  vertical-align: middle;
-}
-
-input[type="checkbox"].dl-row-checkbox:hover,
-input[type="checkbox"].dl-card-checkbox:hover,
-input[type="checkbox"].dl-file-checkbox:hover:not(:disabled) {
-  border-color: var(--color-accent);
-  background: var(--color-bg-hover);
-  box-shadow: 0 0 0 2px color-mix(in srgb, var(--color-accent) 25%, transparent);
-}
-
-input[type="checkbox"].dl-row-checkbox:checked,
-input[type="checkbox"].dl-card-checkbox:checked,
-input[type="checkbox"].dl-file-checkbox:checked {
-  background-color: var(--color-accent);
-  border-color: var(--color-accent);
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='white' stroke-width='3.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='20 6 9 17 4 12'/%3E%3C/svg%3E");
-  background-size: 11px 11px;
-  background-position: center;
-  background-repeat: no-repeat;
-  box-shadow: 0 0 8px color-mix(in srgb, var(--color-accent) 40%, transparent);
-}
-
-input[type="checkbox"].dl-file-checkbox:disabled:checked {
-  background-color: color-mix(in srgb, var(--color-success) 85%, var(--color-bg-primary));
-  border-color: var(--color-success);
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='white' stroke-width='3.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='20 6 9 17 4 12'/%3E%3C/svg%3E");
-  background-size: 11px 11px;
-  background-position: center;
-  background-repeat: no-repeat;
-  opacity: 0.95;
-  cursor: default;
-  box-shadow: 0 0 6px color-mix(in srgb, var(--color-success) 30%, transparent);
-}
-
-input[type="checkbox"].dl-row-checkbox:focus-visible,
-input[type="checkbox"].dl-card-checkbox:focus-visible,
-input[type="checkbox"].dl-file-checkbox:focus-visible {
-  outline: none;
-  border-color: var(--color-accent);
-  box-shadow: 0 0 0 3px color-mix(in srgb, var(--color-accent) 30%, transparent);
-}
-
-/* ── Status Pills ────────────────────────────────────────────────── */
-.dl-row-status {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  font-size: var(--font-size-2xs);
-  font-weight: 800;
-  padding: 4px 9px;
-  border-radius: var(--radius-sm);
-  letter-spacing: 0.6px;
-  text-transform: uppercase;
-  font-family: inherit;
-  white-space: nowrap;
-  width: max-content;
-  justify-self: start;
-}
-
-.dl-row-status--downloading {
-  background: color-mix(in srgb, var(--color-accent) 20%, transparent);
-  color: var(--color-accent);
-  border: 1px solid color-mix(in srgb, var(--color-accent) 45%, transparent);
-  box-shadow: 0 0 10px color-mix(in srgb, var(--color-accent) 15%, transparent);
-}
-
-.dl-row-status--seeding {
-  background: color-mix(in srgb, var(--color-success) 20%, transparent);
-  color: var(--color-success);
-  border: 1px solid color-mix(in srgb, var(--color-success) 45%, transparent);
-  box-shadow: 0 0 10px color-mix(in srgb, var(--color-success) 15%, transparent);
-}
-
-.dl-row-status--paused {
-  background: color-mix(in srgb, var(--color-warning) 20%, transparent);
-  color: var(--color-warning);
-  border: 1px solid color-mix(in srgb, var(--color-warning) 45%, transparent);
-}
-
-.dl-row-status--completed {
-  background: color-mix(in srgb, var(--color-success) 20%, transparent);
-  color: var(--color-success);
-  border: 1px solid color-mix(in srgb, var(--color-success) 45%, transparent);
-}
-
-.dl-row-status--error {
-  background: color-mix(in srgb, var(--color-danger) 20%, transparent);
-  color: var(--color-danger);
-  border: 1px solid color-mix(in srgb, var(--color-danger) 45%, transparent);
-}
-
-.dl-row-status--queued {
-  background: var(--color-bg-tertiary);
-  color: var(--color-text-muted);
-  border: 1px solid var(--color-border);
-}
-
-.dl-row-status--fetchingMetadata {
-  background: color-mix(in srgb, var(--color-info) 20%, transparent);
-  color: var(--color-info);
-  border: 1px solid color-mix(in srgb, var(--color-info) 45%, transparent);
-}
-
-/* ── Thumbnail ───────────────────────────────────────────────────── */
+/* ── 2:3 Vertical Game Poster Thumbnail ──────────────────────────── */
 .dl-row-thumb {
-  width: 44px;
-  height: 44px;
+  width: 46px;
+  height: 66px;
+  aspect-ratio: 2 / 3;
   border-radius: var(--radius-md);
   overflow: hidden;
   background: var(--color-bg-tertiary);
   border: 1px solid var(--color-border);
   flex-shrink: 0;
-  box-shadow: var(--shadow-xs);
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.35);
+  position: relative;
 }
 
 .dl-row-thumb-img {
   width: 100%;
   height: 100%;
   object-fit: cover;
+  display: block;
 }
 
-/* ── Main Info & Progress Row ────────────────────────────────────── */
+.dl-row-thumb-placeholder {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--color-text-muted);
+  background: var(--color-bg-tertiary);
+}
+
+/* ── Main Info & Progress ────────────────────────────────────────── */
 .dl-row-main {
   min-width: 0;
   display: flex;
@@ -381,6 +1326,14 @@ input[type="checkbox"].dl-file-checkbox:focus-visible {
   min-width: 0;
 }
 
+.dl-row-name-group {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  flex-wrap: wrap;
+}
+
 .dl-row-name {
   font-size: var(--font-size-sm);
   font-weight: var(--font-weight-bold);
@@ -390,6 +1343,41 @@ input[type="checkbox"].dl-file-checkbox:focus-visible {
   text-overflow: ellipsis;
   min-width: 0;
   letter-spacing: -0.01em;
+}
+
+.dl-row-badge {
+  font-size: 9px;
+  font-weight: 800;
+  padding: 1px 5px;
+  border-radius: var(--radius-xs);
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+  vertical-align: middle;
+  flex-shrink: 0;
+}
+
+.dl-row-badge--direct {
+  background: color-mix(in srgb, var(--color-success) 15%, transparent);
+  color: var(--color-success);
+}
+.dl-row-badge--debrid {
+  background: color-mix(in srgb, var(--color-accent) 15%, transparent);
+  color: var(--color-accent);
+}
+.dl-row-badge--cached {
+  background: color-mix(in srgb, var(--color-warning) 15%, transparent);
+  color: var(--color-warning);
+}
+.dl-row-badge--seeding {
+  background: color-mix(in srgb, var(--color-info) 15%, transparent);
+  color: var(--color-info);
+}
+
+.dl-row-meta-tags {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
 }
 
 .dl-row-source {
@@ -403,6 +1391,12 @@ input[type="checkbox"].dl-file-checkbox:focus-visible {
   background: var(--color-bg-tertiary);
   border: 1px solid color-mix(in srgb, var(--color-border) 60%, transparent);
   white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.dl-row-queue {
+  font-size: var(--font-size-2xs);
+  color: var(--color-text-muted);
   flex-shrink: 0;
 }
 
@@ -420,13 +1414,30 @@ input[type="checkbox"].dl-file-checkbox:focus-visible {
   background: var(--color-bg-tertiary);
   border-radius: var(--radius-full);
   overflow: hidden;
+  position: relative;
 }
 
 .dl-row-bar-fill {
   height: 100%;
   background: var(--color-accent);
   border-radius: var(--radius-full);
-  transition: width 0.4s ease;
+  transition: width 0.3s ease;
+}
+
+.dl-row-bar-fill--active {
+  background: linear-gradient(
+    90deg,
+    var(--color-accent) 0%,
+    color-mix(in srgb, var(--color-accent) 80%, white) 50%,
+    var(--color-accent) 100%
+  );
+  background-size: 200% 100%;
+  animation: dl-shimmer 2s linear infinite;
+}
+
+@keyframes dl-shimmer {
+  0% { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
 }
 
 .dl-row-progress {
@@ -467,13 +1478,12 @@ input[type="checkbox"].dl-file-checkbox:focus-visible {
   border-radius: 50%;
   flex-shrink: 0;
   background: var(--color-accent);
-  animation: dl-row-activity-pulse 1.6s ease-in-out infinite;
+  animation: dl-pulse 1.6s ease-in-out infinite;
 }
 
 .dl-row-activity--stalled {
   color: var(--color-warning);
 }
-
 .dl-row-activity--stalled .dl-row-activity-dot {
   background: var(--color-warning);
 }
@@ -481,6 +1491,18 @@ input[type="checkbox"].dl-file-checkbox:focus-visible {
 .dl-row-activity--completed .dl-row-activity-dot {
   background: var(--color-success);
   animation: none;
+}
+
+.dl-row-error {
+  font-size: var(--font-size-xs);
+  line-height: 1.45;
+  color: var(--color-danger);
+  background: color-mix(in srgb, var(--color-danger) 10%, transparent);
+  border: 1px solid color-mix(in srgb, var(--color-danger) 30%, transparent);
+  border-radius: var(--radius-md);
+  padding: 6px 10px;
+  margin-top: 2px;
+  word-break: break-word;
 }
 
 /* ── Speed & Swarm Columns ───────────────────────────────────────── */
@@ -564,7 +1586,7 @@ input[type="checkbox"].dl-file-checkbox:focus-visible {
 .dl-swarm-health--4 .dl-swarm-bar:nth-child(3) { height: 8px; background: var(--color-success); }
 .dl-swarm-health--4 .dl-swarm-bar:nth-child(4) { height: 10px; background: var(--color-success); }
 
-/* ── Actions Column Buttons ──────────────────────────────────────── */
+/* ── Actions Buttons ─────────────────────────────────────────────── */
 .dl-row-actions {
   display: flex;
   align-items: center;
@@ -583,11 +1605,7 @@ input[type="checkbox"].dl-file-checkbox:focus-visible {
   border-radius: var(--radius-md);
   color: var(--color-text-secondary);
   cursor: pointer;
-  transition: background var(--transition-fast),
-              border-color var(--transition-fast),
-              color var(--transition-fast),
-              box-shadow var(--transition-fast),
-              transform var(--transition-fast);
+  transition: all var(--transition-fast);
   padding: 0;
 }
 
@@ -617,7 +1635,7 @@ input[type="checkbox"].dl-file-checkbox:focus-visible {
 
 .dl-row-btn.play-btn:hover {
   background: var(--color-accent-hover);
-  box-shadow: 0 0 10px color-mix(in srgb, var(--color-accent) 40%, transparent);
+  box-shadow: 0 0 10px var(--color-accent-glow);
 }
 
 .dl-row-btn.danger:hover:not(:disabled) {
@@ -639,7 +1657,7 @@ input[type="checkbox"].dl-file-checkbox:focus-visible {
   box-shadow: 0 0 12px color-mix(in srgb, var(--color-danger) 40%, transparent);
 }
 
-/* ── Direct-download mirror selector ────────────────────────────── */
+/* ── Direct-Download Mirror Selector ─────────────────────────────── */
 .dl-row-mirror-select-wrapper {
   position: relative;
   display: inline-flex;
@@ -662,8 +1680,7 @@ input[type="checkbox"].dl-file-checkbox:focus-visible {
   font-family: inherit;
   cursor: pointer;
   outline: none;
-  transition: border-color var(--transition-fast),
-              color var(--transition-fast);
+  transition: all var(--transition-fast);
   text-overflow: ellipsis;
   white-space: nowrap;
 }
@@ -682,20 +1699,7 @@ input[type="checkbox"].dl-file-checkbox:focus-visible {
   color: var(--color-text-muted);
 }
 
-/* ── Inline error line (failed downloads) ───────────────────────── */
-.dl-row-error {
-  font-size: var(--font-size-xs);
-  line-height: 1.45;
-  color: var(--color-danger);
-  background: color-mix(in srgb, var(--color-danger) 10%, transparent);
-  border: 1px solid color-mix(in srgb, var(--color-danger) 30%, transparent);
-  border-radius: var(--radius-md);
-  padding: 6px 10px;
-  margin-top: 2px;
-  word-break: break-word;
-}
-
-/* ── Collapsible Torrent Files Details Drawer ────────────────────── */
+/* ── Collapsible Torrent Files Drawer ────────────────────────────── */
 .dl-row-details {
   background: color-mix(in srgb, var(--color-bg-secondary) 85%, var(--color-bg-primary));
   border: 1px solid var(--color-border);
@@ -717,20 +1721,6 @@ input[type="checkbox"].dl-file-checkbox:focus-visible {
   padding-right: 6px;
 }
 
-.dl-files-list::-webkit-scrollbar {
-  width: 6px;
-}
-.dl-files-list::-webkit-scrollbar-track {
-  background: transparent;
-}
-.dl-files-list::-webkit-scrollbar-thumb {
-  background: var(--color-border);
-  border-radius: var(--radius-full);
-}
-.dl-files-list::-webkit-scrollbar-thumb:hover {
-  background: var(--color-accent);
-}
-
 .dl-file-item {
   display: grid;
   grid-template-columns: 24px minmax(180px, 1fr) 90px 140px 50px;
@@ -740,9 +1730,7 @@ input[type="checkbox"].dl-file-checkbox:focus-visible {
   border-radius: var(--radius-md);
   background: var(--color-bg-primary);
   border: 1px solid color-mix(in srgb, var(--color-border) 50%, transparent);
-  transition: background var(--transition-fast),
-              border-color var(--transition-fast),
-              transform var(--transition-fast);
+  transition: all var(--transition-fast);
 }
 
 .dl-file-item:hover {
@@ -785,7 +1773,6 @@ input[type="checkbox"].dl-file-checkbox:focus-visible {
   background: var(--color-bg-tertiary);
   border-radius: var(--radius-full);
   overflow: hidden;
-  position: relative;
 }
 
 .dl-file-progress-fill {
@@ -804,10 +1791,289 @@ input[type="checkbox"].dl-file-checkbox:focus-visible {
   font-family: var(--font-mono, monospace);
 }
 
-/* ── Empty & No-Match States ─────────────────────────────────────── */
-.dl-page .dl-list-empty {
-  position: relative;
+/* ── Grid View ───────────────────────────────────────────────────── */
+.dl-grid-view {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(290px, 1fr));
+  gap: var(--space-md);
+  width: 100%;
+}
+
+.dl-card {
+  display: flex;
+  flex-direction: column;
+  background: var(--color-bg-secondary);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
   overflow: hidden;
+  box-shadow: var(--shadow-xs);
+  transition: all var(--transition-fast);
+}
+
+.dl-card:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-md);
+  border-color: var(--color-border-light);
+}
+
+.dl-card--selected {
+  border-color: var(--color-accent) !important;
+  box-shadow: 0 0 0 2px var(--color-accent-glow);
+}
+
+.dl-card-media {
+  position: relative;
+  width: 100%;
+  height: 150px;
+  background: var(--color-bg-tertiary);
+  overflow: hidden;
+}
+
+.dl-card-img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.dl-card-placeholder {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--color-text-muted);
+}
+
+.dl-card-media-overlay {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(to top, rgba(0, 0, 0, 0.85) 0%, rgba(0, 0, 0, 0.15) 50%, transparent 100%);
+}
+
+.dl-card-checkbox-wrapper {
+  position: absolute;
+  top: 10px;
+  left: 10px;
+  z-index: 2;
+}
+
+.dl-card-status {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  z-index: 2;
+}
+
+.dl-card-source-tag {
+  position: absolute;
+  bottom: 10px;
+  left: 10px;
+  font-size: 9px;
+  font-weight: 800;
+  text-transform: uppercase;
+  padding: 2px 6px;
+  background: rgba(0, 0, 0, 0.65);
+  backdrop-filter: blur(4px);
+  color: var(--color-text-primary);
+  border-radius: var(--radius-xs);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+}
+
+.dl-card-cached-tag {
+  position: absolute;
+  bottom: 10px;
+  right: 10px;
+  font-size: 9px;
+  font-weight: 800;
+  padding: 2px 6px;
+  background: color-mix(in srgb, var(--color-warning) 30%, black);
+  color: var(--color-warning);
+  border-radius: var(--radius-xs);
+}
+
+.dl-card-body {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-xs);
+  padding: var(--space-md);
+  flex: 1;
+}
+
+.dl-card-title {
+  margin: 0;
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-bold);
+  color: var(--color-text-primary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.dl-card-progress-section {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin-top: 4px;
+}
+
+.dl-card-bar {
+  width: 100%;
+  height: 6px;
+  background: var(--color-bg-tertiary);
+  border-radius: var(--radius-full);
+  overflow: hidden;
+}
+
+.dl-card-bar-fill {
+  height: 100%;
+  background: var(--color-accent);
+  border-radius: var(--radius-full);
+  transition: width 0.3s ease;
+}
+
+.dl-card-progress-meta {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: var(--font-size-2xs);
+  font-variant-numeric: tabular-nums;
+  color: var(--color-text-muted);
+}
+
+.dl-card-pct {
+  font-weight: var(--font-weight-bold);
+  color: var(--color-text-primary);
+}
+
+.dl-card-telemetry {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-xs);
+  font-size: var(--font-size-2xs);
+  font-variant-numeric: tabular-nums;
+  margin-top: 4px;
+}
+
+.dl-card-speed--dl { color: var(--color-accent); font-weight: var(--font-weight-bold); }
+.dl-card-speed--ul { color: var(--color-success); font-weight: var(--font-weight-bold); }
+.dl-card-speed--muted { color: var(--color-text-muted); }
+
+.dl-card-eta {
+  color: var(--color-accent);
+  font-weight: var(--font-weight-bold);
+}
+
+.dl-card-swarm {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--color-text-muted);
+}
+
+.dl-card-swarm span {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+}
+
+.dl-card-activity {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: var(--font-size-2xs);
+  color: var(--color-text-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.dl-card-error {
+  font-size: var(--font-size-2xs);
+  color: var(--color-danger);
+  background: color-mix(in srgb, var(--color-danger) 10%, transparent);
+  padding: 4px 8px;
+  border-radius: var(--radius-sm);
+  border: 1px solid color-mix(in srgb, var(--color-danger) 30%, transparent);
+}
+
+.dl-card-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: auto;
+  padding-top: var(--space-xs);
+  border-top: 1px solid color-mix(in srgb, var(--color-border) 40%, transparent);
+}
+
+.dl-card-action-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 12px;
+  border-radius: var(--radius-md);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-semibold);
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+
+.dl-card-action-btn.primary {
+  background: var(--color-accent);
+  color: var(--color-accent-contrast);
+  border: 1px solid var(--color-accent);
+}
+
+.dl-card-action-btn.primary:hover {
+  background: var(--color-accent-hover);
+  box-shadow: 0 0 10px var(--color-accent-glow);
+}
+
+.dl-card-icon-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  background: var(--color-bg-tertiary);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  color: var(--color-text-secondary);
+  cursor: pointer;
+  padding: 0;
+  transition: all var(--transition-fast);
+}
+
+.dl-card-icon-btn svg {
+  width: 13px;
+  height: 13px;
+}
+
+.dl-card-icon-btn:hover {
+  background: var(--color-bg-hover);
+  color: var(--color-text-primary);
+  border-color: var(--color-accent);
+}
+
+.dl-card-icon-btn.danger:hover {
+  color: var(--color-danger);
+  border-color: var(--color-danger);
+}
+
+.dl-card-icon-btn.danger-fill {
+  background: color-mix(in srgb, var(--color-danger) 10%, transparent);
+  color: var(--color-danger);
+  border-color: color-mix(in srgb, var(--color-danger) 30%, transparent);
+}
+
+.dl-card-icon-btn.danger-fill:hover {
+  background: var(--color-danger);
+  color: #fff;
+  border-color: var(--color-danger);
+}
+
+/* ── Empty States ────────────────────────────────────────────────── */
+.dl-page .dl-list-empty {
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -824,8 +2090,8 @@ input[type="checkbox"].dl-file-checkbox:focus-visible {
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 68px;
-  height: 68px;
+  width: 64px;
+  height: 64px;
   border-radius: 50%;
   background: color-mix(in srgb, var(--color-accent) 10%, transparent);
   border: 1px solid color-mix(in srgb, var(--color-accent) 25%, transparent);
@@ -834,8 +2100,8 @@ input[type="checkbox"].dl-file-checkbox:focus-visible {
 }
 
 .dl-page .dl-list-empty-icon {
-  width: 32px;
-  height: 32px;
+  width: 30px;
+  height: 30px;
   color: var(--color-accent);
 }
 
@@ -844,14 +2110,13 @@ input[type="checkbox"].dl-file-checkbox:focus-visible {
   font-size: var(--font-size-md);
   font-weight: var(--font-weight-bold);
   color: var(--color-text-primary);
-  letter-spacing: -0.01em;
 }
 
 .dl-list-empty-hint {
   margin: 0;
   font-size: var(--font-size-xs);
   color: var(--color-text-muted);
-  max-width: 440px;
+  max-width: 420px;
   line-height: 1.6;
 }
 
@@ -870,39 +2135,134 @@ input[type="checkbox"].dl-file-checkbox:focus-visible {
   border: 1px dashed var(--color-border);
 }
 
-/* ============================================================================
- * Download Statistics & Telemetry Modal Styles
- * ========================================================================== */
-
-.dl-hero-stats-btn {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  padding: 5px 10px;
-  background: color-mix(in srgb, var(--color-accent) 12%, var(--color-bg-tertiary));
-  border: 1px solid color-mix(in srgb, var(--color-accent) 32%, transparent);
-  border-radius: var(--radius-md);
-  color: var(--color-accent);
-  font-size: var(--font-size-2xs);
-  font-weight: var(--font-weight-semibold);
-  cursor: pointer;
-  transition: background var(--transition-fast),
-              border-color var(--transition-fast),
-              box-shadow var(--transition-fast),
-              color var(--transition-fast);
+/* ── Speed Limiter Modal ─────────────────────────────────────────── */
+.dl-speed-modal {
+  width: 100%;
+  max-width: 480px;
 }
 
-.dl-hero-stats-btn:hover {
-  background: color-mix(in srgb, var(--color-accent) 22%, var(--color-bg-tertiary));
-  border-color: var(--color-accent);
-  box-shadow: 0 0 12px var(--color-accent-glow);
+.dl-speed-body {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-lg);
+  padding: var(--space-lg);
+}
+
+.dl-speed-section {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-xs);
+}
+
+.dl-speed-section-title {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-bold);
   color: var(--color-text-primary);
 }
 
+.dl-speed-current-val {
+  color: var(--color-accent);
+  font-variant-numeric: tabular-nums;
+}
+
+.dl-speed-presets {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(80px, 1fr));
+  gap: 6px;
+}
+
+.dl-speed-preset-btn {
+  padding: 6px 10px;
+  font-size: var(--font-size-2xs);
+  font-weight: var(--font-weight-semibold);
+  background: var(--color-bg-tertiary);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  color: var(--color-text-secondary);
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+
+.dl-speed-preset-btn:hover {
+  background: var(--color-bg-hover);
+  color: var(--color-text-primary);
+  border-color: var(--color-border-light);
+}
+
+.dl-speed-preset-btn.active {
+  background: color-mix(in srgb, var(--color-accent) 15%, var(--color-bg-tertiary));
+  border-color: var(--color-accent);
+  color: var(--color-accent);
+  font-weight: var(--font-weight-bold);
+  box-shadow: 0 0 10px var(--color-accent-glow);
+}
+
+.dl-speed-toggle-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-md);
+  padding: var(--space-sm) var(--space-md);
+  background: var(--color-bg-tertiary);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  cursor: pointer;
+}
+
+.dl-speed-toggle-title {
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-medium);
+  color: var(--color-text-primary);
+}
+
+.dl-switch {
+  position: relative;
+  display: inline-block;
+  width: 36px;
+  height: 20px;
+}
+
+.dl-switch input {
+  opacity: 0;
+  width: 0;
+  height: 0;
+}
+
+.dl-switch-track {
+  position: absolute;
+  inset: 0;
+  background: var(--color-bg-primary);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-full);
+  transition: all var(--transition-fast);
+}
+
+.dl-switch-thumb {
+  position: absolute;
+  height: 14px;
+  width: 14px;
+  left: 2px;
+  bottom: 2px;
+  background: var(--color-text-muted);
+  border-radius: 50%;
+  transition: all var(--transition-fast);
+}
+
+.dl-switch input:checked + .dl-switch-track {
+  background: var(--color-accent);
+  border-color: var(--color-accent);
+}
+
+.dl-switch input:checked + .dl-switch-track .dl-switch-thumb {
+  transform: translateX(16px);
+  background: #fff;
+}
+
+/* ── Download Statistics & Telemetry Modal ───────────────────────── */
 .dl-stats-backdrop {
-  /* Full-screen backdrop for the stats/telemetry MODAL (the
-   * .dl-stats-modal dialog sits inside it) — so this takes the modal
-   * rung of the z ladder, not the popover rung. */
   z-index: var(--z-modal);
 }
 
@@ -963,7 +2323,6 @@ input[type="checkbox"].dl-file-checkbox:focus-visible {
   gap: var(--space-sm);
 }
 
-/* Nav tabs */
 .dl-stats-nav-bar {
   display: flex;
   align-items: center;
@@ -986,9 +2345,7 @@ input[type="checkbox"].dl-file-checkbox:focus-visible {
   font-size: var(--font-size-sm);
   font-weight: var(--font-weight-medium);
   cursor: pointer;
-  transition: color var(--transition-fast),
-              background var(--transition-fast),
-              border-color var(--transition-fast);
+  transition: all var(--transition-fast);
   white-space: nowrap;
 }
 
@@ -1016,7 +2373,6 @@ input[type="checkbox"].dl-file-checkbox:focus-visible {
   border: 1px solid var(--color-border);
 }
 
-/* Body */
 .dl-stats-body {
   flex: 1;
   overflow-y: auto;
@@ -1032,7 +2388,6 @@ input[type="checkbox"].dl-file-checkbox:focus-visible {
   gap: var(--space-lg);
 }
 
-/* KPI Tiles Grid */
 .dl-stats-kpi-grid {
   display: grid;
   grid-template-columns: repeat(4, 1fr);
@@ -1083,17 +2438,9 @@ input[type="checkbox"].dl-file-checkbox:focus-visible {
   line-height: 1.2;
 }
 
-.dl-stats-kpi-value--accent {
-  color: var(--color-accent);
-}
-
-.dl-stats-kpi-value--success {
-  color: var(--color-success);
-}
-
-.dl-stats-kpi-value--info {
-  color: var(--color-info);
-}
+.dl-stats-kpi-value--accent { color: var(--color-accent); }
+.dl-stats-kpi-value--success { color: var(--color-success); }
+.dl-stats-kpi-value--info { color: var(--color-info); }
 
 .dl-stats-kpi-sub {
   font-size: var(--font-size-2xs);
@@ -1102,7 +2449,6 @@ input[type="checkbox"].dl-file-checkbox:focus-visible {
   margin-top: 2px;
 }
 
-/* Card wrappers */
 .dl-stats-card {
   background: var(--color-bg-tertiary);
   border: 1px solid var(--color-border);
@@ -1137,7 +2483,6 @@ input[type="checkbox"].dl-file-checkbox:focus-visible {
   border: 1px solid var(--color-border);
 }
 
-/* Protocol Grid */
 .dl-stats-protocol-grid {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
@@ -1183,9 +2528,9 @@ input[type="checkbox"].dl-file-checkbox:focus-visible {
 }
 
 .dl-stats-protocol-icon--debrid {
-  background: color-mix(in srgb, var(--brand-debrid) 15%, transparent);
-  color: var(--brand-debrid);
-  border: 1px solid color-mix(in srgb, var(--brand-debrid) 30%, transparent);
+  background: color-mix(in srgb, var(--brand-debrid, #a855f7) 15%, transparent);
+  color: var(--brand-debrid, #a855f7);
+  border: 1px solid color-mix(in srgb, var(--brand-debrid, #a855f7) 30%, transparent);
 }
 
 .dl-stats-protocol-info {
@@ -1206,7 +2551,6 @@ input[type="checkbox"].dl-file-checkbox:focus-visible {
   color: var(--color-text-muted);
 }
 
-/* Status Horizontal Stacked Bar */
 .dl-stats-status-bar {
   display: flex;
   width: 100%;
@@ -1261,7 +2605,6 @@ input[type="checkbox"].dl-file-checkbox:focus-visible {
 .dl-stats-dot--removed { background: var(--color-text-muted); }
 .dl-stats-dot--error { background: var(--color-danger); }
 
-/* Two Col Layout */
 .dl-stats-two-col {
   display: grid;
   grid-template-columns: repeat(2, 1fr);
@@ -1274,7 +2617,6 @@ input[type="checkbox"].dl-file-checkbox:focus-visible {
   }
 }
 
-/* Bars list */
 .dl-stats-bars-list {
   display: flex;
   flex-direction: column;
@@ -1324,7 +2666,6 @@ input[type="checkbox"].dl-file-checkbox:focus-visible {
   transition: width 0.3s ease;
 }
 
-/* Extraction tiles */
 .dl-stats-extraction-stats {
   display: grid;
   grid-template-columns: repeat(2, 1fr);
@@ -1355,7 +2696,6 @@ input[type="checkbox"].dl-file-checkbox:focus-visible {
   margin-top: 2px;
 }
 
-/* Timeline row */
 .dl-stats-timeline-row {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
@@ -1385,73 +2725,6 @@ input[type="checkbox"].dl-file-checkbox:focus-visible {
   margin-top: 2px;
 }
 
-/* Mini table */
-.dl-stats-mini-table {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-}
-
-.dl-stats-mini-row {
-  display: flex;
-  align-items: center;
-  gap: var(--space-sm);
-  padding: 6px 10px;
-  background: var(--color-bg-secondary);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-md);
-}
-
-.dl-stats-rank-badge {
-  font-size: var(--font-size-2xs);
-  font-weight: var(--font-weight-bold);
-  color: var(--color-accent);
-  width: 24px;
-}
-
-.dl-stats-status-tag {
-  padding: 2px 6px;
-  font-size: var(--font-size-2xs);
-  font-weight: var(--font-weight-semibold);
-  border-radius: var(--radius-xs);
-  text-transform: uppercase;
-}
-
-.dl-stats-status-tag--completed {
-  background: color-mix(in srgb, var(--color-success) 15%, transparent);
-  color: var(--color-success);
-}
-
-.dl-stats-mini-meta {
-  display: flex;
-  flex-direction: column;
-  flex: 1;
-  min-width: 0;
-}
-
-.dl-stats-mini-name {
-  font-size: 12px;
-  font-weight: var(--font-weight-medium);
-  color: var(--color-text-primary);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.dl-stats-mini-sub {
-  font-size: var(--font-size-2xs);
-  color: var(--color-text-muted);
-}
-
-.dl-stats-mini-value {
-  font-size: 12px;
-  font-weight: var(--font-weight-semibold);
-  color: var(--color-text-secondary);
-  font-variant-numeric: tabular-nums;
-  flex-shrink: 0;
-}
-
-/* Diagnostics Table */
 .dl-stats-diag-header {
   display: flex;
   align-items: center;
@@ -1588,7 +2861,7 @@ input[type="checkbox"].dl-file-checkbox:focus-visible {
 
 .dl-stats-chip--torrent { background: color-mix(in srgb, var(--color-accent) 15%, transparent); color: var(--color-accent); }
 .dl-stats-chip--direct { background: color-mix(in srgb, var(--color-info) 15%, transparent); color: var(--color-info); }
-.dl-stats-chip--debrid { background: color-mix(in srgb, var(--brand-debrid) 15%, transparent); color: var(--brand-debrid); }
+.dl-stats-chip--debrid { background: color-mix(in srgb, var(--brand-debrid, #a855f7) 15%, transparent); color: var(--brand-debrid, #a855f7); }
 
 .dl-stats-status-pill {
   display: inline-block;
@@ -1599,81 +2872,29 @@ input[type="checkbox"].dl-file-checkbox:focus-visible {
   text-transform: capitalize;
 }
 
-.dl-stats-status-pill--completed { color: var(--color-success); }
-.dl-stats-status-pill--downloading { color: var(--color-accent); }
-.dl-stats-status-pill--seeding { color: var(--color-info); }
-.dl-stats-status-pill--paused { color: var(--color-warning); }
-.dl-stats-status-pill--queued { color: var(--color-text-muted); }
-.dl-stats-status-pill--removed { color: var(--color-text-muted); }
-.dl-stats-status-pill--error { color: var(--color-danger); }
-
-.dl-stats-table-empty {
-  text-align: center;
-  padding: var(--space-xl) !important;
-  color: var(--color-text-muted);
+/* ── Animation Keyframes ─────────────────────────────────────────── */
+@keyframes dl-slide-down {
+  from {
+    opacity: 0;
+    transform: translateY(-8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
-.dl-stats-empty-text {
-  margin: 0;
-  font-size: 12px;
-  color: var(--color-text-muted);
-  text-align: center;
-  padding: var(--space-md);
+@keyframes dl-pulse {
+  0% {
+    transform: scale(0.95);
+    opacity: 0.7;
+  }
+  50% {
+    transform: scale(1.15);
+    opacity: 1;
+  }
+  100% {
+    transform: scale(0.95);
+    opacity: 0.7;
+  }
 }
-
-.dl-stats-history-note {
-  margin: 0 0 var(--space-sm);
-  font-size: var(--font-size-2xs);
-  color: var(--color-text-muted);
-}
-
-/* Footer & Export Controls */
-.dl-stats-footer {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: var(--space-md) var(--space-xl);
-  border-top: 1px solid var(--color-border);
-  background: var(--color-bg-secondary);
-}
-
-.dl-stats-export-controls {
-  display: flex;
-  align-items: center;
-  gap: var(--space-sm);
-  flex-wrap: wrap;
-}
-
-.dl-stats-export-label {
-  font-size: 12px;
-  color: var(--color-text-muted);
-  font-weight: var(--font-weight-medium);
-}
-
-.dl-stats-format-seg {
-  display: inline-flex;
-  align-items: center;
-  background: var(--color-bg-tertiary);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-md);
-  padding: 2px;
-}
-
-.dl-stats-format-btn {
-  padding: 3px 8px;
-  font-size: var(--font-size-2xs);
-  font-weight: var(--font-weight-medium);
-  background: transparent;
-  border: none;
-  border-radius: var(--radius-sm);
-  color: var(--color-text-secondary);
-  cursor: pointer;
-  transition: background var(--transition-fast),
-              color var(--transition-fast);
-}
-
-.dl-stats-format-btn.active {
-  background: var(--color-accent);
-  color: var(--color-accent-contrast);
-  font-weight: var(--font-weight-semibold);
-}

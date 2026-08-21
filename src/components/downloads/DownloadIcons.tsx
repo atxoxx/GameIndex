@@ -189,10 +189,10 @@ ListViewIcon.displayName = "ListViewIcon";
 
 export const GridViewIcon = React.memo(({ className, style, ...props }: IconProps) => (
   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className} style={style} {...props}>
-    <rect x="3" y="3" width="7" height="7" />
-    <rect x="14" y="3" width="7" height="7" />
-    <rect x="14" y="14" width="7" height="7" />
-    <rect x="3" y="14" width="7" height="7" />
+    <rect x="3" y="3" width="7" height="7" rx="1" />
+    <rect x="14" y="3" width="7" height="7" rx="1" />
+    <rect x="14" y="14" width="7" height="7" rx="1" />
+    <rect x="3" y="14" width="7" height="7" rx="1" />
   </svg>
 ));
 GridViewIcon.displayName = "GridViewIcon";
@@ -257,3 +257,10 @@ export const StatsBarIcon = React.memo(({ className, style, ...props }: IconProp
 ));
 StatsBarIcon.displayName = "StatsBarIcon";
 
+export const MagnetLinkIcon = React.memo(({ className, style, ...props }: IconProps) => (
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className} style={style} {...props}>
+    <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71" />
+    <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71" />
+  </svg>
+));
+MagnetLinkIcon.displayName = "MagnetLinkIcon";

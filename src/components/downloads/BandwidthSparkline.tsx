@@ -40,10 +40,10 @@ export default function BandwidthSparkline() {
 
   const maxSpeed = Math.max(peakDown, peakUp, 10 * 1024);
 
-  const { dlPath, ulPath, dlPoints, ulPoints } = useMemo(() => {
+  const { dlPath, ulPath, dlArea, ulArea, dlPoints, ulPoints } = useMemo(() => {
     const n = visibleHistory.length;
     if (n === 0) {
-      return { dlPath: "", ulPath: "", dlPoints: [], ulPoints: [] };
+      return { dlPath: "", ulPath: "", dlArea: "", ulArea: "", dlPoints: [], ulPoints: [] };
     }
 
     const usableH = VIEW_HEIGHT - PADDING * 2;
@@ -73,9 +73,23 @@ export default function BandwidthSparkline() {
       ulSegments.push(`${command} ${x.toFixed(1)} ${yUl.toFixed(1)}`);
     }
 
+    const firstX = PADDING;
+    const lastX = PADDING + (n - 1) * xStep;
+    const bottomY = VIEW_HEIGHT - PADDING;
+
+    const dlAreaPath = n > 0
+      ? `${dlSegments.join(" ")} L ${lastX.toFixed(1)} ${bottomY} L ${firstX.toFixed(1)} ${bottomY} Z`
+      : "";
+
+    const ulAreaPath = n > 0
+      ? `${ulSegments.join(" ")} L ${lastX.toFixed(1)} ${bottomY} L ${firstX.toFixed(1)} ${bottomY} Z`
+      : "";
+
     return {
       dlPath: dlSegments.join(" "),
       ulPath: ulSegments.join(" "),
+      dlArea: dlAreaPath,
+      ulArea: ulAreaPath,
       dlPoints: dlPts,
       ulPoints: ulPts,
     };
@@ -98,7 +112,7 @@ export default function BandwidthSparkline() {
   const hoveredUl = hoverIndex !== null ? ulPoints[hoverIndex] : null;
 
   return (
-    <div className="dl-sparkline-box" role="region" aria-label="Network Activity Graph">
+    <div className="dl-sparkline-box" role="region" aria-label={t("downloads.networkTelemetry")}>
       <div className="dl-sparkline-bar-header">
         <div className="dl-sparkline-title-group">
           <span className="dl-sparkline-title">
@@ -146,7 +160,7 @@ export default function BandwidthSparkline() {
             </span>
           </div>
 
-          <span className="dl-sparkline-stat-pill" title="Peak in window">
+          <span className="dl-sparkline-stat-pill" title="Peak throughput in current window">
             Max: {formatBytesPerSecond(maxSpeed, unit)}
           </span>
 
@@ -179,6 +193,18 @@ export default function BandwidthSparkline() {
             onMouseMove={handleMouseMove}
             onMouseLeave={handleMouseLeave}
           >
+            <defs>
+              <linearGradient id="dlAreaGradient" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0%" stopColor="var(--color-accent)" stopOpacity="0.25" />
+                <stop offset="100%" stopColor="var(--color-accent)" stopOpacity="0.0" />
+              </linearGradient>
+              <linearGradient id="ulAreaGradient" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0%" stopColor="var(--color-success)" stopOpacity="0.2" />
+                <stop offset="100%" stopColor="var(--color-success)" stopOpacity="0.0" />
+              </linearGradient>
+            </defs>
+
+            {/* Subtle Grid Guidelines */}
             <line
               x1={0}
               y1={VIEW_HEIGHT - PADDING}
@@ -188,17 +214,29 @@ export default function BandwidthSparkline() {
             />
             <line
               x1={0}
+              y1={VIEW_HEIGHT / 2}
+              x2={VIEW_WIDTH}
+              y2={VIEW_HEIGHT / 2}
+              className="dl-sparkline-midline"
+            />
+            <line
+              x1={0}
               y1={PADDING}
               x2={VIEW_WIDTH}
               y2={PADDING}
               className="dl-sparkline-baseline"
-              strokeOpacity="0.3"
+              strokeOpacity="0.2"
             />
 
+            {/* Gradient Area Fills */}
+            {ulArea && <path d={ulArea} fill="url(#ulAreaGradient)" />}
+            {dlArea && <path d={dlArea} fill="url(#dlAreaGradient)" />}
+
+            {/* Graph Lines */}
             {ulPath && <path d={ulPath} className="dl-sparkline-line-ul" />}
             {dlPath && <path d={dlPath} className="dl-sparkline-line-dl" />}
 
-            {/* Hover crosshair & dots */}
+            {/* Interactive Crosshair & Point Dots */}
             {hoverIndex !== null && hoveredDl && (
               <g className="dl-sparkline-hover-group">
                 <line
@@ -206,13 +244,13 @@ export default function BandwidthSparkline() {
                   y1={0}
                   x2={hoveredDl.x}
                   y2={VIEW_HEIGHT}
-                  stroke="var(--color-text-muted)"
+                  stroke="var(--color-border-light)"
                   strokeWidth="1"
                   strokeDasharray="2 2"
                 />
-                <circle cx={hoveredDl.x} cy={hoveredDl.y} r="3.5" fill="var(--color-accent)" />
+                <circle cx={hoveredDl.x} cy={hoveredDl.y} r="4" fill="var(--color-accent)" stroke="var(--color-bg-primary)" strokeWidth="1.5" />
                 {hoveredUl && (
-                  <circle cx={hoveredUl.x} cy={hoveredUl.y} r="3" fill="var(--color-success)" />
+                  <circle cx={hoveredUl.x} cy={hoveredUl.y} r="3.5" fill="var(--color-success)" stroke="var(--color-bg-primary)" strokeWidth="1.5" />
                 )}
               </g>
             )}
@@ -221,7 +259,7 @@ export default function BandwidthSparkline() {
           {hoverIndex !== null && hoveredDl && (
             <div
               className="dl-sparkline-hover-tooltip"
-              style={{ left: `${(hoveredDl.x / VIEW_WIDTH) * 100}%` }}
+              style={{ left: `${Math.min(92, Math.max(8, (hoveredDl.x / VIEW_WIDTH) * 100))}%` }}
             >
               <span className="dl-tooltip-time">{hoveredDl.time}</span>
               <span className="dl-tooltip-dl">↓ {formatBytesPerSecond(hoveredDl.speed, unit)}</span>
