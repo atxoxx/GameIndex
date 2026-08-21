@@ -39,6 +39,10 @@ export default function SpeedLimiterModal({ open, onClose }: SpeedLimiterModalPr
   const [disableUpload, setDisableUpload] = useState<boolean>(false);
   const [seedingEnabled, setSeedingEnabled] = useState<boolean>(seedAfterComplete);
   const [saving, setSaving] = useState(false);
+  // Custom-limit inputs (MB/s as text) — empty when the current value
+  // matches a preset or is unlimited/disabled.
+  const [dlCustom, setDlCustom] = useState<string>("");
+  const [ulCustom, setUlCustom] = useState<string>("");
 
   useEffect(() => {
     if (!open) return;
@@ -52,6 +56,20 @@ export default function SpeedLimiterModal({ open, onClose }: SpeedLimiterModalPr
         : 0,
     );
     setSeedingEnabled(seedAfterComplete);
+    setDlCustom(
+      speedLimits.downloadEnabled && speedLimits.downloadValue > 0
+        ? DL_PRESETS.some((p) => p.value === speedLimits.downloadValue)
+          ? ""
+          : String(speedLimits.downloadValue / 1024)
+        : "",
+    );
+    setUlCustom(
+      !speedLimits.disableUpload && speedLimits.uploadEnabled && speedLimits.uploadValue > 0
+        ? UL_PRESETS.some((p) => p.value === speedLimits.uploadValue)
+          ? ""
+          : String(speedLimits.uploadValue / 1024)
+        : "",
+    );
   }, [open, speedLimits, seedAfterComplete]);
 
   // Escape key handler
@@ -65,6 +83,24 @@ export default function SpeedLimiterModal({ open, onClose }: SpeedLimiterModalPr
   }, [open, saving, onClose]);
 
   if (!open) return null;
+
+  // MB/s text input -> kbps limit (0/empty = unlimited).
+  const applyDlCustom = (v: string) => {
+    setDlCustom(v);
+    const num = parseFloat(v);
+    setDlLimit(Number.isFinite(num) && num > 0 ? Math.round(num * 1024) : 0);
+  };
+
+  const applyUlCustom = (v: string) => {
+    setUlCustom(v);
+    const num = parseFloat(v);
+    if (Number.isFinite(num) && num > 0) {
+      setDisableUpload(false);
+      setUlLimit(Math.round(num * 1024));
+    } else {
+      setUlLimit(0);
+    }
+  };
 
   const handleApply = async () => {
     setSaving(true);
@@ -122,11 +158,28 @@ export default function SpeedLimiterModal({ open, onClose }: SpeedLimiterModalPr
                   key={p.value}
                   type="button"
                   className={`dl-speed-preset-btn${dlLimit === p.value ? " active" : ""}`}
-                  onClick={() => setDlLimit(p.value)}
+                  onClick={() => {
+                    setDlLimit(p.value);
+                    setDlCustom("");
+                  }}
                 >
                   {p.value === 0 ? t("downloads.unlimited") : p.label}
                 </button>
               ))}
+            </div>
+            <div className="dl-speed-custom-row">
+              <span className="dl-speed-custom-label">{t("downloads.custom")}</span>
+              <input
+                type="number"
+                min="0"
+                step="0.5"
+                className="dl-speed-custom-input"
+                placeholder={t("downloads.unlimited")}
+                value={dlCustom}
+                aria-label={`${t("downloads.downloadLimit")} (${t("downloads.custom")})`}
+                onChange={(e) => applyDlCustom(e.target.value)}
+              />
+              <span className="dl-speed-custom-unit">MB/s</span>
             </div>
           </div>
 
@@ -152,6 +205,7 @@ export default function SpeedLimiterModal({ open, onClose }: SpeedLimiterModalPr
                     type="button"
                     className={`dl-speed-preset-btn${isSelected ? " active" : ""}`}
                     onClick={() => {
+                      setUlCustom("");
                       if (p.value === -1) {
                         setDisableUpload(true);
                         setUlLimit(-1);
@@ -165,6 +219,20 @@ export default function SpeedLimiterModal({ open, onClose }: SpeedLimiterModalPr
                   </button>
                 );
               })}
+            </div>
+            <div className="dl-speed-custom-row">
+              <span className="dl-speed-custom-label">{t("downloads.custom")}</span>
+              <input
+                type="number"
+                min="0"
+                step="0.5"
+                className="dl-speed-custom-input"
+                placeholder={t("downloads.disableUpload")}
+                value={ulCustom}
+                aria-label={`${t("downloads.uploadLimit")} (${t("downloads.custom")})`}
+                onChange={(e) => applyUlCustom(e.target.value)}
+              />
+              <span className="dl-speed-custom-unit">MB/s</span>
             </div>
           </div>
 

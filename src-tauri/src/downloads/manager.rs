@@ -1,16 +1,11 @@
-//! Download manager: a single ACTIVE download at a time,
-//! everything else waits in a persistent queue. When the active
-//! download completes (or errors, or is paused/removed), the next
-//! queued item starts automatically.
-//!
-//! Torrents run on librqbit; direct/debrid downloads run on the HTTP
-//! worker in `http.rs`. All records live in one map and are emitted
-//! together on the `download-progress` event every second.
+//! Download manager: every download runs concurrently (no queue, no
+//! single active slot). Torrents run on librqbit; direct/debrid
+//! downloads run on the HTTP worker in `http.rs`. All records live in
+//! one map and are emitted together on the `download-progress` event
+//! every second.
 
 use std::collections::{HashMap, HashSet};
-use std::future::Future;
 use std::path::PathBuf;
-use std::pin::Pin;
 use std::sync::atomic::AtomicU64;
 use std::sync::Arc;
 use std::time::Duration;
@@ -46,10 +41,6 @@ pub type WeakManager = std::sync::Weak<RwLock<DownloadManager>>;
 pub struct DownloadManager {
     session: Option<Arc<librqbit::Session>>,
     downloads: HashMap<String, Download>,
-    /// Ids waiting for the active slot, in order.
-    queue: Vec<String>,
-    /// The download currently occupying the active slot.
-    active_id: Option<String>,
     state_dir: PathBuf,
     app: Option<AppHandle>,
     dirty: bool,
@@ -87,8 +78,6 @@ impl DownloadManager {
         Self {
             session: None,
             downloads: HashMap::new(),
-            queue: Vec::new(),
-            active_id: None,
             state_dir,
             app: None,
             dirty: false,
@@ -141,10 +130,6 @@ impl DownloadManager {
         &mut self.downloads
     }
 
-    pub fn active_id(&self) -> Option<&String> {
-        self.active_id.as_ref()
-    }
-
     // ── Persistence / emission ─────────────────────────────────────────
 
     pub fn mark_dirty(&mut self) {
@@ -153,29 +138,15 @@ impl DownloadManager {
 
     pub fn flush_if_dirty(&mut self) {
         if self.dirty {
-            persistence::save(&self.state_dir, &self.downloads, &self.queue);
+            persistence::save(&self.state_dir, &self.downloads);
             self.dirty = false;
         }
     }
 
-    /// Snapshot for the frontend: queue positions stamped, completed
-    /// records at the bottom, everything else newest-first.
+    /// Snapshot for the frontend: completed records at the bottom,
+    /// everything else newest-first.
     pub fn list(&self) -> Vec<Download> {
-        let positions: HashMap<&String, usize> = self
-            .queue
-            .iter()
-            .enumerate()
-            .map(|(i, id)| (id, i))
-            .collect();
-        let mut all: Vec<Download> = self
-            .downloads
-            .values()
-            .cloned()
-            .map(|mut d| {
-                d.queue_position = positions.get(&d.id).copied();
-                d
-            })
-            .collect();
+        let mut all: Vec<Download> = self.downloads.values().cloned().collect();
         all.sort_by(|a, b| {
             let a_done = matches!(a.status, DownloadStatus::Completed);
             let b_done = matches!(b.status, DownloadStatus::Completed);
@@ -210,89 +181,8 @@ impl DownloadManager {
         }
     }
 
-    // ── Queue primitives ───────────────────────────────────────────────
-
-    /// True when the active slot is taken by a live download.
-    pub fn has_active(&self) -> bool {
-        match &self.active_id {
-            Some(id) => self
-                .downloads
-                .get(id)
-                .map(|d| d.status.is_active())
-                .unwrap_or(false),
-            None => false,
-        }
-    }
-
-    /// Append to the back of the queue (idempotent).
-    pub fn enqueue_back(&mut self, id: &str) {
-        if !self.queue.iter().any(|q| q == id) {
-            self.queue.push(id.to_string());
-        }
-        if let Some(d) = self.downloads.get_mut(id) {
-            d.status = DownloadStatus::Queued;
-        }
-        self.mark_dirty();
-    }
-
-    /// Push to the FRONT of the queue (used when the active download
-    /// is preempted by an explicit user resume of another item).
-    pub fn enqueue_front(&mut self, id: &str) {
-        self.queue.retain(|q| q != id);
-        self.queue.insert(0, id.to_string());
-        if let Some(d) = self.downloads.get_mut(id) {
-            d.status = DownloadStatus::Queued;
-        }
-        self.mark_dirty();
-    }
-
-    pub fn remove_from_queue(&mut self, id: &str) {
-        self.queue.retain(|q| q != id);
-    }
-
-    /// Reorder the queue to match `ids` (unknown ids ignored, missing
-    /// ids keep their relative order at the back).
-    pub fn reorder_queue(&mut self, ids: &[String]) {
-        let mut new_queue: Vec<String> = ids
-            .iter()
-            .filter(|id| self.queue.iter().any(|q| &q == id))
-            .cloned()
-            .collect();
-        for id in &self.queue {
-            if !new_queue.contains(id) {
-                new_queue.push(id.clone());
-            }
-        }
-        self.queue = new_queue;
-        self.mark_dirty();
-    }
-
-    /// Pop the next runnable queued id.
-    fn next_queued(&mut self) -> Option<String> {
-        while let Some(id) = self.queue.first().cloned() {
-            match self.downloads.get(&id) {
-                Some(d) if matches!(d.status, DownloadStatus::Queued) => {
-                    self.queue.remove(0);
-                    return Some(id);
-                }
-                _ => {
-                    // Stale entry (removed / no longer queued).
-                    self.queue.remove(0);
-                }
-            }
-        }
-        None
-    }
-
-    /// Release the active slot if `id` holds it.
-    pub fn release_active(&mut self, id: &str) {
-        if self.active_id.as_deref() == Some(id) {
-            self.active_id = None;
-        }
-    }
-
     /// Swap a record's id (torrent placeholder → real infohash id),
-    /// carrying queue membership and the active slot along.
+    /// carrying the direct-download bookkeeping along.
     pub fn rekey(&mut self, old_id: &str, new_id: &str) {
         if old_id == new_id {
             return;
@@ -300,14 +190,6 @@ impl DownloadManager {
         if let Some(mut d) = self.downloads.remove(old_id) {
             d.id = new_id.to_string();
             self.downloads.insert(new_id.to_string(), d);
-        }
-        for q in self.queue.iter_mut() {
-            if q == old_id {
-                *q = new_id.to_string();
-            }
-        }
-        if self.active_id.as_deref() == Some(old_id) {
-            self.active_id = Some(new_id.to_string());
         }
         if let Some(c) = self.direct_counters.remove(old_id) {
             self.direct_counters.insert(new_id.to_string(), c);
@@ -340,13 +222,13 @@ impl DownloadManager {
 
         let loaded = persistence::load(&self.state_dir);
         self.downloads = loaded.downloads;
-        self.queue = loaded.queue;
 
         // Reconcile the librqbit-restored torrents:
         //  * seeding records keep their session entry alive,
         //  * completed ones are deleted from the session (releases
         //    file locks),
-        //  * everything else is paused — the queue decides what runs.
+        //  * everything else is paused here; in-progress records are
+        //    resumed afterwards by `resume_in_progress`.
         struct Restored {
             fid: String,
             handle: Arc<librqbit::ManagedTorrent>,
@@ -401,21 +283,6 @@ impl DownloadManager {
             }
         }
 
-        // Make sure every Queued record is actually in the queue.
-        let mut missing: Vec<(u64, String)> = self
-            .downloads
-            .values()
-            .filter(|d| {
-                matches!(d.status, DownloadStatus::Queued)
-                    && !self.queue.contains(&d.id)
-            })
-            .map(|d| (d.added_at, d.id.clone()))
-            .collect();
-        missing.sort();
-        for (_, id) in missing {
-            self.queue.push(id);
-        }
-
         // Rebuild resolved debrid file lists from the persisted record so a
         // paused (or interrupted) debrid download resumes from where it left
         // off across restarts: the per-file download URLs survive in `uris`
@@ -448,10 +315,8 @@ impl DownloadManager {
     // ── Stats refresh (1 s tick) ───────────────────────────────────────
 
     /// Poll librqbit + the direct counters, update every record, and
-    /// detect completions. Returns true when the caller should try to
-    /// start the next queued download.
-    pub async fn refresh_stats(&mut self) -> bool {
-        let mut want_advance = false;
+    /// detect completions.
+    pub async fn refresh_stats(&mut self) {
 
         // ---- Torrents ----
         if let Some(session) = self.session.clone() {
@@ -563,15 +428,24 @@ impl DownloadManager {
                             println!(
                                 "[downloads] healing torrent after pause/write race (file is None)"
                             );
-                            let _ = session.unpause(&entry.handle).await;
+                            // Bounded: unpause must never stall the tick.
+                            let session_clone = session.clone();
+                            let handle = entry.handle.clone();
+                            let fut = async move { session_clone.unpause(&handle).await };
+                            let _ = torrent::run_session_op_bounded(
+                                "torrent heal unpause",
+                                fut,
+                                Duration::from_secs(torrent::SESSION_OP_TIMEOUT_SECS),
+                            )
+                            .await;
                         }
                     }
                 }
 
                 // M2: enforce Paused/Queued intent against the session.
-                // librqbit cannot pause a torrent while it is
-                // Initializing (file re-check), so we retry every tick;
-                // the moment the check completes the pause lands.
+                // 9.x allows pausing mid-check (`Initializing { paused }`
+                // maps to Paused), so this sweep is a safety net for the
+                // window before the pause lands.
                 // Completed is excluded so the sweep can never flip a
                 // Completed record to Paused; Seeding/Error entries are
                 // excluded by design.
@@ -643,15 +517,6 @@ impl DownloadManager {
                     to_record.push(d.clone());
                 }
 
-                // Free the active slot when its download stopped being
-                // active (completed / seeding / errored / paused).
-                if self.active_id.as_deref() == Some(entry.fid.as_str())
-                    && !d.status.is_active()
-                {
-                    self.active_id = None;
-                    want_advance = true;
-                    save_needed = true;
-                }
             }
 
             for handle in pause_sweep {
@@ -721,12 +586,13 @@ impl DownloadManager {
                     println!(
                         "[downloads] Removing orphan session torrent (no owning record)"
                     );
-                    let _ = session
-                        .delete(
-                            librqbit::api::TorrentIdOrHash::Id(handle.id()),
-                            false,
-                        )
-                        .await;
+                    // Off the tick: the delete drains file handles and can
+                    // block on a stuck disk write; it must never stall the
+                    // 1 s status loop (which holds the manager write lock).
+                    let session_clone = session.clone();
+                    tokio::spawn(async move {
+                        torrent::delete_torrent_keep_files(&session_clone, &handle).await;
+                    });
                 }
             }
         }
@@ -834,95 +700,34 @@ impl DownloadManager {
         self.direct_reset_partial
             .retain(|id| self.downloads.contains_key(id));
 
-        // If nothing holds the slot but the queue has work, advance.
-        if !self.has_active() && !self.queue.is_empty() {
-            want_advance = true;
-        }
-
-        want_advance
     }
 }
 
-// ─── Queue orchestration (needs the shared Arc, so free functions) ──────────
+// ─── Start orchestration (needs the shared Arc, so free functions) ──────────
 
-/// Start the next queued download when the active slot is free.
-pub fn advance_queue(manager: &SharedManager) -> Pin<Box<dyn Future<Output = ()> + Send + '_>> {
-    Box::pin(async move {
-        loop {
-            let next = {
-                let mut guard = manager.write().await;
-                if guard.has_active() {
-                    return;
-                }
-                guard.next_queued()
-            };
-            let Some(id) = next else { return };
-            if start_download(manager, &id).await {
-                return;
-            }
-            // Claim failed. If another download grabbed the slot in the
-            // meantime, put the item back at the front and stop; if the
-            // record vanished, try the next queued item.
-            let slot_busy = {
-                let guard = manager.read().await;
-                guard.has_active()
-            };
-            if slot_busy {
-                let mut guard = manager.write().await;
-                if guard.downloads_map().contains_key(&id) {
-                    guard.enqueue_front(&id);
-                }
-                return;
-            }
-        }
-    })
-}
-
-/// Outcome of an atomic active-slot claim (M3).
-pub enum SlotClaim {
-    /// Slot taken by `id`; the caller must finish setup or roll back.
-    Claimed,
-    /// `id` already held an active status; a worker is already running.
-    AlreadyActive,
-    /// Another download holds the slot.
-    Busy,
-    /// The record no longer exists.
-    NotFound,
-}
-
-/// Atomically check-and-claim the single active slot. One write lock
-/// covers the check and the claim, so two concurrent starts can never
-/// both observe a free slot.
-pub async fn claim_active_slot(
+/// Mark `id` as actively running (unless it already is) and emit the
+/// updated record. Concurrent downloads are allowed — every download
+/// starts immediately and no longer waits for a single active slot.
+async fn begin_download(
     manager: &SharedManager,
     id: &str,
     in_flight_status: DownloadStatus,
-) -> SlotClaim {
+) -> bool {
     let mut guard = manager.write().await;
-    let already_active = guard
-        .downloads_map()
-        .get(id)
-        .map(|d| d.status.is_active())
-        .unwrap_or(false);
-    if already_active {
-        return SlotClaim::AlreadyActive;
-    }
-    if guard.has_active() {
-        return SlotClaim::Busy;
-    }
     let Some(d) = guard.downloads_mut().get_mut(id) else {
-        return SlotClaim::NotFound;
+        return false;
     };
+    if d.status.is_active() {
+        return true;
+    }
     d.status = in_flight_status;
-    guard.active_id = Some(id.to_string());
-    guard.remove_from_queue(id);
     guard.mark_dirty();
     guard.emit_progress_force();
-    SlotClaim::Claimed
+    true
 }
 
-/// Occupy the active slot with `id` and kick off its worker. Returns
-/// false when the record vanished or couldn't start.
+/// Kick off the worker for `id`. Returns false when the record vanished
+/// or couldn't start.
 pub async fn start_download(manager: &SharedManager, id: &str) -> bool {
     let (kind, status) = {
         let guard = manager.read().await;
@@ -944,10 +749,8 @@ pub async fn start_download(manager: &SharedManager, id: &str) -> bool {
 
 /// Start (or resume) a torrent download.
 async fn start_torrent(manager: &SharedManager, id: &str) -> bool {
-    match claim_active_slot(manager, id, DownloadStatus::FetchingMetadata).await {
-        SlotClaim::Claimed => {}
-        SlotClaim::AlreadyActive => return true,
-        SlotClaim::Busy | SlotClaim::NotFound => return false,
+    if !begin_download(manager, id, DownloadStatus::FetchingMetadata).await {
+        return false;
     }
     let (session, source_uri, save_path, only_files, referer) = {
         let mut guard = manager.write().await;
@@ -1111,7 +914,6 @@ async fn start_torrent(manager: &SharedManager, id: &str) -> bool {
                         ),
                     )
                     .await;
-                    advance_queue(&manager_clone).await;
                     return;
                 }
                 guard.rekey(&id_owned, &real_id);
@@ -1128,16 +930,14 @@ async fn start_torrent(manager: &SharedManager, id: &str) -> bool {
                 drop(guard);
 
                 if was_paused {
-                    // The user paused while the add was in flight —
-                    // keep the session entry paused and free the slot.
-                    // Quiesce first: the entry was just made Live by
-                    // `add_and_start` and may be writing already.
+                    // The user paused while the add was in flight — keep
+                    // the session entry paused. Quiesce first: the entry
+                    // was just made Live by `add_and_start` and may be
+                    // writing already.
                     torrent::pause_torrent(&session, &handle).await;
                     let mut guard = manager_clone.write().await;
-                    guard.release_active(&real_id);
                     guard.mark_dirty();
                     guard.emit_progress_force();
-                    advance_queue(&manager_clone).await;
                     return;
                 }
 
@@ -1178,7 +978,6 @@ async fn start_torrent(manager: &SharedManager, id: &str) -> bool {
                     drop(guard);
                     torrent::pause_torrent(&session, &handle).await;
                     let mut guard = manager_clone.write().await;
-                    guard.release_active(&real_id);
                     guard.mark_dirty();
                     guard.emit_progress_force();
                     return;
@@ -1214,7 +1013,6 @@ async fn start_torrent(manager: &SharedManager, id: &str) -> bool {
             }
             Err(e) => {
                 fail_download(&manager_clone, &id_owned, e).await;
-                advance_queue(&manager_clone).await;
             }
         }
     });
@@ -1224,12 +1022,10 @@ async fn start_torrent(manager: &SharedManager, id: &str) -> bool {
 
 /// Start (or resume) a direct HTTP download.
 async fn start_direct(manager: &SharedManager, id: &str) -> bool {
-    match claim_active_slot(manager, id, DownloadStatus::Downloading).await {
-        SlotClaim::Claimed => {}
-        SlotClaim::AlreadyActive => return true,
-        SlotClaim::Busy | SlotClaim::NotFound => return false,
+    if !begin_download(manager, id, DownloadStatus::Downloading).await {
+        return false;
     }
-    // Magnet guard: roll the claim back.
+    // Magnet guard: mark the record errored and abort.
     {
         let mut guard = manager.write().await;
         let Some(d) = guard.downloads_mut().get_mut(id) else {
@@ -1239,7 +1035,6 @@ async fn start_direct(manager: &SharedManager, id: &str) -> bool {
             d.status = DownloadStatus::Error(
                 "Direct download has a magnet source — cannot restart.".to_string(),
             );
-            guard.release_active(id);
             guard.mark_dirty();
             guard.emit_progress_force();
             return false;
@@ -1388,10 +1183,8 @@ async fn start_debrid(manager: &SharedManager, id: &str) -> bool {
                 .await;
                 return false;
             }
-            match claim_active_slot(manager, id, DownloadStatus::Downloading).await {
-                SlotClaim::Claimed => {}
-                SlotClaim::AlreadyActive => return true,
-                SlotClaim::Busy | SlotClaim::NotFound => return false,
+            if !begin_download(manager, id, DownloadStatus::Downloading).await {
+                return false;
             }
             // Don't reset progress/per-file bytes here: a pause→resume must
             // continue from where it left off, so the persisted `downloaded`
@@ -1422,10 +1215,8 @@ async fn start_debrid(manager: &SharedManager, id: &str) -> bool {
         }
         return start_direct(manager, id).await;
     }
-    match claim_active_slot(manager, id, DownloadStatus::FetchingMetadata).await {
-        SlotClaim::Claimed => {}
-        SlotClaim::AlreadyActive => return true,
-        SlotClaim::Busy | SlotClaim::NotFound => return false,
+    if !begin_download(manager, id, DownloadStatus::FetchingMetadata).await {
+        return false;
     }
     let (magnet, params) = {
         let mut guard = manager.write().await;
@@ -1482,7 +1273,6 @@ async fn run_debrid_flow(
         Ok(upload) => (upload.id, upload.cached),
         Err(e) => {
             fail_download(&manager, &id, format!("Debrid upload failed: {}", e)).await;
-            advance_queue(&manager).await;
             return;
         }
     };
@@ -1540,7 +1330,6 @@ async fn run_debrid_flow(
                     || lower.contains("invalid_apikey")
                 {
                     fail_download(&manager, &id, format!("Failed to poll debrid: {}", e)).await;
-                    advance_queue(&manager).await;
                     return;
                 }
                 poll_failures += 1;
@@ -1554,7 +1343,6 @@ async fn run_debrid_flow(
                         ),
                     )
                     .await;
-                    advance_queue(&manager).await;
                     return;
                 }
                 println!(
@@ -1575,7 +1363,6 @@ async fn run_debrid_flow(
                     "No download links returned by debrid".to_string(),
                 )
                 .await;
-                advance_queue(&manager).await;
                 return;
             }
 
@@ -1700,7 +1487,6 @@ async fn run_debrid_flow(
                 .error_message
                 .unwrap_or_else(|| "Debrid download error".to_string());
             fail_download(&manager, &id, err_msg).await;
-            advance_queue(&manager).await;
             return;
         } else {
             let mut guard = manager.write().await;
@@ -1846,21 +1632,15 @@ pub async fn fail_download(manager: &SharedManager, id: &str, err: String) {
         d.status = DownloadStatus::Error(err);
         d.download_speed = 0;
     }
-    guard.release_active(id);
     guard.mark_dirty();
     guard.emit_progress_force();
 }
 
-/// Called by workers when a download finished successfully: frees the
-/// active slot and starts the next queued item.
-pub async fn on_download_finished(manager: &SharedManager, id: &str) {
-    {
-        let mut guard = manager.write().await;
-        guard.release_active(id);
-        guard.mark_dirty();
-        guard.emit_progress_force();
-    }
-    advance_queue(manager).await;
+/// Called by workers when a download finished successfully.
+pub async fn on_download_finished(manager: &SharedManager, _id: &str) {
+    let mut guard = manager.write().await;
+    guard.mark_dirty();
+    guard.emit_progress_force();
 }
 
 /// Spawn an archive-extraction task for a completed download.

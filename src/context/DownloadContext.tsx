@@ -86,6 +86,7 @@ interface DownloadContextValue {
     autoExtract?: boolean,
     listOnly?: boolean,
     referer?: string | null,
+    gamePoster?: string | null,
   ) => Promise<TorrentDownload>;
   addDirectDownload: (
     url: string,
@@ -96,6 +97,7 @@ interface DownloadContextValue {
     uris?: string[],
     useDebrid?: boolean,
     referer?: string | null,
+    gamePoster?: string | null,
   ) => Promise<TorrentDownload>;
   /**
    * Upload a magnet to the configured debrid provider, then download
@@ -108,6 +110,7 @@ interface DownloadContextValue {
     gameId?: string | null,
     sourceName?: string,
     autoExtract?: boolean,
+    gamePoster?: string | null,
   ) => Promise<TorrentDownload>;
   startSelectedDownload: (
     id: string,
@@ -123,7 +126,7 @@ interface DownloadContextValue {
    * implementation lives in `torrent_engine::pause_all`.
    */
   pauseAll: () => Promise<number>;
-  /** Mirror of `pauseAll` for paused / queued torrents. */
+  /** Mirror of `pauseAll` for paused torrents. */
   resumeAll: () => Promise<number>;
   /** Remove a download. Pass `deleteFiles=true` to also wipe the downloaded bytes. */
   removeDownload: (id: string, deleteFiles?: boolean) => Promise<void>;
@@ -136,8 +139,6 @@ interface DownloadContextValue {
   refreshHistory: () => Promise<void>;
   updateSelectedFiles: (id: string, onlyFiles: number[]) => Promise<void>;
   openDownloadFolder: (id: string) => Promise<void>;
-  /** Reorder the waiting queue by supplying the full ordered id list. */
-  reorderQueue: (orderedIds: string[]) => Promise<void>;
   /** Globally enable/disable seeding after completion. */
   setSeedConfig: (enabled: boolean) => Promise<void>;
   /** Stop/start seeding for a single torrent. */
@@ -485,11 +486,13 @@ export function DownloadProvider({ children }: { children: ReactNode }) {
       autoExtract?: boolean,
       listOnly?: boolean,
       referer?: string | null,
+      gamePoster?: string | null,
     ): Promise<TorrentDownload> => {
       const newDownload = await invoke<TorrentDownload>("torrent_add", {
         magnetUri,
         savePath,
         gameId: gameId ?? null,
+        gamePoster: gamePoster ?? null,
         sourceName,
         autoExtract: autoExtract ?? false,
         listOnly: listOnly ?? false,
@@ -519,6 +522,7 @@ export function DownloadProvider({ children }: { children: ReactNode }) {
       uris: string[] = [],
       useDebrid?: boolean,
       referer?: string | null,
+      gamePoster?: string | null,
     ): Promise<TorrentDownload> => {
       const id = `dd_${Math.random().toString(36).substring(2, 11)}`;
       
@@ -573,6 +577,7 @@ export function DownloadProvider({ children }: { children: ReactNode }) {
         url: downloadUrl,
         savePath: finalSavePath,
         gameId,
+        gamePoster: gamePoster ?? null,
         sourceName,
         autoExtract,
         uris,
@@ -594,6 +599,7 @@ export function DownloadProvider({ children }: { children: ReactNode }) {
       gameId: string | null = null,
       sourceName = "Debrid",
       autoExtract = false,
+      gamePoster?: string | null,
     ): Promise<TorrentDownload> => {
       const debridProvider = debridRef.current.provider;
       const debridApiKey = debridRef.current.apiKey;
@@ -608,6 +614,7 @@ export function DownloadProvider({ children }: { children: ReactNode }) {
         magnet,
         savePath,
         gameId,
+        gamePoster: gamePoster ?? null,
         sourceName,
         provider: debridProvider,
         apikey: debridApiKey,
@@ -687,7 +694,7 @@ export function DownloadProvider({ children }: { children: ReactNode }) {
     async (id: string) => {
       setDownloads((prev) =>
         prev.map((d) =>
-          d.id === id ? { ...d, status: { kind: "queued" }, downloadSpeed: 0 } : d,
+          d.id === id ? { ...d, status: { kind: "downloading" }, downloadSpeed: 0 } : d,
         ),
       );
       try {
@@ -814,10 +821,6 @@ export function DownloadProvider({ children }: { children: ReactNode }) {
     await invoke("torrent_open_folder", { id });
   }, []);
 
-  const reorderQueue = useCallback(async (orderedIds: string[]) => {
-    await invoke("download_queue_reorder", { ids: orderedIds });
-  }, []);
-
   const setSeedConfig = useCallback(async (enabled: boolean) => {
     localStorage.setItem("gamelib-seed-after-complete", String(enabled));
     setSeedAfterComplete(enabled);
@@ -862,7 +865,6 @@ export function DownloadProvider({ children }: { children: ReactNode }) {
       refreshHistory,
       updateSelectedFiles,
       openDownloadFolder,
-      reorderQueue,
       setSeedConfig,
       setSeeding,
       seedAfterComplete,
@@ -902,7 +904,6 @@ export function DownloadProvider({ children }: { children: ReactNode }) {
       refreshHistory,
       updateSelectedFiles,
       openDownloadFolder,
-      reorderQueue,
       setSeedConfig,
       setSeeding,
       seedAfterComplete,

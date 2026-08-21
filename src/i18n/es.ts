@@ -1279,6 +1279,7 @@ export const es: TranslationDict = {
   "downloads.active": "Activas",
   "downloads.alreadyDownloaded": "Ya descargado",
   "downloads.closePanelAria": "Cerrar panel de descargas",
+  "downloads.custom": "Personalizado",
   "downloads.connectedPeersTitle": "Pares conectados actualmente",
   "downloads.deleteArchives": "Eliminar del disco (solo archivos)",
   "downloads.deleteDiskBody": "Esto eliminará permanentemente {size} de {path}. Esta acción no se puede deshacer.",

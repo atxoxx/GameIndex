@@ -452,6 +452,7 @@ export default function BigScreenStoreGamePage() {
             {downloadOpen && (
               <DownloadModal
                 gameName={game.name}
+                gamePoster={game.bannerUrl ?? game.coverArtUrl}
                 steamAppId={resolvedSteamAppId || undefined}
                 onClose={() => setDownloadOpen(false)}
               />

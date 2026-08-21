@@ -19,6 +19,8 @@ import { useLanguage } from "../context/LanguageContext";
 export interface DownloadButtonProps {
   gameName: string;
   gameId?: string;
+  /** Poster of the game page this download starts from (URL or base64). */
+  gamePoster?: string;
   steamAppId?: number;
   /** Visual style. Default = "default". */
   variant?: "default" | "prominent";
@@ -33,6 +35,7 @@ export interface DownloadButtonProps {
 export default function DownloadButton({
   gameName,
   gameId,
+  gamePoster,
   steamAppId,
   variant = "default",
   label = "Download",
@@ -71,6 +74,7 @@ export default function DownloadButton({
         <DownloadModal
           gameName={gameName}
           gameId={gameId}
+          gamePoster={gamePoster}
           steamAppId={steamAppId}
           onClose={() => setOpen(false)}
         />

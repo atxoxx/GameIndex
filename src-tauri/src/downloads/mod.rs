@@ -1,8 +1,8 @@
 //! Download subsystem.
 //!
-//! One active download at a time + a persistent queue; torrents on
-//! librqbit with optional seeding after completion; direct/debrid
-//! downloads on a resumable HTTP worker with hoster resolvers.
+//! Concurrent downloads (no queue); torrents on librqbit with optional
+//! seeding after completion; direct/debrid downloads on a resumable
+//! HTTP worker with hoster resolvers.
 //!
 //! Command names are kept from the previous engine so the frontend
 //! call sites keep working (`torrent_add`, `torrent_pause`, ...).
@@ -77,8 +77,9 @@ pub async fn initialize_engine(
     // Re-add seeding torrents that librqbit didn't restore itself.
     resume_persisted_seeding(&shared).await;
 
-    // Kick the queue: restart whatever was mid-flight at last exit.
-    manager::advance_queue(&shared).await;
+    // Restart whatever was mid-flight at last exit (no queue, so every
+    // in-progress record resumes immediately).
+    resume_in_progress(&shared).await;
 
     let loop_handle = shared.clone();
     tokio::spawn(async move {
@@ -86,16 +87,10 @@ pub async fn initialize_engine(
         tick.tick().await; // skip the immediate first tick
         loop {
             tick.tick().await;
-            let want_advance = {
-                let mut guard = loop_handle.write().await;
-                let want_advance = guard.refresh_stats().await;
-                guard.flush_if_dirty();
-                guard.emit_progress();
-                want_advance
-            };
-            if want_advance {
-                manager::advance_queue(&loop_handle).await;
-            }
+            let mut guard = loop_handle.write().await;
+            guard.refresh_stats().await;
+            guard.flush_if_dirty();
+            guard.emit_progress();
         }
     });
     Ok(())
@@ -178,15 +173,28 @@ fn normalize_path(p: &str) -> String {
     normalized
 }
 
-/// Queue the record if something else is active, otherwise start it.
-async fn queue_or_start(manager: &SharedManager, id: &str) {
-    if !manager::start_download(manager, id).await {
-        // Slot busy or the record vanished — make sure it waits.
-        let mut guard = manager.write().await;
-        if guard.downloads_map().contains_key(id) {
-            guard.enqueue_back(id);
-            guard.emit_progress_force();
-        }
+/// Start every record that was mid-flight when the app last exited.
+/// Legacy `Queued` records (the old "waiting for the active slot" state)
+/// are resumed the same way so they aren't stranded.
+async fn resume_in_progress(shared: &SharedManager) {
+    let ids: Vec<String> = {
+        let guard = shared.read().await;
+        guard
+            .downloads_map()
+            .values()
+            .filter(|d| {
+                matches!(
+                    d.status,
+                    DownloadStatus::Queued
+                        | DownloadStatus::Downloading
+                        | DownloadStatus::FetchingMetadata
+                )
+            })
+            .map(|d| d.id.clone())
+            .collect()
+    };
+    for id in ids {
+        manager::start_download(shared, &id).await;
     }
 }
 
@@ -199,6 +207,7 @@ async fn handle_duplicate_add(
     trimmed: String,
     save_path: String,
     game_id: Option<String>,
+    game_poster: Option<String>,
     source_name: String,
     auto_extract: bool,
     referer: Option<String>,
@@ -226,6 +235,7 @@ async fn handle_duplicate_add(
         d.source_uri = trimmed;
         d.save_path = save_path;
         d.game_id = game_id;
+        d.game_poster = game_poster;
         d.source_name = source_name;
         d.auto_extract = Some(auto_extract);
         d.referer = referer;
@@ -255,43 +265,8 @@ async fn handle_duplicate_add(
         torrent::delete_from_session(&session, &existing.id).await;
     }
 
-    queue_or_start(mgr, &existing.id).await;
+    manager::start_download(mgr, &existing.id).await;
     Ok(snapshot)
-}
-
-/// Preempt whatever is active in favour of `id` (explicit user resume).
-/// The preempted download goes to the FRONT of the queue.
-async fn preempt_and_start(manager: &SharedManager, id: &str) {
-    let (session, preempted) = {
-        let mut guard = manager.write().await;
-        let session = guard.session().cloned();
-        let active = guard
-            .active_id()
-            .cloned()
-            .filter(|a| a != id && guard.has_active());
-        if let Some(active_id) = &active {
-            if let Some(d) = guard.downloads_mut().get_mut(active_id) {
-                d.status = DownloadStatus::Queued;
-                d.download_speed = 0;
-            }
-            guard.enqueue_front(active_id);
-            let active_clone = active_id.clone();
-            guard.release_active(&active_clone);
-        }
-        guard.mark_dirty();
-        (session, active)
-    };
-
-    // Pause the preempted torrent's session entry (direct workers stop
-    // on their own when they observe the status change). Quiesce first
-    // so the pause can't race the preempted torrent's in-flight writes.
-    if let (Some(session), Some(active_id)) = (&session, &preempted) {
-        if let Some(handle) = torrent::find_handle(session, active_id) {
-            torrent::pause_torrent(session, &handle).await;
-        }
-    }
-
-    manager::start_download(manager, id).await;
 }
 
 // ─── Tauri commands: adds ───────────────────────────────────────────────────
@@ -301,6 +276,7 @@ pub async fn torrent_add(
     magnet_uri: String,
     save_path: String,
     game_id: Option<String>,
+    game_poster: Option<String>,
     source_name: String,
     auto_extract: Option<bool>,
     list_only: Option<bool>,
@@ -403,6 +379,7 @@ pub async fn torrent_add(
         if let Some(existing) = guard.downloads_mut().get_mut(&id_str) {
             existing.save_path = save_path;
             existing.game_id = game_id;
+            existing.game_poster = game_poster;
             existing.source_name = source_name;
             existing.auto_extract = Some(auto_extract.unwrap_or(false));
             existing.referer = referer.clone();
@@ -428,6 +405,7 @@ pub async fn torrent_add(
         d.total_size = if total_size > 0 { Some(total_size) } else { None };
         d.files = files;
         d.referer = referer.clone();
+        d.game_poster = game_poster;
         guard.downloads_mut().insert(id_str, d.clone());
         guard.mark_dirty();
         guard.emit_progress_force();
@@ -455,6 +433,7 @@ pub async fn torrent_add(
                 trimmed,
                 save_path,
                 game_id,
+                game_poster,
                 source_name,
                 auto_extract.unwrap_or(false),
                 referer,
@@ -479,13 +458,14 @@ pub async fn torrent_add(
         auto_extract.unwrap_or(false),
     );
     d.referer = referer;
+    d.game_poster = game_poster;
     {
         let mut guard = mgr.write().await;
         guard.downloads_mut().insert(id.clone(), d.clone());
         guard.mark_dirty();
         guard.emit_progress_force();
     }
-    queue_or_start(&mgr, &id).await;
+    manager::start_download(&mgr, &id).await;
 
     let guard = mgr.read().await;
     Ok(guard.downloads_map().get(&id).cloned().unwrap_or(d))
@@ -497,6 +477,7 @@ pub async fn direct_download_start(
     url: String,
     save_path: String,
     game_id: Option<String>,
+    game_poster: Option<String>,
     source_name: String,
     auto_extract: Option<bool>,
     uris: Option<Vec<String>>,
@@ -531,6 +512,7 @@ pub async fn direct_download_start(
     d.uris = uris.filter(|u| !u.is_empty());
     d.referer = referer;
     d.extra_headers = extra_headers;
+    d.game_poster = game_poster;
 
     {
         let mut guard = mgr.write().await;
@@ -538,7 +520,7 @@ pub async fn direct_download_start(
         guard.mark_dirty();
         guard.emit_progress_force();
     }
-    queue_or_start(&mgr, &id).await;
+    manager::start_download(&mgr, &id).await;
 
     let guard = mgr.read().await;
     Ok(guard.downloads_map().get(&id).cloned().unwrap_or(d))
@@ -551,6 +533,7 @@ pub async fn debrid_download_start(
     magnet: String,
     save_path: String,
     game_id: Option<String>,
+    game_poster: Option<String>,
     source_name: String,
     provider: String,
     apikey: String,
@@ -569,6 +552,7 @@ pub async fn debrid_download_start(
         auto_extract.unwrap_or(false),
     );
     d.status = DownloadStatus::Queued;
+    d.game_poster = game_poster;
 
     {
         let mut guard = mgr.write().await;
@@ -579,7 +563,7 @@ pub async fn debrid_download_start(
         guard.mark_dirty();
         guard.emit_progress_force();
     }
-    queue_or_start(&mgr, &id).await;
+    manager::start_download(&mgr, &id).await;
 
     let guard = mgr.read().await;
     Ok(guard.downloads_map().get(&id).cloned().unwrap_or(d))
@@ -594,12 +578,10 @@ pub async fn torrent_pause(id: String) -> Result<(), String> {
     let session = {
         let mut guard = mgr.write().await;
         let session = guard.session().cloned();
-        guard.remove_from_queue(&id);
         if let Some(d) = guard.downloads_mut().get_mut(&id) {
             d.status = DownloadStatus::Paused;
             d.download_speed = 0;
         }
-        guard.release_active(&id);
         guard.mark_dirty();
         guard.emit_progress_force();
         session
@@ -617,7 +599,6 @@ pub async fn torrent_pause(id: String) -> Result<(), String> {
         }
     }
 
-    manager::advance_queue(&mgr).await;
     Ok(())
 }
 
@@ -637,7 +618,7 @@ pub async fn torrent_resume(id: String) -> Result<(), String> {
             return Err("Download is already completed".to_string());
         }
     }
-    preempt_and_start(&mgr, &id).await;
+    manager::start_download(&mgr, &id).await;
     Ok(())
 }
 
@@ -651,7 +632,6 @@ pub async fn torrent_remove(id: String, delete_files: Option<bool>) -> Result<()
     let (session, download_opt) = {
         let mut guard = mgr.write().await;
         let session = guard.session().cloned();
-        guard.remove_from_queue(&id);
         guard.debrid_params.remove(&id);
         guard.debrid_files.remove(&id);
         guard.direct_counters.remove(&id);
@@ -662,7 +642,6 @@ pub async fn torrent_remove(id: String, delete_files: Option<bool>) -> Result<()
         // removal lands in the download-history ledger as `Removed`.
         let history_clone = guard.downloads_mut().get(&id).cloned();
         let download_opt = guard.downloads_mut().remove(&id);
-        guard.release_active(&id);
         guard.mark_dirty();
         guard.emit_progress_force();
         if let Some(mut history_clone) = history_clone {
@@ -697,7 +676,6 @@ pub async fn torrent_remove(id: String, delete_files: Option<bool>) -> Result<()
         }
     });
 
-    manager::advance_queue(&mgr).await;
     Ok(())
 }
 
@@ -846,8 +824,6 @@ pub async fn torrent_pause_all() -> Result<usize, String> {
                     }
                 }
             }
-            guard.remove_from_queue(&id);
-            guard.release_active(&id);
         }
         guard.mark_dirty();
         guard.emit_progress_force();
@@ -869,8 +845,8 @@ pub async fn torrent_pause_all() -> Result<usize, String> {
 pub async fn torrent_resume_all() -> Result<usize, String> {
     let mgr = wait_for_manager().await?;
 
-    let affected = {
-        let mut guard = mgr.write().await;
+    let ids: Vec<String> = {
+        let guard = mgr.read().await;
         let mut paused: Vec<(u64, String)> = guard
             .downloads_map()
             .values()
@@ -878,16 +854,12 @@ pub async fn torrent_resume_all() -> Result<usize, String> {
             .map(|d| (d.added_at, d.id.clone()))
             .collect();
         paused.sort();
-        let count = paused.len();
-        for (_, id) in paused {
-            guard.enqueue_back(&id);
-        }
-        guard.mark_dirty();
-        guard.emit_progress_force();
-        count
+        paused.into_iter().map(|(_, id)| id).collect()
     };
-
-    manager::advance_queue(&mgr).await;
+    let affected = ids.len();
+    for id in ids {
+        manager::start_download(&mgr, &id).await;
+    }
     Ok(affected)
 }
 
@@ -906,16 +878,19 @@ pub async fn torrent_set_speed_limits(
             .ok_or_else(|| "Download engine not initialized".to_string())?
     };
 
-    let download_bps = download_limit_kbps
-        .filter(|&v| v > 0)
-        .and_then(|v| std::num::NonZeroU32::new(v * 1024));
+    // Convert the frontend's KB/s values to bytes/s without letting large
+    // custom values overflow u32 (which would silently disable the limit).
+    let kbps_to_bps = |v: u32| -> Option<std::num::NonZeroU32> {
+        let bps = (v as u64).saturating_mul(1024).min(u32::MAX as u64);
+        std::num::NonZeroU32::new(bps as u32)
+    };
+
+    let download_bps = download_limit_kbps.filter(|&v| v > 0).and_then(kbps_to_bps);
 
     let upload_bps = if disable_upload {
         std::num::NonZeroU32::new(1) // effectively disabled
     } else {
-        upload_limit_kbps
-            .filter(|&v| v > 0)
-            .and_then(|v| std::num::NonZeroU32::new(v * 1024))
+        upload_limit_kbps.filter(|&v| v > 0).and_then(kbps_to_bps)
     };
 
     session.ratelimits.set_download_bps(download_bps);
@@ -977,7 +952,7 @@ pub async fn debrid_update_only_files(
     only_files: Vec<usize>,
 ) -> Result<(), String> {
     let mgr = wait_for_manager().await?;
-    let was_active = {
+    {
         let mut guard = mgr.write().await;
         let Some(d) = guard.downloads_mut().get_mut(&id) else {
             return Err(format!("Download not found: {id}"));
@@ -992,7 +967,10 @@ pub async fn debrid_update_only_files(
                 return Err(format!("Invalid file index {i}"));
             }
         }
-        let was_active = d.status.is_active();
+        if d.status.is_active() {
+            d.status = DownloadStatus::Paused;
+            d.download_speed = 0;
+        }
         d.only_files = Some(only_files.clone());
         for (i, f) in d.files.iter_mut().enumerate() {
             f.selected = only_files.contains(&i);
@@ -1001,18 +979,8 @@ pub async fn debrid_update_only_files(
         if selected_sum > 0 {
             d.total_size = Some(selected_sum);
         }
-        if was_active {
-            d.status = DownloadStatus::Paused;
-            d.download_speed = 0;
-            guard.remove_from_queue(&id);
-            guard.release_active(&id);
-        }
         guard.mark_dirty();
         guard.emit_progress_force();
-        was_active
-    };
-    if was_active {
-        manager::advance_queue(&mgr).await;
     }
     Ok(())
 }
@@ -1059,7 +1027,7 @@ pub async fn torrent_start_selected(
         guard.mark_dirty();
     }
 
-    queue_or_start(&mgr, &id).await;
+    manager::start_download(&mgr, &id).await;
     Ok(())
 }
 
@@ -1092,16 +1060,7 @@ pub async fn torrent_open_folder(app: AppHandle, id: String) -> Result<(), Strin
         .map_err(|e| format!("Failed to open folder: {}", e))
 }
 
-// ─── Tauri commands: queue & seeding ────────────────────────────────────────
-
-#[tauri::command]
-pub async fn download_queue_reorder(ids: Vec<String>) -> Result<(), String> {
-    let mgr = wait_for_manager().await?;
-    let mut guard = mgr.write().await;
-    guard.reorder_queue(&ids);
-    guard.emit_progress_force();
-    Ok(())
-}
+// ─── Tauri commands: seeding ────────────────────────────────────────────────
 
 /// Push the "seed after download complete" preference from the frontend.
 #[tauri::command]
@@ -1247,7 +1206,7 @@ pub async fn direct_download_update_url(id: String, new_url: String) -> Result<(
     };
 
     if was_running {
-        preempt_and_start(&mgr, &id).await;
+        manager::start_download(&mgr, &id).await;
     }
 
     Ok(())

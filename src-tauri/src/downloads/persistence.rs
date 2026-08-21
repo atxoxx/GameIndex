@@ -49,7 +49,6 @@ struct LegacyMetadata {
 
 pub struct LoadedState {
     pub downloads: HashMap<String, Download>,
-    pub queue: Vec<String>,
 }
 
 pub fn state_file(state_dir: &Path) -> PathBuf {
@@ -67,7 +66,6 @@ pub fn load(state_dir: &Path) -> LoadedState {
         Err(_) => {
             return LoadedState {
                 downloads: HashMap::new(),
-                queue: Vec::new(),
             }
         }
     };
@@ -78,14 +76,8 @@ pub fn load(state_dir: &Path) -> LoadedState {
             normalise_on_load(&mut d);
             map.insert(d.id.clone(), d);
         }
-        let queue = v2
-            .queue
-            .into_iter()
-            .filter(|id| map.contains_key(id))
-            .collect();
         return LoadedState {
             downloads: map,
-            queue,
         };
     }
 
@@ -93,7 +85,6 @@ pub fn load(state_dir: &Path) -> LoadedState {
     let legacy: HashMap<String, LegacyMetadata> =
         serde_json::from_str(&content).unwrap_or_default();
     let mut map = HashMap::new();
-    let mut queue = Vec::new();
     for (id, meta) in legacy {
         let kind = if id.starts_with("dd_") {
             DownloadKind::Direct
@@ -128,6 +119,7 @@ pub fn load(state_dir: &Path) -> LoadedState {
             seeds: 0,
             status,
             game_id: meta.game_id,
+            game_poster: None,
             source_name: meta.source_name,
             added_at: meta.added_at,
             files: meta.files,
@@ -148,14 +140,10 @@ pub fn load(state_dir: &Path) -> LoadedState {
             completed_at: None,
         };
         normalise_on_load(&mut d);
-        if matches!(d.status, DownloadStatus::Queued) {
-            queue.push(id.clone());
-        }
         map.insert(id, d);
     }
     LoadedState {
         downloads: map,
-        queue,
     }
 }
 
@@ -184,11 +172,11 @@ fn normalise_on_load(d: &mut Download) {
 
 /// Persist the full state (v2 format). Blocking write — call from the
 /// background flush path only.
-pub fn save(state_dir: &Path, downloads: &HashMap<String, Download>, queue: &[String]) {
+pub fn save(state_dir: &Path, downloads: &HashMap<String, Download>) {
     let state = StateV2 {
         version: 2,
         downloads: downloads.values().cloned().collect(),
-        queue: queue.to_vec(),
+        queue: Vec::new(),
     };
     if let Ok(content) = serde_json::to_string_pretty(&state) {
         let path = state_file(state_dir);

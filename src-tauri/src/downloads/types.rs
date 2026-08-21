@@ -8,21 +8,21 @@ use serde::{Deserialize, Serialize};
 
 /// Lifecycle status of a download.
 ///
-/// Semantics: only ONE download is ever `Downloading` /
-/// `FetchingMetadata` at a time (the "active" download). Everything
-/// else waits in `Queued`. Completed torrents may transition to
-/// `Seeding` when the user enabled seed-after-complete.
+/// Downloads run concurrently — no queue, no single active slot.
+/// Completed torrents may transition to `Seeding` when the user
+/// enabled seed-after-complete.
 #[derive(Debug, Serialize, Deserialize, Clone, PartialEq)]
 #[serde(rename_all = "camelCase", tag = "kind", content = "message")]
 pub enum DownloadStatus {
-    /// Waiting for the active slot.
+    /// Legacy status kept only so pre-queue-removal persisted state
+    /// still deserializes. The manager never emits it any more; it
+    /// resumes such records on startup.
     Queued,
     /// Torrent metadata resolution (DHT/trackers) or debrid magnet upload.
     FetchingMetadata,
     /// Actively transferring bytes.
     Downloading,
-    /// Paused by the user (does not occupy the active slot and is not
-    /// auto-started by the queue).
+    /// Paused by the user (not auto-started).
     Paused,
     /// Torrent finished and is uploading to peers.
     Seeding,
@@ -34,7 +34,7 @@ pub enum DownloadStatus {
 }
 
 impl DownloadStatus {
-    /// True when this download occupies the single active slot.
+    /// True when this download is actively transferring / preparing.
     pub fn is_active(&self) -> bool {
         matches!(
             self,
@@ -91,6 +91,11 @@ pub struct Download {
     pub seeds: u32,
     pub status: DownloadStatus,
     pub game_id: Option<String>,
+    /// Poster image (URL or base64 data URI) of the game this download
+    /// was started from (store/game page). `None` for downloads added
+    /// without a known game (e.g. browser-resolver magnets).
+    #[serde(default)]
+    pub game_poster: Option<String>,
     pub source_name: String,
     /// Unix seconds when the user added the download.
     pub added_at: u64,
@@ -120,7 +125,8 @@ pub struct Download {
     /// True when the user wants this torrent to seed after completion.
     #[serde(default)]
     pub should_seed: Option<bool>,
-    /// 0-based position in the waiting queue (only set while `Queued`).
+    /// Legacy queue position (kept only so old persisted state still
+    /// deserializes; always `None` now that downloads run concurrently).
     #[serde(default)]
     pub queue_position: Option<usize>,
     /// Custom HTTP request headers (e.g. User-Agent, Cookie, Referer) for hosters.
@@ -162,6 +168,7 @@ impl Download {
             seeds: 0,
             status: DownloadStatus::Queued,
             game_id,
+            game_poster: None,
             source_name,
             added_at: unix_now(),
             files: Vec::new(),

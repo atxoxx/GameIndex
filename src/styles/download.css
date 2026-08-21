@@ -3970,6 +3970,31 @@
   margin-top: 2px;
 }
 
+/* ─── Modal close button ──────────────────────────────────────── */
+/* Mirrors `.modal-close` from page-emulators.css, which isn't loaded
+   on the downloads route (SpeedLimiter + DownloadStats modals). */
+.modal-close {
+  width: 32px;
+  height: 32px;
+  margin-left: auto;
+  display: grid;
+  place-items: center;
+  background: transparent;
+  border: none;
+  border-radius: var(--radius-md);
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-lg);
+  line-height: 1;
+  cursor: pointer;
+  transition: color var(--duration-fast) var(--ease-standard),
+    background var(--duration-fast) var(--ease-standard);
+}
+
+.modal-close:hover {
+  color: var(--color-text-primary);
+  background: var(--color-bg-hover);
+}
+
 /* ─── Speed Limiter Modal ─────────────────────────────────────── */
 .dl-speed-modal {
   max-width: 480px;
@@ -4034,6 +4059,42 @@
   color: var(--color-accent-contrast);
   border-color: var(--color-accent);
   box-shadow: 0 1px 4px color-mix(in srgb, var(--color-accent) 35%, transparent);
+}
+
+.dl-speed-custom-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  margin-top: 2px;
+}
+
+.dl-speed-custom-label {
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text-secondary);
+  min-width: 64px;
+}
+
+.dl-speed-custom-input {
+  width: 96px;
+  padding: 5px 10px;
+  background: var(--color-bg-tertiary);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  color: var(--color-text-primary);
+  font-size: var(--font-size-sm);
+  font-variant-numeric: tabular-nums;
+  transition: border-color var(--transition-fast);
+}
+
+.dl-speed-custom-input:focus {
+  outline: none;
+  border-color: var(--color-accent);
+}
+
+.dl-speed-custom-unit {
+  font-size: var(--font-size-xs);
+  color: var(--color-text-secondary);
 }
 
 .dl-speed-toggle-row {

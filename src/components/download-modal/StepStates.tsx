@@ -143,19 +143,17 @@ export function FetchingMetadataState({
 
 export function StartingStatus({
   match,
-  selectedMirrorIdx,
   elapsedSec,
   peers = 0,
   seeds = 0,
 }: {
   match: MatchedDownload | null;
-  selectedMirrorIdx: number;
   elapsedSec: number;
   peers?: number;
   seeds?: number;
 }) {
   const { t } = useLanguage();
-  const uri = resolveSourceUri(match ?? undefined, selectedMirrorIdx);
+  const uri = resolveSourceUri(match ?? undefined, 0);
   const isHttpFetch = !!uri && /^https?:/i.test(uri);
   const slow = elapsedSec >= 10;
   const label = isHttpFetch

@@ -144,6 +144,7 @@ export default function GameLaunchActions({
       <DownloadButton
         gameName={game.name}
         gameId={game.id}
+        gamePoster={game.coverSourceUrl ?? game.bannerUrl ?? game.coverArtUrl}
         steamAppId={game.steamAppId}
       />
     </div>

@@ -1279,6 +1279,7 @@ export const zhCN: TranslationDict = {
   "downloads.active": "活动",
   "downloads.alreadyDownloaded": "已下载",
   "downloads.closePanelAria": "关闭下载面板",
+  "downloads.custom": "自定义",
   "downloads.connectedPeersTitle": "当前连接的节点",
   "downloads.deleteArchives": "从磁盘删除（仅归档文件）",
   "downloads.deleteDiskBody": "这将永久删除 {path} 中的 {size}。此操作无法撤销。",

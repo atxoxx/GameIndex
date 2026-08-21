@@ -891,6 +891,7 @@ async fn dispatch_intercepted(
             payload.url.clone(),
             save_dir.to_string(),
             game_id.clone(),
+            None, // browser-resolved magnets have no known game poster
             source_name.clone(),
             Some(auto_extract),
             None,
@@ -952,6 +953,7 @@ async fn dispatch_intercepted(
             payload.url.clone(),
             file_path,
             game_id.clone(),
+            None, // browser-resolved links have no known game poster
             source_name.clone(),
             Some(auto_extract),
             None,

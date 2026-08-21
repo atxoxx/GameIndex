@@ -55,11 +55,8 @@ export const DownloadRow = React.memo(
     const { launchGame } = useGames();
     const {
       updateSelectedFiles,
-      updateDirectDownloadUrl,
       openDownloadFolder,
-      reorderQueue,
       setSeeding,
-      downloads,
     } = useDownloads();
     const { showToast } = useToast();
     const { t } = useLanguage();
@@ -67,21 +64,6 @@ export const DownloadRow = React.memo(
 
     // Resolve game artwork from library or automated metadata search
     const { matchedGame, coverArtUrl: artworkUrl } = useDownloadCoverArt(download);
-
-    const handleReorder = async (direction: "up" | "down") => {
-      const queued = downloads.filter((d) => d.status.kind === "queued");
-      const idx = queued.findIndex((d) => d.id === download.id);
-      if (idx === -1) return;
-      const newIdx = direction === "up" ? idx - 1 : idx + 1;
-      if (newIdx < 0 || newIdx >= queued.length) return;
-      const reordered = [...queued];
-      [reordered[idx], reordered[newIdx]] = [reordered[newIdx], reordered[idx]];
-      try {
-        await reorderQueue(reordered.map((d) => d.id));
-      } catch (err) {
-        showToast(t("downloadRow.reorderFailed", { error: String(err) }), "error");
-      }
-    };
 
     const handleToggleFile = async (idx: number) => {
       if (!download.files) return;
@@ -119,7 +101,6 @@ export const DownloadRow = React.memo(
     const errorMessage = getStatusError(status);
     const isDirect = download.kind === "direct" || download.kind === "debrid";
     const activity = getActivityMessage(download);
-    const isQueued = status.kind === "queued";
     const isSeeding = status.kind === "seeding";
 
     const isStalledActivity =
@@ -230,11 +211,6 @@ export const DownloadRow = React.memo(
                 >
                   {download.sourceName}
                 </span>
-                {isQueued && (
-                  <span className="dl-row-queue">
-                    {t("downloadRow.queuePosition", { pos: (download.queuePosition ?? 0) + 1 })}
-                  </span>
-                )}
               </div>
             </div>
 
@@ -351,39 +327,7 @@ export const DownloadRow = React.memo(
               </button>
             )}
 
-            {/* Direct-download mirror switcher */}
-            {isDirect && download.uris && download.uris.length > 1 && (
-              <div className="dl-row-mirror-select-wrapper">
-                <select
-                  className="dl-row-mirror-select"
-                  value={download.sourceUri}
-                  onChange={async (e) => {
-                    const nextUrl = e.target.value;
-                    try {
-                      await updateDirectDownloadUrl(download.id, nextUrl);
-                    } catch (err) {
-                      showToast(t("downloadRow.switchMirrorFailed", { error: String(err) }), "error");
-                    }
-                  }}
-                  title={t("downloadRow.switchMirrorTitle")}
-                >
-                  {download.uris.map((uri, idx) => {
-                    let host = uri;
-                    try {
-                      host = new URL(uri).hostname;
-                    } catch {}
-                    return (
-                      <option key={uri} value={uri}>
-                        {host || `Mirror ${idx + 1}`}
-                      </option>
-                    );
-                  })}
-                </select>
-                <span className="dl-row-mirror-select-caret" aria-hidden>
-                  ▾
-                </span>
-              </div>
-            )}
+
 
             {/* Open Download Folder */}
             <button
@@ -412,28 +356,6 @@ export const DownloadRow = React.memo(
               >
                 <ChevronIcon style={{ transform: expanded ? "rotate(180deg)" : "none" }} />
               </button>
-            )}
-
-            {/* Queue Reorder Controls (for queued items) */}
-            {isQueued && (
-              <>
-                <button
-                  type="button"
-                  className="dl-row-btn"
-                  onClick={() => handleReorder("up")}
-                  title={t("downloadRow.moveUp")}
-                >
-                  ↑
-                </button>
-                <button
-                  type="button"
-                  className="dl-row-btn"
-                  onClick={() => handleReorder("down")}
-                  title={t("downloadRow.moveDown")}
-                >
-                  ↓
-                </button>
-              </>
             )}
 
             {/* Pause Action */}

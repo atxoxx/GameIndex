@@ -1279,6 +1279,7 @@ export const ru: TranslationDict = {
   "downloads.active": "Активные",
   "downloads.alreadyDownloaded": "Уже загружено",
   "downloads.closePanelAria": "Закрыть панель загрузок",
+  "downloads.custom": "Свой",
   "downloads.connectedPeersTitle": "Текущие подключенные пиры",
   "downloads.deleteArchives": "Удалить с диска (только архивы)",
   "downloads.deleteDiskBody": "Это навсегда удалит {size} из {path}. Это действие нельзя отменить.",

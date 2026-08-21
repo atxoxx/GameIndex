@@ -445,6 +445,7 @@ export default function StoreGameDetail() {
               </button>
               <DownloadButton
                 gameName={data.title}
+                gamePoster={data.images?.cover ?? data.images?.hero ?? data.images?.banner ?? undefined}
                 steamAppId={steamAppId ?? undefined}
                 variant="prominent"
                 label={t("game.findDownload")}

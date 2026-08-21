@@ -1279,6 +1279,7 @@ export const fr: TranslationDict = {
   "downloads.active": "Actifs",
   "downloads.alreadyDownloaded": "Déjà téléchargé",
   "downloads.closePanelAria": "Fermer le panneau de téléchargements",
+  "downloads.custom": "Personnalisé",
   "downloads.connectedPeersTitle": "Pairs actuellement connectés",
   "downloads.deleteArchives": "Supprimer du disque (archives uniquement)",
   "downloads.deleteDiskBody": "Cela supprimera définitivement {size} de {path}. Cette action est irréversible.",

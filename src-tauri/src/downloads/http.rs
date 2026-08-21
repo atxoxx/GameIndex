@@ -70,7 +70,7 @@ enum AttemptResult {
 
 /// Run a direct download to completion (or pause/error). Handles
 /// retries and mirror fallback internally; on success marks the record
-/// Completed, triggers extraction, and advances the queue.
+/// Completed and triggers extraction.
 pub async fn run_direct_download(
     id: String,
     url: String,
@@ -513,7 +513,6 @@ async fn finish_with_error(
     }
     if let Some(manager) = manager_weak.upgrade() {
         manager::fail_download(&manager, id, err).await;
-        manager::advance_queue(&manager).await;
     }
 }
 
@@ -575,37 +574,79 @@ async fn finalize_success(
     manager::on_download_finished(&manager, id).await;
 }
 
-/// Token-bucket throttle for the global speed limit. Each byte "costs"
-/// 1/limit seconds, so the next chunk is only released once its quota has
-/// been earned — no window resets, no burst-then-stall sawtooth.
+/// Token-bucket throttle for the global speed limit.
+///
+/// Refills tokens at `limit` bytes/sec with a burst capacity of up to 250ms
+/// (clamped between 512 KB and 16 MB). When tokens go negative, tasks calculate
+/// the sleep time needed to recover the deficit, release the mutex lock immediately,
+/// and sleep outside the lock.
+///
+/// This avoids lock serialization across concurrent Range segments and prevents
+/// OS timer tick quantization (e.g. Windows ~15.6ms sleep) from artificially capping
+/// throughput at 1 MB/s.
 struct Throttle {
-    next_allowed: std::time::Instant,
+    tokens: f64,
+    last_update: std::time::Instant,
 }
 
 impl Throttle {
     fn new() -> Self {
         Self {
-            next_allowed: std::time::Instant::now(),
+            tokens: 0.0,
+            last_update: std::time::Instant::now(),
         }
     }
 
-    async fn account(&mut self, bytes: u64) {
-        let limit = DIRECT_LIMIT_BPS.load(Ordering::Relaxed);
-        if limit == 0 {
-            return;
-        }
-
-        let time_needed = std::time::Duration::from_secs_f64(bytes as f64 / limit as f64);
-
+    fn consume(&mut self, bytes: u64, limit: u64) -> Duration {
         let now = std::time::Instant::now();
-        if now < self.next_allowed {
-            let sleep_time = self.next_allowed - now;
-            // Cap each sleep so the abort check (every 500 ms) stays responsive.
-            tokio::time::sleep(sleep_time.min(std::time::Duration::from_secs(2))).await;
+        let elapsed = now.duration_since(self.last_update).as_secs_f64();
+        self.last_update = now;
+
+        // Capacity: 250 ms of bandwidth, minimum 512 KB, maximum 16 MB.
+        let limit_f64 = limit as f64;
+        let capacity = (limit_f64 * 0.25).clamp(512.0 * 1024.0, 16.0 * 1024.0 * 1024.0);
+
+        // Refill tokens earned over elapsed time.
+        self.tokens = (self.tokens + elapsed * limit_f64).min(capacity);
+
+        // Deduct bytes consumed.
+        self.tokens -= bytes as f64;
+
+        // Prevent runaway negative deficit (clamp to -2 * capacity).
+        let min_deficit = -2.0 * capacity;
+        if self.tokens < min_deficit {
+            self.tokens = min_deficit;
         }
 
-        let after_sleep = std::time::Instant::now();
-        self.next_allowed = std::cmp::max(self.next_allowed, after_sleep) + time_needed;
+        if self.tokens < 0.0 {
+            let wait_secs = (-self.tokens) / limit_f64;
+            Duration::from_secs_f64(wait_secs)
+        } else {
+            Duration::ZERO
+        }
+    }
+}
+
+static GLOBAL_THROTTLE: std::sync::OnceLock<tokio::sync::Mutex<Throttle>> =
+    std::sync::OnceLock::new();
+
+/// Account `bytes` against the process-global direct-download limit.
+/// No-op while the limit is unlimited. Shared across every stream so the
+/// cap applies to the aggregate transfer, not per connection.
+async fn throttle_account(bytes: u64) {
+    let limit = DIRECT_LIMIT_BPS.load(Ordering::Relaxed);
+    if limit == 0 {
+        return;
+    }
+    let wait_time = {
+        let throttle = GLOBAL_THROTTLE.get_or_init(|| tokio::sync::Mutex::new(Throttle::new()));
+        let mut guard = throttle.lock().await;
+        guard.consume(bytes, limit)
+    };
+
+    // Only sleep when deficit is at least 5ms to avoid sub-millisecond timer sleep thrashing.
+    if wait_time >= Duration::from_millis(5) {
+        tokio::time::sleep(wait_time.min(Duration::from_secs(2))).await;
     }
 }
 
@@ -803,7 +844,6 @@ async fn attempt_download(
 
     let mut skip_remaining: u64 = if range_ignored { current_size } else { 0 };
     let mut buffer_size = base_offset + current_size;
-    let mut throttle = Throttle::new();
     let mut abort_check = std::time::Instant::now();
 
     loop {
@@ -883,7 +923,7 @@ async fn attempt_download(
 
         buffer_size += to_write.len() as u64;
         bytes_counter.store(buffer_size, Ordering::SeqCst);
-        throttle.account(to_write.len() as u64).await;
+        throttle_account(to_write.len() as u64).await;
     }
 
     // C1: never rename over the final path on behalf of a superseded
@@ -948,7 +988,6 @@ async fn stream_segment(
     seg_start: u64,
     seg_end: u64,
     bytes_counter: &Arc<AtomicU64>,
-    throttle: &Arc<tokio::sync::Mutex<Throttle>>,
     manager_weak: &WeakManager,
     extra_headers: &[(String, String)],
     referer: Option<&str>,
@@ -1082,7 +1121,7 @@ async fn stream_segment(
             return SegmentResult::Transient(format!("Disk write failed: {}", e));
         }
         bytes_counter.fetch_add(chunk.len() as u64, Ordering::SeqCst);
-        throttle.lock().await.account(chunk.len() as u64).await;
+        throttle_account(chunk.len() as u64).await;
     }
 
     let _ = file.flush().await;
@@ -1260,7 +1299,6 @@ async fn attempt_segmented_download(
         }
     }
 
-    let throttle = Arc::new(tokio::sync::Mutex::new(Throttle::new()));
     let mut set = tokio::task::JoinSet::new();
     for i in 0..seg_count {
         let seg_start = i as u64 * seg_size;
@@ -1274,7 +1312,6 @@ async fn attempt_segmented_download(
         let url_owned = url.to_string();
         let part_path = parent.join(format!("{}.gamelib_tmp.part{:03}", filename, i));
         let counter = Arc::clone(bytes_counter);
-        let throttle = Arc::clone(&throttle);
         let weak = manager_weak.clone();
         let headers = extra_headers.to_vec();
         let referer = referer.map(|s| s.to_string());
@@ -1289,7 +1326,6 @@ async fn attempt_segmented_download(
                     seg_start,
                     seg_end,
                     &counter,
-                    &throttle,
                     &weak,
                     &headers,
                     referer.as_deref(),

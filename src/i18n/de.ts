@@ -1279,6 +1279,7 @@ export const de: TranslationDict = {
   "downloads.active": "Aktiv",
   "downloads.alreadyDownloaded": "Bereits heruntergeladen",
   "downloads.closePanelAria": "Download-Panel schließen",
+  "downloads.custom": "Benutzerdefiniert",
   "downloads.connectedPeersTitle": "Aktuell verbundene Peers",
   "downloads.deleteArchives": "Von der Festplatte löschen (nur Archive)",
   "downloads.deleteDiskBody": "Dadurch werden {size} dauerhaft von {path} entfernt. Diese Aktion kann nicht rückgängig gemacht werden.",

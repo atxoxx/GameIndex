@@ -38,9 +38,18 @@ fn build_peer_opts() -> Option<librqbit::PeerConnectionOptions> {
     })
 }
 
-/// Open (or create) a librqbit session with persistence, falling back
-/// to a non-persistent session when the persistent init fails (e.g.
-/// corrupted session state / read-only cache dir).
+/// How long a librqbit session operation that drains file handles
+/// (pause / delete) may block on in-flight disk I/O before we give up.
+/// librqbit drains handles while holding internal locks; a stuck chunk
+/// write (slow/removed disk, antivirus lock) would otherwise freeze the
+/// whole app, since the lock wait is synchronous.
+pub(crate) const SESSION_OP_TIMEOUT_SECS: u64 = 10;
+
+/// Open (or create) a librqbit session with persistence, recovering
+/// through a ladder of progressively weaker configs when init fails
+/// (e.g. a locked/corrupt DHT routing table, the stored DHT port taken
+/// by a lingering process, or a corrupt session db). Never gives up
+/// session persistence unless nothing else opens.
 pub async fn init_session(
     state_dir: &std::path::Path,
 ) -> Result<Arc<librqbit::Session>, String> {
@@ -51,13 +60,18 @@ pub async fn init_session(
     // keeping it across restarts is the single biggest metadata-fetch
     // speedup (magnets resolve in seconds instead of 30–120 s).
     let dht_persist_path = state_dir.join("dht.json");
-    let make_dht_config = || librqbit::DhtSessionConfig {
+    let session_json_path = state_dir.join("session.json");
+    let make_dht_config = |persist: bool, port: Option<u16>| librqbit::DhtSessionConfig {
         bootstrap_addrs: None,
-        port: None,
-        persistence: Some(librqbit::dht::DhtPersistenceConfig {
-            config_filename: Some(dht_persist_path.clone()),
-            dump_interval: None,
-        }),
+        port,
+        persistence: if persist {
+            Some(librqbit::dht::DhtPersistenceConfig {
+                config_filename: Some(dht_persist_path.clone()),
+                dump_interval: None,
+            })
+        } else {
+            None
+        },
     };
 
     // Session-level trackers: merged into EVERY torrent's announce list.
@@ -71,12 +85,11 @@ pub async fn init_session(
             .collect()
     };
 
-    // Incoming peer listener: ephemeral dualstack (IPv4+IPv6) TCP port.
-    // Replaces the old 6881..6891 range — no conflict risk, the bound
-    // port is read back and announced to trackers. uTP stays off for
-    // now (`ListenerMode::TcpOnly`).
+    // Incoming peer listener: ephemeral dualstack (IPv4+IPv6) TCP + uTP
+    // ports. Replaces the old 6881..6891 range — no conflict risk, the
+    // bound port is read back and announced to trackers.
     let make_listener = || librqbit::ListenerOptions {
-        mode: librqbit::ListenerMode::TcpOnly,
+        mode: librqbit::ListenerMode::TcpAndUtp,
         listen_addr: (std::net::Ipv6Addr::UNSPECIFIED, 0).into(),
         enable_upnp_port_forwarding: true,
         ..Default::default()
@@ -91,40 +104,185 @@ pub async fn init_session(
     };
 
     let make_opts =
-        |persistence: Option<librqbit::SessionPersistenceConfig>| librqbit::SessionOptions {
-            persistence,
-            fastresume: true,
-            listen: Some(make_listener()),
-            connect: Some(make_connect()),
-            concurrent_init_limit: Some(4),
-            dht: Some(make_dht_config()),
-            trackers: session_trackers(),
-            ..Default::default()
+        |session_persist: bool, dht_persist: bool, dht_port: Option<u16>| {
+            librqbit::SessionOptions {
+                persistence: if session_persist {
+                    Some(librqbit::SessionPersistenceConfig::Json {
+                        folder: Some(state_dir.to_path_buf()),
+                    })
+                } else {
+                    None
+                },
+                fastresume: true,
+                listen: Some(make_listener()),
+                connect: Some(make_connect()),
+                concurrent_init_limit: Some(4),
+                dht: Some(make_dht_config(dht_persist, dht_port)),
+                trackers: session_trackers(),
+                ..Default::default()
+            }
         };
 
-    let persistent_opts = make_opts(Some(librqbit::SessionPersistenceConfig::Json {
-        folder: Some(state_dir.to_path_buf()),
-    }));
-
-    match librqbit::Session::new_with_opts(state_dir.to_path_buf(), persistent_opts).await {
-        Ok(s) => Ok(s),
+    // Preferred config: session persistence + fastresume and a persisted
+    // DHT routing table, reusing the stored DHT port (warm start).
+    let err_msg = match librqbit::Session::new_with_opts(
+        state_dir.to_path_buf(),
+        make_opts(true, true, None),
+    )
+    .await
+    {
+        Ok(s) => return Ok(s),
         Err(e) => {
-            let err_msg = e.to_string();
+            let msg = e.to_string();
             eprintln!(
                 "[downloads] Warning: persistent torrent session init failed: {}",
-                err_msg
+                msg
             );
-            eprintln!("[downloads] Falling back to non-persistent session.");
-            let transient_opts = make_opts(None);
-            librqbit::Session::new_with_opts(state_dir.to_path_buf(), transient_opts)
-                .await
-                .map_err(|fallback_err| {
-                    format!(
-                        "Failed to open torrent session (even without persistence): {} \
-                         (original persistent-init error: {})",
-                        fallback_err, err_msg
-                    )
-                })
+            msg
+        }
+    };
+
+    // ── Recovery ladder ────────────────────────────────────────────────
+    // The only init steps that can realistically fail after the state dir
+    // is created are the DHT (locked/unreadable `dht.json`, or the stored
+    // DHT UDP port already taken by a lingering process) and the session
+    // db (`session.json` corrupt after a crash). Retrying the SAME config
+    // as before would just fail again, so walk down in increasing
+    // aggressiveness, keeping session persistence for as long as possible.
+
+    // 1) DHT port conflict? Rebind the DHT on an ephemeral port while
+    //    keeping the routing table and full session persistence.
+    match librqbit::Session::new_with_opts(
+        state_dir.to_path_buf(),
+        make_opts(true, true, Some(0)),
+    )
+    .await
+    {
+        Ok(s) => {
+            eprintln!("[downloads] Recovered: DHT bound to an ephemeral port.");
+            return Ok(s);
+        }
+        Err(e) => eprintln!(
+            "[downloads] Warning: DHT retry on an ephemeral port also failed: {}",
+            e
+        ),
+    }
+
+    // 2) Unreadable/locked routing table? Move it aside so the next
+    //    attempt builds a fresh one (rebuilds within minutes).
+    if quarantine_file(&dht_persist_path, "DHT routing table") {
+        match librqbit::Session::new_with_opts(
+            state_dir.to_path_buf(),
+            make_opts(true, true, None),
+        )
+        .await
+        {
+            Ok(s) => {
+                eprintln!(
+                    "[downloads] Recovered: rebuilt the DHT routing table \
+                     (old table quarantined)."
+                );
+                return Ok(s);
+            }
+            Err(e) => eprintln!(
+                "[downloads] Warning: full-persistence retry after quarantining \
+                 dht.json also failed: {}",
+                e
+            ),
+        }
+    }
+
+    // 3) Corrupt session db? Move it aside too and retry full
+    //    persistence — a fresh session.json restores fastresume.
+    if quarantine_file(&session_json_path, "session database") {
+        match librqbit::Session::new_with_opts(
+            state_dir.to_path_buf(),
+            make_opts(true, true, None),
+        )
+        .await
+        {
+            Ok(s) => {
+                eprintln!(
+                    "[downloads] Recovered: rebuilt the session database \
+                     (old session.json quarantined)."
+                );
+                return Ok(s);
+            }
+            Err(e) => eprintln!(
+                "[downloads] Warning: full-persistence retry after quarantining \
+                 session.json also failed: {}",
+                e
+            ),
+        }
+    }
+
+    // 4) DHT persistence itself is the blocker: keep session persistence
+    //    (torrents + fastresume survive restarts) but run the DHT
+    //    in-memory on a random port.
+    match librqbit::Session::new_with_opts(state_dir.to_path_buf(), make_opts(true, false, None))
+        .await
+    {
+        Ok(s) => {
+            eprintln!(
+                "[downloads] Recovered: session persistence kept, DHT running \
+                 without persistence."
+            );
+            return Ok(s);
+        }
+        Err(e) => eprintln!(
+            "[downloads] Warning: session-persistence-only init also failed: {}",
+            e
+        ),
+    }
+
+    // 5) Last resort: fully transient session (no session persistence, no
+    //    DHT persistence).
+    librqbit::Session::new_with_opts(state_dir.to_path_buf(), make_opts(false, false, None))
+        .await
+        .map_err(|fallback_err| {
+            format!(
+                "Failed to open torrent session (even without persistence): {} \
+                 (original persistent-init error: {})",
+                fallback_err, err_msg
+            )
+        })
+}
+
+/// Move a suspect state file (DHT routing table / session db) out of
+/// the way so the next init builds a fresh one. Best-effort: on Windows
+/// a file locked by a lingering process can't be renamed, and callers
+/// fall further down the recovery ladder. Returns true when moved.
+fn quarantine_file(path: &std::path::Path, what: &str) -> bool {
+    if !path.exists() {
+        return false;
+    }
+    let stamp = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map(|d| d.as_secs())
+        .unwrap_or(0);
+    let file_name = path
+        .file_name()
+        .and_then(|f| f.to_str())
+        .unwrap_or("state");
+    let target = path.with_file_name(format!("{}.corrupt-{}", file_name, stamp));
+    match std::fs::rename(path, &target) {
+        Ok(_) => {
+            eprintln!(
+                "[downloads] Quarantined {} {} -> {}",
+                what,
+                path.display(),
+                target.display()
+            );
+            true
+        }
+        Err(e) => {
+            eprintln!(
+                "[downloads] Could not quarantine {} {}: {}",
+                what,
+                path.display(),
+                e
+            );
+            false
         }
     }
 }
@@ -268,7 +426,11 @@ pub fn map_state_to_status(
         librqbit::TorrentStatsState::Error => {
             DownloadStatus::Error(error.unwrap_or("Torrent error").to_string())
         }
-        librqbit::TorrentStatsState::Initializing { .. } => DownloadStatus::FetchingMetadata,
+        // 9.x allows pausing during the initial file check — the
+        // `paused` flag distinguishes "paused while checking" from a
+        // plain metadata fetch.
+        librqbit::TorrentStatsState::Initializing { paused: true } => DownloadStatus::Paused,
+        librqbit::TorrentStatsState::Initializing { paused: false } => DownloadStatus::FetchingMetadata,
         librqbit::TorrentStatsState::Live => {
             if total == 0 {
                 DownloadStatus::FetchingMetadata
@@ -581,6 +743,46 @@ async fn wait_quiescent(
     }
 }
 
+/// Run a librqbit session operation (pause / delete / unpause) on a
+/// blocking thread and wait up to `max_wait` for it. librqbit drains
+/// file handles under internal locks; a chunk write still in flight
+/// (stuck/slow disk, antivirus lock) makes that lock wait SYNCHRONOUS,
+/// so a plain `timeout` around the future would never fire — the async
+/// worker would just block. Moving the op onto a blocking thread keeps
+/// the runtime free, and the bounded wait means a stuck disk can never
+/// freeze the app. On timeout the op is abandoned — its blocking thread
+/// finishes whenever the disk lets it — and None is returned.
+pub(crate) async fn run_session_op_bounded<F, T>(
+    what: &'static str,
+    fut: F,
+    max_wait: Duration,
+) -> Option<T>
+where
+    F: std::future::Future<Output = T> + Send + 'static,
+    T: Send + 'static,
+{
+    let (tx, rx) = tokio::sync::oneshot::channel();
+    tokio::task::spawn_blocking(move || {
+        let out = tokio::runtime::Handle::current().block_on(fut);
+        let _ = tx.send(out);
+    });
+    match tokio::time::timeout(max_wait, rx).await {
+        Ok(Ok(out)) => Some(out),
+        Ok(Err(_)) => {
+            eprintln!("[downloads] {what}: result channel closed unexpectedly");
+            None
+        }
+        Err(_) => {
+            eprintln!(
+                "[downloads] {what} did not finish within {}s — abandoning it \
+                 (files may stay locked until the app restarts)",
+                max_wait.as_secs()
+            );
+            None
+        }
+    }
+}
+
 /// Pause a session entry, first waiting (bounded) for in-flight writes
 /// to drain so the handle drain can't race a chunk write. Safe on any
 /// state; the errors ("initializing", "already paused") are expected —
@@ -590,32 +792,52 @@ pub async fn pause_torrent(
     handle: &Arc<librqbit::ManagedTorrent>,
 ) {
     wait_quiescent(handle, Duration::from_millis(2000)).await;
-    if let Err(e) = session.pause(handle).await {
+    let session = session.clone();
+    let handle = handle.clone();
+    let fut = async move { session.pause(&handle).await };
+    let outcome = run_session_op_bounded(
+        "torrent pause",
+        fut,
+        Duration::from_secs(SESSION_OP_TIMEOUT_SECS),
+    )
+    .await;
+    if let Some(Err(e)) = outcome {
         println!("[downloads] pause skipped ({}), 1s sweep will retry", e);
     }
 }
 
 /// Delete a session entry (keep files), quiescing first so the
 /// internal pause inside `session.delete` can't race a chunk write.
+/// Runs off the async runtime and gives up after a bounded wait so a
+/// stuck disk write can never hang the app.
 pub async fn delete_torrent_keep_files(
     session: &Arc<librqbit::Session>,
     handle: &Arc<librqbit::ManagedTorrent>,
 ) {
-    wait_quiescent(handle, Duration::from_millis(2000)).await;
-    let _ = session
-        .delete(librqbit::api::TorrentIdOrHash::Id(handle.id()), false)
-        .await;
+    delete_torrent(session, handle, false).await;
 }
 
 /// Delete a session entry (with optional file deletion), quiescing
-/// first. Used by remove-with-files.
+/// first. Used by remove-with-files. Runs off the async runtime and
+/// gives up after a bounded wait so a stuck disk write can never hang
+/// the app.
 pub async fn delete_torrent(
     session: &Arc<librqbit::Session>,
     handle: &Arc<librqbit::ManagedTorrent>,
     delete_files: bool,
 ) {
     wait_quiescent(handle, Duration::from_millis(2000)).await;
-    let _ = session
-        .delete(librqbit::api::TorrentIdOrHash::Id(handle.id()), delete_files)
-        .await;
+    let session = session.clone();
+    let id = handle.id();
+    let fut = async move {
+        session
+            .delete(librqbit::api::TorrentIdOrHash::Id(id), delete_files)
+            .await
+    };
+    let _ = run_session_op_bounded(
+        "torrent delete",
+        fut,
+        Duration::from_secs(SESSION_OP_TIMEOUT_SECS),
+    )
+    .await;
 }

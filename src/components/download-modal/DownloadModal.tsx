@@ -74,6 +74,10 @@ export interface DownloadModalProps {
   /** Optional: when set, the new download is tagged with this
    *  GameContext id so the progress panel can deep-link back. */
   gameId?: string;
+  /** Optional: poster of the game page this download started from,
+   *  persisted on the download record so the Downloads page can show
+   *  the same artwork. */
+  gamePoster?: string;
   /** Optional: Steam AppID — used by the ownership check to look
    *  up Steam-specific ownership data. */
   steamAppId?: number;
@@ -83,6 +87,7 @@ export interface DownloadModalProps {
 export default function DownloadModal({
   gameName,
   gameId,
+  gamePoster,
   steamAppId,
   onClose,
 }: DownloadModalProps) {
@@ -123,11 +128,6 @@ export default function DownloadModal({
   // search every time the user changes the sort.
   const sortByRef = useRef<SortKey>(sortBy);
   sortByRef.current = sortBy;
-  const [selectedMirrorIdx, setSelectedMirrorIdx] = useState(0);
-  // Remember the last mirror the user picked for each source id, so
-  // switching between results and back restores their choice instead
-  // of always defaulting to Mirror 1.
-  const lastMirrorBySourceRef = useRef<Record<string, number>>({});
   const [savePath, setSavePath] = useState<string | null>(() => {
     // Prefer the last-used path (so repeated downloads stay in one
     // place), then fall back to the configured default download
@@ -206,8 +206,8 @@ export default function DownloadModal({
   // effect doesn't re-fire on every search-progress emission (which
   // rebuilds the `matches` array even when the URI is unchanged).
   const selectedSourceUri = useMemo(
-    () => (selectedMatch ? resolveSourceUri(selectedMatch, selectedMirrorIdx) : null),
-    [selectedMatch, selectedMirrorIdx],
+    () => (selectedMatch ? resolveSourceUri(selectedMatch, 0) : null),
+    [selectedMatch],
   );
   const selectedIsMagnet = useMemo(() => {
     if (!selectedMatch || !selectedSourceUri) return false;
@@ -282,49 +282,19 @@ export default function DownloadModal({
     [selectedMatch],
   );
 
-  // Reset selected mirror when the selected result changes, and keep it
-  // inside the bounds of that result's `uris` so we never hand
-  // `resolveSourceUri` an out-of-range index (e.g. when moving from a
-  // 4-mirror result to a 1-mirror one). Also restore the user's last
-  // picked mirror for that source, and drop the "Choose files" flag
-  // whenever the resolved URI is no longer a torrent (e.g. the user
-  // switched to a direct-link mirror) so the hidden checkbox can't
+  // Drop the "Choose files" flag whenever the resolved URI is no longer
+  // a torrent (e.g. a direct-link result) so the hidden checkbox can't
   // leave the flag stale across source types.
   useEffect(() => {
     const match = matches.find((m) => m.id === selectedId);
-    if (!match) {
-      setSelectedMirrorIdx(0);
-      return;
-    }
-    const maxIdx = Math.max(0, (match.uris.length ?? 1) - 1);
-    setSelectedMirrorIdx((prevMirror) => {
-      const remembered = lastMirrorBySourceRef.current[match.sourceId];
-      const nextIdx =
-        remembered != null && remembered <= maxIdx
-          ? remembered
-          : prevMirror > maxIdx
-            ? 0
-            : prevMirror;
-      return nextIdx;
-    });
+    if (!match) return;
     const { isDirect } = classifyUri(
-      resolveSourceUri(match, selectedMirrorIdx),
+      resolveSourceUri(match, 0),
       match.torrentUrl,
     );
     if (isDirect && chooseFiles) setChooseFiles(false);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedId, matches, chooseFiles]);
-
-  // Single place to update the mirror so the choice is remembered per
-  // source for later re-selection.
-  const handleMirrorChange = useCallback(
-    (idx: number) => {
-      setSelectedMirrorIdx(idx);
-      const match = matches.find((m) => m.id === selectedId);
-      if (match) lastMirrorBySourceRef.current[match.sourceId] = idx;
-    },
-    [selectedId, matches],
-  );
   // Marks the moment we entered the metadata-fetch phase so the 30s
   // timeout below is measured from first entry, not from the latest
   // progress poll (which would otherwise keep re-arming and never fire).
@@ -558,7 +528,7 @@ export default function DownloadModal({
         targetUrl ||
         selectedWebUrl ||
         (selectedMatch
-          ? resolveSourceUri(selectedMatch, selectedMirrorIdx)
+          ? resolveSourceUri(selectedMatch, 0)
           : null) ||
         selectedMatch?.detailUrl;
       if (!urlToOpen) return;
@@ -601,7 +571,6 @@ export default function DownloadModal({
     [
       selectedWebUrl,
       selectedMatch,
-      selectedMirrorIdx,
       gameName,
       gameId,
       savePath,
@@ -694,9 +663,9 @@ export default function DownloadModal({
       return;
     }
     const match = selectedMatch;
-    // Single source of truth for which URI the user wants. Respects the
-    // mirror dropdown; falls back to magnet then first URI.
-    const sourceUri = resolveSourceUri(match, selectedMirrorIdx);
+    // Single source of truth for which URI the user wants — the first
+    // URI, falling back to the magnet.
+    const sourceUri = resolveSourceUri(match, 0);
     // Web-link-only / protected results open in the default OS browser
     // so the user can complete the anti-bot challenge and download.
     const webUrl = webUrlFor(match);
@@ -760,6 +729,7 @@ export default function DownloadModal({
             match.uris,
             debridActive,
             match.referer ?? null,
+            gamePoster ?? null,
           );
         } catch (directErr) {
           // G9: hosters that gate the file behind a browser challenge
@@ -785,7 +755,7 @@ export default function DownloadModal({
       // the resolved link over HTTP (no P2P swarm involved).
       if (debridActive && isMagnet) {
         setStep("starting");
-        await addDebridDownload(sourceUri, finalSavePath, gameId ?? null, match.sourceName, autoExtract);
+        await addDebridDownload(sourceUri, finalSavePath, gameId ?? null, match.sourceName, autoExtract, gamePoster ?? null);
         showToast(
           t('downloadModal.downloadingDebrid', { title: match.title, source: match.sourceName }),
           "success",
@@ -800,7 +770,7 @@ export default function DownloadModal({
         setStep("fetching_metadata");
         let newDl;
         try {
-          newDl = await addDownload(sourceUri, finalSavePath, gameId ?? null, match.sourceName, autoExtract, true, match.referer ?? null);
+          newDl = await addDownload(sourceUri, finalSavePath, gameId ?? null, match.sourceName, autoExtract, true, match.referer ?? null, gamePoster ?? null);
         } catch (addErr) {
           if (cancelledRef.current) return;
           console.error("[DownloadModal] list-only add failed:", addErr);
@@ -817,7 +787,7 @@ export default function DownloadModal({
         setTempTorrentId(newDl.id);
       } else {
         setStep("starting");
-        await addDownload(sourceUri, finalSavePath, gameId ?? null, match.sourceName, autoExtract, false, match.referer ?? null);
+        await addDownload(sourceUri, finalSavePath, gameId ?? null, match.sourceName, autoExtract, false, match.referer ?? null, gamePoster ?? null);
         showToast(
           t('downloadModal.downloadingFrom', { title: match.title, source: match.sourceName }),
           "success",
@@ -831,13 +801,13 @@ export default function DownloadModal({
       setStep("results");
     }
   }, [
-    selectedMirrorIdx,
     savePath,
     matches,
     addDownload,
     addDirectDownload,
     addDebridDownload,
     gameId,
+    gamePoster,
     showToast,
     onClose,
     chooseFiles,
@@ -978,7 +948,7 @@ export default function DownloadModal({
   }, [step, t]);
 
   const showResultsUI = step === "results" || step === "starting";
-  const gameCover = targetGame?.coverArtUrl || targetGame?.iconUrl;
+  const gameCover = targetGame?.coverArtUrl || targetGame?.iconUrl || gamePoster;
 
   return createPortal(
     <>
@@ -1143,8 +1113,6 @@ export default function DownloadModal({
                     savePath={savePath}
                     gameName={gameName}
                     onPickPath={handlePickSavePath}
-                    selectedMirrorIdx={selectedMirrorIdx}
-                    onMirrorChange={handleMirrorChange}
                     autoExtract={autoExtract}
                     onAutoExtract={setAutoExtract}
                     chooseFiles={chooseFiles}
@@ -1216,14 +1184,13 @@ export default function DownloadModal({
             )}
 
             {step === "starting" && (() => {
-              const liveUri = resolveSourceUri(selectedMatch ?? undefined, selectedMirrorIdx);
+              const liveUri = resolveSourceUri(selectedMatch ?? undefined, 0);
               const live = liveUri
                 ? activeDownloads.find((d) => d.sourceUri === liveUri)
                 : undefined;
               return (
                 <StartingStatus
                   match={selectedMatch}
-                  selectedMirrorIdx={selectedMirrorIdx}
                   elapsedSec={elapsedSec}
                   peers={live?.peers ?? 0}
                   seeds={live?.seeds ?? 0}
@@ -1329,7 +1296,7 @@ export default function DownloadModal({
                     if (selectedWebUrl) return t('downloadModal.openInBrowser');
                     const selMatch = selectedMatch;
                     const { isDirect } = classifyUri(
-                      resolveSourceUri(selMatch ?? undefined, selectedMirrorIdx),
+                      resolveSourceUri(selMatch ?? undefined, 0),
                       selMatch?.torrentUrl,
                     );
                     if (chooseFiles && !isDirect) return t('downloadModal.fetchFiles');

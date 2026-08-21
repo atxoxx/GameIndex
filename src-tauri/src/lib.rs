@@ -3744,7 +3744,6 @@ pub fn run() {
             downloads::torrent_start_selected,
             downloads::torrent_set_speed_limits,
             downloads::torrent_open_folder,
-            downloads::download_queue_reorder,
             downloads::download_set_seed_config,
             downloads::download_set_seeding,
             downloads::download_history_get,

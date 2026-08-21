@@ -497,6 +497,7 @@ pub async fn start_emulator_install(
         entry.url.to_string(),
         save_path.to_string_lossy().into_owned(),
         None,
+        None,
         "Emulator".to_string(),
         Some(true),
         None,

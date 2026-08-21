@@ -148,8 +148,9 @@ export function useDownloadCoverArt(download: TorrentDownload): {
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
-    // If local game has artwork or we already have a cached remote artwork, nothing to fetch
-    if (localArtwork || coverArtCache.has(normCleaned)) {
+    // If the download carries the game page poster, the local game has
+    // artwork, or we already have a cached remote artwork, nothing to fetch
+    if (download.gamePoster || localArtwork || coverArtCache.has(normCleaned)) {
       if (coverArtCache.has(normCleaned)) {
         setRemoteArtwork(coverArtCache.get(normCleaned) || null);
       }
@@ -180,11 +181,13 @@ export function useDownloadCoverArt(download: TorrentDownload): {
     return () => {
       isMounted = false;
     };
-  }, [cleanedName, normCleaned, localArtwork]);
+  }, [cleanedName, normCleaned, localArtwork, download.gamePoster]);
 
   return {
     matchedGame,
-    coverArtUrl: localArtwork || remoteArtwork,
+    // The game page poster (persisted on the download record when the
+    // download started from a store/game page) wins over every fallback.
+    coverArtUrl: download.gamePoster || localArtwork || remoteArtwork,
     loading,
   };
 }

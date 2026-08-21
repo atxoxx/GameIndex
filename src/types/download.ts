@@ -99,6 +99,12 @@ export interface TorrentDownload {
   status: DownloadStatus;
   /** Optional GameContext id, set when the DownloadModal knows the game. */
   gameId: string | null;
+  /**
+   * Poster image (URL or base64 data URI) of the game page this
+   * download was started from. Persisted backend-side so it survives
+   * the poller overwriting the record.
+   */
+  gamePoster?: string;
   /** Display name of the source the URI came from. */
   sourceName: string;
   /** Unix seconds when the user added the download. */

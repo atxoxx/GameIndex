@@ -7,7 +7,6 @@ import {
   webUrlFor,
 } from "./helpers";
 import type { DisplayMatch, CacheCheckStatus } from "./types";
-import { MirrorPicker } from "./MirrorPicker";
 import { OptionsSection } from "./OptionsSection";
 import { SavePathPicker } from "./SavePathPicker";
 
@@ -20,8 +19,6 @@ export function DetailPanel({
   savePath,
   gameName,
   onPickPath,
-  selectedMirrorIdx,
-  onMirrorChange,
   autoExtract,
   onAutoExtract,
   chooseFiles,
@@ -40,8 +37,6 @@ export function DetailPanel({
   savePath: string | null;
   gameName: string;
   onPickPath: () => void;
-  selectedMirrorIdx: number;
-  onMirrorChange: (idx: number) => void;
   autoExtract: boolean;
   onAutoExtract: (v: boolean) => void;
   chooseFiles: boolean;
@@ -82,13 +77,13 @@ export function DetailPanel({
     );
   }
 
-  const sourceUri = resolveSourceUri(match, selectedMirrorIdx);
+  const sourceUri = resolveSourceUri(match, 0);
   const { isMagnet, isTorrentFile, isDirect } = classifyUri(sourceUri, match.torrentUrl);
   const webUrl = webUrlFor(match);
   const detailUrl = match.detailUrl && match.detailUrl.trim();
   const showOpenPage = !webUrl && !isDirect && Boolean(detailUrl);
   const debridAvailable = debridConfigured && (isMagnet || isTorrentFile || isDirect);
-  const hostLabel = sourceUri ? hostLabelForUri(sourceUri, selectedMirrorIdx) : null;
+  const hostLabel = sourceUri ? hostLabelForUri(sourceUri, 0) : null;
   const needsBrowser = hosterNeedsBrowser(sourceUri);
 
   const typeLabel = webUrl
@@ -157,21 +152,6 @@ export function DetailPanel({
             <span className="dl-panel-section-title">{t("downloadModal.destinationFolder")}</span>
           </div>
           <SavePathPicker savePath={savePath} gameName={gameName} onPickPath={onPickPath} />
-        </div>
-      )}
-
-      {/* Mirrors Section (if multiple mirrors exist) */}
-      {match.uris.length > 1 && (
-        <div className="dl-panel-section">
-          <div className="dl-panel-section-header">
-            <span className="dl-panel-section-title">{t("downloadModal.sectionMirrors")}</span>
-            <span className="dl-panel-count-tag">{match.uris.length}</span>
-          </div>
-          <MirrorPicker
-            uris={match.uris}
-            selectedMirrorIdx={selectedMirrorIdx}
-            onChange={onMirrorChange}
-          />
         </div>
       )}
 
