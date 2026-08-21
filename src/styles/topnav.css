@@ -80,6 +80,8 @@
   align-items: center;
   gap: 3px;
   overflow-x: auto;
+  overflow-y: hidden;
+  overscroll-behavior-x: contain;
   min-width: 0;
   flex-shrink: 1;
   scrollbar-width: none;

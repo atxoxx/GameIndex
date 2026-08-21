@@ -101,6 +101,36 @@ export default function TopNav() {
   // `.topnav` containing block (set in App.css).
   const [downloadsOpen, setDownloadsOpen] = useState(false);
   const downloadBtnRef = useRef<HTMLButtonElement>(null);
+
+  // The tab bar scrolls horizontally with no visible scrollbar, so
+  // the wheel is the only obvious way to move it. Translate vertical
+  // wheel gestures into horizontal scrolling (trackpad swipes pass
+  // through untouched) so no tab ever feels trapped off-screen.
+  const tabsRef = useRef<HTMLDivElement>(null);
+  const handleTabsWheel = useCallback((e: globalThis.WheelEvent) => {
+    const el = tabsRef.current;
+    if (!el || el.scrollWidth <= el.clientWidth) return;
+    if (Math.abs(e.deltaY) > Math.abs(e.deltaX)) {
+      e.preventDefault();
+      el.scrollLeft += e.deltaY;
+    }
+  }, []);
+
+  useEffect(() => {
+    const el = tabsRef.current;
+    if (!el) return;
+    el.addEventListener("wheel", handleTabsWheel, { passive: false });
+    return () => el.removeEventListener("wheel", handleTabsWheel);
+  }, [handleTabsWheel]);
+
+  // Keep the active tab in view when the route changes — with a
+  // scrollable bar the current tab can otherwise sit off-screen.
+  useEffect(() => {
+    const el = tabsRef.current;
+    if (!el) return;
+    const active = el.querySelector<HTMLElement>(".topnav-tab.active");
+    active?.scrollIntoView({ behavior: "smooth", inline: "center", block: "nearest" });
+  }, [location.pathname]);
   // Stable id so the popover div and the trigger button are linked
   // via `aria-controls` for screen readers.
   const popoverId = useId();
@@ -161,7 +191,7 @@ export default function TopNav() {
             <span className="topnav-logo__version">v{version}</span>
           )}
         </NavLink>
-        <div className="topnav-tabs">
+        <div ref={tabsRef} className="topnav-tabs">
           {navTabs.map((tab) => {
             const Icon = tab.icon;
             const isActive = location.pathname.startsWith(tab.path);
