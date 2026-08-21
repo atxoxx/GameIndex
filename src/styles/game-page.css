@@ -1,8 +1,15 @@
-/* Game Page */
+/* Game Page — full-width inside .app-main (no capped container; hero + grid stretch to panel) */
 .game-page {
-  max-width: var(--content-max-width, 1440px);
-  margin: 0 auto;
+  width: 100%;
+  max-width: none;
+  margin: 0;
   padding: var(--space-2xl);
+  box-sizing: border-box;
+}
+
+.game-page.store-detail-page {
+  width: 100%;
+  max-width: none;
 }
 
 /* Mid-width: keep the 2-column rhythm but let the side column
