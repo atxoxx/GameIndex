@@ -9,6 +9,13 @@ import type { DealItem } from "../types/deals";
 import type { NewsArticle } from "../hooks/useNewsFeeds";
 import { loadSavedArticles, toggleSavedArticle } from "./communityStorage";
 import HomeHero from "../components/hero/HomeHero";
+import HomeQuickStats from "../components/home/HomeQuickStats";
+import HomeQuickLaunch from "../components/home/HomeQuickLaunch";
+import HomeFriendsFeed from "../components/home/HomeFriendsFeed";
+import HomeCustomizeModal, {
+  loadHomeSectionsConfig,
+  type HomeSectionsConfig,
+} from "../components/home/HomeCustomizeModal";
 import ContinuePlayingRail from "../components/library/ContinuePlayingRail";
 import RecentlyAddedRail from "../components/library/RecentlyAddedRail";
 import HomeActivityRecap from "../components/home/HomeActivityRecap";
@@ -23,19 +30,12 @@ import DealDetailModal, {
 import NewsArticlePreview from "../components/news/NewsArticlePreview";
 
 /**
- * Home — the app's dashboard landing surface.
+ * HomePage — the app's refined central dashboard.
  *
- * A cinematic spotlight hero leads the page; below it a two-column
- * dashboard grid pulls in the best of every other surface:
- *   • Sidebar — Activity recap (this-week stats + heatmap) and recent
- *     achievement unlocks.
- *   • Main — the library rails (Continue Playing / Recently Added),
- *     live downloads, the wishlist strip, top deals and latest news.
- *
- * Each widget reuses the owning page's context/hook so the data is the
- * same the user sees on the dedicated page, just distilled. Modals for
- * deal detail and article reading are mounted here so nothing on the
- * home page dead-ends.
+ * Cinematic multi-spotlight hero with instant resume, quick stats KPI bar,
+ * customizable 2-column player dashboard with sidebar widgets (Quick Launch,
+ * Weekly Activity, Achievements, Friends) and curated discovery rails
+ * (Continue Playing, Recently Added, Active Downloads, Wishlist, Deals, News).
  */
 export default function HomePage() {
   const navigate = useNavigate();
@@ -46,6 +46,10 @@ export default function HomePage() {
   const [dealTarget, setDealTarget] = useState<ModalDealTarget | null>(null);
   const [selectedArticle, setSelectedArticle] = useState<NewsArticle | null>(null);
   const [savedArticles, setSavedArticles] = useState(() => loadSavedArticles());
+  const [customizeOpen, setCustomizeOpen] = useState(false);
+  const [sectionsConfig, setSectionsConfig] = useState<HomeSectionsConfig>(() =>
+    loadHomeSectionsConfig()
+  );
 
   const isEmpty = games.length === 0;
 
@@ -85,26 +89,64 @@ export default function HomePage() {
 
   return (
     <div className="home-page">
+      {/* 1. Cinematic Multi-Candidate Spotlight Hero */}
       <HomeHero games={games} onOpenGame={openGame} />
 
+      {/* 2. Glanceable Quick Stats Bar */}
+      {sectionsConfig.quickStats && !isEmpty && <HomeQuickStats />}
+
+      {/* 3. Dashboard Grid Header with Customization Trigger */}
+      <div className="home-dashboard-header">
+        <h2 className="home-dashboard-title">{t("stats.tab.overview")}</h2>
+        <button
+          type="button"
+          className="home-customize-btn"
+          onClick={() => setCustomizeOpen(true)}
+          title={t("home.customize.title")}
+          aria-label={t("home.customize.title")}
+        >
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+            <circle cx="12" cy="12" r="3" />
+            <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z" />
+          </svg>
+          <span>{t("home.customize.title")}</span>
+        </button>
+      </div>
+
+      {/* 4. Two-column Player Dashboard */}
       <div className="home-dashboard">
+        {/* Left Sidebar: Quick Launch, Activity, Achievements, Friends */}
         <aside className="home-dashboard__sidebar">
-          <HomeActivityRecap />
-          <HomeAchievements />
+          {sectionsConfig.quickLaunch && !isEmpty && <HomeQuickLaunch />}
+          {sectionsConfig.activity && <HomeActivityRecap />}
+          {sectionsConfig.achievements && <HomeAchievements />}
+          {sectionsConfig.friends && <HomeFriendsFeed />}
         </aside>
 
+        {/* Right Main Column: Rails, Downloads, Discovery */}
         <div className="home-dashboard__main">
-          {!isEmpty && <ContinuePlayingRail games={games} onCardClick={openGame} />}
-          {!isEmpty && games.length >= 4 && (
+          {sectionsConfig.continuePlaying && !isEmpty && (
+            <ContinuePlayingRail games={games} onCardClick={openGame} />
+          )}
+          {sectionsConfig.recentlyAdded && !isEmpty && games.length >= 4 && (
             <RecentlyAddedRail games={games} onCardClick={openGame} />
           )}
-          <HomeDownloads />
-          <HomeWishlistRail />
-          <HomeDealsRail onInspect={handleInspectDeal} />
-          <HomeNewsRail onSelectArticle={handleSelectArticle} />
+          {sectionsConfig.downloads && <HomeDownloads />}
+          {sectionsConfig.wishlist && <HomeWishlistRail />}
+          {sectionsConfig.deals && <HomeDealsRail onInspect={handleInspectDeal} />}
+          {sectionsConfig.news && <HomeNewsRail onSelectArticle={handleSelectArticle} />}
         </div>
       </div>
 
+      {/* 5. Customization Modal */}
+      <HomeCustomizeModal
+        isOpen={customizeOpen}
+        config={sectionsConfig}
+        onChange={setSectionsConfig}
+        onClose={() => setCustomizeOpen(false)}
+      />
+
+      {/* 6. Detail modals */}
       <DealDetailModal
         target={dealTarget}
         onClose={() => setDealTarget(null)}

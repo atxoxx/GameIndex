@@ -1,20 +1,16 @@
 import { useMemo } from "react";
+import { useNavigate } from "react-router-dom";
 import { useActivity } from "../../context/ActivityContext";
+import { useGames } from "../../context/GameContext";
 import { useLanguage } from "../../context/LanguageContext";
 import { formatPlayTime } from "../../types/game";
 import { WeeklyHeatmap } from "../activity/WeeklyHeatmap";
 import HomeSection from "./HomeSection";
 
-/**
- * HomeActivityRecap — the Activity dashboard distilled into a sidebar
- * widget. Shows this-week playtime, session count, games played and the
- * most-played title, over a compact 7-day heatmap.
- *
- * All numbers derive from `ActivityContext.sessions` (the same source the
- * full Activity page uses), so the widget stays live as sessions land.
- */
 export default function HomeActivityRecap() {
+  const navigate = useNavigate();
   const { sessions } = useActivity();
+  const { games, launchGame, runningGameIds } = useGames();
   const { t } = useLanguage();
 
   const week = useMemo(() => {
@@ -25,9 +21,9 @@ export default function HomeActivityRecap() {
     });
 
     const totalMin = weekSessions.reduce((sum, s) => sum + s.durationMin, 0);
-    const gameMinutes = new Map<string, { name: string; minutes: number }>();
+    const gameMinutes = new Map<string, { id: string; name: string; minutes: number }>();
     for (const s of weekSessions) {
-      const entry = gameMinutes.get(s.gameId) ?? { name: s.gameName, minutes: 0 };
+      const entry = gameMinutes.get(s.gameId) ?? { id: s.gameId, name: s.gameName, minutes: 0 };
       entry.minutes += s.durationMin;
       gameMinutes.set(s.gameId, entry);
     }
@@ -42,6 +38,15 @@ export default function HomeActivityRecap() {
       mostPlayed,
     };
   }, [sessions]);
+
+  const mostPlayedGame = useMemo(() => {
+    if (!week.mostPlayed) return null;
+    return games.find((g) => g.id === week.mostPlayed?.id) ?? null;
+  }, [games, week.mostPlayed]);
+
+  const isMostPlayedRunning = mostPlayedGame
+    ? runningGameIds.includes(mostPlayedGame.id)
+    : false;
 
   const cells = [
     { label: t("activityDash.totalPlaytime"), value: formatPlayTime(week.totalMin) },
@@ -81,16 +86,47 @@ export default function HomeActivityRecap() {
           </div>
 
           {week.mostPlayed && (
-            <div className="home-activity__most-played" title={week.mostPlayed.name}>
-              <span className="home-activity__most-played-label">
-                {t("home.activity.mostPlayed")}
-              </span>
-              <span className="home-activity__most-played-name">
-                {week.mostPlayed.name}
-              </span>
+            <div
+              className="home-activity__most-played"
+              onClick={() => {
+                if (week.mostPlayed) navigate(`/library/${week.mostPlayed.id}`);
+              }}
+              role="button"
+              tabIndex={0}
+              onKeyDown={(e) => {
+                if (e.key === "Enter" || e.key === " ") {
+                  if (week.mostPlayed) navigate(`/library/${week.mostPlayed.id}`);
+                }
+              }}
+              title={week.mostPlayed.name}
+            >
+              <div className="home-activity__most-played-info">
+                <span className="home-activity__most-played-label">
+                  {t("home.activity.mostPlayed")}
+                </span>
+                <span className="home-activity__most-played-name">
+                  {week.mostPlayed.name}
+                </span>
+              </div>
               <span className="home-activity__most-played-time">
                 {formatPlayTime(week.mostPlayed.minutes)}
               </span>
+              {mostPlayedGame && (
+                <button
+                  type="button"
+                  className={`home-activity__launch-btn${isMostPlayedRunning ? " running" : ""}`}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    launchGame(mostPlayedGame);
+                  }}
+                  title={isMostPlayedRunning ? t("game.resume") : t("game.play")}
+                  aria-label={isMostPlayedRunning ? t("game.resume") : t("game.play")}
+                >
+                  <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden>
+                    <polygon points="5 3 19 12 5 21 5 3" />
+                  </svg>
+                </button>
+              )}
             </div>
           )}
 
