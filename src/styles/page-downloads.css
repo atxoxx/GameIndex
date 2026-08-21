@@ -96,7 +96,9 @@
   display: flex;
   flex-direction: column;
   width: 100%;
-  transition: all var(--transition-fast);
+  transition: background var(--transition-fast),
+              border-color var(--transition-fast),
+              box-shadow var(--transition-fast);
 }
 
 .dl-row-container:has(.dl-row-details) .dl-row {
@@ -117,12 +119,18 @@
   border-left: 4px solid var(--color-border);
   border-radius: var(--radius-lg);
   box-shadow: var(--shadow-xs);
-  transition: all var(--transition-fast);
+  transition: background var(--transition-fast),
+              border-color var(--transition-fast),
+              box-shadow var(--transition-fast),
+              transform var(--transition-fast);
 }
 
-.dl-row--compact {
-  padding: 6px var(--space-sm) !important;
-  gap: var(--space-sm) !important;
+/* Compact density. Same specificity as `.dl-page .dl-row` and declared
+ * later, so it wins the cascade without !important (the old !important
+ * patches existed only because this selector was a single class). */
+.dl-page .dl-row--compact {
+  padding: 6px var(--space-sm);
+  gap: var(--space-sm);
 }
 
 .dl-page .dl-row:hover {
@@ -148,6 +156,74 @@
 
 .dl-page .dl-row.paused {
   border-left-color: var(--color-warning);
+}
+
+/* ── Responsive row collapse (pure CSS — no TSX changes) ───────────
+ * The desktop row is a 7-lane grid whose fixed floors (~480px) leave
+ * the name column nothing on narrow windows. Two stages:
+ *
+ * ≤1100px — 4 lanes: [checkbox] [status] [main] [actions].
+ *   Thumbnail + swarm columns hide; the SPEED column folds onto its
+ *   own lane BELOW the main info so live throughput stays visible.
+ *   (Note: source/date were never separate lanes — the source pill
+ *   already lives inline in `.dl-row-name-row` — so the lanes that
+ *   actually collapse are thumb/swarm.)
+ * ≤760px — full stack: status / name+progress / speed rows with
+ *   actions pinned to the right edge; progress sits under the title.
+ * Explicit grid-column/row assignments keep lanes stable whether or
+ * not the bulk-select checkbox and thumbnail are rendered. */
+@media (max-width: 1100px) {
+  .dl-page .dl-row {
+    grid-template-columns: auto minmax(86px, 110px) minmax(0, 1fr) auto;
+    grid-template-rows: auto auto;
+    row-gap: var(--space-xs);
+  }
+
+  .dl-row-thumb,
+  .dl-row-swarm {
+    display: none;
+  }
+
+  .dl-row-checkbox-cell { grid-column: 1; grid-row: 1; }
+  .dl-row-status        { grid-column: 2; grid-row: 1; }
+  .dl-row-main          { grid-column: 3; grid-row: 1; }
+
+  .dl-row-speed {
+    grid-column: 3;
+    grid-row: 2;
+    flex-direction: row;
+    align-items: center;
+    justify-content: flex-start;
+    gap: var(--space-md);
+    text-align: left;
+  }
+
+  .dl-row-actions {
+    grid-column: 4;
+    grid-row: 1 / span 2;
+    align-self: center;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+  }
+}
+
+@media (max-width: 760px) {
+  .dl-page .dl-row {
+    grid-template-columns: auto minmax(0, 1fr) auto;
+    grid-template-rows: auto auto auto;
+  }
+
+  .dl-row-checkbox-cell { grid-column: 1; grid-row: 1 / span 3; align-self: start; }
+  .dl-row-status        { grid-column: 2; grid-row: 1; }
+  .dl-row-main          { grid-column: 2; grid-row: 2; }
+  .dl-row-speed         { grid-column: 2; grid-row: 3; }
+
+  .dl-row-actions {
+    grid-column: 3;
+    grid-row: 1 / span 3;
+    align-self: center;
+    flex-wrap: wrap;
+  }
 }
 
 /* ── Custom Styled Checkboxes ────────────────────────────────────── */
@@ -215,7 +291,7 @@ input[type="checkbox"].dl-file-checkbox:focus-visible {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  font-size: 10px;
+  font-size: var(--font-size-2xs);
   font-weight: 800;
   padding: 4px 9px;
   border-radius: var(--radius-sm);
@@ -317,7 +393,7 @@ input[type="checkbox"].dl-file-checkbox:focus-visible {
 }
 
 .dl-row-source {
-  font-size: 10px;
+  font-size: var(--font-size-2xs);
   font-weight: var(--font-weight-bold);
   color: var(--color-text-muted);
   text-transform: uppercase;
@@ -507,7 +583,11 @@ input[type="checkbox"].dl-file-checkbox:focus-visible {
   border-radius: var(--radius-md);
   color: var(--color-text-secondary);
   cursor: pointer;
-  transition: all var(--transition-fast);
+  transition: background var(--transition-fast),
+              border-color var(--transition-fast),
+              color var(--transition-fast),
+              box-shadow var(--transition-fast),
+              transform var(--transition-fast);
   padding: 0;
 }
 
@@ -582,7 +662,8 @@ input[type="checkbox"].dl-file-checkbox:focus-visible {
   font-family: inherit;
   cursor: pointer;
   outline: none;
-  transition: all var(--transition-fast);
+  transition: border-color var(--transition-fast),
+              color var(--transition-fast);
   text-overflow: ellipsis;
   white-space: nowrap;
 }
@@ -659,7 +740,9 @@ input[type="checkbox"].dl-file-checkbox:focus-visible {
   border-radius: var(--radius-md);
   background: var(--color-bg-primary);
   border: 1px solid color-mix(in srgb, var(--color-border) 50%, transparent);
-  transition: all var(--transition-fast);
+  transition: background var(--transition-fast),
+              border-color var(--transition-fast),
+              transform var(--transition-fast);
 }
 
 .dl-file-item:hover {
@@ -803,7 +886,10 @@ input[type="checkbox"].dl-file-checkbox:focus-visible {
   font-size: 11px;
   font-weight: var(--font-weight-semibold);
   cursor: pointer;
-  transition: all var(--transition-fast);
+  transition: background var(--transition-fast),
+              border-color var(--transition-fast),
+              box-shadow var(--transition-fast),
+              color var(--transition-fast);
 }
 
 .dl-hero-stats-btn:hover {
@@ -814,7 +900,10 @@ input[type="checkbox"].dl-file-checkbox:focus-visible {
 }
 
 .dl-stats-backdrop {
-  z-index: 1200;
+  /* Full-screen backdrop for the stats/telemetry MODAL (the
+   * .dl-stats-modal dialog sits inside it) — so this takes the modal
+   * rung of the z ladder, not the popover rung. */
+  z-index: var(--z-modal);
 }
 
 .dl-stats-modal {
@@ -897,7 +986,9 @@ input[type="checkbox"].dl-file-checkbox:focus-visible {
   font-size: var(--font-size-sm);
   font-weight: var(--font-weight-medium);
   cursor: pointer;
-  transition: all var(--transition-fast);
+  transition: color var(--transition-fast),
+              background var(--transition-fast),
+              border-color var(--transition-fast);
   white-space: nowrap;
 }
 
@@ -918,7 +1009,7 @@ input[type="checkbox"].dl-file-checkbox:focus-visible {
   align-items: center;
   justify-content: center;
   padding: 1px 6px;
-  font-size: 10px;
+  font-size: var(--font-size-2xs);
   border-radius: var(--radius-full);
   background: var(--color-bg-secondary);
   color: var(--color-text-muted);
@@ -1320,7 +1411,7 @@ input[type="checkbox"].dl-file-checkbox:focus-visible {
 
 .dl-stats-status-tag {
   padding: 2px 6px;
-  font-size: 10px;
+  font-size: var(--font-size-2xs);
   font-weight: var(--font-weight-semibold);
   border-radius: var(--radius-xs);
   text-transform: uppercase;
@@ -1348,7 +1439,7 @@ input[type="checkbox"].dl-file-checkbox:focus-visible {
 }
 
 .dl-stats-mini-sub {
-  font-size: 10px;
+  font-size: var(--font-size-2xs);
   color: var(--color-text-muted);
 }
 
@@ -1482,7 +1573,7 @@ input[type="checkbox"].dl-file-checkbox:focus-visible {
 }
 
 .dl-stats-tbl-source {
-  font-size: 10px;
+  font-size: var(--font-size-2xs);
   color: var(--color-text-muted);
 }
 
@@ -1490,7 +1581,7 @@ input[type="checkbox"].dl-file-checkbox:focus-visible {
   display: inline-block;
   padding: 2px 6px;
   border-radius: var(--radius-xs);
-  font-size: 10px;
+  font-size: var(--font-size-2xs);
   font-weight: var(--font-weight-semibold);
   text-transform: uppercase;
 }
@@ -1503,7 +1594,7 @@ input[type="checkbox"].dl-file-checkbox:focus-visible {
   display: inline-block;
   padding: 2px 6px;
   border-radius: var(--radius-xs);
-  font-size: 10px;
+  font-size: var(--font-size-2xs);
   font-weight: var(--font-weight-semibold);
   text-transform: capitalize;
 }
@@ -1577,7 +1668,8 @@ input[type="checkbox"].dl-file-checkbox:focus-visible {
   border-radius: var(--radius-sm);
   color: var(--color-text-secondary);
   cursor: pointer;
-  transition: all var(--transition-fast);
+  transition: background var(--transition-fast),
+              color var(--transition-fast);
 }
 
 .dl-stats-format-btn.active {

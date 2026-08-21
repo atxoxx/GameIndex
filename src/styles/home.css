@@ -308,7 +308,7 @@
   align-items: center;
   gap: 5px;
   padding: 4px 10px;
-  font-size: 10px;
+  font-size: var(--font-size-2xs);
   font-weight: var(--font-weight-bold);
   letter-spacing: 0.5px;
   text-transform: uppercase;
@@ -373,6 +373,17 @@
   transform: translateY(0) scale(1);
 }
 
+/* Touch / no-hover devices: there is no hover to reveal the FAB, so
+ * keep it visible. This is a POINTER-CAPABILITY query, not a width
+ * guess — a 700px tablet or a touch laptop gets the play button too
+ * (the old ≤600px width hack missed those devices entirely). */
+@media (hover: none) {
+  .home-spotlight__play {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
 .home-spotlight__play.running {
   background: var(--color-success);
   border-color: color-mix(in srgb, var(--color-success) 55%, transparent);
@@ -427,7 +438,7 @@
   align-items: center;
   gap: 4px;
   padding: 3px 9px;
-  font-size: 10px;
+  font-size: var(--font-size-2xs);
   font-weight: var(--font-weight-semibold);
   color: var(--color-text-primary);
   background: color-mix(in srgb, var(--color-bg-primary) 52%, transparent);
@@ -495,11 +506,6 @@
   .home-spotlight {
     width: 100%;
     max-width: none;
-  }
-
-  .home-spotlight__play {
-    opacity: 1;
-    transform: translateY(0) scale(1);
   }
 }
 

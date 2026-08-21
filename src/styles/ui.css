@@ -64,17 +64,21 @@
 }
 
 /* Variants */
+/* The glossy top edge derives from --color-accent-contrast instead of a
+ * raw white: identical rendering in dark themes (white ink), and it
+ * adapts per theme — e.g. Nord pairs a light accent with dark contrast
+ * ink, where a hardcoded white inset would wash out. */
 .ui-btn--primary {
   background: var(--brand-gradient-strong);
   color: var(--color-accent-contrast, #ffffff);
   border-color: transparent;
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.25), 0 3px 12px var(--color-accent-glow);
+  box-shadow: inset 0 1px 0 color-mix(in srgb, var(--color-accent-contrast) 25%, transparent), 0 3px 12px var(--color-accent-glow);
 }
 
 .ui-btn--primary:hover:not(:disabled) {
   filter: brightness(1.08);
   transform: translateY(-1px);
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.3), 0 5px 16px var(--color-accent-glow);
+  box-shadow: inset 0 1px 0 color-mix(in srgb, var(--color-accent-contrast) 30%, transparent), 0 5px 16px var(--color-accent-glow);
 }
 
 .ui-btn--secondary {
@@ -120,13 +124,13 @@
   color: #fff;
   background: var(--color-danger);
   border-color: transparent;
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.18), 0 2px 8px color-mix(in srgb, var(--color-danger) 30%, transparent);
+  box-shadow: inset 0 1px 0 color-mix(in srgb, var(--color-accent-contrast) 18%, transparent), 0 2px 8px color-mix(in srgb, var(--color-danger) 30%, transparent);
 }
 
 .ui-btn--danger:hover:not(:disabled) {
   background: color-mix(in srgb, var(--color-danger) 88%, white 12%);
   transform: translateY(-1px);
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.22), 0 4px 12px color-mix(in srgb, var(--color-danger) 40%, transparent);
+  box-shadow: inset 0 1px 0 color-mix(in srgb, var(--color-accent-contrast) 22%, transparent), 0 4px 12px color-mix(in srgb, var(--color-danger) 40%, transparent);
 }
 
 /* Icon slots */
@@ -227,7 +231,7 @@
   align-items: center;
   gap: 4px;
   padding: 2px 8px;
-  font-size: 10px;
+  font-size: var(--font-size-2xs);
   font-weight: var(--font-weight-bold);
   border-radius: var(--radius-full);
   text-transform: uppercase;
@@ -235,7 +239,7 @@
   white-space: nowrap;
   border: 1px solid transparent;
   line-height: 1.4;
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.06);
+  box-shadow: inset 0 1px 0 var(--color-border-faint);
 }
 
 .ui-badge--md {
@@ -296,7 +300,10 @@
 
 .ui-tooltip {
   position: fixed;
-  z-index: 10000;
+  /* Tooltips portal to <body> and must float above modal content
+   * (--z-modal); the toast tier is the only rung above it, and a
+   * tooltip briefly overlapping a toast is harmless. */
+  z-index: var(--z-toast);
   pointer-events: none;
   transform: translate(-50%, -100%);
   animation: ui-tooltip-in var(--duration-fast) var(--ease-enter) both;
@@ -572,6 +579,16 @@
 .kpi-tile--clickable:focus-within .kpi-tile__pencil {
   opacity: 1;
   transform: scale(1);
+}
+
+/* Touch / no-hover devices: there is no hover to reveal the pencil,
+ * so keep it visible (the tile's first tap opens the editor anyway;
+ * the pencil then reads as an always-available edit cue). */
+@media (hover: none) {
+  .kpi-tile__pencil {
+    opacity: 1;
+    transform: scale(1);
+  }
 }
 
 /* Honor reduced motion: snap instead of fade so users who've

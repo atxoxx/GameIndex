@@ -12,9 +12,39 @@
   width: 100vw;
   background: var(--color-bg-primary);
   background-image: var(--color-bg-gradient);
-  transition: grid-template-columns var(--transition-normal);
   overflow: hidden;
   box-sizing: border-box;
+}
+
+/* ── Sidebar collapse motion (perf rework) ─────────────────────────
+ * The old version transitioned `grid-template-columns`, which forces a
+ * full-page relayout on EVERY frame of the collapse animation — jank
+ * exactly where the library shows hundreds of cover images.
+ *
+ * New approach: the grid track switches INSTANTLY (zero interpolation,
+ * zero reflow loop) and the sidebar wrapper plays a short transform-
+ * only settle animation so the switch still reads as motion. Both end
+ * states are pixel-identical to before; `transform`/`opacity` never
+ * trigger layout. Expanding back is an instant snap by design — the
+ * settle cue only softens the collapse-in.
+ *
+ * Constraint: the sidebar's INNER element (.sidebar) is styled in
+ * sidebar.css, which this pass doesn't own — so the animation lives
+ * entirely on the .app-sidebar grid wrapper here. */
+.app-layout.sidebar-icon-rail .app-sidebar,
+.app-layout.sidebar-collapsed .app-sidebar {
+  animation: appSidebarSettle var(--duration-normal) var(--ease-standard);
+}
+
+@keyframes appSidebarSettle {
+  from {
+    opacity: 0.35;
+    transform: translateX(-8px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
 }
 
 .app-layout.sidebar-collapsed {
