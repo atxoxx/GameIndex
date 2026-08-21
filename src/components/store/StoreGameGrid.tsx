@@ -23,7 +23,7 @@ interface StoreGameGridProps {
   selectedSlugs?: Set<string>;
   onToggleSelect?: (game: StoreGameSummary) => void;
   onClearFilters?: () => void;
-  /** Clear just the active search query (leaves facet filters intact). */
+  /** Clear just the active search query (leaves facet filters intact). Clears URL ?q= via applyExternalQuery("") in StorePage. */
   onClearSearch?: () => void;
 }
 
@@ -282,6 +282,33 @@ export default function StoreGameGrid({
 
   return (
     <div className="store-game-grid-container">
+      {/* Subtle source-availability pending cue — shown while useSourceAvailabilityCache
+          is still checking the current page against the selected download sources.
+          Placed above the grid so it reads as a toolbar-adjacent status line rather than
+          a card, and hidden when no source filter is active. */}
+      {isSourceFilterActive && isSourceCheckPending && (
+        <div
+          className="store-source-pending"
+          role="status"
+          aria-live="polite"
+          style={{
+            display: "flex",
+            alignItems: "center",
+            gap: "8px",
+            padding: "8px 2px 10px",
+            fontSize: "13px",
+            color: "var(--color-text-muted)",
+          }}
+        >
+          <span
+            className="store-spinner"
+            aria-hidden="true"
+            style={{ width: "14px", height: "14px", borderWidth: "2px" }}
+          />
+          <span>Filtering by sources…</span>
+        </div>
+      )}
+
       {/* Table list header row when in list density */}
       {isList && (
         <div className="store-list-table-header" aria-hidden="true">

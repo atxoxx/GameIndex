@@ -1,5 +1,6 @@
 import StoreSortDropdown from "./StoreSortDropdown";
 import StoreSearchBar from "./StoreSearchBar";
+import StoreSearchPalette from "./StoreSearchPalette";
 import DensityToggle from "../DensityToggle";
 import type { StoreCatalogue } from "../../hooks/useStoreCatalogue";
 import { useLanguage } from "../../context/LanguageContext";
@@ -27,7 +28,25 @@ export default function StoreToolbar({ catalogue: c }: StoreToolbarProps) {
           onRemoveRecent={c.removeRecentSearch}
           onClearRecentSearches={c.clearRecentSearches}
           onPickSuggestion={c.onCardClick}
+          activeFilters={{
+            genres: c.selectedGenres,
+            platforms: c.selectedPlatforms,
+            yearMin: c.yearMin,
+            yearMax: c.yearMax,
+            ratingMin: c.ratingMin,
+          }}
+          onRemoveFilter={(type, value) => {
+            if (type === "genre" && value) c.setSelectedGenres(c.selectedGenres.filter((g) => g !== value));
+            else if (type === "platform" && value) c.setSelectedPlatforms(c.selectedPlatforms.filter((p) => p !== value));
+            else if (type === "year") c.setYearRange(null, null);
+            else if (type === "rating") c.setRatingMin(null);
+            else if (type === "all") c.resetFilters();
+          }}
+          flushSearch={c.flushSearch}
+          setSearchQueryImmediate={c.setSearchQueryImmediate}
         />
+        {/* Command palette (Ctrl+K / Cmd+K) */}
+        <StoreSearchPalette catalogue={c} />
       </div>
 
       <div className="store-toolbar-right">
@@ -46,9 +65,7 @@ export default function StoreToolbar({ catalogue: c }: StoreToolbarProps) {
             <line x1="10" y1="18" x2="14" y2="18" />
           </svg>
           {t("store.filters")}
-          {c.activeFilterCount > 0 && (
-            <span className="store-filter-trigger-badge">{c.activeFilterCount}</span>
-          )}
+          {c.activeFilterCount > 0 && <span className="store-filter-trigger-badge">{c.activeFilterCount}</span>}
         </button>
 
         <button

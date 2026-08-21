@@ -1263,7 +1263,7 @@
 .store-filter-overlay-scrim {
   position: fixed;
   inset: 0;
-  z-index: 90;
+  z-index: var(--z-modal);
   background: rgba(0, 0, 0, 0.5);
   backdrop-filter: blur(2px);
   opacity: 0;
@@ -1280,7 +1280,7 @@
   position: fixed;
   top: 0;
   left: 0;
-  z-index: 91;
+  z-index: calc(var(--z-modal) + 1);
   width: min(360px, 88vw);
   display: flex;
   flex-direction: column;

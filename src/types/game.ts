@@ -1064,6 +1064,15 @@ export interface StoreGameSummary {
    *  (and any other card rendering a Steam concurrent-player badge)
    *  can extract the Steam appid without an extra round-trip. */
   websites?: string[];
+  /** Optional expanded search-index fields — populated when IGDB provides them
+   *  (gracefully undefined for older cached records). Used by
+   *  localSearchGames to broaden recall beyond name/genres/platforms/summary. */
+  themes?: string[];
+  gameModes?: string[];
+  alternativeNames?: string[];
+  collection?: string | null;
+  franchise?: string | null;
+  tags?: string[];
 }
 
 /** Cache entry wrapper with a fetchedAt timestamp for TTL checks. */
@@ -1080,6 +1089,18 @@ export interface StoreCache {
 
 /** 6-hour cache TTL in milliseconds. */
 export const STORE_CACHE_TTL_MS = 6 * 60 * 60 * 1000;
+
+/** TTL for in-memory search results (10 min). Avoids repeat IGDB for same query. */
+export const STORE_SEARCH_CACHE_TTL_MS = 10 * 60 * 1000;
+
+/** Unified debounce for Store search (grid + suggestions share this window). */
+export const STORE_SEARCH_DEBOUNCE_MS = 280;
+
+/** URL query-param key for Store search. */
+export const STORE_SEARCH_QUERY_PARAM = "q";
+
+/** Max suggestions in the Store autocomplete dropdown. */
+export const STORE_SEARCH_SUGGESTION_LIMIT = 5;
 
 /** Number of store games per page (infinite scroll batch size). */
 export const STORE_PAGE_SIZE = 20;

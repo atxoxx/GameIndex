@@ -21,36 +21,144 @@ import type {
   StoreSort,
   ViewDensity,
 } from "../types/game";
+import { tokenizeSearchQuery } from "../components/store/storeSearchQuery";
+import {
+  parseStoreSearchQuery,
+  getStoreSearchQueryFromSearchParams,
+  setStoreSearchQueryInSearchParams,
+  STORE_SEARCH_QUERY_PARAM,
+} from "../components/store/storeSearchQuery";
 
 const MAX_AUTO_EMPTY_FETCHES = 3;
 
+// ─── Tokenized + expanded fields helpers ───────────────────────────────────
+
+function getStoreGameSearchFieldsLower(g: StoreGameSummary): string[] {
+  const fields: string[] = [];
+  if (g.name) fields.push(g.name.toLowerCase());
+  if (g.summary) fields.push(g.summary.toLowerCase());
+  for (const x of g.genres ?? []) if (x) fields.push(x.toLowerCase());
+  for (const x of g.platforms ?? []) if (x) fields.push(x.toLowerCase());
+  const anyG = g as unknown as Record<string, unknown>;
+  const themes = anyG["themes"] as string[] | undefined;
+  if (Array.isArray(themes)) for (const x of themes) if (x) fields.push(String(x).toLowerCase());
+  const gameModes = anyG["gameModes"] as string[] | undefined;
+  if (Array.isArray(gameModes)) for (const x of gameModes) if (x) fields.push(String(x).toLowerCase());
+  const alt = anyG["alternativeNames"] as string[] | undefined;
+  if (Array.isArray(alt)) for (const x of alt) if (x) fields.push(String(x).toLowerCase());
+  const coll = anyG["collection"] as string | null | undefined;
+  if (coll) fields.push(String(coll).toLowerCase());
+  const fr = anyG["franchise"] as string | null | undefined;
+  if (fr) fields.push(String(fr).toLowerCase());
+  const tags = anyG["tags"] as string[] | undefined;
+  if (Array.isArray(tags)) for (const x of tags) if (x) fields.push(String(x).toLowerCase());
+  return fields;
+}
+
+// Lightweight Levenshtein distance ≤1 check (early exit, no dep).
+function levenshteinLeq1(a: string, b: string): boolean {
+  if (a === b) return true;
+  const la = a.length, lb = b.length;
+  if (Math.abs(la - lb) > 1) return false;
+  // Single char diff
+  let i = 0, j = 0, edits = 0;
+  while (i < la && j < lb) {
+    if (a[i] === b[j]) { i++; j++; }
+    else {
+      if (edits === 1) return false;
+      edits++;
+      if (la > lb) i++;
+      else if (lb > la) j++;
+      else { i++; j++; }
+    }
+  }
+  if (i < la || j < lb) edits++;
+  return edits <= 1;
+}
+
+function isFuzzyTitleMatch(nameLower: string, tokens: string[]): boolean {
+  if (!nameLower || tokens.length === 0) return false;
+  const titleWords = nameLower.split(/[\W_]+/).filter(Boolean);
+  if (titleWords.length === 0) return false;
+  // Every query token must fuzzy-match some title word (AND)
+  return tokens.every((tok) =>
+    titleWords.some((w) => levenshteinLeq1(tok, w) || w.startsWith(tok) || tok.startsWith(w))
+  );
+}
+
 /**
- * Local relevance search over an in-memory game list. Matches the query
- * against the title, genres, platforms, and summary so typing a genre
- * ("action") or platform ("switch") surfaces already-loaded games even
- * when their titles don't contain the words. Returns matches sorted by
- * relevance (exact title → prefix → substring → genre → platform → summary).
+ * Tier score for a store game given query + tokens.
+ * 0 exact title → 1 prefix → 2 substring → 3 genre → 4 platform → 5 summary/expanded → 6 fuzzy
  */
-function localSearchGames(
+function getStoreRelevanceScore(g: StoreGameSummary, qLower: string, tokens: string[]): number {
+  const nameLower = (g.name || "").toLowerCase();
+  if (nameLower === qLower) return 0;
+  if (qLower && nameLower.startsWith(qLower)) return 1;
+  if (qLower && nameLower.includes(qLower)) return 2;
+
+  const genreLowers = (g.genres ?? []).map((x) => x.toLowerCase());
+  if (tokens.length > 0 && tokens.every((tok) => genreLowers.some((f) => f.includes(tok)))) return 3;
+
+  const platformLowers = (g.platforms ?? []).map((x) => x.toLowerCase());
+  if (tokens.length > 0 && tokens.every((tok) => platformLowers.some((f) => f.includes(tok)))) return 4;
+
+  const anyG = g as unknown as Record<string, unknown>;
+  const expanded: string[] = [];
+  if (g.summary) expanded.push(g.summary.toLowerCase());
+  const themes = anyG["themes"] as string[] | undefined;
+  if (Array.isArray(themes)) for (const x of themes) if (x) expanded.push(String(x).toLowerCase());
+  const gameModes = anyG["gameModes"] as string[] | undefined;
+  if (Array.isArray(gameModes)) for (const x of gameModes) if (x) expanded.push(String(x).toLowerCase());
+  const alt = anyG["alternativeNames"] as string[] | undefined;
+  if (Array.isArray(alt)) for (const x of alt) if (x) expanded.push(String(x).toLowerCase());
+  const coll = anyG["collection"] as string | null | undefined;
+  if (coll) expanded.push(String(coll).toLowerCase());
+  const fr = anyG["franchise"] as string | null | undefined;
+  if (fr) expanded.push(String(fr).toLowerCase());
+  const tags = anyG["tags"] as string[] | undefined;
+  if (Array.isArray(tags)) for (const x of tags) if (x) expanded.push(String(x).toLowerCase());
+
+  if (tokens.length > 0 && tokens.every((tok) => expanded.some((f) => f.includes(tok)))) return 5;
+
+  if (isFuzzyTitleMatch(nameLower, tokens)) return 6;
+
+  // Cross-field fallback: if we reached here but every token still appears somewhere across all fields,
+  // treat as expanded tier (5) so tokenized AND filtering still returns the game.
+  const allFields = getStoreGameSearchFieldsLower(g);
+  if (tokens.length > 0 && tokens.every((tok) => allFields.some((f) => f.includes(tok)))) return 5;
+
+  return 999; // unreachable for filtered set
+}
+
+// Re-export for testing / external use
+export { tokenizeSearchQuery };
+
+/**
+ * Local relevance search over an in-memory game list. Tokenized AND across
+ * expanded fields (name, genres, platforms, summary, themes, gameModes,
+ * alternativeNames, collection, franchise, tags). Returns matches sorted by
+ * relevance tier (0 exact→1 prefix→2 substring→3 genre→4 platform→5 summary→6 fuzzy).
+ */
+export function localSearchGames(
   games: StoreGameSummary[],
   query: string
 ): StoreGameSummary[] {
-  const q = query.trim().toLowerCase();
-  if (!q) return [];
-  const scored: { game: StoreGameSummary; score: number }[] = [];
-  for (const g of games) {
-    const name = (g.name || "").toLowerCase();
-    let score: number | null = null;
-    if (name === q) score = 0;
-    else if (name.startsWith(q)) score = 1;
-    else if (name.includes(q)) score = 2;
-    else if ((g.genres || []).some((x) => x.toLowerCase().includes(q))) score = 3;
-    else if ((g.platforms || []).some((x) => x.toLowerCase().includes(q))) score = 4;
-    else if (g.summary && g.summary.toLowerCase().includes(q)) score = 5;
-    if (score !== null) scored.push({ game: g, score });
+  const tokens = tokenizeSearchQuery(query);
+  const qLower = query.trim().toLowerCase();
+  if (!qLower || tokens.length === 0) return [];
+  const scored: { game: StoreGameSummary; score: number; idx: number }[] = [];
+  for (let idx = 0; idx < games.length; idx++) {
+    const g = games[idx];
+    const allFields = getStoreGameSearchFieldsLower(g);
+    const everyTokenMatches = tokens.every((tok) => allFields.some((f) => f.includes(tok)));
+    const fuzzyOk = !everyTokenMatches && isFuzzyTitleMatch((g.name || "").toLowerCase(), tokens);
+    if (!everyTokenMatches && !fuzzyOk) continue;
+    const score = getStoreRelevanceScore(g, qLower, tokens);
+    if (score === 999) continue;
+    scored.push({ game: g, score, idx });
   }
   scored.sort(
-    (a, b) => a.score - b.score || (a.game.name || "").localeCompare(b.game.name || "")
+    (a, b) => a.score - b.score || (a.game.name || "").localeCompare(b.game.name || "") || a.idx - b.idx
   );
   return scored.map((s) => s.game);
 }
@@ -76,53 +184,65 @@ function releaseDateMs(d: string | null): number | null {
 }
 
 /**
- * Client-side sort applied to search results. The IGDB search endpoint has
- * its own ranking and ignores sort clauses, so a sort change during a live
- * search re-orders the loaded results locally instead of re-fetching.
- * Nulls sort last for both date directions.
+ * Client-side sort applied to search results. Tier-first stable sort:
+ * primary = relevance tier (0→6), secondary = selected sort within same tier,
+ * tertiary = stable original order. Does not destroy IGDB relevance when
+ * sort=default (keeps original order within tier).
  */
-function sortSearchResults(
+export function sortSearchResults(
   games: StoreGameSummary[],
-  sort: StoreSort
+  sort: StoreSort,
+  query = ""
 ): StoreGameSummary[] {
-  const arr = [...games];
-  switch (sort) {
-    case "rating":
-      return arr.sort((a, b) => (b.rating ?? -1) - (a.rating ?? -1));
-    case "popularity":
-      return arr.sort(
-        (a, b) =>
-          (b.totalRatingCount ?? 0) - (a.totalRatingCount ?? 0) ||
-          (b.hypes ?? 0) - (a.hypes ?? 0)
-      );
-    case "trending":
-    case "follows":
-      return arr.sort((a, b) => (b.hypes ?? 0) - (a.hypes ?? 0));
-    case "release_new":
-      return arr.sort((a, b) => {
-        const av = releaseDateMs(a.firstReleaseDate);
-        const bv = releaseDateMs(b.firstReleaseDate);
-        if (av === null && bv === null) return 0;
+  const qLower = query.trim().toLowerCase();
+  const tokens = tokenizeSearchQuery(query);
+  const useTier = !!qLower && tokens.length > 0;
+  // Decorate with tier + idx for stable sort
+  const decorated = games.map((g, idx) => ({
+    game: g,
+    idx,
+    tier: useTier ? getStoreRelevanceScore(g, qLower, tokens) : 999,
+  }));
+  decorated.sort((a, b) => {
+    if (useTier && a.tier !== b.tier) return a.tier - b.tier;
+    // Within same tier, apply selected sort
+    switch (sort) {
+      case "rating":
+        return (b.game.rating ?? -1) - (a.game.rating ?? -1) || a.idx - b.idx;
+      case "popularity":
+        return (
+          (b.game.totalRatingCount ?? 0) - (a.game.totalRatingCount ?? 0) ||
+          (b.game.hypes ?? 0) - (a.game.hypes ?? 0) ||
+          a.idx - b.idx
+        );
+      case "trending":
+      case "follows":
+        return (b.game.hypes ?? 0) - (a.game.hypes ?? 0) || a.idx - b.idx;
+      case "release_new": {
+        const av = releaseDateMs(a.game.firstReleaseDate);
+        const bv = releaseDateMs(b.game.firstReleaseDate);
+        if (av === null && bv === null) return a.idx - b.idx;
         if (av === null) return 1;
         if (bv === null) return -1;
-        return bv - av;
-      });
-    case "release_old":
-      return arr.sort((a, b) => {
-        const av = releaseDateMs(a.firstReleaseDate);
-        const bv = releaseDateMs(b.firstReleaseDate);
-        if (av === null && bv === null) return 0;
+        return bv - av || a.idx - b.idx;
+      }
+      case "release_old": {
+        const av = releaseDateMs(a.game.firstReleaseDate);
+        const bv = releaseDateMs(b.game.firstReleaseDate);
+        if (av === null && bv === null) return a.idx - b.idx;
         if (av === null) return 1;
         if (bv === null) return -1;
-        return av - bv;
-      });
-    case "name":
-      return arr.sort((a, b) => (a.name || "").localeCompare(b.name || ""));
-    case "name_desc":
-      return arr.sort((a, b) => (b.name || "").localeCompare(a.name || ""));
-    default:
-      return arr;
-  }
+        return av - bv || a.idx - b.idx;
+      }
+      case "name":
+        return (a.game.name || "").localeCompare(b.game.name || "") || a.idx - b.idx;
+      case "name_desc":
+        return (b.game.name || "").localeCompare(a.game.name || "") || a.idx - b.idx;
+      default:
+        return a.idx - b.idx;
+    }
+  });
+  return decorated.map((d) => d.game);
 }
 
 /**
@@ -168,6 +288,12 @@ export interface StoreCatalogue {
   // ── Search / sort ──────────────────────────────────────────────────
   searchQuery: string;
   setSearchQuery: (q: string) => void;
+  /** Immediate flush bypassing debounce (Enter). */
+  setSearchQueryImmediate: (q: string) => void;
+  /** Apply an external query (e.g., from ?q=) — reacts immediately. */
+  applyExternalQuery: (q: string) => void;
+  /** Flush current query immediately (Enter bypass). */
+  flushSearch: () => void;
   isSearching: boolean;
   sort: StoreSort;
   setSort: (s: StoreSort) => void;
@@ -241,6 +367,12 @@ export interface StoreCatalogue {
 
   // ── Search focus shortcut ──────────────────────────────────────────
   focusSearch: () => void;
+
+  // ── URL sync foundation (Lane B) ─────────────────────────────────────
+  parseStoreSearchQuery: typeof parseStoreSearchQuery;
+  getStoreSearchQueryFromSearchParams: typeof getStoreSearchQueryFromSearchParams;
+  setStoreSearchQueryInSearchParams: typeof setStoreSearchQueryInSearchParams;
+  STORE_SEARCH_QUERY_PARAM: typeof STORE_SEARCH_QUERY_PARAM;
 }
 
 /**
@@ -269,6 +401,9 @@ export function useStoreCatalogue(): StoreCatalogue {
     loadMore,
     searchQuery,
     setSearchQuery,
+    applyExternalQuery: applyExternalQueryRaw,
+    flushSearch: flushSearchRaw,
+    setSearchQueryImmediate: setSearchQueryImmediateRaw,
     isSearching,
     applyFilters: applyFiltersRaw,
     resetFilters: resetFiltersRaw,
@@ -383,10 +518,10 @@ export function useStoreCatalogue(): StoreCatalogue {
 
   const displayedGames = useMemo(() => {
     // During a live search the IGDB endpoint ignores sort clauses, so a
-    // non-default sort re-orders the merged results locally.
+    // non-default sort re-orders the merged results locally via tier-first sort.
     const base =
-      isSearching && sort !== "default"
-        ? sortSearchResults(visibleGames, sort)
+      isSearching
+        ? sortSearchResults(visibleGames, sort, searchQuery)
         : visibleGames;
     if (showHidden || hiddenGames.count === 0) return base;
     return base.filter((g) => !hiddenGames.hiddenSet.has(g.slug));
@@ -394,6 +529,7 @@ export function useStoreCatalogue(): StoreCatalogue {
     visibleGames,
     isSearching,
     sort,
+    searchQuery,
     showHidden,
     hiddenGames.hiddenSet,
     hiddenGames.count,
@@ -434,6 +570,8 @@ export function useStoreCatalogue(): StoreCatalogue {
     loadMore();
   }, [isSourceFilterActive, visibleGames.length, hasMore, loading, games.length, sourceChecksPending, loadMore]);
 
+  const lastRecordedRef = useRef<string>("");
+
   const onCardClick = useCallback(
     (game: StoreGameSummary) => {
       recentlyViewed.record(game);
@@ -447,12 +585,61 @@ export function useStoreCatalogue(): StoreCatalogue {
     [setSearchQuery]
   );
 
+  const handleSearchChangeImmediate = useCallback(
+    (value: string) => {
+      const q = value.trim();
+      if (q.length >= 2) {
+        // Immediate record on explicit submit (Enter / external ?q=)
+        const lower = q.toLowerCase();
+        if (lastRecordedRef.current !== lower) {
+          lastRecordedRef.current = lower;
+          recentSearches.record(q);
+        }
+      }
+      if (setSearchQueryImmediateRaw) setSearchQueryImmediateRaw(value);
+      else (setSearchQuery as unknown as (q: string, opts?: { immediate: boolean }) => void)(value, { immediate: true });
+    },
+    [setSearchQuery, setSearchQueryImmediateRaw, recentSearches]
+  );
+
+  const applyExternalQuery = useCallback(
+    (q: string) => {
+      if (applyExternalQueryRaw) applyExternalQueryRaw(q);
+      else handleSearchChangeImmediate(q);
+    },
+    [applyExternalQueryRaw, handleSearchChangeImmediate]
+  );
+
+  const flushSearch = useCallback(() => {
+    const q = searchQuery.trim();
+    if (q.length >= 2) {
+      const lower = q.toLowerCase();
+      if (lastRecordedRef.current !== lower) {
+        lastRecordedRef.current = lower;
+        recentSearches.record(q);
+      }
+    }
+    if (flushSearchRaw) flushSearchRaw(searchQuery);
+    else handleSearchChangeImmediate(searchQuery);
+  }, [flushSearchRaw, handleSearchChangeImmediate, searchQuery, recentSearches]);
+
+  // ── Recent searches: record on committed search (debounced 280ms then immediate) ─
   useEffect(() => {
+    if (!isSearching) return;
     const q = searchQuery.trim();
     if (q.length < 2) return;
-    const t = setTimeout(() => recentSearches.record(q), 1000);
+    const lower = q.toLowerCase();
+    if (lastRecordedRef.current === lower) return;
+    // Debounce with the unified 280ms window so intermediate keystrokes
+    // ("el" → "elde" → "elden") don't pollute recents; only the settled
+    // query is recorded, but immediately after the debounce (no extra 1s idle).
+    const t = setTimeout(() => {
+      if (lastRecordedRef.current === lower) return;
+      lastRecordedRef.current = lower;
+      recentSearches.record(q);
+    }, 280);
     return () => clearTimeout(t);
-  }, [searchQuery, recentSearches]);
+  }, [searchQuery, isSearching, recentSearches]);
 
   const focusSearch = useCallback(() => {
     setFiltersOpen(false);
@@ -476,6 +663,14 @@ export function useStoreCatalogue(): StoreCatalogue {
           return;
         }
       }
+      // Enter flushes debounce immediately (instant search)
+      if (e.key === "Enter" && searchQuery.trim()) {
+        const el = document.activeElement as HTMLElement | null;
+        if (el?.classList.contains("store-search-input")) {
+          // Allow flushSearch to cancel pending debounce and fetch now
+          flushSearch();
+        }
+      }
       if (e.key !== "/" || e.ctrlKey || e.metaKey || e.altKey) return;
       const el = document.activeElement as HTMLElement | null;
       const tag = el?.tagName;
@@ -485,7 +680,7 @@ export function useStoreCatalogue(): StoreCatalogue {
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [focusSearch, searchQuery, setSearchQuery]);
+  }, [focusSearch, searchQuery, setSearchQuery, flushSearch]);
 
   // ── Live filter application ────────────────────────────────────────────
   // Backend facets (genre / platform / year / rating) re-fetch the catalogue
@@ -713,6 +908,9 @@ export function useStoreCatalogue(): StoreCatalogue {
     loadMore,
     searchQuery,
     setSearchQuery: handleSearchChange,
+    setSearchQueryImmediate: handleSearchChangeImmediate,
+    applyExternalQuery,
+    flushSearch,
     isSearching,
     sort,
     setSort,
@@ -771,5 +969,10 @@ export function useStoreCatalogue(): StoreCatalogue {
     onHide: handleHide,
     isInLibrary,
     focusSearch,
+    // Re-export URL helpers for Lane B to sync ?q= without touching internals
+    parseStoreSearchQuery,
+    getStoreSearchQueryFromSearchParams,
+    setStoreSearchQueryInSearchParams,
+    STORE_SEARCH_QUERY_PARAM,
   };
 }

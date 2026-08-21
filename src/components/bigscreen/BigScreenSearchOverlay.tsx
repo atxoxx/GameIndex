@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useLanguage } from "../../context/LanguageContext";
 import { useFocusable } from "../../hooks/useFocusable";
+import { buildStoreSearchUrl } from "../store/storeSearchQuery";
 
 interface BigScreenSearchOverlayProps {
   open: boolean;
@@ -33,7 +34,11 @@ const CloseIcon = (
  *  - Typing is done with the on-screen virtual cursor (right stick) or
  *    a physical keyboard when one is attached to the TV box.
  *  - Submitting (Enter or the View button) navigates to the Store with
- *    the query pre-filled via the `?q=` URL param (StorePage reads it).
+ *    the query pre-filled via the `?q=` URL param (StorePage reads it via
+ *    useSearchParams + applyExternalQuery). Lane A's searchMemoryCache /
+ *    dedupedSearchFetch ensures that if the same query was fetched recently
+ *    (e.g., via StoreSearchBar suggestions within the 10-min TTL) no second
+ *    IGDB call is issued — the cached 20-result payload is reused instantly.
  */
 export default function BigScreenSearchOverlay({
   open,
@@ -43,6 +48,27 @@ export default function BigScreenSearchOverlay({
   const { t } = useLanguage();
   const [query, setQuery] = useState("");
   const inputRef = useRef<HTMLInputElement | null>(null);
+  const previouslyFocusedRef = useRef<HTMLElement | null>(null);
+
+  const submitSearch = useCallback(() => {
+    const q = query.trim();
+    if (!q) {
+      onClose();
+      return;
+    }
+    // Build shareable Store URL with ?q= — StorePage consumes it on mount
+    // via applyExternalQuery(q) and syncs catalogue.searchQuery -> URL so
+    // back/forward and shared links work. Using the Lane A helper keeps
+    // encoding and param-key canonical (STORE_SEARCH_QUERY_PARAM = "q").
+    const target = buildStoreSearchUrl("/store", q);
+    navigate(target);
+    // Overlay closes immediately; focus is restored by the open->false effect below.
+    // Because Lane A's searchMemoryCache is module-singleton, the StorePage's
+    // subsequent applyExternalQuery(targetQ) will hit the cache and skip the
+    // network when the query is still fresh (no duplicate fetch).
+    onClose();
+  }, [query, navigate, onClose]);
+
   const inputFocusable = useFocusable(() => inputRef.current?.focus());
   const clearFocusable = useFocusable(() => {
     setQuery("");
@@ -63,10 +89,29 @@ export default function BigScreenSearchOverlay({
 
   useEffect(() => {
     if (open) {
+      previouslyFocusedRef.current = document.activeElement as HTMLElement | null;
       // Defer focus so the entrance animation has painted and the
       // gamepad registry has the input registered.
       const id = window.setTimeout(() => inputRef.current?.focus(), 60);
       return () => window.clearTimeout(id);
+    } else {
+      // Focus return on close: restore to the element that opened the overlay
+      // (header search button or main content) so controller navigation stays
+      // coherent and keyboard users don't lose their place.
+      const prev = previouslyFocusedRef.current;
+      previouslyFocusedRef.current = null;
+      if (prev && document.contains(prev) && typeof prev.focus === "function") {
+        // Defer to next frame so the overlay has unmounted and focus isn't
+        // immediately trapped by the closing animation.
+        const raf = window.requestAnimationFrame(() => {
+          try {
+            prev.focus({ preventScroll: true } as FocusOptions);
+          } catch {
+            prev.focus();
+          }
+        });
+        return () => window.cancelAnimationFrame(raf);
+      }
     }
   }, [open]);
 
@@ -83,20 +128,9 @@ export default function BigScreenSearchOverlay({
     }
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [open, query]);
+  }, [open, onClose, submitSearch]);
 
   if (!open) return null;
-
-  function submitSearch() {
-    const q = query.trim();
-    if (!q) {
-      onClose();
-      return;
-    }
-    navigate(`/store?q=${encodeURIComponent(q)}`);
-    onClose();
-  }
 
   return (
     <div className="bigscreen-search-overlay" role="dialog" aria-modal="true" aria-label={t("bigscreen.search.searchStore")}>

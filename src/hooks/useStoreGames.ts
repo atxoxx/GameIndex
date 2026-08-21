@@ -1,11 +1,18 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { useStoreCache } from "./useStoreCache";
+import {
+  getCachedSearch,
+  setCachedSearch,
+  dedupedSearchFetch,
+  buildSearchCacheKey,
+  buildFiltersKey,
+} from "./useStoreCache";
 import type { StoreGameSummary, StoreSort } from "../types/game";
 import type { StoreCategory } from "../types/game";
-import { STORE_PAGE_SIZE } from "../types/game";
+import { STORE_PAGE_SIZE, STORE_SEARCH_DEBOUNCE_MS } from "../types/game";
 
-const SEARCH_DEBOUNCE_MS = 300;
+const SEARCH_DEBOUNCE_MS = STORE_SEARCH_DEBOUNCE_MS;
 
 /**
  * Active filter set used to narrow the IGDB catalog browse in
@@ -122,15 +129,46 @@ export function useStoreGames() {
           sort: sortRef.current === "default" ? null : sortRef.current,
         };
         if (query) {
-          // Live search — pass the active facet filters (genres, platforms,
-          // year range, rating, sort) so search results are narrowed too;
-          // each key is optional on the Rust side.
-          results = await invoke<StoreGameSummary[]>("search_store_games", {
-            query,
-            offset,
-            limit: STORE_PAGE_SIZE,
-            ...filterArgs,
-          });
+          // ── Search with in-memory cache (10 min TTL) ────────────────
+          const filtersKey = buildFiltersKey(f);
+          const sortVal = sortRef.current;
+          const cacheKey = buildSearchCacheKey(query, STORE_PAGE_SIZE, filtersKey, sortVal, offset);
+          const dedupKey = `q:${query.trim().toLowerCase()}|f:${filtersKey}|s:${sortVal}`;
+
+          // Serve from cache on initial page (offset 0) if fresh
+          if (offset === 0) {
+            const cached = getCachedSearch(cacheKey) ?? getCachedSearch(dedupKey);
+            if (cached) {
+              if (reqId !== requestIdRef.current || !mountedRef.current) return;
+              const currentGames = gamesRef.current;
+              const newList = append ? [...currentGames, ...cached] : cached;
+              setGames(newList);
+              offsetRef.current = newList.length;
+              setHasMore(cached.length >= STORE_PAGE_SIZE);
+              if (mountedRef.current && reqId === requestIdRef.current) setLoading(false);
+              return;
+            }
+          }
+
+          const fetcher = () =>
+            invoke<StoreGameSummary[]>("search_store_games", {
+              query,
+              offset,
+              limit: STORE_PAGE_SIZE,
+              ...filterArgs,
+            });
+
+          // Dedup concurrent identical queries (grid + suggestions share this)
+          results = await dedupedSearchFetch(cacheKey, fetcher);
+
+          // Populate caches for reuse by suggestions (derived limit 5)
+          if (offset === 0) {
+            setCachedSearch(cacheKey, results);
+            setCachedSearch(dedupKey, results);
+            // Also prime a query-only entry for suggestion derivation when unfiltered
+            const qOnly = `q:${query.trim().toLowerCase()}`;
+            if (!getCachedSearch(qOnly)) setCachedSearch(qOnly, results);
+          }
         } else {
           // Category browsing — pass full filter context.
           results = await invoke<StoreGameSummary[]>("fetch_store_games", {
@@ -294,9 +332,51 @@ export function useStoreGames() {
     performFetch(reqId, currentCategory, currentQuery, offsetRef.current, true);
   }, [loading, hasMore, isSearching, searchQuery, performFetch]);
 
+  // ── Internal: immediate fetch without debounce (Enter bypass) ───────────
+  const flushSearchImmediate = useCallback(
+    (query: string) => {
+      const q = query.trim();
+      if (!q) {
+        // Empty → restore category (reuse setSearchQuery empty path)
+        if (debounceRef.current) {
+          clearTimeout(debounceRef.current);
+          debounceRef.current = null;
+        }
+        setIsSearching(false);
+        setSearchQueryRaw("");
+        requestIdRef.current += 1;
+        const cached =
+          recomputeHasFilters(filtersRef.current) || sortRef.current !== "default"
+            ? null
+            : getCategoryCache(activeCategoryRef.current);
+        if (cached) {
+          setGames(cached);
+          offsetRef.current = cached.length;
+          setHasMore(cached.length >= STORE_PAGE_SIZE);
+          setLoading(false);
+        } else {
+          const reqId = ++requestIdRef.current;
+          setGames([]);
+          offsetRef.current = 0;
+          performFetch(reqId, activeCategoryRef.current, "", 0, false);
+        }
+        return;
+      }
+      if (debounceRef.current) {
+        clearTimeout(debounceRef.current);
+        debounceRef.current = null;
+      }
+      setIsSearching(true);
+      const reqId = ++requestIdRef.current;
+      offsetRef.current = 0;
+      performFetch(reqId, null, q, 0, false);
+    },
+    [getCategoryCache, performFetch, recomputeHasFilters]
+  );
+
   // ── Search with debounce ───────────────────────────────────────────────
   const setSearchQuery = useCallback(
-    (query: string) => {
+    (query: string, opts?: { immediate?: boolean }) => {
       setSearchQueryRaw(query);
 
       if (debounceRef.current) clearTimeout(debounceRef.current);
@@ -331,6 +411,14 @@ export function useStoreGames() {
 
       setIsSearching(true);
 
+      if (opts?.immediate) {
+        debounceRef.current = null;
+        const reqId = ++requestIdRef.current;
+        offsetRef.current = 0;
+        performFetch(reqId, null, query, 0, false);
+        return;
+      }
+
       debounceRef.current = setTimeout(() => {
         if (!mountedRef.current) return;
         const reqId = ++requestIdRef.current;
@@ -339,6 +427,20 @@ export function useStoreGames() {
       }, SEARCH_DEBOUNCE_MS);
     },
     [getCategoryCache, performFetch, recomputeHasFilters]
+  );
+
+  // ── URL sync helper: apply an external query (e.g., from ?q=) ──────────
+  const applyExternalQuery = useCallback(
+    (query: string) => {
+      const q = query.trim();
+      // Treat external empty same as clear → restore category
+      if (!q) {
+        setSearchQuery("", { immediate: true });
+        return;
+      }
+      setSearchQuery(q, { immediate: true });
+    },
+    [setSearchQuery]
   );
 
   // ── Clear search (no refetch) ──────────────────────────────────────────
@@ -369,6 +471,12 @@ export function useStoreGames() {
     setCategory,
     searchQuery,
     setSearchQuery,
+    /** Immediate flush (Enter bypass) — cancels debounce and fetches now. */
+    flushSearch: flushSearchImmediate,
+    /** Alias for setSearchQuery with immediate:true (URL sync / Enter). */
+    setSearchQueryImmediate: flushSearchImmediate,
+    /** Apply an external query (e.g. from ?q=) and fetch immediately. */
+    applyExternalQuery,
     /** Clear the search box without triggering a fetch. */
     clearSearch,
     isSearching,
@@ -382,5 +490,7 @@ export function useStoreGames() {
     sort,
     /** Change the sort order and re-fetch the active category. */
     setSort,
+    /** Shared debounce window (280ms) — single source of truth for grid + suggestions. */
+    SEARCH_DEBOUNCE_MS,
   };
 }

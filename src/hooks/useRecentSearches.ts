@@ -42,8 +42,11 @@ export function useRecentSearches() {
     });
   }, []);
 
+  /** Remove a single entry — case-insensitive so UI and storage agree. */
   const remove = useCallback((query: string) => {
-    setSearches((prev) => prev.filter((s) => s !== query));
+    const lower = query.trim().toLowerCase();
+    if (!lower) return;
+    setSearches((prev) => prev.filter((s) => s.toLowerCase() !== lower));
   }, []);
 
   const clear = useCallback(() => setSearches([]), []);

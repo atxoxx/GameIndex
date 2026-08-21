@@ -1,4 +1,4 @@
-import { useContext, type MouseEvent } from "react";
+import { Fragment, useContext, type MouseEvent } from "react";
 import { useProgressiveImage } from "../../hooks/useProgressiveImages";
 import { useCrackWatch } from "../../context/CrackWatchContext";
 import { usePrice } from "../../context/PriceContext";
@@ -136,7 +136,7 @@ export default function StoreGameCard({
           {game.genres && game.genres.length > 0 ? (
             game.genres.slice(0, 3).map((g) => (
               <span key={g} className="store-card-genre">
-                {g}
+                <StoreHighlightText text={g} query={searchQuery} />
               </span>
             ))
           ) : (
@@ -146,7 +146,12 @@ export default function StoreGameCard({
 
         <div className="store-card-list-platforms" title={game.platforms?.join(", ")}>
           {game.platforms && game.platforms.length > 0 ? (
-            game.platforms.slice(0, 2).join(" · ")
+            game.platforms.slice(0, 2).map((p, idx, arr) => (
+              <Fragment key={p}>
+                <StoreHighlightText text={p} query={searchQuery} />
+                {idx < arr.length - 1 ? " · " : null}
+              </Fragment>
+            ))
           ) : (
             <span className="store-card-empty-dash">–</span>
           )}
@@ -444,16 +449,23 @@ export default function StoreGameCard({
             <div className="store-card-genres">
               {game.genres!.slice(0, genresToShow).map((g) => (
                 <span key={g} className="store-card-genre">
-                  {g}
+                  <StoreHighlightText text={g} query={searchQuery} />
                 </span>
               ))}
             </div>
           )}
 
           <div className="store-card-platforms">
-            {(game.platforms?.length ?? 0) > 0
-              ? game.platforms!.slice(0, 3).join(" · ")
-              : releaseYear ?? ""}
+            {(game.platforms?.length ?? 0) > 0 ? (
+              game.platforms!.slice(0, 3).map((p, idx, arr) => (
+                <Fragment key={p}>
+                  <StoreHighlightText text={p} query={searchQuery} />
+                  {idx < arr.length - 1 ? " · " : null}
+                </Fragment>
+              ))
+            ) : (
+              (releaseYear ?? "")
+            )}
           </div>
 
           {price && price.salePrice != null && (
