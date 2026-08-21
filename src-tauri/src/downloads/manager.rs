@@ -615,10 +615,16 @@ impl DownloadManager {
                 if let Some((last_bytes, last_instant)) = self.direct_last_calc.get(&id) {
                     let elapsed = now.duration_since(*last_instant).as_secs_f64();
                     let bytes_diff = current_bytes.saturating_sub(*last_bytes);
-                    speed = if elapsed > 0.0 {
+                    let raw_speed = if elapsed > 0.0 {
                         (bytes_diff as f64 / elapsed) as u64
                     } else {
                         0
+                    };
+                    let prev_speed = self.downloads.get(&id).map(|d| d.download_speed).unwrap_or(0);
+                    speed = if prev_speed == 0 || raw_speed == 0 {
+                        raw_speed
+                    } else {
+                        ((raw_speed as f64 * 0.7) + (prev_speed as f64 * 0.3)) as u64
                     };
                 }
                 self.direct_last_calc.insert(id.clone(), (current_bytes, now));

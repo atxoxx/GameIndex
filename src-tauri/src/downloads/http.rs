@@ -27,6 +27,7 @@ const MAX_RETRY_ATTEMPTS: u32 = 10;
 const INITIAL_RETRY_DELAY_MS: u64 = 1000;
 const MAX_RETRY_DELAY_MS: u64 = 15000;
 const STALL_TIMEOUT_SECS: u64 = 30;
+const SEGMENT_STALL_TIMEOUT_SECS: u64 = 10;
 const REQUEST_TIMEOUT_SECS: u64 = 60;
 const RETRYABLE_STATUSES: &[u16] = &[429, 500, 502, 503, 504];
 
@@ -39,7 +40,7 @@ const SEGMENT_MIN_BYTES: u64 = 1024 * 1024;
 /// Internal reconnects per segment before the whole file attempt gives up
 /// and bubbles a retryable error (one flaky connection must not restart
 /// the other segments' streams).
-const SEGMENT_RECONNECTS: u32 = 3;
+const SEGMENT_RECONNECTS: u32 = 5;
 
 /// Refreshes an expiring direct link (AllDebrid unlock URLs die after
 /// hours). Returns the fresh URL, or None when unavailable/failed.
@@ -51,6 +52,27 @@ pub type UrlRefresher =
 /// Firefox UA: several game hosters throttle/block Chrome-based UAs.
 const DOWNLOAD_USER_AGENT: &str =
     "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:144.0) Gecko/20100101 Firefox/144.0";
+
+/// Build a tuned HTTP client for direct and segmented debrid downloads.
+///
+/// Features:
+///  * HTTP/1.1 enforcement: eliminates HTTP/2 stream multiplexing flow-control
+///    starvation and deadlocks on CDN reverse proxies (Cloudflare, CDN77).
+///  * TCP keep-alive & TCP nodelay: keeps long-running connections alive across NATs.
+///  * Connection pooling: caches up to 32 idle connections per host.
+pub fn build_download_client() -> reqwest::Client {
+    reqwest::Client::builder()
+        .user_agent(DOWNLOAD_USER_AGENT)
+        .cookie_store(true)
+        .http1_only()
+        .tcp_keepalive(Some(Duration::from_secs(15)))
+        .tcp_nodelay(true)
+        .pool_idle_timeout(Some(Duration::from_secs(60)))
+        .pool_max_idle_per_host(32)
+        .connect_timeout(Duration::from_secs(15))
+        .build()
+        .unwrap_or_default()
+}
 
 /// Global direct-download speed limit in bytes/sec (0 = unlimited).
 static DIRECT_LIMIT_BPS: AtomicU64 = AtomicU64::new(0);
@@ -114,13 +136,7 @@ pub async fn run_direct_download(
         }
     }
 
-    let client = reqwest::Client::builder()
-        .user_agent(DOWNLOAD_USER_AGENT)
-        // Carry cookies set on redirect/error responses — some hosters
-        // 302 through a cookie-setting hop.
-        .cookie_store(true)
-        .build()
-        .unwrap_or_default();
+    let client = build_download_client();
 
     let mut current_url = url;
     let current_save_path = save_path;
@@ -277,11 +293,7 @@ pub async fn run_debrid_files_download(
         return;
     }
 
-    let client = reqwest::Client::builder()
-        .user_agent(DOWNLOAD_USER_AGENT)
-        .cookie_store(true)
-        .build()
-        .unwrap_or_default();
+    let client = build_download_client();
 
     let selected: Option<std::collections::HashSet<usize>> =
         only_files.map(|v| v.into_iter().collect());
@@ -835,12 +847,13 @@ async fn attempt_download(
         .open(&temp_path)
         .await;
 
-    let mut file = match file_res {
+    let file = match file_res {
         Ok(f) => f,
         Err(e) => {
             return AttemptResult::Fatal(format!("Failed to create file: {}", e));
         }
     };
+    let mut file = tokio::io::BufWriter::with_capacity(256 * 1024, file);
 
     let mut skip_remaining: u64 = if range_ignored { current_size } else { 0 };
     let mut buffer_size = base_offset + current_size;
@@ -1065,10 +1078,11 @@ async fn stream_segment(
         .append(true)
         .open(part_path)
         .await;
-    let mut file = match file_res {
+    let file = match file_res {
         Ok(f) => f,
         Err(e) => return SegmentResult::Transient(format!("Failed to open part file: {}", e)),
     };
+    let mut file = tokio::io::BufWriter::with_capacity(256 * 1024, file);
 
     let mut abort_check = std::time::Instant::now();
     loop {
@@ -1097,7 +1111,7 @@ async fn stream_segment(
         }
 
         let chunk_res =
-            tokio::time::timeout(Duration::from_secs(STALL_TIMEOUT_SECS), resp.chunk())
+            tokio::time::timeout(Duration::from_secs(SEGMENT_STALL_TIMEOUT_SECS), resp.chunk())
                 .await;
         let chunk = match chunk_res {
             Ok(inner) => match inner {
@@ -1110,9 +1124,10 @@ async fn stream_segment(
             },
             Err(_) => {
                 drop(file);
-                return SegmentResult::Transient(
-                    "Download stalled (no data received for 30s)".to_string(),
-                );
+                return SegmentResult::Transient(format!(
+                    "Segment download stalled (no data received for {}s)",
+                    SEGMENT_STALL_TIMEOUT_SECS
+                ));
             }
         };
 
@@ -1341,7 +1356,11 @@ async fn attempt_segmented_download(
                         if !still_downloading(&weak, &id_owned, generation).await {
                             return SegmentResult::Aborted;
                         }
-                        tokio::time::sleep(Duration::from_millis(1500)).await;
+                        println!(
+                            "[downloads] Segment transient error ({}), reconnecting attempt {}/{}",
+                            e, attempt, SEGMENT_RECONNECTS
+                        );
+                        tokio::time::sleep(Duration::from_millis(500)).await;
                     }
                     other => return other,
                 }
