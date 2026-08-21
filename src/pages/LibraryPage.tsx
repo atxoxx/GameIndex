@@ -20,6 +20,7 @@ import LibraryContextMenu from "../components/library/LibraryContextMenu";
 import LibraryGameCard from "../components/library/LibraryGameCard";
 import LibraryExportModal from "../components/library/LibraryExportModal";
 import LibraryBulkBar from "../components/library/LibraryBulkBar";
+import { ConfirmModal } from "../components/ui/ConfirmModal";
 
 export default function LibraryPage() {
   const navigate = useNavigate();
@@ -60,6 +61,10 @@ export default function LibraryPage() {
   const [groupBy, setGroupBy] = useState<LibraryGroupBy>("none");
   const [bulkMode, setBulkMode] = useState(false);
   const [selectedGameIds, setSelectedGameIds] = useState<Set<string>>(new Set());
+  // Pending destructive removals, gated behind ConfirmModal (same
+  // pattern as GamePage's remove flow). `null`/`false` = no prompt.
+  const [removeConfirmGame, setRemoveConfirmGame] = useState<Game | null>(null);
+  const [bulkRemoveConfirmOpen, setBulkRemoveConfirmOpen] = useState(false);
 
   useEffect(() => {
     if (!contextMenu) return;
@@ -108,11 +113,17 @@ export default function LibraryPage() {
   const handleRemove = useCallback(
     (game: Game) => {
       setContextMenu(null);
-      removeGame(game.id);
-      showToast(t("library.removedFromLibrary", { name: game.name }), "info");
+      setRemoveConfirmGame(game);
     },
-    [removeGame, showToast, t]
+    []
   );
+
+  const handleConfirmRemove = useCallback(() => {
+    if (!removeConfirmGame) return;
+    removeGame(removeConfirmGame.id);
+    showToast(t("library.removedFromLibrary", { name: removeConfirmGame.name }), "info");
+    setRemoveConfirmGame(null);
+  }, [removeConfirmGame, removeGame, showToast, t]);
 
   const handleUpdatePlayStatus = useCallback(
     (gameId: string, status: PlayStatus) => {
@@ -157,6 +168,12 @@ export default function LibraryPage() {
   );
 
   const handleBulkRemove = useCallback(() => {
+    if (selectedGameIds.size === 0) return;
+    setBulkRemoveConfirmOpen(true);
+  }, [selectedGameIds]);
+
+  const handleConfirmBulkRemove = useCallback(() => {
+    setBulkRemoveConfirmOpen(false);
     if (selectedGameIds.size === 0) return;
     const count = selectedGameIds.size;
     selectedGameIds.forEach((id) => {
@@ -375,6 +392,28 @@ export default function LibraryPage() {
           onClose={() => setExportOpen(false)}
         />
       )}
+
+      {/* Confirm Remove Modal (single game, via context menu) */}
+      <ConfirmModal
+        open={removeConfirmGame !== null}
+        title={t("game.removeConfirmTitle", { name: removeConfirmGame?.name ?? "" })}
+        message={t("gamePage.removeConfirmBody")}
+        confirmLabel={t("common.remove")}
+        cancelLabel={t("common.cancel")}
+        onConfirm={handleConfirmRemove}
+        onCancel={() => setRemoveConfirmGame(null)}
+      />
+
+      {/* Confirm Remove Modal (bulk selection) */}
+      <ConfirmModal
+        open={bulkRemoveConfirmOpen}
+        title={t("library.bulkRemoveConfirmTitle", { count: selectedGameIds.size })}
+        message={t("library.bulkRemoveConfirmBody", { count: selectedGameIds.size })}
+        confirmLabel={t("common.remove")}
+        cancelLabel={t("common.cancel")}
+        onConfirm={handleConfirmBulkRemove}
+        onCancel={() => setBulkRemoveConfirmOpen(false)}
+      />
     </div>
   );
 }

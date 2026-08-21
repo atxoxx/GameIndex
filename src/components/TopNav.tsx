@@ -1,5 +1,5 @@
 import { useCallback, useId, useRef, useState, useEffect } from "react";
-import type { MouseEvent } from "react";
+import type { KeyboardEvent as ReactKeyboardEvent, MouseEvent } from "react";
 import { NavLink, useLocation } from "react-router-dom";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { createPortal } from "react-dom";
@@ -112,15 +112,23 @@ export default function TopNav() {
   const moreMenuRef = useRef<HTMLDivElement>(null);
   const moreId = useId();
 
+  // Close the overflow menu and hand focus back to its trigger, so
+  // keyboard users aren't dropped onto <body> after Escape, an
+  // outside click, or activating a menu item.
+  const closeMoreMenu = useCallback(() => {
+    setMoreOpen(false);
+    moreBtnRef.current?.focus();
+  }, []);
+
   useEffect(() => {
     if (!moreOpen) return;
     const onDown = (e: globalThis.MouseEvent) => {
       const t = e.target as Element;
       if (moreBtnRef.current?.contains(t) || moreMenuRef.current?.contains(t)) return;
-      setMoreOpen(false);
+      closeMoreMenu();
     };
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") setMoreOpen(false);
+      if (e.key === "Escape") closeMoreMenu();
     };
     document.addEventListener("mousedown", onDown);
     document.addEventListener("keydown", onKey);
@@ -128,7 +136,39 @@ export default function TopNav() {
       document.removeEventListener("mousedown", onDown);
       document.removeEventListener("keydown", onKey);
     };
-  }, [moreOpen]);
+  }, [moreOpen, closeMoreMenu]);
+
+  // Roving focus inside the overflow menu: ArrowUp/ArrowDown cycle
+  // through the items (wrapping around), Home/End jump to the
+  // first/last item — the WAI-ARIA menu-button keyboard pattern.
+  const handleMoreMenuKeyDown = useCallback(
+    (e: ReactKeyboardEvent<HTMLDivElement>) => {
+      const items = moreMenuRef.current?.querySelectorAll<HTMLElement>('a[role="menuitem"]');
+      if (!items || items.length === 0) return;
+      const count = items.length;
+      const currentIndex = Array.from(items).indexOf(document.activeElement as HTMLElement);
+      let nextIndex: number;
+      switch (e.key) {
+        case "ArrowDown":
+          nextIndex = currentIndex < 0 ? 0 : (currentIndex + 1) % count;
+          break;
+        case "ArrowUp":
+          nextIndex = currentIndex < 0 ? count - 1 : (currentIndex - 1 + count) % count;
+          break;
+        case "Home":
+          nextIndex = 0;
+          break;
+        case "End":
+          nextIndex = count - 1;
+          break;
+        default:
+          return;
+      }
+      e.preventDefault();
+      items[nextIndex].focus();
+    },
+    [],
+  );
 
   const handleTitleBarDoubleClick = useCallback(
     (e: MouseEvent<HTMLElement>) => {
@@ -184,7 +224,7 @@ export default function TopNav() {
             <span className="topnav-logo__version">v{version}</span>
           )}
         </div>
-        <div className="topnav-tabs" role="tablist">
+        <div className="topnav-tabs">
           {primaryTabs.map((tab) => {
             const Icon = tab.icon;
             const isActive = location.pathname.startsWith(tab.path);
@@ -194,8 +234,6 @@ export default function TopNav() {
                 to={tab.path}
                 className={`topnav-tab${isActive ? " active" : ""}`}
                 aria-current={isActive ? "page" : undefined}
-                role="tab"
-                aria-selected={isActive ? "true" : "false"}
               >
                 <Icon className="topnav-tab-icon" strokeWidth={2} aria-hidden="true" />
                 {t(tab.labelKey)}
@@ -213,7 +251,7 @@ export default function TopNav() {
             aria-controls={moreId}
             onClick={() => setMoreOpen((o) => !o)}
           >
-            More <ChevronDown className="topnav-more-chevron" size={14} aria-hidden />
+            {t("nav.more")} <ChevronDown className="topnav-more-chevron" size={14} aria-hidden />
             {unseenCommunity > 0 && (
               <span className="topnav-tab-badge" role="status" aria-label={t("topnav.newCommunityItems", { count: unseenCommunity, plural: unseenCommunity !== 1 ? "s" : "" })}>
                 {unseenCommunity > 99 ? "99+" : unseenCommunity}
@@ -227,6 +265,7 @@ export default function TopNav() {
                 id={moreId}
                 role="menu"
                 className="topnav-more-menu"
+                onKeyDown={handleMoreMenuKeyDown}
                 style={
                   moreBtnRef.current
                     ? (() => {
@@ -247,7 +286,7 @@ export default function TopNav() {
                       role="menuitem"
                       className={`topnav-more-item${isActive ? " active" : ""}`}
                       onClick={() => {
-                        setMoreOpen(false);
+                        closeMoreMenu();
                         if (tab.path === "/friends") clearUnseenCommunityItems();
                       }}
                     >
