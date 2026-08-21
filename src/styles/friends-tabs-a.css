@@ -755,7 +755,7 @@
 }
 
 .p2p-log-time {
-  font-size: 11px;
+  font-size: var(--font-size-2xs);
 }
 
 .p2p-log-msg {
@@ -764,7 +764,7 @@
 }
 
 .p2p-log-detail {
-  font-size: 11px;
+  font-size: var(--font-size-2xs);
   color: var(--color-text-muted);
 }
 

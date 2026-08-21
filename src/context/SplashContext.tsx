@@ -58,7 +58,7 @@ function buildSplashRecord(
   };
 }
 
-interface SplashContextType {
+export interface SplashContextType {
   /** Whether the splash overlay is currently visible. */
   visible: boolean;
   /** Current splash record. Null when no launch is in flight. */

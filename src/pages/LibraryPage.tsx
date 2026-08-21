@@ -21,6 +21,8 @@ import LibraryGameCard from "../components/library/LibraryGameCard";
 import LibraryExportModal from "../components/library/LibraryExportModal";
 import LibraryBulkBar from "../components/library/LibraryBulkBar";
 import { ConfirmModal } from "../components/ui/ConfirmModal";
+import { useFilterPresets } from "../hooks/useFilterPresets";
+import type { FilterPreset } from "../hooks/libraryFilters";
 
 export default function LibraryPage() {
   const navigate = useNavigate();
@@ -65,6 +67,34 @@ export default function LibraryPage() {
   // pattern as GamePage's remove flow). `null`/`false` = no prompt.
   const [removeConfirmGame, setRemoveConfirmGame] = useState<Game | null>(null);
   const [bulkRemoveConfirmOpen, setBulkRemoveConfirmOpen] = useState(false);
+
+  const { presets, savePreset, deletePreset, getPresetFilters } = useFilterPresets();
+
+  const handleSavePreset = useCallback(() => {
+    const defaultName = t("library.presets.defaultName") !== "library.presets.defaultName" ? t("library.presets.defaultName") : "My preset";
+    const raw = window.prompt(t("library.presets.savePrompt") !== "library.presets.savePrompt" ? t("library.presets.savePrompt") : "Preset name:", defaultName);
+    if (raw == null) return;
+    const name = raw.trim();
+    if (!name) return;
+    savePreset(name, filters);
+    showToast(t("library.presets.saved", { name }), "success");
+  }, [filters, savePreset, showToast, t]);
+
+  const handleApplyPreset = useCallback(
+    (preset: FilterPreset) => {
+      const next = getPresetFilters(preset);
+      setGenres(next.genres);
+      setPlatforms(next.platforms);
+      setYearRange(next.yearMin, next.yearMax);
+      setRatingMin(next.ratingMin);
+      setStatus(next.status);
+      setSource(next.source);
+      setPlayStatus(next.playStatus);
+      setSort(next.sort);
+      showToast(t("library.presets.applied", { name: preset.name }), "info");
+    },
+    [getPresetFilters, setGenres, setPlatforms, setYearRange, setRatingMin, setSource, setStatus, setPlayStatus, setSort, showToast, t]
+  );
 
   useEffect(() => {
     if (!contextMenu) return;
@@ -328,6 +358,59 @@ export default function LibraryPage() {
           onRemoveSource={removeSource}
           onResetAll={reset}
         />
+      )}
+
+      {/* Saved Presets — minimal chip row using existing styles */}
+      {!isLibraryEmpty && (
+        <div
+          className="lib-chips"
+          style={{ marginTop: "8px", flexWrap: "wrap" } as React.CSSProperties}
+          aria-label={t("library.presets.title")}
+        >
+          {hasFilters && (
+            <button type="button" className="lib-chip-reset" onClick={handleSavePreset}>
+              {t("library.presets.savePreset")}
+            </button>
+          )}
+          {presets.length > 0 && (
+            <>
+              <span className="lib-chip-count" style={{ marginLeft: hasFilters ? 8 : 0 }}>
+                {t("library.presets.title")}:
+              </span>
+              {presets.map((preset) => (
+                <span key={preset.id} className="lib-chip" style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
+                  <button
+                    type="button"
+                    onClick={() => handleApplyPreset(preset)}
+                    style={{ background: "none", border: "none", padding: 0, color: "inherit", cursor: "pointer", font: "inherit" }}
+                    title={t("library.presets.applyPreset", { name: preset.name })}
+                  >
+                    {preset.name}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => deletePreset(preset.id)}
+                    aria-label={t("library.presets.deletePreset", { name: preset.name })}
+                    style={{
+                      background: "none",
+                      border: "none",
+                      padding: "0 2px",
+                      color: "inherit",
+                      cursor: "pointer",
+                      opacity: 0.7,
+                      lineHeight: 1,
+                    }}
+                  >
+                    <svg viewBox="0 0 24 24" width={12} height={12} fill="none" stroke="currentColor" strokeWidth={2} aria-hidden>
+                      <line x1="18" y1="6" x2="6" y2="18" />
+                      <line x1="6" y1="6" x2="18" y2="18" />
+                    </svg>
+                  </button>
+                </span>
+              ))}
+            </>
+          )}
+        </div>
       )}
 
       {isLibraryEmpty ? (

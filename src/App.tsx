@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { Suspense, useEffect } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { HashRouter, Routes, Route } from "react-router-dom";
 import TopNav from "./components/TopNav";
@@ -78,18 +78,20 @@ function AppShell() {
   const { isBigScreen } = useBigScreen();
   return (
     <GamepadProvider enabled={isBigScreen}>
-      <Routes>
-        <Route element={<AppLayout />}>
-          <Route index element={<LandingRedirect />} />
-          {BIGSCREEN_ROUTE_PAIRS.map(({ path, desktop, bigscreen }) => (
-            <Route
-              key={path}
-              path={path}
-              element={<ShellSwitch desktop={desktop()} bigscreen={bigscreen?.()} />}
-            />
-          ))}
-        </Route>
-      </Routes>
+      <Suspense fallback={null}>
+        <Routes>
+          <Route element={<AppLayout />}>
+            <Route index element={<LandingRedirect />} />
+            {BIGSCREEN_ROUTE_PAIRS.map(({ path, desktop, bigscreen }) => (
+              <Route
+                key={path}
+                path={path}
+                element={<ShellSwitch desktop={desktop()} bigscreen={bigscreen?.()} />}
+              />
+            ))}
+          </Route>
+        </Routes>
+      </Suspense>
     </GamepadProvider>
   );
 }

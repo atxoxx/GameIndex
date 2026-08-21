@@ -2,8 +2,6 @@ import React from "react";
 import ReactDOM from "react-dom/client";
 import App from "./App";
 import { initNostrKeys } from "./pages/friendsStorage";
-import "./styles/theme.css";
-import "./styles/themes.css";
 import "./index.css";
 import "./styles/animations.css";
 import "./styles/ui.css";
@@ -13,7 +11,6 @@ import "./styles/download.css";
 import "./library.css";
 import "./styles/home.css";
 import "./pages/deals/DealsPage.css";
-import "./styles/bigscreen.css";
 import "./styles/store-polish.css";
 
 // The friends page resolves its Nostr signing key synchronously from an

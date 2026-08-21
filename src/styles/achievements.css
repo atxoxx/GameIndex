@@ -115,7 +115,7 @@
   display: inline-flex;
   align-items: center;
   gap: var(--space-xs);
-  font-size: 11px;
+  font-size: var(--font-size-2xs);
   color: var(--color-text-secondary);
   font-weight: var(--font-weight-medium);
   font-variant-numeric: tabular-nums;
@@ -512,7 +512,7 @@
   background: color-mix(in srgb, var(--color-warning) 14%, transparent);
   border: 1px solid var(--color-warning);
   color: var(--color-warning);
-  font-size: 11px;
+  font-size: var(--font-size-2xs);
   font-weight: var(--font-weight-bold);
   box-shadow: 0 0 10px color-mix(in srgb, var(--color-warning) 30%, transparent);
 }
@@ -705,7 +705,7 @@
 }
 
 .ach-rarity-row-counts {
-  font-size: 11px;
+  font-size: var(--font-size-2xs);
   color: var(--color-text-secondary);
   font-weight: var(--font-weight-semibold);
   font-variant-numeric: tabular-nums;
@@ -795,7 +795,7 @@
   display: inline-flex;
   align-items: center;
   gap: var(--space-xs);
-  font-size: 11px;
+  font-size: var(--font-size-2xs);
   color: var(--color-text-secondary);
   font-weight: var(--font-weight-medium);
   font-variant-numeric: tabular-nums;
@@ -872,7 +872,7 @@
   background: var(--color-bg-tertiary);
   border: 1px solid var(--color-border);
   color: var(--color-text-secondary);
-  font-size: 11px;
+  font-size: var(--font-size-2xs);
   font-weight: var(--font-weight-medium);
   cursor: pointer;
   transition: color var(--duration-fast), background var(--duration-fast), border-color var(--duration-fast);
@@ -1006,7 +1006,7 @@
 
 .achievements-last-synced {
   text-align: center;
-  font-size: 11px;
+  font-size: var(--font-size-2xs);
   color: var(--color-text-muted);
   margin-top: var(--space-lg);
   padding-top: var(--space-lg);
@@ -1154,7 +1154,7 @@
   display: flex;
   align-items: center;
   gap: var(--space-xs);
-  font-size: 11px;
+  font-size: var(--font-size-2xs);
   color: var(--color-text-muted);
 }
 
@@ -1213,7 +1213,7 @@
 }
 
 .achievement-card-desc {
-  font-size: 11px;
+  font-size: var(--font-size-2xs);
   color: var(--color-text-secondary);
   line-height: 1.35;
   margin: 0;
@@ -1322,7 +1322,7 @@
 }
 
 .ach-compact-desc {
-  font-size: 11px;
+  font-size: var(--font-size-2xs);
   color: var(--color-text-muted);
   white-space: nowrap;
   overflow: hidden;
@@ -1638,7 +1638,7 @@
 }
 
 .achievements-timeline-name {
-  font-size: 11px;
+  font-size: var(--font-size-2xs);
   font-weight: var(--font-weight-bold);
   color: var(--color-text-primary);
   white-space: nowrap;
@@ -1779,7 +1779,7 @@
 }
 
 .achievements-game-progress-text {
-  font-size: 11px;
+  font-size: var(--font-size-2xs);
   color: var(--color-text-secondary);
   font-weight: var(--font-weight-semibold);
   font-variant-numeric: tabular-nums;
@@ -1787,7 +1787,7 @@
 }
 
 .achievements-game-not-synced {
-  font-size: 11px;
+  font-size: var(--font-size-2xs);
   color: var(--color-text-muted);
   font-style: italic;
   font-weight: var(--font-weight-medium);
@@ -1805,7 +1805,7 @@
 }
 
 .achievements-game-synced-at {
-  font-size: 11px;
+  font-size: var(--font-size-2xs);
   color: var(--color-text-muted);
   font-weight: var(--font-weight-medium);
   white-space: nowrap;
@@ -2101,7 +2101,7 @@
 }
 
 .ach-editor-desc {
-  font-size: 11px;
+  font-size: var(--font-size-2xs);
   color: var(--color-text-secondary);
   line-height: 1.4;
   display: -webkit-box;

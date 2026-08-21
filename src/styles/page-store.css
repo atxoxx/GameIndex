@@ -148,7 +148,7 @@
   border: 1px solid var(--color-border);
   background: var(--color-bg-primary);
   overflow: hidden;
-  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.65);
+  box-shadow: var(--elevation-4);
   position: relative;
   margin-bottom: var(--space-lg);
 }
@@ -158,8 +158,8 @@
   align-items: center;
   justify-content: space-between;
   padding: 12px 20px;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
-  background: rgba(11, 15, 24, 0.7);
+  border-bottom: 1px solid var(--scrim-border);
+  background: var(--scrim-dark);
   backdrop-filter: blur(12px);
   position: relative;
   z-index: 5;
@@ -170,8 +170,8 @@
   gap: 4px;
   padding: 3px;
   border-radius: var(--radius-full);
-  background: rgba(0, 0, 0, 0.45);
-  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: var(--scrim-dark-mid);
+  border: 1px solid var(--scrim-border);
 }
 
 .store-spotlight-tab {
@@ -182,7 +182,7 @@
   border-radius: var(--radius-full);
   border: none;
   background: transparent;
-  color: rgba(255, 255, 255, 0.65);
+  color: var(--scrim-text-faint);
   font-size: var(--font-size-xs);
   font-weight: var(--font-weight-semibold);
   cursor: pointer;
@@ -196,7 +196,7 @@
 }
 
 .store-spotlight-tab:hover {
-  color: #fff;
+  color: var(--scrim-text);
 }
 
 .store-spotlight-tab.active {
@@ -211,9 +211,9 @@
   gap: 6px;
   padding: 6px 16px;
   border-radius: var(--radius-full);
-  border: 1px solid rgba(255, 255, 255, 0.15);
-  background: rgba(255, 255, 255, 0.06);
-  color: #fff;
+  border: 1px solid var(--scrim-border-strong);
+  background: var(--scrim-pill);
+  color: var(--scrim-text);
   font-size: var(--font-size-xs);
   font-weight: var(--font-weight-semibold);
   cursor: pointer;
@@ -229,7 +229,7 @@
 .store-featured-surprise:hover:not(:disabled) {
   border-color: var(--color-accent);
   color: var(--color-accent);
-  background: rgba(255, 255, 255, 0.1);
+  background: var(--scrim-pill);
   box-shadow: 0 0 14px var(--color-accent-glow);
 }
 
@@ -262,7 +262,7 @@
   background: var(--color-bg-secondary);
   border: 1px solid var(--color-border-light);
   border-radius: var(--radius-xl);
-  box-shadow: inset 0 1px 0 var(--color-border-highlight), 0 24px 60px rgba(0, 0, 0, 0.6);
+  box-shadow: inset 0 1px 0 var(--color-border-highlight), var(--elevation-4);
   overflow: hidden;
   animation: blurIn 220ms var(--ease-out) both;
 }
@@ -316,7 +316,7 @@
 .store-surprise-modal-close:hover {
   color: var(--color-text-primary);
   border-color: var(--color-accent);
-  background: rgba(255, 255, 255, 0.06);
+  background: var(--scrim-pill);
 }
 
 .store-surprise-modal-close svg {
@@ -478,7 +478,7 @@
   padding: 4px 10px;
   border-radius: var(--radius-full);
   background: color-mix(in srgb, var(--color-accent) 25%, transparent);
-  color: #fff;
+  color: var(--scrim-text);
   border: 1px solid var(--color-accent);
   letter-spacing: 0.6px;
 }
@@ -490,19 +490,19 @@
   padding: 4px 8px;
   border-radius: var(--radius-xs);
   background: var(--color-success);
-  color: #fff;
-  font-size: 11px;
+  color: var(--scrim-text);
+  font-size: var(--font-size-2xs);
   font-weight: 800;
 }
 
 .store-spotlight-year {
-  font-size: 11px;
+  font-size: var(--font-size-2xs);
   font-weight: 600;
-  color: rgba(255, 255, 255, 0.8);
-  background: rgba(255, 255, 255, 0.08);
+  color: var(--scrim-text-muted);
+  background: var(--scrim-pill);
   padding: 3px 8px;
   border-radius: var(--radius-xs);
-  border: 1px solid rgba(255, 255, 255, 0.1);
+  border: 1px solid var(--scrim-border);
 }
 
 .store-spotlight-logo-wrap {
@@ -550,7 +550,7 @@
 .store-spotlight-summary {
   font-size: 14px;
   line-height: 1.55;
-  color: rgba(255, 255, 255, 0.8);
+  color: var(--scrim-text-muted);
   text-shadow: 0 2px 8px rgba(0, 0, 0, 0.9);
   max-width: 560px;
   margin: 0;
@@ -575,13 +575,13 @@
 }
 
 .store-spotlight-genre-pill {
-  font-size: 11px;
+  font-size: var(--font-size-2xs);
   font-weight: 600;
   padding: 3px 10px;
   border-radius: var(--radius-full);
-  background: rgba(255, 255, 255, 0.1);
-  border: 1px solid rgba(255, 255, 255, 0.16);
-  color: #fff;
+  background: var(--scrim-pill);
+  border: 1px solid var(--scrim-border-strong);
+  color: var(--scrim-text);
   backdrop-filter: blur(8px);
 }
 
@@ -596,13 +596,13 @@
   display: inline-flex;
   align-items: center;
   gap: 5px;
-  font-size: 11px;
+  font-size: var(--font-size-2xs);
   font-weight: 600;
-  color: rgba(255, 255, 255, 0.85);
+  color: var(--scrim-text-muted);
   background: rgba(0, 0, 0, 0.35);
   padding: 3px 8px;
   border-radius: var(--radius-sm);
-  border: 1px solid rgba(255, 255, 255, 0.1);
+  border: 1px solid var(--scrim-border);
 }
 
 .store-spotlight-platform-item svg {
@@ -644,9 +644,9 @@
   height: 44px;
   padding: 0 18px;
   border-radius: var(--radius-md);
-  border: 1px solid rgba(255, 255, 255, 0.18);
-  background: rgba(255, 255, 255, 0.08);
-  color: #fff;
+  border: 1px solid var(--scrim-border-strong);
+  background: var(--scrim-pill);
+  color: var(--scrim-text);
   font-size: 13px;
   font-weight: 600;
   backdrop-filter: blur(10px);
@@ -655,8 +655,8 @@
 }
 
 .store-spotlight-wishlist:hover {
-  background: rgba(255, 255, 255, 0.16);
-  border-color: rgba(255, 255, 255, 0.35);
+  background: var(--scrim-pill-strong);
+  border-color: color-mix(in srgb, var(--scrim-text) 35%, transparent);
 }
 
 .store-spotlight-wishlist.active {
@@ -672,14 +672,14 @@
   margin-left: 8px;
   padding: 4px 10px;
   border-radius: var(--radius-full);
-  background: rgba(0, 0, 0, 0.45);
-  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: var(--scrim-dark-mid);
+  border: 1px solid var(--scrim-border);
   backdrop-filter: blur(8px);
 }
 
 .store-spotlight-counter {
   font-size: 12px;
-  color: #fff;
+  color: var(--scrim-text);
   display: flex;
   align-items: baseline;
   gap: 2px;
@@ -691,7 +691,7 @@
 }
 
 .store-spotlight-counter small {
-  color: rgba(255, 255, 255, 0.4);
+  color: color-mix(in srgb, var(--scrim-text) 40%, transparent);
 }
 
 .store-spotlight-nav-arrows {
@@ -704,9 +704,9 @@
   width: 24px;
   height: 24px;
   border-radius: var(--radius-full);
-  border: 1px solid rgba(255, 255, 255, 0.12);
-  background: rgba(255, 255, 255, 0.08);
-  color: #fff;
+  border: 1px solid var(--scrim-border);
+  background: var(--scrim-pill);
+  color: var(--scrim-text);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -732,9 +732,9 @@
 .store-spotlight-card-wrap {
   width: 240px;
   aspect-ratio: 2/3;
-  border-radius: 16px;
+  border-radius: var(--radius-lg);
   overflow: hidden;
-  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.8), 0 0 0 1px rgba(255, 255, 255, 0.16);
+  box-shadow: var(--elevation-4), 0 0 0 1px var(--scrim-border-strong);
   position: relative;
   transition: transform 400ms cubic-bezier(0.16, 1, 0.3, 1), box-shadow 400ms ease;
   transform: rotateY(-5deg) rotateX(2deg);
@@ -742,7 +742,7 @@
 
 .store-spotlight-card-wrap:hover {
   transform: rotateY(0deg) rotateX(0deg) translateY(-8px) scale(1.03);
-  box-shadow: 0 32px 80px rgba(0, 0, 0, 0.9), 0 0 30px var(--color-accent-glow), 0 0 0 1px rgba(255, 255, 255, 0.3);
+  box-shadow: var(--elevation-5), 0 0 30px var(--color-accent-glow), 0 0 0 1px color-mix(in srgb, var(--scrim-text) 30%, transparent);
 }
 
 .store-spotlight-poster {
@@ -755,13 +755,13 @@
 .store-spotlight-poster-gloss {
   position: absolute;
   inset: 0;
-  background: linear-gradient(135deg, rgba(255, 255, 255, 0.22) 0%, transparent 40%, rgba(0, 0, 0, 0.4) 100%);
+  background: linear-gradient(135deg, var(--scrim-gloss) 0%, transparent 40%, var(--scrim-dark-mid) 100%);
   pointer-events: none;
 }
 
 /* Thumbnail Dock spanning the bottom */
 .store-spotlight-dock {
-  border-top: 1px solid rgba(255, 255, 255, 0.08);
+  border-top: 1px solid var(--scrim-border);
   background: rgba(7, 9, 14, 0.85);
   backdrop-filter: blur(16px);
   padding: 10px 20px;
@@ -786,9 +786,9 @@
   position: relative;
   width: 130px;
   height: 52px;
-  border-radius: 8px;
+  border-radius: var(--radius-md);
   overflow: hidden;
-  border: 1.5px solid rgba(255, 255, 255, 0.1);
+  border: 1.5px solid var(--scrim-border);
   /* Surface token instead of a hardcoded near-black: matches the old
    * value in dark themes, gives light theme a light placeholder chip. */
   background: var(--color-bg-secondary);
@@ -824,7 +824,7 @@
   padding: 3px 6px;
   font-size: var(--font-size-2xs);
   font-weight: 700;
-  color: #fff;
+  color: var(--scrim-text);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -836,7 +836,7 @@
 .store-spotlight-dock-item:hover {
   opacity: 0.9;
   transform: translateY(-2px);
-  border-color: rgba(255, 255, 255, 0.3);
+  border-color: color-mix(in srgb, var(--scrim-text) 30%, transparent);
 }
 
 .store-spotlight-dock-item:hover img {
@@ -1140,7 +1140,7 @@
   justify-content: space-between;
   padding: var(--space-xs) var(--space-sm);
   border-bottom: 1px solid var(--color-border);
-  font-size: 11px;
+  font-size: var(--font-size-2xs);
   color: var(--color-text-tertiary);
   text-transform: uppercase;
   letter-spacing: 0.5px;
@@ -1204,8 +1204,8 @@
   padding: 2px 6px;
   border-radius: var(--radius-xs);
   background: var(--color-success);
-  color: #fff;
-  font-size: 11px;
+  color: var(--scrim-text);
+  font-size: var(--font-size-2xs);
   font-weight: var(--font-weight-bold);
   flex-shrink: 0;
 }
@@ -1355,7 +1355,7 @@
 }
 
 .store-card-genre {
-  font-size: 11px;
+  font-size: var(--font-size-2xs);
   padding: 2px 7px;
   border-radius: var(--radius-full);
   background: color-mix(in srgb, var(--color-text-primary) 6%, transparent);
@@ -1385,11 +1385,11 @@
   display: inline-flex;
   align-items: center;
   gap: 3px;
-  font-size: 11px;
+  font-size: var(--font-size-2xs);
   font-weight: var(--font-weight-bold);
   padding: 2px 6px;
   border-radius: var(--radius-xs);
-  color: #fff;
+  color: var(--scrim-text);
   flex-shrink: 0;
 }
 
@@ -1423,12 +1423,12 @@
 }
 
 .store-card-price-discount {
-  font-size: 11px;
+  font-size: var(--font-size-2xs);
   font-weight: var(--font-weight-bold);
   padding: 2px 6px;
   border-radius: var(--radius-xs);
   background: var(--color-success);
-  color: #fff;
+  color: var(--scrim-text);
   flex-shrink: 0;
 }
 
@@ -1582,7 +1582,7 @@
   border: 1px solid var(--color-border);
   background: var(--color-bg-primary);
   color: var(--color-text-secondary);
-  font-size: 11px;
+  font-size: var(--font-size-2xs);
   cursor: pointer;
   transition: all var(--transition-fast);
 }
@@ -1645,6 +1645,31 @@
   .store-th-price,
   .store-card-list-price {
     display: none !important;
+  }
+}
+
+/* ── Motion safety: hero drift, dock progress, surprise spin ──
+   Respects prefers-reduced-motion — finite animations become static
+   so the spotlight hero never drifts forever on battery / motion-sensitive
+   setups. Spotlight card glow cascade is also gated (see game-cards.css). */
+@media (prefers-reduced-motion: reduce) {
+  .store-spotlight-bg-img {
+    animation: none;
+  }
+  .store-spotlight-dock-progress {
+    animation: none;
+  }
+  .store-featured-surprise.is-spinning svg {
+    animation: none;
+  }
+}
+
+/* ── Touch fallback: dock quick-nav + card peek controls must be
+   reachable without hover — reveal on coarse-pointer devices. */
+@media (hover: none) {
+  .store-spotlight-quick-nav,
+  .store-spotlight-arrow-btn {
+    opacity: 1;
   }
 }
 

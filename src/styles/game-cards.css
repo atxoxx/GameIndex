@@ -128,7 +128,7 @@
 .kpi-tile--intent-info .kpi-tile__value { color: var(--color-info); }
 
 .kpi-tile__subtext {
-  font-size: 11px;
+  font-size: var(--font-size-2xs);
   color: var(--color-text-muted);
   line-height: 1.3;
 }
@@ -215,7 +215,7 @@
   align-items: center;
   gap: var(--space-xs);
   color: var(--color-text-muted);
-  font-size: 11px;
+  font-size: var(--font-size-2xs);
   font-weight: var(--font-weight-semibold);
   letter-spacing: 0.5px;
   text-transform: uppercase;
@@ -242,7 +242,7 @@
 /* Inline-editable notes card (Game page overview). */
 .notes-section__hint {
   margin-left: auto;
-  font-size: 11px;
+  font-size: var(--font-size-2xs);
   font-weight: var(--font-weight-regular);
   color: var(--color-text-muted);
   letter-spacing: normal;
@@ -279,7 +279,7 @@
   border-radius: var(--radius-full);
   background: var(--color-bg-tertiary);
   border: 1px solid var(--color-border);
-  font-size: 11px;
+  font-size: var(--font-size-2xs);
   font-weight: var(--font-weight-semibold);
   letter-spacing: 0.3px;
   text-transform: uppercase;
@@ -335,7 +335,7 @@
   display: flex;
   align-items: center;
   gap: var(--space-sm);
-  font-size: 11px;
+  font-size: var(--font-size-2xs);
 }
 
 .ratings-breakdown__label {
@@ -394,7 +394,7 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  font-size: 11px;
+  font-size: var(--font-size-2xs);
 }
 
 .ttb-row__label {
@@ -476,7 +476,7 @@
   align-items: center;
   gap: 4px;
   padding: 3px 10px;
-  font-size: 11px;
+  font-size: var(--font-size-2xs);
   font-weight: var(--font-weight-semibold);
   letter-spacing: 0.2px;
   color: var(--color-text-secondary);
@@ -516,7 +516,7 @@
   gap: var(--space-sm);
   padding: 6px 0;
   border-bottom: 1px solid var(--color-border);
-  font-size: 11px;
+  font-size: var(--font-size-2xs);
 }
 
 .releases-row:last-child { border-bottom: none; }
@@ -707,7 +707,7 @@
   min-width: 0;
   color: var(--color-text-secondary);
   font-family: var(--font-mono, ui-monospace, "SF Mono", "Cascadia Mono", "JetBrains Mono", Menlo, Consolas, monospace);
-  font-size: 11px;
+  font-size: var(--font-size-2xs);
   line-height: 1.45;
   letter-spacing: 0.1px;
   /*
@@ -1806,7 +1806,7 @@
   border-radius: var(--radius-full);
   background: var(--color-bg-tertiary);
   color: var(--color-text-secondary);
-  font-size: 11px;
+  font-size: var(--font-size-2xs);
   font-weight: var(--font-weight-semibold);
   letter-spacing: 0.3px;
   cursor: pointer;
@@ -2087,7 +2087,7 @@
   background: transparent;
   color: var(--color-text-secondary);
   padding: 5px 14px;
-  font-size: 11px;
+  font-size: var(--font-size-2xs);
   font-weight: var(--font-weight-semibold);
   letter-spacing: 0.4px;
   text-transform: uppercase;
@@ -2162,7 +2162,7 @@
 
 .system-requirements-card__sys-label {
   color: var(--color-text-muted);
-  font-size: 11px;
+  font-size: var(--font-size-2xs);
   font-weight: var(--font-weight-semibold);
   letter-spacing: 0.5px;
   text-transform: uppercase;
@@ -2245,7 +2245,7 @@
 
 .system-requirements-card__row-label {
   color: var(--color-text-muted);
-  font-size: 11px;
+  font-size: var(--font-size-2xs);
   font-weight: var(--font-weight-semibold);
   letter-spacing: 0.5px;
   text-transform: uppercase;
@@ -2405,5 +2405,21 @@
 @media (max-width: 600px) {
   .game-hero__title-block {
     max-width: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .game-hero__poster,
+  .game-hero__bg--fallback,
+  .kpi-tile,
+  .game-side-col .game-section {
+    animation: none;
+    transition: none;
+  }
+  .game-hero__poster {
+    box-shadow:
+      inset 0 1px 0 var(--color-border-highlight),
+      var(--shadow-lg),
+      0 10px 30px rgba(0, 0, 0, 0.25);
   }
 }

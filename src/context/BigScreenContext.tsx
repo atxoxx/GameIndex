@@ -146,6 +146,15 @@ export function BigScreenProvider({ children }: { children: ReactNode }) {
     }
   }, []);
 
+  // Lazy-load the 204 KB Big Screen stylesheet only when the mode is
+  // active so desktop users never pay the upfront CSS cost. Vite splits
+  // the CSS into a separate chunk via this dynamic import.
+  useEffect(() => {
+    if (isBigScreen) {
+      void import("../styles/bigscreen.css");
+    }
+  }, [isBigScreen]);
+
   // ── Public toggle (used by TopNav button + Gamepad hint's exit) ─
   // Programmatic toggle. Both keyboard handlers and direct callers
   // funnel through one of {setBigScreen, toggleBigScreen} so the

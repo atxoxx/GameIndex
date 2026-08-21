@@ -534,7 +534,7 @@
 
 .page-error-component code {
   font-family: ui-monospace, "SF Mono", Menlo, monospace;
-  font-size: 11px;
+  font-size: var(--font-size-2xs);
   padding: 2px 6px;
   background: var(--color-bg-tertiary);
   border: 1px solid var(--color-border);

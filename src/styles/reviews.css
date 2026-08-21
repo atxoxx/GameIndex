@@ -335,7 +335,7 @@
   border-radius: var(--radius-full);
   background: var(--color-bg-tertiary);
   border: 1px solid var(--color-border);
-  font-size: 11px;
+  font-size: var(--font-size-2xs);
   font-weight: var(--font-weight-medium);
   color: var(--color-text-secondary);
 }
@@ -770,7 +770,7 @@
   border: 1px solid color-mix(in srgb, var(--color-accent) 35%, transparent);
   background: color-mix(in srgb, var(--color-accent) 10%, transparent);
   color: var(--color-accent);
-  font-size: 11px;
+  font-size: var(--font-size-2xs);
   font-weight: var(--font-weight-semibold);
   font-family: inherit;
   cursor: pointer;
@@ -782,7 +782,7 @@
 }
 
 .rv-match-counter {
-  font-size: 11px;
+  font-size: var(--font-size-2xs);
   color: var(--color-text-muted);
   font-weight: var(--font-weight-medium);
   margin-left: 4px;
@@ -791,7 +791,7 @@
 .rv-chip-reset {
   background: none;
   border: none;
-  font-size: 11px;
+  font-size: var(--font-size-2xs);
   font-weight: var(--font-weight-semibold);
   color: var(--color-text-muted);
   cursor: pointer;
@@ -1031,7 +1031,7 @@
   border-radius: var(--radius-full);
   background: color-mix(in srgb, var(--color-accent) 9%, transparent);
   border: 1px solid color-mix(in srgb, var(--color-accent) 22%, transparent);
-  font-size: 11px;
+  font-size: var(--font-size-2xs);
   font-weight: var(--font-weight-semibold);
   color: var(--color-accent);
   white-space: nowrap;
@@ -1050,7 +1050,7 @@
 }
 
 .rv-row-date {
-  font-size: 11px;
+  font-size: var(--font-size-2xs);
   color: var(--color-text-muted);
   font-variant-numeric: tabular-nums;
 }
@@ -1066,7 +1066,7 @@
 .rv-row-icon-btn {
   display: inline-flex;
   align-items: center;
-  font-size: 11px;
+  font-size: var(--font-size-2xs);
   cursor: default;
   opacity: 0.55;
   color: var(--color-text-muted);
@@ -1244,7 +1244,7 @@
 }
 
 .rv-helpful-text {
-  font-size: 11px;
+  font-size: var(--font-size-2xs);
   color: var(--color-text-muted);
   font-weight: var(--font-weight-medium);
 }
@@ -1308,7 +1308,7 @@
   border: 1px solid var(--color-border);
   border-radius: var(--radius-full);
   color: var(--color-text-secondary);
-  font-size: 11px;
+  font-size: var(--font-size-2xs);
   font-weight: var(--font-weight-medium);
   font-family: inherit;
   transition: all var(--transition-fast);
@@ -1365,7 +1365,7 @@
   gap: 5px;
   padding: 3px 8px;
   border-radius: var(--radius-full);
-  font-size: 11px;
+  font-size: var(--font-size-2xs);
   font-weight: var(--font-weight-semibold);
   color: var(--color-text-muted);
   text-decoration: none;
@@ -1399,7 +1399,7 @@
   background: none;
   border: none;
   padding: 2px 0;
-  font-size: 11px;
+  font-size: var(--font-size-2xs);
   font-weight: var(--font-weight-semibold);
   color: var(--color-text-muted);
   cursor: pointer;
@@ -1433,7 +1433,7 @@
 .rv-hw-specs li {
   display: flex;
   gap: var(--space-sm);
-  font-size: 11px;
+  font-size: var(--font-size-2xs);
   line-height: 1.4;
   align-items: baseline;
 }
@@ -1553,7 +1553,7 @@
 }
 
 .rv-critic-score-denom {
-  font-size: 11px;
+  font-size: var(--font-size-2xs);
   font-weight: var(--font-weight-semibold);
   opacity: 0.7;
 }
@@ -1601,7 +1601,7 @@
 }
 
 .rv-critic-date {
-  font-size: 11px;
+  font-size: var(--font-size-2xs);
   color: var(--color-text-muted);
   font-variant-numeric: tabular-nums;
 }
@@ -1610,7 +1610,7 @@
   display: inline-flex;
   align-items: center;
   gap: 5px;
-  font-size: 11px;
+  font-size: var(--font-size-2xs);
   font-weight: var(--font-weight-semibold);
 }
 
@@ -1771,7 +1771,7 @@ ol.rv-bbcode-list {
 }
 
 .rv-load-more-count {
-  font-size: 11px;
+  font-size: var(--font-size-2xs);
   color: var(--color-text-muted);
   font-weight: var(--font-weight-normal);
   white-space: nowrap;

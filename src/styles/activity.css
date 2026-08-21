@@ -294,7 +294,7 @@
   display: inline-flex;
   align-items: center;
   gap: 3px;
-  font-size: 11px;
+  font-size: var(--font-size-2xs);
   font-weight: var(--font-weight-bold);
   font-variant-numeric: tabular-nums;
   padding: 1px 7px;
@@ -356,7 +356,7 @@
 .act-seg--sm .act-seg__btn {
   height: 24px;
   padding: 0 9px;
-  font-size: 11px;
+  font-size: var(--font-size-2xs);
 }
 
 .act-seg__btn svg {

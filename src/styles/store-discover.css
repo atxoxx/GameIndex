@@ -81,7 +81,7 @@
   aspect-ratio: 2 / 3;
   border-radius: var(--radius-lg);
   /* Soft accent bloom behind the poster */
-  filter: drop-shadow(0 24px 60px rgba(0, 0, 0, 0.6))
+  filter: drop-shadow(var(--elevation-4))
           drop-shadow(0 0 30px color-mix(in srgb, var(--color-accent) 30%, transparent));
   animation: store-hero-cover-in 600ms cubic-bezier(0.22, 1, 0.36, 1) both;
   transition: transform var(--transition-normal);
@@ -869,6 +869,18 @@
   .store-card-heart,
   .store-game-card:hover .store-card-heart,
   .store-card-heart:hover { transition: none; }
+}
+
+@media (hover: none) {
+  .store-card-heart {
+    opacity: 1;
+    transform: none;
+  }
+  .store-hero-nav,
+  .store-rail-arrow {
+    opacity: 1;
+    transform: translateY(-50%);
+  }
 }
 
 /* Density variants (shared with grid) */

@@ -18,15 +18,25 @@ export default defineConfig(async () => ({
             if (id.includes("html2canvas")) return "html2canvas";
             if (id.includes("qrcode")) return "qrcode";
             if (id.includes("@tauri-apps")) return "tauri";
+            if (id.includes("react-router")) return "router";
             if (
               id.includes("react-dom") ||
-              id.includes("react-router") ||
               id.includes("/react/") ||
               id.includes("scheduler")
             ) {
               return "react-vendor";
             }
             return "vendor";
+          }
+          // Controller-first Big Screen shell — keep its 204 KB CSS + related
+          // components out of the initial chunk so desktop users never pay
+          // for TV-mode code until isBigScreen becomes true.
+          if (
+            id.includes("bigscreen") ||
+            id.includes("BigScreen") ||
+            id.includes("src/bigscreen")
+          ) {
+            return "bigscreen";
           }
         },
       },

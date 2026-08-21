@@ -408,17 +408,56 @@
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+}
+
+.sidebar-game-console-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1px 5px;
+  font-size: var(--font-size-2xs);
+  font-weight: var(--font-weight-bold);
+  line-height: 1.25;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  border: 1px solid currentColor;
+  border-radius: var(--radius-xs);
+  background: color-mix(in srgb, currentColor 10%, transparent);
+  vertical-align: middle;
+  flex-shrink: 0;
+  max-width: 96px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .sidebar-game-meta {
   display: flex;
   align-items: center;
-  gap: 5px;
+  gap: 6px;
   margin-top: 2px;
   font-size: var(--font-size-xs);
-  color: var(--color-text-secondary);
+  color: var(--color-text-muted);
   white-space: nowrap;
   overflow: hidden;
+  padding-right: 28px;
+  box-sizing: border-box;
+  min-width: 0;
+}
+
+.sidebar-game-platform-icon {
+  width: 13px;
+  height: 13px;
+  flex-shrink: 0;
+  color: var(--color-text-muted);
+  opacity: 0.9;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
 }
 
 /* Tiny play-status dot (backlog/playing/completed/on-hold/abandoned),
@@ -646,9 +685,51 @@
   gap: 0;
 }
 
-.app-sidebar.sidebar-icon-rail .sidebar-game-item .sidebar-game-info,
 .app-sidebar.sidebar-icon-rail .sidebar-game-item .sidebar-game-status {
   display: none;
+}
+
+.app-sidebar.sidebar-icon-rail .sidebar-game-item .sidebar-game-info {
+  position: absolute;
+  bottom: 2px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex !important;
+  justify-content: center;
+  align-items: center;
+  width: auto;
+  max-width: 58px;
+  min-width: 0;
+  padding: 0;
+  margin: 0;
+  background: transparent;
+  pointer-events: none;
+  z-index: 2;
+}
+
+.app-sidebar.sidebar-icon-rail .sidebar-game-item .sidebar-game-name {
+  display: flex;
+  justify-content: center;
+  gap: 0;
+}
+
+.app-sidebar.sidebar-icon-rail .sidebar-game-item .sidebar-game-name > :not(.sidebar-game-console-badge) {
+  display: none;
+}
+
+.app-sidebar.sidebar-icon-rail .sidebar-game-item .sidebar-game-meta {
+  display: none;
+}
+
+.app-sidebar.sidebar-icon-rail .sidebar-game-console-badge {
+  display: inline-flex !important;
+  font-size: 8px !important;
+  padding: 1px 4px !important;
+  max-width: 52px;
+  background: var(--color-bg-secondary);
+  border: 1px solid var(--color-border-light);
+  box-shadow: var(--shadow-sm);
+  pointer-events: none;
 }
 
 .app-sidebar.sidebar-icon-rail .sidebar-game-icon {
@@ -1099,6 +1180,24 @@
 
   .sidebar-game-play {
     transition: opacity var(--transition-fast);
+  }
+}
+
+@media (hover: none) {
+  .sidebar-game-play {
+    opacity: 1;
+    visibility: visible;
+    transform: translateY(-50%) scale(1);
+  }
+  /* Scoped strictly to the play FAB — platform/meta row stays fully
+   * visible and must not be faded by hover logic on touch devices. */
+  .sidebar-game-item .sidebar-game-status {
+    opacity: 1;
+  }
+  .sidebar-game-item .sidebar-game-meta,
+  .sidebar-game-item .sidebar-game-console-badge {
+    opacity: 1;
+    visibility: visible;
   }
 }
 
@@ -1606,7 +1705,7 @@
   border-color: var(--color-accent);
   color: var(--color-accent-contrast);
   background: var(--brand-gradient-strong);
-  box-shadow: 0 4px 15px var(--color-accent-glow), inset 0 1px 0 rgba(255, 255, 255, 0.2);
+  box-shadow: 0 4px 15px var(--color-accent-glow), inset 0 1px 0 color-mix(in srgb, var(--color-accent-contrast) 20%, transparent);
 }
 
 .sidebar-import-btn:focus-visible {

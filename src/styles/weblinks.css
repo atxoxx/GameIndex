@@ -776,7 +776,7 @@
   border: 1px solid var(--color-border);
   border-radius: var(--radius-sm);
   color: var(--color-text-secondary);
-  font-size: 11px;
+  font-size: var(--font-size-2xs);
   cursor: pointer;
   transition: all var(--transition-fast);
 }
@@ -942,7 +942,7 @@
 }
 
 .wl-mylink-card-host {
-  font-size: 11px;
+  font-size: var(--font-size-2xs);
   color: var(--color-text-muted);
   overflow: hidden;
   text-overflow: ellipsis;

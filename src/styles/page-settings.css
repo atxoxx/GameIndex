@@ -495,7 +495,7 @@
 }
 
 .settings-sidebar-version {
-  font-size: 11px;
+  font-size: var(--font-size-2xs);
   font-weight: var(--font-weight-medium);
   color: var(--color-text-muted);
   letter-spacing: 0.2px;

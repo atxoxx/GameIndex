@@ -536,7 +536,7 @@
   display: flex;
   justify-content: space-between;
   align-items: center;
-  font-size: 11px;
+  font-size: var(--font-size-2xs);
   font-weight: 700;
   color: color-mix(in srgb, var(--bigscreen-text) 50%, transparent);
 }
@@ -917,7 +917,7 @@
 }
 
 .dl-status-badge {
-  font-size: 11px;
+  font-size: var(--font-size-2xs);
   font-weight: 900;
   background: color-mix(in srgb, var(--bigscreen-accent) 20%, transparent);
   color: var(--bigscreen-accent-soft-text);
@@ -1347,7 +1347,7 @@
 }
 
 .bigscreen-tab-bar-bumper {
-  font-size: 11px;
+  font-size: var(--font-size-2xs);
   font-weight: 900;
   color: color-mix(in srgb, var(--bigscreen-text) 35%, transparent);
   display: inline-flex;
@@ -1670,7 +1670,7 @@
 }
 
 .stat-label {
-  font-size: 11px;
+  font-size: var(--font-size-2xs);
   font-weight: 800;
   color: color-mix(in srgb, var(--bigscreen-text) 40%, transparent);
   text-transform: uppercase;

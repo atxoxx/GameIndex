@@ -81,6 +81,24 @@
   --color-scrim-strong: rgba(4, 5, 9, 0.8);
   --blur-scrim: blur(16px);
 
+  /* ── Scrim-for-Artwork tokens — EXEMPTION: over artwork only ──────────
+     Fixed light-on-dark values for text/borders over photographic
+     artwork (spotlight hero, card scrims, dock). Intentionally bypass
+     the theme ladder so legibility is identical in light and dark
+     themes — artwork itself is dark, so scrim must stay dark/white.
+     Do NOT reuse outside scrim/hero contexts; use theme tokens elsewhere. */
+  --scrim-dark: rgba(11, 15, 24, 0.72);
+  --scrim-dark-soft: rgba(7, 9, 14, 0.85);
+  --scrim-dark-mid: rgba(0, 0, 0, 0.45);
+  --scrim-pill: rgba(255, 255, 255, 0.10);
+  --scrim-pill-strong: rgba(255, 255, 255, 0.16);
+  --scrim-border: rgba(255, 255, 255, 0.12);
+  --scrim-border-strong: rgba(255, 255, 255, 0.18);
+  --scrim-text: #ffffff;
+  --scrim-text-muted: rgba(255, 255, 255, 0.80);
+  --scrim-text-faint: rgba(255, 255, 255, 0.65);
+  --scrim-gloss: rgba(255, 255, 255, 0.22);
+
   /* Brand identity — solid precision styling */
   --brand-1: var(--color-accent);
   --brand-2: var(--color-accent-hover);

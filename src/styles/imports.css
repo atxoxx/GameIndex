@@ -259,7 +259,7 @@
 }
 
 .import-mini-btn {
-  font-size: 11px;
+  font-size: var(--font-size-2xs);
   font-weight: var(--font-weight-medium);
   color: var(--color-text-secondary);
   background: var(--color-surface);
@@ -483,7 +483,7 @@
 }
 
 .section-title {
-  font-size: 11px;
+  font-size: var(--font-size-2xs);
   font-weight: var(--font-weight-bold);
   text-transform: uppercase;
   letter-spacing: 0.05em;
@@ -1093,7 +1093,7 @@
   color: var(--color-text-muted);
   cursor: pointer;
   padding: 2px;
-  font-size: 11px;
+  font-size: var(--font-size-2xs);
   line-height: 1;
 }
 

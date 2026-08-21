@@ -63,7 +63,7 @@
   min-width: 22px;
   height: 22px;
   padding: 0 8px;
-  font-size: 11px;
+  font-size: var(--font-size-2xs);
   font-weight: var(--font-weight-bold);
   background: var(--color-bg-tertiary);
   color: var(--color-accent);
@@ -430,7 +430,7 @@ input[type="checkbox"].dl-file-checkbox:focus-visible {
 }
 
 .dl-row-progress {
-  font-size: 11px;
+  font-size: var(--font-size-2xs);
   font-variant-numeric: tabular-nums;
   font-weight: var(--font-weight-semibold);
   color: var(--color-text-muted);
@@ -451,7 +451,7 @@ input[type="checkbox"].dl-file-checkbox:focus-visible {
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  font-size: 11px;
+  font-size: var(--font-size-2xs);
   line-height: 1.4;
   color: var(--color-text-muted);
   min-width: 0;
@@ -518,7 +518,7 @@ input[type="checkbox"].dl-file-checkbox:focus-visible {
   flex-direction: column;
   gap: 4px;
   align-items: flex-end;
-  font-size: 11px;
+  font-size: var(--font-size-2xs);
   font-variant-numeric: tabular-nums;
   color: var(--color-text-muted);
 }
@@ -657,7 +657,7 @@ input[type="checkbox"].dl-file-checkbox:focus-visible {
   border: 1px solid var(--color-border);
   border-radius: var(--radius-md);
   color: var(--color-text-secondary);
-  font-size: 11px;
+  font-size: var(--font-size-2xs);
   font-weight: var(--font-weight-semibold);
   font-family: inherit;
   cursor: pointer;
@@ -773,7 +773,7 @@ input[type="checkbox"].dl-file-checkbox:focus-visible {
 }
 
 .dl-file-size {
-  font-size: 11px;
+  font-size: var(--font-size-2xs);
   font-variant-numeric: tabular-nums;
   color: var(--color-text-muted);
   text-align: right;
@@ -796,7 +796,7 @@ input[type="checkbox"].dl-file-checkbox:focus-visible {
 }
 
 .dl-file-percentage {
-  font-size: 11px;
+  font-size: var(--font-size-2xs);
   font-weight: var(--font-weight-bold);
   font-variant-numeric: tabular-nums;
   color: var(--color-text-secondary);
@@ -883,7 +883,7 @@ input[type="checkbox"].dl-file-checkbox:focus-visible {
   border: 1px solid color-mix(in srgb, var(--color-accent) 32%, transparent);
   border-radius: var(--radius-md);
   color: var(--color-accent);
-  font-size: 11px;
+  font-size: var(--font-size-2xs);
   font-weight: var(--font-weight-semibold);
   cursor: pointer;
   transition: background var(--transition-fast),
@@ -949,7 +949,7 @@ input[type="checkbox"].dl-file-checkbox:focus-visible {
   display: inline-flex;
   align-items: center;
   padding: 2px 8px;
-  font-size: 11px;
+  font-size: var(--font-size-2xs);
   font-weight: var(--font-weight-semibold);
   border-radius: var(--radius-full);
   background: color-mix(in srgb, var(--color-accent) 15%, transparent);
@@ -1068,7 +1068,7 @@ input[type="checkbox"].dl-file-checkbox:focus-visible {
 }
 
 .dl-stats-kpi-label {
-  font-size: 11px;
+  font-size: var(--font-size-2xs);
   text-transform: uppercase;
   letter-spacing: 0.04em;
   font-weight: var(--font-weight-semibold);
@@ -1096,7 +1096,7 @@ input[type="checkbox"].dl-file-checkbox:focus-visible {
 }
 
 .dl-stats-kpi-sub {
-  font-size: 11px;
+  font-size: var(--font-size-2xs);
   color: var(--color-text-secondary);
   line-height: 1.4;
   margin-top: 2px;
@@ -1128,7 +1128,7 @@ input[type="checkbox"].dl-file-checkbox:focus-visible {
 }
 
 .dl-stats-card-badge {
-  font-size: 11px;
+  font-size: var(--font-size-2xs);
   font-weight: var(--font-weight-medium);
   color: var(--color-text-muted);
   background: var(--color-bg-secondary);
@@ -1350,7 +1350,7 @@ input[type="checkbox"].dl-file-checkbox:focus-visible {
 }
 
 .dl-stats-extraction-desc {
-  font-size: 11px;
+  font-size: var(--font-size-2xs);
   color: var(--color-text-muted);
   margin-top: 2px;
 }
@@ -1380,7 +1380,7 @@ input[type="checkbox"].dl-file-checkbox:focus-visible {
 }
 
 .dl-stats-timeline-label {
-  font-size: 11px;
+  font-size: var(--font-size-2xs);
   color: var(--color-text-muted);
   margin-top: 2px;
 }
@@ -1403,7 +1403,7 @@ input[type="checkbox"].dl-file-checkbox:focus-visible {
 }
 
 .dl-stats-rank-badge {
-  font-size: 11px;
+  font-size: var(--font-size-2xs);
   font-weight: var(--font-weight-bold);
   color: var(--color-accent);
   width: 24px;
@@ -1623,7 +1623,7 @@ input[type="checkbox"].dl-file-checkbox:focus-visible {
 
 .dl-stats-history-note {
   margin: 0 0 var(--space-sm);
-  font-size: 11px;
+  font-size: var(--font-size-2xs);
   color: var(--color-text-muted);
 }
 
@@ -1661,7 +1661,7 @@ input[type="checkbox"].dl-file-checkbox:focus-visible {
 
 .dl-stats-format-btn {
   padding: 3px 8px;
-  font-size: 11px;
+  font-size: var(--font-size-2xs);
   font-weight: var(--font-weight-medium);
   background: transparent;
   border: none;

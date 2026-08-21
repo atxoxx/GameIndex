@@ -15,40 +15,59 @@
 // only moves the wiring, it never adds or removes routes.
 
 import type { ReactNode } from "react";
+import { lazy } from "react";
 import { useBigScreen } from "../context/BigScreenContext";
 
-import HomePage from "../pages/HomePage";
-import LibraryPage from "../pages/LibraryPage";
-import GamePage from "../pages/GamePage";
-import StorePage from "../pages/StorePage";
-import StoreGameDetail from "../pages/StoreGameDetail";
-import CommunityPage from "../pages/CommunityPage";
-import SettingsPage from "../pages/SettingsPage";
-import DocsPage from "../pages/DocsPage";
-import FriendsPage from "../pages/FriendsPage";
-import ActivityPage from "../pages/ActivityPage";
-import StoragePage from "../pages/StoragePage";
-import WishlistPage from "../pages/WishlistPage";
-import NewsPage from "../pages/NewsPage";
-import DealsPage from "../pages/deals/DealsPage";
-import DownloadsPage from "../pages/DownloadsPage";
-import AchievementsPage from "../pages/AchievementsPage";
-import EmulatorsPage from "../pages/EmulatorsPage";
-import ModsPage from "../pages/mods/ModsPage";
+// Desktop pages — each becomes its own Vite chunk via React.lazy.
+const HomePage = lazy(() => import("../pages/HomePage"));
+const LibraryPage = lazy(() => import("../pages/LibraryPage"));
+const GamePage = lazy(() => import("../pages/GamePage"));
+const StorePage = lazy(() => import("../pages/StorePage"));
+const StoreGameDetail = lazy(() => import("../pages/StoreGameDetail"));
+const CommunityPage = lazy(() => import("../pages/CommunityPage"));
+const SettingsPage = lazy(() => import("../pages/SettingsPage"));
+const DocsPage = lazy(() => import("../pages/DocsPage"));
+const FriendsPage = lazy(() => import("../pages/FriendsPage"));
+const ActivityPage = lazy(() => import("../pages/ActivityPage"));
+const StoragePage = lazy(() => import("../pages/StoragePage"));
+const WishlistPage = lazy(() => import("../pages/WishlistPage"));
+const NewsPage = lazy(() => import("../pages/NewsPage"));
+const DealsPage = lazy(() => import("../pages/deals/DealsPage"));
+const DownloadsPage = lazy(() => import("../pages/DownloadsPage"));
+const AchievementsPage = lazy(() => import("../pages/AchievementsPage"));
+const EmulatorsPage = lazy(() => import("../pages/EmulatorsPage"));
+const ModsPage = lazy(() => import("../pages/mods/ModsPage"));
 
-import BigScreenHome from "../components/bigscreen/BigScreenHome";
-import BigScreenNews from "../components/bigscreen/BigScreenNews";
-import BigScreenDeals from "../components/bigscreen/BigScreenDeals";
-import BigScreenStore from "../components/store/BigScreenStore";
-import BigScreenStoreGamePage from "../components/store/BigScreenStoreGamePage";
-import BigScreenCommunity from "../components/bigscreen/BigScreenCommunity";
-import BigScreenSystem from "../components/bigscreen/BigScreenSystem";
-import BigScreenFriends from "../components/bigscreen/BigScreenFriends";
-import BigScreenModsPage from "../components/bigscreen/BigScreenModsPage";
-import BigScreenEmulatorsPage from "../components/bigscreen/BigScreenEmulatorsPage";
-import BigScreenDocsPage from "../components/bigscreen/BigScreenDocsPage";
-import BigScreenLibrary from "../components/library/BigScreenLibrary";
-import BigScreenGamePage from "../components/game/BigScreenGamePage";
+// Big Screen variants — bundled into the `bigscreen` chunk via
+// vite.config.ts manualChunks, but still lazy so desktop never pays
+// for their code until Big Screen Mode is active.
+const BigScreenHome = lazy(() => import("../components/bigscreen/BigScreenHome"));
+const BigScreenNews = lazy(() => import("../components/bigscreen/BigScreenNews"));
+const BigScreenDeals = lazy(() => import("../components/bigscreen/BigScreenDeals"));
+const BigScreenStore = lazy(() => import("../components/store/BigScreenStore"));
+const BigScreenStoreGamePage = lazy(
+  () => import("../components/store/BigScreenStoreGamePage"),
+);
+const BigScreenCommunity = lazy(
+  () => import("../components/bigscreen/BigScreenCommunity"),
+);
+const BigScreenSystem = lazy(() => import("../components/bigscreen/BigScreenSystem"));
+const BigScreenFriends = lazy(() => import("../components/bigscreen/BigScreenFriends"));
+const BigScreenModsPage = lazy(
+  () => import("../components/bigscreen/BigScreenModsPage"),
+);
+const BigScreenEmulatorsPage = lazy(
+  () => import("../components/bigscreen/BigScreenEmulatorsPage"),
+);
+const BigScreenDocsPage = lazy(
+  () => import("../components/bigscreen/BigScreenDocsPage"),
+);
+const BigScreenLibrary = lazy(
+  () => import("../components/library/BigScreenLibrary"),
+);
+const BigScreenGamePage = lazy(
+  () => import("../components/game/BigScreenGamePage"),
+);
 
 // ── Section model ─────────────────────────────────────────────────
 

@@ -442,7 +442,7 @@
 }
 
 .ach-tooltip-count {
-  font-size: 11px;
+  font-size: var(--font-size-2xs);
   font-weight: var(--font-weight-bold);
   color: var(--color-text-primary);
 }
@@ -478,7 +478,7 @@
   background: var(--color-bg-secondary);
   border: 1px solid var(--color-border);
   color: var(--color-text-secondary);
-  font-size: 11px;
+  font-size: var(--font-size-2xs);
   font-weight: var(--font-weight-medium);
   cursor: pointer;
   transition: color var(--duration-fast), background var(--duration-fast), border-color var(--duration-fast);
@@ -716,7 +716,7 @@
 }
 
 .ach-recent-feed-game {
-  font-size: 11px;
+  font-size: var(--font-size-2xs);
   color: var(--color-accent);
   font-weight: var(--font-weight-medium);
   white-space: nowrap;
@@ -725,7 +725,7 @@
 }
 
 .ach-recent-feed-desc {
-  font-size: 11px;
+  font-size: var(--font-size-2xs);
   color: var(--color-text-muted);
   line-height: 1.35;
   margin: 2px 0 0 0;
@@ -935,7 +935,7 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  font-size: 11px;
+  font-size: var(--font-size-2xs);
 }
 
 .ach-game-card-ratio {

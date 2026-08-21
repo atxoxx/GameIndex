@@ -418,7 +418,7 @@
 }
 
 .store-card-price-was {
-  font-size: 11px;
+  font-size: var(--font-size-2xs);
   color: var(--color-text-tertiary);
   text-decoration: line-through;
 }
@@ -895,7 +895,7 @@
 }
 
 .store-search-suggestion-year {
-  font-size: 11px;
+  font-size: var(--font-size-2xs);
   color: var(--color-text-tertiary);
 }
 
@@ -905,7 +905,7 @@
 
 .store-search-section-title {
   padding: var(--space-xs) var(--space-sm);
-  font-size: 11px;
+  font-size: var(--font-size-2xs);
   font-weight: var(--font-weight-bold);
   letter-spacing: 0.5px;
   text-transform: uppercase;

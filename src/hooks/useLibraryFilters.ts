@@ -1,13 +1,16 @@
 import { useMemo } from "react";
 import type { Game } from "../types/game";
+import { parsePlayTime } from "../types/game";
 import { useLibraryFilterState } from "../context/LibraryFilterContext";
 import {
   EMPTY_LIBRARY_FILTERS,
   filterGames,
+  getSearchRelevanceScore,
   hasActiveFilters,
   sortGames,
   SORT_LABELS,
   SORT_OPTIONS,
+  tokenizeSearchQuery,
   type LibraryFilters,
   type LibrarySort,
   type LibraryStatus,
@@ -64,10 +67,39 @@ export function useLibraryFilters(games: Game[]) {
     return Array.from(set).sort((a, b) => a.localeCompare(b));
   }, [games]);
 
-  const filteredGames = useMemo(
-    () => sortGames(filterGames(games, filters), filters.sort),
-    [games, filters]
-  );
+  const filteredGames = useMemo(() => {
+    const narrowed = filterGames(games, filters);
+    const q = filters.search.trim();
+    if (q) {
+      const tokens = tokenizeSearchQuery(q);
+      // Relevance first, then existing sort as tie-breaker (FTS ranking)
+      const ranked = [...narrowed];
+      ranked.sort((a, b) => {
+        const sa = getSearchRelevanceScore(a, q, tokens);
+        const sb = getSearchRelevanceScore(b, q, tokens);
+        if (sb !== sa) return sb - sa;
+        switch (filters.sort) {
+          case "alphabetical":
+            return a.name.localeCompare(b.name);
+          case "date_added":
+            return (b.addedAt ?? 0) - (a.addedAt ?? 0);
+          case "most_played":
+            return parsePlayTime(b.playTime) - parsePlayTime(a.playTime);
+          case "recently_played":
+            return (b.lastPlayed ?? 0) - (a.lastPlayed ?? 0);
+          case "rating": {
+            const ra = a.igdbRating ?? a.criticRating ?? 0;
+            const rb = b.igdbRating ?? b.criticRating ?? 0;
+            return rb - ra;
+          }
+          default:
+            return 0;
+        }
+      });
+      return ranked;
+    }
+    return sortGames(narrowed, filters.sort);
+  }, [games, filters]);
 
   const hasFilters = useMemo(() => hasActiveFilters(filters), [filters]);
 
