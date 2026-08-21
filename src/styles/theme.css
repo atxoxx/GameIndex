@@ -107,7 +107,9 @@
   --space-5xl: 128px;
 
   /* ── Typography Scale ─────────────────────────────────────────────
-     xs bumped 11→12px for uppercase legibility; use --font-size-xs directly. */
+     xs bumped 11→12px for uppercase legibility; use --font-size-xs directly.
+     2xs is the absolute floor (11px) below xs — micro-labels only. */
+  --font-size-2xs: 11px;
   --font-size-xs: 12px;
   --font-size-sm: 13px;
   --font-size-md: 14px;
@@ -176,6 +178,19 @@
   --depth-3: var(--elevation-4);
   --depth-float: var(--elevation-5);
   --shadow-brand: var(--elevation-4);
+
+  /* ── Z-Index Ladder ────────────────────────────────────────────────
+     Canonical stacking rungs — raw 9000+ values are banned. Fixed
+     order: nav < sidebar preview < popover < sticky < modal < toast
+     < splash. Tooltips ride at the toast rung; full-screen stats
+     backdrops sit at the modal rung. */
+  --z-nav: 1000;
+  --z-sidebar-preview: 1100;
+  --z-popover: 1200;
+  --z-sticky: 1300;
+  --z-modal: 1400;
+  --z-toast: 1500;
+  --z-splash: 2000;
 
   /* ── Focus / Interaction Ring System ──────────────────────────────
      Double-ring focus: a dark halo separating the accent ring from

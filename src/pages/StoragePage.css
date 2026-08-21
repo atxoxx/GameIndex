@@ -605,7 +605,7 @@
 .storage-view-badge {
   padding: 1px 6px;
   border-radius: var(--radius-full);
-  font-size: 10px;
+  font-size: var(--font-size-2xs);
   font-weight: var(--font-weight-bold);
 }
 
@@ -992,7 +992,7 @@
   display: inline-flex;
   padding: 1px 6px;
   border-radius: var(--radius-sm);
-  font-size: 10px;
+  font-size: var(--font-size-2xs);
   font-weight: var(--font-weight-bold);
   background: var(--color-bg-secondary);
   color: var(--color-text-secondary);
@@ -1003,7 +1003,7 @@
   display: inline-flex;
   padding: 1px 6px;
   border-radius: var(--radius-sm);
-  font-size: 10px;
+  font-size: var(--font-size-2xs);
   font-weight: var(--font-weight-semibold);
   background: color-mix(in srgb, var(--color-danger) 15%, transparent);
   color: var(--color-danger);
@@ -1362,7 +1362,7 @@
 .storage-grid-badge {
   padding: 2px 6px;
   border-radius: var(--radius-sm);
-  font-size: 10px;
+  font-size: var(--font-size-2xs);
   font-weight: var(--font-weight-bold);
   backdrop-filter: blur(8px);
 }
@@ -1497,7 +1497,7 @@
 }
 
 .storage-grid-card-size-parts {
-  font-size: 10px;
+  font-size: var(--font-size-2xs);
   color: var(--color-text-muted);
   white-space: nowrap;
 }
@@ -2251,7 +2251,7 @@
   align-items: center;
   gap: var(--space-md);
   padding: var(--space-xs) var(--space-md);
-  font-size: 10px;
+  font-size: var(--font-size-2xs);
   font-weight: var(--font-weight-bold);
   text-transform: uppercase;
   letter-spacing: 0.05em;

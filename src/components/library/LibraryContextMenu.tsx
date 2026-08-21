@@ -47,7 +47,7 @@ export default function LibraryContextMenu({
   return (
     <div
       className="context-menu lib-context-menu"
-      style={{ left: adjustedX, top: adjustedY, zIndex: 9200 }}
+      style={{ left: adjustedX, top: adjustedY, zIndex: "var(--z-sticky)" }}
       onMouseDown={(e) => e.stopPropagation()}
     >
       <div className="context-menu-header">

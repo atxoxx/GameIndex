@@ -287,7 +287,7 @@ export function SidebarHoverPreview({
         position: "fixed",
         top: pos.top,
         left: pos.left,
-        zIndex: 9100, // Above sidebar (z=200) and the filter popover (9000)
+        zIndex: "var(--z-sidebar-preview)", // Above sidebar, below sidebar popovers and context menus
       }}
       role="tooltip"
       aria-hidden="true"

@@ -985,7 +985,7 @@
   min-width: 28px; height: 18px; padding: 0 6px;
   background: var(--color-bg-tertiary); color: var(--color-text-secondary);
   border: 1px solid var(--color-border); border-radius: var(--radius-full);
-  font-size: 10px; font-weight: var(--font-weight-semibold);
+  font-size: var(--font-size-2xs); font-weight: var(--font-weight-semibold);
   font-variant-numeric: tabular-nums; letter-spacing: 0.3px;
 }
 .store-filter-empty-text {

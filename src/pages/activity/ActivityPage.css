@@ -707,7 +707,7 @@
 }
 
 .activity-game-sidebar__summary-label {
-  font-size: 10px;
+  font-size: var(--font-size-2xs);
   font-weight: var(--font-weight-semibold);
   color: var(--color-text-muted);
   text-transform: uppercase;
@@ -1094,7 +1094,7 @@
   display: grid;
   grid-template-rows: repeat(7, 16px);
   gap: 4px;
-  font-size: 10px;
+  font-size: var(--font-size-2xs);
   color: var(--color-text-muted);
   align-items: center;
   text-align: right;
@@ -1153,7 +1153,7 @@
   align-items: center;
   gap: 6px;
   margin-top: var(--space-sm);
-  font-size: 10px;
+  font-size: var(--font-size-2xs);
   color: var(--color-text-muted);
 }
 
@@ -1396,7 +1396,7 @@
 .activity-gantt__heatmap-axis {
   display: flex;
   justify-content: space-between;
-  font-size: 10px;
+  font-size: var(--font-size-2xs);
   color: var(--color-text-muted);
   padding: 0 1px;
 }
@@ -1422,7 +1422,7 @@
 .activity-gantt__time-label {
   position: absolute;
   transform: translateX(-50%);
-  font-size: 10px;
+  font-size: var(--font-size-2xs);
   color: var(--color-text-muted);
   white-space: nowrap;
 }
@@ -1439,7 +1439,7 @@
   width: 64px;
   flex-shrink: 0;
   text-align: right;
-  font-size: 10px;
+  font-size: var(--font-size-2xs);
   color: var(--color-text-muted);
   padding-right: 4px;
   white-space: nowrap;
@@ -1559,7 +1559,7 @@
   left: 6px;
   top: 50%;
   transform: translateY(-50%);
-  font-size: 10px;
+  font-size: var(--font-size-2xs);
   font-weight: 700;
   color: var(--color-text-primary);
   white-space: nowrap;
@@ -1606,13 +1606,13 @@
 
 .activity-gantt__tooltip-time {
   color: var(--color-text-secondary);
-  font-size: 10px;
+  font-size: var(--font-size-2xs);
   font-variant-numeric: tabular-nums;
 }
 
 .activity-gantt__tooltip-duration {
   color: var(--color-accent);
-  font-size: 10px;
+  font-size: var(--font-size-2xs);
   font-weight: var(--font-weight-semibold);
 }
 
@@ -1624,7 +1624,7 @@
 }
 
 .activity-gantt__tooltip-chip {
-  font-size: 10px;
+  font-size: var(--font-size-2xs);
   font-weight: var(--font-weight-semibold);
   color: var(--color-text-secondary);
   background: var(--color-bg-primary);
@@ -1650,7 +1650,7 @@
 }
 
 .activity-gantt__tooltip-tag {
-  font-size: 10px;
+  font-size: var(--font-size-2xs);
   font-weight: var(--font-weight-bold);
   color: var(--color-accent);
   background: color-mix(in srgb, var(--color-accent) 12%, transparent);
@@ -1752,7 +1752,7 @@
 .activity-gantt__notes-save,
 .activity-gantt__notes-cancel,
 .activity-gantt__notes-edit {
-  font-size: 10px;
+  font-size: var(--font-size-2xs);
   font-weight: var(--font-weight-semibold);
   border-radius: var(--radius-sm);
   padding: 4px 10px;
@@ -1819,7 +1819,7 @@
 }
 
 .activity-gantt__tag {
-  font-size: 10px;
+  font-size: var(--font-size-2xs);
   font-weight: var(--font-weight-semibold);
   color: var(--color-accent);
   background: color-mix(in srgb, var(--color-accent) 10%, transparent);
@@ -2090,7 +2090,7 @@
 
 .activity-session-item__player-chip .steam-player-count {
   padding: 3px 9px;
-  font-size: 10px;
+  font-size: var(--font-size-2xs);
   gap: 5px;
 }
 
@@ -2229,7 +2229,7 @@
 }
 
 .activity-sparkline__label {
-  font-size: 10px;
+  font-size: var(--font-size-2xs);
   font-weight: var(--font-weight-semibold);
   color: var(--color-text-muted);
   text-transform: uppercase;
@@ -2324,7 +2324,7 @@
 .performance-timeline__estimated {
   display: inline-flex;
   align-items: center;
-  font-size: 10px;
+  font-size: var(--font-size-2xs);
   font-weight: var(--font-weight-semibold);
   letter-spacing: 0.4px;
   text-transform: uppercase;
@@ -2355,7 +2355,7 @@
   height: 24px;
   padding: 0 10px;
   border-radius: calc(var(--radius-md) - 2px);
-  font-size: 10px;
+  font-size: var(--font-size-2xs);
   font-weight: var(--font-weight-semibold);
   color: var(--color-text-muted);
   font-family: inherit;
@@ -2530,7 +2530,7 @@
   color: var(--color-text-muted);
   font-weight: var(--font-weight-semibold);
   text-transform: uppercase;
-  font-size: 10px;
+  font-size: var(--font-size-2xs);
   letter-spacing: 0.5px;
   white-space: nowrap;
 }
@@ -2702,7 +2702,7 @@
 }
 
 .performance-stat-cards__label {
-  font-size: 10px;
+  font-size: var(--font-size-2xs);
   font-weight: var(--font-weight-semibold);
   color: var(--color-text-muted);
   text-transform: uppercase;
@@ -2757,7 +2757,7 @@
 }
 
 .chart-tooltip-label {
-  font-size: 10px;
+  font-size: var(--font-size-2xs);
   color: var(--color-text-muted);
   font-weight: var(--font-weight-semibold);
   margin-bottom: 6px;
@@ -2844,7 +2844,7 @@
 }
 
 .activity__stat-sub {
-  font-size: 10px;
+  font-size: var(--font-size-2xs);
   color: var(--color-text-muted);
   white-space: nowrap;
   overflow: hidden;
@@ -2894,7 +2894,7 @@
   height: 20px;
   padding: 0 6px;
   border-radius: var(--radius-full);
-  font-size: 10px;
+  font-size: var(--font-size-2xs);
   font-weight: var(--font-weight-bold);
   font-variant-numeric: tabular-nums;
   flex-shrink: 0;
@@ -2987,7 +2987,7 @@
 
 .performance-insights__cell-sub {
   display: block;
-  font-size: 10px;
+  font-size: var(--font-size-2xs);
   color: var(--color-text-muted);
   font-weight: var(--font-weight-medium);
   margin-top: 1px;
@@ -3060,7 +3060,7 @@
 .performance-timeline__badge {
   display: inline-flex;
   align-items: center;
-  font-size: 10px;
+  font-size: var(--font-size-2xs);
   font-weight: var(--font-weight-semibold);
   letter-spacing: 0.4px;
   text-transform: uppercase;

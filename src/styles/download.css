@@ -17,7 +17,7 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  z-index: 9998;
+  z-index: var(--z-modal);
   padding: var(--space-md);
   animation: blurIn 220ms var(--ease-out) both;
 }
@@ -546,7 +546,7 @@
 }
 
 .dl-source-pill-num {
-  font-size: 10px;
+  font-size: var(--font-size-2xs);
   font-weight: 700;
   padding: 0 5px;
   border-radius: var(--radius-full);
@@ -835,7 +835,7 @@
   background: var(--color-bg-tertiary);
   border: 1px solid var(--color-border);
   color: var(--color-text-muted);
-  font-size: 10px;
+  font-size: var(--font-size-2xs);
   font-weight: var(--font-weight-semibold);
   font-family: inherit;
   cursor: pointer;
@@ -921,7 +921,7 @@
   display: flex;
   align-items: center;
   gap: 6px;
-  font-size: 10px;
+  font-size: var(--font-size-2xs);
   font-weight: var(--font-weight-bold);
   letter-spacing: 0.8px;
   text-transform: uppercase;
@@ -1125,7 +1125,7 @@
 }
 
 .dl-panel-count-tag {
-  font-size: 10px;
+  font-size: var(--font-size-2xs);
   font-weight: 700;
   padding: 0 5px;
   border-radius: var(--radius-full);
@@ -1193,7 +1193,7 @@
   display: flex;
   align-items: center;
   gap: 6px;
-  font-size: 10px;
+  font-size: var(--font-size-2xs);
 }
 
 .dl-subfolder-tag {
@@ -1389,7 +1389,7 @@
 }
 
 .dl-option-subtext {
-  font-size: 10px;
+  font-size: var(--font-size-2xs);
   color: var(--color-text-muted);
   line-height: 1.3;
 }
@@ -1555,7 +1555,7 @@
 }
 
 .dl-resolver-banner-host {
-  font-size: 10px;
+  font-size: var(--font-size-2xs);
   font-weight: var(--font-weight-semibold);
   color: var(--color-text-secondary);
   background: color-mix(in srgb, var(--color-text-primary) 8%, transparent);
@@ -1753,7 +1753,7 @@
 }
 
 .dl-store-badge {
-  font-size: 10px;
+  font-size: var(--font-size-2xs);
   font-weight: 700;
   padding: 2px 7px;
   border-radius: var(--radius-sm);
@@ -2291,7 +2291,7 @@
 }
 
 .dl-file-weight-bytes {
-  font-size: 10px;
+  font-size: var(--font-size-2xs);
   color: var(--color-text-muted);
   text-align: right;
   font-variant-numeric: tabular-nums;
@@ -2504,7 +2504,7 @@
   display: flex;
   flex-direction: column;
   overflow: hidden;
-  z-index: 9000;
+  z-index: var(--z-sticky);
   /* Slide-up entrance. */
   animation: dl-progress-in 250ms var(--ease-standard);
 }
@@ -2557,7 +2557,7 @@
   min-width: 18px;
   height: 18px;
   padding: 0 6px;
-  font-size: 10px;
+  font-size: var(--font-size-2xs);
   font-weight: 700;
   background: var(--color-accent);
   color: var(--color-accent-contrast);
@@ -2671,7 +2671,7 @@
 }
 
 .dl-progress-card-status {
-  font-size: 10px;
+  font-size: var(--font-size-2xs);
   font-weight: 500;
   padding: 1px 6px;
   border-radius: 3px;
@@ -2744,7 +2744,7 @@
   align-items: center;
   justify-content: space-between;
   gap: var(--space-xs);
-  font-size: 10px;
+  font-size: var(--font-size-2xs);
   color: var(--color-text-muted);
 }
 
@@ -2845,7 +2845,7 @@
   align-items: center;
   gap: var(--space-sm);
   flex-wrap: wrap;
-  font-size: 10px;
+  font-size: var(--font-size-2xs);
   color: var(--color-text-muted);
 }
 
@@ -2955,7 +2955,7 @@
   display: inline-flex;
   align-items: center;
   gap: 3px;
-  font-size: 10px;
+  font-size: var(--font-size-2xs);
   transition: color var(--transition-fast), background var(--transition-fast), border-color var(--transition-fast), box-shadow var(--transition-fast), opacity var(--transition-fast), transform var(--transition-fast);
 }
 
@@ -2991,7 +2991,7 @@
 }
 
 .dl-progress-card-error {
-  font-size: 10px;
+  font-size: var(--font-size-2xs);
   color: var(--color-danger);
   padding: 4px 6px;
   background: color-mix(in srgb, var(--color-danger) 8%, transparent);
@@ -3102,7 +3102,7 @@
   padding: 0 5px;
   background: var(--color-accent);
   color: var(--color-accent-contrast);
-  font-size: 10px;
+  font-size: var(--font-size-2xs);
   font-weight: 700;
   border-radius: 8px;
 }
@@ -3122,8 +3122,9 @@
  *   * `right: 0` aligns the popover with the download button; the
  *     popover itself is ~380 px wide so it doesn't escape the viewport
  *     on small windows.
- *   * `z-index: 9999` puts it above everything except the splash
- *     overlay (which uses 9500 + a higher stacked z-index out of band).
+ *   * `z-index: var(--z-popover)` rides the popover rung, above page
+ *     content and the floating progress panel; only modal/toast/splash
+ *     layers stack higher.
  * ========================================================================== */
 
 .topnav-btn-downloads {
@@ -3148,7 +3149,7 @@
   justify-content: center;
   background: var(--color-accent);
   color: var(--color-accent-contrast);
-  font-size: 10px;
+  font-size: var(--font-size-2xs);
   font-weight: var(--font-weight-bold);
   border-radius: var(--radius-full);
   border: 2px solid var(--color-bg-primary);
@@ -3183,7 +3184,7 @@
   display: flex;
   flex-direction: column;
   overflow: hidden;
-  z-index: 9999;
+  z-index: var(--z-popover);
   animation: dl-popover-in 220ms cubic-bezier(0.16, 1, 0.3, 1);
   box-shadow: var(--shadow-lg);
 }
@@ -3253,7 +3254,7 @@
   min-width: 16px;
   height: 16px;
   padding: 0 5px;
-  font-size: 10px;
+  font-size: var(--font-size-2xs);
   font-weight: var(--font-weight-bold);
   border-radius: var(--radius-full);
   background: var(--color-bg-hover);
@@ -3724,7 +3725,7 @@
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  font-size: 10px;
+  font-size: var(--font-size-2xs);
   font-weight: var(--font-weight-bold);
   text-transform: uppercase;
   letter-spacing: 0.8px;
@@ -3732,7 +3733,7 @@
 }
 
 .dl-hero-peak {
-  font-size: 10px;
+  font-size: var(--font-size-2xs);
   font-weight: var(--font-weight-semibold);
   font-variant-numeric: tabular-nums;
   color: var(--color-text-muted);
@@ -3841,7 +3842,7 @@
 .dl-hero-speed-badge {
   display: inline-block;
   padding: 1px 6px;
-  font-size: 10px;
+  font-size: var(--font-size-2xs);
   font-weight: var(--font-weight-bold);
   border-radius: var(--radius-full);
   background: var(--color-warning);
@@ -3906,7 +3907,7 @@
   display: flex;
   align-items: center;
   gap: 6px;
-  font-size: 10px;
+  font-size: var(--font-size-2xs);
   color: var(--color-text-muted);
 }
 
@@ -3964,7 +3965,7 @@
   align-items: center;
   gap: 6px;
   color: var(--color-danger);
-  font-size: 10px;
+  font-size: var(--font-size-2xs);
   font-weight: var(--font-weight-semibold);
   margin-top: 2px;
 }
@@ -4112,7 +4113,7 @@
   border: none;
   border-radius: calc(var(--radius-sm) - 2px);
   color: var(--color-text-muted);
-  font-size: 10px;
+  font-size: var(--font-size-2xs);
   font-weight: var(--font-weight-semibold);
   cursor: pointer;
   transition: all var(--transition-fast);
@@ -4160,7 +4161,7 @@
 }
 
 .dl-sparkline-stat-pill {
-  font-size: 10px;
+  font-size: var(--font-size-2xs);
   padding: 2px 7px;
   background: var(--color-bg-tertiary);
   border-radius: var(--radius-full);
@@ -4238,7 +4239,7 @@
   padding: 4px 8px;
   box-shadow: var(--shadow-md);
   pointer-events: none;
-  font-size: 10px;
+  font-size: var(--font-size-2xs);
   font-variant-numeric: tabular-nums;
   display: flex;
   flex-direction: column;
@@ -4318,7 +4319,7 @@
   min-width: 18px;
   height: 18px;
   padding: 0 5px;
-  font-size: 10px;
+  font-size: var(--font-size-2xs);
   font-weight: var(--font-weight-bold);
   border-radius: var(--radius-full);
   background: var(--color-bg-hover);
@@ -4511,7 +4512,7 @@
   margin-left: 4px;
   background: var(--color-bg-tertiary);
   color: var(--color-text-muted);
-  font-size: 10px;
+  font-size: var(--font-size-2xs);
   font-weight: var(--font-weight-bold);
   border-radius: var(--radius-full);
   font-variant-numeric: tabular-nums;
@@ -4683,7 +4684,7 @@ input[type="checkbox"].dl-file-checkbox:focus-visible {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  font-size: 10px;
+  font-size: var(--font-size-2xs);
   font-weight: var(--font-weight-bold);
   padding: 4px 8px;
   border-radius: var(--radius-sm);
@@ -4757,7 +4758,7 @@ input[type="checkbox"].dl-file-checkbox:focus-visible {
 }
 
 .dl-row-source {
-  font-size: 10px;
+  font-size: var(--font-size-2xs);
   color: var(--color-text-muted);
   text-transform: uppercase;
   letter-spacing: 0.4px;
@@ -4766,7 +4767,7 @@ input[type="checkbox"].dl-file-checkbox:focus-visible {
 }
 
 .dl-row-queue {
-  font-size: 10px;
+  font-size: var(--font-size-2xs);
   color: var(--color-warning);
   font-weight: var(--font-weight-semibold);
   white-space: nowrap;
@@ -4779,7 +4780,7 @@ input[type="checkbox"].dl-file-checkbox:focus-visible {
   border: 1px solid color-mix(in srgb, var(--color-info) 30%, transparent);
   padding: 1px 6px;
   border-radius: var(--radius-sm);
-  font-size: 10px;
+  font-size: var(--font-size-2xs);
   font-weight: var(--font-weight-bold);
   letter-spacing: 0.5px;
   white-space: nowrap;
@@ -4792,7 +4793,7 @@ input[type="checkbox"].dl-file-checkbox:focus-visible {
   border: 1px solid color-mix(in srgb, var(--brand-debrid) 30%, transparent);
   padding: 1px 6px;
   border-radius: var(--radius-sm);
-  font-size: 10px;
+  font-size: var(--font-size-2xs);
   font-weight: var(--font-weight-bold);
   letter-spacing: 0.5px;
   white-space: nowrap;
@@ -4805,7 +4806,7 @@ input[type="checkbox"].dl-file-checkbox:focus-visible {
   border: 1px solid color-mix(in srgb, var(--color-success) 30%, transparent);
   padding: 1px 6px;
   border-radius: var(--radius-sm);
-  font-size: 10px;
+  font-size: var(--font-size-2xs);
   font-weight: var(--font-weight-bold);
   letter-spacing: 0.5px;
   white-space: nowrap;
@@ -5220,7 +5221,7 @@ input[type="checkbox"].dl-file-checkbox:focus-visible {
   bottom: 8px;
   left: 8px;
   z-index: 2;
-  font-size: 10px;
+  font-size: var(--font-size-2xs);
   font-weight: var(--font-weight-bold);
   padding: 3px 8px;
   border-radius: var(--radius-sm);
@@ -5233,7 +5234,7 @@ input[type="checkbox"].dl-file-checkbox:focus-visible {
   bottom: 8px;
   right: 8px;
   z-index: 2;
-  font-size: 10px;
+  font-size: var(--font-size-2xs);
   color: #fff;
   background: rgba(0, 0, 0, 0.6);
   backdrop-filter: blur(4px);
@@ -5248,7 +5249,7 @@ input[type="checkbox"].dl-file-checkbox:focus-visible {
   top: 8px;
   right: 8px;
   z-index: 2;
-  font-size: 10px;
+  font-size: var(--font-size-2xs);
   font-weight: var(--font-weight-bold);
   color: var(--color-success);
   background: color-mix(in srgb, var(--color-success) 20%, transparent);
@@ -5600,7 +5601,7 @@ input[type="checkbox"].dl-file-checkbox:focus-visible {
   border: 1px solid var(--color-border);
   border-radius: var(--radius-full);
   font-family: inherit;
-  font-size: 10px;
+  font-size: var(--font-size-2xs);
   font-weight: var(--font-weight-semibold);
   color: var(--color-text-secondary);
   cursor: pointer;
@@ -5625,7 +5626,7 @@ input[type="checkbox"].dl-file-checkbox:focus-visible {
 
 .dl-plugin-chip--mono {
   font-family: var(--font-mono, ui-monospace, "SF Mono", Menlo, monospace);
-  font-size: 10px;
+  font-size: var(--font-size-2xs);
   font-weight: 500;
 }
 

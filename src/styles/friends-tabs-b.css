@@ -278,7 +278,7 @@
 }
 
 .session-tz-note {
-  font-size: 10px;
+  font-size: var(--font-size-2xs);
   color: var(--color-text-muted);
   margin-top: 2px;
   text-transform: uppercase;
@@ -294,7 +294,7 @@
   display: inline-flex;
   align-items: center;
   gap: 5px;
-  font-size: 10px;
+  font-size: var(--font-size-2xs);
   font-weight: var(--font-weight-semibold);
   font-variant-numeric: tabular-nums;
   color: var(--color-accent);
@@ -454,7 +454,7 @@
   display: inline-flex;
   align-items: center;
   gap: 3px;
-  font-size: 10px;
+  font-size: var(--font-size-2xs);
   color: var(--color-text-muted);
   min-width: 0;
 }
@@ -468,7 +468,7 @@
 .roster-role-select {
   margin-left: auto;
   height: 22px;
-  font-size: 10px;
+  font-size: var(--font-size-2xs);
   background: var(--color-bg-tertiary);
   color: var(--color-text-primary);
   border: 1px solid var(--color-border);
@@ -511,7 +511,7 @@
 }
 
 .attendee-badge {
-  font-size: 10px;
+  font-size: var(--font-size-2xs);
   font-weight: var(--font-weight-medium);
   padding: 2px 8px;
   border-radius: var(--radius-full);
@@ -630,7 +630,7 @@
   background: var(--color-bg-tertiary);
   color: var(--color-text-muted);
   font-family: inherit;
-  font-size: 10px;
+  font-size: var(--font-size-2xs);
   font-weight: var(--font-weight-bold);
   text-transform: uppercase;
   letter-spacing: 0.4px;
@@ -679,7 +679,7 @@
   border-radius: var(--radius-md);
   background: var(--color-bg-tertiary);
   color: var(--color-text-muted);
-  font-size: 10px;
+  font-size: var(--font-size-2xs);
   font-weight: var(--font-weight-bold);
   font-variant-numeric: tabular-nums;
   cursor: pointer;
@@ -870,7 +870,7 @@
   align-items: center;
   gap: var(--space-sm);
   margin: 0 0 var(--space-xs);
-  font-size: 10px;
+  font-size: var(--font-size-2xs);
   font-weight: var(--font-weight-bold);
   text-transform: uppercase;
   letter-spacing: 0.6px;
@@ -895,7 +895,7 @@
   display: flex;
   align-items: center;
   gap: var(--space-sm);
-  font-size: 10px;
+  font-size: var(--font-size-2xs);
   font-weight: var(--font-weight-bold);
   text-transform: uppercase;
   letter-spacing: 0.5px;
@@ -1047,7 +1047,7 @@
   display: flex;
   align-items: center;
   gap: 5px;
-  font-size: 10px;
+  font-size: var(--font-size-2xs);
   background: color-mix(in srgb, var(--color-accent) 12%, transparent);
   border: 1px solid color-mix(in srgb, var(--color-accent) 30%, transparent);
   border-radius: var(--radius-sm);
@@ -1139,7 +1139,7 @@
   color: var(--color-text-secondary);
   border-radius: calc(var(--radius-md) - 2px);
   font-family: inherit;
-  font-size: 10px;
+  font-size: var(--font-size-2xs);
   font-weight: var(--font-weight-bold);
   text-transform: uppercase;
   letter-spacing: 0.3px;
@@ -1264,7 +1264,7 @@
   border-radius: var(--radius-xs);
   background: var(--color-bg-tertiary);
   border: 1px solid var(--color-border);
-  font-size: 10px;
+  font-size: var(--font-size-2xs);
   font-weight: var(--font-weight-bold);
   letter-spacing: 0.5px;
   color: var(--color-text-muted);
@@ -1306,7 +1306,7 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 10px;
+  font-size: var(--font-size-2xs);
   font-weight: var(--font-weight-bold);
   letter-spacing: 0.5px;
   color: var(--color-text-muted);

@@ -854,7 +854,7 @@
 }
 
 .compare-ach {
-  font-size: 10px;
+  font-size: var(--font-size-2xs);
   color: var(--color-text-muted);
   font-variant-numeric: tabular-nums;
   padding-left: 14px;
@@ -1422,7 +1422,7 @@
 }
 
 .profile-stat-label {
-  font-size: 10px;
+  font-size: var(--font-size-2xs);
   font-weight: var(--font-weight-semibold);
   text-transform: uppercase;
   letter-spacing: 0.6px;

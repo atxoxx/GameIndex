@@ -592,7 +592,7 @@ textarea.settings-input {
   align-items: center;
   gap: var(--space-sm);
   margin: 0 0 var(--space-xs);
-  font-size: 10px;
+  font-size: var(--font-size-2xs);
   font-weight: var(--font-weight-bold);
   text-transform: uppercase;
   letter-spacing: 0.6px;
@@ -861,7 +861,7 @@ textarea.settings-input {
 }
 
 .language-trigger-code {
-  font-size: 10px;
+  font-size: var(--font-size-2xs);
   font-weight: var(--font-weight-bold);
   letter-spacing: 0.6px;
   color: var(--color-text-muted);
@@ -977,7 +977,7 @@ textarea.settings-input {
 }
 
 .language-option-native {
-  font-size: 10px;
+  font-size: var(--font-size-2xs);
   font-weight: var(--font-weight-bold);
   letter-spacing: 0.6px;
   color: var(--color-text-muted);
@@ -1168,7 +1168,7 @@ textarea.settings-input {
   border-radius: var(--radius-full);
   background: color-mix(in srgb, var(--color-accent) 12%, transparent);
   border: 1px solid color-mix(in srgb, var(--color-accent) 24%, transparent);
-  font-size: 10px;
+  font-size: var(--font-size-2xs);
   font-weight: var(--font-weight-semibold);
   color: var(--color-accent);
   white-space: nowrap;
@@ -1346,7 +1346,7 @@ textarea.settings-input {
 }
 
 .accent-preview__badge-contrast {
-  font-size: 10px;
+  font-size: var(--font-size-2xs);
   font-weight: var(--font-weight-bold);
   font-family: var(--font-mono);
   padding: 2px 7px;
@@ -1428,7 +1428,7 @@ textarea.settings-input {
   background: color-mix(in srgb, var(--color-accent) 15%, var(--color-bg-secondary));
   color: var(--color-accent);
   border: 1px solid color-mix(in srgb, var(--color-accent) 30%, transparent);
-  font-size: 10px;
+  font-size: var(--font-size-2xs);
   font-weight: var(--font-weight-semibold);
   letter-spacing: 0.03em;
   text-transform: uppercase;
@@ -1513,7 +1513,7 @@ textarea.settings-input {
 }
 
 .accent-preview__ramp-label {
-  font-size: 10px;
+  font-size: var(--font-size-2xs);
   font-weight: var(--font-weight-bold);
   letter-spacing: 0.07em;
   text-transform: uppercase;
@@ -1754,7 +1754,7 @@ textarea.settings-input {
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  font-size: 10px;
+  font-size: var(--font-size-2xs);
   font-weight: var(--font-weight-bold);
   text-transform: uppercase;
   letter-spacing: 0.8px;
@@ -1768,7 +1768,7 @@ textarea.settings-input {
   min-width: 18px;
   height: 16px;
   padding: 0 5px;
-  font-size: 10px;
+  font-size: var(--font-size-2xs);
   font-weight: var(--font-weight-bold);
   color: var(--color-accent);
   background: color-mix(in srgb, var(--color-accent) 16%, transparent);

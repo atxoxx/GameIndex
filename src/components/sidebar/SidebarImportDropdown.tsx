@@ -37,7 +37,7 @@ export default function SidebarImportDropdown({
     top: rect.bottom + 6,
     left: Math.max(8, Math.min(rect.left, window.innerWidth - 248)),
     width: 240,
-    zIndex: 10000,
+    zIndex: "var(--z-popover)",
   };
 
   return createPortal(

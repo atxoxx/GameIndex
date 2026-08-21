@@ -49,7 +49,7 @@
   background: color-mix(in srgb, var(--color-success) 85%, transparent);
   backdrop-filter: blur(8px);
   color: #fff;
-  font-size: 10px;
+  font-size: var(--font-size-2xs);
   font-weight: var(--font-weight-bold);
   padding: 3px 8px;
   border-radius: var(--radius-sm);
@@ -243,7 +243,7 @@
 }
 
 .act-stat__sub {
-  font-size: 10px;
+  font-size: var(--font-size-2xs);
   color: var(--color-text-muted);
   white-space: nowrap;
   overflow: hidden;
@@ -567,7 +567,7 @@
   height: 24px;
   padding: 0 10px 0 5px;
   border-radius: var(--radius-full);
-  font-size: 10px;
+  font-size: var(--font-size-2xs);
   font-weight: var(--font-weight-semibold);
   color: var(--color-text-secondary);
   background: var(--color-bg-tertiary);
@@ -653,7 +653,7 @@
   display: inline-flex;
   align-items: center;
   gap: 4px;
-  font-size: 10px;
+  font-size: var(--font-size-2xs);
   font-weight: var(--font-weight-semibold);
   color: var(--color-text-muted);
   font-variant-numeric: tabular-nums;
@@ -807,7 +807,7 @@
 }
 
 .act-record__label {
-  font-size: 10px;
+  font-size: var(--font-size-2xs);
   font-weight: var(--font-weight-semibold);
   text-transform: uppercase;
   letter-spacing: 0.5px;
@@ -824,7 +824,7 @@
 }
 
 .act-record__sub {
-  font-size: 10px;
+  font-size: var(--font-size-2xs);
   color: var(--color-text-muted);
   white-space: nowrap;
   overflow: hidden;
@@ -849,7 +849,7 @@
   display: grid;
   grid-template-rows: repeat(7, 16px);
   gap: 4px;
-  font-size: 10px;
+  font-size: var(--font-size-2xs);
   color: var(--color-text-muted);
   align-items: center;
   text-align: right;
@@ -871,7 +871,7 @@
 
 .act-heatmap__months span {
   position: absolute;
-  font-size: 10px;
+  font-size: var(--font-size-2xs);
   color: var(--color-text-muted);
   white-space: nowrap;
 }
@@ -927,7 +927,7 @@
   align-items: center;
   gap: 6px;
   margin-top: var(--space-sm);
-  font-size: 10px;
+  font-size: var(--font-size-2xs);
   color: var(--color-text-muted);
 }
 
@@ -1109,7 +1109,7 @@
 }
 
 .act-session__time {
-  font-size: 10px;
+  font-size: var(--font-size-2xs);
   color: var(--color-text-muted);
   font-variant-numeric: tabular-nums;
   white-space: nowrap;
@@ -1276,7 +1276,7 @@
   align-items: center;
   gap: 6px;
   margin-bottom: var(--space-xs);
-  font-size: 10px;
+  font-size: var(--font-size-2xs);
   font-weight: var(--font-weight-semibold);
   color: var(--color-text-secondary);
 }
@@ -1324,7 +1324,7 @@
 }
 
 .act-perf-card__label {
-  font-size: 10px;
+  font-size: var(--font-size-2xs);
   font-weight: var(--font-weight-semibold);
   text-transform: uppercase;
   letter-spacing: 0.5px;
@@ -1339,7 +1339,7 @@
 }
 
 .act-perf-card__max {
-  font-size: 10px;
+  font-size: var(--font-size-2xs);
   color: var(--color-text-muted);
   font-variant-numeric: tabular-nums;
 }
@@ -1372,7 +1372,7 @@
 }
 
 .chart-tooltip-label {
-  font-size: 10px;
+  font-size: var(--font-size-2xs);
   color: var(--color-text-muted);
   font-weight: var(--font-weight-semibold);
   margin-bottom: 6px;
@@ -1421,7 +1421,7 @@
 }
 
 .bar-tooltip-label {
-  font-size: 10px;
+  font-size: var(--font-size-2xs);
   color: var(--color-text-muted);
   font-weight: var(--font-weight-semibold);
   text-transform: uppercase;

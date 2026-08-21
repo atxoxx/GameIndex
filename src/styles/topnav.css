@@ -62,7 +62,7 @@
 }
 
 .topnav-logo__version {
-  font-size: 10px;
+  font-size: var(--font-size-2xs);
   font-weight: 600;
   color: var(--color-text-secondary);
   letter-spacing: 0.04em;
@@ -178,7 +178,7 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  font-size: 10px;
+  font-size: var(--font-size-2xs);
   font-weight: var(--font-weight-bold);
   line-height: 1;
   color: #fff;
@@ -216,7 +216,7 @@
 }
 .topnav-more-menu {
   position: fixed;
-  z-index: 10000;
+  z-index: var(--z-popover);
   min-width: 200px;
   max-width: 240px;
   background: var(--color-surface-raised);
@@ -262,7 +262,7 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  font-size: 10px;
+  font-size: var(--font-size-2xs);
   font-weight: var(--font-weight-bold);
   background: var(--color-danger);
   color: #fff;

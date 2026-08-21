@@ -97,7 +97,7 @@
   border-radius: var(--radius-full);
   background: var(--color-bg-tertiary);
   color: var(--color-text-muted);
-  font-size: 10px;
+  font-size: var(--font-size-2xs);
   font-weight: var(--font-weight-bold);
   font-variant-numeric: tabular-nums;
   line-height: 18px;
@@ -116,7 +116,7 @@
   border-radius: var(--radius-full);
   background: var(--color-danger);
   color: #fff;
-  font-size: 10px;
+  font-size: var(--font-size-2xs);
   font-weight: var(--font-weight-bold);
   font-variant-numeric: tabular-nums;
   line-height: 18px;
@@ -326,7 +326,7 @@
 }
 
 .hero-stat-sub {
-  font-size: 10px;
+  font-size: var(--font-size-2xs);
   color: var(--color-text-muted);
   white-space: nowrap;
   overflow: hidden;
@@ -661,7 +661,7 @@
   background: var(--color-accent);
   color: var(--color-accent-contrast);
   border: none;
-  font-size: 10px;
+  font-size: var(--font-size-2xs);
   font-weight: 700;
   cursor: pointer;
 }
@@ -951,7 +951,7 @@
 
 .friend-card-nickname-tag,
 .friend-realname {
-  font-size: 10px;
+  font-size: var(--font-size-2xs);
   color: var(--color-text-muted);
   font-style: italic;
 }
@@ -1024,7 +1024,7 @@
   gap: 4px;
   padding: 2px 7px;
   border-radius: var(--radius-full);
-  font-size: 10px;
+  font-size: var(--font-size-2xs);
   font-weight: 600;
   background: var(--color-bg-tertiary);
   border: 1px solid var(--color-border);
@@ -1318,7 +1318,7 @@
   align-items: center;
   justify-content: center;
   font-weight: 700;
-  font-size: 10px;
+  font-size: var(--font-size-2xs);
   color: #fff;
 }
 
@@ -1517,7 +1517,7 @@
 }
 
 .dm-thread-time {
-  font-size: 10px;
+  font-size: var(--font-size-2xs);
   color: var(--color-text-muted);
 }
 
@@ -1728,7 +1728,7 @@
   align-items: center;
   justify-content: space-between;
   gap: 10px;
-  font-size: 10px;
+  font-size: var(--font-size-2xs);
   opacity: 0.8;
 }
 
@@ -1737,7 +1737,7 @@
 }
 
 .dm-message-time {
-  font-size: 10px;
+  font-size: var(--font-size-2xs);
   opacity: 0.7;
 }
 
@@ -1921,7 +1921,7 @@
 }
 
 .session-duration-tag {
-  font-size: 10px;
+  font-size: var(--font-size-2xs);
   font-weight: 700;
   padding: 1px 6px;
   border-radius: var(--radius-full);
@@ -1948,13 +1948,13 @@
 }
 
 .session-date-local {
-  font-size: 10px;
+  font-size: var(--font-size-2xs);
   color: var(--color-text-muted);
   font-style: italic;
 }
 
 .session-tz-note {
-  font-size: 10px;
+  font-size: var(--font-size-2xs);
   color: var(--color-text-muted);
 }
 
@@ -1972,7 +1972,7 @@
   gap: 5px;
   padding: 3px 9px;
   border-radius: var(--radius-full);
-  font-size: 10px;
+  font-size: var(--font-size-2xs);
   font-weight: 700;
   background: color-mix(in srgb, var(--color-accent) 15%, transparent);
   border: 1px solid color-mix(in srgb, var(--color-accent) 35%, transparent);
@@ -2093,7 +2093,7 @@
   justify-content: center;
   padding: 2px 7px;
   border-radius: var(--radius-full);
-  font-size: 10px;
+  font-size: var(--font-size-2xs);
   font-weight: 700;
   line-height: 1.3;
 }
@@ -2176,7 +2176,7 @@
 .role-player,
 .role-cohost,
 .role-host {
-  font-size: 10px;
+  font-size: var(--font-size-2xs);
   font-weight: 700;
   padding: 2px 7px;
   border-radius: var(--radius-full);
@@ -2206,7 +2206,7 @@
 
 .roster-role-select {
   height: 22px;
-  font-size: 10px;
+  font-size: var(--font-size-2xs);
   font-weight: 700;
   padding: 0 6px;
   border-radius: var(--radius-full);
@@ -2237,7 +2237,7 @@
   gap: 3px;
   padding: 2px 8px;
   border-radius: var(--radius-full);
-  font-size: 10px;
+  font-size: var(--font-size-2xs);
   font-weight: 700;
   line-height: 1.3;
   white-space: nowrap;
@@ -2271,7 +2271,7 @@
   display: inline-flex;
   align-items: center;
   gap: 4px;
-  font-size: 10px;
+  font-size: var(--font-size-2xs);
   color: var(--color-text-muted);
   font-style: italic;
   max-width: 140px;
@@ -2310,7 +2310,7 @@
   gap: 4px;
   padding: 3px 8px;
   border-radius: var(--radius-full);
-  font-size: 10px;
+  font-size: var(--font-size-2xs);
   font-weight: 600;
   background: var(--color-bg-tertiary);
   border: 1px solid var(--color-border);
@@ -2435,7 +2435,7 @@
 }
 
 .session-chat-count {
-  font-size: 10px;
+  font-size: var(--font-size-2xs);
   font-weight: 700;
 }
 
@@ -2923,7 +2923,7 @@
 
 .rec-react-count,
 .sug-react-count {
-  font-size: 10px;
+  font-size: var(--font-size-2xs);
   font-weight: 700;
 }
 
@@ -2997,7 +2997,7 @@
 
 .rec-comment-time,
 .sug-comment-time {
-  font-size: 10px;
+  font-size: var(--font-size-2xs);
   color: var(--color-text-muted);
 }
 
@@ -3289,7 +3289,7 @@
   display: inline-flex;
   padding: 2px 7px;
   border-radius: var(--radius-full);
-  font-size: 10px;
+  font-size: var(--font-size-2xs);
   font-weight: 600;
   background: var(--color-bg-tertiary);
   color: var(--color-text-secondary);
@@ -4036,7 +4036,7 @@
 }
 
 .profile-stat-lbl {
-  font-size: 10px;
+  font-size: var(--font-size-2xs);
   color: var(--color-text-muted);
   text-transform: uppercase;
 }
@@ -4108,7 +4108,7 @@
 
 .profile-qr-caption,
 .my-qr-label {
-  font-size: 10px;
+  font-size: var(--font-size-2xs);
   color: var(--color-text-muted);
 }
 
@@ -4127,7 +4127,7 @@
 }
 
 .nostr-key-label {
-  font-size: 10px;
+  font-size: var(--font-size-2xs);
   font-weight: 600;
   color: var(--color-text-muted);
   text-transform: uppercase;
@@ -4148,7 +4148,7 @@
 
 .nostr-key-val {
   font-family: var(--font-family-mono, monospace);
-  font-size: 10px;
+  font-size: var(--font-size-2xs);
   color: var(--color-text-secondary);
   word-break: break-all;
   flex: 1;
@@ -4363,7 +4363,7 @@
 }
 
 .form-helper-text {
-  font-size: 10px;
+  font-size: var(--font-size-2xs);
   color: var(--color-text-muted);
 }
 
@@ -4630,7 +4630,7 @@ textarea.profile-input {
 }
 
 .circle-count-pill {
-  font-size: 10px;
+  font-size: var(--font-size-2xs);
   padding: 1px 6px;
   border-radius: var(--radius-full);
   background: var(--color-surface);
@@ -4865,7 +4865,7 @@ textarea.profile-input {
 }
 
 .game-picker-item-extra {
-  font-size: 10px;
+  font-size: var(--font-size-2xs);
   color: var(--color-text-muted);
 }
 
@@ -4986,7 +4986,7 @@ textarea.profile-input {
 }
 
 .nostr-relay-status {
-  font-size: 10px;
+  font-size: var(--font-size-2xs);
   color: var(--color-success);
 }
 
@@ -4997,7 +4997,7 @@ textarea.profile-input {
 }
 
 .sync-last-time-label {
-  font-size: 10px;
+  font-size: var(--font-size-2xs);
   color: var(--color-text-muted);
 }
 
@@ -5046,12 +5046,12 @@ textarea.profile-input {
   flex-direction: column;
   gap: 2px;
   color: var(--color-text-secondary);
-  font-size: 10px;
+  font-size: var(--font-size-2xs);
 }
 
 .sync-log-detail-line {
   color: var(--color-text-secondary);
-  font-size: 10px;
+  font-size: var(--font-size-2xs);
 }
 
 .color-swatch-picker {
@@ -5120,7 +5120,7 @@ textarea.profile-input {
   border-radius: var(--radius-full);
   background: var(--color-accent);
   color: var(--color-accent-contrast, #fff);
-  font-size: 10px;
+  font-size: var(--font-size-2xs);
   font-weight: 700;
   display: inline-flex;
   align-items: center;
@@ -5191,7 +5191,7 @@ textarea.profile-input {
 .dm-message-seen {
   display: block;
   margin-top: 4px;
-  font-size: 10px;
+  font-size: var(--font-size-2xs);
   color: var(--color-text-tertiary, var(--color-text-secondary));
   text-align: right;
 }
@@ -5291,7 +5291,7 @@ textarea.profile-input {
   gap: 4px;
   padding: 2px 8px;
   border-radius: var(--radius-full);
-  font-size: 10px;
+  font-size: var(--font-size-2xs);
   color: var(--color-accent);
   background: color-mix(in srgb, var(--color-accent) 12%, transparent);
   border: 1px solid color-mix(in srgb, var(--color-accent) 35%, transparent);
@@ -5358,7 +5358,7 @@ textarea.profile-input {
 }
 
 .session-poll-hint {
-  font-size: 10px;
+  font-size: var(--font-size-2xs);
   color: var(--color-text-secondary);
 }
 
@@ -5398,7 +5398,7 @@ textarea.profile-input {
 }
 
 .session-poll-votes {
-  font-size: 10px;
+  font-size: var(--font-size-2xs);
   color: var(--color-accent);
   font-weight: 700;
 }
@@ -5475,7 +5475,7 @@ textarea.profile-input {
 }
 
 .recs-view-pill-count {
-  font-size: 10px;
+  font-size: var(--font-size-2xs);
   font-weight: 700;
   background: color-mix(in srgb, currentColor 18%, transparent);
   border-radius: var(--radius-full);

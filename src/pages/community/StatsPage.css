@@ -96,7 +96,7 @@
   color: var(--color-accent-text, #ffffff);
   padding: 1px 8px;
   border-radius: var(--radius-full, 9999px);
-  font-size: 10px;
+  font-size: var(--font-size-2xs);
   font-weight: var(--font-weight-bold, 700);
   letter-spacing: 0.5px;
   box-shadow: 0 2px 6px rgba(0, 0, 0, 0.4);
@@ -165,7 +165,7 @@
 .stats-xp-labels {
   display: flex;
   justify-content: space-between;
-  font-size: 10px;
+  font-size: var(--font-size-2xs);
   color: var(--color-text-muted, #8b949e);
   margin-top: 2px;
 }
@@ -209,7 +209,7 @@
 }
 
 .stats-metric-lbl {
-  font-size: 10px;
+  font-size: var(--font-size-2xs);
   color: var(--color-text-muted, #8b949e);
 }
 
@@ -517,7 +517,7 @@
 }
 
 .stats-summary-lbl {
-  font-size: 10px;
+  font-size: var(--font-size-2xs);
   color: var(--color-text-muted, #8b949e);
   margin-top: 2px;
 }
@@ -613,7 +613,7 @@
   display: flex;
   align-items: center;
   gap: 4px;
-  font-size: 10px;
+  font-size: var(--font-size-2xs);
   color: var(--color-text-muted, #8b949e);
   margin-top: var(--space-md, 12px);
   justify-content: flex-end;
@@ -989,7 +989,7 @@
 .stats-ranked-meta-row {
   display: flex;
   gap: 8px;
-  font-size: 10px;
+  font-size: var(--font-size-2xs);
   color: var(--color-text-muted);
 }
 
@@ -1056,7 +1056,7 @@
   display: flex;
   align-items: center;
   gap: 4px;
-  font-size: 10px;
+  font-size: var(--font-size-2xs);
   color: var(--color-text-muted);
 }
 
@@ -1099,7 +1099,7 @@
 .stats-habit-day-name {
   width: 36px;
   flex-shrink: 0;
-  font-size: 10px;
+  font-size: var(--font-size-2xs);
   color: var(--color-text-muted);
 }
 
@@ -1179,7 +1179,7 @@
 }
 
 .stats-session-bucket-range {
-  font-size: 10px;
+  font-size: var(--font-size-2xs);
   color: var(--color-text-muted);
 }
 
@@ -1211,7 +1211,7 @@
 }
 
 .stats-session-bucket-time {
-  font-size: 10px;
+  font-size: var(--font-size-2xs);
   color: var(--color-text-muted);
 }
 
@@ -1257,7 +1257,7 @@
 .stats-health-stat-val.stats-health-val--unplayed { color: var(--color-text-muted); }
 
 .stats-health-stat-lbl {
-  font-size: 10px;
+  font-size: var(--font-size-2xs);
   color: var(--color-text-muted);
 }
 
@@ -1291,7 +1291,7 @@
 }
 
 .stats-perf-lbl {
-  font-size: 10px;
+  font-size: var(--font-size-2xs);
   color: var(--color-text-muted);
 }
 
@@ -1491,7 +1491,7 @@
   right: 8px;
   background: linear-gradient(135deg, #ffd700, #ffaa00);
   color: #000000;
-  font-size: 10px;
+  font-size: var(--font-size-2xs);
   font-weight: var(--font-weight-bold);
   padding: 2px 6px;
   border-radius: 4px;
@@ -1515,7 +1515,7 @@
 }
 
 .stats-perfect-meta {
-  font-size: 10px;
+  font-size: var(--font-size-2xs);
   color: var(--color-text-muted);
 }
 
@@ -1609,7 +1609,7 @@
 }
 
 .stats-near-remaining {
-  font-size: 10px;
+  font-size: var(--font-size-2xs);
   color: var(--color-text-muted);
 }
 
@@ -1682,7 +1682,7 @@
 }
 
 .stats-rarest-pill {
-  font-size: 10px;
+  font-size: var(--font-size-2xs);
   font-weight: var(--font-weight-bold);
   padding: 1px 6px;
   border-radius: var(--radius-sm);
@@ -1700,7 +1700,7 @@
 }
 
 .stats-rarest-desc {
-  font-size: 10px;
+  font-size: var(--font-size-2xs);
   color: var(--color-text-muted);
   margin: 2px 0 0 0;
   display: -webkit-box;
@@ -1762,7 +1762,7 @@
 }
 
 .stats-recent-ach-game {
-  font-size: 10px;
+  font-size: var(--font-size-2xs);
   color: var(--color-text-muted);
   white-space: nowrap;
   overflow: hidden;
@@ -2102,7 +2102,7 @@
 }
 
 .stats-thumb-game-name {
-  font-size: 10px;
+  font-size: var(--font-size-2xs);
   color: #ffffff;
   font-weight: var(--font-weight-semibold);
   white-space: nowrap;
@@ -2156,7 +2156,7 @@
 }
 
 .stats-fallback-name {
-  font-size: 10px;
+  font-size: var(--font-size-2xs);
   max-width: 90%;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -2183,7 +2183,7 @@
   inset: 0;
   background: rgba(0, 0, 0, 0.88);
   backdrop-filter: blur(12px);
-  z-index: 9900;
+  z-index: var(--z-modal);
   display: flex;
   flex-direction: column;
 }
@@ -2264,7 +2264,9 @@
   position: absolute;
   top: 14px;
   right: 20px;
-  z-index: 9901;
+  /* Scoped inside the lightbox's stacking context — stays a hair
+   * above its own modal layer, as the old 9901 did over 9900. */
+  z-index: calc(var(--z-modal) + 1);
 }
 
 .stats-lightbox-main {
@@ -2394,7 +2396,7 @@
   inset: 0;
   background: rgba(0, 0, 0, 0.6);
   backdrop-filter: blur(6px);
-  z-index: 9900;
+  z-index: var(--z-modal);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -2544,7 +2546,7 @@
 }
 
 .stats-record-sub {
-  font-size: 10px;
+  font-size: var(--font-size-2xs);
   color: var(--color-accent);
   white-space: nowrap;
   overflow: hidden;
@@ -2631,7 +2633,7 @@
 }
 
 .stats-persona-trait-desc {
-  font-size: 10px;
+  font-size: var(--font-size-2xs);
   color: var(--color-text-muted);
 }
 
@@ -2687,7 +2689,7 @@
 }
 
 .stats-milestone-desc {
-  font-size: 10px;
+  font-size: var(--font-size-2xs);
   color: var(--color-text-muted);
   margin: 0 0 var(--space-md, 12px) 0;
   flex: 1;
@@ -2711,6 +2713,6 @@
 .stats-milestone-footer {
   display: flex;
   justify-content: space-between;
-  font-size: 10px;
+  font-size: var(--font-size-2xs);
   color: var(--color-text-muted);
 }

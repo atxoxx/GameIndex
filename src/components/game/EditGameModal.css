@@ -389,7 +389,7 @@
 }
 
 .array-editor-cell-label {
-  font-size: 10px;
+  font-size: var(--font-size-2xs);
   font-weight: var(--font-weight-medium);
   color: var(--color-text-muted);
   text-transform: uppercase;
@@ -682,7 +682,7 @@
 
 .edit-subgroup-title {
   margin: 0 0 var(--space-md);
-  font-size: 10px;
+  font-size: var(--font-size-2xs);
   font-weight: var(--font-weight-bold);
   color: var(--color-accent);
   text-transform: uppercase;
@@ -707,7 +707,7 @@
 }
 
 .edit-preview-status-pill {
-  font-size: 10px;
+  font-size: var(--font-size-2xs);
   font-weight: var(--font-weight-semibold);
   padding: 1px 8px;
   border-radius: var(--radius-full);
@@ -829,7 +829,7 @@
   justify-content: center;
   gap: 6px;
   color: var(--color-text-muted);
-  font-size: 10px;
+  font-size: var(--font-size-2xs);
   text-transform: uppercase;
   letter-spacing: 0.5px;
   opacity: 0.6;
@@ -877,7 +877,7 @@
   background: color-mix(in srgb, var(--color-accent) 12%, transparent);
   border: 1px solid color-mix(in srgb, var(--color-accent) 25%, transparent);
   color: var(--color-accent);
-  font-size: 10px;
+  font-size: var(--font-size-2xs);
   font-weight: var(--font-weight-semibold);
   letter-spacing: 0.3px;
   white-space: nowrap;
@@ -1117,7 +1117,7 @@
 }
 
 .edit-launch-chips-title {
-  font-size: 10px;
+  font-size: var(--font-size-2xs);
   font-weight: var(--font-weight-semibold);
   color: var(--color-text-muted);
   text-transform: uppercase;
@@ -1161,7 +1161,7 @@
 }
 
 .edit-chip-desc {
-  font-size: 10px;
+  font-size: var(--font-size-2xs);
   color: var(--color-text-muted);
 }
 
@@ -1242,7 +1242,7 @@
   align-items: center;
   padding: 1px 7px;
   border-radius: var(--radius-full);
-  font-size: 10px;
+  font-size: var(--font-size-2xs);
   font-weight: var(--font-weight-semibold);
   letter-spacing: 0.3px;
   text-transform: uppercase;
@@ -1419,7 +1419,7 @@
 }
 
 .edit-launch-script-status {
-  font-size: 10px;
+  font-size: var(--font-size-2xs);
   font-weight: var(--font-weight-semibold);
   color: var(--color-success);
   text-transform: uppercase;
@@ -1563,7 +1563,7 @@
 .companion-app-delay-tag {
   position: absolute;
   right: 6px;
-  font-size: 10px;
+  font-size: var(--font-size-2xs);
   color: var(--color-text-muted);
   pointer-events: none;
   font-weight: var(--font-weight-semibold);

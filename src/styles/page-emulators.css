@@ -454,7 +454,7 @@
   align-items: center;
   justify-content: space-between;
   padding: 2px 6px 4px;
-  font-size: 10px;
+  font-size: var(--font-size-2xs);
   font-weight: var(--font-weight-bold);
   text-transform: uppercase;
   letter-spacing: 0.6px;
@@ -612,7 +612,7 @@
   align-items: center;
   gap: 4px;
   padding: 2px 8px;
-  font-size: 10px;
+  font-size: var(--font-size-2xs);
   font-weight: var(--font-weight-bold);
   text-transform: uppercase;
   letter-spacing: 0.4px;
@@ -845,7 +845,7 @@
   display: flex;
   align-items: center;
   gap: 6px;
-  font-size: 10px;
+  font-size: var(--font-size-2xs);
   font-weight: var(--font-weight-bold);
   text-transform: uppercase;
   letter-spacing: 0.5px;
@@ -1246,7 +1246,7 @@
   color: var(--color-success);
   padding: 2px 8px;
   border-radius: var(--radius-full);
-  font-size: 10px;
+  font-size: var(--font-size-2xs);
   font-weight: var(--font-weight-bold);
   text-transform: uppercase;
 }
@@ -1307,7 +1307,7 @@
 }
 
 .emu-rom-fallback-platform {
-  font-size: 10px;
+  font-size: var(--font-size-2xs);
   font-weight: var(--font-weight-bold);
   text-transform: uppercase;
   letter-spacing: 0.5px;
@@ -1557,7 +1557,7 @@
   display: inline-flex;
   align-items: center;
   gap: 4px;
-  font-size: 10px;
+  font-size: var(--font-size-2xs);
   font-weight: var(--font-weight-bold);
   color: var(--color-success);
   text-transform: uppercase;
@@ -1734,7 +1734,7 @@
   display: flex;
   align-items: center;
   gap: 6px;
-  font-size: 10px;
+  font-size: var(--font-size-2xs);
   font-weight: var(--font-weight-bold);
   text-transform: uppercase;
   letter-spacing: 0.5px;
@@ -1860,13 +1860,15 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  z-index: 9000;
+  z-index: var(--z-modal);
   padding: var(--space-xl);
   overflow-y: auto;
 }
 
 .emulators-modal-overlay {
-  z-index: 10000;
+  /* One rung above the shared overlay so a stacked confirm dialog
+   * keeps its historical "above the base modal" ordering. */
+  z-index: calc(var(--z-modal) + 1);
 }
 
 .emulators-modal {
@@ -1924,7 +1926,7 @@
 
 .emu-preset-pill {
   padding: 1px 6px;
-  font-size: 10px;
+  font-size: var(--font-size-2xs);
   font-family: var(--font-mono);
   background: var(--color-bg-tertiary);
   border: 1px solid var(--color-border);

@@ -383,7 +383,7 @@
 }
 
 .lib-stat-label {
-  font-size: 10px;
+  font-size: var(--font-size-2xs);
   font-weight: var(--font-weight-semibold);
   color: var(--color-text-secondary);
   text-transform: uppercase;
@@ -392,7 +392,7 @@
 }
 
 .lib-stat-subtext {
-  font-size: 10px;
+  font-size: var(--font-size-2xs);
   color: var(--color-text-muted);
   white-space: nowrap;
 }
@@ -1151,7 +1151,7 @@
   align-items: center;
   justify-content: space-between;
   gap: 6px;
-  font-size: 10px;
+  font-size: var(--font-size-2xs);
   font-weight: var(--font-weight-bold);
   color: var(--color-text-muted);
   text-transform: uppercase;
@@ -1371,6 +1371,12 @@
   margin: var(--space-xs) 0 0 0;
   cursor: pointer;
   accent-color: var(--color-accent);
+}
+
+/* Keyboard focus ring (mouse drags stay ring-free). */
+.lib-rating-slider:focus-visible {
+  outline: none;
+  box-shadow: var(--ring-accent);
 }
 
 .lib-rating-slider::-webkit-slider-thumb {
@@ -1664,7 +1670,7 @@
   align-items: center;
   gap: 4px;
   padding: 3px 8px;
-  font-size: 10px;
+  font-size: var(--font-size-2xs);
   font-weight: var(--font-weight-bold);
   border-radius: var(--radius-full);
   backdrop-filter: blur(8px);
@@ -1761,7 +1767,7 @@
 }
 
 .lib-card-platform {
-  font-size: 10px;
+  font-size: var(--font-size-2xs);
   font-weight: var(--font-weight-bold);
   color: var(--color-accent);
   background: color-mix(in srgb, var(--color-accent) 12%, transparent);
@@ -1786,7 +1792,7 @@
 }
 
 .lib-card-genre {
-  font-size: 10px;
+  font-size: var(--font-size-2xs);
   color: var(--color-text-muted);
   background: var(--color-bg-tertiary);
   border: 1px solid var(--color-border);
@@ -2630,7 +2636,7 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  z-index: 9500;
+  z-index: var(--z-modal);
   padding: var(--space-xl);
   overflow-y: auto;
   animation: libExportOverlayIn 180ms ease;
@@ -2904,7 +2910,7 @@
   display: inline-flex;
   align-items: center;
   gap: 5px;
-  font-size: 10px;
+  font-size: var(--font-size-2xs);
   font-weight: var(--font-weight-bold);
   text-transform: uppercase;
   letter-spacing: 0.5px;
@@ -3038,7 +3044,7 @@
 }
 
 .lib-hero-filter-count {
-  font-size: 10px;
+  font-size: var(--font-size-2xs);
   padding: 1px 5px;
   border-radius: var(--radius-full);
   background: color-mix(in srgb, var(--color-text-primary) 10%, transparent);
@@ -3080,6 +3086,13 @@
   font-weight: var(--font-weight-medium);
   outline: none;
   cursor: pointer;
+}
+
+/* Keyboard focus ring — the base rule strips the global :focus-visible
+ * outline, so restate it via the shared double-ring token. */
+.lib-groupby-select:focus-visible {
+  outline: none;
+  box-shadow: var(--ring-accent);
 }
 
 .lib-groupby-select option {
@@ -3536,7 +3549,7 @@
   left: 100%;
   top: -4px;
   min-width: 170px;
-  z-index: 9300;
+  z-index: var(--z-popover);
 }
 
 .lib-status-dot {

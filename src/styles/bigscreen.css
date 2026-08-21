@@ -560,7 +560,9 @@
   width: 24px;
   height: 24px;
   pointer-events: none;
-  z-index: 10000;
+  /* TV-mode pointer HUD — topmost non-splash rung so it floats above
+   * drawers, lightboxes and search overlays. */
+  z-index: var(--z-toast);
   will-change: transform, opacity;
   transform: translate3d(0, 0, 0);
   display: none;
@@ -1055,7 +1057,7 @@
   background: color-mix(in srgb, var(--bigscreen-shadow) 70%, transparent);
   backdrop-filter: blur(8px);
   -webkit-backdrop-filter: blur(8px);
-  z-index: 9999;
+  z-index: var(--z-modal);
   display: flex;
   justify-content: flex-end;
 }
@@ -1154,7 +1156,7 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 10px;
+  font-size: var(--font-size-2xs);
   font-weight: 900;
   color: var(--color-accent);
 }
@@ -1864,7 +1866,7 @@
 }
 
 .deal-store-tag {
-  font-size: 10px;
+  font-size: var(--font-size-2xs);
   font-weight: 900;
   text-transform: uppercase;
   color: color-mix(in srgb, var(--bigscreen-text) 35%, transparent);
@@ -2268,7 +2270,7 @@
 .bigscreen-search-overlay {
   position: fixed;
   inset: 0;
-  z-index: 9500;
+  z-index: var(--z-modal);
   display: grid;
   place-items: start center;
   padding-top: 18vh;
@@ -2357,7 +2359,7 @@
 .bigscreen-lightbox-mask {
   position: fixed;
   inset: 0;
-  z-index: 9600;
+  z-index: var(--z-modal);
   display: grid;
   place-items: center;
   background: color-mix(in srgb, var(--bigscreen-shadow) 80%, transparent);

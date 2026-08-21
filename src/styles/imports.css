@@ -386,7 +386,7 @@
 }
 
 .import-active-file-info .file-label {
-  font-size: 10px;
+  font-size: var(--font-size-2xs);
   text-transform: uppercase;
   letter-spacing: 0.05em;
   color: var(--color-text-muted);
@@ -576,7 +576,7 @@
 }
 
 .linked-badge {
-  font-size: 10px;
+  font-size: var(--font-size-2xs);
   font-weight: var(--font-weight-bold);
   background: var(--color-accent);
   color: var(--color-accent-contrast);
@@ -731,7 +731,7 @@
 .genre-tag {
   background: rgba(108, 92, 231, 0.1);
   color: var(--color-accent);
-  font-size: 10px;
+  font-size: var(--font-size-2xs);
   padding: 2px 6px;
   border-radius: var(--radius-sm);
   font-weight: var(--font-weight-medium);

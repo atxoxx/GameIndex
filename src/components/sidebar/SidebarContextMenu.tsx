@@ -63,7 +63,7 @@ export default function SidebarContextMenu({
     <div
       className="context-menu"
       data-sidebar-context-menu="true"
-      style={{ left: adjustedX, top: adjustedY, zIndex: 9200 }}
+      style={{ left: adjustedX, top: adjustedY, zIndex: "var(--z-sticky)" }}
       onMouseDown={(e) => e.stopPropagation()}
       role="menu"
       aria-label={game.name}
@@ -166,7 +166,7 @@ export default function SidebarContextMenu({
               position: "fixed",
               top: submenuPos.top,
               left: submenuPos.left,
-              zIndex: 9300,
+              zIndex: "calc(var(--z-sticky) + 1)",
             }}
             role="menu"
             aria-label={t("sidebar.playStatusOptions")}
