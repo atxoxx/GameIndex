@@ -1069,11 +1069,21 @@
   transition: transform var(--transition-normal);
 }
 
-.lib-rail-wrap.collapsed .lib-rail-toggle-btn svg {
+/* Chevron convention for the expandable rails (.lib-rail sections, e.g.
+   Continue Playing / Recently Added): expanded shows an up arrow
+   (collapse action), collapsed shows a down arrow (expand action). The
+   base glyph is a down chevron, so the expanded state is rotated 180deg.
+   Scoped to .lib-rail so the filter rail's (.lib-rail-wrap) sliders icon
+   is never rotated. */
+.lib-rail .lib-rail-toggle-btn svg {
   transform: rotate(180deg);
 }
 
 .lib-rail--collapsed .lib-rail-toggle-btn svg {
+  transform: rotate(0deg);
+}
+
+.lib-rail-wrap.collapsed .lib-rail-toggle-btn svg {
   transform: rotate(180deg);
 }
 
