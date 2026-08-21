@@ -518,8 +518,8 @@ fn http_get_text(
 /// Implementation notes:
 /// - Built with `quick_xml::Reader` events (`Event::Start` / `Empty` /
 ///   `Text` / `CData` / `End`) — deliberately NOT serde-xml-rs, keeping
-///   the dependency tree identical to the vendored `librqbit-upnp`
-///   patch and the parsing explicit and auditable.
+///   the parsing explicit and auditable (quick-xml 0.41 is already in
+///   the tree via librqbit-upnp).
 /// - Element names are matched by *local* name (`QName::local_name`),
 ///   so `<torznab:attr …/>` and `<attr …/>` are the same thing.
 /// - Every field is first-occurrence-wins; duplicate child elements

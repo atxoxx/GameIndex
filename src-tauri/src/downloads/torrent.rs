@@ -1,7 +1,7 @@
-//! librqbit 8.x wrapper: session initialisation, torrent add/start,
+//! librqbit 9.x wrapper: session initialisation, torrent add/start,
 //! stat snapshots and id mapping.
 //!
-//! ## librqbit 8.1.1 API notes
+//! ## librqbit 9.0.1 API notes
 //!
 //! - `Session::new_with_opts(folder, SessionOptions)` returns `Arc<Self>`.
 //! - `session.with_torrents(|iter| ...)` yields `(usize, &Arc<ManagedTorrent>)`.
@@ -11,6 +11,14 @@
 //!   `Speed { mbps }` where `mbps` is actually MiB/s → multiply by
 //!   1_048_576 for bytes/sec.
 //! - `session.pause/unpause(&handle)`, `session.delete(id, delete_files)`.
+//! - 9.x restructured `SessionOptions`: `listen_port_range` +
+//!   `enable_upnp_port_forwarding` → `listen: ListenerOptions` (dualstack
+//!   `[::]` ephemeral port; uTP behind `ListenerMode`), `peer_opts` →
+//!   `connect: ConnectionOptions`, `dht_config: PersistentDhtConfig` →
+//!   `dht: DhtSessionConfig`; `defer_writes_up_to` is gone (the write
+//!   path was reworked — async bitv flushing, no deferred queue).
+//! - `TorrentStatsState::Initializing { paused }` carries the file-check
+//!   pause flag (pausing during the initial check is now allowed).
 
 use std::sync::Arc;
 use std::time::Duration;
@@ -43,16 +51,19 @@ pub async fn init_session(
     // keeping it across restarts is the single biggest metadata-fetch
     // speedup (magnets resolve in seconds instead of 30–120 s).
     let dht_persist_path = state_dir.join("dht.json");
-    let make_dht_config = || librqbit::dht::PersistentDhtConfig {
-        config_filename: Some(dht_persist_path.clone()),
-        ..Default::default()
+    let make_dht_config = || librqbit::DhtSessionConfig {
+        bootstrap_addrs: None,
+        port: None,
+        persistence: Some(librqbit::dht::DhtPersistenceConfig {
+            config_filename: Some(dht_persist_path.clone()),
+            dump_interval: None,
+        }),
     };
 
-    // Session-level trackers: merged into EVERY torrent's announce list
-    // by `Session::make_peer_rx` (session.rs:1356). This is the ONLY
-    // place our curated trackers reach MAGNET links — librqbit 8.x
-    // ignores `AddTorrentOptions.trackers` on the magnet add path, so
-    // without this a trackless magnet relies solely on DHT.
+    // Session-level trackers: merged into EVERY torrent's announce list.
+    // This is the ONLY place our curated trackers reach MAGNET links —
+    // librqbit ignores `AddTorrentOptions.trackers` on the magnet add
+    // path, so without this a trackless magnet relies solely on DHT.
     let session_trackers = || -> std::collections::HashSet<url::Url> {
         default_trackers_vec()
             .iter()
@@ -60,26 +71,40 @@ pub async fn init_session(
             .collect()
     };
 
-    let persistent_opts = librqbit::SessionOptions {
-        persistence: Some(librqbit::SessionPersistenceConfig::Json {
-            folder: Some(state_dir.to_path_buf()),
-        }),
-        fastresume: true,
-        listen_port_range: Some(6881..6891),
+    // Incoming peer listener: ephemeral dualstack (IPv4+IPv6) TCP port.
+    // Replaces the old 6881..6891 range — no conflict risk, the bound
+    // port is read back and announced to trackers. uTP stays off for
+    // now (`ListenerMode::TcpOnly`).
+    let make_listener = || librqbit::ListenerOptions {
+        mode: librqbit::ListenerMode::TcpOnly,
+        listen_addr: (std::net::Ipv6Addr::UNSPECIFIED, 0).into(),
         enable_upnp_port_forwarding: true,
-        peer_opts: build_peer_opts(),
-        concurrent_init_limit: Some(4),
-        dht_config: Some(make_dht_config()),
-        trackers: session_trackers(),
-        // Disabled: librqbit 8.1.1's pause() drains file handles out of
-        // the Live storage (live/mod.rs:721 -> OpenedFile.take()) WITHOUT
-        // draining the deferred-write queue, so queued chunks fail with
-        // "file is None" (fs.rs:101-110) and the torrent errors. Writes
-        // are synchronous per chunk (spawn_block_in_place) and the
-        // per-file RwLock serializes them against pause.
-        defer_writes_up_to: None,
         ..Default::default()
     };
+
+    // Outgoing peer connections: cycle to fast peers quickly (2 s
+    // connect timeout vs the 10 s server-profile default), catch stuck
+    // peers at 20 s, keep NAT bindings alive with a 30 s keep-alive.
+    let make_connect = || librqbit::ConnectionOptions {
+        peer_opts: build_peer_opts(),
+        ..Default::default()
+    };
+
+    let make_opts =
+        |persistence: Option<librqbit::SessionPersistenceConfig>| librqbit::SessionOptions {
+            persistence,
+            fastresume: true,
+            listen: Some(make_listener()),
+            connect: Some(make_connect()),
+            concurrent_init_limit: Some(4),
+            dht: Some(make_dht_config()),
+            trackers: session_trackers(),
+            ..Default::default()
+        };
+
+    let persistent_opts = make_opts(Some(librqbit::SessionPersistenceConfig::Json {
+        folder: Some(state_dir.to_path_buf()),
+    }));
 
     match librqbit::Session::new_with_opts(state_dir.to_path_buf(), persistent_opts).await {
         Ok(s) => Ok(s),
@@ -90,20 +115,7 @@ pub async fn init_session(
                 err_msg
             );
             eprintln!("[downloads] Falling back to non-persistent session.");
-            let transient_opts = librqbit::SessionOptions {
-                persistence: None,
-                fastresume: true,
-                listen_port_range: Some(6881..6891),
-                enable_upnp_port_forwarding: true,
-                peer_opts: build_peer_opts(),
-                concurrent_init_limit: Some(4),
-                dht_config: Some(make_dht_config()),
-                trackers: session_trackers(),
-                // Same as persistent_opts: synchronous writes so pause
-                // can't strand queued chunks on drained handles.
-                defer_writes_up_to: None,
-                ..Default::default()
-            };
+            let transient_opts = make_opts(None);
             librqbit::Session::new_with_opts(state_dir.to_path_buf(), transient_opts)
                 .await
                 .map_err(|fallback_err| {
@@ -256,7 +268,7 @@ pub fn map_state_to_status(
         librqbit::TorrentStatsState::Error => {
             DownloadStatus::Error(error.unwrap_or("Torrent error").to_string())
         }
-        librqbit::TorrentStatsState::Initializing => DownloadStatus::FetchingMetadata,
+        librqbit::TorrentStatsState::Initializing { .. } => DownloadStatus::FetchingMetadata,
         librqbit::TorrentStatsState::Live => {
             if total == 0 {
                 DownloadStatus::FetchingMetadata
@@ -535,15 +547,14 @@ pub async fn delete_from_session(session: &Arc<librqbit::Session>, frontend_id: 
 
 // ─── Race-safe pause / delete ───────────────────────────────────────────────
 
-/// librqbit 8.1.1's `pause()` / `delete()` drain the file handles out
-/// of the Live storage (`OpenedFile.take()`), while a peer's chunk
-/// write can still be dispatched after passing the "check_steal" gate
-/// (torrent_state/live/mod.rs:1643 — the gate doesn't cover the write
-/// and pause doesn't take the per-piece locks). The write then fails
-/// with `file is None` (upstream error `FsFileIsNone`, "torrent was
-/// probably paused") and can fatal-error the torrent. Mitigation: wait
-/// until the torrent stops transferring before draining, so no write
-/// is in flight when the handles go.
+/// librqbit's `pause()` / `delete()` drain the file handles out of the
+/// Live storage while a peer's chunk write can still be dispatched
+/// after passing the "check_steal" gate — the write then fails with
+/// `file is None` and can fatal-error the torrent. 9.x reworked the
+/// disk path (async bitv flushing, no deferred-write queue), but the
+/// quiesce stays as belt-and-braces: wait until the torrent stops
+/// transferring before draining, so no write is in flight when the
+/// handles go.
 async fn wait_quiescent(
     handle: &Arc<librqbit::ManagedTorrent>,
     max_wait: Duration,

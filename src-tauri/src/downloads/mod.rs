@@ -380,29 +380,20 @@ pub async fn torrent_add(
                 let id_str = torrent::frontend_id_from_hash(&res.info_hash.0);
                 let name = res
                     .info
-                    .name
-                    .as_ref()
-                    .map(|n| n.to_string())
+                    .name()
+                    .map(|n| n.into_owned())
                     .unwrap_or_else(|| "Unknown".to_string());
                 let files = res
                     .info
                     .iter_file_details()
-                    .ok()
-                    .map(|iter| {
-                        iter.map(|info| DownloadFile {
-                            name: info
-                                .filename
-                                .to_pathbuf()
-                                .map(|p| p.to_string_lossy().into_owned())
-                                .unwrap_or_default(),
-                            size: info.len,
-                            downloaded: 0,
-                            progress: 0.0,
-                            selected: true,
-                        })
-                        .collect::<Vec<DownloadFile>>()
+                    .map(|info| DownloadFile {
+                        name: info.filename.to_pathbuf().to_string_lossy().into_owned(),
+                        size: info.len,
+                        downloaded: 0,
+                        progress: 0.0,
+                        selected: true,
                     })
-                    .unwrap_or_default();
+                    .collect::<Vec<DownloadFile>>();
                 let total = files.iter().map(|f| f.size).sum::<u64>();
                 (id_str, name, files, total)
             }

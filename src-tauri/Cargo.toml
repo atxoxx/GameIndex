@@ -39,7 +39,9 @@ base64 = "0.22"
 mime_guess = "2.0.5"
 spider = { version = "2", default-features = false, features = ["sync", "ua_generator"] }
 scraper = "0.22"
-reqwest = { version = "0.12", features = ["json", "cookies", "multipart", "blocking", "rustls-tls"] }
+# `stream` (bytes_stream) is used directly by updater.rs; librqbit 8.x
+# pulled it in transitively but 9.x no longer enables that feature.
+reqwest = { version = "0.12", features = ["json", "cookies", "multipart", "blocking", "stream", "rustls-tls"] }
 # Embedded JS engine for the plugin sandbox (quickjs-ng via quickjs-sys).
 # Used to run user-installed `plugins/*.js` search scripts with injected
 # httpGet/httpGetJson/definePlugin globals. Default features are enough:
@@ -48,8 +50,8 @@ reqwest = { version = "0.12", features = ["json", "cookies", "multipart", "block
 # real cap (it is a no-op under a custom allocator).
 rquickjs = "0.9"
 # Torznab/RSS feed parser for `httpGetXml` in the plugin sandbox.
-# Pinned to 0.41 (the version the vendored librqbit-upnp patch below
-# resolves to) so the whole graph uses one quick-xml.
+# Pinned to 0.41 (RUSTSEC-2026-0194/0195 fixes) — also the version
+# librqbit-upnp 9.x resolves to, so the graph keeps one quick-xml.
 quick-xml = "0.41"
 aes-gcm = "0.10"
 chrono = { version = "0.4", features = ["clock"] }
@@ -126,7 +128,7 @@ serde_yaml = "0.9"
 # transitive feature required by Win32_UI_Shell in windows crate 0.58.
 windows = { version = "0.58", features = ["Win32_System_Memory", "Win32_System_SystemInformation", "Win32_System_Threading", "Win32_Foundation", "Win32_UI_Shell", "Win32_UI_WindowsAndMessaging", "Win32_System_Registry", "Win32_System_Diagnostics_ToolHelp", "Win32_System_ProcessStatus", "Win32_Storage_FileSystem"] }
 # Torrent engine. Pure-Rust, no C++/Boost/MSVC build step on Windows.
-# Pinned to a major version (`8`) — librqbit's API moves fast and we
+# Pinned to a major version (`9`) — librqbit's API moves fast and we
 # want `cargo update` to refuse silent breaking changes.
 #
 # Bumped from 7.x to 8.x because 7.0.1 has a broken dep graph:
@@ -135,15 +137,17 @@ windows = { version = "0.58", features = ["Win32_System_Memory", "Win32_System_S
 # `librqbit-core 5.0.0`. Both versions land in the build and librqbit
 # 7.0.1 fails to compile (every call to `iter_filenames_and_lengths`,
 # `Magnet::from_id20`, etc. is mismatched). librqbit 8.x unified the
-# dep graph on `librqbit-core 5.x` end-to-end.
+# dep graph on `librqbit-core 5.x` end-to-end; 9.x adds IPv6
+# (dualstack listeners, IPv6 trackers/DHT), opt-in uTP, disk/perf
+# rework and BEP-52 groundwork.
 #
 # Feature notes:
 # - `default-tls` enables rustls for HTTPS magnet/`.torrent` URL fetching.
 # - `http-api` is left OFF — we only use the in-process async API, not
 #   the embedded HTTP server. Saves the axum/serde_html_form dep tree.
 # - Upload disablement is configured at runtime via `SessionOptions`.
-#   The `disable_upload` field is a runtime toggle in 8.x.
-librqbit = { version = "8", default-features = false, features = ["default-tls"] }
+#   The `disable_upload` field is a runtime toggle in 9.x.
+librqbit = { version = "9", default-features = false, features = ["default-tls"] }
 igd-next = "0.17"
 # Magnet URI parsing — extract the info-hash, trackers, and
 # exact-topic fields without rolling our own URI parser.
@@ -155,15 +159,3 @@ discord-rich-presence = "1.1.0"
 # decryption material lives in the binary too.
 obfstr = "0.4"
 
-# NOTE: the [patch.crates-io] section MUST stay at the very end of this
-# file. A mid-file [patch] section swallows every following
-# [dependencies] entry into the patch set.
-#
-# librqbit-upnp 1.0.0 (from crates.io, used by librqbit 8.x for UPnP
-# port forwarding) pins quick-xml to ^0.37.1, which has RUSTSEC-2026-0194
-# and RUSTSEC-2026-0195 (fixes landed in quick-xml >= 0.41). No published
-# librqbit-upnp uses >= 0.41, so we vendor it and patch the quick-xml
-# requirement. The only quick-xml API surface used is `quick_xml::de`,
-# which is unchanged in 0.41.
-[patch.crates-io]
-librqbit-upnp = { path = "vendor/librqbit-upnp" }

@@ -45,7 +45,7 @@ This file gives Codebuff context about your project: goals, commands, convention
 - **Downloads (`src-tauri/src/downloader/`)** — `mod.rs` orchestrates three paths:
   - `direct.rs` — HTTP/chunk downloader with resume support.
   - `debrid.rs` — Real-Debrid / AllDebrid cache lookup + unrestrict.
-  - Uses `librqbit` (pinned to `8`, no HTTP API feature) for the torrent engine — see `src-tauri/src/torrent_engine.rs`.
+  - Uses `librqbit` (pinned to `9`, no HTTP API feature) for the torrent engine — see `src-tauri/src/downloads/torrent.rs`.
 - **SQLite storage layer (`src-tauri/src/db/`)** — see "Storage" section below.
 
 ### Cross-cutting UI
@@ -79,7 +79,7 @@ Phase 1–4 of a migration that moved every JSON file under `<app_data_dir>` plu
 - **News** — RSS reader. `fetch_url` IPC lets the frontend bypass browser CORS; `news.rs` DAO persists the most recent read per feed.
 - **Deals** — `deals.rs` exposes `fetch_gamepass_catalog`, `fetch_isthereanydeal_deals`, `fetch_giveaways`, `open_deal_url` (opens external via opener plugin).
 - **Crackwatch** — `crackwatch::fetch_crackwatch_status(game_name, app_id?)` scrapes gamestatus.info for crack status (24h KV cache keyed by slug+appid, returns `CrackWatchStatus { isCracked, crackDate, crackGroup, protection }` or `null`). Rendered by `CrackWatchCard` (`CrackWatchSection` presentational + skeleton).
-- **Torrents** — `torrent_engine.rs` wraps `librqbit` (see Cargo.toml — `librqbit 8`, `default-tls`, **no** `http-api`). Upload disabled via runtime `SessionOptions`. Cleanup hook (`cleanup_extractions`) registered on the Tauri `RunEvent::Exit`.
+- **Torrents** — `downloads/torrent.rs` wraps `librqbit` (see Cargo.toml — `librqbit 9`, `default-tls`, **no** `http-api`). Upload capped at ~0 and download throttled via `Session::ratelimits`. Cleanup hook (`cleanup_extractions`) registered on the Tauri `RunEvent::Exit`.
 
 ### Emulators & ROMs Management
 - `EmulatorsPage` (`src/pages/EmulatorsPage.tsx`) manages retro/multi-system emulator platforms, launcher executable paths, and ROM catalogues. Supports manual ROM creation, file size tracking, bulk ROM actions (rename, delete), real platform logo SVG rendering, and Storage page disk usage breakdown. Configured via `EmulatorEditorModal.tsx`.
@@ -126,7 +126,7 @@ Phase 1–4 of a migration that moved every JSON file under `<app_data_dir>` plu
 
 - **Windows-only paths:** `game_watcher` and process polling use `WMI` + `Win32` APIs (`wmi`, `windows 0.58` crate). On non-Windows the watcher still runs but `query_running_processes()` returns empty (the cross-platform smoke test path). Elevation (`runas`) is Windows-only; passing `runAsAdmin: true` on macOS/Linux is a no-op error.
 - **Steam OpenID deprecation:** Steam auth (`steam/auth.rs`) uses a pasted **Web API key**, not the deprecated OpenID flow. The WebView + RSA finalize flow is gone.
-- **`librqbit` major pin:** Don't bump `librqbit` to anything below `8` — `librqbit 7.0.1` has a broken dep graph (`librqbit-core 4.1.0` vs `5.0.0` mismatch in sub-crates) and fails to compile. Feature flags: `default-tls` on, `http-api` **off** (avoids pulling axum + serde_html_form).
+- **`librqbit` major pin:** Don't bump `librqbit` to anything below `9` (8.x is EOL upstream; 9.x reworked `SessionOptions` — `listen`/`connect`/`dht` replace the old flat fields, and 7.0.1 has a broken dep graph that fails to compile). Feature flags: `default-tls` on, `http-api` **off** (avoids pulling axum + serde_html_form).
 - **rustls vs openssl:** `keyring 3` defaults to `crypto-rust`, deliberately avoiding the openssl-sys transitive dep. Don't switch to `vendored` (that's an openssl-sys feature on purpose).
 - **Player-count caching** (see "Integrations" above for the constants): live cache 60s per-appid, history cap 1,440 samples, 5s multi-banner dedupe. Note: only the Steam game-stats cache (`SteamGameStatsCache`) carries a 5 min negative cache — the player-count cache itself does not.
 - **`Cargo.lock` is committed** in this repo. Manually bumping version ranges in `Cargo.toml` is acceptable; after a bump, run `cargo update -p <crate>` and review the **lockfile diff** carefully — transitive changes (keyring, librqbit, rusqlite especially) are how subtle regressions sneak in.
@@ -153,7 +153,7 @@ src-tauri/
   src/db/                  SQLite pool + schema + DAOs
   src/steam|gog|epic/      Per-store auth + sync + types
   src/downloader/          direct.rs, debrid.rs
-  src/torrent_engine.rs    librqbit wrapper
+  src/downloads/torrent.rs  librqbit wrapper
   src/game_watcher.rs      WMI process polling + session lifecycle
   src/game_scraper.rs      IGDB + LaunchBox + Steam reviews metadata fetch
   src/achievements.rs      Steam achievement sync + cache
