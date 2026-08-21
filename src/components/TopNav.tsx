@@ -1,13 +1,11 @@
 import { useCallback, useId, useRef, useState, useEffect } from "react";
-import type { KeyboardEvent as ReactKeyboardEvent, MouseEvent } from "react";
+import type { MouseEvent } from "react";
 import { NavLink, useLocation } from "react-router-dom";
 import { getCurrentWindow } from "@tauri-apps/api/window";
-import { createPortal } from "react-dom";
 import {
   Activity,
   BookOpen,
   ChartColumn,
-  ChevronDown,
   Download,
   Gamepad2,
   HardDrive,
@@ -57,22 +55,23 @@ interface Tab {
   icon: LucideIcon;
 }
 
-const primaryTabs: Tab[] = [
+// All pages live as flat tabs: the bar scrolls horizontally when
+// the window is too narrow, so nothing hides behind an overflow menu.
+// Downloads is intentionally not a tab: the right-side downloads
+// button already owns that page (badge + live popover), so a tab
+// would be a second, less informative way to reach the same place.
+const navTabs: Tab[] = [
   { path: "/store", labelKey: "nav.store", icon: Store },
   { path: "/library", labelKey: "nav.library", icon: Monitor },
-  { path: "/downloads", labelKey: "nav.downloads", icon: Download },
   { path: "/wishlist", labelKey: "nav.wishlist", icon: Heart },
   { path: "/deals", labelKey: "nav.deals", icon: Tag },
   { path: "/news", labelKey: "nav.news", icon: Rss },
-];
-
-const secondaryTabs: Tab[] = [
   { path: "/emulators", labelKey: "nav.emulators", icon: Gamepad2 },
   { path: "/mods", labelKey: "nav.mods", icon: Puzzle },
   { path: "/activity", labelKey: "nav.activity", icon: Activity },
   { path: "/achievements", labelKey: "nav.achievements", icon: Trophy },
   { path: "/storage", labelKey: "nav.storage", icon: HardDrive },
-  { path: "/community", labelKey: "nav.stats", icon: ChartColumn },
+  { path: "/community", labelKey: "nav.community", icon: ChartColumn },
   { path: "/friends", labelKey: "nav.friends", icon: Users },
 ];
 
@@ -106,70 +105,6 @@ export default function TopNav() {
   // via `aria-controls` for screen readers.
   const popoverId = useId();
 
-  // More overflow menu state
-  const [moreOpen, setMoreOpen] = useState(false);
-  const moreBtnRef = useRef<HTMLButtonElement>(null);
-  const moreMenuRef = useRef<HTMLDivElement>(null);
-  const moreId = useId();
-
-  // Close the overflow menu and hand focus back to its trigger, so
-  // keyboard users aren't dropped onto <body> after Escape, an
-  // outside click, or activating a menu item.
-  const closeMoreMenu = useCallback(() => {
-    setMoreOpen(false);
-    moreBtnRef.current?.focus();
-  }, []);
-
-  useEffect(() => {
-    if (!moreOpen) return;
-    const onDown = (e: globalThis.MouseEvent) => {
-      const t = e.target as Element;
-      if (moreBtnRef.current?.contains(t) || moreMenuRef.current?.contains(t)) return;
-      closeMoreMenu();
-    };
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") closeMoreMenu();
-    };
-    document.addEventListener("mousedown", onDown);
-    document.addEventListener("keydown", onKey);
-    return () => {
-      document.removeEventListener("mousedown", onDown);
-      document.removeEventListener("keydown", onKey);
-    };
-  }, [moreOpen, closeMoreMenu]);
-
-  // Roving focus inside the overflow menu: ArrowUp/ArrowDown cycle
-  // through the items (wrapping around), Home/End jump to the
-  // first/last item — the WAI-ARIA menu-button keyboard pattern.
-  const handleMoreMenuKeyDown = useCallback(
-    (e: ReactKeyboardEvent<HTMLDivElement>) => {
-      const items = moreMenuRef.current?.querySelectorAll<HTMLElement>('a[role="menuitem"]');
-      if (!items || items.length === 0) return;
-      const count = items.length;
-      const currentIndex = Array.from(items).indexOf(document.activeElement as HTMLElement);
-      let nextIndex: number;
-      switch (e.key) {
-        case "ArrowDown":
-          nextIndex = currentIndex < 0 ? 0 : (currentIndex + 1) % count;
-          break;
-        case "ArrowUp":
-          nextIndex = currentIndex < 0 ? count - 1 : (currentIndex - 1 + count) % count;
-          break;
-        case "Home":
-          nextIndex = 0;
-          break;
-        case "End":
-          nextIndex = count - 1;
-          break;
-        default:
-          return;
-      }
-      e.preventDefault();
-      items[nextIndex].focus();
-    },
-    [],
-  );
-
   const handleTitleBarDoubleClick = useCallback(
     (e: MouseEvent<HTMLElement>) => {
       if (isInteractiveTarget(e.target)) return;
@@ -185,13 +120,15 @@ export default function TopNav() {
       onDoubleClick={handleTitleBarDoubleClick}
     >
       <div className="topnav-left">
-        <div className="topnav-logo">
+        <NavLink
+          to="/home"
+          className="topnav-logo"
+          aria-label={t("nav.home")}
+          title={t("nav.home")}
+        >
           {/*
-           * Brand mark — three interlocking rings (purple, cyan, orange)
-           * with a small sphere at the triple intersection. Painter's
-           * order back → front is purple → cyan → orange so the orange
-           * ring sits in front at the bottom intersection; the gradient
-           * id is namespaced to this component to avoid collisions.
+           * Brand mark — three interlocking rings. Kept as an inline SVG
+           * driven by theme variables so it recolorizes with every theme.
            */}
           <svg
             className="topnav-logo__mark"
@@ -223,84 +160,36 @@ export default function TopNav() {
           {version !== "" && (
             <span className="topnav-logo__version">v{version}</span>
           )}
-        </div>
+        </NavLink>
         <div className="topnav-tabs">
-          {primaryTabs.map((tab) => {
+          {navTabs.map((tab) => {
             const Icon = tab.icon;
             const isActive = location.pathname.startsWith(tab.path);
+            const showBadge = tab.path === "/friends" && unseenCommunity > 0;
             return (
               <NavLink
                 key={tab.path}
                 to={tab.path}
                 className={`topnav-tab${isActive ? " active" : ""}`}
                 aria-current={isActive ? "page" : undefined}
+                onClick={() => {
+                  if (tab.path === "/friends") clearUnseenCommunityItems();
+                }}
               >
                 <Icon className="topnav-tab-icon" strokeWidth={2} aria-hidden="true" />
                 {t(tab.labelKey)}
+                {showBadge && (
+                  <span
+                    className="topnav-tab-badge"
+                    role="status"
+                    aria-label={t("topnav.newCommunityItems", { count: unseenCommunity, plural: unseenCommunity !== 1 ? "s" : "" })}
+                  >
+                    {unseenCommunity > 99 ? "99+" : unseenCommunity}
+                  </span>
+                )}
               </NavLink>
             );
           })}
-        </div>
-        <div className="topnav-more-wrap">
-          <button
-            ref={moreBtnRef}
-            type="button"
-            className={`topnav-tab topnav-more-btn${secondaryTabs.some((s) => location.pathname.startsWith(s.path)) ? " active" : ""}${moreOpen ? " open" : ""}`}
-            aria-haspopup="menu"
-            aria-expanded={moreOpen}
-            aria-controls={moreId}
-            onClick={() => setMoreOpen((o) => !o)}
-          >
-            {t("nav.more")} <ChevronDown className="topnav-more-chevron" size={14} aria-hidden />
-            {unseenCommunity > 0 && (
-              <span className="topnav-tab-badge" role="status" aria-label={t("topnav.newCommunityItems", { count: unseenCommunity, plural: unseenCommunity !== 1 ? "s" : "" })}>
-                {unseenCommunity > 99 ? "99+" : unseenCommunity}
-              </span>
-            )}
-          </button>
-          {moreOpen &&
-            createPortal(
-              <div
-                ref={moreMenuRef}
-                id={moreId}
-                role="menu"
-                className="topnav-more-menu"
-                onKeyDown={handleMoreMenuKeyDown}
-                style={
-                  moreBtnRef.current
-                    ? (() => {
-                        const r = moreBtnRef.current.getBoundingClientRect();
-                        return { top: r.bottom + 8, left: Math.min(r.left, window.innerWidth - 220) } as const;
-                      })()
-                    : undefined
-                }
-              >
-                {secondaryTabs.map((tab) => {
-                  const Icon = tab.icon;
-                  const isActive = location.pathname.startsWith(tab.path);
-                  const showBadge = tab.path === "/friends" && unseenCommunity > 0;
-                  return (
-                    <NavLink
-                      key={tab.path}
-                      to={tab.path}
-                      role="menuitem"
-                      className={`topnav-more-item${isActive ? " active" : ""}`}
-                      onClick={() => {
-                        closeMoreMenu();
-                        if (tab.path === "/friends") clearUnseenCommunityItems();
-                      }}
-                    >
-                      <Icon size={16} aria-hidden />
-                      {t(tab.labelKey)}
-                      {showBadge && (
-                        <span className="topnav-more-badge">{unseenCommunity > 99 ? "99+" : unseenCommunity}</span>
-                      )}
-                    </NavLink>
-                  );
-                })}
-              </div>,
-              document.body
-            )}
         </div>
       </div>
 
@@ -313,7 +202,7 @@ export default function TopNav() {
           <button
             ref={downloadBtnRef}
             type="button"
-            className={`topnav-btn topnav-btn-downloads${downloadsOpen ? " active" : ""}${activeDownloads > 0 ? " is-downloading" : ""}`}
+            className={`topnav-btn topnav-btn-downloads${downloadsOpen || location.pathname.startsWith("/downloads") ? " active" : ""}${activeDownloads > 0 ? " is-downloading" : ""}`}
             onClick={() => setDownloadsOpen((o) => !o)}
             aria-label={activeDownloads > 0 ? t("topnav.downloadsActive", { count: activeDownloads }) : t("nav.downloads")}
             aria-expanded={downloadsOpen}
