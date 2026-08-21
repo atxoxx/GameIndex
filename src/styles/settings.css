@@ -83,67 +83,75 @@
  * The old .btn-sm / .btn-danger / .btn-steam variants were unused — pruned.
  * ========================================================================== */
 
+/* Alias .btn → .ui-btn (unified button system) */
 .btn {
   display: inline-flex;
   align-items: center;
   justify-content: center;
   gap: var(--space-sm);
   padding: var(--space-sm) var(--space-lg);
-  background: var(--color-bg-tertiary);
-  color: var(--color-text-primary);
-  border: 1px solid var(--color-border);
+  border: 1px solid transparent;
   border-radius: var(--radius-md);
   font-family: inherit;
   font-size: var(--font-size-sm);
   font-weight: var(--font-weight-semibold);
   cursor: pointer;
-  transition: color var(--transition-fast), background var(--transition-fast), border-color var(--transition-fast), box-shadow var(--transition-fast), opacity var(--transition-fast), transform var(--transition-fast);
+  transition: transform var(--duration-normal) var(--ease-standard),
+              background var(--duration-normal) var(--ease-standard),
+              border-color var(--duration-normal) var(--ease-standard),
+              box-shadow var(--duration-normal) var(--ease-standard),
+              color var(--duration-normal) var(--ease-standard),
+              filter var(--duration-normal) var(--ease-standard);
   white-space: nowrap;
   user-select: none;
+  outline: none;
+  line-height: 1.2;
+  position: relative;
+  background: var(--color-bg-tertiary);
+  color: var(--color-text-primary);
+  border-color: var(--color-border);
+  box-shadow: inset 0 1px 0 var(--color-border-highlight);
 }
-
-.btn:hover {
+.btn:hover:not(:disabled) {
   background: var(--color-bg-hover);
   border-color: var(--color-border-light);
   transform: translateY(-1px);
+  box-shadow: inset 0 1px 0 var(--color-border-highlight), var(--shadow-sm);
 }
-
-.btn:active {
-  transform: translateY(0);
+.btn:active:not(:disabled) {
+  transform: translateY(0) scale(0.98);
 }
-
 .btn:disabled,
 .btn[disabled] {
-  opacity: 0.5;
+  opacity: 0.4;
   cursor: not-allowed;
   pointer-events: none;
 }
-
 .btn:focus-visible {
-  outline: 2px solid var(--color-accent);
-  outline-offset: 2px;
+  outline: none;
+  box-shadow: var(--ring-accent);
 }
-
 .btn svg {
   width: 14px;
   height: 14px;
   flex-shrink: 0;
 }
-
 .btn-primary {
-  background: var(--color-accent);
+  background: var(--brand-gradient-strong);
   color: var(--color-accent-contrast, #ffffff);
-  border-color: var(--color-accent);
-  box-shadow: 0 2px 8px color-mix(in srgb, var(--color-accent) 30%, transparent);
+  border-color: transparent;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.25), 0 3px 12px var(--color-accent-glow);
 }
-
-.btn-primary:hover {
-  background: var(--color-accent-hover);
-  color: var(--color-accent-contrast, #ffffff);
-  border-color: var(--color-accent-hover);
+.btn-primary:hover:not(:disabled) {
+  filter: brightness(1.08);
   transform: translateY(-1px);
-  box-shadow: 0 4px 12px color-mix(in srgb, var(--color-accent) 35%, transparent);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.3), 0 5px 16px var(--color-accent-glow);
 }
+.btn--sm { padding: var(--space-xs) var(--space-md); font-size: var(--font-size-xs); gap: var(--space-xs); border-radius: var(--radius-sm); }
+.btn--lg { padding: var(--space-md) var(--space-2xl); font-size: var(--font-size-md); gap: var(--space-md); border-radius: var(--radius-lg); }
+.btn--secondary { background: var(--color-bg-tertiary); color: var(--color-text-primary); border-color: var(--color-border); }
+.btn--ghost { background: transparent; color: var(--color-text-secondary); border-color: transparent; }
+.btn--danger { color: #fff; background: var(--color-danger); border-color: transparent; box-shadow: inset 0 1px 0 rgba(255,255,255,0.18), 0 2px 8px color-mix(in srgb, var(--color-danger) 30%, transparent); }
 
 /* =============================================================================
  * Shared primitives — sections

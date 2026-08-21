@@ -495,8 +495,17 @@
 }
 
 .community-screenshot-thumb.skeleton {
-  animation: skeletonPulse 1.5s ease-in-out infinite;
+  position: relative;
+  overflow: hidden;
   cursor: default;
+}
+.community-screenshot-thumb.skeleton::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(105deg, transparent 30%, color-mix(in srgb, var(--color-accent) 10%, transparent) 50%, transparent 70%);
+  background-size: 50% 100%;
+  animation: ui-skeleton-shimmer 2s linear infinite;
 }
 
 .community-screenshot-thumb.skeleton:hover {
@@ -1026,7 +1035,16 @@
   width: 100%;
   aspect-ratio: 16 / 9;
   background: var(--color-bg-tertiary);
-  animation: skeletonPulse 1.5s ease-in-out infinite;
+  position: relative;
+  overflow: hidden;
+}
+.community-news-card.skeleton .skeleton-cover::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(105deg, transparent 30%, color-mix(in srgb, var(--color-accent) 10%, transparent) 50%, transparent 70%);
+  background-size: 50% 100%;
+  animation: ui-skeleton-shimmer 2s linear infinite;
 }
 
 .community-news-card.skeleton .skeleton-body {

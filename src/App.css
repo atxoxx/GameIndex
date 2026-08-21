@@ -1,10 +1,10 @@
-@import "./styles/settings.css";
-@import "./styles/game-cards.css";
 @import "./styles/theme.css";
 @import "./styles/themes.css";
 @import "./styles/layout.css";
 @import "./styles/topnav.css";
 @import "./styles/sidebar.css";
+@import "./styles/settings.css";
+@import "./styles/game-cards.css";
 @import "./styles/game-page.css";
 @import "./styles/game-news.css";
 @import "./styles/game-edit.css";

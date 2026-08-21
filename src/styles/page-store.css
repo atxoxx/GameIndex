@@ -64,7 +64,7 @@
 /* ── Store header (prominent search + sort + actions) ── */
 .store-header {
   position: sticky;
-  top: 0;
+  top: var(--space-md);
   z-index: 30;
   margin-bottom: var(--space-md);
   padding: var(--space-sm) var(--space-md);
@@ -146,7 +146,7 @@
 .store-spotlight {
   border-radius: var(--radius-xl);
   border: 1px solid var(--color-border);
-  background: #07090e;
+  background: var(--color-bg-primary);
   overflow: hidden;
   box-shadow: 0 24px 60px rgba(0, 0, 0, 0.65);
   position: relative;
@@ -243,14 +243,14 @@
   position: fixed;
   inset: 0;
   z-index: 1100;
-  background: rgba(0, 0, 0, 0.72);
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
+  background: var(--color-scrim);
+  backdrop-filter: var(--blur-scrim);
+  -webkit-backdrop-filter: var(--blur-scrim);
   display: flex;
   align-items: center;
   justify-content: center;
   padding: var(--space-md);
-  animation: modal-backdrop-in var(--duration-fast) var(--ease-enter);
+  animation: blurIn 220ms var(--ease-out) both;
 }
 
 .store-surprise-modal {
@@ -264,7 +264,7 @@
   border-radius: var(--radius-xl);
   box-shadow: inset 0 1px 0 var(--color-border-highlight), 0 24px 60px rgba(0, 0, 0, 0.6);
   overflow: hidden;
-  animation: modal-in var(--duration-normal) var(--ease-bounce);
+  animation: blurIn 220ms var(--ease-out) both;
 }
 
 .store-surprise-modal-header {
@@ -424,8 +424,8 @@
   inset: 0;
   z-index: 2;
   background: 
-    linear-gradient(90deg, #07090e 0%, rgba(7, 9, 14, 0.94) 34%, rgba(7, 9, 14, 0.65) 65%, rgba(7, 9, 14, 0.25) 100%),
-    linear-gradient(0deg, #07090e 0%, rgba(7, 9, 14, 0.7) 18%, transparent 50%);
+    linear-gradient(90deg, color-mix(in srgb, var(--color-bg-primary) 92%, transparent) 0%, color-mix(in srgb, var(--color-bg-primary) 72%, transparent) 34%, color-mix(in srgb, var(--color-bg-primary) 42%, transparent) 65%, transparent 100%),
+    linear-gradient(0deg, color-mix(in srgb, var(--color-bg-primary) 72%, transparent) 0%, color-mix(in srgb, var(--color-bg-primary) 45%, transparent) 18%, transparent 50%);
 }
 
 .store-spotlight-mesh {
@@ -531,7 +531,7 @@
   margin: 0;
   font-size: clamp(2rem, 3.2vw, 3.1rem);
   font-weight: 800;
-  color: #fff;
+  color: var(--color-text-primary);
   line-height: 1.12;
   letter-spacing: -0.5px;
   text-shadow: 0 4px 24px rgba(0, 0, 0, 0.95);

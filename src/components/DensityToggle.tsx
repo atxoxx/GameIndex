@@ -1,6 +1,7 @@
 import type { ReactNode } from "react";
 import type { ViewDensity } from "../types/game";
 import { useLanguage } from "../context/LanguageContext";
+import { Tooltip } from "./ui/Tooltip";
 
 interface DensityToggleProps {
   density: ViewDensity;
@@ -15,6 +16,13 @@ interface DensityOption {
   /** Inline SVG icon. */
   icon: ReactNode;
 }
+
+const DENSITY_TOOLTIP: Record<ViewDensity, string> = {
+  compact: "Compact — small cards",
+  cozy: "Cozy — large cards",
+  cinematic: "Cinematic — cover focus",
+  list: "List — detailed rows",
+};
 
 const OPTIONS: DensityOption[] = [
   {
@@ -100,18 +108,18 @@ export default function DensityToggle({
       {OPTIONS.map((opt) => {
         const active = density === opt.value;
         return (
-          <button
-            key={opt.value}
-            type="button"
-            role="radio"
-            aria-checked={active}
-            aria-label={t(opt.ariaLabelKey)}
-            title={t(opt.ariaLabelKey)}
-            className={`store-density-btn${active ? " active" : ""}`}
-            onClick={() => onChange(opt.value)}
-          >
-            {opt.icon}
-          </button>
+          <Tooltip key={opt.value} content={DENSITY_TOOLTIP[opt.value] || t(opt.ariaLabelKey)} placement="top">
+            <button
+              type="button"
+              role="radio"
+              aria-checked={active}
+              aria-label={t(opt.ariaLabelKey)}
+              className={`store-density-btn${active ? " active" : ""}`}
+              onClick={() => onChange(opt.value)}
+            >
+              {opt.icon}
+            </button>
+          </Tooltip>
         );
       })}
     </div>

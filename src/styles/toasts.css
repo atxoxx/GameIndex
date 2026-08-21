@@ -3,8 +3,8 @@
    ============================== */
 .toast-container {
   position: fixed;
-  bottom: var(--space-xl);
-  right: var(--space-xl);
+  bottom: 24px;
+  right: 24px;
   z-index: 9999;
   display: flex;
   flex-direction: column;
@@ -113,12 +113,12 @@
 }
 
 /* ==============================
-   Update notification banner
+   Update notification banner — top right (Steam-like), toasts stay bottom:right
    ============================== */
 .update-notification {
   position: fixed;
-  bottom: var(--space-xl);
-  right: var(--space-xl);
+  top: calc(var(--topnav-height) + 12px);
+  right: 24px;
   z-index: 10000;
   display: flex;
   align-items: center;

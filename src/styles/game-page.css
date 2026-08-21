@@ -15,41 +15,36 @@
   }
 }
 
+/* Alias .game-launch-btn → .ui-btn (primary + glow) */
 .game-launch-btn {
   position: relative;
-  display: flex;
+  display: inline-flex;
   align-items: center;
+  justify-content: center;
   gap: var(--space-sm);
   padding: var(--space-md) var(--space-2xl);
   background: var(--game-accent, var(--color-accent));
   color: var(--color-accent-contrast, #fff);
-  border: 1px solid color-mix(in srgb, var(--game-accent, var(--color-accent)) 60%, white 40%);
+  border: 1px solid transparent;
   border-radius: var(--radius-full);
   font-size: var(--font-size-md);
   font-weight: var(--font-weight-bold);
   letter-spacing: 0.3px;
   cursor: pointer;
   overflow: hidden;
-  transition: color var(--transition-fast), background var(--transition-fast), border-color var(--transition-fast), box-shadow var(--transition-fast), opacity var(--transition-fast), transform var(--transition-fast);
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.3), 0 4px 20px color-mix(in srgb, var(--game-accent, var(--color-accent)) 40%, transparent);
+  transition: transform var(--duration-normal) var(--ease-standard),
+              background var(--duration-normal) var(--ease-standard),
+              border-color var(--duration-normal) var(--ease-standard),
+              box-shadow var(--duration-normal) var(--ease-standard),
+              filter var(--duration-normal) var(--ease-standard);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.25), 0 3px 12px var(--color-accent-glow);
   flex-shrink: 0;
+  outline: none;
 }
-
-.game-launch-btn:hover {
-  filter: brightness(1.1);
-  transform: translateY(-2px) scale(1.02);
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.4), 0 8px 30px color-mix(in srgb, var(--game-accent, var(--color-accent)) 55%, transparent);
-}
-
-.game-launch-btn:active {
-  transform: translateY(0) scale(0.98);
-}
-
-.game-launch-btn svg {
-  width: 18px;
-  height: 18px;
-  filter: drop-shadow(0 1px 2px rgba(0,0,0,0.3));
-}
+.game-launch-btn:hover:not(:disabled) { filter: brightness(1.08); transform: translateY(-1px); box-shadow: inset 0 1px 0 rgba(255,255,255,0.30), 0 5px 16px var(--color-accent-glow); }
+.game-launch-btn:active:not(:disabled) { transform: translateY(0) scale(0.98); }
+.game-launch-btn:focus-visible { outline: none; box-shadow: var(--ring-accent); }
+.game-launch-btn svg { width: 18px; height: 18px; flex-shrink: 0; }
 
 /* Game Tabs — sticky, glass "segmented pill" bar with icons */
 .game-tabs::-webkit-scrollbar {

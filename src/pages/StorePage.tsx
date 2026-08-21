@@ -24,7 +24,7 @@ export default function StorePage() {
   return (
     <CrackWatchProvider>
       <PriceProvider>
-        <div className="store-page">
+        <div className="store-page page">
           <StoreHeader catalogue={c} />
 
           {/* Featured Spotlight Showcase */}

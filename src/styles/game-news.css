@@ -1152,16 +1152,16 @@
 
 .skeleton-pulse {
   background: color-mix(in srgb, var(--color-text-primary) 8%, var(--color-bg-secondary)) !important;
-  animation: skeletonPulse 1.5s ease-in-out infinite;
+  position: relative;
+  overflow: hidden;
 }
-
-@keyframes skeletonPulse {
-  0%, 100% {
-    opacity: 0.6;
-  }
-  50% {
-    opacity: 0.3;
-  }
+.skeleton-pulse::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(105deg, transparent 30%, color-mix(in srgb, var(--color-accent) 10%, transparent) 50%, transparent 70%);
+  background-size: 50% 100%;
+  animation: ui-skeleton-shimmer 2s linear infinite;
 }
 
 /* ── Responsive Adaptations ────────────────────────────────────────── */

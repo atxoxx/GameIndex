@@ -5,14 +5,14 @@
 .modal-backdrop {
   position: fixed;
   inset: 0;
-  background: rgba(0, 0, 0, 0.72);
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
+  background: var(--color-scrim);
+  backdrop-filter: var(--blur-scrim);
+  -webkit-backdrop-filter: var(--blur-scrim);
   display: flex;
   align-items: center;
   justify-content: center;
   z-index: 1000;
-  animation: modal-backdrop-in var(--duration-fast) var(--ease-enter);
+  animation: blurIn 220ms var(--ease-out) both;
   padding: var(--space-md);
 }
 
@@ -33,7 +33,7 @@
   display: flex;
   flex-direction: column;
   overflow: hidden;
-  animation: modal-in var(--duration-normal) var(--ease-bounce);
+  animation: blurIn 220ms var(--ease-out) both;
 }
 
 @keyframes modal-in {

@@ -13,12 +13,11 @@
 .storage-page {
   display: flex;
   flex-direction: column;
-  height: 100%;
   box-sizing: border-box;
   gap: var(--space-lg);
-  overflow-y: auto;
-  padding-bottom: 80px; /* buffer for floating batch bar */
-  animation: storageFadeIn var(--duration-normal, 200ms) var(--ease-standard, ease);
+  padding: 0;
+  min-height: 100%;
+  animation: rise var(--duration-normal, 200ms) var(--ease-out) both;
 }
 
 @keyframes storageFadeIn {

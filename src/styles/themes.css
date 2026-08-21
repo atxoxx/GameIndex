@@ -992,7 +992,23 @@
   --color-info: #00ffff;
   --color-stale: #ffaa00;
 
-  --shadow-glow: 0 0 0 2px #ffff00, 0 0 28px rgba(255, 255, 0, 0.5);
+  --shadow-glow: none;
+  --shadow-xs: none;
+  --shadow-sm: none;
+  --shadow-md: none;
+  --shadow-lg: none;
+  --shadow-xl: none;
+}
+
+/* Highcontrast glow removal — use outline instead of box-shadow for focus/highlight */
+[data-theme="highcontrast"] *:focus-visible,
+[data-theme="highcontrast"] .accent-card-highlight,
+[data-theme="highcontrast"] .theme-card.active,
+[data-theme="highcontrast"] .lib-card:hover,
+[data-theme="highcontrast"] .store-game-card:hover {
+  box-shadow: none !important;
+  outline: 3px solid #ffff00 !important;
+  outline-offset: 2px !important;
 }
 
 /* ── Surface Level System (solid fallback safeguard) ─────────────────────── */

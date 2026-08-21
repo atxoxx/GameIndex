@@ -11,20 +11,15 @@
 .dl-modal-backdrop {
   position: fixed;
   inset: 0;
-  background: rgba(0, 0, 0, 0.78);
-  backdrop-filter: blur(14px);
-  -webkit-backdrop-filter: blur(14px);
+  background: var(--color-scrim);
+  backdrop-filter: var(--blur-scrim);
+  -webkit-backdrop-filter: var(--blur-scrim);
   display: flex;
   align-items: center;
   justify-content: center;
   z-index: 9998;
   padding: var(--space-md);
-  animation: dl-backdrop-fade 0.2s cubic-bezier(0.16, 1, 0.3, 1);
-}
-
-@keyframes dl-backdrop-fade {
-  from { opacity: 0; }
-  to { opacity: 1; }
+  animation: blurIn 220ms var(--ease-out) both;
 }
 
 .dl-modal {
@@ -37,6 +32,7 @@
   background: var(--color-bg-primary);
   border: 1px solid color-mix(in srgb, var(--color-border) 80%, transparent);
   border-radius: var(--radius-xl);
+  animation: blurIn 220ms var(--ease-out) both;
   box-shadow:
     0 24px 64px rgba(0, 0, 0, 0.6),
     0 0 0 1px color-mix(in srgb, var(--color-border-highlight, rgba(255, 255, 255, 0.1)) 40%, transparent);
@@ -283,6 +279,17 @@
   gap: var(--space-md);
   align-items: stretch;
   min-height: 440px;
+}
+@media (max-width: 980px) {
+  .dl-results-split-layout {
+    grid-template-columns: 1fr;
+  }
+  .dl-detail-inspector {
+    order: -1;
+  }
+  .dl-results-scrollable-list {
+    max-height: 52vh;
+  }
 }
 
 .dl-results-pane {

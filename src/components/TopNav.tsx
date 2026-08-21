@@ -2,10 +2,12 @@ import { useCallback, useId, useRef, useState, useEffect } from "react";
 import type { MouseEvent } from "react";
 import { NavLink, useLocation } from "react-router-dom";
 import { getCurrentWindow } from "@tauri-apps/api/window";
+import { createPortal } from "react-dom";
 import {
   Activity,
   BookOpen,
   ChartColumn,
+  ChevronDown,
   Download,
   Gamepad2,
   HardDrive,
@@ -55,22 +57,26 @@ interface Tab {
   icon: LucideIcon;
 }
 
-const tabs: Tab[] = [
+const primaryTabs: Tab[] = [
   { path: "/store", labelKey: "nav.store", icon: Store },
   { path: "/library", labelKey: "nav.library", icon: Monitor },
-  { path: "/emulators", labelKey: "nav.emulators", icon: Gamepad2 },
-  { path: "/mods", labelKey: "nav.mods", icon: Puzzle },
+  { path: "/downloads", labelKey: "nav.downloads", icon: Download },
   { path: "/wishlist", labelKey: "nav.wishlist", icon: Heart },
   { path: "/deals", labelKey: "nav.deals", icon: Tag },
+  { path: "/news", labelKey: "nav.news", icon: Rss },
+];
+
+const secondaryTabs: Tab[] = [
+  { path: "/emulators", labelKey: "nav.emulators", icon: Gamepad2 },
+  { path: "/mods", labelKey: "nav.mods", icon: Puzzle },
   { path: "/activity", labelKey: "nav.activity", icon: Activity },
   { path: "/achievements", labelKey: "nav.achievements", icon: Trophy },
-  { path: "/downloads", labelKey: "nav.downloads", icon: Download },
   { path: "/storage", labelKey: "nav.storage", icon: HardDrive },
-  { path: "/news", labelKey: "nav.news", icon: Rss },
-  // /community is labelled "Stats" in the desktop UI but shares nav.*.
   { path: "/community", labelKey: "nav.stats", icon: ChartColumn },
   { path: "/friends", labelKey: "nav.friends", icon: Users },
 ];
+
+
 
 export default function TopNav() {
   const activeDownloads = useActiveDownloadCount();
@@ -100,25 +106,29 @@ export default function TopNav() {
   // via `aria-controls` for screen readers.
   const popoverId = useId();
 
-  // Double-click the drag region → toggle maximize. This restores
-  // the standard Windows title-bar behavior that
-  // `decorations: false` removes.
-  const tabsRef = useRef<HTMLDivElement>(null);
-
-  const handleTabsWheel = useCallback((e: React.WheelEvent<HTMLDivElement>) => {
-    if (tabsRef.current && e.deltaY !== 0) {
-      tabsRef.current.scrollLeft += e.deltaY * 0.8;
-    }
-  }, []);
+  // More overflow menu state
+  const [moreOpen, setMoreOpen] = useState(false);
+  const moreBtnRef = useRef<HTMLButtonElement>(null);
+  const moreMenuRef = useRef<HTMLDivElement>(null);
+  const moreId = useId();
 
   useEffect(() => {
-    if (tabsRef.current) {
-      const activeEl = tabsRef.current.querySelector(".topnav-tab.active");
-      if (activeEl) {
-        activeEl.scrollIntoView({ behavior: "smooth", block: "nearest", inline: "nearest" });
-      }
-    }
-  }, [location.pathname]);
+    if (!moreOpen) return;
+    const onDown = (e: globalThis.MouseEvent) => {
+      const t = e.target as Element;
+      if (moreBtnRef.current?.contains(t) || moreMenuRef.current?.contains(t)) return;
+      setMoreOpen(false);
+    };
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setMoreOpen(false);
+    };
+    document.addEventListener("mousedown", onDown);
+    document.addEventListener("keydown", onKey);
+    return () => {
+      document.removeEventListener("mousedown", onDown);
+      document.removeEventListener("keydown", onKey);
+    };
+  }, [moreOpen]);
 
   const handleTitleBarDoubleClick = useCallback(
     (e: MouseEvent<HTMLElement>) => {
@@ -174,12 +184,10 @@ export default function TopNav() {
             <span className="topnav-logo__version">v{version}</span>
           )}
         </div>
-        <div className="topnav-tabs" ref={tabsRef} onWheel={handleTabsWheel} role="tablist">
-          {tabs.map((tab) => {
+        <div className="topnav-tabs" role="tablist">
+          {primaryTabs.map((tab) => {
             const Icon = tab.icon;
             const isActive = location.pathname.startsWith(tab.path);
-            const showCommunityBadge =
-              tab.path === "/friends" && unseenCommunity > 0;
             return (
               <NavLink
                 key={tab.path}
@@ -188,24 +196,72 @@ export default function TopNav() {
                 aria-current={isActive ? "page" : undefined}
                 role="tab"
                 aria-selected={isActive ? "true" : "false"}
-                onClick={() => {
-                  if (tab.path === "/friends") clearUnseenCommunityItems();
-                }}
               >
                 <Icon className="topnav-tab-icon" strokeWidth={2} aria-hidden="true" />
                 {t(tab.labelKey)}
-                {showCommunityBadge && (
-                  <span
-                    className="topnav-tab-badge"
-                    role="status"
-                    aria-label={t("topnav.newCommunityItems", { count: unseenCommunity, plural: unseenCommunity !== 1 ? "s" : "" })}
-                  >
-                    {unseenCommunity > 99 ? "99+" : unseenCommunity}
-                  </span>
-                )}
               </NavLink>
             );
           })}
+        </div>
+        <div className="topnav-more-wrap">
+          <button
+            ref={moreBtnRef}
+            type="button"
+            className={`topnav-tab topnav-more-btn${secondaryTabs.some((s) => location.pathname.startsWith(s.path)) ? " active" : ""}${moreOpen ? " open" : ""}`}
+            aria-haspopup="menu"
+            aria-expanded={moreOpen}
+            aria-controls={moreId}
+            onClick={() => setMoreOpen((o) => !o)}
+          >
+            More <ChevronDown className="topnav-more-chevron" size={14} aria-hidden />
+            {unseenCommunity > 0 && (
+              <span className="topnav-tab-badge" role="status" aria-label={t("topnav.newCommunityItems", { count: unseenCommunity, plural: unseenCommunity !== 1 ? "s" : "" })}>
+                {unseenCommunity > 99 ? "99+" : unseenCommunity}
+              </span>
+            )}
+          </button>
+          {moreOpen &&
+            createPortal(
+              <div
+                ref={moreMenuRef}
+                id={moreId}
+                role="menu"
+                className="topnav-more-menu"
+                style={
+                  moreBtnRef.current
+                    ? (() => {
+                        const r = moreBtnRef.current.getBoundingClientRect();
+                        return { top: r.bottom + 8, left: Math.min(r.left, window.innerWidth - 220) } as const;
+                      })()
+                    : undefined
+                }
+              >
+                {secondaryTabs.map((tab) => {
+                  const Icon = tab.icon;
+                  const isActive = location.pathname.startsWith(tab.path);
+                  const showBadge = tab.path === "/friends" && unseenCommunity > 0;
+                  return (
+                    <NavLink
+                      key={tab.path}
+                      to={tab.path}
+                      role="menuitem"
+                      className={`topnav-more-item${isActive ? " active" : ""}`}
+                      onClick={() => {
+                        setMoreOpen(false);
+                        if (tab.path === "/friends") clearUnseenCommunityItems();
+                      }}
+                    >
+                      <Icon size={16} aria-hidden />
+                      {t(tab.labelKey)}
+                      {showBadge && (
+                        <span className="topnav-more-badge">{unseenCommunity > 99 ? "99+" : unseenCommunity}</span>
+                      )}
+                    </NavLink>
+                  );
+                })}
+              </div>,
+              document.body
+            )}
         </div>
       </div>
 

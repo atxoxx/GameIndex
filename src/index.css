@@ -14,15 +14,8 @@ body,
   overflow: hidden;
 }
 
-:root {
-  --font-family-sans: "Inter Variable", "Inter", -apple-system, BlinkMacSystemFont,
-    "Segoe UI", Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
-  --font-family-mono: "JetBrains Mono Variable", "JetBrains Mono",
-    "Cascadia Code", "Fira Code", Consolas, monospace;
-}
-
 body {
-  font-family: var(--font-family-sans);
+  font-family: var(--font-sans);
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   text-rendering: optimizeLegibility;
@@ -36,7 +29,12 @@ h1, h2, h3, h4, h5, h6 {
   font-weight: var(--font-weight-semibold);
   color: var(--color-text-primary);
   line-height: var(--line-height-tight);
-  letter-spacing: -0.02em;
+  letter-spacing: -0.015em;
+}
+h1.text-3xl, h1.text-4xl, h1.text-5xl, h1.text-6xl,
+h2.text-3xl, h2.text-3xl, h3.text-3xl,
+.text-3xl, .text-4xl, .text-5xl, .text-6xl {
+  letter-spacing: -0.03em;
 }
 
 /* ── Standardized Inputs & Form Elements ─────────────────────────────── */
@@ -94,13 +92,17 @@ input:disabled, select:disabled, textarea:disabled {
 }
 
 /* ── Focus visibility for accessibility ───────────────────────────── */
-
 :focus-visible {
   outline: 2px solid var(--color-accent);
   outline-offset: 2px;
   transition: outline-offset var(--transition-fast);
 }
-
+button:focus-visible,
+[role="button"]:focus-visible,
+a:focus-visible {
+  outline: none;
+  box-shadow: var(--ring-accent);
+}
 :focus:not(:focus-visible) {
   outline: none;
 }

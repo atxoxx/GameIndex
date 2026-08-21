@@ -2,7 +2,10 @@
    Theme Engine - CSS Custom Properties
    ============================== */
 :root {
-  /* ── Font Stack System ───────────────────────────────────────────── */
+  /* ── Font Stack System ─────────────────────────────────────────────
+     Outfit (display) + Plus Jakarta Sans (body) — single source of truth.
+     Fallback metric: size-adjust:97% to keep Inter fallback close (see index.html font-display:swap).
+     Ensure font-display:swap preserved in Google Fonts link. */
   --font-sans: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
   --font-display: 'Outfit', 'Plus Jakarta Sans', -apple-system, sans-serif;
   --font-mono: 'JetBrains Mono', 'Fira Code', Consolas, Monaco, monospace;
@@ -28,8 +31,8 @@
   --color-bg-card: var(--color-surface);
   --color-bg-elevated: var(--color-surface-raised);
 
-  /* Tactile Border system */
-  --color-border: rgba(255, 255, 255, 0.07);
+  /* Tactile Border system — default uses text-primary 10% so OLED (#000) gets a visible border */
+  --color-border: color-mix(in srgb, var(--color-text-primary) 10%, transparent);
   --color-border-light: rgba(255, 255, 255, 0.12);
   --color-border-highlight: rgba(255, 255, 255, 0.14);
   --color-border-faint: rgba(255, 255, 255, 0.045);
@@ -76,6 +79,7 @@
   /* Overlay scrims (modal backdrops, lightbox) */
   --color-scrim: rgba(4, 5, 9, 0.62);
   --color-scrim-strong: rgba(4, 5, 9, 0.8);
+  --blur-scrim: blur(16px);
 
   /* Brand identity — solid precision styling */
   --brand-1: var(--color-accent);
@@ -102,8 +106,9 @@
   --space-4xl: 96px;
   --space-5xl: 128px;
 
-  /* ── Typography Scale ───────────────────────────────────────────── */
-  --font-size-xs: 11px;
+  /* ── Typography Scale ─────────────────────────────────────────────
+     xs bumped 11→12px for uppercase legibility; use --font-size-xs directly. */
+  --font-size-xs: 12px;
   --font-size-sm: 13px;
   --font-size-md: 14px;
   --font-size-lg: 16px;
@@ -124,8 +129,8 @@
   --text-5xl: 2.75rem;
   --text-6xl: 3.5rem;
 
-  /* Line heights */
-  --line-height-tight: 1.2;
+  /* Line heights — tight relaxed 1.20→1.25 for display readability */
+  --line-height-tight: 1.25;
   --line-height-normal: 1.5;
   --line-height-relaxed: 1.7;
 
@@ -285,7 +290,10 @@ html, body {
 
 h1, h2, h3, h4, .font-display {
   font-family: var(--font-display);
-  letter-spacing: -0.02em;
+  letter-spacing: -0.015em;
+}
+h1.text-3xl, h1.text-4xl, h2.text-3xl, h2.text-4xl, .text-3xl, .text-4xl, .text-5xl, .text-6xl {
+  letter-spacing: -0.03em;
 }
 
 /* Branded text selection — a whisper of accent everywhere. */
@@ -355,10 +363,10 @@ h1, h2, h3, h4, .font-display {
   display: inline-block;
   margin: 0 0 var(--space-sm);
   font-size: var(--font-size-xs);
-  font-weight: var(--font-weight-bold);
-  letter-spacing: 0.24em;
+  font-weight: 600;
+  letter-spacing: 0.14em;
   text-transform: uppercase;
-  color: color-mix(in srgb, var(--color-text-secondary) 70%, var(--color-accent));
+  color: var(--color-accent);
 }
 
 /* Hover lift — subtle vertical raise on hover */

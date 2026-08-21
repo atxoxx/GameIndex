@@ -8,7 +8,7 @@
   background: var(--color-bg-secondary);
   border-right: 1px solid var(--color-border);
   width: var(--sidebar-width);
-  transition: width var(--duration-slow) var(--ease-standard);
+  transition: width var(--duration-slow) var(--ease-standard), opacity var(--duration-normal) var(--ease-standard);
 }
 
 .sidebar-header {
@@ -598,10 +598,25 @@
   width: 100%;
 }
 
-.app-sidebar.sidebar-icon-rail .sidebar-search,
 .app-sidebar.sidebar-icon-rail .sidebar-filter-btn,
 .app-sidebar.sidebar-icon-rail .sidebar-import-wrapper {
   display: none;
+}
+.app-sidebar.sidebar-icon-rail .sidebar-search {
+  width: 36px;
+  height: 36px;
+  padding: 0;
+  justify-content: center;
+  cursor: pointer;
+  opacity: 1;
+  transition: width var(--duration-normal) var(--ease-standard), opacity var(--duration-normal) var(--ease-standard);
+}
+.app-sidebar.sidebar-icon-rail .sidebar-search input,
+.app-sidebar.sidebar-icon-rail .sidebar-search-clear {
+  display: none;
+}
+.app-sidebar.sidebar-icon-rail .sidebar-search-row {
+  justify-content: center;
 }
 
 .app-sidebar.sidebar-icon-rail .sidebar-header-bar {
@@ -774,27 +789,7 @@
   display: none;
 }
 
-.sidebar-active-filter {
-  display: inline-flex;
-  align-items: center;
-  gap: 5px;
-  padding: 3px 10px;
-  font-size: var(--font-size-xs);
-  font-weight: var(--font-weight-medium);
-  color: var(--color-text-primary);
-  background: var(--color-bg-tertiary);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-full);
-  white-space: nowrap;
-  flex-shrink: 0;
-  transition: background var(--transition-fast),
-    border-color var(--transition-fast);
-}
-
-.sidebar-active-filter:hover {
-  background: var(--color-bg-hover);
-  border-color: var(--color-border-light);
-}
+/* .sidebar-active-filter primitive in ui.css — wrapper only */
 
 .sidebar-active-filter__remove {
   display: inline-flex;

@@ -152,7 +152,6 @@ export default function LibraryToolbar({
           <span>{t("libraryExport.export")}</span>
         </button>
 
-        {/* Density toggle */}
         <div className="lib-toolbar-group" role="radiogroup" aria-label={t("libraryPage.layoutDensity")}>
           <DensityToggle density={density} onChange={onDensityChange} />
         </div>
