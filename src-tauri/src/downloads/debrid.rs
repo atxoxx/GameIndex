@@ -78,14 +78,12 @@ struct AllDebridResponse<T> {
     error: Option<AllDebridError>,
 }
 
-#[derive(Deserialize, Debug)]
+#[derive(Deserialize, Debug, Clone)]
 struct AllDebridError {
-    /// AllDebrid error code (e.g. `"AUTH_BAD_API_KEY"`). Reserved in
-    /// the deserialised struct so future structured handling in
-    /// `ad_err` keeps the discriminator around. Today only `message`
-    /// is read.
     #[allow(dead_code)]
+    #[serde(default)]
     code: String,
+    #[serde(default)]
     message: String,
 }
 
@@ -97,25 +95,45 @@ struct AllDebridUserResponse {
 #[derive(Deserialize, Debug)]
 struct AllDebridUser {
     username: String,
-    #[serde(default, rename = "isPremium")]
+    #[serde(default, rename = "isPremium", alias = "is_premium")]
     is_premium: bool,
-    #[serde(default, rename = "premiumUntil")]
+    #[serde(default, rename = "premiumUntil", alias = "premium_until")]
     premium_until: u64,
 }
 
 #[derive(Deserialize, Debug)]
 struct AllDebridUploadResponse {
+    #[serde(default, deserialize_with = "deserialize_upload_magnets")]
     magnets: Vec<AllDebridMagnetUpload>,
+}
+
+fn deserialize_upload_magnets<'de, D>(deserializer: D) -> Result<Vec<AllDebridMagnetUpload>, D::Error>
+where
+    D: serde::Deserializer<'de>,
+{
+    #[derive(Deserialize)]
+    #[serde(untagged)]
+    enum OneOrMany {
+        One(AllDebridMagnetUpload),
+        Many(Vec<AllDebridMagnetUpload>),
+    }
+    Ok(match OneOrMany::deserialize(deserializer)? {
+        OneOrMany::One(one) => vec![one],
+        OneOrMany::Many(many) => many,
+    })
 }
 
 #[derive(Deserialize, Debug)]
 struct AllDebridMagnetUpload {
-    id: u64,
+    #[serde(default)]
+    id: Option<u64>,
     /// Whether the torrent is already cached on AllDebrid's servers.
     /// `true` means the files are served instantly and nothing is
     /// re-downloaded.
     #[serde(default)]
     ready: bool,
+    #[serde(default)]
+    error: Option<AllDebridError>,
 }
 
 #[derive(Deserialize, Debug)]
@@ -151,9 +169,9 @@ struct AllDebridMagnetStatus {
     filename: Option<String>,
     #[serde(default)]
     size: u64,
-    #[serde(default, rename = "statusCode")]
+    #[serde(default, rename = "statusCode", alias = "status_code")]
     status_code: u8,
-    #[serde(default, rename = "statusCodeDescription")]
+    #[serde(default, rename = "statusCodeDescription", alias = "status_code_description")]
     status_code_description: String,
     #[serde(default)]
     downloaded: u64,
@@ -163,35 +181,65 @@ struct AllDebridMagnetStatus {
     links: Vec<AllDebridLink>,
 }
 
-#[derive(Deserialize, Debug)]
-struct AllDebridFilesResponse {
-    magnets: Vec<AllDebridFilesEntry>,
-}
-
-#[derive(Deserialize, Debug)]
-struct AllDebridFilesEntry {
-    #[serde(default)]
-    files: Vec<AllDebridFileNode>,
-}
-
-/// One node of the `/v4/magnet/files` folder tree. A leaf file carries
-/// `n` (name), `s` (size) and `l` (download link); a folder carries `n`
-/// and `e` (child nodes) instead.
-#[derive(Deserialize, Debug)]
+#[derive(Deserialize, Debug, Clone)]
 struct AllDebridFileNode {
-    #[serde(default)]
+    #[serde(default, alias = "name")]
     n: String,
-    #[serde(default)]
+    #[serde(default, alias = "size")]
     s: u64,
-    #[serde(default)]
+    #[serde(default, alias = "link", alias = "downloadUrl")]
     l: Option<String>,
-    #[serde(default)]
+    #[serde(default, alias = "entries")]
     e: Vec<AllDebridFileNode>,
 }
 
 #[derive(Deserialize, Debug)]
 struct AllDebridLink {
     link: String,
+}
+
+/// Parse the arbitrary JSON shapes of `/v4/magnet/files` (array of entries, single object,
+/// or dictionary keyed by magnet ID) and collect all file nodes.
+fn parse_files_from_json(val: &serde_json::Value, out: &mut Vec<DebridFile>) {
+    if let Some(obj) = val.as_object() {
+        if let Some(magnets_val) = obj.get("magnets") {
+            if let Some(arr) = magnets_val.as_array() {
+                for item in arr {
+                    if let Some(files) = item.get("files") {
+                        if let Ok(nodes) = serde_json::from_value::<Vec<AllDebridFileNode>>(files.clone()) {
+                            collect_files(&nodes, "", out);
+                        }
+                    }
+                }
+            } else if let Some(mag_obj) = magnets_val.as_object() {
+                if let Some(files) = mag_obj.get("files") {
+                    if let Ok(nodes) = serde_json::from_value::<Vec<AllDebridFileNode>>(files.clone()) {
+                        collect_files(&nodes, "", out);
+                    }
+                } else {
+                    for (_k, v) in mag_obj {
+                        if let Some(files) = v.get("files") {
+                            if let Ok(nodes) = serde_json::from_value::<Vec<AllDebridFileNode>>(files.clone()) {
+                                collect_files(&nodes, "", out);
+                            }
+                        }
+                    }
+                }
+            }
+        } else if let Some(files) = obj.get("files") {
+            if let Ok(nodes) = serde_json::from_value::<Vec<AllDebridFileNode>>(files.clone()) {
+                collect_files(&nodes, "", out);
+            }
+        }
+    } else if let Some(arr) = val.as_array() {
+        for item in arr {
+            if let Some(files) = item.get("files") {
+                if let Ok(nodes) = serde_json::from_value::<Vec<AllDebridFileNode>>(files.clone()) {
+                    collect_files(&nodes, "", out);
+                }
+            }
+        }
+    }
 }
 
 /// Flatten a `/v4/magnet/files` node tree into per-file entries (DFS
@@ -202,6 +250,8 @@ fn collect_files(nodes: &[AllDebridFileNode], parent: &str, out: &mut Vec<Debrid
     for node in nodes {
         let full = if parent.is_empty() {
             node.n.clone()
+        } else if node.n.is_empty() {
+            parent.to_string()
         } else {
             format!("{}/{}", parent, node.n)
         };
@@ -230,7 +280,7 @@ async fn ad_request(
     let url = format!("https://api.alldebrid.com{}", path);
     let mut req = client
         .request(method, &url)
-        .header("Authorization", format!("Bearer {}", apikey));
+        .header("Authorization", format!("Bearer {}", apikey.trim()));
     if let Some(params) = form {
         req = req.form(params);
     }
@@ -275,12 +325,13 @@ impl AllDebridClient {
 
     pub async fn upload_magnet(apikey: &str, magnet: &str) -> Result<DebridUploadResult, String> {
         let client = ad_client();
+        let trimmed_mag = magnet.trim();
         let resp = ad_request(
             &client,
             Method::POST,
             "/v4/magnet/upload",
             apikey,
-            Some(&[("magnets[]", magnet)]),
+            Some(&[("magnets[]", trimmed_mag)]),
         )
         .await?;
         let status = resp.status();
@@ -298,21 +349,28 @@ impl AllDebridClient {
             .magnets
             .first()
             .ok_or_else(|| "No magnet entry returned by AllDebrid".to_string())?;
+        if let Some(err) = &mag.error {
+            if !err.message.is_empty() {
+                return Err(err.message.clone());
+            }
+        }
+        let id = mag
+            .id
+            .ok_or_else(|| "No magnet id returned by AllDebrid".to_string())?;
         Ok(DebridUploadResult {
-            id: mag.id.to_string(),
+            id: id.to_string(),
             cached: mag.ready,
         })
     }
 
     /// Check whether a magnet is already cached, without leaving it in
     /// the account. Uploading is the only remaining availability signal;
-    /// a not-cached magnet is removed again so the probe doesn't start a
-    /// server-side download.
+    /// the probe magnet is always removed after checking so searches do not
+    /// exhaust the user's active account torrent slots.
     pub async fn check_cache(apikey: &str, magnet: &str) -> Result<DebridCacheResult, String> {
         let upload = Self::upload_magnet(apikey, magnet).await?;
-        if !upload.cached {
-            let _ = Self::delete_magnet(apikey, &upload.id).await;
-        }
+        // Always clean up the temporary probe magnet from the account.
+        let _ = Self::delete_magnet(apikey, &upload.id).await;
         Ok(DebridCacheResult {
             cached: upload.cached,
         })
@@ -320,7 +378,7 @@ impl AllDebridClient {
 
     pub async fn delete_magnet(apikey: &str, id: &str) -> Result<(), String> {
         let client = ad_client();
-        let id_str = id.to_string();
+        let id_str = id.trim().to_string();
         let resp = ad_request(
             &client,
             Method::POST,
@@ -342,7 +400,7 @@ impl AllDebridClient {
 
     pub async fn get_status(apikey: &str, id: &str) -> Result<DebridStatusResult, String> {
         let client = ad_client();
-        let id_str = id.to_string();
+        let id_str = id.trim().to_string();
         let resp = ad_request(
             &client,
             Method::POST,
@@ -369,7 +427,7 @@ impl AllDebridClient {
             .ok_or_else(|| "Magnet not found in status response".to_string())?;
 
         let normalized_status = match mag.status_code {
-            4 => "ready".to_string(),       // Ready/cache complete
+            4 => "ready".to_string(),           // Ready/cache complete
             0..=3 => "downloading".to_string(), // Queued → downloading
             _ => "error".to_string(),
         };
@@ -407,14 +465,9 @@ impl AllDebridClient {
             )
             .await
             {
-                if let Ok(parsed) = files_resp
-                    .json::<AllDebridResponse<AllDebridFilesResponse>>()
-                    .await
-                {
-                    if let Some(payload) = parsed.data {
-                        for entry in payload.magnets {
-                            collect_files(&entry.files, "", &mut files);
-                        }
+                if let Ok(parsed_json) = files_resp.json::<serde_json::Value>().await {
+                    if let Some(payload) = parsed_json.get("data") {
+                        parse_files_from_json(payload, &mut files);
                     }
                 }
             }
@@ -442,12 +495,13 @@ impl AllDebridClient {
 
     pub async fn unrestrict_link(apikey: &str, url: &str) -> Result<String, String> {
         let client = ad_client();
+        let trimmed_url = url.trim();
         let resp = ad_request(
             &client,
             Method::POST,
             "/v4/link/unlock",
             apikey,
-            Some(&[("link", url)]),
+            Some(&[("link", trimmed_url)]),
         )
         .await?;
         
@@ -462,12 +516,16 @@ impl AllDebridClient {
         }
 
         let data = body.data.ok_or_else(|| "Empty response data".to_string())?;
+        if data.link.is_empty() {
+            return Err("AllDebrid returned an empty direct download link".to_string());
+        }
         Ok(data.link)
     }
 }
 
 #[derive(Deserialize, Debug)]
 struct AllDebridUnlockData {
+    #[serde(default, alias = "downloadUrl", alias = "directUrl")]
     link: String,
 }
 

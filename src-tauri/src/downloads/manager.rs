@@ -51,13 +51,17 @@ pub struct DownloadManager {
     /// "Seed after download complete" user preference (pushed from the
     /// frontend at startup and on toggle).
     pub seed_after_complete: bool,
+    /// Default active debrid provider (e.g. "alldebrid") synced from settings.
+    pub default_debrid_provider: Option<String>,
+    /// Default active debrid API key synced from settings.
+    pub default_debrid_apikey: Option<String>,
     /// In-memory debrid credentials per download id (never persisted).
     pub debrid_params: HashMap<String, (String, String)>,
-    /// Resolved multi-file debrid entries (name, size, url) per download
+    /// Resolved multi-file debrid entries (name, size, direct_url, orig_url) per download
     /// id. Kept so a pause → resume of an already-resolved debrid
     /// download re-runs the multi-file worker instead of treating the
     /// folder as a single file.
-    pub debrid_files: HashMap<String, Vec<(String, u64, String)>>,
+    pub debrid_files: HashMap<String, Vec<(String, u64, String, String)>>,
     /// Monotonic worker generation per download id; bumped on every
     /// worker spawn. A worker whose captured generation is stale must
     /// stop immediately (superseded by a newer worker).
@@ -85,6 +89,8 @@ impl DownloadManager {
             direct_counters: HashMap::new(),
             direct_last_calc: HashMap::new(),
             seed_after_complete: false,
+            default_debrid_provider: None,
+            default_debrid_apikey: None,
             debrid_params: HashMap::new(),
             debrid_files: HashMap::new(),
             direct_generations: HashMap::new(),
@@ -297,11 +303,11 @@ impl DownloadManager {
             if d.files.len() != uris.len() || d.files.is_empty() {
                 continue;
             }
-            let rebuilt: Vec<(String, u64, String)> = d
+            let rebuilt: Vec<(String, u64, String, String)> = d
                 .files
                 .iter()
                 .enumerate()
-                .filter_map(|(i, f)| uris.get(i).map(|u| (f.name.clone(), f.size, u.clone())))
+                .filter_map(|(i, f)| uris.get(i).map(|u| (f.name.clone(), f.size, u.clone(), u.clone())))
                 .collect();
             if !rebuilt.is_empty() {
                 self.debrid_files.insert(d.id.clone(), rebuilt);
@@ -1106,7 +1112,7 @@ pub async fn spawn_direct_worker(manager: &SharedManager, id: &str) -> bool {
 async fn spawn_debrid_files_worker(
     manager: &SharedManager,
     id: &str,
-    files: Vec<(String, u64, String)>,
+    files: Vec<(String, u64, String, String)>,
     only_files: Option<Vec<usize>>,
     seed_bytes: u64,
     segments: u32,
@@ -1205,6 +1211,15 @@ async fn start_debrid(manager: &SharedManager, id: &str) -> bool {
                     .debrid_params
                     .get(id)
                     .map(|(provider, apikey)| debrid_worker_options(provider, apikey))
+                    .or_else(|| {
+                        let p = guard.default_debrid_provider.as_deref()?;
+                        let k = guard.default_debrid_apikey.as_deref()?;
+                        if !p.is_empty() && !k.is_empty() {
+                            Some(debrid_worker_options(p, k))
+                        } else {
+                            None
+                        }
+                    })
                     .unwrap_or((0, None));
                 (d.only_files.clone(), d.downloaded, segments, url_refresher)
             };
@@ -1226,7 +1241,17 @@ async fn start_debrid(manager: &SharedManager, id: &str) -> bool {
     }
     let (magnet, params) = {
         let mut guard = manager.write().await;
-        let params = guard.debrid_params.get(id).cloned();
+        let mut params = guard.debrid_params.get(id).cloned();
+        if params.is_none() {
+            if let (Some(p), Some(k)) = (
+                &guard.default_debrid_provider,
+                &guard.default_debrid_apikey,
+            ) {
+                if !p.is_empty() && !k.is_empty() {
+                    params = Some((p.clone(), k.clone()));
+                }
+            }
+        }
         let Some(d) = guard.downloads_mut().get_mut(id) else {
             return false;
         };
@@ -1416,10 +1441,10 @@ async fn run_debrid_flow(
                 status.files.iter().map(|f| f.link.clone()).collect()
             };
 
-            // Build the final (name, size, url) list, sanitising names and
+            // Build the final (name, size, direct_url, orig_url) list, sanitising names and
             // de-duplicating so same-named files in different folders can't
             // collide on disk.
-            let mut files: Vec<(String, u64, String)> = Vec::with_capacity(status.files.len());
+            let mut files: Vec<(String, u64, String, String)> = Vec::with_capacity(status.files.len());
             let mut used = std::collections::HashSet::new();
             for (f, link) in status.files.iter().zip(links) {
                 let mut name = if f.name.trim().is_empty() {
@@ -1428,7 +1453,7 @@ async fn run_debrid_flow(
                     sanitize_rel_path(f.name.clone())
                 };
                 name = uniquify(name, &mut used);
-                files.push((name, f.size, link));
+                files.push((name, f.size, link, f.link.clone()));
             }
 
             // Single-file downloads keep the file name as the record name;
@@ -1443,7 +1468,7 @@ async fn run_debrid_flow(
                     .filter(|s| !s.is_empty())
                     .unwrap_or_else(|| "debrid_download".to_string())
             };
-            let total: u64 = files.iter().map(|(_, s, _)| *s).sum();
+            let total: u64 = files.iter().map(|(_, s, _, _)| *s).sum();
             let total_size = if total > 0 { Some(total) } else { None };
 
             {
@@ -1454,14 +1479,14 @@ async fn run_debrid_flow(
                 // `save_path` stays the folder the command was given; the
                 // worker drops every file into it.
                 d.source_uri = files[0].2.clone();
-                d.uris = Some(files.iter().map(|(_, _, l)| l.clone()).collect());
+                d.uris = Some(files.iter().map(|(_, _, l, _)| l.clone()).collect());
                 d.name = record_name;
                 d.total_size = total_size;
                 d.status = DownloadStatus::Downloading;
                 d.progress = Some(0.0);
                 d.files = files
                     .iter()
-                    .map(|(n, s, _)| super::types::DownloadFile {
+                    .map(|(n, s, _, _)| super::types::DownloadFile {
                         name: n.clone(),
                         size: *s,
                         downloaded: 0,
@@ -1480,7 +1505,7 @@ async fn run_debrid_flow(
             // so a pause/remove during the debrid HTTP phase is safe.
             //
             // AllDebrid unlock links expire after hours. The refresher lets the
-            // HTTP worker re-unlock a file's URL before retrying, so a long or
+            // HTTP worker re-unlock a file's original URL before retrying, so a long or
             // stalled download resumes against a live link instead of a dead one.
             // Segmented (8-stream) downloads match AllDebrid's documented IDM/FDM
             // recommendation (8 connections/file); other providers stay single-connection.
@@ -1609,26 +1634,42 @@ fn segments_for(provider: &str) -> u32 {
 }
 
 /// Build the optional URL-refresher for a provider. AllDebrid unlock
-/// links expire after hours; the refresher re-unlocks a file URL via
-/// `/v4/link/unlock` so retries hit a live link. None for providers
-/// whose links don't expire.
+/// links expire after hours; the refresher re-unlocks a file's original URL via
+/// `/v4/link/unlock` so retries hit a live link.
 fn debrid_worker_options(
     provider: &str,
     apikey: &str,
 ) -> (u32, Option<Arc<super::http::UrlRefresher>>) {
-    if provider != "alldebrid" {
-        return (0, None);
-    }
+    let segs = segments_for(provider);
     let apikey = apikey.to_string();
-    let refresher: Arc<super::http::UrlRefresher> = Arc::new(move |url: String| {
-        let apikey = apikey.clone();
-        Box::pin(async move {
-            super::debrid::AllDebridClient::unrestrict_link(&apikey, &url)
-                .await
-                .ok()
-        })
-    });
-    (segments_for(provider), Some(refresher))
+    let refresher: Arc<super::http::UrlRefresher> = match provider {
+        "alldebrid" => Arc::new(move |_url: String, orig_url: String| {
+            let apikey = apikey.clone();
+            Box::pin(async move {
+                super::debrid::AllDebridClient::unrestrict_link(&apikey, &orig_url)
+                    .await
+                    .ok()
+            })
+        }),
+        "realdebrid" => Arc::new(move |_url: String, orig_url: String| {
+            let apikey = apikey.clone();
+            Box::pin(async move {
+                super::debrid::RealDebridClient::unrestrict_link(&apikey, &orig_url)
+                    .await
+                    .ok()
+            })
+        }),
+        "torbox" => Arc::new(move |_url: String, orig_url: String| {
+            let apikey = apikey.clone();
+            Box::pin(async move {
+                super::debrid::TorBoxClient::unrestrict_link(&apikey, &orig_url)
+                    .await
+                    .ok()
+            })
+        }),
+        _ => return (segs, None),
+    };
+    (segs, Some(refresher))
 }
 
 /// Mark a download as errored and free the active slot.

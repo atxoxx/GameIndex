@@ -556,9 +556,13 @@ pub async fn debrid_download_start(
 
     {
         let mut guard = mgr.write().await;
+        let prov_trimmed = provider.trim().to_string();
+        let key_trimmed = apikey.trim().to_string();
+        guard.default_debrid_provider = Some(prov_trimmed.clone());
+        guard.default_debrid_apikey = Some(key_trimmed.clone());
         guard
             .debrid_params
-            .insert(id.clone(), (provider, apikey));
+            .insert(id.clone(), (prov_trimmed, key_trimmed));
         guard.downloads_mut().insert(id.clone(), d.clone());
         guard.mark_dirty();
         guard.emit_progress_force();
@@ -1256,5 +1260,19 @@ pub async fn debrid_unrestrict_link(
     } else {
         Err("Unsupported provider".to_string())
     }
+}
+
+#[tauri::command]
+pub async fn download_set_debrid_config(
+    provider: String,
+    apikey: String,
+) -> Result<(), String> {
+    let mgr = wait_for_manager().await?;
+    let mut guard = mgr.write().await;
+    let prov = provider.trim().to_string();
+    let key = apikey.trim().to_string();
+    guard.default_debrid_provider = if prov.is_empty() { None } else { Some(prov) };
+    guard.default_debrid_apikey = if key.is_empty() { None } else { Some(key) };
+    Ok(())
 }
 

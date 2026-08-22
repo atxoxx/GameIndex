@@ -415,6 +415,20 @@ export function DownloadProvider({ children }: { children: ReactNode }) {
           console.error("Failed to apply initial seed config:", e);
         }
 
+        // Apply active debrid provider & API key on startup.
+        try {
+          const prov = localStorage.getItem("gamelib-debrid-provider") || "none";
+          const key = localStorage.getItem("gamelib-debrid-apikey") || "";
+          if (prov !== "none" && key) {
+            await invoke("download_set_debrid_config", {
+              provider: prov,
+              apikey: key,
+            });
+          }
+        } catch (e) {
+          console.error("Failed to apply initial debrid config:", e);
+        }
+
         // 1. Subscribe to the background-polling event FIRST so we
         //    don't miss the first emission if the engine is already
         //    running. (In practice, the engine isn't init'd until
@@ -784,11 +798,25 @@ export function DownloadProvider({ children }: { children: ReactNode }) {
   const setDebridProvider = useCallback((next: string) => {
     setDebridProviderState(next);
     localStorage.setItem("gamelib-debrid-provider", next);
+    const key = localStorage.getItem("gamelib-debrid-apikey") || "";
+    void invoke("download_set_debrid_config", {
+      provider: next,
+      apikey: key,
+    }).catch((e) => {
+      console.warn("[DownloadContext] Failed to sync debrid provider:", e);
+    });
   }, []);
 
   const setDebridApiKey = useCallback((next: string) => {
     setDebridApiKeyState(next);
     localStorage.setItem("gamelib-debrid-apikey", next);
+    const prov = localStorage.getItem("gamelib-debrid-provider") || "none";
+    void invoke("download_set_debrid_config", {
+      provider: prov,
+      apikey: next,
+    }).catch((e) => {
+      console.warn("[DownloadContext] Failed to sync debrid apikey:", e);
+    });
   }, []);
 
   const updateSelectedFiles = useCallback(

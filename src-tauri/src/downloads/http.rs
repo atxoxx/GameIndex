@@ -18,7 +18,7 @@ use std::time::Duration;
 use reqwest::header::{CONTENT_ENCODING, CONTENT_RANGE, CONTENT_TYPE, RANGE};
 use reqwest::StatusCode;
 use tokio::fs::OpenOptions;
-use tokio::io::{AsyncReadExt, AsyncWriteExt};
+use tokio::io::{AsyncSeekExt, AsyncWriteExt};
 
 use super::manager::{self, WeakManager};
 use super::types::{unix_now, Download, DownloadStatus};
@@ -27,7 +27,7 @@ const MAX_RETRY_ATTEMPTS: u32 = 10;
 const INITIAL_RETRY_DELAY_MS: u64 = 1000;
 const MAX_RETRY_DELAY_MS: u64 = 15000;
 const STALL_TIMEOUT_SECS: u64 = 30;
-const SEGMENT_STALL_TIMEOUT_SECS: u64 = 10;
+const SEGMENT_STALL_TIMEOUT_SECS: u64 = 15;
 const REQUEST_TIMEOUT_SECS: u64 = 60;
 const RETRYABLE_STATUSES: &[u16] = &[429, 500, 502, 503, 504];
 
@@ -36,16 +36,17 @@ const RETRYABLE_STATUSES: &[u16] = &[429, 500, 502, 503, 504];
 pub const SEGMENT_COUNT: u32 = 8;
 /// Files smaller than this per-segment floor stay single-connection;
 /// segmentation only pays off once files are large enough to split.
-const SEGMENT_MIN_BYTES: u64 = 1024 * 1024;
+const SEGMENT_MIN_BYTES: u64 = 8 * 1024 * 1024;
 /// Internal reconnects per segment before the whole file attempt gives up
 /// and bubbles a retryable error (one flaky connection must not restart
 /// the other segments' streams).
 const SEGMENT_RECONNECTS: u32 = 5;
 
 /// Refreshes an expiring direct link (AllDebrid unlock URLs die after
-/// hours). Returns the fresh URL, or None when unavailable/failed.
+/// hours). Takes `(current_url, original_url)` and returns the fresh URL,
+/// or None when unavailable/failed.
 pub type UrlRefresher =
-    dyn Fn(String) -> std::pin::Pin<Box<dyn std::future::Future<Output = Option<String>> + Send>>
+    dyn Fn(String, String) -> std::pin::Pin<Box<dyn std::future::Future<Output = Option<String>> + Send>>
         + Send
         + Sync;
 
@@ -278,7 +279,7 @@ pub async fn run_direct_download(
 /// reflecting the whole transfer rather than just the current file.
 pub async fn run_debrid_files_download(
     id: String,
-    files: Vec<(String, u64, String)>, // (name, size, url)
+    files: Vec<(String, u64, String, String)>, // (name, size, direct_url, orig_url)
     only_files: Option<Vec<usize>>,
     save_dir: String,
     bytes_counter: Arc<AtomicU64>,
@@ -299,7 +300,7 @@ pub async fn run_debrid_files_download(
         only_files.map(|v| v.into_iter().collect());
 
     let mut base_offset: u64 = 0;
-    for (idx, (name, size, url)) in files.iter().enumerate() {
+    for (idx, (name, size, direct_url, orig_url)) in files.iter().enumerate() {
         // Honour the user's per-file selection (debrid downloads support it
         // the same way torrents do). Deselected files are never fetched.
         if let Some(sel) = &selected {
@@ -327,7 +328,7 @@ pub async fn run_debrid_files_download(
             continue;
         }
 
-        let mut file_url = url.clone();
+        let mut file_url = direct_url.clone();
         let mut attempt: u32 = 0;
         loop {
             if is_superseded(&manager_weak, &id, generation).await {
@@ -368,6 +369,20 @@ pub async fn run_debrid_files_download(
                 AttemptResult::Completed => break,
                 AttemptResult::Aborted => return,
                 AttemptResult::Fatal(msg) => {
+                    // If the link expired (401/403/410/HTML) or became invalid, try refreshing
+                    if let Some(refresh) = &url_refresher {
+                        if let Some(fresh) = refresh(file_url.clone(), orig_url.clone()).await {
+                            if !fresh.is_empty() && fresh != file_url {
+                                println!(
+                                    "[downloads] Refreshed expired debrid link after status ({}) for {}",
+                                    msg, save_path
+                                );
+                                file_url = fresh;
+                                tokio::time::sleep(Duration::from_millis(500)).await;
+                                continue;
+                            }
+                        }
+                    }
                     finish_with_error(&manager_weak, &id, msg, generation).await;
                     return;
                 }
@@ -385,7 +400,7 @@ pub async fn run_debrid_files_download(
                     // Unlock URLs expire after hours — refresh before the retry
                     // sleeps so a long-stalled download resumes with a live link.
                     if let Some(refresh) = &url_refresher {
-                        if let Some(fresh) = refresh(file_url.clone()).await {
+                        if let Some(fresh) = refresh(file_url.clone(), orig_url.clone()).await {
                             if !fresh.is_empty() && fresh != file_url {
                                 println!(
                                     "[downloads] Refreshed expired debrid link for {}",
@@ -972,6 +987,37 @@ async fn attempt_download(
     AttemptResult::Completed
 }
 
+#[derive(serde::Serialize, serde::Deserialize, Debug, Clone)]
+struct SegmentMeta {
+    total_size: u64,
+    seg_count: u32,
+    segments: Vec<u64>,
+}
+
+struct SegmentProgressTracker {
+    meta_path: std::path::PathBuf,
+    total_size: u64,
+    seg_count: u32,
+    segments: Vec<u64>,
+    dirty: bool,
+}
+
+impl SegmentProgressTracker {
+    async fn save(&mut self) {
+        if self.dirty {
+            let meta = SegmentMeta {
+                total_size: self.total_size,
+                seg_count: self.seg_count,
+                segments: self.segments.clone(),
+            };
+            if let Ok(json) = serde_json::to_string(&meta) {
+                let _ = tokio::fs::write(&self.meta_path, json).await;
+            }
+            self.dirty = false;
+        }
+    }
+}
+
 enum SegmentResult {
     /// Streamed to completion.
     Done,
@@ -986,20 +1032,17 @@ enum SegmentResult {
     Transient(String),
 }
 
-/// Download one byte-range segment of `url` into `part_path`.
-///
-/// `seg_start`/`seg_end` bound the segment (end exclusive). Resumes from
-/// the part file's current size; `bytes_counter` accumulates across all
-/// segments (plus `base_offset` from earlier files) so the shared record
-/// progress advances exactly like the single-connection path. The shared
-/// `throttle` keeps the global speed limit correct across N streams.
+/// Download one byte-range segment of `url` directly into `temp_path` at offset `seg_start + existing`.
 async fn stream_segment(
     client: &reqwest::Client,
     id: &str,
     url: &str,
-    part_path: &std::path::Path,
+    temp_path: &std::path::Path,
     seg_start: u64,
     seg_end: u64,
+    initial_existing: u64,
+    seg_index: usize,
+    progress_tracker: &Arc<tokio::sync::Mutex<SegmentProgressTracker>>,
     bytes_counter: &Arc<AtomicU64>,
     manager_weak: &WeakManager,
     extra_headers: &[(String, String)],
@@ -1007,18 +1050,13 @@ async fn stream_segment(
     generation: u64,
 ) -> SegmentResult {
     let seg_len = seg_end - seg_start;
-    let existing = std::fs::metadata(part_path)
-        .map(|m| if m.is_file() { m.len() } else { 0 })
-        .unwrap_or(0)
-        .min(seg_len);
-    if existing == seg_len {
+    let mut current_downloaded = initial_existing.min(seg_len);
+    if current_downloaded >= seg_len {
         return SegmentResult::Done;
     }
-    let resume_from = seg_start + existing;
+    let resume_from = seg_start + current_downloaded;
 
     let mut req = client.get(url);
-    // A segment is fully re-fetchable, so identity encoding keeps the
-    // byte offsets exact.
     req = req.header("Accept-Encoding", "identity");
     req = req.header(RANGE, format!("bytes={}-{}", resume_from, seg_end - 1));
     if let Some(r) = referer {
@@ -1043,8 +1081,7 @@ async fn stream_segment(
 
     let status = resp.status();
     if status == StatusCode::OK {
-        // Server ignored the Range header. The body is the whole file —
-        // writing it into one part would corrupt the assembly.
+        // Server ignored the Range header and sent full body
         return SegmentResult::RangeUnsupported;
     }
     if status != StatusCode::PARTIAL_CONTENT {
@@ -1075,16 +1112,21 @@ async fn stream_segment(
     let file_res = OpenOptions::new()
         .create(true)
         .write(true)
-        .append(true)
-        .open(part_path)
+        .open(temp_path)
         .await;
-    let file = match file_res {
+    let mut file = match file_res {
         Ok(f) => f,
-        Err(e) => return SegmentResult::Transient(format!("Failed to open part file: {}", e)),
+        Err(e) => return SegmentResult::Transient(format!("Failed to open destination file: {}", e)),
     };
-    let mut file = tokio::io::BufWriter::with_capacity(256 * 1024, file);
+
+    if let Err(e) = file.seek(std::io::SeekFrom::Start(resume_from)).await {
+        return SegmentResult::Transient(format!("Failed to seek to byte {}: {}", resume_from, e));
+    }
 
     let mut abort_check = std::time::Instant::now();
+    let mut last_save = std::time::Instant::now();
+    let mut uncommitted_bytes = 0u64;
+
     loop {
         if abort_check.elapsed() >= Duration::from_millis(500) {
             abort_check = std::time::Instant::now();
@@ -1095,16 +1137,19 @@ async fn stream_segment(
                         let superseded =
                             guard.direct_generations.get(id).copied() != Some(generation);
                         if superseded || !matches!(item.status, DownloadStatus::Downloading) {
+                            let _ = file.flush().await;
                             drop(file);
                             return SegmentResult::Aborted;
                         }
                     }
                     None => {
+                        let _ = file.flush().await;
                         drop(file);
                         return SegmentResult::Aborted;
                     }
                 }
             } else {
+                let _ = file.flush().await;
                 drop(file);
                 return SegmentResult::Aborted;
             }
@@ -1118,11 +1163,13 @@ async fn stream_segment(
                 Ok(Some(c)) => c,
                 Ok(None) => break, // Segment complete.
                 Err(e) => {
+                    let _ = file.flush().await;
                     drop(file);
                     return SegmentResult::Transient(format!("Download interrupted: {}", e));
                 }
             },
             Err(_) => {
+                let _ = file.flush().await;
                 drop(file);
                 return SegmentResult::Transient(format!(
                     "Segment download stalled (no data received for {}s)",
@@ -1135,22 +1182,43 @@ async fn stream_segment(
             drop(file);
             return SegmentResult::Transient(format!("Disk write failed: {}", e));
         }
-        bytes_counter.fetch_add(chunk.len() as u64, Ordering::SeqCst);
-        throttle_account(chunk.len() as u64).await;
+
+        let chunk_len = chunk.len() as u64;
+        current_downloaded += chunk_len;
+        uncommitted_bytes += chunk_len;
+        bytes_counter.fetch_add(chunk_len, Ordering::SeqCst);
+        throttle_account(chunk_len).await;
+
+        if uncommitted_bytes >= 2 * 1024 * 1024 || last_save.elapsed() >= Duration::from_secs(2) {
+            uncommitted_bytes = 0;
+            last_save = std::time::Instant::now();
+            if let Ok(mut tracker) = progress_tracker.try_lock() {
+                if let Some(val) = tracker.segments.get_mut(seg_index) {
+                    *val = current_downloaded;
+                    tracker.dirty = true;
+                }
+                tracker.save().await;
+            }
+        }
     }
 
     let _ = file.flush().await;
     drop(file);
+
+    {
+        let mut tracker = progress_tracker.lock().await;
+        if let Some(val) = tracker.segments.get_mut(seg_index) {
+            *val = current_downloaded;
+            tracker.dirty = true;
+        }
+        tracker.save().await;
+    }
+
     SegmentResult::Done
 }
 
-/// Multi-connection download of one file via N parallel byte ranges.
-///
-/// Probes range support with a `bytes=0-0` GET (HEAD causes server-side
-/// issues on AllDebrid), splits the file into up to `max_segments`
-/// streams writing to `<name>.gamelib_tmp.partNNN`, then assembles the
-/// parts into the final file. Falls back to the single-connection path
-/// whenever the server does not honor ranges.
+/// Multi-connection download of one file via N parallel byte ranges directly into
+/// a single `.gamelib_tmp` pre-allocated file.
 async fn attempt_segmented_download(
     client: &reqwest::Client,
     id: &str,
@@ -1164,9 +1232,6 @@ async fn attempt_segmented_download(
     generation: u64,
     max_segments: u32,
 ) -> AttemptResult {
-    // `reqwest::Client` is cheap to clone (an Arc inside) — the probe
-    // below and the per-segment spawned tasks all need an owned handle
-    // (JoinSet requires `'static` futures).
     let client = client.clone();
     let path = std::path::Path::new(save_path);
     let filename = path
@@ -1176,6 +1241,14 @@ async fn attempt_segmented_download(
         .to_string();
     let parent = path.parent().unwrap_or_else(|| std::path::Path::new("."));
     let temp_path = parent.join(format!("{}.gamelib_tmp", filename));
+    let meta_path = parent.join(format!("{}.gamelib_tmp.meta", filename));
+
+    // Ensure parent directories exist
+    if !parent.exists() {
+        if let Err(e) = tokio::fs::create_dir_all(parent).await {
+            return AttemptResult::Fatal(format!("Failed to create parent directories: {}", e));
+        }
+    }
 
     // ── Probe: does the server honor byte ranges, and how big is the file?
     let mut probe = client.get(url);
@@ -1211,9 +1284,7 @@ async fn attempt_segmented_download(
     } else {
         0
     };
-    // No usable total: ranges ignored (200) or a 206 without a parseable
-    // Content-Range. Classify real errors exactly like the single-connection
-    // path, then fall back to it.
+
     if total == 0 {
         if status != StatusCode::OK && status != StatusCode::PARTIAL_CONTENT {
             let code = status.as_u16();
@@ -1258,61 +1329,96 @@ async fn attempt_segmented_download(
         .await;
     }
 
+    // Inform manager of total size
+    set_total_size(manager_weak, id, total).await;
+
+    // ── Clean up any legacy .part000..007 files from prior versions
+    if let Ok(entries) = std::fs::read_dir(parent) {
+        let prefix = format!("{}.gamelib_tmp.part", filename);
+        for entry in entries.flatten() {
+            if let Some(name) = entry.file_name().to_str() {
+                if name.starts_with(&prefix) {
+                    let _ = std::fs::remove_file(entry.path());
+                }
+            }
+        }
+    }
+
     // ── Split the file into segments (small files stay single-stream).
     let seg_count = if total >= SEGMENT_MIN_BYTES * max_segments as u64 {
         max_segments
     } else {
         (total / SEGMENT_MIN_BYTES).max(1) as u32
     };
-    let seg_size = total / seg_count as u64;
-    let seg_len = |i: u32| -> u64 {
-        if (i as u64 + 1) == seg_count as u64 {
-            total - i as u64 * seg_size
-        } else {
-            seg_size
-        }
-    };
 
-    // ── Part files: resume sizes, prune parts orphaned by a smaller
-    // segment split from a previous run.
-    let mut part_sizes: Vec<u64> = Vec::with_capacity(seg_count as usize);
-    for i in 0..seg_count {
-        let part_path = parent.join(format!("{}.gamelib_tmp.part{:03}", filename, i));
-        part_sizes.push(
-            std::fs::metadata(&part_path)
-                .map(|m| if m.is_file() { m.len() } else { 0 })
-                .unwrap_or(0)
-                .min(seg_len(i)),
-        );
+    if seg_count <= 1 {
+        return attempt_download(
+            &client,
+            id,
+            url,
+            save_path,
+            bytes_counter,
+            base_offset,
+            false,
+            manager_weak,
+            extra_headers,
+            referer,
+            generation,
+        )
+        .await;
     }
-    if let Ok(entries) = std::fs::read_dir(parent) {
-        let prefix = format!("{}.gamelib_tmp.part", filename);
-        for entry in entries.flatten() {
-            let Some(name) = entry.file_name().to_str().map(|s| s.to_string()) else {
-                continue;
-            };
-            if let Some(idx) = name.strip_prefix(&prefix) {
-                if let Ok(i) = idx.parse::<u32>() {
-                    if i >= seg_count {
-                        let _ = std::fs::remove_file(entry.path());
-                    }
+
+    let seg_size = total / seg_count as u64;
+
+    // ── Resume metadata checking & preallocation
+    let mut segments: Vec<u64> = vec![0; seg_count as usize];
+    let mut is_valid_resume = false;
+    if meta_path.exists() && temp_path.exists() {
+        if let Ok(content) = tokio::fs::read_to_string(&meta_path).await {
+            if let Ok(meta) = serde_json::from_str::<SegmentMeta>(&content) {
+                if meta.total_size == total
+                    && meta.seg_count == seg_count
+                    && meta.segments.len() == seg_count as usize
+                {
+                    segments = meta.segments;
+                    is_valid_resume = true;
                 }
             }
         }
     }
-    let on_disk: u64 = part_sizes.iter().sum();
-    bytes_counter.store(base_offset + on_disk, Ordering::SeqCst);
 
-    if let Some(parent_dir) = temp_path.parent() {
-        if !parent_dir.exists() {
-            if let Err(e) = tokio::fs::create_dir_all(parent_dir).await {
-                return AttemptResult::Fatal(format!(
-                    "Failed to create parent directories: {}",
-                    e
-                ));
+    if !is_valid_resume {
+        let file_res = OpenOptions::new()
+            .create(true)
+            .write(true)
+            .truncate(true)
+            .open(&temp_path)
+            .await;
+        match file_res {
+            Ok(f) => {
+                if let Err(e) = f.set_len(total).await {
+                    return AttemptResult::Fatal(format!(
+                        "Failed to pre-allocate file ({} bytes): {}",
+                        total, e
+                    ));
+                }
+            }
+            Err(e) => {
+                return AttemptResult::Fatal(format!("Failed to create temp file: {}", e));
             }
         }
     }
+
+    let on_disk: u64 = segments.iter().sum();
+    bytes_counter.store(base_offset + on_disk, Ordering::SeqCst);
+
+    let progress_tracker = Arc::new(tokio::sync::Mutex::new(SegmentProgressTracker {
+        meta_path: meta_path.clone(),
+        total_size: total,
+        seg_count,
+        segments: segments.clone(),
+        dirty: false,
+    }));
 
     let mut set = tokio::task::JoinSet::new();
     for i in 0..seg_count {
@@ -1325,11 +1431,14 @@ async fn attempt_segmented_download(
         let client_ref = client.clone();
         let id_owned = id.to_string();
         let url_owned = url.to_string();
-        let part_path = parent.join(format!("{}.gamelib_tmp.part{:03}", filename, i));
+        let temp_path_owned = temp_path.clone();
+        let initial_existing = segments[i as usize];
+        let tracker = Arc::clone(&progress_tracker);
         let counter = Arc::clone(bytes_counter);
         let weak = manager_weak.clone();
         let headers = extra_headers.to_vec();
         let referer = referer.map(|s| s.to_string());
+
         set.spawn(async move {
             let mut attempt: u32 = 0;
             loop {
@@ -1337,9 +1446,12 @@ async fn attempt_segmented_download(
                     &client_ref,
                     &id_owned,
                     &url_owned,
-                    &part_path,
+                    &temp_path_owned,
                     seg_start,
                     seg_end,
+                    initial_existing,
+                    i as usize,
+                    &tracker,
                     &counter,
                     &weak,
                     &headers,
@@ -1357,8 +1469,8 @@ async fn attempt_segmented_download(
                             return SegmentResult::Aborted;
                         }
                         println!(
-                            "[downloads] Segment transient error ({}), reconnecting attempt {}/{}",
-                            e, attempt, SEGMENT_RECONNECTS
+                            "[downloads] Segment {} transient error ({}), reconnecting attempt {}/{}",
+                            i, e, attempt, SEGMENT_RECONNECTS
                         );
                         tokio::time::sleep(Duration::from_millis(500)).await;
                     }
@@ -1368,13 +1480,12 @@ async fn attempt_segmented_download(
         });
     }
 
-    // ── Gather results. One failing segment makes the whole attempt
-    // retryable; parts resume from disk, so the retry only re-streams
-    // the missing bytes.
+    // ── Gather results
     let mut aborted = false;
     let mut fatal: Option<String> = None;
     let mut transient: Option<String> = None;
     let mut range_unsupported = false;
+
     while let Some(joined) = set.join_next().await {
         match joined {
             Ok(SegmentResult::Done) => {}
@@ -1391,6 +1502,7 @@ async fn attempt_segmented_download(
             }
         }
     }
+
     if aborted {
         return AttemptResult::Aborted;
     }
@@ -1401,14 +1513,8 @@ async fn attempt_segmented_download(
         return AttemptResult::Retryable(e, None);
     }
     if range_unsupported {
-        // Server served full bodies to some segment — the parts are
-        // garbage, drop them and re-download single-connection.
-        for i in 0..seg_count {
-            let _ = tokio::fs::remove_file(
-                parent.join(format!("{}.gamelib_tmp.part{:03}", filename, i)),
-            )
-            .await;
-        }
+        let _ = tokio::fs::remove_file(&temp_path).await;
+        let _ = tokio::fs::remove_file(&meta_path).await;
         return attempt_download(
             &client,
             id,
@@ -1425,68 +1531,28 @@ async fn attempt_segmented_download(
         .await;
     }
 
-    // Authoritative check: sum what's actually on disk across the parts
-    // (segments may have reconnected internally after partial writes).
-    let on_disk_actual: u64 = (0..seg_count)
-        .map(|i| {
-            std::fs::metadata(parent.join(format!("{}.gamelib_tmp.part{:03}", filename, i)))
-                .map(|m| if m.is_file() { m.len() } else { 0 })
-                .unwrap_or(0)
-                .min(seg_len(i))
-        })
-        .sum();
+    if is_superseded(manager_weak, id, generation).await {
+        return AttemptResult::Aborted;
+    }
+
+    // Clean up metadata file
+    let _ = tokio::fs::remove_file(&meta_path).await;
+
+    // Verify final file size
+    let on_disk_actual = std::fs::metadata(&temp_path)
+        .map(|m| if m.is_file() { m.len() } else { 0 })
+        .unwrap_or(0);
     if on_disk_actual != total {
         return AttemptResult::Retryable(
-            format!("Size mismatch: got {} bytes, expected {}", on_disk_actual, total),
+            format!(
+                "Size mismatch: got {} bytes on disk, expected {}",
+                on_disk_actual, total
+            ),
             None,
         );
     }
 
-    // ── Assemble: concatenate the parts into the temp file, then the
-    // usual rename into place. A superseded worker must not touch the
-    // final path (C1).
-    if is_superseded(manager_weak, id, generation).await {
-        return AttemptResult::Aborted;
-    }
-    let mut out_res = OpenOptions::new()
-        .create(true)
-        .write(true)
-        .truncate(true)
-        .open(&temp_path)
-        .await;
-    match &mut out_res {
-        Ok(out) => {
-            for i in 0..seg_count {
-                let part_path = parent.join(format!("{}.gamelib_tmp.part{:03}", filename, i));
-                if let Ok(part) = tokio::fs::File::open(&part_path).await {
-                    // Cap the copy at the segment length: a part larger than
-                    // its current split (resized file between runs) must not
-                    // bloat the assembled output past `total`.
-                    let mut limited = part.take(seg_len(i));
-                    if tokio::io::copy(&mut limited, out).await.is_err() {
-                        drop(out_res);
-                        let _ = tokio::fs::remove_file(&temp_path).await;
-                        return AttemptResult::Retryable(
-                            "Failed to assemble downloaded parts".to_string(),
-                            None,
-                        );
-                    }
-                }
-            }
-            let _ = out.flush().await;
-        }
-        Err(e) => {
-            return AttemptResult::Fatal(format!("Failed to assemble file: {}", e));
-        }
-    }
-    drop(out_res);
-    for i in 0..seg_count {
-        let _ = tokio::fs::remove_file(parent.join(format!("{}.gamelib_tmp.part{:03}", filename, i)))
-            .await;
-    }
-
-    // Rename can transiently fail (antivirus / lock) — retry like the
-    // single-connection path instead of discarding the file.
+    // Instant atomic rename into place
     let mut rename_attempts = 0;
     loop {
         match tokio::fs::rename(&temp_path, path).await {
