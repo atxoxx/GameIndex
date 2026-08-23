@@ -6,6 +6,7 @@ export type SettingsTab =
   | "appearance"
   | "hardware"
   | "integrations"
+  | "discord"
   | "downloads"
   | "plugins"
   | "launcher"

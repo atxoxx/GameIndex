@@ -7,13 +7,15 @@ import { RocketIcon } from "./settingsIcons";
 
 /**
  * LauncherTab — startup, window and launch behaviour, grouped into
- * labelled sub-sections so the seven options read as a small hierarchy
+ * labelled sub-sections so the options read as a small hierarchy
  * instead of a flat wall of cards:
  *
  *  - Startup: default landing page + auto-start on boot
  *  - Window behaviour: close-to-tray, minimize-on-launch, restore-on-exit
  *  - System access: UAC elevation bypass (warning variant)
- *  - Presence: Discord rich presence (app behaviour lives here)
+ *
+ *  Discord Rich Presence has its own dedicated tab (DiscordTab) since it
+ *  grew per-option toggles; the master switch moved there too.
  */
 export default function LauncherTab() {
   const { t } = useLanguage();
@@ -31,9 +33,6 @@ export default function LauncherTab() {
     setAutoStartEnabled,
     landingPage,
     setLandingPage,
-    discordRichPresence,
-    setDiscordRichPresence,
-    discordStatus,
     ready,
   } = useSettings();
 
@@ -187,23 +186,6 @@ export default function LauncherTab() {
           }}
         />
 
-        {/* ── Presence ────────────────────────────────────────── */}
-        <p className="settings-toggles-title settings-launcher-group-title" id="launcher-presence">
-          {t("settings.launcher.groupPresence")}
-        </p>
-
-        {/* Discord Rich Presence */}
-        <SettingsToggleCard
-          title={t("settings.discord.title")}
-          desc={t("settings.discord.desc")}
-          checked={discordRichPresence}
-          onChange={(v) => setDiscordRichPresence(v)}
-        />
-        {discordRichPresence && discordStatus === "notRunning" && (
-          <p className="connect-prompt settings-launcher-group-note">
-            {t("settings.discord.notRunning")}
-          </p>
-        )}
       </div>
     </SettingsSection>
   );

@@ -21,6 +21,7 @@ import {
   ListIcon,
   TrashIcon,
   BellIcon,
+  DiscordIcon,
 } from "./settingsIcons";
 
 /**
@@ -52,6 +53,7 @@ const TAB_ORDER: SettingsTab[] = [
   "appearance",
   "hardware",
   "integrations",
+  "discord",
   "downloads",
   "plugins",
   "launcher",
@@ -188,6 +190,30 @@ export function buildSettingsCatalog(t: (key: string, vars?: Record<string, unkn
         },
       ],
     },
+    discord: {
+      tab: "discord",
+      labelKey: "settings.tab.discord",
+      descKey: "settings.discord.tabDesc",
+      keywords: "discord rich presence playing status activity cover art playtime website button privacy browsing",
+      icon: <DiscordIcon />,
+      sections: [
+        {
+          id: "discord-general",
+          labelKey: "settings.discord.groupGeneral",
+          keywords: "enable toggle master status running connection discord open",
+        },
+        {
+          id: "discord-playing",
+          labelKey: "settings.discord.groupPlaying",
+          keywords: "cover art poster large image playtime elapsed session timer website button link",
+        },
+        {
+          id: "discord-browsing",
+          labelKey: "settings.discord.groupBrowsing",
+          keywords: "browsing activity page privacy hide where browsing",
+        },
+      ],
+    },
     downloads: {
       tab: "downloads",
       labelKey: "nav.downloads",
@@ -252,7 +278,7 @@ export function buildSettingsCatalog(t: (key: string, vars?: Record<string, unkn
       tab: "launcher",
       labelKey: "settings.tab.launcher",
       descKey: "settings.launcher.desc",
-      keywords: "startup launch tray autostart uac discord window",
+      keywords: "startup launch tray autostart uac window",
       icon: <RocketIcon />,
       sections: [
         {
@@ -269,11 +295,6 @@ export function buildSettingsCatalog(t: (key: string, vars?: Record<string, unkn
           id: "launcher-elevation",
           labelKey: "settings.launcher.groupSystem",
           keywords: "uac elevation admin administrator prompt bypass permission",
-        },
-        {
-          id: "launcher-presence",
-          labelKey: "settings.launcher.groupPresence",
-          keywords: "discord rich presence playing status activity",
         },
       ],
     },
@@ -318,6 +339,11 @@ export function buildSettingsCatalog(t: (key: string, vars?: Record<string, unkn
           tab: "integrations",
           label: t("settings.tab.integrations"),
           icon: <IntegrationsIcon />,
+        },
+        {
+          tab: "discord",
+          label: t("settings.tab.discord"),
+          icon: <DiscordIcon />,
         },
       ],
     },

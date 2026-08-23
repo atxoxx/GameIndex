@@ -13,6 +13,7 @@ import GeneralTab from "./settings/GeneralTab";
 import AppearanceTab from "./settings/AppearanceTab";
 import HardwareTab from "./settings/HardwareTab";
 import IntegrationsTab from "./settings/IntegrationsTab";
+import DiscordTab from "./settings/DiscordTab";
 import DownloadsTab from "./settings/DownloadsTab";
 import PluginsTab from "./settings/PluginsTab";
 import LauncherTab from "./settings/LauncherTab";
@@ -97,6 +98,7 @@ export default function SettingsPage() {
             sectionIds={meta.sections.map((s) => s.id)}
           />
         )}
+        {activeTab === "discord" && <DiscordTab />}
         {activeTab === "downloads" && <DownloadsTab />}
         {activeTab === "plugins" && <PluginsTab />}
         {activeTab === "launcher" && <LauncherTab />}

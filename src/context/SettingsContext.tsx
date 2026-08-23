@@ -48,6 +48,13 @@ const LS_SYNC_INTERVAL = "gamelib.sync_interval_minutes";
 const LS_STEAM_AUTO_DETECT = "gamelib.steam_auto_detect_enabled";
 const LS_ACHIEVEMENT_PRIVACY = "gamelib.hide_achievement_progress";
 const LS_DISCORD_PRESENCE = "gamelib.discord_rich_presence_enabled";
+// Per-option Discord Rich Presence toggles (Settings → Discord tab).
+// Exported so the presence emitters (useSessions, which lives above this
+// provider in the tree) can read the persisted choice without the hook.
+export const LS_DISCORD_SHOW_ART = "gamelib.discord_show_art";
+export const LS_DISCORD_SHOW_PLAYTIME = "gamelib.discord_show_playtime";
+export const LS_DISCORD_SHOW_WEBSITE_BUTTON = "gamelib.discord_show_website_button";
+export const LS_DISCORD_SHOW_BROWSING = "gamelib.discord_show_browsing";
 const LS_HISTORY_CAP_DAYS = "gamelib.player_count_history_cap_days";
 const LS_BLOCKED_DOMAINS = "gamelib.blocked_source_domains";
 
@@ -129,6 +136,18 @@ export interface SettingsContextValue {
   discordRichPresence: boolean;
   setDiscordRichPresence: (next: boolean) => void;
   discordStatus: DiscordStatus;
+  /** Whether the game cover art (large image) is shown while playing. */
+  discordShowArt: boolean;
+  setDiscordShowArt: (next: boolean) => void;
+  /** Whether total playtime + the live session timer are shown while playing. */
+  discordShowPlaytime: boolean;
+  setDiscordShowPlaytime: (next: boolean) => void;
+  /** Whether the "View Website" presence button is attached while playing. */
+  discordShowWebsiteButton: boolean;
+  setDiscordShowWebsiteButton: (next: boolean) => void;
+  /** Whether the "browsing" activity (which page you're on) is broadcast. */
+  discordShowBrowsing: boolean;
+  setDiscordShowBrowsing: (next: boolean) => void;
   historyCapDays: 1 | 7 | 30;
   setHistoryCapDays: (next: 1 | 7 | 30) => void;
   blockedSourceDomains: string[];
@@ -434,6 +453,42 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
     }
   }, []);
 
+  // Per-option visibility toggles. All default to ON so existing users
+  // upgrading see exactly the presence they had before; each can be
+  // switched off for privacy. Read synchronously at emit time by the
+  // presence emitters (useSessions reads the exported LS keys directly
+  // because it lives above this provider in the tree).
+  const [discordShowArt, setDiscordShowArtState] = useState<boolean>(
+    () => lsGet(LS_DISCORD_SHOW_ART) !== "false",
+  );
+  const setDiscordShowArt = useCallback((next: boolean) => {
+    setDiscordShowArtState(next);
+    lsSet(LS_DISCORD_SHOW_ART, String(next));
+  }, []);
+
+  const [discordShowPlaytime, setDiscordShowPlaytimeState] = useState<boolean>(
+    () => lsGet(LS_DISCORD_SHOW_PLAYTIME) !== "false",
+  );
+  const setDiscordShowPlaytime = useCallback((next: boolean) => {
+    setDiscordShowPlaytimeState(next);
+    lsSet(LS_DISCORD_SHOW_PLAYTIME, String(next));
+  }, []);
+
+  const [discordShowWebsiteButton, setDiscordShowWebsiteButtonState] =
+    useState<boolean>(() => lsGet(LS_DISCORD_SHOW_WEBSITE_BUTTON) !== "false");
+  const setDiscordShowWebsiteButton = useCallback((next: boolean) => {
+    setDiscordShowWebsiteButtonState(next);
+    lsSet(LS_DISCORD_SHOW_WEBSITE_BUTTON, String(next));
+  }, []);
+
+  const [discordShowBrowsing, setDiscordShowBrowsingState] = useState<boolean>(
+    () => lsGet(LS_DISCORD_SHOW_BROWSING) !== "false",
+  );
+  const setDiscordShowBrowsing = useCallback((next: boolean) => {
+    setDiscordShowBrowsingState(next);
+    lsSet(LS_DISCORD_SHOW_BROWSING, String(next));
+  }, []);
+
   // Apply the persisted Discord Rich Presence choice on mount so the
   // backend connection thread starts (or stays off) without requiring a
   // manual toggle after every launch.
@@ -618,6 +673,14 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
       discordRichPresence,
       setDiscordRichPresence,
       discordStatus,
+      discordShowArt,
+      setDiscordShowArt,
+      discordShowPlaytime,
+      setDiscordShowPlaytime,
+      discordShowWebsiteButton,
+      setDiscordShowWebsiteButton,
+      discordShowBrowsing,
+      setDiscordShowBrowsing,
       historyCapDays,
       setHistoryCapDays,
       blockedSourceDomains,
@@ -666,6 +729,14 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
       discordRichPresence,
       setDiscordRichPresence,
       discordStatus,
+      discordShowArt,
+      setDiscordShowArt,
+      discordShowPlaytime,
+      setDiscordShowPlaytime,
+      discordShowWebsiteButton,
+      setDiscordShowWebsiteButton,
+      discordShowBrowsing,
+      setDiscordShowBrowsing,
       historyCapDays,
       setHistoryCapDays,
       blockedSourceDomains,

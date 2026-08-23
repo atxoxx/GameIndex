@@ -4,6 +4,7 @@ import { emit } from "@tauri-apps/api/event";
 import { useGames } from "../context/GameContext";
 import { usePresence } from "../context/PresenceContext";
 import { useLanguage } from "../context/LanguageContext";
+import { useSettings } from "../context/SettingsContext";
 
 /**
  * useDiscordPresence
@@ -21,6 +22,7 @@ export function useDiscordPresence() {
   const { games, runningGameIds } = useGames();
   const { storePlatforms, modsGameName } = usePresence();
   const { t } = useLanguage();
+  const { discordShowBrowsing } = useSettings();
 
   // Payload signature of the last event we emitted, so identical states
   // (e.g. re-renders on unrelated context changes) don't spam the IPC.
@@ -29,6 +31,17 @@ export function useDiscordPresence() {
   useEffect(() => {
     // While a game runs, GameContext owns presence — never emit browsing.
     if (runningGameIds.length > 0) return;
+
+    // Browsing broadcast is off: clear any lingering activity (e.g. after
+    // a play session ends) instead of advertising where the user is.
+    if (!discordShowBrowsing) {
+      const payload = { state: "stopped" };
+      const sig = JSON.stringify(payload);
+      if (sig === lastSent.current) return;
+      lastSent.current = sig;
+      void emit("discord-presence-update", payload);
+      return;
+    }
 
     let details: string;
     if (pathname === "/" || pathname === "/home") {
@@ -79,6 +92,7 @@ export function useDiscordPresence() {
     games.length,
     storePlatforms.join(","),
     modsGameName,
+    discordShowBrowsing,
     t,
   ]);
 }

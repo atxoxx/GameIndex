@@ -6,6 +6,11 @@ import {
   LS_UNTRACKED_GAMES,
   type Game,
 } from "../../types/game";
+import {
+  LS_DISCORD_SHOW_ART,
+  LS_DISCORD_SHOW_PLAYTIME,
+  LS_DISCORD_SHOW_WEBSITE_BUTTON,
+} from "../SettingsContext";
 
 interface GameExitEvent {
   gameId: string;
@@ -57,6 +62,18 @@ function discordButtonUrl(game: Game | undefined): string | undefined {
     (u): u is string => typeof u === "string" && u.length > 0,
   );
   return candidates.find((u) => /^https:\/\//i.test(u));
+}
+
+/** Read a Discord presence visibility flag from localStorage at emit time.
+ *  Defaults to ON so unset keys keep the classic behaviour; the Settings
+ *  → Discord tab writes these keys synchronously, and this hook lives above
+ *  the SettingsProvider so it reads storage directly instead of the hook. */
+function lsFlag(key: string): boolean {
+  try {
+    return localStorage.getItem(key) !== "false";
+  } catch {
+    return true;
+  }
 }
 
 export function useSessions(options: {
@@ -188,23 +205,28 @@ export function useSessions(options: {
         const stateLine = platform
           ? t("discordPresence.playingVia", { platform })
           : t("discordPresence.playingState");
+        const showArt = lsFlag(LS_DISCORD_SHOW_ART);
+        const showPlaytime = lsFlag(LS_DISCORD_SHOW_PLAYTIME);
+        const showButton = lsFlag(LS_DISCORD_SHOW_WEBSITE_BUTTON);
         const rawPlayTime = remaining?.playTime;
-        const timeTotal = rawPlayTime && rawPlayTime.trim()
+        const timeTotal = showPlaytime && rawPlayTime && rawPlayTime.trim()
           ? t("discordPresence.playtimeTotal", { time: rawPlayTime.trim() })
           : "";
         void emit("discord-presence-update", {
           state: "playing",
           gameId: remaining?.id ?? "",
           gameName: remainingName,
-          startedAt,
+          startedAt: showPlaytime ? startedAt : 0,
           details: remainingName,
           stateText: [stateLine, timeTotal].filter(Boolean).join(" • "),
-          largeImage: discordAsset(remaining?.coverSourceUrl ?? remaining?.coverArtUrl),
+          largeImage: showArt
+            ? discordAsset(remaining?.coverSourceUrl ?? remaining?.coverArtUrl)
+            : undefined,
           largeText: remainingName,
-          smallImage: discordAsset(remaining?.iconUrl),
+          smallImage: showArt ? discordAsset(remaining?.iconUrl) : undefined,
           smallText: t("discordPresence.smallText"),
-          buttonLabel: t("discordPresence.viewWebsite"),
-          buttonUrl: discordButtonUrl(remaining),
+          buttonLabel: showButton ? t("discordPresence.viewWebsite") : undefined,
+          buttonUrl: showButton ? discordButtonUrl(remaining) : undefined,
         });
       } else {
         // No game left running: the useDiscordPresence hook emits a
@@ -249,23 +271,28 @@ export function useSessions(options: {
       const stateLine = platform
         ? t("discordPresence.playingVia", { platform })
         : t("discordPresence.playingState");
+      const showArt = lsFlag(LS_DISCORD_SHOW_ART);
+      const showPlaytime = lsFlag(LS_DISCORD_SHOW_PLAYTIME);
+      const showButton = lsFlag(LS_DISCORD_SHOW_WEBSITE_BUTTON);
       const rawPlayTime = game?.playTime;
-      const timeTotal = rawPlayTime && rawPlayTime.trim()
+      const timeTotal = showPlaytime && rawPlayTime && rawPlayTime.trim()
         ? t("discordPresence.playtimeTotal", { time: rawPlayTime.trim() })
         : "";
       void emit("discord-presence-update", {
         state: "playing",
         gameId: event.payload.gameId,
         gameName: event.payload.gameName,
-        startedAt,
+        startedAt: showPlaytime ? startedAt : 0,
         details: event.payload.gameName,
         stateText: [stateLine, timeTotal].filter(Boolean).join(" • "),
-        largeImage: discordAsset(game?.coverSourceUrl ?? game?.coverArtUrl),
+        largeImage: showArt
+          ? discordAsset(game?.coverSourceUrl ?? game?.coverArtUrl)
+          : undefined,
         largeText: event.payload.gameName,
-        smallImage: discordAsset(game?.iconUrl),
+        smallImage: showArt ? discordAsset(game?.iconUrl) : undefined,
         smallText: t("discordPresence.smallText"),
-        buttonLabel: t("discordPresence.viewWebsite"),
-        buttonUrl: discordButtonUrl(game),
+        buttonLabel: showButton ? t("discordPresence.viewWebsite") : undefined,
+        buttonUrl: showButton ? discordButtonUrl(game) : undefined,
       });
     });
     return () => {
