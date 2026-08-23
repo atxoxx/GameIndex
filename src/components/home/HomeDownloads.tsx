@@ -1,6 +1,8 @@
 import { useMemo } from "react";
 import { useDownloads } from "../../context/DownloadContext";
 import { useLanguage } from "../../context/LanguageContext";
+import { useSizeUnit } from "../../hooks/useSizeUnit";
+import { useSpeedUnit } from "../../hooks/useSpeedUnit";
 import {
   formatBytesShort,
   formatBytesPerSecond,
@@ -75,6 +77,8 @@ function HomeDownloadRow({
   onResume: () => void;
 }) {
   const { t } = useLanguage();
+  const { unit: sizeUnit } = useSizeUnit();
+  const { unit: speedUnit } = useSpeedUnit();
   const paused = download.status.kind === "paused";
   const pct = formatProgress(download.progress);
   const eta = formatEta(download.downloaded, download.totalSize, download.downloadSpeed, t);
@@ -119,13 +123,13 @@ function HomeDownloadRow({
           {t(`download.status.${download.status.kind}`)}
         </span>
         <span className="home-downloads__bytes">
-          {formatBytesShort(download.downloaded)}
-          {download.totalSize != null ? ` / ${formatBytesShort(download.totalSize)}` : ""}
+          {formatBytesShort(download.downloaded, sizeUnit)}
+          {download.totalSize != null ? ` / ${formatBytesShort(download.totalSize, sizeUnit)}` : ""}
           {download.totalSize != null ? ` · ${pct}` : ""}
         </span>
         {download.downloadSpeed > 0 && (
           <span className="home-downloads__speed">
-            {formatBytesPerSecond(download.downloadSpeed)}
+            {formatBytesPerSecond(download.downloadSpeed, speedUnit)}
             {eta ? ` · ${eta}` : ""}
           </span>
         )}

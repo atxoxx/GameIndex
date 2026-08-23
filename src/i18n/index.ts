@@ -22,6 +22,16 @@ const DICTS: Record<string, TranslationDict> = {
   en,
 };
 
+let activeLocale = DEFAULT_LANGUAGE;
+
+export function getActiveLocale(): string {
+  return activeLocale;
+}
+
+export function setActiveLocale(lang: string): void {
+  activeLocale = lang;
+}
+
 const loaded = new Set<string>(["en"]);
 const pending = new Map<string, Promise<void>>();
 

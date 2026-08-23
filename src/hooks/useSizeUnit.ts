@@ -1,10 +1,13 @@
 import { useCallback, useEffect, useState } from "react";
 import {
   DEFAULT_SIZE_UNIT,
+  formatSize as formatSizeHelper,
   SIZE_UNITS,
   SIZE_UNIT_STORAGE_KEY,
   type SizeUnit,
 } from "../types/game";
+import { formatBytesShort } from "../types/download";
+import { useLanguage } from "../context/LanguageContext";
 
 /**
  * useSizeUnit: user-toggleable display unit for disk sizes.
@@ -25,7 +28,10 @@ import {
 export function useSizeUnit(): {
   unit: SizeUnit;
   setUnit: (next: SizeUnit) => void;
+  formatSize: (bytes: number | null | undefined) => string;
+  formatBytes: (bytes: number | null | undefined) => string;
 } {
+  const { language } = useLanguage();
   const [unit, setUnitState] = useState<SizeUnit>(() => {
     try {
       const raw = localStorage.getItem(SIZE_UNIT_STORAGE_KEY);
@@ -70,5 +76,15 @@ export function useSizeUnit(): {
     }
   }, []);
 
-  return { unit, setUnit };
+  const formatSizeBound = useCallback(
+    (bytes: number | null | undefined) => formatSizeHelper(bytes, unit, language),
+    [unit, language]
+  );
+
+  const formatBytesBound = useCallback(
+    (bytes: number | null | undefined) => formatBytesShort(bytes, unit, language),
+    [unit, language]
+  );
+
+  return { unit, setUnit, formatSize: formatSizeBound, formatBytes: formatBytesBound };
 }

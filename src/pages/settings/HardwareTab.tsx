@@ -4,10 +4,11 @@ import { invoke } from "@tauri-apps/api/core";
 import { useActivity } from "../../context/ActivityContext";
 import { useSettings } from "../../context/SettingsContext";
 import { useSizeUnit } from "../../hooks/useSizeUnit";
+import { useSpeedUnit } from "../../hooks/useSpeedUnit";
 import { useLanguage } from "../../context/LanguageContext";
 import { useToast } from "../../context/ToastContext";
 import { Button } from "../../components/ui";
-import type { SizeUnit } from "../../types/game";
+import type { SizeUnit, SpeedUnit } from "../../types/game";
 import { CpuIcon, GaugeIcon, GpuIcon, HardwareIcon, MemoryIcon, RefreshIcon, ThermometerIcon } from "./settingsIcons";
 import SettingsSection from "./SettingsSection";
 
@@ -33,6 +34,7 @@ export default function HardwareTab() {
     setTempUnit,
   } = useSettings();
   const { unit: sizeUnit, setUnit: setSizeUnit } = useSizeUnit();
+  const { unit: speedUnit, setUnit: setSpeedUnit } = useSpeedUnit();
   const { t } = useLanguage();
   const { showToast } = useToast();
 
@@ -308,8 +310,9 @@ export default function HardwareTab() {
               <label className="hw-card-label">{t("settings.label.sizeUnit")}</label>
             </div>
             <p className="hw-card-help">
-              <strong>GB</strong> {t("settingsPage.sizeUnitGbDesc")}
-              <strong> GiB</strong> {t("settingsPage.sizeUnitGibDesc")}
+              <strong>GB / Go</strong> {t("settingsPage.sizeUnitGbDesc")}
+              <br />
+              <strong>GiB / Gio</strong> {t("settingsPage.sizeUnitGibDesc")}
             </p>
             <select
               className="settings-select hw-select"
@@ -325,6 +328,34 @@ export default function HardwareTab() {
               <option value="gib">{t("settingsPage.gibBinary")}</option>
             </select>
           </div>
+        </div>
+
+        <div className="hw-card" style={{ marginTop: "1rem" }}>
+          <div className="hw-card-head">
+            <label className="hw-card-label">{t("settings.label.speedUnit")}</label>
+          </div>
+          <p className="hw-card-help">{t("settingsPage.speedUnitHelp")}</p>
+          <select
+            className="settings-select hw-select"
+            value={speedUnit}
+            onChange={(e) => {
+              const next = e.target.value as SpeedUnit;
+              setSpeedUnit(next);
+              showToast(
+                next === "bytes"
+                  ? t("settings.downloads.speedNowBytes")
+                  : next === "bits"
+                  ? t("settings.downloads.speedNowBits")
+                  : t("settings.downloads.speedNowBinary"),
+                "success",
+              );
+            }}
+            aria-label={t("settings.label.speedUnit")}
+          >
+            <option value="bytes">{t("settingsPage.speedBytesDecimal")}</option>
+            <option value="bits">{t("settingsPage.speedBits")}</option>
+            <option value="binary">{t("settingsPage.speedBytesBinary")}</option>
+          </select>
         </div>
       </SettingsSection>
     </>

@@ -137,7 +137,7 @@ export function buildSettingsCatalog(t: (key: string, vars?: Record<string, unkn
         {
           id: "hw-display",
           labelKey: "settings.hardware.subsectionDisplay",
-          keywords: "units temperature celsius fahrenheit size storage gb gib decimal binary",
+          keywords: "units temperature celsius fahrenheit size storage gb gib decimal binary speed unit mbit mbps mo/s octets bits",
         },
       ],
     },
@@ -236,7 +236,7 @@ export function buildSettingsCatalog(t: (key: string, vars?: Record<string, unkn
         {
           id: "downloads-bandwidth",
           labelKey: "settings.section.bandwidth",
-          keywords: "speed limit download upload seed kbps disable upload bandwidth throttling queue",
+          keywords: "speed limit download upload seed kbps disable upload bandwidth throttling queue speed unit mbit mbps mo/s octets bits",
           icon: <GaugeIcon />,
         },
         {

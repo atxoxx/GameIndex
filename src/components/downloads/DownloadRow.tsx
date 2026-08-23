@@ -1,5 +1,6 @@
 import React, { useState, useMemo } from "react";
 import { useSizeUnit } from "../../hooks/useSizeUnit";
+import { useSpeedUnit } from "../../hooks/useSpeedUnit";
 import { useDownloadCoverArt } from "../../hooks/useDownloadCoverArt";
 import { useDownloads } from "../../context/DownloadContext";
 import { useGames } from "../../context/GameContext";
@@ -51,7 +52,8 @@ export const DownloadRow = React.memo(
     onRemove,
     onDeleteFiles,
   }: DownloadRowProps) => {
-    const { unit } = useSizeUnit();
+    const { unit: sizeUnit } = useSizeUnit();
+    const { unit: speedUnit } = useSpeedUnit();
     const { launchGame } = useGames();
     const {
       updateSelectedFiles,
@@ -229,13 +231,13 @@ export const DownloadRow = React.memo(
                 {download.totalSize != null ? (
                   <span className="dl-row-size">
                     {" · "}
-                    {formatBytesShort(download.downloaded, unit)} / {formatBytesShort(download.totalSize, unit)}
+                    {formatBytesShort(download.downloaded, sizeUnit)} / {formatBytesShort(download.totalSize, sizeUnit)}
                   </span>
                 ) : (
                   download.downloaded > 0 && (
                     <span className="dl-row-size">
                       {" · "}
-                      {formatBytesShort(download.downloaded, unit)}
+                      {formatBytesShort(download.downloaded, sizeUnit)}
                     </span>
                   )
                 )}
@@ -270,11 +272,11 @@ export const DownloadRow = React.memo(
           <div className="dl-row-speed">
             {isActiveStatus(status) && download.downloadSpeed > 0 ? (
               <span className="dl-row-speed-dl">
-                ↓ {formatBytesPerSecond(download.downloadSpeed, unit)}
+                ↓ {formatBytesPerSecond(download.downloadSpeed, speedUnit)}
               </span>
             ) : isSeeding && download.uploadSpeed > 0 ? (
               <span className="dl-row-speed-ul">
-                ↑ {formatBytesPerSecond(download.uploadSpeed, unit)}
+                ↑ {formatBytesPerSecond(download.uploadSpeed, speedUnit)}
               </span>
             ) : (
               <span className="dl-row-speed-muted">
@@ -283,7 +285,7 @@ export const DownloadRow = React.memo(
             )}
             {isActiveStatus(status) && download.uploadSpeed > 0 && (
               <span className="dl-row-speed-ul">
-                ↑ {formatBytesPerSecond(download.uploadSpeed, unit)}
+                ↑ {formatBytesPerSecond(download.uploadSpeed, speedUnit)}
               </span>
             )}
           </div>
@@ -452,7 +454,7 @@ export const DownloadRow = React.memo(
                       {file.name}
                     </span>
                     <span className="dl-file-size">
-                      {formatBytesShort(file.size, unit)}
+                      {formatBytesShort(file.size, sizeUnit)}
                     </span>
                     <div className="dl-file-progress-bar">
                       <div

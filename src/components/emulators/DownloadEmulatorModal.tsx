@@ -5,6 +5,8 @@ import { invoke } from "@tauri-apps/api/core";
 import { useLanguage } from "../../context/LanguageContext";
 import { useToast } from "../../context/ToastContext";
 import { useDownloads } from "../../context/DownloadContext";
+import { useSizeUnit } from "../../hooks/useSizeUnit";
+import { useSpeedUnit } from "../../hooks/useSpeedUnit";
 import {
   type Emulator,
   type EmulatorDownload,
@@ -108,6 +110,8 @@ interface CatalogRow {
  */
 export default function DownloadEmulatorModal({ onClose, onInstalled }: Props) {
   const { t } = useLanguage();
+  const { unit: sizeUnit } = useSizeUnit();
+  const { unit: speedUnit } = useSpeedUnit();
   const { showToast } = useToast();
   const { downloads, removeDownload } = useDownloads();
 
@@ -343,9 +347,9 @@ export default function DownloadEmulatorModal({ onClose, onInstalled }: Props) {
     statusLabel = t(STATUS_KEYS[download.status.kind] ?? "common.loading");
     const bytes =
       download.totalSize != null
-        ? `${formatBytesShort(download.downloaded)} / ${formatBytesShort(download.totalSize)}`
-        : formatBytesShort(download.downloaded);
-    const speed = download.downloadSpeed > 0 ? formatBytesPerSecond(download.downloadSpeed) : "";
+        ? `${formatBytesShort(download.downloaded, sizeUnit)} / ${formatBytesShort(download.totalSize, sizeUnit)}`
+        : formatBytesShort(download.downloaded, sizeUnit);
+    const speed = download.downloadSpeed > 0 ? formatBytesPerSecond(download.downloadSpeed, speedUnit) : "";
     statusMeta = [
       determinate && download ? formatProgress(download.progress) : "",
       bytes,

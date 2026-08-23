@@ -2,6 +2,8 @@ import { useState, useEffect } from "react";
 import { useDownloads } from "../../context/DownloadContext";
 import { useToast } from "../../context/ToastContext";
 import { useLanguage } from "../../context/LanguageContext";
+import { useSpeedUnit } from "../../hooks/useSpeedUnit";
+import { formatBytesPerSecond } from "../../types/download";
 import { Button } from "../ui";
 import { SlidersIcon } from "./DownloadIcons";
 
@@ -32,7 +34,8 @@ const UL_PRESETS = [
 export default function SpeedLimiterModal({ open, onClose }: SpeedLimiterModalProps) {
   const { speedLimits, setSpeedLimits, setSeedConfig, seedAfterComplete } = useDownloads();
   const { showToast } = useToast();
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
+  const { unit: speedUnit } = useSpeedUnit();
 
   const [dlLimit, setDlLimit] = useState<number>(0);
   const [ulLimit, setUlLimit] = useState<number>(0);
@@ -149,7 +152,7 @@ export default function SpeedLimiterModal({ open, onClose }: SpeedLimiterModalPr
             <div className="dl-speed-section-title">
               <span>{t("downloads.downloadLimit")}</span>
               <span className="dl-speed-current-val">
-                {dlLimit === 0 ? t("downloads.unlimited") : `${(dlLimit / 1024).toFixed(0)} MB/s`}
+                {dlLimit === 0 ? t("downloads.unlimited") : formatBytesPerSecond(dlLimit * 1024, speedUnit)}
               </span>
             </div>
             <div className="dl-speed-presets">
@@ -163,7 +166,7 @@ export default function SpeedLimiterModal({ open, onClose }: SpeedLimiterModalPr
                     setDlCustom("");
                   }}
                 >
-                  {p.value === 0 ? t("downloads.unlimited") : p.label}
+                  {p.value === 0 ? t("downloads.unlimited") : formatBytesPerSecond(p.value * 1024, speedUnit)}
                 </button>
               ))}
             </div>
@@ -179,7 +182,7 @@ export default function SpeedLimiterModal({ open, onClose }: SpeedLimiterModalPr
                 aria-label={`${t("downloads.downloadLimit")} (${t("downloads.custom")})`}
                 onChange={(e) => applyDlCustom(e.target.value)}
               />
-              <span className="dl-speed-custom-unit">MB/s</span>
+              <span className="dl-speed-custom-unit">{language === "fr" ? "Mo/s" : "MB/s"}</span>
             </div>
           </div>
 
@@ -192,7 +195,7 @@ export default function SpeedLimiterModal({ open, onClose }: SpeedLimiterModalPr
                   ? t("downloads.disableUpload")
                   : ulLimit === 0
                   ? t("downloads.unlimited")
-                  : `${(ulLimit / 1024).toFixed(0)} MB/s`}
+                  : formatBytesPerSecond(ulLimit * 1024, speedUnit)}
               </span>
             </div>
             <div className="dl-speed-presets">
@@ -215,7 +218,7 @@ export default function SpeedLimiterModal({ open, onClose }: SpeedLimiterModalPr
                       }
                     }}
                   >
-                    {p.value === -1 ? t("downloads.disableUpload") : p.value === 0 ? t("downloads.unlimited") : p.label}
+                    {p.value === -1 ? t("downloads.disableUpload") : p.value === 0 ? t("downloads.unlimited") : formatBytesPerSecond(p.value * 1024, speedUnit)}
                   </button>
                 );
               })}
@@ -232,7 +235,7 @@ export default function SpeedLimiterModal({ open, onClose }: SpeedLimiterModalPr
                 aria-label={`${t("downloads.uploadLimit")} (${t("downloads.custom")})`}
                 onChange={(e) => applyUlCustom(e.target.value)}
               />
-              <span className="dl-speed-custom-unit">MB/s</span>
+              <span className="dl-speed-custom-unit">{language === "fr" ? "Mo/s" : "MB/s"}</span>
             </div>
           </div>
 

@@ -43,6 +43,7 @@ import {
 } from "../types/download";
 import { useToast } from "../context/ToastContext";
 import { useSizeUnit } from "../hooks/useSizeUnit";
+import { useSpeedUnit } from "../hooks/useSpeedUnit";
 import { useLanguage } from "../context/LanguageContext";
 import { ConfirmModal } from "./ui";
 
@@ -93,7 +94,8 @@ const DownloadCard = React.memo(({
    * dialog can render size / name / save path context. */
   onDeleteFiles: (download: TorrentDownload) => void;
 }) => {
-  const { unit } = useSizeUnit();
+  const { unit: sizeUnit } = useSizeUnit();
+  const { unit: speedUnit } = useSpeedUnit();
   const { t } = useLanguage();
   const status = download.status;
   const errorMessage = getStatusError(status);
@@ -167,19 +169,19 @@ const DownloadCard = React.memo(({
             <span>
               <strong>{formatProgress(download.progress)}</strong>
               {download.totalSize != null ? (
-                <> · {formatBytesShort(download.downloaded, unit)} / {formatBytesShort(download.totalSize, unit)}</>
+                <> · {formatBytesShort(download.downloaded, sizeUnit)} / {formatBytesShort(download.totalSize, sizeUnit)}</>
               ) : (
-                download.downloaded > 0 && <> · {formatBytesShort(download.downloaded, unit)}</>
+                download.downloaded > 0 && <> · {formatBytesShort(download.downloaded, sizeUnit)}</>
               )}
             </span>
             {isActiveStatus(status) && download.downloadSpeed > 0 && (
               <span
                 className="dl-progress-card-stat-dl"
                 title={t("downloads.downloadSpeed")}
-                aria-label={`Download speed: ${formatBytesPerSecond(download.downloadSpeed, unit)}`}
+                aria-label={`Download speed: ${formatBytesPerSecond(download.downloadSpeed, speedUnit)}`}
               >
                 <span className="dl-progress-card-stat-icon" aria-hidden>↓</span>
-                {formatBytesPerSecond(download.downloadSpeed, unit)}
+                {formatBytesPerSecond(download.downloadSpeed, speedUnit)}
               </span>
             )}
             {isCompleted && download.totalSize != null && (
@@ -207,13 +209,13 @@ const DownloadCard = React.memo(({
                   <span
                     className="dl-progress-card-stat-ul"
                     title={t("downloads.uploadSpeed")}
-                    aria-label={`Upload speed: ${formatBytesPerSecond(download.uploadSpeed, unit)}`}
+                    aria-label={`Upload speed: ${formatBytesPerSecond(download.uploadSpeed, speedUnit)}`}
                   >
                     <span
                       className="dl-progress-card-stat-icon"
                       aria-hidden
                     >↑</span>
-                    {formatBytesPerSecond(download.uploadSpeed, unit)}
+                    {formatBytesPerSecond(download.uploadSpeed, speedUnit)}
                   </span>
                 )}
                 <span

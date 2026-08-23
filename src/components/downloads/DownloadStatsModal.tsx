@@ -4,6 +4,7 @@ import { save } from "@tauri-apps/plugin-dialog";
 import { useLanguage } from "../../context/LanguageContext";
 import { useToast } from "../../context/ToastContext";
 import { useSizeUnit } from "../../hooks/useSizeUnit";
+import { useSpeedUnit } from "../../hooks/useSpeedUnit";
 import type { TorrentDownload, DownloadHistory } from "../../types/download";
 import { formatBytesShort, formatBytesPerSecond, formatProgress } from "../../types/download";
 import { Button, ConfirmModal } from "../ui";
@@ -133,7 +134,8 @@ const DebridIcon = () => (
 export default function DownloadStatsModal({ open, onClose, downloads, history, onResetStats }: DownloadStatsModalProps) {
   const { t } = useLanguage();
   const { showToast } = useToast();
-  const { unit } = useSizeUnit();
+  const { unit: sizeUnit } = useSizeUnit();
+  const { unit: speedUnit } = useSpeedUnit();
 
   const [activeTab, setActiveTab] = useState<StatsTab>("overview");
   const [exportFormat, setExportFormat] = useState<ExportFormat>("json");
@@ -502,11 +504,11 @@ export default function DownloadStatsModal({ open, onClose, downloads, history, 
       "",
       `## 🚀 Key Performance Indicators`,
       `- **Total Downloads**: ${stats.total}`,
-      `- **Total Data Downloaded**: ${formatBytesShort(stats.totalDownloadedBytes, unit)}`,
-      `- **Total Catalog Volume**: ${formatBytesShort(stats.totalPayloadBytes, unit)}`,
+      `- **Total Data Downloaded**: ${formatBytesShort(stats.totalDownloadedBytes, sizeUnit)}`,
+      `- **Total Catalog Volume**: ${formatBytesShort(stats.totalPayloadBytes, sizeUnit)}`,
       `- **Completion Success Rate**: ${stats.completionRate.toFixed(1)}%`,
-      `- **Active Downloads**: ${stats.downloadingCount} (${formatBytesPerSecond(stats.totalCurrentDownSpeed, unit)})`,
-      `- **Active Seeding**: ${stats.seedingCount} (${formatBytesPerSecond(stats.totalCurrentUpSpeed, unit)})`,
+      `- **Active Downloads**: ${stats.downloadingCount} (${formatBytesPerSecond(stats.totalCurrentDownSpeed, speedUnit)})`,
+      `- **Active Seeding**: ${stats.seedingCount} (${formatBytesPerSecond(stats.totalCurrentUpSpeed, speedUnit)})`,
       `- **Swarm Connectivity**: ${stats.totalConnectedPeers} connected peers · ${stats.totalKnownSeeds} known seeds`,
       "",
       `## 🌐 Protocols & Pipelines`,
@@ -515,14 +517,14 @@ export default function DownloadStatsModal({ open, onClose, downloads, history, 
       `- **Real-Debrid**: ${stats.debridCount} downloads (Cache Hit Rate: ${stats.debridCacheRate.toFixed(0)}%)`,
       "",
       `## 💾 Top Sources by Volume`,
-      ...stats.sourcesList.slice(0, 8).map((s, idx) => `${idx + 1}. **${s.name}**: ${s.count} items (${formatBytesShort(s.bytes, unit)})`),
+      ...stats.sourcesList.slice(0, 8).map((s, idx) => `${idx + 1}. **${s.name}**: ${s.count} items (${formatBytesShort(s.bytes, sizeUnit)})`),
       "",
       `## 📦 Download Items (${mergedDownloads.length})`,
       "| Name | Protocol | Status | Size | Downloaded | Progress |",
       "| :--- | :--- | :--- | :--- | :--- | :--- |",
       ...mergedDownloads.map(
         (d) =>
-          `| ${d.name.replace(/\|/g, "/")} | ${d.kind} | ${d.status.kind} | ${formatBytesShort(d.totalSize ?? 0, unit)} | ${formatBytesShort(d.downloaded, unit)} | ${formatProgress(d.progress)} |`,
+          `| ${d.name.replace(/\|/g, "/")} | ${d.kind} | ${d.status.kind} | ${formatBytesShort(d.totalSize ?? 0, sizeUnit)} | ${formatBytesShort(d.downloaded, sizeUnit)} | ${formatProgress(d.progress)} |`,
       ),
       "",
       `*Report created via GameIndex Engine*`,
@@ -682,10 +684,10 @@ export default function DownloadStatsModal({ open, onClose, downloads, history, 
                 <div className="dl-stats-kpi-card">
                   <span className="dl-stats-kpi-label">{t("downloadStats.totalDownloaded")}</span>
                   <span className="dl-stats-kpi-value dl-stats-kpi-value--accent">
-                    {formatBytesShort(stats.totalDownloadedBytes, unit)}
+                    {formatBytesShort(stats.totalDownloadedBytes, sizeUnit)}
                   </span>
                   <span className="dl-stats-kpi-sub">
-                    {t("downloadStats.totalCatalogSize", { size: formatBytesShort(stats.totalPayloadBytes, unit) })}
+                    {t("downloadStats.totalCatalogSize", { size: formatBytesShort(stats.totalPayloadBytes, sizeUnit) })}
                   </span>
                 </div>
 
@@ -702,10 +704,10 @@ export default function DownloadStatsModal({ open, onClose, downloads, history, 
                 <div className="dl-stats-kpi-card">
                   <span className="dl-stats-kpi-label">{t("downloadStats.liveTransfer")}</span>
                   <span className="dl-stats-kpi-value dl-stats-kpi-value--info">
-                    {formatBytesPerSecond(stats.totalCurrentDownSpeed, unit)}
+                    {formatBytesPerSecond(stats.totalCurrentDownSpeed, speedUnit)}
                   </span>
                   <span className="dl-stats-kpi-sub">
-                    ↑ {formatBytesPerSecond(stats.totalCurrentUpSpeed, unit)} {t("downloadStats.uploadActive")}
+                    ↑ {formatBytesPerSecond(stats.totalCurrentUpSpeed, speedUnit)} {t("downloadStats.uploadActive")}
                   </span>
                 </div>
 
@@ -884,7 +886,7 @@ export default function DownloadStatsModal({ open, onClose, downloads, history, 
                             <div className="dl-stats-bar-meta">
                               <span className="dl-stats-bar-title" title={src.name}>{src.name}</span>
                               <span className="dl-stats-bar-val">
-                                {formatBytesShort(src.bytes, unit)} ({src.count})
+                                {formatBytesShort(src.bytes, sizeUnit)} ({src.count})
                               </span>
                             </div>
                             <div className="dl-stats-bar-track">
@@ -901,7 +903,7 @@ export default function DownloadStatsModal({ open, onClose, downloads, history, 
                 <div className="dl-stats-card">
                   <div className="dl-stats-card-header">
                     <h3 className="dl-stats-card-title">{t("downloadStats.sizeTiers")}</h3>
-                    <span className="dl-stats-card-badge">{t("downloadStats.avgLabel", { size: formatBytesShort(stats.avgSize, unit) })}</span>
+                    <span className="dl-stats-card-badge">{t("downloadStats.avgLabel", { size: formatBytesShort(stats.avgSize, sizeUnit) })}</span>
                   </div>
 
                   <div className="dl-stats-bars-list">
@@ -940,7 +942,7 @@ export default function DownloadStatsModal({ open, onClose, downloads, history, 
                         <div className="dl-stats-bar-meta">
                           <span className="dl-stats-bar-title">{d.drive}</span>
                           <span className="dl-stats-bar-val">
-                            {formatBytesShort(d.bytes, unit)} ({d.count} {t("downloadStats.items")})
+                            {formatBytesShort(d.bytes, sizeUnit)} ({d.count} {t("downloadStats.items")})
                           </span>
                         </div>
                         <div className="dl-stats-bar-track">
@@ -1015,7 +1017,7 @@ export default function DownloadStatsModal({ open, onClose, downloads, history, 
                           <span className="dl-stats-mini-sub">{item.sourceName}</span>
                         </div>
                         <span className="dl-stats-mini-value">
-                          {formatBytesShort(item.totalSize ?? item.downloaded, unit)}
+                          {formatBytesShort(item.totalSize ?? item.downloaded, sizeUnit)}
                         </span>
                       </div>
                     ))}
@@ -1041,7 +1043,7 @@ export default function DownloadStatsModal({ open, onClose, downloads, history, 
                             <span className="dl-stats-mini-sub">{item.sourceName}</span>
                           </div>
                           <span className="dl-stats-mini-value">
-                            {formatBytesShort(item.totalSize ?? item.downloaded, unit)}
+                            {formatBytesShort(item.totalSize ?? item.downloaded, sizeUnit)}
                           </span>
                         </div>
                       ))
@@ -1121,9 +1123,9 @@ export default function DownloadStatsModal({ open, onClose, downloads, history, 
                               {t(STATUS_KIND_LABEL_KEY[d.status.kind] ?? d.status.kind)}
                             </span>
                           </td>
-                          <td>{formatBytesShort(d.totalSize ?? d.downloaded, unit)}</td>
+                          <td>{formatBytesShort(d.totalSize ?? d.downloaded, sizeUnit)}</td>
                           <td>{formatProgress(d.progress)}</td>
-                          <td>{formatBytesPerSecond(d.downloadSpeed, unit)}</td>
+                          <td>{formatBytesPerSecond(d.downloadSpeed, speedUnit)}</td>
                           <td>{d.kind === "torrent" ? `${d.peers} / ${d.seeds}` : "—"}</td>
                         </tr>
                       ))

@@ -3,9 +3,11 @@ import { invoke } from "@tauri-apps/api/core";
 
 import { useDownloads } from "../../context/DownloadContext";
 import { useSettings } from "../../context/SettingsContext";
+import { useSpeedUnit } from "../../hooks/useSpeedUnit";
 import { useLanguage } from "../../context/LanguageContext";
 import { useToast } from "../../context/ToastContext";
 import { Button } from "../../components/ui";
+import type { SpeedUnit } from "../../types/game";
 import SettingsSection from "./SettingsSection";
 import { BellIcon, CloudIcon, FolderIcon, GaugeIcon, ShieldIcon } from "./settingsIcons";
 
@@ -36,6 +38,7 @@ export default function DownloadsTab() {
     setDebridApiKey,
   } = useDownloads();
   const { blockedSourceDomains, setBlockedSourceDomains } = useSettings();
+  const { unit: speedUnit, setUnit: setSpeedUnit } = useSpeedUnit();
   const { t } = useLanguage();
 
   const [testingDebrid, setTestingDebrid] = useState(false);
@@ -179,6 +182,35 @@ export default function DownloadsTab() {
         desc={t("settings.downloads.bandwidthDesc")}
       >
         <div className="settings-bandwidth-limits">
+          <div className="settings-limit-row settings-limit-row--unit">
+            <label className="settings-checkbox-label settings-checkbox-label--fixed">
+              <span>{t("settings.label.speedUnit")}</span>
+            </label>
+            <div className="settings-limit-value" style={{ minWidth: "220px" }}>
+              <select
+                className="settings-select"
+                value={speedUnit}
+                onChange={(e) => {
+                  const next = e.target.value as SpeedUnit;
+                  setSpeedUnit(next);
+                  showToast(
+                    next === "bytes"
+                      ? t("settings.downloads.speedNowBytes")
+                      : next === "bits"
+                      ? t("settings.downloads.speedNowBits")
+                      : t("settings.downloads.speedNowBinary"),
+                    "success",
+                  );
+                }}
+                aria-label={t("settings.label.speedUnit")}
+              >
+                <option value="bytes">{t("settingsPage.speedBytesDecimal")}</option>
+                <option value="bits">{t("settingsPage.speedBits")}</option>
+                <option value="binary">{t("settingsPage.speedBytesBinary")}</option>
+              </select>
+            </div>
+          </div>
+
           <div className="settings-limit-row">
             <label className="settings-checkbox-label settings-checkbox-label--fixed">
               <input

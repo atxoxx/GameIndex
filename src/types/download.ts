@@ -1,10 +1,13 @@
 // TypeScript mirrors of the Rust DTOs in `src-tauri/src/torrent_engine.rs`
 // and `src-tauri/src/store_checker.rs`. Field names are camelCase because
 // the backend uses `#[serde(rename_all = "camelCase")]` on its structs.
-//
-import type { SizeUnit } from "./game";
-
-// Keep this file in sync with the Rust side — the frontend DTOs and the
+import {
+  DEFAULT_SIZE_UNIT,
+  DEFAULT_SPEED_UNIT,
+  type SizeUnit,
+  type SpeedUnit,
+} from "./game";
+import { getActiveLocale } from "../i18n";
 // wire format must stay byte-for-byte compatible, or `invoke<DownloadStatus>`
 // will fail to deserialize and every Tauri command will throw.
 //
@@ -186,14 +189,66 @@ export interface StoreOwnership {
 
 // ─── Display helpers ───────────────────────────────────────────────────────
 
-/** Render a byte/sec value as a human speed string. */
-export function formatBytesPerSecond(bytesPerSec: number, unit: SizeUnit = "gb"): string {
-  if (!Number.isFinite(bytesPerSec) || bytesPerSec <= 0) return "0 B/s";
-  const isGib = unit === "gib";
-  const divisor = isGib ? 1024 : 1000;
-  const units = isGib
-    ? ["B/s", "KiB/s", "MiB/s", "GiB/s"]
-    : ["B/s", "KB/s", "MB/s", "GB/s"];
+/**
+ * Render a byte/sec value as a human speed string.
+ * Supports:
+ * - "bytes": Decimal bytes/s (B/s, KB/s, MB/s, GB/s — in French: o/s, ko/s, Mo/s, Go/s)
+ * - "binary" / "gib": Binary bytes/s (B/s, KiB/s, MiB/s, GiB/s — in French: o/s, Kio/s, Mio/s, Gio/s)
+ * - "bits": Network bits/s (bit/s, kbit/s, Mbit/s, Gbit/s / Mbps)
+ */
+export function formatBytesPerSecond(
+  bytesPerSec: number,
+  unit: SizeUnit | SpeedUnit = DEFAULT_SPEED_UNIT,
+  lang?: string
+): string {
+  const effectiveLang = lang || getActiveLocale();
+  const isBits = unit === "bits";
+  const isBinary = unit === "gib" || unit === "binary";
+
+  if (!Number.isFinite(bytesPerSec) || bytesPerSec <= 0) {
+    if (isBits) {
+      return effectiveLang === "ru" ? "0 бит/с" : "0 bit/s";
+    }
+    if (effectiveLang === "fr") {
+      return "0 o/s";
+    }
+    if (effectiveLang === "ru") {
+      return "0 Б/с";
+    }
+    return "0 B/s";
+  }
+
+  if (isBits) {
+    // 1 byte = 8 bits. Telecom standard divisor is 1000.
+    let value = bytesPerSec * 8;
+    const units =
+      effectiveLang === "ru"
+        ? ["бит/с", "кбит/с", "Мбит/с", "Гбит/с", "Тбит/с"]
+        : ["bit/s", "kbit/s", "Mbit/s", "Gbit/s", "Tbit/s"];
+    let unitIndex = 0;
+    while (value >= 1000 && unitIndex < units.length - 1) {
+      value /= 1000;
+      unitIndex++;
+    }
+    return `${value.toFixed(value >= 100 ? 0 : value >= 10 ? 1 : 2)} ${units[unitIndex]}`;
+  }
+
+  const divisor = isBinary ? 1024 : 1000;
+  let units: string[];
+  if (effectiveLang === "fr") {
+    units = isBinary
+      ? ["o/s", "Kio/s", "Mio/s", "Gio/s", "Tio/s"]
+      : ["o/s", "ko/s", "Mo/s", "Go/s", "To/s"];
+  } else if (effectiveLang === "ru") {
+    units = isBinary
+      ? ["Б/с", "КиБ/с", "МиБ/с", "ГиБ/с", "ТиБ/с"]
+      : ["Б/с", "КБ/с", "МБ/с", "ГБ/с", "ТБ/с"];
+  } else {
+    units = isBinary
+      ? ["B/s", "KiB/s", "MiB/s", "GiB/s", "TiB/s"]
+      : ["B/s", "KB/s", "MB/s", "GB/s", "TB/s"];
+  }
+
   let value = bytesPerSec;
   let unitIndex = 0;
   while (value >= divisor && unitIndex < units.length - 1) {
@@ -203,14 +258,34 @@ export function formatBytesPerSecond(bytesPerSec: number, unit: SizeUnit = "gb")
   return `${value.toFixed(value >= 100 ? 0 : value >= 10 ? 1 : 2)} ${units[unitIndex]}`;
 }
 
-/** Render a byte total as a short size string ("1.4 GB", "820 MB", "1.4 GiB", "820 MiB"). */
-export function formatBytesShort(bytes: number, unit: SizeUnit = "gb"): string {
-  if (!Number.isFinite(bytes) || bytes <= 0) return "—";
+export const formatSpeed = formatBytesPerSecond;
+
+/** Render a byte total as a short size string ("1.4 GB", "820 MB", "1.4 GiB", "820 MiB", "820 Mo", "1.4 Go"). */
+export function formatBytesShort(
+  bytes: number | undefined | null,
+  unit: SizeUnit = DEFAULT_SIZE_UNIT,
+  lang?: string
+): string {
+  if (bytes == null || !Number.isFinite(bytes) || bytes <= 0) return "—";
+  const effectiveLang = lang || getActiveLocale();
   const isGib = unit === "gib";
   const divisor = isGib ? 1024 : 1000;
-  const units = isGib
-    ? ["B", "KiB", "MiB", "GiB", "TiB"]
-    : ["B", "KB", "MB", "GB", "TB"];
+
+  let units: string[];
+  if (effectiveLang === "fr") {
+    units = isGib
+      ? ["o", "Kio", "Mio", "Gio", "Tio", "Pio"]
+      : ["o", "ko", "Mo", "Go", "To", "Po"];
+  } else if (effectiveLang === "ru") {
+    units = isGib
+      ? ["Б", "КиБ", "МиБ", "ГиБ", "ТиБ", "ПиБ"]
+      : ["Б", "КБ", "МБ", "ГБ", "ТБ", "ПБ"];
+  } else {
+    units = isGib
+      ? ["B", "KiB", "MiB", "GiB", "TiB", "PiB"]
+      : ["B", "KB", "MB", "GB", "TB", "PB"];
+  }
+
   let value = bytes;
   let unitIndex = 0;
   while (value >= divisor && unitIndex < units.length - 1) {

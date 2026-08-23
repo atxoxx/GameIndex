@@ -1,6 +1,7 @@
 import React from "react";
 import type { TorrentDownload } from "../../types/download";
 import { useSizeUnit } from "../../hooks/useSizeUnit";
+import { useSpeedUnit } from "../../hooks/useSpeedUnit";
 import { useDownloadCoverArt } from "../../hooks/useDownloadCoverArt";
 import { useGames } from "../../context/GameContext";
 import { useDownloads } from "../../context/DownloadContext";
@@ -48,7 +49,8 @@ export const DownloadGridCard = React.memo(
     onRemove,
     onDeleteFiles,
   }: DownloadGridCardProps) => {
-    const { unit } = useSizeUnit();
+    const { unit: sizeUnit } = useSizeUnit();
+    const { unit: speedUnit } = useSpeedUnit();
     const { launchGame } = useGames();
     const { openDownloadFolder } = useDownloads();
     const { showToast } = useToast();
@@ -143,8 +145,8 @@ export const DownloadGridCard = React.memo(
             <div className="dl-card-progress-meta">
               <span className="dl-card-pct">{formatProgress(download.progress)}</span>
               <span className="dl-card-size">
-                {formatBytesShort(download.downloaded, unit)}
-                {download.totalSize != null && ` / ${formatBytesShort(download.totalSize, unit)}`}
+                {formatBytesShort(download.downloaded, sizeUnit)}
+                {download.totalSize != null && ` / ${formatBytesShort(download.totalSize, sizeUnit)}`}
               </span>
             </div>
           </div>
@@ -153,11 +155,11 @@ export const DownloadGridCard = React.memo(
           <div className="dl-card-telemetry">
             {isActiveStatus(status) && download.downloadSpeed > 0 ? (
               <div className="dl-card-speed dl-card-speed--dl">
-                ↓ {formatBytesPerSecond(download.downloadSpeed, unit)}
+                ↓ {formatBytesPerSecond(download.downloadSpeed, speedUnit)}
               </div>
             ) : isSeeding && download.uploadSpeed > 0 ? (
               <div className="dl-card-speed dl-card-speed--ul">
-                ↑ {formatBytesPerSecond(download.uploadSpeed, unit)}
+                ↑ {formatBytesPerSecond(download.uploadSpeed, speedUnit)}
               </div>
             ) : (
               <div className="dl-card-speed dl-card-speed--muted">

@@ -14,7 +14,7 @@ import {
 } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { DEFAULT_LANGUAGE, isSupportedUiCode, UI_LANGUAGES } from "../i18n/languages";
-import { ensureLocaleLoaded, translate } from "../i18n";
+import { ensureLocaleLoaded, setActiveLocale, translate } from "../i18n";
 
 interface LanguageContextValue {
   /** Active UI locale code (e.g. "en", "zh-CN"). */
@@ -54,6 +54,7 @@ export function LanguageProvider({ children }: { children: ReactNode }) {
   // ensure its chunk is loaded so `t()` has the real dictionary and not
   // just the English fallback. `en` is eager, so this is a no-op for it.
   useEffect(() => {
+    setActiveLocale(language);
     void ensureLocaleLoaded(language).catch(() => {
       /* fallback handled inside translate() */
     });

@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { useDownloads } from "../../context/DownloadContext";
 import { useSizeUnit } from "../../hooks/useSizeUnit";
+import { useSpeedUnit } from "../../hooks/useSpeedUnit";
 import { useLanguage } from "../../context/LanguageContext";
 import { formatBytesPerSecond, formatBytesShort } from "../../types/download";
 import { SlidersIcon, StatsBarIcon } from "./DownloadIcons";
@@ -13,7 +14,8 @@ interface BandwidthHeroProps {
 
 export default function BandwidthHero({ onOpenStats }: BandwidthHeroProps) {
   const { activeDownloads, speedLimits } = useDownloads();
-  const { unit } = useSizeUnit();
+  const { unit: sizeUnit } = useSizeUnit();
+  const { unit: speedUnit } = useSpeedUnit();
   const { t } = useLanguage();
 
   const totalDownloadSpeed = activeDownloads.reduce((acc, d) => acc + (d.downloadSpeed || 0), 0);
@@ -56,16 +58,16 @@ export default function BandwidthHero({ onOpenStats }: BandwidthHeroProps) {
             </span>
             {peakDown > 0 && (
               <span className="dl-hero-peak" title={t("downloads.peakSpeed")}>
-                ▲ {formatBytesPerSecond(peakDown, unit)}
+                ▲ {formatBytesPerSecond(peakDown, speedUnit)}
               </span>
             )}
           </div>
           <div className="dl-hero-value dl-hero-value-down">
-            {formatBytesPerSecond(totalDownloadSpeed, unit)}
+            {formatBytesPerSecond(totalDownloadSpeed, speedUnit)}
           </div>
           {sessionDown > 0 && (
             <span className="dl-hero-sub">
-              {t("downloads.sessionDownloaded")}: {formatBytesShort(sessionDown, unit)}
+              {t("downloads.sessionDownloaded")}: {formatBytesShort(sessionDown, sizeUnit)}
             </span>
           )}
         </div>
@@ -81,12 +83,12 @@ export default function BandwidthHero({ onOpenStats }: BandwidthHeroProps) {
             </span>
             {peakUp > 0 && (
               <span className="dl-hero-peak" title={t("downloads.peakSpeed")}>
-                ▲ {formatBytesPerSecond(peakUp, unit)}
+                ▲ {formatBytesPerSecond(peakUp, speedUnit)}
               </span>
             )}
           </div>
           <div className="dl-hero-value dl-hero-value-up">
-            {formatBytesPerSecond(totalUploadSpeed, unit)}
+            {formatBytesPerSecond(totalUploadSpeed, speedUnit)}
           </div>
           <span className="dl-hero-sub">
             {isUploading ? t("downloads.liveSwarm") : t("downloads.unlimited")}

@@ -1,3 +1,5 @@
+import { getActiveLocale } from "../i18n";
+
 /** Generate a URL-safe slug from a game name (for store navigation and API matching). */
 export function slugify(name: string): string {
   if (!name) return "";
@@ -1006,6 +1008,23 @@ export const DEFAULT_SIZE_UNIT: SizeUnit = "gb";
 /** All valid size unit values, for runtime validation in the hook. */
 export const SIZE_UNITS: readonly SizeUnit[] = ["gb", "gib"] as const;
 
+/**
+ * Speed unit setting:
+ * - `bytes`  : Decimal bytes/s (B/s, KB/s, MB/s, GB/s — in French: o/s, ko/s, Mo/s, Go/s). Divisor: 1,000.
+ * - `binary` : Binary bytes/s (B/s, KiB/s, MiB/s, GiB/s — in French: o/s, Kio/s, Mio/s, Gio/s). Divisor: 1,024.
+ * - `bits`   : Network bits/s (bit/s, kbit/s, Mbit/s, Gbit/s / Mbps). Multiplier: 8, Divisor: 1,000.
+ */
+export type SpeedUnit = "bytes" | "binary" | "bits";
+
+/** localStorage key for the user's chosen speed unit. */
+export const SPEED_UNIT_STORAGE_KEY = "gamelib_speed_unit_v1";
+
+/** Default speed unit when nothing is stored (or stored value is invalid). */
+export const DEFAULT_SPEED_UNIT: SpeedUnit = "bytes";
+
+/** All valid speed unit values, for runtime validation in the hook. */
+export const SPEED_UNITS: readonly SpeedUnit[] = ["bytes", "binary", "bits"] as const;
+
 // ─── Wishlist ──────────────────────────────────────────────────────────────────
 
 /**
@@ -1351,14 +1370,19 @@ export function addSessionTime(playTime: string, elapsedSeconds: number): string
  */
 export function formatSize(
   bytes: number | undefined | null,
-  unit: SizeUnit = DEFAULT_SIZE_UNIT
+  unit: SizeUnit = DEFAULT_SIZE_UNIT,
+  lang?: string
 ): string {
-  // IEC binary prefix is "GiB" (capital G, lowercase iB) — NOT "GIB".
-  // Hardcode the label so the user-facing string matches the spec
-  // convention regardless of how `unit` is cased internally.
-  const label = unit === "gib" ? "GiB" : "GB";
+  const effectiveLang = lang || getActiveLocale();
+  const isGib = unit === "gib";
+  let label = isGib ? "GiB" : "GB";
+  if (effectiveLang === "fr") {
+    label = isGib ? "Gio" : "Go";
+  } else if (effectiveLang === "ru") {
+    label = isGib ? "ГиБ" : "ГБ";
+  }
   if (bytes == null || bytes <= 0) return `0.0 ${label}`;
-  const divisor = unit === "gib" ? 1_073_741_824 : 1_000_000_000;
+  const divisor = isGib ? 1_073_741_824 : 1_000_000_000;
   return `${(bytes / divisor).toFixed(1)} ${label}`;
 }
 

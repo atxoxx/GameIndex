@@ -1,7 +1,7 @@
 import { useMemo, useState } from "react";
 import { useBandwidthHistory, type BandwidthPoint } from "../../hooks/useBandwidthHistory";
 import { useDownloads } from "../../context/DownloadContext";
-import { useSizeUnit } from "../../hooks/useSizeUnit";
+import { useSpeedUnit } from "../../hooks/useSpeedUnit";
 import { useLanguage } from "../../context/LanguageContext";
 import { formatBytesPerSecond } from "../../types/download";
 import { ActivityIcon, ChevronIcon } from "./DownloadIcons";
@@ -15,7 +15,7 @@ type TimeWindow = 60 | 180 | 300;
 export default function BandwidthSparkline() {
   const history = useBandwidthHistory();
   const { activeDownloads } = useDownloads();
-  const { unit } = useSizeUnit();
+  const { unit } = useSpeedUnit();
   const { t } = useLanguage();
 
   const totalDownloadSpeed = activeDownloads.reduce((acc, d) => acc + (d.downloadSpeed || 0), 0);
