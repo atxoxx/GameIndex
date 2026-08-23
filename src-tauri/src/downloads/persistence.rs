@@ -19,12 +19,25 @@ use serde::{Deserialize, Serialize};
 
 use super::types::{unix_now, Download, DownloadFile, DownloadKind, DownloadStatus};
 
+/// A torrent the user removed from the list. Kept so a torrent that
+/// librqbit restores from its own session state on the next boot — the
+/// session delete from `torrent_remove` is async and can be cut short
+/// by an exit — is dropped again instead of resurrected as a
+/// "Discovered" record.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+struct RemovedTorrent {
+    id: String,
+    delete_files: bool,
+}
+
 #[derive(Debug, Serialize, Deserialize)]
 struct StateV2 {
     version: u32,
     downloads: Vec<Download>,
     #[serde(default)]
     queue: Vec<String>,
+    #[serde(default)]
+    removed: Vec<RemovedTorrent>,
 }
 
 /// The legacy (v1) per-download metadata shape.
@@ -49,6 +62,9 @@ struct LegacyMetadata {
 
 pub struct LoadedState {
     pub downloads: HashMap<String, Download>,
+    /// Removed torrent frontend ids → whether the user asked to delete
+    /// the on-disk files.
+    pub removed_torrents: HashMap<String, bool>,
 }
 
 pub fn state_file(state_dir: &Path) -> PathBuf {
@@ -66,6 +82,7 @@ pub fn load(state_dir: &Path) -> LoadedState {
         Err(_) => {
             return LoadedState {
                 downloads: HashMap::new(),
+                removed_torrents: HashMap::new(),
             }
         }
     };
@@ -76,8 +93,14 @@ pub fn load(state_dir: &Path) -> LoadedState {
             normalise_on_load(&mut d);
             map.insert(d.id.clone(), d);
         }
+        let removed_torrents = v2
+            .removed
+            .into_iter()
+            .map(|r| (r.id, r.delete_files))
+            .collect();
         return LoadedState {
             downloads: map,
+            removed_torrents,
         };
     }
 
@@ -145,6 +168,7 @@ pub fn load(state_dir: &Path) -> LoadedState {
     }
     LoadedState {
         downloads: map,
+        removed_torrents: HashMap::new(),
     }
 }
 
@@ -172,12 +196,24 @@ fn normalise_on_load(d: &mut Download) {
 }
 
 /// Persist the full state (v2 format). Blocking write — call from the
-/// background flush path only.
-pub fn save(state_dir: &Path, downloads: &HashMap<String, Download>) {
+/// background flush path only (or from a removal command so a just-
+/// deleted download can never be resurrected by an immediate exit).
+pub fn save(
+    state_dir: &Path,
+    downloads: &HashMap<String, Download>,
+    removed_torrents: &HashMap<String, bool>,
+) {
     let state = StateV2 {
         version: 2,
         downloads: downloads.values().cloned().collect(),
         queue: Vec::new(),
+        removed: removed_torrents
+            .iter()
+            .map(|(id, delete_files)| RemovedTorrent {
+                id: id.clone(),
+                delete_files: *delete_files,
+            })
+            .collect(),
     };
     if let Ok(content) = serde_json::to_string_pretty(&state) {
         let path = state_file(state_dir);
@@ -187,5 +223,69 @@ pub fn save(state_dir: &Path, downloads: &HashMap<String, Download>) {
         } else {
             let _ = std::fs::write(&path, content);
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::collections::HashMap;
+
+    fn temp_state_dir(tag: &str) -> PathBuf {
+        let dir = std::env::temp_dir().join(format!(
+            "gamelib-persist-test-{}-{}",
+            tag,
+            std::process::id()
+        ));
+        let _ = std::fs::remove_dir_all(&dir);
+        std::fs::create_dir_all(&dir).unwrap();
+        dir
+    }
+
+    #[test]
+    fn removed_torrents_round_trip() {
+        let dir = temp_state_dir("roundtrip");
+        let mut downloads = HashMap::new();
+        let d = Download::new(
+            "dl_123".to_string(),
+            DownloadKind::Torrent,
+            "Game".to_string(),
+            "magnet:?xt=urn:btih:abc".to_string(),
+            "C:\\Games\\Game".to_string(),
+            None,
+            "Store".to_string(),
+            false,
+        );
+        downloads.insert(d.id.clone(), d);
+
+        let mut removed = HashMap::new();
+        removed.insert("dl_999".to_string(), true);
+        removed.insert("dl_1000".to_string(), false);
+        save(&dir, &downloads, &removed);
+
+        let loaded = load(&dir);
+        assert_eq!(loaded.downloads.len(), 1);
+        assert_eq!(loaded.removed_torrents.get("dl_999"), Some(&true));
+        assert_eq!(loaded.removed_torrents.get("dl_1000"), Some(&false));
+
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn v2_without_removed_field_still_loads() {
+        // State written by a build predating the tombstone field must
+        // load with an empty tombstone set (serde default).
+        let dir = temp_state_dir("backcompat");
+        std::fs::write(
+            state_file(&dir),
+            r#"{"version": 2, "downloads": [], "queue": []}"#,
+        )
+        .unwrap();
+
+        let loaded = load(&dir);
+        assert!(loaded.downloads.is_empty());
+        assert!(loaded.removed_torrents.is_empty());
+
+        let _ = std::fs::remove_dir_all(&dir);
     }
 }

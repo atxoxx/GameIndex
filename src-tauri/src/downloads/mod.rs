@@ -253,6 +253,8 @@ async fn handle_duplicate_add(
         d.status = DownloadStatus::Queued;
         d.added_at = unix_now();
         let snapshot = d.clone();
+        // A re-add of a previously removed torrent cancels its tombstone.
+        guard.removed_torrents.remove(&existing.id);
         guard.mark_dirty();
         guard.emit_progress_force();
         snapshot
@@ -387,6 +389,8 @@ pub async fn torrent_add(
                 existing.files = files;
             }
             let snapshot = existing.clone();
+            // A re-add of a previously removed torrent cancels its tombstone.
+            guard.removed_torrents.remove(&id_str);
             guard.mark_dirty();
             guard.emit_progress_force();
             return Ok(snapshot);
@@ -406,6 +410,8 @@ pub async fn torrent_add(
         d.files = files;
         d.referer = referer.clone();
         d.game_poster = game_poster;
+        // A re-add of a previously removed torrent cancels its tombstone.
+        guard.removed_torrents.remove(&id_str);
         guard.downloads_mut().insert(id_str, d.clone());
         guard.mark_dirty();
         guard.emit_progress_force();
@@ -646,7 +652,18 @@ pub async fn torrent_remove(id: String, delete_files: Option<bool>) -> Result<()
         // removal lands in the download-history ledger as `Removed`.
         let history_clone = guard.downloads_mut().get(&id).cloned();
         let download_opt = guard.downloads_mut().remove(&id);
+        // Tombstone removed torrents so a session entry librqbit
+        // restores on the next boot (the async delete below can be cut
+        // short by an exit) is dropped instead of resurrected.
+        if let Some(d) = &download_opt {
+            if d.kind == DownloadKind::Torrent {
+                guard.removed_torrents.insert(id.clone(), delete_files);
+            }
+        }
         guard.mark_dirty();
+        // Persist immediately: the removal + tombstone must survive an
+        // app exit that happens before the next 1 s flush tick.
+        guard.flush_if_dirty();
         guard.emit_progress_force();
         if let Some(mut history_clone) = history_clone {
             if !matches!(

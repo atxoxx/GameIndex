@@ -75,6 +75,12 @@ pub struct DownloadManager {
     /// removals are recorded so download-page statistics survive
     /// deletion of the live record.
     history_db: Option<Db>,
+    /// Removed torrent frontend ids → whether the user asked to delete
+    /// the on-disk files. Persisted so a torrent librqbit restores from
+    /// its own session state on the next boot (the session delete is
+    /// async and may not land before exit) is dropped again instead of
+    /// resurrected as a "Discovered" record.
+    pub removed_torrents: HashMap<String, bool>,
 }
 
 impl DownloadManager {
@@ -97,6 +103,7 @@ impl DownloadManager {
             direct_locks: HashMap::new(),
             direct_reset_partial: std::collections::HashSet::new(),
             history_db: None,
+            removed_torrents: HashMap::new(),
         }
     }
 
@@ -144,7 +151,11 @@ impl DownloadManager {
 
     pub fn flush_if_dirty(&mut self) {
         if self.dirty {
-            persistence::save(&self.state_dir, &self.downloads);
+            persistence::save(
+                &self.state_dir,
+                &self.downloads,
+                &self.removed_torrents,
+            );
             self.dirty = false;
         }
     }
@@ -212,6 +223,8 @@ impl DownloadManager {
         if self.direct_reset_partial.remove(old_id) {
             self.direct_reset_partial.insert(new_id.to_string());
         }
+        // A re-add of a previously removed torrent cancels its tombstone.
+        self.removed_torrents.remove(new_id);
         self.mark_dirty();
     }
 
@@ -228,6 +241,7 @@ impl DownloadManager {
 
         let loaded = persistence::load(&self.state_dir);
         self.downloads = loaded.downloads;
+        self.removed_torrents = loaded.removed_torrents;
 
         // Reconcile the librqbit-restored torrents:
         //  * seeding records keep their session entry alive,
@@ -248,6 +262,8 @@ impl DownloadManager {
             })
             .collect()
         });
+        let restored_ids: HashSet<String> =
+            restored.iter().map(|r| r.fid.clone()).collect();
 
         for r in restored {
             let record_status = self.downloads.get(&r.fid).map(|d| d.status.clone());
@@ -269,6 +285,19 @@ impl DownloadManager {
                     torrent::pause_torrent(&session, &r.handle).await;
                 }
                 None => {
+                    // A torrent librqbit restored that the user already
+                    // removed — the session delete from `torrent_remove`
+                    // is async and can be cut short by an app exit,
+                    // leaving the entry in librqbit's own session state.
+                    // Honour the removal instead of resurrecting it as a
+                    // "Discovered" record.
+                    if let Some(&delete_files) =
+                        self.removed_torrents.get(&r.fid)
+                    {
+                        torrent::delete_torrent(&session, &r.handle, delete_files)
+                            .await;
+                        continue;
+                    }
                     // Torrent in the session without a record —
                     // register it paused so the user can see it.
                     torrent::pause_torrent(&session, &r.handle).await;
@@ -288,6 +317,12 @@ impl DownloadManager {
                 }
             }
         }
+
+        // Drop tombstones that have nothing left to suppress: the id is
+        // neither owned by a live record nor present in the restored
+        // session (the session delete eventually landed).
+        self.removed_torrents
+            .retain(|id, _| self.downloads.contains_key(id) || restored_ids.contains(id));
 
         // Rebuild resolved debrid file lists from the persisted record so a
         // paused (or interrupted) debrid download resumes from where it left
