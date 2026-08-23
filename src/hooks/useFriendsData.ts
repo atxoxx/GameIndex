@@ -164,6 +164,21 @@ export function useFriendsData(): UseFriendsDataResult {
     });
   }, [games, cache]);
 
+  // Refs keep the latest profile/stats for the background sync loop so it never
+  // publishes a stale closure after the user launches/quits a game or gains stats.
+  const profileRef = useRef(profile);
+  const selfStatsRef = useRef(selfStats);
+  const selfSharedGamesRef = useRef(selfSharedGames);
+  useEffect(() => {
+    profileRef.current = profile;
+  }, [profile]);
+  useEffect(() => {
+    selfStatsRef.current = selfStats;
+  }, [selfStats]);
+  useEffect(() => {
+    selfSharedGamesRef.current = selfSharedGames;
+  }, [selfSharedGames]);
+
   // Generate User's Friend Code
   const generatedFriendCode = useMemo(() => {
     return encodeFriendCode(profile, selfStats, profile.favoriteGameName);
@@ -296,11 +311,12 @@ export function useFriendsData(): UseFriendsDataResult {
     setIsSyncing(true);
     try {
     // Make sure we always have a stable Nostr public key before publishing.
-    if (!profile.syncId) {
+    if (!profileRef.current.syncId) {
       const keys = getNostrKeys();
-      const updated = { ...profile, syncId: keys.publicKey };
+      const updated = { ...profileRef.current, syncId: keys.publicKey };
       saveUserProfile(updated);
       setProfile(updated);
+      profileRef.current = updated;
     }
 
     const folder = await getSyncFolder();
@@ -393,15 +409,15 @@ export function useFriendsData(): UseFriendsDataResult {
             const knownMessages = new Map<string, Set<string>>();
             mergedDms.forEach((t) => knownMessages.set(t.id, new Set((t.messages || []).map((m) => m.id))));
             const prevDmCount = mergedDms.length;
-            mergedDms = mergeDms(mergedDms, remoteOutbox.dms, profile.name);
+            mergedDms = mergeDms(mergedDms, remoteOutbox.dms, profileRef.current.name);
             // Count messages that are genuinely new AND not authored by us → badge.
             let newIncoming = 0;
             remoteOutbox.dms.forEach((rt) => {
               const known = knownMessages.get(rt.id);
               if (!known) {
-                newIncoming += (rt.messages || []).filter((m) => m.author !== profile.name).length;
+                newIncoming += (rt.messages || []).filter((m) => m.author !== profileRef.current.name).length;
               } else {
-                newIncoming += (rt.messages || []).filter((m) => !known.has(m.id) && m.author !== profile.name).length;
+                newIncoming += (rt.messages || []).filter((m) => !known.has(m.id) && m.author !== profileRef.current.name).length;
               }
             });
             if (newIncoming > 0) addUnseenTabItems("dms", newIncoming);
@@ -474,7 +490,7 @@ export function useFriendsData(): UseFriendsDataResult {
       finalSessions = mergeSessions(loadSessions(), mergedSessions);
       finalRecs = mergeRecommendations(loadRecommendations(), mergedRecs);
       finalSuggestions = mergeSuggestions(loadSuggestions(), mergedSuggestions);
-      finalDms = mergeDms(loadDms(), mergedDms, profile.name);
+      finalDms = mergeDms(loadDms(), mergedDms, profileRef.current.name);
       saveSessions(finalSessions);
       saveRecommendations(finalRecs);
       saveSuggestions(finalSuggestions);
@@ -500,7 +516,15 @@ export function useFriendsData(): UseFriendsDataResult {
     }
 
     // Always push our own updated outbox so friends can see us
-    const pushed = await pushMyOutbox(profile, selfStats, finalSessions, finalRecs, selfSharedGames, finalSuggestions, finalDms);
+    const pushed = await pushMyOutbox(
+      profileRef.current,
+      selfStatsRef.current,
+      finalSessions,
+      finalRecs,
+      selfSharedGamesRef.current,
+      finalSuggestions,
+      finalDms
+    );
 
     if (manual) {
       if (!pushed.ok) {
