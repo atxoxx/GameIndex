@@ -242,7 +242,7 @@ export function StorageControlsBar({
         {(viewMode === "list" || viewMode === "grid") && (
           <span className="storage-filtered-counter">
             {t("storage.gamesCount", { count: filteredCount, plural: filteredCount === 1 ? "" : "s" })}
-            {allCount !== filteredCount && ` ${t("storage.ofTotal", { total: allCount })}`}
+            {allCount !== filteredCount && ` ${t("storage.ofTotal", { used: filteredCount, total: allCount })}`}
           </span>
         )}
       </div>

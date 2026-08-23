@@ -166,12 +166,12 @@ export const DownloadsFilterBar = React.memo(function DownloadsFilterBar({
         </div>
 
         {/* View Mode Segmented Switcher */}
-        <div className="dl-view-toggle-group" role="group" aria-label="View mode">
+        <div className="dl-view-toggle-group" role="group" aria-label={t("downloadsFilter.viewMode")}>
           <button
             type="button"
             className={`dl-view-toggle-btn${viewMode === "detailed" ? " active" : ""}`}
             onClick={() => onViewModeChange("detailed")}
-            title={t("density.cozy") || "Detailed rows"}
+            title={t("downloadsFilter.viewDetailed")}
             aria-pressed={viewMode === "detailed"}
           >
             <ListViewIcon style={{ width: 14, height: 14 }} />
@@ -180,7 +180,7 @@ export const DownloadsFilterBar = React.memo(function DownloadsFilterBar({
             type="button"
             className={`dl-view-toggle-btn${viewMode === "grid" ? " active" : ""}`}
             onClick={() => onViewModeChange("grid")}
-            title={t("density.cinematic") || "Grid cards"}
+            title={t("downloadsFilter.viewGrid")}
             aria-pressed={viewMode === "grid"}
           >
             <GridViewIcon style={{ width: 14, height: 14 }} />
@@ -189,7 +189,7 @@ export const DownloadsFilterBar = React.memo(function DownloadsFilterBar({
             type="button"
             className={`dl-view-toggle-btn${viewMode === "compact" ? " active" : ""}`}
             onClick={() => onViewModeChange("compact")}
-            title={t("density.compact") || "Compact table"}
+            title={t("downloadsFilter.viewCompact")}
             aria-pressed={viewMode === "compact"}
           >
             <CompactViewIcon style={{ width: 14, height: 14 }} />

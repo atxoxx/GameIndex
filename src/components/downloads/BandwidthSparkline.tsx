@@ -120,7 +120,7 @@ export default function BandwidthSparkline() {
             {t("downloads.networkTelemetry")}
           </span>
 
-          <div className="dl-sparkline-time-toggles" role="group" aria-label="Time window">
+          <div className="dl-sparkline-time-toggles" role="group" aria-label={t("downloads.timeWindow")}>
             <button
               type="button"
               className={`dl-sparkline-time-btn${timeWindow === 60 ? " active" : ""}`}
@@ -160,16 +160,16 @@ export default function BandwidthSparkline() {
             </span>
           </div>
 
-          <span className="dl-sparkline-stat-pill" title="Peak throughput in current window">
-            Max: {formatBytesPerSecond(maxSpeed, unit)}
+          <span className="dl-sparkline-stat-pill" title={t("downloads.peakThroughput")}>
+            {t("downloads.maxSpeedLabel", { speed: formatBytesPerSecond(maxSpeed, unit) })}
           </span>
 
           <button
             type="button"
             className="dl-sparkline-collapse-btn"
             onClick={() => setCollapsed(!collapsed)}
-            aria-label={collapsed ? "Expand graph" : "Collapse graph"}
-            title={collapsed ? "Expand graph" : "Collapse graph"}
+            aria-label={collapsed ? t("downloads.expandGraph") : t("downloads.collapseGraph")}
+            title={collapsed ? t("downloads.expandGraph") : t("downloads.collapseGraph")}
           >
             <ChevronIcon
               style={{

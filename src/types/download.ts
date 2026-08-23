@@ -254,29 +254,31 @@ export function getStatusError(status: DownloadStatus): string | null {
   return status.kind === "error" ? status.message : null;
 }
 
+type TranslateFn = (key: string, vars?: Record<string, unknown>) => string;
+
 /**
  * Get a short human label for any status (used in chips, tooltips).
  * The exhaustive switch on `status.kind` makes the function total —
  * TypeScript verifies we handle every variant of the discriminated union.
  */
-export function getStatusLabel(status: DownloadStatus): string {
+export function getStatusLabel(status: DownloadStatus, t: TranslateFn): string {
   switch (status.kind) {
     case "queued":
-      return "Queued";
+      return t("download.status.queued");
     case "fetchingMetadata":
-      return "Fetching metadata";
+      return t("download.status.fetchingMetadata");
     case "downloading":
-      return "Downloading";
+      return t("download.status.downloading");
     case "paused":
-      return "Paused";
+      return t("download.status.paused");
     case "seeding":
-      return "Seeding";
+      return t("downloadRow.badgeSeeding");
     case "completed":
-      return "Completed";
+      return t("download.status.completed");
     case "removed":
-      return "Removed";
+      return t("download.status.removed");
     case "error":
-      return "Error";
+      return t("download.status.error");
   }
 }
 
@@ -287,31 +289,36 @@ export function getStatusClassSuffix(status: DownloadStatus): string {
 }
 
 /** Calculate and format the estimated time until finish (ETA). */
-export function formatEta(downloaded: number, totalSize: number | null, speed: number): string {
+export function formatEta(
+  downloaded: number,
+  totalSize: number | null,
+  speed: number,
+  t: TranslateFn,
+): string {
   if (totalSize === null || speed <= 0) return "";
   const remaining = totalSize - downloaded;
   if (remaining <= 0) return "";
   const seconds = Math.ceil(remaining / speed);
-  
+
   if (seconds < 60) {
-    return `${seconds}s remaining`;
+    return t("download.status.secondsRemaining", { seconds });
   }
   const minutes = Math.floor(seconds / 60);
   const remainingSeconds = seconds % 60;
   if (minutes < 60) {
-    return `${minutes}m ${remainingSeconds}s remaining`;
+    return t("download.status.minutesRemaining", { minutes, remainingSeconds });
   }
   const hours = Math.floor(minutes / 60);
   const remainingMinutes = minutes % 60;
   if (hours < 24) {
-    return `${hours}h ${remainingMinutes}m remaining`;
+    return t("download.status.hoursRemaining", { hours, remainingMinutes });
   }
   const days = Math.floor(hours / 24);
   const remainingHours = hours % 24;
   if (days > 30) {
-    return "> 30d remaining";
+    return t("download.status.over30d");
   }
-  return `${days}d ${remainingHours}h remaining`;
+  return t("download.status.daysRemaining", { days, remainingHours });
 }
 
 /**
@@ -341,7 +348,7 @@ export function formatEta(downloaded: number, totalSize: number | null, speed: n
  * hostname of `sourceUri` is substituted for "peers", giving the
  * user the answer to "which mirror is this hitting right now?".
  */
-export function getActivityMessage(download: TorrentDownload): string | null {
+export function getActivityMessage(download: TorrentDownload, t: TranslateFn): string | null {
   const status = download.status;
   const isDirect =
     download.kind === "direct" || download.kind === "debrid";
@@ -351,14 +358,14 @@ export function getActivityMessage(download: TorrentDownload): string | null {
 
   switch (status.kind) {
     case "queued":
-      return "Waiting in queue…";
+      return t("download.waitingInQueue");
 
     case "fetchingMetadata":
       // Total size + file list won't arrive until we've fetched the
       // .torrent metadata from either a DHT node or a tracker.
       return peers > 0
-        ? `Resolving metadata (${peers} peer${peers === 1 ? "" : "s"} contacted)…`
-        : "Contacting trackers & bootstrapping DHT…";
+        ? t("download.resolvingMetadata", { peers, s: peers === 1 ? "" : "s" })
+        : t("download.contactingTrackers");
 
     case "downloading": {
       // Direct downloads don't have peer counts — surface the mirror
@@ -367,9 +374,9 @@ export function getActivityMessage(download: TorrentDownload): string | null {
       if (isDirect) {
         const host = extractHostname(download.sourceUri);
         if (speed > 0) {
-          return host ? `Downloading from ${host}` : "Downloading…";
+          return host ? t("download.downloadingFrom", { host }) : t("download.downloading");
         }
-        return host ? `Connecting to ${host}…` : "Awaiting host…";
+        return host ? t("download.connectingTo", { host }) : t("download.awaitingHost");
       }
       // Torrent: sense the librqbit state via bytes/sec + peer counts.
       // `peers` = currently-connected peers (`LiveStats.live`);
@@ -378,32 +385,34 @@ export function getActivityMessage(download: TorrentDownload): string | null {
         // Metadata hasn't landed yet but librqbit already promoted
         // us out of FetchingMetadata — rare; the message is for
         // the lint-friendly branch, not a real codepath.
-        return "Resolving metadata…";
+        return t("download.resolvingMetadataBare");
       }
       if (peers === 0 && seeds === 0) {
-        return "Searching for peers…";
+        return t("download.searchingPeers");
       }
       if (peers === 0 && speed === 0) {
         // We have peer addresses cached from a prior session but no
         // active connections yet — librqbit is reconnecting.
-        return "Connecting to known peers…";
+        return t("download.connectingPeers");
       }
       if (peers === 0 && speed > 0) {
         // No live peers but bytes are flowing — typical during the
         // last few KB of a download when we're flushing the disk
         // cache before closing the stream.
-        return "Flushing remaining bytes…";
+        return t("download.flushingBytes");
       }
       // peers > 0
       if (speed === 0) {
-        return "Stalled — peer connections idle";
+        return t("download.stalled");
       }
       // speed > 0 AND peers > 0 — the happy path. Mention the swarm
       // size when we have one so the user can see whether their
       // download is pulling from a healthy pool.
-      return `Downloading from ${peers} peer${peers === 1 ? "" : "s"}${
-        seeds > 0 ? ` (${seeds} in swarm)` : ""
-      }`;
+      return t("download.downloadingFromPeers", {
+        peers,
+        s: peers === 1 ? "" : "s",
+        inSwarm: seeds > 0 ? t("download.inSwarm", { seeds }) : "",
+      });
     }
 
     case "paused":
@@ -413,12 +422,12 @@ export function getActivityMessage(download: TorrentDownload): string | null {
 
     case "completed":
       if (download.autoExtract && !download.extracted) {
-        return "Extracting archives…";
+        return t("download.extractingArchives");
       }
-      return "Ready to play";
+      return t("download.readyToPlay");
 
     case "seeding":
-      return "Seeding to peers…";
+      return t("download.seedingToPeers");
 
     case "removed":
       // Removed downloads are gone from the active list; there is nothing

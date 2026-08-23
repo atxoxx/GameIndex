@@ -63,7 +63,7 @@ export const DownloadGridCard = React.memo(
     const isError = status.kind === "error";
     const isSeeding = status.kind === "seeding";
     const errorMessage = getStatusError(status);
-    const activity = getActivityMessage(download);
+    const activity = getActivityMessage(download, t);
 
     const handleLaunch = async (e: React.MouseEvent) => {
       e.stopPropagation();
@@ -71,7 +71,7 @@ export const DownloadGridCard = React.memo(
       try {
         await launchGame(matchedGame);
       } catch (err) {
-        showToast(t("game.launchFailed", { error: String(err) }), "error");
+        showToast(t("gameContext.launchFailed", { error: String(err) }), "error");
       }
     };
 
@@ -112,7 +112,7 @@ export const DownloadGridCard = React.memo(
           <span
             className={`dl-card-status dl-row-status--${getStatusClassSuffix(status)}`}
           >
-            {getStatusLabel(status)}
+            {getStatusLabel(status, t)}
           </span>
 
           {/* Source Tag */}
@@ -167,7 +167,7 @@ export const DownloadGridCard = React.memo(
 
             {isActiveStatus(status) && download.downloadSpeed > 0 && download.totalSize != null && (
               <div className="dl-card-eta">
-                ⏱ {formatEta(download.downloaded, download.totalSize, download.downloadSpeed)}
+                ⏱ {formatEta(download.downloaded, download.totalSize, download.downloadSpeed, t)}
               </div>
             )}
 

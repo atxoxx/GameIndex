@@ -182,7 +182,7 @@ function collectSourceFiles(dir, acc = []) {
 }
 
 const T_CALL_RE =
-  /\bt\(\s*(["'])([a-zA-Z0-9_.]+)\1\s*\)/g;
+  /\bt\(\s*(["'])([a-zA-Z0-9_.]+)\1\s*(?:,|\))/g;
 
 /** Find static t("...") calls across all source files. */
 function scanSourceKeys() {

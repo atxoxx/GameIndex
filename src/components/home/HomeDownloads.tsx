@@ -77,7 +77,7 @@ function HomeDownloadRow({
   const { t } = useLanguage();
   const paused = download.status.kind === "paused";
   const pct = formatProgress(download.progress);
-  const eta = formatEta(download.downloaded, download.totalSize, download.downloadSpeed);
+  const eta = formatEta(download.downloaded, download.totalSize, download.downloadSpeed, t);
 
   return (
     <div className="home-downloads__row">

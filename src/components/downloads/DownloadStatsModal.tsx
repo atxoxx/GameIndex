@@ -107,6 +107,23 @@ const DirectIcon = () => (
   </svg>
 );
 
+const PROTOCOL_LABEL_KEY: Record<string, string> = {
+  torrent: "downloadStats.protocolTorrent",
+  direct: "downloadStats.protocolDirect",
+  debrid: "downloadStats.protocolDebrid",
+};
+
+const STATUS_KIND_LABEL_KEY: Record<string, string> = {
+  queued: "download.status.queued",
+  fetchingMetadata: "download.status.fetchingMetadata",
+  downloading: "downloadsFilter.statusActive",
+  paused: "downloadsFilter.statusPaused",
+  seeding: "downloadRow.badgeSeeding",
+  completed: "downloadsFilter.statusCompleted",
+  removed: "downloadStats.removedPartial",
+  error: "downloadsFilter.statusErrored",
+};
+
 const DebridIcon = () => (
   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" style={{ width: 14, height: 14 }}>
     <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2" />
@@ -243,14 +260,14 @@ export default function DownloadStatsModal({ open, onClose, downloads, history, 
       if (d.extracted) extractedCount++;
 
       // Source tally
-      const src = d.sourceName || "Manual Link";
+      const src = d.sourceName || t("downloadStats.manualLink");
       const srcEntry = sourceMap.get(src) || { count: 0, bytes: 0 };
       srcEntry.count++;
       srcEntry.bytes += effectiveSize;
       sourceMap.set(src, srcEntry);
 
       // Drive / Path tally (root detection: C:, D:, /home, etc.)
-      const pathRoot = d.savePath ? (d.savePath.match(/^([A-Za-z]:|[\\/][^\\/]+)/)?.[0] || d.savePath) : "Default";
+      const pathRoot = d.savePath ? (d.savePath.match(/^([A-Za-z]:|[\\/][^\\/]+)/)?.[0] || d.savePath) : t("downloadStats.defaultPath");
       const driveEntry = driveMap.get(pathRoot) || { count: 0, bytes: 0 };
       driveEntry.count++;
       driveEntry.bytes += effectiveSize;
@@ -352,7 +369,7 @@ export default function DownloadStatsModal({ open, onClose, downloads, history, 
       recentCompleted,
       largestList,
     };
-  }, [mergedDownloads]);
+  }, [mergedDownloads, t]);
 
   // ── Search in Diagnostics ────────────────────────────────────────────────
   const filteredDiagnostics = useMemo(() => {
@@ -695,10 +712,10 @@ export default function DownloadStatsModal({ open, onClose, downloads, history, 
                 <div className="dl-stats-kpi-card">
                   <span className="dl-stats-kpi-label">{t("downloadStats.swarmConnectivity")}</span>
                   <span className="dl-stats-kpi-value">
-                    {stats.totalConnectedPeers} <small style={{ fontSize: 13, color: "var(--color-text-muted)" }}>peers</small>
+                    {stats.totalConnectedPeers} <small style={{ fontSize: 13, color: "var(--color-text-muted)" }}>{t("downloadStats.peers")}</small>
                   </span>
                   <span className="dl-stats-kpi-sub">
-                    {stats.totalKnownSeeds} {t("downloadStats.knownSeeds")} · {stats.avgPeers.toFixed(1)} avg/torrent
+                    {stats.totalKnownSeeds} {t("downloadStats.knownSeeds")} · {stats.avgPeers.toFixed(1)} {t("downloadStats.avgPerTorrent")}
                   </span>
                 </div>
               </div>
@@ -742,7 +759,7 @@ export default function DownloadStatsModal({ open, onClose, downloads, history, 
                     <div className="dl-stats-protocol-info">
                       <span className="dl-stats-protocol-title">Real-Debrid</span>
                       <span className="dl-stats-protocol-count">
-                        {stats.debridCount} {t("downloadStats.items")} · {stats.debridCacheRate.toFixed(0)}% Cached
+                        {stats.debridCount} {t("downloadStats.items")} · {stats.debridCacheRate.toFixed(0)}% {t("downloadStats.cached")}
                       </span>
                     </div>
                   </div>
@@ -853,7 +870,7 @@ export default function DownloadStatsModal({ open, onClose, downloads, history, 
                 <div className="dl-stats-card">
                   <div className="dl-stats-card-header">
                     <h3 className="dl-stats-card-title">{t("downloadStats.sourcesDistribution")}</h3>
-                    <span className="dl-stats-card-badge">{stats.sourcesList.length} sources</span>
+                    <span className="dl-stats-card-badge">{t("downloadStats.sourcesCount", { count: stats.sourcesList.length })}</span>
                   </div>
 
                   <div className="dl-stats-bars-list">
@@ -884,7 +901,7 @@ export default function DownloadStatsModal({ open, onClose, downloads, history, 
                 <div className="dl-stats-card">
                   <div className="dl-stats-card-header">
                     <h3 className="dl-stats-card-title">{t("downloadStats.sizeTiers")}</h3>
-                    <span className="dl-stats-card-badge">Avg: {formatBytesShort(stats.avgSize, unit)}</span>
+                    <span className="dl-stats-card-badge">{t("downloadStats.avgLabel", { size: formatBytesShort(stats.avgSize, unit) })}</span>
                   </div>
 
                   <div className="dl-stats-bars-list">
@@ -923,7 +940,7 @@ export default function DownloadStatsModal({ open, onClose, downloads, history, 
                         <div className="dl-stats-bar-meta">
                           <span className="dl-stats-bar-title">{d.drive}</span>
                           <span className="dl-stats-bar-val">
-                            {formatBytesShort(d.bytes, unit)} ({d.count} items)
+                            {formatBytesShort(d.bytes, unit)} ({d.count} {t("downloadStats.items")})
                           </span>
                         </div>
                         <div className="dl-stats-bar-track">
@@ -1058,7 +1075,7 @@ export default function DownloadStatsModal({ open, onClose, downloads, history, 
                   )}
                 </div>
                 <span className="dl-stats-diag-count">
-                  {filteredDiagnostics.length} / {downloads.length} items
+                  {filteredDiagnostics.length} / {downloads.length} {t("downloadStats.items")}
                 </span>
               </div>
 
@@ -1095,11 +1112,13 @@ export default function DownloadStatsModal({ open, onClose, downloads, history, 
                             <span className="dl-stats-tbl-source">{d.sourceName}</span>
                           </td>
                           <td>
-                            <span className={`dl-stats-chip dl-stats-chip--${d.kind}`}>{d.kind}</span>
+                            <span className={`dl-stats-chip dl-stats-chip--${d.kind}`}>
+                              {t(PROTOCOL_LABEL_KEY[d.kind] ?? d.kind)}
+                            </span>
                           </td>
                           <td>
                             <span className={`dl-stats-status-pill dl-stats-status-pill--${d.status.kind}`}>
-                              {d.status.kind}
+                              {t(STATUS_KIND_LABEL_KEY[d.status.kind] ?? d.status.kind)}
                             </span>
                           </td>
                           <td>{formatBytesShort(d.totalSize ?? d.downloaded, unit)}</td>
@@ -1177,7 +1196,7 @@ export default function DownloadStatsModal({ open, onClose, downloads, history, 
         open={resetConfirmOpen}
         title={t("downloadStats.resetStatsConfirmTitle")}
         message={t("downloadStats.resetStatsConfirmBody")}
-        confirmLabel="common.reset"
+        confirmLabel={t("common.reset")}
         busy={resetting}
         onConfirm={handleResetStats}
         onCancel={() => {

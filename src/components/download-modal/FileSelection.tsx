@@ -103,7 +103,7 @@ export function FileSelection({
         <div className="dl-file-weight-card">
           <div className="dl-file-weight-top">
             <span className="dl-file-weight-label">
-              <strong>{selectedFiles.size}</strong> {t("downloadFiles.ofFilesSelected", { total: files.length })}
+              <strong>{selectedFiles.size}</strong> {t("downloadFiles.ofFilesSelected", { count: selectedFiles.size, total: files.length })}
             </span>
             <span className="dl-file-weight-percent">{percentage}%</span>
           </div>
@@ -139,7 +139,7 @@ export function FileSelection({
               type="button"
               className="dl-file-search-clear"
               onClick={() => setFilter("")}
-              aria-label="Clear filter"
+              aria-label={t("downloadsFilter.clearSearch")}
             >
               ×
             </button>

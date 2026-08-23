@@ -517,7 +517,7 @@ export function ActivityGantt({
               onClick={() =>
                 setHighlightGame((prev) => (prev === gameId ? null : gameId))
               }
-              title={t("activityGantt.legendTitle", { name: g?.name || gameNameById.get(gameId) || t("splash.unknown") })}
+              title={t("activityGantt.legendTitle", { name: g?.name || gameNameById.get(gameId) || t("splash.unknown"), count: legendGames.length })}
             >
               <span
                 className="activity-gantt__legend-dot"

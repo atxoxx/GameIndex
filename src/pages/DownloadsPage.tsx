@@ -53,6 +53,16 @@ export default function DownloadsPage() {
   const [statsModalOpen, setStatsModalOpen] = useState(false);
 
   // Per-bucket counts for the filter pill badges
+  const STATUS_FILTER_LABEL_KEY: Record<DownloadStatusFilter, string> = {
+    all: "downloadsFilter.statusAll",
+    downloading: "downloadsFilter.statusActive",
+    seeding: "downloadRow.badgeSeeding",
+    queued: "download.status.queued",
+    paused: "downloadsFilter.statusPaused",
+    completed: "downloadsFilter.statusCompleted",
+    error: "downloadsFilter.statusErrored",
+  };
+
   const counts = useMemo<Record<DownloadStatusFilter, number>>(() => {
     const c: Record<DownloadStatusFilter, number> = {
       all: downloads.length,
@@ -253,7 +263,7 @@ export default function DownloadsPage() {
       }
       setSelectedIds(new Set());
       setBatchDeleteOpen(false);
-      showToast(t("downloads.deletedFromDisk", { name: `${selectedIds.size} downloads` }), "info");
+      showToast(t("downloads.deletedFromDisk", { name: t("downloads.countLabel", { count: selectedIds.size }) }), "info");
     } finally {
       setBatchBusy(false);
     }
@@ -300,7 +310,7 @@ export default function DownloadsPage() {
             {statusFilter === "all"
               ? t("downloads.title")
               : counts[statusFilter] !== undefined
-              ? `${counts[statusFilter]} ${statusFilter}`
+              ? `${counts[statusFilter]} ${t(STATUS_FILTER_LABEL_KEY[statusFilter])}`
               : t("downloads.title")}
             {filteredDownloads.length > 0 && (
               <span className="dl-section-count">{filteredDownloads.length}</span>
@@ -436,8 +446,11 @@ export default function DownloadsPage() {
       {/* Batch delete confirmation */}
       <ConfirmModal
         open={batchDeleteOpen}
-        title={`${t("downloads.deleteDiskTitle")} (${selectedIds.size} downloads)`}
-        message={`This will delete files for ${selectedIds.size} selected downloads (${formatBytesShort(selectedBytes, unit)}) from disk. This action cannot be undone.`}
+        title={`${t("downloads.deleteDiskTitle")} (${t("downloads.countLabel", { count: selectedIds.size })})`}
+        message={t("downloads.batchDeleteBody", {
+          count: selectedIds.size,
+          size: formatBytesShort(selectedBytes, unit),
+        })}
         confirmLabel={t("downloads.deleteDiskLabel")}
         busy={batchBusy}
         onConfirm={handleBatchConfirmDelete}

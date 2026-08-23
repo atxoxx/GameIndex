@@ -148,7 +148,7 @@ export function useEpicIntegration() {
           addGames(newGames);
           showToast(t("settings.epicSyncedNew", { games: result.gamesImported, new: newGames.length }), "success");
         } else {
-          showToast(t("settings.epicSyncedAll", { games: result.gamesImported }), "success");
+          showToast(t("settings.epicSyncedAll", { imported: result.gamesImported }), "success");
         }
 
         for (const entry of result.syncedGames ?? []) {

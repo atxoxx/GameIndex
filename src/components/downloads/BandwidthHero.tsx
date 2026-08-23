@@ -45,7 +45,7 @@ export default function BandwidthHero({ onOpenStats }: BandwidthHeroProps) {
     speedLimits.downloadEnabled || speedLimits.uploadEnabled || speedLimits.disableUpload;
 
   return (
-    <div className="dl-dashboard-card" role="region" aria-label="Bandwidth Dashboard">
+    <div className="dl-dashboard-card" role="region" aria-label={t("downloads.bandwidthDashboard")}>
       <div className="dl-hero-grid">
         {/* Download Rate Metric Card */}
         <div className="dl-hero-metric dl-hero-metric--down">
@@ -89,7 +89,7 @@ export default function BandwidthHero({ onOpenStats }: BandwidthHeroProps) {
             {formatBytesPerSecond(totalUploadSpeed, unit)}
           </div>
           <span className="dl-hero-sub">
-            {isUploading ? "Live swarm distribution" : t("downloads.unlimited")}
+            {isUploading ? t("downloads.liveSwarm") : t("downloads.unlimited")}
           </span>
         </div>
 
@@ -119,7 +119,7 @@ export default function BandwidthHero({ onOpenStats }: BandwidthHeroProps) {
             >
               <SlidersIcon style={{ width: 14, height: 14 }} />
               <span>{t("downloads.speedLimiterTitle")}</span>
-              {isThrottled && <span className="dl-hero-speed-badge">Limits On</span>}
+              {isThrottled && <span className="dl-hero-speed-badge">{t("downloads.limitsOn")}</span>}
             </button>
           </div>
         </div>

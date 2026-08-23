@@ -159,7 +159,7 @@ export default function FriendsCirclesModal({
               {activeCircle ? (
                 <>
                   <span className="circles-members-title">
-                    {t("friendsPage.assignFriendsTo", { circle: activeCircle.name })}
+                    {t("friendsPage.assignFriendsTo", { name: activeCircle.name })}
                   </span>
                   <div className="circles-friends-checklist">
                     {friends.length === 0 ? (

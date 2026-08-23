@@ -214,9 +214,9 @@ export function useSteamIntegration() {
         const achMsg = steamSettings.syncAchievements ? ` · ${a} games achievements synced` : "";
         if (newGames.length > 0) {
           addGames(newGames);
-          showToast(t("settings.steamSyncedNew", { games: g, playtime: p, ach: achMsg, new: newGames.length }), "success");
+          showToast(t("settings.steamSyncedNew", { games: g, playtime: p, achievements: achMsg, new: newGames.length }), "success");
         } else {
-          showToast(t("settings.steamSyncedAll", { games: g, playtime: p, ach: achMsg }), "success");
+          showToast(t("settings.steamSyncedAll", { games: g, playtime: p, achievements: achMsg }), "success");
         }
       }
     } catch (err) {

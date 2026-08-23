@@ -204,7 +204,7 @@ function SpoilerBlock({ children }: { children: React.ReactNode }) {
       onClick={() => setRevealed((prev) => !prev)}
       role="button"
       tabIndex={0}
-      title={revealed ? t("review.hideSpoiler", { defaultValue: "Click to hide spoiler" }) : t("review.clickRevealSpoiler")}
+      title={revealed ? t("review.hideSpoiler") : t("review.clickRevealSpoiler")}
       onKeyDown={(e) => {
         if (e.key === "Enter" || e.key === " ") {
           e.preventDefault();
@@ -213,7 +213,7 @@ function SpoilerBlock({ children }: { children: React.ReactNode }) {
       }}
     >
       {revealed ? (
-        hasContent ? children : <em className="rv-bbcode-spoiler-empty">({t("common.noContent", { defaultValue: "Empty spoiler" })})</em>
+        hasContent ? children : <em className="rv-bbcode-spoiler-empty">({t("common.noContent")})</em>
       ) : (
         <span className="rv-bbcode-spoiler-mask">{t("review.clickRevealSpoiler")}</span>
       )}

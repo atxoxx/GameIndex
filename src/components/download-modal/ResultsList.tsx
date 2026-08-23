@@ -196,7 +196,7 @@ export function ResultsList({
                   type="button"
                   className="dl-search-clear-btn"
                   onClick={() => onSearchQueryChange("")}
-                  aria-label="Clear filter"
+                  aria-label={t("downloadsFilter.clearSearch")}
                 >
                   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                     <line x1="18" y1="6" x2="6" y2="18" />

@@ -100,7 +100,7 @@ export const DownloadRow = React.memo(
       isCompleted || (download.kind === "debrid" && isActiveStatus(status));
     const errorMessage = getStatusError(status);
     const isDirect = download.kind === "direct" || download.kind === "debrid";
-    const activity = getActivityMessage(download);
+    const activity = getActivityMessage(download, t);
     const isSeeding = status.kind === "seeding";
 
     const isStalledActivity =
@@ -139,7 +139,7 @@ export const DownloadRow = React.memo(
       try {
         await launchGame(matchedGame);
       } catch (err) {
-        showToast(t("game.launchFailed", { error: String(err) }), "error");
+        showToast(t("gameContext.launchFailed", { error: String(err) }), "error");
       }
     };
 
@@ -185,9 +185,9 @@ export const DownloadRow = React.memo(
                 {/* Status Pill Badge next to title */}
                 <span
                   className={`dl-row-status dl-row-status--${getStatusClassSuffix(status)}`}
-                  title={getStatusLabel(status)}
+                  title={getStatusLabel(status, t)}
                 >
-                  {getStatusLabel(status)}
+                  {getStatusLabel(status, t)}
                 </span>
 
                 {download.kind === "direct" && (
@@ -241,7 +241,7 @@ export const DownloadRow = React.memo(
                 )}
                 {isActiveStatus(status) && download.downloadSpeed > 0 && download.totalSize != null && (
                   <span className="dl-row-eta">
-                    {formatEta(download.downloaded, download.totalSize, download.downloadSpeed)}
+                    {formatEta(download.downloaded, download.totalSize, download.downloadSpeed, t)}
                   </span>
                 )}
               </span>
@@ -303,7 +303,7 @@ export const DownloadRow = React.memo(
             {!isDirect && (
               <div
                 className={`dl-swarm-health dl-swarm-health--${swarmHealth}`}
-                title={t("downloadRow.swarmHealthTitle", { bars: swarmHealth })}
+                title={t("downloadRow.swarmHealthTitle")}
               >
                 <div className="dl-swarm-bar" />
                 <div className="dl-swarm-bar" />
