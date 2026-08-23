@@ -1171,7 +1171,7 @@ async fn start_debrid(manager: &SharedManager, id: &str) -> bool {
     // Already resolved to direct links earlier? Resume the multi-file
     // worker from the stored file list; without one (legacy single-file),
     // fall back to plain direct (which claims the slot itself).
-    let (is_magnet, resolved) = {
+    let (is_magnet, resolved, source_uri, preserved_magnet) = {
         let guard = manager.read().await;
         let Some(d) = guard.downloads_map().get(id) else {
             return false;
@@ -1182,7 +1182,12 @@ async fn start_debrid(manager: &SharedManager, id: &str) -> bool {
         } else {
             guard.debrid_files.get(id).cloned()
         };
-        (is_magnet, resolved)
+        (
+            is_magnet,
+            resolved,
+            d.source_uri.clone(),
+            d.magnet_uri.clone(),
+        )
     };
     if !is_magnet {
         if let Some(files) = resolved {
@@ -1234,28 +1239,41 @@ async fn start_debrid(manager: &SharedManager, id: &str) -> bool {
             )
             .await;
         }
+        // Degraded record: `source_uri` was overwritten with the first
+        // file's direct URL but no resolved file list survived (legacy
+        // single-file record, or a restart between resolve and persist).
+        // A preserved magnet lets us re-run the resolve flow and recover
+        // the FULL file list; falling through to start_direct would
+        // download only that first file's URL.
+        if let Some(magnet) = preserved_magnet
+            .filter(|m| m.starts_with("magnet:") && !m.trim().is_empty())
+        {
+            return spawn_magnet_resolve(manager, id, magnet).await;
+        }
         return start_direct(manager, id).await;
     }
+    // Fresh magnet: resolve it through the debrid provider.
+    spawn_magnet_resolve(manager, id, source_uri).await
+}
+
+/// Shared tail of the debrid magnet flow: mark FetchingMetadata, look up
+/// credentials (per-download params → default provider fallback), then
+/// spawn `run_debrid_flow` for `magnet`. Used by both the fresh-magnet
+/// path and the degraded-record self-heal in `start_debrid`.
+async fn spawn_magnet_resolve(manager: &SharedManager, id: &str, magnet: String) -> bool {
     if !begin_download(manager, id, DownloadStatus::FetchingMetadata).await {
         return false;
     }
-    let (magnet, params) = {
-        let mut guard = manager.write().await;
-        let mut params = guard.debrid_params.get(id).cloned();
-        if params.is_none() {
-            if let (Some(p), Some(k)) = (
-                &guard.default_debrid_provider,
-                &guard.default_debrid_apikey,
-            ) {
-                if !p.is_empty() && !k.is_empty() {
-                    params = Some((p.clone(), k.clone()));
-                }
-            }
-        }
-        let Some(d) = guard.downloads_mut().get_mut(id) else {
+    let params = {
+        let guard = manager.read().await;
+        if !guard.downloads_map().contains_key(id) {
             return false;
-        };
-        (d.source_uri.clone(), params)
+        }
+        guard.debrid_params.get(id).cloned().or_else(|| {
+            let p = guard.default_debrid_provider.as_deref()?;
+            let k = guard.default_debrid_apikey.as_deref()?;
+            (!p.is_empty() && !k.is_empty()).then(|| (p.to_string(), k.to_string()))
+        })
     };
 
     let Some((provider, apikey)) = params else {
@@ -1469,7 +1487,7 @@ async fn run_debrid_flow(
                     .unwrap_or_else(|| "debrid_download".to_string())
             };
             let total: u64 = files.iter().map(|(_, s, _, _)| *s).sum();
-            let total_size = if total > 0 { Some(total) } else { None };
+            let total_size = resolved_total_size(total, status.magnet_size);
 
             {
                 let mut guard = manager.write().await;
@@ -1479,6 +1497,11 @@ async fn run_debrid_flow(
                 // `save_path` stays the folder the command was given; the
                 // worker drops every file into it.
                 d.source_uri = files[0].2.clone();
+                // Preserve the original magnet: `source_uri` now points at
+                // the first file's direct URL only, so a restart-resume of
+                // a record that lost its resolved file list needs the
+                // magnet to re-resolve the FULL list.
+                d.magnet_uri = Some(magnet.clone());
                 d.uris = Some(files.iter().map(|(_, _, l, _)| l.clone()).collect());
                 d.name = record_name;
                 d.total_size = total_size;
@@ -1529,6 +1552,17 @@ async fn run_debrid_flow(
             guard.emit_progress();
         }
     }
+}
+
+/// Full-magnet size honesty: the per-file sum is authoritative; when
+/// files carry no sizes (sum == 0, e.g. legacy links or a provider that
+/// omits them), fall back to the provider's magnet-level size so the
+/// record never shows "first file only" (or zero) sizing.
+fn resolved_total_size(file_sum: u64, magnet_size: Option<u64>) -> Option<u64> {
+    if file_sum > 0 {
+        return Some(file_sum);
+    }
+    magnet_size.filter(|&s| s > 0)
 }
 
 /// Strip path separators and characters illegal in a file name on the
@@ -1773,4 +1807,28 @@ fn hash_snapshot(downloads: &[Download]) -> u64 {
         }
     }
     hasher.finish()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn resolved_total_size_prefers_file_sum() {
+        assert_eq!(resolved_total_size(100, Some(50)), Some(100));
+        assert_eq!(resolved_total_size(100, None), Some(100));
+    }
+
+    #[test]
+    fn resolved_total_size_falls_back_to_magnet_size() {
+        // Files resolved but with no sizes (legacy links): the
+        // magnet-level size is the only honest total.
+        assert_eq!(resolved_total_size(0, Some(145_604_511)), Some(145_604_511));
+    }
+
+    #[test]
+    fn resolved_total_size_none_when_both_unknown() {
+        assert_eq!(resolved_total_size(0, None), None);
+        assert_eq!(resolved_total_size(0, Some(0)), None);
+    }
 }

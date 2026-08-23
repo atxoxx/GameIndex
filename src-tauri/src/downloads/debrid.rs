@@ -16,6 +16,10 @@ pub struct DebridStatusResult {
     /// endpoint. Used as the record display name for multi-file
     /// downloads. None when the provider doesn't report one.
     pub name: Option<String>,
+    /// Magnet-level total size reported by the provider. Fallback when
+    /// the per-file entries carry no sizes (sum == 0) so the record
+    /// never degrades to "first file only" sizing.
+    pub magnet_size: Option<u64>,
     pub error_message: Option<String>,
 }
 
@@ -438,24 +442,12 @@ impl AllDebridClient {
             0.0
         };
 
-        // Legacy status `links` (empty under v4.1) kept as a fallback so
-        // older account responses still yield downloadable entries.
-        let mut files: Vec<DebridFile> = mag
-            .links
-            .into_iter()
-            .map(|l| DebridFile {
-                name: String::new(),
-                size: 0,
-                link: l.link,
-            })
-            .collect();
-        let name: Option<String> = mag
-            .filename
-            .filter(|f| !f.is_empty() && f != "noname");
-
-        // /v4.1/magnet/status no longer embeds the file list inline; fetch it
-        // from the dedicated files endpoint once the transfer is ready.
-        if normalized_status == "ready" && files.is_empty() {
+        // /v4.1/magnet/status no longer embeds the file list inline; the
+        // dedicated files endpoint is authoritative. Try it FIRST once the
+        // transfer is ready — legacy status `links` are only a fallback for
+        // older account responses where the fetch yields nothing.
+        let mut files: Vec<DebridFile> = Vec::new();
+        if normalized_status == "ready" {
             if let Ok(files_resp) = ad_request(
                 &client,
                 Method::POST,
@@ -472,6 +464,17 @@ impl AllDebridClient {
                 }
             }
         }
+        if files.is_empty() {
+            files.extend(mag.links.into_iter().map(|l| DebridFile {
+                name: String::new(),
+                size: 0,
+                link: l.link,
+            }));
+        }
+
+        let name: Option<String> = mag
+            .filename
+            .filter(|f| !f.is_empty() && f != "noname");
 
         let error_message = if mag.status_code > 4 {
             Some(if mag.status_code_description.is_empty() {
@@ -489,6 +492,7 @@ impl AllDebridClient {
             status: normalized_status,
             files,
             name,
+            magnet_size: if mag.size > 0 { Some(mag.size) } else { None },
             error_message,
         })
     }
@@ -516,10 +520,43 @@ impl AllDebridClient {
         }
 
         let data = body.data.ok_or_else(|| "Empty response data".to_string())?;
-        if data.link.is_empty() {
-            return Err("AllDebrid returned an empty direct download link".to_string());
+        if !data.link.is_empty() {
+            return Ok(data.link);
         }
-        Ok(data.link)
+
+        // Delayed unlock: the hoster needs time to generate the file.
+        // Poll the delayed endpoint every 5 s (12 attempts ≈ 60 s) until
+        // the direct link appears, so callers never fall back to the raw
+        // /f/ page link (which is HTML, not a download).
+        let Some(delayed_id) = data.delayed.as_ref().and_then(delayed_id_as_string) else {
+            return Err("AllDebrid returned an empty direct download link".to_string());
+        };
+        const DELAYED_POLL_ATTEMPTS: u32 = 12;
+        for _ in 0..DELAYED_POLL_ATTEMPTS {
+            tokio::time::sleep(std::time::Duration::from_secs(5)).await;
+            let resp = ad_request(
+                &client,
+                Method::POST,
+                "/v4/link/delayed",
+                apikey,
+                Some(&[("id", delayed_id.as_str())]),
+            )
+            .await?;
+            let status = resp.status();
+            let body: AllDebridResponse<AllDebridUnlockData> = resp
+                .json()
+                .await
+                .map_err(|e| format!("Failed to parse AllDebrid delayed response: {}", e))?;
+            if !status.is_success() || body.status != "success" {
+                return Err(ad_err(body));
+            }
+            if let Some(data) = body.data {
+                if !data.link.is_empty() {
+                    return Ok(data.link);
+                }
+            }
+        }
+        Err("AllDebrid link generation timed out".to_string())
     }
 }
 
@@ -527,6 +564,24 @@ impl AllDebridClient {
 struct AllDebridUnlockData {
     #[serde(default, alias = "downloadUrl", alias = "directUrl")]
     link: String,
+    /// Hosters that throttle link generation answer with a `delayed`
+    /// job id instead of an immediate `link`; poll `/v4/link/delayed`
+    /// until the direct link appears.
+    #[serde(default)]
+    delayed: Option<serde_json::Value>,
+}
+
+/// Normalise the `delayed` field to the string id expected by
+/// `/v4/link/delayed` (the API has returned both strings and numbers).
+fn delayed_id_as_string(v: &serde_json::Value) -> Option<String> {
+    match v {
+        serde_json::Value::String(s) => {
+            let t = s.trim();
+            (!t.is_empty()).then(|| t.to_string())
+        }
+        serde_json::Value::Number(n) => Some(n.to_string()),
+        _ => None,
+    }
 }
 
 // ─── TorBox Client ───────────────────────────────────────────────────────────
@@ -708,6 +763,7 @@ impl TorBoxClient {
             status,
             files,
             name: None,
+            magnet_size: None,
             error_message: None,
         })
     }
@@ -1048,8 +1104,110 @@ impl RealDebridClient {
             status,
             files,
             name: Some(info.filename),
+            magnet_size: None,
             error_message: None,
         })
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn parse_files_from_json_documented_payload() {
+        // Live shape of POST /v4/magnet/files (data payload): magnets[] →
+        // files[] tree with short keys n/s/l and nested folders via e.
+        let payload = serde_json::json!({
+            "magnets": [
+                {
+                    "id": 1,
+                    "files": [
+                        {"n": "a.iso", "s": 145517304, "l": "https://alldebrid.com/f/x"},
+                        {"n": "docs", "e": [
+                            {"n": "README.txt", "s": 87207, "l": "https://alldebrid.com/f/y"}
+                        ]}
+                    ]
+                }
+            ]
+        });
+        let mut out = Vec::new();
+        parse_files_from_json(&payload, &mut out);
+        assert_eq!(out.len(), 2);
+        assert_eq!(out[0].name, "a.iso");
+        assert_eq!(out[0].size, 145_517_304);
+        assert_eq!(out[0].link, "https://alldebrid.com/f/x");
+        assert_eq!(out[1].name, "docs/README.txt");
+        assert_eq!(out[1].size, 87_207);
+        assert_eq!(out[1].link, "https://alldebrid.com/f/y");
+    }
+
+    #[test]
+    fn collect_files_empty_name_keeps_parent_path() {
+        let nodes: Vec<AllDebridFileNode> = serde_json::from_value(serde_json::json!([
+            {"n": "", "s": 10, "l": "https://alldebrid.com/f/z"}
+        ]))
+        .unwrap();
+        let mut out = Vec::new();
+        collect_files(&nodes, "parent_dir", &mut out);
+        assert_eq!(out.len(), 1);
+        assert_eq!(out[0].name, "parent_dir");
+    }
+
+    #[test]
+    fn magnet_status_ready_without_optional_fields_parses() {
+        // Regression: once statusCode=4 the v4.1 status response drops
+        // downloaded/links/uploaded — and a single-id query returns
+        // `magnets` as ONE OBJECT, not an array. Both must parse.
+        let body: AllDebridStatusResponse = serde_json::from_value(serde_json::json!({
+            "magnets": {
+                "id": 42,
+                "filename": "Some.Game-CRACKED",
+                "size": 145_604_511,
+                "statusCode": 4,
+                "statusCodeDescription": "Ready"
+            }
+        }))
+        .expect("single-object magnets shape must deserialize");
+        assert_eq!(body.magnets.len(), 1);
+        let mag = &body.magnets[0];
+        assert_eq!(mag.status_code, 4);
+        assert_eq!(mag.size, 145_604_511);
+        assert_eq!(mag.downloaded, 0);
+        assert!(mag.links.is_empty());
+
+        let body: AllDebridStatusResponse = serde_json::from_value(serde_json::json!({
+            "magnets": [{"id": 7, "statusCode": 4}]
+        }))
+        .expect("array magnets shape must deserialize");
+        assert_eq!(body.magnets.len(), 1);
+        assert_eq!(body.magnets[0].status_code, 4);
+    }
+
+    #[test]
+    fn unlock_data_accepts_delayed_and_link_shapes() {
+        let data: AllDebridUnlockData =
+            serde_json::from_value(serde_json::json!({"link": "", "delayed": "abc123"}))
+                .expect("delayed-only unlock response must deserialize");
+        assert_eq!(data.link, "");
+        assert_eq!(
+            delayed_id_as_string(data.delayed.as_ref().unwrap()).as_deref(),
+            Some("abc123")
+        );
+
+        let data: AllDebridUnlockData = serde_json::from_value(
+            serde_json::json!({"link": "https://cdn.alldebrid.com/dl/f", "filesize": 123}),
+        )
+        .expect("immediate unlock response must deserialize");
+        assert_eq!(data.link, "https://cdn.alldebrid.com/dl/f");
+        assert!(data.delayed.is_none());
+
+        // Numeric delayed ids (older API shape) normalise too.
+        assert_eq!(
+            delayed_id_as_string(&serde_json::json!(98765)).as_deref(),
+            Some("98765")
+        );
+        assert_eq!(delayed_id_as_string(&serde_json::json!("")), None);
     }
 }
 

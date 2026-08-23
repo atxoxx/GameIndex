@@ -138,6 +138,13 @@ pub struct Download {
     /// Unix seconds when the download reached Completed/Seeding.
     #[serde(default)]
     pub completed_at: Option<u64>,
+    /// Original magnet URI for debrid downloads. `source_uri` is
+    /// overwritten with the first resolved direct link once resolution
+    /// lands; keeping the magnet here lets a degraded record (no
+    /// resolved file list after a restart) re-resolve the FULL magnet
+    /// instead of downloading only the first file.
+    #[serde(default)]
+    pub magnet_uri: Option<String>,
 }
 
 impl Download {
@@ -184,6 +191,7 @@ impl Download {
             extra_headers: None,
             peak_speed: None,
             completed_at: None,
+            magnet_uri: None,
         }
     }
 }
