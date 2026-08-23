@@ -342,6 +342,7 @@ pub async fn run_debrid_files_download(
                     &save_path,
                     &bytes_counter,
                     base_offset,
+                    false,
                     &manager_weak,
                     &[],
                     None,
@@ -1219,6 +1220,11 @@ async fn stream_segment(
 
 /// Multi-connection download of one file via N parallel byte ranges directly into
 /// a single `.gamelib_tmp` pre-allocated file.
+///
+/// `report_total` mirrors `attempt_download`: when `false` (multi-file debrid,
+/// where the record's `total_size` is already the full magnet sum) the per-file
+/// `Content-Range` total is NOT written back to the record — otherwise every
+/// file switch would clobber the whole-magnet total with the current file's size.
 async fn attempt_segmented_download(
     client: &reqwest::Client,
     id: &str,
@@ -1226,6 +1232,7 @@ async fn attempt_segmented_download(
     save_path: &str,
     bytes_counter: &Arc<AtomicU64>,
     base_offset: u64,
+    report_total: bool,
     manager_weak: &WeakManager,
     extra_headers: &[(String, String)],
     referer: Option<&str>,
@@ -1329,8 +1336,12 @@ async fn attempt_segmented_download(
         .await;
     }
 
-    // Inform manager of total size
-    set_total_size(manager_weak, id, total).await;
+    // Inform manager of total size (only for single-file callers; the
+    // multi-file debrid worker owns the full-magnet total and would be
+    // clobbered by this file's Content-Range size).
+    if report_total {
+        set_total_size(manager_weak, id, total).await;
+    }
 
     // ── Clean up any legacy .part000..007 files from prior versions
     if let Ok(entries) = std::fs::read_dir(parent) {
