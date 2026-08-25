@@ -32,6 +32,7 @@ import { useAchievements } from "../context/AchievementContext";
 import { useWishlistContext } from "../context/WishlistContext";
 import { useToast } from "../context/ToastContext";
 import { useLanguage } from "../context/LanguageContext";
+import { useSettings } from "../context/SettingsContext";
 import { parsePlayTime, type Game } from "../types/game";
 import type { UseFriendsDataResult } from "./useFriendsData";
 import {
@@ -69,6 +70,7 @@ import {
   displayName,
   isAppBlacklisted,
   safeCurrentlyPlaying,
+  sanitizeDmsForPush,
   listPeerOutboxes,
   fetchFriendOutbox,
   pushMyOutbox as pushMyOutboxStorage,
@@ -304,6 +306,7 @@ export function useFriendsSocial(fd: UseFriendsDataResult): UseFriendsSocialResu
   const { cache } = useAchievements();
   const { wishlist, toggle } = useWishlistContext();
   const { showToast } = useToast();
+  const { dmReadReceipts } = useSettings();
 
   const { profile } = fd;
 
@@ -517,10 +520,13 @@ export function useFriendsSocial(fd: UseFriendsDataResult): UseFriendsSocialResu
       sugs: GameSuggestion[],
       dmsThreads?: DmThread[],
     ) => {
-      await pushMyOutboxStorage(p, fd.selfStats, s, recs, selfSharedGames, sugs, dmsThreads);
+      // Read receipts are opt-in: when disabled, our own read-state never
+      // leaves the device (mirrors the desktop page's pushMyOutbox).
+      const outDms = sanitizeDmsForPush(dmsThreads || [], p.name, dmReadReceipts);
+      await pushMyOutboxStorage(p, fd.selfStats, s, recs, selfSharedGames, sugs, outDms);
       void publishToNostr(p, s, recs, sugs);
     },
-    [fd.selfStats, selfSharedGames, publishToNostr],
+    [fd.selfStats, selfSharedGames, publishToNostr, dmReadReceipts],
   );
 
   // ── Profile save (pushes the authoritative social state) ────────
@@ -851,8 +857,37 @@ export function useFriendsSocial(fd: UseFriendsDataResult): UseFriendsSocialResu
       setSelectedDmFriendName(friendName);
       clearUnseenTabItems("dms");
       refreshUnseenCounts();
+
+      // Record our read receipt when the thread had unread messages — the
+      // friend only ever sees it when read receipts are enabled (pushOutbox
+      // strips our read-state otherwise).
+      const thread = dmsRef.current.find((t) => t.id === threadId);
+      if (thread) {
+        const lastRead = thread.lastReadAt?.[profile.name] || 0;
+        const unread = (thread.messages || []).some(
+          (m) => m.author !== profile.name && m.timestamp > lastRead,
+        );
+        if (unread) {
+          const updated = dmsRef.current.map((t) =>
+            t.id === threadId
+              ? { ...t, lastReadAt: { ...(t.lastReadAt || {}), [profile.name]: Date.now() } }
+              : t,
+          );
+          dmsRef.current = updated;
+          setDms(updated);
+          saveDmsAndPersist(updated);
+          markDirty();
+          void pushOutbox(
+            profile,
+            sessionsRef.current,
+            recommendationsRef.current,
+            suggestionsRef.current,
+            updated,
+          );
+        }
+      }
     },
-    [refreshUnseenCounts],
+    [profile, pushOutbox, markDirty, refreshUnseenCounts],
   );
 
   const handleSendDm = useCallback(
@@ -883,6 +918,13 @@ export function useFriendsSocial(fd: UseFriendsDataResult): UseFriendsSocialResu
           ...updated,
         ];
       }
+      // Sending counts as reading — record our read receipt (only shared with
+      // the friend when read receipts are enabled; pushOutbox strips it otherwise).
+      updated = updated.map((th) =>
+        th.id === threadId
+          ? { ...th, lastReadAt: { ...(th.lastReadAt || {}), [profile.name]: Date.now() } }
+          : th,
+      );
       dmsRef.current = updated;
       setDms(updated);
       saveDmsAndPersist(updated);

@@ -20,6 +20,7 @@ import { useGames } from "../context/GameContext";
 import { useAchievements } from "../context/AchievementContext";
 import { useToast } from "../context/ToastContext";
 import { useLanguage } from "../context/LanguageContext";
+import { useSettings } from "../context/SettingsContext";
 import { parsePlayTime } from "../types/game";
 import {
   type UserProfile,
@@ -32,6 +33,7 @@ import {
   type RsvpStatus,
   type SessionMessage,
   type FriendsDatabase,
+  type SyncResult,
   loadUserProfile,
   saveUserProfile,
   loadFriends,
@@ -60,8 +62,10 @@ import {
   mergeDms,
   addUnseenTabItems,
   addUnseenCommunityItems,
+  buildOutboxPayload,
   buildNostrOutboxPayload,
   publishNostrOutbox,
+  sanitizeDmsForPush,
   stripDms,
 } from "../pages/friendsStorage";
 
@@ -104,6 +108,7 @@ export function useFriendsData(): UseFriendsDataResult {
   const { games, runningGameIds } = useGames();
   const { cache } = useAchievements();
   const { showToast } = useToast();
+  const { dmReadReceipts } = useSettings();
 
   // Load state (single active profile, matching FriendsPage's hardcoded "A")
   const [profile, setProfile] = useState<UserProfile>(() => loadUserProfile());
@@ -121,6 +126,13 @@ export function useFriendsData(): UseFriendsDataResult {
   // Manual sync requests that arrive while a sync is already running are
   // queued so the user's "Sync" click is never silently dropped.
   const pendingManualSync = useRef(false);
+  // Refs (not state) guard the sync loop — the state value captured in a
+  // 15s-interval closure goes stale the moment a cycle starts, letting a
+  // slow cycle (relay timeouts) overlap with the next tick.
+  const isSyncingRef = useRef(false);
+  // Signature of the last outbox payload we actually pushed; background
+  // polls skip the file write + 4× relay publish when nothing changed.
+  const lastPushedSignatureRef = useRef<string | null>(null);
 
   const nostrPool = useMemo(() => new SimplePool(), []);
 
@@ -275,7 +287,10 @@ export function useFriendsData(): UseFriendsDataResult {
     };
   }, []);
 
-  // Local wrapper around pushMyOutbox that handles both local files and Nostr relays
+  // Local wrapper around pushMyOutbox that handles both local files and Nostr relays.
+  // Mirrors FriendsPage: read receipts are opt-in (our read-state never leaves the
+  // device when disabled), and background pushes skip the write + relay publish when
+  // the outbox payload is byte-identical to the last one we pushed — the common idle case.
   const pushMyOutbox = async (
     currProfile: UserProfile,
     currStats: { gamesCount: number; playtimeMinutes: number; achievementsCount: number },
@@ -283,9 +298,18 @@ export function useFriendsData(): UseFriendsDataResult {
     currRecs: GameRecommendation[],
     currSharedGames?: SharedGameStat[],
     currSuggestions?: GameSuggestion[],
-    currDms?: DmThread[]
-  ) => {
-    const res = await pushMyOutboxStorage(currProfile, currStats, currSessions, currRecs, currSharedGames, currSuggestions, currDms);
+    currDms?: DmThread[],
+    force = true
+  ): Promise<SyncResult> => {
+    const outDms = sanitizeDmsForPush(currDms || [], currProfile.name, dmReadReceipts);
+    const signature = JSON.stringify(
+      buildOutboxPayload(currProfile, currStats, currSessions, currRecs, currSharedGames, currSuggestions, outDms)
+    );
+    if (!force && signature === lastPushedSignatureRef.current) {
+      return { ok: true };
+    }
+
+    const res = await pushMyOutboxStorage(currProfile, currStats, currSessions, currRecs, currSharedGames, currSuggestions, outDms);
 
     // Also publish to Nostr (the public-relay payload deliberately excludes
     // DM threads — those only travel through the private folder / P2P sync).
@@ -298,25 +322,40 @@ export function useFriendsData(): UseFriendsDataResult {
       currSuggestions
     );
     await publishNostrOutbox(payload);
+    lastPushedSignatureRef.current = signature;
     return res;
   };
 
   // ── Sync Engine (mirrors FriendsPage's performSync) ────────────────
 
   const performSync = async (manual = false) => {
-    if (isSyncing) {
+    if (isSyncingRef.current) {
       if (manual) pendingManualSync.current = true;
       return;
     }
+    isSyncingRef.current = true;
     setIsSyncing(true);
     try {
     // Make sure we always have a stable Nostr public key before publishing.
-    if (!profileRef.current.syncId) {
+    let currProfile = profileRef.current;
+    if (!currProfile.syncId) {
       const keys = getNostrKeys();
-      const updated = { ...profileRef.current, syncId: keys.publicKey };
+      const updated = { ...currProfile, syncId: keys.publicKey };
       saveUserProfile(updated);
       setProfile(updated);
       profileRef.current = updated;
+      currProfile = updated;
+    }
+
+    // Presence heartbeat: bump `lastActive` (and republish the outbox) every
+    // 2 minutes while the hub is open so friends see an accurate online state.
+    const heartbeatSecs = Math.floor(Date.now() / 1000);
+    if (!currProfile.lastActive || heartbeatSecs - currProfile.lastActive > 120) {
+      const heartbeated = { ...currProfile, lastActive: heartbeatSecs };
+      saveUserProfile(heartbeated);
+      setProfile(heartbeated);
+      profileRef.current = heartbeated;
+      currProfile = heartbeated;
     }
 
     const folder = await getSyncFolder();
@@ -353,6 +392,29 @@ export function useFriendsData(): UseFriendsDataResult {
     // Read the outbox of each friend from the sync folder
     const updatedFriends: Friend[] = [];
     const nowSecs = Math.floor(Date.now() / 1000);
+
+    // Fetch every non-blocked friend's outbox concurrently instead of awaiting
+    // each one in series — the main sync speedup when there are many friends.
+    const outboxBySyncId = new Map<
+      string,
+      { remoteOutbox: Awaited<ReturnType<typeof fetchFriendOutbox>>; error: string | null }
+    >();
+    await Promise.all(
+      localFriends
+        .filter((f) => !f.blocked)
+        .map(async (friend) => {
+          try {
+            const remoteOutbox = await fetchFriendOutbox(friend.syncId);
+            outboxBySyncId.set(friend.syncId, { remoteOutbox, error: null });
+          } catch (err) {
+            outboxBySyncId.set(friend.syncId, {
+              remoteOutbox: null,
+              error: err instanceof Error ? err.message : String(err),
+            });
+          }
+        })
+    );
+
     for (const friend of localFriends) {
       const friendName = displayName(friend);
       // Skipped (blocked) peers: keep them locally but never sync their data.
@@ -361,7 +423,9 @@ export function useFriendsData(): UseFriendsDataResult {
         continue;
       }
       try {
-        const remoteOutbox = await fetchFriendOutbox(friend.syncId);
+        const result = outboxBySyncId.get(friend.syncId);
+        if (result?.error) throw result.error;
+        const remoteOutbox = result?.remoteOutbox;
         if (remoteOutbox) {
           // Merge sessions
           if (remoteOutbox.sessions && remoteOutbox.sessions.length > 0) {
@@ -409,15 +473,15 @@ export function useFriendsData(): UseFriendsDataResult {
             const knownMessages = new Map<string, Set<string>>();
             mergedDms.forEach((t) => knownMessages.set(t.id, new Set((t.messages || []).map((m) => m.id))));
             const prevDmCount = mergedDms.length;
-            mergedDms = mergeDms(mergedDms, remoteOutbox.dms, profileRef.current.name);
+            mergedDms = mergeDms(mergedDms, remoteOutbox.dms, currProfile.name);
             // Count messages that are genuinely new AND not authored by us → badge.
             let newIncoming = 0;
             remoteOutbox.dms.forEach((rt) => {
               const known = knownMessages.get(rt.id);
               if (!known) {
-                newIncoming += (rt.messages || []).filter((m) => m.author !== profileRef.current.name).length;
+                newIncoming += (rt.messages || []).filter((m) => m.author !== currProfile.name).length;
               } else {
-                newIncoming += (rt.messages || []).filter((m) => !known.has(m.id) && m.author !== profileRef.current.name).length;
+                newIncoming += (rt.messages || []).filter((m) => !known.has(m.id) && m.author !== currProfile.name).length;
               }
             });
             if (newIncoming > 0) addUnseenTabItems("dms", newIncoming);
@@ -435,6 +499,7 @@ export function useFriendsData(): UseFriendsDataResult {
               friend.currentlyPlaying !== remoteOutbox.profile.currentlyPlaying ||
               (friend as any).bio !== (remoteProfile.bio || "") ||
               (friend as any).region !== (remoteProfile.region || "") ||
+              friend.lastActive !== remoteProfile.lastActive ||
               JSON.stringify(friend.libStats) !== JSON.stringify(remoteProfile.libStats);
 
             if (hasDiff) {
@@ -450,6 +515,7 @@ export function useFriendsData(): UseFriendsDataResult {
                 region: remoteProfile.region || undefined,
                 libStats: remoteProfile.libStats,
                 games: remoteOutbox.games || friend.games,
+                lastActive: remoteProfile.lastActive,
                 lastSeen: nowSecs,
               });
               continue;
@@ -490,7 +556,7 @@ export function useFriendsData(): UseFriendsDataResult {
       finalSessions = mergeSessions(loadSessions(), mergedSessions);
       finalRecs = mergeRecommendations(loadRecommendations(), mergedRecs);
       finalSuggestions = mergeSuggestions(loadSuggestions(), mergedSuggestions);
-      finalDms = mergeDms(loadDms(), mergedDms, profileRef.current.name);
+      finalDms = mergeDms(loadDms(), mergedDms, currProfile.name);
       saveSessions(finalSessions);
       saveRecommendations(finalRecs);
       saveSuggestions(finalSuggestions);
@@ -517,13 +583,14 @@ export function useFriendsData(): UseFriendsDataResult {
 
     // Always push our own updated outbox so friends can see us
     const pushed = await pushMyOutbox(
-      profileRef.current,
+      currProfile,
       selfStatsRef.current,
       finalSessions,
       finalRecs,
       selfSharedGamesRef.current,
       finalSuggestions,
-      finalDms
+      finalDms,
+      manual
     );
 
     if (manual) {
@@ -553,6 +620,7 @@ export function useFriendsData(): UseFriendsDataResult {
       // Guaranteed reset: a throw anywhere mid-cycle must never leave
       // the sync flag stuck (the hub's sync indicator would spin
       // forever). The `!folder` early return above also lands here.
+      isSyncingRef.current = false;
       setIsSyncing(false);
     }
 
