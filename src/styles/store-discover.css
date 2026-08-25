@@ -101,7 +101,7 @@
   background: linear-gradient(
     115deg,
     transparent 30%,
-    color-mix(in srgb, #fff 22%, transparent) 48%,
+    color-mix(in srgb, var(--scrim-text) 22%, transparent) 48%,
     transparent 60%
   );
   mix-blend-mode: soft-light;
@@ -121,10 +121,10 @@
   height: 100%;
   object-fit: cover;
   border-radius: inherit;
-  border: 1px solid color-mix(in srgb, #fff 16%, transparent);
+  border: 1px solid var(--scrim-border);
   box-shadow:
-    inset 0 1px 0 color-mix(in srgb, #fff 22%, transparent),
-    inset 0 0 40px rgba(0, 0, 0, 0.35);
+    inset 0 1px 0 var(--scrim-gloss),
+    var(--elevation-2);
   display: block;
   transition: transform var(--transition-normal);
 }
@@ -202,7 +202,7 @@
   left: -40%;
   width: 40%;
   height: 100%;
-  background: linear-gradient(90deg, transparent, #fff, transparent);
+  background: linear-gradient(90deg, transparent, var(--scrim-text), transparent);
   opacity: 0.55;
   filter: blur(1px);
   animation: store-hero-shimmer-travel 3.6s ease-in-out infinite;
@@ -297,7 +297,7 @@
   height: auto;
   object-fit: contain;
   object-position: left center;
-  filter: drop-shadow(0 4px 16px rgba(0, 0, 0, 0.6));
+  filter: drop-shadow(0 4px 16px var(--scrim-dark-mid));
   display: block;
 }
 
@@ -668,7 +668,7 @@
   background: var(--color-bg-primary);
   color: var(--color-text-primary);
   cursor: pointer;
-  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.35);
+  box-shadow: var(--elevation-3);
   opacity: 0;
   transition: opacity var(--transition-fast), background var(--transition-fast), transform var(--transition-fast);
 }
@@ -844,12 +844,12 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  background: rgba(0, 0, 0, 0.45);
+  background: var(--scrim-dark-mid);
   backdrop-filter: blur(6px);
   -webkit-backdrop-filter: blur(6px);
   border: none;
   border-radius: 50%;
-  color: rgba(255, 255, 255, 0.9);
+  color: var(--scrim-text);
   cursor: pointer;
   opacity: 0;
   transform: scale(0.85);
@@ -861,8 +861,8 @@
 }
 .store-game-card:hover .store-card-heart,
 .store-card-heart:focus-visible { opacity: 1; transform: scale(1); }
-.store-card-heart.active { opacity: 1; color: var(--color-accent); background: rgba(0, 0, 0, 0.55); }
-.store-card-heart:hover { transform: scale(1.08); background: rgba(0, 0, 0, 0.65); }
+.store-card-heart.active { opacity: 1; color: var(--color-accent); background: var(--scrim-dark); }
+.store-card-heart:hover { transform: scale(1.08); background: var(--scrim-dark-soft); }
 .store-card-heart:focus-visible { outline: 2px solid var(--color-accent); outline-offset: 2px; }
 .store-card-heart svg { width: 18px; height: 18px; }
 @media (prefers-reduced-motion: reduce) {
@@ -896,7 +896,7 @@
   position: relative;
   transition: transform var(--transition-fast), box-shadow var(--transition-fast);
 }
-.store-game-card.density-cinematic:hover { transform: translateY(-3px); box-shadow: 0 12px 28px rgba(0, 0, 0, 0.45); }
+.store-game-card.density-cinematic:hover { transform: translateY(-2px); box-shadow: var(--elevation-4); }
 .store-game-card.density-cinematic .store-card-cover { position: absolute; inset: 0; width: 100%; height: 100%; aspect-ratio: auto; }
 .store-game-card.density-cinematic .store-card-cover img { width: 100%; height: 100%; object-fit: cover; }
 .store-game-card.density-cinematic .store-card-body {
@@ -1080,7 +1080,7 @@
 /* Hero CTA: tactile depth */
 .store-hero-cta {
   box-shadow:
-    inset 0 1px 0 color-mix(in srgb, #fff 26%, transparent),
+    inset 0 1px 0 color-mix(in srgb, var(--color-accent-contrast) 26%, transparent),
     0 4px 18px var(--color-accent-glow);
   transition:
     transform var(--transition-fast),
@@ -1092,7 +1092,7 @@
   transform: translateY(-2px) scale(1.02);
   filter: brightness(1.06);
   box-shadow:
-    inset 0 1px 0 color-mix(in srgb, #fff 28%, transparent),
+    inset 0 1px 0 color-mix(in srgb, var(--color-accent-contrast) 28%, transparent),
     0 8px 26px var(--color-accent-glow);
 }
 
@@ -1104,11 +1104,11 @@
 .store-hero-controls {
   backdrop-filter: blur(12px);
   -webkit-backdrop-filter: blur(12px);
-  border: 1px solid color-mix(in srgb, #fff 14%, transparent);
+  border: 1px solid var(--scrim-border);
   background: color-mix(in srgb, var(--color-bg-primary) 55%, transparent);
   border-radius: var(--radius-full);
   padding: 4px;
-  box-shadow: var(--depth-1);
+  box-shadow: var(--elevation-1);
 }
 
 .store-hero-arrow {

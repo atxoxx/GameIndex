@@ -138,20 +138,20 @@
 }
 .btn-primary {
   background: var(--brand-gradient-strong);
-  color: var(--color-accent-contrast, #ffffff);
+  color: var(--color-accent-contrast);
   border-color: transparent;
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.25), 0 3px 12px var(--color-accent-glow);
+  box-shadow: inset 0 1px 0 color-mix(in srgb, var(--color-accent-contrast) 25%, transparent), 0 3px 12px var(--color-accent-glow);
 }
 .btn-primary:hover:not(:disabled) {
   filter: brightness(1.08);
   transform: translateY(-1px);
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.3), 0 5px 16px var(--color-accent-glow);
+  box-shadow: inset 0 1px 0 color-mix(in srgb, var(--color-accent-contrast) 30%, transparent), 0 5px 16px var(--color-accent-glow);
 }
 .btn--sm { padding: var(--space-xs) var(--space-md); font-size: var(--font-size-xs); gap: var(--space-xs); border-radius: var(--radius-sm); }
 .btn--lg { padding: var(--space-md) var(--space-2xl); font-size: var(--font-size-md); gap: var(--space-md); border-radius: var(--radius-lg); }
 .btn--secondary { background: var(--color-bg-tertiary); color: var(--color-text-primary); border-color: var(--color-border); }
 .btn--ghost { background: transparent; color: var(--color-text-secondary); border-color: transparent; }
-.btn--danger { color: #fff; background: var(--color-danger); border-color: transparent; box-shadow: inset 0 1px 0 rgba(255,255,255,0.18), 0 2px 8px color-mix(in srgb, var(--color-danger) 30%, transparent); }
+.btn--danger { color: var(--color-accent-contrast); background: var(--color-danger); border-color: transparent; box-shadow: inset 0 1px 0 color-mix(in srgb, var(--color-accent-contrast) 18%, transparent), 0 2px 8px color-mix(in srgb, var(--color-danger) 30%, transparent); }
 
 /* =============================================================================
  * Shared primitives — sections
@@ -482,12 +482,12 @@ textarea.settings-input {
 
 .settings-segmented button.active {
   background: var(--color-accent);
-  color: var(--color-accent-contrast, #ffffff);
+  color: var(--color-accent-contrast);
 }
 
 .settings-segmented button.active:hover {
   background: var(--color-accent);
-  color: var(--color-accent-contrast, #ffffff);
+  color: var(--color-accent-contrast);
 }
 
 /* =============================================================================

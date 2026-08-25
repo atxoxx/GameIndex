@@ -9,12 +9,12 @@
    engine type chips). Defined once here, referenced via var() so no
    raw colors leak into rules. */
 :root {
-  --mods-nexus: #d98f40;
-  --mods-engine-bethesda: #f3ce78;
-  --mods-engine-bepinex: #92f092;
-  --mods-engine-melonloader: #d8f572;
-  --mods-engine-unreal: #8ac0ff;
-  --mods-engine-workshop: #66c0f4;
+  --mods-nexus: var(--color-warning);
+  --mods-engine-bethesda: color-mix(in srgb, var(--color-warning) 68%, var(--color-accent-contrast));
+  --mods-engine-bepinex: color-mix(in srgb, var(--color-success) 68%, var(--color-accent-contrast));
+  --mods-engine-melonloader: color-mix(in srgb, var(--color-success) 55%, var(--color-warning) 45%);
+  --mods-engine-unreal: var(--color-info);
+  --mods-engine-workshop: var(--brand-steam, var(--color-info));
 }
 
 /* ── Page Shell ─────────────────────────────────────────────────── */
@@ -328,12 +328,12 @@
 }
 
 .mods-game-engines-list .mods-engine-chip {
-  font-size: 9px;
+  font-size: var(--font-size-2xs);
   padding: 1px 5px;
 }
 
 .mods-game-engines {
-  font-size: 9px;
+  font-size: var(--font-size-2xs);
   color: var(--color-text-muted);
   white-space: nowrap;
   overflow: hidden;
@@ -2117,7 +2117,7 @@
 /* ── File Inspector Ext Badges ───────────────────────────────────── */
 
 .mods-file-ext-badge {
-  font-size: 9px;
+  font-size: var(--font-size-2xs);
   font-weight: var(--font-weight-bold);
   text-transform: uppercase;
   background: var(--color-bg-secondary);

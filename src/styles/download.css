@@ -33,9 +33,7 @@
   border: 1px solid color-mix(in srgb, var(--color-border) 80%, transparent);
   border-radius: var(--radius-xl);
   animation: blurIn 220ms var(--ease-out) both;
-  box-shadow:
-    0 24px 64px rgba(0, 0, 0, 0.6),
-    0 0 0 1px color-mix(in srgb, var(--color-border-highlight, rgba(255, 255, 255, 0.1)) 40%, transparent);
+  box-shadow: var(--elevation-5), 0 0 0 1px color-mix(in srgb, var(--color-border-highlight) 40%, transparent);
   overflow: hidden;
   animation: dl-modal-pop 0.24s cubic-bezier(0.16, 1, 0.3, 1);
 }
@@ -97,7 +95,7 @@
   object-fit: cover;
   flex-shrink: 0;
   border: 1px solid color-mix(in srgb, var(--color-border) 80%, transparent);
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
+  box-shadow: var(--elevation-2);
 }
 
 .dl-modal-header-icon-box {
@@ -667,7 +665,7 @@
   display: inline-flex;
   align-items: center;
   gap: 4px;
-  font-size: 9.5px;
+  font-size: var(--font-size-2xs);
   font-weight: var(--font-weight-bold);
   letter-spacing: 0.4px;
   line-height: 1;
@@ -1016,7 +1014,7 @@
   border-radius: var(--radius-full);
   background: var(--color-bg-tertiary);
   border: 1px solid var(--color-border);
-  font-size: 10.5px;
+  font-size: var(--font-size-2xs);
   font-weight: var(--font-weight-bold);
   color: var(--color-text-secondary);
   text-transform: uppercase;
@@ -1050,7 +1048,7 @@
 }
 
 .dl-spotlight-match {
-  font-size: 10.5px;
+  font-size: var(--font-size-2xs);
   font-weight: 600;
   padding: 1px 6px;
   border-radius: var(--radius-sm);
@@ -1117,7 +1115,7 @@
 }
 
 .dl-panel-section-title {
-  font-size: 10.5px;
+  font-size: var(--font-size-2xs);
   font-weight: var(--font-weight-bold);
   text-transform: uppercase;
   letter-spacing: 0.6px;
@@ -1276,7 +1274,7 @@
 }
 
 .dl-mirror-index {
-  font-size: 9px;
+  font-size: var(--font-size-2xs);
   color: var(--color-text-muted);
   opacity: 0.7;
 }
@@ -1395,7 +1393,7 @@
 }
 
 .dl-cache-badge {
-  font-size: 9.5px;
+  font-size: var(--font-size-2xs);
   font-weight: 700;
   padding: 1px 6px;
   border-radius: var(--radius-sm);
@@ -1933,7 +1931,7 @@
 .dl-state-progress-meta {
   display: flex;
   justify-content: space-between;
-  font-size: 10.5px;
+  font-size: var(--font-size-2xs);
   color: var(--color-text-muted);
 }
 
@@ -2762,7 +2760,7 @@
   gap: 5px;
   min-width: 0;
   max-width: 100%;
-  font-size: 9.5px;
+  font-size: var(--font-size-2xs);
   line-height: 1.3;
   letter-spacing: 0.01em;
   color: var(--color-text-muted);
@@ -2850,7 +2848,7 @@
 }
 
 .dl-progress-card-stats-row.secondary {
-  font-size: 9.5px;
+  font-size: var(--font-size-2xs);
   letter-spacing: 0.1px;
   /* Right-align the upload/swarm sub-row so it sits flush under
    * the right side of the progress row above, creating a
@@ -2981,8 +2979,8 @@
 .dl-progress-card-btn.danger-fill:hover {
   background: var(--color-danger);
   border-color: var(--color-danger);
-  color: #fff;
-  box-shadow: 0 2px 6px color-mix(in srgb, var(--color-danger) 35%, transparent);
+  color: var(--color-accent-contrast);
+  box-shadow: var(--elevation-1), 0 0 8px color-mix(in srgb, var(--color-danger) 35%, transparent);
 }
 
 .dl-progress-card-btn svg {
@@ -3049,14 +3047,14 @@
   background: var(--game-accent, var(--color-accent));
   border-color: transparent;
   color: var(--color-accent-contrast);
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.25), 0 0 20px color-mix(in srgb, var(--game-accent, var(--color-accent)) 35%, transparent);
+  box-shadow: inset 0 1px 0 color-mix(in srgb, var(--color-accent-contrast) 25%, transparent), 0 0 20px color-mix(in srgb, var(--game-accent, var(--color-accent)) 35%, transparent);
 }
 
 .game-download-btn--prominent:hover {
-  background: color-mix(in srgb, var(--game-accent, var(--color-accent)) 85%, white 15%);
+  background: color-mix(in srgb, var(--game-accent, var(--color-accent)) 85%, var(--color-accent-contrast) 15%);
   border-color: transparent;
   transform: translateY(-1px);
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.35), 0 0 30px color-mix(in srgb, var(--game-accent, var(--color-accent)) 50%, transparent);
+  box-shadow: inset 0 1px 0 color-mix(in srgb, var(--color-accent-contrast) 35%, transparent), 0 0 30px color-mix(in srgb, var(--game-accent, var(--color-accent)) 50%, transparent);
 }
 
 .game-download-btn--prominent:active {
@@ -3387,7 +3385,7 @@
  * muted, sits next to the size/speed stats inside a card. */
 .dl-progress-card-stat-meta {
   color: var(--color-text-muted);
-  font-size: 9px;
+  font-size: var(--font-size-2xs);
   text-transform: uppercase;
   letter-spacing: 0.4px;
 }
@@ -3506,7 +3504,7 @@
 }
 
 .dl-magnet-badge {
-  font-size: 9px;
+  font-size: var(--font-size-2xs);
   font-weight: var(--font-weight-bold);
   padding: 2px 6px;
   border-radius: var(--radius-sm);
@@ -4920,7 +4918,7 @@ input[type="checkbox"].dl-file-checkbox:focus-visible {
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  font-size: 10.5px;
+  font-size: var(--font-size-2xs);
   line-height: 1.4;
   color: var(--color-text-muted);
   min-width: 0;
@@ -5088,7 +5086,7 @@ input[type="checkbox"].dl-file-checkbox:focus-visible {
 .dl-row-btn.danger-fill:hover:not(:disabled) {
   background: var(--color-danger);
   border-color: var(--color-danger);
-  color: #fff;
+  color: var(--color-accent-contrast);
   box-shadow: 0 0 12px color-mix(in srgb, var(--color-danger) 40%, transparent);
 }
 
@@ -5100,7 +5098,7 @@ input[type="checkbox"].dl-file-checkbox:focus-visible {
   border-bottom-left-radius: var(--radius-lg);
   border-bottom-right-radius: var(--radius-lg);
   padding: var(--space-md);
-  box-shadow: inset 0 2px 8px rgba(0, 0, 0, 0.2);
+  box-shadow: inset 0 1px 0 var(--color-border-highlight), var(--elevation-1);
   animation: dl-slide-down 0.2s cubic-bezier(0.16, 1, 0.3, 1);
   z-index: 1;
 }
@@ -5253,7 +5251,7 @@ input[type="checkbox"].dl-file-checkbox:focus-visible {
 .dl-card-media-overlay {
   position: absolute;
   inset: 0;
-  background: linear-gradient(to top, rgba(0, 0, 0, 0.7) 0%, transparent 60%);
+  background: linear-gradient(to top, var(--scrim-dark) 0%, transparent 60%);
 }
 
 .dl-card-checkbox-wrapper {
@@ -5261,13 +5259,14 @@ input[type="checkbox"].dl-file-checkbox:focus-visible {
   top: 8px;
   left: 8px;
   z-index: 2;
-  background: rgba(0, 0, 0, 0.6);
+  background: var(--scrim-dark);
   backdrop-filter: blur(4px);
   padding: 4px;
   border-radius: var(--radius-sm);
   display: flex;
   align-items: center;
   justify-content: center;
+  border: 1px solid var(--scrim-border);
 }
 
 .dl-card-checkbox {
@@ -5296,13 +5295,14 @@ input[type="checkbox"].dl-file-checkbox:focus-visible {
   right: 8px;
   z-index: 2;
   font-size: var(--font-size-2xs);
-  color: #fff;
-  background: rgba(0, 0, 0, 0.6);
+  color: var(--scrim-text);
+  background: var(--scrim-dark);
   backdrop-filter: blur(4px);
   padding: 2px 6px;
   border-radius: var(--radius-sm);
   text-transform: uppercase;
   letter-spacing: 0.4px;
+  border: 1px solid var(--scrim-border);
 }
 
 .dl-card-cached-tag {
@@ -5501,7 +5501,7 @@ input[type="checkbox"].dl-file-checkbox:focus-visible {
 .dl-card-icon-btn.danger-fill:hover {
   background: var(--color-danger);
   border-color: var(--color-danger);
-  color: #fff;
+  color: var(--color-accent-contrast);
 }
 
 @keyframes dl-pulse {
@@ -5579,9 +5579,9 @@ input[type="checkbox"].dl-file-checkbox:focus-visible {
 /* Plugin source badge — launchbox violet family so plugin hits read as
  * a distinct provider next to the accent-tinted source name. */
 .dl-badge-plugin {
-  color: color-mix(in srgb, rgba(108, 92, 231) 72%, var(--color-text-primary));
-  background: color-mix(in srgb, rgba(108, 92, 231) 14%, transparent);
-  border: 1px solid color-mix(in srgb, rgba(108, 92, 231) 38%, transparent);
+  color: color-mix(in srgb, var(--color-accent) 72%, var(--color-text-primary));
+  background: color-mix(in srgb, var(--color-accent) 14%, transparent);
+  border: 1px solid color-mix(in srgb, var(--color-accent) 38%, transparent);
   gap: 4px;
 }
 

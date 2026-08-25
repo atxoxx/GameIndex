@@ -163,7 +163,7 @@
 }
 
 .ach-rarity-count-label {
-  font-size: 8px;
+  font-size: var(--font-size-2xs);
   color: var(--color-text-muted);
   font-weight: var(--font-weight-semibold);
   text-transform: uppercase;
@@ -1134,7 +1134,7 @@
 }
 
 .achievement-card-points-tag {
-  font-size: 9px;
+  font-size: var(--font-size-2xs);
   font-weight: var(--font-weight-bold);
   padding: 1px 5px;
   border-radius: var(--radius-full);
@@ -1316,7 +1316,7 @@
 }
 
 .ach-compact-points {
-  font-size: 9px;
+  font-size: var(--font-size-2xs);
   font-weight: var(--font-weight-bold);
   font-variant-numeric: tabular-nums;
 }
@@ -1342,7 +1342,7 @@
 
 .ach-compact-reveal-btn {
   padding: 1px 5px;
-  font-size: 9px;
+  font-size: var(--font-size-2xs);
   border-radius: var(--radius-xs);
   background: var(--color-bg-tertiary);
   border: 1px solid var(--color-border);
@@ -2118,7 +2118,7 @@
 }
 
 .ach-editor-date-label {
-  font-size: 9px;
+  font-size: var(--font-size-2xs);
   font-weight: var(--font-weight-semibold);
   text-transform: uppercase;
   letter-spacing: 0.4px;

@@ -222,6 +222,30 @@
 
 .ui-card__body {
   padding: var(--space-xl);
+  font-size: var(--font-size-sm);
+  line-height: var(--line-height-normal);
+  color: var(--color-text-secondary);
+}
+
+/* KPI tile variant — keep .ui-card canonical; .ui-card--kpi is the only
+   approved tile density for stats/KPIs. Do not create ad-hoc .stat-card
+   or .kpi-tile duplicates elsewhere. */
+.ui-card--kpi {
+  padding: var(--space-lg);
+  gap: var(--space-sm);
+  background: var(--color-surface-raised);
+  border-color: var(--color-border);
+  box-shadow: inset 0 1px 0 var(--color-border-highlight), var(--elevation-2);
+}
+
+.ui-card--kpi .ui-card__header {
+  padding: 0 0 var(--space-sm) 0;
+  border-bottom: none;
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-semibold);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--color-text-muted);
 }
 
 /* ── Badge ───────────────────────────────────────────────────────────── */
@@ -229,8 +253,8 @@
 .ui-badge {
   display: inline-flex;
   align-items: center;
-  gap: 4px;
-  padding: 2px 8px;
+  gap: var(--space-2xs);
+  padding: var(--space-3xs) var(--space-sm);
   font-size: var(--font-size-2xs);
   font-weight: var(--font-weight-bold);
   border-radius: var(--radius-full);
@@ -243,7 +267,7 @@
 }
 
 .ui-badge--md {
-  padding: 4px 10px;
+  padding: var(--space-2xs) var(--space-md);
   font-size: var(--font-size-xs);
 }
 
@@ -285,8 +309,8 @@
 
 /* Dot indicator */
 .ui-badge__dot {
-  width: 6px;
-  height: 6px;
+  width: var(--space-xs);
+  height: var(--space-xs);
   border-radius: 50%;
   background: currentColor;
   flex-shrink: 0;
@@ -601,8 +625,8 @@
 
 /* ── Global Custom Desktop Scrollbars ──────────────────────────────── */
 ::-webkit-scrollbar {
-  width: 8px;
-  height: 8px;
+  width: var(--space-sm);
+  height: var(--space-sm);
 }
 
 ::-webkit-scrollbar-track {
@@ -622,6 +646,52 @@
   background-clip: padding-box;
 }
 
+/* ── Unified Rail Track Primitive ───────────────────────────────────────
+   Canonical horizontal scroller for carousels, discovery rails, and
+   screenshot strips. Replaces duplicated flex+gap+overflow in
+   home.css (.home-rail-track), page-store.css, and game-cards.css.
+   Usage: <div class="rail-track"> <div class="rail-track__item">… */
+.rail-track {
+  display: flex;
+  gap: var(--space-md);
+  overflow-x: auto;
+  overflow-y: hidden;
+  scroll-snap-type: x mandatory;
+  scroll-padding-inline: var(--space-md);
+  padding-bottom: var(--space-sm);
+  scrollbar-width: thin;
+  scrollbar-color: var(--color-border) transparent;
+  -webkit-overflow-scrolling: touch;
+}
+
+.rail-track::-webkit-scrollbar {
+  height: var(--space-xs);
+}
+
+.rail-track::-webkit-scrollbar-thumb {
+  background: var(--color-border);
+  border-radius: var(--radius-full);
+}
+
+.rail-track > * {
+  scroll-snap-align: start;
+  flex-shrink: 0;
+}
+
+.rail-track--tight { gap: var(--space-sm); }
+.rail-track--loose { gap: var(--space-lg); }
+.rail-track--snap-none { scroll-snap-type: none; }
+
+/* Back-compat aliases so existing markup keeps working while migrating */
+.home-rail-track,
+.store-rail-track,
+.screenshots-rail {
+  display: flex;
+  gap: var(--space-md);
+  overflow-x: auto;
+  scroll-snap-type: x mandatory;
+}
+
 /* ── Filter Primitives (P1-6) ─────────────────────────────────────
    Shared .filter-pill / .filter-segment / .filter-slider primitives.
    .lib-pill, .store-filter-pill, .sidebar-active-filter are layout wrappers only. */
@@ -631,8 +701,8 @@
 .sidebar-active-filter {
   display: inline-flex;
   align-items: center;
-  gap: 5px;
-  padding: 5px 11px;
+  gap: var(--space-2xs);
+  padding: var(--space-xs) var(--space-md);
   font-size: var(--font-size-xs);
   font-weight: var(--font-weight-medium);
   color: var(--color-text-secondary);
@@ -665,23 +735,23 @@
 .lib-segment {
   display: flex;
   flex-wrap: wrap;
-  gap: 4px;
+  gap: var(--space-2xs);
   background: var(--color-bg-tertiary);
   border: 1px solid var(--color-border);
   border-radius: var(--radius-md);
-  padding: 3px;
+  padding: var(--space-3xs);
   max-width: 100%;
   box-sizing: border-box;
 }
 .filter-segment-option,
 .lib-segment-option {
-  flex: 1 1 calc(33.333% - 4px);
+  flex: 1 1 calc(33.333% - var(--space-2xs));
   min-width: 0;
   box-sizing: border-box;
   text-align: center;
   background: transparent;
   border: none;
-  padding: 6px var(--space-xs);
+  padding: var(--space-xs) var(--space-xs);
   font-size: var(--font-size-xs);
   font-weight: var(--font-weight-semibold);
   color: var(--color-text-secondary);
@@ -704,7 +774,7 @@
 .lib-rating-slider,
 .store-filter-slider {
   width: 100%;
-  height: 4px;
+  height: var(--space-2xs);
   appearance: none;
   -webkit-appearance: none;
   background: var(--color-border);
@@ -767,8 +837,8 @@
   opacity: 0.9;
 }
 .empty-state__icon svg { width: 24px; height: 24px; }
-.empty-state__title { font-size: 18px; font-weight: var(--font-weight-bold); color: var(--color-text-primary); margin: 0; }
-.empty-state__desc { font-size: 13px; color: var(--color-text-secondary); max-width: 420px; margin: 0; line-height: 1.5; }
+.empty-state__title { font-size: var(--font-size-lg); font-weight: var(--font-weight-bold); color: var(--color-text-primary); margin: 0; line-height: var(--line-height-tight); }
+.empty-state__desc { font-size: var(--font-size-sm); color: var(--color-text-secondary); max-width: 420px; margin: 0; line-height: var(--line-height-normal); }
 .empty-state__actions { display: flex; gap: var(--space-sm); margin-top: var(--space-sm); flex-wrap: wrap; justify-content: center; }
 
 /* Firefox scrollbar — matches the webkit thumb treatment. */

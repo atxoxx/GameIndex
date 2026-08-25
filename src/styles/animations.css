@@ -147,6 +147,23 @@
   100% { transform: scale(1); opacity: 1; }
 }
 
+/* Unified Page / Section Enter — cohesive motion for all routes.
+   pageIn: shell enters once; fadeUp: inner sections stagger with --d delay.
+   Both use ease-out + compositor-only (opacity/transform/filter) and honor
+   prefers-reduced-motion globally. */
+@keyframes pageIn {
+  from { opacity: 0; transform: translateY(6px); filter: blur(3px); }
+  to   { opacity: 1; transform: translateY(0); filter: blur(0); }
+}
+
+@keyframes fadeUp {
+  from { opacity: 0; transform: translateY(12px); filter: blur(4px); }
+  to   { opacity: 1; transform: translateY(0); filter: blur(0); }
+}
+
+.page-enter { animation: pageIn var(--duration-normal) var(--ease-out) both; }
+.fade-up { opacity: 0; animation: fadeUp var(--duration-slow) var(--ease-out) both; animation-delay: var(--d, 0ms); }
+
 /* ── Utility Classes ────────────────────────────────────────────────── */
 
 .animate-fade-in     { animation: fadeIn   var(--duration-normal) var(--ease-enter) both; }
@@ -159,6 +176,8 @@
 .animate-rise        { animation: rise     var(--duration-slow) var(--ease-out) both; }
 .animate-blur-in     { animation: blurIn   var(--duration-normal) var(--ease-out) both; }
 .animate-badge-pop   { animation: badgePopIn var(--duration-normal) var(--ease-bounce) both; }
+.animate-page-in     { animation: pageIn   var(--duration-normal) var(--ease-out) both; }
+.animate-fade-up     { animation: fadeUp   var(--duration-slow) var(--ease-out) both; }
 
 .animate-fade-out     { animation: fadeOut      var(--duration-normal) var(--ease-exit) both; }
 .animate-slide-out-down { animation: slideOutDown var(--duration-normal) var(--ease-exit) both; }
@@ -197,7 +216,11 @@
   .animate-fade-out,
   .animate-slide-out-down,
   .animate-glow-pulse,
-  .animate-running-pulse {
+  .animate-running-pulse,
+  .animate-page-in,
+  .animate-fade-up,
+  .page-enter,
+  .fade-up {
     animation: none !important;
     opacity: 1 !important;
     transform: none !important;

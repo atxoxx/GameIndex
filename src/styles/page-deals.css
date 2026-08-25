@@ -15,15 +15,18 @@
 .deals-deal-card:hover,
 .deals-giveaway-card:hover {
   transform: translateY(-3px);
-  box-shadow: var(--shadow-md);
-  border-color: var(--color-border-light);
+  box-shadow: var(--elevation-3);
+  border-color: color-mix(in srgb, var(--color-accent) 22%, var(--color-border));
 }
 
-/* Stats header glass tiles */
-.deals-stats-header .kpi-tile--glass {
-  background: color-mix(in srgb, var(--color-bg-secondary) 60%, transparent);
-  backdrop-filter: blur(16px);
-  -webkit-backdrop-filter: blur(16px);
+/* Stats header — flat surface, accent glow on value (no glass) */
+.deals-stats-header .kpi-tile {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+}
+.deals-stats-header .kpi-tile:hover {
+  border-color: color-mix(in srgb, var(--color-accent) 30%, var(--color-border));
+  box-shadow: var(--elevation-2);
 }
 
 /* Active tab subtle glow underline */
@@ -40,25 +43,33 @@
   opacity: 0.5;
 }
 
-/* Empty state */
+/* Empty state — unified via .empty-state primitive */
 .deals-empty {
   position: relative;
   overflow: hidden;
   display: flex;
   flex-direction: column;
   align-items: center;
+  justify-content: center;
   gap: var(--space-md);
   padding: var(--space-3xl) var(--space-xl);
   text-align: center;
   border-radius: var(--radius-xl);
   border: 1px dashed var(--color-border);
   background: var(--color-bg-secondary);
+  min-height: 220px;
 }
 
 .deals-empty-icon {
   width: 48px;
   height: 48px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--radius-full);
+  background: color-mix(in srgb, var(--color-accent) 10%, transparent);
   color: var(--color-accent);
+  border: 1px solid color-mix(in srgb, var(--color-accent) 25%, transparent);
 }
 
 .deals-empty span {

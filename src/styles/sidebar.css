@@ -9,6 +9,7 @@
   border-right: 1px solid var(--color-border);
   width: var(--sidebar-width);
   transition: width var(--duration-slow) var(--ease-standard), opacity var(--duration-normal) var(--ease-standard);
+  box-shadow: inset 0 1px 0 var(--color-border-highlight), inset -1px 0 0 var(--color-border-faint);
 }
 
 .sidebar-header {
@@ -19,11 +20,11 @@
   display: flex;
   align-items: center;
   gap: var(--space-sm);
-  padding: 7px 12px;
+  padding: var(--space-sm) var(--space-md);
   background: color-mix(in srgb, var(--color-bg-tertiary) 75%, transparent);
   border: 1px solid var(--color-border);
   border-radius: var(--radius-md);
-  box-shadow: inset 0 1px 0 var(--color-border-highlight), inset 0 1px 2px rgba(0, 0, 0, 0.2);
+  box-shadow: inset 0 1px 0 var(--color-border-highlight), inset 0 1px 2px color-mix(in srgb, var(--color-bg-primary) 28%, transparent);
   transition: border-color var(--duration-fast) var(--ease-standard),
     background var(--duration-fast) var(--ease-standard),
     box-shadow var(--duration-fast) var(--ease-standard);
@@ -31,7 +32,7 @@
 
 .sidebar-search:focus-within {
   border-color: var(--color-accent);
-  box-shadow: var(--ring-accent-soft), inset 0 1px 2px rgba(0, 0, 0, 0.2);
+  box-shadow: var(--ring-accent-soft), inset 0 1px 2px color-mix(in srgb, var(--color-bg-primary) 28%, transparent);
   background: var(--color-bg-tertiary);
 }
 
@@ -124,7 +125,7 @@
   overflow-y: auto;
   padding: 0 var(--space-sm) var(--space-lg);
   scrollbar-width: thin;
-  scrollbar-color: color-mix(in srgb, var(--color-border) 90%, transparent) transparent;
+  scrollbar-color: var(--color-border) transparent;
 }
 
 .sidebar-list::-webkit-scrollbar {
@@ -165,7 +166,7 @@
 .sidebar-section-header .sidebar-section-title-group {
   display: flex;
   align-items: center;
-  gap: 4px;
+  gap: var(--space-2xs);
 }
 
 .sidebar-section-header .sidebar-section-title-text {
@@ -179,7 +180,7 @@
 .sidebar-section-toggle {
   display: flex;
   align-items: center;
-  gap: 4px;
+  gap: var(--space-2xs);
   background: transparent;
   border: none;
   padding: 2px 6px;
@@ -410,7 +411,7 @@
   text-overflow: ellipsis;
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: var(--space-xs);
   min-width: 0;
 }
 
@@ -438,7 +439,7 @@
 .sidebar-game-meta {
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: var(--space-xs);
   margin-top: 2px;
   font-size: var(--font-size-xs);
   color: var(--color-text-muted);
@@ -860,7 +861,7 @@
  * `overflow-x: auto` keeps the chips on one row. */
 .sidebar-active-filters {
   display: flex;
-  gap: 6px;
+  gap: var(--space-xs);
   padding: var(--space-xs) var(--space-lg) var(--space-xs);
   overflow-x: auto;
   scrollbar-width: none;
@@ -923,11 +924,11 @@
   margin: var(--space-sm) var(--space-2xs) 0;
   padding: var(--space-sm) var(--space-md);
   background: color-mix(in srgb, var(--color-bg-secondary) 92%, transparent);
-  backdrop-filter: blur(14px) saturate(140%);
-  -webkit-backdrop-filter: blur(14px) saturate(140%);
+  backdrop-filter: blur(var(--blur-md)) saturate(140%);
+  -webkit-backdrop-filter: blur(var(--blur-md)) saturate(140%);
   border: 1px solid var(--color-border);
   border-radius: var(--radius-md);
-  box-shadow: var(--shadow-md);
+  box-shadow: var(--shadow-md), inset 0 1px 0 var(--color-border-highlight);
   animation: sidebarBulkBarIn 180ms var(--ease-enter);
 }
 
@@ -1003,7 +1004,7 @@
 
 .sidebar-bulk-action-bar__btn--accent {
   background: var(--color-accent);
-  color: var(--color-accent-contrast, #ffffff);
+  color: var(--color-accent-contrast);
   border-color: var(--color-accent);
 }
 
@@ -1043,7 +1044,7 @@
   height: 16px;
   border-radius: 50%;
   background: var(--color-accent);
-  color: var(--color-accent-contrast, #ffffff);
+  color: var(--color-accent-contrast);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -1097,7 +1098,7 @@
   border: none;
   border-radius: var(--radius-sm);
   background: var(--color-accent);
-  color: var(--color-accent-contrast, #ffffff);
+  color: var(--color-accent-contrast);
   cursor: pointer;
   padding: 0;
   opacity: 0;
@@ -1267,7 +1268,7 @@
 
 .sidebar-context-submenu__item.active {
   background: var(--color-accent);
-  color: var(--color-accent-contrast, #ffffff);
+  color: var(--color-accent-contrast);
 }
 
 .sidebar-context-submenu__item .dot {
@@ -1417,6 +1418,7 @@
     background var(--transition-fast),
     border-color var(--transition-fast),
     box-shadow var(--transition-fast);
+  box-shadow: inset 0 1px 0 var(--color-border-highlight);
 }
 
 .sidebar-filter-btn:hover {
@@ -1436,7 +1438,7 @@
 }
 
 .sidebar-filter-btn.active {
-  color: var(--color-accent-contrast, #ffffff);
+  color: var(--color-accent-contrast);
   background: var(--color-accent);
   border-color: var(--color-accent);
   box-shadow: 0 2px 10px var(--color-accent-glow);
@@ -1455,7 +1457,7 @@
   font-size: var(--font-size-2xs);
   font-weight: var(--font-weight-bold);
   line-height: 1;
-  color: var(--color-accent-contrast, #ffffff);
+  color: var(--color-accent-contrast);
   background: var(--color-accent);
   border: 2px solid var(--color-surface-glass);
   border-radius: var(--radius-full);
@@ -1466,21 +1468,14 @@
 /* ── Sidebar hover preview (portal-based, anchored right) ── */
 .sidebar-hover-preview {
   /* The card floats over the main panel, so it must be FULLY OPAQUE
-   * in every theme. `--color-surface-raised` is a semi-transparent
-   * rgba (0.88–0.98 alpha) in every theme block in themes.css — a
-   * glassy fill that lets the app content behind the card bleed
-   * through. `--color-bg-primary` is defined as a solid hex in all
-   * 17 themes, so the card reads as a clean opaque surface that
-   * matches the app background; the hairline border + xl shadow do
-   * the "raised card" work. The hardcoded #000 first declaration is
-   * a fallback for the (theoretical) case where the token is
-   * undefined or a future theme leaves it unset — a solid base the
-   * themed value can only improve on, never turn transparent. */
-  background: #000;
+   * in every theme. `--color-bg-primary` is solid in all themes, so
+   * the card reads as a clean opaque surface that matches the app
+   * background; the hairline border + xl shadow do the "raised card"
+   * work. Falls back to bg-primary via the token system — no hex. */
   background: var(--color-bg-primary);
   border: 1px solid var(--color-border-light);
   border-radius: var(--radius-lg);
-  box-shadow: var(--shadow-xl);
+  box-shadow: var(--shadow-xl), inset 0 1px 0 var(--color-border-highlight);
   width: var(--sidebar-hover-preview-width);
   overflow: hidden;
   pointer-events: auto;
@@ -1552,8 +1547,9 @@
   font-weight: var(--font-weight-bold);
   text-transform: uppercase;
   letter-spacing: 0.5px;
-  background: rgba(0, 0, 0, 0.6);
-  border: 1px solid;
+  background: var(--scrim-dark);
+  border: 1px solid var(--scrim-border);
+  color: var(--scrim-text);
   border-radius: var(--radius-full);
   backdrop-filter: blur(4px);
   -webkit-backdrop-filter: blur(4px);

@@ -610,7 +610,7 @@
 .wishlist-modal-confirm {
   background: var(--color-danger);
   border-color: var(--color-danger);
-  color: #fff;
+  color: var(--scrim-text);
 }
 
 .wishlist-modal-confirm:hover {

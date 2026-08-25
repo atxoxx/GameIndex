@@ -1585,9 +1585,9 @@
 }
 
 .lib-card:hover {
-  transform: translateY(-4px) scale(1.015);
+  transform: translateY(-2px) scale(1.01);
   border-color: var(--color-accent);
-  box-shadow: inset 0 1px 0 var(--color-border-highlight), var(--shadow-lg), 0 0 24px var(--color-accent-glow);
+  box-shadow: inset 0 1px 0 var(--color-border-highlight), var(--elevation-3), var(--shadow-glow);
 }
 
 .lib-card:active {
@@ -2985,8 +2985,8 @@
   border-radius: var(--radius-sm);
   overflow: hidden;
   flex-shrink: 0;
-  box-shadow: 0 4px 12px rgba(0,0,0,0.4);
-  border: 1px solid rgba(255,255,255,0.1);
+  box-shadow: var(--elevation-3);
+  border: 1px solid var(--scrim-border);
 }
 
 .lib-hero-spotlight-poster img {
@@ -3062,8 +3062,8 @@
 }
 
 .lib-hero-filter-pill.active .lib-hero-filter-count {
-  background: rgba(255,255,255,0.25);
-  color: #fff;
+  background: color-mix(in srgb, var(--color-accent-contrast) 25%, transparent);
+  color: var(--color-accent-contrast);
 }
 
 /* ── Group By Dropdown in Toolbar ────────────────────────────────────────── */
@@ -3155,7 +3155,7 @@
   border: 1px solid var(--color-border-highlight);
   background: color-mix(in srgb, var(--color-bg-primary) 85%, transparent);
   backdrop-filter: blur(20px) saturate(140%);
-  box-shadow: 0 16px 40px rgba(0,0,0,0.45);
+  box-shadow: var(--elevation-5);
   animation: slideUp 250ms var(--ease-standard);
 }
 
@@ -3583,8 +3583,8 @@
   width: 20px;
   height: 20px;
   border-radius: var(--radius-xs);
-  border: 1.5px solid #fff;
-  background: rgba(0,0,0,0.5);
+  border: 1.5px solid var(--scrim-border-strong);
+  background: var(--scrim-dark-mid);
   display: flex;
   align-items: center;
   justify-content: center;

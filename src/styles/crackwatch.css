@@ -259,7 +259,7 @@
   gap: 3px;
   padding: 2px 8px;
   border-radius: var(--radius-full);
-  font-size: 9px;
+  font-size: var(--font-size-2xs);
   font-weight: var(--font-weight-bold);
   letter-spacing: 0.4px;
   backdrop-filter: blur(6px);
@@ -272,13 +272,13 @@
 
 .store-card-cw-badge.cw-cracked {
   background: color-mix(in srgb, var(--color-success) 85%, #000 15%);
-  color: #fff;
+  color: var(--scrim-text);
   box-shadow: 0 0 8px color-mix(in srgb, var(--color-success) 40%, transparent);
 }
 
 .store-card-cw-badge.cw-uncracked {
   background: color-mix(in srgb, var(--color-danger) 85%, #000 15%);
-  color: #fff;
+  color: var(--scrim-text);
   box-shadow: 0 0 8px color-mix(in srgb, var(--color-danger) 40%, transparent);
 }
 

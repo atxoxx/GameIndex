@@ -102,7 +102,7 @@
   padding: 0 var(--space-md);
   background: linear-gradient(
     180deg,
-    color-mix(in srgb, var(--color-bg-tertiary) 92%, #ffffff 6%),
+    color-mix(in srgb, var(--color-bg-tertiary) 92%, var(--scrim-text) 6%),
     var(--color-bg-tertiary)
   );
   border: 1px solid var(--color-border);
@@ -118,7 +118,7 @@
 .store-search-bar:focus-within {
   border-color: var(--color-accent);
   background: color-mix(in srgb, var(--color-bg-secondary) 96%, var(--color-accent) 4%);
-  box-shadow: 0 0 0 3px var(--color-accent-glow), 0 8px 22px rgba(0, 0, 0, 0.22);
+  box-shadow: 0 0 0 3px var(--color-accent-glow), var(--elevation-3);
 }
 
 .store-search-icon {
@@ -606,8 +606,8 @@
 }
 
 .store-filter-pill.active .store-filter-source-count {
-  color: #fff;
-  background: rgba(0, 0, 0, 0.22);
+  color: var(--color-accent-contrast);
+  background: color-mix(in srgb, var(--color-text-inverse) 22%, transparent);
 }
 
 /* Live per-option match-count badge shown inside genre/platform pills and
@@ -632,8 +632,8 @@
 .store-filter-pill.active .store-filter-match-count,
 .store-filter-preset-btn.active .store-filter-match-count,
 .store-filter-preset-pill.active .store-filter-match-count {
-  color: #fff;
-  background: rgba(0, 0, 0, 0.22);
+  color: var(--color-accent-contrast);
+  background: color-mix(in srgb, var(--color-text-inverse) 22%, transparent);
 }
 
 /* Footnote under the sidebar clarifying counts are over loaded results. */
@@ -991,8 +991,8 @@
   border-radius: var(--radius-full);
   font-size: var(--font-size-2xs);
   font-weight: var(--font-weight-bold);
-  color: #fff;
-  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.4);
+  color: var(--scrim-text);
+  box-shadow: var(--elevation-2);
   pointer-events: none;
 }
 
@@ -1264,8 +1264,8 @@
   position: fixed;
   inset: 0;
   z-index: var(--z-modal);
-  background: rgba(0, 0, 0, 0.5);
-  backdrop-filter: blur(2px);
+  background: var(--color-scrim);
+  backdrop-filter: var(--blur-scrim);
   opacity: 0;
   visibility: hidden;
   transition: opacity var(--transition-fast), visibility var(--transition-fast);
@@ -1291,7 +1291,7 @@
   border-right: 1px solid var(--color-border);
   border-bottom: 1px solid var(--color-border);
   border-bottom-right-radius: var(--radius-lg);
-  box-shadow: 24px 0 60px rgba(0, 0, 0, 0.5);
+  box-shadow: var(--elevation-5);
   transform: translateX(-100%);
   transition: transform var(--duration-medium) var(--ease-standard);
 }
@@ -1477,7 +1477,7 @@
   letter-spacing: 0.3px;
   line-height: 1;
   box-shadow:
-    0 4px 14px rgba(0, 0, 0, 0.35),
+    var(--elevation-2),
     0 0 10px color-mix(in srgb, var(--color-success) 18%, transparent);
   z-index: 1;
   white-space: nowrap;
@@ -1580,7 +1580,7 @@
   transform: translateY(-1px);
   border-color: color-mix(in srgb, var(--color-success) 50%, var(--color-border));
   box-shadow:
-    0 6px 18px rgba(0, 0, 0, 0.45),
+    var(--elevation-3),
     0 0 14px color-mix(in srgb, var(--color-success) 28%, transparent);
 }
 
@@ -1609,8 +1609,7 @@
   border: 1px solid var(--color-border);
   border-radius: var(--radius-lg);
   box-shadow:
-    0 18px 48px -12px rgba(0, 0, 0, 0.55),
-    0 0 0 1px color-mix(in srgb, var(--color-accent) 8%, transparent),
+    var(--elevation-5),
     0 0 24px color-mix(in srgb, var(--color-accent) 12%, transparent);
   color: var(--color-text-primary);
   font-size: var(--font-size-sm);
@@ -2182,7 +2181,7 @@
   background: color-mix(in srgb, var(--color-bg-tertiary) 50%, transparent);
   border: 1px solid var(--color-border);
   border-radius: var(--radius-md);
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  box-shadow: var(--elevation-2);
 }
 
 .steam-stats-hero-row {
@@ -2331,7 +2330,7 @@
   border: 1px solid color-mix(in srgb, var(--color-accent) 22%, var(--color-border));
   border-radius: var(--radius-md);
   padding: 8px 4px 4px 0;
-  box-shadow: inset 0 0 24px rgba(0, 0, 0, 0.3);
+  box-shadow: inset 0 0 24px color-mix(in srgb, var(--color-bg-primary) 30%, transparent);
 }
 
 .steam-history-chart-skeleton {
@@ -2531,8 +2530,8 @@
 }
 
 .store-filter-pill.active .store-filter-source-count--real {
-  color: #fff;
-  background: rgba(0, 0, 0, 0.22);
+  color: var(--color-accent-contrast);
+  background: color-mix(in srgb, var(--color-text-inverse) 22%, transparent);
 }
 
 .store-filter-source-count--real::before {
@@ -2723,7 +2722,7 @@
 .store-tab.active {
   background: var(--brand-gradient, var(--color-accent));
   box-shadow:
-    inset 0 1px 0 color-mix(in srgb, #fff 28%, transparent),
+    inset 0 1px 0 color-mix(in srgb, var(--color-accent-contrast) 28%, transparent),
     0 2px 14px var(--color-accent-glow);
 }
 
@@ -2749,7 +2748,7 @@
 .store-density-btn.active {
   background: var(--color-accent);
   box-shadow:
-    inset 0 1px 0 color-mix(in srgb, #fff 25%, transparent),
+    inset 0 1px 0 color-mix(in srgb, var(--color-accent-contrast) 25%, transparent),
     0 0 12px var(--color-accent-glow);
 }
 
@@ -2793,14 +2792,14 @@
   filter: brightness(1.05) saturate(1.04);
 }
 
-/* Rating badge → glass pill */
+/* Rating badge → glass pill (over artwork stays scrim-white) */
 .store-card-rating {
   backdrop-filter: blur(8px);
   -webkit-backdrop-filter: blur(8px);
-  border: 1px solid color-mix(in srgb, #fff 22%, transparent);
+  border: 1px solid var(--scrim-border);
   box-shadow:
     var(--shadow-sm),
-    inset 0 1px 0 color-mix(in srgb, #fff 22%, transparent);
+    inset 0 1px 0 var(--scrim-gloss);
   font-variant-numeric: tabular-nums;
   letter-spacing: 0.3px;
 }
@@ -2845,7 +2844,7 @@
 .store-filter-trigger.has-active {
   background: var(--color-accent);
   box-shadow:
-    inset 0 1px 0 color-mix(in srgb, #fff 26%, transparent),
+    inset 0 1px 0 color-mix(in srgb, var(--color-accent-contrast) 26%, transparent),
     0 2px 12px var(--color-accent-glow);
 }
 
@@ -2908,7 +2907,7 @@
 
 .store-filter-pill.active {
   box-shadow:
-    inset 0 1px 0 color-mix(in srgb, #fff 24%, transparent),
+    inset 0 1px 0 color-mix(in srgb, var(--color-accent-contrast) 24%, transparent),
     0 2px 10px var(--color-accent-glow);
 }
 
@@ -2923,7 +2922,7 @@
 /* ── Filter chips: calm entrance + danger remove hover ────────────────── */
 .store-filter-chip {
   animation: store-chip-in 240ms var(--ease-enter) both;
-  box-shadow: inset 0 1px 0 color-mix(in srgb, #fff 14%, transparent);
+  box-shadow: inset 0 1px 0 var(--scrim-gloss);
 }
 
 @keyframes store-chip-in {
@@ -2994,7 +2993,7 @@
 
 .store-retry-btn {
   box-shadow:
-    inset 0 1px 0 color-mix(in srgb, #fff 26%, transparent),
+    inset 0 1px 0 color-mix(in srgb, var(--color-accent-contrast) 26%, transparent),
     0 2px 10px var(--color-accent-glow);
 }
 

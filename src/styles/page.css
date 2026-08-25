@@ -48,16 +48,16 @@
   position: relative;
 }
 
-/* Crisp accent laser indicator along the header's bottom edge */
+/* Crisp accent laser — uses brand gradient for themed character */
 .page-header::after {
   content: "";
   position: absolute;
   left: 0;
   bottom: -1px;
-  width: 48px;
-  height: 2px;
+  width: var(--space-3xl);
+  height: var(--space-3xs);
   border-radius: var(--radius-full);
-  background: var(--color-accent);
+  background: var(--brand-gradient);
   box-shadow: 0 0 10px var(--color-accent-glow);
   pointer-events: none;
 }
@@ -86,19 +86,19 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 44px;
-  height: 44px;
+  width: var(--space-3xl);
+  height: var(--space-3xl);
   flex-shrink: 0;
   border-radius: var(--radius-lg);
   background: color-mix(in srgb, var(--color-accent) 12%, var(--color-bg-secondary));
   border: 1px solid color-mix(in srgb, var(--color-accent) 30%, transparent);
   color: var(--color-accent);
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08), 0 4px 14px var(--color-accent-glow);
+  box-shadow: inset 0 1px 0 var(--color-border-highlight), 0 var(--space-2xs) 14px var(--color-accent-glow);
 }
 
 .page-header__icon svg {
-  width: 22px;
-  height: 22px;
+  width: var(--space-xl);
+  height: var(--space-xl);
 }
 
 .page-header__description {

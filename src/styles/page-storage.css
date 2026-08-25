@@ -3,7 +3,10 @@
  *  The dashboard, control panel, and emulator summary all share the
  *  app surface so the page reads as one stacked dashboard rather than
  *  a collection of floating cards. Individual accent/hover refinements
- *  that should only apply on the Storage route live here. */
+ *  that should only apply on the Storage route live here.
+ *  Personality: capacity bars and drive cards carry a subtle accent
+ *  glow; the storage surface stays flat but the active drive reads
+ *  with an accent ring + soft glow. */
 
 /* ── Page title ──────────────────────────────────────────────────── */
 .storage__page-title.brand-text {
@@ -23,8 +26,69 @@
 }
 
 /* Breakdown usage bars share the accent-warning tint used for capacity
-   pressure so the "by drive" zone reads consistently with the totals
-   coverage bar. */
+    pressure so the "by drive" zone reads consistently with the totals
+    coverage bar. */
 .storage-page .storage__breakdown-fill--usage {
   background: color-mix(in srgb, var(--color-warning) 70%, var(--color-accent));
+}
+
+/* ── Capacity bars — accent personality ────────────────────────── */
+.storage-page .storage__capacity-bar,
+.storage-page .storage__drive-bar,
+.storage-page .storage__coverage-bar {
+  background: var(--color-bg-tertiary);
+  border: 1px solid var(--color-border);
+}
+.storage-page .storage__capacity-fill,
+.storage-page .storage__drive-fill,
+.storage-page .storage__coverage-fill {
+  background: var(--color-accent);
+  box-shadow: 0 0 8px color-mix(in srgb, var(--color-accent) 35%, transparent);
+}
+
+/* ── Drive cards — flat surface with accent on active/hover ────── */
+.storage-page .storage__drive-card {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  transition: border-color var(--transition-fast), box-shadow var(--transition-fast), transform var(--transition-fast);
+}
+.storage-page .storage__drive-card:hover {
+  border-color: color-mix(in srgb, var(--color-accent) 30%, var(--color-border));
+  transform: translateY(-1px);
+  box-shadow: var(--elevation-2);
+}
+.storage-page .storage__drive-card--active {
+  border-color: var(--color-accent);
+  box-shadow: var(--ring-accent-soft), var(--elevation-2);
+  background: color-mix(in srgb, var(--color-accent) 6%, var(--color-surface));
+}
+
+/* ── Empty state — unify via .empty-state primitive (see ui.css) ─ */
+.storage-page .storage__empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-md);
+  background: var(--color-bg-secondary);
+  border: 1px dashed var(--color-border);
+  border-radius: var(--radius-lg);
+  padding: var(--space-3xl) var(--space-xl);
+  text-align: center;
+  color: var(--color-text-muted);
+  min-height: 220px;
+}
+.storage-page .storage__empty-state .empty-state__icon {
+  background: color-mix(in srgb, var(--color-accent) 10%, transparent);
+  color: var(--color-accent);
+  border: 1px solid color-mix(in srgb, var(--color-accent) 25%, transparent);
+}
+
+/* ── Subtle accent glow for the dashboard header ───────────────── */
+.storage-page .storage__dashboard-header {
+  border-bottom: 1px solid color-mix(in srgb, var(--color-accent) 12%, var(--color-border));
+}
+.storage-page .storage__dashboard-title {
+  color: var(--color-text-primary);
+  letter-spacing: -0.01em;
 }

@@ -11,7 +11,7 @@
   gap: var(--space-xl);
   padding: var(--space-lg) var(--space-2xl) var(--space-4xl);
   width: 100%;
-  max-width: 1600px;
+  max-width: var(--content-max-width);
   margin: 0 auto;
 }
 
@@ -304,7 +304,7 @@
 }
 
 .home-spotlight:hover {
-  transform: translateY(-3px);
+  transform: translateY(-2px);
 }
 
 .home-spotlight:focus-visible {
@@ -320,9 +320,8 @@
   border: 1px solid color-mix(in srgb, var(--color-accent) 40%, var(--color-border-light));
   background: var(--color-bg-tertiary);
   box-shadow:
-    var(--shadow-lg),
-    0 18px 50px rgba(0, 0, 0, 0.45),
-    0 0 36px var(--color-accent-glow);
+    var(--elevation-4),
+    var(--shadow-glow);
   isolation: isolate;
 }
 
@@ -738,21 +737,21 @@
 }
 
 .home-stat-tile__icon--playtime {
-  background: color-mix(in srgb, #38bdf8 12%, transparent);
-  color: #38bdf8;
-  border-color: color-mix(in srgb, #38bdf8 22%, var(--color-border));
+  background: color-mix(in srgb, var(--color-info) 12%, transparent);
+  color: var(--color-info);
+  border-color: color-mix(in srgb, var(--color-info) 22%, var(--color-border));
 }
 
 .home-stat-tile__icon--achievements {
-  background: color-mix(in srgb, #f59e0b 12%, transparent);
-  color: #f59e0b;
-  border-color: color-mix(in srgb, #f59e0b 22%, var(--color-border));
+  background: color-mix(in srgb, var(--color-warning) 12%, transparent);
+  color: var(--color-warning);
+  border-color: color-mix(in srgb, var(--color-warning) 22%, var(--color-border));
 }
 
 .home-stat-tile__icon--storage {
-  background: color-mix(in srgb, #10b981 12%, transparent);
-  color: #10b981;
-  border-color: color-mix(in srgb, #10b981 22%, var(--color-border));
+  background: color-mix(in srgb, var(--color-success) 12%, transparent);
+  color: var(--color-success);
+  border-color: color-mix(in srgb, var(--color-success) 22%, var(--color-border));
 }
 
 .home-stat-tile__content {
@@ -1086,7 +1085,7 @@
 .home-quick-launch__btn.is-active {
   background: var(--color-success);
   border-color: var(--color-success);
-  color: #fff;
+  color: var(--scrim-text);
 }
 
 /* ── Friends Feed Widget ────────────────────────────────────────────────── */
@@ -1157,7 +1156,7 @@
 }
 
 .home-friends-feed__status-dot.is-online {
-  background: #38bdf8;
+  background: var(--color-info);
 }
 
 .home-friends-feed__info {
@@ -1310,7 +1309,7 @@
 .home-activity__launch-btn.running {
   background: var(--color-success);
   border-color: var(--color-success);
-  color: #fff;
+  color: var(--scrim-text);
 }
 
 .home-activity__heatmap .act-heatmap {

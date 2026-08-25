@@ -13,12 +13,12 @@
 .kpi-tile {
   display: flex;
   flex-direction: column;
-  gap: 4px;
-  background: var(--color-bg-tertiary);
+  gap: var(--space-2xs);
+  background: var(--color-surface-raised);
   border: 1px solid var(--color-border);
   border-radius: var(--radius-lg);
   padding: var(--space-md);
-  box-shadow: var(--depth-1);
+  box-shadow: var(--elevation-2);
   transition: transform var(--duration-fast) var(--ease-standard),
               border-color var(--duration-fast) var(--ease-standard),
               box-shadow var(--duration-fast) var(--ease-standard);
@@ -31,7 +31,7 @@
 .kpi-tile--glass {
   background: var(--color-surface-raised);
   border-color: var(--color-border-light);
-  box-shadow: var(--depth-2), inset 0 1px 0 var(--color-border-faint);
+  box-shadow: var(--elevation-2), inset 0 1px 0 var(--color-border-highlight);
 }
 
 .kpi-tile--sm {
@@ -50,8 +50,8 @@
 
 .kpi-tile--clickable:hover {
   border-color: var(--color-accent);
-  transform: translateY(-3px);
-  box-shadow: var(--shadow-lg);
+  transform: translateY(-2px);
+  box-shadow: var(--elevation-3), var(--shadow-glow);
 }
 
 @keyframes kpiTileIn {
@@ -770,7 +770,7 @@
     radial-gradient(100% 60% at 50% 100%, color-mix(in srgb, var(--game-accent-deep) 20%, transparent), transparent 72%),
     var(--color-bg-secondary);
   border: 1px solid var(--color-border-light);
-  box-shadow: var(--shadow-lg), 0 8px 32px rgba(0, 0, 0, 0.25);
+  box-shadow: var(--elevation-4), var(--shadow-glow);
   /* Fresh stacking context so inner z-indices can't paint above
    * page-level overlays (download modal, popovers). */
   isolation: isolate;
@@ -866,20 +866,22 @@
 
 /* Legibility scrim: strong on the left (poster + text), lighter on the
  * right so the art still reads. A soft radial vignette sits on top so
- * the hero edges melt into the page instead of ending in a hard line. */
+ * the hero edges melt into the page instead of ending in a hard line.
+ * Uses --scrim-dark tokens so light theme keeps dark scrim over artwork
+ * while surrounding surfaces stay light. */
 .game-hero__scrim {
   position: absolute;
   inset: 0;
   z-index: 1;
   pointer-events: none;
   background:
-    radial-gradient(120% 100% at 50% 40%, transparent 55%, rgba(0, 0, 0, 0.42) 100%),
+    radial-gradient(120% 100% at 50% 40%, transparent 55%, var(--scrim-dark-mid) 100%),
     linear-gradient(90deg,
-      rgba(0,0,0,0.78) 0%,
-      rgba(0,0,0,0.55) 34%,
-      rgba(0,0,0,0.25) 68%,
-      rgba(0,0,0,0.36) 100%),
-    linear-gradient(0deg, rgba(0,0,0,0.5), rgba(0,0,0,0) 55%);
+      var(--scrim-dark) 0%,
+      color-mix(in srgb, var(--scrim-dark) 78%, transparent) 34%,
+      color-mix(in srgb, var(--scrim-dark) 35%, transparent) 68%,
+      color-mix(in srgb, var(--scrim-dark) 50%, transparent) 100%),
+    linear-gradient(0deg, var(--scrim-dark-mid), transparent 55%);
 }
 
 /* Inner grid: poster (left) + content (right). The layer is
@@ -919,20 +921,16 @@
   background: var(--color-bg-tertiary);
   box-shadow:
     inset 0 1px 0 var(--color-border-highlight),
-    var(--shadow-lg),
-    0 10px 30px rgba(0, 0, 0, 0.4),
-    0 0 35px color-mix(in srgb, var(--game-accent) 35%, transparent),
-    0 0 60px color-mix(in srgb, var(--game-accent-2) 16%, transparent);
+    var(--elevation-4),
+    var(--shadow-glow);
   transition: transform var(--transition-base), box-shadow var(--transition-base);
 }
 .game-hero:hover .game-hero__poster {
-  transform: translateY(-4px) scale(1.01) rotate(-0.5deg);
+  transform: translateY(-2px) scale(1.01) rotate(-0.5deg);
   box-shadow:
     inset 0 1px 0 var(--color-border-highlight),
-    var(--shadow-lg),
-    0 14px 40px rgba(0, 0, 0, 0.5),
-    0 0 50px color-mix(in srgb, var(--game-accent) 55%, transparent),
-    0 0 80px color-mix(in srgb, var(--game-accent-2) 24%, transparent);
+    var(--elevation-5),
+    var(--shadow-glow);
 }
 .game-hero__poster-img {
   width: 100%;
@@ -987,7 +985,7 @@
   overflow: hidden;
   text-wrap: balance;
   /* Legibility shadow so the title stays crisp over bright banner art. */
-  text-shadow: 0 2px 16px rgba(0, 0, 0, 0.55), 0 1px 3px rgba(0, 0, 0, 0.4);
+  text-shadow: 0 2px 16px var(--scrim-dark), 0 1px 3px var(--scrim-dark-mid);
 }
 
 .game-hero-logo {
@@ -999,7 +997,7 @@
   object-position: left center;
   display: block;
   margin: 0;
-  filter: drop-shadow(0 2px 12px rgba(0,0,0,0.45));
+  filter: drop-shadow(0 2px 12px var(--scrim-dark-mid));
 }
 
 .game-hero-meta {
@@ -1018,11 +1016,11 @@
   max-width: 100%;
   padding: 6px 12px;
   border-radius: var(--radius-full);
-  background: var(--color-scrim);
-  border: 1px solid var(--color-border-light);
+  background: var(--scrim-dark);
+  border: 1px solid var(--scrim-border);
   backdrop-filter: blur(8px);
   -webkit-backdrop-filter: blur(8px);
-  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.28);
+  box-shadow: var(--elevation-2);
 }
 
 /* Footer: KPI strip (left) + actions (right). */
@@ -1133,9 +1131,9 @@
   padding: 0;
   border: none;
   border-radius: 50%;
-  background: color-mix(in srgb, var(--color-bg-primary) 50%, transparent);
+  background: color-mix(in srgb, var(--scrim-dark) 50%, transparent);
   backdrop-filter: blur(4px);
-  color: #fff;
+  color: var(--scrim-text);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -1272,7 +1270,7 @@
 }
 
 .game-launch-btn--install {
-  background: linear-gradient(135deg, var(--color-info), color-mix(in srgb, var(--color-info) 65%, #000 35%));
+  background: linear-gradient(135deg, var(--color-info), color-mix(in srgb, var(--color-info) 65%, black 35%));
   border: 1px solid color-mix(in srgb, var(--color-info) 60%, transparent);
 }
 
@@ -1297,7 +1295,7 @@
 
 .game-launch-btn--force-close:hover {
   background: var(--color-danger);
-  color: #fff;
+  color: var(--scrim-text);
   border-color: var(--color-danger);
   box-shadow: 0 0 20px color-mix(in srgb, var(--color-danger) 50%, transparent);
   transform: translateY(-1px);
@@ -1443,7 +1441,7 @@
   aspect-ratio: 16 / 9;
   border-radius: var(--radius-md);
   overflow: hidden;
-  background: #000;
+  background: var(--color-bg-primary);
   border: 1px solid var(--color-border);
   box-shadow: var(--shadow-sm);
 }
@@ -1541,8 +1539,8 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  background: rgba(0, 0, 0, 0.4);
-  color: #fff;
+  background: var(--scrim-dark-mid);
+  color: var(--scrim-text);
   opacity: 0.6;
   transition: opacity var(--transition-fast);
   pointer-events: none;
@@ -1557,8 +1555,8 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  background: linear-gradient(135deg, #9146ff 0%, #6441a5 100%);
-  color: #fff;
+  background: linear-gradient(135deg, var(--brand-twitch) 0%, color-mix(in srgb, var(--brand-twitch) 70%, black 30%) 100%);
+  color: var(--scrim-text);
 }
 
 .video-selector-fallback {
@@ -1776,9 +1774,9 @@
  *         the top of the section. Manual -- muted, signals "no
  *         source authoritative enough to brand". */
 .about-section__source-pill--steam {
-  background: color-mix(in srgb, #66c0f4 16%, var(--color-bg-tertiary));
-  border-color: color-mix(in srgb, #66c0f4 40%, var(--color-border));
-  color: #66c0f4;
+  background: color-mix(in srgb, var(--color-info) 16%, var(--color-bg-tertiary));
+  border-color: color-mix(in srgb, var(--color-info) 40%, var(--color-border));
+  color: var(--color-info);
 }
 
 .about-section__source-pill--igdb {
@@ -1980,8 +1978,9 @@
 /* Light theme overrides -- Steam Blue stays readable on white,
  * but needs darker text colour so the pill doesn't wash out. */
 [data-theme="light"] .about-section__source-pill--steam {
-  background: color-mix(in srgb, #1b6ea6 12%, var(--color-bg-tertiary));
-  color: #1b6ea6;
+  background: color-mix(in srgb, var(--color-info) 18%, var(--color-bg-tertiary));
+  border-color: color-mix(in srgb, var(--color-info) 45%, var(--color-border));
+  color: color-mix(in srgb, var(--color-info) 85%, black 15%);
 }
 
 /* ── SystemRequirementsCard ──────────────────────────────────────
@@ -2048,18 +2047,18 @@
 }
 
 .system-requirements-card__source-pill--steam {
-  background: color-mix(in srgb, #66c0f4 16%, var(--color-bg-tertiary));
-  border-color: color-mix(in srgb, #66c0f4 40%, var(--color-border));
-  color: #66c0f4;
+  background: color-mix(in srgb, var(--color-info) 16%, var(--color-bg-tertiary));
+  border-color: color-mix(in srgb, var(--color-info) 40%, var(--color-border));
+  color: var(--color-info);
 }
 
 /* Light-theme override: the Steam brand teal stays but the bg
    lightens slightly so it doesn't read as a stamp on white
    surfaces. Mirrors the source-pill override AboutSection uses. */
 [data-theme="light"] .system-requirements-card__source-pill--steam {
-  background: color-mix(in srgb, #1b6e9c 8%, var(--color-bg-tertiary));
-  border-color: color-mix(in srgb, #1b6e9c 30%, var(--color-border));
-  color: #1b6e9c;
+  background: color-mix(in srgb, var(--color-info) 18%, var(--color-bg-tertiary));
+  border-color: color-mix(in srgb, var(--color-info) 45%, var(--color-border));
+  color: color-mix(in srgb, var(--color-info) 85%, black 15%);
 }
 
 .system-requirements-card__source-pill--none,

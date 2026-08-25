@@ -13,9 +13,9 @@
   padding: 0 var(--space-md);
   user-select: none;
   -webkit-app-region: drag;
-  z-index: 100;
+  z-index: var(--z-nav);
   position: relative;
-  box-shadow: 0 1px 0 var(--color-border-faint);
+  box-shadow: 0 1px 0 var(--color-border-faint), inset 0 1px 0 var(--color-border-highlight);
 }
 
 .topnav-left {
@@ -78,7 +78,7 @@
 .topnav-tabs {
   display: flex;
   align-items: center;
-  gap: 3px;
+  gap: var(--space-2xs);
   overflow-x: auto;
   overflow-y: hidden;
   overscroll-behavior-x: contain;
@@ -86,13 +86,13 @@
   flex-shrink: 1;
   scrollbar-width: none;
   scroll-behavior: smooth;
-  padding: 3px 5px;
+  padding: var(--space-3xs) var(--space-xs);
   background: color-mix(in srgb, var(--color-bg-secondary) 65%, transparent);
   backdrop-filter: blur(var(--blur-sm));
   -webkit-backdrop-filter: blur(var(--blur-sm));
   border-radius: var(--radius-full);
   border: 1px solid var(--color-border);
-  box-shadow: inset 0 1px 0 var(--color-border-highlight), inset 0 1px 3px rgba(0, 0, 0, 0.25);
+  box-shadow: inset 0 1px 0 var(--color-border-highlight), inset 0 1px 3px color-mix(in srgb, var(--color-bg-primary) 32%, transparent);
   mask-image: linear-gradient(90deg, transparent, black 12px, black calc(100% - 12px), transparent);
   -webkit-mask-image: linear-gradient(90deg, transparent, black 12px, black calc(100% - 12px), transparent);
 }
@@ -134,10 +134,10 @@
 }
 
 .topnav-tab.active {
-  color: var(--color-accent-contrast, #ffffff);
+  color: var(--color-accent-contrast);
   background: var(--brand-gradient-strong);
   font-weight: 600;
-  box-shadow: 0 2px 12px var(--color-accent-glow), inset 0 1px 0 rgba(255, 255, 255, 0.28);
+  box-shadow: 0 2px 12px var(--color-accent-glow), inset 0 1px 0 color-mix(in srgb, var(--scrim-text) 28%, transparent);
   animation: topnavIndicatorIn var(--duration-normal) var(--ease-enter) both;
 }
 
@@ -167,7 +167,7 @@
 
 .topnav-tab.active .topnav-tab-icon {
   opacity: 1;
-  color: var(--color-accent-contrast, #ffffff);
+  color: var(--color-accent-contrast);
   transform: scale(1.08);
 }
 
@@ -184,7 +184,7 @@
   font-size: var(--font-size-2xs);
   font-weight: var(--font-weight-bold);
   line-height: 1;
-  color: #fff;
+  color: var(--color-accent-contrast);
   background: var(--color-danger);
   border-radius: var(--radius-full);
   box-shadow: 0 0 0 2px var(--color-bg-primary), 0 2px 6px color-mix(in srgb, var(--color-danger) 45%, transparent);
@@ -260,7 +260,7 @@
   justify-content: center;
   font-size: 9px;
   font-weight: var(--font-weight-bold);
-  color: var(--color-accent-contrast, #ffffff);
+  color: var(--color-accent-contrast);
   background: var(--color-accent);
   border-radius: var(--radius-full);
   letter-spacing: 0.2px;
@@ -392,7 +392,7 @@
  * the semantic meaning. */
 .window-controls-btn--close:hover {
   background: var(--color-danger);
-  color: #fff;
+  color: var(--scrim-text);
 }
 
 /* Inline :active so the press feedback is co-located with the
@@ -403,7 +403,7 @@
 }
 
 .window-controls-btn--close:active {
-  background: color-mix(in srgb, var(--color-danger) 80%, black 20%);
+  background: color-mix(in srgb, var(--color-danger) 80%, var(--color-bg-primary) 20%);
 }
 
 

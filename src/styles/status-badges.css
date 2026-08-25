@@ -300,7 +300,7 @@
   gap: 3px;
   padding: 2px 7px;
   border-radius: var(--radius-full);
-  font-size: 9px;
+  font-size: var(--font-size-2xs);
   font-weight: var(--font-weight-bold);
   letter-spacing: 0.3px;
   color: var(--color-accent-contrast);
@@ -323,7 +323,7 @@
   width: 28px;
   height: 28px;
   border-radius: var(--radius-full);
-  color: #fff;
+  color: var(--scrim-text);
   background: rgba(0, 0, 0, 0.55);
   border: 1px solid rgba(255, 255, 255, 0.12);
   backdrop-filter: blur(6px);

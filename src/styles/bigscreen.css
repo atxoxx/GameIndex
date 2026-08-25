@@ -3,39 +3,57 @@
    ============================================================ */
 
 :root {
-  /* Big Screen is a dark-only TV shell, so its neutral ramp is defined
-   * here (page-scoped custom properties) instead of following the
-   * light/dark theme. The accent + status colors still come from the
-   * app's token system so the shell tracks the active theme's accent.
-   * Every hardcoded value in this file must resolve through one of
-   * these variables — never inline hex/rgba. */
-  --bigscreen-bg: #030305;
-  --bigscreen-bg-raised: #0e1016;
-  --bigscreen-text: #ffffff;
-  --bigscreen-surface: color-mix(in srgb, var(--bigscreen-text) 5%, transparent);
-  --bigscreen-surface-hover: color-mix(in srgb, var(--bigscreen-text) 12%, transparent);
-  --bigscreen-border: color-mix(in srgb, var(--bigscreen-text) 10%, transparent);
-  --bigscreen-shadow: #000000;
+  /* Big Screen — cinematic TV shell. Maps to theme tokens so it respects
+   * the active theme's accent and surface ladder, but keeps a dedicated
+   * dark-atmosphere for the 10ft experience. The accent + status colors
+   * track the theme; neutrals track theme text/bg tokens for consistent
+   * cinema contrast in every theme (light stays paper, bigscreen stays
+   * night via scrim-aware fallbacks). Every value resolves through a
+   * var — never inline hex. */
+  --bigscreen-bg: var(--color-bg-primary);
+  --bigscreen-bg-raised: var(--color-bg-secondary);
+  --bigscreen-text: var(--color-text-primary);
+  --bigscreen-surface: color-mix(in srgb, var(--color-text-primary) 5%, transparent);
+  --bigscreen-surface-hover: color-mix(in srgb, var(--color-text-primary) 12%, transparent);
+  --bigscreen-border: color-mix(in srgb, var(--color-text-primary) 10%, transparent);
+  --bigscreen-shadow: var(--color-bg-primary);
   --bigscreen-accent: var(--color-accent);
   --bigscreen-accent-glow: var(--color-accent-glow);
-  --bigscreen-accent-soft-text: color-mix(in srgb, var(--color-accent) 70%, white 30%);
+  --bigscreen-accent-soft-text: color-mix(in srgb, var(--color-accent) 70%, var(--scrim-text) 30%);
   --bigscreen-success: var(--color-success);
-  --bigscreen-success-soft: color-mix(in srgb, var(--color-success) 75%, white 25%);
+  --bigscreen-success-soft: color-mix(in srgb, var(--color-success) 75%, var(--scrim-text) 25%);
   --bigscreen-warning: var(--color-warning);
-  --bigscreen-warning-soft: color-mix(in srgb, var(--color-warning) 75%, white 25%);
+  --bigscreen-warning-soft: color-mix(in srgb, var(--color-warning) 75%, var(--scrim-text) 25%);
   --bigscreen-danger: var(--color-danger);
-  --bigscreen-danger-soft: color-mix(in srgb, var(--color-danger) 80%, white 20%);
+  --bigscreen-danger-soft: color-mix(in srgb, var(--color-danger) 80%, var(--scrim-text) 20%);
   --bigscreen-info: var(--color-info);
-  --bigscreen-info-soft: color-mix(in srgb, var(--color-info) 75%, white 25%);
+  --bigscreen-info-soft: color-mix(in srgb, var(--color-info) 75%, var(--scrim-text) 25%);
   --bigscreen-glass-bg: color-mix(in srgb, var(--bigscreen-bg) 65%, transparent);
   --bigscreen-glass-border: 1px solid var(--bigscreen-border);
   --bigscreen-glass-blur: blur(20px);
+  /* Cinematic mesh veil — reuses the app's --mesh-gradient so each
+   * theme's personality (cyberpunk cyan/magenta, nord icy, etc.)
+   * carries into the TV shell without extra assets. */
+  --bigscreen-mesh: var(--mesh-gradient);
   /* Accent ring + soft glow for focus states, plus a dedicated ring color
    * and bloom halo. The ring is drawn with `outline` (not only color) so it
    * stays visible in grayscale — a colorblind-safe cue. */
   --bigscreen-focus-glow: 0 0 0 2px var(--bigscreen-bg), 0 0 0 3px var(--bigscreen-accent), 0 4px 16px var(--bigscreen-accent-glow);
   --bigscreen-focus-ring: var(--bigscreen-accent);
   --bigscreen-focus-soft: color-mix(in srgb, var(--bigscreen-accent) 45%, transparent);
+}
+
+/* Light theme keeps app paper, but bigscreen stays cinematic night —
+   accent still tracks the light theme's plum, but surfaces stay
+   scrim-dark so the 10ft experience never blinds. Dark themes inherit
+   the :root mapping directly (theme-aware via var()). */
+[data-theme="light"] {
+  --bigscreen-bg: var(--scrim-dark-soft);
+  --bigscreen-bg-raised: color-mix(in srgb, var(--scrim-dark) 88%, var(--color-bg-secondary) 12%);
+  --bigscreen-text: var(--scrim-text);
+  --bigscreen-border: var(--scrim-border);
+  --bigscreen-shadow: var(--scrim-dark);
+  --bigscreen-glass-bg: color-mix(in srgb, var(--scrim-dark) 65%, transparent);
 }
 
 [data-bigscreen="true"] {
@@ -51,7 +69,9 @@
   color: var(--bigscreen-text);
 }
 
-/* Base Layout */
+/* Base Layout — cinematic shell with per-theme mesh veil (cyberpunk
+   cyan/magenta, nord icy, etc. from --mesh-gradient). The mesh sits
+   over the solid bg so each theme's personality carries into TV mode. */
 .bigscreen-layout {
   position: fixed;
   inset: 0;
@@ -60,7 +80,12 @@
   flex-direction: column;
   overflow: hidden;
   background-color: var(--bigscreen-bg);
+  background-image: var(--bigscreen-mesh);
+  background-repeat: no-repeat;
+  background-size: cover;
   font-family: "Outfit", "Inter", system-ui, -apple-system, sans-serif;
+  border-top: 2px solid color-mix(in srgb, var(--bigscreen-accent) 22%, transparent);
+  box-shadow: inset 0 1px 0 color-mix(in srgb, var(--bigscreen-text) 8%, transparent);
 }
 
 .bigscreen-main {

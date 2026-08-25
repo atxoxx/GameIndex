@@ -165,7 +165,7 @@
   flex-shrink: 0;
   border: none;
   background: var(--color-accent);
-  color: var(--color-accent-contrast, #fff);
+  color: var(--color-accent-contrast);
   font-size: var(--font-size-sm);
   font-weight: 600;
   padding: 6px 12px;
@@ -215,7 +215,7 @@
  * only add the hover/focus affordance + hide on touch/narrow
  * where swipe-scroll suffices. */
 .lightbox-nav:hover {
-  background: color-mix(in srgb, var(--color-accent) 35%, rgba(0,0,0,0.6)) !important;
+  background: color-mix(in srgb, var(--color-accent) 35%, var(--color-scrim)) !important;
   border-color: var(--color-accent) !important;
 }
 

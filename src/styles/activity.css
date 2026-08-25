@@ -30,7 +30,7 @@
 .running-dot-pulse {
   width: 10px;
   height: 10px;
-  background-color: #fff;
+  background-color: var(--scrim-text);
   border-radius: 50%;
   display: inline-block;
   margin-right: var(--space-sm);
@@ -48,12 +48,12 @@
   left: var(--space-sm);
   background: color-mix(in srgb, var(--color-success) 85%, transparent);
   backdrop-filter: blur(8px);
-  color: #fff;
+  color: var(--scrim-text);
   font-size: var(--font-size-2xs);
   font-weight: var(--font-weight-bold);
   padding: 3px 8px;
   border-radius: var(--radius-sm);
-  border: 1px solid rgba(255, 255, 255, 0.15);
+  border: 1px solid var(--scrim-border);
   pointer-events: none;
   display: flex;
   align-items: center;
@@ -61,7 +61,7 @@
   letter-spacing: 0.5px;
   text-transform: uppercase;
   z-index: 5;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+  box-shadow: var(--elevation-2);
 }
 
 .sidebar-game-status.running {
@@ -749,7 +749,7 @@
 }
 
 .act-ladder__label {
-  font-size: 9px;
+  font-size: var(--font-size-2xs);
   font-weight: var(--font-weight-semibold);
   color: var(--color-text-muted);
   font-variant-numeric: tabular-nums;
@@ -1118,7 +1118,7 @@
 }
 
 .act-session__badge {
-  font-size: 9px;
+  font-size: var(--font-size-2xs);
   font-weight: var(--font-weight-bold);
   letter-spacing: 0.4px;
   text-transform: uppercase;
@@ -1238,7 +1238,7 @@
 }
 
 .act-session-chip__label {
-  font-size: 9px;
+  font-size: var(--font-size-2xs);
   font-weight: var(--font-weight-bold);
   letter-spacing: 0.4px;
   text-transform: uppercase;
@@ -1253,7 +1253,7 @@
 }
 
 .act-session-chip__sub {
-  font-size: 9px;
+  font-size: var(--font-size-2xs);
   color: var(--color-text-muted);
   font-variant-numeric: tabular-nums;
 }
@@ -1291,7 +1291,7 @@
   display: inline-flex;
   align-items: center;
   gap: 4px;
-  font-size: 9px;
+  font-size: var(--font-size-2xs);
   font-weight: var(--font-weight-bold);
   letter-spacing: 0.4px;
   text-transform: uppercase;

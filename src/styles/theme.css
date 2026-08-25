@@ -31,11 +31,11 @@
   --color-bg-card: var(--color-surface);
   --color-bg-elevated: var(--color-surface-raised);
 
-  /* Tactile Border system — default uses text-primary 10% so OLED (#000) gets a visible border */
+  /* Tactile Border system — text-primary ladder so OLED (#000) and light get visible borders */
   --color-border: color-mix(in srgb, var(--color-text-primary) 10%, transparent);
-  --color-border-light: rgba(255, 255, 255, 0.12);
-  --color-border-highlight: rgba(255, 255, 255, 0.14);
-  --color-border-faint: rgba(255, 255, 255, 0.045);
+  --color-border-light: color-mix(in srgb, var(--color-text-primary) 13%, transparent);
+  --color-border-highlight: color-mix(in srgb, var(--color-text-primary) 16%, transparent);
+  --color-border-faint: color-mix(in srgb, var(--color-text-primary) 5.5%, transparent);
   --color-border-glow: color-mix(in srgb, var(--color-accent) 40%, transparent);
 
   /* Text hierarchy */
@@ -52,7 +52,7 @@
   --color-accent-glow: color-mix(in srgb, var(--color-accent) 28%, transparent);
   --color-accent-soft: color-mix(in srgb, var(--color-accent) 12%, var(--color-bg-secondary));
 
-  /* Accent precision tokens (zero-gradient solid & luminescent depth) */
+  /* Accent precision tokens — gradients use accent ladder, not solid */
   --color-accent-2: var(--color-accent-hover);
   --color-accent-contrast: #ffffff;
   --color-accent-border: color-mix(in srgb, var(--color-accent) 35%, transparent);
@@ -60,8 +60,8 @@
   --color-accent-subtle: color-mix(in srgb, var(--color-accent) 4%, transparent);
   --color-accent-badge: color-mix(in srgb, var(--color-accent) 14%, var(--color-bg-secondary));
   --color-accent-laser: var(--color-accent);
-  --color-accent-gradient: var(--color-accent);
-  --color-accent-gradient-strong: var(--color-accent);
+  --color-accent-gradient: linear-gradient(135deg, var(--color-accent) 0%, var(--color-accent-2) 100%);
+  --color-accent-gradient-strong: linear-gradient(135deg, var(--color-accent) 0%, var(--color-accent-2) 58%, var(--color-accent-active) 100%);
 
   /* Accent strength knobs */
   --accent-glow-strength: 28%;
@@ -99,14 +99,17 @@
   --scrim-text-faint: rgba(255, 255, 255, 0.65);
   --scrim-gloss: rgba(255, 255, 255, 0.22);
 
-  /* Brand identity — solid precision styling */
+  /* Brand identity — true gradient + atmospheric mesh (per-theme overrides in themes.css) */
   --brand-1: var(--color-accent);
   --brand-2: var(--color-accent-hover);
   --brand-3: var(--color-accent-hover);
   --brand-4: var(--color-accent);
-  --brand-gradient: var(--color-accent);
-  --brand-gradient-strong: var(--color-accent);
-  --mesh-gradient: none;
+  --brand-gradient: linear-gradient(135deg, var(--color-accent) 0%, var(--color-accent-2) 100%);
+  --brand-gradient-strong: linear-gradient(135deg, var(--color-accent) 0%, var(--color-accent-2) 58%, var(--color-accent-active) 100%);
+  --mesh-gradient:
+    radial-gradient(ellipse 78% 55% at 18% -8%, color-mix(in srgb, var(--color-accent) 9%, transparent) 0%, transparent 62%),
+    radial-gradient(ellipse 62% 48% at 88% 0%, color-mix(in srgb, var(--color-accent-2, var(--color-accent)) 7%, transparent) 0%, transparent 58%),
+    radial-gradient(ellipse 92% 36% at 50% 102%, color-mix(in srgb, var(--color-accent) 4.5%, transparent) 0%, transparent 70%);
   --brand-debrid: #00f0ff;
   --brand-twitch: #9146ff;
   --brand-nvidia: #76b900;

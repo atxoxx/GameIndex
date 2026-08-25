@@ -66,7 +66,7 @@
 }
 
 .import-sidebar-item.active {
-  background: rgba(108, 92, 231, 0.08);
+  background: color-mix(in srgb, var(--color-accent) 8%, transparent);
   border-left: 3px solid var(--color-accent);
   padding-left: calc(var(--space-xl) - 3px);
 }
@@ -106,8 +106,8 @@
   gap: var(--space-md);
   margin: var(--space-md) var(--space-xl) 0;
   padding: var(--space-md) var(--space-lg);
-  background: rgba(108, 92, 231, 0.08);
-  border: 1px solid rgba(108, 92, 231, 0.25);
+  background: color-mix(in srgb, var(--color-accent) 8%, transparent);
+  border: 1px solid color-mix(in srgb, var(--color-accent) 25%, transparent);
   border-radius: var(--radius-sm);
   font-size: var(--font-size-xs);
   color: var(--color-text-secondary);
@@ -127,7 +127,7 @@
 }
 
 .import-group.selected {
-  background: rgba(108, 92, 231, 0.04);
+  background: color-mix(in srgb, var(--color-accent) 4%, transparent);
 }
 
 .import-group-header {
@@ -185,7 +185,7 @@
 .import-sidebar-item.primary {
   border-left: 3px solid var(--color-accent);
   padding-left: calc(var(--space-xl) + 13px);
-  background: rgba(108, 92, 231, 0.06);
+  background: color-mix(in srgb, var(--color-accent) 6%, transparent);
 }
 
 .import-sidebar-item.extra {
@@ -194,7 +194,7 @@
 
 .suggested-badge {
   display: inline-block;
-  font-size: 9px;
+  font-size: var(--font-size-2xs);
   font-weight: var(--font-weight-bold);
   text-transform: uppercase;
   letter-spacing: 0.04em;
@@ -443,7 +443,7 @@
 .search-input-wrapper .import-search-input:focus {
   border-color: var(--color-accent);
   outline: none;
-  box-shadow: 0 0 0 2px rgba(108, 92, 231, 0.15);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--color-accent) 15%, transparent);
 }
 
 .search-input-wrapper .clear-btn {
@@ -524,7 +524,7 @@
 }
 
 .suggestion-item.linked {
-  background: rgba(108, 92, 231, 0.08);
+  background: color-mix(in srgb, var(--color-accent) 8%, transparent);
   border-color: var(--color-accent);
 }
 
@@ -729,7 +729,7 @@
 }
 
 .genre-tag {
-  background: rgba(108, 92, 231, 0.1);
+  background: color-mix(in srgb, var(--color-accent) 10%, transparent);
   color: var(--color-accent);
   font-size: var(--font-size-2xs);
   padding: 2px 6px;
@@ -1388,7 +1388,7 @@
 }
 
 .import-link-item-kind {
-  font-size: 9px;
+  font-size: var(--font-size-2xs);
   font-weight: var(--font-weight-bold);
   text-transform: uppercase;
   letter-spacing: 0.04em;

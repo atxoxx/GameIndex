@@ -475,7 +475,7 @@
   border: 1px solid var(--color-border);
   border-radius: var(--radius-full);
   padding: 0 7px;
-  font-size: 9px;
+  font-size: var(--font-size-2xs);
   font-weight: var(--font-weight-semibold);
   color: var(--color-text-secondary);
   font-variant-numeric: tabular-nums;
