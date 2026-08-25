@@ -68,7 +68,7 @@
   box-shadow: var(--shadow-lg);
   padding: var(--space-xs) 0;
   min-width: 140px;
-  z-index: 100;
+  z-index: var(--z-popover);
   animation: status-slide-down 0.2s cubic-bezier(0.16, 1, 0.3, 1);
 }
 

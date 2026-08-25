@@ -13,6 +13,11 @@
   max-width: 1600px;
   margin: 0 auto;
   min-height: 100%;
+  animation: pageIn var(--duration-normal) var(--ease-out) both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .emulators-page { animation: none; }
 }
 
 /* ── Stats strip ────────────────────────────────────────────────── */
@@ -1224,7 +1229,7 @@
   pointer-events: auto;
   display: grid;
   place-items: center;
-  background: rgba(0, 0, 0, 0.5);
+  background: var(--scrim-dark-mid);
   backdrop-filter: blur(4px);
   padding: 3px;
   border-radius: var(--radius-xs);
@@ -1241,7 +1246,7 @@
   display: inline-flex;
   align-items: center;
   gap: 4px;
-  background: rgba(0, 0, 0, 0.6);
+  background: var(--color-scrim);
   backdrop-filter: blur(4px);
   color: var(--color-success);
   padding: 2px 8px;
@@ -1317,7 +1322,7 @@
 .emu-rom-card-overlay {
   position: absolute;
   inset: 0;
-  background: rgba(0, 0, 0, 0.45);
+  background: var(--scrim-dark-mid);
   display: grid;
   place-items: center;
   opacity: 0;
@@ -1340,7 +1345,7 @@
   display: grid;
   place-items: center;
   cursor: pointer;
-  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.4);
+  box-shadow: 0 4px 14px var(--elevation-3);
   transform: scale(0.9);
   transition: transform var(--duration-fast) var(--ease-standard),
     background var(--duration-fast) var(--ease-standard);

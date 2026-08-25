@@ -83,23 +83,38 @@
 
 /* Lit top edge — a soft ambient sheen along the panel's top so the
    main surface reads as raised off the gradient mesh behind it. Sits
-   at the top of the scrollable content (scrolls away naturally). */
+   at the top of the scrollable content (scrolls away naturally).
+   Now enhanced with a subtle accent shimmer that slowly breathes. */
 .app-main::before {
   content: "";
   position: absolute;
   top: 0;
   left: 0;
   right: 0;
-  height: 1px;
+  height: 2px;
   background: linear-gradient(
     90deg,
     transparent,
-    color-mix(in srgb, var(--color-accent) 25%, transparent) 30%,
-    color-mix(in srgb, var(--color-accent) 15%, transparent) 70%,
+    color-mix(in srgb, var(--color-accent) 38%, transparent) 25%,
+    color-mix(in srgb, var(--color-accent) 22%, transparent) 50%,
+    color-mix(in srgb, var(--color-accent) 38%, transparent) 75%,
     transparent
   );
   pointer-events: none;
   z-index: 1;
+  filter: blur(0.5px);
+  animation: mainEdgeShimmer 8s var(--ease-in-out) infinite alternate;
+}
+
+@keyframes mainEdgeShimmer {
+  0%   { opacity: 0.6; }
+  100% { opacity: 1; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .app-main::before {
+    animation: none;
+  }
 }
 
 

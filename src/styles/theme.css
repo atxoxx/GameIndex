@@ -108,6 +108,15 @@
   --brand-gradient-strong: var(--color-accent);
   --mesh-gradient: none;
   --brand-debrid: #00f0ff;
+  --brand-twitch: #9146ff;
+  --brand-nvidia: #76b900;
+  --brand-amd: #ed1c24;
+
+  /* In-game presence accent — used by the Friends page for the "playing"
+     status. Purple sits distinct from green (online) / blue (info) so
+     the in-game state is instantly scannable even in a dense list. */
+  --color-ingame: #a855f7;
+  --color-ingame-soft: color-mix(in srgb, #a855f7 14%, var(--color-bg-secondary));
 
   /* ── Spacing Scale ────────────────────────────────────────────────
      Base-4 modular scale with a 6px mid-step for fine rhythm. */

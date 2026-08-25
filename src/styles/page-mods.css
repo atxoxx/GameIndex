@@ -24,6 +24,11 @@
   max-width: 1600px;
   margin: 0 auto;
   min-height: 100%;
+  animation: pageIn var(--duration-normal) var(--ease-out) both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .mods-page { animation: none; }
 }
 
 .mods-page-split {

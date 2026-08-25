@@ -1272,13 +1272,13 @@
 }
 
 .game-launch-btn--install {
-  background: linear-gradient(135deg, #1a9fff, #0077cc);
-  border: 1px solid #0077cc;
+  background: linear-gradient(135deg, var(--color-info), color-mix(in srgb, var(--color-info) 65%, #000 35%));
+  border: 1px solid color-mix(in srgb, var(--color-info) 60%, transparent);
 }
 
 .game-launch-btn--install:hover {
-  background: linear-gradient(135deg, #4ab4ff, #1a9fff);
-  border-color: #1a9fff;
+  background: linear-gradient(135deg, color-mix(in srgb, var(--color-info) 88%, white 12%), var(--color-info));
+  border-color: var(--color-info);
 }
 
 /* Force Close — destructive action button that appears next to
@@ -1312,8 +1312,8 @@
   width: 8px;
   height: 8px;
   border-radius: 50%;
-  background: #fff;
-  box-shadow: 0 0 8px #fff;
+  background: var(--color-accent-contrast);
+  box-shadow: 0 0 8px var(--color-accent-contrast);
   animation: runningPulse 1.4s ease-in-out infinite;
 }
 

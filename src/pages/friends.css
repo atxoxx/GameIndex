@@ -81,7 +81,7 @@
 
 .friends-tab.active:hover {
   background: var(--color-accent-hover);
-  color: #fff;
+  color: var(--color-accent-contrast);
 }
 
 .friends-tab svg {
@@ -105,8 +105,8 @@
 }
 
 .friends-tab.active .friends-tab-count {
-  background: rgba(255, 255, 255, 0.22);
-  color: #fff;
+  background: color-mix(in srgb, var(--color-accent-contrast) 22%, transparent);
+  color: var(--color-accent-contrast);
 }
 
 .friends-tab-badge {
@@ -115,7 +115,7 @@
   padding: 0 5px;
   border-radius: var(--radius-full);
   background: var(--color-danger);
-  color: #fff;
+  color: var(--color-accent-contrast);
   font-size: var(--font-size-2xs);
   font-weight: var(--font-weight-bold);
   font-variant-numeric: tabular-nums;
@@ -1133,8 +1133,8 @@
 .friend-card-dropdown-menu,
 .friend-menu {
   position: fixed;
-  z-index: 1200;
-  background: var(--color-surface-raised, #1e1e24);
+  z-index: var(--z-popover);
+  background: var(--color-surface-raised);
   border: 1px solid var(--color-border);
   border-radius: var(--radius-md);
   padding: 4px;

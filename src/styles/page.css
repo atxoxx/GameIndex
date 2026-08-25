@@ -5,13 +5,36 @@
    page root and <PageHeader /> for the title block.
    ============================================================================ */
 
-/* ── Page shell ─────────────────────────────────────────────────────────── */
+/* ── Page shell ───────────────────────────────────────────────────────────
+   Every page root gets a consistent rhythm + a signature soft-rise
+   entrance (8px blur-lift, instant layout — this animates on the
+   compositor so it never triggers a reflow). Pages that don't use
+   `.page` get their own entrance keyframes, but this is the canonical
+   one-off wrapper. */
 .page {
   display: flex;
   flex-direction: column;
   gap: var(--space-xl);
   width: 100%;
   padding: var(--space-xl) var(--space-2xl) var(--space-3xl);
+  animation: pageIn var(--duration-normal) var(--ease-out) both;
+}
+
+@keyframes pageIn {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .page {
+    animation: none;
+  }
 }
 
 /* ── Header ─────────────────────────────────────────────────────────────── */

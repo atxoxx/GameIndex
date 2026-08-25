@@ -62,34 +62,7 @@ input:disabled, select:disabled, textarea:disabled {
   cursor: not-allowed;
 }
 
-/* ── Scrollbar ────────────────────────────────────────────────────── */
-
-::-webkit-scrollbar {
-  width: 8px;
-  height: 8px;
-}
-
-::-webkit-scrollbar-track {
-  background: transparent;
-}
-
-::-webkit-scrollbar-thumb {
-  background: var(--color-border-light);
-  border-radius: var(--radius-full);
-  border: 2px solid transparent;
-  background-clip: padding-box;
-  transition: background var(--transition-fast);
-}
-
-::-webkit-scrollbar-thumb:hover {
-  background: var(--color-text-muted);
-  border: 2px solid transparent;
-  background-clip: padding-box;
-}
-
-::-webkit-scrollbar-corner {
-  background: transparent;
-}
+/* Scrollbar styles have moved to src/styles/ui.css — the canonical source.
 
 /* ── Focus visibility for accessibility ───────────────────────────── */
 :focus-visible {
