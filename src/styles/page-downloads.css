@@ -1063,7 +1063,7 @@ input[type="checkbox"].dl-file-checkbox {
   flex-shrink: 0;
   border: 1.5px solid var(--color-border-light);
   border-radius: var(--radius-sm);
-  background: var(--color-bg-primary);
+  background-color: var(--color-bg-primary);
   cursor: pointer;
   position: relative;
   transition: all var(--transition-fast);
@@ -1071,11 +1071,11 @@ input[type="checkbox"].dl-file-checkbox {
   vertical-align: middle;
 }
 
-input[type="checkbox"].dl-row-checkbox:hover,
-input[type="checkbox"].dl-card-checkbox:hover,
-input[type="checkbox"].dl-file-checkbox:hover:not(:disabled) {
+input[type="checkbox"].dl-row-checkbox:hover:not(:checked),
+input[type="checkbox"].dl-card-checkbox:hover:not(:checked),
+input[type="checkbox"].dl-file-checkbox:hover:not(:disabled):not(:checked) {
   border-color: var(--color-accent);
-  background: var(--color-bg-hover);
+  background-color: var(--color-bg-hover);
   box-shadow: 0 0 0 2px var(--color-accent-glow);
 }
 
@@ -1091,9 +1091,25 @@ input[type="checkbox"].dl-file-checkbox:checked {
   box-shadow: 0 0 8px var(--color-accent-glow);
 }
 
+input[type="checkbox"].dl-row-checkbox:checked:hover,
+input[type="checkbox"].dl-card-checkbox:checked:hover,
+input[type="checkbox"].dl-file-checkbox:checked:hover:not(:disabled) {
+  background-color: color-mix(in srgb, var(--color-accent) 85%, white);
+  border-color: color-mix(in srgb, var(--color-accent) 85%, white);
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='white' stroke-width='3.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='20 6 9 17 4 12'/%3E%3C/svg%3E");
+  background-size: 11px 11px;
+  background-position: center;
+  background-repeat: no-repeat;
+  box-shadow: 0 0 10px var(--color-accent-glow);
+}
+
 input[type="checkbox"].dl-file-checkbox:disabled:checked {
   background-color: color-mix(in srgb, var(--color-success) 85%, var(--color-bg-primary));
   border-color: var(--color-success);
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='white' stroke-width='3.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='20 6 9 17 4 12'/%3E%3C/svg%3E");
+  background-size: 11px 11px;
+  background-position: center;
+  background-repeat: no-repeat;
   opacity: 0.9;
   cursor: default;
 }
@@ -2899,3 +2915,187 @@ input[type="checkbox"].dl-file-checkbox:disabled:checked {
     opacity: 0.7;
   }
 }
+
+/* ── Add Download Modal Styles ───────────────────────────────────────── */
+.dl-add-modal {
+  max-width: 760px;
+  width: 92vw;
+  max-height: 88vh;
+  display: flex;
+  flex-direction: column;
+}
+
+.dl-add-modal-body {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-md);
+  overflow-y: auto;
+  padding: var(--space-lg);
+}
+
+.dl-add-dropzone {
+  position: relative;
+  border-radius: var(--radius-lg);
+  transition: all var(--transition-normal);
+}
+
+.dl-add-dropzone.is-drag-over {
+  border-color: var(--color-accent);
+  box-shadow: 0 0 16px var(--color-accent-glow);
+}
+
+.dl-add-drop-overlay {
+  position: absolute;
+  inset: 0;
+  background: color-mix(in srgb, var(--color-accent) 20%, var(--color-bg-secondary));
+  border: 2px dashed var(--color-accent);
+  border-radius: var(--radius-lg);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: var(--font-weight-bold);
+  color: var(--color-accent);
+  z-index: 5;
+  backdrop-filter: blur(4px);
+}
+
+.dl-add-input-bar {
+  display: flex;
+  align-items: center;
+  gap: var(--space-xs);
+  padding: 6px 10px;
+  background: var(--color-bg-secondary);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-sm);
+  transition: border-color var(--transition-fast), box-shadow var(--transition-fast);
+}
+
+.dl-add-input-bar:focus-within {
+  border-color: var(--color-accent);
+  box-shadow: 0 0 0 2px var(--color-accent-glow);
+}
+
+.dl-add-text-input {
+  flex: 1;
+  min-width: 0;
+  border: none;
+  outline: none;
+  background: transparent;
+  color: var(--color-text-primary);
+  font-size: var(--font-size-sm);
+  font-family: inherit;
+}
+
+.dl-add-text-input::placeholder {
+  color: var(--color-text-muted);
+}
+
+/* Debrid Card */
+.dl-add-debrid-card {
+  padding: var(--space-md);
+  background: color-mix(in srgb, var(--brand-debrid, #a855f7) 6%, var(--color-bg-secondary));
+  border: 1px solid color-mix(in srgb, var(--brand-debrid, #a855f7) 25%, var(--color-border));
+  border-radius: var(--radius-lg);
+}
+
+.dl-add-debrid-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-md);
+}
+
+.dl-add-debrid-info {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.dl-add-debrid-title-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  flex-wrap: wrap;
+}
+
+.dl-add-debrid-title {
+  font-weight: var(--font-weight-bold);
+  font-size: var(--font-size-sm);
+  color: var(--color-text-primary);
+}
+
+.dl-add-debrid-desc {
+  margin: 0;
+  font-size: var(--font-size-xs);
+  color: var(--color-text-muted);
+}
+
+.dl-add-cache-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 2px 8px;
+  border-radius: var(--radius-full);
+  font-size: var(--font-size-2xs);
+  font-weight: var(--font-weight-bold);
+  letter-spacing: 0.2px;
+}
+
+.dl-add-cache-badge--cached {
+  background: color-mix(in srgb, var(--color-success) 18%, transparent);
+  color: var(--color-success);
+  border: 1px solid color-mix(in srgb, var(--color-success) 40%, transparent);
+}
+
+.dl-add-cache-badge--uncached {
+  background: color-mix(in srgb, var(--color-warning) 18%, transparent);
+  color: var(--color-warning);
+  border: 1px solid color-mix(in srgb, var(--color-warning) 40%, transparent);
+}
+
+.dl-add-cache-badge--checking {
+  background: color-mix(in srgb, var(--color-info) 18%, transparent);
+  color: var(--color-info);
+  border: 1px solid color-mix(in srgb, var(--color-info) 40%, transparent);
+}
+
+.dl-add-cache-badge--unconfigured {
+  background: color-mix(in srgb, var(--color-text-muted) 15%, transparent);
+  color: var(--color-text-muted);
+  border: 1px solid color-mix(in srgb, var(--color-border) 40%, transparent);
+}
+
+/* Inspecting status banner */
+.dl-add-inspecting-banner {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  padding: var(--space-sm) var(--space-md);
+  background: color-mix(in srgb, var(--color-accent) 10%, var(--color-bg-secondary));
+  border: 1px solid color-mix(in srgb, var(--color-accent) 25%, transparent);
+  border-radius: var(--radius-md);
+  font-size: var(--font-size-xs);
+  color: var(--color-accent);
+}
+
+.dl-add-files-box {
+  background: var(--color-bg-secondary);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  padding: var(--space-md);
+}
+
+.dl-add-options-section {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+  padding-top: var(--space-xs);
+  border-top: 1px solid color-mix(in srgb, var(--color-border) 60%, transparent);
+}
+
+.dl-add-toggle-label {
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+}

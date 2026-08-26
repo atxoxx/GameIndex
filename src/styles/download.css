@@ -4678,16 +4678,16 @@ input[type="checkbox"].dl-file-checkbox {
   background: var(--color-bg-primary);
   cursor: pointer;
   position: relative;
-  transition: border-color var(--transition-fast), background var(--transition-fast), box-shadow var(--transition-fast);
+  transition: border-color var(--transition-fast), background-color var(--transition-fast), box-shadow var(--transition-fast);
   display: inline-block;
   vertical-align: middle;
 }
 
-input[type="checkbox"].dl-row-checkbox:hover,
-input[type="checkbox"].dl-card-checkbox:hover,
-input[type="checkbox"].dl-file-checkbox:hover:not(:disabled) {
+input[type="checkbox"].dl-row-checkbox:hover:not(:checked),
+input[type="checkbox"].dl-card-checkbox:hover:not(:checked),
+input[type="checkbox"].dl-file-checkbox:hover:not(:disabled):not(:checked) {
   border-color: var(--color-accent);
-  background: var(--color-bg-hover);
+  background-color: var(--color-bg-hover);
   box-shadow: 0 0 0 2px color-mix(in srgb, var(--color-accent) 25%, transparent);
 }
 
@@ -4701,6 +4701,18 @@ input[type="checkbox"].dl-file-checkbox:checked {
   background-position: center;
   background-repeat: no-repeat;
   box-shadow: 0 0 8px color-mix(in srgb, var(--color-accent) 40%, transparent);
+}
+
+input[type="checkbox"].dl-row-checkbox:checked:hover,
+input[type="checkbox"].dl-card-checkbox:checked:hover,
+input[type="checkbox"].dl-file-checkbox:checked:hover:not(:disabled) {
+  background-color: color-mix(in srgb, var(--color-accent) 85%, white);
+  border-color: color-mix(in srgb, var(--color-accent) 85%, white);
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='white' stroke-width='3.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='20 6 9 17 4 12'/%3E%3C/svg%3E");
+  background-size: 11px 11px;
+  background-position: center;
+  background-repeat: no-repeat;
+  box-shadow: 0 0 10px color-mix(in srgb, var(--color-accent) 50%, transparent);
 }
 
 input[type="checkbox"].dl-file-checkbox:disabled:checked {

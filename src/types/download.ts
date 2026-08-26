@@ -130,6 +130,8 @@ export interface TorrentDownload {
   shouldSeed?: boolean;
   /** 0-based position in the waiting queue (only set while `queued`). */
   queuePosition?: number;
+  /** Original or reconstructed magnet URI. */
+  magnetUri?: string;
 }
 
 /**

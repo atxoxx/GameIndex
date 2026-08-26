@@ -341,7 +341,7 @@ pub async fn torrent_add(
         })?
         .map_err(|e| format!("Failed to add torrent: {}", e))?;
 
-        let (id_str, name, files, total_size) = match response {
+        let (id_str, name, files, total_size, magnet_uri) = match response {
             librqbit::AddTorrentResponse::Added(_, handle)
             | librqbit::AddTorrentResponse::AlreadyManaged(_, handle) => {
                 let id_str = torrent::frontend_id_from_hash(&handle.shared().info_hash.0);
@@ -350,9 +350,21 @@ pub async fn torrent_add(
                     .unwrap_or_else(|| "Fetching metadata\u{2026}".to_string());
                 let stats = handle.stats();
                 let files = torrent::files_from_handle(&handle, &stats).unwrap_or_default();
+                let hex_hash = handle
+                    .shared()
+                    .info_hash
+                    .0
+                    .iter()
+                    .map(|b| format!("{:02x}", b))
+                    .collect::<String>();
+                let mag = format!(
+                    "magnet:?xt=urn:btih:{}&dn={}",
+                    hex_hash,
+                    urlencoding::encode(&name)
+                );
                 // Keep the entry paused — it must not download yet.
                 let _ = session.pause(&handle).await;
-                (id_str, name, files, stats.total_bytes)
+                (id_str, name, files, stats.total_bytes, mag)
             }
             librqbit::AddTorrentResponse::ListOnly(res) => {
                 let id_str = torrent::frontend_id_from_hash(&res.info_hash.0);
@@ -373,7 +385,18 @@ pub async fn torrent_add(
                     })
                     .collect::<Vec<DownloadFile>>();
                 let total = files.iter().map(|f| f.size).sum::<u64>();
-                (id_str, name, files, total)
+                let hex_hash = res
+                    .info_hash
+                    .0
+                    .iter()
+                    .map(|b| format!("{:02x}", b))
+                    .collect::<String>();
+                let mag = format!(
+                    "magnet:?xt=urn:btih:{}&dn={}",
+                    hex_hash,
+                    urlencoding::encode(&name)
+                );
+                (id_str, name, files, total, mag)
             }
         };
 
@@ -387,6 +410,9 @@ pub async fn torrent_add(
             existing.referer = referer.clone();
             if existing.files.is_empty() {
                 existing.files = files;
+            }
+            if existing.magnet_uri.is_none() {
+                existing.magnet_uri = Some(magnet_uri);
             }
             let snapshot = existing.clone();
             // A re-add of a previously removed torrent cancels its tombstone.
@@ -410,6 +436,7 @@ pub async fn torrent_add(
         d.files = files;
         d.referer = referer.clone();
         d.game_poster = game_poster;
+        d.magnet_uri = Some(magnet_uri);
         // A re-add of a previously removed torrent cancels its tombstone.
         guard.removed_torrents.remove(&id_str);
         guard.downloads_mut().insert(id_str, d.clone());

@@ -14,13 +14,13 @@ import {
 } from "../types/download";
 import BandwidthHero from "../components/downloads/BandwidthHero";
 import BandwidthSparkline from "../components/downloads/BandwidthSparkline";
-import MagnetInputBar from "../components/downloads/MagnetInputBar";
+import AddDownloadModal from "../components/downloads/AddDownloadModal";
 import DownloadsToolbar from "../components/downloads/DownloadsToolbar";
 import DownloadsFilterBar, { type DownloadViewMode } from "../components/downloads/DownloadsFilterBar";
 import DownloadRow from "../components/downloads/DownloadRow";
 import { DownloadGridCard } from "../components/downloads/DownloadGridCard";
 import DownloadStatsModal from "../components/downloads/DownloadStatsModal";
-import { ConfirmModal, PageHeader } from "../components/ui";
+import { Button, ConfirmModal, PageHeader } from "../components/ui";
 import { useLanguage } from "../context/LanguageContext";
 import "../styles/page-downloads.css";
 
@@ -51,6 +51,7 @@ export default function DownloadsPage() {
 
   // ── Statistics modal state ───────────────────────────────────────
   const [statsModalOpen, setStatsModalOpen] = useState(false);
+  const [addModalOpen, setAddModalOpen] = useState(false);
 
   // Per-bucket counts for the filter pill badges
   const STATUS_FILTER_LABEL_KEY: Record<DownloadStatusFilter, string> = {
@@ -283,7 +284,29 @@ export default function DownloadsPage() {
         eyebrow={t("downloads.eyebrow")}
         title={t("downloads.title")}
         description={t("downloads.description")}
-        actions={<MagnetInputBar />}
+        actions={
+          <Button
+            variant="primary"
+            onClick={() => setAddModalOpen(true)}
+            leftIcon={
+              <svg
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2.5"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                style={{ width: 15, height: 15 }}
+                aria-hidden="true"
+              >
+                <line x1="12" y1="5" x2="12" y2="19" />
+                <line x1="5" y1="12" x2="19" y2="12" />
+              </svg>
+            }
+          >
+            {t("downloads.addDownload")}
+          </Button>
+        }
       />
 
       {/* Hero Control Center & Network Sparkline */}
@@ -372,6 +395,14 @@ export default function DownloadsPage() {
             </div>
             <h4 className="dl-list-empty-title">{t("downloads.noActive")}</h4>
             <p className="dl-list-empty-hint">{t("downloads.noActiveHint")}</p>
+            <Button
+              variant="primary"
+              size="sm"
+              style={{ marginTop: "var(--space-sm)" }}
+              onClick={() => setAddModalOpen(true)}
+            >
+              {t("downloads.addDownload")}
+            </Button>
           </div>
         ) : viewMode === "grid" ? (
           <div className="dl-grid-view">
@@ -488,6 +519,12 @@ export default function DownloadsPage() {
         downloads={downloads}
         history={history}
         onResetStats={refreshHistory}
+      />
+
+      {/* Add Download Modal */}
+      <AddDownloadModal
+        open={addModalOpen}
+        onClose={() => setAddModalOpen(false)}
       />
     </div>
   );
