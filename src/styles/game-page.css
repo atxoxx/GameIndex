@@ -2018,3 +2018,11 @@
   }
 }
 
+
+/* Languages table — empty search row */
+.lang-empty-search {
+  padding: var(--space-lg) var(--space-md);
+  text-align: center;
+  color: var(--color-text-muted);
+  font-size: var(--font-size-sm);
+}

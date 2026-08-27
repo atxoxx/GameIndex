@@ -1634,3 +1634,12 @@
   border-color: var(--color-accent);
 }
 
+
+/* Tag chip label — ellipsizes long tags */
+.tag-chip-label {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}

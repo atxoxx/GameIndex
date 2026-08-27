@@ -3661,3 +3661,46 @@
     box-shadow: 0 0 22px color-mix(in srgb, var(--color-success) 60%, transparent);
   }
 }
+
+/* ============================================================================
+   Missing hooks — list header thumb cell, bulk-bar sides, card badge icon,
+   hero spotlight meta children. Mirrors the surrounding lib-* rules.
+   ============================================================================ */
+
+/* List header — thumbnail spacer cell (grid col 1 = 44px, matches .lib-card--list) */
+.lib-th-thumb {
+  min-width: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Bulk bar — left/right side containers hold their action clusters */
+.lib-bulk-bar-left,
+.lib-bulk-bar-right {
+  display: flex;
+  align-items: center;
+  gap: var(--space-xs);
+}
+
+/* Card badge icon — inline SVG needs explicit sizing (no width/height attrs) */
+.lib-card-badge-icon {
+  width: 16px;
+  height: 16px;
+  flex-shrink: 0;
+}
+
+/* Hero spotlight meta — time/separator/playtime readouts */
+.lib-hero-spotlight-time,
+.lib-hero-spotlight-playtime {
+  font-variant-numeric: tabular-nums;
+}
+
+.lib-hero-spotlight-sep {
+  opacity: 0.6;
+}
+
+.lib-hero-spotlight-playtime {
+  color: var(--color-text-secondary);
+  font-weight: var(--font-weight-semibold);
+}

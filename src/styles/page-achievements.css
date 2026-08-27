@@ -1048,3 +1048,37 @@
   color: var(--color-text-muted);
   opacity: 0.5;
 }
+/* ============================================================================
+   Missing hooks — KPI card accent variants (icon chip tints), rarity card
+   unlocked count. Mirrors .ach-kpi-gold.
+   ============================================================================ */
+
+.ach-kpi-unlocked .ach-kpi-icon-wrap {
+  color: var(--color-success);
+  background: color-mix(in srgb, var(--color-success) 14%, transparent);
+  border-color: color-mix(in srgb, var(--color-success) 35%, transparent);
+}
+
+.ach-kpi-total .ach-kpi-icon-wrap {
+  color: var(--color-info);
+  background: color-mix(in srgb, var(--color-info) 14%, transparent);
+  border-color: color-mix(in srgb, var(--color-info) 35%, transparent);
+}
+
+.ach-kpi-completion .ach-kpi-icon-wrap {
+  color: var(--color-accent);
+  background: color-mix(in srgb, var(--color-accent) 14%, transparent);
+  border-color: color-mix(in srgb, var(--color-accent) 35%, transparent);
+}
+
+.ach-kpi-avg .ach-kpi-icon-wrap {
+  color: var(--color-warning);
+  background: color-mix(in srgb, var(--color-warning) 14%, transparent);
+  border-color: color-mix(in srgb, var(--color-warning) 35%, transparent);
+}
+
+.ach-rarity-card-unlocked {
+  color: var(--color-text-primary);
+  font-weight: var(--font-weight-semibold);
+  font-variant-numeric: tabular-nums;
+}

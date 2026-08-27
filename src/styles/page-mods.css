@@ -2692,3 +2692,55 @@
   }
 }
 
+
+/* Toolbar actions — right-aligned cluster */
+.mods-toolbar-row--actions {
+  margin-left: auto;
+}
+
+/* Empty-state buttons (ModManager) — the .btn classes carry no base styles,
+   so give the empty-state actions a minimal button treatment. */
+.mods-empty-actions .btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-sm);
+  padding: var(--space-sm) var(--space-lg);
+  border: 1px solid transparent;
+  border-radius: var(--radius-md);
+  font-family: inherit;
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-semibold);
+  cursor: pointer;
+  transition: background var(--transition-fast), border-color var(--transition-fast), color var(--transition-fast);
+}
+
+.mods-empty-actions .btn--primary {
+  background: var(--color-accent);
+  color: var(--color-accent-contrast);
+}
+
+.mods-empty-actions .btn--primary:hover:not(:disabled) {
+  background: var(--color-accent-hover);
+}
+
+.mods-empty-actions .btn--ghost {
+  background: transparent;
+  color: var(--color-text-secondary);
+  border-color: var(--color-border);
+}
+
+.mods-empty-actions .btn--ghost:hover {
+  color: var(--color-text-primary);
+  border-color: var(--color-accent);
+}
+
+.mods-empty-actions .btn--sm {
+  padding: var(--space-xs) var(--space-md);
+  font-size: var(--font-size-xs);
+}
+
+.mods-empty-actions .btn:disabled {
+  opacity: 0.5;
+  cursor: default;
+}

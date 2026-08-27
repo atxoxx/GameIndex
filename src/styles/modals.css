@@ -296,3 +296,12 @@
     animation: none;
   }
 }
+
+/* Footer left cluster — mirrors .modal-footer-actions on the other side */
+.modal-footer-left {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  min-width: 0;
+  margin-right: auto;
+}

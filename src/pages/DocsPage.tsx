@@ -121,7 +121,7 @@ function renderBulletItems(items: BulletItem[]): ReactNode {
       <div className="doc-bullet-content">
         {renderInline(it.text)}
         {it.children.length > 0 && (
-          <ul className="docs-bullets doc-bullets--nested">
+          <ul className="docs-bullets docs-bullets--nested">
             {renderBulletItems(it.children)}
           </ul>
         )}

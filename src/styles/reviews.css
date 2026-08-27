@@ -2000,3 +2000,11 @@ ol.rv-bbcode-list {
     flex-wrap: wrap;
   }
 }
+
+/* Source segment label — truncates long source names */
+.rv-source-seg-name {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}

@@ -2716,3 +2716,41 @@
   font-size: var(--font-size-2xs);
   color: var(--color-text-muted);
 }
+
+/* Level + XP readouts in the stats header */
+.stats-level-text {
+  font-size: var(--font-size-2xs);
+  font-weight: var(--font-weight-bold);
+  color: var(--color-text-muted);
+  letter-spacing: 0.05em;
+}
+
+.stats-xp-current {
+  color: var(--color-text-primary);
+  font-weight: var(--font-weight-semibold);
+  font-variant-numeric: tabular-nums;
+}
+
+.stats-xp-next {
+  color: var(--color-text-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+/* Captures toolbar right cluster */
+.stats-captures-toolbar-right {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+}
+
+/* Emoji glyphs need explicit sizing */
+.stats-empty-icon {
+  font-size: 2rem;
+  line-height: 1;
+}
+
+.stats-summary-strip-icon {
+  font-size: 1.25rem;
+  line-height: 1;
+}

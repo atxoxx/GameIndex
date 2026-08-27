@@ -871,3 +871,15 @@
   scrollbar-color: color-mix(in srgb, var(--color-text-muted) 30%, transparent) transparent;
 }
 
+
+/* Button label — truncates instead of pushing the button wider */
+.ui-btn__label {
+  display: inline-flex;
+  align-items: center;
+  min-width: 0;
+}
+
+/* Scrollable utility — used by modal file trees */
+.scrollable {
+  overflow: auto;
+}

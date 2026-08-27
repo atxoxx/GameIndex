@@ -84,3 +84,131 @@
   flex-direction: column;
   gap: var(--space-lg);
 }
+/* ============================================================================
+   Missing-state styles — error variant, retry buttons, skeletons, detail modal
+   sections, giveaway card meta. Mirrors .deals-empty (page-deals.css) and the
+   app-wide design language (var(--…) tokens, color-mix accent tints).
+   ============================================================================ */
+
+/* Error state (role=alert) — same shape as .deals-empty, danger-tinted */
+.deals-error {
+  position: relative;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-md);
+  padding: var(--space-3xl) var(--space-xl);
+  text-align: center;
+  border-radius: var(--radius-xl);
+  border: 1px solid color-mix(in srgb, var(--color-danger) 28%, var(--color-border));
+  background: color-mix(in srgb, var(--color-danger) 4%, var(--color-bg-secondary));
+  min-height: 220px;
+}
+
+.deals-error-icon {
+  width: 48px;
+  height: 48px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--radius-full);
+  background: color-mix(in srgb, var(--color-danger) 12%, transparent);
+  color: var(--color-danger);
+  border: 1px solid color-mix(in srgb, var(--color-danger) 30%, transparent);
+}
+
+.deals-error span {
+  max-width: 48ch;
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-md);
+}
+
+/* Retry buttons for both empty + error states */
+.deals-empty-retry,
+.deals-error-retry {
+  margin-top: var(--space-xs);
+  padding: var(--space-sm) var(--space-xl);
+  background: var(--color-accent);
+  color: var(--color-accent-contrast);
+  border: none;
+  border-radius: var(--radius-md);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-medium);
+  font-family: inherit;
+  cursor: pointer;
+  transition: background var(--transition-fast);
+}
+
+.deals-empty-retry:hover,
+.deals-error-retry:hover {
+  background: var(--color-accent-hover);
+}
+
+/* Skeleton cards — mirror the real card shell so the loading grid reads true */
+.deals-skeleton-card {
+  display: flex;
+  flex-direction: column;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+}
+
+.deals-skeleton-card-image {
+  width: 100%;
+  background: var(--color-bg-tertiary);
+}
+
+.deals-skeleton-card-body {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+  padding: var(--space-md);
+}
+
+.deals-skeleton-card-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-sm);
+}
+
+.deals-skeleton-card-tags {
+  display: flex;
+  gap: var(--space-xs);
+}
+
+/* Giveaway card meta — expiry line + 18+ badge */
+.deals-giveaway-card-expiry {
+  color: var(--color-text-muted);
+  font-size: var(--font-size-2xs);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.deals-giveaway-card-mature-badge {
+  position: absolute;
+  top: var(--space-sm);
+  left: var(--space-sm);
+  z-index: 2;
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 8px;
+  border-radius: var(--radius-full);
+  background: color-mix(in srgb, var(--color-danger) 92%, transparent);
+  color: var(--color-accent-contrast, #fff);
+  font-size: var(--font-size-2xs);
+  font-weight: var(--font-weight-bold);
+  line-height: 1.5;
+  pointer-events: none;
+}
+
+/* Detail modal — each info section stacks title + content */
+.deals-detail-section {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-xs);
+}

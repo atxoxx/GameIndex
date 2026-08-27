@@ -92,3 +92,36 @@
   color: var(--color-text-primary);
   letter-spacing: -0.01em;
 }
+
+/* ── Empty state children — icon chip + title/subtitle ─────── */
+.storage-page .storage__empty-state-icon {
+  width: 48px;
+  height: 48px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--radius-full);
+  background: color-mix(in srgb, var(--color-accent) 10%, transparent);
+  color: var(--color-accent);
+  border: 1px solid color-mix(in srgb, var(--color-accent) 25%, transparent);
+}
+
+.storage-page .storage__empty-state-icon svg {
+  width: 22px;
+  height: 22px;
+}
+
+.storage-page .storage__empty-state-title {
+  margin: 0;
+  font-size: var(--font-size-lg);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text-secondary);
+}
+
+.storage-page .storage__empty-state-subtitle {
+  margin: 0;
+  max-width: 48ch;
+  font-size: var(--font-size-sm);
+  color: var(--color-text-muted);
+  line-height: 1.5;
+}

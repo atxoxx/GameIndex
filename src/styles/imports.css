@@ -1522,3 +1522,33 @@
 }
 
 
+
+/* Link-workspace empty state */
+.import-workspace-empty {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--space-2xl) var(--space-xl);
+  color: var(--color-text-muted);
+  font-size: var(--font-size-sm);
+  text-align: center;
+  border: 1px dashed var(--color-border);
+  border-radius: var(--radius-lg);
+}
+
+.import-workspace-empty p {
+  margin: 0;
+}
+
+/* Preview cover fallback — fills the cover slot with a muted placeholder */
+.preview-cover-placeholder {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--color-text-muted);
+  font-size: var(--font-size-xl);
+  background: var(--color-bg-tertiary);
+  border-radius: var(--radius-md);
+}

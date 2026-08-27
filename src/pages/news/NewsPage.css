@@ -1654,3 +1654,146 @@
   background: var(--color-bg-hover);
   border-color: var(--color-accent);
 }
+
+/* ============================================================================
+   Missing-state styles — empty/error states, card skeletons, meta labels.
+   Mirrors the .deals-empty primitive and the app design language.
+   ============================================================================ */
+
+/* Empty + error states — centered column, dashed-border panel */
+.news-empty,
+.news-error {
+  position: relative;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-md);
+  padding: var(--space-3xl) var(--space-xl);
+  text-align: center;
+  border-radius: var(--radius-xl);
+  border: 1px dashed var(--color-border);
+  background: var(--color-bg-secondary);
+  min-height: 220px;
+}
+
+.news-empty-icon,
+.news-error-icon {
+  width: 48px;
+  height: 48px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--radius-full);
+  background: color-mix(in srgb, var(--color-accent) 10%, transparent);
+  color: var(--color-accent);
+  border: 1px solid color-mix(in srgb, var(--color-accent) 25%, transparent);
+}
+
+.news-error-icon {
+  background: color-mix(in srgb, var(--color-danger) 12%, transparent);
+  color: var(--color-danger);
+  border-color: color-mix(in srgb, var(--color-danger) 30%, transparent);
+}
+
+.news-empty h3,
+.news-error h3 {
+  margin: 0;
+  font-size: var(--font-size-lg);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text-secondary);
+}
+
+.news-empty p,
+.news-error p {
+  margin: 0;
+  max-width: 48ch;
+  font-size: var(--font-size-sm);
+  color: var(--color-text-muted);
+  line-height: 1.5;
+}
+
+.news-retry-btn {
+  margin-top: var(--space-xs);
+  padding: var(--space-sm) var(--space-xl);
+  background: var(--color-accent);
+  color: var(--color-accent-contrast);
+  border: none;
+  border-radius: var(--radius-md);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-medium);
+  font-family: inherit;
+  cursor: pointer;
+  transition: background var(--transition-fast);
+}
+
+.news-retry-btn:hover {
+  background: var(--color-accent-hover);
+}
+
+/* Card skeleton — cover block + body lines, mirrors the real card shell */
+.news-card-cover-skeleton {
+  width: 100%;
+  aspect-ratio: 16 / 10;
+  background: var(--color-bg-tertiary);
+  flex-shrink: 0;
+}
+
+.news-card-body-skeleton {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+  padding: var(--space-md);
+}
+
+/* Card meta — source name line */
+.news-card-source-name {
+  color: var(--color-text-secondary);
+  font-weight: var(--font-weight-semibold);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Preview modal meta — source + separator dot (mirrors .news-card-meta-dot) */
+.news-preview-source {
+  color: var(--color-text-secondary);
+  font-weight: var(--font-weight-semibold);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.news-preview-meta-dot {
+  width: 3px;
+  height: 3px;
+  border-radius: var(--radius-full);
+  background: currentColor;
+  opacity: 0.5;
+  flex-shrink: 0;
+}
+
+/* Source pill "All" — emoji icon gets the same round-chip shape as avatars */
+.news-source-pill-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  border-radius: var(--radius-full);
+  font-size: 12px;
+  flex-shrink: 0;
+}
+
+/* TTS stop button — danger tint so it reads as the "kill audio" action */
+.news-preview-speed-btn.stop {
+  background: color-mix(in srgb, var(--color-danger) 14%, var(--color-bg-tertiary));
+  color: var(--color-danger);
+  border-color: color-mix(in srgb, var(--color-danger) 35%, var(--color-border));
+}
+
+.news-preview-speed-btn.stop:hover {
+  background: color-mix(in srgb, var(--color-danger) 24%, var(--color-bg-tertiary));
+  color: var(--color-danger);
+}

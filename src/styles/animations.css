@@ -233,3 +233,7 @@
     animation-delay: 0s !important;
   }
 }
+/* Generic fade-in utility (used by download stats modal) */
+.fade-in {
+  animation: fadeIn var(--duration-normal) var(--ease-enter) both;
+}

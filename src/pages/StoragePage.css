@@ -2456,3 +2456,261 @@
   height: 16px;
   flex-shrink: 0;
 }
+
+/* ── Bulk recalc — running progress bar ─────────────────────────────── */
+.storage__bulk-recalc {
+  display: flex;
+  align-items: center;
+  gap: var(--space-md);
+  padding: var(--space-sm) var(--space-md);
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+}
+
+.storage__bulk-recalc--running {
+  border-color: color-mix(in srgb, var(--color-accent) 35%, var(--color-border));
+}
+
+.storage__bulk-progress {
+  flex: 1;
+  font-size: var(--font-size-xs);
+  color: var(--color-text-secondary);
+  font-variant-numeric: tabular-nums;
+}
+
+/* ── Batch bar — selection count ────────────────────────────────────── */
+.storage-batch-count {
+  font-variant-numeric: tabular-nums;
+}
+
+/* ── Cleanup hero — text block next to the icon ─────────────────────── */
+.storage-cleanup-hero-text {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2xs, 4px);
+}
+
+/* ── Row meta — total value ─────────────────────────────────────────── */
+.storage__row-meta-value--total {
+  font-weight: var(--font-weight-bold);
+  color: var(--color-accent);
+}
+
+/* ============================================================================
+   Move Game Dialog — destination picker, space card, game list, progress bar,
+   error list. Sits on the shared .modal shell (modals.css).
+   ============================================================================ */
+
+.move-dialog {
+  width: 100%;
+  max-width: 560px;
+}
+
+.move-dialog-body {
+  padding: var(--space-lg) var(--space-xl);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-md);
+}
+
+.move-dialog-lead {
+  margin: 0;
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-sm);
+  line-height: 1.5;
+}
+
+.move-dialog-dest {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  width: 100%;
+  padding: var(--space-md) var(--space-lg);
+  background: var(--color-bg-tertiary);
+  border: 1px dashed var(--color-border);
+  border-radius: var(--radius-lg);
+  color: var(--color-text-primary);
+  font-family: inherit;
+  font-size: var(--font-size-sm);
+  cursor: pointer;
+  text-align: left;
+  transition: border-color var(--transition-fast), background var(--transition-fast);
+}
+
+.move-dialog-dest:hover {
+  border-color: var(--color-accent);
+  background: color-mix(in srgb, var(--color-accent) 6%, var(--color-bg-tertiary));
+}
+
+.move-dialog-dest svg {
+  width: 18px;
+  height: 18px;
+  color: var(--color-accent);
+  flex-shrink: 0;
+}
+
+.move-dialog-dest-value {
+  flex: 1;
+  min-width: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.move-dialog-space-card {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-xs);
+  padding: var(--space-sm) var(--space-md);
+  background: var(--color-bg-secondary);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+}
+
+.move-dialog-space-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-sm);
+  font-size: var(--font-size-xs);
+}
+
+.move-dialog-space-label {
+  color: var(--color-text-muted);
+}
+
+.move-dialog-space-val {
+  color: var(--color-text-secondary);
+  font-weight: var(--font-weight-semibold);
+}
+
+.move-dialog-space-warning {
+  display: flex;
+  align-items: center;
+  gap: var(--space-xs);
+  color: var(--color-danger);
+  font-size: var(--font-size-xs);
+}
+
+.move-dialog-space-warning svg {
+  width: 14px;
+  height: 14px;
+  flex-shrink: 0;
+}
+
+.move-dialog-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  max-height: 200px;
+  overflow-y: auto;
+}
+
+.move-dialog-list-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-sm);
+  padding: var(--space-xs) var(--space-sm);
+  border-radius: var(--radius-sm);
+  font-size: var(--font-size-xs);
+}
+
+.move-dialog-list-item:nth-child(odd) {
+  background: var(--color-bg-tertiary);
+}
+
+.move-dialog-list-name {
+  flex: 1;
+  min-width: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  color: var(--color-text-primary);
+}
+
+.move-dialog-list-size {
+  color: var(--color-text-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.move-dialog-progress {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+  padding: var(--space-md) 0;
+}
+
+.move-dialog-progress-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-sm);
+  font-size: var(--font-size-sm);
+  color: var(--color-text-secondary);
+}
+
+.move-dialog-progress-pct {
+  font-weight: var(--font-weight-bold);
+  color: var(--color-accent);
+  font-variant-numeric: tabular-nums;
+}
+
+.move-dialog-progress-track {
+  height: 8px;
+  background: var(--color-bg-tertiary);
+  border-radius: var(--radius-full);
+  overflow: hidden;
+}
+
+.move-dialog-progress-fill {
+  height: 100%;
+  background: var(--color-accent);
+  border-radius: var(--radius-full);
+  transition: width 0.2s ease;
+}
+
+.move-dialog-progress-meta {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: var(--font-size-2xs);
+  color: var(--color-text-muted);
+}
+
+.move-dialog-progress-bytes {
+  font-variant-numeric: tabular-nums;
+}
+
+.move-dialog-errors {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+  padding: var(--space-sm) var(--space-md);
+  background: color-mix(in srgb, var(--color-danger) 6%, var(--color-bg-secondary));
+  border: 1px solid color-mix(in srgb, var(--color-danger) 25%, var(--color-border));
+  border-radius: var(--radius-md);
+}
+
+.move-dialog-errors-title {
+  margin: 0;
+  color: var(--color-danger);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-semibold);
+}
+
+.move-dialog-errors ul {
+  margin: 0;
+  padding-left: var(--space-lg);
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-xs);
+  line-height: 1.6;
+  max-height: 160px;
+  overflow-y: auto;
+}

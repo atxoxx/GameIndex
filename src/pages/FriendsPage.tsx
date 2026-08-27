@@ -97,6 +97,11 @@ import EditNicknameModal from "../components/friends/EditNicknameModal";
 
 import "./friends.css";
 import "../styles/page-friends.css";
+import "../styles/friends-tabs-a.css";
+import "../styles/friends-tabs-b.css";
+import "../styles/friends-tabs-c.css";
+import "../styles/friends-tabs-d.css";
+import "../styles/friends-tabs-e.css";
 
 const NOSTR_RELAYS = [
   "wss://relay.damus.io",

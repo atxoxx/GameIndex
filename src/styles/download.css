@@ -5709,3 +5709,64 @@ input[type="checkbox"].dl-file-checkbox:focus-visible {
   background: color-mix(in srgb, var(--color-success) 10%, transparent);
 }
 
+
+/* ============================================================================
+   Missing hooks — row size readout, speed-limiter info, sparkline hover group,
+   popover "open full page" button.
+   ============================================================================ */
+
+.dl-row-size {
+  color: var(--color-text-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.dl-speed-toggle-info {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.dl-sparkline-hover-group {
+  fill: transparent;
+  pointer-events: all;
+  cursor: crosshair;
+}
+
+.dl-popover-open-full {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  padding: 0;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-bg-tertiary);
+  color: var(--color-text-secondary);
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: color var(--transition-fast), border-color var(--transition-fast), background var(--transition-fast);
+}
+
+.dl-popover-open-full:hover {
+  color: var(--color-text-primary);
+  border-color: var(--color-accent);
+  background: var(--color-bg-hover);
+}
+
+.dl-popover-open-full svg {
+  width: 15px;
+  height: 15px;
+}
+
+/* Tiny inline spinner (Add Download modal cache checks) */
+.spinner-tiny {
+  width: 12px;
+  height: 12px;
+  border: 2px solid color-mix(in srgb, var(--color-text-muted) 25%, transparent);
+  border-top-color: var(--color-text-muted);
+  border-radius: 50%;
+  animation: ui-spinner-spin 0.7s linear infinite;
+  flex-shrink: 0;
+}

@@ -475,3 +475,25 @@
 }
 
 
+
+/* Launch-script header — label + tag stack */
+.edit-launch-script-header {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-xs);
+}
+
+/* Subgroup — titled block of fields */
+.edit-subgroup {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+}
+
+/* Selects inside the edit form — native arrow replaced by the box chrome */
+.edit-select {
+  appearance: none;
+  -webkit-appearance: none;
+  cursor: pointer;
+  padding-right: var(--space-lg);
+}

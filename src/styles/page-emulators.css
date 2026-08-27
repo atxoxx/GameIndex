@@ -2595,3 +2595,11 @@
     animation: none;
   }
 }
+
+/* ROM card size readout */
+.emu-rom-card-size {
+  color: var(--color-text-muted);
+  font-size: var(--font-size-2xs);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}

@@ -3073,3 +3073,37 @@
     opacity: 1;
   }
 }
+
+/* ============================================================================
+   Missing hooks — grid container, list-density year, search suggestion genre,
+   filter section header row. Mirrors the surrounding store-* rules.
+   ============================================================================ */
+
+.store-game-grid-container {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+  min-height: 0;
+}
+
+.store-card-list-year {
+  color: var(--color-text-muted);
+  font-size: var(--font-size-2xs);
+  white-space: nowrap;
+}
+
+.store-search-suggestion-genre {
+  font-size: var(--font-size-2xs);
+  color: var(--color-text-tertiary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Filter section header — heading + inline clear action on one row */
+.store-filter-section-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-xs);
+}

@@ -7233,3 +7233,189 @@
     animation: none !important;
   }
 }
+
+/* ============================================================================
+   Missing hooks — rail icon/item/fades, tab-bar bumpers + labels, cover
+   placeholder, store-card rating, details placeholder, ach count, friend
+   chips, section wrappers. Uses the bigscreen token set (--bigscreen-*).
+   ============================================================================ */
+
+/* ── Rail ─────────────────────────────────────────────────────── */
+
+.bigscreen-rail-icon {
+  display: inline-flex;
+  color: var(--bigscreen-accent);
+}
+
+.bigscreen-rail-icon svg {
+  width: 20px;
+  height: 20px;
+}
+
+.bigscreen-rail-item {
+  flex-shrink: 0;
+}
+
+.bigscreen-rail-fade {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 56px;
+  pointer-events: none;
+  z-index: 2;
+}
+
+.bigscreen-rail-fade--left {
+  left: 0;
+  background: linear-gradient(to right, var(--bigscreen-bg), transparent);
+}
+
+.bigscreen-rail-fade--right {
+  right: 0;
+  background: linear-gradient(to left, var(--bigscreen-bg), transparent);
+}
+
+/* ── Tab bar ──────────────────────────────────────────────────── */
+
+.bigscreen-tab-bar-bumper--lb {
+  margin-right: auto;
+}
+
+.bigscreen-tab-bar-bumper--rb {
+  margin-left: auto;
+}
+
+.bigscreen-tab-bar-tab-label {
+  display: block;
+  font-size: 0.6875rem;
+  font-weight: 700;
+  letter-spacing: 0.3px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 10ch;
+}
+
+/* ── Cover placeholder ────────────────────────────────────────── */
+
+.bigscreen-cover-placeholder {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background:
+    linear-gradient(160deg, color-mix(in srgb, var(--bigscreen-accent) 16%, transparent), transparent 65%),
+    var(--color-bg-tertiary);
+  color: color-mix(in srgb, var(--bigscreen-text) 45%, transparent);
+}
+
+.bigscreen-cover-placeholder svg {
+  width: 42px;
+  height: 42px;
+}
+
+/* ── Store card rating chip ───────────────────────────────────── */
+
+.bigscreen-store-card-rating {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  z-index: 2;
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  padding: 3px 8px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--bigscreen-bg) 72%, transparent);
+  color: var(--bigscreen-text);
+  font-size: 0.6875rem;
+  font-weight: 800;
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+}
+
+.bigscreen-store-card-rating svg {
+  width: 10px;
+  height: 10px;
+  color: var(--bigscreen-accent);
+}
+
+/* ── Details placeholder (home / game page / store) ───────────── */
+
+.bigscreen-details-placeholder {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 1rem;
+  padding: 3rem;
+  text-align: center;
+  min-height: 320px;
+}
+
+/* ── Achievement rail count ───────────────────────────────────── */
+
+.bigscreen-rail-ach__count {
+  color: color-mix(in srgb, var(--bigscreen-text) 55%, transparent);
+  font-size: 0.75rem;
+}
+
+/* ── Friends (bigscreen lanes) ────────────────────────────────── */
+
+.bigscreen-friends-list-section,
+.bigscreen-friends-sessions,
+.bigscreen-social,
+.bigscreen-compare-section {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  min-width: 0;
+}
+
+.bigscreen-friends-sort {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.bigscreen-friend-region,
+.bigscreen-friend-since {
+  color: var(--bigscreen-accent-soft-text);
+}
+
+.bigscreen-sessions-agenda-month {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.bigscreen-compare-insights,
+.bigscreen-leaderboard,
+.bigscreen-race {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  padding: 1.5rem;
+  border: var(--bigscreen-glass-border);
+  border-radius: 1rem;
+  background: color-mix(in srgb, var(--bigscreen-surface) 55%, transparent);
+}
+
+/* Big Screen store — panel + rails-group layout wrappers */
+.store-wishlist-panel,
+.store-trending-panel,
+.store-rails-group {
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+  min-width: 0;
+}
+
+/* System downloads — progress row (bar + percent) */
+.dl-progress-container {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  min-width: 0;
+}

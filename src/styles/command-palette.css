@@ -1112,3 +1112,16 @@
     animation: none !important;
   }
 }
+
+/* Badge variants used by the command palette inspector */
+.cmd-badge--accent {
+  background: color-mix(in srgb, var(--color-accent) 30%, black);
+  color: var(--color-accent);
+  border-color: var(--color-accent);
+}
+
+.cmd-badge--success {
+  background: color-mix(in srgb, var(--color-success) 30%, black);
+  color: var(--color-success);
+  border-color: var(--color-success);
+}
