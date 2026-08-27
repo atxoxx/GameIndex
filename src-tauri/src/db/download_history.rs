@@ -276,7 +276,7 @@ mod tests {
         removed.auto_extract = Some(false);
         upsert(&db, &removed).unwrap();
 
-        let mut errored = test_download("dl_err", DownloadStatus::Error("boom".to_string()));
+        let errored = test_download("dl_err", DownloadStatus::Error("boom".to_string()));
         upsert(&db, &errored).unwrap();
 
         let rows = list_all(&db).unwrap();

@@ -2214,23 +2214,24 @@ mod tests {
 
     #[test]
     fn test_name_scoring_exact_match() {
-        let exact = ExeCandidate {
-            path: "C:\\Games\\EldenRing\\EldenRing.exe".to_string(),
-            size_bytes: 100_000,
-            name_score: 0.0,
-            depth: 1,
-        };
-        let partial = ExeCandidate {
-            path: "C:\\Games\\EldenRing\\Binaries\\Win64\\eldenring.exe".to_string(),
-            size_bytes: 200_000,
-            name_score: 0.0,
-            depth: 3,
-        };
-        // exact: +200 (stem == name) +10 (word overlap) = 210
-        // partial: +10 (word overlap) - 10 (depth 3 → penalty 10) = 0
-        let exact_score: u32 = 200 + 10;
-        let partial_score: u32 = 10_i32.saturating_sub(10) as u32;
-        assert!(exact_score > partial_score);
+        // An exact stem match at the install root must beat the same stem
+        // buried deeper in the tree, even when the deeper exe is larger
+        // (exact stem +200, depth penalty (3-1)*5 = -10).
+        let dir = tempfile::tempdir().unwrap();
+        let root = dir.path().join("EldenRing");
+        std::fs::create_dir_all(root.join("Binaries").join("Win64")).unwrap();
+        std::fs::write(root.join("EldenRing.exe"), b"x").unwrap();
+        std::fs::write(
+            root.join("Binaries").join("Win64").join("eldenring.exe"),
+            b"yyy",
+        )
+        .unwrap();
+
+        let picked = resolve_game_exe(dir.path(), "EldenRing").unwrap();
+        assert_eq!(
+            Path::new(&picked).file_name().and_then(|s| s.to_str()),
+            Some("EldenRing.exe")
+        );
     }
 
     #[test]

@@ -19,11 +19,6 @@ use crate::db;
 /// kv_store key for the persisted cookies blob.
 pub const GOG_COOKIES_KV_KEY: &str = "gog_cookies";
 
-/// Browser UA we present to GOG via the `reqwest` default — match
-/// a recent Chrome desktop profile so the server doesn't
-/// side-grade us to a bot response.
-pub const GOG_USER_AGENT: &str = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36";
-
 /// One persisted cookie record — minimal fields needed to round-
 /// trip a `cookie::Cookie<'static>` back into reqwest's jar.
 /// `expires_unix` is intentionally omitted; see module docs.
@@ -157,11 +152,6 @@ pub fn load(db: &crate::db::pool::Db) -> Option<GogCookies> {
         .ok()
         .flatten()
         .and_then(|raw| serde_json::from_str(&raw).ok())
-}
-
-/// Delete the persisted cookie set. Idempotent.
-pub fn delete_from_kv(db: &crate::db::pool::Db) -> Result<(), String> {
-    db::kv::delete(db, GOG_COOKIES_KV_KEY)
 }
 
 // ── Rehydration for reqwest Jar ─────────────────────────────────────

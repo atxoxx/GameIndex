@@ -34,7 +34,6 @@
 //! camel-conversion.
 
 use serde::{Deserialize, Serialize};
-use std::collections::HashMap;
 
 // ── Session marker (OS keychain + Settings tile) ─────────────────────
 
@@ -78,38 +77,6 @@ pub struct GogAuthTokens {
 }
 
 // ── Library response — embed.gog.com/user/data/games ─────────────────
-
-/// Stub fields we display per owned library entry.
-///
-/// `url` is the GOG store vanity URL slug
-/// (`https://www.gog.com/game/<slug>`); the frontend can wire it to
-/// "Open in GOG Store" later.
-/// `cover_url` mirrors Playnite's preference for `boxArtImage`
-/// over `backgroundImage` — we resolve it on the JS side during
-/// the metadata fetch below.
-#[derive(Debug, Serialize, Deserialize, Clone, Default)]
-#[serde(rename_all = "camelCase", default)]
-pub struct GogGameStub {
-    pub id: String,
-    pub title: String,
-    #[serde(default)]
-    pub is_hidden: bool,
-    #[serde(default)]
-    pub url: Option<String>,
-}
-
-/// One entry in the `embed.gog.com/user/data/games` response.
-///
-/// `stats` is hidden behind `deserialize_with` to absorb GOG's
-/// inconsistent type quirk (`[]` vs `{ "<uid>": {...} }`) — the
-/// produced type is the clean `Option<GogGameStats>` you'd expect.
-#[derive(Debug, Default, Clone, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct GogLibraryGame {
-    pub game: GogGameStub,
-    #[serde(default, deserialize_with = "deserialize_gog_stats")]
-    pub stats: Option<GogGameStats>,
-}
 
 /// Per-game playtime/last-session from GOG.
 ///
@@ -216,13 +183,9 @@ pub struct GogPlaytimeMirror {
 /// - `gameId` — numeric id matching the install dir name.
 /// - `rootGameId` — top-level product id; differs from `gameId` for
 ///   DLCs. DLC filter rule: `skip if rootGameId != gameId`.
-/// - `name` — title available even before the metadata round-trip.
-/// - `playTasks` / `supportTasks` — array of `GogGameTask`; the
-///   primary executable is chosen from the FIRST `playTasks` entry
-///   where `isPrimary == true`. No primary task → DLL/soundtrack/etc.
-///   → skip (Playnite parity).
-/// - `buildId` — version marker; surfaced as the game version.
-/// - `version` — human-readable install version.
+/// - `playTasks` — array of `GogGameTask`; the primary executable is
+///   chosen from the FIRST `playTasks` entry where `isPrimary == true`.
+///   No primary task → DLL/soundtrack/etc. → skip (Playnite parity).
 #[derive(Debug, Default, Clone, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct GogGameActionInfo {
@@ -231,15 +194,7 @@ pub struct GogGameActionInfo {
     #[serde(default)]
     pub root_game_id: Option<String>,
     #[serde(default)]
-    pub name: Option<String>,
-    #[serde(default)]
-    pub build_id: Option<String>,
-    #[serde(default)]
-    pub version: Option<String>,
-    #[serde(default)]
     pub play_tasks: Vec<GogGameTask>,
-    #[serde(default)]
-    pub support_tasks: Vec<GogGameTask>,
 }
 
 /// One entry from `goggame-<id>.info` `playTasks[]`.
@@ -252,20 +207,12 @@ pub struct GogGameActionInfo {
 pub struct GogGameTask {
     #[serde(default)]
     pub is_primary: bool,
-    #[serde(default)]
-    pub is_hidden: bool,
     /// `FILE` for executable-on-disk; `URL` for browser-launched.
     #[serde(rename = "type", default)]
     pub task_type: Option<String>,
     /// Path relative to the install dir (for FILE) or a URL (URL).
     #[serde(default)]
     pub path: Option<String>,
-    #[serde(default)]
-    pub working_dir: Option<String>,
-    #[serde(default)]
-    pub args: Option<String>,
-    #[serde(default)]
-    pub name: Option<String>,
 }
 
 /// One installed game record discovered either through Windows
@@ -279,10 +226,6 @@ pub struct GogInstalledGame {
     pub game_id: String,
     pub install_dir: String,
     pub exe_path: String,
-    pub is_dlc: bool,
-    /// Display name resolved from either the manifest or the
-    /// Windows uninstall entry — never empty.
-    pub title: String,
 }
 
 /// Public synced-game shape (mirrors `EpicSyncedGame` for
@@ -329,50 +272,4 @@ pub struct GogSyncResult {
     pub synced_games: Vec<GogSyncedGame>,
 }
 
-// ── Deserializer for GOG's stats type-quirk ──────────────────────────
 
-/// Deserialize `stats` from the `embed.gog.com` response, hiding the
-/// inconsistency GOG has between an empty-array (no stats) and a
-/// single-object (with stats keyed by account id).
-///
-/// Json shape:
-/// - `"stats": []`  → `Ok(None)`
-/// - `"stats": { "<accountId>": { "playtime": ..., "lastSession": ... } }` → `Ok(Some(stats))`
-/// - `"stats": null` → `Ok(None)`
-///
-/// `Option<T>` at the field level catches explicit nulls — `serde`
-/// doesn't pass null to the inner deserializer.
-fn deserialize_gog_stats<'de, D>(deserializer: D) -> Result<Option<GogGameStats>, D::Error>
-where
-    D: serde::Deserializer<'de>,
-{
-    #[derive(Deserialize)]
-    #[serde(untagged)]
-    enum GogStatsHelper {
-        // Order MATTERS: serde tries EmptyArray first so `[]` matches
-        // a value (empty Vec) — never the Map branch.
-        EmptyArray(Vec<()>),
-        Map(HashMap<String, GogGameStats>),
-    }
-
-    let helper = match Option::<GogStatsHelper>::deserialize(deserializer) {
-        Ok(Some(h)) => h,
-        // Explicit `null` or helper-deserializable as null → no stats
-        Ok(None) => return Ok(None),
-        // Surface unexpected shape changes via stderr rather than
-        // silently swallowing (which would hide a future API drift).
-        Err(e) => {
-            eprintln!("[gog] stats deserialize fallback to None: {e}");
-            return Ok(None);
-        }
-    };
-    match helper {
-        GogStatsHelper::EmptyArray(_) => Ok(None),
-        GogStatsHelper::Map(mut m) => {
-            // GOG keys stats by user-id and there's only one per
-            // account — Playnite grabs `.Keys.First()`. We do the
-            // same.
-            Ok(m.values_mut().next().cloned())
-        }
-    }
-}

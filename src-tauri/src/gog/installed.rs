@@ -126,10 +126,6 @@ fn registry_installed_games() -> Vec<GogInstalledGame> {
                 continue;
             }
             let game_id = caps;
-            let display_name = entry
-                .get_value("DisplayName")
-                .ok()
-                .unwrap_or_else(|| format!("Unknown Game ({game_id})"));
             let install_location = entry.get_value("InstallLocation").ok();
             // The InstallLocation direct read sometimes fails when
             // a user has uninstalled but kept the registry key —
@@ -145,8 +141,6 @@ fn registry_installed_games() -> Vec<GogInstalledGame> {
                 game_id,
                 install_dir,
                 exe_path: String::new(), // disk-walk fix-up attaches this
-                is_dlc: false,
-                title: strip_trademarks(&display_name),
             });
         }
     }
@@ -174,16 +168,6 @@ fn id_from_registry_subkey(sub: &str) -> Option<String> {
     } else {
         None
     }
-}
-
-/// Strip the trailing `(GOG.com)` mark some DisplayNames carry so
-/// the library doesn't render them verbatim. Playnite uses
-/// `DisplayName.RemoveTrademarks()` — same idea, narrower scope.
-fn strip_trademarks(name: &str) -> String {
-    name.replace("(GOG.com)", "")
-        .replace("[GOG.com]", "")
-        .trim()
-        .to_string()
 }
 
 // ── Disk-walk scanner (cross-platform) ───────────────────────────────
@@ -247,18 +231,12 @@ fn scan_disk_install_root(root: &Path, out: &mut Vec<GogInstalledGame>) {
         if is_dlc_manifest(&info) {
             continue;
         }
-        let title = info.name.clone().unwrap_or_else(|| {
-            // Fallback: take the dir name itself as a readable title.
-            game_id.clone()
-        });
         let exe_path = resolve_primary_exe(&info, &path)
             .unwrap_or_else(|| find_largest_exe(&path).unwrap_or_default());
         out.push(GogInstalledGame {
             game_id,
             install_dir: path.to_string_lossy().to_string(),
             exe_path,
-            is_dlc: false,
-            title,
         });
     }
 }
