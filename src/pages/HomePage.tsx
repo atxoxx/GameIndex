@@ -93,10 +93,14 @@ export default function HomePage() {
       <HomeHero games={games} onOpenGame={openGame} />
 
       {/* 2. Glanceable Quick Stats Bar */}
-      {sectionsConfig.quickStats && !isEmpty && <HomeQuickStats />}
+      {sectionsConfig.quickStats && !isEmpty && (
+        <div className="ui-complete-only">
+          <HomeQuickStats />
+        </div>
+      )}
 
       {/* 3. Dashboard Grid Header with Customization Trigger */}
-      <div className="home-dashboard-header">
+      <div className="home-dashboard-header ui-complete-only">
         <h2 className="home-dashboard-title">{t("stats.tab.overview")}</h2>
         <button
           type="button"
@@ -118,9 +122,11 @@ export default function HomePage() {
         {/* Left Sidebar: Quick Launch, Activity, Achievements, Friends */}
         <aside className="home-dashboard__sidebar">
           {sectionsConfig.quickLaunch && !isEmpty && <HomeQuickLaunch />}
-          {sectionsConfig.activity && <HomeActivityRecap />}
-          {sectionsConfig.achievements && <HomeAchievements />}
-          {sectionsConfig.friends && <HomeFriendsFeed />}
+          <div className="ui-complete-only">
+            {sectionsConfig.activity && <HomeActivityRecap />}
+            {sectionsConfig.achievements && <HomeAchievements />}
+            {sectionsConfig.friends && <HomeFriendsFeed />}
+          </div>
         </aside>
 
         {/* Right Main Column: Rails, Downloads, Discovery */}
@@ -132,9 +138,11 @@ export default function HomePage() {
             <RecentlyAddedRail games={games} onCardClick={openGame} />
           )}
           {sectionsConfig.downloads && <HomeDownloads />}
-          {sectionsConfig.wishlist && <HomeWishlistRail />}
-          {sectionsConfig.deals && <HomeDealsRail onInspect={handleInspectDeal} />}
-          {sectionsConfig.news && <HomeNewsRail onSelectArticle={handleSelectArticle} />}
+          <div className="ui-complete-only">
+            {sectionsConfig.wishlist && <HomeWishlistRail />}
+            {sectionsConfig.deals && <HomeDealsRail onInspect={handleInspectDeal} />}
+            {sectionsConfig.news && <HomeNewsRail onSelectArticle={handleSelectArticle} />}
+          </div>
         </div>
       </div>
 

@@ -559,42 +559,44 @@ export default function NewsPage() {
       />
 
       {/* Hero Spotlight Section */}
-      {activeCategory === "all" && !searchQuery && !activeTag && (
-        <NewsHeroSpotlight
-          articles={allArticles}
-          readLinks={readLinks}
-          savedLinks={new Set(savedArticles.map((s) => s.link))}
-          activeTag={activeTag}
-          onSelectArticle={handleCardClick}
-          onToggleSave={handleToggleSave}
-          onSelectTag={setActiveTag}
-        />
-      )}
+      <div className="ui-complete-only">
+        {activeCategory === "all" && !searchQuery && !activeTag && (
+          <NewsHeroSpotlight
+            articles={allArticles}
+            readLinks={readLinks}
+            savedLinks={new Set(savedArticles.map((s) => s.link))}
+            activeTag={activeTag}
+            onSelectArticle={handleCardClick}
+            onToggleSave={handleToggleSave}
+            onSelectTag={setActiveTag}
+          />
+        )}
 
-      {/* Interactive KPI strip */}
-      <NewsStatsHeader
-        total={allArticles.length}
-        unread={unreadTotal}
-        saved={savedArticles.length}
-        feeds={enabledFeedUrls.size}
-        matchedGamesCount={matchedGamesCount}
-        loading={loading}
-        onFilterAll={() => {
-          setActiveCategory("all");
-          setSearchQuery("");
-          setActiveTag(null);
-          setSourceFilter(null);
-          setUnreadOnly(false);
-        }}
-        onToggleUnread={() => setUnreadOnly((prev) => !prev)}
-        onFilterYourGames={() => {
-          setActiveCategory("for_you");
-          setSearchQuery("");
-          setActiveTag(null);
-        }}
-        onOpenSaved={() => setActiveCategory("saved")}
-        onOpenSettings={handleOpenSettings}
-      />
+        {/* Interactive KPI strip */}
+        <NewsStatsHeader
+          total={allArticles.length}
+          unread={unreadTotal}
+          saved={savedArticles.length}
+          feeds={enabledFeedUrls.size}
+          matchedGamesCount={matchedGamesCount}
+          loading={loading}
+          onFilterAll={() => {
+            setActiveCategory("all");
+            setSearchQuery("");
+            setActiveTag(null);
+            setSourceFilter(null);
+            setUnreadOnly(false);
+          }}
+          onToggleUnread={() => setUnreadOnly((prev) => !prev)}
+          onFilterYourGames={() => {
+            setActiveCategory("for_you");
+            setSearchQuery("");
+            setActiveTag(null);
+          }}
+          onOpenSaved={() => setActiveCategory("saved")}
+          onOpenSettings={handleOpenSettings}
+        />
+      </div>
 
       {/* Categories + View Density + Search + Filters */}
       <NewsToolbar
@@ -621,19 +623,21 @@ export default function NewsPage() {
       />
 
       {/* Source filter pills */}
-      <NewsSourcePills
-        sourceNames={sourceNames}
-        activeSource={activeSource}
-        articles={
-          activeCategory === "saved"
-            ? savedAsArticles
-            : activeCategory === "history"
-              ? historyAsArticles
-              : allArticles
-        }
-        readLinks={readLinks}
-        onSourceChange={setSourceFilter}
-      />
+      <div className="ui-complete-only">
+        <NewsSourcePills
+          sourceNames={sourceNames}
+          activeSource={activeSource}
+          articles={
+            activeCategory === "saved"
+              ? savedAsArticles
+              : activeCategory === "history"
+                ? historyAsArticles
+                : allArticles
+          }
+          readLinks={readLinks}
+          onSourceChange={setSourceFilter}
+        />
+      </div>
 
       {/* Article Grid */}
       <NewsArticleGrid

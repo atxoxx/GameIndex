@@ -122,7 +122,7 @@ export default function CommandPalette({ isOpen, onClose }: CommandPaletteProps)
   const { games, launchGame, forceCloseGame, runningGameIds } = useGames();
   const { themes, currentTheme, setTheme } = useTheme();
   const { isBigScreen, setBigScreen } = useBigScreen();
-  const { uiSoundEnabled, setUiSoundEnabled, uiSoundVolume, setUiSoundVolume, commandPaletteMode } = useSettings();
+  const { uiSoundEnabled, setUiSoundEnabled, uiSoundVolume, setUiSoundVolume, commandPaletteMode, isSimpleUi } = useSettings();
   const { showToast } = useToast();
   const { t, language, setLanguage, languages } = useLanguage();
 
@@ -136,7 +136,7 @@ export default function CommandPalette({ isOpen, onClose }: CommandPaletteProps)
   const [rawQuery, setRawQuery] = useState("");
   const [scope, setScope] = useState<PaletteCategory>("all");
   const [selectedIndex, setSelectedIndex] = useState(0);
-  const isSimpleMode = commandPaletteMode === "simple";
+  const isSimpleMode = commandPaletteMode === "simple" || isSimpleUi;
   const [showInspector, setShowInspector] = useState(() => {
     if (typeof window === "undefined") return true;
     return window.innerWidth >= 860;

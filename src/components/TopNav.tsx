@@ -439,7 +439,7 @@ export default function TopNav() {
           <NavLink
             to="/docs"
             className={({ isActive }) =>
-              `topnav-btn topnav-btn-docs${isActive ? " active" : ""}`
+              `topnav-btn topnav-btn-docs${isActive ? " active" : ""} ui-complete-only`
             }
             aria-label={t("nav.docs")}
             title={t("nav.docs")}

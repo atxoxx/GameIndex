@@ -372,29 +372,30 @@ export default function DealsPage() {
         }
       />
 
-      {/* Hero Spotlight */}
-      <DealsHeroSpotlight
-        deals={deals}
-        giveaways={giveaways}
-        gpGames={gpGames}
-        onOpenUrl={handleOpenUrl}
-        onInspect={setSelectedTarget}
-      />
+      {/* Hero Spotlight & Stats Header */}
+      <div className="ui-complete-only">
+        <DealsHeroSpotlight
+          deals={deals}
+          giveaways={giveaways}
+          gpGames={gpGames}
+          onOpenUrl={handleOpenUrl}
+          onInspect={setSelectedTarget}
+        />
 
-      {/* Stats header */}
-      <DealsStatsHeader
-        gpGames={gpGames}
-        deals={deals}
-        giveaways={giveaways}
-        gpLoading={gpLoading}
-        dealsLoading={dealsLoading}
-        giveawaysLoading={giveawaysLoading}
-        onSelectSubTab={setActiveSubTab}
-        onFilterWishlist={() => {
-          setActiveSubTab("isthereanydeal");
-          setDealFilters((prev) => ({ ...prev, wishlistOnly: true }));
-        }}
-      />
+        <DealsStatsHeader
+          gpGames={gpGames}
+          deals={deals}
+          giveaways={giveaways}
+          gpLoading={gpLoading}
+          dealsLoading={dealsLoading}
+          giveawaysLoading={giveawaysLoading}
+          onSelectSubTab={setActiveSubTab}
+          onFilterWishlist={() => {
+            setActiveSubTab("isthereanydeal");
+            setDealFilters((prev) => ({ ...prev, wishlistOnly: true }));
+          }}
+        />
+      </div>
 
       {/* Subtabs */}
       <div className="deals-subtabs" role="tablist">

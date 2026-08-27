@@ -308,20 +308,22 @@ export default function LibraryPage() {
 
   return (
     <div className="lib-page">
-      <LibraryHero
-        games={games}
-        activeStatus={filters.status}
-        activePlayStatus={filters.playStatus}
-        onFilterStatus={setStatus}
-        onFilterPlayStatus={setPlayStatus}
-        onCardClick={handleCardClick}
-      />
+      <div className="ui-complete-only">
+        <LibraryHero
+          games={games}
+          activeStatus={filters.status}
+          activePlayStatus={filters.playStatus}
+          onFilterStatus={setStatus}
+          onFilterPlayStatus={setPlayStatus}
+          onCardClick={handleCardClick}
+        />
 
-      {!isLibraryEmpty && <ContinuePlayingRail games={games} onCardClick={handleCardClick} />}
+        {!isLibraryEmpty && <ContinuePlayingRail games={games} onCardClick={handleCardClick} />}
 
-      {!isLibraryEmpty && games.length >= 4 && (
-        <RecentlyAddedRail games={games} onCardClick={handleCardClick} />
-      )}
+        {!isLibraryEmpty && games.length >= 4 && (
+          <RecentlyAddedRail games={games} onCardClick={handleCardClick} />
+        )}
+      </div>
 
       {!isLibraryEmpty && (
         <LibraryToolbar
@@ -363,7 +365,7 @@ export default function LibraryPage() {
       {/* Saved Presets — minimal chip row using existing styles */}
       {!isLibraryEmpty && (
         <div
-          className="lib-chips"
+          className="lib-chips ui-complete-only"
           style={{ marginTop: "8px", flexWrap: "wrap" } as React.CSSProperties}
           aria-label={t("library.presets.title")}
         >

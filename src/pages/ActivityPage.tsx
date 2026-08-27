@@ -27,7 +27,7 @@ export default function ActivityPage() {
   const { t } = useLanguage();
   const { sessions, deleteSession, deleteSessionsForGame } = useActivity();
   const { games } = useGames();
-  const { tempUnit } = useSettings();
+  const { tempUnit, isSimpleUi } = useSettings();
   const { showToast } = useToast();
 
   const [activeTab, setActiveTab] = useState<TabType>("dashboard");
@@ -35,6 +35,22 @@ export default function ActivityPage() {
   const [aggregation, setAggregation] = useState<AggregationType>("day");
   const [chartType, setChartType] = useState<ChartType>("bar");
   const [sourceFilter, setSourceFilter] = useState<string>("all");
+
+  const effectiveTab: TabType = isSimpleUi && (activeTab === "timeline" || activeTab === "performance")
+    ? "dashboard"
+    : activeTab;
+
+  const tabOptions = useMemo(() => {
+    const all = [
+      { value: "dashboard" as const, label: <><Icons.LayoutDashboard size={13} /> {t("activity.tab.dashboard")}</> },
+      { value: "timeline" as const, label: <><Icons.GanttChart size={13} /> {t("activity.tab.timeline")}</> },
+      { value: "sessions" as const, label: <><Icons.History size={13} /> {t("activity.tab.sessions")}</> },
+      { value: "performance" as const, label: <><Icons.BarChart3 size={13} /> {t("activity.tab.performance")}</> },
+    ];
+    return isSimpleUi
+      ? all.filter((opt) => opt.value === "dashboard" || opt.value === "sessions")
+      : all;
+  }, [isSimpleUi, t]);
 
   const { startDate, endDate } = useMemo(() => {
     const today = new Date();
@@ -163,19 +179,25 @@ export default function ActivityPage() {
       });
 
       const dataUrl = canvas.toDataURL("image/png");
+      const blob = await (await fetch(dataUrl)).blob();
+
+      const suggestedName = `gamelib_activity_${new Date().toISOString().slice(0, 10)}.png`;
       const filePath = await save({
-        title: t("activity.saveScreenshot"),
-        defaultPath: `gamelib_activity_screenshot_${new Date().toISOString().slice(0, 10)}.png`,
-        filters: [{ name: t("activity.pngImage"), extensions: ["png"] }],
+        defaultPath: suggestedName,
+        filters: [{ name: "PNG Image", extensions: ["png"] }],
       });
 
-      if (!filePath) return;
-
-      await invoke("save_screenshot", { filePath, base64Data: dataUrl });
-      showToast(t("gameActivity.screenshotSaved"), "success");
-    } catch (error) {
-      console.error("Screenshot error:", error);
-      showToast(t("gameActivity.screenshotFailed", { error }), "error");
+      if (filePath) {
+        const buffer = await blob.arrayBuffer();
+        await invoke("save_screenshot", {
+          path: filePath,
+          data: Array.from(new Uint8Array(buffer)),
+        });
+        showToast(t("activity.screenshotSaved"), "success");
+      }
+    } catch (err) {
+      console.error("Screenshot capture failed:", err);
+      showToast(t("activity.screenshotFailed"), "error");
     }
   };
 
@@ -185,7 +207,7 @@ export default function ActivityPage() {
         eyebrow={t("activity.eyebrow")}
         title={t("activity.title")}
         actions={
-          <div className="activity__export-actions">
+          <div className="activity__export-actions ui-complete-only">
             <button
               type="button"
               className="activity__icon-btn"
@@ -210,14 +232,9 @@ export default function ActivityPage() {
         <div className="act-toolbar__left">
           <Segmented<TabType>
             ariaLabel={t("nav.activity")}
-            value={activeTab}
+            value={effectiveTab}
             onChange={setActiveTab}
-            options={[
-              { value: "dashboard", label: <><Icons.LayoutDashboard size={13} /> {t("activity.tab.dashboard")}</> },
-              { value: "timeline", label: <><Icons.GanttChart size={13} /> {t("activity.tab.timeline")}</> },
-              { value: "sessions", label: <><Icons.History size={13} /> {t("activity.tab.sessions")}</> },
-              { value: "performance", label: <><Icons.BarChart3 size={13} /> {t("activity.tab.performance")}</> },
-            ]}
+            options={tabOptions}
           />
         </div>
 
@@ -238,8 +255,8 @@ export default function ActivityPage() {
             ))}
           </select>
 
-          {activeTab === "dashboard" && (
-            <>
+          {effectiveTab === "dashboard" && (
+            <div className="ui-complete-only" style={{ display: "contents" }}>
               <Segmented<AggregationType>
                 ariaLabel={t("activity.interval")}
                 value={aggregation}
@@ -259,13 +276,13 @@ export default function ActivityPage() {
                   { value: "line", label: <Icons.TrendingUp size={13} />, title: t("activity.lineChart") },
                 ]}
               />
-            </>
+            </div>
           )}
         </div>
       </div>
 
       <main className="activity__main">
-        {activeTab === "dashboard" && (
+        {effectiveTab === "dashboard" && (
           <ActivityDashboard
             sessions={sessions}
             games={games}
@@ -279,7 +296,7 @@ export default function ActivityPage() {
           />
         )}
 
-        {activeTab === "timeline" && (
+        {effectiveTab === "timeline" && (
           <ActivityGantt
             sessions={sessions}
             games={games}
@@ -289,11 +306,11 @@ export default function ActivityPage() {
           />
         )}
 
-        {activeTab === "sessions" && (
+        {effectiveTab === "sessions" && (
           <ActivitySessions sessions={sessions} games={games} onDeleteSession={deleteSession} />
         )}
 
-        {activeTab === "performance" && (
+        {effectiveTab === "performance" && (
           <ActivityPerformance
             sessions={sessions}
             games={games}

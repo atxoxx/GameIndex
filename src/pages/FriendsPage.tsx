@@ -111,9 +111,18 @@ export default function FriendsPage() {
   const { wishlist, toggle: toggleWishlist } = useWishlistContext();
   const { cache } = useAchievements();
   const { showToast } = useToast();
-  const { friendsNotifications, dmReadReceipts } = useSettings();
+  const { friendsNotifications, dmReadReceipts, isSimpleUi } = useSettings();
 
   const [activeTab, setActiveTab] = useState<FriendsTabKey>("friends");
+
+  const isSecondaryFriendsTab =
+    activeTab === "sessions" ||
+    activeTab === "recs" ||
+    activeTab === "suggestions" ||
+    activeTab === "compare" ||
+    activeTab === "leaderboard" ||
+    activeTab === "race";
+  const effectiveTab: FriendsTabKey = isSimpleUi && isSecondaryFriendsTab ? "friends" : activeTab;
 
   // Data States
   const [profile, setProfile] = useState<UserProfile>(() => loadUserProfile());
@@ -1773,7 +1782,7 @@ export default function FriendsPage() {
     <div className="friends-page page">
       {/* Tab Navigation Toolbar */}
       <FriendsToolbar
-        activeTab={activeTab}
+        activeTab={effectiveTab}
         onSelectTab={setActiveTab}
         friendsCount={friends.filter((f) => !f.blocked).length}
         unseenCounts={unseenCounts}
@@ -1784,11 +1793,13 @@ export default function FriendsPage() {
       />
 
       {/* Hero Stats Summary */}
-      <FriendsHeroStats friends={friends} sessions={sessions} myGameIds={myGameIds} />
+      <div className="ui-complete-only">
+        <FriendsHeroStats friends={friends} sessions={sessions} myGameIds={myGameIds} />
+      </div>
 
       {/* Main Tab Panels */}
       <div className="friends-panel">
-        {activeTab === "friends" && (
+        {effectiveTab === "friends" && (
           <FriendsListTab
             friends={friends}
             circles={circles}
@@ -1812,7 +1823,7 @@ export default function FriendsPage() {
           />
         )}
 
-        {activeTab === "activity" && (
+        {effectiveTab === "activity" && (
           <FriendsActivityTab
             friends={friends}
             sessions={sessions}
@@ -1827,7 +1838,7 @@ export default function FriendsPage() {
           />
         )}
 
-        {activeTab === "dms" && (
+        {effectiveTab === "dms" && (
           <FriendsDmsTab
             dms={dms}
             friends={friends}
@@ -1845,7 +1856,7 @@ export default function FriendsPage() {
           />
         )}
 
-        {activeTab === "sessions" && (
+        {effectiveTab === "sessions" && (
           <FriendsSessionsTab
             sessions={sessions}
             profile={profile}
@@ -1872,7 +1883,7 @@ export default function FriendsPage() {
           />
         )}
 
-        {activeTab === "recs" && (
+        {effectiveTab === "recs" && (
           <FriendsRecsTab
             recommendations={recommendations}
             profile={profile}
@@ -1890,7 +1901,7 @@ export default function FriendsPage() {
           />
         )}
 
-        {activeTab === "suggestions" && (
+        {effectiveTab === "suggestions" && (
           <FriendsSuggestionsTab
             suggestions={suggestions}
             profile={profile}
@@ -1908,7 +1919,7 @@ export default function FriendsPage() {
           />
         )}
 
-        {activeTab === "compare" && (
+        {effectiveTab === "compare" && (
           <FriendsCompareTab
             friends={friends}
             selfSharedGames={selfSharedGames}
@@ -1921,7 +1932,7 @@ export default function FriendsPage() {
           />
         )}
 
-        {activeTab === "leaderboard" && (
+        {effectiveTab === "leaderboard" && (
           <FriendsLeaderboardTab
             friends={friends}
             profile={profile}
@@ -1931,7 +1942,7 @@ export default function FriendsPage() {
           />
         )}
 
-        {activeTab === "race" && (
+        {effectiveTab === "race" && (
           <FriendsRaceTab
             friends={friends}
             profile={profile}
@@ -1940,7 +1951,7 @@ export default function FriendsPage() {
           />
         )}
 
-        {activeTab === "profile" && (
+        {effectiveTab === "profile" && (
           <FriendsProfileTab
             profile={profile}
             setProfile={setProfile}

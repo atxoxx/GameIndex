@@ -313,7 +313,7 @@ export default function HomeHero({ games, onOpenGame }: HomeHeroProps) {
     >
       <div className="home-hero__mesh" aria-hidden />
       {collage.length > 0 && (
-        <div className="home-hero__collage" aria-hidden>
+        <div className="home-hero__collage ui-complete-only" aria-hidden>
           {collage.map((src, i) => (
             <img key={i} src={src} alt="" loading="lazy" />
           ))}
@@ -339,7 +339,7 @@ export default function HomeHero({ games, onOpenGame }: HomeHeroProps) {
 
           {/* Spotlight candidate selector pills */}
           {spotlightDeck.length > 1 && (
-            <div className="home-hero__spotlight-pills fade-up" style={{ ["--d" as string]: "260ms" }}>
+            <div className="home-hero__spotlight-pills fade-up ui-complete-only" style={{ ["--d" as string]: "260ms" }}>
               {spotlightDeck.map((item, idx) => {
                 const isItemActive = idx === activeIndex;
                 const isItemRunning = runningGameIds.includes(item.game.id);
@@ -396,7 +396,7 @@ export default function HomeHero({ games, onOpenGame }: HomeHeroProps) {
 
             <button
               type="button"
-              className={`home-hero__btn home-hero__btn--dice${rollingDice ? " rolling" : ""}`}
+              className={`home-hero__btn home-hero__btn--dice ui-complete-only${rollingDice ? " rolling" : ""}`}
               onClick={handleSurpriseMe}
               title={t("home.spotlight.surprise")}
               aria-label={t("home.spotlight.surprise")}

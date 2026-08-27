@@ -3,6 +3,7 @@ import { useParams, useNavigate, useSearchParams } from "react-router-dom";
 import { useGames, NO_IGDB_MATCH_SOURCE } from "../context/GameContext";
 import { useToast } from "../context/ToastContext";
 import { useLanguage } from "../context/LanguageContext";
+import { useSettings } from "../context/SettingsContext";
 import { EditGameModal } from "../components/game/EditGameModal";
 import { useSizeUnit } from "../hooks/useSizeUnit";
 import { useSteamAppId } from "../hooks/useSteamAppId";
@@ -98,6 +99,7 @@ function GameDetail({ game }: { game: Game }) {
   const { launchGame, enrichGameMetadata, removeGame, updateGame } = useGames();
   const { unit: sizeUnit } = useSizeUnit();
   const { appId: heroSteamAppId } = useSteamAppId(game);
+  const { isSimpleUi } = useSettings();
   const { getGameAchievements } = useAchievements();
 
   // Achievement total from the active source (Steam / GOG / Epic / Retro /
@@ -114,6 +116,9 @@ function GameDetail({ game }: { game: Game }) {
   // Tab synchronization with URL search query param
   const urlTab = searchParams.get("tab") as GamePageTab | null;
   const activeTab: GamePageTab = urlTab && VALID_TABS.has(urlTab) ? urlTab : "overview";
+  const effectiveTab: GamePageTab = isSimpleUi && (activeTab === "weblinks" || activeTab === "news")
+    ? "overview"
+    : activeTab;
 
   const handleTabChange = useCallback(
     (newTab: GamePageTab) => {
@@ -191,8 +196,8 @@ function GameDetail({ game }: { game: Game }) {
   };
 
   // Tab definitions with icons and live counts
-  const tabs = useMemo(
-    () => [
+  const tabs = useMemo(() => {
+    const allTabs = [
       { id: "overview" as const, label: t("game.tab.overview"), icon: IconOverview },
       { id: "reviews" as const, label: t("game.tab.reviews"), icon: IconMessageSquare },
       { id: "activity" as const, label: t("game.tab.activity"), icon: IconActivity },
@@ -210,9 +215,11 @@ function GameDetail({ game }: { game: Game }) {
         count: game.websites?.length ?? null,
       },
       { id: "news" as const, label: t("game.tab.news"), icon: IconNewspaper },
-    ],
-    [t, achievementTotal, game.websites]
-  );
+    ];
+    return isSimpleUi
+      ? allTabs.filter((t) => t.id !== "weblinks" && t.id !== "news")
+      : allTabs;
+  }, [t, achievementTotal, game.websites, isSimpleUi]);
 
   return (
     <div className="game-page">
@@ -251,32 +258,36 @@ function GameDetail({ game }: { game: Game }) {
       {/* Sticky Segmented Tabs with Sliding Indicator */}
       <GameTabs
         tabs={tabs}
-        activeTab={activeTab}
+        activeTab={effectiveTab}
         onChange={handleTabChange}
       />
 
       {/* Tab Content Panels */}
-      {activeTab === "overview" && (
+      {effectiveTab === "overview" && (
         <div className="game-content-grid">
           <div className="game-main-col">
             <AboutSection game={game} />
             <NotesSection game={game} />
             <SystemRequirementsCard steamAppId={game.steamAppId ?? null} />
-            <StorylineSection game={game} />
+            <div className="ui-complete-only">
+              <StorylineSection game={game} />
+            </div>
             <ScreenshotsSection
               game={game}
               onOpen={handleOpenScreenshot}
             />
             <VideosSection game={game} />
 
-            <GameRelationsCard
-              mode="library"
-              currentGame={game}
-              currentGameId={game.id}
-              similarGames={game.similarGames}
-              collectionId={game.collectionId}
-              collectionName={game.collection}
-            />
+            <div className="ui-complete-only">
+              <GameRelationsCard
+                mode="library"
+                currentGame={game}
+                currentGameId={game.id}
+                similarGames={game.similarGames}
+                collectionId={game.collectionId}
+                collectionName={game.collection}
+              />
+            </div>
           </div>
 
           <div className="game-side-col">
@@ -289,12 +300,12 @@ function GameDetail({ game }: { game: Game }) {
               <RatingsKpiCard game={game} />
               <TimeToBeatCard game={game} />
             </div>
-            <div className="side-group">
+            <div className="side-group ui-complete-only">
               <SpecsCard game={game} />
               <ProtonDBCard steamAppId={game.steamAppId} />
               <CrackWatchCard gameName={game.name} appId={game.steamAppId} />
             </div>
-            <div className="side-group">
+            <div className="side-group ui-complete-only">
               <ReleasesCard game={game} />
               <LanguagesSection game={game} />
             </div>
@@ -302,11 +313,11 @@ function GameDetail({ game }: { game: Game }) {
         </div>
       )}
 
-      {activeTab === "reviews" && <ReviewsTab game={game} />}
+      {effectiveTab === "reviews" && <ReviewsTab game={game} />}
 
-      {activeTab === "activity" && <GameActivityTab game={game} />}
+      {effectiveTab === "activity" && <GameActivityTab game={game} />}
 
-      {activeTab === "weblinks" && (
+      {effectiveTab === "weblinks" && (
         <WebLinksTab
           game={game}
           visible={!editing && !lightboxOpen}
@@ -318,9 +329,9 @@ function GameDetail({ game }: { game: Game }) {
         />
       )}
 
-      {activeTab === "achievements" && <AchievementsTab game={game} />}
+      {effectiveTab === "achievements" && <AchievementsTab game={game} />}
 
-      {activeTab === "mods" && (
+      {effectiveTab === "mods" && (
         <ModsTab
           game={game}
           onModsSized={(info) =>
@@ -334,7 +345,7 @@ function GameDetail({ game }: { game: Game }) {
         />
       )}
 
-      {activeTab === "news" && <GameNewsTab game={game} />}
+      {effectiveTab === "news" && <GameNewsTab game={game} />}
 
       {/* Edit Game Modal */}
       {editing && <EditGameModal game={game} onClose={() => setEditing(false)} />}

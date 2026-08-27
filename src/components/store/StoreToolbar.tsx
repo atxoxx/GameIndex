@@ -70,7 +70,7 @@ export default function StoreToolbar({ catalogue: c }: StoreToolbarProps) {
 
         <button
           type="button"
-          className={`store-toolbar-toggle${c.bulkMode ? " active" : ""}`}
+          className={`store-toolbar-toggle ui-complete-only${c.bulkMode ? " active" : ""}`}
           onClick={() => {
             c.setBulkMode(!c.bulkMode);
             c.clearSelection();
@@ -81,7 +81,7 @@ export default function StoreToolbar({ catalogue: c }: StoreToolbarProps) {
             <polyline points="9 11 12 14 22 4" />
             <path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11" />
           </svg>
-          {t("store.selectLabel")}
+          <span>{t("store.selectLabel")}</span>
         </button>
 
         <div className="store-density-toolbar" aria-label={t("store.toolbar.layoutControls")}>

@@ -394,7 +394,7 @@ export default function WishlistPage() {
 
           {/* ── Genre / platform filter chips ───────────────────────── */}
           {(availableGenres.length > 0 || availablePlatforms.length > 0) && (
-            <div className="wishlist-filters">
+            <div className="wishlist-filters ui-complete-only">
               {availableGenres.map((g) => (
                 <button
                   key={`g-${g}`}

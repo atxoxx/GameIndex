@@ -84,7 +84,7 @@ export default function FriendsToolbar({
           type="button"
           role="tab"
           aria-selected={activeTab === "sessions"}
-          className={`friends-tab${activeTab === "sessions" ? " active" : ""}`}
+          className={`friends-tab ui-complete-only${activeTab === "sessions" ? " active" : ""}`}
           onClick={() => onSelectTab("sessions")}
         >
           <CalendarIcon />
@@ -96,7 +96,7 @@ export default function FriendsToolbar({
           type="button"
           role="tab"
           aria-selected={activeTab === "recs"}
-          className={`friends-tab${activeTab === "recs" ? " active" : ""}`}
+          className={`friends-tab ui-complete-only${activeTab === "recs" ? " active" : ""}`}
           onClick={() => onSelectTab("recs")}
         >
           <RecommendIcon />
@@ -108,7 +108,7 @@ export default function FriendsToolbar({
           type="button"
           role="tab"
           aria-selected={activeTab === "suggestions"}
-          className={`friends-tab${activeTab === "suggestions" ? " active" : ""}`}
+          className={`friends-tab ui-complete-only${activeTab === "suggestions" ? " active" : ""}`}
           onClick={() => onSelectTab("suggestions")}
         >
           <SuggestionIcon />
@@ -120,7 +120,7 @@ export default function FriendsToolbar({
           type="button"
           role="tab"
           aria-selected={activeTab === "compare"}
-          className={`friends-tab${activeTab === "compare" ? " active" : ""}`}
+          className={`friends-tab ui-complete-only${activeTab === "compare" ? " active" : ""}`}
           onClick={() => onSelectTab("compare")}
         >
           <CompareIcon />
@@ -131,7 +131,7 @@ export default function FriendsToolbar({
           type="button"
           role="tab"
           aria-selected={activeTab === "leaderboard"}
-          className={`friends-tab${activeTab === "leaderboard" ? " active" : ""}`}
+          className={`friends-tab ui-complete-only${activeTab === "leaderboard" ? " active" : ""}`}
           onClick={() => onSelectTab("leaderboard")}
         >
           <LeaderboardIcon />
@@ -142,7 +142,7 @@ export default function FriendsToolbar({
           type="button"
           role="tab"
           aria-selected={activeTab === "race"}
-          className={`friends-tab${activeTab === "race" ? " active" : ""}`}
+          className={`friends-tab ui-complete-only${activeTab === "race" ? " active" : ""}`}
           onClick={() => onSelectTab("race")}
         >
           <TrophyIcon />

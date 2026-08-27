@@ -518,6 +518,23 @@ html[data-ui-mode="simple"] .game-hero__kpis {
   gap: var(--space-xs);
 }
 
+html[data-ui-mode="simple"] .store-card-cw-badge,
+html[data-ui-mode="simple"] .store-card__compare-btn {
+  display: none !important;
+}
+
+html[data-ui-mode="simple"] .store-layout {
+  margin-top: var(--space-md);
+}
+
+html[data-ui-mode="simple"] .deals-subtabs {
+  margin-top: var(--space-md);
+}
+
+html[data-ui-mode="simple"] .home-dashboard {
+  margin-top: var(--space-md);
+}
+
 /* ── Accessibility & Reduced Motion ───────────────────────────────── */
 html[data-reduce-motion="true"] *,
 html[data-reduce-motion="true"] *::before,

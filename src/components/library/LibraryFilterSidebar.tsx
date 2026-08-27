@@ -143,7 +143,7 @@ export default function LibraryFilterSidebar({
         </div>
       </div>
 
-      <div className="lib-filter-section">
+      <div className="lib-filter-section ui-complete-only">
         <h4 className="lib-filter-heading">
           <span className="lib-filter-heading-icon" aria-hidden>
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -167,7 +167,7 @@ export default function LibraryFilterSidebar({
         </div>
       </div>
 
-      <div className="lib-filter-section">
+      <div className="lib-filter-section ui-complete-only">
         <h4 className="lib-filter-heading">
           <span className="lib-filter-heading-icon" aria-hidden>
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -283,7 +283,7 @@ export default function LibraryFilterSidebar({
         </div>
       )}
 
-      <div className="lib-filter-section">
+      <div className="lib-filter-section ui-complete-only">
         <h4 className="lib-filter-heading">
           <span className="lib-filter-heading-icon" aria-hidden>
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -324,7 +324,7 @@ export default function LibraryFilterSidebar({
         </div>
       </div>
 
-      <div className="lib-filter-section">
+      <div className="lib-filter-section ui-complete-only">
         <div className="lib-rating-head">
           <h4 className="lib-filter-heading">
             <span className="lib-filter-heading-icon" aria-hidden>

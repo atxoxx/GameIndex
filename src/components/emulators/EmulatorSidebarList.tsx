@@ -209,7 +209,7 @@ export default function EmulatorSidebarList({
       </div>
 
       {/* Generation / Manufacturer Category Bar */}
-      <div className="emulators-category-bar" role="tablist" aria-label="Console category">
+      <div className="emulators-category-bar ui-complete-only" role="tablist" aria-label="Console category">
         {categories.map((c) => (
           <button
             key={c.key}
@@ -225,7 +225,7 @@ export default function EmulatorSidebarList({
       </div>
 
       {/* Status Filter Chips */}
-      <div className="emulators-filters">
+      <div className="emulators-filters ui-complete-only">
         {statusFilters.map((s) => (
           <button
             key={s.key}

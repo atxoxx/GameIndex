@@ -311,7 +311,9 @@ export default function DownloadsPage() {
 
       {/* Hero Control Center & Network Sparkline */}
       <BandwidthHero onOpenStats={() => setStatsModalOpen(true)} />
-      <BandwidthSparkline />
+      <div className="ui-complete-only">
+        <BandwidthSparkline />
+      </div>
 
       {/* Filter and View Mode Switcher */}
       <DownloadsFilterBar

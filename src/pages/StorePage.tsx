@@ -117,7 +117,7 @@ export default function StorePage() {
           <StoreHeader catalogue={c} />
 
           {/* Featured Spotlight Showcase */}
-          <div className="fade-up" style={{ "--d": "120ms" } as CSSProperties}>
+          <div className="fade-up ui-complete-only" style={{ "--d": "120ms" } as CSSProperties}>
             <StoreFeaturedHero onPickGame={c.onCardClick} />
           </div>
 
@@ -169,25 +169,27 @@ export default function StorePage() {
             />
           )}
 
-          {!c.bulkMode && (
-            <StoreCompareTray
-              games={c.compareGames}
-              onRemove={c.removeCompare}
-              onClear={c.clearCompare}
-              onOpen={() => c.setCompareOpen(true)}
-            />
-          )}
+          <div className="ui-complete-only">
+            {!c.bulkMode && (
+              <StoreCompareTray
+                games={c.compareGames}
+                onRemove={c.removeCompare}
+                onClear={c.clearCompare}
+                onOpen={() => c.setCompareOpen(true)}
+              />
+            )}
 
-          {c.compareOpen && c.compareGames.length >= 2 && (
-            <StoreCompareModal
-              games={c.compareGames}
-              onClose={() => c.setCompareOpen(false)}
-              onOpenGame={(g) => {
-                c.setCompareOpen(false);
-                c.onCardClick(g);
-              }}
-            />
-          )}
+            {c.compareOpen && c.compareGames.length >= 2 && (
+              <StoreCompareModal
+                games={c.compareGames}
+                onClose={() => c.setCompareOpen(false)}
+                onOpenGame={(g) => {
+                  c.setCompareOpen(false);
+                  c.onCardClick(g);
+                }}
+              />
+            )}
+          </div>
         </div>
       </PriceProvider>
     </CrackWatchProvider>

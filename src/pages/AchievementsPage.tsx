@@ -358,73 +358,75 @@ export default function AchievementsPage() {
       {/* Hero Summary & Gamerscore Panel */}
       <AchievementsSummaryHero gamerscore={gamerscore} stats={stats} />
 
-      {/* Visual Analytics Grid: Rarity Distribution + Monthly Activity + Source Breakdown */}
-      {stats.totalAchievements > 0 && (
-        <div className="achievements-analytics-grid">
-          <AchievementsRarityChart
-            rarityTotal={rarityTotal}
-            rarityUnlocked={rarityUnlocked}
-            totalAchievements={stats.totalAchievements}
-          />
-          <AchievementsActivityChart activity={monthlyActivity} />
-        </div>
-      )}
-
-      {/* Source Platform Breakdown */}
-      {bySourceTotal > 0 && (
-        <div className="ach-card-section ach-source-breakdown-section">
-          <div className="ach-card-section-head">
-            <h3 className="achievements-section-title">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" width="16" height="16">
-                <rect x="2" y="3" width="20" height="14" rx="2" />
-                <line x1="8" y1="21" x2="16" y2="21" />
-                <line x1="12" y1="17" x2="12" y2="21" />
-              </svg>
-              {t("achievementsPage.achievementsBySource")}
-            </h3>
+      {/* Visual Analytics Grid: Rarity Distribution + Monthly Activity + Source Breakdown + Shelves */}
+      <div className="ui-complete-only">
+        {stats.totalAchievements > 0 && (
+          <div className="achievements-analytics-grid">
+            <AchievementsRarityChart
+              rarityTotal={rarityTotal}
+              rarityUnlocked={rarityUnlocked}
+              totalAchievements={stats.totalAchievements}
+            />
+            <AchievementsActivityChart activity={monthlyActivity} />
           </div>
-          <div className="achievements-bysource-bar-wrap">
-            <div className="achievements-bysource-bar">
-              {ACHIEVEMENT_SOURCES.map((src) => {
-                const count = bySource[src];
-                if (count === 0) return null;
-                return (
-                  <div
+        )}
+
+        {/* Source Platform Breakdown */}
+        {bySourceTotal > 0 && (
+          <div className="ach-card-section ach-source-breakdown-section">
+            <div className="ach-card-section-head">
+              <h3 className="achievements-section-title">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" width="16" height="16">
+                  <rect x="2" y="3" width="20" height="14" rx="2" />
+                  <line x1="8" y1="21" x2="16" y2="21" />
+                  <line x1="12" y1="17" x2="12" y2="21" />
+                </svg>
+                {t("achievementsPage.achievementsBySource")}
+              </h3>
+            </div>
+            <div className="achievements-bysource-bar-wrap">
+              <div className="achievements-bysource-bar">
+                {ACHIEVEMENT_SOURCES.map((src) => {
+                  const count = bySource[src];
+                  if (count === 0) return null;
+                  return (
+                    <div
+                      key={src}
+                      className="ach-bysource-segment"
+                      data-source={src}
+                      style={{ width: `${(count / bySourceTotal) * 100}%` }}
+                      title={`${t(`achievements.source.${src}`)}: ${count} (${Math.round((count / bySourceTotal) * 100)}%)`}
+                    />
+                  );
+                })}
+              </div>
+              <div className="achievements-bysource-legend">
+                {ACHIEVEMENT_SOURCES.map((src) => (
+                  <button
+                    type="button"
                     key={src}
-                    className="ach-bysource-segment"
+                    className={`ach-bysource-item ${sourceFilter === src ? "active" : ""}`}
                     data-source={src}
-                    style={{ width: `${(count / bySourceTotal) * 100}%` }}
-                    title={`${t(`achievements.source.${src}`)}: ${count} (${Math.round((count / bySourceTotal) * 100)}%)`}
-                  />
-                );
-              })}
-            </div>
-            <div className="achievements-bysource-legend">
-              {ACHIEVEMENT_SOURCES.map((src) => (
-                <button
-                  type="button"
-                  key={src}
-                  className={`ach-bysource-item ${sourceFilter === src ? "active" : ""}`}
-                  data-source={src}
-                  onClick={() => setSourceFilter(sourceFilter === src ? "all" : src)}
-                >
-                  {t(`achievements.source.${src}`)} ({bySource[src]})
-                </button>
-              ))}
+                    onClick={() => setSourceFilter(sourceFilter === src ? "all" : src)}
+                  >
+                    {t(`achievements.source.${src}`)} ({bySource[src]})
+                  </button>
+                ))}
+              </div>
             </div>
           </div>
-        </div>
-      )}
+        )}
 
-      {/* Almost Done / Next Up Shelf */}
-      {almostDoneGames.length > 0 && (
-        <AchievementsAlmostDoneShelf games={almostDoneGames} />
-      )}
+        {/* Almost Done / Next Up Shelf */}
+        {almostDoneGames.length > 0 && (
+          <AchievementsAlmostDoneShelf games={almostDoneGames} />
+        )}
 
-      {/* Recent Unlocks Timeline Feed */}
-      {recentAchievements.length > 0 && (
-        <AchievementsRecentFeed recentAchievements={recentAchievements} />
-      )}
+        {/* Recent Unlocks Timeline Feed */}
+        {recentAchievements.length > 0 && (
+          <AchievementsRecentFeed recentAchievements={recentAchievements} />
+        )}
+      </div>
 
       {/* Games List / Leaderboard Section */}
       <div className="achievements-games-section">

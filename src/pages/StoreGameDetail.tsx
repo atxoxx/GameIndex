@@ -6,6 +6,7 @@ import { useToast } from "../context/ToastContext";
 import { useLanguage } from "../context/LanguageContext";
 import type { GameMetadataResult, IgdbReview, Game, StoreGameSummary } from "../types/game";
 import { useWishlistContext } from "../context/WishlistContext";
+import { useSettings } from "../context/SettingsContext";
 import { useSizeUnit } from "../hooks/useSizeUnit";
 import { Button } from "../components/ui";
 import WebLinksTab from "../components/WebLinksTab";
@@ -101,10 +102,11 @@ export default function StoreGameDetail() {
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const { games, addStoreGame } = useGames();
-  const { showToast } = useToast();
-  const { unit: sizeUnit } = useSizeUnit();
-  const { t } = useLanguage();
   const { isWishlisted, toggle: toggleWishlist } = useWishlistContext();
+  const { showToast } = useToast();
+  const { t } = useLanguage();
+  const { unit: sizeUnit } = useSizeUnit();
+  const { isSimpleUi } = useSettings();
 
   const [data, setData] = useState<GameMetadataResult | null>(null);
   const [loading, setLoading] = useState(true);
@@ -370,17 +372,22 @@ export default function StoreGameDetail() {
     </button>
   );
 
-  const tabs = [
-    { id: "overview" as const, label: t("game.tab.overview"), icon: IconOverview },
-    { id: "reviews" as const, label: t("game.tab.reviews"), icon: IconMessageSquare },
-    { id: "achievements" as const, label: t("game.tab.achievements"), icon: IconTrophy },
-    {
-      id: "weblinks" as const,
-      label: t("game.tab.weblinks"),
-      icon: IconGlobe,
-      count: data.websites?.length ?? null,
-    },
-  ];
+  const effectiveTab: StoreTab = isSimpleUi && activeTab === "weblinks" ? "overview" : activeTab;
+
+  const tabs = useMemo(() => {
+    const allTabs = [
+      { id: "overview" as const, label: t("game.tab.overview"), icon: IconOverview },
+      { id: "reviews" as const, label: t("game.tab.reviews"), icon: IconMessageSquare },
+      { id: "achievements" as const, label: t("game.tab.achievements"), icon: IconTrophy },
+      {
+        id: "weblinks" as const,
+        label: t("game.tab.weblinks"),
+        icon: IconGlobe,
+        count: data.websites?.length ?? null,
+      },
+    ];
+    return isSimpleUi ? allTabs.filter((t) => t.id !== "weblinks") : allTabs;
+  }, [t, data.websites, isSimpleUi]);
 
   return (
     <div className="game-page store-detail-page">
@@ -458,30 +465,34 @@ export default function StoreGameDetail() {
       {/* Animated Sliding Tabs */}
       <GameTabs
         tabs={tabs}
-        activeTab={activeTab}
+        activeTab={effectiveTab}
         onChange={handleTabChange}
       />
 
       {/* Tab Panels */}
-      {activeTab === "overview" && (
+      {effectiveTab === "overview" && (
         <div className="game-content-grid">
           <div className="game-main-col">
             <AboutSection game={mockGame} />
             <SystemRequirementsCard steamAppId={steamAppId ?? null} />
-            <StorylineSection game={mockGame} />
+            <div className="ui-complete-only">
+              <StorylineSection game={mockGame} />
+            </div>
             <ScreenshotsSection
               game={mockGame}
               onOpen={handleOpenScreenshot}
             />
             <VideosSection game={mockGame} />
 
-            <GameRelationsCard
-              mode="store"
-              currentGame={data}
-              similarGames={data.similarGames}
-              collectionId={data.collectionId}
-              collectionName={data.collection}
-            />
+            <div className="ui-complete-only">
+              <GameRelationsCard
+                mode="store"
+                currentGame={data}
+                similarGames={data.similarGames}
+                collectionId={data.collectionId}
+                collectionName={data.collection}
+              />
+            </div>
           </div>
 
           <div className="game-side-col">
@@ -490,12 +501,12 @@ export default function StoreGameDetail() {
               <RatingsKpiCard game={mockGame} />
               <TimeToBeatCard game={mockGame} />
             </div>
-            <div className="side-group">
+            <div className="side-group ui-complete-only">
               <SpecsCard game={mockGame} />
               <ProtonDBCard steamAppId={steamAppId} />
               <CrackWatchCard gameName={data.title} appId={steamAppId} />
             </div>
-            <div className="side-group">
+            <div className="side-group ui-complete-only">
               <ReleasesCard game={mockGame} />
               <LanguagesSection game={mockGame} />
             </div>
@@ -503,15 +514,15 @@ export default function StoreGameDetail() {
         </div>
       )}
 
-      {activeTab === "reviews" && (
+      {effectiveTab === "reviews" && (
         <ReviewsTab game={mockGame} onReviewsFetched={handleReviewsFetched} />
       )}
 
-      {activeTab === "achievements" && effectiveGame && (
+      {effectiveTab === "achievements" && effectiveGame && (
         <AchievementsTab game={effectiveGame} />
       )}
 
-      {activeTab === "weblinks" && (
+      {effectiveTab === "weblinks" && (
         <WebLinksTab game={mockGame} visible={!lightboxOpen} />
       )}
 

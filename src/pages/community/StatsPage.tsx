@@ -38,11 +38,15 @@ export default function StatsPage() {
   const { sessions } = useActivity();
   const { cache: achievementCache } = useAchievements();
   const { games } = useGames();
-  const { hideAchievementProgress } = useSettings();
+  const { hideAchievementProgress, isSimpleUi } = useSettings();
 
   // Persistent Active Tab & Timeframe
   const [activeTab, setActiveTab] = useState<StatsSubtab>(() => loadActiveSubtab());
   const [timeframe, setTimeframe] = useState<TimeframePreset>(() => loadTimeframePreset());
+
+  const effectiveTab: StatsSubtab = isSimpleUi && (activeTab === "trends" || activeTab === "captures" || activeTab === "milestones")
+    ? "overview"
+    : activeTab;
 
   const handleTabChange = useCallback((tab: StatsSubtab) => {
     setActiveTab(tab);
@@ -160,8 +164,8 @@ export default function StatsPage() {
         <button
           type="button"
           role="tab"
-          aria-selected={activeTab === "overview"}
-          className={`stats-subtab-btn${activeTab === "overview" ? " active" : ""}`}
+          aria-selected={effectiveTab === "overview"}
+          className={`stats-subtab-btn${effectiveTab === "overview" ? " active" : ""}`}
           onClick={() => handleTabChange("overview")}
         >
           <span className="stats-subtab-icon">📊</span>
@@ -171,8 +175,8 @@ export default function StatsPage() {
         <button
           type="button"
           role="tab"
-          aria-selected={activeTab === "trends"}
-          className={`stats-subtab-btn${activeTab === "trends" ? " active" : ""}`}
+          aria-selected={effectiveTab === "trends"}
+          className={`stats-subtab-btn ui-complete-only${effectiveTab === "trends" ? " active" : ""}`}
           onClick={() => handleTabChange("trends")}
         >
           <span className="stats-subtab-icon">📈</span>
@@ -182,8 +186,8 @@ export default function StatsPage() {
         <button
           type="button"
           role="tab"
-          aria-selected={activeTab === "achievements"}
-          className={`stats-subtab-btn${activeTab === "achievements" ? " active" : ""}`}
+          aria-selected={effectiveTab === "achievements"}
+          className={`stats-subtab-btn${effectiveTab === "achievements" ? " active" : ""}`}
           onClick={() => handleTabChange("achievements")}
         >
           <span className="stats-subtab-icon">🏆</span>
@@ -193,8 +197,8 @@ export default function StatsPage() {
         <button
           type="button"
           role="tab"
-          aria-selected={activeTab === "captures"}
-          className={`stats-subtab-btn${activeTab === "captures" ? " active" : ""}`}
+          aria-selected={effectiveTab === "captures"}
+          className={`stats-subtab-btn ui-complete-only${effectiveTab === "captures" ? " active" : ""}`}
           onClick={() => handleTabChange("captures")}
         >
           <span className="stats-subtab-icon">📸</span>
@@ -204,8 +208,8 @@ export default function StatsPage() {
         <button
           type="button"
           role="tab"
-          aria-selected={activeTab === "milestones"}
-          className={`stats-subtab-btn${activeTab === "milestones" ? " active" : ""}`}
+          aria-selected={effectiveTab === "milestones"}
+          className={`stats-subtab-btn ui-complete-only${effectiveTab === "milestones" ? " active" : ""}`}
           onClick={() => handleTabChange("milestones")}
         >
           <span className="stats-subtab-icon">🎖️</span>
@@ -215,7 +219,7 @@ export default function StatsPage() {
 
       {/* ── Subtab Content Panels ────────────────────────────────── */}
       <main className="stats-main-content">
-        {activeTab === "overview" && (
+        {effectiveTab === "overview" && (
           <OverviewTab
             sessions={filteredSessions}
             games={games}
@@ -225,14 +229,14 @@ export default function StatsPage() {
           />
         )}
 
-        {activeTab === "trends" && (
+        {effectiveTab === "trends" && (
           <TrendsTab
             sessions={filteredSessions}
             games={games}
           />
         )}
 
-        {activeTab === "achievements" && (
+        {effectiveTab === "achievements" && (
           <AchievementsTab
             achievementCache={achievementCache.games}
             games={games}
@@ -240,13 +244,13 @@ export default function StatsPage() {
           />
         )}
 
-        {activeTab === "captures" && (
+        {effectiveTab === "captures" && (
           <CapturesTab
             games={games}
           />
         )}
 
-        {activeTab === "milestones" && (
+        {effectiveTab === "milestones" && (
           <MilestonesTab
             sessions={filteredSessions}
             games={games}

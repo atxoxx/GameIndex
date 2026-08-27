@@ -204,18 +204,21 @@ export function StorageControlsBar({
         {/* Filter Chips (Visible in list & grid view) */}
         {(viewMode === "list" || viewMode === "grid") && (
           <div className="storage-filter-chips-scroll" role="group" aria-label={t("storage.filterByStatus")}>
-            {filterChips.map(({ key, label, count }) => (
-              <button
-                key={key}
-                type="button"
-                className={`storage-filter-chip ${activeFilter === key ? "storage-filter-chip--active" : ""}`}
-                aria-pressed={activeFilter === key}
-                onClick={() => onFilterChange(key)}
-              >
-                <span>{label}</span>
-                <span className="storage-filter-chip-count">{count}</span>
-              </button>
-            ))}
+            {filterChips.map(({ key, label, count }) => {
+              const isSecondary = key === "hasMods" || key === "massive" || key === "large" || key === "small";
+              return (
+                <button
+                  key={key}
+                  type="button"
+                  className={`storage-filter-chip ${activeFilter === key ? "storage-filter-chip--active" : ""}${isSecondary ? " ui-complete-only" : ""}`}
+                  aria-pressed={activeFilter === key}
+                  onClick={() => onFilterChange(key)}
+                >
+                  <span>{label}</span>
+                  <span className="storage-filter-chip-count">{count}</span>
+                </button>
+              );
+            })}
           </div>
         )}
 
@@ -301,7 +304,7 @@ export function StorageControlsBar({
           </div>
 
           {/* Group-by Segmented Control */}
-          <div className="storage-tool-item">
+          <div className="storage-tool-item ui-complete-only">
             <span className="storage-tool-label">{t("storage.groupBy")}</span>
             <div className="storage-groupby-segment" role="group" aria-label={t("storage.groupBy")}>
               {(["none", "drive", "platform", "sizeTier"] as GroupKey[]).map((k) => (
@@ -360,7 +363,7 @@ export function StorageControlsBar({
             </Button>
 
             {/* Export Report Menu */}
-            <div className="storage-export-dropdown" ref={exportRef}>
+            <div className="storage-export-dropdown ui-complete-only" ref={exportRef}>
               <Button
                 variant="ghost"
                 size="sm"

@@ -121,7 +121,7 @@ export default function LibraryToolbar({
         {onToggleBulkMode && (
           <button
             type="button"
-            className={`lib-bulk-toggle-btn${bulkMode ? " active" : ""}`}
+            className={`lib-bulk-toggle-btn ui-complete-only${bulkMode ? " active" : ""}`}
             onClick={onToggleBulkMode}
             title={bulkMode ? t("library.bulk.clearSelection") : t("storeToolbar.selectMultiple")}
             aria-pressed={bulkMode}

@@ -320,7 +320,7 @@ export default function StoreGameCard({
 
         {crackStatus && (
           <span
-            className={`store-card-cw-badge${crackStatus.isCracked ? " cw-cracked" : " cw-uncracked"}`}
+            className={`store-card-cw-badge ui-complete-only${crackStatus.isCracked ? " cw-cracked" : " cw-uncracked"}`}
             title={crackStatus.isCracked ? t("store.gameCard.cracked") : t("store.gameCard.uncracked")}
           >
             <svg
@@ -385,7 +385,7 @@ export default function StoreGameCard({
         {onCompare && (
           <button
             type="button"
-            className="store-card-compare"
+            className="store-card-compare ui-complete-only"
             aria-label={t("store.gameCard.addToCompareAria", { name: game.name })}
             title={t("store.addToCompare")}
             onClick={(e) => {

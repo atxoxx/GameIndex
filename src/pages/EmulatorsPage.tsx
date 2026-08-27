@@ -462,11 +462,13 @@ export default function EmulatorsPage() {
       />
 
       {!loading && (
-        <EmulatorStatsHeader
-          stats={stats}
-          activeFilter={filter}
-          onFilterChange={setFilter}
-        />
+        <div className="ui-complete-only">
+          <EmulatorStatsHeader
+            stats={stats}
+            activeFilter={filter}
+            onFilterChange={setFilter}
+          />
+        </div>
       )}
 
       {loading ? (
