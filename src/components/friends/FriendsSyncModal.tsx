@@ -2,7 +2,11 @@ import { useState, useEffect } from "react";
 import { useLanguage } from "../../context/LanguageContext";
 import { useToast } from "../../context/ToastContext";
 import type { SyncLogEntry } from "./friendsTypes";
-import { getSyncFolder } from "../../pages/friendsStorage";
+import {
+  getSyncFolder,
+  isNostrPublicPublishEnabled,
+  setNostrPublicPublishEnabled,
+} from "../../pages/friendsStorage";
 import { P2pSyncIcon, RefreshIcon, XIcon, CopyIcon } from "./friendsUtils";
 
 interface FriendsSyncModalProps {
@@ -32,12 +36,14 @@ export default function FriendsSyncModal({
   const { t } = useLanguage();
   const { showToast } = useToast();
   const [syncFolderPath, setSyncFolderPath] = useState<string>("");
+  const [nostrPublish, setNostrPublish] = useState<boolean>(false);
 
   useEffect(() => {
     if (isOpen) {
       getSyncFolder().then((folder) => {
         if (folder) setSyncFolderPath(folder);
       });
+      setNostrPublish(isNostrPublicPublishEnabled());
     }
   }, [isOpen]);
 
@@ -85,6 +91,24 @@ export default function FriendsSyncModal({
 
           <div className="sync-section-block">
             <h4 className="sync-section-heading">{t("friendsPage.nostrRelaysHeading")}</h4>
+            <p className="friends-modal-desc">{t("friendsPage.nostrRelaysDesc")}</p>
+            <label className="nostr-publish-row">
+              <input
+                type="checkbox"
+                checked={nostrPublish}
+                onChange={(e) => {
+                  const on = e.target.checked;
+                  setNostrPublish(on);
+                  setNostrPublicPublishEnabled(on);
+                  showToast(
+                    on ? t("friendsPage.nostrPublishOnToast") : t("friendsPage.nostrPublishOffToast"),
+                    "info"
+                  );
+                }}
+              />
+              <span className="nostr-publish-label">{t("friendsPage.nostrPublishToggle")}</span>
+            </label>
+            <p className="friends-modal-desc">{t("friendsPage.nostrPublishDesc")}</p>
             <div className="nostr-relays-list">
               {NOSTR_RELAYS.map((relay) => (
                 <div key={relay} className="nostr-relay-item">

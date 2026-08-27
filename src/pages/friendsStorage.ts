@@ -31,30 +31,56 @@ export interface NostrKeys {
 }
 
 let cachedNostrKeys: NostrKeys | null = null;
+/** Session-only key used while no persisted key is reachable. Never written
+ *  to localStorage or the backend, so the real identity is never rotated by
+ *  a transient backend failure. */
+let sessionFallbackKeys: NostrKeys | null = null;
 
 const LS_NOSTR_PRIVKEY = "gamelib.friends.nostr_privkey";
+
+/** True inside the Tauri webview (as opposed to a plain browser via
+ *  `npm run dev`). Same pattern the rest of the codebase uses
+ *  (e.g. useNewsFeeds.ts). */
+function isTauriRuntime(): boolean {
+  return typeof window !== "undefined" && "__TAURI__" in window;
+}
 
 /**
  * Loads (or creates) the Nostr signing key used for the friends outbox.
  *
- * The key lives in the backend `kv_store` (SQLite) — the repo's standard
- * secret location, since the OS keychain's Windows backend silently fails.
- * `initNostrKeys` must run before the friends page renders (see main.tsx)
- * so `getNostrKeys` can resolve synchronously from the in-memory cache.
- * The legacy localStorage copy is migrated on first run and never written
- * again outside of dev mode, where the backend is unavailable.
+ * The key lives in the backend `kv_store` (SQLite). `initNostrKeys` must run
+ * before the friends page renders (see main.tsx) so `getNostrKeys` can
+ * resolve synchronously from the in-memory cache. The legacy localStorage
+ * copy is migrated on first run and never written again outside of
+ * frontend-only dev mode, where the backend is unavailable.
+ *
+ * Identity safety: a new key is minted ONLY when the backend is healthy and
+ * confirms it has no key. If the backend read/write fails (transient error),
+ * nothing is generated or persisted — the stored identity must win on the
+ * next successful boot rather than being silently rotated.
  */
 export async function initNostrKeys(): Promise<void> {
   if (cachedNostrKeys) return;
 
-  // 1. Primary: backend kv_store.
-  try {
-    const stored = await invoke<string | null>("get_friends_nostr_privkey");
+  if (isTauriRuntime()) {
+    // Real Tauri shell — the backend kv store is the only authoritative
+    // location for the key.
+    let stored: string | null = null;
+    try {
+      stored = await invoke<string | null>("get_friends_nostr_privkey");
+    } catch {
+      // Genuine backend failure (transient or persistent). Do NOT mint a
+      // replacement key here: the stored key (if any) is still on the
+      // backend and must win on the next successful read. Generating a new
+      // one would silently rotate the user's identity and orphan their
+      // outbox folder.
+      return;
+    }
     if (stored && /^[0-9a-fA-F]{64}$/.test(stored)) {
       const sk = hexToBytes(stored);
       cachedNostrKeys = { privateKey: sk, privateKeyHex: stored, publicKey: getPublicKey(sk) };
-      // Drop any legacy plaintext copy from localStorage now that the key
-      // lives in the backend.
+      // Drop any legacy plaintext copy from localStorage now that the
+      // backend key is loaded.
       try {
         localStorage.removeItem(LS_NOSTR_PRIVKEY);
       } catch {
@@ -62,12 +88,23 @@ export async function initNostrKeys(): Promise<void> {
       }
       return;
     }
-  } catch {
-    // Backend unavailable (frontend-only dev) — fall through.
+    // Backend healthy but has no key yet — the one case where a key is
+    // minted in production. Persist it straight to the backend (never to
+    // localStorage) so the identity survives restarts.
+    const sk = generateSecretKey();
+    const skHex = bytesToHex(sk);
+    cachedNostrKeys = { privateKey: sk, privateKeyHex: skHex, publicKey: getPublicKey(sk) };
+    try {
+      await invoke("set_friends_nostr_privkey", { hex: skHex });
+    } catch {
+      // Write failed (e.g. transient kv error) — keep the in-memory copy for
+      // this session but don't drop a plaintext copy into localStorage.
+    }
+    return;
   }
 
-  // 2. Legacy localStorage (dev mode, or a key generated before the
-  //    kv_store migration). Migrate it to the backend when possible.
+  // Frontend-only dev (`npm run dev`, no Tauri shell): the backend doesn't
+  // exist, so the legacy localStorage copy is the dev identity store.
   let skHex: string | null = null;
   try {
     skHex = localStorage.getItem(LS_NOSTR_PRIVKEY);
@@ -89,27 +126,15 @@ export async function initNostrKeys(): Promise<void> {
   }
 
   cachedNostrKeys = { privateKey: sk, privateKeyHex: skHex, publicKey: getPublicKey(sk) };
-
-  // Best-effort migration to the backend; only clears localStorage once the
-  // backend actually accepted the key.
-  try {
-    await invoke("set_friends_nostr_privkey", { hex: skHex });
-    try {
-      localStorage.removeItem(LS_NOSTR_PRIVKEY);
-    } catch {
-      /* ignore */
-    }
-  } catch {
-    /* backend unavailable — keep the dev-only localStorage copy */
-  }
 }
 
 export function getNostrKeys(): NostrKeys {
   if (cachedNostrKeys) return cachedNostrKeys;
 
-  // Defensive fallback when `initNostrKeys` hasn't run (main.tsx awaits it
-  // before first render). Never writes to localStorage from here so the
-  // plaintext copy can't be recreated in production.
+  // Defensive fallback when `initNostrKeys` hasn't run or failed to reach
+  // the backend. Reads the legacy localStorage copy if one exists (dev
+  // mode), but NEVER mints a persisted key from here — a fresh identity
+  // created in a degraded session would silently rotate the user's real one.
   let skHex: string | null = null;
   try {
     skHex = localStorage.getItem(LS_NOSTR_PRIVKEY);
@@ -122,10 +147,16 @@ export function getNostrKeys(): NostrKeys {
     return cachedNostrKeys;
   }
 
-  const sk = generateSecretKey();
-  const freshHex = bytesToHex(sk);
-  cachedNostrKeys = { privateKey: sk, privateKeyHex: freshHex, publicKey: getPublicKey(sk) };
-  return cachedNostrKeys;
+  // No persisted key reachable (backend failure at boot). Return a
+  // session-stable placeholder identity so the UI keeps working, but never
+  // persist it — the real key is still on the backend and will win on the
+  // next successful boot.
+  if (!sessionFallbackKeys) {
+    const sk = generateSecretKey();
+    const freshHex = bytesToHex(sk);
+    sessionFallbackKeys = { privateKey: sk, privateKeyHex: freshHex, publicKey: getPublicKey(sk) };
+  }
+  return sessionFallbackKeys;
 }
 
 export interface UserProfile {
@@ -1195,10 +1226,35 @@ function getNostrPublishPool(): SimplePool {
   return nostrPublishPool;
 }
 
+/** User setting controlling whether the outbox is published to public
+ *  Nostr relays. Default OFF — publishing exposes name, avatar, library
+ *  stats, the friend graph and game lists to anyone on the relay network,
+ *  with no expiration. Local folder sync (same machine / shared data
+ *  folder) is unaffected: it never touches relays. */
+const LS_NOSTR_PUBLISH = "gamelib.friends.nostr_public_publish";
+
+export function isNostrPublicPublishEnabled(): boolean {
+  try {
+    return localStorage.getItem(LS_NOSTR_PUBLISH) === "true";
+  } catch {
+    return false;
+  }
+}
+
+export function setNostrPublicPublishEnabled(enabled: boolean): void {
+  try {
+    localStorage.setItem(LS_NOSTR_PUBLISH, String(enabled));
+  } catch {
+    /* ignore */
+  }
+}
+
 /**
  * Builds the kind-30078 outbox payload broadcast to public relays.
  * Deliberately EXCLUDES DM threads — those travel only through the private
- * folder / P2P channels, never through public relays.
+ * folder / P2P channels, never through public relays. Also excludes a photo
+ * avatar (base64 data URL): a picture on immutable public relay events is
+ * permanent PII, so the public payload always uses the procedural avatar.
  */
 export function buildNostrOutboxPayload(
   profile: UserProfile,
@@ -1213,7 +1269,12 @@ export function buildNostrOutboxPayload(
     syncId: profile.syncId,
     profile: {
       name: profile.name || "",
-      avatar: profile.avatar || "",
+      // Photo avatars are personal data and never leave the device for
+      // public relays — friends see the procedural gradient instead.
+      avatar:
+        profile.avatar && profile.avatar.startsWith("data:")
+          ? "procedural"
+          : (profile.avatar || ""),
       status: profile.status || "",
       favoriteGame: profile.favoriteGameName || "",
       currentlyPlaying: profile.currentlyPlaying || "",
@@ -1231,8 +1292,12 @@ export function buildNostrOutboxPayload(
   };
 }
 
-/** Signs and publishes an outbox payload to the public relays. */
+/** Signs and publishes an outbox payload to the public relays.
+ *  Publishing is opt-in (default OFF, see `isNostrPublicPublishEnabled`);
+ *  local folder sync keeps working regardless — this only gates the
+ *  public-relay broadcast. */
 export async function publishNostrOutbox(payload: NostrOutboxPayload): Promise<void> {
+  if (!isNostrPublicPublishEnabled()) return;
   try {
     const keys = getNostrKeys();
     const eventTemplate = {
