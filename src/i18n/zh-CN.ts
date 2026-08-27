@@ -3594,6 +3594,8 @@ export const zhCN: TranslationDict = {
   "settings.steamSyncedAll": "已同步 {games} 款游戏 · {playtime} 次时长更新{achievements}（均已存在于库中）",
   "settings.steamSyncedNew": "已同步 {games} 个游戏 · {playtime} 游玩时间更新{achievements}（{new} 个新增）",
   "game.installedToast": "{name} 现已安装！",
+  "game.uninstalledToast": "{name} 已卸载并从库中移除",
+  "settings.steamUninstalledRemoved": "已从库中移除 {count} 个已卸载的游戏{plural}",
   "settings.storage.sizeNowGB": "存储大小现在使用 GB（十进制）",
   "settings.storage.sizeNowGiB": "存储大小现在使用 GiB（二进制）",
   "settings.downloads.speedNowBytes": "下载速度现在使用 GB/s, MB/s, B/s（字节/秒）",

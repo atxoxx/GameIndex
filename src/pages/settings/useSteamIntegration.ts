@@ -14,9 +14,26 @@ import type { SteamAuthState, SteamSession, SteamSettings, SteamSyncResult } fro
  * inputs, the connect / sync / disconnect handlers, the sync-to-library
  * import pipeline, and the one-shot auto-reconnect on mount.
  */
+/**
+ * Decide whether a library Steam entry should be REMOVED after a sync.
+ * A game is genuinely uninstalled when the library marks it installed,
+ * Steam no longer reports it installed, AND its appmanifest is gone
+ * from disk. The manifest-presence guard is what keeps a game that is
+ * merely mid-update (manifest present, `StateFlags` temporarily not
+ * "fully installed") in the library — only a real uninstall deletes
+ * the manifest.
+ */
+export function shouldRemoveSteamLibraryEntry(
+  gameInstalled: boolean,
+  isInstalledOnDisk: boolean,
+  manifestPresent: boolean,
+): boolean {
+  return gameInstalled && !isInstalledOnDisk && !manifestPresent;
+}
+
 export function useSteamIntegration() {
   const { showToast } = useToast();
-  const { games, addGames, updateGame } = useGames();
+  const { games, addGames, updateGame, removeGames } = useGames();
   const { reloadCache } = useAchievements();
   const { t } = useLanguage();
 
@@ -159,6 +176,10 @@ export function useSteamIntegration() {
         // Persist synced games to the library, skipping duplicates by Steam AppID
         const existingAppIds = new Set(games.map((gm) => gm.steamAppId).filter(Boolean));
         const installedSet = new Set(result.installedAppids ?? []);
+        // Manifest presence = the game is still registered with Steam
+        // (installed or mid-update). Absent + not installed = uninstalled
+        // via the Steam client → the library entry gets removed below.
+        const manifestSet = new Set(result.manifestAppids ?? []);
         const newGames: Game[] = [];
         for (const entry of result.syncedGames ?? []) {
           if (existingAppIds.has(entry.appid)) continue;
@@ -190,13 +211,20 @@ export function useSteamIntegration() {
 
         // Refresh existing Steam entries from the sync result — flip
         // `installed` / path / size when the local-install scan reports
-        // a different install state.
+        // a different install state, and REMOVE entries whose game was
+        // uninstalled via the Steam client (see
+        // `shouldRemoveSteamLibraryEntry`).
+        const removedAppIds: number[] = [];
         for (const entry of result.syncedGames ?? []) {
           if (!existingAppIds.has(entry.appid)) continue;
           const game = games.find((g) => g.steamAppId === entry.appid);
           if (!game) continue;
-          const patch: Partial<Game> = {};
           const isInstalled = installedSet.has(entry.appid) || !!entry.exePath;
+          if (shouldRemoveSteamLibraryEntry(game.installed, isInstalled, manifestSet.has(entry.appid))) {
+            removedAppIds.push(entry.appid);
+            continue;
+          }
+          const patch: Partial<Game> = {};
           if (game.installed !== isInstalled) patch.installed = isInstalled;
           if (entry.exePath && entry.exePath !== game.path) patch.path = entry.exePath;
           if (entry.sizeBytes !== undefined) {
@@ -209,6 +237,11 @@ export function useSteamIntegration() {
             patch.lastPlayed = syncedLastPlayed;
           }
           if (Object.keys(patch).length > 0) updateGame(game.id, patch);
+        }
+
+        if (removedAppIds.length > 0) {
+          removeGames((g) => g.steamAppId !== undefined && removedAppIds.includes(g.steamAppId));
+          showToast(t("settings.steamUninstalledRemoved", { count: removedAppIds.length, plural: removedAppIds.length === 1 ? "" : "s" }), "info");
         }
 
         const achMsg = steamSettings.syncAchievements ? ` · ${a} games achievements synced` : "";

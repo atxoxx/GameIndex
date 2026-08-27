@@ -131,8 +131,23 @@ pub async fn steam_sync_games(
     let owned_games = parsed.response.games;
 
     // ── Detect installed games on disk ──────────────────────────────
-    let installed_appids = detect_installed_steam_appids();
-    let installed_set: HashSet<u32> = installed_appids.iter().copied().collect();
+    // One scan of the appmanifest files feeds both signals: the fully-
+    // installed set (drives the `installed` flag) and the manifest-
+    // presence set (drives uninstall detection — see
+    // `detect_steam_manifest_state`).
+    let manifest_states = detect_steam_manifest_state();
+    let installed_set: HashSet<u32> = manifest_states
+        .iter()
+        .filter(|(_, fully)| **fully)
+        .map(|(appid, _)| *appid)
+        .collect();
+    let mut installed_appids: Vec<u32> = installed_set.iter().copied().collect();
+    installed_appids.sort();
+    let manifest_appids: Vec<u32> = {
+        let mut v: Vec<u32> = manifest_states.keys().copied().collect();
+        v.sort();
+        v
+    };
 
     let synced = owned_games.len() as u32;
     let mut playtime_updated: u32 = 0;
@@ -324,15 +339,27 @@ pub async fn steam_sync_games(
         achievements_synced,
         synced_games,
         installed_appids,
+        manifest_appids,
         error: None,
     })
 }
 
 // ── installed-game detection ────────────────────────────────────────
 
-pub fn detect_installed_steam_appids() -> Vec<u32> {
+/// Scan every `appmanifest_<appid>.acf` under the Steam library folders
+/// and report each AppID's install state as a `HashMap<appid, bool>`
+/// where the bool is `true` when the game is fully installed.
+///
+/// The *presence* of a manifest is the load-bearing signal: Steam deletes
+/// the file entirely when a game is uninstalled, but keeps it (and merely
+/// flips `StateFlags`) while a game is downloading an update. So an AppID
+/// disappearing from this map means a genuine uninstall, while an entry
+/// present-but-`false` means "mid-download/update, still registered".
+/// Unreadable/unparseable manifests are assumed installed (historic
+/// behaviour — better to over-count than to lose a tracked game).
+pub fn detect_steam_manifest_state() -> std::collections::HashMap<u32, bool> {
     let library_folders = find_steam_library_folders();
-    let mut installed = Vec::new();
+    let mut states = std::collections::HashMap::new();
 
     for folder in &library_folders {
         if let Ok(entries) = fs::read_dir(folder) {
@@ -344,25 +371,35 @@ pub fn detect_installed_steam_appids() -> Vec<u32> {
                         &name_str["appmanifest_".len()..name_str.len() - ".acf".len()];
                     if let Ok(appid) = id_str.parse::<u32>() {
                         let manifest_path = entry.path();
-                        if let Ok(raw) = fs::read_to_string(&manifest_path) {
-                            if let Some(parsed) = steam_game_watcher::parse_appmanifest(&raw, appid) {
-                                if parsed.is_fully_installed() {
-                                    installed.push(appid);
-                                }
-                            } else {
-                                installed.push(appid);
-                            }
-                        } else {
-                            installed.push(appid);
-                        }
+                        let fully_installed = match fs::read_to_string(&manifest_path) {
+                            Ok(raw) => match steam_game_watcher::parse_appmanifest(&raw, appid) {
+                                Some(parsed) => parsed.is_fully_installed(),
+                                None => true, // unparseable → assume installed
+                            },
+                            Err(_) => true, // unreadable → assume installed
+                        };
+                        states.insert(appid, fully_installed);
                     }
                 }
             }
         }
     }
 
+    states
+}
+
+/// AppIDs whose games are fully installed (subset of the manifest
+/// state — see `detect_steam_manifest_state`). Kept as a convenience
+/// for callers that only care about the playable set; currently
+/// exercised by the integration tests (the live sync and the watcher
+/// both consume the richer per-appid map directly).
+#[cfg_attr(not(test), allow(dead_code))]
+pub fn detect_installed_steam_appids() -> Vec<u32> {
+    let mut installed: Vec<u32> = detect_steam_manifest_state()
+        .into_iter()
+        .filter_map(|(appid, fully)| fully.then_some(appid))
+        .collect();
     installed.sort();
-    installed.dedup();
     installed
 }
 
@@ -445,6 +482,57 @@ mod tests {
             detected, expected,
             "detector must match the real appmanifest files on disk"
         );
+    }
+
+    /// The manifest-state scanner must report *every* appmanifest on disk
+    /// (presence is the uninstall signal — Steam deletes the file on
+    /// uninstall) and the fully-installed set must be a subset of it.
+    /// Skips without Steam.
+    #[test]
+    fn manifest_state_presence_matches_independent_walk() {
+        let folders = find_steam_library_folders();
+        if folders.is_empty() {
+            eprintln!("[test] Steam not installed — skipping integration check");
+            return;
+        }
+
+        // Ground truth: every appmanifest_<appid>.acf in the same folders.
+        let mut expected: Vec<u32> = Vec::new();
+        for folder in &folders {
+            if let Ok(entries) = fs::read_dir(folder) {
+                for entry in entries.flatten() {
+                    let name = entry.file_name();
+                    let name_str = name.to_string_lossy();
+                    if name_str.starts_with("appmanifest_") && name_str.ends_with(".acf") {
+                        let id_str =
+                            &name_str["appmanifest_".len()..name_str.len() - ".acf".len()];
+                        if let Ok(appid) = id_str.parse::<u32>() {
+                            expected.push(appid);
+                        }
+                    }
+                }
+            }
+        }
+        expected.sort();
+        expected.dedup();
+
+        let mut state_keys: Vec<u32> = detect_steam_manifest_state().into_keys().collect();
+        state_keys.sort();
+        assert_eq!(
+            state_keys, expected,
+            "manifest-state scanner must see every appmanifest file"
+        );
+
+        // Installed is a strict subset of present: a fully-installed game
+        // always has a manifest, but a present manifest can be mid-update.
+        let installed = detect_installed_steam_appids();
+        for appid in &installed {
+            assert!(
+                expected.contains(appid),
+                "installed appid {} must have a manifest on disk",
+                appid
+            );
+        }
     }
 
     /// The sync.rs library-folder parser (naive `"path"` line scan) and

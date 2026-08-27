@@ -44,6 +44,12 @@ export interface SteamSyncResult {
   syncedGames: SyncedGameEntry[];
   /** Steam AppIDs that are currently installed on disk */
   installedAppids: number[];
+  /** Steam AppIDs that have an appmanifest on disk right now (installed
+   *  OR mid-download/update). Manifest presence is what distinguishes
+   *  "uninstalled via Steam" (manifest deleted) from "just updating"
+   *  (manifest present, StateFlags not fully-installed) — used to remove
+   *  uninstalled games from the library without nuking games mid-update. */
+  manifestAppids?: number[];
 }
 
 export interface SyncedGameEntry {

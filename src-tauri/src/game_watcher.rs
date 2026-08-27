@@ -209,7 +209,14 @@ pub struct GameWatcher {
     /// `None` until `start_background_poll` wires it up.
     wake_tx: Option<std::sync::mpsc::Sender<()>>,
     last_steam_install_poll: Option<Instant>,
-    steam_installed_appids: std::collections::HashSet<u32>,
+    /// AppID → fully-installed state at the last poll. *Presence* in this
+    /// map means an `appmanifest_<appid>.acf` exists on disk; the bool
+    /// tracks whether Steam considers it fully installed (`StateFlags`
+    /// bit 4). Tracking presence (not just fully-installed) is what lets
+    /// the poll distinguish a genuine uninstall — Steam deletes the
+    /// manifest — from an in-progress update, which keeps the manifest
+    /// and only flips `StateFlags`.
+    steam_manifest_appids: std::collections::HashMap<u32, bool>,
 }
 
 impl GameWatcher {
@@ -223,7 +230,7 @@ impl GameWatcher {
             db,
             wake_tx: None,
             last_steam_install_poll: None,
-            steam_installed_appids: std::collections::HashSet::new(),
+            steam_manifest_appids: std::collections::HashMap::new(),
         }
     }
 
@@ -396,28 +403,40 @@ impl GameWatcher {
         let is_first_run = self.last_steam_install_poll.is_none();
         self.last_steam_install_poll = Some(now);
 
-        let current_installed: std::collections::HashSet<u32> =
-            crate::steam::sync::detect_installed_steam_appids()
-                .into_iter()
-                .collect();
+        let current: std::collections::HashMap<u32, bool> =
+            crate::steam::sync::detect_steam_manifest_state();
 
         if is_first_run {
-            self.steam_installed_appids = current_installed;
+            self.steam_manifest_appids = current;
             return;
         }
 
-        let newly_installed: Vec<u32> = current_installed
-            .difference(&self.steam_installed_appids)
-            .copied()
+        // A game is newly installed when its manifest reports fully
+        // installed now but wasn't at the last poll — a fresh install
+        // finishing, or an update that had dropped `StateFlags` completing.
+        // Manifests that are present-but-not-fully-installed (mid-download)
+        // never emit: the game isn't playable yet.
+        let newly_installed: Vec<u32> = current
+            .iter()
+            .filter(|(appid, fully)| {
+                **fully && !matches!(self.steam_manifest_appids.get(appid), Some(true))
+            })
+            .map(|(appid, _)| *appid)
             .collect();
 
+        // A game is uninstalled only when its appmanifest disappears from
+        // disk entirely. Steam deletes the manifest on uninstall; an update
+        // keeps it and merely flips `StateFlags`, so a present-but-not-
+        // installed manifest must never count as an uninstall (that would
+        // rip the game out of the library mid-update).
         let uninstalled: Vec<u32> = self
-            .steam_installed_appids
-            .difference(&current_installed)
+            .steam_manifest_appids
+            .keys()
+            .filter(|appid| !current.contains_key(*appid))
             .copied()
             .collect();
 
-        self.steam_installed_appids = current_installed;
+        self.steam_manifest_appids = current;
 
         for appid in newly_installed {
             let name = self

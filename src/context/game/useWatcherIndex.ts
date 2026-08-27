@@ -40,8 +40,13 @@ export function useWatcherIndex(options: {
   setGames: React.Dispatch<React.SetStateAction<Game[]>>;
   showToast: (message: string, type: ToastType) => void;
   t: (key: string, params?: Record<string, unknown>) => string;
+  /** Ref to GameContext's `removeGames`. Passed by ref (instead of the
+   *  function itself) because `removeGames` depends on
+   *  `scheduleWatcherIndexRebuild`, which this hook produces — a ref
+   *  breaks the circular dependency while keeping the listener stable. */
+  removeGamesRef: React.MutableRefObject<((predicate: (game: Game) => boolean) => void) | null>;
 }) {
-  const { gamesRef, untrackedGameIdsRef, setGames, showToast, t } = options;
+  const { gamesRef, untrackedGameIdsRef, setGames, showToast, t, removeGamesRef } = options;
 
   // ── Watcher process index ──────────────────────────────────────
   // The Rust GameWatcher passively detects running games by matching
@@ -71,6 +76,20 @@ export function useWatcherIndex(options: {
   useEffect(() => {
     const unlisten = listen<SteamInstallChangedEvent>("steam-install-changed", (event) => {
       const { appId, installed, exePath } = event.payload;
+
+      // The backend only emits `installed: false` when the appmanifest
+      // disappears from disk — a genuine uninstall via the Steam client
+      // (an in-progress update keeps the manifest, so it never fires
+      // here). Mirror the in-app uninstall flow and drop the entry from
+      // the library instead of keeping a stale "not installed" row.
+      if (!installed) {
+        const removed = gamesRef.current.find((g) => g.steamAppId === appId);
+        if (removed) {
+          removeGamesRef.current?.((g) => g.steamAppId === appId);
+          showToast(t("game.uninstalledToast", { name: removed.name }), "info");
+        }
+        return;
+      }
 
       setGames((prev) => {
         let updated = false;
@@ -102,7 +121,7 @@ export function useWatcherIndex(options: {
     return () => {
       unlisten.then((fn) => fn());
     };
-  }, [setGames, showToast, t]);
+  }, [setGames, showToast, t, gamesRef, removeGamesRef]);
 
   return { scheduleWatcherIndexRebuild };
 }

@@ -3602,6 +3602,8 @@ export const en: TranslationDict = {
   "settings.steamSyncedAll": "Synced {games} games · {playtime} playtime updates{achievements} (all already in library)",
   "settings.steamSyncedNew": "Synced {games} games · {playtime} playtime updates{achievements} ({new} new)",
   "game.installedToast": "{name} is now installed!",
+  "game.uninstalledToast": "{name} was uninstalled and removed from your library",
+  "settings.steamUninstalledRemoved": "Removed {count} uninstalled game{plural} from your library",
   "settings.storage.sizeNowGB": "Storage sizes now in GB (decimal)",
   "settings.storage.sizeNowGiB": "Storage sizes now in GiB (binary)",
   "settings.downloads.speedNowBytes": "Download speeds now in GB/s, MB/s, B/s (bytes/s)",

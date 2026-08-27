@@ -3594,6 +3594,8 @@ export const ru: TranslationDict = {
   "settings.steamSyncedAll": "Синхронизировано {games} игр · {playtime} обновлений{achievements} (все уже в библиотеке)",
   "settings.steamSyncedNew": "Синхронизировано игр: {games} · обновлений времени: {playtime}{achievements} ({new} новых)",
   "game.installedToast": "{name} теперь установлено!",
+  "game.uninstalledToast": "{name} была удалена и убрана из библиотеки",
+  "settings.steamUninstalledRemoved": "Удалено из библиотеки: {count} деинсталлированных игр{plural}",
   "settings.storage.sizeNowGB": "Размеры хранилища теперь в ГБ (десятичные)",
   "settings.storage.sizeNowGiB": "Размеры хранилища теперь в ГиБ (двоичные)",
   "settings.downloads.speedNowBytes": "Скорость загрузки теперь в ГБ/с, МБ/с, Б/с (байт/с)",

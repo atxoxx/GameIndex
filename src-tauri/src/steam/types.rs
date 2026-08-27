@@ -64,6 +64,15 @@ pub struct SteamSyncResult {
     pub synced_games: Vec<SyncedGameEntry>,
     /// Steam AppIDs that are currently installed on disk.
     pub installed_appids: Vec<u32>,
+    /// Steam AppIDs that have an `appmanifest_<appid>.acf` on disk right
+    /// now — installed **or** mid-download/update. Presence of the
+    /// manifest is what distinguishes "uninstalled via Steam" (manifest
+    /// deleted) from "just updating" (manifest present, `StateFlags`
+    /// temporarily not fully-installed). The frontend uses this to
+    /// remove uninstalled games from the library without nuking entries
+    /// for games that are merely applying an update.
+    #[serde(default)]
+    pub manifest_appids: Vec<u32>,
 }
 
 /// A single game entry from a Steam sync, ready to be mapped to GameData.

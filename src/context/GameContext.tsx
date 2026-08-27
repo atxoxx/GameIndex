@@ -103,6 +103,13 @@ export function GameProvider({ children }: { children: ReactNode }) {
   // Shared ref for watcher index filtering (untracked games are excluded)
   const untrackedGameIdsRef = useRef<Set<string>>(new Set());
 
+  // Ref to `removeGames` for the Steam-uninstall listener in
+  // `useWatcherIndex`. Passed by ref because `removeGames` depends on
+  // `scheduleWatcherIndexRebuild` (produced by that hook) — assigning
+  // the current function after its definition breaks the circular
+  // dependency without re-registering the event listener every render.
+  const removeGamesRef = useRef<((predicate: (game: Game) => boolean) => void) | null>(null);
+
   // ── Watcher process index ──────────────────────────────────────
   const { scheduleWatcherIndexRebuild } = useWatcherIndex({
     gamesRef,
@@ -110,6 +117,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
     setGames,
     showToast,
     t,
+    removeGamesRef,
   });
 
   // ── Sessions: running / closing / liveElapsed / untracked ───────
@@ -225,6 +233,11 @@ export function GameProvider({ children }: { children: ReactNode }) {
     },
     [scheduleWatcherIndexRebuild, sessions]
   );
+
+  // Keep the Steam-uninstall listener in `useWatcherIndex` pointing at
+  // the latest `removeGames` (same render-time assignment pattern as
+  // `gamesRef.current = games` above).
+  removeGamesRef.current = removeGames;
 
   const gamesWithTracking = useMemo(
     () => games.map((g) => ({ ...g, untracked: sessions.untrackedGameIds.has(g.id) })),
