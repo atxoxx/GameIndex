@@ -20,7 +20,7 @@ interface RecommendationCardProps {
   onToggleWantToPlay: (recId: string) => void;
   onAddComment: (recId: string, text: string) => void;
   onDelete: (recId: string) => void;
-  onOpenGame?: (gameId: string, gameName: string) => void;
+  onOpenGame?: (gameId: string, gameName: string, slug?: string) => void;
 }
 
 export default function RecommendationCard({
@@ -74,7 +74,7 @@ export default function RecommendationCard({
           <div>
             <div
               className={`rec-game-title${onOpenGame ? " clickable" : ""}`}
-              onClick={() => onOpenGame && onOpenGame(rec.gameId, rec.gameName)}
+              onClick={() => onOpenGame && onOpenGame(rec.gameId, rec.gameName, rec.slug)}
               title={rec.gameName}
             >
               {rec.gameName}

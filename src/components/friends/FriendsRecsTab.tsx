@@ -1,6 +1,8 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect, useRef } from "react";
+import { invoke } from "@tauri-apps/api/core";
 import { useLanguage } from "../../context/LanguageContext";
 import type { GameRecommendation, UserProfile, Friend, ReactionKind } from "./friendsTypes";
+import type { StoreGameSummary } from "../../types/game";
 import RecommendationCard from "./RecommendationCard";
 import {
   displayName,
@@ -16,12 +18,13 @@ interface FriendsRecsTabProps {
   profile: UserProfile;
   friends: Friend[];
   libraryGames: any[];
+  wishlistGames?: any[];
   onReact: (recId: string, kind: ReactionKind) => void;
   onToggleWantToPlay: (recId: string) => void;
   onAddComment: (recId: string, text: string) => void;
   onCreateRec: (rec: Omit<GameRecommendation, "id" | "comments" | "createdAt" | "updatedAt">) => void;
   onDeleteRec: (recId: string) => void;
-  onOpenGame?: (gameId: string, gameName: string) => void;
+  onOpenGame?: (gameId: string, gameName: string, slug?: string) => void;
 }
 
 export default function FriendsRecsTab({
@@ -29,6 +32,7 @@ export default function FriendsRecsTab({
   profile,
   friends,
   libraryGames,
+  wishlistGames = [],
   onReact,
   onToggleWantToPlay,
   onAddComment,
@@ -46,6 +50,8 @@ export default function FriendsRecsTab({
   // Form State for creating recommendation
   const [gameId, setGameId] = useState("");
   const [gameName, setGameName] = useState("");
+  const [gameCoverUrl, setGameCoverUrl] = useState("");
+  const [gameSlug, setGameSlug] = useState("");
   const [targetFriend, setTargetFriend] = useState("All Friends");
   const [rating, setRating] = useState(5);
   const [reason, setReason] = useState("");
@@ -123,7 +129,56 @@ export default function FriendsRecsTab({
     return map;
   }, [libraryGames]);
 
-  const getCover = (r: GameRecommendation) => libraryCoverMap.get(r.gameId);
+  // Wishlist entries carry IGDB cover urls — a fallback for recommendations
+  // made before covers were captured on the rec itself.
+  const wishlistCoverMap = useMemo(() => {
+    const map = new Map<string, string>();
+    wishlistGames.forEach((g) => {
+      if (!g?.coverUrl) return;
+      if (g.id != null) map.set(String(g.id), g.coverUrl);
+      if (g.slug) map.set(String(g.slug), g.coverUrl);
+      if (g.id != null) map.set(`store_${g.id}`, g.coverUrl);
+    });
+    return map;
+  }, [wishlistGames]);
+
+  const [coverOverrides, setCoverOverrides] = useState<Record<string, string>>({});
+  const coverLookupAttemptedRef = useRef<Set<string>>(new Set());
+
+  // Recommendations made before covers were captured on the rec (and games
+  // neither in the library nor the wishlist) fall back to a one-shot store
+  // search by name so the card still shows the game's cover. Attempts are
+  // deduped so a failed lookup isn't retried on every render.
+  useEffect(() => {
+    activeRecs.forEach((r) => {
+      const gameId = r.gameId || r.gameName;
+      if (coverOverrides[gameId]) return;
+      if (coverLookupAttemptedRef.current.has(gameId)) return;
+      if (r.coverUrl || libraryCoverMap.get(r.gameId) || wishlistCoverMap.get(r.gameId)) return;
+      if (!r.gameName.trim()) return;
+      coverLookupAttemptedRef.current.add(gameId);
+      invoke<StoreGameSummary[]>("search_store_games", {
+        query: r.gameName,
+        offset: 0,
+        limit: 1,
+      })
+        .then((res) => {
+          const cover = res?.[0]?.coverUrl;
+          if (cover) {
+            setCoverOverrides((prev) => ({ ...prev, [gameId]: cover }));
+          }
+        })
+        .catch(() => {
+          /* keep placeholder */
+        });
+    });
+  }, [activeRecs, coverOverrides, libraryCoverMap, wishlistCoverMap]);
+
+  const getCover = (r: GameRecommendation) =>
+    r.coverUrl ||
+    libraryCoverMap.get(r.gameId) ||
+    wishlistCoverMap.get(r.gameId) ||
+    coverOverrides[r.gameId || r.gameName];
 
   const handleCreateSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -132,6 +187,8 @@ export default function FriendsRecsTab({
     onCreateRec({
       gameId: gameId || `custom_${Date.now()}`,
       gameName: gameName.trim(),
+      coverUrl: gameCoverUrl || undefined,
+      slug: gameSlug || undefined,
       recommendedBy: profile.name,
       recommendedTo: targetFriend,
       rating,
@@ -143,6 +200,8 @@ export default function FriendsRecsTab({
     setShowCreateModal(false);
     setGameId("");
     setGameName("");
+    setGameCoverUrl("");
+    setGameSlug("");
     setTargetFriend("All Friends");
     setRating(5);
     setReason("");
@@ -265,9 +324,9 @@ export default function FriendsRecsTab({
             {topPicks.map((pick) => (
               <div key={pick.gameId} className="rec-top-card">
                 <div className="rec-top-cover">
-                  {libraryCoverMap.get(pick.gameId) ? (
+                  {getCover(pick.recs[0]) ? (
                     <img
-                      src={libraryCoverMap.get(pick.gameId)}
+                      src={getCover(pick.recs[0])}
                       alt={pick.gameName}
                       loading="lazy"
                       onError={(e) => {
@@ -396,6 +455,8 @@ export default function FriendsRecsTab({
                     onSelect={(g) => {
                       setGameId(g.id);
                       setGameName(g.name);
+                      setGameCoverUrl(g.coverUrl || "");
+                      setGameSlug(g.slug || "");
                     }}
                   />
                 </div>

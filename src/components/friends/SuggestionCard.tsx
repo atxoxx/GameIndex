@@ -21,7 +21,7 @@ interface SuggestionCardProps {
   onToggleWishlist: (gameId: string, gameName: string) => void;
   onAddComment: (suggestionId: string, text: string) => void;
   onDelete: (suggestionId: string) => void;
-  onOpenGame?: (gameId: string, gameName: string) => void;
+  onOpenGame?: (gameId: string, gameName: string, slug?: string) => void;
 }
 
 export default function SuggestionCard({
@@ -76,7 +76,7 @@ export default function SuggestionCard({
           <div>
             <div
               className={`sug-game-title${onOpenGame ? " clickable" : ""}`}
-              onClick={() => onOpenGame && onOpenGame(suggestion.gameId, suggestion.gameName)}
+              onClick={() => onOpenGame && onOpenGame(suggestion.gameId, suggestion.gameName, suggestion.slug)}
               title={suggestion.gameName}
             >
               {suggestion.gameName}

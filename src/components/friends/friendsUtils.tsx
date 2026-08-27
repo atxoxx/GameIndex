@@ -396,7 +396,7 @@ export function GamePicker({
   friends: Friend[];
   selectedGameId: string;
   selectedGameName: string;
-  onSelect: (game: { id: string; name: string }) => void;
+  onSelect: (game: { id: string; name: string; coverUrl?: string; slug?: string }) => void;
 }) {
   const { t } = useLanguage();
   const [mode, setMode] = useState<"library" | "friend" | "store">("library");
@@ -530,7 +530,7 @@ export function GamePicker({
               <div className="game-search-no-results">{search.trim() ? t("friends.noStoreMatches") : t("friendsPage.noStoreMatches")}</div>
             ) : (
               storeResults.map((g) => (
-                <button key={g.id} type="button" className="game-search-item" onClick={() => { onSelect({ id: `store_${g.id}`, name: g.name }); setSearch(""); setIsOpen(false); }}>
+                <button key={g.id} type="button" className="game-search-item" onClick={() => { onSelect({ id: `store_${g.id}`, name: g.name, coverUrl: coverFor(`store_${g.id}`), slug: g.slug }); setSearch(""); setIsOpen(false); }}>
                   <GameCover id={`store_${g.id}`} name={g.name} className="game-search-item-thumb" />
                   <span className="game-search-item-name">{g.name}</span>
                 </button>
@@ -540,7 +540,7 @@ export function GamePicker({
             <div className="game-search-no-results">{mode === "friend" && !friendId ? t("friends.pickFriendFirst") : t("friendsPage.noMatchesFound")}</div>
           ) : (
             filtered.map((g) => (
-              <button key={g.id} type="button" className="game-search-item" onClick={() => { onSelect(g); setSearch(""); setIsOpen(false); }}>
+              <button key={g.id} type="button" className="game-search-item" onClick={() => { onSelect({ id: g.id, name: g.name, coverUrl: coverFor(g.id) }); setSearch(""); setIsOpen(false); }}>
                 <GameCover id={g.id} name={g.name} className="game-search-item-thumb" />
                 <span className="game-search-item-name">{g.name}</span>
               </button>

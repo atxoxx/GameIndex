@@ -1,4 +1,5 @@
 import { useState, useMemo, useEffect, useRef } from "react";
+import { useNavigate } from "react-router-dom";
 import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
 import { SimplePool } from "nostr-tools/pool";
@@ -10,7 +11,7 @@ import { useSettings } from "../context/SettingsContext";
 import { useWishlistContext } from "../context/WishlistContext";
 import { useLanguage } from "../context/LanguageContext";
 import { consumePendingSuggestion } from "./friendSuggestionSignal";
-import { parsePlayTime } from "../types/game";
+import { parsePlayTime, slugify, type StoreGameSummary } from "../types/game";
 import {
   UserProfile,
   Friend,
@@ -111,6 +112,7 @@ const NOSTR_RELAYS = [
 ];
 
 export default function FriendsPage() {
+  const navigate = useNavigate();
   const { t } = useLanguage();
   const { games, runningGameIds, launchGame } = useGames();
   const { wishlist, toggle: toggleWishlist } = useWishlistContext();
@@ -1550,6 +1552,31 @@ export default function FriendsPage() {
     await pushMyOutbox(profile, selfStats, sessions, updated, selfSharedGames, suggestions, dms);
   };
 
+  // Open the recommended game's store page. Uses the slug captured when the
+  // recommendation was made, else resolves the slug by name via a store
+  // search, else falls back to a slugified name.
+  const handleOpenRecGame = async (_gameId: string, gameName: string, slug?: string) => {
+    if (slug && slug.trim()) {
+      navigate(`/store/${slug.trim()}`);
+      return;
+    }
+    try {
+      const res = await invoke<StoreGameSummary[]>("search_store_games", {
+        query: gameName,
+        offset: 0,
+        limit: 1,
+      });
+      const hit = res?.[0];
+      if (hit?.slug) {
+        navigate(`/store/${hit.slug}`);
+        return;
+      }
+    } catch {
+      /* fall back to slugified name */
+    }
+    navigate(`/store/${slugify(gameName)}`);
+  };
+
   // ── Suggestions Handlers ────────────────────────────────────────────
 
   const handleReactSuggestion = async (sugId: string, kind: SuggestionReactionKind) => {
@@ -1894,15 +1921,13 @@ export default function FriendsPage() {
             profile={profile}
             friends={friends}
             libraryGames={games}
+            wishlistGames={wishlist}
             onReact={handleReactRec}
             onToggleWantToPlay={handleToggleWantToPlay}
             onAddComment={handleAddRecComment}
             onCreateRec={handleCreateRec}
             onDeleteRec={handleDeleteRec}
-            onOpenGame={(_gid, gname) => {
-              const match = games.find((g) => g.name.toLowerCase() === gname.toLowerCase());
-              if (match) launchGame(match);
-            }}
+            onOpenGame={handleOpenRecGame}
           />
         )}
 
@@ -1917,10 +1942,7 @@ export default function FriendsPage() {
             onAddComment={handleAddSuggestionComment}
             onCreateSuggestion={handleCreateSuggestion}
             onDeleteSuggestion={handleDeleteSuggestion}
-            onOpenGame={(_gid, gname) => {
-              const match = games.find((g) => g.name.toLowerCase() === gname.toLowerCase());
-              if (match) launchGame(match);
-            }}
+            onOpenGame={handleOpenRecGame}
           />
         )}
 

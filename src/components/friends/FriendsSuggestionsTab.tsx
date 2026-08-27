@@ -19,7 +19,7 @@ interface FriendsSuggestionsTabProps {
   onAddComment: (suggestionId: string, text: string) => void;
   onCreateSuggestion: (sug: Omit<GameSuggestion, "id" | "comments" | "createdAt" | "updatedAt">) => void;
   onDeleteSuggestion: (suggestionId: string) => void;
-  onOpenGame?: (gameId: string, gameName: string) => void;
+  onOpenGame?: (gameId: string, gameName: string, slug?: string) => void;
 }
 
 export default function FriendsSuggestionsTab({
@@ -88,6 +88,7 @@ export default function FriendsSuggestionsTab({
       gameId: String(chosenGame.id || chosenGame.slug || chosenGame.name),
       gameName: chosenGame.name,
       coverUrl: chosenGame.coverUrl || chosenGame.coverArtUrl,
+      slug: chosenGame.slug || undefined,
       suggestedBy: profile.name,
       suggestedTo: targetFriend,
       note: note.trim(),

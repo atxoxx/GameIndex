@@ -325,6 +325,10 @@ export interface GameRecommendation {
   id: string;
   gameId: string;
   gameName: string;
+  /** Optional cover art url captured at creation, for richer cards. */
+  coverUrl?: string;
+  /** Optional store slug (IGDB) captured at creation, for store-page navigation. */
+  slug?: string;
   recommendedBy: string; // Name of recommender
   recommendedTo: string; // Name of friend, or "All Friends"
   reason: string;
@@ -370,6 +374,8 @@ export interface GameSuggestion {
   gameName: string;
   /** Optional cover art url pulled from the wishlist entry, for richer cards. */
   coverUrl?: string;
+  /** Optional store slug (IGDB) pulled from the wishlist entry, for store-page navigation. */
+  slug?: string;
   /** Free-text note explaining why the game was shared. */
   note: string;
   /** Person who shared it from their wishlist. */
@@ -1008,6 +1014,8 @@ export function mergeRecommendations(local: GameRecommendation[], remote: GameRe
       
       const gameId = keepRemote ? remoteRec.gameId : localRec.gameId;
       const gameName = keepRemote ? remoteRec.gameName : localRec.gameName;
+      const coverUrl = keepRemote ? remoteRec.coverUrl ?? localRec.coverUrl : localRec.coverUrl ?? remoteRec.coverUrl;
+      const slug = keepRemote ? remoteRec.slug ?? localRec.slug : localRec.slug ?? remoteRec.slug;
       const recommendedBy = keepRemote ? remoteRec.recommendedBy : localRec.recommendedBy;
       const recommendedTo = keepRemote ? remoteRec.recommendedTo : localRec.recommendedTo;
       const reason = keepRemote ? remoteRec.reason : localRec.reason;
@@ -1037,6 +1045,8 @@ export function mergeRecommendations(local: GameRecommendation[], remote: GameRe
         id: localRec.id,
         gameId,
         gameName,
+        coverUrl,
+        slug,
         recommendedBy,
         recommendedTo,
         reason,
@@ -1076,6 +1086,7 @@ export function mergeSuggestions(local: GameSuggestion[], remote: GameSuggestion
     const gameId = keepRemote ? remoteSug.gameId : localSug.gameId;
     const gameName = keepRemote ? remoteSug.gameName : localSug.gameName;
     const coverUrl = keepRemote ? remoteSug.coverUrl ?? localSug.coverUrl : localSug.coverUrl ?? remoteSug.coverUrl;
+    const slug = keepRemote ? remoteSug.slug ?? localSug.slug : localSug.slug ?? remoteSug.slug;
     const note = keepRemote ? remoteSug.note : localSug.note;
     const suggestedBy = keepRemote ? remoteSug.suggestedBy : localSug.suggestedBy;
     const suggestedTo = keepRemote ? remoteSug.suggestedTo : localSug.suggestedTo;
@@ -1103,6 +1114,7 @@ export function mergeSuggestions(local: GameSuggestion[], remote: GameSuggestion
       gameId,
       gameName,
       coverUrl,
+      slug,
       note,
       suggestedBy,
       suggestedTo,
