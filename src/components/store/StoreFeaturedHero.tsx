@@ -113,6 +113,7 @@ export default function StoreFeaturedHero({ onPickGame }: StoreFeaturedHeroProps
   const cacheRef = useRef<Partial<Record<HeroCategory, StoreGameSummary[]>>>({});
   const reqRef = useRef(0);
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const stageRef = useRef<HTMLDivElement | null>(null);
 
   // Fetch games for the current category tab
   useEffect(() => {
@@ -302,6 +303,33 @@ export default function StoreFeaturedHero({ onPickGame }: StoreFeaturedHeroProps
     return null;
   }, [videoFailed, activeGame, steamAppId]);
 
+  // Subtle pointer parallax for the hero backdrop + poster. Normalized
+  // pointer position (0..1) is published as --spot-x / --spot-y on the
+  // stage; the CSS translates the artwork by a few pixels against the
+  // cursor. Skipped entirely under prefers-reduced-motion.
+  const handleStageMouseMove = useCallback((e: React.MouseEvent<HTMLElement>) => {
+    const stage = stageRef.current;
+    if (!stage) return;
+    const rect = stage.getBoundingClientRect();
+    if (rect.width === 0 || rect.height === 0) return;
+    const x = (e.clientX - rect.left) / rect.width;
+    const y = (e.clientY - rect.top) / rect.height;
+    stage.style.setProperty("--spot-x", x.toFixed(3));
+    stage.style.setProperty("--spot-y", y.toFixed(3));
+  }, []);
+
+  const handleStageMouseLeave = useCallback(() => {
+    const stage = stageRef.current;
+    if (!stage) return;
+    stage.style.setProperty("--spot-x", "0.5");
+    stage.style.setProperty("--spot-y", "0.5");
+  }, []);
+
+  const reduceMotion = useMemo(
+    () => typeof window !== "undefined" && window.matchMedia("(prefers-reduced-motion: reduce)").matches,
+    []
+  );
+
   const openSurprise = () => setSurpriseOpen(true);
 
   const isWishlisted = activeGame && wishlistCtx ? wishlistCtx.isWishlisted(activeGame.slug) : false;
@@ -387,7 +415,12 @@ export default function StoreFeaturedHero({ onPickGame }: StoreFeaturedHeroProps
           </div>
         </div>
       ) : (
-        <div className="store-spotlight-stage">
+        <div
+          className="store-spotlight-stage"
+          ref={stageRef}
+          onMouseMove={reduceMotion ? undefined : handleStageMouseMove}
+          onMouseLeave={reduceMotion ? undefined : handleStageMouseLeave}
+        >
           {/* Animated Background Mesh, Backdrop & Silent Video Trailer */}
           <div className="store-spotlight-bg" aria-hidden="true">
             {trailerVideoSrc ? (

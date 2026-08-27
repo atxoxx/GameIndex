@@ -2841,6 +2841,7 @@ export const fr: TranslationDict = {
   "mods.rail.sortName": "Trier par nom",
   "mods.rail.sortSize": "Trier par taille",
   "mods.rail.updates": "Mises à jour",
+  "mods.resizePane": "Faites glisser pour redimensionner la liste de mods et le volet de détails",
   "mods.rescan": "Réanalyser",
   "mods.saveNotes": "Enregistrer les notes",
   "mods.scan": "Rechercher des mods",

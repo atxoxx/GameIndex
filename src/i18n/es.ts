@@ -2846,6 +2846,7 @@ export const es: TranslationDict = {
   "mods.rail.sortName": "Ordenar por nombre",
   "mods.rail.sortSize": "Ordenar por tamaño",
   "mods.rail.updates": "Actualizaciones",
+  "mods.resizePane": "Arrastra para redimensionar la lista de mods y el panel de detalles",
   "mods.rescan": "Reanalizar",
   "mods.saveNotes": "Guardar notas",
   "mods.scan": "Buscar mods",

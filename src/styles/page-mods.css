@@ -747,16 +747,101 @@
 /* ── Dual Pane Layout ───────────────────────────────────────────── */
 
 .mods-split {
+  /* Left column width is driven by --mods-left: the CSS default ratio
+     until the user drags the resizer (which sets it in px). */
+  --mods-left: minmax(360px, 1.15fr);
   display: grid;
-  grid-template-columns: minmax(360px, 1.15fr) 1fr;
-  gap: var(--space-xl);
+  grid-template-columns: var(--mods-left) 14px 1fr;
+  gap: 0;
   align-items: start;
   min-width: 0;
+}
+
+/* Draggable split resizer — a slim hairline with a grabber grip that
+   lights up on hover / focus / drag. Keyboard accessible (arrow keys). */
+.mods-resizer {
+  position: relative;
+  align-self: stretch;
+  width: 14px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: col-resize;
+  touch-action: none;
+  user-select: none;
+  outline: none;
+}
+
+.mods-resizer::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 50%;
+  width: 1px;
+  transform: translateX(-50%);
+  background: var(--color-border);
+  transition: background var(--duration-fast) var(--ease-standard),
+    box-shadow var(--duration-fast) var(--ease-standard);
+}
+
+.mods-resizer__grip {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  padding: 7px 4px;
+  border-radius: var(--radius-full);
+  background: var(--color-surface-raised);
+  border: 1px solid var(--color-border);
+  opacity: 0;
+  transform: scale(0.85);
+  transition: opacity var(--duration-fast) var(--ease-standard),
+    transform var(--duration-fast) var(--ease-standard),
+    background var(--duration-fast) var(--ease-standard),
+    border-color var(--duration-fast) var(--ease-standard),
+    box-shadow var(--duration-fast) var(--ease-standard);
+}
+
+.mods-resizer__grip i {
+  width: 3px;
+  height: 3px;
+  border-radius: 50%;
+  background: var(--color-text-muted);
+  transition: background var(--duration-fast) var(--ease-standard);
+}
+
+.mods-resizer:hover .mods-resizer__grip,
+.mods-resizer:focus-visible .mods-resizer__grip,
+.mods-split.is-resizing .mods-resizer__grip {
+  opacity: 1;
+  transform: scale(1);
+  border-color: var(--color-accent-border);
+  box-shadow: 0 0 12px var(--color-accent-glow);
+}
+
+.mods-resizer:hover .mods-resizer__grip i,
+.mods-split.is-resizing .mods-resizer__grip i {
+  background: var(--color-accent);
+}
+
+.mods-resizer:hover::before,
+.mods-resizer:focus-visible::before,
+.mods-split.is-resizing .mods-resizer::before {
+  background: var(--color-accent);
+  box-shadow: 0 0 8px var(--color-accent-glow);
+}
+
+.mods-resizer:focus-visible {
+  box-shadow: var(--ring-accent-soft);
 }
 
 @media (max-width: 1100px) {
   .mods-split {
     grid-template-columns: 1fr;
+  }
+
+  .mods-resizer {
+    display: none;
   }
 
   /* Stacked: the detail pane follows the page scroll instead of

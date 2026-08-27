@@ -2846,6 +2846,7 @@ export const ru: TranslationDict = {
   "mods.rail.sortName": "По названию",
   "mods.rail.sortSize": "По размеру",
   "mods.rail.updates": "Обновления",
+  "mods.resizePane": "Перетащите, чтобы изменить размер списка модов и панели сведений",
   "mods.rescan": "Пересканировать",
   "mods.saveNotes": "Сохранить заметки",
   "mods.scan": "Найти моды",

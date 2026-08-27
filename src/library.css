@@ -1198,6 +1198,101 @@
   border-radius: var(--radius-full);
 }
 
+/* ── Collapsible accordion groups (FilterSection) ───────────────────────
+   Each filter group is a full-width header button with a rotating
+   chevron; the body animates via grid-template-rows 0fr → 1fr so the
+   height eases without JS measuring. The section keeps its hairline
+   divider; the inner content owns its own vertical rhythm. */
+.lib-filter-group {
+  gap: 0;
+}
+
+.lib-filter-group__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-sm);
+  width: 100%;
+  padding: var(--space-2xs) 0;
+  background: transparent;
+  border: none;
+  border-radius: var(--radius-xs);
+  cursor: pointer;
+  font-family: inherit;
+  font-size: var(--font-size-2xs);
+  font-weight: var(--font-weight-bold);
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--color-text-muted);
+  text-align: left;
+  transition: color var(--duration-fast) var(--ease-standard);
+}
+
+.lib-filter-group__header:hover {
+  color: var(--color-text-primary);
+}
+
+.lib-filter-group__header:focus-visible {
+  outline: none;
+  box-shadow: var(--ring-accent);
+}
+
+.lib-filter-group__head-left {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  flex: 1;
+}
+
+.lib-filter-group__title {
+  min-width: 0;
+  flex: 1;
+}
+
+.lib-filter-group__chevron {
+  width: 14px;
+  height: 14px;
+  flex-shrink: 0;
+  color: var(--color-text-tertiary);
+  transition: transform var(--duration-fast) var(--ease-standard),
+    color var(--duration-fast) var(--ease-standard);
+}
+
+.lib-filter-group__header:hover .lib-filter-group__chevron {
+  color: var(--color-accent);
+}
+
+.lib-filter-group.is-open .lib-filter-group__chevron {
+  transform: rotate(180deg);
+}
+
+/* Animated body */
+.lib-filter-group__body {
+  display: grid;
+  grid-template-rows: 0fr;
+  transition: grid-template-rows var(--duration-normal) var(--ease-standard);
+}
+
+.lib-filter-group.is-open .lib-filter-group__body {
+  grid-template-rows: 1fr;
+}
+
+.lib-filter-group__content {
+  overflow: hidden;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-xs);
+  padding-top: var(--space-xs);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .lib-filter-group__body {
+    transition: none;
+  }
+}
+
 .lib-filter-search {
   width: 100%;
   padding: var(--space-sm) var(--space-md);
@@ -2422,15 +2517,126 @@
   animation: libEmptyIn 360ms cubic-bezier(0.16, 1, 0.3, 1);
 }
 
-.lib-filtered-empty-icon {
-  width: 56px;
-  height: 56px;
-  padding: 11px;
-  color: var(--color-accent);
-  background: color-mix(in srgb, var(--color-accent) 14%, transparent);
-  border: 1px solid color-mix(in srgb, var(--color-accent) 30%, transparent);
-  border-radius: var(--radius-xl);
-  margin-bottom: var(--space-2xs);
+/* Illustrated search scene — floating cover tiles under a magnifier,
+   with a subtle pointer parallax (--lfe-x / --lfe-y published by the
+   component). Pure CSS vars, no hardcoded colors. */
+.lib-filtered-empty-scene {
+  --lfe-x: 0.5;
+  --lfe-y: 0.5;
+  position: relative;
+  width: 128px;
+  height: 100px;
+  margin-bottom: var(--space-sm);
+  perspective: 520px;
+}
+
+.lfe-tile {
+  position: absolute;
+  width: 62px;
+  height: 86px;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--color-border-light);
+}
+
+.lfe-tile--back {
+  left: 8px;
+  top: 8px;
+  background: linear-gradient(160deg, var(--color-bg-tertiary), var(--color-bg-secondary));
+  opacity: 0.6;
+  filter: blur(0.6px);
+  transform: rotate(calc(-10deg + (var(--lfe-x) - 0.5) * -6deg))
+    translateY(calc((var(--lfe-y) - 0.5) * -4px));
+  transition: transform 500ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.lfe-tile--front {
+  right: 6px;
+  bottom: 2px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background:
+    radial-gradient(120% 90% at 20% 0%, color-mix(in srgb, var(--color-accent) 34%, transparent), transparent 62%),
+    linear-gradient(160deg, var(--color-bg-tertiary), var(--color-bg-secondary));
+  box-shadow: var(--elevation-3), 0 0 22px var(--color-accent-glow);
+  transform: rotate(calc(9deg + (var(--lfe-x) - 0.5) * 8deg))
+    rotateX(calc((0.5 - var(--lfe-y)) * 10deg));
+  transition: transform 500ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.lfe-tile-play {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  background: color-mix(in srgb, var(--color-bg-primary) 62%, transparent);
+  border: 1px solid var(--scrim-border);
+  color: var(--color-accent-contrast);
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
+}
+
+.lfe-tile-play svg {
+  width: 11px;
+  height: 11px;
+  margin-left: 2px;
+}
+
+.lfe-glass {
+  position: absolute;
+  left: 30px;
+  top: 2px;
+  width: 40px;
+  height: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  border: 2px solid color-mix(in srgb, var(--color-text-primary) 26%, transparent);
+  background: color-mix(in srgb, var(--color-bg-primary) 30%, transparent);
+  backdrop-filter: blur(2px);
+  -webkit-backdrop-filter: blur(2px);
+  color: var(--color-text-secondary);
+  transform: translateY(calc((var(--lfe-y) - 0.5) * 6px));
+  transition: transform 500ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.lfe-glass svg {
+  width: 20px;
+  height: 20px;
+}
+
+.lfe-spark {
+  position: absolute;
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: var(--color-accent);
+  box-shadow: 0 0 8px var(--color-accent-glow);
+  animation: lfeTwinkle 2.8s ease-in-out infinite;
+}
+
+.lfe-spark--1 { left: 4px; top: 24px; animation-delay: 0s; }
+.lfe-spark--2 { right: 0; top: 40px; animation-delay: 0.7s; }
+.lfe-spark--3 { left: 20px; bottom: 0; animation-delay: 1.4s; }
+
+@keyframes lfeTwinkle {
+  0%, 100% { opacity: 0.15; transform: scale(0.7); }
+  50% { opacity: 1; transform: scale(1.15); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .lfe-tile--back,
+  .lfe-tile--front,
+  .lfe-glass {
+    transition: none;
+    transform: none;
+  }
+  .lfe-tile--back { transform: rotate(-10deg); }
+  .lfe-tile--front { transform: rotate(9deg); }
+  .lfe-spark { animation: none; opacity: 0.8; }
 }
 
 .lib-filtered-empty-title {

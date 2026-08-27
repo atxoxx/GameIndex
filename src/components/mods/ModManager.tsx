@@ -391,6 +391,48 @@ export default function ModManager({
     selectedEngine === null &&
     modSort === "order";
 
+  // Draggable split resizer — left pane width in px when the user has
+  // dragged the handle; `null` falls back to the CSS default ratio.
+  const splitRef = useRef<HTMLDivElement | null>(null);
+  const [leftWidth, setLeftWidth] = useState<number | null>(null);
+  const [resizing, setResizing] = useState(false);
+
+  const handleResizeStart = useCallback((e: React.PointerEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    const split = splitRef.current;
+    const listPane = split?.querySelector<HTMLElement>(".mods-list-pane");
+    if (!split || !listPane) return;
+    const startX = e.clientX;
+    const startW = listPane.getBoundingClientRect().width;
+    // Keep the detail pane usable: never squeeze it below ~430px.
+    const maxW = Math.max(360, split.getBoundingClientRect().width - 430);
+    const minW = 300;
+
+    const onMove = (ev: PointerEvent) => {
+      const next = Math.min(maxW, Math.max(minW, startW + (ev.clientX - startX)));
+      setLeftWidth(next);
+      setResizing(true);
+    };
+    const onUp = () => {
+      window.removeEventListener("pointermove", onMove);
+      window.removeEventListener("pointerup", onUp);
+      setResizing(false);
+    };
+    window.addEventListener("pointermove", onMove);
+    window.addEventListener("pointerup", onUp);
+    setResizing(true);
+  }, []);
+
+  const handleResizerKeyDown = useCallback((e: React.KeyboardEvent<HTMLDivElement>) => {
+    if (e.key !== "ArrowLeft" && e.key !== "ArrowRight") return;
+    e.preventDefault();
+    const split = splitRef.current;
+    const listPane = split?.querySelector<HTMLElement>(".mods-list-pane");
+    const current =
+      leftWidth ?? listPane?.getBoundingClientRect().width ?? 420;
+    setLeftWidth(Math.max(300, Math.round(current + (e.key === "ArrowRight" ? 24 : -24))));
+  }, [leftWidth]);
+
   return (
     <div className="mods-manager" ref={rootRef}>
       {/* KPI Hero Stats Bar */}
@@ -514,7 +556,11 @@ export default function ModManager({
           </div>
         </div>
       ) : (
-        <div className="mods-split">
+        <div
+          className={`mods-split${resizing ? " is-resizing" : ""}`}
+          ref={splitRef}
+          style={leftWidth != null ? { "--mods-left": `${leftWidth}px` } as React.CSSProperties : undefined}
+        >
           {/* Left: Mod List */}
           <ModList
             mods={mods}
@@ -542,6 +588,21 @@ export default function ModManager({
               setSelectedEngine(null);
             }}
           />
+
+          {/* Draggable split resizer */}
+          <div
+            role="separator"
+            aria-orientation="vertical"
+            aria-label={t("mods.resizePane")}
+            tabIndex={0}
+            className="mods-resizer"
+            onPointerDown={handleResizeStart}
+            onKeyDown={handleResizerKeyDown}
+          >
+            <span className="mods-resizer__grip" aria-hidden="true">
+              <i /><i /><i />
+            </span>
+          </div>
 
           {/* Right: Mod Detail Inspector */}
           <ModDetailPane

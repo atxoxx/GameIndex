@@ -2846,6 +2846,7 @@ export const zhCN: TranslationDict = {
   "mods.rail.sortName": "按名称排序",
   "mods.rail.sortSize": "按占用大小排序",
   "mods.rail.updates": "更新",
+  "mods.resizePane": "拖动以调整模组列表和详情面板的大小",
   "mods.rescan": "重新扫描",
   "mods.saveNotes": "保存备注",
   "mods.scan": "扫描模组",

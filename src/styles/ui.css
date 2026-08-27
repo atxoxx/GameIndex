@@ -647,7 +647,11 @@
   }
 }
 
-/* ── Global Custom Desktop Scrollbars ──────────────────────────────── */
+/* ── Global Custom Desktop Scrollbars ────────────────────────────────
+   Sleek and minimal: at rest the thumb is a whisper (just enough to
+   signal scrollability), and it sharpens when the cursor reaches for
+   it — the desktop-native feel of an auto-hiding scrollbar without
+   any JS. */
 ::-webkit-scrollbar {
   width: var(--space-sm);
   height: var(--space-sm);
@@ -658,7 +662,7 @@
 }
 
 ::-webkit-scrollbar-thumb {
-  background: color-mix(in srgb, var(--color-text-muted) 22%, transparent);
+  background: color-mix(in srgb, var(--color-text-muted) 9%, transparent);
   border-radius: var(--radius-full);
   border: 2px solid transparent;
   background-clip: padding-box;
@@ -666,7 +670,14 @@
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: color-mix(in srgb, var(--color-text-muted) 42%, transparent);
+  background: color-mix(in srgb, var(--color-text-muted) 45%, transparent);
+  background-clip: padding-box;
+}
+
+/* Hovering anywhere over the scrollbar channel reveals the thumb. */
+::-webkit-scrollbar:horizontal:hover::-webkit-scrollbar-thumb,
+::-webkit-scrollbar:vertical:hover::-webkit-scrollbar-thumb {
+  background: color-mix(in srgb, var(--color-text-muted) 38%, transparent);
   background-clip: padding-box;
 }
 
@@ -714,6 +725,19 @@
   gap: var(--space-md);
   overflow-x: auto;
   scroll-snap-type: x mandatory;
+}
+
+/* ── Netflix-style edge fade for horizontal rails ─────────────────────
+   Masks the track so cards at the scroll cutoff dissolve into the page
+   background instead of ending in a hard clipped edge. The fade is a
+   fixed 36px at each side; the mask only uses the alpha channel (black
+   is an alpha map, not a paint color). */
+.rail-track,
+.home-rail-track,
+.store-rail-track,
+.screenshots-rail {
+  -webkit-mask-image: linear-gradient(90deg, transparent 0, #000 36px, #000 calc(100% - 36px), transparent 100%);
+  mask-image: linear-gradient(90deg, transparent 0, #000 36px, #000 calc(100% - 36px), transparent 100%);
 }
 
 /* ── Filter Primitives (P1-6) ─────────────────────────────────────
@@ -865,10 +889,12 @@
 .empty-state__desc { font-size: var(--font-size-sm); color: var(--color-text-secondary); max-width: 420px; margin: 0; line-height: var(--line-height-normal); }
 .empty-state__actions { display: flex; gap: var(--space-sm); margin-top: var(--space-sm); flex-wrap: wrap; justify-content: center; }
 
-/* Firefox scrollbar — matches the webkit thumb treatment. */
+/* Firefox scrollbar — matches the webkit whisper treatment. (Tauri's
+   Windows WebView is Chromium, so the webkit rules above are the real
+   target; this keeps Firefox from showing default chrome.) */
 * {
   scrollbar-width: thin;
-  scrollbar-color: color-mix(in srgb, var(--color-text-muted) 30%, transparent) transparent;
+  scrollbar-color: color-mix(in srgb, var(--color-text-muted) 22%, transparent) transparent;
 }
 
 
