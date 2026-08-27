@@ -126,25 +126,39 @@ export const REGIONAL_FEEDS: Record<string, NewsFeed[]> = {
     { name: "Mein-MMO", url: "https://mein-mmo.de/feed/", isDefault: true, enabled: true, category: "pc", region: "de" },
     { name: "GamesWirtschaft", url: "https://www.gameswirtschaft.de/feed/", isDefault: true, enabled: true, category: "general", region: "de" },
     { name: "PC Games Hardware", url: "https://www.pcgameshardware.de/feed/", isDefault: true, enabled: true, category: "tech", region: "de" },
+    { name: "PC Games", url: "https://www.pcgames.de/feed/", isDefault: true, enabled: true, category: "pc", region: "de" },
   ],
   fr: [
     { name: "Jeuxvideo.com", url: "https://www.jeuxvideo.com/rss/rss-news.xml", isDefault: true, enabled: true, category: "general", region: "fr" },
     { name: "Gamekult", url: "https://www.gamekult.com/feed.xml", isDefault: true, enabled: true, category: "general", region: "fr" },
     { name: "ActuGaming", url: "https://www.actugaming.net/feed/", isDefault: true, enabled: true, category: "general", region: "fr" },
+    { name: "Gameblog", url: "https://www.gameblog.fr/feed/", isDefault: true, enabled: true, category: "general", region: "fr" },
+    { name: "Frandroid", url: "https://www.frandroid.com/feed", isDefault: true, enabled: true, category: "tech", region: "fr" },
+    { name: "Journal du Geek", url: "https://www.journaldugeek.com/feed/", isDefault: true, enabled: true, category: "general", region: "fr" },
+    { name: "CanardPC", url: "https://www.canardpc.com/feed", isDefault: true, enabled: true, category: "general", region: "fr" },
+    { name: "IGN France", url: "https://fr.ign.com/rss", isDefault: true, enabled: true, category: "general", region: "fr" },
   ],
   es: [
     { name: "Vandal", url: "https://vandal.elespanol.com/rss/", isDefault: true, enabled: true, category: "general", region: "es" },
     { name: "Hobby Consolas", url: "https://www.hobbyconsolas.com/rss/", isDefault: true, enabled: true, category: "console", region: "es" },
     { name: "Nintenderos", url: "https://www.nintenderos.com/feed/", isDefault: true, enabled: true, category: "console", region: "es" },
+    { name: "Eurogamer.es", url: "https://www.eurogamer.es/feed", isDefault: true, enabled: true, category: "general", region: "es" },
+    { name: "AreaJugones", url: "https://areajugones.sport.es/feed/", isDefault: true, enabled: true, category: "general", region: "es" },
+    { name: "Atomix", url: "https://www.atomix.vg/feed/", isDefault: true, enabled: true, category: "general", region: "es" },
   ],
   ru: [
     { name: "StopGame", url: "https://rss.stopgame.ru/rss_news.xml", isDefault: true, enabled: true, category: "general", region: "ru" },
     { name: "GoHa.Ru", url: "https://www.goha.ru/rss/news", isDefault: true, enabled: true, category: "general", region: "ru" },
     { name: "DTF", url: "https://dtf.ru/rss", isDefault: true, enabled: true, category: "general", region: "ru" },
+    { name: "Championat Games", url: "https://www.championat.com/rss/news/games/", isDefault: true, enabled: true, category: "general", region: "ru" },
+    { name: "IXBT", url: "https://www.ixbt.com/export/rss.xml", isDefault: true, enabled: true, category: "tech", region: "ru" },
+    { name: "4PDA", url: "https://4pda.to/feed/", isDefault: true, enabled: true, category: "tech", region: "ru" },
   ],
   "zh-CN": [
     { name: "机核 Gcores", url: "https://www.gcores.com/rss", isDefault: true, enabled: true, category: "general", region: "zh-CN" },
     { name: "Steam 新闻", url: "https://store.steampowered.com/feeds/news/?l=schinese", isDefault: true, enabled: true, category: "general", region: "zh-CN" },
+    { name: "IGN中国", url: "https://www.ign.com.cn/rss", isDefault: true, enabled: true, category: "general", region: "zh-CN" },
+    { name: "IT之家", url: "https://www.ithome.com/rss/", isDefault: true, enabled: true, category: "tech", region: "zh-CN" },
   ],
 };
 
@@ -169,6 +183,8 @@ export const CURATED_FEED_PACKS: CuratedFeedPack[] = [
     category: "deals",
     feeds: [
       { name: "Reddit r/GameDeals", url: "https://www.reddit.com/r/GameDeals/.rss" },
+      { name: "Reddit r/SteamDeals", url: "https://www.reddit.com/r/SteamDeals/.rss" },
+      { name: "Reddit r/FreeGamesOnSteam", url: "https://www.reddit.com/r/FreeGamesOnSteam/.rss" },
       { name: "PC Gamer Deals", url: "https://www.pcgamer.com/tag/deals/rss/" },
     ],
   },
@@ -181,6 +197,9 @@ export const CURATED_FEED_PACKS: CuratedFeedPack[] = [
     feeds: [
       { name: "Indie Games Plus", url: "https://indiegamesplus.com/feed" },
       { name: "Alpha Beta Gamer", url: "https://www.alphabetagamer.com/feed/" },
+      { name: "Pocket Tactics", url: "https://www.pockettactics.com/feed" },
+      { name: "TechRaptor", url: "https://www.techraptor.net/feed" },
+      { name: "The Indie Game Website", url: "https://www.indiegamewebsite.com/feed/" },
     ],
   },
   {
@@ -237,6 +256,9 @@ export const CURATED_FEED_PACKS: CuratedFeedPack[] = [
     feeds: [
       { name: "Dexerto Gaming", url: "https://www.dexerto.com/feed/" },
       { name: "Dot Esports", url: "https://dotesports.com/feed" },
+      { name: "ESPN Esports", url: "https://www.espn.com/espn/rss/esports/news" },
+      { name: "Esports Insider", url: "https://esportsinsider.com/feed/" },
+      { name: "esports.gg", url: "https://esports.gg/feed/" },
     ],
   },
 ];
