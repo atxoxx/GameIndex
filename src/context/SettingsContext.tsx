@@ -75,6 +75,15 @@ const LS_TEMP_UNIT = "gamelib.temp_unit";
 const LS_GAMEPAD_LEFT_DEADZONE = "gamelib.gamepad_left_deadzone";
 const LS_GAMEPAD_RIGHT_DEADZONE = "gamelib.gamepad_right_deadzone";
 
+// Interface & Navigation (Settings → Appearance)
+const LS_COMMAND_PALETTE_MODE = "gamelib.command_palette_mode";
+const LS_NAVBAR_MODE = "gamelib.navbar_mode";
+const LS_UI_DENSITY_MODE = "gamelib.ui_density_mode";
+const LS_REDUCE_MOTION = "gamelib.reduce_motion";
+const LS_SHOW_CARD_BADGES = "gamelib.show_card_badges";
+const LS_SHOW_GAME_ART_BACKDROP = "gamelib.show_game_art_backdrop";
+const LS_SHOW_NAVBAR_NOW_PLAYING = "gamelib.show_navbar_now_playing";
+
 // ── Public shape ─────────────────────────────────────────────────────────────
 
 export type LandingPage =
@@ -109,6 +118,10 @@ export interface MetricCapture {
 
 /** Temperature display unit for every hardware readout in the UI. */
 export type TempUnit = "c" | "f";
+
+export type CommandPaletteMode = "simple" | "full";
+export type NavbarMode = "compact" | "full";
+export type UiDensityMode = "simple" | "complete";
 
 export interface SettingsContextValue {
   // ── Launcher (Rust-backed) ───────────────────────────────────────
@@ -182,6 +195,23 @@ export interface SettingsContextValue {
   gamepadRightDeadzone: number | null;
   setGamepadRightDeadzone: (next: number | null) => void;
 
+  // ── Interface & Navigation (Settings → Appearance) ──────────────
+  commandPaletteMode: CommandPaletteMode;
+  setCommandPaletteMode: (next: CommandPaletteMode) => void;
+  navbarMode: NavbarMode;
+  setNavbarMode: (next: NavbarMode) => void;
+  uiDensityMode: UiDensityMode;
+  setUiDensityMode: (next: UiDensityMode) => void;
+  isSimpleUi: boolean;
+  reduceMotion: boolean;
+  setReduceMotion: (next: boolean) => void;
+  showCardBadges: boolean;
+  setShowCardBadges: (next: boolean) => void;
+  showGameArtBackdrop: boolean;
+  setShowGameArtBackdrop: (next: boolean) => void;
+  showNavbarNowPlaying: boolean;
+  setShowNavbarNowPlaying: (next: boolean) => void;
+
   // True until the very first Rust-side fetch has resolved. Mirrors
   // SettingsPage's existing `steamAuthReady` gating pattern so a
   // remount doesn't show form-state with hydrated values before the
@@ -189,7 +219,14 @@ export interface SettingsContextValue {
   ready: boolean;
 }
 
-const SettingsContext = createContext<SettingsContextValue | null>(null);
+// Persist the React context instance across Vite HMR module re-evaluations so
+// lazy-loaded page chunks never lose their Provider instance.
+const globalSettingsObj = globalThis as unknown as {
+  __gamelib_settings_context__?: React.Context<SettingsContextValue | null>;
+};
+const SettingsContext =
+  globalSettingsObj.__gamelib_settings_context__ ??
+  (globalSettingsObj.__gamelib_settings_context__ = createContext<SettingsContextValue | null>(null));
 
 // ── localStorage helpers (try/catch around every read/write because
 // private-browsing modes and some sandboxed contexts throw) ────────────────
@@ -678,6 +715,92 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
     }
   }, []);
 
+  // Interface & Navigation state ──────────────────────────────────────────
+  const [commandPaletteMode, setCommandPaletteModeState] =
+    useState<CommandPaletteMode>(() =>
+      lsGet(LS_COMMAND_PALETTE_MODE) === "simple" ? "simple" : "full",
+    );
+  const setCommandPaletteMode = useCallback((next: CommandPaletteMode) => {
+    setCommandPaletteModeState(next);
+    lsSet(LS_COMMAND_PALETTE_MODE, next);
+  }, []);
+
+  const [navbarMode, setNavbarModeState] = useState<NavbarMode>(() =>
+    lsGet(LS_NAVBAR_MODE) === "compact" ? "compact" : "full",
+  );
+  const setNavbarMode = useCallback((next: NavbarMode) => {
+    setNavbarModeState(next);
+    lsSet(LS_NAVBAR_MODE, next);
+  }, []);
+
+  const [uiDensityMode, setUiDensityModeState] = useState<UiDensityMode>(() =>
+    lsGet(LS_UI_DENSITY_MODE) === "simple" ? "simple" : "complete",
+  );
+  const setUiDensityMode = useCallback((next: UiDensityMode) => {
+    setUiDensityModeState(next);
+    lsSet(LS_UI_DENSITY_MODE, next);
+    if (typeof document !== "undefined") {
+      document.documentElement.setAttribute("data-ui-mode", next);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (typeof document !== "undefined") {
+      document.documentElement.setAttribute("data-ui-mode", uiDensityMode);
+    }
+  }, [uiDensityMode]);
+
+  const isSimpleUi = uiDensityMode === "simple";
+
+  const [reduceMotion, setReduceMotionState] = useState<boolean>(
+    () => lsGet(LS_REDUCE_MOTION) === "true",
+  );
+  const setReduceMotion = useCallback((next: boolean) => {
+    setReduceMotionState(next);
+    lsSet(LS_REDUCE_MOTION, String(next));
+    if (typeof document !== "undefined") {
+      if (next) {
+        document.documentElement.setAttribute("data-reduce-motion", "true");
+      } else {
+        document.documentElement.removeAttribute("data-reduce-motion");
+      }
+    }
+  }, []);
+
+  useEffect(() => {
+    if (typeof document !== "undefined") {
+      if (reduceMotion) {
+        document.documentElement.setAttribute("data-reduce-motion", "true");
+      } else {
+        document.documentElement.removeAttribute("data-reduce-motion");
+      }
+    }
+  }, [reduceMotion]);
+
+  const [showCardBadges, setShowCardBadgesState] = useState<boolean>(
+    () => lsGet(LS_SHOW_CARD_BADGES) !== "false",
+  );
+  const setShowCardBadges = useCallback((next: boolean) => {
+    setShowCardBadgesState(next);
+    lsSet(LS_SHOW_CARD_BADGES, String(next));
+  }, []);
+
+  const [showGameArtBackdrop, setShowGameArtBackdropState] = useState<boolean>(
+    () => lsGet(LS_SHOW_GAME_ART_BACKDROP) !== "false",
+  );
+  const setShowGameArtBackdrop = useCallback((next: boolean) => {
+    setShowGameArtBackdropState(next);
+    lsSet(LS_SHOW_GAME_ART_BACKDROP, String(next));
+  }, []);
+
+  const [showNavbarNowPlaying, setShowNavbarNowPlayingState] = useState<boolean>(
+    () => lsGet(LS_SHOW_NAVBAR_NOW_PLAYING) !== "false",
+  );
+  const setShowNavbarNowPlaying = useCallback((next: boolean) => {
+    setShowNavbarNowPlayingState(next);
+    lsSet(LS_SHOW_NAVBAR_NOW_PLAYING, String(next));
+  }, []);
+
   const value = useMemo<SettingsContextValue>(
     () => ({
       closeToTray,
@@ -737,6 +860,21 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
       setGamepadLeftDeadzone,
       gamepadRightDeadzone,
       setGamepadRightDeadzone,
+      commandPaletteMode,
+      setCommandPaletteMode,
+      navbarMode,
+      setNavbarMode,
+      uiDensityMode,
+      setUiDensityMode,
+      isSimpleUi,
+      reduceMotion,
+      setReduceMotion,
+      showCardBadges,
+      setShowCardBadges,
+      showGameArtBackdrop,
+      setShowGameArtBackdrop,
+      showNavbarNowPlaying,
+      setShowNavbarNowPlaying,
       ready,
     }),
     [
@@ -797,6 +935,21 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
       setGamepadLeftDeadzone,
       gamepadRightDeadzone,
       setGamepadRightDeadzone,
+      commandPaletteMode,
+      setCommandPaletteMode,
+      navbarMode,
+      setNavbarMode,
+      uiDensityMode,
+      setUiDensityMode,
+      isSimpleUi,
+      reduceMotion,
+      setReduceMotion,
+      showCardBadges,
+      setShowCardBadges,
+      showGameArtBackdrop,
+      setShowGameArtBackdrop,
+      showNavbarNowPlaying,
+      setShowNavbarNowPlaying,
       ready,
     ],
   );

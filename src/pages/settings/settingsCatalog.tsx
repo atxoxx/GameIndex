@@ -115,6 +115,21 @@ export function buildSettingsCatalog(t: (key: string, vars?: Record<string, unkn
           labelKey: "settings.label.accent",
           keywords: "accent color custom swatch tint highlight preset",
         },
+        {
+          id: "appearance-interface",
+          labelKey: "settings.appearance.interfaceTitle",
+          keywords: "interface layout navigation navbar command palette density simple complete compact badges backdrop",
+        },
+        {
+          id: "appearance-motion",
+          labelKey: "settings.appearance.motionTitle",
+          keywords: "motion reduce animations transitions accessibility speed instant",
+        },
+        {
+          id: "appearance-sound",
+          labelKey: "settings.sound.sectionTitle",
+          keywords: "sound audio volume feedback effects clicks chime",
+        },
       ],
     },
     hardware: {

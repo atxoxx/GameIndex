@@ -89,7 +89,7 @@ export default function LibraryToolbar({
 
         {/* Group By selector */}
         {onGroupByChange && (
-          <div className="lib-groupby-wrap">
+          <div className="lib-groupby-wrap ui-complete-only">
             <label htmlFor="lib-groupby-select" className="lib-groupby-label" aria-hidden="true">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" width="14" height="14">
                 <rect x="3" y="3" width="7" height="7" />
@@ -137,7 +137,7 @@ export default function LibraryToolbar({
         {/* Export trigger */}
         <button
           type="button"
-          className="lib-export-trigger"
+          className="lib-export-trigger ui-complete-only"
           onClick={onExport}
           title={t("libraryExport.export")}
           aria-label={t("libraryExport.export")}

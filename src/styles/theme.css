@@ -504,3 +504,26 @@ h1.text-3xl, h1.text-4xl, h2.text-3xl, h2.text-4xl, .text-3xl, .text-4xl, .text-
   outline: 2px solid var(--color-accent);
   outline-offset: 2px;
 }
+
+/* ── UI Complexity Mode (Simple vs Complete) ────────────────────────── */
+html[data-ui-mode="simple"] .ui-complete-only {
+  display: none !important;
+}
+
+html[data-ui-mode="simple"] .lib-toolbar-count {
+  display: none;
+}
+
+html[data-ui-mode="simple"] .game-hero__kpis {
+  gap: var(--space-xs);
+}
+
+/* ── Accessibility & Reduced Motion ───────────────────────────────── */
+html[data-reduce-motion="true"] *,
+html[data-reduce-motion="true"] *::before,
+html[data-reduce-motion="true"] *::after {
+  animation-duration: 0.001ms !important;
+  animation-iteration-count: 1 !important;
+  transition-duration: 0.001ms !important;
+  scroll-behavior: auto !important;
+}

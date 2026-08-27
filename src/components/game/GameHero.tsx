@@ -89,7 +89,7 @@ export default function GameHero({
   const [coverErrored, setCoverErrored] = useState(false);
   const [logoErrored, setLogoErrored] = useState(false);
   const [ambientStep, setAmbientStep] = useState(0);
-  const { autoGameAccent } = useSettings();
+  const { autoGameAccent, showGameArtBackdrop } = useSettings();
   const gamePalette = useGameAccent(accentSrc || undefined);
 
   useEffect(() => {
@@ -232,7 +232,7 @@ export default function GameHero({
       }
     >
       {/* Background art: a blurred copy of the banner/cover with glow */}
-      {ambientSrc ? (
+      {ambientSrc && showGameArtBackdrop ? (
         <>
           <img
             src={ambientSrc}

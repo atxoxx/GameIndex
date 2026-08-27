@@ -3,7 +3,7 @@ import { useTheme, type ThemeDescriptor } from "../../context/ThemeContext";
 import { useSettings } from "../../context/SettingsContext";
 import { useLanguage } from "../../context/LanguageContext";
 import { useToast } from "../../context/ToastContext";
-import { Volume2 } from "lucide-react";
+import { Volume2, Layout, Zap } from "lucide-react";
 import SettingsSection from "./SettingsSection";
 import SettingsToggleCard from "./SettingsToggleCard";
 import AccentPreview from "./AccentPreview";
@@ -87,6 +87,20 @@ export default function AppearanceTab() {
     setUiSoundEnabled,
     uiSoundVolume,
     setUiSoundVolume,
+    commandPaletteMode,
+    setCommandPaletteMode,
+    navbarMode,
+    setNavbarMode,
+    uiDensityMode,
+    setUiDensityMode,
+    reduceMotion,
+    setReduceMotion,
+    showCardBadges,
+    setShowCardBadges,
+    showGameArtBackdrop,
+    setShowGameArtBackdrop,
+    showNavbarNowPlaying,
+    setShowNavbarNowPlaying,
   } = useSettings();
   const { t } = useLanguage();
   const { showToast } = useToast();
@@ -274,6 +288,101 @@ export default function AppearanceTab() {
               custom pick, or the active game's palette under auto mode. */}
           <AccentPreview accentColor={accentColor} autoGameAccent={autoGameAccent} />
         </div>
+      </div>
+    </SettingsSection>
+
+    <SettingsSection
+      id="appearance-interface"
+      icon={<Layout className="settings-section-icon" />}
+      title={t("settings.appearance.interfaceTitle")}
+      desc={t("settings.appearance.interfaceDesc")}
+    >
+      <div style={{ display: "flex", flexDirection: "column", gap: "var(--space-md)" }}>
+        {/* Simple / Full Command Palette */}
+        <SettingsToggleCard
+          title={t("settings.appearance.cmdPaletteSimpleTitle")}
+          desc={t("settings.appearance.cmdPaletteSimpleDesc")}
+          checked={commandPaletteMode === "simple"}
+          onChange={(checked) => {
+            setCommandPaletteMode(checked ? "simple" : "full");
+            if (uiSoundEnabled) playActionSound();
+          }}
+        />
+
+        {/* Full or Compact Navbar */}
+        <SettingsToggleCard
+          title={t("settings.appearance.navbarCompactTitle")}
+          desc={t("settings.appearance.navbarCompactDesc")}
+          checked={navbarMode === "compact"}
+          onChange={(checked) => {
+            setNavbarMode(checked ? "compact" : "full");
+            if (uiSoundEnabled) playActionSound();
+          }}
+        />
+
+        {/* Simple / Complete UI for all pages */}
+        <SettingsToggleCard
+          title={t("settings.appearance.simpleUiTitle")}
+          desc={t("settings.appearance.simpleUiDesc")}
+          checked={uiDensityMode === "simple"}
+          onChange={(checked) => {
+            setUiDensityMode(checked ? "simple" : "complete");
+            if (uiSoundEnabled) playActionSound();
+          }}
+        />
+
+        {/* Show Card Badges */}
+        <SettingsToggleCard
+          title={t("settings.appearance.cardBadgesTitle")}
+          desc={t("settings.appearance.cardBadgesDesc")}
+          checked={showCardBadges}
+          onChange={(checked) => {
+            setShowCardBadges(checked);
+            if (uiSoundEnabled) playActionSound();
+          }}
+        />
+
+        {/* Dynamic Game Art Backdrops */}
+        <SettingsToggleCard
+          title={t("settings.appearance.artBackdropTitle")}
+          desc={t("settings.appearance.artBackdropDesc")}
+          checked={showGameArtBackdrop}
+          onChange={(checked) => {
+            setShowGameArtBackdrop(checked);
+            if (uiSoundEnabled) playActionSound();
+          }}
+        />
+
+        {/* Navbar Now Playing Indicator */}
+        <SettingsToggleCard
+          title={t("settings.appearance.navbarNowPlayingTitle")}
+          desc={t("settings.appearance.navbarNowPlayingDesc")}
+          checked={showNavbarNowPlaying}
+          onChange={(checked) => {
+            setShowNavbarNowPlaying(checked);
+            if (uiSoundEnabled) playActionSound();
+          }}
+        />
+      </div>
+    </SettingsSection>
+
+    <SettingsSection
+      id="appearance-motion"
+      icon={<Zap className="settings-section-icon" />}
+      title={t("settings.appearance.motionTitle")}
+      desc={t("settings.appearance.motionDesc")}
+    >
+      <div style={{ display: "flex", flexDirection: "column", gap: "var(--space-md)" }}>
+        {/* Reduce Motion */}
+        <SettingsToggleCard
+          title={t("settings.appearance.reduceMotionTitle")}
+          desc={t("settings.appearance.reduceMotionDesc")}
+          checked={reduceMotion}
+          onChange={(checked) => {
+            setReduceMotion(checked);
+            if (uiSoundEnabled) playActionSound();
+          }}
+        />
       </div>
     </SettingsSection>
 

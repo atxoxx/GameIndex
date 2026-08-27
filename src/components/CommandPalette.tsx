@@ -122,7 +122,7 @@ export default function CommandPalette({ isOpen, onClose }: CommandPaletteProps)
   const { games, launchGame, forceCloseGame, runningGameIds } = useGames();
   const { themes, currentTheme, setTheme } = useTheme();
   const { isBigScreen, setBigScreen } = useBigScreen();
-  const { uiSoundEnabled, setUiSoundEnabled, uiSoundVolume, setUiSoundVolume } = useSettings();
+  const { uiSoundEnabled, setUiSoundEnabled, uiSoundVolume, setUiSoundVolume, commandPaletteMode } = useSettings();
   const { showToast } = useToast();
   const { t, language, setLanguage, languages } = useLanguage();
 
@@ -136,10 +136,12 @@ export default function CommandPalette({ isOpen, onClose }: CommandPaletteProps)
   const [rawQuery, setRawQuery] = useState("");
   const [scope, setScope] = useState<PaletteCategory>("all");
   const [selectedIndex, setSelectedIndex] = useState(0);
+  const isSimpleMode = commandPaletteMode === "simple";
   const [showInspector, setShowInspector] = useState(() => {
     if (typeof window === "undefined") return true;
     return window.innerWidth >= 860;
   });
+  const effectiveShowInspector = !isSimpleMode && showInspector;
   const [igdbResults, setIgdbResults] = useState<StoreGameSummary[]>([]);
   const [isSearchingIgdb, setIsSearchingIgdb] = useState(false);
   const [downloadTarget, setDownloadTarget] = useState<{
@@ -709,8 +711,10 @@ export default function CommandPalette({ isOpen, onClose }: CommandPaletteProps)
       e.preventDefault();
       setScope("all");
     } else if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "p") {
-      e.preventDefault();
-      setShowInspector((prev) => !prev);
+      if (!isSimpleMode) {
+        e.preventDefault();
+        setShowInspector((prev) => !prev);
+      }
     } else if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "o") {
       const currentItem = items[selectedIndex];
       if (currentItem?.gameData?.path) {
@@ -759,7 +763,7 @@ export default function CommandPalette({ isOpen, onClose }: CommandPaletteProps)
         aria-label="Command Palette"
       >
         <div
-          className={`command-palette-panel${showInspector ? " with-inspector" : ""}`}
+          className={`command-palette-panel${effectiveShowInspector ? " with-inspector" : ""}${isSimpleMode ? " is-simple-palette" : ""}`}
           onClick={(e) => e.stopPropagation()}
         >
           {/* Main List Column */}
@@ -804,44 +808,48 @@ export default function CommandPalette({ isOpen, onClose }: CommandPaletteProps)
                 />
               )}
 
-              <button
-                type="button"
-                className={`cmd-inspector-toggle-btn${showInspector ? " active" : ""}`}
-                onClick={() => setShowInspector((prev) => !prev)}
-                title={`${t("commandPalette.toggleInspector")} (Ctrl+P)`}
-                aria-label={t("commandPalette.toggleInspector")}
-              >
-                <Layers size={14} />
-              </button>
+              {!isSimpleMode && (
+                <button
+                  type="button"
+                  className={`cmd-inspector-toggle-btn${showInspector ? " active" : ""}`}
+                  onClick={() => setShowInspector((prev) => !prev)}
+                  title={`${t("commandPalette.toggleInspector")} (Ctrl+P)`}
+                  aria-label={t("commandPalette.toggleInspector")}
+                >
+                  <Layers size={14} />
+                </button>
+              )}
 
               <kbd className="command-palette-esc">Esc</kbd>
             </div>
 
             {/* Scope Filter Chips Row */}
-            <div className="cmd-scope-bar">
-              {SCOPE_DEFINITIONS.map((def) => {
-                const isActive = scope === def.id;
-                const Icon = def.icon;
-                return (
-                  <button
-                    key={def.id}
-                    type="button"
-                    className={`cmd-scope-chip${isActive ? " active" : ""}`}
-                    onClick={() => {
-                      setScope(def.id);
-                      setSelectedIndex(0);
-                      inputRef.current?.focus();
-                    }}
-                  >
-                    <Icon size={12} />
-                    <span>{t(def.labelKey)}</span>
-                    {def.prefix && (
-                      <kbd className="cmd-chip-prefix">{def.prefix}</kbd>
-                    )}
-                  </button>
-                );
-              })}
-            </div>
+            {!isSimpleMode && (
+              <div className="cmd-scope-bar">
+                {SCOPE_DEFINITIONS.map((def) => {
+                  const isActive = scope === def.id;
+                  const Icon = def.icon;
+                  return (
+                    <button
+                      key={def.id}
+                      type="button"
+                      className={`cmd-scope-chip${isActive ? " active" : ""}`}
+                      onClick={() => {
+                        setScope(def.id);
+                        setSelectedIndex(0);
+                        inputRef.current?.focus();
+                      }}
+                    >
+                      <Icon size={12} />
+                      <span>{t(def.labelKey)}</span>
+                      {def.prefix && (
+                        <kbd className="cmd-chip-prefix">{def.prefix}</kbd>
+                      )}
+                    </button>
+                  );
+                })}
+              </div>
+            )}
 
             {/* Results List */}
             <div ref={listRef} className="command-palette-list" role="listbox">
@@ -996,14 +1004,18 @@ export default function CommandPalette({ isOpen, onClose }: CommandPaletteProps)
                   <kbd className="command-palette-key-pill">↵</kbd>
                   <span>{t("commandPalette.hintSelect")}</span>
                 </span>
-                <span className="command-palette-hint">
-                  <kbd className="command-palette-key-pill">Ctrl+↵</kbd>
-                  <span>{t("commandPalette.hintDetails")}</span>
-                </span>
-                <span className="command-palette-hint">
-                  <kbd className="command-palette-key-pill">Tab</kbd>
-                  <span>{t("commandPalette.hintScope")}</span>
-                </span>
+                {!isSimpleMode && (
+                  <>
+                    <span className="command-palette-hint">
+                      <kbd className="command-palette-key-pill">Ctrl+↵</kbd>
+                      <span>{t("commandPalette.hintDetails")}</span>
+                    </span>
+                    <span className="command-palette-hint">
+                      <kbd className="command-palette-key-pill">Tab</kbd>
+                      <span>{t("commandPalette.hintScope")}</span>
+                    </span>
+                  </>
+                )}
                 <span className="command-palette-hint">
                   <kbd className="command-palette-key-pill">Esc</kbd>
                   <span>{t("commandPalette.hintClose")}</span>
@@ -1014,7 +1026,7 @@ export default function CommandPalette({ isOpen, onClose }: CommandPaletteProps)
           </div>
 
           {/* Right Inspector Column */}
-          {showInspector && (
+          {effectiveShowInspector && (
             <div className="cmd-inspector-column">
               <CommandPaletteInspector item={currentSelectedItem} t={t} />
             </div>

@@ -6,6 +6,7 @@ import {
   Activity,
   BookOpen,
   ChartColumn,
+  ChevronDown,
   Download,
   Gamepad2,
   HardDrive,
@@ -35,6 +36,7 @@ import DownloadPopover from "./DownloadPopover";
 import WindowControls from "./WindowControls";
 import CommandPalette from "./CommandPalette";
 import { useLanguage } from "../context/LanguageContext";
+import { useSettings } from "../context/SettingsContext";
 import { playTabSound } from "../utils/soundEffects";
 
 /**
@@ -59,12 +61,28 @@ interface Tab {
   icon: LucideIcon;
 }
 
-// All pages live as flat tabs: the bar scrolls horizontally when
-// the window is too narrow, so nothing hides behind an overflow menu.
-// Downloads is intentionally not a tab: the right-side downloads
-// button already owns that page (badge + live popover), so a tab
-// would be a second, less informative way to reach the same place.
-const navTabs: Tab[] = [
+// Primary core tabs always displayed in compact navbar mode
+const coreNavTabs: Tab[] = [
+  { path: "/store", labelKey: "nav.store", icon: Store },
+  { path: "/library", labelKey: "nav.library", icon: Monitor },
+  { path: "/wishlist", labelKey: "nav.wishlist", icon: Heart },
+  { path: "/deals", labelKey: "nav.deals", icon: Tag },
+  { path: "/activity", labelKey: "nav.activity", icon: Activity },
+];
+
+// Secondary tabs grouped into the 'More' dropdown menu in compact mode
+const overflowNavTabs: Tab[] = [
+  { path: "/news", labelKey: "nav.news", icon: Rss },
+  { path: "/emulators", labelKey: "nav.emulators", icon: Gamepad2 },
+  { path: "/mods", labelKey: "nav.mods", icon: Puzzle },
+  { path: "/achievements", labelKey: "nav.achievements", icon: Trophy },
+  { path: "/storage", labelKey: "nav.storage", icon: HardDrive },
+  { path: "/community", labelKey: "nav.community", icon: ChartColumn },
+  { path: "/friends", labelKey: "nav.friends", icon: Users },
+];
+
+// All pages live as flat tabs in full navbar mode
+const allNavTabs: Tab[] = [
   { path: "/store", labelKey: "nav.store", icon: Store },
   { path: "/library", labelKey: "nav.library", icon: Monitor },
   { path: "/wishlist", labelKey: "nav.wishlist", icon: Heart },
@@ -86,11 +104,37 @@ export default function TopNav() {
   const activeDownloads = useActiveDownloadCount();
   const { games, runningGameIds } = useGames();
   const { isBigScreen, setBigScreen } = useBigScreen();
+  const { navbarMode, showNavbarNowPlaying } = useSettings();
   const location = useLocation();
   const { t } = useLanguage();
   const version = useAppVersion();
 
   const [paletteOpen, setPaletteOpen] = useState(false);
+  const [moreOpen, setMoreOpen] = useState(false);
+  const moreRef = useRef<HTMLDivElement>(null);
+
+  const isCompactNavbar = navbarMode === "compact";
+  const displayedTabs = isCompactNavbar ? coreNavTabs : allNavTabs;
+  const isOverflowActive = isCompactNavbar && overflowNavTabs.some((tab) => location.pathname.startsWith(tab.path));
+
+  // Click outside and Escape handler to close the More dropdown
+  useEffect(() => {
+    if (!moreOpen) return;
+    const handlePointerDown = (e: globalThis.MouseEvent) => {
+      if (moreRef.current && !moreRef.current.contains(e.target as Node)) {
+        setMoreOpen(false);
+      }
+    };
+    const handleKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setMoreOpen(false);
+    };
+    document.addEventListener("pointerdown", handlePointerDown);
+    document.addEventListener("keydown", handleKey);
+    return () => {
+      document.removeEventListener("pointerdown", handlePointerDown);
+      document.removeEventListener("keydown", handleKey);
+    };
+  }, [moreOpen]);
 
   // Active running game (if any)
   const runningGame = useMemo(() => {
@@ -235,7 +279,7 @@ export default function TopNav() {
         <span className="topnav-divider" aria-hidden="true" />
 
         <div ref={tabsRef} className="topnav-tabs">
-          {navTabs.map((tab) => {
+          {displayedTabs.map((tab) => {
             const Icon = tab.icon;
             const isActive = location.pathname.startsWith(tab.path);
             const showBadge = tab.path === "/friends" && unseenCommunity > 0;
@@ -265,6 +309,66 @@ export default function TopNav() {
             );
           })}
         </div>
+
+        {/* Compact Mode: 'More' Dropdown Menu */}
+        {isCompactNavbar && (
+          <div ref={moreRef} className="topnav-more-container">
+            <button
+              type="button"
+              className={`topnav-tab topnav-more-btn${isOverflowActive ? " active" : ""}${moreOpen ? " is-open" : ""}`}
+              onClick={() => {
+                playTabSound();
+                setMoreOpen((prev) => !prev);
+              }}
+              aria-expanded={moreOpen}
+              aria-haspopup="menu"
+              title={t("nav.more")}
+            >
+              <span className="topnav-more-btn-label">{t("nav.more")}</span>
+              <ChevronDown
+                className={`topnav-more-chevron${moreOpen ? " is-open" : ""}`}
+                size={13}
+                aria-hidden="true"
+              />
+              {unseenCommunity > 0 && !isOverflowActive && (
+                <span className="topnav-tab-badge" aria-hidden="true">
+                  {unseenCommunity > 99 ? "99+" : unseenCommunity}
+                </span>
+              )}
+            </button>
+
+            {moreOpen && (
+              <div className="topnav-more-dropdown" role="menu">
+                {overflowNavTabs.map((tab) => {
+                  const Icon = tab.icon;
+                  const isActive = location.pathname.startsWith(tab.path);
+                  const showBadge = tab.path === "/friends" && unseenCommunity > 0;
+                  return (
+                    <NavLink
+                      key={tab.path}
+                      to={tab.path}
+                      className={`topnav-more-item${isActive ? " active" : ""}`}
+                      role="menuitem"
+                      onClick={() => {
+                        playTabSound();
+                        setMoreOpen(false);
+                        if (tab.path === "/friends") clearUnseenCommunityItems();
+                      }}
+                    >
+                      <Icon className="topnav-more-item-icon" size={15} aria-hidden="true" />
+                      <span className="topnav-more-item-label">{t(tab.labelKey)}</span>
+                      {showBadge && (
+                        <span className="topnav-tab-badge">
+                          {unseenCommunity > 99 ? "99+" : unseenCommunity}
+                        </span>
+                      )}
+                    </NavLink>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        )}
       </div>
 
       {/* Right cluster: page actions (downloads, settings, docs,
@@ -274,7 +378,7 @@ export default function TopNav() {
       <div className="topnav-right-cluster">
         <div className="topnav-right">
           {/* Live "Now Playing" HUD Chip — placed in right action cluster for zero tab crowding */}
-          {runningGame && (
+          {runningGame && showNavbarNowPlaying && (
             <button
               type="button"
               className="topnav-now-playing-chip"
