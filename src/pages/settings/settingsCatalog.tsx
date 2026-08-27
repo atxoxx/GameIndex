@@ -121,6 +121,11 @@ export function buildSettingsCatalog(t: (key: string, vars?: Record<string, unkn
           keywords: "interface layout navigation navbar command palette density simple complete compact badges backdrop",
         },
         {
+          id: "appearance-detail-sections",
+          labelKey: "settings.detailSections.title",
+          keywords: "game detail store sections show hide system requirements relations time to beat protondb release reviews activity achievements mods weblinks news visibility",
+        },
+        {
           id: "appearance-motion",
           labelKey: "settings.appearance.motionTitle",
           keywords: "motion reduce animations transitions accessibility speed instant",

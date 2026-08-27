@@ -1,9 +1,9 @@
 import { useMemo } from "react";
 import { useTheme, type ThemeDescriptor } from "../../context/ThemeContext";
-import { useSettings } from "../../context/SettingsContext";
+import { useSettings, type DetailSectionKey } from "../../context/SettingsContext";
 import { useLanguage } from "../../context/LanguageContext";
 import { useToast } from "../../context/ToastContext";
-import { Volume2, Layout, Zap } from "lucide-react";
+import { Volume2, Layout, Zap, LayoutList } from "lucide-react";
 import SettingsSection from "./SettingsSection";
 import SettingsToggleCard from "./SettingsToggleCard";
 import AccentPreview from "./AccentPreview";
@@ -101,6 +101,8 @@ export default function AppearanceTab() {
     setShowGameArtBackdrop,
     showNavbarNowPlaying,
     setShowNavbarNowPlaying,
+    detailSectionVisible,
+    setDetailSectionVisible,
   } = useSettings();
   const { t } = useLanguage();
   const { showToast } = useToast();
@@ -119,6 +121,69 @@ export default function AppearanceTab() {
     const themeMeta = themes.find((th) => th.id === themeId)?.meta;
     showToast(t("settings.themeChanged", { theme: themeMeta?.name ?? themeId }), "success");
   }
+
+  // Game & Store detail-page sections that can be individually hidden.
+  const detailSections: {
+    key: DetailSectionKey;
+    titleKey: string;
+    descKey: string;
+  }[] = [
+    {
+      key: "systemRequirements",
+      titleKey: "settings.detailSections.systemRequirements.title",
+      descKey: "settings.detailSections.systemRequirements.desc",
+    },
+    {
+      key: "gameRelations",
+      titleKey: "settings.detailSections.gameRelations.title",
+      descKey: "settings.detailSections.gameRelations.desc",
+    },
+    {
+      key: "timeToBeat",
+      titleKey: "settings.detailSections.timeToBeat.title",
+      descKey: "settings.detailSections.timeToBeat.desc",
+    },
+    {
+      key: "protonDb",
+      titleKey: "settings.detailSections.protonDb.title",
+      descKey: "settings.detailSections.protonDb.desc",
+    },
+    {
+      key: "releases",
+      titleKey: "settings.detailSections.releases.title",
+      descKey: "settings.detailSections.releases.desc",
+    },
+    {
+      key: "reviews",
+      titleKey: "settings.detailSections.reviews.title",
+      descKey: "settings.detailSections.reviews.desc",
+    },
+    {
+      key: "activity",
+      titleKey: "settings.detailSections.activity.title",
+      descKey: "settings.detailSections.activity.desc",
+    },
+    {
+      key: "achievements",
+      titleKey: "settings.detailSections.achievements.title",
+      descKey: "settings.detailSections.achievements.desc",
+    },
+    {
+      key: "mods",
+      titleKey: "settings.detailSections.mods.title",
+      descKey: "settings.detailSections.mods.desc",
+    },
+    {
+      key: "weblinks",
+      titleKey: "settings.detailSections.weblinks.title",
+      descKey: "settings.detailSections.weblinks.desc",
+    },
+    {
+      key: "news",
+      titleKey: "settings.detailSections.news.title",
+      descKey: "settings.detailSections.news.desc",
+    },
+  ];
 
   return (
     <>
@@ -363,6 +428,28 @@ export default function AppearanceTab() {
             if (uiSoundEnabled) playActionSound();
           }}
         />
+      </div>
+    </SettingsSection>
+
+    <SettingsSection
+      id="appearance-detail-sections"
+      icon={<LayoutList className="settings-section-icon" />}
+      title={t("settings.detailSections.title")}
+      desc={t("settings.detailSections.desc")}
+    >
+      <div style={{ display: "flex", flexDirection: "column", gap: "var(--space-md)" }}>
+        {detailSections.map((section) => (
+          <SettingsToggleCard
+            key={section.key}
+            title={t(section.titleKey)}
+            desc={t(section.descKey)}
+            checked={detailSectionVisible[section.key]}
+            onChange={(checked) => {
+              setDetailSectionVisible(section.key, checked);
+              if (uiSoundEnabled) playActionSound();
+            }}
+          />
+        ))}
       </div>
     </SettingsSection>
 

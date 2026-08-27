@@ -6,7 +6,7 @@ import { useToast } from "../context/ToastContext";
 import { useLanguage } from "../context/LanguageContext";
 import type { GameMetadataResult, IgdbReview, Game, StoreGameSummary } from "../types/game";
 import { useWishlistContext } from "../context/WishlistContext";
-import { useSettings } from "../context/SettingsContext";
+import { useSettings, type DetailSectionKey } from "../context/SettingsContext";
 import { useSizeUnit } from "../hooks/useSizeUnit";
 import { Button } from "../components/ui";
 import WebLinksTab from "../components/WebLinksTab";
@@ -39,6 +39,7 @@ import {
   ScreenshotsSection,
   VideosSection,
   SystemRequirementsCard,
+  DetailSectionsHiddenNote,
 } from "../components/game";
 import "../styles/page-store.css";
 
@@ -106,7 +107,7 @@ export default function StoreGameDetail() {
   const { showToast } = useToast();
   const { t } = useLanguage();
   const { unit: sizeUnit } = useSizeUnit();
-  const { isSimpleUi } = useSettings();
+  const { isSimpleUi, detailSectionVisible } = useSettings();
 
   const [data, setData] = useState<GameMetadataResult | null>(null);
   const [loading, setLoading] = useState(true);
@@ -121,6 +122,17 @@ export default function StoreGameDetail() {
   // Tab synchronization with URL query param
   const urlTab = searchParams.get("tab") as StoreTab | null;
   const activeTab: StoreTab = urlTab && VALID_STORE_TABS.has(urlTab) ? urlTab : "overview";
+
+  // A tab is reachable unless it's a simple-UI exclusion or the user
+  // disabled that detail section in Settings → Appearance.
+  const isTabVisible = useCallback(
+    (tab: StoreTab): boolean => {
+      if (tab === "overview") return true;
+      if (tab === "weblinks" && isSimpleUi) return false;
+      return detailSectionVisible[tab as DetailSectionKey];
+    },
+    [isSimpleUi, detailSectionVisible],
+  );
 
   const handleTabChange = useCallback(
     (newTab: StoreTab) => {
@@ -372,7 +384,8 @@ export default function StoreGameDetail() {
     </button>
   );
 
-  const effectiveTab: StoreTab = isSimpleUi && activeTab === "weblinks" ? "overview" : activeTab;
+  const effectiveTab: StoreTab =
+    activeTab !== "overview" && !isTabVisible(activeTab) ? "overview" : activeTab;
 
   const tabs = useMemo(() => {
     const allTabs = [
@@ -386,8 +399,8 @@ export default function StoreGameDetail() {
         count: data.websites?.length ?? null,
       },
     ];
-    return isSimpleUi ? allTabs.filter((t) => t.id !== "weblinks") : allTabs;
-  }, [t, data.websites, isSimpleUi]);
+    return allTabs.filter((tab) => isTabVisible(tab.id));
+  }, [t, data.websites, isTabVisible]);
 
   return (
     <div className="game-page store-detail-page">
@@ -473,8 +486,22 @@ export default function StoreGameDetail() {
       {effectiveTab === "overview" && (
         <div className="game-content-grid">
           <div className="game-main-col">
+            <DetailSectionsHiddenNote
+              sections={[
+                "systemRequirements",
+                "gameRelations",
+                "timeToBeat",
+                "protonDb",
+                "releases",
+                "reviews",
+                "achievements",
+                "weblinks",
+              ]}
+            />
             <AboutSection game={mockGame} />
-            <SystemRequirementsCard steamAppId={steamAppId ?? null} />
+            {detailSectionVisible.systemRequirements && (
+              <SystemRequirementsCard steamAppId={steamAppId ?? null} />
+            )}
             <div className="ui-complete-only">
               <StorylineSection game={mockGame} />
             </div>
@@ -485,13 +512,15 @@ export default function StoreGameDetail() {
             <VideosSection game={mockGame} />
 
             <div className="ui-complete-only">
-              <GameRelationsCard
-                mode="store"
-                currentGame={data}
-                similarGames={data.similarGames}
-                collectionId={data.collectionId}
-                collectionName={data.collection}
-              />
+              {detailSectionVisible.gameRelations && (
+                <GameRelationsCard
+                  mode="store"
+                  currentGame={data}
+                  similarGames={data.similarGames}
+                  collectionId={data.collectionId}
+                  collectionName={data.collection}
+                />
+              )}
             </div>
           </div>
 
@@ -499,15 +528,17 @@ export default function StoreGameDetail() {
             <div className="side-group">
               <InfoKpiCard game={mockGame} sizeUnit={sizeUnit} hideStatus />
               <RatingsKpiCard game={mockGame} />
-              <TimeToBeatCard game={mockGame} />
+              {detailSectionVisible.timeToBeat && <TimeToBeatCard game={mockGame} />}
             </div>
             <div className="side-group ui-complete-only">
               <SpecsCard game={mockGame} />
-              <ProtonDBCard steamAppId={steamAppId} />
+              {detailSectionVisible.protonDb && (
+                <ProtonDBCard steamAppId={steamAppId} />
+              )}
               <CrackWatchCard gameName={data.title} appId={steamAppId} />
             </div>
             <div className="side-group ui-complete-only">
-              <ReleasesCard game={mockGame} />
+              {detailSectionVisible.releases && <ReleasesCard game={mockGame} />}
               <LanguagesSection game={mockGame} />
             </div>
           </div>

@@ -83,6 +83,8 @@ const LS_REDUCE_MOTION = "gamelib.reduce_motion";
 const LS_SHOW_CARD_BADGES = "gamelib.show_card_badges";
 const LS_SHOW_GAME_ART_BACKDROP = "gamelib.show_game_art_backdrop";
 const LS_SHOW_NAVBAR_NOW_PLAYING = "gamelib.show_navbar_now_playing";
+// Game & Store detail-page section visibility (Settings → Appearance).
+const LS_DETAIL_SECTIONS_VISIBLE = "gamelib.detail_sections_visible";
 
 // ── Public shape ─────────────────────────────────────────────────────────────
 
@@ -122,6 +124,24 @@ export type TempUnit = "c" | "f";
 export type CommandPaletteMode = "simple" | "full";
 export type NavbarMode = "compact" | "full";
 export type UiDensityMode = "simple" | "complete";
+
+/** Individual detail-page sections that can be hidden via settings.
+ *  Mirrors the sections rendered on the game detail and store pages.
+ *  Each key is persisted independently in localStorage. */
+export type DetailSectionKey =
+  | "systemRequirements"
+  | "gameRelations"
+  | "timeToBeat"
+  | "protonDb"
+  | "releases"
+  | "reviews"
+  | "activity"
+  | "achievements"
+  | "mods"
+  | "weblinks"
+  | "news";
+
+export type DetailSectionVisibility = Record<DetailSectionKey, boolean>;
 
 export interface SettingsContextValue {
   // ── Launcher (Rust-backed) ───────────────────────────────────────
@@ -211,6 +231,9 @@ export interface SettingsContextValue {
   setShowGameArtBackdrop: (next: boolean) => void;
   showNavbarNowPlaying: boolean;
   setShowNavbarNowPlaying: (next: boolean) => void;
+  /** Per-section visibility for the game detail and store pages. */
+  detailSectionVisible: DetailSectionVisibility;
+  setDetailSectionVisible: (key: DetailSectionKey, visible: boolean) => void;
 
   // True until the very first Rust-side fetch has resolved. Mirrors
   // SettingsPage's existing `steamAuthReady` gating pattern so a
@@ -267,6 +290,22 @@ function parseDeadzoneSetting(raw: string | null): number | null {
   const value = parseFloat(raw);
   return Number.isFinite(value) ? clampDeadzone(value) : null;
 }
+
+/** Default state: every detail-page section starts visible so existing
+ *  users see nothing change. Individual sections can be switched off. */
+const DEFAULT_DETAIL_SECTION_VISIBILITY: DetailSectionVisibility = {
+  systemRequirements: true,
+  gameRelations: true,
+  timeToBeat: true,
+  protonDb: true,
+  releases: true,
+  reviews: true,
+  activity: true,
+  achievements: true,
+  mods: true,
+  weblinks: true,
+  news: true,
+};
 
 // ── Provider ────────────────────────────────────────────────────────────────
 
@@ -801,6 +840,36 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
     lsSet(LS_SHOW_NAVBAR_NOW_PLAYING, String(next));
   }, []);
 
+  // Detail-page section visibility. Loaded once from localStorage as an
+  // overrides object; keys not present fall back to ON (visible) so
+  // existing users see everything exactly as before. Writing only the
+  // OFF entries keeps the stored blob small and the default explicit.
+  const [detailSectionVisible, setDetailSectionVisibleState] =
+    useState<DetailSectionVisibility>(() => {
+      const stored = lsGetJSON<Partial<Record<DetailSectionKey, boolean>>>(
+        LS_DETAIL_SECTIONS_VISIBLE,
+        {},
+      );
+      return {
+        ...DEFAULT_DETAIL_SECTION_VISIBILITY,
+        ...stored,
+      };
+    });
+  const setDetailSectionVisible = useCallback(
+    (key: DetailSectionKey, visible: boolean) => {
+      setDetailSectionVisibleState((prev) => {
+        const next = { ...prev, [key]: visible };
+        const overrides: Partial<Record<DetailSectionKey, boolean>> = {};
+        for (const k of Object.keys(next) as DetailSectionKey[]) {
+          if (next[k] === false) overrides[k] = false;
+        }
+        lsSetJSON(LS_DETAIL_SECTIONS_VISIBLE, overrides);
+        return next;
+      });
+    },
+    [],
+  );
+
   const value = useMemo<SettingsContextValue>(
     () => ({
       closeToTray,
@@ -875,6 +944,8 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
       setShowGameArtBackdrop,
       showNavbarNowPlaying,
       setShowNavbarNowPlaying,
+      detailSectionVisible,
+      setDetailSectionVisible,
       ready,
     }),
     [
@@ -950,6 +1021,8 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
       setShowGameArtBackdrop,
       showNavbarNowPlaying,
       setShowNavbarNowPlaying,
+      detailSectionVisible,
+      setDetailSectionVisible,
       ready,
     ],
   );

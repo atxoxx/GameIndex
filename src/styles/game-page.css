@@ -189,6 +189,52 @@
   filter: drop-shadow(0 0 6px var(--color-accent-glow));
 }
 
+/* Detail-sections hidden note — informational card shown on the
+   Overview tab when the user has disabled one or more sections. */
+.detail-sections-note {
+  border-color: color-mix(in srgb, var(--color-warning) 35%, var(--color-border-light));
+  background: color-mix(in srgb, var(--color-warning) 8%, var(--color-surface));
+}
+
+.detail-sections-note__title {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  font-size: var(--font-size-md);
+  font-weight: var(--font-weight-bold);
+  color: var(--color-text-primary);
+  margin-bottom: var(--space-xs);
+}
+
+.detail-sections-note__intro {
+  font-size: var(--font-size-sm);
+  color: var(--color-text-secondary);
+  margin-bottom: var(--space-sm);
+}
+
+.detail-sections-note__list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-xs);
+  margin-bottom: var(--space-sm);
+}
+
+.detail-sections-note__list li {
+  font-size: var(--font-size-xs);
+  font-weight: 500;
+  color: var(--color-text-on-accent);
+  background: color-mix(in srgb, var(--color-warning) 22%, var(--color-surface));
+  border: 1px solid color-mix(in srgb, var(--color-warning) 40%, transparent);
+  padding: 2px 10px;
+  border-radius: 999px;
+  line-height: 1.6;
+}
+
+.detail-sections-note__manage {
+  font-size: var(--font-size-xs);
+  color: var(--color-text-muted);
+}
+
 /* IGDB Ratings, Specs, Screenshots, and Web links styles */
 .screenshots-carousel::-webkit-scrollbar {
   height: 6px;
