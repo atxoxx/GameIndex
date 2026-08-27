@@ -57,7 +57,7 @@ export interface SidebarCollapseContextValue {
   setIconRail: (next: boolean) => void;
 }
 
-const SidebarCollapseContext = createContext<SidebarCollapseContextValue | null>(
+export const SidebarCollapseContext = createContext<SidebarCollapseContextValue | null>(
   null
 );
 
