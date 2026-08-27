@@ -14,6 +14,7 @@ import ReviewsTab from "../components/ReviewsTab";
 import AchievementsTab from "../components/AchievementsTab";
 import DownloadButton from "../components/DownloadButton";
 import CrackWatchCard from "../components/CrackWatchCard";
+import GameNewsTab from "../components/game/GameNewsTab";
 import ProtonDBCard from "../components/ProtonDBCard";
 import GameRelationsCard from "../components/GameRelationsCard";
 import StoreGameLoadingSkeleton from "../components/store/StoreGameLoadingSkeleton";
@@ -22,6 +23,7 @@ import {
   IconMessageSquare,
   IconTrophy,
   IconGlobe,
+  IconNewspaper,
 } from "../components/game/icons";
 import {
   GameHero,
@@ -94,9 +96,15 @@ function StoreGameNotFound() {
 /*  Main Store Game Detail Component                                  */
 /* ------------------------------------------------------------------ */
 
-type StoreTab = "overview" | "reviews" | "achievements" | "weblinks";
+type StoreTab = "overview" | "reviews" | "achievements" | "weblinks" | "news";
 
-const VALID_STORE_TABS = new Set<StoreTab>(["overview", "reviews", "achievements", "weblinks"]);
+const VALID_STORE_TABS = new Set<StoreTab>([
+  "overview",
+  "reviews",
+  "achievements",
+  "weblinks",
+  "news",
+]);
 
 export default function StoreGameDetail() {
   const { gameSlug } = useParams<{ gameSlug: string }>();
@@ -128,7 +136,7 @@ export default function StoreGameDetail() {
   const isTabVisible = useCallback(
     (tab: StoreTab): boolean => {
       if (tab === "overview") return true;
-      if (tab === "weblinks" && isSimpleUi) return false;
+      if (isSimpleUi && (tab === "weblinks" || tab === "news")) return false;
       return detailSectionVisible[tab as DetailSectionKey];
     },
     [isSimpleUi, detailSectionVisible],
@@ -349,6 +357,22 @@ export default function StoreGameDetail() {
     setLightboxOpen(true);
   }, []);
 
+  const tabs = useMemo(() => {
+    const allTabs = [
+      { id: "overview" as const, label: t("game.tab.overview"), icon: IconOverview },
+      { id: "reviews" as const, label: t("game.tab.reviews"), icon: IconMessageSquare },
+      { id: "achievements" as const, label: t("game.tab.achievements"), icon: IconTrophy },
+      {
+        id: "weblinks" as const,
+        label: t("game.tab.weblinks"),
+        icon: IconGlobe,
+        count: data?.websites?.length ?? null,
+      },
+      { id: "news" as const, label: t("game.tab.news"), icon: IconNewspaper },
+    ];
+    return allTabs.filter((tab) => isTabVisible(tab.id));
+  }, [t, data?.websites, isTabVisible]);
+
   if (loading) return <StoreGameLoadingSkeleton />;
   if (error) return <StoreGameError message={error} onRetry={fetchData} />;
   if (!data || !mockGame) return <StoreGameNotFound />;
@@ -386,21 +410,6 @@ export default function StoreGameDetail() {
 
   const effectiveTab: StoreTab =
     activeTab !== "overview" && !isTabVisible(activeTab) ? "overview" : activeTab;
-
-  const tabs = useMemo(() => {
-    const allTabs = [
-      { id: "overview" as const, label: t("game.tab.overview"), icon: IconOverview },
-      { id: "reviews" as const, label: t("game.tab.reviews"), icon: IconMessageSquare },
-      { id: "achievements" as const, label: t("game.tab.achievements"), icon: IconTrophy },
-      {
-        id: "weblinks" as const,
-        label: t("game.tab.weblinks"),
-        icon: IconGlobe,
-        count: data.websites?.length ?? null,
-      },
-    ];
-    return allTabs.filter((tab) => isTabVisible(tab.id));
-  }, [t, data.websites, isTabVisible]);
 
   return (
     <div className="game-page store-detail-page">
@@ -496,6 +505,7 @@ export default function StoreGameDetail() {
                 "reviews",
                 "achievements",
                 "weblinks",
+                "news",
               ]}
             />
             <AboutSection game={mockGame} />
@@ -555,6 +565,10 @@ export default function StoreGameDetail() {
 
       {effectiveTab === "weblinks" && (
         <WebLinksTab game={mockGame} visible={!lightboxOpen} />
+      )}
+
+      {effectiveTab === "news" && (
+        <GameNewsTab game={mockGame} />
       )}
 
       {/* Unified Image Lightbox */}
