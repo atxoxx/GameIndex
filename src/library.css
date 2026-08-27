@@ -1585,9 +1585,12 @@
 }
 
 .lib-card:hover {
-  transform: translateY(-2px) scale(1.01);
-  border-color: var(--color-accent);
-  box-shadow: inset 0 1px 0 var(--color-border-highlight), var(--elevation-3), var(--shadow-glow);
+  transform: translateY(-4px) scale(1.015);
+  border-color: var(--color-accent-border);
+  box-shadow:
+    inset 0 1px 0 var(--color-border-highlight),
+    var(--elevation-4),
+    0 8px 28px var(--color-accent-glow);
 }
 
 .lib-card:active {
@@ -1596,7 +1599,23 @@
 
 .lib-card.running {
   border-color: var(--color-success) !important;
-  box-shadow: 0 0 26px color-mix(in srgb, var(--color-success) 45%, transparent) !important;
+  box-shadow:
+    0 0 28px color-mix(in srgb, var(--color-success) 42%, transparent),
+    inset 0 0 12px color-mix(in srgb, var(--color-success) 20%, transparent) !important;
+  animation: runningCardGlow 2.5s ease-in-out infinite alternate;
+}
+
+@keyframes runningCardGlow {
+  0% {
+    box-shadow:
+      0 0 18px color-mix(in srgb, var(--color-success) 30%, transparent),
+      inset 0 0 8px color-mix(in srgb, var(--color-success) 14%, transparent);
+  }
+  100% {
+    box-shadow:
+      0 0 32px color-mix(in srgb, var(--color-success) 55%, transparent),
+      inset 0 0 16px color-mix(in srgb, var(--color-success) 28%, transparent);
+  }
 }
 
 /* Cover */
@@ -1735,7 +1754,11 @@
 }
 
 .lib-card-fab:hover {
-  transform: translateY(0) scale(1.06);
+  transform: translateY(0) scale(1.1);
+  box-shadow:
+    inset 0 1px 0 color-mix(in srgb, var(--color-text-inverse) 45%, transparent),
+    0 0 20px var(--color-accent-glow),
+    0 6px 20px color-mix(in srgb, var(--color-accent) 60%, transparent);
 }
 
 .lib-card-fab:focus-visible {
@@ -1747,7 +1770,29 @@
 
 .lib-card.running .lib-card-fab {
   background: var(--color-success);
-  box-shadow: 0 4px 12px color-mix(in srgb, var(--color-success) 35%, transparent);
+  box-shadow: 0 4px 14px color-mix(in srgb, var(--color-success) 45%, transparent);
+}
+
+.lib-card-running-pulse {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--color-success);
+  display: inline-block;
+  margin-right: 4px;
+  box-shadow: 0 0 6px var(--color-success);
+  animation: runningDotPulse 1.4s ease-in-out infinite;
+}
+
+@keyframes runningDotPulse {
+  0%, 100% {
+    transform: scale(0.8);
+    opacity: 0.6;
+  }
+  50% {
+    transform: scale(1.25);
+    opacity: 1;
+  }
 }
 
 /* Body */

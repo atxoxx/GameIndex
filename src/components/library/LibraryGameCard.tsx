@@ -4,6 +4,7 @@ import type { Game } from "../../types/game";
 import { PLAY_STATUS_DETAILS } from "../../types/game";
 import { useGames, NO_IGDB_MATCH_SOURCE } from "../../context/GameContext";
 import { useLanguage } from "../../context/LanguageContext";
+import { playLaunchSound } from "../../utils/soundEffects";
 
 interface LibraryGameCardProps {
   game: Game;
@@ -70,6 +71,7 @@ function LibraryGameCardBase({
 
   const handleLaunch = (e: React.MouseEvent) => {
     e.stopPropagation();
+    playLaunchSound();
     if (onLaunch) onLaunch(game);
     else launchGame(game);
   };
@@ -264,6 +266,7 @@ function LibraryGameCardBase({
         <div className="lib-card-badges">
           {isRunning && (
             <Badge variant="success" size="sm" dot className="lib-card-badge lib-card-badge--running">
+              <span className="lib-card-running-pulse" aria-hidden="true" />
               {t("library.running")}
             </Badge>
           )}

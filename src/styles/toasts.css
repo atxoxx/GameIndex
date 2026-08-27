@@ -13,32 +13,35 @@
 }
 
 .toast-item {
+  position: relative;
+  overflow: hidden;
   display: flex;
   align-items: center;
   gap: var(--space-md);
   padding: var(--space-md) var(--space-lg);
-  border-radius: var(--radius-md);
-  background: var(--color-surface-raised);
+  border-radius: var(--radius-lg);
+  background: color-mix(in srgb, var(--color-bg-secondary) 85%, transparent);
+  backdrop-filter: blur(var(--blur-md));
+  -webkit-backdrop-filter: blur(var(--blur-md));
   border: 1px solid var(--color-border-light);
-  box-shadow: var(--shadow-lg);
+  box-shadow:
+    inset 0 1px 0 var(--color-border-highlight),
+    0 12px 36px rgba(0, 0, 0, 0.45);
   pointer-events: auto;
   min-width: 280px;
   max-width: 420px;
   animation: toastIn var(--transition-normal) ease;
+  transition: transform var(--duration-fast) var(--ease-standard), box-shadow var(--duration-fast) var(--ease-standard);
+}
+
+.toast-item:hover {
+  transform: translateY(-2px);
+  box-shadow:
+    inset 0 1px 0 var(--color-border-highlight),
+    0 16px 44px rgba(0, 0, 0, 0.55);
 }
 
 @keyframes toastIn {
-  /*
-   * Phase 2.9 PR 4 ("data viz touches"): the toast stack now
-   * rises from the bottom-right corner instead of sliding in
-   * from the right edge — feels closer to the actual toast
-   * metaphor of "floating up to the surface" and signals the
-   * bottom-right anchor more strongly than a sideways slide.
-   * The 20-px translateY + 0.96 scale is heavy enough to read
-   * as motion but not heavy enough to fight the toast-content
-   * pulse when a long message replaces a short one. The
-   * --ease-bounce curve gives the trailing edge a tiny settle
-   * so the toast doesn't slam to its final position. */
   from {
     opacity: 0;
     transform: translateY(20px) scale(0.96);
@@ -54,32 +57,40 @@
   align-items: center;
   justify-content: center;
   flex-shrink: 0;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: var(--color-bg-tertiary);
+  box-shadow: inset 0 1px 0 var(--color-border-highlight);
 }
 
 .toast-icon svg {
-  width: 20px;
-  height: 20px;
+  width: 16px;
+  height: 16px;
 }
 
 .toast-success .toast-icon {
   color: var(--color-success);
+  background: color-mix(in srgb, var(--color-success) 14%, var(--color-bg-tertiary));
+  box-shadow: 0 0 12px color-mix(in srgb, var(--color-success) 35%, transparent);
 }
 
 .toast-error .toast-icon {
   color: var(--color-danger);
+  background: color-mix(in srgb, var(--color-danger) 14%, var(--color-bg-tertiary));
+  box-shadow: 0 0 12px color-mix(in srgb, var(--color-danger) 35%, transparent);
 }
 
 .toast-info .toast-icon {
   color: var(--color-info);
-}
-
-/* Warning variant for Force-Close partial-failure toasts */
-.toast-warning {
-  border-left: 3px solid var(--color-warning);
+  background: color-mix(in srgb, var(--color-info) 14%, var(--color-bg-tertiary));
+  box-shadow: 0 0 12px color-mix(in srgb, var(--color-info) 35%, transparent);
 }
 
 .toast-warning .toast-icon {
   color: var(--color-warning);
+  background: color-mix(in srgb, var(--color-warning) 14%, var(--color-bg-tertiary));
+  box-shadow: 0 0 12px color-mix(in srgb, var(--color-warning) 35%, transparent);
 }
 
 .toast-message {
@@ -87,6 +98,58 @@
   font-size: var(--font-size-sm);
   color: var(--color-text-primary);
   line-height: 1.4;
+  font-weight: 500;
+}
+
+/* ── Toast Countdown Progress Bar ───────────────────────────────────── */
+.toast-progress-track {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 2.5px;
+  background: color-mix(in srgb, var(--color-border) 45%, transparent);
+  overflow: hidden;
+}
+
+.toast-progress-bar {
+  height: 100%;
+  width: 100%;
+  transform-origin: left center;
+  animation: toastProgressDrain 4000ms linear forwards;
+}
+
+.toast-progress-bar.is-paused {
+  animation-play-state: paused;
+}
+
+@keyframes toastProgressDrain {
+  from {
+    transform: scaleX(1);
+  }
+  to {
+    transform: scaleX(0);
+  }
+}
+
+.toast-progress--success {
+  background: var(--color-success);
+  box-shadow: 0 0 6px var(--color-success);
+}
+
+.toast-progress--error {
+  background: var(--color-danger);
+  box-shadow: 0 0 6px var(--color-danger);
+}
+
+.toast-progress--warning {
+  background: var(--color-warning);
+  box-shadow: 0 0 6px var(--color-warning);
+}
+
+.toast-progress--info {
+  background: var(--color-info);
+  box-shadow: 0 0 6px var(--color-info);
 }
 
 .toast-close {

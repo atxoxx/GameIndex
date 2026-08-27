@@ -33,6 +33,7 @@ import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
 import { applyAccentFamily } from "../utils/color";
 import { clampDeadzone } from "../hooks/gamepad/gamepadUtils";
+import { updateSoundConfig } from "../utils/soundEffects";
 
 // ── LocalStorage keys (one per localStorage-backed setting) ─────────────────
 //
@@ -44,6 +45,8 @@ import { clampDeadzone } from "../hooks/gamepad/gamepadUtils";
 const LS_LANDING_PAGE = "gamelib.landing_page";
 const LS_ACCENT_COLOR = "gamelib.accent_color";
 const LS_AUTO_GAME_ACCENT = "gamelib.auto_game_accent";
+const LS_UI_SOUND_ENABLED = "gamelib.ui_sound_enabled";
+const LS_UI_SOUND_VOLUME = "gamelib.ui_sound_volume";
 const LS_SYNC_INTERVAL = "gamelib.sync_interval_minutes";
 const LS_STEAM_AUTO_DETECT = "gamelib.steam_auto_detect_enabled";
 const LS_ACHIEVEMENT_PRIVACY = "gamelib.hide_achievement_progress";
@@ -127,6 +130,10 @@ export interface SettingsContextValue {
   setAccentColor: (next: string | null) => void;
   autoGameAccent: boolean;
   setAutoGameAccent: (next: boolean) => void;
+  uiSoundEnabled: boolean;
+  setUiSoundEnabled: (next: boolean) => void;
+  uiSoundVolume: number;
+  setUiSoundVolume: (next: number) => void;
   syncIntervalMinutes: SyncIntervalMinutes;
   setSyncIntervalMinutes: (next: SyncIntervalMinutes) => void;
   steamAutoDetect: boolean;
@@ -410,6 +417,31 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
     lsSet(LS_AUTO_GAME_ACCENT, String(next));
   }, []);
 
+  const [uiSoundEnabled, setUiSoundEnabledState] = useState<boolean>(() =>
+    lsGet(LS_UI_SOUND_ENABLED) !== "false",
+  );
+  const [uiSoundVolume, setUiSoundVolumeState] = useState<number>(() => {
+    const raw = Number(lsGet(LS_UI_SOUND_VOLUME) ?? "25");
+    return Number.isFinite(raw) ? Math.max(0, Math.min(100, raw)) : 25;
+  });
+
+  const setUiSoundEnabled = useCallback((next: boolean) => {
+    setUiSoundEnabledState(next);
+    lsSet(LS_UI_SOUND_ENABLED, String(next));
+    updateSoundConfig(next, uiSoundVolume);
+  }, [uiSoundVolume]);
+
+  const setUiSoundVolume = useCallback((next: number) => {
+    const clamped = Math.max(0, Math.min(100, Math.round(next)));
+    setUiSoundVolumeState(clamped);
+    lsSet(LS_UI_SOUND_VOLUME, String(clamped));
+    updateSoundConfig(uiSoundEnabled, clamped);
+  }, [uiSoundEnabled]);
+
+  useEffect(() => {
+    updateSoundConfig(uiSoundEnabled, uiSoundVolume);
+  }, [uiSoundEnabled, uiSoundVolume]);
+
   const [syncIntervalMinutes, setSyncIntervalState] =
     useState<SyncIntervalMinutes>(() => {
       const raw = parseInt(lsGet(LS_SYNC_INTERVAL) ?? "0", 10);
@@ -664,6 +696,10 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
       setAccentColor,
       autoGameAccent,
       setAutoGameAccent,
+      uiSoundEnabled,
+      setUiSoundEnabled,
+      uiSoundVolume,
+      setUiSoundVolume,
       syncIntervalMinutes,
       setSyncIntervalMinutes,
       steamAutoDetect,
@@ -720,6 +756,10 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
       setAccentColor,
       autoGameAccent,
       setAutoGameAccent,
+      uiSoundEnabled,
+      setUiSoundEnabled,
+      uiSoundVolume,
+      setUiSoundVolume,
       syncIntervalMinutes,
       setSyncIntervalMinutes,
       steamAutoDetect,

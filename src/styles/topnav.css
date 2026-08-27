@@ -34,7 +34,7 @@
   font-weight: 700;
   font-family: var(--font-display);
   color: var(--color-text-primary);
-  margin-right: var(--space-lg);
+  margin-right: var(--space-xs);
   letter-spacing: -0.02em;
   cursor: pointer;
   text-decoration: none;
@@ -73,6 +73,168 @@
   border-radius: var(--radius-full);
   border: 1px solid var(--color-border);
   font-variant-numeric: tabular-nums;
+}
+
+/* ── TopNav Command Palette Icon Button ──────────────────────────────── */
+.topnav-btn--cmd {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--color-border);
+  background: color-mix(in srgb, var(--color-bg-secondary) 60%, transparent);
+  color: var(--color-text-secondary);
+  cursor: pointer;
+  outline: none;
+  transition:
+    color var(--duration-fast) var(--ease-standard),
+    background var(--duration-fast) var(--ease-standard),
+    border-color var(--duration-fast) var(--ease-standard),
+    box-shadow var(--duration-fast) var(--ease-standard),
+    transform var(--duration-fast) var(--ease-standard);
+  flex-shrink: 0;
+  box-shadow: inset 0 1px 0 var(--color-border-highlight);
+}
+
+.topnav-btn--cmd:hover {
+  color: var(--color-accent);
+  background: var(--color-bg-hover);
+  border-color: var(--color-accent-border);
+  box-shadow: 0 0 14px var(--color-accent-glow), inset 0 1px 0 var(--color-border-highlight);
+  transform: translateY(-0.5px);
+}
+
+.topnav-btn--cmd:active {
+  transform: translateY(0) scale(0.94);
+}
+
+.topnav-btn--cmd:focus-visible {
+  outline: none;
+  box-shadow: var(--ring-accent-soft);
+}
+
+.topnav-cmd-icon {
+  width: 15px;
+  height: 15px;
+  stroke-width: 2.2;
+}
+
+.topnav-divider {
+  width: 1px;
+  height: 16px;
+  background: var(--color-border);
+  margin: 0 var(--space-xs);
+  flex-shrink: 0;
+  opacity: 0.6;
+}
+
+/* ── Live "Now Playing" HUD Chip (Right Cluster) ─────────────────────── */
+.topnav-now-playing-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 30px;
+  padding: 0 10px 0 8px;
+  background: color-mix(in srgb, var(--color-success) 12%, var(--color-bg-secondary));
+  border: 1px solid color-mix(in srgb, var(--color-success) 35%, transparent);
+  border-radius: var(--radius-full);
+  color: var(--color-text-primary);
+  cursor: pointer;
+  outline: none;
+  user-select: none;
+  flex-shrink: 0;
+  box-shadow:
+    0 0 12px color-mix(in srgb, var(--color-success) 20%, transparent),
+    inset 0 1px 0 var(--color-border-highlight);
+  transition:
+    transform var(--duration-fast) var(--ease-standard),
+    background var(--duration-fast) var(--ease-standard),
+    border-color var(--duration-fast) var(--ease-standard),
+    box-shadow var(--duration-fast) var(--ease-standard);
+  animation: nowPlayingIn var(--duration-normal) var(--ease-enter) both;
+}
+
+@keyframes nowPlayingIn {
+  from {
+    opacity: 0;
+    transform: scale(0.92);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+.topnav-now-playing-chip:hover {
+  transform: translateY(-0.5px);
+  background: color-mix(in srgb, var(--color-success) 18%, var(--color-bg-secondary));
+  border-color: var(--color-success);
+  box-shadow:
+    0 0 18px color-mix(in srgb, var(--color-success) 35%, transparent),
+    inset 0 1px 0 var(--color-border-highlight);
+}
+
+.topnav-now-playing-chip:active {
+  transform: translateY(0) scale(0.96);
+}
+
+.topnav-now-playing-chip:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--color-success) 60%, transparent);
+}
+
+.topnav-now-playing-pulse {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--color-success);
+  box-shadow: 0 0 8px var(--color-success);
+  animation: nowPlayingPulse 1.6s infinite;
+  flex-shrink: 0;
+}
+
+@keyframes nowPlayingPulse {
+  0% {
+    transform: scale(0.95);
+    box-shadow: 0 0 0 0 color-mix(in srgb, var(--color-success) 70%, transparent);
+  }
+  70% {
+    transform: scale(1.15);
+    box-shadow: 0 0 0 5px color-mix(in srgb, var(--color-success) 0%, transparent);
+  }
+  100% {
+    transform: scale(0.95);
+    box-shadow: 0 0 0 0 color-mix(in srgb, var(--color-success) 0%, transparent);
+  }
+}
+
+.topnav-now-playing-chip-icon {
+  width: 13px;
+  height: 13px;
+  color: var(--color-success);
+  flex-shrink: 0;
+}
+
+.topnav-now-playing-chip-name {
+  font-size: 11.5px;
+  font-weight: 600;
+  color: var(--color-text-primary);
+  max-width: 110px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  letter-spacing: -0.01em;
+}
+
+@media (max-width: 1024px) {
+  .topnav-now-playing-chip-name {
+    display: none;
+  }
+  .topnav-now-playing-chip {
+    padding: 0 8px;
+  }
 }
 
 .topnav-tabs {

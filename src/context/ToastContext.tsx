@@ -7,6 +7,7 @@ import {
   type ReactNode,
 } from "react";
 import { useLanguage } from "./LanguageContext";
+import { playNotificationSound } from "../utils/soundEffects";
 
 export type ToastType = "success" | "error" | "info" | "warning";
 
@@ -28,6 +29,7 @@ export function ToastProvider({ children }: { children: ReactNode }) {
   const [toasts, setToasts] = useState<Toast[]>([]);
 
   const showToast = useCallback((message: string, type: ToastType) => {
+    playNotificationSound();
     const id = nextToastId++;
     setToasts((prev) => [...prev, { id, message, type }]);
   }, []);
@@ -62,12 +64,13 @@ function ToastItem({
   onDismiss: (id: number) => void;
 }) {
   const { t } = useLanguage();
+  const [isPaused, setIsPaused] = useState(false);
 
   useEffect(() => {
+    if (isPaused) return;
     const timer = setTimeout(() => onDismiss(toast.id), 4000);
     return () => clearTimeout(timer);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [toast.id]);
+  }, [toast.id, isPaused, onDismiss]);
 
   const icon =
     toast.type === "success" ? (
@@ -97,7 +100,11 @@ function ToastItem({
     );
 
   return (
-    <div className={`toast-item toast-${toast.type}`}>
+    <div
+      className={`toast-item toast-${toast.type}`}
+      onMouseEnter={() => setIsPaused(true)}
+      onMouseLeave={() => setIsPaused(false)}
+    >
       <span className="toast-icon">{icon}</span>
       <span className="toast-message">{toast.message}</span>
       <button
@@ -110,6 +117,11 @@ function ToastItem({
           <line x1="6" y1="6" x2="18" y2="18" />
         </svg>
       </button>
+      <div className="toast-progress-track" aria-hidden="true">
+        <div
+          className={`toast-progress-bar toast-progress--${toast.type}${isPaused ? " is-paused" : ""}`}
+        />
+      </div>
     </div>
   );
 }

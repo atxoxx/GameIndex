@@ -11,7 +11,9 @@
   height: 100vh;
   width: 100vw;
   background-color: var(--color-bg-primary);
-  background-image: var(--color-bg-gradient);
+  background-image:
+    radial-gradient(ellipse 80% 50% at 50% -10%, color-mix(in srgb, var(--color-accent) 8%, transparent) 0%, transparent 70%),
+    var(--color-bg-gradient);
   overflow: hidden;
   box-sizing: border-box;
 }
@@ -103,41 +105,42 @@
   height: 2px;
   background: linear-gradient(
     90deg,
-    transparent,
-    color-mix(in srgb, var(--color-accent) 38%, transparent) 25%,
-    color-mix(in srgb, var(--color-accent) 22%, transparent) 50%,
-    color-mix(in srgb, var(--color-accent) 38%, transparent) 75%,
-    transparent
+    transparent 0%,
+    color-mix(in srgb, var(--color-accent) 50%, transparent) 20%,
+    color-mix(in srgb, var(--color-accent-2, var(--color-accent)) 85%, transparent) 50%,
+    color-mix(in srgb, var(--color-accent) 50%, transparent) 80%,
+    transparent 100%
   );
   pointer-events: none;
-  z-index: 1;
-  filter: blur(0.5px);
-  animation: mainEdgeShimmer 9s var(--ease-in-out) infinite alternate;
+  z-index: 2;
+  filter: drop-shadow(0 1px 6px var(--color-accent-glow));
+  animation: mainEdgeShimmer 6s var(--ease-in-out) infinite alternate;
   will-change: opacity;
 }
 
 @keyframes mainEdgeShimmer {
-  0%   { opacity: 0.55; }
+  0%   { opacity: 0.6; }
   100% { opacity: 1; }
 }
 
-/* Subtle grain texture — adds tactile depth without images or perf cost.
-   A 24px dotted grid at 3.5% opacity, color-driven so it tints with each
-   theme's mesh. Pure CSS, GPU-friendly, pointer-events none. */
+/* Subtle tactile tech grid — adds authentic hardware/cockpit feel without perf cost.
+   A 28px dotted matrix, color-driven so it tints with each theme. Pure CSS, GPU-friendly. */
 .app-main::after {
   content: "";
   position: absolute;
   inset: 0;
   background-image: radial-gradient(
     circle at 1px 1px,
-    color-mix(in srgb, var(--color-text-primary) 5%, transparent) 1px,
+    color-mix(in srgb, var(--color-text-primary) 12%, transparent) 1px,
     transparent 0
   );
-  background-size: 24px 24px;
-  opacity: 0.035;
+  background-size: 28px 28px;
+  opacity: 0.35;
   pointer-events: none;
   z-index: 0;
   border-radius: inherit;
+  mask-image: radial-gradient(ellipse 100% 100% at 50% 30%, black 40%, transparent 100%);
+  -webkit-mask-image: radial-gradient(ellipse 100% 100% at 50% 30%, black 40%, transparent 100%);
 }
 
 @media (prefers-reduced-motion: reduce) {

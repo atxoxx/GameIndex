@@ -1,4 +1,5 @@
 import { forwardRef, type ButtonHTMLAttributes, type ReactNode } from "react";
+import { playActionSound } from "../../utils/soundEffects";
 
 type ButtonVariant = "primary" | "secondary" | "ghost" | "danger";
 type ButtonSize = "sm" | "md" | "lg";
@@ -56,6 +57,10 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(
         disabled={isLoading || disabled}
         aria-busy={isLoading || undefined}
         {...props}
+        onClick={(e) => {
+          playActionSound();
+          props.onClick?.(e);
+        }}
       >
         {isLoading && <span className="ui-btn__spinner" aria-hidden />}
         {!isLoading && leftIcon && (

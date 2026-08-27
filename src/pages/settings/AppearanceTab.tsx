@@ -3,9 +3,12 @@ import { useTheme, type ThemeDescriptor } from "../../context/ThemeContext";
 import { useSettings } from "../../context/SettingsContext";
 import { useLanguage } from "../../context/LanguageContext";
 import { useToast } from "../../context/ToastContext";
+import { Volume2 } from "lucide-react";
 import SettingsSection from "./SettingsSection";
+import SettingsToggleCard from "./SettingsToggleCard";
 import AccentPreview from "./AccentPreview";
 import { PaletteIcon } from "./settingsIcons";
+import { playActionSound } from "../../utils/soundEffects";
 
 /** Maps theme ids to preview colors — kept in sync with theme stylesheets. */
 const THEME_PREVIEW_COLORS: Record<string, { bg: string; text: string; accent: string }> = {
@@ -75,7 +78,16 @@ function getDescriptorLabel(descriptor: ThemeDescriptor, t: (k: string) => strin
 
 export default function AppearanceTab() {
   const { currentTheme, setTheme, themes, systemSync, setSystemSync } = useTheme();
-  const { accentColor, setAccentColor, autoGameAccent, setAutoGameAccent } = useSettings();
+  const {
+    accentColor,
+    setAccentColor,
+    autoGameAccent,
+    setAutoGameAccent,
+    uiSoundEnabled,
+    setUiSoundEnabled,
+    uiSoundVolume,
+    setUiSoundVolume,
+  } = useSettings();
   const { t } = useLanguage();
   const { showToast } = useToast();
 
@@ -95,8 +107,9 @@ export default function AppearanceTab() {
   }
 
   return (
-    <SettingsSection
-      id="appearance-themes"
+    <>
+      <SettingsSection
+        id="appearance-themes"
       icon={<PaletteIcon />}
       title={t("settings.section.appearanceThemes")}
       desc={t("settings.appearance.desc")}
@@ -263,5 +276,55 @@ export default function AppearanceTab() {
         </div>
       </div>
     </SettingsSection>
+
+    <SettingsSection
+      id="appearance-sound"
+      icon={<Volume2 className="settings-section-icon" />}
+      title={t("settings.sound.sectionTitle")}
+      desc={t("settings.sound.sectionDesc")}
+    >
+      <div className="settings-sound-container" style={{ display: "flex", flexDirection: "column", gap: "var(--space-md)" }}>
+        <SettingsToggleCard
+          title={t("settings.sound.enableTitle")}
+          desc={t("settings.sound.enableDesc")}
+          checked={uiSoundEnabled}
+          onChange={(checked) => {
+            setUiSoundEnabled(checked);
+            if (checked) playActionSound();
+          }}
+        />
+
+        {uiSoundEnabled && (
+          <div
+            className="settings-behavior-card"
+            style={{ display: "flex", flexDirection: "column", gap: "var(--space-xs)", padding: "var(--space-md) var(--space-lg)" }}
+          >
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+              <span className="settings-checkbox-title" style={{ fontSize: "var(--font-size-sm)", fontWeight: 600 }}>
+                {t("settings.sound.volumeTitle")}
+              </span>
+              <span style={{ fontSize: "var(--font-size-xs)", color: "var(--color-accent)", fontWeight: 700 }}>
+                {uiSoundVolume}%
+              </span>
+            </div>
+            <input
+              type="range"
+              min="0"
+              max="100"
+              step="5"
+              value={uiSoundVolume}
+              onChange={(e) => {
+                const val = Number(e.target.value);
+                setUiSoundVolume(val);
+              }}
+              onMouseUp={() => playActionSound()}
+              className="filter-slider"
+              aria-label={t("settings.sound.volumeTitle")}
+            />
+          </div>
+        )}
+      </div>
+    </SettingsSection>
+  </>
   );
 }

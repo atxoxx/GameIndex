@@ -28,6 +28,17 @@
   animation-delay: var(--kpi-stagger, 0ms);
 }
 
+.kpi-tile::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 1px;
+  background: linear-gradient(90deg, transparent 5%, var(--color-border-highlight) 30%, var(--color-border-highlight) 70%, transparent 95%);
+  pointer-events: none;
+}
+
 .kpi-tile--glass {
   background: var(--color-surface-raised);
   border-color: var(--color-border-light);
@@ -49,9 +60,12 @@
 }
 
 .kpi-tile--clickable:hover {
-  border-color: var(--color-accent);
+  border-color: var(--color-accent-border);
   transform: translateY(-2px);
-  box-shadow: var(--elevation-3), var(--shadow-glow);
+  box-shadow:
+    var(--elevation-3),
+    0 0 16px var(--color-accent-glow),
+    inset 0 1px 0 var(--color-border-highlight);
 }
 
 @keyframes kpiTileIn {

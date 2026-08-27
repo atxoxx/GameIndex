@@ -1,6 +1,6 @@
-import { useCallback, useId, useRef, useState, useEffect } from "react";
+import { useCallback, useId, useRef, useState, useEffect, useMemo } from "react";
 import type { MouseEvent } from "react";
-import { NavLink, useLocation } from "react-router-dom";
+import { NavLink, useLocation, useNavigate } from "react-router-dom";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import {
   Activity,
@@ -14,6 +14,7 @@ import {
   MonitorPlay,
   Puzzle,
   Rss,
+  Search,
   Settings,
   Store,
   Tag,
@@ -22,6 +23,7 @@ import {
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { useActiveDownloadCount } from "../context/DownloadContext";
+import { useGames } from "../context/GameContext";
 import { useAppVersion } from "../hooks/useAppVersion";
 import { useBigScreen } from "../context/BigScreenContext";
 import {
@@ -31,7 +33,9 @@ import {
 } from "../pages/friendsStorage";
 import DownloadPopover from "./DownloadPopover";
 import WindowControls from "./WindowControls";
+import CommandPalette from "./CommandPalette";
 import { useLanguage } from "../context/LanguageContext";
+import { playTabSound } from "../utils/soundEffects";
 
 /**
  * Mouse-event guard: an interactive element is anything the user
@@ -78,11 +82,33 @@ const navTabs: Tab[] = [
 
 
 export default function TopNav() {
+  const navigate = useNavigate();
   const activeDownloads = useActiveDownloadCount();
+  const { games, runningGameIds } = useGames();
   const { isBigScreen, setBigScreen } = useBigScreen();
   const location = useLocation();
   const { t } = useLanguage();
   const version = useAppVersion();
+
+  const [paletteOpen, setPaletteOpen] = useState(false);
+
+  // Active running game (if any)
+  const runningGame = useMemo(() => {
+    if (runningGameIds.length === 0) return null;
+    return games.find((g) => runningGameIds.includes(g.id)) ?? null;
+  }, [games, runningGameIds]);
+
+  // Global Ctrl+K / Cmd+K hotkey
+  useEffect(() => {
+    const handleGlobalKeyDown = (e: KeyboardEvent) => {
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "k") {
+        e.preventDefault();
+        setPaletteOpen((prev) => !prev);
+      }
+    };
+    window.addEventListener("keydown", handleGlobalKeyDown);
+    return () => window.removeEventListener("keydown", handleGlobalKeyDown);
+  }, []);
 
   // Unseen "new community items" badge. Counts new sessions /
   // recommendations / suggestions pulled from friends. Cleared when the
@@ -191,6 +217,23 @@ export default function TopNav() {
             <span className="topnav-logo__version">v{version}</span>
           )}
         </NavLink>
+
+        {/* Command Palette Icon Button */}
+        <button
+          type="button"
+          className="topnav-btn--cmd"
+          onClick={() => {
+            playTabSound();
+            setPaletteOpen(true);
+          }}
+          title={t("topnav.searchPlaceholder")}
+          aria-label={t("topnav.searchPlaceholder")}
+        >
+          <Search className="topnav-cmd-icon" aria-hidden="true" />
+        </button>
+
+        <span className="topnav-divider" aria-hidden="true" />
+
         <div ref={tabsRef} className="topnav-tabs">
           {navTabs.map((tab) => {
             const Icon = tab.icon;
@@ -203,6 +246,7 @@ export default function TopNav() {
                 className={`topnav-tab${isActive ? " active" : ""}`}
                 aria-current={isActive ? "page" : undefined}
                 onClick={() => {
+                  playTabSound();
                   if (tab.path === "/friends") clearUnseenCommunityItems();
                 }}
               >
@@ -229,6 +273,24 @@ export default function TopNav() {
        * the right edge instead of drifting to the geometric center. */}
       <div className="topnav-right-cluster">
         <div className="topnav-right">
+          {/* Live "Now Playing" HUD Chip — placed in right action cluster for zero tab crowding */}
+          {runningGame && (
+            <button
+              type="button"
+              className="topnav-now-playing-chip"
+              onClick={() => {
+                playTabSound();
+                navigate(`/library/${runningGame.id}`);
+              }}
+              title={`${t("topnav.nowPlaying")}: ${runningGame.name}`}
+              aria-label={`${t("topnav.nowPlaying")}: ${runningGame.name}`}
+            >
+              <span className="topnav-now-playing-pulse" aria-hidden="true" />
+              <Gamepad2 className="topnav-now-playing-chip-icon" aria-hidden="true" />
+              <span className="topnav-now-playing-chip-name">{runningGame.name}</span>
+            </button>
+          )}
+
           <button
             ref={downloadBtnRef}
             type="button"
@@ -295,6 +357,11 @@ export default function TopNav() {
           <WindowControls />
         </div>
       </div>
+
+      <CommandPalette
+        isOpen={paletteOpen}
+        onClose={() => setPaletteOpen(false)}
+      />
     </nav>
   );
 }
