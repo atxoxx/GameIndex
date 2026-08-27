@@ -80,7 +80,7 @@
   background-size: cover;
   border-radius: var(--radius-xl);
   border: 1px solid var(--color-border);
-  box-shadow: inset 0 1px 0 var(--color-border-highlight), var(--elevation-4);
+  box-shadow: inset 0 1px 0 var(--color-border-highlight), var(--elevation-3);
   position: relative;
   isolation: isolate;
   transition: border-color var(--duration-normal) var(--ease-standard), box-shadow var(--duration-normal) var(--ease-standard);
@@ -90,66 +90,26 @@
   border-color: var(--color-border-light);
 }
 
-/* Lit top edge — a soft ambient sheen along the panel's top so the
-   main surface reads as raised off the gradient mesh behind it. Sits
-   at the top of the scrollable content (scrolls away naturally).
-   Now enhanced with a subtle accent shimmer that slowly breathes.
-   The 2px laser line ties the three shell surfaces (topnav glass,
-   sidebar solid, main card) into one product language. */
+/* Quiet top edge — a single hairline highlight keeps the main panel
+   reading as raised without the animated laser line. The old shimmer
+   and the dotted tech grid overlay were removed in the de-clutter pass:
+   they added texture on top of every page's content, which made each
+   surface feel busier than it was. */
 .app-main::before {
   content: "";
   position: absolute;
   top: 0;
   left: 0;
   right: 0;
-  height: 2px;
+  height: 1px;
   background: linear-gradient(
     90deg,
     transparent 0%,
-    color-mix(in srgb, var(--color-accent) 50%, transparent) 20%,
-    color-mix(in srgb, var(--color-accent-2, var(--color-accent)) 85%, transparent) 50%,
-    color-mix(in srgb, var(--color-accent) 50%, transparent) 80%,
+    color-mix(in srgb, var(--color-text-primary) 14%, transparent) 50%,
     transparent 100%
   );
   pointer-events: none;
   z-index: 2;
-  filter: drop-shadow(0 1px 6px var(--color-accent-glow));
-  animation: mainEdgeShimmer 6s var(--ease-in-out) infinite alternate;
-  will-change: opacity;
-}
-
-@keyframes mainEdgeShimmer {
-  0%   { opacity: 0.6; }
-  100% { opacity: 1; }
-}
-
-/* Subtle tactile tech grid — adds authentic hardware/cockpit feel without perf cost.
-   A 28px dotted matrix, color-driven so it tints with each theme. Pure CSS, GPU-friendly. */
-.app-main::after {
-  content: "";
-  position: absolute;
-  inset: 0;
-  background-image: radial-gradient(
-    circle at 1px 1px,
-    color-mix(in srgb, var(--color-text-primary) 12%, transparent) 1px,
-    transparent 0
-  );
-  background-size: 28px 28px;
-  opacity: 0.35;
-  pointer-events: none;
-  z-index: 0;
-  border-radius: inherit;
-  mask-image: radial-gradient(ellipse 100% 100% at 50% 30%, black 40%, transparent 100%);
-  -webkit-mask-image: radial-gradient(ellipse 100% 100% at 50% 30%, black 40%, transparent 100%);
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .app-main::before {
-    animation: none;
-  }
-  .app-main::after {
-    display: none;
-  }
 }
 
 

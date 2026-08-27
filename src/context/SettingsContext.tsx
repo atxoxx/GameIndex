@@ -764,8 +764,10 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
     lsSet(LS_COMMAND_PALETTE_MODE, next);
   }, []);
 
+  // Compact is the default: the full 12-tab bar is crowded and the
+  // secondary pages stay one click away inside the "More" dropdown.
   const [navbarMode, setNavbarModeState] = useState<NavbarMode>(() =>
-    lsGet(LS_NAVBAR_MODE) === "compact" ? "compact" : "full",
+    lsGet(LS_NAVBAR_MODE) === "full" ? "full" : "compact",
   );
   const setNavbarMode = useCallback((next: NavbarMode) => {
     setNavbarModeState(next);

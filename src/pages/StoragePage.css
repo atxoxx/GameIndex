@@ -15,7 +15,6 @@
   flex-direction: column;
   box-sizing: border-box;
   gap: var(--space-lg);
-  padding: 0;
   min-height: 100%;
   animation: rise var(--duration-normal, 200ms) var(--ease-out) both;
 }

@@ -107,9 +107,9 @@
   --brand-gradient: linear-gradient(135deg, var(--color-accent) 0%, var(--color-accent-2) 100%);
   --brand-gradient-strong: linear-gradient(135deg, var(--color-accent) 0%, var(--color-accent-2) 58%, var(--color-accent-active) 100%);
   --mesh-gradient:
-    radial-gradient(ellipse 78% 55% at 18% -8%, color-mix(in srgb, var(--color-accent) 9%, transparent) 0%, transparent 62%),
-    radial-gradient(ellipse 62% 48% at 88% 0%, color-mix(in srgb, var(--color-accent-2, var(--color-accent)) 7%, transparent) 0%, transparent 58%),
-    radial-gradient(ellipse 92% 36% at 50% 102%, color-mix(in srgb, var(--color-accent) 4.5%, transparent) 0%, transparent 70%);
+    radial-gradient(ellipse 78% 55% at 18% -8%, color-mix(in srgb, var(--color-accent) 5%, transparent) 0%, transparent 62%),
+    radial-gradient(ellipse 62% 48% at 88% 0%, color-mix(in srgb, var(--color-accent-2, var(--color-accent)) 4%, transparent) 0%, transparent 58%),
+    radial-gradient(ellipse 92% 36% at 50% 102%, color-mix(in srgb, var(--color-accent) 2.5%, transparent) 0%, transparent 70%);
   --brand-debrid: #00f0ff;
   --brand-twitch: #9146ff;
   --brand-nvidia: #76b900;
