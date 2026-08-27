@@ -1838,6 +1838,14 @@ input[type="checkbox"].dl-file-checkbox:disabled:checked {
   box-shadow: 0 0 0 2px var(--color-accent-glow);
 }
 
+.dl-card--completed {
+  border-color: color-mix(in srgb, var(--color-success) 40%, var(--color-border));
+}
+
+.dl-card--error {
+  border-color: color-mix(in srgb, var(--color-danger) 45%, var(--color-border));
+}
+
 .dl-card-media {
   position: relative;
   width: 100%;
@@ -1960,6 +1968,12 @@ input[type="checkbox"].dl-file-checkbox:disabled:checked {
 .dl-card-pct {
   font-weight: var(--font-weight-bold);
   color: var(--color-text-primary);
+}
+
+.dl-card-size {
+  font-size: var(--font-size-2xs);
+  font-variant-numeric: tabular-nums;
+  color: var(--color-text-muted);
 }
 
 .dl-card-telemetry {
@@ -2887,6 +2901,215 @@ input[type="checkbox"].dl-file-checkbox:disabled:checked {
   font-size: var(--font-size-2xs);
   font-weight: var(--font-weight-semibold);
   text-transform: capitalize;
+}
+
+.dl-stats-status-pill--completed {
+  background: color-mix(in srgb, var(--color-success) 18%, transparent);
+  color: var(--color-success);
+  border: 1px solid color-mix(in srgb, var(--color-success) 45%, transparent);
+}
+
+.dl-stats-status-pill--downloading {
+  background: color-mix(in srgb, var(--color-accent) 18%, transparent);
+  color: var(--color-accent);
+  border: 1px solid color-mix(in srgb, var(--color-accent) 45%, transparent);
+}
+
+.dl-stats-status-pill--seeding,
+.dl-stats-status-pill--fetchingMetadata {
+  background: color-mix(in srgb, var(--color-info) 18%, transparent);
+  color: var(--color-info);
+  border: 1px solid color-mix(in srgb, var(--color-info) 45%, transparent);
+}
+
+.dl-stats-status-pill--paused {
+  background: color-mix(in srgb, var(--color-warning) 18%, transparent);
+  color: var(--color-warning);
+  border: 1px solid color-mix(in srgb, var(--color-warning) 45%, transparent);
+}
+
+.dl-stats-status-pill--queued,
+.dl-stats-status-pill--removed {
+  background: var(--color-bg-secondary);
+  color: var(--color-text-muted);
+  border: 1px solid var(--color-border);
+}
+
+.dl-stats-status-pill--error {
+  background: color-mix(in srgb, var(--color-danger) 18%, transparent);
+  color: var(--color-danger);
+  border: 1px solid color-mix(in srgb, var(--color-danger) 45%, transparent);
+}
+
+.dl-stats-history-note {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 0;
+  padding: var(--space-sm) var(--space-md);
+  font-size: var(--font-size-2xs);
+  color: var(--color-text-muted);
+  background: color-mix(in srgb, var(--color-accent) 8%, var(--color-bg-tertiary));
+  border: 1px solid color-mix(in srgb, var(--color-accent) 20%, var(--color-border));
+  border-radius: var(--radius-md);
+}
+
+.dl-stats-empty-text {
+  margin: 0;
+  padding: var(--space-md) 0;
+  text-align: center;
+  font-size: var(--font-size-xs);
+  color: var(--color-text-muted);
+}
+
+.dl-stats-table td.dl-stats-table-empty {
+  text-align: center;
+  padding: var(--space-xl);
+  color: var(--color-text-muted);
+}
+
+.dl-stats-mini-table {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.dl-stats-mini-row {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: var(--space-sm);
+  padding: 8px 10px;
+  background: var(--color-bg-secondary);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  transition: background var(--transition-fast), border-color var(--transition-fast);
+}
+
+.dl-stats-mini-row:hover {
+  background: var(--color-bg-hover);
+  border-color: var(--color-border-light);
+}
+
+.dl-stats-mini-meta {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.dl-stats-mini-name {
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-medium);
+  color: var(--color-text-primary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.dl-stats-mini-sub {
+  font-size: var(--font-size-2xs);
+  color: var(--color-text-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.dl-stats-mini-value {
+  font-size: var(--font-size-2xs);
+  font-weight: var(--font-weight-semibold);
+  font-variant-numeric: tabular-nums;
+  color: var(--color-text-secondary);
+  flex-shrink: 0;
+}
+
+.dl-stats-rank-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 26px;
+  height: 26px;
+  padding: 0 6px;
+  font-size: var(--font-size-2xs);
+  font-weight: var(--font-weight-bold);
+  font-variant-numeric: tabular-nums;
+  border-radius: var(--radius-sm);
+  background: color-mix(in srgb, var(--color-accent) 15%, transparent);
+  color: var(--color-accent);
+  border: 1px solid color-mix(in srgb, var(--color-accent) 30%, transparent);
+  flex-shrink: 0;
+}
+
+.dl-stats-status-tag {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 2px 7px;
+  font-size: var(--font-size-2xs);
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+  white-space: nowrap;
+  border-radius: var(--radius-xs);
+  flex-shrink: 0;
+}
+
+.dl-stats-status-tag--completed {
+  background: color-mix(in srgb, var(--color-success) 18%, transparent);
+  color: var(--color-success);
+  border: 1px solid color-mix(in srgb, var(--color-success) 45%, transparent);
+}
+
+.dl-stats-footer {
+  gap: var(--space-md);
+  flex-wrap: wrap;
+}
+
+.dl-stats-export-controls {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  flex-wrap: wrap;
+}
+
+.dl-stats-export-label {
+  font-size: var(--font-size-2xs);
+  font-weight: var(--font-weight-semibold);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--color-text-muted);
+}
+
+.dl-stats-format-seg {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  padding: 2px;
+  background: var(--color-bg-secondary);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+}
+
+.dl-stats-format-btn {
+  padding: 3px 10px;
+  font-size: var(--font-size-2xs);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text-muted);
+  background: transparent;
+  border: none;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+
+.dl-stats-format-btn:hover {
+  color: var(--color-text-primary);
+}
+
+.dl-stats-format-btn.active {
+  background: var(--color-bg-tertiary);
+  color: var(--color-accent);
+  box-shadow: var(--shadow-xs);
 }
 
 /* ── Animation Keyframes ─────────────────────────────────────────── */
