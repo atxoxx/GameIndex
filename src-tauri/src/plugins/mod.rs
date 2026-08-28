@@ -939,6 +939,7 @@ mod tests {
             "freetp",
             "gamerepack",
             "gogarchive",
+            "gogrev",
             "internetarchive",
             "knaben",
             "onlinefix",
@@ -1067,5 +1068,48 @@ mod tests {
                 .join(", ")
         );
     }
-}
 
+    #[tokio::test]
+    #[ignore]
+    async fn gogrev_plugin_live_search() {
+        let plugins_dir = concat!(env!("CARGO_MANIFEST_DIR"), "/../plugins");
+        let plugin_path = std::path::Path::new(plugins_dir).join("gogrev.js");
+        let source = std::fs::read_to_string(&plugin_path).expect("read gogrev.js");
+
+        let (descriptor, results) = tokio::task::spawn_blocking(move || {
+            let http = reqwest::blocking::Client::builder()
+                .user_agent(PLUGIN_HTTP_UA)
+                .timeout(Duration::from_secs(20))
+                .use_rustls_tls()
+                .build()
+                .expect("client");
+
+            let descriptor = runtime::evaluate_plugin(&source, &http).expect("evaluate_plugin");
+            let results = runtime::run_search(&descriptor, "cult of the lamb", &http).expect("run_search");
+            (descriptor, results)
+        })
+        .await
+        .expect("spawn_blocking");
+
+        assert_eq!(descriptor.manifest.id, "gogrev");
+        assert!(!results.is_empty(), "gogrev search returned no results");
+
+        let has_direct = results.iter().any(|r| {
+            r.direct_urls
+                .as_ref()
+                .is_some_and(|urls| !urls.is_empty())
+        });
+        let has_magnet = results.iter().any(|r| {
+            r.magnet.as_deref().is_some_and(|m| m.starts_with("magnet:"))
+        });
+        let has_torrent = results.iter().any(|r| {
+            r.torrent_url
+                .as_deref()
+                .is_some_and(|t| t.starts_with("http"))
+        });
+
+        assert!(has_direct, "expected at least one direct download result");
+        assert!(has_magnet, "expected at least one magnet result");
+        assert!(has_torrent, "expected at least one torrent result");
+    }
+}
