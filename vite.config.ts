@@ -10,6 +10,20 @@ export default defineConfig(async () => ({
 
   build: {
     chunkSizeWarningLimit: 1500,
+    // Don't fetch the heavy, purely-on-demand chunks at startup. Vite's default
+    // modulePreload fetches every dynamic-import dependency (bigscreen,
+    // html2canvas, hls.js, nostr, qrcode) alongside the first paint even though
+    // most desktop users never open Big Screen Mode or export a capture. Those
+    // stay lazy: they download + parse only when the view that needs them
+    // actually loads. The small initial set (index, react-vendor, tauri,
+    // router, vendor) still preloads so first navigation stays snappy.
+    modulePreload: {
+      polyfill: true,
+      resolveDependencies(_currentModule, deps: { fileName?: string }[]) {
+        const excluded = /\/(bigscreen|html2canvas|hls|nostr|qrcode)-/;
+        return deps.filter((d) => !excluded.test(d.fileName ?? ""));
+      },
+    },
     rollupOptions: {
       output: {
         manualChunks(id) {
@@ -19,6 +33,7 @@ export default defineConfig(async () => ({
             if (id.includes("qrcode")) return "qrcode";
             if (id.includes("@tauri-apps")) return "tauri";
             if (id.includes("react-router")) return "router";
+            if (id.includes("hls.js")) return "hls";
             if (
               id.includes("react-dom") ||
               id.includes("/react/") ||
@@ -28,16 +43,11 @@ export default defineConfig(async () => ({
             }
             return "vendor";
           }
-          // Controller-first Big Screen shell — keep its 204 KB CSS + related
-          // components out of the initial chunk so desktop users never pay
-          // for TV-mode code until isBigScreen becomes true.
-          if (
-            id.includes("bigscreen") ||
-            id.includes("BigScreen") ||
-            id.includes("src/bigscreen")
-          ) {
-            return "bigscreen";
-          }
+          // Big Screen views are already React.lazy in src/bigscreen/registry.tsx,
+          // so we deliberately DON'T lump them into a single mega-chunk: each
+          // controller-first view stays its own async chunk and only loads the
+          // sections the user actually opens (entering Big Screen Home no longer
+          // drags in the Store, Treasury, Mods, Emulators, etc.).
         },
       },
     },

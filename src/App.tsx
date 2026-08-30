@@ -1,10 +1,14 @@
-import { Suspense, useEffect } from "react";
+import { lazy, Suspense, useEffect } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { HashRouter, Routes, Route } from "react-router-dom";
 import TopNav from "./components/TopNav";
 import Sidebar from "./components/Sidebar";
 import MainContent from "./components/MainContent";
-import BigScreenLayout from "./components/BigScreenLayout";
+// BigScreenLayout is huge (controller shell + search overlay + virtual
+// cursor) and only ever mounted when the user is actually in Big Screen
+// mode, so it is lazy-loaded to keep it — and its transitive deps — out of
+// the desktop initial bundle entirely.
+const BigScreenLayout = lazy(() => import("./components/BigScreenLayout"));
 import { BIGSCREEN_ROUTE_PAIRS, ShellSwitch } from "./bigscreen/registry";
 import { GameProvider } from "./context/GameContext";
 import { ToastProvider } from "./context/ToastContext";
