@@ -1,6 +1,7 @@
 import type { LibrarySort } from "../../hooks/useLibraryFilters";
 import type { ViewDensity } from "../../types/game";
 import { useLanguage } from "../../context/LanguageContext";
+import { Disclosure } from "../ui";
 import DensityToggle from "../DensityToggle";
 import LibrarySortMenu from "./LibrarySortMenu";
 
@@ -117,40 +118,43 @@ export default function LibraryToolbar({
         {/* Sort Menu */}
         <LibrarySortMenu value={sort} onChange={onSortChange} />
 
-        {/* Bulk select mode toggle */}
-        {onToggleBulkMode && (
+        {/* Advanced controls (bulk select + export). In Simple mode these
+            collapse behind a disclosure; in Complete mode they stay
+            inline (Disclosure renders children unchanged). */}
+        <Disclosure className="lib-toolbar-advanced">
+          {onToggleBulkMode && (
+            <button
+              type="button"
+              className={`lib-bulk-toggle-btn${bulkMode ? " active" : ""}`}
+              onClick={onToggleBulkMode}
+              title={bulkMode ? t("library.bulk.clearSelection") : t("storeToolbar.selectMultiple")}
+              aria-pressed={bulkMode}
+            >
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" width="15" height="15" aria-hidden="true">
+                <polyline points="9 11 12 14 22 4" />
+                <path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11" />
+              </svg>
+              <span>{t("store.selectLabel")}</span>
+            </button>
+          )}
+
           <button
             type="button"
-            className={`lib-bulk-toggle-btn ui-complete-only${bulkMode ? " active" : ""}`}
-            onClick={onToggleBulkMode}
-            title={bulkMode ? t("library.bulk.clearSelection") : t("storeToolbar.selectMultiple")}
-            aria-pressed={bulkMode}
+            className="lib-export-trigger"
+            onClick={onExport}
+            title={t("libraryExport.export")}
+            aria-label={t("libraryExport.export")}
           >
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" width="15" height="15" aria-hidden="true">
-              <polyline points="9 11 12 14 22 4" />
-              <path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11" />
-            </svg>
-            <span>{t("store.selectLabel")}</span>
+            <span className="lib-export-trigger-icon" aria-hidden="true">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M12 3v12" />
+                <path d="m7 8 5-5 5 5" />
+                <path d="M5 13v6a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-6" />
+              </svg>
+            </span>
+            <span>{t("libraryExport.export")}</span>
           </button>
-        )}
-
-        {/* Export trigger */}
-        <button
-          type="button"
-          className="lib-export-trigger ui-complete-only"
-          onClick={onExport}
-          title={t("libraryExport.export")}
-          aria-label={t("libraryExport.export")}
-        >
-          <span className="lib-export-trigger-icon" aria-hidden="true">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M12 3v12" />
-              <path d="m7 8 5-5 5 5" />
-              <path d="M5 13v6a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-6" />
-            </svg>
-          </span>
-          <span>{t("libraryExport.export")}</span>
-        </button>
+        </Disclosure>
 
         <div className="lib-toolbar-group" role="radiogroup" aria-label={t("libraryPage.layoutDensity")}>
           <DensityToggle density={density} onChange={onDensityChange} />

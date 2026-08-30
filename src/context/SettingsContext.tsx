@@ -79,6 +79,10 @@ const LS_GAMEPAD_RIGHT_DEADZONE = "gamelib.gamepad_right_deadzone";
 const LS_COMMAND_PALETTE_MODE = "gamelib.command_palette_mode";
 const LS_NAVBAR_MODE = "gamelib.navbar_mode";
 const LS_UI_DENSITY_MODE = "gamelib.ui_density_mode";
+// Set on the very first launch so brand-new users can be defaulted into
+// Simple UI mode for approachability, while anyone who has ever run the
+// app keeps whatever they last chose. Append-only, like every other key.
+const LS_FIRST_LAUNCH = "gamelib.first_launch";
 const LS_REDUCE_MOTION = "gamelib.reduce_motion";
 const LS_SHOW_CARD_BADGES = "gamelib.show_card_badges";
 const LS_SHOW_GAME_ART_BACKDROP = "gamelib.show_game_art_backdrop";
@@ -774,9 +778,19 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
     lsSet(LS_NAVBAR_MODE, next);
   }, []);
 
-  const [uiDensityMode, setUiDensityModeState] = useState<UiDensityMode>(() =>
-    lsGet(LS_UI_DENSITY_MODE) === "simple" ? "simple" : "complete",
-  );
+  const [uiDensityMode, setUiDensityModeState] = useState<UiDensityMode>(() => {
+    const stored = lsGet(LS_UI_DENSITY_MODE);
+    if (stored === "simple" || stored === "complete") return stored;
+    // No explicit choice persisted. On the very first launch of the app
+    // we default a brand-new user into Simple mode so the UI reads
+    // approachable out of the box; returning installs keep Complete.
+    if (lsGet(LS_FIRST_LAUNCH) === null) {
+      lsSet(LS_UI_DENSITY_MODE, "simple");
+      lsSet(LS_FIRST_LAUNCH, "1");
+      return "simple";
+    }
+    return "complete";
+  });
   const setUiDensityMode = useCallback((next: UiDensityMode) => {
     setUiDensityModeState(next);
     lsSet(LS_UI_DENSITY_MODE, next);

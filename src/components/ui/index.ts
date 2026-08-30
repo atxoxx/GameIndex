@@ -25,4 +25,6 @@ export type { PageHeaderProps } from "./PageHeader";
 export { default as FlagIcon } from "./FlagIcon";
 export type { FlagIconProps } from "./FlagIcon";
 
+export { default as Disclosure } from "./Disclosure";
+
 export { UpdateModal } from "./UpdateModal";

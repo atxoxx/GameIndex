@@ -2221,3 +2221,87 @@
     transition: none;
   }
 }
+
+/* ── 8. Simple-mode compact header ────────────────────────────────────────
+   In Simple mode the cinematic multi-spotlight hero is swapped for a
+   calm, single-purpose header that leads a new user toward the two core
+   destinations: browse the store or open their library. */
+.home-simple-header {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+  align-items: flex-start;
+  padding: var(--space-2xl) clamp(20px, 3.2vw, 44px);
+  border: 1px solid var(--color-border-light);
+  border-radius: var(--radius-2xl);
+  background:
+    radial-gradient(120% 140% at 0% 0%, color-mix(in srgb, var(--color-accent) 14%, transparent) 0%, transparent 55%),
+    var(--color-bg-secondary);
+  box-shadow: var(--elevation-2);
+}
+
+.home-simple-title {
+  margin: 0;
+  font-size: clamp(1.5rem, 2.8vw, 2.1rem);
+  font-weight: var(--font-weight-bold);
+  letter-spacing: -0.03em;
+  line-height: 1.12;
+  color: var(--color-text-primary);
+  font-family: var(--font-display);
+}
+
+.home-simple-subtitle {
+  margin: 0;
+  font-size: var(--font-size-md);
+  color: var(--color-text-secondary);
+  max-width: 52ch;
+  line-height: 1.5;
+}
+
+.home-simple-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-sm);
+  margin-top: var(--space-md);
+}
+
+.home-simple-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-sm);
+  padding: 10px 20px;
+  border-radius: var(--radius-full);
+  font-size: var(--font-size-md);
+  font-weight: var(--font-weight-semibold);
+  font-family: inherit;
+  cursor: pointer;
+  border: 1px solid var(--color-border);
+  background: var(--color-surface-raised);
+  color: var(--color-text-primary);
+  transition: transform var(--duration-fast) var(--ease-standard),
+    border-color var(--duration-fast) var(--ease-standard),
+    box-shadow var(--duration-fast) var(--ease-standard);
+}
+
+.home-simple-btn:hover {
+  transform: translateY(-2px);
+  border-color: var(--color-accent-border);
+  box-shadow: var(--shadow-glow);
+}
+
+.home-simple-btn:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 2px;
+}
+
+.home-simple-btn--primary {
+  background: linear-gradient(135deg, var(--color-accent), var(--brand-2, var(--color-accent-hover)));
+  color: var(--color-accent-contrast, #fff);
+  border-color: transparent;
+  box-shadow: 0 4px 14px var(--color-accent-glow);
+}
+
+.home-simple-btn--primary:hover {
+  border-color: transparent;
+  box-shadow: 0 6px 20px var(--color-accent-glow);
+}

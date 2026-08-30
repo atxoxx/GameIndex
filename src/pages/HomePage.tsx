@@ -4,6 +4,7 @@ import { invoke } from "@tauri-apps/api/core";
 import { useGames } from "../context/GameContext";
 import { useToast } from "../context/ToastContext";
 import { useLanguage } from "../context/LanguageContext";
+import { useSettings } from "../context/SettingsContext";
 import { type Game } from "../types/game";
 import type { DealItem } from "../types/deals";
 import type { NewsArticle } from "../hooks/useNewsFeeds";
@@ -42,6 +43,7 @@ export default function HomePage() {
   const { games } = useGames();
   const { showToast } = useToast();
   const { t } = useLanguage();
+  const { isSimpleUi } = useSettings();
 
   const [dealTarget, setDealTarget] = useState<ModalDealTarget | null>(null);
   const [selectedArticle, setSelectedArticle] = useState<NewsArticle | null>(null);
@@ -89,8 +91,33 @@ export default function HomePage() {
 
   return (
     <div className="home-page">
-      {/* 1. Cinematic Multi-Candidate Spotlight Hero */}
-      <HomeHero games={games} onOpenGame={openGame} />
+      {/* 1. Cinematic Multi-Candidate Spotlight Hero. In Simple mode the
+          dense spotlight is replaced by a compact friendly header with a
+          single clear action, so a new user sees an obvious first step. */}
+      {isSimpleUi ? (
+        <header className="home-simple-header">
+          <h1 className="home-simple-title">{t("home.simple.title")}</h1>
+          <p className="home-simple-subtitle">{t("home.simple.subtitle")}</p>
+          <div className="home-simple-actions">
+            <button
+              type="button"
+              className="home-simple-btn home-simple-btn--primary"
+              onClick={() => navigate("/store")}
+            >
+              {t("home.simple.browseStore")}
+            </button>
+            <button
+              type="button"
+              className="home-simple-btn"
+              onClick={() => navigate("/library")}
+            >
+              {t("home.simple.yourLibrary")}
+            </button>
+          </div>
+        </header>
+      ) : (
+        <HomeHero games={games} onOpenGame={openGame} />
+      )}
 
       {/* 2. Glanceable Quick Stats Bar */}
       {sectionsConfig.quickStats && !isEmpty && (

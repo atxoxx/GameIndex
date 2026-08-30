@@ -553,6 +553,49 @@ html[data-ui-mode="simple"] .home-dashboard {
   margin-top: var(--space-md);
 }
 
+/* ── Progressive Disclosure (Simple mode) ────────────────────────────
+   Advanced/secondary content collapses behind a small toggle in Simple
+   mode so the default view stays clean; in Complete mode the wrapper
+   renders children inline so there is zero behavior change for users on
+   the full UI (the `Disclosure` component handles both cases). */
+.ui-disclosure {
+  margin-top: var(--space-md);
+}
+
+.ui-disclosure__toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-xs);
+  padding: var(--space-xs) var(--space-md);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-full);
+  background: var(--color-surface-raised);
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-semibold);
+  cursor: pointer;
+  transition: color var(--duration-fast) var(--ease-standard), border-color var(--duration-fast) var(--ease-standard);
+}
+
+.ui-disclosure__toggle:hover {
+  color: var(--color-text-primary);
+  border-color: var(--color-accent-border);
+}
+
+.ui-disclosure__toggle:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 2px;
+}
+
+.ui-disclosure__caret {
+  font-size: var(--font-size-md);
+  line-height: 1;
+}
+
+.ui-disclosure__body {
+  margin-top: var(--space-sm);
+}
+
 /* ── Accessibility & Reduced Motion ───────────────────────────────── */
 html[data-reduce-motion="true"] *,
 html[data-reduce-motion="true"] *::before,
