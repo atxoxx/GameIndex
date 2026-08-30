@@ -33,6 +33,9 @@ nul
 # plugin runtime, which IS committed source).
 /plugins/
 
+# Local agent guidance (local-only, never committed)
+AGENTS.md
+
 # Deepwork state
 .slim/deepwork/
 .agents
