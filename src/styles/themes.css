@@ -12,29 +12,31 @@
 
 /* ── 1. Light Mode (Soft Daylight Paper) ─────────────────────────────────── */
 [data-theme="light"] {
-  --color-bg-primary: #f8fafc;
+  --color-bg-primary: #f2f5f9;
   --color-bg-secondary: #ffffff;
-  --color-bg-tertiary: #f1f5f9;
-  --color-bg-hover: #e2e8f0;
-  --color-bg-active: #cbd5e1;
-  --color-bg-gradient: radial-gradient(ellipse 90% 70% at 50% -15%, #eef2ff 0%, #f8fafc 58%, #f1f5f9 100%);
+  --color-bg-tertiary: #edf1f7;
+  --color-bg-hover: #e3e9f2;
+  --color-bg-active: #d5deea;
+  --color-bg-gradient: radial-gradient(ellipse 90% 70% at 50% -15%, #e9eefe 0%, #f2f5f9 58%, #eef2f7 100%);
 
-  /* Surface hierarchy restored: raised is not pure white */
+  /* Surface hierarchy restored for light: the canvas is a cool paper, the
+     card layer (S1) is pure white so it pops, and raised wells (S2) fall
+     one tick darker to sit beneath cards exactly like dark's S2/S3 stack. */
   --color-surface: #ffffff;
-  --color-surface-raised: #f8fafc;
-  --color-surface-overlay: rgba(15, 23, 42, 0.45);
-  --color-surface-glass: rgba(255, 255, 255, 0.82);
+  --color-surface-raised: #eef2f8;
+  --color-surface-overlay: rgba(30, 41, 59, 0.42);
+  --color-surface-glass: rgba(255, 255, 255, 0.78);
 
-  --color-border: #e2e8f0;
-  --color-border-light: #cbd5e1;
-  --color-border-highlight: rgba(255, 255, 255, 0.95);
-  --color-border-faint: rgba(15, 23, 42, 0.04);
-  --color-border-glow: color-mix(in srgb, var(--color-accent) 28%, transparent);
+  --color-border: #dde3ec;
+  --color-border-light: #c9d2e0;
+  --color-border-highlight: rgba(255, 255, 255, 0.98);
+  --color-border-faint: rgba(15, 23, 42, 0.05);
+  --color-border-glow: color-mix(in srgb, var(--color-accent) 26%, transparent);
 
   --color-text-primary: #0f172a;
   --color-text-secondary: #334155;
-  --color-text-tertiary: #64748b;
-  --color-text-muted: #64748b;
+  --color-text-tertiary: #5b6678;
+  --color-text-muted: #78849a;
   --color-text-inverse: #f8fafc;
 
   --color-accent: #6d28d9;
@@ -58,18 +60,21 @@
   --brand-4: var(--color-accent);
   --brand-gradient: linear-gradient(135deg, var(--color-accent) 0%, var(--color-accent-2) 100%);
   --brand-gradient-strong: linear-gradient(135deg, var(--color-accent) 0%, var(--color-accent-2) 58%, var(--color-accent-active) 100%);
+  /* Light mesh mirrors the dark structure (same three-radial shape) so the
+     ambient atmosphere is recognizably the same across every theme — just
+     tuned to indigo/cyan washes instead of glow. */
   --mesh-gradient:
-    radial-gradient(ellipse 85% 60% at 50% -12%, color-mix(in srgb, var(--color-accent) 7%, transparent) 0%, transparent 62%),
-    radial-gradient(ellipse 70% 45% at 88% 8%, color-mix(in srgb, var(--color-accent-2) 5%, transparent) 0%, transparent 60%),
-    radial-gradient(ellipse 100% 40% at 50% 105%, color-mix(in srgb, var(--color-accent) 3%, transparent) 0%, transparent 70%);
+    radial-gradient(ellipse 85% 62% at 22% -10%, color-mix(in srgb, var(--color-accent) 8%, transparent) 0%, transparent 62%),
+    radial-gradient(ellipse 70% 48% at 86% -4%, color-mix(in srgb, var(--color-accent-2) 6%, transparent) 0%, transparent 58%),
+    radial-gradient(ellipse 96% 40% at 50% 106%, color-mix(in srgb, var(--color-accent-2) 4%, transparent) 0%, transparent 70%);
 
   --accent-glow-strength: 16%;
   --accent-soft-strength: 9%;
   --accent-border-strength: 28%;
   --accent-hover-mix: black;
 
-  --color-scrim: rgba(15, 23, 42, 0.38);
-  --color-scrim-strong: rgba(15, 23, 42, 0.58);
+  --color-scrim: rgba(15, 23, 42, 0.36);
+  --color-scrim-strong: rgba(15, 23, 42, 0.55);
   --color-focus-ring: color-mix(in srgb, var(--color-accent) 45%, transparent);
 
   /* Light elevation — airy, low-opacity */
@@ -85,11 +90,12 @@
   --shadow-xl: var(--elevation-5);
   --shadow-glow: 0 0 0 1px var(--color-border-glow), 0 0 18px var(--color-accent-glow);
 
-  --color-success: #059669;
-  --color-warning: #d97706;
-  --color-danger: #e11d48;
-  --color-info: #0284c7;
-  --color-stale: #b45309;
+  /* Semantic colors deepened for AA on white surfaces */
+  --color-success: #047857;
+  --color-warning: #b45309;
+  --color-danger: #be123c;
+  --color-info: #0369a1;
+  --color-stale: #a16207;
 }
 
 /* ── 2. Nord Ice (Arctic Polar Night — icy aurora drift) ──────────────────── */
@@ -264,6 +270,12 @@
   --mesh-gradient:
     radial-gradient(ellipse 74% 58% at 28% -10%, color-mix(in srgb, var(--color-accent) 10%, transparent) 0%, transparent 62%),
     radial-gradient(ellipse 58% 44% at 82% 6%, color-mix(in srgb, var(--color-accent-2) 7%, transparent) 0%, transparent 60%);
+
+  --color-success: #34d399;
+  --color-warning: #f59e0b;
+  --color-danger: #f43f5e;
+  --color-info: #38bdf8;
+  --color-stale: #fbbf24;
 
   --shadow-glow: 0 0 20px var(--color-accent-glow);
 }
@@ -619,6 +631,12 @@
     radial-gradient(ellipse 72% 56% at 62% -10%, color-mix(in srgb, var(--color-accent) 11%, transparent) 0%, transparent 62%),
     radial-gradient(ellipse 56% 44% at 18% 8%, color-mix(in srgb, #f472b6 7%, transparent) 0%, transparent 60%);
 
+  --color-success: #4ade80;
+  --color-warning: #fbbf24;
+  --color-danger: #ff6b6b;
+  --color-info: #38bdf8;
+  --color-stale: #fb923c;
+
   --shadow-glow: 0 0 20px var(--color-accent-glow);
 }
 
@@ -673,6 +691,12 @@
     radial-gradient(ellipse 74% 58% at 50% -12%, color-mix(in srgb, var(--color-accent) 11%, transparent) 0%, transparent 64%),
     radial-gradient(ellipse 58% 44% at 84% 10%, color-mix(in srgb, var(--color-accent-2) 7%, transparent) 0%, transparent 60%);
 
+  --color-success: #34d399;
+  --color-warning: #fbbf24;
+  --color-danger: #fb7185;
+  --color-info: #00e5ff;
+  --color-stale: #f59e0b;
+
   --shadow-glow: 0 0 20px var(--color-accent-glow);
 }
 
@@ -726,6 +750,12 @@
   --mesh-gradient:
     radial-gradient(ellipse 70% 52% at 50% -10%, color-mix(in srgb, var(--color-accent) 11%, transparent) 0%, transparent 62%),
     radial-gradient(ellipse 54% 42% at 82% 8%, color-mix(in srgb, var(--color-accent-2) 6%, transparent) 0%, transparent 60%);
+
+  --color-success: #4ade80;
+  --color-warning: #f6c177;
+  --color-danger: #eb6f92;
+  --color-info: #9ccfd8;
+  --color-stale: #fb923c;
 
   --shadow-glow: 0 0 20px var(--color-accent-glow);
 }
@@ -782,6 +812,12 @@
     radial-gradient(ellipse 52% 45% at 82% -6%, color-mix(in srgb, var(--color-accent-2) 11%, transparent) 0%, transparent 58%),
     linear-gradient(108deg, transparent 48%, color-mix(in srgb, var(--color-accent-2) 4%, transparent) 50%, transparent 52%);
 
+  --color-success: #00ff5f;
+  --color-warning: #ffb800;
+  --color-danger: #ff2a85;
+  --color-info: #05d9e8;
+  --color-stale: #ff9e00;
+
   --shadow-glow: 0 0 22px var(--color-accent-glow), 0 0 44px color-mix(in srgb, var(--color-accent-2) 26%, transparent);
 }
 
@@ -835,6 +871,12 @@
   --mesh-gradient:
     radial-gradient(ellipse 70% 52% at 34% -10%, color-mix(in srgb, var(--color-accent) 10%, transparent) 0%, transparent 62%),
     radial-gradient(ellipse 56% 42% at 78% 8%, color-mix(in srgb, var(--color-accent-2) 7%, transparent) 0%, transparent 60%);
+
+  --color-success: #22c55e;
+  --color-warning: #facc15;
+  --color-danger: #fb7185;
+  --color-info: #22d3ee;
+  --color-stale: #fbbf24;
 
   --shadow-glow: 0 0 18px var(--color-accent-glow);
 }
@@ -890,6 +932,12 @@
     radial-gradient(ellipse 70% 52% at 50% -10%, color-mix(in srgb, var(--color-accent) 10%, transparent) 0%, transparent 64%),
     radial-gradient(ellipse 56% 42% at 82% 10%, color-mix(in srgb, var(--color-accent-2) 6%, transparent) 0%, transparent 60%);
 
+  --color-success: #84cc16;
+  --color-warning: #fbbf24;
+  --color-danger: #fb923c;
+  --color-info: #38bdf8;
+  --color-stale: #fbbf24;
+
   --shadow-glow: 0 0 18px var(--color-accent-glow);
 }
 
@@ -944,6 +992,12 @@
     radial-gradient(ellipse 72% 58% at 58% -10%, color-mix(in srgb, var(--color-accent) 12%, transparent) 0%, transparent 62%),
     radial-gradient(ellipse 54% 44% at 22% 4%, color-mix(in srgb, var(--color-accent-2) 9%, transparent) 0%, transparent 60%);
 
+  --color-success: #34d399;
+  --color-warning: #fbbf24;
+  --color-danger: #fb7185;
+  --color-info: #38bdf8;
+  --color-stale: #fbbf24;
+
   --shadow-glow: 0 0 22px var(--color-accent-glow), 0 0 44px color-mix(in srgb, var(--color-accent-2) 22%, transparent);
 }
 
@@ -970,7 +1024,7 @@
   --color-text-primary: #ffffff;
   --color-text-secondary: #b0b4c0;
   --color-text-tertiary: #757a8a;
-  --color-text-muted: #757a8a;
+  --color-text-muted: #69707e;
   --color-text-inverse: #000000;
 
   --color-accent: #3b82f6;
@@ -997,6 +1051,12 @@
   --mesh-gradient:
     radial-gradient(ellipse 60% 40% at 50% -8%, color-mix(in srgb, var(--color-accent) 4.5%, transparent) 0%, transparent 62%),
     radial-gradient(ellipse 48% 30% at 88% 4%, color-mix(in srgb, var(--color-accent-2) 3%, transparent) 0%, transparent 60%);
+
+  --color-success: #22c55e;
+  --color-warning: #fbbf24;
+  --color-danger: #ef4444;
+  --color-info: #60a5fa;
+  --color-stale: #fbbf24;
 
   --shadow-glow: 0 0 16px var(--color-accent-glow);
 }
