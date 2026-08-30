@@ -1,0 +1,346 @@
+//! Covers, executables, media files and screenshot helpers.
+
+use std::path::Path;
+use serde::{Deserialize, Serialize};
+use crate::game_scraper;
+use crate::game_scraper::{GameMetadataResult, LaunchBoxImageResult};
+use crate::steam_game_watcher;
+
+/// Read an image file from disk and return it as a base64 data URL.
+#[tauri::command]
+pub fn read_cover_image(file_path: String) -> Result<String, String> {
+    let path = Path::new(&file_path);
+    if !path.exists() {
+        return Err("File not found".into());
+    }
+    let data = std::fs::read(path).map_err(|e| format!("Failed to read file: {}", e))?;
+    let mime = mime_guess::from_path(path).first_or_octet_stream();
+    let b64 = base64_encode(&data);
+    Ok(format!("data:{};base64,{}", mime, b64))
+}
+
+/// Simple base64 encoding (no external crate needed).
+fn base64_encode(data: &[u8]) -> String {
+    const CHARS: &[u8] = b"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
+    let mut out = String::new();
+    for chunk in data.chunks(3) {
+        let b0 = chunk[0] as u32;
+        let b1 = if chunk.len() > 1 { chunk[1] as u32 } else { 0 };
+        let b2 = if chunk.len() > 2 { chunk[2] as u32 } else { 0 };
+        let triple = (b0 << 16) | (b1 << 8) | b2;
+        out.push(CHARS[((triple >> 18) & 63) as usize] as char);
+        out.push(CHARS[((triple >> 12) & 63) as usize] as char);
+        if chunk.len() > 1 {
+            out.push(CHARS[((triple >> 6) & 63) as usize] as char);
+        } else {
+            out.push('=');
+        }
+        if chunk.len() > 2 {
+            out.push(CHARS[(triple & 63) as usize] as char);
+        } else {
+            out.push('=');
+        }
+    }
+    out
+}
+
+/// Serializable struct holding metadata about a scanned executable.
+#[derive(Debug, Serialize, Deserialize, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct ExeInfo {
+    pub(crate) path: String,
+    pub(crate) size: u64,
+    pub(crate) modified_at: u64,
+}
+
+/// Recursively scan a directory for .exe files and return their paths, sizes, and modified dates.
+#[tauri::command]
+pub fn scan_folder_for_exes(folder_path: String) -> Vec<ExeInfo> {
+    let mut exes = Vec::new();
+    let path = Path::new(&folder_path);
+    if path.is_dir() {
+        scan_dir(path, &mut exes);
+    }
+    exes
+}
+
+/// Non-game executables to skip during folder scanning.
+const SKIP_KEYWORDS: &[&str] = &["redist", "autorun", "helper", "unin", "crash", "setup", "install", "plugin", "manual", "readme", "register", "7za"];
+
+/// Download a single image URL and return it as a base64 data URL.
+#[tauri::command]
+pub async fn download_image(url: String) -> Result<Option<String>, String> {
+    Ok(game_scraper::download_image_to_base64(&url).await)
+}
+
+/// Search for game metadata across multiple online sources.
+/// When `skip_launchbox` is true (Steam-synced games), LaunchBox is
+/// skipped â€” IGDB and Steam provide better metadata for known titles.
+#[tauri::command]
+pub async fn search_game_metadata(game_name: String, skip_launchbox: Option<bool>, steam_app_id: Option<u32>) -> Vec<GameMetadataResult> {
+    game_scraper::search_game_metadata(&game_name, skip_launchbox.unwrap_or(false), steam_app_id).await
+}
+
+/// Fetch full IGDB metadata for a game by its numeric IGDB id. Returns
+/// `None` when the id doesn't exist (e.g. a stale persisted `igdbId`).
+/// Used by the frontend to re-fetch metadata/images for games that
+/// carry an `igdbId` but no artwork — same result shape as
+/// `search_game_metadata` items.
+#[tauri::command]
+pub async fn get_igdb_game_by_id(id: u64) -> Result<Option<GameMetadataResult>, String> {
+    Ok(game_scraper::fetch_igdb_game_by_id(id).await)
+}
+
+/// Download images from URLs and return them as base64 data URLs.
+#[tauri::command]
+pub async fn fetch_game_images(urls: Vec<String>) -> Vec<Option<String>> {
+    game_scraper::fetch_game_images(urls).await
+}
+
+/// Search the LaunchBox Games Database for images of a game.
+#[tauri::command]
+pub async fn search_launchbox_images(game_name: String) -> Result<Vec<LaunchBoxImageResult>, String> {
+    game_scraper::search_launchbox_images(&game_name).await
+}
+
+/// Recursively scan a folder for image files (jpg, jpeg, png, gif, bmp, webp)
+/// and return their paths. Used by the Community â†’ Screenshots tab to let
+/// users browse their screenshot folders.
+/// Like `list_image_files` but also returns common video clip formats
+/// (.mp4, .webm, .mov, .mkv) so the Community → Screenshots tab can show
+/// gameplay recordings alongside still captures. Recurses into subfolders.
+#[tauri::command]
+pub fn list_media_files(folder_path: String) -> Vec<String> {
+    fn list_media_files_flat(dir: &std::path::Path) -> Vec<String> {
+        let mut paths = Vec::new();
+        if let Ok(entries) = std::fs::read_dir(dir) {
+            for entry in entries.flatten() {
+                let p = entry.path();
+                if p.is_dir() {
+                    paths.extend(list_media_files_flat(&p));
+                } else if let Some(ext) = p.extension().and_then(|e| e.to_str()) {
+                    let lower = ext.to_lowercase();
+                    if matches!(
+                        lower.as_str(),
+                        "jpg" | "jpeg" | "png" | "gif" | "bmp" | "webp"
+                            | "mp4" | "webm" | "mov" | "mkv"
+                    ) {
+                        paths.push(p.to_string_lossy().to_string());
+                    }
+                }
+            }
+        }
+        paths
+    }
+    let mut paths = list_media_files_flat(std::path::Path::new(&folder_path));
+    paths.sort();
+    paths
+}
+
+/// Serializable result for auto-detecting Steam screenshot folders.
+/// Maps to the frontend's per-game screenshot grouping UI on the
+/// Community â†’ Screenshots tab.
+#[derive(Debug, Serialize, Deserialize, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct SteamScreenshotFolder {
+    /// Steam AppID that owns these screenshots.
+    pub(crate) app_id: u32,
+    /// Display name resolved from the user's library, or a fallback
+    /// like "Unknown Game (730)" when no library entry has this appid.
+    pub(crate) game_name: String,
+    /// The absolute filesystem path to the screenshots folder.
+    pub(crate) folder_path: String,
+    /// Sorted list of absolute paths to image files in this folder.
+    pub(crate) screenshots: Vec<String>,
+}
+
+/// Auto-detect Steam screenshot folders by scanning ALL userdata
+/// directories under `<steam_root>\userdata\*\760\remote\<appId>\screenshots`.
+///
+/// No Steam login required â€” this scans the filesystem directly,
+/// finding screenshots from every Steam account that has ever signed
+/// in on this machine. Duplicate appIds (same game played by multiple
+/// accounts) are deduplicated: the first account's folder wins.
+///
+/// The frontend cross-references each discovered appid against the
+/// user's library for game names, cover art, and platform badges.
+/// Returns an empty Vec when Steam isn't installed or no screenshot
+/// folders exist yet.
+#[tauri::command]
+pub fn detect_steam_screenshot_folders() -> Vec<SteamScreenshotFolder> {
+    let steam_root = match steam_game_watcher::find_steam_install_dir() {
+        Some(r) => r,
+        None => return Vec::new(),
+    };
+
+    let userdata_root = steam_root.join("userdata");
+    if !userdata_root.exists() || !userdata_root.is_dir() {
+        return Vec::new();
+    }
+
+    let mut results: Vec<SteamScreenshotFolder> = Vec::new();
+
+    // Walk every <userdata>/<steamId>/760/remote/ for screenshot folders.
+    if let Ok(user_entries) = std::fs::read_dir(&userdata_root) {
+        for user_entry in user_entries.flatten() {
+            let user_dir = user_entry.path();
+            if !user_dir.is_dir() {
+                continue;
+            }
+
+            let remote_root = user_dir.join("760").join("remote");
+            if !remote_root.exists() || !remote_root.is_dir() {
+                continue;
+            }
+
+            if let Ok(app_entries) = std::fs::read_dir(&remote_root) {
+                for app_entry in app_entries.flatten() {
+                    let p = app_entry.path();
+                    if !p.is_dir() {
+                        continue;
+                    }
+
+                    let dir_name = match p.file_name().and_then(|n| n.to_str()) {
+                        Some(n) => n.to_string(),
+                        None => continue,
+                    };
+
+                    let app_id: u32 = match dir_name.parse() {
+                        Ok(id) => id,
+                        Err(_) => continue,
+                    };
+
+                    // Deduplicate: same game played by multiple accounts.
+                    if results.iter().any(|r| r.app_id == app_id) {
+                        continue;
+                    }
+
+                    let screenshots_dir = p.join("screenshots");
+                    if !screenshots_dir.exists() || !screenshots_dir.is_dir() {
+                        let loose: Vec<String> = list_image_files_flat(&p);
+                        if loose.is_empty() {
+                            continue;
+                        }
+                        results.push(SteamScreenshotFolder {
+                            app_id,
+                            game_name: format!("Unknown Game ({})", app_id),
+                            folder_path: p.to_string_lossy().to_string(),
+                            screenshots: loose,
+                        });
+                        continue;
+                    }
+
+                    let images: Vec<String> = list_image_files_flat(&screenshots_dir);
+                    if images.is_empty() {
+                        continue;
+                    }
+
+                    results.push(SteamScreenshotFolder {
+                        app_id,
+                        game_name: format!("Unknown Game ({})", app_id),
+                        folder_path: screenshots_dir.to_string_lossy().to_string(),
+                        screenshots: images,
+                    });
+                }
+            }
+        }
+    }
+
+    results.sort_by_key(|r| r.app_id);
+    results
+}
+
+/// Non-recursive image-file lister for a single directory.
+fn list_image_files_flat(dir: &std::path::Path) -> Vec<String> {
+    let mut paths = Vec::new();
+    if let Ok(entries) = std::fs::read_dir(dir) {
+        for entry in entries.flatten() {
+            let p = entry.path();
+            if p.is_file() {
+                if let Some(ext) = p.extension().and_then(|e| e.to_str()) {
+                    let lower = ext.to_lowercase();
+                    if lower == "jpg" || lower == "jpeg" || lower == "png" || lower == "gif" || lower == "bmp" || lower == "webp" {
+                        paths.push(p.to_string_lossy().to_string());
+                    }
+                }
+            }
+        }
+    }
+    // Sort by modified time, newest first (better for screenshot browsing)
+    paths.sort_by(|a, b| {
+        let ma = std::fs::metadata(a).ok().and_then(|m| m.modified().ok());
+        let mb = std::fs::metadata(b).ok().and_then(|m| m.modified().ok());
+        mb.cmp(&ma)
+    });
+    paths
+}
+
+/// Save screenshot image base64 data to the specified path.
+#[tauri::command]
+pub fn save_screenshot(file_path: String, base64_data: String) -> Result<(), String> {
+     use base64::{Engine as _, engine::general_purpose};
+
+     let clean_data = if base64_data.contains(",") {
+         base64_data.split(',').nth(1).unwrap_or(&base64_data)
+     } else {
+         &base64_data
+     };
+
+     let bytes = general_purpose::STANDARD
+         .decode(clean_data)
+         .map_err(|e| format!("Failed to decode base64: {}", e))?;
+
+     std::fs::write(&file_path, bytes)
+         .map_err(|e| format!("Failed to write file: {}", e))?;
+
+     Ok(())
+}
+
+/// Write an arbitrary text payload (CSV / JSON export) to the specified
+/// path. Kept separate from `save_screenshot` because that command only
+/// accepts base64 image payloads; exports are plain UTF-8 text.
+#[tauri::command]
+pub fn save_text_file(file_path: String, contents: String) -> Result<(), String> {
+     std::fs::write(&file_path, contents)
+         .map_err(|e| format!("Failed to write file: {}", e))
+}
+
+fn scan_dir(dir: &Path, exes: &mut Vec<ExeInfo>) {
+    if let Ok(entries) = std::fs::read_dir(dir) {
+        for entry in entries.flatten() {
+            let entry_path = entry.path();
+            if entry_path.is_dir() {
+                if let Some(name) = entry_path.file_name().and_then(|n| n.to_str()) {
+                    if name.starts_with('.') || name.starts_with('_') {
+                        continue;
+                    }
+                }
+                scan_dir(&entry_path, exes);
+            } else if let Some(ext) = entry_path.extension().and_then(|e| e.to_str()) {
+                if ext.eq_ignore_ascii_case("exe") {
+                    if let Some(stem) = entry_path.file_stem().and_then(|s| s.to_str()) {
+                        if SKIP_KEYWORDS.iter().any(|kw| stem.to_lowercase().contains(kw)) {
+                            continue;
+                        }
+                    }
+                    if let Ok(meta) = entry.metadata() {
+                        let size = meta.len();
+                        let modified_at = meta.modified()
+                            .ok()
+                            .and_then(|t| t.duration_since(std::time::UNIX_EPOCH).ok())
+                            .map(|d| d.as_secs())
+                            .unwrap_or(0);
+                        exes.push(ExeInfo {
+                            path: entry_path.to_string_lossy().to_string(),
+                            size,
+                            modified_at,
+                        });
+                    }
+                }
+            }
+        }
+    }
+}
+
+
+
