@@ -222,7 +222,7 @@
 .detail-sections-note__list li {
   font-size: var(--font-size-xs);
   font-weight: 500;
-  color: var(--color-text-on-accent);
+  color: var(--color-text-primary);
   background: color-mix(in srgb, var(--color-warning) 22%, var(--color-surface));
   border: 1px solid color-mix(in srgb, var(--color-warning) 40%, transparent);
   padding: 2px 10px;

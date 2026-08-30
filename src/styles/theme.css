@@ -269,6 +269,8 @@
   --color-background: var(--color-bg-secondary);
   --color-surface-hover: var(--color-bg-hover);
   --font-system: var(--font-sans);
+  --font-family-sans: var(--font-sans);
+  --font-family-mono: var(--font-mono);
   --accent-primary: var(--color-accent);
   --bg-secondary: var(--color-bg-secondary);
   --bg-tertiary: var(--color-bg-tertiary);
@@ -276,6 +278,22 @@
   --text-secondary: var(--color-text-secondary);
   --text-muted: var(--color-text-muted);
   --border-subtle: var(--color-border);
+  --color-background: var(--color-bg-secondary);
+  --color-surface-hover: var(--color-bg-hover);
+  --color-bg-surface: var(--color-surface);
+  --color-bg-surface-hover: var(--color-bg-hover);
+  --color-accent-text: var(--color-accent-contrast);
+  --color-secondary: var(--color-text-secondary);
+  --color-surface-elevated: var(--color-surface-raised);
+  --color-success-glow: color-mix(in srgb, var(--color-success) 40%, transparent);
+  --color-border-hover: var(--color-border-highlight);
+  --font-size-base: var(--font-size-md);
+  --font-weight-regular: var(--font-weight-normal);
+  --transition-base: var(--transition-normal);
+  --duration-medium: var(--duration-normal);
+  --shadow-2xl: var(--elevation-5);
+  --shadow-pop: var(--elevation-4);
+  --size-xs: var(--font-size-xs);
 }
 
 /* ==============================

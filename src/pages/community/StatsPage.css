@@ -33,7 +33,7 @@
   justify-content: space-between;
   gap: var(--space-xl, 24px);
   padding: var(--space-xl, 24px);
-  background: var(--color-bg-surface, #161922);
+  background: var(--color-bg-surface, var(--color-surface));
   border: 1px solid color-mix(in srgb, var(--color-accent) 25%, var(--color-border));
   border-radius: var(--radius-xl, 16px);
   box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2), inset 0 1px 0 rgba(255, 255, 255, 0.05);
@@ -506,7 +506,7 @@
   align-items: center;
   justify-content: center;
   padding: var(--space-md, 12px) var(--space-sm, 8px);
-  background: var(--color-bg-surface, #161922);
+  background: var(--color-bg-surface, var(--color-surface));
   text-align: center;
 }
 
@@ -795,7 +795,7 @@
   align-items: center;
   gap: var(--space-md, 14px);
   padding: var(--space-md, 14px);
-  background: var(--color-bg-surface, #161922);
+  background: var(--color-bg-surface, var(--color-surface));
   border: 1px solid var(--color-border, #30363d);
   border-radius: var(--radius-lg, 12px);
   cursor: pointer;
