@@ -8,6 +8,7 @@ import { useSizeUnit } from "../../hooks/useSizeUnit";
 import { formatSize, type Game } from "../../types/game";
 import { driveOf, gameTotalBytes } from "./utils";
 import { Button } from "../../components/ui";
+import { useGameCardArt } from "../../hooks/useGameCardArt";
 
 interface Props {
   game: Game;
@@ -43,6 +44,12 @@ export function StorageGridCard({
   const { t } = useLanguage();
   const { unit } = useSizeUnit();
   const [detecting, setDetecting] = useState(false);
+  const [hovered, setHovered] = useState(false);
+
+  const { displayUrl, handleError } = useGameCardArt({
+    game,
+    isHovered: hovered,
+  });
 
   const total = gameTotalBytes(game);
   const hasMods = (game.modsSizeBytes ?? 0) > 0;
@@ -97,6 +104,8 @@ export function StorageGridCard({
       onClick={() => {
         if (selectMode) onToggleSelect?.();
       }}
+      onMouseEnter={() => setHovered(true)}
+      onMouseLeave={() => setHovered(false)}
     >
       {/* Selection Checkbox */}
       {selectMode && (
@@ -115,12 +124,13 @@ export function StorageGridCard({
 
       {/* Cover Image + Overlay */}
       <div className="storage-grid-card-media">
-        {game.coverArtUrl || game.iconUrl ? (
+        {displayUrl ? (
           <img
-            src={game.coverArtUrl || game.iconUrl}
+            src={displayUrl}
             alt=""
             className="storage-grid-card-img"
             loading="lazy"
+            onError={handleError}
           />
         ) : (
           <div className="storage-grid-card-placeholder">

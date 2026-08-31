@@ -5,10 +5,7 @@ import { PLAY_STATUS_DETAILS } from "../../types/game";
 import { useGames, NO_IGDB_MATCH_SOURCE } from "../../context/GameContext";
 import { useLanguage } from "../../context/LanguageContext";
 import { useSettings } from "../../context/SettingsContext";
-import {
-  useSteamGridArt,
-  usePrefetchImage,
-} from "../../context/SteamGridDbContext";
+import { useGameCardArt } from "../../hooks/useGameCardArt";
 import { playLaunchSound } from "../../utils/soundEffects";
 
 interface LibraryGameCardProps {
@@ -48,52 +45,18 @@ function LibraryGameCardBase({
   selected = false,
   onToggleSelect,
 }: LibraryGameCardProps) {
-  const { updateGame, enrichGameMetadata, launchGame } = useGames();
+  const { enrichGameMetadata, launchGame } = useGames();
   const { t } = useLanguage();
   const { showCardBadges, isSimpleUi } = useSettings();
   const coverRef = useRef<HTMLDivElement | null>(null);
-
-  // SteamGridDB community art: the animated WebP/APNG grid swaps in on
-  // hover, while the static poster defaults to the game's own cover (the
-  // IGDB poster downloaded by enrichment) with the community grid as a
-  // fallback when there's no cover.
-  const [sgdbFailed, setSgdbFailed] = useState(false);
   const [hovered, setHovered] = useState(false);
-  const sgdb = useSteamGridArt(game.steamAppId);
-  const sgdbStatic = sgdb?.gridUrl && !sgdbFailed ? sgdb.gridUrl : null;
-  const sgdbAnimated = sgdb?.gridAnimatedUrl && !sgdbFailed ? sgdb.gridAnimatedUrl : null;
-  // Warm the animated buffer up front so hovering is instant.
-  usePrefetchImage(sgdbAnimated);
-  const posterUrl =
-    hovered && sgdbAnimated ? sgdbAnimated : (game.coverArtUrl ?? sgdbStatic);
 
-  const handlePosterError = (e: React.SyntheticEvent<HTMLImageElement>) => {
-    const img = e.currentTarget;
-    // A failed SteamGridDB image (animated or static) falls back to the
-    // existing cover rather than wiping it; the existing CDN ladder handles
-    // Steam-art failures.
-    if (sgdbAnimated && img.src === sgdbAnimated) {
-      setSgdbFailed(true);
-      return;
-    }
-    if (sgdbStatic && img.src === sgdbStatic) {
-      setSgdbFailed(true);
-      return;
-    }
-    const appId = game.steamAppId;
-    if (appId) {
-      if (img.src.includes("library_600x900_2x")) {
-        img.src = `https://cdn.akamai.steamstatic.com/steam/apps/${appId}/library_600x900.jpg`;
-        return;
-      }
-      if (img.src.includes("library_600x900")) {
-        img.src = `https://cdn.akamai.steamstatic.com/steam/apps/${appId}/header.jpg`;
-        return;
-      }
-    }
-    console.warn(`Cover image failed for ${game.name}, falling back to placeholder`);
-    updateGame(game.id, { coverArtUrl: undefined, coverSourceUrl: undefined });
-  };
+  const isList = density === "list";
+  const { displayUrl, isIcon, handleError } = useGameCardArt({
+    game,
+    isHovered: hovered,
+    isListOrSmall: isList,
+  });
 
   const canAutoFetchCover =
     !game.coverArtUrl &&
@@ -168,11 +131,19 @@ function LibraryGameCardBase({
           </span>
         )}
 
-        <div className="lib-card-list-thumb">
-          {posterUrl ? (
-            <img src={posterUrl} alt={game.name} loading="lazy" onError={handlePosterError} />
+        <div className={`lib-card-list-thumb${isIcon ? " has-icon" : ""}`}>
+          {displayUrl ? (
+            <img
+              src={displayUrl}
+              alt={game.name}
+              loading="lazy"
+              onError={handleError}
+              className={isIcon ? "lib-card-icon-img" : "lib-card-poster-img"}
+            />
           ) : (
-            <div className="lib-card-placeholder" />
+            <div className="lib-card-placeholder">
+              <span className="lib-card-placeholder-letter">{game.name.charAt(0)}</span>
+            </div>
           )}
         </div>
 
@@ -292,13 +263,13 @@ function LibraryGameCardBase({
           </span>
         )}
 
-        {posterUrl ? (
+        {displayUrl ? (
           <img
-            src={posterUrl}
+            src={displayUrl}
             alt={game.name}
             loading="lazy"
             decoding="async"
-            onError={handlePosterError}
+            onError={handleError}
           />
         ) : (
           <div className="lib-card-placeholder">

@@ -1,4 +1,4 @@
-import { useMemo, useRef } from "react";
+import { useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import type { Game } from "../../types/game";
 import { useGames } from "../../context/GameContext";
@@ -7,6 +7,7 @@ import { Card } from "../ui";
 import { useCollapsedState } from "../../hooks/useCollapsedState";
 import PlayerCountBadge from "../PlayerCountBadge";
 import { useSteamAppId } from "../../hooks/useSteamAppId";
+import { useGameCardArt } from "../../hooks/useGameCardArt";
 
 interface ContinuePlayingRailProps {
   games: Game[];
@@ -128,9 +129,16 @@ function ContinuePlayingCard({
 }) {
   const { t } = useLanguage();
   const { launchGame } = useGames();
+  const [hovered, setHovered] = useState(false);
   const { appId: resolvedSteamAppId } = useSteamAppId(game);
   const steamAppId =
     typeof resolvedSteamAppId === "number" ? resolvedSteamAppId : game.steamAppId ?? null;
+
+  const { displayUrl, handleError } = useGameCardArt({
+    game,
+    appId: steamAppId,
+    isHovered: hovered,
+  });
 
   const handleResume = (e: React.MouseEvent) => {
     e.stopPropagation();
@@ -138,10 +146,18 @@ function ContinuePlayingCard({
   };
 
   return (
-    <Card variant="surface" elevation="1" hoverLift className="lib-rail-card" onClick={() => onClick(game)}>
+    <Card
+      variant="surface"
+      elevation="1"
+      hoverLift
+      className="lib-rail-card"
+      onClick={() => onClick(game)}
+      onMouseEnter={() => setHovered(true)}
+      onMouseLeave={() => setHovered(false)}
+    >
       <div className="lib-rail-cover">
-        {game.coverArtUrl ? (
-          <img src={game.coverArtUrl} alt={game.name} />
+        {displayUrl ? (
+          <img src={displayUrl} alt={game.name} loading="lazy" onError={handleError} />
         ) : (
           <div className="lib-rail-cover-placeholder">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1" aria-hidden>

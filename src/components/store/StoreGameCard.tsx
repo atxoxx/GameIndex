@@ -4,11 +4,7 @@ import { useCrackWatch } from "../../context/CrackWatchContext";
 import { usePrice } from "../../context/PriceContext";
 import { WishlistContext } from "../../context/WishlistContext";
 import { DensityContext } from "../../context/DensityContext";
-import {
-  useSteamGridArt,
-  usePrefetchImage,
-} from "../../context/SteamGridDbContext";
-import { extractSteamAppIdFromWebsites } from "../../types/game";
+import { useGameCardArt } from "../../hooks/useGameCardArt";
 import type { StoreGameSummary, ViewDensity } from "../../types/game";
 import { useLanguage } from "../../context/LanguageContext";
 import StoreHighlightText from "./StoreHighlightText";
@@ -67,32 +63,15 @@ export default function StoreGameCard({
   const price = usePrice(game.name);
   const [coverUrl, imgRef] = useProgressiveImage(game.coverUrl);
   const { t } = useLanguage();
-
-  // IGDB poster by default — the animated SteamGridDB grid swaps in on
-  // hover, and the community static grid only fills in when there's no IGDB
-  // cover (or it fails to load). The AppID is pulled from the Steam URL.
-  const steamAppId = extractSteamAppIdFromWebsites(game.websites);
-  const sgdb = useSteamGridArt(steamAppId);
-  const [sgdbFailed, setSgdbFailed] = useState(false);
-  const [coverFailed, setCoverFailed] = useState(false);
   const [hovered, setHovered] = useState(false);
-  const sgdbStatic = sgdb?.gridUrl && !sgdbFailed ? sgdb.gridUrl : null;
-  const sgdbAnimated = sgdb?.gridAnimatedUrl && !sgdbFailed ? sgdb.gridAnimatedUrl : null;
-  // Warm the animated buffer up front so hovering is instant.
-  usePrefetchImage(sgdbAnimated);
-  const posterUrl =
-    hovered && sgdbAnimated
-      ? sgdbAnimated
-      : (coverUrl && !coverFailed ? coverUrl : sgdbStatic);
 
-  const handlePosterError = (e: React.SyntheticEvent<HTMLImageElement>) => {
-    const src = e.currentTarget.src;
-    if ((sgdbAnimated && src === sgdbAnimated) || (sgdbStatic && src === sgdbStatic)) {
-      setSgdbFailed(true);
-      return;
-    }
-    setCoverFailed(true);
-  };
+  const isList = density === "list";
+  const { displayUrl, isIcon, handleError } = useGameCardArt({
+    game,
+    defaultCoverUrl: coverUrl,
+    isHovered: hovered,
+    isListOrSmall: isList,
+  });
 
   const showBody = density !== "compact";
   const genresToShow = density === "cinematic" ? 4 : density === "list" ? 3 : 2;
@@ -140,14 +119,15 @@ export default function StoreGameCard({
           </span>
         )}
 
-        <div className="store-card-list-thumb">
-          {posterUrl ? (
+        <div className={`store-card-list-thumb${isIcon ? " has-icon" : ""}`}>
+          {displayUrl ? (
             <img
-              ref={posterUrl === coverUrl ? imgRef : undefined}
-              src={posterUrl}
+              ref={displayUrl === coverUrl ? imgRef : undefined}
+              src={displayUrl}
               alt={game.name}
               loading="lazy"
-              onError={handlePosterError}
+              onError={handleError}
+              className={isIcon ? "store-card-icon-img" : "store-card-poster-img"}
             />
           ) : (
             <div className="store-card-cover-skeleton" />
@@ -326,13 +306,13 @@ export default function StoreGameCard({
           </span>
         )}
 
-        {posterUrl ? (
+        {displayUrl ? (
           <img
-            ref={posterUrl === coverUrl ? imgRef : undefined}
-            src={posterUrl}
+            ref={displayUrl === coverUrl ? imgRef : undefined}
+            src={displayUrl}
             alt={game.name}
             loading="lazy"
-            onError={handlePosterError}
+            onError={handleError}
           />
         ) : (
           <div className="store-card-cover-skeleton">

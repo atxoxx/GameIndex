@@ -1,10 +1,11 @@
-import { useEffect, useLayoutEffect, useRef, useState } from "react";
+import { forwardRef, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { useNavigate } from "react-router-dom";
 import { invoke } from "@tauri-apps/api/core";
 import type { Game } from "../types/game";
 import { PLAY_STATUS_DETAILS } from "../types/game";
 import { useLanguage } from "../context/LanguageContext";
+import { useGameCardArt } from "../hooks/useGameCardArt";
 
 /**
  * Relative-time helper. e.g. "just now", "5m ago", "3h ago",
@@ -94,11 +95,9 @@ export function SidebarHoverPreview({
   active,
   delay = 350,
 }: SidebarHoverPreviewProps) {
-  const { t } = useLanguage();
   const previewRef = useRef<HTMLDivElement>(null);
   const showTimerRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   const hideTimerRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
-  const navigate = useNavigate();
 
   // Tracks whether the pointer is currently over the preview card
   // itself. When the user moves the mouse from the row toward the
@@ -266,32 +265,11 @@ export function SidebarHoverPreview({
 
   if (!visible || !pos || !renderGame) return null;
 
-  const game = renderGame;
-  const rating =
-    typeof game.igdbRating === "number"
-      ? Math.round(game.igdbRating)
-      : typeof game.criticRating === "number"
-        ? Math.round(game.criticRating)
-        : null;
-  const year = parseYear(game.releaseDate);
-  const status = PLAY_STATUS_DETAILS[game.playStatus || "backlog"];
-  const lastPlayed = formatRelative(game.lastPlayed, t);
-  const developer = game.developer || "—";
-  const anchorKey = cssEscape(game.id);
-
   return createPortal(
-    <div
+    <SidebarHoverPreviewCard
       ref={previewRef}
-      className={`sidebar-hover-preview sidebar-hover-preview--${pos.placement}`}
-      style={{
-        position: "fixed",
-        top: pos.top,
-        left: pos.left,
-        zIndex: "var(--z-sidebar-preview)", // Above sidebar, below sidebar popovers and context menus
-      }}
-      role="tooltip"
-      aria-hidden="true"
-      data-preview-anchor-id={anchorKey}
+      game={renderGame}
+      pos={pos}
       onPointerEnter={() => {
         pointerOnPreviewRef.current = true;
         clearTimeout(hideTimerRef.current);
@@ -301,123 +279,174 @@ export function SidebarHoverPreview({
         clearTimeout(showTimerRef.current);
         setVisible(false);
       }}
-    >
-      <div className="sidebar-hover-preview__cover">
-        {game.coverArtUrl ? (
-          <img src={game.coverArtUrl} alt={game.name} draggable={false} />
-        ) : (
-          <div className="sidebar-hover-preview__cover-placeholder">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
-              <rect x="3" y="3" width="18" height="18" rx="2" ry="2" />
-              <circle cx="9" cy="9" r="2" />
-              <path d="m21 15-3.1-3.1a2 2 0 0 0-2.8 0L6 21" />
-            </svg>
-          </div>
-        )}
-        <div
-          className="sidebar-hover-preview__status-pill"
-          style={{
-            borderColor: status.color,
-            color: status.color,
-            background: "rgba(0, 0, 0, 0.6)",
-          }}
-        >
-          {t(status.labelKey)}
-        </div>
-      </div>
-
-      <div className="sidebar-hover-preview__body">
-        <div className="sidebar-hover-preview__name" title={game.name}>
-          {game.name}
-        </div>
-        <div className="sidebar-hover-preview__developer">{developer}</div>
-
-        <div className="sidebar-hover-preview__meta-grid">
-          <div className="sidebar-hover-preview__meta">
-            <span className="sidebar-hover-preview__meta-label">{t("sidebarHover.year")}</span>
-            <span className="sidebar-hover-preview__meta-value">
-              {year ?? "—"}
-            </span>
-          </div>
-          <div className="sidebar-hover-preview__meta">
-            <span className="sidebar-hover-preview__meta-label">{t("sidebarHover.rating")}</span>
-            <span className="sidebar-hover-preview__meta-value">
-              {rating != null ? `${rating}` : "—"}
-            </span>
-          </div>
-          <div className="sidebar-hover-preview__meta">
-            <span className="sidebar-hover-preview__meta-label">{t("sidebarHover.played")}</span>
-            <span className="sidebar-hover-preview__meta-value">
-              {game.playTime || "0h"}
-            </span>
-          </div>
-          <div className="sidebar-hover-preview__meta">
-            <span className="sidebar-hover-preview__meta-label">{t("sidebarHover.last")}</span>
-            <span className="sidebar-hover-preview__meta-value">{lastPlayed}</span>
-          </div>
-        </div>
-
-        <div className="sidebar-hover-preview__actions">
-          <button
-            type="button"
-            className="sidebar-hover-preview__btn"
-            onMouseDown={(e) => {
-              e.stopPropagation();
-              e.preventDefault();
-              navigate(`/library/${game.id}`);
-            }}
-          >
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M5 12h14" />
-              <path d="m12 5 7 7-7 7" />
-            </svg>
-            {t("sidebarHover.open")}
-          </button>
-          <button
-            type="button"
-            className="sidebar-hover-preview__btn sidebar-hover-preview__btn--ghost"
-            onMouseDown={async (e) => {
-              e.stopPropagation();
-              e.preventDefault();
-              // Use the standard browser clipboard API first
-              // (works in Tauri WebView without an extra plugin).
-              // Fall back to Tauri's clipboard plugin if it
-              // happens to be registered (`tauri-plugin-clipboard-manager`
-              // exposes `invoke('plugin:clipboard-manager|write_text', …)`).
-              const text = game.path || game.name;
-              let copied = false;
-              try {
-                if (typeof navigator !== "undefined" && navigator.clipboard) {
-                  await navigator.clipboard.writeText(text);
-                  copied = true;
-                }
-              } catch {
-                /* permission denied in some sandboxed contexts */
-              }
-              if (!copied) {
-                try {
-                  await invoke("plugin:clipboard-manager|write_text", { label: null, text });
-                  copied = true;
-                } catch {
-                  /* leave clipboard alone; user can still see the path
-                   * and copy it manually from the tooltip / row hover. */
-                }
-              }
-            }}
-            title={t("sidebarHover.copyPathTitle", { path: game.path || game.name })}
-          >
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <rect width="14" height="14" x="8" y="8" rx="2" ry="2" />
-              <path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2" />
-            </svg>
-            {t("sidebarHover.copyPath")}
-          </button>
-        </div>
-      </div>
-    </div>,
+    />,
     document.body
   );
 }
+
+interface SidebarHoverPreviewCardProps {
+  game: Game;
+  pos: { top: number; left: number; placement: "right" | "left" };
+  onPointerEnter: () => void;
+  onPointerLeave: () => void;
+}
+
+const SidebarHoverPreviewCard = forwardRef<HTMLDivElement, SidebarHoverPreviewCardProps>(
+  function SidebarHoverPreviewCard(
+    { game, pos, onPointerEnter, onPointerLeave },
+    ref
+  ) {
+    const { t } = useLanguage();
+    const navigate = useNavigate();
+
+    const { displayUrl, handleError } = useGameCardArt({
+      game,
+      isHovered: true,
+    });
+
+    const rating =
+      typeof game.igdbRating === "number"
+        ? Math.round(game.igdbRating)
+        : typeof game.criticRating === "number"
+          ? Math.round(game.criticRating)
+          : null;
+    const year = parseYear(game.releaseDate);
+    const status = PLAY_STATUS_DETAILS[game.playStatus || "backlog"];
+    const lastPlayed = formatRelative(game.lastPlayed, t);
+    const developer = game.developer || "—";
+    const anchorKey = cssEscape(game.id);
+
+    return (
+      <div
+        ref={ref}
+        className={`sidebar-hover-preview sidebar-hover-preview--${pos.placement}`}
+        style={{
+          position: "fixed",
+          top: pos.top,
+          left: pos.left,
+          zIndex: "var(--z-sidebar-preview)",
+        }}
+        role="tooltip"
+        aria-hidden="true"
+        data-preview-anchor-id={anchorKey}
+        onPointerEnter={onPointerEnter}
+        onPointerLeave={onPointerLeave}
+      >
+        <div className="sidebar-hover-preview__cover">
+          {displayUrl ? (
+            <img
+              src={displayUrl}
+              alt={game.name}
+              draggable={false}
+              onError={handleError}
+            />
+          ) : (
+            <div className="sidebar-hover-preview__cover-placeholder">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
+                <rect x="3" y="3" width="18" height="18" rx="2" ry="2" />
+                <circle cx="9" cy="9" r="2" />
+                <path d="m21 15-3.1-3.1a2 2 0 0 0-2.8 0L6 21" />
+              </svg>
+            </div>
+          )}
+          <div
+            className="sidebar-hover-preview__status-pill"
+            style={{
+              borderColor: status.color,
+              color: status.color,
+              background: "rgba(0, 0, 0, 0.6)",
+            }}
+          >
+            {t(status.labelKey)}
+          </div>
+        </div>
+
+        <div className="sidebar-hover-preview__body">
+          <div className="sidebar-hover-preview__name" title={game.name}>
+            {game.name}
+          </div>
+          <div className="sidebar-hover-preview__developer">{developer}</div>
+
+          <div className="sidebar-hover-preview__meta-grid">
+            <div className="sidebar-hover-preview__meta">
+              <span className="sidebar-hover-preview__meta-label">{t("sidebarHover.year")}</span>
+              <span className="sidebar-hover-preview__meta-value">
+                {year ?? "—"}
+              </span>
+            </div>
+            <div className="sidebar-hover-preview__meta">
+              <span className="sidebar-hover-preview__meta-label">{t("sidebarHover.rating")}</span>
+              <span className="sidebar-hover-preview__meta-value">
+                {rating != null ? `${rating}` : "—"}
+              </span>
+            </div>
+            <div className="sidebar-hover-preview__meta">
+              <span className="sidebar-hover-preview__meta-label">{t("sidebarHover.played")}</span>
+              <span className="sidebar-hover-preview__meta-value">
+                {game.playTime || "0h"}
+              </span>
+            </div>
+            <div className="sidebar-hover-preview__meta">
+              <span className="sidebar-hover-preview__meta-label">{t("sidebarHover.last")}</span>
+              <span className="sidebar-hover-preview__meta-value">{lastPlayed}</span>
+            </div>
+          </div>
+
+          <div className="sidebar-hover-preview__actions">
+            <button
+              type="button"
+              className="sidebar-hover-preview__btn"
+              onMouseDown={(e) => {
+                e.stopPropagation();
+                e.preventDefault();
+                navigate(`/library/${game.id}`);
+              }}
+            >
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M5 12h14" />
+                <path d="m12 5 7 7-7 7" />
+              </svg>
+              {t("sidebarHover.open")}
+            </button>
+            <button
+              type="button"
+              className="sidebar-hover-preview__btn sidebar-hover-preview__btn--ghost"
+              onMouseDown={async (e) => {
+                e.stopPropagation();
+                e.preventDefault();
+                const text = game.path || game.name;
+                let copied = false;
+                try {
+                  if (typeof navigator !== "undefined" && navigator.clipboard) {
+                    await navigator.clipboard.writeText(text);
+                    copied = true;
+                  }
+                } catch {
+                  /* permission denied in some sandboxed contexts */
+                }
+                if (!copied) {
+                  try {
+                    await invoke("plugin:clipboard-manager|write_text", { label: null, text });
+                    copied = true;
+                  } catch {
+                    /* leave clipboard alone */
+                  }
+                }
+              }}
+              title={t("sidebarHover.copyPathTitle", { path: game.path || game.name })}
+            >
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <rect width="14" height="14" x="8" y="8" rx="2" ry="2" />
+                <path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2" />
+              </svg>
+              {t("sidebarHover.copyPath")}
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+);
 
 /**
  * Convenience selector builder. Exported so Sidebar.tsx doesn't

@@ -1,6 +1,8 @@
+import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useWishlistContext } from "../../context/WishlistContext";
 import { useLanguage } from "../../context/LanguageContext";
+import { useGameCardArt } from "../../hooks/useGameCardArt";
 import type { WishlistEntry } from "../../types/game";
 import HomeSection from "./HomeSection";
 
@@ -45,6 +47,7 @@ export default function HomeWishlistRail() {
   );
 }
 
+
 function HomeWishlistCard({
   entry,
   onClick,
@@ -52,17 +55,26 @@ function HomeWishlistCard({
   entry: WishlistEntry;
   onClick: () => void;
 }) {
+  const [hovered, setHovered] = useState(false);
+  const { displayUrl, handleError } = useGameCardArt({
+    game: entry,
+    defaultCoverUrl: entry.coverUrl,
+    isHovered: hovered,
+  });
+
   return (
     <button
       type="button"
       className="home-rail-card"
       onClick={onClick}
+      onMouseEnter={() => setHovered(true)}
+      onMouseLeave={() => setHovered(false)}
       title={entry.name}
       aria-label={entry.name}
     >
       <div className="home-rail-card__cover">
-        {entry.coverUrl ? (
-          <img src={entry.coverUrl} alt="" loading="lazy" />
+        {displayUrl ? (
+          <img src={displayUrl} alt="" loading="lazy" onError={handleError} />
         ) : (
           <div className="home-rail-card__placeholder">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1" aria-hidden>

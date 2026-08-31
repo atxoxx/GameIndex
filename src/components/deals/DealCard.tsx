@@ -3,6 +3,7 @@ import type { DealItem } from "../../types/deals";
 import { useLanguage } from "../../context/LanguageContext";
 import { useWishlist } from "../../hooks/useWishlist";
 import { useGames } from "../../context/GameContext";
+import { useGameCardArt } from "../../hooks/useGameCardArt";
 import {
   formatPrice,
   calculateSavings,
@@ -31,6 +32,21 @@ export default function DealCard({
   const { isWishlisted, toggle } = useWishlist();
   const { games } = useGames();
   const [copied, setCopied] = useState(false);
+  const [hovered, setHovered] = useState(false);
+
+  const steamAppId = useMemo(() => {
+    if (deal.storeUrl) {
+      const m = deal.storeUrl.match(/store\.steampowered\.com\/app\/(\d+)/i);
+      if (m && m[1]) return parseInt(m[1], 10);
+    }
+    return null;
+  }, [deal.storeUrl]);
+
+  const { displayUrl, handleError } = useGameCardArt({
+    appId: steamAppId,
+    defaultCoverUrl: deal.thumbnail,
+    isHovered: hovered,
+  });
 
   const slug = useMemo(() => titleToSlug(deal.gameTitle), [deal.gameTitle]);
   const wishlisted = isWishlisted(slug);
@@ -94,26 +110,21 @@ export default function DealCard({
           else onOpenUrl(deal.storeUrl);
         }
       }}
+      onMouseEnter={() => setHovered(true)}
+      onMouseLeave={() => setHovered(false)}
       aria-label={t("deals.openDealLabel", {
         game: deal.gameTitle,
         store: deal.storeName,
       })}
     >
       <div className="deals-deal-card-image-wrap">
-        {deal.thumbnail ? (
+        {displayUrl ? (
           <img
             className="deals-deal-card-image"
-            src={deal.thumbnail}
+            src={displayUrl}
             alt={deal.gameTitle}
             loading="lazy"
-            onError={(e) => {
-              const target = e.currentTarget;
-              target.style.display = "none";
-              const fb = target.parentElement?.querySelector(
-                ".deals-deal-card-image-fallback",
-              ) as HTMLElement | null;
-              if (fb) fb.style.display = "flex";
-            }}
+            onError={handleError}
           />
         ) : null}
 

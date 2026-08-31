@@ -1,10 +1,11 @@
-import { useMemo, useRef } from "react";
+import { useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import type { Game } from "../../types/game";
 import { useGames } from "../../context/GameContext";
 import { useLanguage } from "../../context/LanguageContext";
 import { Card } from "../ui";
 import { useCollapsedState } from "../../hooks/useCollapsedState";
+import { useGameCardArt } from "../../hooks/useGameCardArt";
 
 interface RecentlyAddedRailProps {
   games: Game[];
@@ -84,31 +85,7 @@ export default function RecentlyAddedRail({
           <div className="lib-rail-track" ref={railRef}>
             {recent.map((game, i) => (
               <div key={game.id} className={`lib-rail-item animate-fade-in stagger-${Math.min(i + 1, 8)}`}>
-                <Card variant="surface" elevation="1" hoverLift className="lib-rail-card" onClick={() => handleClick(game)}>
-                  <div className="lib-rail-cover">
-                    {game.coverArtUrl ? (
-                      <img src={game.coverArtUrl} alt={game.name} />
-                    ) : (
-                      <div className="lib-rail-cover-placeholder">
-                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1" aria-hidden>
-                          <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2" />
-                        </svg>
-                      </div>
-                    )}
-                    <span className="lib-rail-platform">{game.platform}</span>
-                    <span className="lib-rail-new-badge">
-                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" width="10" height="10" aria-hidden>
-                        <line x1="12" y1="5" x2="12" y2="19" />
-                        <line x1="5" y1="12" x2="19" y2="12" />
-                      </svg>
-                      {t("store.tab.new")}
-                    </span>
-                  </div>
-                  <div className="lib-rail-card-body">
-                    <div className="lib-rail-name" title={game.name}>{game.name}</div>
-                    <div className="lib-rail-meta">{game.playTime}</div>
-                  </div>
-                </Card>
+                <RecentlyAddedCard game={game} onClick={() => handleClick(game)} />
               </div>
             ))}
           </div>
@@ -119,3 +96,55 @@ export default function RecentlyAddedRail({
     </section>
   );
 }
+
+function RecentlyAddedCard({
+  game,
+  onClick,
+}: {
+  game: Game;
+  onClick: () => void;
+}) {
+  const { t } = useLanguage();
+  const [hovered, setHovered] = useState(false);
+  const { displayUrl, handleError } = useGameCardArt({
+    game,
+    isHovered: hovered,
+  });
+
+  return (
+    <Card
+      variant="surface"
+      elevation="1"
+      hoverLift
+      className="lib-rail-card"
+      onClick={onClick}
+      onMouseEnter={() => setHovered(true)}
+      onMouseLeave={() => setHovered(false)}
+    >
+      <div className="lib-rail-cover">
+        {displayUrl ? (
+          <img src={displayUrl} alt={game.name} loading="lazy" onError={handleError} />
+        ) : (
+          <div className="lib-rail-cover-placeholder">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1" aria-hidden>
+              <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2" />
+            </svg>
+          </div>
+        )}
+        <span className="lib-rail-platform">{game.platform}</span>
+        <span className="lib-rail-new-badge">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" width="10" height="10" aria-hidden>
+            <line x1="12" y1="5" x2="12" y2="19" />
+            <line x1="5" y1="12" x2="19" y2="12" />
+          </svg>
+          {t("store.tab.new")}
+        </span>
+      </div>
+      <div className="lib-rail-card-body">
+        <div className="lib-rail-name" title={game.name}>{game.name}</div>
+        <div className="lib-rail-meta">{game.playTime}</div>
+      </div>
+    </Card>
+  );
+}
+

@@ -12,10 +12,12 @@
 // doesn't thrash on every parent render the way the previous
 // `useCallback` + cleanupRef pattern did.
 
+import { useState } from "react";
 import { type Game } from "../../types/game";
 import { useGames } from "../../context/GameContext";
 import { useFocusable } from "../../hooks/useFocusable";
 import { useLanguage } from "../../context/LanguageContext";
+import { useGameCardArt } from "../../hooks/useGameCardArt";
 
 interface BigScreenGameCardProps {
   game: Game;
@@ -28,21 +30,31 @@ export default function BigScreenGameCard({
 }: BigScreenGameCardProps) {
   const { runningGameIds } = useGames();
   const { t } = useLanguage();
+  const [hovered, setHovered] = useState(false);
+  const [focused, setFocused] = useState(false);
   const isRunning = runningGameIds.includes(game.id);
-  // Stable focusable props; ref + cleanup are owned by useFocusable.
+
   const focusable = useFocusable(onClick);
+
+  const { displayUrl, handleError } = useGameCardArt({
+    game,
+    isHovered: hovered,
+    isFocused: focused,
+  });
 
   return (
     <div
       className={`bigscreen-game-card${isRunning ? " running" : ""}`}
       {...focusable}
       data-game-id={game.id}
+      onMouseEnter={() => setHovered(true)}
+      onMouseLeave={() => setHovered(false)}
+      onFocus={() => setFocused(true)}
+      onBlur={() => setFocused(false)}
     >
       <div className="bigscreen-game-card-cover">
-        {game.coverArtUrl ? (
-          <img src={game.coverArtUrl} alt={game.name} loading="lazy" />
-        ) : game.iconUrl ? (
-          <img src={game.iconUrl} alt={game.name} loading="lazy" />
+        {displayUrl ? (
+          <img src={displayUrl} alt={game.name} loading="lazy" onError={handleError} />
         ) : (
           <div className="bigscreen-game-card-cover-placeholder">
             <svg

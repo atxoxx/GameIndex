@@ -9,6 +9,7 @@ import { useSizeUnit } from "../../hooks/useSizeUnit";
 import { formatSize, type Game } from "../../types/game";
 import { driveOf, gameTotalBytes } from "./utils";
 import { Button } from "../../components/ui";
+import { useGameCardArt } from "../../hooks/useGameCardArt";
 
 interface Props {
   game: Game;
@@ -51,6 +52,11 @@ export function StorageRow({
   const { unit } = useSizeUnit();
   const [expanded, setExpanded] = useState(false);
   const [detecting, setDetecting] = useState(false);
+
+  const { displayUrl, handleError } = useGameCardArt({
+    game,
+    isListOrSmall: true,
+  });
 
   const hasSize = game.sizeBytes != null && game.sizeBytes > 0;
   const hasMods = (game.modsSizeBytes ?? 0) > 0;
@@ -170,8 +176,8 @@ export function StorageRow({
         {/* Thumbnail (in cozy / cinematic density) */}
         {density !== "compact" && (
           <div className="storage__row-thumb">
-            {game.coverArtUrl || game.iconUrl ? (
-              <img src={game.coverArtUrl || game.iconUrl} alt="" loading="lazy" />
+            {displayUrl ? (
+              <img src={displayUrl} alt="" loading="lazy" onError={handleError} />
             ) : (
               <span className="storage__row-thumb-placeholder">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">

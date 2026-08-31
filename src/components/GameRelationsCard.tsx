@@ -6,6 +6,7 @@ import { useProgressiveImage } from "../hooks/useProgressiveImages";
 import { useBigScreen } from "../context/BigScreenContext";
 import { useFocusable } from "../hooks/useFocusable";
 import { useLanguage } from "../context/LanguageContext";
+import { useGameCardArt } from "../hooks/useGameCardArt";
 import { slugify } from "../types/game";
 import type {
   Game,
@@ -837,14 +838,24 @@ function RelationRowCard({
 }) {
   const { t } = useLanguage();
   const { isBigScreen } = useBigScreen();
+  const [hovered, setHovered] = useState(false);
   const focusProps = useFocusable(onClick);
   const [coverUrl, imgRef] = useProgressiveImage(game.coverUrl || null);
+
+  const { displayUrl, handleError } = useGameCardArt({
+    game,
+    defaultCoverUrl: coverUrl,
+    isHovered: hovered,
+  });
+
   return (
     <div
       className="game-relation-card"
       {...(isBigScreen ? focusProps : { onClick })}
       role="button"
       tabIndex={isBigScreen ? -1 : 0}
+      onMouseEnter={() => setHovered(true)}
+      onMouseLeave={() => setHovered(false)}
       onKeyDown={isBigScreen ? undefined : (e) => {
         if (e.key === "Enter" || e.key === " ") {
           e.preventDefault();
@@ -854,8 +865,14 @@ function RelationRowCard({
       aria-label={game.inLibrary ? `${game.name} (${t("relations.group.inLibrary")})` : game.name}
     >
       <div className="game-relation-card-cover">
-        {coverUrl ? (
-          <img ref={imgRef} src={coverUrl} alt={game.name} loading="lazy" />
+        {displayUrl ? (
+          <img
+            ref={displayUrl === coverUrl ? imgRef : undefined}
+            src={displayUrl}
+            alt={game.name}
+            loading="lazy"
+            onError={handleError}
+          />
         ) : (
           <div className="game-relation-card-cover-placeholder">
             <svg
