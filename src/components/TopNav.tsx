@@ -11,6 +11,7 @@ import {
   Gamepad2,
   HardDrive,
   Heart,
+  Home,
   Monitor,
   MonitorPlay,
   Puzzle,
@@ -63,6 +64,7 @@ interface Tab {
 
 // Primary core tabs always displayed in compact navbar mode
 const coreNavTabs: Tab[] = [
+  { path: "/home", labelKey: "nav.home", icon: Home },
   { path: "/store", labelKey: "nav.store", icon: Store },
   { path: "/library", labelKey: "nav.library", icon: Monitor },
   { path: "/wishlist", labelKey: "nav.wishlist", icon: Heart },
@@ -83,6 +85,7 @@ const overflowNavTabs: Tab[] = [
 
 // All pages live as flat tabs in full navbar mode
 const allNavTabs: Tab[] = [
+  { path: "/home", labelKey: "nav.home", icon: Home },
   { path: "/store", labelKey: "nav.store", icon: Store },
   { path: "/library", labelKey: "nav.library", icon: Monitor },
   { path: "/wishlist", labelKey: "nav.wishlist", icon: Heart },
