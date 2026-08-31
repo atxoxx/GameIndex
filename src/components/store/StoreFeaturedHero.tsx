@@ -284,14 +284,15 @@ export default function StoreFeaturedHero({ onPickGame }: StoreFeaturedHeroProps
     return null;
   }, [activeGame, metadata, steamAppId]);
 
-  // Determine backdrop artwork URL
+  // Determine backdrop artwork URL — the IGDB hero is the default, with the
+  // Steam CDN hero / screenshots as fallbacks.
   const backdropArtUrl = useMemo(() => {
     if (!activeGame) return "";
+    if (metadata?.images?.hero) return metadata.images.hero;
+    if (metadata?.images?.banner) return metadata.images.banner;
     if (steamAppId) {
       return `https://cdn.cloudflare.steamstatic.com/steam/apps/${steamAppId}/library_hero.jpg`;
     }
-    if (metadata?.images?.hero) return metadata.images.hero;
-    if (metadata?.images?.banner) return metadata.images.banner;
     if (metadata?.screenshots && metadata.screenshots.length > 0) {
       return metadata.screenshots[0];
     }
@@ -340,17 +341,22 @@ export default function StoreFeaturedHero({ onPickGame }: StoreFeaturedHeroProps
   const [coverUrl] = useProgressiveImage(activeGame?.coverUrl);
   const [backdropLoadedUrl] = useProgressiveImage(backdropArtUrl);
 
-  // SteamGridDB community art — animated grid for the poster, animated hero
-  // for the backdrop, both falling back to their static versions then the
-  // plain IGDB cover / Steam CDN hero. Assets are prefetched on load so the
-  // animation is already in the browser cache when a slide becomes active.
+  // Poster defaults to the IGDB cover (community grid fills in when there's
+  // no cover). The hero backdrop prefers the animated SteamGridDB hero,
+  // then the Steam CDN banner, then the SteamGridDB banner, then the IGDB
+  // hero/cover. Assets are prefetched so animation is ready when a slide
+  // becomes active.
   const steamAppIdNum = steamAppId ? parseInt(steamAppId, 10) : null;
   const sgdb = useSteamGridArt(steamAppIdNum);
   usePrefetchImage(sgdb?.gridAnimatedUrl);
   usePrefetchImage(sgdb?.heroAnimatedUrl);
-  const posterSrc = sgdb?.gridAnimatedUrl ?? sgdb?.gridUrl ?? coverUrl;
+  const steamCdnHero = steamAppId
+    ? `https://cdn.cloudflare.steamstatic.com/steam/apps/${steamAppId}/library_hero.jpg`
+    : null;
+  const posterSrc = coverUrl ?? sgdb?.gridUrl ?? null;
   const spotlightBackdrop =
-    sgdb?.heroAnimatedUrl ?? sgdb?.heroUrl ?? backdropLoadedUrl ?? coverUrl;
+    sgdb?.heroAnimatedUrl ?? steamCdnHero ?? sgdb?.heroUrl ?? backdropLoadedUrl ?? coverUrl;
+
 
   const releaseYear = activeGame?.firstReleaseDate
     ? new Date(activeGame.firstReleaseDate).getFullYear()

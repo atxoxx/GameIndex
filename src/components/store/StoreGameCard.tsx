@@ -68,21 +68,31 @@ export default function StoreGameCard({
   const [coverUrl, imgRef] = useProgressiveImage(game.coverUrl);
   const { t } = useLanguage();
 
-  // SteamGridDB community poster — static grid shown by default, animated
-  // WebP/APNG swapped in on hover, falling back to the IGDB cover. The
-  // AppID is pulled from the game's Steam store URL.
+  // IGDB poster by default — the animated SteamGridDB grid swaps in on
+  // hover, and the community static grid only fills in when there's no IGDB
+  // cover (or it fails to load). The AppID is pulled from the Steam URL.
   const steamAppId = extractSteamAppIdFromWebsites(game.websites);
   const sgdb = useSteamGridArt(steamAppId);
   const [sgdbFailed, setSgdbFailed] = useState(false);
+  const [coverFailed, setCoverFailed] = useState(false);
   const [hovered, setHovered] = useState(false);
   const sgdbStatic = sgdb?.gridUrl && !sgdbFailed ? sgdb.gridUrl : null;
   const sgdbAnimated = sgdb?.gridAnimatedUrl && !sgdbFailed ? sgdb.gridAnimatedUrl : null;
-  // Warm the animated buffer up front so hovering is instant, and only attach
-  // the progressive-download ref when showing the plain IGDB cover.
+  // Warm the animated buffer up front so hovering is instant.
   usePrefetchImage(sgdbAnimated);
-  const hasSgdbGrid = Boolean(sgdb?.gridUrl || sgdb?.gridAnimatedUrl);
   const posterUrl =
-    hovered && sgdbAnimated ? sgdbAnimated : (sgdbStatic ?? coverUrl);
+    hovered && sgdbAnimated
+      ? sgdbAnimated
+      : (coverUrl && !coverFailed ? coverUrl : sgdbStatic);
+
+  const handlePosterError = (e: React.SyntheticEvent<HTMLImageElement>) => {
+    const src = e.currentTarget.src;
+    if ((sgdbAnimated && src === sgdbAnimated) || (sgdbStatic && src === sgdbStatic)) {
+      setSgdbFailed(true);
+      return;
+    }
+    setCoverFailed(true);
+  };
 
   const showBody = density !== "compact";
   const genresToShow = density === "cinematic" ? 4 : density === "list" ? 3 : 2;
@@ -133,11 +143,11 @@ export default function StoreGameCard({
         <div className="store-card-list-thumb">
           {posterUrl ? (
             <img
-              ref={hasSgdbGrid ? undefined : imgRef}
+              ref={posterUrl === coverUrl ? imgRef : undefined}
               src={posterUrl}
               alt={game.name}
               loading="lazy"
-              onError={hasSgdbGrid ? () => setSgdbFailed(true) : undefined}
+              onError={handlePosterError}
             />
           ) : (
             <div className="store-card-cover-skeleton" />
@@ -318,11 +328,11 @@ export default function StoreGameCard({
 
         {posterUrl ? (
           <img
-            ref={hasSgdbGrid ? undefined : imgRef}
+            ref={posterUrl === coverUrl ? imgRef : undefined}
             src={posterUrl}
             alt={game.name}
             loading="lazy"
-            onError={hasSgdbGrid ? () => setSgdbFailed(true) : undefined}
+            onError={handlePosterError}
           />
         ) : (
           <div className="store-card-cover-skeleton">

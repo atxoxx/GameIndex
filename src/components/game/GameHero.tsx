@@ -97,13 +97,16 @@ export default function GameHero({
   const { autoGameAccent, showGameArtBackdrop } = useSettings();
   const gamePalette = useGameAccent(accentSrc || undefined);
 
-  // SteamGridDB community art — animated hero for the backdrop, static grid
-  // for the poster, falling back to the game's own art / Steam CDN ladder.
+  // The poster defaults to the game's own IGDB cover, falling back to the
+  // SteamGridDB grid. The animated SteamGridDB hero is the preferred hero
+  // background (it animates in the backdrop), else the Steam CDN banner,
+  // else the SteamGridDB banner.
   const sgdb = useSteamGridArt(steamAppId);
-  const sgdbHeroUrl = sgdb?.heroAnimatedUrl ?? sgdb?.heroUrl ?? null;
+  const sgdbHeroAnimated = sgdb?.heroAnimatedUrl ?? null;
+  const sgdbHeroStatic = sgdb?.heroUrl ?? null;
   const sgdbGridUrl = sgdb?.gridUrl && !sgdbPosterFailed ? sgdb.gridUrl : null;
   // Warm the animated hero so the backdrop plays without a network hitch.
-  usePrefetchImage(sgdbHeroUrl);
+  usePrefetchImage(sgdbHeroAnimated ?? sgdbHeroStatic);
 
   useEffect(() => {
     setLogoErrored(false);
@@ -116,14 +119,19 @@ export default function GameHero({
     applyGameAccentFamily(document.documentElement, gamePalette);
   }, [autoGameAccent, gamePalette]);
 
-  // Ambient background ladder
+  // Ambient background ladder — animated SteamGridDB hero leads, then the
+  // Steam CDN banner, then the SteamGridDB banner, then the game's own
+  // hero/cover as last resorts.
   const steamCdnBanner =
     isGame && steamAppId != null
       ? `https://cdn.akamai.steamstatic.com/steam/apps/${steamAppId}/library_hero.jpg`
       : null;
   const ambientCandidates = useMemo(
-    () => [sgdbHeroUrl, steamCdnBanner, bannerUrl, coverUrl].filter((u): u is string => !!u),
-    [sgdbHeroUrl, steamCdnBanner, bannerUrl, coverUrl]
+    () =>
+      [sgdbHeroAnimated, steamCdnBanner, sgdbHeroStatic, bannerUrl, coverUrl].filter(
+        (u): u is string => !!u
+      ),
+    [sgdbHeroAnimated, steamCdnBanner, sgdbHeroStatic, bannerUrl, coverUrl]
   );
   const ambientSrc =
     ambientStep < ambientCandidates.length ? ambientCandidates[ambientStep] : null;
@@ -152,7 +160,7 @@ export default function GameHero({
     .filter(Boolean)
     .join(" ");
 
-  const posterSrc = sgdbGridUrl ?? coverUrl;
+  const posterSrc = coverUrl ?? sgdbGridUrl;
   const showPoster = !!posterSrc && !coverErrored;
   const friends = friendsProp ?? (isGame ? { gameName: game.name, gameId: game.id } : null);
 

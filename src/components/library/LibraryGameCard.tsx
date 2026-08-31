@@ -53,9 +53,10 @@ function LibraryGameCardBase({
   const { showCardBadges, isSimpleUi } = useSettings();
   const coverRef = useRef<HTMLDivElement | null>(null);
 
-  // SteamGridDB community art: static grid shown by default, animated WebP/
-  // APNG swapped in on hover. Falls back to the existing cover (which may
-  // itself fall back to Steam CDN art) when there's no SGDB grid.
+  // SteamGridDB community art: the animated WebP/APNG grid swaps in on
+  // hover, while the static poster defaults to the game's own cover (the
+  // IGDB poster downloaded by enrichment) with the community grid as a
+  // fallback when there's no cover.
   const [sgdbFailed, setSgdbFailed] = useState(false);
   const [hovered, setHovered] = useState(false);
   const sgdb = useSteamGridArt(game.steamAppId);
@@ -64,7 +65,7 @@ function LibraryGameCardBase({
   // Warm the animated buffer up front so hovering is instant.
   usePrefetchImage(sgdbAnimated);
   const posterUrl =
-    hovered && sgdbAnimated ? sgdbAnimated : (sgdbStatic ?? game.coverArtUrl);
+    hovered && sgdbAnimated ? sgdbAnimated : (game.coverArtUrl ?? sgdbStatic);
 
   const handlePosterError = (e: React.SyntheticEvent<HTMLImageElement>) => {
     const img = e.currentTarget;
