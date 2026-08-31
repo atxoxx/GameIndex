@@ -385,11 +385,89 @@ export function applyAccentFamily(
     }
     return;
   }
-  const family = buildAccentFamily(baseColor);
+  const guarded = legibleAccentForLuminance(
+    baseColor,
+    resolveSurfaceLuminance(root)
+  );
+  const family = buildAccentFamily(guarded);
   if (!family) return;
   for (const [key, value] of Object.entries(family)) {
     root.style.setProperty(key, value);
   }
+}
+
+/**
+ * Shift a raw accent color just enough to stay legible (default ≥ 4.5:1)
+ * against a resting surface, preserving its hue and saturation.
+ *
+ * A saturated cool accent (blue/purple/teal) at dark artwork luminance has far
+ * lower WCAG contrast on near-black cards than a warm accent at the same
+ * lightness, so a raw game-cover or user-picked accent can be effectively
+ * invisible as accent text/icons/badges. The accent is moved away from the
+ * surface tone: brightened on dark surfaces, deepened on light ones.
+ *
+ * Binary-search lightness between the color's current lightness and the
+ * bright/dark bound until it clears `targetRatio`, and back off slightly so
+ * the midpoint lands just past the boundary. Returns the adjusted hex; an
+ * accent that already clears the bar is untouched.
+ */
+export function legibleAccentForLuminance(
+  accentHex: string,
+  bgLum: number,
+  targetRatio = 4.5,
+  lightnessBound: number | null = null
+): string {
+  const base = parseCssColor(accentHex);
+  if (!base) return accentHex;
+  const { h, s, l } = rgbToHsl(base);
+
+  const currently = contrastFromLuminance(luminance(base), bgLum);
+  if (currently >= targetRatio) return accentHex;
+
+  const meansDark = bgLum < 0.5;
+  let lo = meansDark ? l : 0; // brighten: search upward from current lightness
+  let hi = meansDark ? 1 : l; // deepen:  search downward from current lightness
+  for (let i = 0; i < 24; i++) {
+    const mid = (lo + hi) / 2;
+    const lum = luminance(hslToRgb(h, s, mid));
+    if (contrastFromLuminance(lum, bgLum) >= targetRatio) {
+      if (meansDark) hi = mid;
+      else lo = mid;
+    } else {
+      if (meansDark) lo = mid;
+      else hi = mid;
+    }
+  }
+  const bound = lightnessBound ?? (meansDark ? 0.85 : 0.08);
+  const lightness = meansDark
+    ? Math.min(bound, (lo + hi) / 2)
+    : Math.max(bound, (lo + hi) / 2);
+  return rgbToHex(hslToRgb(h, s, lightness));
+}
+
+/** WCAG contrast ratio between a foreground luminance value and a background
+ *  luminance value (1–21). */
+function contrastFromLuminance(foreLum: number, bgLum: number): number {
+  const lighter = Math.max(foreLum, bgLum);
+  const darker = Math.min(foreLum, bgLum);
+  return (lighter + 0.05) / (darker + 0.05);
+}
+
+/**
+ * Resolve the effective resting-surface luminance from a root element's
+ * CSS custom properties, falling back to a mid-dark value when unresolved
+ * (or when run outside a browser). Used by the accent appliers so a raw
+ * accent is guarded against whatever theme is actually active.
+ */
+function resolveSurfaceLuminance(root: HTMLElement): number {
+  try {
+    const raw = getComputedStyle(root).getPropertyValue("--color-bg-tertiary");
+    const hex = cssColorStringToHex(raw);
+    if (hex) return luminance(hexToRgb(hex));
+  } catch {
+    /* ignore */
+  }
+  return luminance({ r: 19, g: 21, b: 34 });
 }
 
 /** A game-extracted accent palette (`useGameAccent`) forwarded to the
@@ -416,10 +494,18 @@ export function applyGameAccentFamily(
   palette: AccentPalette | null
 ): void {
   if (!palette) return;
+  const surfaceLum = resolveSurfaceLuminance(root);
+  // Guard the primary against the active surface, then re-derive the partner
+  // and deep wash from the guarded primary so the whole family stays on one
+  // hue/luminance ladder and remains legible — a raw cool or dark game accent
+  // would otherwise be effectively invisible as accent text on near-black cards.
+  const guarded = legibleAccentForLuminance(palette.primary, surfaceLum);
+  const guardedRgb = parseCssColor(guarded);
+  if (!guardedRgb) return;
   const family = buildAccentFamily(
-    palette.primary,
-    palette.secondary,
-    palette.deep
+    guarded,
+    rgbToHex(harmonizeAccent(guardedRgb)),
+    rgbToHex(darken(guardedRgb, 0.4))
   );
   if (!family) return;
   for (const [key, value] of Object.entries(family)) {

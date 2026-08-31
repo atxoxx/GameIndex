@@ -14,11 +14,43 @@ import {
   darken,
   harmonizeAccent,
   hslToRgb,
+  luminance,
   rgbToHex,
   rgbToHsl,
   textColorFor,
   type RgbColor,
 } from "./color";
+
+/**
+ * Return the smallest HSL lightness (0–1) such that a color of the given hue
+ * and saturation reaches `targetRatio` WCAG contrast against a background of
+ * the given luminance. Cool hues (blue/purple/teal) carry far less luminance
+ * than warm hues at the same HSL lightness, so they need a noticeably lighter
+ * accent to stay legible on dark surfaces. Binary-search lightness for speed
+ * and determinism (~26 iterations is far more precision than needed).
+ */
+function minContrastLightness(
+  hue: number,
+  sat: number,
+  bgLum: number,
+  targetRatio: number
+): number {
+  let lo = 0;
+  let hi = 1;
+  for (let i = 0; i < 26; i++) {
+    const mid = (lo + hi) / 2;
+    const lum = luminance(hslToRgb(hue, sat, mid));
+    const lighter = Math.max(lum, bgLum);
+    const darker = Math.min(lum, bgLum);
+    const ratio = (lighter + 0.05) / (darker + 0.05);
+    if (ratio >= targetRatio) {
+      hi = mid;
+    } else {
+      lo = mid;
+    }
+  }
+  return (lo + hi) / 2;
+}
 
 export interface SampledColors {
   /** Dominant vibrant/chromatic artwork color. */
@@ -266,8 +298,8 @@ export function deriveAdaptiveTheme(sampled: SampledColors): Record<string, stri
   // while ensuring WCAG AAA (> 12:1) for primary and AA (> 7:1 / > 4.5:1) for secondary/tertiary.
   const textPrimaryRgb = hslToRgb(hue, 0.14, 0.965);
   const textSecondaryRgb = hslToRgb(hue, 0.18, 0.76);
-  const textTertiaryRgb = hslToRgb(hue, 0.22, 0.58);
-  const textMutedRgb = hslToRgb(hue, 0.16, 0.48);
+  const textTertiaryRgb = hslToRgb(hue, 0.22, 0.625);
+  const textMutedRgb = hslToRgb(hue, 0.16, 0.56);
 
   const textPrimaryHex = rgbToHex(textPrimaryRgb);
   const textSecondaryHex = rgbToHex(textSecondaryRgb);
@@ -276,9 +308,28 @@ export function deriveAdaptiveTheme(sampled: SampledColors): Record<string, stri
   const textInverseHex = "#050508";
 
   // ── Accent Family ──────────────────────────────────────────────────
-  // Vibrant, punchy accent tailored for high legibility and button contrast
-  const accentLightness = Math.min(0.62, Math.max(0.48, domHsl.l));
+  // Vibrant, punchy accent tailored for high legibility and button contrast.
+  // HSL lightness is not a good proxy for perceived contrast across hues:
+  // a saturated blue/purple accent at the same lightness as a red/orange one
+  // has far lower WCAG contrast against a dark surface. So instead of a fixed
+  // lightweight clamp we blend the artwork-derived lightness upwards — per hue —
+  // until the accent clears 4.5:1 against the resting card surfaces. This keeps
+  // cool-toned artwork (blues, purples, teals) from producing accents that
+  // vanish as accent text/icons/badges on near-black cards.
   const accentSat = Math.max(0.72, domHsl.s);
+  const preferredLightness = Math.min(0.62, Math.max(0.48, domHsl.l));
+  // Accent text/icons/badges sit on the page background and on cards
+  // (primary/secondary/tertiary), not on the transient hover/active states,
+  // so guarantee 4.5:1 against the lightest of those three surfaces.
+  const targetBgLum = Math.max(
+    luminance(bgPrimaryRgb),
+    luminance(bgSecondaryRgb),
+    luminance(bgTertiaryRgb)
+  );
+  // Target slightly above 4.5 so the binary-search midpoint approaches the
+  // boundary from the safe side, keeping the final accent above 4.5:1.
+  const requiredLightness = minContrastLightness(hue, accentSat, targetBgLum, 4.6);
+  const accentLightness = Math.min(0.72, Math.max(preferredLightness, requiredLightness));
   const accentRgb = hslToRgb(hue, accentSat, accentLightness);
   const accentHex = rgbToHex(accentRgb);
 

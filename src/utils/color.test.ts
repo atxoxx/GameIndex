@@ -12,6 +12,7 @@ import {
   buildAccentFamily,
   rgbToHsl,
   hslToRgb,
+  legibleAccentForLuminance,
 } from "./color";
 
 describe("hexToRgb / rgbToHex", () => {
@@ -114,5 +115,29 @@ describe("buildAccentFamily", () => {
   it("respects secondary override", () => {
     const family = buildAccentFamily("#ff0000", "#00ff00", null);
     expect(family!["--color-accent-2"]).toBe("#00ff00");
+  });
+});
+
+describe("legibleAccentForLuminance", () => {
+  const darkLum = luminance({ r: 13, g: 14, b: 23 }); // ~ adaptive bg-tertiary
+  const lightLum = luminance({ r: 237, g: 241, b: 247 }); // ~ light theme bg-secondary
+
+  it("leaves an already-legible accent untouched", () => {
+    expect(legibleAccentForLuminance("#fafafa", darkLum)).toBe("#fafafa");
+  });
+
+  it("brightens a dark cool accent on a dark surface to pass 4.5:1", () => {
+    const guarded = legibleAccentForLuminance("#0f3c8c", darkLum);
+    expect(contrastRatio(guarded, "#0d0e17")).toBeGreaterThanOrEqual(4.5);
+    // hue/saturation preserved enough to read as the same blue
+    const h = rgbToHsl(hexToRgb(guarded));
+    expect(h.h).toBeGreaterThan(200);
+    expect(h.h).toBeLessThan(260);
+  });
+
+  it("deepens a light accent on a light surface to pass 4.5:1", () => {
+    const guarded = legibleAccentForLuminance("#bfe3ff", lightLum);
+    const cr = contrastRatio(guarded, "#ffffff");
+    expect(cr).toBeGreaterThanOrEqual(4.5);
   });
 });
