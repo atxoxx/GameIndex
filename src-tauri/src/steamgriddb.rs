@@ -32,7 +32,12 @@ use crate::db::Db;
 /// Base URL of the SteamGridDB v2 API.
 const API_BASE: &str = "https://www.steamgriddb.com/api/v2";
 /// KV key prefix for cached per-AppID results.
-const CACHE_KEY_PREFIX: &str = "sgdb:v1:";
+///
+/// Bumped from `v1` to `v2` because the old version cached negatives from a
+/// period when the API rejected the `nsfw=no` filter values (the correct
+/// values are `false`); bumping the prefix discards those stale "no art"
+/// entries so fixed lookups actually run again.
+const CACHE_KEY_PREFIX: &str = "sgdb:v2:";
 /// Cache TTL for both hits and negatives (7 days — community art rarely churns).
 const CACHE_TTL_MS: u64 = 7 * 24 * 60 * 60 * 1000;
 
@@ -166,7 +171,7 @@ impl SgdbService {
         types: &str,
     ) -> Option<SgdbArtwork> {
         let url = format!(
-            "{API_BASE}/{}/{}?types={types}&nsfw=no&humor=no&epilepsy=no",
+            "{API_BASE}/{}/{}?types={types}&nsfw=false&humor=false&epilepsy=false",
             kind.path(),
             app_id
         );
