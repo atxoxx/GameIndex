@@ -22,4 +22,10 @@ export interface SgdbAssets {
   /** Best animated hero — hero background. */
   heroAnimatedUrl: string | null;
   heroAnimatedMime: string | null;
+  /** Best square icon (flat community icon art). */
+  iconUrl: string | null;
+  iconMime: string | null;
+  /** Best clear logo (flat transparent logo art). */
+  logoUrl: string | null;
+  logoMime: string | null;
 }

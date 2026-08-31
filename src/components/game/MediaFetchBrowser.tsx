@@ -1,6 +1,10 @@
 import { useEffect, useMemo, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
-import type { GameMetadataResult, LaunchBoxImageResult } from "../../types/game";
+import {
+  extractSteamAppIdFromWebsites,
+  type GameMetadataResult,
+  type LaunchBoxImageResult,
+} from "../../types/game";
 import type { SgdbAssets } from "../../types/steamgriddb";
 import { Button } from "../ui";
 import "./EditGameModal.css";
@@ -66,9 +70,22 @@ function launchboxMatchesSlot(category: string, slot: MediaSlot): boolean {
   return LAUNCHBOX_CATEGORY_KEYWORDS[slot].some((k) => cat.includes(k));
 }
 
+/** Steam store URLs that can supply an AppID when the game row has none
+ *  (local imports matched to an IGDB entry that links a Steam page). */
+function steamUrlsFromMetadata(results: GameMetadataResult[]): string[] {
+  const urls: string[] = [];
+  for (const r of results) {
+    if (r.websites) urls.push(...r.websites);
+    if (r.sourceUrl) urls.push(r.sourceUrl);
+  }
+  return urls;
+}
+
 /** Fetch candidate images for a single media slot across Steam, IGDB and
  *  SteamGridDB, restricted to jpg/jpeg/png/webp. Filters by extension and
- *  MIME where available, dedupes URLs, and preserves a stable source order. */
+ *  MIME where available, dedupes URLs, and preserves a stable source order.
+ *  SteamGridDB needs a Steam AppID; when the game row lacks one we try to
+ *  recover it from the metadata's Steam store links. */
 async function collectCandidates(
   slot: MediaSlot,
   gameName: string,
@@ -85,8 +102,9 @@ async function collectCandidates(
   };
 
   // Steam + IGDB metadata (LaunchBox excluded from the metadata scrape).
+  let results: GameMetadataResult[] = [];
   try {
-    const results: GameMetadataResult[] = await invoke("search_game_metadata", {
+    results = await invoke<GameMetadataResult[]>("search_game_metadata", {
       gameName,
       skipLaunchbox: true,
       steamAppId,
@@ -100,21 +118,25 @@ async function collectCandidates(
     /* metadata source unavailable — fall through to SteamGridDB */
   }
 
-  // SteamGridDB community art (grid serves cover + logo fallback, hero wide art).
-  if (steamAppId) {
+  // SteamGridDB community art. Every slot maps to its own kind: icon →
+  // icon, cover → grid, hero → hero, logo → logo.
+  const sgdbAppId = steamAppId ?? extractSteamAppIdFromWebsites(steamUrlsFromMetadata(results));
+  if (sgdbAppId) {
     try {
       const assets = await invoke<SgdbAssets | null>("sgdb_get_assets", {
-        steamAppId,
+        steamAppId: sgdbAppId,
       });
       if (assets) {
-        if (slot === "cover") {
+        if (slot === "icon") {
+          push(assets.iconUrl, "SteamGridDB", assets.iconMime);
+        } else if (slot === "cover") {
           push(assets.gridUrl, "SteamGridDB", assets.gridMime);
           push(assets.gridAnimatedUrl, "SteamGridDB", assets.gridAnimatedMime);
         } else if (slot === "hero") {
           push(assets.heroUrl, "SteamGridDB", assets.heroMime);
           push(assets.heroAnimatedUrl, "SteamGridDB", assets.heroAnimatedMime);
         } else if (slot === "logo") {
-          push(assets.gridUrl, "SteamGridDB", assets.gridMime);
+          push(assets.logoUrl, "SteamGridDB", assets.logoMime);
         }
       }
     } catch {

@@ -1,8 +1,10 @@
 //! SteamGridDB artwork service (steamgriddb.com).
 //!
-//! Fetches community grid (poster) and hero (wide banner) artwork for a
-//! Steam AppID, preferring ANIMATED assets (APNG / animated WebP) when the
-//! community has uploaded them, and falling back to static art otherwise.
+//! Fetches community grid (poster), hero (wide banner), icon (square) and
+//! logo (clear logo) artwork for a Steam AppID, preferring ANIMATED assets
+//! (APNG / animated WebP) for grid/hero when the community has uploaded
+//! them, and falling back to static art otherwise. Icons and logos are
+//! fetched static-only (flat art — animated uploads are rare).
 //!
 //! The service:
 //! - Requires a free SteamGridDB API key, supplied via the
@@ -11,12 +13,13 @@
 //!   key is present the service is a silent no-op and games keep their
 //!   existing art.
 //! - Queries the v2 API per kind (`/grids/steam/{appid}`,
-//!   `/heroes/steam/{appid}`) with `types=animated` first, then
-//!   `types=static`, so "animated when possible" is decided by the API
-//!   rather than sniffed from file extensions.
+//!   `/heroes/steam/{appid}`, `/icons/steam/{appid}`, `/logos/steam/{appid}`)
+//!   with `types=animated` first, then `types=static`, so "animated when
+//!   possible" is decided by the API rather than sniffed from file
+//!   extensions.
 //! - Caches per-AppID results (including negatives — games with no
 //!   community art) in the SQLite KV store with a 7-day TTL, keyed
-//!   `sgdb:v1:{appid}`, so a large library is only fetched once per week.
+//!   `sgdb:v3:{appid}`, so a large library is only fetched once per week.
 //! - The batch command coalesces a store/library grid's many per-card
 //!   requests into a single round-trip with bounded concurrency (same
 //!   pattern as `crackwatch`'s batch command).
@@ -33,11 +36,12 @@ use crate::db::Db;
 const API_BASE: &str = "https://www.steamgriddb.com/api/v2";
 /// KV key prefix for cached per-AppID results.
 ///
-/// Bumped from `v1` to `v2` because the old version cached negatives from a
+/// Bumped `v1` → `v2` because the old version cached negatives from a
 /// period when the API rejected the `nsfw=no` filter values (the correct
-/// values are `false`); bumping the prefix discards those stale "no art"
-/// entries so fixed lookups actually run again.
-const CACHE_KEY_PREFIX: &str = "sgdb:v2:";
+/// values are `false`); `v2` → `v3` because the payload schema grew
+/// icon/logo fields. Each bump discards stale entries so fixed lookups
+/// actually run again.
+const CACHE_KEY_PREFIX: &str = "sgdb:v3:";
 /// Cache TTL for both hits and negatives (7 days — community art rarely churns).
 const CACHE_TTL_MS: u64 = 7 * 24 * 60 * 60 * 1000;
 
@@ -46,6 +50,8 @@ const CACHE_TTL_MS: u64 = 7 * 24 * 60 * 60 * 1000;
 enum SgdbKind {
     Grid,
     Hero,
+    Icon,
+    Logo,
 }
 
 impl SgdbKind {
@@ -53,6 +59,8 @@ impl SgdbKind {
         match self {
             SgdbKind::Grid => "grids/steam",
             SgdbKind::Hero => "heroes/steam",
+            SgdbKind::Icon => "icons/steam",
+            SgdbKind::Logo => "logos/steam",
         }
     }
 }
@@ -79,6 +87,12 @@ pub struct SgdbAssets {
     /// Best animated hero — shown as the hero background.
     pub hero_animated_url: Option<String>,
     pub hero_animated_mime: Option<String>,
+    /// Best square icon (flat community icon art).
+    pub icon_url: Option<String>,
+    pub icon_mime: Option<String>,
+    /// Best clear logo (flat transparent logo art).
+    pub logo_url: Option<String>,
+    pub logo_mime: Option<String>,
 }
 
 /// One artwork item from the v2 API `data` array. Unknown fields are
@@ -114,15 +128,32 @@ struct CachedSgdbAssets {
     updated_at: u64,
 }
 
+/// MIME types the frontend can render in an `<img>` tag. The icon endpoint
+/// mixes `.ico` uploads (image/vnd.microsoft.icon) with png/webp; those
+/// aren't displayed by the media picker (it only shows jpg/jpeg/png/webp),
+/// so we prefer web-renderable art whenever the community uploaded any.
+fn is_renderable_mime(mime: Option<&str>) -> bool {
+    mime.map(|m| m.starts_with("image/png") || m.starts_with("image/jpeg") || m.starts_with("image/webp")).unwrap_or(false)
+}
+
 /// Pick the highest-quality artwork from a kind's returned list: score
-/// (community votes) first, then download count. Keeps the item's mime so
-/// the frontend can tell whether it is animated (APNG / WebP) vs static.
+/// (community votes) first, then download count. Items whose MIME the
+/// frontend can't render (e.g. `.ico`) are deprioritized so a best-pick
+/// icon/logo is always displayable. Keeps the item's mime so the frontend
+/// can tell whether it is animated (APNG / WebP) vs static.
 fn pick_best(mut items: Vec<SgdbArtwork>) -> Option<SgdbArtwork> {
     items.sort_by(|a, b| {
-        b.score
-            .unwrap_or(0.0)
-            .partial_cmp(&a.score.unwrap_or(0.0))
-            .unwrap_or(std::cmp::Ordering::Equal)
+        // Renderable art (png/jpg/webp) outranks unrenderable (ico), then
+        // score, then download count — a single stable ordering so a
+        // best-pick icon/logo is always displayable in the media picker.
+        is_renderable_mime(b.mime.as_deref())
+            .cmp(&is_renderable_mime(a.mime.as_deref()))
+            .then(
+                b.score
+                    .unwrap_or(0.0)
+                    .partial_cmp(&a.score.unwrap_or(0.0))
+                    .unwrap_or(std::cmp::Ordering::Equal),
+            )
             .then(b.downloads.unwrap_or(0).cmp(&a.downloads.unwrap_or(0)))
     });
     items.into_iter().next()
@@ -161,6 +192,17 @@ impl SgdbService {
             self.fetch_kind_with_types(api_key, app_id, kind, "animated"),
             self.fetch_kind_with_types(api_key, app_id, kind, "static"),
         )
+    }
+
+    /// Fetch just the static variant of a kind (used for icons/logos,
+    /// which are flat art where animated uploads are rare).
+    async fn fetch_kind_static(
+        &self,
+        api_key: &str,
+        app_id: u32,
+        kind: SgdbKind,
+    ) -> Option<SgdbArtwork> {
+        self.fetch_kind_with_types(api_key, app_id, kind, "static").await
     }
 
     async fn fetch_kind_with_types(
@@ -235,12 +277,15 @@ fn persist(db: &Db, app_id: u32, assets: &SgdbAssets) {
     }
 }
 
-/// Fetch grid + hero artwork (both animated and static variants) for one
-/// AppID in parallel.
+/// Fetch all four artwork kinds for one AppID in parallel. Grid + hero pull
+/// both animated and static variants (the animated art plays on hover / as
+/// the hero backdrop); icon + logo are fetched static-only.
 async fn fetch_assets(api_key: &str, app_id: u32) -> SgdbAssets {
-    let (grid, hero) = tokio::join!(
+    let (grid, hero, icon, logo) = tokio::join!(
         service().fetch_kind(api_key, app_id, SgdbKind::Grid),
         service().fetch_kind(api_key, app_id, SgdbKind::Hero),
+        service().fetch_kind_static(api_key, app_id, SgdbKind::Icon),
+        service().fetch_kind_static(api_key, app_id, SgdbKind::Logo),
     );
     let (grid_animated, grid_static) = grid;
     let (hero_animated, hero_static) = hero;
@@ -253,6 +298,10 @@ async fn fetch_assets(api_key: &str, app_id: u32) -> SgdbAssets {
         hero_mime: hero_static.and_then(|h| h.mime),
         hero_animated_url: hero_animated.as_ref().and_then(|h| h.url.clone()),
         hero_animated_mime: hero_animated.and_then(|h| h.mime),
+        icon_url: icon.as_ref().and_then(|i| i.url.clone()),
+        icon_mime: icon.and_then(|i| i.mime),
+        logo_url: logo.as_ref().and_then(|l| l.url.clone()),
+        logo_mime: logo.and_then(|l| l.mime),
     }
 }
 
@@ -262,6 +311,8 @@ fn has_art(assets: &SgdbAssets) -> bool {
         || assets.grid_animated_url.is_some()
         || assets.hero_url.is_some()
         || assets.hero_animated_url.is_some()
+        || assets.icon_url.is_some()
+        || assets.logo_url.is_some()
 }
 
 /// Read a fresh cache entry for an AppID, if present and unexpired.
@@ -385,6 +436,19 @@ mod tests {
     }
 
     #[test]
+    fn pick_best_prefers_renderable_mime_over_ico() {
+        // The icon endpoint mixes .ico (image/vnd.microsoft.icon) with
+        // png; the picker can't render .ico, so png must win even with a
+        // lower score.
+        let items = vec![
+            art("icon.ico", "image/vnd.microsoft.icon", 9.0, 500),
+            art("icon.png", "image/png", 1.0, 10),
+        ];
+        let best = pick_best(items).expect("should pick one");
+        assert_eq!(best.url.as_deref(), Some("icon.png"));
+    }
+
+    #[test]
     fn pick_best_ties_break_by_downloads() {
         let items = vec![
             art("a.png", "image/png", 2.0, 5),
@@ -416,6 +480,10 @@ mod tests {
             hero_mime: Some("image/png".into()),
             hero_animated_url: None,
             hero_animated_mime: None,
+            icon_url: Some("https://cdn/icon.png".into()),
+            icon_mime: Some("image/png".into()),
+            logo_url: None,
+            logo_mime: None,
         };
         let json = serde_json::to_value(&assets).unwrap();
         assert!(json.get("gridUrl").is_some());
@@ -424,6 +492,10 @@ mod tests {
         assert!(json.get("heroUrl").is_some());
         assert!(json.get("heroAnimatedUrl").is_some());
         assert_eq!(json.get("heroAnimatedUrl").unwrap().as_str(), None);
+        assert!(json.get("iconUrl").is_some());
+        assert_eq!(json.get("iconUrl").unwrap().as_str(), Some("https://cdn/icon.png"));
+        assert!(json.get("logoUrl").is_some());
+        assert_eq!(json.get("logoUrl").unwrap().as_str(), None);
     }
 
     #[test]
@@ -437,6 +509,10 @@ mod tests {
             hero_mime: None,
             hero_animated_url: None,
             hero_animated_mime: None,
+            icon_url: None,
+            icon_mime: None,
+            logo_url: None,
+            logo_mime: None,
         };
         assert!(!has_art(&none));
 
@@ -448,9 +524,15 @@ mod tests {
 
         let static_hero_only = SgdbAssets {
             hero_url: Some("https://cdn/h.png".into()),
-            ..none
+            ..none.clone()
         };
         assert!(has_art(&static_hero_only));
+
+        let icon_only = SgdbAssets {
+            icon_url: Some("https://cdn/i.png".into()),
+            ..none
+        };
+        assert!(has_art(&icon_only));
     }
 
     #[test]
