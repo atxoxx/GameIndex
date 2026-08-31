@@ -5,6 +5,9 @@ interface EditImageSlotProps {
   subtitle: string;
   imageUrl: string;
   previewSize: { w: number; h: number };
+  /** Render the preview on a checkerboard so transparent art (icons/logos)
+   *  is visibly see-through instead of flattened onto a solid background. */
+  transparent?: boolean;
   isFetching: boolean;
   onChooseFile: () => void;
   onFetchWeb: () => void;
@@ -17,6 +20,7 @@ export function EditImageSlot({
   subtitle,
   imageUrl,
   previewSize,
+  transparent,
   isFetching,
   onChooseFile,
   onFetchWeb,
@@ -38,7 +42,7 @@ export function EditImageSlot({
       </div>
 
       <div
-        className="edit-image-slot-preview"
+        className={`edit-image-slot-preview${transparent ? " transparent" : ""}`}
         style={{ width: "100%", height: previewSize.h }}
       >
         {imageUrl ? (

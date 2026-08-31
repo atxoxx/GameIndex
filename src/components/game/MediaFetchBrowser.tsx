@@ -10,6 +10,7 @@ import { Button } from "../ui";
 import "./EditGameModal.css";
 
 type MediaSlot = "icon" | "cover" | "hero" | "logo";
+type FormatFilter = "all" | "jpg" | "jpeg" | "png" | "webp";
 
 interface Candidate {
   url: string;
@@ -40,6 +41,34 @@ const ALLOWED_MIME = /^image\/(jpe?g|png|webp)$/i;
 function allowed(url: string, mime?: string | null): boolean {
   if (mime && ALLOWED_MIME.test(mime)) return true;
   return ALLOWED_EXT.test(url);
+}
+
+/** Transparent-prone slots get a checkerboard behind the thumbnail so the
+ *  user can actually see through the image (icons and logos are alpha art). */
+function isTransparentSlot(slot: MediaSlot): boolean {
+  return slot === "icon" || slot === "logo";
+}
+
+function isAnimated(c: Candidate): boolean {
+  return (
+    (c.mime && (c.mime.includes("apng") || c.mime.includes("webp"))) ||
+    /\.apng$/i.test(c.url) ||
+    /\.webp$/i.test(c.url)
+  );
+}
+
+/** Normalize a candidate's format to a filter bucket. JPEG covers both the
+ *  `jpg` and `jpeg` extensions (they're the same container). */
+function formatOf(c: Candidate): "jpg" | "png" | "webp" | "other" {
+  const m = (c.mime || "").toLowerCase();
+  if (m.includes("jpeg")) return "jpg";
+  if (m.includes("png") || m.includes("apng")) return "png";
+  if (m.includes("webp")) return "webp";
+  const ext = (c.url.split("?")[0].split(".").pop() || "").toLowerCase();
+  if (ext === "jpg" || ext === "jpeg") return "jpg";
+  if (ext === "png" || ext === "apng") return "png";
+  if (ext === "webp") return "webp";
+  return "other";
 }
 
 function metadataUrlsForSlot(slot: MediaSlot, img: GameMetadataResult["images"]): string[] {
@@ -203,6 +232,14 @@ async function collectLaunchboxCandidates(
   return out;
 }
 
+const FORMAT_FILTERS: { key: FormatFilter; label: string }[] = [
+  { key: "all", label: "All" },
+  { key: "jpg", label: "JPG" },
+  { key: "jpeg", label: "JPEG" },
+  { key: "png", label: "PNG" },
+  { key: "webp", label: "WebP" },
+];
+
 /** Modal media browser for the edit-game image slots. Opened from a slot's
  *  "Fetch" button; gathers candidate images for that category from Steam,
  *  IGDB, SteamGridDB and LaunchBox automatically, shows only
@@ -219,6 +256,8 @@ export function MediaFetchBrowser({
   const [candidates, setCandidates] = useState<Candidate[]>([]);
   const [launchboxCandidates, setLaunchboxCandidates] = useState<Candidate[]>([]);
   const [applyingUrl, setApplyingUrl] = useState<string | null>(null);
+  const [formatFilter, setFormatFilter] = useState<FormatFilter>("all");
+  const [previewCandidate, setPreviewCandidate] = useState<Candidate | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -244,10 +283,15 @@ export function MediaFetchBrowser({
     [candidates, launchboxCandidates]
   );
 
+  const filteredCandidates = useMemo(() => {
+    if (formatFilter === "all") return allCandidates;
+    return allCandidates.filter((c) => formatOf(c) === formatFilter);
+  }, [allCandidates, formatFilter]);
+
   const grouped = useMemo(() => {
     const order = ["Steam", "IGDB", "SteamGridDB", "LaunchBox"];
     const map = new Map<string, Candidate[]>();
-    for (const c of allCandidates) {
+    for (const c of filteredCandidates) {
       const list = map.get(c.source) ?? [];
       list.push(c);
       map.set(c.source, list);
@@ -255,7 +299,7 @@ export function MediaFetchBrowser({
     return Array.from(map.entries()).sort(
       (a, b) => order.indexOf(a[0]) - order.indexOf(b[0])
     );
-  }, [allCandidates]);
+  }, [filteredCandidates]);
 
   async function handleApply(url: string) {
     setApplyingUrl(url);
@@ -267,6 +311,44 @@ export function MediaFetchBrowser({
     } finally {
       setApplyingUrl(null);
     }
+  }
+
+  function renderThumb(c: Candidate) {
+    return (
+      <div key={c.url} className="media-fetch-card">
+        <button
+          type="button"
+          className={`media-fetch-thumb-btn${isTransparentSlot(slot) ? " transparent" : ""}`}
+          onClick={() => setPreviewCandidate(c)}
+          title="Click to preview"
+        >
+          <img
+            src={c.url}
+            alt={`${c.source} ${SLOT_LABEL[slot]}`}
+            loading="lazy"
+            decoding="async"
+            fetchPriority={c.source === "Steam" ? "high" : "low"}
+          />
+          {isAnimated(c) && <span className="media-fetch-badge">animated</span>}
+        </button>
+        <div className="media-fetch-card-meta">
+          <span className="media-fetch-fmt">
+            {c.mime ? c.mime.replace("image/", "") : (c.url.split("?")[0].split(".").pop() || "img")}
+          </span>
+          {c.resolution && <span className="media-fetch-res"> · {c.resolution}</span>}
+          {c.region && <span className="media-fetch-res"> · {c.region}</span>}
+        </div>
+        <Button
+          variant="primary"
+          size="sm"
+          disabled={applyingUrl !== null}
+          isLoading={applyingUrl === c.url}
+          onClick={() => handleApply(c.url)}
+        >
+          Set as {SLOT_LABEL[slot]}
+        </Button>
+      </div>
+    );
   }
 
   return (
@@ -288,6 +370,24 @@ export function MediaFetchBrowser({
         </div>
 
         <div className="lb-browser-body media-fetch-body">
+          {!loading && filteredCandidates.length > 0 && (
+            <div className="media-fetch-toolbar">
+              {FORMAT_FILTERS.map((f) => (
+                <button
+                  key={f.key}
+                  type="button"
+                  className={`media-fetch-filter-chip${formatFilter === f.key ? " active" : ""}`}
+                  onClick={() => setFormatFilter(f.key)}
+                >
+                  {f.label}
+                </button>
+              ))}
+              <span className="media-fetch-filter-count">
+                {filteredCandidates.length} of {allCandidates.length}
+              </span>
+            </div>
+          )}
+
           {loading ? (
             <div className="metadata-loading">
               <div className="metadata-spinner" />
@@ -306,32 +406,7 @@ export function MediaFetchBrowser({
                   <span className="media-fetch-source-count">{list.length}</span>
                 </div>
                 <div className="media-fetch-grid">
-                  {list.map((c) => (
-                    <div key={c.url} className="media-fetch-card">
-                      <div className="media-fetch-thumb">
-                        <img src={c.url} alt={`${source} ${SLOT_LABEL[slot]}`} loading="lazy" />
-                        {(c.mime && c.mime.includes("apng")) || /\.apng$/i.test(c.url) ? (
-                          <span className="media-fetch-badge">animated</span>
-                        ) : null}
-                      </div>
-                      <div className="media-fetch-card-meta">
-                        <span className="media-fetch-fmt">
-                          {c.mime ? c.mime.replace("image/", "") : (c.url.split("?")[0].split(".").pop() || "img")}
-                        </span>
-                        {c.resolution && <span className="media-fetch-res"> · {c.resolution}</span>}
-                        {c.region && <span className="media-fetch-res"> · {c.region}</span>}
-                      </div>
-                      <Button
-                        variant="primary"
-                        size="sm"
-                        disabled={applyingUrl !== null}
-                        isLoading={applyingUrl === c.url}
-                        onClick={() => handleApply(c.url)}
-                      >
-                        Set as {SLOT_LABEL[slot]}
-                      </Button>
-                    </div>
-                  ))}
+                  {list.map((c) => renderThumb(c))}
                 </div>
               </div>
             ))
@@ -340,13 +415,43 @@ export function MediaFetchBrowser({
 
         <div className="modal-footer">
           <span className="modal-footer-count">
-            {allCandidates.length} candidate{allCandidates.length === 1 ? "" : "s"}
+            {filteredCandidates.length} candidate{filteredCandidates.length === 1 ? "" : "s"}
           </span>
           <div className="modal-footer-actions">
             <Button variant="secondary" onClick={onClose}>Done</Button>
           </div>
         </div>
       </div>
+
+      {previewCandidate && (
+        <div className="modal-backdrop media-fetch-preview-backdrop" onClick={() => setPreviewCandidate(null)}>
+          <div className="media-fetch-preview" onClick={(e) => e.stopPropagation()}>
+            <button className="metadata-panel-close" onClick={() => setPreviewCandidate(null)} aria-label="Close preview">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" /></svg>
+            </button>
+            <div className={`media-fetch-preview-img${isTransparentSlot(slot) ? " transparent" : ""}`}>
+              <img src={previewCandidate.url} alt={`${previewCandidate.source} ${SLOT_LABEL[slot]} preview`} decoding="async" />
+            </div>
+            <div className="media-fetch-preview-meta">
+              <span className="media-fetch-preview-source">{previewCandidate.source}</span>
+              <span className="media-fetch-preview-fmt">
+                {previewCandidate.mime ? previewCandidate.mime.replace("image/", "") : (previewCandidate.url.split("?")[0].split(".").pop() || "img")}
+              </span>
+              {previewCandidate.resolution && (
+                <span className="media-fetch-preview-res">{previewCandidate.resolution}</span>
+              )}
+            </div>
+            <Button
+              variant="primary"
+              disabled={applyingUrl !== null}
+              isLoading={applyingUrl === previewCandidate.url}
+              onClick={() => handleApply(previewCandidate!.url)}
+            >
+              Set as {SLOT_LABEL[slot]}
+            </Button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

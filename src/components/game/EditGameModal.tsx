@@ -1068,6 +1068,7 @@ export function EditGameModal({ game, onClose }: EditGameModalProps) {
                   subtitle={t("edit.label.sidebar")}
                   imageUrl={editIcon}
                   previewSize={{ w: 64, h: 64 }}
+                  transparent
                   isFetching={false}
                   onChooseFile={() => handlePickImage("icon")}
                   onFetchWeb={() => handleFetchImage("icon")}
@@ -1098,6 +1099,7 @@ export function EditGameModal({ game, onClose }: EditGameModalProps) {
                   subtitle={t("edit.label.titleImage")}
                   imageUrl={editLogo}
                   previewSize={{ w: 200, h: 60 }}
+                  transparent
                   isFetching={false}
                   onChooseFile={() => handlePickImage("logo")}
                   onFetchWeb={() => handleFetchImage("logo")}

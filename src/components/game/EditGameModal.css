@@ -1649,6 +1649,136 @@
   width: min(96vw, 1080px);
 }
 
+.media-fetch-toolbar {
+  display: flex;
+  align-items: center;
+  gap: var(--space-xs);
+  margin-bottom: var(--space-lg);
+  flex-wrap: wrap;
+}
+
+.media-fetch-filter-chip {
+  padding: var(--space-xs) var(--space-md);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text-secondary);
+  background: var(--color-bg-secondary);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-full);
+  cursor: pointer;
+  transition: color 0.2s, background 0.2s, border-color 0.2s;
+}
+
+.media-fetch-filter-chip:hover {
+  color: var(--color-text-primary);
+  border-color: var(--color-border-light);
+}
+
+.media-fetch-filter-chip.active {
+  color: var(--color-accent-contrast);
+  background: color-mix(in srgb, var(--color-accent) 78%, var(--color-text-inverse) 22%);
+  border-color: color-mix(in srgb, var(--color-accent) 90%, var(--color-text-inverse) 10%);
+}
+
+.media-fetch-filter-count {
+  margin-left: auto;
+  font-size: var(--font-size-2xs);
+  color: var(--color-text-muted);
+}
+
+/* Animated WebP/APNG thumbs are GPU-heavy; keep offscreen cards cheap via
+ * content-visibility so the grid never stutters while scrolling. */
+.media-fetch-card {
+  content-visibility: auto;
+  contain-intrinsic-size: auto 220px;
+}
+
+/* Click-to-preview: the whole thumbnail is a button. */
+.media-fetch-thumb-btn {
+  position: relative;
+  display: block;
+  width: 100%;
+  padding: 0;
+  border: none;
+  background: none;
+  cursor: zoom-in;
+}
+
+.media-fetch-thumb-btn.transparent,
+.media-fetch-preview-img.transparent {
+  background-image:
+    linear-gradient(45deg, color-mix(in srgb, var(--color-text-primary) 9%, transparent) 25%, transparent 25%),
+    linear-gradient(-45deg, color-mix(in srgb, var(--color-text-primary) 9%, transparent) 25%, transparent 25%),
+    linear-gradient(45deg, transparent 75%, color-mix(in srgb, var(--color-text-primary) 9%, transparent) 75%),
+    linear-gradient(-45deg, transparent 75%, color-mix(in srgb, var(--color-text-primary) 9%, transparent) 75%);
+  background-size: 16px 16px;
+  background-position: 0 0, 0 8px, 8px -8px, -8px 0;
+}
+
+/* Preview overlay */
+.media-fetch-preview-backdrop {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+}
+
+.media-fetch-preview {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-md);
+  max-width: min(90vw, 720px);
+  max-height: 88vh;
+  background: var(--color-bg-secondary);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  padding: var(--space-xl);
+  box-shadow: var(--shadow-lg);
+}
+
+.media-fetch-preview > .metadata-panel-close {
+  position: absolute;
+  top: var(--space-sm);
+  right: var(--space-sm);
+}
+
+.media-fetch-preview-img {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--color-bg-tertiary);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  overflow: hidden;
+}
+
+.media-fetch-preview-img img {
+  max-width: 100%;
+  max-height: 60vh;
+  object-fit: contain;
+  display: block;
+}
+
+.media-fetch-preview-meta {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  font-size: var(--font-size-xs);
+}
+
+.media-fetch-preview-source {
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text-primary);
+}
+
+.media-fetch-preview-fmt,
+.media-fetch-preview-res {
+  color: var(--color-text-muted);
+}
+
 .media-fetch-source {
   margin-bottom: var(--space-xl);
 }
