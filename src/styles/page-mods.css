@@ -21,8 +21,6 @@
 
 .mods-page {
   padding: var(--page-padding, var(--space-xl) var(--space-2xl) var(--space-3xl));
-  max-width: var(--content-max-width, 1600px);
-  margin: 0 auto;
   box-sizing: border-box;
   width: 100%;
   min-height: 100%;
