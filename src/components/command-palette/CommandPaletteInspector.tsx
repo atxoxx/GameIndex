@@ -8,16 +8,33 @@ import {
   Copy,
   Check,
   Sparkles,
+  Trophy,
+  Download,
+  Globe,
+  Calculator,
+  Heart,
 } from "lucide-react";
+import { invoke } from "@tauri-apps/api/core";
 import type { PaletteItem } from "./commandPaletteTypes";
 import { formatBytes, formatRelativeTime } from "./commandPaletteUtils";
 
 interface CommandPaletteInspectorProps {
   item: PaletteItem | null;
   t: (key: string, vars?: Record<string, unknown>) => string;
+  onOpenActionDrawer?: () => void;
+  onOpenDownloadModal?: (target: { name: string; id?: string; poster?: string }) => void;
+  isWishlisted?: (slug: string) => boolean;
+  toggleWishlist?: (game: any) => void;
 }
 
-export default function CommandPaletteInspector({ item, t }: CommandPaletteInspectorProps) {
+export default function CommandPaletteInspector({
+  item,
+  t,
+  onOpenActionDrawer,
+  onOpenDownloadModal,
+  isWishlisted,
+  toggleWishlist,
+}: CommandPaletteInspectorProps) {
   const [copied, setCopied] = useState(false);
 
   if (!item) {
@@ -32,15 +49,61 @@ export default function CommandPaletteInspector({ item, t }: CommandPaletteInspe
     );
   }
 
-  const { gameData, storeData, swatchColors } = item;
+  const { gameData, storeData, swatchColors, calcData, downloadData, achievementStats } = item;
 
-  const handleCopyPath = (textToCopy: string) => {
+  const handleCopy = (textToCopy: string) => {
     navigator.clipboard.writeText(textToCopy);
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
   };
 
-  // 1. GAME DETAIL INSPECTOR
+  const openExternalUrl = (url: string) => {
+    invoke("open_url", { url }).catch(() => {
+      window.open(url, "_blank");
+    });
+  };
+
+  // 1. CALCULATOR / MATH INSPECTOR
+  if (calcData) {
+    return (
+      <div className="cmd-inspector">
+        <div className="cmd-inspector-calc-hero">
+          <Calculator className="cmd-inspector-calc-icon" size={36} />
+          <div className="cmd-inspector-calc-result">{calcData.result}</div>
+          <div className="cmd-inspector-calc-expr">{calcData.expression}</div>
+        </div>
+
+        <div className="cmd-inspector-body">
+          {calcData.details && (
+            <div className="cmd-inspector-section">
+              <span className="cmd-inspector-label">{t("commandPalette.calcDetails")}</span>
+              <p className="cmd-inspector-desc">{calcData.details}</p>
+            </div>
+          )}
+
+          <div className="cmd-inspector-calc-actions">
+            <button
+              type="button"
+              className="cmd-inspector-btn cmd-inspector-btn--primary"
+              onClick={() => handleCopy(calcData.result)}
+            >
+              {copied ? <Check size={13} /> : <Copy size={13} />}
+              <span>{copied ? t("commandPalette.copied") : t("commandPalette.copyResult")}</span>
+            </button>
+          </div>
+        </div>
+
+        <div className="cmd-inspector-footer">
+          <div className="cmd-shortcut-hint">
+            <kbd className="cmd-key">↵</kbd>
+            <span>{t("commandPalette.copyResult")}</span>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // 2. GAME DETAIL INSPECTOR
   if (gameData) {
     const isRunning = item.badgeType === "success";
     const heroImage = gameData.bannerUrl || gameData.coverArtUrl;
@@ -84,6 +147,11 @@ export default function CommandPaletteInspector({ item, t }: CommandPaletteInspe
               <span className="cmd-badge cmd-badge--platform">
                 {gameData.platform || "PC"}
               </span>
+              {gameData.rating && (
+                <span className="cmd-badge cmd-badge--rating">
+                  ★ {gameData.rating}/5
+                </span>
+              )}
             </div>
             <h3 className="cmd-inspector-title" title={gameData.name}>
               {gameData.name}
@@ -93,6 +161,27 @@ export default function CommandPaletteInspector({ item, t }: CommandPaletteInspe
 
         {/* Info Grid */}
         <div className="cmd-inspector-body">
+          {/* Achievement Progress Bar if available */}
+          {achievementStats && achievementStats.total > 0 && (
+            <div className="cmd-inspector-achievement-box">
+              <div className="cmd-inspector-achievement-header">
+                <span className="cmd-inspector-achievement-title">
+                  <Trophy size={13} style={{ color: "#f59e0b" }} />
+                  <span>{t("nav.achievements")}</span>
+                </span>
+                <span className="cmd-inspector-achievement-count">
+                  {achievementStats.unlocked} / {achievementStats.total} ({achievementStats.percentage}%)
+                </span>
+              </div>
+              <div className="cmd-inspector-progress-track">
+                <div
+                  className="cmd-inspector-progress-fill"
+                  style={{ width: `${achievementStats.percentage}%` }}
+                />
+              </div>
+            </div>
+          )}
+
           <div className="cmd-inspector-grid">
             <div className="cmd-inspector-stat">
               <span className="cmd-inspector-stat-label">
@@ -150,7 +239,7 @@ export default function CommandPaletteInspector({ item, t }: CommandPaletteInspe
             <div className="cmd-inspector-section">
               <span className="cmd-inspector-label">{t("commandPalette.inspectorGenres")}</span>
               <div className="cmd-inspector-tags">
-                {gameData.genres.slice(0, 5).map((genre) => (
+                {gameData.genres.slice(0, 6).map((genre) => (
                   <span key={genre} className="cmd-tag">
                     {genre}
                   </span>
@@ -167,7 +256,7 @@ export default function CommandPaletteInspector({ item, t }: CommandPaletteInspe
                 <button
                   type="button"
                   className="cmd-copy-btn"
-                  onClick={() => handleCopyPath(gameData.path)}
+                  onClick={() => handleCopy(gameData.path)}
                   title={t("commandPalette.copyPath")}
                 >
                   {copied ? <Check size={11} /> : <Copy size={11} />}
@@ -179,35 +268,88 @@ export default function CommandPaletteInspector({ item, t }: CommandPaletteInspe
               </div>
             </div>
           )}
+
+          {/* Web Links / Wiki shortcuts */}
+          <div className="cmd-inspector-section">
+            <span className="cmd-inspector-label">{t("commandPalette.externalGuides")}</span>
+            <div className="cmd-inspector-web-links">
+              {gameData.steamAppId && (
+                <>
+                  <button
+                    type="button"
+                    className="cmd-web-link-btn"
+                    onClick={() => openExternalUrl(`https://store.steampowered.com/app/${gameData.steamAppId}`)}
+                  >
+                    <Globe size={11} />
+                    <span>Steam Store</span>
+                  </button>
+                  <button
+                    type="button"
+                    className="cmd-web-link-btn"
+                    onClick={() => openExternalUrl(`https://steamdb.info/app/${gameData.steamAppId}`)}
+                  >
+                    <ExternalLink size={11} />
+                    <span>SteamDB</span>
+                  </button>
+                  <button
+                    type="button"
+                    className="cmd-web-link-btn"
+                    onClick={() => openExternalUrl(`https://www.protondb.com/app/${gameData.steamAppId}`)}
+                  >
+                    <ExternalLink size={11} />
+                    <span>ProtonDB</span>
+                  </button>
+                </>
+              )}
+              <button
+                type="button"
+                className="cmd-web-link-btn"
+                onClick={() =>
+                  openExternalUrl(
+                    `https://www.pcgamingwiki.com/w/index.php?search=${encodeURIComponent(gameData.name)}`
+                  )
+                }
+              >
+                <ExternalLink size={11} />
+                <span>PCGamingWiki</span>
+              </button>
+            </div>
+          </div>
         </div>
 
         {/* Shortcuts contextual footer */}
         <div className="cmd-inspector-footer">
           <div className="cmd-shortcut-hint">
             <kbd className="cmd-key">↵</kbd>
-            <span>{isRunning ? t("commandPalette.launch") : t("commandPalette.launch")}</span>
+            <span>{gameData.installed ? t("commandPalette.launch") : t("commandPalette.open")}</span>
           </div>
           <div className="cmd-shortcut-hint">
             <kbd className="cmd-key">Ctrl+↵</kbd>
             <span>{t("commandPalette.open")}</span>
           </div>
-          {gameData.path && (
-            <div className="cmd-shortcut-hint">
-              <kbd className="cmd-key">Ctrl+O</kbd>
-              <span>{t("commandPalette.openFolder")}</span>
-            </div>
+          {onOpenActionDrawer && (
+            <button
+              type="button"
+              className="cmd-inspector-more-actions-btn"
+              onClick={onOpenActionDrawer}
+              title={t("commandPalette.contextActions")}
+            >
+              <kbd className="cmd-key">Ctrl+K</kbd>
+              <span>{t("commandPalette.actionsMenu")}</span>
+            </button>
           )}
         </div>
       </div>
     );
   }
 
-  // 2. STORE / IGDB DETAIL INSPECTOR
+  // 3. STORE / IGDB DETAIL INSPECTOR
   if (storeData) {
     const year = storeData.firstReleaseDate
       ? new Date(storeData.firstReleaseDate).getFullYear()
       : null;
     const rating = storeData.rating ? `${Math.round(storeData.rating)}%` : null;
+    const wishlisted = isWishlisted ? isWishlisted(storeData.slug || String(storeData.id)) : false;
 
     return (
       <div className="cmd-inspector">
@@ -231,6 +373,12 @@ export default function CommandPaletteInspector({ item, t }: CommandPaletteInspe
               {year && <span className="cmd-badge">{year}</span>}
               {rating && (
                 <span className="cmd-badge cmd-badge--success">★ {rating}</span>
+              )}
+              {wishlisted && (
+                <span className="cmd-badge cmd-badge--accent">
+                  <Heart size={9} fill="currentColor" />
+                  {t("store.inWishlist")}
+                </span>
               )}
             </div>
             <h3 className="cmd-inspector-title">{storeData.name}</h3>
@@ -257,6 +405,36 @@ export default function CommandPaletteInspector({ item, t }: CommandPaletteInspe
               </div>
             </div>
           )}
+
+          {/* Quick Trigger Buttons */}
+          <div className="cmd-inspector-quick-action-row">
+            {toggleWishlist && (
+              <button
+                type="button"
+                className={`cmd-inspector-btn${wishlisted ? " cmd-inspector-btn--active" : ""}`}
+                onClick={() => toggleWishlist(storeData)}
+              >
+                <Heart size={13} fill={wishlisted ? "currentColor" : "none"} />
+                <span>{wishlisted ? t("store.inWishlist") : t("store.addToWishlist")}</span>
+              </button>
+            )}
+            {onOpenDownloadModal && (
+              <button
+                type="button"
+                className="cmd-inspector-btn cmd-inspector-btn--accent"
+                onClick={() =>
+                  onOpenDownloadModal({
+                    name: storeData.name,
+                    id: String(storeData.id),
+                    poster: storeData.coverUrl ?? undefined,
+                  })
+                }
+              >
+                <Download size={13} />
+                <span>{t("commandPalette.quickActionDownload")}</span>
+              </button>
+            )}
+          </div>
         </div>
 
         <div className="cmd-inspector-footer">
@@ -269,7 +447,60 @@ export default function CommandPaletteInspector({ item, t }: CommandPaletteInspe
     );
   }
 
-  // 3. THEME DETAIL INSPECTOR
+  // 4. DOWNLOAD TASK DETAIL INSPECTOR
+  if (downloadData) {
+    const percent = Math.round((downloadData.progress ?? 0) * 100);
+
+    return (
+      <div className="cmd-inspector">
+        <div className="cmd-inspector-action-hero">
+          <div className="cmd-inspector-action-icon">
+            <Download size={28} />
+          </div>
+          <h3 className="cmd-inspector-title" style={{ marginTop: "12px" }}>
+            {downloadData.name || t("nav.downloads")}
+          </h3>
+          <span className="cmd-badge cmd-badge--accent" style={{ marginTop: "6px" }}>
+            {downloadData.status.kind.toUpperCase()}
+          </span>
+        </div>
+
+        <div className="cmd-inspector-body">
+          <div className="cmd-inspector-achievement-box">
+            <div className="cmd-inspector-achievement-header">
+              <span className="cmd-inspector-achievement-title">{t("commandPalette.downloadProgress")}</span>
+              <span className="cmd-inspector-achievement-count">{percent}%</span>
+            </div>
+            <div className="cmd-inspector-progress-track">
+              <div className="cmd-inspector-progress-fill" style={{ width: `${percent}%` }} />
+            </div>
+          </div>
+
+          <div className="cmd-inspector-grid">
+            <div className="cmd-inspector-stat">
+              <span className="cmd-inspector-stat-label">{t("commandPalette.downloadStatus")}</span>
+              <span className="cmd-inspector-stat-val">{downloadData.status.kind}</span>
+            </div>
+            {downloadData.totalSize && (
+              <div className="cmd-inspector-stat">
+                <span className="cmd-inspector-stat-label">{t("commandPalette.downloadTotalSize")}</span>
+                <span className="cmd-inspector-stat-val">{formatBytes(downloadData.totalSize)}</span>
+              </div>
+            )}
+          </div>
+        </div>
+
+        <div className="cmd-inspector-footer">
+          <div className="cmd-shortcut-hint">
+            <kbd className="cmd-key">↵</kbd>
+            <span>{t("commandPalette.navTo")} {t("nav.downloads")}</span>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // 5. THEME DETAIL INSPECTOR
   if (swatchColors) {
     return (
       <div className="cmd-inspector">
@@ -355,7 +586,7 @@ export default function CommandPaletteInspector({ item, t }: CommandPaletteInspe
     );
   }
 
-  // 4. ACTION / NAVIGATION DETAIL INSPECTOR
+  // 6. ACTION / NAVIGATION DETAIL INSPECTOR
   return (
     <div className="cmd-inspector">
       <div className="cmd-inspector-action-hero">

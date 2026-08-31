@@ -1125,3 +1125,442 @@
   color: var(--color-success);
   border-color: var(--color-success);
 }
+
+.cmd-badge--rating {
+  background: color-mix(in srgb, #f59e0b 25%, black);
+  color: #f59e0b;
+  border-color: rgba(245, 158, 11, 0.4);
+}
+
+/* Clear Query Button in Search Input */
+.cmd-clear-query-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  border-radius: var(--radius-full);
+  background: color-mix(in srgb, var(--color-bg-tertiary) 80%, transparent);
+  border: 1px solid var(--color-border);
+  color: var(--color-text-muted);
+  cursor: pointer;
+  padding: 0;
+  transition: all var(--duration-fast) var(--ease-standard);
+  flex-shrink: 0;
+}
+
+.cmd-clear-query-btn:hover {
+  color: var(--color-text-primary);
+  background: var(--color-bg-hover);
+  border-color: var(--color-accent-border);
+}
+
+/* Dynamic Counter Badges on Scope Chips */
+.cmd-scope-count {
+  font-size: 10px;
+  font-weight: 700;
+  padding: 0 5px;
+  border-radius: var(--radius-full);
+  background: color-mix(in srgb, var(--color-bg-tertiary) 90%, transparent);
+  color: var(--color-text-muted);
+  border: 1px solid color-mix(in srgb, var(--color-border) 60%, transparent);
+  margin-left: 2px;
+}
+
+.cmd-scope-chip.active .cmd-scope-count {
+  background: color-mix(in srgb, var(--color-accent) 25%, var(--color-bg-tertiary));
+  color: var(--color-accent);
+  border-color: color-mix(in srgb, var(--color-accent) 50%, transparent);
+}
+
+/* Calculator Card in Inspector */
+.cmd-inspector-calc-hero {
+  padding: var(--space-lg) var(--space-md);
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  border-bottom: 1px solid var(--color-border);
+  background: radial-gradient(circle at top, color-mix(in srgb, var(--color-accent) 18%, transparent), transparent 70%),
+              color-mix(in srgb, var(--color-bg-tertiary) 40%, transparent);
+}
+
+.cmd-inspector-calc-icon {
+  color: var(--color-accent);
+  margin-bottom: var(--space-xs);
+  filter: drop-shadow(0 0 12px var(--color-accent-glow));
+}
+
+.cmd-inspector-calc-result {
+  font-size: var(--font-size-xl);
+  font-weight: 800;
+  color: var(--color-text-primary);
+  font-family: var(--font-mono, monospace);
+  letter-spacing: -0.02em;
+}
+
+.cmd-inspector-calc-expr {
+  font-size: var(--font-size-xs);
+  color: var(--color-text-muted);
+  font-family: var(--font-mono, monospace);
+  margin-top: 4px;
+}
+
+.cmd-inspector-calc-actions {
+  display: flex;
+  gap: var(--space-sm);
+  margin-top: var(--space-md);
+}
+
+/* Achievement Progress in Inspector */
+.cmd-inspector-achievement-box {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 8px 10px;
+  border-radius: var(--radius-sm);
+  background: color-mix(in srgb, var(--color-bg-tertiary) 50%, transparent);
+  border: 1px solid var(--color-border);
+}
+
+.cmd-inspector-achievement-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 11px;
+}
+
+.cmd-inspector-achievement-title {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-weight: 600;
+  color: var(--color-text-primary);
+}
+
+.cmd-inspector-achievement-count {
+  font-weight: 600;
+  color: var(--color-text-muted);
+  font-size: 10px;
+  font-variant-numeric: tabular-nums;
+}
+
+.cmd-inspector-progress-track {
+  height: 5px;
+  background: var(--color-bg-primary);
+  border-radius: var(--radius-full);
+  overflow: hidden;
+  border: 1px solid var(--color-border);
+}
+
+.cmd-inspector-progress-fill {
+  height: 100%;
+  background: linear-gradient(90deg, var(--color-accent), color-mix(in srgb, var(--color-accent) 70%, #10b981));
+  border-radius: var(--radius-full);
+  transition: width var(--duration-normal) var(--ease-standard);
+  box-shadow: 0 0 8px var(--color-accent-glow);
+}
+
+/* Inspector Action Buttons & External Guides */
+.cmd-inspector-web-links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.cmd-web-link-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 8px;
+  border-radius: var(--radius-xs);
+  background: var(--color-bg-tertiary);
+  border: 1px solid var(--color-border);
+  color: var(--color-text-secondary);
+  font-size: 10px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all var(--duration-fast) var(--ease-standard);
+}
+
+.cmd-web-link-btn:hover {
+  background: var(--color-bg-hover);
+  color: var(--color-text-primary);
+  border-color: var(--color-accent-border);
+  transform: translateY(-0.5px);
+}
+
+.cmd-inspector-quick-action-row {
+  display: flex;
+  gap: var(--space-xs);
+  margin-top: var(--space-sm);
+}
+
+.cmd-inspector-btn {
+  flex: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 6px 10px;
+  border-radius: var(--radius-sm);
+  background: var(--color-bg-tertiary);
+  border: 1px solid var(--color-border);
+  color: var(--color-text-primary);
+  font-size: var(--font-size-xs);
+  font-weight: 600;
+  cursor: pointer;
+  transition: all var(--duration-fast) var(--ease-standard);
+}
+
+.cmd-inspector-btn:hover {
+  background: var(--color-bg-hover);
+  border-color: var(--color-accent-border);
+}
+
+.cmd-inspector-btn--primary,
+.cmd-inspector-btn--accent {
+  background: var(--color-accent);
+  color: white;
+  border-color: var(--color-accent);
+  box-shadow: 0 2px 10px var(--color-accent-glow);
+}
+
+.cmd-inspector-btn--primary:hover,
+.cmd-inspector-btn--accent:hover {
+  filter: brightness(1.1);
+  transform: translateY(-0.5px);
+}
+
+.cmd-inspector-btn--active {
+  background: color-mix(in srgb, #ef4444 18%, var(--color-bg-tertiary));
+  color: #ef4444;
+  border-color: rgba(239, 68, 68, 0.4);
+}
+
+.cmd-inspector-more-actions-btn {
+  margin-left: auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  background: transparent;
+  border: none;
+  color: var(--color-accent);
+  font-size: var(--font-size-2xs);
+  font-weight: 600;
+  cursor: pointer;
+  padding: 0;
+  opacity: 0.85;
+  transition: opacity var(--duration-fast);
+}
+
+.cmd-inspector-more-actions-btn:hover {
+  opacity: 1;
+  text-decoration: underline;
+}
+
+/* ============================================================================
+   Secondary Actions Drawer Modal (Raycast-Style Power Menu)
+   ============================================================================ */
+
+.cmd-drawer-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: calc(var(--z-modal) + 10);
+  background: rgba(0, 0, 0, 0.45);
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--space-md);
+  animation: cmdDrawerFadeIn var(--duration-fast) var(--ease-enter) both;
+}
+
+@keyframes cmdDrawerFadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+.cmd-drawer-panel {
+  position: relative;
+  width: 100%;
+  max-width: 480px;
+  max-height: min(75vh, 520px);
+  background: color-mix(in srgb, var(--color-bg-secondary) 96%, transparent);
+  backdrop-filter: blur(var(--blur-lg));
+  -webkit-backdrop-filter: blur(var(--blur-lg));
+  border: 1px solid var(--color-border-light);
+  border-radius: var(--radius-lg);
+  box-shadow:
+    inset 0 1px 0 var(--color-border-highlight),
+    0 24px 64px rgba(0, 0, 0, 0.75),
+    0 0 32px var(--color-accent-glow);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  animation: cmdDrawerPanelIn var(--duration-normal) var(--ease-bounce) both;
+}
+
+@keyframes cmdDrawerPanelIn {
+  from {
+    opacity: 0;
+    transform: translateY(8px) scale(0.97);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+.cmd-drawer-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--space-sm) var(--space-md);
+  border-bottom: 1px solid var(--color-border);
+  background: color-mix(in srgb, var(--color-bg-tertiary) 40%, transparent);
+}
+
+.cmd-drawer-title-group {
+  display: flex;
+  align-items: center;
+  gap: var(--space-xs);
+  min-width: 0;
+}
+
+.cmd-drawer-icon {
+  color: var(--color-accent);
+  flex-shrink: 0;
+}
+
+.cmd-drawer-titles {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.cmd-drawer-title {
+  font-size: var(--font-size-xs);
+  font-weight: 700;
+  color: var(--color-text-primary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.cmd-drawer-subtitle {
+  font-size: 10px;
+  color: var(--color-text-muted);
+}
+
+.cmd-drawer-close-btn {
+  background: transparent;
+  border: none;
+  color: var(--color-text-muted);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 4px;
+  border-radius: var(--radius-xs);
+  transition: all var(--duration-fast);
+}
+
+.cmd-drawer-close-btn:hover {
+  background: var(--color-bg-tertiary);
+  color: var(--color-text-primary);
+}
+
+.cmd-drawer-list {
+  flex: 1;
+  overflow-y: auto;
+  padding: var(--space-xs);
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.cmd-drawer-item {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  padding: 8px var(--space-sm);
+  border-radius: var(--radius-sm);
+  border: 1px solid transparent;
+  background: transparent;
+  color: var(--color-text-secondary);
+  cursor: pointer;
+  user-select: none;
+  transition: all var(--duration-instant) var(--ease-standard);
+}
+
+.cmd-drawer-item:hover,
+.cmd-drawer-item.is-selected {
+  background: color-mix(in srgb, var(--color-accent) 14%, var(--color-bg-tertiary));
+  border-color: color-mix(in srgb, var(--color-accent) 35%, transparent);
+  color: var(--color-text-primary);
+  box-shadow: inset 0 1px 0 var(--color-border-highlight);
+}
+
+.cmd-drawer-item.is-selected .cmd-drawer-item-title {
+  color: var(--color-accent);
+}
+
+.cmd-drawer-item-icon {
+  width: 26px;
+  height: 26px;
+  border-radius: var(--radius-xs);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--color-bg-tertiary);
+  border: 1px solid var(--color-border);
+  color: var(--color-text-muted);
+  flex-shrink: 0;
+}
+
+.cmd-drawer-item.is-selected .cmd-drawer-item-icon {
+  color: var(--color-accent);
+  background: color-mix(in srgb, var(--color-accent) 18%, var(--color-bg-tertiary));
+  border-color: color-mix(in srgb, var(--color-accent) 40%, transparent);
+}
+
+.cmd-drawer-item-body {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+
+.cmd-drawer-item-headline {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.cmd-drawer-item-title {
+  font-size: var(--font-size-xs);
+  font-weight: 600;
+  color: var(--color-text-primary);
+}
+
+.cmd-drawer-item-desc {
+  font-size: 10px;
+  color: var(--color-text-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.cmd-drawer-footer {
+  display: flex;
+  align-items: center;
+  gap: var(--space-md);
+  padding: 6px var(--space-md);
+  border-top: 1px solid var(--color-border);
+  background: color-mix(in srgb, var(--color-bg-tertiary) 40%, transparent);
+  font-size: var(--font-size-2xs);
+  color: var(--color-text-muted);
+}

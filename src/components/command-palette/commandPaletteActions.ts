@@ -3,6 +3,7 @@ import type { NavigateFunction } from "react-router-dom";
 import {
   Activity,
   BookOpen,
+  Camera,
   Check,
   Compass,
   Download,
@@ -27,13 +28,14 @@ import {
   Sparkles,
   Store,
   Tag,
+  Trash2,
   Trophy,
   Users,
   Volume2,
   VolumeX,
 } from "lucide-react";
 import type { PaletteItem } from "./commandPaletteTypes";
-import { THEME_COLORS } from "./commandPaletteUtils";
+import { THEME_COLORS, clearRecentItems } from "./commandPaletteUtils";
 import type { ThemeConfig } from "../../context/ThemeContext";
 import type { ViewDensity } from "../../types/game";
 
@@ -64,6 +66,7 @@ export interface CreateActionsParams {
   activeDownloadsCount?: number;
   runningGame?: { id: string; name: string } | null;
   forceCloseGame?: (game: any) => Promise<void>;
+  onHistoryCleared?: () => void;
 }
 
 export function createSystemActions(params: CreateActionsParams): PaletteItem[] {
@@ -94,6 +97,7 @@ export function createSystemActions(params: CreateActionsParams): PaletteItem[] 
     activeDownloadsCount = 0,
     runningGame,
     forceCloseGame,
+    onHistoryCleared,
   } = params;
 
   const items: PaletteItem[] = [];
@@ -205,7 +209,67 @@ export function createSystemActions(params: CreateActionsParams): PaletteItem[] 
     });
   }
 
-  // 2. Downloads Actions
+  // 2. Library & Storage Operations
+  items.push({
+    id: "act-rescan-library",
+    category: "actions",
+    title: t("commandPalette.rescanLibrary"),
+    subtitle: t("commandPalette.rescanLibraryDesc"),
+    icon: createElement(RefreshCw, { size: 16 }),
+    description: t("commandPalette.rescanLibraryDesc"),
+    actionText: t("commandPalette.hintSelect"),
+    onSelect: () => {
+      onClose();
+      navigate("/library");
+      showToast(t("commandPalette.rescanStartedToast"), "info");
+    },
+  });
+
+  items.push({
+    id: "act-open-captures",
+    category: "actions",
+    title: t("commandPalette.openCaptures"),
+    subtitle: t("commandPalette.openCapturesDesc"),
+    icon: createElement(Camera, { size: 16 }),
+    description: t("commandPalette.openCapturesDesc"),
+    actionText: "↵",
+    onSelect: () => {
+      onClose();
+      navigate("/community");
+    },
+  });
+
+  items.push({
+    id: "act-storage-cleanup",
+    category: "actions",
+    title: t("commandPalette.storageCleaner"),
+    subtitle: t("commandPalette.storageCleanerDesc"),
+    icon: createElement(HardDrive, { size: 16 }),
+    description: t("commandPalette.storageCleanerDesc"),
+    actionText: "↵",
+    onSelect: () => {
+      onClose();
+      navigate("/storage");
+    },
+  });
+
+  // 3. Clear Command Palette Search History
+  items.push({
+    id: "act-clear-palette-history",
+    category: "actions",
+    title: t("commandPalette.clearRecentHistory"),
+    subtitle: t("commandPalette.clearRecentHistoryDesc"),
+    icon: createElement(Trash2, { size: 16 }),
+    description: t("commandPalette.clearRecentHistoryDesc"),
+    actionText: t("commandPalette.clear"),
+    onSelect: () => {
+      clearRecentItems();
+      onHistoryCleared?.();
+      showToast(t("commandPalette.historyClearedToast"), "info");
+    },
+  });
+
+  // 4. Downloads Actions
   if (pauseAllDownloads && activeDownloadsCount > 0) {
     items.push({
       id: "act-pause-all-downloads",
@@ -248,7 +312,7 @@ export function createSystemActions(params: CreateActionsParams): PaletteItem[] 
     });
   }
 
-  // 3. Application Updates & Help
+  // 5. Application Updates & Documentation
   if (checkForUpdates) {
     items.push({
       id: "act-check-updates",
@@ -279,7 +343,7 @@ export function createSystemActions(params: CreateActionsParams): PaletteItem[] 
     },
   });
 
-  // 4. Density Switching
+  // 6. Density Switching
   if (setDensity) {
     const densities: { id: ViewDensity; title: string; desc: string }[] = [
       { id: "cozy", title: t("commandPalette.densityCozy"), desc: t("commandPalette.densityCozyDesc") },
@@ -307,7 +371,7 @@ export function createSystemActions(params: CreateActionsParams): PaletteItem[] 
     });
   }
 
-  // 5. Language Switching
+  // 7. Language Switching
   languages.forEach((lang) => {
     const isCurrent = currentLanguage === lang.code;
     items.push({
@@ -327,7 +391,7 @@ export function createSystemActions(params: CreateActionsParams): PaletteItem[] 
     });
   });
 
-  // 6. Settings Deep-Links
+  // 8. Settings Deep-Links
   const settingsSections = [
     { path: "/settings/general", titleKey: "settings.tab.general", descKey: "settings.tab.general.desc", icon: Settings },
     { path: "/settings/appearance", titleKey: "settings.tab.appearance", descKey: "settings.tab.appearance.desc", icon: Palette },
@@ -354,7 +418,7 @@ export function createSystemActions(params: CreateActionsParams): PaletteItem[] 
     });
   });
 
-  // 7. Themes
+  // 9. Themes
   themes.forEach((th) => {
     const isCurrent = th.id === currentTheme;
     const colors = THEME_COLORS[th.id] || THEME_COLORS.dark;

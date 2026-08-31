@@ -11,12 +11,14 @@ import { createPortal } from "react-dom";
 import { useNavigate } from "react-router-dom";
 import { invoke } from "@tauri-apps/api/core";
 import {
+  Calculator,
   Compass,
   Download,
   ExternalLink,
   Folder,
   Gamepad2,
   Heart,
+  History,
   Layers,
   Loader2,
   Palette,
@@ -38,6 +40,7 @@ import { useDownloads } from "../context/DownloadContext";
 import { useUpdate } from "../context/UpdateContext";
 import { useWishlistContext } from "../context/WishlistContext";
 import { useDensityContext } from "../context/DensityContext";
+import { useAchievements } from "../context/AchievementContext";
 import { SidebarCollapseContext } from "../context/SidebarCollapseContext";
 import type { Game, StoreGameSummary } from "../types/game";
 import DownloadModal from "./DownloadModal";
@@ -45,9 +48,14 @@ import { playActionSound, playLaunchSound, playTabSound } from "../utils/soundEf
 import type {
   PaletteCategory,
   PaletteItem,
+  PaletteRecentItem,
 } from "./command-palette/commandPaletteTypes";
 import {
+  deleteRecentItem,
+  evaluateExpression,
   getMatchRanges,
+  getRecentItems,
+  parseQueryFilters,
   saveRecentItem,
   scoreMatch,
 } from "./command-palette/commandPaletteUtils";
@@ -56,6 +64,7 @@ import {
   createSystemActions,
 } from "./command-palette/commandPaletteActions";
 import CommandPaletteInspector from "./command-palette/CommandPaletteInspector";
+import CommandPaletteActionDrawer from "./command-palette/CommandPaletteActionDrawer";
 
 interface CommandPaletteProps {
   isOpen: boolean;
@@ -119,19 +128,20 @@ const SCOPE_DEFINITIONS: {
 
 export default function CommandPalette({ isOpen, onClose }: CommandPaletteProps) {
   const navigate = useNavigate();
-  const { games, launchGame, forceCloseGame, runningGameIds } = useGames();
+  const { games, launchGame, forceCloseGame, runningGameIds, isGameUntracked, toggleGameTracking } = useGames();
   const { themes, currentTheme, setTheme } = useTheme();
   const { isBigScreen, setBigScreen } = useBigScreen();
   const { uiSoundEnabled, setUiSoundEnabled, uiSoundVolume, setUiSoundVolume, commandPaletteMode, isSimpleUi } = useSettings();
   const { showToast } = useToast();
   const { t, language, setLanguage, languages } = useLanguage();
 
-  // Safely consume optional contexts
+  // Safely consume contexts
   const downloadsCtx = useDownloads();
   const updateCtx = useUpdate();
   const wishlistCtx = useWishlistContext();
   const densityCtx = useDensityContext();
   const sidebarCtx = useContext(SidebarCollapseContext);
+  const achievementsCtx = useAchievements();
 
   const [rawQuery, setRawQuery] = useState("");
   const [scope, setScope] = useState<PaletteCategory>("all");
@@ -149,6 +159,12 @@ export default function CommandPalette({ isOpen, onClose }: CommandPaletteProps)
     id?: string;
     poster?: string;
   } | null>(null);
+
+  // Recents version state to trigger re-renders on recent delete/clear
+  const [recentVersion, setRecentVersion] = useState(0);
+
+  // Secondary Action Drawer
+  const [actionDrawerOpen, setActionDrawerOpen] = useState(false);
 
   const inputRef = useRef<HTMLInputElement>(null);
   const listRef = useRef<HTMLDivElement>(null);
@@ -169,23 +185,19 @@ export default function CommandPalette({ isOpen, onClose }: CommandPaletteProps)
       setIgdbResults([]);
       setIsSearchingIgdb(false);
       setDownloadTarget(null);
+      setActionDrawerOpen(false);
       playTabSound();
       const timer = setTimeout(() => inputRef.current?.focus(), 40);
       return () => clearTimeout(timer);
     }
   }, [isOpen]);
 
-  // Parse prefix triggers (@, >, /, #, $, ?)
-  const cleanQuery = useMemo(() => {
-    const trimmed = rawQuery.trim();
-    if (trimmed.startsWith("@")) return trimmed.slice(1).trim();
-    if (trimmed.startsWith(">")) return trimmed.slice(1).trim();
-    if (trimmed.startsWith("/")) return trimmed.slice(1).trim();
-    if (trimmed.startsWith("#")) return trimmed.slice(1).trim();
-    if (trimmed.startsWith("$")) return trimmed.slice(1).trim();
-    if (trimmed.startsWith("?")) return trimmed.slice(1).trim();
-    return trimmed;
-  }, [rawQuery]);
+  // Parse structured filters & query
+  const parsedFilters = useMemo(() => parseQueryFilters(rawQuery), [rawQuery]);
+  const cleanQuery = parsedFilters.cleanQuery;
+
+  // Evaluate instant calculator expression
+  const calcResult = useMemo(() => evaluateExpression(rawQuery), [rawQuery]);
 
   // Handle prefix typing
   const handleQueryChange = (val: string) => {
@@ -258,6 +270,7 @@ export default function CommandPalette({ isOpen, onClose }: CommandPaletteProps)
       activeDownloadsCount: downloadsCtx?.activeCount || 0,
       runningGame: runningGame ? { id: runningGame.id, name: runningGame.name } : null,
       forceCloseGame: runningGame ? () => forceCloseGame(runningGame) : undefined,
+      onHistoryCleared: () => setRecentVersion((v) => v + 1),
     });
   }, [
     navigate,
@@ -291,11 +304,40 @@ export default function CommandPalette({ isOpen, onClose }: CommandPaletteProps)
   // Build items list
   const items = useMemo<PaletteItem[]>(() => {
     const q = cleanQuery;
-    const isBlank = q === "";
+    const isBlank = q === "" && Object.keys(parsedFilters).length <= 1;
     const result: PaletteItem[] = [];
+
+    // ── 0. Instant Calculator / Unit Converter ─────────────────────────────
+    if (calcResult) {
+      result.push({
+        id: `calc-${calcResult.expression}`,
+        category: "utility",
+        title: calcResult.result,
+        subtitle: calcResult.expression,
+        badge: "CALC",
+        badgeType: "accent",
+        icon: <Calculator size={14} />,
+        actionText: t("commandPalette.copyResult"),
+        shortcut: "↵",
+        calcData: calcResult,
+        onSelect: () => {
+          navigator.clipboard.writeText(calcResult.result);
+          showToast(t("commandPalette.copiedToClipboard"), "info");
+          onClose();
+        },
+      });
+    }
 
     // ── 1. Running Game (promoted to top if active) ──────────────────────────
     if (runningGame && (scope === "all" || scope === "games")) {
+      const achCache = achievementsCtx?.cache as Record<string, any> | undefined;
+      const runningAch = achCache?.[runningGame.id] || (runningGame.steamAppId ? achCache?.[String(runningGame.steamAppId)] : undefined);
+      const achStats = runningAch?.totalCount && runningAch.totalCount > 0 ? {
+        unlocked: runningAch.unlockedCount,
+        total: runningAch.totalCount,
+        percentage: Math.round((runningAch.unlockedCount / runningAch.totalCount) * 100),
+      } : undefined;
+
       result.push({
         id: `running-${runningGame.id}`,
         category: "games",
@@ -308,6 +350,7 @@ export default function CommandPalette({ isOpen, onClose }: CommandPaletteProps)
         actionText: t("commandPalette.focusOrLaunch"),
         shortcut: "↵",
         gameData: runningGame,
+        achievementStats: achStats,
         quickActions: [
           {
             id: "stop",
@@ -341,35 +384,149 @@ export default function CommandPalette({ isOpen, onClose }: CommandPaletteProps)
       });
     }
 
-    // ── 2. Library Games ───────────────────────────────────────────────────
+    // ── 2. Recent Items (When Query is Blank) ───────────────────────────────
+    if (isBlank && (scope === "all" || scope === "recent")) {
+      const recents = getRecentItems();
+      if (recents.length > 0) {
+        recents.slice(0, 6).forEach((rec: PaletteRecentItem) => {
+          // Check if this corresponds to an existing game
+          const matchedGame = games.find((g) => g.id === rec.id || String(g.steamAppId) === rec.id);
+
+          result.push({
+            id: `recent-${rec.id}`,
+            category: "recent",
+            title: rec.title,
+            subtitle: t("commandPalette.recentSearch"),
+            badge: rec.category.toUpperCase(),
+            badgeType: "neutral",
+            icon: <History size={14} />,
+            thumb: matchedGame?.coverArtUrl,
+            actionText: t("commandPalette.open"),
+            isRecent: true,
+            gameData: matchedGame,
+            quickActions: [
+              {
+                id: "delete-recent",
+                icon: <X size={12} />,
+                title: t("commandPalette.removeRecent"),
+                onClick: (e) => {
+                  e.stopPropagation();
+                  deleteRecentItem(rec.id);
+                  setRecentVersion((v) => v + 1);
+                },
+              },
+            ],
+            onDeleteRecent: () => {
+              deleteRecentItem(rec.id);
+              setRecentVersion((v) => v + 1);
+            },
+            onSelect: () => {
+              if (matchedGame) {
+                playLaunchSound();
+                saveRecentItem(matchedGame.id, matchedGame.name, "games");
+                onClose();
+                if (matchedGame.installed) launchGame(matchedGame);
+                else navigate(`/library/${matchedGame.id}`);
+              } else if (rec.category === "navigation" && rec.id.startsWith("nav-")) {
+                const path = rec.id.replace("nav-", "");
+                onClose();
+                navigate(path);
+              } else {
+                setRawQuery(rec.title);
+              }
+            },
+          });
+        });
+      }
+    }
+
+    // ── 3. Library Games ───────────────────────────────────────────────────
     if (scope === "all" || scope === "games") {
+      let filteredGames = games.filter((g) => g.id !== runningGame?.id);
+
+      // Apply structured power filters
+      if (parsedFilters.isInstalled) {
+        filteredGames = filteredGames.filter((g) => g.installed);
+      }
+      if (parsedFilters.isCloud) {
+        filteredGames = filteredGames.filter((g) => !g.installed);
+      }
+      if (parsedFilters.source) {
+        const src = parsedFilters.source.toLowerCase();
+        filteredGames = filteredGames.filter((g) => {
+          if (src === "steam") return !!g.steamAppId || g.platform?.toLowerCase().includes("steam");
+          if (src === "gog") return !!g.gogGameId || g.platform?.toLowerCase().includes("gog");
+          if (src === "epic") return !!g.epicNamespace || g.platform?.toLowerCase().includes("epic");
+          if (src === "rockstar") return !!g.rockstarTitleId || g.platform?.toLowerCase().includes("rockstar");
+          if (src === "ubisoft" || src === "uplay") return !!g.uplayGameId || g.platform?.toLowerCase().includes("ubisoft");
+          if (src === "emulated") return !!g.emulatorId || g.platform?.toLowerCase().includes("emulator");
+          return g.platform?.toLowerCase().includes(src) || g.metadataSource?.toLowerCase().includes(src);
+        });
+      }
+      if (parsedFilters.genre) {
+        const gen = parsedFilters.genre.toLowerCase();
+        filteredGames = filteredGames.filter((g) => g.genres?.some((gn) => gn.toLowerCase().includes(gen)));
+      }
+      if (parsedFilters.tag) {
+        const tg = parsedFilters.tag.toLowerCase();
+        filteredGames = filteredGames.filter((g) =>
+          g.genres?.some((gn) => gn.toLowerCase().includes(tg)) ||
+          g.themes?.some((th) => th.toLowerCase().includes(tg))
+        );
+      }
+      if (parsedFilters.developer) {
+        const dev = parsedFilters.developer.toLowerCase();
+        filteredGames = filteredGames.filter((g) => g.developer?.toLowerCase().includes(dev));
+      }
+      if (parsedFilters.publisher) {
+        const pub = parsedFilters.publisher.toLowerCase();
+        filteredGames = filteredGames.filter((g) => g.publisher?.toLowerCase().includes(pub));
+      }
+      if (parsedFilters.year && parsedFilters.yearOp) {
+        filteredGames = filteredGames.filter((g) => {
+          if (!g.releaseDate) return false;
+          const matchYear = parseInt(g.releaseDate.match(/\b\d{4}\b/)?.[0] || "0", 10);
+          if (!matchYear) return false;
+          if (parsedFilters.yearOp === ">") return matchYear > (parsedFilters.year || 0);
+          if (parsedFilters.yearOp === "<") return matchYear < (parsedFilters.year || 0);
+          return matchYear === parsedFilters.year;
+        });
+      }
+
       let matchedGames: { game: Game; score: number }[] = [];
 
       if (isBlank) {
         // Show recent games (by lastPlayed desc) + top installed games
-        matchedGames = [...games]
-          .filter((g) => g.id !== runningGame?.id)
+        matchedGames = [...filteredGames]
           .sort((a, b) => (b.lastPlayed || 0) - (a.lastPlayed || 0))
-          .slice(0, scope === "games" ? 25 : 5)
+          .slice(0, scope === "games" ? 30 : 6)
           .map((g) => ({ game: g, score: 100 }));
       } else {
-        matchedGames = games
-          .filter((g) => g.id !== runningGame?.id)
+        matchedGames = filteredGames
           .map((g) => {
             const score = scoreMatch(q, g.name, [
               g.developer,
               g.publisher,
               g.platform,
               ...(g.genres || []),
+              ...(g.themes || []),
             ]);
             return { game: g, score };
           })
           .filter((item) => item.score > 0)
           .sort((a, b) => b.score - a.score)
-          .slice(0, scope === "games" ? 35 : 8);
+          .slice(0, scope === "games" ? 40 : 10);
       }
 
       matchedGames.forEach(({ game }) => {
+        const achCache = achievementsCtx?.cache as Record<string, any> | undefined;
+        const ach = achCache?.[game.id] || (game.steamAppId ? achCache?.[String(game.steamAppId)] : undefined);
+        const achStats = ach?.totalCount && ach.totalCount > 0 ? {
+          unlocked: ach.unlockedCount,
+          total: ach.totalCount,
+          percentage: Math.round((ach.unlockedCount / ach.totalCount) * 100),
+        } : undefined;
+
         result.push({
           id: `game-${game.id}`,
           category: "games",
@@ -383,6 +540,7 @@ export default function CommandPalette({ isOpen, onClose }: CommandPaletteProps)
           shortcut: "↵",
           secondaryActionText: t("commandPalette.open"),
           gameData: game,
+          achievementStats: achStats,
           quickActions: [
             ...(game.installed
               ? [
@@ -449,7 +607,7 @@ export default function CommandPalette({ isOpen, onClose }: CommandPaletteProps)
       });
     }
 
-    // ── 3. Quick Actions ───────────────────────────────────────────────────
+    // ── 4. Quick Actions ───────────────────────────────────────────────────
     if (scope === "all" || scope === "actions") {
       let matchedActions: PaletteItem[] = [];
 
@@ -470,7 +628,7 @@ export default function CommandPalette({ isOpen, onClose }: CommandPaletteProps)
       result.push(...matchedActions);
     }
 
-    // ── 4. Navigation Routes ───────────────────────────────────────────────
+    // ── 5. Navigation Routes ───────────────────────────────────────────────
     if (scope === "all" || scope === "navigation") {
       let matchedNav: PaletteItem[] = [];
 
@@ -490,7 +648,7 @@ export default function CommandPalette({ isOpen, onClose }: CommandPaletteProps)
       result.push(...matchedNav);
     }
 
-    // ── 5. Themes ─────────────────────────────────────────────────────────
+    // ── 6. Themes ─────────────────────────────────────────────────────────
     if (scope === "all" || scope === "themes") {
       const themeItems = systemActions.filter((a) => a.category === "themes");
       let matchedThemes: PaletteItem[] = [];
@@ -513,7 +671,7 @@ export default function CommandPalette({ isOpen, onClose }: CommandPaletteProps)
       result.push(...matchedThemes);
     }
 
-    // ── 6. Downloads Queue ────────────────────────────────────────────────
+    // ── 7. Downloads Queue ────────────────────────────────────────────────
     if (scope === "all" || scope === "downloads") {
       const activeDownloads = downloadsCtx?.downloads || [];
       if (activeDownloads.length > 0) {
@@ -525,7 +683,7 @@ export default function CommandPalette({ isOpen, onClose }: CommandPaletteProps)
               d.status.kind.toLowerCase().includes(q.toLowerCase())
             );
           })
-          .slice(0, 5)
+          .slice(0, 6)
           .forEach((d) => {
             const isPaused = d.status.kind === "paused";
             const percent = Math.round((d.progress ?? 0) * 100);
@@ -560,7 +718,7 @@ export default function CommandPalette({ isOpen, onClose }: CommandPaletteProps)
       }
     }
 
-    // ── 7. IGDB Online Catalog Games ───────────────────────────────────────
+    // ── 8. IGDB Online Catalog Games ───────────────────────────────────────
     if ((scope === "all" || scope === "store") && igdbResults.length > 0) {
       igdbResults.forEach((igdbGame) => {
         const year = igdbGame.firstReleaseDate
@@ -638,7 +796,10 @@ export default function CommandPalette({ isOpen, onClose }: CommandPaletteProps)
     return result;
   }, [
     cleanQuery,
+    rawQuery,
     scope,
+    parsedFilters,
+    calcResult,
     runningGame,
     games,
     systemActions,
@@ -646,13 +807,39 @@ export default function CommandPalette({ isOpen, onClose }: CommandPaletteProps)
     downloadsCtx,
     igdbResults,
     wishlistCtx,
+    achievementsCtx,
     t,
     onClose,
     navigate,
     launchGame,
     forceCloseGame,
     showToast,
+    recentVersion,
   ]);
+
+  // Dynamic scope counters calculation
+  const scopeCounts = useMemo(() => {
+    const counts: Record<PaletteCategory, number> = {
+      all: 0,
+      recent: 0,
+      games: 0,
+      actions: 0,
+      navigation: 0,
+      themes: 0,
+      downloads: 0,
+      store: 0,
+      utility: 0,
+    };
+
+    items.forEach((item) => {
+      counts.all++;
+      if (item.category in counts) {
+        counts[item.category]++;
+      }
+    });
+
+    return counts;
+  }, [items]);
 
   // Keep selected index within bounds
   useEffect(() => {
@@ -707,9 +894,21 @@ export default function CommandPalette({ isOpen, onClose }: CommandPaletteProps)
         : (currIdx + 1) % scopes.length;
       setScope(scopes[nextIdx]);
       setSelectedIndex(0);
+    } else if (e.key === "Delete" && e.shiftKey) {
+      const currentItem = items[selectedIndex];
+      if (currentItem?.isRecent && currentItem.onDeleteRecent) {
+        e.preventDefault();
+        currentItem.onDeleteRecent();
+      }
     } else if (e.key === "Backspace" && rawQuery === "" && scope !== "all") {
       e.preventDefault();
       setScope("all");
+    } else if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "k") {
+      const currentItem = items[selectedIndex];
+      if (currentItem?.gameData || currentItem?.storeData || currentItem?.calcData) {
+        e.preventDefault();
+        setActionDrawerOpen(true);
+      }
     } else if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "p") {
       if (!isSimpleMode) {
         e.preventDefault();
@@ -727,7 +926,7 @@ export default function CommandPalette({ isOpen, onClose }: CommandPaletteProps)
       const currentItem = items[selectedIndex];
       if (currentItem) {
         e.preventDefault();
-        const textToCopy = currentItem.gameData?.path || currentItem.title;
+        const textToCopy = currentItem.calcData?.result || currentItem.gameData?.path || currentItem.title;
         navigator.clipboard.writeText(textToCopy);
         showToast(t("commandPalette.copiedToClipboard"), "info");
       }
@@ -753,7 +952,7 @@ export default function CommandPalette({ isOpen, onClose }: CommandPaletteProps)
         className="command-palette-backdrop"
         onClick={onClose}
         onKeyDown={(e) => {
-          if (e.key === "Escape") {
+          if (e.key === "Escape" && !actionDrawerOpen) {
             e.preventDefault();
             onClose();
           }
@@ -800,6 +999,20 @@ export default function CommandPalette({ isOpen, onClose }: CommandPaletteProps)
                 spellCheck={false}
               />
 
+              {rawQuery.length > 0 && (
+                <button
+                  type="button"
+                  className="cmd-clear-query-btn"
+                  onClick={() => {
+                    setRawQuery("");
+                    inputRef.current?.focus();
+                  }}
+                  title={t("commandPalette.clear")}
+                >
+                  <X size={13} />
+                </button>
+              )}
+
               {isSearchingIgdb && (
                 <Loader2
                   size={15}
@@ -823,12 +1036,13 @@ export default function CommandPalette({ isOpen, onClose }: CommandPaletteProps)
               <kbd className="command-palette-esc">Esc</kbd>
             </div>
 
-            {/* Scope Filter Chips Row */}
+            {/* Scope Filter Chips Row with Dynamic Counters */}
             {!isSimpleMode && (
               <div className="cmd-scope-bar">
                 {SCOPE_DEFINITIONS.map((def) => {
                   const isActive = scope === def.id;
                   const Icon = def.icon;
+                  const count = scopeCounts[def.id] || 0;
                   return (
                     <button
                       key={def.id}
@@ -842,6 +1056,7 @@ export default function CommandPalette({ isOpen, onClose }: CommandPaletteProps)
                     >
                       <Icon size={12} />
                       <span>{t(def.labelKey)}</span>
+                      {count > 0 && <span className="cmd-scope-count">{count}</span>}
                       {def.prefix && (
                         <kbd className="cmd-chip-prefix">{def.prefix}</kbd>
                       )}
@@ -865,17 +1080,21 @@ export default function CommandPalette({ isOpen, onClose }: CommandPaletteProps)
                   currentCategory = item.category;
 
                   const categoryTitle =
-                    item.category === "games"
-                      ? t("commandPalette.sectionGames")
-                      : item.category === "store"
-                        ? t("commandPalette.sectionIgdb")
-                        : item.category === "navigation"
-                          ? t("commandPalette.sectionNav")
-                          : item.category === "themes"
-                            ? t("commandPalette.sectionThemes")
-                            : item.category === "downloads"
-                              ? t("commandPalette.sectionDownloads")
-                              : t("commandPalette.sectionActions");
+                    item.category === "recent"
+                      ? t("commandPalette.sectionRecent")
+                      : item.category === "utility"
+                        ? t("commandPalette.sectionUtility")
+                        : item.category === "games"
+                          ? t("commandPalette.sectionGames")
+                          : item.category === "store"
+                            ? t("commandPalette.sectionIgdb")
+                            : item.category === "navigation"
+                              ? t("commandPalette.sectionNav")
+                              : item.category === "themes"
+                                ? t("commandPalette.sectionThemes")
+                                : item.category === "downloads"
+                                  ? t("commandPalette.sectionDownloads")
+                                  : t("commandPalette.sectionActions");
 
                   const isSelected = idx === selectedIndex;
 
@@ -1004,17 +1223,23 @@ export default function CommandPalette({ isOpen, onClose }: CommandPaletteProps)
                   <kbd className="command-palette-key-pill">↵</kbd>
                   <span>{t("commandPalette.hintSelect")}</span>
                 </span>
-                {!isSimpleMode && (
+                {currentSelectedItem?.gameData && (
                   <>
                     <span className="command-palette-hint">
                       <kbd className="command-palette-key-pill">Ctrl+↵</kbd>
                       <span>{t("commandPalette.hintDetails")}</span>
                     </span>
                     <span className="command-palette-hint">
-                      <kbd className="command-palette-key-pill">Tab</kbd>
-                      <span>{t("commandPalette.hintScope")}</span>
+                      <kbd className="command-palette-key-pill">Ctrl+K</kbd>
+                      <span>{t("commandPalette.actionsMenu")}</span>
                     </span>
                   </>
+                )}
+                {!isSimpleMode && (
+                  <span className="command-palette-hint">
+                    <kbd className="command-palette-key-pill">Tab</kbd>
+                    <span>{t("commandPalette.hintScope")}</span>
+                  </span>
                 )}
                 <span className="command-palette-hint">
                   <kbd className="command-palette-key-pill">Esc</kbd>
@@ -1028,11 +1253,33 @@ export default function CommandPalette({ isOpen, onClose }: CommandPaletteProps)
           {/* Right Inspector Column */}
           {effectiveShowInspector && (
             <div className="cmd-inspector-column">
-              <CommandPaletteInspector item={currentSelectedItem} t={t} />
+              <CommandPaletteInspector
+                item={currentSelectedItem}
+                t={t}
+                onOpenActionDrawer={() => setActionDrawerOpen(true)}
+                onOpenDownloadModal={(target) => setDownloadTarget(target)}
+                isWishlisted={(slug) => wishlistCtx?.isWishlisted(slug) ?? false}
+                toggleWishlist={(game) => wishlistCtx?.toggle(game)}
+              />
             </div>
           )}
         </div>
       </div>
+
+      {/* Secondary Actions Drawer Modal */}
+      <CommandPaletteActionDrawer
+        item={currentSelectedItem}
+        isOpen={actionDrawerOpen}
+        onClose={() => setActionDrawerOpen(false)}
+        t={t}
+        showToast={(msg, type) => showToast(msg, type ?? "info")}
+        navigate={navigate}
+        launchGame={launchGame}
+        isGameUntracked={isGameUntracked}
+        toggleGameTracking={toggleGameTracking}
+        isWishlisted={(slug) => wishlistCtx?.isWishlisted(slug) ?? false}
+        toggleWishlist={(game) => wishlistCtx?.toggle(game)}
+      />
 
       {/* Download Modal Triggered Directly from Command Palette */}
       {downloadTarget && (
