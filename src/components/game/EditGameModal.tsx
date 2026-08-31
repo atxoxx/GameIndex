@@ -8,7 +8,6 @@ import { useSizeUnit } from "../../hooks/useSizeUnit";
 import {
   type Game,
   type GameMetadataResult,
-  type LaunchBoxImageResult,
   type CompanionApp,
   type SimilarGame,
   type ReleaseDateInfo,
@@ -23,8 +22,7 @@ import {
 import type { SteamLaunchOption } from "../../types/steam";
 import { Button } from "../../components/ui";
 import { EditImageSlot } from "./EditImageSlot";
-import { LaunchBoxImageBrowser } from "./LaunchBoxImageBrowser";
-import { IgdbMediaBrowser } from "./IgdbMediaBrowser";
+import { MediaFetchBrowser } from "./MediaFetchBrowser";
 import { UrlListEditor } from "./UrlListEditor";
 import { TagInput } from "../../components/ui/TagInput";
 import { ArrayEditor } from "../../components/ui/ArrayEditor";
@@ -181,12 +179,9 @@ export function EditGameModal({ game, onClose }: EditGameModalProps) {
   const [showMetadataPanel, setShowMetadataPanel] = useState(false);
   const [applyingMetadata, setApplyingMetadata] = useState(false);
 
-  const [showImageBrowser, setShowImageBrowser] = useState(false);
-  const [lbImages, setLbImages] = useState<LaunchBoxImageResult[]>([]);
-  const [lbLoading, setLbLoading] = useState(false);
-  const [lbSelectedCategory, setLbSelectedCategory] = useState<string>("all");
-  const [lbApplyingUrl, setLbApplyingUrl] = useState<string | null>(null);
-  const [showIgdbMediaBrowser, setShowIgdbMediaBrowser] = useState(false);
+  const [mediaFetchSlot, setMediaFetchSlot] = useState<
+    "icon" | "cover" | "hero" | "logo" | null
+  >(null);
   const [fetchingImageKey, setFetchingImageKey] = useState<string | null>(null);
 
   useEffect(() => {
@@ -239,34 +234,16 @@ export function EditGameModal({ game, onClose }: EditGameModalProps) {
     }
   }
 
-  async function handleFetchImage(key: "icon" | "cover" | "hero" | "logo") {
-    setFetchingImageKey(key);
-    try {
-      let results = metadataResults;
-      if (results.length === 0) {
-        const freshResults: GameMetadataResult[] = await searchMetadata();
-        results = freshResults;
-        setMetadataResults(results);
-      }
-      if (results.length > 0) {
-        const imageUrl = results[0].images[key];
-        if (imageUrl) {
-          setImageSlot(key, imageUrl);
+  function handleFetchImage(key: "icon" | "cover" | "hero" | "logo") {
+    // Open the media browser so the user can pick a jpg/jpeg/png/webp from
+    // Steam, IGDB and SteamGridDB for this slot (no longer auto-fetches).
+    setMediaFetchSlot(key);
+  }
 
-          const dataUrl: string | null = await invoke("download_image", { url: imageUrl });
-          if (dataUrl) {
-            setImageSlot(key, dataUrl);
-            showToast(`Fetched and saved ${key} image`, "success");
-            return;
-          }
-        }
-      }
-      showToast(`No ${key} image found in metadata`, "info");
-    } catch (err) {
-      showToast(`Failed to fetch image: ${err}`, "error");
-    } finally {
-      setFetchingImageKey(null);
-    }
+  async function handleApplyFetchedImage(url: string): Promise<void> {
+    const slot = mediaFetchSlot;
+    if (!slot) return;
+    await applyRemoteImage(slot, url);
   }
 
   async function handleApplyMetadata(result: GameMetadataResult) {
@@ -359,33 +336,6 @@ export function EditGameModal({ game, onClose }: EditGameModalProps) {
 
   function handleRemoveImage(key: "icon" | "cover" | "hero" | "logo") {
     setImageSlot(key, "");
-  }
-
-  async function handleOpenImageBrowser() {
-    setShowImageBrowser(true);
-    setLbSelectedCategory("all");
-    if (lbImages.length > 0) return;
-    setLbLoading(true);
-    try {
-      const images: LaunchBoxImageResult[] = await invoke("search_launchbox_images", { gameName: game.name });
-      setLbImages(images);
-      if (images.length === 0) showToast("No images found on LaunchBox", "info");
-    } catch (err) {
-      showToast(`LaunchBox image search failed: ${err}`, "error");
-    } finally {
-      setLbLoading(false);
-    }
-  }
-
-  async function handleApplyLbImage(imageUrl: string, slot: "icon" | "cover" | "hero" | "banner" | "logo") {
-    setLbApplyingUrl(imageUrl);
-    try {
-      await applyRemoteImage(slot, imageUrl);
-    } catch (err) {
-      showToast(`Failed to apply image: ${err}`, "error");
-    } finally {
-      setLbApplyingUrl(null);
-    }
   }
 
   async function handleApplyIgdbImage(imageUrl: string, slot: "icon" | "cover" | "hero" | "banner" | "logo") {
@@ -1110,35 +1060,6 @@ export function EditGameModal({ game, onClose }: EditGameModalProps) {
                   </svg>
                   {t("edit.images")}
                 </h4>
-                <div className="edit-media-browser-row">
-                  <Button
-                    variant="secondary"
-                    size="sm"
-                    onClick={handleOpenImageBrowser}
-                    leftIcon={
-                      <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                        <rect x="2" y="2" width="20" height="20" rx="2" />
-                        <path d="M7 2v20" />
-                        <path d="M2 12h5" />
-                      </svg>
-                    }
-                  >
-                    {t("edit.browseLaunchBox")}
-                  </Button>
-                  <Button
-                    variant="secondary"
-                    size="sm"
-                    onClick={() => setShowIgdbMediaBrowser(true)}
-                    leftIcon={
-                      <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ color: "var(--color-accent)" }}>
-                        <polygon points="23 7 16 12 23 17 23 7" />
-                        <rect x="1" y="5" width="15" height="14" rx="2" ry="2" />
-                      </svg>
-                    }
-                  >
-                    {t("edit.browseIgdb")}
-                  </Button>
-                </div>
               </div>
 
               <div className="edit-images-grid">
@@ -1147,7 +1068,7 @@ export function EditGameModal({ game, onClose }: EditGameModalProps) {
                   subtitle={t("edit.label.sidebar")}
                   imageUrl={editIcon}
                   previewSize={{ w: 64, h: 64 }}
-                  isFetching={fetchingImageKey === "icon"}
+                  isFetching={false}
                   onChooseFile={() => handlePickImage("icon")}
                   onFetchWeb={() => handleFetchImage("icon")}
                   onRemove={() => handleRemoveImage("icon")}
@@ -1157,7 +1078,7 @@ export function EditGameModal({ game, onClose }: EditGameModalProps) {
                   subtitle={t("edit.label.libraryCards")}
                   imageUrl={editCover}
                   previewSize={{ w: 120, h: 160 }}
-                  isFetching={fetchingImageKey === "cover"}
+                  isFetching={false}
                   onChooseFile={() => handlePickImage("cover")}
                   onFetchWeb={() => handleFetchImage("cover")}
                   onRemove={() => handleRemoveImage("cover")}
@@ -1167,7 +1088,7 @@ export function EditGameModal({ game, onClose }: EditGameModalProps) {
                   subtitle={t("edit.label.gamePageTop")}
                   imageUrl={editHero}
                   previewSize={{ w: 240, h: 100 }}
-                  isFetching={fetchingImageKey === "hero"}
+                  isFetching={false}
                   onChooseFile={() => handlePickImage("hero")}
                   onFetchWeb={() => handleFetchImage("hero")}
                   onRemove={() => handleRemoveImage("hero")}
@@ -1177,7 +1098,7 @@ export function EditGameModal({ game, onClose }: EditGameModalProps) {
                   subtitle={t("edit.label.titleImage")}
                   imageUrl={editLogo}
                   previewSize={{ w: 200, h: 60 }}
-                  isFetching={fetchingImageKey === "logo"}
+                  isFetching={false}
                   onChooseFile={() => handlePickImage("logo")}
                   onFetchWeb={() => handleFetchImage("logo")}
                   onRemove={() => handleRemoveImage("logo")}
@@ -1628,28 +1549,13 @@ export function EditGameModal({ game, onClose }: EditGameModalProps) {
         </div>
       </div>
 
-      {showImageBrowser && (
-        <LaunchBoxImageBrowser
-          gameName={game.name}
-          images={lbImages}
-          loading={lbLoading}
-          selectedCategory={lbSelectedCategory}
-          applyingUrl={lbApplyingUrl}
-          onSelectCategory={setLbSelectedCategory}
-          onApply={(slot, url) => handleApplyLbImage(url, slot)}
-          onClose={() => setShowImageBrowser(false)}
-        />
-      )}
-
-      {showIgdbMediaBrowser && (
-        <IgdbMediaBrowser
-          screenshots={editScreenshots}
-          videos={editVideos}
-          fetchingKey={fetchingImageKey}
-          onScreenshotsChange={setEditScreenshots}
-          onVideosChange={setEditVideos}
-          onApplyImage={(slot, url) => handleApplyIgdbImage(url, slot)}
-          onClose={() => setShowIgdbMediaBrowser(false)}
+      {mediaFetchSlot && (
+        <MediaFetchBrowser
+          slot={mediaFetchSlot}
+          gameName={editName.trim() || game.name}
+          steamAppId={game.steamAppId}
+          onApply={(url) => handleApplyFetchedImage(url)}
+          onClose={() => setMediaFetchSlot(null)}
         />
       )}
     </div>

@@ -1643,3 +1643,108 @@
   text-overflow: ellipsis;
   white-space: nowrap;
 }
+
+/* ─── Media Fetch Browser (Steam / IGDB / SteamGridDB) ───────── */
+.media-fetch-modal {
+  width: min(96vw, 1080px);
+}
+
+.media-fetch-source {
+  margin-bottom: var(--space-xl);
+}
+
+.media-fetch-source-header {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  margin-bottom: var(--space-md);
+}
+
+.media-fetch-source-name {
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text-primary);
+}
+
+.media-fetch-source-count {
+  font-size: var(--font-size-2xs);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text-muted);
+  background: var(--color-bg-tertiary);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-full);
+  padding: 1px 8px;
+}
+
+.media-fetch-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  gap: var(--space-md);
+}
+
+.media-fetch-card {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+  background: color-mix(in srgb, var(--color-text-primary) 4%, transparent);
+  border: 1px solid color-mix(in srgb, var(--color-text-primary) 8%, transparent);
+  transition: border-color 0.25s, background 0.25s, box-shadow 0.25s, transform 0.25s;
+}
+
+.media-fetch-card:hover {
+  border-color: color-mix(in srgb, var(--color-accent) 45%, var(--color-border));
+  background: color-mix(in srgb, var(--color-text-primary) 7%, transparent);
+  box-shadow: var(--shadow-md);
+  transform: translateY(-2px);
+}
+
+.media-fetch-thumb {
+  position: relative;
+  /* Fixed normalized box so the grid never jumps as images of different
+   * aspect ratios load — every thumbnail is cropped to fill the same shape. */
+  aspect-ratio: 4 / 3;
+  overflow: hidden;
+  background: var(--color-bg-tertiary);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.media-fetch-thumb img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.media-fetch-badge {
+  position: absolute;
+  top: var(--space-xs);
+  right: var(--space-xs);
+  font-size: var(--font-size-2xs);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-accent-contrast);
+  background: color-mix(in srgb, var(--color-accent) 80%, transparent);
+  border-radius: var(--radius-full);
+  padding: 2px 7px;
+}
+
+.media-fetch-card-meta {
+  padding: var(--space-xs) var(--space-sm);
+}
+
+.media-fetch-fmt {
+  font-size: var(--font-size-2xs);
+  color: var(--color-text-muted);
+}
+
+.media-fetch-res {
+  font-size: var(--font-size-2xs);
+  color: var(--color-text-muted);
+}
+
+.media-fetch-card > button {
+  margin: 0 var(--space-sm) var(--space-sm);
+}

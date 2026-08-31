@@ -25,7 +25,6 @@ function SidebarGameItemBase({
   isRunning,
   bulkSelected,
   searchQuery,
-  prefersCover,
   onPointerEnter,
   onPointerLeave,
   onQuickPlay,
@@ -71,27 +70,7 @@ function SidebarGameItemBase({
       aria-selected={isSelected}
     >
       <div className="sidebar-game-icon">
-        {prefersCover && game.coverArtUrl ? (
-          <img
-            src={game.coverArtUrl}
-            alt={game.name}
-            onError={(e) => {
-              const img = e.currentTarget;
-              const appId = game.steamAppId;
-              if (appId) {
-                if (img.src.includes("library_600x900_2x")) {
-                  img.src = `https://cdn.akamai.steamstatic.com/steam/apps/${appId}/library_600x900.jpg`;
-                  return;
-                }
-                if (img.src.includes("library_600x900")) {
-                  img.src = `https://cdn.akamai.steamstatic.com/steam/apps/${appId}/header.jpg`;
-                  return;
-                }
-              }
-              updateGame(game.id, { coverArtUrl: undefined, coverSourceUrl: undefined });
-            }}
-          />
-        ) : game.iconUrl ? (
+        {game.iconUrl ? (
           <img src={game.iconUrl} alt={game.name} />
         ) : game.coverArtUrl ? (
           <img
