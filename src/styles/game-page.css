@@ -3,7 +3,7 @@
   width: 100%;
   max-width: none;
   margin: 0;
-  padding: var(--space-2xl);
+  padding: var(--page-padding, var(--space-2xl));
   box-sizing: border-box;
 }
 
@@ -12,15 +12,6 @@
   max-width: none;
 }
 
-/* Mid-width: keep the 2-column rhythm but let the side column
- * breathe instead of snapping to a cramped stack. Below 860px
- * the grid fully collapses (see media query below) so phones /
- * narrow windows get the single-column reading flow. */
-@media (max-width: 1100px) {
-  .game-page {
-    padding: var(--space-xl);
-  }
-}
 
 /* Alias .game-launch-btn → .ui-btn (primary + glow) */
 .game-launch-btn {
@@ -95,10 +86,10 @@
 
 @media (max-width: 1100px) {
   .game-tabs {
-    margin-left: calc(-1 * var(--space-lg));
-    margin-right: calc(-1 * var(--space-lg));
-    padding-left: var(--space-lg);
-    padding-right: var(--space-lg);
+    max-width: 100%;
+    overflow-x: auto;
+    mask-image: linear-gradient(90deg, transparent, black 12px, black calc(100% - 12px), transparent);
+    -webkit-mask-image: linear-gradient(90deg, transparent, black 12px, black calc(100% - 12px), transparent);
   }
 }
 
@@ -1361,6 +1352,7 @@
 .game-tabs {
   position: relative;
   display: flex;
+  flex-wrap: nowrap;
   gap: 2px;
   align-items: center;
   position: sticky;
@@ -1377,7 +1369,11 @@
   -webkit-backdrop-filter: blur(20px) saturate(180%);
   box-shadow: var(--elevation-4);
   overflow-x: auto;
+  overflow-y: hidden;
+  overscroll-behavior-x: contain;
   scrollbar-width: none;
+  scroll-behavior: smooth;
+  -webkit-overflow-scrolling: touch;
 }
 
 .game-tabs__indicator {
@@ -2026,3 +2022,56 @@
   color: var(--color-text-muted);
   font-size: var(--font-size-sm);
 }
+
+/* ============================================================================
+   Game Page Multi-Screen Size Adaptations (Steam Deck, 1080p, 2K, 4K)
+   ============================================================================ */
+
+/* ── Handhelds / Steam Deck (<= 1024px) ──────────────────────────────────── */
+@media (max-width: 1024px) {
+  .game-hero {
+    min-height: auto;
+  }
+
+  .game-hero__actions {
+    flex-wrap: wrap;
+    gap: var(--space-xs);
+  }
+
+  .game-hero__kpis {
+    gap: var(--space-xs);
+  }
+}
+
+/* ── 4K & Ultra-wide Displays (>= 2561px) ─────────────────────────────────── */
+@media (min-width: 2561px) {
+  .game-hero {
+    min-height: 520px;
+    padding: var(--space-2xl) var(--space-3xl);
+  }
+
+  .game-hero__title {
+    font-size: 3.2rem;
+  }
+
+  .game-launch-btn {
+    padding: var(--space-lg) var(--space-3xl);
+    font-size: var(--font-size-lg);
+  }
+
+  .game-launch-btn svg {
+    width: 22px;
+    height: 22px;
+  }
+
+  .game-tab {
+    padding: 10px 20px;
+    font-size: var(--font-size-md);
+  }
+
+  .game-tab-icon {
+    width: 18px;
+    height: 18px;
+  }
+}
+

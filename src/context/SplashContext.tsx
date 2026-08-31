@@ -79,7 +79,14 @@ export interface SplashContextType {
   close: () => void;
 }
 
-const SplashContext = createContext<SplashContextType | null>(null);
+// Persist the React context instance across Vite HMR module re-evaluations so
+// lazy-loaded page chunks never lose their Provider instance.
+const globalSplashObj = globalThis as unknown as {
+  __gamelib_splash_context__?: React.Context<SplashContextType | null>;
+};
+const SplashContext =
+  globalSplashObj.__gamelib_splash_context__ ??
+  (globalSplashObj.__gamelib_splash_context__ = createContext<SplashContextType | null>(null));
 
 /** localStorage key for the user-controlled "show launch splash"
  *  preference. Read fresh on every launchGame call so a Settings

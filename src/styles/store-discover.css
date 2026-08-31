@@ -1181,3 +1181,73 @@
     transform: none;
   }
 }
+
+/* ============================================================================
+   Store Discover Multi-Screen Size Adaptations (Steam Deck, 1080p, 2K, 4K)
+   ============================================================================ */
+
+/* ── Steam Deck & Handhelds / Narrow Viewports (<= 1280px or <= 800px height) ── */
+@media (max-width: 1280px), (max-height: 800px) {
+  .store-hero {
+    min-height: 280px;
+    padding: var(--space-md) var(--space-lg);
+  }
+
+  .store-hero-poster {
+    width: 130px;
+    height: 195px;
+  }
+
+  .store-hero-title {
+    font-size: clamp(1.4rem, 2.5vw, 1.9rem);
+  }
+
+  .store-hero-desc {
+    max-width: 44ch;
+    font-size: var(--font-size-xs);
+  }
+
+  .store-rail-card-snap {
+    width: 160px;
+  }
+
+  .store-rail-card-snap .store-game-card.density-compact {
+    width: 120px;
+  }
+}
+
+/* ── 4K & Ultra-wide Displays (>= 2561px) ─────────────────────────────────── */
+@media (min-width: 2561px) {
+  .store-hero {
+    min-height: 480px;
+    padding: var(--space-2xl) var(--space-3xl);
+  }
+
+  .store-hero-poster {
+    width: 240px;
+    height: 360px;
+  }
+
+  .store-hero-title {
+    font-size: 3rem;
+  }
+
+  .store-hero-desc {
+    max-width: 65ch;
+    font-size: var(--font-size-md);
+  }
+
+  .store-hero-cta {
+    padding: 12px 26px;
+    font-size: var(--font-size-md);
+  }
+
+  .store-rail-card-snap {
+    width: 230px;
+  }
+
+  .store-rail-card-snap .store-game-card.density-compact {
+    width: 160px;
+  }
+}
+

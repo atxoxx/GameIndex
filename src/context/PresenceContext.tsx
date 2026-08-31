@@ -22,7 +22,14 @@ export interface PresenceContextValue {
   setModsGameName: (name: string | null) => void;
 }
 
-const PresenceContext = createContext<PresenceContextValue | null>(null);
+// Persist the React context instance across Vite HMR module re-evaluations so
+// lazy-loaded page chunks never lose their Provider instance.
+const globalPresenceObj = globalThis as unknown as {
+  __gamelib_presence_context__?: React.Context<PresenceContextValue | null>;
+};
+const PresenceContext =
+  globalPresenceObj.__gamelib_presence_context__ ??
+  (globalPresenceObj.__gamelib_presence_context__ = createContext<PresenceContextValue | null>(null));
 
 export function PresenceProvider({ children }: { children: ReactNode }) {
   const [storePlatforms, setStorePlatforms] = useState<string[]>([]);

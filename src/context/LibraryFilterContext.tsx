@@ -57,7 +57,14 @@ interface LibraryFilterContextValue {
   reset: () => void;
 }
 
-const LibraryFilterContext = createContext<LibraryFilterContextValue | null>(null);
+// Persist the React context instance across Vite HMR module re-evaluations so
+// lazy-loaded page chunks never lose their Provider instance.
+const globalLibraryFilterObj = globalThis as unknown as {
+  __gamelib_library_filter_context__?: React.Context<LibraryFilterContextValue | null>;
+};
+const LibraryFilterContext =
+  globalLibraryFilterObj.__gamelib_library_filter_context__ ??
+  (globalLibraryFilterObj.__gamelib_library_filter_context__ = createContext<LibraryFilterContextValue | null>(null));
 
 /** Read the persisted filter state from localStorage (safe init). */
 function loadInitialFilters(): LibraryFilters {

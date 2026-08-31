@@ -9,9 +9,11 @@
 /* ── Page shell ─────────────────────────────────────────────────── */
 
 .emulators-page {
-  padding: var(--space-xl) var(--space-2xl) var(--space-3xl);
-  max-width: 1600px;
+  padding: var(--page-padding, var(--space-xl) var(--space-2xl) var(--space-3xl));
+  max-width: var(--content-max-width, 1600px);
   margin: 0 auto;
+  box-sizing: border-box;
+  width: 100%;
   min-height: 100%;
   animation: pageIn var(--duration-normal) var(--ease-out) both;
 }
@@ -24,7 +26,7 @@
 
 .emulators-stats {
   display: grid;
-  grid-template-columns: repeat(4, 1fr);
+  grid-template-columns: repeat(auto-fit, minmax(clamp(150px, 15vw, 220px), 1fr));
   gap: var(--space-md);
   margin-bottom: var(--space-xl);
 }
@@ -2527,9 +2529,10 @@
 
 /* ── Responsive ─────────────────────────────────────────────────── */
 
-@media (max-width: 960px) {
+@media (max-width: 1024px) {
   .emulators-split {
     grid-template-columns: 1fr;
+    gap: var(--space-lg);
   }
 
   .emulators-list-pane {
@@ -2542,13 +2545,14 @@
   }
 }
 
-@media (max-width: 900px) {
-  .emulators-stats {
-    grid-template-columns: repeat(2, 1fr);
+@media (min-width: 2561px) {
+  .emulators-split {
+    grid-template-columns: minmax(360px, 420px) 1fr;
+    gap: var(--space-2xl);
   }
 
-  .emulators-skeleton-stats {
-    grid-template-columns: repeat(2, 1fr);
+  .emu-stat {
+    padding: var(--space-lg) var(--space-xl);
   }
 }
 

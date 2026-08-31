@@ -12,7 +12,8 @@
   width: 100%;
   max-width: 100%;
   margin: 0;
-  padding: var(--space-xl) var(--space-xl) var(--space-4xl);
+  padding: var(--page-padding, var(--space-xl) var(--space-xl) var(--space-4xl));
+  box-sizing: border-box;
   animation: docsFade var(--duration-normal) var(--ease-standard) both;
 }
 

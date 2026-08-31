@@ -145,7 +145,14 @@ interface AchievementContextType {
   ) => Promise<RaSearchResult[]>;
 }
 
-const AchievementContext = createContext<AchievementContextType | null>(null);
+// Persist the React context instance across Vite HMR module re-evaluations so
+// lazy-loaded page chunks never lose their Provider instance.
+const globalAchievementObj = globalThis as unknown as {
+  __gamelib_achievement_context__?: React.Context<AchievementContextType | null>;
+};
+const AchievementContext =
+  globalAchievementObj.__gamelib_achievement_context__ ??
+  (globalAchievementObj.__gamelib_achievement_context__ = createContext<AchievementContextType | null>(null));
 
 // ── Provider ────────────────────────────────────────────────────────────
 

@@ -59,10 +59,20 @@ export default function LibraryPage() {
 
   const [contextMenu, setContextMenu] = useState<{ game: Game; x: number; y: number } | null>(null);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  const [filtersOpen, setFiltersOpen] = useState(false);
   const [exportOpen, setExportOpen] = useState(false);
   const [groupBy, setGroupBy] = useState<LibraryGroupBy>("none");
   const [bulkMode, setBulkMode] = useState(false);
   const [selectedGameIds, setSelectedGameIds] = useState<Set<string>>(new Set());
+
+  const activeFilterCount =
+    (filters.genres.length > 0 ? 1 : 0) +
+    (filters.platforms.length > 0 ? 1 : 0) +
+    (filters.yearMin != null || filters.yearMax != null ? 1 : 0) +
+    (filters.ratingMin != null ? 1 : 0) +
+    (filters.status !== "all" ? 1 : 0) +
+    (filters.playStatus !== "all" ? 1 : 0) +
+    (filters.source !== "all" ? 1 : 0);
   // Pending destructive removals, gated behind ConfirmModal (same
   // pattern as GamePage's remove flow). `null`/`false` = no prompt.
   const [removeConfirmGame, setRemoveConfirmGame] = useState<Game | null>(null);
@@ -343,6 +353,9 @@ export default function LibraryPage() {
             clearSelection();
           }}
           onExport={() => setExportOpen(true)}
+          onToggleFilters={() => setFiltersOpen(!filtersOpen)}
+          filtersOpen={filtersOpen}
+          activeFilterCount={activeFilterCount}
         />
       )}
 
@@ -422,6 +435,38 @@ export default function LibraryPage() {
           <LibraryFilterRail collapsed={sidebarCollapsed} onToggleCollapsed={() => setSidebarCollapsed((c) => !c)}>
             <LibraryFilterSidebar {...sidebarProps} />
           </LibraryFilterRail>
+
+          {/* Left-side overlay for compact widths; toggled from the toolbar */}
+          <div
+            className={`lib-filter-overlay-scrim${filtersOpen ? " open" : ""}`}
+            onClick={() => setFiltersOpen(false)}
+            aria-hidden={!filtersOpen}
+          />
+          <aside
+            className={`lib-filter-overlay${filtersOpen ? " open" : ""}`}
+            role="dialog"
+            aria-modal="true"
+            aria-label={t("store.filters")}
+            aria-hidden={!filtersOpen}
+          >
+            <div className="lib-filter-overlay-header">
+              <h3>{t("store.filtersTitle")}</h3>
+              <button
+                type="button"
+                className="lib-filter-overlay-close"
+                onClick={() => setFiltersOpen(false)}
+                aria-label={t("store.closeFilters")}
+              >
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                  <line x1="18" y1="6" x2="6" y2="18" />
+                  <line x1="6" y1="6" x2="18" y2="18" />
+                </svg>
+              </button>
+            </div>
+            <div className="lib-filter-overlay-body">
+              <LibraryFilterSidebar {...sidebarProps} />
+            </div>
+          </aside>
 
           <div className="lib-main">
             {filteredGames.length === 0 ? (

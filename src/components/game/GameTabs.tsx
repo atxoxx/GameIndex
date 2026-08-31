@@ -28,27 +28,39 @@ export default function GameTabs<T extends string = string>({
     opacity: number;
   }>({ left: 0, width: 0, opacity: 0 });
 
-  // Update sliding indicator position
+  // Update sliding indicator position & scroll active tab into view
   useEffect(() => {
     const activeEl = tabRefs.current.get(activeTab);
     const container = containerRef.current;
     if (activeEl && container) {
-      const containerRect = container.getBoundingClientRect();
-      const elRect = activeEl.getBoundingClientRect();
-      setIndicatorStyle({
-        left: elRect.left - containerRect.left + container.scrollLeft,
-        width: elRect.width,
-        opacity: 1,
+      activeEl.scrollIntoView({
+        behavior: "smooth",
+        inline: "center",
+        block: "nearest",
       });
+      const updateIndicator = () => {
+        const containerRect = container.getBoundingClientRect();
+        const elRect = activeEl.getBoundingClientRect();
+        setIndicatorStyle({
+          left: elRect.left - containerRect.left + container.scrollLeft,
+          width: elRect.width,
+          opacity: 1,
+        });
+      };
+      updateIndicator();
+      const timer = setTimeout(updateIndicator, 150);
+      return () => clearTimeout(timer);
     }
   }, [activeTab, tabs]);
 
-  // Update indicator on window resize
+  // Update indicator on window resize and container scroll
   useEffect(() => {
-    const handleResize = () => {
+    const container = containerRef.current;
+    if (!container) return;
+
+    const handleUpdate = () => {
       const activeEl = tabRefs.current.get(activeTab);
-      const container = containerRef.current;
-      if (activeEl && container) {
+      if (activeEl) {
         const containerRect = container.getBoundingClientRect();
         const elRect = activeEl.getBoundingClientRect();
         setIndicatorStyle({
@@ -58,8 +70,13 @@ export default function GameTabs<T extends string = string>({
         });
       }
     };
-    window.addEventListener("resize", handleResize);
-    return () => window.removeEventListener("resize", handleResize);
+
+    window.addEventListener("resize", handleUpdate);
+    container.addEventListener("scroll", handleUpdate, { passive: true });
+    return () => {
+      window.removeEventListener("resize", handleUpdate);
+      container.removeEventListener("scroll", handleUpdate);
+    };
   }, [activeTab]);
 
   const handleKeyDown = (e: KeyboardEvent<HTMLDivElement>) => {

@@ -20,9 +20,11 @@
 /* ── Page Shell ─────────────────────────────────────────────────── */
 
 .mods-page {
-  padding: var(--space-xl) var(--space-2xl) var(--space-3xl);
-  max-width: 1600px;
+  padding: var(--page-padding, var(--space-xl) var(--space-2xl) var(--space-3xl));
+  max-width: var(--content-max-width, 1600px);
   margin: 0 auto;
+  box-sizing: border-box;
+  width: 100%;
   min-height: 100%;
   animation: pageIn var(--duration-normal) var(--ease-out) both;
 }
@@ -36,12 +38,6 @@
   grid-template-columns: minmax(340px, 380px) 1fr;
   gap: var(--space-2xl);
   align-items: start;
-}
-
-@media (max-width: 1150px) {
-  .mods-page-split {
-    grid-template-columns: 1fr;
-  }
 }
 
 /* ── Games Rail (Main Mods Page, Left) ──────────────────────────── */
@@ -2829,3 +2825,30 @@
   opacity: 0.5;
   cursor: default;
 }
+
+/* ── Responsive Layout Overrides ─────────────────────────────────── */
+
+@media (max-width: 1150px) {
+  .mods-page-split {
+    grid-template-columns: 1fr !important;
+    gap: var(--space-lg) !important;
+  }
+
+  .mods-games-pane {
+    position: static !important;
+    top: auto !important;
+    max-height: none !important;
+  }
+
+  .mods-games-list {
+    max-height: 280px !important;
+    overflow-y: auto !important;
+  }
+
+  .mods-detail-pane {
+    position: static !important;
+    top: auto !important;
+    max-height: none !important;
+  }
+}
+

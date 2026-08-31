@@ -13,11 +13,12 @@
   width: 100%;
   max-width: none;
   margin: 0 auto;
-  padding: var(--space-2xl) var(--space-xl) var(--space-3xl);
+  padding: var(--page-padding, var(--space-2xl) var(--space-xl) var(--space-3xl));
   display: flex;
   align-items: flex-start;
   gap: var(--space-xl);
   animation: importMenuIn 220ms var(--ease-standard);
+  box-sizing: border-box;
 }
 
 /* ── Sidebar panel ──────────────────────────────────────────────────── */
@@ -625,11 +626,11 @@
 
 /* ── Responsive ───────────────────────────────────────────────────── */
 
-@media (max-width: 960px) {
+@media (max-width: 1024px) {
   .settings-shell {
     flex-direction: column;
     gap: var(--space-lg);
-    padding: var(--space-xl) var(--space-md) var(--space-2xl);
+    padding: var(--space-md) var(--space-sm) var(--space-xl);
   }
 
   .settings-sidebar {

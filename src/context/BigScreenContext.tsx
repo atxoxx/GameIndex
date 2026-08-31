@@ -113,7 +113,14 @@ export interface BigScreenContextValue {
   ready: boolean;
 }
 
-const BigScreenContext = createContext<BigScreenContextValue | null>(null);
+// Persist the React context instance across Vite HMR module re-evaluations so
+// lazy-loaded page chunks never lose their Provider instance.
+const globalBigScreenObj = globalThis as unknown as {
+  __gamelib_bigscreen_context__?: React.Context<BigScreenContextValue | null>;
+};
+const BigScreenContext =
+  globalBigScreenObj.__gamelib_bigscreen_context__ ??
+  (globalBigScreenObj.__gamelib_bigscreen_context__ = createContext<BigScreenContextValue | null>(null));
 
 /**
  * True when a modal, drawer, search surface, or lightbox is open.

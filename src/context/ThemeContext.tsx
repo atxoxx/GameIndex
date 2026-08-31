@@ -161,7 +161,14 @@ interface ThemeContextValue {
   setSystemSync: (on: boolean) => void;
 }
 
-const ThemeContext = createContext<ThemeContextValue | null>(null);
+// Persist the React context instance across Vite HMR module re-evaluations so
+// lazy-loaded page chunks never lose their Provider instance.
+const globalThemeObj = globalThis as unknown as {
+  __gamelib_theme_context__?: React.Context<ThemeContextValue | null>;
+};
+const ThemeContext =
+  globalThemeObj.__gamelib_theme_context__ ??
+  (globalThemeObj.__gamelib_theme_context__ = createContext<ThemeContextValue | null>(null));
 
 // ── Provider ───────────────────────────────────────────────────────────
 

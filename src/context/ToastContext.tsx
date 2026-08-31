@@ -21,7 +21,14 @@ interface ToastContextType {
   showToast: (message: string, type: ToastType) => void;
 }
 
-const ToastContext = createContext<ToastContextType | null>(null);
+// Persist the React context instance across Vite HMR module re-evaluations so
+// lazy-loaded page chunks never lose their Provider instance.
+const globalToastObj = globalThis as unknown as {
+  __gamelib_toast_context__?: React.Context<ToastContextType | null>;
+};
+const ToastContext =
+  globalToastObj.__gamelib_toast_context__ ??
+  (globalToastObj.__gamelib_toast_context__ = createContext<ToastContextType | null>(null));
 
 let nextToastId = 0;
 

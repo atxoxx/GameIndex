@@ -36,6 +36,7 @@ export function DetailPanel({
   onOpenBrowserResolver,
   resolverActive,
   resolverPartsCaptured,
+  className = "",
 }: {
   match: DisplayMatch | null;
   selectedMirrorIndex?: number;
@@ -56,6 +57,7 @@ export function DetailPanel({
   onOpenBrowserResolver?: (url?: string) => void;
   resolverActive: boolean;
   resolverPartsCaptured: number;
+  className?: string;
 }) {
   const { t } = useLanguage();
 
@@ -64,7 +66,7 @@ export function DetailPanel({
 
   if (!match) {
     return (
-      <aside className="dl-detail-inspector" aria-label={t("downloadModal.configHeader")}>
+      <aside className={`dl-detail-inspector ${className || ""}`} aria-label={t("downloadModal.configHeader")}>
         <div className="dl-detail-empty-state">
           <div className="dl-detail-empty-icon">
             <svg
@@ -111,7 +113,7 @@ export function DetailPanel({
   const tier = score >= 0.8 ? "high" : score >= 0.4 ? "partial" : "low";
 
   return (
-    <aside className="dl-detail-inspector" aria-label={t("downloadModal.configHeader")}>
+    <aside className={`dl-detail-inspector ${className || ""}`} aria-label={t("downloadModal.configHeader")}>
       {/* Panel Header */}
       <div className="dl-detail-top-bar">
         <div className="dl-detail-bar-title">

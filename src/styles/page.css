@@ -16,8 +16,9 @@
   flex-direction: column;
   gap: var(--space-xl);
   width: 100%;
-  padding: var(--space-xl) var(--space-2xl) var(--space-3xl);
+  padding: var(--page-padding, var(--space-xl) var(--space-2xl) var(--space-3xl));
   animation: pageIn var(--duration-normal) var(--ease-out) both;
+  box-sizing: border-box;
 }
 
 @keyframes pageIn {
@@ -64,6 +65,7 @@
 
 .page-header__main {
   min-width: 0;
+  flex: 1;
 }
 
 .page-header__eyebrow {
@@ -115,6 +117,22 @@
   flex-wrap: wrap;
   justify-content: flex-end;
 }
+
+@media (max-width: 1024px) {
+  .page-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: var(--space-md);
+  }
+  .page-header__actions {
+    width: 100%;
+    justify-content: flex-start;
+  }
+  .page-header__title {
+    font-size: clamp(1.4rem, 4vw, 1.85rem);
+  }
+}
+
 
 /* ── Section rhythm ─────────────────────────────────────────────────────── */
 .page-section {

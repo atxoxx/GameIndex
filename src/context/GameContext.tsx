@@ -71,7 +71,14 @@ interface GameContextType {
   toggleGameTracking: (gameId: string, forceUntracked?: boolean) => void;
 }
 
-const GameContext = createContext<GameContextType | null>(null);
+// Persist the React context instance across Vite HMR module re-evaluations so
+// lazy-loaded page chunks never lose their Provider instance.
+const globalGameObj = globalThis as unknown as {
+  __gamelib_game_context__?: React.Context<GameContextType | null>;
+};
+const GameContext =
+  globalGameObj.__gamelib_game_context__ ??
+  (globalGameObj.__gamelib_game_context__ = createContext<GameContextType | null>(null));
 
 export const NO_IGDB_MATCH_SOURCE = "Steam (no IGDB match)";
 

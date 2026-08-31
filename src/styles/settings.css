@@ -1522,7 +1522,7 @@ textarea.settings-input {
 
 .accent-preview__ramp {
   display: grid;
-  grid-template-columns: repeat(6, 1fr);
+  grid-template-columns: repeat(auto-fit, minmax(40px, 1fr));
   gap: 6px;
 }
 

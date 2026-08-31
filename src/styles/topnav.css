@@ -680,5 +680,100 @@
   color: var(--color-accent-contrast);
 }
 
+/* ============================================================================
+   TopNav Multi-Screen Size Adaptations (Steam Deck, 1080p, 2K, 4K)
+   ============================================================================ */
+
+/* ── Steam Deck & Compact Viewports (<= 1280px or <= 800px height) ───────── */
+@media (max-width: 1280px), (max-height: 800px) {
+  .topnav {
+    padding: 0 var(--space-sm);
+  }
+
+  .topnav-logo__version {
+    display: none;
+  }
+
+  .topnav-tab {
+    padding: 4px 9px;
+    font-size: 12px;
+    gap: 4px;
+  }
+
+  .topnav-now-playing-chip-name {
+    display: none;
+  }
+
+  .topnav-now-playing-chip {
+    padding: 0 7px;
+  }
+
+  .topnav-btn {
+    width: 29px;
+    height: 29px;
+  }
+
+  .window-controls-btn {
+    width: 32px;
+    height: 29px;
+  }
+}
+
+/* ── 4K Displays (>= 2561px) ─────────────────────────────────────────────── */
+@media (min-width: 2561px) {
+  .topnav {
+    padding: 0 var(--space-xl);
+  }
+
+  .topnav-logo {
+    font-size: 19px;
+    gap: var(--space-md);
+  }
+
+  .topnav-logo__mark {
+    width: 28px;
+    height: 28px;
+  }
+
+  .topnav-logo__version {
+    font-size: var(--font-size-xs);
+    padding: 2px 9px;
+  }
+
+  .topnav-tab {
+    padding: 7px 16px;
+    font-size: 14px;
+    gap: 8px;
+  }
+
+  .topnav-tab-icon {
+    width: 18px;
+    height: 18px;
+  }
+
+  .topnav-btn,
+  .topnav-btn--cmd {
+    width: 40px;
+    height: 40px;
+  }
+
+  .topnav-btn svg,
+  .topnav-cmd-icon {
+    width: 20px;
+    height: 20px;
+  }
+
+  .window-controls-btn {
+    width: 44px;
+    height: 38px;
+  }
+
+  .window-controls-btn svg {
+    width: 17px;
+    height: 17px;
+  }
+}
+
+
 
 

@@ -57,21 +57,28 @@ export interface SidebarCollapseContextValue {
   setIconRail: (next: boolean) => void;
 }
 
-export const SidebarCollapseContext = createContext<SidebarCollapseContextValue | null>(
-  null
-);
+// Persist the React context instance across Vite HMR module re-evaluations so
+// lazy-loaded page chunks never lose their Provider instance.
+const globalSidebarCollapseObj = globalThis as unknown as {
+  __gamelib_sidebar_collapse_context__?: React.Context<SidebarCollapseContextValue | null>;
+};
+export const SidebarCollapseContext =
+  globalSidebarCollapseObj.__gamelib_sidebar_collapse_context__ ??
+  (globalSidebarCollapseObj.__gamelib_sidebar_collapse_context__ = createContext<SidebarCollapseContextValue | null>(null));
 
 const LS_SIDEBAR_ICON_RAIL_KEY = "gamelib.sidebar.icon_rail:v1";
 
 /** Window width below which the icon rail is forced on. */
 const NARROW_BREAKPOINT_PX = 1100;
 
-function readPersisted(): boolean {
+function readPersisted(): boolean | null {
   try {
-    if (typeof localStorage === "undefined") return false;
-    return localStorage.getItem(LS_SIDEBAR_ICON_RAIL_KEY) === "true";
+    if (typeof localStorage === "undefined") return null;
+    const raw = localStorage.getItem(LS_SIDEBAR_ICON_RAIL_KEY);
+    if (raw !== null) return raw === "true";
+    return null;
   } catch {
-    return false;
+    return null;
   }
 }
 
@@ -93,34 +100,19 @@ export function SidebarCollapseProvider({ children }: { children: ReactNode }) {
   // The user's explicit choice, persisted to localStorage so a
   // returning user lands on their last-chosen state without a flash
   // of full-sidebar-then-icon-rail on mount.
-  const [userPref, setUserPref] = useState<boolean>(() => readPersisted());
+  const [userPref, setUserPref] = useState<boolean>(() => {
+    return readPersisted() ?? readIsNarrow();
+  });
 
-  // Live window-width flag; forces the rail while the window is
-  // narrow without overwriting `userPref`.
-  const [isNarrow, setIsNarrow] = useState<boolean>(readIsNarrow);
-
-  // Persist only the user preference, never the narrow-window override.
+  // Persist user preference on every change.
   useEffect(() => {
     writePersisted(userPref);
   }, [userPref]);
 
-  // Track the width breakpoint so the rail engages/disengages as the
-  // window crosses the threshold.
-  useEffect(() => {
-    const mq = window.matchMedia(`(max-width: ${NARROW_BREAKPOINT_PX}px)`);
-    const onChange = (e: MediaQueryListEvent) => setIsNarrow(e.matches);
-    mq.addEventListener("change", onChange);
-    return () => mq.removeEventListener("change", onChange);
-  }, []);
-
-  // Cross-window sync: when another instance (e.g. a future second
-  // Tauri window) flips the value, the `storage` event propagates
-  // the write here and we update our own React state. Within a single
-  // window the event does not fire for our own writes — the reread
-  // would be a self-acknowledge no-op anyway.
+  // Cross-window sync: when another instance flips the value, update state.
   useEffect(() => {
     function onStorage(e: StorageEvent) {
-      if (e.key !== LS_SIDEBAR_ICON_RAIL_KEY) return;
+      if (e.key !== LS_SIDEBAR_ICON_RAIL_KEY || e.newValue === null) return;
       setUserPref(e.newValue === "true");
     }
     window.addEventListener("storage", onStorage);
@@ -130,9 +122,7 @@ export function SidebarCollapseProvider({ children }: { children: ReactNode }) {
   const toggle = useCallback(() => setUserPref((c) => !c), []);
   const setIconRail = useCallback((next: boolean) => setUserPref(next), []);
 
-  // Narrow windows always show the rail; otherwise the user's choice
-  // (or the full-sidebar default) governs.
-  const isIconRail = isNarrow || userPref;
+  const isIconRail = userPref;
 
   const value = useMemo<SidebarCollapseContextValue>(
     () => ({ isIconRail, toggle, setIconRail }),

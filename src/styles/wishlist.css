@@ -28,7 +28,7 @@
 
 .wishlist-page-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(clamp(160px, 15vw, 220px), 1fr));
   gap: var(--space-md);
   align-items: start;
 }

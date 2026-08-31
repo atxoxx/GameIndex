@@ -62,7 +62,14 @@ interface SourceContextValue {
   ) => Promise<DownloadSearchResult[]>;
 }
 
-const SourceContext = createContext<SourceContextValue | null>(null);
+// Persist the React context instance across Vite HMR module re-evaluations so
+// lazy-loaded page chunks never lose their Provider instance.
+const globalSourceObj = globalThis as unknown as {
+  __gamelib_source_context__?: React.Context<SourceContextValue | null>;
+};
+const SourceContext =
+  globalSourceObj.__gamelib_source_context__ ??
+  (globalSourceObj.__gamelib_source_context__ = createContext<SourceContextValue | null>(null));
 
 const EMPTY_SOURCES: SourceLink[] = [];
 

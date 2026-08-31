@@ -22,7 +22,14 @@ import {
   type GamepadState,
 } from "./useGamepad";
 
-const GamepadCtx = createContext<GamepadState | null>(null);
+// Persist the React context instance across Vite HMR module re-evaluations so
+// lazy-loaded page chunks never lose their Provider instance.
+const globalGamepadObj = globalThis as unknown as {
+  __gamelib_gamepad_context__?: React.Context<GamepadState | null>;
+};
+const GamepadCtx =
+  globalGamepadObj.__gamelib_gamepad_context__ ??
+  (globalGamepadObj.__gamelib_gamepad_context__ = createContext<GamepadState | null>(null));
 
 export interface GamepadProviderProps {
   children: ReactNode;

@@ -52,7 +52,7 @@
   width: 100%;
   box-sizing: border-box;
   overflow-y: auto;
-  padding: var(--space-lg) var(--space-2xl) var(--space-3xl);
+  padding: var(--page-padding, var(--space-lg) var(--space-2xl) var(--space-3xl));
   gap: var(--space-lg);
   /* NOTE: no max-width here on purpose. The shared `.page` shell caps
      at `--content-max-width` (1440px), which left the four Activity

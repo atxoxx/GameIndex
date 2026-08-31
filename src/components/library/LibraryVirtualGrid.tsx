@@ -4,7 +4,7 @@ import { PLAY_STATUS_DETAILS } from "../../types/game";
 import { useLanguage } from "../../context/LanguageContext";
 import type { LibraryGroupBy } from "./LibraryToolbar";
 
-const VIRTUALIZE_THRESHOLD = 60;
+const VIRTUALIZE_THRESHOLD = 250;
 
 interface LibraryVirtualGridProps {
   items: Game[];
@@ -295,11 +295,15 @@ export default function LibraryVirtualGrid({
     ro.observe(el);
 
     const computeScrollTop = () => {
-      const top =
+      const elRect = el.getBoundingClientRect();
+      const containerRect =
         container instanceof Window
-          ? window.scrollY || document.documentElement.scrollTop
-          : container.scrollTop;
-      setScrollTop(Math.max(0, top));
+          ? { top: 0, height: window.innerHeight }
+          : container.getBoundingClientRect();
+      const relativeTop = Math.max(0, containerRect.top - elRect.top);
+      setScrollTop(relativeTop);
+      setViewportH(container instanceof Window ? window.innerHeight : containerRect.height);
+      setContainerW(elRect.width);
     };
     computeScrollTop();
 
@@ -411,19 +415,40 @@ export default function LibraryVirtualGrid({
     );
   }
 
-  // Virtualized flat grid for large collections
-  const rowHeight =
-    density === "compact" ? 220 : density === "cinematic" ? 420 : density === "list" ? 80 : 424;
-  const gap = density === "compact" ? 12 : density === "cinematic" ? 24 : density === "list" ? 8 : 16;
+  // Virtualized flat grid for large collections — dynamically scales across Handhelds, 1080p, 2K, and 4K
+  const isNarrow = containerW > 0 && containerW <= 950;
+  const isUltraWide = containerW >= 2200;
 
-  const minCol =
-    density === "compact" ? 130 : density === "cinematic" ? 240 : density === "list" ? 99999 : 180;
+  const rowHeight = density === "compact"
+    ? (isNarrow ? 195 : isUltraWide ? 260 : 220)
+    : density === "cinematic"
+    ? (isNarrow ? 360 : isUltraWide ? 510 : 420)
+    : density === "list"
+    ? (isNarrow ? 70 : isUltraWide ? 90 : 80)
+    : (isNarrow ? 370 : isUltraWide ? 490 : 424);
+
+  const gap = density === "compact"
+    ? (isNarrow ? 10 : isUltraWide ? 16 : 12)
+    : density === "cinematic"
+    ? (isNarrow ? 16 : isUltraWide ? 28 : 24)
+    : density === "list"
+    ? (isNarrow ? 6 : isUltraWide ? 10 : 8)
+    : (isNarrow ? 12 : isUltraWide ? 20 : 16);
+
+  const minCol = density === "compact"
+    ? (isNarrow ? 115 : isUltraWide ? 155 : 130)
+    : density === "cinematic"
+    ? (isNarrow ? 205 : isUltraWide ? 290 : 240)
+    : density === "list"
+    ? 99999
+    : (isNarrow ? 150 : isUltraWide ? 215 : 180);
+
   const cols = density === "list" ? 1 : Math.max(1, Math.floor((containerW + gap) / (minCol + gap)));
 
   const rowCount = Math.ceil(items.length / cols);
   const totalHeight = rowCount * rowHeight + (rowCount - 1) * gap;
 
-  const overscan = 2;
+  const overscan = 4;
   const rowStride = rowHeight + gap;
   const firstRow = Math.max(0, Math.floor(scrollTop / rowStride) - overscan);
   const visibleRows = Math.ceil(viewportH / rowStride) + overscan * 2;

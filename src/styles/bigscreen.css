@@ -57,11 +57,32 @@
 }
 
 [data-bigscreen="true"] {
-  font-size: 19px;
+  font-size: 18px;
   background-color: var(--bigscreen-bg);
   color: var(--bigscreen-text);
   overflow: hidden;
   user-select: none;
+}
+
+/* Big Screen Handheld / Steam Deck adaptive scale */
+@media (max-width: 1280px), (max-height: 800px) {
+  [data-bigscreen="true"] {
+    font-size: 15px;
+  }
+}
+
+/* Big Screen 2K / QHD adaptive scale */
+@media (min-width: 1921px) and (max-width: 2560px) {
+  [data-bigscreen="true"] {
+    font-size: 22px;
+  }
+}
+
+/* Big Screen 4K TV / UHD adaptive scale */
+@media (min-width: 2561px) {
+  [data-bigscreen="true"] {
+    font-size: 26px;
+  }
 }
 
 [data-bigscreen="true"] body {

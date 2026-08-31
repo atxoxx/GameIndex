@@ -167,7 +167,14 @@ interface DownloadContextValue {
   setDebridApiKey: (next: string) => void;
 }
 
-const DownloadContext = createContext<DownloadContextValue | null>(null);
+// Persist the React context instance across Vite HMR module re-evaluations so
+// lazy-loaded page chunks never lose their Provider instance.
+const globalDownloadObj = globalThis as unknown as {
+  __gamelib_download_context__?: React.Context<DownloadContextValue | null>;
+};
+const DownloadContext =
+  globalDownloadObj.__gamelib_download_context__ ??
+  (globalDownloadObj.__gamelib_download_context__ = createContext<DownloadContextValue | null>(null));
 
 /** Initial empty-list render value for SSR / pre-hydrate. */
 const EMPTY_DOWNLOADS: TorrentDownload[] = [];

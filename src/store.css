@@ -858,12 +858,7 @@
 
 .store-game-grid {
   display: grid;
-  /* Phase 2.8: bumped min from 150px → 220px so cinematic cards
-     (which have an absolutely-positioned body overlay at the bottom of
-     the cover) get enough width to render title + genres + platforms
-     without the text overflowing into the next column. 220px is also
-     a comfortable width for cozy/compact cards. */
-  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(clamp(160px, 15vw, 220px), 1fr));
   gap: var(--space-lg);
   align-content: start;
 }

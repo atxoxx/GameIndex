@@ -21,6 +21,9 @@ interface LibraryToolbarProps {
   bulkMode?: boolean;
   onToggleBulkMode?: () => void;
   onExport: () => void;
+  onToggleFilters?: () => void;
+  filtersOpen?: boolean;
+  activeFilterCount?: number;
 }
 
 const GROUP_BY_OPTIONS: readonly { value: LibraryGroupBy; labelKey: string }[] = [
@@ -46,6 +49,9 @@ export default function LibraryToolbar({
   bulkMode = false,
   onToggleBulkMode,
   onExport,
+  onToggleFilters,
+  filtersOpen = false,
+  activeFilterCount = 0,
 }: LibraryToolbarProps) {
   const { t } = useLanguage();
 
@@ -59,6 +65,26 @@ export default function LibraryToolbar({
       </div>
 
       <div className="lib-toolbar-controls">
+        {/* Compact filters trigger button */}
+        {onToggleFilters && (
+          <button
+            type="button"
+            className={`lib-filter-trigger${filtersOpen ? " active" : ""}${activeFilterCount > 0 ? " has-filters" : ""}`}
+            onClick={onToggleFilters}
+            aria-label={t("store.filters")}
+            aria-expanded={filtersOpen}
+          >
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" width="15" height="15">
+              <line x1="4" y1="6" x2="20" y2="6" />
+              <line x1="7" y1="12" x2="17" y2="12" />
+              <line x1="10" y1="18" x2="14" y2="18" />
+            </svg>
+            <span>{t("store.filters")}</span>
+            {activeFilterCount > 0 && (
+              <span className="lib-toolbar-filter-badge">{activeFilterCount}</span>
+            )}
+          </button>
+        )}
         {/* Search input */}
         <div className={`lib-search${search ? " has-value" : ""}`}>
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">

@@ -22,7 +22,14 @@ interface PriceContextValue {
   version: number;
 }
 
-const PriceContext = createContext<PriceContextValue | null>(null);
+// Persist the React context instance across Vite HMR module re-evaluations so
+// lazy-loaded page chunks never lose their Provider instance.
+const globalPriceObj = globalThis as unknown as {
+  __gamelib_price_context__?: React.Context<PriceContextValue | null>;
+};
+const PriceContext =
+  globalPriceObj.__gamelib_price_context__ ??
+  (globalPriceObj.__gamelib_price_context__ = createContext<PriceContextValue | null>(null));
 
 const BATCH_DEBOUNCE_MS = 150;
 

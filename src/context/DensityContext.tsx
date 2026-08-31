@@ -18,7 +18,14 @@ interface DensityContextValue {
   setDensity: (next: ViewDensity) => void;
 }
 
-const DensityContext = createContext<DensityContextValue | null>(null);
+// Persist the React context instance across Vite HMR module re-evaluations so
+// lazy-loaded page chunks never lose their Provider instance.
+const globalDensityObj = globalThis as unknown as {
+  __gamelib_density_context__?: React.Context<DensityContextValue | null>;
+};
+const DensityContext =
+  globalDensityObj.__gamelib_density_context__ ??
+  (globalDensityObj.__gamelib_density_context__ = createContext<DensityContextValue | null>(null));
 
 /**
  * The underlying Context object. Exported so deeply-nested consumers

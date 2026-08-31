@@ -294,7 +294,91 @@
   --shadow-2xl: var(--elevation-5);
   --shadow-pop: var(--elevation-4);
   --size-xs: var(--font-size-xs);
+  --page-padding: var(--space-xl) var(--space-2xl) var(--space-3xl);
 }
+
+/* ============================================================================
+   Responsive Screen Size Tiers (Steam Deck, Handhelds, 1080p, 2K, 4K)
+   ============================================================================ */
+
+/* ── 1. Handheld / Steam Deck / Compact Windows (<= 1280px or <= 800px height) ── */
+@media (max-width: 1280px), (max-height: 800px) {
+  :root {
+    --page-padding: var(--space-md) var(--space-lg) var(--space-2xl);
+    --space-xl: 18px;
+    --space-2xl: 24px;
+    --space-3xl: 36px;
+    --space-4xl: 64px;
+    --content-max-width: 100%;
+  }
+}
+
+/* ── 2. 2K / QHD Displays (1921px - 2560px) ──────────────────────────────── */
+@media (min-width: 1921px) and (max-width: 2560px) {
+  :root {
+    --content-max-width: 2400px;
+    --space-xl: 28px;
+    --space-2xl: 38px;
+    --space-3xl: 56px;
+    --font-size-2xl: 26px;
+    --font-size-3xl: 36px;
+  }
+}
+
+/* ── 3. 4K / UHD & Ultra-wide Displays (>= 2561px) ────────────────────────── */
+@media (min-width: 2561px) {
+  :root {
+    --topnav-height: 64px;
+    --sidebar-width: 320px;
+    --sidebar-icon-rail-width: 80px;
+    --content-max-width: 3600px;
+
+    /* Scaled typography hierarchy */
+    --font-size-2xs: 12.5px;
+    --font-size-xs: 13.5px;
+    --font-size-sm: 15px;
+    --font-size-md: 16.5px;
+    --font-size-lg: 19px;
+    --font-size-xl: 23px;
+    --font-size-2xl: 28px;
+    --font-size-3xl: 38px;
+    --font-size-4xl: 48px;
+
+    --text-xs: 0.85rem;
+    --text-sm: 0.95rem;
+    --text-md: 1.1rem;
+    --text-lg: 1.25rem;
+    --text-xl: 1.45rem;
+    --text-2xl: 1.75rem;
+    --text-3xl: 2.35rem;
+    --text-4xl: 2.75rem;
+
+    /* Scaled spacing rhythm */
+    --space-2xs: 5px;
+    --space-xs: 8px;
+    --space-sm: 10px;
+    --space-md: 15px;
+    --space-lg: 20px;
+    --space-xl: 30px;
+    --space-2xl: 42px;
+    --space-3xl: 60px;
+    --space-4xl: 110px;
+
+    /* Scaled tactile radii */
+    --radius-md: 12px;
+    --radius-lg: 16px;
+    --radius-xl: 22px;
+  }
+}
+
+/* ── UI Scale Presets (User Preference) ───────────────────────────────────── */
+html[data-ui-scale="85"] { zoom: 0.85; }
+html[data-ui-scale="110"] { zoom: 1.10; }
+html[data-ui-scale="125"] { zoom: 1.25; }
+html[data-ui-scale="150"] { zoom: 1.50; }
+html[data-ui-scale="175"] { zoom: 1.75; }
+html[data-ui-scale="200"] { zoom: 2.00; }
+
 
 /* ==============================
    Accent palette interpolation

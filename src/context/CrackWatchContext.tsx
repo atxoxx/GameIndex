@@ -30,7 +30,14 @@ interface CrackWatchContextValue {
   version: number;
 }
 
-const CrackWatchContext = createContext<CrackWatchContextValue | null>(null);
+// Persist the React context instance across Vite HMR module re-evaluations so
+// lazy-loaded page chunks never lose their Provider instance.
+const globalCrackWatchObj = globalThis as unknown as {
+  __gamelib_crackwatch_context__?: React.Context<CrackWatchContextValue | null>;
+};
+const CrackWatchContext =
+  globalCrackWatchObj.__gamelib_crackwatch_context__ ??
+  (globalCrackWatchObj.__gamelib_crackwatch_context__ = createContext<CrackWatchContextValue | null>(null));
 
 /** Coalesce window: registrations within this window share one batch call. */
 const BATCH_DEBOUNCE_MS = 120;

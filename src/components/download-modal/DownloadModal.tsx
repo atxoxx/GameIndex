@@ -144,6 +144,7 @@ export default function DownloadModal({
 
   const [chooseFiles, setChooseFiles] = useState(false);
   const [autoExtract, setAutoExtract] = useState(false);
+  const [compactTab, setCompactTab] = useState<"results" | "details">("results");
   // Route magnets/direct links through the configured debrid service.
   const [useDebrid, setUseDebrid] = useState(false);
   // Cache probe for the selected magnet (only while the debrid toggle
@@ -1094,55 +1095,92 @@ export default function DownloadModal({
                   onTypeFilterChange={setTypeFilter}
                 />
               ) : (
-                <div className="dl-results-split-layout">
-                  <div className="dl-results-pane" ref={resultsListRef}>
-                    <ResultsList
-                      matches={sortedMatches}
-                      selectedId={selectedId}
-                      onSelect={setSelectedId}
-                      showWeakMatches={showWeakMatches}
-                      onToggleWeak={() => setShowWeakMatches((v) => !v)}
+                <>
+                  <div className="dl-compact-view-switch" role="tablist">
+                    <button
+                      type="button"
+                      className={`dl-compact-switch-btn${compactTab === "results" ? " active" : ""}`}
+                      onClick={() => setCompactTab("results")}
+                      role="tab"
+                      aria-selected={compactTab === "results"}
+                    >
+                      <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden>
+                        <line x1="8" y1="6" x2="21" y2="6" />
+                        <line x1="8" y1="12" x2="21" y2="12" />
+                        <line x1="8" y1="18" x2="21" y2="18" />
+                        <line x1="3" y1="6" x2="3.01" y2="6" />
+                        <line x1="3" y1="12" x2="3.01" y2="12" />
+                        <line x1="3" y1="18" x2="3.01" y2="18" />
+                      </svg>
+                      <span>{t('downloadModal.sourceResults', { count: matches.length, s: matches.length !== 1 ? "s" : "" })}</span>
+                    </button>
+                    <button
+                      type="button"
+                      className={`dl-compact-switch-btn${compactTab === "details" ? " active" : ""}`}
+                      onClick={() => setCompactTab("details")}
+                      role="tab"
+                      aria-selected={compactTab === "details"}
+                    >
+                      <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden>
+                        <circle cx="12" cy="12" r="3" />
+                        <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z" />
+                      </svg>
+                      <span>{t('downloadModal.configHeader')}</span>
+                    </button>
+                  </div>
+                  <div className="dl-results-split-layout">
+                    <div className={`dl-results-pane${compactTab !== "results" ? " compact-hidden" : ""}`} ref={resultsListRef}>
+                      <ResultsList
+                        matches={sortedMatches}
+                        selectedId={selectedId}
+                        onSelect={(id) => {
+                          setSelectedId(id);
+                        }}
+                        showWeakMatches={showWeakMatches}
+                        onToggleWeak={() => setShowWeakMatches((v) => !v)}
+                        isDownloaded={isDownloaded}
+                        sortBy={sortBy}
+                        onSortChange={setSortBy}
+                        sourceFilter={sourceFilter}
+                        onSourceFilterChange={setSourceFilter}
+                        sourceFilterOptions={sourceFilterOptions}
+                        groupFilter={groupFilter}
+                        onGroupFilterChange={setGroupFilter}
+                        searchQuery={searchQuery}
+                        onSearchQueryChange={setSearchQuery}
+                        totalRawMatchesCount={matches.length}
+                        onClearFilters={handleClearFilters}
+                        searchProgress={searchProgress}
+                        platformFilter={platformFilter}
+                        onPlatformFilterChange={setPlatformFilter}
+                        typeFilter={typeFilter}
+                        onTypeFilterChange={setTypeFilter}
+                      />
+                    </div>
+                    <DetailPanel
+                      className={compactTab !== "details" ? "compact-hidden" : ""}
+                      match={selectedMatch}
+                      selectedMirrorIndex={selectedMirrorIndex}
+                      onSelectMirror={setSelectedMirrorIndex}
                       isDownloaded={isDownloaded}
-                      sortBy={sortBy}
-                      onSortChange={setSortBy}
-                      sourceFilter={sourceFilter}
-                      onSourceFilterChange={setSourceFilter}
-                      sourceFilterOptions={sourceFilterOptions}
-                      groupFilter={groupFilter}
-                      onGroupFilterChange={setGroupFilter}
-                      searchQuery={searchQuery}
-                      onSearchQueryChange={setSearchQuery}
-                      totalRawMatchesCount={matches.length}
-                      onClearFilters={handleClearFilters}
-                      searchProgress={searchProgress}
-                      platformFilter={platformFilter}
-                      onPlatformFilterChange={setPlatformFilter}
-                      typeFilter={typeFilter}
-                      onTypeFilterChange={setTypeFilter}
+                      savePath={savePath}
+                      gameName={gameName}
+                      onPickPath={handlePickSavePath}
+                      autoExtract={autoExtract}
+                      onAutoExtract={setAutoExtract}
+                      chooseFiles={chooseFiles}
+                      onChooseFiles={setChooseFiles}
+                      useDebrid={useDebrid}
+                      onUseDebrid={setUseDebrid}
+                      debridConfigured={debridConfigured}
+                      cacheStatus={cacheStatus}
+                      onOpenPage={handleOpenPage}
+                      onOpenBrowserResolver={handleOpenBrowserResolver}
+                      resolverActive={!!resolverSession}
+                      resolverPartsCaptured={resolverSession?.partsCaptured ?? 0}
                     />
                   </div>
-                  <DetailPanel
-                    match={selectedMatch}
-                    selectedMirrorIndex={selectedMirrorIndex}
-                    onSelectMirror={setSelectedMirrorIndex}
-                    isDownloaded={isDownloaded}
-                    savePath={savePath}
-                    gameName={gameName}
-                    onPickPath={handlePickSavePath}
-                    autoExtract={autoExtract}
-                    onAutoExtract={setAutoExtract}
-                    chooseFiles={chooseFiles}
-                    onChooseFiles={setChooseFiles}
-                    useDebrid={useDebrid}
-                    onUseDebrid={setUseDebrid}
-                    debridConfigured={debridConfigured}
-                    cacheStatus={cacheStatus}
-                    onOpenPage={handleOpenPage}
-                    onOpenBrowserResolver={handleOpenBrowserResolver}
-                    resolverActive={!!resolverSession}
-                    resolverPartsCaptured={resolverSession?.partsCaptured ?? 0}
-                  />
-                </div>
+                </>
               )
             )}
 

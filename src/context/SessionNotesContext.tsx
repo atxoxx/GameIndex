@@ -14,7 +14,14 @@ interface SessionNotesContextType {
 
 const STORAGE_KEY = "gamelib-session-notes";
 
-const SessionNotesContext = createContext<SessionNotesContextType | null>(null);
+// Persist the React context instance across Vite HMR module re-evaluations so
+// lazy-loaded page chunks never lose their Provider instance.
+const globalSessionNotesObj = globalThis as unknown as {
+  __gamelib_session_notes_context__?: React.Context<SessionNotesContextType | null>;
+};
+const SessionNotesContext =
+  globalSessionNotesObj.__gamelib_session_notes_context__ ??
+  (globalSessionNotesObj.__gamelib_session_notes_context__ = createContext<SessionNotesContextType | null>(null));
 
 function loadAll(): Record<string, SessionNote> {
   try {

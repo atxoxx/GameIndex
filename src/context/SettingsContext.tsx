@@ -79,6 +79,7 @@ const LS_GAMEPAD_RIGHT_DEADZONE = "gamelib.gamepad_right_deadzone";
 const LS_COMMAND_PALETTE_MODE = "gamelib.command_palette_mode";
 const LS_NAVBAR_MODE = "gamelib.navbar_mode";
 const LS_UI_DENSITY_MODE = "gamelib.ui_density_mode";
+const LS_UI_SCALE = "gamelib.ui_scale";
 // Set on the very first launch so brand-new users can be defaulted into
 // Simple UI mode for approachability, while anyone who has ever run the
 // app keeps whatever they last chose. Append-only, like every other key.
@@ -128,6 +129,8 @@ export type TempUnit = "c" | "f";
 export type CommandPaletteMode = "simple" | "full";
 export type NavbarMode = "compact" | "full";
 export type UiDensityMode = "simple" | "complete";
+export type UiScale = "auto" | "85" | "100" | "110" | "125" | "150" | "175" | "200";
+
 
 /** Individual detail-page sections that can be hidden via settings.
  *  Mirrors the sections rendered on the game detail and store pages.
@@ -227,6 +230,8 @@ export interface SettingsContextValue {
   uiDensityMode: UiDensityMode;
   setUiDensityMode: (next: UiDensityMode) => void;
   isSimpleUi: boolean;
+  uiScale: UiScale;
+  setUiScale: (next: UiScale) => void;
   reduceMotion: boolean;
   setReduceMotion: (next: boolean) => void;
   showCardBadges: boolean;
@@ -807,6 +812,35 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
 
   const isSimpleUi = uiDensityMode === "simple";
 
+  const [uiScale, setUiScaleState] = useState<UiScale>(() => {
+    const stored = lsGet(LS_UI_SCALE);
+    if (stored === "auto" || stored === "85" || stored === "100" || stored === "110" || stored === "125" || stored === "150" || stored === "175" || stored === "200") {
+      return stored;
+    }
+    return "auto";
+  });
+  const setUiScale = useCallback((next: UiScale) => {
+    setUiScaleState(next);
+    lsSet(LS_UI_SCALE, next);
+    if (typeof document !== "undefined") {
+      if (next === "auto" || next === "100") {
+        document.documentElement.removeAttribute("data-ui-scale");
+      } else {
+        document.documentElement.setAttribute("data-ui-scale", next);
+      }
+    }
+  }, []);
+
+  useEffect(() => {
+    if (typeof document !== "undefined") {
+      if (uiScale === "auto" || uiScale === "100") {
+        document.documentElement.removeAttribute("data-ui-scale");
+      } else {
+        document.documentElement.setAttribute("data-ui-scale", uiScale);
+      }
+    }
+  }, [uiScale]);
+
   const [reduceMotion, setReduceMotionState] = useState<boolean>(
     () => lsGet(LS_REDUCE_MOTION) === "true",
   );
@@ -952,6 +986,8 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
       uiDensityMode,
       setUiDensityMode,
       isSimpleUi,
+      uiScale,
+      setUiScale,
       reduceMotion,
       setReduceMotion,
       showCardBadges,
@@ -1029,6 +1065,8 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
       uiDensityMode,
       setUiDensityMode,
       isSimpleUi,
+      uiScale,
+      setUiScale,
       reduceMotion,
       setReduceMotion,
       showCardBadges,

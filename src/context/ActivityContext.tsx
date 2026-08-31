@@ -46,7 +46,14 @@ interface ActivityContextType {
   deleteSessionsForGame: (gameId: string) => void;
 }
 
-const ActivityContext = createContext<ActivityContextType | null>(null);
+// Persist the React context instance across Vite HMR module re-evaluations so
+// lazy-loaded page chunks never lose their Provider instance.
+const globalActivityObj = globalThis as unknown as {
+  __gamelib_activity_context__?: React.Context<ActivityContextType | null>;
+};
+const ActivityContext =
+  globalActivityObj.__gamelib_activity_context__ ??
+  (globalActivityObj.__gamelib_activity_context__ = createContext<ActivityContextType | null>(null));
 
 // Shape of a `sessions` table row as returned by the backend. Mirrors
 // the Rust `db::sessions::SessionRecord` serde mapping.

@@ -30,7 +30,14 @@ interface WishlistContextValue {
   count: number;
 }
 
-const WishlistContext = createContext<WishlistContextValue | null>(null);
+// Persist the React context instance across Vite HMR module re-evaluations so
+// lazy-loaded page chunks never lose their Provider instance.
+const globalWishlistObj = globalThis as unknown as {
+  __gamelib_wishlist_context__?: React.Context<WishlistContextValue | null>;
+};
+const WishlistContext =
+  globalWishlistObj.__gamelib_wishlist_context__ ??
+  (globalWishlistObj.__gamelib_wishlist_context__ = createContext<WishlistContextValue | null>(null));
 
 /**
  * The underlying Context object. Exported so deeply-nested consumers

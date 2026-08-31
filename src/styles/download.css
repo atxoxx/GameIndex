@@ -26,9 +26,9 @@
   position: relative;
   max-width: 1080px;
   width: min(1080px, 95vw);
-  height: 86vh;
-  max-height: 840px;
-  min-height: 560px;
+  height: min(86vh, 840px);
+  max-height: 90vh;
+  min-height: min(560px, 85vh);
   display: flex;
   flex-direction: column;
   background: var(--color-bg-primary);
@@ -272,6 +272,49 @@
   gap: 10px;
 }
 
+/* Compact UI Tab Switcher */
+.dl-compact-view-switch {
+  display: none;
+  align-items: center;
+  gap: 4px;
+  background: var(--color-bg-tertiary);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  padding: 3px;
+  margin-bottom: 2px;
+  flex-shrink: 0;
+}
+
+.dl-compact-switch-btn {
+  flex: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  height: 30px;
+  padding: 0 10px;
+  border-radius: var(--radius-sm);
+  border: none;
+  background: transparent;
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-semibold);
+  font-family: inherit;
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+
+.dl-compact-switch-btn:hover {
+  color: var(--color-text-primary);
+  background: var(--color-bg-hover);
+}
+
+.dl-compact-switch-btn.active {
+  background: var(--color-accent);
+  color: var(--color-accent-contrast);
+  box-shadow: 0 2px 8px color-mix(in srgb, var(--color-accent) 30%, transparent);
+}
+
 /* Split 2-Pane Layout */
 .dl-results-split-layout {
   display: grid;
@@ -283,16 +326,27 @@
   height: 100%;
   overflow: hidden;
 }
-@media (max-width: 980px) {
+
+@media (max-width: 860px) {
+  .dl-compact-view-switch {
+    display: flex;
+  }
+
   .dl-results-split-layout {
     grid-template-columns: 1fr;
+    display: flex;
+    flex-direction: column;
     overflow-y: auto;
+    gap: 8px;
   }
-  .dl-detail-inspector {
-    order: -1;
+
+  .dl-results-pane.compact-hidden,
+  .dl-detail-inspector.compact-hidden {
+    display: none !important;
   }
+
   .dl-results-scrollable-list {
-    max-height: 52vh;
+    max-height: 55vh;
   }
 }
 

@@ -96,6 +96,8 @@ export default function AppearanceTab() {
     setNavbarMode,
     uiDensityMode,
     setUiDensityMode,
+    uiScale,
+    setUiScale,
     reduceMotion,
     setReduceMotion,
     showCardBadges,
@@ -366,6 +368,47 @@ export default function AppearanceTab() {
       desc={t("settings.appearance.interfaceDesc")}
     >
       <div style={{ display: "flex", flexDirection: "column", gap: "var(--space-md)" }}>
+        {/* UI Scale Presets */}
+        <div className="settings-row" style={{ padding: "var(--space-md) var(--space-lg)", background: "var(--color-bg-secondary)", borderRadius: "var(--radius-lg)", border: "1px solid var(--color-border)" }}>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", width: "100%", gap: "var(--space-md)", flexWrap: "wrap" }}>
+            <div style={{ minWidth: 0, flex: 1 }}>
+              <div style={{ fontWeight: "var(--font-weight-semibold)", color: "var(--color-text-primary)", fontSize: "var(--font-size-md)" }}>
+                {t("settings.appearance.uiScaleTitle")}
+              </div>
+              <div style={{ fontSize: "var(--font-size-sm)", color: "var(--color-text-secondary)", marginTop: "2px" }}>
+                {t("settings.appearance.uiScaleDesc")}
+              </div>
+            </div>
+            <select
+              value={uiScale}
+              onChange={(e) => {
+                setUiScale(e.target.value as any);
+                if (uiSoundEnabled) playActionSound();
+              }}
+              style={{
+                minWidth: "160px",
+                background: "var(--color-bg-tertiary)",
+                color: "var(--color-text-primary)",
+                border: "1px solid var(--color-border)",
+                borderRadius: "var(--radius-md)",
+                padding: "6px 12px",
+                fontSize: "var(--font-size-sm)",
+                fontWeight: "var(--font-weight-medium)",
+                cursor: "pointer",
+              }}
+            >
+              <option value="auto">{t("settings.appearance.uiScaleAuto")}</option>
+              <option value="85">85% (Compact)</option>
+              <option value="100">100% (Default)</option>
+              <option value="110">110% (Medium)</option>
+              <option value="125">125% (Large)</option>
+              <option value="150">150% (Extra Large)</option>
+              <option value="175">175% (2K / 4K)</option>
+              <option value="200">200% (4K TV / 10-foot)</option>
+            </select>
+          </div>
+        </div>
+
         {/* Simple / Full Command Palette */}
         <SettingsToggleCard
           title={t("settings.appearance.cmdPaletteSimpleTitle")}

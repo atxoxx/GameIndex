@@ -90,7 +90,14 @@ export function formatEta(seconds: number): string {
   return s > 0 ? `${m}m ${s}s` : `${m}m`;
 }
 
-const UpdateContext = createContext<UpdateContextValue | null>(null);
+// Persist the React context instance across Vite HMR module re-evaluations so
+// lazy-loaded page chunks never lose their Provider instance.
+const globalUpdateObj = globalThis as unknown as {
+  __gamelib_update_context__?: React.Context<UpdateContextValue | null>;
+};
+const UpdateContext =
+  globalUpdateObj.__gamelib_update_context__ ??
+  (globalUpdateObj.__gamelib_update_context__ = createContext<UpdateContextValue | null>(null));
 
 export function UpdateProvider({ children }: { children: ReactNode }) {
   const { t } = useLanguage();

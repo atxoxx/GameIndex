@@ -2205,3 +2205,62 @@
   }
 }
 
+/* ============================================================================
+   Sidebar Multi-Screen Size Adaptations (Steam Deck, 1080p, 2K, 4K)
+   ============================================================================ */
+
+@media (max-width: 1280px) {
+  .sidebar-game-item {
+    padding: 5px 8px;
+    gap: 8px;
+  }
+  .sidebar-hover-preview {
+    max-width: 220px;
+  }
+}
+
+@media (min-width: 2561px) {
+  .sidebar {
+    width: var(--sidebar-width);
+  }
+
+  .sidebar-search-input {
+    font-size: var(--font-size-md);
+    padding: 10px 14px 10px 42px;
+  }
+
+  .sidebar-search-icon {
+    width: 18px;
+    height: 18px;
+    left: 14px;
+  }
+
+  .sidebar-game-item {
+    padding: 8px 12px;
+    gap: 12px;
+    font-size: var(--font-size-md);
+  }
+
+  .sidebar-game-icon {
+    width: 24px;
+    height: 24px;
+    border-radius: var(--radius-md);
+  }
+
+  .sidebar-section-header {
+    font-size: var(--font-size-xs);
+    padding: 8px 12px;
+  }
+
+  .sidebar-icon-rail-item {
+    width: 48px;
+    height: 48px;
+  }
+
+  .sidebar-icon-rail-item .sidebar-game-icon {
+    width: 32px;
+    height: 32px;
+  }
+}
+
+
