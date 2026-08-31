@@ -24,6 +24,33 @@ function hexToBytes(hex: string): Uint8Array {
   return bytes;
 }
 
+/**
+ * Timeout ceiling for a single network round-trip (relay publish or
+ * relay fetch). A dead/stuck relay must never wedge the sync loop — if it
+ * doesn't settle inside this window we treat it as failed and move on.
+ * (The guest relay's `publish`/`get` can hang indefinitely on network
+ * partitions, which would otherwise pin `isSyncing` forever and silently
+ * kill the recurring sync timer.)
+ */
+const RELAY_TIMEOUT_MS = 12000;
+
+/** Race `promise` against `RELAY_TIMEOUT_MS`. On timeout the function
+ *  resolves with `onTimeout()` instead of hanging. The still-running
+ *  underlying operation is dropped; sync governance never waits on it. */
+async function withRelayTimeout<T>(promise: Promise<T>, onTimeout: () => T): Promise<T> {
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  try {
+    return await Promise.race([
+      promise,
+      new Promise<T>((resolve) => {
+        timer = setTimeout(() => resolve(onTimeout()), RELAY_TIMEOUT_MS);
+      }),
+    ]);
+  } finally {
+    if (timer !== undefined) clearTimeout(timer);
+  }
+}
+
 export interface NostrKeys {
   privateKey: Uint8Array;
   privateKeyHex: string;
@@ -1310,7 +1337,12 @@ export async function publishNostrOutbox(payload: NostrOutboxPayload): Promise<v
     await Promise.all(
       NOSTR_RELAYS.map(async (relay) => {
         try {
-          await getNostrPublishPool().publish([relay], signedEvent);
+          // Bounded publish: a stuck relay resolves the race on timeout
+          // instead of blocking the whole broadcast (and, transitively,
+          // the sync loop awaiting publishNostrOutbox). `pool.publish`
+          // returns a `Promise[]`; race the settled aggregate against the
+          // ceiling so a hung WebSocket can't wedge the loop.
+          await withRelayTimeout(Promise.all(getNostrPublishPool().publish([relay], signedEvent)), () => []);
         } catch (err) {
           console.error(`Nostr: failed to publish to ${relay}:`, err);
         }
@@ -1429,11 +1461,16 @@ export async function fetchFriendOutbox(friendSyncId: string): Promise<{
   //    read here so private messages never get pulled over a public relay).
   if (/^[0-9a-fA-F]{64}$/.test(friendSyncId)) {
     try {
-      const event = await nostrPoolForPreview.get(nostrRelaysForPreview, {
-        authors: [friendSyncId],
-        kinds: [30078],
-        "#d": ["gamelib-friends-outbox"],
-      });
+      // Bounded relay read so a stuck relay can't hold up the caller
+      // (folder-sync fallback, invitation scan, or the friend preview).
+      const event = await withRelayTimeout(
+        nostrPoolForPreview.get(nostrRelaysForPreview, {
+          authors: [friendSyncId],
+          kinds: [30078],
+          "#d": ["gamelib-friends-outbox"],
+        }),
+        () => null,
+      );
       if (event) {
         return stripDms(JSON.parse(event.content));
       }

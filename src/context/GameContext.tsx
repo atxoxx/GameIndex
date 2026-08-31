@@ -25,6 +25,9 @@ import { useEnrich } from "./game/useEnrich";
 
 interface GameContextType {
   games: Game[];
+  /** True until the initial `load_games` read settles. Pages use it to
+   *  avoid flashing an empty library / hero while hydration runs. */
+  gamesHydrated: boolean;
   selectedGameId: string | null;
   setSelectedGameId: (id: string | null) => void;
   addGame: (game: Game) => void;
@@ -97,6 +100,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
   const splash = useSplash();
 
   const [games, setGames] = useState<Game[]>([]);
+  const [gamesHydrated, setGamesHydrated] = useState(false);
   const [selectedGameId, setSelectedGameId] = useState<string | null>(null);
 
   // Keep a ref to the latest games array so the enrichGameMetadata callback
@@ -151,7 +155,13 @@ export function GameProvider({ children }: { children: ReactNode }) {
   });
 
   // ── Persistence: load / save debounced pipeline ─────────────────
-  usePersistence({ games, setGames, gamesRef, untrackedGameIdsRef });
+  usePersistence({
+    games,
+    setGames,
+    gamesRef,
+    untrackedGameIdsRef,
+    onLoaded: () => setGamesHydrated(true),
+  });
 
   // ── Update helper (used by enrich and library mutations) ─────────
   const updateGame = useCallback((id: string, updates: Partial<Game>) => {
@@ -452,6 +462,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
 
   const contextValue = useMemo(() => ({
     games: gamesWithTracking,
+    gamesHydrated,
     selectedGameId,
     setSelectedGameId,
     addGame,
@@ -473,6 +484,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
     toggleGameTracking: sessions.toggleGameTracking,
   }), [
     gamesWithTracking,
+    gamesHydrated,
     selectedGameId,
     addGame,
     addGames,

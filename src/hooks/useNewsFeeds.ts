@@ -270,6 +270,29 @@ const HISTORY_KEY = "gamelib-news-history";
 const CACHE_TTL_MS = 5 * 60 * 1000; // 5 minutes
 const MAX_HISTORY = 100;
 
+// Single-feed ceiling. A dead/stuck RSS endpoint must never hold the whole
+// rail hostage, so every fetch races against this timeout (even in the
+// browser fallback path, where the native fetch can hang indefinitely).
+const FEED_TIMEOUT_MS = 8000;
+
+/** Race `promise` against a timeout. On timeout (or rejection of the racing
+ *  timer) the function resolves with `onTimeout()`'s value instead of
+ *  hanging forever. The underlying promise keeps running in the background
+ *  but is dropped — the rail proceeds with the results that did come back. */
+async function withTimeout<T>(promise: Promise<T>, onTimeout: () => T): Promise<T> {
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  try {
+    return await Promise.race([
+      promise,
+      new Promise<T>((resolve) => {
+        timer = setTimeout(() => resolve(onTimeout()), FEED_TIMEOUT_MS);
+      }),
+    ]);
+  } finally {
+    if (timer !== undefined) clearTimeout(timer);
+  }
+}
+
 // ── Helpers ────────────────────────────────────────────────────────────
 
 /** Calculate estimated reading time in minutes. */
@@ -339,15 +362,18 @@ export async function discoverFeedUrl(homepage: string): Promise<string | null> 
   const hasTauri = typeof window !== "undefined" && "__TAURI__" in window;
   let html: string;
   try {
-    if (hasTauri) {
-      html = await invoke<string>("fetch_url", { url: homepage });
-    } else {
+    const fetchHome = (async () => {
+      if (hasTauri) {
+        return await invoke<string>("fetch_url", { url: homepage });
+      }
       const res = await fetch(homepage, {
         headers: { Accept: "text/html, */*" },
       });
-      if (!res.ok) return null;
-      html = await res.text();
-    }
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      return await res.text();
+    })();
+    html = await withTimeout(fetchHome, () => "");
+    if (!html) return null;
   } catch {
     return null;
   }
@@ -725,20 +751,25 @@ export function useNewsFeeds() {
 
     const enabledFeeds = allFeeds.filter((f) => f.enabled);
 
+    // Race every feed against a timeout so one hung RSS server can't hold
+    // the rail hostage; `Promise.all` over the timeout-wrapped fetches then
+    // resolves as soon as each has either completed or timed out.
     const results = await Promise.all(
       enabledFeeds.map(async (feed) => {
         try {
-          let xmlText: string;
-          if (hasTauri) {
-            xmlText = await invoke<string>("fetch_url", { url: feed.url });
-          } else {
+          const fetchFeed = (async () => {
+            if (hasTauri) {
+              return await invoke<string>("fetch_url", { url: feed.url });
+            }
             const response = await fetch(feed.url, {
               headers: { Accept: "application/rss+xml, application/xml, text/xml, */*" },
             });
-            if (!response.ok) {
-              return { feed, ok: false as const, error: `HTTP ${response.status}` };
-            }
-            xmlText = await response.text();
+            if (!response.ok) throw new Error(`HTTP ${response.status}`);
+            return await response.text();
+          })();
+          const xmlText = await withTimeout(fetchFeed, () => "");
+          if (!xmlText) {
+            return { feed, ok: false as const, error: "timed out" };
           }
           const parsed = parseRSS(xmlText, feed.name, feed.url);
           return { feed, ok: true as const, articles: parsed };
@@ -798,12 +829,15 @@ export function useNewsFeeds() {
       enabled.map(async (feed) => {
         const start = performance.now();
         try {
-          if (hasTauri) {
-            await invoke<string>("fetch_url", { url: feed.url });
-          } else {
-            const res = await fetch(feed.url, { method: "HEAD" });
-            if (!res.ok) throw new Error(`HTTP ${res.status}`);
-          }
+          const ping = (async () => {
+            if (hasTauri) {
+              await invoke<string>("fetch_url", { url: feed.url });
+            } else {
+              const res = await fetch(feed.url, { method: "HEAD" });
+              if (!res.ok) throw new Error(`HTTP ${res.status}`);
+            }
+          })();
+          await withTimeout(ping, () => undefined);
           const latency = Math.round(performance.now() - start);
           return {
             url: feed.url,

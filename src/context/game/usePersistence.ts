@@ -8,8 +8,12 @@ export function usePersistence(options: {
   setGames: React.Dispatch<React.SetStateAction<Game[]>>;
   gamesRef: React.MutableRefObject<Game[]>;
   untrackedGameIdsRef: React.MutableRefObject<Set<string>>;
+  /** Called once the initial `load_games` read has settled (success or
+   *  failure) so the provider can flip its hydration flag. Page shells use
+   *  it to avoid flashing an "empty library" while the async load runs. */
+  onLoaded?: () => void;
 }) {
-  const { games, setGames, untrackedGameIdsRef } = options;
+  const { games, setGames, untrackedGameIdsRef, onLoaded } = options;
 
   const loadedRef = useRef(false);
 
@@ -30,6 +34,7 @@ export function usePersistence(options: {
       .catch((err) => console.error("Failed to load games:", err))
       .finally(() => {
         loadedRef.current = true;
+        onLoaded?.();
       });
   }, [setGames, untrackedGameIdsRef]);
 

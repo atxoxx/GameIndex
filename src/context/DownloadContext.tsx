@@ -330,6 +330,11 @@ export function DownloadProvider({ children }: { children: ReactNode }) {
   // at boot don't fire a spurious "finished" toast.
   const statusKindsRef = useRef<Map<string, DownloadStatus["kind"]>>(new Map());
   const seededStatusRef = useRef(false);
+  // Cheap snapshot fingerprint so unchanged 2s ticks skip the deep-compare
+  // + completion-scan entirely. The engine emits every 2s even when nothing
+  // moved (idle seed, paused, a stalled torrent), so most ticks are no-ops;
+  // this is what keeps the poll loop from doing O(n·m) work every tick.
+  const lastSnapshotSigRef = useRef<string | null>(null);
 
   /**
    * Compare an incoming list against the last-seen statuses and fire
@@ -442,16 +447,22 @@ export function DownloadProvider({ children }: { children: ReactNode }) {
         //    lib.rs's `setup` closure finishes, which happens before
         //    any routes mount — but this ordering is still safer.)
         const unlistenFn = await listen<TorrentDownload[]>("download-progress", (event) => {
-          if (Array.isArray(event.payload)) {
-            notifyCompletionsRef.current(event.payload);
-            setDownloads((prev) => {
-              if (areDownloadsEqual(prev, event.payload)) {
-                return prev;
-              }
-              return event.payload;
-            });
-            setLoading(false);
-          }
+          if (!Array.isArray(event.payload)) return;
+          // Skip the identical-snapshot case before doing any work: a
+          // byte-identical payload (idle seed / paused / stalled) needs no
+          // completion scan and no deep compare. Field order is preserved by
+          // the Rust serde output, so the JSON string is a stable fingerprint.
+          const sig = JSON.stringify(event.payload);
+          if (sig === lastSnapshotSigRef.current) return;
+          lastSnapshotSigRef.current = sig;
+          notifyCompletionsRef.current(event.payload);
+          setDownloads((prev) => {
+            if (areDownloadsEqual(prev, event.payload)) {
+              return prev;
+            }
+            return event.payload;
+          });
+          setLoading(false);
         });
         if (cancelled) {
           unlistenFn();

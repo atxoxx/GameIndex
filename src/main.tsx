@@ -13,15 +13,16 @@ import "./styles/home.css";
 import "./pages/deals/DealsPage.css";
 import "./styles/store-polish.css";
 
-// The friends page resolves its Nostr signing key synchronously from an
-// in-memory cache, so hydrate it from the backend kv_store before the first
-// render. Non-fatal: any failure just falls back to the legacy path.
+// The friends page resolves its Nostr signing key lazily via `getNostrKeys`,
+// which falls back to a session-stable placeholder when the backend key
+// isn't loaded yet. So hydration can run in the background instead of
+// blocking the first render — a slow kv_store read must never delay the
+// app shell from painting.
 async function bootstrap() {
-  try {
-    await initNostrKeys();
-  } catch {
-    /* non-fatal */
-  }
+  // Fire-and-forget: hydrate the Nostr key cache when reachable, but never
+  // gate first paint on it. Any failure is non-fatal and flows through the
+  // legacy/placeholder fallback path.
+  void initNostrKeys().catch(() => {});
   ReactDOM.createRoot(document.getElementById("root") as HTMLElement).render(
     <React.StrictMode>
       <App />
@@ -29,4 +30,4 @@ async function bootstrap() {
   );
 }
 
-void bootstrap();
+void bootstrap();
