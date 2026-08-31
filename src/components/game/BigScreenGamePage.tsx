@@ -42,7 +42,7 @@ import { useCallback, useEffect, useState, useMemo, useRef } from "react";
 import type { ReactNode } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import type { Game } from "../../types/game";
-import { useGames } from "../../context/GameContext";
+import { useGames, NO_IGDB_MATCH_SOURCE } from "../../context/GameContext";
 import { useLanguage } from "../../context/LanguageContext";
 import { useFocusable } from "../../hooks/useFocusable";
 import { useGamepad } from "../../hooks/GamepadProvider";
@@ -164,9 +164,17 @@ function BigScreenGamePageContent({
     return game.coverArtUrl;
   }, [game.bannerUrl, game.platform, game.steamAppId, game.coverArtUrl]);
 
-  // Lazy metadata enrichment on mount
+  // Lazy metadata enrichment on mount. `metadataSource` is persisted by the
+  // enrichment pipeline, so once metadata has been fetched for this game
+  // (successful source or the NO_IGDB_MATCH_SOURCE sentinel) don't re-reach
+  // for the network on every page open. The only exception is a game marked
+  // no-match whose IGDB id later became known — fetching by id can un-gate it.
   useEffect(() => {
     setLogoError(false);
+    const alreadyEnriched =
+      !!game.metadataSource &&
+      !(game.metadataSource === NO_IGDB_MATCH_SOURCE && game.igdbId != null);
+    if (alreadyEnriched) return;
     enrichGameMetadata(game.id, game.name, game.steamAppId).catch((err) =>
       console.warn("Failed to lazy enrich game metadata on Big Screen:", err)
     );

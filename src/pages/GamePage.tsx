@@ -153,12 +153,22 @@ function GameDetail({ game }: { game: Game }) {
     setLightboxOpen(true);
   }, []);
 
-  // Lazy metadata auto-enrichment on mount
+  // Lazy metadata auto-enrichment on mount. `metadataSource` is persisted
+  // by the enrichment pipeline — set to the real source (e.g. "IGDB") after
+  // a successful fetch, or to NO_IGDB_MATCH_SOURCE when nothing matched.
+  // So once metadata has been fetched for this game, don't re-reach for the
+  // network on every page reopen (games that legitimately lack timeToBeat /
+  // collection would otherwise trigger a redundant refetch each visit). The
+  // only exception is a game marked no-match whose IGDB id later became
+  // known — reaching out by id can un-gate it.
   const enrichmentStartedRef = useRef(false);
   useEffect(() => {
     if (enrichmentStartedRef.current) return;
-    if (game.metadataSource === NO_IGDB_MATCH_SOURCE && game.igdbId == null) return;
     if (!game.name) return;
+    const alreadyEnriched =
+      !!game.metadataSource &&
+      !(game.metadataSource === NO_IGDB_MATCH_SOURCE && game.igdbId != null);
+    if (alreadyEnriched) return;
 
     const hasDescription = !!game.description;
     const missingTTB = !game.timeToBeat;
