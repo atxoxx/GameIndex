@@ -4562,6 +4562,7 @@ export const zhCN: TranslationDict = {
   "settings.launcher.uacEnabled": "UAC 提权提示已启用",
   "settings.launcher.uacTitle": "切勿请求提权（UAC 提示）",
   "settings.launcher.uacDesc": "当游戏需要时禁止 Windows“以管理员身份运行”提示。真正需要提权的游戏将静默启动失败 — 除非明确了解，否则请勿开启。",
+  "settings.descriptor.adaptive": "🎨 自适应",
   "settings.descriptor.vibrant": "🎮 鲜艳",
   "settings.descriptor.calm": "🎮 宁静",
   "settings.descriptor.highContrast": "♿ 高对比度",

@@ -12,7 +12,7 @@ import {
  * Describes the "feel" of a theme so the UI can tag it with the right
  * emoji/label (e.g. "🎮 Vibrant", "🧘 Calm", "♿ High-Contrast").
  */
-export type ThemeDescriptor = "vibrant" | "calm" | "high-contrast" | "minimal";
+export type ThemeDescriptor = "vibrant" | "calm" | "high-contrast" | "minimal" | "adaptive";
 
 export interface ThemeMeta {
   name: string;
@@ -29,6 +29,10 @@ export interface ThemeConfig {
 
 /** Well-known built-in themes. */
 const BUILTIN_THEMES: ThemeConfig[] = [
+  {
+    id: "adaptive",
+    meta: { name: "Adaptive", descriptor: "adaptive" },
+  },
   {
     id: "dark",
     meta: { name: "Default Dark", descriptor: "vibrant" },

@@ -4562,6 +4562,7 @@ export const de: TranslationDict = {
   "settings.launcher.uacEnabled": "UAC-Erhöhungshinweise aktiviert",
   "settings.launcher.uacTitle": "Niemals Administratorrechte anfordern (UAC-Meldung)",
   "settings.launcher.uacDesc": "Unterdrückt die Windows-Aufforderung „Als Administrator ausführen“, wenn ein Spiel dies erfordert. Spiele, die zwingend erhöhte Rechte benötigen, starten dann stumm nicht — nur deaktivieren, wenn du weißt, was du tust.",
+  "settings.descriptor.adaptive": "🎨 Adaptiv",
   "settings.descriptor.vibrant": "🎮 Lebhaft",
   "settings.descriptor.calm": "🧘 Ruhig",
   "settings.descriptor.highContrast": "♿ Hoher Kontrast",

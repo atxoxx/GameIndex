@@ -4562,6 +4562,7 @@ export const es: TranslationDict = {
   "settings.launcher.uacEnabled": "Solicitudes de elevación de UAC activadas",
   "settings.launcher.uacTitle": "No solicitar nunca elevación (mensaje de UAC)",
   "settings.launcher.uacDesc": "Suprime el aviso de «ejecutar como administrador» de Windows cuando un juego lo requiere. Los juegos que realmente necesiten elevación no se iniciarán: déjalo desactivado a menos que sepas lo que haces.",
+  "settings.descriptor.adaptive": "🎨 Adaptativo",
   "settings.descriptor.vibrant": "🎮 Vibrante",
   "settings.descriptor.calm": "🧘 Calmo",
   "settings.descriptor.highContrast": "♿ Alto contraste",

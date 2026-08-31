@@ -4562,6 +4562,7 @@ export const ru: TranslationDict = {
   "settings.launcher.uacEnabled": "Запросы повышения прав UAC включены",
   "settings.launcher.uacTitle": "Никогда не запрашивать права администратора (UAC)",
   "settings.launcher.uacDesc": "Отключает запрос «Запуск от имени администратора» Windows. Игры, действительно требующие прав, не смогут запуститься — не включайте без необходимости.",
+  "settings.descriptor.adaptive": "🎨 Адаптивная",
   "settings.descriptor.vibrant": "🎮 Яркая",
   "settings.descriptor.calm": "🧘 Спокойная",
   "settings.descriptor.highContrast": "♿ Высокая контрастность",

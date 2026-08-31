@@ -321,6 +321,12 @@
 @property --color-accent-glow { syntax: "<color>"; inherits: true; initial-value: rgba(99, 91, 255, 0.3); }
 @property --color-accent-soft { syntax: "<color>"; inherits: true; initial-value: rgba(99, 91, 255, 0.12); }
 @property --color-accent-border { syntax: "<color>"; inherits: true; initial-value: rgba(99, 91, 255, 0.35); }
+@property --color-bg-primary { syntax: "<color>"; inherits: true; initial-value: #08090c; }
+@property --color-bg-secondary { syntax: "<color>"; inherits: true; initial-value: #0e1017; }
+@property --color-bg-tertiary { syntax: "<color>"; inherits: true; initial-value: #141722; }
+@property --color-text-primary { syntax: "<color>"; inherits: true; initial-value: #f3f5fa; }
+@property --color-text-secondary { syntax: "<color>"; inherits: true; initial-value: #a3abc0; }
+@property --color-text-tertiary { syntax: "<color>"; inherits: true; initial-value: #6b758e; }
 
 /* Palette crossfade: only the accent family interpolates. Everything
    else (layout, surface colors, shadows) stays instant so the app
@@ -338,8 +344,27 @@
     --color-accent-border var(--duration-slow) var(--ease-standard);
 }
 
+[data-theme="adaptive"] {
+  transition:
+    --color-bg-primary var(--duration-slow) var(--ease-standard),
+    --color-bg-secondary var(--duration-slow) var(--ease-standard),
+    --color-bg-tertiary var(--duration-slow) var(--ease-standard),
+    --color-text-primary var(--duration-slow) var(--ease-standard),
+    --color-text-secondary var(--duration-slow) var(--ease-standard),
+    --color-text-tertiary var(--duration-slow) var(--ease-standard),
+    --color-accent var(--duration-slow) var(--ease-standard),
+    --color-accent-2 var(--duration-slow) var(--ease-standard),
+    --color-accent-deep var(--duration-slow) var(--ease-standard),
+    --color-accent-contrast var(--duration-slow) var(--ease-standard),
+    --color-accent-hover var(--duration-slow) var(--ease-standard),
+    --color-accent-active var(--duration-slow) var(--ease-standard),
+    --color-accent-glow var(--duration-slow) var(--ease-standard),
+    --color-accent-soft var(--duration-slow) var(--ease-standard),
+    --color-accent-border var(--duration-slow) var(--ease-standard);
+}
+
 @media (prefers-reduced-motion: reduce) {
-  :root {
+  :root, [data-theme="adaptive"] {
     transition: none;
   }
 }

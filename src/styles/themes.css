@@ -10,6 +10,67 @@
      - True brand gradients (135deg accent → accent-2) + per-theme mesh atmosphere
    ============================================================================= */
 
+/* ── 0. Adaptive (Dynamic Game Artwork Chameleon) ─────────────────────────── */
+[data-theme="adaptive"] {
+  --color-bg-primary: #07070d;
+  --color-bg-secondary: #0d0e17;
+  --color-bg-tertiary: #131522;
+  --color-bg-hover: #1b1e30;
+  --color-bg-active: #23273e;
+  --color-bg-gradient: radial-gradient(ellipse 86% 70% at 50% -12%, color-mix(in srgb, var(--color-accent) 14%, #07070d) 0%, #0d0e17 48%, #07070d 100%);
+
+  --color-surface: var(--color-bg-secondary);
+  --color-surface-raised: var(--color-bg-tertiary);
+  --color-surface-overlay: rgba(7, 7, 13, 0.92);
+  --color-surface-glass: rgba(13, 14, 23, 0.74);
+
+  --color-border: color-mix(in srgb, var(--color-text-primary) 10%, transparent);
+  --color-border-light: color-mix(in srgb, var(--color-text-primary) 14%, transparent);
+  --color-border-highlight: color-mix(in srgb, var(--color-accent) 35%, transparent);
+  --color-border-faint: color-mix(in srgb, var(--color-text-primary) 5.5%, transparent);
+  --color-border-glow: color-mix(in srgb, var(--color-accent) 40%, transparent);
+
+  --color-text-primary: #f5f6fc;
+  --color-text-secondary: #b5b9cc;
+  --color-text-tertiary: #848a9f;
+  --color-text-muted: #6f758a;
+  --color-text-inverse: #050508;
+
+  --color-accent: #7c66ff;
+  --color-accent-2: #38bdf8;
+  --color-accent-contrast: #ffffff;
+  --color-accent-hover: color-mix(in srgb, var(--color-accent) 85%, white 15%);
+  --color-accent-active: color-mix(in srgb, var(--color-accent) 70%, black 30%);
+  --color-accent-glow: color-mix(in srgb, var(--color-accent) 30%, transparent);
+  --color-accent-soft: color-mix(in srgb, var(--color-accent) 13%, var(--color-bg-secondary));
+  --color-accent-border: color-mix(in srgb, var(--color-accent) 35%, transparent);
+  --color-accent-surface: color-mix(in srgb, var(--color-accent) 6%, var(--color-bg-secondary));
+  --color-accent-subtle: color-mix(in srgb, var(--color-accent) 4%, transparent);
+  --color-accent-badge: color-mix(in srgb, var(--color-accent) 15%, var(--color-bg-secondary));
+  --color-accent-laser: var(--color-accent);
+  --color-accent-gradient: linear-gradient(135deg, var(--color-accent) 0%, var(--color-accent-2) 100%);
+  --color-accent-gradient-strong: linear-gradient(135deg, var(--color-accent) 0%, var(--color-accent-2) 58%, var(--color-accent-active) 100%);
+
+  --brand-1: var(--color-accent);
+  --brand-2: var(--color-accent-2);
+  --brand-3: var(--color-accent-hover);
+  --brand-4: var(--color-accent);
+  --brand-gradient: linear-gradient(135deg, var(--color-accent) 0%, var(--color-accent-2) 100%);
+  --brand-gradient-strong: linear-gradient(135deg, var(--color-accent) 0%, var(--color-accent-2) 58%, var(--color-accent-active) 100%);
+  --mesh-gradient:
+    radial-gradient(ellipse 75% 55% at 20% -8%, color-mix(in srgb, var(--color-accent) 9%, transparent) 0%, transparent 62%),
+    radial-gradient(ellipse 60% 45% at 85% 2%, color-mix(in srgb, var(--color-accent-2) 7%, transparent) 0%, transparent 58%),
+    radial-gradient(ellipse 90% 35% at 50% 102%, color-mix(in srgb, var(--color-accent) 4%, transparent) 0%, transparent 70%);
+
+  --color-success: #10b981;
+  --color-warning: #f59e0b;
+  --color-danger: #f43f5e;
+  --color-info: #38bdf8;
+  --color-stale: #fbbf24;
+
+  --shadow-glow: 0 0 20px var(--color-accent-glow);
+}
+
 /* ── 1. Light Mode (Soft Daylight Paper) ─────────────────────────────────── */
 [data-theme="light"] {
   --color-bg-primary: #f2f5f9;

@@ -4562,6 +4562,7 @@ export const en: TranslationDict = {
   "settings.launcher.uacEnabled": "UAC elevation prompts enabled",
   "settings.launcher.uacTitle": "Never request elevation (UAC prompt)",
   "settings.launcher.uacDesc": "Suppresses the Windows \"run as administrator\" prompt when a game requires it. Games that genuinely need elevation will silently fail to launch — leave off unless you know what you're doing.",
+  "settings.descriptor.adaptive": "🎨 Adaptive",
   "settings.descriptor.vibrant": "🎮 Vibrant",
   "settings.descriptor.calm": "🧘 Calm",
   "settings.descriptor.highContrast": "♿ High Contrast",

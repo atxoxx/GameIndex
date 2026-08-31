@@ -39,6 +39,7 @@ import { useTrayNavigation } from "./hooks/useTrayNavigation";
 import { useTrayStrings } from "./hooks/useTrayStrings";
 import { LandingRedirect } from "./components/LandingRedirect";
 import Splashscreen from "./components/Splashscreen";
+import { AdaptiveThemeSync } from "./components/AdaptiveThemeSync";
 import "./App.css";
 import "./store.css";
 import "./styles/page.css";
@@ -127,6 +128,7 @@ function App() {
                                   <SessionNotesProvider>
                                     <BigScreenProvider>
                                       <PresenceProvider>
+                                        <AdaptiveThemeSync />
                                         <AppShell />
                                         <UpdateModal />
                                         <UpdateNotification />

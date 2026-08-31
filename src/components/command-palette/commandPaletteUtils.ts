@@ -10,6 +10,7 @@ const RECENT_STORAGE_KEY = "gamelib.command_palette_recent:v2";
 const MAX_RECENTS = 20;
 
 export const THEME_COLORS: Record<string, { bg: string; text: string; accent: string }> = {
+  adaptive: { bg: "#07070d", text: "#f5f6fc", accent: "#7c66ff" },
   dark: { bg: "#08090c", text: "#f3f5fa", accent: "#635bff" },
   light: { bg: "#f8fafc", text: "#0f172a", accent: "#6d28d9" },
   nord: { bg: "#242933", text: "#eceff4", accent: "#88c0d0" },

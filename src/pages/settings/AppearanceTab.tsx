@@ -12,6 +12,7 @@ import { playActionSound } from "../../utils/soundEffects";
 
 /** Maps theme ids to preview colors — kept in sync with theme stylesheets. */
 const THEME_PREVIEW_COLORS: Record<string, { bg: string; text: string; accent: string }> = {
+  adaptive:    { bg: "#07070d", text: "#f5f6fc", accent: "#7c66ff" },
   dark:        { bg: "#08090c", text: "#f3f5fa", accent: "#635bff" },
   light:       { bg: "#f2f5f9", text: "#0f172a", accent: "#6d28d9" },
   nord:        { bg: "#242933", text: "#eceff4", accent: "#88c0d0" },
@@ -65,6 +66,8 @@ const PRESET_VALUE_SET: Set<string> = new Set(
 
 function getDescriptorLabel(descriptor: ThemeDescriptor, t: (k: string) => string): string {
   switch (descriptor) {
+    case "adaptive":
+      return t("settings.descriptor.adaptive");
     case "vibrant":
       return t("settings.descriptor.vibrant");
     case "calm":
