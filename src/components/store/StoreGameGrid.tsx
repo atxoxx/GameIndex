@@ -338,11 +338,11 @@ export default function StoreGameGrid({
               onClick={onCardClick}
               searchQuery={searchQuery}
               inLibrary={isInLibrary ? isInLibrary(game) : false}
-              onHide={onHide ? (g) => onHide(g) : undefined}
-              onCompare={onCompare ? (g) => onCompare(g) : undefined}
+              onHide={onHide}
+              onCompare={onCompare}
               selectable={bulkMode}
               selected={selectedSlugs ? selectedSlugs.has(game.slug) : false}
-              onToggleSelect={onToggleSelect ? (g) => onToggleSelect(g) : undefined}
+              onToggleSelect={onToggleSelect}
             />
           </div>
         ))}

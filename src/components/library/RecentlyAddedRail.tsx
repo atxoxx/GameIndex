@@ -1,4 +1,4 @@
-import { useMemo, useRef, useState } from "react";
+import { useMemo, useRef, useState, memo } from "react";
 import { useNavigate } from "react-router-dom";
 import type { Game } from "../../types/game";
 import { useGames } from "../../context/GameContext";
@@ -97,7 +97,7 @@ export default function RecentlyAddedRail({
   );
 }
 
-function RecentlyAddedCard({
+const RecentlyAddedCard = memo(function RecentlyAddedCard({
   game,
   onClick,
 }: {
@@ -146,5 +146,5 @@ function RecentlyAddedCard({
       </div>
     </Card>
   );
-}
+});
 

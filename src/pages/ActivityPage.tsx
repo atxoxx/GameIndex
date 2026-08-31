@@ -1,7 +1,6 @@
 import { useState, useMemo } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { save } from "@tauri-apps/plugin-dialog";
-import html2canvas from "html2canvas";
 import { prepareClonedDocumentForCanvasCapture, resolveColorForCapture } from "../utils/color";
 import { useActivity } from "../context/ActivityContext";
 import { useGames } from "../context/GameContext";
@@ -166,6 +165,7 @@ export default function ActivityPage() {
           ? (container as HTMLElement).scrollHeight
           : (container as HTMLElement).scrollHeight + Math.max(0, expandedSidebarHeight - sidebar.offsetHeight);
 
+      const { default: html2canvas } = await import("html2canvas");
       const canvas = await html2canvas(container as HTMLElement, {
         backgroundColor: resolveColorForCapture("var(--color-bg-primary)", "#0f1117"),
         scale: 2,

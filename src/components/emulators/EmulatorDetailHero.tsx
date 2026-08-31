@@ -1,3 +1,4 @@
+import { memo } from "react";
 import { useLanguage } from "../../context/LanguageContext";
 import type { Emulator, EmuRow, KnownEmulator } from "../../types/emulator";
 import { Button, Tooltip } from "../ui";
@@ -62,12 +63,21 @@ function EmulatorGlyph({
   className: string;
 }) {
   if (logo) {
-    return <img className={`${className}-img`} src={logo} alt="" draggable={false} />;
+    return (
+      <img
+        className={`${className}-img`}
+        src={logo}
+        alt=""
+        draggable={false}
+        loading="lazy"
+        decoding="async"
+      />
+    );
   }
   return <span className={className}>{glyph}</span>;
 }
 
-export default function EmulatorDetailHero({
+function EmulatorDetailHeroBase({
   selectedRow,
   scanningId,
   onLaunchExe,
@@ -370,3 +380,5 @@ export default function EmulatorDetailHero({
     </div>
   );
 }
+
+export default memo(EmulatorDetailHeroBase);

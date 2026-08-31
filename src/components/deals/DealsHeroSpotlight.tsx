@@ -169,7 +169,7 @@ export default function DealsHeroSpotlight({
       {current.image && (
         <div
           className="deals-spotlight-bg"
-          style={{ backgroundImage: `url(${current.image})` }}
+          style={{ backgroundImage: `url("${current.image}")` }}
         />
       )}
       <div className="deals-spotlight-overlay" />

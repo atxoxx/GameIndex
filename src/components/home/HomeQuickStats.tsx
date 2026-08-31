@@ -1,4 +1,4 @@
-import { useMemo } from "react";
+import { useMemo, memo } from "react";
 import { useNavigate } from "react-router-dom";
 import { useGames } from "../../context/GameContext";
 import { useActivity } from "../../context/ActivityContext";
@@ -7,7 +7,7 @@ import { useLanguage } from "../../context/LanguageContext";
 import { formatPlayTime } from "../../types/game";
 import { formatBytesShort } from "../../types/download";
 
-export default function HomeQuickStats() {
+function HomeQuickStatsBase() {
   const navigate = useNavigate();
   const { games } = useGames();
   const { sessions } = useActivity();
@@ -172,3 +172,5 @@ export default function HomeQuickStats() {
     </section>
   );
 }
+
+export default memo(HomeQuickStatsBase);

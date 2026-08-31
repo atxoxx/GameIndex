@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, memo } from "react";
 import { useNavigate } from "react-router-dom";
 import { invoke } from "@tauri-apps/api/core";
 import { open } from "@tauri-apps/plugin-dialog";
@@ -31,7 +31,7 @@ interface SizeDetectionResult {
   rootPath: string;
 }
 
-export function StorageRow({
+function StorageRowBase({
   game,
   maxBytes = 0,
   stale = false,
@@ -489,3 +489,14 @@ function formatTimestamp(
     day: "numeric",
   });
 }
+
+export const StorageRow = memo(StorageRowBase, (prev, next) => {
+  return (
+    prev.game === next.game &&
+    prev.maxBytes === next.maxBytes &&
+    prev.stale === next.stale &&
+    prev.density === next.density &&
+    prev.selectMode === next.selectMode &&
+    prev.selected === next.selected
+  );
+});

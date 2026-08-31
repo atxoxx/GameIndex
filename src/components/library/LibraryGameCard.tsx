@@ -374,10 +374,6 @@ const LibraryGameCard = memo(LibraryGameCardBase, (prev, next) => {
     prev.isRunning === next.isRunning &&
     prev.selectable === next.selectable &&
     prev.selected === next.selected &&
-    prev.onClick === next.onClick &&
-    prev.onContextMenu === next.onContextMenu &&
-    prev.onLaunch === next.onLaunch &&
-    prev.onToggleSelect === next.onToggleSelect &&
     prev.className === next.className
   );
 });

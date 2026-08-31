@@ -1,4 +1,4 @@
-import { useState, useMemo, useCallback, type SyntheticEvent } from "react";
+import { useState, useMemo, useCallback, useEffect, type SyntheticEvent } from "react";
 import { useSteamGridArt, usePrefetchImage } from "../context/SteamGridDbContext";
 import {
   extractSteamAppId,
@@ -54,15 +54,17 @@ export interface UseGameCardArtResult {
 /** Resolve Steam AppID from game object or websites/path. */
 export function resolveSteamAppId(
   game?: UseGameCardArtOptions["game"],
-  fallbackAppId?: number | null
+  fallbackAppId?: number | string | null
 ): number | null {
-  if (fallbackAppId != null && Number.isFinite(fallbackAppId) && fallbackAppId > 0) {
-    return fallbackAppId;
+  if (fallbackAppId != null) {
+    const n = typeof fallbackAppId === "number" ? fallbackAppId : parseInt(String(fallbackAppId), 10);
+    if (Number.isFinite(n) && n > 0) return n;
   }
   if (!game) return null;
 
-  if ("steamAppId" in game && typeof game.steamAppId === "number" && Number.isFinite(game.steamAppId) && game.steamAppId > 0) {
-    return game.steamAppId;
+  if ("steamAppId" in game && game.steamAppId != null) {
+    const n = typeof game.steamAppId === "number" ? game.steamAppId : parseInt(String(game.steamAppId), 10);
+    if (Number.isFinite(n) && n > 0) return n;
   }
   if ("path" in game && typeof game.path === "string" && game.path) {
     const fromPath = extractSteamAppId(game.path);
@@ -111,11 +113,19 @@ export function useGameCardArt(options: UseGameCardArtOptions): UseGameCardArtRe
     [game, explicitAppId]
   );
 
+  useEffect(() => {
+    setSgdbAnimatedFailed(false);
+    setSgdbStaticFailed(false);
+    setSgdbIconFailed(false);
+    setCoverFailed(false);
+    setIconFailed(false);
+  }, [steamAppId, game]);
+
   const sgdb = useSteamGridArt(steamAppId);
 
   // Extract base assets
   const ownCover = useMemo(() => {
-    if (defaultCoverUrl !== undefined) return defaultCoverUrl;
+    if (defaultCoverUrl) return defaultCoverUrl;
     if (!game) return null;
     if ("coverArtUrl" in game && game.coverArtUrl) return game.coverArtUrl;
     if ("coverUrl" in game && game.coverUrl) return game.coverUrl;
@@ -123,7 +133,7 @@ export function useGameCardArt(options: UseGameCardArtOptions): UseGameCardArtRe
   }, [defaultCoverUrl, game]);
 
   const ownIcon = useMemo(() => {
-    if (defaultIconUrl !== undefined) return defaultIconUrl;
+    if (defaultIconUrl) return defaultIconUrl;
     if (!game) return null;
     if ("iconUrl" in game && game.iconUrl) return game.iconUrl;
     return null;
@@ -180,19 +190,19 @@ export function useGameCardArt(options: UseGameCardArtOptions): UseGameCardArtRe
       const img = e.currentTarget;
       const src = img.src;
 
-      if (sgdbAnimated && src === sgdbAnimated) {
+      if (sgdbAnimated && (src === sgdbAnimated || src.includes(sgdbAnimated))) {
         setSgdbAnimatedFailed(true);
         return;
       }
-      if (sgdbStatic && src === sgdbStatic) {
+      if (sgdbStatic && (src === sgdbStatic || src.includes(sgdbStatic))) {
         setSgdbStaticFailed(true);
         return;
       }
-      if (sgdbIcon && src === sgdbIcon) {
+      if (sgdbIcon && (src === sgdbIcon || src.includes(sgdbIcon))) {
         setSgdbIconFailed(true);
         return;
       }
-      if (ownIcon && src === ownIcon) {
+      if (ownIcon && (src === ownIcon || src.includes(ownIcon))) {
         setIconFailed(true);
         return;
       }

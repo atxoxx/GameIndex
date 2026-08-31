@@ -67,8 +67,8 @@ export default function AchievementsPage() {
     return calculateLibraryGamerscore(cache.games);
   }, [cache]);
 
-  // Build enriched game list with achievement data
-  const gamesWithAchievements = useMemo(() => {
+  // Build enriched base game list with achievement data (only recomputed when library or cache changes)
+  const baseAchievementGames = useMemo(() => {
     return games
       .filter(
         (g) =>
@@ -105,18 +105,21 @@ export default function AchievementsPage() {
           source: sourceOfPayload(data),
           rarity,
         };
-      })
+      });
+  }, [games, cache, links]);
+
+  // Filtered & sorted games (fast, without re-analyzing raw achievement arrays)
+  const gamesWithAchievements = useMemo(() => {
+    const q = searchQuery.trim().toLowerCase();
+    return baseAchievementGames
       .filter((item) => {
-        // Search filter
-        if (searchQuery && !item.game.name.toLowerCase().includes(searchQuery.toLowerCase())) {
+        if (q && !item.game.name.toLowerCase().includes(q)) {
           return false;
         }
-        // Completion filter
         if (completionFilter === "perfect") return item.pct === 100 && item.total > 0;
         if (completionFilter === "almost_done") return item.pct >= 70 && item.pct < 100 && item.total > 0;
         if (completionFilter === "in_progress") return item.unlocked > 0 && item.pct < 100;
         if (completionFilter === "not_started") return item.unlocked === 0 || !item.data;
-        // Source filter
         if (sourceFilter !== "all" && item.source !== sourceFilter) return false;
         return true;
       })
@@ -128,7 +131,7 @@ export default function AchievementsPage() {
         if (sortBy === "recent") return b.lastSynced - a.lastSynced;
         return 0;
       });
-  }, [games, cache, links, completionFilter, sourceFilter, sortBy, searchQuery]);
+  }, [baseAchievementGames, completionFilter, sourceFilter, sortBy, searchQuery]);
 
   // Aggregate stats
   const stats = useMemo(() => {
@@ -239,9 +242,12 @@ export default function AchievementsPage() {
 
   // Recent achievements (last 16 across all games)
   const recentAchievements = useMemo<RecentAchievementFeedItem[]>(() => {
+    const gameMap = new Map<string, (typeof games)[0]>();
+    for (const g of games) gameMap.set(g.id, g);
+
     const all: RecentAchievementFeedItem[] = [];
     for (const [gameId, data] of Object.entries(cache.games)) {
-      const game = games.find((g) => g.id === gameId);
+      const game = gameMap.get(gameId);
       for (const a of data.achievements ?? []) {
         if (a.achieved && a.unlockTime > 0) {
           all.push({

@@ -1,4 +1,4 @@
-import type { ReactNode } from "react";
+import { memo, type ReactNode } from "react";
 import { useLanguage } from "../../context/LanguageContext";
 import { formatBytesShort } from "../../types/download";
 
@@ -26,7 +26,7 @@ const ICON = {
   "aria-hidden": true,
 } as const;
 
-export default function EmulatorStatsHeader({
+function EmulatorStatsHeaderBase({
   stats,
   activeFilter,
   onFilterChange,
@@ -138,3 +138,5 @@ export default function EmulatorStatsHeader({
     </div>
   );
 }
+
+export default memo(EmulatorStatsHeaderBase);

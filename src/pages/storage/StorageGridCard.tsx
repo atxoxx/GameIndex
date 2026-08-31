@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, memo } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { open } from "@tauri-apps/plugin-dialog";
 import { useGames } from "../../context/GameContext";
@@ -25,7 +25,7 @@ interface Props {
   onLaunch?: () => void;
 }
 
-export function StorageGridCard({
+function StorageGridCardBase({
   game,
   maxBytes = 0,
   stale = false,
@@ -280,3 +280,14 @@ export function StorageGridCard({
     </div>
   );
 }
+
+export const StorageGridCard = memo(StorageGridCardBase, (prev, next) => {
+  return (
+    prev.game === next.game &&
+    prev.maxBytes === next.maxBytes &&
+    prev.stale === next.stale &&
+    prev.density === next.density &&
+    prev.selectMode === next.selectMode &&
+    prev.selected === next.selected
+  );
+});

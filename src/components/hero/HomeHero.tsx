@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect, useCallback } from "react";
+import { useState, useMemo, useEffect, useCallback, memo } from "react";
 import { useNavigate } from "react-router-dom";
 import type { Game } from "../../types/game";
 import { parsePlayTime, formatPlayTime } from "../../types/game";
@@ -9,7 +9,8 @@ import HeroTrailer from "./HeroTrailer";
 import FriendsPlayingStrip from "./FriendsPlayingStrip";
 import PlayerCountBadge from "../PlayerCountBadge";
 import { useSteamAppId } from "../../hooks/useSteamAppId";
-import { useSteamGridArt } from "../../context/SteamGridDbContext";
+import { useSteamGridArt, usePrefetchImage } from "../../context/SteamGridDbContext";
+import { resolveSteamAppId } from "../../hooks/useGameCardArt";
 
 interface HomeHeroProps {
   games: Game[];
@@ -23,7 +24,7 @@ interface SpotlightItem {
   badgeType: "running" | "continue" | "topRated" | "backlog" | "mostPlayed" | "surprise";
 }
 
-export default function HomeHero({ games, onOpenGame }: HomeHeroProps) {
+function HomeHeroBase({ games, onOpenGame }: HomeHeroProps) {
   const navigate = useNavigate();
   const { launchGame, runningGameIds, liveElapsed } = useGames();
   const { showToast } = useToast();
@@ -166,8 +167,19 @@ export default function HomeHero({ games, onOpenGame }: HomeHeroProps) {
 
   // SteamGridDB community hero art — animated preferred, falling back to the
   // game's own banner / cover for the spotlight card.
-  const sgdb = useSteamGridArt(activeGame?.steamAppId);
+  const steamAppId = useMemo(
+    () => (activeGame ? resolveSteamAppId(activeGame) : null),
+    [activeGame]
+  );
+  const sgdb = useSteamGridArt(steamAppId);
   const [sgdbHeroFailed, setSgdbHeroFailed] = useState(false);
+
+  useEffect(() => {
+    setSgdbHeroFailed(false);
+  }, [activeGame?.id, steamAppId]);
+
+  usePrefetchImage(sgdb?.heroAnimatedUrl);
+
   const sgdbHeroUrl =
     (sgdb?.heroAnimatedUrl ?? sgdb?.heroUrl) && activeGame && !sgdbHeroFailed
       ? (sgdb?.heroAnimatedUrl ?? sgdb?.heroUrl)
@@ -593,3 +605,5 @@ function HomeSteamPlayerChip({ game }: { game: Game }) {
   if (!steamAppId) return null;
   return <PlayerCountBadge appId={steamAppId} className="home-spotlight__player-badge" />;
 }
+
+export default memo(HomeHeroBase);

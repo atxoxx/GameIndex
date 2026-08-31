@@ -300,7 +300,7 @@ function StaticBackground({ url }: { url: string }) {
   return (
     <div
       className="bigscreen-gamepage-hero-bg-static"
-      style={{ backgroundImage: `url(${url})` }}
+      style={{ backgroundImage: `url("${url}")` }}
       aria-hidden
     />
   );

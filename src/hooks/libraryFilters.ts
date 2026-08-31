@@ -362,9 +362,14 @@ export function sortGames(games: Game[], sort: LibrarySort): Game[] {
     case "date_added":
       sorted.sort((a, b) => (b.addedAt ?? 0) - (a.addedAt ?? 0));
       break;
-    case "most_played":
-      sorted.sort((a, b) => parsePlayTime(b.playTime) - parsePlayTime(a.playTime));
+    case "most_played": {
+      const playtimes = new Map<string, number>();
+      for (const g of sorted) {
+        playtimes.set(g.id, parsePlayTime(g.playTime));
+      }
+      sorted.sort((a, b) => (playtimes.get(b.id) ?? 0) - (playtimes.get(a.id) ?? 0));
       break;
+    }
     case "recently_played":
       // Never-played games (no lastPlayed) sink to the bottom.
       sorted.sort((a, b) => (b.lastPlayed ?? 0) - (a.lastPlayed ?? 0));

@@ -1,4 +1,4 @@
-import { useMemo, useCallback } from "react";
+import { useMemo, useCallback, memo } from "react";
 import { useNavigate } from "react-router-dom";
 import { open } from "@tauri-apps/plugin-dialog";
 import type { Game, PlayStatus } from "../../types/game";
@@ -31,7 +31,7 @@ function formatTimeAgo(timestamp: number, t: (key: string, vars?: Record<string,
   return t("lib.rail.continue.weeksAgo", { n: weeks });
 }
 
-export default function LibraryHero({
+function LibraryHeroBase({
   games,
   activeStatus = "all",
   activePlayStatus = "all",
@@ -405,3 +405,6 @@ function StatTile({ value, label, subtext, accent, delayMs, icon }: StatTileProp
     </div>
   );
 }
+
+export default memo(LibraryHeroBase);
+

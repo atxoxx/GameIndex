@@ -1,4 +1,4 @@
-import { useMemo, useRef, useState } from "react";
+import { useMemo, useRef, useState, memo } from "react";
 import { useNavigate } from "react-router-dom";
 import type { Game } from "../../types/game";
 import { useGames } from "../../context/GameContext";
@@ -120,7 +120,7 @@ export default function ContinuePlayingRail({
   );
 }
 
-function ContinuePlayingCard({
+const ContinuePlayingCard = memo(function ContinuePlayingCard({
   game,
   onClick,
 }: {
@@ -192,7 +192,7 @@ function ContinuePlayingCard({
       </div>
     </Card>
   );
-}
+});
 
 function formatAgo(
   timestamp: number,

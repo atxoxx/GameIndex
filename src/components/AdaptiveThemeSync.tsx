@@ -58,12 +58,16 @@ export function AdaptiveThemeSync() {
 
     // 4. Fallback to most recently played or first available library game
     if (games.length > 0) {
-      const sortedByRecent = [...games].sort((a, b) => {
-        const tA = a.lastPlayed ? new Date(a.lastPlayed).getTime() : 0;
-        const tB = b.lastPlayed ? new Date(b.lastPlayed).getTime() : 0;
-        return tB - tA;
-      });
-      const topGame = sortedByRecent[0];
+      let topGame = games[0];
+      let maxT = typeof topGame.lastPlayed === "number" ? topGame.lastPlayed : 0;
+      for (let i = 1; i < games.length; i++) {
+        const g = games[i];
+        const t = typeof g.lastPlayed === "number" ? g.lastPlayed : 0;
+        if (t > maxT) {
+          maxT = t;
+          topGame = g;
+        }
+      }
       return topGame.coverArtUrl || topGame.bannerUrl || null;
     }
 

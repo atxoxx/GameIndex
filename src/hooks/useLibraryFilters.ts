@@ -74,9 +74,17 @@ export function useLibraryFilters(games: Game[]) {
       const tokens = tokenizeSearchQuery(q);
       // Relevance first, then existing sort as tie-breaker (FTS ranking)
       const ranked = [...narrowed];
+      const scores = new Map<string, number>();
+      for (const g of ranked) {
+        scores.set(g.id, getSearchRelevanceScore(g, q, tokens));
+      }
+      const playtimes = filters.sort === "most_played" ? new Map<string, number>() : null;
+      if (playtimes) {
+        for (const g of ranked) playtimes.set(g.id, parsePlayTime(g.playTime));
+      }
       ranked.sort((a, b) => {
-        const sa = getSearchRelevanceScore(a, q, tokens);
-        const sb = getSearchRelevanceScore(b, q, tokens);
+        const sa = scores.get(a.id) ?? 0;
+        const sb = scores.get(b.id) ?? 0;
         if (sb !== sa) return sb - sa;
         switch (filters.sort) {
           case "alphabetical":
@@ -84,7 +92,7 @@ export function useLibraryFilters(games: Game[]) {
           case "date_added":
             return (b.addedAt ?? 0) - (a.addedAt ?? 0);
           case "most_played":
-            return parsePlayTime(b.playTime) - parsePlayTime(a.playTime);
+            return (playtimes?.get(b.id) ?? 0) - (playtimes?.get(a.id) ?? 0);
           case "recently_played":
             return (b.lastPlayed ?? 0) - (a.lastPlayed ?? 0);
           case "rating": {

@@ -4,7 +4,7 @@ import { PLAY_STATUS_DETAILS } from "../../types/game";
 import { useLanguage } from "../../context/LanguageContext";
 import type { LibraryGroupBy } from "./LibraryToolbar";
 
-const VIRTUALIZE_THRESHOLD = 250;
+const VIRTUALIZE_THRESHOLD = 80;
 
 interface LibraryVirtualGridProps {
   items: Game[];

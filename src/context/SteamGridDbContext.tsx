@@ -138,6 +138,8 @@ export function useSteamGridArt(
   return ctx.get(appId) ?? null;
 }
 
+const prefetchCache = new Set<string>();
+
 /**
  * usePrefetchImage: eagerly fetch an image so it's warm in the browser cache
  * before the user needs it.
@@ -146,15 +148,17 @@ export function useSteamGridArt(
  * mount (batched IPC + backend KV cache). This hook warms the animated
  * WebP/APNG buffers for the games that are actually rendered, so swapping to
  * the animated version on hover (or in the hero) is instant instead of
- * triggering a network fetch at hover time. Tracks the last URL so the same
- * image is only prefetched once per mount.
+ * triggering a network fetch at hover time.
  */
 export function usePrefetchImage(url: string | null | undefined): void {
-  const lastRef = useRef<string | null>(null);
   useEffect(() => {
-    if (!url || lastRef.current === url) return;
-    lastRef.current = url;
+    if (!url || prefetchCache.has(url)) return;
+    prefetchCache.add(url);
     const img = new Image();
+    img.onload = () => {};
+    img.onerror = () => {
+      prefetchCache.delete(url);
+    };
     img.src = url;
   }, [url]);
 }

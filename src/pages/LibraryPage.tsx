@@ -224,6 +224,8 @@ export default function LibraryPage() {
     setBulkMode(false);
   }, [selectedGameIds, removeGame, showToast, t, clearSelection]);
 
+  const runningSet = useMemo(() => new Set(runningGameIds), [runningGameIds]);
+
   const editorial = density !== "list" && density !== "compact" && groupBy === "none";
 
   const renderCard = useCallback(
@@ -234,7 +236,7 @@ export default function LibraryPage() {
           key={game.id}
           game={game}
           density={density}
-          isRunning={runningGameIds.includes(game.id)}
+          isRunning={runningSet.has(game.id)}
           onClick={() => handleCardClick(game)}
           onContextMenu={(e) => handleGameContextMenu(e, game)}
           onLaunch={handleLaunch}
@@ -248,7 +250,7 @@ export default function LibraryPage() {
     [
       density,
       editorial,
-      runningGameIds,
+      runningSet,
       bulkMode,
       selectedGameIds,
       handleCardClick,
@@ -295,8 +297,6 @@ export default function LibraryPage() {
     onSortChange: setSort,
     onReset: reset,
   };
-
-  const runningSet = useMemo(() => new Set(runningGameIds), [runningGameIds]);
 
   const filterResetKey = useMemo(
     () =>

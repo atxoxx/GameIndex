@@ -1,3 +1,4 @@
+import { useMemo, memo } from "react";
 import { useLanguage } from "../../context/LanguageContext";
 import type { Game } from "../../types/game";
 import { formatBytesShort } from "../../types/download";
@@ -25,7 +26,7 @@ const ICON = {
   "aria-hidden": true,
 } as const;
 
-export default function EmulatorRomGridView({
+function EmulatorRomGridViewBase({
   games,
   selectedGameIds,
   runningGameIds,
@@ -38,12 +39,13 @@ export default function EmulatorRomGridView({
   onInspect,
 }: RomGridViewProps) {
   const { t } = useLanguage();
+  const runningSet = useMemo(() => new Set(runningGameIds), [runningGameIds]);
 
   return (
     <div className="emu-rom-grid">
       {games.map((g) => {
         const isSelected = selectedGameIds.has(g.id);
-        const isRunning = runningGameIds.includes(g.id);
+        const isRunning = runningSet.has(g.id);
         const cover = g.coverArtUrl || g.iconUrl;
 
         return (
@@ -210,3 +212,5 @@ export default function EmulatorRomGridView({
     </div>
   );
 }
+
+export default memo(EmulatorRomGridViewBase);

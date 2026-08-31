@@ -166,8 +166,12 @@ export default function StoragePage() {
 
   // Maximum size for relative bar comparison
   const maxBytes = useMemo(() => {
-    if (sortedGames.length === 0) return 0;
-    return Math.max(...sortedGames.map(gameTotalBytes));
+    let max = 0;
+    for (const g of sortedGames) {
+      const b = gameTotalBytes(g);
+      if (b > max) max = b;
+    }
+    return max;
   }, [sortedGames]);
 
   // Missing games list for bulk wizard

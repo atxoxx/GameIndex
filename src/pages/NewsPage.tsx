@@ -124,12 +124,19 @@ export default function NewsPage() {
 
   // User Game Titles (from Library and Wishlist)
   const userGameTitles = useMemo(() => {
-    const list: string[] = [];
+    const list: { name: string; lower: string }[] = [];
+    const seen = new Set<string>();
     for (const g of games) {
-      if (g.name && g.name.length >= 3) list.push(g.name);
+      if (g.name && g.name.length >= 3 && !seen.has(g.name)) {
+        seen.add(g.name);
+        list.push({ name: g.name, lower: g.name.toLowerCase() });
+      }
     }
     for (const w of wishlist) {
-      if (w.name && w.name.length >= 3 && !list.includes(w.name)) list.push(w.name);
+      if (w.name && w.name.length >= 3 && !seen.has(w.name)) {
+        seen.add(w.name);
+        list.push({ name: w.name, lower: w.name.toLowerCase() });
+      }
     }
     return list;
   }, [games, wishlist]);
@@ -141,10 +148,9 @@ export default function NewsPage() {
 
     for (const a of allArticles) {
       const titleLower = a.title.toLowerCase();
-      for (const name of userGameTitles) {
-        const nameLower = name.toLowerCase();
-        if (titleLower.includes(nameLower)) {
-          map.set(a.link, name);
+      for (const item of userGameTitles) {
+        if (titleLower.includes(item.lower)) {
+          map.set(a.link, item.name);
           break;
         }
       }

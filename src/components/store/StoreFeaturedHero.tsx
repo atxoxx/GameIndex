@@ -8,6 +8,7 @@ import {
   useSteamGridArt,
   usePrefetchImage,
 } from "../../context/SteamGridDbContext";
+import { resolveSteamAppId } from "../../hooks/useGameCardArt";
 import { Button } from "../ui";
 import StoreSurpriseModal from "./StoreSurpriseModal";
 
@@ -262,9 +263,11 @@ export default function StoreFeaturedHero({ onPickGame }: StoreFeaturedHeroProps
     };
   }, [activeGame?.id, activeGame?.slug]);
 
-  // Extract Steam App ID from websites if present
+  // Extract Steam App ID from game or websites if present
   const steamAppId = useMemo(() => {
     if (!activeGame) return null;
+    const resolved = resolveSteamAppId(activeGame);
+    if (resolved != null) return String(resolved);
     const websites = activeGame.websites ?? metadata?.websites ?? [];
     for (const url of websites) {
       const match = url.match(/store\.steampowered\.com\/app\/(\d+)/i);

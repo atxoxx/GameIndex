@@ -1,6 +1,5 @@
 import { useState, useMemo, useEffect, useRef } from "react";
 import { invoke } from "@tauri-apps/api/core";
-import QRCode from "qrcode";
 import { useLanguage } from "../../context/LanguageContext";
 import type { StoreGameSummary } from "../../types/game";
 import type { Friend } from "./friendsTypes";
@@ -256,13 +255,18 @@ export function FriendCodeQR({ code }: { code: string }) {
       setDataUrl(null);
       return;
     }
-    QRCode.toDataURL(code, { margin: 1, width: 160, color: { dark: "#000000", light: "#ffffff" } })
-      .then((url) => {
-        if (!cancelled) setDataUrl(url);
-      })
-      .catch(() => {
-        if (!cancelled) setDataUrl(null);
-      });
+    import("qrcode").then(({ default: QRCode }) => {
+      if (cancelled) return;
+      QRCode.toDataURL(code, { margin: 1, width: 160, color: { dark: "#000000", light: "#ffffff" } })
+        .then((url: string) => {
+          if (!cancelled) setDataUrl(url);
+        })
+        .catch(() => {
+          if (!cancelled) setDataUrl(null);
+        });
+    }).catch(() => {
+      if (!cancelled) setDataUrl(null);
+    });
     return () => {
       cancelled = true;
     };

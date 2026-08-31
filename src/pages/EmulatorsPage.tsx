@@ -42,7 +42,6 @@ export default function EmulatorsPage() {
   const { games, addGame, updateGame, removeGames, launchGame, runningGameIds } = useGames();
 
   const [emulators, setEmulators] = useState<Emulator[]>([]);
-  const [loading, setLoading] = useState(true);
   const [showEditor, setShowEditor] = useState(false);
   const [showDownload, setShowDownload] = useState(false);
   const [editing, setEditing] = useState<Emulator | null>(null);
@@ -70,8 +69,6 @@ export default function EmulatorsPage() {
       setEmulators(list);
     } catch (err) {
       showToast(String(err), "error");
-    } finally {
-      setLoading(false);
     }
   }, [showToast]);
 
@@ -97,10 +94,17 @@ export default function EmulatorsPage() {
     const result: EmuRow[] = [];
     const used = new Set<string>();
 
+    // Map known key -> configured Emulator
+    const emuByKnownKey = new Map<string, Emulator>();
+    for (const e of emulators) {
+      const match = matchKnownEmulator(e);
+      if (match && !emuByKnownKey.has(match.key)) {
+        emuByKnownKey.set(match.key, e);
+      }
+    }
+
     for (const k of KNOWN_EMULATORS) {
-      const emu = emulators.find(
-        (e) => !used.has(e.id) && matchKnownEmulator(e)?.key === k.key
-      );
+      const emu = emuByKnownKey.get(k.key);
       if (emu) used.add(emu.id);
       result.push({
         id: emu ? emu.id : `known:${k.key}`,
@@ -461,30 +465,15 @@ export default function EmulatorsPage() {
         }
       />
 
-      {!loading && (
-        <div className="ui-complete-only">
-          <EmulatorStatsHeader
-            stats={stats}
-            activeFilter={filter}
-            onFilterChange={setFilter}
-          />
-        </div>
-      )}
+      <div className="ui-complete-only">
+        <EmulatorStatsHeader
+          stats={stats}
+          activeFilter={filter}
+          onFilterChange={setFilter}
+        />
+      </div>
 
-      {loading ? (
-        <div className="emulators-loading">
-          <div className="emulators-skeleton-stats">
-            {["", "", "", ""].map((_, i) => (
-              <div key={i} className="emu-skeleton emu-skeleton-stat" />
-            ))}
-          </div>
-          <div className="emulators-split">
-            <div className="emu-skeleton emu-skeleton-list" />
-            <div className="emu-skeleton emu-skeleton-detail" />
-          </div>
-        </div>
-      ) : (
-        <div className="emulators-split">
+      <div className="emulators-split">
           {/* Left: Searchable list & filters */}
           <EmulatorSidebarList
             rows={rows}
@@ -546,7 +535,6 @@ export default function EmulatorsPage() {
             )}
           </section>
         </div>
-      )}
 
       {/* Editor Modal */}
       {showEditor && (

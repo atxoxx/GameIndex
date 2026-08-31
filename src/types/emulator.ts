@@ -629,14 +629,30 @@ export interface EmuRow {
   scannedAt?: number;
 }
 
+const KNOWN_BY_NAME = new Map<string, KnownEmulator>();
+const KNOWN_BY_EXE = new Map<string, KnownEmulator>();
+const KNOWN_BY_PLATFORM = new Map<string, KnownEmulator[]>();
+const KNOWN_BY_PLATFORM_OR_NAME = new Map<string, string>();
+
+for (const k of KNOWN_EMULATORS) {
+  KNOWN_BY_NAME.set(k.name.toLowerCase(), k);
+  KNOWN_BY_EXE.set(k.executableName.toLowerCase(), k);
+  const p = k.platform.toLowerCase();
+  const list = KNOWN_BY_PLATFORM.get(p) ?? [];
+  list.push(k);
+  KNOWN_BY_PLATFORM.set(p, list);
+  KNOWN_BY_PLATFORM_OR_NAME.set(p, k.accent);
+  KNOWN_BY_PLATFORM_OR_NAME.set(k.name.toLowerCase(), k.accent);
+}
+
 /** Look up a known emulator by its catalog key. */
 export function knownEmulatorByKey(key: string): KnownEmulator | undefined {
   return KNOWN_EMULATORS.find((e) => e.key === key);
 }
 
 /**
- * Best-effort match of a configured emulator back to a catalog entry.
- * Resolution order:
+ * Match a configured emulator against our curated catalogue using a
+ * prioritized fallback cascade:
  *   1. Exact (case-insensitive) display-name match.
  *   2. Executable file-name match (basename of `executablePath`).
  *   3. Platform match — only when exactly one catalog entry uses that
@@ -649,7 +665,7 @@ export function matchKnownEmulator(
 ): KnownEmulator | undefined {
   const name = emulator.name.trim().toLowerCase();
   if (name) {
-    const byName = KNOWN_EMULATORS.find((k) => k.name.toLowerCase() === name);
+    const byName = KNOWN_BY_NAME.get(name);
     if (byName) return byName;
   }
 
@@ -659,18 +675,14 @@ export function matchKnownEmulator(
     ?.trim()
     .toLowerCase();
   if (base) {
-    const byExe = KNOWN_EMULATORS.find(
-      (k) => k.executableName.toLowerCase() === base
-    );
+    const byExe = KNOWN_BY_EXE.get(base);
     if (byExe) return byExe;
   }
 
   const platform = emulator.platform.trim().toLowerCase();
   if (platform) {
-    const byPlatform = KNOWN_EMULATORS.filter(
-      (k) => k.platform.toLowerCase() === platform
-    );
-    if (byPlatform.length === 1) return byPlatform[0];
+    const byPlatform = KNOWN_BY_PLATFORM.get(platform);
+    if (byPlatform && byPlatform.length === 1) return byPlatform[0];
   }
 
   return undefined;
@@ -682,10 +694,8 @@ export function accentForPlatform(platform: string): string {
   const p = platform.trim().toLowerCase();
 
   // 1. Direct match in KNOWN_EMULATORS
-  const hit = KNOWN_EMULATORS.find(
-    (e) => e.platform.toLowerCase() === p || e.name.toLowerCase() === p
-  );
-  if (hit) return hit.accent;
+  const direct = KNOWN_BY_PLATFORM_OR_NAME.get(p);
+  if (direct) return direct;
 
   // 2. Canonical / fuzzy matches across gaming families
   if (p.includes("xbox 360") || p.includes("x360") || p.includes("360")) return "#22c55e"; // Xenia green

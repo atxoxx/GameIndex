@@ -1,3 +1,4 @@
+import { memo } from "react";
 import { useLanguage } from "../../context/LanguageContext";
 import {
   type Game,
@@ -27,7 +28,7 @@ const RARITY_TIERS: readonly AchievementRarity[] = [
   "common",
 ];
 
-export default function GameAchievementCard({
+function GameAchievementCardBase({
   game,
   total,
   unlocked,
@@ -157,3 +158,18 @@ export default function GameAchievementCard({
     </div>
   );
 }
+
+const GameAchievementCard = memo(GameAchievementCardBase, (prev, next) => {
+  return (
+    prev.game === next.game &&
+    prev.total === next.total &&
+    prev.unlocked === next.unlocked &&
+    prev.pct === next.pct &&
+    prev.pointsEarned === next.pointsEarned &&
+    prev.pointsTotal === next.pointsTotal &&
+    prev.lastSynced === next.lastSynced &&
+    prev.source === next.source
+  );
+});
+
+export default GameAchievementCard;

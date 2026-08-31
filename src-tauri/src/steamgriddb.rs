@@ -161,7 +161,14 @@ struct CachedSgdbAssets {
 /// aren't displayed by the media picker (it only shows jpg/jpeg/png/webp),
 /// so we prefer web-renderable art whenever the community uploaded any.
 fn is_renderable_mime(mime: Option<&str>) -> bool {
-    mime.map(|m| m.starts_with("image/png") || m.starts_with("image/jpeg") || m.starts_with("image/webp")).unwrap_or(false)
+    let Some(m) = mime else { return true; };
+    m.starts_with("image/png")
+        || m.starts_with("image/apng")
+        || m.starts_with("image/jpeg")
+        || m.starts_with("image/webp")
+        || m.starts_with("image/gif")
+        || m.starts_with("image/avif")
+        || m.starts_with("image/svg+xml")
 }
 
 /// Pick the highest-quality artwork from a kind's returned list: score

@@ -9,6 +9,7 @@ import {
   useSteamGridArt,
   usePrefetchImage,
 } from "../../context/SteamGridDbContext";
+import { resolveSteamAppId } from "../../hooks/useGameCardArt";
 import PlayerCountBadge from "../PlayerCountBadge";
 import GameLaunchActions from "./GameLaunchActions";
 import FriendsPlayingStrip from "../hero/FriendsPlayingStrip";
@@ -85,9 +86,12 @@ export default function GameHero({
   const name = game?.name ?? nameProp ?? "";
   const coverUrl = game?.coverArtUrl ?? coverProp ?? null;
   const bannerUrl = game?.bannerUrl ?? bannerProp ?? null;
-  const logoUrl = game?.logoUrl ?? logoProp ?? null;
   const accentSrc = accentProp ?? coverUrl ?? bannerUrl ?? null;
-  const steamAppId = steamAppIdProp ?? game?.steamAppId ?? null;
+  const logoUrl = game?.logoUrl ?? logoProp ?? null;
+  const steamAppId = useMemo(
+    () => (steamAppIdProp != null ? resolveSteamAppId(undefined, steamAppIdProp) : game ? resolveSteamAppId(game) : null),
+    [steamAppIdProp, game]
+  );
   const rating = ratingProp ?? (game?.igdbRating || game?.criticRating) ?? null;
 
   const [coverErrored, setCoverErrored] = useState(false);
@@ -266,7 +270,7 @@ export default function GameHero({
           />
           <div
             className="game-hero__bg"
-            style={{ backgroundImage: `url(${ambientSrc})` }}
+            style={{ backgroundImage: `url("${ambientSrc}")` }}
             aria-hidden="true"
           />
         </>

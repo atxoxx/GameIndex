@@ -1,4 +1,4 @@
-import { Fragment, useContext, useState, type MouseEvent } from "react";
+import { Fragment, useContext, useState, memo, type MouseEvent } from "react";
 import { useProgressiveImage } from "../../hooks/useProgressiveImages";
 import { useCrackWatch } from "../../context/CrackWatchContext";
 import { usePrice } from "../../context/PriceContext";
@@ -30,7 +30,7 @@ function ratingColor(score: number): string {
   return "var(--color-danger)";
 }
 
-export default function StoreGameCard({
+function StoreGameCardBase({
   game,
   onClick,
   searchQuery,
@@ -517,3 +517,17 @@ export default function StoreGameCard({
     </div>
   );
 }
+
+const StoreGameCard = memo(StoreGameCardBase, (prev, next) => {
+  return (
+    prev.game === next.game &&
+    prev.searchQuery === next.searchQuery &&
+    prev.density === next.density &&
+    prev.wishlisted === next.wishlisted &&
+    prev.inLibrary === next.inLibrary &&
+    prev.selectable === next.selectable &&
+    prev.selected === next.selected
+  );
+});
+
+export default StoreGameCard;

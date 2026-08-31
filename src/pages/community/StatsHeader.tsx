@@ -1,7 +1,6 @@
 import { useCallback } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { save } from "@tauri-apps/plugin-dialog";
-import html2canvas from "html2canvas";
 import { useLanguage } from "../../context/LanguageContext";
 import { useToast } from "../../context/ToastContext";
 import { prepareClonedDocumentForCanvasCapture, resolveColorForCapture } from "../../utils/color";
@@ -65,6 +64,7 @@ export function StatsHeader({
       const fullWidth = (container as HTMLElement).scrollWidth;
       const fullHeight = (container as HTMLElement).scrollHeight;
 
+      const { default: html2canvas } = await import("html2canvas");
       const canvas = await html2canvas(container as HTMLElement, {
         backgroundColor: resolveColorForCapture("var(--color-bg-primary)", "#0f1117"),
         scale: 2,

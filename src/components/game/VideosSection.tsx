@@ -1,5 +1,4 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import Hls from "hls.js";
 import { invoke } from "@tauri-apps/api/core";
 import { useLanguage } from "../../context/LanguageContext";
 import type { AboutBundle, Game, MovieEntry } from "../../types/game";
@@ -80,14 +79,25 @@ function HlsMoviePlayer({ movie }: { movie: MovieEntry }) {
       return;
     }
 
-    if (Hls.isSupported()) {
-      const hls = new Hls();
-      hls.loadSource(src);
-      hls.attachMedia(video);
-      return () => {
-        hls.destroy();
-      };
-    }
+    let hlsInstance: import("hls.js").default | null = null;
+    let isCancelled = false;
+
+    import("hls.js").then(({ default: Hls }) => {
+      if (isCancelled || !videoRef.current) return;
+      if (Hls.isSupported()) {
+        const hls = new Hls();
+        hlsInstance = hls;
+        hls.loadSource(src);
+        hls.attachMedia(videoRef.current);
+      }
+    });
+
+    return () => {
+      isCancelled = true;
+      if (hlsInstance) {
+        hlsInstance.destroy();
+      }
+    };
   }, [movie.hlsH264]);
 
   return (

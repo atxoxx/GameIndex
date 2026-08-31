@@ -1,3 +1,4 @@
+import { useMemo, memo } from "react";
 import { useLanguage } from "../../context/LanguageContext";
 import type { Game } from "../../types/game";
 import { formatBytesShort } from "../../types/download";
@@ -34,7 +35,7 @@ function truncateMiddle(path: string, max = 60): string {
   return `${head}…${tail}`;
 }
 
-export default function EmulatorRomTableView({
+function EmulatorRomTableViewBase({
   games,
   selectedGameIds,
   runningGameIds,
@@ -48,6 +49,7 @@ export default function EmulatorRomTableView({
   onInspect,
 }: RomTableViewProps) {
   const { t } = useLanguage();
+  const runningSet = useMemo(() => new Set(runningGameIds), [runningGameIds]);
 
   const isAllSelected = games.length > 0 && selectedGameIds.size === games.length;
   const isIndeterminate = selectedGameIds.size > 0 && selectedGameIds.size < games.length;
@@ -79,7 +81,7 @@ export default function EmulatorRomTableView({
 
       {games.map((g) => {
         const isSelected = selectedGameIds.has(g.id);
-        const isRunning = runningGameIds.includes(g.id);
+        const isRunning = runningSet.has(g.id);
         const iconSrc = g.iconUrl || g.coverArtUrl;
 
         return (
@@ -203,3 +205,5 @@ export default function EmulatorRomTableView({
     </div>
   );
 }
+
+export default memo(EmulatorRomTableViewBase);

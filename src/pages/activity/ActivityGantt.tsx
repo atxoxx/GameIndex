@@ -1,7 +1,6 @@
 import { useState, useMemo, useRef, useCallback } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { save } from "@tauri-apps/plugin-dialog";
-import html2canvas from "html2canvas";
 import { prepareClonedDocumentForCanvasCapture, resolveColorForCapture } from "../../utils/color";
 import { useToast } from "../../context/ToastContext";
 import { useSessionNotes } from "../../context/SessionNotesContext";
@@ -398,6 +397,7 @@ export function ActivityGantt({
       const fullHeight = rows
         ? el.offsetHeight - rows.offsetHeight + rows.scrollHeight
         : el.scrollHeight;
+      const { default: html2canvas } = await import("html2canvas");
       const canvas = await html2canvas(el, {
         // html2canvas parses the backgroundColor option as raw CSS text
         // and throws "unsupported color function 'var'" on var() — the

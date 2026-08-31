@@ -1,4 +1,4 @@
-import { useCallback, useMemo, type KeyboardEvent } from "react";
+import { useCallback, useMemo, memo, type KeyboardEvent } from "react";
 import { useLanguage } from "../../context/LanguageContext";
 import {
   type EmuRow,
@@ -46,12 +46,21 @@ function EmulatorGlyph({
   className: string;
 }) {
   if (logo) {
-    return <img className={`${className}-img`} src={logo} alt="" draggable={false} />;
+    return (
+      <img
+        className={`${className}-img`}
+        src={logo}
+        alt=""
+        draggable={false}
+        loading="lazy"
+        decoding="async"
+      />
+    );
   }
   return <span className={className}>{glyph}</span>;
 }
 
-export default function EmulatorSidebarList({
+function EmulatorSidebarListBase({
   rows,
   selectedId,
   onSelect,
@@ -379,3 +388,5 @@ export default function EmulatorSidebarList({
     </aside>
   );
 }
+
+export default memo(EmulatorSidebarListBase);

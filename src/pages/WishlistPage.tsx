@@ -163,17 +163,26 @@ export default function WishlistPage() {
   // ── Filter + sort the list ───────────────────────────────────────────
   const visible = useMemo(() => {
     const q = filters.search.trim().toLowerCase();
+    const genreFilterSet =
+      filters.genres.length > 0
+        ? new Set(filters.genres.map((g) => g.toLowerCase()))
+        : null;
+    const platformFilterSet =
+      filters.platforms.length > 0
+        ? new Set(filters.platforms.map((p) => p.toLowerCase()))
+        : null;
+
     let list = wishlist.filter((e) => {
       if (q && !e.name.toLowerCase().includes(q)) return false;
-      if (filters.genres.length > 0) {
-        const lower = (e.genres ?? []).map((g) => g.toLowerCase());
-        if (!filters.genres.some((g) => lower.includes(g.toLowerCase())))
+      if (genreFilterSet) {
+        if (!e.genres || !e.genres.some((g) => genreFilterSet.has(g.toLowerCase()))) {
           return false;
+        }
       }
-      if (filters.platforms.length > 0) {
-        const lower = (e.platforms ?? []).map((p) => p.toLowerCase());
-        if (!filters.platforms.some((p) => lower.includes(p.toLowerCase())))
+      if (platformFilterSet) {
+        if (!e.platforms || !e.platforms.some((p) => platformFilterSet.has(p.toLowerCase()))) {
           return false;
+        }
       }
       if (filters.group === "released" && !isReleased(e)) return false;
       if (filters.group === "coming_soon" && isReleased(e)) return false;
@@ -190,13 +199,17 @@ export default function WishlistPage() {
           (a, b) => (b.rating ?? b.aggregatedRating ?? 0) - (a.rating ?? a.aggregatedRating ?? 0)
         );
         break;
-      case "release_date":
-        list.sort((a, b) => {
-          const ta = a.firstReleaseDate ? new Date(a.firstReleaseDate).getTime() : 0;
-          const tb = b.firstReleaseDate ? new Date(b.firstReleaseDate).getTime() : 0;
-          return tb - ta;
-        });
+      case "release_date": {
+        const releaseTimes = new Map<string, number>();
+        for (const e of list) {
+          releaseTimes.set(
+            e.slug,
+            e.firstReleaseDate ? new Date(e.firstReleaseDate).getTime() : 0
+          );
+        }
+        list.sort((a, b) => (releaseTimes.get(b.slug) ?? 0) - (releaseTimes.get(a.slug) ?? 0));
         break;
+      }
       case "date_added":
       default:
         list.sort((a, b) => b.addedAt - a.addedAt);

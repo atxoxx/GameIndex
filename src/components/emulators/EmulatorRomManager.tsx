@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useMemo, useState, memo } from "react";
 import { useLanguage } from "../../context/LanguageContext";
 import type { Game } from "../../types/game";
 import type { Emulator } from "../../types/emulator";
@@ -37,7 +37,7 @@ const ICON = {
   "aria-hidden": true,
 } as const;
 
-export default function EmulatorRomManager({
+function EmulatorRomManagerBase({
   emulator,
   accentColor,
   games,
@@ -349,3 +349,5 @@ export default function EmulatorRomManager({
     </div>
   );
 }
+
+export default memo(EmulatorRomManagerBase);
