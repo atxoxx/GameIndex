@@ -6,6 +6,7 @@ import {
   type GameMetadataResult,
   type IgdbReview,
 } from "../../types/game";
+import type { SgdbAssets } from "../../types/steamgriddb";
 
 export const NO_IGDB_MATCH_SOURCE = "Steam (no IGDB match)";
 
@@ -147,12 +148,13 @@ export function useEnrich(options: {
 
       // IMAGE-LEVEL FALLBACK across sources: many older / modded /
       // niche titles (e.g. ARMA 2 Private Military Company, Arma Gold,
-      // mods without IGDB entries) have NO IGDB cover — but a perfectly
-      // valid Steam library_600x900.jpg or LaunchBox box front. Without
-      // this cross-source image fallback those games would render as the
-      // placeholder text card forever, since the IGDB-only `meta`
-      // selection above drops the Steam/LaunchBox image URLs on the floor.
-      // Textual metadata still prizes IGDB above other sources.
+      // mods without IGDB entries) have NO IGDB artwork — but a perfectly
+      // valid Steam library_600x900.jpg. Without this cross-source image
+      // fallback those games would render as the placeholder text card
+      // forever, since the IGDB-only `meta` selection above drops the
+      // Steam image URLs on the floor. Textual metadata still prizes IGDB
+      // above other sources. The poster (cover) is restricted to Steam or
+      // IGDB only below; hero/banner may still fall back to LaunchBox.
       // For Steam-identified games the Steam CDN hero/banner is preferred
       // over IGDB artwork.
       const pickImage = (key: "cover" | "hero" | "banner" | "logo"): string | null => {
@@ -161,6 +163,20 @@ export function useEnrich(options: {
         if (steamAppId && (key === "hero" || key === "banner")) {
           const steam = results.find((r) => r.sourceName === "Steam");
           if (steam?.images[key]) return steam.images[key];
+        }
+        // The poster (cover) comes from Steam or IGDB only — LaunchBox box
+        // art is never used as the library poster.
+        if (key === "cover") {
+          const igdb = results.find((r) => r.sourceName === "IGDB");
+          if (igdb?.images.cover) return igdb.images.cover;
+          const steam = results.find((r) => r.sourceName === "Steam");
+          return steam?.images.cover ?? null;
+        }
+        // The logo comes from IGDB only; the SteamGridDB fallback is
+        // applied after the metadata download below.
+        if (key === "logo") {
+          const igdb = results.find((r) => r.sourceName === "IGDB");
+          return igdb?.images.logo ?? null;
         }
         if (meta.images[key]) return meta.images[key];
         for (const r of results) {
@@ -198,6 +214,29 @@ export function useEnrich(options: {
         current.steamAppId ??
         extractSteamAppIdFromWebsites(websitesForSteamId) ??
         undefined;
+      // SteamGridDB fills: the logo comes from IGDB first with community
+      // art as a fallback, and the sidebar icon is pulled from community
+      // art whenever the game has none (result is cached 7 days backend-
+      // side, so repeat enrichments resolve from SQLite).
+      let sgdbIconUrl: string | undefined;
+      let sgdbLogoUrl: string | undefined;
+      if (resolvedSteamAppId) {
+        try {
+          const sgdb = await invoke<SgdbAssets | null>("sgdb_get_assets", {
+            steamAppId: resolvedSteamAppId,
+          });
+          if (sgdb) {
+            if (!images.logoUrl && sgdb.logoUrl) {
+              sgdbLogoUrl = await downloadImageSafe(sgdb.logoUrl);
+            }
+            if (!isFrontendUsableImage(current.iconUrl) && sgdb.iconUrl) {
+              sgdbIconUrl = await downloadImageSafe(sgdb.iconUrl);
+            }
+          }
+        } catch (err) {
+          console.warn(`SteamGridDB fill failed for ${gameName}:`, err);
+        }
+      }
       const enrichPatch: Partial<Game> = {
         steamAppId: resolvedSteamAppId,
         description: setIfEmpty("description", meta.description ?? undefined),
@@ -221,7 +260,10 @@ export function useEnrich(options: {
           : (images.bannerUrl ?? current.bannerUrl),
         logoUrl: isFrontendUsableImage(current.logoUrl)
           ? current.logoUrl
-          : (images.logoUrl ?? current.logoUrl),
+          : (images.logoUrl ?? sgdbLogoUrl ?? current.logoUrl),
+        iconUrl: isFrontendUsableImage(current.iconUrl)
+          ? current.iconUrl
+          : (sgdbIconUrl ?? current.iconUrl),
         igdbRating: current.igdbRating ?? meta.igdbRating ?? undefined,
         criticRating: current.criticRating ?? meta.criticRating ?? undefined,
         themes: current.themes ?? meta.themes ?? undefined,
@@ -271,6 +313,8 @@ export function useEnrich(options: {
         isFrontendUsableImage(images.coverArtUrl) ||
         isFrontendUsableImage(images.bannerUrl) ||
         isFrontendUsableImage(images.logoUrl) ||
+        isFrontendUsableImage(sgdbIconUrl) ||
+        isFrontendUsableImage(sgdbLogoUrl) ||
         !!current.coverArtUrl
       ) {
         enrichAttemptsThisSession.delete(gameId);

@@ -1,5 +1,7 @@
-import { memo, useEffect, useRef } from "react";
+import { memo, useEffect, useRef, useState } from "react";
+import { invoke } from "@tauri-apps/api/core";
 import { useGames, NO_IGDB_MATCH_SOURCE } from "../../context/GameContext";
+import { useSteamGridArt } from "../../context/SteamGridDbContext";
 import { useLanguage } from "../../context/LanguageContext";
 import { PLAY_STATUS_DETAILS } from "../../types/game";
 import { accentForPlatform } from "../../types/emulator";
@@ -29,9 +31,18 @@ function SidebarGameItemBase({
   onPointerLeave,
   onQuickPlay,
 }: SidebarGameItemProps) {
-  const { updateGame, enrichGameMetadata } = useGames();
+  const { updateGame, enrichGameMetadata, getGame } = useGames();
   const { t } = useLanguage();
   const coverRef = useRef<HTMLDivElement | null>(null);
+  // The sidebar renders every row (no virtualization), so SteamGridDB
+  // batch registration is gated on the row being near the viewport —
+  // otherwise a big library would register hundreds of AppIDs at once.
+  const [isNearViewport, setIsNearViewport] = useState(false);
+  // Rows with an icon already skip the lookup entirely.
+  const sgdb = useSteamGridArt(
+    isNearViewport && !game.iconUrl ? game.steamAppId : null
+  );
+  const iconFetchRef = useRef(false);
 
   // Auto-enrich criteria — short-circuits the observer setup so we
   // don't spam IGDB for games we already know are unmatched.
@@ -40,17 +51,60 @@ function SidebarGameItemBase({
     (game.igdbId != null || game.metadataSource !== NO_IGDB_MATCH_SOURCE) &&
     !!game.name;
 
-  // Set up the IntersectionObserver for lazy cover art retrieval.
+  // Auto-fetch the SteamGridDB icon: when the batched lookup resolves and
+  // the row still has no icon, download the community icon to a base64
+  // data URL (keeping PNG alpha) and persist it on the game row so the
+  // icon survives restarts and is used everywhere iconUrl is read.
   useEffect(() => {
-    if (!canAutoFetchCover || !coverRef.current) return;
+    if (iconFetchRef.current) return;
+    if (game.iconUrl) {
+      iconFetchRef.current = true;
+      return;
+    }
+    if (!game.steamAppId) {
+      iconFetchRef.current = true; // nothing SteamGridDB can do without an appid
+      return;
+    }
+    const iconUrl = sgdb?.iconUrl;
+    if (!iconUrl) return; // lookup not resolved yet, or no community icon
+    iconFetchRef.current = true;
+    let cancelled = false;
+    invoke<string | null>("download_image", { url: iconUrl })
+      .then((dataUrl) => {
+        if (cancelled || !dataUrl || !dataUrl.startsWith("data:")) return;
+        updateGame(game.id, { iconUrl: dataUrl });
+        // Persist immediately against the freshest record so a concurrent
+        // enrichment doesn't get clobbered by a stale row.
+        const fresh = getGame(game.id) ?? game;
+        invoke("save_game", { game: { ...fresh, iconUrl: dataUrl } }).catch(
+          (err) => console.warn(`Persist sidebar icon failed for ${game.name}:`, err)
+        );
+      })
+      .catch((err) =>
+        console.warn(`Sidebar icon download failed for ${game.name}:`, err)
+      );
+    return () => {
+      cancelled = true;
+    };
+  }, [sgdb, game, updateGame, getGame]);
+
+  // Set up the IntersectionObserver for lazy cover art retrieval + icon
+  // visibility gating. The same 300px root margin arms both: enrichment
+  // fires for games missing a cover, and the row registers for the
+  // SteamGridDB batch so its icon auto-fetches as it scrolls into view.
+  useEffect(() => {
+    if (!coverRef.current) return;
     const node = coverRef.current;
     const observer = new IntersectionObserver(
       ([entry]) => {
         if (!entry.isIntersecting) return;
         observer.disconnect();
-        enrichGameMetadata(game.id, game.name, game.steamAppId).catch((err) =>
-          console.warn(`Sidebar auto-cover fetch failed for ${game.name}:`, err)
-        );
+        setIsNearViewport(true);
+        if (canAutoFetchCover) {
+          enrichGameMetadata(game.id, game.name, game.steamAppId).catch((err) =>
+            console.warn(`Sidebar auto-cover fetch failed for ${game.name}:`, err)
+          );
+        }
       },
       { rootMargin: "300px" }
     );
@@ -64,7 +118,7 @@ function SidebarGameItemBase({
       tabIndex={0}
       ref={coverRef}
       data-sidebar-game-id={game.id}
-      className={`sidebar-game-item${isSelected ? " active" : ""}${bulkSelected ? " bulk-selected" : ""}`}
+      className={`sidebar-game-item${isSelected ? " active" : ""}${bulkSelected ? " bulk-selected" : ""}${game.iconUrl ? " has-icon" : ""}`}
       onMouseEnter={() => onPointerEnter(game)}
       onMouseLeave={() => onPointerLeave(game)}
       aria-selected={isSelected}

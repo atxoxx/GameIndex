@@ -788,6 +788,38 @@
   box-shadow: var(--shadow-sm);
 }
 
+/* Icon mode: a transparent PNG icon (SteamGridDB community art) floats
+ * directly on the sidebar background. The solid tile / border / shadow
+ * box is removed so the alpha channel shows the app background properly
+ * instead of a flat rectangle. These sit after the rail rules above so
+ * they win the specificity tie for hover/active rows. */
+.sidebar-game-item.has-icon .sidebar-game-icon {
+  background: transparent;
+  box-shadow: none;
+}
+
+.sidebar-game-item.has-icon:hover .sidebar-game-icon {
+  box-shadow: none;
+}
+
+.app-sidebar.sidebar-icon-rail .sidebar-game-item.has-icon .sidebar-game-icon {
+  background: transparent;
+  border-color: transparent;
+  box-shadow: none;
+}
+
+.app-sidebar.sidebar-icon-rail .sidebar-game-item.has-icon:hover .sidebar-game-icon,
+.app-sidebar.sidebar-icon-rail .sidebar-game-item.has-icon.active .sidebar-game-icon {
+  border-color: transparent;
+  box-shadow: none;
+}
+
+/* The rail <img> rule paints a solid backdrop while loading — drop it
+ * for icons so transparent art never sits on a tile. */
+.app-sidebar.sidebar-icon-rail .sidebar-game-item.has-icon .sidebar-game-icon img {
+  background: transparent;
+}
+
 .app-sidebar.sidebar-icon-rail .sidebar-divider {
   margin: var(--space-xs) var(--space-xs);
 }
