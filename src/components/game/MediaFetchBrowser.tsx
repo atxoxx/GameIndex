@@ -424,7 +424,16 @@ export function MediaFetchBrowser({
       </div>
 
       {previewCandidate && (
-        <div className="modal-backdrop media-fetch-preview-backdrop" onClick={() => setPreviewCandidate(null)}>
+        <div
+          className="modal-backdrop media-fetch-preview-backdrop"
+          onClick={(e) => {
+            // The preview backdrop sits INSIDE the list modal's backdrop, so
+            // a click here must close only the preview — stopPropagation keeps
+            // it from bubbling up and closing the whole media list too.
+            e.stopPropagation();
+            setPreviewCandidate(null);
+          }}
+        >
           <div className="media-fetch-preview" onClick={(e) => e.stopPropagation()}>
             <button className="metadata-panel-close" onClick={() => setPreviewCandidate(null)} aria-label="Close preview">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" /></svg>

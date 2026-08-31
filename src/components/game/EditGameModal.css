@@ -1693,15 +1693,27 @@
   contain-intrinsic-size: auto 220px;
 }
 
-/* Click-to-preview: the whole thumbnail is a button. */
+/* Click-to-preview: the whole thumbnail is a button. It keeps the same
+ * fixed aspect-ratio box as the old thumb div so every card is the same
+ * size regardless of the source image's dimensions — images are cropped to
+ * fill via object-fit: cover. */
 .media-fetch-thumb-btn {
   position: relative;
   display: block;
   width: 100%;
   padding: 0;
   border: none;
-  background: none;
+  background: var(--color-bg-tertiary);
   cursor: zoom-in;
+  aspect-ratio: 4 / 3;
+  overflow: hidden;
+}
+
+.media-fetch-thumb-btn img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
 }
 
 .media-fetch-thumb-btn.transparent,
@@ -1828,25 +1840,6 @@
   background: color-mix(in srgb, var(--color-text-primary) 7%, transparent);
   box-shadow: var(--shadow-md);
   transform: translateY(-2px);
-}
-
-.media-fetch-thumb {
-  position: relative;
-  /* Fixed normalized box so the grid never jumps as images of different
-   * aspect ratios load — every thumbnail is cropped to fill the same shape. */
-  aspect-ratio: 4 / 3;
-  overflow: hidden;
-  background: var(--color-bg-tertiary);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.media-fetch-thumb img {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-  display: block;
 }
 
 .media-fetch-badge {
