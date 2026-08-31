@@ -117,11 +117,13 @@ export default function DownloadModal({
     isDone: boolean;
   } | null>(null);
   const [sourceFilter, setSourceFilter] = useState<string>("all");
+  const [groupFilter, setGroupFilter] = useState<string>("all");
   const [searchQuery, setSearchQuery] = useState<string>("");
   // Broad PC/console switch + download-method filter for the results.
   const [platformFilter, setPlatformFilter] = useState<PlatformFilter>("all");
   const [typeFilter, setTypeFilter] = useState<DownloadTypeFilter>("all");
   const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [selectedMirrorIndex, setSelectedMirrorIndex] = useState<number>(0);
   const [sortBy, setSortBy] = useState<SortKey>("date");
   // Reflected copy of `sortBy` so `runSearch` can pick the default
   // selected row from the currently-sorted list without re-running the
@@ -177,10 +179,10 @@ export default function DownloadModal({
     [matches, t],
   );
 
-  // Filter raw matches by selected source, platform, type and search query
+  // Filter raw matches by selected source, platform, type, scene group and search query
   const filteredMatches = useMemo(
-    () => filterMatches(matches, sourceFilter, searchQuery, platformFilter, typeFilter),
-    [matches, sourceFilter, searchQuery, platformFilter, typeFilter],
+    () => filterMatches(matches, sourceFilter, searchQuery, platformFilter, typeFilter, groupFilter),
+    [matches, sourceFilter, searchQuery, platformFilter, typeFilter, groupFilter],
   );
 
   const isSingleSourceFiltered =
@@ -202,12 +204,17 @@ export default function DownloadModal({
     [matches, selectedId],
   );
 
+  // Reset mirror selection when switching result rows
+  useEffect(() => {
+    setSelectedMirrorIndex(0);
+  }, [selectedId]);
+
   // Resolved URI of the selected result, memoised so the cache-check
   // effect doesn't re-fire on every search-progress emission (which
   // rebuilds the `matches` array even when the URI is unchanged).
   const selectedSourceUri = useMemo(
-    () => (selectedMatch ? resolveSourceUri(selectedMatch, 0) : null),
-    [selectedMatch],
+    () => (selectedMatch ? resolveSourceUri(selectedMatch, selectedMirrorIndex) : null),
+    [selectedMatch, selectedMirrorIndex],
   );
   const selectedIsMagnet = useMemo(() => {
     if (!selectedMatch || !selectedSourceUri) return false;
@@ -227,6 +234,7 @@ export default function DownloadModal({
 
   const handleClearFilters = useCallback(() => {
     setSourceFilter("all");
+    setGroupFilter("all");
     setSearchQuery("");
     setPlatformFilter("all");
     setTypeFilter("all");
@@ -528,7 +536,7 @@ export default function DownloadModal({
         targetUrl ||
         selectedWebUrl ||
         (selectedMatch
-          ? resolveSourceUri(selectedMatch, 0)
+          ? resolveSourceUri(selectedMatch, selectedMirrorIndex)
           : null) ||
         selectedMatch?.detailUrl;
       if (!urlToOpen) return;
@@ -571,6 +579,7 @@ export default function DownloadModal({
     [
       selectedWebUrl,
       selectedMatch,
+      selectedMirrorIndex,
       gameName,
       gameId,
       savePath,
@@ -663,9 +672,9 @@ export default function DownloadModal({
       return;
     }
     const match = selectedMatch;
-    // Single source of truth for which URI the user wants — the first
-    // URI, falling back to the magnet.
-    const sourceUri = resolveSourceUri(match, 0);
+    // Single source of truth for which URI the user wants — the selected
+    // mirror URI, falling back to the magnet.
+    const sourceUri = resolveSourceUri(match, selectedMirrorIndex);
     // Web-link-only / protected results open in the default OS browser
     // so the user can complete the anti-bot challenge and download.
     const webUrl = webUrlFor(match);
@@ -817,6 +826,7 @@ export default function DownloadModal({
     gameName,
     step,
     selectedId,
+    selectedMirrorIndex,
   ]);
 
   // Clear the inline error when the user actively changes their
@@ -1071,6 +1081,8 @@ export default function DownloadModal({
                   sourceFilter={sourceFilter}
                   onSourceFilterChange={setSourceFilter}
                   sourceFilterOptions={sourceFilterOptions}
+                  groupFilter={groupFilter}
+                  onGroupFilterChange={setGroupFilter}
                   searchQuery={searchQuery}
                   onSearchQueryChange={setSearchQuery}
                   totalRawMatchesCount={matches.length}
@@ -1096,6 +1108,8 @@ export default function DownloadModal({
                       sourceFilter={sourceFilter}
                       onSourceFilterChange={setSourceFilter}
                       sourceFilterOptions={sourceFilterOptions}
+                      groupFilter={groupFilter}
+                      onGroupFilterChange={setGroupFilter}
                       searchQuery={searchQuery}
                       onSearchQueryChange={setSearchQuery}
                       totalRawMatchesCount={matches.length}
@@ -1109,6 +1123,8 @@ export default function DownloadModal({
                   </div>
                   <DetailPanel
                     match={selectedMatch}
+                    selectedMirrorIndex={selectedMirrorIndex}
+                    onSelectMirror={setSelectedMirrorIndex}
                     isDownloaded={isDownloaded}
                     savePath={savePath}
                     gameName={gameName}
@@ -1184,7 +1200,7 @@ export default function DownloadModal({
             )}
 
             {step === "starting" && (() => {
-              const liveUri = resolveSourceUri(selectedMatch ?? undefined, 0);
+              const liveUri = resolveSourceUri(selectedMatch ?? undefined, selectedMirrorIndex);
               const live = liveUri
                 ? activeDownloads.find((d) => d.sourceUri === liveUri)
                 : undefined;
@@ -1296,7 +1312,7 @@ export default function DownloadModal({
                     if (selectedWebUrl) return t('downloadModal.openInBrowser');
                     const selMatch = selectedMatch;
                     const { isDirect } = classifyUri(
-                      resolveSourceUri(selMatch ?? undefined, 0),
+                      resolveSourceUri(selMatch ?? undefined, selectedMirrorIndex),
                       selMatch?.torrentUrl,
                     );
                     if (chooseFiles && !isDirect) return t('downloadModal.fetchFiles');

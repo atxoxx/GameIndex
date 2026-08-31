@@ -1,7 +1,13 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import type { DisplayMatch } from "./types";
 import { useLanguage } from "../../context/LanguageContext";
-import { formatUploadDate, classifyUri, resolveSourceUri, webUrlFor } from "./helpers";
+import {
+  formatUploadDate,
+  classifyUri,
+  resolveSourceUri,
+  webUrlFor,
+  parseReleaseMetadata,
+} from "./helpers";
 import { accentForPlatform } from "../../types/emulator";
 
 export function ResultRow({
@@ -41,6 +47,9 @@ export function ResultRow({
         : isDirect
           ? t("downloadModal.typeDirect")
           : null;
+
+  const meta = useMemo(() => parseReleaseMetadata(match.title), [match.title]);
+  const mirrorCount = match.uris ? match.uris.length : 0;
 
   const copyText = async (e: React.MouseEvent, text: string, label: string) => {
     e.stopPropagation();
@@ -89,6 +98,46 @@ export function ResultRow({
             {formatBadge && (
               <span className="dl-badge dl-badge--format">
                 {formatBadge}
+              </span>
+            )}
+
+            {/* Repack / Scene Group Badge */}
+            {meta.group && (
+              <span className="dl-badge dl-badge--group" title={`Group: ${meta.group}`}>
+                {meta.group}
+              </span>
+            )}
+
+            {/* Version Badge */}
+            {meta.version && (
+              <span className="dl-badge dl-badge--version" title={`Version: ${meta.version}`}>
+                {meta.version}
+              </span>
+            )}
+
+            {/* Edition Badge */}
+            {meta.edition && (
+              <span className="dl-badge dl-badge--edition" title={`Edition: ${meta.edition}`}>
+                {meta.edition}
+              </span>
+            )}
+
+            {/* Multi-part Badge */}
+            {meta.isMultiPart && (
+              <span className="dl-badge dl-badge--multipart">
+                {meta.partCount ? `${meta.partCount} Parts` : t("downloadModal.multiPartPackage")}
+              </span>
+            )}
+
+            {/* Mirror Count */}
+            {mirrorCount > 1 && (
+              <span className="dl-badge dl-badge--mirrors" title={`${mirrorCount} Mirrors`}>
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                  <circle cx="12" cy="12" r="10" />
+                  <line x1="2" y1="12" x2="22" y2="12" />
+                  <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z" />
+                </svg>
+                {t("downloadModal.mirrorsCount", { count: mirrorCount })}
               </span>
             )}
 

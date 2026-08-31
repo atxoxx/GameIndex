@@ -15,7 +15,13 @@ export type CacheCheckStatus =
   | "error";
 
 /** How the results list is ordered. */
-export type SortKey = "date" | "source" | "relevance";
+export type SortKey =
+  | "date"
+  | "source"
+  | "relevance"
+  | "size_desc"
+  | "size_asc"
+  | "seeds";
 
 /** Broad platform class filter for the results list. */
 export type PlatformFilter = "all" | "pc" | "console";
@@ -37,3 +43,36 @@ export interface SourceFilterOption {
   count: number;
   provider?: "source" | "plugin" | "all";
 }
+
+/** Intelligently extracted scene, group, version, and edition metadata from a release title. */
+export interface ParsedReleaseMeta {
+  cleanTitle: string;
+  group?: string;
+  version?: string;
+  edition?: string;
+  languages?: string[];
+  isMultiPart?: boolean;
+  partCount?: number;
+}
+
+/** Mirror option representation for multi-hoster releases. */
+export interface MirrorOption {
+  index: number;
+  uri: string;
+  label: string;
+  hostName: string;
+  isMagnet: boolean;
+  isTorrentFile: boolean;
+  isDirect: boolean;
+  needsBrowser: boolean;
+}
+
+/** Category filter for selective file download tree. */
+export type FileCategoryFilter =
+  | "all"
+  | "executable"
+  | "archive"
+  | "disc"
+  | "media"
+  | "data";
+

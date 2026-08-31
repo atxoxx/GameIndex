@@ -1,4 +1,4 @@
-import { Fragment } from "react";
+import { Fragment, useMemo, useRef, useEffect } from "react";
 import type {
   SortKey,
   DisplayMatch,
@@ -8,6 +8,7 @@ import type {
 } from "./types";
 import { ResultRow } from "./ResultRow";
 import { useLanguage } from "../../context/LanguageContext";
+import { extractReleaseGroups } from "./helpers";
 
 export function ResultsList({
   matches,
@@ -21,6 +22,8 @@ export function ResultsList({
   sourceFilter,
   onSourceFilterChange,
   sourceFilterOptions,
+  groupFilter = "all",
+  onGroupFilterChange,
   searchQuery,
   onSearchQueryChange,
   platformFilter,
@@ -42,6 +45,8 @@ export function ResultsList({
   sourceFilter: string;
   onSourceFilterChange: (filter: string) => void;
   sourceFilterOptions: SourceFilterOption[];
+  groupFilter?: string;
+  onGroupFilterChange?: (group: string) => void;
   searchQuery: string;
   onSearchQueryChange: (query: string) => void;
   platformFilter: PlatformFilter;
@@ -58,6 +63,7 @@ export function ResultsList({
   } | null;
 }) {
   const { t } = useLanguage();
+  const searchInputRef = useRef<HTMLInputElement | null>(null);
 
   const platformOptions: { id: PlatformFilter; label: string }[] = [
     { id: "all", label: t("downloadModal.filterAll") },
@@ -71,6 +77,26 @@ export function ResultsList({
     { id: "magnet", label: t("downloadModal.filterMagnet") },
     { id: "direct", label: t("downloadModal.filterDirect") },
   ];
+
+  // Extract available scene/repack groups from raw matches
+  const availableGroups = useMemo(() => extractReleaseGroups(matches), [matches]);
+
+  // Global / shortcut to focus search input
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (
+        (e.key === "/" || (e.key === "f" && (e.ctrlKey || e.metaKey))) &&
+        document.activeElement !== searchInputRef.current &&
+        !["INPUT", "TEXTAREA", "SELECT"].includes((document.activeElement as HTMLElement)?.tagName)
+      ) {
+        e.preventDefault();
+        searchInputRef.current?.focus();
+        searchInputRef.current?.select();
+      }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, []);
 
   if (totalRawMatchesCount === 0) {
     if (searchProgress && searchProgress.total > 1 && !searchProgress.isDone) {
@@ -145,30 +171,35 @@ export function ResultsList({
         showWeakMatches ||
         match.matchScore >= 0.4 ||
         match.provider === "plugin" ||
-        sourceFilter !== "all",
+        sourceFilter !== "all" ||
+        groupFilter !== "all",
     );
 
   const weakCount = matches.filter(
-    (m) => m.matchScore < 0.4 && m.provider !== "plugin" && sourceFilter === "all",
+    (m) =>
+      m.matchScore < 0.4 &&
+      m.provider !== "plugin" &&
+      sourceFilter === "all" &&
+      groupFilter === "all",
   ).length;
 
   const hasActiveFilters =
     sourceFilter !== "all" ||
+    groupFilter !== "all" ||
     platformFilter !== "all" ||
     typeFilter !== "all" ||
     Boolean(searchQuery.trim());
 
   const showControls = totalRawMatchesCount > 1;
-  const showPills = sourceFilterOptions.length > 2;
 
   return (
     <div className="dl-results-container">
       {/* Top Filter & Search Bar */}
       {showControls && (
         <div className="dl-modal-toolbar">
-          {/* Row 1: Search + Sort + Count */}
+          {/* Row 1: Search + Count Badge */}
           <div className="dl-modal-toolbar-top">
-            {/* Quick Search */}
+            {/* Quick Search with shortcut hint */}
             <div className="dl-search-box">
               <svg
                 className="dl-search-icon"
@@ -184,6 +215,7 @@ export function ResultsList({
                 <line x1="21" y1="21" x2="16.65" y2="16.65" />
               </svg>
               <input
+                ref={searchInputRef}
                 type="text"
                 className="dl-search-input"
                 placeholder={t("downloadModal.filterPlaceholder")}
@@ -191,6 +223,9 @@ export function ResultsList({
                 onChange={(e) => onSearchQueryChange(e.target.value)}
                 aria-label={t("downloadModal.filterPlaceholder")}
               />
+              {!searchQuery && (
+                <kbd className="dl-search-kbd" title="Press / to search">/</kbd>
+              )}
               {searchQuery && (
                 <button
                   type="button"
@@ -206,21 +241,6 @@ export function ResultsList({
               )}
             </div>
 
-            {/* Sort Control */}
-            <div className="dl-sort-wrapper">
-              <span className="dl-sort-label">{t("achievements.sort")}</span>
-              <select
-                className="dl-sort-select"
-                value={sortBy}
-                onChange={(e) => onSortChange(e.target.value as SortKey)}
-                aria-label={t("downloads.sortResultsAria")}
-              >
-                <option value="date">{t("downloads.sortDateNewest")}</option>
-                <option value="source">{t("downloads.sortSource")}</option>
-                <option value="relevance">{t("downloads.sortRelevance")}</option>
-              </select>
-            </div>
-
             {/* Total Badge */}
             <div className="dl-results-count-badge">
               <span>{matches.length}</span>
@@ -230,7 +250,7 @@ export function ResultsList({
             </div>
           </div>
 
-          {/* Row 2: Segmented Tabs (Platform & Format) */}
+          {/* Row 2: Segmented Tabs (Platform & Format) + Source & Group Dropdowns + Sort */}
           <div className="dl-modal-toolbar-filters">
             {/* Platform Segment */}
             <div className="dl-segmented-group" role="group" aria-label={t("downloadModal.filterPlatform")}>
@@ -249,8 +269,6 @@ export function ResultsList({
               </div>
             </div>
 
-            <div className="dl-toolbar-filter-divider" aria-hidden />
-
             {/* Download Type Segment */}
             <div className="dl-segmented-group" role="group" aria-label={t("downloadModal.filterType")}>
               <div className="dl-segmented-pills">
@@ -267,31 +285,77 @@ export function ResultsList({
                 ))}
               </div>
             </div>
-          </div>
 
-          {/* Row 3: Source Pills (Scrollable) */}
-          {showPills && (
-            <div className="dl-sources-scroll" role="tablist" aria-label={t("downloadModal.filterBySource")}>
-              {sourceFilterOptions.map((opt) => {
-                const isSelected = sourceFilter === opt.id;
-                return (
-                  <button
-                    key={opt.id}
-                    type="button"
-                    role="tab"
-                    aria-selected={isSelected}
-                    className={`dl-source-filter-pill${isSelected ? " active" : ""}${
-                      opt.provider === "plugin" ? " is-plugin" : ""
-                    }`}
-                    onClick={() => onSourceFilterChange(opt.id)}
-                  >
-                    <span className="dl-source-pill-text">{opt.label}</span>
-                    <span className="dl-source-pill-num">{opt.count}</span>
-                  </button>
-                );
-              })}
+            <div className="dl-toolbar-filter-divider" aria-hidden />
+
+            {/* Source Dropdown */}
+            <div className="dl-toolbar-select-wrapper" title={t("downloadModal.filterBySource")}>
+              <select
+                className="dl-toolbar-select"
+                value={sourceFilter}
+                onChange={(e) => onSourceFilterChange(e.target.value)}
+                aria-label={t("downloadModal.filterBySource")}
+              >
+                {sourceFilterOptions.map((opt) => (
+                  <option key={opt.id} value={opt.id}>
+                    {opt.label} ({opt.count})
+                  </option>
+                ))}
+              </select>
             </div>
-          )}
+
+            {/* Group Dropdown */}
+            {availableGroups.length > 0 && (
+              <div className="dl-toolbar-select-wrapper" title={t("downloadModal.filterByGroup")}>
+                <select
+                  className="dl-toolbar-select"
+                  value={groupFilter}
+                  onChange={(e) => onGroupFilterChange?.(e.target.value)}
+                  aria-label={t("downloadModal.filterByGroup")}
+                >
+                  <option value="all">{t("downloadModal.allGroups")}</option>
+                  {availableGroups.map((grp) => (
+                    <option key={grp} value={grp}>
+                      {grp}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            )}
+
+            {/* Sort Dropdown */}
+            <div className="dl-toolbar-select-wrapper" title={t("achievements.sort")}>
+              <select
+                className="dl-toolbar-select"
+                value={sortBy}
+                onChange={(e) => onSortChange(e.target.value as SortKey)}
+                aria-label={t("downloads.sortResultsAria")}
+              >
+                <option value="date">{t("downloads.sortDateNewest")}</option>
+                <option value="relevance">{t("downloads.sortRelevance")}</option>
+                <option value="size_desc">{t("downloadModal.sortSizeDesc")}</option>
+                <option value="size_asc">{t("downloadModal.sortSizeAsc")}</option>
+                <option value="seeds">{t("downloadModal.sortSeeds")}</option>
+                <option value="source">{t("downloads.sortSource")}</option>
+              </select>
+            </div>
+
+            {/* Reset Filters Button */}
+            {hasActiveFilters && (
+              <button
+                type="button"
+                className="dl-toolbar-reset-btn"
+                onClick={onClearFilters}
+                title={t("downloadModal.clearFilter")}
+                aria-label={t("downloadModal.clearFilter")}
+              >
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                  <line x1="18" y1="6" x2="6" y2="18" />
+                  <line x1="6" y1="6" x2="18" y2="18" />
+                </svg>
+              </button>
+            )}
+          </div>
         </div>
       )}
 

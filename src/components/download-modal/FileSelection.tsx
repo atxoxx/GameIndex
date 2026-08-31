@@ -1,8 +1,9 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useCallback } from "react";
 import { Button } from "../ui";
 import { formatBytesShort } from "../../types/download";
 import { useLanguage } from "../../context/LanguageContext";
 import { getFileCategory } from "./helpers";
+import type { FileCategoryFilter } from "./types";
 
 export function FileSelection({
   files,
@@ -15,12 +16,24 @@ export function FileSelection({
 }) {
   const { t } = useLanguage();
   const [filter, setFilter] = useState("");
+  const [categoryFilter, setCategoryFilter] = useState<FileCategoryFilter>("all");
+
+  const totalBytes = useMemo(() => files.reduce((sum, f) => sum + f.size, 0), [files]);
+  const maxFileSize = useMemo(
+    () => files.reduce((max, f) => Math.max(max, f.size), 1),
+    [files],
+  );
 
   const filtered = useMemo(() => {
     return files
-      .map((f, i) => ({ file: f, idx: i }))
-      .filter(({ file }) => file.name.toLowerCase().includes(filter.toLowerCase()));
-  }, [files, filter]);
+      .map((f, i) => ({ file: f, idx: i, category: getFileCategory(f.name) }))
+      .filter(({ file, category }) => {
+        const matchesQuery = file.name.toLowerCase().includes(filter.toLowerCase());
+        if (!matchesQuery) return false;
+        if (categoryFilter === "all") return true;
+        return category === categoryFilter;
+      });
+  }, [files, filter, categoryFilter]);
 
   const handleToggle = (idx: number) => {
     const next = new Set(selectedFiles);
@@ -35,12 +48,33 @@ export function FileSelection({
   const handleSelectAll = () => onChange(new Set(files.map((_, i) => i)));
   const handleDeselectAll = () => onChange(new Set());
 
-  const selectedBytes = files.reduce(
-    (sum, f, i) => (selectedFiles.has(i) ? sum + f.size : sum),
-    0,
+  // Select core game files (executables, disc images, archives, data)
+  const handleSelectMainFiles = useCallback(() => {
+    const coreIndices = new Set<number>();
+    files.forEach((f, i) => {
+      const cat = getFileCategory(f.name);
+      if (["executable", "disc", "archive", "data"].includes(cat)) {
+        coreIndices.add(i);
+      }
+    });
+    onChange(coreIndices);
+  }, [files, onChange]);
+
+  const selectedBytes = useMemo(
+    () => files.reduce((sum, f, i) => (selectedFiles.has(i) ? sum + f.size : sum), 0),
+    [files, selectedFiles],
   );
-  const totalBytes = files.reduce((sum, f) => sum + f.size, 0);
+
   const percentage = totalBytes > 0 ? Math.round((selectedBytes / totalBytes) * 100) : 0;
+
+  const categoryOptions: { id: FileCategoryFilter; label: string }[] = [
+    { id: "all", label: t("downloadModal.filterAll") },
+    { id: "executable", label: t("downloadFiles.catExecutables") },
+    { id: "archive", label: t("downloadFiles.catArchives") },
+    { id: "disc", label: t("downloadFiles.catDisc") },
+    { id: "media", label: t("downloadFiles.catMedia") },
+    { id: "data", label: t("downloadFiles.catData") },
+  ];
 
   const renderFileIcon = (category: ReturnType<typeof getFileCategory>) => {
     switch (category) {
@@ -146,7 +180,24 @@ export function FileSelection({
           )}
         </div>
 
+        {/* Category Pills */}
+        <div className="dl-file-category-pills">
+          {categoryOptions.map((cat) => (
+            <button
+              key={cat.id}
+              type="button"
+              className={`dl-file-cat-pill${categoryFilter === cat.id ? " active" : ""}`}
+              onClick={() => setCategoryFilter(cat.id)}
+            >
+              {cat.label}
+            </button>
+          ))}
+        </div>
+
         <div className="dl-file-toolbar-actions">
+          <Button variant="secondary" size="sm" onClick={handleSelectMainFiles}>
+            {t("downloadFiles.selectMainFiles")}
+          </Button>
           <Button variant="secondary" size="sm" onClick={handleSelectAll}>
             {t("downloadFiles.selectAll")}
           </Button>
@@ -161,9 +212,9 @@ export function FileSelection({
         {filtered.length === 0 ? (
           <div className="dl-file-empty">{t("downloadFiles.noMatch")}</div>
         ) : (
-          filtered.map(({ file, idx }) => {
+          filtered.map(({ file, idx, category }) => {
             const isChecked = selectedFiles.has(idx);
-            const category = getFileCategory(file.name);
+            const relativeWidth = Math.max(4, Math.round((file.size / maxFileSize) * 100));
             return (
               <label
                 key={idx}
@@ -178,9 +229,17 @@ export function FileSelection({
                 <div className={`dl-file-type-icon dl-file-type-icon--${category}`}>
                   {renderFileIcon(category)}
                 </div>
-                <span className="dl-file-item-name" title={file.name}>
-                  {file.name}
-                </span>
+                <div className="dl-file-name-wrap">
+                  <span className="dl-file-item-name" title={file.name}>
+                    {file.name}
+                  </span>
+                  <div className="dl-file-size-bar-track">
+                    <div
+                      className="dl-file-size-bar-fill"
+                      style={{ width: `${relativeWidth}%` }}
+                    />
+                  </div>
+                </div>
                 <span className="dl-file-item-size">{formatBytesShort(file.size)}</span>
               </label>
             );

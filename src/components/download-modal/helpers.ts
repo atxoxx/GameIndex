@@ -5,6 +5,9 @@ import type {
   SourceFilterOption,
   PlatformFilter,
   DownloadTypeFilter,
+  ParsedReleaseMeta,
+  MirrorOption,
+  SortKey,
 } from "./types";
 
 /**
@@ -13,12 +16,11 @@ import type {
  * optional convenience `magnet`. The user's selected mirror index wins
  * when it points at a real URI; otherwise we fall back to the magnet,
  * then to the first URI. Returning `null` is a hard signal that this
- * match has nothing downloadable (shouldn't happen for results the Rust
- * side vetted, but we guard anyway).
+ * match has nothing downloadable.
  */
 export function resolveSourceUri(
   match: MatchedDownload | undefined,
-  mirrorIdx: number,
+  mirrorIdx = 0,
 ): string | null {
   if (!match) return null;
   if (mirrorIdx >= 0 && mirrorIdx < match.uris.length) {
@@ -29,12 +31,6 @@ export function resolveSourceUri(
 
 /**
  * Classify a resolved URI into the three engine paths we support.
- *
- * `knownTorrentUrl` lets callers tell us a URI is a `.torrent` link even
- * when its shape doesn't say so — some sources serve the torrent through
- * a script endpoint (`index.php?do=download&id=…`) that has no `.torrent`
- * suffix. Plugin results carry that link in their dedicated `torrentUrl`
- * field, which is authoritative, so pass `match.torrentUrl` here.
  */
 export function classifyUri(
   uri: string | null,
@@ -61,9 +57,7 @@ export function classifyUri(
 /**
  * Return the detail-page URL for a result that has no downloadable
  * URI (no magnet / .torrent / direct link) — i.e. a "web link only"
- * plugin hit. The modal offers an "Open in browser" action for these
- * instead of a download. Returns null when the match is downloadable
- * or has no detail URL.
+ * plugin hit.
  */
 export function webUrlFor(
   match: DownloadSearchResult | undefined,
@@ -75,11 +69,7 @@ export function webUrlFor(
 }
 
 /**
- * Whether a direct-link hoster / protector can or should be unlocked in a real browser
- * (filecrypt, ouo, gofile, paste containers, and captcha/interstitial lockers).
- * Mirrors `hosters::hoster_strategy` on the Rust side so the modal can
- * emphasise the resolver CTA without a backend round-trip, and guide
- * the user if a headless fast-path fails.
+ * Whether a direct-link hoster / protector can or should be unlocked in a real browser.
  */
 export function hosterNeedsBrowser(uri: string | null | undefined): boolean {
   if (!uri) return false;
@@ -132,7 +122,7 @@ export function hosterNeedsBrowser(uri: string | null | undefined): boolean {
 }
 
 /** Derive a friendly host label from a mirror URI for the chip picker. */
-export function hostLabelForUri(uri: string, fallbackIndex: number): string {
+export function hostLabelForUri(uri: string, fallbackIndex = 0): string {
   if (!uri) return `Mirror ${fallbackIndex + 1}`;
   if (uri.startsWith("magnet:")) return "Magnet Link";
   try {
@@ -145,7 +135,7 @@ export function hostLabelForUri(uri: string, fallbackIndex: number): string {
     if (host.includes("arweave.net")) return "Arweave Direct";
     if (host.includes("vimm.net")) return "Vimm Vault Direct";
     if (host.includes("buzzheavier.com")) return "Buzzheavier";
-    if (host.includes("gofile.io")) return "Gofile";
+    if (host.includes("gofile.io") || host.includes("gofilecdn")) return "Gofile";
     if (host.includes("datanodes.to")) return "Datanodes";
     if (host.includes("1fichier.com")) return "1fichier";
     if (host.includes("krakenfiles.com")) return "KrakenFiles";
@@ -167,6 +157,7 @@ export function hostLabelForUri(uri: string, fallbackIndex: number): string {
     if (host.includes("hexupload.net")) return "HexUpload";
     if (host.includes("bowfile.com")) return "Bowfile";
     if (host.includes("modsfire.com")) return "ModsFire";
+    if (host.includes("multiup.io") || host.includes("multiup.org")) return "MultiUp";
     if (host.includes("archive.org")) return "Internet Archive";
     if (urlObj.pathname.endsWith(".torrent")) return `${host} (.torrent)`;
     return urlObj.hostname.replace(/^www\./, "") || `Mirror ${fallbackIndex + 1}`;
@@ -175,22 +166,222 @@ export function hostLabelForUri(uri: string, fallbackIndex: number): string {
   }
 }
 
+/** Parse human-readable byte sizes into numeric bytes (e.g. "62.4 GB" -> 67001489817). */
+export function parseByteSize(sizeStr: string | number | null | undefined): number {
+  if (typeof sizeStr === "number") return sizeStr;
+  if (!sizeStr || typeof sizeStr !== "string") return 0;
+  const match = sizeStr.trim().match(/^([0-9]+(?:\.[0-9]+)?)\s*([a-zA-Z]+)?$/i);
+  if (!match) return 0;
+  const val = parseFloat(match[1]);
+  if (Number.isNaN(val)) return 0;
+  const unit = (match[2] || "B").toUpperCase();
+  switch (unit) {
+    case "TB":
+    case "TIB":
+      return val * 1024 * 1024 * 1024 * 1024;
+    case "GB":
+    case "GIB":
+      return val * 1024 * 1024 * 1024;
+    case "MB":
+    case "MIB":
+      return val * 1024 * 1024;
+    case "KB":
+    case "KIB":
+      return val * 1024;
+    case "B":
+    default:
+      return val;
+  }
+}
 
-/** Numeric value used to order results by upload date (newest first).
- *  Missing / unparseable dates sink to the bottom. */
+const KNOWN_SCENE_GROUPS = [
+  "FitGirl",
+  "DODI",
+  "ElAmigos",
+  "TENOKE",
+  "RUNE",
+  "CODEX",
+  "FLT",
+  "EMPRESS",
+  "Razor1911",
+  "GOG",
+  "SteamRip",
+  "KaOs",
+  "SKIDROW",
+  "Reloaded",
+  "CPY",
+  "Plaza",
+  "TiNYiSO",
+  "TinyRepacks",
+  "Chimecho",
+  "KaOsKrew",
+  "VACE",
+  "DEVIANCE",
+  "HOODLUM",
+  "Fairlight",
+  "Unleashed",
+  "PROPHET",
+  "Repack",
+];
+
+const KNOWN_EDITIONS = [
+  "Digital Deluxe Edition",
+  "Deluxe Edition",
+  "Game of the Year Edition",
+  "GOTY Edition",
+  "GOTY",
+  "Ultimate Edition",
+  "Complete Edition",
+  "Definitive Edition",
+  "Director's Cut",
+  "Enhanced Edition",
+  "Remastered",
+  "Anniversary Edition",
+  "Collector's Edition",
+  "Gold Edition",
+  "Special Edition",
+  "Standard Edition",
+];
+
+/** Extract intelligent release metadata (scene group, version, edition, multi-part, etc.). */
+export function parseReleaseMetadata(rawTitle: string): ParsedReleaseMeta {
+  if (!rawTitle) return { cleanTitle: "" };
+
+  const clean = rawTitle.trim();
+  let detectedGroup: string | undefined;
+  let detectedVersion: string | undefined;
+  let detectedEdition: string | undefined;
+  const detectedLanguages: string[] = [];
+  let isMultiPart = false;
+  let partCount: number | undefined;
+
+  // 1. Detect Scene/Repack group
+  for (const group of KNOWN_SCENE_GROUPS) {
+    const regex = new RegExp(`(?:[\\[\\(\\-~ ._]|^)${group}(?:[\\]\\)\\-~ ._]|$)`, "i");
+    if (regex.test(clean)) {
+      detectedGroup = group;
+      break;
+    }
+  }
+
+  // 2. Detect Edition
+  for (const edition of KNOWN_EDITIONS) {
+    const regex = new RegExp(`(?:[\\[\\(\\-~ ._]|^)${edition}(?:[\\]\\)\\-~ ._]|$)`, "i");
+    if (regex.test(clean)) {
+      detectedEdition = edition;
+      break;
+    }
+  }
+
+  // 3. Detect Version (e.g. v1.0.4, Build 14820, Update 3, v20240812)
+  const verMatch = clean.match(/(?:v|version|ver|build|update|patch)[ ._-]?([0-9]+(?:\.[0-9a-zA-Z]+)*)/i);
+  if (verMatch) {
+    detectedVersion = verMatch[0];
+  }
+
+  // 4. Detect Multi-language / Multi-part
+  const multiLangMatch = clean.match(/MULTi\d+|ENG(?:\/FRA|\/GER|\/ESP|\/RUS|\/JPN|\/ITA|\/KOR|\/ZHO)*/i);
+  if (multiLangMatch) {
+    detectedLanguages.push(multiLangMatch[0]);
+  }
+
+  const multiPartMatch = clean.match(/(?:part|pt)[ ._-]?([0-9]+)(?:[ ._-]?(?:of|\/)[ ._-]?([0-9]+))?/i);
+  if (multiPartMatch) {
+    isMultiPart = true;
+    if (multiPartMatch[2]) {
+      partCount = parseInt(multiPartMatch[2], 10);
+    }
+  }
+
+  return {
+    cleanTitle: clean,
+    group: detectedGroup,
+    version: detectedVersion,
+    edition: detectedEdition,
+    languages: detectedLanguages.length > 0 ? detectedLanguages : undefined,
+    isMultiPart,
+    partCount,
+  };
+}
+
+/** Extract unique scene/repack groups present across a list of matches. */
+export function extractReleaseGroups(matches: DisplayMatch[]): string[] {
+  const groups = new Set<string>();
+  for (const m of matches) {
+    const meta = parseReleaseMetadata(m.title);
+    if (meta.group) {
+      groups.add(meta.group);
+    }
+  }
+  return Array.from(groups).sort((a, b) => a.localeCompare(b));
+}
+
+/** Extract structured mirror options from a display match. */
+export function extractMirrors(match: DisplayMatch | null | undefined): MirrorOption[] {
+  if (!match) return [];
+  const mirrors: MirrorOption[] = [];
+  const seenUris = new Set<string>();
+
+  if (match.uris && match.uris.length > 0) {
+    match.uris.forEach((uri, idx) => {
+      if (!uri || seenUris.has(uri)) return;
+      seenUris.add(uri);
+      const { isMagnet, isTorrentFile, isDirect } = classifyUri(uri, match.torrentUrl);
+      const label = hostLabelForUri(uri, idx);
+      mirrors.push({
+        index: idx,
+        uri,
+        label,
+        hostName: label,
+        isMagnet,
+        isTorrentFile,
+        isDirect,
+        needsBrowser: hosterNeedsBrowser(uri),
+      });
+    });
+  }
+
+  // If explicit magnet is present and wasn't in uris, include it
+  if (match.magnet && !seenUris.has(match.magnet)) {
+    seenUris.add(match.magnet);
+    mirrors.push({
+      index: mirrors.length,
+      uri: match.magnet,
+      label: "Magnet Link",
+      hostName: "Magnet",
+      isMagnet: true,
+      isTorrentFile: false,
+      isDirect: false,
+      needsBrowser: false,
+    });
+  }
+
+  // If explicit .torrent URL is present and wasn't in uris, include it
+  if (match.torrentUrl && !seenUris.has(match.torrentUrl)) {
+    seenUris.add(match.torrentUrl);
+    mirrors.push({
+      index: mirrors.length,
+      uri: match.torrentUrl,
+      label: `${match.sourceName} (.torrent)`,
+      hostName: "Torrent File",
+      isMagnet: false,
+      isTorrentFile: true,
+      isDirect: false,
+      needsBrowser: false,
+    });
+  }
+
+  return mirrors;
+}
+
+/** Numeric value used to order results by upload date (newest first). */
 function dateValue(date: string | null | undefined): number {
   if (!date) return 0;
   const parsed = Date.parse(date);
   return Number.isNaN(parsed) ? 0 : parsed;
 }
 
-/**
- * Render a source's raw upload date in the user's locale. Sources hand
- * us the string verbatim (usually an ISO timestamp like
- * "2026-01-05T09:52:00.000Z"), which is unfriendly to read — so we
- * format it as e.g. "Jan 5, 2026". Anything we can't parse is shown
- * as-is, and a missing date becomes an em dash.
- */
+/** Render a source's raw upload date in the user's locale. */
 export function formatUploadDate(
   raw: string | null | undefined,
   language: string,
@@ -205,16 +396,12 @@ export function formatUploadDate(
       day: "numeric",
     }).format(parsed);
   } catch {
-    // Unknown/unusual locale code — fall back to the raw string rather
-    // than crashing the modal.
     return raw;
   }
 }
 
 /**
- * Extract unique source filter options from the search matches,
- * including counts for "all", categories ("sources", "plugins"),
- * and individual sources.
+ * Extract unique source filter options from the search matches.
  */
 export function extractSourceFilters(
   matches: DisplayMatch[],
@@ -253,7 +440,6 @@ export function extractSourceFilters(
     },
   ];
 
-  // If results contain both built-in sources and plugins, include category filters
   if (builtinCount > 0 && pluginCount > 0) {
     options.push({
       id: "source",
@@ -269,7 +455,6 @@ export function extractSourceFilters(
     });
   }
 
-  // Append individual sources sorted by result count descending, then name ascending
   const sourceEntries = Array.from(sourceCountMap.entries()).sort(
     ([, a], [, b]) => b.count - a.count || a.label.localeCompare(b.label),
   );
@@ -286,11 +471,7 @@ export function extractSourceFilters(
   return options;
 }
 
-/**
- * Broad platform class of a match. Built-in sources are PC repacks;
- * plugin hits inherit the category their plugin manifest declared
- * (unknown values fall back to "pc").
- */
+/** Broad platform class of a match. */
 export function platformCategoryOf(
   match: DownloadSearchResult,
 ): "pc" | "console" | "hybrid" {
@@ -302,11 +483,7 @@ export function platformCategoryOf(
   return "pc";
 }
 
-/**
- * Which download methods a match actually offers, derived from its
- * magnet, torrent URL and mirror URIs. A result offering several
- * methods appears under each of them.
- */
+/** Which download methods a match actually offers. */
 export function matchDownloadTypes(
   match: DownloadSearchResult,
 ): Set<"torrent" | "magnet" | "direct"> {
@@ -326,16 +503,14 @@ export function matchDownloadTypes(
   return types;
 }
 
-/**
- * Filter a list of matches by active source filter, platform class,
- * download type and search text.
- */
+/** Filter a list of matches by active source filter, platform class, download type, group filter, and search text. */
 export function filterMatches(
   matches: DisplayMatch[],
   sourceFilter: string,
   searchQuery?: string,
   platformFilter: PlatformFilter = "all",
   typeFilter: DownloadTypeFilter = "all",
+  groupFilter = "all",
 ): DisplayMatch[] {
   let list = matches;
 
@@ -358,12 +533,19 @@ export function filterMatches(
     list = list.filter((m) => {
       const cat = platformCategoryOf(m);
       if (platformFilter === "pc") return cat !== "console";
-      return cat !== "pc"; // console: keep console + hybrid hits
+      return cat !== "pc";
     });
   }
 
   if (typeFilter && typeFilter !== "all") {
     list = list.filter((m) => matchDownloadTypes(m).has(typeFilter));
+  }
+
+  if (groupFilter && groupFilter !== "all") {
+    list = list.filter((m) => {
+      const meta = parseReleaseMetadata(m.title);
+      return meta.group?.toLowerCase() === groupFilter.toLowerCase();
+    });
   }
 
   if (searchQuery && searchQuery.trim()) {
@@ -381,32 +563,33 @@ export function filterMatches(
   return list;
 }
 
-/** Return a re-sorted copy of the matches for display. The canonical
- *  `matches` array stays score-ordered; this only affects presentation
- *  and the selection mapping (which is id-based, so reordering is safe).
- *
- *  Plugin results are a distinct block: the backend pre-sorts them
- *  newest-first, so user sorting applies to the source block only and
- *  plugin rows always stay grouped at the bottom in their returned
- *  order when viewing all sources. When filtering by a single source/plugin,
- *  all results in that group sort according to the selected sort key. */
-export function sortMatches<T extends { sourceName: string; matchScore: number; uploadDate?: string | null; provider?: string }>(
+/** Return a re-sorted copy of the matches for display. */
+export function sortMatches<T extends { sourceName: string; matchScore: number; uploadDate?: string | null; fileSize?: string | null; seeds?: number | null; provider?: string }>(
   list: T[],
-  sortBy: "date" | "source" | "relevance",
+  sortBy: SortKey,
   isFiltered = false,
 ): T[] {
+  const comparator = (a: T, b: T): number => {
+    switch (sortBy) {
+      case "source":
+        return a.sourceName.localeCompare(b.sourceName) || b.matchScore - a.matchScore;
+      case "relevance":
+        return b.matchScore - a.matchScore;
+      case "size_desc":
+        return parseByteSize(b.fileSize) - parseByteSize(a.fileSize) || b.matchScore - a.matchScore;
+      case "size_asc":
+        return parseByteSize(a.fileSize) - parseByteSize(b.fileSize) || b.matchScore - a.matchScore;
+      case "seeds":
+        return (b.seeds ?? 0) - (a.seeds ?? 0) || b.matchScore - a.matchScore;
+      case "date":
+      default:
+        return dateValue(b.uploadDate) - dateValue(a.uploadDate) || b.matchScore - a.matchScore;
+    }
+  };
+
   if (isFiltered) {
     const copy = [...list];
-    if (sortBy === "source") {
-      copy.sort(
-        (a, b) =>
-          a.sourceName.localeCompare(b.sourceName) || b.matchScore - a.matchScore,
-      );
-    } else if (sortBy === "relevance") {
-      copy.sort((a, b) => b.matchScore - a.matchScore);
-    } else {
-      copy.sort((a, b) => dateValue(b.uploadDate) - dateValue(a.uploadDate));
-    }
+    copy.sort(comparator);
     return copy;
   }
 
@@ -416,17 +599,8 @@ export function sortMatches<T extends { sourceName: string; matchScore: number; 
     if (item.provider === "plugin") plugins.push(item);
     else sources.push(item);
   }
-  if (sortBy === "source") {
-    sources.sort(
-      (a, b) =>
-        a.sourceName.localeCompare(b.sourceName) || b.matchScore - a.matchScore,
-    );
-  } else if (sortBy === "relevance") {
-    sources.sort((a, b) => b.matchScore - a.matchScore);
-  } else {
-    // date — newest first; entries without a parseable date go last.
-    sources.sort((a, b) => dateValue(b.uploadDate) - dateValue(a.uploadDate));
-  }
+
+  sources.sort(comparator);
   return [...sources, ...plugins];
 }
 
@@ -440,4 +614,3 @@ export function getFileCategory(filename: string): "executable" | "archive" | "d
   if (["pak", "dat", "vpk", "bundle", "rpf", "asset", "assets", "arc", "cpk"].includes(ext)) return "data";
   return "document";
 }
-
