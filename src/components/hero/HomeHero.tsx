@@ -9,6 +9,7 @@ import HeroTrailer from "./HeroTrailer";
 import FriendsPlayingStrip from "./FriendsPlayingStrip";
 import PlayerCountBadge from "../PlayerCountBadge";
 import { useSteamAppId } from "../../hooks/useSteamAppId";
+import { useSteamGridArt } from "../../context/SteamGridDbContext";
 
 interface HomeHeroProps {
   games: Game[];
@@ -162,6 +163,17 @@ export default function HomeHero({ games, onOpenGame }: HomeHeroProps) {
   // Keep active index within bounds
   const currentSpotlight = spotlightDeck[activeIndex] ?? spotlightDeck[0] ?? null;
   const activeGame = currentSpotlight?.game ?? null;
+
+  // SteamGridDB community hero art — animated preferred, falling back to the
+  // game's own banner / cover for the spotlight card.
+  const sgdb = useSteamGridArt(activeGame?.steamAppId);
+  const [sgdbHeroFailed, setSgdbHeroFailed] = useState(false);
+  const sgdbHeroUrl =
+    (sgdb?.heroAnimatedUrl ?? sgdb?.heroUrl) && activeGame && !sgdbHeroFailed
+      ? (sgdb?.heroAnimatedUrl ?? sgdb?.heroUrl)
+      : null;
+  const spotlightPoster =
+    sgdbHeroUrl ?? activeGame?.bannerUrl ?? activeGame?.coverArtUrl ?? null;
 
   // Auto-advance spotlight every 8 seconds if not paused
   useEffect(() => {
@@ -433,12 +445,13 @@ export default function HomeHero({ games, onOpenGame }: HomeHeroProps) {
             >
               <div className="home-spotlight__cover">
                 {activeGame.videos && activeGame.videos.length > 0 ? (
-                  <HeroTrailer src={activeGame.videos[0]} poster={activeGame.bannerUrl ?? activeGame.coverArtUrl} autoplay />
-                ) : (activeGame.bannerUrl ?? activeGame.coverArtUrl) ? (
+                  <HeroTrailer src={activeGame.videos[0]} poster={spotlightPoster ?? undefined} autoplay />
+                ) : spotlightPoster ? (
                   <img
-                    src={activeGame.bannerUrl ?? activeGame.coverArtUrl}
+                    src={spotlightPoster}
                     alt={activeGame.name}
                     loading="lazy"
+                    onError={sgdbHeroUrl ? () => setSgdbHeroFailed(true) : undefined}
                   />
                 ) : (
                   <div className="home-spotlight__placeholder">

@@ -10,6 +10,7 @@ use tokio::sync::Mutex;
 mod config;
 mod discord_presence;
 mod crackwatch;
+mod steamgriddb;
 mod price;
 mod protondb;
 mod db;
@@ -166,6 +167,8 @@ pub fn run() {
             downloads::download_history_clear,
             crackwatch::fetch_crackwatch_status,
             crackwatch::fetch_crackwatch_status_batch,
+            steamgriddb::sgdb_get_assets,
+            steamgriddb::sgdb_get_assets_batch,
             price::fetch_game_prices_batch,
             protondb::fetch_protondb_status,
             fetch_url,

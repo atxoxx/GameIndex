@@ -1,9 +1,14 @@
-import { Fragment, useContext, type MouseEvent } from "react";
+import { Fragment, useContext, useState, type MouseEvent } from "react";
 import { useProgressiveImage } from "../../hooks/useProgressiveImages";
 import { useCrackWatch } from "../../context/CrackWatchContext";
 import { usePrice } from "../../context/PriceContext";
 import { WishlistContext } from "../../context/WishlistContext";
 import { DensityContext } from "../../context/DensityContext";
+import {
+  useSteamGridArt,
+  usePrefetchImage,
+} from "../../context/SteamGridDbContext";
+import { extractSteamAppIdFromWebsites } from "../../types/game";
 import type { StoreGameSummary, ViewDensity } from "../../types/game";
 import { useLanguage } from "../../context/LanguageContext";
 import StoreHighlightText from "./StoreHighlightText";
@@ -63,6 +68,22 @@ export default function StoreGameCard({
   const [coverUrl, imgRef] = useProgressiveImage(game.coverUrl);
   const { t } = useLanguage();
 
+  // SteamGridDB community poster — static grid shown by default, animated
+  // WebP/APNG swapped in on hover, falling back to the IGDB cover. The
+  // AppID is pulled from the game's Steam store URL.
+  const steamAppId = extractSteamAppIdFromWebsites(game.websites);
+  const sgdb = useSteamGridArt(steamAppId);
+  const [sgdbFailed, setSgdbFailed] = useState(false);
+  const [hovered, setHovered] = useState(false);
+  const sgdbStatic = sgdb?.gridUrl && !sgdbFailed ? sgdb.gridUrl : null;
+  const sgdbAnimated = sgdb?.gridAnimatedUrl && !sgdbFailed ? sgdb.gridAnimatedUrl : null;
+  // Warm the animated buffer up front so hovering is instant, and only attach
+  // the progressive-download ref when showing the plain IGDB cover.
+  usePrefetchImage(sgdbAnimated);
+  const hasSgdbGrid = Boolean(sgdb?.gridUrl || sgdb?.gridAnimatedUrl);
+  const posterUrl =
+    hovered && sgdbAnimated ? sgdbAnimated : (sgdbStatic ?? coverUrl);
+
   const showBody = density !== "compact";
   const genresToShow = density === "cinematic" ? 4 : density === "list" ? 3 : 2;
   const showHeart = Boolean(onToggleWishlist);
@@ -83,6 +104,8 @@ export default function StoreGameCard({
             onClick(game);
           }
         }}
+        onMouseEnter={() => setHovered(true)}
+        onMouseLeave={() => setHovered(false)}
         onKeyDown={(e) => {
           if (e.key === "Enter" || e.key === " ") {
             e.preventDefault();
@@ -108,8 +131,14 @@ export default function StoreGameCard({
         )}
 
         <div className="store-card-list-thumb">
-          {coverUrl ? (
-            <img ref={imgRef} src={coverUrl} alt={game.name} loading="lazy" />
+          {posterUrl ? (
+            <img
+              ref={hasSgdbGrid ? undefined : imgRef}
+              src={posterUrl}
+              alt={game.name}
+              loading="lazy"
+              onError={hasSgdbGrid ? () => setSgdbFailed(true) : undefined}
+            />
           ) : (
             <div className="store-card-cover-skeleton" />
           )}
@@ -255,6 +284,8 @@ export default function StoreGameCard({
           onClick(game);
         }
       }}
+      onMouseEnter={() => setHovered(true)}
+      onMouseLeave={() => setHovered(false)}
       onKeyDown={(e) => {
         if (e.key === "Enter" || e.key === " ") {
           e.preventDefault();
@@ -285,8 +316,14 @@ export default function StoreGameCard({
           </span>
         )}
 
-        {coverUrl ? (
-          <img ref={imgRef} src={coverUrl} alt={game.name} loading="lazy" />
+        {posterUrl ? (
+          <img
+            ref={hasSgdbGrid ? undefined : imgRef}
+            src={posterUrl}
+            alt={game.name}
+            loading="lazy"
+            onError={hasSgdbGrid ? () => setSgdbFailed(true) : undefined}
+          />
         ) : (
           <div className="store-card-cover-skeleton">
             <svg

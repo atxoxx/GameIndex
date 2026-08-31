@@ -5,6 +5,10 @@ import { useGameAccent } from "../../hooks/useGameAccent";
 import { useSettings } from "../../context/SettingsContext";
 import { applyGameAccentFamily } from "../../utils/color";
 import { useAchievements } from "../../context/AchievementContext";
+import {
+  useSteamGridArt,
+  usePrefetchImage,
+} from "../../context/SteamGridDbContext";
 import PlayerCountBadge from "../PlayerCountBadge";
 import GameLaunchActions from "./GameLaunchActions";
 import FriendsPlayingStrip from "../hero/FriendsPlayingStrip";
@@ -88,14 +92,24 @@ export default function GameHero({
 
   const [coverErrored, setCoverErrored] = useState(false);
   const [logoErrored, setLogoErrored] = useState(false);
+  const [sgdbPosterFailed, setSgdbPosterFailed] = useState(false);
   const [ambientStep, setAmbientStep] = useState(0);
   const { autoGameAccent, showGameArtBackdrop } = useSettings();
   const gamePalette = useGameAccent(accentSrc || undefined);
 
+  // SteamGridDB community art — animated hero for the backdrop, static grid
+  // for the poster, falling back to the game's own art / Steam CDN ladder.
+  const sgdb = useSteamGridArt(steamAppId);
+  const sgdbHeroUrl = sgdb?.heroAnimatedUrl ?? sgdb?.heroUrl ?? null;
+  const sgdbGridUrl = sgdb?.gridUrl && !sgdbPosterFailed ? sgdb.gridUrl : null;
+  // Warm the animated hero so the backdrop plays without a network hitch.
+  usePrefetchImage(sgdbHeroUrl);
+
   useEffect(() => {
     setLogoErrored(false);
     setCoverErrored(false);
-  }, [logoUrl, coverUrl, name]);
+    setSgdbPosterFailed(false);
+  }, [logoUrl, coverUrl, steamAppId, name]);
 
   useEffect(() => {
     if (!autoGameAccent || !gamePalette) return;
@@ -108,8 +122,8 @@ export default function GameHero({
       ? `https://cdn.akamai.steamstatic.com/steam/apps/${steamAppId}/library_hero.jpg`
       : null;
   const ambientCandidates = useMemo(
-    () => [steamCdnBanner, bannerUrl, coverUrl].filter((u): u is string => !!u),
-    [steamCdnBanner, bannerUrl, coverUrl]
+    () => [sgdbHeroUrl, steamCdnBanner, bannerUrl, coverUrl].filter((u): u is string => !!u),
+    [sgdbHeroUrl, steamCdnBanner, bannerUrl, coverUrl]
   );
   const ambientSrc =
     ambientStep < ambientCandidates.length ? ambientCandidates[ambientStep] : null;
@@ -138,7 +152,8 @@ export default function GameHero({
     .filter(Boolean)
     .join(" ");
 
-  const showPoster = !!coverUrl && !coverErrored;
+  const posterSrc = sgdbGridUrl ?? coverUrl;
+  const showPoster = !!posterSrc && !coverErrored;
   const friends = friendsProp ?? (isGame ? { gameName: game.name, gameId: game.id } : null);
 
   // ── Info-row meta ────────────────────────────────────────────
@@ -257,10 +272,18 @@ export default function GameHero({
         {showPoster && (
           <div className="game-hero__poster" aria-hidden="true">
             <img
-              src={coverUrl!}
+              src={posterSrc!}
               alt=""
               className="game-hero__poster-img"
-              onError={() => setCoverErrored(true)}
+              onError={() => {
+                // A failed SteamGridDB poster falls back to the game's own
+                // cover; a failed cover hides the poster entirely.
+                if (sgdbGridUrl) {
+                  setSgdbPosterFailed(true);
+                } else {
+                  setCoverErrored(true);
+                }
+              }}
             />
             {isGame && game.installed && (
               <span className="game-hero__poster-badge game-hero__poster-badge--installed">

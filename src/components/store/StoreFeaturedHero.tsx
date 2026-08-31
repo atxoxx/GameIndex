@@ -4,6 +4,10 @@ import type { GameMetadataResult, StoreGameSummary } from "../../types/game";
 import { useLanguage } from "../../context/LanguageContext";
 import { WishlistContext } from "../../context/WishlistContext";
 import { useProgressiveImage } from "../../hooks/useProgressiveImages";
+import {
+  useSteamGridArt,
+  usePrefetchImage,
+} from "../../context/SteamGridDbContext";
 import { Button } from "../ui";
 import StoreSurpriseModal from "./StoreSurpriseModal";
 
@@ -336,6 +340,18 @@ export default function StoreFeaturedHero({ onPickGame }: StoreFeaturedHeroProps
   const [coverUrl] = useProgressiveImage(activeGame?.coverUrl);
   const [backdropLoadedUrl] = useProgressiveImage(backdropArtUrl);
 
+  // SteamGridDB community art — animated grid for the poster, animated hero
+  // for the backdrop, both falling back to their static versions then the
+  // plain IGDB cover / Steam CDN hero. Assets are prefetched on load so the
+  // animation is already in the browser cache when a slide becomes active.
+  const steamAppIdNum = steamAppId ? parseInt(steamAppId, 10) : null;
+  const sgdb = useSteamGridArt(steamAppIdNum);
+  usePrefetchImage(sgdb?.gridAnimatedUrl);
+  usePrefetchImage(sgdb?.heroAnimatedUrl);
+  const posterSrc = sgdb?.gridAnimatedUrl ?? sgdb?.gridUrl ?? coverUrl;
+  const spotlightBackdrop =
+    sgdb?.heroAnimatedUrl ?? sgdb?.heroUrl ?? backdropLoadedUrl ?? coverUrl;
+
   const releaseYear = activeGame?.firstReleaseDate
     ? new Date(activeGame.firstReleaseDate).getFullYear()
     : null;
@@ -427,7 +443,7 @@ export default function StoreFeaturedHero({ onPickGame }: StoreFeaturedHeroProps
               <video
                 key={trailerVideoSrc}
                 src={trailerVideoSrc}
-                poster={backdropLoadedUrl || coverUrl || undefined}
+                poster={spotlightBackdrop || undefined}
                 autoPlay
                 muted
                 loop
@@ -435,10 +451,10 @@ export default function StoreFeaturedHero({ onPickGame }: StoreFeaturedHeroProps
                 className="store-spotlight-bg-video"
                 onError={() => setVideoFailed(true)}
               />
-            ) : (backdropLoadedUrl || coverUrl) ? (
+            ) : spotlightBackdrop ? (
               <img
-                key={`${activeGame.id}-${backdropLoadedUrl || coverUrl}`}
-                src={backdropLoadedUrl || coverUrl || ""}
+                key={`${activeGame.id}-${spotlightBackdrop}`}
+                src={spotlightBackdrop}
                 alt=""
                 className="store-spotlight-bg-img"
               />
@@ -608,8 +624,8 @@ export default function StoreFeaturedHero({ onPickGame }: StoreFeaturedHeroProps
           {/* Right Showcase 3D Poster / Preview */}
           <div className="store-spotlight-media" onClick={() => onPickGame(activeGame)}>
             <div className="store-spotlight-card-wrap">
-              {coverUrl ? (
-                <img src={coverUrl} alt={activeGame.name} className="store-spotlight-poster" />
+              {posterSrc ? (
+                <img src={posterSrc} alt={activeGame.name} className="store-spotlight-poster" />
               ) : (
                 <div className="store-spotlight-poster-placeholder" />
               )}

@@ -27,6 +27,7 @@ import { BigScreenProvider, useBigScreen } from "./context/BigScreenContext";
 import { LanguageProvider } from "./context/LanguageContext";
 import { PresenceProvider } from "./context/PresenceContext";
 import { UpdateProvider } from "./context/UpdateContext";
+import { SteamGridDbProvider } from "./context/SteamGridDbContext";
 import { UpdateModal } from "./components/ui/UpdateModal";
 import { UpdateNotification } from "./components/ui/UpdateNotification";
 import {
@@ -126,14 +127,16 @@ function App() {
                               <DownloadProvider>
                                 <SettingsProvider>
                                   <SessionNotesProvider>
-                                    <BigScreenProvider>
-                                      <PresenceProvider>
+                                    <SteamGridDbProvider>
+                                      <BigScreenProvider>
+                                        <PresenceProvider>
                                         <AdaptiveThemeSync />
                                         <AppShell />
                                         <UpdateModal />
                                         <UpdateNotification />
                                       </PresenceProvider>
-                                    </BigScreenProvider>
+                                      </BigScreenProvider>
+                                    </SteamGridDbProvider>
                                   </SessionNotesProvider>
                                 </SettingsProvider>
                               </DownloadProvider>

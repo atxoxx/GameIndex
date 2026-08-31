@@ -1,0 +1,25 @@
+/**
+ * SteamGridDB artwork for a single Steam AppID.
+ *
+ * Mirrors the Rust `SgdbAssets` struct (camelCase serialization). Each kind
+ * carries a **static** version (shown by default) and an **animated**
+ * version (WebP/APNG — used on card hover and as the hero background, so
+ * the animated art plays where the user expects motion). Every field is
+ * `null` when the community has no artwork of that kind/variant for the
+ * game; `mime` lets a renderer tell whether a URL is animated
+ * (`image/apng`, `image/webp`) or static (`image/png`, `image/jpeg`).
+ */
+export interface SgdbAssets {
+  /** Best static vertical grid / poster (600×900-style community art). */
+  gridUrl: string | null;
+  gridMime: string | null;
+  /** Best animated grid (APNG / animated WebP) — card hover. */
+  gridAnimatedUrl: string | null;
+  gridAnimatedMime: string | null;
+  /** Best static wide hero / banner (460×215-style community art). */
+  heroUrl: string | null;
+  heroMime: string | null;
+  /** Best animated hero — hero background. */
+  heroAnimatedUrl: string | null;
+  heroAnimatedMime: string | null;
+}

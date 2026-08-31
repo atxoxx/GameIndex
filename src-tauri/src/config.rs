@@ -110,6 +110,24 @@ pub fn get_opencritic_rapidapi_key() -> String {
     }
 }
 
+/// Returns the SteamGridDB API key used by the `steamgriddb` module to fetch
+/// community grid / hero artwork.
+///
+/// Priority: compile-time `STEAMGRIDDB_API_KEY` env var (obfuscated via
+/// `obfstr!`) → runtime env var (loaded from `.env` by `load_env_file()`) →
+/// empty string. No key means the artwork feature is a silent no-op (games
+/// keep their existing art).
+pub fn get_steamgriddb_api_key() -> String {
+    #[cfg(baked_STEAMGRIDDB_API_KEY)]
+    {
+        obfstr::obfstr!(env!("STEAMGRIDDB_API_KEY")).to_string()
+    }
+    #[cfg(not(baked_STEAMGRIDDB_API_KEY))]
+    {
+        std::env::var("STEAMGRIDDB_API_KEY").unwrap_or_default()
+    }
+}
+
 /// Returns the Discord application (client) ID used for Rich Presence.
 ///
 /// Priority: compile-time `DISCORD_CLIENT_ID` env var (obfuscated via
@@ -148,6 +166,9 @@ mod tests {
         }
         if let Some(v) = option_env!("DISCORD_CLIENT_ID") {
             assert_eq!(get_discord_client_id(), v);
+        }
+        if let Some(v) = option_env!("STEAMGRIDDB_API_KEY") {
+            assert_eq!(get_steamgriddb_api_key(), v);
         }
     }
 }

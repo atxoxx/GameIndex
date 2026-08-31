@@ -1,10 +1,14 @@
-import { memo, useEffect, useRef } from "react";
+import { memo, useEffect, useRef, useState } from "react";
 import { Badge } from "../ui";
 import type { Game } from "../../types/game";
 import { PLAY_STATUS_DETAILS } from "../../types/game";
 import { useGames, NO_IGDB_MATCH_SOURCE } from "../../context/GameContext";
 import { useLanguage } from "../../context/LanguageContext";
 import { useSettings } from "../../context/SettingsContext";
+import {
+  useSteamGridArt,
+  usePrefetchImage,
+} from "../../context/SteamGridDbContext";
 import { playLaunchSound } from "../../utils/soundEffects";
 
 interface LibraryGameCardProps {
@@ -48,6 +52,47 @@ function LibraryGameCardBase({
   const { t } = useLanguage();
   const { showCardBadges, isSimpleUi } = useSettings();
   const coverRef = useRef<HTMLDivElement | null>(null);
+
+  // SteamGridDB community art: static grid shown by default, animated WebP/
+  // APNG swapped in on hover. Falls back to the existing cover (which may
+  // itself fall back to Steam CDN art) when there's no SGDB grid.
+  const [sgdbFailed, setSgdbFailed] = useState(false);
+  const [hovered, setHovered] = useState(false);
+  const sgdb = useSteamGridArt(game.steamAppId);
+  const sgdbStatic = sgdb?.gridUrl && !sgdbFailed ? sgdb.gridUrl : null;
+  const sgdbAnimated = sgdb?.gridAnimatedUrl && !sgdbFailed ? sgdb.gridAnimatedUrl : null;
+  // Warm the animated buffer up front so hovering is instant.
+  usePrefetchImage(sgdbAnimated);
+  const posterUrl =
+    hovered && sgdbAnimated ? sgdbAnimated : (sgdbStatic ?? game.coverArtUrl);
+
+  const handlePosterError = (e: React.SyntheticEvent<HTMLImageElement>) => {
+    const img = e.currentTarget;
+    // A failed SteamGridDB image (animated or static) falls back to the
+    // existing cover rather than wiping it; the existing CDN ladder handles
+    // Steam-art failures.
+    if (sgdbAnimated && img.src === sgdbAnimated) {
+      setSgdbFailed(true);
+      return;
+    }
+    if (sgdbStatic && img.src === sgdbStatic) {
+      setSgdbFailed(true);
+      return;
+    }
+    const appId = game.steamAppId;
+    if (appId) {
+      if (img.src.includes("library_600x900_2x")) {
+        img.src = `https://cdn.akamai.steamstatic.com/steam/apps/${appId}/library_600x900.jpg`;
+        return;
+      }
+      if (img.src.includes("library_600x900")) {
+        img.src = `https://cdn.akamai.steamstatic.com/steam/apps/${appId}/header.jpg`;
+        return;
+      }
+    }
+    console.warn(`Cover image failed for ${game.name}, falling back to placeholder`);
+    updateGame(game.id, { coverArtUrl: undefined, coverSourceUrl: undefined });
+  };
 
   const canAutoFetchCover =
     !game.coverArtUrl &&
@@ -97,6 +142,8 @@ function LibraryGameCardBase({
           }
         }}
         onContextMenu={onContextMenu}
+        onMouseEnter={() => setHovered(true)}
+        onMouseLeave={() => setHovered(false)}
         onKeyDown={(e) => {
           if (e.target !== e.currentTarget) return;
           if (e.key === "Enter" || e.key === " ") {
@@ -121,8 +168,8 @@ function LibraryGameCardBase({
         )}
 
         <div className="lib-card-list-thumb">
-          {game.coverArtUrl ? (
-            <img src={game.coverArtUrl} alt={game.name} loading="lazy" />
+          {posterUrl ? (
+            <img src={posterUrl} alt={game.name} loading="lazy" onError={handlePosterError} />
           ) : (
             <div className="lib-card-placeholder" />
           )}
@@ -218,6 +265,8 @@ function LibraryGameCardBase({
         }
       }}
       onContextMenu={onContextMenu}
+      onMouseEnter={() => setHovered(true)}
+      onMouseLeave={() => setHovered(false)}
       onKeyDown={(e) => {
         if (e.target !== e.currentTarget) return;
         if (e.key === "Enter" || e.key === " ") {
@@ -242,28 +291,13 @@ function LibraryGameCardBase({
           </span>
         )}
 
-        {game.coverArtUrl ? (
+        {posterUrl ? (
           <img
-            src={game.coverArtUrl}
+            src={posterUrl}
             alt={game.name}
             loading="lazy"
             decoding="async"
-            onError={(e) => {
-              const img = e.currentTarget;
-              const appId = game.steamAppId;
-              if (appId) {
-                if (img.src.includes("library_600x900_2x")) {
-                  img.src = `https://cdn.akamai.steamstatic.com/steam/apps/${appId}/library_600x900.jpg`;
-                  return;
-                }
-                if (img.src.includes("library_600x900")) {
-                  img.src = `https://cdn.akamai.steamstatic.com/steam/apps/${appId}/header.jpg`;
-                  return;
-                }
-              }
-              console.warn(`Cover image failed for ${game.name}, falling back to placeholder`);
-              updateGame(game.id, { coverArtUrl: undefined, coverSourceUrl: undefined });
-            }}
+            onError={handlePosterError}
           />
         ) : (
           <div className="lib-card-placeholder">

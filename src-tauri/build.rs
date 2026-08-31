@@ -9,6 +9,7 @@ fn main() {
         "TWITCH_CLIENT_SECRET",
         "OPENCRITIC_RAPIDAPI_KEY",
         "DISCORD_CLIENT_ID",
+        "STEAMGRIDDB_API_KEY",
     ] {
         if std::env::var(var).is_ok() {
             println!("cargo:rustc-cfg=baked_{}", var);
