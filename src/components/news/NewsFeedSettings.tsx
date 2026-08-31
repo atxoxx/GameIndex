@@ -1,4 +1,5 @@
 import { useState, useCallback, useEffect, useRef, useMemo } from "react";
+import { createPortal } from "react-dom";
 import type { NewsFeed, FeedHealthStatus } from "../../hooks/useNewsFeeds";
 import { DEFAULT_FEEDS, CURATED_FEED_PACKS, getRegionalFeeds, discoverFeedUrl } from "../../hooks/useNewsFeeds";
 import { useLanguage } from "../../context/LanguageContext";
@@ -150,7 +151,7 @@ export default function NewsFeedSettings({
     return customFeeds.filter((f) => f.name.toLowerCase().includes(q) || f.url.toLowerCase().includes(q));
   }, [customFeeds, searchFilter]);
 
-  return (
+  return createPortal(
     <div
       className="modal-backdrop"
       onClick={(e) => {
@@ -547,6 +548,7 @@ export default function NewsFeedSettings({
           </div>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }

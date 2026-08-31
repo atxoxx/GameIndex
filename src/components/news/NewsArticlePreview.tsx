@@ -1,4 +1,5 @@
 import { useEffect, useCallback, useRef, useState, useMemo } from "react";
+import { createPortal } from "react-dom";
 import { openUrl } from "@tauri-apps/plugin-opener";
 import { Webview } from "@tauri-apps/api/webview";
 import { getCurrentWindow } from "@tauri-apps/api/window";
@@ -311,7 +312,12 @@ export default function NewsArticlePreview({
     });
   };
 
-  return (
+  // Rendered through a portal onto document.body so the `position: fixed`
+  // backdrop is ALWAYS anchored to the viewport — page-level entrance
+  // animations that leave a transform/filter on .page would otherwise turn
+  // the page into the modal's containing block, centering it on the whole
+  // scrollable page instead of the current scroll position.
+  return createPortal(
     <div
       className="modal-backdrop"
       onClick={(e) => {
@@ -703,7 +709,8 @@ export default function NewsArticlePreview({
           </div>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }
 
