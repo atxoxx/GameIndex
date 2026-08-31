@@ -205,12 +205,23 @@ export function useEnrich(options: {
         publisher: setIfEmpty("publisher", meta.publisher ?? undefined),
         releaseDate: setIfEmpty("releaseDate", meta.releaseDate ?? undefined),
         genres: current.genres && current.genres.length > 0 ? current.genres : (meta.genres.length > 0 ? meta.genres : undefined),
-        // For images, prefer the IGDB cover/hero over orphaned Steam CDN URLs
-        // when IGDB returned one — otherwise keep whatever's already there.
-        coverArtUrl: images.coverArtUrl ?? current.coverArtUrl,
-        coverSourceUrl: images.coverSourceUrl ?? current.coverSourceUrl,
-        bannerUrl: images.bannerUrl ?? current.bannerUrl,
-        logoUrl: images.logoUrl ?? current.logoUrl,
+        // USER-SET MEDIA WINS: an image the user picked in the edit modal is
+        // always a base64 data URL. Never replace it with metadata art — only
+        // fill empty slots (and keep remote https URLs that may be orphans,
+        // since they were never user-selected). This guarantees a saved
+        // icon/cover/hero/logo persists across re-enrichment.
+        coverArtUrl: isFrontendUsableImage(current.coverArtUrl)
+          ? current.coverArtUrl
+          : (images.coverArtUrl ?? current.coverArtUrl),
+        coverSourceUrl: isFrontendUsableImage(current.coverArtUrl)
+          ? current.coverSourceUrl
+          : (images.coverSourceUrl ?? current.coverSourceUrl),
+        bannerUrl: isFrontendUsableImage(current.bannerUrl)
+          ? current.bannerUrl
+          : (images.bannerUrl ?? current.bannerUrl),
+        logoUrl: isFrontendUsableImage(current.logoUrl)
+          ? current.logoUrl
+          : (images.logoUrl ?? current.logoUrl),
         igdbRating: current.igdbRating ?? meta.igdbRating ?? undefined,
         criticRating: current.criticRating ?? meta.criticRating ?? undefined,
         themes: current.themes ?? meta.themes ?? undefined,

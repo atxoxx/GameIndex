@@ -5,7 +5,7 @@ import {
   type GameMetadataResult,
   type LaunchBoxImageResult,
 } from "../../types/game";
-import type { SgdbAssets } from "../../types/steamgriddb";
+import type { SgdbAllAssets } from "../../types/steamgriddb";
 import { Button } from "../ui";
 import "./EditGameModal.css";
 
@@ -81,11 +81,30 @@ function steamUrlsFromMetadata(results: GameMetadataResult[]): string[] {
   return urls;
 }
 
+/** Steam CDN URLs that always exist for an AppID. Used so the poster
+ *  (cover) and other slots always offer the official Steam art, even when
+ *  the name-based metadata search misses the Steam entry. */
+function steamCdnUrlsForSlot(slot: MediaSlot, appId: number): string | null {
+  const base = `https://cdn.cloudflare.steamstatic.com/steam/apps/${appId}`;
+  switch (slot) {
+    case "cover":
+      return `${base}/library_600x900.jpg`;
+    case "hero":
+      return `${base}/library_hero.jpg`;
+    case "logo":
+      return `${base}/logo.png`;
+    case "icon":
+      return `${base}/capsule_231x87.jpg`;
+  }
+}
+
 /** Fetch candidate images for a single media slot across Steam, IGDB and
  *  SteamGridDB, restricted to jpg/jpeg/png/webp. Filters by extension and
  *  MIME where available, dedupes URLs, and preserves a stable source order.
  *  SteamGridDB needs a Steam AppID; when the game row lacks one we try to
- *  recover it from the metadata's Steam store links. */
+ *  recover it from the metadata's Steam store links. The SteamGridDB query
+ *  pulls the FULL gallery (all pages, throttled server-side) so the picker
+ *  shows every community upload, not just the single best item. */
 async function collectCandidates(
   slot: MediaSlot,
   gameName: string,
@@ -118,25 +137,32 @@ async function collectCandidates(
     /* metadata source unavailable — fall through to SteamGridDB */
   }
 
-  // SteamGridDB community art. Every slot maps to its own kind: icon →
-  // icon, cover → grid, hero → hero, logo → logo.
   const sgdbAppId = steamAppId ?? extractSteamAppIdFromWebsites(steamUrlsFromMetadata(results));
+
+  // Official Steam CDN art first (poster must come from Steam when we have
+  // an AppID), then the full SteamGridDB gallery for this slot's kind.
   if (sgdbAppId) {
+    push(steamCdnUrlsForSlot(slot, sgdbAppId), "Steam");
     try {
-      const assets = await invoke<SgdbAssets | null>("sgdb_get_assets", {
+      const assets = await invoke<SgdbAllAssets | null>("sgdb_get_all_assets", {
         steamAppId: sgdbAppId,
       });
       if (assets) {
-        if (slot === "icon") {
-          push(assets.iconUrl, "SteamGridDB", assets.iconMime);
-        } else if (slot === "cover") {
-          push(assets.gridUrl, "SteamGridDB", assets.gridMime);
-          push(assets.gridAnimatedUrl, "SteamGridDB", assets.gridAnimatedMime);
-        } else if (slot === "hero") {
-          push(assets.heroUrl, "SteamGridDB", assets.heroMime);
-          push(assets.heroAnimatedUrl, "SteamGridDB", assets.heroAnimatedMime);
-        } else if (slot === "logo") {
-          push(assets.logoUrl, "SteamGridDB", assets.logoMime);
+        const items =
+          slot === "icon"
+            ? assets.icons
+            : slot === "cover"
+            ? assets.grids
+            : slot === "hero"
+            ? assets.heroes
+            : assets.logos;
+        for (const item of items) {
+          push(item.url, "SteamGridDB", item.mime, {
+            resolution:
+              item.width > 0 && item.height > 0
+                ? `${item.width}x${item.height}`
+                : undefined,
+          });
         }
       }
     } catch {

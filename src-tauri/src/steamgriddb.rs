@@ -25,7 +25,8 @@
 //!   pattern as `crackwatch`'s batch command).
 
 use std::collections::{HashMap, HashSet};
-use std::time::{SystemTime, UNIX_EPOCH};
+use std::sync::{Mutex, OnceLock};
+use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 
 use serde::{Deserialize, Serialize};
 use tauri::Manager;
@@ -63,6 +64,29 @@ impl SgdbKind {
             SgdbKind::Logo => "logos/steam",
         }
     }
+}
+
+/// One image item returned to the media picker for a single kind.
+#[derive(Debug, Serialize, Deserialize, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct SgdbArtworkItem {
+    pub url: String,
+    pub mime: String,
+    pub width: u32,
+    pub height: u32,
+    pub score: f64,
+}
+
+/// All artwork SteamGridDB has for one AppID, grouped by kind. The media
+/// picker shows every item (not just the single "best" one from
+/// [`SgdbAssets`]), so the user can choose any community upload.
+#[derive(Debug, Serialize, Deserialize, Clone, Default)]
+#[serde(rename_all = "camelCase")]
+pub struct SgdbAllAssets {
+    pub grids: Vec<SgdbArtworkItem>,
+    pub heroes: Vec<SgdbArtworkItem>,
+    pub icons: Vec<SgdbArtworkItem>,
+    pub logos: Vec<SgdbArtworkItem>,
 }
 
 /// Combined artwork for one Steam AppID. Every field is optional: the
@@ -103,6 +127,10 @@ struct SgdbArtwork {
     url: Option<String>,
     #[serde(default)]
     mime: Option<String>,
+    #[serde(default)]
+    width: Option<u32>,
+    #[serde(default)]
+    height: Option<u32>,
     #[serde(default)]
     score: Option<f64>,
     #[serde(default)]
@@ -159,6 +187,39 @@ fn pick_best(mut items: Vec<SgdbArtwork>) -> Option<SgdbArtwork> {
     items.into_iter().next()
 }
 
+/// Minimum gap between SteamGridDB request starts. The free tier rate-limits
+/// hard, so the media picker's "fetch ALL images" pagination throttles page
+/// requests through this global lock instead of firing a burst.
+const MIN_REQUEST_GAP_MS: u64 = 300;
+/// Max pages fetched per kind in the "all images" path (50/page → 300 max).
+const MAX_ALL_PAGES: u32 = 6;
+/// Items per page returned by the v2 API (also the "last page" signal).
+const PAGE_SIZE: usize = 50;
+
+/// Process-wide request throttle shared by every SGDB HTTP call.
+static SGDB_RATE_LOCK: OnceLock<Mutex<Instant>> = OnceLock::new();
+
+/// Sleep only as long as needed to keep `MIN_REQUEST_GAP_MS` between request
+/// starts. The wait is computed under the lock but the lock is dropped before
+/// the sleep so the future stays `Send` (a `std::sync::Mutex` guard must not
+/// cross an `.await`). A `tokio::sync::Mutex` would be cleaner but drags in a
+/// tokio feature; the small race (two callers both sleeping once) is harmless.
+async fn throttle_request() {
+    let lock = SGDB_RATE_LOCK.get_or_init(|| Mutex::new(Instant::now()));
+    let mut wait_ms = 0u64;
+    {
+        let mut last = lock.lock().unwrap();
+        let elapsed = last.elapsed().as_millis() as u64;
+        if elapsed < MIN_REQUEST_GAP_MS {
+            wait_ms = MIN_REQUEST_GAP_MS - elapsed;
+        }
+        *last = Instant::now();
+    }
+    if wait_ms > 0 {
+        tokio::time::sleep(Duration::from_millis(wait_ms)).await;
+    }
+}
+
 struct SgdbService {
     client: reqwest::Client,
 }
@@ -203,6 +264,55 @@ impl SgdbService {
         kind: SgdbKind,
     ) -> Option<SgdbArtwork> {
         self.fetch_kind_with_types(api_key, app_id, kind, "static").await
+    }
+
+    /// Fetch ALL pages of a kind/types combo, throttled to respect the API's
+    /// rate limit. Stops at the first short page (fewer than `PAGE_SIZE`
+    /// items) or `MAX_ALL_PAGES`, whichever comes first — so a game with
+    /// hundreds of community uploads still resolves within a bounded number
+    /// of requests instead of hammering the endpoint.
+    async fn fetch_kind_all_pages(
+        &self,
+        api_key: &str,
+        app_id: u32,
+        kind: SgdbKind,
+        types: &str,
+    ) -> Vec<SgdbArtwork> {
+        let mut all = Vec::new();
+        for page in 0..MAX_ALL_PAGES {
+            let url = format!(
+                "{API_BASE}/{}/{}?types={types}&nsfw=false&humor=false&epilepsy=false&page={page}",
+                kind.path(),
+                app_id
+            );
+            throttle_request().await;
+            let resp = match self
+                .client
+                .get(&url)
+                .header("Authorization", format!("Bearer {api_key}"))
+                .send()
+                .await
+            {
+                Ok(r) => r,
+                Err(_) => break,
+            };
+            if !resp.status().is_success() {
+                break;
+            }
+            let body: SgdbApiResponse = match resp.json().await {
+                Ok(b) => b,
+                Err(_) => break,
+            };
+            if !body.success {
+                break;
+            }
+            let n = body.data.len();
+            all.extend(body.data);
+            if n < PAGE_SIZE {
+                break; // last page
+            }
+        }
+        all
     }
 
     async fn fetch_kind_with_types(
@@ -305,6 +415,80 @@ async fn fetch_assets(api_key: &str, app_id: u32) -> SgdbAssets {
     }
 }
 
+/// Convert raw API items into picker items, keeping only renderable MIMEs
+/// (png/jpg/webp) and sorting by community score so the best uploads lead.
+fn to_all_artwork_items(mut items: Vec<SgdbArtwork>) -> Vec<SgdbArtworkItem> {
+    items.sort_by(|a, b| {
+        b.score
+            .unwrap_or(0.0)
+            .partial_cmp(&a.score.unwrap_or(0.0))
+            .unwrap_or(std::cmp::Ordering::Equal)
+            .then(b.downloads.unwrap_or(0).cmp(&a.downloads.unwrap_or(0)))
+    });
+    items
+        .into_iter()
+        .filter(|a| is_renderable_mime(a.mime.as_deref()))
+        .filter_map(|a| {
+            let url = a.url?;
+            Some(SgdbArtworkItem {
+                url,
+                mime: a.mime.unwrap_or_default(),
+                width: a.width.unwrap_or(0),
+                height: a.height.unwrap_or(0),
+                score: a.score.unwrap_or(0.0),
+            })
+        })
+        .collect()
+}
+
+/// Fetch EVERY upload SteamGridDB has for an AppID — every page of every
+/// kind — so the media picker can show the full gallery instead of just the
+/// single best grid/hero. Pages are throttled via [`throttle_request`].
+async fn fetch_all_assets(api_key: &str, app_id: u32) -> SgdbAllAssets {
+    let (grids, heroes, icons, logos) = tokio::join!(
+        async {
+            let mut v = service()
+                .fetch_kind_all_pages(api_key, app_id, SgdbKind::Grid, "static")
+                .await;
+            v.extend(
+                service()
+                    .fetch_kind_all_pages(api_key, app_id, SgdbKind::Grid, "animated")
+                    .await,
+            );
+            to_all_artwork_items(v)
+        },
+        async {
+            let mut v = service()
+                .fetch_kind_all_pages(api_key, app_id, SgdbKind::Hero, "static")
+                .await;
+            v.extend(
+                service()
+                    .fetch_kind_all_pages(api_key, app_id, SgdbKind::Hero, "animated")
+                    .await,
+            );
+            to_all_artwork_items(v)
+        },
+        async {
+            let v = service()
+                .fetch_kind_all_pages(api_key, app_id, SgdbKind::Icon, "static")
+                .await;
+            to_all_artwork_items(v)
+        },
+        async {
+            let v = service()
+                .fetch_kind_all_pages(api_key, app_id, SgdbKind::Logo, "static")
+                .await;
+            to_all_artwork_items(v)
+        },
+    );
+    SgdbAllAssets {
+        grids,
+        heroes,
+        icons,
+        logos,
+    }
+}
+
 /// Whether a stored result carries any artwork (negatives are cached too).
 fn has_art(assets: &SgdbAssets) -> bool {
     assets.grid_url.is_some()
@@ -343,6 +527,74 @@ pub async fn sgdb_get_assets(app: tauri::AppHandle, steam_app_id: u32) -> Option
     let assets = fetch_assets(&api_key, steam_app_id).await;
     persist(&db, steam_app_id, &assets);
     has_art(&assets).then_some(assets)
+}
+
+/// Cache envelope for the full-gallery payload (kept separate from the
+/// best-art cache so the two shapes never collide).
+#[derive(Debug, Serialize, Deserialize, Clone)]
+struct CachedSgdbAllAssets {
+    #[serde(default)]
+    data: Option<SgdbAllAssets>,
+    updated_at: u64,
+}
+
+const ALL_CACHE_KEY_PREFIX: &str = "sgdb:all:v1:";
+
+fn all_cache_key(app_id: u32) -> String {
+    format!("{ALL_CACHE_KEY_PREFIX}{app_id}")
+}
+
+/// Fetch every SteamGridDB upload for a Steam AppID (all pages of grids,
+/// heroes, icons and logos), for the edit-modal media picker. Returns `None`
+/// when no API key is configured or the game has no community artwork.
+///
+/// Unlike [`sgdb_get_assets`] (which returns one best grid + hero), this
+/// returns the full gallery so the user can browse every community upload.
+/// The paginated fetch is throttled to respect the API's rate limit, and the
+/// result is cached for 7 days under its own key.
+#[tauri::command]
+pub async fn sgdb_get_all_assets(
+    app: tauri::AppHandle,
+    steam_app_id: u32,
+) -> Option<SgdbAllAssets> {
+    let db = app.state::<Db>().inner().clone();
+
+    // Cache hit? Return the full gallery (or None if the cached negative).
+    if let Ok(Some(raw)) = crate::db::kv::get(&db, &all_cache_key(steam_app_id)) {
+        if let Ok(cached) = serde_json::from_str::<CachedSgdbAllAssets>(&raw) {
+            if cached.updated_at + CACHE_TTL_MS > now_ms() {
+                return cached.data.filter(|a| {
+                    !(a.grids.is_empty()
+                        && a.heroes.is_empty()
+                        && a.icons.is_empty()
+                        && a.logos.is_empty())
+                });
+            }
+        }
+    }
+
+    if !has_api_key() {
+        return None;
+    }
+    let api_key = crate::config::get_steamgriddb_api_key();
+
+    let assets = fetch_all_assets(&api_key, steam_app_id).await;
+    let envelope = CachedSgdbAllAssets {
+        data: Some(assets.clone()),
+        updated_at: now_ms(),
+    };
+    if let Ok(json) = serde_json::to_string(&envelope) {
+        let key = all_cache_key(steam_app_id);
+        if let Err(e) = crate::db::kv::set(&db, &key, &json) {
+            eprintln!("[steamgriddb] all-assets cache write failed for {key}: {e}");
+        }
+    }
+
+    let has_any = !(assets.grids.is_empty()
+        && assets.heroes.is_empty()
+        && assets.icons.is_empty()
+        && assets.logos.is_empty());
+    has_any.then_some(assets)
 }
 
 /// Batch variant of [`sgdb_get_assets`]: a store/library grid of many cards
@@ -418,6 +670,8 @@ mod tests {
         SgdbArtwork {
             url: Some(url.to_string()),
             mime: Some(mime.to_string()),
+            width: Some(600),
+            height: Some(900),
             score: Some(score),
             downloads: Some(downloads),
         }
@@ -542,5 +796,28 @@ mod tests {
         assert!(resp.success);
         assert_eq!(resp.data.len(), 1);
         assert_eq!(resp.data[0].score, None);
+    }
+
+    #[test]
+    fn all_artwork_items_keep_every_renderable_upload() {
+        let items = vec![
+            art("low.png", "image/png", 0.2, 10),
+            art("top.webp", "image/webp", 5.0, 3),
+            art("bad.ico", "image/vnd.microsoft.icon", 9.0, 500),
+        ];
+        let converted = to_all_artwork_items(items);
+        // The picker shows the FULL gallery: both renderable uploads survive
+        // (unlike pick_best, which collapses to one), and ico is dropped.
+        assert_eq!(converted.len(), 2);
+        // Highest score leads.
+        assert_eq!(converted[0].url, "top.webp");
+        assert_eq!(converted[0].width, 600);
+        assert_eq!(converted[0].height, 900);
+    }
+
+    #[test]
+    fn all_artwork_items_drops_unrenderable_uploads() {
+        let converted = to_all_artwork_items(vec![art("a.ico", "image/vnd.microsoft.icon", 1.0, 1)]);
+        assert!(converted.is_empty());
     }
 }

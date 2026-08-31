@@ -168,6 +168,7 @@ pub fn run() {
             crackwatch::fetch_crackwatch_status,
             crackwatch::fetch_crackwatch_status_batch,
             steamgriddb::sgdb_get_assets,
+            steamgriddb::sgdb_get_all_assets,
             steamgriddb::sgdb_get_assets_batch,
             price::fetch_game_prices_batch,
             protondb::fetch_protondb_status,

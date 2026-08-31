@@ -1729,14 +1729,13 @@ async fn search_steam(game_name: &str) -> Option<GameMetadataResult> {
     }
     let data = wrapper.data.as_ref()?;
 
-    // Build images from the API response and CDN patterns
+    // Build images from the API response and CDN patterns. `tiny_image`
+    // from storesearch is already a full URL (e.g. shared.akamai.
+    // steamstatic.com/store_item_assets/.../capsule_231x87.jpg?t=...), not
+    // a hash — previously it was wrapped in the community-icon URL pattern,
+    // producing a broken double-URL that always 404'd.
     let images = GameImages {
-        icon: best_match.tiny_image.map(|hash| {
-            format!(
-                "https://cdn.cloudflare.steamstatic.com/steamcommunity/public/images/apps/{}/{}.jpg",
-                app_id, hash
-            )
-        }),
+        icon: best_match.tiny_image,
         cover: Some(format!(
             "https://cdn.cloudflare.steamstatic.com/steam/apps/{}/library_600x900.jpg",
             app_id

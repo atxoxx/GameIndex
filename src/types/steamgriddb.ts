@@ -29,3 +29,21 @@ export interface SgdbAssets {
   logoUrl: string | null;
   logoMime: string | null;
 }
+
+/** One image item in the full SteamGridDB gallery for a game. */
+export interface SgdbArtworkItem {
+  url: string;
+  mime: string;
+  width: number;
+  height: number;
+  score: number;
+}
+
+/** Every SteamGridDB upload for a game, grouped by kind. Returned by the
+ *  `sgdb_get_all_assets` command used by the edit-modal media picker. */
+export interface SgdbAllAssets {
+  grids: SgdbArtworkItem[];
+  heroes: SgdbArtworkItem[];
+  icons: SgdbArtworkItem[];
+  logos: SgdbArtworkItem[];
+}
