@@ -44,10 +44,24 @@ export default function ModInstallModal({
 
       if (!picked) return;
       
-      // If user selected files and we have a mods directory, open the folder for them to copy or extract
-      if (modsRoot) {
-        await invoke("open_folder", { path: modsRoot });
-        showToast(t("mods.installSuccess"), "success");
+      if (!modsRoot) {
+        showToast(t("mods.installFailed", { error: "No mods folder selected" }), "error");
+        return;
+      }
+      const files = typeof picked === "string" ? [picked] : picked;
+      for (const file of files) {
+        const lower = file.toLowerCase();
+        if (lower.endsWith(".zip")) {
+          const count = await invoke<number>("mods_install_archive", {
+            gameId: game.id,
+            archivePath: file,
+            destination: modsRoot,
+          });
+          showToast(t("mods.installSuccess", { count: String(count) }), "success");
+        } else {
+          await invoke("open_folder", { path: modsRoot });
+          showToast(t("mods.installModHint"), "info");
+        }
       }
     } catch (e) {
       showToast(t("mods.installFailed", { error: String(e) }), "error");

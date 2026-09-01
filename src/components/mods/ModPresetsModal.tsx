@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { invoke } from "@tauri-apps/api/core";
 import { useLanguage } from "../../context/LanguageContext";
 import { useToast } from "../../context/ToastContext";
 import { Button } from "../ui";
@@ -54,8 +55,17 @@ export default function ModPresetsModal({
 
   useEffect(() => {
     if (isOpen) {
-      setPresets(getGamePresets(game.id));
       setNameInput("");
+      invoke<ModPreset[]>("mods_profiles_list", { gameId: game.id })
+        .then((rows) => setPresets(rows.map((p) => ({
+          id: p.id,
+          name: p.name,
+          createdAt: p.createdAt,
+          gameId: p.gameId,
+          modStates: (p.modStates ?? {}) as Record<string, boolean>,
+          order: p.order,
+        }))))
+        .catch(() => setPresets(getGamePresets(game.id)));
     }
   }, [isOpen, game.id]);
 
@@ -83,6 +93,17 @@ export default function ModPresetsModal({
     const next = [...presets.filter((p) => p.name.toLowerCase() !== name.toLowerCase()), newPreset];
     saveGamePresets(game.id, next);
     setPresets(next);
+    void invoke("mods_profile_save", {
+      profile: {
+        id: newPreset.id,
+        gameId: game.id,
+        name: newPreset.name,
+        modStates: newPreset.modStates,
+        loadOrder: newPreset.order ?? [],
+        createdAt: newPreset.createdAt,
+        updatedAt: newPreset.createdAt,
+      },
+    });
     setNameInput("");
     showToast(t("mods.presets.saved", { name }), "success");
   };
@@ -104,6 +125,7 @@ export default function ModPresetsModal({
     const next = presets.filter((p) => p.id !== preset.id);
     saveGamePresets(game.id, next);
     setPresets(next);
+    void invoke("mods_profile_delete", { profileId: preset.id });
     showToast(t("mods.presets.deleted", { name: preset.name }), "info");
   };
 

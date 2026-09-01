@@ -57,6 +57,10 @@ export interface GameModsPayload {
 export interface ModConflict {
   relativePath: string;
   modIds: string[];
+  /** Highest load-order enabled mod that supplies this path. */
+  winnerModId?: string;
+  /** Disabled providers are retained for diagnostics but do not participate in precedence. */
+  disabledModIds?: string[];
 }
 
 export interface ModsOverviewEntry {

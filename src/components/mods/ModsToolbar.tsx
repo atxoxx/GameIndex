@@ -24,6 +24,7 @@ interface ModsToolbarProps {
   scanning: boolean;
   checkingUpdates: boolean;
   onScan: () => void;
+  onCancelScan: () => void;
   onCheckUpdates: () => void;
   onInstallMod: () => void;
   onOpenPresets: () => void;
@@ -55,6 +56,7 @@ export default function ModsToolbar({
   scanning,
   checkingUpdates,
   onScan,
+  onCancelScan,
   onCheckUpdates,
   onInstallMod,
   onOpenPresets,
@@ -209,7 +211,7 @@ export default function ModsToolbar({
             <Button
               variant="primary"
               size="sm"
-              onClick={onScan}
+              onClick={scanning ? onCancelScan : onScan}
               isLoading={scanning}
               disabled={!canScan}
               leftIcon={
@@ -219,7 +221,7 @@ export default function ModsToolbar({
                 </svg>
               }
             >
-              {scanning ? t("mods.scanning") : totalCount > 0 ? t("mods.rescan") : t("mods.scan")}
+              {scanning ? t("mods.cancelScan") : totalCount > 0 ? t("mods.rescan") : t("mods.scan")}
             </Button>
           </span>
 

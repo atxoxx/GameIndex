@@ -42,7 +42,10 @@ export default function ModManager({
     scanning,
     checkingUpdates,
     error,
+    scanProgress,
     scan,
+    cancelScan,
+    undoLast,
     setEnabled,
     reorder,
     remove,
@@ -369,6 +372,11 @@ export default function ModManager({
   };
 
   const handleApplyPreset = async (preset: ModPreset) => {
+    const knownIds = new Set(mods.map((m) => m.id));
+    const missingIds = Object.keys(preset.modStates).filter((id) => !knownIds.has(id));
+    if (missingIds.length > 0) {
+      showToast(t("mods.profileMissingMods", { count: String(missingIds.length) }), "warning");
+    }
     for (const [modId, state] of Object.entries(preset.modStates)) {
       const current = mods.find((m) => m.id === modId);
       if (current && current.enabled !== state) {
@@ -376,9 +384,11 @@ export default function ModManager({
       }
     }
     if (preset.order && supportsReorder) {
-      const validOrdered = preset.order.filter((id) => mods.some((m) => m.id === id));
-      if (validOrdered.length > 0) {
-        await reorder(validOrdered);
+      const validOrdered = preset.order.filter((id) => knownIds.has(id));
+      const remaining = mods.filter((m) => !validOrdered.includes(m.id)).sort((a, b) => a.loadOrder - b.loadOrder).map((m) => m.id);
+      const completeOrder = [...validOrdered, ...remaining];
+      if (completeOrder.length === mods.length) {
+        await reorder(completeOrder);
       }
     }
     onChanged?.();
@@ -444,6 +454,20 @@ export default function ModManager({
       />
 
       {/* Toolbar Controls */}
+      {!scanning && (
+        <div className="mods-undo-bar">
+          <button type="button" className="btn btn--ghost btn--sm" onClick={() => void undoLast()}>
+            {t("mods.undoLast")}
+          </button>
+        </div>
+      )}
+
+      {scanning && (
+        <div className="mods-scan-progress" role="status" aria-live="polite">
+          {scanProgress.phase || t("mods.scanning")} · {scanProgress.filesExamined} files · {scanProgress.modsFound} mods
+        </div>
+      )}
+
       <ModsToolbar
         search={search}
         onSearchChange={setSearch}
@@ -463,6 +487,7 @@ export default function ModManager({
         scanning={scanning}
         checkingUpdates={checkingUpdates}
         onScan={handleScan}
+        onCancelScan={() => void cancelScan()}
         onCheckUpdates={handleCheckUpdates}
         onInstallMod={() => setShowInstallModal(true)}
         onOpenPresets={() => setShowPresetsModal(true)}

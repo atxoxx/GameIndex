@@ -8,11 +8,26 @@
 //! previous row before the transactional swap.
 
 use rusqlite::params;
+use serde_json::Value;
 use serde::{Deserialize, Serialize};
 
 use super::pool::Db;
 
 /// One managed mod. Mirrors the frontend's `GameMod` shape after
+/// serde camelCase rename.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ModProfileRow {
+    pub id: String,
+    pub game_id: String,
+    pub name: String,
+    pub mod_states: Value,
+    pub load_order: Vec<String>,
+    pub created_at: u64,
+    pub updated_at: u64,
+}
+
+/// One managed mod. Mirrors the frontend's GameMod shape after
 /// serde camelCase rename.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -250,6 +265,30 @@ pub fn overview(db: &Db) -> Result<Vec<ModsOverviewRow>, String> {
         out.push(row.map_err(|e| format!("mods overview row: {e}"))?);
     }
     Ok(out)
+}
+
+pub fn list_profiles(db: &Db, game_id: &str) -> Result<Vec<ModProfileRow>, String> {
+    let conn = db.mods()?;
+    let mut stmt = conn.prepare("SELECT id, game_id, name, mod_states, COALESCE(load_order, '[]'), created_at, updated_at FROM mod_profiles WHERE game_id = ?1 ORDER BY name COLLATE NOCASE")
+        .map_err(|e| format!("profiles prepare: {e}"))?;
+    let rows = stmt.query_map(params![game_id], |r| {
+        let states: String = r.get(3)?;
+        let order: String = r.get(4)?;
+        Ok(ModProfileRow { id: r.get(0)?, game_id: r.get(1)?, name: r.get(2)?, mod_states: serde_json::from_str(&states).unwrap_or(Value::Object(Default::default())), load_order: serde_json::from_str(&order).unwrap_or_default(), created_at: r.get::<_, i64>(5)? as u64, updated_at: r.get::<_, i64>(6)? as u64 })
+    }).map_err(|e| format!("profiles query: {e}"))?;
+    rows.map(|r| r.map_err(|e| format!("profile row: {e}"))).collect()
+}
+
+pub fn upsert_profile(db: &Db, p: &ModProfileRow) -> Result<(), String> {
+    let conn = db.mods()?;
+    conn.execute("INSERT OR REPLACE INTO mod_profiles(id, game_id, name, mod_states, load_order, created_at, updated_at) VALUES (?1,?2,?3,?4,?5,?6,?7)", params![p.id, p.game_id, p.name, serde_json::to_string(&p.mod_states).map_err(|e| e.to_string())?, serde_json::to_string(&p.load_order).map_err(|e| e.to_string())?, p.created_at as i64, p.updated_at as i64]).map_err(|e| format!("profile upsert: {e}"))?;
+    Ok(())
+}
+
+pub fn delete_profile(db: &Db, id: &str) -> Result<(), String> {
+    let conn = db.mods()?;
+    conn.execute("DELETE FROM mod_profiles WHERE id = ?1", params![id]).map_err(|e| format!("profile delete: {e}"))?;
+    Ok(())
 }
 
 /// Upsert the per-game modding settings row.

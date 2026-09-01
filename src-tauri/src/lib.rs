@@ -257,6 +257,8 @@ pub fn run() {
             // Mod support — engine-aware detection, enable/disable,
             // load order, conflicts, and Nexus Mods integration.
             mods::mods_scan_game,
+            mods::mods_cancel_scan,
+            mods::mods_undo_last,
             mods::mods_list,
             mods::mods_set_enabled,
             mods::mods_reorder,
@@ -266,6 +268,10 @@ pub fn run() {
             mods::mods_overview,
             mods::mods_set_nexus_domain,
             mods::mods_set_custom_root,
+            mods::mods_install_archive,
+            mods::mods_profiles_list,
+            mods::mods_profile_save,
+            mods::mods_profile_delete,
             mods::nexus_set_api_key,
             mods::nexus_get_status,
             mods::nexus_check_updates,
@@ -377,6 +383,7 @@ pub fn run() {
                 }
             };
             app.manage(db.clone());
+            app.manage(mods::ModScanState::default());
 
             // Reconcile any in-progress `sessions` rows orphaned by a crash
             // on a previous run: back-date their `ended_at` from the last

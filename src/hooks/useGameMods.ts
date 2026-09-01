@@ -4,6 +4,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
+import { listen } from "@tauri-apps/api/event";
 import type { Game } from "../types/game";
 import type { GameMod, GameModsPayload, ModConflict } from "../types/mods";
 
@@ -14,6 +15,7 @@ export function useGameMods(game: Game | null) {
   const [scanning, setScanning] = useState(false);
   const [checkingUpdates, setCheckingUpdates] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [scanProgress, setScanProgress] = useState({ phase: "", filesExamined: 0, modsFound: 0, complete: false });
   const gameIdRef = useRef<string | null>(null);
   gameIdRef.current = game?.id ?? null;
 
@@ -37,6 +39,10 @@ export function useGameMods(game: Game | null) {
     }
     const gameId = game.id;
     let cancelled = false;
+    let unlisten: (() => void) | undefined;
+    void listen<{ gameId: string; phase: string; filesExamined: number; modsFound: number; complete: boolean }>("mods-scan-progress", (event) => {
+      if (event.payload.gameId === gameId && !cancelled) setScanProgress(event.payload);
+    }).then((dispose) => { unlisten = dispose; });
     setLoading(true);
     setError(null);
     setConflicts([]);
@@ -58,6 +64,7 @@ export function useGameMods(game: Game | null) {
       });
     return () => {
       cancelled = true;
+      unlisten?.();
     };
   }, [game?.id]); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -210,6 +217,19 @@ export function useGameMods(game: Game | null) {
     [game?.id] // eslint-disable-line react-hooks/exhaustive-deps
   );
 
+  const undoLast = useCallback(async () => {
+    await invoke("mods_undo_last");
+    if (game?.id) {
+      const p = await invoke<GameModsPayload>("mods_list", { gameId: game.id });
+      setPayload(p);
+      void refreshConflicts(game.id);
+    }
+  }, [game?.id, refreshConflicts]);
+
+  const cancelScan = useCallback(async () => {
+    if (game?.id) await invoke("mods_cancel_scan", { gameId: game.id });
+  }, [game?.id]);
+
   return {
     payload,
     conflicts,
@@ -217,7 +237,10 @@ export function useGameMods(game: Game | null) {
     scanning,
     checkingUpdates,
     error,
+    scanProgress,
     scan,
+    cancelScan,
+    undoLast,
     setEnabled,
     reorder,
     remove,

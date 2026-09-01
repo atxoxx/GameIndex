@@ -45,7 +45,9 @@ export default function ModConflictVisualizer({
               return order > highestIdx ? curr : highest;
             }, selectedMod);
 
-            const isWinner = highestOrderMod.id === selectedMod.id;
+            const isWinner = c.winnerModId
+              ? c.winnerModId === selectedMod.id
+              : highestOrderMod.id === selectedMod.id;
             const highestOrder = mods.indexOf(highestOrderMod) + 1;
 
             return (
@@ -64,6 +66,11 @@ export default function ModConflictVisualizer({
                 </div>
                 <div className="mods-conflict-mods-row">
                   <span className="mods-conflict-label">{t("mods.filter.conflicts")}:</span>
+                  {c.winnerModId && (
+                    <span className="mods-conflict-mod-chip winner">
+                      {t("mods.conflictWinner", { name: modMap.get(c.winnerModId)?.name ?? "" })}
+                    </span>
+                  )}
                   {conflictingMods
                     .filter((m) => m.id !== selectedMod.id)
                     .map((m) => {

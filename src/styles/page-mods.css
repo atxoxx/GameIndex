@@ -5,6 +5,27 @@
  * Token-driven flat surfaces, explicit transitions, scoped .mods-* names.
  * ──────────────────────────────────────────────────────────────────────── */
 
+.mods-scan-progress {
+  display: flex;
+  align-items: center;
+  min-height: 32px;
+  margin: 0 0 10px;
+  padding: 7px 12px;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm, 6px);
+  background: var(--surface-2);
+  color: var(--text-secondary);
+  font-size: 0.78rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.mods-undo-bar {
+  display: flex;
+  justify-content: flex-end;
+  min-height: 0;
+  margin: 0 0 8px;
+}
+
 /* Page-scoped brand colors for third-party/content marks (Nexus Mods,
    engine type chips). Defined once here, referenced via var() so no
    raw colors leak into rules. */

@@ -103,6 +103,8 @@ md-5 = "0.10"
 # `default-features = false` + `deflate` keeps the direct dependency
 # minimal; the crate is already in the lock graph transitively.
 zip = { version = "4", default-features = false, features = ["deflate"] }
+# Secure archive installation for common mod packages.
+sevenz-rust = "0.6"
 # Steam `appcache/appinfo.vdf` binary parsing — counts a Steam game's
 # launch actions so the edit modal can hint about the launch-picker
 # option (`steam://launch/<appid>/dialog`). Pure-Rust, no binary deps.

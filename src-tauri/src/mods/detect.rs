@@ -21,12 +21,15 @@
 use std::collections::HashMap;
 use std::fs;
 use std::path::{Path, PathBuf};
+use std::sync::atomic::{AtomicBool, Ordering};
 
 use crate::db::mods::ModRow;
 
 /// Everything one scan pass learned about a game install.
 pub struct ScanOutcome {
     pub mods: Vec<ModRow>,
+    pub files_examined: u64,
+    pub truncated: bool,
     pub engines: Vec<String>,
     pub mods_root: Option<String>,
     pub plugins_txt: Option<String>,
@@ -803,6 +806,16 @@ pub fn scan(
     steam_app_id: Option<&str>,
     custom_root: Option<&str>,
 ) -> Result<ScanOutcome, String> {
+    scan_with_cancel(game_id, game_path, steam_app_id, custom_root, None)
+}
+
+pub fn scan_with_cancel(
+    game_id: &str,
+    game_path: &str,
+    steam_app_id: Option<&str>,
+    custom_root: Option<&str>,
+    cancelled: Option<&AtomicBool>,
+) -> Result<ScanOutcome, String> {
     let exe = Path::new(game_path);
     let game_dir = exe.parent().filter(|p| p.is_dir());
     if game_dir.is_none() && custom_root.is_none() {
@@ -815,6 +828,8 @@ pub fn scan(
 
     let mut out = ScanOutcome {
         mods: Vec::new(),
+        files_examined: 0,
+        truncated: false,
         engines: Vec::new(),
         mods_root: None,
         plugins_txt: None,
@@ -822,12 +837,14 @@ pub fn scan(
     };
 
     if let Some(game_dir) = game_dir {
+        if cancelled.is_some_and(|flag| flag.load(Ordering::Relaxed)) { return Err("scan_cancelled: scan was cancelled".into()); }
         scan_bethesda(game_id, game_dir, &exe_lower, &mut out);
         scan_bepinex(game_id, game_dir, &mut out);
         scan_melonloader(game_id, game_dir, &mut out);
         scan_unreal(game_id, game_dir, &mut out);
         scan_generic(game_id, game_dir, &mut out);
         scan_workshop(game_id, exe, steam_app_id, &mut out);
+        if cancelled.is_some_and(|flag| flag.load(Ordering::Relaxed)) { return Err("scan_cancelled: scan was cancelled".into()); }
     }
     if let Some(root) = custom_root {
         scan_custom_root(game_id, root, &mut out);
@@ -837,6 +854,9 @@ pub fn scan(
     // the same artifact twice — ids are path-stable, so dedupe on id.
     let mut seen = std::collections::HashSet::new();
     out.mods.retain(|m| seen.insert(m.id.clone()));
+
+    out.files_examined = out.mods.iter().map(|m| m.file_count.unwrap_or(1).max(0) as u64).sum();
+    out.truncated = out.files_examined >= 20_000;
 
     // Normalize load_order to a single 0..n sequence in scan order
     // (bethesda plugins keep their plugins.txt relative order).
