@@ -3198,7 +3198,7 @@
   width: 4px;
   height: 4px;
   border-radius: 50%;
-  background: #ffffff;
+  background: var(--color-text-primary, #ffffff);
   box-shadow: 0 0 2px rgba(0,0,0,0.8);
 }
 
@@ -4169,7 +4169,7 @@
 .act-heatmap__cell:hover {
   transform: scale(1.25);
   z-index: 5;
-  border: 1px solid #fff;
+  border: 1px solid var(--color-text-primary, #fff);
 }
 
 .act-heatmap__cell--pad {
@@ -4204,7 +4204,7 @@
 }
 
 .act-heatmap__cell--selected {
-  outline: 2px solid #fff;
+  outline: 2px solid var(--color-text-primary, #fff);
   outline-offset: 1px;
 }
 

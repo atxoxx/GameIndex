@@ -624,7 +624,7 @@
   justify-content: center;
   font-weight: 700;
   font-size: 12px;
-  color: #fff;
+  color: var(--color-accent-contrast, #fff);
 }
 
 .playing-now-info,
@@ -737,7 +737,7 @@
   justify-content: center;
   font-weight: 700;
   font-size: 12px;
-  color: #fff;
+  color: var(--color-accent-contrast, #fff);
 }
 
 .invitation-name,
@@ -894,7 +894,7 @@
   justify-content: center;
   font-weight: 700;
   font-size: 16px;
-  color: #fff;
+  color: var(--color-accent-contrast, #fff);
   border: 2px solid var(--color-surface);
 }
 
@@ -1319,7 +1319,7 @@
   justify-content: center;
   font-weight: 700;
   font-size: var(--font-size-2xs);
-  color: #fff;
+  color: var(--color-accent-contrast, #fff);
 }
 
 .activity-actor-name {
@@ -1475,7 +1475,7 @@
   justify-content: center;
   font-weight: 700;
   font-size: 13px;
-  color: #fff;
+  color: var(--color-accent-contrast, #fff);
 }
 
 .dm-presence-dot {
@@ -1585,7 +1585,7 @@
   justify-content: center;
   font-weight: 700;
   font-size: 14px;
-  color: #fff;
+  color: var(--color-accent-contrast, #fff);
 }
 
 .dm-header-name {
@@ -2390,21 +2390,21 @@
 .rsvp-btn.active.rsvp-going {
   background: var(--color-success);
   border-color: var(--color-success);
-  color: #fff;
+  color: var(--color-success-contrast, #fff);
   box-shadow: 0 1px 6px color-mix(in srgb, var(--color-success) 40%, transparent);
 }
 
 .rsvp-btn.active.rsvp-maybe {
   background: var(--color-warning);
   border-color: var(--color-warning);
-  color: #fff;
+  color: var(--color-warning-contrast, #fff);
   box-shadow: 0 1px 6px color-mix(in srgb, var(--color-warning) 40%, transparent);
 }
 
 .rsvp-btn.active.rsvp-declined {
   background: var(--color-danger);
   border-color: var(--color-danger);
-  color: #fff;
+  color: var(--color-danger-contrast, #fff);
   box-shadow: 0 1px 6px color-mix(in srgb, var(--color-danger) 40%, transparent);
 }
 
@@ -3493,7 +3493,7 @@
   justify-content: center;
   font-weight: 700;
   font-size: 16px;
-  color: #fff;
+  color: var(--color-accent-contrast, #fff);
 }
 
 .podium-online-dot {
@@ -3617,19 +3617,19 @@
 .rank-badge.rank-1,
 .rank-1 {
   background: var(--color-warning);
-  color: #fff;
+  color: var(--color-warning-contrast, #fff);
 }
 
 .rank-badge.rank-2,
 .rank-2 {
   background: #94a3b8;
-  color: #fff;
+  color: var(--color-text-on-fill, #fff);
 }
 
 .rank-badge.rank-3,
 .rank-3 {
   background: #b45309;
-  color: #fff;
+  color: var(--color-text-on-fill, #fff);
 }
 
 .player-meta-cell {
@@ -3654,7 +3654,7 @@
   justify-content: center;
   font-weight: 700;
   font-size: 12px;
-  color: #fff;
+  color: var(--color-accent-contrast, #fff);
 }
 
 .player-name {
@@ -3835,7 +3835,7 @@
   justify-content: center;
   font-weight: 700;
   font-size: 13px;
-  color: #fff;
+  color: var(--color-accent-contrast, #fff);
 }
 
 .race-player-name {
@@ -3947,7 +3947,7 @@
   justify-content: center;
   font-weight: 800;
   font-size: 22px;
-  color: #fff;
+  color: var(--color-accent-contrast, #fff);
   border: 3px solid var(--color-surface);
 }
 
@@ -4466,7 +4466,7 @@ textarea.profile-input {
   justify-content: center;
   font-weight: 700;
   font-size: 16px;
-  color: #fff;
+  color: var(--color-accent-contrast, #fff);
 }
 
 .friend-preview-info,
@@ -5068,7 +5068,7 @@ textarea.profile-input {
 }
 
 .color-swatch-btn.active {
-  border-color: #fff;
+  border-color: var(--color-text-primary, #fff);
   box-shadow: 0 0 6px rgba(0, 0, 0, 0.4);
 }
 
@@ -5256,7 +5256,7 @@ textarea.profile-input {
   border: none;
   border-radius: 50%;
   background: var(--color-danger);
-  color: #fff;
+  color: var(--color-danger-contrast, #fff);
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -5558,7 +5558,7 @@ textarea.profile-input {
   height: 24px;
   border-radius: 50%;
   background: linear-gradient(135deg, var(--color-accent), color-mix(in srgb, var(--color-accent) 60%, #000));
-  color: #fff;
+  color: var(--color-accent-contrast, #fff);
   font-size: 9px;
   font-weight: 700;
   display: inline-flex;
