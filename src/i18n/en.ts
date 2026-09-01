@@ -4610,6 +4610,7 @@ export const en: TranslationDict = {
   "weblinks.copied": "Copied!",
   "weblinks.copyLink": "Copy link",
   "weblinks.editLink": "Edit link",
+  "weblinks.filterByCategory": "Filter by category",
   "weblinks.footnote": "Previews load in a native Webview. Pages are fully interactive and bypass iframe embedding restrictions.",
   "weblinks.goBack": "Go back",
   "weblinks.goForward": "Go forward",

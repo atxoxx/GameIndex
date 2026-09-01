@@ -22,6 +22,8 @@ interface WebLinksWebviewProps {
   onNavStateChange?: (state: { back: boolean; forward: boolean }) => void;
   onWebviewLabelChange?: (label: string | null) => void;
   onOpenExternal: (url?: string) => void;
+  /** While true the native webview is hidden so DOM popovers can appear above it */
+  menuOpen?: boolean;
 }
 
 export default function WebLinksWebview({
@@ -39,6 +41,7 @@ export default function WebLinksWebview({
   onNavStateChange,
   onWebviewLabelChange,
   onOpenExternal,
+  menuOpen = false,
 }: WebLinksWebviewProps) {
   const { t } = useLanguage();
   const containerRef = useRef<HTMLDivElement>(null);
@@ -89,15 +92,16 @@ export default function WebLinksWebview({
     };
   }, [webviewInst, heightMode]);
 
-  // Visibility sync
+  // Visibility sync — hide while a DOM popover (category menu) is open,
+  // since native webviews composite above DOM content and z-index can't win.
   useEffect(() => {
     if (!webviewInst) return;
-    if (visible) {
+    if (visible && !menuOpen) {
       webviewInst.show().catch((e) => console.error("Error showing webview:", e));
     } else {
       webviewInst.hide().catch((e) => console.error("Error hiding webview:", e));
     }
-  }, [webviewInst, visible]);
+  }, [webviewInst, visible, menuOpen]);
 
   // Apply zoom level via JS evaluation
   useEffect(() => {

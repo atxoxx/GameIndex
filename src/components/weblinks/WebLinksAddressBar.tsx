@@ -164,18 +164,6 @@ export default function WebLinksAddressBar({
         </button>
       </div>
 
-      {/* Active Source Chip */}
-      <span
-        className="wl-urlbar-source-chip"
-        style={{
-          background: activeSourceDef.iconBg,
-          color: activeSourceDef.accent,
-          borderColor: `${activeSourceDef.accent}66`,
-        }}
-      >
-        {activeSourceDef.label}
-      </span>
-
       {/* Interactive Address Bar / Search Input */}
       <form className="wl-urlbar-form" onSubmit={handleSubmit}>
         <span className="wl-urlbar-search-icon" aria-hidden="true">
@@ -273,24 +261,24 @@ export default function WebLinksAddressBar({
 
         {/* Copy URL */}
         <button
-          className={`wl-urlbar-btn${copied ? " copied" : ""}`}
+          className={`wl-urlbar-btn icon-only${copied ? " copied" : ""}`}
           onClick={handleCopy}
           type="button"
-          title={t("weblinks.copyLink")}
+          title={copied ? t("weblinks.copied") : t("weblinks.copyLink")}
+          aria-label={t("weblinks.copyLink")}
         >
           {copied ? <CheckIcon /> : <CopyIcon />}
-          <span>{copied ? t("weblinks.copied") : t("weblinks.copy")}</span>
         </button>
 
         {/* Open in external default browser */}
         <button
-          className="wl-urlbar-btn primary"
+          className="wl-urlbar-btn primary icon-only"
           onClick={() => onOpenExternal(currentUrl)}
           type="button"
           title={t("weblinks.openInBrowser")}
+          aria-label={t("weblinks.openInBrowser")}
         >
           <OpenExternalIcon />
-          <span>{t("weblinks.openExternalShort")}</span>
         </button>
       </div>
     </div>

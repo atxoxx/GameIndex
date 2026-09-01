@@ -11,7 +11,6 @@ import {
   getSteamAppIdString,
 } from "./sources";
 import { CustomLinkIcon } from "./WebLinksIcons";
-import WebLinksCategoryBar from "./WebLinksCategoryBar";
 import WebLinksSourceStrip from "./WebLinksSourceStrip";
 import WebLinksSteamSections from "./WebLinksSteamSections";
 import WebLinksAddressBar from "./WebLinksAddressBar";
@@ -36,6 +35,7 @@ export default function WebLinksTab({
   const editable = typeof onWebsitesChange === "function";
 
   const [activeCategory, setActiveCategory] = useState<SourceCategoryKey>("all");
+  const [categoryMenuOpen, setCategoryMenuOpen] = useState(false);
   const [activeSourceKey, setActiveSourceKey] = useState<string>("steam");
   const [steamSection, setSteamSection] = useState<SteamSectionKey>("store");
   const [customPreviewUrl, setCustomPreviewUrl] = useState<string | null>(null);
@@ -133,6 +133,28 @@ export default function WebLinksTab({
     };
     return counts;
   }, [customSources]);
+
+  // Select a category: switch the active source to one inside that category
+  const handleSelectCategory = useCallback(
+    (cat: SourceCategoryKey) => {
+      setActiveCategory(cat);
+      if (cat === "mylinks") {
+        if (customSources.length > 0) {
+          setActiveSourceKey(customSources[0].key);
+        } else {
+          setActiveSourceKey(MY_LINKS_KEY);
+        }
+        return;
+      }
+      const inCat = allSources.filter(
+        (s) => cat === "all" || s.category === cat
+      );
+      if (inCat.length > 0 && !inCat.some((s) => s.key === activeSourceKey)) {
+        setActiveSourceKey(inCat[0].key);
+      }
+    },
+    [activeSourceKey, allSources, customSources]
+  );
 
   const isMyLinksManagerActive = activeSourceKey === MY_LINKS_KEY;
 
@@ -245,39 +267,20 @@ export default function WebLinksTab({
 
   return (
     <div className="wl-tab">
-      {/* ─── 1. Category Switcher Bar ───────────────────────────────── */}
-      <WebLinksCategoryBar
-        activeCategory={activeCategory}
-        onSelectCategory={(cat) => {
-          setActiveCategory(cat);
-          if (cat === "mylinks") {
-            if (customSources.length > 0) {
-              setActiveSourceKey(customSources[0].key);
-            } else {
-              setActiveSourceKey(MY_LINKS_KEY);
-            }
-          } else {
-            const inCat = allSources.filter(
-              (s) => cat === "all" || s.category === cat
-            );
-            if (inCat.length > 0 && !inCat.some((s) => s.key === activeSourceKey)) {
-              setActiveSourceKey(inCat[0].key);
-            }
-          }
-        }}
-        counts={categoryCounts}
-      />
-
-      {/* ─── 2. Horizontal Source Tabs Strip ───────────────────────── */}
+      {/* ─── 1. Source Tabs Strip with inline category filter ──────── */}
       <WebLinksSourceStrip
         sources={filteredSources}
         activeSourceKey={activeSourceKey}
         onSelectSource={(key) => setActiveSourceKey(key)}
         customLinksCount={customLinks.length}
         showMyLinksTab={true}
+        activeCategory={activeCategory}
+        onSelectCategory={handleSelectCategory}
+        counts={categoryCounts}
+        onMenuOpenChange={setCategoryMenuOpen}
       />
 
-      {/* ─── 3. Steam Sub-Sections (When Steam is selected) ──────────── */}
+      {/* ─── 2. Steam Sub-Sections (When Steam is selected) ──────────── */}
       {isSteamActive && (
         <WebLinksSteamSections
           activeSection={steamSection}
@@ -287,7 +290,7 @@ export default function WebLinksTab({
         />
       )}
 
-      {/* ─── 4. My Links Custom Manager ─────────────────────────────── */}
+      {/* ─── 3. My Links Custom Manager ─────────────────────────────── */}
       {isMyLinksManagerActive && (
         <MyLinksManager
           game={game}
@@ -305,7 +308,7 @@ export default function WebLinksTab({
         />
       )}
 
-      {/* ─── 5. Browser Address Bar & Actions Toolbar ───────────────── */}
+      {/* ─── 4. Browser Address Bar & Actions Toolbar ───────────────── */}
       {hasPreviewableUrl && (
         <WebLinksAddressBar
           currentUrl={currentNavUrl || computedInitialUrl}
@@ -348,7 +351,7 @@ export default function WebLinksTab({
         />
       )}
 
-      {/* ─── 6. Native Webview Preview Frame ────────────────────────── */}
+      {/* ─── 5. Native Webview Preview Frame ────────────────────────── */}
       {hasPreviewableUrl && (
         <WebLinksWebview
           url={webviewUrl}
@@ -374,10 +377,11 @@ export default function WebLinksTab({
           onNavStateChange={(state) => setNavState(state)}
           onWebviewLabelChange={(label) => setActiveWebviewLabel(label)}
           onOpenExternal={handleOpenExternal}
+          menuOpen={categoryMenuOpen}
         />
       )}
 
-      {/* ─── 7. Footnote Informational Bar ──────────────────────────── */}
+      {/* ─── 6. Footnote Informational Bar ──────────────────────────── */}
       <div className="wl-footnote">
         <svg
           viewBox="0 0 24 24"

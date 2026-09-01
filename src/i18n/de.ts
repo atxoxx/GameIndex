@@ -4602,6 +4602,7 @@ export const de: TranslationDict = {
   "weblinks.copied": "Kopiert!",
   "weblinks.copyLink": "Link kopieren",
   "weblinks.editLink": "Link bearbeiten",
+  "weblinks.filterByCategory": "Nach Kategorie filtern",
   "weblinks.footnote": "Vorschauen werden in einer nativen Webview geladen. Seiten sind vollständig interaktiv und umgehen iframe-Einbettungsbeschränkungen.",
   "weblinks.goBack": "Zurück",
   "weblinks.goForward": "Vorwärts",

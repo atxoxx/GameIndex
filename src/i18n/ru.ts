@@ -4602,6 +4602,7 @@ export const ru: TranslationDict = {
   "weblinks.copied": "Скопировано!",
   "weblinks.copyLink": "Скопировать ссылку",
   "weblinks.editLink": "Редактировать ссылку",
+  "weblinks.filterByCategory": "Фильтр по категории",
   "weblinks.footnote": "Предпросмотр загружается в нативном Webview. Страницы полностью интерактивны и обходят ограничения встраивания iframe.",
   "weblinks.goBack": "Назад",
   "weblinks.goForward": "Вперёд",
