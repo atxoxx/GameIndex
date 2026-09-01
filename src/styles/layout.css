@@ -73,6 +73,7 @@
   grid-area: main;
   overflow-y: auto;
   overflow-x: hidden;
+  overscroll-behavior-y: none;
   margin: 0 var(--space-md) var(--space-md) 0;
   background-color: var(--color-bg-secondary);
   background-image: var(--mesh-gradient);

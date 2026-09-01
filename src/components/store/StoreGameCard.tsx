@@ -66,7 +66,7 @@ function StoreGameCardBase({
   const [hovered, setHovered] = useState(false);
 
   const isList = density === "list";
-  const { displayUrl, isIcon, handleError } = useGameCardArt({
+  const { displayUrl, staticPosterUrl, animatedPosterUrl, isIcon, handleError } = useGameCardArt({
     game,
     defaultCoverUrl: coverUrl,
     isHovered: hovered,
@@ -306,14 +306,28 @@ function StoreGameCardBase({
           </span>
         )}
 
-        {displayUrl ? (
-          <img
-            ref={displayUrl === coverUrl ? imgRef : undefined}
-            src={displayUrl}
-            alt={game.name}
-            loading="lazy"
-            onError={handleError}
-          />
+        {(staticPosterUrl || displayUrl) ? (
+          <>
+            <img
+              ref={displayUrl === coverUrl ? imgRef : undefined}
+              src={staticPosterUrl || displayUrl!}
+              alt={game.name}
+              loading="lazy"
+              decoding="async"
+              onError={handleError}
+              className="store-card-cover-static"
+            />
+            {animatedPosterUrl && (
+              <img
+                src={animatedPosterUrl}
+                alt=""
+                aria-hidden="true"
+                decoding="async"
+                className={`store-card-cover-animated${hovered ? " is-active" : ""}`}
+                onError={handleError}
+              />
+            )}
+          </>
         ) : (
           <div className="store-card-cover-skeleton">
             <svg

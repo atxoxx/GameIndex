@@ -1328,6 +1328,24 @@
   transition: transform var(--duration-normal, 200ms) ease;
 }
 
+.storage-grid-card-img-static {
+  position: relative;
+  z-index: 0;
+}
+
+.storage-grid-card-img-animated {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  opacity: 0;
+  transition: opacity 0.35s cubic-bezier(0.16, 1, 0.3, 1);
+  pointer-events: none;
+}
+
+.storage-grid-card-img-animated.is-active {
+  opacity: 1;
+}
+
 .storage-grid-card:hover .storage-grid-card-img {
   transform: scale(1.04);
 }

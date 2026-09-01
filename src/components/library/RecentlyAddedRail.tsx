@@ -106,7 +106,7 @@ const RecentlyAddedCard = memo(function RecentlyAddedCard({
 }) {
   const { t } = useLanguage();
   const [hovered, setHovered] = useState(false);
-  const { displayUrl, handleError } = useGameCardArt({
+  const { displayUrl, staticPosterUrl, animatedPosterUrl, handleError } = useGameCardArt({
     game,
     isHovered: hovered,
   });
@@ -122,8 +122,27 @@ const RecentlyAddedCard = memo(function RecentlyAddedCard({
       onMouseLeave={() => setHovered(false)}
     >
       <div className="lib-rail-cover">
-        {displayUrl ? (
-          <img src={displayUrl} alt={game.name} loading="lazy" onError={handleError} />
+        {(staticPosterUrl || displayUrl) ? (
+          <>
+            <img
+              src={staticPosterUrl || displayUrl!}
+              alt={game.name}
+              loading="lazy"
+              decoding="async"
+              onError={handleError}
+              className="lib-rail-cover-static"
+            />
+            {animatedPosterUrl && (
+              <img
+                src={animatedPosterUrl}
+                alt=""
+                aria-hidden="true"
+                decoding="async"
+                className={`lib-rail-cover-animated${hovered ? " is-active" : ""}`}
+                onError={handleError}
+              />
+            )}
+          </>
         ) : (
           <div className="lib-rail-cover-placeholder">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1" aria-hidden>

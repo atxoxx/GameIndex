@@ -46,7 +46,7 @@ function StorageGridCardBase({
   const [detecting, setDetecting] = useState(false);
   const [hovered, setHovered] = useState(false);
 
-  const { displayUrl, handleError } = useGameCardArt({
+  const { displayUrl, staticPosterUrl, animatedPosterUrl, handleError } = useGameCardArt({
     game,
     isHovered: hovered,
   });
@@ -124,14 +124,27 @@ function StorageGridCardBase({
 
       {/* Cover Image + Overlay */}
       <div className="storage-grid-card-media">
-        {displayUrl ? (
-          <img
-            src={displayUrl}
-            alt=""
-            className="storage-grid-card-img"
-            loading="lazy"
-            onError={handleError}
-          />
+        {(staticPosterUrl || displayUrl) ? (
+          <>
+            <img
+              src={staticPosterUrl || displayUrl!}
+              alt=""
+              className="storage-grid-card-img storage-grid-card-img-static"
+              loading="lazy"
+              decoding="async"
+              onError={handleError}
+            />
+            {animatedPosterUrl && (
+              <img
+                src={animatedPosterUrl}
+                alt=""
+                aria-hidden="true"
+                className={`storage-grid-card-img storage-grid-card-img-animated${hovered ? " is-active" : ""}`}
+                decoding="async"
+                onError={handleError}
+              />
+            )}
+          </>
         ) : (
           <div className="storage-grid-card-placeholder">
             <span className="storage-grid-card-letter">{game.name.charAt(0)}</span>

@@ -3,8 +3,9 @@ import {
   useCallback,
   useContext,
   useEffect,
+  useMemo,
   useRef,
-  useState,
+  useSyncExternalStore,
   type ReactNode,
 } from "react";
 import { invoke } from "@tauri-apps/api/core";
@@ -14,20 +15,17 @@ import type { CrackWatchStatus } from "../types/game";
  * CrackWatchContext batches per-card CrackWatch lookups into a single
  * backend round-trip.
  *
- * Previously every `StoreGameCard` fired its own `fetch_crackwatch_status`
- * invoke on mount — a 20-card grid meant 20 concurrent scrapes against
- * gamestatus.info's PoW-gated endpoint, a real rate-limit and
- * connection-pool risk. Cards now register their game name here; the
- * provider coalesces registrations within a short window and calls
- * `fetch_crackwatch_status_batch` once, then publishes results back.
+ * Uses fine-grained per-game subscriptions with React 19 `useSyncExternalStore`.
+ * When a batch for [gameA, gameB] completes, ONLY cards for gameA or gameB
+ * re-render; other cards are completely untouched.
  */
 interface CrackWatchContextValue {
   /** Register a name for lookup; returns the resolved status (or null). */
   request: (name: string) => void;
   /** Read the resolved status for a name (undefined = not yet resolved). */
   get: (name: string) => CrackWatchStatus | null | undefined;
-  /** Bump on every batch completion so consumers re-read `get`. */
-  version: number;
+  /** Subscribe a callback to updates for a specific game name. */
+  subscribe: (name: string, onStoreChange: () => void) => () => void;
 }
 
 // Persist the React context instance across Vite HMR module re-evaluations so
@@ -49,8 +47,16 @@ export function CrackWatchProvider({ children }: { children: ReactNode }) {
   const pendingRef = useRef<Set<string>>(new Set());
   // Names currently in flight (avoid re-requesting mid-batch).
   const inflightRef = useRef<Set<string>>(new Set());
+  // Per-name listener callbacks for fine-grained re-renders.
+  const listenersRef = useRef<Map<string, Set<() => void>>>(new Map());
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const [version, setVersion] = useState(0);
+
+  const notify = useCallback((name: string) => {
+    const set = listenersRef.current.get(name);
+    if (set) {
+      set.forEach((cb) => cb());
+    }
+  }, []);
 
   const flush = useCallback(() => {
     timerRef.current = null;
@@ -66,18 +72,18 @@ export function CrackWatchProvider({ children }: { children: ReactNode }) {
         for (const name of names) {
           cacheRef.current.set(name, result[name] ?? null);
           inflightRef.current.delete(name);
+          notify(name);
         }
-        setVersion((v) => v + 1);
       })
       .catch(() => {
         // On failure, mark as resolved-null so we don't hammer the endpoint.
         for (const name of names) {
           if (!cacheRef.current.has(name)) cacheRef.current.set(name, null);
           inflightRef.current.delete(name);
+          notify(name);
         }
-        setVersion((v) => v + 1);
       });
-  }, []);
+  }, [notify]);
 
   const request = useCallback(
     (name: string) => {
@@ -97,14 +103,34 @@ export function CrackWatchProvider({ children }: { children: ReactNode }) {
     []
   );
 
+  const subscribe = useCallback((name: string, onStoreChange: () => void) => {
+    let set = listenersRef.current.get(name);
+    if (!set) {
+      set = new Set();
+      listenersRef.current.set(name, set);
+    }
+    set.add(onStoreChange);
+    return () => {
+      set?.delete(onStoreChange);
+      if (set?.size === 0) {
+        listenersRef.current.delete(name);
+      }
+    };
+  }, []);
+
   useEffect(() => {
     return () => {
       if (timerRef.current) clearTimeout(timerRef.current);
     };
   }, []);
 
+  const value = useMemo<CrackWatchContextValue>(
+    () => ({ request, get, subscribe }),
+    [request, get, subscribe]
+  );
+
   return (
-    <CrackWatchContext.Provider value={{ request, get, version }}>
+    <CrackWatchContext.Provider value={value}>
       {children}
     </CrackWatchContext.Provider>
   );
@@ -118,16 +144,27 @@ export function CrackWatchProvider({ children }: { children: ReactNode }) {
 export function useCrackWatch(name: string): CrackWatchStatus | null {
   const ctx = useContext(CrackWatchContext);
 
-  useEffect(() => {
-    if (ctx && name) ctx.request(name);
-    // Re-request only when the name changes.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [name, ctx?.request]);
+  const subscribe = useCallback(
+    (onStoreChange: () => void) => {
+      if (!ctx || !name) return () => {};
+      return ctx.subscribe(name, onStoreChange);
+    },
+    [ctx, name]
+  );
 
-  if (!ctx) return null;
-  // Reading ctx.version in render ties this component to batch completions.
-  void ctx.version;
-  return ctx.get(name) ?? null;
+  const getSnapshot = useCallback(() => {
+    if (!ctx || !name) return null;
+    return ctx.get(name) ?? null;
+  }, [ctx, name]);
+
+  useEffect(() => {
+    if (ctx && name) {
+      ctx.request(name);
+    }
+  }, [name, ctx]);
+
+  return useSyncExternalStore(subscribe, getSnapshot, getSnapshot);
 }
 
 export { CrackWatchContext };
+

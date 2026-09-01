@@ -527,6 +527,7 @@
   width: 100%;
   height: 100%;
   position: relative;
+  overflow: hidden;
 }
 
 .bigscreen-game-card-cover img {
@@ -534,6 +535,24 @@
   height: 100%;
   object-fit: cover;
   pointer-events: none;
+}
+
+.bigscreen-game-card-cover-static {
+  position: relative;
+  z-index: 0;
+}
+
+.bigscreen-game-card-cover-animated {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  opacity: 0;
+  transition: opacity 0.35s cubic-bezier(0.16, 1, 0.3, 1);
+  pointer-events: none;
+}
+
+.bigscreen-game-card-cover-animated.is-active {
+  opacity: 1;
 }
 
 .bigscreen-game-card[data-focused="true"] {

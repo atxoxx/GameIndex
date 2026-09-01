@@ -28,6 +28,9 @@ import { LanguageProvider } from "./context/LanguageContext";
 import { PresenceProvider } from "./context/PresenceContext";
 import { UpdateProvider } from "./context/UpdateContext";
 import { SteamGridDbProvider } from "./context/SteamGridDbContext";
+import { CrackWatchProvider } from "./context/CrackWatchContext";
+import { PriceProvider } from "./context/PriceContext";
+import { scheduleIdleRoutePreloading } from "./utils/routePreload";
 import { UpdateModal } from "./components/ui/UpdateModal";
 import { UpdateNotification } from "./components/ui/UpdateNotification";
 import {
@@ -138,27 +141,11 @@ function App() {
     invoke("close_splashscreen").catch(() => {});
   }, []);
 
-  // Warm the most-visited page chunks during idle time so the first
-  // navigation (the default landing page is the library) paints without
-  // waiting on the lazy fetch. Each dynamic import just loads + parses
-  // the chunk; nothing renders until the user actually navigates there.
+  // Warm page chunks in background idle frames so navigation is instant
+  // with zero loading delay across every single route.
   useEffect(() => {
-    const preload = () => {
-      void import("./pages/LibraryPage").catch(() => {});
-      void import("./pages/HomePage").catch(() => {});
-      void import("./pages/StorePage").catch(() => {});
-    };
-    const id =
-      typeof window.requestIdleCallback === "function"
-        ? window.requestIdleCallback(preload, { timeout: 2000 })
-        : window.setTimeout(preload, 1500);
-    return () => {
-      if (typeof window.cancelIdleCallback === "function") {
-        window.cancelIdleCallback(id);
-      } else {
-        window.clearTimeout(id);
-      }
-    };
+    const cancel = scheduleIdleRoutePreloading();
+    return cancel;
   }, []);
 
   return (
@@ -179,14 +166,18 @@ function App() {
                                 <SettingsProvider>
                                   <SessionNotesProvider>
                                     <SteamGridDbProvider>
-                                      <BigScreenProvider>
-                                        <PresenceProvider>
-                                        <AdaptiveThemeSync />
-                                        <AppShell />
-                                        <UpdateModal />
-                                        <UpdateNotification />
-                                      </PresenceProvider>
-                                      </BigScreenProvider>
+                                      <CrackWatchProvider>
+                                        <PriceProvider>
+                                          <BigScreenProvider>
+                                            <PresenceProvider>
+                                              <AdaptiveThemeSync />
+                                              <AppShell />
+                                              <UpdateModal />
+                                              <UpdateNotification />
+                                            </PresenceProvider>
+                                          </BigScreenProvider>
+                                        </PriceProvider>
+                                      </CrackWatchProvider>
                                     </SteamGridDbProvider>
                                   </SessionNotesProvider>
                                 </SettingsProvider>

@@ -36,11 +36,13 @@ export default function BigScreenGameCard({
 
   const focusable = useFocusable(onClick);
 
-  const { displayUrl, handleError } = useGameCardArt({
+  const { displayUrl, staticPosterUrl, animatedPosterUrl, handleError } = useGameCardArt({
     game,
     isHovered: hovered,
     isFocused: focused,
   });
+
+  const isActive = hovered || focused;
 
   return (
     <div
@@ -53,8 +55,27 @@ export default function BigScreenGameCard({
       onBlur={() => setFocused(false)}
     >
       <div className="bigscreen-game-card-cover">
-        {displayUrl ? (
-          <img src={displayUrl} alt={game.name} loading="lazy" onError={handleError} />
+        {(staticPosterUrl || displayUrl) ? (
+          <>
+            <img
+              src={staticPosterUrl || displayUrl!}
+              alt={game.name}
+              loading="lazy"
+              decoding="async"
+              onError={handleError}
+              className="bigscreen-game-card-cover-static"
+            />
+            {animatedPosterUrl && (
+              <img
+                src={animatedPosterUrl}
+                alt=""
+                aria-hidden="true"
+                decoding="async"
+                className={`bigscreen-game-card-cover-animated${isActive ? " is-active" : ""}`}
+                onError={handleError}
+              />
+            )}
+          </>
         ) : (
           <div className="bigscreen-game-card-cover-placeholder">
             <svg

@@ -39,6 +39,7 @@ import CommandPalette from "./CommandPalette";
 import { useLanguage } from "../context/LanguageContext";
 import { useSettings } from "../context/SettingsContext";
 import { playTabSound } from "../utils/soundEffects";
+import { preloadRoute } from "../utils/routePreload";
 
 /**
  * Mouse-event guard: an interactive element is anything the user
@@ -51,9 +52,11 @@ import { playTabSound } from "../utils/soundEffects";
  */
 function isInteractiveTarget(target: EventTarget | null): boolean {
   if (!(target instanceof Element)) return false;
-  return target.closest(
-    'button, a[href], [role="button"], [role="tab"], [role="menuitem"], [contenteditable="true"], input, select, textarea'
-  ) !== null;
+  return (
+    target.closest(
+      'button, a[href], [role="button"], [role="tab"], [role="menuitem"], [contenteditable="true"], input, select, textarea'
+    ) !== null
+  );
 }
 
 interface Tab {
@@ -100,30 +103,40 @@ const allNavTabs: Tab[] = [
   { path: "/friends", labelKey: "nav.friends", icon: Users },
 ];
 
-
-
 export default function TopNav() {
+  const { t } = useLanguage();
+  const { games, runningGameIds } = useGames();
+  const location = useLocation();
   const navigate = useNavigate();
   const activeDownloads = useActiveDownloadCount();
-  const { games, runningGameIds } = useGames();
+  const version = useAppVersion();
   const { isBigScreen, setBigScreen } = useBigScreen();
   const { navbarMode, showNavbarNowPlaying } = useSettings();
-  const location = useLocation();
-  const { t } = useLanguage();
-  const version = useAppVersion();
-
+  const [downloadsOpen, setDownloadsOpen] = useState(false);
   const [paletteOpen, setPaletteOpen] = useState(false);
+  const [unseenCommunity, setUnseenCommunity] = useState<number>(() => getUnseenCommunityItems());
   const [moreOpen, setMoreOpen] = useState(false);
+  const downloadBtnRef = useRef<HTMLButtonElement>(null);
+  const tabsRef = useRef<HTMLDivElement>(null);
   const moreRef = useRef<HTMLDivElement>(null);
+  const popoverId = useId();
 
-  const isCompactNavbar = navbarMode === "compact";
-  const displayedTabs = isCompactNavbar ? coreNavTabs : allNavTabs;
-  const isOverflowActive = isCompactNavbar && overflowNavTabs.some((tab) => location.pathname.startsWith(tab.path));
+  // Find currently running game for live HUD indicator
+  const runningGame = useMemo(() => {
+    if (runningGameIds.length === 0) return null;
+    return games.find((g) => runningGameIds.includes(g.id)) ?? null;
+  }, [games, runningGameIds]);
 
-  // Click outside and Escape handler to close the More dropdown
+  useEffect(() => {
+    return subscribeUnseenCommunity((count) => {
+      setUnseenCommunity(count);
+    });
+  }, []);
+
+  // Close dropdown on outside click or Escape
   useEffect(() => {
     if (!moreOpen) return;
-    const handlePointerDown = (e: globalThis.MouseEvent) => {
+    const handleClickOutside = (e: MouseEvent | globalThis.MouseEvent) => {
       if (moreRef.current && !moreRef.current.contains(e.target as Node)) {
         setMoreOpen(false);
       }
@@ -131,19 +144,13 @@ export default function TopNav() {
     const handleKey = (e: KeyboardEvent) => {
       if (e.key === "Escape") setMoreOpen(false);
     };
-    document.addEventListener("pointerdown", handlePointerDown);
+    document.addEventListener("mousedown", handleClickOutside);
     document.addEventListener("keydown", handleKey);
     return () => {
-      document.removeEventListener("pointerdown", handlePointerDown);
+      document.removeEventListener("mousedown", handleClickOutside);
       document.removeEventListener("keydown", handleKey);
     };
   }, [moreOpen]);
-
-  // Active running game (if any)
-  const runningGame = useMemo(() => {
-    if (runningGameIds.length === 0) return null;
-    return games.find((g) => runningGameIds.includes(g.id)) ?? null;
-  }, [games, runningGameIds]);
 
   // Global Ctrl+K / Cmd+K hotkey
   useEffect(() => {
@@ -157,318 +164,290 @@ export default function TopNav() {
     return () => window.removeEventListener("keydown", handleGlobalKeyDown);
   }, []);
 
-  // Unseen "new community items" badge. Counts new sessions /
-  // recommendations / suggestions pulled from friends. Cleared when the
-  // user opens the Friends tab.
-  const [unseenCommunity, setUnseenCommunity] = useState<number>(() =>
-    getUnseenCommunityItems()
-  );
-  useEffect(() => {
-    setUnseenCommunity(getUnseenCommunityItems());
-    return subscribeUnseenCommunity(setUnseenCommunity);
-  }, []);
-
-  // Download popover state. We keep the trigger element and the
-  // popover as siblings inside `.topnav-right`, so the popover can
-  // position itself relative to the trigger via the absolute
-  // `.topnav` containing block (set in App.css).
-  const [downloadsOpen, setDownloadsOpen] = useState(false);
-  const downloadBtnRef = useRef<HTMLButtonElement>(null);
-
-  // The tab bar scrolls horizontally with no visible scrollbar, so
-  // the wheel is the only obvious way to move it. Translate vertical
-  // wheel gestures into horizontal scrolling (trackpad swipes pass
-  // through untouched) so no tab ever feels trapped off-screen.
-  const tabsRef = useRef<HTMLDivElement>(null);
-  const handleTabsWheel = useCallback((e: globalThis.WheelEvent) => {
-    const el = tabsRef.current;
-    if (!el || el.scrollWidth <= el.clientWidth) return;
-    if (Math.abs(e.deltaY) > Math.abs(e.deltaX)) {
-      e.preventDefault();
-      el.scrollLeft += e.deltaY;
-    }
-  }, []);
-
-  useEffect(() => {
-    const el = tabsRef.current;
-    if (!el) return;
-    el.addEventListener("wheel", handleTabsWheel, { passive: false });
-    return () => el.removeEventListener("wheel", handleTabsWheel);
-  }, [handleTabsWheel]);
-
-  // Keep the active tab in view when the route changes — with a
-  // scrollable bar the current tab can otherwise sit off-screen.
+  // Scroll active tab into view
   useEffect(() => {
     const el = tabsRef.current;
     if (!el) return;
     const active = el.querySelector<HTMLElement>(".topnav-tab.active");
     active?.scrollIntoView({ behavior: "smooth", inline: "center", block: "nearest" });
   }, [location.pathname]);
-  // Stable id so the popover div and the trigger button are linked
-  // via `aria-controls` for screen readers.
-  const popoverId = useId();
 
-  const handleTitleBarDoubleClick = useCallback(
-    (e: MouseEvent<HTMLElement>) => {
-      if (isInteractiveTarget(e.target)) return;
-      getCurrentWindow().toggleMaximize().catch(() => {});
-    },
-    [],
-  );
+  // Handle double click to maximize
+  const handleDoubleClick = useCallback(async (e: MouseEvent<HTMLElement>) => {
+    if (isInteractiveTarget(e.target)) return;
+    const win = getCurrentWindow();
+    const isMax = await win.isMaximized();
+    if (isMax) {
+      await win.unmaximize();
+    } else {
+      await win.maximize();
+    }
+  }, []);
+
+  // Responsive Navbar style selection
+  const isCompactNavbar = navbarMode === "compact";
+  const displayedTabs = isCompactNavbar ? coreNavTabs : allNavTabs;
+  const isOverflowActive = overflowNavTabs.some((tab) => location.pathname.startsWith(tab.path));
 
   return (
-    <nav
-      className="topnav"
-      aria-label={t("bigscreen.nav.mainNav")}
-      onDoubleClick={handleTitleBarDoubleClick}
-    >
-      <div className="topnav-left">
-        <NavLink
-          to="/home"
-          className="topnav-logo"
-          aria-label={t("nav.home")}
-          title={t("nav.home")}
-        >
-          {/*
-           * Brand mark — three interlocking rings. Kept as an inline SVG
-           * driven by theme variables so it recolorizes with every theme.
-           */}
-          <svg
-            className="topnav-logo__mark"
-            viewBox="0 0 24 24"
-            fill="none"
-            aria-hidden="true"
+    <>
+      <header
+        className="topnav"
+        onDoubleClick={handleDoubleClick}
+        data-tauri-drag-region
+      >
+        {/* Left cluster: app brand identity + nav items */}
+        <div className="topnav-left">
+          <NavLink
+            to="/home"
+            className="topnav-logo"
+            aria-label={t("nav.home")}
+            title={t("nav.home")}
+            onMouseEnter={() => preloadRoute("/home")}
+            onFocus={() => preloadRoute("/home")}
           >
-            <defs>
-              <radialGradient id="topnav-logo-glow" cx="50%" cy="50%" r="50%">
-                <stop offset="0%" stopColor="var(--color-accent)" stopOpacity="0.8" />
-                <stop offset="60%" stopColor="var(--color-accent)" stopOpacity="0.2" />
-                <stop offset="100%" stopColor="var(--color-accent)" stopOpacity="0" />
-              </radialGradient>
-            </defs>
-            <circle cx="9" cy="9.5" r="5.4" stroke="var(--color-accent)" strokeWidth="2" />
-            <circle cx="15" cy="9.5" r="5.4" stroke="var(--color-accent)" strokeWidth="2" />
-            <circle cx="12" cy="15" r="5.4" stroke="var(--color-accent)" strokeWidth="2" />
-            <circle cx="12" cy="11.5" r="3.4" fill="url(#topnav-logo-glow)" />
-            <circle
-              cx="12"
-              cy="11.5"
-              r="1.9"
-              fill="var(--color-text-primary)"
-              stroke="var(--color-accent)"
-              strokeWidth="0.6"
-            />
-          </svg>
-          <span className="topnav-logo__word">GameIndex</span>
-          {version !== "" && (
-            <span className="topnav-logo__version">v{version}</span>
-          )}
-        </NavLink>
+            <svg
+              className="topnav-logo__mark"
+              viewBox="0 0 24 24"
+              fill="none"
+              aria-hidden="true"
+            >
+              <defs>
+                <radialGradient id="topnav-logo-glow" cx="50%" cy="50%" r="50%">
+                  <stop offset="0%" stopColor="var(--color-accent)" stopOpacity="0.8" />
+                  <stop offset="60%" stopColor="var(--color-accent)" stopOpacity="0.2" />
+                  <stop offset="100%" stopColor="var(--color-accent)" stopOpacity="0" />
+                </radialGradient>
+              </defs>
+              <circle cx="9" cy="9.5" r="5.4" stroke="var(--color-accent)" strokeWidth="2" />
+              <circle cx="15" cy="9.5" r="5.4" stroke="var(--color-accent)" strokeWidth="2" />
+              <circle cx="12" cy="15" r="5.4" stroke="var(--color-accent)" strokeWidth="2" />
+              <circle cx="12" cy="11.5" r="3.4" fill="url(#topnav-logo-glow)" />
+              <circle
+                cx="12"
+                cy="11.5"
+                r="1.9"
+                fill="var(--color-text-primary)"
+                stroke="var(--color-accent)"
+                strokeWidth="0.6"
+              />
+            </svg>
+            <span className="topnav-logo__word">GameIndex</span>
+            {version && (
+              <span className="topnav-logo__version" title={`v${version}`}>
+                v{version}
+              </span>
+            )}
+          </NavLink>
 
-        {/* Command Palette Icon Button */}
-        <button
-          type="button"
-          className="topnav-btn--cmd"
-          onClick={() => {
-            playTabSound();
-            setPaletteOpen(true);
-          }}
-          title={t("topnav.searchPlaceholder")}
-          aria-label={t("topnav.searchPlaceholder")}
-        >
-          <Search className="topnav-cmd-icon" aria-hidden="true" />
-        </button>
+          <button
+            type="button"
+            className="topnav-btn--cmd"
+            onClick={() => {
+              playTabSound();
+              setPaletteOpen(true);
+            }}
+            title={t("topnav.searchPlaceholder")}
+            aria-label={t("topnav.searchPlaceholder")}
+          >
+            <Search className="topnav-cmd-icon" aria-hidden="true" />
+          </button>
 
-        <span className="topnav-divider" aria-hidden="true" />
+          <span className="topnav-divider" aria-hidden="true" />
 
-        <div ref={tabsRef} className="topnav-tabs">
-          {displayedTabs.map((tab) => {
-            const Icon = tab.icon;
-            const isActive = location.pathname.startsWith(tab.path);
-            const showBadge = tab.path === "/friends" && unseenCommunity > 0;
-            return (
-              <NavLink
-                key={tab.path}
-                to={tab.path}
-                className={`topnav-tab${isActive ? " active" : ""}`}
-                aria-current={isActive ? "page" : undefined}
+          <div ref={tabsRef} className="topnav-tabs">
+            {displayedTabs.map((tab) => {
+              const Icon = tab.icon;
+              const isActive = location.pathname.startsWith(tab.path);
+              const showBadge = tab.path === "/friends" && unseenCommunity > 0;
+              return (
+                <NavLink
+                  key={tab.path}
+                  to={tab.path}
+                  className={`topnav-tab${isActive ? " active" : ""}`}
+                  aria-current={isActive ? "page" : undefined}
+                  onMouseEnter={() => preloadRoute(tab.path)}
+                  onFocus={() => preloadRoute(tab.path)}
+                  onClick={() => {
+                    playTabSound();
+                    if (tab.path === "/friends") clearUnseenCommunityItems();
+                  }}
+                >
+                  <Icon className="topnav-tab-icon" strokeWidth={2} aria-hidden="true" />
+                  {t(tab.labelKey)}
+                  {showBadge && (
+                    <span
+                      className="topnav-tab-badge"
+                      role="status"
+                      aria-label={t("topnav.newCommunityItems", { count: unseenCommunity, plural: unseenCommunity !== 1 ? "s" : "" })}
+                    >
+                      {unseenCommunity > 99 ? "99+" : unseenCommunity}
+                    </span>
+                  )}
+                </NavLink>
+              );
+            })}
+          </div>
+
+          {/* Compact Mode: 'More' Dropdown Menu */}
+          {isCompactNavbar && (
+            <div ref={moreRef} className="topnav-more-container">
+              <button
+                type="button"
+                className={`topnav-tab topnav-more-btn${isOverflowActive ? " active" : ""}${moreOpen ? " is-open" : ""}`}
                 onClick={() => {
                   playTabSound();
-                  if (tab.path === "/friends") clearUnseenCommunityItems();
+                  setMoreOpen((prev) => !prev);
                 }}
+                onMouseEnter={() => {
+                  overflowNavTabs.forEach((tab) => preloadRoute(tab.path));
+                }}
+                aria-expanded={moreOpen}
+                aria-haspopup="menu"
+                title={t("nav.more")}
               >
-                <Icon className="topnav-tab-icon" strokeWidth={2} aria-hidden="true" />
-                {t(tab.labelKey)}
-                {showBadge && (
-                  <span
-                    className="topnav-tab-badge"
-                    role="status"
-                    aria-label={t("topnav.newCommunityItems", { count: unseenCommunity, plural: unseenCommunity !== 1 ? "s" : "" })}
-                  >
+                <span className="topnav-more-btn-label">{t("nav.more")}</span>
+                <ChevronDown
+                  className={`topnav-more-chevron${moreOpen ? " is-open" : ""}`}
+                  size={13}
+                  aria-hidden="true"
+                />
+                {unseenCommunity > 0 && !isOverflowActive && (
+                  <span className="topnav-tab-badge" aria-hidden="true">
                     {unseenCommunity > 99 ? "99+" : unseenCommunity}
                   </span>
                 )}
-              </NavLink>
-            );
-          })}
+              </button>
+
+              {moreOpen && (
+                <div className="topnav-more-dropdown" role="menu">
+                  {overflowNavTabs.map((tab) => {
+                    const Icon = tab.icon;
+                    const isActive = location.pathname.startsWith(tab.path);
+                    const showBadge = tab.path === "/friends" && unseenCommunity > 0;
+                    return (
+                      <NavLink
+                        key={tab.path}
+                        to={tab.path}
+                        className={`topnav-more-item${isActive ? " active" : ""}`}
+                        role="menuitem"
+                        onMouseEnter={() => preloadRoute(tab.path)}
+                        onFocus={() => preloadRoute(tab.path)}
+                        onClick={() => {
+                          playTabSound();
+                          setMoreOpen(false);
+                          if (tab.path === "/friends") clearUnseenCommunityItems();
+                        }}
+                      >
+                        <Icon className="topnav-more-item-icon" size={15} aria-hidden="true" />
+                        <span className="topnav-more-item-label">{t(tab.labelKey)}</span>
+                        {showBadge && (
+                          <span className="topnav-tab-badge">
+                            {unseenCommunity > 99 ? "99+" : unseenCommunity}
+                          </span>
+                        )}
+                      </NavLink>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          )}
         </div>
 
-        {/* Compact Mode: 'More' Dropdown Menu */}
-        {isCompactNavbar && (
-          <div ref={moreRef} className="topnav-more-container">
+        {/* Right cluster: page actions (downloads, settings, docs,
+         * big-screen) + window controls. */}
+        <div className="topnav-right-cluster">
+          <div className="topnav-right">
+            {/* Live "Now Playing" HUD Chip */}
+            {runningGame && showNavbarNowPlaying && (
+              <button
+                type="button"
+                className="topnav-now-playing-chip"
+                onClick={() => {
+                  playTabSound();
+                  navigate(`/library/${runningGame.id}`);
+                }}
+                title={`${t("topnav.nowPlaying")}: ${runningGame.name}`}
+                aria-label={`${t("topnav.nowPlaying")}: ${runningGame.name}`}
+              >
+                <span className="topnav-now-playing-pulse" aria-hidden="true" />
+                <Gamepad2 className="topnav-now-playing-chip-icon" aria-hidden="true" />
+                <span className="topnav-now-playing-chip-name">{runningGame.name}</span>
+              </button>
+            )}
+
             <button
+              ref={downloadBtnRef}
               type="button"
-              className={`topnav-tab topnav-more-btn${isOverflowActive ? " active" : ""}${moreOpen ? " is-open" : ""}`}
-              onClick={() => {
-                playTabSound();
-                setMoreOpen((prev) => !prev);
-              }}
-              aria-expanded={moreOpen}
-              aria-haspopup="menu"
-              title={t("nav.more")}
+              className={`topnav-btn topnav-btn-downloads${downloadsOpen || location.pathname.startsWith("/downloads") ? " active" : ""}${activeDownloads > 0 ? " is-downloading" : ""}`}
+              onClick={() => setDownloadsOpen((o) => !o)}
+              onMouseEnter={() => preloadRoute("/downloads")}
+              onFocus={() => preloadRoute("/downloads")}
+              aria-label={activeDownloads > 0 ? t("topnav.downloadsActive", { count: activeDownloads }) : t("nav.downloads")}
+              aria-expanded={downloadsOpen}
+              aria-haspopup="dialog"
+              aria-controls={popoverId}
+              title={t("nav.downloads")}
             >
-              <span className="topnav-more-btn-label">{t("nav.more")}</span>
-              <ChevronDown
-                className={`topnav-more-chevron${moreOpen ? " is-open" : ""}`}
-                size={13}
-                aria-hidden="true"
-              />
-              {unseenCommunity > 0 && !isOverflowActive && (
-                <span className="topnav-tab-badge" aria-hidden="true">
-                  {unseenCommunity > 99 ? "99+" : unseenCommunity}
+              <Download />
+              {activeDownloads > 0 && (
+                <span
+                  className="topnav-btn-badge"
+                  role="status"
+                  aria-label={t("topnav.activeDownloads", { count: activeDownloads })}
+                >
+                  {activeDownloads}
                 </span>
               )}
             </button>
-
-            {moreOpen && (
-              <div className="topnav-more-dropdown" role="menu">
-                {overflowNavTabs.map((tab) => {
-                  const Icon = tab.icon;
-                  const isActive = location.pathname.startsWith(tab.path);
-                  const showBadge = tab.path === "/friends" && unseenCommunity > 0;
-                  return (
-                    <NavLink
-                      key={tab.path}
-                      to={tab.path}
-                      className={`topnav-more-item${isActive ? " active" : ""}`}
-                      role="menuitem"
-                      onClick={() => {
-                        playTabSound();
-                        setMoreOpen(false);
-                        if (tab.path === "/friends") clearUnseenCommunityItems();
-                      }}
-                    >
-                      <Icon className="topnav-more-item-icon" size={15} aria-hidden="true" />
-                      <span className="topnav-more-item-label">{t(tab.labelKey)}</span>
-                      {showBadge && (
-                        <span className="topnav-tab-badge">
-                          {unseenCommunity > 99 ? "99+" : unseenCommunity}
-                        </span>
-                      )}
-                    </NavLink>
-                  );
-                })}
-              </div>
-            )}
-          </div>
-        )}
-      </div>
-
-      {/* Right cluster: page actions (downloads, settings, docs,
-       * big-screen) + window controls. Bundled into one flex unit so
-       * `.topnav`'s `justify-content: space-between` anchors them to
-       * the right edge instead of drifting to the geometric center. */}
-      <div className="topnav-right-cluster">
-        <div className="topnav-right">
-          {/* Live "Now Playing" HUD Chip — placed in right action cluster for zero tab crowding */}
-          {runningGame && showNavbarNowPlaying && (
+            <DownloadPopover
+              open={downloadsOpen}
+              onClose={() => {
+                setDownloadsOpen(false);
+                downloadBtnRef.current?.focus();
+              }}
+              anchorRef={downloadBtnRef}
+              id={popoverId}
+            />
+            <NavLink
+              to="/settings"
+              className={({ isActive }) =>
+                `topnav-btn topnav-btn-settings${isActive ? " active" : ""}`
+              }
+              onMouseEnter={() => preloadRoute("/settings")}
+              onFocus={() => preloadRoute("/settings")}
+              aria-label={t("nav.settings")}
+              title={t("nav.settings")}
+            >
+              <Settings />
+            </NavLink>
+            <NavLink
+              to="/docs"
+              className={({ isActive }) =>
+                `topnav-btn topnav-btn-docs${isActive ? " active" : ""} ui-complete-only`
+              }
+              onMouseEnter={() => preloadRoute("/docs")}
+              onFocus={() => preloadRoute("/docs")}
+              aria-label={t("nav.docs")}
+              title={t("nav.docs")}
+            >
+              <BookOpen />
+            </NavLink>
             <button
               type="button"
-              className="topnav-now-playing-chip"
-              onClick={() => {
-                playTabSound();
-                navigate(`/library/${runningGame.id}`);
-              }}
-              title={`${t("topnav.nowPlaying")}: ${runningGame.name}`}
-              aria-label={`${t("topnav.nowPlaying")}: ${runningGame.name}`}
+              className={`topnav-btn topnav-btn-bigscreen${isBigScreen ? " active" : ""}`}
+              onClick={() => setBigScreen(!isBigScreen)}
+              aria-label={isBigScreen ? t("topnav.exitBigScreen") : t("topnav.enterBigScreen")}
+              title={isBigScreen ? t("topnav.exitBigScreen") : t("topnav.enterBigScreen")}
             >
-              <span className="topnav-now-playing-pulse" aria-hidden="true" />
-              <Gamepad2 className="topnav-now-playing-chip-icon" aria-hidden="true" />
-              <span className="topnav-now-playing-chip-name">{runningGame.name}</span>
+              <MonitorPlay />
             </button>
-          )}
-
-          <button
-            ref={downloadBtnRef}
-            type="button"
-            className={`topnav-btn topnav-btn-downloads${downloadsOpen || location.pathname.startsWith("/downloads") ? " active" : ""}${activeDownloads > 0 ? " is-downloading" : ""}`}
-            onClick={() => setDownloadsOpen((o) => !o)}
-            aria-label={activeDownloads > 0 ? t("topnav.downloadsActive", { count: activeDownloads }) : t("nav.downloads")}
-            aria-expanded={downloadsOpen}
-            aria-haspopup="dialog"
-            aria-controls={popoverId}
-            title={t("nav.downloads")}
-          >
-            <Download />
-            {activeDownloads > 0 && (
-              <span
-                className="topnav-btn-badge"
-                role="status"
-                aria-label={t("topnav.activeDownloads", { count: activeDownloads })}
-              >
-                {activeDownloads}
-              </span>
-            )}
-          </button>
-          <DownloadPopover
-            open={downloadsOpen}
-            onClose={() => {
-              setDownloadsOpen(false);
-              downloadBtnRef.current?.focus();
-            }}
-            anchorRef={downloadBtnRef}
-            id={popoverId}
-          />
-          <NavLink
-            to="/settings"
-            className={({ isActive }) =>
-              `topnav-btn topnav-btn-settings${isActive ? " active" : ""}`
-            }
-            aria-label={t("nav.settings")}
-            title={t("nav.settings")}
-          >
-            <Settings />
-          </NavLink>
-          <NavLink
-            to="/docs"
-            className={({ isActive }) =>
-              `topnav-btn topnav-btn-docs${isActive ? " active" : ""} ui-complete-only`
-            }
-            aria-label={t("nav.docs")}
-            title={t("nav.docs")}
-          >
-            <BookOpen />
-          </NavLink>
-          <button
-            type="button"
-            className={`topnav-btn topnav-btn-bigscreen${isBigScreen ? " active" : ""}`}
-            onClick={() => setBigScreen(!isBigScreen)}
-            aria-label={isBigScreen ? t("topnav.exitBigScreen") : t("topnav.enterBigScreen")}
-            title={isBigScreen ? t("topnav.exitBigScreen") : t("topnav.enterBigScreen")}
-          >
-            <MonitorPlay />
-          </button>
-        </div>
-
-        <div className="topnav-window-chrome">
+          </div>
           <WindowControls />
         </div>
-      </div>
-
-      <CommandPalette
-        isOpen={paletteOpen}
-        onClose={() => setPaletteOpen(false)}
-      />
-    </nav>
+      </header>
+      <CommandPalette isOpen={paletteOpen} onClose={() => setPaletteOpen(false)} />
+    </>
   );
 }

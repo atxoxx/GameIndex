@@ -1,8 +1,6 @@
 import { useEffect, useRef, type CSSProperties } from "react";
 import { useSearchParams } from "react-router-dom";
 import { usePresence } from "../context/PresenceContext";
-import { CrackWatchProvider } from "../context/CrackWatchContext";
-import { PriceProvider } from "../context/PriceContext";
 import { useStoreCatalogue } from "../hooks/useStoreCatalogue";
 import {
   getStoreSearchQueryFromSearchParams,
@@ -111,87 +109,79 @@ export default function StorePage() {
   }, [c.searchQuery, searchParams, setSearchParams]);
 
   return (
-    <CrackWatchProvider>
-      <PriceProvider>
-        <div className="store-page page">
-          <StoreHeader catalogue={c} />
+    <div className="store-page page">
+      <StoreHeader catalogue={c} />
 
-          {/* Featured Spotlight Showcase */}
-          <div className="fade-up ui-complete-only" style={{ "--d": "120ms" } as CSSProperties}>
-            <StoreFeaturedHero onPickGame={c.onCardClick} />
-          </div>
+      {/* Featured Spotlight Showcase */}
+      <div className="fade-up ui-complete-only" style={{ "--d": "120ms" } as CSSProperties}>
+        <StoreFeaturedHero onPickGame={c.onCardClick} />
+      </div>
 
-          <div className="store-layout store-layout-in" style={{ "--d": "200ms" } as CSSProperties}>
-            <StoreFilterPanel catalogue={c} />
+      <div className="store-layout store-layout-in" style={{ "--d": "200ms" } as CSSProperties}>
+        <StoreFilterPanel catalogue={c} />
 
-            <div className="store-main">
-              <StoreToolbar catalogue={c} />
+        <div className="store-main">
+          <StoreToolbar catalogue={c} />
 
-              <StoreGameGrid
-                games={c.displayedGames}
-                loading={c.loading}
-                error={c.error}
-                hasMore={c.hasMore}
-                onLoadMore={c.loadMore}
-                onCardClick={c.onCardClick}
-                isSourceFilterActive={c.isSourceFilterActive}
-                isSourceCheckPending={c.sourceChecksPending > 0}
-                isInLibrary={c.isInLibrary}
-                onHide={c.onHide}
-                onCompare={c.addCompare}
-                bulkMode={c.bulkMode}
-                selectedSlugs={c.selectedSlugs}
-                onToggleSelect={c.toggleSelect}
-                onClearFilters={c.resetFilters}
-                // Clear search via Lane A's applyExternalQuery so the URL ?q=
-                // is also removed (via the catalogue→URL effect) and Lane A's
-                // recent-search and dedup state stays consistent. Using
-                // setSearchQuery("") alone would leave ?q= in the address bar.
-                onClearSearch={() => c.applyExternalQuery("")}
-              />
-            </div>
-          </div>
+          <StoreGameGrid
+            games={c.displayedGames}
+            loading={c.loading}
+            error={c.error}
+            hasMore={c.hasMore}
+            onLoadMore={c.loadMore}
+            onCardClick={c.onCardClick}
+            isSourceFilterActive={c.isSourceFilterActive}
+            isSourceCheckPending={c.sourceChecksPending > 0}
+            isInLibrary={c.isInLibrary}
+            onHide={c.onHide}
+            onCompare={c.addCompare}
+            bulkMode={c.bulkMode}
+            selectedSlugs={c.selectedSlugs}
+            onToggleSelect={c.toggleSelect}
+            onClearFilters={c.resetFilters}
+            onClearSearch={() => c.applyExternalQuery("")}
+          />
+        </div>
 
-          {c.bulkMode && (
-            <StoreBulkBar
-              selectedCount={c.selectedSlugs.size}
-              totalCount={c.displayedGames.length}
-              onSelectAll={c.selectAllVisible}
-              onClear={c.clearSelection}
-              onWishlistAll={c.wishlistAll}
-              onHideAll={c.hideAll}
-              onAddAll={c.addAll}
-              onExit={() => {
-                c.setBulkMode(false);
-                c.clearSelection();
-              }}
-              addingAll={c.addingAll}
+        {c.bulkMode && (
+          <StoreBulkBar
+            selectedCount={c.selectedSlugs.size}
+            totalCount={c.displayedGames.length}
+            onSelectAll={c.selectAllVisible}
+            onClear={c.clearSelection}
+            onWishlistAll={c.wishlistAll}
+            onHideAll={c.hideAll}
+            onAddAll={c.addAll}
+            onExit={() => {
+              c.setBulkMode(false);
+              c.clearSelection();
+            }}
+            addingAll={c.addingAll}
+          />
+        )}
+
+        <div className="ui-complete-only">
+          {!c.bulkMode && c.compareGames.length > 0 && (
+            <StoreCompareTray
+              games={c.compareGames}
+              onRemove={c.removeCompare}
+              onClear={c.clearCompare}
+              onOpen={() => c.setCompareOpen(true)}
             />
           )}
 
-          <div className="ui-complete-only">
-            {!c.bulkMode && (
-              <StoreCompareTray
-                games={c.compareGames}
-                onRemove={c.removeCompare}
-                onClear={c.clearCompare}
-                onOpen={() => c.setCompareOpen(true)}
-              />
-            )}
-
-            {c.compareOpen && c.compareGames.length >= 2 && (
-              <StoreCompareModal
-                games={c.compareGames}
-                onClose={() => c.setCompareOpen(false)}
-                onOpenGame={(g) => {
-                  c.setCompareOpen(false);
-                  c.onCardClick(g);
-                }}
-              />
-            )}
-          </div>
+          {c.compareOpen && c.compareGames.length >= 2 && (
+            <StoreCompareModal
+              games={c.compareGames}
+              onClose={() => c.setCompareOpen(false)}
+              onOpenGame={(g) => {
+                c.setCompareOpen(false);
+                c.onCardClick(g);
+              }}
+            />
+          )}
         </div>
-      </PriceProvider>
-    </CrackWatchProvider>
+      </div>
+    </div>
   );
 }

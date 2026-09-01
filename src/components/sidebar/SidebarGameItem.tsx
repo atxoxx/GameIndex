@@ -5,6 +5,7 @@ import { useSteamGridArt } from "../../context/SteamGridDbContext";
 import { useLanguage } from "../../context/LanguageContext";
 import { PLAY_STATUS_DETAILS } from "../../types/game";
 import { accentForPlatform } from "../../types/emulator";
+import { preloadGameDetail } from "../../utils/routePreload";
 import HighlightedName from "./HighlightedName";
 import type { SidebarGameItemProps } from "./types";
 
@@ -119,7 +120,13 @@ function SidebarGameItemBase({
       ref={coverRef}
       data-sidebar-game-id={game.id}
       className={`sidebar-game-item${isSelected ? " active" : ""}${bulkSelected ? " bulk-selected" : ""}${game.iconUrl ? " has-icon" : ""}`}
-      onMouseEnter={() => onPointerEnter(game)}
+      onMouseEnter={() => {
+        preloadGameDetail();
+        onPointerEnter(game);
+      }}
+      onFocus={() => {
+        preloadGameDetail();
+      }}
       onMouseLeave={() => onPointerLeave(game)}
       aria-selected={isSelected}
     >

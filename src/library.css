@@ -2296,6 +2296,24 @@
   filter: none;
 }
 
+.lib-rail-cover-static {
+  position: relative;
+  z-index: 0;
+}
+
+.lib-rail-cover-animated {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  opacity: 0;
+  transition: opacity 0.35s cubic-bezier(0.16, 1, 0.3, 1);
+  pointer-events: none;
+}
+
+.lib-rail-cover-animated.is-active {
+  opacity: 1;
+}
+
 .lib-rail-card:hover .lib-rail-cover img {
   transform: scale(1.04);
 }

@@ -56,7 +56,7 @@ function HomeWishlistCard({
   onClick: () => void;
 }) {
   const [hovered, setHovered] = useState(false);
-  const { displayUrl, handleError } = useGameCardArt({
+  const { displayUrl, staticPosterUrl, animatedPosterUrl, handleError } = useGameCardArt({
     game: entry,
     defaultCoverUrl: entry.coverUrl,
     isHovered: hovered,
@@ -73,8 +73,27 @@ function HomeWishlistCard({
       aria-label={entry.name}
     >
       <div className="home-rail-card__cover">
-        {displayUrl ? (
-          <img src={displayUrl} alt="" loading="lazy" onError={handleError} />
+        {(staticPosterUrl || displayUrl) ? (
+          <>
+            <img
+              src={staticPosterUrl || displayUrl!}
+              alt=""
+              loading="lazy"
+              decoding="async"
+              onError={handleError}
+              className="home-rail-card__cover-static"
+            />
+            {animatedPosterUrl && (
+              <img
+                src={animatedPosterUrl}
+                alt=""
+                aria-hidden="true"
+                decoding="async"
+                className={`home-rail-card__cover-animated${hovered ? " is-active" : ""}`}
+                onError={handleError}
+              />
+            )}
+          </>
         ) : (
           <div className="home-rail-card__placeholder">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1" aria-hidden>

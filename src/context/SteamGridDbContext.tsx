@@ -3,8 +3,9 @@ import {
   useCallback,
   useContext,
   useEffect,
+  useMemo,
   useRef,
-  useState,
+  useSyncExternalStore,
   type ReactNode,
 } from "react";
 import { invoke } from "@tauri-apps/api/core";
@@ -14,23 +15,19 @@ import type { SgdbAssets } from "../types/steamgriddb";
  * SteamGridDbContext batches per-card SteamGridDB artwork lookups into a
  * single backend round-trip.
  *
- * A library or store grid can render hundreds of cards; letting each card
- * fire its own `sgdb_get_assets` invoke would mean hundreds of IPC calls
- * (and, worse, hundreds of backend KV reads). Cards register their Steam
- * AppID here; the provider coalesces registrations within a short window
- * and calls `sgdb_get_assets_batch` once, then publishes results back —
- * the same coalescing pattern as CrackWatchContext / PriceContext.
- *
- * The backend additionally caches per-AppID results (7-day TTL), so repeat
- * visits resolve from SQLite without touching the SteamGridDB API.
+ * Rather than a global context version bump (which would force all cards
+ * on screen to re-render whenever any batch completes), this provider uses
+ * fine-grained per-AppID subscriptions with React 19 `useSyncExternalStore`.
+ * When a batch for AppIDs [A, B] completes, ONLY cards subscribing to A or B
+ * re-render; other cards are completely untouched.
  */
 interface SteamGridDbContextValue {
   /** Register an AppID for lookup; schedules a batched fetch if uncached. */
   request: (appId: number) => void;
   /** Read the resolved artwork for an AppID (undefined = not yet resolved). */
   get: (appId: number) => SgdbAssets | null | undefined;
-  /** Bump on every batch completion so consumers re-read `get`. */
-  version: number;
+  /** Subscribe a callback to updates for a specific AppID. */
+  subscribe: (appId: number, onStoreChange: () => void) => () => void;
 }
 
 // Persist the React context instance across Vite HMR module re-evaluations
@@ -54,8 +51,16 @@ export function SteamGridDbProvider({ children }: { children: ReactNode }) {
   const pendingRef = useRef<Set<number>>(new Set());
   // AppIDs currently in flight (avoid re-requesting mid-batch).
   const inflightRef = useRef<Set<number>>(new Set());
+  // Per-AppID listener callbacks for surgical, fine-grained re-renders.
+  const listenersRef = useRef<Map<number, Set<() => void>>>(new Map());
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const [version, setVersion] = useState(0);
+
+  const notify = useCallback((appId: number) => {
+    const set = listenersRef.current.get(appId);
+    if (set) {
+      set.forEach((cb) => cb());
+    }
+  }, []);
 
   const flush = useCallback(() => {
     timerRef.current = null;
@@ -71,8 +76,8 @@ export function SteamGridDbProvider({ children }: { children: ReactNode }) {
         for (const id of appIds) {
           cacheRef.current.set(id, result[String(id)] ?? null);
           inflightRef.current.delete(id);
+          notify(id);
         }
-        setVersion((v) => v + 1);
       })
       .catch(() => {
         // On failure, mark as resolved-null so we don't re-request on every
@@ -80,10 +85,10 @@ export function SteamGridDbProvider({ children }: { children: ReactNode }) {
         for (const id of appIds) {
           if (!cacheRef.current.has(id)) cacheRef.current.set(id, null);
           inflightRef.current.delete(id);
+          notify(id);
         }
-        setVersion((v) => v + 1);
       });
-  }, []);
+  }, [notify]);
 
   const request = useCallback(
     (appId: number) => {
@@ -100,14 +105,34 @@ export function SteamGridDbProvider({ children }: { children: ReactNode }) {
 
   const get = useCallback((appId: number) => cacheRef.current.get(appId), []);
 
+  const subscribe = useCallback((appId: number, onStoreChange: () => void) => {
+    let set = listenersRef.current.get(appId);
+    if (!set) {
+      set = new Set();
+      listenersRef.current.set(appId, set);
+    }
+    set.add(onStoreChange);
+    return () => {
+      set?.delete(onStoreChange);
+      if (set?.size === 0) {
+        listenersRef.current.delete(appId);
+      }
+    };
+  }, []);
+
   useEffect(() => {
     return () => {
       if (timerRef.current) clearTimeout(timerRef.current);
     };
   }, []);
 
+  const value = useMemo<SteamGridDbContextValue>(
+    () => ({ request, get, subscribe }),
+    [request, get, subscribe]
+  );
+
   return (
-    <SteamGridDbContext.Provider value={{ request, get, version }}>
+    <SteamGridDbContext.Provider value={value}>
       {children}
     </SteamGridDbContext.Provider>
   );
@@ -117,25 +142,34 @@ export function SteamGridDbProvider({ children }: { children: ReactNode }) {
  * useSteamGridArt: subscribe a single surface (library card, store card,
  * hero) to the batched SteamGridDB lookup for a Steam AppID.
  *
- * Returns the resolved artwork, or `null` when there's no AppID, no
- * provider, or the game has no community art. Safe to call without a
- * provider — it simply returns null and does nothing.
+ * Uses useSyncExternalStore with per-AppID subscriptions so only the specific
+ * card for that AppID re-renders when data resolves.
  */
 export function useSteamGridArt(
   appId: number | null | undefined
 ): SgdbAssets | null {
   const ctx = useContext(SteamGridDbContext);
 
-  useEffect(() => {
-    if (ctx && appId != null) ctx.request(appId);
-    // Re-request only when the AppID changes.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [appId, ctx?.request]);
+  const subscribe = useCallback(
+    (onStoreChange: () => void) => {
+      if (!ctx || appId == null || appId <= 0) return () => {};
+      return ctx.subscribe(appId, onStoreChange);
+    },
+    [ctx, appId]
+  );
 
-  if (!ctx || appId == null) return null;
-  // Reading ctx.version in render ties this component to batch completions.
-  void ctx.version;
-  return ctx.get(appId) ?? null;
+  const getSnapshot = useCallback(() => {
+    if (!ctx || appId == null || appId <= 0) return null;
+    return ctx.get(appId) ?? null;
+  }, [ctx, appId]);
+
+  useEffect(() => {
+    if (ctx && appId != null && appId > 0) {
+      ctx.request(appId);
+    }
+  }, [appId, ctx]);
+
+  return useSyncExternalStore(subscribe, getSnapshot, getSnapshot);
 }
 
 const prefetchCache = new Set<string>();

@@ -42,7 +42,7 @@ export default function DealCard({
     return null;
   }, [deal.storeUrl]);
 
-  const { displayUrl, handleError } = useGameCardArt({
+  const { displayUrl, staticPosterUrl, animatedPosterUrl, handleError } = useGameCardArt({
     appId: steamAppId,
     defaultCoverUrl: deal.thumbnail,
     isHovered: hovered,
@@ -118,14 +118,27 @@ export default function DealCard({
       })}
     >
       <div className="deals-deal-card-image-wrap">
-        {displayUrl ? (
-          <img
-            className="deals-deal-card-image"
-            src={displayUrl}
-            alt={deal.gameTitle}
-            loading="lazy"
-            onError={handleError}
-          />
+        {(staticPosterUrl || displayUrl) ? (
+          <>
+            <img
+              className="deals-deal-card-image deals-deal-card-image-static"
+              src={staticPosterUrl || displayUrl!}
+              alt={deal.gameTitle}
+              loading="lazy"
+              decoding="async"
+              onError={handleError}
+            />
+            {animatedPosterUrl && (
+              <img
+                className={`deals-deal-card-image deals-deal-card-image-animated${hovered ? " is-active" : ""}`}
+                src={animatedPosterUrl}
+                alt=""
+                aria-hidden="true"
+                decoding="async"
+                onError={handleError}
+              />
+            )}
+          </>
         ) : null}
 
         <div
