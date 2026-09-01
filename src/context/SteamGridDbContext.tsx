@@ -175,8 +175,8 @@ export function useSteamGridArt(
 const prefetchCache = new Set<string>();
 const prefetchQueue: string[] = [];
 let prefetchActive = 0;
-const MAX_CONCURRENT_PREFETCH = 2;
-const MAX_PREFETCH_CACHE = 32;
+const MAX_CONCURRENT_PREFETCH = 1;
+const MAX_PREFETCH_CACHE = 12;
 
 function processPrefetchQueue() {
   while (prefetchActive < MAX_CONCURRENT_PREFETCH && prefetchQueue.length > 0) {

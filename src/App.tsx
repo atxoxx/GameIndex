@@ -141,8 +141,9 @@ function App() {
     invoke("close_splashscreen").catch(() => {});
   }, []);
 
-  // Warm page chunks in background idle frames so navigation is instant
-  // with zero loading delay across every single route.
+  // Preload only the core routes during idle time. Loading every page chunk
+  // at startup keeps navigation warm but needlessly increases RAM for pages
+  // most users never open; hover/focus preloading handles the rest.
   useEffect(() => {
     const cancel = scheduleIdleRoutePreloading();
     return cancel;

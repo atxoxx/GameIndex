@@ -144,7 +144,8 @@ export function useGameCardArt(options: UseGameCardArtOptions): UseGameCardArtRe
   const sgdbIcon = sgdb?.iconUrl && !sgdbIconFailed ? sgdb.iconUrl : null;
   const isActive = isHovered || isFocused;
 
-  // Keep animated art warm without mounting/decoding it for every visible card.
+  // Decode animated art only for an actively hovered card. Prefetching every
+  // visible card creates large decoded image buffers and raises working-set RAM.
   usePrefetchImage(isActive ? sgdbAnimated : null);
 
   // Resolve best icon & poster

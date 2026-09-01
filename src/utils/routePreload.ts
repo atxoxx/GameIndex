@@ -70,25 +70,13 @@ export function preloadStoreDetail(): void {
 const HIGH_PRIORITY_KEYS = [
   "/library",
   "/home",
+];
+
+const SECONDARY_KEYS = [
   "/store",
   "/wishlist",
   "/deals",
   "/activity",
-  "/game-detail",
-  "/store-detail",
-];
-
-const SECONDARY_KEYS = [
-  "/news",
-  "/achievements",
-  "/downloads",
-  "/storage",
-  "/community",
-  "/friends",
-  "/emulators",
-  "/mods",
-  "/settings",
-  "/docs",
 ];
 
 /** Schedule sequential background preloading across idle browser frames. */
@@ -115,7 +103,7 @@ export function scheduleIdleRoutePreloading(): () => void {
     // Phase 2: Secondary routes in next idle window
     runIdle(() => {
       if (cancelled) return;
-      for (const key of SECONDARY_KEYS) {
+        for (const key of SECONDARY_KEYS) {
         preloadRoute(key);
       }
     }, 3000);
