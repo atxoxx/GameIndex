@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect } from "react";
+import { useState, useMemo } from "react";
 import type { DealItem, GamePassGame, Giveaway } from "../../types/deals";
 import {
   formatPrice,
@@ -149,15 +149,6 @@ export default function DealsHeroSpotlight({
 
     return list;
   }, [topDeal, topGiveaway, topGamepass, t]);
-
-  // Auto-rotate spotlight slides every 7 seconds
-  useEffect(() => {
-    if (slides.length <= 1) return;
-    const timer = setInterval(() => {
-      setActiveSlide((prev) => (prev + 1) % slides.length);
-    }, 7000);
-    return () => clearInterval(timer);
-  }, [slides.length]);
 
   if (slides.length === 0) return null;
 

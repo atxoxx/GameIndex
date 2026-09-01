@@ -255,29 +255,6 @@
   box-shadow: 0 0 8px color-mix(in srgb, var(--color-accent) 60%, transparent);
 }
 
-/* ─── Stats header ─── */
-.deals-stats-header {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
-  gap: var(--space-md);
-}
-
-.deals-stat-clickable {
-  cursor: pointer;
-  outline: none;
-}
-
-.deals-stat-clickable:hover .kpi-tile {
-  border-color: var(--color-accent);
-  transform: translateY(-2px);
-}
-
-.deals-stats-header .kpi-tile {
-  border: 1px solid color-mix(in srgb, var(--color-border) 60%, transparent);
-  border-radius: var(--radius-lg);
-  transition: transform var(--transition-fast), border-color var(--transition-fast);
-}
-
 /* ─── Sub-tabs ─── */
 .deals-subtabs {
   display: flex;
@@ -351,7 +328,7 @@
   display: flex;
   flex-direction: column;
   gap: var(--space-md);
-  padding: var(--space-md) var(--space-lg);
+  padding: var(--space-sm) var(--space-md);
   background: var(--color-bg-secondary);
   border-radius: var(--radius-lg);
   border: 1px solid var(--color-border);
@@ -831,58 +808,6 @@
 .deals-deal-card-expiry {
   color: var(--color-warning);
   font-size: 11px;
-}
-
-.deals-deal-card-overlay {
-  position: absolute;
-  inset: 0;
-  background: rgba(0, 0, 0, 0.65);
-  backdrop-filter: blur(4px);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: var(--space-md);
-  opacity: 0;
-  pointer-events: none;
-  transition: opacity var(--transition-fast);
-  z-index: 4;
-}
-
-.deals-deal-card-cta {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: var(--space-xs);
-  padding: 8px var(--space-lg);
-  border-radius: var(--radius-md);
-  background: var(--color-accent);
-  color: var(--color-accent-contrast, #fff);
-  font-size: var(--font-size-xs);
-  font-weight: var(--font-weight-semibold);
-  transform: translateY(8px);
-  transition: transform var(--transition-fast), filter var(--transition-fast);
-  pointer-events: auto;
-  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.4);
-  text-align: center;
-  max-width: 90%;
-}
-
-.deals-deal-card-cta svg {
-  width: 14px;
-  height: 14px;
-  flex-shrink: 0;
-}
-
-.deals-deal-card-cta:hover {
-  filter: brightness(1.1);
-}
-
-.deals-deal-card:hover .deals-deal-card-overlay {
-  opacity: 1;
-}
-
-.deals-deal-card:hover .deals-deal-card-cta {
-  transform: translateY(0);
 }
 
 /* ─── GamePass Card ─── */

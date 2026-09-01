@@ -19,16 +19,6 @@
   border-color: color-mix(in srgb, var(--color-accent) 22%, var(--color-border));
 }
 
-/* Stats header — flat surface, accent glow on value (no glass) */
-.deals-stats-header .kpi-tile {
-  background: var(--color-surface);
-  border: 1px solid var(--color-border);
-}
-.deals-stats-header .kpi-tile:hover {
-  border-color: color-mix(in srgb, var(--color-accent) 30%, var(--color-border));
-  box-shadow: var(--elevation-2);
-}
-
 /* Active tab subtle glow underline */
 .deals-subtab.active::after {
   content: "";

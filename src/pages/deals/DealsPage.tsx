@@ -22,7 +22,6 @@ import {
   buildGamePassPayload,
   buildDealsPayload,
 } from "./dealsConstants";
-import DealsStatsHeader from "../../components/deals/DealsStatsHeader";
 import DealsHeroSpotlight from "../../components/deals/DealsHeroSpotlight";
 import GamePassPanel from "../../components/deals/GamePassPanel";
 import DealsPanel from "../../components/deals/DealsPanel";
@@ -234,14 +233,6 @@ export default function DealsPage() {
   }, [ptLoadingMore, ptHasMore, ptNextOffset, showToast, t]);
 
   useEffect(() => {
-    if (activeSubTab === "gamepass") void loadGamePass();
-  }, [activeSubTab, loadGamePass, gpReloadNonce]);
-
-  useEffect(() => {
-    if (activeSubTab === "isthereanydeal") void loadDeals();
-  }, [activeSubTab, loadDeals, dealsReloadNonce]);
-
-  useEffect(() => {
     if (activeSubTab === "giveaways") void loadGiveaways();
   }, [activeSubTab, loadGiveaways, giveawaysReloadNonce]);
 
@@ -372,7 +363,7 @@ export default function DealsPage() {
         }
       />
 
-      {/* Hero Spotlight & Stats Header */}
+      {/* Hero Spotlight */}
       <div className="ui-complete-only">
         <DealsHeroSpotlight
           deals={deals}
@@ -380,20 +371,6 @@ export default function DealsPage() {
           gpGames={gpGames}
           onOpenUrl={handleOpenUrl}
           onInspect={setSelectedTarget}
-        />
-
-        <DealsStatsHeader
-          gpGames={gpGames}
-          deals={deals}
-          giveaways={giveaways}
-          gpLoading={gpLoading}
-          dealsLoading={dealsLoading}
-          giveawaysLoading={giveawaysLoading}
-          onSelectSubTab={setActiveSubTab}
-          onFilterWishlist={() => {
-            setActiveSubTab("isthereanydeal");
-            setDealFilters((prev) => ({ ...prev, wishlistOnly: true }));
-          }}
         />
       </div>
 
