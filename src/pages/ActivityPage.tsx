@@ -1,11 +1,13 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { save } from "@tauri-apps/plugin-dialog";
 import { prepareClonedDocumentForCanvasCapture, resolveColorForCapture } from "../utils/color";
 import { useActivity } from "../context/ActivityContext";
 import { useGames } from "../context/GameContext";
 import { useSettings } from "../context/SettingsContext";
+import { useSessionNotes } from "../context/SessionNotesContext";
 import { tempUnitLabel } from "../utils/temp";
+import { formatPlayTime } from "../types/game";
 import { useToast } from "../context/ToastContext";
 import { ActivityDashboard } from "./activity/ActivityDashboard";
 import { ActivityGantt } from "./activity/ActivityGantt";
@@ -26,8 +28,9 @@ type ChartType = "bar" | "line";
 export default function ActivityPage() {
   const { t } = useLanguage();
   const { sessions, deleteSession, deleteSessionsForGame } = useActivity();
-  const { games } = useGames();
+  const { games, launchGame } = useGames();
   const { tempUnit, isSimpleUi } = useSettings();
+  const { getAllNotes } = useSessionNotes();
   const { showToast } = useToast();
 
   const [activeTab, setActiveTab] = useState<TabType>("dashboard");
@@ -39,6 +42,23 @@ export default function ActivityPage() {
   const effectiveTab: TabType = isSimpleUi && (activeTab === "timeline" || activeTab === "performance")
     ? "dashboard"
     : activeTab;
+
+  // Keyboard shortcut listener: 1-4 for subtabs when not inside input/textarea
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      const activeTag = document.activeElement?.tagName?.toLowerCase();
+      if (activeTag === "input" || activeTag === "textarea" || activeTag === "select") return;
+      if (e.metaKey || e.ctrlKey || e.altKey) return;
+
+      if (e.key === "1") setActiveTab("dashboard");
+      else if (e.key === "2" && !isSimpleUi) setActiveTab("timeline");
+      else if (e.key === "3") setActiveTab("sessions");
+      else if (e.key === "4" && !isSimpleUi) setActiveTab("performance");
+    };
+
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [isSimpleUi]);
 
   const tabOptions = useMemo(() => {
     const all = [
@@ -81,6 +101,25 @@ export default function ActivityPage() {
     return Array.from(set).sort();
   }, [games]);
 
+  const scopedSummaryStats = useMemo(() => {
+    const inRange = sessions.filter((s) => {
+      const d = s.date.slice(0, 10);
+      if (d < startDate || d > endDate) return false;
+      if (sourceFilter === "all") return true;
+      const g = games.find((item) => item.id === s.gameId);
+      return (g?.platform || "Local").toLowerCase() === sourceFilter.toLowerCase();
+    });
+
+    const totalMinutes = inRange.reduce((sum, s) => sum + s.durationMin, 0);
+    const distinctGames = new Set(inRange.map((s) => s.gameId)).size;
+
+    return {
+      playtimeStr: formatPlayTime(totalMinutes),
+      sessionsCount: inRange.length,
+      gamesCount: distinctGames,
+    };
+  }, [sessions, startDate, endDate, sourceFilter, games]);
+
   const handleExportCSV = () => {
     if (sessions.length === 0) {
       showToast(t("activityPage.noSessionsExport"), "info");
@@ -102,10 +141,14 @@ export default function ActivityPage() {
       t("activityCsv.avgRamUsage"),
       t("activityCsv.avgCpuTemp", { unit: tempUnitLabel(tempUnit) }),
       t("activityCsv.avgGpuTemp", { unit: tempUnitLabel(tempUnit) }),
+      t("sessionNotes.title"),
     ];
+
+    const allNotes = getAllNotes();
 
     const rows = sessions.map((s) => {
       const game = games.find((g) => g.id === s.gameId);
+      const note = allNotes[s.id]?.note || "";
       return [
         s.id,
         s.gameName,
@@ -121,10 +164,11 @@ export default function ActivityPage() {
         s.metrics?.avgRamUsage || "—",
         s.metrics?.avgCpuTemp || "—",
         s.metrics?.avgGpuTemp || "—",
+        note,
       ];
     });
 
-    const csvContent = [headers.join(","), ...rows.map((row) => row.map((val) => `"${val}"`).join(","))].join("\n");
+    const csvContent = [headers.join(","), ...rows.map((row) => row.map((val) => `"${String(val).replace(/"/g, '""')}"`).join(","))].join("\n");
     const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
     const url = URL.createObjectURL(blob);
     const link = document.createElement("a");
@@ -133,6 +177,44 @@ export default function ActivityPage() {
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
+    showToast(t("activity.exportedAs", { format: "CSV" }), "success");
+  };
+
+  const handleExportJSON = async () => {
+    if (sessions.length === 0) {
+      showToast(t("activityPage.noSessionsExport"), "info");
+      return;
+    }
+
+    try {
+      const allNotes = getAllNotes();
+      const exportData = {
+        exportedAt: new Date().toISOString(),
+        totalSessions: sessions.length,
+        sessions: sessions.map((s) => ({
+          ...s,
+          platform: games.find((g) => g.id === s.gameId)?.platform || "Local",
+          notes: allNotes[s.id] || null,
+        })),
+      };
+
+      const suggestedName = `gamelib_activity_${new Date().toISOString().slice(0, 10)}.json`;
+      const filePath = await save({
+        defaultPath: suggestedName,
+        filters: [{ name: "JSON File", extensions: ["json"] }],
+      });
+
+      if (filePath) {
+        await invoke("save_text_file", {
+          filePath,
+          contents: JSON.stringify(exportData, null, 2),
+        });
+        showToast(t("activity.exportedAs", { format: "JSON" }), "success");
+      }
+    } catch (err) {
+      console.error("JSON export failed:", err);
+      showToast(t("activity.exportFailed", { error: String(err) }), "error");
+    }
   };
 
   const prepareActivityClone = (clonedDoc: Document) => {
@@ -208,23 +290,47 @@ export default function ActivityPage() {
         eyebrow={t("activity.eyebrow")}
         title={t("activity.title")}
         actions={
-          <div className="activity__export-actions ui-complete-only">
-            <button
-              type="button"
-              className="activity__icon-btn"
-              onClick={handleCaptureScreenshot}
-              title={t("activity.capture")}
-            >
-              <Icons.Camera size={13} />
-            </button>
-            <button
-              type="button"
-              className="activity__icon-btn"
-              onClick={handleExportCSV}
-              title={t("activity.exportCsv")}
-            >
-              <Icons.Download size={13} />
-            </button>
+          <div className="activity__header-meta-actions">
+            <div className="activity__header-quick-stats">
+              <span className="activity__quick-stat">
+                <strong>{scopedSummaryStats.playtimeStr}</strong>
+              </span>
+              <span className="activity__quick-stat-sep">•</span>
+              <span className="activity__quick-stat">
+                {scopedSummaryStats.sessionsCount} {t("activity.sessions")}
+              </span>
+              <span className="activity__quick-stat-sep">•</span>
+              <span className="activity__quick-stat">
+                {scopedSummaryStats.gamesCount} {t("activity.gamesPlayed")}
+              </span>
+            </div>
+
+            <div className="activity__export-actions ui-complete-only">
+              <button
+                type="button"
+                className="activity__icon-btn"
+                onClick={handleCaptureScreenshot}
+                title={t("activity.capture")}
+              >
+                <Icons.Camera size={13} />
+              </button>
+              <button
+                type="button"
+                className="activity__icon-btn"
+                onClick={handleExportCSV}
+                title={t("activity.exportCsv")}
+              >
+                <Icons.Download size={13} />
+              </button>
+              <button
+                type="button"
+                className="activity__icon-btn"
+                onClick={handleExportJSON}
+                title={t("activity.exportJson")}
+              >
+                <Icons.FileText size={13} />
+              </button>
+            </div>
           </div>
         }
       />
@@ -294,6 +400,7 @@ export default function ActivityPage() {
             chartType={chartType}
             sourceFilter={sourceFilter}
             onDeleteGameSessions={deleteSessionsForGame}
+            onLaunchGame={launchGame}
           />
         )}
 
@@ -304,11 +411,18 @@ export default function ActivityPage() {
             startDate={startDate}
             endDate={endDate}
             sourceFilter={sourceFilter}
+            onLaunchGame={launchGame}
+            onDeleteSession={deleteSession}
           />
         )}
 
         {effectiveTab === "sessions" && (
-          <ActivitySessions sessions={sessions} games={games} onDeleteSession={deleteSession} />
+          <ActivitySessions
+            sessions={sessions}
+            games={games}
+            onDeleteSession={deleteSession}
+            onLaunchGame={launchGame}
+          />
         )}
 
         {effectiveTab === "performance" && (

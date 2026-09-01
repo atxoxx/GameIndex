@@ -1008,9 +1008,38 @@
 
 .activity-main-chart__header-left {
   display: flex;
-  flex-direction: column;
-  gap: 2px;
+  align-items: center;
+  gap: var(--space-sm);
+  flex-wrap: wrap;
   min-width: 0;
+}
+
+.activity-main-chart__header-tools {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  flex-wrap: wrap;
+}
+
+.activity-main-chart__clear-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 8px;
+  background: var(--color-bg-tertiary);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  font-size: var(--font-size-2xs);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text-secondary);
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+
+.activity-main-chart__clear-btn:hover {
+  color: var(--color-text-primary);
+  background: var(--color-bg-hover);
+  border-color: var(--color-border-hover, var(--color-border));
 }
 
 .activity-main-chart__title {
@@ -1163,59 +1192,94 @@
   pointer-events: none;
 }
 
-/* ══ Timeline tab (Gantt) ────────────────────────────────────────────── */
+/* ══ Timeline tab (Gantt / Chronologie) ─────────────────────────────── */
 
 .activity-gantt {
   display: flex;
   flex-direction: column;
   background: var(--color-surface);
   border: 1px solid var(--color-border);
-  border-radius: var(--radius-lg);
+  border-radius: var(--radius-xl);
   padding: var(--space-lg);
   gap: var(--space-md);
+  box-sizing: border-box;
   overflow: hidden;
 }
 
-/* Head: title + range + export action. */
-.activity-gantt__head {
+/* Toolbar & Summary Controls */
+.activity-gantt__toolbar {
   display: flex;
   align-items: center;
+  justify-content: space-between;
   gap: var(--space-md);
   flex-wrap: wrap;
 }
 
-.activity-gantt__head-title {
+.activity-gantt__summary {
   display: flex;
-  align-items: center;
-  gap: 8px;
-  font-size: var(--font-size-sm);
-  font-weight: var(--font-weight-semibold);
-  text-transform: uppercase;
-  letter-spacing: 0.6px;
+  align-items: baseline;
+  gap: var(--space-xs);
+  flex-wrap: wrap;
+}
+
+.activity-gantt__stat {
+  display: inline-flex;
+  align-items: baseline;
+  gap: var(--space-xs);
+}
+
+.activity-gantt__stat-val {
+  font-size: var(--text-base);
+  font-weight: var(--font-weight-bold);
   color: var(--color-text-primary);
-  margin: 0;
-}
-
-.activity-gantt__head-title svg {
-  width: 15px;
-  height: 15px;
-  color: var(--color-accent);
-}
-
-.activity-gantt__head-range {
-  font-size: var(--font-size-xs);
-  color: var(--color-text-muted);
   font-variant-numeric: tabular-nums;
 }
 
-.activity-gantt__export-btn {
+.activity-gantt__stat-lbl {
+  font-size: var(--font-size-xs);
+  color: var(--color-text-muted);
+}
+
+.activity-gantt__stat-sep {
+  color: var(--color-text-muted);
+  opacity: 0.5;
+  margin: 0 2px;
+}
+
+.activity-gantt__tools {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  flex-wrap: wrap;
+}
+
+.act-toolbar__select {
+  height: 32px;
+  padding: 0 var(--space-md);
+  background: var(--color-bg-secondary);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  color: var(--color-text-primary);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-semibold);
+  font-family: inherit;
+  cursor: pointer;
+  outline: none;
+  transition: border-color var(--transition-fast);
+}
+
+.act-toolbar__select:hover,
+.act-toolbar__select:focus {
+  border-color: var(--color-accent);
+}
+
+.activity-gantt__tool-btn {
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  height: var(--activity-ctl-h);
-  padding: 0 12px;
-  margin-left: auto;
-  background: var(--color-bg-tertiary);
+  height: 32px;
+  padding: 0 var(--space-md);
+  background: var(--color-bg-secondary);
   border: 1px solid var(--color-border);
   border-radius: var(--radius-md);
   color: var(--color-text-secondary);
@@ -1223,34 +1287,104 @@
   font-weight: var(--font-weight-semibold);
   font-family: inherit;
   cursor: pointer;
-  transition: color var(--transition-fast), background var(--transition-fast),
-    border-color var(--transition-fast);
+  transition: all var(--transition-fast);
 }
 
-.activity-gantt__export-btn svg {
-  width: 13px;
-  height: 13px;
-}
-
-.activity-gantt__export-btn:hover {
+.activity-gantt__tool-btn:hover {
   color: var(--color-text-primary);
   background: var(--color-bg-hover);
-  border-color: var(--color-border-light);
+  border-color: var(--color-border-hover, var(--color-border));
 }
 
-.activity-gantt__caption {
+/* Hourly Intensity Heatmap Strip */
+.activity-gantt__heatmap-strip {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-xs);
+  padding: var(--space-sm) var(--space-md);
+  background: var(--color-bg-secondary);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+}
+
+.activity-gantt__heatmap-header {
   display: flex;
   align-items: center;
-  gap: 6px;
-  font-size: var(--font-size-xs);
-  color: var(--color-text-muted);
-  padding: var(--space-sm) var(--space-md);
-  background: var(--color-bg-tertiary);
-  border: 1px dashed var(--color-border);
-  border-radius: var(--radius-md);
+  justify-content: space-between;
 }
 
-/* Legend: interactive game chips. */
+.activity-gantt__heatmap-title {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: var(--font-size-2xs);
+  font-weight: var(--font-weight-bold);
+  color: var(--color-text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.6px;
+}
+
+.activity-gantt__heatmap-grid {
+  display: grid;
+  grid-template-columns: repeat(24, 1fr);
+  gap: 2px;
+  height: 32px;
+  width: 100%;
+}
+
+.activity-gantt__heatmap-cell {
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  border-radius: 2px;
+  height: 100%;
+  padding-bottom: 2px;
+  box-sizing: border-box;
+  transition: transform var(--transition-fast), filter var(--transition-fast);
+  cursor: pointer;
+}
+
+.activity-gantt__heatmap-cell:hover {
+  transform: translateY(-2px);
+  filter: brightness(1.2);
+  z-index: 2;
+}
+
+.activity-gantt__heatmap-hour {
+  font-size: 9px;
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text-muted);
+  font-variant-numeric: tabular-nums;
+  user-select: none;
+}
+
+.activity-gantt__heatmap-cell--empty {
+  background: var(--color-bg-tertiary);
+  border: 1px solid var(--color-border);
+}
+
+.activity-gantt__heatmap-cell--low {
+  background: color-mix(in srgb, var(--color-accent) 25%, var(--color-bg-tertiary));
+  border: 1px solid color-mix(in srgb, var(--color-accent) 40%, transparent);
+}
+
+.activity-gantt__heatmap-cell--medium {
+  background: color-mix(in srgb, var(--color-accent) 50%, var(--color-bg-tertiary));
+  border: 1px solid color-mix(in srgb, var(--color-accent) 65%, transparent);
+}
+
+.activity-gantt__heatmap-cell--high {
+  background: color-mix(in srgb, var(--color-accent) 75%, var(--color-bg-tertiary));
+  border: 1px solid var(--color-accent);
+}
+
+.activity-gantt__heatmap-cell--peak {
+  background: var(--color-accent);
+  border: 1px solid var(--color-accent);
+  box-shadow: 0 0 6px var(--color-accent-glow);
+}
+
+/* Legend: Interactive Game Chips */
 .activity-gantt__legend {
   display: flex;
   flex-wrap: wrap;
@@ -1264,31 +1398,24 @@
   gap: 6px;
   height: 26px;
   padding: 0 10px;
-  background: var(--color-bg-tertiary);
+  background: var(--color-bg-secondary);
   border: 1px solid var(--color-border);
   border-radius: var(--radius-full);
   font-size: var(--font-size-xs);
   color: var(--color-text-secondary);
   font-family: inherit;
   cursor: pointer;
-  transition: background var(--transition-fast), border-color var(--transition-fast),
-    color var(--transition-fast), opacity var(--transition-fast);
+  transition: all var(--transition-fast);
 }
 
 .activity-gantt__legend-item:hover {
   background: var(--color-bg-hover);
-  border-color: var(--color-border-light);
-  color: var(--color-text-primary);
-}
-
-.activity-gantt__legend-item--active {
-  border-color: color-mix(in srgb, var(--color-accent) 45%, var(--color-border));
-  background: color-mix(in srgb, var(--color-accent) 10%, var(--color-bg-tertiary));
+  border-color: var(--color-border-hover, var(--color-border));
   color: var(--color-text-primary);
 }
 
 .activity-gantt__legend-item--dim {
-  opacity: 0.4;
+  opacity: 0.35;
 }
 
 .activity-gantt__legend-dot {
@@ -1298,303 +1425,202 @@
   flex-shrink: 0;
 }
 
-.activity-gantt__legend-icon {
-  width: 16px;
-  height: 16px;
-  border-radius: 3px;
-  object-fit: cover;
-}
-
-.activity-gantt__legend-label {
-  max-width: 150px;
+.activity-gantt__legend-name {
+  font-weight: var(--font-weight-semibold);
+  max-width: 180px;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
 }
 
-.activity-gantt__legend-more,
-.activity-gantt__legend-clear {
-  font-size: var(--font-size-xs);
-  font-weight: var(--font-weight-semibold);
-  color: var(--color-accent);
-  background: none;
-  border: none;
-  cursor: pointer;
-  padding: 4px 8px;
-  border-radius: var(--radius-sm);
-  font-family: inherit;
-  transition: background var(--transition-fast), color var(--transition-fast);
-}
-
-.activity-gantt__legend-more:hover,
-.activity-gantt__legend-clear:hover {
-  background: color-mix(in srgb, var(--color-accent) 10%, transparent);
-}
-
-.activity-gantt__legend-total {
-  margin-left: auto;
-  font-size: var(--font-size-xs);
-  font-weight: var(--font-weight-bold);
-  color: var(--color-text-primary);
-  font-variant-numeric: tabular-nums;
-  white-space: nowrap;
-}
-
-/* Time-of-day play-pattern band. */
-.activity-gantt__heatmap {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-  padding: var(--space-md);
-  background: var(--color-bg-secondary);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-md);
-}
-
-.activity-gantt__heatmap-header {
-  font-size: var(--font-size-xs);
-  font-weight: var(--font-weight-semibold);
-  color: var(--color-text-muted);
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
-}
-
-.activity-gantt__heatmap-track {
-  display: flex;
-  gap: 3px;
-  height: 56px;
-  align-items: flex-end;
-}
-
-.activity-gantt__heatmap-cell {
-  flex: 1;
-  border-radius: 3px;
-  min-height: 3px;
-  transition: background var(--transition-fast), height var(--duration-normal) var(--ease-standard);
-}
-
-.activity-gantt__heatmap-cell--empty {
-  background: var(--color-bg-tertiary);
-}
-
-.activity-gantt__heatmap-cell--low {
-  background: color-mix(in srgb, var(--color-accent) 20%, var(--color-bg-tertiary));
-}
-
-.activity-gantt__heatmap-cell--medium {
-  background: color-mix(in srgb, var(--color-accent) 45%, var(--color-bg-tertiary));
-}
-
-.activity-gantt__heatmap-cell--high {
-  background: color-mix(in srgb, var(--color-accent) 70%, var(--color-bg-tertiary));
-}
-
-.activity-gantt__heatmap-cell--peak {
-  background: var(--color-accent);
-}
-
-.activity-gantt__heatmap-axis {
-  display: flex;
-  justify-content: space-between;
+.activity-gantt__legend-mins {
   font-size: var(--font-size-2xs);
   color: var(--color-text-muted);
-  padding: 0 1px;
+  font-variant-numeric: tabular-nums;
 }
 
-/* Timeline grid. */
-.activity-gantt__timeline-header {
+/* Time Scale Ticks */
+.activity-gantt__ticks-row {
   display: flex;
+  align-items: center;
   width: 100%;
-  align-items: flex-end;
+  margin-top: var(--space-xs);
 }
 
-.activity-gantt__date-col {
-  width: 100px;
+.activity-gantt__day-label-space {
+  width: 140px;
   flex-shrink: 0;
 }
 
-.activity-gantt__time-axis {
+.activity-gantt__ticks-track {
   flex: 1;
   position: relative;
   height: 18px;
 }
 
-.activity-gantt__time-label {
+.activity-gantt__tick {
   position: absolute;
   transform: translateX(-50%);
-  font-size: var(--font-size-2xs);
-  color: var(--color-text-muted);
-  white-space: nowrap;
 }
 
-.activity-gantt__time-label:first-child {
+.activity-gantt__tick:first-child {
   transform: translateX(0);
 }
 
-.activity-gantt__time-label:last-child {
+.activity-gantt__tick:last-child {
   transform: translateX(-100%);
 }
 
-.activity-gantt__row-total {
-  width: 64px;
-  flex-shrink: 0;
-  text-align: right;
+.activity-gantt__tick-label {
   font-size: var(--font-size-2xs);
   color: var(--color-text-muted);
-  padding-right: 4px;
-  white-space: nowrap;
   font-variant-numeric: tabular-nums;
+  white-space: nowrap;
 }
 
+/* Day Rows & Tracks */
 .activity-gantt__rows {
   display: flex;
   flex-direction: column;
-  gap: 3px;
-  max-height: 60vh;
+  gap: 4px;
+  max-height: 520px;
   overflow-y: auto;
-  padding-right: 2px;
+  padding-right: 4px;
 }
 
 .activity-gantt__row {
   display: flex;
   align-items: stretch;
+  width: 100%;
   border-radius: var(--radius-sm);
-  transition: background-color var(--transition-fast);
-}
-
-.activity-gantt__row--has-data {
-  background: var(--color-bg-secondary);
+  padding: 3px 0;
+  box-sizing: border-box;
+  transition: background var(--transition-fast);
 }
 
 .activity-gantt__row:hover {
   background: var(--color-bg-hover);
 }
 
-.activity-gantt__row .activity-gantt__date-col {
-  display: flex;
-  align-items: center;
-  padding-left: 6px;
+.activity-gantt__row--today {
+  background: color-mix(in srgb, var(--color-accent) 5%, transparent);
+  border-left: 2px solid var(--color-accent);
 }
 
-.activity-gantt__date-label {
+.activity-gantt__row-label {
+  width: 140px;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  gap: var(--space-xs);
+  padding-right: var(--space-sm);
+  box-sizing: border-box;
+  text-align: left;
+}
+
+.activity-gantt__row-date {
   font-size: var(--font-size-xs);
-  color: var(--color-text-secondary);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text-primary);
+  white-space: nowrap;
+  text-align: left;
+}
+
+.activity-gantt__row-mins {
+  font-size: var(--font-size-2xs);
+  color: var(--color-text-muted);
+  font-variant-numeric: tabular-nums;
   white-space: nowrap;
 }
 
-.activity-gantt__date-label--today {
-  color: var(--color-accent);
-  font-weight: var(--font-weight-bold);
-}
-
-.activity-gantt__bar-area {
+.activity-gantt__row-track {
   flex: 1;
   position: relative;
-  background: var(--color-bg-primary);
+  min-height: 24px;
+  background: var(--color-bg-tertiary);
   border-radius: var(--radius-sm);
+  border: 1px solid var(--color-border);
   overflow: hidden;
+  box-sizing: border-box;
+  transition: height var(--transition-fast);
 }
 
-.activity-gantt__grid-line {
-  position: absolute;
-  top: 0;
-  bottom: 0;
-  width: 1px;
-  background: var(--color-border);
-  pointer-events: none;
-}
-
-.activity-gantt__now-marker {
+.activity-gantt__now-line {
   position: absolute;
   top: 0;
   bottom: 0;
   width: 2px;
-  background: var(--color-accent);
-  opacity: 0.55;
-  pointer-events: none;
+  background: var(--color-danger);
   z-index: 3;
-  box-shadow: 0 0 8px var(--color-accent-glow);
-}
-
-.activity-gantt__crosshair {
-  position: absolute;
-  top: 0;
-  bottom: 0;
-  width: 1px;
-  background: color-mix(in srgb, var(--color-text-primary) 40%, transparent);
   pointer-events: none;
-  z-index: 4;
+  box-shadow: 0 0 6px color-mix(in srgb, var(--color-danger) 70%, transparent);
 }
 
 .activity-gantt__bar {
   position: absolute;
-  border-radius: 4px;
+  border: none;
+  border-radius: 3px;
   cursor: pointer;
-  transition: filter var(--transition-fast), opacity var(--transition-fast);
+  box-sizing: border-box;
+  transition: transform var(--transition-fast), filter var(--transition-fast), opacity var(--transition-fast);
   z-index: 2;
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.12);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
 }
 
 .activity-gantt__bar:hover {
-  filter: brightness(1.22);
+  transform: scaleY(1.15);
+  filter: brightness(1.25);
   z-index: 5;
-}
-
-.activity-gantt__bar--cont-start {
-  border-top-left-radius: 0;
-  border-bottom-left-radius: 0;
-}
-
-.activity-gantt__bar--cont-end {
-  border-top-right-radius: 0;
-  border-bottom-right-radius: 0;
 }
 
 .activity-gantt__bar--dim {
   opacity: 0.15;
 }
 
-.activity-gantt__bar-tags {
-  position: absolute;
-  left: 6px;
-  top: 50%;
-  transform: translateY(-50%);
-  font-size: var(--font-size-2xs);
-  font-weight: 700;
-  color: var(--color-text-primary);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  max-width: calc(100% - 12px);
-  pointer-events: none;
-  opacity: 0.9;
+.activity-gantt__bar--cont-head {
+  border-top-left-radius: 0;
+  border-bottom-left-radius: 0;
 }
 
-/* Floating hover tooltip. */
+.activity-gantt__bar--cont-tail {
+  border-top-right-radius: 0;
+  border-bottom-right-radius: 0;
+}
+
+.activity-gantt__bar-note-dot {
+  position: absolute;
+  top: 2px;
+  right: 2px;
+  width: 4px;
+  height: 4px;
+  border-radius: 50%;
+  background: #fff;
+  box-shadow: 0 0 2px rgba(0, 0, 0, 0.5);
+}
+
+/* Floating Hover Tooltip */
 .activity-gantt__tooltip {
   position: fixed;
   z-index: 1000;
-  min-width: 180px;
-  background: var(--color-surface-raised);
-  border: 1px solid var(--color-border-light);
+  transform: translate(-50%, -100%);
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
   border-radius: var(--radius-md);
   padding: var(--space-sm) var(--space-md);
-  box-shadow: var(--shadow-md);
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
+  box-shadow: var(--shadow-lg);
+  pointer-events: none;
   display: flex;
   flex-direction: column;
   gap: 3px;
-  pointer-events: none;
+  min-width: 180px;
+  backdrop-filter: blur(8px);
 }
 
-.activity-gantt__tooltip-game {
+.activity-gantt__tooltip-header {
   display: flex;
   align-items: center;
   gap: 6px;
-  color: var(--color-text-primary);
-  font-size: var(--font-size-xs);
-  font-weight: var(--font-weight-bold);
 }
 
 .activity-gantt__tooltip-dot {
@@ -1604,64 +1630,34 @@
   flex-shrink: 0;
 }
 
+.activity-gantt__tooltip-name {
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-bold);
+  color: var(--color-text-primary);
+}
+
 .activity-gantt__tooltip-time {
-  color: var(--color-text-secondary);
   font-size: var(--font-size-2xs);
+  color: var(--color-text-secondary);
   font-variant-numeric: tabular-nums;
 }
 
-.activity-gantt__tooltip-duration {
-  color: var(--color-accent);
-  font-size: var(--font-size-2xs);
-  font-weight: var(--font-weight-semibold);
-}
-
-.activity-gantt__tooltip-meta {
+.activity-gantt__tooltip-chips {
   display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
-  margin-top: 4px;
+  align-items: center;
+  gap: 4px;
+  margin-top: 2px;
 }
 
 .activity-gantt__tooltip-chip {
   font-size: var(--font-size-2xs);
-  font-weight: var(--font-weight-semibold);
+  font-weight: var(--font-weight-bold);
   color: var(--color-text-secondary);
-  background: var(--color-bg-primary);
+  background: var(--color-bg-secondary);
   border: 1px solid var(--color-border);
   border-radius: var(--radius-full);
-  padding: 2px 8px;
+  padding: 1px 6px;
   font-variant-numeric: tabular-nums;
-}
-
-.activity-gantt__tooltip-note {
-  margin-top: 6px;
-  padding-top: 6px;
-  border-top: 1px solid var(--color-border);
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-}
-
-.activity-gantt__tooltip-tags {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 4px;
-}
-
-.activity-gantt__tooltip-tag {
-  font-size: var(--font-size-2xs);
-  font-weight: var(--font-weight-bold);
-  color: var(--color-accent);
-  background: color-mix(in srgb, var(--color-accent) 12%, transparent);
-  border-radius: var(--radius-full);
-  padding: 1px 8px;
-}
-
-.activity-gantt__tooltip-text {
-  font-size: var(--font-size-xs);
-  color: var(--color-text-secondary);
-  font-style: italic;
 }
 
 /* Session detail modal. */
@@ -2020,7 +2016,7 @@
 .activity-session-item__row {
   display: flex;
   align-items: center;
-  justify-content: space-between;
+  justify-content: flex-start;
   gap: var(--space-md);
   padding: 10px 14px;
   cursor: pointer;
@@ -2041,6 +2037,7 @@
   align-items: center;
   gap: var(--space-md);
   min-width: 0;
+  flex: 1;
 }
 
 .activity-session-item__chevron {
@@ -2128,6 +2125,7 @@
   align-items: center;
   gap: var(--space-md);
   flex-shrink: 0;
+  margin-left: auto;
 }
 
 .activity-session-item__duration {

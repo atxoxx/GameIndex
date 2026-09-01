@@ -6,8 +6,9 @@ import type { GamePerfAvg } from "./perfData";
 import { useLanguage } from "../../../context/LanguageContext";
 import type { TempUnit } from "../../../context/SettingsContext";
 import { formatTemp } from "../../../utils/temp";
+import { calculateFpsStability } from "../../../components/activity/insights";
 
-type SortKey = "game" | "sessions" | "fps" | "cpuTemp" | "gpuTemp" | "ram" | "cpu" | "gpu";
+type SortKey = "game" | "sessions" | "fps" | "stability" | "cpuTemp" | "gpuTemp" | "ram" | "cpu" | "gpu";
 type SortDir = "asc" | "desc";
 
 const INITIAL_ROWS = 10;
@@ -22,6 +23,7 @@ const COLUMNS: Column[] = [
   { key: "game", labelKey: "activityPerf.columnGame" },
   { key: "sessions", labelKey: "activityPerf.columnSessions", align: "right" },
   { key: "fps", labelKey: "activityPerf.columnAvgFps", align: "right" },
+  { key: "stability", labelKey: "activityPerf.columnStability", align: "right" },
   { key: "cpuTemp", labelKey: "activityPerf.columnAvgCpuTemp", align: "right" },
   { key: "gpuTemp", labelKey: "activityPerf.columnAvgGpuTemp", align: "right" },
   { key: "ram", labelKey: "activityPerf.columnAvgRam", align: "right" },
@@ -31,14 +33,24 @@ const COLUMNS: Column[] = [
 
 function cellValue(g: GamePerfAvg, key: SortKey): number | string {
   switch (key) {
-    case "game": return g.gameTitle.toLowerCase();
-    case "sessions": return g.sessionsCount;
-    case "fps": return g.avgFps;
-    case "cpuTemp": return g.avgCpuTemp;
-    case "gpuTemp": return g.avgGpuTemp;
-    case "ram": return g.avgRamUsage;
-    case "cpu": return g.avgCpuUsage;
-    case "gpu": return g.avgGpuUsage;
+    case "game":
+      return g.gameTitle.toLowerCase();
+    case "sessions":
+      return g.sessionsCount;
+    case "fps":
+      return g.avgFps;
+    case "stability":
+      return calculateFpsStability(g.avgFps, g.minFps).ratio;
+    case "cpuTemp":
+      return g.avgCpuTemp;
+    case "gpuTemp":
+      return g.avgGpuTemp;
+    case "ram":
+      return g.avgRamUsage;
+    case "cpu":
+      return g.avgCpuUsage;
+    case "gpu":
+      return g.avgGpuUsage;
   }
 }
 
@@ -46,25 +58,34 @@ export function PerformanceBoard({
   games,
   tempUnit,
   totalRamGb,
+  onSelectGame,
 }: {
   games: GamePerfAvg[];
   tempUnit: TempUnit;
   totalRamGb: number;
+  onSelectGame?: (gameId: string) => void;
 }) {
   const { t } = useLanguage();
+  const [searchQuery, setSearchQuery] = useState("");
   const [sortKey, setSortKey] = useState<SortKey>("fps");
   const [sortDir, setSortDir] = useState<SortDir>("desc");
   const [showAll, setShowAll] = useState(false);
 
+  const filteredGames = useMemo(() => {
+    if (!searchQuery.trim()) return games;
+    const q = searchQuery.toLowerCase();
+    return games.filter((g) => g.gameTitle.toLowerCase().includes(q));
+  }, [games, searchQuery]);
+
   const sorted = useMemo(() => {
     const dir = sortDir === "asc" ? 1 : -1;
-    return [...games].sort((a, b) => {
+    return [...filteredGames].sort((a, b) => {
       const va = cellValue(a, sortKey);
       const vb = cellValue(b, sortKey);
       if (typeof va === "number" && typeof vb === "number") return (va - vb) * dir;
       return String(va).localeCompare(String(vb)) * dir;
     });
-  }, [games, sortKey, sortDir]);
+  }, [filteredGames, sortKey, sortDir]);
 
   const visible = showAll ? sorted : sorted.slice(0, INITIAL_ROWS);
 
@@ -73,13 +94,20 @@ export function PerformanceBoard({
       setSortDir((d) => (d === "asc" ? "desc" : "asc"));
     } else {
       setSortKey(key);
-      // Numeric columns default to descending (biggest first), names to ascending.
       setSortDir(key === "game" ? "asc" : "desc");
     }
   };
 
   const showSortIcon = (key: SortKey) =>
-    sortKey === key ? (sortDir === "asc" ? <Icons.ChevronUp size={11} /> : <Icons.ChevronDown size={11} />) : <Icons.ArrowUpDown size={11} />;
+    sortKey === key ? (
+      sortDir === "asc" ? (
+        <Icons.ChevronUp size={11} />
+      ) : (
+        <Icons.ChevronDown size={11} />
+      )
+    ) : (
+      <Icons.ArrowUpDown size={11} />
+    );
 
   const fpsRange = (g: GamePerfAvg) => {
     if (g.minFps > 0 && g.maxFps > 0) return `${g.minFps}–${g.maxFps}`;
@@ -91,7 +119,23 @@ export function PerformanceBoard({
     <SectionPanel
       icon={<Icons.BarChart3 size={14} />}
       title={t("activityPerf.detailedBoard")}
-      tools={<span className="act-panel__sub">{t("activityPerf.boardCount", { count: games.length })}</span>}
+      tools={
+        <div className="performance-board-tools">
+          <div className="performance-board-search">
+            <Icons.Search size={12} className="performance-board-search__icon" />
+            <input
+              type="text"
+              className="performance-board-search__input"
+              placeholder={t("activityPerf.searchBoard")}
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+            />
+          </div>
+          <span className="act-panel__sub">
+            {t("activityPerf.boardCount", { count: filteredGames.length })}
+          </span>
+        </div>
+      }
     >
       <div className="performance-insights__table-wrapper">
         <table className="performance-insights__table">
@@ -137,9 +181,14 @@ export function PerformanceBoard({
                 const isRamHigh = g.avgRamUsage >= 90;
                 const isCpuHigh = g.avgCpuUsage >= 90;
                 const isGpuHigh = g.avgGpuUsage >= 90;
+                const stability = calculateFpsStability(g.avgFps, g.minFps);
 
                 return (
-                  <tr key={g.gameId}>
+                  <tr
+                    key={g.gameId}
+                    className={onSelectGame ? "performance-insights__row--clickable" : ""}
+                    onClick={() => onSelectGame?.(g.gameId)}
+                  >
                     <td>
                       <div className="performance-insights__game-cell">
                         <GameThumbnail
@@ -159,6 +208,15 @@ export function PerformanceBoard({
                         <span className="performance-insights__cell-sub" title={t("activityPerf.fpsRange")}>
                           {fpsRange(g)}
                         </span>
+                      )}
+                    </td>
+                    <td className="performance-insights__td--num">
+                      {stability.ratio > 0 ? (
+                        <span className={`performance-stability-badge performance-stability-badge--${stability.rating}`}>
+                          {stability.ratio}%
+                        </span>
+                      ) : (
+                        "—"
                       )}
                     </td>
                     <td className={`performance-insights__td--num ${isCpuHot ? "text-hot-temp" : ""}`}>
@@ -186,7 +244,7 @@ export function PerformanceBoard({
         </table>
       </div>
 
-      {games.length > INITIAL_ROWS && (
+      {filteredGames.length > INITIAL_ROWS && (
         <div className="performance-insights__footer">
           <button
             type="button"
@@ -195,7 +253,7 @@ export function PerformanceBoard({
           >
             {showAll
               ? t("activityPerf.showTop", { n: INITIAL_ROWS })
-              : t("activityPerf.showAll", { count: games.length })}
+              : t("activityPerf.showAll", { count: filteredGames.length })}
           </button>
         </div>
       )}

@@ -13,9 +13,18 @@ import {
   RecordsStrip,
   Milestones,
   WeeklyHeatmap,
+  TimeOfDayDistribution,
+  SessionLengthDistribution,
+  GamerPersonaCard,
+  TimeToBeatProgress,
   buildPeriodComparison,
   buildRecords,
   buildMilestoneLadders,
+  buildTimeOfDayDistribution,
+  buildSessionLengthDistribution,
+  buildCumulativeSeries,
+  buildGamerPersona,
+  buildGameCompletionProgress,
   filterSessionsBySource,
   rangeDays,
   type DateRangeKey,
@@ -32,7 +41,11 @@ export interface ActivityDashboardProps {
   chartType: "bar" | "line";
   sourceFilter: string;
   onDeleteGameSessions: (gameId: string) => void;
+  onLaunchGame?: (game: Game) => void;
 }
+
+type SidebarSort = "playtime" | "name" | "sessions";
+type ChartMode = "periodic" | "cumulative";
 
 export function ActivityDashboard({
   sessions,
@@ -44,10 +57,13 @@ export function ActivityDashboard({
   chartType,
   sourceFilter,
   onDeleteGameSessions,
+  onLaunchGame,
 }: ActivityDashboardProps) {
   const { t, language } = useLanguage();
   const [selectedGameId, setSelectedGameId] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
+  const [sidebarSort, setSidebarSort] = useState<SidebarSort>("playtime");
+  const [chartMode, setChartMode] = useState<ChartMode>("periodic");
   const [pendingDeleteGameId, setPendingDeleteGameId] = useState<string | null>(null);
 
   const filteredSessions = useMemo(() => {
@@ -69,26 +85,38 @@ export function ActivityDashboard({
   const sidebarGamesList = useMemo(() => {
     const gamePlaytimes = new Map<string, number>();
     const gameNames = new Map<string, string>();
+    const gameSessionsCount = new Map<string, number>();
+
     filteredSessions.forEach((s) => {
       gamePlaytimes.set(s.gameId, (gamePlaytimes.get(s.gameId) || 0) + s.durationMin);
+      gameSessionsCount.set(s.gameId, (gameSessionsCount.get(s.gameId) || 0) + 1);
       if (!gameNames.has(s.gameId) && s.gameName) gameNames.set(s.gameId, s.gameName);
     });
 
-    return Array.from(gamePlaytimes.entries())
-      .map(([gameId, minutes]) => {
-        const game = games.find((g) => g.id === gameId);
-        return {
-          id: gameId,
-          title: game?.name || gameNames.get(gameId) || t("activityDash.unknownGame"),
-          platform: game?.platform || "Local",
-          iconUrl: game?.iconUrl || null,
-          coverArtUrl: game?.coverArtUrl || null,
-          steamAppId: game?.steamAppId || null,
-          minutes,
-        };
-      })
-      .sort((a, b) => b.minutes - a.minutes);
-  }, [filteredSessions, games, t]);
+    const list = Array.from(gamePlaytimes.entries()).map(([gameId, minutes]) => {
+      const game = games.find((g) => g.id === gameId);
+      return {
+        id: gameId,
+        title: game?.name || gameNames.get(gameId) || t("activityDash.unknownGame"),
+        platform: game?.platform || "Local",
+        iconUrl: game?.iconUrl || null,
+        coverArtUrl: game?.coverArtUrl || null,
+        steamAppId: game?.steamAppId || null,
+        minutes,
+        sessionsCount: gameSessionsCount.get(gameId) || 1,
+      };
+    });
+
+    return list.sort((a, b) => {
+      if (sidebarSort === "name") {
+        return a.title.localeCompare(b.title);
+      }
+      if (sidebarSort === "sessions") {
+        return b.sessionsCount - a.sessionsCount;
+      }
+      return b.minutes - a.minutes;
+    });
+  }, [filteredSessions, games, sidebarSort, t]);
 
   const filteredSidebarGames = useMemo(() => {
     if (!searchQuery.trim()) return sidebarGamesList;
@@ -155,11 +183,32 @@ export function ActivityDashboard({
   }, [sessions, games, sourceFilter, dateRange, selectedGameId]);
 
   const records = useMemo(
-    () => buildRecords({ sessions: filteredSessions, games, language, scope: "all" }),
-    [filteredSessions, games, language],
+    () =>
+      buildRecords({
+        sessions: gameIsolatedSessions,
+        games,
+        language,
+        scope: selectedGameId ? "game" : "all",
+      }),
+    [gameIsolatedSessions, games, language, selectedGameId],
   );
 
-  const milestones = useMemo(() => buildMilestoneLadders(sessions, "all"), [sessions]);
+  const milestones = useMemo(
+    () => buildMilestoneLadders(gameIsolatedSessions, selectedGameId ? "game" : "all"),
+    [gameIsolatedSessions, selectedGameId],
+  );
+
+  const gamerPersona = useMemo(() => {
+    return buildGamerPersona(filteredSessions, games);
+  }, [filteredSessions, games]);
+
+  const timeOfDayDist = useMemo(() => {
+    return buildTimeOfDayDistribution(gameIsolatedSessions);
+  }, [gameIsolatedSessions]);
+
+  const sessionLengthDist = useMemo(() => {
+    return buildSessionLengthDistribution(gameIsolatedSessions);
+  }, [gameIsolatedSessions]);
 
   const heatmapDays = useMemo(() => {
     return dateRange === "all" ? 365 : rangeDays(dateRange);
@@ -224,8 +273,21 @@ export function ActivityDashboard({
     return points;
   }, [gameIsolatedSessions, aggregation, startDate, endDate, language]);
 
-  const chartData = useMemo(() => chartPoints.map((p) => p.value), [chartPoints]);
-  const chartLabels = useMemo(() => chartPoints.map((p) => p.label), [chartPoints]);
+  const cumulativeSeries = useMemo(() => {
+    return buildCumulativeSeries(gameIsolatedSessions, startDate, endDate, aggregation, language);
+  }, [gameIsolatedSessions, startDate, endDate, aggregation, language]);
+
+  const chartData = useMemo(() => {
+    return chartMode === "cumulative"
+      ? cumulativeSeries.map((p) => p.cumulativeHours)
+      : chartPoints.map((p) => p.value);
+  }, [chartMode, cumulativeSeries, chartPoints]);
+
+  const chartLabels = useMemo(() => {
+    return chartMode === "cumulative"
+      ? cumulativeSeries.map((p) => p.label)
+      : chartPoints.map((p) => p.label);
+  }, [chartMode, cumulativeSeries, chartPoints]);
 
   const platformBreakdownSlices = useMemo(() => {
     const platformMap = new Map<string, number>();
@@ -246,7 +308,9 @@ export function ActivityDashboard({
     gameIsolatedSessions.forEach((s) => {
       const game = games.find((g) => g.id === s.gameId);
       if (game?.genres && game.genres.length > 0) {
-        game.genres.forEach((genre: string) => genreMap.set(genre, (genreMap.get(genre) || 0) + s.durationMin));
+        game.genres.forEach((genre: string) =>
+          genreMap.set(genre, (genreMap.get(genre) || 0) + s.durationMin),
+        );
       } else {
         genreMap.set(t("splash.unknown"), (genreMap.get(t("splash.unknown")) || 0) + s.durationMin);
       }
@@ -261,6 +325,14 @@ export function ActivityDashboard({
     if (!selectedGameId) return null;
     return games.find((g) => g.id === selectedGameId) || null;
   }, [selectedGameId, games]);
+
+  const selectedGameCompletion = useMemo(() => {
+    if (!selectedGame) return null;
+    const totalMinutesForGame = sessions
+      .filter((s) => s.gameId === selectedGame.id)
+      .reduce((sum, s) => sum + s.durationMin, 0);
+    return buildGameCompletionProgress(totalMinutesForGame, selectedGame.timeToBeat);
+  }, [selectedGame, sessions]);
 
   return (
     <div className="activity__content">
@@ -297,6 +369,12 @@ export function ActivityDashboard({
         />
       </StatBand>
 
+      {!selectedGameId && (
+        <div className="activity__persona-records-grid">
+          <GamerPersonaCard persona={gamerPersona} />
+        </div>
+      )}
+
       <RecordsStrip records={records} />
       <Milestones ladders={milestones} />
 
@@ -307,7 +385,32 @@ export function ActivityDashboard({
               <Icons.LayoutDashboard size={14} />
               {t("activityDash.games")}
             </h3>
-            <span className="activity-game-sidebar__count">{sidebarGamesList.length}</span>
+            <div className="activity-game-sidebar__sort-group">
+              <button
+                type="button"
+                className={`activity-game-sidebar__sort-btn ${sidebarSort === "playtime" ? "active" : ""}`}
+                onClick={() => setSidebarSort("playtime")}
+                title={t("activityDash.sortByPlaytime")}
+              >
+                <Icons.Clock size={12} />
+              </button>
+              <button
+                type="button"
+                className={`activity-game-sidebar__sort-btn ${sidebarSort === "sessions" ? "active" : ""}`}
+                onClick={() => setSidebarSort("sessions")}
+                title={t("activityDash.sortBySessions")}
+              >
+                <Icons.Calendar size={12} />
+              </button>
+              <button
+                type="button"
+                className={`activity-game-sidebar__sort-btn ${sidebarSort === "name" ? "active" : ""}`}
+                onClick={() => setSidebarSort("name")}
+                title={t("activityDash.sortByName")}
+              >
+                <Icons.ArrowUpDown size={12} />
+              </button>
+            </div>
           </div>
 
           <div className="activity-game-sidebar__summary">
@@ -375,8 +478,44 @@ export function ActivityDashboard({
                       ? gameIsolatedSessions[0]?.gameName || t("game.tab.overview")
                       : t("game.tab.overview")}
                 </h3>
+                {selectedGameId && (
+                  <button
+                    type="button"
+                    className="activity-main-chart__clear-btn"
+                    onClick={() => setSelectedGameId(null)}
+                  >
+                    <Icons.X size={12} /> {t("activityDash.showAllGames")}
+                  </button>
+                )}
+                {selectedGame && onLaunchGame && (
+                  <button
+                    type="button"
+                    className="act-inspector-btn act-inspector-btn--primary act-inspector-btn--sm"
+                    onClick={() => onLaunchGame(selectedGame)}
+                  >
+                    <Icons.Play size={11} /> {t("game.play")}
+                  </button>
+                )}
               </div>
-              <span className="activity-main-chart__subtitle">{stats.playtimeStr}</span>
+              <div className="activity-main-chart__header-tools">
+                <div className="act-chart-mode-toggle">
+                  <button
+                    type="button"
+                    className={`act-chart-mode-btn ${chartMode === "periodic" ? "active" : ""}`}
+                    onClick={() => setChartMode("periodic")}
+                  >
+                    {t("activityDash.modePeriodic")}
+                  </button>
+                  <button
+                    type="button"
+                    className={`act-chart-mode-btn ${chartMode === "cumulative" ? "active" : ""}`}
+                    onClick={() => setChartMode("cumulative")}
+                  >
+                    {t("activityDash.modeCumulative")}
+                  </button>
+                </div>
+                <span className="activity-main-chart__subtitle">{stats.playtimeStr}</span>
+              </div>
             </div>
 
             <div className="activity-main-chart__body">
@@ -388,7 +527,22 @@ export function ActivityDashboard({
                   <div className="activity-empty__title">{t("activityDash.noActivity")}</div>
                   <div className="activity-empty__hint">{t("activity.emptyRangeHint")}</div>
                 </div>
-              ) : chartType === "bar" ? (
+              ) : chartMode === "cumulative" || chartType === "line" ? (
+                <LineChart
+                  series={[
+                    {
+                      data: chartData,
+                      color: "var(--color-brand-teal)",
+                      label: chartMode === "cumulative" ? t("activityDash.cumulativeHours") : t("activityDash.playtimeHours"),
+                    },
+                  ]}
+                  labels={chartLabels}
+                  formatValue={(v) => `${v}h`}
+                  height={240}
+                  legend={false}
+                  smooth
+                />
+              ) : (
                 <BarChart
                   data={chartData}
                   labels={chartLabels}
@@ -396,15 +550,34 @@ export function ActivityDashboard({
                   height={240}
                   color="var(--color-brand-teal)"
                 />
-              ) : (
-                <LineChart
-                  series={[{ data: chartData, color: "var(--color-brand-teal)", label: t("activityDash.playtimeHours") }]}
-                  labels={chartLabels}
-                  formatValue={(v) => `${v}h`}
-                  height={240}
-                  legend={false}
-                />
               )}
+            </div>
+          </div>
+
+          {selectedGame && selectedGameCompletion?.hasTimeToBeat && (
+            <div className="section-panel">
+              <TimeToBeatProgress progress={selectedGameCompletion} />
+            </div>
+          )}
+
+          <div className="activity__two-column">
+            <div className="section-panel">
+              <h3 className="section-panel__title">
+                <Icons.Clock size={14} /> {t("activityInsights.timeOfDayTitle")}
+              </h3>
+              <TimeOfDayDistribution distribution={timeOfDayDist} compact={Boolean(selectedGameId)} />
+            </div>
+
+            <div className="section-panel">
+              <h3 className="section-panel__title">
+                <Icons.Target size={14} /> {t("activityInsights.sessionLengthsTitle")}
+              </h3>
+              <SessionLengthDistribution
+                buckets={sessionLengthDist.buckets}
+                averageMinutes={sessionLengthDist.averageMinutes}
+                longestMinutes={sessionLengthDist.longestMinutes}
+                totalSessions={sessionLengthDist.totalSessions}
+              />
             </div>
           </div>
 
@@ -422,7 +595,11 @@ export function ActivityDashboard({
                     </div>
                   ) : (
                     <div className="platform-breakdown__content">
-                      <DonutChart slices={platformBreakdownSlices} size={150} formatValue={(v) => `${Math.round(v * 10) / 10}h`} />
+                      <DonutChart
+                        slices={platformBreakdownSlices}
+                        size={150}
+                        formatValue={(v) => `${Math.round(v * 10) / 10}h`}
+                      />
                     </div>
                   )}
                 </div>
@@ -438,7 +615,11 @@ export function ActivityDashboard({
                     </div>
                   ) : (
                     <div className="genre-breakdown__content">
-                      <DonutChart slices={genreBreakdownSlices} size={150} formatValue={(v) => `${Math.round(v * 10) / 10}h`} />
+                      <DonutChart
+                        slices={genreBreakdownSlices}
+                        size={150}
+                        formatValue={(v) => `${Math.round(v * 10) / 10}h`}
+                      />
                     </div>
                   )}
                 </div>
@@ -489,6 +670,7 @@ function ActivitySidebarGameButton({
     coverArtUrl: string | null;
     steamAppId: number | null;
     minutes: number;
+    sessionsCount: number;
   };
   game: Game | null;
   selected: boolean;
@@ -529,7 +711,12 @@ function ActivitySidebarGameButton({
             <div className="activity-game-sidebar__bar-fill" style={{ width: `${barWidth}%` }} />
           </div>
         </div>
-        <span className="activity-game-sidebar__time">{formatPlayTime(summary.minutes)}</span>
+        <div className="activity-game-sidebar__meta-right">
+          <span className="activity-game-sidebar__time">{formatPlayTime(summary.minutes)}</span>
+          <span className="activity-game-sidebar__sessions-tag">
+            {summary.sessionsCount} {summary.sessionsCount === 1 ? t("activity.sessionOne") : t("activity.sessionsMany")}
+          </span>
+        </div>
       </button>
       <button
         type="button"

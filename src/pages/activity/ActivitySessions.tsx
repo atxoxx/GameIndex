@@ -1,4 +1,5 @@
 import { useMemo, useState, type ComponentProps } from "react";
+import { useNavigate } from "react-router-dom";
 import LineChart from "../../components/charts/LineChart";
 import { ActivitySparkline } from "./ActivitySparkline";
 import { GameThumbnail } from "./GameThumbnail";
@@ -6,37 +7,381 @@ import PlayerCountBadge from "../../components/PlayerCountBadge";
 import { useSteamAppId } from "../../hooks/useSteamAppId";
 import { useSettings } from "../../context/SettingsContext";
 import { useActivity } from "../../context/ActivityContext";
+import { useSessionNotes } from "../../context/SessionNotesContext";
 import { buildSingleSessionSeries } from "../../utils/perfSamples";
-import { formatTemp, toDisplayTemp, toDisplayTemps, tempUnitLabel, tempThreshold, tempMinY, tempMaxY } from "../../utils/temp";
+import {
+  formatTemp,
+  toDisplayTemp,
+  toDisplayTemps,
+  tempUnitLabel,
+  tempThreshold,
+  tempMinY,
+  tempMaxY,
+} from "../../utils/temp";
 import { useLanguage } from "../../context/LanguageContext";
 import { formatPlayTime, type Game, type GameSession } from "../../types/game";
 import { ConfirmModal } from "../../components/ui/ConfirmModal";
 import { generateEstimatedTimeline } from "./performance/perfData";
-import * as Icons from "./Icons";
-import { useNavigate } from "react-router-dom";
 import { EmptyState } from "../../components/activity";
-import { Button } from "../../components/ui";
+import * as Icons from "./Icons";
 
 export interface ActivitySessionsProps {
   sessions: GameSession[];
   games: Game[];
   onDeleteSession: (id: string) => void;
+  onLaunchGame?: (game: Game) => void;
+}
+
+type SortField = "date" | "duration" | "fps" | "gpuTemp";
+type SortOrder = "asc" | "desc";
+
+export function ActivitySessions({
+  sessions,
+  games,
+  onDeleteSession,
+  onLaunchGame,
+}: ActivitySessionsProps) {
+  const { t, language } = useLanguage();
+  const { getAllNotes } = useSessionNotes();
+
+  const [searchQuery, setSearchQuery] = useState("");
+  const [sourceFilter, setSourceFilter] = useState("all");
+  const [telemetryFilter, setTelemetryFilter] = useState<"all" | "telemetry" | "notes">("all");
+  const [durationFilter, setDurationFilter] = useState<"all" | "quick" | "medium" | "long">("all");
+  const [sortField, setSortField] = useState<SortField>("date");
+  const [sortOrder, setSortOrder] = useState<SortOrder>("desc");
+
+  const [selectedSessionIds, setSelectedSessionIds] = useState<Set<string>>(new Set());
+  const [pendingDeleteSession, setPendingDeleteSession] = useState<GameSession | null>(null);
+  const [confirmBatchDelete, setConfirmBatchDelete] = useState(false);
+
+  const gameById = useMemo(() => {
+    const map = new Map<string, Game>();
+    games.forEach((g) => map.set(g.id, g));
+    return map;
+  }, [games]);
+
+  const allNotes = useMemo(() => getAllNotes(), [getAllNotes]);
+
+  const availablePlatforms = useMemo(() => {
+    const set = new Set<string>();
+    games.forEach((g) => {
+      if (g.platform) set.add(g.platform);
+    });
+    return Array.from(set).sort();
+  }, [games]);
+
+  const filteredAndSortedSessions = useMemo(() => {
+    const q = searchQuery.trim().toLowerCase();
+
+    const list = sessions.filter((s) => {
+      if (q && !s.gameName.toLowerCase().includes(q)) return false;
+
+      if (sourceFilter !== "all") {
+        const game = gameById.get(s.gameId);
+        if ((game?.platform || "Local").toLowerCase() !== sourceFilter.toLowerCase()) return false;
+      }
+
+      if (telemetryFilter === "telemetry" && (!s.metrics || s.metrics.avgCpuUsage === 0)) {
+        return false;
+      }
+      if (telemetryFilter === "notes") {
+        const note = allNotes[s.id];
+        if (!note || (!note.note && note.tags.length === 0)) return false;
+      }
+
+      if (durationFilter === "quick" && s.durationMin >= 30) return false;
+      if (durationFilter === "medium" && (s.durationMin < 30 || s.durationMin > 120)) return false;
+      if (durationFilter === "long" && s.durationMin <= 120) return false;
+
+      return true;
+    });
+
+    return list.sort((a, b) => {
+      const dir = sortOrder === "asc" ? 1 : -1;
+      if (sortField === "duration") {
+        return (a.durationMin - b.durationMin) * dir;
+      }
+      if (sortField === "fps") {
+        const fpsA = a.metrics?.avgFps || 0;
+        const fpsB = b.metrics?.avgFps || 0;
+        return (fpsA - fpsB) * dir;
+      }
+      if (sortField === "gpuTemp") {
+        const tempA = a.metrics?.avgGpuTemp || 0;
+        const tempB = b.metrics?.avgGpuTemp || 0;
+        return (tempA - tempB) * dir;
+      }
+      // Date default
+      return (new Date(a.date).getTime() - new Date(b.date).getTime()) * dir;
+    });
+  }, [
+    sessions,
+    searchQuery,
+    sourceFilter,
+    telemetryFilter,
+    durationFilter,
+    sortField,
+    sortOrder,
+    gameById,
+    allNotes,
+  ]);
+
+  const toggleSelectAll = () => {
+    if (selectedSessionIds.size === filteredAndSortedSessions.length) {
+      setSelectedSessionIds(new Set());
+    } else {
+      setSelectedSessionIds(new Set(filteredAndSortedSessions.map((s) => s.id)));
+    }
+  };
+
+  const toggleSelectSession = (id: string) => {
+    setSelectedSessionIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
+
+  const handleBatchDelete = () => {
+    selectedSessionIds.forEach((id) => onDeleteSession(id));
+    setSelectedSessionIds(new Set());
+    setConfirmBatchDelete(false);
+  };
+
+  return (
+    <div className="activity-sessions-page">
+      {/* ── Filter & Search Toolbar ──────────────────────────────── */}
+      <div className="activity-sessions-toolbar">
+        <div className="activity-sessions-toolbar__search">
+          <Icons.Search size={13} className="activity-sessions-toolbar__search-icon" />
+          <input
+            type="text"
+            className="activity-sessions-toolbar__search-input"
+            placeholder={t("activityDash.searchGames")}
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+          />
+          {searchQuery && (
+            <button
+              type="button"
+              className="activity-sessions-toolbar__clear-btn"
+              onClick={() => setSearchQuery("")}
+            >
+              <Icons.X size={12} />
+            </button>
+          )}
+        </div>
+
+        <div className="activity-sessions-toolbar__filters">
+          <select
+            className="act-toolbar__select"
+            value={sourceFilter}
+            onChange={(e) => setSourceFilter(e.target.value)}
+            aria-label={t("activityPage.source")}
+          >
+            <option value="all">{t("activity.sourceAll")}</option>
+            {availablePlatforms.map((plat) => (
+              <option key={plat} value={plat}>
+                {plat}
+              </option>
+            ))}
+          </select>
+
+          <select
+            className="act-toolbar__select"
+            value={telemetryFilter}
+            onChange={(e) => setTelemetryFilter(e.target.value as "all" | "telemetry" | "notes")}
+            aria-label={t("activitySessions.filterType")}
+          >
+            <option value="all">{t("activitySessions.filterAll")}</option>
+            <option value="telemetry">{t("activitySessions.filterWithTelemetry")}</option>
+            <option value="notes">{t("activitySessions.filterWithNotes")}</option>
+          </select>
+
+          <select
+            className="act-toolbar__select"
+            value={durationFilter}
+            onChange={(e) => setDurationFilter(e.target.value as "all" | "quick" | "medium" | "long")}
+            aria-label={t("activitySessions.durationFilter")}
+          >
+            <option value="all">{t("activitySessions.allDurations")}</option>
+            <option value="quick">&lt; 30m ({t("activityInsights.sessionBucket.quick")})</option>
+            <option value="medium">30m – 2h ({t("activityInsights.sessionBucket.short")})</option>
+            <option value="long">&gt; 2h ({t("activityInsights.sessionBucket.long")})</option>
+          </select>
+
+          <div className="activity-sessions-toolbar__sort">
+            <select
+              className="act-toolbar__select"
+              value={sortField}
+              onChange={(e) => setSortField(e.target.value as SortField)}
+              aria-label={t("activitySessions.sortBy")}
+            >
+              <option value="date">{t("activitySessions.sortDate")}</option>
+              <option value="duration">{t("activitySessions.sortDuration")}</option>
+              <option value="fps">{t("activitySessions.sortFps")}</option>
+              <option value="gpuTemp">{t("activitySessions.sortGpuTemp")}</option>
+            </select>
+            <button
+              type="button"
+              className="activity-sessions-toolbar__sort-dir-btn"
+              onClick={() => setSortOrder((o) => (o === "asc" ? "desc" : "asc"))}
+              title={sortOrder === "asc" ? t("activitySessions.ascending") : t("activitySessions.descending")}
+            >
+              {sortOrder === "asc" ? <Icons.ChevronUp size={13} /> : <Icons.ChevronDown size={13} />}
+            </button>
+          </div>
+        </div>
+      </div>
+
+      {/* ── Batch Actions Bar ────────────────────────────────────── */}
+      {selectedSessionIds.size > 0 && (
+        <div className="activity-sessions-batch-bar">
+          <span className="activity-sessions-batch-bar__count">
+            {t("activitySessions.selectedCount", { count: selectedSessionIds.size })}
+          </span>
+          <div className="activity-sessions-batch-bar__actions">
+            <button
+              type="button"
+              className="act-inspector-btn act-inspector-btn--danger act-inspector-btn--sm"
+              onClick={() => setConfirmBatchDelete(true)}
+            >
+              <Icons.Trash2 size={12} /> {t("activitySessions.deleteSelected")}
+            </button>
+            <button
+              type="button"
+              className="act-inspector-btn act-inspector-btn--ghost act-inspector-btn--sm"
+              onClick={() => setSelectedSessionIds(new Set())}
+            >
+              {t("common.cancel")}
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* ── Sessions List ────────────────────────────────────────── */}
+      {filteredAndSortedSessions.length === 0 ? (
+        <div className="section-panel">
+          <EmptyState
+            icon={<Icons.History size={24} />}
+            title={t("activitySessions.noMatchingSessions")}
+            hint={t("activitySessions.noMatchingHint")}
+          />
+        </div>
+      ) : (
+        <div className="activity-sessions-list">
+          <div className="activity-sessions-list__header">
+            <button
+              type="button"
+              className="activity-sessions-list__select-all"
+              onClick={toggleSelectAll}
+            >
+              {selectedSessionIds.size === filteredAndSortedSessions.length ? (
+                <Icons.CheckSquare size={14} />
+              ) : (
+                <Icons.Square size={14} />
+              )}
+              <span>{t("activitySessions.selectAll")}</span>
+            </button>
+            <span className="activity-sessions-list__total-count">
+              {t("activitySessions.showingCount", {
+                count: filteredAndSortedSessions.length,
+                total: sessions.length,
+              })}
+            </span>
+          </div>
+
+          {filteredAndSortedSessions.map((session) => {
+            const game = gameById.get(session.gameId);
+            const isSelected = selectedSessionIds.has(session.id);
+
+            return (
+              <ActivitySessionItem
+                key={session.id}
+                session={session}
+                game={game}
+                isSelected={isSelected}
+                onToggleSelect={() => toggleSelectSession(session.id)}
+                onRequestDelete={(s) => setPendingDeleteSession(s)}
+                onLaunchGame={onLaunchGame}
+              />
+            );
+          })}
+        </div>
+      )}
+
+      {/* ── Delete Single Session Confirmation ───────────────────── */}
+      {pendingDeleteSession && (
+        <ConfirmModal
+          open={true}
+          title={t("activitySessions.deleteConfirmTitle")}
+          message={t("activitySessions.deleteConfirmBody", {
+            game: pendingDeleteSession.gameName,
+            date: new Date(pendingDeleteSession.date).toLocaleDateString(language, {
+              weekday: "short",
+              month: "short",
+              day: "numeric",
+            }),
+          })}
+          confirmLabel={t("common.delete")}
+          onConfirm={() => {
+            onDeleteSession(pendingDeleteSession.id);
+            setPendingDeleteSession(null);
+          }}
+          onCancel={() => setPendingDeleteSession(null)}
+        />
+      )}
+
+      {/* ── Batch Delete Confirmation ────────────────────────────── */}
+      {confirmBatchDelete && (
+        <ConfirmModal
+          open={true}
+          title={t("activitySessions.batchDeleteConfirmTitle")}
+          message={t("activitySessions.batchDeleteConfirmBody", {
+            count: selectedSessionIds.size,
+          })}
+          confirmLabel={t("common.delete")}
+          onConfirm={handleBatchDelete}
+          onCancel={() => setConfirmBatchDelete(false)}
+        />
+      )}
+    </div>
+  );
 }
 
 interface SessionItemProps {
   session: GameSession;
   game: Game | undefined;
+  isSelected: boolean;
+  onToggleSelect: () => void;
   onRequestDelete: (session: GameSession) => void;
+  onLaunchGame?: (game: Game) => void;
 }
 
-function ActivitySessionItem({ session, game, onRequestDelete }: SessionItemProps) {
+function ActivitySessionItem({
+  session,
+  game,
+  isSelected,
+  onToggleSelect,
+  onRequestDelete,
+  onLaunchGame,
+}: SessionItemProps) {
   const [isExpanded, setIsExpanded] = useState(false);
   const [activeChartTab, setActiveChartTab] = useState<"usage" | "temps" | "ram" | "fps">("usage");
+  const [isEditingNote, setIsEditingNote] = useState(false);
   const { tempUnit } = useSettings();
   const { totalRamGb } = useActivity();
+  const { getNote, setNote, setTags } = useSessionNotes();
   const { t, language } = useLanguage();
+  const navigate = useNavigate();
 
-  // Resolve the Steam appid for this session's game.
+  const noteData = getNote(session.id);
+  const [noteText, setNoteText] = useState(noteData.note);
+  const [tagsList, setTagsList] = useState(noteData.tags);
+  const [tagInput, setTagInput] = useState("");
+
   const { appId: resolvedSteamAppId } = useSteamAppId(game ?? null);
   const steamAppId =
     typeof resolvedSteamAppId === "number"
@@ -59,14 +404,13 @@ function ActivitySessionItem({ session, game, onRequestDelete }: SessionItemProp
     const d = new Date(session.date);
     const start = new Date(d.getTime() - durationMs);
     const fmt = (date: Date) => date.toLocaleTimeString(language, { hour: "2-digit", minute: "2-digit" });
-    return `${fmt(start)} - ${fmt(d)}`;
+    return `${fmt(start)} – ${fmt(d)}`;
   }, [session.date, durationMs, language]);
 
   const formattedDuration = useMemo(() => {
     return formatPlayTime(session.durationMin);
   }, [session.durationMin]);
 
-  // Build real hardware sample logs for chart overlays.
   const chartProps = useMemo(() => {
     if (!session.metrics) return null;
     const m = session.metrics;
@@ -85,17 +429,34 @@ function ActivitySessionItem({ session, game, onRequestDelete }: SessionItemProp
     } else {
       const seedKey = `session-${session.id}`;
       fps = generateEstimatedTimeline(m.avgFps, m.minFps, m.maxFps, pts, `fps:${seedKey}`);
-      cpu = generateEstimatedTimeline(m.avgCpuUsage, Math.round(m.avgCpuUsage * 0.4), Math.round(m.avgCpuUsage * 1.5), pts, `cpu:${seedKey}`).map(v => Math.min(100, Math.max(0, v)));
-      gpu = generateEstimatedTimeline(m.avgGpuUsage, Math.round(m.avgGpuUsage * 0.3), Math.round(m.avgGpuUsage * 1.6), pts, `gpu:${seedKey}`).map(v => Math.min(100, Math.max(0, v)));
+      cpu = generateEstimatedTimeline(
+        m.avgCpuUsage,
+        Math.round(m.avgCpuUsage * 0.4),
+        Math.round(m.avgCpuUsage * 1.5),
+        pts,
+        `cpu:${seedKey}`,
+      ).map((v) => Math.min(100, Math.max(0, v)));
+      gpu = generateEstimatedTimeline(
+        m.avgGpuUsage,
+        Math.round(m.avgGpuUsage * 0.3),
+        Math.round(m.avgGpuUsage * 1.6),
+        pts,
+        `gpu:${seedKey}`,
+      ).map((v) => Math.min(100, Math.max(0, v)));
       cpuTemp = generateEstimatedTimeline(m.avgCpuTemp, m.avgCpuTemp - 7, m.avgCpuTemp + 11, pts, `cputemp:${seedKey}`);
       gpuTemp = generateEstimatedTimeline(m.avgGpuTemp, m.avgGpuTemp - 6, m.avgGpuTemp + 9, pts, `gputemp:${seedKey}`);
-      ram = generateEstimatedTimeline(m.avgRamUsage, Math.round(m.avgRamUsage * 0.8), Math.round(m.avgRamUsage * 1.15), pts, `ram:${seedKey}`).map(v => Math.min(100, Math.max(0, v)));
+      ram = generateEstimatedTimeline(
+        m.avgRamUsage,
+        Math.round(m.avgRamUsage * 0.8),
+        Math.round(m.avgRamUsage * 1.15),
+        pts,
+        `ram:${seedKey}`,
+      ).map((v) => Math.min(100, Math.max(0, v)));
     }
 
-    // Labels represent timeline progress
     const labels = Array.from({ length: pts }).map((_, i) => `${Math.round((i / (pts - 1)) * 100)}%`);
 
-    return { fps, cpu, gpu, cpuTemp, gpuTemp, ram, labels, real: !!real };
+    return { fps, cpu, gpu, cpuTemp, gpuTemp, ram, labels, real: Boolean(real) };
   }, [session.metrics, session.id]);
 
   const chartSeries = useMemo(() => {
@@ -160,7 +521,6 @@ function ActivitySessionItem({ session, game, onRequestDelete }: SessionItemProp
     };
   }, [activeChartTab, tempUnit, t]);
 
-  // Build sparkline structures
   const sparklineData = useMemo(() => {
     if (!chartProps) return null;
     const formatSpark = (arr: number[]) => arr.map((y, x) => ({ x, y }));
@@ -174,9 +534,33 @@ function ActivitySessionItem({ session, game, onRequestDelete }: SessionItemProp
     };
   }, [chartProps]);
 
+  const handleSaveNotes = () => {
+    setNote(session.id, noteText);
+    setTags(session.id, tagsList);
+    setIsEditingNote(false);
+  };
+
+  const handleAddTag = (e: React.KeyboardEvent | React.MouseEvent) => {
+    if ("key" in e && e.key !== "Enter") return;
+    const clean = tagInput.trim();
+    if (clean && !tagsList.includes(clean)) {
+      const next = [...tagsList, clean];
+      setTagsList(next);
+      setTags(session.id, next);
+      setTagInput("");
+    }
+  };
+
+  const handleRemoveTag = (tag: string) => {
+    const next = tagsList.filter((t) => t !== tag);
+    setTagsList(next);
+    setTags(session.id, next);
+  };
+
+  const m = session.metrics;
+
   return (
     <div className={`activity-session-item ${isExpanded ? "activity-session-item--expanded" : ""}`}>
-      {/* Header Row */}
       <div
         className="activity-session-item__row"
         role="button"
@@ -190,6 +574,16 @@ function ActivitySessionItem({ session, game, onRequestDelete }: SessionItemProp
           }
         }}
       >
+        <div
+          className="activity-session-item__checkbox"
+          onClick={(e) => {
+            e.stopPropagation();
+            onToggleSelect();
+          }}
+        >
+          {isSelected ? <Icons.CheckSquare size={14} /> : <Icons.Square size={14} />}
+        </div>
+
         <div className="activity-session-item__header-left">
           <span className="activity-session-item__chevron" aria-hidden="true">
             {isExpanded ? <Icons.ChevronUp size={14} /> : <Icons.ChevronDown size={14} />}
@@ -203,14 +597,8 @@ function ActivitySessionItem({ session, game, onRequestDelete }: SessionItemProp
               className="activity-session-item__game-icon"
             />
             {steamAppId != null ? (
-              <div
-                className="activity-session-item__player-chip"
-                aria-hidden={false}
-              >
-                <PlayerCountBadge
-                  appId={steamAppId}
-                  className="activity-session-item__player-chip-badge"
-                />
+              <div className="activity-session-item__player-chip" aria-hidden={false}>
+                <PlayerCountBadge appId={steamAppId} className="activity-session-item__player-chip-badge" />
               </div>
             ) : null}
           </div>
@@ -223,7 +611,32 @@ function ActivitySessionItem({ session, game, onRequestDelete }: SessionItemProp
         </div>
 
         <div className="activity-session-item__header-right">
+          {/* Quick telemetry preview chips on row */}
+          <div className="activity-session-item__quick-chips">
+            {m?.avgFps && m.avgFps > 0 ? (
+              <span className="activity-session-item__pill activity-session-item__pill--fps">
+                {m.avgFps} FPS
+              </span>
+            ) : null}
+            {m?.avgGpuTemp && m.avgGpuTemp > 0 ? (
+              <span className="activity-session-item__pill activity-session-item__pill--temp">
+                {formatTemp(m.avgGpuTemp, tempUnit)}
+              </span>
+            ) : null}
+            {m?.resolution ? (
+              <span className="activity-session-item__pill activity-session-item__pill--res">
+                {m.resolution}
+              </span>
+            ) : null}
+            {noteData.note || noteData.tags.length > 0 ? (
+              <span className="activity-session-item__pill activity-session-item__pill--note" title={noteData.note}>
+                <Icons.FileText size={10} /> {noteData.tags.length > 0 ? `${noteData.tags.length} tags` : "Note"}
+              </span>
+            ) : null}
+          </div>
+
           <span className="activity-session-item__duration">{formattedDuration}</span>
+
           <button
             type="button"
             className="activity-session-item__delete-btn"
@@ -239,239 +652,224 @@ function ActivitySessionItem({ session, game, onRequestDelete }: SessionItemProp
         </div>
       </div>
 
-      {/* Expanded Accordion Body */}
       {isExpanded && (
         <div className="activity-session-item__collapsible">
-          {session.metrics && sparklineData ? (
+          {session.metrics && sparklineData && chartProps ? (
             <div className="activity-hardware-card">
               <h4 className="activity-hardware-card__title">{t("activitySessions.hardwareSummary")}</h4>
               <div className="activity-hardware-card__metrics">
                 <ActivitySparkline
                   data={sparklineData.cpu}
-                  label={t("activityPerf.cpuUsage")}
+                  label={t("activity.sessions.cpuLoad")}
                   unit="%"
                   value={session.metrics.avgCpuUsage}
-                  max={Math.round(session.metrics.avgCpuUsage * 1.5)}
-                  thresholds={{ warn: 70, danger: 90 }}
                 />
-
                 <ActivitySparkline
                   data={sparklineData.gpu}
-                  label={t("activityPerf.gpuUsage")}
+                  label={t("activity.sessions.gpuLoad")}
                   unit="%"
                   value={session.metrics.avgGpuUsage}
-                  max={Math.round(session.metrics.avgGpuUsage * 1.4)}
-                  thresholds={{ warn: 70, danger: 90 }}
                 />
-
-                <ActivitySparkline
-                  data={sparklineData.cpuTemp.map((p) => ({ ...p, y: toDisplayTemp(p.y, tempUnit) }))}
-                  label={t("activitySessions.cpuTemperature")}
-                  unit={tempUnitLabel(tempUnit)}
-                  value={toDisplayTemp(session.metrics.avgCpuTemp, tempUnit)}
-                  max={toDisplayTemp(session.metrics.avgCpuTemp + 10, tempUnit)}
-                  thresholds={{ warn: tempThreshold(75, tempUnit), danger: tempThreshold(85, tempUnit) }}
-                />
-
-                <ActivitySparkline
-                  data={sparklineData.gpuTemp.map((p) => ({ ...p, y: toDisplayTemp(p.y, tempUnit) }))}
-                  label={t("activitySessions.gpuTemperature")}
-                  unit={tempUnitLabel(tempUnit)}
-                  value={toDisplayTemp(session.metrics.avgGpuTemp, tempUnit)}
-                  max={toDisplayTemp(session.metrics.avgGpuTemp + 8, tempUnit)}
-                  thresholds={{ warn: tempThreshold(75, tempUnit), danger: tempThreshold(85, tempUnit) }}
-                />
-
                 <ActivitySparkline
                   data={sparklineData.ram}
-                  label={t("activitySessions.ramLoad")}
+                  label={t("activityPerf.ramUsage")}
                   unit="%"
                   value={session.metrics.avgRamUsage}
-                  max={Math.round(session.metrics.avgRamUsage * 1.15)}
                 />
-
                 <ActivitySparkline
                   data={sparklineData.fps}
                   label={t("activityPerf.fps")}
-                  unit=""
+                  unit="FPS"
                   value={session.metrics.avgFps}
-                  max={session.metrics.maxFps}
-                  min={session.metrics.minFps}
-                  thresholds={{ warn: 60, danger: 30 }}
-                  inverted
                 />
+                {session.metrics.avgCpuTemp > 0 && (
+                  <ActivitySparkline
+                    data={sparklineData.cpuTemp.map((p) => ({ ...p, y: toDisplayTemp(p.y, tempUnit) }))}
+                    label={t("activityPerf.cpuTemp")}
+                    unit={tempUnitLabel(tempUnit)}
+                    value={toDisplayTemp(session.metrics.avgCpuTemp, tempUnit)}
+                  />
+                )}
+                {session.metrics.avgGpuTemp > 0 && (
+                  <ActivitySparkline
+                    data={sparklineData.gpuTemp.map((p) => ({ ...p, y: toDisplayTemp(p.y, tempUnit) }))}
+                    label={t("activityPerf.gpuTemp")}
+                    unit={tempUnitLabel(tempUnit)}
+                    value={toDisplayTemp(session.metrics.avgGpuTemp, tempUnit)}
+                  />
+                )}
               </div>
 
-              {/* Performance Timeline Charts */}
-              {chartProps && (
-                <div className="activity-session-item__chart-section">
-                  <div className="activity-session-item__chart-header">
-                    <div className="activity-session-item__chart-title">
-                      <Icons.BarChart3 size={12} />
-                      {t("activitySessions.perfTimeline")}
-                      {!chartProps.real && (
-                        <span
-                          className="activity-session-item__chart-estimated"
-                          title={t("activitySessions.telemetryCurve")}
-                        >
-                          {t("activityPerf.estimated")}
-                        </span>
-                      )}
-                    </div>
-                    <div className="activity-session-item__chart-tabs">
-                      {(["usage", "temps", "ram", "fps"] as const).map((tab) => (
-                        <button
-                          key={tab}
-                          type="button"
-                          className={`activity-session-item__chart-tab-btn ${
-                            activeChartTab === tab ? "activity-session-item__chart-tab-btn--active" : ""
-                          }`}
-                          onClick={() => setActiveChartTab(tab)}
-                        >
-                          {t(`activitySessions.tab${tab.charAt(0).toUpperCase()}${tab.slice(1)}`)}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-
-                  <div className="activity-session-item__chart-container">
-                    <LineChart
-                      series={chartSeries}
-                      labels={chartProps.labels}
-                      formatValue={yValFormatter}
-                      height={180}
-                      legend={true}
-                      {...chartExtra}
-                    />
-                  </div>
+              <div className="activity-chart-tab-container">
+                <div className="activity-chart-tabs">
+                  <button
+                    type="button"
+                    className={`activity-chart-tab ${activeChartTab === "usage" ? "activity-chart-tab--active" : ""}`}
+                    onClick={() => setActiveChartTab("usage")}
+                  >
+                    {t("activity.sessions.usageTab")}
+                  </button>
+                  <button
+                    type="button"
+                    className={`activity-chart-tab ${activeChartTab === "temps" ? "activity-chart-tab--active" : ""}`}
+                    onClick={() => setActiveChartTab("temps")}
+                  >
+                    {t("activityPerf.tempsUnit", { unit: tempUnitLabel(tempUnit) })}
+                  </button>
+                  <button
+                    type="button"
+                    className={`activity-chart-tab ${activeChartTab === "ram" ? "activity-chart-tab--active" : ""}`}
+                    onClick={() => setActiveChartTab("ram")}
+                  >
+                    {t("activityPerf.ramUsage")}
+                  </button>
+                  <button
+                    type="button"
+                    className={`activity-chart-tab ${activeChartTab === "fps" ? "activity-chart-tab--active" : ""}`}
+                    onClick={() => setActiveChartTab("fps")}
+                  >
+                    {t("activityPerf.fps")}
+                  </button>
                 </div>
-              )}
+
+                <div className="activity-chart-wrapper">
+                  <LineChart
+                    series={chartSeries}
+                    labels={chartProps.labels}
+                    formatValue={yValFormatter}
+                    height={160}
+                    {...chartExtra}
+                  />
+                </div>
+              </div>
             </div>
           ) : (
-            <div className="activity-session-item__no-hardware">
-              <Icons.Info size={16} />
-              <div>{t("activitySessions.noHardwareLogs")}</div>
+            <div className="activity-empty activity-empty--compact">
+              <div className="activity-empty__title">{t("activity.noTelemetryCaptured")}</div>
+              <div className="activity-empty__hint">{t("activitySessions.enableHardwareHint")}</div>
+            </div>
+          )}
+
+          {/* Inline Session Notes Section */}
+          <div className="activity-session-item__notes-box">
+            <div className="activity-session-item__notes-head">
+              <span className="activity-session-item__notes-title">
+                <Icons.FileText size={13} /> {t("sessionNotes.title")}
+              </span>
+              {!isEditingNote && (
+                <button
+                  type="button"
+                  className="act-inspector-btn act-inspector-btn--sm"
+                  onClick={() => setIsEditingNote(true)}
+                >
+                  <Icons.Edit3 size={11} /> {noteText ? t("common.edit") : t("sessionNotes.addNote")}
+                </button>
+              )}
+            </div>
+
+            {isEditingNote ? (
+              <div className="act-inspector-notes__editor">
+                <textarea
+                  className="act-inspector-notes__textarea"
+                  rows={2}
+                  placeholder={t("sessionNotes.placeholder")}
+                  value={noteText}
+                  onChange={(e) => setNoteText(e.target.value)}
+                />
+                <div className="act-inspector-notes__tags-input-row">
+                  <input
+                    type="text"
+                    className="act-inspector-notes__tag-input"
+                    placeholder={t("sessionNotes.tagPlaceholder")}
+                    value={tagInput}
+                    onChange={(e) => setTagInput(e.target.value)}
+                    onKeyDown={handleAddTag}
+                  />
+                  <button
+                    type="button"
+                    className="act-inspector-btn act-inspector-btn--sm"
+                    onClick={handleAddTag}
+                  >
+                    <Icons.Tag size={11} /> {t("sessionNotes.addTag")}
+                  </button>
+                </div>
+                {tagsList.length > 0 && (
+                  <div className="act-inspector-notes__tags">
+                    {tagsList.map((tag) => (
+                      <span key={tag} className="act-inspector-tag">
+                        <Icons.Tag size={10} /> {tag}
+                        <button
+                          type="button"
+                          className="act-inspector-tag-del"
+                          onClick={() => handleRemoveTag(tag)}
+                          aria-label={`Remove ${tag}`}
+                        >
+                          <Icons.X size={10} />
+                        </button>
+                      </span>
+                    ))}
+                  </div>
+                )}
+                <div className="act-inspector-notes__editor-actions">
+                  <button
+                    type="button"
+                    className="act-inspector-btn act-inspector-btn--primary act-inspector-btn--sm"
+                    onClick={handleSaveNotes}
+                  >
+                    <Icons.Check size={12} /> {t("common.save")}
+                  </button>
+                  <button
+                    type="button"
+                    className="act-inspector-btn act-inspector-btn--ghost act-inspector-btn--sm"
+                    onClick={() => setIsEditingNote(false)}
+                  >
+                    {t("common.cancel")}
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <div className="activity-session-item__notes-content">
+                {noteText ? (
+                  <p className="activity-session-item__notes-text">{noteText}</p>
+                ) : (
+                  <p className="activity-session-item__notes-empty">{t("sessionNotes.noNotes")}</p>
+                )}
+                {tagsList.length > 0 && (
+                  <div className="act-inspector-notes__tags">
+                    {tagsList.map((tag) => (
+                      <span key={tag} className="act-inspector-tag">
+                        <Icons.Tag size={10} /> {tag}
+                      </span>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+
+          {/* Quick Actions Footer */}
+          {game && (
+            <div className="activity-session-item__actions-footer">
+              <button
+                type="button"
+                className="act-inspector-btn act-inspector-btn--secondary act-inspector-btn--sm"
+                onClick={() => navigate(`/library/${game.id}`)}
+              >
+                <Icons.ExternalLink size={12} /> {t("gameActivity.viewGamePage")}
+              </button>
+              {onLaunchGame && (
+                <button
+                  type="button"
+                  className="act-inspector-btn act-inspector-btn--primary act-inspector-btn--sm"
+                  onClick={() => onLaunchGame(game)}
+                >
+                  <Icons.Play size={12} /> {t("game.play")}
+                </button>
+              )}
             </div>
           )}
         </div>
       )}
-    </div>
-  );
-}
-
-export function ActivitySessions({
-  sessions,
-  games,
-  onDeleteSession,
-}: ActivitySessionsProps) {
-  const { t } = useLanguage();
-  const navigate = useNavigate();
-  const [searchQuery, setSearchQuery] = useState("");
-  const [visibleCount, setVisibleCount] = useState(15);
-  const [pendingDeleteSession, setPendingDeleteSession] = useState<GameSession | null>(null);
-
-  const sortedSessions = useMemo(() => {
-    return [...sessions].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
-  }, [sessions]);
-
-  const filteredSessions = useMemo(() => {
-    if (!searchQuery.trim()) return sortedSessions;
-    const q = searchQuery.toLowerCase();
-    return sortedSessions.filter((s) => s.gameName.toLowerCase().includes(q));
-  }, [sortedSessions, searchQuery]);
-
-  const visibleSessions = useMemo(() => {
-    return filteredSessions.slice(0, visibleCount);
-  }, [filteredSessions, visibleCount]);
-
-  return (
-    <div className="section-panel">
-      <div className="global-session-list__header">
-        <h3 className="section-panel__title">
-          {t("activitySessions.recentSessions")}
-          <span className="activity-session-count">{filteredSessions.length}</span>
-        </h3>
-        <div className="global-session-list__actions">
-          <div className="global-session-list__search">
-            <Icons.Search size={12} className="global-session-list__search-icon" />
-            <input
-              type="text"
-              className="global-session-list__search-input"
-              placeholder={t("activitySessions.search")}
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-            />
-          </div>
-          <button
-            type="button"
-            className="global-session-list__refresh-btn"
-            onClick={() => setVisibleCount(15)}
-            title={t("activitySessions.resetView")}
-            aria-label={t("activitySessions.resetView")}
-          >
-            <Icons.RotateCcw size={12} />
-          </button>
-        </div>
-      </div>
-
-      <div className="global-session-list__items">
-        {visibleSessions.map((session) => {
-          const game = games.find((g) => g.id === session.gameId);
-          return (
-            <ActivitySessionItem
-              key={session.id}
-              session={session}
-              game={game}
-              onRequestDelete={setPendingDeleteSession}
-            />
-          );
-        })}
-
-        {filteredSessions.length === 0 &&
-          (sessions.length === 0 ? (
-            <EmptyState
-              icon={<Icons.History size={24} />}
-              title={t("activityInsights.emptyTitle")}
-              hint={t("activityInsights.emptyHint")}
-              action={
-                <Button variant="secondary" size="sm" onClick={() => navigate("/library")}>
-                  {t("activityInsights.emptyAction")}
-                </Button>
-              }
-            />
-          ) : (
-            <EmptyState
-              compact
-              icon={<Icons.Search size={18} />}
-              title={t("activitySessions.noMatchQuery")}
-            />
-          ))}
-
-        {filteredSessions.length > visibleCount && (
-          <button
-            type="button"
-            className="global-session-list__load-more"
-            onClick={() => setVisibleCount((prev) => prev + 15)}
-          >
-            {t("activitySessions.loadMore")}
-          </button>
-        )}
-      </div>
-
-      {/* Confirmation modal for deleting session */}
-      <ConfirmModal
-        open={pendingDeleteSession !== null}
-        title={t("gameActivity.deleteTitle")}
-        message={t("gameActivity.deleteBody")}
-        confirmLabel={t("gameActivity.deleteSession")}
-        onCancel={() => setPendingDeleteSession(null)}
-        onConfirm={() => {
-          if (pendingDeleteSession) {
-            onDeleteSession(pendingDeleteSession.id);
-          }
-          setPendingDeleteSession(null);
-        }}
-      />
     </div>
   );
 }

@@ -36,16 +36,24 @@ export function RecordsStrip({ records }: { records: RecordItem[] }) {
         </div>
       </header>
       <div className="act-records">
-        {records.map((r) => (
-          <div key={r.id} className="act-record">
-            <span className="act-record__icon" aria-hidden="true">
-              <RecordGlyph icon={r.icon} />
-            </span>
-            <span className="act-record__label">{t(r.labelKey)}</span>
-            <span className="act-record__value">{r.value}</span>
-            {r.sub && <span className="act-record__sub">{r.sub}</span>}
-          </div>
-        ))}
+        {records.map((r) => {
+          const label = t(r.labelKey);
+          const fullTooltip = r.sub ? `${label}: ${r.value} (${r.sub})` : `${label}: ${r.value}`;
+          return (
+            <div key={r.id} className="act-record" title={fullTooltip}>
+              <div className="act-record__head">
+                <span className="act-record__label">{label}</span>
+                <span className="act-record__icon" aria-hidden="true">
+                  <RecordGlyph icon={r.icon} />
+                </span>
+              </div>
+              <div className="act-record__content">
+                <span className="act-record__value" title={r.value}>{r.value}</span>
+                {r.sub && <span className="act-record__sub" title={r.sub}>{r.sub}</span>}
+              </div>
+            </div>
+          );
+        })}
       </div>
     </section>
   );

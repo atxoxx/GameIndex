@@ -20,29 +20,11 @@ import { PerformanceTimeline } from "./performance/PerformanceTimeline";
 export interface ActivityPerformanceProps {
   sessions: GameSession[];
   games: Game[];
-  /** Shared toolbar date window (ISO "YYYY-MM-DD" strings). */
   startDate: string;
   endDate: string;
-  /** Shared toolbar platform/source filter ("all" disables it). */
   sourceFilter: string;
 }
 
-/**
- * Activity → Performance tab.
- *
- * Layout (top → bottom):
- *   1. Overview KPI strip   — avg FPS, tracked sessions, best performer,
- *                             hottest temp, avg RAM.
- *   2. Game comparisons     — top-8 horizontal bars switchable between
- *                             FPS / temperatures / RAM.
- *   3. Detailed board       — sortable per-game table with FPS range.
- *   4. Session timeline     — per-metric sparkline cards + the four trend
- *                             charts, drillable to a game or a single session.
- *
- * The tab honours the shared Activity toolbar filters (date window + platform),
- * so a "Last 7 days" selection here reflects the same sessions as Dashboard
- * and Timeline. Every aggregation lives in `./performance/perfData.ts`.
- */
 export function ActivityPerformance({
   sessions,
   games,
@@ -54,9 +36,8 @@ export function ActivityPerformance({
   const { totalRamGb } = useActivity();
   const { tempUnit } = useSettings();
   const [metricTab, setMetricTab] = useState<ComparisonMetric>("fps");
+  const [selectedGameFilter, setSelectedGameFilter] = useState<string>("all");
 
-  // Apply the shared toolbar filters first, so every panel below reasons
-  // about the same, scoped session set.
   const filteredSessions = useMemo(() => {
     let out = filterSessionsByWindow(sessions, startDate, endDate);
     out = filterSessionsBySource(out, games, sourceFilter);
@@ -65,17 +46,17 @@ export function ActivityPerformance({
 
   const gameAverages = useMemo(
     () => buildGameAverages(filteredSessions, games, t("activityDash.unknownGame")),
-    [filteredSessions, games, t]
+    [filteredSessions, games, t],
   );
 
   const overview = useMemo(
     () => buildOverview(filteredSessions, gameAverages),
-    [filteredSessions, gameAverages]
+    [filteredSessions, gameAverages],
   );
 
   const hasTelemetry = useMemo(
     () => filteredSessions.some(hasAnyMetrics),
-    [filteredSessions]
+    [filteredSessions],
   );
 
   if (!hasTelemetry || gameAverages.length === 0) {
@@ -106,7 +87,12 @@ export function ActivityPerformance({
 
   return (
     <div className="performance-insights">
-      <PerformanceOverview overview={overview} totalRamGb={totalRamGb} tempUnit={tempUnit} />
+      <PerformanceOverview
+        overview={overview}
+        gameAverages={gameAverages}
+        totalRamGb={totalRamGb}
+        tempUnit={tempUnit}
+      />
 
       <PerformanceComparison
         games={gameAverages}
@@ -116,13 +102,19 @@ export function ActivityPerformance({
         onMetricTabChange={setMetricTab}
       />
 
-      <PerformanceBoard games={gameAverages} tempUnit={tempUnit} totalRamGb={totalRamGb} />
+      <PerformanceBoard
+        games={gameAverages}
+        tempUnit={tempUnit}
+        totalRamGb={totalRamGb}
+        onSelectGame={(gameId) => setSelectedGameFilter(gameId)}
+      />
 
       <PerformanceTimeline
         sessions={filteredSessions}
         gameAverages={gameAverages}
         tempUnit={tempUnit}
         totalRamGb={totalRamGb}
+        initialSelectedGameId={selectedGameFilter}
       />
     </div>
   );

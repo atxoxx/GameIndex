@@ -16,15 +16,24 @@ export function PerformanceTimeline({
   gameAverages,
   tempUnit,
   totalRamGb,
+  initialSelectedGameId = "all",
 }: {
   sessions: GameSession[];
   gameAverages: GamePerfAvg[];
   tempUnit: TempUnit;
   totalRamGb: number;
+  initialSelectedGameId?: string;
 }) {
   const { t, language } = useLanguage();
-  const [selectedGameFilter, setSelectedGameFilter] = useState<string>("all");
+  const [selectedGameFilter, setSelectedGameFilter] = useState<string>(initialSelectedGameId);
   const [selectedSessionId, setSelectedSessionId] = useState<string>("all");
+
+  useMemo(() => {
+    if (initialSelectedGameId && initialSelectedGameId !== selectedGameFilter) {
+      setSelectedGameFilter(initialSelectedGameId);
+      setSelectedSessionId("all");
+    }
+  }, [initialSelectedGameId]);
 
   const gameSelectorList = useMemo(
     () => gameAverages.map((g) => ({ id: g.gameId, title: g.gameTitle })),

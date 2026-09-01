@@ -1,4 +1,4 @@
-import type { ReactNode } from "react";
+import { useMemo, type ReactNode } from "react";
 import { type GameSession, formatPlayTime } from "../../types/game";
 import { formatTemp, toDisplayTemps, tempMinY, tempMaxY, tempThreshold } from "../../utils/temp";
 import LineChart from "../charts/LineChart";
@@ -6,6 +6,7 @@ import { useLanguage } from "../../context/LanguageContext";
 import type { TempUnit } from "../../context/SettingsContext";
 import { Badge } from "../ui";
 import { SectionPanel, EmptyState } from "../activity";
+import { calculateFpsStability } from "../activity/insights";
 import type { HwAverages, PerfTimelineData } from "./GameActivityShared";
 import * as Icons from "../activity/Icons";
 
@@ -32,6 +33,19 @@ export function GameActivityPerformanceView({
 }: GameActivityPerformanceViewProps) {
   const { t, language } = useLanguage();
 
+  const fpsStability = useMemo(() => {
+    if (!hwAverages || hwAverages.avgFps <= 0) return null;
+    return calculateFpsStability(hwAverages.avgFps, Math.round(hwAverages.avgFps * 0.75));
+  }, [hwAverages]);
+
+  const resolutionsList = useMemo(() => {
+    const set = new Set<string>();
+    filteredSessions.forEach((s) => {
+      if (s.metrics?.resolution) set.add(s.metrics.resolution);
+    });
+    return Array.from(set);
+  }, [filteredSessions]);
+
   return (
     <div id="game-activity-panel-performance" role="tabpanel" className="act-stack">
       {sessionsWithHw.length > 0 && hwAverages ? (
@@ -39,7 +53,22 @@ export function GameActivityPerformanceView({
           <SectionPanel
             icon={<Icons.Activity size={14} />}
             title={t("gameActivity.perfAveragesTitle")}
-            sub={t("gameActivity.sessionCount", { count: sessionsWithHw.length, s: sessionsWithHw.length > 1 ? "s" : "" })}
+            sub={t("gameActivity.sessionCount", {
+              count: sessionsWithHw.length,
+              s: sessionsWithHw.length > 1 ? "s" : "",
+            })}
+            tools={
+              fpsStability && fpsStability.ratio > 0 ? (
+                <div className="act-perf-stability-pill">
+                  <span className="act-perf-stability-pill__label">{t("activityPerf.columnStability")}:</span>
+                  <span
+                    className={`performance-stability-badge performance-stability-badge--${fpsStability.rating}`}
+                  >
+                    {fpsStability.ratio}% ({fpsStability.rating.toUpperCase()})
+                  </span>
+                </div>
+              ) : undefined
+            }
           >
             <div className="act-perf-grid">
               <PerfMiniCard
@@ -72,17 +101,42 @@ export function GameActivityPerformanceView({
                     label={t("activityPerf.cpuTemp")}
                     avg={formatTemp(hwAverages.avgCpuT, tempUnit)}
                     max={`MAX: ${formatTemp(hwAverages.maxCpuT, tempUnit)}`}
-                    tone={hwAverages.avgCpuT >= tempThreshold(85, tempUnit) ? "hot" : hwAverages.avgCpuT >= tempThreshold(75, tempUnit) ? "warn" : "good"}
+                    tone={
+                      hwAverages.avgCpuT >= tempThreshold(85, tempUnit)
+                        ? "hot"
+                        : hwAverages.avgCpuT >= tempThreshold(75, tempUnit)
+                          ? "warn"
+                          : "good"
+                    }
                   />
                   <PerfMiniCard
                     label={t("activityPerf.gpuTemp")}
                     avg={formatTemp(hwAverages.avgGpuT, tempUnit)}
                     max={`MAX: ${formatTemp(hwAverages.maxGpuT, tempUnit)}`}
-                    tone={hwAverages.avgGpuT >= tempThreshold(85, tempUnit) ? "hot" : hwAverages.avgGpuT >= tempThreshold(75, tempUnit) ? "warn" : "good"}
+                    tone={
+                      hwAverages.avgGpuT >= tempThreshold(85, tempUnit)
+                        ? "hot"
+                        : hwAverages.avgGpuT >= tempThreshold(75, tempUnit)
+                          ? "warn"
+                          : "good"
+                    }
                   />
                 </>
               )}
             </div>
+
+            {resolutionsList.length > 0 && (
+              <div className="act-perf-resolutions-row">
+                <span className="act-perf-resolutions-label">{t("activityGantt.resolution")}:</span>
+                <div className="act-perf-resolutions-chips">
+                  {resolutionsList.map((res) => (
+                    <span key={res} className="act-perf-res-chip">
+                      {res}
+                    </span>
+                  ))}
+                </div>
+              </div>
+            )}
           </SectionPanel>
 
           {perfTimelineData && (
@@ -99,25 +153,33 @@ export function GameActivityPerformanceView({
               }
             >
               {sessionsWithHw.length > 1 ? (
-                <select
-                  className="act-toolbar__select"
-                  aria-label={t("activity.sessionTelemetry")}
-                  value={isolatedSessionIndex !== null ? String(isolatedSessionIndex) : "all"}
-                  onChange={(e) => {
-                    const val = e.target.value;
-                    setIsolatedSessionIndex(val === "all" ? null : Number(val));
-                  }}
-                >
-                  <option value="all">{t("activityPerf.allSessionsAvg")}</option>
-                  {sessionsWithHw.map((s, i) => (
-                    <option key={s.id} value={String(i)}>
-                      {new Date(s.date).toLocaleDateString(language, { day: "numeric", month: "short" })} - {formatPlayTime(s.durationMin)}
-                    </option>
-                  ))}
-                </select>
+                <div className="act-perf-session-picker-row">
+                  <span className="act-perf-session-picker-label">{t("activityPerf.sessionLabel")}:</span>
+                  <select
+                    className="act-toolbar__select"
+                    aria-label={t("activity.sessionTelemetry")}
+                    value={isolatedSessionIndex !== null ? String(isolatedSessionIndex) : "all"}
+                    onChange={(e) => {
+                      const val = e.target.value;
+                      setIsolatedSessionIndex(val === "all" ? null : Number(val));
+                    }}
+                  >
+                    <option value="all">{t("activityPerf.allSessionsAvg")}</option>
+                    {sessionsWithHw.map((s, i) => (
+                      <option key={s.id} value={String(i)}>
+                        {new Date(s.date).toLocaleDateString(language, { day: "numeric", month: "short" })} –{" "}
+                        {formatPlayTime(s.durationMin)} {s.metrics?.avgFps ? `(${s.metrics.avgFps} FPS)` : ""}
+                      </option>
+                    ))}
+                  </select>
+                </div>
               ) : (
                 <span className="act-panel__sub">
-                  {new Date(sessionsWithHw[0].date).toLocaleDateString(language, { day: "numeric", month: "short" })} - {formatPlayTime(sessionsWithHw[0].durationMin)}
+                  {new Date(sessionsWithHw[0].date).toLocaleDateString(language, {
+                    day: "numeric",
+                    month: "short",
+                  })}{" "}
+                  – {formatPlayTime(sessionsWithHw[0].durationMin)}
                 </span>
               )}
             </SectionPanel>
@@ -145,18 +207,41 @@ export function GameActivityPerformanceView({
                 <ChartPanel icon={<Icons.Thermometer size={14} />} title={t("gameActivity.chartTemps")}>
                   <LineChart
                     series={[
-                      { data: toDisplayTemps(perfTimelineData.cpuTemp, tempUnit), color: "var(--color-danger)", label: t("activityPerf.cpuTemp") },
-                      { data: toDisplayTemps(perfTimelineData.gpuTemp, tempUnit), color: "var(--color-warning)", label: t("activityPerf.gpuTemp") },
+                      {
+                        data: toDisplayTemps(perfTimelineData.cpuTemp, tempUnit),
+                        color: "var(--color-danger)",
+                        label: t("activityPerf.cpuTemp"),
+                      },
+                      {
+                        data: toDisplayTemps(perfTimelineData.gpuTemp, tempUnit),
+                        color: "var(--color-warning)",
+                        label: t("activityPerf.gpuTemp"),
+                      },
                     ]}
                     labels={perfTimelineData.labels}
                     height={190}
                     minY={tempMinY(tempUnit)}
                     maxY={tempMaxY(tempUnit)}
                     smooth
-                    bands={[{ from: tempThreshold(85, tempUnit), to: tempMaxY(tempUnit), color: "var(--color-danger)", opacity: 0.1 }]}
+                    bands={[
+                      {
+                        from: tempThreshold(85, tempUnit),
+                        to: tempMaxY(tempUnit),
+                        color: "var(--color-danger)",
+                        opacity: 0.1,
+                      },
+                    ]}
                     thresholds={[
-                      { value: tempThreshold(75, tempUnit), label: t("activityPerf.warmThreshold"), color: "var(--color-warning)" },
-                      { value: tempThreshold(85, tempUnit), label: t("activityPerf.hotThreshold"), color: "var(--color-danger)" },
+                      {
+                        value: tempThreshold(75, tempUnit),
+                        label: t("activityPerf.warmThreshold"),
+                        color: "var(--color-warning)",
+                      },
+                      {
+                        value: tempThreshold(85, tempUnit),
+                        label: t("activityPerf.hotThreshold"),
+                        color: "var(--color-danger)",
+                      },
                     ]}
                     formatValue={(v) => formatTemp(v, tempUnit)}
                   />
