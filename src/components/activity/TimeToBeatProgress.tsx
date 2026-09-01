@@ -3,7 +3,13 @@ import { formatPlayTime } from "../../types/game";
 import { type CompletionProgress } from "./insights";
 import * as Icons from "./Icons";
 
-export function TimeToBeatProgress({ progress }: { progress: CompletionProgress }) {
+export function TimeToBeatProgress({
+  progress,
+  showHeader = true,
+}: {
+  progress: CompletionProgress;
+  showHeader?: boolean;
+}) {
   const { t } = useLanguage();
 
   if (!progress.hasTimeToBeat) {
@@ -39,19 +45,21 @@ export function TimeToBeatProgress({ progress }: { progress: CompletionProgress 
   const statusBadge = getStatusBadge();
 
   return (
-    <div className="act-ttb">
-      <div className="act-ttb__header">
-        <div className="act-ttb__titles">
-          <span className="act-ttb__icon" aria-hidden="true">
-            <Icons.Target size={15} />
-          </span>
-          <div>
-            <h4 className="act-ttb__title">{t("gameActivity.ttb.title")}</h4>
-            <span className="act-ttb__subtitle">{t("gameActivity.ttb.subtitle")}</span>
+    <div className={`act-ttb ${showHeader ? "" : "act-ttb--plain"}`}>
+      {showHeader && (
+        <div className="act-ttb__header">
+          <div className="act-ttb__titles">
+            <span className="act-ttb__icon" aria-hidden="true">
+              <Icons.Target size={15} />
+            </span>
+            <div>
+              <h4 className="act-ttb__title">{t("gameActivity.ttb.title")}</h4>
+              <span className="act-ttb__subtitle">{t("gameActivity.ttb.subtitle")}</span>
+            </div>
           </div>
+          <span className={statusBadge.className}>{statusBadge.label}</span>
         </div>
-        <span className={statusBadge.className}>{statusBadge.label}</span>
-      </div>
+      )}
 
       <div className="act-ttb__progress-bars">
         {progress.mainStoryHours && (

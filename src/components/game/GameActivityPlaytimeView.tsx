@@ -1,5 +1,5 @@
 import { useState, useMemo } from "react";
-import { type GameSession, type Game, formatPlayTime } from "../../types/game";
+import { type GameSession, type Game, formatPlayTime, parsePlayTime } from "../../types/game";
 import BarChart from "../charts/BarChart";
 import LineChart from "../charts/LineChart";
 import { useLanguage } from "../../context/LanguageContext";
@@ -31,6 +31,7 @@ import * as Icons from "../activity/Icons";
 interface GameActivityPlaytimeViewProps {
   game: Game;
   stats: Stats;
+  allSessions?: GameSession[];
   playtimeChartData: { data: number[]; labels: string[] };
   filteredSessions: GameSession[];
   sessionsWithHw: GameSession[];
@@ -50,6 +51,7 @@ interface GameActivityPlaytimeViewProps {
 export function GameActivityPlaytimeView({
   game,
   stats,
+  allSessions,
   playtimeChartData,
   filteredSessions,
   sessionsWithHw,
@@ -86,9 +88,15 @@ export function GameActivityPlaytimeView({
     s: filteredSessions.length > 1 ? "s" : "",
   });
 
+  const totalAllTimeMinutes = useMemo(() => {
+    const fromSessions = (allSessions ?? filteredSessions).reduce((acc, s) => acc + s.durationMin, 0);
+    const fromGame = game.playTime ? parsePlayTime(game.playTime) : 0;
+    return Math.max(fromGame, fromSessions);
+  }, [game.playTime, allSessions, filteredSessions]);
+
   const completionProgress = useMemo(() => {
-    return buildGameCompletionProgress(stats.totalPlayTimeMin, game.timeToBeat);
-  }, [stats.totalPlayTimeMin, game.timeToBeat]);
+    return buildGameCompletionProgress(totalAllTimeMinutes, game.timeToBeat);
+  }, [totalAllTimeMinutes, game.timeToBeat]);
 
   const timeOfDayDist = useMemo(() => {
     return buildTimeOfDayDistribution(filteredSessions);
@@ -178,8 +186,21 @@ export function GameActivityPlaytimeView({
           icon={<Icons.Target size={14} />}
           title={t("gameActivity.ttb.title")}
           sub={t("gameActivity.ttb.subtitle")}
+          tools={
+            <span
+              className={`act-ttb__status-badge act-ttb__status-badge--${completionProgress.status}`}
+            >
+              {completionProgress.status === "completionistComplete"
+                ? t("gameActivity.ttb.status100")
+                : completionProgress.status === "mainStoryComplete"
+                  ? t("gameActivity.ttb.statusMainDone")
+                  : completionProgress.status === "inProgress"
+                    ? t("gameActivity.ttb.statusInProgress")
+                    : t("gameActivity.ttb.statusNotStarted")}
+            </span>
+          }
         >
-          <TimeToBeatProgress progress={completionProgress} />
+          <TimeToBeatProgress progress={completionProgress} showHeader={false} />
         </SectionPanel>
       )}
 

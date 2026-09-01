@@ -1868,7 +1868,7 @@
 
 .act-ttb__fill {
   height: 100%;
-  background: linear-gradient(90deg, var(--color-brand-blue), var(--color-accent));
+  background: var(--color-accent);
   border-radius: var(--radius-full);
   transition: width 0.4s ease;
 }
@@ -2442,6 +2442,13 @@
   border-radius: var(--radius-xl);
 }
 
+.act-ttb--plain {
+  padding: 0;
+  background: transparent;
+  border: none;
+  border-radius: 0;
+}
+
 .act-ttb__header {
   display: flex;
   align-items: center;
@@ -2556,11 +2563,12 @@
   height: 100%;
   border-radius: var(--radius-full);
   transition: width var(--transition-normal);
+  background: var(--color-accent);
 }
 
-.act-ttb__fill--story { background: linear-gradient(90deg, #3a86ff, #00b4d8); }
-.act-ttb__fill--extra { background: linear-gradient(90deg, #8338ec, #3a86ff); }
-.act-ttb__fill--100 { background: linear-gradient(90deg, #ffb703, #fb8500); }
+.act-ttb__fill--story { background: var(--color-brand-blue, var(--color-accent)); }
+.act-ttb__fill--extra { background: var(--color-brand-purple, var(--color-accent)); }
+.act-ttb__fill--100 { background: var(--color-warning, var(--color-success)); }
 
 .act-ttb__empty {
   font-size: var(--font-size-xs);

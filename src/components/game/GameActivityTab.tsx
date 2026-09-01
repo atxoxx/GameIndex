@@ -474,6 +474,7 @@ export function GameActivityTab({ game }: { game: Game }) {
           <GameActivityPlaytimeView
             game={game}
             stats={stats}
+            allSessions={sessions}
             playtimeChartData={playtimeChartData}
             filteredSessions={filteredSessions}
             sessionsWithHw={sessionsWithHw}
