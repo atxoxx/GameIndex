@@ -294,7 +294,7 @@
 
 .topnav-tab.active {
   color: var(--color-accent-contrast);
-  background: var(--brand-gradient-strong);
+  background: var(--color-accent);
   font-weight: 600;
   box-shadow: 0 2px 12px var(--color-accent-glow), inset 0 1px 0 color-mix(in srgb, var(--scrim-text) 28%, transparent);
   animation: topnavIndicatorIn var(--duration-normal) var(--ease-enter) both;
@@ -589,7 +589,7 @@
 
 .topnav-more-btn.active {
   color: var(--color-accent-contrast);
-  background: var(--brand-gradient-strong);
+  background: var(--color-accent);
   font-weight: 600;
   border-color: transparent;
   box-shadow: 0 2px 12px var(--color-accent-glow), inset 0 1px 0 color-mix(in srgb, var(--scrim-text) 28%, transparent);
@@ -661,7 +661,7 @@
 }
 
 .topnav-more-item.active {
-  background: var(--brand-gradient-strong);
+  background: var(--color-accent);
   color: var(--color-accent-contrast);
   font-weight: 600;
   box-shadow: 0 2px 10px var(--color-accent-glow);
