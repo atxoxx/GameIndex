@@ -17,7 +17,12 @@
 //!   SQLite KV store with a 24h TTL, keyed by slug (+ app id when
 //!   available).
 //! - The returned `CrackWatchStatus` uses an `is_cracked` boolean rather
-//!   than a string status, matching the frontend contract.
+//!   than a string status, matching the frontend contract. Games found on
+//!   the site but not yet cracked come back as `is_cracked: false`, which
+//!   the card renders as an UNCRACKED badge.
+//! - Titles are matched with edition words and roman/arabic numerals
+//!   normalized, with a sequel guard so "Hades" never resolves to the
+//!   "Hades II" page.
 //!
 //! Anti-bot gate: gamestatus.info runs Anubis proof-of-work, and in
 //! 2026 the site moved to the time-based `metarefresh` challenge
@@ -85,15 +90,26 @@ fn now_ms() -> u64 {
         .unwrap_or(0)
 }
 
+/// Strip combining diacritics so "Ragnarök" → "ragnarok", matching the
+/// ASCII slugs gamestatus.info serves. The frontend slugify does the same
+/// NFD dance, so both ends agree on accented titles.
+fn deaccent(name: &str) -> String {
+    use unicode_normalization::UnicodeNormalization;
+    name.nfd()
+        .filter(|c| !unicode_normalization::char::is_combining_mark(*c))
+        .collect()
+}
+
 /// Convert a game name into a URL-friendly slug matching gamestatus.info's patterns.
 ///
 /// Handles common special cases (verified against live slugs in 2026):
 /// - Apostrophes are removed (not replaced with hyphens): "Baldur's Gate 3" → `baldurs-gate-3`
+/// - Diacritics are stripped: "Ragnarök" → `ragnarok`
 /// - Trademark/copyright symbols are transliterated: ™ → tm, ® → r, © → c
 /// - Roman numerals are kept as-is: "Hades II" → `hades-ii`, "Crusader Kings III" → `crusader-kings-iii`
 /// - All other non-alphanumeric characters become hyphens; runs collapse
 fn slugify(name: &str) -> String {
-    let normalized = name
+    let normalized = deaccent(name)
         .to_lowercase()
         .replace('\'', "")
         .replace('\u{2019}', "") // right single quotation mark (smart quote)
@@ -124,7 +140,8 @@ fn normalize_tokens(name: &str) -> Vec<String> {
 const STRIP_PREFIX_TOKENS: &[&str] = &["marvels", "sonys", "ubisofts", "eas"];
 
 /// Edition/qualifier words that don't identify a game and are sometimes
-/// omitted (or rearranged) in gamestatus.info page titles.
+/// omitted (or rearranged) in gamestatus.info page titles ("SILENT HILL 2 -
+/// Deluxe Edition" is the page for plain "Silent Hill 2").
 const EDITION_WORDS: &[&str] = &[
     "edition",
     "deluxe",
@@ -146,6 +163,76 @@ const EDITION_WORDS: &[&str] = &[
     "digital",
 ];
 
+/// Roman numerals 1–20 and back (titles don't go higher). `Some` only for
+/// standalone numeral tokens, so letter-v words like "V Rising" are left
+/// alone — both sides of a comparison get the same mapping anyway.
+fn roman_to_digit(tok: &str) -> Option<&'static str> {
+    Some(match tok {
+        "i" => "1",
+        "ii" => "2",
+        "iii" => "3",
+        "iv" => "4",
+        "v" => "5",
+        "vi" => "6",
+        "vii" => "7",
+        "viii" => "8",
+        "ix" => "9",
+        "x" => "10",
+        "xi" => "11",
+        "xii" => "12",
+        "xiii" => "13",
+        "xiv" => "14",
+        "xv" => "15",
+        "xvi" => "16",
+        "xvii" => "17",
+        "xviii" => "18",
+        "xix" => "19",
+        "xx" => "20",
+        _ => return None,
+    })
+}
+
+fn digit_to_roman(tok: &str) -> Option<&'static str> {
+    Some(match tok {
+        "1" => "i",
+        "2" => "ii",
+        "3" => "iii",
+        "4" => "iv",
+        "5" => "v",
+        "6" => "vi",
+        "7" => "vii",
+        "8" => "viii",
+        "9" => "ix",
+        "10" => "x",
+        "11" => "xi",
+        "12" => "xii",
+        "13" => "xiii",
+        "14" => "xiv",
+        "15" => "xv",
+        "16" => "xvi",
+        "17" => "xvii",
+        "18" => "xviii",
+        "19" => "xix",
+        "20" => "xx",
+        _ => return None,
+    })
+}
+
+/// Swap standalone numeral tokens to the other form: "final-fantasy-7" →
+/// `final-fantasy-vii`, "hades-ii" → `hades-2`. Libraries disagree on
+/// whether a sequel is "II" or "2"; the site usually stays roman.
+fn swap_numeral_tokens(slug: &str) -> String {
+    slug.split('-')
+        .map(|t| {
+            roman_to_digit(t)
+                .map(str::to_string)
+                .or_else(|| digit_to_roman(t).map(str::to_string))
+                .unwrap_or_else(|| t.to_string())
+        })
+        .collect::<Vec<_>>()
+        .join("-")
+}
+
 /// Drop leading fillers ("the") and possessive publisher prefixes ("marvels").
 fn strip_lead_ins(title: &str) -> String {
     let mut toks = normalize_tokens(title);
@@ -160,6 +247,12 @@ fn strip_lead_ins(title: &str) -> String {
     toks.join("-")
 }
 
+/// Map a match token to its canonical number form ("ii" → "2"), identity
+/// otherwise.
+fn numeral_token(t: &str) -> String {
+    roman_to_digit(t).map(str::to_string).unwrap_or_else(|| t.to_string())
+}
+
 /// Drop edition/qualifier words that don't change which game this is.
 fn strip_edition_words(title: &str) -> String {
     normalize_tokens(title)
@@ -171,11 +264,14 @@ fn strip_edition_words(title: &str) -> String {
 
 /// Ordered slug candidates for a title, most-specific first.
 ///
-/// 1. Exact slug (matches the site's own URL convention).
-/// 2. Lead-ins stripped — fixes "Marvel's Spider-Man Remastered" →
-///    `spider-man-remastered` (the site's actual slug).
-/// 3. Edition words also stripped — deepest fallback (only trusted when
-///    the Steam app id can verify the page, or the title match is strong).
+/// 1. Exact slug (what the site uses when titles agree).
+/// 2. Lead-ins stripped — "Marvel's Spider-Man Remastered" → `spider-man-remastered`.
+/// 3. Edition words stripped — "Silent Hill 2 Deluxe Edition" → `silent-hill-2`.
+/// 4. Numerals swapped — "Final Fantasy 7" → `final-fantasy-vii`.
+/// 5. Ampersand spelled out — "Dungeons & Dragons" → `dungeons-and-dragons`.
+///
+/// Each extra candidate only costs one more gated fetch when the earlier
+/// ones 404, and the Steam app id check keeps a loose slug honest.
 fn candidate_slugs(title: &str) -> Vec<String> {
     let mut out: Vec<String> = Vec::new();
     let mut push = |s: String| {
@@ -183,26 +279,44 @@ fn candidate_slugs(title: &str) -> Vec<String> {
             out.push(s);
         }
     };
+    let lead_stripped = strip_lead_ins(title);
+    let stripped = strip_edition_words(&lead_stripped);
     push(slugify(title));
-    push(strip_lead_ins(title));
-    push(strip_edition_words(&strip_lead_ins(title)));
-    out.truncate(3);
+    push(lead_stripped);
+    push(stripped.clone());
+    push(swap_numeral_tokens(&stripped));
+    push(slugify(&title.replace('&', " and ")));
+    out.truncate(5);
     out
 }
 
 /// Whether two titles plausibly refer to the same game.
 ///
-/// Token-set containment in either direction (input ⊆ page title or
-/// page title ⊆ input), mirroring `game_scraper::lookup_steam_app_id`'s
-/// word-containment rule. An empty token set on either side never matches.
-fn is_strong_title_match(input: &str, page_title: &str) -> bool {
-    let a = normalize_tokens(input);
-    let b = normalize_tokens(page_title);
+/// Compares edition-stripped tokens with roman numerals nudged to digits,
+/// accepting equality or a ≥2-token containment where the extra tokens are
+/// non-numeral. The numeral guard stops "Hades" being matched to the
+/// "Hades II" page (a different game), and the token-count floor stops a
+/// single-word "Doom" being glued to "Doom: The Dark Ages".
+fn titles_match(input: &str, page_title: &str) -> bool {
+    let a: Vec<String> = strip_edition_words(input)
+        .split('-')
+        .map(numeral_token)
+        .collect();
+    let b: Vec<String> = strip_edition_words(page_title)
+        .split('-')
+        .map(numeral_token)
+        .collect();
     if a.is_empty() || b.is_empty() {
         return false;
     }
+    let is_numeral = |t: &String| t.chars().all(|c| c.is_ascii_digit());
     let subset = |x: &[String], y: &[String]| x.iter().all(|t| y.iter().any(|u| u == t));
-    subset(&a, &b) || subset(&b, &a)
+    let contained_ok = |x: &[String], y: &[String]| {
+        x.len() >= 2
+            && subset(x, y)
+            && !y.iter().any(|t| is_numeral(t) && !x.contains(t))
+    };
+    a == b || contained_ok(&a, &b) || contained_ok(&b, &a)
 }
 
 /// Resolve a Nuxt payload value (public entry point).
@@ -311,6 +425,7 @@ struct GamePayload {
     crack_date: Option<String>,
     protections: Option<String>,
     hacked_groups_en: Option<String>,
+    readable_status: Option<String>,
 }
 
 /// Parse a fetched game page into the fields we use.
@@ -356,6 +471,7 @@ fn parse_game_payload(html: &str) -> Option<GamePayload> {
         crack_date: get_str(game, "crack_date"),
         protections: get_str(game, "protections"),
         hacked_groups_en: get_str(game, "hacked_groups_en"),
+        readable_status: get_str(game, "readable_status"),
     })
 }
 
@@ -368,10 +484,29 @@ fn status_from_payload(p: &GamePayload) -> CrackWatchStatus {
             .to_string()
     });
     CrackWatchStatus {
-        is_cracked: p.crack_date.is_some(),
+        is_cracked: p.is_cracked(),
         crack_date: p.crack_date.clone(),
         crack_group: scene_group,
         protection: p.protections.clone(),
+    }
+}
+
+impl GamePayload {
+    /// Cracked when the date is present or the site's `readable_status`
+    /// says so ("Взломана …"/"Cracked in … day(s)"). The negated forms are
+    /// checked first so "Not cracked" never reads as cracked.
+    fn is_cracked(&self) -> bool {
+        if self.crack_date.is_some() {
+            return true;
+        }
+        let Some(status) = self.readable_status.as_deref() else {
+            return false;
+        };
+        let lower = status.to_lowercase();
+        if lower.contains("не взломана") || lower.contains("not cracked") {
+            return false;
+        }
+        lower.contains("взломана") || lower.contains("cracked")
     }
 }
 
@@ -490,7 +625,7 @@ impl CrackWatchServiceClass {
                 continue;
             }
 
-            if is_strong_title_match(title, &payload.title) {
+            if titles_match(title, &payload.title) {
                 return LookupOutcome::Found(status_from_payload(&payload));
             }
         }
@@ -850,27 +985,91 @@ mod tests {
 
         // Leading "the" is dropped in the fallbacks.
         let c = candidate_slugs("The Witcher 3: Wild Hunt");
-        assert_eq!(c, vec!["the-witcher-3-wild-hunt", "witcher-3-wild-hunt"]);
+        assert_eq!(
+            c,
+            vec![
+                "the-witcher-3-wild-hunt",
+                "witcher-3-wild-hunt",
+                // roman form of the stripped slug
+                "witcher-iii-wild-hunt"
+            ]
+        );
 
-        // Editions survive in the first fallback, are stripped in the last.
+        // Editions survive in the first fallback, are stripped in the last;
+        // diacritics are gone so the slug is fully ASCII.
         let c = candidate_slugs("God of War Ragnarök Deluxe Edition");
-        assert_eq!(c.last().unwrap(), "god-of-war-ragnarok");
+        assert_eq!(
+            c,
+            vec![
+                "god-of-war-ragnarok-deluxe-edition",
+                "god-of-war-ragnarok"
+            ]
+        );
+
+        // "&" gets both the dropped and the spelled-out form.
+        let c = candidate_slugs("Dungeons & Dragons: Dark Alliance");
+        assert_eq!(
+            c,
+            vec![
+                "dungeons-dragons-dark-alliance",
+                "dungeons-and-dragons-dark-alliance"
+            ]
+        );
     }
 
     #[test]
-    fn test_strong_title_match() {
-        assert!(is_strong_title_match("Cyberpunk 2077", "Cyberpunk 2077"));
-        // Sub-edition: input is a superset of the page title.
-        assert!(is_strong_title_match(
+    fn test_titles_match() {
+        assert!(titles_match("Cyberpunk 2077", "Cyberpunk 2077"));
+        // Page title carries an edition suffix the input doesn't.
+        assert!(titles_match(
+            "Hogwarts Legacy",
+            "Hogwarts Legacy - Digital Deluxe Edition"
+        ));
+        // Edition words are dropped from both sides.
+        assert!(titles_match(
+            "Silent Hill 2 Deluxe Edition",
+            "SILENT HILL 2 - Deluxe Edition"
+        ));
+        // Roman and arabic numerals are the same number.
+        assert!(titles_match("Final Fantasy VII", "Final Fantasy 7"));
+        assert!(titles_match("Hades II", "Hades 2"));
+        // "the"/possessive lead-ins don't block a strong match.
+        assert!(titles_match(
             "Marvel's Spider-Man Remastered",
             "Spider-Man Remastered"
         ));
-        // Input is a subset of the page title.
-        assert!(is_strong_title_match("Hades", "Hades II"));
+        assert!(titles_match("The Outer Worlds", "Outer Worlds"));
+        // A sequel is a different game: "Hades" must not match "Hades II".
+        assert!(!titles_match("Hades", "Hades II"));
+        // ...but a matching number on both sides is fine.
+        assert!(titles_match("Hades", "Hades"));
+        // A single-word input must not glue onto a longer different title.
+        assert!(!titles_match("Doom", "DOOM: The Dark Ages"));
         // Unrelated games never match.
-        assert!(!is_strong_title_match("Cyberpunk 2077", "Elden Ring"));
+        assert!(!titles_match("Cyberpunk 2077", "Elden Ring"));
         // Empty token sets never match (guards against short junk names).
-        assert!(!is_strong_title_match("!!!", "Elden Ring"));
+        assert!(!titles_match("!!!", "Elden Ring"));
+    }
+
+    /// `is_cracked` must agree with the site's `readable_status` labels.
+    #[test]
+    fn test_is_cracked_from_status() {
+        let payload = |crack_date: Option<&str>, status: Option<&str>| GamePayload {
+            title: "X".into(),
+            steam_prod_id: None,
+            crack_date: crack_date.map(str::to_string),
+            protections: None,
+            hacked_groups_en: None,
+            readable_status: status.map(str::to_string),
+        };
+        assert!(payload(Some("2026-08-30"), None).is_cracked());
+        assert!(payload(None, Some("Взломана через 1 дн")).is_cracked());
+        assert!(payload(None, Some("Cracked in 2 day(s)")).is_cracked());
+        assert!(!payload(None, Some("Not cracked 5 day(s)")).is_cracked());
+        assert!(!payload(None, Some("Не взломана")).is_cracked());
+        assert!(!payload(None, Some("RELEASE TODAY")).is_cracked());
+        assert!(!payload(None, Some("Release in 1 day(s)")).is_cracked());
+        assert!(!payload(None, None).is_cracked());
     }
 
     /// Test parsing the Anubis challenge JSON as served by gamestatus.info.
@@ -944,7 +1143,10 @@ mod tests {
     }
 
     /// Test a well-known cracked game to verify scrape + parse + gate.
+    /// Ignored: the site's Anubis gate throttles concurrent solves from one
+    /// IP, so live tests flake in parallel runs (run with `-- --ignored`).
     #[tokio::test]
+    #[ignore]
     async fn test_cyberpunk_2077_crackwatch() {
         let result = service()
             .get_status_by_title_and_app_id("Cyberpunk 2077", None)
@@ -957,7 +1159,9 @@ mod tests {
     }
 
     /// Test a Denuvo-protected game to verify scene group extraction.
+    /// Ignored: see `test_cyberpunk_2077_crackwatch` (gate throttling).
     #[tokio::test]
+    #[ignore]
     async fn test_denuvo_game() {
         let result = service()
             .get_status_by_title_and_app_id("Assassin's Creed Black Flag Resynced", None)
@@ -970,5 +1174,22 @@ mod tests {
             status.crack_group.is_some(),
             "Expected scene group for a Denuvo game"
         );
+    }
+
+    /// A game the site lists as not-yet-cracked must resolve to a status
+    /// with `is_cracked == false` (the frontend shows it as UNCRACKED
+    /// instead of hiding the card). Ignored because the example title stops
+    /// being uncracked the day the scene cracks it.
+    #[tokio::test]
+    #[ignore]
+    async fn test_uncracked_game_is_flagged() {
+        let result = service()
+            .get_status_by_title_and_app_id("Captain Tsubasa 2: World Fighters", None)
+            .await;
+        println!("Captain Tsubasa 2 => {:?}", result);
+        let LookupOutcome::Found(status) = result else {
+            panic!("Expected the page to resolve");
+        };
+        assert!(!status.is_cracked, "Expected the game to be uncracked");
     }
 }
