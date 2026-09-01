@@ -52,7 +52,7 @@ function LibraryGameCardBase({
   const [hovered, setHovered] = useState(false);
 
   const isList = density === "list";
-  const { displayUrl, isIcon, handleError } = useGameCardArt({
+  const { displayUrl, isIcon, handleError, staticPosterUrl, animatedPosterUrl } = useGameCardArt({
     game,
     isHovered: hovered,
     isListOrSmall: isList,
@@ -263,14 +263,27 @@ function LibraryGameCardBase({
           </span>
         )}
 
-        {displayUrl ? (
-          <img
-            src={displayUrl}
-            alt={game.name}
-            loading="lazy"
-            decoding="async"
-            onError={handleError}
-          />
+        {(staticPosterUrl || displayUrl) ? (
+          <>
+            <img
+              src={staticPosterUrl || displayUrl!}
+              alt={game.name}
+              loading="lazy"
+              decoding="async"
+              onError={handleError}
+              className="lib-card-cover-static"
+            />
+            {animatedPosterUrl && (
+              <img
+                src={animatedPosterUrl}
+                alt=""
+                aria-hidden="true"
+                decoding="async"
+                className={`lib-card-cover-animated${hovered ? " is-active" : ""}`}
+                onError={handleError}
+              />
+            )}
+          </>
         ) : (
           <div className="lib-card-placeholder">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1">

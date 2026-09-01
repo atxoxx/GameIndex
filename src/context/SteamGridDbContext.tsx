@@ -139,27 +139,57 @@ export function useSteamGridArt(
 }
 
 const prefetchCache = new Set<string>();
+const prefetchQueue: string[] = [];
+let prefetchActive = 0;
+const MAX_CONCURRENT_PREFETCH = 3;
+
+function processPrefetchQueue() {
+  while (prefetchActive < MAX_CONCURRENT_PREFETCH && prefetchQueue.length > 0) {
+    const url = prefetchQueue.shift()!;
+    if (prefetchCache.has(url)) continue;
+    prefetchCache.add(url);
+    prefetchActive++;
+    const img = new Image();
+    img.src = url;
+    img.onload = () => {
+      // Fully decode so the animated frames are ready for instant display
+      img.decode?.().catch(() => {}).finally(() => {
+        prefetchActive--;
+        processPrefetchQueue();
+      });
+    };
+    img.onerror = () => {
+      prefetchCache.delete(url);
+      prefetchActive--;
+      processPrefetchQueue();
+    };
+  }
+}
+
+function schedulePrefetch(url: string) {
+  if (prefetchCache.has(url) || prefetchQueue.includes(url)) return;
+  prefetchQueue.push(url);
+  // Use idle callback so prefetches don't compete with critical rendering
+  if (typeof window.requestIdleCallback === "function") {
+    window.requestIdleCallback(() => processPrefetchQueue(), { timeout: 3000 });
+  } else {
+    setTimeout(processPrefetchQueue, 200);
+  }
+}
 
 /**
  * usePrefetchImage: eagerly fetch an image so it's warm in the browser cache
  * before the user needs it.
  *
- * The store/library pages resolve SteamGridDB metadata automatically on
- * mount (batched IPC + backend KV cache). This hook warms the animated
- * WebP/APNG buffers for the games that are actually rendered, so swapping to
- * the animated version on hover (or in the hero) is instant instead of
- * triggering a network fetch at hover time.
+ * Uses a concurrency-limited queue (max 3 simultaneous) + requestIdleCallback
+ * so animated WebP/APNG prefetches don't starve visible static images for
+ * bandwidth. After fetch, `img.decode()` guarantees the browser has fully
+ * decoded animated frames for instant, jank-free display on hover.
  */
 export function usePrefetchImage(url: string | null | undefined): void {
   useEffect(() => {
-    if (!url || prefetchCache.has(url)) return;
-    prefetchCache.add(url);
-    const img = new Image();
-    img.onload = () => {};
-    img.onerror = () => {
-      prefetchCache.delete(url);
-    };
-    img.src = url;
+    if (!url) return;
+    schedulePrefetch(url);
   }, [url]);
 }
 
