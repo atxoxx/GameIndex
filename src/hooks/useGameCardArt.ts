@@ -142,11 +142,10 @@ export function useGameCardArt(options: UseGameCardArtOptions): UseGameCardArtRe
   const sgdbStatic = sgdb?.gridUrl && !sgdbStaticFailed ? sgdb.gridUrl : null;
   const sgdbAnimated = sgdb?.gridAnimatedUrl && !sgdbAnimatedFailed ? sgdb.gridAnimatedUrl : null;
   const sgdbIcon = sgdb?.iconUrl && !sgdbIconFailed ? sgdb.iconUrl : null;
-
-  // Eagerly prefetch animated grid into browser cache for instant hover response
-  usePrefetchImage(sgdbAnimated);
-
   const isActive = isHovered || isFocused;
+
+  // Keep animated art warm without mounting/decoding it for every visible card.
+  usePrefetchImage(isActive ? sgdbAnimated : null);
 
   // Resolve best icon & poster
   const resolvedIcon = !iconFailed && ownIcon ? ownIcon : sgdbIcon;

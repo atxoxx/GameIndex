@@ -128,9 +128,9 @@ export default function DealCard({
               decoding="async"
               onError={handleError}
             />
-            {animatedPosterUrl && (
+            {animatedPosterUrl && hovered && (
               <img
-                className={`deals-deal-card-image deals-deal-card-image-animated${hovered ? " is-active" : ""}`}
+                className="deals-deal-card-image deals-deal-card-image-animated is-active"
                 src={animatedPosterUrl}
                 alt=""
                 aria-hidden="true"

@@ -132,13 +132,13 @@ const RecentlyAddedCard = memo(function RecentlyAddedCard({
               onError={handleError}
               className="lib-rail-cover-static"
             />
-            {animatedPosterUrl && (
+            {animatedPosterUrl && hovered && (
               <img
                 src={animatedPosterUrl}
                 alt=""
                 aria-hidden="true"
                 decoding="async"
-                className={`lib-rail-cover-animated${hovered ? " is-active" : ""}`}
+                className="lib-rail-cover-animated is-active"
                 onError={handleError}
               />
             )}

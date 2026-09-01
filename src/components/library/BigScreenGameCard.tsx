@@ -65,13 +65,13 @@ export default function BigScreenGameCard({
               onError={handleError}
               className="bigscreen-game-card-cover-static"
             />
-            {animatedPosterUrl && (
+            {animatedPosterUrl && (isActive) && (
               <img
                 src={animatedPosterUrl}
                 alt=""
                 aria-hidden="true"
                 decoding="async"
-                className={`bigscreen-game-card-cover-animated${isActive ? " is-active" : ""}`}
+                className="bigscreen-game-card-cover-animated is-active"
                 onError={handleError}
               />
             )}

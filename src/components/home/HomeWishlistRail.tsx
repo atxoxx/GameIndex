@@ -83,13 +83,13 @@ function HomeWishlistCard({
               onError={handleError}
               className="home-rail-card__cover-static"
             />
-            {animatedPosterUrl && (
+            {animatedPosterUrl && hovered && (
               <img
                 src={animatedPosterUrl}
                 alt=""
                 aria-hidden="true"
                 decoding="async"
-                className={`home-rail-card__cover-animated${hovered ? " is-active" : ""}`}
+                className="home-rail-card__cover-animated is-active"
                 onError={handleError}
               />
             )}

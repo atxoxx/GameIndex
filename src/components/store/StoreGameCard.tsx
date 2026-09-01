@@ -317,13 +317,13 @@ function StoreGameCardBase({
               onError={handleError}
               className="store-card-cover-static"
             />
-            {animatedPosterUrl && (
+            {animatedPosterUrl && hovered && (
               <img
                 src={animatedPosterUrl}
                 alt=""
                 aria-hidden="true"
                 decoding="async"
-                className={`store-card-cover-animated${hovered ? " is-active" : ""}`}
+                className="store-card-cover-animated is-active"
                 onError={handleError}
               />
             )}

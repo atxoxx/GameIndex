@@ -134,12 +134,12 @@ function StorageGridCardBase({
               decoding="async"
               onError={handleError}
             />
-            {animatedPosterUrl && (
+            {animatedPosterUrl && hovered && (
               <img
                 src={animatedPosterUrl}
                 alt=""
                 aria-hidden="true"
-                className={`storage-grid-card-img storage-grid-card-img-animated${hovered ? " is-active" : ""}`}
+                className="storage-grid-card-img storage-grid-card-img-animated is-active"
                 decoding="async"
                 onError={handleError}
               />

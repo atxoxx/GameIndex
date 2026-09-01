@@ -175,7 +175,8 @@ export function useSteamGridArt(
 const prefetchCache = new Set<string>();
 const prefetchQueue: string[] = [];
 let prefetchActive = 0;
-const MAX_CONCURRENT_PREFETCH = 3;
+const MAX_CONCURRENT_PREFETCH = 2;
+const MAX_PREFETCH_CACHE = 32;
 
 function processPrefetchQueue() {
   while (prefetchActive < MAX_CONCURRENT_PREFETCH && prefetchQueue.length > 0) {
@@ -184,26 +185,26 @@ function processPrefetchQueue() {
     prefetchCache.add(url);
     prefetchActive++;
     const img = new Image();
+    img.decoding = "async";
     img.src = url;
-    img.onload = () => {
-      // Fully decode so the animated frames are ready for instant display
-      img.decode?.().catch(() => {}).finally(() => {
-        prefetchActive--;
-        processPrefetchQueue();
-      });
-    };
-    img.onerror = () => {
-      prefetchCache.delete(url);
+    const finish = (success: boolean) => {
+      if (!success) prefetchCache.delete(url);
+      img.onload = null;
+      img.onerror = null;
       prefetchActive--;
       processPrefetchQueue();
     };
+    img.onload = () => finish(true);
+    img.onerror = () => finish(false);
   }
 }
 
 function schedulePrefetch(url: string) {
   if (prefetchCache.has(url) || prefetchQueue.includes(url)) return;
+  if (prefetchCache.size >= MAX_PREFETCH_CACHE) {
+    prefetchCache.clear();
+  }
   prefetchQueue.push(url);
-  // Use idle callback so prefetches don't compete with critical rendering
   if (typeof window.requestIdleCallback === "function") {
     window.requestIdleCallback(() => processPrefetchQueue(), { timeout: 3000 });
   } else {
@@ -212,13 +213,9 @@ function schedulePrefetch(url: string) {
 }
 
 /**
- * usePrefetchImage: eagerly fetch an image so it's warm in the browser cache
- * before the user needs it.
- *
- * Uses a concurrency-limited queue (max 3 simultaneous) + requestIdleCallback
- * so animated WebP/APNG prefetches don't starve visible static images for
- * bandwidth. After fetch, `img.decode()` guarantees the browser has fully
- * decoded animated frames for instant, jank-free display on hover.
+ * Warm a small number of animated assets during idle time. The animated image
+ * is still mounted by the card only while hovered, keeping decoded frame
+ * buffers out of memory for the rest of the grid.
  */
 export function usePrefetchImage(url: string | null | undefined): void {
   useEffect(() => {
