@@ -209,9 +209,14 @@ export function EditGameModal({ game, onClose }: EditGameModalProps) {
 
   async function applyRemoteImage(slot: "icon" | "cover" | "hero" | "banner" | "logo", url: string): Promise<boolean> {
     setImageSlot(slot, url);
-    const dataUrl: string | null = await invoke("download_image", { url });
-    if (dataUrl) {
-      setImageSlot(slot, dataUrl);
+    const relativePath = await invoke<string | null>("download_artwork", {
+      gameId: game.id,
+      slot: slot === "banner" ? "hero" : slot,
+      url,
+    });
+    if (relativePath) {
+      const assetUrl = await invoke<string>("artwork_asset_url", { relativePath });
+      setImageSlot(slot, assetUrl);
       showToast(`Applied and saved image as ${slot}`, "success");
       return true;
     }
@@ -253,15 +258,20 @@ export function EditGameModal({ game, onClose }: EditGameModalProps) {
       const imageEntries = imageKeys
         .map((key) => [key, result.images[key]] as const)
         .filter(([, url]) => url != null);
-      const urls = imageEntries.map(([, url]) => url!);
-
-      let imageDataUrls: (string | null)[] = [];
-      if (urls.length > 0) imageDataUrls = await invoke("fetch_game_images", { urls });
-
-      const downloaded: Record<string, string | undefined> = {};
-      imageEntries.forEach(([key], idx) => {
-        downloaded[key] = imageDataUrls[idx] ?? undefined;
-      });
+      const downloadedEntries = await Promise.all(
+        imageEntries.map(async ([key, url]) => {
+          const relativePath = await invoke<string | null>("download_artwork", {
+            gameId: game.id,
+            slot: key === "banner" ? "hero" : key,
+            url,
+          });
+          const assetUrl = relativePath
+            ? await invoke<string>("artwork_asset_url", { relativePath })
+            : undefined;
+          return [key, assetUrl] as const;
+        }),
+      );
+      const downloaded: Record<string, string | undefined> = Object.fromEntries(downloadedEntries);
 
       const iconUrl = downloaded.icon;
       const coverUrl = downloaded.cover || game.coverArtUrl;
@@ -326,8 +336,15 @@ export function EditGameModal({ game, onClose }: EditGameModalProps) {
         filters: [{ name: "Images", extensions: ["png", "jpg", "jpeg", "gif", "webp"] }],
       });
       if (filePath && typeof filePath === "string") {
-        const dataUrl: string = await invoke("read_cover_image", { filePath });
-        setImageSlot(key, dataUrl);
+        const relativePath = await invoke<string | null>("store_artwork_file", {
+          gameId: game.id,
+          slot: key,
+          filePath,
+        });
+        if (relativePath) {
+          const assetUrl = await invoke<string>("artwork_asset_url", { relativePath });
+          setImageSlot(key, assetUrl);
+        }
       }
     } catch (err) {
       showToast("Failed to load image", "error");

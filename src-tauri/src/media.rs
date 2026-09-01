@@ -2,6 +2,7 @@
 
 use std::path::Path;
 use serde::{Deserialize, Serialize};
+use tauri::Manager;
 use crate::game_scraper;
 use crate::game_scraper::{GameMetadataResult, LaunchBoxImageResult};
 use crate::steam_game_watcher;
@@ -71,6 +72,47 @@ const SKIP_KEYWORDS: &[&str] = &["redist", "autorun", "helper", "unin", "crash",
 #[tauri::command]
 pub async fn download_image(url: String) -> Result<Option<String>, String> {
     Ok(game_scraper::download_image_to_base64(&url).await)
+}
+
+/// Download and persist artwork without returning its bytes to the webview.
+#[tauri::command]
+pub async fn download_artwork(
+    app: tauri::AppHandle,
+    game_id: String,
+    slot: String,
+    url: String,
+) -> Result<Option<String>, String> {
+    let Some(data_url) = game_scraper::download_image_to_base64(&url).await else { return Ok(None); };
+    let root = app.path().app_data_dir().map_err(|e| e.to_string())?;
+    crate::db::artwork::store_data_url(&root, &game_id, &slot, &data_url)
+}
+
+/// Resolve a disk-backed artwork path to a Tauri asset URL.
+#[tauri::command]
+pub fn artwork_asset_url(app: tauri::AppHandle, relative_path: String) -> Result<String, String> {
+    let root = app.path().app_data_dir().map_err(|e| e.to_string())?;
+    let path = root.join(&relative_path);
+    if !path.is_file() { return Err("Artwork file not found".into()); }
+    Ok(tauri::Url::from_file_path(path).map_err(|_| "Invalid artwork path".to_string())?.to_string())
+}
+
+#[tauri::command]
+pub fn cleanup_artwork_cache(app: tauri::AppHandle) -> Result<(), String> {
+    let root = app.path().app_data_dir().map_err(|e| e.to_string())?;
+    crate::db::artwork::cleanup_non_library_caches(&root, std::time::Duration::from_secs(30 * 24 * 60 * 60));
+    Ok(())
+}
+
+/// Store a selected local image in the artwork directory.
+#[tauri::command]
+pub fn store_artwork_file(
+    app: tauri::AppHandle,
+    game_id: String,
+    slot: String,
+    file_path: String,
+) -> Result<Option<String>, String> {
+    let root = app.path().app_data_dir().map_err(|e| e.to_string())?;
+    crate::db::artwork::store_file(&root, &game_id, &slot, Path::new(&file_path))
 }
 
 /// Search for game metadata across multiple online sources.

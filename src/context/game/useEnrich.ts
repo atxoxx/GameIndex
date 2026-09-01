@@ -23,7 +23,7 @@ const enrichAttemptsThisSession = new Map<string, number>();
  * enrichment call (it's a pure predicate with no closure deps).
  */
 const isFrontendUsableImage = (u: string | undefined): boolean =>
-  !!u && u.startsWith("data:");
+  !!u && (u.startsWith("data:") || u.startsWith("asset:") || u.startsWith("file:"));
 
 /** Discord's large/small image must be a public https URL; data: URIs are skipped. */
 function discordAsset(url: string | undefined | null): string | undefined {
@@ -43,13 +43,27 @@ async function downloadImageSafe(url: string | undefined | null): Promise<string
   }
 }
 
+async function downloadArtworkSafe(gameId: string, slot: string, url: string | undefined | null): Promise<string | undefined> {
+  if (!url) return undefined;
+  try {
+    const relative = await invoke<string | null>("download_artwork", { gameId, slot, url });
+    if (!relative) return url;
+    return await invoke<string>("artwork_asset_url", { relativePath: relative });
+  } catch {
+    return downloadImageSafe(url);
+  }
+}
+
 /** Batch-download images from a metadata result: cover, hero, banner, logo. */
-async function fetchAllImages(images: { icon?: string | null; cover?: string | null; hero?: string | null; banner?: string | null; logo?: string | null }) {
+async function fetchAllImages(images: { icon?: string | null; cover?: string | null; hero?: string | null; banner?: string | null; logo?: string | null }, gameId?: string) {
+  const downloader = gameId
+    ? (slot: string, url: string | null | undefined) => downloadArtworkSafe(gameId, slot, url)
+    : (_slot: string, url: string | null | undefined) => downloadImageSafe(url);
   const [coverUrl, heroUrl, bannerUrl, logoUrl] = await Promise.all([
-    downloadImageSafe(images.cover),
-    downloadImageSafe(images.hero),
-    downloadImageSafe(images.banner),
-    downloadImageSafe(images.logo),
+    downloader("cover", images.cover),
+    downloader("hero", images.hero),
+    downloader("banner", images.banner),
+    downloader("logo", images.logo),
   ]);
   return {
     coverArtUrl: coverUrl ?? undefined,
@@ -189,7 +203,7 @@ export function useEnrich(options: {
         hero: pickImage("hero"),
         banner: pickImage("banner"),
         logo: pickImage("logo"),
-      });
+      }, gameId);
       // Merge with sentinel "only set if currently empty" for textual fields
       // so a user-edited description isn't clobbered by an IGDB re-fetch.
       const setIfEmpty = <K extends keyof Game>(key: K, value: Game[K] | undefined): Game[K] | undefined => {

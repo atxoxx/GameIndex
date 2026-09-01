@@ -5,6 +5,7 @@ use serde::{Deserialize, Deserializer, Serialize};
 use crate::db;
 use crate::game_scraper::{IgdbReview, LanguageSupportInfo, ReleaseDateInfo, SimilarGame, TimeToBeat};
 use crate::launcher::CompanionApp;
+use std::collections::HashSet;
 
 /// Serializable game data matching the frontend Game type.
 #[derive(Debug, Serialize, Deserialize, Clone)]
@@ -260,6 +261,7 @@ where
 #[tauri::command]
 pub fn save_games(app: tauri::AppHandle, games: Vec<GameData>) -> Result<(), String> {
     let db_state: tauri::State<'_, db::Db> = app.state();
+    let app_data_dir = app.path().app_data_dir().map_err(|e| e.to_string())?;
     let mut rows: Vec<db::games::GameRow> = Vec::with_capacity(games.len());
     for g in games {
         let value = serde_json::to_value(&g).map_err(|e| format!("to_value: {e}"))?;
@@ -267,7 +269,12 @@ pub fn save_games(app: tauri::AppHandle, games: Vec<GameData>) -> Result<(), Str
             .map_err(|e| format!("to GameRow: {e}"))?;
         rows.push(row);
     }
-    db::games::upsert_all(db_state.inner(), &rows)
+    let result = db::games::upsert_all(db_state.inner(), &rows);
+    if result.is_ok() {
+        let ids = rows.iter().map(|row| row.id.clone()).collect();
+        db::artwork::cleanup_unreferenced_artwork(&app_data_dir, &ids);
+    }
+    result
 }
 
 /// Persist a SINGLE game immediately, without rewriting the whole
@@ -278,10 +285,15 @@ pub fn save_games(app: tauri::AppHandle, games: Vec<GameData>) -> Result<(), Str
 #[tauri::command]
 pub fn save_game(app: tauri::AppHandle, game: GameData) -> Result<(), String> {
     let db_state: tauri::State<'_, db::Db> = app.state();
+    let app_data_dir = app.path().app_data_dir().map_err(|e| e.to_string())?;
     let value = serde_json::to_value(&game).map_err(|e| format!("to_value: {e}"))?;
     let row: db::games::GameRow =
         serde_json::from_value(value).map_err(|e| format!("to GameRow: {e}"))?;
-    db::games::upsert_one(db_state.inner(), &row)
+    let result = db::games::upsert_one(db_state.inner(), &row);
+    if result.is_ok() {
+        db::artwork::cleanup_non_library_caches(&app_data_dir, std::time::Duration::from_secs(30 * 24 * 60 * 60));
+    }
+    result
 }
 
 /// Load the game library. Returns every row in Continue-Playing order
@@ -289,6 +301,7 @@ pub fn save_game(app: tauri::AppHandle, game: GameData) -> Result<(), String> {
 #[tauri::command]
 pub fn load_games(app: tauri::AppHandle) -> Result<Vec<GameData>, String> {
     let db_state: tauri::State<'_, db::Db> = app.state();
+    let app_data_dir = app.path().app_data_dir().map_err(|e| e.to_string())?;
     let rows = db::games::list_all(db_state.inner()).map_err(|e| e.to_string())?;
     let mut out: Vec<GameData> = Vec::with_capacity(rows.len());
     for r in rows {
@@ -312,6 +325,8 @@ pub fn load_games(app: tauri::AppHandle) -> Result<Vec<GameData>, String> {
             }
         }
     }
+    let ids: HashSet<String> = out.iter().map(|game| game.id.clone()).collect();
+    db::artwork::cleanup_unreferenced_artwork(&app_data_dir, &ids);
     Ok(out)
 }
 

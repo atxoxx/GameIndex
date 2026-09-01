@@ -70,14 +70,14 @@ function SidebarGameItemBase({
     if (!iconUrl) return; // lookup not resolved yet, or no community icon
     iconFetchRef.current = true;
     let cancelled = false;
-    invoke<string | null>("download_image", { url: iconUrl })
-      .then((dataUrl) => {
-        if (cancelled || !dataUrl || !dataUrl.startsWith("data:")) return;
-        updateGame(game.id, { iconUrl: dataUrl });
-        // Persist immediately against the freshest record so a concurrent
-        // enrichment doesn't get clobbered by a stale row.
+    invoke<string | null>("download_artwork", { gameId: game.id, slot: "icon", url: iconUrl })
+      .then(async (relativePath) => {
+        if (cancelled || !relativePath) return;
+        const assetUrl = await invoke<string>("artwork_asset_url", { relativePath });
+        if (cancelled) return;
+        updateGame(game.id, { iconUrl: assetUrl });
         const fresh = getGame(game.id) ?? game;
-        invoke("save_game", { game: { ...fresh, iconUrl: dataUrl } }).catch(
+        invoke("save_game", { game: { ...fresh, iconUrl: assetUrl } }).catch(
           (err) => console.warn(`Persist sidebar icon failed for ${game.name}:`, err)
         );
       })

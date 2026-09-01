@@ -13,8 +13,8 @@ import { invoke } from "@tauri-apps/api/core";
  * ```
  *
  * Returns a tuple of `[loadedUrl, refCallback]`:
- * - `loadedUrl` starts as the original URL and is replaced with a base64
- *   data URL once the download completes.
+ * - `loadedUrl` starts as the original URL and is replaced with a
+ *   disk-backed Tauri asset URL once the download completes.
  * - `refCallback` is a function ref to attach to the `<img>` element.
  */
 export function useProgressiveImage(
@@ -50,8 +50,10 @@ export function useProgressiveImage(
             downloadingRef.current = true;
 
             invoke<string | null>("download_image", { url })
-              .then((base64) => {
-                if (base64) setLoadedUrl(base64);
+              .then((dataUrl) => {
+                // Legacy fallback: this hook has no game id, so retain the
+                // remote URL rather than putting a large base64 value in React.
+                if (!dataUrl) setLoadedUrl(url);
               })
               .catch(() => {
                 // Silently keep the original URL on failure

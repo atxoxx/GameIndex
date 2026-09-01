@@ -65,6 +65,7 @@
 //! `.await`).
 
 pub mod achievement_links;
+pub mod artwork;
 pub mod achievements;
 pub mod atomic;
 pub mod download_history;
