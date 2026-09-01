@@ -15,7 +15,6 @@ import { useGames } from "../context/GameContext";
 import { useWishlist } from "../hooks/useWishlist";
 import type { ViewDensity } from "../types/game";
 import NewsHeroSpotlight from "../components/news/NewsHeroSpotlight";
-import NewsStatsHeader from "../components/news/NewsStatsHeader";
 import NewsToolbar, {
   type NewsTimeFilter,
   type NewsReadTimeFilter,
@@ -363,11 +362,6 @@ export default function NewsPage() {
     [allArticles, readLinks]
   );
 
-  const matchedGamesCount = useMemo(
-    () => allArticles.filter((a) => relatedGameNames.has(a.link)).length,
-    [allArticles, relatedGameNames]
-  );
-
   useEffect(() => {
     setPage(1);
   }, [activeCategory, searchQuery, activeTag, activeSource, timeFilter, readTimeFilter, hasImagesOnly, unreadOnly, sortBy]);
@@ -577,31 +571,6 @@ export default function NewsPage() {
             onSelectTag={setActiveTag}
           />
         )}
-
-        {/* Interactive KPI strip */}
-        <NewsStatsHeader
-          total={allArticles.length}
-          unread={unreadTotal}
-          saved={savedArticles.length}
-          feeds={enabledFeedUrls.size}
-          matchedGamesCount={matchedGamesCount}
-          loading={loading}
-          onFilterAll={() => {
-            setActiveCategory("all");
-            setSearchQuery("");
-            setActiveTag(null);
-            setSourceFilter(null);
-            setUnreadOnly(false);
-          }}
-          onToggleUnread={() => setUnreadOnly((prev) => !prev)}
-          onFilterYourGames={() => {
-            setActiveCategory("for_you");
-            setSearchQuery("");
-            setActiveTag(null);
-          }}
-          onOpenSaved={() => setActiveCategory("saved")}
-          onOpenSettings={handleOpenSettings}
-        />
       </div>
 
       {/* Categories + View Density + Search + Filters */}
@@ -624,8 +593,6 @@ export default function NewsPage() {
         unreadTotal={unreadTotal}
         density={density}
         onDensityChange={handleDensityChange}
-        onMarkAllRead={markAllRead}
-        onOpenSettings={handleOpenSettings}
       />
 
       {/* Source filter pills */}

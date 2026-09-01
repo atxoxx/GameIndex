@@ -1,4 +1,4 @@
-import type { ReactNode } from "react";
+import { useState, type ReactNode } from "react";
 import type { NewsCategory } from "../../hooks/useNewsFeeds";
 import type { ViewDensity } from "../../types/game";
 import { useLanguage } from "../../context/LanguageContext";
@@ -26,8 +26,6 @@ interface NewsToolbarProps {
   unreadTotal: number;
   density: ViewDensity;
   onDensityChange: (density: ViewDensity) => void;
-  onMarkAllRead?: () => void;
-  onOpenSettings?: () => void;
 }
 
 export default function NewsToolbar({
@@ -49,10 +47,19 @@ export default function NewsToolbar({
   unreadTotal,
   density,
   onDensityChange,
-  onMarkAllRead,
-  onOpenSettings,
 }: NewsToolbarProps) {
   const { t } = useLanguage();
+
+  const [filtersOpen, setFiltersOpen] = useState(false);
+
+  const activeFilterCount = [
+    timeFilter !== "all",
+    readTimeFilter !== "all",
+    sortBy !== "newest",
+    hasImagesOnly,
+    unreadOnly,
+  ].filter(Boolean).length;
+  const showFiltersRow = filtersOpen || activeFilterCount > 0;
 
   const categories: { id: NewsCategory; labelKey: string; icon: ReactNode }[] = [
     {
@@ -177,7 +184,7 @@ export default function NewsToolbar({
         })}
       </div>
 
-      {/* Main Row: Search, Layout Density, Action Buttons */}
+      {/* Main Row: Search, Unread Toggle, Filters Trigger, Density */}
       <div className="news-toolbar-main-row">
         <div className="news-search">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="news-search-icon" aria-hidden="true">
@@ -278,121 +285,111 @@ export default function NewsToolbar({
           </button>
         </div>
 
-        {/* Quick action buttons: Mark all read & Feed settings */}
-        <div style={{ display: "flex", alignItems: "center", gap: "var(--space-xs)", marginLeft: "auto" }}>
-          {unreadTotal > 0 && (
-            <button
-              type="button"
-              className="news-toggle-pill"
-              onClick={onMarkAllRead}
-              title={t("newsPage.markAllRead")}
-            >
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                <polyline points="20 6 9 17 4 12" />
-              </svg>
-              {t("news.markRead")}
-            </button>
-          )}
+        {/* Unread toggle + advanced filters trigger */}
+        <div className="news-toolbar-actions">
           <button
             type="button"
-            className="news-toggle-pill"
-            onClick={onOpenSettings}
-            title={t("newsPage.manageFeeds")}
+            className={`news-toggle-pill ${unreadOnly ? "active" : ""}`}
+            onClick={onToggleUnreadOnly}
+            aria-pressed={unreadOnly}
+            title={t("news.unreadOnlyTitle")}
           >
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-              <circle cx="12" cy="12" r="3" />
-              <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z" />
+              <path d="M22 12v6a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h10" />
+              <polyline points="16 2 22 8 16 8" />
+              <line x1="22" y1="2" x2="16" y2="8" />
             </svg>
-            {t("news.feeds")}
+            {t("news.unreadOnly")}
+            {unreadTotal > 0 && <span className="news-toggle-unread-badge">{unreadTotal}</span>}
+          </button>
+
+          <button
+            type="button"
+            className={`news-toggle-pill news-filters-toggle${activeFilterCount > 0 ? " active" : ""}`}
+            onClick={() => setFiltersOpen((v) => !v)}
+            aria-expanded={showFiltersRow}
+            aria-controls="news-filter-row"
+            title={t(showFiltersRow ? "news.hideFilters" : "news.showFilters")}
+          >
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3" />
+            </svg>
+            {t(showFiltersRow ? "news.hideFilters" : "news.showFilters")}
+            {activeFilterCount > 0 && <span className="news-toggle-unread-badge">{activeFilterCount}</span>}
           </button>
         </div>
       </div>
 
-      {/* Filter Row: Time range, Read time, Media filter, Sort, Unread toggle, Action buttons */}
-      <div className="news-toolbar-filters-row">
-        {/* Time filter */}
-        <div className="news-filter-group">
-          <label htmlFor="news-time-filter">{t("news.timeFilterLabel")}</label>
-          <select
-            id="news-time-filter"
-            className="news-filter-select"
-            value={timeFilter}
-            onChange={(e) => onTimeFilterChange(e.target.value as NewsTimeFilter)}
+      {/* Advanced filters row — collapsible from the main row */}
+      {showFiltersRow && (
+        <div className="news-toolbar-filters-row" id="news-filter-row">
+          {/* Time filter */}
+          <div className="news-filter-group">
+            <label htmlFor="news-time-filter">{t("news.timeFilterLabel")}</label>
+            <select
+              id="news-time-filter"
+              className="news-filter-select"
+              value={timeFilter}
+              onChange={(e) => onTimeFilterChange(e.target.value as NewsTimeFilter)}
+            >
+              <option value="all">{t("news.timeAll")}</option>
+              <option value="today">{t("news.timeToday")}</option>
+              <option value="3days">{t("news.time3Days")}</option>
+              <option value="week">{t("news.timeWeek")}</option>
+              <option value="month">{t("news.timeMonth")}</option>
+            </select>
+          </div>
+
+          {/* Read time filter */}
+          <div className="news-filter-group">
+            <label htmlFor="news-readtime-filter">{t("news.readTimeLabel")}</label>
+            <select
+              id="news-readtime-filter"
+              className="news-filter-select"
+              value={readTimeFilter}
+              onChange={(e) => onReadTimeFilterChange(e.target.value as NewsReadTimeFilter)}
+            >
+              <option value="all">{t("news.readTimeAll")}</option>
+              <option value="quick">{t("news.readTimeQuick")}</option>
+              <option value="medium">{t("news.readTimeMedium")}</option>
+              <option value="long">{t("news.readTimeLong")}</option>
+            </select>
+          </div>
+
+          {/* Sort filter */}
+          <div className="news-filter-group">
+            <label htmlFor="news-sort-filter">{t("news.sortByLabel")}</label>
+            <select
+              id="news-sort-filter"
+              className="news-filter-select"
+              value={sortBy}
+              onChange={(e) => onSortByChange(e.target.value as NewsSortOption)}
+            >
+              <option value="newest">{t("news.sortNewest")}</option>
+              <option value="oldest">{t("news.sortOldest")}</option>
+              <option value="read_time">{t("news.sortReadTime")}</option>
+              <option value="source">{t("news.sortSource")}</option>
+              <option value="title">{t("news.sortTitle")}</option>
+            </select>
+          </div>
+
+          {/* Images only toggle */}
+          <button
+            type="button"
+            className={`news-toggle-pill ${hasImagesOnly ? "active" : ""}`}
+            onClick={onToggleHasImagesOnly}
+            aria-pressed={hasImagesOnly}
+            title={t("news.hasImagesOnly")}
           >
-            <option value="all">{t("news.timeAll")}</option>
-            <option value="today">{t("news.timeToday")}</option>
-            <option value="3days">{t("news.time3Days")}</option>
-            <option value="week">{t("news.timeWeek")}</option>
-            <option value="month">{t("news.timeMonth")}</option>
-          </select>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <rect x="3" y="3" width="18" height="18" rx="2" />
+              <circle cx="8.5" cy="8.5" r="1.5" />
+              <polyline points="21 15 16 10 5 21" />
+            </svg>
+            {t("news.hasImagesOnly")}
+          </button>
         </div>
-
-        {/* Read time filter */}
-        <div className="news-filter-group">
-          <label htmlFor="news-readtime-filter">{t("news.readTimeLabel")}</label>
-          <select
-            id="news-readtime-filter"
-            className="news-filter-select"
-            value={readTimeFilter}
-            onChange={(e) => onReadTimeFilterChange(e.target.value as NewsReadTimeFilter)}
-          >
-            <option value="all">{t("news.readTimeAll")}</option>
-            <option value="quick">{t("news.readTimeQuick")}</option>
-            <option value="medium">{t("news.readTimeMedium")}</option>
-            <option value="long">{t("news.readTimeLong")}</option>
-          </select>
-        </div>
-
-        {/* Sort filter */}
-        <div className="news-filter-group">
-          <label htmlFor="news-sort-filter">{t("news.sortByLabel")}</label>
-          <select
-            id="news-sort-filter"
-            className="news-filter-select"
-            value={sortBy}
-            onChange={(e) => onSortByChange(e.target.value as NewsSortOption)}
-          >
-            <option value="newest">{t("news.sortNewest")}</option>
-            <option value="oldest">{t("news.sortOldest")}</option>
-            <option value="read_time">{t("news.sortReadTime")}</option>
-            <option value="source">{t("news.sortSource")}</option>
-            <option value="title">{t("news.sortTitle")}</option>
-          </select>
-        </div>
-
-        {/* Images only toggle */}
-        <button
-          type="button"
-          className={`news-toggle-pill ${hasImagesOnly ? "active" : ""}`}
-          onClick={onToggleHasImagesOnly}
-          aria-pressed={hasImagesOnly}
-          title={t("news.hasImagesOnly")}
-        >
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-            <rect x="3" y="3" width="18" height="18" rx="2" />
-            <circle cx="8.5" cy="8.5" r="1.5" />
-            <polyline points="21 15 16 10 5 21" />
-          </svg>
-          {t("news.hasImagesOnly")}
-        </button>
-
-        {/* Unread only toggle */}
-        <button
-          type="button"
-          className={`news-toggle-pill ${unreadOnly ? "active" : ""}`}
-          onClick={onToggleUnreadOnly}
-          aria-pressed={unreadOnly}
-          title={t("news.unreadOnlyTitle")}
-        >
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-            <path d="M22 12v6a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h10" />
-            <polyline points="16 2 22 8 16 8" />
-            <line x1="22" y1="2" x2="16" y2="8" />
-          </svg>
-          {t("news.unreadOnly")}
-          {unreadTotal > 0 && <span className="news-toggle-unread-badge">{unreadTotal}</span>}
-        </button>
-      </div>
+      )}
     </div>
   );
 }

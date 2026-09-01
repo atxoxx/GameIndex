@@ -439,36 +439,7 @@
   cursor: pointer;
 }
 
-/* ─── Stats Header & Clickable Tiles ────────────────────────────────── */
-
-.news-stats-header {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
-  gap: var(--space-md);
-}
-
-.news-kpi-clickable {
-  cursor: pointer;
-  transition: transform var(--transition-fast);
-}
-
-.news-kpi-clickable:hover {
-  transform: translateY(-2px);
-}
-
-.news-stats-header .kpi-tile {
-  border: 1px solid color-mix(in srgb, var(--color-border) 60%, transparent);
-  border-radius: var(--radius-lg);
-  height: 100%;
-}
-
-.news-stats-header .kpi-tile--glass {
-  background: color-mix(in srgb, var(--color-bg-secondary) 60%, transparent);
-  backdrop-filter: blur(16px);
-  -webkit-backdrop-filter: blur(16px);
-}
-
-/* ─── Toolbar: Subtabs + Density + Filters ──────────────────────────── */
+/* ─── Toolbar: Subtabs + Search + Filters ───────────────────────────── */
 
 .news-toolbar {
   display: flex;
@@ -645,6 +616,22 @@
 .news-density-btn svg {
   width: 14px;
   height: 14px;
+}
+
+/* Right-aligned action cluster (unread toggle + filters trigger) */
+.news-toolbar-actions {
+  display: flex;
+  align-items: center;
+  gap: var(--space-xs);
+  margin-left: auto;
+  flex-wrap: wrap;
+}
+
+/* Filters trigger highlight when any advanced filter is active */
+.news-filters-toggle.active {
+  background: color-mix(in srgb, var(--color-accent) 15%, transparent);
+  border-color: var(--color-accent);
+  color: var(--color-accent);
 }
 
 /* Filter Options Row */
