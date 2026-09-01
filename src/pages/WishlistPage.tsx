@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import StoreGameCard from "../components/store/StoreGameCard";
 import { useWishlistContext } from "../context/WishlistContext";
@@ -139,12 +139,23 @@ export default function WishlistPage() {
     []
   );
   const resetFilters = useCallback(() => setFilters(DEFAULT_FILTERS), []);
+  const clearFacetFilters = useCallback(
+    () => setFilters((f) => ({ ...f, genres: [], platforms: [] })),
+    []
+  );
 
   // ── Derived facet lists from the current wishlist ────────────────────
   const availableGenres = useMemo(() => {
     const set = new Set<string>();
     for (const e of wishlist) for (const g of e.genres ?? []) if (g) set.add(g);
     return Array.from(set).sort((a, b) => a.localeCompare(b));
+  }, [wishlist]);
+
+  const genreCounts = useMemo(() => {
+    const counts = new Map<string, number>();
+    for (const e of wishlist)
+      for (const g of e.genres ?? []) if (g) counts.set(g, (counts.get(g) ?? 0) + 1);
+    return counts;
   }, [wishlist]);
 
   const availablePlatforms = useMemo(() => {
@@ -154,11 +165,14 @@ export default function WishlistPage() {
     return Array.from(set).sort((a, b) => a.localeCompare(b));
   }, [wishlist]);
 
-  const hasActiveFilters =
-    filters.search.trim().length > 0 ||
-    filters.genres.length > 0 ||
-    filters.platforms.length > 0 ||
-    filters.group !== "all";
+  const platformCounts = useMemo(() => {
+    const counts = new Map<string, number>();
+    for (const e of wishlist)
+      for (const p of e.platforms ?? []) if (p) counts.set(p, (counts.get(p) ?? 0) + 1);
+    return counts;
+  }, [wishlist]);
+
+  const activeFacetCount = filters.genres.length + filters.platforms.length;
 
   // ── Filter + sort the list ───────────────────────────────────────────
   const visible = useMemo(() => {
@@ -237,6 +251,28 @@ export default function WishlistPage() {
   const handleBrowseStore = () => {
     navigate("/store");
   };
+
+  // ── Filters popover (genres / platforms) ─────────────────────────────
+  const [filtersOpen, setFiltersOpen] = useState(false);
+  const filtersRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!filtersOpen) return;
+    const onPointerDown = (event: MouseEvent) => {
+      if (filtersRef.current && !filtersRef.current.contains(event.target as Node)) {
+        setFiltersOpen(false);
+      }
+    };
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setFiltersOpen(false);
+    };
+    document.addEventListener("mousedown", onPointerDown);
+    document.addEventListener("keydown", onKeyDown);
+    return () => {
+      document.removeEventListener("mousedown", onPointerDown);
+      document.removeEventListener("keydown", onKeyDown);
+    };
+  }, [filtersOpen]);
 
   return (
     <div className="wishlist-page page">
@@ -388,62 +424,120 @@ export default function WishlistPage() {
               </button>
             </div>
 
-            <label className="wishlist-sort">
-              <span className="wishlist-sort-label">{t("wishlist.sort")}</span>
-              <select
-                value={filters.sort}
-                onChange={(e) => setSort(e.target.value as WishlistSort)}
-                aria-label={t("wishlist.sortAria")}
-              >
-                {(Object.keys(SORT_LABELS) as WishlistSort[]).map((s) => (
-                  <option key={s} value={s}>
-                    {t(SORT_LABELS[s])}
-                  </option>
-                ))}
-              </select>
-            </label>
-          </div>
+            <div className="wishlist-toolbar-end">
+              {(availableGenres.length > 0 || availablePlatforms.length > 0) && (
+                <div className="wishlist-filter-wrap ui-complete-only" ref={filtersRef}>
+                  <button
+                    type="button"
+                    className={`wishlist-filter-btn${activeFacetCount > 0 ? " active" : ""}`}
+                    onClick={() => setFiltersOpen((v) => !v)}
+                    aria-expanded={filtersOpen}
+                    aria-haspopup="dialog"
+                    aria-label={t("wishlist.filtersAria")}
+                  >
+                    <svg
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="2"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      aria-hidden="true"
+                    >
+                      <polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3" />
+                    </svg>
+                    {t("wishlist.filters")}
+                    {activeFacetCount > 0 && (
+                      <span className="wishlist-filter-badge">{activeFacetCount}</span>
+                    )}
+                  </button>
 
-          {/* ── Genre / platform filter chips ───────────────────────── */}
-          {(availableGenres.length > 0 || availablePlatforms.length > 0) && (
-            <div className="wishlist-filters ui-complete-only">
-              {availableGenres.map((g) => (
-                <button
-                  key={`g-${g}`}
-                  type="button"
-                  className={`wishlist-chip${
-                    filters.genres.includes(g) ? " active" : ""
-                  }`}
-                  onClick={() => toggleGenre(g)}
-                  aria-pressed={filters.genres.includes(g)}
-                >
-                  {g}
-                </button>
-              ))}
-              {availablePlatforms.map((p) => (
-                <button
-                  key={`p-${p}`}
-                  type="button"
-                  className={`wishlist-chip platform${
-                    filters.platforms.includes(p) ? " active" : ""
-                  }`}
-                  onClick={() => togglePlatform(p)}
-                  aria-pressed={filters.platforms.includes(p)}
-                >
-                  {p}
-                </button>
-              ))}
-              {hasActiveFilters && (
-                <button
-                  type="button"
-                  className="wishlist-chip reset"
-                  onClick={resetFilters}
-                >
-                  {t("wishlist.clearFilters")}
-                </button>
+                  {filtersOpen && (
+                    <div
+                      className="wishlist-filter-popover"
+                      role="dialog"
+                      aria-label={t("wishlist.filters")}
+                    >
+                      {availableGenres.length > 0 && (
+                        <div className="wishlist-filter-section">
+                          <h4>{t("wishlist.genres")}</h4>
+                          <div className="wishlist-filter-options">
+                            {availableGenres.map((g) => (
+                              <button
+                                key={`g-${g}`}
+                                type="button"
+                                className={`wishlist-filter-option${
+                                  filters.genres.includes(g) ? " active" : ""
+                                }`}
+                                onClick={() => toggleGenre(g)}
+                                aria-pressed={filters.genres.includes(g)}
+                              >
+                                <span className="wishlist-filter-option-name">{g}</span>
+                                <span className="wishlist-filter-option-count">
+                                  {genreCounts.get(g) ?? 0}
+                                </span>
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+
+                      {availablePlatforms.length > 0 && (
+                        <div className="wishlist-filter-section">
+                          <h4>{t("wishlist.platforms")}</h4>
+                          <div className="wishlist-filter-options">
+                            {availablePlatforms.map((p) => (
+                              <button
+                                key={`p-${p}`}
+                                type="button"
+                                className={`wishlist-filter-option${
+                                  filters.platforms.includes(p) ? " active" : ""
+                                }`}
+                                onClick={() => togglePlatform(p)}
+                                aria-pressed={filters.platforms.includes(p)}
+                              >
+                                <span className="wishlist-filter-option-name">{p}</span>
+                                <span className="wishlist-filter-option-count">
+                                  {platformCounts.get(p) ?? 0}
+                                </span>
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+
+                      {activeFacetCount > 0 && (
+                        <div className="wishlist-filter-footer">
+                          <button
+                            type="button"
+                            className="wishlist-filter-clear"
+                            onClick={clearFacetFilters}
+                          >
+                            {t("wishlist.clearFilters")}
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
               )}
+
+              <label className="wishlist-sort">
+                <span className="wishlist-sort-label">{t("wishlist.sort")}</span>
+                <select
+                  value={filters.sort}
+                  onChange={(e) => setSort(e.target.value as WishlistSort)}
+                  aria-label={t("wishlist.sortAria")}
+                >
+                  {(Object.keys(SORT_LABELS) as WishlistSort[]).map((s) => (
+                    <option key={s} value={s}>
+                      {t(SORT_LABELS[s])}
+                    </option>
+                  ))}
+                </select>
+              </label>
             </div>
-          )}
+          </div>
 
           {/* ── Result count ───────────────────────────────────────── */}
           <p className="wishlist-result-count">
