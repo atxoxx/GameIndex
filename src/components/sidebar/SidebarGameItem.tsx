@@ -6,6 +6,7 @@ import { useLanguage } from "../../context/LanguageContext";
 import { PLAY_STATUS_DETAILS } from "../../types/game";
 import { accentForPlatform } from "../../types/emulator";
 import { preloadGameDetail } from "../../utils/routePreload";
+import { toWebviewAssetUrl } from "../../utils/artworkUrl";
 import HighlightedName from "./HighlightedName";
 import type { SidebarGameItemProps } from "./types";
 
@@ -73,7 +74,11 @@ function SidebarGameItemBase({
     invoke<string | null>("download_artwork", { gameId: game.id, slot: "icon", url: iconUrl })
       .then(async (relativePath) => {
         if (cancelled || !relativePath) return;
-        const assetUrl = await invoke<string>("artwork_asset_url", { relativePath });
+        // `artwork_asset_url` returns a `file://` URL the webview can't
+        // load; convert it to the asset protocol first.
+        const assetUrl = toWebviewAssetUrl(
+          await invoke<string>("artwork_asset_url", { relativePath })
+        );
         if (cancelled) return;
         updateGame(game.id, { iconUrl: assetUrl });
         const fresh = getGame(game.id) ?? game;

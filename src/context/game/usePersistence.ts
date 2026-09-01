@@ -1,6 +1,7 @@
 import { useEffect, useRef } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import type { Game } from "../../types/game";
+import { normalizeGameArtworkUrls } from "../../utils/artworkUrl";
 import { toWatcherRefs } from "./useWatcherIndex";
 
 export function usePersistence(options: {
@@ -22,7 +23,10 @@ export function usePersistence(options: {
     invoke<Game[]>("load_games")
       .then((data) => {
         if (data.length > 0) {
-          setGames(data);
+          // Legacy rows may carry `file://` artwork URLs (written before
+          // the asset protocol was enabled); the webview refuses to load
+          // those, so convert them back to asset-protocol URLs on load.
+          setGames(data.map(normalizeGameArtworkUrls));
           // Populate the watcher's process index for passive detection.
           // Pass game refs so the background poll loop can match
           // running processes to known games (excluding untracked ones).

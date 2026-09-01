@@ -7,6 +7,7 @@ import {
   type IgdbReview,
 } from "../../types/game";
 import type { SgdbAssets } from "../../types/steamgriddb";
+import { isUsableImageUrl, toWebviewAssetUrl } from "../../utils/artworkUrl";
 
 export const NO_IGDB_MATCH_SOURCE = "Steam (no IGDB match)";
 
@@ -14,16 +15,16 @@ const MAX_ENRICH_ATTEMPTS = 2;
 const enrichAttemptsThisSession = new Map<string, number>();
 
 /**
- * True iff `u` is a base64 data URL — i.e. an image we successfully
- * downloaded to disk. Used by the unpoison block in `enrichGameMetadata`
- * to decide whether a retry is necessary when cover art eventually
- * fails to load.
+ * True iff `u` is an image the webview can render (base64 data URL or a
+ * Tauri asset-protocol URL) — i.e. artwork we successfully downloaded to
+ * disk. Used by the unpoison block in `enrichGameMetadata` to decide
+ * whether a retry is necessary when cover art eventually fails to load.
  *
- * Hoisted to module scope so the helper isn't reallocated on every
- * enrichment call (it's a pure predicate with no closure deps).
+ * Note: raw `file://` URLs (the pre-asset-protocol format) are NOT
+ * usable — the webview refuses to load them — so a legacy row carrying
+ * one is treated as empty and replaced on the next enrichment.
  */
-const isFrontendUsableImage = (u: string | undefined): boolean =>
-  !!u && (u.startsWith("data:") || u.startsWith("asset:") || u.startsWith("file:"));
+const isFrontendUsableImage = isUsableImageUrl;
 
 /** Discord's large/small image must be a public https URL; data: URIs are skipped. */
 function discordAsset(url: string | undefined | null): string | undefined {
@@ -48,7 +49,10 @@ async function downloadArtworkSafe(gameId: string, slot: string, url: string | u
   try {
     const relative = await invoke<string | null>("download_artwork", { gameId, slot, url });
     if (!relative) return url;
-    return await invoke<string>("artwork_asset_url", { relativePath: relative });
+    // `artwork_asset_url` returns a `file://` URL, which the webview
+    // refuses to load; convert it to the asset protocol first.
+    const assetUrl = await invoke<string>("artwork_asset_url", { relativePath: relative });
+    return toWebviewAssetUrl(assetUrl);
   } catch {
     return downloadImageSafe(url);
   }

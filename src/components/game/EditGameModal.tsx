@@ -26,6 +26,7 @@ import { MediaFetchBrowser } from "./MediaFetchBrowser";
 import { UrlListEditor } from "./UrlListEditor";
 import { TagInput } from "../../components/ui/TagInput";
 import { ArrayEditor } from "../../components/ui/ArrayEditor";
+import { toWebviewAssetUrl } from "../../utils/artworkUrl";
 import "./EditGameModal.css";
 
 const GENRE_SUGGESTIONS = [
@@ -215,7 +216,9 @@ export function EditGameModal({ game, onClose }: EditGameModalProps) {
       url,
     });
     if (relativePath) {
-      const assetUrl = await invoke<string>("artwork_asset_url", { relativePath });
+      const assetUrl = toWebviewAssetUrl(
+        await invoke<string>("artwork_asset_url", { relativePath })
+      );
       setImageSlot(slot, assetUrl);
       showToast(`Applied and saved image as ${slot}`, "success");
       return true;
@@ -266,7 +269,7 @@ export function EditGameModal({ game, onClose }: EditGameModalProps) {
             url,
           });
           const assetUrl = relativePath
-            ? await invoke<string>("artwork_asset_url", { relativePath })
+            ? toWebviewAssetUrl(await invoke<string>("artwork_asset_url", { relativePath }))
             : undefined;
           return [key, assetUrl] as const;
         }),
@@ -342,7 +345,9 @@ export function EditGameModal({ game, onClose }: EditGameModalProps) {
           filePath,
         });
         if (relativePath) {
-          const assetUrl = await invoke<string>("artwork_asset_url", { relativePath });
+          const assetUrl = toWebviewAssetUrl(
+            await invoke<string>("artwork_asset_url", { relativePath })
+          );
           setImageSlot(key, assetUrl);
         }
       }
