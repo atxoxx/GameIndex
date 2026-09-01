@@ -138,6 +138,42 @@ pub struct GameRow {
     /// launch argument.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub rom_path: Option<String>,
+    // ── ROM management columns (v7 migration) ──
+    /// Quick (CRC32-style) hash of the ROM file, used for duplicate
+    /// detection. `None` until the ROM has been hashed once.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub rom_hash: Option<String>,
+    /// Region tag parsed from the filename (No-Intro style, e.g.
+    /// `USA`, `Europe`). `None` when the filename carries no tag.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub rom_region: Option<String>,
+    /// Language tag parsed from the filename (e.g. `En,Fr`).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub rom_language: Option<String>,
+    /// Multi-disc group key: the cleaned title shared by all discs of
+    /// the same game (e.g. `Final Fantasy VII`), so discs can be
+    /// grouped in the UI.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub rom_group: Option<String>,
+    /// 1-based disc index when the ROM is part of a multi-disc set.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub rom_disc: Option<u32>,
+    /// True when the ROM file is an archive (zip/7z) that must be
+    /// extracted to the managed cache before launch.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub rom_archived: Option<bool>,
+    /// User flag: favorite ROM (1) or not (0/NULL).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub favorite: Option<bool>,
+    /// Personal compatibility notes, e.g. "use Vulkan" or "requires
+    /// BIOS file". Distinct from `notes` which is generic.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub compat_notes: Option<String>,
+    /// Per-ROM launch profile overrides (JSON object, see
+    /// `emulation::RomProfile`). Stored raw so reads can re-serialize
+    /// without a schema migration on profile field changes.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub rom_profile: Option<serde_json::Value>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub last_played: Option<u64>,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -210,7 +246,9 @@ pub fn upsert_all(db: &Db, rows: &[GameRow]) -> Result<(), String> {
                  mods_folder, mods_size_bytes, mods_detected_at,
                  cover_source_url,
                  show_steam_launch_selection,
-                 igdb_id
+                 igdb_id,
+                 rom_hash, rom_region, rom_language, rom_group, rom_disc,
+                 rom_archived, favorite, compat_notes, rom_profile
              ) VALUES (
                  ?1,?2,?3,?4,?5,?6,?7,
                  ?8,?9,?10,?11,?12,
@@ -230,7 +268,9 @@ pub fn upsert_all(db: &Db, rows: &[GameRow]) -> Result<(), String> {
                  ?54,?55,?56,?57,
                  ?58,
                  ?59,?60,?61,?62,
-                 ?63,?64
+                 ?63,?64,
+                 ?65,?66,?67,?68,?69,
+                 ?70,?71,?72,?73
              )",
         )
         .map_err(|e| format!("games prepare: {e}"))?;
@@ -313,6 +353,16 @@ pub fn upsert_all(db: &Db, rows: &[GameRow]) -> Result<(), String> {
             r.cover_source_url,
             r.show_steam_launch_selection.map(|b| b as i32),
             r.igdb_id,
+            // v7 ROM-management columns (LAST in the column list).
+            r.rom_hash,
+            r.rom_region,
+            r.rom_language,
+            r.rom_group,
+            r.rom_disc.map(|n| n as i64),
+            r.rom_archived.map(|b| b as i32),
+            r.favorite.map(|b| b as i32),
+            r.compat_notes,
+            json_opt(&r.rom_profile),
         ])
         .map_err(|e| format!("games insert {i}: {e}"))?;
         persist_emulation_link(&tx, &r.id, &r.emulator_id, &r.rom_path)?;
@@ -357,7 +407,9 @@ pub fn upsert_one(db: &Db, r: &GameRow) -> Result<(), String> {
             mods_folder, mods_size_bytes, mods_detected_at,
             cover_source_url,
             show_steam_launch_selection,
-            igdb_id
+            igdb_id,
+            rom_hash, rom_region, rom_language, rom_group, rom_disc,
+            rom_archived, favorite, compat_notes, rom_profile
         ) VALUES (
             ?1,?2,?3,?4,?5,?6,?7,
             ?8,?9,?10,?11,?12,
@@ -377,7 +429,9 @@ pub fn upsert_one(db: &Db, r: &GameRow) -> Result<(), String> {
             ?54,?55,?56,?57,
             ?58,
             ?59,?60,?61,?62,
-            ?63,?64
+            ?63,?64,
+            ?65,?66,?67,?68,?69,
+            ?70,?71,?72,?73
         )",
         params![
             r.id,
@@ -445,6 +499,16 @@ pub fn upsert_one(db: &Db, r: &GameRow) -> Result<(), String> {
             r.cover_source_url,
             r.show_steam_launch_selection.map(|b| b as i32),
             r.igdb_id,
+            // v7 ROM-management columns (LAST in the column list).
+            r.rom_hash,
+            r.rom_region,
+            r.rom_language,
+            r.rom_group,
+            r.rom_disc.map(|n| n as i64),
+            r.rom_archived.map(|b| b as i32),
+            r.favorite.map(|b| b as i32),
+            r.compat_notes,
+            json_opt(&r.rom_profile),
         ],
     )
     .map_err(|e| format!("games upsert_one: {e}"))?;
@@ -536,7 +600,7 @@ pub fn delete_by_emulator(db: &Db, emulator_id: &str) -> Result<(), String> {
     Ok(())
 }
 
-const GAMES_SELECT_SQL: &str = "SELECT id, name, path, platform, installed, play_time, added_at, cover_art_url, notes, size_bytes, size_detected_at, size_root_path, icon_url, banner_url, logo_url, description, developer, publisher, release_date, metadata_source, metadata_url, storyline, igdb_rating, critic_rating, steam_app_id, steam_playtime, store_source, epic_namespace, epic_catalog_item_id, launch_arguments, run_as_admin, last_played, play_status, genres_json, themes_json, game_modes_json, player_perspectives_json, screenshots_json, videos_json, websites_json, time_to_beat_json, similar_games_json, releases_json, igdb_reviews_json, alternative_names_json, steam_achievements_json, language_supports_json, collection, franchise, game_category, release_status, gog_game_id, gog_playtime, pre_launch_script, pre_launch_admin, post_exit_script, post_exit_admin, companion_apps_json, emulator_id, rom_path, mods_folder, mods_size_bytes, mods_detected_at, cover_source_url, show_steam_launch_selection, igdb_id FROM games";
+const GAMES_SELECT_SQL: &str = "SELECT id, name, path, platform, installed, play_time, added_at, cover_art_url, notes, size_bytes, size_detected_at, size_root_path, icon_url, banner_url, logo_url, description, developer, publisher, release_date, metadata_source, metadata_url, storyline, igdb_rating, critic_rating, steam_app_id, steam_playtime, store_source, epic_namespace, epic_catalog_item_id, launch_arguments, run_as_admin, last_played, play_status, genres_json, themes_json, game_modes_json, player_perspectives_json, screenshots_json, videos_json, websites_json, time_to_beat_json, similar_games_json, releases_json, igdb_reviews_json, alternative_names_json, steam_achievements_json, language_supports_json, collection, franchise, game_category, release_status, gog_game_id, gog_playtime, pre_launch_script, pre_launch_admin, post_exit_script, post_exit_admin, companion_apps_json, emulator_id, rom_path, mods_folder, mods_size_bytes, mods_detected_at, cover_source_url, show_steam_launch_selection, igdb_id, rom_hash, rom_region, rom_language, rom_group, rom_disc, rom_archived, favorite, compat_notes, rom_profile FROM games";
 
 fn game_row_from_row(r: &rusqlite::Row<'_>) -> rusqlite::Result<GameRow> {
     Ok(GameRow {
@@ -620,6 +684,17 @@ fn game_row_from_row(r: &rusqlite::Row<'_>) -> rusqlite::Result<GameRow> {
         // v6 migration column — read after the original 65 columns.
         // NULL rows (pre-v6) read back as `None`.
         igdb_id: r.get::<_, Option<i64>>(65)?,
+        // v7 ROM-management columns — read after the original 66
+        // columns. NULL rows (pre-v7) read back as `None`.
+        rom_hash: r.get(66)?,
+        rom_region: r.get(67)?,
+        rom_language: r.get(68)?,
+        rom_group: r.get(69)?,
+        rom_disc: r.get::<_, Option<i64>>(70)?.map(|n| n as u32),
+        rom_archived: r.get::<_, Option<i64>>(71)?.map(|n| n != 0),
+        favorite: r.get::<_, Option<i64>>(72)?.map(|n| n != 0),
+        compat_notes: r.get(73)?,
+        rom_profile: json_opt_get(r, 74)?,
     })
 }
 
@@ -656,7 +731,7 @@ fn json_opt_get<T: serde::de::DeserializeOwned>(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::db::schema::{GAMES_DDL, GAMES_V2_DDL, GAMES_V3_DDL, GAMES_V4_DDL, GAMES_V5_DDL, GAMES_V6_DDL};
+    use crate::db::schema::{GAMES_DDL, GAMES_V2_DDL, GAMES_V3_DDL, GAMES_V4_DDL, GAMES_V5_DDL, GAMES_V6_DDL, GAMES_V7_DDL};
     use serde_json::json;
 
     fn test_db() -> (tempfile::TempDir, Db) {
@@ -670,6 +745,7 @@ mod tests {
             conn.execute_batch(GAMES_V4_DDL).unwrap();
             conn.execute_batch(GAMES_V5_DDL).unwrap();
             conn.execute_batch(GAMES_V6_DDL).unwrap();
+            conn.execute_batch(GAMES_V7_DDL).unwrap();
         }
         (dir, db)
     }
@@ -695,6 +771,15 @@ mod tests {
             "companionApps": [{"name": "overlay"}],
             "preLaunchScript": "echo hi",
             "showSteamLaunchSelection": true,
+            "romHash": "cafebabe",
+            "romRegion": "USA",
+            "romLanguage": "En,Fr",
+            "romGroup": "Final Fantasy VII",
+            "romDisc": 2,
+            "romArchived": true,
+            "favorite": true,
+            "compatNotes": "use Vulkan",
+            "romProfile": {"graphicsBackend": "vulkan", "fullscreen": true},
         }))
         .unwrap()
     }
@@ -721,6 +806,15 @@ mod tests {
         assert_eq!(got.show_steam_launch_selection, Some(true));
         assert_eq!(got.igdb_id, Some(1942));
         assert!(got.companion_apps.is_some());
+        assert_eq!(got.rom_hash.as_deref(), Some("cafebabe"));
+        assert_eq!(got.rom_region.as_deref(), Some("USA"));
+        assert_eq!(got.rom_language.as_deref(), Some("En,Fr"));
+        assert_eq!(got.rom_group.as_deref(), Some("Final Fantasy VII"));
+        assert_eq!(got.rom_disc, Some(2));
+        assert_eq!(got.rom_archived, Some(true));
+        assert_eq!(got.favorite, Some(true));
+        assert_eq!(got.compat_notes.as_deref(), Some("use Vulkan"));
+        assert!(got.rom_profile.is_some());
     }
 
     /// Same alignment guarantee for the full-library `upsert_all` path.
@@ -739,5 +833,12 @@ mod tests {
         assert_eq!(got.pre_launch_script.as_deref(), Some("echo hi"));
         assert_eq!(got.show_steam_launch_selection, Some(true));
         assert_eq!(got.igdb_id, Some(1942));
+        assert_eq!(got.rom_hash.as_deref(), Some("cafebabe"));
+        assert_eq!(got.rom_region.as_deref(), Some("USA"));
+        assert_eq!(got.rom_group.as_deref(), Some("Final Fantasy VII"));
+        assert_eq!(got.rom_disc, Some(2));
+        assert_eq!(got.favorite, Some(true));
+        assert_eq!(got.compat_notes.as_deref(), Some("use Vulkan"));
+        assert!(got.rom_profile.is_some());
     }
 }

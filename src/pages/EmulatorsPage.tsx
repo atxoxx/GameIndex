@@ -1,6 +1,7 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { openPath, openUrl } from "@tauri-apps/plugin-opener";
-import { open } from "@tauri-apps/plugin-dialog";
+import { open, save } from "@tauri-apps/plugin-dialog";
+import { listen } from "@tauri-apps/api/event";
 import { invoke } from "@tauri-apps/api/core";
 import { useLanguage } from "../context/LanguageContext";
 import { useToast } from "../context/ToastContext";
@@ -9,11 +10,14 @@ import type { Game } from "../types/game";
 import {
   accentForPlatform,
   KNOWN_EMULATORS,
+  knownEmulatorByKey,
   matchKnownEmulator,
   type Emulator,
   type KnownEmulator,
   type EmuRow,
   type PlatformCategory,
+  type DiscoveredEmulator,
+  type BiosCheckResult,
 } from "../types/emulator";
 import { Button, ConfirmModal, PageHeader } from "../components/ui";
 import "../styles/page-emulators.css";
@@ -55,13 +59,26 @@ export default function EmulatorsPage() {
   const [recalcId, setRecalcId] = useState<string | null>(null);
   const [confirmBulkDelete, setConfirmBulkDelete] = useState(false);
   const [inspectRom, setInspectRom] = useState<Game | null>(null);
+  // Auto-discovery + BIOS + config tools
+  const [showDiscovery, setShowDiscovery] = useState(false);
+  const [discovering, setDiscovering] = useState(false);
+  const [discovered, setDiscovered] = useState<DiscoveredEmulator[]>([]);
+  const [biosResult, setBiosResult] = useState<BiosCheckResult | null>(null);
+  const [biosCheckingId, setBiosCheckingId] = useState<string | null>(null);
+  const [romFolderCandidates, setRomFolderCandidates] = useState<string[]>([]);
 
   const [search, setSearch] = useState("");
   const [category, setCategory] = useState<PlatformCategory>("all");
   const [sortKey, setSortKey] = useState<SortKey>("name");
   const [sortDir, setSortDir] = useState<SortDir>("asc");
   const [filter, setFilter] = useState<EmuFilter>("all");
-  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [selectedId, setSelectedId] = useState<string | null>(() => {
+    try {
+      return localStorage.getItem("gamelib-last-emulator") || null;
+    } catch {
+      return null;
+    }
+  });
 
   const load = useCallback(async () => {
     try {
@@ -175,6 +192,17 @@ export default function EmulatorsPage() {
     }
   }, [rows, selectedId]);
 
+  // Remember the last selected emulator across restarts.
+  useEffect(() => {
+    if (selectedId) {
+      try {
+        localStorage.setItem("gamelib-last-emulator", selectedId);
+      } catch {
+        /* ignore */
+      }
+    }
+  }, [selectedId]);
+
   const selectedGames = useMemo(() => {
     if (!selectedRow?.emulator) return [];
     return games
@@ -231,6 +259,150 @@ export default function EmulatorsPage() {
       await handleScan(emu);
     }
   }, [emulators, handleScan]);
+
+  // Keep a ref of the current emulator list for the watcher listener.
+  const emulatorsRef = useRef(emulators);
+  useEffect(() => {
+    emulatorsRef.current = emulators;
+  }, [emulators]);
+
+  // ROM-folder watcher: auto-rescan (auto_scan) or prompt via toast.
+  useEffect(() => {
+    let unlisten: (() => void) | undefined;
+    listen<{ emulatorId: string; folder: string; autoScan: boolean }>("rom-folder-changed", (event) => {
+      const { emulatorId, autoScan } = event.payload;
+      const emu = emulatorsRef.current.find((e) => e.id === emulatorId);
+      if (!emu) return;
+      if (autoScan) {
+        handleScan(emu);
+      } else {
+        showToast(t("emulators.watcher.changed", { name: emu.name }), "info");
+      }
+    }).then((fn) => {
+      unlisten = fn;
+    });
+    return () => unlisten?.();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [handleScan, showToast, t]);
+
+  const handleDiscover = useCallback(async () => {
+    setShowDiscovery(true);
+    setDiscovering(true);
+    try {
+      const found = await invoke<DiscoveredEmulator[]>("discover_emulators");
+      setDiscovered(found);
+    } catch (err) {
+      showToast(String(err), "error");
+    } finally {
+      setDiscovering(false);
+    }
+  }, [showToast]);
+
+  const handleAddDiscovered = useCallback(
+    async (d: DiscoveredEmulator) => {
+      const known = knownEmulatorByKey(d.key);
+      const now = Date.now();
+      const emu: Emulator = {
+        id: `emu-${now}-${Math.random().toString(36).slice(2, 8)}`,
+        name: known?.name ?? d.name,
+        platform: known?.platform ?? d.platform,
+        executablePath: d.executablePath,
+        argumentsTemplate: known?.argumentsTemplate ?? '"%ROM%"',
+        romFolder: "",
+        iconUrl: known?.logo,
+        createdAt: now,
+        updatedAt: now,
+      };
+      try {
+        await invoke("save_emulator", { emulator: emu });
+        await load();
+        setSelectedId(emu.id);
+        showToast(t("emulators.discovery.addDone") + " ✓", "success");
+      } catch (err) {
+        showToast(t("emulators.discovery.addError", { error: String(err) }), "error");
+      }
+    },
+    [load, showToast, t]
+  );
+
+  const handleCheckBios = useCallback(
+    async (emu: Emulator) => {
+      setBiosCheckingId(emu.id);
+      try {
+        const result = await invoke<BiosCheckResult>("check_bios_status", {
+          emulatorId: emu.id,
+        });
+        setBiosResult(result);
+      } catch (err) {
+        showToast(String(err), "error");
+      } finally {
+        setBiosCheckingId(null);
+      }
+    },
+    [showToast]
+  );
+
+  const handleFindRomFolders = useCallback(
+    async (emu: Emulator) => {
+      try {
+        const folders = await invoke<string[]>("discover_rom_folders", {
+          emulatorId: emu.id,
+        });
+        setRomFolderCandidates(folders);
+      } catch (err) {
+        showToast(String(err), "error");
+      }
+    },
+    [showToast]
+  );
+
+  const handleUseRomFolder = useCallback(
+    async (emu: Emulator, folder: string) => {
+      const updated = { ...emu, romFolder: folder, updatedAt: Date.now() };
+      try {
+        await invoke("save_emulator", { emulator: updated });
+        await load();
+        setRomFolderCandidates([]);
+        await handleScan(updated);
+      } catch (err) {
+        showToast(String(err), "error");
+      }
+    },
+    [load, handleScan, showToast]
+  );
+
+  const handleExportConfig = useCallback(async () => {
+    try {
+      const json = await invoke<string>("export_emulators_config");
+      const target = await save({
+        title: t("emulators.config.export"),
+        defaultPath: "gameindex-emulators.json",
+        filters: [{ name: "JSON", extensions: ["json"] }],
+      });
+      if (!target) return;
+      await invoke("save_text_file", { filePath: target, contents: json });
+      showToast(t("emulators.config.exportDone") + " ✓", "success");
+    } catch (err) {
+      showToast(String(err), "error");
+    }
+  }, [showToast, t]);
+
+  const handleImportConfig = useCallback(async () => {
+    try {
+      const picked = await open({
+        multiple: false,
+        title: t("emulators.config.import"),
+        filters: [{ name: "JSON", extensions: ["json"] }],
+      });
+      if (!picked || typeof picked !== "string") return;
+      const json = await invoke<string>("read_text_file", { filePath: picked });
+      const count = await invoke<number>("import_emulators_config", { json });
+      await load();
+      showToast(t("emulators.config.importDone", { count }) + " ✓", "success");
+    } catch (err) {
+      showToast(t("emulators.config.importError", { error: String(err) }), "error");
+    }
+  }, [load, showToast, t]);
 
   const handleSaved = useCallback(
     async (emu: Emulator, scanAfter: boolean) => {
@@ -435,6 +607,44 @@ export default function EmulatorsPage() {
             </Button>
             <Button
               variant="secondary"
+              onClick={handleDiscover}
+              leftIcon={
+                <svg {...ICON}>
+                  <circle cx="11" cy="11" r="8" />
+                  <line x1="21" y1="21" x2="16.65" y2="16.65" />
+                </svg>
+              }
+            >
+              {t("emulators.discovery.scan")}
+            </Button>
+            <Button
+              variant="secondary"
+              onClick={handleExportConfig}
+              leftIcon={
+                <svg {...ICON}>
+                  <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                  <polyline points="7 10 12 15 17 10" />
+                  <line x1="12" y1="15" x2="12" y2="3" />
+                </svg>
+              }
+            >
+              {t("emulators.config.export")}
+            </Button>
+            <Button
+              variant="secondary"
+              onClick={handleImportConfig}
+              leftIcon={
+                <svg {...ICON}>
+                  <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                  <polyline points="17 8 12 3 7 8" />
+                  <line x1="12" y1="3" x2="12" y2="15" />
+                </svg>
+              }
+            >
+              {t("emulators.config.import")}
+            </Button>
+            <Button
+              variant="secondary"
               onClick={() => setShowDownload(true)}
               leftIcon={
                 <svg {...ICON}>
@@ -513,6 +723,39 @@ export default function EmulatorsPage() {
                   onOpenUrl={openUrl}
                 />
 
+                {/* Per-emulator tools: BIOS check + ROM-folder discovery */}
+                {selectedRow.added && selectedRow.emulator && (
+                  <div className="emu-tools-row">
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      isLoading={biosCheckingId === selectedRow.emulator.id}
+                      onClick={() => handleCheckBios(selectedRow.emulator!)}
+                      leftIcon={
+                        <svg {...ICON}>
+                          <path d="M12 9v4" />
+                          <path d="M12 17h.01" />
+                          <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" />
+                        </svg>
+                      }
+                    >
+                      {t("emulators.bios.check")}
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => handleFindRomFolders(selectedRow.emulator!)}
+                      leftIcon={
+                        <svg {...ICON}>
+                          <path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" />
+                        </svg>
+                      }
+                    >
+                      {t("emulators.discovery.romFolders")}
+                    </Button>
+                  </div>
+                )}
+
                 {/* Scanned ROMs Manager & Gallery (only when emulator is added) */}
                 {selectedRow.added && selectedRow.emulator && (
                   <EmulatorRomManager
@@ -562,12 +805,17 @@ export default function EmulatorsPage() {
       {inspectRom && (
         <EmulatorRomDetailModal
           game={inspectRom}
+          emulator={selectedRow?.emulator}
           isRunning={runningGameIds.includes(inspectRom.id)}
           onClose={() => setInspectRom(null)}
           onLaunch={launchGame}
           onOpenLocation={handleOpenLocation}
           onRename={openRename}
           onDelete={(g) => setConfirmDeleteRom(g)}
+          onGameUpdated={(updated) => {
+            updateGame(updated.id, updated);
+            setInspectRom(updated);
+          }}
         />
       )}
 
@@ -657,6 +905,178 @@ export default function EmulatorsPage() {
         }}
         onCancel={() => setConfirmDeleteRom(null)}
       />
+
+      {/* Emulator Discovery Modal */}
+      {showDiscovery && (
+        <div className="modal-overlay emulators-modal-overlay" onMouseDown={() => setShowDiscovery(false)}>
+          <div
+            className="modal emulators-modal emu-discovery-modal"
+            role="dialog"
+            aria-modal="true"
+            onMouseDown={(e) => e.stopPropagation()}
+          >
+            <div className="modal-header">
+              <div className="modal-header-text">
+                <h2>{t("emulators.discovery.title")}</h2>
+                <p className="modal-subtitle">{t("emulators.discovery.desc")}</p>
+              </div>
+              <button className="modal-close" aria-label={t("common.close")} onClick={() => setShowDiscovery(false)}>
+                ×
+              </button>
+            </div>
+            <div className="modal-body emu-discovery-body">
+              {discovering ? (
+                <p className="emu-panel-hint">{t("emulators.discovery.scanning")}</p>
+              ) : discovered.length === 0 ? (
+                <p className="emu-panel-hint">{t("emulators.discovery.none")}</p>
+              ) : (
+                discovered.map((d) => {
+                  const known = knownEmulatorByKey(d.key);
+                  const already = emulators.some((e) => e.executablePath.toLowerCase() === d.executablePath.toLowerCase());
+                  return (
+                    <div key={d.executablePath} className="emu-discovery-entry">
+                      <div className="emu-discovery-info">
+                        <span className="emu-discovery-name">
+                          {known?.glyph ?? "🎮"} {known?.name ?? d.name}
+                          <span className="emu-discovery-platform">{known?.platform ?? d.platform}</span>
+                        </span>
+                        <span className="emu-mono emu-discovery-path" title={d.executablePath}>
+                          {d.executablePath}
+                        </span>
+                      </div>
+                      <Button
+                        variant="secondary"
+                        size="sm"
+                        disabled={already}
+                        onClick={() => handleAddDiscovered(d)}
+                      >
+                        {already ? t("emulators.discovery.added") : t("emulators.discovery.add")}
+                      </Button>
+                    </div>
+                  );
+                })
+              )}
+            </div>
+            <div className="modal-footer">
+              <div className="modal-footer-actions">
+                <Button variant="ghost" onClick={() => setShowDiscovery(false)}>
+                  {t("common.close")}
+                </Button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* BIOS Check Modal */}
+      {biosResult && (
+        <div className="modal-overlay emulators-modal-overlay" onMouseDown={() => setBiosResult(null)}>
+          <div
+            className="modal emulators-modal emu-bios-modal"
+            role="dialog"
+            aria-modal="true"
+            onMouseDown={(e) => e.stopPropagation()}
+          >
+            <div className="modal-header">
+              <div className="modal-header-text">
+                <h2>{t("emulators.bios.title")} — {biosResult.platform}</h2>
+                <p className="modal-subtitle">
+                  {biosResult.configured
+                    ? `${t("emulators.bios.configured")}: ${biosResult.biosFolder}`
+                    : t("emulators.bios.notConfigured")}
+                </p>
+              </div>
+              <button className="modal-close" aria-label={t("common.close")} onClick={() => setBiosResult(null)}>
+                ×
+              </button>
+            </div>
+            <div className="modal-body emu-bios-body">
+              {biosResult.requirements.length === 0 ? (
+                <p className="emu-panel-hint">{t("emulators.bios.noRequirements")}</p>
+              ) : (
+                <>
+                  <div className="emu-bios-summary">
+                    {biosResult.missing.length === 0 ? (
+                      <span className="emu-bios-ok">✓ {t("emulators.bios.ok")}</span>
+                    ) : (
+                      <span className="emu-bios-missing">
+                        {t("emulators.bios.missing")}: {biosResult.missing.join(", ")}
+                      </span>
+                    )}
+                  </div>
+                  <div className="emu-bios-list">
+                    {biosResult.requirements.map((req) => (
+                      <div key={req.name} className={`emu-bios-entry${req.found ? " is-found" : " is-missing"}`}>
+                        <span className="emu-bios-state">{req.found ? "✓" : "✗"}</span>
+                        <div className="emu-bios-entry-info">
+                          <span className="emu-bios-name">{req.name}</span>
+                          {req.description && <span className="emu-bios-sub">{req.description}</span>}
+                          {req.hashOk === false && <span className="emu-bios-sub emu-bios-invalid">{t("emulators.bios.invalid")}</span>}
+                        </div>
+                        <span className="emu-bios-tag">
+                          {req.found ? t("emulators.bios.found") : t("emulators.bios.missing")}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                </>
+              )}
+            </div>
+            <div className="modal-footer">
+              <div className="modal-footer-actions">
+                <Button variant="ghost" onClick={() => setBiosResult(null)}>
+                  {t("common.close")}
+                </Button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Discovered ROM-folder candidates */}
+      {romFolderCandidates.length > 0 && selectedRow?.emulator && (
+        <div className="modal-overlay emulators-modal-overlay" onMouseDown={() => setRomFolderCandidates([])}>
+          <div
+            className="modal emulators-modal emu-folder-modal"
+            role="dialog"
+            aria-modal="true"
+            onMouseDown={(e) => e.stopPropagation()}
+          >
+            <div className="modal-header">
+              <div className="modal-header-text">
+                <h2>{t("emulators.discovery.romFolders")}</h2>
+                <p className="modal-subtitle">{selectedRow.emulator.name}</p>
+              </div>
+              <button className="modal-close" aria-label={t("common.close")} onClick={() => setRomFolderCandidates([])}>
+                ×
+              </button>
+            </div>
+            <div className="modal-body emu-folder-body">
+              {romFolderCandidates.length === 0 ? (
+                <p className="emu-panel-hint">{t("emulators.discovery.noFolders")}</p>
+              ) : (
+                romFolderCandidates.map((f) => (
+                  <div key={f} className="emu-discovery-entry">
+                    <span className="emu-mono emu-discovery-path" title={f}>
+                      {f}
+                    </span>
+                    <Button variant="secondary" size="sm" onClick={() => handleUseRomFolder(selectedRow.emulator!, f)}>
+                      {t("emulators.discovery.useFolder")}
+                    </Button>
+                  </div>
+                ))
+              )}
+            </div>
+            <div className="modal-footer">
+              <div className="modal-footer-actions">
+                <Button variant="ghost" onClick={() => setRomFolderCandidates([])}>
+                  {t("common.close")}
+                </Button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Bulk Delete ROMs Confirmation */}
       <ConfirmModal

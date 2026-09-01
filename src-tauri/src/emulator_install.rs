@@ -289,6 +289,13 @@ pub fn catalog_entry(key: &str) -> Option<&'static EmulatorDownload> {
     EMULATOR_DOWNLOADS.iter().find(|e| e.key == key)
 }
 
+/// Every catalog entry — used by the emulator auto-discovery command
+/// (`roms::discover_emulators`) to recognise known emulator executables
+/// on disk without duplicating the catalog in a second module.
+pub fn all_catalog_entries() -> Vec<&'static EmulatorDownload> {
+    EMULATOR_DOWNLOADS.iter().collect()
+}
+
 /// Return the full downloadable catalog (cloned, so the static entries
 /// are never exposed mutably).
 #[tauri::command]

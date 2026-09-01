@@ -59,8 +59,22 @@ pub const GAMES_V5_DDL: &str = include_str!("schema_games_v5.sql");
 /// v1 → … → v6.
 pub const GAMES_V6_DDL: &str = include_str!("schema_games_v6.sql");
 
+/// DDL for the `games` domain, v7 migration: ROM-management columns
+/// (`rom_hash`, `rom_region`, `rom_language`, `rom_group`, `rom_disc`,
+/// `rom_archived`, `favorite`, `compat_notes`, `rom_profile`). Applied
+/// as a separate migration version so existing installs (already at
+/// `games` v6) pick it up on next launch; fresh installs apply
+/// v1 → … → v7.
+pub const GAMES_V7_DDL: &str = include_str!("schema_games_v7.sql");
+
 /// DDL for the `emulators` domain: the `emulators` table.
 pub const EMULATORS_DDL: &str = include_str!("schema_emulators.sql");
+
+/// DDL for the `emulators` domain, v2 migration: BIOS / saves folder
+/// config plus the auto-scan flag. Applied as a separate migration
+/// version so existing installs (already at `emulators` v1) pick it up
+/// on next launch; fresh installs apply v1 then v2.
+pub const EMULATORS_V2_DDL: &str = include_str!("schema_emulators_v2.sql");
 
 /// DDL for the `sessions` domain: `sessions` plus the v4 `game_name`
 /// denormalization.
@@ -142,7 +156,7 @@ pub const DOMAIN_SCHEMAS: &[DomainSchema] = &[
     },
 DomainSchema {
     label: "games",
-    versions: &[("v1", GAMES_DDL), ("v2", GAMES_V2_DDL), ("v3", GAMES_V3_DDL), ("v4", GAMES_V4_DDL), ("v5", GAMES_V5_DDL), ("v6", GAMES_V6_DDL)],
+    versions: &[("v1", GAMES_DDL), ("v2", GAMES_V2_DDL), ("v3", GAMES_V3_DDL), ("v4", GAMES_V4_DDL), ("v5", GAMES_V5_DDL), ("v6", GAMES_V6_DDL), ("v7", GAMES_V7_DDL)],
 },
     DomainSchema {
         label: "sessions",
@@ -174,7 +188,7 @@ DomainSchema {
     },
     DomainSchema {
         label: "emulators",
-        versions: &[("v1", EMULATORS_DDL)],
+        versions: &[("v1", EMULATORS_DDL), ("v2", EMULATORS_V2_DDL)],
     },
     DomainSchema {
         label: "mods",

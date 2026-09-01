@@ -347,6 +347,15 @@ pub fn save_text_file(file_path: String, contents: String) -> Result<(), String>
          .map_err(|e| format!("Failed to write file: {}", e))
 }
 
+/// Read a text file into a string (used by the emulator-config JSON
+/// import path — the frontend picks the file via the dialog plugin and
+/// hands us the path).
+#[tauri::command]
+pub fn read_text_file(file_path: String) -> Result<String, String> {
+     std::fs::read_to_string(&file_path)
+         .map_err(|e| format!("Failed to read file: {}", e))
+}
+
 fn scan_dir(dir: &Path, exes: &mut Vec<ExeInfo>) {
     if let Ok(entries) = std::fs::read_dir(dir) {
         for entry in entries.flatten() {

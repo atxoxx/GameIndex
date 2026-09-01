@@ -25,11 +25,21 @@ pub struct EmulatorRow {
     pub notes: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub icon_url: Option<String>,
+    /// Folder scanned for required BIOS/firmware files (v2 migration).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub bios_folder: Option<String>,
+    /// Folder scanned for per-ROM save files / backups (v2 migration).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub saves_folder: Option<String>,
+    /// When true, the ROM-folder watcher re-scans this emulator's ROM
+    /// folder automatically on change (v2 migration).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub auto_scan: Option<bool>,
     pub created_at: u64,
     pub updated_at: u64,
 }
 
-const SELECT_SQL: &str = "SELECT id, name, platform, executable_path, arguments_template, rom_folder, notes, icon_url, created_at, updated_at FROM emulators";
+const SELECT_SQL: &str = "SELECT id, name, platform, executable_path, arguments_template, rom_folder, notes, icon_url, created_at, updated_at, bios_folder, saves_folder, auto_scan FROM emulators";
 
 /// Upsert a single emulator (INSERT OR REPLACE on `id`).
 pub fn upsert_one(db: &Db, r: &EmulatorRow) -> Result<(), String> {
@@ -37,8 +47,9 @@ pub fn upsert_one(db: &Db, r: &EmulatorRow) -> Result<(), String> {
     conn.execute(
         "INSERT OR REPLACE INTO emulators(
             id, name, platform, executable_path, arguments_template,
-            rom_folder, notes, icon_url, created_at, updated_at
-        ) VALUES (?1,?2,?3,?4,?5,?6,?7,?8,?9,?10)",
+            rom_folder, notes, icon_url, created_at, updated_at,
+            bios_folder, saves_folder, auto_scan
+        ) VALUES (?1,?2,?3,?4,?5,?6,?7,?8,?9,?10,?11,?12,?13)",
         params![
             r.id,
             r.name,
@@ -50,6 +61,9 @@ pub fn upsert_one(db: &Db, r: &EmulatorRow) -> Result<(), String> {
             r.icon_url,
             r.created_at as i64,
             r.updated_at as i64,
+            r.bios_folder.as_deref().unwrap_or(""),
+            r.saves_folder.as_deref().unwrap_or(""),
+            r.auto_scan.unwrap_or(false) as i32,
         ],
     )
     .map_err(|e| format!("emulators upsert_one: {e}"))?;
@@ -107,13 +121,16 @@ fn row_from_row(r: &rusqlite::Row<'_>) -> rusqlite::Result<EmulatorRow> {
         icon_url: r.get(7)?,
         created_at: r.get::<_, i64>(8)? as u64,
         updated_at: r.get::<_, i64>(9)? as u64,
+        bios_folder: r.get(10)?,
+        saves_folder: r.get(11)?,
+        auto_scan: r.get::<_, Option<i64>>(12)?.map(|n| n != 0),
     })
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::db::schema::{EMULATORS_DDL, GAMES_DDL};
+    use crate::db::schema::{EMULATORS_DDL, EMULATORS_V2_DDL, GAMES_DDL};
 
     fn test_db() -> (tempfile::TempDir, Db) {
         let dir = tempfile::tempdir().unwrap();
@@ -121,6 +138,7 @@ mod tests {
         {
             let c = db.emulators().unwrap();
             c.execute_batch(EMULATORS_DDL).unwrap();
+            c.execute_batch(EMULATORS_V2_DDL).unwrap();
             let g = db.games().unwrap();
             g.execute_batch(GAMES_DDL).unwrap();
         }
@@ -139,6 +157,9 @@ mod tests {
             rom_folder: "C:\\roms\\gc".into(),
             notes: Some("my gc".into()),
             icon_url: None,
+            bios_folder: Some("C:\\emu\\dolphin\\Sys\\GC".into()),
+            saves_folder: Some("C:\\emu\\dolphin\\User\\GC\\USA\\Card A".into()),
+            auto_scan: Some(true),
             created_at: 1000,
             updated_at: 2000,
         };
@@ -147,5 +168,7 @@ mod tests {
         assert_eq!(all.len(), 1);
         assert_eq!(all[0].platform, "GameCube");
         assert_eq!(all[0].notes.as_deref(), Some("my gc"));
+        assert_eq!(all[0].bios_folder.as_deref(), Some("C:\\emu\\dolphin\\Sys\\GC"));
+        assert_eq!(all[0].auto_scan, Some(true));
     }
 }

@@ -69,6 +69,7 @@ use system_screenshots::detect_system_screenshot_folders;
 
 mod games;
 mod emulation;
+mod roms;
 mod system;
 mod launcher;
 mod media;
@@ -254,6 +255,30 @@ pub fn run() {
             rename_rom_file,
             delete_rom_file,
             recalc_rom_sizes,
+            // ROM management — identification & metadata, saves,
+            // profiles, BIOS, discovery, duplicates, archives, config.
+            roms::rom_identify,
+            roms::rom_clean_name,
+            roms::rom_scrape_metadata,
+            roms::rom_apply_metadata,
+            roms::rom_saves_list,
+            roms::rom_saves_status,
+            roms::rom_saves_backup,
+            roms::rom_saves_snapshots,
+            roms::rom_saves_restore,
+            roms::rom_saves_delete,
+            roms::rom_profile_get,
+            roms::rom_profile_save,
+            roms::rom_launch_plan,
+            roms::bios_requirements_list,
+            roms::check_bios_status,
+            roms::discover_emulators,
+            roms::discover_rom_folders,
+            roms::find_duplicate_roms,
+            roms::rom_extract,
+            roms::export_emulators_config,
+            roms::import_emulators_config,
+            read_text_file,
             // Mod support — engine-aware detection, enable/disable,
             // load order, conflicts, and Nexus Mods integration.
             mods::mods_scan_game,
@@ -555,6 +580,12 @@ pub fn run() {
             });
 
             tray::build_tray(app).unwrap_or_else(|e| eprintln!("[gameindex] tray setup failed: {e}"));
+
+            // ── ROM-folder watcher ────────────────────────────────────
+            // Background poller detecting added/removed/changed files in
+            // configured ROM folders, emitting `rom-folder-changed` so
+            // the frontend can auto-rescan (auto_scan) or offer one.
+            emulation::start_rom_watcher(app.handle().clone());
 
             let app_handle = app.handle().clone();
             let (tx, rx) = tokio::sync::mpsc::channel(10);

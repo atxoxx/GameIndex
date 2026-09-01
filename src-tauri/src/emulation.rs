@@ -3,7 +3,7 @@
 use std::collections::HashMap;
 use std::time::SystemTime;
 use serde::{Deserialize, Serialize};
-use tauri::Manager;
+use tauri::{Emitter, Manager};
 use crate::db;
 use crate::emulator_install;
 use crate::games::GameData;
@@ -26,6 +26,16 @@ pub(crate) struct EmulatorData {
     pub(crate) notes: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub(crate) icon_url: Option<String>,
+    /// Folder scanned for required BIOS/firmware files (v2 migration).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub(crate) bios_folder: Option<String>,
+    /// Folder scanned for per-ROM save files / backups (v2 migration).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub(crate) saves_folder: Option<String>,
+    /// When true, the ROM-folder watcher re-scans this emulator's ROM
+    /// folder automatically when a change is detected.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub(crate) auto_scan: Option<bool>,
     pub(crate) created_at: u64,
     pub(crate) updated_at: u64,
 }
@@ -39,6 +49,15 @@ fn hash_str(s: &str) -> String {
     let mut h = DefaultHasher::new();
     s.hash(&mut h);
     format!("{:x}", h.finish())
+}
+
+/// Platforms whose emulators consume zip/7z archives directly (MAME
+/// ROM sets, Neo Geo zips, RetroArch cores) — such archives are passed
+/// to the emulator as-is instead of being extracted to the cache.
+fn platform_reads_archives_directly(platform: &str) -> bool {
+    ["Arcade", "Neo Geo", "RetroArch", "Multi-system"]
+        .iter()
+        .any(|p| p.eq_ignore_ascii_case(platform))
 }
 
 /// ROM file extensions recognised per console platform. Keys MUST match
@@ -89,8 +108,7 @@ fn rom_extensions_for_platform(platform: &str) -> Vec<String> {
 #[tauri::command]
 pub fn list_emulators(app: tauri::AppHandle) -> Result<Vec<EmulatorData>, String> {
     let db_state: tauri::State<'_, db::Db> = app.state();
-    let rows = db::emulators::list_all(db_state.inner()).map_err(|e| e.to_string())?;
-    Ok(rows
+    let rows = db::emulators::list_all(db_state.inner()).map_err(|e| e.to_string())?;        Ok(rows
         .into_iter()
         .map(|r| EmulatorData {
             id: r.id,
@@ -101,6 +119,9 @@ pub fn list_emulators(app: tauri::AppHandle) -> Result<Vec<EmulatorData>, String
             rom_folder: r.rom_folder,
             notes: r.notes,
             icon_url: r.icon_url,
+            bios_folder: r.bios_folder,
+            saves_folder: r.saves_folder,
+            auto_scan: r.auto_scan,
             created_at: r.created_at,
             updated_at: r.updated_at,
         })
@@ -120,6 +141,9 @@ pub fn save_emulator(app: tauri::AppHandle, emulator: EmulatorData) -> Result<()
         rom_folder: emulator.rom_folder,
         notes: emulator.notes,
         icon_url: emulator.icon_url,
+        bios_folder: emulator.bios_folder,
+        saves_folder: emulator.saves_folder,
+        auto_scan: emulator.auto_scan,
         created_at: emulator.created_at,
         updated_at: emulator.updated_at,
     };
@@ -186,6 +210,9 @@ pub async fn finish_emulator_install(
         rom_folder: emulator.rom_folder.clone(),
         notes: emulator.notes.clone(),
         icon_url: emulator.icon_url.clone(),
+        bios_folder: emulator.bios_folder.clone(),
+        saves_folder: emulator.saves_folder.clone(),
+        auto_scan: emulator.auto_scan,
         created_at: emulator.created_at,
         updated_at: emulator.updated_at,
     };
@@ -241,6 +268,15 @@ pub fn scan_emulator_roms(
         let rom_path = path.to_string_lossy().to_string();
         let mut game = build_rom_game(&emu, &rom_path, now_ms);
 
+        // Archive support: zip/7z ROMs stay as-is in the folder; the
+        // launch path extracts them into the managed cache on demand.
+        // Emulators that consume archives natively (MAME sets, Neo Geo
+        // zips, RetroArch) are excluded — extracting those would break
+        // the launch.
+        if (ext == "zip" || ext == "7z") && !platform_reads_archives_directly(&emu.platform) {
+            game.rom_archived = Some(true);
+        }
+
         // Preserve progress / metadata if this ROM was scanned before.
         if let Some(existing) = db::games::get(db_state.inner(), &game.id).map_err(|e| e.to_string())? {
             let value = serde_json::to_value(&existing).map_err(|e| format!("to_value: {e}"))?;
@@ -264,11 +300,20 @@ pub fn scan_emulator_roms(
 /// (None) so callers can layer any preserved values on top.
 fn build_rom_game(emu: &db::emulators::EmulatorRow, rom_path: &str, now_ms: u64) -> GameData {
     let p = std::path::Path::new(rom_path);
-    let name = p
+    let raw_stem = p
         .file_stem()
         .and_then(|s| s.to_str())
         .unwrap_or("Unknown")
         .to_string();
+    // No-Intro-style parsing: region / language / disc tags come out of
+    // the filename so the library gets region+language filters and
+    // multi-disc grouping for free, and the display name is cleaned.
+    let parsed = crate::roms::parse_rom_filename(&raw_stem);
+    let name = if parsed.clean_title.trim().is_empty() {
+        raw_stem.clone()
+    } else {
+        parsed.clean_title.clone()
+    };
     let args = emu.arguments_template.replace("%ROM%", rom_path);
     let size = std::fs::metadata(p).ok().map(|m| m.len());
     let value = serde_json::json!({
@@ -285,6 +330,10 @@ fn build_rom_game(emu: &db::emulators::EmulatorRow, rom_path: &str, now_ms: u64)
         "launchArguments": args,
         "emulatorId": emu.id,
         "romPath": rom_path,
+        "romRegion": parsed.region,
+        "romLanguage": parsed.language,
+        "romGroup": parsed.group,
+        "romDisc": parsed.disc,
     });
     serde_json::from_value(value).expect("build_rom_game: constructed GameData must be valid")
 }
@@ -319,6 +368,21 @@ fn apply_existing_rom(prev: &GameData, game: &mut GameData) {
     game.size_detected_at = prev.size_detected_at.clone();
     game.size_root_path = prev.size_root_path.clone();
     game.steam_app_id = prev.steam_app_id;
+    // v7 ROM-management fields — user-owned state survives re-scans.
+    game.rom_hash = prev.rom_hash.clone();
+    game.favorite = prev.favorite;
+    game.compat_notes = prev.compat_notes.clone();
+    game.rom_profile = prev.rom_profile.clone();
+    // Manual corrections win over re-parsed values until the next
+    // explicit re-parse (rows whose metadata was manually corrected
+    // carry `metadata_source == "manual"`).
+    if prev.metadata_source.as_deref() == Some("manual") {
+        game.name = prev.name.clone();
+        game.rom_region = prev.rom_region.clone();
+        game.rom_language = prev.rom_language.clone();
+        game.rom_group = prev.rom_group.clone();
+        game.rom_disc = prev.rom_disc;
+    }
 }
 
 /// Manually register a single ROM file under an emulator (the
@@ -452,6 +516,59 @@ pub fn delete_rom_file(app: tauri::AppHandle, game_id: String) -> Result<u64, St
     }
     db::games::delete(db_state.inner(), &game_id)?;
     Ok(freed)
+}
+
+/// Lightweight ROM-folder watcher. Polls every configured emulator's
+/// ROM folder every 25 s; when a folder's file signature (name, size,
+/// mtime of top-level entries) changes it emits a `rom-folder-changed`
+/// event with the emulator id. The frontend auto-rescans when the
+/// emulator has `autoScan` on, or offers a "rescan now" toast
+/// otherwise — so users never have to manually rescan after dropping a
+/// file in.
+pub fn start_rom_watcher(app: tauri::AppHandle) {
+    std::thread::spawn(move || {
+        let mut last_signatures: std::collections::HashMap<String, Vec<(String, u64, u64)>> =
+            std::collections::HashMap::new();
+        loop {
+            std::thread::sleep(std::time::Duration::from_secs(25));
+            let Some(db_state) = app.try_state::<db::Db>() else {
+                continue;
+            };
+            let rows = match db::emulators::list_all(db_state.inner()) {
+                Ok(r) => r,
+                Err(e) => {
+                    eprintln!("[rom_watcher] list failed: {e}");
+                    continue;
+                }
+            };
+            for emu in rows {
+                let folder = emu.rom_folder.trim().to_string();
+                if folder.is_empty() {
+                    continue;
+                }
+                let sig = crate::roms::folder_signature(std::path::Path::new(&folder));
+                match (last_signatures.get(&emu.id), sig) {
+                    (Some(prev), Some(cur)) => {
+                        if prev != &cur {
+                            last_signatures.insert(emu.id.clone(), cur);
+                            let _ = app.emit(
+                                "rom-folder-changed",
+                                serde_json::json!({
+                                    "emulatorId": emu.id,
+                                    "folder": folder,
+                                    "autoScan": emu.auto_scan.unwrap_or(false),
+                                }),
+                            );
+                        }
+                    }
+                    (None, Some(cur)) => {
+                        last_signatures.insert(emu.id.clone(), cur);
+                    }
+                    _ => {}
+                }
+            }
+        }
+    });
 }
 
 /// Re-measure the on-disk size of every ROM belonging to an emulator and

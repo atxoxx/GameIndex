@@ -1,4 +1,5 @@
 import { getActiveLocale } from "../i18n";
+import type { RomProfile } from "./emulator";
 
 /** Generate a URL-safe slug from a game name (for store navigation and API matching). */
 export function slugify(name: string): string {
@@ -127,6 +128,20 @@ export interface Game {
    *  sidebar console badge and cascade-delete on emulator removal. */
   emulatorId?: string;
   romPath?: string;
+  /** ── ROM management fields (v7) ────────────────────────────────────
+   *  Quick hash of the ROM file (duplicate detection), No-Intro
+   *  region/language tags and multi-disc grouping parsed from the
+   *  filename, archive flag, favorite flag, personal compatibility
+   *  notes, and the per-ROM launch profile. */
+  romHash?: string;
+  romRegion?: string;
+  romLanguage?: string;
+  romGroup?: string;
+  romDisc?: number;
+  romArchived?: boolean;
+  favorite?: boolean;
+  compatNotes?: string;
+  romProfile?: RomProfile;
   /** Fetched metadata fields */
   description?: string;
   developer?: string;

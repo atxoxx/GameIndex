@@ -1,7 +1,9 @@
 import { useMemo, useState, memo } from "react";
+import { invoke } from "@tauri-apps/api/core";
 import { useLanguage } from "../../context/LanguageContext";
+import { useToast } from "../../context/ToastContext";
 import type { Game } from "../../types/game";
-import type { Emulator } from "../../types/emulator";
+import type { Emulator, DuplicateGroup } from "../../types/emulator";
 import { formatBytesShort } from "../../types/download";
 import { Button } from "../ui";
 import EmulatorRomBulkBar from "./EmulatorRomBulkBar";
@@ -59,10 +61,36 @@ function EmulatorRomManagerBase({
   const [sortDir, setSortDir] = useState<"asc" | "desc">("asc");
   const [viewMode, setViewMode] = useState<RomViewMode>("grid");
   const [selectedGameIds, setSelectedGameIds] = useState<Set<string>>(new Set());
+  const { showToast } = useToast();
+
+  // QoL filters: favorites only + region / language tags.
+  const [favOnly, setFavOnly] = useState(false);
+  const [regionFilter, setRegionFilter] = useState<string>("");
+  const [langFilter, setLangFilter] = useState<string>("");
+  const [duplicates, setDuplicates] = useState<DuplicateGroup[] | null>(null);
+  const [findingDups, setFindingDups] = useState(false);
+
+  const regionOptions = useMemo(() => {
+    const set = new Set<string>();
+    for (const g of games) if (g.romRegion) set.add(g.romRegion);
+    return [...set].sort();
+  }, [games]);
+
+  const langOptions = useMemo(() => {
+    const set = new Set<string>();
+    for (const g of games) if (g.romLanguage) set.add(g.romLanguage);
+    return [...set].sort();
+  }, [games]);
 
   const filteredGames = useMemo(() => {
     const q = search.trim().toLowerCase();
-    const list = games.filter((g) => (q ? g.name.toLowerCase().includes(q) : true));
+    const list = games.filter((g) => {
+      if (q && !g.name.toLowerCase().includes(q)) return false;
+      if (favOnly && !g.favorite) return false;
+      if (regionFilter && g.romRegion !== regionFilter) return false;
+      if (langFilter && g.romLanguage !== langFilter) return false;
+      return true;
+    });
 
     return [...list].sort((a, b) => {
       let res = 0;
@@ -85,7 +113,7 @@ function EmulatorRomManagerBase({
       }
       return sortDir === "desc" ? -res : res;
     });
-  }, [games, search, sortKey, sortDir]);
+  }, [games, search, sortKey, sortDir, favOnly, regionFilter, langFilter]);
 
   const totalBytes = useMemo(
     () => filteredGames.reduce((sum, g) => sum + (g.sizeBytes ?? 0), 0),
@@ -136,6 +164,27 @@ function EmulatorRomManagerBase({
     dateAdded: t("emulators.sort.dateAdded"),
   };
 
+  const findDuplicates = async () => {
+    setFindingDups(true);
+    try {
+      const groups = await invoke<DuplicateGroup[]>("find_duplicate_roms", {
+        emulatorId: emulator.id,
+      });
+      setDuplicates(groups);
+    } catch (err) {
+      showToast(String(err), "error");
+    } finally {
+      setFindingDups(false);
+    }
+  };
+
+  const recentGames = useMemo(() => {
+    return games
+      .filter((g) => g.lastPlayed)
+      .sort((a, b) => (b.lastPlayed ?? 0) - (a.lastPlayed ?? 0))
+      .slice(0, 6);
+  }, [games]);
+
   return (
     <div className="emu-games">
       <div className="emu-games-head">
@@ -148,6 +197,61 @@ function EmulatorRomManagerBase({
             )}
           </h3>
         </div>
+
+        {/* QoL filter bar: favorites, region, language */}
+        {(favOnly || regionFilter || langFilter || regionOptions.length > 0 || langOptions.length > 0) && (
+          <div className="emu-games-filters">
+            <button
+              type="button"
+              className={`emu-filter-chip${favOnly ? " is-active" : ""}`}
+              onClick={() => setFavOnly((v) => !v)}
+              title={t("emulators.roms.favorite")}
+            >
+              ★ {t("emulators.roms.favorite")}
+            </button>
+            {regionOptions.length > 0 && (
+              <select
+                className="emulators-sort-select emu-filter-select"
+                value={regionFilter}
+                onChange={(e) => setRegionFilter(e.target.value)}
+              >
+                <option value="">{t("emulators.roms.region")}: {t("common.all")}</option>
+                {regionOptions.map((r) => (
+                  <option key={r} value={r}>
+                    {r}
+                  </option>
+                ))}
+              </select>
+            )}
+            {langOptions.length > 0 && (
+              <select
+                className="emulators-sort-select emu-filter-select"
+                value={langFilter}
+                onChange={(e) => setLangFilter(e.target.value)}
+              >
+                <option value="">{t("emulators.roms.language")}: {t("common.all")}</option>
+                {langOptions.map((l) => (
+                  <option key={l} value={l}>
+                    {l}
+                  </option>
+                ))}
+              </select>
+            )}
+            {(favOnly || regionFilter || langFilter) && (
+              <button
+                type="button"
+                className="emu-filter-clear"
+                onClick={() => {
+                  setFavOnly(false);
+                  setRegionFilter("");
+                  setLangFilter("");
+                }}
+              >
+                {t("common.clear")}
+              </button>
+            )}
+          </div>
+        )}
 
         <div className="emu-games-tools">
           {/* ROM Search */}
@@ -276,9 +380,51 @@ function EmulatorRomManagerBase({
             >
               {t("emulators.games.recalc")}
             </Button>
+            <Button
+              variant="ghost"
+              size="sm"
+              leftIcon={
+                <svg {...ICON}>
+                  <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
+                  <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
+                </svg>
+              }
+              onClick={findDuplicates}
+              isLoading={findingDups}
+            >
+              {findingDups ? t("emulators.duplicates.finding") : t("emulators.duplicates.find")}
+            </Button>
           </div>
         </div>
       </div>
+
+      {/* Continue-playing rail */}
+      {recentGames.length > 0 && (
+        <div className="emu-recent-rail">
+          <h4 className="emu-recent-title">
+            {t("emulators.recent.title")} · {t("emulators.recent.continue")}
+          </h4>
+          <div className="emu-recent-row">
+            {recentGames.map((g) => (
+              <button
+                key={g.id}
+                type="button"
+                className="emu-recent-chip"
+                onClick={() => onInspect(g)}
+                title={g.name}
+              >
+                <span className="emu-recent-chip-name">{g.name}</span>
+                <span className="emu-recent-chip-time">
+                  {new Date(g.lastPlayed ?? 0).toLocaleDateString(undefined, {
+                    month: "short",
+                    day: "numeric",
+                  })}
+                </span>
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* Floating Bulk Selection Bar */}
       <EmulatorRomBulkBar
@@ -345,6 +491,61 @@ function EmulatorRomManagerBase({
           onDelete={onDelete}
           onInspect={onInspect}
         />
+      )}
+
+      {/* Duplicate ROMs modal */}
+      {duplicates && (
+        <div className="modal-overlay emulators-modal-overlay" onMouseDown={() => setDuplicates(null)}>
+          <div
+            className="modal emulators-modal emu-dup-modal"
+            role="dialog"
+            aria-modal="true"
+            onMouseDown={(e) => e.stopPropagation()}
+          >
+            <div className="modal-header">
+              <div className="modal-header-text">
+                <h2>{t("emulators.duplicates.title")}</h2>
+                <p className="modal-subtitle">
+                  {duplicates.length === 0
+                    ? t("emulators.duplicates.none")
+                    : t("emulators.duplicates.groups", { count: duplicates.length })}
+                </p>
+              </div>
+              <button className="modal-close" aria-label={t("common.close")} onClick={() => setDuplicates(null)}>
+                ×
+              </button>
+            </div>
+            <div className="modal-body emu-dup-body">
+              {duplicates.length === 0 ? (
+                <p className="emu-panel-hint">{t("emulators.duplicates.none")}</p>
+              ) : (
+                duplicates.map((group) => (
+                  <div key={group.hash} className="emu-dup-group">
+                    <div className="emu-dup-group-head">
+                      <span className="emu-mono">{group.hash}</span>
+                      <span className="emu-dup-group-size">{formatBytesShort(group.sizeBytes)}</span>
+                    </div>
+                    {group.games.map((g) => (
+                      <div key={g.id} className="emu-dup-game">
+                        <span className="emu-dup-game-name">{g.name}</span>
+                        <span className="emu-mono emu-dup-game-path" title={g.romPath}>
+                          {g.romPath}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                ))
+              )}
+            </div>
+            <div className="modal-footer">
+              <div className="modal-footer-actions">
+                <Button variant="ghost" onClick={() => setDuplicates(null)}>
+                  {t("common.close")}
+                </Button>
+              </div>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );

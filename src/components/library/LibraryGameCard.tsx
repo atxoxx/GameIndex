@@ -163,6 +163,11 @@ function LibraryGameCardBase({
             <Badge variant="info" size="sm" className="lib-card-platform">
               {game.platform}
             </Badge>
+            {game.emulatorId && game.romPath && (
+              <Badge variant="default" size="sm" className="lib-card-platform lib-card-rom-badge">
+                🕹️ {t("library.romBadge")}
+              </Badge>
+            )}
           </div>
         )}
 

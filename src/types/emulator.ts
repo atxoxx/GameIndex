@@ -17,8 +17,141 @@ export interface Emulator {
   romFolder: string;
   notes?: string;
   iconUrl?: string;
+  /** Folder scanned for required BIOS/firmware files (optional). */
+  biosFolder?: string;
+  /** Folder scanned for per-ROM save files / backups (optional). */
+  savesFolder?: string;
+  /** When true, the ROM-folder watcher re-scans automatically on change. */
+  autoScan?: boolean;
   createdAt: number;
   updatedAt: number;
+}
+
+/**
+ * Per-ROM launch profile. Every field is optional — an unset field
+ * falls back to the owning emulator's default. Persisted as JSON in
+ * the `games.rom_profile` column; edited in the ROM detail modal.
+ */
+export interface RomProfile {
+  /** Full launch-argument string. When set, REPLACES the emulator's
+   *  `argumentsTemplate` for this ROM (`%ROM%` is still substituted). */
+  argumentsOverride?: string;
+  /** Graphics backend, e.g. "vulkan" / "opengl" / "direct3d11". */
+  graphicsBackend?: string;
+  /** Preferred internal resolution, e.g. "1080p" / "4x" / "native". */
+  resolution?: string;
+  /** Controller layout name, e.g. "default", "xbox", "ps". */
+  controllerLayout?: string;
+  /** Shader preset name, e.g. "crt-royale", "none". */
+  shaders?: string;
+  /** Force fullscreen for this ROM. */
+  fullscreen?: boolean;
+  /** Extra per-ROM launch environment variables ("KEY=VALUE"). */
+  envVars?: string[];
+}
+
+/** One save file found for a ROM (matched by stem in the saves folder). */
+export interface RomSaveEntry {
+  path: string;
+  name: string;
+  relativePath: string;
+  sizeBytes: number;
+  modifiedAtMs: number;
+  backedUp: boolean;
+}
+
+/** A named snapshot of a ROM's saves stored in app data. */
+export interface SaveSnapshot {
+  name: string;
+  createdAtMs: number;
+  fileCount: number;
+  sizeBytes: number;
+}
+
+/** Backup health summary shown before launching. */
+export interface RomSavesStatus {
+  savesConfigured: boolean;
+  savesFolder?: string;
+  hasSaves: boolean;
+  saveCount: number;
+  lastSaveMtime?: number;
+  lastBackupMtime?: number;
+  outdated: boolean;
+}
+
+/** A BIOS/firmware file an emulator platform expects. */
+export interface BiosRequirement {
+  name: string;
+  description?: string;
+  expectedSha1?: string;
+  mandatory: boolean;
+}
+
+/** Per-file BIOS check result. */
+export interface BiosStatus {
+  name: string;
+  description?: string;
+  found: boolean;
+  path?: string;
+  hashOk?: boolean;
+  mandatory: boolean;
+}
+
+/** Full BIOS check for an emulator's platform. */
+export interface BiosCheckResult {
+  platform: string;
+  biosFolder?: string;
+  configured: boolean;
+  requirements: BiosStatus[];
+  missing: string[];
+}
+
+/** An emulator executable discovered on disk. */
+export interface DiscoveredEmulator {
+  key: string;
+  name: string;
+  platform: string;
+  executablePath: string;
+  executableName: string;
+}
+
+/** A group of ROMs sharing the same file hash (duplicates). */
+export interface DuplicateGroup {
+  hash: string;
+  sizeBytes: number;
+  games: import("./game").Game[];
+}
+
+/** A scraped-metadata candidate for a ROM. */
+export interface RomMetadataCandidate {
+  title: string;
+  description?: string;
+  developer?: string;
+  publisher?: string;
+  releaseDate?: string;
+  genres: string[];
+  coverUrl?: string;
+  sourceUrl?: string;
+  sourceName?: string;
+  igdbId?: number;
+}
+
+/** Final launch plan for a ROM (computed by the backend). */
+export interface RomLaunchPlan {
+  executablePath: string;
+  arguments: string;
+  envVars?: string[];
+  extractedRomPath?: string;
+  savesStatus?: RomSavesStatus;
+}
+
+/** Parsed ROM filename data (backend `rom_identify`). */
+export interface ParsedRomName {
+  cleanTitle: string;
+  region?: string;
+  language?: string;
+  group?: string;
+  disc?: number;
 }
 
 /**

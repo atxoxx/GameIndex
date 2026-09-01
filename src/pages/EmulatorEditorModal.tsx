@@ -57,6 +57,9 @@ export default function EmulatorEditorModal({
     emulator?.argumentsTemplate ?? presetKnown?.argumentsTemplate ?? '"%ROM%"'
   );
   const [notes, setNotes] = useState(emulator?.notes ?? "");
+  const [biosFolder, setBiosFolder] = useState(emulator?.biosFolder ?? "");
+  const [savesFolder, setSavesFolder] = useState(emulator?.savesFolder ?? "");
+  const [autoScan, setAutoScan] = useState(emulator?.autoScan ?? false);
   const [scanAfter, setScanAfter] = useState(false);
   const [saving, setSaving] = useState(false);
 
@@ -114,6 +117,15 @@ export default function EmulatorEditorModal({
     }
   }
 
+  async function pickDir(set: (v: string) => void, title: string) {
+    try {
+      const p = await open({ multiple: false, directory: true, title });
+      if (typeof p === "string") set(p);
+    } catch (err) {
+      console.error(err);
+    }
+  }
+
   async function testLaunch() {
     if (!executablePath.trim()) {
       showToast(t("emulators.launcherNotSet"), "error");
@@ -150,6 +162,9 @@ export default function EmulatorEditorModal({
       argumentsTemplate: argumentsTemplate.trim() || '"%ROM%"',
       romFolder: romFolder.trim(),
       notes: notes.trim() || undefined,
+      biosFolder: biosFolder.trim() || undefined,
+      savesFolder: savesFolder.trim() || undefined,
+      autoScan: autoScan,
       iconUrl: emulator?.iconUrl ?? selectedKnown?.logo,
       createdAt: emulator?.createdAt ?? now,
       updatedAt: now,
@@ -331,6 +346,65 @@ export default function EmulatorEditorModal({
               {selectedKnown.extensions.map((e) => `.${e}`).join(" ")}
             </p>
           )}
+
+          <label className="emulators-field">
+            <span>{t("emulators.bios.title")}</span>
+            <div className="emulators-path-row">
+              <input
+                value={biosFolder}
+                onChange={(e) => setBiosFolder(e.target.value)}
+                placeholder="C:\emu\dolphin\Sys\GC"
+              />
+              <Button
+                type="button"
+                variant="secondary"
+                size="sm"
+                leftIcon={
+                  <svg {...ICON}>
+                    <path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" />
+                  </svg>
+                }
+                onClick={() => pickDir(setBiosFolder, t("emulators.bios.title"))}
+              >
+                {t("emulators.browseFolder")}
+              </Button>
+            </div>
+            <small className="emulators-hint">{t("emulators.bios.docsHint")}</small>
+          </label>
+
+          <label className="emulators-field">
+            <span>{t("emulators.saves.title")}</span>
+            <div className="emulators-path-row">
+              <input
+                value={savesFolder}
+                onChange={(e) => setSavesFolder(e.target.value)}
+                placeholder="C:\emu\dolphin\User\GC\USA\Card A"
+              />
+              <Button
+                type="button"
+                variant="secondary"
+                size="sm"
+                leftIcon={
+                  <svg {...ICON}>
+                    <path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" />
+                  </svg>
+                }
+                onClick={() => pickDir(setSavesFolder, t("emulators.saves.title"))}
+              >
+                {t("emulators.browseFolder")}
+              </Button>
+            </div>
+            <small className="emulators-hint">{t("emulators.saves.folderHint")}</small>
+          </label>
+
+          <label className="emulators-checkbox">
+            <input
+              type="checkbox"
+              checked={autoScan}
+              onChange={(e) => setAutoScan(e.target.checked)}
+            />
+            <span>{t("emulators.editor.autoScan")}</span>
+          </label>
 
           <label className="emulators-field">
             <span>{t("emulators.notes")}</span>

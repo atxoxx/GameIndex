@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
 import type { Game } from "../../types/game";
+import type { RomLaunchPlan } from "../../types/emulator";
 import { isSplashEnabled } from "../SplashContext";
 import type { SplashContextType } from "../SplashContext";
 import type { ToastType } from "../ToastContext";
@@ -182,6 +183,27 @@ export function useLaunch(options: {
         return;
       }
 
+      // ── ROMs: resolve the launch plan first ─────────────────────────
+      // The backend merges the per-ROM profile's argument override,
+      // extracts zip/7z archives into the managed cache, and reports
+      // save-backup health. Abort with a warning when saves are
+      // newer than the latest backup.
+      let gamePath = game.path || "";
+      let launchArgs = game.launchArguments || null;
+      if (game.emulatorId && game.romPath) {
+        const plan = await invoke<RomLaunchPlan>("rom_launch_plan", { gameId: game.id });
+        gamePath = plan.executablePath;
+        launchArgs = plan.arguments;
+        if (plan.savesStatus?.outdated) {
+          const proceed = window.confirm(t("emulators.saves.launchWarning"));
+          if (!proceed) {
+            setRunningGameIds((prev) => prev.filter((id) => id !== game.id));
+            if (splashOn) splash.close();
+            return;
+          }
+        }
+      }
+
       // ── Unified launch: single Tauri command for all game types ─────
       // The Rust backend handles:
       //   * Direct exe spawn (Local games, Steam with known path)
@@ -191,12 +213,12 @@ export function useLaunch(options: {
       await invoke<string>("launch_game", {
         gameId: game.id,
         gameName: game.name,
-        gamePath: game.path || "",
+        gamePath,
         platform: game.platform,
         steamAppId: game.steamAppId ?? null,
         gpuId,
         gpuName,
-        launchArguments: game.launchArguments || null,
+        launchArguments: launchArgs,
         runAsAdmin: game.runAsAdmin || null,
         showSteamLaunchSelection: game.showSteamLaunchSelection || null,
         preLaunchScript: game.preLaunchScript || null,

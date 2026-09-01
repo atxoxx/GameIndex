@@ -18,7 +18,7 @@ crate-type = ["staticlib", "cdylib", "rlib"]
 tauri-build = { version = "2", features = [] }
 
 [dependencies]
-tauri = { version = "2", features = ["unstable", "tray-icon"] }
+tauri = { version = "2", features = ["protocol-asset", "unstable", "tray-icon"] }
 tauri-plugin-opener = "2"
 tauri-plugin-updater = "2"
 tauri-plugin-process = "2"
@@ -98,6 +98,10 @@ sha2 = "0.10"
 # the local artifact and asks Nexus which mod it belongs to — the same
 # linking trick Vortex uses for manually-installed mods).
 md-5 = "0.10"
+# SHA-1 for BIOS-file validation against known-good dump hashes
+# (`roms::check_bios_status`). Pure-Rust, already in the lock graph
+# transitively via other crates.
+sha1 = "0.10"
 # ZIP extraction for RetroAchievements ROM-hash matching (the RA client
 # hashes the first file inside a `.zip` ROM, skipping archives >20 MB).
 # `default-features = false` + `deflate` keeps the direct dependency

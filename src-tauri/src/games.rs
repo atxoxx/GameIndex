@@ -8,7 +8,7 @@ use crate::launcher::CompanionApp;
 use std::collections::HashSet;
 
 /// Serializable game data matching the frontend Game type.
-#[derive(Debug, Serialize, Deserialize, Clone)]
+#[derive(Debug, Serialize, Deserialize, Clone, Default)]
 #[serde(rename_all = "camelCase")]
 pub(crate) struct GameData {
     pub(crate) id: String,
@@ -201,6 +201,68 @@ pub(crate) struct GameData {
     /// launch argument.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub(crate) rom_path: Option<String>,
+    // ── ROM management fields (v7 migration) ──
+    /// Quick hash of the ROM file used for duplicate detection.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub(crate) rom_hash: Option<String>,
+    /// Region tag parsed from the filename (No-Intro style).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub(crate) rom_region: Option<String>,
+    /// Language tag parsed from the filename.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub(crate) rom_language: Option<String>,
+    /// Multi-disc group key (cleaned shared title).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub(crate) rom_group: Option<String>,
+    /// 1-based disc index for multi-disc sets.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub(crate) rom_disc: Option<u32>,
+    /// True when the ROM file is an archive needing extraction.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub(crate) rom_archived: Option<bool>,
+    /// User flag: favorite ROM.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub(crate) favorite: Option<bool>,
+    /// Personal compatibility notes ("use Vulkan", "requires BIOS").
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub(crate) compat_notes: Option<String>,
+    /// Per-ROM launch profile overrides.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub(crate) rom_profile: Option<RomProfile>,
+}
+
+/// Per-ROM emulator launch profile. Every field is optional — an
+/// unset field falls back to the owning emulator's default (template
+/// arguments, fullscreen flag, …). Persisted as a JSON object in the
+/// `games.rom_profile` column; the frontend edits it in the ROM
+/// detail modal.
+#[derive(Debug, Serialize, Deserialize, Clone, Default, PartialEq)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct RomProfile {
+    /// Full launch-argument string. When set, REPLACES the emulator's
+    /// `arguments_template` for this ROM (the `%ROM%` placeholder is
+    /// still substituted).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub(crate) arguments_override: Option<String>,
+    /// Graphics backend, e.g. `vulkan` / `opengl` / `direct3d11`.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub(crate) graphics_backend: Option<String>,
+    /// Preferred internal resolution, e.g. `1080p` / `4x` / `native`.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub(crate) resolution: Option<String>,
+    /// Controller layout name, e.g. `default`, `xbox`, `ps`, or a
+    /// custom per-ROM mapping id.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub(crate) controller_layout: Option<String>,
+    /// Shader preset name, e.g. `crt-royale`, `none`.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub(crate) shaders: Option<String>,
+    /// Force fullscreen for this ROM.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub(crate) fullscreen: Option<bool>,
+    /// Extra per-ROM launch environment variables (`KEY=VALUE`).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub(crate) env_vars: Option<Vec<String>>,
 }
 
 /// Serializable Steam achievement for the GameData struct.
