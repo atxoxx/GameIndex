@@ -44,6 +44,10 @@ import {
   DetailSectionsHiddenNote,
 } from "../components/game";
 import "../styles/page-store.css";
+import "../styles/achievements.css";
+import "../styles/reviews.css";
+import "../styles/game-news.css";
+import "../styles/weblinks.css";
 
 /* ------------------------------------------------------------------ */
 /*  Error and Not Found States                                         */

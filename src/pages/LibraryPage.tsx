@@ -23,6 +23,7 @@ import LibraryBulkBar from "../components/library/LibraryBulkBar";
 import { ConfirmModal } from "../components/ui/ConfirmModal";
 import { useFilterPresets } from "../hooks/useFilterPresets";
 import type { FilterPreset } from "../hooks/libraryFilters";
+import "../library.css";
 
 export default function LibraryPage() {
   const navigate = useNavigate();

@@ -1,16 +1,11 @@
 import React from "react";
 import ReactDOM from "react-dom/client";
 import App from "./App";
-import { initNostrKeys } from "./pages/friendsStorage";
 import "./index.css";
 import "./styles/animations.css";
 import "./styles/ui.css";
 import "./styles/store-discover.css";
-import "./styles/wishlist.css";
 import "./styles/download.css";
-import "./library.css";
-import "./styles/home.css";
-import "./pages/deals/DealsPage.css";
 import "./styles/store-polish.css";
 
 // The friends page resolves its Nostr signing key lazily via `getNostrKeys`,
@@ -18,11 +13,19 @@ import "./styles/store-polish.css";
 // isn't loaded yet. So hydration can run in the background instead of
 // blocking the first render — a slow kv_store read must never delay the
 // app shell from painting.
+//
+// friendsStorage is imported dynamically (not statically) so the
+// nostr-tools stack (~190 KB) never lands in the startup bundle: it is
+// split into its own async chunk that only loads in the background after
+// bootstrap, and on the rare occasion the user opens the Friends page
+// before it has landed, `getNostrKeys` degrades to the session fallback.
 async function bootstrap() {
   // Fire-and-forget: hydrate the Nostr key cache when reachable, but never
   // gate first paint on it. Any failure is non-fatal and flows through the
   // legacy/placeholder fallback path.
-  void initNostrKeys().catch(() => {});
+  void import("./pages/friendsStorage")
+    .then((m) => m.initNostrKeys())
+    .catch(() => {});
   ReactDOM.createRoot(document.getElementById("root") as HTMLElement).render(
     <React.StrictMode>
       <App />

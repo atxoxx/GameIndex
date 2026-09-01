@@ -6,16 +6,11 @@
 @import "./styles/settings.css";
 @import "./styles/game-cards.css";
 @import "./styles/game-page.css";
-@import "./styles/game-news.css";
 @import "./styles/game-edit.css";
 @import "./styles/toasts.css";
 @import "./styles/modals.css";
 @import "./styles/imports.css";
-@import "./styles/reviews.css";
-@import "./styles/activity.css";
-@import "./styles/weblinks.css";
 @import "./styles/splashscreen.css";
 @import "./styles/crackwatch.css";
-@import "./styles/achievements.css";
 @import "./styles/status-badges.css";
 @import "./styles/command-palette.css";

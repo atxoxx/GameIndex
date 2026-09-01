@@ -36,6 +36,11 @@ import {
 } from "../components/game";
 import { GameActivityTab } from "../components/game/GameActivityTab";
 import GameNewsTab from "../components/game/GameNewsTab";
+import "../styles/activity.css";
+import "../styles/achievements.css";
+import "../styles/reviews.css";
+import "../styles/game-news.css";
+import "../styles/weblinks.css";
 import { useAchievements } from "../context/AchievementContext";
 import { Button, ConfirmModal } from "../components/ui";
 import {

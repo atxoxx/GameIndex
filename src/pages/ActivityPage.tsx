@@ -17,6 +17,7 @@ import { Segmented, RangePills } from "../components/activity";
 import type { DateRangeKey } from "../components/activity";
 import { useLanguage } from "../context/LanguageContext";
 import "./activity/ActivityPage.css";
+import "../styles/activity.css";
 
 type TabType = "dashboard" | "timeline" | "sessions" | "performance";
 type AggregationType = "day" | "week" | "month";

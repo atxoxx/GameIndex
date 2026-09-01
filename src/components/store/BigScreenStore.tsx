@@ -8,6 +8,7 @@ import { useGamepad } from "../../hooks/GamepadProvider";
 import BigScreenStoreRail from "./BigScreenStoreRail";
 import BigScreenPill from "../bigscreen/BigScreenPill";
 import type { StoreGameSummary } from "../../types/game";
+import "../../styles/wishlist.css";
 
 export default function BigScreenStore() {
   const { t } = useLanguage();

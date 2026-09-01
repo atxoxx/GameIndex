@@ -29,6 +29,8 @@ import DealDetailModal, {
   type ModalDealTarget,
 } from "../components/deals/DealDetailModal";
 import NewsArticlePreview from "../components/news/NewsArticlePreview";
+import "../styles/home.css";
+import "../library.css";
 
 /**
  * HomePage — the app's refined central dashboard.

@@ -41,6 +41,7 @@ import { useTrayStrings } from "./hooks/useTrayStrings";
 import { LandingRedirect } from "./components/LandingRedirect";
 import Splashscreen from "./components/Splashscreen";
 import { AdaptiveThemeSync } from "./components/AdaptiveThemeSync";
+import { Skeleton } from "./components/ui/Skeleton";
 import "./App.css";
 import "./store.css";
 import "./styles/page.css";
@@ -77,6 +78,33 @@ function AppShellLayout() {
   );
 }
 
+/**
+ * PageLoadingFallback — skeleton shown while a lazy page chunk downloads
+ * and parses. Replaces the previous blank <Suspense fallback={null}>
+ * so navigation never flashes an empty page area: the shell (topnav +
+ * sidebar) stays mounted and the content region shows a neutral grid
+ * of shimmer placeholders instead of nothing.
+ */
+function PageLoadingFallback() {
+  return (
+    <div className="page-fallback" aria-busy="true" role="status">
+      <div className="page-fallback__header">
+        <Skeleton width="260px" height="2.4em" />
+        <Skeleton width="150px" height="1.3em" />
+      </div>
+      <div className="page-fallback__grid">
+        {Array.from({ length: 12 }, (_, i) => (
+          <div key={i} className="page-fallback__tile">
+            <Skeleton shape="rect" width="100%" height="130px" />
+            <Skeleton width="82%" />
+            <Skeleton width="58%" />
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 function AppShell() {
   useDiscordPresence();
   useTrayNavigation();
@@ -84,7 +112,7 @@ function AppShell() {
   const { isBigScreen } = useBigScreen();
   return (
     <GamepadProvider enabled={isBigScreen}>
-      <Suspense fallback={null}>
+      <Suspense fallback={<PageLoadingFallback />}>
         <Routes>
           <Route element={<AppLayout />}>
             <Route index element={<LandingRedirect />} />
@@ -108,6 +136,29 @@ function App() {
   // (tauri.conf.json), so this is the hand-off that swaps splash -> app.
   useEffect(() => {
     invoke("close_splashscreen").catch(() => {});
+  }, []);
+
+  // Warm the most-visited page chunks during idle time so the first
+  // navigation (the default landing page is the library) paints without
+  // waiting on the lazy fetch. Each dynamic import just loads + parses
+  // the chunk; nothing renders until the user actually navigates there.
+  useEffect(() => {
+    const preload = () => {
+      void import("./pages/LibraryPage").catch(() => {});
+      void import("./pages/HomePage").catch(() => {});
+      void import("./pages/StorePage").catch(() => {});
+    };
+    const id =
+      typeof window.requestIdleCallback === "function"
+        ? window.requestIdleCallback(preload, { timeout: 2000 })
+        : window.setTimeout(preload, 1500);
+    return () => {
+      if (typeof window.cancelIdleCallback === "function") {
+        window.cancelIdleCallback(id);
+      } else {
+        window.clearTimeout(id);
+      }
+    };
   }, []);
 
   return (

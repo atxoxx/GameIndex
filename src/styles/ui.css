@@ -909,3 +909,36 @@
 .scrollable {
   overflow: auto;
 }
+
+@keyframes ui-fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+/* Route-loading skeleton — shown by <Suspense> while a lazy page chunk
+   downloads. Neutral shimmer grid so navigation never flashes blank. */
+.page-fallback {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-xl, 24px);
+  padding: var(--space-xl, 24px);
+  animation: ui-fade-in 120ms ease-out;
+}
+
+.page-fallback__header {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm, 8px);
+}
+
+.page-fallback__grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  gap: var(--space-md, 14px);
+}
+
+.page-fallback__tile {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm, 8px);
+}

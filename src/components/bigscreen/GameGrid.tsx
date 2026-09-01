@@ -31,6 +31,7 @@ import type { ReactNode } from "react";
 import type { Game } from "../../types/game";
 import BigScreenGameCard from "../library/BigScreenGameCard";
 import { isBigScreenOverlayOpen } from "../../context/BigScreenContext";
+import "../../library.css";
 
 const VIRTUALIZE_THRESHOLD = 60;
 

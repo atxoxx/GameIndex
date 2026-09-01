@@ -8,6 +8,7 @@ import type { StoreGameSummary, WishlistEntry } from "../types/game";
 import { PageHeader } from "../components/ui";
 import { useLanguage } from "../context/LanguageContext";
 import "../styles/page-wishlist.css";
+import "../styles/wishlist.css";
 
 type WishlistSort = "date_added" | "name" | "rating" | "release_date";
 type WishlistGroup = "all" | "released" | "coming_soon";

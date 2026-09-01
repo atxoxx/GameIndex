@@ -10,6 +10,7 @@ import { useDriveUsage } from "../../pages/storage/useDriveUsage";
 import { useFocusable } from "../../hooks/useFocusable";
 import { driveBuckets } from "../../pages/storage/utils";
 import type { Game, GameAchievementData } from "../../types/game";
+import "../../styles/achievements.css";
 
 type SystemSection =
   | "downloads"

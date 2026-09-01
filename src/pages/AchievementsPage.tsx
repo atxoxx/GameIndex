@@ -1,6 +1,7 @@
 import { useState, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import "../styles/page-achievements.css";
+import "../styles/achievements.css";
 import { useAchievements } from "../context/AchievementContext";
 import { useGames } from "../context/GameContext";
 import { useToast } from "../context/ToastContext";

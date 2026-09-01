@@ -32,7 +32,7 @@ import {
   getUnseenCommunityItems,
   clearUnseenCommunityItems,
   subscribeUnseenCommunity,
-} from "../pages/friendsStorage";
+} from "../pages/unseenCommunity";
 import DownloadPopover from "./DownloadPopover";
 import WindowControls from "./WindowControls";
 import CommandPalette from "./CommandPalette";
