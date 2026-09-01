@@ -54,12 +54,9 @@
 }
 
 .topnav-logo__word {
-  color: var(--color-text-primary);
+  color: var(--color-accent);
   font-weight: 800;
   letter-spacing: -0.03em;
-  background: linear-gradient(135deg, var(--color-text-primary) 30%, var(--color-accent) 100%);
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
 }
 
 .topnav-logo__version {
