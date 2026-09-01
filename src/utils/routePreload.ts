@@ -11,6 +11,8 @@
 
 type Importer = () => Promise<unknown>;
 
+const routePromises = new Map<string, Promise<unknown>>();
+
 const ROUTE_CHUNK_MAP: Record<string, Importer> = {
   "/library": () => import("../pages/LibraryPage"),
   "/home": () => import("../pages/HomePage"),
@@ -42,8 +44,11 @@ export function preloadRoute(path: string): void {
   const importer = ROUTE_CHUNK_MAP[normPath] || ROUTE_CHUNK_MAP[baseSegment];
   if (importer && !preloadedSet.has(normPath)) {
     preloadedSet.add(normPath);
-    importer().catch(() => {
+    const promise = importer();
+    routePromises.set(normPath, promise);
+    promise.catch(() => {
       preloadedSet.delete(normPath);
+      routePromises.delete(normPath);
     });
   }
 }
@@ -52,8 +57,11 @@ export function preloadRoute(path: string): void {
 export function preloadGameDetail(): void {
   if (!preloadedSet.has("/game-detail")) {
     preloadedSet.add("/game-detail");
-    ROUTE_CHUNK_MAP["/game-detail"]?.().catch(() => {
+    const promise = ROUTE_CHUNK_MAP["/game-detail"]?.();
+    if (promise) routePromises.set("/game-detail", promise);
+    promise?.catch(() => {
       preloadedSet.delete("/game-detail");
+      routePromises.delete("/game-detail");
     });
   }
 }
@@ -61,8 +69,11 @@ export function preloadGameDetail(): void {
 export function preloadStoreDetail(): void {
   if (!preloadedSet.has("/store-detail")) {
     preloadedSet.add("/store-detail");
-    ROUTE_CHUNK_MAP["/store-detail"]?.().catch(() => {
+    const promise = ROUTE_CHUNK_MAP["/store-detail"]?.();
+    if (promise) routePromises.set("/store-detail", promise);
+    promise?.catch(() => {
       preloadedSet.delete("/store-detail");
+      routePromises.delete("/store-detail");
     });
   }
 }
