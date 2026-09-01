@@ -452,17 +452,17 @@ export function DownloadProvider({ children }: { children: ReactNode }) {
           // byte-identical payload (idle seed / paused / stalled) needs no
           // completion scan and no deep compare. Field order is preserved by
           // the Rust serde output, so the JSON string is a stable fingerprint.
-          const sig = JSON.stringify(event.payload);
+          const sig = event.payload
+            .map((d) => `${d.id}:${d.status.kind}:${d.downloaded}:${d.totalSize}:${d.progress}:${d.downloadSpeed}:${d.uploadSpeed}:${d.peers}:${d.seeds}`)
+            .join("|");
           if (sig === lastSnapshotSigRef.current) return;
           lastSnapshotSigRef.current = sig;
-          notifyCompletionsRef.current(event.payload);
-          setDownloads((prev) => {
-            if (areDownloadsEqual(prev, event.payload)) {
-              return prev;
-            }
+          notifyCompletionsRef.current(event.payload);          setDownloads((prev) => {
+            if (areDownloadsEqual(prev, event.payload)) return prev;
             return event.payload;
           });
           setLoading(false);
+
         });
         if (cancelled) {
           unlistenFn();

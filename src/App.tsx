@@ -30,7 +30,6 @@ import { UpdateProvider } from "./context/UpdateContext";
 import { SteamGridDbProvider } from "./context/SteamGridDbContext";
 import { CrackWatchProvider } from "./context/CrackWatchContext";
 import { PriceProvider } from "./context/PriceContext";
-import { scheduleIdleRoutePreloading } from "./utils/routePreload";
 import { UpdateModal } from "./components/ui/UpdateModal";
 import { UpdateNotification } from "./components/ui/UpdateNotification";
 import {
@@ -141,13 +140,9 @@ function App() {
     invoke("close_splashscreen").catch(() => {});
   }, []);
 
-  // Preload only the core routes during idle time. Loading every page chunk
-  // at startup keeps navigation warm but needlessly increases RAM for pages
-  // most users never open; hover/focus preloading handles the rest.
-  useEffect(() => {
-    const cancel = scheduleIdleRoutePreloading();
-    return cancel;
-  }, []);
+  // Route chunks are loaded on demand. Navigation components still preload
+  // the route being hovered/focused, avoiding the resident memory cost of
+  // warming pages the user may never visit.
 
   return (
     <HashRouter>

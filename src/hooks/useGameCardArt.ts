@@ -1,5 +1,5 @@
 import { useState, useMemo, useCallback, useEffect, type SyntheticEvent } from "react";
-import { useSteamGridArt, usePrefetchImage } from "../context/SteamGridDbContext";
+import { useSteamGridArt } from "../context/SteamGridDbContext";
 import {
   extractSteamAppId,
   extractSteamAppIdFromWebsites,
@@ -144,9 +144,9 @@ export function useGameCardArt(options: UseGameCardArtOptions): UseGameCardArtRe
   const sgdbIcon = sgdb?.iconUrl && !sgdbIconFailed ? sgdb.iconUrl : null;
   const isActive = isHovered || isFocused;
 
-  // Decode animated art only for an actively hovered card. Prefetching every
-  // visible card creates large decoded image buffers and raises working-set RAM.
-  usePrefetchImage(isActive ? sgdbAnimated : null);
+  // Do not prefetch animated artwork. Decoding animated WebP/APNG files for
+  // cards before they are visible can allocate several large frame buffers.
+  // The browser will load the image when the active card actually renders.
 
   // Resolve best icon & poster
   const resolvedIcon = !iconFailed && ownIcon ? ownIcon : sgdbIcon;
