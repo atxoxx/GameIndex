@@ -44,7 +44,11 @@ function SidebarGameItemBase({
   const sgdb = useSteamGridArt(
     isNearViewport && !game.iconUrl ? game.steamAppId : null
   );
-  const iconFetchRef = useRef(false);
+  // AppID we've already attempted an icon fetch for. Keyed on the AppID
+  // (not a boolean) so a game whose steamAppId is resolved later by
+  // enrichment can still fetch its icon in the same session, instead of
+  // being permanently latched out on first mount while the row had no AppID.
+  const attemptedIconAppIdRef = useRef<number | null>(null);
 
   // Auto-enrich criteria — short-circuits the observer setup so we
   // don't spam IGDB for games we already know are unmatched.
@@ -54,22 +58,22 @@ function SidebarGameItemBase({
     !!game.name;
 
   // Auto-fetch the SteamGridDB icon: when the batched lookup resolves and
-  // the row still has no icon, download the community icon to a base64
-  // data URL (keeping PNG alpha) and persist it on the game row so the
+  // the row still has no icon, download the community icon to a disk-backed
+  // asset URL (keeping PNG alpha) and persist it on the game row so the
   // icon survives restarts and is used everywhere iconUrl is read.
   useEffect(() => {
-    if (iconFetchRef.current) return;
-    if (game.iconUrl) {
-      iconFetchRef.current = true;
-      return;
-    }
-    if (!game.steamAppId) {
-      iconFetchRef.current = true; // nothing SteamGridDB can do without an appid
-      return;
-    }
+    if (game.iconUrl) return; // already has an icon — never override
+    if (!game.steamAppId) return; // AppID may arrive later via enrichment — don't latch
+    if (attemptedIconAppIdRef.current === game.steamAppId) return; // already tried for this AppID
     const iconUrl = sgdb?.iconUrl;
-    if (!iconUrl) return; // lookup not resolved yet, or no community icon
-    iconFetchRef.current = true;
+    if (!iconUrl) {
+      // Lookup not resolved yet, or the batch confirmed this game has no
+      // community icon — latch the definitive negative so we don't retry
+      // on every `game` change, but only once we know for sure.
+      if (sgdb) attemptedIconAppIdRef.current = game.steamAppId;
+      return;
+    }
+    attemptedIconAppIdRef.current = game.steamAppId;
     let cancelled = false;
     invoke<string | null>("download_artwork", { gameId: game.id, slot: "icon", url: iconUrl })
       .then(async (relativePath) => {
