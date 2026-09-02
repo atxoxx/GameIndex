@@ -278,13 +278,13 @@ function LibraryGameCardBase({
               onError={handleError}
               className="lib-card-cover-static"
             />
-            {animatedPosterUrl && hovered && (
+            {animatedPosterUrl && (
               <img
                 src={animatedPosterUrl}
                 alt=""
                 aria-hidden="true"
                 decoding="async"
-                className="lib-card-cover-animated is-active"
+                className={`lib-card-cover-animated${hovered ? " is-active" : ""}`}
                 onError={handleError}
               />
             )}

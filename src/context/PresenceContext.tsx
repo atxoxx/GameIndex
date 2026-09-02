@@ -1,4 +1,4 @@
-import { createContext, useContext, useState, type ReactNode } from "react";
+import { createContext, useCallback, useContext, useMemo, useState, type ReactNode } from "react";
 
 /**
  * PresenceContext
@@ -35,10 +35,23 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
   const [storePlatforms, setStorePlatforms] = useState<string[]>([]);
   const [modsGameName, setModsGameName] = useState<string | null>(null);
 
+  const handleSetStorePlatforms = useCallback((platforms: string[]) => {
+    setStorePlatforms(platforms);
+  }, []);
+
+  const handleSetModsGameName = useCallback((name: string | null) => {
+    setModsGameName(name);
+  }, []);
+
+  const contextValue = useMemo(() => ({
+    storePlatforms,
+    setStorePlatforms: handleSetStorePlatforms,
+    modsGameName,
+    setModsGameName: handleSetModsGameName,
+  }), [storePlatforms, handleSetStorePlatforms, modsGameName, handleSetModsGameName]);
+
   return (
-    <PresenceContext.Provider
-      value={{ storePlatforms, setStorePlatforms, modsGameName, setModsGameName }}
-    >
+    <PresenceContext.Provider value={contextValue}>
       {children}
     </PresenceContext.Provider>
   );

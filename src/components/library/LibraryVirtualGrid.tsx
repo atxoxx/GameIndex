@@ -294,6 +294,7 @@ export default function LibraryVirtualGrid({
     const ro = new ResizeObserver(measure);
     ro.observe(el);
 
+    let rafId = 0;
     const computeScrollTop = () => {
       const elRect = el.getBoundingClientRect();
       const containerRect =
@@ -307,10 +308,19 @@ export default function LibraryVirtualGrid({
     };
     computeScrollTop();
 
-    container.addEventListener("scroll", computeScrollTop, { passive: true });
+    const onScroll = () => {
+      if (rafId) return;
+      rafId = requestAnimationFrame(() => {
+        rafId = 0;
+        computeScrollTop();
+      });
+    };
+
+    container.addEventListener("scroll", onScroll, { passive: true });
     return () => {
+      if (rafId) cancelAnimationFrame(rafId);
       ro.disconnect();
-      container.removeEventListener("scroll", computeScrollTop);
+      container.removeEventListener("scroll", onScroll);
       containerRef.current = null;
     };
   }, [useVirtual, measure]);

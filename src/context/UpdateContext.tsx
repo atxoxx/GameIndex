@@ -3,6 +3,7 @@ import {
   useCallback,
   useContext,
   useEffect,
+  useMemo,
   useRef,
   useState,
   type ReactNode,
@@ -510,31 +511,52 @@ export function UpdateProvider({ children }: { children: ReactNode }) {
     };
   }, [autoCheckUpdates, checkForUpdates]);
 
+  const contextValue = useMemo(() => ({
+    installMode,
+    autoCheckUpdates,
+    setAutoCheckUpdates,
+    status,
+    updateInfo,
+    error,
+    progress,
+    lastCheckedAt,
+    checkForUpdates,
+    installUpdate,
+    downloadUpdate,
+    applyUpdate,
+    cancelDownload,
+    skipVersion,
+    snoozeUpdate,
+    showModal,
+    setShowModal,
+    showUpdateNotification,
+    dismissUpdateNotification,
+    openUpdateModal,
+  }), [
+    installMode,
+    autoCheckUpdates,
+    setAutoCheckUpdates,
+    status,
+    updateInfo,
+    error,
+    progress,
+    lastCheckedAt,
+    checkForUpdates,
+    installUpdate,
+    downloadUpdate,
+    applyUpdate,
+    cancelDownload,
+    skipVersion,
+    snoozeUpdate,
+    showModal,
+    setShowModal,
+    showUpdateNotification,
+    dismissUpdateNotification,
+    openUpdateModal,
+  ]);
+
   return (
-    <UpdateContext.Provider
-      value={{
-        installMode,
-        autoCheckUpdates,
-        setAutoCheckUpdates,
-        status,
-        updateInfo,
-        error,
-        progress,
-        lastCheckedAt,
-        checkForUpdates,
-        installUpdate,
-        downloadUpdate,
-        applyUpdate,
-        cancelDownload,
-        skipVersion,
-        snoozeUpdate,
-        showModal,
-        setShowModal,
-        showUpdateNotification,
-        dismissUpdateNotification,
-        openUpdateModal,
-      }}
-    >
+    <UpdateContext.Provider value={contextValue}>
       {children}
     </UpdateContext.Provider>
   );

@@ -256,14 +256,9 @@ export function GameProvider({ children }: { children: ReactNode }) {
   // `gamesRef.current = games` above).
   removeGamesRef.current = removeGames;
 
-  const gamesWithTracking = useMemo(
-    () => games.map((g) => ({ ...g, untracked: sessions.untrackedGameIds.has(g.id) })),
-    [games, sessions.untrackedGameIds]
-  );
-
   const getGame = useCallback(
-    (id: string) => gamesWithTracking.find((g) => g.id === id),
-    [gamesWithTracking]
+    (id: string) => games.find((g) => g.id === id),
+    [games]
   );
 
   const addStoreGame = useCallback(async (metadata: GameMetadataResult): Promise<string> => {
@@ -461,7 +456,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
   }, [games, showToast, fetchGameReviews, updateGame, fetchAllImages, scheduleWatcherIndexRebuild, t]);
 
   const contextValue = useMemo(() => ({
-    games: gamesWithTracking,
+    games,
     gamesHydrated,
     selectedGameId,
     setSelectedGameId,
@@ -483,7 +478,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
     isGameUntracked: sessions.isGameUntracked,
     toggleGameTracking: sessions.toggleGameTracking,
   }), [
-    gamesWithTracking,
+    games,
     gamesHydrated,
     selectedGameId,
     addGame,

@@ -4,6 +4,7 @@ import {
   useState,
   useCallback,
   useEffect,
+  useMemo,
   useRef,
   type ReactNode,
 } from "react";
@@ -396,23 +397,36 @@ export function ActivityProvider({ children }: { children: ReactNode }) {
     [sessions, games]
   );
 
+  const contextValue = useMemo(() => ({
+    sessions,
+    selectedGpu,
+    availableGpus,
+    totalRamGb,
+    setSelectedGpu: handleSetSelectedGpu,
+    refreshGpus,
+    getGameSessions,
+    getAllStats,
+    getGameStats,
+    recordSession,
+    deleteSession,
+    deleteSessionsForGame,
+  }), [
+    sessions,
+    selectedGpu,
+    availableGpus,
+    totalRamGb,
+    handleSetSelectedGpu,
+    refreshGpus,
+    getGameSessions,
+    getAllStats,
+    getGameStats,
+    recordSession,
+    deleteSession,
+    deleteSessionsForGame,
+  ]);
+
   return (
-    <ActivityContext.Provider
-      value={{
-        sessions,
-        selectedGpu,
-        availableGpus,
-        totalRamGb,
-        setSelectedGpu: handleSetSelectedGpu,
-        refreshGpus,
-        getGameSessions,
-        getAllStats,
-        getGameStats,
-        recordSession,
-        deleteSession,
-        deleteSessionsForGame,
-      }}
-    >
+    <ActivityContext.Provider value={contextValue}>
       {children}
     </ActivityContext.Provider>
   );
