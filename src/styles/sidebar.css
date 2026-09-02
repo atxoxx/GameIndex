@@ -12,6 +12,18 @@
   box-shadow: inset 0 1px 0 var(--color-border-highlight), inset -1px 0 0 var(--color-border-faint);
 }
 
+/* Game-accent tint: when a game palette is live (auto game accent) the
+ * sidebar picks up a subtle wash from the accent family. Gated on the
+ * data-game-accent attribute set by GameHero / GameAccentSync so default
+ * themes and a plain user accent pick stay untouched. */
+html[data-game-accent] .sidebar {
+  background: color-mix(in srgb, var(--color-accent) 6%, var(--color-bg-secondary));
+  border-right: 1px solid color-mix(in srgb, var(--color-accent) 22%, transparent);
+  box-shadow:
+    inset 0 1px 0 color-mix(in srgb, var(--color-accent) 16%, transparent),
+    inset -1px 0 0 color-mix(in srgb, var(--color-accent) 10%, transparent);
+}
+
 .sidebar-header {
   padding: var(--space-md) var(--space-md) var(--space-xs);
 }

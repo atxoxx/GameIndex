@@ -45,15 +45,20 @@ export function GameAccentSync() {
     if (!autoGameAccent) {
       // Leaving auto mode: hand control back to the user accent baseline.
       applyAccentFamily(root, accentColor);
+      delete root.dataset.gameAccent;
       return;
     }
     if (isPageOwnedRoute) return; // the page hero owns the family here
     if (!palette) {
       // No active game artwork — restore the persisted accent baseline.
       applyAccentFamily(root, accentColor);
+      delete root.dataset.gameAccent;
       return;
     }
     applyGameAccentFamily(root, palette);
+    // Flag the chrome tint (sidebar/topnav/window controls) that reads the
+    // live game accent; cleared above whenever the baseline is restored.
+    root.dataset.gameAccent = "true";
   }, [autoGameAccent, palette, accentColor, isPageOwnedRoute]);
 
   return null;

@@ -121,6 +121,9 @@ export default function GameHero({
   useEffect(() => {
     if (!autoGameAccent || !gamePalette) return;
     applyGameAccentFamily(document.documentElement, gamePalette);
+    // Flag the chrome tint (sidebar/topnav/window controls) that reads the
+    // live game accent; GameAccentSync clears it when leaving the page.
+    document.documentElement.dataset.gameAccent = "true";
   }, [autoGameAccent, gamePalette]);
 
   // Ambient background ladder — animated SteamGridDB hero leads, then the

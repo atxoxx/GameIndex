@@ -565,6 +565,28 @@
   background: color-mix(in srgb, var(--color-danger) 80%, var(--color-bg-primary) 20%);
 }
 
+/* ── Game-Accent Chrome Tint ───────────────────────────────────────────
+ * When a game palette is live (auto game accent), the title bar and the
+ * min/max/close hover borrow a subtle wash from the accent family so the
+ * whole window chrome wears the game's colors. Gated on the
+ * data-game-accent attribute (set by GameHero / GameAccentSync) so the
+ * default themes and a plain user accent pick stay untouched. */
+html[data-game-accent] .topnav {
+  background: color-mix(in srgb, var(--color-accent) 7%, var(--color-bg-primary));
+  border-bottom: 1px solid color-mix(in srgb, var(--color-accent) 20%, transparent);
+  box-shadow:
+    0 1px 0 var(--color-border-faint),
+    inset 0 1px 0 color-mix(in srgb, var(--color-accent) 24%, transparent);
+}
+
+html[data-game-accent] .window-controls-btn:hover {
+  background: color-mix(in srgb, var(--color-accent) 18%, var(--color-bg-hover));
+}
+
+html[data-game-accent] .window-controls-btn:active {
+  background: color-mix(in srgb, var(--color-accent) 26%, var(--color-bg-active));
+}
+
 /* ── TopNav Compact Mode: More Dropdown ───────────────────────── */
 .topnav-more-container {
   position: relative;
