@@ -8,6 +8,7 @@ import type { GameMetadataResult, IgdbReview, Game, StoreGameSummary } from "../
 import { useWishlistContext } from "../context/WishlistContext";
 import { useSettings, type DetailSectionKey } from "../context/SettingsContext";
 import { useSizeUnit } from "../hooks/useSizeUnit";
+import { setActiveGameArtwork } from "../utils/activeGameArtwork";
 import { Button } from "../components/ui";
 import WebLinksTab from "../components/WebLinksTab";
 import ReviewsTab from "../components/ReviewsTab";
@@ -251,6 +252,15 @@ export default function StoreGameDetail() {
     setData(null);
     fetchData();
   }, [fetchData]);
+
+  // Publish store game artwork for Adaptive Theme and Auto Game Accent
+  useEffect(() => {
+    const art =
+      data?.images.cover ?? data?.images.hero ?? data?.images.banner ?? null;
+    if (art) {
+      setActiveGameArtwork(art);
+    }
+  }, [data]);
 
   // Enrich title via IGDB if needed
   useEffect(() => {

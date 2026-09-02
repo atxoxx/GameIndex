@@ -44,6 +44,7 @@ import { useNavigate, useParams } from "react-router-dom";
 import type { Game } from "../../types/game";
 import { useGames, NO_IGDB_MATCH_SOURCE } from "../../context/GameContext";
 import { useLanguage } from "../../context/LanguageContext";
+import { usePublishGameArtwork } from "../../utils/activeGameArtwork";
 import { useFocusable } from "../../hooks/useFocusable";
 import { useGamepad } from "../../hooks/GamepadProvider";
 import { useSteamAppId } from "../../hooks/useSteamAppId";
@@ -91,6 +92,8 @@ export default function BigScreenGamePage() {
   const navigate = useNavigate();
   const { getGame } = useGames();
   const game = gameId ? getGame(gameId) : undefined;
+
+  usePublishGameArtwork(game?.coverArtUrl ?? game?.bannerUrl);
 
   const handleBack = useCallback(() => navigate("/library"), [navigate]);
 

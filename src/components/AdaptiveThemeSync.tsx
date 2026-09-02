@@ -3,6 +3,10 @@ import { useLocation } from "react-router-dom";
 import { useTheme } from "../context/ThemeContext";
 import { useGames } from "../context/GameContext";
 import {
+  setActiveGameArtwork,
+  useActiveGameArtwork,
+} from "../utils/activeGameArtwork";
+import {
   applyAdaptiveTheme,
   DEFAULT_ADAPTIVE_COLORS,
   deriveAdaptiveTheme,
@@ -15,11 +19,11 @@ import {
  * Runs inside the provider tree to synchronize the active game's artwork
  * with the global design system when the "Adaptive" theme is selected.
  *
- * When the user opens a game page, it extracts the game's average and
- * dominant colors and smoothly updates the background surfaces, text
- * hierarchy, borders, and accents on the root document element. Navigating
- * between pages keeps the last used palette — the colors are only
- * recomputed when a new game page is opened.
+ * When the user opens a game page (from library or store), it extracts the
+ * game's average and dominant colors and smoothly updates the background
+ * surfaces, text hierarchy, borders, and accents on the root document
+ * element. Navigating between pages keeps the last used palette — the
+ * colors are only recomputed when a new game page is opened.
  */
 export function AdaptiveThemeSync() {
   const { currentTheme } = useTheme();
@@ -27,13 +31,11 @@ export function AdaptiveThemeSync() {
   const location = useLocation();
   const isAdaptive = currentTheme === "adaptive";
 
-  // The game page the user has actually opened — the only thing allowed to
-  // change the adaptive palette. Navigating between pages must keep the
-  // last used colors; the palette is recomputed only when a new game page
-  // is opened.
-  const gamePageArtworkUrl = useMemo<string | null>(() => {
-    if (!isAdaptive) return null;
+  const activeArtworkUrl = useActiveGameArtwork();
 
+  // Fast-path for direct library game page routes (/library/:id or /game/:id)
+  const libraryRouteArtwork = useMemo(() => {
+    if (!isAdaptive) return null;
     const gameMatch = location.pathname.match(/^\/(?:library|game)\/([^/?#]+)/);
     if (!gameMatch) return null;
     const g = getGame(gameMatch[1]);
@@ -47,11 +49,15 @@ export function AdaptiveThemeSync() {
     );
   }, [isAdaptive, location.pathname, getGame]);
 
-  // Initial backdrop only — used before the first palette has ever been
-  // applied so the app doesn't boot with the flat default colors (running
-  // game, then selected, then most recently played). Once any palette
-  // exists this is ignored: page changes keep the last used colors.
-  const initialArtworkUrl = useMemo<string | null>(() => {
+  // When a library game page is opened directly, ensure it is recorded as active
+  useEffect(() => {
+    if (libraryRouteArtwork) {
+      setActiveGameArtwork(libraryRouteArtwork);
+    }
+  }, [libraryRouteArtwork]);
+
+  // Initial fallback artwork on cold boot if no game page was ever opened
+  const fallbackArtworkUrl = useMemo<string | null>(() => {
     if (!isAdaptive) return null;
 
     if (runningGameIds.length > 0) {
@@ -85,57 +91,59 @@ export function AdaptiveThemeSync() {
     return null;
   }, [isAdaptive, runningGameIds, selectedGameId, games, getGame]);
 
-  // The last palette actually applied to the document. The adaptive theme
-  // must hold onto this palette when navigating between pages — the color
-  // is only recomputed from new artwork when a game page is in view, never
-  // reset while the user browses.
-  const lastTokensRef = useRef<Record<string, string> | null>(null);
+  const targetArtworkUrl =
+    activeArtworkUrl || libraryRouteArtwork || fallbackArtworkUrl;
+
+  const lastAppliedTokensRef = useRef<Record<string, string> | null>(null);
+  const lastSampledUrlRef = useRef<string | null>(null);
 
   useEffect(() => {
     const root = document.documentElement;
 
     if (!isAdaptive) {
       applyAdaptiveTheme(root, null);
+      lastSampledUrlRef.current = null;
+      return;
+    }
+
+    if (!targetArtworkUrl) {
+      if (!lastAppliedTokensRef.current) {
+        lastAppliedTokensRef.current = deriveAdaptiveTheme(DEFAULT_ADAPTIVE_COLORS);
+      }
+      applyAdaptiveTheme(root, lastAppliedTokensRef.current);
+      return;
+    }
+
+    // Re-apply cached tokens if artwork has not changed
+    if (
+      targetArtworkUrl === lastSampledUrlRef.current &&
+      lastAppliedTokensRef.current
+    ) {
+      applyAdaptiveTheme(root, lastAppliedTokensRef.current);
       return;
     }
 
     let cancelled = false;
 
-    // The palette follows the game page the user opened. Until the first
-    // palette exists the initial backdrop provides the boot colors; after
-    // that, artwork from any other source is ignored so plain navigation
-    // between pages never changes the palette.
-    const artworkUrl =
-      gamePageArtworkUrl ?? (lastTokensRef.current ? null : initialArtworkUrl);
-
-    if (!artworkUrl) {
-      if (!lastTokensRef.current) {
-        lastTokensRef.current = deriveAdaptiveTheme(DEFAULT_ADAPTIVE_COLORS);
-      }
-      applyAdaptiveTheme(root, lastTokensRef.current);
-      return;
-    }
-
-    sampleArtworkColors(artworkUrl).then((sampled) => {
+    sampleArtworkColors(targetArtworkUrl).then((sampled) => {
       if (cancelled) return;
       if (!sampled) {
-        // Artwork failed to load or was unreadable (offline, CORS, timeout)
-        // — hold the current palette instead of snapping to the default.
-        if (!lastTokensRef.current) {
-          lastTokensRef.current = deriveAdaptiveTheme(DEFAULT_ADAPTIVE_COLORS);
+        if (!lastAppliedTokensRef.current) {
+          lastAppliedTokensRef.current = deriveAdaptiveTheme(DEFAULT_ADAPTIVE_COLORS);
         }
-        applyAdaptiveTheme(root, lastTokensRef.current);
+        applyAdaptiveTheme(root, lastAppliedTokensRef.current);
         return;
       }
       const tokens = deriveAdaptiveTheme(sampled);
-      lastTokensRef.current = tokens;
+      lastAppliedTokensRef.current = tokens;
+      lastSampledUrlRef.current = targetArtworkUrl;
       applyAdaptiveTheme(root, tokens);
     });
 
     return () => {
       cancelled = true;
     };
-  }, [isAdaptive, gamePageArtworkUrl, initialArtworkUrl]);
+  }, [isAdaptive, targetArtworkUrl]);
 
   return null;
 }

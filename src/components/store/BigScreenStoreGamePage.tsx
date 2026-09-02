@@ -7,6 +7,7 @@ import type { Game, GameMetadataResult } from "../../types/game";
 import { useGames } from "../../context/GameContext";
 import { useToast } from "../../context/ToastContext";
 import { useStoreCache } from "../../hooks/useStoreCache";
+import { setActiveGameArtwork } from "../../utils/activeGameArtwork";
 import { useFocusable } from "../../hooks/useFocusable";
 import { useGamepad } from "../../hooks/GamepadProvider";
 import { useSteamAppId } from "../../hooks/useSteamAppId";
@@ -124,6 +125,15 @@ export default function BigScreenStoreGamePage() {
       cancelled = true;
     };
   }, [gameSlug, reloadKey]);
+
+  // Publish store game artwork for Adaptive Theme and Auto Game Accent
+  useEffect(() => {
+    const art =
+      data?.images.cover ?? data?.images.hero ?? data?.images.banner ?? null;
+    if (art) {
+      setActiveGameArtwork(art);
+    }
+  }, [data]);
 
   // Extract Steam app id from websites
   const steamAppIdFromWebsites = useMemo(() => {

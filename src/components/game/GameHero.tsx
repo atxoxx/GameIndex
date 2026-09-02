@@ -15,6 +15,8 @@ import GameLaunchActions from "./GameLaunchActions";
 import FriendsPlayingStrip from "../hero/FriendsPlayingStrip";
 import { IconClock, IconPlatform, IconShield, IconUsers, IconStar } from "./icons";
 import { useLanguage } from "../../context/LanguageContext";
+import { useTheme } from "../../context/ThemeContext";
+import { usePublishGameArtwork } from "../../utils/activeGameArtwork";
 
 /**
  * GameHero
@@ -99,7 +101,13 @@ export default function GameHero({
   const [sgdbPosterFailed, setSgdbPosterFailed] = useState(false);
   const [ambientStep, setAmbientStep] = useState(0);
   const { autoGameAccent, showGameArtBackdrop } = useSettings();
+  const { currentTheme } = useTheme();
+  const isAdaptive = currentTheme === "adaptive";
   const gamePalette = useGameAccent(accentSrc || undefined);
+
+  // Publish the game's artwork URL so AdaptiveThemeSync and GameAccentSync
+  // apply and retain this game's palette app-wide across navigation.
+  usePublishGameArtwork(accentSrc);
 
   // The poster defaults to the game's own IGDB cover, falling back to the
   // SteamGridDB grid. The animated SteamGridDB hero is the preferred hero
@@ -119,12 +127,10 @@ export default function GameHero({
   }, [logoUrl, coverUrl, steamAppId, name]);
 
   useEffect(() => {
-    if (!autoGameAccent || !gamePalette) return;
+    if (isAdaptive || !autoGameAccent || !gamePalette) return;
     applyGameAccentFamily(document.documentElement, gamePalette);
-    // Flag the chrome tint (sidebar/topnav/window controls) that reads the
-    // live game accent; GameAccentSync clears it when leaving the page.
     document.documentElement.dataset.gameAccent = "true";
-  }, [autoGameAccent, gamePalette]);
+  }, [isAdaptive, autoGameAccent, gamePalette]);
 
   // Ambient background ladder — animated SteamGridDB hero leads, then the
   // Steam CDN banner, then the SteamGridDB banner, then the game's own
