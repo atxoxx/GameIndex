@@ -4,10 +4,12 @@
 
 .store-page {
   padding: var(--space-lg) var(--space-2xl) var(--space-3xl);
-  height: 100%;
-  overflow-y: auto;
   display: flex;
   flex-direction: column;
+  /* No height/overflow here: `overflow-y: auto` would make this an (inner)
+     scroll container that never overflows — its scrollport shadows the real
+     scroller (.app-main) and freezes every `position: sticky` descendant
+     (header, toolbar, filter rail) to this container's zero scroll. */
 }
 
 /* ── Store Tab Bar ─────────────────────────────────────────────────────── */
