@@ -48,6 +48,10 @@ import {
  *    find games would be a poor onboarding experience.
  *  • the user can opt-in to the rail explicitly.
  */
+export const DEFAULT_SIDEBAR_WIDTH = 280;
+export const MIN_SIDEBAR_WIDTH = 220;
+export const MAX_SIDEBAR_WIDTH = 520;
+
 export interface SidebarCollapseContextValue {
   /** True when the sidebar is collapsed to a narrow icon-only rail. */
   isIconRail: boolean;
@@ -55,6 +59,16 @@ export interface SidebarCollapseContextValue {
   toggle: () => void;
   /** Force a specific value (used by tests + visual Settings UI). */
   setIconRail: (next: boolean) => void;
+  /** User-customized width of the expanded sidebar in pixels (220 - 520). */
+  sidebarWidth: number;
+  /** Set custom width with automatic bounds clamping. */
+  setSidebarWidth: (width: number) => void;
+  /** Reset width to standard default (280px). */
+  resetSidebarWidth: () => void;
+  /** True while the user is actively dragging the resize handle. */
+  isResizing: boolean;
+  /** Toggle resizing indicator. */
+  setIsResizing: (resizing: boolean) => void;
 }
 
 // Persist the React context instance across Vite HMR module re-evaluations so
@@ -67,6 +81,7 @@ export const SidebarCollapseContext =
   (globalSidebarCollapseObj.__gamelib_sidebar_collapse_context__ = createContext<SidebarCollapseContextValue | null>(null));
 
 const LS_SIDEBAR_ICON_RAIL_KEY = "gamelib.sidebar.icon_rail:v1";
+const LS_SIDEBAR_WIDTH_KEY = "gamelib.sidebar.width:v1";
 
 /** Window width below which the icon rail is forced on. */
 const NARROW_BREAKPOINT_PX = 1100;
@@ -91,18 +106,54 @@ function writePersisted(next: boolean) {
   }
 }
 
+function readPersistedWidth(): number {
+  try {
+    if (typeof localStorage === "undefined") return DEFAULT_SIDEBAR_WIDTH;
+    const raw = localStorage.getItem(LS_SIDEBAR_WIDTH_KEY);
+    if (raw !== null) {
+      const parsed = parseInt(raw, 10);
+      if (Number.isFinite(parsed) && parsed >= MIN_SIDEBAR_WIDTH && parsed <= MAX_SIDEBAR_WIDTH) {
+        return parsed;
+      }
+    }
+    return DEFAULT_SIDEBAR_WIDTH;
+  } catch {
+    return DEFAULT_SIDEBAR_WIDTH;
+  }
+}
+
+function writePersistedWidth(width: number) {
+  try {
+    if (typeof localStorage === "undefined") return;
+    localStorage.setItem(LS_SIDEBAR_WIDTH_KEY, String(width));
+  } catch {
+    /* ignore quota / sandbox errors */
+  }
+}
+
 function readIsNarrow(): boolean {
   if (typeof window === "undefined") return false;
   return window.matchMedia(`(max-width: ${NARROW_BREAKPOINT_PX}px)`).matches;
 }
 
 export function SidebarCollapseProvider({ children }: { children: ReactNode }) {
-  // The user's explicit choice, persisted to localStorage so a
-  // returning user lands on their last-chosen state without a flash
-  // of full-sidebar-then-icon-rail on mount.
   const [userPref, setUserPref] = useState<boolean>(() => {
     return readPersisted() ?? readIsNarrow();
   });
+
+  const [sidebarWidth, setSidebarWidthState] = useState<number>(() => {
+    return readPersistedWidth();
+  });
+
+  const [isResizing, setIsResizing] = useState(false);
+
+  // Sync width CSS variable to document root so CSS layout tracks custom width seamlessly
+  useEffect(() => {
+    if (typeof document !== "undefined") {
+      document.documentElement.style.setProperty("--sidebar-width", `${sidebarWidth}px`);
+    }
+    writePersistedWidth(sidebarWidth);
+  }, [sidebarWidth]);
 
   // Persist user preference on every change.
   useEffect(() => {
@@ -112,8 +163,15 @@ export function SidebarCollapseProvider({ children }: { children: ReactNode }) {
   // Cross-window sync: when another instance flips the value, update state.
   useEffect(() => {
     function onStorage(e: StorageEvent) {
-      if (e.key !== LS_SIDEBAR_ICON_RAIL_KEY || e.newValue === null) return;
-      setUserPref(e.newValue === "true");
+      if (e.key === LS_SIDEBAR_ICON_RAIL_KEY && e.newValue !== null) {
+        setUserPref(e.newValue === "true");
+      }
+      if (e.key === LS_SIDEBAR_WIDTH_KEY && e.newValue !== null) {
+        const val = parseInt(e.newValue, 10);
+        if (Number.isFinite(val) && val >= MIN_SIDEBAR_WIDTH && val <= MAX_SIDEBAR_WIDTH) {
+          setSidebarWidthState(val);
+        }
+      }
     }
     window.addEventListener("storage", onStorage);
     return () => window.removeEventListener("storage", onStorage);
@@ -122,11 +180,29 @@ export function SidebarCollapseProvider({ children }: { children: ReactNode }) {
   const toggle = useCallback(() => setUserPref((c) => !c), []);
   const setIconRail = useCallback((next: boolean) => setUserPref(next), []);
 
+  const setSidebarWidth = useCallback((next: number) => {
+    const clamped = Math.max(MIN_SIDEBAR_WIDTH, Math.min(MAX_SIDEBAR_WIDTH, Math.round(next)));
+    setSidebarWidthState(clamped);
+  }, []);
+
+  const resetSidebarWidth = useCallback(() => {
+    setSidebarWidthState(DEFAULT_SIDEBAR_WIDTH);
+  }, []);
+
   const isIconRail = userPref;
 
   const value = useMemo<SidebarCollapseContextValue>(
-    () => ({ isIconRail, toggle, setIconRail }),
-    [isIconRail, toggle, setIconRail]
+    () => ({
+      isIconRail,
+      toggle,
+      setIconRail,
+      sidebarWidth,
+      setSidebarWidth,
+      resetSidebarWidth,
+      isResizing,
+      setIsResizing,
+    }),
+    [isIconRail, toggle, setIconRail, sidebarWidth, setSidebarWidth, resetSidebarWidth, isResizing]
   );
 
   return (

@@ -6,7 +6,7 @@ import type { SidebarSectionHeaderProps } from "./types";
  * SidebarSectionHeader
  * ────────────────────
  * Section header component with support for collapsible toggle,
- * title icon, and count / search result badge.
+ * title icon, custom badge color tint, and count / search result badge.
  */
 function SidebarSectionHeaderBase({
   title,
@@ -16,6 +16,7 @@ function SidebarSectionHeaderBase({
   isCollapsed = false,
   onToggleCollapse,
   resultLabel,
+  badgeColor,
 }: SidebarSectionHeaderProps) {
   const { t } = useLanguage();
 
@@ -53,7 +54,12 @@ function SidebarSectionHeaderBase({
         {resultLabel ? (
           <span className="sidebar-list-result">{resultLabel}</span>
         ) : (
-          <span className="sidebar-list-count">{count}</span>
+          <span
+            className="sidebar-list-count"
+            style={badgeColor ? { color: badgeColor, backgroundColor: `color-mix(in srgb, ${badgeColor} 16%, transparent)` } : undefined}
+          >
+            {count}
+          </span>
         )}
       </div>
     );
@@ -68,7 +74,12 @@ function SidebarSectionHeaderBase({
       {resultLabel ? (
         <span className="sidebar-list-result">{resultLabel}</span>
       ) : (
-        <span className="sidebar-list-count">{count}</span>
+        <span
+          className="sidebar-list-count"
+          style={badgeColor ? { color: badgeColor, backgroundColor: `color-mix(in srgb, ${badgeColor} 16%, transparent)` } : undefined}
+        >
+          {count}
+        </span>
       )}
     </div>
   );

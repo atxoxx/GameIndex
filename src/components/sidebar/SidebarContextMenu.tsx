@@ -19,6 +19,7 @@ export default function SidebarContextMenu({
   isRunning,
   isPinned,
   onLaunch,
+  onLaunchAdmin,
   onViewDetails,
   onRemove,
   onTogglePin,
@@ -26,10 +27,12 @@ export default function SidebarContextMenu({
   onShowInFolder,
   onOpenStore,
   onCopyPath,
+  onCopySteamId,
+  onRefreshMetadata,
 }: SidebarContextMenuProps) {
   const { t } = useLanguage();
   const menuWidth = 230;
-  const menuHeight = 360;
+  const menuHeight = 420;
   const adjustedX = window.innerWidth - x < menuWidth ? Math.max(8, x - menuWidth) : x;
   const adjustedY = window.innerHeight - y < menuHeight ? Math.max(8, y - menuHeight) : y;
 
@@ -84,6 +87,20 @@ export default function SidebarContextMenu({
         </svg>
         {isRunning ? t("game.running") : t("game.playGame")}
       </button>
+
+      {onLaunchAdmin && !isRunning && game.path && (
+        <button
+          type="button"
+          className="context-menu-item"
+          onClick={onLaunchAdmin}
+          role="menuitem"
+        >
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
+          </svg>
+          {t("sidebar.runAsAdmin")}
+        </button>
+      )}
 
       <button
         type="button"
@@ -194,6 +211,22 @@ export default function SidebarContextMenu({
           document.body
         )}
 
+      {onRefreshMetadata && (
+        <button
+          type="button"
+          className="context-menu-item"
+          onClick={onRefreshMetadata}
+          role="menuitem"
+        >
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <polyline points="23 4 23 10 17 10" />
+            <polyline points="1 20 1 14 7 14" />
+            <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15" />
+          </svg>
+          {t("sidebar.refreshMetadata")}
+        </button>
+      )}
+
       <button
         type="button"
         className="context-menu-item"
@@ -256,6 +289,21 @@ export default function SidebarContextMenu({
         </svg>
         {t("sidebar.copyPath")}
       </button>
+
+      {game.steamAppId && onCopySteamId && (
+        <button
+          type="button"
+          className="context-menu-item"
+          onClick={onCopySteamId}
+          role="menuitem"
+        >
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <polyline points="16 18 22 12 16 6" />
+            <polyline points="8 6 2 12 8 18" />
+          </svg>
+          {t("sidebar.copySteamAppId")}
+        </button>
+      )}
 
       <div className="context-menu-separator" />
 

@@ -3,13 +3,16 @@ import { useLanguage } from "../../context/LanguageContext";
 import { Button } from "../ui";
 import SidebarSearch from "./SidebarSearch";
 import SidebarImportDropdown from "./SidebarImportDropdown";
+import SidebarQuickFilterBar from "./SidebarQuickFilterBar";
+import SidebarViewOptionsDropdown from "./SidebarViewOptionsDropdown";
 import type { SidebarHeaderProps } from "./types";
 
 /**
  * SidebarHeader
  * ─────────────
  * Top toolbar of the sidebar containing collapse controls,
- * search input, advanced filters launcher, and import action.
+ * search input, view options dropdown trigger, random game roll button,
+ * quick filter presets bar, advanced filters launcher, and import action.
  */
 function SidebarHeaderBase({
   isIconRail,
@@ -22,11 +25,31 @@ function SidebarHeaderBase({
   onToggleFilterPopover,
   filterButtonRef,
   importButtonRef,
+  viewOptionsButtonRef,
   showImportMenu,
   importMenuAnchor,
   onToggleImportMenu,
+  showViewOptionsMenu,
+  onToggleViewOptionsMenu,
   onImportExe,
   onImportFolder,
+  onRandomGame,
+  activeQuickPreset,
+  onSelectQuickPreset,
+  quickPresetCounts,
+  groupBy,
+  onGroupByChange,
+  sort,
+  onSortChange,
+  sortDirection,
+  onToggleSortDirection,
+  density,
+  onDensityChange,
+  viewOptions,
+  onToggleViewOption,
+  onExpandAllGroups,
+  onCollapseAllGroups,
+  hasGroups,
 }: SidebarHeaderProps) {
   const { t } = useLanguage();
 
@@ -67,7 +90,69 @@ function SidebarHeaderBase({
             </svg>
           )}
         </button>
-        <span className="sidebar-header-title">{t("nav.library")}</span>
+
+        {!isIconRail && (
+          <div className="sidebar-header-actions-row">
+            <span className="sidebar-header-title">{t("nav.library")}</span>
+
+            <div className="sidebar-header-tools">
+              {/* Random Roll / Surprise Me Button */}
+              <button
+                type="button"
+                className="sidebar-header-tool-btn"
+                onClick={onRandomGame}
+                title={t("sidebar.randomGame")}
+                aria-label={t("sidebar.randomGame")}
+              >
+                <svg
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  aria-hidden="true"
+                >
+                  <rect x="2" y="2" width="20" height="20" rx="5" ry="5" />
+                  <path d="M16 8h.01" />
+                  <path d="M8 8h.01" />
+                  <path d="M8 16h.01" />
+                  <path d="M16 16h.01" />
+                  <path d="M12 12h.01" />
+                </svg>
+              </button>
+
+              {/* View Options (Group / Sort / Density) Dropdown Trigger */}
+              <button
+                ref={viewOptionsButtonRef}
+                type="button"
+                className={`sidebar-header-tool-btn${showViewOptionsMenu || groupBy !== "none" ? " active" : ""}`}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onToggleViewOptionsMenu(e.currentTarget);
+                }}
+                title={t("sidebar.viewOptionsTitle")}
+                aria-label={t("sidebar.viewOptionsTitle")}
+                aria-haspopup="menu"
+                aria-expanded={showViewOptionsMenu}
+              >
+                <svg
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  aria-hidden="true"
+                >
+                  <line x1="4" y1="6" x2="20" y2="6" />
+                  <line x1="4" y1="12" x2="14" y2="12" />
+                  <line x1="4" y1="18" x2="18" y2="18" />
+                </svg>
+              </button>
+            </div>
+          </div>
+        )}
       </div>
 
       <div className="sidebar-search-row">
@@ -102,6 +187,15 @@ function SidebarHeaderBase({
           )}
         </button>
       </div>
+
+      {/* Quick View Presets Bar: All | Installed | Favorites | Playing */}
+      {!isIconRail && (
+        <SidebarQuickFilterBar
+          activePreset={activeQuickPreset}
+          onSelectPreset={onSelectQuickPreset}
+          counts={quickPresetCounts}
+        />
+      )}
 
       <div className="sidebar-import-wrapper">
         <Button
@@ -138,6 +232,26 @@ function SidebarHeaderBase({
             onClose={() => onToggleImportMenu(importButtonRef.current!)}
             onImportExe={onImportExe}
             onImportFolder={onImportFolder}
+          />
+        )}
+
+        {showViewOptionsMenu && (
+          <SidebarViewOptionsDropdown
+            anchorEl={viewOptionsButtonRef.current}
+            onClose={() => onToggleViewOptionsMenu(viewOptionsButtonRef.current!)}
+            groupBy={groupBy}
+            onGroupByChange={onGroupByChange}
+            sort={sort}
+            onSortChange={onSortChange}
+            sortDirection={sortDirection}
+            onToggleSortDirection={onToggleSortDirection}
+            density={density}
+            onDensityChange={onDensityChange}
+            viewOptions={viewOptions}
+            onToggleOption={onToggleViewOption}
+            onExpandAllGroups={onExpandAllGroups}
+            onCollapseAllGroups={onCollapseAllGroups}
+            hasGroups={hasGroups}
           />
         )}
       </div>

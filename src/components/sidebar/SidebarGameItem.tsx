@@ -15,11 +15,14 @@ import type { SidebarGameItemProps } from "./types";
  * ───────────────
  * Single row in the sidebar's game list.
  * Features:
- *   • Lazy cover metadata enrichment via IntersectionObserver (300px root margin).
- *   • Resilient image priority & Steam-CDN fallback chain.
+ *   • Multi-density rendering: Compact (28px), Standard (42px), Detailed (56px).
+ *   • Lazy cover & icon metadata enrichment via IntersectionObserver.
+ *   • Favorite / Pin star toggle button.
  *   • Dynamic emulator console tag & play-status micro-dots.
+ *   • Steam / Retro achievement unlock progress badge.
+ *   • Rating score badge in detailed mode.
  *   • Search match highlighting.
- *   • Pulsing running state / installed / uninstalled status dot.
+ *   • Pulsing running indicator with glow halo.
  *   • Smooth quick-play launch on hover.
  *   • Multi-select checkmark indicator.
  */
@@ -27,49 +30,39 @@ function SidebarGameItemBase({
   game,
   isSelected,
   isRunning,
+  isPinned,
   bulkSelected,
+  isRandomHighlight,
+  density = "standard",
+  viewOptions,
   searchQuery,
+  prefersCover,
   onPointerEnter,
   onPointerLeave,
   onQuickPlay,
+  onTogglePin,
 }: SidebarGameItemProps) {
   const { updateGame, enrichGameMetadata, getGame } = useGames();
   const { t } = useLanguage();
   const coverRef = useRef<HTMLDivElement | null>(null);
-  // The sidebar renders every row (no virtualization), so SteamGridDB
-  // batch registration is gated on the row being near the viewport —
-  // otherwise a big library would register hundreds of AppIDs at once.
+
   const [isNearViewport, setIsNearViewport] = useState(false);
-  // Rows with an icon already skip the lookup entirely.
   const sgdb = useSteamGridArt(
     isNearViewport && !game.iconUrl ? game.steamAppId : null
   );
-  // AppID we've already attempted an icon fetch for. Keyed on the AppID
-  // (not a boolean) so a game whose steamAppId is resolved later by
-  // enrichment can still fetch its icon in the same session, instead of
-  // being permanently latched out on first mount while the row had no AppID.
   const attemptedIconAppIdRef = useRef<number | null>(null);
 
-  // Auto-enrich criteria — short-circuits the observer setup so we
-  // don't spam IGDB for games we already know are unmatched.
   const canAutoFetchCover =
     !game.coverArtUrl &&
     (game.igdbId != null || game.metadataSource !== NO_IGDB_MATCH_SOURCE) &&
     !!game.name;
 
-  // Auto-fetch the SteamGridDB icon: when the batched lookup resolves and
-  // the row still has no icon, download the community icon to a disk-backed
-  // asset URL (keeping PNG alpha) and persist it on the game row so the
-  // icon survives restarts and is used everywhere iconUrl is read.
   useEffect(() => {
-    if (game.iconUrl) return; // already has an icon — never override
-    if (!game.steamAppId) return; // AppID may arrive later via enrichment — don't latch
-    if (attemptedIconAppIdRef.current === game.steamAppId) return; // already tried for this AppID
+    if (game.iconUrl) return;
+    if (!game.steamAppId) return;
+    if (attemptedIconAppIdRef.current === game.steamAppId) return;
     const iconUrl = sgdb?.iconUrl;
     if (!iconUrl) {
-      // Lookup not resolved yet, or the batch confirmed this game has no
-      // community icon — latch the definitive negative so we don't retry
-      // on every `game` change, but only once we know for sure.
       if (sgdb) attemptedIconAppIdRef.current = game.steamAppId;
       return;
     }
@@ -78,8 +71,6 @@ function SidebarGameItemBase({
     invoke<string | null>("download_artwork", { gameId: game.id, slot: "icon", url: iconUrl })
       .then(async (relativePath) => {
         if (cancelled || !relativePath) return;
-        // `artwork_asset_url` returns a `file://` URL the webview can't
-        // load; convert it to the asset protocol first.
         const assetUrl = toWebviewAssetUrl(
           await invoke<string>("artwork_asset_url", { relativePath })
         );
@@ -98,10 +89,6 @@ function SidebarGameItemBase({
     };
   }, [sgdb, game, updateGame, getGame]);
 
-  // Set up the IntersectionObserver for lazy cover art retrieval + icon
-  // visibility gating. The same 300px root margin arms both: enrichment
-  // fires for games missing a cover, and the row registers for the
-  // SteamGridDB batch so its icon auto-fetches as it scrolls into view.
   useEffect(() => {
     if (!coverRef.current) return;
     const node = coverRef.current;
@@ -122,13 +109,46 @@ function SidebarGameItemBase({
     return () => observer.disconnect();
   }, [canAutoFetchCover, game.id, game.name, game.steamAppId, enrichGameMetadata]);
 
+  // Achievement stats if available
+  const achievementCount = game.steamAchievements ? game.steamAchievements.length : 0;
+  const unlockedCount = game.steamAchievements
+    ? game.steamAchievements.filter((a) => a.achieved).length
+    : 0;
+  const achievementPercent =
+    achievementCount > 0 ? Math.round((unlockedCount / achievementCount) * 100) : null;
+
+  // Rating
+  const rating =
+    typeof game.igdbRating === "number"
+      ? Math.round(game.igdbRating)
+      : typeof game.criticRating === "number"
+      ? Math.round(game.criticRating)
+      : null;
+
+  const showPlaytime = viewOptions ? viewOptions.showPlaytime : true;
+  const showPlatformBadge = viewOptions ? viewOptions.showPlatformBadge : true;
+  const showAchievements = viewOptions ? viewOptions.showAchievements : true;
+  const showRatings = viewOptions ? viewOptions.showRatings : true;
+
+  const rowClasses = [
+    "sidebar-game-item",
+    `sidebar-game-item--${density}`,
+    isSelected ? "active" : "",
+    bulkSelected ? "bulk-selected" : "",
+    game.iconUrl ? "has-icon" : "",
+    isRandomHighlight ? "random-picked" : "",
+    isPinned ? "is-pinned" : "",
+  ]
+    .filter(Boolean)
+    .join(" ");
+
   return (
     <div
       role="button"
       tabIndex={0}
       ref={coverRef}
       data-sidebar-game-id={game.id}
-      className={`sidebar-game-item${isSelected ? " active" : ""}${bulkSelected ? " bulk-selected" : ""}${game.iconUrl ? " has-icon" : ""}`}
+      className={rowClasses}
       onMouseEnter={() => {
         preloadGameDetail();
         onPointerEnter(game);
@@ -140,7 +160,29 @@ function SidebarGameItemBase({
       aria-selected={isSelected}
     >
       <div className="sidebar-game-icon">
-        {game.iconUrl ? (
+        {prefersCover && game.coverArtUrl ? (
+          <img
+            src={game.coverArtUrl}
+            alt={game.name}
+            onError={(e) => {
+              const img = e.currentTarget;
+              const appId = game.steamAppId;
+              if (appId) {
+                if (img.src.includes("library_600x900_2x")) {
+                  img.src = `https://cdn.akamai.steamstatic.com/steam/apps/${appId}/library_600x900.jpg`;
+                  return;
+                }
+                if (img.src.includes("library_600x900")) {
+                  img.src = `https://cdn.akamai.steamstatic.com/steam/apps/${appId}/header.jpg`;
+                  return;
+                }
+              }
+              if (game.iconUrl && img.src !== game.iconUrl) {
+                img.src = game.iconUrl;
+              }
+            }}
+          />
+        ) : game.iconUrl ? (
           <img src={game.iconUrl} alt={game.name} />
         ) : game.coverArtUrl ? (
           <img
@@ -159,9 +201,6 @@ function SidebarGameItemBase({
                   return;
                 }
               }
-              console.warn(
-                `Sidebar cover image failed for ${game.name}, falling back to placeholder`
-              );
               updateGame(game.id, { coverArtUrl: undefined, coverSourceUrl: undefined });
             }}
           />
@@ -183,7 +222,7 @@ function SidebarGameItemBase({
 
       <div className="sidebar-game-info">
         <div className="sidebar-game-name">
-          {game.emulatorId && (
+          {game.emulatorId && showPlatformBadge && (
             <span
               className="sidebar-game-console-badge"
               style={{
@@ -197,21 +236,63 @@ function SidebarGameItemBase({
           )}
           <HighlightedName name={game.name} query={searchQuery} />
         </div>
-        <div className="sidebar-game-meta">
-          {game.playStatus && game.playStatus !== "backlog" && (
-            <span
-              className="sidebar-game-meta-dot"
-              style={{ background: PLAY_STATUS_DETAILS[game.playStatus].color }}
-              title={t(PLAY_STATUS_DETAILS[game.playStatus].labelKey)}
-              aria-hidden="true"
-            />
-          )}
-          <span className="sidebar-game-meta-text">
-            {game.platform} · {game.playTime}
-          </span>
-        </div>
+
+        {density !== "compact" && (
+          <div className="sidebar-game-meta">
+            {game.playStatus && game.playStatus !== "backlog" && (
+              <span
+                className="sidebar-game-meta-dot"
+                style={{ background: PLAY_STATUS_DETAILS[game.playStatus].color }}
+                title={t(PLAY_STATUS_DETAILS[game.playStatus].labelKey)}
+                aria-hidden="true"
+              />
+            )}
+            <span className="sidebar-game-meta-text">
+              {showPlatformBadge && game.platform ? `${game.platform}` : ""}
+              {showPlatformBadge && showPlaytime && game.playTime ? " · " : ""}
+              {showPlaytime ? game.playTime : ""}
+            </span>
+
+            {/* Achievement badge in detailed mode */}
+            {density === "detailed" && showAchievements && achievementPercent !== null && (
+              <span
+                className="sidebar-game-achievement-badge"
+                title={`${unlockedCount}/${achievementCount} achievements unlocked (${achievementPercent}%)`}
+              >
+                🏆 {achievementPercent}%
+              </span>
+            )}
+
+            {/* Rating badge in detailed mode */}
+            {density === "detailed" && showRatings && rating !== null && (
+              <span className="sidebar-game-rating-badge" title={`Rating: ${rating}%`}>
+                ★ {rating}
+              </span>
+            )}
+          </div>
+        )}
       </div>
 
+      {/* Favorite pin button */}
+      {onTogglePin && (
+        <button
+          type="button"
+          className={`sidebar-game-pin-btn${isPinned ? " is-pinned" : ""}`}
+          onClick={(e) => {
+            e.stopPropagation();
+            e.preventDefault();
+            onTogglePin(game);
+          }}
+          title={isPinned ? t("sidebar.unpin") : t("sidebar.pinToTop")}
+          aria-label={isPinned ? t("sidebar.unpin") : t("sidebar.pinToTop")}
+        >
+          <svg viewBox="0 0 24 24" fill={isPinned ? "currentColor" : "none"} stroke="currentColor" strokeWidth="2">
+            <path d="M12 2 9 9 2 9.5l5.5 4.5L5 22l7-4 7 4-2.5-8 5.5-4.5L15 9z" />
+          </svg>
+        </button>
+      )}
+
+      {/* Install / running status dot */}
       <div
         className={`sidebar-game-status ${isRunning ? "running" : game.installed ? "installed" : "not-installed"}`}
         aria-label={
@@ -223,6 +304,7 @@ function SidebarGameItemBase({
         }
       />
 
+      {/* Quick Play hover button */}
       {!isRunning && (
         <button
           type="button"
@@ -245,6 +327,7 @@ function SidebarGameItemBase({
         </button>
       )}
 
+      {/* Multi-select checkmark */}
       <div className="sidebar-game-item__check" aria-hidden="true">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3">
           <polyline points="20 6 9 17 4 12" />

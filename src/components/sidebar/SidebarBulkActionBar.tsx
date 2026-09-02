@@ -7,9 +7,6 @@ const STATUS_OPTIONS: PlayStatus[] = ["backlog", "playing", "completed", "on_hol
 
 /**
  * Compact play-status select button used by the bulk action bar.
- * Renders the chip as a <select> for native, accessible keyboard
- * support. Visual styling matches the surrounding bulk-action
- * buttons so the bar reads as a single language.
  */
 function PlayStatusMenuButton({
   onSelect,
@@ -26,7 +23,6 @@ function PlayStatusMenuButton({
       onChange={(e) => {
         const v = e.target.value as PlayStatus;
         if (v) onSelect(v);
-        // Reset to placeholder so picking the same status twice still fires onChange.
         e.currentTarget.value = "";
       }}
       aria-label={ariaLabel}
@@ -47,14 +43,15 @@ function PlayStatusMenuButton({
 /**
  * SidebarBulkActionBar
  * ────────────────────
- * Floating bar that renders inside the sidebar list area at
- * `position: sticky; bottom: 0` so it always floats above the
- * last visible row, regardless of how far down the list the
- * user has scrolled.
+ * Floating bar docked at the bottom of the sidebar list when games are multi-selected.
+ * Provides fast batch actions: Pin/Unpin, Set Status, Remove, Select All, Cancel.
  */
 function SidebarBulkActionBarBase({
   count,
+  totalVisible,
   allPinned,
+  allSelected,
+  onSelectAll,
   onPin,
   onUnpin,
   onSetStatus,
@@ -70,9 +67,26 @@ function SidebarBulkActionBarBase({
       aria-label={t("sidebar.bulkActionsFor", { count })}
     >
       <div className="sidebar-bulk-action-bar__count" aria-live="polite">
-        <span>{t("storage.selected", { count })}</span>
+        <span>
+          {totalVisible
+            ? `${count} / ${totalVisible}`
+            : t("storage.selected", { count })}
+        </span>
       </div>
       <div className="sidebar-bulk-action-bar__actions">
+        <button
+          type="button"
+          className="sidebar-bulk-action-bar__btn"
+          onClick={onSelectAll}
+          title={allSelected ? t("sidebar.cancelSelectionShort") : t("sidebar.selectAll")}
+        >
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+            <polyline points="9 11 12 14 22 4" />
+            <path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11" />
+          </svg>
+          <span>{allSelected ? t("sidebar.cancelSelectionShort") : t("sidebar.selectAll")}</span>
+        </button>
+
         <button
           type="button"
           className="sidebar-bulk-action-bar__btn"
