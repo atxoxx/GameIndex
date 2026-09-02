@@ -18,6 +18,7 @@ import DownloadsTab from "./settings/DownloadsTab";
 import PluginsTab from "./settings/PluginsTab";
 import LauncherTab from "./settings/LauncherTab";
 import PrivacyTab from "./settings/PrivacyTab";
+import BackupTab from "./settings/BackupTab";
 import { IntegrationsIcon, SettingsGearIcon } from "./settings/settingsIcons";
 import type { SettingsTab } from "./settings/types";
 
@@ -103,6 +104,7 @@ export default function SettingsPage() {
         {activeTab === "plugins" && <PluginsTab />}
         {activeTab === "launcher" && <LauncherTab />}
         {activeTab === "privacy" && <PrivacyTab />}
+        {activeTab === "backup" && <BackupTab />}
       </main>
     </div>
   );

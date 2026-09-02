@@ -4,6 +4,7 @@ use tauri::{Listener, Manager, WindowEvent};
 use tokio::sync::Mutex;
 
 mod config;
+mod backup;
 mod discord_presence;
 mod crackwatch;
 mod steamgriddb;
@@ -136,6 +137,10 @@ pub fn run() {
             plugins::plugins_toggle,
             plugins::plugins_set_all_enabled,
             plugins::search_downloads,
+            // Backup & restore of the local domain databases (Settings → Backup).
+            backup::backup_get_status,
+            backup::backup_create,
+            backup::backup_restore,
             plugins::search_downloads_stream,
             get_random_store_games,
             store_checker::check_ownership,

@@ -22,6 +22,7 @@ import {
   TrashIcon,
   BellIcon,
   DiscordIcon,
+  BackupIcon,
 } from "./settingsIcons";
 
 /**
@@ -58,6 +59,7 @@ const TAB_ORDER: SettingsTab[] = [
   "plugins",
   "launcher",
   "privacy",
+  "backup",
 ];
 
 export const SETTINGS_TABS: readonly SettingsTab[] = TAB_ORDER;
@@ -338,6 +340,30 @@ export function buildSettingsCatalog(t: (key: string, vars?: Record<string, unkn
         },
       ],
     },
+    backup: {
+      tab: "backup",
+      labelKey: "settings.tab.backup",
+      descKey: "settings.backup.desc",
+      keywords: "backup restore export import save snapshot archive gibak games library playtime sessions activity achievements settings",
+      icon: <BackupIcon />,
+      sections: [
+        {
+          id: "backup-overview",
+          labelKey: "settings.section.backupOverview",
+          keywords: "overview last backup contents summary what is included size databases",
+        },
+        {
+          id: "backup-create",
+          labelKey: "settings.section.backupCreate",
+          keywords: "create backup export save snapshot archive file gibak",
+        },
+        {
+          id: "backup-restore",
+          labelKey: "settings.section.backupRestore",
+          keywords: "restore import recover load backup archive gibak replace",
+        },
+      ],
+    },
   };
 
   /** Sidebar groups — tabs only. */
@@ -381,6 +407,7 @@ export function buildSettingsCatalog(t: (key: string, vars?: Record<string, unkn
       items: [
         { tab: "launcher", label: t("settings.tab.launcher"), icon: <RocketIcon /> },
         { tab: "privacy", label: t("settings.tab.privacy"), icon: <TrashIcon /> },
+        { tab: "backup", label: t("settings.tab.backup"), icon: <BackupIcon /> },
       ],
     },
   ];

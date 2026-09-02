@@ -1868,3 +1868,80 @@
     justify-self: end;
   }
 }
+
+/* ============================================================================
+ * BACKUP & RESTORE TAB — create/restore .gibak snapshots of the domain DBs
+ * ========================================================================== */
+
+/* Status toolbar reuses the .settings-wipe-* pill + action layout. */
+.settings-backup-toolbar {
+  flex-wrap: wrap;
+}
+
+.settings-backup-actions {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+}
+
+.settings-backup-note {
+  margin: var(--space-md) 0 0;
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-xs);
+  line-height: 1.5;
+}
+
+.settings-backup-note strong {
+  color: var(--color-text-primary);
+  font-weight: var(--font-weight-semibold);
+}
+
+/* Empty / loading state — same shape as the wipe empty state. */
+.settings-backup-empty {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-top: var(--space-md);
+  padding: var(--space-2xl) var(--space-xl);
+  border: 1px dashed var(--color-border);
+  border-radius: var(--radius-lg);
+  color: var(--color-text-muted);
+  text-align: center;
+  font-size: var(--font-size-sm);
+}
+
+/* Domain list — one row per database file with its on-disk size. */
+.settings-backup-list {
+  display: flex;
+  flex-direction: column;
+  margin-top: var(--space-md);
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-xl);
+  overflow: hidden;
+}
+
+.settings-backup-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-md);
+  padding: 10px var(--space-md);
+  border-bottom: 1px solid var(--color-border);
+}
+
+.settings-backup-row:last-child {
+  border-bottom: none;
+}
+
+.settings-backup-row-name {
+  font-weight: var(--font-weight-semibold);
+  font-size: var(--font-size-sm);
+}
+
+.settings-backup-row-size {
+  margin-left: auto;
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-xs);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}

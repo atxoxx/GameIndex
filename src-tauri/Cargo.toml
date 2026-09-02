@@ -71,7 +71,7 @@ tempfile = "3"
 # with `links = "sqlite3"`. Bumping r2d2_sqlite to 0.25 (which
 # targets rusqlite 0.32) is also fine — pick one. We pin rusqlite to
 # 0.31 + r2d2_sqlite 0.24 to keep the existing API surface stable.
-rusqlite = { version = "0.31", features = ["bundled"] }
+rusqlite = { version = "0.31", features = ["bundled", "backup"] }
 # Connection pool so concurrent Tauri commands don't fight for a single
 # SQLite handle. SqliteConnectionManager is sync; we call DB methods
 # directly inside async commands (the queries are sub-millisecond on

@@ -416,6 +416,26 @@ export function PluginIcon() {
   );
 }
 
+/** Archive box with an up arrow — the Backup & Restore settings tab. */
+export function BackupIcon() {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden
+    >
+      <rect x="2" y="3" width="20" height="5" rx="1" />
+      <path d="M4 8v13a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1V8" />
+      <path d="M12 11v6" />
+      <path d="m9 14 3-3 3 3" />
+    </svg>
+  );
+}
+
 /* ── Brand marks (fixed colors, Simple Icons / CC0) ─────────────────── */
 
 /** Discord mark (filled, currentColor so it inherits the accent tile). */
