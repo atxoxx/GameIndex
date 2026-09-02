@@ -6,6 +6,10 @@ import {
   selectGamePalette,
   type WeightedPixel,
 } from "../utils/color";
+import {
+  readCachedGameAccent,
+  writeCachedGameAccent,
+} from "../utils/gameAccentCache";
 
 /**
  * A small coherent palette extracted from a game's cover/hero art.
@@ -52,7 +56,9 @@ const SAMPLE_SIZE = 48;
  *    clusters preserve the real hues, and center-bias + vibrancy weights
  *    nudge the split toward the subject instead of letterbox bars.
  *  - A URL cache avoids re-decoding the same cover on repeat visits; the
- *    per-game result is deterministic for a given image.
+ *    per-game result is deterministic for a given image. Palettes are also
+ *    persisted in localStorage (see `gameAccentCache`) so they apply
+ *    instantly on revisit without a canvas round-trip.
  *  - CORS: Tauri `asset://` / `http(s)://` images with
  *    crossOrigin="anonymous" decode fine locally; if sampling throws
  *    (tainted canvas / broken URL) we simply keep the fallback.
@@ -61,7 +67,11 @@ const SAMPLE_SIZE = 48;
 export function useGameAccent(
   imageUrl: string | null | undefined
 ): GameAccentPalette | null {
-  const [palette, setPalette] = useState<GameAccentPalette | null>(null);
+  // Hydrate from the durable cache synchronously so a revisited game applies
+  // its accent on the very first render, before the decode effect runs.
+  const [palette, setPalette] = useState<GameAccentPalette | null>(() =>
+    imageUrl ? readCachedGameAccent(imageUrl) : null
+  );
 
   useEffect(() => {
     if (!imageUrl) {
@@ -69,8 +79,12 @@ export function useGameAccent(
       return;
     }
 
-    const cached = PALETTE_CACHE.get(imageUrl);
+    // In-memory first (hot path), then the durable localStorage layer for a
+    // cold start. Found results seed both and skip the canvas round-trip.
+    const cached =
+      PALETTE_CACHE.get(imageUrl) ?? readCachedGameAccent(imageUrl);
     if (cached) {
+      PALETTE_CACHE.set(imageUrl, cached);
       setPalette(cached);
       return;
     }
@@ -127,6 +141,7 @@ export function useGameAccent(
           if (firstKey) PALETTE_CACHE.delete(firstKey);
         }
         PALETTE_CACHE.set(imageUrl, result);
+        writeCachedGameAccent(imageUrl, result);
 
         setPalette(result);
       } catch {
