@@ -4,9 +4,6 @@ import App from "./App";
 import "./index.css";
 import "./styles/animations.css";
 import "./styles/ui.css";
-import "./styles/store-discover.css";
-import "./styles/download.css";
-import "./styles/store-polish.css";
 
 // The friends page resolves its Nostr signing key lazily via `getNostrKeys`,
 // which falls back to a session-stable placeholder when the backend key
