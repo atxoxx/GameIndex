@@ -1646,6 +1646,9 @@
    * recalc measures the right size on first render. */
   width: var(--steam-stats-popover-width, 420px);
   max-width: calc(100vw - 24px);
+  max-height: calc(100vh - 24px);
+  overflow-y: auto;
+  overscroll-behavior: contain;
   background: var(--color-bg-elevated);
   backdrop-filter: blur(20px) saturate(1.4);
   -webkit-backdrop-filter: blur(20px) saturate(1.4);
@@ -1658,7 +1661,7 @@
   font-size: var(--font-size-sm);
   display: flex;
   flex-direction: column;
-  overflow: hidden;
+  overflow-x: hidden;
   animation: steam-stats-popover-in 180ms cubic-bezier(0.16, 1, 0.3, 1);
 }
 
@@ -1769,6 +1772,63 @@
   flex-direction: column;
   padding: 14px;
   gap: 12px;
+}
+
+@media (max-width: 520px) {
+  .steam-stats-popover {
+    position: fixed !important;
+    inset: auto 12px 12px !important;
+    width: auto;
+    max-height: min(78vh, 620px);
+    transform: none;
+  }
+
+  .steam-stats-popover-freshness {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+}
+
+.steam-stats-popover-freshness {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-top: 10px;
+  color: var(--color-text-muted);
+  font-size: var(--font-size-2xs);
+}
+
+.steam-stats-popover-freshness-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.steam-stats-popover-refresh,
+.steam-stats-popover-inline-retry {
+  border: 0;
+  border-radius: var(--radius-sm);
+  padding: 4px 8px;
+  color: var(--color-text-primary);
+  background: var(--color-bg-hover);
+  cursor: pointer;
+  font: inherit;
+}
+
+.steam-stats-popover-refresh:hover,
+.steam-stats-popover-inline-retry:hover {
+  background: var(--color-bg-active);
+}
+
+.steam-stats-popover-refresh:disabled {
+  opacity: 0.6;
+  cursor: wait;
+}
+
+.steam-stats-popover-inline-retry {
+  margin-left: 8px;
+  color: var(--color-accent);
 }
 
 /* ── Current players (headline) ──────────────────────────────── */
@@ -2138,6 +2198,32 @@
 
 /* ── Footer ──────────────────────────────────────────────────── */
 
+
+.steam-stats-popover-inline-retry {
+  border: 0;
+  border-radius: 6px;
+  padding: 4px 8px;
+  color: var(--text-primary);
+  background: var(--surface-3);
+  cursor: pointer;
+  font: inherit;
+}
+
+.steam-stats-popover-refresh:hover,
+.steam-stats-popover-inline-retry:hover {
+  background: var(--surface-4);
+}
+
+.steam-stats-popover-refresh:disabled {
+  opacity: 0.6;
+  cursor: wait;
+}
+
+.steam-stats-popover-inline-retry {
+  margin-left: 8px;
+  color: var(--accent-primary);
+}
+
 .steam-stats-popover-footer {
   display: flex;
   align-items: center;
@@ -2310,6 +2396,7 @@
 }
 
 .steam-history-chart-header {
+  gap: 10px;
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -2404,6 +2491,20 @@
 .steam-history-chart-skeleton-tiles .steam-stats-popover-skeleton-pill {
   flex: 1;
   height: 22px;
+}
+
+.steam-history-chart-subtitle {
+  display: block;
+  margin-top: 2px;
+  color: var(--color-text-muted);
+  font-size: var(--font-size-2xs);
+  font-weight: var(--font-weight-normal);
+}
+
+.steam-history-chart-summary {
+  margin-top: 8px;
+  color: var(--color-text-muted);
+  font-size: var(--font-size-2xs);
 }
 
 .steam-history-chart-stats {

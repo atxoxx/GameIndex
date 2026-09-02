@@ -1,14 +1,8 @@
-import {
-  useEffect,
-  useLayoutEffect,
-  useMemo,
-  useRef,
-  useState,
-  type RefObject,
-} from "react";
-import { createPortal } from "react-dom";
+import { useEffect, useMemo, useState, type RefObject } from "react";
+import SteamStatsPopoverShell from "./SteamStatsPopoverShell";
 import type { SteamGameReviews } from "../types/game";
 import { useSteamGameStats } from "../hooks/useSteamGameStats";
+import useSteamPlayerCount from "../hooks/useSteamPlayerCount";
 import { useLanguage } from "../context/LanguageContext";
 import SteamPlayerHistoryChart from "./SteamPlayerHistoryChart";
 
@@ -106,6 +100,30 @@ export function SteamStatsPopoverBody({
     error: fetchError,
   } = useSteamGameStats(appId);
   const { t } = useLanguage();
+  const liveCount = useSteamPlayerCount(appId);
+  const [isRefreshing, setIsRefreshing] = useState(false);
+  const [lastUpdated, setLastUpdated] = useState<number | null>(null);
+  const [, setClockTick] = useState(0);
+
+  useEffect(() => {
+    if (liveCount !== null) setLastUpdated(Date.now());
+  }, [liveCount]);
+
+  const refresh = () => {
+    setIsRefreshing(true);
+    window.dispatchEvent(new Event("focus"));
+    window.setTimeout(() => setIsRefreshing(false), 600);
+  };
+
+  useEffect(() => {
+    if (lastUpdated === null) return;
+    const timer = window.setInterval(() => setClockTick((tick) => tick + 1), 1000);
+    return () => window.clearInterval(timer);
+  }, [lastUpdated]);
+
+  const updatedLabel = lastUpdated
+    ? t("steamPlayer.updatedAgo", { seconds: Math.max(0, Math.floor((Date.now() - lastUpdated) / 1000)) })
+    : t("steamPlayer.awaitingData");
 
   const reviewsLoading = statsLoading;
 
@@ -128,6 +146,20 @@ export function SteamStatsPopoverBody({
 
   const reviewSummary: SteamGameReviews | null = stats?.reviews ?? null;
   const details = stats?.details ?? null;
+  const copyStats = async () => {
+    const current = liveCount ?? currentCount;
+    const text = [
+      details?.name,
+      `${t("steamPlayer.currentPlayers")}: ${current.toLocaleString()}`,
+      reviewSummary ? `${t("steamPlayer.reviews")}: ${reviewPositivePct ?? 0}% ${t("steamPlayer.positive")}, ${reviewSummary.totalReviews.toLocaleString()} ${t("steamPlayer.total")}` : null,
+      t("steamPlayer.sourceSummary"),
+    ].filter(Boolean).join("\n");
+    try {
+      await navigator.clipboard.writeText(text);
+    } catch {
+      // Clipboard access can be unavailable in restricted WebViews.
+    }
+  };
 
   return (
     <>
@@ -143,10 +175,16 @@ export function SteamStatsPopoverBody({
                   aria-live="polite"
                   aria-atomic="true"
                 >
-                  {currentCount > 0 ? currentCount.toLocaleString() : "—"}
+                  {liveCount !== null && liveCount > 0
+                    ? liveCount.toLocaleString()
+                    : currentCount > 0
+                      ? currentCount.toLocaleString()
+                      : "—"}
                 </span>
                 <span className="steam-stats-live-label">
-                  {t("steamPlayer.playingNow")}
+                  {liveCount === 0
+                    ? t("steamPlayer.noPlayersReported")
+                    : t("steamPlayer.playingNow")}
                 </span>
               </div>
             </div>
@@ -185,6 +223,10 @@ export function SteamStatsPopoverBody({
               <div className="steam-stats-popover-reviews-count">
                 <strong>{reviewPositivePct ?? 0}%</strong> {t("steamPlayer.positive")}
                 <span className="steam-stats-popover-reviews-count-sep">·</span>
+                {reviewSummary.totalPositive.toLocaleString()} {t("steamPlayer.positiveCount")}
+                <span className="steam-stats-popover-reviews-count-sep">·</span>
+                {reviewSummary.totalNegative.toLocaleString()} {t("steamPlayer.negativeCount")}
+                <span className="steam-stats-popover-reviews-count-sep">·</span>
                 {reviewSummary.totalReviews.toLocaleString()} {t("steamPlayer.total")}
               </div>
             </div>
@@ -211,6 +253,25 @@ export function SteamStatsPopoverBody({
           )}
         </div>
 
+        <div className="steam-stats-popover-freshness">
+          <span>{updatedLabel}</span>
+          <div className="steam-stats-popover-freshness-actions">
+            <button type="button" className="steam-stats-popover-refresh" onClick={copyStats} aria-label={t("steamPlayer.copyStats")}>
+              {t("steamPlayer.copyStats")}
+            </button>
+            <button
+            type="button"
+            className="steam-stats-popover-refresh"
+            onClick={refresh}
+            disabled={isRefreshing}
+            aria-label={t("steamPlayer.refreshStats")}
+          >
+            <span aria-hidden="true">↻</span>
+              {isRefreshing ? t("steamPlayer.refreshing") : t("steamPlayer.refresh")}
+            </button>
+          </div>
+        </div>
+
         {/* Player activity — historical line chart */}
         <SteamPlayerHistoryChart appId={appId} />
 
@@ -229,7 +290,7 @@ export function SteamStatsPopoverBody({
             target="_blank"
             rel="noopener noreferrer"
             className="steam-stats-popover-footer-link"
-            title="Open Steam Store Page"
+            title={t("steamPlayer.openSteamStore")}
           >
             <svg
               viewBox="0 0 24 24"
@@ -253,7 +314,7 @@ export function SteamStatsPopoverBody({
             target="_blank"
             rel="noopener noreferrer"
             className="steam-stats-popover-footer-link secondary"
-            title="Open Steam Community Hub"
+            title={t("steamPlayer.openCommunityHub")}
           >
             <svg
               viewBox="0 0 24 24"
@@ -278,7 +339,7 @@ export function SteamStatsPopoverBody({
             target="_blank"
             rel="noopener noreferrer"
             className="steam-stats-popover-footer-link secondary"
-            title="Open SteamDB Charts"
+            title={t("steamPlayer.openSteamDbCharts")}
           >
             <svg
               viewBox="0 0 24 24"
@@ -303,9 +364,6 @@ export function SteamStatsPopoverBody({
   );
 }
 
-const VIEWPORT_MARGIN = 12;
-const FALLBACK_WIDTH_PX = 440;
-
 export default function SteamPlayerCountPopover({
   appId,
   anchorRef,
@@ -313,122 +371,9 @@ export default function SteamPlayerCountPopover({
   onClose,
 }: SteamPlayerCountPopoverProps) {
   const { t } = useLanguage();
-  const popoverRef = useRef<HTMLDivElement>(null);
-  const onCloseRef = useRef(onClose);
-  useEffect(() => {
-    onCloseRef.current = onClose;
-  }, [onClose]);
 
-  // ── Position state ─────────────────────────────────────────────────
-  const [position, setPosition] = useState<{
-    top: number;
-    left: number;
-    growFromLeft: boolean;
-  }>({ top: VIEWPORT_MARGIN, left: VIEWPORT_MARGIN, growFromLeft: true });
-
-  useLayoutEffect(() => {
-    function recompute() {
-      const anchor = anchorRef.current;
-      const popover = popoverRef.current;
-      if (!anchor || !popover) return;
-      const rect = anchor.getBoundingClientRect();
-      const popRect = popover.getBoundingClientRect();
-      const popWidth = popRect.width || FALLBACK_WIDTH_PX;
-      const popHeight = popRect.height;
-      const vw = window.innerWidth;
-      const vh = window.innerHeight;
-
-      const spaceRight = vw - rect.right - VIEWPORT_MARGIN;
-      const spaceLeft = rect.left - VIEWPORT_MARGIN;
-      let left: number;
-      let growFromLeft: boolean;
-      if (spaceRight >= popWidth) {
-        left = rect.right + 6;
-        growFromLeft = true;
-      } else if (spaceLeft >= popWidth) {
-        left = rect.left - popWidth - 6;
-        growFromLeft = false;
-      } else if (spaceRight >= spaceLeft) {
-        left = rect.right + 6;
-        growFromLeft = true;
-      } else {
-        left = rect.left - popWidth - 6;
-        growFromLeft = false;
-      }
-      left = Math.max(
-        VIEWPORT_MARGIN,
-        Math.min(left, vw - popWidth - VIEWPORT_MARGIN)
-      );
-
-      const spaceBelow = vh - rect.bottom - VIEWPORT_MARGIN;
-      const spaceAbove = rect.top - VIEWPORT_MARGIN;
-      let top: number;
-      if (popHeight <= spaceBelow) {
-        top = rect.top;
-      } else if (popHeight <= spaceAbove) {
-        top = rect.top - popHeight;
-      } else {
-        top = Math.max(VIEWPORT_MARGIN, vh - popHeight - VIEWPORT_MARGIN);
-      }
-
-      setPosition({ top, left, growFromLeft });
-    }
-
-    recompute();
-    window.addEventListener("resize", recompute);
-    window.addEventListener("scroll", recompute, true);
-    const ro = new ResizeObserver(recompute);
-    if (popoverRef.current) ro.observe(popoverRef.current);
-    return () => {
-      window.removeEventListener("resize", recompute);
-      window.removeEventListener("scroll", recompute, true);
-      ro.disconnect();
-    };
-  }, [anchorRef]);
-
-  // ── Focus capture + global dismissal ────────────────────────────────
-  useEffect(() => {
-    const previouslyFocused = document.activeElement as HTMLElement | null;
-
-    requestAnimationFrame(() => {
-      const target =
-        popoverRef.current?.querySelector<HTMLElement>(
-          ".steam-stats-popover-close"
-        ) ?? popoverRef.current;
-      target?.focus();
-    });
-
-    function handleKey(e: KeyboardEvent) {
-      if (e.key === "Escape") {
-        e.preventDefault();
-        onCloseRef.current();
-      }
-    }
-    function handlePointerDown(e: MouseEvent) {
-      const target = e.target as Node | null;
-      if (popoverRef.current?.contains(target)) return;
-      if (anchorRef.current?.contains(target)) return;
-      onCloseRef.current();
-    }
-
-    document.addEventListener("keydown", handleKey);
-    document.addEventListener("mousedown", handlePointerDown);
-    return () => {
-      document.removeEventListener("keydown", handleKey);
-      document.removeEventListener("mousedown", handlePointerDown);
-      previouslyFocused?.focus();
-    };
-  }, [anchorRef]);
-
-  return createPortal(
-    <div
-      ref={popoverRef}
-      className={`steam-stats-popover ${position.growFromLeft ? "from-left" : "from-right"}`}
-      style={{ top: position.top, left: position.left }}
-      role="dialog"
-      aria-modal="true"
-      aria-label={t("steamPlayer.steamStatsTitle")}
-    >
+  return (
+    <SteamStatsPopoverShell anchorRef={anchorRef} onClose={onClose}>
       {/* ── Header ────────────────────────────────────────────────── */}
       <header className="steam-stats-popover-header">
         <div className="steam-stats-popover-header-icon" aria-hidden="true">
@@ -475,7 +420,6 @@ export default function SteamPlayerCountPopover({
 
       {/* ── Body + footer ─────────────────────────────────────────── */}
       <SteamStatsPopoverBody appId={appId} currentCount={currentCount} />
-    </div>,
-    document.body
+    </SteamStatsPopoverShell>
   );
 }

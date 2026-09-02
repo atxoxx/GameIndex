@@ -74,6 +74,7 @@ export default function SteamPlayerHistoryChart({
   const { data, isLoading, error } = useSteamPlayerHistory(appId, range);
 
   const allTime = range === 0;
+  const rangeLabel = allTime ? t("steamPlayer.rangeAll") : t("steamPlayer.rangeDays", { days: range });
 
   const { series, labels } = useMemo(() => {
     if (!data || data.points.length === 0) {
@@ -110,7 +111,10 @@ export default function SteamPlayerHistoryChart({
           >
             <polyline points="22 12 18 12 15 21 9 3 6 12 2 12" />
           </svg>
-          {t("steamPlayer.activityTitle")}
+          <span>
+            {t("steamPlayer.activityTitle")}
+            <small className="steam-history-chart-subtitle">{t("steamPlayer.concurrentPlayers")}</small>
+          </span>
         </span>
         <div
           className="player-history-range-toggle"
@@ -145,7 +149,10 @@ export default function SteamPlayerHistoryChart({
           </div>
         ) : error ? (
           <div className="steam-stats-popover-section-error">
-            {t("steamPlayer.historyUnavailable")}
+            <span>{t("steamPlayer.historyUnavailable")}</span>
+            <button type="button" className="steam-stats-popover-inline-retry" onClick={() => window.dispatchEvent(new Event("focus"))}>
+              {t("steamPlayer.retry")}
+            </button>
           </div>
         ) : showChart ? (
           <LineChart
@@ -184,6 +191,10 @@ export default function SteamPlayerHistoryChart({
       </div>
 
       {hasData && data && (
+        <>
+        <div className="steam-history-chart-summary">
+          {t("steamPlayer.historySummary", { range: rangeLabel })}
+        </div>
         <div className="steam-history-chart-stats">
           <HistoryStat
             label={t("steamPlayer.statCurrent")}
@@ -215,6 +226,7 @@ export default function SteamPlayerHistoryChart({
             }
           />
         </div>
+        </>
       )}
     </section>
   );
