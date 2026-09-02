@@ -43,6 +43,7 @@ import { useTrayStrings } from "./hooks/useTrayStrings";
 import { LandingRedirect } from "./components/LandingRedirect";
 import Splashscreen from "./components/Splashscreen";
 import { AdaptiveThemeSync } from "./components/AdaptiveThemeSync";
+import { GameAccentSync } from "./components/GameAccentSync";
 import { Skeleton } from "./components/ui/Skeleton";
 import "./App.css";
 import "./store.css";
@@ -167,6 +168,7 @@ function App() {
                                           <BigScreenProvider>
                                             <PresenceProvider>
                                               <AdaptiveThemeSync />
+                                              <GameAccentSync />
                                               <AppShell />
                                               <UpdateModal />
                                               <UpdateNotification />

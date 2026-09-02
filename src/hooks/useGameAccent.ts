@@ -1,5 +1,11 @@
 import { useEffect, useState } from "react";
-import { darken, harmonizeAccent, rgbToHex, type RgbColor } from "../utils/color";
+import {
+  boostSaturation,
+  medianCutQuantize,
+  rgbToHex,
+  selectGamePalette,
+  type WeightedPixel,
+} from "../utils/color";
 
 /**
  * A small coherent palette extracted from a game's cover/hero art.
@@ -13,37 +19,44 @@ import { darken, harmonizeAccent, rgbToHex, type RgbColor } from "../utils/color
 export interface GameAccentPalette {
   /** Dominant art color, `rgb(r, g, b)` — drives the global accent. */
   primary: string;
-  /** Harmonized gradient partner hue, hex — global `--color-accent-2`
-   *  plus hero gradients/borders. */
+  /** A second real artwork color, hex — global `--color-accent-2`
+   *  plus hero gradients/borders. Falls back to a harmonized shade
+   *  for monochrome art. */
   secondary: string;
-  /** Deepened primary, hex — global `--color-accent-deep` plus hero
-   *  washes and depth. */
+  /** Darkest chromatic artwork color, hex — global `--color-accent-deep`
+   *  plus hero washes and depth. */
   deep: string;
 }
+
+/** Cap the in-memory URL cache so a long browsing session stays bounded. */
+const MAX_CACHE_SIZE = 100;
+const PALETTE_CACHE = new Map<string, GameAccentPalette>();
+
+/** Sample size for the off-DOM canvas — 48×48 keeps the per-pixel pass
+ *  (~2 300 weighted pixels) negligible while preserving color identity. */
+const SAMPLE_SIZE = 48;
 
 /**
  * useGameAccent
  *
- * Samples the dominant color from a game's cover/hero art using a
- * tiny off-DOM <canvas>, then derives a small palette from it for
- * tinting the hero (accent stripe, status dot, KPI tiles) with the
- * game's own colors. Falls back to `null` so callers can keep using
- * the global `--color-accent`.
+ * Samples a game's cover/hero art with a tiny off-DOM <canvas>, quantizes
+ * the pixels with weighted median-cut, and derives a small palette whose
+ * members are *actual artwork colors*: the dominant vibrant cluster drives
+ * the accent, a second clearly-different cluster becomes the gradient
+ * partner, and the darkest chromatic cluster becomes the deep wash. Falls
+ * back to `null` so callers can keep using the global `--color-accent`.
  *
  * Design notes:
- *  - We draw the image scaled down to 16×16 (cheap) and read the
- *    center-weighted average — good enough for a pleasant tint and
- *    avoids the cost of a full dominant-color algorithm.
- *  - The secondary + deep members are derived in JS from the primary
- *    (hue-harmonized partner + darkened wash) rather than sampled
- *    independently: a real second-cluster sample would double the
- *    failure surface for marginal gain, while the harmonic partner is
- *    always coherent with the primary and never jars against it.
+ *  - Median-cut replaces the old center-weighted *average*, which mixed
+ *    distinct colors together (a red/white cover read as pink). Quantized
+ *    clusters preserve the real hues, and center-bias + vibrancy weights
+ *    nudge the split toward the subject instead of letterbox bars.
+ *  - A URL cache avoids re-decoding the same cover on repeat visits; the
+ *    per-game result is deterministic for a given image.
  *  - CORS: Tauri `asset://` / `http(s)://` images with
  *    crossOrigin="anonymous" decode fine locally; if sampling throws
  *    (tainted canvas / broken URL) we simply keep the fallback.
- *  - The effect is debounced off the main paint: it runs after the
- *    image loads, not on every render.
+ *  - The effect runs after the image loads, not on every render.
  */
 export function useGameAccent(
   imageUrl: string | null | undefined
@@ -56,6 +69,12 @@ export function useGameAccent(
       return;
     }
 
+    const cached = PALETTE_CACHE.get(imageUrl);
+    if (cached) {
+      setPalette(cached);
+      return;
+    }
+
     let cancelled = false;
     const img = new Image();
     img.crossOrigin = "anonymous";
@@ -63,80 +82,53 @@ export function useGameAccent(
     img.onload = () => {
       if (cancelled) return;
       try {
-        const size = 16;
         const canvas = document.createElement("canvas");
-        canvas.width = size;
-        canvas.height = size;
+        canvas.width = SAMPLE_SIZE;
+        canvas.height = SAMPLE_SIZE;
         const ctx = canvas.getContext("2d", { willReadFrequently: true });
         if (!ctx) return;
-        ctx.drawImage(img, 0, 0, size, size);
-        const { data } = ctx.getImageData(0, 0, size, size);
+        ctx.drawImage(img, 0, 0, SAMPLE_SIZE, SAMPLE_SIZE);
+        const { data } = ctx.getImageData(0, 0, SAMPLE_SIZE, SAMPLE_SIZE);
 
-        let r = 0;
-        let g = 0;
-        let b = 0;
-        let count = 0;
-        // Prioritize chromatic vibrancy and center bias so dominant artwork colors
-        // shine while skipping noisy dark letterboxes and blown-out whites.
-        for (let y = 0; y < size; y++) {
-          for (let x = 0; x < size; x++) {
-            const i = (y * size + x) * 4;
-            const pr = data[i];
-            const pg = data[i + 1];
-            const pb = data[i + 2];
-            const max = Math.max(pr, pg, pb);
-            const min = Math.min(pr, pg, pb);
-            const chroma = max - min;
-            if (chroma < 14) continue; // skip dull grays and near-black
-            if (max > 246 && min > 200) continue; // skip near-white
-
-            // Center bias + chromatic weight (vibrant pixels count significantly more)
-            const dx = x - size / 2;
-            const dy = y - size / 2;
-            const distWeight = 1 + (size - Math.hypot(dx, dy)) / size;
-            const chromaWeight = 1 + (chroma / 255) * 2.5;
-            const w = distWeight * chromaWeight;
-
-            r += pr * w;
-            g += pg * w;
-            b += pb * w;
-            count += w;
+        // Weighted pixel list: skip transparency, then weight by center
+        // bias (cover subjects sit mid-frame) and vibrancy so letterbox
+        // bars and dull fills lose out to the actual artwork.
+        const pixels: WeightedPixel[] = [];
+        for (let y = 0; y < SAMPLE_SIZE; y++) {
+          for (let x = 0; x < SAMPLE_SIZE; x++) {
+            const i = (y * SAMPLE_SIZE + x) * 4;
+            const r = data[i];
+            const g = data[i + 1];
+            const b = data[i + 2];
+            if (data[i + 3] < 128) continue;
+            const chroma = Math.max(r, g, b) - Math.min(r, g, b);
+            const dx = x - SAMPLE_SIZE / 2;
+            const dy = y - SAMPLE_SIZE / 2;
+            const distWeight = 1 + (SAMPLE_SIZE - Math.hypot(dx, dy)) / SAMPLE_SIZE;
+            const w = distWeight * (1 + (chroma / 255) * 1.5);
+            pixels.push({ r, g, b, w });
           }
         }
-        if (count === 0) {
-          // Fallback pass: sample average if artwork is predominantly dark/monochrome
-          for (let i = 0; i < data.length; i += 4) {
-            const pr = data[i];
-            const pg = data[i + 1];
-            const pb = data[i + 2];
-            if (Math.max(pr, pg, pb) < 18 || Math.min(pr, pg, pb) > 240) continue;
-            r += pr;
-            g += pg;
-            b += pb;
-            count++;
-          }
-        }
-        if (count === 0) return;
-        r = Math.round(r / count);
-        g = Math.round(g / count);
-        b = Math.round(b / count);
+        if (pixels.length === 0) return;
 
-        // Ensure healthy saturation and balanced luminance for UI usage
-        const max = Math.max(r, g, b);
-        const min = Math.min(r, g, b);
-        const mid = (max + min) / 2;
-        if (max - min < 45) {
-          r = Math.min(255, Math.max(0, Math.round(mid + (r - mid) * 1.55)));
-          g = Math.min(255, Math.max(0, Math.round(mid + (g - mid) * 1.55)));
-          b = Math.min(255, Math.max(0, Math.round(mid + (b - mid) * 1.55)));
-        }
+        const clusters = medianCutQuantize(pixels, 6);
+        const chosen = selectGamePalette(clusters);
+        if (!chosen) return;
 
-        const rgb: RgbColor = { r, g, b };
-        setPalette({
-          primary: `rgb(${r}, ${g}, ${b})`,
-          secondary: rgbToHex(harmonizeAccent(rgb)),
-          deep: rgbToHex(darken(rgb, 0.4)),
-        });
+        const primary = boostSaturation(chosen.primary);
+        const result: GameAccentPalette = {
+          primary: `rgb(${primary.r}, ${primary.g}, ${primary.b})`,
+          secondary: rgbToHex(chosen.secondary),
+          deep: rgbToHex(chosen.deep),
+        };
+
+        if (PALETTE_CACHE.size >= MAX_CACHE_SIZE) {
+          const firstKey = PALETTE_CACHE.keys().next().value;
+          if (firstKey) PALETTE_CACHE.delete(firstKey);
+        }
+        PALETTE_CACHE.set(imageUrl, result);
+
+        setPalette(result);
       } catch {
         // tainted canvas / decode failure → keep fallback
       }
@@ -155,3 +147,4 @@ export function useGameAccent(
 
   return palette;
 }
+

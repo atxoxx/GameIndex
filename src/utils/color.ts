@@ -219,6 +219,250 @@ export function harmonizeAccent(color: RgbColor): RgbColor {
   return hslToRgb(h, nextS, nextL);
 }
 
+/* ============================================================================
+ * Weighted median-cut quantization — real palette extraction from pixels
+ * ========================================================================== */
+
+/** A sampled pixel with a relative weight (alpha, center bias, vibrancy…). */
+export interface WeightedPixel {
+  r: number;
+  g: number;
+  b: number;
+  w: number;
+}
+
+/** One quantized color: the averaged box + how strongly it was sampled. */
+export interface ColorCluster {
+  color: RgbColor;
+  weight: number;
+}
+
+/** A rectangular region of the RGB cube being subdivided by median cut. */
+interface QuantizeBox {
+  /** Indices into the source pixel array. */
+  indices: number[];
+  totalWeight: number;
+  /** Longest channel span — the split axis. */
+  channel: "r" | "g" | "b";
+  span: number;
+  average: RgbColor;
+}
+
+function buildBox(pixels: WeightedPixel[], indices: number[]): QuantizeBox {
+  let minR = 255, minG = 255, minB = 255;
+  let maxR = 0, maxG = 0, maxB = 0;
+  let sumR = 0, sumG = 0, sumB = 0, totalWeight = 0;
+  for (const idx of indices) {
+    const { r, g, b, w } = pixels[idx];
+    if (r < minR) minR = r;
+    if (r > maxR) maxR = r;
+    if (g < minG) minG = g;
+    if (g > maxG) maxG = g;
+    if (b < minB) minB = b;
+    if (b > maxB) maxB = b;
+    sumR += r * w;
+    sumG += g * w;
+    sumB += b * w;
+    totalWeight += w;
+  }
+  const spanR = maxR - minR;
+  const spanG = maxG - minG;
+  const spanB = maxB - minB;
+  const channel =
+    spanR >= spanG && spanR >= spanB ? "r" : spanG >= spanB ? "g" : "b";
+  const span = Math.max(spanR, spanG, spanB);
+  const count = indices.length;
+  return {
+    indices,
+    totalWeight,
+    channel,
+    span,
+    average:
+      count === 0
+        ? { r: 0, g: 0, b: 0 }
+        : {
+            r: Math.round(sumR / totalWeight),
+            g: Math.round(sumG / totalWeight),
+            b: Math.round(sumB / totalWeight),
+          },
+  };
+}
+
+/**
+ * Split a box at the weighted median along its widest channel.
+ * Returns `null` when a half would be empty (box can't split further).
+ */
+function splitBox(
+  box: QuantizeBox,
+  pixels: WeightedPixel[]
+): { a: QuantizeBox; b: QuantizeBox } | null {
+  const sorted = [...box.indices].sort(
+    (i, j) => pixels[i][box.channel] - pixels[j][box.channel]
+  );
+  let acc = 0;
+  const halfway = box.totalWeight / 2;
+  let cut = 1;
+  for (; cut < sorted.length; cut++) {
+    acc += pixels[sorted[cut - 1]].w;
+    if (acc >= halfway) break;
+  }
+  if (cut === 0 || cut >= sorted.length) return null;
+  return {
+    a: buildBox(pixels, sorted.slice(0, cut)),
+    b: buildBox(pixels, sorted.slice(cut)),
+  };
+}
+
+/**
+ * Weighted median-cut quantization: repeatedly split the widest box of the
+ * RGB cube until `maxColors` boxes remain (or nothing splits meaningfully),
+ * returning each box's weighted average color ordered by sampled weight.
+ *
+ * Unlike a plain pixel average, the returned colors are actual artwork
+ * colors — a red/white cover yields a distinct red and a distinct white,
+ * not a washed-out pink. Cheap at the 48×48 sample sizes we feed it.
+ */
+export function medianCutQuantize(
+  pixels: WeightedPixel[],
+  maxColors = 6
+): ColorCluster[] {
+  if (pixels.length === 0) return [];
+  const boxes: QuantizeBox[] = [buildBox(pixels, pixels.map((_, i) => i))];
+
+  while (boxes.length < Math.max(1, maxColors)) {
+    let widestIdx = 0;
+    let widestSpan = -1;
+    for (let i = 0; i < boxes.length; i++) {
+      if (boxes[i].span > widestSpan) {
+        widestSpan = boxes[i].span;
+        widestIdx = i;
+      }
+    }
+    // A nearly-uniform box (span ≤ 12) carries no new information — stop
+    // rather than minting noise clusters from anti-aliased edge pixels.
+    if (widestSpan <= 12) break;
+    const split = splitBox(boxes[widestIdx], pixels);
+    if (!split) break;
+    boxes.splice(widestIdx, 1, split.a, split.b);
+  }
+
+  return boxes
+    .map((b) => ({ color: b.average, weight: b.totalWeight }))
+    .sort((a, b) => b.weight - a.weight);
+}
+
+/** Channel difference (chroma) of an RGB color. */
+function chromaOf({ r, g, b }: RgbColor): number {
+  return Math.max(r, g, b) - Math.min(r, g, b);
+}
+
+/** Shortest angular hue distance (0–180°) between two HSL hues. */
+function hueDistance(h1: number, h2: number): number {
+  const d = Math.abs(h1 - h2);
+  return Math.min(d, 360 - d);
+}
+
+/**
+ * Lift a muted color just enough to read as a UI accent, preserving hue
+ * and luminance balance. Matches the boost previously inlined into the
+ * cover-art sampler so muted artwork still produces a usable accent.
+ */
+export function boostSaturation(color: RgbColor): RgbColor {
+  const max = Math.max(color.r, color.g, color.b);
+  const min = Math.min(color.r, color.g, color.b);
+  if (max - min >= 45) return color;
+  const mid = (max + min) / 2;
+  return {
+    r: Math.min(255, Math.max(0, Math.round(mid + (color.r - mid) * 1.55))),
+    g: Math.min(255, Math.max(0, Math.round(mid + (color.g - mid) * 1.55))),
+    b: Math.min(255, Math.max(0, Math.round(mid + (color.b - mid) * 1.55))),
+  };
+}
+
+/** The three roles a game palette must fill for the accent family. */
+export interface GamePaletteSelection {
+  /** Dominant chromatic artwork color — drives the global accent. */
+  primary: RgbColor;
+  /** A second real artwork color for gradients/borders. */
+  secondary: RgbColor;
+  /** Darkest chromatic artwork color for deepened washes. */
+  deep: RgbColor;
+}
+
+/**
+ * Turn quantized clusters into the accent roles the UI consumes.
+ *
+ * The primary is the most prominent *and* vibrant cluster (prominence ×
+ * chroma), not merely the biggest one — a giant near-gray background loses
+ * to a smaller, punchier logo color the way it would lose a human glance.
+ * The secondary is the next real color whose hue clearly differs from the
+ * primary (falling back to a harmonized shade for monochrome art), and the
+ * deep wash is the darkest chromatic cluster rather than a blind darkening
+ * of the primary, so the full family reflects what the artwork actually
+ * contains.
+ */
+export function selectGamePalette(
+  clusters: ColorCluster[]
+): GamePaletteSelection | null {
+  // Keep clusters that could plausibly serve as UI colors: chromatic enough
+  // to carry identity, not crushed to black, not blown out to white.
+  const usable = clusters.filter(
+    (c) =>
+      c.weight > 0 &&
+      chromaOf(c.color) >= 14 &&
+      luminance(c.color) > 0.03 &&
+      luminance(c.color) < 0.94
+  );
+  if (usable.length === 0) return null;
+
+  let primary = usable[0];
+  let bestScore = -Infinity;
+  for (const c of usable) {
+    const score = Math.pow(c.weight, 0.65) * (0.5 + chromaOf(c.color) / 255);
+    if (score > bestScore) {
+      bestScore = score;
+      primary = c;
+    }
+  }
+
+  const primaryHue = rgbToHsl(primary.color).h;
+  const minSecondaryWeight = Math.max(2, usable[0].weight * 0.12);
+  const secondary = usable.find(
+    (c) =>
+      c !== primary &&
+      c.weight >= minSecondaryWeight &&
+      hueDistance(rgbToHsl(c.color).h, primaryHue) >= 45 &&
+      luminance(c.color) > 0.1
+  );
+  // A 45°+ partner adds real two-tone richness; when the art is mostly one
+  // hue, take the best *different* cluster at all, else synthesize one.
+  const secondary2 = usable.find(
+    (c) =>
+      c !== primary &&
+      c.weight >= minSecondaryWeight &&
+      hueDistance(rgbToHsl(c.color).h, primaryHue) >= 18
+  );
+
+  // The deep wash is meant to be dark, so it scans every cluster (chroma
+  // filtering alone keeps crushed grays out) instead of the `usable` set,
+  // which demands enough luminance to serve as accent text.
+  let deep: ColorCluster | null = null;
+  for (const c of clusters) {
+    if (c === primary) continue;
+    const l = luminance(c.color);
+    if (l < 0.45 && chromaOf(c.color) >= 14) {
+      if (!deep || l < luminance(deep.color)) deep = c;
+    }
+  }
+
+  const partner = secondary ?? secondary2;
+  return {
+    primary: primary.color,
+    secondary: partner ? partner.color : harmonizeAccent(primary.color),
+    deep: deep ? deep.color : darken(primary.color, 0.45),
+  };
+}
+
 /**
  * Parse a CSS color literal — `#hex` (3/6 digit) or `rgb()` / `rgba()` —
  * into an RGB object. Alpha is ignored. Returns `null` for anything
@@ -495,18 +739,20 @@ export function applyGameAccentFamily(
 ): void {
   if (!palette) return;
   const surfaceLum = resolveSurfaceLuminance(root);
-  // Guard the primary against the active surface, then re-derive the partner
-  // and deep wash from the guarded primary so the whole family stays on one
-  // hue/luminance ladder and remains legible — a raw cool or dark game accent
-  // would otherwise be effectively invisible as accent text on near-black cards.
-  const guarded = legibleAccentForLuminance(palette.primary, surfaceLum);
-  const guardedRgb = parseCssColor(guarded);
-  if (!guardedRgb) return;
-  const family = buildAccentFamily(
-    guarded,
-    rgbToHex(harmonizeAccent(guardedRgb)),
-    rgbToHex(darken(guardedRgb, 0.4))
-  );
+  // Guard the primary against the active surface so accent *text* stays
+  // legible — a raw cool or dark game accent would otherwise be effectively
+  // invisible on near-black cards. The secondary partner is guarded the same
+  // way (it lifts dark artwork partners without changing their hue); the deep
+  // wash is deliberately dark and feeds through verbatim.
+  const guardedPrimary = legibleAccentForLuminance(palette.primary, surfaceLum);
+  if (!parseCssColor(guardedPrimary)) return;
+  const guardedSecondary = palette.secondary
+    ? legibleAccentForLuminance(palette.secondary, surfaceLum)
+    : guardedPrimary;
+  const deepHex =
+    cssColorStringToHex(palette.deep) ??
+    rgbToHex(darken(parseCssColor(guardedPrimary)!, 0.4));
+  const family = buildAccentFamily(guardedPrimary, guardedSecondary, deepHex);
   if (!family) return;
   for (const [key, value] of Object.entries(family)) {
     root.style.setProperty(key, value);
